@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import fs, { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +8,7 @@ import {
   activeNavHref,
   navigationFor,
   NAV_ITEMS,
+  NON_NAV_SCREENS,
 } from "@/platform/config/navigation";
 import {
   can,
@@ -73,6 +74,57 @@ describe("the navigation map", () => {
         ).toBe(false);
       },
     );
+  });
+});
+
+describe("every screen is reachable", () => {
+  const appDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../src/app/(app)",
+  );
+
+  /**
+   * Every top-level screen under `(app)` is either a tab or explicitly listed
+   * as not one.
+   *
+   * The `ready` flag only guards items already in NAV_ITEMS, so a screen left
+   * out of the list entirely was invisible to it — which is exactly how
+   * /timetable shipped with no way to reach it. This is the check that would
+   * have caught that.
+   */
+  const screens = fs
+    .readdirSync(appDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("["))
+    .map((entry) => `/${entry.name}`)
+    .filter((href) =>
+      fs.existsSync(path.join(appDir, href.slice(1), "page.tsx")),
+    );
+
+  it("finds the screens it is supposed to be checking", () => {
+    expect(screens.length).toBeGreaterThan(3);
+    expect(screens).toContain("/timetable");
+  });
+
+  it.each(screens)("%s is a tab or is declared not to be", (href) => {
+    const isTab = NAV_ITEMS.some((item) => item.href === href);
+    const isDeclared = (NON_NAV_SCREENS as readonly string[]).includes(href);
+
+    expect(
+      isTab || isDeclared,
+      `${href} has no nav item and is not in NON_NAV_SCREENS — nobody can reach it`,
+    ).toBe(true);
+  });
+
+  it("does not declare a screen that does not exist", () => {
+    for (const href of NON_NAV_SCREENS) {
+      expect(screens, `${href} is declared but has no page`).toContain(href);
+    }
+  });
+
+  it("never declares a screen that is also a tab", () => {
+    for (const href of NON_NAV_SCREENS) {
+      expect(NAV_ITEMS.map((item) => item.href)).not.toContain(href);
+    }
   });
 });
 

@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { BookOpen, Grid3x3, UserCheck } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  ClipboardCheck,
+  Grid3x3,
+  UserCheck,
+} from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -14,7 +20,11 @@ import {
   joinClassesToAliases,
   mappingProgress,
 } from "@/modules/academics/domain/subjects";
-import { listClassTeachers } from "@/modules/academics/data/class-teachers-repo";
+import {
+  listCalendarDays,
+  listClassTeachers,
+} from "@/modules/academics/data/class-teachers-repo";
+import { listEnrolments } from "@/modules/enrolments/data/enrolments-repo";
 import {
   assignmentProgress,
   joinClassesToTeachers,
@@ -41,12 +51,15 @@ export default async function AcademicsPage() {
   const language = staff.language;
 
   const sessionLabel = await resolveSessionLabel();
-  const [subjects, classes, aliases, teachers] = await Promise.all([
-    listSubjects(),
-    sessionLabel ? listFeeClasses(sessionLabel) : Promise.resolve([]),
-    sessionLabel ? listClassAliases(sessionLabel) : Promise.resolve([]),
-    sessionLabel ? listClassTeachers(sessionLabel) : Promise.resolve([]),
-  ]);
+  const [subjects, classes, aliases, teachers, calendar, enrolments] =
+    await Promise.all([
+      listSubjects(),
+      sessionLabel ? listFeeClasses(sessionLabel) : Promise.resolve([]),
+      sessionLabel ? listClassAliases(sessionLabel) : Promise.resolve([]),
+      sessionLabel ? listClassTeachers(sessionLabel) : Promise.resolve([]),
+      sessionLabel ? listCalendarDays(sessionLabel) : Promise.resolve([]),
+      sessionLabel ? listEnrolments(sessionLabel) : Promise.resolve([]),
+    ]);
 
   const progress = mappingProgress(joinClassesToAliases(classes, aliases));
   const teacherProgress = assignmentProgress(
@@ -84,6 +97,29 @@ export default async function AcademicsPage() {
         `${teacherProgress.assigned} / ${teacherProgress.total} ${m.classTeachersAssigned.en}`,
       ),
       done: teacherProgress.complete,
+    },
+    // Not tabs: the bar holds five, and these two are visited occasionally
+    // rather than daily. They are listed in NON_NAV_SCREENS, and the
+    // navigation test requires every screen to be one or the other.
+    {
+      href: "/calendar",
+      icon: CalendarDays,
+      label: m.calendarTitle,
+      detail: t(
+        `${calendar.length} ${m.calendarDaysEntered.hi}`,
+        `${calendar.length} ${m.calendarDaysEntered.en}`,
+      ),
+      done: calendar.length > 0,
+    },
+    {
+      href: "/enrolments",
+      icon: ClipboardCheck,
+      label: m.enrolmentsTitle,
+      detail: t(
+        `${enrolments.length} ${m.enrolmentsStudents.hi}`,
+        `${enrolments.length} ${m.enrolmentsStudents.en}`,
+      ),
+      done: enrolments.length > 0,
     },
   ];
 

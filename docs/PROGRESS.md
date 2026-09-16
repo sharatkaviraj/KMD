@@ -30,6 +30,7 @@ version the MCP recorded (D-22), so this list and
 | 20260916202429 | `staff_language_allows_bilingual` | 1.7 |
 | 20260916204801 | `create_class_teachers_and_calendar` | 1.5 |
 | 20260916205631 | `create_enrolments` | 1.6 |
+| 20260916210606 | `create_timetable_versions_and_slots` | 2.2–2.3 |
 
 ## Phase 1 — foundation
 
@@ -47,10 +48,10 @@ version the MCP recorded (D-22), so this list and
 
 | # | What | Status | Branch | Commit | Notes |
 |---|---|---|---|---|---|
-| 2.1 | Parser port from `timetable2025/scripts/data.js` + fixture tests | todo | `p2-1-parser` | | |
-| 2.2 | Import dry run, resolve against master data | todo | `p2-2-import` | | |
-| 2.3 | Versions: upload → check → draft → publish | todo | `p2-3-versions` | | |
-| 2.4 | Views: class / teacher / day / free | todo | `p2-4-views` | | |
+| 2.1 | Parser port from `timetable2025/scripts/data.js` + fixture tests | done | `p2-1-parser` | | Ported with behaviour intact; every count SOURCES.md pins matched on the first run — 768 cells, 30 parallel, 60 shared, 19 teachers, 23 subjects. Two deliberate changes: the parser now reports *problems* (short row, duplicate class, unclosed bracket, empty brackets) because 2.2 has to show the school what is wrong before anybody publishes, and `SHORT_SUBJECTS` is not ported at all — it belongs at render, and applying it at parse produces labels matching no subject row |
+| 2.2 | Import dry run, resolve against master data | done | `p2-1-parser` | | Resolves every cell against the 1.3/1.4 master data and groups what is missing **by the screen that fixes it**. Keeps going after the first unknown name — a run that stopped would make the school fix one, re-upload, and find the next, nineteen times. An unmapped class is reported once rather than also reporting its eight subjects |
+| 2.3 | Versions: upload → check → draft → publish | done | `p2-1-parser` | | A partial unique index allows exactly one published version per session; publish archives the old one **first**, because the other order is refused by that index. `teaching_assignments` is regenerated last, so an interruption leaves stale assignments (visible, fixable) rather than assignments for a timetable that is not live |
+| 2.4 | Views: class / teacher / day / free | done | `p2-1-parser` | | Four grids, filtered in the browser over the whole published timetable. `freeTeachers()` takes the whole roster rather than deriving it from the timetable — somebody with no periods is the *most* free, which is the bug the old planner needed a hard-coded reserve list to work around. A clash is one teacher in two different *subjects*; a combined class is not a clash |
 
 ## Phase 3 — teacher workspace
 

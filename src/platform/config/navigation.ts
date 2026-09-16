@@ -1,11 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-  CalendarDays,
-  ClipboardCheck,
-  GraduationCap,
-  LayoutGrid,
-  Users,
-} from "lucide-react";
+import { GraduationCap, LayoutGrid, Table2, Users } from "lucide-react";
 
 import { m } from "@/messages";
 import type { Localized } from "@/platform/i18n/language";
@@ -67,20 +61,33 @@ const NAV_ITEMS: readonly NavItem[] = [
     ready: true,
   },
   {
-    href: "/calendar",
-    label: m.navCalendar,
-    icon: CalendarDays,
-    permission: "academics:view",
-    ready: true,
-  },
-  {
-    href: "/enrolments",
-    label: m.navEnrolments,
-    icon: ClipboardCheck,
-    permission: "academics:view",
+    href: "/timetable",
+    label: m.timetableTitle,
+    icon: Table2,
+    permission: "timetable:view",
     ready: true,
   },
 ];
+
+/**
+ * Screens that are deliberately not tabs.
+ *
+ * The bar holds five, and adding a sixth would put every tab under 60px on a
+ * 360px phone. The calendar and the enrolment record are academic master data
+ * that the office visits occasionally, so they are reached from the Academics
+ * hub rather than from the thumb bar; `/access-denied` is somewhere you are
+ * sent, never somewhere you go.
+ *
+ * `tests/navigation.test.ts` requires every screen under `src/app/(app)/` to
+ * be either a nav item or listed here — so a new screen cannot end up
+ * unreachable by accident, which is exactly what happened to `/timetable`
+ * before this list existed.
+ */
+export const NON_NAV_SCREENS = [
+  "/access-denied",
+  "/calendar",
+  "/enrolments",
+] as const;
 
 /**
  * The tabs this role may see, in order.
