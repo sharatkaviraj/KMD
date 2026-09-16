@@ -66,7 +66,7 @@ const NAV_ITEMS: readonly NavItem[] = [
     labelEn: "Academics",
     icon: GraduationCap,
     permission: "academics:view",
-    ready: false, // tasks 1.4 and 1.5
+    ready: true,
   },
   {
     href: "/calendar",
