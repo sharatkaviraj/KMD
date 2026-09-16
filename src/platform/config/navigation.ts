@@ -58,7 +58,7 @@ const NAV_ITEMS: readonly NavItem[] = [
     labelEn: "Staff",
     icon: Users,
     permission: "staff:view",
-    ready: false, // task 1.3
+    ready: true,
   },
   {
     href: "/academics",

@@ -1,0 +1,188 @@
+import { z } from "zod";
+
+import { staffRoles, type StaffRole } from "@/platform/auth/permissions";
+
+/**
+ * Staff validation and normalisation. Pure — no database import, no framework
+ * import — so every rule below is testable without a request or a row.
+ *
+ * The rules live here rather than in the form because the form is not the only
+ * way in: the seed script writes profiles, and Phase 2's timetable import will
+ * want to create a missing teacher from a short name it found in a cell.
+ */
+
+/**
+ * `short_name` is the timetable's join key and immutable once written, so its
+ * shape is the one rule worth being strict about. Uppercase A–Z and digits,
+ * 2–8 characters.
+ *
+ * Uppercased on the way in rather than rejected: a teacher typing "rks" means
+ * RKS, and the unique index is case-insensitive anyway, so accepting the
+ * lowercase form and storing it folded is one fewer error message for the same
+ * guarantee.
+ */
+export const SHORT_NAME_PATTERN = /^[A-Z0-9]{2,8}$/;
+
+export function normalizeShortName(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+/**
+ * Phone numbers as the school actually types them: with spaces, with dashes,
+ * with +91, with a leading 0. Stored as the ten digits, because that is what
+ * matches a parent record and what AiSensy wants in Phase 5.
+ *
+ * Returns null for anything that is not an Indian mobile number rather than
+ * guessing — a wrong number that looks right is worse than a blank.
+ */
+export function normalizePhone(value: string | null | undefined): string | null {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+
+  // 9876543210, 09876543210, 919876543210, +919876543210
+  const ten = digits.length > 10 ? digits.slice(-10) : digits;
+
+  if (ten.length !== 10) return null;
+  // Indian mobile numbers start 6–9. A landline or a typo fails here.
+  if (!/^[6-9]/.test(ten)) return null;
+
+  return ten;
+}
+
+const optionalPhone = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? null : value))
+  .nullable()
+  .refine(
+    (value) => value === null || normalizePhone(value) !== null,
+    { message: "दस अंकों का मोबाइल नंबर डालें · Enter a 10-digit mobile number" },
+  )
+  .transform((value) => (value === null ? null : normalizePhone(value)));
+
+const displayName = z
+  .string()
+  .trim()
+  .min(2, { message: "नाम कम से कम दो अक्षर का हो · Name needs at least two characters" })
+  .max(80, { message: "नाम बहुत लंबा है · Name is too long" });
+
+const shortName = z
+  .string()
+  .trim()
+  .transform(normalizeShortName)
+  .refine((value) => SHORT_NAME_PATTERN.test(value), {
+    message:
+      "2–8 अक्षर/अंक, केवल अंग्रेज़ी बड़े अक्षर · 2–8 letters or digits, A–Z and 0–9 only",
+  });
+
+const role = z.enum(staffRoles);
+
+const preferredLanguage = z.enum(["hi", "en"]);
+
+/** Creating a profile. `short_name` is settable exactly once — here. */
+export const createStaffSchema = z.object({
+  displayName,
+  shortName,
+  role,
+  phone: optionalPhone,
+  whatsappPhone: optionalPhone,
+  isTeaching: z.boolean(),
+  preferredLanguage,
+});
+
+export type CreateStaffInput = z.infer<typeof createStaffSchema>;
+
+/**
+ * Editing a profile. `shortName` is deliberately absent: the database trigger
+ * refuses to change it, and a field the form cannot submit is a clearer
+ * promise than one that submits and is rejected.
+ */
+export const updateStaffSchema = z.object({
+  displayName,
+  role,
+  phone: optionalPhone,
+  whatsappPhone: optionalPhone,
+  isTeaching: z.boolean(),
+  preferredLanguage,
+});
+
+export type UpdateStaffInput = z.infer<typeof updateStaffSchema>;
+
+/** A checkbox that is absent from FormData means false, not undefined. */
+export function checkboxValue(value: FormDataEntryValue | null): boolean {
+  return value === "on" || value === "true";
+}
+
+export type StaffProfile = {
+  id: string;
+  userId: string | null;
+  displayName: string;
+  shortName: string;
+  role: StaffRole;
+  phone: string | null;
+  whatsappPhone: string | null;
+  isTeaching: boolean;
+  isActive: boolean;
+  preferredLanguage: string;
+  createdAt: string;
+};
+
+/**
+ * The order a staff list reads best in: teaching staff first, then by name.
+ *
+ * Inactive profiles sink to the bottom whatever else is true — they are kept
+ * because the timetable still references them, not because anybody is looking
+ * for them.
+ */
+export function compareStaff(a: StaffProfile, b: StaffProfile): number {
+  if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+  if (a.isTeaching !== b.isTeaching) return a.isTeaching ? -1 : 1;
+  return a.displayName.localeCompare(b.displayName, "en");
+}
+
+/**
+ * Free-text search over a staff list.
+ *
+ * Matches the display name, the short name and the phone digits, because those
+ * are the three things somebody knows when they are looking: who it is, what
+ * the timetable calls them, or the number they are about to ring.
+ */
+export function matchesStaffSearch(staff: StaffProfile, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+
+  const digits = needle.replace(/\D/g, "");
+
+  return (
+    staff.displayName.toLowerCase().includes(needle) ||
+    staff.shortName.toLowerCase().includes(needle) ||
+    (digits.length >= 3 &&
+      ((staff.phone ?? "").includes(digits) ||
+        (staff.whatsappPhone ?? "").includes(digits)))
+  );
+}
+
+/**
+ * Whether deactivating this profile is safe to offer.
+ *
+ * A staff member cannot deactivate themselves: they would lose the app on the
+ * next navigation, and if they were the only admin nobody could undo it.
+ */
+export function canDeactivate(
+  target: Pick<StaffProfile, "id" | "isActive">,
+  actorStaffId: string,
+): { allowed: boolean; reasonHi?: string; reasonEn?: string } {
+  if (!target.isActive) {
+    return { allowed: false, reasonHi: "पहले से निष्क्रिय", reasonEn: "Already inactive" };
+  }
+
+  if (target.id === actorStaffId) {
+    return {
+      allowed: false,
+      reasonHi: "अपना खाता निष्क्रिय नहीं कर सकते",
+      reasonEn: "You cannot deactivate your own account",
+    };
+  }
+
+  return { allowed: true };
+}
