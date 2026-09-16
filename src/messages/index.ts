@@ -254,6 +254,96 @@ export const m = {
     "Another class already uses this label this session",
   ),
   notSaved: t("सहेजा नहीं जा सका।", "Could not save."),
+
+  /* ---------------------------------------------------- class teachers */
+  classTeachers: t("कक्षा अध्यापक", "Class teachers"),
+  classTeachersIntro: t(
+    "हर कक्षा का अध्यापक — बदलने पर पुराना रिकॉर्ड रहता है, मिटता नहीं।",
+    "Who holds each class. Replacing somebody keeps the old record; nothing is overwritten.",
+  ),
+  classTeacherNone: t("अभी कोई नहीं", "Nobody yet"),
+  classTeacherAssign: t("अध्यापक चुनें", "Assign a teacher"),
+  classTeacherReplace: t("बदलकर दूसरा अध्यापक दें", "Hand over to somebody else"),
+  classTeacherChoose: t("चुनें", "Choose"),
+  classTeacherFrom: t("इस तारीख़ से", "From"),
+  classTeacherHistory: t("पिछला रिकॉर्ड", "Earlier"),
+  classTeacherReplaceHint: t(
+    "पिछले अध्यापक का कार्यकाल एक दिन पहले बंद हो जाएगा।",
+    "The current holder's term ends the day before this date.",
+  ),
+  classTeachersAssigned: t("दिए गए", "assigned"),
+  classTeachersDone: t(
+    "हर कक्षा का अध्यापक तय है।",
+    "Every class has a class teacher.",
+  ),
+  classTeachersTodo: t(
+    "जिन कक्षाओं का अध्यापक तय नहीं है, वे सबसे ऊपर हैं।",
+    "Classes with nobody assigned are listed first.",
+  ),
+
+  /* --------------------------------------------------------- calendar */
+  calendarTitle: t("शैक्षणिक कैलेंडर", "Academic calendar"),
+  calendarIntro: t(
+    "सिर्फ़ वे दिन भरें जो सामान्य नहीं हैं। बाकी दिन साप्ताहिक नियम से तय होते हैं — रविवार अवकाश, शनिवार कार्यदिवस।",
+    "Only enter the days that are not ordinary. Everything else follows the weekly pattern — Sunday closed, Saturday a working day.",
+  ),
+  calendarNone: t(
+    "अभी कोई दिन दर्ज नहीं है।",
+    "Nothing entered yet. Add the holidays, exams and vacations for this session.",
+  ),
+  calendarAdd: t("दिन जोड़ें", "Add days"),
+  calendarDate: t("तारीख़", "Date"),
+  calendarUntil: t("इस तारीख़ तक", "Until"),
+  calendarUntilHint: t(
+    "एक से ज़्यादा दिन के लिए भरें — जैसे पूरी छुट्टियाँ।",
+    "Fill this for a range, such as a whole vacation.",
+  ),
+  calendarKind: t("किस तरह का दिन", "Kind of day"),
+  calendarLabelHi: t("नाम (हिन्दी)", "Name (Hindi)"),
+  calendarLabelEn: t("नाम (अंग्रेज़ी)", "Name (English)"),
+  calendarSchoolOpen: t("विद्यालय खुला", "School open"),
+  calendarSchoolClosed: t("विद्यालय बंद", "School closed"),
+  calendarTimetableRuns: t("समय-सारिणी चलेगी", "Timetable runs"),
+  calendarDaysEntered: t("दिन दर्ज", "days entered"),
+
+  /* -------------------------------------------------------- enrolments */
+  enrolmentsTitle: t("नामांकन", "Enrolments"),
+  enrolmentsIntro: t(
+    "फ़ीस ऐप बताता है कि बच्चा आज किस कक्षा में है। यह रिकॉर्ड बताता है कि किस सत्र में कहाँ था — रिपोर्ट कार्ड और उपस्थिति इसी पर टिकते हैं।",
+    "The fee app holds where a child is today. This holds where they were in a given session, which is what a report card and an attendance percentage are about.",
+  ),
+  enrolmentsNone: t(
+    "अभी नामांकन नहीं बना है।",
+    "Nothing built yet. Build the record from the fee app to begin.",
+  ),
+  enrolmentsBuild: t("फ़ीस ऐप से बनाएँ", "Build from the fee app"),
+  enrolmentsRebuild: t("फिर से मिलाएँ", "Rebuild from the fee app"),
+  enrolmentsRebuildHint: t(
+    "मौजूदा रिकॉर्ड अपडेट होंगे, मिटेंगे नहीं।",
+    "Existing rows are updated, never deleted.",
+  ),
+  enrolmentsInAgreement: t("मिलान सही", "in agreement"),
+  enrolmentsAllMatch: t(
+    "फ़ीस ऐप और यह रिकॉर्ड पूरी तरह मिलते हैं।",
+    "This record and the fee app agree on every student.",
+  ),
+  enrolmentsDifferences: t("अंतर", "Differences"),
+  enrolmentsFixable: t(
+    "फिर से मिलाने पर ठीक हो जाएँगे",
+    "would be resolved by a rebuild",
+  ),
+  enrolmentsNeedsPerson: t(
+    "इन्हें कोई व्यक्ति ही तय कर सकता है — इनकी उपस्थिति और अंक यहाँ दर्ज हैं।",
+    "These need a person. Their attendance and marks are recorded here, so the row is kept rather than dropped.",
+  ),
+  enrolmentsRoll: t("कक्षा में", "on the roll"),
+  enrolmentsStudents: t("विद्यार्थी", "students"),
+  enrolmentsSkippedNoClass: t(
+    "बिना कक्षा के छोड़े गए",
+    "skipped — no class in the fee app",
+  ),
+  enrolmentsCheck: t("मिलान जाँच", "Consistency check"),
+  enrolmentsBuiltNotice: t("नामांकन बन गया।", "The record was built."),
   noSessionFound: t(
     "कोई सत्र नहीं मिला।",
     "No academic session was found in the fee app's classes.",

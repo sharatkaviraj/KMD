@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Grid3x3 } from "lucide-react";
+import { BookOpen, Grid3x3, UserCheck } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -14,6 +14,11 @@ import {
   joinClassesToAliases,
   mappingProgress,
 } from "@/modules/academics/domain/subjects";
+import { listClassTeachers } from "@/modules/academics/data/class-teachers-repo";
+import {
+  assignmentProgress,
+  joinClassesToTeachers,
+} from "@/modules/academics/domain/class-teachers";
 import { primary, secondary, t } from "@/platform/i18n/language";
 import { Badge, Notice } from "@/ui/primitives";
 import { PageHeader } from "@/ui/shell/app-shell";
@@ -36,13 +41,17 @@ export default async function AcademicsPage() {
   const language = staff.language;
 
   const sessionLabel = await resolveSessionLabel();
-  const [subjects, classes, aliases] = await Promise.all([
+  const [subjects, classes, aliases, teachers] = await Promise.all([
     listSubjects(),
     sessionLabel ? listFeeClasses(sessionLabel) : Promise.resolve([]),
     sessionLabel ? listClassAliases(sessionLabel) : Promise.resolve([]),
+    sessionLabel ? listClassTeachers(sessionLabel) : Promise.resolve([]),
   ]);
 
   const progress = mappingProgress(joinClassesToAliases(classes, aliases));
+  const teacherProgress = assignmentProgress(
+    joinClassesToTeachers(classes, teachers),
+  );
   const activeSubjects = subjects.filter((subject) => subject.isActive).length;
 
   const cards = [
@@ -65,6 +74,16 @@ export default async function AcademicsPage() {
         `${progress.mapped} / ${progress.total} ${m.classLabelsMapped.en}`,
       ),
       done: progress.complete,
+    },
+    {
+      href: "/academics/class-teachers",
+      icon: UserCheck,
+      label: m.classTeachers,
+      detail: t(
+        `${teacherProgress.assigned} / ${teacherProgress.total} ${m.classTeachersAssigned.hi}`,
+        `${teacherProgress.assigned} / ${teacherProgress.total} ${m.classTeachersAssigned.en}`,
+      ),
+      done: teacherProgress.complete,
     },
   ];
 

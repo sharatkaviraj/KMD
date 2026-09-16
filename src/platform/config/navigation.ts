@@ -71,14 +71,14 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: m.navCalendar,
     icon: CalendarDays,
     permission: "academics:view",
-    ready: false, // task 1.5
+    ready: true,
   },
   {
     href: "/enrolments",
     label: m.navEnrolments,
     icon: ClipboardCheck,
     permission: "academics:view",
-    ready: false, // task 1.6
+    ready: true,
   },
 ];
 
