@@ -100,8 +100,13 @@ Vercel both carry the fee app's keys with Supabase pointed at dev, including
 1.1. `AISENSY_*`, `SENTRY_AUTH_TOKEN` and `CRON_SECRET` are deliberately absent
 until Phase 5 and Phase 7 need them.
 
-**Migrations** can go through the Supabase MCP (no login needed) or through the
-Supabase CLI, which is signed in and linked to dev — `npm run db:push`. Either
-is fine. Name your first migration `20260916170000_...` or later: lower
-timestamps sort before rows already applied to this database. `docs/SETUP.md`
-has the detail.
+**Migrations go through the Supabase MCP, never `supabase db push`.** The CLI is
+signed in and linked to dev, but `db push` refuses on this database: its
+migration history holds 230 versions belonging to the fee app with no files in
+this repo. That is expected, not a problem to fix — do not run
+`supabase migration repair`, and do not try to make `db push` work.
+
+Write each migration as a numbered file in `supabase/migrations/` and apply it
+with the Supabase MCP. Name the first one `20260916170000_...` or later; lower
+timestamps sort before rows already applied here. `npm run db:diff` and
+`npm run db:types` do work and are useful. Full detail in `docs/SETUP.md`.

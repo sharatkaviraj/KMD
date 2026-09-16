@@ -55,25 +55,37 @@ What differs is only where a signed-in user's **role** comes from —
 
 ## Supabase CLI
 
-Signed in and linked to `schoolfees-dev` (2026-09-16). Working commands:
+Signed in and linked to `schoolfees-dev` (2026-09-16). Useful commands:
 
 ```
-npm run db:push     # apply local migration files to dev
-npm run db:diff     # what differs between local and dev
-npm run db:pull     # pull the remote schema into a migration file
+npm run db:diff      # what differs between local and the vppsone schema on dev
+npm run db:types     # generate TypeScript types for the vppsone schema
+npm run db:link      # re-link if the folder is ever cloned fresh
 ```
 
-Migrations may also be applied through the Supabase MCP, which needs no login.
-Either route is fine; the files in `supabase/migrations/` are the source of
-truth, because the cutover replays them against the live project in order.
+### Migrations are applied through the Supabase MCP, not `db push`
 
-**Name new migrations after `20260916160100`.** That is the highest version
-already recorded in this database — the fee app's history plus the abandoned
-School One attempt. A lower timestamp would sort before rows that are already
-applied and confuse `db push`. Start at `20260916170000`.
+`supabase db push` **cannot** be used on this project, and this is not a
+misconfiguration. The database's `schema_migrations` table holds 230 versions
+belonging to the fee app, none of which have files in this repo, so the CLI
+stops with "Remote migration versions not found in local migrations directory"
+before it applies anything. Repairing that history would mean deleting the fee
+app's migration records from a database the fee app also uses — not worth it,
+and the same situation exists on the live project, so `db push` would never
+become usable here anyway.
 
-Note: the dev database's migration history still lists the School One migrations
-whose objects were dropped when that attempt was reverted. They are stale rows in
-`supabase_migrations.schema_migrations`, harmless to VPPS One because everything
-here lives in the `vppsone` schema with later timestamps. Left alone on purpose —
-they belong to the fee app's history, not this project's.
+So the routine is:
+
+1. Write the migration as a numbered file in `supabase/migrations/`.
+2. Apply it to dev with the Supabase MCP (`execute_sql`, or `apply_migration`).
+3. The file is the source of truth — the cutover replays the files in order
+   against the live project the same way.
+
+**Name new migrations after `20260916160100`**, the highest version already
+recorded here. Start at `20260916170000`. Lower timestamps would sort before
+rows that are already applied.
+
+The dev database's history also still lists the abandoned School One migrations
+whose objects were dropped on revert. Harmless: everything VPPS One creates
+lives in the `vppsone` schema with later timestamps. Left alone on purpose —
+those rows belong to the fee app's history, not this project's.

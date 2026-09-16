@@ -7,10 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:push": "supabase db push",
-    "db:pull": "supabase db pull",
-    "db:diff": "supabase db diff",
-    "db:link": "supabase link --project-ref wtgxcptmucjerhufzjcf"
+    "db:diff": "supabase db diff --schema vppsone",
+    "db:link": "supabase link --project-ref wtgxcptmucjerhufzjcf",
+    "db:types": "supabase gen types typescript --linked --schema vppsone"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
