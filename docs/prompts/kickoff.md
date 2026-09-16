@@ -100,6 +100,8 @@ Vercel both carry the fee app's keys with Supabase pointed at dev, including
 1.1. `AISENSY_*`, `SENTRY_AUTH_TOKEN` and `CRON_SECRET` are deliberately absent
 until Phase 5 and Phase 7 need them.
 
-**Migrations** go through the Supabase MCP, which needs no login. The Supabase
-CLI is initialised but not signed in; `npm run db:link` works once Janmejay runs
-`supabase login`. Do not block on it.
+**Migrations** can go through the Supabase MCP (no login needed) or through the
+Supabase CLI, which is signed in and linked to dev — `npm run db:push`. Either
+is fine. Name your first migration `20260916170000_...` or later: lower
+timestamps sort before rows already applied to this database. `docs/SETUP.md`
+has the detail.

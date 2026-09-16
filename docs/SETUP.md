@@ -53,14 +53,27 @@ the login page shape all come from `schoolfees` (see `docs/SOURCES.md`).
 What differs is only where a signed-in user's **role** comes from —
 `vppsone.staff_profiles`, not `public.users` (D-6).
 
-## One command you still need to run
+## Supabase CLI
 
-The Supabase CLI on this PC is installed but not signed in:
+Signed in and linked to `schoolfees-dev` (2026-09-16). Working commands:
 
 ```
-supabase login          # opens the browser, once
-npm run db:link         # links this folder to schoolfees-dev
+npm run db:push     # apply local migration files to dev
+npm run db:diff     # what differs between local and dev
+npm run db:pull     # pull the remote schema into a migration file
 ```
 
-Until then, migrations are applied through the Supabase MCP, which needs no
-login — that is the default path in `CLAUDE.md` and works today.
+Migrations may also be applied through the Supabase MCP, which needs no login.
+Either route is fine; the files in `supabase/migrations/` are the source of
+truth, because the cutover replays them against the live project in order.
+
+**Name new migrations after `20260916160100`.** That is the highest version
+already recorded in this database — the fee app's history plus the abandoned
+School One attempt. A lower timestamp would sort before rows that are already
+applied and confuse `db push`. Start at `20260916170000`.
+
+Note: the dev database's migration history still lists the School One migrations
+whose objects were dropped when that attempt was reverted. They are stale rows in
+`supabase_migrations.schema_migrations`, harmless to VPPS One because everything
+here lives in the `vppsone` schema with later timestamps. Left alone on purpose —
+they belong to the fee app's history, not this project's.
