@@ -54,3 +54,29 @@ Do not import from it and do not change it. Useful as a reference for:
 Its production database holds the real `students`, `classes` and `sessions` that
 VPPS One reads. Its dev twin — `schoolfees-dev` — is the database VPPS One is
 built on, so those tables are already present in `public` with test rows.
+
+### Authentication — port it, do not redesign it
+
+VPPS One keeps the fee app's authentication exactly: Supabase Auth on the same
+project, cookie-based `@supabase/ssr`, the same session-refresh middleware. Take
+these files from `schoolfees` and adapt the import paths:
+
+| From `schoolfees` | To |
+|---|---|
+| `src/platform/supabase/client.ts` | same path — browser client |
+| `src/platform/supabase/server.ts` | same path — cookie-based server client |
+| `src/platform/supabase/admin.ts` | same path — service-role client, server only |
+| `src/platform/supabase/middleware.ts` | same path — session refresh |
+| `src/platform/supabase/session.ts` | same path |
+| `src/app/auth/login/page.tsx` + `actions.ts` | `src/app/login/` |
+| `src/app/auth/forgot-password/`, `update-password/` | same shape, later |
+
+Do **not** port `sign-up` — VPPS One creates no accounts; an admin does.
+
+The one deliberate difference: a signed-in user's role comes from
+`vppsone.staff_profiles`, never from `public.users.role` (D-6). The fee app's
+`src/platform/auth/roles.ts` is a useful shape to read, not a file to copy.
+
+Because it is the same Supabase project, the accounts are the same accounts. On
+dev those are the `qa.*@qa.vpps.local` users; after the cutover they are the real
+ones, so nobody gets a second password.

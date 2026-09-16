@@ -81,3 +81,25 @@ they get replayed against the live project in order.
 5. Tell Janmejay the URL to look at and exactly what to try.
 
 Then stop. The next task is row 1.2.
+
+---
+
+## Added after the first draft — read this too
+
+**Authentication is ported, not designed.** Take the Supabase clients, the
+session-refresh middleware and the login page from the fee app rather than
+writing your own — the exact file list is at the bottom of `docs/SOURCES.md`.
+It is the same Supabase project, so the accounts are the same accounts: on dev
+the `qa.*@qa.vpps.local` users, and after the cutover the real ones, with no
+second password for anybody. The only deliberate difference is that a user's
+role comes from `vppsone.staff_profiles`, never `public.users.role`.
+
+**The environment is already set up** — see `docs/SETUP.md`. `.env.local` and
+Vercel both carry the fee app's keys with Supabase pointed at dev, including
+`SUPABASE_SERVICE_ROLE_KEY`. You do not need to ask for any key to build task
+1.1. `AISENSY_*`, `SENTRY_AUTH_TOKEN` and `CRON_SECRET` are deliberately absent
+until Phase 5 and Phase 7 need them.
+
+**Migrations** go through the Supabase MCP, which needs no login. The Supabase
+CLI is initialised but not signed in; `npm run db:link` works once Janmejay runs
+`supabase login`. Do not block on it.
