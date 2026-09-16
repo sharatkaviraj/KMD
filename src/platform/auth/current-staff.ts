@@ -151,11 +151,12 @@ export async function requireStaff(nextPath?: string): Promise<CurrentStaff> {
 }
 
 /**
- * Top of a page or a server action that needs a specific permission.
+ * Top of a **page** that needs a specific permission.
  *
- * Throws rather than redirecting: a user who reached a screen they may not see
- * has followed a link that should not have been rendered, and a silent
- * redirect hides that. Phase 1.2 gives this a proper error surface.
+ * Sends the staff member to `/access-denied`, which names the permission and
+ * their role — a screen they can act on, rather than the red error boundary a
+ * thrown error would produce. Reaching it at all means a link was rendered
+ * that should not have been, or a URL was typed.
  */
 export async function requirePermission(
   permission: StaffPermission,
@@ -164,7 +165,7 @@ export async function requirePermission(
   const staff = await requireStaff(nextPath);
 
   if (!can(staff, permission)) {
-    throw new Error(`Permission denied: ${permission}`);
+    redirect(`/access-denied?permission=${encodeURIComponent(permission)}`);
   }
 
   return staff;
@@ -177,7 +178,32 @@ export async function requireAnyPermission(
   const staff = await requireStaff(nextPath);
 
   if (!canAny(staff, permissions)) {
-    throw new Error(`Permission denied: one of ${permissions.join(", ")}`);
+    redirect(`/access-denied?permission=${encodeURIComponent(permissions.join(","))}`);
+  }
+
+  return staff;
+}
+
+/**
+ * Top of a **server action** that needs a permission.
+ *
+ * Throws rather than redirecting, and the difference matters: an action is not
+ * a navigation. `redirect()` inside one works by throwing a navigation signal,
+ * which a `try/catch` around the action's own logic would swallow — and a
+ * swallowed guard is a guard that passed. This one cannot be mistaken for
+ * success.
+ */
+export async function assertPermission(
+  permission: StaffPermission,
+): Promise<CurrentStaff> {
+  const { staff } = await readCurrentStaff();
+
+  if (!staff) {
+    throw new Error("Not signed in.");
+  }
+
+  if (!can(staff, permission)) {
+    throw new Error(`Permission denied: ${permission}`);
   }
 
   return staff;

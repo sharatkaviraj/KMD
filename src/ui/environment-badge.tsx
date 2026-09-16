@@ -1,4 +1,5 @@
 import { getVppsOneEnvironment } from "@/platform/env";
+import { cn } from "@/platform/utils";
 
 /**
  * Which database you are looking at.
@@ -17,9 +18,33 @@ export function EnvironmentBadge({ className = "" }: { className?: string }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-900 ${className}`}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-nav-accent/40 bg-nav-accent/15",
+        "px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-nav-accent",
+        className,
+      )}
     >
-      <span aria-hidden className="size-1.5 rounded-full bg-amber-500" />
+      <span aria-hidden className="size-1.5 rounded-full bg-nav-accent" />
+      टेस्ट · test
+    </span>
+  );
+}
+
+/** The paper-surface variant, for screens drawn outside the ink top bar. */
+export function EnvironmentBadgeOnPaper({ className = "" }: { className?: string }) {
+  if (getVppsOneEnvironment() === "live") {
+    return null;
+  }
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning-soft",
+        "px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-warning-soft-foreground",
+        className,
+      )}
+    >
+      <span aria-hidden className="size-1.5 rounded-full bg-warning" />
       टेस्ट डेटा · test data
     </span>
   );

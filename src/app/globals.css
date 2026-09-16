@@ -1,23 +1,133 @@
 @import "tailwindcss";
 
-/*
- * Design tokens land here in task 1.2, together with the app shell. For now
- * this is only what the login and dashboard screens need to look deliberate
- * on a phone.
- */
+/* =====================================================================
+   VPPS One — design tokens.
 
-@theme inline {
+   The palette is "Ledger Calm", ported from the fee app
+   (`schoolfees/src/app/globals.css`). It is not a fresh start on purpose:
+   the same staff use both apps on the same phones, and a second visual
+   language would be a second thing to learn. What changed is the syntax —
+   the fee app is Tailwind v3 (`@tailwind` + tailwind.config.ts), this is
+   v4, where `@theme` *is* the config.
+   ===================================================================== */
+
+@theme {
+  /* Inter is not loaded: the interface is Hindi first, and a webfont that
+     covers Devanagari properly is a payload teachers pay for on 3G. The
+     system stack renders both scripts, with Noto/Nirmala ahead of it so
+     Devanagari gets correct metrics instead of an OS fallback. */
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    /* Devanagari: the interface is Hindi first, and the default stack on
-       Windows renders it with the wrong metrics. */
     "Noto Sans Devanagari", "Nirmala UI", sans-serif;
+
+  /* Surfaces */
+  --color-background: hsl(46 42% 97%);
+  --color-foreground: hsl(222 25% 11%);
+  --color-surface: hsl(0 0% 100%);
+  --color-surface-2: hsl(44 18% 96%);
+  --color-surface-3: hsl(44 14% 92%);
+
+  /* Text */
+  --color-muted-foreground: hsl(222 9% 42%);
+  --color-subtle-foreground: hsl(222 6% 56%);
+
+  /* Lines */
+  --color-border: hsl(40 14% 88%);
+  --color-border-strong: hsl(40 12% 78%);
+
+  /* Brand and action */
+  --color-primary: hsl(222 25% 11%);
+  --color-primary-foreground: hsl(48 33% 98%);
+  --color-secondary: hsl(44 18% 94%);
+  --color-secondary-foreground: hsl(222 25% 11%);
+  --color-accent: hsl(20 86% 41%);
+  --color-accent-foreground: hsl(48 33% 99%);
+  --color-accent-soft: hsl(28 92% 96%);
+  --color-accent-soft-foreground: hsl(20 86% 33%);
+  --color-ring: hsl(20 86% 45%);
+
+  /* Ink surfaces — the top bar and anything drawn on it */
+  --color-nav: hsl(222 28% 10%);
+  --color-nav-foreground: hsl(44 22% 96%);
+  --color-nav-muted: hsl(44 12% 70%);
+  --color-nav-border: hsl(222 16% 20%);
+  /* Saffron lifted a step for marks drawn ON ink: --color-accent is tuned
+     for paper and goes muddy at 41% lightness against 10% ink. */
+  --color-nav-accent: hsl(20 86% 52%);
+
+  /* Semantic */
+  --color-success: hsl(151 56% 24%);
+  --color-success-soft: hsl(151 64% 96%);
+  --color-success-soft-foreground: hsl(151 56% 22%);
+
+  --color-warning: hsl(30 84% 36%);
+  --color-warning-soft: hsl(38 92% 96%);
+  --color-warning-soft-foreground: hsl(30 84% 28%);
+
+  --color-destructive: hsl(0 72% 41%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-destructive-soft: hsl(0 84% 97%);
+  --color-destructive-soft-foreground: hsl(0 72% 36%);
+
+  --color-info: hsl(221 70% 38%);
+  --color-info-soft: hsl(221 90% 97%);
+  --color-info-soft-foreground: hsl(221 70% 32%);
+
+  --shadow-xs: 0 1px 2px hsl(222 25% 11% / 0.04);
+  --shadow-sm: 0 2px 4px -1px hsl(222 25% 11% / 0.05);
+  --shadow-md:
+    0 6px 18px -8px hsl(222 25% 11% / 0.1), 0 2px 4px -2px hsl(222 25% 11% / 0.04);
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
+:root {
+  /* Mobile geometry. The bottom bar is fixed, so every scrolling surface has
+     to reserve its height *plus* the home-indicator inset — or the last row
+     of a list sits under it, which on a class list means the last child in
+     the register is the one nobody can tap. */
+  --mobile-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-bottom-nav-height: 4.25rem;
+  --mobile-bottom-nav-offset: calc(
+    var(--mobile-bottom-nav-height) + var(--mobile-safe-area-bottom)
+  );
 }
 
-body {
-  font-family: var(--font-sans);
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  /* Tapping should not paint a grey box over a card on Android. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* A control under 16px makes iOS Safari zoom the page on focus, which
+     leaves the form half off-screen with the keyboard over the rest. Every
+     control in the kit is already 16px; this is the backstop for one that
+     gets added and forgets. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+}
+
+@utility focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+    focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
+/* Reserve the fixed bottom bar on a scrolling page. */
+@utility pb-bottom-nav {
+  padding-bottom: calc(var(--mobile-bottom-nav-offset) + 1rem);
+}
+
+@utility safe-bottom {
+  padding-bottom: var(--mobile-safe-area-bottom);
 }
