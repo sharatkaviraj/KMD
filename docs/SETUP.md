@@ -81,6 +81,54 @@ So the routine is:
 3. The file is the source of truth — the cutover replays the files in order
    against the live project the same way.
 
+The MCP stamps its own version when it applies a migration, so name the file
+after what it recorded rather than what you guessed. `docs/PROGRESS.md` lists
+every version applied here, and the two agree on purpose (D-22).
+
+### A new schema also has to be exposed to PostgREST
+
+Creating `vppsone` is not enough to read it from supabase-js. PostgREST serves
+only the schemas it is told to, and on this project that was
+`public, graphql_public` — so every read came back
+
+```
+PGRST106  Invalid schema: vppsone
+```
+
+no matter what the grants said. `20260916191935_expose_vppsone_to_postgrest.sql`
+appends `vppsone` to `pgrst.db_schemas` on the `authenticator` role and reloads
+PostgREST. It is additive and idempotent: it never removes an entry, so the fee
+app keeps `public`.
+
+Exposing a schema is not the same as granting access to it. `anon` has no
+`USAGE` on `vppsone`, so a signed-out request gets
+`42501 permission denied for schema vppsone`; `authenticated` gets through the
+grant and is then filtered by each table's RLS policy.
+
+Two things follow:
+
+- **At cutover this migration matters as much as the others.** Skip it and the
+  live app answers `PGRST106` on its first request (PLAN §7 step 1).
+- If the exposed schemas are ever set from the dashboard
+  (Settings → API → Exposed schemas), set them there too. The role setting
+  takes precedence, so a dashboard value that disagrees is silently ignored and
+  the next person to read it is misled.
+
+## QA sign-in on dev
+
+`npm run seed:dev` gives four of the QA accounts a `vppsone.staff_profiles`
+row — admin, teacher, office and view_only. It is idempotent, and it refuses to
+run against any project except `schoolfees-dev`.
+
+`qa.director@qa.vpps.local` and `qa.collector@qa.vpps.local` are deliberately
+left without a profile: they are the "signed in, but not staff here" case, and
+that path is worth being able to reach on purpose (D-21).
+
+The accounts themselves are the fee app's QA users and already existed; their
+passwords came from a `TEST_STAFF_PASSWORD` that is not stored anywhere in
+either repo. Ask Janmejay for the current one, or set a new one from the
+Supabase dashboard (Authentication → Users). Never commit it.
+
 **Name new migrations after `20260916160100`**, the highest version already
 recorded here. Start at `20260916170000`. Lower timestamps would sort before
 rows that are already applied.

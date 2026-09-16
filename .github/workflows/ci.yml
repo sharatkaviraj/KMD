@@ -1,0 +1,56 @@
+name: CI
+
+# Everything `npm run check` runs locally, run again on every PR — because the
+# merge is the agent's own (D-7), and CI being green is the only thing standing
+# between a branch and production.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Placeholders. The build must not reach a database, and it does not
+          # need to: every page that reads one is dynamic. Real values would
+          # also mean a service-role key in CI, which is worth avoiding for a
+          # job that only compiles.
+          #
+          # These must not trip the placeholder guard in src/platform/env.ts —
+          # that guard exists to catch a `YOUR_PROJECT_ID` left in a real
+          # deployment, and a build failing on its own fixture is noise.
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-build-only.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_build_only
+          NEXT_PUBLIC_SCHOOL_NAME: Shri Veer Patta Senior Secondary School
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          VPPSONE_ENV: dev

@@ -191,6 +191,10 @@ enough to trust it. It is short because §2 was designed for it.
 1. Apply every `vppsone` migration to the live Supabase project
    `vgqyilgstjvgohrsiwkb`. They only ever `create schema vppsone` and create
    objects inside it — `public` is not touched, so the fee app cannot notice.
+   This includes `expose_vppsone_to_postgrest`, which is a PostgREST setting
+   rather than a schema object: skip it and the app answers `PGRST106 Invalid
+   schema: vppsone` on its first request. It appends and never replaces, so the
+   fee app keeps `public` (D-19, `docs/SETUP.md`).
 2. Point the Vercel project's production environment variables at the live
    project and redeploy. `VPPSONE_ENV=live`.
 3. Seed the master data for real: staff, subjects, class aliases, class

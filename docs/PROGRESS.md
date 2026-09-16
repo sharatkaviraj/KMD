@@ -15,12 +15,24 @@ Status: `todo` · `in progress` · `pr open` · `done` · `blocked (reason)`
 | 0.3 | Vercel project linked, env vars set to schoolfees-dev | done |
 | 0.4 | Plan, rules and sources written | done |
 
+### Applied to schoolfees-dev
+
+Migrations are applied through the Supabase MCP, and the file is named for the
+version the MCP recorded (D-22), so this list and
+`supabase_migrations.schema_migrations` agree.
+
+| Version | File | Task |
+|---|---|---|
+| 20260916191746 | `create_vppsone_schema` | 1.1 |
+| 20260916191757 | `create_staff_profiles` | 1.1 |
+| 20260916191935 | `expose_vppsone_to_postgrest` | 1.1 |
+
 ## Phase 1 — foundation
 
 | # | What | Status | Branch | Commit | Notes |
 |---|---|---|---|---|---|
-| 1.1 | Supabase clients, Auth, login, middleware, `vppsone` schema, `staff_role`, `staff_profiles`, permissions | todo | `p1-1-foundation` | | **next** |
-| 1.2 | App shell: mobile layout, bottom nav, top bar, tokens, env badge | todo | `p1-2-shell` | | |
+| 1.1 | Supabase clients, Auth, login, middleware, `vppsone` schema, `staff_role`, `staff_profiles`, permissions | done | `p1-1-foundation` | `PR_MERGE_SHA` | Creating the schema was not enough — PostgREST answered `PGRST106 Invalid schema: vppsone` until it was exposed, so that is now its own migration (D-19). A proxy that bounced any signed-in visitor off `/login` looped forever against a session whose profile was deactivated; the login page decides that now, from the profile rather than the JWT (D-23). The env badge and a bare `/dashboard` exist but the shell is 1.2's; `requirePermission()` throws rather than rendering an error screen until 1.2 gives it one |
+| 1.2 | App shell: mobile layout, bottom nav, top bar, tokens, env badge | todo | `p1-2-shell` | | Inherits the placeholder badge in `src/ui/environment-badge.tsx` and needs a real surface for a denied permission |
 | 1.3 | Master data — staff | todo | `p1-3-staff` | | |
 | 1.4 | Master data — subjects, class aliases | todo | `p1-4-subjects-classes` | | |
 | 1.5 | Master data — class teachers, academic calendar | todo | `p1-5-class-teachers-calendar` | | |
