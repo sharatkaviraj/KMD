@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { decodeMessage } from "@/platform/i18n/language";
+
 import {
   classAliasSchema,
   compareSubjects,
@@ -108,11 +110,26 @@ describe("createSubjectSchema", () => {
     );
   });
 
-  it("keeps both languages in its messages", () => {
+  it("carries both languages so the screen can pick one", () => {
     const result = createSubjectSchema.safeParse({ ...valid, nameEn: "" });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("·");
+      const decoded = decodeMessage(result.error.issues[0].message);
+      expect(decoded.hi).toBeTruthy();
+      expect(decoded.en).toBeTruthy();
+      expect(decoded.hi).not.toBe(decoded.en);
+    }
+  });
+
+  it("names the field in the reader's own language", () => {
+    // "हिन्दी नाम ज़रूरी है" rather than "Hindi name ज़रूरी है" — the field's
+    // own name is part of the sentence, so it has to be translated too.
+    const result = createSubjectSchema.safeParse({ ...valid, nameHi: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const decoded = decodeMessage(result.error.issues[0].message);
+      expect(decoded.hi).toContain("हिन्दी नाम");
+      expect(decoded.en).toContain("Hindi name");
     }
   });
 });

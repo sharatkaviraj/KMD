@@ -4,33 +4,29 @@ import { useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
+import { m } from "@/messages";
+import {
+  primary,
+  type Language,
+  type Localized,
+} from "@/platform/i18n/language";
 import { Button } from "@/ui/primitives/button";
 import { Field, Input, Notice } from "@/ui/primitives";
 
 // Defined here rather than in actions.ts: a "use server" module may only
 // export async functions.
-const initialLoginState: LoginActionState = {
-  status: "idle",
-  message: null,
-  messageEn: null,
-};
+const initialLoginState: LoginActionState = { status: "idle", message: null };
 
 /**
  * Why a signed-out visitor is looking at this page, when it was not simply
  * "you are not signed in". `requireStaff()` sets `?reason=`.
  */
-const REASONS: Record<string, { hi: string; en: string }> = {
-  "no-profile": {
-    hi: "इस खाते का VPPS One में कोई स्टाफ़ प्रोफ़ाइल नहीं है।",
-    en: "This account has no VPPS One staff profile yet.",
-  },
-  inactive: {
-    hi: "यह स्टाफ़ खाता निष्क्रिय है।",
-    en: "This staff account is inactive.",
-  },
+const REASONS: Record<string, Localized> = {
+  "no-profile": m.noProfile,
+  inactive: m.accountInactive,
 };
 
-export function LoginForm() {
+export function LoginForm({ language }: { language: Language }) {
   const searchParams = useSearchParams();
   const [state, formAction, isPending] = useActionState<LoginActionState, FormData>(
     loginAction,
@@ -53,10 +49,10 @@ export function LoginForm() {
       <input type="hidden" name="next" value={next} />
 
       {reason && !failed ? (
-        <Notice tone="warning" hi={reason.hi} en={reason.en} />
+        <Notice tone="warning" text={reason} language={language} />
       ) : null}
 
-      <Field label="ईमेल" hint="Email" htmlFor="email">
+      <Field label={m.email} htmlFor="email" language={language}>
         <Input
           id="email"
           name="email"
@@ -74,7 +70,7 @@ export function LoginForm() {
         />
       </Field>
 
-      <Field label="पासवर्ड" hint="Password" htmlFor="password">
+      <Field label={m.password} htmlFor="password" language={language}>
         <Input
           id="password"
           name="password"
@@ -86,20 +82,20 @@ export function LoginForm() {
       </Field>
 
       {failed && state.message ? (
-        <Notice tone="danger" hi={state.message} en={state.messageEn ?? undefined} />
+        <Notice tone="danger" text={state.message} language={language} />
       ) : null}
 
-      <Button type="submit" size="lg" fullWidth loading={isPending} loadingText="साइन इन हो रहा है…">
-        साइन इन करें
+      <Button
+        type="submit"
+        size="lg"
+        fullWidth
+        loading={isPending}
+        loadingText={primary(m.signingIn, language)}
+      >
+        {primary(m.signIn, language)}
       </Button>
 
-      <p className="text-center text-[13px] leading-5 text-muted-foreground">
-        खाता विद्यालय प्रशासक बनाते हैं। यहाँ नया खाता नहीं बनता।
-        <br />
-        <span className="opacity-80">
-          Accounts are created by the school admin — there is no sign-up here.
-        </span>
-      </p>
+      <Notice tone="neutral" text={m.noSignup} language={language} className="border-0 bg-transparent text-center" />
     </form>
   );
 }

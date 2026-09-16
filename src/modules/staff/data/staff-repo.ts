@@ -1,6 +1,7 @@
 import "server-only";
 
 import { resolveStaffRole } from "@/platform/auth/permissions";
+import { resolveLanguage } from "@/platform/i18n/language";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import type {
@@ -46,7 +47,7 @@ function toStaffProfile(row: Row): StaffProfile {
     whatsappPhone: row.whatsapp_phone,
     isTeaching: row.is_teaching,
     isActive: row.is_active,
-    preferredLanguage: row.preferred_language ?? "hi",
+    language: resolveLanguage(row.preferred_language),
     createdAt: row.created_at,
   };
 }

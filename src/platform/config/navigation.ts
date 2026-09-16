@@ -7,6 +7,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { m } from "@/messages";
+import type { Localized } from "@/platform/i18n/language";
 import {
   can,
   type StaffPermission,
@@ -25,9 +27,8 @@ import {
 
 export type NavItem = {
   href: string;
-  /** Hindi first — this is what teachers read. */
-  label: string;
-  labelEn: string;
+  /** Rendered in whichever language the reader asked for. */
+  label: Localized;
   icon: LucideIcon;
   permission: StaffPermission;
   /**
@@ -46,40 +47,35 @@ export type NavItem = {
 const NAV_ITEMS: readonly NavItem[] = [
   {
     href: "/dashboard",
-    label: "मुख्य",
-    labelEn: "Home",
+    label: m.navHome,
     icon: LayoutGrid,
     permission: "dashboard:view",
     ready: true,
   },
   {
     href: "/staff",
-    label: "स्टाफ़",
-    labelEn: "Staff",
+    label: m.navStaff,
     icon: Users,
     permission: "staff:view",
     ready: true,
   },
   {
     href: "/academics",
-    label: "शैक्षणिक",
-    labelEn: "Academics",
+    label: m.navAcademics,
     icon: GraduationCap,
     permission: "academics:view",
     ready: true,
   },
   {
     href: "/calendar",
-    label: "कैलेंडर",
-    labelEn: "Calendar",
+    label: m.navCalendar,
     icon: CalendarDays,
     permission: "academics:view",
     ready: false, // task 1.5
   },
   {
     href: "/enrolments",
-    label: "नामांकन",
-    labelEn: "Enrolments",
+    label: m.navEnrolments,
     icon: ClipboardCheck,
     permission: "academics:view",
     ready: false, // task 1.6

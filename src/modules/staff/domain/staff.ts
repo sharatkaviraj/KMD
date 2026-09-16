@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+import { m } from "@/messages";
+import {
+  encodeMessage,
+  t,
+  type Language,
+  type Localized,
+} from "@/platform/i18n/language";
+
 import { staffRoles, type StaffRole } from "@/platform/auth/permissions";
 
 /**
@@ -56,28 +64,45 @@ const optionalPhone = z
   .nullable()
   .refine(
     (value) => value === null || normalizePhone(value) !== null,
-    { message: "दस अंकों का मोबाइल नंबर डालें · Enter a 10-digit mobile number" },
+    {
+      message: encodeMessage(
+        t(
+          "दस अंकों का मोबाइल नंबर डालें",
+          "Enter a 10-digit mobile number",
+        ),
+      ),
+    },
   )
   .transform((value) => (value === null ? null : normalizePhone(value)));
 
 const displayName = z
   .string()
   .trim()
-  .min(2, { message: "नाम कम से कम दो अक्षर का हो · Name needs at least two characters" })
-  .max(80, { message: "नाम बहुत लंबा है · Name is too long" });
+  .min(2, {
+    message: encodeMessage(
+      t("नाम कम से कम दो अक्षर का हो", "Name needs at least two characters"),
+    ),
+  })
+  .max(80, {
+    message: encodeMessage(t("नाम बहुत लंबा है", "Name is too long")),
+  });
 
 const shortName = z
   .string()
   .trim()
   .transform(normalizeShortName)
   .refine((value) => SHORT_NAME_PATTERN.test(value), {
-    message:
-      "2–8 अक्षर/अंक, केवल अंग्रेज़ी बड़े अक्षर · 2–8 letters or digits, A–Z and 0–9 only",
+    message: encodeMessage(
+      t(
+        "2–8 अक्षर या अंक, केवल अंग्रेज़ी बड़े अक्षर",
+        "2–8 letters or digits, A–Z and 0–9 only",
+      ),
+    ),
   });
 
 const role = z.enum(staffRoles);
 
-const preferredLanguage = z.enum(["hi", "en"]);
+const preferredLanguage = z.enum(["hi", "en", "both"]);
 
 /** Creating a profile. `short_name` is settable exactly once — here. */
 export const createStaffSchema = z.object({
@@ -123,7 +148,8 @@ export type StaffProfile = {
   whatsappPhone: string | null;
   isTeaching: boolean;
   isActive: boolean;
-  preferredLanguage: string;
+  /** Which language this person reads the app in (D-35). */
+  language: Language;
   createdAt: string;
 };
 
@@ -171,17 +197,13 @@ export function matchesStaffSearch(staff: StaffProfile, query: string): boolean 
 export function canDeactivate(
   target: Pick<StaffProfile, "id" | "isActive">,
   actorStaffId: string,
-): { allowed: boolean; reasonHi?: string; reasonEn?: string } {
+): { allowed: boolean; reason?: Localized } {
   if (!target.isActive) {
-    return { allowed: false, reasonHi: "पहले से निष्क्रिय", reasonEn: "Already inactive" };
+    return { allowed: false, reason: m.alreadyInactive };
   }
 
   if (target.id === actorStaffId) {
-    return {
-      allowed: false,
-      reasonHi: "अपना खाता निष्क्रिय नहीं कर सकते",
-      reasonEn: "You cannot deactivate your own account",
-    };
+    return { allowed: false, reason: m.cannotDeactivateSelf };
   }
 
   return { allowed: true };

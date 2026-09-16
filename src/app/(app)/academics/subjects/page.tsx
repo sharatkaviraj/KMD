@@ -2,10 +2,13 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { setSubjectActiveAction } from "@/app/(app)/academics/actions";
+import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { pageTitle } from "@/platform/i18n/page-title";
 import { can } from "@/platform/auth/permissions";
 import { listSubjects } from "@/modules/academics/data/academics-repo";
 import { compareSubjects } from "@/modules/academics/domain/subjects";
+import { primary } from "@/platform/i18n/language";
 import { Badge } from "@/ui/primitives";
 import { Button, buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
@@ -13,25 +16,28 @@ import { PageHeader } from "@/ui/shell/app-shell";
 
 export const runtime = "nodejs";
 
-export const metadata = { title: "विषय · VPPS One" };
+export async function generateMetadata() {
+  return { title: await pageTitle(m.subjects) };
+}
 
 export default async function SubjectsPage() {
   const staff = await requirePermission("academics:view", "/academics/subjects");
+  const language = staff.language;
   const subjects = (await listSubjects()).sort(compareSubjects);
   const mayManage = can(staff, "academics:manage");
 
   return (
     <>
       <PageHeader
-        title="विषय"
-        titleEn="Subjects"
-        back={{ href: "/academics", label: "शैक्षणिक" }}
-        description="कोड वही रखें जो समय-सारिणी की शीट में है। · Use the code exactly as the timetable sheet writes it."
+        title={m.subjects}
+        description={m.subjectsIntro}
+        language={language}
+        back={{ href: "/academics", label: m.academicsTitle }}
         action={
           mayManage ? (
             <Link href="/academics/subjects/new" className={buttonClasses({ size: "sm" })}>
               <Plus aria-hidden />
-              जोड़ें
+              {primary(m.add, language)}
             </Link>
           ) : null
         }
@@ -39,12 +45,12 @@ export default async function SubjectsPage() {
 
       {subjects.length === 0 ? (
         <EmptyState
-          hi="अभी कोई विषय नहीं है।"
-          en="Add every subject the timetable names. Phase 2 resolves each cell against this list."
+          title={m.subjectsNone}
+          language={language}
           action={
             mayManage ? (
               <Link href="/academics/subjects/new" className={buttonClasses()}>
-                पहला विषय जोड़ें
+                {primary(m.subjectFirst, language)}
               </Link>
             ) : null
           }
@@ -67,16 +73,21 @@ export default async function SubjectsPage() {
                 {subject.code}
               </span>
 
+              {/* A subject's own names are data, not interface: both are shown
+                  whatever the reader chose, because the school types them and
+                  the timetable sheet may use either. */}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold text-foreground">
-                  {subject.nameHi}
+                  {language === "en" ? subject.nameEn : subject.nameHi}
                 </span>
                 <span className="block truncate text-[13px] text-muted-foreground">
-                  {subject.nameEn}
+                  {language === "en" ? subject.nameHi : subject.nameEn}
                 </span>
               </span>
 
-              {!subject.isActive ? <Badge tone="neutral">निष्क्रिय</Badge> : null}
+              {!subject.isActive ? (
+                <Badge tone="neutral">{primary(m.inactive, language)}</Badge>
+              ) : null}
 
               {mayManage ? (
                 <span className="flex shrink-0 items-center gap-1">
@@ -84,7 +95,7 @@ export default async function SubjectsPage() {
                     href={`/academics/subjects/${subject.id}`}
                     className={buttonClasses({ variant: "ghost", size: "sm" })}
                   >
-                    बदलें
+                    {primary(m.edit, language)}
                   </Link>
                   <form action={setSubjectActiveAction}>
                     <input type="hidden" name="id" value={subject.id} />
@@ -94,7 +105,7 @@ export default async function SubjectsPage() {
                       value={subject.isActive ? "false" : "true"}
                     />
                     <Button type="submit" variant="ghost" size="sm">
-                      {subject.isActive ? "हटाएँ" : "वापस"}
+                      {primary(subject.isActive ? m.remove : m.restore, language)}
                     </Button>
                   </form>
                 </span>

@@ -1,28 +1,43 @@
 import * as React from "react";
 
+import { m } from "@/messages";
+import {
+  flat,
+  primary,
+  secondary,
+  type Language,
+  type Localized,
+} from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";
 
 /**
  * The three states every screen has and most screens forget.
  *
  * They are components rather than a pattern to copy because the forgetting is
- * the problem: a list with no empty state renders as a blank page that looks
- * broken, and on a phone in a corridor nobody can tell a blank page from a
- * failed one.
+ * the problem: a list with no empty state renders as a blank page, and on a
+ * phone in a corridor nobody can tell a blank page from a failed one.
+ *
+ * Each takes the reader's language, because a staff member who asked for
+ * English should not be told a list is empty in Hindi.
  */
 
 /** A list or screen with nothing in it yet — a normal state, not a fault. */
 export function EmptyState({
-  hi,
-  en,
+  title,
+  detail,
+  language,
   action,
   className,
 }: {
-  hi: React.ReactNode;
-  en?: React.ReactNode;
+  title: Localized;
+  detail?: Localized;
+  language: Language;
   action?: React.ReactNode;
   className?: string;
 }) {
+  const titleUnder = secondary(title, language);
+  const detailUnder = detail ? secondary(detail, language) : null;
+
   return (
     <div
       className={cn(
@@ -30,10 +45,16 @@ export function EmptyState({
         className,
       )}
     >
-      <p className="text-[15px] font-medium text-foreground">{hi}</p>
-      {en ? (
-        <p className="mx-auto mt-1 max-w-xs text-[13px] leading-5 text-muted-foreground">
-          {en}
+      <p className="text-[15px] font-medium text-foreground">
+        {primary(title, language)}
+      </p>
+      {titleUnder ? (
+        <p className="text-[13px] text-muted-foreground">{titleUnder}</p>
+      ) : null}
+      {detail ? (
+        <p className="mx-auto mt-2 max-w-xs text-[13px] leading-5 text-muted-foreground">
+          {primary(detail, language)}
+          {detailUnder ? <span className="ml-1.5 opacity-80">{detailUnder}</span> : null}
         </p>
       ) : null}
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
@@ -56,9 +77,15 @@ export function Skeleton({ className }: { className?: string }) {
   );
 }
 
-export function SkeletonRows({ rows = 5 }: { rows?: number }) {
+export function SkeletonRows({
+  rows = 5,
+  language = "both",
+}: {
+  rows?: number;
+  language?: Language;
+}) {
   return (
-    <div className="space-y-2" role="status" aria-label="लोड हो रहा है">
+    <div className="space-y-2" role="status" aria-label={flat(m.loading, language)}>
       {Array.from({ length: rows }).map((_, index) => (
         <Skeleton key={index} className="h-[4.5rem] w-full rounded-2xl" />
       ))}
@@ -68,18 +95,20 @@ export function SkeletonRows({ rows = 5 }: { rows?: number }) {
 
 /** Something failed. Always offers a way on, never just the word "Error". */
 export function ErrorState({
-  hi = "कुछ गड़बड़ हो गई।",
-  en = "Something went wrong.",
+  title = m.somethingWrong,
+  language,
   detail,
   action,
   className,
 }: {
-  hi?: React.ReactNode;
-  en?: React.ReactNode;
+  title?: Localized;
+  language: Language;
   detail?: string | null;
   action?: React.ReactNode;
   className?: string;
 }) {
+  const under = secondary(title, language);
+
   return (
     <div
       role="alert"
@@ -88,10 +117,14 @@ export function ErrorState({
         className,
       )}
     >
-      <p className="text-[15px] font-medium text-destructive-soft-foreground">{hi}</p>
-      <p className="mt-1 text-[13px] leading-5 text-destructive-soft-foreground/80">
-        {en}
+      <p className="text-[15px] font-medium text-destructive-soft-foreground">
+        {primary(title, language)}
       </p>
+      {under ? (
+        <p className="mt-1 text-[13px] leading-5 text-destructive-soft-foreground/80">
+          {under}
+        </p>
+      ) : null}
       {detail ? (
         // The digest, not the stack. It is what makes a report actionable
         // without putting internals on a teacher's screen.

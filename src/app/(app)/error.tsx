@@ -2,6 +2,9 @@
 
 import { useEffect } from "react";
 
+import { m } from "@/messages";
+import { primary } from "@/platform/i18n/language";
+import { useLanguage } from "@/platform/i18n/use-language";
 import { Button } from "@/ui/primitives/button";
 import { ErrorState } from "@/ui/states";
 
@@ -19,6 +22,10 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // The shell is above this boundary, so its LanguageProvider still applies:
+  // an error screen speaks the same language as the screen that failed.
+  const language = useLanguage();
+
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -26,10 +33,13 @@ export default function AppError({
   return (
     <div className="py-6">
       <ErrorState
-        detail={error.digest ? `संदर्भ · ref ${error.digest}` : null}
+        language={language}
+        detail={
+          error.digest ? `${primary(m.reference, language)} ${error.digest}` : null
+        }
         action={
           <Button variant="outline" onClick={reset}>
-            फिर कोशिश करें · Try again
+            {primary(m.tryAgain, language)}
           </Button>
         }
       />

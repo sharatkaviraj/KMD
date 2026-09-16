@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 
+import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
-import { roleLabels, roleLabelsEn } from "@/platform/auth/permissions";
+import { pageTitle } from "@/platform/i18n/page-title";
+import { roleLabel } from "@/platform/auth/permissions";
+import { flat, primary } from "@/platform/i18n/language";
 import { buttonClasses } from "@/ui/primitives/button";
 import { Card, Notice } from "@/ui/primitives";
 import { PageHeader } from "@/ui/shell/app-shell";
 
 export const runtime = "nodejs";
 
-export const metadata = { title: "अनुमति नहीं · VPPS One" };
+export async function generateMetadata() {
+  return { title: await pageTitle(m.accessDenied) };
+}
 
 /**
  * Where `requirePermission()` sends somebody who reached a screen their role
@@ -22,18 +27,15 @@ export const metadata = { title: "अनुमति नहीं · VPPS One" }
  */
 export default async function AccessDeniedPage(props: PageProps<"/access-denied">) {
   const staff = await requireStaff();
+  const language = staff.language;
   const { permission } = await props.searchParams;
   const wanted = typeof permission === "string" ? permission : null;
 
   return (
     <>
-      <PageHeader title="अनुमति नहीं" titleEn="You cannot open this" />
+      <PageHeader title={m.accessDenied} language={language} />
 
-      <Notice
-        tone="warning"
-        hi="आपकी भूमिका इस स्क्रीन को नहीं खोल सकती।"
-        en="Your role does not have access to this screen. Ask the school admin if you need it."
-      />
+      <Notice tone="warning" text={m.accessDeniedBody} language={language} />
 
       <Card className="mt-4 p-5">
         <div className="flex items-start gap-3">
@@ -43,14 +45,14 @@ export default async function AccessDeniedPage(props: PageProps<"/access-denied"
           />
           <div className="min-w-0 space-y-1 text-[14px]">
             <p className="text-muted-foreground">
-              भूमिका · Role{" "}
+              {flat(m.role, language)}{" "}
               <span className="font-medium text-foreground">
-                {roleLabels[staff.role]} ({roleLabelsEn[staff.role]})
+                {flat(roleLabel(staff.role), language)}
               </span>
             </p>
             {wanted ? (
               <p className="text-muted-foreground">
-                आवश्यक अनुमति · Needs{" "}
+                {flat(m.permissionNeeded, language)}{" "}
                 <span className="font-mono text-[13px] font-medium text-foreground">
                   {wanted}
                 </span>
@@ -64,7 +66,7 @@ export default async function AccessDeniedPage(props: PageProps<"/access-denied"
         href="/dashboard"
         className={buttonClasses({ variant: "outline", fullWidth: true, className: "mt-5" })}
       >
-        मुख्य पर जाएँ · Go home
+        {primary(m.goHome, language)}
       </Link>
     </>
   );

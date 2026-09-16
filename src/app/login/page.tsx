@@ -2,15 +2,21 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/app/login/login-form";
+import { m } from "@/messages";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { flat, primary } from "@/platform/i18n/language";
+import { readLanguageCookie } from "@/platform/i18n/language-cookie";
 import { getSchoolName, hasRequiredEnvVars } from "@/platform/env";
 import { EnvironmentBadgeOnPaper } from "@/ui/environment-badge";
 
 export const runtime = "nodejs";
 
-export const metadata = {
-  title: "साइन इन · VPPS One",
-};
+export async function generateMetadata() {
+  // Signed out there is no profile, so the device's remembered choice decides
+  // what the tab says.
+  const language = await readLanguageCookie();
+  return { title: `${primary(m.signInTitle, language)} · ${m.appName.hi}` };
+}
 
 export default async function LoginPage() {
   if (!hasRequiredEnvVars) {
@@ -34,10 +40,13 @@ export default async function LoginPage() {
     redirect("/dashboard");
   }
 
+  // Signed out there is no profile, so the device remembers instead (D-36).
+  const language = await readLanguageCookie();
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-10">
       <div className="mb-8 space-y-3">
-        <EnvironmentBadgeOnPaper />
+        <EnvironmentBadgeOnPaper language={language} />
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           VPPS One
         </h1>
@@ -46,8 +55,8 @@ export default async function LoginPage() {
 
       {/* useSearchParams() needs a boundary; without one the whole route is
           forced dynamic at build time. */}
-      <Suspense fallback={<div className="h-72" />}>
-        <LoginForm />
+      <Suspense fallback={<div className="h-72" aria-label={flat(m.loading, language)} />}>
+        <LoginForm language={language} />
       </Suspense>
     </main>
   );

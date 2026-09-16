@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { m } from "@/messages";
+import { encodeMessage, t, type Localized } from "@/platform/i18n/language";
+
 /**
  * Subjects and the class-alias map — pure rules, no database.
  *
@@ -29,21 +32,37 @@ const subjectCode = z
   .trim()
   .transform(normalizeSubjectCode)
   .refine((value) => SUBJECT_CODE_PATTERN.test(value), {
-    message:
-      "1–16 अक्षर/अंक, बिना स्पेस · 1–16 letters or digits, no spaces (dots and hyphens are fine)",
+    message: encodeMessage(
+      t(
+        "1–16 अक्षर या अंक, बिना स्पेस",
+        "1–16 letters or digits, no spaces (dots and hyphens are fine)",
+      ),
+    ),
   });
 
-const requiredName = (what: string) =>
+/**
+ * `what` arrives as a pair so the field's own name is in the reader's
+ * language too — "हिन्दी नाम ज़रूरी है" rather than "Hindi name ज़रूरी है".
+ */
+const requiredName = (what: Localized) =>
   z
     .string()
     .trim()
-    .min(1, { message: `${what} ज़रूरी है · ${what} is required` })
-    .max(60, { message: `${what} बहुत लंबा है · ${what} is too long` });
+    .min(1, {
+      message: encodeMessage(
+        t(`${what.hi} ज़रूरी है`, `${what.en} is required`),
+      ),
+    })
+    .max(60, {
+      message: encodeMessage(
+        t(`${what.hi} बहुत लंबा है`, `${what.en} is too long`),
+      ),
+    });
 
 export const createSubjectSchema = z.object({
   code: subjectCode,
-  nameHi: requiredName("हिन्दी नाम"),
-  nameEn: requiredName("English name"),
+  nameHi: requiredName(m.nameHindi),
+  nameEn: requiredName(m.nameEnglish),
   sortOrder: z.coerce.number().int().min(0).max(999),
 });
 
@@ -98,16 +117,25 @@ export function normalizeTimetableLabel(value: string): string {
 }
 
 export const classAliasSchema = z.object({
-  classId: z.uuid({ message: "कक्षा चुनें · Choose a class" }),
+  classId: z.uuid({
+    message: encodeMessage(t("कक्षा चुनें", "Choose a class")),
+  }),
   timetableLabel: z
     .string()
     .trim()
     .transform(normalizeTimetableLabel)
     .refine((value) => value.length > 0, {
-      message: "समय-सारिणी का नाम ज़रूरी है · The timetable label is required",
+      message: encodeMessage(
+        t("समय-सारिणी का नाम ज़रूरी है", "The timetable label is required"),
+      ),
     })
     .refine((value) => value.length <= TIMETABLE_LABEL_MAX, {
-      message: `${TIMETABLE_LABEL_MAX} अक्षर तक · At most ${TIMETABLE_LABEL_MAX} characters`,
+      message: encodeMessage(
+        t(
+          `${TIMETABLE_LABEL_MAX} अक्षर तक`,
+          `At most ${TIMETABLE_LABEL_MAX} characters`,
+        ),
+      ),
     }),
   displayName: z
     .string()

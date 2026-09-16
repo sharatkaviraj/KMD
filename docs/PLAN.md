@@ -75,6 +75,45 @@ class teacher here without either fact touching the other.
 Permission checks live in one place (`src/platform/auth/permissions.ts`) and are
 enforced server-side. A page's guard is a function call, not a flag lookup.
 
+## 3a. Language
+
+**The app is not bilingual. Each account chooses.**
+
+`vppsone.staff_profiles.preferred_language` is `hi`, `en` or `both`, and every
+screen renders in whichever one the signed-in staff member asked for:
+
+| | |
+|---|---|
+| `hi` | Hindi only |
+| `en` | English only |
+| `both` | Hindi with English beneath it |
+
+The school is not one audience. A teacher in the village reads Hindi; the office
+reads English; some people want both. Showing everybody both made every label
+twice as long for every single person and gave nobody the screen they wanted.
+
+How it works:
+
+- Strings are written once as a Hindi/English pair in `src/messages/index.ts`
+  and rendered per reader. `src/platform/i18n/language.ts` is the pure half —
+  `primary()`, `secondary()`, `flat()` — with no React and no database, so the
+  choice can be made anywhere, including inside a server action.
+- Server Components read the language from `getCurrentStaff()`. Client
+  Components read it from a context the shell provides.
+- Validation messages are produced in the domain, which has no idea who is
+  reading, so the pair is JSON-encoded through Zod's `string` message and
+  unpacked at the edge where the language is known.
+- Signed out there is no profile, so the login screen uses a device cookie the
+  last sign-in wrote. A first-ever visit gets `both`, because bilingual is the
+  only choice that cannot lock somebody out of the one screen they must read.
+- New profiles default to `hi`; an admin sets anything else when they create
+  the profile. Dense list rows lead with one language whatever the choice —
+  a tab bar is 70px wide and a list row has no space for two.
+
+A screen that hard-codes a Hindi string is a bug, not a style. `tests/language.test.ts`
+checks the catalogue has both halves everywhere, that no English half contains
+Devanagari, and that no Hindi half is the English string copied across.
+
 ## 4. Data model, in outline
 
 All in schema `vppsone`. Every row carries `created_by` and `created_at`; rows

@@ -1,4 +1,6 @@
+import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { pageTitle } from "@/platform/i18n/page-title";
 import { can } from "@/platform/auth/permissions";
 import {
   listClassAliases,
@@ -11,30 +13,31 @@ import {
   orphanedAliases,
 } from "@/modules/academics/domain/subjects";
 import { ClassAliasEditor } from "@/modules/academics/ui/class-alias-editor";
+import { t } from "@/platform/i18n/language";
 import { Notice } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
 
 export const runtime = "nodejs";
 
-export const metadata = { title: "कक्षा के नाम · VPPS One" };
+export async function generateMetadata() {
+  return { title: await pageTitle(m.classLabels) };
+}
 
 export default async function ClassAliasesPage() {
   const staff = await requirePermission("academics:view", "/academics/classes");
+  const language = staff.language;
   const sessionLabel = await resolveSessionLabel();
 
   if (!sessionLabel) {
     return (
       <>
         <PageHeader
-          title="कक्षा के नाम"
-          titleEn="Class labels"
-          back={{ href: "/academics", label: "शैक्षणिक" }}
+          title={m.classLabels}
+          language={language}
+          back={{ href: "/academics", label: m.academicsTitle }}
         />
-        <EmptyState
-          hi="फ़ीस ऐप में कोई कक्षा नहीं मिली।"
-          en="No classes were found in the fee app, so there is nothing to map yet."
-        />
+        <EmptyState title={m.classLabelsNothing} language={language} />
       </>
     );
   }
@@ -49,39 +52,36 @@ export default async function ClassAliasesPage() {
   // No foreign key points into `public` (rule 2), so a class that has gone
   // leaves its alias behind. Nothing enforces this; this is what notices.
   const orphans = orphanedAliases(classes, aliases);
+  const orphanLabels = orphans.map((alias) => alias.timetableLabel).join(", ");
 
   return (
     <>
       <PageHeader
-        title="कक्षा के नाम"
-        titleEn="Class labels"
-        back={{ href: "/academics", label: "शैक्षणिक" }}
-        description={`सत्र · Session ${sessionLabel} — ${progress.mapped} / ${progress.total}`}
+        title={m.classLabels}
+        description={t(
+          `${m.session.hi} ${sessionLabel} — ${progress.mapped} / ${progress.total}`,
+          `${m.session.en} ${sessionLabel} — ${progress.mapped} / ${progress.total}`,
+        )}
+        language={language}
+        back={{ href: "/academics", label: m.academicsTitle }}
       />
 
       <Notice
         className="mb-4"
         tone={progress.complete ? "success" : "info"}
-        hi={
-          progress.complete
-            ? "हर कक्षा का नाम तय है।"
-            : "समय-सारिणी की शीट में कक्षा जिस नाम से लिखी है, वही यहाँ भरें।"
-        }
-        en={
-          progress.complete
-            ? "Every class has a timetable label. A Phase 2 import can resolve all of them."
-            : "Enter each class exactly as the timetable sheet writes it — “11-S”, “5”, “NUR”. Unmapped classes are listed first."
-        }
+        text={progress.complete ? m.classLabelsDone : m.classLabelsTodo}
+        language={language}
       />
 
       {orphans.length > 0 ? (
         <Notice
           className="mb-4"
           tone="warning"
-          hi={`${orphans.length} नाम ऐसी कक्षा से जुड़े हैं जो अब फ़ीस ऐप में नहीं है।`}
-          en={`${orphans.length} label(s) point at a class that no longer exists in the fee app for this session: ${orphans
-            .map((alias) => alias.timetableLabel)
-            .join(", ")}. They are ignored by the timetable and can be left alone.`}
+          text={t(
+            `${orphans.length} नाम ऐसी कक्षा से जुड़े हैं जो अब फ़ीस ऐप में नहीं है: ${orphanLabels}. समय-सारिणी इन्हें छोड़ देगी।`,
+            `${orphans.length} label(s) point at a class that no longer exists in the fee app for this session: ${orphanLabels}. They are ignored by the timetable and can be left alone.`,
+          )}
+          language={language}
         />
       ) : null}
 

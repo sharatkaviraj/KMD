@@ -26,12 +26,12 @@ describe("the navigation map", () => {
     }
   });
 
-  it("gives every item a Hindi and an English label", () => {
+  it("gives every item both halves of a label", () => {
     for (const item of NAV_ITEMS) {
-      expect(item.label, `${item.href} has no Hindi label`).toBeTruthy();
-      expect(item.labelEn, `${item.href} has no English label`).toBeTruthy();
-      // Hindi first is the rule, so the labels must not be the same string.
-      expect(item.label).not.toBe(item.labelEn);
+      expect(item.label.hi, `${item.href} has no Hindi label`).toBeTruthy();
+      expect(item.label.en, `${item.href} has no English label`).toBeTruthy();
+      // A pair whose halves are identical is a translation nobody did.
+      expect(item.label.hi).not.toBe(item.label.en);
     }
   });
 

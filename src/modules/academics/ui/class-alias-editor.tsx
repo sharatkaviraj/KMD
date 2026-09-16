@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Check } from "lucide-react";
 
 import { saveClassAliasAction } from "@/app/(app)/academics/actions";
+import { m } from "@/messages";
 import {
   idleAcademicsState,
   type AcademicsFormState,
@@ -12,6 +13,8 @@ import {
   feeClassName,
   type ClassWithAlias,
 } from "@/modules/academics/domain/subjects";
+import { flat, primary } from "@/platform/i18n/language";
+import { useLanguage } from "@/platform/i18n/use-language";
 import { Badge, Input } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 
@@ -31,6 +34,7 @@ function ClassAliasRow({
   sessionLabel: string;
   editable: boolean;
 }) {
+  const language = useLanguage();
   const [state, formAction, isPending] = useActionState<
     AcademicsFormState,
     FormData
@@ -53,18 +57,18 @@ function ClassAliasRow({
               {feeClassName(row.feeClass)}
             </p>
             <p className="text-[12px] text-subtle-foreground">
-              फ़ीस ऐप की कक्षा · Fee app class
+              {flat(m.feeAppClass, language)}
             </p>
           </div>
           {saved ? (
             <Badge tone="success">
               <Check aria-hidden className="size-3" />
-              सहेजा
+              {primary(m.saved, language)}
             </Badge>
           ) : mapped ? (
-            <Badge tone="neutral">मैप्ड</Badge>
+            <Badge tone="neutral">{primary(m.mapped, language)}</Badge>
           ) : (
-            <Badge tone="warning">बाकी</Badge>
+            <Badge tone="warning">{primary(m.pending, language)}</Badge>
           )}
         </div>
 
@@ -74,7 +78,7 @@ function ClassAliasRow({
               htmlFor={`label-${row.feeClass.id}`}
               className="mb-1 block text-[13px] font-medium text-muted-foreground"
             >
-              समय-सारिणी का नाम · Timetable label
+              {flat(m.timetableLabel, language)}
             </label>
             <Input
               id={`label-${row.feeClass.id}`}
@@ -97,7 +101,7 @@ function ClassAliasRow({
               loading={isPending}
               loadingText="…"
             >
-              सहेजें
+              {primary(m.save, language)}
             </Button>
           ) : null}
         </div>
@@ -107,13 +111,13 @@ function ClassAliasRow({
             id={`label-${row.feeClass.id}-error`}
             className="text-[13px] text-destructive-soft-foreground"
           >
-            {error}
+            {flat(error, language)}
           </p>
         ) : null}
 
         {state.message ? (
           <p className="text-[13px] text-destructive-soft-foreground">
-            {state.message} {state.messageEn}
+            {flat(state.message, language)}
           </p>
         ) : null}
       </form>

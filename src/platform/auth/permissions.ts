@@ -1,3 +1,5 @@
+import { t, type Localized } from "@/platform/i18n/language";
+
 /**
  * Who may do what. One file, no database import, no framework import — so it
  * can be read end to end and tested exhaustively.
@@ -76,23 +78,23 @@ export const staffPermissions = [
 
 export type StaffPermission = (typeof staffPermissions)[number];
 
-export const roleLabels: Record<StaffRole, string> = {
-  admin: "प्रशासक",
-  office: "कार्यालय",
-  academic_coordinator: "शैक्षणिक संयोजक",
-  exam_coordinator: "परीक्षा संयोजक",
-  teacher: "अध्यापक",
-  view_only: "केवल देखें",
+/**
+ * A pair per role, rendered in whichever language the reader asked for. The
+ * two halves used to be separate maps that every screen printed side by side;
+ * they are one value now so the choice can be made where it belongs (D-35).
+ */
+export const roleLabels: Record<StaffRole, Localized> = {
+  admin: t("प्रशासक", "Admin"),
+  office: t("कार्यालय", "Office"),
+  academic_coordinator: t("शैक्षणिक संयोजक", "Academic Coordinator"),
+  exam_coordinator: t("परीक्षा संयोजक", "Exam Coordinator"),
+  teacher: t("अध्यापक", "Teacher"),
+  view_only: t("केवल देखें", "View only"),
 };
 
-export const roleLabelsEn: Record<StaffRole, string> = {
-  admin: "Admin",
-  office: "Office",
-  academic_coordinator: "Academic Coordinator",
-  exam_coordinator: "Exam Coordinator",
-  teacher: "Teacher",
-  view_only: "View only",
-};
+export function roleLabel(role: StaffRole): Localized {
+  return roleLabels[role];
+}
 
 /** Admin is "everything" by construction, not by a list that can fall behind. */
 const adminPermissions: readonly StaffPermission[] = staffPermissions;

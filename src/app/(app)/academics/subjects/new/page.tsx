@@ -1,21 +1,25 @@
 import { createSubjectAction } from "@/app/(app)/academics/actions";
+import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { pageTitle } from "@/platform/i18n/page-title";
 import { SubjectForm } from "@/modules/academics/ui/subject-form";
 import { PageHeader } from "@/ui/shell/app-shell";
 
 export const runtime = "nodejs";
 
-export const metadata = { title: "नया विषय · VPPS One" };
+export async function generateMetadata() {
+  return { title: await pageTitle(m.subjectNew) };
+}
 
 export default async function NewSubjectPage() {
-  await requirePermission("academics:manage", "/academics/subjects/new");
+  const staff = await requirePermission("academics:manage", "/academics/subjects/new");
 
   return (
     <>
       <PageHeader
-        title="नया विषय"
-        titleEn="Add subject"
-        back={{ href: "/academics/subjects", label: "विषय" }}
+        title={m.subjectNew}
+        language={staff.language}
+        back={{ href: "/academics/subjects", label: m.subjects }}
       />
       <SubjectForm action={createSubjectAction} />
     </>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { decodeMessage } from "@/platform/i18n/language";
+
 import {
   canDeactivate,
   checkboxValue,
@@ -24,7 +26,7 @@ function profile(overrides: Partial<StaffProfile> = {}): StaffProfile {
     whatsappPhone: null,
     isTeaching: true,
     isActive: true,
-    preferredLanguage: "hi",
+    language: "hi",
     createdAt: "2026-09-16T00:00:00Z",
     ...overrides,
   };
@@ -140,13 +142,45 @@ describe("createStaffSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("puts every message in Hindi and English", () => {
+  it("carries both languages so the screen can pick one", () => {
     const result = createStaffSchema.safeParse({ ...valid, shortName: "!" });
     expect(result.success).toBe(false);
     if (!result.success) {
-      // Every message a teacher can see is bilingual; the separator is what
-      // makes that checkable rather than a convention nobody enforces.
-      expect(result.error.issues[0].message).toContain("·");
+      // A schema is parsed in a server action, long before a component exists,
+      // so it cannot know which language the reader asked for. It encodes the
+      // pair; the screen decodes and shows the half that reader wants (D-35).
+      const decoded = decodeMessage(result.error.issues[0].message);
+      expect(decoded.hi).toBeTruthy();
+      expect(decoded.en).toBeTruthy();
+      expect(decoded.hi).not.toBe(decoded.en);
+    }
+  });
+
+  it("encodes every message it produces, not just some", () => {
+    // A message that was never encoded decodes to itself in both halves, so a
+    // reader on English would be shown Hindi. Checking every field's failure
+    // is what stops one being missed.
+    const broken = {
+      displayName: "A",
+      shortName: "!",
+      role: "teacher",
+      phone: "12345",
+      whatsappPhone: "nope",
+      isTeaching: true,
+      preferredLanguage: "hi",
+    };
+
+    const result = createStaffSchema.safeParse(broken);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.length).toBeGreaterThan(0);
+      for (const issue of result.error.issues) {
+        const decoded = decodeMessage(issue.message);
+        expect(
+          decoded.hi,
+          `${String(issue.path[0])} has an unencoded message: ${issue.message}`,
+        ).not.toBe(decoded.en);
+      }
     }
   });
 });
@@ -267,7 +301,7 @@ describe("canDeactivate()", () => {
     // admin nobody could undo it.
     const verdict = canDeactivate(profile({ id: me }), me);
     expect(verdict.allowed).toBe(false);
-    expect(verdict.reasonEn).toMatch(/your own/i);
+    expect(verdict.reason?.en).toMatch(/your own/i);
   });
 
   it("refuses somebody already inactive", () => {
@@ -275,12 +309,14 @@ describe("canDeactivate()", () => {
     expect(verdict.allowed).toBe(false);
   });
 
-  it("gives a reason in both languages whenever it refuses", () => {
+  it("gives a reason as a pair whenever it refuses", () => {
+    // A pair, not a rendered string: the domain cannot know which language
+    // the reader asked for, so it hands back both and the screen chooses.
     for (const target of [profile({ id: me }), profile({ id: "x", isActive: false })]) {
       const verdict = canDeactivate(target, me);
       expect(verdict.allowed).toBe(false);
-      expect(verdict.reasonHi).toBeTruthy();
-      expect(verdict.reasonEn).toBeTruthy();
+      expect(verdict.reason?.hi).toBeTruthy();
+      expect(verdict.reason?.en).toBeTruthy();
     }
   });
 });

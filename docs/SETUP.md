@@ -137,3 +137,20 @@ The dev database's history also still lists the abandoned School One migrations
 whose objects were dropped on revert. Harmless: everything VPPS One creates
 lives in the `vppsone` schema with later timestamps. Left alone on purpose —
 those rows belong to the fee app's history, not this project's.
+
+## Language
+
+Each staff member reads the app in Hindi, English or both — it is a column on
+their profile, not a setting for the whole app (PLAN §3a, D-35).
+
+`npm run seed:dev` leaves the QA accounts on `hi`. `raj@vpps.co.in` is `en`.
+To change somebody, edit their profile in the app, or:
+
+```sql
+update vppsone.staff_profiles
+   set preferred_language = 'en'   -- 'hi' | 'en' | 'both'
+ where short_name = 'RAJ';
+```
+
+Signed out, the login screen uses a cookie the last successful sign-in wrote on
+that device; a phone nobody has signed in on yet shows both (D-36).

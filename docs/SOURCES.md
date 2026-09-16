@@ -15,7 +15,7 @@ Plain JS, no build step, runs as a static app on Firebase.
 | `scripts/data.js` | `parseTimetable`, `buildTeacherMap`, the cell grammar, parallel-vs-shared detection, combined-section merging, `SHORT_SUBJECTS` | `src/modules/timetable/domain/parse-timetable.ts` (task 2.1) |
 | `scripts/substitution.js` | the substitution engine | `src/modules/substitutions/domain/` (task 4.1) |
 | `scripts/app.js` | the rendering logic for class/teacher/day grids | reference for task 2.4 |
-| `scripts/i18n.js` | Hindi labels teachers already recognise | `src/messages/` |
+| `scripts/i18n.js` | Hindi labels teachers already recognise | `src/messages/` — as Hindi/English **pairs**, since language is per account (PLAN §3a) |
 | `tests/` | the engine's own test suite | port **first**, before the code |
 
 Known from the earlier port: the fixture produces 768 cells, 30 parallel, 60

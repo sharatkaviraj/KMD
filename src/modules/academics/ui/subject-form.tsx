@@ -3,11 +3,14 @@
 import { useActionState } from "react";
 import Link from "next/link";
 
+import { m } from "@/messages";
 import {
   idleAcademicsState,
   type AcademicsFormState,
 } from "@/modules/academics/domain/form-state";
 import type { Subject } from "@/modules/academics/domain/subjects";
+import { flat, primary, type Localized } from "@/platform/i18n/language";
+import { useLanguage } from "@/platform/i18n/use-language";
 import { Button, buttonClasses } from "@/ui/primitives/button";
 import { Field, Input, Notice } from "@/ui/primitives";
 
@@ -23,23 +26,25 @@ export function SubjectForm({
   action: Action;
   subject?: Subject;
 }) {
+  const language = useLanguage();
   const [state, formAction, isPending] = useActionState<
     AcademicsFormState,
     FormData
   >(action, idleAcademicsState);
 
   const editing = Boolean(subject);
-  const error = (field: string) => state.fieldErrors[field] ?? null;
+  const error = (field: string): Localized | null =>
+    state.fieldErrors[field] ?? null;
 
   return (
     <form action={formAction} className="space-y-5">
       {subject ? <input type="hidden" name="id" value={subject.id} /> : null}
 
       {state.message ? (
-        <Notice tone="danger" hi={state.message} en={state.messageEn ?? undefined} />
+        <Notice tone="danger" text={state.message} language={language} />
       ) : null}
 
-      <Field label="कोड" hint="Code" htmlFor="code" error={error("code")}>
+      <Field label={m.code} htmlFor="code" error={error("code")} language={language}>
         <Input
           id="code"
           name="code"
@@ -57,13 +62,16 @@ export function SubjectForm({
           aria-describedby="code-help"
         />
         <p id="code-help" className="text-[13px] leading-5 text-muted-foreground">
-          {editing
-            ? "कोड बदला नहीं जा सकता · The code cannot be changed"
-            : "समय-सारिणी की शीट में यह विषय जिस नाम से लिखा है। · Exactly as the timetable sheet writes it."}
+          {flat(editing ? m.codeLockedHint : m.codeNewHint, language)}
         </p>
       </Field>
 
-      <Field label="हिन्दी नाम" hint="Hindi name" htmlFor="nameHi" error={error("nameHi")}>
+      <Field
+        label={m.nameHindi}
+        htmlFor="nameHi"
+        error={error("nameHi")}
+        language={language}
+      >
         <Input
           id="nameHi"
           name="nameHi"
@@ -74,7 +82,12 @@ export function SubjectForm({
         />
       </Field>
 
-      <Field label="English name" hint="" htmlFor="nameEn" error={error("nameEn")}>
+      <Field
+        label={m.nameEnglish}
+        htmlFor="nameEn"
+        error={error("nameEn")}
+        language={language}
+      >
         <Input
           id="nameEn"
           name="nameEn"
@@ -85,7 +98,12 @@ export function SubjectForm({
         />
       </Field>
 
-      <Field label="क्रम" hint="Order" htmlFor="sortOrder" error={error("sortOrder")}>
+      <Field
+        label={m.sortOrder}
+        htmlFor="sortOrder"
+        error={error("sortOrder")}
+        language={language}
+      >
         <Input
           id="sortOrder"
           name="sortOrder"
@@ -98,7 +116,7 @@ export function SubjectForm({
           aria-describedby="sortOrder-help"
         />
         <p id="sortOrder-help" className="text-[13px] leading-5 text-muted-foreground">
-          छोटा नंबर पहले दिखेगा। · Lower numbers come first in lists and report cards.
+          {flat(m.sortOrderHint, language)}
         </p>
       </Field>
 
@@ -107,10 +125,15 @@ export function SubjectForm({
           href="/academics/subjects"
           className={buttonClasses({ variant: "outline" })}
         >
-          रद्द करें
+          {primary(m.cancel, language)}
         </Link>
-        <Button type="submit" loading={isPending} loadingText="सहेजा जा रहा है…" fullWidth>
-          {editing ? "बदलाव सहेजें" : "जोड़ें"}
+        <Button
+          type="submit"
+          loading={isPending}
+          loadingText={primary(m.saving, language)}
+          fullWidth
+        >
+          {primary(editing ? m.save : m.add, language)}
         </Button>
       </div>
     </form>

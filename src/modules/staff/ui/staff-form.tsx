@@ -3,9 +3,11 @@
 import { useActionState } from "react";
 import Link from "next/link";
 
-import { staffRoles } from "@/platform/auth/permissions";
-import { roleLabels, roleLabelsEn } from "@/platform/auth/permissions";
 import type { StaffFormState } from "@/app/(app)/staff/actions";
+import { m } from "@/messages";
+import { roleLabel, staffRoles } from "@/platform/auth/permissions";
+import { flat, primary, type Localized } from "@/platform/i18n/language";
+import { useLanguage } from "@/platform/i18n/use-language";
 import type { StaffProfile } from "@/modules/staff/domain/staff";
 import { Button, buttonClasses } from "@/ui/primitives/button";
 import { Checkbox, Field, Input, Notice, Select } from "@/ui/primitives";
@@ -14,7 +16,6 @@ const initialState: StaffFormState = {
   status: "idle",
   fieldErrors: {},
   message: null,
-  messageEn: null,
 };
 
 type Action = (
@@ -32,38 +33,45 @@ export function StaffForm({
   staff?: StaffProfile;
   cancelHref: string;
 }) {
+  const language = useLanguage();
   const [state, formAction, isPending] = useActionState<StaffFormState, FormData>(
     action,
     initialState,
   );
   const editing = Boolean(staff);
-  const error = (field: string) => state.fieldErrors[field] ?? null;
+  const error = (field: string): Localized | null =>
+    state.fieldErrors[field] ?? null;
 
   return (
     <form action={formAction} className="space-y-5">
       {staff ? <input type="hidden" name="id" value={staff.id} /> : null}
 
       {state.message ? (
-        <Notice tone="danger" hi={state.message} en={state.messageEn ?? undefined} />
+        <Notice tone="danger" text={state.message} language={language} />
       ) : null}
 
-      <Field label="नाम" hint="Name" htmlFor="displayName" error={error("displayName")}>
+      <Field
+        label={m.name}
+        htmlFor="displayName"
+        error={error("displayName")}
+        language={language}
+      >
         <Input
           id="displayName"
           name="displayName"
           defaultValue={staff?.displayName}
           required
           autoComplete="off"
-          placeholder="पूरा नाम"
+          placeholder={primary(m.fullName, language)}
           aria-invalid={Boolean(error("displayName")) || undefined}
         />
       </Field>
 
       <Field
-        label="संक्षिप्त नाम"
-        hint="Short name"
+        label={m.shortName}
         htmlFor="shortName"
         error={error("shortName")}
+        language={language}
       >
         <Input
           id="shortName"
@@ -85,13 +93,11 @@ export function StaffForm({
           aria-describedby="shortName-help"
         />
         <p id="shortName-help" className="text-[13px] leading-5 text-muted-foreground">
-          {editing
-            ? "यह बदला नहीं जा सकता — समय-सारिणी इसी से जुड़ती है। · Cannot be changed; the timetable joins on it."
-            : "समय-सारिणी में इसी नाम से पहचान होगी। बाद में बदला नहीं जा सकता। · This is how the timetable will name them. It cannot be changed later."}
+          {flat(editing ? m.shortNameLockedHint : m.shortNameNewHint, language)}
         </p>
       </Field>
 
-      <Field label="भूमिका" hint="Role" htmlFor="role" error={error("role")}>
+      <Field label={m.role} htmlFor="role" error={error("role")} language={language}>
         <Select
           id="role"
           name="role"
@@ -100,7 +106,7 @@ export function StaffForm({
         >
           {staffRoles.map((role) => (
             <option key={role} value={role}>
-              {roleLabels[role]} · {roleLabelsEn[role]}
+              {flat(roleLabel(role), language)}
             </option>
           ))}
         </Select>
@@ -110,11 +116,11 @@ export function StaffForm({
         id="isTeaching"
         name="isTeaching"
         defaultChecked={staff?.isTeaching ?? true}
-        label="कक्षा लेते हैं"
-        hint="Teaches classes"
+        label={m.teaches}
+        language={language}
       />
 
-      <Field label="फ़ोन" hint="Phone" htmlFor="phone" error={error("phone")}>
+      <Field label={m.phone} htmlFor="phone" error={error("phone")} language={language}>
         <Input
           id="phone"
           name="phone"
@@ -128,10 +134,10 @@ export function StaffForm({
       </Field>
 
       <Field
-        label="व्हाट्सएप"
-        hint="WhatsApp"
+        label={m.whatsapp}
         htmlFor="whatsappPhone"
         error={error("whatsappPhone")}
+        language={language}
       >
         <Input
           id="whatsappPhone"
@@ -140,28 +146,43 @@ export function StaffForm({
           inputMode="numeric"
           defaultValue={staff?.whatsappPhone ?? ""}
           autoComplete="off"
-          placeholder="अलग हो तो भरें · Only if different"
+          placeholder={primary(m.whatsappHint, language)}
           aria-invalid={Boolean(error("whatsappPhone")) || undefined}
         />
       </Field>
 
-      <Field label="भाषा" hint="Language" htmlFor="preferredLanguage">
+      {/* The field this whole change exists for: each staff member reads the
+          app in their own language, and this is where an admin sets it. */}
+      <Field label={m.language} htmlFor="preferredLanguage" language={language}>
         <Select
           id="preferredLanguage"
           name="preferredLanguage"
-          defaultValue={staff?.preferredLanguage ?? "hi"}
+          defaultValue={staff?.language ?? "hi"}
+          aria-describedby="preferredLanguage-help"
         >
-          <option value="hi">हिन्दी · Hindi</option>
-          <option value="en">English</option>
+          <option value="hi">{flat(m.languageHindi, language)}</option>
+          <option value="en">{flat(m.languageEnglish, language)}</option>
+          <option value="both">{flat(m.languageBoth, language)}</option>
         </Select>
+        <p
+          id="preferredLanguage-help"
+          className="text-[13px] leading-5 text-muted-foreground"
+        >
+          {flat(m.languageHint, language)}
+        </p>
       </Field>
 
       <div className="flex gap-3 pt-1">
         <Link href={cancelHref} className={buttonClasses({ variant: "outline" })}>
-          रद्द करें
+          {primary(m.cancel, language)}
         </Link>
-        <Button type="submit" loading={isPending} loadingText="सहेजा जा रहा है…" fullWidth>
-          {editing ? "बदलाव सहेजें" : "जोड़ें"}
+        <Button
+          type="submit"
+          loading={isPending}
+          loadingText={primary(m.saving, language)}
+          fullWidth
+        >
+          {primary(editing ? m.save : m.add, language)}
         </Button>
       </div>
     </form>

@@ -3,8 +3,16 @@ import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 
 import { setStaffActiveAction } from "@/app/(app)/staff/actions";
+import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
-import { can, roleLabels, roleLabelsEn } from "@/platform/auth/permissions";
+import { can, roleLabel } from "@/platform/auth/permissions";
+import {
+  flat,
+  primary,
+  t,
+  type Language,
+  type Localized,
+} from "@/platform/i18n/language";
 import { getStaffById } from "@/modules/staff/data/staff-repo";
 import { canDeactivate } from "@/modules/staff/domain/staff";
 import { Badge, Card, DetailList, Notice } from "@/ui/primitives";
@@ -19,9 +27,16 @@ function formatPhone(value: string | null) {
   return `${value.slice(0, 5)} ${value.slice(5)}`;
 }
 
+const LANGUAGE_LABEL: Record<Language, Localized> = {
+  hi: m.languageHindi,
+  en: m.languageEnglish,
+  both: m.languageBoth,
+};
+
 export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
   const { id } = await props.params;
   const actor = await requirePermission("staff:view", `/staff/${id}`);
+  const language = actor.language;
   const person = await getStaffById(id);
 
   if (!person) {
@@ -34,9 +49,14 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
   return (
     <>
       <PageHeader
-        title={person.displayName}
-        titleEn={`${roleLabelsEn[person.role]} · ${person.shortName}`}
-        back={{ href: "/staff", label: "स्टाफ़" }}
+        // A name is the same in both languages.
+        title={t(person.displayName, person.displayName)}
+        description={t(
+          `${primary(roleLabel(person.role), "hi")} · ${person.shortName}`,
+          `${roleLabel(person.role).en} · ${person.shortName}`,
+        )}
+        language={language}
+        back={{ href: "/staff", label: m.staffTitle }}
         action={
           mayManage ? (
             <Link
@@ -44,7 +64,7 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
               className={buttonClasses({ variant: "outline", size: "sm" })}
             >
               <Pencil aria-hidden />
-              बदलें
+              {primary(m.edit, language)}
             </Link>
           ) : null
         }
@@ -54,41 +74,39 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
         <Notice
           className="mb-4"
           tone="warning"
-          hi="यह प्रोफ़ाइल निष्क्रिय है।"
-          en="Inactive. They stay on past timetables and registers, but will not appear in pickers."
+          text={m.staffInactiveNotice}
+          language={language}
         />
       ) : null}
 
       <Card className="p-5">
         <DetailList
+          language={language}
           items={[
+            { label: m.role, value: flat(roleLabel(person.role), language) },
             {
-              label: "भूमिका · Role",
-              value: `${roleLabels[person.role]} · ${roleLabelsEn[person.role]}`,
-            },
-            {
-              label: "संक्षिप्त नाम · Short name",
+              label: m.shortName,
               value: <span className="font-mono">{person.shortName}</span>,
             },
             {
-              label: "कक्षा लेते हैं · Teaches",
-              value: person.isTeaching ? "हाँ · Yes" : "नहीं · No",
+              label: m.teaches,
+              value: flat(person.isTeaching ? m.yes : m.no, language),
             },
-            { label: "फ़ोन · Phone", value: formatPhone(person.phone) },
+            { label: m.phone, value: formatPhone(person.phone) },
             {
-              label: "व्हाट्सएप · WhatsApp",
+              label: m.whatsapp,
               value: formatPhone(person.whatsappPhone ?? person.phone),
             },
             {
-              label: "भाषा · Language",
-              value: person.preferredLanguage === "en" ? "English" : "हिन्दी",
+              label: m.language,
+              value: flat(LANGUAGE_LABEL[person.language], language),
             },
             {
-              label: "साइन इन · Signs in",
+              label: m.signsIn,
               value: person.userId ? (
-                <Badge tone="success">हाँ · Yes</Badge>
+                <Badge tone="success">{flat(m.yes, language)}</Badge>
               ) : (
-                <Badge tone="neutral">नहीं · No</Badge>
+                <Badge tone="neutral">{flat(m.no, language)}</Badge>
               ),
             },
           ]}
@@ -99,8 +117,8 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
         <Notice
           className="mt-4"
           tone="info"
-          hi="इनका कोई साइन-इन खाता नहीं है।"
-          en="No sign-in account is linked. That is normal for a teacher who is on the timetable but never opens the app. To give them access, create the account in Supabase Auth with their email."
+          text={m.staffNoLogin}
+          language={language}
         />
       ) : null}
 
@@ -120,11 +138,11 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
             // again, because a hint is not a guard.
             disabled={person.isActive && !deactivation.allowed}
           >
-            {person.isActive ? "निष्क्रिय करें · Deactivate" : "फिर सक्रिय करें · Reactivate"}
+            {primary(person.isActive ? m.deactivate : m.reactivate, language)}
           </Button>
-          {person.isActive && !deactivation.allowed ? (
+          {person.isActive && deactivation.reason ? (
             <p className="mt-2 text-center text-[13px] text-muted-foreground">
-              {deactivation.reasonHi} · {deactivation.reasonEn}
+              {flat(deactivation.reason, language)}
             </p>
           ) : null}
         </form>

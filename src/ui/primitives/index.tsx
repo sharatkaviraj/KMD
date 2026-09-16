@@ -1,5 +1,11 @@
 import * as React from "react";
 
+import {
+  primary,
+  secondary,
+  type Language,
+  type Localized,
+} from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";
 
 /**
@@ -31,34 +37,40 @@ export function Card({
  */
 export function Section({
   title,
-  titleEn,
   description,
+  language,
   action,
   className,
   children,
 }: {
-  title: React.ReactNode;
-  titleEn?: string;
-  description?: React.ReactNode;
+  title: Localized;
+  description?: Localized;
+  language: Language;
   action?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
 }) {
+  const titleUnder = secondary(title, language);
+  const descriptionUnder = description ? secondary(description, language) : null;
+
   return (
     <section className={cn("space-y-3", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold text-foreground">
-            {title}
-            {titleEn ? (
+            {primary(title, language)}
+            {titleUnder ? (
               <span className="ml-2 text-[13px] font-normal text-subtle-foreground">
-                {titleEn}
+                {titleUnder}
               </span>
             ) : null}
           </h2>
           {description ? (
             <p className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
-              {description}
+              {primary(description, language)}
+              {descriptionUnder ? (
+                <span className="ml-1.5 opacity-75">{descriptionUnder}</span>
+              ) : null}
             </p>
           ) : null}
         </div>
@@ -73,19 +85,24 @@ export function Section({
 
 export function Label({
   className,
-  hint,
-  children,
+  text,
+  language,
   ...props
-}: React.LabelHTMLAttributes<HTMLLabelElement> & { hint?: string }) {
+}: Omit<React.LabelHTMLAttributes<HTMLLabelElement>, "children"> & {
+  text: Localized;
+  language: Language;
+}) {
+  const under = secondary(text, language);
+
   return (
     <label
       className={cn("block text-[15px] font-medium text-foreground", className)}
       {...props}
     >
-      {children}
-      {hint ? (
+      {primary(text, language)}
+      {under ? (
         <span className="ml-2 text-[13px] font-normal text-subtle-foreground">
-          {hint}
+          {under}
         </span>
       ) : null}
     </label>
@@ -131,26 +148,31 @@ export function Select({
 
 export function Field({
   label,
-  hint,
   htmlFor,
   error,
+  language,
   children,
 }: {
-  label: React.ReactNode;
-  hint?: string;
+  label: Localized;
   htmlFor: string;
-  error?: string | null;
+  /** Already localised by the caller — validation messages arrive as a pair. */
+  error?: Localized | null;
+  language: Language;
   children: React.ReactNode;
 }) {
+  const errorUnder = error ? secondary(error, language) : null;
+
   return (
     <div className="space-y-2">
-      <Label htmlFor={htmlFor} hint={hint}>
-        {label}
-      </Label>
+      <Label htmlFor={htmlFor} text={label} language={language} />
       {children}
       {error ? (
-        <p id={`${htmlFor}-error`} className="text-[13px] text-destructive-soft-foreground">
-          {error}
+        <p
+          id={`${htmlFor}-error`}
+          className="text-[13px] text-destructive-soft-foreground"
+        >
+          {primary(error, language)}
+          {errorUnder ? <span className="ml-1.5 opacity-80">{errorUnder}</span> : null}
         </p>
       ) : null}
     </div>
@@ -160,13 +182,15 @@ export function Field({
 export function Checkbox({
   className,
   label,
-  hint,
+  language,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & {
-  label: React.ReactNode;
-  hint?: string;
+  label: Localized;
+  language: Language;
 }) {
   const id = props.id;
+  const under = secondary(label, language);
+
   return (
     // The whole row is the target, not just the 20px box.
     <label
@@ -179,9 +203,9 @@ export function Checkbox({
         {...props}
       />
       <span className="text-[15px] text-foreground">
-        {label}
-        {hint ? (
-          <span className="ml-2 text-[13px] text-subtle-foreground">{hint}</span>
+        {primary(label, language)}
+        {under ? (
+          <span className="ml-2 text-[13px] text-subtle-foreground">{under}</span>
         ) : null}
       </span>
     </label>
@@ -219,31 +243,35 @@ export function Badge({
 }
 
 /**
- * A message with a Hindi headline and an English line under it. Every
- * user-facing message in this app is bilingual, so it is a component rather
- * than a convention nobody remembers.
+ * A message, rendered in the language its reader asked for.
+ *
+ * Takes the pair plus the reader's language rather than two strings that both
+ * always render: a staff member on `en` gets one English line and a staff
+ * member on `hi` gets one Hindi line (D-35).
  */
 export function Notice({
   tone = "info",
-  hi,
-  en,
+  text,
+  language,
   className,
   children,
 }: {
   tone?: Tone;
-  hi: React.ReactNode;
-  en?: React.ReactNode;
+  text: Localized;
+  language: Language;
   className?: string;
   children?: React.ReactNode;
 }) {
+  const under = secondary(text, language);
+
   return (
     <div
       role={tone === "danger" ? "alert" : "status"}
       aria-live="polite"
       className={cn("rounded-xl border px-4 py-3", TONES[tone], className)}
     >
-      <p className="text-[15px] font-medium leading-6">{hi}</p>
-      {en ? <p className="mt-0.5 text-[13px] leading-5 opacity-80">{en}</p> : null}
+      <p className="text-[15px] font-medium leading-6">{primary(text, language)}</p>
+      {under ? <p className="mt-0.5 text-[13px] leading-5 opacity-80">{under}</p> : null}
       {children ? <div className="mt-3">{children}</div> : null}
     </div>
   );
@@ -252,24 +280,32 @@ export function Notice({
 /** Key/value rows. The shape most of this app's detail screens are. */
 export function DetailList({
   items,
+  language,
   className,
 }: {
-  items: { label: React.ReactNode; value: React.ReactNode }[];
+  items: { label: Localized; value: React.ReactNode }[];
+  language: Language;
   className?: string;
 }) {
   return (
     <dl className={cn("divide-y divide-border", className)}>
-      {items.map((item, index) => (
-        <div
-          key={index}
-          className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0"
-        >
-          <dt className="shrink-0 text-[14px] text-muted-foreground">{item.label}</dt>
-          <dd className="min-w-0 text-right text-[15px] font-medium text-foreground">
-            {item.value}
-          </dd>
-        </div>
-      ))}
+      {items.map((item, index) => {
+        const under = secondary(item.label, language);
+        return (
+          <div
+            key={index}
+            className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0"
+          >
+            <dt className="shrink-0 text-[14px] text-muted-foreground">
+              {primary(item.label, language)}
+              {under ? <span className="ml-1.5 opacity-75">{under}</span> : null}
+            </dt>
+            <dd className="min-w-0 text-right text-[15px] font-medium text-foreground">
+              {item.value}
+            </dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }

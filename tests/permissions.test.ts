@@ -7,7 +7,7 @@ import {
   permissionsFor,
   resolveStaffRole,
   roleLabels,
-  roleLabelsEn,
+
   rolePermissions,
   staffPermissions,
   staffRoles,
@@ -125,8 +125,8 @@ describe("the role and permission lists", () => {
   it("gives every role a permission list and both labels", () => {
     for (const role of staffRoles) {
       expect(rolePermissions[role], `${role} has no permissions`).toBeDefined();
-      expect(roleLabels[role], `${role} has no Hindi label`).toBeTruthy();
-      expect(roleLabelsEn[role], `${role} has no English label`).toBeTruthy();
+      expect(roleLabels[role]?.hi, `${role} has no Hindi label`).toBeTruthy();
+      expect(roleLabels[role]?.en, `${role} has no English label`).toBeTruthy();
     }
   });
 

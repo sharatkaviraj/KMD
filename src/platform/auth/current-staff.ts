@@ -4,6 +4,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { hasRequiredEnvVars } from "@/platform/env";
+import { resolveLanguage, type Language } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
 import {
   can,
@@ -24,7 +25,8 @@ export type CurrentStaff = {
   role: StaffRole;
   isTeaching: boolean;
   isActive: boolean;
-  preferredLanguage: string;
+  /** Which language this staff member reads the app in (D-35). */
+  language: Language;
 };
 
 type StaffProfileRow = {
@@ -104,7 +106,7 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     role: resolveStaffRole(data.role),
     isTeaching: data.is_teaching,
     isActive: data.is_active,
-    preferredLanguage: data.preferred_language ?? "hi",
+    language: resolveLanguage(data.preferred_language),
   };
 
   if (!staff.isActive) {

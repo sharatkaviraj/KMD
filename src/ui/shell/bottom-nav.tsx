@@ -4,15 +4,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { m } from "@/messages";
+import { useText } from "@/platform/i18n/use-language";
 import { activeNavHref, type NavItem } from "@/platform/config/navigation";
 import { cn } from "@/platform/utils";
 
 /**
- * What crosses the server/client boundary: the labels and the href. The icon
- * is a component (not serialisable) and is rendered by the shell, and `ready`
- * has already been applied by `navigationFor()`.
+ * What crosses the server/client boundary: the label pair and the href. The
+ * icon is a component (not serialisable) and is rendered by the shell, and
+ * `ready` has already been applied by `navigationFor()`.
+ *
+ * The label stays a pair rather than a resolved string, because the bar reads
+ * the reader's language from context and renders it there.
  */
-type SerializableNavItem = Pick<NavItem, "href" | "label" | "labelEn">;
+type SerializableNavItem = Pick<NavItem, "href" | "label">;
 
 export function BottomNav({
   items,
@@ -23,6 +28,7 @@ export function BottomNav({
   icons: Record<string, React.ReactNode>;
 }) {
   const pathname = usePathname();
+  const { lead, flat } = useText();
   const active = activeNavHref(pathname, items);
 
   /**
@@ -51,7 +57,7 @@ export function BottomNav({
 
   return (
     <nav
-      aria-label="मुख्य नेविगेशन"
+      aria-label={flat(m.mainNavigation)}
       className={cn(
         "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur",
         "safe-bottom px-1 pt-1.5",
@@ -83,8 +89,10 @@ export function BottomNav({
                 <span aria-hidden className="[&_svg]:size-5">
                   {icons[item.href]}
                 </span>
+                {/* One language only, whatever the reader chose: a tab is
+                    ~70px wide and two lines of text do not fit in it. */}
                 <span className="w-full truncate text-center text-[11px] font-semibold leading-tight">
-                  {item.label}
+                  {lead(item.label)}
                 </span>
               </Link>
             </li>
@@ -104,21 +112,21 @@ export function SideNav({
   icons: Record<string, React.ReactNode>;
 }) {
   const pathname = usePathname();
+  const { lead, under, flat } = useText();
   const active = activeNavHref(pathname, items);
 
-  // A bar with one tab is a bar that tells you nothing: it cannot show where
-  // else you could go, which is the only reason it exists. Below two tabs the
-  // page simply scrolls, and the top bar is still the way home.
   if (items.length < 2) return null;
 
   return (
     <nav
-      aria-label="मुख्य नेविगेशन"
+      aria-label={flat(m.mainNavigation)}
       className="hidden w-56 shrink-0 border-r border-border bg-surface md:block"
     >
       <ul className="sticky top-14 space-y-1 p-3">
         {items.map((item) => {
           const isActive = active === item.href;
+          const secondLine = under(item.label);
+
           return (
             <li key={item.href}>
               <Link
@@ -135,10 +143,12 @@ export function SideNav({
                   {icons[item.href]}
                 </span>
                 <span className="truncate">
-                  {item.label}
-                  <span className="ml-2 text-[12px] font-normal opacity-70">
-                    {item.labelEn}
-                  </span>
+                  {lead(item.label)}
+                  {secondLine ? (
+                    <span className="ml-2 text-[12px] font-normal opacity-70">
+                      {secondLine}
+                    </span>
+                  ) : null}
                 </span>
               </Link>
             </li>

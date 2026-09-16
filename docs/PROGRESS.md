@@ -27,6 +27,7 @@ version the MCP recorded (D-22), so this list and
 | 20260916191757 | `create_staff_profiles` | 1.1 |
 | 20260916191935 | `expose_vppsone_to_postgrest` | 1.1 |
 | 20260916201212 | `create_subjects_and_class_aliases` | 1.4 |
+| 20260916202429 | `staff_language_allows_bilingual` | 1.7 |
 
 ## Phase 1 — foundation
 
@@ -38,6 +39,7 @@ version the MCP recorded (D-22), so this list and
 | 1.4 | Master data — subjects, class aliases | done | `p1-4-subjects-classes` | | Subjects with an immutable code, and a per-class label editor where each row saves itself (nineteen classes, filled in over more than one sitting). **The fee app.s RLS gates `public.classes` on its own `public.users.role`, so the cookie client reads zero rows and no error** — fee reads now go through the service-role client after `assertPermission`, since rule 2 forbids adding a policy there (D-32). `orphanedAliases()` is what notices a class that has gone, because no FK points into `public` |
 | 1.5 | Master data — class teachers, academic calendar | todo | `p1-5-class-teachers-calendar` | | |
 | 1.6 | Enrolments from `public.students` + consistency check | todo | `p1-6-enrolments` | | |
+| 1.7 | Per-account language: Hindi / English / Bilingual | done | `p1-7-language` | | Janmejay's call mid-phase: the app was hard-coded bilingual, which made every label twice as long for everyone and gave nobody the screen they wanted. Strings are now pairs in `src/messages/`, rendered per reader (PLAN §3a, D-35). Validation messages ride through Zod as JSON because the domain cannot know who is reading. The login screen uses a device cookie, since signed out there is no profile (D-36). `raj@vpps.co.in` is `en` |
 
 ## Phase 2 — timetable
 

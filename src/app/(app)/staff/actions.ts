@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { m } from "@/messages";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
   canDeactivate,
   checkboxValue,
@@ -21,30 +23,34 @@ import {
 
 export type StaffFormState = {
   status: "idle" | "error";
-  /** Field name -> message. Rendered next to the input that is wrong. */
-  fieldErrors: Record<string, string>;
-  /** Hindi. For a failure that is not about one field. */
-  message: string | null;
-  messageEn: string | null;
+  /** Field name -> message pair. The form renders the reader's half. */
+  fieldErrors: Record<string, Localized>;
+  /** For a failure that is not about one field. */
+  message: Localized | null;
 };
 
 function failure(
-  fieldErrors: Record<string, string> = {},
-  message: string | null = null,
-  messageEn: string | null = null,
+  fieldErrors: Record<string, Localized> = {},
+  message: Localized | null = null,
 ): StaffFormState {
-  return { status: "error", fieldErrors, message, messageEn };
+  return { status: "error", fieldErrors, message };
 }
 
-/** Zod's issues, flattened onto the field names the form uses. */
+/**
+ * Zod's issues, flattened onto the field names the form uses.
+ *
+ * Zod carries a `string`, so the domain encodes each pair as JSON and this is
+ * where it is unpacked. A message from somewhere else — one of Zod's own
+ * built-ins — decodes to itself in both halves rather than vanishing.
+ */
 function fieldErrorsFrom(error: {
   issues: { path: PropertyKey[]; message: string }[];
-}): Record<string, string> {
-  const result: Record<string, string> = {};
+}): Record<string, Localized> {
+  const result: Record<string, Localized> = {};
   for (const issue of error.issues) {
     const field = String(issue.path[0] ?? "");
     if (field && !result[field]) {
-      result[field] = issue.message;
+      result[field] = decodeMessage(issue.message);
     }
   }
   return result;
@@ -82,7 +88,10 @@ export async function createStaffAction(
   const clash = await findByShortName(parsed.data.shortName);
   if (clash) {
     return failure({
-      shortName: `यह नाम ${clash.displayName} के पास है · Already used by ${clash.displayName}`,
+      shortName: t(
+        `यह नाम ${clash.displayName} के पास है`,
+        `Already used by ${clash.displayName}`,
+      ),
     });
   }
 
@@ -94,14 +103,13 @@ export async function createStaffAction(
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("staff_profiles_short_name_unique_ci")) {
       return failure({
-        shortName: "यह संक्षिप्त नाम अभी-अभी ले लिया गया · That short name was just taken",
+        shortName: t(
+          "यह संक्षिप्त नाम अभी-अभी ले लिया गया",
+          "That short name was just taken",
+        ),
       });
     }
-    return failure(
-      {},
-      "प्रोफ़ाइल सहेजी नहीं जा सकी।",
-      `Could not save the profile: ${message}`,
-    );
+    return failure({}, m.profileNotSaved);
   }
 
   revalidatePath("/staff");
@@ -116,7 +124,7 @@ export async function updateStaffAction(
   const id = (formData.get("id") ?? "").toString();
 
   if (!id) {
-    return failure({}, "प्रोफ़ाइल नहीं मिली।", "That profile was not found.");
+    return failure({}, m.profileNotFound);
   }
 
   const parsed = updateStaffSchema.safeParse(readForm(formData));
@@ -126,15 +134,13 @@ export async function updateStaffAction(
 
   const target = await getStaffById(id);
   if (!target) {
-    return failure({}, "प्रोफ़ाइल नहीं मिली।", "That profile was not found.");
+    return failure({}, m.profileNotFound);
   }
 
   // Changing your own role is how an admin accidentally locks the school out
   // of its own master data — there may be only one of them.
   if (target.id === actor.id && parsed.data.role !== actor.role) {
-    return failure(
-      { role: "अपनी भूमिका आप नहीं बदल सकते · You cannot change your own role" },
-    );
+    return failure({ role: m.cannotChangeOwnRole });
   }
 
   // Submitting a short name at all means the form was tampered with: the field
@@ -145,22 +151,13 @@ export async function updateStaffAction(
     submittedShortName &&
     normalizeShortName(submittedShortName.toString()) !== target.shortName
   ) {
-    return failure({
-      shortName:
-        "संक्षिप्त नाम बदला नहीं जा सकता · The short name cannot be changed",
-    });
+    return failure({ shortName: m.shortNameImmutable });
   }
 
   try {
     await updateStaff(id, parsed.data);
-  } catch (error) {
-    return failure(
-      {},
-      "बदलाव सहेजे नहीं जा सके।",
-      `Could not save the changes: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
+  } catch {
+    return failure({}, m.changesNotSaved);
   }
 
   revalidatePath("/staff");
@@ -183,7 +180,7 @@ export async function setStaffActiveAction(formData: FormData) {
   if (!nextActive) {
     const verdict = canDeactivate(target, actor.id);
     if (!verdict.allowed) {
-      throw new Error(verdict.reasonEn ?? "Cannot deactivate this profile.");
+      throw new Error(verdict.reason?.en ?? "Cannot deactivate this profile.");
     }
   }
 

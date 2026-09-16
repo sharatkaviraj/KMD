@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 
-import { roleLabels } from "@/platform/auth/permissions";
+import { m } from "@/messages";
+import { roleLabel } from "@/platform/auth/permissions";
+import { flat, primary } from "@/platform/i18n/language";
+import { useLanguage } from "@/platform/i18n/use-language";
 import {
   compareStaff,
   matchesStaffSearch,
@@ -21,6 +24,7 @@ import { EmptyState } from "@/ui/states";
  * slower and would fail in the corridor where the signal is worst.
  */
 export function StaffList({ staff }: { staff: StaffProfile[] }) {
+  const language = useLanguage();
   const [query, setQuery] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
@@ -44,9 +48,9 @@ export function StaffList({ staff }: { staff: StaffProfile[] }) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="नाम, संक्षिप्त नाम या फ़ोन · Name, short name or phone"
+          placeholder={primary(m.staffSearch, language)}
           className="pl-11"
-          aria-label="स्टाफ़ खोजें"
+          aria-label={flat(m.staffSearchLabel, language)}
         />
       </div>
 
@@ -58,22 +62,15 @@ export function StaffList({ staff }: { staff: StaffProfile[] }) {
             onChange={(event) => setShowInactive(event.target.checked)}
             className="size-5 accent-accent"
           />
-          निष्क्रिय भी दिखाएँ ({inactiveCount}) · Show inactive
+          {primary(m.staffShowInactive, language)} ({inactiveCount})
         </label>
       ) : null}
 
       {visible.length === 0 ? (
-        query ? (
-          <EmptyState
-            hi="कोई स्टाफ़ नहीं मिला।"
-            en={`Nothing matches "${query}".`}
-          />
-        ) : (
-          <EmptyState
-            hi="अभी कोई स्टाफ़ प्रोफ़ाइल नहीं है।"
-            en="Add the teachers and office staff. Every teacher on the timetable needs a profile, even the ones who never sign in."
-          />
-        )
+        <EmptyState
+          title={query ? m.staffNoMatch : m.staffNone}
+          language={language}
+        />
       ) : (
         <ul className="space-y-2">
           {visible.map((person) => (
@@ -100,15 +97,15 @@ export function StaffList({ staff }: { staff: StaffProfile[] }) {
                   <span className="block truncate text-[13px] text-muted-foreground">
                     <span className="font-mono">{person.shortName}</span>
                     {" · "}
-                    {roleLabels[person.role]}
+                    {primary(roleLabel(person.role), language)}
                   </span>
                 </span>
 
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   {!person.isActive ? (
-                    <Badge tone="neutral">निष्क्रिय</Badge>
+                    <Badge tone="neutral">{primary(m.inactive, language)}</Badge>
                   ) : person.isTeaching ? (
-                    <Badge tone="accent">कक्षा</Badge>
+                    <Badge tone="accent">{primary(m.classBadge, language)}</Badge>
                   ) : null}
                 </span>
               </Link>
@@ -118,7 +115,7 @@ export function StaffList({ staff }: { staff: StaffProfile[] }) {
       )}
 
       <p className="text-center text-[13px] text-subtle-foreground">
-        {visible.length} / {staff.length} दिखाए गए · shown
+        {visible.length} / {staff.length} {primary(m.shown, language)}
       </p>
     </div>
   );

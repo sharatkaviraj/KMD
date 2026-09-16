@@ -39,6 +39,11 @@ feature flag, canary user and release gate the previous attempt needed.
 8. **Stop and ask** only for: a change that would write to the live fee
    database, a real WhatsApp send to a parent, or spending money. Everything
    else — proceed and note the decision in `docs/DECISIONS.md`.
+9. **Language is per account, never hard-coded.** Every staff member reads the
+   app in `hi`, `en` or `both` (PLAN §3a). Write every user-facing string as a
+   pair in `src/messages/index.ts` and render it with `primary()` /
+   `secondary()` / `flat()` against the reader's language. A hard-coded Hindi
+   string in a component is a bug.
 
 ## Stack
 

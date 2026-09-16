@@ -3,9 +3,18 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 
 import { logoutAction } from "@/app/login/actions";
+import { m } from "@/messages";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
-import { roleLabels, roleLabelsEn } from "@/platform/auth/permissions";
+import { roleLabel } from "@/platform/auth/permissions";
 import { navigationFor } from "@/platform/config/navigation";
+import {
+  flat,
+  primary,
+  secondary,
+  type Language,
+  type Localized,
+} from "@/platform/i18n/language";
+import { LanguageProvider } from "@/platform/i18n/use-language";
 import { getSchoolName } from "@/platform/env";
 import { cn } from "@/platform/utils";
 import { BottomNav, SideNav } from "@/ui/shell/bottom-nav";
@@ -18,7 +27,8 @@ import { EnvironmentBadge } from "@/ui/environment-badge";
  * A Server Component, so it can read the staff profile itself rather than
  * having every page thread it through. The nav bars are client components
  * (they need the pathname); their icons are rendered here and passed down,
- * because a component reference is not serialisable across that boundary.
+ * because a component reference is not serialisable across that boundary —
+ * and the reader's language goes into context for the same reason.
  */
 export function AppShell({
   staff,
@@ -27,6 +37,7 @@ export function AppShell({
   staff: CurrentStaff;
   children: React.ReactNode;
 }) {
+  const language = staff.language;
   const items = navigationFor(staff.role);
   const icons = Object.fromEntries(
     items.map((item) => [item.href, <item.icon key={item.href} />]),
@@ -34,78 +45,81 @@ export function AppShell({
   const serializable = items.map((item) => ({
     href: item.href,
     label: item.label,
-    labelEn: item.labelEn,
   }));
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-nav-border bg-nav text-nav-foreground">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
-          {/* `h-full`, not just the text's height: this is the way home from
-              every screen, and at 33px it was the smallest target in the app. */}
-          <Link
-            href="/dashboard"
-            className="focus-ring flex h-full min-w-0 flex-col justify-center rounded-lg focus-visible:ring-offset-nav"
-          >
-            <p className="truncate text-[15px] font-semibold leading-tight">
-              VPPS One
-            </p>
-            <p className="truncate text-[11px] leading-tight text-nav-muted">
-              {getSchoolName()}
-            </p>
-          </Link>
+    <LanguageProvider language={language}>
+      <div className="flex min-h-dvh flex-col">
+        <header className="sticky top-0 z-40 border-b border-nav-border bg-nav text-nav-foreground">
+          <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
+            {/* `h-full`, not just the text's height: this is the way home from
+                every screen, and at 33px it was the smallest target in the app. */}
+            <Link
+              href="/dashboard"
+              className="focus-ring flex h-full min-w-0 flex-col justify-center rounded-lg focus-visible:ring-offset-nav"
+            >
+              <p className="truncate text-[15px] font-semibold leading-tight">
+                VPPS One
+              </p>
+              <p className="truncate text-[11px] leading-tight text-nav-muted">
+                {getSchoolName()}
+              </p>
+            </Link>
 
-          <div className="ml-auto flex items-center gap-2">
-            <EnvironmentBadge />
-            {/* A sign-out that is a form, not a link: signing out is a state
-                change, and a GET that mutates is a GET a prefetch can fire. */}
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                aria-label="साइन आउट · Sign out"
-                className={cn(
-                  // size-11 = 44px, the minimum comfortable target.
-                  "focus-ring flex size-11 items-center justify-center rounded-xl",
-                  "text-nav-muted transition-colors hover:bg-white/10 hover:text-nav-foreground",
-                  "focus-visible:ring-offset-nav",
-                )}
-              >
-                <LogOut className="size-[18px]" aria-hidden />
-              </button>
-            </form>
+            <div className="ml-auto flex items-center gap-2">
+              <EnvironmentBadge language={language} />
+              {/* A sign-out that is a form, not a link: signing out is a state
+                  change, and a GET that mutates is a GET a prefetch can fire. */}
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  aria-label={flat(m.signOut, language)}
+                  className={cn(
+                    // size-11 = 44px, the minimum comfortable target.
+                    "focus-ring flex size-11 items-center justify-center rounded-xl",
+                    "text-nav-muted transition-colors hover:bg-white/10 hover:text-nav-foreground",
+                    "focus-visible:ring-offset-nav",
+                  )}
+                >
+                  <LogOut className="size-[18px]" aria-hidden />
+                </button>
+              </form>
+            </div>
           </div>
+        </header>
+
+        <div className="mx-auto flex w-full max-w-5xl flex-1">
+          <SideNav items={serializable} icons={icons} />
+          <main className="pb-bottom-nav min-w-0 flex-1 px-4 py-5 md:pb-10">
+            {children}
+          </main>
         </div>
-      </header>
 
-      <div className="mx-auto flex w-full max-w-5xl flex-1">
-        <SideNav items={serializable} icons={icons} />
-        <main className="pb-bottom-nav min-w-0 flex-1 px-4 py-5 md:pb-10">
-          {children}
-        </main>
+        <BottomNav items={serializable} icons={icons} />
       </div>
-
-      <BottomNav items={serializable} icons={icons} />
-    </div>
+    </LanguageProvider>
   );
 }
 
 /**
- * The title block at the top of a screen. Hindi first with English beside it,
- * the same shape as every label in the app.
+ * The title block at the top of a screen, in the reader's language.
  */
 export function PageHeader({
   title,
-  titleEn,
   description,
+  language,
   action,
   back,
 }: {
-  title: React.ReactNode;
-  titleEn?: string;
-  description?: React.ReactNode;
+  title: Localized;
+  description?: Localized;
+  language: Language;
   action?: React.ReactNode;
-  back?: { href: string; label: string };
+  back?: { href: string; label: Localized };
 }) {
+  const titleUnder = secondary(title, language);
+  const descriptionUnder = description ? secondary(description, language) : null;
+
   return (
     <div className="mb-5">
       {back ? (
@@ -113,20 +127,23 @@ export function PageHeader({
           href={back.href}
           className="focus-ring mb-2 inline-block rounded text-[13px] font-medium text-muted-foreground hover:text-foreground"
         >
-          ← {back.label}
+          ← {primary(back.label, language)}
         </Link>
       ) : null}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[22px] font-semibold tracking-tight text-foreground">
-            {title}
+            {primary(title, language)}
           </h1>
-          {titleEn ? (
-            <p className="text-[13px] text-subtle-foreground">{titleEn}</p>
+          {titleUnder ? (
+            <p className="text-[13px] text-subtle-foreground">{titleUnder}</p>
           ) : null}
           {description ? (
             <p className="mt-1.5 text-[14px] leading-6 text-muted-foreground">
-              {description}
+              {primary(description, language)}
+              {descriptionUnder ? (
+                <span className="ml-1.5 opacity-80">{descriptionUnder}</span>
+              ) : null}
             </p>
           ) : null}
         </div>
@@ -136,7 +153,7 @@ export function PageHeader({
   );
 }
 
-/** Who is signed in, for the dashboard and the More hub. */
+/** Who is signed in. */
 export function StaffChip({ staff }: { staff: CurrentStaff }) {
   return (
     <div className="flex items-center gap-3">
@@ -151,8 +168,7 @@ export function StaffChip({ staff }: { staff: CurrentStaff }) {
           {staff.displayName}
         </p>
         <p className="truncate text-[13px] text-muted-foreground">
-          {roleLabels[staff.role]}
-          <span className="ml-1.5 opacity-70">{roleLabelsEn[staff.role]}</span>
+          {flat(roleLabel(staff.role), staff.language)}
         </p>
       </div>
     </div>
