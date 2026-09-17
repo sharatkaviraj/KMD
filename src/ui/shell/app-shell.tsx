@@ -6,7 +6,7 @@ import { logoutAction } from "@/app/login/actions";
 import { m } from "@/messages";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { roleLabel } from "@/platform/auth/permissions";
-import { navigationFor } from "@/platform/config/navigation";
+import { homeFor, navigationFor, sidebarFor } from "@/platform/config/navigation";
 import {
   flat,
   primary,
@@ -38,13 +38,33 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const language = staff.language;
+  const home = homeFor(staff.role);
   const items = navigationFor(staff.role);
+
+  /**
+   * The bar and the sidebar do not show the same thing.
+   *
+   * The phone's bar holds five, so four screens plus More. A 1440px window has
+   * room for everything the role may open, and putting four of them behind a
+   * hub built for a thumb is the phone's constraint leaking onto a desk
+   * (PLAN §3). So the sidebar gets the whole list, grouped.
+   */
+  const groups = sidebarFor(staff.role);
+
   const icons = Object.fromEntries(
-    items.map((item) => [item.href, <item.icon key={item.href} />]),
+    [...items, ...groups.flatMap((group) => group.items)].map((item) => [
+      item.href,
+      <item.icon key={item.href} />,
+    ]),
   );
+
   const serializable = items.map((item) => ({
     href: item.href,
     label: item.label,
+  }));
+  const serializableGroups = groups.map((group) => ({
+    title: group.title,
+    items: group.items.map((item) => ({ href: item.href, label: item.label })),
   }));
 
   return (
@@ -54,8 +74,11 @@ export function AppShell({
           <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
             {/* `h-full`, not just the text's height: this is the way home from
                 every screen, and at 33px it was the smallest target in the app. */}
+            {/* This role's own Home, not everybody's. A teacher tapping the
+                school's name wants her day (PLAN §3), and `/dashboard` for her
+                is a card with her own email address on it. */}
             <Link
-              href="/dashboard"
+              href={home}
               className="focus-ring flex h-full min-w-0 flex-col justify-center rounded-lg focus-visible:ring-offset-nav"
             >
               <p className="truncate text-[15px] font-semibold leading-tight">
@@ -89,7 +112,7 @@ export function AppShell({
         </header>
 
         <div className="mx-auto flex w-full max-w-5xl flex-1">
-          <SideNav items={serializable} icons={icons} />
+          <SideNav groups={serializableGroups} icons={icons} />
           <main className="pb-bottom-nav min-w-0 flex-1 px-4 py-5 md:pb-10">
             {children}
           </main>

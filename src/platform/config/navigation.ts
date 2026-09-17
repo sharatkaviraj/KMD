@@ -174,9 +174,69 @@ export const NON_NAV_SCREENS = [
   "/enrolments",
 ] as const;
 
+/* ------------------------------------------------- where each role starts */
+
+/**
+ * One Home per role (PLAN §3), also used by the school-name link.
+ *
+ * A teacher's home is her day, not a profile card. Before this she signed in,
+ * landed on `/dashboard`, read her own email address back to herself and then
+ * tapped a second time to reach the register she came to take — which is the
+ * whole of B-03, and is two taps where PLAN §1 asks for none.
+ *
+ * Everybody else lands on `/dashboard`, which R2.2 turns into their queue.
+ * A teacher may still open it; it is simply not where she starts.
+ */
+export function homeFor(role: StaffRole): string {
+  return role === "teacher" ? "/teach" : "/dashboard";
+}
+
+/* --------------------------------------------------- what the bar leads with */
+
+/**
+ * The order each role's bar is built in, most-used first.
+ *
+ * **Not one shared order any more**, which is what B-04 was: every role got
+ * Home, Teach, Cover, Timetable, Exams, so the office — who opens SamPark and
+ * School Fees several times a day and a timetable a few times a term — reached
+ * its daily work through More, behind three screens it does not use.
+ *
+ * These follow PLAN §3's navigation column. Where a screen it names does not
+ * exist yet (Students is R2.3, a teacher's Requests inbox is R3.3) the row is
+ * simply shorter; nothing is invented to fill a gap. Anything not listed is
+ * still reachable — it falls to More, and the desktop sidebar shows all of it.
+ */
+const NAV_PRIORITY: Record<StaffRole, readonly string[]> = {
+  // "Home, Students, SamPark, Apps, More" — Students arrives in R2.3.
+  admin: ["/dashboard", "/collection", "/apps", "/teach"],
+  office: ["/dashboard", "/collection", "/apps", "/teach"],
+  // "Today, My classes, Timetable, Requests, More".
+  teacher: ["/teach", "/timetable", "/substitutions", "/assessments"],
+  // "Home, Cover, Timetable, Classes, More".
+  academic_coordinator: ["/dashboard", "/substitutions", "/timetable", "/academics"],
+  // "Home, Exams, Marks, Reports, More" — marks and reports have no index
+  // route of their own yet, so Exams carries both.
+  exam_coordinator: ["/dashboard", "/assessments", "/timetable", "/staff"],
+  // "Home, Timetable, Summary" — and the summary is Home until R2.2.
+  view_only: ["/dashboard", "/timetable"],
+};
+
 /** Everything this role may open, before the bar decides what fits. */
 export function allowedFor(role: StaffRole): NavItem[] {
-  return NAV_ITEMS.filter((item) => item.ready && can({ role }, item.permission));
+  const allowed = NAV_ITEMS.filter(
+    (item) => item.ready && can({ role }, item.permission),
+  );
+
+  const rank = new Map(NAV_PRIORITY[role].map((href, index) => [href, index]));
+
+  // Priority first, then everything else in declaration order. A stable sort,
+  // so a screen the role's row does not mention keeps its place relative to
+  // its neighbours rather than jumping about when another is added.
+  return [...allowed].sort(
+    (a, b) =>
+      (rank.get(a.href) ?? Number.MAX_SAFE_INTEGER) -
+      (rank.get(b.href) ?? Number.MAX_SAFE_INTEGER),
+  );
 }
 
 /**
@@ -197,6 +257,58 @@ export function navigationFor(role: StaffRole): NavItem[] {
 export function overflowFor(role: StaffRole): NavItem[] {
   const allowed = allowedFor(role);
   return allowed.length <= MAX_TABS ? [] : allowed.slice(MAX_TABS - 1);
+}
+
+/* --------------------------------------------------- the desktop sidebar */
+
+export type NavGroup = { title: Localized; items: NavItem[] };
+
+/**
+ * Which group a screen belongs to on a wide window.
+ *
+ * PLAN §3: "Desktop gets grouped sidebar navigation ... rather than the
+ * phone's first-four-items-plus-More limit." A 1440px window has room for
+ * every screen a role may open, and hiding four of them behind a More page
+ * built for a thumb is the phone's constraint leaking onto a desk.
+ *
+ * Three groups, in the order a day runs: what you do today, the records you
+ * look things up in, and the settings you touch a few times a term.
+ */
+const GROUP_OF: Record<string, "daily" | "records" | "setup"> = {
+  "/dashboard": "daily",
+  "/teach": "daily",
+  "/substitutions": "daily",
+  "/collection": "daily",
+  "/timetable": "records",
+  "/assessments": "records",
+  "/apps": "records",
+  "/academics": "setup",
+  "/staff": "setup",
+  "/jobs": "setup",
+};
+
+const GROUP_TITLES = {
+  daily: m.navGroupToday,
+  records: m.navGroupRecords,
+  setup: m.navGroupSetup,
+} as const;
+
+/**
+ * The sidebar, grouped, with everything the role may open.
+ *
+ * No More entry: nothing is hidden here, so a hub listing "what did not fit"
+ * would be an empty page. An empty group is dropped rather than rendered as a
+ * heading with nothing under it.
+ */
+export function sidebarFor(role: StaffRole): NavGroup[] {
+  const allowed = allowedFor(role);
+
+  return (["daily", "records", "setup"] as const)
+    .map((group) => ({
+      title: GROUP_TITLES[group],
+      items: allowed.filter((item) => (GROUP_OF[item.href] ?? "setup") === group),
+    }))
+    .filter((group) => group.items.length > 0);
 }
 
 /**

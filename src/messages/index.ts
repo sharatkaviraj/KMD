@@ -1006,6 +1006,11 @@ export const m = {
   ),
   appOpenThisChild: t("इस बच्चे को खोलें", "Open this child"),
   appFindThisChild: t("इस बच्चे को खोजें", "Find this child"),
+  // The desktop sidebar's three groups, in the order a day runs.
+  navGroupToday: t("आज का काम", "Today's work"),
+  navGroupRecords: t("रिकॉर्ड", "Records"),
+  navGroupSetup: t("व्यवस्था", "Setup"),
+
   appSearchInstead: t(
     "यहाँ का पहचान-नंबर वहाँ नहीं चलता, इसलिए खोज खुलेगी।",
     "An id from here does not exist there, so this opens the search screen instead.",

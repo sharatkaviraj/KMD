@@ -1,6 +1,7 @@
 import "server-only";
 
 import { m } from "@/messages";
+import { resolveStaffRole, type StaffRole } from "@/platform/auth/permissions";
 import { resolveLanguage, type Localized } from "@/platform/i18n/language";
 import { writeLanguageCookie } from "@/platform/i18n/language-cookie";
 import type { createClient } from "@/platform/supabase/server";
@@ -25,12 +26,19 @@ type VppsClient = Awaited<ReturnType<typeof createClient>>;
 export async function admitSignedInUser(
   supabase: VppsClient,
   userId: string,
-): Promise<{ ok: true } | { ok: false; message: Localized }> {
+): Promise<
+  | { ok: true; staff: { role: StaffRole } }
+  | { ok: false; message: Localized }
+> {
   const { data: profile } = await supabase
     .from("staff_profiles")
-    .select("is_active, preferred_language")
+    .select("role, is_active, preferred_language")
     .eq("user_id", userId)
-    .maybeSingle<{ is_active: boolean; preferred_language: string | null }>();
+    .maybeSingle<{
+      role: string | null;
+      is_active: boolean;
+      preferred_language: string | null;
+    }>();
 
   if (!profile) {
     await supabase.auth.signOut();
@@ -47,5 +55,9 @@ export async function admitSignedInUser(
   // that point there is no profile to read (D-36).
   await writeLanguageCookie(resolveLanguage(profile.preferred_language));
 
-  return { ok: true };
+  // The role travels back with the admission, because both doors have to send
+  // this person somewhere and only one Home is right for them (PLAN section 3).
+  // Reading it a second time in the caller would be a second query and a second
+  // chance to disagree about who just signed in.
+  return { ok: true, staff: { role: resolveStaffRole(profile.role) } };
 }

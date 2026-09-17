@@ -4,12 +4,14 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { staffRoles, type StaffRole } from "@/platform/auth/permissions";
+import { staffRoles } from "@/platform/auth/permissions";
 import {
   ROUTE_EXPECTATIONS,
   differenceFor,
+  differenceIn,
   expectationFor,
   productAllows,
+  type RouteExpectation,
 } from "./fixtures/role-expectations";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -79,10 +81,12 @@ describe("the product expectation covers the app", () => {
 describe("a disagreement has to be owned", () => {
   const withDifference = ROUTE_EXPECTATIONS.filter((entry) => entry.difference);
 
-  it("still has the one it was written for", () => {
-    // If this reaches zero, R1.2 has resolved the viewer's reach and
-    // `smoke:roles -- --strict` should become the default.
-    expect(withDifference.length).toBeGreaterThan(0);
+  it("has none left, which is what lets --strict pass", () => {
+    // R1.2 resolved the one this file was written for (B-22: view_only could
+    // open six per-child screens). An empty list is the goal state, not a
+    // missing test — the mechanism below is exercised against a made-up
+    // expectation precisely so it keeps working while the real list is empty.
+    expect(withDifference).toEqual([]);
   });
 
   it.each(withDifference.map((entry) => [entry.route, entry.difference!] as const))(
@@ -94,25 +98,52 @@ describe("a disagreement has to be owned", () => {
     },
   );
 
-  it("only excuses the direction it describes", () => {
-    const viewer: StaffRole = "view_only";
-    const route = "/teach/attendance";
+  describe("the mechanism, against an expectation made up for the purpose", () => {
+    const owned: RouteExpectation = {
+      route: "/made-up",
+      allow: ["admin"],
+      because: "A row that exists only so these cases have something to read.",
+      difference: {
+        roles: ["office"],
+        direction: "implementation-allows",
+        owner: "B-00 → R9",
+        note: "The implementation lets the office in and the product reading does not.",
+      },
+    };
 
-    // The implementation allowing what the product denies is the recorded case.
-    expect(differenceFor(route, viewer, true)).not.toBeNull();
-    // The reverse would be a different bug and is not excused by this row.
-    expect(differenceFor(route, viewer, false)).toBeNull();
+    it("excuses the direction it describes", () => {
+      expect(differenceIn(owned, "office", true)).toBe(owned.difference);
+    });
+
+    it("does not excuse the opposite direction", () => {
+      // The implementation *denying* what the product allows would be a
+      // different bug, and this row says nothing about it.
+      expect(differenceIn(owned, "office", false)).toBeNull();
+    });
+
+    it("does not excuse a role it does not name", () => {
+      expect(differenceIn(owned, "teacher", true)).toBeNull();
+    });
+
+    it("returns nothing when the two readings agree", () => {
+      expect(differenceIn(owned, "admin", true)).toBeNull();
+    });
+
+    it("returns nothing when there is no row to excuse it", () => {
+      const unowned: RouteExpectation = { ...owned, difference: undefined };
+      expect(differenceIn(unowned, "office", true)).toBeNull();
+    });
   });
 
-  it("does not excuse a role it does not name", () => {
-    expect(differenceFor("/teach/attendance", "teacher", false)).toBeNull();
-  });
-
-  it("returns nothing when the two readings agree", () => {
-    expect(differenceFor("/jobs", "admin", true)).toBeNull();
+  it("finds no live disagreement anywhere", () => {
+    for (const entry of ROUTE_EXPECTATIONS) {
+      for (const role of staffRoles) {
+        expect(differenceFor(entry.route, role, true)).toBeNull();
+        expect(differenceFor(entry.route, role, false)).toBeNull();
+      }
+    }
   });
 });
-
 describe("the runners read this file", () => {
   it("smoke:roles compares against the product expectation", () => {
     const smoke = readFileSync(path.join(repoRoot, "scripts/smoke-roles.mjs"), "utf8");

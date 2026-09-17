@@ -66,25 +66,21 @@ const STAFF_AT_WORK: readonly StaffRole[] = [
 ];
 
 /**
- * The one disagreement this reading has with the implementation today.
+ * Resolved in R1.2, and kept as a comment because the shape is worth
+ * remembering.
  *
- * `view_only` holds `attendance:view`, and six screens are guarded on it — the
- * teacher's workspace, the register form, a class's roster, the corrections
- * queue, the monthly register and a child's card. Every one of those is either
- * an editable form or a list of named children, and PLAN §3 gives the viewer
- * neither. It also puts a "Teach" tab on a viewer's navigation bar leading to
- * an empty teacher workspace.
+ * `view_only` used to hold `attendance:view`, which guards six screens — the
+ * teacher workspace, the register form, a class roster, the corrections queue,
+ * the monthly register and a child card. Every one is either an editable form
+ * or a list of named children, and PLAN section 3 gives the viewer neither. The
+ * permission map and the guards agreed with each other perfectly, so nothing in
+ * this repository could see it until this file gave the role smoke a second
+ * opinion to compare against (B-09, B-22).
  *
- * Not changed here: it is a permission-map change and R1.2 owns the role
- * navigation it belongs with. Named so that it cannot be absorbed silently in
- * the meantime.
+ * There is no `difference` on any row now, which is what lets
+ * `npm run smoke:roles -- --strict` pass. A new one has to be written here
+ * with an owner before the runner will tolerate it.
  */
-const VIEWER_REACH: ExpectationDifference = {
-  roles: ["view_only"],
-  direction: "implementation-allows",
-  owner: "B-22 → R1.2",
-  note: "view_only holds attendance:view, so it can open the register form and per-child screens PLAN §3 says it should not have, and gets a Teach tab it has no use for.",
-};
 
 export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
   {
@@ -110,38 +106,32 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     allow: STAFF_AT_WORK,
     because:
       "The teacher's own day. Office marks on behalf, coordinators and admin need the same view; a viewer's nav is Home, Timetable and Summary.",
-    difference: VIEWER_REACH,
   },
   {
     route: "/teach/attendance",
     allow: STAFF_AT_WORK,
     because: "An editable register. A viewer gets no editable forms.",
-    difference: VIEWER_REACH,
   },
   {
     route: "/teach/class/[id]",
     allow: STAFF_AT_WORK,
     because: "A class's children by name. A viewer gets no per-child records.",
-    difference: VIEWER_REACH,
   },
   {
     route: "/teach/corrections",
     allow: STAFF_AT_WORK,
     because: "Per-child correction requests, with an approval on them.",
-    difference: VIEWER_REACH,
   },
   {
     route: "/teach/register",
     allow: STAFF_AT_WORK,
     because:
       "A month of per-child attendance. Completion is a per-class figure; this is not that.",
-    difference: VIEWER_REACH,
   },
   {
     route: "/teach/student/[id]",
     allow: STAFF_AT_WORK,
     because: "One child's record. The clearest per-child screen there is.",
-    difference: VIEWER_REACH,
   },
 
   /* ------------------------------------------------------------- timetable */
@@ -358,7 +348,22 @@ export function differenceFor(
   role: StaffRole,
   implementationAllows: boolean,
 ): ExpectationDifference | null {
-  const expectation = expectationFor(route);
+  return differenceIn(expectationFor(route), role, implementationAllows);
+}
+
+/**
+ * The same question, asked of one expectation rather than of a route.
+ *
+ * Split out so the *mechanism* stays tested when the live list has no
+ * disagreements left in it — which is where R1.2 got it to. A test that only
+ * exercised real rows would quietly stop running the day the last one was
+ * fixed, and would be back to a silent pass by the time the next appeared.
+ */
+export function differenceIn(
+  expectation: RouteExpectation,
+  role: StaffRole,
+  implementationAllows: boolean,
+): ExpectationDifference | null {
   const product = expectation.allow.includes(role);
 
   if (product === implementationAllows) return null;

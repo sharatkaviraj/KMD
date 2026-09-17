@@ -96,7 +96,12 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "marks:write",
   ],
 
-  view_only: ["dashboard:view", "timetable:view", "attendance:view"],
+  // `attendance:view` was here until R1.2. PLAN section 3 gives this role
+  // "read-only information; no editable forms or per-child actions", and that
+  // permission guards six screens that are one or the other (B-22). The
+  // attendance *figures* it is promised are a count on its own Home, read
+  // under `dashboard:view`.
+  view_only: ["dashboard:view", "timetable:view"],
 };
 
 describe("the role and permission lists", () => {

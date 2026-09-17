@@ -5,6 +5,7 @@ import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { roleLabel } from "@/platform/auth/permissions";
+import { homeFor } from "@/platform/config/navigation";
 import { flat, primary } from "@/platform/i18n/language";
 import { buttonClasses } from "@/ui/primitives/button";
 import { Card, Notice } from "@/ui/primitives";
@@ -62,8 +63,11 @@ export default async function AccessDeniedPage(props: PageProps<"/access-denied"
         </div>
       </Card>
 
+      {/* This role own Home, not everybody. Sending a teacher who mistyped a
+          URL to a profile card is one more tap away from the thing she came
+          for (PLAN section 3). */}
       <Link
-        href="/dashboard"
+        href={homeFor(staff.role)}
         className={buttonClasses({ variant: "outline", fullWidth: true, className: "mt-5" })}
       >
         {primary(m.goHome, language)}

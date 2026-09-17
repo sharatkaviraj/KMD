@@ -199,11 +199,24 @@ const teacherPermissions: readonly StaffPermission[] = [
  * Deliberately not "every `:view` permission". This role exists for oversight
  * — the daily numbers and who is teaching what — so it stops short of per-child
  * records: no notes, no marks, no documents, no collection.
+ *
+ * **`attendance:view` was here and is not any more (B-22).** Six screens are
+ * guarded on it — the teacher's workspace, the register form, a class's roster,
+ * the corrections queue, the monthly register and a child's card — and every
+ * one is either an editable form or a list of named children, which is exactly
+ * what PLAN §3 says this role does not get. It also put a Teach tab on a
+ * viewer's bar leading to an empty teacher workspace. Nothing could see it
+ * until `role-expectations.ts` gave the smoke a second opinion to compare
+ * against, because the map and the guards agreed with each other perfectly.
+ *
+ * The attendance *figures* PLAN §3 does promise this role — "school summary,
+ * attendance completion" — are a count on their own Home, read server-side
+ * under `dashboard:view`. A permission is about screens, not about rows, so
+ * R2.2 does not need this one back to build them.
  */
 const viewOnlyPermissions: readonly StaffPermission[] = [
   "dashboard:view",
   "timetable:view",
-  "attendance:view",
 ];
 
 export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {

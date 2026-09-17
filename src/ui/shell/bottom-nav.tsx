@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { m } from "@/messages";
+import type { Localized } from "@/platform/i18n/language";
 import { useText } from "@/platform/i18n/use-language";
 import { activeNavHref, type NavItem } from "@/platform/config/navigation";
 import { cn } from "@/platform/utils";
@@ -103,58 +104,90 @@ export function BottomNav({
   );
 }
 
-/** The same items as a sidebar, from `md` up. */
+
+/**
+ * The sidebar, from `md` up: everything the role may open, in groups.
+ *
+ * Not the same list as the bar. The bar shows four screens and a More hub
+ * because that is what a thumb can hit on a 360px phone; a 1440px window has
+ * room for all of them, and hiding four behind a hub built for a phone is the
+ * phone's constraint following somebody to their desk (PLAN §3).
+ *
+ * So there is no More entry here — nothing is hidden, and a hub listing what
+ * did not fit would be an empty page.
+ */
 export function SideNav({
-  items,
+  groups,
   icons,
 }: {
-  items: SerializableNavItem[];
+  groups: { title: Localized; items: SerializableNavItem[] }[];
   icons: Record<string, React.ReactNode>;
 }) {
   const pathname = usePathname();
   const { lead, under, flat } = useText();
-  const active = activeNavHref(pathname, items);
+  const everything = groups.flatMap((group) => group.items);
+  const active = activeNavHref(pathname, everything);
 
-  if (items.length < 2) return null;
+  if (everything.length < 2) return null;
 
   return (
     <nav
       aria-label={flat(m.mainNavigation)}
       className="hidden w-56 shrink-0 border-r border-border bg-surface md:block"
     >
-      <ul className="sticky top-14 space-y-1 p-3">
-        {items.map((item) => {
-          const isActive = active === item.href;
-          const secondLine = under(item.label);
+      <div className="sticky top-14 space-y-5 p-3">
+        {groups.map((group) => (
+          <section key={flat(group.title)} aria-labelledby={groupId(group.title)}>
+            {/* A named heading rather than a bare divider: the groups are the
+                point, and a screen reader that cannot tell them apart is back
+                to one undifferentiated list. */}
+            <h2
+              id={groupId(group.title)}
+              className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-subtle-foreground"
+            >
+              {lead(group.title)}
+            </h2>
+            <ul className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = active === item.href;
+                const secondLine = under(item.label);
 
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "focus-ring flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition-colors",
-                  isActive
-                    ? "bg-accent-soft text-accent-soft-foreground"
-                    : "text-muted-foreground hover:bg-surface-2",
-                )}
-              >
-                <span aria-hidden className="[&_svg]:size-5">
-                  {icons[item.href]}
-                </span>
-                <span className="truncate">
-                  {lead(item.label)}
-                  {secondLine ? (
-                    <span className="ml-2 text-[12px] font-normal opacity-70">
-                      {secondLine}
-                    </span>
-                  ) : null}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={cn(
+                        "focus-ring flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition-colors",
+                        isActive
+                          ? "bg-accent-soft text-accent-soft-foreground"
+                          : "text-muted-foreground hover:bg-surface-2",
+                      )}
+                    >
+                      <span aria-hidden className="[&_svg]:size-5">
+                        {icons[item.href]}
+                      </span>
+                      <span className="truncate">
+                        {lead(item.label)}
+                        {secondLine ? (
+                          <span className="ml-2 text-[12px] font-normal opacity-70">
+                            {secondLine}
+                          </span>
+                        ) : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
     </nav>
   );
+}
+
+/** A stable id per group, so the heading can name its own landmark. */
+function groupId(title: Localized): string {
+  return `nav-group-${title.en.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 }

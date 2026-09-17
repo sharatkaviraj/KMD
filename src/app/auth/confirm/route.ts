@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { admitSignedInUser } from "@/platform/auth/admit";
 import { sanitizeRedirectPath } from "@/platform/env";
+import { homeFor } from "@/platform/config/navigation";
 import { createClient } from "@/platform/supabase/server";
 
 export const runtime = "nodejs";
@@ -32,7 +33,10 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const tokenHash = params.get("token_hash");
   const type = params.get("type") as EmailOtpType | null;
-  const next = sanitizeRedirectPath(params.get("next") ?? undefined);
+  const requested = params.get("next") ?? undefined;
+  // A refusal happens before there is a profile to ask, so the fallback here
+  // is the generic one; the success path below resolves the role own Home.
+  const next = sanitizeRedirectPath(requested);
 
   const refuse = (reason: string) => {
     const url = request.nextUrl.clone();
@@ -58,7 +62,9 @@ export async function GET(request: NextRequest) {
   revalidatePath("/", "layout");
 
   const url = request.nextUrl.clone();
-  url.pathname = next;
+  // A link that named a destination goes there; one that did not goes to this
+  // role own Home, which for a teacher is her day rather than a profile card.
+  url.pathname = sanitizeRedirectPath(requested, homeFor(admitted.staff.role));
   url.search = "";
   return NextResponse.redirect(url);
 }

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/app/login/login-form";
 import { m } from "@/messages";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { homeFor } from "@/platform/config/navigation";
 import { flat, primary } from "@/platform/i18n/language";
 import { readLanguageCookie } from "@/platform/i18n/language-cookie";
 import { getSchoolName, hasRequiredEnvVars } from "@/platform/env";
@@ -36,8 +37,9 @@ export default async function LoginPage() {
   // The proxy redirects a signed-in visitor away from here already. This
   // repeats the check because the proxy only runs on navigation: a Server
   // Action posting back to /login is not covered by it.
-  if (await getCurrentStaff()) {
-    redirect("/dashboard");
+  const signedIn = await getCurrentStaff();
+  if (signedIn) {
+    redirect(homeFor(signedIn.role));
   }
 
   // Signed out there is no profile, so the device remembers instead (D-36).

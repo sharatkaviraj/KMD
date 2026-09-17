@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R1.2 below.**
+**Active queue: PLAN revision 2. The next task is R1.3 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -22,7 +22,7 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R0.2-fix | B-21: the teacher's Today card called her first lesson "Period 0" | R0.2 | done | `r0-2-fixtures` · `src/modules/timetable/domain/periods.ts`, `tests/periods.test.ts` |
 | R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | done | `r0-3-expectations-and-journeys` · `npm run smoke:workflows` · `docs/evidence/R0.3-2026-09-17.md`, `docs/evidence/R0.3-smoke-roles-2026-09-17.json` |
 | R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | done | `r1-1-app-registry` · `src/platform/config/apps.ts`, `/apps` · `docs/evidence/R1.1-2026-09-17.md` |
-| R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | todo | — |
+| R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | done | `r1-2-role-navigation` · `homeFor()`, `NAV_PRIORITY`, `sidebarFor()` · `docs/evidence/R1.2-2026-09-17.md` |
 | R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | todo | — |
 | R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | todo | — |
 | R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | todo | — |
@@ -185,6 +185,44 @@ Still true after this: **`/apps` is not on the office bottom bar.** Office may
 open ten screens, the bar holds five, and the shared order leads with Teach and
 Cover — which is B-04, and R1.2 owns it. The More hub and the home shortcut
 cover it meanwhile.
+
+### R1.2 — where each role starts, and what its thumb reaches first
+
+`homeFor(role)` gives a teacher `/teach` and everybody else `/dashboard`, and
+it is applied at every landing: `/`, both login doors, `/auth/confirm`, the
+school-name link and the Go home button. `admitSignedInUser()` hands the role
+back with the admission, because the fallback can only be resolved once the
+profile is known and reading it twice is two chances to disagree. A teacher
+signing in now lands on her day with the register as the first thing on the
+screen; before this she landed on a card showing her own email address (B-03).
+
+**B-04 closed.** One shared order gave every role Home, Teach, Cover,
+Timetable, Exams — so the office reached SamPark through More, behind three
+screens it does not use, and R1.1's Apps tab never appeared on its bar at all.
+`NAV_PRIORITY` is an ordered row per role following PLAN §3's navigation
+column. Where a screen the plan names does not exist yet the row is simply
+shorter; nothing is invented to fill a gap.
+
+**B-22 closed.** `view_only` held `attendance:view`, which guards six screens
+that are each an editable form or a list of named children — neither of which
+PLAN §3 gives that role. The permission is gone; the attendance *figures* the
+plan does promise it are a count on its own Home, read under `dashboard:view`.
+So `npm run smoke:roles` runs with `--strict` now, and passes: **222 of 222 as
+expected, 0 drift**. The permission map, the guards and the plan agree for the
+first time.
+
+The desktop sidebar shows **everything** a role may open, in three groups in
+the order a day runs — today's work, records, setup — with no More on it,
+because nothing is hidden and a hub listing what did not fit would be empty.
+Nine screens for the office against the four-plus-More the phone shows.
+
+Two independently written fixtures needed updating, which is them working:
+`permissions.test.ts`'s expected set for the viewer, and `navigation.test.ts`'s
+two order-sensitive assertions, now set comparisons with the order asserted by
+new cases. `differenceIn()` was split out of `differenceFor()` so the drift
+mechanism stays tested against a made-up expectation now the live list is
+empty — a test that only exercised real rows would stop running the day the
+last one was fixed.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

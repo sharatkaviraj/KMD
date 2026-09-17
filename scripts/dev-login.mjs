@@ -64,7 +64,10 @@ if (!(env.NEXT_PUBLIC_SUPABASE_URL ?? "").includes(DEV_PROJECT_REF)) {
 
 const [whoArg, nextArg] = process.argv.slice(2);
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3000";
-const next = nextArg ?? "/dashboard";
+// No default. Without a `next` the confirm route sends this account to its
+// own role Home (PLAN section 3) — which for a teacher is her day, and is the
+// thing worth looking at when the link is opened.
+const next = nextArg ?? null;
 
 if (!whoArg) {
   console.log("Test accounts (all passwordless, all dev-only):\n");
@@ -103,7 +106,9 @@ if (error) {
 // our own `/auth/confirm` with the hashed token skips that hop, which keeps
 // the whole thing on localhost and out of the Supabase redirect allow-list.
 const tokenHash = data.properties.hashed_token;
-const url = `${origin}/auth/confirm?token_hash=${tokenHash}&type=magiclink&next=${encodeURIComponent(next)}`;
+const url =
+  `${origin}/auth/confirm?token_hash=${tokenHash}&type=magiclink` +
+  (next ? `&next=${encodeURIComponent(next)}` : "");
 
-console.log(`${email} -> ${next}\n`);
+console.log(`${email} -> ${next ?? "this role's own Home"}\n`);
 console.log(url);

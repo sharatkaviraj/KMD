@@ -7,12 +7,14 @@ import { describe, expect, it } from "vitest";
 import {
   activeNavHref,
   allowedFor,
+  homeFor,
   MAX_TABS,
   MORE_ITEM,
   navigationFor,
   NAV_ITEMS,
   NON_NAV_SCREENS,
   overflowFor,
+  sidebarFor,
 } from "@/platform/config/navigation";
 import {
   can,
@@ -192,7 +194,10 @@ describe("navigationFor()", () => {
       ...overflowFor("admin"),
     ].map((item) => item.href);
 
-    expect(offered).toEqual(everything);
+    // Sorted: since R1.2 the order is the role's own (B-04), and it is asserted
+    // on its own below. What this one is for is that nothing goes *missing*
+    // between the bar and the hub.
+    expect([...offered].sort()).toEqual([...everything].sort());
   });
 
   it("only shows More when something would not have fitted", () => {
@@ -271,7 +276,10 @@ describe("nav and permissions cannot drift apart", () => {
         ...overflowFor(role),
       ].map((item) => item.href);
 
-      expect(offered).toEqual(expected);
+      // A set, not a sequence. The order is each role's own since R1.2 and is
+      // asserted separately; what must not change is *which* screens a role is
+      // offered, which is the half that can only come from the permission map.
+      expect([...offered].sort()).toEqual([...expected].sort());
     },
   );
 
@@ -282,5 +290,88 @@ describe("nav and permissions cannot drift apart", () => {
         `${role} was offered ${item.href} under More without ${item.permission}`,
       ).toBe(true);
     }
+  });
+});
+
+describe("each role's bar leads with its own work (B-04)", () => {
+  /** The first thing on the bar, which is what a thumb reaches without looking. */
+  const first = (role: StaffRole) => navigationFor(role)[0]?.href;
+
+  it("opens a teacher's bar on her day, not on a profile card", () => {
+    expect(first("teacher")).toBe("/teach");
+    expect(homeFor("teacher")).toBe("/teach");
+  });
+
+  it("puts SamPark and the other apps on the office's bar", () => {
+    // The whole of B-04: the office used to reach its daily work through More,
+    // behind Teach, Cover and Timetable — three screens it does not use — while
+    // every role got the same order.
+    const office = navigationFor("office").map((item) => item.href);
+
+    expect(office).toContain("/collection");
+    expect(office).toContain("/apps");
+    expect(office[1]).toBe("/collection");
+    expect(office[2]).toBe("/apps");
+  });
+
+  it("gives the academic coordinator cover before the master data", () => {
+    const bar = navigationFor("academic_coordinator").map((item) => item.href);
+
+    expect(bar.slice(0, 3)).toEqual(["/dashboard", "/substitutions", "/timetable"]);
+  });
+
+  it("gives the exam coordinator exams second", () => {
+    expect(navigationFor("exam_coordinator").map((item) => item.href)[1]).toBe(
+      "/assessments",
+    );
+  });
+
+  it.each(staffRoles)("%s starts on a screen it may open", (role: StaffRole) => {
+    const home = homeFor(role);
+    const item = NAV_ITEMS.find((entry) => entry.href === home);
+
+    expect(item, `${home} is not a nav item`).toBeDefined();
+    expect(
+      can({ role }, item!.permission),
+      `${role} lands on ${home} without ${item!.permission}`,
+    ).toBe(true);
+  });
+});
+
+describe("the desktop sidebar hides nothing", () => {
+  it.each(staffRoles)(
+    "%s reaches every screen it may open without a More hub",
+    (role: StaffRole) => {
+      const allowed = NAV_ITEMS.filter(
+        (item) => item.ready && can({ role }, item.permission),
+      ).map((item) => item.href);
+
+      const grouped = sidebarFor(role).flatMap((group) =>
+        group.items.map((item) => item.href),
+      );
+
+      // There is no More on the sidebar, so anything missing from a group
+      // would simply be unreachable on a wide window.
+      expect([...grouped].sort()).toEqual([...allowed].sort());
+    },
+  );
+
+  it("names every group and never renders an empty one", () => {
+    for (const role of staffRoles) {
+      for (const group of sidebarFor(role)) {
+        expect(group.items.length).toBeGreaterThan(0);
+        expect(group.title.en.length).toBeGreaterThan(2);
+        expect(group.title.hi.length).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it("gives the viewer the two screens PLAN §3 names and no more", () => {
+    const groups = sidebarFor("view_only");
+
+    expect(groups.flatMap((group) => group.items).map((item) => item.href)).toEqual([
+      "/dashboard",
+      "/timetable",
+    ]);
   });
 });

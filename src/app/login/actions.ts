@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { admitSignedInUser } from "@/platform/auth/admit";
 import { sanitizeRedirectPath } from "@/platform/env";
+import { homeFor } from "@/platform/config/navigation";
 import { m } from "@/messages";
 import type { Localized } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
@@ -50,7 +51,7 @@ export async function loginAction(
 ): Promise<LoginActionState> {
   const email = (formData.get("email") ?? "").toString().trim().toLowerCase();
   const password = (formData.get("password") ?? "").toString();
-  const next = sanitizeRedirectPath(formData.get("next")?.toString());
+  const requested = formData.get("next")?.toString();
 
   if (!email || !password) {
     return fail(m.loginBothFields);
@@ -71,6 +72,16 @@ export async function loginAction(
   if (!admitted.ok) return fail(admitted.message);
 
   revalidatePath("/", "layout");
+
+  /**
+   * Where a deep link was aiming, or this role's own Home.
+   *
+   * The fallback has to be resolved *after* the profile is known, because the
+   * proxy stamps `?next=` from whatever was asked for and a bare visit to `/`
+   * produces no `next` at all. A teacher who signs in with nothing in mind
+   * should land on her day, not on a card showing her own email address.
+   */
+  const next = sanitizeRedirectPath(requested, homeFor(admitted.staff.role));
 
   // Outside the try/catch on purpose: redirect() works by throwing, so
   // catching around it would swallow the navigation.
