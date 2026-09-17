@@ -36,6 +36,8 @@ version the MCP recorded (D-22), so this list and
 | 20260917033652 | `create_collection` | 5.1–5.4 |
 | 20260917033722 | `create_vppsone_documents_bucket` | 5.3 |
 | 20260917041039 | `create_assessments` | 6.1–6.5 |
+| 20260917051014 | `create_jobs` | 7.1 |
+| 20260917051208 | `create_job_message_templates` | 7.2 |
 
 ## Phase 1 — foundation
 
@@ -106,6 +108,6 @@ version the MCP recorded (D-22), so this list and
 | # | What | Status | Branch | Commit | Notes |
 |---|---|---|---|---|---|
 | 7.0 | Passwordless test sign-in, and the two bugs it found | done | `p7-0-sign-in` | | Phases 3–6 all shipped without anybody looking at a signed-in screen. `/auth/confirm` accepts a link Supabase minted, both doors share `admitSignedInUser()`, and `npm run dev:login` issues a one-time link for a `@qa.vpps.local` account — dev only, any other address refused (D-86, D-87). The first pass through it found that the Teach card told every teacher on a good connection that she had no internet (D-88), and that saving a column wrote a "not entered → not entered" log row and an empty marks row for every child the teacher had not reached yet (D-89). Neither was reachable by a probe |
-| 7.1 | Job platform + console | todo | `p7-1-jobs` | | |
-| 7.2 | Scheduled jobs | todo | `p7-2-automations` | | |
-| 7.3 | Cutover to live data (PLAN §7) | todo | — | | Janmejay decides when |
+| 7.1 | Job platform + console | done | `p7-jobs` | | `runJob()` is everything every job has in common, so a job is only the work. **One run at a time is a partial unique index, not a flag** — a lock in memory does not exist when the app is two instances, which on Vercel it always is (D-90). A run that died leaves a `running` row holding that index forever, so stale rows are closed as failures before every attempt. Twice in a day is a skip, not work; the console's button forces it, and only on the second press, after it has told you why (D-91). Two doors in: Vercel's `CRON_SECRET` bearer, or a per-job token that is `HMAC(JOBS_SECRET, job)` — four different tokens, none of them the secret, and a deploy with neither variable set runs nothing at all rather than anything at all (D-92). Every refusal is the same 404 |
+| 7.2 | Scheduled jobs | done | `p7-jobs` | | Open today's registers, chase an unsubmitted one, nudge outstanding marks, write the day down. **The two reminders prepare messages and send nothing** — `draft`, staff audience, for the office to send by hand, which is where Phase 5 left every message this app produces (D-10, D-76). Building them turned up that a job which swallows a query error reports a confident zero: "19 classes have no class teacher" was a wrong column name, not a finding, and a second wrong table name was hiding behind the same silence (D-93). Every read now fails loudly. The dedupe is per template, because a teacher nudged about marks has not thereby been asked about her register |
+| 7.3 | Cutover to live data (PLAN §7) | blocked (Janmejay's call — rule 8) | — | | **Prepared, not done.** It writes to the live fee project and repoints production, which rule 8 makes somebody else's decision. `docs/CUTOVER.md` is the runbook: the six steps, what `expose_vppsone_to_postgrest` does if you skip it, and what rollback does and does not undo. `npm run cutover:check` reads **dev only** and refuses the live ref — it confirms all 34 tables the 15 migrations create exist, that no migration creates anything in `public`, and what master data step 3 has to reproduce for real. Currently green |

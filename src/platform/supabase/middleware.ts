@@ -33,7 +33,12 @@ const PUBLIC_PATHS = new Set(["/login", "/auth/confirm"]);
  */
 function isPublicPath(pathname: string) {
   if (PUBLIC_PATHS.has(pathname)) return true;
-  return ["/r", "/t", "/w"].some(
+
+  // `/api/jobs/*` is the scheduler's door. It has no session by definition —
+  // it is a cron request — and it carries its own secret, checked by the route
+  // itself, which refuses everything when neither secret is configured. A 302
+  // to a login page here would make every scheduled job a silent success.
+  return ["/r", "/t", "/w", "/api/jobs"].some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }

@@ -923,6 +923,41 @@ export const m = {
   exportRows: t("पंक्तियाँ", "rows"),
   exportTakenBy: t("किसने लिया", "Taken by"),
 
+  /* ----------------------------------------------------------- jobs */
+  jobsTitle: t("अपने आप चलने वाले काम", "Scheduled jobs"),
+  jobsIntro: t(
+    "कुछ काम हर दिन अपने आप होते हैं। यहाँ दिखता है कि आख़िरी बार कब और क्या हुआ।",
+    "Some work happens on its own every day. This is when it last ran, and what it did.",
+  ),
+  jobsRunNow: t("अभी चलाएँ", "Run now"),
+  jobsRunning: t("चल रहा है…", "Running…"),
+  jobsNeverRun: t("अभी तक नहीं चला।", "This has not run yet."),
+  jobsLastRun: t("आख़िरी बार", "Last run"),
+  jobsHistory: t("पिछले कुछ रन", "Recent runs"),
+  jobsNoHistory: t("अभी कोई रन नहीं हुआ।", "Nothing has run yet."),
+  jobsSchedule: t("समय", "Runs"),
+  jobsTookMs: t("लगा", "took"),
+  jobsManual: t("हाथ से चलाया", "Run by hand"),
+  jobsScheduled: t("अपने आप चला", "Ran on schedule"),
+  jobsStale: t(
+    "यह रन बीच में ही रुक गया लगता है।",
+    "This run seems to have stopped part-way.",
+  ),
+  jobsBusy: t(
+    "यह काम अभी पहले से चल रहा है।",
+    "That job is already running.",
+  ),
+  jobsDone: t("हो गया।", "Done."),
+  jobsFailed: t("नहीं हो सका।", "That did not work."),
+  // Said when a job is asked for a second time on a day it has already done.
+  // Not a refusal: pressing the button again forces it, and this is what the
+  // schedule itself gets when a cron fires twice.
+  jobsAlreadyToday: t(
+    "यह आज पहले ही हो चुका है — फिर भी चलाना हो तो दोबारा दबाइए।",
+    "This already ran today. Press again if you want it to run anyway.",
+  ),
+  jobsForceRun: t("फिर भी चलाएँ", "Run it anyway"),
+
   timetableClashFound: t(
     "एक ही समय पर दो जगह।",
     "The same teacher is expected in two different lessons at once.",

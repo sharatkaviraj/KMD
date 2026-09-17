@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Repeat2,
   Table2,
+  Timer,
   Users,
 } from "lucide-react";
 
@@ -107,6 +108,16 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: m.navStaff,
     icon: Users,
     permission: "staff:view",
+    ready: true,
+  },
+  // Last on purpose: it is the screen you visit when something did not happen,
+  // not one anybody opens daily. Only admin holds `jobs:view`, so for every
+  // other role this changes nothing about the bar.
+  {
+    href: "/jobs",
+    label: m.jobsTitle,
+    icon: Timer,
+    permission: "jobs:view",
     ready: true,
   },
 ];

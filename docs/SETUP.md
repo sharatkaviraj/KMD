@@ -30,6 +30,29 @@ fee app's backup stores them as `[SENSITIVE]`:
 Add them from AiSensy and Sentry directly when Phase 5 / Phase 7 needs them;
 `CRON_SECRET` should be a fresh value, not the fee app's.
 
+### The scheduled jobs (Phase 7.1)
+
+| Key | What it is |
+|---|---|
+| `CRON_SECRET` | Vercel sends it as `Authorization: Bearer …` on every cron request. Set it and the four crons in `vercel.json` work with no further configuration. |
+| `JOBS_SECRET` | Derives each job's own trigger token, `HMAC(JOBS_SECRET, job)`. Only needed to trigger a single job from somewhere that is not Vercel's scheduler. |
+
+**A deploy with neither set runs no jobs at all**, which is deliberate: an
+unconfigured deploy should be inert rather than open (D-92). It also means the
+jobs quietly do nothing until somebody sets `CRON_SECRET` — so check `/jobs`
+after the first morning rather than assuming.
+
+`npm run jobs:tokens` prints each job's URL for the current `.env.local`.
+Production tokens come from production's own `JOBS_SECRET` and are not in this
+repo.
+
+### Signing in as a test account (Phase 7.0)
+
+`npm run dev:login -- teacher` prints a one-time link for a `@qa.vpps.local`
+account; opening it signs in with no password. It refuses any other address and
+refuses to run against anything but dev, so it cannot mint a link for a real
+member of staff. `npm run dev:login` with no argument lists the accounts.
+
 Nothing belonging to the live fee database was copied — no `POSTGRES_*`, no
 production Supabase URL, key or JWT secret. The sync script refused any value
 containing the production project ref.

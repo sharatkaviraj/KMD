@@ -18,7 +18,9 @@
     "db:diff": "supabase db diff --schema vppsone",
     "db:link": "supabase link --project-ref wtgxcptmucjerhufzjcf",
     "db:types": "supabase gen types typescript --linked --schema vppsone",
-    "dev:login": "node scripts/dev-login.mjs"
+    "dev:login": "node scripts/dev-login.mjs",
+    "jobs:tokens": "node --import ./scripts/alias-hook.mjs scripts/job-tokens.mjs",
+    "cutover:check": "node scripts/cutover-check.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
