@@ -28,11 +28,21 @@ R8 executes the entire suite and publishes a release report.
   checking installed framework testing guidance. Proposed commands: `qa:seed`,
   `qa:reset`, `smoke:workflows`, `qa:a11y`, `qa:performance`; implement and
   document them before claiming they run.
-- **Implemented so far:** `npm run verify:origins` (R0.1) fetches each origin in
-  `src/platform/config/app-origins.ts` and fails unless the response identifies
-  itself; `-- --json` writes a machine-readable record for `docs/evidence/`.
-  It refuses to run if the table does not cover every app id, because a run that
-  checked nothing must not exit 0.
+- **Implemented so far:**
+  - `npm run verify:origins` (R0.1) fetches each origin in
+    `src/platform/config/app-origins.ts` and fails unless the response
+    identifies itself; `-- --json` writes a record for `docs/evidence/`.
+  - `npm run qa:seed` / `qa:reset` / `qa:status` (R0.2) build the nine QA
+    accounts from `tests/fixtures/qa-accounts.ts` and reverse themselves from
+    an undo log. `-- --edge-classes` adds a class of none and a class of one.
+  - `npm run smoke:workflows` (R0.3) runs the Playwright journeys in
+    `tests/e2e/` against a production build. Not part of `npm run check`: it
+    needs a database and a browser, and CI has neither.
+  - `npm run smoke:roles` (hardened in R0.3) compares three readings, fails on
+    a missing fixture, times each case out at 20 s, refuses to report a pass on
+    a short run, and takes `--json` and `--strict`.
+  - Still to build: `qa:a11y`, `qa:performance`.
+  Every one of these refuses to run against anything but the dev project.
 - Independent expected-role fixtures encode product requirements. Do not derive
   the sole expected result from the same guard/permission code under test.
 - Each case has timeout, role, route, fixture ID, expected/actual, elapsed time,

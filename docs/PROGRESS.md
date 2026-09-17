@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R0.3 below.**
+**Active queue: PLAN revision 2. The next task is R1.1 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -20,7 +20,7 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R0.1 | Complete source parity inventory, verify app/test origins and record baseline defects/metrics | Existing source + baseline | done | `r0-1-parity-and-origins` · `docs/evidence/R0.1-2026-09-17.md`, `docs/evidence/R0.1-origins-2026-09-17.json`, `npm run verify:origins` |
 | R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | done | `r0-2-fixtures` · `npm run qa:seed`/`qa:reset`/`qa:status` · `docs/evidence/R0.2-2026-09-17.md` |
 | R0.2-fix | B-21: the teacher's Today card called her first lesson "Period 0" | R0.2 | done | `r0-2-fixtures` · `src/modules/timetable/domain/periods.ts`, `tests/periods.test.ts` |
-| R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | todo | — |
+| R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | done | `r0-3-expectations-and-journeys` · `npm run smoke:workflows` · `docs/evidence/R0.3-2026-09-17.md`, `docs/evidence/R0.3-smoke-roles-2026-09-17.json` |
 | R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | todo | — |
 | R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | todo | — |
 | R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | todo | — |
@@ -110,6 +110,47 @@ deployment. Mocked sends carry a `mock:` prefix into
 Still open from this row: a 40-child class and a 1,205-row student list cannot
 be fixtured from here, because the roster is the fee app's and rule 2 forbids
 writing it (B-18).
+
+### R0.3 — a third reading, and a smoke that can fail
+
+`smoke:roles` was comparing two things that come from the same place: the
+permission each page's guard names, and what the map says that implies. A page
+asking for the wrong permission agrees with itself.
+`tests/fixtures/role-expectations.ts` is the second opinion — 36 routes read
+out of PLAN §3 by hand, each with the sentence it comes from. A screen
+disagreeing with the map is a failure; the map disagreeing with the plan is a
+**drift**, which has to be owned in that file by name or the run fails.
+
+**B-22, found on the first run.** `view_only` holds `attendance:view`, so it
+can open the register form, a class's roster, the corrections queue, the
+monthly register and a child's card — every one an editable form or a list of
+named children, which PLAN §3 gives the viewer neither of. It also puts a Teach
+tab on a viewer's bar leading to an empty teacher workspace. Owned by R1.2,
+which is where the role navigation lives; `smoke:roles -- --strict` is what
+that task turns on when it is resolved.
+
+The runner also fails now, which it could not before: a missing fixture is a
+failure rather than a shrug, a hung case has a 20-second deadline, and a run
+that executed fewer combinations than it set out to refuses to print a pass.
+All three were tried against the broken state before being trusted.
+
+**Two browser journeys** (`npm run smoke:workflows`, Playwright against a
+production build). A teacher takes her register — all present, two exceptions,
+save, reload, submit again, and the class disappears from Today — with every
+step asserted against the rows rather than the toast. The office asks for a
+number, finds the draft link answers 404 until it is opened, watches a
+nine-digit number leave the Send button disabled with no row written, saves a
+real one, re-answers it and sees the replacement in the review queue — the last
+part in a browser context with no session at all.
+
+The first teardown was wrong in a way worth keeping: it assumed the register
+was the test's own. **A register for today already exists** — the
+`open-registers` job opens one per class every morning — so the run left Class
+1 submitted and the next one failed with "there is nothing to do today". It
+snapshots and restores now.
+
+**B-23 raised**: `Section` renders a bare `<section>` with an `<h2>` inside
+and no `aria-labelledby`, so every landmark on every screen is unnamed.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows
