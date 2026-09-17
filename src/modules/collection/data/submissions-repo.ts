@@ -1,0 +1,306 @@
+import "server-only";
+
+import { assertPermission } from "@/platform/auth/current-staff";
+import { FEE_SCHEMA } from "@/platform/env";
+import { createAdminClient } from "@/platform/supabase/admin";
+import { createClient } from "@/platform/supabase/server";
+import { fetchAllRows } from "@/platform/supabase/paginate";
+import type { CollectionRequest } from "@/modules/collection/domain/requests";
+import type {
+  RecordSource,
+  Submission,
+  SubmissionStatus,
+} from "@/modules/collection/domain/review";
+
+/**
+ * Answers in, and answers out.
+ *
+ * The write side runs with no session — it is what the public token page
+ * posts to — so everything it touches is scoped by the request the token
+ * already resolved to. The read side is the office's queue and runs as
+ * themselves.
+ */
+
+/* ------------------------------------------------------------- writing */
+
+export type IncomingAnswer = {
+  studentId: string;
+  fieldId: string;
+  /** Already validated and normalised by `validateField()`. */
+  value: string | null;
+  previousValue: string | null;
+};
+
+/**
+ * Record what a teacher sent.
+ *
+ * **Upserted on (request, student, field).** Re-answering replaces: a teacher
+ * correcting a typo is fixing her answer, not filing a second one, and an
+ * office reading a queue of both would have to work out which is current.
+ *
+ * A row that has already been decided is left alone. Once the office has
+ * accepted an answer, a later flush of the same form — a browser tab somebody
+ * left open, an offline retry — must not quietly reopen it.
+ */
+export async function recordAnswers(
+  request: CollectionRequest,
+  answers: IncomingAnswer[],
+): Promise<{ written: number }> {
+  if (answers.length === 0) return { written: 0 };
+
+  const admin = createAdminClient();
+  const allowedFields = new Set(request.fields.map((field) => field.id));
+
+  // Scoped by the request the token resolved to, never by anything the caller
+  // sent: a field id the request does not ask for is simply dropped.
+  const scoped = answers.filter((answer) => allowedFields.has(answer.fieldId));
+  if (scoped.length === 0) return { written: 0 };
+
+  const { data: decided } = await admin
+    .from("collection_submissions")
+    .select("student_id, field_id")
+    .eq("request_id", request.id)
+    .neq("status", "pending")
+    .returns<{ student_id: string; field_id: string }[]>();
+
+  const locked = new Set(
+    (decided ?? []).map((row) => `${row.student_id}|${row.field_id}`),
+  );
+
+  const rows = scoped.filter(
+    (answer) => !locked.has(`${answer.studentId}|${answer.fieldId}`),
+  );
+
+  if (rows.length === 0) return { written: 0 };
+
+  const { error } = await admin.from("collection_submissions").upsert(
+    rows.map((answer) => ({
+      request_id: request.id,
+      student_id: answer.studentId,
+      field_id: answer.fieldId,
+      value: answer.value,
+      previous_value: answer.previousValue,
+      status: "pending" as const,
+      submitted_at: new Date().toISOString(),
+    })),
+    { onConflict: "request_id,student_id,field_id" },
+  );
+
+  if (error) throw error;
+  return { written: rows.length };
+}
+
+/* ------------------------------------------------------------- reading */
+
+type SubmissionRow = {
+  id: string;
+  request_id: string;
+  student_id: string;
+  field_id: string;
+  value: string | null;
+  previous_value: string | null;
+  status: SubmissionStatus;
+  submitted_at: string;
+  decided_at: string | null;
+  decision_note: string | null;
+  collection_requests: {
+    title_hi: string;
+    title_en: string;
+    class_label: string;
+    staff_profiles: { display_name: string } | null;
+  } | null;
+  collection_fields: { key: string; label_hi: string; label_en: string } | null;
+  staff_profiles: { display_name: string } | null;
+};
+
+const COLUMNS =
+  "id, request_id, student_id, field_id, value, previous_value, status, submitted_at, " +
+  "decided_at, decision_note, " +
+  "collection_requests!inner(title_hi, title_en, class_label, staff_profiles(display_name)), " +
+  "collection_fields!inner(key, label_hi, label_en), " +
+  "staff_profiles(display_name)";
+
+/**
+ * The review queue.
+ *
+ * Student names come from the fee app in one extra read rather than a join,
+ * because the join would cross schemas and the fee side needs the service-role
+ * client anyway (D-32).
+ */
+export async function listSubmissions(
+  status: SubmissionStatus | "all" = "pending",
+): Promise<Submission[]> {
+  await assertPermission("collection:view");
+
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("collection_submissions")
+    .select(COLUMNS)
+    .order("submitted_at", { ascending: false })
+    .limit(500);
+
+  if (status !== "all") query = query.eq("status", status);
+
+  const { data, error } = await query.returns<SubmissionRow[]>();
+  if (error) throw new Error(`Could not read the answers: ${error.message}`);
+  if (data.length === 0) return [];
+
+  const studentIds = [...new Set(data.map((row) => row.student_id))];
+
+  const { data: students } = await createAdminClient()
+    .schema(FEE_SCHEMA)
+    .from("students")
+    .select("id, full_name, roll_no")
+    .in("id", studentIds)
+    .returns<{ id: string; full_name: string; roll_no: string | null }[]>();
+
+  const byId = new Map((students ?? []).map((row) => [row.id, row]));
+
+  return data.map((row) => ({
+    id: row.id,
+    requestId: row.request_id,
+    requestTitleHi: row.collection_requests?.title_hi ?? "—",
+    requestTitleEn: row.collection_requests?.title_en ?? "—",
+    classLabel: row.collection_requests?.class_label ?? "—",
+    studentId: row.student_id,
+    studentName: byId.get(row.student_id)?.full_name ?? "—",
+    rollNo: byId.get(row.student_id)?.roll_no ?? null,
+    fieldId: row.field_id,
+    fieldKey: row.collection_fields?.key ?? "",
+    fieldLabelHi: row.collection_fields?.label_hi ?? "—",
+    fieldLabelEn: row.collection_fields?.label_en ?? "—",
+    value: row.value,
+    previousValue: row.previous_value,
+    status: row.status,
+    submittedAt: row.submitted_at,
+    submittedByName: row.collection_requests?.staff_profiles?.display_name ?? null,
+    decidedByName: row.staff_profiles?.display_name ?? null,
+    decidedAt: row.decided_at,
+    decisionNote: row.decision_note,
+  }));
+}
+
+export async function submissionsForRequest(
+  requestId: string,
+): Promise<Submission[]> {
+  const all = await listSubmissions("all");
+  return all.filter((entry) => entry.requestId === requestId);
+}
+
+export async function pendingSubmissionCount(): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("collection_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  if (error) throw new Error(`Could not count the answers: ${error.message}`);
+  return count ?? 0;
+}
+
+/**
+ * Which children already hold each phone number.
+ *
+ * For the neutral "also on N other children" line. **Never a validation** —
+ * siblings share a parent's number, and refusing the correct answer teaches a
+ * teacher that the screen is wrong about her own class.
+ */
+export async function phoneOwners(): Promise<Map<string, string[]>> {
+  const supabase = await createClient();
+
+  const rows = await fetchAllRows<{ student_id: string; value: string | null }>(
+    (from, to) =>
+      supabase
+        .from("student_records")
+        .select("student_id, value, collection_fields!inner(input_type)")
+        .eq("collection_fields.input_type", "tel")
+        .order("id")
+        .range(from, to)
+        .returns<{ student_id: string; value: string | null }[]>(),
+    "the phone numbers",
+  );
+
+  const owners = new Map<string, string[]>();
+  for (const row of rows) {
+    if (!row.value) continue;
+    owners.set(row.value, [...(owners.get(row.value) ?? []), row.student_id]);
+  }
+
+  return owners;
+}
+
+/* ------------------------------------------------------------ deciding */
+
+/**
+ * Accept or reject, and where an acceptance lands.
+ *
+ * On acceptance the value becomes `student_records` — VPPS One's own record.
+ * **It never writes the fee app** (rule 2): where the two disagree, both are
+ * shown and a person changes the fee app deliberately, in the fee app.
+ *
+ * The submission is marked first and the record written second, so an
+ * interruption leaves an accepted answer whose record has not caught up —
+ * visible, and fixed by accepting again — rather than a record nobody approved.
+ */
+export async function decideSubmissions(input: {
+  submissionIds: string[];
+  accept: boolean;
+  note: string | null;
+  deciderStaffId: string;
+  sessionLabel: string;
+}): Promise<{ decided: number; recorded: number }> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: rows, error: readError } = await admin
+    .from("collection_submissions")
+    .select("id, student_id, field_id, value")
+    .in("id", input.submissionIds)
+    .eq("status", "pending")
+    .returns<
+      { id: string; student_id: string; field_id: string; value: string | null }[]
+    >();
+
+  if (readError) throw readError;
+  if (!rows || rows.length === 0) return { decided: 0, recorded: 0 };
+
+  const { error } = await admin
+    .from("collection_submissions")
+    .update({
+      status: input.accept ? "accepted" : "rejected",
+      decided_by: input.deciderStaffId,
+      decided_at: now,
+      decision_note: input.note,
+    })
+    .in(
+      "id",
+      rows.map((row) => row.id),
+    )
+    // Only a pending one: two people deciding at once must not both win.
+    .eq("status", "pending");
+
+  if (error) throw error;
+  if (!input.accept) return { decided: rows.length, recorded: 0 };
+
+  // A blank answer means "no change", never "erase" — so it is accepted as a
+  // confirmation and writes nothing.
+  const changes = rows.filter((row) => (row.value ?? "").trim() !== "");
+  if (changes.length === 0) return { decided: rows.length, recorded: 0 };
+
+  const { error: recordError } = await admin.from("student_records").upsert(
+    changes.map((row) => ({
+      session_label: input.sessionLabel,
+      student_id: row.student_id,
+      field_id: row.field_id,
+      value: row.value,
+      source: "teacher" as RecordSource,
+      source_submission_id: row.id,
+      recorded_by: input.deciderStaffId,
+    })),
+    { onConflict: "student_id,field_id" },
+  );
+
+  if (recordError) throw recordError;
+  return { decided: rows.length, recorded: changes.length };
+}

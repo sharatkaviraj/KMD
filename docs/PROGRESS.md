@@ -33,6 +33,8 @@ version the MCP recorded (D-22), so this list and
 | 20260916210606 | `create_timetable_versions_and_slots` | 2.2–2.3 |
 | 20260917021218 | `create_attendance_and_notes` | 3.1–3.6 |
 | 20260917025818 | `create_substitutions` | 4.1–4.4 |
+| 20260917033652 | `create_collection` | 5.1–5.4 |
+| 20260917033722 | `create_vppsone_documents_bucket` | 5.3 |
 
 ## Phase 1 — foundation
 
@@ -81,10 +83,11 @@ version the MCP recorded (D-22), so this list and
 
 | # | What | Status | Branch | Commit | Notes |
 |---|---|---|---|---|---|
-| 5.1 | Token links + field registry | todo | `p5-1-token-links` | | |
-| 5.2 | Submissions + review queue | todo | `p5-2-review-queue` | | |
-| 5.3 | Student records + documents | todo | `p5-3-documents` | | |
-| 5.4 | WhatsApp templates | todo | `p5-4-whatsapp` | | |
+| 5.1 | Token links + field registry | done | `p5-collection` | | `/r/<token>` is one request, `/t/` is one teacher's own list, `/w/` is where a WhatsApp button lands — public by design, because the school has forty staff and four accounts (D-68). The token is the whole authorization: ~96 bits, one request and no navigation past it, **every rejection the same 404**, and a guess rate limited in Postgres with its own budget so a teacher never spends a guesser's. The field registry and `validateField()` are ported from Sampark with their bilingual errors — a nine-digit phone number is impossible to *submit*, not something the office cleans up later |
+| 5.2 | Submissions + review queue | done | `p5-collection` | | Re-answering replaces on (request, student, field): a correction is not a second submission. The queue **splits changes from confirmations** and accepts confirmations in bulk — "this is already right" is a real answer but not a change, and four hundred of them one at a time is a queue nobody finishes (D-73). A repeated phone number carries a neutral count, never a warning (D-71). **Blank means no change, never erase** (D-72) |
+| 5.3 | Student records + documents | done | `p5-collection` | | An accepted answer lands in `vppsone.student_records` and **never in the fee app**: `fee_column` is a comparison, not a destination (rule 2, D-69). An approved human answer outranks every import, forever, in code rather than in an editable row (D-70). Documents live in a private bucket and are served through a signed URL that lasts a minute, minted inside the function that checks the permission, with a path keyed by child and a random id rather than the filename (D-75) |
+| 5.4 | WhatsApp templates | done | `p5-collection` | | Templates carry the approved wording beside the name AiSensy knows them by, and a send stores the text **as it will read** because a template can be edited afterwards. `mayDispatch()` refuses a parent-facing row outright — D-10 made executable — so the office opens it in their own WhatsApp and marks it sent. Staff messages may go through the provider and still need an `AISENSY_API_KEY` this repo does not carry (rule 8: sending costs money) (D-76) |
+| 5.5 | Fix: "9 of 45" read backwards in Hindi | done | `p5-collection` | | Caught on the collection link, which happened to render for a Hindi reader. English counts up from the part, Hindi counts down from the whole (`45 में से 9`), so two numbers around a translated "of" render backwards in one of them — as the attendance register had been doing since Phase 3. `countOf()` now owns the word order (D-77) |
 
 ## Phase 6 — assessments and reports
 

@@ -32,7 +32,7 @@ import {
   subscribeQueue,
   writeQueue,
 } from "@/modules/attendance/ui/queue-store";
-import { primary, type Localized } from "@/platform/i18n/language";
+import { countOf, primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { cn } from "@/platform/utils";
 import { Badge, Notice } from "@/ui/primitives";
@@ -239,8 +239,12 @@ export function RegisterForm({
       <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[14px] text-muted-foreground">
-            <span className="font-semibold text-foreground">{counts.marked}</span>{" "}
-            {primary(m.attendanceOf, language)} {counts.total}{" "}
+            {/* `countOf`, not two numbers around a translated "of": Hindi
+                counts down from the whole and English counts up from the
+                part, so a fixed order reads backwards in one of them. */}
+            <span className="font-semibold text-foreground">
+              {countOf(counts.marked, counts.total, language)}
+            </span>{" "}
             {primary(m.attendanceMarked, language)}
           </p>
           <div className="flex items-center gap-1.5">

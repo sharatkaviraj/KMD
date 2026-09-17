@@ -90,6 +90,29 @@ export function t(hi: string, en: string): Localized {
 }
 
 /**
+ * "9 of 45" — in a word order each language actually uses.
+ *
+ * English counts up from the part: **9 of 45**. Hindi counts down from the
+ * whole: **45 में से 9**. Interpolating the two numbers in one fixed order
+ * around a translated "of" makes one of the two languages read backwards, and
+ * the two numbers on these screens are a register's progress and a child's
+ * attendance — both things somebody acts on.
+ *
+ * This shipped backwards in Hindi on the attendance register in Phase 3 and
+ * was caught on the collection link in Phase 5, on a page that happened to be
+ * rendering for a Hindi reader. It is a function rather than a pair because
+ * the numbers move, not just the words.
+ */
+export function countOf(part: number, whole: number, language: Language): string {
+  return language === "en" ? `${part} of ${whole}` : `${whole} में से ${part}`;
+}
+
+/** The same, as a pair, for a `both` reader or an aria-label. */
+export function countOfPair(part: number, whole: number): Localized {
+  return t(`${whole} में से ${part}`, `${part} of ${whole}`);
+}
+
+/**
  * Validation messages are produced in the domain, which has no idea who is
  * reading — a schema is parsed in a server action, long before a component
  * exists. Zod carries a `string`, so the pair is encoded as JSON and unpacked

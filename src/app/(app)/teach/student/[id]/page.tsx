@@ -3,7 +3,7 @@ import Link from "next/link";
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { primary, t } from "@/platform/i18n/language";
+import { countOf, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import {
   classLabelMap,
@@ -16,6 +16,13 @@ import {
   attendancePercent,
   type AttendanceStatus,
 } from "@/modules/attendance/domain/attendance";
+import { deleteDocumentAction } from "@/app/(app)/collection/actions";
+import {
+  documentsForStudent,
+  recordsForStudent,
+} from "@/modules/collection/data/documents-repo";
+import { documentKindLabels, humanSize } from "@/modules/collection/domain/review";
+import { DocumentForm } from "@/modules/collection/ui/office-forms";
 import { listNoteKinds, notesForStudent } from "@/modules/notes/data/notes-repo";
 import { canReadNote } from "@/modules/notes/domain/notes";
 import { NoteComposer } from "@/modules/notes/ui/note-composer";
@@ -87,14 +94,21 @@ export default async function StudentPage(
 
   const seesMoney = can(staff, "collection:view");
 
-  const [enrolment, history, labels, own, kinds, fees] = await Promise.all([
-    enrolmentForStudent(studentId, sessionLabel),
-    studentAttendance(studentId, sessionLabel),
-    classLabelMap(sessionLabel),
-    ownClassIds(staff.id, sessionLabel),
-    listNoteKinds(),
-    seesMoney ? feeStanding(studentId) : Promise.resolve(null),
-  ]);
+  const [enrolment, history, labels, own, kinds, fees, records, documents] =
+    await Promise.all([
+      enrolmentForStudent(studentId, sessionLabel),
+      studentAttendance(studentId, sessionLabel),
+      classLabelMap(sessionLabel),
+      ownClassIds(staff.id, sessionLabel),
+      listNoteKinds(),
+      seesMoney ? feeStanding(studentId) : Promise.resolve(null),
+      can(staff, "collection:view")
+        ? recordsForStudent(studentId)
+        : Promise.resolve([]),
+      can(staff, "documents:view")
+        ? documentsForStudent(studentId)
+        : Promise.resolve([]),
+    ]);
 
   const statuses = history.map((entry) => entry.status);
   const summary = attendancePercent(statuses);
@@ -186,8 +200,8 @@ export default async function StudentPage(
                 {summary.percent}%
               </p>
               <p className="text-[13px] text-muted-foreground">
-                {summary.present} {primary(m.attendanceOf, language)}{" "}
-                {summary.counted} {primary(m.registerWorkingDays, language)}
+                {countOf(summary.present, summary.counted, language)}{" "}
+                {primary(m.registerWorkingDays, language)}
               </p>
             </div>
 
@@ -240,6 +254,83 @@ export default async function StudentPage(
               </p>
             </Card>
           )}
+        </Section>
+      ) : null}
+
+      {/* ------------------------------------------------- what we hold */}
+
+      {can(staff, "collection:view") && records.length > 0 ? (
+        <Section className="mt-7" title={m.recordsTitle} language={language}>
+          <Card className="p-5">
+            <DetailList
+              language={language}
+              items={records.map((record) => ({
+                label: { hi: record.labelHi, en: record.labelEn },
+                value: record.value ?? "—",
+              }))}
+            />
+          </Card>
+        </Section>
+      ) : null}
+
+      {/* ---------------------------------------------------- documents */}
+
+      {can(staff, "documents:view") ? (
+        <Section className="mt-7" title={m.documentsTitle} language={language}>
+          {documents.length === 0 ? (
+            <EmptyState title={m.documentsNone} language={language} />
+          ) : (
+            <ul className="space-y-2">
+              {documents.map((document) => (
+                <li
+                  key={document.id}
+                  className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-medium text-foreground">
+                      {primary(documentKindLabels[document.kind], language)}
+                    </span>
+                    <span className="block truncate text-[12px] text-subtle-foreground">
+                      {document.fileName} · {humanSize(document.byteSize)}
+                      {document.uploadedByName ? ` · ${document.uploadedByName}` : ""}
+                    </span>
+                  </span>
+
+                  {/* A short-lived signed URL, minted by a route that checks
+                      the permission again. Never a public path: a birth
+                      certificate with a guessable URL is a birth certificate
+                      anybody has. */}
+                  <Link
+                    href={`/documents/${document.id}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className={buttonClasses({ variant: "outline", size: "sm" })}
+                  >
+                    {primary(m.documentsOpen, language)}
+                  </Link>
+
+                  {can(staff, "documents:manage") ? (
+                    <form action={deleteDocumentAction}>
+                      <input type="hidden" name="id" value={document.id} />
+                      <input type="hidden" name="studentId" value={studentId} />
+                      <button
+                        type="submit"
+                        className="focus-ring rounded-lg px-2 py-1 text-[13px] font-medium text-destructive-soft-foreground hover:bg-destructive-soft"
+                      >
+                        {primary(m.documentsRemove, language)}
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {can(staff, "documents:manage") ? (
+            <Card className="mt-3 p-4">
+              <DocumentForm studentId={studentId} />
+            </Card>
+          ) : null}
         </Section>
       ) : null}
 

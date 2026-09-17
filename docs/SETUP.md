@@ -148,7 +148,14 @@ npm run seed:dev && npm run seed:timetable && npm run seed:scenarios
   shapes on one day, a published plan and a hard draft one, four cover policies
   (part-time, duty-holder, office, zero automatic cap), a month of registers
   with every status and one left open, a child with no attendance at all, three
-  corrections (waiting, approved, rejected) and a note of every kind.
+  corrections (waiting, approved, rejected), a note of every kind, **an open
+  collection request with a working public link**, answers in every shape the
+  review queue splits on, two WhatsApp templates with a queued message each,
+  and one document in the private bucket.
+
+The collection request prints its own link when the script runs
+(`/r/<token>`). Open it in a browser with no session: that is exactly what a
+teacher sees, and it is the fastest way to check the whole loop.
 
 Both of the latter load app source directly through `scripts/alias-hook.mjs`,
 which teaches Node the `@/` alias — so the seeded cover plan is produced by the

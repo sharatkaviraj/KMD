@@ -29,10 +29,10 @@ Next.js + Drizzle. `src/lib/` is the useful part.
 
 | File(s) | What | Goes to |
 |---|---|---|
-| `requests.ts`, `fields.ts`, `field-keys.ts`, `submissions.ts` | token-link requests and the field registry | Phase 5.1–5.2 |
-| `routes.ts`, `request-origin.ts`, `ratelimit.ts` | the `/r` `/t` `/w` link routes and their guards | Phase 5.1 |
-| `documents.ts`, `document-store.ts`, `photos.ts`, `photo-store.ts` | document and photo handling | Phase 5.3 |
-| `aisensy.ts`, `whatsapp*.ts`, `templates.ts`, `send-queue.ts`, `reminders.ts` | the AiSensy integration, template registry, send queue and log | Phase 5.4 / 7.2 |
+| `requests.ts`, `fields.ts`, `field-keys.ts`, `submissions.ts` | token-link requests and the field registry | **ported** → `src/modules/collection/domain/{fields,requests,review}.ts` (5.1–5.2). `validateField` came across whole, with its errors turned into Hindi/English pairs. An accepted answer lands in `vppsone.student_records` and never in the fee app (rule 2, D-69) |
+| `auth/token.ts`, `request-origin.ts`, `ratelimit.ts` | resolving a token, the origin, and the budgets | **ported** → `src/modules/collection/data/{requests-repo,rate-limit}.ts` (5.1). Note that `routes.ts` in that repo is the **bus-route master**, not the URL routes — the `/r` `/t` `/w` handlers are pages under its `src/app/`. `BUS_ROUTES` is not ported: transport belongs to the fee app |
+| `documents.ts`, `document-store.ts`, `photos.ts`, `photo-store.ts` | document and photo handling | **ported in shape** → `src/modules/collection/data/documents-repo.ts` (5.3), onto Supabase Storage rather than Vercel Blob. Photo capture and its separate rate budgets are not ported: nothing in VPPS One photographs a class yet |
+| `aisensy.ts`, `whatsapp*.ts`, `templates.ts`, `send-queue.ts` | the AiSensy integration, template registry, send queue and log | **ported in shape** → `src/modules/collection/{domain/messages.ts,data/messages-repo.ts}` (5.4). The dispatch seam is deliberately unconfigured: a parent-facing row is refused outright (D-10, D-76) and a staff one needs an `AISENSY_API_KEY` this repo does not carry. `reminders.ts` is Phase 7.2 |
 | `name-match.ts`, `phone.ts`, `precedence.ts`, `completeness.ts` | matching submissions to students, phone normalisation | Phase 5.2 |
 | `marks.ts`, `subjects.ts`, `progress.ts` | marks and progress shapes | Phase 6 |
 | `timetable-import.ts`, `teachers.ts`, `classes.ts` | how Sampark modelled the same data | compare before designing Phase 1–2 tables |

@@ -28,6 +28,7 @@
  * parent or member of staff.
  */
 
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -533,6 +534,10 @@ const targetClass = [...new Set(enrolments.map((row) => row.class_id))]
   }))
   .sort((a, b) => b.roll.length - a.roll.length)[0];
 
+const targetClassLabel =
+  slots.find((slot) => slot.classId === targetClass.classId)?.classLabel ??
+  "Class";
+
 const STATUSES = ["present", "present", "present", "absent", "late", "leave"];
 const registerDays = [];
 
@@ -709,4 +714,291 @@ const noteRows = kinds
 die("Could not write the notes", (await db.from("notes").insert(noteRows)).error);
 
 console.log(`notes: ${noteRows.length} across every kind`);
+
+/* ----------------------------------------------------------- collection */
+//
+// A link somebody can actually open, and answers in every state the review
+// queue splits on: a change, a confirmation, and one already decided.
+
+const { data: collectionFields } = await db
+  .from("collection_fields")
+  .select("id, key, label_hi, label_en, input_type, mode, fee_column")
+  .eq("is_active", true)
+  .order("sort_order");
+
+const asked = collectionFields.filter((entry) =>
+  ["guardian_phone", "blood_group", "transport"].includes(entry.key),
+);
+
+const requestToken = randomBytes(12).toString("base64url");
+
+await db
+  .from("collection_requests")
+  .delete()
+  .eq("session_label", sessionLabel)
+  .eq("title_en", "Phone numbers and blood groups");
+
+const { data: request, error: requestError } = await db
+  .from("collection_requests")
+  .insert({
+    session_label: sessionLabel,
+    title_hi: "फ़ोन नंबर और रक्त समूह",
+    title_en: "Phone numbers and blood groups",
+    class_id: targetClass.classId,
+    class_label: targetClassLabel,
+    assigned_staff_id: qaTeacher?.id ?? null,
+    token: requestToken,
+    due_date: isoDay(7),
+    status: "open",
+    opened_at: new Date().toISOString(),
+    reason_hi: "इस कक्षा के सभी बच्चों के लिए।",
+    reason_en: "Every child in this class. The office needs these before the trip.",
+  })
+  .select("id")
+  .single();
+die("Could not create the request", requestError);
+
+die(
+  "Could not attach the fields",
+  (
+    await db.from("collection_request_fields").insert(
+      asked.map((entry, index) => ({
+        request_id: request.id,
+        field_id: entry.id,
+        sort_order: index,
+      })),
+    )
+  ).error,
+);
+
+// Answers in each of the three shapes the review queue cares about.
+const phoneField = asked.find((entry) => entry.key === "guardian_phone");
+const bloodField = asked.find((entry) => entry.key === "blood_group");
+
+const submissions = [];
+const answeredChildren = targetClass.roll.slice(0, 6);
+
+answeredChildren.forEach((student, index) => {
+  if (phoneField) {
+    const changed = index % 2 === 0;
+    submissions.push({
+      request_id: request.id,
+      student_id: student.student_id,
+      field_id: phoneField.id,
+      // Invented numbers, never a real one (rule 6). Two children share one,
+      // so the office's neutral "also on N other children" line has something
+      // to say.
+      value: changed ? (index < 2 ? "9000000001" : `900000000${index}`) : null,
+      previous_value: "9000000009",
+      status: "pending",
+    });
+  }
+
+  if (bloodField && index < 3) {
+    submissions.push({
+      request_id: request.id,
+      student_id: student.student_id,
+      field_id: bloodField.id,
+      value: ["A+", "O+", "B-"][index],
+      previous_value: null,
+      status: "pending",
+    });
+  }
+});
+
+die(
+  "Could not write the answers",
+  (await db.from("collection_submissions").insert(submissions)).error,
+);
+
+// One already accepted, so `student_records` and the "what we hold" card have
+// something in them.
+if (phoneField && answeredChildren[0]) {
+  const { data: accepted } = await db
+    .from("collection_submissions")
+    .update({
+      status: "accepted",
+      decided_by: raj?.id ?? null,
+      decided_at: new Date().toISOString(),
+      decision_note: "Checked with the office.",
+    })
+    .eq("request_id", request.id)
+    .eq("student_id", answeredChildren[0].student_id)
+    .eq("field_id", phoneField.id)
+    .select("id, value")
+    .maybeSingle();
+
+  if (accepted?.value) {
+    die(
+      "Could not record the accepted answer",
+      (
+        await db.from("student_records").upsert(
+          {
+            session_label: sessionLabel,
+            student_id: answeredChildren[0].student_id,
+            field_id: phoneField.id,
+            value: accepted.value,
+            source: "teacher",
+            source_submission_id: accepted.id,
+            recorded_by: raj?.id ?? null,
+          },
+          { onConflict: "student_id,field_id" },
+        )
+      ).error,
+    );
+  }
+}
+
+console.log(
+  `collection: 1 open request (/r/${requestToken}), ${submissions.length} answers, 1 accepted`,
+);
+
+/* ------------------------------------------------------------- messages */
+
+const templates = [
+  {
+    code: "vppsone_collection_link",
+    label_hi: "जानकारी का लिंक",
+    label_en: "Collection link",
+    body_hi: "नमस्ते {{1}}, {{2}} के लिए जानकारी भरनी है। धन्यवाद।",
+    body_en: "Hello {{1}}, please fill in {{2}} for your class. Thank you.",
+    variables: ["Teacher name", "What is being asked"],
+    has_url_button: true,
+    audience: "staff",
+    sort_order: 1,
+  },
+  {
+    code: "vppsone_parent_notice",
+    label_hi: "अभिभावक सूचना",
+    label_en: "Parent notice",
+    body_hi: "नमस्ते, {{1}} के बारे में सूचना: {{2}}",
+    body_en: "Hello, a note about {{1}}: {{2}}",
+    variables: ["Child name", "The message"],
+    has_url_button: false,
+    audience: "parent",
+    sort_order: 2,
+  },
+];
+
+die(
+  "Could not write the templates",
+  (await db.from("message_templates").upsert(templates, { onConflict: "code" })).error,
+);
+
+const { data: staffTemplate } = await db
+  .from("message_templates")
+  .select("id, body_hi, body_en, audience")
+  .eq("code", "vppsone_collection_link")
+  .single();
+
+const { data: parentTemplate } = await db
+  .from("message_templates")
+  .select("id, body_hi, body_en, audience")
+  .eq("code", "vppsone_parent_notice")
+  .single();
+
+const fill = (body, values) =>
+  body.replace(/\{\{(\d+)\}\}/g, (whole, index) => values[Number(index) - 1] ?? whole);
+
+await db.from("message_sends").delete().eq("session_label", sessionLabel);
+
+const staffVars = [qaTeacher?.display_name ?? "Teacher", "phone numbers"];
+const parentVars = [targetClass.roll[0] ? "your child" : "your child", "the school trip is on Friday"];
+
+die(
+  "Could not queue the messages",
+  (
+    await db.from("message_sends").insert([
+      {
+        session_label: sessionLabel,
+        template_id: staffTemplate.id,
+        to_phone: "9000000010",
+        to_name: qaTeacher?.display_name ?? null,
+        staff_profile_id: qaTeacher?.id ?? null,
+        request_id: request.id,
+        variables: staffVars,
+        rendered_hi: fill(staffTemplate.body_hi, staffVars),
+        rendered_en: fill(staffTemplate.body_en, staffVars),
+        status: "queued",
+        requested_by: raj?.id ?? null,
+      },
+      {
+        session_label: sessionLabel,
+        template_id: parentTemplate.id,
+        to_phone: "9000000011",
+        to_name: "Test Parent",
+        student_id: targetClass.roll[0]?.student_id ?? null,
+        variables: parentVars,
+        rendered_hi: fill(parentTemplate.body_hi, parentVars),
+        rendered_en: fill(parentTemplate.body_en, parentVars),
+        status: "queued",
+        requested_by: raj?.id ?? null,
+      },
+    ])
+  ).error,
+);
+
+console.log("messages: 2 templates, 2 queued (1 staff, 1 parent — parent is hand-sent)");
+
+/* ------------------------------------------------------------ documents */
+//
+// A real object in the private bucket, so the signed-URL path is exercised
+// rather than assumed. The smallest valid PDF there is, invented here.
+
+const TINY_PDF = Buffer.from(
+  "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n" +
+    "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n" +
+    "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n" +
+    "trailer<</Root 1 0 R>>\n%%EOF\n",
+  "utf8",
+);
+
+if (targetClass.roll[0]) {
+  const studentId = targetClass.roll[0].student_id;
+
+  const { data: existing } = await db
+    .from("student_documents")
+    .select("id, storage_path")
+    .eq("student_id", studentId);
+
+  for (const doc of existing ?? []) {
+    await db.storage.from("vppsone-documents").remove([doc.storage_path]);
+    await db.from("student_documents").delete().eq("id", doc.id);
+  }
+
+  const { data: doc, error: docError } = await db
+    .from("student_documents")
+    .insert({
+      session_label: sessionLabel,
+      student_id: studentId,
+      kind: "birth_certificate",
+      storage_path: `pending/${randomUUID()}`,
+      file_name: "birth-certificate.pdf",
+      content_type: "application/pdf",
+      byte_size: TINY_PDF.byteLength,
+      note: "Seeded test document. Not a real certificate.",
+      uploaded_by: raj?.id ?? null,
+    })
+    .select("id")
+    .single();
+  die("Could not index the document", docError);
+
+  const path = `${sessionLabel}/${studentId}/${doc.id}.pdf`;
+  const upload = await db.storage
+    .from("vppsone-documents")
+    .upload(path, TINY_PDF, { contentType: "application/pdf", upsert: true });
+
+  if (upload.error) {
+    await db.from("student_documents").delete().eq("id", doc.id);
+    die("Could not store the document", upload.error);
+  }
+
+  die(
+    "Could not point the row at the file",
+    (await db.from("student_documents").update({ storage_path: path }).eq("id", doc.id))
+      .error,
+  );
+
+  console.log(`documents: 1 stored at ${path}`);
+}
 console.log("\nseeded.");

@@ -13,8 +13,24 @@ import { getRequiredEnvVar, hasRequiredEnvVars } from "@/platform/env";
  */
 const PUBLIC_PATHS = new Set(["/login"]);
 
+/**
+ * The token links, which are open by design.
+ *
+ * `/r/` is a request, `/t/` is one teacher's list of her own, and `/w/` is
+ * where a WhatsApp button lands. A teacher opens these from a message on her
+ * phone and never signs in — that is the whole point of the Sampark merge, and
+ * a redirect to a login page she has no account for would end the round.
+ *
+ * Open is not unguarded. The token is ~96 bits, every rejection is the same
+ * 404, a guess is rate limited in Postgres, and the page can reach exactly one
+ * request's roll and nothing else — see `requests-repo.ts`, which is the only
+ * place that resolves one.
+ */
 function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.has(pathname);
+  if (PUBLIC_PATHS.has(pathname)) return true;
+  return ["/r", "/t", "/w"].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
 
 /**

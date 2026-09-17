@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   ClipboardCheck,
   GraduationCap,
+  Inbox,
   LayoutGrid,
   MoreHorizontal,
   Repeat2,
@@ -77,6 +78,13 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: m.timetableTitle,
     icon: Table2,
     permission: "timetable:view",
+    ready: true,
+  },
+  {
+    href: "/collection",
+    label: m.navCollection,
+    icon: Inbox,
+    permission: "collection:view",
     ready: true,
   },
   {

@@ -1,0 +1,18 @@
+import type { Localized } from "@/platform/i18n/language";
+
+/**
+ * The shape every collection action returns.
+ *
+ * A plain module, not the `"use server"` file that uses it: such a file may
+ * export only async functions, and a state constant there fails the build at
+ * "Collecting page data" rather than at typecheck.
+ */
+export type CollectionState = {
+  status: "idle" | "saved" | "error";
+  message: Localized | null;
+};
+
+export const idleCollectionState: CollectionState = {
+  status: "idle",
+  message: null,
+};

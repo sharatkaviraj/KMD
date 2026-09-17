@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { m } from "@/messages";
 import {
+  countOf,
+  countOfPair,
   decodeMessage,
   DEFAULT_LANGUAGE,
   encodeMessage,
@@ -65,6 +67,38 @@ describe("secondary()", () => {
     // look broken to exactly the readers who chose to see both.
     expect(secondary({ hi: "Class 6 A", en: "Class 6 A" }, "both")).toBeNull();
     expect(flat({ hi: "Class 6 A", en: "Class 6 A" }, "both")).toBe("Class 6 A");
+  });
+});
+
+describe("countOf()", () => {
+  /**
+   * The bug this exists for: "9 of 45" interpolated around a translated "of"
+   * renders in Hindi as "9 में से 45", which reads "out of 9, 45". It shipped
+   * backwards on the attendance register and was caught on the collection link,
+   * on a page that happened to be rendering for a Hindi reader.
+   */
+  it("counts up from the part in English", () => {
+    expect(countOf(9, 45, "en")).toBe("9 of 45");
+  });
+
+  it("counts down from the whole in Hindi", () => {
+    expect(countOf(9, 45, "hi")).toBe("45 में से 9");
+    expect(countOf(9, 45, "both")).toBe("45 में से 9");
+  });
+
+  it("never puts the two numbers in the same order in both languages", () => {
+    // The whole point: if these ever matched, one of them would be wrong.
+    expect(countOf(9, 45, "en")).not.toBe(countOf(9, 45, "hi"));
+  });
+
+  it("is the same pair for a bilingual reader", () => {
+    expect(countOfPair(9, 45)).toEqual({ hi: "45 में से 9", en: "9 of 45" });
+    expect(flat(countOfPair(9, 45), "both")).toBe("45 में से 9 · 9 of 45");
+  });
+
+  it("copes with zero and with equality", () => {
+    expect(countOf(0, 0, "en")).toBe("0 of 0");
+    expect(countOf(40, 40, "hi")).toBe("40 में से 40");
   });
 });
 
