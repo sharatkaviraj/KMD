@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R1.1 below.**
+**Active queue: PLAN revision 2. The next task is R1.2 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -21,7 +21,7 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | done | `r0-2-fixtures` · `npm run qa:seed`/`qa:reset`/`qa:status` · `docs/evidence/R0.2-2026-09-17.md` |
 | R0.2-fix | B-21: the teacher's Today card called her first lesson "Period 0" | R0.2 | done | `r0-2-fixtures` · `src/modules/timetable/domain/periods.ts`, `tests/periods.test.ts` |
 | R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | done | `r0-3-expectations-and-journeys` · `npm run smoke:workflows` · `docs/evidence/R0.3-2026-09-17.md`, `docs/evidence/R0.3-smoke-roles-2026-09-17.json` |
-| R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | todo | — |
+| R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | done | `r1-1-app-registry` · `src/platform/config/apps.ts`, `/apps` · `docs/evidence/R1.1-2026-09-17.md` |
 | R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | todo | — |
 | R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | todo | — |
 | R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | todo | — |
@@ -151,6 +151,40 @@ snapshots and restores now.
 
 **B-23 raised**: `Section` renders a bare `<section>` with an `<h2>` inside
 and no `aria-labelledby`, so every landmark on every screen is unnamed.
+
+### R1.1 — the way to the other two apps
+
+`src/platform/config/apps.ts` is the registry PLAN §2 asks for: stable ids,
+the names staff already use with what each app is *for*, the destination's own
+environment, who is offered it, and an allow-list of paths. Two properties do
+the work.
+
+**Nothing else in `src/` may write a sibling hostname.** A test scans every
+source file outside the two config files for a `vercel.app` host and fails on
+a match, because two of the three a reader would guess are wrong and one is a
+different company's product (B-15).
+
+**No link carries an id across a dataset boundary.** This app is on
+schoolfees-dev and both siblings are on live data, so a student link falls back
+to the destination's own search screen instead of a URL that would 404 with a
+child's name on it. It flips to a detail link the moment the two sides match,
+and a test asserts both halves. SamPark never gets one in either direction: it
+keeps its own text ids, and mapping them is R3.1's work (S-10).
+
+`/apps` is guarded on a new `apps:view`, which admin and office hold. Every
+card carries **its own** environment badge — both read "live data" while this
+app's header reads "test" — because PLAN §2 is explicit that one badge must
+not be read as covering all three. Each says a separate sign-in may be needed;
+same Supabase project is not a shared cookie and SamPark is a different auth
+stack. Ordinary links in the same tab, so Back works.
+
+Both apps also sit on the office and admin home, above the list of screens,
+with their hostnames printed.
+
+Still true after this: **`/apps` is not on the office bottom bar.** Office may
+open ten screens, the bar holds five, and the shared order leads with Teach and
+Cover — which is B-04, and R1.2 owns it. The More hub and the home shortcut
+cover it meanwhile.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

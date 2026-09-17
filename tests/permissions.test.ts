@@ -48,6 +48,10 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "assessments:view",
     "marks:view",
     "reports:view",
+    // The way to School Fees and SamPark. PLAN §3 puts Apps on the office's
+    // navigation; it does not grant anything in either destination, which
+    // decides for itself.
+    "apps:view",
   ],
 
   academic_coordinator: [

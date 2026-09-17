@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { navigationFor } from "@/platform/config/navigation";
+import { appsFor, environmentLabel } from "@/platform/config/apps";
 import { getVppsOneEnvironment } from "@/platform/env";
 import { flat, primary, secondary } from "@/platform/i18n/language";
 import { Card, DetailList, Notice, Section } from "@/ui/primitives";
@@ -30,6 +32,7 @@ export default async function DashboardPage() {
   const destinations = navigationFor(staff.role).filter(
     (item) => item.href !== "/dashboard",
   );
+  const apps = appsFor(staff.role);
 
   return (
     <>
@@ -55,6 +58,43 @@ export default async function DashboardPage() {
           ]}
         />
       </Card>
+
+      {/* The other two apps, above the list of screens rather than inside it.
+          PLAN §5 R1: "put both original apps on office/admin home
+          immediately" — the office reaches for School Fees several times a
+          day, and until R2.2 gives this screen real work, this is the most
+          useful thing on it. Each button says which host it opens; two of the
+          three hostnames a reader would guess belong to somebody else. */}
+      {apps.length > 0 ? (
+        <Section
+          className="mt-6"
+          title={m.navApps}
+          description={m.appsIntro}
+          language={language}
+        >
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {apps.map((app) => (
+              <li key={app.id}>
+                <a
+                  href={app.home.href}
+                  className="focus-ring flex min-h-16 flex-col justify-center gap-0.5 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="min-w-0 truncate text-[15px] font-semibold text-foreground">
+                      {primary(app.name, language)}
+                    </span>
+                    <ExternalLink aria-hidden className="size-4 shrink-0 text-subtle-foreground" />
+                  </span>
+                  <span className="truncate text-[12px] text-subtle-foreground">
+                    {flat(environmentLabel(app.environment), language)} ·{" "}
+                    {new URL(app.home.href).host}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
 
       {destinations.length > 0 ? (
         <Section

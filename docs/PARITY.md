@@ -101,7 +101,7 @@ R6.1 ships tab links plus the fee app's own search, not id-bearing URLs.
 
 | ID | Original route / workflow | Fee tab · permission | Current VPPS One | Required handoff / validation |
 |---|---|---|---|---|
-| F-01 critical | `/protected/dashboard`; `/protected/students`, `/students/[id]`, `/students/[id]/edit`, `/students/new` | Dashboard · `dashboard:view`; Students · `students:view` | Fee standing on the teacher's student card only (`v_student_directory`), no app link | Home shortcut on office/admin; directory/detail context link when ids match; **search fallback otherwise** |
+| F-01 critical | `/protected/dashboard`; `/protected/students`, `/students/[id]`, `/students/[id]/edit`, `/students/new` | Dashboard · `dashboard:view`; Students · `students:view` | **Home shortcut and `/apps` linked (R1.1)**; fee standing on the teacher student card | Directory/detail context link when ids match; **search fallback otherwise** — the builder exists and is tested, the screen that renders it is R2.3 |
 | F-02 critical | `/protected/payments`, `/payments/bulk`, alias `/protected/collections` | Payment Desk · `payments:view` | Link pending | "Payment Desk" entry from office/admin home and `/apps`; sign-in and return path tested; receipt path exercised only in a fee sandbox |
 | F-03 critical | `/protected/receipts`, `/receipts/[receiptId]`, `/protected/transactions`, `/protected/ledger` | Transactions · `receipts:view` (aliases `/dues`, `/receipts`, `/ledger`) | Link pending | Receipts/Transactions entries; print, correction/reversal and repeated-submit behaviour **only** in a sandbox |
 | F-04 critical | `/protected/dues`, `/protected/defaulters`, `/admin-tools/prev-year-dues` | Transactions (alias) · `receipts:view`; Defaulters · `defaulters:view` | Read-only student summary only | Dues/Defaulters entry with session context; balances reconcile with the fee app's own view; **late-fee-only is not a defaulter** and fees and late fees are never summed |
@@ -125,7 +125,7 @@ failure until it is.
 
 | ID | Sev | Status after R0.1 | Finding | Owner |
 |---|---|---|---|---|
-| B-01 | P1 | **confirmed** | No School Fees or SamPark destination anywhere in VPPS One; `navigation.ts` has no app registry | R1.1 |
+| B-01 | P1 | **fixed in R1.1** | No School Fees or SamPark destination anywhere in VPPS One; `navigation.ts` had no app registry. Closed by `src/platform/config/apps.ts`, `/apps`, and the office/admin home shortcuts | R1.1 — closed |
 | B-02 | P1 | **confirmed** | `vppsone.collection_requests` has `class_id` and no batch/audience/member columns — S-03, S-04, S-05, S-06 have no schema at all | R3.1 |
 | B-03 | P2 | **confirmed** | `/dashboard` renders the profile card plus a link list for **all six roles** (`src/app/(app)/dashboard/page.tsx`, 109 lines); no operational priorities anywhere | R1.2 / R2 |
 | B-04 | P2 | **confirmed** | One shared nav order for every role; office-style work reaches Collection through More | R1.2 |
@@ -178,4 +178,6 @@ inspection.
 
 | Row | Kind | Destination | Roles allowed / denied | Evidence | Delivery | Gap |
 |---|---|---|---|---|---|---|
-| _(none yet — R1.1 files the first)_ | | | | | | |
+| F-01 home | linked | `https://vpps-one.vercel.app/protected/dashboard` (live) | admin, office / everyone else refused at `apps:view` | `docs/evidence/R1.1-2026-09-17.md`; browser at 375x812; `npm run verify:origins` | R1.1 | No fee workflow exercised; R6.2 still needs a staff-reachable fee test origin (B-16) |
+| S-10 link | linked | `https://sampark-theta-eight.vercel.app/` (live) | admin, office / everyone else refused | same | R1.1 | Search only - SamPark ids are its own, and mapping them is R3.1 |
+| F-01 context | built, not yet rendered | `/protected/students?query=...`, or `/protected/students/<uuid>` when the datasets match | n/a | `tests/apps.test.ts` | R1.1 | No screen calls it until the student summary in R2.3 |

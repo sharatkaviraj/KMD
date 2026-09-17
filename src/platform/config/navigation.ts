@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   MoreHorizontal,
   Repeat2,
+  SquareArrowOutUpRight,
   Table2,
   Timer,
   Users,
@@ -94,6 +95,16 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: m.navCollection,
     icon: Inbox,
     permission: "collection:view",
+    ready: true,
+  },
+  // The way to the other two apps. Above the master data on purpose: the
+  // office reaches for School Fees several times a day and for the subject
+  // list a few times a year.
+  {
+    href: "/apps",
+    label: m.navApps,
+    icon: SquareArrowOutUpRight,
+    permission: "apps:view",
     ready: true,
   },
   {

@@ -966,6 +966,50 @@ export const m = {
     "कोई सत्र नहीं मिला।",
     "No academic session was found in the fee app's classes.",
   ),
+
+  /* ------------------------------------------------- the other two apps */
+  //
+  // Names first, purpose second (PLAN §3a): "SamPark" and "School Fees" are
+  // what the staff already call them, and the half after the dash is what
+  // tells somebody which one their task is in.
+  navApps: t("ऐप", "Apps"),
+  appsTitle: t("स्कूल के ऐप", "The school's apps"),
+  appsIntro: t(
+    "फ़ीस और विद्यार्थी जानकारी अपने-अपने ऐप में ही रहती है। यहाँ से सीधे खुल जाएगा।",
+    "Fees and student information stay in their own apps. These open them directly.",
+  ),
+  appSampark: t("सम्पर्क — विद्यार्थी जानकारी", "SamPark — Student information"),
+  appSamparkPurpose: t(
+    "अभिभावक के नंबर, पते और दस्तावेज़ इकट्ठा करना।",
+    "Collecting parents' numbers, addresses and documents.",
+  ),
+  appSchoolFees: t("स्कूल फ़ीस — भुगतान और बकाया", "School Fees — Payments and dues"),
+  appSchoolFeesPurpose: t(
+    "फ़ीस लेना, रसीद देना और बकाया देखना।",
+    "Taking payments, printing receipts and checking dues.",
+  ),
+  appOpenApp: t("ऐप खोलें", "Open the app"),
+  appExternal: t("अलग ऐप", "A separate app"),
+  appSignInAgain: t(
+    "यह अलग ऐप है — वहाँ अपने उसी ऐप के खाते से साइन इन करना पड़ सकता है।",
+    "This is a separate app. You may need to sign in there with that app's own account.",
+  ),
+  appLiveData: t("असली डेटा", "Live data"),
+  appTestData: t("टेस्ट डेटा", "Test data"),
+  appOpensLiveData: t(
+    "यह असली स्कूल डेटा खोलता है, टेस्ट डेटा नहीं।",
+    "This opens the school's live data, not test data.",
+  ),
+  appOpensTestData: t(
+    "यह टेस्ट डेटा खोलता है।",
+    "This opens test data.",
+  ),
+  appOpenThisChild: t("इस बच्चे को खोलें", "Open this child"),
+  appFindThisChild: t("इस बच्चे को खोजें", "Find this child"),
+  appSearchInstead: t(
+    "यहाँ का पहचान-नंबर वहाँ नहीं चलता, इसलिए खोज खुलेगी।",
+    "An id from here does not exist there, so this opens the search screen instead.",
+  ),
 } as const;
 
 export type MessageKey = keyof typeof m;

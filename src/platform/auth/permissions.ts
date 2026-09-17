@@ -70,6 +70,13 @@ export const staffPermissions = [
   "marks:write",
   "reports:view",
 
+  // The other two apps (R1.1).
+  //
+  // Not "may open School Fees" — nothing here can grant that, and the fee app
+  // decides for itself. This is only "is offered the way there", which PLAN §3
+  // gives the admin and the office. A teacher has no errand in either.
+  "apps:view",
+
   // Platform (Phase 7).
   "jobs:view",
   "jobs:run",
@@ -126,6 +133,7 @@ const officePermissions: readonly StaffPermission[] = [
   "assessments:view",
   "marks:view",
   "reports:view",
+  "apps:view",
 ];
 
 /**

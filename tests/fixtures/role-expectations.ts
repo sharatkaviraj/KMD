@@ -308,6 +308,15 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "The academic roll, reconciled against the fee app's students.",
   },
 
+  /* ------------------------------------------------------ the other apps */
+
+  {
+    route: "/apps",
+    allow: ["admin", "office"],
+    because:
+      "PLAN §3 puts Apps on the admin and office navigation and nowhere else: a teacher gets no fee cards, and neither coordinator has an errand in SamPark or School Fees.",
+  },
+
   /* -------------------------------------------------------------- platform */
 
   {
