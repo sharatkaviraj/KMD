@@ -1,10 +1,55 @@
 # VPPS One — progress
 
-**The next task is the first row below that is not `done`.**
+**Active queue: PLAN revision 2. The next task is R0.1 below.**
+Use the first actionable R-row, not the deferred original live-cutover row 7.3.
+Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
 under the task they fix.
 
 Status: `todo` · `in progress` · `pr open` · `done` · `blocked (reason)`
+
+## Revision 2 — active queue (2026-09-17)
+
+Planning delivery: updated PLAN, parity register, QA protocol, verified baseline,
+kickoff and aligned entry documents. Branch `main`; identify this documentation
+commit through git history. Baseline application commit `0712de6`. No R-phase
+implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
+
+| Task | Bounded deliverable | Depends on | Status | Branch / commit / evidence |
+|---|---|---|---|---|
+| R0.1 | Complete source parity inventory, verify app/test origins and record baseline defects/metrics | Existing source + baseline | todo | `PARITY.md`, `QA-BASELINE-2026-09-17.md` are starting evidence |
+| R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | todo | — |
+| R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | todo | — |
+| R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | todo | — |
+| R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | todo | — |
+| R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | todo | — |
+| R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | todo | — |
+| R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | todo | — |
+| R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | todo | — |
+| R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | todo | — |
+| R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | todo | — |
+| R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | todo | — |
+| R3.4 | Round-aware review/precedence/superseding and mock message retry; S-01–S-09 acceptance | R3.3 | todo | — |
+| R4.1 | Student source/health tools and resumable import preview/error handling | R3.4 | todo | — |
+| R4.2 | Student photo capture/retake/replace, bulk filename matching and office-assisted workflow | R4.1 | todo | — |
+| R4.3 | Documents, workbook export and residual S-12–S-14 source parity | R4.2 | todo | — |
+| R5.1 | Attendance UX, durable/account-scoped drafts, corrections and atomic save recovery | R2, R0.3 | todo | — |
+| R5.2 | Timetable/cover usability, atomic publication and stale/concurrent plan handling | R5.1 | todo | — |
+| R5.3 | Marks entry/paste/history, report readiness and print; atomic/versioned saves | R5.2, R4.3 | todo | — |
+| R6.1 | Complete all F-row fee destinations and verify authentication/context/environment handoff | R1.1, R2.3 | todo | — |
+| R6.2 | Reconcile fee summaries and validate original workflows in verified fee test environment | R6.1 | todo | Record unavailable sandbox as an evidence gap, never use live writes |
+| R7.1 | Measure and optimize query/render/bundle/image/save hotspots; before/after evidence | R3–R6 | todo | — |
+| R7.2 | Full responsive/language/keyboard/accessibility pass and performance budgets | R7.1 | todo | — |
+| R8.1 | Full deep smoke matrix; fix P0/P1 with regression and cleanup evidence | R7.2 | todo | — |
+| R8.2 | CI/main/deployment verification, parity closure and rollback report | R8.1 | todo | — |
+| R8.3 | Timed teacher/office/admin and physical Android/webview/camera/print acceptance | R8.2 | todo | Code-delivered and staff-accepted are separate if physical evidence unavailable |
+
+Dependencies naming a whole phase mean all its required rows. Default order is
+the plan sequence; after recording a concrete blocker, independent ready rows
+may proceed. Every done row needs branch, delivery commit, evidence and remaining
+limitations. Add fix rows rather than deleting historical records.
+
+## Original implementation history
 
 ## Phase 0 — setup (done by Janmejay + Claude, 2026-09-16)
 

@@ -1,5 +1,23 @@
 # Where to copy code from
 
+## Active revision 2 source audit
+
+Read `PARITY.md` for the current workflow-by-workflow inventory and `PLAN.md`
+R0–R8 for the execution order. Inspected on 2026-09-17: SamPark `830548c`,
+School Fees `48beb9a6`, VPPS One `0712de6`; recheck source commits at kickoff.
+The tables below describe original ports. **Ported in shape is not full parity.**
+Original decisions not to port photo capture or workbooks are revisited in R4.
+The existing auth/master-data architecture remains; preserve sibling apps.
+
+SamPark additions to inspect: `src/lib/ask-list.ts`, `requests.ts`, `snapshots.ts`,
+`answered.ts`, `ownership.ts`, `office.ts`, `photos.ts`, `photo-store.ts`,
+`photo-filename.ts`, `photo-health.ts`, `excel.ts`, `student-export.ts`; admin
+routes for request batches/bulk, students/import/health, marks and settings.
+School Fees routes are enumerated in PARITY F-01–F-12; use its navigation and
+read models to build accurate handoffs, not an independent fee implementation.
+
+## Original port reference
+
 Three sibling repos on the laptop, at `C:\Users\AnandKumari\Projects\`. All three
 are **read-only references** — never commit to them from this project.
 

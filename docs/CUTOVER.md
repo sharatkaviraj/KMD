@@ -1,5 +1,10 @@
 # Cutover to live data (PLAN §7, task 7.3)
 
+**Revision 2 notice:** this live-data runbook is outside the active R0–R8 queue.
+Original 7.3 remains deferred and does not block parity, UI or test-data work.
+Revalidate this runbook against all new migrations and ownership decisions
+before a future explicitly requested cutover. See `PLAN.md` §7.
+
 **Nothing in this file has been run.** It writes to the live fee project
 `vgqyilgstjvgohrsiwkb`, which rule 8 makes somebody else's decision and
 `docs/PROGRESS.md` has always recorded as "Janmejay decides when". This is the

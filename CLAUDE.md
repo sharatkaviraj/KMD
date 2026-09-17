@@ -2,6 +2,13 @@
 
 Read `docs/PLAN.md` first, then `docs/PROGRESS.md` to find the next task.
 
+**Active work is PLAN revision 2, queue R0–R8. Start R0.1; do not restart original
+Phase 1.1 or stop at deferred live-cutover task 7.3.** Read `docs/PARITY.md`,
+`docs/QA.md` and the latest baseline. The original apps remain available; the
+default plan restores app handoffs and native SamPark parity while fee writes
+remain in School Fees. The plan explicitly records this scope interpretation.
+Existing tests passing does not establish full workflow parity or staff acceptance.
+
 ## What this project is
 
 One mobile-friendly school platform for Shri Veer Patta Senior Secondary School:

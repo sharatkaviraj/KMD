@@ -1,112 +1,81 @@
-# Kickoff — task 1.1
+# Kickoff — VPPS One revision 2
 
-Paste this into Claude Code from `C:\Users\AnandKumari\Desktop\vppsone` after:
+Run from `C:\Users\AnandKumari\Desktop\vppsone`. Copy the prompt below into
+your coding agent. It replaces the archived Phase 1.1 kickoff. New tasks begin
+at R0.1; old live-cutover task 7.3 is outside this program.
 
+```text
+Implement the latest VPPS One plan, revision 2, in this existing repository.
+
+Read AGENTS.md, CLAUDE.md, docs/PLAN.md, docs/PROGRESS.md, docs/PARITY.md,
+docs/QA.md, docs/QA-BASELINE-2026-09-17.md, docs/DECISIONS.md, docs/SOURCES.md
+and relevant docs/SETUP.md instructions. Read the installed Next.js guides in
+node_modules/next/dist/docs before changing framework code; this project uses
+Next.js 16.3.5 and old assumptions may be wrong.
+
+Start at the first actionable R-row, currently R0.1. Preserve the existing
+implementation and completed Phase 1–7 history. Do not rerun the old foundation
+kickoff and do not stop at deferred live-cutover task 7.3.
+
+The plan's working scope keeps the original SamPark and School Fees apps in
+their current repositories/deployments, makes them clearly reachable from
+VPPS One, restores missing native SamPark workflows, and improves the daily
+experience for all six roles. School Fees remains the authoritative fee app;
+VPPS One reads fees and offers validated context links, with no second ledger.
+If the user has since explicitly chosen native fee rebuilding, update the
+ownership/architecture plan as required by PLAN section 9 before fee writes.
+
+Use C:\Users\AnandKumari\Projects\sampark and
+C:\Users\AnandKumari\Projects\schoolfees as read-only references. Verify their
+current source commits and deployed/test origins. Preserve original routes
+and familiar names. A launcher is not full native parity, and a login-page
+response is not proof that a workflow works.
+
+R0 deliverables: finish the feature parity register, record reproducible bugs
+and baseline timings, establish deterministic six-role/second-teacher fixtures,
+test-run cleanup and mock messaging, and implement independent role expectations
+plus browser workflow smoke. Existing baseline passed 1904 unit tests and 216
+role/page combinations, but these do not cover all state transitions, missing
+SamPark features, cross-app workflows or physical-device usability.
+
+Then execute R1–R8 in dependency order: app access and role navigation; useful
+role homes/student workspace; SamPark requests/rounds/Excel lists/master-office
+links/review; photos/import/export parity; attendance/timetable/marks reliability;
+complete fee handoffs; measured speed/accessibility; deep smoke and acceptance.
+Build bounded vertical slices, normally one PR per progress task, rather than
+a single enormous rewrite. Continue to subsequent actionable tasks after each
+verified merge; leave an exact next-task handoff if your session ends.
+
+Design for nontechnical staff on phones. A teacher sees today's work, own
+classes, assigned requests, marks and covers. Office/admin see student search,
+SamPark, School Fees and actionable queues with owners. Academic/exam/view-only
+accounts get the priorities specified in the plan. Preserve hi/en/both, clear
+verbs, large labeled controls, honest saved/queued/failed states and useful
+desktop tables. Measure query/render/bundle/save hotspots before optimizing.
+
+Use test data freely within the verified dev target. Keep fixture resets scoped
+to the test run. Preserve role and class correctness. Mock all external messages
+and payment/provider effects; don't treat a real destination as test simply
+because VPPS One has test students. New objects belong in vppsone; fee public
+tables remain SELECT-only under this plan. Apply dev migrations with the
+documented Supabase MCP workflow; do not repair shared fee migration history.
+
+For every task: record acceptance, implement, run npm run check and relevant
+role/integration/browser tests, exercise invalid input, retries, double submits,
+stale tabs, expired login, offline/storage failures, >1000 rows, language and
+mobile layouts. Assert actual persisted and downstream results. Missing fixtures,
+skipped tests and source-only hypotheses cannot be counted as passes. Fix P0/P1
+bugs with regression coverage before moving past the phase gate.
+
+Update PROGRESS, PARITY, decisions and QA evidence in the same change. Commit,
+push, open a PR, wait for CI, merge to main and verify the deployed commit and
+changed workflows. Proceed autonomously with routine authorized test work.
+Do not alter sibling apps, cut over to live data, send real messages or incur
+provider charges as an incidental part of this work.
+
+Report each completed slice with commit, tests and counts, deployed behavior,
+remaining defects and exact next task. Separate code delivery from physical
+Android/WhatsApp webview/camera/printer/staff acceptance when that evidence is
+unavailable. Keep going on independent ready work if an optional integration
+is blocked; do not mark the whole plan complete until its gates are met.
 ```
-git checkout main; git pull; git checkout -b p1-1-foundation; claude
-```
-
----
-
-You are starting VPPS One. Read `CLAUDE.md`, then `docs/PLAN.md`,
-`docs/PROGRESS.md`, `docs/DECISIONS.md` and `docs/SOURCES.md` in full before you
-write anything. They are the whole plan; you need nothing else.
-
-Short version of what matters: this is a **new, separate** application from the
-fee app. There is no shared code with it, so there are no feature flags, no
-canary users, no release types and no approval gates. You build, you test, you
-open a PR, you merge it yourself when CI is green. The only hard boundaries are:
-everything you create lives in the `vppsone` Postgres schema, fee tables in
-`public` are SELECT-only, and the database is always `schoolfees-dev`
-(`wtgxcptmucjerhufzjcf`) — never the live one.
-
-## Build task 1.1 — foundation
-
-**Database** (migration files in `supabase/migrations/`, applied to dev with the
-Supabase MCP):
-
-- `create schema vppsone`, usage granted to `authenticated` and `service_role`
-- `vppsone.staff_role` enum: `admin`, `office`, `academic_coordinator`,
-  `exam_coordinator`, `teacher`, `view_only`
-- `vppsone.staff_profiles`: `id`, `user_id` (→ `auth.users`, nullable — not
-  every staff member logs in), `display_name`, `short_name` (unique, immutable,
-  this is the timetable's join key), `role`, `phone`, `whatsapp_phone`,
-  `is_teaching`, `is_active`, `preferred_language`, `created_by`, timestamps
-- RLS on, with a SELECT policy for authenticated users. No INSERT/UPDATE/DELETE
-  policies — writes go through server actions that have already checked
-  permission and then use the service-role client.
-
-Write each migration as a numbered file in the repo **and** apply it to the dev
-project with the Supabase MCP. The files are the source of truth: at cutover
-they get replayed against the live project in order.
-
-**App:**
-
-- `src/platform/supabase/`: browser client, server client (cookie-based, for
-  Server Components and Actions), and an admin client that refuses to be
-  constructed outside a server context
-- `src/platform/supabase/middleware.ts` + `middleware.ts`: refresh the session,
-  send signed-out users to `/login` and signed-in users away from it
-- `/login`: email + password, Hindi-first labels, mobile-first, real error
-  states. No signup — accounts are created by an admin.
-- `src/platform/auth/`: `getCurrentStaff()` (auth user → `staff_profiles` row,
-  cached per request), `permissions.ts` with one `can(staff, permission)` and
-  the role → permission map from `docs/PLAN.md` §3, and `requirePermission()`
-  for the top of a page or action
-- `/` redirects to `/dashboard`; `/dashboard` is a placeholder showing who is
-  signed in, their role, and an environment badge driven by `VPPSONE_ENV`
-
-**Dev data:**
-
-- `scripts/seed-dev.mjs` (`npm run seed:dev`): upsert a `staff_profiles` row for
-  each existing QA auth user — `qa.admin@qa.vpps.local` as `admin`,
-  `qa.teacher@qa.vpps.local` as `teacher`, `qa.accountant@qa.vpps.local` as
-  `office`, `qa.viewonly@qa.vpps.local` as `view_only`. Idempotent. Test names
-  only, never a real person.
-
-**Quality:**
-
-- Vitest, with unit tests for `can()` covering every role
-- `npm run check` = typecheck + lint + test + build, plus a GitHub Actions
-  workflow running it on every PR
-- Pure logic in `domain/`, nothing there importing the database
-
-## When you are done
-
-1. `npm run check` passes.
-2. Push, open a PR, wait for CI, merge it yourself, delete the branch.
-3. Update `docs/PROGRESS.md`: row 1.1 to `done`, with branch, commit and one
-   line on what remains or surprised you.
-4. Add a `docs/DECISIONS.md` row for anything the plan left open that you chose.
-5. Tell Janmejay the URL to look at and exactly what to try.
-
-Then stop. The next task is row 1.2.
-
----
-
-## Added after the first draft — read this too
-
-**Authentication is ported, not designed.** Take the Supabase clients, the
-session-refresh middleware and the login page from the fee app rather than
-writing your own — the exact file list is at the bottom of `docs/SOURCES.md`.
-It is the same Supabase project, so the accounts are the same accounts: on dev
-the `qa.*@qa.vpps.local` users, and after the cutover the real ones, with no
-second password for anybody. The only deliberate difference is that a user's
-role comes from `vppsone.staff_profiles`, never `public.users.role`.
-
-**The environment is already set up** — see `docs/SETUP.md`. `.env.local` and
-Vercel both carry the fee app's keys with Supabase pointed at dev, including
-`SUPABASE_SERVICE_ROLE_KEY`. You do not need to ask for any key to build task
-1.1. `AISENSY_*`, `SENTRY_AUTH_TOKEN` and `CRON_SECRET` are deliberately absent
-until Phase 5 and Phase 7 need them.
-
-**Migrations go through the Supabase MCP, never `supabase db push`.** The CLI is
-signed in and linked to dev, but `db push` refuses on this database: its
-migration history holds 230 versions belonging to the fee app with no files in
-this repo. That is expected, not a problem to fix — do not run
-`supabase migration repair`, and do not try to make `db push` work.
-
-Write each migration as a numbered file in `supabase/migrations/` and apply it
-with the Supabase MCP. Name the first one `20260916170000_...` or later; lower
-timestamps sort before rows already applied here. `npm run db:diff` and
-`npm run db:types` do work and are useful. Full detail in `docs/SETUP.md`.
