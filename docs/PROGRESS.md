@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R3.3 below.**
+**Active queue: PLAN revision 2. The next task is R3.4 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -28,8 +28,8 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | done | `r2-1-teacher-today` · `6fde807` ([#23](https://github.com/veerpatta/vppsone/pull/23)) · `attention.ts`, `home-repo.ts` · `docs/evidence/R2.2-2026-09-17.md`. Exam coordinator queue deferred to R5.3 with the counts it needs; no fee summary until R6 |
 | R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | done | `r2-3-directory` · `/students`, `directory.ts`, source badges, fee context link · `docs/evidence/R2.3-2026-09-17.md`. Detail screen stays at `/teach/student/[id]` until R4.1 moves it with an alias |
 | R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | done | `r3-1-rounds` · `652393c` ([#25](https://github.com/veerpatta/vppsone/pull/25)) · `collection_rounds`, `collection_request_members`, `audience.ts`, `external_student_ids` · `tests/e2e/collection-freeze.spec.ts` · `docs/evidence/R3.1-2026-09-17.md`. Rounds and mapping are schema with no writer yet: the wizard is R3.2, the fan-out R3.3, the matcher R4.1 |
-| R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | done | `r3-2-round-wizard` · `/collection/rounds`, `rounds-repo.ts`, `gaps.ts`, `ask-list.ts` · `tests/e2e/{round-wizard,ask-list}.spec.ts` · `docs/evidence/R3.2-2026-09-17.md`. A round mints no links yet (R3.3). House and route audiences are resolvable and not offered: both columns are empty on dev and rule 2 forbids filling them (B-31), and nothing holds house/route ownership (B-32) |
-| R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | todo | — |
+| R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | done | `r3-2-round-wizard` · `4668104` ([#26](https://github.com/veerpatta/vppsone/pull/26)) · `/collection/rounds`, `rounds-repo.ts`, `gaps.ts`, `ask-list.ts` · `tests/e2e/{round-wizard,ask-list}.spec.ts` · `docs/evidence/R3.2-2026-09-17.md`. A round mints no links yet (R3.3). House and route audiences are resolvable and not offered: both columns are empty on dev and rule 2 forbids filling them (B-31), and nothing holds house/route ownership (B-32) |
+| R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | done | `r3-3-fan-out` · `staff_scopes`, `ownership.ts`, `fan-out.ts`, `fan-out-repo.ts`, `RoundBoard` · `tests/e2e/fan-out.spec.ts` · `docs/evidence/R3.3-2026-09-17.md`. Nothing is sent: the board records what the office did in WhatsApp itself (D-10). No per-group override yet (B-35); house and route rounds still undemonstrable on dev data (B-31) |
 | R3.4 | Round-aware review/precedence/superseding and mock message retry; S-01–S-09 acceptance | R3.3 | todo | — |
 | R4.1 | Student source/health tools and resumable import preview/error handling | R3.4 | todo | — |
 | R4.2 | Student photo capture/retake/replace, bulk filename matching and office-assisted workflow | R4.1 | todo | — |
@@ -489,6 +489,57 @@ of 139 — and rule 2 forbids filling them, so chips for a filter that could onl
 return nobody would be a lie (B-31). Nothing holds house or route *ownership*
 either, so such a round would have no recipient to fan out to (B-32). The
 audience carries `search` and the builder has no box for it yet.
+
+### R3.3 — one round becomes nineteen links, and says who it cannot reach
+
+R3.2 could write a round down and minted nothing. This is the fan-out.
+
+**B-32 had to go first.** `class_teachers` covered classes and nothing covered
+a house or a bus route, so a house round resolved to children and then had
+nowhere to send them. `vppsone.staff_scopes` is that fact, normalised —
+classes deliberately stay where they are, because `class_teachers` carries
+handover dates a bus route in-charge does not need and a route does not want
+four columns that mean nothing to it (D-159).
+
+A link sent to the wrong teacher is a group that never gets collected and
+nobody notices until the due date, so there are **three outcomes and none of
+them is a guess**: one owner, more than one, or nobody. Two owners is a choice
+for this round rather than a mistake to clean up — both people really do hold
+it. A teacher with no number blocks the group as well, caught in the plan
+rather than at insert, because a link nobody can be sent is a roster frozen for
+nothing (D-160).
+
+**Who gets left out is first class.** House is recorded for about a third of a
+school, so grouping a house-wise send by house silently drops every child with
+no house — exactly the children whose records are thinnest. `unassigned` comes
+back beside the groups rather than being inferred from two totals disagreeing,
+and both lists are stated before anything is created (D-161).
+
+That produced **B-34**: the first version labelled the skipped total "in no
+group", but skipped is blocked *plus* unassigned, and a child in a class whose
+teacher has no number is very much in a group. It reads "N children no link
+would reach" now.
+
+**The fan-out is not one transaction, deliberately.** Per-link atomicity is
+kept, but if link seven of eleven fails the first six stay: six live tokens
+with frozen rosters are six classes the office can send to right now, and
+deleting them to satisfy an all-or-nothing aesthetic destroys real work. There
+is **no separate resume path** — a resume *is* "create the groups that are not
+there yet", so it is the only path, and the half that runs after a failure is
+the same code that ran before it (D-162).
+
+Exercised in the browser over three classes chosen for three outcomes: Nursery
+(6) and JKG (4) got links, Class 1 (15) got none because its teacher has no
+number and was named as held up, and the master link froze exactly the 10 the
+class links cover between them. Pressing it again created nothing; the tokens
+answered 404 while draft and 200 once opened, to a browser with no session.
+
+Named rather than half-done: **nothing is sent** — the board records what the
+office did in WhatsApp itself (D-10). There is no per-group override for a
+blocked group yet, so the office fixes it in the staff record (B-35). House and
+route rounds remain undemonstrable on dev data (B-31). Two rounds asking the
+same class for the same field make two links and nothing reconciles them; that
+is R3.4.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

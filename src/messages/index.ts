@@ -1134,6 +1134,57 @@ export const m = {
     "This child is already on an earlier row",
   ),
 
+  /* ------------------------------------------------- the fan-out (R3.3) */
+
+  fanOutTitle: t("लिंक बनाइए", "Make the links"),
+  fanOutReady: t("तैयार", "Ready"),
+  fanOutBlocked: t("रुके हुए", "Held up"),
+  fanOutUnassigned: t("किसी समूह में नहीं", "In no group"),
+  // **Not the same as "in no group".** Skipped is blocked *plus* unassigned:
+  // a child in a class whose teacher is not recorded is very much in a group,
+  // and calling them ungrouped sends the office looking in the wrong place.
+  fanOutSkipped: t(
+    "बच्चों तक कोई लिंक नहीं पहुँचेगा",
+    "children no link would reach",
+  ),
+  fanOutCreate: t("लिंक बनाएँ", "Make the links"),
+  fanOutResume: t("बाकी लिंक बनाएँ", "Make the rest"),
+  fanOutMade: t("लिंक बन गए।", "The links are made."),
+  fanOutNoneReady: t(
+    "अभी कोई समूह तैयार नहीं है। नीचे रुके हुए समूह देखिए।",
+    "No group is ready yet. See what is held up below.",
+  ),
+  fanOutStopped: t(
+    "यहाँ आकर रुक गया। जो लिंक बन चुके हैं वे काम कर रहे हैं — बाकी दोबारा बनाइए।",
+    "It stopped here. The links already made still work — make the rest again.",
+  ),
+  fanOutTooBig: t(
+    "इतने लिंक एक बार में नहीं बनाए जा सकते। पहले चुनाव छोटा कीजिए।",
+    "That is too many links at once. Narrow the selection first.",
+  ),
+
+  // Why a group cannot be sent as it stands. The office fixes these.
+  fanOutManyOwners: t("एक से ज़्यादा शिक्षक दर्ज हैं", "More than one teacher is assigned"),
+  fanOutNoOwner: t("कोई शिक्षक दर्ज नहीं है", "No teacher is assigned"),
+  fanOutNoPhone: t("नंबर दर्ज नहीं है", "No number is saved"),
+  fanOutNoHouse: t("सदन दर्ज नहीं है", "No house on record"),
+  fanOutNoRoute: t("बस मार्ग दर्ज नहीं है", "No bus route on record"),
+
+  /* ------------------------------------------------------ the board */
+
+  boardTitle: t("कहाँ तक पहुँचा", "Where it has got to"),
+  boardLinks: t("लिंक", "Links"),
+  boardAnswered: t("जवाब आए", "answered"),
+  boardOpen: t("लिंक चालू कीजिए", "Turn the links on"),
+  boardOpened: t("चालू", "Live"),
+  boardSent: t("भेजा गया", "Handed over"),
+  boardMarkSent: t("भेज दिया", "Mark as handed over"),
+  boardRemind: t("याद दिलाया", "Chased"),
+  boardMarkReminded: t("याद दिला दिया", "Mark as chased"),
+  boardMaster: t("दफ़्तर का अपना लिंक", "The office's own link"),
+  boardCopy: t("लिंक कॉपी कीजिए", "Copy the link"),
+  boardNoLinks: t("अभी कोई लिंक नहीं बना।", "No links yet."),
+
   studentsTitle: t("विद्यार्थी", "Students"),
   studentsHint: t(
     "नाम, एसआर नंबर या फ़ोन नंबर से खोजिए।",

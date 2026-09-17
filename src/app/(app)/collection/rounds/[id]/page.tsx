@@ -15,9 +15,17 @@ import {
   resolveAudience,
   roundById,
 } from "@/modules/collection/data/rounds-repo";
+import { headers } from "next/headers";
+
+import { can } from "@/platform/auth/permissions";
+import {
+  linksForRound,
+  planForRound,
+} from "@/modules/collection/data/fan-out-repo";
 import { roundStatusLabel } from "@/modules/collection/domain/rounds";
+import { RoundBoard } from "@/modules/collection/ui/round-board";
 import { AuthoredText } from "@/ui/authored-text";
-import { Badge, Card, Notice, Section } from "@/ui/primitives";
+import { Badge, Card, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
 
@@ -55,11 +63,21 @@ export default async function RoundPage({
 
   const sessionLabel = (await resolveSessionLabel()) ?? round.sessionLabel;
 
-  const [fields, resolved, labels] = await Promise.all([
+  const [fields, resolved, labels, plan, links] = await Promise.all([
     fieldsForRound(round.id),
     resolveAudience(round.audience, sessionLabel),
     classLabelMap(sessionLabel),
+    planForRound(round, sessionLabel),
+    linksForRound(round.id),
   ]);
+
+  // Read on the server, like every other link this app prints. A link that
+  // has to be right in a WhatsApp message cannot come from the browser:
+  // reaching for `window.location.origin` during render gets an empty string.
+  const host = (await headers()).get("host") ?? "";
+  const origin = `${host.startsWith("localhost") ? "http" : "https"}://${host}`;
+
+  const mayManage = can(staff, "collection:manage");
 
   // **Which classes, by name.** A round that says "10 children" and not which
   // ten is a row nobody can check, and "Class 1, no phone number" is the whole
@@ -86,10 +104,6 @@ export default async function RoundPage({
           </Badge>
         }
       />
-
-      {/* A round with no links is the honest state of R3.2, said out loud
-          rather than left as an empty list somebody reads as a failure. */}
-      <Notice tone="info" text={m.roundNoLinksYet} language={language} />
 
       <Section className="mt-6" title={m.roundWho} language={language}>
         <Card className="p-4">
@@ -141,6 +155,48 @@ export default async function RoundPage({
             </p>
           ) : null}
         </Card>
+      </Section>
+
+      {/* -------------------------- the links, and what is holding them up */}
+
+      <Section className="mt-7" title={m.boardTitle} language={language}>
+        <RoundBoard
+          roundId={round.id}
+          origin={origin}
+          mayManage={mayManage}
+          links={links.map((link) => ({
+            id: link.id,
+            token: link.token,
+            audienceKind: link.audienceKind,
+            audienceLabel: link.audienceLabel,
+            status: link.status,
+            assignedStaffName: link.assignedStaffName,
+            sentAt: link.sentAt,
+            remindedAt: link.remindedAt,
+            reminderCount: link.reminderCount,
+            members: link.members,
+            answered: link.answered,
+          }))}
+          plan={{
+            ready: plan.ready.map((group) => ({
+              label: group.scope.label,
+              ownerName: group.ownerName,
+              students: group.studentIds.length,
+            })),
+            blocked: plan.blocked.map((group) => ({
+              label: group.scope.label,
+              reason: group.reason,
+              message: group.message,
+              students: group.studentIds.length,
+            })),
+            unassigned: plan.unassigned.map((row) => ({
+              fullName: row.fullName,
+              classLabel: row.classLabel,
+              reason: row.reason,
+            })),
+            totals: plan.totals,
+          }}
+        />
       </Section>
 
       <Section className="mt-7" title={m.roundWhat} language={language}>
