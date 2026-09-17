@@ -324,9 +324,13 @@ export default async function TeachPage() {
         </Section>
       ) : null}
 
+      {/* A standing note that the register survives a dropped connection —
+          not a claim that the connection *is* down. This card used to render
+          `attendanceOffline`, which is present-tense and told everybody on a
+          working connection that they had none. */}
       <Card className="mt-7 p-4">
         <p className="text-[13px] leading-5 text-muted-foreground">
-          {primary(m.attendanceOffline, language)}
+          {primary(m.attendanceWorksOffline, language)}
         </p>
       </Card>
     </>

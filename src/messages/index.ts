@@ -448,9 +448,19 @@ export const m = {
   attendanceSubmit: t("जमा करें", "Submit"),
   attendanceSubmitted: t("जमा हो गई", "Submitted"),
   attendanceSaving: t("सहेजा जा रहा है…", "Saving…"),
+  // Said *while* the connection is down, so it is in the present tense and
+  // only ever rendered behind `!online`.
   attendanceOffline: t(
     "इंटरनेट नहीं है — दर्ज हो रहा है, बाद में अपने आप भेज दिया जाएगा।",
     "No connection — your marks are saved on this phone and will be sent when it comes back.",
+  ),
+  // Said when the connection is *fine*: a standing note that the register
+  // keeps working if it drops. Separate from `attendanceOffline` because the
+  // Teach card used to show that one unconditionally, which told every teacher
+  // on a perfectly good connection that she had none.
+  attendanceWorksOffline: t(
+    "इंटरनेट चला जाए तो भी हाज़िरी लगती रहेगी — फ़ोन में दर्ज होकर बाद में अपने आप भेज दी जाएगी।",
+    "The register keeps working if the connection drops — marks are held on this phone and sent when it comes back.",
   ),
   attendanceQueued: t("भेजना बाकी", "waiting to send"),
   attendanceEmptyRoll: t(

@@ -7,6 +7,8 @@ import {
   GRADE_BANDS,
   gradeFor,
   isEntered,
+  markChanged,
+  NOT_ENTERED,
   outstandingPapers,
   paperProgress,
   paperSchema,
@@ -65,6 +67,54 @@ describe("a cell has three states, not two", () => {
   it("does not count a blank as entered", () => {
     expect(isEntered(mark({ value: null }))).toBe(false);
     expect(isEntered(undefined)).toBe(false);
+  });
+});
+
+/**
+ * D-80: an unchanged save writes nothing.
+ *
+ * These exist because it did not. A teacher who opened a column, filled in one
+ * child and saved wrote a change-log entry for every child she had not reached
+ * — each reading "not entered → not entered" — and left an empty `marks` row
+ * behind for each. Nothing caught it until somebody signed in and looked.
+ */
+describe("markChanged()", () => {
+  it("says a cell nobody has reached is unchanged when it is saved blank", () => {
+    // The case that shipped wrong: no row yet, and the column is submitted
+    // with that cell exactly as it was found.
+    expect(markChanged(NOT_ENTERED, { value: null, absent: false })).toBe(false);
+  });
+
+  it("says nothing changed when the same number is saved again", () => {
+    expect(markChanged({ value: 18, absent: false }, { value: 18, absent: false })).toBe(
+      false,
+    );
+  });
+
+  it("says nothing changed when an absence is saved again", () => {
+    expect(
+      markChanged({ value: null, absent: true }, { value: null, absent: true }),
+    ).toBe(false);
+  });
+
+  it("sees a first mark, a corrected mark and a withdrawn one", () => {
+    expect(markChanged(NOT_ENTERED, { value: 18, absent: false })).toBe(true);
+    expect(markChanged({ value: 18, absent: false }, { value: 14, absent: false })).toBe(
+      true,
+    );
+    expect(markChanged({ value: 18, absent: false }, NOT_ENTERED)).toBe(true);
+  });
+
+  it("tells a nought from a blank, in both directions", () => {
+    // The whole point of three states: somebody giving a child nought is a
+    // change, and undoing it is a change.
+    expect(markChanged(NOT_ENTERED, { value: 0, absent: false })).toBe(true);
+    expect(markChanged({ value: 0, absent: false }, NOT_ENTERED)).toBe(true);
+  });
+
+  it("tells an absence from a blank, in both directions", () => {
+    expect(markChanged(NOT_ENTERED, { value: null, absent: true })).toBe(true);
+    expect(markChanged({ value: null, absent: true }, NOT_ENTERED)).toBe(true);
   });
 });
 

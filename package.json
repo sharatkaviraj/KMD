@@ -17,7 +17,8 @@
     "seed:scenarios": "node --import ./scripts/alias-hook.mjs scripts/seed-scenarios.mjs",
     "db:diff": "supabase db diff --schema vppsone",
     "db:link": "supabase link --project-ref wtgxcptmucjerhufzjcf",
-    "db:types": "supabase gen types typescript --linked --schema vppsone"
+    "db:types": "supabase gen types typescript --linked --schema vppsone",
+    "dev:login": "node scripts/dev-login.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

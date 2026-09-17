@@ -4,6 +4,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
+import { markChanged } from "@/modules/assessments/domain/assessments";
 import type {
   Assessment,
   AssessmentInput,
@@ -369,12 +370,15 @@ export async function saveMark(input: {
     absent: existing?.absent ?? false,
   };
 
-  const unchanged =
-    existing !== null &&
-    before.value === input.mark.value &&
-    before.absent === input.mark.absent;
+  // `markChanged()` owns what "unchanged" means — including that a missing row
+  // and a blank row are the same state, which is what this got wrong until
+  // somebody looked at the screen (D-80).
+  const after = {
+    value: input.mark.absent ? null : input.mark.value,
+    absent: input.mark.absent,
+  };
 
-  if (unchanged) return { changed: false };
+  if (!markChanged(before, after)) return { changed: false };
 
   const { error } = await admin.from("marks").upsert(
     {
@@ -394,9 +398,9 @@ export async function saveMark(input: {
     assessment_subject_id: input.assessmentSubjectId,
     student_id: input.mark.studentId,
     from_value: before.value,
-    to_value: input.mark.absent ? null : input.mark.value,
+    to_value: after.value,
     from_absent: existing ? before.absent : null,
-    to_absent: input.mark.absent,
+    to_absent: after.absent,
     reason: input.reason,
     changed_by: input.staffProfileId,
   });

@@ -105,6 +105,7 @@ version the MCP recorded (D-22), so this list and
 
 | # | What | Status | Branch | Commit | Notes |
 |---|---|---|---|---|---|
+| 7.0 | Passwordless test sign-in, and the two bugs it found | done | `p7-0-sign-in` | | Phases 3–6 all shipped without anybody looking at a signed-in screen. `/auth/confirm` accepts a link Supabase minted, both doors share `admitSignedInUser()`, and `npm run dev:login` issues a one-time link for a `@qa.vpps.local` account — dev only, any other address refused (D-86, D-87). The first pass through it found that the Teach card told every teacher on a good connection that she had no internet (D-88), and that saving a column wrote a "not entered → not entered" log row and an empty marks row for every child the teacher had not reached yet (D-89). Neither was reachable by a probe |
 | 7.1 | Job platform + console | todo | `p7-1-jobs` | | |
 | 7.2 | Scheduled jobs | todo | `p7-2-automations` | | |
 | 7.3 | Cutover to live data (PLAN §7) | todo | — | | Janmejay decides when |

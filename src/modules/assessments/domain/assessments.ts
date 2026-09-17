@@ -85,6 +85,29 @@ export function isEntered(mark: Pick<Mark, "value" | "absent"> | undefined): boo
   return mark.absent || mark.value !== null;
 }
 
+/** What a cell holds, with "nobody has entered this" spelled out. */
+export type MarkState = { value: number | null; absent: boolean };
+
+/** A cell nobody has touched. A missing row and a blank row are this, equally. */
+export const NOT_ENTERED: MarkState = { value: null, absent: false };
+
+/**
+ * Whether saving this would actually change anything.
+ *
+ * **A missing row and a blank row are the same state.** A teacher who opens a
+ * column, fills in one child and saves is submitting every other cell exactly
+ * as she found it — and for the children she has not reached, "as she found
+ * it" is no row at all. Treating that as a change wrote a log entry reading
+ * "not entered → not entered" for each of them and left an empty row behind,
+ * which is how this shipped before somebody looked at the screen.
+ *
+ * D-80: an unchanged save writes nothing. This is the one place that decides
+ * what "unchanged" means, so the log and the table cannot disagree about it.
+ */
+export function markChanged(before: MarkState, after: MarkState): boolean {
+  return before.value !== after.value || before.absent !== after.absent;
+}
+
 /* ------------------------------------------------------------ validation */
 
 export type MarkCheck = { ok: true; value: number | null } | { ok: false; error: Localized };

@@ -10,8 +10,13 @@ import { getRequiredEnvVar, hasRequiredEnvVars } from "@/platform/env";
  * `/protected/**`, so an unguarded route there is a route somebody forgot to
  * nest. Here the default is "signed in", and forgetting is a 302 to the login
  * page, not an open door.
+ *
+ * `/auth/confirm` is where a link Supabase minted lands. It has to be reachable
+ * without a session for the obvious reason — it is the thing that creates one —
+ * and it is not an opening: it does nothing at all without a one-time
+ * `token_hash` that only the service role can mint.
  */
-const PUBLIC_PATHS = new Set(["/login"]);
+const PUBLIC_PATHS = new Set(["/login", "/auth/confirm"]);
 
 /**
  * The token links, which are open by design.

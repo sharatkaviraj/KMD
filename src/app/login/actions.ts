@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { admitSignedInUser } from "@/platform/auth/admit";
 import { sanitizeRedirectPath } from "@/platform/env";
 import { m } from "@/messages";
-import { resolveLanguage, type Localized } from "@/platform/i18n/language";
-import { writeLanguageCookie } from "@/platform/i18n/language-cookie";
+import type { Localized } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
 
 export type LoginActionState = {
@@ -64,28 +64,11 @@ export async function loginAction(
   }
 
   // The password was right, which only proves this is a Supabase account —
-  // the same account pool the fee app uses. Being staff *here* is a
-  // `vppsone.staff_profiles` row, and not having one is a normal thing to be.
-  const { data: profile } = await supabase
-    .from("staff_profiles")
-    .select("is_active, preferred_language")
-    .eq("user_id", data.user.id)
-    .maybeSingle<{ is_active: boolean; preferred_language: string | null }>();
-
-  if (!profile) {
-    await supabase.auth.signOut();
-    return fail(m.noProfileAskAdmin);
-  }
-
-  if (!profile.is_active) {
-    await supabase.auth.signOut();
-    return fail(m.accountInactiveAskAdmin);
-  }
-
-  // Sign-in is where the account's language meets this device. The cookie is
-  // what lets the *login* screen speak the right language next time, since at
-  // that point there is no profile to read (D-36).
-  await writeLanguageCookie(resolveLanguage(profile.preferred_language));
+  // the same account pool the fee app uses. `admitSignedInUser()` is what
+  // decides whether this is *staff here*, and the magic-link door runs the
+  // very same function rather than a second copy of these rules.
+  const admitted = await admitSignedInUser(supabase, data.user.id);
+  if (!admitted.ok) return fail(admitted.message);
 
   revalidatePath("/", "layout");
 
