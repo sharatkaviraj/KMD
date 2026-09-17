@@ -1,5 +1,6 @@
 import "server-only";
 
+import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
 
 /**
@@ -127,17 +128,27 @@ export async function periodsOn(
  * The day headers this version actually uses.
  *
  * Read rather than assumed, because the sheet writes its own — see
- * `matchDayHeader()`. Distinct over a few hundred rows, which is cheaper than
- * it looks and saves a second guess.
+ * `matchDayHeader()`.
+ *
+ * Paged like `listSlots()`: the table is over a thousand rows for a published
+ * timetable, and although the first page happens to contain every distinct day
+ * today, "happens to" is not a reason to read a truncated answer.
  */
 export async function dayHeaders(versionId: string): Promise<string[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("timetable_slots")
-    .select("day")
-    .eq("version_id", versionId)
-    .returns<{ day: string }[]>();
 
-  if (error) throw new Error(`Could not read the timetable: ${error.message}`);
+  const data = await fetchAllRows<{ day: string }>(
+    (from, to) =>
+      supabase
+        .from("timetable_slots")
+        .select("day")
+        .eq("version_id", versionId)
+        .order("day")
+        .order("period")
+        .range(from, to)
+        .returns<{ day: string }[]>(),
+    "the timetable",
+  );
+
   return [...new Set(data.map((row) => row.day))];
 }

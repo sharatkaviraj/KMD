@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/platform/supabase/admin";
+import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
 import type { StoredSlot } from "@/modules/timetable/domain/views";
 import type { ResolvedSlot } from "@/modules/timetable/domain/resolve-import";
@@ -114,17 +115,34 @@ type SlotRow = {
   shared: boolean;
 };
 
+/**
+ * Every slot in a version.
+ *
+ * Paged, because a published timetable is over a thousand rows — 768 cells
+ * expand to 1038 slots once a shared block and a parallel elective each become
+ * one slot per teacher — and PostgREST answers the first thousand with no
+ * error and no warning. See `paginate.ts`; this is the read that found it.
+ */
 export async function listSlots(versionId: string): Promise<StoredSlot[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("timetable_slots")
-    .select(
-      "day, period, class_id, class_label, subject_id, subject_code, staff_profile_id, teacher_short_name, parallel, shared",
-    )
-    .eq("version_id", versionId)
-    .returns<SlotRow[]>();
 
-  if (error) throw new Error(`Could not read the timetable: ${error.message}`);
+  const data = await fetchAllRows<SlotRow>(
+    (from, to) =>
+      supabase
+        .from("timetable_slots")
+        .select(
+          "day, period, class_id, class_label, subject_id, subject_code, staff_profile_id, teacher_short_name, parallel, shared",
+        )
+        .eq("version_id", versionId)
+        // A stable order, so a row cannot be skipped between pages.
+        .order("day")
+        .order("period")
+        .order("class_label")
+        .order("teacher_short_name")
+        .range(from, to)
+        .returns<SlotRow[]>(),
+    "the timetable",
+  );
 
   return data.map((row) => ({
     day: row.day,

@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "seed:dev": "node scripts/seed-dev.mjs",
+    "seed:timetable": "node --import ./scripts/alias-hook.mjs scripts/seed-timetable.mjs",
+    "seed:scenarios": "node --import ./scripts/alias-hook.mjs scripts/seed-scenarios.mjs",
     "db:diff": "supabase db diff --schema vppsone",
     "db:link": "supabase link --project-ref wtgxcptmucjerhufzjcf",
     "db:types": "supabase gen types typescript --linked --schema vppsone"

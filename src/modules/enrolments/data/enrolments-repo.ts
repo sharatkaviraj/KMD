@@ -3,6 +3,7 @@ import "server-only";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
+import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
 import {
   planRebuild,
@@ -50,16 +51,24 @@ export async function listFeeStudents(sessionLabel: string): Promise<FeeStudent[
   const classIds = classRows.map((row) => row.id);
   if (classIds.length === 0) return [];
 
-  const { data, error } = await createAdminClient()
-    .schema(FEE_SCHEMA)
-    .from("students")
-    .select("id, admission_no, full_name, class_id, roll_no, status")
-    .in("class_id", classIds)
-    .returns<FeeStudentRow[]>();
+  // Paged, for the same reason as `listEnrolments()`: this is every child in
+  // the school, and the consistency check compares the two lists row by row.
+  // A truncated fee-side list would report the children past the thousandth as
+  // having left.
+  const admin = createAdminClient();
 
-  if (error) {
-    throw new Error(`Could not read the fee app's students: ${error.message}`);
-  }
+  const data = await fetchAllRows<FeeStudentRow>(
+    (from, to) =>
+      admin
+        .schema(FEE_SCHEMA)
+        .from("students")
+        .select("id, admission_no, full_name, class_id, roll_no, status")
+        .in("class_id", classIds)
+        .order("id")
+        .range(from, to)
+        .returns<FeeStudentRow[]>(),
+    "the fee app's students",
+  );
 
   return data.map((row) => ({
     id: row.id,
@@ -80,17 +89,28 @@ type EnrolmentRow = {
   status: EnrolmentStatus;
 };
 
+/**
+ * The whole school's enrolment record for a session.
+ *
+ * Paged: this is one row per child, and the consistency check compares it
+ * against the fee app row by row. A school of a thousand is not far off, and a
+ * check run on a silently truncated list would report every child past the
+ * thousandth as missing from VPPS One.
+ */
 export async function listEnrolments(sessionLabel: string): Promise<Enrolment[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("enrolments")
-    .select("id, student_id, class_id, session_label, roll_no, status")
-    .eq("session_label", sessionLabel)
-    .returns<EnrolmentRow[]>();
 
-  if (error) {
-    throw new Error(`Could not read the enrolments: ${error.message}`);
-  }
+  const data = await fetchAllRows<EnrolmentRow>(
+    (from, to) =>
+      supabase
+        .from("enrolments")
+        .select("id, student_id, class_id, session_label, roll_no, status")
+        .eq("session_label", sessionLabel)
+        .order("id")
+        .range(from, to)
+        .returns<EnrolmentRow[]>(),
+    "the enrolments",
+  );
 
   return data.map((row) => ({
     id: row.id,

@@ -32,6 +32,7 @@ version the MCP recorded (D-22), so this list and
 | 20260916205631 | `create_enrolments` | 1.6 |
 | 20260916210606 | `create_timetable_versions_and_slots` | 2.2–2.3 |
 | 20260917021218 | `create_attendance_and_notes` | 3.1–3.6 |
+| 20260917025818 | `create_substitutions` | 4.1–4.4 |
 
 ## Phase 1 — foundation
 
@@ -69,10 +70,12 @@ version the MCP recorded (D-22), so this list and
 
 | # | What | Status | Branch | Commit | Notes |
 |---|---|---|---|---|---|
-| 4.1 | Engine port (tests first) | todo | `p4-1-engine` | | |
-| 4.2 | Planner UI | todo | `p4-2-planner` | | |
-| 4.3 | Publish → assignments → notify | todo | `p4-3-publish` | | |
-| 4.4 | Shift policies | todo | `p4-4-shift-policies` | | |
+| 4.1 | Engine port (tests first) | done | `p4-substitutions` | | Ported whole: the tier ladder, the weights, the min-cost flow, half days, fatigue, load spreading and the merge rules, with the original's tests brought across first. **Dropped deliberately**: `createPlanStore` (plans are rows, so pruning is a query and invalidation is `planIsStale()`), and the `DEFAULT_SHIFTS`/`RESERVE_STAFF`/`DUTY_STAFF` constants, which named real teachers in source — rule 6 forbids that and they are rows now (D-61). Four of the original's 34 tests were about its own `data.js` and `i18n.js`, not the engine, and VPPS One tests those elsewhere |
+| 4.2 | Planner UI | done | `p4-substitutions` | | One day at a time, in the order a coordinator works: who is away, what that leaves uncovered, the allocation, then publish. Every row carries the engine's own proposal *and* the names it refused, with the reason on them — hiding a blocked teacher makes the staff room look smaller than it is, which is the moment somebody goes back to the paper chart. Half days are first-class: the period picker leads with "whole day" because most absences are, and a teacher away from P5 is an ordinary candidate for P1 |
+| 4.3 | Publish → assignments → notify | done | `p4-substitutions` | | Publishing puts the cover on the covering teacher's own Today card; a draft shows nobody, because a teacher who turned up to a class the coordinator had not finished deciding about is the reason nobody trusts the card again. Notification is in-app, not WhatsApp (D-65). Anything set by hand is pinned by construction and survives regenerating, and the pins are handed to the engine as work already done so it never double-books against one (D-66) |
+| 4.4 | Shift policies | done | `p4-substitutions` | | `cover_policies`: the periods somebody is on site for, whether they are a duty-holder or office staff, and their automatic cover cap. Everybody is listed whether or not they have a row — absence of one means full day, ordinary teacher, default cap — and clearing a row deletes it rather than writing the defaults in, because "nobody has said" and "somebody decided" should not look the same |
+| 4.5 | Test data and a fixture sweep | done | `p4-substitutions` | | Added because the phase could not otherwise be judged: `seed:timetable` publishes the fixture sheet through the app's own parser, `seed:scenarios` seeds one of every state (four absence shapes, a published day and a hard draft day, four cover policies, a month of registers, three corrections, six note kinds). `tests/substitution-fixture.test.ts` runs the engine over the real 768-cell sheet across 42 day × absence-shape permutations and asserts the invariants hold on every one |
+| 4.6 | Fix: PostgREST was truncating the timetable | done | `p4-substitutions` | | Found while seeding: the published timetable is 1038 slots and `listSlots()` had been returning 1000 since Phase 2, with no error — thirty-eight lessons missing from every timetable view and invisible to the planner. Reads that can exceed a thousand rows now page through `fetchAllRows()` (D-62) |
 
 ## Phase 5 — collection
 

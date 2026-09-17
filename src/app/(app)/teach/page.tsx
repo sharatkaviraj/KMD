@@ -30,6 +30,7 @@ import {
   registersDue,
   type PeriodSlot,
 } from "@/modules/attendance/domain/today";
+import { coversForTeacher } from "@/modules/substitutions/data/plans-repo";
 import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
@@ -71,7 +72,7 @@ export default async function TeachPage() {
 
   const today = schoolToday();
 
-  const [calendar, labels, held, published, registers, pendingCorrections] =
+  const [calendar, labels, held, published, registers, pendingCorrections, covers] =
     await Promise.all([
       attendanceCalendar(sessionLabel),
       classLabelMap(sessionLabel),
@@ -81,6 +82,10 @@ export default async function TeachPage() {
       can(staff, "attendance:correct")
         ? countPendingCorrections()
         : Promise.resolve(0),
+      // Published plans only: a draft is somebody's work in progress, and a
+      // teacher who turned up to a class the coordinator had not finished
+      // deciding about would be the reason nobody trusted the card again.
+      coversForTeacher(staff.id, sessionLabel, today),
     ]);
 
   const schoolOpen = isSchoolOpen(today, calendar);
@@ -199,6 +204,48 @@ export default async function TeachPage() {
           </ul>
         ) : null}
       </Section>
+
+      {/* ------------------------------------------------ cover duty */}
+
+      {covers.length > 0 ? (
+        <Section className="mt-7" title={m.teachCoverDuty} language={language}>
+          <ul className="space-y-2">
+            {covers.map((cover) => (
+              <li key={cover.id}>
+                <Link
+                  href={`/teach/class/${cover.classId}`}
+                  className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft px-4 py-3 transition-colors hover:brightness-[0.98]"
+                >
+                  <span
+                    aria-hidden
+                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface text-[14px] font-bold tabular-nums text-accent-soft-foreground"
+                  >
+                    {cover.period + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-accent-soft-foreground">
+                      {cover.classLabel}
+                      {cover.subjectCode ? (
+                        <span className="ml-2 text-[13px] font-normal">
+                          {cover.subjectCode}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="block truncate text-[12px] text-accent-soft-foreground/85">
+                      {primary(m.subsCoverFor, language)}{" "}
+                      {cover.originalStaffName ?? "—"}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    aria-hidden
+                    className="size-5 shrink-0 text-accent-soft-foreground/70"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
 
       {/* -------------------------------------------- today's periods */}
 

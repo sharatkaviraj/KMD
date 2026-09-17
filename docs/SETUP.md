@@ -129,6 +129,36 @@ passwords came from a `TEST_STAFF_PASSWORD` that is not stored anywhere in
 either repo. Ask Janmejay for the current one, or set a new one from the
 Supabase dashboard (Authentication → Users). Never commit it.
 
+## Test data on dev
+
+Three scripts, in order. All three refuse to run against any project except
+`schoolfees-dev` (rule 3), and every name they write is invented (rule 6).
+
+```bash
+npm run seed:dev && npm run seed:timetable && npm run seed:scenarios
+```
+
+- **`seed:dev`** — staff profiles for the QA accounts (above).
+- **`seed:timetable`** — parses `tests/fixtures/timetable-2026-27.csv` with the
+  app's own parser and publishes it: 768 cells → 1038 slots, 172 teaching
+  assignments. Almost every screen from Phase 2 onwards is shaped by a
+  published timetable, and a dev database without one is a database where half
+  the app is an empty state.
+- **`seed:scenarios`** — one of every state worth looking at: four absence
+  shapes on one day, a published plan and a hard draft one, four cover policies
+  (part-time, duty-holder, office, zero automatic cap), a month of registers
+  with every status and one left open, a child with no attendance at all, three
+  corrections (waiting, approved, rejected) and a note of every kind.
+
+Both of the latter load app source directly through `scripts/alias-hook.mjs`,
+which teaches Node the `@/` alias — so the seeded cover plan is produced by the
+real engine rather than by a copy of it that drifts (D-67). Re-running any of
+them is safe.
+
+`raj@vpps.co.in` is seeded as class teacher of one class and is pinned onto one
+cover duty, so the Today card has something in it for the account the school
+actually tests with.
+
 **Name new migrations after `20260916160100`**, the highest version already
 recorded here. Start at `20260916170000`. Lower timestamps would sort before
 rows that are already applied.

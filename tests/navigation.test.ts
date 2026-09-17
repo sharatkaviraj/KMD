@@ -6,9 +6,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   activeNavHref,
+  allowedFor,
+  MAX_TABS,
+  MORE_ITEM,
   navigationFor,
   NAV_ITEMS,
   NON_NAV_SCREENS,
+  overflowFor,
 } from "@/platform/config/navigation";
 import {
   can,
@@ -108,9 +112,11 @@ describe("every screen is reachable", () => {
   it.each(screens)("%s is a tab or is declared not to be", (href) => {
     const isTab = NAV_ITEMS.some((item) => item.href === href);
     const isDeclared = (NON_NAV_SCREENS as readonly string[]).includes(href);
+    // The More hub is a tab the bar produces rather than one in the list.
+    const isMore = href === MORE_ITEM.href;
 
     expect(
-      isTab || isDeclared,
+      isTab || isDeclared || isMore,
       `${href} has no nav item and is not in NON_NAV_SCREENS — nobody can reach it`,
     ).toBe(true);
   });
@@ -144,7 +150,7 @@ describe("navigationFor()", () => {
     // A sixth tab on a 360px phone puts every tab under 60px, which is below
     // a comfortable thumb.
     for (const role of staffRoles) {
-      expect(navigationFor(role).length).toBeLessThanOrEqual(5);
+      expect(navigationFor(role).length).toBeLessThanOrEqual(MAX_TABS);
     }
   });
 
@@ -159,10 +165,46 @@ describe("navigationFor()", () => {
     }
   });
 
-  it("gives admin every ready item there is", () => {
-    expect(navigationFor("admin").map((item) => item.href)).toEqual(
-      NAV_ITEMS.filter((item) => item.ready).slice(0, 5).map((item) => item.href),
+  /**
+   * The rule the five-tab cap must not break: a screen a role may open has to
+   * be reachable *somewhere*. The old test asserted `slice(0, 5)`, which is
+   * how `/substitutions` became the sixth item and silently vanished for
+   * admin, office and the academic coordinator the day it was added.
+   */
+  it.each(staffRoles)("leaves %s nothing it may open but cannot reach", (role) => {
+    const reachable = new Set([
+      ...navigationFor(role).map((item) => item.href),
+      ...overflowFor(role).map((item) => item.href),
+    ]);
+
+    for (const item of allowedFor(role)) {
+      expect(
+        reachable.has(item.href),
+        `${role} may open ${item.href} but no tab and no More entry leads there`,
+      ).toBe(true);
+    }
+  });
+
+  it("gives admin every ready item there is, across the bar and More", () => {
+    const everything = NAV_ITEMS.filter((item) => item.ready).map((item) => item.href);
+    const offered = [
+      ...navigationFor("admin").filter((item) => item.href !== MORE_ITEM.href),
+      ...overflowFor("admin"),
+    ].map((item) => item.href);
+
+    expect(offered).toEqual(everything);
+  });
+
+  it("only shows More when something would not have fitted", () => {
+    // A teacher opens four screens, so a fifth tab reading "More" over an
+    // empty page would be a tab that does nothing.
+    expect(navigationFor("teacher").map((item) => item.href)).not.toContain(
+      MORE_ITEM.href,
     );
+    expect(overflowFor("teacher")).toEqual([]);
+
+    expect(navigationFor("admin").map((item) => item.href)).toContain(MORE_ITEM.href);
+    expect(overflowFor("admin").length).toBeGreaterThan(0);
   });
 
   it("gives a teacher no master-data tabs", () => {
@@ -222,11 +264,23 @@ describe("nav and permissions cannot drift apart", () => {
     (role: StaffRole) => {
       const expected = NAV_ITEMS.filter(
         (item) => item.ready && can({ role }, item.permission),
-      )
-        .slice(0, 5)
-        .map((item) => item.href);
+      ).map((item) => item.href);
 
-      expect(navigationFor(role).map((item) => item.href)).toEqual(expected);
+      const offered = [
+        ...navigationFor(role).filter((item) => item.href !== MORE_ITEM.href),
+        ...overflowFor(role),
+      ].map((item) => item.href);
+
+      expect(offered).toEqual(expected);
     },
   );
+
+  it.each(staffRoles)("never offers %s a screen it cannot open", (role: StaffRole) => {
+    for (const item of overflowFor(role)) {
+      expect(
+        can({ role }, item.permission),
+        `${role} was offered ${item.href} under More without ${item.permission}`,
+      ).toBe(true);
+    }
+  });
 });

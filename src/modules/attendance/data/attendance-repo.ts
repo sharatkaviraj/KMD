@@ -3,6 +3,7 @@ import "server-only";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
+import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 import type {
@@ -272,7 +273,14 @@ export async function studentAttendance(
   }));
 }
 
-/** Every submitted mark for a class over a date range — the monthly register. */
+/**
+ * Every submitted mark for a class over a date range — the monthly register.
+ *
+ * Paged: a month of one class is a few hundred rows, but the range is the
+ * caller's to choose and a whole session is forty children times two hundred
+ * days. PostgREST would answer the first thousand of that with no error, and a
+ * register short by a fortnight is worse than one that will not load.
+ */
 export async function classAttendanceRange(
   classId: string,
   sessionLabel: string,
@@ -282,25 +290,32 @@ export async function classAttendanceRange(
   await assertPermission("attendance:view");
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("attendance_marks")
-    .select(
-      "student_id, status, attendance_registers!inner(day, class_id, session_label, status)",
-    )
-    .eq("attendance_registers.class_id", classId)
-    .eq("attendance_registers.session_label", sessionLabel)
-    .eq("attendance_registers.status", "submitted")
-    .gte("attendance_registers.day", from)
-    .lte("attendance_registers.day", to)
-    .returns<
-      {
-        student_id: string;
-        status: AttendanceStatus;
-        attendance_registers: { day: string };
-      }[]
-    >();
 
-  if (error) throw new Error(`Could not read attendance: ${error.message}`);
+  type MarkRow = {
+    id: string;
+    student_id: string;
+    status: AttendanceStatus;
+    attendance_registers: { day: string };
+  };
+
+  const data = await fetchAllRows<MarkRow>(
+    (pageFrom, pageTo) =>
+      supabase
+        .from("attendance_marks")
+        .select(
+          "id, student_id, status, attendance_registers!inner(day, class_id, session_label, status)",
+        )
+        .eq("attendance_registers.class_id", classId)
+        .eq("attendance_registers.session_label", sessionLabel)
+        .eq("attendance_registers.status", "submitted")
+        .gte("attendance_registers.day", from)
+        .lte("attendance_registers.day", to)
+        // A stable order, so a row cannot be skipped between pages.
+        .order("id")
+        .range(pageFrom, pageTo)
+        .returns<MarkRow[]>(),
+    "attendance",
+  );
 
   return data.map((row) => ({
     studentId: row.student_id,

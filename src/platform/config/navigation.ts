@@ -3,6 +3,8 @@ import {
   ClipboardCheck,
   GraduationCap,
   LayoutGrid,
+  MoreHorizontal,
+  Repeat2,
   Table2,
   Users,
 } from "lucide-react";
@@ -61,11 +63,20 @@ const NAV_ITEMS: readonly NavItem[] = [
     permission: "attendance:view",
     ready: true,
   },
+  // Third, for the same reason: on a day somebody is away this is the screen
+  // the coordinator lives on, and it is wanted before the master data is.
   {
-    href: "/staff",
-    label: m.navStaff,
-    icon: Users,
-    permission: "staff:view",
+    href: "/substitutions",
+    label: m.navSubstitutions,
+    icon: Repeat2,
+    permission: "substitutions:view",
+    ready: true,
+  },
+  {
+    href: "/timetable",
+    label: m.timetableTitle,
+    icon: Table2,
+    permission: "timetable:view",
     ready: true,
   },
   {
@@ -76,13 +87,34 @@ const NAV_ITEMS: readonly NavItem[] = [
     ready: true,
   },
   {
-    href: "/timetable",
-    label: m.timetableTitle,
-    icon: Table2,
-    permission: "timetable:view",
+    href: "/staff",
+    label: m.navStaff,
+    icon: Users,
+    permission: "staff:view",
     ready: true,
   },
 ];
+
+/**
+ * The fifth tab, once a role has more screens than the bar holds.
+ *
+ * Kept out of `NAV_ITEMS` on purpose: it is not a screen anybody has a
+ * permission for, it is what the bar does when it runs out of room. Its own
+ * page lists whatever did not fit.
+ */
+export const MORE_ITEM: NavItem = {
+  href: "/more",
+  label: m.navMore,
+  icon: MoreHorizontal,
+  permission: "dashboard:view",
+  ready: true,
+};
+
+/**
+ * Five, because a sixth on a 360px phone gives every tab under 60px — below a
+ * comfortable thumb.
+ */
+export const MAX_TABS = 5;
 
 /**
  * Screens that are deliberately not tabs.
@@ -104,17 +136,29 @@ export const NON_NAV_SCREENS = [
   "/enrolments",
 ] as const;
 
+/** Everything this role may open, before the bar decides what fits. */
+export function allowedFor(role: StaffRole): NavItem[] {
+  return NAV_ITEMS.filter((item) => item.ready && can({ role }, item.permission));
+}
+
 /**
- * The tabs this role may see, in order.
+ * The tabs this role sees, in order.
  *
- * Capped at five: a sixth on a 360px phone gives every tab under 60px, which
- * is below a comfortable thumb. When there are more screens than that, the
- * fifth becomes a "More" hub — the shape the fee app settled on.
+ * Capped at five. When a role may open more screens than that, the fifth
+ * becomes a "More" hub rather than the sixth screen simply vanishing — which
+ * is what a plain `.slice(0, 5)` did the day `/substitutions` was added, and
+ * is the same class of bug as `/timetable` shipping with no tab at all.
  */
 export function navigationFor(role: StaffRole): NavItem[] {
-  return NAV_ITEMS.filter(
-    (item) => item.ready && can({ role }, item.permission),
-  ).slice(0, 5);
+  const allowed = allowedFor(role);
+  if (allowed.length <= MAX_TABS) return allowed;
+  return [...allowed.slice(0, MAX_TABS - 1), MORE_ITEM];
+}
+
+/** What the More hub lists — empty when everything already fits on the bar. */
+export function overflowFor(role: StaffRole): NavItem[] {
+  const allowed = allowedFor(role);
+  return allowed.length <= MAX_TABS ? [] : allowed.slice(MAX_TABS - 1);
 }
 
 /**

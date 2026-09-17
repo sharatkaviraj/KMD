@@ -13,10 +13,10 @@ Plain JS, no build step, runs as a static app on Firebase.
 | File | What it holds | Goes to |
 |---|---|---|
 | `scripts/data.js` | `parseTimetable`, `buildTeacherMap`, the cell grammar, parallel-vs-shared detection, combined-section merging, `SHORT_SUBJECTS` | `src/modules/timetable/domain/parse-timetable.ts` (task 2.1) |
-| `scripts/substitution.js` | the substitution engine | `src/modules/substitutions/domain/` (task 4.1) |
+| `scripts/substitution.js` | the substitution engine | **ported** → `src/modules/substitutions/domain/engine.ts` (task 4.1). Whole, minus `createPlanStore` (plans are database rows here) and the `DEFAULT_SHIFTS` / `RESERVE_STAFF` / `DUTY_STAFF` constants, which named real teachers in source — rule 6, and they are rows in `cover_policies` now (D-61) |
 | `scripts/app.js` | the rendering logic for class/teacher/day grids | reference for task 2.4 |
 | `scripts/i18n.js` | Hindi labels teachers already recognise | `src/messages/` — as Hindi/English **pairs**, since language is per account (PLAN §3a) |
-| `tests/` | the engine's own test suite | port **first**, before the code |
+| `tests/` | the engine's own test suite | **ported first** → `tests/substitution-engine.test.ts`. Four of its 34 tests are about that repo's `data.js`, `i18n.js` and bell schedules rather than the engine; VPPS One covers those in `parse-timetable.test.ts` and `language.test.ts` |
 
 Known from the earlier port: the fixture produces 768 cells, 30 parallel, 60
 shared, 19 teachers, 23 subject labels. `SHORT_SUBJECTS` spellings are applied
