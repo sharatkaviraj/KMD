@@ -62,7 +62,11 @@ type RequestRow = {
 const REQUEST_COLUMNS =
   "id, session_label, title_hi, title_en, class_id, class_label, assigned_staff_id, " +
   "token, due_date, status, reason_hi, reason_en, opened_at, closed_at, " +
-  "staff_profiles(display_name, preferred_language)";
+  // **Named, because a request points at `staff_profiles` three times** —
+  // assigned_staff_id, sent_by and reminded_by. An unnamed embed was
+  // unambiguous until the third column arrived, and then failed the whole
+  // select rather than the join (D-101).
+  "staff_profiles!collection_requests_assigned_staff_id_fkey(display_name, preferred_language)";
 
 const toRequest = (
   row: RequestRow,
@@ -183,29 +187,75 @@ export async function resolveStaffToken(token: string): Promise<{
 /* ----------------------------------------------------------- the roll */
 
 /**
- * The children this link asks about, with what the school already holds.
+ * The children this link asks about, with what the school already held **when
+ * the link went out**.
  *
- * Two sources, joined here: the enrolment record says who is in the class,
- * the fee app says what their names are, and `student_records` says what VPPS
- * One has already accepted. Where a field names a `fee_column`, the fee app's
- * own value is what the teacher is asked to confirm — that is the whole point
- * of the comparison.
+ * **The membership is frozen (S-02, B-07).** It used to be re-read from
+ * `enrolments` on every open, so moving a child between classes after a link
+ * was sent changed who the teacher was being asked about — and the prefilled
+ * values were re-read too, so an office correction changed what "old value"
+ * meant on the review screen. A request is a question that was asked at a
+ * moment; `collection_request_members` is that moment.
+ *
+ * A request with no frozen members is one created before this existed. It
+ * falls back to deriving the roll, because the alternative is an old link
+ * rendering as an empty class — and reading nothing is a worse answer than
+ * reading a rebuilt one. New rounds always freeze.
  */
 export async function rollForRequest(
   request: CollectionRequest,
 ): Promise<RollRow[]> {
   const admin = createAdminClient();
 
-  const { data: enrolments, error } = await admin
-    .from("enrolments")
-    .select("student_id, roll_no")
-    .eq("class_id", request.classId)
-    .eq("session_label", request.sessionLabel)
-    .eq("status", "enrolled")
-    .returns<{ student_id: string; roll_no: string | null }[]>();
+  const { data: frozen, error: frozenError } = await admin
+    .from("collection_request_members")
+    .select("student_id, roll_no, snapshot, ask_note")
+    .eq("request_id", request.id)
+    .returns<
+      {
+        student_id: string;
+        roll_no: string | null;
+        snapshot: Record<string, string | null> | null;
+        ask_note: string | null;
+      }[]
+    >();
 
-  if (error) throw new Error(`Could not read the roll: ${error.message}`);
+  if (frozenError) {
+    throw new Error(`Could not read who was asked: ${frozenError.message}`);
+  }
+
+  const members = frozen ?? [];
+  const isFrozen = members.length > 0;
+
+  let enrolments: { student_id: string; roll_no: string | null }[];
+
+  if (isFrozen) {
+    enrolments = members.map((row) => ({
+      student_id: row.student_id,
+      roll_no: row.roll_no,
+    }));
+  } else {
+    // A legacy request, from before rounds existed. Its class is still set —
+    // `collection_requests_class_kind_has_a_class` guarantees that for a class
+    // request, and every request made before this migration was one.
+    const { data, error } = await admin
+      .from("enrolments")
+      .select("student_id, roll_no")
+      .eq("class_id", request.classId ?? "")
+      .eq("session_label", request.sessionLabel)
+      .eq("status", "enrolled")
+      .returns<{ student_id: string; roll_no: string | null }[]>();
+
+    if (error) throw new Error(`Could not read the roll: ${error.message}`);
+    enrolments = data;
+  }
+
   if (enrolments.length === 0) return [];
+
+  const snapshots = new Map(
+    members.map((row) => [row.student_id, row.snapshot ?? {}]),
+  );
+  const notes = new Map(members.map((row) => [row.student_id, row.ask_note]));
 
   const studentIds = enrolments.map((row) => row.student_id);
   const feeColumns = [
@@ -255,13 +305,23 @@ export async function rollForRequest(
       const current: Record<string, string | null> = {};
       const already: Record<string, string | null> = {};
 
+      const snapshot = snapshots.get(enrolment.student_id);
+
       for (const field of request.fields) {
-        // VPPS One's own accepted answer wins over the fee app's column: it is
-        // the later, human one. Where there is none, the fee app is what the
-        // school holds.
-        const own = recorded.get(`${enrolment.student_id}|${field.id}`);
-        const fee = field.feeColumn ? (student?.[field.feeColumn] ?? null) : null;
-        current[field.key] = own ?? fee ?? null;
+        if (isFrozen) {
+          // **What she was shown, not what is true now.** Re-deriving here is
+          // exactly the bug: the teacher confirms a number, the office edits
+          // the record, and the review queue compares her answer against a
+          // value she never saw.
+          current[field.key] = snapshot?.[field.key] ?? null;
+        } else {
+          // VPPS One's own accepted answer wins over the fee app's column: it
+          // is the later, human one. Where there is none, the fee app is what
+          // the school holds.
+          const own = recorded.get(`${enrolment.student_id}|${field.id}`);
+          const fee = field.feeColumn ? (student?.[field.feeColumn] ?? null) : null;
+          current[field.key] = own ?? fee ?? null;
+        }
 
         const key = `${enrolment.student_id}|${field.id}`;
         if (answered.has(key)) already[field.key] = answered.get(key) ?? null;
@@ -276,6 +336,9 @@ export async function rollForRequest(
         fatherName: student?.father_name ?? null,
         current,
         answered: already,
+        // One line about this child on this link, from the office's own ask
+        // list. Null for every ordinary round, which is almost all of them.
+        askNote: notes.get(enrolment.student_id) ?? null,
       };
     })
     .sort((a, b) => {
@@ -340,6 +403,10 @@ export async function createRequest(
       title_en: input.titleEn,
       class_id: input.classId,
       class_label: classLabel,
+      // Every request made through this form is one class. A round with any
+      // other audience is created by `createRound`, which sets these itself.
+      audience_kind: "class",
+      audience_label: classLabel,
       assigned_staff_id: input.assignedStaffId,
       token: generateToken(),
       due_date: input.dueDate,
@@ -364,7 +431,146 @@ export async function createRequest(
     );
 
   if (fieldError) throw fieldError;
+
+  await freezeMembers(data.id, input.classId, sessionLabel);
+
   return data.id;
+}
+
+/**
+ * Write down who is being asked, and what we hold about them, right now.
+ *
+ * **This is the whole of S-02.** Doing it at creation rather than at open is
+ * the difference between "the question we asked" and "the question we would
+ * ask today": a child who moves class next week was still on this link, and a
+ * number the office corrects tomorrow is still the number the teacher was
+ * shown.
+ *
+ * Called after the fields are attached, because the snapshot is per field —
+ * freezing first would record a roster with nothing in it.
+ *
+ * Upsert, not insert: a fan-out that failed halfway is finished by running
+ * this again, and a member that is already frozen keeps the values it was
+ * frozen with rather than being refreshed to today's.
+ *
+ * Two ways in — a class, or an explicit list — and both resolve through
+ * `enrolments` with `status = 'enrolled'`. The fields come from the request
+ * itself rather than from a parameter, so there is one answer to "what was
+ * asked for" and it is the one the link will render.
+ */
+export async function freezeMembers(
+  requestId: string,
+  classId: string | null,
+  sessionLabel: string,
+  studentIds?: readonly string[],
+): Promise<number> {
+  const admin = createAdminClient();
+
+  let roll: { student_id: string; roll_no: string | null }[];
+
+  if (studentIds && studentIds.length > 0) {
+    // **`enrolled` still applies to a hand-picked list.** A list is where the
+    // stalest ids in the app come from — a spreadsheet typed last term, an
+    // audience frozen before a transfer — and a child who has left is not
+    // somebody to ask a teacher about, whatever that list says. Without this
+    // the two branches disagree about who counts, which is the kind of
+    // difference that only shows up as one teacher being asked about a child
+    // who is no longer hers.
+    const { data, error } = await admin
+      .from("enrolments")
+      .select("student_id, roll_no")
+      .eq("session_label", sessionLabel)
+      .eq("status", "enrolled")
+      .in("student_id", [...studentIds])
+      .returns<{ student_id: string; roll_no: string | null }[]>();
+
+    if (error) throw new Error(`Could not read the roll: ${error.message}`);
+    roll = data;
+  } else {
+    if (!classId) return 0;
+
+    const { data, error } = await admin
+      .from("enrolments")
+      .select("student_id, roll_no")
+      .eq("class_id", classId)
+      .eq("session_label", sessionLabel)
+      .eq("status", "enrolled")
+      .returns<{ student_id: string; roll_no: string | null }[]>();
+
+    if (error) throw new Error(`Could not read the roll: ${error.message}`);
+    roll = data;
+  }
+
+  if (roll.length === 0) return 0;
+
+  const fields = await fieldsForRequest(admin, requestId);
+  const ids = roll.map((row) => row.student_id);
+  const feeColumns = [
+    ...new Set(
+      fields.map((field) => field.feeColumn).filter((c): c is string => Boolean(c)),
+    ),
+  ];
+
+  const [students, records] = await Promise.all([
+    admin
+      .schema(FEE_SCHEMA)
+      .from("students")
+      .select(["id", ...feeColumns].join(", "))
+      .in("id", ids)
+      .returns<Record<string, string | null>[]>(),
+    admin
+      .from("student_records")
+      .select("student_id, field_id, value")
+      .in("student_id", ids)
+      .returns<{ student_id: string; field_id: string; value: string | null }[]>(),
+  ]);
+
+  const byStudent = new Map((students.data ?? []).map((row) => [String(row.id), row]));
+  const recorded = new Map<string, string | null>();
+  for (const row of records.data ?? []) {
+    recorded.set(`${row.student_id}|${row.field_id}`, row.value);
+  }
+
+  const rows = roll.map((entry) => {
+    const snapshot: Record<string, string | null> = {};
+
+    for (const field of fields) {
+      // VPPS One's own accepted answer wins over the fee app's column: it is
+      // the later, human one. This is the same precedence the form used to
+      // apply at render — it just happens once, now, and is kept.
+      const own = recorded.get(`${entry.student_id}|${field.id}`);
+      const fee = field.feeColumn
+        ? (byStudent.get(entry.student_id)?.[field.feeColumn] ?? null)
+        : null;
+      snapshot[field.key] = own ?? fee ?? null;
+    }
+
+    return {
+      request_id: requestId,
+      student_id: entry.student_id,
+      roll_no: entry.roll_no,
+      snapshot,
+    };
+  });
+
+  const { error } = await admin
+    .from("collection_request_members")
+    .upsert(rows, { onConflict: "request_id,student_id", ignoreDuplicates: true });
+
+  if (error) throw new Error(`Could not record who was asked: ${error.message}`);
+
+  return rows.length;
+}
+
+/** Who this link was issued to, frozen. Empty for a pre-rounds request. */
+export async function frozenMembers(requestId: string): Promise<number> {
+  const { count, error } = await createAdminClient()
+    .from("collection_request_members")
+    .select("student_id", { count: "exact", head: true })
+    .eq("request_id", requestId);
+
+  if (error) throw new Error(`Could not count who was asked: ${error.message}`);
+  return count ?? 0;
 }
 
 export async function setRequestStatus(

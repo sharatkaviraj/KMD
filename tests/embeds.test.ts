@@ -59,6 +59,28 @@ function foreignKeyCounts(): Map<string, Map<string, number>> {
 
       counts.set(table, inner);
     }
+
+    // **And the columns added afterwards.** A table gains most of its second
+    // and third foreign keys by `alter table`, not in the block it was born
+    // in — which is how R3.1 gave `collection_requests` two more references
+    // to `staff_profiles` and broke `/collection` for every role while this
+    // test stayed green. Reading only `create table` made the check strongest
+    // on the day a table was written and blind ever after.
+    for (const match of sql.matchAll(
+      /alter\s+table\s+vppsone\.(\w+)([\s\S]*?);/gi,
+    )) {
+      const table = match[1];
+      const body = match[2];
+      if (!/add\s+(column|constraint)/i.test(body)) continue;
+
+      const inner = counts.get(table) ?? new Map<string, number>();
+
+      for (const ref of body.matchAll(/references\s+vppsone\.(\w+)\s*\(/gi)) {
+        inner.set(ref[1], (inner.get(ref[1]) ?? 0) + 1);
+      }
+
+      counts.set(table, inner);
+    }
   }
 
   return counts;
@@ -128,6 +150,9 @@ describe("PostgREST embeds", () => {
       .sort();
 
     expect(ambiguous).toContain("message_sends");
+    // Added by `alter table`, so this one is also the proof that the second
+    // half of the parser above runs at all.
+    expect(ambiguous).toContain("collection_requests");
     expect(ambiguous).toContain("attendance_registers");
     expect(ambiguous).toContain("attendance_corrections");
     expect(ambiguous).toContain("substitution_assignments");

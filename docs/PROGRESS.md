@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R3.1 below.**
+**Active queue: PLAN revision 2. The next task is R3.2 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -27,7 +27,7 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | done | `r2-1-teacher-today` · `6fde807` ([#23](https://github.com/veerpatta/vppsone/pull/23)) · `lessonsToday()`, `nextAction()`, `TaskHero` · `docs/evidence/R2.1-2026-09-17.md`. Assigned requests deferred to R3.3 with the inbox they need |
 | R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | done | `r2-1-teacher-today` · `6fde807` ([#23](https://github.com/veerpatta/vppsone/pull/23)) · `attention.ts`, `home-repo.ts` · `docs/evidence/R2.2-2026-09-17.md`. Exam coordinator queue deferred to R5.3 with the counts it needs; no fee summary until R6 |
 | R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | done | `r2-3-directory` · `/students`, `directory.ts`, source badges, fee context link · `docs/evidence/R2.3-2026-09-17.md`. Detail screen stays at `/teach/student/[id]` until R4.1 moves it with an alias |
-| R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | todo | — |
+| R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | done | `r3-1-rounds` · `collection_rounds`, `collection_request_members`, `audience.ts`, `external_student_ids` · `tests/e2e/collection-freeze.spec.ts` · `docs/evidence/R3.1-2026-09-17.md`. Rounds and mapping are schema with no writer yet: the wizard is R3.2, the fan-out R3.3, the matcher R4.1 |
 | R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | todo | — |
 | R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | todo | — |
 | R3.4 | Round-aware review/precedence/superseding and mock message retry; S-01–S-09 acceptance | R3.3 | todo | — |
@@ -384,6 +384,57 @@ Named rather than half-done: the detail screen stays at `/teach/student/[id]`
 until R4.1 moves it with an alias (one record, not two); search is not
 transliteration-aware, so "Meera" does not find "मीरा", which needs a stored
 transliteration or a Postgres extension rather than a tweak.
+
+### R3.1 — a question asked on Monday is still Monday's question
+
+A request's roll and its prefilled values were re-read from `enrolments` and
+`student_records` **every time the link was opened**. So a child moved between
+classes after a link went out stopped being on it, and an office correction
+changed what "the number we hold" meant on the review screen — the teacher is
+shown one thing, answers it, and the queue compares her answer against
+something she never saw. Neither reads as an error. Both look exactly like
+working software. That is B-07, and S-02 is the behaviour it is missing.
+
+`vppsone.collection_request_members` is the fix: who was asked, their roll
+number, and `snapshot jsonb` — the prefilled values exactly as sent, written
+once by `freezeMembers()` at creation and **never re-derived**. Alongside it,
+the additive round schema (`collection_rounds`, `round_id`,
+`audience_kind`/`audience_label`, sent/reminded/archived columns) and
+`audience.ts` for what an audience is.
+
+The workflow test is the point. It creates a request through the form, opens
+the link, then **moves a child to another class and corrects a value** while
+the link is live, and asserts the page did not notice. That would pass against
+code that never froze anything — so it then deletes the member rows and
+reloads, which is the legacy path `rollForRequest` still takes, and asserts
+the roll shrinks and the correction leaks through. The defect is reproduced on
+demand thirty lines below the fix that closes it (D-147).
+
+Two defects found while building it. Adding `sent_by` and `reminded_by` gave
+`collection_requests` a **third** foreign key to `staff_profiles`, which made
+the unnamed PostgREST embed ambiguous and threw on every `/collection` screen
+for every role (B-26). `tests/embeds.test.ts` exists to catch exactly that and
+stayed green, because it read foreign keys out of `create table` blocks only —
+a table gains most of its later references by `alter table`, which made the
+check strongest on the day a table was written and blind ever after (D-148).
+And `tests/directory.test.ts` measured source within a character window
+against a file checked out CRLF, so it passed in CI and failed locally (B-27).
+
+The first version of the freeze test used `mother_phone` and passed — and
+would have passed against any code at all, because a collect field prefills
+nothing and the assertion was about the absence of something never rendered
+(D-149). It uses `guardian_phone` now, where what the school holds is text on
+the screen.
+
+Named rather than half-done: **no screen creates a round.** `collection_rounds`
+exists and is empty; the wizard is R3.2 and the fan-out is R3.3, so a request
+made today is a single class that carries `audience_kind = 'class'` and
+freezes its members — the whole of B-07 and none of B-02. `ask_note`,
+`reminder_count`, `archived_at` and `token_rotated_at` are columns with no
+writer, here because this is the additive migration. `external_student_ids`
+gives SamPark links a mapping to use (S-10) and nothing populates it, so the
+link still degrades to search — a missing row now rather than a missing
+mechanism (D-146).
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

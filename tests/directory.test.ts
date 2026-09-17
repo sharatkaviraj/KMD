@@ -168,10 +168,14 @@ describe("an alphanumeric SR is a label, not a number", () => {
     // The rule lives in the query the repo builds, so this reads it rather
     // than asserting a shape the domain cannot see.
     const { readFileSync } = await import("node:fs");
+    // Normalised, because this file is checked out with CRLF on Windows and
+    // the window below is measured in characters. One byte per line is enough
+    // to push a passing check over the edge, which makes it fail on a
+    // developer's machine and pass in CI — the least useful way to fail.
     const source = readFileSync(
       "src/modules/students/data/directory-repo.ts",
       "utf8",
-    );
+    ).replace(/\r\n/g, "\n");
 
     expect(source).toMatch(/kind === "name"[\s\S]{0,600}?admission_no\.ilike/);
   });

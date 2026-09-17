@@ -6,7 +6,7 @@ import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { countOf, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
-import { schoolApp, studentLinkLabel } from "@/platform/config/apps";
+import { appsFor, schoolApp, studentLinkLabel } from "@/platform/config/apps";
 import { getVppsOneEnvironment } from "@/platform/env";
 import {
   classLabelMap,
@@ -14,6 +14,7 @@ import {
 } from "@/modules/academics/data/academics-repo";
 import { studentAttendance } from "@/modules/attendance/data/attendance-repo";
 import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { externalIdFor } from "@/modules/students/data/external-ids-repo";
 import {
   attendanceLabels,
   attendancePercent,
@@ -125,6 +126,22 @@ export default async function StudentPage(
     { studentId, search: student.admissionNo ?? student.fullName },
     getVppsOneEnvironment(),
   );
+
+  // SamPark keeps its own text ids, so this one needs a mapping row as well as
+  // matching datasets (S-10). Nothing writes the mapping table yet, so today
+  // this is always null and the link is a search — asked for anyway, because
+  // the day a mapping lands the card should already know what to do with it.
+  const seesSampark = appsFor(staff.role).some((app) => app.id === "sampark");
+  const samparkLink = seesSampark
+    ? schoolApp("sampark").student(
+        {
+          studentId,
+          search: student.admissionNo ?? student.fullName,
+          externalId: await externalIdFor("sampark", studentId),
+        },
+        getVppsOneEnvironment(),
+      )
+    : null;
 
   const statuses = history.map((entry) => entry.status);
   const summary = attendancePercent(statuses);
@@ -368,6 +385,35 @@ export default async function StudentPage(
             </a>
             <p className="mt-2 text-center font-mono text-[12px] text-subtle-foreground">
               {new URL(feeLink.href).host}
+            </p>
+          </Card>
+        </Section>
+      ) : null}
+
+      {/* --------------------------------------------- SamPark, for this child */}
+
+      {samparkLink ? (
+        <Section className="mt-7" title={m.appSampark} language={language}>
+          <Card className="p-4">
+            {/* **A different app's ids, not a different environment.** SamPark
+                keys its students on its own text id, so this is a search until
+                somebody loads the mapping — and then a deep link, with no
+                change here (S-10). */}
+            <p className="text-[14px] leading-6 text-muted-foreground">
+              {primary(
+                samparkLink.kind === "detail" ? m.appOpenThisChild : m.appSearchInstead,
+                language,
+              )}
+            </p>
+            <a
+              href={samparkLink.href}
+              className={buttonClasses({ variant: "outline", className: "mt-3 w-full" })}
+            >
+              {primary(studentLinkLabel(samparkLink.kind), language)}
+              <ExternalLink aria-hidden />
+            </a>
+            <p className="mt-2 text-center font-mono text-[12px] text-subtle-foreground">
+              {new URL(samparkLink.href).host}
             </p>
           </Card>
         </Section>

@@ -116,7 +116,10 @@ type SubmissionRow = {
 const COLUMNS =
   "id, request_id, student_id, field_id, value, previous_value, status, submitted_at, " +
   "decided_at, decision_note, " +
-  "collection_requests!inner(title_hi, title_en, class_label, staff_profiles(display_name)), " +
+  // Named: a request points at `staff_profiles` three times now (assigned,
+  // sent_by, reminded_by), and an unnamed embed fails the whole select.
+  "collection_requests!inner(title_hi, title_en, class_label, " +
+  "staff_profiles!collection_requests_assigned_staff_id_fkey(display_name)), " +
   "collection_fields!inner(key, label_hi, label_en), " +
   "staff_profiles(display_name)";
 

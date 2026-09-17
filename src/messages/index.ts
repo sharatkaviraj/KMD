@@ -1026,6 +1026,14 @@ export const m = {
     "हर जानकारी के साथ लिखा है कि वह कहाँ से आई।",
     "Each value says where it came from.",
   ),
+  /* ------------------------------------------------- who a round asks */
+  audienceClass: t("कक्षा", "Class"),
+  audienceHouse: t("सदन", "House"),
+  audienceRoute: t("बस मार्ग", "Bus route"),
+  audienceList: t("चुनी हुई सूची", "A chosen list"),
+  // One link over every group in the round, held by the office.
+  audienceMaster: t("सभी कक्षाएँ", "All classes"),
+
   studentsTitle: t("विद्यार्थी", "Students"),
   studentsHint: t(
     "नाम, एसआर नंबर या फ़ोन नंबर से खोजिए।",

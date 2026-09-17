@@ -94,10 +94,22 @@ export type RollRow = {
   rollNo: string | null;
   fullName: string;
   fatherName: string | null;
-  /** What the school holds today, per field key. Frozen into the form. */
+  /**
+   * What the school held **when this link went out**, per field key.
+   *
+   * From the frozen member snapshot, not re-derived (S-02, B-07). A legacy
+   * request made before rounds existed falls back to today’s record, because
+   * an old link rendering as an empty class is a worse answer than a rebuilt
+   * one.
+   */
   current: Record<string, string | null>;
   /** What this link has already been answered with, per field key. */
   answered: Record<string, string | null>;
+  /**
+   * One line about this child on this link — "number belongs to an uncle".
+   * Set from the office’s uploaded ask list; null for an ordinary round.
+   */
+  askNote?: string | null;
 };
 
 /**

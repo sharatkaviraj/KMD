@@ -50,6 +50,14 @@ export type StudentContext = {
   studentId?: string | null;
   /** What to type into the destination's search box: an SR number or a name. */
   search?: string | null;
+  /**
+   * The destination app's **own** id for this child, if we hold a mapping.
+   *
+   * Only SamPark needs one — the fee app's ids are the ids VPPS One already
+   * holds. Resolved by `external-ids-repo.ts`; null whenever no mapping row
+   * applies to the dataset being read, which today is always (S-10).
+   */
+  externalId?: string | null;
 };
 
 export type SchoolApp = {
@@ -93,6 +101,10 @@ const PATHS = {
   sampark: {
     home: "/",
     students: "/students",
+    // SamPark's admin routes sit in an `(admin)` route group, so the URL is
+    // `/students/<its own text id>`. Read off its own `src/app` tree at
+    // `830548c`, not guessed.
+    student: (id: string) => `/students/${id}`,
     requests: "/requests",
     review: "/review",
   },
@@ -159,12 +171,29 @@ export const SCHOOL_APPS: readonly SchoolApp[] = [
     isExternal: true,
     visibleTo: OFFICE_AND_ADMIN,
     home: { href: url("sampark", PATHS.sampark.home), kind: "home" },
-    student(context) {
-      // **Never a detail link, whatever the environments say.** SamPark keeps
-      // its own student ids — text, from its own imports — and mapping them to
-      // fee UUIDs is R3.1's job (S-10). Guessing by name is the one thing
-      // PARITY.md says never to do, so search is the honest destination until
-      // the mapping exists.
+    student(context, from) {
+      const to = verifiedOrigin("sampark").environment;
+
+      // **Two gates, and both have to clear.** SamPark keeps its own student
+      // ids — text, from its own imports — so a deep link needs a mapping row
+      // (`vppsone.external_student_ids`, S-10) *and* the same dataset on both
+      // sides. The mapping alone is not enough: a row matched against dev
+      // would not 404 on live, it would open a different child.
+      //
+      // Nothing populates the mapping table yet — the matcher lands with the
+      // student source tooling in R4.1 — so `externalId` is null in practice
+      // and this still degrades to search. That is the same honest behaviour
+      // as before; what changed is that it is now a missing row rather than a
+      // missing mechanism.
+      if (context.externalId && idsTravelBetween(from, to)) {
+        return {
+          href: url("sampark", PATHS.sampark.student(context.externalId)),
+          kind: "detail",
+        };
+      }
+
+      // Guessing by name is the one thing PARITY.md says never to do, so the
+      // search box is the honest destination.
       return {
         href: url("sampark", PATHS.sampark.students, { query: context.search ?? "" }),
         kind: "search",
@@ -223,6 +252,8 @@ export const LINKABLE_PATHS: readonly string[] = [
   ...Object.values(PATHS.schoolfees).map((entry) =>
     typeof entry === "function" ? entry(":id") : entry,
   ),
-  ...Object.values(PATHS.sampark),
+  ...Object.values(PATHS.sampark).map((entry) =>
+    typeof entry === "function" ? entry(":id") : entry,
+  ),
   ...Object.values(PATHS.vppsone),
 ];
