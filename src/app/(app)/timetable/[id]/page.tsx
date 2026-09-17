@@ -14,6 +14,7 @@ import {
   listSlots,
 } from "@/modules/timetable/data/timetable-repo";
 import { findClashes } from "@/modules/timetable/domain/views";
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import { Badge, Card, DetailList, Notice } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 import { PageHeader } from "@/ui/shell/app-shell";
@@ -81,7 +82,7 @@ export default async function TimetableVersionPage(
           <ul className="space-y-1 text-[13px]">
             {clashes.slice(0, 8).map((clash, index) => (
               <li key={index}>
-                {clash.teacherShortName} — {clash.day} P{clash.period + 1} —{" "}
+                {clash.teacherShortName} — {clash.day} P{periodNumber(clash.period)} —{" "}
                 {clash.classLabels.join(" / ")} ({clash.subjects.join(" / ")})
               </li>
             ))}

@@ -25,18 +25,27 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { QA_ACCOUNTS, QA_EMAIL_DOMAIN } from "../tests/fixtures/qa-accounts.ts";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
 
 /** The only addresses this script will ever mint a link for. */
-const QA_DOMAIN = "@qa.vpps.local";
+const QA_DOMAIN = QA_EMAIL_DOMAIN;
 
-const ACCOUNTS = {
-  admin: "qa.admin@qa.vpps.local",
-  office: "qa.accountant@qa.vpps.local",
-  teacher: "qa.teacher@qa.vpps.local",
-  viewer: "qa.viewonly@qa.vpps.local",
-};
+/**
+ * The accounts, from the fixture list rather than from a copy kept here.
+ *
+ * Three files used to hold their own map of the same addresses, and the one in
+ * the role smoke had quietly stopped describing a teacher with any classes
+ * (B-17). A name is offered here for every account the list says can sign in.
+ */
+const ACCOUNTS = Object.fromEntries(
+  QA_ACCOUNTS.filter((account) => account.canSignIn).map((account) => [
+    account.key,
+    account.email,
+  ]),
+);
 
 const env = Object.fromEntries(
   readFileSync(path.join(repoRoot, ".env.local"), "utf8")

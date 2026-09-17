@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { m } from "@/messages";
 import { PERIOD_COUNT } from "@/modules/timetable/domain/parse-timetable";
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import {
   findClashes,
   freeTeachers,
@@ -64,7 +65,7 @@ export function TimetableViews({
           <ul className="space-y-1 text-[13px]">
             {clashes.slice(0, 5).map((clash, index) => (
               <li key={index}>
-                {clash.teacherShortName} — {clash.day} P{clash.period + 1} —{" "}
+                {clash.teacherShortName} — {clash.day} P{periodNumber(clash.period)} —{" "}
                 {clash.classLabels.join(" / ")} ({clash.subjects.join(" / ")})
               </li>
             ))}
@@ -264,7 +265,7 @@ function WeekGrid({
                 className="min-h-16 rounded-xl border border-border bg-surface px-2.5 py-2"
               >
                 <span className="block text-[11px] font-semibold text-subtle-foreground">
-                  {cell.period + 1}
+                  {periodNumber(cell.period)}
                 </span>
                 {render(cell)}
               </li>

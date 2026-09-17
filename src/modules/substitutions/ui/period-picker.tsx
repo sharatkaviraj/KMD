@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { m } from "@/messages";
 import { PERIOD_COUNT } from "@/modules/timetable/domain/parse-timetable";
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import { primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { cn } from "@/platform/utils";
@@ -70,7 +71,7 @@ export function PeriodPicker({
               type="button"
               onClick={() => toggle(period)}
               aria-pressed={on}
-              aria-label={`${primary(m.teachPeriod, language)} ${period + 1}`}
+              aria-label={`${primary(m.teachPeriod, language)} ${periodNumber(period)}`}
               className={cn(
                 "focus-ring min-h-11 rounded-xl border text-[13px] font-semibold tabular-nums transition-colors",
                 on
@@ -79,7 +80,7 @@ export function PeriodPicker({
               )}
             >
               {primary(m.subsPeriodShort, language)}
-              {period + 1}
+              {periodNumber(period)}
             </button>
           );
         })}

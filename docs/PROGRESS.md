@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R0.1 below.**
+**Active queue: PLAN revision 2. The next task is R0.3 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -18,7 +18,8 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | Task | Bounded deliverable | Depends on | Status | Branch / commit / evidence |
 |---|---|---|---|---|
 | R0.1 | Complete source parity inventory, verify app/test origins and record baseline defects/metrics | Existing source + baseline | done | `r0-1-parity-and-origins` · `docs/evidence/R0.1-2026-09-17.md`, `docs/evidence/R0.1-origins-2026-09-17.json`, `npm run verify:origins` |
-| R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | todo | — |
+| R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | done | `r0-2-fixtures` · `npm run qa:seed`/`qa:reset`/`qa:status` · `docs/evidence/R0.2-2026-09-17.md` |
+| R0.2-fix | B-21: the teacher's Today card called her first lesson "Period 0" | R0.2 | done | `r0-2-fixtures` · `src/modules/timetable/domain/periods.ts`, `tests/periods.test.ts` |
 | R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | todo | — |
 | R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | todo | — |
 | R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | todo | — |
@@ -70,6 +71,46 @@ Also: B-06 is five screens, not one — `/collection`, `/assessments/[id]`,
 with `localeCompare` and all ignore the `sort_order` column that already
 exists. Baseline for the R7.1 ratchet is **1,293.2 KB of client JS in 37 files**.
 
+### R0.2 — what a working teacher fixture found in the first minute
+
+Nine accounts now, from one list the seeder, the role smoke and `dev:login` all
+read; three files used to keep their own copy. The two teaching accounts are
+bound to teachers the **published timetable already knows**, chosen by rule
+rather than by a name in the repository — most periods, ties by short name, and
+the second must share no class with the first. On this data that is a primary
+teacher (Classes 1–5, now class teacher of Class 1) and a secondary teacher
+(Classes 6–12, now class teacher of Class 7).
+
+Every write records its previous value in `vppsone.qa_undo`, so `qa:reset` puts
+back rows the fixture did not create — which it has to, because binding a login
+to an existing profile is the only way to give it a day. Proved by running it:
+11 steps out, 11 steps back, database identical, then 11 steps out again with
+the same two teachers.
+
+**B-21, found and fixed the moment a teacher had a period to render.** The
+Today card printed `timetable_slots.period` raw, and that column is 0-based —
+so a teacher's first lesson of the day read "0" and her last read "7". Six
+other screens each remembered to add one; this one, the screen she opens every
+morning, did not. It had been shipping since Phase 3.1 and no test could reach
+it, because the only teacher account had no periods at all. `periodNumber()` is
+now the only place the off-by-one lives, and `tests/periods.test.ts` refuses
+both shapes that caused it.
+
+**B-20 raised, not fixed**: the same card lists 20 rows for an eight-period day,
+because a parallel subject taught to five classes at once is five slots and
+renders as five lines. The teacher is in one room. How a combined period should
+read is R2.1's decision, not a patch in passing.
+
+`dispatch()` now goes through a typed provider adapter. `MESSAGE_PROVIDER=mock`
+decides from the destination's last digit — 5 slow, 6 timeout, 7 rate-limited,
+8 server error, 9 duplicate with a stable id — and is refused on a live
+deployment. Mocked sends carry a `mock:` prefix into
+`message_sends.provider_message_id` so they can never be read as real ones.
+
+Still open from this row: a 40-child class and a 1,205-row student list cannot
+be fixtured from here, because the roster is the fee app's and rule 2 forbids
+writing it (B-18).
+
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows
 may proceed. Every done row needs branch, delivery commit, evidence and remaining
@@ -94,6 +135,7 @@ version the MCP recorded (D-22), so this list and
 
 | Version | File | Task |
 |---|---|---|
+| 20260917093746 | `create_qa_fixture_runs` | R0.2 |
 | 20260916191746 | `create_vppsone_schema` | 1.1 |
 | 20260916191757 | `create_staff_profiles` | 1.1 |
 | 20260916191935 | `expose_vppsone_to_postgrest` | 1.1 |
@@ -109,6 +151,7 @@ version the MCP recorded (D-22), so this list and
 | 20260917041039 | `create_assessments` | 6.1–6.5 |
 | 20260917051014 | `create_jobs` | 7.1 |
 | 20260917051208 | `create_job_message_templates` | 7.2 |
+| 20260917093746 | `create_qa_fixture_runs` | R0.2 |
 
 ## Phase 1 — foundation
 

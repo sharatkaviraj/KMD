@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 import { can, staffRoles } from "../src/platform/auth/permissions.ts";
+import { accountsByRole } from "../tests/fixtures/qa-accounts.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
@@ -132,14 +133,23 @@ async function fillIds(route) {
 
 /* ------------------------------------------------------------ signing in */
 
-const ACCOUNTS = {
-  admin: "qa.admin@qa.vpps.local",
-  office: "qa.accountant@qa.vpps.local",
-  academic_coordinator: "qa.academic@qa.vpps.local",
-  exam_coordinator: "qa.exam@qa.vpps.local",
-  teacher: "qa.teacher@qa.vpps.local",
-  view_only: "qa.viewonly@qa.vpps.local",
-};
+/**
+ * One address per role, taken from the fixture list rather than written here.
+ *
+ * It used to be six addresses typed into this file, and that is how B-17 stayed
+ * invisible: the account this signed in as for `teacher` had no class, no
+ * periods and no assignments, so thirty-six of the 216 combinations were
+ * results about an empty teacher. `tests/fixtures/qa-accounts.ts` now says what
+ * each account is *for*, and `npm run qa:seed` makes it true.
+ */
+const ACCOUNTS = accountsByRole();
+
+for (const role of staffRoles) {
+  if (!ACCOUNTS[role]) {
+    console.error(`No QA account for ${role}. Run \`npm run qa:seed\` first.`);
+    process.exit(1);
+  }
+}
 
 /** Sign in with a minted link and return the cookie header it leaves behind. */
 async function signIn(email) {

@@ -8,6 +8,7 @@ import { addDays, dayLabel, isIsoDay, schoolToday, weekdayLabel } from "@/platfo
 import { flat, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import { buildPlanningContext } from "@/modules/substitutions/data/planning-context";
 import { getPlan, planAssignments } from "@/modules/substitutions/data/plans-repo";
 import {
@@ -353,7 +354,7 @@ export default async function SubstitutionsPage(
             .map(([period, list]) => (
               <section key={period}>
                 <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-subtle-foreground">
-                  {primary(m.teachPeriod, language)} {period + 1}
+                  {primary(m.teachPeriod, language)} {periodNumber(period)}
                 </h3>
                 <ul className="space-y-2">
                   {list.map((row) => (

@@ -22,7 +22,10 @@
     "jobs:tokens": "node --import ./scripts/alias-hook.mjs scripts/job-tokens.mjs",
     "cutover:check": "node scripts/cutover-check.mjs",
     "smoke:roles": "node --import ./scripts/alias-hook.mjs scripts/smoke-roles.mjs",
-    "verify:origins": "node --import ./scripts/alias-hook.mjs scripts/verify-origins.mjs"
+    "verify:origins": "node --import ./scripts/alias-hook.mjs scripts/verify-origins.mjs",
+    "qa:seed": "node --import ./scripts/alias-hook.mjs scripts/qa-fixture.mjs seed",
+    "qa:reset": "node --import ./scripts/alias-hook.mjs scripts/qa-fixture.mjs reset",
+    "qa:status": "node --import ./scripts/alias-hook.mjs scripts/qa-fixture.mjs status"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

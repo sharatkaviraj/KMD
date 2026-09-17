@@ -12,6 +12,7 @@ import {
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
 import { isSchoolOpen, timetableRuns } from "@/modules/academics/domain/calendar";
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import {
   attendanceCalendar,
   registersForDay,
@@ -220,7 +221,7 @@ export default async function TeachPage() {
                     aria-hidden
                     className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface text-[14px] font-bold tabular-nums text-accent-soft-foreground"
                   >
-                    {cover.period + 1}
+                    {periodNumber(cover.period)}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold text-accent-soft-foreground">
@@ -265,7 +266,7 @@ export default async function TeachPage() {
                   aria-hidden
                   className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[14px] font-bold tabular-nums text-muted-foreground"
                 >
-                  {slot.period}
+                  {periodNumber(slot.period)}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-foreground">

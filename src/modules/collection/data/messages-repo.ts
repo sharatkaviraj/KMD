@@ -13,6 +13,12 @@ import {
   type TemplateInput,
 } from "@/modules/collection/domain/messages";
 import { normalisePhone } from "@/modules/collection/domain/fields";
+import {
+  ProviderMisconfigured,
+  selectProvider,
+  type DispatchResult,
+  type MessageProvider,
+} from "@/modules/collection/data/message-provider";
 
 /**
  * Templates and the send queue.
@@ -265,68 +271,44 @@ export async function markSentByHand(
 
 /* ------------------------------------------------------- the provider */
 
-export type DispatchResult =
-  | { ok: true; providerMessageId: string }
-  | { ok: false; error: string };
-
 /**
- * Hand one queued message to AiSensy.
+ * Hand one queued message to whichever provider this deployment has.
  *
- * **Unconfigured on purpose, and the guards below are the point.**
+ * **The guards come first, and they are the point.**
  *
  * `mayDispatch()` refuses a parent-facing row outright — that is D-10 in
  * executable form, and it holds whatever a screen or a future scheduled job
  * believes. What is left is staff messaging: a teacher's own token link, which
  * is a message to a colleague about their own work.
  *
- * Even that needs `AISENSY_API_KEY`, which this repo does not carry and which
- * rule 8 makes somebody else's decision to add, because sending costs money.
- * Without it this returns a refusal and writes nothing — the queue keeps the
- * row, the office opens WhatsApp themselves, and nothing is lost.
+ * Only then does it ask `selectProvider()` who is sending. Unset means AiSensy,
+ * which still refuses without an `AISENSY_API_KEY` this repository does not
+ * carry (rule 8: sending costs money). `MESSAGE_PROVIDER=mock` is how a QA run
+ * gets a 429 or a timeout without a handset or an invoice, and it is refused
+ * outright on a live deployment.
+ *
+ * A misconfigured provider is reported as a refusal rather than thrown, because
+ * the caller is a screen: the queue keeps the row either way, and an error page
+ * would lose the sentence that says what to fix.
  */
 export async function dispatch(send: MessageSend): Promise<DispatchResult> {
   const allowed = mayDispatch(send);
   if (!allowed.ok) return { ok: false, error: allowed.reason.en };
 
-  const apiKey = process.env.AISENSY_API_KEY?.trim();
-  if (!apiKey) {
-    return {
-      ok: false,
-      error:
-        "No AISENSY_API_KEY is configured, so nothing was sent. Open it in WhatsApp and press send.",
-    };
-  }
-
+  let provider: MessageProvider;
   try {
-    const response = await fetch("https://backend.aisensy.com/campaign/t1/api/v2", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        apiKey,
-        campaignName: send.templateCode,
-        destination: `91${send.toPhone}`,
-        userName: send.toName ?? "",
-        templateParams: send.variables,
-      }),
-    });
-
-    if (!response.ok) {
-      return { ok: false, error: `The provider refused it (${response.status}).` };
-    }
-
-    const body: unknown = await response.json().catch(() => null);
-    const id =
-      body && typeof body === "object" && "messageId" in body
-        ? String((body as { messageId: unknown }).messageId)
-        : "";
-
-    return { ok: true, providerMessageId: id };
+    provider = selectProvider();
   } catch (thrown) {
     return {
       ok: false,
-      error: thrown instanceof Error ? thrown.message : "The provider could not be reached.",
+      error:
+        thrown instanceof ProviderMisconfigured
+          ? thrown.message
+          : "No messaging provider is configured.",
     };
   }
+
+  return provider.send(send);
 }
 
 export async function recordDispatch(
