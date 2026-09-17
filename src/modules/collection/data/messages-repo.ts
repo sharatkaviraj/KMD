@@ -135,7 +135,13 @@ const SEND_COLUMNS =
   "variables, rendered_hi, rendered_en, status, provider_message_id, error, " +
   "requested_at, sent_at, " +
   "message_templates!inner(code, label_hi, label_en, audience), " +
-  "staff_profiles(display_name)";
+  // **Named, because `message_sends` points at `staff_profiles` twice** —
+  // `requested_by` is who asked for the message and `staff_profile_id` is who
+  // it is going to. An unqualified embed cannot choose between them, and
+  // PostgREST answers "more than one relationship was found" rather than
+  // picking one, so this screen returned an error page from the day it shipped
+  // until somebody signed in and opened it. The one wanted here is who asked.
+  "staff_profiles!message_sends_requested_by_fkey(display_name)";
 
 const toSend = (row: SendRow): MessageSend => ({
   id: row.id,
