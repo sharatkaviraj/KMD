@@ -30,11 +30,20 @@ type RollRow = {
  * the academic one, and it is what keeps a child on the register of the class
  * they were actually in (task 1.6). Names come from the fee app, which is
  * where they live.
+ *
+ * **Named arguments, because two strings in a row is an invitation.** It was
+ * `(classId, sessionLabel)`, and a caller passing them the other way round
+ * typechecks perfectly and fails at Postgres with `invalid input syntax for
+ * type uuid: "TEST-2026-27"` — which is a clear message, arriving on a
+ * teacher screen as an error card. One object costs a brace and removes the
+ * class of mistake.
  */
-export async function classRoll(
-  classId: string,
-  sessionLabel: string,
-): Promise<RollStudent[]> {
+export async function classRoll(input: {
+  classId: string;
+  sessionLabel: string;
+}): Promise<RollStudent[]> {
+  const { classId, sessionLabel } = input;
+
   await assertPermission("attendance:view");
 
   const supabase = await createClient();

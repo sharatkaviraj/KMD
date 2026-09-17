@@ -1,15 +1,24 @@
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 
 import { m } from "@/messages";
+import { can } from "@/platform/auth/permissions";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { dayLabel, schoolToday, weekdayLabel } from "@/platform/dates";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { navigationFor } from "@/platform/config/navigation";
 import { appsFor, environmentLabel } from "@/platform/config/apps";
 import { getVppsOneEnvironment } from "@/platform/env";
-import { flat, primary, secondary } from "@/platform/i18n/language";
+import { flat, primary, secondary, t } from "@/platform/i18n/language";
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { homeSummary } from "@/modules/home/data/home-repo";
+import {
+  attentionFor,
+  needsAttention,
+} from "@/modules/home/domain/attention";
 import { Card, DetailList, Notice, Section } from "@/ui/primitives";
 import { PageHeader, StaffChip } from "@/ui/shell/app-shell";
+import { MetricCard, MetricGrid } from "@/ui/task-hero";
 
 export const runtime = "nodejs";
 
@@ -18,13 +27,17 @@ export async function generateMetadata() {
 }
 
 /**
- * The landing screen.
+ * Home, for everybody whose home is not a classroom.
  *
- * Still deliberately thin — the numbers that belong here (today's registers,
- * missing marks, who is absent) are Phase 3 and Phase 6, and inventing
- * placeholders for them would be inventing a design for data nobody has
- * looked at yet. What it does do is show the staff member what they are and
- * where they can go, which is what makes a role change visible.
+ * **Exceptions with counts and owners** (PLAN §3), in the order each role
+ * works. The owner is the load-bearing half: a number with no name beside it
+ * is somebody else's problem to everybody who reads it, and the register that
+ * has not come in belongs to a teacher rather than to whoever happens to have
+ * the dashboard open.
+ *
+ * Every count is real or absent. A read that failed renders a dash and says
+ * so — a dashboard reporting a confident nought is the one wrong answer this
+ * screen can give, and it is exactly the mistake D-93 records.
  */
 export default async function DashboardPage() {
   const staff = await requirePermission("dashboard:view", "/dashboard");
@@ -34,11 +47,118 @@ export default async function DashboardPage() {
   );
   const apps = appsFor(staff.role);
 
+  const today = schoolToday();
+  const sessionLabel = await resolveSessionLabel();
+
+  const summary = sessionLabel
+    ? await homeSummary(sessionLabel, today)
+    : null;
+
+  const attention = summary
+    ? attentionFor(staff.role, summary.facts, {
+        canMarkOnBehalf: can(staff, "attendance:mark_on_behalf"),
+      })
+    : [];
+
+  const dayText = t(
+    `${weekdayLabel(today).hi}, ${dayLabel(today).hi}`,
+    `${weekdayLabel(today).en}, ${dayLabel(today).en}`,
+  );
+
   return (
     <>
-      <PageHeader title={m.welcome} language={language} />
+      <PageHeader title={m.welcome} description={dayText} language={language} />
 
-      <Card className="p-5">
+      {/* ------------------------------------------------ needs attention */}
+
+      {attention.length > 0 ? (
+        <Section title={m.homeNeedsAttention} language={language}>
+          {needsAttention(attention) ? (
+            <ul className="space-y-2">
+              {attention.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className={
+                      item.tone === "warning"
+                        ? "focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 transition-colors hover:brightness-[0.98]"
+                        : "focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
+                    }
+                  >
+                    <span
+                      aria-hidden
+                      className="w-10 shrink-0 text-center text-[22px] font-semibold tabular-nums"
+                    >
+                      {/* A dash, never a nought: "nothing is outstanding" and
+                          "the count could not be read" are different news. */}
+                      {item.count ?? "—"}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-foreground">
+                        {primary(item.label, language)}
+                        {item.detail ? (
+                          <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">
+                            {primary(item.detail, language)}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="block truncate text-[12px] text-subtle-foreground">
+                        {/* `primary`, not `flat`: a bilingual reader gets
+                            one language on this line, because "Whose:
+                            Academic coordinator" in two languages is wider
+                            than a 360px phone and truncates to nothing
+                            useful. */}
+                        {item.count === null
+                          ? primary(m.homeUnavailable, language)
+                          : `${primary(m.homeOwner, language)}: ${primary(item.owner, language)}`}
+                      </span>
+                    </span>
+                    <ChevronRight
+                      aria-hidden
+                      className="size-5 shrink-0 text-subtle-foreground"
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            // Five noughts is not an empty queue — it is five pieces of good
+            // news, and the screen says so once rather than five times.
+            <Notice tone="success" text={m.homeAllClear} language={language} />
+          )}
+        </Section>
+      ) : null}
+
+      {/* --------------------------------------------- the school, in figures */}
+
+      {summary && staff.role === "view_only" ? (
+        <Section className="mt-7" title={m.homeSchoolToday} language={language}>
+          <MetricGrid>
+            <MetricCard
+              label={m.homeChildrenOnRoll}
+              value={summary.school.childrenOnRoll?.toString() ?? "—"}
+              language={language}
+            />
+            <MetricCard
+              label={m.homeClasses}
+              value={summary.school.classes?.toString() ?? "—"}
+              language={language}
+            />
+            <MetricCard
+              label={m.homeRegistersIn}
+              value={summary.school.registersIn?.toString() ?? "—"}
+              detail={
+                summary.school.classes === null
+                  ? m.homeUnavailable
+                  : t(`${summary.school.classes} में से`, `of ${summary.school.classes}`)
+              }
+              language={language}
+            />
+          </MetricGrid>
+        </Section>
+      ) : null}
+
+      <Card className="mt-7 p-5">
         <StaffChip staff={staff} />
         <DetailList
           className="mt-4"
@@ -67,7 +187,7 @@ export default async function DashboardPage() {
           three hostnames a reader would guess belong to somebody else. */}
       {apps.length > 0 ? (
         <Section
-          className="mt-6"
+          className="mt-7"
           title={m.navApps}
           description={m.appsIntro}
           language={language}

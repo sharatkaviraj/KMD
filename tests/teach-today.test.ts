@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   classesToday,
+  lessonsToday,
+  nextAction,
   outstanding,
   periodsInOrder,
   quietReason,
@@ -177,5 +179,148 @@ describe("matchDayHeader()", () => {
 
   it("returns null rather than guessing when the sheet is empty", () => {
     expect(matchDayHeader([], "2026-09-17")).toBeNull();
+  });
+});
+
+/* ------------------------------------------------ one lesson, not one slot */
+
+describe("lessonsToday()", () => {
+  const lesson = (
+    period: number,
+    classId: string,
+    subjectCode: string,
+  ): PeriodSlot => ({
+    period,
+    classId,
+    classLabel: classId.toUpperCase(),
+    subjectCode,
+  });
+
+  it("merges a subject taught to several classes at once into one lesson", () => {
+    // B-20: ELGA is taught to Classes 1–5 in one room, and the timetable
+    // stores a slot per class. Five rows told a teacher she was in five rooms.
+    const lessons = lessonsToday([
+      lesson(2, "c1", "ELGA"),
+      lesson(2, "c2", "ELGA"),
+      lesson(2, "c3", "ELGA"),
+      lesson(2, "c4", "ELGA"),
+      lesson(2, "c5", "ELGA"),
+    ]);
+
+    expect(lessons).toHaveLength(1);
+    expect(lessons[0].classes.map((entry) => entry.classId)).toEqual([
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+    ]);
+  });
+
+  it("turns an eight-period day into eight rows, not twenty", () => {
+    const slots = [
+      lesson(0, "c2", "Maths"),
+      lesson(1, "c2", "Maths"),
+      ...["c1", "c2", "c3", "c4", "c5"].map((id) => lesson(2, id, "ELGA")),
+      ...["c1", "c2", "c3", "c4", "c5"].map((id) => lesson(3, id, "ELGA")),
+      ...["c1", "c2", "c3", "c4", "c5"].map((id) => lesson(4, id, "ELGA")),
+      lesson(5, "c3", "Maths"),
+      lesson(6, "c1", "EVS"),
+      lesson(7, "c1", "EVS"),
+    ];
+
+    expect(slots).toHaveLength(20);
+    expect(lessonsToday(slots)).toHaveLength(8);
+  });
+
+  it("gives a single-class lesson a class to open and a combined one none", () => {
+    const [combined, alone] = lessonsToday([
+      lesson(1, "c1", "ELGA"),
+      lesson(1, "c2", "ELGA"),
+      lesson(2, "c3", "Maths"),
+    ]);
+
+    // Offering one of the five would be picking a room at random.
+    expect(combined.classId).toBeNull();
+    expect(alone.classId).toBe("c3");
+  });
+
+  it("keeps two different subjects in one period apart", () => {
+    // That is a clash, and merging it would hide the thing worth seeing.
+    const lessons = lessonsToday([lesson(3, "c1", "Maths"), lesson(3, "c2", "Hindi")]);
+
+    expect(lessons).toHaveLength(2);
+    expect(lessons.map((entry) => entry.subjectCode)).toEqual(["Hindi", "Maths"]);
+  });
+
+  it("does not list the same class twice in one lesson", () => {
+    const lessons = lessonsToday([lesson(1, "c1", "Games"), lesson(1, "c1", "Games")]);
+
+    expect(lessons[0].classes).toHaveLength(1);
+  });
+
+  it("is in period order", () => {
+    const lessons = lessonsToday([lesson(7, "c1", "EVS"), lesson(0, "c2", "Maths")]);
+
+    expect(lessons.map((entry) => entry.period)).toEqual([0, 7]);
+  });
+
+  it("is empty for a day with no slots, rather than throwing", () => {
+    expect(lessonsToday([])).toEqual([]);
+  });
+});
+
+/* -------------------------------------------------- one thing to do next */
+
+describe("nextAction()", () => {
+  const mine: HeldClass[] = [
+    { classId: "c1", classLabel: "Class 1" },
+    { classId: "c2", classLabel: "Class 2" },
+  ];
+
+  it("is the first outstanding register", () => {
+    const tasks = [
+      { classId: "c1", classLabel: "Class 1", period: null, done: true },
+      { classId: "c2", classLabel: "Class 2", period: null, done: false },
+    ];
+
+    const action = nextAction({ schoolOpen: true, heldClasses: mine, tasks });
+
+    expect(action.kind).toBe("register");
+    if (action.kind === "register") expect(action.task.classId).toBe("c2");
+  });
+
+  it("offers nothing at all when everything is in", () => {
+    // "You are finished" is the most useful thing the screen can say, and
+    // inventing a task to fill the space is how it stops being believed.
+    const tasks = mine.map((entry) => ({ ...entry, period: null, done: true }));
+    const action = nextAction({ schoolOpen: true, heldClasses: mine, tasks });
+
+    expect(action).toEqual({ kind: "none", reason: "all-done" });
+  });
+
+  it("says why there is nothing, and the three whys stay apart", () => {
+    expect(nextAction({ schoolOpen: false, heldClasses: mine, tasks: [] })).toEqual({
+      kind: "none",
+      reason: "closed",
+    });
+
+    expect(nextAction({ schoolOpen: true, heldClasses: [], tasks: [] })).toEqual({
+      kind: "none",
+      reason: "none-held",
+    });
+  });
+
+  it("agrees with registersDue about a closed day", () => {
+    // The hero reads the same task list the rest of the screen does, so a
+    // holiday cannot produce an action on one and a holiday notice on the
+    // other.
+    const tasks = registersDue({ heldClasses: mine, registers: [], schoolOpen: false });
+
+    expect(tasks).toEqual([]);
+    expect(nextAction({ schoolOpen: false, heldClasses: mine, tasks })).toEqual({
+      kind: "none",
+      reason: "closed",
+    });
   });
 });

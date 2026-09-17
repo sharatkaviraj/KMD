@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R2.1 below.**
+**Active queue: PLAN revision 2. The next task is R2.3 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -24,8 +24,8 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | done | `r1-1-app-registry` · `src/platform/config/apps.ts`, `/apps` · `docs/evidence/R1.1-2026-09-17.md` |
 | R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | done | `r1-2-role-navigation` · `homeFor()`, `NAV_PRIORITY`, `sidebarFor()` · `docs/evidence/R1.2-2026-09-17.md` |
 | R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | done | `r1-3-shared-states` · `authored.ts`, `AuthoredText`, `/preferences`, `class-order.ts` · `docs/evidence/R1.3-2026-09-17.md` |
-| R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | todo | — |
-| R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | todo | — |
+| R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | done | `r2-1-teacher-today` · `lessonsToday()`, `nextAction()`, `TaskHero` · `docs/evidence/R2.1-2026-09-17.md`. Assigned requests deferred to R3.3 with the inbox they need |
+| R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | done | `r2-1-teacher-today` · `attention.ts`, `home-repo.ts` · `docs/evidence/R2.2-2026-09-17.md`. Exam coordinator queue deferred to R5.3 with the counts it needs; no fee summary until R6 |
 | R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | todo | — |
 | R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | todo | — |
 | R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | todo | — |
@@ -268,6 +268,81 @@ except for the tests that are about signing in.
 
 Client JS is **1,309.9 KB in 39 files** against R0.1's 1,293.2 KB — +1.3 %,
 inside the R7.1 ratchet.
+
+### R2.1 — the teacher day, with one thing to do next
+
+**B-20 closed.** The Today card listed one row per timetable slot, so a subject
+taught to five classes at once rendered as five lines and a teacher saw **20
+entries for an eight-period day**, told she was in five rooms. `lessonsToday()`
+groups by period *and subject*: a combined lesson is one row carrying its
+classes, and two different subjects in one period stay two rows because that is
+a clash worth seeing. The QA teacher Thursday now reads 8 rows.
+
+`nextAction()` plus `TaskHero` give PLAN section 1 its "one prominent next
+action": the first outstanding register, with the roll count that makes it
+concrete — "Class 1 में 15 बच्चे" — as the only accent-coloured block on the
+screen. **When everything is in there is no hero at all**; no fallback task is
+invented, because a made-up action is how the card stops being believed.
+
+Metric cards show only what can be read honestly: classes held, merged lessons,
+cover duties, corrections. A **dash, not a nought**, when no timetable is
+published — "there is none" and "you are free" are different news. The design
+package also shows Open requests and Records to check; neither is rendered,
+because the teacher request inbox is R3.3 and records are a permission a teacher
+does not hold. Lesson *times* are absent too: there is no bell schedule in this
+database (D-61), so periods are numbered rather than given plausible clock
+times.
+
+The classless teacher was checked as well: no hero, a dash for classes with the
+reason under it, 0 periods (correct — the timetable is published and she has
+none), and her one cover duty as the only thing on her day.
+
+One bug made and removed: `classRoll(classId, sessionLabel)` is two strings in a
+row, I passed them backwards, TypeScript said nothing, and the teacher screen
+rendered an error card. The signature takes a named object now, at all seven
+call sites.
+
+The visual reference was the design package another agent left at `docs/design/`
+— followed for layout, and **not** followed where a card would need data this
+app does not have. It is untracked by the user decision and is not committed.
+
+### R2.2 — exceptions with counts and owners
+
+`/dashboard` was a profile card and a list of links, identical for six roles,
+since Phase 1.2 (B-03). It is now each role queue, in the order that role works:
+admin gets registers, absences, review, corrections and failed jobs; office
+leads with its own review and corrections; the academic coordinator gets
+absences first.
+
+**The owner is the load-bearing half.** A number with no name beside it is
+somebody else problem to everybody who reads it, and the register that has not
+come in belongs to a teacher rather than to whoever has the dashboard open.
+
+Three empty queues are deliberate. The exam coordinator gets none because
+incomplete papers and report readiness have no cheap count yet and an empty
+queue is honest where a wrong one is not (R5.3 owns it). A teacher gets none
+because her exceptions are already the top of `/teach`. The viewer gets figures
+instead — 139 children, 19 classes, 0 registers in of 19 — because PLAN section
+3 gives that role read-only information and no per-child actions.
+
+**Unavailable is not zero.** Each count is read individually; a failure comes
+back null, renders a dash, and says the count could not be read — and still
+counts as needing attention, because nobody knows that it does not. D-93 is why:
+a swallowed query error once reported "19 classes have no class teacher", and
+on a dashboard that same mistake tells an administrator the school has nothing
+outstanding.
+
+One density fix found by looking rather than by reading: the owner line used
+`flat()`, so a bilingual reader got both halves and it truncated to nothing
+useful on a 360px phone. It is `primary()` now.
+
+Not built here and named rather than faked: no fee summary (a school-wide fee
+figure is a new read whose reconciliation rules R6 is still settling, and an
+unreconciled number is exactly the ₹0-instead-of-unavailable the design package
+warns about), no student search box (the directory is R2.3, and a field posting
+to a route that does not exist is a dead control), and no uncovered-period
+count (that needs the planner own context; the card sends the coordinator to
+`/substitutions`, where the real figure is).
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

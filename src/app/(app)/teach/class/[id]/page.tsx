@@ -55,7 +55,7 @@ export default async function ClassPage(props: PageProps<"/teach/class/[id]">) {
 
   const [labels, roll, own, kinds] = await Promise.all([
     classLabelMap(sessionLabel),
-    classRoll(classId, sessionLabel),
+    classRoll({ classId, sessionLabel }),
     ownClassIds(staff.id, sessionLabel),
     listNoteKinds(),
   ]);

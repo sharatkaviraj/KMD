@@ -182,7 +182,7 @@ export async function issuedCount(
 
 /** The class roll, for a term's worth of cards. */
 export async function rollForClass(classId: string, sessionLabel: string) {
-  return classRoll(classId, sessionLabel);
+  return classRoll({ classId, sessionLabel });
 }
 
 /* -------------------------------------------------------------- the log */

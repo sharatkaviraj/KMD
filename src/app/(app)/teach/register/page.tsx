@@ -118,7 +118,7 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
   const classLabel = labels.get(requestedClass) ?? "—";
 
   const [roll, marks, calendar] = await Promise.all([
-    classRoll(requestedClass, sessionLabel),
+    classRoll({ classId: requestedClass, sessionLabel }),
     classAttendanceRange(requestedClass, sessionLabel, from, to),
     attendanceCalendar(sessionLabel),
   ]);

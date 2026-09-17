@@ -1009,6 +1009,42 @@ export const m = {
   // The desktop sidebar's three groups, in the order a day runs.
   // A title or a reason somebody typed, shown to a reader whose language it
   // was not written in. Short, because it sits beside the text itself.
+  // The teacher hero. The same two words every morning, so it is recognised
+  // rather than read.
+  teachFirstThingsFirst: t("सबसे पहले", "First things first"),
+  teachTakeRegisterNow: t("हाज़िरी ले लीजिए", "Take the register"),
+  // A subject taught to several classes at once is one lesson in one room,
+  // not one row per class (B-20).
+  teachCombinedLesson: t("एक साथ", "Combined"),
+  /* --------------------------------------------- the role home queues */
+  //
+  // PLAN section 3 asks for "exceptions with counts and owners". The owner is
+  // the load-bearing half: a number with no name beside it is somebody else
+  // problem to everybody who reads it.
+  homeNeedsAttention: t("ध्यान चाहिए", "Needs attention"),
+  homeAllClear: t(
+    "अभी कुछ बाकी नहीं है।",
+    "Nothing is waiting for anyone right now.",
+  ),
+  homeOwner: t("किसका काम", "Whose"),
+  homeToday: t("आज", "Today"),
+  homeRegistersOutstanding: t("हाज़िरी बाकी", "Registers not in"),
+  homeStaffAway: t("आज अनुपस्थित स्टाफ़", "Staff away"),
+  homeChangesToReview: t("जाँचने को बदलाव", "Changes to review"),
+  homeJobsFailed: t("नहीं चले काम", "Jobs that failed"),
+  homeOwnerTeachers: t("अध्यापक", "Teachers"),
+  homeOwnerOffice: t("कार्यालय", "Office"),
+  homeOwnerCoordinator: t("शैक्षणिक संयोजक", "Academic coordinator"),
+  homeOwnerApprover: t("कोई दूसरा स्टाफ़", "Another member of staff"),
+  homeOwnerAdmin: t("प्रशासक", "Admin"),
+  homeSchoolToday: t("आज स्कूल में", "The school today"),
+  homeChildrenOnRoll: t("रजिस्टर पर बच्चे", "Children on the roll"),
+  homeClasses: t("कक्षाएँ", "Classes"),
+  homeRegistersIn: t("हाज़िरी आ चुकी", "Registers in"),
+  homeUnavailable: t(
+    "यह गिनती अभी नहीं पढ़ी जा सकी।",
+    "This count could not be read just now.",
+  ),
   preferencesTitle: t("आपकी सेटिंग", "Your settings"),
   preferencesLanguageHint: t(
     "आप ऐप किस भाषा में पढ़ना चाहते हैं। कभी भी बदल सकते हैं।",

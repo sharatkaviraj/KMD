@@ -63,7 +63,7 @@ export default async function MarksPage(
   }
 
   const [roll, marks, changes, own] = await Promise.all([
-    classRoll(paper.classId, sessionLabel),
+    classRoll({ classId: paper.classId, sessionLabel }),
     marksForPaper(paper.id),
     changeLogFor(paper.id),
     ownClassIds(staff.id, sessionLabel),

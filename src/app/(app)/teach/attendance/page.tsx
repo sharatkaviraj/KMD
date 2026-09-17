@@ -160,7 +160,7 @@ export default async function AttendancePage(
   const classLabel = labels.get(requestedClass) ?? "—";
 
   const [roll, register, calendar] = await Promise.all([
-    classRoll(requestedClass, sessionLabel),
+    classRoll({ classId: requestedClass, sessionLabel }),
     findRegister(requestedClass, sessionLabel, day, period),
     attendanceCalendar(sessionLabel),
   ]);

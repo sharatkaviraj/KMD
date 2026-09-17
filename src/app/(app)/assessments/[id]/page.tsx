@@ -86,7 +86,7 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
     await Promise.all(
       classIds.map(
         async (classId) =>
-          [classId, await classRoll(classId, sessionLabel)] as const,
+          [classId, await classRoll({ classId, sessionLabel })] as const,
       ),
     ),
   );

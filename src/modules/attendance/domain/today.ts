@@ -120,3 +120,91 @@ export function classesToday(input: {
 
   return [...input.heldClasses, ...extra];
 }
+
+/* ------------------------------------------------- what the day looks like */
+
+/**
+ * One lesson, which is not the same thing as one timetable slot.
+ *
+ * A subject taught to five classes at once — ELGA, games, assembly — is five
+ * rows in `timetable_slots`, because the slot is per class. Rendering them as
+ * five rows gave a teacher **twenty entries for an eight-period day** and told
+ * her she was in five rooms at 11:00 (B-20). She is in one.
+ *
+ * So a lesson is a period and a subject, and the classes are a list on it.
+ * Two *different* subjects in one period stay two lessons: that is a clash,
+ * and merging it would hide the thing worth seeing.
+ */
+export type Lesson = {
+  period: number;
+  subjectCode: string;
+  classes: HeldClass[];
+  /** Set only when the lesson is one class, so a link can be exact. */
+  classId: string | null;
+};
+
+export function lessonsToday(slots: PeriodSlot[]): Lesson[] {
+  const byKey = new Map<string, Lesson>();
+
+  for (const slot of periodsInOrder(slots)) {
+    const key = `${slot.period}|${slot.subjectCode}`;
+    const existing = byKey.get(key);
+
+    if (existing) {
+      // A class can appear twice in one period on a combined sheet; the
+      // teacher is still only in one room, and the list should say so once.
+      if (!existing.classes.some((entry) => entry.classId === slot.classId)) {
+        existing.classes.push({
+          classId: slot.classId,
+          classLabel: slot.classLabel,
+        });
+      }
+      continue;
+    }
+
+    byKey.set(key, {
+      period: slot.period,
+      subjectCode: slot.subjectCode,
+      classes: [{ classId: slot.classId, classLabel: slot.classLabel }],
+      classId: slot.classId,
+    });
+  }
+
+  return [...byKey.values()]
+    .map((lesson) => ({
+      ...lesson,
+      // A combined lesson has no single class to open, and offering one of the
+      // five would be picking a room at random.
+      classId: lesson.classes.length === 1 ? lesson.classes[0].classId : null,
+    }))
+    .sort((a, b) => a.period - b.period || a.subjectCode.localeCompare(b.subjectCode, "en"));
+}
+
+/**
+ * The one thing to do next, or nothing at all.
+ *
+ * PLAN §1 asks for "one prominent next action" and for a teacher to reach
+ * today's attendance in two taps. One action, not a ranked list: a screen that
+ * offers three equally-weighted next steps has not decided anything, and the
+ * deciding is the part a teacher standing in a corridor cannot do.
+ *
+ * Registers first because they are the only thing with a deadline measured in
+ * minutes. When they are all in, there is deliberately no fallback action —
+ * "you are finished" is the most useful thing the screen can say, and
+ * inventing a task to fill the space is how it stops being believed.
+ */
+export type NextAction =
+  | { kind: "register"; task: RegisterTask }
+  | { kind: "none"; reason: QuietReason };
+
+export function nextAction(input: {
+  schoolOpen: boolean;
+  heldClasses: HeldClass[];
+  tasks: RegisterTask[];
+}): NextAction {
+  const due = outstanding(input.tasks);
+
+  if (due.length > 0) return { kind: "register", task: due[0] };
+
+  return { kind: "none", reason: quietReason(input) };
+}

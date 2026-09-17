@@ -1,5 +1,14 @@
 import Link from "next/link";
-import { CalendarOff, ChevronRight, ClipboardList, Users } from "lucide-react";
+import {
+  BookOpenCheck,
+  CalendarDays,
+  CalendarOff,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  Repeat2,
+  Users,
+} from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -25,12 +34,14 @@ import {
 } from "@/modules/attendance/data/teaching-repo";
 import {
   classesToday,
+  lessonsToday,
+  nextAction,
   outstanding,
-  periodsInOrder,
   quietReason,
   registersDue,
   type PeriodSlot,
 } from "@/modules/attendance/domain/today";
+import { classRoll } from "@/modules/attendance/data/attendance-repo";
 import { coversForTeacher } from "@/modules/substitutions/data/plans-repo";
 import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
@@ -38,6 +49,7 @@ import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
+import { MetricCard, MetricGrid, TaskHero } from "@/ui/task-hero";
 
 export const runtime = "nodejs";
 
@@ -110,6 +122,25 @@ export default async function TeachPage() {
   const todo = outstanding(tasks);
   const quiet = quietReason({ schoolOpen, heldClasses, tasks });
   const classes = classesToday({ heldClasses, slots });
+  const next = nextAction({ schoolOpen, heldClasses, tasks });
+
+  // **One lesson per period, not one per class.** A subject taught to five
+  // classes at once is five rows in `timetable_slots`, and rendering them as
+  // five rows gave a teacher twenty entries for an eight-period day (B-20).
+  const lessons = lessonsToday(slots);
+
+  /**
+   * How many children are waiting, for the class the hero is about.
+   *
+   * One read, for one class, and only when there is a register to take. The
+   * number is what makes the action concrete — "32 children in Class 1" rather
+   * than "take the register" — and a figure nobody can act on is not worth a
+   * query on the screen a teacher opens at 7:40.
+   */
+  const waiting =
+    next.kind === "register"
+      ? (await classRoll({ classId: next.task.classId, sessionLabel })).length
+      : null;
 
   const dayText = t(
     `${weekdayLabel(today).hi}, ${dayLabel(today).hi}`,
@@ -137,9 +168,74 @@ export default async function TeachPage() {
         }
       />
 
+      {/* ------------------------------------------- one thing to do next */}
+
+      {next.kind === "register" ? (
+        <TaskHero
+          eyebrow={m.teachFirstThingsFirst}
+          title={m.teachTakeRegisterNow}
+          detail={
+            waiting === null
+              ? null
+              : t(
+                  `${next.task.classLabel} में ${waiting} बच्चे — हाज़िरी बाकी है।`,
+                  `${waiting} children in ${next.task.classLabel} are waiting to be marked.`,
+                )
+          }
+          href={`/teach/attendance?class=${next.task.classId}&day=${today}`}
+          action={m.teachTakeRegister}
+          icon={ClipboardCheck}
+          language={language}
+        />
+      ) : null}
+
+      {/* ------------------------------------------------- today in numbers */}
+
+      <MetricGrid>
+        <MetricCard
+          label={m.teachMyClasses}
+          value={heldClasses.length === 0 ? "—" : String(heldClasses.length)}
+          detail={
+            heldClasses.length === 0
+              ? m.teachNoClassHeld
+              : t(heldClasses.map((c) => c.classLabel).join(", "), heldClasses.map((c) => c.classLabel).join(", "))
+          }
+          icon={Users}
+          language={language}
+        />
+        <MetricCard
+          label={m.teachPeriodsToday}
+          // A dash, not a nought: "the timetable is not published" and "you
+          // have a free day" are different news, and a 0 tells the wrong one.
+          value={!published ? "—" : String(lessons.length)}
+          detail={!published ? m.teachNoTimetable : null}
+          icon={CalendarDays}
+          language={language}
+        />
+        {covers.length > 0 ? (
+          <MetricCard
+            label={m.teachCoverDuty}
+            value={String(covers.length)}
+            icon={Repeat2}
+            language={language}
+            tone="warning"
+          />
+        ) : null}
+        {can(staff, "attendance:correct") ? (
+          <MetricCard
+            label={m.correctionsQueue}
+            value={String(pendingCorrections)}
+            href="/teach/corrections"
+            icon={BookOpenCheck}
+            language={language}
+            tone={pendingCorrections > 0 ? "warning" : "neutral"}
+          />
+        ) : null}
+      </MetricGrid>
+
       {/* ------------------------------------------------ needs doing */}
 
-      <Section title={m.teachNeedsDoing} language={language}>
+      <Section className="mt-7" title={m.teachNeedsDoing} language={language}>
         {quiet === "closed" ? (
           <Notice tone="info" text={m.teachSchoolClosed} language={language}>
             <span className="inline-flex items-center gap-2 text-[13px]">
@@ -257,34 +353,48 @@ export default async function TeachPage() {
           <EmptyState title={m.teachNoPeriods} language={language} />
         ) : (
           <ol className="space-y-1.5">
-            {periodsInOrder(slots).map((slot) => (
-              <li
-                key={`${slot.period}-${slot.classId}`}
-                className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
-              >
-                <span
-                  aria-hidden
-                  className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[14px] font-bold tabular-nums text-muted-foreground"
+            {lessons.map((lesson) => {
+              const rooms = lesson.classes.map((entry) => entry.classLabel).join(" · ");
+
+              return (
+                <li
+                  key={`${lesson.period}-${lesson.subjectCode}`}
+                  className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
                 >
-                  {periodNumber(slot.period)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium text-foreground">
-                    {slot.classLabel}
+                  <span
+                    aria-hidden
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[14px] font-bold tabular-nums text-muted-foreground"
+                  >
+                    {periodNumber(lesson.period)}
                   </span>
-                  <span className="block truncate text-[12px] text-subtle-foreground">
-                    {slot.subjectCode}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-medium text-foreground">
+                      {rooms}
+                    </span>
+                    <span className="block truncate text-[12px] text-subtle-foreground">
+                      {lesson.subjectCode}
+                      {lesson.classes.length > 1 ? (
+                        <span className="ml-1.5">
+                          · {primary(m.teachCombinedLesson, language)}
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
-                </span>
-                <Link
-                  href={`/teach/class/${slot.classId}`}
-                  aria-label={`${flat(m.teachOpenClass, language)} — ${slot.classLabel}`}
-                  className={buttonClasses({ variant: "ghost", size: "icon" })}
-                >
-                  <ChevronRight aria-hidden />
-                </Link>
-              </li>
-            ))}
+                  {/* A combined lesson has no single class to open, and
+                      offering one of the five would be picking a room at
+                      random. */}
+                  {lesson.classId ? (
+                    <Link
+                      href={`/teach/class/${lesson.classId}`}
+                      aria-label={`${flat(m.teachOpenClass, language)} — ${rooms}`}
+                      className={buttonClasses({ variant: "ghost", size: "icon" })}
+                    >
+                      <ChevronRight aria-hidden />
+                    </Link>
+                  ) : null}
+                </li>
+              );
+            })}
           </ol>
         )}
       </Section>
