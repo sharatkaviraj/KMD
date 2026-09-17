@@ -1,10 +1,16 @@
 import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
+import {
+  resolveStart,
+  startOptionHint,
+  startOptionsFor,
+} from "@/platform/config/start";
 import { Card, Section } from "@/ui/primitives";
 import { PageHeader } from "@/ui/shell/app-shell";
 
 import { LanguageForm } from "./language-form";
+import { StartForm, type StartChoice } from "./start-form";
 
 export const runtime = "nodejs";
 
@@ -28,6 +34,35 @@ export async function generateMetadata() {
 export default async function PreferencesPage() {
   const staff = await requireStaff("/preferences");
 
+  /**
+   * Where you start, offered from what this role already reaches.
+   *
+   * The list is built on the server from `allowedFor()` and the app registry,
+   * so the radio group cannot contain a destination the account may not open —
+   * and the action re-checks the posted value against the same function rather
+   * than trusting the list it rendered.
+   *
+   * Home first, as the absence of a choice. A stored value the role has since
+   * lost resolves to null here too, so the form shows what will actually
+   * happen rather than what was once chosen.
+   */
+  const choices: StartChoice[] = [
+    {
+      value: "",
+      label: m.startRoleHome,
+      hint: m.startRoleHomeHint,
+      external: false,
+    },
+    ...startOptionsFor(staff.role).map((option) => ({
+      value: option.value,
+      label: option.label,
+      hint: startOptionHint(option),
+      external: option.kind === "app",
+    })),
+  ];
+
+  const current = resolveStart(staff.role, staff.preferredStart)?.value ?? "";
+
   return (
     <>
       <PageHeader title={m.preferencesTitle} language={staff.language} />
@@ -35,6 +70,17 @@ export default async function PreferencesPage() {
       <Section title={m.language} description={m.preferencesLanguageHint} language={staff.language}>
         <Card className="p-4">
           <LanguageForm current={staff.language} />
+        </Card>
+      </Section>
+
+      <Section
+        className="mt-7"
+        title={m.startTitle}
+        description={m.startHint}
+        language={staff.language}
+      >
+        <Card className="p-4">
+          <StartForm choices={choices} current={current} />
         </Card>
       </Section>
     </>

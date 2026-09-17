@@ -49,7 +49,7 @@ import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
-import { MetricCard, MetricGrid, TaskHero } from "@/ui/task-hero";
+import { HomeColumns, MetricCard, MetricGrid, TaskHero } from "@/ui/task-hero";
 
 export const runtime = "nodejs";
 
@@ -130,28 +130,70 @@ export default async function TeachPage() {
   const lessons = lessonsToday(slots);
 
   /**
-   * How many children are waiting, for the class the hero is about.
+   * How many children are on the roll of the class this screen is about.
    *
-   * One read, for one class, and only when there is a register to take. The
-   * number is what makes the action concrete — "32 children in Class 1" rather
-   * than "take the register" — and a figure nobody can act on is not worth a
-   * query on the screen a teacher opens at 7:40.
+   * **One read, for one class.** It is read whenever the teacher holds exactly
+   * one class — not only when a register is due — because it is also what the
+   * "My class" card counts, and a teacher who has already taken her register
+   * should still see the size of the class she is looking at. A teacher who
+   * holds several gets the count of classes instead: five roll queries to
+   * render one card is the kind of thing R7.1 comes back to delete.
    */
-  const waiting =
-    next.kind === "register"
-      ? (await classRoll({ classId: next.task.classId, sessionLabel })).length
-      : null;
+  const soleClass = heldClasses.length === 1 ? heldClasses[0] : null;
+  const rollClassId = soleClass?.classId ?? (next.kind === "register" ? next.task.classId : null);
+
+  const waiting = rollClassId
+    ? (await classRoll({ classId: rollClassId, sessionLabel })).length
+    : null;
 
   const dayText = t(
     `${weekdayLabel(today).hi}, ${dayLabel(today).hi}`,
     `${weekdayLabel(today).en}, ${dayLabel(today).en}`,
   );
 
+  /**
+   * Whose day this is, in one line under the title.
+   *
+   * The design package asks a teacher's home to open with her own class and
+   * day rather than with the app's name — "Your class VI A". Three shapes,
+   * because the three are genuinely different and a card that counts rows
+   * renders them all the same: one class, several, and none at all. The last
+   * one says so rather than leaving the line blank, which would read as a
+   * screen that had not finished loading.
+   */
+  const classContext =
+    heldClasses.length === 0
+      ? m.teachNoClassOfYourOwn
+      : heldClasses.length === 1
+        ? // A middle dot rather than a space: the class labels on this school's
+          // data are themselves "Class 1", so "Your class Class 1" is what a
+          // plain join produces. The separator makes it a label and a value.
+          t(
+            `${m.teachYourClass.hi} · ${heldClasses[0].classLabel}`,
+            `${m.teachYourClass.en} · ${heldClasses[0].classLabel}`,
+          )
+        : t(
+            `${m.teachYourClasses.hi} · ${heldClasses.map((c) => c.classLabel).join(", ")}`,
+            `${m.teachYourClasses.en} · ${heldClasses.map((c) => c.classLabel).join(", ")}`,
+          );
+
+  /**
+   * The day's first lesson, for the card that counts them.
+   *
+   * "First", not "next": `timetable_slots` carries a period **index** and no
+   * clock time, so nothing in this database knows what time it is in the
+   * school day. Calling it "next" would be inventing a fact the schema does
+   * not hold — the design's "Next: English · 09:10" is a design example, and
+   * this is the true version of it. Recorded as a deviation in the evidence.
+   */
+  const firstLesson = lessons[0] ?? null;
+
   return (
     <>
       <PageHeader
+        eyebrow={dayText}
         title={m.teachTitle}
-        description={dayText}
+        description={classContext}
         language={language}
         action={
           can(staff, "attendance:correct") ? (
@@ -168,6 +210,12 @@ export default async function TeachPage() {
         }
       />
 
+      {/* On a desk the day's timetable sits beside the work rather than under
+          four sections of it; on a phone it follows them, which is the order a
+          teacher reads in a corridor. Same content either way. */}
+      <HomeColumns
+        main={
+          <>
       {/* ------------------------------------------- one thing to do next */}
 
       {next.kind === "register" ? (
@@ -193,13 +241,28 @@ export default async function TeachPage() {
 
       <MetricGrid>
         <MetricCard
-          label={m.teachMyClasses}
-          value={heldClasses.length === 0 ? "—" : String(heldClasses.length)}
+          // One class: the number that matters is how many children are in it.
+          // Several: how many classes. None: a dash and why — because "0
+          // classes" and "the class list could not be read" look the same.
+          label={soleClass ? m.teachYourClass : m.teachMyClasses}
+          value={
+            heldClasses.length === 0
+              ? "—"
+              : soleClass && waiting !== null
+                ? String(waiting)
+                : String(heldClasses.length)
+          }
           detail={
             heldClasses.length === 0
               ? m.teachNoClassHeld
-              : t(heldClasses.map((c) => c.classLabel).join(", "), heldClasses.map((c) => c.classLabel).join(", "))
+              : soleClass
+                ? t(soleClass.classLabel, soleClass.classLabel)
+                : t(
+                    heldClasses.map((c) => c.classLabel).join(", "),
+                    heldClasses.map((c) => c.classLabel).join(", "),
+                  )
           }
+          href={soleClass ? `/teach/class/${soleClass.classId}` : undefined}
           icon={Users}
           language={language}
         />
@@ -208,7 +271,16 @@ export default async function TeachPage() {
           // A dash, not a nought: "the timetable is not published" and "you
           // have a free day" are different news, and a 0 tells the wrong one.
           value={!published ? "—" : String(lessons.length)}
-          detail={!published ? m.teachNoTimetable : null}
+          detail={
+            !published
+              ? m.teachNoTimetable
+              : firstLesson
+                ? t(
+                    `${m.teachFirstLesson.hi}: ${firstLesson.subjectCode} · ${m.teachPeriod.hi} ${periodNumber(firstLesson.period)}`,
+                    `${m.teachFirstLesson.en}: ${firstLesson.subjectCode} · ${m.teachPeriod.en} ${periodNumber(firstLesson.period)}`,
+                  )
+                : null
+          }
           icon={CalendarDays}
           language={language}
         />
@@ -344,61 +416,6 @@ export default async function TeachPage() {
         </Section>
       ) : null}
 
-      {/* -------------------------------------------- today's periods */}
-
-      <Section className="mt-7" title={m.teachPeriodsToday} language={language}>
-        {!published ? (
-          <Notice tone="neutral" text={m.teachNoTimetable} language={language} />
-        ) : slots.length === 0 ? (
-          <EmptyState title={m.teachNoPeriods} language={language} />
-        ) : (
-          <ol className="space-y-1.5">
-            {lessons.map((lesson) => {
-              const rooms = lesson.classes.map((entry) => entry.classLabel).join(" · ");
-
-              return (
-                <li
-                  key={`${lesson.period}-${lesson.subjectCode}`}
-                  className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[14px] font-bold tabular-nums text-muted-foreground"
-                  >
-                    {periodNumber(lesson.period)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-medium text-foreground">
-                      {rooms}
-                    </span>
-                    <span className="block truncate text-[12px] text-subtle-foreground">
-                      {lesson.subjectCode}
-                      {lesson.classes.length > 1 ? (
-                        <span className="ml-1.5">
-                          · {primary(m.teachCombinedLesson, language)}
-                        </span>
-                      ) : null}
-                    </span>
-                  </span>
-                  {/* A combined lesson has no single class to open, and
-                      offering one of the five would be picking a room at
-                      random. */}
-                  {lesson.classId ? (
-                    <Link
-                      href={`/teach/class/${lesson.classId}`}
-                      aria-label={`${flat(m.teachOpenClass, language)} — ${rooms}`}
-                      className={buttonClasses({ variant: "ghost", size: "icon" })}
-                    >
-                      <ChevronRight aria-hidden />
-                    </Link>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        )}
-      </Section>
-
       {/* ----------------------------------------------- your classes */}
 
       {classes.length > 0 ? (
@@ -444,6 +461,77 @@ export default async function TeachPage() {
           {primary(m.attendanceWorksOffline, language)}
         </p>
       </Card>
+          </>
+        }
+        aside={
+          /* -------------------------------------------- today's periods */
+          <Section
+            title={m.teachTodaysTimetable}
+            language={language}
+            action={
+              <Link
+                href="/timetable"
+                className="focus-ring inline-flex min-h-11 items-center rounded-lg px-1 text-[13px] font-semibold text-accent-soft-foreground hover:underline"
+              >
+                {primary(m.teachFullWeek, language)}
+              </Link>
+            }
+          >
+            {!published ? (
+              <Notice tone="neutral" text={m.teachNoTimetable} language={language} />
+            ) : slots.length === 0 ? (
+              <EmptyState title={m.teachNoPeriods} language={language} />
+            ) : (
+              <ol className="space-y-1.5">
+                {lessons.map((lesson) => {
+                  const rooms = lesson.classes
+                    .map((entry) => entry.classLabel)
+                    .join(" · ");
+
+                  return (
+                    <li
+                      key={`${lesson.period}-${lesson.subjectCode}`}
+                      className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
+                    >
+                      <span
+                        aria-hidden
+                        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[14px] font-bold tabular-nums text-muted-foreground"
+                      >
+                        {periodNumber(lesson.period)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-medium text-foreground">
+                          {rooms}
+                        </span>
+                        <span className="block truncate text-[12px] text-subtle-foreground">
+                          {lesson.subjectCode}
+                          {lesson.classes.length > 1 ? (
+                            <span className="ml-1.5">
+                              · {primary(m.teachCombinedLesson, language)}
+                            </span>
+                          ) : null}
+                        </span>
+                      </span>
+                      {/* A combined lesson has no single class to open, and
+                          offering one of the five would be picking a room at
+                          random. */}
+                      {lesson.classId ? (
+                        <Link
+                          href={`/teach/class/${lesson.classId}`}
+                          aria-label={`${flat(m.teachOpenClass, language)} — ${rooms}`}
+                          className={buttonClasses({ variant: "ghost", size: "icon" })}
+                        >
+                          <ChevronRight aria-hidden />
+                        </Link>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </Section>
+        }
+      />
     </>
   );
 }

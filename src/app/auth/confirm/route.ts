@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { admitSignedInUser } from "@/platform/auth/admit";
 import { sanitizeRedirectPath } from "@/platform/env";
-import { homeFor } from "@/platform/config/navigation";
+import { landingFor } from "@/platform/config/start";
 import { createClient } from "@/platform/supabase/server";
 
 export const runtime = "nodejs";
@@ -61,10 +61,33 @@ export async function GET(request: NextRequest) {
 
   revalidatePath("/", "layout");
 
-  const url = request.nextUrl.clone();
   // A link that named a destination goes there; one that did not goes to this
-  // role own Home, which for a teacher is her day rather than a profile card.
-  url.pathname = sanitizeRedirectPath(requested, homeFor(admitted.staff.role));
-  url.search = "";
+  // account's start screen, which for a teacher is her day rather than a
+  // profile card and for accounts staff who chose it is School Fees.
+  const landing = landingFor({
+    role: admitted.staff.role,
+    preferredStart: admitted.staff.preferredStart,
+    requested,
+  });
+
+  // A start screen in another app is an absolute URL and goes as it is.
+  if (!landing.startsWith("/")) {
+    return NextResponse.redirect(new URL(landing));
+  }
+
+  // **Path and query set separately.** This used to be one
+  // `url.pathname = sanitizeRedirectPath(...)`, and `URL.pathname`
+  // percent-encodes a `?` — so a link that named `/teach/attendance?class=…`
+  // landed on a path containing a literal `%3F` and 404ed. Every issued link
+  // with a query string was affected.
+  //
+  // Still `request.nextUrl.clone()` rather than a URL built from an origin:
+  // the framework decides what this deployment's origin is, and a redirect
+  // that changed host would drop the session cookie it has just set.
+  const url = request.nextUrl.clone();
+  const split = landing.indexOf("?");
+  url.pathname = split === -1 ? landing : landing.slice(0, split);
+  url.search = split === -1 ? "" : landing.slice(split);
+
   return NextResponse.redirect(url);
 }

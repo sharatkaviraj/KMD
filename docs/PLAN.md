@@ -204,6 +204,18 @@ a bounded task, normally one PR. Continue from the current app; do not rebuild
 completed foundations. Each phase produces code, fixture coverage, evidence and
 an updated progress/parity record before it is called done.
 
+**The visual reference is `docs/design/`** (Ledger Calm 2, v1.0, added during
+R3). It supplies layout, role priorities, component contracts and a state
+matrix; it does **not** override domain behaviour, permissions, app ownership
+or the parity register, and a screen that disagrees with a rule keeps the rule.
+Its own D0–D5 queue runs alongside these phases rather than replacing them —
+D0–D2 are complete, and its D3 slices are owned by the R rows they name.
+`docs/evidence/D0-2026-09-17.md` records which atlas screens belong to this
+repository, which belong to `veerpatta/schoolfees`, and every place the
+implementation deliberately departs from the pictures. Illustrative figures in
+the atlas — a collection total, a percentage present — are a fictional school
+and are never to be implemented as figures.
+
 ### R0 — reconcile parity and establish trustworthy QA
 
 **Tasks R0.1–R0.3.** Finish source-to-destination inventory in `PARITY.md`, verify

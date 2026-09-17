@@ -216,3 +216,41 @@ export async function openAs(
 
   return qaAccount(accountKey);
 }
+
+/**
+ * Remove a round the way a round actually comes apart.
+ *
+ * **B-41: deleting the round does not delete its links.**
+ * `collection_requests.round_id` is `ON DELETE SET NULL`, which is right for
+ * the app — archiving a round should not silently destroy the answers a
+ * teacher already sent — and wrong for a test teardown that assumed a cascade.
+ * Three specs carried the same `// Cascades to its links…` comment and none of
+ * them did, so every fan-out run left three live requests in the office's list
+ * on the shared dev database, forever.
+ *
+ * It accumulated until a *different* journey failed: `/collection` renders one
+ * list, and the office home it was asserting against had filled up with other
+ * runs' leftovers. A fixture that does not clean up is a fixture that breaks
+ * somebody else's test a week later.
+ *
+ * Requests are removed first and by `round_id`, so their fields, frozen
+ * members and submissions go with them — those *are* cascades.
+ */
+export async function removeRound(roundId: string | null | undefined) {
+  if (!roundId) return;
+
+  const requests = await db()
+    .from("collection_requests")
+    .delete()
+    .eq("round_id", roundId);
+
+  if (requests.error) {
+    throw new Error(`Could not remove the round's links: ${requests.error.message}`);
+  }
+
+  const round = await db().from("collection_rounds").delete().eq("id", roundId);
+
+  if (round.error) {
+    throw new Error(`Could not remove the round: ${round.error.message}`);
+  }
+}

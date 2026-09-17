@@ -41,6 +41,17 @@ R8 executes the entire suite and publishes a release report.
   - `npm run smoke:roles` (hardened in R0.3) compares three readings, fails on
     a missing fixture, times each case out at 20 s, refuses to report a pass on
     a short run, and takes `--json` and `--strict`.
+  - `tests/e2e/role-homes.spec.ts` (D2) asserts where each role lands and what
+    its first screen says. It sets and clears `preferred_start` itself, so the
+    landing rules are checked on every run rather than by hand — and it reads
+    the fee redirect from the `Location` header rather than following it,
+    because that destination is the school's **live** fee app.
+  - `removeRound()` in `tests/e2e/support/harness.ts` (D2) is how a spec takes
+    a round apart. **Deleting a round does not delete its links** —
+    `collection_requests.round_id` is `ON DELETE SET NULL` — and three specs
+    assumed otherwise, so each fan-out run left three live requests behind
+    until a different journey failed on the accumulation (B-41). Any new spec
+    that creates a round uses this rather than its own delete.
   - Still to build: `qa:a11y`, `qa:performance`.
   Every one of these refuses to run against anything but the dev project.
 - Independent expected-role fixtures encode product requirements. Do not derive
@@ -66,7 +77,7 @@ R8 executes the entire suite and publishes a release report.
 
 | Case group | Positive | Negative / edge | Recovery / invariant |
 |---|---|---|---|
-| A Auth/home | Login each role → correct Home and first task; logout | Wrong password, inactive/no profile, expired session, deep link, forbidden role | No loop; original destination preserved; expiry retains draft; account switch updates navigation and queue |
+| A Auth/home | Login each role → correct Home and first task; logout; an account whose start screen is a sibling app lands there | Wrong password, inactive/no profile, expired session, deep link, forbidden role, a start screen the role no longer holds | No loop; original destination preserved **including its query string**; expiry retains draft; account switch updates navigation and queue; a stale start preference falls back to the role Home rather than to `/access-denied` |
 | B Navigation/apps | Every home/sidebar/bottom/More/Apps link; original app handoff | Missing origin, unsupported student ID, cross-environment link, unavailable destination | Clear fallback/search; Back returns; no copied tokens; original apps stay reachable |
 | C Directory | Search by ID/SR/name; filter class/session; detail → Back | Duplicate names, empty/no result, long bilingual names, >1,000 rows | Counts/selection stable across pages; URL filters and scroll retained; no cross-session confusion |
 | D Attendance | 40 students, all-present + 3 exceptions, save and reload | Empty roster, holiday, stale enrolment, invalid date, unassigned teacher | Disconnect after click and before response; replay once; two tabs conflict; no false saved indicator |

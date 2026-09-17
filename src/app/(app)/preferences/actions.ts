@@ -6,6 +6,7 @@ import { m } from "@/messages";
 import { assertStaff } from "@/platform/auth/current-staff";
 import { isLanguage, type Localized } from "@/platform/i18n/language";
 import { writeLanguageCookie } from "@/platform/i18n/language-cookie";
+import { resolveStart } from "@/platform/config/start";
 import { createAdminClient } from "@/platform/supabase/admin";
 
 export type PreferencesState = {
@@ -52,6 +53,51 @@ export async function saveLanguageAction(
   await writeLanguageCookie(chosen);
 
   // The whole shell reads the language, so every cached screen is now stale.
+  revalidatePath("/", "layout");
+
+  return { status: "saved", message: m.saved };
+}
+
+/**
+ * A member of staff choosing which screen opens when they sign in.
+ *
+ * The same shape as the language action and for the same reason: it writes one
+ * column on the row belonging to whoever is asking, found by their own id, so
+ * there is no id to tamper with.
+ *
+ * **What it cannot do is grant anything.** The posted value has to be one of
+ * `startOptionsFor(role)`, which is built from the permission map and the app
+ * registry — so an account can only choose a start screen it could already
+ * open, and a value typed into the form by hand is refused rather than stored.
+ * Choosing School Fees opens a door that was already on the Apps hub; the fee
+ * app still decides what happens on the other side of it.
+ */
+export async function saveStartAction(
+  _previous: PreferencesState,
+  formData: FormData,
+): Promise<PreferencesState> {
+  const staff = await assertStaff();
+  const chosen = (formData.get("start") ?? "").toString().trim();
+
+  // "" is the role's own Home, which is stored as NULL — the absence of a
+  // choice rather than a choice of the default, so a role change moves it.
+  const value = chosen === "" ? null : chosen;
+
+  if (value !== null && !resolveStart(staff.role, value)) {
+    return { status: "error", message: m.notSaved };
+  }
+
+  const { error } = await createAdminClient()
+    .from("staff_profiles")
+    .update({ preferred_start: value })
+    .eq("id", staff.id);
+
+  if (error) {
+    return { status: "error", message: m.notSaved };
+  }
+
+  // `/` and the sign-in doors read it, and the preferences screen shows it
+  // back. Layout scope because the shell caches per-route.
   revalidatePath("/", "layout");
 
   return { status: "saved", message: m.saved };

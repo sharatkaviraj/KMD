@@ -17,6 +17,12 @@ describe("sanitizeRedirectPath()", () => {
 
   it.each([
     ["a protocol-relative URL", "//evil.example/steal"],
+    // `/\host` is protocol-relative too: URL parsing for http(s) reads a
+    // backslash as a slash, so this is `//evil.example` with one character
+    // changed. It survived the original check.
+    ["a backslash protocol-relative URL", "/\\evil.example/steal"],
+    ["a backslash anywhere", "/dashboard\\..\\evil"],
+    ["a newline that could split a header", "/dashboard\nLocation: https://evil.example"],
     ["an absolute URL", "https://evil.example"],
     ["a scheme-only value", "javascript:alert(1)"],
     ["a relative path", "dashboard"],

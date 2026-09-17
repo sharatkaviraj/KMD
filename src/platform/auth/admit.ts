@@ -27,17 +27,18 @@ export async function admitSignedInUser(
   supabase: VppsClient,
   userId: string,
 ): Promise<
-  | { ok: true; staff: { role: StaffRole } }
+  | { ok: true; staff: { role: StaffRole; preferredStart: string | null } }
   | { ok: false; message: Localized }
 > {
   const { data: profile } = await supabase
     .from("staff_profiles")
-    .select("role, is_active, preferred_language")
+    .select("role, is_active, preferred_language, preferred_start")
     .eq("user_id", userId)
     .maybeSingle<{
       role: string | null;
       is_active: boolean;
       preferred_language: string | null;
+      preferred_start: string | null;
     }>();
 
   if (!profile) {
@@ -59,5 +60,13 @@ export async function admitSignedInUser(
   // this person somewhere and only one Home is right for them (PLAN section 3).
   // Reading it a second time in the caller would be a second query and a second
   // chance to disagree about who just signed in.
-  return { ok: true, staff: { role: resolveStaffRole(profile.role) } };
+  return {
+    ok: true,
+    staff: {
+      role: resolveStaffRole(profile.role),
+      // Unchecked, as stored. `landingFor()` resolves it against the role
+      // before anybody is sent anywhere.
+      preferredStart: profile.preferred_start,
+    },
+  };
 }

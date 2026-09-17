@@ -1,10 +1,19 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R3.4 below.**
+**Active queue: PLAN revision 2. The next task is R3.4 below** — its row still
+owes mock message retry, the S-01–S-09 acceptance pass and wiring `mayReplace()`
+into accept.
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
 under the task they fix.
+
+**The design atlas.** `docs/design/` (Ledger Calm 2, v1.0) is the shared UI
+reference; its `HANDOFF.md` adds a D0–D5 queue that runs *alongside* the R
+queue rather than replacing it. D0–D2 are in the table below. Read
+`docs/evidence/D0-2026-09-17.md` before touching a role home: it records which
+atlas screens belong to this repo, which belong to `veerpatta/schoolfees`, and
+the five places the implementation deliberately departs from the pictures.
 
 Status: `todo` · `in progress` · `pr open` · `done` · `blocked (reason)`
 
@@ -44,6 +53,21 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R8.1 | Full deep smoke matrix; fix P0/P1 with regression and cleanup evidence | R7.2 | todo | — |
 | R8.2 | CI/main/deployment verification, parity closure and rollback report | R8.1 | todo | — |
 | R8.3 | Timed teacher/office/admin and physical Android/webview/camera/print acceptance | R8.2 | todo | Code-delivered and staff-accepted are separate if physical evidence unavailable |
+
+### Design atlas queue (`docs/design/HANDOFF.md`)
+
+Runs alongside the R rows above; it does not replace them. D3 is deliberately
+not a row of its own — the handoff's own table maps each of its slices onto
+R2–R8, so those rows own it.
+
+| Task | Bounded deliverable | Depends on | Status | Branch / commit / evidence |
+|---|---|---|---|---|
+| D0 | Delta audit: atlas vs built, persona→role map, repo ownership per screen, deviations | R1–R3 as merged | done | `d1-d2-role-homes` · `docs/evidence/D0-2026-09-17.md` |
+| D1 | Shared foundation the role homes need: two-column desktop layout, page eyebrow and desktop title scale, labelled progress bar, signed-in identity in the top bar, wider shell | D0 | done | `d1-d2-role-homes` · `HomeColumns`, `ProgressRow`, `PageHeader` `eyebrow`, `max-w-7xl` · `docs/evidence/D1-D2-2026-09-17.md` |
+| D2 | Role homes with real data: accounts staff start in School Fees, teacher opens her class/day, admin gets the combined overview; office/coordinator/viewer preserved | D1 | done | `d1-d2-role-homes` · `start.ts`, `overview.ts`, `schoolOverview()`, `/preferences` start form · `tests/e2e/role-homes.spec.ts` · `docs/evidence/D1-D2-2026-09-17.md` |
+| D2-fix | B-38: an issued link carrying a query string 404ed. B-39: `/\host` passed the redirect check. B-40/B-41: the workflow suite's own fragility — a 58 s test against a 60 s timeout, and three teardowns that leaked three requests a run | D2 | done | `d1-d2-role-homes` · `isSafeInternalPath()`, `/auth/confirm`, `removeRound()` · `tests/env.test.ts`, `tests/e2e/role-homes.spec.ts` |
+| D4 | Deep interaction and visual QA across the atlas's full state matrix | D2, R5 | todo | Partial pass recorded in `docs/evidence/D1-D2-2026-09-17.md`; the rest belongs with R7.2/R8.1 |
+| D5 | Design deviations and status folded into the release report | D4, R8.2 | todo | Deviations recorded in D0; the report is R8.2's |
 
 ### R0.1 — what it found
 
@@ -576,6 +600,102 @@ dash on every one.
 outcomes exist to exercise, the S-01–S-09 acceptance pass, and wiring the
 long-existing `mayReplace()` into the accept path — nothing imports yet, so it
 cannot currently be wrong, but it is not wired.
+
+### D0 — the atlas is an evolution of what is running
+
+`docs/design/` arrived mid-R3. The delta audit is
+`docs/evidence/D0-2026-09-17.md`, and its finding is the useful part: the
+palette, the primitives, the role-priority bar, the grouped sidebar, the app
+registry, the per-account language and the 44px baseline were **already
+there**, from R1.1–R1.3 and R2.1. No token migration, no second component set,
+no dependency change. Three things were genuinely missing, which is why this
+delivery is small.
+
+Everything that belongs to another repository or a later R row is listed there
+by name rather than half-built here: the fee screens are
+`veerpatta/schoolfees`, the teacher request cards are R3.3's inbox, photo
+progress is R4.2, exam readiness is R5.3, fee figures are R6.
+
+### D1 and D2 — where each account starts, and what it opens on
+
+**Accounts staff start in School Fees, and no account became an accountant.**
+The design package warns twice against the obvious implementation — "do not
+silently turn `office` into `accountant`", "never derive account type from an
+email, a menu label, or a mock query parameter" — and it is right: half the
+office are not in accounts. So `staff_profiles.preferred_start` is an explicit
+choice the person makes about themselves on `/preferences`, offering only what
+`allowedFor(role)` and the app registry already allow. Choosing School Fees
+opens a door that was already on the Apps hub; the fee app still decides what
+happens on the other side of it (D-168). A stored value is re-resolved on every
+read, so a role change takes the landing away with the permission instead of
+leaving somebody at `/access-denied` every morning (D-169). Observed: a fresh
+magic link for an office account with the preference set answers `307` to
+`https://vpps-one.vercel.app/protected/dashboard` — the registry's verified
+origin, not a guess.
+
+**A teacher opens her own class and day.** `/teach` was already her Home; it
+now names the class in the heading, counts the children on her roll rather than
+the number of classes she holds, names the day's first lesson, and puts the
+timetable in a column beside the work on a desk instead of four sections below
+it. **"First lesson", not "next"** — there is no bell schedule in this database
+(D-173), and the atlas's "09:10" is a picture of a fictional school.
+
+**An administrator opens the combined overview.** Attendance, staff, cover and
+exams as fractions beside the exception queue, plus the current information
+round and the two sibling apps as desks. The profile card is gone from that one
+home: a screen about the school should not open with a card about the person
+reading it.
+
+**The fee line carries no amount.** VPPS One reads no fee totals until R6, so
+the card says the figures are not read here and names the app that holds them.
+A zero would be a number an administrator could act on and it would be wrong
+every day (D-172); a test asserts no rupee symbol can reach that screen. Every
+other count on the screen is `number | null`, and a read that failed renders a
+dash with a reason and no bar — the D-93 rule, applied to five more figures.
+
+**Three defects, two of them found by looking rather than by testing.**
+
+- **B-38.** `/auth/confirm` did `url.pathname = sanitizeRedirectPath(next)`,
+  and the `URL.pathname` setter percent-encodes a `?`. Every magic link whose
+  deep link carried query parameters — which is every link into a register, a
+  class or a filtered directory — landed on `/teach/attendance%3Fclass=…`,
+  a path that does not exist. Found while checking that a deep link still beats
+  the new start screen.
+- **B-39.** `sanitizeRedirectPath` refused `//host` and not `/\host`, which URL
+  parsing for http(s) treats identically. It was not exploitable only because
+  that one caller encoded it — so fixing B-38 would have turned the sign-in
+  door into an open redirect. `isSafeInternalPath()` refuses a backslash
+  anywhere and any control character (D-171).
+- **B-40 and B-41 are one defect seen twice.** `fan-out.spec.ts` measured
+  58.2 s against the suite's 60 s default, so the same build passed and failed
+  on consecutive runs; confirmed pre-existing against `main`, and its ceiling
+  was raised. That did not fix the run — `collection-freeze.spec.ts` failed
+  next, on a page this branch does not touch, and the accessibility snapshot in
+  its failure report showed `/collection` full of titles hours old.
+
+  Three specs ended with `delete from collection_rounds` under a comment saying
+  it cascaded to the round's links. It does not: `round_id` is
+  `ON DELETE SET NULL`, which is right for the app — archiving a round must not
+  destroy answers a teacher already sent — and wrong for a teardown. Every
+  fan-out run left **three live requests** behind on the database three
+  journeys share, `listRequests()` reads them all with a query per row, and the
+  whole suite had been getting slower for a fortnight.
+
+  `removeRound()` deletes the links first; 34 leftovers were removed from dev.
+  The suite went from **12.4 minutes with a failure to 1.8 minutes, 42 of 42**,
+  and `fan-out` from 58.2 s to 10.6 s. The raised ceiling stays on that one
+  journey; the suite default is left alone, because it is what catches the next
+  test that starts taking a minute.
+
+Preserved and checked: office, coordinator and viewer homes unchanged;
+`smoke:roles -- --strict` 258 of 258, 0 drift; every new string a Hindi/English
+pair; no horizontal overflow and no sub-44px control at 320 and 360.
+
+**Evidence gaps, named.** The populated information-round card was not seen
+against real data — the only round on dev is a draft over a class with no class
+teacher, so no link can be minted for it. The fee destination is asserted from
+the `Location` header and never opened, because it is the school's live fee
+app. Physical devices and the full D4 state matrix remain R8.3's and R7.2's.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

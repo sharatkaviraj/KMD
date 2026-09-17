@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { currentSessionLabel, db, signIn } from "./support/harness";
+import {
+  currentSessionLabel,
+  db,
+  removeRound,
+  signIn,
+} from "./support/harness";
 
 /**
  * Choosing who a round asks about, and getting the same number twice.
@@ -122,10 +127,8 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await db().from("student_records").delete().in("student_id", filledIn).eq("field_id", fieldId);
-  if (roundId) await db().from("collection_rounds").delete().eq("id", roundId);
-  if (frozenRoundId) {
-    await db().from("collection_rounds").delete().eq("id", frozenRoundId);
-  }
+  await removeRound(roundId);
+  await removeRound(frozenRoundId);
 });
 
 test("the office sees who a round reaches before creating it", async ({ page }) => {

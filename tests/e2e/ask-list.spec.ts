@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { currentSessionLabel, db, signIn } from "./support/harness";
+import {
+  currentSessionLabel,
+  db,
+  removeRound,
+  signIn,
+} from "./support/harness";
 
 /**
  * A list of specific children the office typed out.
@@ -72,7 +77,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  if (roundId) await db().from("collection_rounds").delete().eq("id", roundId);
+  await removeRound(roundId);
 });
 
 test("every row of an uploaded list is matched or named", async ({ page }) => {

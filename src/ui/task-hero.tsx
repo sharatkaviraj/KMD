@@ -155,3 +155,100 @@ export function MetricCard({
 export function MetricGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">{children}</div>;
 }
+
+/**
+ * The desktop home: one task column, one supporting column.
+ *
+ * DESIGN-SYSTEM §3 — "main task plus 320–360 px supporting column" from
+ * 1151 px, one column below it. The breakpoint is `lg` (1024 px) rather than a
+ * custom one because that is where this app's sidebar plus two columns first
+ * has room, and adding a breakpoint to match a number in a document would be
+ * the document deciding the layout rather than the content.
+ *
+ * `items-start` matters: without it the two columns stretch to the taller
+ * one's height and a short supporting panel grows a long empty box under it.
+ */
+export function HomeColumns({
+  main,
+  aside,
+}: {
+  main: React.ReactNode;
+  /** Dropped entirely when there is nothing to put beside the work. */
+  aside?: React.ReactNode;
+}) {
+  if (!aside) return <>{main}</>;
+
+  return (
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      {/* The task column keeps whatever spacing its own sections carry, so a
+          page can be moved into these columns without every margin changing.
+          The supporting column is a stack of cards and gets one rhythm. */}
+      <div className="min-w-0">{main}</div>
+      <div className="min-w-0 space-y-5">{aside}</div>
+    </div>
+  );
+}
+
+/**
+ * A small labelled bar. Two numbers and how far between them things are.
+ *
+ * Not a chart library, and not a chart: PLAN §3a rules out decorative charts,
+ * and this is a single fact — "28 of 30 registers are in" — drawn so it can be
+ * read without reading. The figure is beside it in words, because colour and
+ * length are not information to everybody (DESIGN-SYSTEM §5).
+ *
+ * A null `value` renders an empty track and the caller's "unavailable" text.
+ * A count that could not be read must not draw a full bar or an empty one that
+ * looks like nought (D-93).
+ */
+export function ProgressRow({
+  label,
+  value,
+  total,
+  figure,
+  language,
+  tone = "neutral",
+}: {
+  label: Localized;
+  /** Null when the count could not be read. */
+  value: number | null;
+  total: number | null;
+  /** Already formatted — "28 / 30", or a dash. */
+  figure: string;
+  language: Language;
+  tone?: "neutral" | "warning";
+}) {
+  const complete =
+    value !== null && total !== null && total > 0
+      ? Math.min(100, Math.max(0, Math.round((value / total) * 100)))
+      : null;
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 text-[14px] font-medium text-foreground">
+          {primary(label, language)}
+        </span>
+        <span className="shrink-0 text-[14px] font-semibold tabular-nums text-muted-foreground">
+          {figure}
+        </span>
+      </div>
+      <div
+        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-3"
+        // The figure beside the label is the accessible value; the bar is a
+        // second rendering of it and would be read out twice.
+        aria-hidden
+      >
+        {complete === null ? null : (
+          <div
+            className={cn(
+              "h-full rounded-full",
+              tone === "warning" ? "bg-warning" : "bg-success",
+            )}
+            style={{ width: `${complete}%` }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

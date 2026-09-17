@@ -71,7 +71,12 @@ export function AppShell({
     <LanguageProvider language={language}>
       <div className="flex min-h-dvh flex-col">
         <header className="sticky top-0 z-40 border-b border-nav-border bg-nav text-nav-foreground">
-          <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
+          {/* `max-w-7xl`, not `5xl`. The role homes put a task column beside
+              a supporting one on a desk (DESIGN-SYSTEM §3: "main task plus
+              320–360px supporting column"), and at 1024px the two of them plus
+              a 224px sidebar leave the main column narrower than a phone's.
+              Nothing below `lg` changes. */}
+          <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4">
             {/* `h-full`, not just the text's height: this is the way home from
                 every screen, and at 33px it was the smallest target in the app. */}
             {/* This role's own Home, not everybody's. A teacher tapping the
@@ -90,6 +95,18 @@ export function AppShell({
             </Link>
 
             <div className="ml-auto flex items-center gap-2">
+              {/* Who is signed in, on a window with room for it. The atlas puts
+                  it here, and it answers a question the app used to answer only
+                  by sending an admin to a card with their own email on it. Not
+                  on a phone: the bar there is four icons wide already. */}
+              <span className="hidden min-w-0 flex-col items-end leading-tight md:flex">
+                <span className="max-w-48 truncate text-[13px] font-semibold">
+                  {staff.displayName}
+                </span>
+                <span className="max-w-48 truncate text-[11px] text-nav-muted">
+                  {flat(roleLabel(staff.role), language)}
+                </span>
+              </span>
               <EnvironmentBadge language={language} />
               {/* Your own settings, beside sign-out because both are about the
                   person rather than the school. In the top bar rather than on
@@ -128,9 +145,9 @@ export function AppShell({
           </div>
         </header>
 
-        <div className="mx-auto flex w-full max-w-5xl flex-1">
+        <div className="mx-auto flex w-full max-w-7xl flex-1">
           <SideNav groups={serializableGroups} icons={icons} />
-          <main className="pb-bottom-nav min-w-0 flex-1 px-4 py-5 md:pb-10">
+          <main className="pb-bottom-nav min-w-0 flex-1 px-4 py-5 md:px-6 md:pb-10">
             {children}
           </main>
         </div>
@@ -143,14 +160,22 @@ export function AppShell({
 
 /**
  * The title block at the top of a screen, in the reader's language.
+ *
+ * `eyebrow` is the small line above the title — the day, or what part of the
+ * school this screen belongs to. DESIGN-SYSTEM §2 asks for a bigger title on a
+ * desk than on a phone (32 / 27 px there; 30 / 24 here, because this app's
+ * titles are often bilingual pairs and a 32px Hindi heading with English under
+ * it pushes the first task off a short laptop screen).
  */
 export function PageHeader({
+  eyebrow,
   title,
   description,
   language,
   action,
   back,
 }: {
+  eyebrow?: Localized;
   title: Localized;
   description?: Localized;
   language: Language;
@@ -175,9 +200,16 @@ export function PageHeader({
           ← {primary(back.label, language)}
         </Link>
       ) : null}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">
+          {eyebrow ? (
+            <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-subtle-foreground">
+              {/* One language: this is a date or a section name, and two of
+                  them stacked above the title is noise above the point. */}
+              {primary(eyebrow, language)}
+            </p>
+          ) : null}
+          <h1 className="text-[24px] font-semibold tracking-tight text-foreground md:text-[30px]">
             {primary(title, language)}
           </h1>
           {titleUnder ? (

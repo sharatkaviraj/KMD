@@ -27,6 +27,16 @@ export type CurrentStaff = {
   isActive: boolean;
   /** Which language this staff member reads the app in (D-35). */
   language: Language;
+  /**
+   * The start screen this account chose, as stored — a path, `app:<id>`, or
+   * null for "my role's Home".
+   *
+   * Deliberately the raw column. It is untrusted text until
+   * `resolveStart()` has checked it against the role, and resolving it here
+   * would put a URL on the profile that every caller would be tempted to
+   * follow without the check.
+   */
+  preferredStart: string | null;
 };
 
 type StaffProfileRow = {
@@ -37,10 +47,12 @@ type StaffProfileRow = {
   is_teaching: boolean;
   is_active: boolean;
   preferred_language: string | null;
+  preferred_start: string | null;
 };
 
 const STAFF_PROFILE_COLUMNS =
-  "id, display_name, short_name, role, is_teaching, is_active, preferred_language";
+  "id, display_name, short_name, role, is_teaching, is_active, preferred_language, " +
+  "preferred_start";
 
 /**
  * Sentinel for "signed in, but nobody has given this account a staff profile".
@@ -107,6 +119,7 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     isTeaching: data.is_teaching,
     isActive: data.is_active,
     language: resolveLanguage(data.preferred_language),
+    preferredStart: data.preferred_start,
   };
 
   if (!staff.isActive) {

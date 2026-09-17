@@ -1,0 +1,1621 @@
+{
+  "generatedAt": "2026-09-17T11:18:11.420Z",
+  "scope": "Static design artifact only; no live application or backend tested",
+  "sourceHashes": {
+    "index.html": "ba44b5d1e5cd58a4c1a343ea95f518b72120565b8b75c971b2465995ddc79545",
+    "tokens.css": "ab15364c03cec2a34569f8b58f1864356e067c266e53926bd688963ad274e987",
+    "prototype.css": "033721a86ab1e29c5cad0aa0ba73f53fa5f4f6b2b27ee0362857292efa827943",
+    "prototype.js": "be37a1eb326f85893cceb481d6e367675fa858fb8757cc7c4ae3f317d73b4a0e"
+  },
+  "screens": [
+    {
+      "id": "accountant",
+      "title": "Accounts · School Fees",
+      "description": "Daily collections, payment desk and follow-ups",
+      "role": "accountant",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 2179,
+          "h1": "School Fees",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 2179,
+          "h1": "School Fees",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1758,
+          "h1": "School Fees",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1256,
+          "h1": "School Fees",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1289,
+          "h1": "School Fees",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "teacher",
+      "title": "Teacher · My day",
+      "description": "Assigned class, attendance and today’s lessons",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1624,
+          "h1": "Good morning, Meera",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1595,
+          "h1": "Good morning, Meera",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1244,
+          "h1": "Good morning, Meera",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1151,
+          "h1": "Good morning, Meera",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1184,
+          "h1": "Good morning, Meera",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "teacher-hi",
+      "title": "Teacher · हिंदी",
+      "description": "Hindi-first teacher home with matching hierarchy",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1370,
+          "h1": "नमस्ते, मीरा जी",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1370,
+          "h1": "नमस्ते, मीरा जी",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1076,
+          "h1": "नमस्ते, मीरा जी",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "नमस्ते, मीरा जी",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1005,
+          "h1": "नमस्ते, मीरा जी",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "admin",
+      "title": "Admin · School overview",
+      "description": "One picture of the school, organized by exceptions",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 2083,
+          "h1": "School overview",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 2039,
+          "h1": "School overview",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1646,
+          "h1": "School overview",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1176,
+          "h1": "School overview",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1191,
+          "h1": "School overview",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "office",
+      "title": "Office · Student services",
+      "description": "Find children, complete requests and review records",
+      "role": "office",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1660,
+          "h1": "The office desk",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1638,
+          "h1": "The office desk",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1349,
+          "h1": "The office desk",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "The office desk",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1027,
+          "h1": "The office desk",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "academic",
+      "title": "Academic coordinator",
+      "description": "Class coverage, attendance and teacher workload",
+      "role": "academic",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1379,
+          "h1": "Keep the school day moving",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1336,
+          "h1": "Keep the school day moving",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1002,
+          "h1": "Keep the school day moving",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Keep the school day moving",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Keep the school day moving",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "exam",
+      "title": "Exam coordinator",
+      "description": "Assessment progress, missing marks and report readiness",
+      "role": "exam",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1561,
+          "h1": "Unit Test 2",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1522,
+          "h1": "Unit Test 2",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1181,
+          "h1": "Unit Test 2",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Unit Test 2",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Unit Test 2",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "viewer",
+      "title": "Viewer · School summary",
+      "description": "School totals and published information, read only",
+      "role": "viewer",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1220,
+          "h1": "A clear view of the school",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1202,
+          "h1": "A clear view of the school",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "A clear view of the school",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "A clear view of the school",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "A clear view of the school",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "payments",
+      "title": "Receive a payment",
+      "description": "Focused form, allocation summary and receipt preview",
+      "role": "accountant",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1941,
+          "h1": "Receive a payment",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1922,
+          "h1": "Receive a payment",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1302,
+          "h1": "Receive a payment",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1213,
+          "h1": "Receive a payment",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1237,
+          "h1": "Receive a payment",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "dues",
+      "title": "Dues & follow-ups",
+      "description": "Searchable balances with clear next actions",
+      "role": "accountant",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1585,
+          "h1": "Dues & follow-ups",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1567,
+          "h1": "Dues & follow-ups",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1138,
+          "h1": "Dues & follow-ups",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1046,
+          "h1": "Dues & follow-ups",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1079,
+          "h1": "Dues & follow-ups",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "receipts",
+      "title": "Receipt & transactions",
+      "description": "Payment identity, allocation and print hierarchy",
+      "role": "accountant",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1355,
+          "h1": "Receipt #1286",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1355,
+          "h1": "Receipt #1286",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "Receipt #1286",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Receipt #1286",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Receipt #1286",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "fee-report",
+      "title": "Collection report",
+      "description": "Cash collection separated from non-cash adjustments",
+      "role": "accountant",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1695,
+          "h1": "Collections report",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1695,
+          "h1": "Collections report",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1055,
+          "h1": "Collections report",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1020,
+          "h1": "Collections report",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1053,
+          "h1": "Collections report",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "students",
+      "title": "Student directory",
+      "description": "Fast search, filters and phone-friendly student cards",
+      "role": "office",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1313,
+          "h1": "Find a student",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1313,
+          "h1": "Find a student",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "Find a student",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Find a student",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Find a student",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "student",
+      "title": "Student record",
+      "description": "A calm, scoped profile with provenance and next steps",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1454,
+          "h1": "Aarav Sharma",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1454,
+          "h1": "Aarav Sharma",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1182,
+          "h1": "Aarav Sharma",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1011,
+          "h1": "Aarav Sharma",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1035,
+          "h1": "Aarav Sharma",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "attendance",
+      "title": "Class attendance",
+      "description": "Large status controls, count reconciliation and save feedback",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1512,
+          "h1": "Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1512,
+          "h1": "Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1047,
+          "h1": "Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Class VI A",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "requests",
+      "title": "Teacher requests",
+      "description": "Short task inbox organized by due date",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 999,
+          "h1": "Requests from the office",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 970,
+          "h1": "Requests from the office",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1120,
+          "h1": "Requests from the office",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Requests from the office",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Requests from the office",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "request-link",
+      "title": "Shared request link",
+      "description": "No account shell: confirm or correct one child at a time",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1076,
+          "h1": "Check parent contacts",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1058,
+          "h1": "Check parent contacts",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1082,
+          "h1": "Check parent contacts",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1082,
+          "h1": "Check parent contacts",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1082,
+          "h1": "Check parent contacts",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "sampark",
+      "title": "SamPark · New request",
+      "description": "Audience preview before creating teacher links",
+      "role": "office",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1726,
+          "h1": "Ask for the right information",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1676,
+          "h1": "Ask for the right information",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1196,
+          "h1": "Ask for the right information",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1069,
+          "h1": "Ask for the right information",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1093,
+          "h1": "Ask for the right information",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "title": "Review a correction",
+      "description": "Visible before/after values and explicit decisions",
+      "role": "office",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1499,
+          "h1": "Review a correction",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1425,
+          "h1": "Review a correction",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1112,
+          "h1": "Review a correction",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Review a correction",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Review a correction",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "cover",
+      "title": "Arrange class cover",
+      "description": "Uncovered periods first; candidates alongside the task",
+      "role": "academic",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1312,
+          "h1": "Arrange class cover",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1253,
+          "h1": "Arrange class cover",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1056,
+          "h1": "Arrange class cover",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Arrange class cover",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Arrange class cover",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "timetable",
+      "title": "Weekly timetable",
+      "description": "Week grid on desktop; ordered day agenda on mobile",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 998,
+          "h1": "Your teaching week",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 998,
+          "h1": "Your teaching week",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "Your teaching week",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Your teaching week",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Your teaching week",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "marks",
+      "title": "Enter marks",
+      "description": "Low-friction entry with clear blank, absent and score states",
+      "role": "exam",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1285,
+          "h1": "English · Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1269,
+          "h1": "English · Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "English · Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "English · Class VI A",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "English · Class VI A",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "reports",
+      "title": "Academic reports",
+      "description": "Readiness, publication and printable report hierarchy",
+      "role": "exam",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1517,
+          "h1": "Report card preview",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1517,
+          "h1": "Report card preview",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1104,
+          "h1": "Report card preview",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Report card preview",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1010,
+          "h1": "Report card preview",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "documents",
+      "title": "Photos & documents",
+      "description": "Missing items first; camera and upload actions on phones",
+      "role": "office",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1437,
+          "h1": "Complete the student record",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1405,
+          "h1": "Complete the student record",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1262,
+          "h1": "Complete the student record",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1171,
+          "h1": "Complete the student record",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1204,
+          "h1": "Complete the student record",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "apps",
+      "title": "School apps",
+      "description": "Stable, clearly named doors into the original applications",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1239,
+          "h1": "School apps",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1220,
+          "h1": "School apps",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "School apps",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "School apps",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "School apps",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Preferences & team",
+      "description": "Language, personal preferences and scoped management",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1120,
+          "h1": "Make this workspace yours",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1077,
+          "h1": "Make this workspace yours",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "Make this workspace yours",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Make this workspace yours",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Make this workspace yours",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "states",
+      "title": "Loading & recovery",
+      "description": "Empty, failed, saved, no access and closed-link examples",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 2742,
+          "h1": "Every state has a next step",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 2742,
+          "h1": "Every state has a next step",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1703,
+          "h1": "Every state has a next step",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1591,
+          "h1": "Every state has a next step",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1597,
+          "h1": "Every state has a next step",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "components",
+      "title": "Design foundations",
+      "description": "Tokens, type, buttons, form states and feedback",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 2199,
+          "h1": "One shared design language",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 2148,
+          "h1": "One shared design language",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1481,
+          "h1": "One shared design language",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1359,
+          "h1": "One shared design language",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1383,
+          "h1": "One shared design language",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "more",
+      "title": "More · Role navigation",
+      "description": "Every remaining allowed destination, still easy to find",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1341,
+          "h1": "More",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1319,
+          "h1": "More",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1287,
+          "h1": "More",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1287,
+          "h1": "More",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1311,
+          "h1": "More",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "login",
+      "title": "Sign in",
+      "description": "A short, recognizable entry with clear error recovery",
+      "role": "teacher",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 844,
+          "h1": "Your school day starts here",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 844,
+          "h1": "Your school day starts here",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "Your school day starts here",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Your school day starts here",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Your school day starts here",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "staff",
+      "title": "Staff & assignments",
+      "description": "Accounts, roles and class assignments in a single list",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1197,
+          "h1": "Staff & assignments",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1186,
+          "h1": "Staff & assignments",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1000,
+          "h1": "Staff & assignments",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "Staff & assignments",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "Staff & assignments",
+          "overflow": []
+        }
+      ]
+    },
+    {
+      "id": "setup",
+      "title": "School settings",
+      "description": "Academic setup grouped by real school concepts",
+      "role": "admin",
+      "layouts": [
+        {
+          "width": 360,
+          "viewport": 360,
+          "scrollWidth": 360,
+          "height": 1343,
+          "h1": "School settings",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "viewport": 390,
+          "scrollWidth": 390,
+          "height": 1300,
+          "h1": "School settings",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "viewport": 768,
+          "scrollWidth": 768,
+          "height": 1342,
+          "h1": "School settings",
+          "overflow": []
+        },
+        {
+          "width": 1024,
+          "viewport": 1024,
+          "scrollWidth": 1024,
+          "height": 1000,
+          "h1": "School settings",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "viewport": 1440,
+          "scrollWidth": 1440,
+          "height": 1000,
+          "h1": "School settings",
+          "overflow": []
+        }
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "name": "Attendance counts reconcile after change and save",
+      "passed": true
+    },
+    {
+      "name": "All present resets the previous absence",
+      "passed": true
+    },
+    {
+      "name": "Directory finds SR number with leading zero",
+      "passed": true
+    },
+    {
+      "name": "No-match state appears",
+      "passed": true
+    },
+    {
+      "name": "Negative payment invalid",
+      "passed": true
+    },
+    {
+      "name": "Payment review reflects edited amount",
+      "passed": true
+    },
+    {
+      "name": "Dialog closes with Escape",
+      "passed": true
+    },
+    {
+      "name": "Marks above maximum invalid",
+      "passed": true
+    },
+    {
+      "name": "Absent disables score",
+      "passed": true
+    },
+    {
+      "name": "Zero marks remain distinct from absent and blank",
+      "passed": true
+    },
+    {
+      "name": "Review rejection requires reason",
+      "passed": true
+    },
+    {
+      "name": "Decision state blocks repeat action",
+      "passed": true
+    },
+    {
+      "name": "Audience count follows selection",
+      "passed": true
+    },
+    {
+      "name": "Token request confirms without account shell",
+      "passed": true
+    },
+    {
+      "name": "Hindi page declares correct language",
+      "passed": true
+    },
+    {
+      "name": "Viewer shows summary without named children or fee actions",
+      "passed": true
+    },
+    {
+      "name": "Gallery links all screens",
+      "passed": true
+    }
+  ],
+  "consoleErrors": [],
+  "requestFailures": [],
+  "passed": true
+}

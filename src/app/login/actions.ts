@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { admitSignedInUser } from "@/platform/auth/admit";
-import { sanitizeRedirectPath } from "@/platform/env";
-import { homeFor } from "@/platform/config/navigation";
+import { landingFor } from "@/platform/config/start";
 import { m } from "@/messages";
 import type { Localized } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
@@ -74,14 +73,23 @@ export async function loginAction(
   revalidatePath("/", "layout");
 
   /**
-   * Where a deep link was aiming, or this role's own Home.
+   * Where a deep link was aiming, or this account's own start screen.
    *
    * The fallback has to be resolved *after* the profile is known, because the
    * proxy stamps `?next=` from whatever was asked for and a bare visit to `/`
    * produces no `next` at all. A teacher who signs in with nothing in mind
-   * should land on her day, not on a card showing her own email address.
+   * should land on her day, not on a card showing her own email address; an
+   * accounts member of staff who chose School Fees lands in School Fees.
+   *
+   * A deep link still wins, and that is the half worth guarding: somebody who
+   * followed a link to a particular register is asking for that register, not
+   * for their landing page.
    */
-  const next = sanitizeRedirectPath(requested, homeFor(admitted.staff.role));
+  const next = landingFor({
+    role: admitted.staff.role,
+    preferredStart: admitted.staff.preferredStart,
+    requested,
+  });
 
   // Outside the try/catch on purpose: redirect() works by throwing, so
   // catching around it would swallow the navigation.

@@ -1,0 +1,37 @@
+/* Ledger Calm 2 — semantic design reference. Map to existing @theme in the app. */
+:root {
+  --background: hsl(46 42% 97%);
+  --surface: #ffffff;
+  --surface-muted: hsl(44 18% 96%);
+  --ink: hsl(222 25% 11%);
+  --muted: hsl(222 9% 42%);
+  --border: hsl(40 14% 88%);
+  --border-strong: #8c8b84;
+  --accent: hsl(20 86% 41%);
+  --accent-soft: hsl(28 92% 96%);
+  --green: hsl(151 56% 24%);
+  --green-soft: hsl(151 64% 96%);
+  --amber: #8b5914;
+  --amber-soft: #fff4df;
+  --red: #a93235;
+  --red-soft: #fceced;
+  --blue: #355f96;
+  --blue-soft: #eef3fa;
+  --nav: hsl(222 28% 10%);
+  --nav-text: hsl(44 22% 96%);
+  --nav-muted: #babdc6;
+  --nav-active: #2e3443;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --sidebar: 224px;
+  --bottom-nav: 72px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Devanagari", "Nirmala UI", sans-serif;
+}

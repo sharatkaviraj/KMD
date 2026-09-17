@@ -31,6 +31,17 @@ export const APP_IDS = ["vppsone", "sampark", "schoolfees"] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 /**
+ * Whether a string off a form, a URL or a database column names one of them.
+ *
+ * Here rather than at the call site because the id list is here: a stored
+ * `app:<something>` is untrusted text until this says otherwise, and a second
+ * copy of the list somewhere else is the copy that falls behind.
+ */
+export function isAppId(value: string): value is AppId {
+  return (APP_IDS as readonly string[]).includes(value);
+}
+
+/**
  * Which dataset an origin serves — not which Vercel target it is.
  *
  * VPPS One's production deployment is a `dev` origin, because it is pointed at

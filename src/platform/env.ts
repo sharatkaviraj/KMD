@@ -91,9 +91,45 @@ export function getSchoolName() {
 }
 
 /**
+ * Whether a `?next=` value is a path on this site and nothing else.
+ *
+ * Attacker-controlled, so the check is a whitelist of shapes rather than a
+ * list of things to refuse. Three of them get through the obvious
+ * `startsWith("/")`:
+ *
+ *  - `//evil.example` — protocol-relative, a different site;
+ *  - `/\evil.example` — **also** protocol-relative, because URL parsing for
+ *    http(s) treats a backslash as a slash. This one survived the original
+ *    check, and it only failed to be an open redirect because the magic-link
+ *    door happened to assign it to `URL.pathname`, which percent-encodes. Any
+ *    caller that redirected to the string directly would have sent staff to
+ *    somebody else's login form;
+ *  - a control character or a newline, which can split a `Location` header.
+ *
+ * A backslash anywhere is refused rather than only in position two: nothing in
+ * this app has a backslash in a route, so there is nothing to lose and one
+ * fewer parsing rule to be right about.
+ */
+export function isSafeInternalPath(value: string | null | undefined): boolean {
+  const normalized = (value ?? "").trim();
+
+  if (!normalized.startsWith("/")) return false;
+  if (normalized.startsWith("//")) return false;
+  if (normalized.includes("\\")) return false;
+  // Control characters, including the newline that could split a Location
+  // header. Checked by code point rather than by a regex, so no invisible
+  // byte ends up in this file.
+  for (let at = 0; at < normalized.length; at += 1) {
+    const code = normalized.charCodeAt(at);
+    if (code < 0x20 || code === 0x7f) return false;
+  }
+
+  return true;
+}
+
+/**
  * A `?next=` value is attacker-controlled. Anything that is not a plain
- * in-app absolute path — including the protocol-relative `//evil.example`
- * that `startsWith("/")` alone lets through — falls back.
+ * in-app absolute path falls back.
  */
 export function sanitizeRedirectPath(
   value: string | null | undefined,
@@ -101,11 +137,7 @@ export function sanitizeRedirectPath(
 ) {
   const normalized = (value ?? "").trim();
 
-  if (!normalized.startsWith("/") || normalized.startsWith("//")) {
-    return fallback;
-  }
-
-  return normalized;
+  return isSafeInternalPath(normalized) ? normalized : fallback;
 }
 
 export const hasRequiredEnvVars = requiredEnvVars.every((name) =>

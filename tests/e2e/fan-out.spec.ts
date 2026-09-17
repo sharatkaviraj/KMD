@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { currentSessionLabel, db, signIn } from "./support/harness";
+import {
+  currentSessionLabel,
+  db,
+  removeRound,
+  signIn,
+} from "./support/harness";
 
 /**
  * Turning a round into links, and saying who it will not reach.
@@ -114,9 +119,31 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  // Cascades to its links, their fields and their frozen members.
-  if (roundId) await db().from("collection_rounds").delete().eq("id", roundId);
+  // Not a cascade — see removeRound(). B-41.
+  await removeRound(roundId);
 });
+
+/**
+ * **B-40, and why the number was a symptom.**
+ *
+ * This journey measured 58.2 s against the suite's 60 s default, so the same
+ * build passed and failed on consecutive runs and the failure read like a
+ * regression in whatever had been merged that day. The timeout went up.
+ *
+ * Then B-41 turned out to be the cause: three teardowns left three requests
+ * each behind on the shared dev database, `listRequests()` reads the lot with
+ * a query per row, and every journey that touches `/collection` had been
+ * getting slower for a fortnight. With the leak fixed and the leftovers
+ * removed, this test runs in **10.6 s** and the whole suite in 1.8 minutes
+ * rather than 12.4.
+ *
+ * The ceiling stays raised, because it is still the longest journey here —
+ * six page loads, a resume and a deliberate three-second wait — and headroom
+ * on the longest one is cheap. It is not raised in `playwright.config.ts`:
+ * the default is what would catch the next test that starts taking a minute,
+ * which is exactly the signal that was almost lost this time.
+ */
+test.setTimeout(120_000);
 
 test("a round becomes one link per class, and names the class it cannot reach", async ({
   page,

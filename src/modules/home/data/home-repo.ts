@@ -1,6 +1,6 @@
 import "server-only";
 
-import { assertStaff } from "@/platform/auth/current-staff";
+import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { can, type StaffRole } from "@/platform/auth/permissions";
 import {
   classLabelMap,
@@ -10,8 +10,17 @@ import { countPendingCorrections } from "@/modules/attendance/data/corrections-r
 import { pendingSubmissionCount } from "@/modules/collection/data/submissions-repo";
 import { listEnrolments } from "@/modules/enrolments/data/enrolments-repo";
 import { jobsBoard } from "@/modules/jobs/data/jobs-repo";
-import { absenceCountOn } from "@/modules/substitutions/data/absences-repo";
+import {
+  absenceCountOn,
+  absencesOn,
+} from "@/modules/substitutions/data/absences-repo";
+import { listAssessments } from "@/modules/assessments/data/assessments-repo";
+import { listStaff } from "@/modules/staff/data/staff-repo";
+import { getPlan, planAssignments } from "@/modules/substitutions/data/plans-repo";
+import { listRounds } from "@/modules/collection/data/rounds-repo";
+import { linksForRound } from "@/modules/collection/data/fan-out-repo";
 import type { AttentionFacts, AttentionKey } from "@/modules/home/domain/attention";
+import type { OverviewFacts } from "@/modules/home/domain/overview";
 
 /**
  * The counts behind a role's home, read in parallel and failing loudly.
@@ -40,6 +49,22 @@ export type HomeSummary = {
     classes: number | null;
     registersIn: number | null;
   };
+};
+
+/**
+ * The newest open information round, with how far it has got.
+ *
+ * The title travels as the two authored halves rather than as a `Localized`,
+ * so the screen decides how to read it — `AuthoredText` already knows what to
+ * do when the office typed only one of them (B-05).
+ */
+export type OverviewRound = {
+  id: string;
+  titleHi: string | null;
+  titleEn: string | null;
+  /** Distinct children who have answered, of those the round froze in. */
+  answered: number;
+  members: number;
 };
 
 /** Which facts a role's screen will read, so nothing else is fetched. */
@@ -147,5 +172,133 @@ export async function homeSummary(
       classes: labels === null ? null : classesTotal,
       registersIn,
     },
+  };
+}
+
+/* ------------------------------------ the administrator's combined view */
+
+/**
+ * The figures behind the administrator's school overview.
+ *
+ * A separate function from `homeSummary()` on purpose: it is five more reads,
+ * only one role asks for them, and folding them into the shared summary would
+ * make every other role's home pay for a panel it never renders (§6 of the
+ * design system, and the same reasoning `wanted()` above already applies).
+ *
+ * Same discipline as the summary: each read is wrapped, and a failure becomes
+ * **null rather than nought**. "No registers are outstanding" and "the
+ * register query failed" look identical on a screen that counts rows, and only
+ * one of them means the morning is finished (D-93).
+ *
+ * Fees are deliberately not read here. VPPS One holds no fee totals until R6,
+ * and `feeSummary()` in the domain says so in one place rather than this
+ * function inventing a nought.
+ */
+export async function schoolOverview(
+  sessionLabel: string,
+  today: string,
+): Promise<{ facts: OverviewFacts; round: OverviewRound | null }> {
+  await assertPermission("dashboard:view");
+
+  const missing: string[] = [];
+
+  const guard = async <T,>(key: string, read: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await read();
+    } catch {
+      missing.push(key);
+      return null;
+    }
+  };
+
+  const [registers, labels, staff, absences, plan, assessments, round] =
+    await Promise.all([
+      guard("registers", () => registersForDay(sessionLabel, today)),
+      guard("classes", () => classLabelMap(sessionLabel)),
+      guard("staff", () => listStaff()),
+      guard("absences", () => absencesOn(sessionLabel, today)),
+      // The published plan only. A draft is the coordinator still deciding,
+      // and reporting it as "cover arranged" would be reporting a decision
+      // nobody has taken (`publishedPlanFor()` applies the same rule).
+      guard("cover", async () => {
+        const found = await getPlan(sessionLabel, today);
+        if (!found || found.status !== "published") return null;
+        return planAssignments(found.id);
+      }),
+      guard("exams", () => listAssessments(sessionLabel)),
+      guard("round", () => newestOpenRound(sessionLabel)),
+    ]);
+
+  const classesTotal = labels === null ? null : labels.size;
+
+  const registersIn =
+    registers === null
+      ? null
+      : new Set(
+          registers
+            .filter((entry) => entry.period === null && entry.status === "submitted")
+            .map((entry) => entry.classId),
+        ).size;
+
+  // The teaching roll, not everybody: the office and the librarian are not
+  // "staff present" in the sense a cover decision needs.
+  const teaching = staff === null ? null : staff.filter((row) => row.isActive && row.isTeaching);
+
+  const awayIds = absences === null ? null : new Set(absences.map((row) => row.staffProfileId));
+
+  const staffPresent =
+    teaching === null || awayIds === null
+      ? null
+      : teaching.filter((row) => !awayIds.has(row.id)).length;
+
+  // `plan` is null for two different reasons — the read failed, or nothing is
+  // published — and only the second one is normal. `missing` tells them apart.
+  const coverPublished = plan !== null;
+
+  return {
+    facts: {
+      registersIn,
+      classesTotal,
+      staffPresent,
+      staffTotal: teaching === null ? null : teaching.length,
+      coverArranged:
+        plan === null ? null : plan.filter((row) => row.coveringStaffId !== null).length,
+      coverNeeded: plan === null ? null : plan.length,
+      coverPublished,
+      examsOpen:
+        assessments === null
+          ? null
+          : assessments.filter((row) => row.status === "open").length,
+      round: null,
+      roundUnavailable: missing.includes("round"),
+    },
+    round,
+  };
+}
+
+/**
+ * The newest round that is still open, and how many of its children answered.
+ *
+ * "Newest" rather than "all": an administrator wants to know whether this
+ * week's ask is landing, and a list of every round the school has ever run is
+ * the rounds board's job. Null when nothing is open, which is a normal state
+ * and not a failure.
+ */
+async function newestOpenRound(sessionLabel: string): Promise<OverviewRound | null> {
+  const rounds = await listRounds(sessionLabel);
+  const open = rounds.filter((row) => row.status === "open");
+  if (open.length === 0) return null;
+
+  // `listRounds` orders newest first; this does not re-sort on `createdAt`
+  // because the two would then have to agree forever.
+  const round = open[0];
+  const links = await linksForRound(round.id);
+
+  return {
+    id: round.id,
+    titleHi: round.titleHi,
+    titleEn: round.titleEn,
+    answered: links.reduce((total, link) => total + link.answered, 0),
+    members: links.reduce((total, link) => total + link.members, 0),
   };
 }

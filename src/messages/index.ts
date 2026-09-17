@@ -1272,6 +1272,65 @@ export const m = {
     "यहाँ का पहचान-नंबर वहाँ नहीं चलता, इसलिए खोज खुलेगी।",
     "An id from here does not exist there, so this opens the search screen instead.",
   ),
+
+  /* ------------------------------------------------- where you start (D2) */
+  startTitle: t("आप कहाँ से शुरू करें", "Where you start"),
+  startHint: t(
+    "साइन इन करने पर यही स्क्रीन खुलेगी। किसी लिंक से आए हैं तो वही लिंक खुलेगा।",
+    "This is the screen that opens when you sign in. A link you followed still opens that link instead.",
+  ),
+  startRoleHome: t("आपका सामान्य मुख्य पेज", "Your usual Home"),
+  startRoleHomeHint: t(
+    "आपके काम के लिए जो तय है — यही अभी चल रहा है।",
+    "Whatever your role opens on. This is what happens today.",
+  ),
+  startStaysInThisApp: t("इसी ऐप में", "Stays in VPPS One"),
+  startOpensAnotherApp: t("दूसरा ऐप खुलेगा", "Opens the other app"),
+  startLeavesAppWarning: t(
+    "दूसरा ऐप चुनने पर साइन इन के बाद सीधा वही खुलेगा। VPPS One पर लौटने के लिए इसका पता फिर खोलें।",
+    "Choose another app and signing in will open it straight away. To come back here, open this app's own address again.",
+  ),
+  startCurrent: t("अभी चुना हुआ", "Your choice now"),
+
+  /* ---------------------------------------------- the teacher's day (D2) */
+  teachYourClass: t("आपकी कक्षा", "Your class"),
+  teachYourClasses: t("आपकी कक्षाएँ", "Your classes"),
+  teachNoClassOfYourOwn: t(
+    "आपके नाम कोई कक्षा नहीं है।",
+    "No class is assigned to you.",
+  ),
+  teachFirstLesson: t("पहला कालांश", "First lesson"),
+  teachTodaysTimetable: t("आज का समय-चक्र", "Today's timetable"),
+  teachFullWeek: t("पूरा सप्ताह", "Full week"),
+
+  /* ------------------------------------- the administrator's overview (D2) */
+  overviewTitle: t("स्कूल की स्थिति", "School overview"),
+  overviewEyebrow: t("स्कूल संचालन", "School operations"),
+  overviewTodayAtSchool: t("आज स्कूल में", "Today at school"),
+  overviewAttendanceSubmitted: t("हाज़िरी जमा", "Attendance submitted"),
+  overviewStaffPresent: t("स्टाफ़ उपस्थित", "Staff present"),
+  overviewCoverArranged: t("कालांश की व्यवस्था", "Cover arranged"),
+  overviewCoverNoPlan: t(
+    "आज के लिए कोई प्रकाशित योजना नहीं है।",
+    "No plan has been published for today.",
+  ),
+  overviewExamsOpen: t("अंक भरे जा रहे हैं", "Exams open for marks"),
+  overviewWorkspaces: t("स्कूल के कार्यक्षेत्र", "School workspaces"),
+  overviewWorkspacesHint: t("सीधे सही डेस्क पर जाएँ", "Go straight to the right desk"),
+  overviewOpen: t("खोलें", "Open"),
+  overviewRoundProgress: t("जानकारी का चक्र", "Information round"),
+  overviewRoundNone: t(
+    "अभी कोई चक्र खुला नहीं है।",
+    "No round is open at the moment.",
+  ),
+  overviewAnsweredOf: t("उत्तर आए", "answered"),
+  overviewFeeSummary: t("फ़ीस का हिसाब", "Fee collection"),
+  overviewFeeUnavailable: t(
+    "फ़ीस के आँकड़े यहाँ अभी नहीं आते। सही संख्या स्कूल फ़ीस ऐप में है।",
+    "Fee figures are not read here yet. The real numbers are in the School Fees app.",
+  ),
+  overviewOfClasses: t("कक्षाओं में से", "of classes"),
+  overviewPeriods: t("कालांश", "periods"),
 } as const;
 
 export type MessageKey = keyof typeof m;

@@ -1,0 +1,194 @@
+[
+  {
+    "id": "accountant",
+    "title": "Accounts · School Fees",
+    "description": "Daily collections, payment desk and follow-ups",
+    "role": "accountant"
+  },
+  {
+    "id": "teacher",
+    "title": "Teacher · My day",
+    "description": "Assigned class, attendance and today’s lessons",
+    "role": "teacher"
+  },
+  {
+    "id": "teacher-hi",
+    "title": "Teacher · हिंदी",
+    "description": "Hindi-first teacher home with matching hierarchy",
+    "role": "teacher"
+  },
+  {
+    "id": "admin",
+    "title": "Admin · School overview",
+    "description": "One picture of the school, organized by exceptions",
+    "role": "admin"
+  },
+  {
+    "id": "office",
+    "title": "Office · Student services",
+    "description": "Find children, complete requests and review records",
+    "role": "office"
+  },
+  {
+    "id": "academic",
+    "title": "Academic coordinator",
+    "description": "Class coverage, attendance and teacher workload",
+    "role": "academic"
+  },
+  {
+    "id": "exam",
+    "title": "Exam coordinator",
+    "description": "Assessment progress, missing marks and report readiness",
+    "role": "exam"
+  },
+  {
+    "id": "viewer",
+    "title": "Viewer · School summary",
+    "description": "School totals and published information, read only",
+    "role": "viewer"
+  },
+  {
+    "id": "payments",
+    "title": "Receive a payment",
+    "description": "Focused form, allocation summary and receipt preview",
+    "role": "accountant"
+  },
+  {
+    "id": "dues",
+    "title": "Dues & follow-ups",
+    "description": "Searchable balances with clear next actions",
+    "role": "accountant"
+  },
+  {
+    "id": "receipts",
+    "title": "Receipt & transactions",
+    "description": "Payment identity, allocation and print hierarchy",
+    "role": "accountant"
+  },
+  {
+    "id": "fee-report",
+    "title": "Collection report",
+    "description": "Cash collection separated from non-cash adjustments",
+    "role": "accountant"
+  },
+  {
+    "id": "students",
+    "title": "Student directory",
+    "description": "Fast search, filters and phone-friendly student cards",
+    "role": "office"
+  },
+  {
+    "id": "student",
+    "title": "Student record",
+    "description": "A calm, scoped profile with provenance and next steps",
+    "role": "teacher"
+  },
+  {
+    "id": "attendance",
+    "title": "Class attendance",
+    "description": "Large status controls, count reconciliation and save feedback",
+    "role": "teacher"
+  },
+  {
+    "id": "requests",
+    "title": "Teacher requests",
+    "description": "Short task inbox organized by due date",
+    "role": "teacher"
+  },
+  {
+    "id": "request-link",
+    "title": "Shared request link",
+    "description": "No account shell: confirm or correct one child at a time",
+    "role": "teacher"
+  },
+  {
+    "id": "sampark",
+    "title": "SamPark · New request",
+    "description": "Audience preview before creating teacher links",
+    "role": "office"
+  },
+  {
+    "id": "review",
+    "title": "Review a correction",
+    "description": "Visible before/after values and explicit decisions",
+    "role": "office"
+  },
+  {
+    "id": "cover",
+    "title": "Arrange class cover",
+    "description": "Uncovered periods first; candidates alongside the task",
+    "role": "academic"
+  },
+  {
+    "id": "timetable",
+    "title": "Weekly timetable",
+    "description": "Week grid on desktop; ordered day agenda on mobile",
+    "role": "teacher"
+  },
+  {
+    "id": "marks",
+    "title": "Enter marks",
+    "description": "Low-friction entry with clear blank, absent and score states",
+    "role": "exam"
+  },
+  {
+    "id": "reports",
+    "title": "Academic reports",
+    "description": "Readiness, publication and printable report hierarchy",
+    "role": "exam"
+  },
+  {
+    "id": "documents",
+    "title": "Photos & documents",
+    "description": "Missing items first; camera and upload actions on phones",
+    "role": "office"
+  },
+  {
+    "id": "apps",
+    "title": "School apps",
+    "description": "Stable, clearly named doors into the original applications",
+    "role": "admin"
+  },
+  {
+    "id": "settings",
+    "title": "Preferences & team",
+    "description": "Language, personal preferences and scoped management",
+    "role": "admin"
+  },
+  {
+    "id": "states",
+    "title": "Loading & recovery",
+    "description": "Empty, failed, saved, no access and closed-link examples",
+    "role": "admin"
+  },
+  {
+    "id": "components",
+    "title": "Design foundations",
+    "description": "Tokens, type, buttons, form states and feedback",
+    "role": "admin"
+  },
+  {
+    "id": "more",
+    "title": "More · Role navigation",
+    "description": "Every remaining allowed destination, still easy to find",
+    "role": "admin"
+  },
+  {
+    "id": "login",
+    "title": "Sign in",
+    "description": "A short, recognizable entry with clear error recovery",
+    "role": "teacher"
+  },
+  {
+    "id": "staff",
+    "title": "Staff & assignments",
+    "description": "Accounts, roles and class assignments in a single list",
+    "role": "admin"
+  },
+  {
+    "id": "setup",
+    "title": "School settings",
+    "description": "Academic setup grouped by real school concepts",
+    "role": "admin"
+  }
+]
