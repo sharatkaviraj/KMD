@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -15,6 +14,7 @@ import {
   orderTerms,
 } from "@/modules/assessments/domain/assessments";
 import { AssessmentForm } from "@/modules/assessments/ui/assessment-forms";
+import { Panel, PanelRow } from "@/ui/panel";
 import { Badge, Card, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
@@ -48,7 +48,7 @@ export default async function AssessmentsPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.assessmentsTitle} language={language} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.assessmentsTitle} language={language} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -59,7 +59,7 @@ export default async function AssessmentsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowExams}
         title={m.assessmentsTitle}
         description={m.assessmentsIntro}
         language={language}
@@ -78,50 +78,40 @@ export default async function AssessmentsPage() {
       {assessments.length === 0 ? (
         <EmptyState title={m.assessmentsNone} language={language} />
       ) : (
-        <div className="space-y-7">
+        <div className="space-y-5">
           {terms.map((term) => (
-            <Section key={term} title={{ hi: term, en: term }} language={language}>
-              <ul className="space-y-2">
-                {assessments
-                  .filter((entry) => entry.term === term)
-                  .map((assessment) => (
-                    <li key={assessment.id}>
-                      <Link
-                        href={`/assessments/${assessment.id}`}
-                        className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[15px] font-semibold text-foreground">
-                            {language === "en"
-                              ? assessment.labelEn
-                              : assessment.labelHi}
-                            <span className="ml-2 font-mono text-[12px] font-normal text-subtle-foreground">
-                              {assessment.code}
-                            </span>
-                          </span>
-                          <span className="block truncate text-[12px] text-subtle-foreground">
-                            {primary(assessmentKindLabels[assessment.kind], language)}
-                            {assessment.startsOn
-                              ? ` · ${primary(dayLabel(assessment.startsOn), language)}`
-                              : ""}
-                            {` · ${primary(m.assessmentWeight, language)} ${assessment.weight}`}
-                          </span>
+            <Panel key={term} title={{ hi: term, en: term }} language={language}>
+              {assessments
+                .filter((entry) => entry.term === term)
+                .map((assessment) => (
+                  <PanelRow
+                    key={assessment.id}
+                    href={`/assessments/${assessment.id}`}
+                    title={
+                      <>
+                        {language === "en" ? assessment.labelEn : assessment.labelHi}
+                        <span className="ml-2 font-mono text-[12px] font-normal text-subtle-foreground">
+                          {assessment.code}
                         </span>
-                        <Badge tone={STATUS_TONE[assessment.status]}>
-                          {primary(
-                            assessmentStatusLabels[assessment.status],
-                            language,
-                          )}
-                        </Badge>
-                        <ChevronRight
-                          aria-hidden
-                          className="size-4 shrink-0 text-subtle-foreground"
-                        />
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
-            </Section>
+                      </>
+                    }
+                    detail={[
+                      primary(assessmentKindLabels[assessment.kind], language),
+                      assessment.startsOn
+                        ? primary(dayLabel(assessment.startsOn), language)
+                        : null,
+                      `${primary(m.assessmentWeight, language)} ${assessment.weight}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    trailing={
+                      <Badge tone={STATUS_TONE[assessment.status]}>
+                        {primary(assessmentStatusLabels[assessment.status], language)}
+                      </Badge>
+                    }
+                  />
+                ))}
+            </Panel>
           ))}
         </div>
       )}

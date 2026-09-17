@@ -47,7 +47,7 @@ export default async function CoverPoliciesPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.subsPoliciesTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowCover} title={m.subsPoliciesTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -64,7 +64,7 @@ export default async function CoverPoliciesPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowCover}
         title={m.subsPoliciesTitle}
         description={m.subsPoliciesHint}
         language={language}

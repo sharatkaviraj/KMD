@@ -50,7 +50,7 @@ export default async function TimetablePage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.timetableTitle} language={language} />
+        <PageHeader eyebrow={m.eyebrowAcademics} title={m.timetableTitle} language={language} />
         <EmptyState title={m.classLabelsNothing} language={language} />
       </>
     );
@@ -93,7 +93,7 @@ export default async function TimetablePage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.timetableTitle}
         description={
           published

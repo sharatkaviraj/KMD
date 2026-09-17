@@ -24,7 +24,7 @@ export default async function CalendarPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.calendarTitle} language={language} />
+        <PageHeader eyebrow={m.eyebrowAcademics} title={m.calendarTitle} language={language} />
         <EmptyState title={m.classLabelsNothing} language={language} />
       </>
     );
@@ -35,7 +35,7 @@ export default async function CalendarPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.calendarTitle}
         description={t(
           `${m.session.hi} ${sessionLabel} — ${days.length} ${m.calendarDaysEntered.hi}`,

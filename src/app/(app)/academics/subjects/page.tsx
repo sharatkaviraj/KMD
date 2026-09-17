@@ -28,7 +28,7 @@ export default async function SubjectsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.subjects}
         description={m.subjectsIntro}
         language={language}

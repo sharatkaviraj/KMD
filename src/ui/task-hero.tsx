@@ -176,15 +176,33 @@ export function HomeColumns({
   /** Dropped entirely when there is nothing to put beside the work. */
   aside?: React.ReactNode;
 }) {
-  if (!aside) return <>{main}</>;
-
+  /**
+   * **The wrapper never changes shape, even when the aside goes away.**
+   *
+   * The first version returned a bare fragment when there was no aside and a
+   * grid when there was. On a page whose aside depends on state — the register,
+   * where it disappears the moment the register locks — that swaps the element
+   * type at `main`'s position, so React unmounts and remounts everything under
+   * it. The register's client state went with it: a teacher pressed Save,
+   * the form remounted, and the "Saved" acknowledgement she was waiting for
+   * never appeared (B-43).
+   *
+   * So `main` is always the first child of the same `div`. Only the column
+   * track and the second child are conditional, and neither can remount the
+   * work.
+   */
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div
+      className={cn(
+        "grid items-start gap-5",
+        aside ? "lg:grid-cols-[minmax(0,1fr)_340px]" : null,
+      )}
+    >
       {/* The task column keeps whatever spacing its own sections carry, so a
           page can be moved into these columns without every margin changing.
           The supporting column is a stack of cards and gets one rhythm. */}
       <div className="min-w-0">{main}</div>
-      <div className="min-w-0 space-y-5">{aside}</div>
+      {aside ? <div className="min-w-0 space-y-5">{aside}</div> : null}
     </div>
   );
 }

@@ -65,7 +65,7 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
   if (!sessionLabel || !assessment) {
     return (
       <>
-        <PageHeader title={m.assessmentsTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.assessmentsTitle} language={language} back={BACK} />
         <EmptyState title={m.notFound} language={language} />
       </>
     );
@@ -131,7 +131,7 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowExams}
         title={t(
           language === "en" ? assessment.labelEn : assessment.labelHi,
           assessment.labelEn,

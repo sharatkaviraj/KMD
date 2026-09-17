@@ -18,7 +18,7 @@ export default async function NewStaffPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAdministration}
         title={m.staffNew}
         language={language}
         back={{ href: "/staff", label: m.staffTitle }}

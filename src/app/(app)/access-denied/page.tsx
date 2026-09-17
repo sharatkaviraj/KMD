@@ -8,7 +8,8 @@ import { roleLabel } from "@/platform/auth/permissions";
 import { homeFor } from "@/platform/config/navigation";
 import { flat, primary } from "@/platform/i18n/language";
 import { buttonClasses } from "@/ui/primitives/button";
-import { Card, Notice } from "@/ui/primitives";
+import { Card, DetailList } from "@/ui/primitives";
+import { StateCard } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
 
 export const runtime = "nodejs";
@@ -36,42 +37,42 @@ export default async function AccessDeniedPage(props: PageProps<"/access-denied"
     <>
       <PageHeader title={m.accessDenied} language={language} />
 
-      <Notice tone="warning" text={m.accessDeniedBody} language={language} />
+      {/* The atlas's "Access unavailable": a symbol, what happened, and the
+          way back — which is this role's own Home, not everybody's. Sending a
+          teacher who mistyped a URL to a profile card is one more tap away
+          from the thing she came for (PLAN §3). */}
+      <StateCard
+        icon={ShieldAlert}
+        title={m.accessDeniedBody}
+        language={language}
+        tone="warning"
+        action={
+          <Link href={homeFor(staff.role)} className={buttonClasses({ variant: "outline" })}>
+            {primary(m.goHome, language)}
+          </Link>
+        }
+      />
 
+      {/* The two facts that turn "it says no" into a sentence an admin can
+          act on: "it wants marks:write and I am office". */}
       <Card className="mt-4 p-5">
-        <div className="flex items-start gap-3">
-          <ShieldAlert
-            aria-hidden
-            className="mt-0.5 size-5 shrink-0 text-warning-soft-foreground"
-          />
-          <div className="min-w-0 space-y-1 text-[14px]">
-            <p className="text-muted-foreground">
-              {flat(m.role, language)}{" "}
-              <span className="font-medium text-foreground">
-                {flat(roleLabel(staff.role), language)}
-              </span>
-            </p>
-            {wanted ? (
-              <p className="text-muted-foreground">
-                {flat(m.permissionNeeded, language)}{" "}
-                <span className="font-mono text-[13px] font-medium text-foreground">
-                  {wanted}
-                </span>
-              </p>
-            ) : null}
-          </div>
-        </div>
+        <DetailList
+          language={language}
+          items={[
+            { label: m.role, value: flat(roleLabel(staff.role), language) },
+            ...(wanted
+              ? [
+                  {
+                    label: m.permissionNeeded,
+                    value: (
+                      <span className="font-mono text-[13px]">{wanted}</span>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+        />
       </Card>
-
-      {/* This role own Home, not everybody. Sending a teacher who mistyped a
-          URL to a profile card is one more tap away from the thing she came
-          for (PLAN section 3). */}
-      <Link
-        href={homeFor(staff.role)}
-        className={buttonClasses({ variant: "outline", fullWidth: true, className: "mt-5" })}
-      >
-        {primary(m.goHome, language)}
-      </Link>
     </>
   );
 }

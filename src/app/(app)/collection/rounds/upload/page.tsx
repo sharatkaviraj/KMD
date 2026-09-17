@@ -32,7 +32,7 @@ export default async function UploadAskListPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowSampark}
         title={m.askListTitle}
         description={m.askListHint}
         language={staff.language}

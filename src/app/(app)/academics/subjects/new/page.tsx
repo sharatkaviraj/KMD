@@ -16,7 +16,7 @@ export default async function NewSubjectPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.subjectNew}
         language={staff.language}
         back={{ href: "/academics/subjects", label: m.subjects }}

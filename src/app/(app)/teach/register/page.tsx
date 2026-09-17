@@ -65,7 +65,7 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.registerMonthly} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.registerMonthly} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -90,7 +90,7 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
 
     return (
       <>
-        <PageHeader
+        <PageHeader eyebrow={m.eyebrowMyClass}
           title={m.registerMonthly}
           description={monthLabel(month)}
           language={language}
@@ -134,7 +134,7 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
   return (
     <>
       <div className="print:hidden">
-        <PageHeader
+        <PageHeader eyebrow={m.eyebrowMyClass}
           title={m.registerMonthly}
           description={t(
             `${classLabel} · ${monthLabel(month).hi}`,

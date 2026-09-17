@@ -66,7 +66,9 @@ R2–R8, so those rows own it.
 | D1 | Shared foundation the role homes need: two-column desktop layout, page eyebrow and desktop title scale, labelled progress bar, signed-in identity in the top bar, wider shell | D0 | done | `d1-d2-role-homes` · `HomeColumns`, `ProgressRow`, `PageHeader` `eyebrow`, `max-w-7xl` · `docs/evidence/D1-D2-2026-09-17.md` |
 | D2 | Role homes with real data: accounts staff start in School Fees, teacher opens her class/day, admin gets the combined overview; office/coordinator/viewer preserved | D1 | done | `d1-d2-role-homes` · `start.ts`, `overview.ts`, `schoolOverview()`, `/preferences` start form · `tests/e2e/role-homes.spec.ts` · `docs/evidence/D1-D2-2026-09-17.md` |
 | D2-fix | B-38: an issued link carrying a query string 404ed. B-39: `/\host` passed the redirect check. B-40/B-41: the workflow suite's own fragility — a 58 s test against a 60 s timeout, and three teardowns that leaked three requests a run | D2 | done | `d1-d2-role-homes` · `isSafeInternalPath()`, `/auth/confirm`, `removeRound()` · `tests/env.test.ts`, `tests/e2e/role-homes.spec.ts` |
-| D4 | Deep interaction and visual QA across the atlas's full state matrix | D2, R5 | todo | Partial pass recorded in `docs/evidence/D1-D2-2026-09-17.md`; the rest belongs with R7.2/R8.1 |
+| D3 | The design language on every screen: shared panel/row/footnote/state kit, page eyebrows across the app, row lists converted | D2 | done | `d3-design-language` · `src/ui/panel.tsx`, `StateCard`, 37 eyebrowed headings · `docs/evidence/D3-2026-09-18.md`. Its per-workflow slices stay owned by the R rows the handoff names |
+| D3-fix | B-42: the first `Panel` rendered lists as `<div>`s, so a register was fifteen unrelated paragraphs to a screen reader. B-43: `HomeColumns` changed element type when its aside went away, remounting the register form and losing the "Saved" acknowledgement | D3 | done | `d3-design-language` · `Panel` is a `<ul>`, `PanelRow` an `<li>`, `HomeColumns` keeps one wrapper · both caught by `tests/e2e/teacher-attendance.spec.ts` |
+| D4 | Deep interaction and visual QA across the atlas's full state matrix | D3, R5 | todo | Partial pass recorded in `docs/evidence/D1-D2-2026-09-17.md` and `D3-2026-09-18.md`; the rest belongs with R7.2/R8.1 |
 | D5 | Design deviations and status folded into the release report | D4, R8.2 | todo | Deviations recorded in D0; the report is R8.2's |
 
 ### R0.1 — what it found
@@ -696,6 +698,65 @@ against real data — the only round on dev is a draft over a class with no clas
 teacher, so no link can be minted for it. The fee destination is asserted from
 the `Location` header and never opened, because it is the school's live fee
 app. Physical devices and the full D4 state matrix remain R8.3's and R7.2's.
+
+### D3 — the atlas is one composition, applied
+
+Opening the atlas's `students`, `staff`, `attendance`, `review`, `cover`,
+`setup` and `reports` side by side, they are **one** composition: a white card
+whose head carries a title and a line of context, and whose body is a list of
+rows separated by hairlines rather than by gaps. The role homes had it by hand;
+every other screen had a stack of separately-bordered cards, which is a
+different density and reads as a different product.
+
+So this pass is mostly one component. `Panel`, `PanelRow`, `FootNote`,
+`RowAction` and `StateCard` in `src/ui/panel.tsx` and `src/ui/states/`, plus
+the page eyebrow on all 37 remaining headings, applied by route area.
+
+Converted: the directory, the staff list (with four real figures above it), the
+register, the teacher's day, all five role homes, collection, rounds,
+assessments, the academics hub (two columns now), More, and a teacher's own
+token page. The state boundaries became the atlas's "every state has a next
+step" — a symbol, a sentence, and a way back to *this role's* Home.
+
+**Left as cards on purpose**: review, cover, the rounds board, jobs,
+corrections, policies and the form screens. The atlas draws those as cards too
+— a review row is a before/after diff with a decision form in it, a cover row
+carries its candidates. `PanelRow` is for a row that fits on a row, and forcing
+these into one would delete the content that makes them worth opening.
+
+**The register's live counts stay in the form.** The atlas puts Present/Absent/
+Late/Excused in the supporting column; those are client state the offline queue
+owns, and the queue is the last part of this app worth destabilising for a
+layout. The column carries the guidance card instead.
+
+**Two defects of my own, both caught by one existing test.**
+
+**B-42.** The first `Panel` rendered its rows as `<div>`s — which is what the
+markup looked like it needed, and which makes a register fifteen unrelated
+paragraphs to a screen reader. `teacher-attendance.spec.ts` counts
+`getByRole("listitem")` and found 0 of 15. `Panel` is a `<ul>` now and
+`PanelRow` an `<li>`, with the link inside the item rather than being it.
+
+**B-43, the worse one.** The register's aside — "mark the exceptions first" —
+is there while the register is open and gone once it locks, and `HomeColumns`
+returned a bare fragment with no aside and a grid with one. Two different
+element types at the main column's position, so **pressing Save remounted the
+register form** and its client state went with it: the "Saved" acknowledgement
+a teacher had just earned never appeared. Nothing was lost — the row was
+written and the queue is in storage — the screen simply stopped saying so,
+which on that screen is most of the point. The wrapper is one `div` now
+whatever the aside does.
+
+Worth remembering as a *shape* of bug: a layout component that returns a
+different tree depending on a prop remounts its children when that prop flips,
+and the damage lands in whatever client state was underneath.
+
+Two process notes from chasing them. The re-run after the B-42 fix **also**
+failed, against a preview server still holding the previous build because
+Playwright reused one this session had started — rebuild *and* restart before
+believing a workflow result. And a cold `next start` answers the first
+`/teach` in **28 seconds** against 0.3–4.6 warm, which is enough on its own to
+blow a 60-second test budget.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

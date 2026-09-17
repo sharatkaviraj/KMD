@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { LucideIcon } from "lucide-react";
 
 import { m } from "@/messages";
 import {
@@ -130,6 +131,74 @@ export function ErrorState({
         // without putting internals on a teacher's screen.
         <p className="mt-3 font-mono text-[11px] text-destructive-soft-foreground/70">
           {detail}
+        </p>
+      ) : null}
+      {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * The atlas's empty and refusal states: a symbol, a sentence, a way on.
+ *
+ * `EmptyState` above is the plain version and stays — a dashed box is right
+ * inside a panel that already has a heading. This is the full-page one the
+ * `states` screen draws: centred, with an icon, and **always** with somewhere
+ * to go, because "Every state has a next step" is the title of that screen and
+ * a dead end is the one thing none of these may be.
+ */
+export function StateCard({
+  icon: Icon,
+  title,
+  detail,
+  language,
+  action,
+  tone = "neutral",
+  className,
+}: {
+  icon: LucideIcon;
+  title: Localized;
+  detail?: Localized;
+  language: Language;
+  action?: React.ReactNode;
+  tone?: "neutral" | "warning" | "danger";
+  className?: string;
+}) {
+  const titleUnder = secondary(title, language);
+
+  return (
+    <div
+      role={tone === "danger" ? "alert" : undefined}
+      className={cn(
+        "rounded-2xl border px-5 py-10 text-center",
+        tone === "danger"
+          ? "border-destructive/25 bg-destructive-soft"
+          : tone === "warning"
+            ? "border-warning/30 bg-warning-soft"
+            : "border-border bg-surface",
+        className,
+      )}
+    >
+      <Icon
+        aria-hidden
+        className={cn(
+          "mx-auto size-7",
+          tone === "danger"
+            ? "text-destructive-soft-foreground/70"
+            : tone === "warning"
+              ? "text-warning-soft-foreground/70"
+              : "text-subtle-foreground",
+        )}
+      />
+      <p className="mt-3 text-[16px] font-semibold text-foreground">
+        {primary(title, language)}
+      </p>
+      {titleUnder ? (
+        <p className="text-[13px] text-muted-foreground">{titleUnder}</p>
+      ) : null}
+      {detail ? (
+        <p className="mx-auto mt-2 max-w-sm text-[13px] leading-5 text-muted-foreground">
+          {primary(detail, language)}
         </p>
       ) : null}
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}

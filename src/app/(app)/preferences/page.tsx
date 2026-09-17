@@ -65,7 +65,7 @@ export default async function PreferencesPage() {
 
   return (
     <>
-      <PageHeader title={m.preferencesTitle} language={staff.language} />
+      <PageHeader eyebrow={m.eyebrowPersonal} title={m.preferencesTitle} language={staff.language} />
 
       <Section title={m.language} description={m.preferencesLanguageHint} language={staff.language}>
         <Card className="p-4">

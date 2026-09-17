@@ -15,7 +15,7 @@ export default async function TimetableImportPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.timetableUpload}
         language={staff.language}
         back={{ href: "/timetable", label: m.timetableTitle }}

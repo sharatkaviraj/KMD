@@ -84,7 +84,7 @@ export default async function StudentPage(
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.studentTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.studentTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -95,7 +95,7 @@ export default async function StudentPage(
   if (!student) {
     return (
       <>
-        <PageHeader title={m.studentTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.studentTitle} language={language} back={BACK} />
         <EmptyState title={m.notFound} language={language} />
       </>
     );
@@ -180,7 +180,7 @@ export default async function StudentPage(
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowMyClass}
         title={t(student.fullName, student.fullName)}
         description={t(classLabel, classLabel)}
         language={language}

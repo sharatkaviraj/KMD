@@ -48,7 +48,7 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAdministration}
         // A name is the same in both languages.
         title={t(person.displayName, person.displayName)}
         description={t(

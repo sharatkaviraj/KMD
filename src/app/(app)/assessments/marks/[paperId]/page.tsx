@@ -45,7 +45,7 @@ export default async function MarksPage(
   if (!sessionLabel || !paper) {
     return (
       <>
-        <PageHeader title={m.marksGrid} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.marksGrid} language={language} back={BACK} />
         <EmptyState title={m.notFound} language={language} />
       </>
     );
@@ -56,7 +56,7 @@ export default async function MarksPage(
   if (!assessment) {
     return (
       <>
-        <PageHeader title={m.marksGrid} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.marksGrid} language={language} back={BACK} />
         <EmptyState title={m.notFound} language={language} />
       </>
     );
@@ -80,7 +80,7 @@ export default async function MarksPage(
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowExams}
         title={t(
           `${paper.classLabel} · ${paper.subjectCode}`,
           `${paper.classLabel} · ${paper.subjectCode}`,

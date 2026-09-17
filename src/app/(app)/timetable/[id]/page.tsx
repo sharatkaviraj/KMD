@@ -57,7 +57,7 @@ export default async function TimetableVersionPage(
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={t(version.label, version.label)}
         description={t(
           `${m.session.hi} ${version.sessionLabel}`,

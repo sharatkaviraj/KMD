@@ -26,7 +26,7 @@ export default async function EditStaffPage(props: PageProps<"/staff/[id]/edit">
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAdministration}
         title={m.edit}
         language={actor.language}
         // A person's name is their name in every language, so it is passed

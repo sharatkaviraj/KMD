@@ -44,7 +44,7 @@ export default async function AppsPage() {
 
   return (
     <>
-      <PageHeader title={m.appsTitle} language={language} />
+      <PageHeader eyebrow={m.eyebrowAdministration} title={m.appsTitle} language={language} />
 
       <Notice tone="neutral" text={m.appsIntro} language={language} />
 

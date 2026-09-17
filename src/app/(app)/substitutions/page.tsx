@@ -74,7 +74,7 @@ export default async function SubstitutionsPage(
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.subsTitle} language={language} />
+        <PageHeader eyebrow={m.eyebrowCover} title={m.subsTitle} language={language} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -92,7 +92,7 @@ export default async function SubstitutionsPage(
   );
 
   const header = (
-    <PageHeader
+    <PageHeader eyebrow={m.eyebrowCover}
       title={m.subsTitle}
       description={dayText}
       language={language}

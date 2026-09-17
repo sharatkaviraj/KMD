@@ -21,7 +21,7 @@ export default async function EditSubjectPage(
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.subjectEdit}
         // The subject's own names, one per side — they are data, and the
         // school entered both.

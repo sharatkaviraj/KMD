@@ -47,7 +47,7 @@ export default async function ClassPage(props: PageProps<"/teach/class/[id]">) {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.teachClassTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.teachClassTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -81,7 +81,7 @@ export default async function ClassPage(props: PageProps<"/teach/class/[id]">) {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowMyClass}
         title={t(classLabel, classLabel)}
         description={t(
           `${roll.length} ${m.teachStudents.hi}`,

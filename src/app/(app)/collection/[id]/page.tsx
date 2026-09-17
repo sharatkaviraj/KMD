@@ -58,7 +58,7 @@ export default async function RequestPage(props: PageProps<"/collection/[id]">) 
   if (!request) {
     return (
       <>
-        <PageHeader title={m.collectionTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowSampark} title={m.collectionTitle} language={language} back={BACK} />
         <EmptyState title={m.notFound} language={language} />
       </>
     );
@@ -83,7 +83,7 @@ export default async function RequestPage(props: PageProps<"/collection/[id]">) 
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowSampark}
         title={authoredTitle(title, m.collectionTitle)}
         description={t(request.classLabel, request.classLabel)}
         language={language}

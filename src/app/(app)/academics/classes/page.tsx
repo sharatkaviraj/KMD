@@ -32,7 +32,7 @@ export default async function ClassAliasesPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader
+        <PageHeader eyebrow={m.eyebrowAcademics}
           title={m.classLabels}
           language={language}
           back={{ href: "/academics", label: m.academicsTitle }}
@@ -56,7 +56,7 @@ export default async function ClassAliasesPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.classLabels}
         description={t(
           `${m.session.hi} ${sessionLabel} — ${progress.mapped} / ${progress.total}`,

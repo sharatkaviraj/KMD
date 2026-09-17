@@ -1,18 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { m } from "@/messages";
 import { roleLabel } from "@/platform/auth/permissions";
-import { flat, primary } from "@/platform/i18n/language";
+import { flat, primary, t } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import {
   compareStaff,
   matchesStaffSearch,
   type StaffProfile,
 } from "@/modules/staff/domain/staff";
+import { cn } from "@/platform/utils";
+import { Panel, PanelRow } from "@/ui/panel";
 import { Badge, Input } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
 
@@ -23,7 +24,13 @@ import { EmptyState } from "@/ui/states";
  * search is instant and works offline. A round trip per keystroke would be
  * slower and would fail in the corridor where the signal is worst.
  */
-export function StaffList({ staff }: { staff: StaffProfile[] }) {
+export function StaffList({
+  staff,
+  className,
+}: {
+  staff: StaffProfile[];
+  className?: string;
+}) {
   const language = useLanguage();
   const [query, setQuery] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -38,7 +45,7 @@ export function StaffList({ staff }: { staff: StaffProfile[] }) {
   const inactiveCount = staff.filter((person) => !person.isActive).length;
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", className)}>
       <div className="relative">
         <Search
           aria-hidden
@@ -72,51 +79,38 @@ export function StaffList({ staff }: { staff: StaffProfile[] }) {
           language={language}
         />
       ) : (
-        <ul className="space-y-2">
+        <Panel
+          title={m.panelStaffDirectory}
+          description={t(
+            `${staff.length} में से ${visible.length}`,
+            `${visible.length} of ${staff.length}`,
+          )}
+          language={language}
+        >
           {visible.map((person) => (
-            <li key={person.id}>
-              <Link
-                href={`/staff/${person.id}`}
-                className="focus-ring flex min-h-[4.5rem] items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-              >
-                <span
-                  aria-hidden
-                  className={`flex size-11 shrink-0 items-center justify-center rounded-full text-[14px] font-bold ${
-                    person.isActive
-                      ? "bg-accent-soft text-accent-soft-foreground"
-                      : "bg-surface-3 text-subtle-foreground"
-                  }`}
-                >
-                  {person.shortName.slice(0, 2)}
-                </span>
-
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-foreground">
-                    {person.displayName}
-                  </span>
-                  <span className="block truncate text-[13px] text-muted-foreground">
-                    <span className="font-mono">{person.shortName}</span>
-                    {" · "}
-                    {primary(roleLabel(person.role), language)}
-                  </span>
-                </span>
-
-                <span className="flex shrink-0 flex-col items-end gap-1">
-                  {!person.isActive ? (
-                    <Badge tone="neutral">{primary(m.inactive, language)}</Badge>
-                  ) : person.isTeaching ? (
-                    <Badge tone="accent">{primary(m.classBadge, language)}</Badge>
-                  ) : null}
-                </span>
-              </Link>
-            </li>
+            <PanelRow
+              key={person.id}
+              href={`/staff/${person.id}`}
+              lead={person.shortName.slice(0, 2)}
+              title={person.displayName}
+              detail={
+                <>
+                  <span className="font-mono">{person.shortName}</span>
+                  {" · "}
+                  {primary(roleLabel(person.role), language)}
+                </>
+              }
+              trailing={
+                !person.isActive ? (
+                  <Badge tone="neutral">{primary(m.inactive, language)}</Badge>
+                ) : person.isTeaching ? (
+                  <Badge tone="accent">{primary(m.classBadge, language)}</Badge>
+                ) : null
+              }
+            />
           ))}
-        </ul>
+        </Panel>
       )}
-
-      <p className="text-center text-[13px] text-subtle-foreground">
-        {visible.length} / {staff.length} {primary(m.shown, language)}
-      </p>
     </div>
   );
 }

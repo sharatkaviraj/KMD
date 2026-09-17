@@ -47,7 +47,7 @@ export default async function NewRoundPage({
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.roundNew} language={language} />
+        <PageHeader eyebrow={m.eyebrowSampark} title={m.roundNew} language={language} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -71,7 +71,7 @@ export default async function NewRoundPage({
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowSampark}
         title={m.roundNew}
         description={m.roundsHint}
         language={language}

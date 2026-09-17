@@ -33,7 +33,7 @@ export default async function ExportsPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.exportsTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.exportsTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -43,7 +43,7 @@ export default async function ExportsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowExams}
         title={m.exportsTitle}
         description={m.exportsIntro}
         language={language}

@@ -60,7 +60,7 @@ export default async function MessagesPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.messagesTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowSampark} title={m.messagesTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -76,7 +76,7 @@ export default async function MessagesPage() {
 
   return (
     <>
-      <PageHeader title={m.messagesTitle} language={language} back={BACK} />
+      <PageHeader eyebrow={m.eyebrowSampark} title={m.messagesTitle} language={language} back={BACK} />
 
       <Notice
         className="mb-5"

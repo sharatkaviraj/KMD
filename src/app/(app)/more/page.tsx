@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SlidersHorizontal } from "lucide-react";
 
 import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
@@ -6,6 +6,7 @@ import { overflowFor } from "@/platform/config/navigation";
 import { primary, secondary } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { EmptyState } from "@/ui/states";
+import { Panel, PanelRow } from "@/ui/panel";
 import { PageHeader } from "@/ui/shell/app-shell";
 
 export const runtime = "nodejs";
@@ -30,42 +31,45 @@ export default async function MorePage() {
 
   return (
     <>
-      <PageHeader title={m.navMore} language={language} />
+      <PageHeader
+        eyebrow={m.eyebrowPersonal}
+        title={m.navMore}
+        description={m.moreIntro}
+        language={language}
+      />
 
       {items.length === 0 ? (
         <EmptyState title={m.openToYou} language={language} />
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {items.map((item) => {
-            const under = secondary(item.label, language);
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground [&_svg]:size-5"
-                  >
-                    <item.icon />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-semibold text-foreground">
-                      {primary(item.label, language)}
-                    </span>
-                    {under ? (
-                      <span className="block truncate text-[12px] text-subtle-foreground">
-                        {under}
-                      </span>
-                    ) : null}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <Panel title={m.openToYou} description={m.openToYouHint} language={language}>
+          {items.map((item) => (
+            <PanelRow
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              tone="accent"
+              title={primary(item.label, language)}
+              detail={secondary(item.label, language)}
+            />
+          ))}
+        </Panel>
       )}
+
+      {/* The personal settings, which are not a role destination and so never
+          appear in the overflow list. On a phone this hub and the top bar are
+          the only two ways to reach them. */}
+      <Panel
+        className="mt-5"
+        title={m.eyebrowPersonal}
+        language={language}
+      >
+        <PanelRow
+          href="/preferences"
+          icon={SlidersHorizontal}
+          title={primary(m.preferencesTitle, language)}
+          detail={primary(m.preferencesLanguageHint, language)}
+        />
+      </Panel>
     </>
   );
 }

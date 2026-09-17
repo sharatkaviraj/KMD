@@ -1,12 +1,15 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { CheckCircle2, MessageSquare } from "lucide-react";
 
 import { AuthoredText } from "@/ui/authored-text";
 import { m } from "@/messages";
 import { dayLabel } from "@/platform/dates";
 import { getSchoolName } from "@/platform/env";
-import { primary } from "@/platform/i18n/language";
+import {
+  primary,
+  type Language,
+  type Localized,
+} from "@/platform/i18n/language";
 import {
   clientIp,
   limitByIp,
@@ -14,6 +17,8 @@ import {
   limitUnknownToken,
 } from "@/modules/collection/data/rate-limit";
 import { resolveStaffToken } from "@/modules/collection/data/requests-repo";
+import { Panel, PanelRow } from "@/ui/panel";
+import { StateCard } from "@/ui/states";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,40 +75,48 @@ export default async function StaffTokenPage(props: PageProps<"/t/[token]">) {
       </header>
 
       {resolved.requests.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border-strong bg-surface-2 px-5 py-10 text-center text-[15px] text-muted-foreground">
-          {primary(m.linkNoRequests, language)}
-        </p>
+        // "Nothing is waiting for you" is good news, and the atlas's empty
+        // state says so with a tick rather than with a grey box.
+        <StateCard
+          icon={CheckCircle2}
+          title={m.linkNoRequests}
+          language={language}
+        />
       ) : (
-        <ul className="space-y-2">
+        <Panel
+          title={m.linkYourRequests}
+          description={countOfPairs(resolved.requests.length, language)}
+          language={language}
+        >
           {resolved.requests.map((request) => (
-            <li key={request.id}>
-              <Link
-                href={`/r/${request.token}`}
-                className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-foreground">
-                    <AuthoredText
-                      value={{ hi: request.titleHi, en: request.titleEn }}
-                      language={language}
-                    />
-                  </span>
-                  <span className="block truncate text-[12px] text-subtle-foreground">
-                    {request.classLabel}
-                    {request.dueDate
-                      ? ` · ${primary(m.linkDueBy, language)} ${primary(dayLabel(request.dueDate), language)}`
-                      : ""}
-                  </span>
-                </span>
-                <ChevronRight
-                  aria-hidden
-                  className="size-5 shrink-0 text-subtle-foreground"
+            <PanelRow
+              key={request.id}
+              href={`/r/${request.token}`}
+              icon={MessageSquare}
+              title={
+                <AuthoredText
+                  value={{ hi: request.titleHi, en: request.titleEn }}
+                  language={language}
                 />
-              </Link>
-            </li>
+              }
+              detail={[
+                request.classLabel,
+                request.dueDate
+                  ? `${primary(m.linkDueBy, language)} ${primary(dayLabel(request.dueDate), language)}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
           ))}
-        </ul>
+        </Panel>
       )}
     </main>
   );
+}
+
+/** "3 to do", in whichever language the link is being read in. */
+function countOfPairs(count: number, language: Language): Localized {
+  const text = `${count} ${primary(m.linkToDo, language)}`;
+  return { hi: text, en: text };
 }

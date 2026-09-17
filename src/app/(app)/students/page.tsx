@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -16,7 +16,8 @@ import {
   normaliseQuery,
   resolvePage,
 } from "@/modules/students/domain/directory";
-import { Card, Notice, Select } from "@/ui/primitives";
+import { Select } from "@/ui/primitives";
+import { FootNote, Panel, PanelRow } from "@/ui/panel";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
@@ -75,14 +76,23 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   return (
     <>
       <PageHeader
+        eyebrow={m.eyebrowSchoolOffice}
         title={m.studentsTitle}
         description={m.studentsHint}
         language={language}
       />
 
-      {/* A plain GET form. The URL is the state. */}
-      <form action="/students" method="get" className="space-y-2.5">
-        <div className="flex gap-2">
+      {/* A plain GET form. The URL is the state.
+
+          One row on a desk and two on a phone: the atlas puts the search box
+          and the class filter side by side, and at 360px a select beside a
+          search field leaves neither wide enough to read. */}
+      <form
+        action="/students"
+        method="get"
+        className="flex flex-col gap-2.5 sm:flex-row sm:items-start"
+      >
+        <div className="flex min-w-0 flex-1 gap-2">
           <label htmlFor="q" className="sr-only">
             {flat(m.studentsSearchLabel, language)}
           </label>
@@ -102,11 +112,16 @@ export default async function StudentsPage(props: PageProps<"/students">) {
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:shrink-0">
           <label htmlFor="class" className="sr-only">
             {flat(m.teachClassTitle, language)}
           </label>
-          <Select id="class" name="class" defaultValue={classId ?? ""}>
+          <Select
+            id="class"
+            name="class"
+            defaultValue={classId ?? ""}
+            className="sm:w-44"
+          >
             <option value="">{flat(m.studentsAllClasses, language)}</option>
             {[...labels.entries()].map(([id, label]) => (
               <option key={id} value={id}>
@@ -130,106 +145,85 @@ export default async function StudentsPage(props: PageProps<"/students">) {
 
       {/* ------------------------------------------------------- the results */}
 
-      <p className="mt-5 text-[13px] text-muted-foreground" role="status">
-        {results.total === 0
-          ? primary(m.studentsNone, language)
-          : primary(
-              t(
-                `${results.total} में से ${results.window.firstRow}–${results.window.lastRow}`,
-                `${results.window.firstRow}–${results.window.lastRow} of ${results.total}`,
-              ),
-              language,
-            )}
-      </p>
-
       {results.total === 0 ? (
         // "Nobody matched" and "there is nobody" are different, and only one of
         // them has anything to do with what was typed.
         <EmptyState
-          className="mt-3"
+          className="mt-5"
           title={filtered ? m.studentsNoMatch : m.studentsEmpty}
           detail={filtered ? m.studentsTryAgain : undefined}
           language={language}
         />
       ) : (
-        <ul className="mt-3 space-y-2">
-          {results.rows.map((row) => (
-            <li key={row.studentId}>
-              <Link
-                href={`/teach/student/${row.studentId}`}
-                className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
+        <Panel
+          className="mt-5"
+          title={m.panelStudentDirectory}
+          // The count is the panel's context line, not a stray paragraph above
+          // it — which is where it used to sit, reading as a page subtitle.
+          description={t(
+            `${results.total} में से ${results.window.firstRow}–${results.window.lastRow}`,
+            `${results.window.firstRow}–${results.window.lastRow} of ${results.total}`,
+          )}
+          language={language}
+          footer={
+            results.window.pages > 1 ? (
+              <nav
+                aria-label={flat(m.studentsPages, language)}
+                className="flex items-center justify-between gap-3"
               >
-                <span
-                  aria-hidden
-                  className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-[13px] font-semibold tabular-nums text-muted-foreground"
-                >
-                  {row.rollNo ?? "—"}
+                {results.window.page > 1 ? (
+                  <Link
+                    href={directoryHref({ ...query, page: results.window.page - 1 })}
+                    className={buttonClasses({ variant: "outline", size: "sm" })}
+                  >
+                    {primary(m.studentsPrevious, language)}
+                  </Link>
+                ) : (
+                  <span />
+                )}
+
+                <span className="text-[13px] tabular-nums text-muted-foreground">
+                  {results.window.page} / {results.window.pages}
                 </span>
-                <span className="min-w-0 flex-1">
-                  {/* Wrapped, not truncated: a long name is the thing being
-                      searched for, and cutting it off defeats the search
-                      (PLAN §3a). */}
-                  <span className="block text-[15px] font-medium text-foreground">
-                    {row.fullName}
-                  </span>
-                  <span className="block truncate text-[12px] text-subtle-foreground">
-                    {[
-                      row.classId ? labels.get(row.classId) : null,
-                      row.admissionNo ? `SR ${row.admissionNo}` : null,
-                      row.fatherName,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
-                </span>
-                <ChevronRight
-                  aria-hidden
-                  className="size-5 shrink-0 text-subtle-foreground"
-                />
-              </Link>
-            </li>
+
+                {results.window.page < results.window.pages ? (
+                  <Link
+                    href={directoryHref({ ...query, page: results.window.page + 1 })}
+                    className={buttonClasses({ variant: "outline", size: "sm" })}
+                  >
+                    {primary(m.studentsNext, language)}
+                  </Link>
+                ) : (
+                  <span />
+                )}
+              </nav>
+            ) : null
+          }
+        >
+          {results.rows.map((row) => (
+            <PanelRow
+              key={row.studentId}
+              href={`/teach/student/${row.studentId}`}
+              lead={row.rollNo ?? "—"}
+              title={row.fullName}
+              detail={[
+                row.classId ? labels.get(row.classId) : null,
+                row.admissionNo ? `SR ${row.admissionNo}` : null,
+                row.fatherName,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
           ))}
-        </ul>
+        </Panel>
       )}
 
-      {/* ---------------------------------------------------------- paging */}
-
-      {results.window.pages > 1 ? (
-        <nav
-          aria-label={flat(m.studentsPages, language)}
-          className="mt-5 flex items-center justify-between gap-3"
-        >
-          {results.window.page > 1 ? (
-            <Link
-              href={directoryHref({ ...query, page: results.window.page - 1 })}
-              className={buttonClasses({ variant: "outline" })}
-            >
-              {primary(m.studentsPrevious, language)}
-            </Link>
-          ) : (
-            <span />
-          )}
-
-          <span className="text-[13px] tabular-nums text-muted-foreground">
-            {results.window.page} / {results.window.pages}
-          </span>
-
-          {results.window.page < results.window.pages ? (
-            <Link
-              href={directoryHref({ ...query, page: results.window.page + 1 })}
-              className={buttonClasses({ variant: "outline" })}
-            >
-              {primary(m.studentsNext, language)}
-            </Link>
-          ) : (
-            <span />
-          )}
-        </nav>
-      ) : null}
-
-      <Card className="mt-6 p-4">
-        <Notice tone="neutral" text={m.studentsSourceNote} language={language} />
-      </Card>
+      <FootNote
+        className="mt-5"
+        title={m.panelSearchNote}
+        text={m.studentsSourceNote}
+        language={language}
+      />
     </>
   );
 }

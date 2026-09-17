@@ -91,7 +91,7 @@ export default async function RoundPage({
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowSampark}
         title={{
           hi: round.titleHi ?? round.titleEn ?? "—",
           en: round.titleEn ?? round.titleHi ?? "—",

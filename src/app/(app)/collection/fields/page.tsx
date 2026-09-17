@@ -36,7 +36,7 @@ export default async function FieldsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowSampark}
         title={m.collectionFieldsTitle}
         description={m.collectionFieldsIntro}
         language={language}

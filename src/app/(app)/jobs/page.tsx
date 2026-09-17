@@ -53,7 +53,7 @@ export default async function JobsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAdministration}
         title={m.jobsTitle}
         description={m.jobsIntro}
         language={language}

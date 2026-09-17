@@ -35,6 +35,7 @@ import {
 import { countOf, primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { cn } from "@/platform/utils";
+import { Panel } from "@/ui/panel";
 import { Badge, Notice } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
@@ -214,6 +215,19 @@ export function RegisterForm({
 
   const counts = tally(sorted, new Map(Object.entries(marks)));
 
+  /**
+   * The four status words, spelled out once above the roll.
+   *
+   * The atlas prints "P = Present · A = Absent · L = Late · E = Excused". The
+   * buttons here already carry their whole word rather than an initial, so the
+   * legend is the list of what the four mean — useful to somebody opening the
+   * register for the first time, and quiet for everybody else.
+   */
+  const legendText = attendanceStatuses
+    .map((option) => primary(attendanceLabels[option], language))
+    .join(" · ");
+  const legend = { hi: legendText, en: legendText };
+
   if (sorted.length === 0) {
     return <EmptyState title={m.attendanceEmptyRoll} language={language} />;
   }
@@ -275,16 +289,27 @@ export function RegisterForm({
         </Button>
       ) : null}
 
-      <ul className="space-y-1.5">
+      {/* One panel with hairline rows rather than forty separate cards.
+          On a phone the four status controls stay under the name, because at
+          360px a name and four buttons on one line leaves nothing readable;
+          from `sm` they move beside it, which is the atlas's desktop register
+          and halves the scroll for a class of forty. */}
+      <Panel
+        title={m.attendanceTodaysRegister}
+        description={legend}
+        language={language}
+      >
         {sorted.map((student) => {
           const status = marks[student.studentId];
 
           return (
+            // A `<li>`, because `Panel` is a `<ul>`: a register is a list of
+            // children and a screen reader should say so.
             <li
               key={student.studentId}
-              className="rounded-2xl border border-border bg-surface p-3"
+              className="px-4 py-3 sm:flex sm:items-center sm:gap-4"
             >
-              <div className="mb-2 flex items-baseline gap-2">
+              <div className="mb-2 flex items-baseline gap-2 sm:mb-0 sm:min-w-0 sm:flex-1">
                 <span className="w-7 shrink-0 text-[13px] font-semibold tabular-nums text-subtle-foreground">
                   {student.rollNo ?? "—"}
                 </span>
@@ -296,7 +321,7 @@ export function RegisterForm({
               {/* Four targets rather than a dropdown: a teacher marks forty
                   children standing up, and a select costs two taps and a
                   steady hand for each one. */}
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5 sm:w-auto sm:shrink-0">
                 {attendanceStatuses.map((option) => (
                   <button
                     key={option}
@@ -305,8 +330,8 @@ export function RegisterForm({
                     disabled={locked}
                     aria-pressed={status === option}
                     className={cn(
-                      "focus-ring min-h-11 rounded-xl border text-[13px] font-semibold transition-colors",
-                      "disabled:opacity-60",
+                      "focus-ring min-h-11 rounded-xl border px-2 text-[13px] font-semibold transition-colors",
+                      "disabled:opacity-60 sm:min-w-20",
                       status === option
                         ? SELECTED[option]
                         : "border-border bg-surface text-muted-foreground",
@@ -319,7 +344,7 @@ export function RegisterForm({
             </li>
           );
         })}
-      </ul>
+      </Panel>
 
       {!locked ? (
         <div className="safe-bottom sticky bottom-0 -mx-4 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">

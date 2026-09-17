@@ -32,7 +32,7 @@ export default async function ClassTeachersPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader
+        <PageHeader eyebrow={m.eyebrowAcademics}
           title={m.classTeachers}
           language={language}
           back={{ href: "/academics", label: m.academicsTitle }}
@@ -60,7 +60,7 @@ export default async function ClassTeachersPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.classTeachers}
         description={t(
           `${m.session.hi} ${sessionLabel} — ${progress.assigned} / ${progress.total} ${m.classTeachersAssigned.hi}`,

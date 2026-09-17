@@ -55,7 +55,7 @@ export default async function ReportCardPage(
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.reportTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.reportTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -70,7 +70,7 @@ export default async function ReportCardPage(
   if (!term) {
     return (
       <>
-        <PageHeader title={m.reportTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.reportTitle} language={language} back={BACK} />
         <EmptyState title={m.assessmentsNone} language={language} />
       </>
     );
@@ -84,7 +84,7 @@ export default async function ReportCardPage(
   if (!preview) {
     return (
       <>
-        <PageHeader title={m.reportTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowExams} title={m.reportTitle} language={language} back={BACK} />
         <EmptyState title={m.notFound} language={language} />
       </>
     );
@@ -98,7 +98,7 @@ export default async function ReportCardPage(
   return (
     <>
       <div className="print:hidden">
-        <PageHeader
+        <PageHeader eyebrow={m.eyebrowExams}
           title={t(card.studentName, card.studentName)}
           description={t(
             `${m.reportTitle.hi} · ${term}`,

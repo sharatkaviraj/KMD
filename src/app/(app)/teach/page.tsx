@@ -14,7 +14,7 @@ import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { dayLabel, schoolToday, weekdayLabel } from "@/platform/dates";
-import { flat, primary, secondary, t } from "@/platform/i18n/language";
+import { flat, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import {
   classLabelMap,
@@ -45,6 +45,7 @@ import { classRoll } from "@/modules/attendance/data/attendance-repo";
 import { coversForTeacher } from "@/modules/substitutions/data/plans-repo";
 import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
+import { Panel, PanelRow } from "@/ui/panel";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
@@ -307,149 +308,98 @@ export default async function TeachPage() {
 
       {/* ------------------------------------------------ needs doing */}
 
-      <Section className="mt-7" title={m.teachNeedsDoing} language={language}>
-        {quiet === "closed" ? (
+      {quiet === "closed" ? (
+        <Section className="mt-7" title={m.teachNeedsDoing} language={language}>
           <Notice tone="info" text={m.teachSchoolClosed} language={language}>
             <span className="inline-flex items-center gap-2 text-[13px]">
               <CalendarOff aria-hidden className="size-4" />
               {flat(dayText, language)}
             </span>
           </Notice>
-        ) : quiet === "none-held" ? (
+        </Section>
+      ) : quiet === "none-held" ? (
+        <Section className="mt-7" title={m.teachNeedsDoing} language={language}>
           <EmptyState title={m.teachNoClassHeld} language={language} />
-        ) : quiet === "all-done" ? (
+        </Section>
+      ) : quiet === "all-done" ? (
+        <Section className="mt-7" title={m.teachNeedsDoing} language={language}>
           <Notice tone="success" text={m.teachAllDone} language={language} />
-        ) : (
-          <ul className="space-y-2">
-            {todo.map((task) => (
-              <li key={task.classId}>
-                <Link
-                  href={`/teach/attendance?class=${task.classId}&day=${today}`}
-                  className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 transition-colors hover:brightness-[0.98]"
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface text-warning-soft-foreground"
-                  >
-                    <ClipboardList className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-warning-soft-foreground">
-                      {task.classLabel}
-                    </span>
-                    <span className="block truncate text-[13px] text-warning-soft-foreground/85">
-                      {primary(m.teachTakeRegister, language)}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden
-                    className="size-5 shrink-0 text-warning-soft-foreground/70"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        </Section>
+      ) : (
+        <Panel className="mt-7" title={m.teachNeedsDoing} language={language}>
+          {todo.map((task) => (
+            <PanelRow
+              key={task.classId}
+              href={`/teach/attendance?class=${task.classId}&day=${today}`}
+              icon={ClipboardList}
+              tone="warning"
+              title={task.classLabel}
+              detail={primary(m.teachTakeRegister, language)}
+            />
+          ))}
 
-        {/* Held classes whose register is already in: shown under the list
-            rather than hidden, so a teacher can check their own work. */}
-        {tasks.length > todo.length ? (
-          <ul className="space-y-1.5">
-            {tasks
-              .filter((task) => task.done)
-              .map((task) => (
-                <li
-                  key={task.classId}
-                  className="flex min-h-12 items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2"
-                >
-                  <span className="min-w-0 flex-1 truncate text-[14px] text-muted-foreground">
-                    {task.classLabel}
-                  </span>
+          {/* Held classes whose register is already in: kept in the same list
+              rather than hidden, so a teacher can check her own work — and
+              below the outstanding ones, because those are what she came for. */}
+          {tasks
+            .filter((task) => task.done)
+            .map((task) => (
+              <PanelRow
+                key={task.classId}
+                title={
+                  <span className="text-muted-foreground">{task.classLabel}</span>
+                }
+                trailing={
                   <Badge tone="success">
                     {primary(m.teachRegisterTaken, language)}
                   </Badge>
-                </li>
-              ))}
-          </ul>
-        ) : null}
-      </Section>
+                }
+              />
+            ))}
+        </Panel>
+      )}
 
       {/* ------------------------------------------------ cover duty */}
 
       {covers.length > 0 ? (
-        <Section className="mt-7" title={m.teachCoverDuty} language={language}>
-          <ul className="space-y-2">
-            {covers.map((cover) => (
-              <li key={cover.id}>
-                <Link
-                  href={`/teach/class/${cover.classId}`}
-                  className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft px-4 py-3 transition-colors hover:brightness-[0.98]"
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface text-[14px] font-bold tabular-nums text-accent-soft-foreground"
-                  >
-                    {periodNumber(cover.period)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-accent-soft-foreground">
-                      {cover.classLabel}
-                      {cover.subjectCode ? (
-                        <span className="ml-2 text-[13px] font-normal">
-                          {cover.subjectCode}
-                        </span>
-                      ) : null}
+        <Panel className="mt-7" title={m.teachCoverDuty} language={language}>
+          {covers.map((cover) => (
+            <PanelRow
+              key={cover.id}
+              href={`/teach/class/${cover.classId}`}
+              tone="accent"
+              lead={periodNumber(cover.period)}
+              title={
+                <>
+                  {cover.classLabel}
+                  {cover.subjectCode ? (
+                    <span className="ml-2 text-[13px] font-normal text-muted-foreground">
+                      {cover.subjectCode}
                     </span>
-                    <span className="block truncate text-[12px] text-accent-soft-foreground/85">
-                      {primary(m.subsCoverFor, language)}{" "}
-                      {cover.originalStaffName ?? "—"}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden
-                    className="size-5 shrink-0 text-accent-soft-foreground/70"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Section>
+                  ) : null}
+                </>
+              }
+              detail={`${primary(m.subsCoverFor, language)} ${cover.originalStaffName ?? "—"}`}
+            />
+          ))}
+        </Panel>
       ) : null}
 
       {/* ----------------------------------------------- your classes */}
 
       {classes.length > 0 ? (
-        <Section className="mt-7" title={m.teachMyClasses} language={language}>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {classes.map((entry) => {
-              const under = secondary(m.teachOpenClass, language);
-              return (
-                <li key={entry.classId}>
-                  <Link
-                    href={`/teach/class/${entry.classId}`}
-                    className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-                  >
-                    <span
-                      aria-hidden
-                      className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground"
-                    >
-                      <Users className="size-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[15px] font-semibold text-foreground">
-                        {entry.classLabel}
-                      </span>
-                      <span className="block truncate text-[12px] text-subtle-foreground">
-                        {primary(m.teachOpenClass, language)}
-                        {under ? <span className="ml-1.5">{under}</span> : null}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </Section>
+        <Panel className="mt-7" title={m.teachMyClasses} language={language}>
+          {classes.map((entry) => (
+            <PanelRow
+              key={entry.classId}
+              href={`/teach/class/${entry.classId}`}
+              icon={Users}
+              tone="accent"
+              title={entry.classLabel}
+              detail={primary(m.teachOpenClass, language)}
+            />
+          ))}
+        </Panel>
       ) : null}
 
       {/* A standing note that the register survives a dropped connection —

@@ -61,7 +61,7 @@ export default async function ReviewPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowSampark}
         title={m.reviewTitle}
         language={language}
         back={BACK}

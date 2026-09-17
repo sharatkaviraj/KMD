@@ -49,7 +49,7 @@ export default async function EnrolmentsPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.enrolmentsTitle} language={language} />
+        <PageHeader eyebrow={m.eyebrowAcademics} title={m.enrolmentsTitle} language={language} />
         <EmptyState title={m.classLabelsNothing} language={language} />
       </>
     );
@@ -70,7 +70,7 @@ export default async function EnrolmentsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.enrolmentsTitle}
         description={t(
           `${m.session.hi} ${sessionLabel} — ${enrolments.length} / ${feeStudents.length} ${m.enrolmentsStudents.hi}`,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Users } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -26,10 +27,12 @@ import {
 } from "@/modules/attendance/domain/attendance";
 import { CorrectionRequestForm } from "@/modules/attendance/ui/correction-request-form";
 import { RegisterForm } from "@/modules/attendance/ui/register-form";
+import { FootNote, Panel, PanelRow } from "@/ui/panel";
 import { Notice } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
+import { HomeColumns } from "@/ui/task-hero";
 
 export const runtime = "nodejs";
 
@@ -117,6 +120,7 @@ export default async function AttendancePage(
     return (
       <>
         <PageHeader
+          eyebrow={m.eyebrowMyClass}
           title={m.attendanceTitle}
           description={dayText}
           language={language}
@@ -126,23 +130,20 @@ export default async function AttendancePage(
         {choices.length === 0 ? (
           <EmptyState title={m.attendanceNotYours} language={language} />
         ) : (
-          <>
-            <p className="mb-3 text-[15px] text-muted-foreground">
-              {primary(m.attendanceNoClassChosen, language)}
-            </p>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {choices.map((choice) => (
-                <li key={choice.classId}>
-                  <Link
-                    href={`/teach/attendance?class=${choice.classId}&day=${day}`}
-                    className="focus-ring flex min-h-14 items-center rounded-xl border border-border bg-surface px-4 py-3 text-[15px] font-medium text-foreground transition-colors hover:bg-surface-2"
-                  >
-                    {choice.classLabel}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
+          <Panel
+            title={m.teachChooseClass}
+            description={m.attendanceNoClassChosen}
+            language={language}
+          >
+            {choices.map((choice) => (
+              <PanelRow
+                key={choice.classId}
+                href={`/teach/attendance?class=${choice.classId}&day=${day}`}
+                icon={Users}
+                title={choice.classLabel}
+              />
+            ))}
+          </Panel>
         )}
       </>
     );
@@ -178,8 +179,14 @@ export default async function AttendancePage(
   return (
     <>
       <PageHeader
+        eyebrow={m.eyebrowMyClass}
         title={t(`${classLabel}`, `${classLabel}`)}
-        description={dayText}
+        // The day and how many children are on the roll — which is what makes
+        // "32 marked" mean something when you are halfway down the list.
+        description={t(
+          `${dayText.hi} · ${roll.length} बच्चे`,
+          `${dayText.en} · ${roll.length} children`,
+        )}
         language={language}
         back={BACK}
         action={
@@ -210,31 +217,54 @@ export default async function AttendancePage(
         />
       ) : null}
 
-      <RegisterForm
-        roll={roll}
-        classId={requestedClass}
-        classLabel={classLabel}
-        day={day}
-        period={period}
-        existing={existing}
-        locked={locked}
-        onBehalf={verdict.allowed && verdict.onBehalf}
-      />
+      <HomeColumns
+        main={
+          <>
+            <RegisterForm
+              roll={roll}
+              classId={requestedClass}
+              classLabel={classLabel}
+              day={day}
+              period={period}
+              existing={existing}
+              locked={locked}
+              onBehalf={verdict.allowed && verdict.onBehalf}
+            />
 
-      {/* A submitted register is a record. Changing it goes through somebody
-          else, which is what this form is. */}
-      {register && register.status === "submitted" && roll.length > 0 ? (
-        <section className="mt-8">
-          <h2 className="mb-3 text-[15px] font-semibold text-foreground">
-            {flat(m.correctionRequest, language)}
-          </h2>
-          <CorrectionRequestForm
-            registerId={register.id}
-            roll={roll}
-            existing={existing}
-          />
-        </section>
-      ) : null}
+            {/* A submitted register is a record. Changing it goes through
+                somebody else, which is what this form is. */}
+            {register && register.status === "submitted" && roll.length > 0 ? (
+              <section className="mt-8">
+                <h2 className="mb-3 text-[15px] font-semibold text-foreground">
+                  {flat(m.correctionRequest, language)}
+                </h2>
+                <CorrectionRequestForm
+                  registerId={register.id}
+                  roll={roll}
+                  existing={existing}
+                />
+              </section>
+            ) : null}
+          </>
+        }
+        aside={
+          // How to take a register quickly, beside the register on a desk and
+          // under it on a phone.
+          //
+          // **The live counts stay in the form**, which is where the state is.
+          // The atlas draws them in this column; lifting them out would mean
+          // threading the offline queue's state through the page, and the
+          // queue is the part of this screen least worth destabilising for a
+          // layout. Recorded as a deviation.
+          locked ? undefined : (
+            <FootNote
+              title={m.panelExceptionsFirst}
+              text={m.panelExceptionsFirstText}
+              language={language}
+            />
+          )
+        }
+      />
     </>
   );
 }

@@ -1,8 +1,7 @@
-import Link from "next/link";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 import { m } from "@/messages";
-import { can } from "@/platform/auth/permissions";
+import { can, type StaffRole } from "@/platform/auth/permissions";
 import {
   getCurrentStaff,
   requirePermission,
@@ -12,7 +11,13 @@ import { pageTitle } from "@/platform/i18n/page-title";
 import { navigationFor } from "@/platform/config/navigation";
 import { appsFor, environmentLabel, schoolApp } from "@/platform/config/apps";
 import { getVppsOneEnvironment } from "@/platform/env";
-import { flat, primary, secondary, t } from "@/platform/i18n/language";
+import {
+  flat,
+  primary,
+  secondary,
+  t,
+  type Localized,
+} from "@/platform/i18n/language";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { homeSummary, schoolOverview } from "@/modules/home/data/home-repo";
 import {
@@ -26,11 +31,28 @@ import {
   SchoolWorkspaces,
   TodayAtSchool,
 } from "@/modules/home/ui/overview-panels";
+import { Panel, PanelRow } from "@/ui/panel";
 import { Card, DetailList, Notice, Section } from "@/ui/primitives";
 import { PageHeader, StaffChip } from "@/ui/shell/app-shell";
 import { HomeColumns, MetricCard, MetricGrid } from "@/ui/task-hero";
 
 export const runtime = "nodejs";
+
+/**
+ * What sits above the title on each role's home.
+ *
+ * One per role rather than one per screen: the atlas uses the eyebrow to say
+ * which desk you are at, and a teacher who lands here (she may — it is simply
+ * not where she starts) is still looking at her own day's context.
+ */
+const EYEBROW: Record<StaffRole, Localized> = {
+  admin: m.overviewEyebrow,
+  office: m.eyebrowSchoolOffice,
+  academic_coordinator: m.eyebrowCover,
+  exam_coordinator: m.eyebrowExams,
+  teacher: m.eyebrowMyClass,
+  view_only: m.overviewEyebrow,
+};
 
 export async function generateMetadata() {
   // `getCurrentStaff()` rather than `requirePermission()`: the page below does
@@ -99,61 +121,51 @@ export default async function DashboardPage() {
 
   const attentionSection =
     attention.length > 0 ? (
-      <Section title={m.homeNeedsAttention} language={language}>
-        {needsAttention(attention) ? (
-          <ul className="space-y-2">
-            {attention.map((item) => (
-              <li key={item.key}>
-                <Link
-                  href={item.href}
-                  className={
-                    item.tone === "warning"
-                      ? "focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 transition-colors hover:brightness-[0.98]"
-                      : "focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-                  }
-                >
-                  <span
-                    aria-hidden
-                    className="w-10 shrink-0 text-center text-[22px] font-semibold tabular-nums"
-                  >
-                    {/* A dash, never a nought: "nothing is outstanding" and
-                        "the count could not be read" are different news. */}
-                    {item.count ?? "—"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-foreground">
-                      {primary(item.label, language)}
-                      {item.detail ? (
-                        <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">
-                          {primary(item.detail, language)}
-                        </span>
-                      ) : null}
+      needsAttention(attention) ? (
+        <Panel
+          title={m.homeNeedsAttention}
+          description={m.homeNeedsAttentionHint}
+          language={language}
+        >
+          {attention.map((item) => (
+            <PanelRow
+              key={item.key}
+              href={item.href}
+              tone={item.tone === "warning" ? "warning" : "neutral"}
+              // A dash, never a nought: "nothing is outstanding" and "the
+              // count could not be read" are different news.
+              lead={
+                <span className="text-[17px] font-bold">{item.count ?? "—"}</span>
+              }
+              title={
+                <>
+                  {primary(item.label, language)}
+                  {item.detail ? (
+                    <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">
+                      {primary(item.detail, language)}
                     </span>
-                    <span className="block truncate text-[12px] text-subtle-foreground">
-                      {/* `primary`, not `flat`: a bilingual reader gets
-                          one language on this line, because "Whose:
-                          Academic coordinator" in two languages is wider
-                          than a 360px phone and truncates to nothing
-                          useful. */}
-                      {item.count === null
-                        ? primary(m.homeUnavailable, language)
-                        : `${primary(m.homeOwner, language)}: ${primary(item.owner, language)}`}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden
-                    className="size-5 shrink-0 text-subtle-foreground"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          // Five noughts is not an empty queue — it is five pieces of good
-          // news, and the screen says so once rather than five times.
+                  ) : null}
+                </>
+              }
+              detail={
+                // `primary`, not `flat`: a bilingual reader gets one language
+                // on this line, because "Whose: Academic coordinator" in two
+                // languages is wider than a 360px phone and truncates to
+                // nothing useful.
+                item.count === null
+                  ? primary(m.homeUnavailable, language)
+                  : `${primary(m.homeOwner, language)}: ${primary(item.owner, language)}`
+              }
+            />
+          ))}
+        </Panel>
+      ) : (
+        <Section title={m.homeNeedsAttention} language={language}>
+          {/* Five noughts is not an empty queue — it is five pieces of good
+              news, and the screen says so once rather than five times. */}
           <Notice tone="success" text={m.homeAllClear} language={language} />
-        )}
-      </Section>
+        </Section>
+      )
     ) : null;
 
   /* ---------------------------------------------- the school, in figures */
@@ -236,43 +248,23 @@ export default async function DashboardPage() {
 
   const openToYou =
     destinations.length > 0 ? (
-      <Section
+      <Panel
         className="mt-6"
         title={m.openToYou}
         description={m.openToYouHint}
         language={language}
       >
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {destinations.map((item) => {
-            const under = secondary(item.label, language);
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground [&_svg]:size-5"
-                  >
-                    <item.icon />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-semibold text-foreground">
-                      {primary(item.label, language)}
-                    </span>
-                    {under ? (
-                      <span className="block truncate text-[12px] text-subtle-foreground">
-                        {under}
-                      </span>
-                    ) : null}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </Section>
+        {destinations.map((item) => (
+          <PanelRow
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            tone="accent"
+            title={primary(item.label, language)}
+            detail={secondary(item.label, language)}
+          />
+        ))}
+      </Panel>
     ) : null;
 
   /**
@@ -321,7 +313,10 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow={isAdmin ? m.overviewEyebrow : undefined}
+        // The part of the school this home belongs to. The administrator's is
+        // school operations; everybody else's is their own desk, which is what
+        // the atlas's sidebar caption says above each role's navigation.
+        eyebrow={EYEBROW[staff.role]}
         title={isAdmin ? m.overviewTitle : m.welcome}
         description={dayText}
         language={language}

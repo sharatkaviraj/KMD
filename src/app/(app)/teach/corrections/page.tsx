@@ -51,7 +51,7 @@ export default async function CorrectionsPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.correctionsTitle} language={language} back={BACK} />
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.correctionsTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -65,7 +65,7 @@ export default async function CorrectionsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowMyClass}
         title={m.correctionsTitle}
         language={language}
         back={BACK}

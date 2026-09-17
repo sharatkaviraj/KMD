@@ -1,14 +1,16 @@
-import Link from "next/link";
 import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
+  Clock,
   Grid3x3,
+  MessageSquare,
   UserCheck,
 } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { can } from "@/platform/auth/permissions";
 import { pageTitle } from "@/platform/i18n/page-title";
 import {
   listClassAliases,
@@ -30,8 +32,10 @@ import {
   joinClassesToTeachers,
 } from "@/modules/academics/domain/class-teachers";
 import { primary, secondary, t } from "@/platform/i18n/language";
+import { FootNote, Panel, PanelRow } from "@/ui/panel";
 import { Badge, Notice } from "@/ui/primitives";
 import { PageHeader } from "@/ui/shell/app-shell";
+import { HomeColumns } from "@/ui/task-hero";
 
 export const runtime = "nodejs";
 
@@ -123,9 +127,35 @@ export default async function AcademicsPage() {
     },
   ];
 
+  /**
+   * What an administrator watches rather than edits.
+   *
+   * Filtered by permission, not by role name: the same two rows are on the
+   * Setup group of the sidebar, and a coordinator who cannot open the job
+   * console must not be offered it here either.
+   */
+  const operational = [
+    can(staff, "jobs:view")
+      ? {
+          href: "/jobs",
+          icon: Clock,
+          label: m.jobsTitle,
+          detail: m.jobsIntro,
+        }
+      : null,
+    can(staff, "collection:view")
+      ? {
+          href: "/collection/messages",
+          icon: MessageSquare,
+          label: m.messagesTitle,
+          detail: m.messagesIntro,
+        }
+      : null,
+  ].filter((row) => row !== null);
+
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowAcademics}
         title={m.academicsTitle}
         description={
           sessionLabel
@@ -142,48 +172,83 @@ export default async function AcademicsPage() {
         <Notice tone="warning" text={m.noFeeClasses} language={language} />
       ) : null}
 
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {cards.map((card) => {
-          const under = secondary(card.label, language);
-          return (
-            <li key={card.href}>
-              <Link
-                href={card.href}
-                className="focus-ring flex min-h-20 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-              >
-                <span
-                  aria-hidden
-                  className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-soft-foreground [&_svg]:size-5"
-                >
-                  <card.icon />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-foreground">
-                    {primary(card.label, language)}
-                    {under ? (
-                      <span className="ml-2 text-[12px] font-normal text-subtle-foreground">
-                        {under}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="block truncate text-[13px] text-muted-foreground">
-                    {primary(card.detail, language)}
-                  </span>
-                </span>
-                <Badge tone={card.done ? "success" : "warning"}>
-                  {primary(card.done ? m.done : m.pending, language)}
-                </Badge>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <HomeColumns
+        main={
+          <>
+            <Panel
+              title={m.panelAcademicSetup}
+              description={
+                sessionLabel
+                  ? t(`अभी का सत्र · ${sessionLabel}`, `Current session · ${sessionLabel}`)
+                  : m.noSession
+              }
+              language={language}
+            >
+              {cards.map((card) => (
+                <PanelRow
+                  key={card.href}
+                  href={card.href}
+                  icon={card.icon}
+                  tone="accent"
+                  title={
+                    <>
+                      {primary(card.label, language)}
+                      {secondary(card.label, language) ? (
+                        <span className="ml-2 text-[12px] font-normal text-subtle-foreground">
+                          {secondary(card.label, language)}
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                  detail={primary(card.detail, language)}
+                  trailing={
+                    <Badge tone={card.done ? "success" : "warning"}>
+                      {primary(card.done ? m.done : m.pending, language)}
+                    </Badge>
+                  }
+                />
+              ))}
+            </Panel>
 
-      <Notice
-        className="mt-6"
-        tone="info"
-        text={m.academicsNotice}
-        language={language}
+            <Notice
+              className="mt-6"
+              tone="info"
+              text={m.academicsNotice}
+              language={language}
+            />
+          </>
+        }
+        aside={
+          // The atlas puts the things an administrator looks at rather than
+          // edits in a column beside the setup itself. Only the rows this
+          // account may actually open: `jobs:view` is admin-only, and offering
+          // a door that answers /access-denied is worse than not offering it.
+          operational.length > 0 ? (
+            <>
+              <Panel
+                title={m.panelOperational}
+                description={m.panelOperationalHint}
+                language={language}
+              >
+                {operational.map((row) => (
+                  <PanelRow
+                    key={row.href}
+                    href={row.href}
+                    icon={row.icon}
+                    title={primary(row.label, language)}
+                    detail={primary(row.detail, language)}
+                  />
+                ))}
+              </Panel>
+
+              <FootNote
+                title={m.panelPreviewEffect}
+                text={m.panelPreviewEffectText}
+                language={language}
+              />
+            </>
+          ) : undefined
+        }
       />
     </>
   );

@@ -40,6 +40,10 @@ export const m = {
   pending: t("बाकी", "To do"),
   somethingWrong: t("कुछ गड़बड़ हो गई।", "Something went wrong."),
   notFound: t("यह पेज नहीं मिला।", "That page does not exist."),
+  notFoundDetail: t(
+    "शायद पता बदल गया है। अपने मुख्य पेज से दोबारा शुरू कीजिए।",
+    "The address may have changed. Start again from your own home screen.",
+  ),
   reference: t("संदर्भ", "ref"),
 
   /* ------------------------------------------------------------- session */
@@ -58,6 +62,10 @@ export const m = {
   navAcademics: t("शैक्षणिक", "Academics"),
   navCalendar: t("कैलेंडर", "Calendar"),
   navEnrolments: t("नामांकन", "Enrolments"),
+  moreIntro: t(
+    "आपकी भूमिका के बाकी सभी पन्ने।",
+    "Everything else your role can open.",
+  ),
   navMore: t("और", "More"),
   mainNavigation: t("मुख्य नेविगेशन", "Main navigation"),
 
@@ -761,6 +769,10 @@ export const m = {
 
   /* ------------------------------------------------------ messages */
   messagesTitle: t("संदेश", "Messages"),
+  messagesIntro: t(
+    "कतार में, भेजे गए और जो नहीं गए — दोबारा भेजने के इतिहास के साथ।",
+    "Queued, sent and failed updates, with their retry history.",
+  ),
   messagesTemplates: t("टेम्पलेट", "Templates"),
   messagesQueue: t("भेजने की सूची", "To send"),
   messagesNone: t("कोई संदेश नहीं है।", "No messages."),
@@ -791,6 +803,7 @@ export const m = {
 
   /* -------------------------------------------- the public link pages */
   linkTitle: t("विद्यालय की जानकारी", "School information"),
+  linkToDo: t("करने हैं", "to do"),
   linkDueBy: t("कब तक", "Due by"),
   linkSaved: t("सहेज लिया", "Saved"),
   linkSaveAll: t("भेजें", "Send"),
@@ -1228,6 +1241,10 @@ export const m = {
   ),
 
   homeNeedsAttention: t("ध्यान चाहिए", "Needs attention"),
+  homeNeedsAttentionHint: t(
+    "एक फ़ैसला कीजिए, फिर अपने काम पर लौटिए।",
+    "Make a decision, then get back to your day.",
+  ),
   homeAllClear: t(
     "अभी कुछ बाकी नहीं है।",
     "Nothing is waiting for anyone right now.",
@@ -1331,6 +1348,77 @@ export const m = {
   ),
   overviewOfClasses: t("कक्षाओं में से", "of classes"),
   overviewPeriods: t("कालांश", "periods"),
+
+  /* --------------------------------------------- page eyebrows (D3) ----
+     The small line above a page title, naming the part of the school the
+     screen belongs to. One per area rather than one per route: the atlas uses
+     them to group ("SAMPARK / REVIEW"), not to label. */
+  eyebrowSchoolOffice: t("कार्यालय", "School office"),
+  eyebrowMyClass: t("मेरी कक्षा", "My class"),
+  eyebrowSampark: t("सम्पर्क", "SamPark"),
+  eyebrowAcademics: t("शैक्षणिक", "Academics"),
+  eyebrowExams: t("परीक्षा और रिपोर्ट", "Exams and reports"),
+  eyebrowAdministration: t("विद्यालय प्रशासन", "School administration"),
+  eyebrowPersonal: t("आपका खाता", "Your account"),
+  eyebrowCover: t("कक्षा व्यवस्था", "Class cover"),
+
+  /* ------------------------------------------------- shared panels (D3) */
+  panelStudentDirectory: t("बच्चों की सूची", "Student directory"),
+  panelSearchNote: t("खोज भरोसे की है", "A reliable search"),
+  panelSearchNoteText: t(
+    "एसआर नंबर अक्षरों की तरह रखा जाता है, इसलिए आगे के शून्य नहीं मिटते। खोज के बाद भी कक्षा और सत्र वही रहते हैं।",
+    "SR numbers are kept as text, so leading zeros are never lost. The class and session you chose stay chosen after a search.",
+  ),
+  panelStaffDirectory: t("स्टाफ़ की सूची", "Staff directory"),
+  panelStaffNote: t("भूमिका और काम अलग-अलग हैं", "Role and assignment are separate"),
+  panelStaffNoteText: t(
+    "कार्यालय की भूमिका अपने आप लेखाकार नहीं बनाती। फ़ीस ऐप की पहुँच और पढ़ाने का काम अलग-अलग तय होते हैं।",
+    "An office role is not automatically an accountant. Fee-app access and teaching assignments are decided independently.",
+  ),
+  panelRegisterSummary: t("हाज़िरी का हिसाब", "Register summary"),
+  panelExceptionsFirst: t("पहले अपवाद भरिए", "Mark the exceptions first"),
+  panelExceptionsFirstText: t(
+    "सब उपस्थित लगाइए, फिर जो अनुपस्थित या देर से आए उन्हें बदलिए, और सहेजने से पहले गिनती देख लीजिए।",
+    "Use mark-all-present, change the children who are absent or late, then check the counts before you save.",
+  ),
+  panelReviewQueue: t("जाँच की कतार", "Review queue"),
+  panelCurrentMatters: t("अभी का रिकॉर्ड देखिए", "The current record matters"),
+  panelCurrentMattersText: t(
+    "अगर किसी और ने यह रिकॉर्ड बदल दिया है, तो फ़ैसले से पहले नया मान फिर से मिला लीजिए।",
+    "If somebody else has already changed this record, compare again before deciding.",
+  ),
+  panelOperational: t("संचालन की व्यवस्था", "Operational settings"),
+  panelOperationalHint: t("सिर्फ़ प्रशासक को दिखता है", "Visible to administrators"),
+  panelPreviewEffect: t("असर पहले देखिए", "Preview the effect"),
+  panelPreviewEffectText: t(
+    "स्कूल-भर के बदलाव से पहले देख लीजिए कि किन कक्षाओं और रिकॉर्ड पर असर पड़ेगा। रोज़ का काम सेटिंग से बाहर रखिए।",
+    "Before a school-wide change, look at which classes and records it touches. Keep daily work out of the settings area.",
+  ),
+  panelAcademicSetup: t("शैक्षणिक व्यवस्था", "Academic setup"),
+  panelInformationSetup: t("जानकारी जुटाने की व्यवस्था", "Information collection"),
+  panelManage: t("खोलें", "Manage"),
+  panelViewStatus: t("स्थिति देखें", "View status"),
+
+  /* ------------------------------------------- staff figures (D3) */
+  staffActiveCount: t("सक्रिय स्टाफ़", "Active staff"),
+  staffActiveHint: t("अभी के स्कूल खाते", "Current school accounts"),
+  staffClassesAssigned: t("कक्षा-अध्यापक तय", "Classes assigned"),
+  staffClassesAllHave: t(
+    "हर कक्षा का अध्यापक है",
+    "Every class has a class teacher",
+  ),
+  staffClassesMissing: t(
+    "कुछ कक्षाओं का अध्यापक बाकी है",
+    "Some classes still have nobody",
+  ),
+  staffCoordinators: t("संयोजक", "Coordinators"),
+  staffCoordinatorsHint: t("शैक्षणिक और परीक्षा", "Academic and examinations"),
+  staffAwaitingClass: t("कक्षा का इंतज़ार", "Awaiting a class"),
+  attendanceTodaysRegister: t("आज की हाज़िरी", "Today's register"),
+  staffAwaitingClassHint: t(
+    "पढ़ाने वाले जिन्हें कक्षा नहीं मिली",
+    "Teaching staff with no class of their own",
+  ),
 } as const;
 
 export type MessageKey = keyof typeof m;

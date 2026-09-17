@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Plus, Upload } from "lucide-react";
+import { Inbox, Plus, Upload } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -11,7 +11,8 @@ import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { listRounds } from "@/modules/collection/data/rounds-repo";
 import { roundStatusLabel } from "@/modules/collection/domain/rounds";
 import { AuthoredText } from "@/ui/authored-text";
-import { Badge, Card, Section } from "@/ui/primitives";
+import { Panel, PanelRow } from "@/ui/panel";
+import { Badge } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/shell/app-shell";
@@ -44,7 +45,7 @@ export default async function RoundsPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.roundsTitle} language={language} />
+        <PageHeader eyebrow={m.eyebrowSampark} title={m.roundsTitle} language={language} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -54,7 +55,7 @@ export default async function RoundsPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader eyebrow={m.eyebrowSampark}
         title={m.roundsTitle}
         description={m.roundsHint}
         language={language}
@@ -83,45 +84,39 @@ export default async function RoundsPage() {
         }
       />
 
-      <Section className="mt-6" title={m.roundsTitle} language={language}>
-        {rounds.length === 0 ? (
-          <EmptyState title={m.roundsNone} language={language} />
-        ) : (
-          <ul className="space-y-2">
-            {rounds.map((round) => (
-              <li key={round.id}>
-                <Link
-                  href={`/collection/rounds/${round.id}`}
-                  className="focus-ring block rounded-2xl"
+      {rounds.length === 0 ? (
+        <EmptyState className="mt-6" title={m.roundsNone} language={language} />
+      ) : (
+        <Panel className="mt-6" title={m.roundsTitle} language={language}>
+          {rounds.map((round) => (
+            <PanelRow
+              key={round.id}
+              href={`/collection/rounds/${round.id}`}
+              icon={Inbox}
+              title={
+                <AuthoredText
+                  value={{ hi: round.titleHi, en: round.titleEn }}
+                  language={language}
+                />
+              }
+              detail={
+                round.dueDate
+                  ? `${primary(m.roundWhen, language)}: ${primary(dayLabel(round.dueDate), language)}`
+                  : null
+              }
+              trailing={
+                <Badge
+                  tone={
+                    STATUS_TONE[round.status as keyof typeof STATUS_TONE] ?? "neutral"
+                  }
                 >
-                  <Card className="flex min-h-14 items-center gap-3 p-4">
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium text-foreground">
-                        <AuthoredText
-                          value={{ hi: round.titleHi, en: round.titleEn }}
-                          language={language}
-                        />
-                      </span>
-                      {round.dueDate ? (
-                        <span className="mt-0.5 block text-[13px] text-muted-foreground">
-                          {primary(m.roundWhen, language)}:{" "}
-                          {primary(dayLabel(round.dueDate), language)}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <Badge tone={STATUS_TONE[round.status as keyof typeof STATUS_TONE] ?? "neutral"}>
-                      {primary(roundStatusLabel(round.status), language)}
-                    </Badge>
-
-                    <ChevronRight aria-hidden className="size-4 shrink-0 text-subtle-foreground" />
-                  </Card>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+                  {primary(roundStatusLabel(round.status), language)}
+                </Badge>
+              }
+            />
+          ))}
+        </Panel>
+      )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { AuthoredText } from "@/ui/authored-text";
 import { m } from "@/messages";
@@ -19,6 +19,7 @@ import { activeFields } from "@/modules/collection/domain/fields";
 import { requestStatusLabels } from "@/modules/collection/domain/requests";
 import { NewRequestForm } from "@/modules/collection/ui/office-forms";
 import { listStaff } from "@/modules/staff/data/staff-repo";
+import { Panel, PanelRow } from "@/ui/panel";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
@@ -53,7 +54,7 @@ export default async function CollectionPage() {
   if (!sessionLabel) {
     return (
       <>
-        <PageHeader title={m.collectionTitle} language={language} />
+        <PageHeader eyebrow={m.eyebrowSampark} title={m.collectionTitle} language={language} />
         <EmptyState title={m.noSessionFound} language={language} />
       </>
     );
@@ -80,6 +81,7 @@ export default async function CollectionPage() {
   return (
     <>
       <PageHeader
+        eyebrow={m.eyebrowSampark}
         title={m.collectionTitle}
         description={m.collectionIntro}
         language={language}
@@ -120,47 +122,41 @@ export default async function CollectionPage() {
         </Link>
       </div>
 
-      <Section title={m.collectionTitle} language={language}>
-        {requests.length === 0 ? (
-          <EmptyState title={m.collectionNone} language={language} />
-        ) : (
-          <ul className="space-y-2">
-            {requests.map((request) => (
-              <li key={request.id}>
-                <Link
-                  href={`/collection/${request.id}`}
-                  className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-foreground">
-                      <AuthoredText
-                        value={{ hi: request.titleHi, en: request.titleEn }}
-                        language={language}
-                      />
-                    </span>
-                    <span className="block truncate text-[12px] text-subtle-foreground">
-                      {request.classLabel}
-                      {request.assignedStaffName
-                        ? ` · ${request.assignedStaffName}`
-                        : ""}
-                      {request.dueDate
-                        ? ` · ${primary(dayLabel(request.dueDate), language)}`
-                        : ""}
-                    </span>
-                  </span>
-                  <Badge tone={STATUS_TONE[request.status]}>
-                    {primary(requestStatusLabels[request.status], language)}
-                  </Badge>
-                  <ChevronRight
-                    aria-hidden
-                    className="size-4 shrink-0 text-subtle-foreground"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      {requests.length === 0 ? (
+        <EmptyState title={m.collectionNone} language={language} />
+      ) : (
+        <Panel
+          title={m.collectionTitle}
+          description={t(`${requests.length} सवाल`, `${requests.length} asked`)}
+          language={language}
+        >
+          {requests.map((request) => (
+            <PanelRow
+              key={request.id}
+              href={`/collection/${request.id}`}
+              icon={MessageSquare}
+              title={
+                <AuthoredText
+                  value={{ hi: request.titleHi, en: request.titleEn }}
+                  language={language}
+                />
+              }
+              detail={[
+                request.classLabel,
+                request.assignedStaffName,
+                request.dueDate ? primary(dayLabel(request.dueDate), language) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              trailing={
+                <Badge tone={STATUS_TONE[request.status]}>
+                  {primary(requestStatusLabels[request.status], language)}
+                </Badge>
+              }
+            />
+          ))}
+        </Panel>
+      )}
 
       {mayManage ? (
         <Section className="mt-8" title={m.collectionNew} language={language}>
