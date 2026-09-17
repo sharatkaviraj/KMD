@@ -123,9 +123,11 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
     }),
   );
 
-  const classes = [...labels.entries()]
-    .map(([classId, label]) => ({ id: classId, label }))
-    .sort((a, b) => a.label.localeCompare(b.label, "en"));
+  // No sort: the map arrives in school order (B-06).
+  const classes = [...labels.entries()].map(([classId, label]) => ({
+    id: classId,
+    label,
+  }));
 
   return (
     <>

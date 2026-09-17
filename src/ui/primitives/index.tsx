@@ -53,11 +53,24 @@ export function Section({
   const titleUnder = secondary(title, language);
   const descriptionUnder = description ? secondary(description, language) : null;
 
+  /**
+   * A landmark with no name is a landmark a screen reader announces as
+   * "region" and nothing else — and every screen in this app is three or four
+   * of them (B-23). The heading is already the name; this points at it.
+   *
+   * Derived from the English half so it is stable whoever is reading, and
+   * slugged because an id has to be one token.
+   */
+  const headingId = `section-${title.en
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}`;
+
   return (
-    <section className={cn("space-y-3", className)}>
+    <section aria-labelledby={headingId} className={cn("space-y-3", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold text-foreground">
+          <h2 id={headingId} className="text-[15px] font-semibold text-foreground">
             {primary(title, language)}
             {titleUnder ? (
               <span className="ml-2 text-[13px] font-normal text-subtle-foreground">
@@ -150,6 +163,7 @@ export function Field({
   label,
   htmlFor,
   error,
+  hint,
   language,
   children,
 }: {
@@ -157,6 +171,12 @@ export function Field({
   htmlFor: string;
   /** Already localised by the caller — validation messages arrive as a pair. */
   error?: Localized | null;
+  /**
+   * A sentence under the label about how to fill the field in — "one language
+   * is enough", "optional". It sits above the control rather than below it, so
+   * it is read before somebody has already typed the wrong thing.
+   */
+  hint?: Localized | null;
   language: Language;
   children: React.ReactNode;
 }) {
@@ -165,6 +185,14 @@ export function Field({
   return (
     <div className="space-y-2">
       <Label htmlFor={htmlFor} text={label} language={language} />
+      {hint ? (
+        <p
+          id={`${htmlFor}-hint`}
+          className="text-[13px] leading-5 text-muted-foreground"
+        >
+          {primary(hint, language)}
+        </p>
+      ) : null}
       {children}
       {error ? (
         <p

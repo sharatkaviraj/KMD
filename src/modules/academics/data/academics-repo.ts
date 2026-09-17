@@ -12,6 +12,10 @@ import type {
   Subject,
   UpdateSubjectInput,
 } from "@/modules/academics/domain/subjects";
+import {
+  inSchoolOrder,
+  type ClassChoice,
+} from "@/modules/academics/domain/class-order";
 
 /**
  * Reads and writes for the academics master data, plus the one read that
@@ -114,6 +118,11 @@ export async function listSessionLabels(): Promise<string[]> {
  * still in the map under a dash rather than missing, so a register never
  * renders a bare UUID at a teacher.
  *
+ * **In school order** (`sort_order`, alias first), because a Map keeps its
+ * insertion order and four screens were each turning this into a list and
+ * sorting it alphabetically — which puts Class 10, 11 and 12 between Class 1
+ * and Class 2 (B-06). Iterating it now gives the order the school agreed on.
+ *
  * Gated on being staff, for the reason `listSessionLabels()` is: a class is
  * called "Class 6 A" and knowing that is not a privilege. Every teacher screen
  * needs it, and the screens that *edit* classes keep their `academics:view`
@@ -129,9 +138,16 @@ export async function classLabelMap(
       const { data, error } = await createAdminClient()
         .schema(FEE_SCHEMA)
         .from("classes")
-        .select("id, class_name, section")
+        .select("id, class_name, section, sort_order")
         .eq("session_label", sessionLabel)
-        .returns<{ id: string; class_name: string; section: string | null }[]>();
+        .returns<
+          {
+            id: string;
+            class_name: string;
+            section: string | null;
+            sort_order: number | null;
+          }[]
+        >();
 
       if (error) {
         throw new Error(`Could not read the classes: ${error.message}`);
@@ -141,19 +157,86 @@ export async function classLabelMap(
     listClassAliases(sessionLabel),
   ]);
 
-  const byClassId = new Map(
-    classes.map((row) => [
-      row.id,
-      [row.class_name, row.section].filter(Boolean).join(" "),
-    ]),
+  const aliasById = new Map(aliases.map((alias) => [alias.classId, alias]));
+
+  const ordered = inSchoolOrder(
+    classes.map((row) => {
+      const alias = aliasById.get(row.id);
+      const preferred = alias?.displayName ?? alias?.timetableLabel;
+
+      return {
+        id: row.id,
+        label:
+          preferred ||
+          [row.class_name, row.section].filter(Boolean).join(" ") ||
+          "—",
+        sortOrder: alias?.sortOrder ?? row.sort_order ?? 0,
+      };
+    }),
   );
 
-  for (const alias of aliases) {
-    const preferred = alias.displayName ?? alias.timetableLabel;
-    if (preferred) byClassId.set(alias.classId, preferred);
-  }
+  return new Map(ordered.map((choice) => [choice.id, choice.label]));
+}
 
-  return byClassId;
+/**
+ * Every class as a choice, in the order the school puts them in.
+ *
+ * The one list four screens were each deriving for themselves, and each
+ * sorting alphabetically — which gives Class 1, Class 10, Class 11, Class 12,
+ * Class 2 (B-06). The order already existed on both tables and was simply
+ * being thrown away by `[...map.entries()].sort(byLabel)`.
+ *
+ * Gated on being staff like `classLabelMap()`, and for the same reason: which
+ * classes the school has is not a privilege, and every teacher screen needs it.
+ */
+export async function listClassChoices(
+  sessionLabel: string,
+): Promise<ClassChoice[]> {
+  await assertStaff();
+
+  const [classes, aliases] = await Promise.all([
+    (async () => {
+      const { data, error } = await createAdminClient()
+        .schema(FEE_SCHEMA)
+        .from("classes")
+        .select("id, class_name, section, sort_order")
+        .eq("session_label", sessionLabel)
+        .returns<
+          {
+            id: string;
+            class_name: string;
+            section: string | null;
+            sort_order: number | null;
+          }[]
+        >();
+
+      if (error) {
+        throw new Error(`Could not read the classes: ${error.message}`);
+      }
+      return data;
+    })(),
+    listClassAliases(sessionLabel),
+  ]);
+
+  const aliasById = new Map(aliases.map((alias) => [alias.classId, alias]));
+
+  return inSchoolOrder(
+    classes.map((row) => {
+      const alias = aliasById.get(row.id);
+      const label =
+        alias?.displayName ??
+        alias?.timetableLabel ??
+        [row.class_name, row.section].filter(Boolean).join(" ");
+
+      return {
+        id: row.id,
+        label: label || "—",
+        // The alias sort order wins when the school set one: it is the order
+        // they chose to see, and the fee app own is what it falls back to.
+        sortOrder: alias?.sortOrder ?? row.sort_order ?? 0,
+      };
+    }),
+  );
 }
 
 /* --------------------------------------------------------------- subjects */

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
+import { AuthoredText } from "@/ui/authored-text";
 import { m } from "@/messages";
 import { dayLabel } from "@/platform/dates";
 import { getSchoolName } from "@/platform/env";
@@ -82,7 +83,10 @@ export default async function StaffTokenPage(props: PageProps<"/t/[token]">) {
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold text-foreground">
-                    {language === "en" ? request.titleEn : request.titleHi}
+                    <AuthoredText
+                      value={{ hi: request.titleHi, en: request.titleEn }}
+                      language={language}
+                    />
                   </span>
                   <span className="block truncate text-[12px] text-subtle-foreground">
                     {request.classLabel}

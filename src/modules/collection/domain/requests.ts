@@ -32,8 +32,14 @@ export const requestStatusLabels: Record<RequestStatus, Localized> = {
 export type CollectionRequest = {
   id: string;
   sessionLabel: string;
-  titleHi: string;
-  titleEn: string;
+  /**
+   * The title, as authored. **One half may be null**, because the office types
+   * it in whichever language it thinks in and asking for both doubles the most
+   * common task in the app (B-05). `readAuthored()` decides what a given
+   * reader sees and whether it fell back.
+   */
+  titleHi: string | null;
+  titleEn: string | null;
   classId: string;
   classLabel: string;
   assignedStaffId: string | null;
@@ -156,16 +162,21 @@ export function outstandingRows(
 
 /* ----------------------------------------------------------- validation */
 
-const line = (max: number, hi: string, en: string) =>
+/** An optional authored half: trimmed, length-capped, blank becomes null. */
+const authoredLine = (max: number) =>
   z
     .string()
     .trim()
-    .min(1, { message: encodeMessage(t(hi, en)) })
-    .max(max, { message: encodeMessage(t("बहुत लंबा है", "That is too long")) });
+    .max(max, { message: encodeMessage(t("बहुत लंबा है", "That is too long")) })
+    .transform((value) => (value === "" ? null : value))
+    .nullable();
 
 export const requestSchema = z.object({
-  titleHi: line(120, "हिन्दी शीर्षक भरें", "Give it a Hindi title"),
-  titleEn: line(120, "अंग्रेज़ी शीर्षक भरें", "Give it an English title"),
+  // Neither half is required on its own; the refinement below asks for one of
+  // them. Requiring both is what made a one-language school type every title
+  // twice (B-05, PLAN §3a).
+  titleHi: authoredLine(120),
+  titleEn: authoredLine(120),
   classId: z.uuid({
     message: encodeMessage(t("कक्षा चुनें", "Choose a class")),
   }),
@@ -200,6 +211,21 @@ export const requestSchema = z.object({
     .transform((value) => (value === "" ? null : value))
     .nullable(),
 });
+
+/**
+ * One title, in whichever language it was typed.
+ *
+ * A refinement rather than two required fields, and reported against
+ * `titleHi` so the message lands on a field the form actually renders — an
+ * error attached to nothing at all is an error nobody sees.
+ */
+export const requestInputSchema = requestSchema.refine(
+  (value) => Boolean(value.titleHi ?? value.titleEn),
+  {
+    path: ["titleHi"],
+    message: encodeMessage(t("शीर्षक भरें", "Give it a title")),
+  },
+);
 
 export type RequestInput = z.infer<typeof requestSchema>;
 

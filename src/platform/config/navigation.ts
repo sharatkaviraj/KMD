@@ -172,6 +172,10 @@ export const NON_NAV_SCREENS = [
   "/access-denied",
   "/calendar",
   "/enrolments",
+  // Your own settings. Not a tab for the same reason the calendar is not: it
+  // is somewhere you go twice a year, and it is reached from the More hub and
+  // from the sign-out corner of the top bar rather than from the thumb bar.
+  "/preferences",
 ] as const;
 
 /* ------------------------------------------------- where each role starts */

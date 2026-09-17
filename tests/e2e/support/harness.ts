@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
-import type { Page } from "@playwright/test";
+import type { Browser, BrowserContext, Page } from "@playwright/test";
 
 import { qaAccount } from "../../fixtures/qa-accounts";
 
@@ -165,4 +165,54 @@ export async function ownClassOf(accountKey: string) {
     sessionLabel,
     childCount: (roll ?? []).length,
   };
+}
+
+/* ------------------------------------------------- signing in once, not often */
+
+/**
+ * The cookies for an account, minted once and reused.
+ *
+ * `signIn()` asks Supabase for a fresh one-time link every time it is called,
+ * and a suite that does that eighteen times in a minute gets rate-limited —
+ * which surfaces as "sign-in bounced to /login" on whichever cases happen to
+ * run last, and reads exactly like a permission bug. It is not one: it is a
+ * fixture asking a real service for more one-time tokens than it will give.
+ *
+ * So a suite with many cases per account signs in once per account and hands
+ * the session to each page. Tests that are *about* signing in keep calling
+ * `signIn()` directly, because reusing a session would not test the door.
+ */
+const sessions = new Map<string, Awaited<ReturnType<BrowserContext["cookies"]>>>();
+
+export async function sessionCookies(browser: Browser, accountKey: string) {
+  const cached = sessions.get(accountKey);
+  if (cached) return cached;
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  await signIn(page, accountKey);
+  const cookies = await context.cookies();
+
+  await context.close();
+  sessions.set(accountKey, cookies);
+
+  return cookies;
+}
+
+/** Put an account's session on this page, then go to `path`. */
+export async function openAs(
+  page: Page,
+  browser: Browser,
+  accountKey: string,
+  path: string,
+) {
+  await page.context().addCookies(await sessionCookies(browser, accountKey));
+  await page.goto(path);
+
+  if (page.url().includes("/login")) {
+    throw new Error(`${accountKey}: the reused session did not open ${path}`);
+  }
+
+  return qaAccount(accountKey);
 }

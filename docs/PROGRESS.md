@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R1.3 below.**
+**Active queue: PLAN revision 2. The next task is R2.1 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -23,7 +23,7 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | done | `r0-3-expectations-and-journeys` · `npm run smoke:workflows` · `docs/evidence/R0.3-2026-09-17.md`, `docs/evidence/R0.3-smoke-roles-2026-09-17.json` |
 | R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | done | `r1-1-app-registry` · `src/platform/config/apps.ts`, `/apps` · `docs/evidence/R1.1-2026-09-17.md` |
 | R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | done | `r1-2-role-navigation` · `homeFor()`, `NAV_PRIORITY`, `sidebarFor()` · `docs/evidence/R1.2-2026-09-17.md` |
-| R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | todo | — |
+| R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | done | `r1-3-shared-states` · `authored.ts`, `AuthoredText`, `/preferences`, `class-order.ts` · `docs/evidence/R1.3-2026-09-17.md` |
 | R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | todo | — |
 | R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | todo | — |
 | R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | todo | — |
@@ -224,6 +224,51 @@ mechanism stays tested against a made-up expectation now the live list is
 empty — a test that only exercised real rows would stop running the day the
 last one was fixed.
 
+### R1.3 — a title is text somebody typed, and a class list is in school order
+
+**B-05 and B-14 were holding each other up.** Both title columns were NOT
+NULL, so a Hindi school typed every request title twice — and all four screens
+that rendered one did `language === "en" ? titleEn : titleHi`, which is a
+blank title the moment only one half exists. Migration `20260917110132` makes
+one half enough and checks that one survives; `readAuthored()` decides what a
+reader sees **and whether it fell back**; `AuthoredText` is the one component
+all four sites use. The fallback is visible — a Hindi reader gets "in English"
+beside an English title — because hiding it is how somebody decides the app is
+half-translated and stops trusting the rest.
+
+**B-06 closed.** The order already existed on both tables and was being thrown
+away by `[...map.entries()].sort(byLabel)`. `classLabelMap()` is built in
+school order now, so three screens simply stopped sorting and the fourth — a
+teacher's own classes, a subset — ranks against it. A test scans every source
+file for the two shapes that caused it. **Correction to R0.1: four screens, not
+five.** `/timetable` sorts staff names, which is right.
+
+**Self-service language** (PLAN §3a). `/preferences` writes one column on the
+row belonging to whoever is asking, found by their own `user_id` — no id in the
+form to tamper with. Each option is written in its own language, because
+somebody on a screen they cannot read needs to recognise the word for theirs.
+It sits in the top bar beside sign-out: both are about the person, a teacher's
+bar is already full so More is not a tab she has, and this is the one setting
+somebody may need *because* they cannot read the screen they are on.
+
+**B-23 closed**: `Section` names its landmark from its own heading, and `Field`
+gained a hint slot above the control rather than below it.
+
+**The phone baseline found the smallest target in the app.** Six screens at
+360/390/430px, checking no horizontal scroll and no target under 44px. The
+first run failed on `← मेरा दिन` at **20px** — the `PageHeader` back link, on
+the screen a teacher opens most, reached with a thumb while holding a register.
+It is 44px now. The check's first version also failed every form, and that was
+the check being wrong: a checkbox is 20px inside a 48px row that is the target.
+
+One fixture bug worth keeping: eighteen cases signing in individually asked
+Supabase for eighteen one-time links in a minute, got rate-limited, and the
+refusal read exactly like a permission bug. One session per account now,
+except for the tests that are about signing in.
+
+Client JS is **1,309.9 KB in 39 files** against R0.1's 1,293.2 KB — +1.3 %,
+inside the R7.1 ratchet.
+
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows
 may proceed. Every done row needs branch, delivery commit, evidence and remaining
@@ -249,6 +294,7 @@ version the MCP recorded (D-22), so this list and
 | Version | File | Task |
 |---|---|---|
 | 20260917093746 | `create_qa_fixture_runs` | R0.2 |
+| 20260917110132 | `collection_request_title_is_authored` | R1.3 |
 | 20260916191746 | `create_vppsone_schema` | 1.1 |
 | 20260916191757 | `create_staff_profiles` | 1.1 |
 | 20260916191935 | `expose_vppsone_to_postgrest` | 1.1 |

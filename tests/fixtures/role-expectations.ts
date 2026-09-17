@@ -98,6 +98,12 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     allow: EVERYONE,
     because: "Somewhere you are sent, never somewhere you go.",
   },
+  {
+    route: "/preferences",
+    allow: EVERYONE,
+    because:
+      "Your own settings, on your own profile row. PLAN §3a asks for self-service language choice, and the one setting somebody may need precisely because they cannot read the screen they are on cannot be gated behind a role.",
+  },
 
   /* ------------------------------------------------------- the teacher's day */
 

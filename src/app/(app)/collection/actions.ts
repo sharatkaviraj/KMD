@@ -35,7 +35,10 @@ import {
   storeDocument,
 } from "@/modules/collection/data/documents-repo";
 import { fieldSchema, slugFieldKey } from "@/modules/collection/domain/fields";
-import { requestSchema, type RequestStatus } from "@/modules/collection/domain/requests";
+import {
+  requestInputSchema,
+  type RequestStatus,
+} from "@/modules/collection/domain/requests";
 import { decideSchema } from "@/modules/collection/domain/review";
 import {
   checkDocument,
@@ -139,7 +142,7 @@ export async function createRequestAction(
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);
 
-  const parsed = requestSchema.safeParse({
+  const parsed = requestInputSchema.safeParse({
     titleHi: (formData.get("titleHi") ?? "").toString(),
     titleEn: (formData.get("titleEn") ?? "").toString(),
     classId: (formData.get("classId") ?? "").toString(),

@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 
+import { authoredPlain, authoredTitle } from "@/ui/authored-text";
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
@@ -75,15 +76,15 @@ export default async function RequestPage(props: PageProps<"/collection/[id]">) 
   const waiting = outstandingRows(roll, request.fields);
   const link = requestUrl(origin, request.token);
 
-  const message = `${language === "en" ? request.titleEn : request.titleHi} — ${request.classLabel}\n${link}`;
+  const title = { hi: request.titleHi, en: request.titleEn };
+  // The sender's own language: this is the text they will paste into WhatsApp,
+  // and an empty half would make it start with a dash (B-14).
+  const message = `${authoredPlain(title, language)} — ${request.classLabel}\n${link}`;
 
   return (
     <>
       <PageHeader
-        title={t(
-          language === "en" ? request.titleEn : request.titleHi,
-          request.titleEn,
-        )}
+        title={authoredTitle(title, m.collectionTitle)}
         description={t(request.classLabel, request.classLabel)}
         language={language}
         back={BACK}

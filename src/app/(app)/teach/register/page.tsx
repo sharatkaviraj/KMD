@@ -85,9 +85,8 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
   /* ------------------------------------------------- nothing chosen */
 
   if (!requestedClass) {
-    const choices = [...labels.entries()].sort((a, b) =>
-      a[1].localeCompare(b[1], "en"),
-    );
+    // No sort: the map arrives in school order (B-06).
+    const choices = [...labels.entries()];
 
     return (
       <>

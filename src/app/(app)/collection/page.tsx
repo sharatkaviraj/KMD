@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
+import { AuthoredText } from "@/ui/authored-text";
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
@@ -66,9 +67,10 @@ export default async function CollectionPage() {
     pendingSubmissionCount(),
   ]);
 
-  const classes = [...labels.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.label.localeCompare(b.label, "en"));
+  // No sort: `classLabelMap()` is built in school order, and sorting the
+  // labels as text is what put Class 10, 11 and 12 between Class 1 and Class 2
+  // on four screens (B-06).
+  const classes = [...labels.entries()].map(([id, label]) => ({ id, label }));
 
   const people = everybody
     .filter((person) => person.isActive)
@@ -122,7 +124,10 @@ export default async function CollectionPage() {
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold text-foreground">
-                      {language === "en" ? request.titleEn : request.titleHi}
+                      <AuthoredText
+                        value={{ hi: request.titleHi, en: request.titleEn }}
+                        language={language}
+                      />
                     </span>
                     <span className="block truncate text-[12px] text-subtle-foreground">
                       {request.classLabel}

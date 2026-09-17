@@ -18,6 +18,7 @@ import {
 } from "@/modules/attendance/data/attendance-repo";
 import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
+import { rankOf } from "@/modules/academics/domain/class-order";
 import {
   canMarkClass,
   isEditable,
@@ -104,7 +105,14 @@ export default async function AttendancePage(
           classLabel: labels.get(classId) ?? "—",
         }));
 
-    choices.sort((a, b) => a.classLabel.localeCompare(b.classLabel, "en"));
+    // A subset of the classes — this teacher's own — so it needs the school's
+    // order applied rather than inherited from iterating the map (B-06).
+    const rank = rankOf(labels);
+    choices.sort(
+      (a, b) =>
+        (rank.get(a.classId) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.classId) ?? Number.MAX_SAFE_INTEGER),
+    );
 
     return (
       <>

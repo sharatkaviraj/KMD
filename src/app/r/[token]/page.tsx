@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { AuthoredText } from "@/ui/authored-text";
 import { m } from "@/messages";
 import { dayLabel } from "@/platform/dates";
 import { countOf, flat, primary, t } from "@/platform/i18n/language";
@@ -71,7 +72,10 @@ export default async function TokenRequestPage(props: PageProps<"/r/[token]">) {
         <div className="mx-auto max-w-md">
           <div className="flex items-baseline justify-between gap-3">
             <h1 className="truncate text-[17px] font-semibold">
-              {language === "en" ? request.titleEn : request.titleHi}
+              <AuthoredText
+                value={{ hi: request.titleHi, en: request.titleEn }}
+                language={language}
+              />
             </h1>
             {request.dueDate ? (
               <p className="shrink-0 text-[12px] opacity-90">

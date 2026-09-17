@@ -1007,6 +1007,21 @@ export const m = {
   appOpenThisChild: t("इस बच्चे को खोलें", "Open this child"),
   appFindThisChild: t("इस बच्चे को खोजें", "Find this child"),
   // The desktop sidebar's three groups, in the order a day runs.
+  // A title or a reason somebody typed, shown to a reader whose language it
+  // was not written in. Short, because it sits beside the text itself.
+  preferencesTitle: t("आपकी सेटिंग", "Your settings"),
+  preferencesLanguageHint: t(
+    "आप ऐप किस भाषा में पढ़ना चाहते हैं। कभी भी बदल सकते हैं।",
+    "Which language you read the app in. You can change it whenever you like.",
+  ),
+  authoredInEnglish: t("अंग्रेज़ी में", "in English"),
+  authoredInHindi: t("हिन्दी में", "in Hindi"),
+  authoredTitleHint: t(
+    "एक ही भाषा काफ़ी है। दूसरी भाषा चाहें तो नीचे भर दें।",
+    "One language is enough. Add the other only if you want to.",
+  ),
+  authoredOptional: t("वैकल्पिक", "Optional"),
+
   navGroupToday: t("आज का काम", "Today's work"),
   navGroupRecords: t("रिकॉर्ड", "Records"),
   navGroupSetup: t("व्यवस्था", "Setup"),

@@ -27,6 +27,7 @@ import {
   type MessageTemplate,
 } from "@/modules/collection/domain/messages";
 import { documentKindLabels, documentKinds } from "@/modules/collection/domain/review";
+import { optionalHalf, requiredHalf } from "@/platform/i18n/authored";
 import { primary } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { Checkbox, Field, Input, Notice, Select, Textarea } from "@/ui/primitives";
@@ -43,6 +44,8 @@ export function NewRequestForm({
   fields: CollectionField[];
 }) {
   const language = useLanguage();
+  const required = requiredHalf(language);
+  const optional = optionalHalf(language);
   const [state, action, pending] = useActionState(
     createRequestAction,
     idleCollectionState,
@@ -54,12 +57,35 @@ export function NewRequestForm({
         <Notice tone="danger" text={state.message} language={language} />
       ) : null}
 
+      {/* **One title, in the language the author thinks in.** Both halves were
+          required, so a school that works in Hindi typed every title twice to
+          buy a translation nobody asked for (B-05). The reader half is asked
+          for; the other is offered. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={m.name} htmlFor="title-en" language={language}>
-          <Input id="title-en" name="titleEn" required maxLength={120} />
+        <Field
+          label={language === "en" ? m.name : m.languageHindi}
+          htmlFor={`title-${required}`}
+          hint={m.authoredTitleHint}
+          language={language}
+        >
+          <Input
+            id={`title-${required}`}
+            name={required === "en" ? "titleEn" : "titleHi"}
+            required
+            maxLength={120}
+          />
         </Field>
-        <Field label={m.languageHindi} htmlFor="title-hi" language={language}>
-          <Input id="title-hi" name="titleHi" required maxLength={120} />
+        <Field
+          label={optional === "en" ? m.name : m.languageHindi}
+          htmlFor={`title-${optional}`}
+          hint={m.authoredOptional}
+          language={language}
+        >
+          <Input
+            id={`title-${optional}`}
+            name={optional === "en" ? "titleEn" : "titleHi"}
+            maxLength={120}
+          />
         </Field>
       </div>
 

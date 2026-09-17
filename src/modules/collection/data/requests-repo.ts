@@ -44,8 +44,8 @@ export function generateToken(): string {
 type RequestRow = {
   id: string;
   session_label: string;
-  title_hi: string;
-  title_en: string;
+  title_hi: string | null;
+  title_en: string | null;
   class_id: string;
   class_label: string;
   assigned_staff_id: string | null;

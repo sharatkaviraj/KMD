@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, SlidersHorizontal } from "lucide-react";
 
 import { logoutAction } from "@/app/login/actions";
 import { m } from "@/messages";
@@ -91,6 +91,23 @@ export function AppShell({
 
             <div className="ml-auto flex items-center gap-2">
               <EnvironmentBadge language={language} />
+              {/* Your own settings, beside sign-out because both are about the
+                  person rather than the school. In the top bar rather than on
+                  the thumb bar or in More: a teacher bar is already full, so
+                  More is not a tab she has, and the language is the one
+                  setting somebody may need precisely because they cannot read
+                  the screen they are on. */}
+              <Link
+                href="/preferences"
+                aria-label={flat(m.preferencesTitle, language)}
+                className={cn(
+                  "focus-ring flex size-11 items-center justify-center rounded-xl",
+                  "text-nav-muted transition-colors hover:bg-white/10 hover:text-nav-foreground",
+                  "focus-visible:ring-offset-nav",
+                )}
+              >
+                <SlidersHorizontal className="size-[18px]" aria-hidden />
+              </Link>
               {/* A sign-out that is a form, not a link: signing out is a state
                   change, and a GET that mutates is a GET a prefetch can fire. */}
               <form action={logoutAction}>
@@ -146,9 +163,14 @@ export function PageHeader({
   return (
     <div className="mb-5">
       {back ? (
+        // 44px tall, with the text still at 13px. It was a 20px inline link —
+        // the smallest target in the app, on the screen a teacher opens most,
+        // and the one she reaches for with a thumb while holding a register.
+        // The negative margin keeps the extra height from pushing the title
+        // down, so nothing below it moved.
         <Link
           href={back.href}
-          className="focus-ring mb-2 inline-block rounded text-[13px] font-medium text-muted-foreground hover:text-foreground"
+          className="focus-ring -ml-2 mb-0.5 inline-flex min-h-11 items-center rounded-lg px-2 text-[13px] font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground"
         >
           ← {primary(back.label, language)}
         </Link>
