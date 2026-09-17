@@ -47,6 +47,8 @@ import {
   teacherDetailsFrom,
   vacanciesFor,
 } from "../src/modules/substitutions/domain/plan.ts";
+import { attendancePercent } from "../src/modules/attendance/domain/attendance.ts";
+import { buildReportCard } from "../src/modules/assessments/domain/report-card.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
@@ -1001,4 +1003,400 @@ if (targetClass.roll[0]) {
 
   console.log(`documents: 1 stored at ${path}`);
 }
+
+/* ---------------------------------------------------------- assessments */
+//
+// Two exams in one term, so a report card has more than one column to print,
+// and marks in **every state the grid distinguishes**: a number, a nought, an
+// absence, and a paper nobody has touched. Those four are the whole reason
+// `isEntered()` exists — a seed with only numbers in it would let a grid that
+// reads a nought as a blank pass unnoticed.
+
+const { data: subjectRows, error: subjectError } = await db
+  .from("subjects")
+  .select("id, code")
+  .eq("is_active", true)
+  .order("sort_order");
+die("Could not read the subjects", subjectError);
+
+// Whichever subjects this class is actually taught, so a paper is never set in
+// a subject nobody teaches it.
+const taughtCodes = [
+  ...new Set(
+    slots
+      .filter((slot) => slot.classId === targetClass.classId)
+      .map((slot) => slot.subjectCode),
+  ),
+];
+
+const examSubjects = subjectRows
+  .filter((row) => taughtCodes.includes(row.code))
+  .slice(0, 4);
+
+if (examSubjects.length === 0) {
+  console.error("No subjects to examine — is the timetable seeded?");
+  process.exit(1);
+}
+
+const TERM = "Term 1";
+
+// Delete-then-insert: the papers, marks and change log all cascade off the
+// exam, so this is what makes a second run leave the same database.
+die(
+  "Could not clear the old exams",
+  (
+    await db
+      .from("assessments")
+      .delete()
+      .eq("session_label", sessionLabel)
+      .eq("term", TERM)
+      .in("code", ["FA1", "SA1"])
+  ).error,
+);
+
+const { data: exams, error: examError } = await db
+  .from("assessments")
+  .insert([
+    {
+      session_label: sessionLabel,
+      term: TERM,
+      code: "FA1",
+      label_hi: "प्रथम सतत मूल्यांकन",
+      label_en: "First formative",
+      kind: "formative",
+      // Out of 20 and worth half as much as the half-yearly: the report card's
+      // weighting only means anything when two exams disagree about it.
+      weight: 1,
+      status: "open",
+      starts_on: isoDay(-40),
+      ends_on: isoDay(-36),
+      created_by: null,
+    },
+    {
+      session_label: sessionLabel,
+      term: TERM,
+      code: "SA1",
+      label_hi: "अर्धवार्षिक परीक्षा",
+      label_en: "Half yearly",
+      kind: "summative",
+      weight: 2,
+      status: "open",
+      starts_on: isoDay(-14),
+      ends_on: isoDay(-8),
+      created_by: null,
+    },
+  ])
+  .select("id, code, term, label_hi, label_en, weight");
+die("Could not create the exams", examError);
+
+// A second class, examined but unmarked, so "who has not entered yet" has
+// somebody real to name rather than being empty on a seeded database.
+const otherClassId = [...new Set(enrolments.map((row) => row.class_id))].find(
+  (classId) => classId !== targetClass.classId,
+);
+
+// The timetable only labels classes that have lessons on it, so the fee
+// schema is the source here — a class examined but not timetabled would
+// otherwise be seeded onto the board as the word "Class".
+const { data: classRows } = await db
+  .schema("public")
+  .from("classes")
+  .select("id, class_name, section")
+  .eq("session_label", sessionLabel);
+
+// Name and section joined the same way `classLabelMap()` joins them, so a
+// paper's stored label reads as the rest of the app would have written it.
+const classNames = new Map(
+  (classRows ?? []).map((row) => [
+    row.id,
+    [row.class_name, row.section].filter(Boolean).join(" "),
+  ]),
+);
+
+const labelFor = (classId) =>
+  classNames.get(classId) ??
+  slots.find((slot) => slot.classId === classId)?.classLabel ??
+  "Class";
+
+const paperRows = [];
+
+for (const exam of exams) {
+  const outOf = exam.code === "FA1" ? 20 : 80;
+
+  examSubjects.forEach((subject, index) => {
+    paperRows.push({
+      assessment_id: exam.id,
+      class_id: targetClass.classId,
+      class_label: targetClassLabel,
+      subject_id: subject.id,
+      subject_code: subject.code,
+      max_marks: outOf,
+      pass_marks: Math.round(outOf * 0.33),
+      sort_order: index,
+    });
+
+    if (otherClassId && exam.code === "SA1") {
+      paperRows.push({
+        assessment_id: exam.id,
+        class_id: otherClassId,
+        class_label: labelFor(otherClassId),
+        subject_id: subject.id,
+        subject_code: subject.code,
+        max_marks: outOf,
+        pass_marks: Math.round(outOf * 0.33),
+        sort_order: index,
+      });
+    }
+  });
+}
+
+const { data: papers, error: paperError } = await db
+  .from("assessment_subjects")
+  .insert(paperRows)
+  .select(
+    "id, assessment_id, class_id, class_label, subject_id, subject_code, max_marks, pass_marks, sort_order",
+  );
+die("Could not create the papers", paperError);
+
+const ourPapers = papers.filter((paper) => paper.class_id === targetClass.classId);
+
+// The last two children on the roll are left unmarked on every paper, so the
+// board's outstanding count and the report card's "not entered" both have
+// something true to say.
+const marked = targetClass.roll.slice(0, -2);
+const SPREAD = [0.92, 0.81, 0.74, 0.66, 0.58, 0.47, 0.35];
+const codeOf = new Map(exams.map((exam) => [exam.id, exam.code]));
+
+const examMarks = [];
+
+for (const paper of ourPapers) {
+  const isFormative = codeOf.get(paper.assessment_id) === "FA1";
+
+  marked.forEach((student, index) => {
+    // One child away for one paper, one child on nought. A nought is a mark
+    // somebody gave and must read as entered everywhere; an absence is not a
+    // mark at all, and the column check refuses to store a value beside it.
+    const absent = index === 0 && paper.sort_order === 0;
+    const zero = index === 1 && paper.sort_order === 1;
+
+    // The first child picked up after the formative: weak in the one that
+    // counts once, strong in the one that counts double. Without somebody
+    // shaped like this the weighting is invisible on seeded data — every
+    // child scoring the same share of both papers gets the same percentage
+    // whether it is weighted or not, and a smoke test that cannot tell the
+    // two apart is not testing the thing.
+    const share =
+      index === 0
+        ? isFormative
+          ? 0.4
+          : 0.88
+        : SPREAD[index % SPREAD.length];
+
+    examMarks.push({
+      assessment_subject_id: paper.id,
+      student_id: student.student_id,
+      value: absent ? null : zero ? 0 : Math.round(paper.max_marks * share * 2) / 2,
+      absent,
+      entered_by: raj?.id ?? null,
+    });
+  });
+}
+
+die("Could not write the marks", (await db.from("marks").insert(examMarks)).error);
+
+// One mark corrected after the fact, with both sides of it kept. This is the
+// write the log exists for: "it was 68 last week" needs an answer that does
+// not depend on anybody remembering.
+const corrected = examMarks.find(
+  (row) => !row.absent && row.value !== null && row.value > 5,
+);
+
+if (corrected) {
+  const wasValue = corrected.value;
+  const nowValue = wasValue - 4;
+
+  die(
+    "Could not correct a mark",
+    (
+      await db
+        .from("marks")
+        .update({ value: nowValue })
+        .eq("assessment_subject_id", corrected.assessment_subject_id)
+        .eq("student_id", corrected.student_id)
+    ).error,
+  );
+
+  corrected.value = nowValue;
+
+  die(
+    "Could not write the change log",
+    (
+      await db.from("marks_change_log").insert({
+        assessment_subject_id: corrected.assessment_subject_id,
+        student_id: corrected.student_id,
+        from_value: wasValue,
+        to_value: nowValue,
+        from_absent: false,
+        to_absent: false,
+        reason: "Re-totalled: a page was missed in marking.",
+        changed_by: raj?.id ?? null,
+      })
+    ).error,
+  );
+}
+
+console.log(
+  `assessments: ${exams.length} exams, ${papers.length} papers ` +
+    `(${papers.length - ourPapers.length} nobody has marked), ` +
+    `${examMarks.length} marks — 1 absent, 1 nought, ${targetClass.roll.length - marked.length} children blank, 1 corrected`,
+);
+
+/* ------------------------------------------------------- a report card */
+//
+// Built by `buildReportCard()` itself, loaded from source, for the same reason
+// the cover plan is produced by the engine: a hand-written payload here would
+// seed a card the app could never have produced, and the snapshot is the whole
+// point of the table.
+
+const cardStudent = targetClass.roll[0];
+
+if (cardStudent) {
+  const { data: studentRow } = await db
+    .schema("public")
+    .from("students")
+    .select("id, full_name, admission_no, father_name")
+    .eq("id", cardStudent.student_id)
+    .maybeSingle();
+
+  // The child's own attendance, read back from what was seeded above, so the
+  // card's percentage and the register agree.
+  const { data: registers } = await db
+    .from("attendance_registers")
+    .select("id")
+    .eq("class_id", targetClass.classId)
+    .in("day", registerDays);
+
+  const { data: attendanceMarks } = await db
+    .from("attendance_marks")
+    .select("status")
+    .eq("student_id", cardStudent.student_id)
+    .in("register_id", (registers ?? []).map((row) => row.id));
+
+  const summary = attendancePercent(
+    (attendanceMarks ?? []).map((row) => row.status),
+  );
+
+  const card = buildReportCard({
+    sessionLabel,
+    term: TERM,
+    student: {
+      id: cardStudent.student_id,
+      fullName: studentRow?.full_name ?? "Student",
+      admissionNo: studentRow?.admission_no ?? null,
+      rollNo: cardStudent.roll_no,
+      classLabel: targetClassLabel,
+      fatherName: studentRow?.father_name ?? null,
+    },
+    assessments: exams.map((exam) => ({
+      id: exam.id,
+      sessionLabel,
+      term: exam.term,
+      code: exam.code,
+      labelHi: exam.label_hi,
+      labelEn: exam.label_en,
+      kind: "summative",
+      startsOn: null,
+      endsOn: null,
+      weight: Number(exam.weight),
+      status: "open",
+      lockedAt: null,
+      lockedByName: null,
+    })),
+    papers: ourPapers.map((paper) => ({
+      id: paper.id,
+      assessmentId: paper.assessment_id,
+      classId: paper.class_id,
+      classLabel: paper.class_label,
+      subjectId: paper.subject_id,
+      subjectCode: paper.subject_code,
+      maxMarks: Number(paper.max_marks),
+      passMarks: paper.pass_marks === null ? null : Number(paper.pass_marks),
+      sortOrder: paper.sort_order,
+    })),
+    marks: new Map(
+      examMarks
+        .filter((row) => row.student_id === cardStudent.student_id)
+        .map((row) => [
+          `${row.assessment_subject_id}|${row.student_id}`,
+          {
+            studentId: row.student_id,
+            value: row.value,
+            absent: row.absent,
+            enteredByName: null,
+            enteredAt: new Date().toISOString(),
+          },
+        ]),
+    ),
+    attendance:
+      summary.counted === 0
+        ? null
+        : {
+            present: summary.present,
+            counted: summary.counted,
+            percent: summary.percent,
+          },
+    generatedAt: new Date().toISOString(),
+  });
+
+  die(
+    "Could not issue the report card",
+    (
+      await db.from("report_cards").upsert(
+        {
+          session_label: sessionLabel,
+          student_id: cardStudent.student_id,
+          term: TERM,
+          payload: card,
+          generated_by: raj?.id ?? null,
+        },
+        { onConflict: "session_label,student_id,term" },
+      )
+    ).error,
+  );
+
+  console.log(
+    `report card: 1 issued — ${card.rows.length} subjects, ` +
+      `${card.totals.scored}/${card.totals.outOf} (${card.totals.percent ?? "—"}%), ` +
+      `grade ${card.grade ?? "—"}`,
+  );
+}
+
+/* -------------------------------------------------------- the export log */
+
+await db.from("academic_exports").delete().eq("session_label", sessionLabel);
+
+die(
+  "Could not write the export log",
+  (
+    await db.from("academic_exports").insert([
+      {
+        session_label: sessionLabel,
+        kind: "marks",
+        scope: `${TERM} SA1`,
+        row_count: examMarks.length,
+        exported_by: raj?.id ?? null,
+      },
+      {
+        session_label: sessionLabel,
+        kind: "report_cards",
+        scope: `${TERM} · ${targetClassLabel}`,
+        row_count: 1,
+        exported_by: raj?.id ?? null,
+      },
+    ])
+  ).error,
+);
+
+console.log("exports: 2 logged");
+
 console.log("\nseeded.");

@@ -17,6 +17,7 @@ import {
   type AttendanceStatus,
 } from "@/modules/attendance/domain/attendance";
 import { deleteDocumentAction } from "@/app/(app)/collection/actions";
+import { termSummaries } from "@/modules/assessments/data/reports-repo";
 import {
   documentsForStudent,
   recordsForStudent,
@@ -60,9 +61,9 @@ const rupees = (amount: number) =>
  *    need a family's dues in order to teach, and putting them on a screen
  *    opened in a corridor invites the conversation the office should be having.
  *
- * Marks are the one thing named in the plan for this card that is not here:
- * the assessment tables arrive in Phase 6, and a placeholder would be a
- * promise the data cannot keep.
+ * Marks arrived in Phase 6 and are one row per term rather than a grid: the
+ * question this card answers is "how is this child doing", and the subject by
+ * subject answer is the report card, one tap away.
  */
 export default async function StudentPage(
   props: PageProps<"/teach/student/[id]">,
@@ -120,6 +121,12 @@ export default async function StudentPage(
     },
     { present: 0, absent: 0, late: 0, leave: 0 },
   );
+
+  // One row per term, so the card says how the child is doing without making
+  // anybody open a report to find out.
+  const termTotals = can(staff, "marks:view")
+    ? await termSummaries(studentId, sessionLabel)
+    : [];
 
   const phone = student.guardianPhone ?? student.primaryPhone;
   const classId = enrolment?.classId ?? student.classId;
@@ -254,6 +261,39 @@ export default async function StudentPage(
               </p>
             </Card>
           )}
+        </Section>
+      ) : null}
+
+      {/* --------------------------------------------------- the marks */}
+
+      {can(staff, "marks:view") && termTotals.length > 0 ? (
+        <Section className="mt-7" title={m.marksTitle} language={language}>
+          <ul className="space-y-2">
+            {termTotals.map((entry) => (
+              <li key={entry.term}>
+                <Link
+                  href={`/assessments/report/${studentId}?term=${encodeURIComponent(entry.term)}`}
+                  className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-foreground">
+                      {entry.term}
+                    </span>
+                    <span className="block truncate text-[12px] text-subtle-foreground">
+                      {entry.totals.scored} / {entry.totals.outOf}
+                      {entry.totals.missing > 0
+                        ? ` · ${entry.totals.missing} ${primary(m.progressMissing, language)}`
+                        : ""}
+                    </span>
+                  </span>
+                  <Badge tone={(entry.totals.percent ?? 0) >= 33 ? "success" : "warning"}>
+                    {entry.totals.percent === null ? "—" : `${entry.totals.percent}%`}
+                  </Badge>
+                  {entry.grade ? <Badge tone="accent">{entry.grade}</Badge> : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Section>
       ) : null}
 

@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   ClipboardCheck,
+  FileText,
   GraduationCap,
   Inbox,
   LayoutGrid,
@@ -78,6 +79,13 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: m.timetableTitle,
     icon: Table2,
     permission: "timetable:view",
+    ready: true,
+  },
+  {
+    href: "/assessments",
+    label: m.navAssessments,
+    icon: FileText,
+    permission: "assessments:view",
     ready: true,
   },
   {

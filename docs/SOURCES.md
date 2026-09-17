@@ -34,9 +34,9 @@ Next.js + Drizzle. `src/lib/` is the useful part.
 | `documents.ts`, `document-store.ts`, `photos.ts`, `photo-store.ts` | document and photo handling | **ported in shape** → `src/modules/collection/data/documents-repo.ts` (5.3), onto Supabase Storage rather than Vercel Blob. Photo capture and its separate rate budgets are not ported: nothing in VPPS One photographs a class yet |
 | `aisensy.ts`, `whatsapp*.ts`, `templates.ts`, `send-queue.ts` | the AiSensy integration, template registry, send queue and log | **ported in shape** → `src/modules/collection/{domain/messages.ts,data/messages-repo.ts}` (5.4). The dispatch seam is deliberately unconfigured: a parent-facing row is refused outright (D-10, D-76) and a staff one needs an `AISENSY_API_KEY` this repo does not carry. `reminders.ts` is Phase 7.2 |
 | `name-match.ts`, `phone.ts`, `precedence.ts`, `completeness.ts` | matching submissions to students, phone normalisation | Phase 5.2 |
-| `marks.ts`, `subjects.ts`, `progress.ts` | marks and progress shapes | Phase 6 |
+| `marks.ts`, `subjects.ts`, `progress.ts` | marks and progress shapes | **ported in shape** → `src/modules/assessments/domain/{assessments,report-card}.ts` (6.1–6.4). The shapes came across; the arithmetic did not. Sampark totals a subject over whatever marks exist, which reads an unmarked paper and a nought as the same thing — here they are three states, not two (D-79), an unmarked paper is out of both halves and an absence is a nought it is out of (D-81). `progress.ts` is the source of the rule that **finished papers stay on the board**, which is the one thing about it worth keeping verbatim |
 | `timetable-import.ts`, `teachers.ts`, `classes.ts` | how Sampark modelled the same data | compare before designing Phase 1–2 tables |
-| `excel.ts`, `student-export.ts` | export helpers | Phase 6.5 |
+| `excel.ts`, `student-export.ts` | export helpers | **not ported** (6.5). Both pull in a spreadsheet library to write `.xlsx`; VPPS One writes CSV in the browser and posts only the log row, so there is nothing to install and nothing to generate server-side. The BOM-and-CRLF quoting rule is the part taken — without it Excel opens Hindi as mojibake, which is what these files exist to avoid |
 
 Sampark uses Drizzle against its own database. Take the **logic and the shapes**,
 not the schema definitions — VPPS One's tables are defined in
@@ -49,7 +49,7 @@ Do not import from it and do not change it. Useful as a reference for:
 - the Supabase browser/server/admin client setup and the auth middleware
 - the UI kit and mobile shell patterns already proven on these users' phones
 - `src/modules/students` for how the student and class shapes are read
-- the PDF generation approach used for receipts (Phase 3.6, 6.4)
+- the PDF generation approach used for receipts (Phase 3.6, 6.4) — **not followed for the report card**: it prints from the browser instead (D-85)
 
 Its production database holds the real `students`, `classes` and `sessions` that
 VPPS One reads. Its dev twin — `schoolfees-dev` — is the database VPPS One is

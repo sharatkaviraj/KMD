@@ -799,6 +799,120 @@ export const m = {
     "Nobody is on this class's roll.",
   ),
 
+  /* --------------------------------------------------- assessments */
+  navAssessments: t("परीक्षा", "Exams"),
+  assessmentsTitle: t("परीक्षाएँ", "Exams"),
+  assessmentsIntro: t(
+    "हर परीक्षा के लिए कक्षा, विषय और पूर्णांक तय कीजिए।",
+    "Each exam needs its classes, its subjects and what each paper is out of.",
+  ),
+  assessmentsNone: t("अभी कोई परीक्षा नहीं है।", "No exams yet."),
+  assessmentNew: t("नई परीक्षा", "Add an exam"),
+  assessmentTerm: t("सत्र", "Term"),
+  assessmentCode: t("संक्षिप्त कोड", "Short code"),
+  assessmentKind: t("प्रकार", "Kind"),
+  assessmentWeight: t("भार", "Weight"),
+  assessmentWeightHint: t(
+    "प्रगति पत्र में यह परीक्षा कितनी गिनी जाएगी।",
+    "How much this exam counts towards the term.",
+  ),
+  assessmentStarts: t("कब से", "From"),
+  assessmentEnds: t("कब तक", "To"),
+  assessmentOpen: t("अंक भरना शुरू करें", "Open for marks"),
+  assessmentLock: t("बंद करें", "Lock"),
+  assessmentUnlock: t("फिर खोलें", "Unlock"),
+  assessmentLockHint: t(
+    "बंद परीक्षा में अंक नहीं बदले जा सकते।",
+    "No marks can be entered or changed while an exam is locked.",
+  ),
+  assessmentDelete: t("मसौदा हटाएँ", "Delete this draft"),
+
+  /* ------------------------------------------------------- papers */
+  papersTitle: t("पेपर", "Papers"),
+  papersNone: t(
+    "अभी कोई पेपर नहीं जोड़ा गया।",
+    "No papers yet. A paper is one class, one subject and a total.",
+  ),
+  paperAdd: t("पेपर जोड़ें", "Add a paper"),
+  paperMax: t("पूर्णांक", "Out of"),
+  paperPass: t("उत्तीर्ण अंक", "Pass mark"),
+  paperSubject: t("विषय", "Subject"),
+
+  /* -------------------------------------------------------- marks */
+  marksTitle: t("अंक", "Marks"),
+  marksGrid: t("अंक भरें", "Enter marks"),
+  marksNone: t("भरने को कुछ नहीं है।", "Nothing to enter."),
+  marksAbsent: t("अनुपस्थित", "Absent"),
+  marksNotEntered: t("नहीं भरा", "Not entered"),
+  marksEntered: t("भरे गए", "entered"),
+  marksSaveRow: t("सहेजें", "Save"),
+  marksSaved: t("सहेज लिया", "Saved"),
+  marksLocked: t(
+    "यह परीक्षा बंद है।",
+    "This exam is locked, so marks cannot be changed.",
+  ),
+  marksChangeLog: t("बदलाव का लेखा", "Change log"),
+  marksChangeNone: t("अभी कोई बदलाव नहीं हुआ।", "Nothing has been changed yet."),
+  marksChangeReason: t("कारण", "Why"),
+  marksChangeReasonHint: t(
+    "पहले से भरे अंक बदल रहे हैं तो कारण लिखिए।",
+    "Changing a mark somebody has already seen? Say why.",
+  ),
+  marksWhoIsLeft: t("किनके अंक बाकी हैं", "Still to enter"),
+  marksAllIn: t("सब अंक भर चुके हैं।", "Every mark is in."),
+
+  /* ----------------------------------------------------- progress */
+  progressTitle: t("प्रगति", "Progress"),
+  progressPerPaper: t("पेपर के हिसाब से", "By paper"),
+  progressPerStudent: t("बच्चे के हिसाब से", "By child"),
+  progressTotal: t("कुल", "Total"),
+  progressPercent: t("प्रतिशत", "Percent"),
+  progressGrade: t("श्रेणी", "Grade"),
+  progressMissing: t("अंक बाकी", "papers unmarked"),
+  progressNoMarks: t("अभी कोई अंक नहीं है।", "No marks yet."),
+
+  /* -------------------------------------------------- report cards */
+  reportTitle: t("प्रगति पत्र", "Report card"),
+  reportNone: t("इस सत्र का कोई प्रगति पत्र नहीं है।", "No report card for this term."),
+  reportIssue: t("जारी करें", "Issue this card"),
+  reportReissue: t("फिर जारी करें", "Issue it again"),
+  reportIssued: t("जारी हो गया", "Issued"),
+  reportIssuedOn: t("जारी", "Issued"),
+  reportPreview: t("पूर्वावलोकन", "Preview"),
+  reportPreviewHint: t(
+    "यह आज के अंकों से बना है। जारी करने पर यही रुक जाएगा।",
+    "Built from today's marks. Issuing it freezes exactly this.",
+  ),
+  reportFrozenHint: t(
+    "जारी किया गया पत्र वैसा ही रहता है, बाद में अंक बदलें तब भी।",
+    "An issued card stays as it was, even if a mark changes later.",
+  ),
+  reportGradeDefault: t(
+    "श्रेणी की सीमाएँ अभी मानक हैं — विद्यालय से पुष्टि करनी है।",
+    "The grade bands are a common default and still need confirming with the school.",
+  ),
+  reportAttendance: t("उपस्थिति", "Attendance"),
+  reportSubject: t("विषय", "Subject"),
+  reportOutOf: t("पूर्णांक", "Out of"),
+  // Shown only when the exams in this term do not count equally — otherwise
+  // the percentage is exactly the two numbers beside it divided, and saying so
+  // would invite a question nobody had.
+  reportWeighted: t(
+    "प्रतिशत परीक्षाओं के भार के अनुसार निकाला गया है, इसलिए यह कुल के सीधे भाग से अलग है।",
+    "The percentage is weighted by what each exam counts for, so it is not the total divided straight.",
+  ),
+
+  /* -------------------------------------------------------- exports */
+  exportsTitle: t("निर्यात", "Exports"),
+  exportsIntro: t(
+    "जो भी निर्यात होता है उसका लेखा रखा जाता है।",
+    "Everything taken out of here is logged: who took what, and when.",
+  ),
+  exportMarks: t("अंक निर्यात करें", "Export marks"),
+  exportNone: t("अभी कुछ निर्यात नहीं हुआ।", "Nothing has been exported yet."),
+  exportRows: t("पंक्तियाँ", "rows"),
+  exportTakenBy: t("किसने लिया", "Taken by"),
+
   timetableClashFound: t(
     "एक ही समय पर दो जगह।",
     "The same teacher is expected in two different lessons at once.",
