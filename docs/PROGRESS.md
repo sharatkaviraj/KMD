@@ -17,7 +17,7 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 
 | Task | Bounded deliverable | Depends on | Status | Branch / commit / evidence |
 |---|---|---|---|---|
-| R0.1 | Complete source parity inventory, verify app/test origins and record baseline defects/metrics | Existing source + baseline | todo | `PARITY.md`, `QA-BASELINE-2026-09-17.md` are starting evidence |
+| R0.1 | Complete source parity inventory, verify app/test origins and record baseline defects/metrics | Existing source + baseline | done | `r0-1-parity-and-origins` · `docs/evidence/R0.1-2026-09-17.md`, `docs/evidence/R0.1-origins-2026-09-17.json`, `npm run verify:origins` |
 | R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | todo | — |
 | R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | todo | — |
 | R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | todo | — |
@@ -43,6 +43,32 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R8.1 | Full deep smoke matrix; fix P0/P1 with regression and cleanup evidence | R7.2 | todo | — |
 | R8.2 | CI/main/deployment verification, parity closure and rollback report | R8.1 | todo | — |
 | R8.3 | Timed teacher/office/admin and physical Android/webview/camera/print acceptance | R8.2 | todo | Code-delivered and staff-accepted are separate if physical evidence unavailable |
+
+### R0.1 — what it found
+
+The parity register is complete: 14 SamPark rows and 12 School Fees rows now
+carry source file, current state, destination, roles and owning phase, with
+S-12–S-14 subfeatures named and their deferrals recorded.
+
+Three findings change later tasks:
+
+- **The fee app is at `vpps-one.vercel.app`.** `schoolfees.vercel.app` is a
+  different company's product answering 200, and `sampark.vercel.app` errors.
+  Both are now refused by `tests/app-origins.test.ts`, and the three real
+  origins are re-checkable with `npm run verify:origins` (B-15).
+- **There is no staff-reachable test origin for either sibling.** School Fees
+  previews do run on schoolfees-dev but sit behind Vercel SSO; SamPark has no
+  test deployment at all. R6.2 as written cannot be executed until somebody
+  creates one — recorded as a gap, not worked around (B-16).
+- **The QA teacher holds no class.** `qa.teacher@qa.vpps.local` has zero
+  teaching assignments, so every "teacher" row in the 216-combination smoke is
+  a result about an empty teacher. R0.2 has to fix the fixtures before any
+  teacher workflow can be said to pass (B-17).
+
+Also: B-06 is five screens, not one — `/collection`, `/assessments/[id]`,
+`/timetable`, `/teach/attendance` and `/teach/register` all sort class labels
+with `localeCompare` and all ignore the `sort_order` column that already
+exists. Baseline for the R7.1 ratchet is **1,293.2 KB of client JS in 37 files**.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

@@ -21,7 +21,8 @@
     "dev:login": "node scripts/dev-login.mjs",
     "jobs:tokens": "node --import ./scripts/alias-hook.mjs scripts/job-tokens.mjs",
     "cutover:check": "node scripts/cutover-check.mjs",
-    "smoke:roles": "node --import ./scripts/alias-hook.mjs scripts/smoke-roles.mjs"
+    "smoke:roles": "node --import ./scripts/alias-hook.mjs scripts/smoke-roles.mjs",
+    "verify:origins": "node --import ./scripts/alias-hook.mjs scripts/verify-origins.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -1,0 +1,51 @@
+{
+  "checkedAt": "2026-09-17T09:32:38.935Z",
+  "expected": 3,
+  "executed": 3,
+  "failed": 0,
+  "notFetchedOnPurpose": [
+    "https://schoolfees.vercel.app",
+    "https://sampark.vercel.app"
+  ],
+  "results": [
+    {
+      "appId": "vppsone",
+      "origin": "https://vppsone.vercel.app",
+      "environment": "dev",
+      "url": "https://vppsone.vercel.app/login",
+      "status": 200,
+      "finalUrl": "https://vppsone.vercel.app/login",
+      "title": "साइन इन · VPPS One",
+      "identifiedBy": "VPPS One",
+      "ok": true,
+      "reason": null,
+      "elapsedMs": 433
+    },
+    {
+      "appId": "schoolfees",
+      "origin": "https://vpps-one.vercel.app",
+      "environment": "live",
+      "url": "https://vpps-one.vercel.app/",
+      "status": 200,
+      "finalUrl": "https://vpps-one.vercel.app/",
+      "title": "Shri Veer Patta Senior Secondary School | Fee Admin",
+      "identifiedBy": "Fee Admin",
+      "ok": true,
+      "reason": null,
+      "elapsedMs": 314
+    },
+    {
+      "appId": "sampark",
+      "origin": "https://sampark-theta-eight.vercel.app",
+      "environment": "live",
+      "url": "https://sampark-theta-eight.vercel.app/login",
+      "status": 200,
+      "finalUrl": "https://sampark-theta-eight.vercel.app/login",
+      "title": "Sign in — Sampark",
+      "identifiedBy": "Sampark",
+      "ok": true,
+      "reason": null,
+      "elapsedMs": 307
+    }
+  ]
+}

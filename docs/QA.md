@@ -25,9 +25,14 @@ R8 executes the entire suite and publishes a release report.
 - Mock messaging provider outcomes (success, slow, timeout, 429, 500, duplicate
   callback). Never use real recipients as failure fixtures.
 - Add a browser runner (e.g. Playwright) and axe checks during R0, only after
-  checking installed framework testing guidance. These are not current npm
-  scripts. Proposed commands: `qa:seed`, `qa:reset`, `smoke:workflows`, `qa:a11y`,
-  `qa:performance`; implement and document them before claiming they run.
+  checking installed framework testing guidance. Proposed commands: `qa:seed`,
+  `qa:reset`, `smoke:workflows`, `qa:a11y`, `qa:performance`; implement and
+  document them before claiming they run.
+- **Implemented so far:** `npm run verify:origins` (R0.1) fetches each origin in
+  `src/platform/config/app-origins.ts` and fails unless the response identifies
+  itself; `-- --json` writes a machine-readable record for `docs/evidence/`.
+  It refuses to run if the table does not cover every app id, because a run that
+  checked nothing must not exit 0.
 - Independent expected-role fixtures encode product requirements. Do not derive
   the sole expected result from the same guard/permission code under test.
 - Each case has timeout, role, route, fixture ID, expected/actual, elapsed time,

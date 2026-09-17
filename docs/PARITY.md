@@ -1,72 +1,177 @@
 # SamPark and School Fees — workflow parity register
 
-2026-09-17 baseline. Source inspection is not a live functional test. Complete
-this inventory in R0.1 and update it as implementation changes. `Native partial`
-means there is related code, not equivalent end-to-end behavior. `Link pending`
-means the original workflow exists in source but VPPS One has no verified handoff.
+Completed in **R0.1** on 2026-09-17. Supersedes the 2026-09-17 starting draft;
+rows are now mapped to concrete source files, verified destination origins,
+destination roles and phase owners. Source inspection is still not a live
+functional test — a row only becomes `verified` when the status record at the
+bottom of this file is filled in with executed evidence.
 
-Sources: `C:\Users\AnandKumari\Projects\sampark` at `830548c`,
-`C:\Users\AnandKumari\Projects\schoolfees` at `48beb9a6`;
-VPPS One baseline `0712de6`. Keep original repositories/deployments intact.
+`Native partial` means there is related code, not equivalent end-to-end
+behaviour. `Link pending` means the original workflow exists and VPPS One has
+no verified handoff yet.
+
+Sources inspected at:
+
+| Repo | Path | Commit |
+|---|---|---|
+| VPPS One | `C:\Users\AnandKumari\Desktop\vppsone` | `1728530` (app code identical to `0712de6`) |
+| SamPark | `C:\Users\AnandKumari\Projects\sampark` | `830548c` |
+| School Fees | `C:\Users\AnandKumari\Projects\schoolfees` | `48beb9a6` |
+
+## Verified origins — read this before writing any link
+
+Every origin below was resolved from Vercel project metadata under the
+`veerpattas-projects` team and then fetched. **Nothing here is remembered from
+an older note.** Re-verify with `npm run verify:origins`.
+
+| App | Verified production origin | Identified by | Database |
+|---|---|---|---|
+| VPPS One | `https://vppsone.vercel.app` | `307 → /login?next=%2F` | schoolfees-dev `wtgxcptmucjerhufzjcf` (`VPPSONE_ENV=dev`) |
+| School Fees | `https://vpps-one.vercel.app` | `<title>… \| Fee Admin</title>` | **live** `vgqyilgstjvgohrsiwkb` |
+| SamPark | `https://sampark-theta-eight.vercel.app` | `<title>Sign in — Sampark</title>` | **live** Neon (`DATABASE_URL`, Production) |
+
+### Three traps this inventory found
+
+1. **The School Fees app is served at `vpps-one.vercel.app`, not at
+   `schoolfees.vercel.app`.** The obvious-looking hostname belongs to an
+   unrelated product — `https://schoolfees.vercel.app` answers `200` with
+   `<title>Ecolage Desktop</title>` and is not this school's. Linking a staff
+   member there would hand a school URL to a stranger's login form.
+   `https://sampark.vercel.app` is likewise not ours (it answers `500`).
+   The origins table above is the only permitted source of these hostnames.
+2. **Both sibling apps are live-data apps; VPPS One is a dev-data app.** There
+   is no staff-reachable School Fees or SamPark test origin (see below). So the
+   environment badge in VPPS One must never be read as covering a link, and a
+   VPPS One **dev** student id must never be interpolated into a **live**
+   destination URL — the id will not exist there. Deep links degrade to the
+   destination's own search screen unless the environments match (PLAN §2).
+3. **School Fees preview deployments exist and do run against schoolfees-dev**
+   (`NEXT_PUBLIC_SUPABASE_URL` is `wtgxcptmuc…` for Preview and Development),
+   but every preview URL is behind Vercel SSO — probed deployments answer
+   `302 → vercel.com/sso-api`. A per-commit URL behind an SSO wall is not a
+   staff-usable test destination. This is the R6.2 evidence gap, recorded now
+   rather than discovered later.
+
+| Environment question | Answer as of R0.1 | Consequence |
+|---|---|---|
+| School Fees test origin | None stable and staff-reachable | R6.2 test coverage is blocked on someone creating one; R6.1 links production and labels it |
+| SamPark test origin | None (Production Neon only; one preview branch has its own `DATABASE_URL`, no stable alias) | R3 parity is built natively in VPPS One on dev data; the SamPark link is to live |
+| VPPS One test origin | `https://vppsone.vercel.app` **is** the test deployment | Badge stays; the badge describes this app only |
 
 ## SamPark
 
-Paths below are relative to the SamPark source repo unless noted. VPPS One's
-native entry is `/collection`; the visible name should become SamPark.
+VPPS One's native entry is `/collection`; its visible name becomes
+**SamPark — Student information** (PLAN §3a). Paths are relative to the SamPark
+source repo. SamPark's own IA is six areas: Home, Requests, Review, Marks,
+Students, Settings.
 
 | ID | Workflow and source evidence | VPPS One now | Required destination / acceptance | Phase |
 |---|---|---|---|---|
-| S-01 critical | Token `/r/[token]`, `/t/[token]`, `/w/[token]`; `src/lib/auth/token.ts`, `requests.ts` | Native basic links and per-class request | Preserve no-login, scoped roster/fields, resume, confirm/correct, closed/unknown handling; existing original links stay available | R3 |
-| S-02 critical | Frozen membership and values; `src/lib/requests.ts`, `snapshots.ts` | Request roll is rebuilt from current `enrolments` and current records | Immutable issue-time members and compared values; moving a pupil later cannot change what was asked | R3.1 |
-| S-03 critical | Class/house/route audiences and filtered gaps; `requests.ts`, `ownership.ts`, bulk request route | Native request has required single `classId`; no equivalent audience builder found | Purpose + audience preview; exact same resolver for board and batch; explicit reasons | R3.1–R3.2 |
-| S-04 critical | Custom Excel ask list; `src/lib/ask-list.ts`, `src/app/(admin)/requests/bulk` | No ask-list import found | ID first, SR fallback, duplicate/ambiguous/unmatched rows, row note and whole-sheet message; no name matching | R3.2 |
-| S-05 critical | Bulk teacher round and request batches; `/requests/bulk`, `/requests/batch/[id]` | Individual request creation only | One operation creates teacher groups against frozen membership; retries resume same batch | R3.3 |
-| S-06 critical | Master/office link; `src/lib/office.ts`, `/settings/office`, batch page | No equivalent round/master model found | One office recipient plus round master link; correct link-local and round-wide completion | R3.3 |
-| S-07 critical | Verify/correct, review and precedence; `submissions.ts`, `precedence.ts`, `/review` | Native confirm/change review and overlay exist | Preserve old/new value, source, reasons, bulk confirmations, no blank erase, human correction precedence; stale review cannot overwrite newer decision | R3.4 |
-| S-08 critical | Request progress, reminders and round superseding; `requests.ts`, `answered.ts`, `progress.ts` | Basic completeness; no full round board | Expected = answered + outstanding; master answers count; completed work stays visible; replacement round doesn't corrupt prior one | R3.3–R3.4 |
-| S-09 critical | Templates/provider queue/status; `aisensy.ts`, `send-queue.ts`, `templates.ts`, `/settings/whatsapp` | Templates/drafts exist; provider not configured in baseline docs | Preview frozen recipient/reason, mock success/429/failure/retry; no repeated successful sends; no actual messaging for QA | R3.4 |
-| S-10 critical | Student directory, details, health, sources; `/students`, `/students/[id]`, `/students/health` | Detail reached through Teach; no general directory | Search/filter, identity mapping, provenance/health and editable approved overlay; distinguish original fee data | R2.3/R4.1 |
-| S-11 critical | Photo capture and bulk workflow; `photos.ts`, `photo-store.ts`, `photo-filename.ts`, teacher routes | Generic document upload; photo workflow explicitly not ported in SOURCES | Camera/file selection, retake/replace, owner mapping, progress, missing photo and office batch workflow | R4.2 |
-| S-12 | Student import and conflict review; `/students/import`, `excel.ts` | Academic enrolment rebuild is not equivalent | Dry run, ID/SR match, preview, per-row errors and source precedence; original app available until parity | R4.1 |
-| S-13 | Workbook/CSV export; `excel.ts`, `student-export.ts`, round exports | Academic CSV only; workbook intentionally not ported | Multi-sheet/photograph workbook where expected; Hindi/zero/blank preservation; preview/count reconciliation | R4.3 |
-| S-14 | Marks, subjects, progress, settings/users/audit; `/marks/grid`, `/settings/*` | Assessments/native staff overlap partly | Map every source feature; preserve period/subject semantics through native assessments; maintain source links for remaining settings; no second marks ledger | R0/R4.3/R5 |
+| S-01 critical | Token `/r/[token]`, `/t/[token]`, `/w/[token]`; `src/lib/auth/token.ts`, `requests.ts` | **Native partial** — all three paths exist (`src/app/r,t,w`), one class per link | Preserve no-login, scoped roster/fields, resume, confirm/correct, closed/unknown handling; original links stay live | R3 |
+| S-02 critical | Frozen membership and values; `drizzle/schema.ts` `request_students` (`snapshot jsonb`, `roll_no`, `ask_note`), `src/lib/snapshots.ts` | **Absent** — `vppsone.collection_requests` has no member table; the roll is rebuilt from current `enrolments` at read time | Immutable issue-time members **and** the prefilled values as sent; moving a pupil later cannot change what was asked | R3.1 |
+| S-03 critical | Class / house / route / subject / master audiences and filtered gaps; `requests.ts`, `ownership.ts`, `houses.ts`, `routes.ts` (29 bus routes, "No Transport" is an answer) | **Absent** — `collection_requests.class_id` is a required single class | One resolver for preview, board and batch; audience kind + label; explicit reasons for an audience narrower than the register | R3.1–R3.2 |
+| S-04 critical | Custom Excel ask list; `src/lib/ask-list.ts` (`Children` + `Message` sheets, `matchAskList`, `notesFrom`, `messageFrom`), `/requests/bulk`, `api/export/ask-template.xlsx` | **Absent** | ID first, validated SR fallback, **never name matching**; duplicate / ambiguous / unmatched rows previewed before creation; per-row note and whole-sheet message | R3.2 |
+| S-05 critical | Bulk teacher round and batches; `/requests/bulk`, `/requests/batch/[id]`, `src/lib/fanout.ts`, `batches.ts` | **Absent** — one request at a time | One operation creates every group's link against frozen membership; a failed fan-out resumes the same batch (unique `(batch_id, audience_kind, audience_label)`) | R3.3 |
+| S-06 critical | Master/office link; `src/lib/office.ts` (`OFFICE_TEACHER_ID`, `MASTER_AUDIENCE_KIND`, constant `OFFICE_AUDIENCE_LABEL`), `/settings/office` | **Absent** | One office recipient row and one master link per round; link-local and round-wide completion both correct; master answers count toward the round | R3.3 |
+| S-07 critical | Verify/correct, review and precedence; `submissions.ts`, `precedence.ts` (`mayWrite`, `originOf`, `teacherOrigin`, `officeOrigin`), `/review` | **Native** — confirm/change split, bulk confirmations, blank-means-no-change, human-over-import precedence all present (Phase 5.2/5.3) | Add round awareness: old/new value taken from the **snapshot**, not from today's record; a stale review cannot overwrite a newer decision | R3.4 |
+| S-08 critical | Progress, reminders, superseding; `progress.ts`, `answered.ts`, `requests.ts` (`reminded_at`, `reminder_count` rolled up with `max`, "today" in Asia/Kolkata) | **Native partial** — per-request completeness only | Expected = answered + outstanding; completed work stays on the board; a chase is a day's work, not a permanent tick; a replacement round does not corrupt the prior one | R3.3–R3.4 |
+| S-09 critical | Templates / provider queue / status; `aisensy.ts`, `send-queue.ts`, `whatsapp-send.ts`, `whatsapp-templates.ts`, `/settings/whatsapp` | **Native partial** — templates and drafts exist; `mayDispatch()` refuses parent-facing rows; no provider key in this repo | Preview the frozen recipient and reason; mock success / 429 / 500 / timeout / duplicate callback and retry; a successful send never repeats; **no real dispatch in QA** | R3.4 |
+| S-10 critical | Student directory, detail, health, sources; `/students`, `/students/[id]`, `/students/health`, `student-filters.ts`, `data-health.ts`, `student-provenance.ts`, `student-timeline.ts` | **Absent as a directory** — a student card exists only via `/teach/student/[id]` | Search by name/SR/id, class & session filters, provenance and health, editable approved overlay clearly distinct from original fee data | R2.3 / R4.1 |
+| S-11 critical | Photo capture and bulk workflow; `photos.ts`, `photo-store.ts`, `photo-filename.ts` (`matchFilename`, `placeFiles`), `photo-health.ts`, `api/r/[token]/photo` | **Absent** — generic document upload only; SOURCES records photos as not ported | Camera/file selection, retake/replace, owner mapping, progress, missing-photo view and office batch placement by filename | R4.2 |
+| S-12 | Student import and conflict review; `/students/import`, `students-import.ts` (`suggestColumnMap`, `buildPreview`, `planRows`, `applyPreview`, `matchByIdOrSr`, `parseIndianDate`), `import-plan.ts` | **Not equivalent** — `/enrolments` rebuilds the academic roll from `public.students`; it is not a spreadsheet import | **Required subfeatures:** column mapping suggestion; dry-run preview; ID-then-SR matching; per-row errors; Indian date parsing; source precedence on apply; resumable/committed job record. **Deferred:** creating new students (fee app owns the roster) | R4.1 |
+| S-13 | Workbook / CSV export; `excel.ts` (`buildWorkbook`, `safeSheetName`, `uniqueSheetName`, `parseTabularFile`, `looksLikeHtml`, `excelSerialToDate`), `student-export.ts`, `api/export/*` | **Not equivalent** — academic CSV only (Phase 6.5) | **Required subfeatures:** multi-sheet workbook for student and round exports; Hindi text intact; blank vs zero vs "Absent" preserved; leading-zero SR preserved; row count reconciles with the on-screen count; `.xlsx` **and** HTML-table upload accepted on import. **Deferred:** embedding photographs in the workbook (needs S-11 first) | R4.3 |
+| S-14 | Marks, subjects, progress, settings/users/audit; `/marks`, `/marks/grid`, `/settings/{fields,subjects,teachers,users,office,whatsapp,audit}`, `marks.ts`, `activity.ts` | **Overlaps** — VPPS One has assessments (Phase 6), staff (1.3), subjects (1.4), collection fields (5.1) | **Required subfeatures:** period/subject-scoped marks collected *through a request* map onto native assessments, never a second ledger; field registry; teacher roster; office recipient; audit/activity feed. **Deferred with a link:** SamPark's own user accounts and its own audit log stay in SamPark | R0 / R4.3 / R5 |
 
-Completing R3 means the S-01–S-09 behaviors work, not just that route names
-exist. A deliberate difference needs a documented reason, destination and test.
-Mark required noncritical S-12–S-14 subfeatures during R0; do not quietly discard
-them because their parent row lacks the word critical.
+Completing R3 means S-01–S-09 **behave**, not that route names exist. A
+deliberate difference needs a recorded reason, a destination and a test.
 
 ## School Fees
 
-Default plan: preserve all these workflows in the original app and provide
-verified access. **No native financial rebuilding is claimed.** Relative routes
-must be checked against the original deployment and its account permissions.
+Default plan: preserve every workflow in the original app and provide verified
+access. **No native financial rebuilding is claimed and no fee write is
+introduced.** The fee app's own IA is nine tabs
+(`src/platform/config/navigation.ts`), and its roles are `admin`,
+`accountant`, `teacher`, `fee_collector`, `view_only` — a different set from
+VPPS One's six. A launcher never grants a fee role; the destination decides.
 
-| ID | Original route/workflow | Current VPPS One | Required handoff / validation |
-|---|---|---|---|
-| F-01 critical | `/protected/dashboard`, `/protected/students`, student detail/edit/new | Fee standing on student card only; no app link | Home shortcut; directory/detail context link where ID/environment matches; original search fallback |
-| F-02 critical | `/protected/payments`, `/protected/payments/bulk`, alias `/protected/collections` | Link pending | Payment Desk entry; correct account, student, year and receipt path in fee test app |
-| F-03 critical | `/protected/receipts`, receipt detail, `/protected/transactions`, ledger/statement routes | Link pending | Receipts/Transactions links; print, correction/reversal and repeated-submit behavior tested in fee sandbox |
-| F-04 critical | `/protected/dues`, `/protected/defaulters`, previous-year dues | Read-only student summary only | Dues entry, session/filter context; source balance reconciliation; late-fee-only case not mislabelled |
-| F-05 critical | `/protected/fee-setup`, `/fee-setup/generate`, `/fee-structure`, `/master-data` | Link pending | Setup/generate/master destinations; school staff retain original workflow and role checks |
-| F-06 critical | Student leave date, concessions, write-offs, installment generator | No native writes by design | Student detail handoff; preserve cash vs concession/write-off and protected/reversed history behavior |
-| F-07 critical | `/protected/reminders`, campaigns/lists/unreachable/runs; admin WhatsApp tools | Collection messaging is not fee reminders | Explicit Fee reminders entry; audience, family grouping, cadence/snooze/no-call and retry validated against mocks |
-| F-08 | `/protected/imports`, `/protected/exports`, `/students/bulk-update` | Link pending | Data tools destinations and workbook/CSV round-trip in fee test environment |
-| F-09 | `/protected/reports`, ledger print, family and student statements | Academic reports are separate | Fee reports/statements links, correct financial scope and print output |
-| F-10 | Transport/master data, family groups, promotion/session-health | No native fee controls | Explicit paths/context in fee app; session and leave/transport rules preserved |
-| F-11 | `/protected/finance-controls`, settings, staff, password, recovery/activity | VPPS One has independent staff/jobs | Grouped advanced destinations, original account permissions; distinguish account administration across apps |
-| F-12 | Public `/r/[code]`, `/pay/[code]` | No replacement | Preserve original links; only verify routing/test provider behavior in a real sandbox; do not redirect to unrelated VPPS One token paths |
+Destination origin for every row below: `https://vpps-one.vercel.app`
+(production, live fee data). Deep links carry a student id **only** when the
+VPPS One environment matches the destination's, which today it does not — so
+R6.1 ships tab links plus the fee app's own search, not id-bearing URLs.
 
-R6 owns these handoffs. R0 records exact source file, destination origin,
-account role, test fixture and evidence for each subflow. Never report all fees
-tested simply because a login page returned HTTP 200.
+| ID | Original route / workflow | Fee tab · permission | Current VPPS One | Required handoff / validation |
+|---|---|---|---|---|
+| F-01 critical | `/protected/dashboard`; `/protected/students`, `/students/[id]`, `/students/[id]/edit`, `/students/new` | Dashboard · `dashboard:view`; Students · `students:view` | Fee standing on the teacher's student card only (`v_student_directory`), no app link | Home shortcut on office/admin; directory/detail context link when ids match; **search fallback otherwise** |
+| F-02 critical | `/protected/payments`, `/payments/bulk`, alias `/protected/collections` | Payment Desk · `payments:view` | Link pending | "Payment Desk" entry from office/admin home and `/apps`; sign-in and return path tested; receipt path exercised only in a fee sandbox |
+| F-03 critical | `/protected/receipts`, `/receipts/[receiptId]`, `/protected/transactions`, `/protected/ledger` | Transactions · `receipts:view` (aliases `/dues`, `/receipts`, `/ledger`) | Link pending | Receipts/Transactions entries; print, correction/reversal and repeated-submit behaviour **only** in a sandbox |
+| F-04 critical | `/protected/dues`, `/protected/defaulters`, `/admin-tools/prev-year-dues` | Transactions (alias) · `receipts:view`; Defaulters · `defaulters:view` | Read-only student summary only | Dues/Defaulters entry with session context; balances reconcile with the fee app's own view; **late-fee-only is not a defaulter** and fees and late fees are never summed |
+| F-05 critical | `/protected/fee-setup`, `/fee-setup/generate`, `/fee-setup/time-travel`, `/protected/fee-structure`, `/protected/master-data` | Fee Setup · `fees:view`; School Lists → Admin Tools · `finance:view` | Link pending | Setup/generate/master destinations; staff keep the original workflow and its role checks |
+| F-06 critical | Student leave date, concessions, write-offs, installment generator (student detail + `/protected/finance-controls`) | Students · `students:view`; Day Close & Corrections → Admin Tools · `finance:view` | No native writes by design | Student detail handoff; cash vs concession vs write-off stay distinct; **a write-off is not a collection** |
+| F-07 critical | `/protected/reminders`, `/reminders/campaigns`, `/reminders/lists`, `/reminders/unreachable`, `/reminders/runs/[runId]`, `/admin-tools/whatsapp` | Reminders · `settings:view`, visible to `admin`+`accountant` only | VPPS One collection messaging is a different thing and must not be presented as fee reminders | Explicit "Fee reminders" entry; audience, family grouping, cadence/snooze/no-call and retry validated against mocks in a sandbox |
+| F-08 | `/protected/imports`, `/protected/exports`, `/protected/students/bulk-update` | Exports · `reports:view`; Import History → Admin Tools | Link pending | Data-tools destinations; workbook/CSV round trip only in a fee test environment |
+| F-09 | `/protected/reports`, `/reports/ledger/[studentId]/print`, `/students/[id]/statement`, `/students/family/[familyGroupId]/statement` | Reports → Transactions · `receipts:view` | Academic reports are a separate thing | Fee reports/statements links; financial scope and print output verified in a sandbox |
+| F-10 | `/protected/master-data`, family groups, `/admin-tools/promotion`, `/admin-tools/promotion/[runId]`, `/admin-tools/session-health` | Admin Tools · `finance:view` | No native fee controls | Explicit grouped paths; session and leave/transport rules stay the fee app's |
+| F-11 | `/protected/finance-controls`, `/protected/settings`, `/settings/glossary`, `/protected/staff`, `/protected/password`, `/admin-tools/recovery`, `/admin-tools/activity` | Admin Tools · `finance:view`; staff/settings gated further | VPPS One has its own staff and jobs | Grouped advanced destinations; make it visible that fee accounts are **separate accounts** from VPPS One accounts |
+| F-12 | Public `/r/[code]`, `/pay/[code]` | Public, no session | No replacement | Preserve the original links untouched. **Do not** route these to VPPS One's `/r/[token]`, which is a different token space entirely; only routing and test-provider behaviour may be checked, in a sandbox |
+
+R6 owns these handoffs. Never report "fees tested" because a login page
+returned 200.
+
+## Baseline defect register
+
+Carried forward from `QA-BASELINE-2026-09-17.md` and extended by R0.1. A
+`source` finding has not been reproduced at runtime and is not reported as a
+failure until it is.
+
+| ID | Sev | Status after R0.1 | Finding | Owner |
+|---|---|---|---|---|
+| B-01 | P1 | **confirmed** | No School Fees or SamPark destination anywhere in VPPS One; `navigation.ts` has no app registry | R1.1 |
+| B-02 | P1 | **confirmed** | `vppsone.collection_requests` has `class_id` and no batch/audience/member columns — S-03, S-04, S-05, S-06 have no schema at all | R3.1 |
+| B-03 | P2 | **confirmed** | `/dashboard` renders the profile card plus a link list for **all six roles** (`src/app/(app)/dashboard/page.tsx`, 109 lines); no operational priorities anywhere | R1.2 / R2 |
+| B-04 | P2 | **confirmed** | One shared nav order for every role; office-style work reaches Collection through More | R1.2 |
+| B-05 | P2 | **confirmed** | `requestSchema` makes `titleHi` **and** `titleEn` `.min(1)` — a one-language school cannot create a request without typing both | R1.3 / R3.2 |
+| B-06 | P2 | **confirmed, wider than recorded** | Class labels are sorted with `localeCompare` on **five** screens, not one: `/collection` (`page.tsx:71`), `/assessments/[id]` (`:128`), `/timetable` (`:90`), `/teach/attendance` (`:107`), `/teach/register` (`:89`). Every one of them lists Class 1, 10, 11, 12, 2… `public.classes.sort_order` and `vppsone.class_aliases.sort_order` both exist and are ignored by all five | R1.3 |
+| B-07 | P1 | **confirmed at schema level** | No `request_students` equivalent exists, so a request's roll and prefilled values are necessarily re-derived. Runtime reproduction still owed | R3.1 |
+| B-08 | P1 | **confirmed** | Photo capture and workbook export absent (S-11, S-13) | R4 |
+| B-09 | P1 | **confirmed** | `smoke-roles.mjs` reads each page's own guard for the expected answer, so a wrong guard agrees with itself | R0.3 |
+| B-10 | P1 | **confirmed** | `fillIds` may return `null`; the loop continues with no failure, so a partial suite can exit 0 | R0.3 |
+| B-11 | P2 | **confirmed** | Teacher navigation has no request workspace although `/t/[token]` exists | R2.1 / R3.3 |
+| B-12 | P1 | source (unreproduced) | Attendance queue keeps memory only on storage failure; `parseQueue` accepts any object | R5.1 |
+| B-13 | P1 | source (unreproduced) | Timetable publish and correction approval are sequential writes with known interruption windows | R5.1 / R5.2 |
+| B-14 | P2 | **confirmed at schema level** | `reasonHi`/`reasonEn` are independent nullable columns with no fallback rule, so a Hindi reader can be shown English silently | R3.2 |
+| **B-15** | **P1** | **new in R0.1** | **`https://schoolfees.vercel.app` is not this school's app** (`Ecolage Desktop`) and `https://sampark.vercel.app` errors. Any link written from memory rather than from the verified-origins table above sends staff to a stranger's site | R1.1 |
+| **B-16** | **P1** | **new in R0.1** | **No staff-reachable School Fees or SamPark test origin exists.** Fee previews run on schoolfees-dev but sit behind Vercel SSO (`302 → vercel.com/sso-api`). R6.2 cannot be executed as specified | R6.2 (gap) |
+| **B-17** | **P1** | **new in R0.1** | **The QA teacher account cannot exercise a teacher's day.** `qa.teacher@qa.vpps.local` has 0 `teaching_assignments` and is class teacher of nothing; the only account holding a class is `raj@vpps.co.in` (admin). There is no second teacher, no inactive account and no unassigned-teacher account | R0.2 |
+| **B-18** | **P2** | **new in R0.1** | **Large-list coverage is impossible with current data.** The dev database holds 139 students in 19 classes; `QA.md` requires ≥1,205 rows. `vppsone.enrolments.student_id` has no FK into `public.students` (rule 2), so synthetic rows are creatable — but they will surface on `/enrolments` as "vanished students" unless the fixture marks them | R0.2 |
+| **B-19** | **P2** | **new in R0.1** | VPPS One deep links cannot carry a student id to either sibling app, because VPPS One runs on dev data and both siblings run on live data. Recorded before R1.1 designs the registry so the fallback is designed in, not bolted on | R1.1 |
+
+## Baseline metrics (R0.1, 2026-09-17)
+
+Repeat before/after measurements with the same command on the same machine.
+
+| Measurement | Value | Command |
+|---|---|---|
+| Unit suite | 28 files, **1,904 tests passed**, 0 failed, 0 skipped, 22.5 s | `npm run test` |
+| Full check | exit 0 (typegen, typecheck, lint, test, production build) | `npm run check` |
+| Role × page smoke | see `docs/evidence/` for the dated run | `npm run smoke:roles` |
+| Deployed commit | `1728530`, `dpl_aV6JcLjAp3WrQJfN7CEHuQxJCxeu`, alias `vppsone.vercel.app` | `npx vercel inspect https://vppsone.vercel.app` |
+| Dev dataset | 139 fee students · 19 classes · 27 staff (7 with logins) · 1,038 timetable slots · 49 registers · 2 assessments · 105 marks · 1 collection request | SQL, `wtgxcptmucjerhufzjcf` |
+| Route JS baseline | recorded in `docs/evidence/` from the same build, for the R7.1 ratchet | `npm run build` |
 
 ## Required status record for each implemented row
 
 Append a per-row record with: ID/subflow; native/linked/deferred; source commit;
 destination path/origin/environment; allowed and denied roles; dataset/run ID;
 positive/negative/recovery test IDs; result; evidence path; delivery commit;
-remaining gap. Exact live origins are intentionally not guessed from older notes.
+remaining gap. Exact live origins are never guessed from older notes — they come
+from the verified-origins table, which `npm run verify:origins` re-checks.
 
-Critical parity cannot pass on a placeholder, hidden button, unexplained
-permission denial, broken deep link, duplicate ledger or source-only inspection.
+Critical parity cannot pass on a placeholder, a hidden button, an unexplained
+permission denial, a broken deep link, a duplicate ledger or source-only
+inspection.
+
+### Records
+
+| Row | Kind | Destination | Roles allowed / denied | Evidence | Delivery | Gap |
+|---|---|---|---|---|---|---|
+| _(none yet — R1.1 files the first)_ | | | | | | |
