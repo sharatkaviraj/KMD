@@ -621,7 +621,11 @@ export async function dailySummary(day: string): Promise<Summary> {
     classes: byClass.size,
     children,
     registers_submitted: submitted.length,
-    registers_outstanding: byClass.size - submitted.length,
+    // **Nothing is outstanding on a day the school was shut.** Subtracting
+    // what was submitted from the number of classes reported "19 registers
+    // outstanding" every Sunday, which reads as nineteen teachers having
+    // failed to take one — a number somebody would chase on a Monday.
+    registers_outstanding: open ? byClass.size - submitted.length : 0,
     attendance_percent:
       counted === 0 ? "—" : String(Math.round((present / counted) * 1000) / 10),
     cover_plan: plan ? (plan.status as string) : "none",

@@ -91,11 +91,25 @@ export async function lastRunPerJob(): Promise<Map<string, JobRun>> {
  */
 export async function jobsBoard(): Promise<{
   latest: Map<string, JobRun>;
+  worked: Map<string, JobRun>;
   history: JobRun[];
   asOf: number;
 }> {
   const [latest, history] = await Promise.all([lastRunPerJob(), recentRuns(30)]);
-  return { latest, history, asOf: Date.now() };
+
+  // **Two different questions, and a skip answers only one of them.** "Did it
+  // fire this morning?" is the latest attempt, skips included — that is the
+  // whole reason a skip is written down at all. "What did it do?" is the
+  // latest attempt that actually did something, because a skip's summary is
+  // the word "skipped", and a card showing only that has thrown away the
+  // numbers somebody came to read.
+  const worked = new Map<string, JobRun>();
+  for (const run of history) {
+    if (run.status === "skipped" || run.status === "running") continue;
+    if (!worked.has(run.job)) worked.set(run.job, run);
+  }
+
+  return { latest, worked, history, asOf: Date.now() };
 }
 
 /* ---------------------------------------------------------------- writing */

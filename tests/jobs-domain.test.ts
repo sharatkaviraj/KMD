@@ -191,6 +191,22 @@ describe("summaryLine()", () => {
   it("falls back to the raw key for a job nobody has translated yet", () => {
     expect(summaryLine({ some_new_count: 4 }, "hi")).toBe("some new count: 4");
   });
+
+  it("translates the values that are words, not only the labels", () => {
+    // Half a line in Hindi and half in English is the same rule-9 bug as an
+    // English label, and easier to miss because most of the line looks right.
+    const line = summaryLine({ school_open: "yes", cover_plan: "none" }, "hi");
+    expect(line).toBe("व्यवस्था: कोई नहीं · विद्यालय खुला: हाँ");
+    expect(line).not.toMatch(/yes|none/);
+  });
+
+  it("leaves a value it has no word for exactly as the job wrote it", () => {
+    expect(summaryLine({ note: "no session" }, "hi")).toBe("टिप्पणी: no session");
+  });
+
+  it("never translates a number", () => {
+    expect(summaryLine({ classes: 19 }, "hi")).toBe("कक्षाएँ: 19");
+  });
 });
 
 /* ------------------------------------------------------------- the secrets */

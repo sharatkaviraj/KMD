@@ -46,6 +46,27 @@ after the first morning rather than assuming.
 Production tokens come from production's own `JOBS_SECRET` and are not in this
 repo.
 
+Both are **set on Vercel production** as of 2026-09-17, through
+`vercel env add <NAME> production`. Environment variables only reach a running
+deployment when it is rebuilt, so setting them is two steps:
+
+```bash
+vercel env add CRON_SECRET production
+vercel redeploy "$(vercel ls --prod --meta githubCommitSha=$(git rev-parse HEAD))"
+```
+
+Take the deployment to redeploy from the commit, not from the top of
+`vercel ls --prod` — that list is not reliably newest-first, and redeploying
+the wrong row quietly rolls production back to an older commit while still
+reporting success.
+
+### Checking the screens (Phase 7.4)
+
+`npm run smoke:roles` signs in as each of the six QA roles and opens every
+screen under `(app)/`, comparing what happens against what that screen's own
+`requirePermission()` asks for. Needs the dev server running. Two QA accounts
+were added for the coordinator roles, so all six are covered.
+
 ### Signing in as a test account (Phase 7.0)
 
 `npm run dev:login -- teacher` prints a one-time link for a `@qa.vpps.local`

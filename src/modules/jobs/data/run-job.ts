@@ -50,7 +50,24 @@ export async function runJob(
   await releaseStaleRuns(STALE_AFTER_MS);
 
   if (definition.oncePerDay && !options.force && (await succeededFor(job, options.day))) {
-    return { status: "skipped", summary: { skipped: "already done today" } };
+    // **The skip is written down.** Returning quietly left the console unable
+    // to tell "the cron fired at 7:15 and found the work already done" from
+    // "the cron never fired at all" — which is the one question the console
+    // exists to answer, and the two look identical from an empty card.
+    const noted = await startRun({
+      job,
+      trigger: options.trigger,
+      staffProfileId: options.staffProfileId ?? null,
+      day: options.day,
+    });
+
+    // No summary. The status *is* the summary — "Already done" is what the
+    // badge says, in the reader's own language, and a line underneath reading
+    // `skipped: already done today` was both a repetition and a sentence of
+    // untranslated English on a Hindi screen (rule 9).
+    if (noted) await finishRun({ id: noted.id, status: "skipped", summary: {} });
+
+    return { status: "skipped", summary: {} };
   }
 
   const run = await startRun({

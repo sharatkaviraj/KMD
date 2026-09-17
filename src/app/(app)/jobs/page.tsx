@@ -49,7 +49,7 @@ export default async function JobsPage() {
   const language = staff.language;
   const mayRun = can(staff, "jobs:run");
 
-  const { latest, history, asOf: now } = await jobsBoard();
+  const { latest, worked, history, asOf: now } = await jobsBoard();
 
   return (
     <>
@@ -64,6 +64,9 @@ export default async function JobsPage() {
         <ul className="space-y-3">
           {jobList.map((job) => {
             const run = latest.get(job.name);
+            // What it last did, which is a different row from what it last
+            // tried whenever the last try was a skip.
+            const did = worked.get(job.name);
 
             return (
               <li key={job.name}>
@@ -90,7 +93,17 @@ export default async function JobsPage() {
                   </div>
 
                   {run ? (
-                    <RunLine run={run} now={now} language={language} />
+                    <>
+                      <RunLine run={run} now={now} language={language} />
+                      {/* Only when the last attempt was a skip: the numbers
+                          belong to the run that did the work, and losing them
+                          is how a console stops being worth opening. */}
+                      {did && did.id !== run.id ? (
+                        <p className="text-[12px] tabular-nums text-muted-foreground">
+                          {summaryLine(did.summary, language)}
+                        </p>
+                      ) : null}
+                    </>
                   ) : (
                     <p className="text-[13px] text-subtle-foreground">
                       {primary(m.jobsNeverRun, language)}

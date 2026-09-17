@@ -194,7 +194,21 @@ export const summaryLabels: Record<string, Localized> = {
   registers_submitted: t("हाज़िरी जमा", "registers submitted"),
   school_open: t("विद्यालय खुला", "school open"),
   self_study: t("स्वयं अध्ययन", "self study"),
-  skipped: t("छोड़ा गया", "skipped"),
+};
+
+/**
+ * The handful of summary values that are words rather than numbers.
+ *
+ * A count needs no translating; `yes`, `none` and `draft` do. Half a line in
+ * Hindi and half in English is the same rule-9 bug as an English label, and it
+ * is easier to miss because most of the line looks right.
+ */
+export const summaryValueLabels: Record<string, Localized> = {
+  yes: t("हाँ", "yes"),
+  no: t("नहीं", "no"),
+  none: t("कोई नहीं", "none"),
+  draft: t("अभी तय नहीं", "draft"),
+  published: t("जारी", "published"),
 };
 
 /**
@@ -215,7 +229,11 @@ export function summaryLine(
     .map(([key, value]) => {
       const label = summaryLabels[key];
       const name = label ? primary(label, language) : key.replace(/_/g, " ");
-      return `${name}: ${value}`;
+
+      const word = typeof value === "string" ? summaryValueLabels[value] : undefined;
+      const shown = word ? primary(word, language) : value;
+
+      return `${name}: ${shown}`;
     })
     .join(" · ");
 }
