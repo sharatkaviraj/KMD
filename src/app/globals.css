@@ -131,3 +131,58 @@
 @utility safe-bottom {
   padding-bottom: var(--mobile-safe-area-bottom);
 }
+
+/* ---------------------------------------------------------------- print */
+/*
+   The monthly attendance register is the one screen in this app that exists
+   to leave it: a school keeps the register on paper, and an inspector asks
+   for the paper. Rather than ship a PDF renderer and a second set of
+   Devanagari fonts to produce a worse copy of a table the browser already
+   draws, the sheet prints — which on every device the school uses is also
+   how it becomes a PDF.
+
+   Landscape because a month of columns does not cross A4 portrait, and a
+   register that silently loses its last week is worse than one that needs a
+   setting changed.
+*/
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  /* The app's chrome is navigation, and paper has none. */
+  header,
+  nav,
+  footer {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  /* Ink is expensive and a grey fill photocopies as a smudge; the absent
+     cells keep their border and lose their background. */
+  * {
+    box-shadow: none !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+}

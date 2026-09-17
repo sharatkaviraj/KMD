@@ -1,5 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import { GraduationCap, LayoutGrid, Table2, Users } from "lucide-react";
+import {
+  ClipboardCheck,
+  GraduationCap,
+  LayoutGrid,
+  Table2,
+  Users,
+} from "lucide-react";
 
 import { m } from "@/messages";
 import type { Localized } from "@/platform/i18n/language";
@@ -44,6 +50,15 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: m.navHome,
     icon: LayoutGrid,
     permission: "dashboard:view",
+    ready: true,
+  },
+  // Second, not fifth: this is the screen a teacher opens every morning, and
+  // the second tab is the one a thumb reaches without looking.
+  {
+    href: "/teach",
+    label: m.navTeach,
+    icon: ClipboardCheck,
+    permission: "attendance:view",
     ready: true,
   },
   {

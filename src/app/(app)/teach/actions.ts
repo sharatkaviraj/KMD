@@ -1,0 +1,280 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { m } from "@/messages";
+import { assertPermission } from "@/platform/auth/current-staff";
+import { can } from "@/platform/auth/permissions";
+import { decodeMessage, type Localized } from "@/platform/i18n/language";
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { getCurrentClassTeacher } from "@/modules/academics/data/class-teachers-repo";
+import {
+  canMarkClass,
+  submitRegisterSchema,
+} from "@/modules/attendance/domain/attendance";
+import {
+  canDecide,
+  canRequestCorrection,
+  decideCorrectionSchema,
+  requestCorrectionSchema,
+} from "@/modules/attendance/domain/corrections";
+import { writeNoteSchema } from "@/modules/notes/domain/notes";
+import {
+  findRegister,
+  listMarks,
+  saveRegister,
+} from "@/modules/attendance/data/attendance-repo";
+import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import {
+  decideCorrection,
+  getCorrection,
+  hasPendingCorrection,
+  requestCorrection,
+} from "@/modules/attendance/data/corrections-repo";
+import { deleteOwnNote, writeNote } from "@/modules/notes/data/notes-repo";
+import {
+  idleTeachState,
+  type TeachState,
+} from "@/modules/attendance/domain/teach-state";
+
+function failure(message: Localized): TeachState {
+  return { status: "error", message };
+}
+
+function fieldErrorsFrom(error: {
+  issues: { path: PropertyKey[]; message: string }[];
+}): Localized {
+  const first = error.issues[0];
+  return decodeMessage(first?.message ?? "");
+}
+
+/* ------------------------------------------------------- attendance */
+
+/**
+ * Save or submit a register.
+ *
+ * Called both by the form and by the browser's offline queue flushing, which
+ * is why it takes the whole register rather than one mark: a flush after a
+ * signal drop must be one request that either lands or does not, not twenty
+ * that might half-land.
+ */
+export async function saveRegisterAction(
+  _previous: TeachState,
+  formData: FormData,
+): Promise<TeachState> {
+  const actor = await assertPermission("attendance:view");
+
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) return failure(m.noSessionFound);
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse((formData.get("payload") ?? "").toString());
+  } catch {
+    return failure(m.notSaved);
+  }
+
+  const parsed = submitRegisterSchema.safeParse(payload);
+  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+
+  const own = await ownClassIds(actor.id, sessionLabel);
+  const verdict = canMarkClass({
+    hasMarkPermission: can(actor, "attendance:mark"),
+    hasMarkOnBehalfPermission: can(actor, "attendance:mark_on_behalf"),
+    ownClassIds: own,
+    classId: parsed.data.classId,
+  });
+
+  if (!verdict.allowed) {
+    return failure(verdict.reason ?? m.notSaved);
+  }
+
+  // A submitted register is a record. Re-saving one is a correction request,
+  // not an edit — checked here as well as hidden in the UI.
+  const existing = await findRegister(
+    parsed.data.classId,
+    sessionLabel,
+    parsed.data.day,
+    parsed.data.period,
+  );
+
+  if (existing && existing.status === "submitted") {
+    return failure(m.attendanceLocked);
+  }
+
+  // `on_behalf_of` names the teacher the office is standing in for, not the
+  // person pressing the button — `taken_by` already says that. Setting it to
+  // the actor would make the two columns agree and record nothing, which is
+  // the whole fact the column exists to keep.
+  let onBehalfOfStaffId: string | null = null;
+  if (verdict.onBehalf) {
+    const classTeacher = await getCurrentClassTeacher(
+      parsed.data.classId,
+      sessionLabel,
+      "class_teacher",
+    );
+    onBehalfOfStaffId =
+      classTeacher && classTeacher.staffProfileId !== actor.id
+        ? classTeacher.staffProfileId
+        : null;
+  }
+
+  try {
+    await saveRegister({
+      sessionLabel,
+      classId: parsed.data.classId,
+      day: parsed.data.day,
+      period: parsed.data.period,
+      marks: parsed.data.marks,
+      submit: parsed.data.submit,
+      takenByStaffId: actor.id,
+      onBehalfOfStaffId,
+      createdByUserId: actor.userId,
+    });
+  } catch {
+    return failure(m.notSaved);
+  }
+
+  revalidatePath("/teach");
+  revalidatePath(`/teach/attendance`);
+  return { ...idleTeachState, status: "saved" };
+}
+
+/* ------------------------------------------------------ corrections */
+
+export async function requestCorrectionAction(
+  _previous: TeachState,
+  formData: FormData,
+): Promise<TeachState> {
+  const actor = await assertPermission("attendance:view");
+
+  const parsed = requestCorrectionSchema.safeParse({
+    registerId: (formData.get("registerId") ?? "").toString(),
+    studentId: (formData.get("studentId") ?? "").toString(),
+    toStatus: (formData.get("toStatus") ?? "").toString(),
+    reason: (formData.get("reason") ?? "").toString(),
+  });
+
+  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+
+  const marks = await listMarks(parsed.data.registerId);
+  const current = marks.get(parsed.data.studentId)?.status ?? null;
+  const pending = await hasPendingCorrection(
+    parsed.data.registerId,
+    parsed.data.studentId,
+  );
+
+  // The register has to be submitted for a correction to make sense — an open
+  // one is edited directly.
+  const verdict = canRequestCorrection({
+    registerStatus: "submitted",
+    currentStatus: current,
+    toStatus: parsed.data.toStatus,
+    hasPendingRequest: pending,
+  });
+
+  if (!verdict.allowed) return failure(verdict.reason ?? m.notSaved);
+
+  try {
+    await requestCorrection({
+      registerId: parsed.data.registerId,
+      studentId: parsed.data.studentId,
+      fromStatus: current,
+      toStatus: parsed.data.toStatus,
+      reason: parsed.data.reason,
+      requestedByStaffId: actor.id,
+    });
+  } catch {
+    return failure(m.notSaved);
+  }
+
+  revalidatePath("/teach/corrections");
+  return { ...idleTeachState, status: "saved", message: m.correctionSent };
+}
+
+export async function decideCorrectionAction(formData: FormData) {
+  const actor = await assertPermission("attendance:correct");
+
+  const parsed = decideCorrectionSchema.safeParse({
+    correctionId: (formData.get("correctionId") ?? "").toString(),
+    approve: formData.get("approve") === "true",
+    decisionNote: (formData.get("decisionNote") ?? "").toString(),
+  });
+
+  if (!parsed.success) return;
+
+  const correction = await getCorrection(parsed.data.correctionId);
+  if (!correction) return;
+
+  // Nobody approves their own — the point of the queue is a second person.
+  const verdict = canDecide({
+    hasCorrectPermission: can(actor, "attendance:correct"),
+    requestedByStaffId: correction.requestedBy,
+    deciderStaffId: actor.id,
+    status: correction.status,
+  });
+
+  if (!verdict.allowed) {
+    throw new Error(verdict.reason?.en ?? "Cannot decide this request.");
+  }
+
+  await decideCorrection({
+    correctionId: correction.id,
+    approve: parsed.data.approve,
+    decisionNote: parsed.data.decisionNote,
+    deciderStaffId: actor.id,
+    registerId: correction.registerId,
+    studentId: correction.studentId,
+    toStatus: correction.toStatus,
+  });
+
+  revalidatePath("/teach/corrections");
+}
+
+/* ------------------------------------------------------------ notes */
+
+export async function writeNoteAction(
+  _previous: TeachState,
+  formData: FormData,
+): Promise<TeachState> {
+  const actor = await assertPermission("notes:write");
+
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) return failure(m.noSessionFound);
+
+  const parsed = writeNoteSchema.safeParse({
+    kindId: (formData.get("kindId") ?? "").toString(),
+    studentId: (formData.get("studentId") ?? "").toString(),
+    classId: (formData.get("classId") ?? "").toString(),
+    body: (formData.get("body") ?? "").toString(),
+  });
+
+  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+
+  try {
+    await writeNote(parsed.data, sessionLabel, actor.id);
+  } catch {
+    return failure(m.notSaved);
+  }
+
+  if (parsed.data.studentId) revalidatePath(`/teach/student/${parsed.data.studentId}`);
+  if (parsed.data.classId) revalidatePath(`/teach/class/${parsed.data.classId}`);
+
+  return { ...idleTeachState, status: "saved", message: m.notesAdded };
+}
+
+export async function deleteNoteAction(formData: FormData) {
+  const actor = await assertPermission("notes:write");
+
+  const noteId = (formData.get("noteId") ?? "").toString();
+  const studentId = (formData.get("studentId") ?? "").toString();
+  const classId = (formData.get("classId") ?? "").toString();
+  if (!noteId) return;
+
+  // Only your own, enforced in the query itself rather than checked first —
+  // a tampered id cannot reach somebody else's note.
+  await deleteOwnNote(noteId, actor.id);
+
+  if (studentId) revalidatePath(`/teach/student/${studentId}`);
+  if (classId) revalidatePath(`/teach/class/${classId}`);
+}

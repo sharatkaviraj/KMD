@@ -1,6 +1,6 @@
 import "server-only";
 
-import { assertPermission } from "@/platform/auth/current-staff";
+import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
@@ -82,9 +82,16 @@ export async function listFeeClasses(sessionLabel: string): Promise<FeeClass[]> 
  *
  * Service-role for the same reason as `listFeeClasses`: the fee app's RLS
  * would silently return nothing.
+ *
+ * **Gated on being staff rather than on `academics:view`**, unlike the class
+ * list above. Which session the school is in is not master data somebody
+ * manages — it is the year, and every screen in the app needs it to ask any
+ * question at all. Gating it on `academics:view` meant a teacher opening their
+ * own register threw "Permission denied: academics:view" before it could read
+ * a single mark (D-53).
  */
 export async function listSessionLabels(): Promise<string[]> {
-  await assertPermission("academics:view");
+  await assertStaff();
 
   const { data, error } = await createAdminClient()
     .schema(FEE_SCHEMA)
@@ -97,6 +104,56 @@ export async function listSessionLabels(): Promise<string[]> {
   }
 
   return [...new Set(data.map((row) => row.session_label))].sort().reverse();
+}
+
+/**
+ * Every class's name, by id — the labels a screen needs to say anything.
+ *
+ * The alias wins when the school has given one, because that is the name they
+ * chose to see; otherwise the fee app's own name. A class with neither is
+ * still in the map under a dash rather than missing, so a register never
+ * renders a bare UUID at a teacher.
+ *
+ * Gated on being staff, for the reason `listSessionLabels()` is: a class is
+ * called "Class 6 A" and knowing that is not a privilege. Every teacher screen
+ * needs it, and the screens that *edit* classes keep their `academics:view`
+ * gate.
+ */
+export async function classLabelMap(
+  sessionLabel: string,
+): Promise<Map<string, string>> {
+  await assertStaff();
+
+  const [classes, aliases] = await Promise.all([
+    (async () => {
+      const { data, error } = await createAdminClient()
+        .schema(FEE_SCHEMA)
+        .from("classes")
+        .select("id, class_name, section")
+        .eq("session_label", sessionLabel)
+        .returns<{ id: string; class_name: string; section: string | null }[]>();
+
+      if (error) {
+        throw new Error(`Could not read the classes: ${error.message}`);
+      }
+      return data;
+    })(),
+    listClassAliases(sessionLabel),
+  ]);
+
+  const byClassId = new Map(
+    classes.map((row) => [
+      row.id,
+      [row.class_name, row.section].filter(Boolean).join(" "),
+    ]),
+  );
+
+  for (const alias of aliases) {
+    const preferred = alias.displayName ?? alias.timetableLabel;
+    if (preferred) byClassId.set(alias.classId, preferred);
+  }
+
+  return byClassId;
 }
 
 /* --------------------------------------------------------------- subjects */

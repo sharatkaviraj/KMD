@@ -31,6 +31,7 @@ version the MCP recorded (D-22), so this list and
 | 20260916204801 | `create_class_teachers_and_calendar` | 1.5 |
 | 20260916205631 | `create_enrolments` | 1.6 |
 | 20260916210606 | `create_timetable_versions_and_slots` | 2.2–2.3 |
+| 20260917021218 | `create_attendance_and_notes` | 3.1–3.6 |
 
 ## Phase 1 — foundation
 
@@ -57,12 +58,12 @@ version the MCP recorded (D-22), so this list and
 
 | # | What | Status | Branch | Commit | Notes |
 |---|---|---|---|---|---|
-| 3.1 | `/teach` shell + Today | todo | `p3-1-teach-shell` | | |
-| 3.2 | Attendance screen | todo | `p3-2-attendance` | | |
-| 3.3 | Corrections + office on-behalf | todo | `p3-3-corrections` | | |
-| 3.4 | Notes | todo | `p3-4-notes` | | |
-| 3.5 | Student card | todo | `p3-5-student-card` | | |
-| 3.6 | Monthly register PDF | todo | `p3-6-register-pdf` | | |
+| 3.1 | `/teach` shell + Today | done | `p3-teacher-workspace` | | The card answers one question above the fold — is there anything I have not done. It names **three kinds of nothing** (school closed, no class of your own, everything already in), because a card that counts rows renders all three as an empty box and only one means "you are finished" (D-59). Today's periods come from the published timetable, matched to the sheet's own day header rather than to `=== "Monday"`: a retyped block would otherwise silently show a teacher a free day |
+| 3.2 | Attendance screen | done | `p3-teacher-workspace` | | Four big targets per child, not a dropdown — forty children are marked standing up. Every tap goes straight to `localStorage`; the flush is **one request for the whole register**, so a signal drop cannot half-mark a class; and the upsert on `(register, student)` makes a second submit produce the same rows. Verified against dev: two submits → 1 register, 14 marks. The queue is a `useSyncExternalStore` external store rather than component state (D-57) |
+| 3.3 | Corrections + office on-behalf | done | `p3-teacher-workspace` | | A submitted register is a record: changing a mark carries a reason and two names. **Nobody approves their own** — with one approver that means a request can sit, which is the right failure. The mark is rewritten *after* the request is marked approved, so an interruption leaves an approved request with an unchanged mark (visible, fixable) rather than a changed mark nobody signed. `on_behalf_of` names the teacher stood in for, never the person pressing the button (D-54) |
+| 3.4 | Notes | done | `p3-teacher-workspace` | | Per student and per class, typed by the six seeded `note_kinds`. Kind first, text second — the order the register margin already uses — so a note is findable by what it was about. Remove is your own only, enforced in the query rather than checked beforehand, so a tampered id cannot reach somebody else's note |
+| 3.5 | Student card | done | `p3-teacher-workspace` | | Attendance % (late counts as present, approved leave leaves the denominator), notes, and the fee standing read from the fee app's **own** `v_student_directory` — VPPS One does not model fees and must not appear to. Fees and late fees are shown as separate figures and never summed (D-33), and only to `collection:view` (D-56). Marks are the one thing PLAN 3.5 names that is absent: the assessment tables are Phase 6.1, and a placeholder would be a promise the data cannot keep (D-60) |
+| 3.6 | Monthly register PDF | done | `p3-teacher-workspace` | | The paper sheet, as a value: `buildMonthlySheet()` with tests. Columns are the union of "school was open" and "somebody took a register" — an open day with no register is the gap worth seeing, and a register taken on a closed day is still a fact about the children. A blank cell is *not* an absence. It prints rather than rendering a PDF server-side (D-55); `@media print` is A4 landscape, because a month of columns does not cross portrait |
 
 ## Phase 4 — substitutions
 

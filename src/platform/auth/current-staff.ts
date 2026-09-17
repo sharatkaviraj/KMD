@@ -195,6 +195,16 @@ export async function requireAnyPermission(
  * swallowed guard is a guard that passed. This one cannot be mistaken for
  * success.
  */
+export async function assertStaff(): Promise<CurrentStaff> {
+  const { staff } = await readCurrentStaff();
+
+  if (!staff) {
+    throw new Error("Not signed in.");
+  }
+
+  return staff;
+}
+
 export async function assertPermission(
   permission: StaffPermission,
 ): Promise<CurrentStaff> {

@@ -65,7 +65,13 @@ export function primary(text: Localized, language: Language): string {
 
 /** The secondary line, or null when this reader has asked for one language. */
 export function secondary(text: Localized, language: Language): string | null {
-  return language === "both" ? text.en : null;
+  if (language !== "both") return null;
+
+  // A pair whose halves are the same word has no second line. Proper nouns are
+  // most of them — a class is "Class 6 A" and a teacher is their name in
+  // either language — and rendering "Class 6 A · Class 6 A" makes the app look
+  // broken to exactly the readers who chose to see both.
+  return text.en === text.hi ? null : text.en;
 }
 
 /**

@@ -58,6 +58,14 @@ describe("secondary()", () => {
     // separator, no second half in a language they did not want.
     expect(secondary(sample, language)).toBeNull();
   });
+
+  it("has no second line when both halves are the same word", () => {
+    // Proper nouns are most of these: a class is "Class 6 A" and a teacher is
+    // their name in either language. "Class 6 A · Class 6 A" makes the app
+    // look broken to exactly the readers who chose to see both.
+    expect(secondary({ hi: "Class 6 A", en: "Class 6 A" }, "both")).toBeNull();
+    expect(flat({ hi: "Class 6 A", en: "Class 6 A" }, "both")).toBe("Class 6 A");
+  });
 });
 
 describe("flat()", () => {
