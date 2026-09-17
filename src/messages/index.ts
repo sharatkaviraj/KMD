@@ -1021,6 +1021,40 @@ export const m = {
   // PLAN section 3 asks for "exceptions with counts and owners". The owner is
   // the load-bearing half: a number with no name beside it is somebody else
   // problem to everybody who reads it.
+  /* ------------------------------------------------- student directory */
+  recordsSourceHint: t(
+    "हर जानकारी के साथ लिखा है कि वह कहाँ से आई।",
+    "Each value says where it came from.",
+  ),
+  studentsTitle: t("विद्यार्थी", "Students"),
+  studentsHint: t(
+    "नाम, एसआर नंबर या फ़ोन नंबर से खोजिए।",
+    "Search by name, SR number or phone number.",
+  ),
+  studentsSearchLabel: t("विद्यार्थी खोजें", "Search students"),
+  studentsSearchHint: t("नाम, एसआर या फ़ोन", "Name, SR or phone"),
+  studentsAllClasses: t("सभी कक्षाएँ", "All classes"),
+  studentsClear: t("हटाएँ", "Clear"),
+  studentsNone: t("कोई नहीं", "Nobody"),
+  // Two different nothings: nobody matched what was typed, and there is
+  // nobody on the roll at all. Only one of them is about the search box.
+  studentsNoMatch: t("इस खोज से कोई नहीं मिला।", "Nobody matched that search."),
+  studentsTryAgain: t(
+    "नाम का कुछ हिस्सा, पूरा एसआर नंबर, या दस अंकों का फ़ोन नंबर आज़माइए।",
+    "Try part of a name, a whole SR number, or a ten-digit phone number.",
+  ),
+  studentsEmpty: t(
+    "इस सत्र में अभी कोई विद्यार्थी दर्ज नहीं है।",
+    "No students are on the roll for this session yet.",
+  ),
+  studentsPages: t("पन्ने", "Pages"),
+  studentsPrevious: t("पिछला", "Previous"),
+  studentsNext: t("अगला", "Next"),
+  studentsSourceNote: t(
+    "नाम और एसआर नंबर स्कूल फ़ीस ऐप के हैं। यहाँ स्वीकार किए गए सुधार बच्चे के पन्ने पर अलग दिखते हैं।",
+    "Names and SR numbers come from the School Fees app. Corrections approved here are shown separately on the child’s own page.",
+  ),
+
   homeNeedsAttention: t("ध्यान चाहिए", "Needs attention"),
   homeAllClear: t(
     "अभी कुछ बाकी नहीं है।",

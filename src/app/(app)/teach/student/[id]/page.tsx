@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { countOf, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
+import { schoolApp, studentLinkLabel } from "@/platform/config/apps";
+import { getVppsOneEnvironment } from "@/platform/env";
 import {
   classLabelMap,
   resolveSessionLabel,
@@ -22,7 +25,11 @@ import {
   documentsForStudent,
   recordsForStudent,
 } from "@/modules/collection/data/documents-repo";
-import { documentKindLabels, humanSize } from "@/modules/collection/domain/review";
+import {
+  documentKindLabels,
+  humanSize,
+  recordSourceLabel,
+} from "@/modules/collection/domain/review";
 import { DocumentForm } from "@/modules/collection/ui/office-forms";
 import { listNoteKinds, notesForStudent } from "@/modules/notes/data/notes-repo";
 import { canReadNote } from "@/modules/notes/domain/notes";
@@ -110,6 +117,14 @@ export default async function StudentPage(
         ? documentsForStudent(studentId)
         : Promise.resolve([]),
     ]);
+
+  // The registry decides whether an id may travel to the fee app at all.
+  // Today it may not - this app is on dev data and the fee app is live - so
+  // this comes back as a search link and the button says so (D-122).
+  const feeLink = schoolApp("schoolfees").student(
+    { studentId, search: student.admissionNo ?? student.fullName },
+    getVppsOneEnvironment(),
+  );
 
   const statuses = history.map((entry) => entry.status);
   const summary = attendancePercent(statuses);
@@ -300,15 +315,60 @@ export default async function StudentPage(
       {/* ------------------------------------------------- what we hold */}
 
       {can(staff, "collection:view") && records.length > 0 ? (
-        <Section className="mt-7" title={m.recordsTitle} language={language}>
+        <Section
+          className="mt-7"
+          title={m.recordsTitle}
+          description={m.recordsSourceHint}
+          language={language}
+        >
           <Card className="p-5">
             <DetailList
               language={language}
               items={records.map((record) => ({
                 label: { hi: record.labelHi, en: record.labelEn },
-                value: record.value ?? "—",
+                // **Where the value came from, beside the value.** An approved
+                // human correction and an imported figure look identical once
+                // they are both just text on a card, and which one it is
+                // decides whether somebody rings the parent to check (S-10).
+                value: (
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span>{record.value ?? "—"}</span>
+                    <Badge tone={record.source === "teacher" ? "success" : "neutral"}>
+                      {primary(recordSourceLabel(record.source), language)}
+                    </Badge>
+                  </span>
+                ),
               }))}
             />
+          </Card>
+        </Section>
+      ) : null}
+
+      {/* ------------------------------------------ the fee app, for this child */}
+
+      {seesMoney ? (
+        <Section className="mt-7" title={m.appSchoolFees} language={language}>
+          <Card className="p-4">
+            {/* **Search, not a deep link, while the datasets differ.** This app
+                is on schoolfees-dev and the fee app is on live records, so an
+                id from here means nothing there — the registry falls back and
+                the button says which it is doing (D-122). */}
+            <p className="text-[14px] leading-6 text-muted-foreground">
+              {primary(
+                feeLink.kind === "detail" ? m.appOpenThisChild : m.appSearchInstead,
+                language,
+              )}
+            </p>
+            <a
+              href={feeLink.href}
+              className={buttonClasses({ variant: "outline", className: "mt-3 w-full" })}
+            >
+              {primary(studentLinkLabel(feeLink.kind), language)}
+              <ExternalLink aria-hidden />
+            </a>
+            <p className="mt-2 text-center font-mono text-[12px] text-subtle-foreground">
+              {new URL(feeLink.href).host}
+            </p>
           </Card>
         </Section>
       ) : null}

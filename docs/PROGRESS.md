@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R2.3 below.**
+**Active queue: PLAN revision 2. The next task is R3.1 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -17,16 +17,16 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 
 | Task | Bounded deliverable | Depends on | Status | Branch / commit / evidence |
 |---|---|---|---|---|
-| R0.1 | Complete source parity inventory, verify app/test origins and record baseline defects/metrics | Existing source + baseline | done | `r0-1-parity-and-origins` · `docs/evidence/R0.1-2026-09-17.md`, `docs/evidence/R0.1-origins-2026-09-17.json`, `npm run verify:origins` |
-| R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | done | `r0-2-fixtures` · `npm run qa:seed`/`qa:reset`/`qa:status` · `docs/evidence/R0.2-2026-09-17.md` |
-| R0.2-fix | B-21: the teacher's Today card called her first lesson "Period 0" | R0.2 | done | `r0-2-fixtures` · `src/modules/timetable/domain/periods.ts`, `tests/periods.test.ts` |
-| R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | done | `r0-3-expectations-and-journeys` · `npm run smoke:workflows` · `docs/evidence/R0.3-2026-09-17.md`, `docs/evidence/R0.3-smoke-roles-2026-09-17.json` |
-| R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | done | `r1-1-app-registry` · `src/platform/config/apps.ts`, `/apps` · `docs/evidence/R1.1-2026-09-17.md` |
-| R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | done | `r1-2-role-navigation` · `homeFor()`, `NAV_PRIORITY`, `sidebarFor()` · `docs/evidence/R1.2-2026-09-17.md` |
-| R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | done | `r1-3-shared-states` · `authored.ts`, `AuthoredText`, `/preferences`, `class-order.ts` · `docs/evidence/R1.3-2026-09-17.md` |
-| R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | done | `r2-1-teacher-today` · `lessonsToday()`, `nextAction()`, `TaskHero` · `docs/evidence/R2.1-2026-09-17.md`. Assigned requests deferred to R3.3 with the inbox they need |
-| R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | done | `r2-1-teacher-today` · `attention.ts`, `home-repo.ts` · `docs/evidence/R2.2-2026-09-17.md`. Exam coordinator queue deferred to R5.3 with the counts it needs; no fee summary until R6 |
-| R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | todo | — |
+| R0.1 | Complete source parity inventory, verify app/test origins and record baseline defects/metrics | Existing source + baseline | done | `r0-1-parity-and-origins` · `f6327b3` ([#17](https://github.com/veerpatta/vppsone/pull/17)) · `docs/evidence/R0.1-2026-09-17.md`, `docs/evidence/R0.1-origins-2026-09-17.json`, `npm run verify:origins` |
+| R0.2 | Deterministic six-role + second-teacher fixtures, run-scoped reset and mock provider | R0.1 | done | `r0-2-fixtures` · `8f78782` ([#18](https://github.com/veerpatta/vppsone/pull/18)) · `npm run qa:seed`/`qa:reset`/`qa:status` · `docs/evidence/R0.2-2026-09-17.md` |
+| R0.2-fix | B-21: the teacher's Today card called her first lesson "Period 0" | R0.2 | done | `r0-2-fixtures` · `8f78782` ([#18](https://github.com/veerpatta/vppsone/pull/18)) · `src/modules/timetable/domain/periods.ts`, `tests/periods.test.ts` |
+| R0.3 | Independent access expectations; smoke timeouts/counts/results; first teacher and office browser journeys | R0.2 | done | `r0-3-expectations-and-journeys` · `01da4d4` ([#19](https://github.com/veerpatta/vppsone/pull/19)) · `npm run smoke:workflows` · `docs/evidence/R0.3-2026-09-17.md`, `docs/evidence/R0.3-smoke-roles-2026-09-17.json` |
+| R1.1 | App registry, Apps hub, original SamPark/School Fees home shortcuts and verified context links | R0.1 | done | `r1-1-app-registry` · `76bba63` ([#20](https://github.com/veerpatta/vppsone/pull/20)) · `src/platform/config/apps.ts`, `/apps` · `docs/evidence/R1.1-2026-09-17.md` |
+| R1.2 | Role home resolver, role-priority phone nav, grouped desktop sidebar and aliases | R1.1 | done | `r1-2-role-navigation` · `d3eca8e` ([#21](https://github.com/veerpatta/vppsone/pull/21)) · `homeFor()`, `NAV_PRIORITY`, `sidebarFor()` · `docs/evidence/R1.2-2026-09-17.md` |
+| R1.3 | Shared form/state components, language preferences and responsive design baseline | R1.2 | done | `r1-3-shared-states` · `3aa251f` ([#22](https://github.com/veerpatta/vppsone/pull/22)) · `authored.ts`, `AuthoredText`, `/preferences`, `class-order.ts` · `docs/evidence/R1.3-2026-09-17.md` |
+| R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | done | `r2-1-teacher-today` · `6fde807` ([#23](https://github.com/veerpatta/vppsone/pull/23)) · `lessonsToday()`, `nextAction()`, `TaskHero` · `docs/evidence/R2.1-2026-09-17.md`. Assigned requests deferred to R3.3 with the inbox they need |
+| R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | done | `r2-1-teacher-today` · `6fde807` ([#23](https://github.com/veerpatta/vppsone/pull/23)) · `attention.ts`, `home-repo.ts` · `docs/evidence/R2.2-2026-09-17.md`. Exam coordinator queue deferred to R5.3 with the counts it needs; no fee summary until R6 |
+| R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | done | `r2-3-directory` · `/students`, `directory.ts`, source badges, fee context link · `docs/evidence/R2.3-2026-09-17.md`. Detail screen stays at `/teach/student/[id]` until R4.1 moves it with an alias |
 | R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | todo | — |
 | R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | todo | — |
 | R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | todo | — |
@@ -343,6 +343,47 @@ warns about), no student search box (the directory is R2.3, and a field posting
 to a route that does not exist is a dead control), and no uncovered-period
 count (that needs the planner own context; the card sends the coordinator to
 `/substitutions`, where the real figure is).
+
+### R2.3 — a real directory, and where each value came from
+
+`/students` is the searchable roster PLAN section 3a asks for, in place of
+reaching a child through whichever register they happen to be on. A plain GET
+form with every filter in the URL, so Back works, a bookmark works and a pasted
+link opens the same list for whoever receives it — and the screen ships no
+JavaScript of its own. Scope, search, count and paging all happen in Postgres:
+the staff list is a few dozen and ships whole (D-29), but the roster will be a
+few thousand and PostgREST truncates at a thousand with no error (D-62).
+
+It is guarded on a new `students:view` that only admin and office hold, and it
+is now **second on the office bar** — मुख्य · विद्यार्थी · जानकारी · ऐप · और —
+which is PLAN section 3 office row exactly, for the first time.
+
+**A search bug the browser found.** Three kinds of thing get typed into a
+school search box and `queryKind()` tells them apart: a bare number is an exact
+admission number, ten digits is a phone, anything else is a label. The first
+version searched labels against names only — and **this school issues
+alphanumeric SR numbers**, so pasting `TEST-CL6-002` from a spreadsheet
+searched names, found nothing, and read as "that child is not here". The loose
+branch searches `admission_no` too now, with a test that reads the repo query
+back so the rule cannot be dropped.
+
+**Source labels (S-10).** Each accepted value now carries a badge saying where
+it came from — a teacher, the office, an import — because an approved human
+correction and an imported figure look identical once they are both text on a
+card, and which one it is decides whether somebody rings the parent to check. A
+source the app has never heard of renders as itself rather than being forced
+into one of the three.
+
+**The fee link finally has a caller.** R1.1 built the context builder and
+nothing used it. The student page now emits
+`/protected/students?query=<SR>` — a *search* link carrying the SR, not a deep
+link carrying a dev UUID that means nothing in the fee app live database — and
+the button says "Find this child" rather than "Open this child" (D-122).
+
+Named rather than half-done: the detail screen stays at `/teach/student/[id]`
+until R4.1 moves it with an alias (one record, not two); search is not
+transliteration-aware, so "Meera" does not find "मीरा", which needs a stored
+transliteration or a Postgres extension rather than a tweak.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

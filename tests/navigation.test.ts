@@ -308,10 +308,17 @@ describe("each role's bar leads with its own work (B-04)", () => {
     // every role got the same order.
     const office = navigationFor("office").map((item) => item.href);
 
+    expect(office).toContain("/students");
     expect(office).toContain("/collection");
     expect(office).toContain("/apps");
-    expect(office[1]).toBe("/collection");
-    expect(office[2]).toBe("/apps");
+
+    // PLAN section 3 office bar: Home, Students, SamPark, Apps, More.
+    expect(office.slice(0, 4)).toEqual([
+      "/dashboard",
+      "/students",
+      "/collection",
+      "/apps",
+    ]);
   });
 
   it("gives the academic coordinator cover before the master data", () => {

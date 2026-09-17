@@ -26,6 +26,8 @@ const SCREENS = [
   { account: "office", path: "/dashboard", name: "the office home" },
   { account: "office", path: "/apps", name: "the apps hub" },
   { account: "office", path: "/collection", name: "collection" },
+  { account: "office", path: "/students", name: "the directory" },
+  { account: "office", path: "/students?q=Test", name: "a search with results" },
   { account: "office", path: "/preferences", name: "your settings" },
 ] as const;
 

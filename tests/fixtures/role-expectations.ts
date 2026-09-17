@@ -203,6 +203,15 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
       "Report cards are issued by the exam coordinator. PLAN §3's teacher row is marks and attendance, not reports.",
   },
 
+  /* ------------------------------------------------------- the directory */
+
+  {
+    route: "/students",
+    allow: ["admin", "office"],
+    because:
+      "PLAN section 3 puts Students on the admin and office navigation and nowhere else. A teacher already has her own classes on /teach, and the school roster is not hers to browse.",
+  },
+
   /* ------------------------------------------------------------ collection */
 
   {

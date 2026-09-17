@@ -9,6 +9,7 @@ import {
   Repeat2,
   SquareArrowOutUpRight,
   Table2,
+  UserSearch,
   Timer,
   Users,
 } from "lucide-react";
@@ -88,6 +89,15 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: m.navAssessments,
     icon: FileText,
     permission: "assessments:view",
+    ready: true,
+  },
+  // Find a child. PLAN section 3 puts Students second on the admin and office
+  // bars, ahead of everything the office visits a few times a term.
+  {
+    href: "/students",
+    label: m.studentsTitle,
+    icon: UserSearch,
+    permission: "students:view",
     ready: true,
   },
   {
@@ -212,8 +222,8 @@ export function homeFor(role: StaffRole): string {
  */
 const NAV_PRIORITY: Record<StaffRole, readonly string[]> = {
   // "Home, Students, SamPark, Apps, More" — Students arrives in R2.3.
-  admin: ["/dashboard", "/collection", "/apps", "/teach"],
-  office: ["/dashboard", "/collection", "/apps", "/teach"],
+  admin: ["/dashboard", "/students", "/collection", "/apps"],
+  office: ["/dashboard", "/students", "/collection", "/apps"],
   // "Today, My classes, Timetable, Requests, More".
   teacher: ["/teach", "/timetable", "/substitutions", "/assessments"],
   // "Home, Cover, Timetable, Classes, More".
@@ -280,6 +290,7 @@ export type NavGroup = { title: Localized; items: NavItem[] };
  */
 const GROUP_OF: Record<string, "daily" | "records" | "setup"> = {
   "/dashboard": "daily",
+  "/students": "daily",
   "/teach": "daily",
   "/substitutions": "daily",
   "/collection": "daily",

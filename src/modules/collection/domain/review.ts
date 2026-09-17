@@ -271,3 +271,18 @@ export function humanSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * Where a stored value came from, for the badge beside it.
+ *
+ * `record_source` is plain text in the database, so a value the app has never
+ * heard of is a row from a later version rather than corruption. It reads as
+ * itself instead of being forced into one of the three known labels — saying
+ * "an import" about something that was not one is worse than saying a word
+ * nobody recognises.
+ */
+export function recordSourceLabel(source: string): Localized {
+  return (
+    recordSourceLabels[source as RecordSource] ?? { hi: source, en: source }
+  );
+}

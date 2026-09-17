@@ -70,6 +70,14 @@ export const staffPermissions = [
   "marks:write",
   "reports:view",
 
+  // The student directory (R2.3).
+  //
+  // A real searchable roster rather than reaching a child through whichever
+  // register they happen to be on. PLAN section 3 puts Students on the admin
+  // and office navigation and nowhere else: a teacher already has her own
+  // classes on `/teach`, and the school roster is not hers to browse.
+  "students:view",
+
   // The other two apps (R1.1).
   //
   // Not "may open School Fees" — nothing here can grant that, and the fee app
@@ -134,6 +142,7 @@ const officePermissions: readonly StaffPermission[] = [
   "marks:view",
   "reports:view",
   "apps:view",
+  "students:view",
 ];
 
 /**

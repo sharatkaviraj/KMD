@@ -52,6 +52,9 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // navigation; it does not grant anything in either destination, which
     // decides for itself.
     "apps:view",
+    // The searchable roster. PLAN section 3 puts Students on the admin and
+    // office navigation and nowhere else.
+    "students:view",
   ],
 
   academic_coordinator: [
