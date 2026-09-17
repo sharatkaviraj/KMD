@@ -128,6 +128,7 @@ async function fillIds(route) {
   };
 
   if (route.startsWith("/assessments/[id]")) map["[id]"] = await pick("assessments");
+  else if (route.startsWith("/collection/rounds/[id]")) map["[id]"] = await pick("collection_rounds");
   else if (route.startsWith("/collection/[id]")) map["[id]"] = await pick("collection_requests");
   else if (route.startsWith("/staff/[id]")) map["[id]"] = await pick("staff_profiles");
   else if (route.startsWith("/timetable/[id]")) map["[id]"] = await pick("timetable_versions");

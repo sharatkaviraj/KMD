@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R3.2 below.**
+**Active queue: PLAN revision 2. The next task is R3.3 below.**
 Use the first actionable R-row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
@@ -27,8 +27,8 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R2.1 | Teacher Today priorities, assigned requests and class shortcuts | R1.3, R0.3 | done | `r2-1-teacher-today` · `6fde807` ([#23](https://github.com/veerpatta/vppsone/pull/23)) · `lessonsToday()`, `nextAction()`, `TaskHero` · `docs/evidence/R2.1-2026-09-17.md`. Assigned requests deferred to R3.3 with the inbox they need |
 | R2.2 | Office/admin, academic/exam coordinator and viewer homes with real queues | R1.3, R0.3 | done | `r2-1-teacher-today` · `6fde807` ([#23](https://github.com/veerpatta/vppsone/pull/23)) · `attention.ts`, `home-repo.ts` · `docs/evidence/R2.2-2026-09-17.md`. Exam coordinator queue deferred to R5.3 with the counts it needs; no fee summary until R6 |
 | R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | done | `r2-3-directory` · `/students`, `directory.ts`, source badges, fee context link · `docs/evidence/R2.3-2026-09-17.md`. Detail screen stays at `/teach/student/[id]` until R4.1 moves it with an alias |
-| R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | done | `r3-1-rounds` · `collection_rounds`, `collection_request_members`, `audience.ts`, `external_student_ids` · `tests/e2e/collection-freeze.spec.ts` · `docs/evidence/R3.1-2026-09-17.md`. Rounds and mapping are schema with no writer yet: the wizard is R3.2, the fan-out R3.3, the matcher R4.1 |
-| R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | todo | — |
+| R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | done | `r3-1-rounds` · `652393c` ([#25](https://github.com/veerpatta/vppsone/pull/25)) · `collection_rounds`, `collection_request_members`, `audience.ts`, `external_student_ids` · `tests/e2e/collection-freeze.spec.ts` · `docs/evidence/R3.1-2026-09-17.md`. Rounds and mapping are schema with no writer yet: the wizard is R3.2, the fan-out R3.3, the matcher R4.1 |
+| R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | done | `r3-2-round-wizard` · `/collection/rounds`, `rounds-repo.ts`, `gaps.ts`, `ask-list.ts` · `tests/e2e/{round-wizard,ask-list}.spec.ts` · `docs/evidence/R3.2-2026-09-17.md`. A round mints no links yet (R3.3). House and route audiences are resolvable and not offered: both columns are empty on dev and rule 2 forbids filling them (B-31), and nothing holds house/route ownership (B-32) |
 | R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | todo | — |
 | R3.4 | Round-aware review/precedence/superseding and mock message retry; S-01–S-09 acceptance | R3.3 | todo | — |
 | R4.1 | Student source/health tools and resumable import preview/error handling | R3.4 | todo | — |
@@ -435,6 +435,60 @@ writer, here because this is the additive migration. `external_student_ids`
 gives SamPark links a mapping to use (S-10) and nothing populates it, so the
 link still degrades to search — a missing row now rather than a missing
 mechanism (D-146).
+
+### R3.2 — see who a round reaches before you make it
+
+R3.1 gave a round a table and no way to make one. This is the screen, and the
+count on it is the whole point: `/collection/rounds/new` is **two forms on one
+page** — a `GET` that only changes the URL, and a `POST` that carries the same
+selection as hidden fields. So the number the office reads is a server render
+of the real resolver, not arithmetic the browser did on what it happened to
+have loaded. The day those are two code paths is the day a preview says nine
+and the round covers eleven.
+
+It also ships no JavaScript of its own. Ticking a class is a page load — slower
+than a click, and it works on the connection this is actually opened on, with
+Back and a shareable URL thrown in (D-139).
+
+`gaps.ts` is what "missing" means, in one place. **Blank is missing; wrong is
+not** — a nine-digit phone number is a different problem from no phone number,
+and rolling them together puts a child the office must fix itself onto a
+teacher's list. And **two gaps mean both**, the smaller set, so the sentence
+shown to the teacher says "and" rather than "or" (D-152).
+
+The ask list is for the case no filter can find: thirty-five families whose
+number is on record and is not a WhatsApp number. Ported from SamPark reading
+**CSV** rather than `.xlsx` — `SOURCES.md` records that `excel.ts` was not
+ported, and a spreadsheet library to parse a file Excel already exports is a
+dependency bought for nothing. The BOM is kept, because without it Excel opens
+the Hindi notes column as mojibake. **What did not match is the point**: the
+upload is two steps and the first creates nothing, so every non-blank row comes
+back matched or named by the row number Excel shows down the left.
+
+Four defects found by looking, one of them by reading the resolver rather
+than by any failing test: a round carrying an explicit list still had the gap
+filters applied on top of it, so a list frozen from a gap selection and
+re-resolved after those gaps were filled would quietly cover fewer children
+than it was frozen with (B-33, D-158). Nothing would have failed loudly — the
+failure is a *smaller* number, and every screen renders that without
+complaint. The journey now builds exactly that shape and fails without the fix.
+
+The count line read **"1 कक्षाओं में"** — a
+plural Hindi noun on a singular number, obvious to every Hindi speaker in the
+school and invisible to anybody reviewing in English, which is exactly why it
+shipped (B-28, D-153). The phone baseline caught a **16px link** on the
+builder, the same defect class as B-24 (B-29). And the match report ran
+together as text — "पंक्ति 4NOPE-404Somebody Missing" — because a margin
+separates pixels and a screen reader reads the text (B-30).
+
+Named rather than half-done: **a round mints no links.** The fan-out, the
+recipients and the master link are R3.3, and the round page says so rather than
+showing an empty list somebody reads as a failure. **House and route audiences
+are resolvable and not offered**: both columns are empty on schoolfees-dev — 0
+of 139 — and rule 2 forbids filling them, so chips for a filter that could only
+return nobody would be a lie (B-31). Nothing holds house or route *ownership*
+either, so such a round would have no recipient to fan out to (B-32). The
+audience carries `search` and the builder has no box for it yet.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

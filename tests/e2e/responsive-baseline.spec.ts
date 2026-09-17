@@ -28,6 +28,10 @@ const SCREENS = [
   { account: "office", path: "/collection", name: "collection" },
   { account: "office", path: "/students", name: "the directory" },
   { account: "office", path: "/students?q=Test", name: "a search with results" },
+  { account: "office", path: "/collection/rounds", name: "the rounds board" },
+  // The densest screen in the app on a phone: twenty class tiles and seven
+  // filter tiles, two per row at 360px.
+  { account: "office", path: "/collection/rounds/new", name: "building a round" },
   { account: "office", path: "/preferences", name: "your settings" },
 ] as const;
 

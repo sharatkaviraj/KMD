@@ -240,6 +240,29 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     allow: ["admin", "office"],
     because: "Reviewing what came back is office work.",
   },
+  {
+    route: "/collection/rounds",
+    allow: ["admin", "office"],
+    because:
+      "A round is one question asked of many classes. Building and tracking it is the same office work as a single request, and a teacher's side of it is still a token link with no account behind it.",
+  },
+  {
+    route: "/collection/rounds/new",
+    allow: ["admin", "office"],
+    because:
+      "Choosing who a round reaches is the office deciding what to ask the school for. Guarded on collection:manage rather than :view, because the preview it renders reads every child in scope.",
+  },
+  {
+    route: "/collection/rounds/upload",
+    allow: ["admin", "office"],
+    because:
+      "A sheet of specific children, for the case no filter can find: the office is the only thing that knows which families those are. Same guard as building a round, because it creates one.",
+  },
+  {
+    route: "/collection/rounds/[id]",
+    allow: ["admin", "office"],
+    because: "One round, with what it asks and who it covers.",
+  },
 
   /* --------------------------------------------------------- master data */
 

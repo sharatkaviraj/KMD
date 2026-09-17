@@ -1034,6 +1034,106 @@ export const m = {
   // One link over every group in the round, held by the office.
   audienceMaster: t("सभी कक्षाएँ", "All classes"),
 
+  /* ------------------------------------------------------ rounds (R3.2) */
+
+  roundsTitle: t("राउंड", "Rounds"),
+  roundsHint: t(
+    "एक सवाल, कई कक्षाओं से। पहले देखिए किसके पास जाएगा, फिर बनाइए।",
+    "One question, asked of many classes. See who it reaches before you make it.",
+  ),
+  roundsNone: t("अभी कोई राउंड नहीं है।", "No rounds yet."),
+  roundNew: t("नया राउंड", "New round"),
+  roundCreate: t("राउंड बनाएँ", "Create the round"),
+  roundCreated: t("राउंड बन गया।", "The round is saved."),
+
+  roundWho: t("किनसे पूछना है", "Who to ask about"),
+  roundWhat: t("क्या पूछना है", "What to ask for"),
+  roundWhen: t("कब तक", "By when"),
+  roundWhy: t("क्यों", "Why"),
+
+  roundClasses: t("कक्षाएँ", "Classes"),
+  roundAllClasses: t("सभी कक्षाएँ", "Every class"),
+  roundGaps: t("सिर्फ़ जिनकी जानकारी बाकी है", "Only the children we are missing this for"),
+  roundGapsHint: t(
+    "एक से ज़्यादा चुनने पर सिर्फ़ वे बच्चे आएँगे जिनकी सभी चुनी हुई जानकारी बाकी है।",
+    "Choosing more than one selects only the children missing all of them.",
+  ),
+
+  roundPreview: t("अभी देखिए", "See who this reaches"),
+  roundPreviewUpdate: t("गिनती दोबारा देखें", "Update the count"),
+  // Singular and plural, because both languages inflect and Hindi is the one
+  // that gets forgotten: "1 कक्षाओं में" reads as broken to every Hindi
+  // speaker in the school and is invisible to anybody reviewing in English.
+  roundCoversOne: t("बच्चा", "child"),
+  roundCoversMany: t("बच्चे", "children"),
+  roundAcrossOne: t("कक्षा में", "class"),
+  roundAcrossMany: t("कक्षाओं में", "classes"),
+  roundNobody: t(
+    "इस चुनाव में कोई बच्चा नहीं आता। कुछ और चुनकर देखिए।",
+    "Nothing is selected yet. Choose a class, a house or a filter.",
+  ),
+  roundNobodyMatched: t(
+    "इस चुनाव में कोई बच्चा नहीं मिला।",
+    "No child matches this selection.",
+  ),
+  roundNarrowedFrom: t("में से", "narrowed from"),
+
+  roundReasonNeeded: t(
+    "पूरी कक्षा नहीं जा रही, इसलिए कारण लिखना ज़रूरी है — शिक्षक को अधूरी सूची अपने आप समझ नहीं आएगी।",
+    "This is not a whole class, so it needs a reason — an unexplained short list reads to a teacher as a broken one.",
+  ),
+  roundReasonSuggested: t("सुझाया गया कारण", "Suggested reason"),
+
+  roundUnknownGap: t(
+    "एक फ़िल्टर ऐसी जानकारी का था जो अब सूची में नहीं है। उसे छोड़ दिया गया।",
+    "One filter named something no longer on the list. It was left out.",
+  ),
+
+  roundNoLinksYet: t(
+    "अभी कोई लिंक नहीं बना। लिंक भेजना अगला काम है।",
+    "No links yet. Handing them to teachers is the next task.",
+  ),
+
+  /* ------------------------------------------------------ the ask list */
+
+  askListTitle: t("सूची चढ़ाइए", "Upload a list"),
+  askListHint: t(
+    "जब कोई फ़िल्टर उन बच्चों को नहीं ढूँढ़ सकता जिनके बारे में पूछना है — उनका SR नंबर सूची में लिखिए।",
+    "For when no filter can find the children you mean — write their SR numbers in a sheet.",
+  ),
+  askListTemplate: t("नमूना फ़ाइल", "Download the template"),
+  askListChoose: t("फ़ाइल चुनिए", "Choose the file"),
+  askListCheck: t("मिलान देखिए", "Check the list"),
+  askListMatched: t("मिल गए", "Matched"),
+  askListUnmatched: t("नहीं मिले", "Not matched"),
+  askListAllMatched: t("हर पंक्ति मिल गई।", "Every row matched."),
+  askListNoIdentityColumn: t(
+    "इस फ़ाइल में SR नंबर का कॉलम नहीं है, इसलिए किसी बच्चे को पहचाना नहीं जा सकता।",
+    "This file has no SR number column, so no child in it can be identified.",
+  ),
+  askListEmpty: t("फ़ाइल में कोई पंक्ति नहीं है।", "The file has no rows."),
+  askListRow: t("पंक्ति", "Row"),
+
+  // Why one row could not be used. Pairs, not sentences built in the domain:
+  // an English-only error list is exactly the half-translated feeling D-129
+  // is about.
+  askListMissNoIdentifier: t(
+    "SR नंबर नहीं लिखा — सिर्फ़ नाम से बच्चा नहीं पहचाना जा सकता",
+    "No SR number — a name alone cannot identify a child",
+  ),
+  askListMissNotFound: t(
+    "इस SR नंबर का कोई एक बच्चा नहीं मिला",
+    "No one child has this SR number",
+  ),
+  askListMissNotEnrolled: t(
+    "यह बच्चा इस सत्र की हाज़िरी में नहीं है",
+    "This child is not on this session's roll",
+  ),
+  askListMissAlreadyListed: t(
+    "यह बच्चा ऊपर की किसी पंक्ति में पहले से है",
+    "This child is already on an earlier row",
+  ),
+
   studentsTitle: t("विद्यार्थी", "Students"),
   studentsHint: t(
     "नाम, एसआर नंबर या फ़ोन नंबर से खोजिए।",

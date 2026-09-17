@@ -97,6 +97,15 @@ export default async function CollectionPage() {
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
+        {/* First, because a round is the thing the office reaches for when the
+            answer is "every class" — which it usually is. One request is the
+            exception, and it is still right here underneath. */}
+        <Link
+          href="/collection/rounds"
+          className={buttonClasses({ variant: "outline", size: "sm" })}
+        >
+          {primary(m.roundsTitle, language)}
+        </Link>
         <Link
           href="/collection/fields"
           className={buttonClasses({ variant: "outline", size: "sm" })}

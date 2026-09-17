@@ -451,6 +451,72 @@ async function seed() {
     console.log(`teacher ${slot} is now class teacher of ${nameOf.get(free)}`);
   }
 
+  /* --------------------------------------------------------------- a round */
+
+  // **One round, so `/collection/rounds/[id]` is reachable.** The role smoke
+  // resolves a dynamic route against a real row and treats a missing one as a
+  // *failure* rather than a skip (D-117) — so a screen with no fixture behind
+  // it is a screen nobody has ever checked the permissions of.
+  //
+  // Deliberately a narrowed audience with a reason: an empty-audience round
+  // would render the "nothing selected" branch, which is not the page anybody
+  // needs covered.
+  const roundClass = classes.find((row) => !taken.has(row.id)) ?? classes[0];
+
+  const askable = must(
+    "Could not read the collection fields",
+    await db
+      .from("collection_fields")
+      .select("id, key")
+      .eq("is_active", true)
+      .order("sort_order"),
+  );
+
+  if (roundClass && askable.length > 0) {
+    const { data: round, error } = await db
+      .from("collection_rounds")
+      .insert({
+        session_label: sessionLabel,
+        title_hi: "QA राउंड",
+        title_en: "QA round",
+        audience: {
+          classIds: [roundClass.id],
+          houses: [],
+          routeIds: [],
+          search: "",
+          gaps: [{ fieldKey: askable[0].key }],
+          allEnrolled: false,
+          studentIds: [],
+          notes: {},
+          from: null,
+        },
+        reason_hi: "QA — जाँच के लिए बनाया गया राउंड",
+        reason_en: "QA — a round made for checking",
+        recipient_mode: "class_teacher",
+        status: "draft",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error(`Could not seed the QA round: ${error.message}`);
+      process.exit(1);
+    }
+
+    await record("vppsone.collection_rounds", "insert", { id: round.id });
+
+    const { error: fieldError } = await db
+      .from("collection_round_fields")
+      .insert({ round_id: round.id, field_id: askable[0].id, sort_order: 0 });
+
+    if (fieldError) {
+      console.error(`Could not seed the QA round's fields: ${fieldError.message}`);
+      process.exit(1);
+    }
+
+    console.log(`round "QA round" asks ${roundClass.class_name} for ${askable[0].key}`);
+  }
+
   /* ------------------------------------------------------------ edge classes */
 
   if (flag("edge-classes")) {

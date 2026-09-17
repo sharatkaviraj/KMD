@@ -4,6 +4,7 @@ import { m } from "@/messages";
 import {
   countOf,
   countOfPair,
+  counted,
   decodeMessage,
   DEFAULT_LANGUAGE,
   encodeMessage,
@@ -94,6 +95,34 @@ describe("countOf()", () => {
   it("is the same pair for a bilingual reader", () => {
     expect(countOfPair(9, 45)).toEqual({ hi: "45 में से 9", en: "9 of 45" });
     expect(flat(countOfPair(9, 45), "both")).toBe("45 में से 9 · 9 of 45");
+  });
+
+  /**
+   * **Both languages inflect, and Hindi is the one that gets forgotten.**
+   * "1 children" is obviously wrong and somebody fixes it; "1 कक्षाओं में" is
+   * equally wrong, reads as slightly broken to every Hindi speaker in the
+   * school, and is invisible to everybody reviewing the code in English.
+   */
+  it("agrees the noun with the number, in both halves", () => {
+    const one = { hi: "कक्षा में", en: "class" };
+    const many = { hi: "कक्षाओं में", en: "classes" };
+
+    expect(counted(1, one, many)).toEqual({ hi: "1 कक्षा में", en: "1 class" });
+    expect(counted(3, one, many)).toEqual({ hi: "3 कक्षाओं में", en: "3 classes" });
+  });
+
+  it("gives zero the plural, which is what both languages do", () => {
+    const one = { hi: "बच्चा", en: "child" };
+    const many = { hi: "बच्चे", en: "children" };
+
+    expect(counted(0, one, many)).toEqual({ hi: "0 बच्चे", en: "0 children" });
+  });
+
+  it("writes the number in Latin digits in the Hindi half too", () => {
+    // A test elsewhere asserts no Devanagari numeral reaches a reader, and the
+    // school reads roll numbers in Latin anyway.
+    expect(counted(12, { hi: "बच्चा", en: "child" }, { hi: "बच्चे", en: "children" }).hi)
+      .not.toMatch(/[\u0966-\u096F]/);
   });
 
   it("copes with zero and with equality", () => {

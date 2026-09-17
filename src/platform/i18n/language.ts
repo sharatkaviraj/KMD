@@ -113,6 +113,29 @@ export function countOfPair(part: number, whole: number): Localized {
 }
 
 /**
+ * A count and its noun, agreeing in number.
+ *
+ * **Both languages inflect, and Hindi is the one that gets forgotten.** "1
+ * children" is obviously wrong and somebody fixes it; "1 कक्षाओं में" is
+ * equally wrong, reads as slightly broken to every Hindi speaker in the
+ * school, and is invisible to everybody reviewing the code in English.
+ *
+ * A function rather than two message keys, for the reason `countOfPair()` is
+ * one: the number moves, the noun changes with it, and a component choosing
+ * between two keys by hand is a component that will one day only remember to
+ * do it in English.
+ *
+ * Zero takes the plural in both languages, which is what both actually do —
+ * "0 children", "0 कक्षाओं में".
+ */
+export function counted(count: number, one: Localized, many: Localized): Localized {
+  const noun = count === 1 ? one : many;
+  // Latin digits in both halves: a test asserts no Devanagari numeral reaches
+  // a reader, and the school reads roll numbers in Latin anyway.
+  return t(`${count} ${noun.hi}`, `${count} ${noun.en}`);
+}
+
+/**
  * Validation messages are produced in the domain, which has no idea who is
  * reading — a schema is parsed in a server action, long before a component
  * exists. Zod carries a `string`, so the pair is encoded as JSON and unpacked
