@@ -5,6 +5,10 @@ import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import { fetchAllRows } from "@/platform/supabase/paginate";
+import { supersededIds } from "@/modules/collection/domain/precedence";
+import { feeColumnsFor, heldValue } from "@/modules/collection/domain/gaps";
+import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
+import type { CollectionField } from "@/modules/collection/domain/fields";
 import type { CollectionRequest } from "@/modules/collection/domain/requests";
 import type {
   RecordSource,
@@ -106,7 +110,10 @@ type SubmissionRow = {
   collection_requests: {
     title_hi: string;
     title_en: string;
-    class_label: string;
+    class_label: string | null;
+    round_id: string | null;
+    audience_kind: string;
+    audience_label: string;
     staff_profiles: { display_name: string } | null;
   } | null;
   collection_fields: { key: string; label_hi: string; label_en: string } | null;
@@ -118,7 +125,8 @@ const COLUMNS =
   "decided_at, decision_note, " +
   // Named: a request points at `staff_profiles` three times now (assigned,
   // sent_by, reminded_by), and an unnamed embed fails the whole select.
-  "collection_requests!inner(title_hi, title_en, class_label, " +
+  "collection_requests!inner(title_hi, title_en, class_label, round_id, " +
+  "audience_kind, audience_label, " +
   "staff_profiles!collection_requests_assigned_staff_id_fkey(display_name)), " +
   "collection_fields!inner(key, label_hi, label_en), " +
   "staff_profiles(display_name)";
@@ -151,6 +159,11 @@ export async function listSubmissions(
 
   const studentIds = [...new Set(data.map((row) => row.student_id))];
 
+  // The fields these answers are about, so `heldNow` can follow the same
+  // precedence the link did rather than a second, shorter one.
+  const askedAbout = new Set(data.map((row) => row.field_id));
+  const fields = (await listFieldsPublic()).filter((field) => askedAbout.has(field.id));
+
   const { data: students } = await createAdminClient()
     .schema(FEE_SCHEMA)
     .from("students")
@@ -159,6 +172,25 @@ export async function listSubmissions(
     .returns<{ id: string; full_name: string; roll_no: string | null }[]>();
 
   const byId = new Map((students ?? []).map((row) => [row.id, row]));
+
+  // **What the school holds today**, read once for the whole queue.
+  //
+  // Not to replace `previous_value` — that is what the teacher was shown and
+  // re-reading it is the bug freezing exists to remove (D-142). This is the
+  // other side of the comparison: the office needs to see that the record has
+  // moved *since*, because accepting the answer would quietly revert whoever
+  // moved it (S-07).
+  const heldNow = await currentlyHeld(studentIds, fields);
+
+  const superseded = supersededIds(
+    data.map((row) => ({
+      id: row.id,
+      studentId: row.student_id,
+      fieldId: row.field_id,
+      status: row.status,
+      submittedAt: row.submitted_at,
+    })),
+  );
 
   return data.map((row) => ({
     id: row.id,
@@ -181,7 +213,91 @@ export async function listSubmissions(
     decidedByName: row.staff_profiles?.display_name ?? null,
     decidedAt: row.decided_at,
     decisionNote: row.decision_note,
+    roundId: row.collection_requests?.round_id ?? null,
+    audienceKind: row.collection_requests?.audience_kind ?? "class",
+    audienceLabel:
+      row.collection_requests?.audience_label ??
+      row.collection_requests?.class_label ??
+      "—",
+    heldNow: heldNow.get(`${row.student_id}|${row.field_id}`) ?? null,
+    isSuperseded: superseded.has(row.id),
   }));
+}
+
+/**
+ * What the school holds per (student, field) right now.
+ *
+ * **The same precedence the link itself used** — VPPS One's own accepted
+ * answer, then the fee app's column — through the same `heldValue()` the gap
+ * filter and the freeze use. Reading only `student_records` made "no record
+ * row" indistinguishable from "the value was cleared", so every answer whose
+ * shown value came from the fee column looked stale: four flags out of four
+ * rows in the dev fixture, which is a flag nobody reads.
+ */
+async function currentlyHeld(
+  studentIds: string[],
+  fields: CollectionField[],
+): Promise<Map<string, string | null>> {
+  const held = new Map<string, string | null>();
+  if (studentIds.length === 0 || fields.length === 0) return held;
+
+  const admin = createAdminClient();
+  const feeColumns = feeColumnsFor(fields);
+
+  const recorded = new Map<string, string | null>();
+  const feeOf = new Map<string, Record<string, string | null>>();
+
+  for (let i = 0; i < studentIds.length; i += 200) {
+    const slice = studentIds.slice(i, i + 200);
+
+    const rows = await fetchAllRows<{
+      student_id: string;
+      field_id: string;
+      value: string | null;
+    }>(
+      (from, to) =>
+        admin
+          .from("student_records")
+          .select("student_id, field_id, value")
+          .in("student_id", slice)
+          .in("field_id", fields.map((field) => field.id))
+          .order("student_id")
+          .range(from, to)
+          .returns<{ student_id: string; field_id: string; value: string | null }[]>(),
+      "what the school holds",
+    );
+
+    for (const row of rows) {
+      recorded.set(`${row.student_id}|${row.field_id}`, row.value);
+    }
+
+    if (feeColumns.length > 0) {
+      const { data: feeRows } = await admin
+        .schema(FEE_SCHEMA)
+        .from("students")
+        .select(["id", ...feeColumns].join(", "))
+        .in("id", slice)
+        .returns<Record<string, string | null>[]>();
+
+      for (const row of feeRows ?? []) feeOf.set(String(row.id), row);
+    }
+  }
+
+  for (const studentId of studentIds) {
+    for (const field of fields) {
+      held.set(
+        `${studentId}|${field.id}`,
+        heldValue({
+          recorded: recorded.get(`${studentId}|${field.id}`) ?? null,
+          fee: field.feeColumn
+            ? (feeOf.get(studentId)?.[field.feeColumn] ?? null)
+            : null,
+        }),
+      );
+    }
+  }
+
+  return held;
 }
 
 export async function submissionsForRequest(

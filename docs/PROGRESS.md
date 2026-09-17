@@ -29,8 +29,8 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R2.3 | Student directory and shared summary, source labels, persistent search/session context | R2.1, R2.2 | done | `r2-3-directory` · `/students`, `directory.ts`, source badges, fee context link · `docs/evidence/R2.3-2026-09-17.md`. Detail screen stays at `/teach/student/[id]` until R4.1 moves it with an alias |
 | R3.1 | Additive rounds, frozen membership/value snapshots, identity mapping and audience domain | R0, R2.3 | done | `r3-1-rounds` · `652393c` ([#25](https://github.com/veerpatta/vppsone/pull/25)) · `collection_rounds`, `collection_request_members`, `audience.ts`, `external_student_ids` · `tests/e2e/collection-freeze.spec.ts` · `docs/evidence/R3.1-2026-09-17.md`. Rounds and mapping are schema with no writer yet: the wizard is R3.2, the fan-out R3.3, the matcher R4.1 |
 | R3.2 | Audience/fields/preview wizard, gap filters and Excel ask-list matching with notes | R3.1 | done | `r3-2-round-wizard` · `4668104` ([#26](https://github.com/veerpatta/vppsone/pull/26)) · `/collection/rounds`, `rounds-repo.ts`, `gaps.ts`, `ask-list.ts` · `tests/e2e/{round-wizard,ask-list}.spec.ts` · `docs/evidence/R3.2-2026-09-17.md`. A round mints no links yet (R3.3). House and route audiences are resolvable and not offered: both columns are empty on dev and rule 2 forbids filling them (B-31), and nothing holds house/route ownership (B-32) |
-| R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | done | `r3-3-fan-out` · `staff_scopes`, `ownership.ts`, `fan-out.ts`, `fan-out-repo.ts`, `RoundBoard` · `tests/e2e/fan-out.spec.ts` · `docs/evidence/R3.3-2026-09-17.md`. Nothing is sent: the board records what the office did in WhatsApp itself (D-10). No per-group override yet (B-35); house and route rounds still undemonstrable on dev data (B-31) |
-| R3.4 | Round-aware review/precedence/superseding and mock message retry; S-01–S-09 acceptance | R3.3 | todo | — |
+| R3.3 | Teacher fan-out, master/office links, completion board and resume | R3.2 | done | `r3-3-fan-out` · `fbcfb4a` ([#27](https://github.com/veerpatta/vppsone/pull/27)) · `staff_scopes`, `ownership.ts`, `fan-out.ts`, `fan-out-repo.ts`, `RoundBoard` · `tests/e2e/fan-out.spec.ts` · `docs/evidence/R3.3-2026-09-17.md`. Nothing is sent: the board records what the office did in WhatsApp itself (D-10). No per-group override yet (B-35); house and route rounds still undemonstrable on dev data (B-31) |
+| R3.4 | Round-aware review/precedence/superseding and mock message retry; S-01–S-09 acceptance | R3.3 | in progress | `r3-4-review-precedence` · `precedence.ts`, round context on the queue, staleness and superseding · `tests/e2e/review-precedence.spec.ts` · `docs/evidence/R3.4-2026-09-17.md`. **Still owed: mock message retry, the S-01–S-09 acceptance pass, and wiring `mayReplace()` into accept** |
 | R4.1 | Student source/health tools and resumable import preview/error handling | R3.4 | todo | — |
 | R4.2 | Student photo capture/retake/replace, bulk filename matching and office-assisted workflow | R4.1 | todo | — |
 | R4.3 | Documents, workbook export and residual S-12–S-14 source parity | R4.2 | todo | — |
@@ -540,6 +540,42 @@ blocked group yet, so the office fixes it in the staff record (B-35). House and
 route rounds remain undemonstrable on dev data (B-31). Two rounds asking the
 same class for the same field make two links and nothing reconciles them; that
 is R3.4.
+
+### R3.4 (part 1) — the queue says when the record moved
+
+Two failures that look like nothing on screen. A **stale** answer renders as an
+ordinary row with a reasonable value in it, and accepting it silently reverts a
+correction somebody made on purpose (S-07). A **superseded** one renders as a
+*second* ordinary row, and the office adjudicates a question it cannot see the
+shape of — which is the ordinary case, not an edge: the office asks in April,
+half come back, and it asks the stragglers again in June.
+
+`precedence.ts` answers both, compared against the **frozen** value the
+submission carries rather than one re-read now — re-reading is the bug freezing
+exists to remove (D-164). The earlier answer is *marked*, never deleted: "what
+did she say in April" is a real question when June's answer looks wrong, and an
+accepted row is never superseded at all, because rewriting a decision makes the
+audit trail a record of what the app thinks rather than of what anybody did
+(D-165).
+
+**B-37 came out of building the scenario and looking at it.** The first version
+read "what is held now" from `student_records` only, with a comment claiming
+that avoided flagging everything — it did the opposite. A value the teacher was
+shown that came from the *fee column* has no `student_records` row, so "no row"
+was indistinguishable from "the value was cleared" and every such answer was
+called stale: four flags on four pending rows. The read now follows the same
+precedence the link used, and the rule now requires something to conflict with
+— "shown a number, hold nothing now" is a hole to fill, not a correction to
+revert (D-166).
+
+The queue also shows the **group** the answer was asked of rather than the
+class on the request row, because a house link has no class and would print a
+dash on every one.
+
+**R3.4 is not finished.** Still owed: the mock message retry the R0.2 provider
+outcomes exist to exercise, the S-01–S-09 acceptance pass, and wiring the
+long-existing `mayReplace()` into the accept path — nothing imports yet, so it
+cannot currently be wrong, but it is not wired.
 
 Dependencies naming a whole phase mean all its required rows. Default order is
 the plan sequence; after recording a concrete blocker, independent ready rows

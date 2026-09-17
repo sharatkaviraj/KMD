@@ -61,6 +61,25 @@ export type Submission = {
   decidedByName: string | null;
   decidedAt: string | null;
   decisionNote: string | null;
+
+  /* ------------------------------------------------ round context (R3.4) */
+
+  /** The round this link belongs to, or null for a one-off request. */
+  roundId: string | null;
+  /** `class` | `house` | `route` | `list` | `master`. */
+  audienceKind: string;
+  /** The group as it read on the link: "Class 6", "Chetak", "All classes". */
+  audienceLabel: string;
+  /**
+   * What VPPS One holds for this child and field **now**.
+   *
+   * Never a replacement for `previousValue`, which is what the teacher was
+   * shown and is frozen. This is the other side of the comparison, so the
+   * office can see the record moved since she answered (S-07).
+   */
+  heldNow: string | null;
+  /** A newer pending answer for the same child and field has arrived. */
+  isSuperseded: boolean;
 };
 
 /**

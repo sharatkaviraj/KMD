@@ -223,6 +223,11 @@ const submission = (over: Partial<Submission> = {}): Submission => ({
   decidedByName: null,
   decidedAt: null,
   decisionNote: null,
+  roundId: null,
+  audienceKind: "class",
+  audienceLabel: "Class 6",
+  heldNow: "9812345678",
+  isSuperseded: false,
   ...over,
 });
 

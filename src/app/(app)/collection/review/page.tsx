@@ -1,3 +1,5 @@
+import { TriangleAlert } from "lucide-react";
+
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
@@ -13,6 +15,8 @@ import {
   sharedPhoneCount,
   splitByChange,
 } from "@/modules/collection/domain/review";
+import { stalenessOf } from "@/modules/collection/domain/precedence";
+import { cn } from "@/platform/utils";
 import { DecideForm } from "@/modules/collection/ui/office-forms";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
@@ -122,14 +126,14 @@ export default async function ReviewPage() {
 
               return (
                 <li key={entry.id}>
-                  <Card className="p-4">
+                  <Card className={cn("p-4", entry.isSuperseded && "opacity-60")}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-[15px] font-semibold text-foreground">
                           {entry.studentName}
                         </p>
                         <p className="truncate text-[12px] text-subtle-foreground">
-                          {entry.classLabel} ·{" "}
+                          {entry.audienceLabel} ·{" "}
                           {language === "en"
                             ? entry.requestTitleEn
                             : entry.requestTitleHi}
@@ -155,6 +159,31 @@ export default async function ReviewPage() {
                         {entry.value || "—"}
                       </span>
                     </p>
+
+                    {/* **The record moved after she answered** (S-07).
+                        Accepting this would quietly revert whoever moved it,
+                        so both values are shown and nothing is refused. */}
+                    {stalenessOf({
+                      shown: entry.previousValue,
+                      heldNow: entry.heldNow,
+                    }).stale && entry.status === "pending" ? (
+                      <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px] text-warning">
+                        <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+                        {primary(m.reviewStale, language)}
+                        <span className="text-subtle-foreground">
+                          · {entry.heldNow || "—"} {primary(m.reviewStaleNow, language)}
+                        </span>
+                      </p>
+                    ) : null}
+
+                    {/* Greyed rather than hidden: "what did she say in April"
+                        is a real question when June's answer looks wrong. */}
+                    {entry.isSuperseded ? (
+                      <p className="mt-2 text-[12px] text-subtle-foreground">
+                        {primary(m.reviewSuperseded, language)} ·{" "}
+                        {primary(m.reviewSupersededHint, language)}
+                      </p>
+                    ) : null}
 
                     {shared > 0 ? (
                       // Neutral, never a warning. Siblings share a number, and

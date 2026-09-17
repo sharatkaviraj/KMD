@@ -1185,6 +1185,19 @@ export const m = {
   boardCopy: t("लिंक कॉपी कीजिए", "Copy the link"),
   boardNoLinks: t("अभी कोई लिंक नहीं बना।", "No links yet."),
 
+  /* ----------------------------------------------- reviewing a round (R3.4) */
+
+  // **S-07.** Neither value is wrong, so this is not a warning — it is a
+  // decision somebody has to take deliberately rather than by default.
+  reviewStale: t("जवाब के बाद रिकॉर्ड बदला है", "The record changed after this answer"),
+  reviewStaleNow: t("अभी दर्ज है", "on record now"),
+  reviewStaleShown: t("शिक्षक को दिखाया गया था", "shown to the teacher"),
+  reviewSuperseded: t("नया जवाब आ चुका है", "A newer answer has arrived"),
+  reviewSupersededHint: t(
+    "इसी बच्चे की इसी जानकारी का बाद का जवाब क़तार में है।",
+    "A later answer for this child and this field is in the queue.",
+  ),
+
   studentsTitle: t("विद्यार्थी", "Students"),
   studentsHint: t(
     "नाम, एसआर नंबर या फ़ोन नंबर से खोजिए।",
