@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -55,6 +58,28 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // The searchable roster. PLAN section 3 puts Students on the admin and
     // office navigation and nowhere else.
     "students:view",
+    // Reads the fee screens. Deliberately NOT `fees:collect`: office staff
+    // post payments in the fee app today, and folding that app in is the
+    // moment to stop granting the power to take money by job title.
+    "fees:view",
+  ],
+
+  // The fee desk, and nothing academic. An accountant is not a teacher — the
+  // same reasoning that keeps fee figures off a teacher's screen, the other
+  // way round.
+  accountant: [
+    "dashboard:view",
+    // Deliberately not `students:view`: that is this app's directory, and
+    // PLAN §3 gives it to the admin and the office. The fee desk reaches
+    // children through the fee app's own student screen instead.
+    "fees:view",
+    "fees:collect",
+  ],
+
+  // The follow-up list. Reads the fee screens, takes no money.
+  fee_collector: [
+    "dashboard:view",
+    "fees:view",
   ],
 
   academic_coordinator: [
@@ -109,17 +134,58 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
 
 describe("the role and permission lists", () => {
   it("matches the vppsone.staff_role enum", () => {
-    // The enum in supabase/migrations/20260916191757_create_staff_profiles.sql.
-    // If these drift, a role exists in the database that the app silently
-    // resolves to view_only.
-    expect([...staffRoles]).toEqual([
-      "admin",
-      "office",
-      "academic_coordinator",
-      "exam_coordinator",
-      "teacher",
-      "view_only",
-    ]);
+    /*
+     * Read out of the migrations rather than copied beside them.
+     *
+     * This used to be a hand-written list with a comment saying it matched
+     * `20260916191757_create_staff_profiles.sql`. A hand-written list is
+     * exactly as likely to drift as the thing it is guarding — and when the
+     * two fee roles were added, keeping it honest meant editing it, which is
+     * the moment somebody instead edits it to whatever makes the test pass.
+     *
+     * The enum is one CREATE TYPE plus any number of ALTER TYPE ADD VALUEs,
+     * applied in filename order, which is the order the versions sort in.
+     */
+    const migrationsDir = path.join(process.cwd(), "supabase", "migrations");
+    const sql = readdirSync(migrationsDir)
+      .filter((file) => file.endsWith(".sql"))
+      .sort()
+      .map((file) => readFileSync(path.join(migrationsDir, file), "utf8"))
+      .join("\n");
+
+    const created = sql.match(
+      /create\s+type\s+vppsone\.staff_role\s+as\s+enum\s*\(([^)]*)\)/i,
+    );
+    expect(created, "no CREATE TYPE vppsone.staff_role in the migrations").not.toBeNull();
+
+    const fromEnum = [...created![1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+
+    const added = [
+      ...sql.matchAll(
+        /alter\s+type\s+vppsone\.staff_role\s+add\s+value(?:\s+if\s+not\s+exists)?\s+'([a-z_]+)'/gi,
+      ),
+    ].map((m) => m[1]);
+
+    // A value added twice is a no-op in Postgres (IF NOT EXISTS) and must
+    // not become a duplicate here.
+    const inDatabase = [...new Set([...fromEnum, ...added])];
+
+    /*
+     * Membership, not order.
+     *
+     * The two lists are genuinely ordered differently and both are right.
+     * `ALTER TYPE ... ADD VALUE` appends, so the fee roles sit at the end of
+     * the enum; `staffRoles` puts them beside `office` because that is the
+     * order the staff form should offer them in. Neither order means anything
+     * to the other.
+     *
+     * What does matter is that the sets agree in both directions. A role in
+     * the database the app has never heard of is silently resolved to
+     * `view_only` by `resolveStaffRole()` — the failure this test exists to
+     * catch, and one nothing else would notice. A role in the app that the
+     * database will not accept is an INSERT that fails at the worst moment.
+     */
+    expect([...staffRoles].sort()).toEqual([...inDatabase].sort());
   });
 
   it("has no duplicate permissions", () => {

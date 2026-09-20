@@ -157,12 +157,25 @@ describe("navigationFor()", () => {
   });
 
   it("gives every role a home to land on", () => {
-    // The app redirects to /dashboard after sign-in, so a role with no
-    // dashboard tab would land somewhere it cannot see.
+    /*
+     * The role's own home, not `/dashboard`.
+     *
+     * This used to assert every role had a Dashboard tab, on the stated
+     * grounds that "the app redirects to /dashboard after sign-in". That
+     * stopped being true twice: for a teacher, whose home is `/teach`, and
+     * now for the fee roles, who land at the fee desk. The assertion survived
+     * the first change only because a teacher happens to keep a Dashboard tab
+     * as well.
+     *
+     * What actually matters is that the screen you are put on is on your own
+     * bar — otherwise you land somewhere, and the bar underneath you is
+     * highlighting nothing.
+     */
     for (const role of staffRoles) {
+      const home = homeFor(role);
       expect(
-        navigationFor(role).some((item) => item.href === "/dashboard"),
-        `${role} has no dashboard`,
+        navigationFor(role).some((item) => item.href === home),
+        `${role} lands on ${home}, which is not on its bar`,
       ).toBe(true);
     }
   });

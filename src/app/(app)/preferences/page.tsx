@@ -7,7 +7,7 @@ import {
   startOptionsFor,
 } from "@/platform/config/start";
 import { Card, Section } from "@/ui/primitives";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 import { LanguageForm } from "./language-form";
 import { StartForm, type StartChoice } from "./start-form";

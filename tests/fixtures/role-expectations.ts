@@ -50,13 +50,27 @@ export type RouteExpectation = {
 const EVERYONE: readonly StaffRole[] = [
   "admin",
   "office",
+  "accountant",
+  "fee_collector",
   "academic_coordinator",
   "exam_coordinator",
   "teacher",
   "view_only",
 ];
 
-/** Everyone who works in the app. The viewer looks at it. */
+/**
+ * Everyone whose work is the children's day.
+ *
+ * Not "everyone who works in the app", which is what this used to say and is
+ * no longer the same set. The fee desk works in the app too — it just does not
+ * work on registers, rosters or per-child records, and an accountant is no
+ * more entitled to a class list than a teacher is to a payment screen. That is
+ * the same rule PLAN §3 applies to keep fee cards off a teacher's home, read
+ * in the other direction.
+ *
+ * The viewer looks at the app rather than working in it, and gets none of
+ * these either.
+ */
 const STAFF_AT_WORK: readonly StaffRole[] = [
   "admin",
   "office",
@@ -352,7 +366,96 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     allow: ["admin"],
     because: "PLAN §3 gives the admin failed jobs; nobody else needs the console.",
   },
+
+  /* ------------------------------------------------------------- the fee desk */
+
+  ...feeDeskScreens(),
 ];
+
+/**
+ * The ported School Fees screens.
+ *
+ * Written as a group rather than forty-eight hand-typed rows, because for this
+ * file's purpose they are one decision, made once: **`fees:view` is the door
+ * into the fee desk, and `src/app/(app)/fees/layout.tsx` is where it is
+ * checked.** Every screen under `/fees` is behind that one guard.
+ *
+ * The group is still a *list* and not a filesystem walk. A walk would make the
+ * expectation derive from the implementation, which is exactly the thing this
+ * file exists to stop (B-09): a screen added under `/fees` must be added here
+ * too, and until it is, `role-expectations.test.ts` says so.
+ *
+ * What a person may *do* once inside is not decided here. Those are the fee
+ * app's own twenty-eight permissions, reached through `feeRoleFor()` — the
+ * Payment Desk still refuses an `office` account, and Fee Setup still refuses
+ * an accountant. This file only answers "may this role open the fee area",
+ * which is the question `smoke:roles` asks.
+ */
+function feeDeskScreens(): RouteExpectation[] {
+  /** Everyone holding `fees:view`. */
+  const FEE_DESK: readonly StaffRole[] = [
+    "admin",
+    "office",
+    "accountant",
+    "fee_collector",
+  ];
+
+  const because =
+    "Behind `fees:view` at src/app/(app)/fees/layout.tsx. Office and fee_collector " +
+    "read; only admin and accountant may move money, and that is the ported " +
+    "screen's own guard rather than this one.";
+
+  return [
+    "/fees",
+    "/fees/admin-tools",
+    "/fees/admin-tools/activity",
+    "/fees/admin-tools/prev-year-dues",
+    "/fees/admin-tools/promotion",
+    "/fees/admin-tools/promotion/[runId]",
+    "/fees/admin-tools/recovery",
+    "/fees/admin-tools/session-health",
+    "/fees/admin-tools/whatsapp",
+    "/fees/admin-tools/whatsapp-reminders",
+    "/fees/advanced",
+    "/fees/collections",
+    "/fees/dashboard",
+    "/fees/defaulters",
+    "/fees/dues",
+    "/fees/exports",
+    "/fees/fee-setup",
+    "/fees/fee-setup/generate",
+    "/fees/fee-setup/time-travel",
+    "/fees/fee-structure",
+    "/fees/finance-controls",
+    "/fees/imports",
+    "/fees/ledger",
+    "/fees/master-data",
+    "/fees/password",
+    "/fees/payments",
+    "/fees/payments/bulk",
+    "/fees/receipts",
+    "/fees/receipts/[receiptId]",
+    "/fees/reminders",
+    "/fees/reminders/campaigns",
+    "/fees/reminders/lists",
+    "/fees/reminders/runs/[runId]",
+    "/fees/reminders/unreachable",
+    "/fees/reports",
+    "/fees/reports/ledger/[studentId]/print",
+    "/fees/settings",
+    "/fees/settings/glossary",
+    "/fees/setup",
+    "/fees/staff",
+    "/fees/students",
+    "/fees/students/[studentId]",
+    "/fees/students/[studentId]/edit",
+    "/fees/students/[studentId]/statement",
+    "/fees/students/bulk-update",
+    "/fees/students/family/[familyGroupId]/statement",
+    "/fees/students/new",
+    "/fees/transactions",
+  ].map((route) => ({ route, allow: FEE_DESK, because }));
+}
 
 export function expectationFor(route: string): RouteExpectation {
   const found = ROUTE_EXPECTATIONS.find((entry) => entry.route === route);

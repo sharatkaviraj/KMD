@@ -33,7 +33,7 @@ import {
 } from "@/modules/home/ui/overview-panels";
 import { Panel, PanelRow } from "@/ui/panel";
 import { Card, DetailList, Notice, Section } from "@/ui/primitives";
-import { PageHeader, StaffChip } from "@/ui/shell/app-shell";
+import { PageHeader, StaffChip } from "@/ui/page-header-localized";
 import { HomeColumns, MetricCard, MetricGrid } from "@/ui/task-hero";
 
 export const runtime = "nodejs";
@@ -48,6 +48,8 @@ export const runtime = "nodejs";
 const EYEBROW: Record<StaffRole, Localized> = {
   admin: m.overviewEyebrow,
   office: m.eyebrowSchoolOffice,
+  accountant: m.eyebrowFees,
+  fee_collector: m.eyebrowFees,
   academic_coordinator: m.eyebrowCover,
   exam_coordinator: m.eyebrowExams,
   teacher: m.eyebrowMyClass,
@@ -350,11 +352,6 @@ export default async function DashboardPage() {
                 language={language}
               />
               <FeeLine
-                app={
-                  apps.some((app) => app.id === "schoolfees")
-                    ? schoolApp("schoolfees")
-                    : null
-                }
                 language={language}
               />
             </>

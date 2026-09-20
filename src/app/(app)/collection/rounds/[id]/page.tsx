@@ -27,7 +27,7 @@ import { RoundBoard } from "@/modules/collection/ui/round-board";
 import { AuthoredText } from "@/ui/authored-text";
 import { Badge, Card, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

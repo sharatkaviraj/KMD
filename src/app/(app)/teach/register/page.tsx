@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { m } from "@/messages";
+import { PrintLandscape } from "@/ui/print-landscape";
 import { requirePermission } from "@/platform/auth/current-staff";
 import {
   daysInMonth,
@@ -36,7 +37,7 @@ import { PrintButton } from "@/modules/attendance/ui/print-button";
 import { Badge, Card } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 
@@ -132,7 +133,8 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
   const next = shiftMonth(month, 1);
 
   return (
-    <>
+    <div data-print="register">
+      <PrintLandscape />
       <div className="print:hidden">
         <PageHeader eyebrow={m.eyebrowMyClass}
           title={m.registerMonthly}
@@ -277,7 +279,7 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
           </Card>
         </>
       )}
-    </>
+    </div>
   );
 }
 

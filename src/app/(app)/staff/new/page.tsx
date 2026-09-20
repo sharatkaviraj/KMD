@@ -4,7 +4,7 @@ import { requirePermission } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { StaffForm } from "@/modules/staff/ui/staff-form";
 import { Notice } from "@/ui/primitives";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

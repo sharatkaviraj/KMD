@@ -14,7 +14,7 @@ import { audienceFromParams, needsReason } from "@/modules/collection/domain/rou
 import { NewRoundForm } from "@/modules/collection/ui/round-form";
 import { Notice, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

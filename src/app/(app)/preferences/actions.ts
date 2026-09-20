@@ -1,11 +1,17 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
 import { assertStaff } from "@/platform/auth/current-staff";
 import { isLanguage, type Localized } from "@/platform/i18n/language";
 import { writeLanguageCookie } from "@/platform/i18n/language-cookie";
+import { feeLocaleFor } from "@/platform/i18n/bridge";
+import {
+  LOCALE_COOKIE_MAX_AGE_SECONDS,
+  LOCALE_COOKIE_NAME,
+} from "@/platform/i18n/locales";
 import { resolveStart } from "@/platform/config/start";
 import { createAdminClient } from "@/platform/supabase/admin";
 
@@ -51,6 +57,23 @@ export async function saveLanguageAction(
   }
 
   await writeLanguageCookie(chosen);
+
+  /*
+   * And the fee screens' cookie, which is the read path `i18n/request.ts`
+   * resolves them from.
+   *
+   * Without this, choosing Hindi here left a stale `vpps_locale` behind and
+   * the fee desk went on rendering in English — two switchers disagreeing
+   * about one person's language, with no screen admitting it. The fee
+   * switcher keeps this in step from its own side.
+   */
+  (await cookies()).set({
+    name: LOCALE_COOKIE_NAME,
+    value: feeLocaleFor(chosen),
+    path: "/",
+    maxAge: LOCALE_COOKIE_MAX_AGE_SECONDS,
+    sameSite: "lax",
+  });
 
   // The whole shell reads the language, so every cached screen is now stale.
   revalidatePath("/", "layout");

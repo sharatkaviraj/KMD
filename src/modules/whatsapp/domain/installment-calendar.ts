@@ -1,0 +1,373 @@
+import {
+  addIsoDays,
+  daysBetweenIsoDates,
+  formatDdMmYyyy,
+  weekdayOfIsoDate,
+} from "@/platform/helpers/date";
+import { isRunDateFreeSituation } from "@/modules/whatsapp/domain/campaigns";
+
+/**
+ * Which installments the calendar says are worth a reminder today.
+ *
+ * The reminders used to open on a hardcoded `[1, 2]`. That was true in August
+ * and quietly wrong from October: the office picked the notice, the screen
+ * offered installments 1 and 2, and installment 3 passed its due date without
+ * anything on the screen suggesting it existed. The fee calendar already knows
+ * the answer — this file reads it.
+ *
+ * Deliberately free of `server-only`. The notice picker renders the derived set
+ * and the phrase built from it as staff change the window, so the client bundle
+ * reaches this file. It therefore takes a plain schedule array rather than
+ * calling `getFeePolicySummary` itself.
+ *
+ * Pure date arithmetic lives in `@/platform/helpers/date` rather than here,
+ * because the defaulters pre-due window needs the same IST day counting and
+ * `whatsapp` importing `defaulters` would be a new module edge that
+ * `npm run quality:architecture` counts against us.
+ */
+
+/**
+ * How far ahead a courtesy notice looks.
+ *
+ * Ten days rather than the defaulters screen's fourteen: this window decides
+ * whether a parent is asked to pay, and the fee counter wants the ask close
+ * enough to the date that it still reads as urgent. An admin setting, because
+ * the right number is a collections judgement and will be argued about.
+ */
+export const DEFAULT_PRE_DUE_WINDOW_DAYS = 10;
+
+/**
+ * The point at which the courtesy notice becomes the firm one.
+ *
+ * T-3 is when "the late fee applies from the day after" stops being a warning
+ * about next week and starts being a warning about this week.
+ */
+export const FINAL_NOTICE_DAYS_BEFORE_DUE = 3;
+
+export type ScheduledInstallment = {
+  /** 1-based, matching `inst1_pending` … `inst4_pending`. */
+  installmentNo: number;
+  /** `YYYY-MM-DD`. */
+  dueDate: string;
+};
+
+export type InstallmentTiming = {
+  installmentNo: number;
+  dueDate: string;
+  /** Negative once the date has passed. */
+  daysUntilDue: number;
+};
+
+export type InstallmentCalendar = {
+  /** Due date on or before today — the late fee is either charged or about to be. */
+  passed: number[];
+  /**
+   * Due date STRICTLY before today. The ledger's own boundary, and the only one
+   * a reminder may be built on.
+   *
+   * `passed` includes the installment due TODAY, which `active` and
+   * `isFinalNoticeWindow` both need — the office must be offered today's
+   * installment, and the firm wording runs from T-3 through the due date. But
+   * every other surface in the app draws the line one day later:
+   * `balance_status` in both engines, `overdue_installment_count`,
+   * `calculateDaysOverdue`, Defaulters and the Dashboard all say
+   * `due_date < CURRENT_DATE`. So does the school's rule — the flat late fee
+   * starts the day AFTER the due date, so the due date itself is free.
+   *
+   * Reminders used `passed` until 2026-09-10, so on each of the four due dates
+   * this screen called a family overdue while the ledger called them pending,
+   * and a parent could be told they were late on the one day they were not.
+   */
+  overdue: number[];
+  /** Due after today but inside the pre-due window. */
+  upcoming: number[];
+  /**
+   * `passed` + `upcoming`, sorted. The derived default for the installment
+   * filter, replacing the hardcoded `[1, 2]`.
+   */
+  active: number[];
+  /** The nearest installment still ahead of us, inside the window. */
+  next: InstallmentTiming | null;
+  /**
+   * The nearest installment still ahead of us, WHATEVER the window says.
+   *
+   * `next` is window-gated because the window decides whether courtesy WORDING
+   * is appropriate. It is the wrong thing to quote a figure from: with a 10-day
+   * window and installment 3 forty days out, `next` is null for about 320 days
+   * a year, `quote: "next"` resolved to ₹0, and the minimum then emptied the
+   * whole "Not late yet" audience. Which installment comes next is a fact about
+   * the calendar; whether to send a polite note about it is a judgement about
+   * timing, and they are not the same question.
+   */
+  nextAhead: InstallmentTiming | null;
+  /** The most recently passed installment, if any. */
+  lastPassed: InstallmentTiming | null;
+  /** Every installment with a readable due date, in order. */
+  timings: InstallmentTiming[];
+  /** The window this calendar was built with, so callers can say it out loud. */
+  windowDays: number;
+};
+
+/**
+ * Read `getFeePolicySummary().installmentSchedule` into installment numbers.
+ *
+ * The schedule array's ORDER is the installment number — that is how
+ * `fees/data/generator.ts` writes the rows (`forEach((schedule, index)`), so
+ * reading a number out of the label would be a second, weaker source for
+ * something the array position already says. Entries without a usable due date
+ * are dropped rather than defaulted: an installment whose date we cannot read
+ * must not be announced to a parent as due.
+ */
+export function readInstallmentSchedule(
+  schedule: ReadonlyArray<{ dueDate?: string | null }> | null | undefined,
+): ScheduledInstallment[] {
+  return (schedule ?? [])
+    .map((entry, index) => ({
+      installmentNo: index + 1,
+      dueDate: String(entry?.dueDate ?? "").trim(),
+    }))
+    .filter((entry) => /^\d{4}-\d{2}-\d{2}$/.test(entry.dueDate));
+}
+
+/**
+ * What today makes of the fee calendar.
+ *
+ * `windowDays` of 0 means "only what has already passed", which is what an
+ * office that never sends courtesy notices would set it to. A negative window is
+ * clamped rather than rejected — a hand-edited setting must not empty the list
+ * without saying why.
+ */
+export function buildInstallmentCalendar(args: {
+  schedule: ReadonlyArray<{ dueDate?: string | null }> | null | undefined;
+  /** `YYYY-MM-DD`, IST. */
+  today: string;
+  windowDays?: number;
+}): InstallmentCalendar {
+  const windowDays = Math.max(0, Math.round(args.windowDays ?? DEFAULT_PRE_DUE_WINDOW_DAYS));
+  const entries = readInstallmentSchedule(args.schedule);
+
+  const timings: InstallmentTiming[] = [];
+  for (const entry of entries) {
+    const daysUntilDue = daysBetweenIsoDates(args.today, entry.dueDate);
+    if (daysUntilDue === null) continue;
+    timings.push({ installmentNo: entry.installmentNo, dueDate: entry.dueDate, daysUntilDue });
+  }
+  timings.sort((left, right) => left.installmentNo - right.installmentNo);
+
+  const passed = timings.filter((entry) => entry.daysUntilDue <= 0);
+  // STRICTLY past — see `InstallmentCalendar.overdue`. Not `passed` minus
+  // today's row, because that reads as an afterthought; this is its own rule.
+  const overdue = timings.filter((entry) => entry.daysUntilDue < 0);
+  const upcoming = timings.filter(
+    (entry) => entry.daysUntilDue > 0 && entry.daysUntilDue <= windowDays,
+  );
+
+  // Nearest first, so "the next installment" is the one a parent is being asked
+  // about rather than whichever came first in the schedule.
+  const next = [...upcoming].sort((left, right) => left.daysUntilDue - right.daysUntilDue)[0] ?? null;
+  // Everything ahead, not just what the window admits.
+  const nextAhead =
+    [...timings]
+      .filter((entry) => entry.daysUntilDue > 0)
+      .sort((left, right) => left.daysUntilDue - right.daysUntilDue)[0] ?? null;
+  // Most recently passed, so a late-fee notice names the date that just went by
+  // rather than April's.
+  const lastPassed =
+    [...passed].sort((left, right) => right.daysUntilDue - left.daysUntilDue)[0] ?? null;
+
+  const passedNos = passed.map((entry) => entry.installmentNo);
+  const upcomingNos = upcoming.map((entry) => entry.installmentNo);
+
+  return {
+    passed: passedNos,
+    overdue: overdue.map((entry) => entry.installmentNo),
+    upcoming: upcomingNos,
+    active: [...new Set([...passedNos, ...upcomingNos])].sort((a, b) => a - b),
+    next,
+    nextAhead,
+    lastPassed,
+    timings,
+    windowDays,
+  };
+}
+
+/**
+ * What the installment tiles open on when the query string says nothing.
+ *
+ * Every installment the calendar says has passed — that is the money the office
+ * is chasing on any ordinary day, and it is what the screen used to open on
+ * through `calendar.active`. Before the first due date it is the one falling
+ * due next; a session with no readable schedule falls back to installment 1
+ * rather than to nothing, because zero tiles is not a state: the amount a
+ * message quotes is derived from the tiles, and an empty set would quote ₹0.
+ */
+export function defaultInstallmentsFor(
+  calendar: Pick<InstallmentCalendar, "passed" | "next">,
+): number[] {
+  if (calendar.passed.length > 0) return [...calendar.passed];
+  if (calendar.next) return [calendar.next.installmentNo];
+  return [1];
+}
+
+export type InstallmentTileState = "passed" | "today" | "upcoming" | "future" | "unknown";
+
+/** One installment as the audience tile row shows it. */
+export type InstallmentTile = {
+  installmentNo: number;
+  state: InstallmentTileState;
+  /** `YYYY-MM-DD`, or null when the schedule has no readable date for it. */
+  dueDate: string | null;
+  /** "Overdue since 20-04-2026" · "Due today" · "Due 20-10-2026" · "No due date on file". */
+  label: string;
+};
+
+/**
+ * Due-versus-overdue is a fact about the CALENDAR, not a filter.
+ *
+ * A family owing on installment 1 today is overdue on it because 20-04-2026 has
+ * gone, not because somebody ticked "overdue". So the tile says which it is and
+ * the office picks the installment; there is nothing else to get right.
+ */
+export function describeInstallmentTile(
+  installmentNo: number,
+  calendar: Pick<InstallmentCalendar, "timings" | "upcoming">,
+): InstallmentTile {
+  const timing = calendar.timings.find((entry) => entry.installmentNo === installmentNo);
+  if (!timing) {
+    return { installmentNo, state: "unknown", dueDate: null, label: "No due date on file" };
+  }
+  const date = formatDdMmYyyy(timing.dueDate);
+  const base = { installmentNo, dueDate: timing.dueDate };
+  if (timing.daysUntilDue < 0) return { ...base, state: "passed", label: `Overdue since ${date}` };
+  if (timing.daysUntilDue === 0) return { ...base, state: "today", label: "Due today" };
+  if (calendar.upcoming.includes(installmentNo)) {
+    return { ...base, state: "upcoming", label: `Due ${date}` };
+  }
+  return { ...base, state: "future", label: `Due ${date}` };
+}
+
+/**
+ * Is this the moment for the firm wording rather than the courtesy one?
+ *
+ * True from T-3 up to and including the due date. The two notices share an
+ * audience and differ only in how the late fee is put, so this is the whole
+ * decision between them.
+ */
+export function isFinalNoticeWindow(
+  daysUntilDue: number,
+  threshold = FINAL_NOTICE_DAYS_BEFORE_DUE,
+): boolean {
+  return daysUntilDue >= 0 && daysUntilDue <= threshold;
+}
+
+/**
+ * The day after an installment's due date — the day the ledger starts charging.
+ *
+ * The firm notice says the late fee applies "from" this date, so it has to be
+ * the ledger's first charging day and not the due date itself, which is still
+ * free.
+ */
+export function lateFeeStartsOn(dueDate: string): string | null {
+  return addIsoDays(dueDate, 1);
+}
+
+/* ------------------------------------------------------------- the date rule */
+
+/**
+ * Does this notice need a date the parent can still meet?
+ *
+ * The rule changed meaning when the calendar-driven notices arrived, and it is
+ * now per situation rather than universal:
+ *
+ * - The forward-looking notices — `upcoming`, `upcoming_final`, `fee_due`,
+ *   `balance`, `promise_lapsed`, `prevyear` — all print a date the family is
+ *   asked to beat. A date already gone tells a parent to meet a deadline that
+ *   has passed, so it is refused. This is the live replacement for the old
+ *   fixed-deadline constant.
+ *
+ * - `late_fee_applied` carries **no date slot at all**. Its seven slots are
+ *   three names, the installment, and three figures — the fee is charged, not
+ *   threatened, so there is nothing to be on time for. Requiring a future date
+ *   there would block the one notice whose whole subject is that a date has
+ *   already gone.
+ *
+ * - `promise_due` prints a date, but it is each family's OWN promised date from
+ *   the contact log, never the run's. The run has no date to guard.
+ *
+ * Both are listed in `RUN_DATE_FREE_SITUATIONS` in the registry, which is the
+ * one place that decides. The waiver pair are NOT there: their slot 7 is the
+ * office's waive-by date, and a waiver "until" a day already gone is a promise
+ * the counter cannot keep.
+ *
+ * Returns the sentence to show the office, or null when the date is fine. Pure,
+ * so `tests/unit/whatsapp-reminder-calendar.test.ts` can pin every branch
+ * without a Supabase client.
+ */
+export function describeDateGuard(args: {
+  situation: string;
+  /** ISO, or null when the field was empty or unparseable. */
+  lastDateIso: string | null;
+  /** What the office typed, for the message. */
+  lastDateLabel: string;
+  today: string;
+}): string | null {
+  const { situation, lastDateIso, lastDateLabel, today } = args;
+
+  // No run date on the message means no date to check.
+  if (isRunDateFreeSituation(situation)) return null;
+
+  if (!lastDateIso) return "Pick a last date for this notice before sending.";
+  if (lastDateIso < today) {
+    return `The last date on this notice is ${lastDateLabel}, which has already passed. Pick a date parents can still meet.`;
+  }
+  return null;
+}
+
+/**
+ * How far out a derived last date lands when the calendar has nothing ahead.
+ *
+ * A week: long enough that a parent who reads the message on Tuesday can still
+ * reach the counter, short enough that the notice reads as a request rather
+ * than as a diary note. Only ever used after every installment in the session
+ * has passed — from February onwards, and for a session whose schedule has no
+ * readable dates at all.
+ */
+export const DERIVED_LAST_DATE_DAYS_AHEAD = 7;
+
+/**
+ * The date this notice should ask a parent to pay by, when nobody has chosen one.
+ *
+ * The bulk screen has a date field and the office fills it. The one-tap reminder
+ * on a student's page does not, and until 2026-09-13 that meant it could not
+ * send AT ALL: with no date posted, `describeDateGuard` returned "Pick a last
+ * date for this notice before sending", which is a BLOCKING finding — no
+ * override clears it, and the screen offered tick-boxes and a reason box that
+ * could never help. Every one-tap reminder in the app was dead, on ten of the
+ * twelve notices.
+ *
+ * Asking the office to type a date is the wrong repair, because the app already
+ * knows the answer: it is the next installment due date, which is the date the
+ * fee calendar exists to hold. `nextAhead`, not `next` — the window decides
+ * whether courtesy WORDING is appropriate, not what the next due date IS, and
+ * `next` is null for about 320 days a year.
+ *
+ * A derived Sunday is nudged to the Monday after. The counter is shut on a
+ * Sunday, so the closed-counter guard would warn about it — and a date the app
+ * chose for itself must never be one the app then complains about.
+ *
+ * Pure, and it never returns a date in the past: `addIsoDays` walks forward
+ * from today, and `nextAhead` is by definition ahead of today.
+ */
+export function derivedLastDateIso(
+  calendar: Pick<InstallmentCalendar, "nextAhead">,
+  today: string,
+): string | null {
+  const fromCalendar = calendar.nextAhead?.dueDate ?? null;
+  const candidate = fromCalendar ?? addIsoDays(today, DERIVED_LAST_DATE_DAYS_AHEAD);
+  if (!candidate) return null;
+  // A real installment due date stands as it is, Sunday or not — that IS the
+  // deadline, and moving it would tell a parent something the ledger disagrees
+  // with. Only a date this function invented gets nudged.
+  if (fromCalendar) return candidate;
+  return weekdayOfIsoDate(candidate) === 0 ? addIsoDays(candidate, 1) : candidate;
+}

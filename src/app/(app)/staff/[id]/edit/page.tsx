@@ -7,7 +7,7 @@ import { pageTitle } from "@/platform/i18n/page-title";
 import { t } from "@/platform/i18n/language";
 import { getStaffById } from "@/modules/staff/data/staff-repo";
 import { StaffForm } from "@/modules/staff/ui/staff-form";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

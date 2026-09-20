@@ -28,6 +28,12 @@ const reusingAnExistingServer = Boolean(process.env.APP_ORIGIN);
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Loads the heavy route module graphs once, before the first test's clock
+  // starts. After the fee port a cold signed-in render costs more than a
+  // 60-second test budget, and three specs failed on it while the element
+  // they were waiting for was on the page. See the file for why this rather
+  // than a longer timeout.
+  globalSetup: "./tests/e2e/warm-server.ts",
   // Serial by default. These journeys write to one shared dev database, and
   // two of them marking the same register at once would be testing the
   // fixture rather than the app.
@@ -63,7 +69,23 @@ export default defineConfig({
     : {
         command: "npm run start -- -p 3100",
         url: "http://localhost:3100/login",
-        reuseExistingServer: true,
+        /*
+         * **false**, and this is the important line in the file.
+         *
+         * `true` lets Playwright attach to whatever is already on 3100 —
+         * including a server started before the build you just made. Three
+         * specs "failed" that way after the fee port, each waiting sixty
+         * seconds for an element that was, on inspection, right there on the
+         * page: the running server simply did not have it yet. The D3
+         * evidence records the same trap costing a whole debugging session.
+         *
+         * A failure that looks identical to a real one is worse than a slow
+         * suite. Starting a fresh server costs a few seconds; believing a
+         * stale one costs an afternoon. `APP_ORIGIN` still skips the whole
+         * webServer block, which is the supported way to point this at a
+         * server you are running deliberately.
+         */
+        reuseExistingServer: false,
         timeout: 120_000,
       },
 });

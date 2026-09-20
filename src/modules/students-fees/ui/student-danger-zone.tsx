@@ -1,0 +1,356 @@
+"use client";
+
+import { useActionState, useId, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Loader2 } from "lucide-react";
+
+import { Button } from "@/ui/primitives/button";
+import { CloseDueAsDiscountSheet } from "@/modules/students-fees/ui/close-due-as-discount-sheet";
+import { MarkStudentLeftSheet } from "@/modules/students-fees/ui/mark-student-left-sheet";
+import {
+  LeftStudentHeldCharges,
+  type HeldCharge,
+} from "@/modules/students-fees/ui/left-student-held-charges";
+import { formatInr } from "@/platform/helpers/currency";
+import { useActionFeedback } from "@/ui/hooks/use-action-feedback";
+import type { StudentDeletionSafety } from "@/modules/students-fees/domain/types";
+
+import {
+  archiveStudentAction,
+  cancelLeftStudentChargeAction,
+  hardDeleteStudentAction,
+  reinstateStudentAction,
+} from "@/app/(app)/fees/students/actions";
+import { INITIAL_STUDENT_DANGER_ACTION_STATE } from "@/app/(app)/fees/students/danger-action-state";
+
+type StudentDangerZoneProps = {
+  studentId: string;
+  deletionSafety: StudentDeletionSafety;
+  /** Drives Mark-as-left vs Back-on-the-roll, and the leave-date floor. */
+  enrolment?: {
+    status: string;
+    joinedOn: string | null;
+    leftOn: string | null;
+  };
+  /** Charges due after the leave date that the engine refused to cancel. */
+  heldCharges?: readonly HeldCharge[];
+  /**
+   * Writing a balance off is an admin-only, money-moving act, so it belongs
+   * behind the same gate as withdrawing and deleting rather than in the middle
+   * of the Transactions table where it used to sit.
+   */
+  closeBalance?: {
+    studentLabel: string;
+    studentAdmissionNo: string;
+    classLabel: string;
+    sessionLabel: string;
+    /** This session's outstanding, late fee included. */
+    pendingAmount: number;
+    /** Unpaid carry-forward balance from a previous session, if any. */
+    oldBalanceAmount: number;
+  };
+};
+
+export function StudentDangerZone({
+  studentId,
+  deletionSafety,
+  enrolment,
+  heldCharges,
+  closeBalance,
+}: StudentDangerZoneProps) {
+  const t = useTranslations("MobileApp");
+  const router = useRouter();
+  const [closeSheet, setCloseSheet] = useState<"current" | "oldBalance" | null>(null);
+  // The student page renders this block twice (phone branch + desktop branch,
+  // one hidden by CSS but still in the DOM). A hardcoded id made both inputs
+  // share it, so the desktop <label> focused the hidden phone input.
+  const confirmFieldId = useId();
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [leftSheetOpen, setLeftSheetOpen] = useState(false);
+  const hasLeft = enrolment ? enrolment.status !== "active" : false;
+
+  const [archiveState, archiveFormAction, archivePending] = useActionState(
+    archiveStudentAction,
+    INITIAL_STUDENT_DANGER_ACTION_STATE,
+  );
+  const [reinstateState, reinstateFormAction, reinstatePending] = useActionState(
+    reinstateStudentAction,
+    INITIAL_STUDENT_DANGER_ACTION_STATE,
+  );
+  const [cancelChargeState, cancelChargeFormAction, cancelChargePending] = useActionState(
+    cancelLeftStudentChargeAction,
+    INITIAL_STUDENT_DANGER_ACTION_STATE,
+  );
+  const [deleteState, deleteFormAction, deletePending] = useActionState(
+    hardDeleteStudentAction,
+    INITIAL_STUDENT_DANGER_ACTION_STATE,
+  );
+
+  // Withdrawing keeps you on the page, so the hook's refresh is what stops the
+  // record still reading as active. Using the shared hook rather than a bespoke
+  // effect also brings its identity guard: the hand-rolled version re-fired
+  // whenever the component re-rendered with an equal state object, so a single
+  // withdrawal could announce itself twice.
+  useActionFeedback(reinstateState, {
+    successTitle: t("dangerWithdrawDone"),
+    errorTitle: t("dangerActionFailed"),
+  });
+
+  useActionFeedback(deleteState, {
+    successTitle: t("dangerDeleteDone"),
+    errorTitle: t("dangerActionFailed"),
+    // The record is gone; refreshing this page would render a 404. Navigate
+    // instead, carrying the confirmation in the URL — a toast fired while the
+    // page is navigating away is easy to miss, which is what made a successful
+    // delete look like nothing had happened.
+    refreshOnSuccess: false,
+    onSuccess: (state) => {
+      if (!(state as typeof deleteState).deleted) {
+        return;
+      }
+
+      const removed = `${deletionSafety.fullName} (SR ${deletionSafety.admissionNo})`;
+      router.replace(`/fees/students?removed=${encodeURIComponent(removed)}`);
+    },
+  });
+
+  const deleteExplanation = deletionSafety.hardDeleteAllowed
+    ? deletionSafety.generatedDuesDeleteAllowed
+      ? t("dangerDeleteWithDues")
+      : t("dangerDeleteClean")
+    : t("dangerDeleteBlocked");
+
+  const pending = reinstatePending || deletePending || archivePending || cancelChargePending;
+  const errorMessage =
+    deleteState.status === "error"
+      ? deleteState.message
+      : reinstateState.status === "error"
+        ? reinstateState.message
+        : null;
+  // Successes were announced only as a toast, which lasts five seconds and is
+  // easy to miss on a page that is refreshing underneath it. The outcome now
+  // also stays on the panel until the next action.
+  const successMessage =
+    reinstateState.status === "success"
+      ? reinstateState.message
+      : deleteState.status === "success"
+        ? deleteState.message
+        : null;
+
+  return (
+    <details
+      // Uncontrolled, this panel snapped shut on the router.refresh() that
+      // follows a withdrawal — taking the result message with it. Forcing it
+      // open whenever there is something to report keeps the outcome visible.
+      open={panelOpen || Boolean(successMessage) || Boolean(errorMessage)}
+      onToggle={(event) => setPanelOpen((event.target as HTMLDetailsElement).open)}
+      className="overflow-hidden rounded-lg border border-border bg-card"
+    >
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-destructive">
+        {t("dangerSummary")}
+      </summary>
+      <div className="grid gap-4 border-t border-border p-4 lg:grid-cols-[1fr_auto] lg:items-start">
+        <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-foreground">
+          <p>
+            {t("dangerCounts", {
+              receipts: deletionSafety.receiptCount,
+              payments: deletionSafety.paymentCount,
+              dues: deletionSafety.installmentCount,
+              adjustments: deletionSafety.adjustmentCount,
+              refunds: deletionSafety.refundRequestCount,
+            })}
+          </p>
+          {deletionSafety.blockedInstallmentCount > 0 ||
+          deletionSafety.ledgerRegenerationRowCount > 0 ? (
+            <p className="mt-2 text-warning-soft-foreground">{t("dangerFeeReviewLinked")}</p>
+          ) : null}
+          {deletionSafety.hardDeleteBlockers.length > 0 ? (
+            <p className="mt-2 text-warning-soft-foreground">
+              {t("dangerBlockers", { blockers: deletionSafety.hardDeleteBlockers.join(", ") })}
+            </p>
+          ) : null}
+          <p className="mt-2">{deleteExplanation}</p>
+          {hasLeft ? (
+            <p className="mt-2 rounded-md bg-surface-2 px-3 py-2 text-xs text-muted-foreground">
+              Recorded as <strong className="text-foreground">{enrolment?.status}</strong>
+              {enrolment?.leftOn ? (
+                <>
+                  {" "}
+                  from <strong className="text-foreground">{enrolment.leftOn}</strong>. Fees
+                  stopped accruing after that date.
+                </>
+              ) : (
+                // Every student withdrawn before the date was recorded. Worth
+                // saying, because it is why their expected fee looks the way it
+                // does, and re-marking them fixes it.
+                <>
+                  , with no leave date on file. Mark them as left again with a date to stop the
+                  fee from the right day.
+                </>
+              )}
+            </p>
+          ) : null}
+          {errorMessage ? (
+            <p role="alert" className="mt-2 font-medium text-destructive">
+              {errorMessage}
+            </p>
+          ) : null}
+          {successMessage ? (
+            <p
+              role="status"
+              className="mt-2 rounded-md bg-success-soft px-3 py-2 font-medium text-success-soft-foreground"
+            >
+              {successMessage}
+            </p>
+          ) : null}
+        </div>
+        {/*
+          Sits ABOVE the write-off block on purpose. Writing the balance off is
+          what an office reaches for when a leaver still shows a due, and for a
+          charge dated after they left that is the wrong answer — the charge
+          should not exist. Offering the cancel first is the whole point.
+        */}
+        {hasLeft && enrolment?.leftOn && heldCharges && heldCharges.length > 0 ? (
+          <LeftStudentHeldCharges
+            studentId={studentId}
+            leftOn={enrolment.leftOn}
+            charges={heldCharges}
+            state={cancelChargeState}
+            formAction={cancelChargeFormAction}
+            pending={pending}
+          />
+        ) : null}
+        {closeBalance &&
+        (closeBalance.pendingAmount > 0 || closeBalance.oldBalanceAmount > 0) ? (
+          <div className="lg:col-span-2 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
+            <p className="font-semibold text-foreground">Write off a balance</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Takes the amount off the books, with a reason on the record. No cash is recorded
+              and it never counts towards collection.
+            </p>
+            {/*
+              Full-width, 44px-tall stacked buttons on a phone — the same shape
+              every other destructive action on the mobile screens uses, and big
+              enough to hit with a thumb. They collapse back to inline auto-width
+              from sm up, where the labels sit comfortably side by side.
+            */}
+            <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {closeBalance.pendingAmount > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => setCloseSheet("current")}
+                  className="h-11 w-full justify-center rounded-xl text-[12.5px] font-extrabold sm:h-9 sm:w-auto sm:rounded-md sm:text-sm sm:font-medium"
+                >
+                  Write off this year&rsquo;s balance ({formatInr(closeBalance.pendingAmount)})
+                </Button>
+              ) : null}
+              {closeBalance.oldBalanceAmount > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => setCloseSheet("oldBalance")}
+                  className="h-11 w-full justify-center rounded-xl text-[12.5px] font-extrabold sm:h-9 sm:w-auto sm:rounded-md sm:text-sm sm:font-medium"
+                >
+                  Write off old balance ({formatInr(closeBalance.oldBalanceAmount)})
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          {/*
+            Withdrawing used to be a bare submit button: it wrote status='left'
+            and a line of notes, recorded no date, and told nobody what happened
+            to the dues. The sheet exists because the DATE decides which
+            installments stop being charged — without one the engine cancelled
+            every clean unpaid row, including months the child had attended.
+          */}
+          {hasLeft ? (
+            <form action={reinstateFormAction}>
+              <input type="hidden" name="studentId" value={studentId} />
+              <input type="hidden" name="reinstateStatus" value="active" />
+              <Button type="submit" variant="outline" disabled={pending}>
+                {reinstatePending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                Back on the roll
+              </Button>
+            </form>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() => setLeftSheetOpen(true)}
+            >
+              {t("dangerWithdrawCta")}
+            </Button>
+          )}
+          {deletionSafety.hardDeleteAllowed || deletionSafety.canForceDeleteTestRecord ? (
+            <form action={deleteFormAction} className="flex max-w-xs flex-col gap-2">
+              <input type="hidden" name="studentId" value={studentId} />
+              {deletionSafety.canForceDeleteTestRecord && !deletionSafety.hardDeleteAllowed ? (
+                <input type="hidden" name="forceTestRecord" value="yes" />
+              ) : null}
+              <label className="text-xs font-medium text-muted-foreground" htmlFor={confirmFieldId}>
+                {t("dangerConfirmLabel", { sr: deletionSafety.admissionNo })}
+              </label>
+              <input
+                id={confirmFieldId}
+                name="confirmDelete"
+                required
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                className="h-9 rounded-md border border-border-strong px-3 text-sm"
+                placeholder={deletionSafety.admissionNo}
+              />
+              <Button type="submit" variant="destructive" disabled={pending}>
+                {deletePending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                {deletionSafety.generatedDuesDeleteAllowed
+                  ? t("dangerDeleteWithDuesCta")
+                  : t("dangerDeleteCta")}
+              </Button>
+            </form>
+          ) : null}
+        </div>
+      </div>
+      {enrolment && !hasLeft ? (
+        <MarkStudentLeftSheet
+          open={leftSheetOpen}
+          onClose={() => setLeftSheetOpen(false)}
+          studentId={studentId}
+          studentLabel={deletionSafety.fullName}
+          studentAdmissionNo={deletionSafety.admissionNo}
+          joinedOn={enrolment.joinedOn}
+          state={archiveState}
+          formAction={archiveFormAction}
+          pending={archivePending}
+        />
+      ) : null}
+      {closeBalance ? (
+        <CloseDueAsDiscountSheet
+          open={closeSheet !== null}
+          onClose={() => setCloseSheet(null)}
+          studentId={studentId}
+          studentLabel={closeBalance.studentLabel}
+          studentAdmissionNo={closeBalance.studentAdmissionNo}
+          classLabel={closeBalance.classLabel}
+          sessionLabel={closeBalance.sessionLabel}
+          variant={closeSheet === "oldBalance" ? "oldBalance" : "current"}
+          pendingAmount={
+            closeSheet === "oldBalance"
+              ? closeBalance.oldBalanceAmount
+              : closeBalance.pendingAmount
+          }
+        />
+      ) : null}
+    </details>
+  );
+}

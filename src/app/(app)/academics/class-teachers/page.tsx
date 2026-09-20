@@ -16,7 +16,7 @@ import { ClassTeacherEditor } from "@/modules/academics/ui/class-teacher-editor"
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { Notice } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

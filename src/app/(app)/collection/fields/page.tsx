@@ -12,7 +12,7 @@ import { FieldForm } from "@/modules/collection/ui/office-forms";
 import { retireFieldAction } from "@/app/(app)/collection/actions";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

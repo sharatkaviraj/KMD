@@ -997,9 +997,14 @@ export const m = {
     "Collecting parents' numbers, addresses and documents.",
   ),
   appSchoolFees: t("स्कूल फ़ीस — भुगतान और बकाया", "School Fees — Payments and dues"),
+  // Deliberately says "the separate deployment" now. Since the port, this app
+  // has a fee desk of its own — and the two are not the same data: the desk
+  // in here is on schoolfees-dev, this link is on the live one. Two doors
+  // labelled "taking payments" with the school's real money behind one of
+  // them is the ambiguity worth spending a sentence on.
   appSchoolFeesPurpose: t(
-    "फ़ीस लेना, रसीद देना और बकाया देखना।",
-    "Taking payments, printing receipts and checking dues.",
+    "पुराना फ़ीस ऐप — असली डेटा। इस ऐप का शुल्क डेस्क अलग है।",
+    "The separate School Fees deployment, on live data. The fee desk inside this app is not the same database.",
   ),
   appOpenApp: t("ऐप खोलें", "Open the app"),
   appExternal: t("अलग ऐप", "A separate app"),
@@ -1284,6 +1289,15 @@ export const m = {
   navGroupToday: t("आज का काम", "Today's work"),
   navGroupRecords: t("रिकॉर्ड", "Records"),
   navGroupSetup: t("व्यवस्था", "Setup"),
+  navGroupMoney: t("शुल्क डेस्क", "Fee desk"),
+  navPaymentDesk: t("भुगतान", "Payment Desk"),
+  navTransactions: t("लेन-देन", "Transactions"),
+  navDefaulters: t("बकाया", "Defaulters"),
+  navFeeStudents: t("शुल्क — बच्चे", "Students (fees)"),
+  navReminders: t("स्मरण", "Reminders"),
+  navFeeSetup: t("शुल्क व्यवस्था", "Fee Setup"),
+  navFeeExports: t("शुल्क निर्यात", "Fee exports"),
+  navFeeAdminTools: t("शुल्क उपकरण", "Fee admin tools"),
 
   appSearchInstead: t(
     "यहाँ का पहचान-नंबर वहाँ नहीं चलता, इसलिए खोज खुलेगी।",
@@ -1342,10 +1356,15 @@ export const m = {
   ),
   overviewAnsweredOf: t("उत्तर आए", "answered"),
   overviewFeeSummary: t("फ़ीस का हिसाब", "Fee collection"),
+  // The fee app is in this app now, so "the real numbers are in the School
+  // Fees app" stopped being true — it sent staff out of a screen to a place
+  // they were already standing in. The figures themselves are still not
+  // read onto this panel (R6.2); the fee desk is where they live.
   overviewFeeUnavailable: t(
-    "फ़ीस के आँकड़े यहाँ अभी नहीं आते। सही संख्या स्कूल फ़ीस ऐप में है।",
-    "Fee figures are not read here yet. The real numbers are in the School Fees app.",
+    "फ़ीस के आँकड़े इस पैनल पर अभी नहीं आते। पूरा हिसाब शुल्क डेस्क पर है।",
+    "Fee figures are not read onto this panel yet. The full picture is on the fee desk.",
   ),
+  overviewFeeDesk: t("शुल्क डेस्क खोलें", "Open the fee desk"),
   overviewOfClasses: t("कक्षाओं में से", "of classes"),
   overviewPeriods: t("कालांश", "periods"),
 
@@ -1361,6 +1380,7 @@ export const m = {
   eyebrowAdministration: t("विद्यालय प्रशासन", "School administration"),
   eyebrowPersonal: t("आपका खाता", "Your account"),
   eyebrowCover: t("कक्षा व्यवस्था", "Class cover"),
+  eyebrowFees: t("शुल्क", "Fees"),
 
   /* ------------------------------------------------- shared panels (D3) */
   panelStudentDirectory: t("बच्चों की सूची", "Student directory"),

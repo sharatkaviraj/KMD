@@ -20,7 +20,7 @@ import { cn } from "@/platform/utils";
 import { DecideForm } from "@/modules/collection/ui/office-forms";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

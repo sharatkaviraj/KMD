@@ -24,7 +24,7 @@ import { rebuildEnrolmentsAction } from "@/app/(app)/enrolments/actions";
 import { Badge, Card, Notice } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

@@ -31,6 +31,22 @@ const GUARDS = [
   "requirePermission",
   "requireAnyPermission",
   "requireStaff",
+
+  /*
+   * The same check, in the ported fee screens' vocabulary.
+   *
+   * `src/modules/fees/platform/session.ts` answers all three from
+   * `requireStaff()`, so an action guarded by one of these is guarded by the
+   * same code as an action guarded by the names above — it just says so in the
+   * words the fee app's ~90 call sites already use.
+   *
+   * Note `requireStaff` above is a prefix of nothing here: the names are
+   * matched with a trailing `(`, so `requireStaffPermission` does not satisfy
+   * the rule by accident and neither does the reverse.
+   */
+  "requireAuthenticatedStaff",
+  "requireStaffPermission",
+  "requireAnyStaffPermission",
 ];
 
 /**
@@ -73,9 +89,51 @@ function exportedActions(source: string): { name: string; body: string }[] {
   for (const match of source.matchAll(/export\s+async\s+function\s+(\w+)\s*\(/g)) {
     const name = match[1];
 
-    // Walk from the opening brace of the body to its match, so a nested
-    // function or object cannot end the body early.
-    const start = source.indexOf("{", match.index! + match[0].length);
+    /*
+     * Find the end of the parameter list before looking for the body.
+     *
+     * This used to take the first `{` after the `(`, which is the body only
+     * when the signature is simple. It is not, in ported code:
+     *
+     *   previewNoticeAction(input: { situation: string; ... })
+     *   realignRecentImportsToActiveSessionAction(): Promise<{ ... }>
+     *
+     * In both, the first `{` opens a *type*, so the "body" came out as the
+     * parameter's shape — which contains no guard, and the action was
+     * reported unguarded when it was not. Two false alarms hid four real
+     * ones in the same list, which is the way a crude check stops being
+     * believed.
+     */
+    let depthParen = 1;
+    let afterParams = match.index! + match[0].length;
+    for (; afterParams < source.length && depthParen > 0; afterParams += 1) {
+      if (source[afterParams] === "(") depthParen += 1;
+      else if (source[afterParams] === ")") depthParen -= 1;
+    }
+
+    /*
+     * Then skip the return-type annotation, whose `{` also is not the body:
+     *
+     *   realignRecentImportsToActiveSessionAction(): Promise<{ … }> { … }
+     *
+     * Inside a type the braces sit within angle brackets, so the body's brace
+     * is the first one at angle-depth zero. `=>` is stepped over so a function
+     * type in the annotation does not close a bracket that never opened.
+     */
+    let depthAngle = 0;
+    let start = -1;
+    for (let i = afterParams; i < source.length; i += 1) {
+      if (source[i] === "=" && source[i + 1] === ">") {
+        i += 1;
+        continue;
+      }
+      if (source[i] === "<") depthAngle += 1;
+      else if (source[i] === ">") depthAngle = Math.max(0, depthAngle - 1);
+      else if (source[i] === "{" && depthAngle === 0) {
+        start = i;
+        break;
+      }
+    }
     if (start < 0) continue;
 
     let depth = 0;

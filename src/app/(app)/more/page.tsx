@@ -7,7 +7,7 @@ import { primary, secondary } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { EmptyState } from "@/ui/states";
 import { Panel, PanelRow } from "@/ui/panel";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

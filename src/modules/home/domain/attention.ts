@@ -65,6 +65,12 @@ const FOR_ROLE: Record<StaffRole, readonly AttentionKey[]> = {
   admin: ["registers", "absences", "review", "corrections", "jobs"],
   // "Changes to review, request batches, attendance on behalf."
   office: ["review", "corrections", "registers", "absences"],
+  // The fee desk's exceptions are dues and defaulters, and those live on the
+  // fee screens where the figures actually are. A register backlog is not
+  // this person's work and putting it here would only be noise they cannot
+  // act on.
+  accountant: [],
+  fee_collector: [],
   // "Uncovered periods, timetable changes, absent staff, class attendance gaps."
   academic_coordinator: ["absences", "registers"],
   // "Exams in progress, incomplete papers, report readiness" — none of which

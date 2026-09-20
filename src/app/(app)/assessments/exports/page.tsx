@@ -8,7 +8,7 @@ import { recentExports } from "@/modules/assessments/data/reports-repo";
 import { exportKindLabels } from "@/modules/assessments/domain/exports";
 import { Card, Notice, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

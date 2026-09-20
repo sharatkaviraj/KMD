@@ -17,7 +17,7 @@ import {
 import { RunJobButton } from "@/modules/jobs/ui/run-job-button";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

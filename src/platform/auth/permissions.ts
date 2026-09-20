@@ -18,6 +18,13 @@ import { t, type Localized } from "@/platform/i18n/language";
 export const staffRoles = [
   "admin",
   "office",
+  // The two fee roles. They are this app's own now: the fee app is being
+  // folded in and will be retired, so "accountant" has to mean something
+  // here rather than being a fact about a different application (D-6 still
+  // holds — the role is read from vppsone.staff_profiles, never from
+  // public.users.role).
+  "accountant",
+  "fee_collector",
   "academic_coordinator",
   "exam_coordinator",
   "teacher",
@@ -85,6 +92,17 @@ export const staffPermissions = [
   // gives the admin and the office. A teacher has no errand in either.
   "apps:view",
 
+  // Fees.
+  //
+  // Three, not twenty-eight. The fee app has a permission for every
+  // financial act and those still decide what happens *inside* a fee
+  // screen — `feePermissionsFor()` hands them over unchanged. These three
+  // only answer the question this app asks: which tabs does this person
+  // get, and may they take money.
+  "fees:view",
+  "fees:collect",
+  "fees:manage",
+
   // Platform (Phase 7).
   "jobs:view",
   "jobs:run",
@@ -101,6 +119,8 @@ export type StaffPermission = (typeof staffPermissions)[number];
 export const roleLabels: Record<StaffRole, Localized> = {
   admin: t("प्रशासक", "Admin"),
   office: t("कार्यालय", "Office"),
+  accountant: t("लेखाकार", "Accountant"),
+  fee_collector: t("वसूली कर्मी", "Fee Collector"),
   academic_coordinator: t("शैक्षणिक संयोजक", "Academic Coordinator"),
   exam_coordinator: t("परीक्षा संयोजक", "Exam Coordinator"),
   teacher: t("अध्यापक", "Teacher"),
@@ -143,6 +163,11 @@ const officePermissions: readonly StaffPermission[] = [
   "reports:view",
   "apps:view",
   "students:view",
+  // Reads the fee screens, cannot take money. Office staff do post
+  // payments in the fee app today, so this is a real reduction — and a
+  // deliberate one: posting is granted one person at a time through the
+  // `accountant` role rather than by being in the office.
+  "fees:view",
 ];
 
 /**
@@ -228,9 +253,41 @@ const viewOnlyPermissions: readonly StaffPermission[] = [
   "timetable:view",
 ];
 
+/**
+ * Accountant: the fee desk. This is the role that sees the fee app.
+ *
+ * It gets nothing academic. An accountant is not a teacher, and the
+ * register, the marks grid and the collection rounds are not theirs — the
+ * same reasoning that keeps fee figures off a teacher's screen, pointed the
+ * other way.
+ *
+ * Not `students:view` either, which looks like an omission and is not.
+ * That permission opens **this** app's directory, and PLAN §3 gives it to
+ * the admin and the office. The fee desk has its own student screen, with
+ * its own columns and its own money on it, and that one arrives with the
+ * fee screens under `fees:view`. Two directories, and this role gets the
+ * one built for the work it does.
+ */
+const accountantPermissions: readonly StaffPermission[] = [
+  "dashboard:view",
+  "fees:view",
+  "fees:collect",
+];
+
+/**
+ * Fee collector: the follow-up list. Reads the fee screens, logs contact,
+ * takes no money.
+ */
+const feeCollectorPermissions: readonly StaffPermission[] = [
+  "dashboard:view",
+  "fees:view",
+];
+
 export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {
   admin: adminPermissions,
   office: officePermissions,
+  accountant: accountantPermissions,
+  fee_collector: feeCollectorPermissions,
   academic_coordinator: academicCoordinatorPermissions,
   exam_coordinator: examCoordinatorPermissions,
   teacher: teacherPermissions,

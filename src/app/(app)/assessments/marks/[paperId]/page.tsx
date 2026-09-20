@@ -17,7 +17,7 @@ import { canEnterMarks } from "@/modules/assessments/domain/assessments";
 import { MarksGrid } from "@/modules/assessments/ui/marks-grid";
 import { Card, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

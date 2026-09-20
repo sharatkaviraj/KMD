@@ -1,9 +1,12 @@
 # VPPS One — progress
 
-**Active queue: PLAN revision 2. The next task is R3.4 below** — its row still
-owes mock message retry, the S-01–S-09 acceptance pass and wiring `mayReplace()`
-into accept.
-Use the first actionable R-row, not the deferred original live-cutover row 7.3.
+**Active queue: the School Fees port (F rows, below), then PLAN revision 2.**
+F6 — fee test data on schoolfees-dev — is blocked on a decision only Janmejay
+can make, and every fee workflow is unexercised until it lands. R3.4 is the
+next R row and still owes mock message retry, the S-01–S-09 acceptance pass and
+wiring `mayReplace()` into accept.
+
+Use the first actionable row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
 An agent updates its row before it stops. Never delete a row; add `N.x-fix` rows
 under the task they fix.
@@ -70,6 +73,84 @@ R2–R8, so those rows own it.
 | D3-fix | B-42: the first `Panel` rendered lists as `<div>`s, so a register was fifteen unrelated paragraphs to a screen reader. B-43: `HomeColumns` changed element type when its aside went away, remounting the register form and losing the "Saved" acknowledgement | D3 | done | `d3-design-language` · `Panel` is a `<ul>`, `PanelRow` an `<li>`, `HomeColumns` keeps one wrapper · both caught by `tests/e2e/teacher-attendance.spec.ts` |
 | D4 | Deep interaction and visual QA across the atlas's full state matrix | D3, R5 | todo | Partial pass recorded in `docs/evidence/D1-D2-2026-09-17.md` and `D3-2026-09-18.md`; the rest belongs with R7.2/R8.1 |
 | D5 | Design deviations and status folded into the release report | D4, R8.2 | todo | Deviations recorded in D0; the report is R8.2's |
+
+## The School Fees port (F rows)
+
+Janmejay's call, 18 September 2026, after the conflict with CLAUDE.md rule 2
+was put to him: *"eventually the vpps one will become the main app for all and
+we will close fees app once the vpps one is complete... the accountant should
+see the exact fee app as now in vpps one, nothing changes same as fee app, you
+literally copy paste exact code for accountant user."*
+
+So the fee app is ported in, not linked to. Branch `port-fee-app`.
+This supersedes the working interpretation in PLAN §1 and selects the
+alternative PLAN §9 left open. R6 (the launcher-based handoff) is reduced to
+whatever still needs a link after the port, and is not yet revisited.
+
+| Task | Bounded deliverable | Status | Evidence |
+|---|---|---|---|
+| F1 | Tailwind v3 + the fee app's tokens, config and globals | done | `a9cda27` · `npm run check:theme` compares 430 tokens against the sibling repo |
+| F2 | The fee build configuration: staleTimes, dynamicOnHover, React Compiler, 12 dependencies | done | `8f235a3` · `next build --webpack` |
+| F3 | One role model and one language across both vocabularies | done | `9fead20` · `fee-roles.ts`, the session shim, `i18n/bridge.ts`, migration `20260918043934` · `tests/{fee-roles,i18n-bridge}.test.ts` |
+| F4 | The port itself — 709 files, 20 modules, 48 screens, 16 API routes | done | `4335eb8` · `scripts/port-rewrite-imports.mjs`, `npm run check:port` |
+| F5 | One shell, fee tabs in the navigation map, fee routes reachable | done | `9c8f52d` · `DashboardShell` takes items; `money` group in `navigation.ts` |
+| F5-fix | Production-only render failures and two pieces of stale copy | done | `9e743ed` · icons resolved client-side, the fee providers mounted, `public/` copied |
+| F6 | Fee test data on `schoolfees-dev`, so the fee screens can be exercised at all | **todo — blocked on a decision** | The schema is complete; the data is empty. See below |
+| F7 | Timed accountant walkthrough against real fee configuration | todo | Depends on F6 |
+
+### What F6 is blocked on, and why it is not a code task
+
+`schoolfees-dev` is a **schema** twin, not a **data** twin. It carries 67 fee
+tables, every RPC the ported code calls and all three materialized views — and
+`fee_policy_configs`, `app_settings`, `installments`, `payments` and `receipts`
+are all empty, against `students` 139 and `classes` 19.
+
+So every fee screen opens onto the state named in `src/app/(app)/fees/layout.tsx`:
+*"The fee desk has no academic session."* That is the honest answer and it is
+not a bug, but it means **no fee workflow has been exercised end to end** — not
+a payment, not a receipt, not a reversal.
+
+Seeding it is not an agent's call to make alone: a fee policy is the school's
+actual fee amounts and due dates, and inventing them would put fabricated money
+on a screen somebody might believe. The three ways forward, for Janmejay:
+
+1. Give a fee structure to seed as test data (amounts that are obviously not
+   real, on `TEST-2026-27`).
+2. Copy the live fee configuration into dev — read-only from live, write to dev.
+3. Point a preview deployment at a fee database that already has data.
+
+### What is verified, and what is not
+
+**Verified.** `npm run check` green: typecheck, lint, 430-token theme parity,
+the import codemod, 7,791 unit tests, production build. `npm run
+smoke:workflows`: **41 passed, 1 skipped**. A browser pass on a production
+build as `qa.admin`: `/dashboard`, `/students`, `/teach` at 375px, and
+`/fees/dashboard` showing its unconfigured state. 141 routes build.
+
+**The skip is the teacher attendance journey**, and it matters: 20 September
+2026 is a Sunday, the school is closed, and the Today card correctly offers no
+register. The spec now says so instead of failing — but that means the core
+teacher workflow was **not** exercised in this run. Re-run it on a weekday.
+
+**Not verified.** Every fee workflow (F6). The `accountant` and `fee_collector`
+QA accounts are in the fixture list but have not been seeded, so neither role
+has been signed in as — the fee screens above were read as `admin`. Physical
+device, printer and WhatsApp paths are untouched, as before.
+
+### Two things about the suite itself
+
+`reuseExistingServer` is **false** now. It let Playwright attach to whatever
+was already on 3100, including a server started before the build under test —
+three specs "failed" that way, each waiting sixty seconds for an element that
+was on the page, and the run took 17 minutes instead of 3. The same trap cost
+a debugging session in D3. A failure that looks identical to a real one is
+worse than a slow suite.
+
+`tests/e2e/warm-server.ts` loads the heavy route module graphs before the first
+test's clock starts. It was written for the wrong reason — the stale server was
+the actual cause — but it is kept: after the port a cold signed-in render is a
+real cost, and paying it once outside anybody's budget is cheaper than a longer
+timeout in all 42.
 
 ### R0.1 — what it found
 

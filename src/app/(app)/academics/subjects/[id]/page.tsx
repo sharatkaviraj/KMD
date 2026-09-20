@@ -6,7 +6,7 @@ import { requirePermission } from "@/platform/auth/current-staff";
 import { getSubjectById } from "@/modules/academics/data/academics-repo";
 import { SubjectForm } from "@/modules/academics/ui/subject-form";
 import { t } from "@/platform/i18n/language";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

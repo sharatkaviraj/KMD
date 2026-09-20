@@ -16,7 +16,7 @@ import { ClassAliasEditor } from "@/modules/academics/ui/class-alias-editor";
 import { t } from "@/platform/i18n/language";
 import { Notice } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

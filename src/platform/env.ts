@@ -5,9 +5,10 @@
  * `hasRequiredEnvVars` flag the middleware uses to stay out of the way on a
  * misconfigured deploy, and `sanitizeRedirectPath`.
  *
- * What is dropped: `APP_MODE` and `getSupabaseSchemaForAppMode()`. The fee app
- * switches between the `public` and `test` schemas at runtime; VPPS One always
- * owns exactly one schema, so that choice is a constant here (D-4).
+ * `APP_MODE` is back. It was dropped when VPPS One owned exactly one schema
+ * (D-4); now that the fee app is folded in, this deployment addresses two,
+ * and `getFeeSchema()` below is where the second one is decided — with the
+ * two environment declarations forced to agree rather than trusted.
  */
 
 const requiredEnvVars = [
@@ -31,8 +32,53 @@ const placeholderPatterns = [
  */
 export const VPPSONE_SCHEMA = "vppsone" as const;
 
-/** The fee app's schema. SELECT only, from here, forever. */
+/**
+ * The schema School Fees owns.
+ *
+ * This used to say "SELECT only, from here, forever". It is not read-only
+ * any more: the fee app is being folded into this one and retired, so VPPS
+ * One writes here now. What replaced rule 2 is narrower and enforced —
+ * fee writes go through `src/modules/fees/platform/supabase/*` and nowhere
+ * else, and `tests/architecture.test.ts` checks that every file which uses
+ * that client also checks a permission in the same file.
+ */
 export const FEE_SCHEMA = "public" as const;
+
+/**
+ * The fee schema to address, with the two environment declarations forced
+ * to agree.
+ *
+ * The fee app picks its schema from `APP_MODE` alone (unset means `public`,
+ * which is live). Carrying that here would make a single unset variable on
+ * a preview deployment the whole distance between test data and the school's
+ * real money. So the schema is only answered when `VPPSONE_ENV` and
+ * `APP_MODE` say the same thing, and a disagreement throws rather than
+ * picking one.
+ *
+ *   VPPSONE_ENV=dev   → APP_MODE must be "test" or unset  → `public` on the
+ *                        dev project, which is the dev twin of the fee data
+ *   VPPSONE_ENV=live  → APP_MODE must be "production"
+ */
+export function getFeeSchema(): typeof FEE_SCHEMA {
+  const environment = getVppsOneEnvironment();
+  const appMode = getOptionalEnvVar("APP_MODE")?.toLowerCase();
+
+  if (environment === "live" && appMode !== "production") {
+    throw new Error(
+      'VPPSONE_ENV=live needs APP_MODE=production. Refusing to guess which ' +
+        'fee data this deployment is allowed to touch.',
+    );
+  }
+
+  if (environment === "dev" && appMode === "production") {
+    throw new Error(
+      'APP_MODE=production on a VPPSONE_ENV=dev deployment. One of the two ' +
+        'is wrong, and the expensive way to find out which is in production.',
+    );
+  }
+
+  return FEE_SCHEMA;
+}
 
 const vppsOneEnvironments = ["dev", "live"] as const;
 
@@ -143,3 +189,100 @@ export function sanitizeRedirectPath(
 export const hasRequiredEnvVars = requiredEnvVars.every((name) =>
   Boolean(process.env[name]?.trim()),
 );
+
+/* ===================================================================== */
+/* Ported from School Fees' `env.ts`, for the fee screens that read them. */
+/* ===================================================================== */
+
+const truthyEnvValues = new Set(["1", "true", "yes", "on"]);
+
+function withHttpsIfNeeded(value: string) {
+  const trimmed = value.trim().replace(/\/$/, "");
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+export function hasExplicitSiteUrl() {
+  return Boolean(getOptionalEnvVar("NEXT_PUBLIC_SITE_URL"));
+}
+
+export function isConfiguredSiteUrlSecure() {
+  const configured = getOptionalEnvVar("NEXT_PUBLIC_SITE_URL");
+  return configured ? withHttpsIfNeeded(configured).startsWith("https://") : false;
+}
+
+/**
+ * The in-app language switcher (English / Hindi / Hinglish).
+ *
+ * Opt-out: unset or truthy means on, and only an explicit falsy value turns it
+ * off. This is the one route to Hinglish, which no VPPS One language maps to.
+ */
+export function isLocaleSwitcherEnabled() {
+  const value = getOptionalEnvVar("LOCALE_SWITCHER_ENABLED");
+  return value ? truthyEnvValues.has(value.toLowerCase()) : true;
+}
+
+/**
+ * Which fee data this deployment addresses, in the fee app's own vocabulary.
+ *
+ * Read only through `getFeeSchema()` above, which refuses to answer unless
+ * this and `VPPSONE_ENV` agree. On its own it is exactly the single variable
+ * that could point a preview deployment at the school's real money.
+ */
+export function getAppMode(): "production" | "test" {
+  return getOptionalEnvVar("APP_MODE")?.toLowerCase() === "test"
+    ? "test"
+    : "production";
+}
+
+/**
+ * Creating a monthly EMI repayment plan. Reads ship everywhere; only
+ * activation, reschedule and cancel sit behind this.
+ */
+export function isRepaymentPlanCreationEnabled() {
+  const value = getOptionalEnvVar("REPAYMENT_PLANS");
+
+  if (value) {
+    return truthyEnvValues.has(value.toLowerCase());
+  }
+
+  return getOptionalEnvVar("VERCEL_ENV") === "preview" || getAppMode() === "test";
+}
+
+export function isVercelProductionEnvironment() {
+  return getOptionalEnvVar("VERCEL_ENV") === "production";
+}
+
+export function getRuntimeEnvironmentLabel() {
+  const vercelEnvironment = getOptionalEnvVar("VERCEL_ENV");
+  if (vercelEnvironment) return vercelEnvironment;
+  if (process.env.NODE_ENV === "development") return "local/development";
+  return process.env.NODE_ENV ?? "local";
+}
+
+/**
+ * Where this deployment lives, for a link that has to work outside the app —
+ * a receipt QR code, a WhatsApp message, a PDF footer.
+ *
+ * Falls through the Vercel variables so a preview deployment links to itself
+ * rather than to production. `localhost` last, so a forgotten variable in
+ * production is a wrong host rather than an unroutable one.
+ */
+export function getSiteUrl() {
+  const configured = getOptionalEnvVar("NEXT_PUBLIC_SITE_URL");
+  if (configured) return withHttpsIfNeeded(configured);
+
+  const vercelProduction = getOptionalEnvVar("VERCEL_PROJECT_PRODUCTION_URL");
+  if (vercelProduction) return withHttpsIfNeeded(vercelProduction);
+
+  const vercel = getOptionalEnvVar("VERCEL_URL");
+  if (vercel) return withHttpsIfNeeded(vercel);
+
+  return "http://localhost:3000";
+}
+
+/** The fee app distinguishes these two; here they are the same answer. */
+export const getPublicSiteUrl = getSiteUrl;
+
+export function createAbsoluteUrl(path: string, baseUrl = getSiteUrl()) {
+  return new URL(path, `${baseUrl}/`).toString();
+}

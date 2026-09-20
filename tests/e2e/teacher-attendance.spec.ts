@@ -20,6 +20,27 @@ import { db, ownClassOf, schoolToday, signIn } from "./support/harness";
 
 const today = schoolToday();
 
+/**
+ * This journey needs a day the school is open, and Sunday is not one.
+ *
+ * `isSchoolOpen()` treats Sunday as closed unless the academic calendar says
+ * otherwise, so a teacher's Today card correctly offers no register — that is
+ * one of the three kinds of nothing it is built to name (D-59), and D-101 was
+ * the bug where a Sunday claimed nineteen registers were outstanding.
+ *
+ * The test used to fail on it, with "the class the teacher holds is not
+ * offered as work to do" — which reads exactly like a regression and is not
+ * one. A skip that says why is the honest report; the alternative is writing
+ * an open day into the shared academic calendar to suit a test, which changes
+ * what every other spec sees.
+ */
+const schoolIsClosedToday = new Date(`${today}T00:00:00Z`).getUTCDay() === 0;
+
+test.skip(
+  schoolIsClosedToday,
+  `the school is closed on ${today} (a Sunday), so there is no register to take`,
+);
+
 type Scene = Awaited<ReturnType<typeof ownClassOf>>;
 
 let scene: Scene;

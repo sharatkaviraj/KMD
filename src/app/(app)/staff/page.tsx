@@ -15,7 +15,7 @@ import { listStaff } from "@/modules/staff/data/staff-repo";
 import { StaffList } from "@/modules/staff/ui/staff-list";
 import { FootNote } from "@/ui/panel";
 import { buttonClasses } from "@/ui/primitives/button";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 import { MetricCard, MetricGrid } from "@/ui/task-hero";
 
 export const runtime = "nodejs";

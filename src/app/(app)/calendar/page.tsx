@@ -8,7 +8,7 @@ import { listCalendarDays } from "@/modules/academics/data/class-teachers-repo";
 import { CalendarEditor } from "@/modules/academics/ui/calendar-editor";
 import { EmptyState } from "@/ui/states";
 import { Notice } from "@/ui/primitives";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

@@ -35,6 +35,21 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The two gates the fee port added. `check:port` re-runs the import
+      # codemod and fails if anything is left to rewrite — it has caught
+      # three silent breakages already, each of which compiled cleanly:
+      # this app's own repos reading the fee schema, its shell reading the
+      # fee navigation map, and a deliberate fix being rewritten back.
+      - name: Ported imports
+        run: npm run check:port
+
+      # Skips with a message when the School Fees checkout is absent, which
+      # on a CI runner it always is. Kept in the pipeline anyway so the step
+      # exists the day somebody checks both repos out — a gate people only
+      # run locally is a gate that stops being run.
+      - name: Theme parity
+        run: npm run check:theme
+
       - name: Tests
         run: npm run test
 

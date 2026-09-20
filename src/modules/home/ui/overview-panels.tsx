@@ -125,17 +125,18 @@ export function RoundProgress({
  * The fee line, said honestly.
  *
  * The design's administrator home carries "Collected today · ₹48,500". VPPS
- * One does not read fee totals — R6 is where the verified handoff lands — and
- * the handoff document is explicit that a missing fee source is "unavailable"
- * with a valid next step, **never ₹0**. So this card carries no amount at all,
- * names the app that does hold the number, and opens it.
+ * One does not read fee totals — R6 is where that lands — and a missing fee
+ * source is "unavailable" with a valid next step, **never ₹0**. So this card
+ * carries no amount at all and opens the screen that does hold the number.
+ *
+ * It used to take a `SchoolApp` and link out to the School Fees deployment.
+ * The fee desk is inside this app now, so the link is internal and the prop
+ * is gone — sending somebody out of the building to stand in the room they
+ * just left is worse than saying nothing.
  */
 export function FeeLine({
-  app,
   language,
 }: {
-  /** Null when this account is not offered the fee app at all. */
-  app: SchoolApp | null;
   language: Language;
 }) {
   const summary = feeSummary();
@@ -154,21 +155,17 @@ export function FeeLine({
           <p className="mt-2 text-[13px] leading-5 text-muted-foreground">
             {primary(summary.reason, language)}
           </p>
-          {app ? (
-            <a
-              href={app.home.href}
-              className="focus-ring mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg text-[13px] font-semibold text-accent-soft-foreground hover:underline"
-            >
-              {primary(app.name, language)}
-              <ExternalLink aria-hidden className="size-4" />
-            </a>
-          ) : null}
-          {app ? (
-            <p className="text-[11px] text-subtle-foreground">
-              {flat(environmentLabel(app.environment), language)} ·{" "}
-              {new URL(app.home.href).host}
-            </p>
-          ) : null}
+          {/* Inside this app now, so an internal link and no external
+              marker. It used to point at the School Fees deployment, which
+              after the port sends somebody out of the building to stand in
+              the room they just left. */}
+          <Link
+            href="/fees/dashboard"
+            className="focus-ring mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg text-[13px] font-semibold text-accent-soft-foreground hover:underline"
+          >
+            {primary(m.overviewFeeDesk, language)}
+            <ArrowRight aria-hidden className="size-4" />
+          </Link>
         </>
       ) : (
         <p className="mt-1 text-[28px] font-semibold leading-none tabular-nums text-foreground">

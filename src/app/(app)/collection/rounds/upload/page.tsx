@@ -6,7 +6,7 @@ import { listFields } from "@/modules/collection/data/fields-repo";
 import { activeFields } from "@/modules/collection/domain/fields";
 import { AskListForm } from "@/modules/collection/ui/ask-list-form";
 import { Section } from "@/ui/primitives";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

@@ -1,5 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BadgeIndianRupee,
+  BookOpenCheck,
+  ClipboardList,
   ClipboardCheck,
   FileText,
   GraduationCap,
@@ -131,6 +134,75 @@ const NAV_ITEMS: readonly NavItem[] = [
     permission: "staff:view",
     ready: true,
   },
+  /*
+   * The fee desk.
+   *
+   * Ordinary `NAV_ITEMS` rather than a parallel list, so they go through
+   * the same five-tab bar, the same grouped sidebar and the same
+   * reachability test as everything else. What is behind them is School
+   * Fees, unchanged; how you get there is this app's navigation.
+   *
+   * All three permissions are needed rather than one: `fees:view` opens
+   * the desk, `fees:collect` is the Payment Desk, `fees:manage` is the
+   * setup a fee_collector should not be offered. A tab nobody in the role
+   * can use is a tab that teaches people to ignore the bar.
+   */
+  {
+    href: "/fees/payments",
+    label: m.navPaymentDesk,
+    icon: BadgeIndianRupee,
+    permission: "fees:collect",
+    ready: true,
+  },
+  {
+    href: "/fees/transactions",
+    label: m.navTransactions,
+    icon: BookOpenCheck,
+    permission: "fees:view",
+    ready: true,
+  },
+  {
+    href: "/fees/defaulters",
+    label: m.navDefaulters,
+    icon: ClipboardList,
+    permission: "fees:view",
+    ready: true,
+  },
+  {
+    href: "/fees/students",
+    label: m.navFeeStudents,
+    icon: UserSearch,
+    permission: "fees:view",
+    ready: true,
+  },
+  {
+    href: "/fees/reminders",
+    label: m.navReminders,
+    icon: SquareArrowOutUpRight,
+    permission: "fees:manage",
+    ready: true,
+  },
+  {
+    href: "/fees/fee-setup",
+    label: m.navFeeSetup,
+    icon: FileText,
+    permission: "fees:manage",
+    ready: true,
+  },
+  {
+    href: "/fees/exports",
+    label: m.navFeeExports,
+    icon: Table2,
+    permission: "fees:view",
+    ready: true,
+  },
+  {
+    href: "/fees/admin-tools",
+    label: m.navFeeAdminTools,
+    icon: Timer,
+    permission: "fees:manage",
+    ready: true,
+  },
   // Last on purpose: it is the screen you visit when something did not happen,
   // not one anybody opens daily. Only admin holds `jobs:view`, so for every
   // other role this changes nothing about the bar.
@@ -186,6 +258,11 @@ export const NON_NAV_SCREENS = [
   // is somewhere you go twice a year, and it is reached from the More hub and
   // from the sign-out corner of the top bar rather than from the thumb bar.
   "/preferences",
+  // The fee desk's front door: somewhere you are sent, like `/access-denied`.
+  // It resolves the role to its right fee screen and redirects. The fee tabs a
+  // person actually navigates to — the Payment Desk, Transactions, Students —
+  // are `NAV_ITEMS` entries in the `money` group.
+  "/fees",
 ] as const;
 
 /* ------------------------------------------------- where each role starts */
@@ -202,7 +279,25 @@ export const NON_NAV_SCREENS = [
  * A teacher may still open it; it is simply not where she starts.
  */
 export function homeFor(role: StaffRole): string {
-  return role === "teacher" ? "/teach" : "/dashboard";
+  if (role === "teacher") return "/teach";
+  /*
+   * The fee desk opens on the fee desk.
+   *
+   * The Payment Desk for an accountant, the follow-up list for a fee
+   * collector — the fee app's own rule, and the whole point of the port:
+   * somebody who collects money signs in and is already there.
+   * `/dashboard` for them is an attention queue about registers and cover,
+   * which is nobody's work at the fee counter.
+   *
+   * The concrete screen rather than `/fees`, which would also work — it
+   * redirects by role. But a home has to be somewhere the person can
+   * demonstrably open, and `navigation.test.ts` checks exactly that by
+   * looking the href up in `NAV_ITEMS`. A redirector is not in that list,
+   * so landing on one would make the check unanswerable rather than true.
+   */
+  if (role === "accountant") return "/fees/payments";
+  if (role === "fee_collector") return "/fees/defaulters";
+  return "/dashboard";
 }
 
 /* --------------------------------------------------- what the bar leads with */
@@ -224,6 +319,11 @@ const NAV_PRIORITY: Record<StaffRole, readonly string[]> = {
   // "Home, Students, SamPark, Apps, More" — Students arrives in R2.3.
   admin: ["/dashboard", "/students", "/collection", "/apps"],
   office: ["/dashboard", "/students", "/collection", "/apps"],
+  // The fee desk. These are the routes that exist today; the fee screens
+  // themselves arrive with their own tabs and take the lead here then.
+  // The fee desk, in the fee app's own order: collect first.
+  accountant: ["/fees/payments", "/fees/transactions", "/fees/defaulters", "/fees/students"],
+  fee_collector: ["/fees/defaulters", "/fees/students", "/fees/transactions"],
   // "Today, My classes, Timetable, Requests, More".
   teacher: ["/teach", "/timetable", "/substitutions", "/assessments"],
   // "Home, Cover, Timetable, Classes, More".
@@ -234,6 +334,25 @@ const NAV_PRIORITY: Record<StaffRole, readonly string[]> = {
   // "Home, Timetable, Summary" — and the summary is Home until R2.2.
   view_only: ["/dashboard", "/timetable"],
 };
+
+/**
+ * The icon for a destination, looked up by href.
+ *
+ * **The nav bars call this themselves rather than being handed icons.**
+ * A `LucideIcon` is a forwardRef object, and neither it nor an element built
+ * from it survives the trip from a Server Component to a Client Component in
+ * a production build — the layout renders its error boundary instead, and
+ * only in production, which is a bad afternoon to have twice.
+ *
+ * This module is pure — messages and the permission map, no database, no
+ * request — so a Client Component can import it directly and the icons are
+ * a client import like any other. The server sends hrefs and labels; the
+ * pictures are already on the other side.
+ */
+export function navIconFor(href: string): LucideIcon | null {
+  if (href === MORE_ITEM.href) return MORE_ITEM.icon;
+  return NAV_ITEMS.find((item) => item.href === href)?.icon ?? null;
+}
 
 /** Everything this role may open, before the bar decides what fits. */
 export function allowedFor(role: StaffRole): NavItem[] {
@@ -288,12 +407,24 @@ export type NavGroup = { title: Localized; items: NavItem[] };
  * Three groups, in the order a day runs: what you do today, the records you
  * look things up in, and the settings you touch a few times a term.
  */
-const GROUP_OF: Record<string, "daily" | "records" | "setup"> = {
+const GROUP_OF: Record<string, "daily" | "money" | "records" | "setup"> = {
   "/dashboard": "daily",
   "/students": "daily",
   "/teach": "daily",
   "/substitutions": "daily",
   "/collection": "daily",
+  // The fee desk. Its own group rather than folded into "daily", because
+  // for an accountant these ARE the day and for a teacher they are not
+  // there at all — and an admin, who sees both, should be able to tell at
+  // a glance which half of the school a link belongs to.
+  "/fees/payments": "money",
+  "/fees/transactions": "money",
+  "/fees/defaulters": "money",
+  "/fees/students": "money",
+  "/fees/reminders": "money",
+  "/fees/fee-setup": "money",
+  "/fees/exports": "money",
+  "/fees/admin-tools": "money",
   "/timetable": "records",
   "/assessments": "records",
   "/apps": "records",
@@ -304,6 +435,7 @@ const GROUP_OF: Record<string, "daily" | "records" | "setup"> = {
 
 const GROUP_TITLES = {
   daily: m.navGroupToday,
+  money: m.navGroupMoney,
   records: m.navGroupRecords,
   setup: m.navGroupSetup,
 } as const;
@@ -318,7 +450,13 @@ const GROUP_TITLES = {
 export function sidebarFor(role: StaffRole): NavGroup[] {
   const allowed = allowedFor(role);
 
-  return (["daily", "records", "setup"] as const)
+  // Every group, in the order a day runs. This list and `GROUP_OF` have to
+  // agree: a group named there and missing here drops its items silently,
+  // and the sidebar has no More hub to catch them — which is what happened
+  // to the eight fee screens the moment "money" was added to one and not
+  // the other. `tests/navigation.test.ts` asserts the sidebar holds
+  // everything the role may open, which is what said so.
+  return (["daily", "money", "records", "setup"] as const)
     .map((group) => ({
       title: GROUP_TITLES[group],
       items: allowed.filter((item) => (GROUP_OF[item.href] ?? "setup") === group),

@@ -34,7 +34,7 @@ import {
 import { primary, secondary, t } from "@/platform/i18n/language";
 import { FootNote, Panel, PanelRow } from "@/ui/panel";
 import { Badge, Notice } from "@/ui/primitives";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 import { HomeColumns } from "@/ui/task-hero";
 
 export const runtime = "nodejs";

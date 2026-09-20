@@ -82,6 +82,36 @@ export const QA_ACCOUNTS: readonly QaAccount[] = [
     purpose: "Office work in Hindi: collection, review, attendance on behalf.",
   },
   {
+    key: "accountant",
+    email: "qa.fees@qa.vpps.local",
+    role: "accountant",
+    language: "en",
+    binding: {
+      kind: "create",
+      shortName: "QAAN",
+      displayName: "QA Accountant",
+      isActive: true,
+    },
+    canSignIn: true,
+    purpose:
+      "The fee desk. This is the only account that may take money, and the only one the ported School Fees screens are built for — every 'can this person post a payment' case runs as this one, and the office account is the other half of that pair.",
+  },
+  {
+    key: "feeCollector",
+    email: "qa.recovery@qa.vpps.local",
+    role: "fee_collector",
+    language: "hi",
+    binding: {
+      kind: "create",
+      shortName: "QAFC",
+      displayName: "QA Fee Collector",
+      isActive: true,
+    },
+    canSignIn: true,
+    purpose:
+      "Reads every fee screen and cannot collect on any of them. The boundary that matters is the one between this account and `accountant`: they see the same tabs, and only one of them gets a Collect button.",
+  },
+  {
     key: "academic",
     email: "qa.academic@qa.vpps.local",
     role: "academic_coordinator",

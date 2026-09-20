@@ -48,3 +48,30 @@ export function inSchoolOrder(choices: readonly ClassChoice[]): ClassChoice[] {
 export function rankOf(labels: ReadonlyMap<string, string>): Map<string, number> {
   return new Map([...labels.keys()].map((id, index) => [id, index]));
 }
+
+/**
+ * School order from the label alone, for a row that has no class id.
+ *
+ * The ported fee screens are full of these: a collection-by-class bar, a
+ * defaulter list, a recovery queue. They carry `classLabel` as a string
+ * because that is what their SQL returns, so `bySchoolOrder` — which needs a
+ * `sortOrder` — has nothing to read.
+ *
+ * `Intl.Collator` with `numeric: true` gets "Class 2" before "Class 10"
+ * without parsing anything, and it puts "Class 6 A" before "Class 6 B" for
+ * free. It does **not** know that Nursery comes before Class 1: that ordering
+ * lives in `sort_order` and cannot be recovered from a string. So this is the
+ * weaker of the two on purpose — use `bySchoolOrder` wherever an id is in
+ * hand, and this only where one genuinely is not.
+ *
+ * One collator, built once. Constructing one per comparison is the usual way
+ * a sort over a few hundred rows becomes slow enough to notice.
+ */
+const CLASS_LABEL_COLLATOR = new Intl.Collator("en", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+export function byClassLabel(left: string, right: string): number {
+  return CLASS_LABEL_COLLATOR.compare(left, right);
+}

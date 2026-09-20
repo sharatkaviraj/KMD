@@ -10,7 +10,7 @@ import { flat, primary } from "@/platform/i18n/language";
 import { buttonClasses } from "@/ui/primitives/button";
 import { Card, DetailList } from "@/ui/primitives";
 import { StateCard } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

@@ -20,7 +20,7 @@ import { Select } from "@/ui/primitives";
 import { FootNote, Panel, PanelRow } from "@/ui/panel";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

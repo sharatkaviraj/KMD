@@ -1,188 +1,939 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* =====================================================================
-   VPPS One — design tokens.
-
-   The palette is "Ledger Calm", ported from the fee app
-   (`schoolfees/src/app/globals.css`). It is not a fresh start on purpose:
-   the same staff use both apps on the same phones, and a second visual
-   language would be a second thing to learn. What changed is the syntax —
-   the fee app is Tailwind v3 (`@tailwind` + tailwind.config.ts), this is
-   v4, where `@theme` *is* the config.
+   Veer Patta Fees — "Ledger Calm" design tokens
+   Foundation: warm off-white paper, ink near-black, single saffron accent.
+   Tokens are HSL triplets so Tailwind's `hsl(var(--token) / <alpha>)` works.
    ===================================================================== */
 
-@theme {
-  /* Inter is not loaded: the interface is Hindi first, and a webfont that
-     covers Devanagari properly is a payload teachers pay for on 3G. The
-     system stack renders both scripts, with Noto/Nirmala ahead of it so
-     Devanagari gets correct metrics instead of an OS fallback. */
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Noto Sans Devanagari", "Nirmala UI", sans-serif;
+@layer base {
+  :root {
+    /* Inter covers Latin glyphs. Noto Sans Devanagari sits next in the
+       cascade so Hindi script renders consistently without an OS fallback
+       flicker. CSS picks the right font per glyph automatically. */
+    --font-sans:
+      "Inter", "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-display:
+      "Source Serif 4", "Source Serif Pro", "Iowan Old Style", "Georgia",
+      ui-serif, serif;
 
-  /* Surfaces */
-  --color-background: hsl(46 42% 97%);
-  --color-foreground: hsl(222 25% 11%);
-  --color-surface: hsl(0 0% 100%);
-  --color-surface-2: hsl(44 18% 96%);
-  --color-surface-3: hsl(44 14% 92%);
+    /* Surfaces ---------------------------------------------------------- */
+    --background: 46 42% 97%;        /* warmer paper (Ledger Calm 2.0) */
+    --foreground: 222 25% 11%;       /* ink */
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 11%;
 
-  /* Text */
-  --color-muted-foreground: hsl(222 9% 42%);
-  --color-subtle-foreground: hsl(222 6% 56%);
+    --surface: 0 0% 100%;
+    --surface-2: 44 18% 96%;         /* subtle inset / hover row */
+    --surface-3: 44 14% 92%;         /* deeper inset */
 
-  /* Lines */
-  --color-border: hsl(40 14% 88%);
-  --color-border-strong: hsl(40 12% 78%);
+    /* Text -------------------------------------------------------------- */
+    --muted: 44 18% 96%;
+    --muted-foreground: 222 9% 42%;
+    --subtle-foreground: 222 6% 56%;
 
-  /* Brand and action */
-  --color-primary: hsl(222 25% 11%);
-  --color-primary-foreground: hsl(48 33% 98%);
-  --color-secondary: hsl(44 18% 94%);
-  --color-secondary-foreground: hsl(222 25% 11%);
-  --color-accent: hsl(20 86% 41%);
-  --color-accent-foreground: hsl(48 33% 99%);
-  --color-accent-soft: hsl(28 92% 96%);
-  --color-accent-soft-foreground: hsl(20 86% 33%);
-  --color-ring: hsl(20 86% 45%);
+    /* Lines ------------------------------------------------------------- */
+    --border: 40 14% 88%;
+    --border-strong: 40 12% 78%;
+    --input: 40 14% 86%;
 
-  /* Ink surfaces — the top bar and anything drawn on it */
-  --color-nav: hsl(222 28% 10%);
-  --color-nav-foreground: hsl(44 22% 96%);
-  --color-nav-muted: hsl(44 12% 70%);
-  --color-nav-border: hsl(222 16% 20%);
-  /* Saffron lifted a step for marks drawn ON ink: --color-accent is tuned
-     for paper and goes muddy at 41% lightness against 10% ink. */
-  --color-nav-accent: hsl(20 86% 52%);
+    /* Brand & action ---------------------------------------------------- */
+    --primary: 222 25% 11%;          /* ink — solid CTAs */
+    --primary-foreground: 48 33% 98%;
+    --secondary: 44 18% 94%;
+    --secondary-foreground: 222 25% 11%;
+    --accent: 20 86% 41%;            /* saffron — hero CTA, focus, brand */
+    --accent-foreground: 48 33% 99%;
+    --accent-soft: 28 92% 96%;       /* tinted accent surface */
+    --accent-soft-foreground: 20 86% 33%;
+    --ring: 20 86% 45%;
 
-  /* Semantic */
-  --color-success: hsl(151 56% 24%);
-  --color-success-soft: hsl(151 64% 96%);
-  --color-success-soft-foreground: hsl(151 56% 22%);
+    /* Ink navigation surfaces — sidebar, hero band, WhatsApp card -------- */
+    --nav: 222 28% 10%;              /* sidebar / hero band bg */
+    --nav-foreground: 44 22% 96%;
+    --nav-muted: 44 12% 70%;
+    --nav-surface: 222 22% 14%;      /* cards sitting on ink */
+    --nav-hover: 222 20% 16%;
+    --nav-border: 222 16% 20%;
+    /* Saffron lifted one step, for accent marks drawn ON the ink band.
+       --accent is tuned for paper; at 41% lightness it goes muddy against
+       10% ink, which is how the year-rate gauge arc lost its contrast. */
+    --nav-accent: 20 86% 52%;
 
-  --color-warning: hsl(30 84% 36%);
-  --color-warning-soft: hsl(38 92% 96%);
-  --color-warning-soft-foreground: hsl(30 84% 28%);
+    /* Semantic ---------------------------------------------------------- */
+    --success: 151 56% 24%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 151 64% 96%;
+    --success-soft-foreground: 151 56% 22%;
 
-  --color-destructive: hsl(0 72% 41%);
-  --color-destructive-foreground: hsl(0 0% 100%);
-  --color-destructive-soft: hsl(0 84% 97%);
-  --color-destructive-soft-foreground: hsl(0 72% 36%);
+    --warning: 30 84% 36%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 38 92% 96%;
+    --warning-soft-foreground: 30 84% 28%;
 
-  --color-info: hsl(221 70% 38%);
-  --color-info-soft: hsl(221 90% 97%);
-  --color-info-soft-foreground: hsl(221 70% 32%);
+    --destructive: 0 72% 41%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 84% 97%;
+    --destructive-soft-foreground: 0 72% 36%;
 
-  --shadow-xs: 0 1px 2px hsl(222 25% 11% / 0.04);
-  --shadow-sm: 0 2px 4px -1px hsl(222 25% 11% / 0.05);
-  --shadow-md:
-    0 6px 18px -8px hsl(222 25% 11% / 0.1), 0 2px 4px -2px hsl(222 25% 11% / 0.04);
+    --info: 221 70% 38%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 221 90% 97%;
+    --info-soft-foreground: 221 70% 32%;
+
+    /* Charts (used sparingly — quiet hues) ------------------------------ */
+    --chart-1: 222 25% 22%;
+    --chart-2: 20 86% 41%;
+    --chart-3: 151 40% 32%;
+    --chart-4: 30 70% 42%;
+    --chart-5: 221 50% 38%;
+
+    /* Geometry — cards step up one radius (Ledger Calm 2.0) ------------- */
+    --radius: 0.75rem;               /* 12px — panels */
+    --radius-sm: 0.5rem;             /* 8px  — badges, inputs sm */
+    --radius-md: 0.625rem;           /* 10px — buttons, inputs */
+    --radius-lg: 0.875rem;           /* 14px — rows / inputs */
+    --radius-xl: 1rem;               /* 16px — cards */
+    --radius-2xl: 1.25rem;           /* 20px — sheets / hero */
+
+    /* Shadows ----------------------------------------------------------- */
+    --shadow-xs: 0 1px 2px hsl(222 25% 11% / 0.04);
+    --shadow-sm: 0 2px 4px -1px hsl(222 25% 11% / 0.05);
+    --shadow-md: 0 6px 18px -8px hsl(222 25% 11% / 0.10), 0 2px 4px -2px hsl(222 25% 11% / 0.04);
+    --shadow-lg: 0 24px 48px -16px hsl(222 25% 11% / 0.18);
+
+    /* Mobile geometry --------------------------------------------------- */
+    --mobile-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --mobile-bottom-nav-height: 4.25rem;
+    --mobile-bottom-nav-offset: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-area-bottom));
+    --mobile-payment-cta-height: 4.5rem;
+    --mobile-payment-cta-offset: calc(var(--mobile-payment-cta-height) + var(--mobile-safe-area-bottom));
+    --mobile-payment-with-nav-offset: calc(var(--mobile-payment-cta-height) + var(--mobile-bottom-nav-offset));
+
+    /* Scrim — used by drawers, sheets, command palette --------------- */
+    --scrim: 222 25% 11%;
+  }
+
+  /* ===================================================================
+     Dark mode — "Ledger Calm at night"
+     Keep the same semantic role for every token; only swap values.
+     Currency numbers must remain legible against a paper-on-slate vibe.
+     =================================================================== */
+  .dark {
+    /* Surfaces */
+    --background: 222 24% 8%;
+    --foreground: 44 22% 96%;
+    --card: 222 22% 11%;
+    --card-foreground: 44 22% 96%;
+    --popover: 222 22% 11%;
+    --popover-foreground: 44 22% 96%;
+
+    --surface: 222 22% 11%;
+    --surface-2: 222 20% 14%;
+    --surface-3: 222 18% 18%;
+
+    /* Text */
+    --muted: 222 18% 16%;
+    --muted-foreground: 44 12% 70%;
+    --subtle-foreground: 44 8% 56%;
+
+    /* Lines */
+    --border: 222 16% 20%;
+    --border-strong: 222 14% 28%;
+    --input: 222 14% 22%;
+
+    /* Brand & action — lift the ink to paper, keep saffron warm */
+    --primary: 44 22% 96%;
+    --primary-foreground: 222 25% 11%;
+    --secondary: 222 18% 16%;
+    --secondary-foreground: 44 22% 96%;
+    --accent: 22 88% 52%;
+    --accent-foreground: 222 25% 11%;
+    --accent-soft: 22 50% 18%;
+    --accent-soft-foreground: 22 88% 78%;
+    --ring: 22 88% 58%;
+
+    /* Ink navigation surfaces — slightly lighter ink at night */
+    --nav: 222 22% 14%;
+    --nav-foreground: 44 22% 96%;
+    --nav-muted: 44 12% 70%;
+    --nav-surface: 222 20% 18%;
+    --nav-hover: 222 18% 20%;
+    --nav-border: 222 16% 24%;
+    /* At night the page is already ink, so --accent is on the same footing
+       and the two match. Kept as its own token so the ink surfaces stay
+       adjustable without touching every accent on the page. */
+    --nav-accent: 22 88% 52%;
+
+    /* Semantic — bump softs to readable dark tones */
+    --success: 151 50% 40%;
+    --success-foreground: 222 25% 8%;
+    --success-soft: 151 32% 16%;
+    --success-soft-foreground: 151 64% 78%;
+
+    --warning: 30 80% 52%;
+    --warning-foreground: 222 25% 8%;
+    --warning-soft: 30 36% 18%;
+    --warning-soft-foreground: 30 90% 78%;
+
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 36% 20%;
+    --destructive-soft-foreground: 0 80% 84%;
+
+    --info: 221 70% 60%;
+    --info-foreground: 222 25% 8%;
+    --info-soft: 221 36% 20%;
+    --info-soft-foreground: 221 90% 84%;
+
+    /* Charts — keep the role mapping consistent */
+    --chart-1: 44 22% 88%;
+    --chart-2: 22 88% 58%;
+    --chart-3: 151 50% 56%;
+    --chart-4: 30 80% 60%;
+    --chart-5: 221 70% 64%;
+
+    /* Shadows — softer in dark mode to avoid black holes */
+    --shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.4);
+    --shadow-sm: 0 2px 4px -1px hsl(0 0% 0% / 0.45);
+    --shadow-md: 0 6px 18px -8px hsl(0 0% 0% / 0.55), 0 2px 4px -2px hsl(0 0% 0% / 0.35);
+    --shadow-lg: 0 24px 48px -16px hsl(0 0% 0% / 0.6);
+
+    /* Scrim — heavier in dark mode */
+    --scrim: 0 0% 0%;
+  }
+
+  /* Smooth tone swap when switching themes (but never on first paint). */
+  html.theme-ready,
+  html.theme-ready body {
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      border-color 200ms ease;
+  }
 }
 
-:root {
-  /* Mobile geometry. The bottom bar is fixed, so every scrolling surface has
-     to reserve its height *plus* the home-indicator inset — or the last row
-     of a list sits under it, which on a class list means the last child in
-     the register is the one nobody can tap. */
-  --mobile-safe-area-bottom: env(safe-area-inset-bottom, 0px);
-  --mobile-bottom-nav-height: 4.25rem;
-  --mobile-bottom-nav-offset: calc(
-    var(--mobile-bottom-nav-height) + var(--mobile-safe-area-bottom)
-  );
-}
+/* =====================================================================
+   Base typography & body
+   ===================================================================== */
 
 @layer base {
   html {
+    scroll-behavior: smooth;
+    scroll-padding-bottom: var(--mobile-payment-with-nav-offset, 5rem);
     -webkit-text-size-adjust: 100%;
-  }
-
-  body {
-    background: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-sans);
-  }
-
-  /* Tapping should not paint a grey box over a card on Android. */
-  * {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* A control under 16px makes iOS Safari zoom the page on focus, which
-     leaves the form half off-screen with the keyboard over the rest. Every
-     control in the kit is already 16px; this is the backstop for one that
-     gets added and forgets. */
-  input,
-  select,
-  textarea {
-    font-size: max(16px, 1rem);
-  }
-}
-
-@utility focus-ring {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-    focus-visible:ring-offset-2 focus-visible:ring-offset-background;
-}
-
-/* Reserve the fixed bottom bar on a scrolling page. */
-@utility pb-bottom-nav {
-  padding-bottom: calc(var(--mobile-bottom-nav-offset) + 1rem);
-}
-
-@utility safe-bottom {
-  padding-bottom: var(--mobile-safe-area-bottom);
-}
-
-/* ---------------------------------------------------------------- print */
-/*
-   The monthly attendance register is the one screen in this app that exists
-   to leave it: a school keeps the register on paper, and an inspector asks
-   for the paper. Rather than ship a PDF renderer and a second set of
-   Devanagari fonts to produce a worse copy of a table the browser already
-   draws, the sheet prints — which on every device the school uses is also
-   how it becomes a PDF.
-
-   Landscape because a month of columns does not cross A4 portrait, and a
-   register that silently loses its last week is worse than one that needs a
-   setting changed.
-*/
-@media print {
-  @page {
-    size: A4 landscape;
-    margin: 10mm;
-  }
-
-  /* The app's chrome is navigation, and paper has none. */
-  header,
-  nav,
-  footer {
-    display: none !important;
-  }
-
-  main {
-    padding: 0 !important;
-    max-width: none !important;
+  * {
+    @apply border-border;
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    background: #fff;
-    color: #000;
+    @apply min-h-screen bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    overscroll-behavior-y: contain;
   }
 
-  /* Ink is expensive and a grey fill photocopies as a smudge; the absent
-     cells keep their border and lose their background. */
-  * {
+  /* Tabular numerals everywhere by default — currency must not jitter. */
+  body,
+  table,
+  input,
+  button,
+  select,
+  textarea {
+    font-variant-numeric: tabular-nums;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  ::selection {
+    background: hsl(var(--accent) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-semibold tracking-tight;
+    color: hsl(var(--foreground));
+  }
+}
+
+/* =====================================================================
+   Utilities
+   ===================================================================== */
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  .font-heading {
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
+  }
+
+  /* Display money — serif hero amounts only (dashboard today, amount
+     composer, success card, receipt amount, WhatsApp card). Table/body
+     money stays Inter via <Money>. */
+  .font-display-money {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    /* Source Serif 4 defaults to lining figures, and <Money>/<CountUp> always
+       add `.tabular` (declared later, so it would win a lining-nums fight
+       anyway). Keeping this to tabular-nums states what actually applies. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Surfaces */
+  .surface {
+    background: hsl(var(--surface));
+  }
+  .surface-2 {
+    background: hsl(var(--surface-2));
+  }
+  .surface-3 {
+    background: hsl(var(--surface-3));
+  }
+
+  /* Hairline divider that scales nicely on hi-dpi */
+  .hairline {
+    border-color: hsl(var(--border));
+  }
+
+  /* Status surfaces — used by Badge and inline notices */
+  .tone-success { background: hsl(var(--success-soft)); color: hsl(var(--success-soft-foreground)); }
+  .tone-warning { background: hsl(var(--warning-soft)); color: hsl(var(--warning-soft-foreground)); }
+  .tone-danger  { background: hsl(var(--destructive-soft)); color: hsl(var(--destructive-soft-foreground)); }
+  .tone-info    { background: hsl(var(--info-soft)); color: hsl(var(--info-soft-foreground)); }
+  .tone-accent  { background: hsl(var(--accent-soft)); color: hsl(var(--accent-soft-foreground)); }
+  .tone-neutral { background: hsl(var(--surface-2)); color: hsl(var(--foreground)); }
+
+  /* Long lists on a phone: the browser skips layout and paint for rows that
+     are off screen, and the intrinsic size keeps the scrollbar honest so
+     nothing shifts as they come into view. The desktop student table and the
+     call queue already do this inline; this is the same rule as a class. */
+  .cv-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 96px;
+  }
+
+  /* Animation primitives — kept minimal on purpose. */
+  .anim-fade-in {
+    animation: fade-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* 160ms, not 220: this plays on every phone screen as it mounts, so it is
+     paid on every tab switch. Short enough to read as a settle, not a wait. */
+  .anim-slide-up {
+    animation: slide-up 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Legacy aliases — kept so existing class names and tests keep working.
+     They all route to the four canonical keyframes above. */
+  .animate-bottom-sheet-up { animation: slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-success-check { animation: scale-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-loading-bar { animation: route-progress 1000ms cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+  .animate-soft-shimmer { animation: fade-in 1400ms ease-in-out infinite alternate; }
+  .animate-slide-up-fade { animation: slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-reveal-up { animation: slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-pop-in { animation: scale-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-receipt-settle { animation: slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* ---- Payment-collected choreography ----
+     A receipt an office clerk sees 80 times a day earns a clear "the system
+     did work" signal, not a celebration. The check DRAWS itself (a stroke
+     resolving reads as work completing; a scale-in reads as a div appearing),
+     then the receipt number and amount settle in behind it. Whole sequence
+     stays under ~900ms so it never gates the next collection. */
+  .anim-check-draw {
+    stroke-dasharray: var(--check-path-length, 48);
+    stroke-dashoffset: var(--check-path-length, 48);
+    animation: check-draw 320ms cubic-bezier(0.65, 0, 0.35, 1) 80ms forwards;
+  }
+
+  .anim-check-halo {
+    animation: check-halo 520ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  }
+
+  .anim-settle-in {
+    animation: settle-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Receipt number stamps in like an office rubber stamp — lands from
+     above with a slight rotation, then settles square-ish. */
+  .anim-stamp-in {
+    animation: stamp-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .anim-toast-in {
+    animation: toast-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* New keyframe, justified per the house rule: nothing existing runs in
+     reverse. anim-print-away is a print-slot specific transform, not a
+     general exit. A toast that vanishes mid-sentence reads as a glitch;
+     240ms in, 180ms out keeps exit faster than entry as elsewhere. */
+  .anim-toast-out {
+    animation: toast-out 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .anim-pulse-dot {
+    animation: pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  .anim-print-out {
+    animation: print-out 850ms cubic-bezier(0.22, 1, 0.36, 1) 100ms both;
+  }
+
+  /* The slip leaves the way it arrived — back up into the printer slot — so
+     finishing a collection reads as "the paper went to the parent" rather
+     than "a panel closed". Exit is faster than entry: nobody waits to leave. */
+  .anim-print-away {
+    animation: print-away 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .anim-shimmer {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .anim-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--foreground) / 0.06) 50%,
+      transparent 100%
+    );
+    transform: translate3d(-100%, 0, 0);
+    animation: shimmer-x 1500ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    will-change: transform;
+  }
+
+  /* Top progress bar (route changes) */
+  .anim-route-progress {
+    animation: route-progress 1000ms cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .payment-entry-form {
+    contain: layout style;
+  }
+
+  /* Phone app screen shell. The height lives here rather than inline so it
+     applies ONLY below md — an inline style would beat the md: reset and
+     lock desktop to 100dvh too. dvh (not vh) so collapsing browser chrome
+     does not leave a gap; the keyboard offset is 0 on browsers that resize
+     the visual viewport themselves. */
+  .mobile-app-screen {
+    height: auto;
+  }
+
+  @media (max-width: 767px) {
+    .mobile-app-screen {
+      height: calc(100dvh - var(--keyboard-offset, 0px));
+    }
+  }
+  /* ---- Phone app typography ----
+     The design is weight-800 dominant: 175 of its ~228 weighted declarations
+     are extrabold, against this app's 623 semibold / 27 extrabold. That gap,
+     not colour, is why the app read as "softer" than the mock. Scoping the
+     default to the phone screen shell keeps desktop untouched.
+
+     Headings and the small caps labels go extrabold; body copy and long-form
+     notes stay at their own weight, which is why this targets headings and
+     an explicit opt-in class rather than everything. */
+  .mobile-app-screen :is(h1, h2, h3) {
+    font-weight: 800;
+    letter-spacing: -0.015em;
+  }
+
+  /* The design's micro-label: 10px, extrabold, wide tracking, uppercase.
+     Used above every figure and section on a phone screen. */
+  .mobile-eyebrow {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Row title / value pair at the design's exact sizes. */
+  .mobile-row-title {
+    font-size: 13.5px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .mobile-row-meta {
+    font-size: 11px;
+    font-weight: 600;
+  }
+  /* ---- Phone app scroll model ----
+     The design is 24 full-height screens: the PAGE never scrolls, the body
+     region inside it does. That is what stops a phone screen feeling like a
+     web document with a tab bar stuck to it.
+
+     Making <main> the scroll container (rather than the document) also keeps
+     the pinned takeover bar and the tab bar fixed without position:fixed, and
+     ScrollRestoringMain already persists element scrollTop, so restoration
+     keeps working unchanged. */
+  @media (max-width: 767px) {
+    .mobile-app-main {
+      height: 100dvh;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Screens that keep the tab bar need the last card to clear it. */
+    .mobile-app-main[data-bottom-nav="true"] {
+      padding-bottom: var(--mobile-bottom-nav-offset);
+    }
+  }
+  .mobile-safe-bottom-padding {
+    padding-bottom: var(--mobile-safe-area-bottom);
+  }
+
+  .mobile-bottom-nav-clearance {
+    padding-bottom: var(--mobile-bottom-nav-offset);
+  }
+
+  .mobile-payment-cta-clearance {
+    padding-bottom: calc(var(--mobile-payment-cta-offset) + var(--keyboard-offset, 0px));
+  }
+
+  .mobile-payment-with-nav-clearance {
+    padding-bottom: var(--mobile-payment-with-nav-offset);
+  }
+
+  /* Horizontal swipeable strips — used for KPI strips, tab bars, chip rows. */
+  .snap-x-strip {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .snap-x-strip::-webkit-scrollbar { display: none; }
+  .snap-x-strip > * { scroll-snap-align: start; flex-shrink: 0; }
+
+  /* Tighter section padding on phones */
+  .mobile-section-padding {
+    @apply px-3 py-3 md:px-5 md:py-5;
+  }
+
+  /* Momentum-scroll container — for sheet bodies and scrollable panels */
+  .momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Focus ring — saffron, single recipe used everywhere */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Same recipe for ink surfaces. The paper version offsets against
+     --background (cream), which would draw a bright halo on the ink
+     sidebar; this offsets against the ink itself. */
+  .focus-ring-ink {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2;
+    --tw-ring-offset-color: hsl(var(--nav));
+  }
+
+  /* Tap highlight suppression already exists, but add active:scale feedback */
+  .tap-scale {
+    @apply active:scale-[0.97] transition-transform duration-100;
+  }
+
+  /* Card as tappable link */
+  .card-link {
+    @apply rounded-xl border border-border bg-card transition-all duration-150
+           hover:border-border-strong hover:bg-surface-2
+           active:scale-[0.99] active:bg-surface-2;
+  }
+
+  /* Larger bottom nav clearance to account for payment CTA */
+  .bottom-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Section header compact on mobile */
+  @media (max-width: 767px) {
+    .page-section-gap {
+      @apply space-y-4;
+    }
+  }
+
+  /* Density utilities — driven by [data-density] on <html> via DensityProvider.
+     Tables and forms can opt in with `density-row` / `density-cell` /
+     `density-input` so a single context flips the whole app between
+     cozy (default) and compact. */
+  [data-density="compact"] .density-row {
+    @apply h-9;
+  }
+  [data-density="cozy"] .density-row {
+    @apply h-12;
+  }
+  [data-density="compact"] .density-cell {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+  [data-density="cozy"] .density-cell {
+    @apply px-3 py-2.5 text-sm;
+  }
+  [data-density="compact"] .density-input {
+    @apply h-8 px-2 text-sm;
+  }
+  [data-density="cozy"] .density-input {
+    @apply h-10 px-3 text-sm;
+  }
+
+  /* Scrim utility used by drawers, sheets, the command palette overlay. */
+  .scrim {
+    background-color: hsl(var(--scrim) / 0.45);
+    backdrop-filter: blur(2px);
+  }
+}
+
+/* =====================================================================
+   Reduced motion — silence everything decorative.
+   ===================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .anim-fade-in,
+  .anim-slide-up,
+  .anim-shimmer,
+  .anim-route-progress,
+  .anim-check-halo,
+  .anim-settle-in,
+  .anim-stamp-in,
+  .anim-print-out,
+  .anim-print-away,
+  .anim-toast-in,
+  .anim-toast-out,
+  .anim-pulse-dot,
+  .animate-bottom-sheet-up,
+  .animate-success-check,
+  .animate-loading-bar,
+  .animate-soft-shimmer,
+  .animate-slide-up-fade,
+  .animate-reveal-up,
+  .animate-pop-in,
+  .animate-receipt-settle {
+    animation: none !important;
+  }
+
+  .anim-shimmer::after {
+    animation: none !important;
+    display: none;
+  }
+
+  /* The check must still READ as complete when motion is off — silence the
+     draw and show the finished stroke rather than an invisible path. */
+  .anim-check-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  /* Tailwind transition-* utilities are not `animation:` rules, so the list
+     above never covered them. Collapse them rather than leave hover/colour
+     tweens running at full length. */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Deliberately NOT silenced. A pending button's spinner is the only signal
+     that work is in flight — removing it would mean a reduced-motion user
+     cannot tell a slow save from a dead one. Slow it instead. */
+  .animate-spin {
+    animation-duration: 1.6s !important;
+  }
+}
+
+/* =====================================================================
+   Keyframes.
+
+   Three general primitives (fade-in / slide-up / scale-in) plus one
+   keyframe per genuinely distinct motion. The phone design names eleven
+   animations, but scr-in, card-in and sheet-up are all "translate up +
+   fade" — they map onto slide-up and settle-in rather than earning
+   duplicates. Only motion that cannot be expressed by an existing
+   keyframe gets its own; see tests/ui/mobile-design-animations.test.ts,
+   which pins that mapping.
+
+   House rule, enforced by that same test: transform and opacity only.
+   No width/height/top/box-shadow tweening — those force layout or paint
+   on every frame and cost visible frames on a mid-range Android.
+   ===================================================================== */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer-x {
+  0% { transform: translate3d(-100%, 0, 0); }
+  100% { transform: translate3d(100%, 0, 0); }
+}
+
+@keyframes route-progress {
+  0% { transform: translate3d(-100%, 0, 0); }
+  100% { transform: translate3d(100%, 0, 0); }
+}
+
+/* Payment-collected choreography. */
+@keyframes check-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes check-halo {
+  0% { opacity: 0; transform: scale(0.6); }
+  55% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes settle-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes stamp-in {
+  from { opacity: 0; transform: scale(1.6) rotate(-14deg); }
+  to { opacity: 1; transform: scale(1) rotate(-4deg); }
+}
+
+/* The receipt feeds out of the printer slot on the phone success screen.
+   Transform only — no layout, no shadow tweening — so it stays cheap on a
+   mid-range Android. Silenced by the global reduced-motion block. */
+/* The one deliberate infinite loop in the phone app: a 6px connection
+   dot. Opacity only, 2.4s, so it costs nothing to composite and reads as
+   "live" rather than "loading". Silenced under reduced motion — a pulsing
+   dot is exactly what that preference exists to stop. */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes print-out {
+  from { transform: translate3d(0, -102%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes print-away {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, -102%, 0); }
+}
+
+/* A phone toast rises further than a card settles — it comes from off the
+   bottom edge, past the tab bar, so 18px rather than slide-up's 8px. That
+   distance is the only reason this is not an alias of slide-up. */
+@keyframes toast-in {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.98); }
+}
+
+/* =====================================================================
+   Print styles
+   ===================================================================== */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --mobile-bottom-nav-height: 3rem;
+  }
+
+  .mobile-bottom-nav-clearance {
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-area-bottom));
+  }
+}
+
+body[data-vpps-test-session="true"] {
+  box-shadow: inset 0 0 0 3px #c026d3;
+}
+
+body[data-vpps-test-session="true"]::before {
+  content: "TEST SESSION — not live data";
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 9999;
+  background: #c026d3;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font: 600 11px/1.4 system-ui;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  body[data-vpps-test-session="true"]::before {
+    top: auto;
+    bottom: calc(var(--mobile-bottom-nav-height, 4.25rem) + var(--mobile-safe-area-bottom, 0px) + 8px);
+  }
+}
+
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  /* Paper is always paper. A staff member with dark mode on used to print
+     receipts as a near-black page with pale text — and because the receipt
+     opts into `print-color-adjust: exact`, that actually reached the paper.
+     Reset the surface/text tokens to their light values for print, whatever
+     the on-screen theme is. */
+  .dark {
+    --background: 46 42% 97%;
+    --foreground: 222 25% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 11%;
+    --surface: 0 0% 100%;
+    --surface-2: 44 18% 96%;
+    --surface-3: 44 14% 92%;
+    --muted: 44 18% 96%;
+    --muted-foreground: 222 9% 42%;
+    --subtle-foreground: 222 6% 56%;
+    --border: 40 14% 88%;
+    --border-strong: 40 12% 78%;
+    --primary: 222 25% 11%;
+    --primary-foreground: 48 33% 98%;
+    --accent: 20 86% 41%;
+    --accent-foreground: 48 33% 99%;
+    --accent-soft: 28 92% 96%;
+    --accent-soft-foreground: 20 86% 33%;
+    --success-soft: 151 64% 96%;
+    --success-soft-foreground: 151 56% 22%;
+    --warning-soft: 38 92% 96%;
+    --warning-soft-foreground: 30 84% 28%;
+    --destructive-soft: 0 84% 97%;
+    --destructive-soft-foreground: 0 72% 36%;
+    --info-soft: 221 90% 97%;
+    --info-soft-foreground: 221 70% 32%;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* =====================================================================
+   VPPS One additions.
+
+   Everything above this line is School Fees' `globals.css`, copied so the
+   two apps compile the same class strings to the same CSS. Only what the
+   fee app has no equivalent for belongs below.
+   ===================================================================== */
+
+@layer utilities {
+  /* Reserve the fixed bottom bar on a scrolling page. The fee app solves
+     this with `.mobile-bottom-nav-clearance`; this is the name VPPS One's
+     25 existing call sites already use, kept as an alias rather than
+     rewritten, and with the extra 1rem those screens were built against. */
+  .pb-bottom-nav {
+    padding-bottom: calc(var(--mobile-bottom-nav-offset) + 1rem);
+  }
+
+  /* Alias of `.mobile-safe-bottom-padding`, same reason. */
+  .safe-bottom {
+    padding-bottom: var(--mobile-safe-area-bottom);
+  }
+}
+
+/*
+   The monthly attendance register prints A4 **landscape** — a month of
+   columns does not cross portrait, and a register that silently loses its
+   last week is worse than one that needs a setting changed.
+
+   `@page` is document-global and cannot be nested in a selector, so the
+   size is NOT set here: it would turn every receipt sideways. The register
+   screen injects its own `@page` rule instead (see `printLandscape` in
+   `src/ui/print-landscape.tsx`), which is genuinely page-scoped. What is
+   safe to put here is everything that keys off an element.
+*/
+@media print {
+  [data-print="register"] {
+    /* Ink is expensive and a grey fill photocopies as a smudge; the absent
+       cells keep their border and lose their background. */
     box-shadow: none !important;
   }
 
-  table {
+  [data-print="register"] table {
     page-break-inside: auto;
   }
 
-  tr {
+  [data-print="register"] tr {
     page-break-inside: avoid;
   }
 
-  thead {
+  [data-print="register"] thead {
     display: table-header-group;
   }
 }

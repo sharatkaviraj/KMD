@@ -17,7 +17,7 @@ import { findClashes } from "@/modules/timetable/domain/views";
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import { Badge, Card, DetailList, Notice } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

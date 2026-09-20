@@ -17,7 +17,7 @@ import { getStaffById } from "@/modules/staff/data/staff-repo";
 import { canDeactivate } from "@/modules/staff/domain/staff";
 import { Badge, Card, DetailList, Notice } from "@/ui/primitives";
 import { Button, buttonClasses } from "@/ui/primitives/button";
-import { PageHeader } from "@/ui/shell/app-shell";
+import { PageHeader } from "@/ui/page-header-localized";
 
 export const runtime = "nodejs";
 

@@ -60,14 +60,36 @@ Sampark uses Drizzle against its own database. Take the **logic and the shapes**
 not the schema definitions — VPPS One's tables are defined in
 `supabase/migrations/`.
 
-## `schoolfees` — the fee app
+## `schoolfees` — the fee app, now ported in
 
-Do not import from it and do not change it. Useful as a reference for:
+**It is not a reference any more; it is the source it was copied from** (D-178,
+18 September 2026). 709 files came across: the UI kit, the shell, twenty
+modules, 48 screens and 16 API routes. Still never committed to.
 
-- the Supabase browser/server/admin client setup and the auth middleware
-- the UI kit and mobile shell patterns already proven on these users' phones
-- `src/modules/students` for how the student and class shapes are read
-- the PDF generation approach used for receipts (Phase 3.6, 6.4) — **not followed for the report card**: it prints from the browser instead (D-85)
+What to know when going back to it:
+
+- `scripts/port-rewrite-imports.mjs` is the record of what was renamed and why.
+  `PORTED_TREES` in it is the single definition of which trees came from there,
+  read by `tests/architecture.test.ts` and `eslint.config.mjs`.
+- Its `src/platform/supabase/*` became `src/modules/fees/platform/supabase/*`,
+  because its clients default to `public` and this app's default to `vppsone`.
+- Its `src/platform/supabase/session.ts` became a **shim** at
+  `src/modules/fees/platform/session.ts`, answering from
+  `vppsone.staff_profiles` rather than `public.users` (D-6 survives the port).
+- Its `students` and `staff` modules are `students-fees` and `staff-fees` here:
+  both names already meant something different in this repo.
+- **Not ported**: Sentry, the MCP worker, the bootstrap scripts, the AiSensy
+  send path, its login door, its access-denied screen, its protected layout,
+  and the four Sentry reporter components.
+
+Its Tailwind config and `globals.css` are copied verbatim rather than adapted,
+and `npm run check:theme` compares all 430 resolved tokens against the sibling
+checkout. That is why this repo is on Tailwind v3.
+
+Two of its patterns were deliberately *not* followed and the reasons still
+hold: the report card prints from the browser rather than rendering a PDF
+server-side (D-85), and its `sm` button is 40px on a phone where this app
+requires 44 (D-184).
 
 Its production database holds the real `students`, `classes` and `sessions` that
 VPPS One reads. Its dev twin — `schoolfees-dev` — is the database VPPS One is
