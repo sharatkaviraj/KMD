@@ -5,7 +5,11 @@ import { can, type StaffRole } from "@/platform/auth/permissions";
 import {
   classLabelMap,
 } from "@/modules/academics/data/academics-repo";
-import { registersForDay } from "@/modules/attendance/data/attendance-repo";
+import {
+  attendanceCalendar,
+  registersForDay,
+} from "@/modules/attendance/data/attendance-repo";
+import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import { countPendingCorrections } from "@/modules/attendance/data/corrections-repo";
 import { pendingSubmissionCount } from "@/modules/collection/data/submissions-repo";
 import { listEnrolments } from "@/modules/enrolments/data/enrolments-repo";
@@ -107,7 +111,16 @@ export async function homeSummary(
 
   const wants = (key: AttentionKey | "school") => need.has(key);
 
-  const [registers, labels, absences, submissions, corrections, jobs, enrolments] =
+  const [
+    registers,
+    labels,
+    absences,
+    submissions,
+    corrections,
+    jobs,
+    enrolments,
+    calendar,
+  ] =
     await Promise.all([
       wants("registers") || wants("school")
         ? attempt("registers", missing, () => registersForDay(sessionLabel, today))
@@ -128,6 +141,11 @@ export async function homeSummary(
       wants("school")
         ? attempt("school", missing, () => listEnrolments(sessionLabel))
         : null,
+      // Whether the school is open at all today. Without it a Sunday reads
+      // as every register outstanding — see the note below.
+      wants("registers")
+        ? attempt("registers", missing, () => attendanceCalendar(sessionLabel))
+        : null,
     ]);
 
   const classesTotal = labels?.size ?? 0;
@@ -139,8 +157,31 @@ export async function homeSummary(
   );
 
   const registersIn = registers === null ? null : submitted.size;
+
+  /*
+   * Nothing is outstanding on a day the school is shut.
+   *
+   * This subtracted submitted registers from the class count and stopped
+   * there, so on a Sunday — when no register is due and none is taken — the
+   * administrator's home said **19 of 19 outstanding**, owner: teachers. It
+   * had been wrong every weekend since R2.2 and was only seen when somebody
+   * opened the deployed site on one.
+   *
+   * D-101 is the same bug in the nightly job, fixed there in 7.4; this is
+   * the second copy of the question. The rule that catches both: a count on
+   * this screen has to be a fact about work somebody could do, and there is
+   * no register to take on a closed day.
+   *
+   * Zero rather than null. Null means "we could not read it" and renders a
+   * dash; this is not unknown — it is known to be nothing, which is one of
+   * the three kinds of nothing D-59 asks to be told apart.
+   */
+  const schoolOpenToday = calendar === null || isSchoolOpen(today, calendar);
+
   const registersOutstanding =
-    registers === null || labels === null ? 0 : Math.max(0, classesTotal - submitted.size);
+    registers === null || labels === null || !schoolOpenToday
+      ? 0
+      : Math.max(0, classesTotal - submitted.size);
 
   // The latest *attempt* per job, skips included: "did it fire this morning"
   // is a different question from "what did it do", and a failure that a later
@@ -155,6 +196,7 @@ export async function homeSummary(
   return {
     facts: {
       registersOutstanding,
+      schoolOpenToday,
       classesTotal,
       absencesToday: absences ?? 0,
       pendingSubmissions: submissions ?? 0,

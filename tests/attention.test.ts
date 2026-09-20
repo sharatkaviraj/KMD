@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { m } from "@/messages";
 import { staffRoles, type StaffRole } from "@/platform/auth/permissions";
 import {
   attentionFor,
@@ -19,6 +20,7 @@ const BUSY: AttentionFacts = {
   pendingSubmissions: 8,
   pendingCorrections: 1,
   failedJobs: 1,
+  schoolOpenToday: true,
 };
 
 const CLEAR: AttentionFacts = {
@@ -28,6 +30,7 @@ const CLEAR: AttentionFacts = {
   pendingSubmissions: 0,
   pendingCorrections: 0,
   failedJobs: 0,
+  schoolOpenToday: true,
 };
 
 const onBehalf = { canMarkOnBehalf: true };
@@ -174,5 +177,61 @@ describe("every item says whose work it is and where to go", () => {
 
     expect(busy.every((item) => item.tone === "warning")).toBe(true);
     expect(clear.every((item) => item.tone === "neutral")).toBe(true);
+  });
+});
+
+describe("a closed day has no registers outstanding", () => {
+  const onBehalf = { canMarkOnBehalf: true };
+
+  /**
+   * The bug this exists for, found on the deployed site on a Sunday.
+   *
+   * `registersOutstanding` was `classesTotal - submitted`, full stop. On a day
+   * the school is shut nobody takes a register, so nothing is submitted, so the
+   * administrator's home read **19 of 19 outstanding, whose work: teachers** —
+   * nineteen teachers accused of not doing something that was never due.
+   *
+   * It had been wrong every weekend since R2.2. D-101 is the same question in
+   * the nightly job, fixed there in 7.4; this was the second copy of it.
+   */
+  const SUNDAY: AttentionFacts = {
+    registersOutstanding: 0,
+    classesTotal: 19,
+    absencesToday: 0,
+    pendingSubmissions: 4,
+    pendingCorrections: 0,
+    failedJobs: 0,
+    schoolOpenToday: false,
+  };
+
+  it("says the school is closed rather than counting classes", () => {
+    const registers = attentionFor("admin", SUNDAY, onBehalf).find(
+      (item) => item.key === "registers",
+    );
+
+    expect(registers?.count, "a closed day owes nothing").toBe(0);
+    // "0 of 19" on a Sunday reads as nineteen teachers who have finished. The
+    // row has to say why the number is nought.
+    expect(registers?.detail).toEqual(m.homeSchoolClosedToday);
+  });
+
+  it("still counts the work that does not depend on the school being open", () => {
+    // Somebody can review a collection answer on a Sunday. Silencing the whole
+    // queue would be the opposite mistake.
+    const review = attentionFor("admin", SUNDAY, onBehalf).find(
+      (item) => item.key === "review",
+    );
+
+    expect(review?.count).toBe(4);
+  });
+
+  it("counts classes again on a day the school is open", () => {
+    const openDay: AttentionFacts = { ...SUNDAY, registersOutstanding: 3 };
+    const registers = attentionFor("admin", { ...openDay, schoolOpenToday: true }, onBehalf).find(
+      (item) => item.key === "registers",
+    );
+
+    expect(registers?.count).toBe(3);
+    expect(registers?.detail).not.toEqual(m.homeSchoolClosedToday);
   });
 });

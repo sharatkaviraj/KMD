@@ -21,7 +21,17 @@ export const config = {
      *
      * Without a matcher this runs for every image and stylesheet, which puts
      * an auth check in front of the page's own CSS.
+     *
+     * **The PWA files are named explicitly**, and they were missed when the
+     * fee app's `public/` came across. `service-worker.js` happened to be
+     * covered by the `.js` extension rule, but `manifest.webmanifest` and
+     * `offline.html` match neither — so production answered both with a 307 to
+     * `/login`. An installed app fetches the manifest on every launch and the
+     * offline page precisely when there is no network to sign in over, so an
+     * auth redirect is the one answer neither can use. `branding/` goes with
+     * them: it is the logo on the sign-in screen, wanted before there is a
+     * session to check.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?|map)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|offline.html|service-worker.js|branding/|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?|map)$).*)",
   ],
 };

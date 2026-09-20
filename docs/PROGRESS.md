@@ -97,6 +97,8 @@ whatever still needs a link after the port, and is not yet revisited.
 | F5-fix | Production-only render failures and two pieces of stale copy | done | `9e743ed` · icons resolved client-side, the fee providers mounted, `public/` copied |
 | F6 | Fee test data on `schoolfees-dev`, so the fee screens can be exercised at all | **todo — blocked on a decision** | The schema is complete; the data is empty. See below |
 | F7 | Timed accountant walkthrough against real fee configuration | todo | Depends on F6 |
+| F8 | Decide what an installed VPPS One is, then switch the PWA on or delete it | todo | The manifest, the offline page and the service worker are here and inert — see `public/README.md` |
+| F8-fix | The proxy auth-redirected `manifest.webmanifest` and `offline.html` | done | Found by probing the deployed site; `src/proxy.ts` excludes them, and `branding/`, now |
 
 ### What F6 is blocked on, and why it is not a code task
 

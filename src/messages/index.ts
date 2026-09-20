@@ -1260,6 +1260,7 @@ export const m = {
   homeStaffAway: t("आज अनुपस्थित स्टाफ़", "Staff away"),
   homeChangesToReview: t("जाँचने को बदलाव", "Changes to review"),
   homeJobsFailed: t("नहीं चले काम", "Jobs that failed"),
+  homeSchoolClosedToday: t("आज विद्यालय बंद है", "School is closed today"),
   homeOwnerTeachers: t("अध्यापक", "Teachers"),
   homeOwnerOffice: t("कार्यालय", "Office"),
   homeOwnerCoordinator: t("शैक्षणिक संयोजक", "Academic coordinator"),

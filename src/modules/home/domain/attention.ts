@@ -26,6 +26,14 @@ export type AttentionKey =
 export type AttentionFacts = {
   /** Classes whose daily register has not been submitted today. */
   registersOutstanding: number;
+  /**
+   * Whether the school is open today at all.
+   *
+   * A closed day has no register to take, so `registersOutstanding` is 0 —
+   * and the row has to say *why* it is 0, or "0 of 19, whose work: teachers"
+   * reads as nineteen teachers who have already finished.
+   */
+  schoolOpenToday: boolean;
   /** Classes the school has, so "3 of 19" can be said rather than "3". */
   classesTotal: number;
   /** Staff marked away today. */
@@ -100,7 +108,11 @@ export function attentionFor(
       count: count("registers", facts.registersOutstanding),
       detail: unavailable.has("registers")
         ? null
-        : countOfClasses(facts.registersOutstanding, facts.classesTotal),
+        : facts.schoolOpenToday
+          ? countOfClasses(facts.registersOutstanding, facts.classesTotal)
+          // "0 of 19" on a Sunday reads as nineteen teachers who have
+          // already finished. They have not; there was nothing to do.
+          : m.homeSchoolClosedToday,
       owner: m.homeOwnerTeachers,
       // Somebody who may mark on behalf is sent where they can do something
       // about it; everybody else to the register they can read.
