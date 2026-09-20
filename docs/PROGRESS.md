@@ -98,7 +98,9 @@ whatever still needs a link after the port, and is not yet revisited.
 | F6 | Fee test data on `schoolfees-dev`, so the fee screens can be exercised at all | **todo — blocked on a decision** | The schema is complete; the data is empty. See below |
 | F7 | Timed accountant walkthrough against real fee configuration | todo | Depends on F6 |
 | F8 | Decide what an installed VPPS One is, then switch the PWA on or delete it | todo | The manifest, the offline page and the service worker are here and inert — see `public/README.md` |
-| F8-fix | The proxy auth-redirected `manifest.webmanifest` and `offline.html` | done | Found by probing the deployed site; `src/proxy.ts` excludes them, and `branding/`, now |
+| F8-fix | The proxy auth-redirected `manifest.webmanifest` and `offline.html` | done | `31c102a` ([#33](https://github.com/veerpatta/vppsone/pull/33)) · found by probing the deployed site; `src/proxy.ts` excludes them, and `branding/`, now |
+| F9 | Merge and deploy | done | `cd4d1e2` ([#32](https://github.com/veerpatta/vppsone/pull/32)) and `31c102a` ([#33](https://github.com/veerpatta/vppsone/pull/33)) · live at `vppsone.vercel.app`, verified signed in |
+| F9-fix | B-44: the administrator's home said 19 registers outstanding on a Sunday | done | `31c102a` · `schoolOpenToday` reaches `attention.ts`; `tests/attention.test.ts` |
 
 ### What F6 is blocked on, and why it is not a code task
 
@@ -133,6 +135,22 @@ build as `qa.admin`: `/dashboard`, `/students`, `/teach` at 375px, and
 2026 is a Sunday, the school is closed, and the Today card correctly offers no
 register. The spec now says so instead of failing — but that means the core
 teacher workflow was **not** exercised in this run. Re-run it on a weekday.
+
+**Deployed and checked live.** `vppsone.vercel.app`, signed in as `qa.admin` on
+a production build: the shell, the fee-desk group in the sidebar, the attention
+queue, and the three PWA files answering 200 rather than a redirect to sign-in.
+
+### B-44 — the number that only appears at the weekend
+
+The administrator's home read **19 registers outstanding, whose work: teachers**
+on a Sunday. `registersOutstanding` was `classesTotal - submitted` with no
+question about whether the school was open, so a day when nobody takes a
+register counted every class as owing one. Wrong every weekend since R2.2, and
+invisible because the arithmetic is right and the question is wrong.
+
+D-101 is the same question in the nightly job, fixed there in 7.4. This was the
+second copy of it. It was found by opening the deployed site, not by a test —
+which is the argument for doing that at all.
 
 **Not verified.** Every fee workflow (F6). The `accountant` and `fee_collector`
 QA accounts are in the fixture list but have not been seeded, so neither role
