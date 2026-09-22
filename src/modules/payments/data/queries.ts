@@ -4,6 +4,7 @@ import "server-only";
 import type { StaffRole } from "@/modules/fees/platform/roles";
 import type { PaymentMode } from "@/platform/db/types";
 import { getFeePolicyForSession, getFeePolicySummary } from "@/modules/fees/domain/queries";
+import { createFeeAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { cacheSafeUnstableCache, getCacheSafeClient } from "@/modules/fees/platform/supabase/cache-safe";
 import { getStudentDetail } from "@/modules/students-fees/data/queries";
@@ -2098,7 +2099,33 @@ async function getPaymentDateAwareInstallmentBalancesUncached(payload: {
   studentId: string;
   paymentDate: string;
 }) {
-  const supabase = await createClient();
+  /*
+   * **The service-role client, because the user-JWT client cannot work here.**
+   *
+   * `preview_workbook_payment_allocation` is SECURITY DEFINER and still checks
+   * permissions itself, in SQL:
+   *
+   *     where ( coalesce(auth.role(),'') = 'service_role'
+   *             or public.has_any_permission(array['payments:view', …]) )
+   *
+   * `has_any_permission` reads `public.users.role`. In the fee app that works,
+   * because every fee user has a row there. In VPPS One nobody does — D-6 puts
+   * the role in `vppsone.staff_profiles` precisely so it is not kept in two
+   * places — so the second arm is false for every account this app has, and
+   * the RPC returned **zero rows with no error**.
+   *
+   * The Payment Desk read that as "dues are not prepared for this student" and
+   * offered to repair them. Every student, every account, every time: an
+   * accountant could not load a single child's dues. It could not be seen
+   * until dev had fee data to reach the call with.
+   *
+   * So the first arm is used instead, which is the pattern D-179 already sets
+   * for fee reads: the service role reaches the data, and the VPPS One
+   * permission check at the entry point is the authorization —
+   * `/fees/payments` runs `requireStaffPermission("payments:view")` before any
+   * of this, and `tests/architecture.test.ts` asserts that it does.
+   */
+  const supabase = createFeeAdminClient();
   const { data, error } = await supabase.rpc("preview_workbook_payment_allocation", {
     p_student_id: payload.studentId,
     p_payment_date: payload.paymentDate,

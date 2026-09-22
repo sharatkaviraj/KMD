@@ -72,8 +72,30 @@ database until the cutover phase.
    fee tables, and adding a column, trigger, policy or foreign key to them.
 3. **Build against dev.** `wtgxcptmucjerhufzjcf` (schoolfees-dev) is the only
    database this app is ever pointed at until the cutover phase (PLAN §7).
-   The live fee database `vgqyilgstjvgohrsiwkb` is not a target. Do not connect
-   to it, migrate it, or seed it.
+   The live fee database `vgqyilgstjvgohrsiwkb` is not a target. Do not migrate
+   it or seed it, and read it only through `scripts/replicate-live.mjs`, whose
+   live client is sealed in a closure that can only `.select()`.
+
+   Dev now holds a **de-identified replica** of live — 11,295 rows, the money
+   exact, every person replaced (D-186). Check `vppsone.data_replica` if you
+   need to know whether the fee data in front of you is a copy. It is not a
+   perfect twin: live has ten `public` tables dev does not, and dev was missing
+   every grant on the three financial matviews until it was repaired (D-189).
+   Compare privileges, not just columns, before believing they match.
+
+3a. **Never decide the academic session by sorting the labels.** Six places did
+   and all six were wrong: `TEST-2026-27` sorts above `2026-27`, and live
+   carries that rehearsal session. Use `pickSessionLabel()` from
+   `platform/config/active-session.ts`, which prefers
+   `app_settings.active_session_label` — the row the fee app's own
+   `getActiveSessionLabel()` reads (D-187).
+
+3b. **Chunk every `.in(...)` list of ids.** It is serialized into the request
+   URL: ~300 ids succeed, 400 fail, and the school has 583 active children.
+   The failure is an eight-second hang and then `TypeError: fetch failed`,
+   which a `const { data } = await …` turns into a plausible empty array. Use
+   `fetchInChunks` with `IN_FILTER_CHUNK_SIZE` from
+   `platform/helpers/in-filter.ts`.
 4. **Copy, don't reinvent.** `docs/SOURCES.md` lists proven code in the three
    sibling repos. Port it with its tests; note what you changed and why.
 5. **Push to main.** No release ceremony, no flags, no approval gates. Open a PR

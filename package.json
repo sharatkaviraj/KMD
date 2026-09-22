@@ -28,7 +28,10 @@
     "qa:status": "node --import ./scripts/alias-hook.mjs scripts/qa-fixture.mjs status",
     "smoke:workflows": "playwright test",
     "check:theme": "node --no-warnings scripts/check-theme-parity.mjs",
-    "check:port": "node --no-warnings scripts/port-rewrite-imports.mjs --check"
+    "check:port": "node --no-warnings scripts/port-rewrite-imports.mjs --check",
+    "smoke:deep": "node --import ./scripts/alias-hook.mjs scripts/deep-smoke.mjs",
+    "replica:plan": "node scripts/replicate-live.mjs --plan",
+    "replica:load": "node scripts/replicate-live.mjs --load"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",

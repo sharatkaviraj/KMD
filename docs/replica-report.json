@@ -1,0 +1,307 @@
+{
+  "mode": "load",
+  "at": "2026-09-22T03:25:32.348Z",
+  "tables": [
+    {
+      "table": "users",
+      "live": 9,
+      "dev": 9
+    },
+    {
+      "table": "academic_sessions",
+      "live": 3,
+      "dev": 3
+    },
+    {
+      "table": "transport_routes",
+      "live": 29,
+      "dev": 29
+    },
+    {
+      "table": "classes",
+      "live": 57,
+      "dev": 57
+    },
+    {
+      "table": "fee_settings",
+      "live": 57,
+      "dev": 57
+    },
+    {
+      "table": "conventional_discount_policies",
+      "live": 9,
+      "dev": 9
+    },
+    {
+      "table": "school_fee_defaults",
+      "live": 1,
+      "dev": 1
+    },
+    {
+      "table": "fee_policy_configs",
+      "live": 3,
+      "dev": 3
+    },
+    {
+      "table": "app_settings",
+      "live": 10,
+      "dev": 10
+    },
+    {
+      "table": "school_holidays",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "setup_progress",
+      "live": 1,
+      "dev": 1
+    },
+    {
+      "table": "academic_calendar",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "student_family_groups",
+      "live": 98,
+      "dev": 98
+    },
+    {
+      "table": "students",
+      "live": 614,
+      "dev": 614
+    },
+    {
+      "table": "student_family_members",
+      "live": 218,
+      "dev": 218
+    },
+    {
+      "table": "student_fee_overrides",
+      "live": 507,
+      "dev": 507
+    },
+    {
+      "table": "student_conventional_discount_assignments",
+      "live": 115,
+      "dev": 115
+    },
+    {
+      "table": "prev_year_import_batches",
+      "live": 1,
+      "dev": 1
+    },
+    {
+      "table": "installments",
+      "live": 2536,
+      "dev": 2536
+    },
+    {
+      "table": "prev_year_import_rows",
+      "live": 82,
+      "dev": 82
+    },
+    {
+      "table": "student_carry_forward_balances",
+      "live": 78,
+      "dev": 78
+    },
+    {
+      "table": "family_payments",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "receipts",
+      "live": 640,
+      "dev": 640
+    },
+    {
+      "table": "payments",
+      "live": 1116,
+      "dev": 1116
+    },
+    {
+      "table": "payment_adjustments",
+      "live": 64,
+      "dev": 64
+    },
+    {
+      "table": "payment_adjustment_reviews",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "receipt_adjustments",
+      "live": 16,
+      "dev": 16
+    },
+    {
+      "table": "receipt_finance_adjustments",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "refund_requests",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "student_late_fee_waivers",
+      "live": 1003,
+      "dev": 1003
+    },
+    {
+      "table": "student_collection_flags",
+      "live": 30,
+      "dev": 30
+    },
+    {
+      "table": "defaulter_contacts",
+      "live": 2307,
+      "dev": 2307
+    },
+    {
+      "table": "defaulter_recovery_state",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "student_external_ids",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "student_share_links",
+      "live": 0,
+      "dev": 0
+    },
+    {
+      "table": "student_repayment_plans",
+      "live": 4,
+      "dev": 4
+    },
+    {
+      "table": "student_repayment_plan_items",
+      "live": 11,
+      "dev": 11
+    },
+    {
+      "table": "student_repayment_schedule",
+      "live": 31,
+      "dev": 31
+    },
+    {
+      "table": "student_repayment_emi_late_fees",
+      "live": 2,
+      "dev": 2
+    },
+    {
+      "table": "student_repayment_receipt_links",
+      "live": 5,
+      "dev": 5
+    },
+    {
+      "table": "promotion_runs",
+      "live": 3,
+      "dev": 3
+    },
+    {
+      "table": "promotion_run_entries",
+      "live": 1521,
+      "dev": 1521
+    },
+    {
+      "table": "collection_closures",
+      "live": 114,
+      "dev": 114
+    }
+  ],
+  "skipped": {
+    "audit_logs": "whole-row JSON of every historic value; dev logs its own activity instead",
+    "user_activity_events": "per-user telemetry, no screen depends on it",
+    "import_batches": "import staging",
+    "import_rows": "import staging",
+    "payment_import_batches": "import staging",
+    "payment_import_rows": "import staging",
+    "ledger_regeneration_batches": "maintenance log",
+    "ledger_regeneration_rows": "maintenance log",
+    "late_fee_rule_change_snapshot": "config-change snapshot",
+    "settlement_pool_change_snapshot": "config-change snapshot",
+    "late_fee_waiver_pool_snapshot": "config-change snapshot",
+    "config_change_batches": "config-change log",
+    "config_change_blocked_installments": "config-change log",
+    "notion_sync_log": "external integration log",
+    "office_sync_events": "realtime fan-out log, regenerates itself",
+    "session_reconcile_log": "maintenance log",
+    "student_session_reanchor_log": "maintenance log",
+    "backup_runs": "belongs to the fee app's own cron",
+    "whatsapp_campaigns": "message bodies embed real names",
+    "whatsapp_campaign_runs": "message bodies embed real names",
+    "whatsapp_reminder_sends": "message bodies and real phone numbers",
+    "whatsapp_run_holdouts": "keyed to campaign runs that are not copied",
+    "whatsapp_test_sends": "message bodies embed real names",
+    "workbook_materialized_view_refresh_queue": "rebuilt by the refresh at the end",
+    "users": "handled separately — each one needs a dev auth account first"
+  },
+  "fixups": {
+    "student_conventional_discount_assignments": 6
+  },
+  "masked": {
+    "academic_sessions.notes": "note",
+    "transport_routes.notes": "note",
+    "classes.notes": "note",
+    "fee_settings.notes": "note",
+    "fee_policy_configs.notes": "note",
+    "student_family_groups.family_label": "name",
+    "student_family_groups.guardian_phone": "phone",
+    "student_family_groups.notes": "note",
+    "student_family_groups.guardian_name": "name",
+    "students.full_name": "name",
+    "students.father_name": "name",
+    "students.mother_name": "name",
+    "students.primary_phone": "phone",
+    "students.secondary_phone": "phone",
+    "students.photo_path": "dropped",
+    "students.admission_no": "reshaped",
+    "students.date_of_birth": "shifted ±180d",
+    "students.notes": "note",
+    "students.email": "email",
+    "students.aadhaar_no": "dropped",
+    "students.jan_aadhaar_no": "dropped",
+    "students.apaar_id": "dropped",
+    "students.village_city": "address",
+    "students.tehsil": "address",
+    "students.pincode": "pincode",
+    "students.guardian_name": "name",
+    "students.guardian_phone": "phone",
+    "students.emergency_contact_name": "name",
+    "students.emergency_contact_phone": "phone",
+    "student_family_members.notes": "note",
+    "student_fee_overrides.reason": "note",
+    "student_fee_overrides.notes": "note",
+    "student_conventional_discount_assignments.reason": "note",
+    "student_conventional_discount_assignments.notes": "note",
+    "installments.notes": "note",
+    "student_carry_forward_balances.notes": "note",
+    "receipts.reference_number": "reshaped",
+    "receipts.notes": "note",
+    "receipts.received_by": "name",
+    "receipts.write_off_note": "note",
+    "payments.notes": "note",
+    "payment_adjustments.reason": "note",
+    "payment_adjustments.notes": "note",
+    "receipt_adjustments.reason": "note",
+    "student_late_fee_waivers.reason": "note",
+    "student_late_fee_waivers.waived_by_label": "name",
+    "defaulter_contacts.note": "note",
+    "defaulter_contacts.contacted_phone": "phone",
+    "defaulter_contacts.phone_label": "phone",
+    "student_repayment_plans.reason": "note",
+    "student_repayment_plans.activated_by_label": "name",
+    "student_repayment_plans.created_by": "actor remapped",
+    "student_repayment_plans.updated_by": "actor remapped",
+    "promotion_run_entries.reason": "note"
+  }
+}

@@ -34,6 +34,7 @@ import {
   buildTeacherMap,
   parseTimetable,
 } from "../src/modules/timetable/domain/parse-timetable.ts";
+import { readActiveSession } from "./read-active-session.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
@@ -75,15 +76,9 @@ const die = (label, error) => {
 
 /* ------------------------------------------------------------ the session */
 
-const { data: classRows, error: classError } = await db
-  .schema("public")
-  .from("classes")
-  .select("id, session_label");
-die("Could not read the fee app's classes", classError);
-
-const sessionLabel =
-  process.env.VPPSONE_SESSION_LABEL ??
-  [...new Set(classRows.map((row) => row.session_label))].sort().reverse()[0];
+// The session the app is working in. See src/platform/config/active-session.ts
+// for why this is not "the label that sorts last".
+const sessionLabel = await readActiveSession(db);
 
 /* ------------------------------------------------------------ the mapping */
 

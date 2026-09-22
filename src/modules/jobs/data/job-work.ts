@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import {
@@ -45,14 +46,38 @@ async function must<T>(
   return (data ?? []) as T;
 }
 
+/**
+ * The session the nightly jobs work in.
+ *
+ * Same correction as `resolveSessionLabel()`, and it matters more here: a job
+ * runs with nobody watching. Sorting the labels and taking the last picks
+ * `TEST-2026-27` over `2026-27` on any database carrying the rehearsal
+ * session, so every scheduled job would have read and written the rehearsal
+ * year — and reported success. See `src/platform/config/active-session.ts`.
+ *
+ * `assertStaff()` rules out calling `resolveSessionLabel()` from here: a cron
+ * has a machine credential, not a member of staff.
+ */
 async function currentSession(): Promise<string | null> {
-  const data = await must(
-    createAdminClient().schema("public").from("classes").select("session_label"),
-    "the sessions",
-  );
+  const [setting, data] = await Promise.all([
+    must(
+      createAdminClient()
+        .schema("public")
+        .from("app_settings")
+        .select("value")
+        .eq("key", ACTIVE_SESSION_KEY),
+      "the active session",
+    ),
+    must(
+      createAdminClient().schema("public").from("classes").select("session_label"),
+      "the sessions",
+    ),
+  ]);
 
-  const labels = [...new Set(data.map((row) => row.session_label as string))];
-  return labels.sort().reverse()[0] ?? null;
+  return pickSessionLabel({
+    active: (setting as { value: string | null }[])[0]?.value,
+    labels: [...new Set(data.map((row) => row.session_label as string))],
+  });
 }
 
 async function calendarFor(sessionLabel: string): Promise<Map<string, CalendarDayKind>> {

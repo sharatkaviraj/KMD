@@ -1,5 +1,7 @@
 import "server-only";
 
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 
 import {
@@ -305,11 +307,26 @@ export async function getActiveRepaymentPlansForStudents(studentIds: string[]) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("v_student_repayment_plan_status")
-    .select(PLAN_STATUS_COLUMNS)
-    .eq("lifecycle", "active")
-    .in("student_id", unique);
+
+  /*
+   * Chunked: a `.in(...)` list goes into the request URL, and the defaulters
+   * queue calls this with every candidate — 550 of them on an unfiltered load.
+   * Past about 300 ids the URL is too long, `fetch` hangs for eight seconds and
+   * then rejects, and the `if (error || !data)` below turns that into an empty
+   * Map. So the queue showed no repayment plan against anybody, eight seconds
+   * later than it needed to. See `platform/helpers/in-filter.ts`.
+   */
+  const { data, error } = await fetchInChunks<PlanStatusRow>(
+    unique,
+    IN_FILTER_CHUNK_SIZE,
+    (chunk) =>
+      supabase
+        .from("v_student_repayment_plan_status")
+        .select(PLAN_STATUS_COLUMNS)
+        .eq("lifecycle", "active")
+        .in("student_id", chunk)
+        .returns<PlanStatusRow[]>(),
+  );
 
   if (error || !data) {
     return new Map<string, RepaymentPlanSummary>();

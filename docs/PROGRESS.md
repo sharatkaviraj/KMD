@@ -1,10 +1,13 @@
 # VPPS One — progress
 
 **Active queue: the School Fees port (F rows, below), then PLAN revision 2.**
-F6 — fee test data on schoolfees-dev — is blocked on a decision only Janmejay
-can make, and every fee workflow is unexercised until it lands. R3.4 is the
-next R row and still owes mock message retry, the S-01–S-09 acceptance pass and
-wiring `mayReplace()` into accept.
+F6 is done — `schoolfees-dev` carries a de-identified replica of the live fee
+database (D-186), and `docs/replica-and-smoke.md` is the account of what having
+real fee data uncovered. **F7 is blocked on D-188, which is a product decision:
+an accountant cannot post a payment, because the fee app's own RPC refuses
+every account this app can offer it.** R3.4 is the next R row and still owes
+mock message retry, the S-01–S-09 acceptance pass and wiring `mayReplace()`
+into accept.
 
 Use the first actionable row, not the deferred original live-cutover row 7.3.
 Phases 0–7 below are historical implementation records and remain intact.
@@ -95,50 +98,61 @@ whatever still needs a link after the port, and is not yet revisited.
 | F4 | The port itself — 709 files, 20 modules, 48 screens, 16 API routes | done | `4335eb8` · `scripts/port-rewrite-imports.mjs`, `npm run check:port` |
 | F5 | One shell, fee tabs in the navigation map, fee routes reachable | done | `9c8f52d` · `DashboardShell` takes items; `money` group in `navigation.ts` |
 | F5-fix | Production-only render failures and two pieces of stale copy | done | `9e743ed` · icons resolved client-side, the fee providers mounted, `public/` copied |
-| F6 | Fee test data on `schoolfees-dev`, so the fee screens can be exercised at all | **todo — blocked on a decision** | The schema is complete; the data is empty. See below |
-| F7 | Timed accountant walkthrough against real fee configuration | todo | Depends on F6 |
+| F6 | Fee test data on `schoolfees-dev`, so the fee screens can be exercised at all | done | `scripts/replicate-live.mjs` · a de-identified replica of live: 11,295 rows, 34 tables, money exact to the rupee, every person replaced (D-186) |
+| F7 | Timed accountant walkthrough against real fee configuration | **partly — blocked on D-188** | The Payment Desk loads a child and their dues now; posting a payment is refused by the database itself. See below |
+| F10 | The academic session was read by sorting the labels, in six places | done | `pickSessionLabel()` + `tests/active-session.test.ts` (D-187) · every register, mark and cover plan would have worked in the rehearsal session on live |
+| F11 | A `.in()` list of more than ~300 ids fails silently after eight seconds | done | `platform/helpers/in-filter.ts` · the defaulters queue went 16,000ms to 880ms and stopped hiding four columns of data |
+| F12 | The fee matviews had no grants in dev, so the Payment Desk 503ed for everybody | done | Mirrored from live, deliberately not a migration (D-189) |
 | F8 | Decide what an installed VPPS One is, then switch the PWA on or delete it | todo | The manifest, the offline page and the service worker are here and inert — see `public/README.md` |
 | F8-fix | The proxy auth-redirected `manifest.webmanifest` and `offline.html` | done | `31c102a` ([#33](https://github.com/veerpatta/vppsone/pull/33)) · found by probing the deployed site; `src/proxy.ts` excludes them, and `branding/`, now |
 | F9 | Merge and deploy | done | `cd4d1e2` ([#32](https://github.com/veerpatta/vppsone/pull/32)) and `31c102a` ([#33](https://github.com/veerpatta/vppsone/pull/33)) · live at `vppsone.vercel.app`, verified signed in |
 | F9-fix | B-44: the administrator's home said 19 registers outstanding on a Sunday | done | `31c102a` · `schoolOpenToday` reaches `attention.ts`; `tests/attention.test.ts` |
 
-### What F6 is blocked on, and why it is not a code task
+### F6 is done, and what doing it uncovered
 
-`schoolfees-dev` is a **schema** twin, not a **data** twin. It carries 67 fee
-tables, every RPC the ported code calls and all three materialized views — and
-`fee_policy_configs`, `app_settings`, `installments`, `payments` and `receipts`
-are all empty, against `students` 139 and `classes` 19.
+`schoolfees-dev` now carries a de-identified replica of the live fee database:
+11,295 rows, 34 tables, the money exact to the rupee and every person replaced
+(D-186). `npm run replica:load`, and `docs/replica-and-smoke.md` is the full
+account.
 
-So every fee screen opens onto the state named in `src/app/(app)/fees/layout.tsx`:
-*"The fee desk has no academic session."* That is the honest answer and it is
-not a bug, but it means **no fee workflow has been exercised end to end** — not
-a payment, not a receipt, not a reversal.
+Having fee data to reach the code with is what made the next three findings
+possible, and none of them could have been seen without it:
 
-Seeding it is not an agent's call to make alone: a fee policy is the school's
-actual fee amounts and due dates, and inventing them would put fabricated money
-on a screen somebody might believe. The three ways forward, for Janmejay:
-
-1. Give a fee structure to seed as test data (amounts that are obviously not
-   real, on `TEST-2026-27`).
-2. Copy the live fee configuration into dev — read-only from live, write to dev.
-3. Point a preview deployment at a fee database that already has data.
+- **The academic session was chosen by sorting the labels**, in six places
+  including `resolveSessionLabel()` and its 92 callers (D-187). `TEST-2026-27`
+  sorts above `2026-27`, and live has carried that rehearsal session for months
+  — so on live every register, mark and cover plan would have worked in the
+  rehearsal year, silently. Fixed, with `tests/active-session.test.ts`.
+- **A `.in()` list over ~300 ids fails silently after eight seconds**, and the
+  school has 583 active children. The defaulters queue took 16 seconds and hid
+  four columns of data. Now 880ms. `platform/helpers/in-filter.ts`.
+- **An accountant still cannot post a payment** (D-188). `has_permission()`
+  reads `public.users`, and VPPS One accounts have no row there by design — so
+  the RPC refuses both the cookie client and the service-role client. Sixteen
+  of the eighteen fee RPCs are gated this way; six have a service-role arm and
+  one of those is fixed here. **This is the remaining blocker on F7 and it is a
+  product decision**, set out in `docs/replica-and-smoke.md` §4.
 
 ### What is verified, and what is not
 
 **Verified.** `npm run check` green: typecheck, lint, 430-token theme parity,
-the import codemod, 7,791 unit tests, production build. `npm run
-smoke:workflows`: **41 passed, 1 skipped**. A browser pass on a production
-build as `qa.admin`: `/dashboard`, `/students`, `/teach` at 375px, and
-`/fees/dashboard` showing its unconfigured state. 141 routes build.
+the import codemod, 7,810 unit tests, production build. `npm run
+smoke:workflows`: **42 of 42**, including the teacher attendance journey that
+previous runs had only ever skipped because the day was a Sunday.
+`npm run smoke:roles`: **728 of 728**, and for the first time that number
+includes the 48 ported fee screens — the matrix could not see their guards
+before. `npm run smoke:deep`: **921 cases** across all eleven accounts, zero
+crashes, with per-screen timings.
 
-**The skip is the teacher attendance journey**, and it matters: 20 September
-2026 is a Sunday, the school is closed, and the Today card correctly offers no
-register. The spec now says so instead of failing — but that means the core
-teacher workflow was **not** exercised in this run. Re-run it on a weekday.
+**Seen in a browser on a production build.** As the QA teacher: Class 1, 39
+children, 8 periods and the register waiting — the screen that read "आपकी कक्षा
+—" with 0 children before the session fix. As the QA accountant: the Payment
+Desk loading a real child with ₹58,500 across five instalments, ₹44,500 of it
+overdue, masked name and phone throughout.
 
-**Deployed and checked live.** `vppsone.vercel.app`, signed in as `qa.admin` on
-a production build: the shell, the fee-desk group in the sidebar, the attention
-queue, and the three PWA files answering 200 rather than a redirect to sign-in.
+**Not verified.** Posting a payment, and everything downstream of it —
+receipts, reversals, refunds, repayment plans. Not for want of trying: the
+database function refuses every account this app can offer it (D-188).
 
 ### B-44 — the number that only appears at the weekend
 

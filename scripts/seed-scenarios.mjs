@@ -49,6 +49,7 @@ import {
 } from "../src/modules/substitutions/domain/plan.ts";
 import { attendancePercent } from "../src/modules/attendance/domain/attendance.ts";
 import { buildReportCard } from "../src/modules/assessments/domain/report-card.ts";
+import { readActiveSession } from "./read-active-session.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
@@ -104,13 +105,7 @@ const weekdayOf = (day) =>
 
 /* --------------------------------------------------------------- lookups */
 
-const [
-  { data: sessionRows, error: sessionError },
-  { data: staff },
-  { data: version },
-  { data: kinds },
-] = await Promise.all([
-  db.schema("public").from("classes").select("session_label"),
+const [{ data: staff }, { data: version }, { data: kinds }] = await Promise.all([
   db.from("staff_profiles").select("id, display_name, short_name, is_teaching, role"),
   db
     .from("timetable_versions")
@@ -120,10 +115,8 @@ const [
   db.from("note_kinds").select("id, code").order("sort_order"),
 ]);
 
-die("Could not read the sessions", sessionError);
-
-const sessionLabel =
-  [...new Set(sessionRows.map((row) => row.session_label))].sort().reverse()[0];
+// The session the app is working in. See src/platform/config/active-session.ts.
+const sessionLabel = await readActiveSession(db);
 
 if (!version) {
   console.error("No published timetable. Run `npm run seed:timetable` first.");
@@ -529,14 +522,56 @@ const { data: enrolments, error: enrolError } = await db
   .eq("status", "enrolled");
 die("Could not read the enrolments", enrolError);
 
-const targetClass = [...new Set(enrolments.map((row) => row.class_id))]
+/*
+ * The busiest class that the timetable also knows about.
+ *
+ * This used to be simply the class with the most children on the roll, and
+ * everything downstream assumed that class had lessons: the exam fixture
+ * takes its subjects from the class's timetable slots, and gave up with "No
+ * subjects to examine" when there were none. Sixteen of the nineteen classes
+ * are timetabled, so picking purely by headcount lands on an untimetabled one
+ * whenever the roster changes shape — and then the run half-completes.
+ *
+ * Headcount still decides between candidates; being on the timetable is just
+ * a precondition. The `??` keeps the old behaviour for a database with no
+ * published timetable at all, where the exam step will bow out anyway.
+ */
+const classesWithLessons = new Set(slots.map((slot) => slot.classId));
+
+const byRoll = [...new Set(enrolments.map((row) => row.class_id))]
   .map((classId) => ({
     classId,
     roll: enrolments.filter((row) => row.class_id === classId),
   }))
-  .sort((a, b) => b.roll.length - a.roll.length)[0];
+  .sort((a, b) => b.roll.length - a.roll.length);
+
+const targetClass =
+  byRoll.find((candidate) => classesWithLessons.has(candidate.classId)) ?? byRoll[0];
+
+/*
+ * The label, from the roster rather than from the timetable.
+ *
+ * The timetable only labels classes that have lessons on it — sixteen of the
+ * nineteen — and the class picked here is the one with the most children,
+ * which need not be one of them. The fallback was the bare word "Class",
+ * which then became the request's title on a screen. The fee schema knows
+ * every class's name whether or not it is timetabled.
+ */
+const { data: rosterClasses } = await db
+  .schema("public")
+  .from("classes")
+  .select("id, class_name, section")
+  .eq("session_label", sessionLabel);
+
+const rosterClassLabel = new Map(
+  (rosterClasses ?? []).map((row) => [
+    row.id,
+    [row.class_name, row.section].filter(Boolean).join(" "),
+  ]),
+);
 
 const targetClassLabel =
+  rosterClassLabel.get(targetClass.classId) ??
   slots.find((slot) => slot.classId === targetClass.classId)?.classLabel ??
   "Class";
 
@@ -748,6 +783,21 @@ const { data: request, error: requestError } = await db
     title_en: "Phone numbers and blood groups",
     class_id: targetClass.classId,
     class_label: targetClassLabel,
+    /*
+     * The audience, which this insert used to leave out.
+     *
+     * `audience_kind` and `audience_label` arrived with rounds — one request
+     * per class, fanned out from one round — and both are NOT NULL. The
+     * seeder was never updated, so it inserted a row the schema had since
+     * stopped accepting and died halfway through: the timetable, attendance
+     * and notes were seeded, and every collection fixture after this line was
+     * not. A database rebuilt from scratch came out silently half-made.
+     *
+     * A request made for one class is its own audience, which is exactly what
+     * `createRequest` in `requests-repo.ts` writes.
+     */
+    audience_kind: "class",
+    audience_label: targetClassLabel,
     assigned_staff_id: qaTeacher?.id ?? null,
     token: requestToken,
     due_date: isoDay(7),

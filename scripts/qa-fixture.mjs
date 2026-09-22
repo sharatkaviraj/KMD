@@ -38,6 +38,7 @@ import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { readActiveSession } from "./read-active-session.mjs";
 import {
   QA_ACCOUNTS,
   QA_EMAIL_DOMAIN,
@@ -155,13 +156,9 @@ async function seed() {
 
   /* -------------------------------------------------- what is already here */
 
-  const sessions = must(
-    "Could not read the sessions",
-    await pub.from("classes").select("session_label"),
-  );
-  const sessionLabel = [...new Set(sessions.map((row) => row.session_label))]
-    .sort()
-    .reverse()[0];
+  // The session the app is working in, not the label that sorts last. See
+  // src/platform/config/active-session.ts for what that shortcut cost.
+  const sessionLabel = await readActiveSession(db);
 
   const classes = must(
     "Could not read the classes",
@@ -450,6 +447,91 @@ async function seed() {
     await record("vppsone.class_teachers", "insert", { id: data.id });
     console.log(`teacher ${slot} is now class teacher of ${nameOf.get(free)}`);
   }
+
+  /* ------------------------------------ a third class, and who is reachable */
+
+  /*
+   * **The fan-out fixture, which this script promised and did not provide.**
+   *
+   * `fan-out.spec.ts` needs three classes that each have exactly one class
+   * teacher: two whose teacher has a phone number, and one whose teacher does
+   * not — because the thing it is testing is a round naming the class it
+   * cannot reach. When that is not true it fails with "run npm run qa:seed",
+   * and running `qa:seed` did not make it true. Two class teachers were
+   * created here and the third, plus the phone numbers, came from rows
+   * somebody had once set by hand: invisible until a rebuild removed them, and
+   * then indistinguishable from a broken test.
+   *
+   * A fixture has to be able to state its own preconditions. The teacher is
+   * chosen by the same rule as the other two — from the published timetable,
+   * lowest free class — so nothing here names a real person (rule 6), and the
+   * numbers are from the same unroutable 99999 block the masked replica uses.
+   */
+  const third = candidates.find(
+    (candidate) =>
+      candidate.staffProfileId !== pair.first.staffProfileId &&
+      candidate.staffProfileId !== pair.second.staffProfileId &&
+      candidate.classIds.some((classId) => !taken.has(classId)),
+  );
+
+  if (!third) {
+    console.error("No third timetabled teacher is free to hold a class.");
+    process.exit(1);
+  }
+
+  const thirdClass = third.classIds
+    .filter((classId) => !taken.has(classId))
+    .sort((a, b) => (orderOf.get(a) ?? 0) - (orderOf.get(b) ?? 0))[0];
+
+  const { data: thirdRow, error: thirdError } = await db
+    .from("class_teachers")
+    .insert({
+      class_id: thirdClass,
+      session_label: sessionLabel,
+      staff_profile_id: third.staffProfileId,
+      role: "class_teacher",
+    })
+    .select("id")
+    .single();
+
+  if (thirdError) {
+    console.error(`Could not make a third class teacher: ${thirdError.message}`);
+    process.exit(1);
+  }
+
+  taken.add(thirdClass);
+  await record("vppsone.class_teachers", "insert", { id: thirdRow.id });
+  console.log(`teacher 3 is now class teacher of ${nameOf.get(thirdClass)}`);
+
+  // Two reachable, one not. Set explicitly in both directions: a profile that
+  // merely happens to have no number today is a fixture that breaks when
+  // somebody fills one in.
+  const reachability = [
+    [pair.first.staffProfileId, "9999900001"],
+    [pair.second.staffProfileId, "9999900002"],
+    [third.staffProfileId, null],
+  ];
+
+  for (const [staffProfileId, phone] of reachability) {
+    const before = profiles.find((row) => row.id === staffProfileId);
+    if (!before || (before.phone ?? null) === phone) continue;
+
+    await record("vppsone.staff_profiles", "update", { id: staffProfileId }, before);
+
+    const { error } = await db
+      .from("staff_profiles")
+      .update({ phone })
+      .eq("id", staffProfileId);
+
+    if (error) {
+      console.error(`Could not set the phone on ${before.short_name}: ${error.message}`);
+      process.exit(1);
+    }
+  }
+
+  console.log(
+    `reachable: 2 class teachers have a number, ${nameOf.get(thirdClass)}'s does not`,
+  );
 
   /* --------------------------------------------------------------- a round */
 

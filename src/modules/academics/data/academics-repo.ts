@@ -1,6 +1,7 @@
 import "server-only";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
+import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
@@ -424,26 +425,53 @@ export async function deleteClassAlias(id: string): Promise<void> {
 /* ---------------------------------------------------------------- session */
 
 /**
- * Which academic session the master-data screens are looking at.
+ * Which academic session every screen in this app is looking at.
  *
- * Derived from the fee app's own class rows rather than configured, so at
- * cutover it follows the real session with no variable to remember. The
+ * Derived from the fee app's own rows rather than configured, so at cutover it
+ * follows the real session with no variable to remember. The
  * `VPPSONE_SESSION_LABEL` override exists for the weeks when two sessions
  * overlap and the newest label is not the one being worked on.
+ *
+ * **It used to end `return labels[0]`, and `listSessionLabels()` sorts
+ * descending — so "the session the school is in" meant "the label that sorts
+ * last".** Those are the same answer only while there is one session. The fee
+ * database has three: `2026-27`, `2027-28` and `TEST-2026-27`, the rehearsal
+ * session the bulk-payment template tells people to practise in. `T` sorts
+ * above `2`, so the answer was `TEST-2026-27`.
+ *
+ * Ninety-two call sites ask this question — every register, every mark, every
+ * cover plan, the teacher's day and the administrator's dashboard. On a
+ * database with a rehearsal session they would all quietly work in it: screens
+ * read empty because the real children are elsewhere, and anything saved is
+ * written into the rehearsal year. Nothing raises. A teacher would see "no
+ * timetable in effect" on a school day and have no way to tell why.
+ *
+ * `schoolfees-dev` had exactly one session until its data was replaced with a
+ * masked copy of live, which is the first time this could be seen at all, and
+ * it is what cutover would have hit on day one.
+ *
+ * `app_settings.active_session_label` is the row the fee app's own
+ * `getActiveSessionLabel()` reads, so both halves of the merged application
+ * now answer this question the same way. The sort survives only for a database
+ * that has no such row.
  */
 export async function resolveSessionLabel(
   requested?: string | null,
 ): Promise<string | null> {
-  const labels = await listSessionLabels();
+  const [labels, { data: setting }] = await Promise.all([
+    listSessionLabels(),
+    createAdminClient()
+      .schema(FEE_SCHEMA)
+      .from("app_settings")
+      .select("value")
+      .eq("key", ACTIVE_SESSION_KEY)
+      .maybeSingle<{ value: string | null }>(),
+  ]);
 
-  if (requested && labels.includes(requested)) {
-    return requested;
-  }
-
-  const configured = process.env.VPPSONE_SESSION_LABEL?.trim();
-  if (configured && labels.includes(configured)) {
-    return configured;
-  }
-
-  return labels[0] ?? null;
+  return pickSessionLabel({
+    requested,
+    configured: process.env.VPPSONE_SESSION_LABEL,
+    active: setting?.value,
+    labels,
+  });
 }

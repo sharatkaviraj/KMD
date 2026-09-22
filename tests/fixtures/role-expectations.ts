@@ -80,6 +80,25 @@ const STAFF_AT_WORK: readonly StaffRole[] = [
 ];
 
 /**
+ * Everyone the school's own timetable is for — which is not everyone.
+ *
+ * This row used to say `EVERYONE`, written when `EVERYONE` had six members.
+ * Adding `accountant` and `fee_collector` to `staffRoles` for the fee port
+ * grew this list by two without anybody deciding that it should, and so it
+ * quietly asserted that an accountant ought to be able to open the timetable.
+ * The permission map never agreed, and the disagreement surfaced the moment
+ * the role matrix could see the fee screens.
+ *
+ * The map is right. Janmejay's instruction was that the fee desk sees *the fee
+ * app*, and the fee app has no timetable in it. The viewer stays: PLAN §3 puts
+ * Timetable on the viewer's navigation, and `view_only` holds `timetable:view`.
+ */
+const EVERYONE_BUT_THE_FEE_DESK: readonly StaffRole[] = [
+  ...STAFF_AT_WORK,
+  "view_only",
+];
+
+/**
  * Resolved in R1.2, and kept as a comment because the shape is worth
  * remembering.
  *
@@ -158,12 +177,14 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
 
   {
     route: "/timetable",
-    allow: EVERYONE,
-    because: "Timetable is named in every role's navigation, the viewer's included.",
+    allow: EVERYONE_BUT_THE_FEE_DESK,
+    because:
+      "Timetable is named in every role's navigation, the viewer's included — " +
+      "but not the fee desk's, which sees the fee app and the fee app has no timetable.",
   },
   {
     route: "/timetable/[id]",
-    allow: EVERYONE,
+    allow: EVERYONE_BUT_THE_FEE_DESK,
     because: "One version of the same thing.",
   },
   {
@@ -385,76 +406,133 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
  * file exists to stop (B-09): a screen added under `/fees` must be added here
  * too, and until it is, `role-expectations.test.ts` says so.
  *
- * What a person may *do* once inside is not decided here. Those are the fee
- * app's own twenty-eight permissions, reached through `feeRoleFor()` — the
- * Payment Desk still refuses an `office` account, and Fee Setup still refuses
- * an accountant. This file only answers "may this role open the fee area",
- * which is the question `smoke:roles` asks.
+ * **These rows used to say only "may this role open the fee area".** That was
+ * the honest limit of the question at the time, because `smoke:roles` could
+ * only read `requirePermission` out of a `page.tsx` and a ported fee screen
+ * has none — its guard is `requireStaffPermission("payments:view")`, written
+ * in the fee app's own vocabulary. So all forty-eight screens sat behind one
+ * coarse answer, and the matrix could not have caught a fee screen that
+ * forgot its guard entirely.
+ *
+ * The matrix reads both vocabularies now, so these rows have to answer the
+ * finer question too. **The product reading for them is the fee app's own
+ * `roleDescriptions`** — quoted below — because Janmejay's instruction was
+ * that the accountant sees the fee app exactly as it is today. That prose is
+ * a genuine second opinion: it is what the fee app says each role is *for*,
+ * not a copy of the permission arrays the guards consult.
+ *
+ * VPPS One's `office` reaches these screens as the fee app's Viewer, which is
+ * a narrower role than "office reads fees" sounds — Viewer is defined as
+ * "Dashboard, Students, Defaulters, and Receipts" and nothing else. That is a
+ * live product question, not a defect, and it is written up in PROGRESS.
  */
 function feeDeskScreens(): RouteExpectation[] {
-  /** Everyone holding `fees:view`. */
-  const FEE_DESK: readonly StaffRole[] = [
+  /**
+   * "Read-only access for oversight: Dashboard, Students, Defaulters, and
+   * Receipts." — the fee app's Viewer, which is what `office` maps to.
+   */
+  const OVERSIGHT: readonly StaffRole[] = [
     "admin",
     "office",
     "accountant",
     "fee_collector",
   ];
 
-  const because =
-    "Behind `fees:view` at src/app/(app)/fees/layout.tsx. Office and fee_collector " +
-    "read; only admin and accountant may move money, and that is the ported " +
-    "screen's own guard rather than this one.";
+  /**
+   * The working fee desk. The accountant "reads everything else"; the fee
+   * collector "reads every other tab". The Viewer does not.
+   */
+  const FEE_DESK: readonly StaffRole[] = ["admin", "accountant", "fee_collector"];
+
+  /**
+   * "Day-close/refund/correction stays admin-only", and so does anything that
+   * edits a child, a fee structure, master data or staff.
+   */
+  const FEE_ADMIN: readonly StaffRole[] = ["admin"];
+
+  const rows = (
+    routes: readonly string[],
+    allow: readonly StaffRole[],
+    because: string,
+  ) => routes.map((route) => ({ route, allow, because }));
 
   return [
-    "/fees",
-    "/fees/admin-tools",
-    "/fees/admin-tools/activity",
-    "/fees/admin-tools/prev-year-dues",
-    "/fees/admin-tools/promotion",
-    "/fees/admin-tools/promotion/[runId]",
-    "/fees/admin-tools/recovery",
-    "/fees/admin-tools/session-health",
-    "/fees/admin-tools/whatsapp",
-    "/fees/admin-tools/whatsapp-reminders",
-    "/fees/advanced",
-    "/fees/collections",
-    "/fees/dashboard",
-    "/fees/defaulters",
-    "/fees/dues",
-    "/fees/exports",
-    "/fees/fee-setup",
-    "/fees/fee-setup/generate",
-    "/fees/fee-setup/time-travel",
-    "/fees/fee-structure",
-    "/fees/finance-controls",
-    "/fees/imports",
-    "/fees/ledger",
-    "/fees/master-data",
-    "/fees/password",
-    "/fees/payments",
-    "/fees/payments/bulk",
-    "/fees/receipts",
-    "/fees/receipts/[receiptId]",
-    "/fees/reminders",
-    "/fees/reminders/campaigns",
-    "/fees/reminders/lists",
-    "/fees/reminders/runs/[runId]",
-    "/fees/reminders/unreachable",
-    "/fees/reports",
-    "/fees/reports/ledger/[studentId]/print",
-    "/fees/settings",
-    "/fees/settings/glossary",
-    "/fees/setup",
-    "/fees/staff",
-    "/fees/students",
-    "/fees/students/[studentId]",
-    "/fees/students/[studentId]/edit",
-    "/fees/students/[studentId]/statement",
-    "/fees/students/bulk-update",
-    "/fees/students/family/[familyGroupId]/statement",
-    "/fees/students/new",
-    "/fees/transactions",
-  ].map((route) => ({ route, allow: FEE_DESK, because }));
+    ...rows(
+      [
+        // No guard of their own: old URLs kept alive, and the role-dispatching
+        // entry. Whoever may enter the fee area may follow them.
+        "/fees",
+        "/fees/admin-tools/whatsapp-reminders",
+        "/fees/advanced",
+        "/fees/collections",
+        "/fees/dues",
+        "/fees/password",
+        "/fees/setup",
+        // The four things the fee app's Viewer is defined by.
+        "/fees/dashboard",
+        "/fees/settings/glossary",
+        "/fees/students",
+        "/fees/students/[studentId]",
+        "/fees/students/[studentId]/statement",
+        "/fees/students/family/[familyGroupId]/statement",
+        "/fees/defaulters",
+        "/fees/receipts",
+        "/fees/receipts/[receiptId]",
+        "/fees/admin-tools/recovery",
+        "/fees/transactions",
+      ],
+      OVERSIGHT,
+      "Oversight: the fee app's Viewer is 'Dashboard, Students, Defaulters and " +
+        "Receipts', and `office` reaches the fee screens as the Viewer.",
+    ),
+
+    ...rows(
+      [
+        "/fees/admin-tools",
+        "/fees/admin-tools/activity",
+        "/fees/admin-tools/prev-year-dues",
+        "/fees/admin-tools/session-health",
+        "/fees/admin-tools/whatsapp",
+        "/fees/exports",
+        "/fees/fee-setup",
+        "/fees/fee-setup/time-travel",
+        "/fees/fee-structure",
+        "/fees/finance-controls",
+        "/fees/imports",
+        "/fees/ledger",
+        "/fees/payments",
+        "/fees/reminders",
+        "/fees/reminders/campaigns",
+        "/fees/reminders/lists",
+        "/fees/reminders/runs/[runId]",
+        "/fees/reminders/unreachable",
+        "/fees/reports",
+        "/fees/reports/ledger/[studentId]/print",
+        "/fees/settings",
+      ],
+      FEE_DESK,
+      "The working fee desk: the accountant 'reads everything else' and the fee " +
+        "collector 'reads every other tab'. The Viewer reads none of it.",
+    ),
+
+    ...rows(
+      [
+        "/fees/admin-tools/promotion",
+        "/fees/admin-tools/promotion/[runId]",
+        "/fees/fee-setup/generate",
+        "/fees/master-data",
+        "/fees/payments/bulk",
+        "/fees/staff",
+        "/fees/students/[studentId]/edit",
+        "/fees/students/bulk-update",
+        "/fees/students/new",
+      ],
+      FEE_ADMIN,
+      "Admin-only in the fee app: 'no edits outside the Payment Desk' for the " +
+        "accountant, and day-close, corrections, staff and master data are the " +
+        "admin's alone.",
+    ),
+  ];
 }
 
 export function expectationFor(route: string): RouteExpectation {

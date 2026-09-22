@@ -4,6 +4,7 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 
+import { ACTIVE_SESSION_KEY, pickSessionLabel } from "../../../src/platform/config/active-session";
 import { qaAccount } from "../../fixtures/qa-accounts";
 
 /**
@@ -89,14 +90,34 @@ export function schoolToday(): string {
   return new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 }
 
-/** The current session label, derived the way the app derives it. */
+/**
+ * The current session label, derived the way the app derives it.
+ *
+ * That sentence was the intention; sorting the labels and taking the last was
+ * the implementation, in this file and in three seeding scripts. See
+ * `src/platform/config/active-session.ts` for what the shortcut cost — the
+ * short version is that `TEST-2026-27` sorts above `2026-27`, so every spec
+ * looked for its fixtures in the rehearsal session and found empty classes.
+ */
 export async function currentSessionLabel(): Promise<string> {
-  const { data, error } = await db("public").from("classes").select("session_label");
+  const [{ data: setting }, { data: classes, error }] = await Promise.all([
+    db("public")
+      .from("app_settings")
+      .select("value")
+      .eq("key", ACTIVE_SESSION_KEY)
+      .maybeSingle(),
+    db("public").from("classes").select("session_label"),
+  ]);
+
   if (error) throw new Error(`Could not read the sessions: ${error.message}`);
 
-  return [...new Set((data ?? []).map((row) => row.session_label as string))]
-    .sort()
-    .reverse()[0];
+  const label = pickSessionLabel({
+    active: (setting?.value as string | null | undefined) ?? null,
+    labels: [...new Set((classes ?? []).map((row) => row.session_label as string))],
+  });
+
+  if (!label) throw new Error("This database has no academic session at all.");
+  return label;
 }
 
 /**

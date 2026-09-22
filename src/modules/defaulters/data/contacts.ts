@@ -1,5 +1,7 @@
 import "server-only";
 
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import {
   callWindowForHour,
@@ -396,12 +398,38 @@ export async function getPromiseReliabilityForStudents(
   if (studentIds.length === 0) return new Map();
 
   const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from("defaulter_recovery_state")
-    .select("student_id, family_group_id, promise_kept_count, promise_broken_count")
-    .eq("session_label", sessionLabel)
-    .in("student_id", studentIds);
+
+  /*
+   * Chunked, because a `.in(...)` list is serialized into the request URL.
+   *
+   * Its neighbours in this file already avoid the problem — `getNoCallFlags`
+   * and `getContactSummariesForStudents` both read session-scoped and filter
+   * in memory, each with a comment saying why — and this one was written the
+   * other way. The limit is real and it is close: a list of **300 uuids (~11 KB
+   * of URL) succeeds and 400 (~15 KB) does not**, and the school has 583 active
+   * children. So this query failed on every unfiltered load of the defaulters
+   * queue.
+   *
+   * It failed expensively and silently. `fetch` does not refuse an over-long
+   * URL quickly; it hangs for about eight seconds and then rejects with
+   * `TypeError: fetch failed`, and the `if (error)` below turns that into an
+   * empty Map — so the call queue rendered with every promise count at zero and
+   * took eight seconds longer to say it. Two such queries on the page made it
+   * sixteen.
+   */
+  const { data, error } = await fetchInChunks<RecoveryStateRow>(
+    studentIds,
+    IN_FILTER_CHUNK_SIZE,
+    (chunk) =>
+      // `defaulter_recovery_state` is not in the generated types, as elsewhere
+      // in this file.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from("defaulter_recovery_state")
+        .select("student_id, family_group_id, promise_kept_count, promise_broken_count")
+        .eq("session_label", sessionLabel)
+        .in("student_id", chunk),
+  );
 
   if (error) {
     if ((error as { code?: string }).code === "42P01") return new Map();

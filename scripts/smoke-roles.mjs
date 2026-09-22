@@ -29,13 +29,14 @@
  * not press anything.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { feePermissionsFor } from "../src/platform/auth/fee-roles.ts";
 import { can, staffRoles } from "../src/platform/auth/permissions.ts";
 import { accountsByRole } from "../tests/fixtures/qa-accounts.ts";
 import {
@@ -81,33 +82,132 @@ const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_
 
 /* ------------------------------------------- what each screen asks for */
 
-/** `/route` → the permission its own guard names, or null for "any staff". */
+/**
+ * Every check that stands between a role and a screen — not just the ones
+ * written in the page file.
+ *
+ * This used to read `requirePermission` out of `page.tsx` and nothing else,
+ * which was true of every screen this app wrote and false of all forty-eight
+ * it inherited. A ported fee screen carries no VPPS One guard at all: the
+ * permission lives in `(app)/fees/layout.tsx`, and the finer-grained one is a
+ * `requireStaffPermission("payments:view")` written in the fee app's own
+ * twenty-eight-permission vocabulary.
+ *
+ * So the matrix saw no guard, concluded "any member of staff may open this",
+ * and reported all 264 correct refusals as failures. The direction that
+ * matters is the other one: it would equally have reported a fee screen with
+ * **no** guard as passing. The forty-eight screens an accountant works in
+ * were outside the gate entirely.
+ *
+ * Three things are collected now:
+ *
+ *  - `vpps` — clauses in this app's vocabulary, from the page *and* every
+ *    layout above it. Each clause is a list where any one permission suffices;
+ *    all clauses must pass.
+ *  - `fee` — the ported page's own guard, checked against `feePermissionsFor`.
+ *  - `alias` — a page whose whole job is `redirect()`. Six fee routes are old
+ *    URLs kept alive; "did not render" is the correct answer for them.
+ */
+function extractClauses(source, single, many) {
+  const one = source.match(new RegExp(`${single}\\(\\s*"([\\w:]+)"`));
+  const any = source.match(new RegExp(`${many}\\(\\s*\\[([^\\]]+)\\]`));
+
+  // First guard wins. A page may consult a permission again further down to
+  // decide whether to draw a button; that is not the door.
+  const oneAt = one ? source.indexOf(one[0]) : Infinity;
+  const anyAt = any ? source.indexOf(any[0]) : Infinity;
+
+  if (anyAt < oneAt) return [[...any[1].matchAll(/"([\w:]+)"/g)].map((m) => m[1])];
+  if (one) return [[one[1]]];
+  return [];
+}
+
 function guards() {
   const base = path.join(repoRoot, "src/app/(app)");
   const found = new Map();
 
-  const walk = (dir, route) => {
+  const walk = (dir, route, inherited) => {
+    const layout = path.join(dir, "layout.tsx");
+    let vpps = inherited;
+
+    if (existsSync(layout)) {
+      const source = readFileSync(layout, "utf8").replace(/\r\n/g, "\n");
+      vpps = [
+        ...vpps,
+        ...extractClauses(source, "requirePermission", "requireAnyPermission"),
+      ];
+    }
+
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full, `${route}/${entry.name}`);
-      } else if (entry.name === "page.tsx") {
-        const source = readFileSync(full, "utf8").replace(/\r\n/g, "\n");
 
-        const one = source.match(/requirePermission\(\s*"([\w:]+)"/);
-        const many = source.match(/requireAnyPermission\(\s*\[([^\]]+)\]/);
+      if (entry.isDirectory()) {
+        walk(full, `${route}/${entry.name}`, vpps);
+      } else if (entry.name === "page.tsx") {
+        let source = readFileSync(full, "utf8").replace(/\r\n/g, "\n");
+
+        /*
+         * A page that is another page.
+         *
+         * `/fees/fee-structure` is one line — `export { default } from
+         * "../fee-setup/page"` — so its own file names no permission, and
+         * reading the file alone concluded that anybody could open it. The
+         * guard it actually runs is Fee Setup's, which refuses the office.
+         * Follow the re-export and read the guard where it lives.
+         */
+        const reexport = source.match(/export\s*\{\s*default\s*\}\s*from\s*"([^"]+)"/);
+        if (reexport) {
+          const target = path.resolve(dir, `${reexport[1]}.tsx`);
+          if (existsSync(target)) {
+            source = readFileSync(target, "utf8").replace(/\r\n/g, "\n");
+          }
+        }
+
+        const own = extractClauses(source, "requirePermission", "requireAnyPermission");
+        const fee = extractClauses(
+          source,
+          "requireStaffPermission",
+          "requireAnyStaffPermission",
+        );
+
+        /*
+         * An alias has no permission guard of its own and ends in a redirect.
+         *
+         * The target is read from whichever string literal the `redirect()`
+         * call carries, in either quote style — `/fees/dues` builds its URL
+         * in a template literal, and matching only double quotes made it look
+         * like a screen that should have rendered.
+         *
+         * `/fees` is the one that has no literal at all: it redirects to
+         * `getDefaultProtectedHref(staff.appRole)`, so where it lands is the
+         * role's own fee home and differs per role. `"*"` means "expect a
+         * redirect, do not care where" — the destination is `homeFor`'s
+         * business and `tests/navigation.test.ts` already owns it.
+         */
+        const hasRedirect = /\bredirect\(/.test(source);
+        const literal =
+          [...source.matchAll(/redirect\(([^;]*)\)/g)]
+            .flatMap((call) =>
+              [...call[1].matchAll(/["`](\/[^"`]*)/g)].map((m) => m[1]),
+            )
+            .map((target) => target.split("?")[0].split("${")[0])
+            .pop() ?? null;
+
+        const redirectTo =
+          own.length === 0 && fee.length === 0 && hasRedirect
+            ? (literal ?? "*")
+            : null;
 
         found.set(route === "" ? "/" : route, {
-          any: many
-            ? [...many[1].matchAll(/"([\w:]+)"/g)].map((m) => m[1])
-            : null,
-          permission: one ? one[1] : null,
+          vpps: [...vpps, ...own],
+          fee,
+          alias: redirectTo,
         });
       }
     }
   };
 
-  walk(base, "");
+  walk(base, "", []);
   return found;
 }
 
@@ -323,18 +423,40 @@ for (const role of staffRoles) {
       continue;
     }
 
-    const mapAllows = guard.any
-      ? guard.any.some((p) => can({ role }, p))
-      : guard.permission
-        ? can({ role }, guard.permission)
-        : true;
+    /*
+     * Both vocabularies, in the order the request meets them.
+     *
+     * The layout's VPPS One permission is the outer door; the ported page's
+     * fee permission is the inner one, and it is answered from the fee app's
+     * own map via `feePermissionsFor`. A role must clear both. Getting this
+     * wrong in the lenient direction is what let forty-eight screens sit
+     * outside the gate, so the two are combined rather than either being
+     * treated as the whole answer.
+     */
+    const held = new Set(feePermissionsFor(role));
+
+    const mapAllows =
+      guard.vpps.every((clause) => clause.some((p) => can({ role }, p))) &&
+      guard.fee.every((clause) => clause.some((p) => held.has(p)));
 
     const productAllowsIt = productAllows(route, role);
 
     const outcome = await visitWithTimeout(filled, cookie);
     const elapsedMs = Date.now() - startedAt;
-    const expectedByMap = mapAllows ? "rendered" : "access-denied";
-    const expectedByProduct = productAllowsIt ? "rendered" : "access-denied";
+
+    // An alias's job is to not render. Once the outer door lets the role
+    // through, landing on the new URL is the pass.
+    const expectedByMap = !mapAllows
+      ? "access-denied"
+      : guard.alias
+        ? `redirected-to ${guard.alias}`
+        : "rendered";
+
+    const expectedByProduct = !productAllowsIt
+      ? "access-denied"
+      : guard.alias
+        ? `redirected-to ${guard.alias}`
+        : "rendered";
 
     const result = {
       role,
@@ -361,7 +483,13 @@ for (const role of staffRoles) {
      * fails the run, because absorbing it silently is precisely what B-09 is
      * about.
      */
-    if (outcome !== expectedByMap) {
+    // `"*"` is the role-dispatching entry: any redirect is the right answer.
+    const matchesExpectation =
+      expectedByMap === "redirected-to *"
+        ? outcome.startsWith("redirected-to")
+        : outcome === expectedByMap;
+
+    if (!matchesExpectation) {
       result.verdict = "fail";
       result.reason = `the screen disagrees with the permission map: expected ${expectedByMap}, got ${outcome}`;
       failures.push(result);
