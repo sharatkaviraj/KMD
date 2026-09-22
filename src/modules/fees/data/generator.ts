@@ -2,6 +2,7 @@ import { ON_ROLL_STATUSES } from "@/modules/students-fees/domain/populations";
 import "server-only";
 
 import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { getFeeSetupPageData } from "@/modules/fees/domain/queries";
@@ -705,11 +706,38 @@ async function buildLedgerSyncPlan(options: LedgerPlanOptions = {}): Promise<Led
         addToAmountMap(adjustmentTotalsByInstallment, row.installment_id, row.amount_delta);
       });
 
-      const { data: planItemsRaw } = await supabase
-        .from("student_repayment_plan_items")
-        .select("installment_id, student_repayment_plans!inner(lifecycle)")
-        .eq("student_repayment_plans.lifecycle", "active")
-        .in("student_id", studentIds);
+      /*
+       * Chunked, and the error is read.
+       *
+       * `studentIds` here is every student in scope — the whole session when
+       * fee setup is generated for all classes, which is 583 children. A
+       * `.in()` list that long does not fit in the request URL: past about 300
+       * ids `fetch` hangs for eight seconds and then rejects, and this call
+       * discarded `error`, so the rejection became an empty array. Every
+       * instalment covered by an active repayment plan would then have been
+       * treated as not covered, silently, during fee generation.
+       *
+       * `fetchInChunks` was already imported in this file for the reads above;
+       * this one was missed. See `platform/helpers/in-filter.ts`.
+       */
+      const { data: planItemsRaw, error: planItemsError } = await fetchInChunks<{
+        installment_id: string;
+      }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+        supabase
+          .from("student_repayment_plan_items")
+          .select("installment_id, student_repayment_plans!inner(lifecycle)")
+          .eq("student_repayment_plans.lifecycle", "active")
+          .in("student_id", chunk)
+          .returns<{ installment_id: string }[]>(),
+      );
+
+      if (planItemsError) {
+        throw new Error(
+          `Could not read the repayment plan items: ${
+            planItemsError instanceof Error ? planItemsError.message : String(planItemsError)
+          }`,
+        );
+      }
 
       (planItemsRaw ?? []).forEach((row) => {
         repaymentPlanInstallmentIds.add(String(row.installment_id));

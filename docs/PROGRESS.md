@@ -3,9 +3,7 @@
 **Active queue: the School Fees port (F rows, below), then PLAN revision 2.**
 F6 is done — `schoolfees-dev` carries a de-identified replica of the live fee
 database (D-186), and `docs/replica-and-smoke.md` is the account of what having
-real fee data uncovered. **F7 is blocked on D-188, which is a product decision:
-an accountant cannot post a payment, because the fee app's own RPC refuses
-every account this app can offer it.** R3.4 is the next R row and still owes
+real fee data uncovered. **F7 is done: an accountant posts a payment in VPPS One, and the role boundary holds at the database (D-191).** R3.4 is the next R row and still owes
 mock message retry, the S-01–S-09 acceptance pass and wiring `mayReplace()`
 into accept.
 
@@ -99,7 +97,9 @@ whatever still needs a link after the port, and is not yet revisited.
 | F5 | One shell, fee tabs in the navigation map, fee routes reachable | done | `9c8f52d` · `DashboardShell` takes items; `money` group in `navigation.ts` |
 | F5-fix | Production-only render failures and two pieces of stale copy | done | `9e743ed` · icons resolved client-side, the fee providers mounted, `public/` copied |
 | F6 | Fee test data on `schoolfees-dev`, so the fee screens can be exercised at all | done | `scripts/replicate-live.mjs` · a de-identified replica of live: 11,295 rows, 34 tables, money exact to the rupee, every person replaced (D-186) |
-| F7 | Timed accountant walkthrough against real fee configuration | **partly — blocked on D-188** | The Payment Desk loads a child and their dues now; posting a payment is refused by the database itself. See below |
+| F7 | Timed accountant walkthrough against real fee configuration | done | Receipt SVP20260922-0002 posted through the desk; `current_staff_role()` falls back to `vppsone.staff_profiles` (D-191, migration `20260922100000`) |
+| F13 | The Payment Desk broke on the first payment of each day | done | `cookies()` inside `unstable_cache()` from `getReceiptReversalTotals`, hidden by an early return that an empty day always took (D-192) |
+| F14 | An over-long PostgREST URL is refused at once, not after eight seconds | done | `createGuardedFetch` on both admin clients (D-193) · `tests/guarded-fetch.test.ts` |
 | F10 | The academic session was read by sorting the labels, in six places | done | `pickSessionLabel()` + `tests/active-session.test.ts` (D-187) · every register, mark and cover plan would have worked in the rehearsal session on live |
 | F11 | A `.in()` list of more than ~300 ids fails silently after eight seconds | done | `platform/helpers/in-filter.ts` · the defaulters queue went 16,000ms to 880ms and stopped hiding four columns of data |
 | F12 | The fee matviews had no grants in dev, so the Payment Desk 503ed for everybody | done | Mirrored from live, deliberately not a migration (D-189) |
@@ -126,17 +126,21 @@ possible, and none of them could have been seen without it:
 - **A `.in()` list over ~300 ids fails silently after eight seconds**, and the
   school has 583 active children. The defaulters queue took 16 seconds and hid
   four columns of data. Now 880ms. `platform/helpers/in-filter.ts`.
-- **An accountant still cannot post a payment** (D-188). `has_permission()`
+- **An accountant could not post a payment at all** (D-188). `has_permission()`
   reads `public.users`, and VPPS One accounts have no row there by design — so
-  the RPC refuses both the cookie client and the service-role client. Sixteen
-  of the eighteen fee RPCs are gated this way; six have a service-role arm and
-  one of those is fixed here. **This is the remaining blocker on F7 and it is a
-  product decision**, set out in `docs/replica-and-smoke.md` §4.
+  the RPC refused the cookie client and the service-role client alike. Sixteen
+  of the eighteen fee RPCs are gated that way. **Fixed** (D-191):
+  `current_staff_role()` now falls back to `vppsone.staff_profiles`, which the
+  fee database was already prepared for — `public.staff_role` carries all eight
+  VPPS One roles and `has_permission()` already had an arm for each.
+- **The Payment Desk broke on the first payment of each day** (D-192), and only
+  then: `cookies()` inside `unstable_cache()`, reached through an early return
+  that an empty day always took. Fixing the `.in()` bug is what exposed it.
 
 ### What is verified, and what is not
 
 **Verified.** `npm run check` green: typecheck, lint, 430-token theme parity,
-the import codemod, 7,810 unit tests, production build. `npm run
+the import codemod, 7,825 unit tests, production build. `npm run
 smoke:workflows`: **42 of 42**, including the teacher attendance journey that
 previous runs had only ever skipped because the day was a Sunday.
 `npm run smoke:roles`: **728 of 728**, and for the first time that number
@@ -150,9 +154,14 @@ children, 8 periods and the register waiting — the screen that read "आपक
 Desk loading a real child with ₹58,500 across five instalments, ₹44,500 of it
 overdue, masked name and phone throughout.
 
-**Not verified.** Posting a payment, and everything downstream of it —
-receipts, reversals, refunds, repayment plans. Not for want of trying: the
-database function refuses every account this app can offer it (D-188).
+**Posting a payment is verified.** Receipt SVP20260922-0002, ₹7,500 cash,
+posted through the Payment Desk as the QA accountant, `created_by` the real
+person, the ledger moving ₹58,500 → ₹51,000, and the same `client_request_id`
+sent twice producing exactly one receipt. Undo, late-fee waiver and repayment
+plans were each asked of a role that may and a role that may not.
+
+**Not verified.** Refunds, which need a refund request to exist first, and the
+WhatsApp reminder run, which is deliberately disabled in this app.
 
 ### B-44 — the number that only appears at the weekend
 

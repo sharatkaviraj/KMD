@@ -1,5 +1,7 @@
 import "server-only";
 
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createHash } from "node:crypto";
 
 import { generateSessionLedgersAction } from "@/modules/fees/data/generator";
@@ -376,15 +378,30 @@ async function loadPlan(): Promise<RegenerationPlan> {
   const repaymentPlanInstallmentIds = new Set<string>();
 
   if (studentIds.length > 0) {
-    const { data: installmentsRaw, error: installmentsError } = await supabase
-      .from("installments")
-      .select(
-        "id, student_id, class_id, fee_setting_id, student_fee_override_id, installment_no, installment_label, due_date, base_amount, transport_amount, discount_amount, amount_due, late_fee_flat_amount, status, is_carry_forward",
-      )
-      .in("student_id", studentIds);
+    /*
+     * Chunked. `studentIds` is every student in the session — 583 — and the
+     * `CHUNK = 200` a dozen lines below, with its comment about the PostgREST
+     * URL limit, was applied to the installment ids and not to these. Past
+     * about 300 uuids the request URL is too long and the whole read fails, so
+     * ledger regeneration simply stopped working once the school outgrew it.
+     */
+    const { data: installmentsRaw, error: installmentsError } =
+      await fetchInChunks<ExistingInstallmentRow>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+        supabase
+          .from("installments")
+          .select(
+            "id, student_id, class_id, fee_setting_id, student_fee_override_id, installment_no, installment_label, due_date, base_amount, transport_amount, discount_amount, amount_due, late_fee_flat_amount, status, is_carry_forward",
+          )
+          .in("student_id", chunk)
+          .returns<ExistingInstallmentRow[]>(),
+      );
 
     if (installmentsError) {
-      throw new Error(installmentsError.message);
+      throw new Error(
+        installmentsError instanceof Error
+          ? installmentsError.message
+          : String(installmentsError),
+      );
     }
 
     existingInstallments = (installmentsRaw ?? []) as ExistingInstallmentRow[];
@@ -454,12 +471,28 @@ async function loadPlan(): Promise<RegenerationPlan> {
       }
 
       // The same rows the generator holds for an EMI plan, so the preview
-      // promises exactly what the apply step does.
-      const { data: planItemsRaw } = await supabase
-        .from("student_repayment_plan_items")
-        .select("installment_id, student_repayment_plans!inner(lifecycle)")
-        .eq("student_repayment_plans.lifecycle", "active")
-        .in("student_id", studentIds);
+      // promises exactly what the apply step does. Chunked and checked for the
+      // same reason as the installment read above: this is the whole session,
+      // and it used to discard `error` as well, so a request that was simply
+      // too long to send read as "no student is on a repayment plan".
+      const { data: planItemsRaw, error: planItemsError } = await fetchInChunks<{
+        installment_id: string;
+      }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+        supabase
+          .from("student_repayment_plan_items")
+          .select("installment_id, student_repayment_plans!inner(lifecycle)")
+          .eq("student_repayment_plans.lifecycle", "active")
+          .in("student_id", chunk)
+          .returns<{ installment_id: string }[]>(),
+      );
+
+      if (planItemsError) {
+        throw new Error(
+          `Could not read the repayment plan items: ${
+            planItemsError instanceof Error ? planItemsError.message : String(planItemsError)
+          }`,
+        );
+      }
 
       (planItemsRaw ?? []).forEach((row) => {
         repaymentPlanInstallmentIds.add(String(row.installment_id));

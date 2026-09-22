@@ -7,6 +7,7 @@ import {
   getRequiredEnvVar,
   VPPSONE_SCHEMA,
 } from "@/platform/env";
+import { createGuardedFetch } from "@/platform/supabase/guarded-fetch";
 
 /**
  * The service-role client. It bypasses RLS, so every call site must already
@@ -43,6 +44,9 @@ export function createAdminClient() {
     serviceRoleKey,
     {
       db: { schema: VPPSONE_SCHEMA },
+      // Refuses an over-long PostgREST URL at once instead of stalling eight
+      // seconds and failing opaquely. See guarded-fetch.ts.
+      global: { fetch: createGuardedFetch() },
       auth: {
         // No session to persist and nothing to refresh: this client is one
         // request long and is never a user.

@@ -1,9 +1,11 @@
 import "server-only";
 
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { getCacheSafeClient } from "@/modules/fees/platform/supabase/cache-safe";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 
-const IN_FILTER_CHUNK_SIZE = 200;
+
 
 type SupabaseLike = Pick<Awaited<ReturnType<typeof createClient>>, "from">;
 
@@ -42,7 +44,29 @@ export async function getReceiptReversalTotals(
     return totals;
   }
 
-  const supabase = client ?? (await createClient());
+  /*
+   * **The cache-safe client, because several callers are inside a cache.**
+   *
+   * `createClient()` reads cookies, and Next refuses a dynamic data source
+   * inside `unstable_cache()`. Three of the callers above are cached — the
+   * Payment Desk's "today's collection", its recent-receipt list, and the
+   * shell's DAY SO FAR card — so this read threw inside them and the desk
+   * rendered its error boundary: "The protected workspace hit an error."
+   *
+   * **It only failed once somebody had taken a payment.** The early return
+   * three lines up is taken whenever the id list is empty, which is exactly
+   * what "no receipts today" produces — so the desk worked every morning and
+   * broke on the first receipt of the day, every day. Nothing about that is
+   * visible until a database has a receipt dated today, which is why it
+   * survived the port: `schoolfees-dev` had no receipts at all.
+   *
+   * `getCacheSafeClient()` returns the service-role client whenever the key is
+   * present, which is what the callers' own reads already use — the totals
+   * either side of this line come from it. A caller that has a client already
+   * still passes one, and nothing about who may call this changes: every entry
+   * point authorizes first, and `tests/architecture.test.ts` requires it.
+   */
+  const supabase = client ?? (await getCacheSafeClient());
   const { data, error } = await fetchInChunks(uniqueIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
     supabase
       .from("v_receipt_reversal_totals")
@@ -85,7 +109,9 @@ export async function getReceiptReversalTotals(
 export async function getAllReceiptReversalTotals(
   client?: SupabaseLike,
 ): Promise<Map<string, number>> {
-  const supabase = client ?? (await createClient());
+  // Cache-safe for the same reason as its sibling above: callers include
+  // cached scopes, and `createClient()` reads cookies.
+  const supabase = client ?? (await getCacheSafeClient());
   const { data, error } = await fetchAllPages<{ receipt_id: string; reversed_amount: number }>(
     (from, to) =>
       supabase

@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-22T05:07:21.800Z",
+  "at": "2026-09-22T06:17:57.939Z",
   "origin": "http://localhost:3000",
   "accounts": 11,
   "routes": 92,
@@ -10,49 +10,49 @@
       "role": "admin",
       "route": "/fees",
       "result": "redirected-to /fees/dashboard",
-      "ms": 78
+      "ms": 76
     },
     {
       "account": "admin",
       "role": "admin",
       "route": "/fees/admin-tools/whatsapp-reminders",
       "result": "redirected-to /fees/reminders",
-      "ms": 68
+      "ms": 127
     },
     {
       "account": "admin",
       "role": "admin",
       "route": "/fees/advanced",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 72
+      "ms": 110
     },
     {
       "account": "admin",
       "role": "admin",
       "route": "/fees/collections",
       "result": "redirected-to /fees/payments",
-      "ms": 53
+      "ms": 95
     },
     {
       "account": "admin",
       "role": "admin",
       "route": "/fees/dues",
       "result": "redirected-to /fees/transactions",
-      "ms": 82
+      "ms": 83
     },
     {
       "account": "admin",
       "role": "admin",
       "route": "/fees/setup",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 83
+      "ms": 63
     },
     {
       "account": "office",
       "role": "office",
       "route": "/fees",
       "result": "redirected-to /fees/dashboard",
-      "ms": 71
+      "ms": 73
     },
     {
       "account": "office",
@@ -66,112 +66,112 @@
       "role": "office",
       "route": "/fees/advanced",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 68
+      "ms": 76
     },
     {
       "account": "office",
       "role": "office",
       "route": "/fees/collections",
       "result": "redirected-to /fees/payments",
-      "ms": 76
+      "ms": 82
     },
     {
       "account": "office",
       "role": "office",
       "route": "/fees/dues",
       "result": "redirected-to /fees/transactions",
-      "ms": 60
+      "ms": 113
     },
     {
       "account": "office",
       "role": "office",
       "route": "/fees/setup",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 66
+      "ms": 84
     },
     {
       "account": "accountant",
       "role": "accountant",
       "route": "/fees",
       "result": "redirected-to /fees/payments",
-      "ms": 58
+      "ms": 51
     },
     {
       "account": "accountant",
       "role": "accountant",
       "route": "/fees/admin-tools/whatsapp-reminders",
       "result": "redirected-to /fees/reminders",
-      "ms": 124
+      "ms": 69
     },
     {
       "account": "accountant",
       "role": "accountant",
       "route": "/fees/advanced",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 82
+      "ms": 43
     },
     {
       "account": "accountant",
       "role": "accountant",
       "route": "/fees/collections",
       "result": "redirected-to /fees/payments",
-      "ms": 74
+      "ms": 60
     },
     {
       "account": "accountant",
       "role": "accountant",
       "route": "/fees/dues",
       "result": "redirected-to /fees/transactions",
-      "ms": 67
+      "ms": 79
     },
     {
       "account": "accountant",
       "role": "accountant",
       "route": "/fees/setup",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 63
+      "ms": 64
     },
     {
       "account": "feeCollector",
       "role": "fee_collector",
       "route": "/fees",
       "result": "redirected-to /fees/defaulters",
-      "ms": 74
+      "ms": 60
     },
     {
       "account": "feeCollector",
       "role": "fee_collector",
       "route": "/fees/admin-tools/whatsapp-reminders",
       "result": "redirected-to /fees/reminders",
-      "ms": 85
+      "ms": 90
     },
     {
       "account": "feeCollector",
       "role": "fee_collector",
       "route": "/fees/advanced",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 70
+      "ms": 55
     },
     {
       "account": "feeCollector",
       "role": "fee_collector",
       "route": "/fees/collections",
       "result": "redirected-to /fees/payments",
-      "ms": 69
+      "ms": 70
     },
     {
       "account": "feeCollector",
       "role": "fee_collector",
       "route": "/fees/dues",
       "result": "redirected-to /fees/transactions",
-      "ms": 83
+      "ms": 53
     },
     {
       "account": "feeCollector",
       "role": "fee_collector",
       "route": "/fees/setup",
       "result": "redirected-to /fees/admin-tools",
-      "ms": 74
+      "ms": 105
     }
   ],
   "missingFixtures": [
@@ -179,88 +179,88 @@
   ],
   "slowest": [
     {
-      "route": "/fees/admin-tools/promotion/[runId]",
-      "worst": 250,
-      "median": 250,
-      "opens": 1
-    },
-    {
-      "route": "/fees/admin-tools/promotion",
-      "worst": 218,
-      "median": 218,
-      "opens": 1
-    },
-    {
-      "route": "/apps",
-      "worst": 149,
-      "median": 149,
+      "route": "/collection/messages",
+      "worst": 152,
+      "median": 152,
       "opens": 2
     },
     {
-      "route": "/collection/[id]",
-      "worst": 106,
-      "median": 106,
-      "opens": 2
-    },
-    {
-      "route": "/fees/master-data",
-      "worst": 94,
-      "median": 94,
+      "route": "/fees/students/[studentId]/edit",
+      "worst": 142,
+      "median": 142,
       "opens": 1
     },
     {
-      "route": "/collection",
-      "worst": 92,
-      "median": 92,
+      "route": "/collection/fields",
+      "worst": 118,
+      "median": 118,
       "opens": 2
     },
     {
-      "route": "/fees/students/[studentId]/statement",
-      "worst": 92,
-      "median": 91,
+      "route": "/fees/defaulters",
+      "worst": 122,
+      "median": 111,
+      "opens": 4
+    },
+    {
+      "route": "/fees/students/[studentId]",
+      "worst": 105,
+      "median": 97,
       "opens": 4
     },
     {
       "route": "/collection/rounds/[id]",
-      "worst": 88,
-      "median": 88,
+      "worst": 93,
+      "median": 93,
       "opens": 2
     },
     {
-      "route": "/fees/settings/glossary",
-      "worst": 110,
-      "median": 88,
+      "route": "/academics/classes",
+      "worst": 98,
+      "median": 92,
       "opens": 4
     },
     {
-      "route": "/students",
-      "worst": 88,
-      "median": 88,
+      "route": "/fees/students/[studentId]/statement",
+      "worst": 108,
+      "median": 91,
+      "opens": 4
+    },
+    {
+      "route": "/timetable/import",
+      "worst": 91,
+      "median": 91,
       "opens": 2
     },
     {
-      "route": "/substitutions",
-      "worst": 111,
-      "median": 86,
-      "opens": 6
-    },
-    {
-      "route": "/fees/reports",
-      "worst": 86,
-      "median": 85,
+      "route": "/academics/subjects/new",
+      "worst": 94,
+      "median": 89,
       "opens": 3
     },
     {
-      "route": "/fees/students/[studentId]",
-      "worst": 89,
-      "median": 85,
-      "opens": 4
+      "route": "/academics/subjects/[id]",
+      "worst": 101,
+      "median": 86,
+      "opens": 3
     },
     {
-      "route": "/fees/payments/bulk",
+      "route": "/collection/review",
+      "worst": 86,
+      "median": 86,
+      "opens": 2
+    },
+    {
+      "route": "/collection/rounds/upload",
       "worst": 84,
       "median": 84,
-      "opens": 1
+      "opens": 2
+    },
+    {
+      "route": "/assessments/exports",
+      "worst": 424,
+      "median": 83,
+      "opens": 4
     },
     {
       "route": "/collection/rounds/new",
@@ -269,34 +269,34 @@
       "opens": 2
     },
     {
-      "route": "/academics/classes",
-      "worst": 100,
-      "median": 81,
+      "route": "/academics/subjects",
+      "worst": 94,
+      "median": 82,
       "opens": 4
     },
     {
-      "route": "/fees/admin-tools/prev-year-dues",
-      "worst": 85,
+      "route": "/collection",
+      "worst": 82,
+      "median": 82,
+      "opens": 2
+    },
+    {
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "worst": 82,
+      "median": 82,
+      "opens": 1
+    },
+    {
+      "route": "/fees/master-data",
+      "worst": 82,
+      "median": 82,
+      "opens": 1
+    },
+    {
+      "route": "/academics/class-teachers",
+      "worst": 134,
       "median": 81,
-      "opens": 3
-    },
-    {
-      "route": "/fees/students",
-      "worst": 78,
-      "median": 78,
       "opens": 4
-    },
-    {
-      "route": "/collection/messages",
-      "worst": 76,
-      "median": 76,
-      "opens": 2
-    },
-    {
-      "route": "/collection/rounds",
-      "worst": 76,
-      "median": 76,
-      "opens": 2
     }
   ]
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { getCacheSafeClient } from "@/modules/fees/platform/supabase/cache-safe";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 
 import {
@@ -306,7 +307,9 @@ export async function getActiveRepaymentPlansForStudents(studentIds: string[]) {
     return new Map<string, RepaymentPlanSummary>();
   }
 
-  const supabase = await createClient();
+  // Cache-safe for the same reason as `getRepaymentPlanCoverageForStudents`
+  // below: both are read-only and both are reached from inside a cached scope.
+  const supabase = await getCacheSafeClient();
 
   /*
    * Chunked: a `.in(...)` list goes into the request URL, and the defaulters
@@ -362,7 +365,26 @@ export async function getRepaymentPlanCoverageForStudents(
     return new Map<string, RepaymentPlanCoverage>();
   }
 
-  const supabase = await createClient();
+  /*
+   * **The cache-safe client, because this runs inside `unstable_cache`.**
+   *
+   * `createClient()` reads cookies, and Next refuses a dynamic data source
+   * inside a cache scope — "Route /fees/payments used `cookies()` inside a
+   * function cached with `unstable_cache()`". The Payment Desk answers that
+   * with its error boundary: "The protected workspace hit an error."
+   *
+   * **It had been here all along, and the bug above was hiding it.** The early
+   * return three lines up is only taken when there are no active plans, and
+   * `getActiveRepaymentPlansForStudents` always returned none — its `.in()`
+   * list of every candidate student was too long for the request URL, so it
+   * failed and its discarded error became an empty Map. Chunking that query
+   * made it start succeeding, which made this line start running, which is how
+   * a fix for one silent failure produced a loud one.
+   *
+   * `getCacheSafeClient()` hands back the service-role client whenever the key
+   * is present, which is what every other read on this path already uses.
+   */
+  const supabase = await getCacheSafeClient();
   const { data } = await supabase
     .from("student_repayment_plan_items")
     .select("plan_id, student_id, installment_id")

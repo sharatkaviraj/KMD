@@ -3,6 +3,7 @@ import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { getFeeSchema, getOptionalEnvVar, getRequiredEnvVar } from "@/platform/env";
+import { createGuardedFetch } from "@/platform/supabase/guarded-fetch";
 
 /**
  * The service-role client for fee data. **This is where the money is written.**
@@ -41,6 +42,9 @@ export function createFeeAdminClient() {
     {
       db: { schema: getFeeSchema() },
       auth: { autoRefreshToken: false, persistSession: false },
+      // Refuses an over-long PostgREST URL at once instead of stalling eight
+      // seconds and failing opaquely. See guarded-fetch.ts.
+      global: { fetch: createGuardedFetch() },
     },
   );
 }

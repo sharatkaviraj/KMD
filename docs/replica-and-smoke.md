@@ -94,9 +94,10 @@ reads fees" was meant to mean the whole desk minus the money, the fee app's own
 `teacher` role is exactly that — "reads every workspace tab, no financial
 writes" — and it is a one-line change in `feeRoleFor()`.
 
-## 4 · The blocker (D-188)
+## 4 · The blocker (D-188) — diagnosed here, fixed in §4a
 
-**An accountant cannot post a payment**, and no client choice changes it.
+**An accountant could not post a payment**, and no client choice changed it.
+This section is the diagnosis; §4a is the fix and the proof.
 
 Tried, not inferred. Signed in as `qa.fees` with a real session token and asked
 `post_student_payment_with_adjustments` for ₹100 against a child with ₹58,500
@@ -138,6 +139,55 @@ Three ways out, none of them an agent's call:
    changes the fee database's own SQL, which at cutover means changing live.
 3. **Per-staff `public.users` rows** — already rejected, and still the worst: a
    person's role in two places that can disagree.
+
+## 4a · Fixed — an accountant can now post a payment
+
+`private.current_staff_role()` now falls back to `vppsone.staff_profiles` when
+`public.users` has no row for the signed-in person (D-191, migration
+`20260922100000`). The fee database was already prepared for it:
+`public.staff_role` carries all eight VPPS One roles in dev **and** in live, and
+`has_permission()` already has a case arm for each. Only this function had never
+been told to look anywhere but `public.users`.
+
+It is additive — every fee-app user has a row there, so nothing existing changes
+— and it keeps `auth.uid()` as the real person, so a receipt records the
+accountant who took the money rather than a service account. The alternative,
+signing the fee RPCs as one shared service identity, would have lost that.
+
+Asked of every role, with real session tokens:
+
+| | post a payment | undo one | waive a late fee | create a repayment plan |
+|---|---|---|---|---|
+| accountant | **yes** | refused | **yes** | — |
+| admin | — | **yes** | — | **yes** |
+| fee_collector | refused | — | refused | — |
+| office | refused | — | — | — |
+| teacher | refused | — | — | refused |
+
+Posted through the Payment Desk itself: receipt **SVP20260922-0002**, ₹7,500
+cash, `created_by` the accountant, the ledger moving ₹58,500 → ₹51,000. The same
+`client_request_id` sent twice produced exactly one receipt, so the partial
+unique index that makes the two-app overlap safe is working across it.
+
+## 4b · Fixed — the desk broke on the first payment of each day
+
+Posting then showed *"The protected workspace hit an error"*: `cookies()` inside
+`unstable_cache()`, thrown from `getReceiptReversalTotals`. The early return
+above it is what hid it — with no receipt ids there is nothing to look up and
+the cookie client is never created, and "no receipt ids" is exactly what a day
+with no collection produces. **The desk worked every morning and broke on the
+first receipt of the day**, and dev had no receipts at all until this replica
+put some there.
+
+Fixing it also fixed the shell's DAY SO FAR card, which had been reading ₹0 with
+two receipts in the database. It now reads ₹7,500 · 1 receipt, correctly leaving
+out the one that was reversed.
+
+The same shape had concealed a second instance:
+`getRepaymentPlanCoverageForStudents` returns early when there are no active
+plans, and the `.in()` bug in §5 guaranteed there never were any — so fixing
+that bug is what made its cookie client start being created. Two silent
+failures, each hiding the next.
 
 ## 5 · Two bugs that would have hit live on the first morning
 
