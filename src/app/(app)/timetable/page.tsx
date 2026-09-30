@@ -8,7 +8,7 @@ import { pageTitle } from "@/platform/i18n/page-title";
 import { flat, primary, t } from "@/platform/i18n/language";
 import {
   listClassAliases,
-  listFeeClasses,
+  listTimetableClasses,
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
 import { feeClassName } from "@/modules/academics/domain/subjects";
@@ -59,7 +59,7 @@ export default async function TimetablePage() {
   const [versions, published, classes, aliases, allStaff] = await Promise.all([
     listVersions(sessionLabel),
     getPublishedVersion(sessionLabel),
-    listFeeClasses(sessionLabel),
+    listTimetableClasses(sessionLabel),
     listClassAliases(sessionLabel),
     listStaff(),
   ]);

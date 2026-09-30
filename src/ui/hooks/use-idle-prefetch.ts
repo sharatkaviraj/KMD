@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { mayPrefetchRoutes, type ConnectionHints } from "./prefetch-policy";
 
 /**
  * Warm a few routes once the browser is idle, instead of while the page the
@@ -41,21 +42,27 @@ export function useIdlePrefetch(hrefs: readonly string[], enabled = true) {
       return;
     }
 
-    const targets = key.split("|");
+    const targets = [...new Set(key.split("|"))];
+    const lastWarm = new Map<string, number>();
+    const connection = (navigator as Navigator & { connection?: ConnectionHints }).connection;
+    const canWarm = () => mayPrefetchRoutes({
+      online: navigator.onLine, visible: !document.hidden, connection,
+    });
     const timers: ReturnType<typeof setTimeout>[] = [];
     let cancelled = false;
     let idleHandle: number | undefined;
     let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
 
     const warm = () => {
-      if (cancelled) {
+      if (cancelled || !canWarm()) {
         return;
       }
 
       targets.forEach((href, index) => {
         timers.push(
           setTimeout(() => {
-            if (!cancelled) {
+            if (!cancelled && canWarm() && Date.now() - (lastWarm.get(href) ?? -Infinity) >= 60_000) {
+              lastWarm.set(href, Date.now());
               router.prefetch(href);
             }
           }, index * STAGGER_MS),

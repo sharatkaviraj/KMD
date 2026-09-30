@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -22,6 +23,8 @@ import {
   sessionSyncGuard,
 } from "./session-pill";
 
+const EMPTY_SESSIONS: AvailableSessionRow[] = [];
+
 type MobileSessionPillProps = {
   currentLabel: string;
   isTest: boolean;
@@ -31,14 +34,19 @@ type MobileSessionPillProps = {
 export function MobileSessionPill({
   currentLabel,
   isTest,
-  initialSessions = [],
+  initialSessions = EMPTY_SESSIONS,
 }: MobileSessionPillProps) {
+  const t = useTranslations("MobileApp");
+  const tCommon = useTranslations("Common");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const prefetchTimerRef = useRef<number | null>(null);
   const [open, setOpen] = useState(false);
   const [sessions, setSessions] = useState<AvailableSessionRow[]>(initialSessions);
+  const [isLoading, setIsLoading] = useState(initialSessions.length === 0);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [isSwitching, setIsSwitching] = useState(false);
   const [isRefreshing, startNavTransition] = useTransition();
   const { setIsSwitching: setGlobalSessionSwitching } = useSessionSwitching();
@@ -53,27 +61,34 @@ export function MobileSessionPill({
   useEffect(() => {
     if (initialSessions.length > 0) {
       setSessions(initialSessions);
+      setIsLoading(false);
+      setLoadFailed(false);
       return;
     }
 
     let isMounted = true;
+    setIsLoading(true);
+    setLoadFailed(false);
 
     listAvailableSessionsAction()
       .then((rows) => {
         if (isMounted) {
           setSessions(rows);
+          setIsLoading(false);
         }
       })
       .catch(() => {
         if (isMounted) {
           setSessions(initialSessions);
+          setIsLoading(false);
+          setLoadFailed(true);
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [initialSessions]);
+  }, [initialSessions, loadAttempt]);
 
   useEffect(() => {
     setOptimisticLabel(null);
@@ -169,18 +184,17 @@ export function MobileSessionPill({
           sessionSyncGuard.label = null;
           setOptimisticLabel(null);
           toast({
-            title: "Could not switch session",
-            description: `${label} could not be opened. You are still on ${currentLabel}.`,
+            title: t("sessionSwitchFailed"),
+            description: t("sessionSwitchFailedDescription", { label, currentLabel }),
             tone: "danger",
           });
         }
-      } catch (error) {
+      } catch {
         sessionSyncGuard.label = null;
         setOptimisticLabel(null);
         toast({
-          title: "Could not switch session",
-          description:
-            error instanceof Error ? error.message : `You are still on ${currentLabel}.`,
+          title: t("sessionSwitchFailed"),
+          description: t("sessionSwitchFailedDescription", { label, currentLabel }),
           tone: "danger",
         });
       } finally {
@@ -200,45 +214,64 @@ export function MobileSessionPill({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex h-11 max-w-[42vw] items-center gap-1 rounded-full border bg-surface px-3 text-xs font-semibold text-foreground",
-          displayIsTest ? "border-fuchsia-500 text-fuchsia-700" : "border-border",
+          "focus-ring grid min-h-11 w-[min(42vw,10rem)] min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_1rem] items-center gap-2 rounded-full border bg-surface px-3 py-2 text-center text-sm font-semibold leading-5 text-foreground",
+          "transition-[background-color,border-color,transform,opacity] duration-150 motion-safe:active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none",
+          displayIsTest
+            ? "border-fuchsia-500 text-fuchsia-700 dark:border-fuchsia-400 dark:text-fuchsia-300"
+            : "border-border hover:bg-surface-2",
           isTransitioning && "opacity-75",
         )}
-        aria-label="Change academic session"
+        aria-label={t("sessionChangeAria", { label: displayLabel })}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        disabled={isTransitioning}
         aria-busy={isTransitioning}
       >
-        <span className="truncate">{displayLabel}</span>
-        {isTransitioning ? (
-          <Loader2 className="size-3.5 shrink-0 motion-safe:animate-spin" aria-hidden="true" />
-        ) : (
-          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        )}
+        <span className="min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]">{displayLabel}</span>
+        <span className="grid size-4 place-items-center" aria-hidden="true">
+          {isTransitioning ? (
+            <Loader2 className="size-4 motion-safe:animate-spin" />
+          ) : (
+            <ChevronDown className={cn(
+              "size-4 text-muted-foreground transition-transform duration-150 motion-reduce:transition-none",
+              open && "rotate-180",
+            )} />
+          )}
+        </span>
       </button>
 
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Academic session"
-        description="Choose the year to view across the office workspace."
+        title={t("sessionTitle")}
+        closeLabel={tCommon("close")}
+        description={t("sessionDescription")}
         className="h-[100dvh] max-h-[100dvh] rounded-none"
       >
-        <div className="space-y-4 pb-4">
+        <div className="mx-auto w-full max-w-xl space-y-6 pb-4">
           {isTransitioning ? (
-            <p className="rounded-md border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-muted-foreground">
-              Changing to {displayLabel}...
+            <p className="rounded-md border border-border bg-surface-2 px-3 py-2 break-words text-sm font-medium leading-6 text-muted-foreground">
+              {t("sessionChanging", { label: displayLabel })}
             </p>
           ) : null}
-          {groups.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border bg-surface-2 px-3 py-3 text-sm text-muted-foreground">
-              Academic sessions are loading.
-            </p>
+          {isLoading || loadFailed || groups.length === 0 ? (
+            <div className="space-y-3 rounded-md border border-dashed border-border bg-surface-2 px-3 py-3 break-words text-sm leading-6 text-muted-foreground">
+              <p role={loadFailed ? "alert" : "status"}>
+                {isLoading ? t("sessionsLoading") : loadFailed ? t("sessionsLoadFailed") : t("sessionsEmpty")}
+              </p>
+              {loadFailed ? (
+                <button type="button" className="focus-ring min-h-11 rounded-lg border border-border bg-card px-4 font-semibold text-foreground" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+                  {t("sessionsRetry")}
+                </button>
+              ) : null}
+            </div>
           ) : (
             groups.map((group) => (
-              <section key={group.title} className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                  {group.title}
+              <section key={group.title} className="min-w-0 space-y-2">
+                <p className="break-words text-xs font-semibold leading-5 tracking-wide text-muted-foreground">
+                  {t(group.title === "Active" ? "sessionGroupActive" : group.title === "Other production" ? "sessionGroupOther" : "sessionGroupTest")}
                 </p>
-                <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
+                <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
                   {group.rows.map((session) => {
                     const selected = session.session_label === displayLabel;
                     const rowIsTest = isTestSession(session.session_label);
@@ -248,23 +281,27 @@ export function MobileSessionPill({
                         key={session.id}
                         type="button"
                         disabled={isTransitioning || selected}
+                        aria-pressed={selected}
                         onClick={() => selectSession(session.session_label)}
                         onFocus={() => prefetchSession(session.session_label)}
                         onMouseEnter={() => prefetchSession(session.session_label)}
                         className={cn(
-                          "flex min-h-12 w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2 disabled:opacity-60",
-                          selected && "bg-accent-soft font-semibold",
+                          "focus-ring grid min-h-14 w-full min-w-0 grid-cols-[minmax(0,1fr)_1.25rem] items-center gap-3 px-4 py-3 text-left text-sm leading-6 hover:bg-surface-2 disabled:opacity-60",
+                          "transition-colors duration-150 motion-safe:active:translate-y-px motion-reduce:transform-none motion-reduce:transition-none",
+                          selected && "bg-accent-soft font-semibold disabled:opacity-100",
                         )}
                       >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate">{session.session_label}</span>
+                        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]">{session.session_label}</span>
                           {rowIsTest ? (
-                            <span className="rounded-full border border-fuchsia-300 px-1.5 py-0.5 text-[10px] font-semibold text-fuchsia-700">
-                              TEST
+                            <span className="max-w-full break-words rounded-full border border-fuchsia-300 px-2 py-0.5 text-xs font-semibold leading-5 text-fuchsia-700 dark:border-fuchsia-500 dark:text-fuchsia-300">
+                              {t("sessionTestBadge")}
                             </span>
                           ) : null}
                         </span>
-                        {selected ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
+                        <span className="grid size-5 place-items-center" aria-hidden="true">
+                          {selected ? <Check className="anim-settle-in size-5" /> : null}
+                        </span>
                       </button>
                     );
                   })}

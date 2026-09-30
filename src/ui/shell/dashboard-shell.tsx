@@ -2,6 +2,7 @@ import { ReactNode, Suspense } from "react";
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 
+import type { MobileMoreGroup } from "@/platform/config/mobile-navigation";
 import { type StaffRole } from "@/modules/fees/platform/roles";
 import { SchoolBrand } from "@/ui/branding/school-brand";
 import { OfficeSyncListener } from "@/ui/shell/office-sync-listener";
@@ -53,6 +54,11 @@ type DashboardShellProps = {
   sidebarGroups?: readonly SidebarNavGroup[];
   /** The phone bar's four tabs, likewise resolved. */
   mobileItems?: readonly MobileNavItem[];
+  mobileMoreGroups?: readonly MobileMoreGroup[];
+  staffRoleLabel?: string;
+  /** Native permission boundary, before any optional fee chrome is read. */
+  showFeeMetrics?: boolean;
+  skipToContentLabel?: string;
   /** Where the school mark goes. This role's Home, not everybody's. */
   homeHref?: string;
   viewSessionLabel: string;
@@ -65,6 +71,10 @@ export function DashboardShell({
   staffRole,
   sidebarGroups,
   mobileItems,
+  mobileMoreGroups,
+  staffRoleLabel,
+  showFeeMetrics = true,
+  skipToContentLabel,
   homeHref: homeHrefProp,
   viewSessionLabel,
   viewSessionIsTest,
@@ -80,10 +90,14 @@ export function DashboardShell({
   // unhandled rejection, and separately: a failed shell read used to take down
   // the whole workspace. A missing "Day so far" figure is not a reason nobody
   // can reach the Payment Desk.
-  const pulsePromise = getShellPulse(viewSessionLabel).catch(() => EMPTY_SHELL_PULSE);
-  const receiptPrefixPromise = getFeePolicyForSession(viewSessionLabel)
-    .then((policy) => policy.receiptPrefix)
-    .catch(() => null);
+  const pulsePromise = showFeeMetrics
+    ? getShellPulse(viewSessionLabel).catch(() => EMPTY_SHELL_PULSE)
+    : Promise.resolve(EMPTY_SHELL_PULSE);
+  const receiptPrefixPromise = showFeeMetrics
+    ? getFeePolicyForSession(viewSessionLabel)
+      .then((policy) => policy.receiptPrefix)
+      .catch(() => null)
+    : Promise.resolve(null);
   const sessionSwitcherPromise = getSessionSwitcherData().catch(() => ({
     activeSessionLabel: viewSessionLabel,
     availableSessions: [],
@@ -114,6 +128,11 @@ export function DashboardShell({
   return (
     <SessionSwitchingProvider>
       <div className="min-h-svh w-full overflow-x-clip bg-background text-foreground lg:h-screen lg:overflow-hidden">
+      {skipToContentLabel ? (
+        <a href="#main-content" className="focus-ring sr-only fixed left-4 top-4 z-[70] rounded-xl bg-card px-4 py-3 text-foreground shadow-lg focus:not-sr-only">
+          {skipToContentLabel}
+        </a>
+      ) : null}
       <Suspense fallback={null}>
         <RouteProgress />
         <OfficeSyncListener sessionLabel={viewSessionLabel} />
@@ -153,9 +172,11 @@ export function DashboardShell({
             ) : null}
           </p>
           {/* Day so far */}
-          <Suspense fallback={<ShellDayCardSkeleton />}>
-            <ShellDayCard pulse={pulsePromise} receiptPrefix={receiptPrefixPromise} />
-          </Suspense>
+          {showFeeMetrics ? (
+            <Suspense fallback={<ShellDayCardSkeleton />}>
+              <ShellDayCard pulse={pulsePromise} receiptPrefix={receiptPrefixPromise} />
+            </Suspense>
+          ) : null}
         </footer>
       </aside>
 
@@ -170,6 +191,8 @@ export function DashboardShell({
           staffEmail={staffEmail}
           staffRole={staffRole}
           schoolHour={schoolHour}
+          sidebarGroups={sidebarGroups}
+          staffRoleLabel={staffRoleLabel}
           sessionPill={
             <Suspense
               fallback={
@@ -216,6 +239,8 @@ export function DashboardShell({
         <MobileBottomNav
           staffRole={staffRole}
           items={mobileItems}
+          moreGroups={mobileMoreGroups}
+          staffRoleLabel={staffRoleLabel}
           staffEmail={staffEmail}
           countsPromise={mobileNavCountsPromise}
         />

@@ -73,7 +73,7 @@ export function Section({
           <h2 id={headingId} className="text-[15px] font-semibold text-foreground">
             {primary(title, language)}
             {titleUnder ? (
-              <span className="ml-2 text-[13px] font-normal text-subtle-foreground">
+              <span className="ml-2 text-[13px] font-normal text-muted-foreground">
                 {titleUnder}
               </span>
             ) : null}
@@ -82,7 +82,7 @@ export function Section({
             <p className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
               {primary(description, language)}
               {descriptionUnder ? (
-                <span className="ml-1.5 opacity-75">{descriptionUnder}</span>
+                <span className="ml-1.5">{descriptionUnder}</span>
               ) : null}
             </p>
           ) : null}
@@ -114,7 +114,7 @@ export function Label({
     >
       {primary(text, language)}
       {under ? (
-        <span className="ml-2 text-[13px] font-normal text-subtle-foreground">
+        <span lang="en" className="ml-2 text-[13px] font-normal text-muted-foreground">
           {under}
         </span>
       ) : null}
@@ -124,7 +124,7 @@ export function Label({
 
 const FIELD_CLASSES =
   "w-full rounded-xl border border-border bg-surface px-4 text-base text-foreground " +
-  "placeholder:text-subtle-foreground focus-ring focus-visible:border-accent " +
+  "placeholder:text-muted-foreground focus-ring focus-visible:border-accent " +
   "disabled:opacity-60 disabled:bg-surface-2 " +
   // aria-invalid rather than a prop: the browser and the server action both
   // already speak it, so the styling follows the semantics for free.
@@ -200,7 +200,7 @@ export function Field({
           className="text-[13px] text-destructive-soft-foreground"
         >
           {primary(error, language)}
-          {errorUnder ? <span className="ml-1.5 opacity-80">{errorUnder}</span> : null}
+          {errorUnder ? <span className="ml-1.5">{errorUnder}</span> : null}
         </p>
       ) : null}
     </div>
@@ -233,7 +233,7 @@ export function Checkbox({
       <span className="text-[15px] text-foreground">
         {primary(label, language)}
         {under ? (
-          <span className="ml-2 text-[13px] text-subtle-foreground">{under}</span>
+          <span className="ml-2 text-[13px] text-muted-foreground">{under}</span>
         ) : null}
       </span>
     </label>
@@ -299,7 +299,7 @@ export function Notice({
       className={cn("rounded-xl border px-4 py-3", TONES[tone], className)}
     >
       <p className="text-[15px] font-medium leading-6">{primary(text, language)}</p>
-      {under ? <p className="mt-0.5 text-[13px] leading-5 opacity-80">{under}</p> : null}
+      {under ? <p lang="en" className="mt-0.5 text-[13px] leading-5">{under}</p> : null}
       {children ? <div className="mt-3">{children}</div> : null}
     </div>
   );
@@ -326,7 +326,7 @@ export function DetailList({
           >
             <dt className="shrink-0 text-[14px] text-muted-foreground">
               {primary(item.label, language)}
-              {under ? <span className="ml-1.5 opacity-75">{under}</span> : null}
+              {under ? <span className="ml-1.5">{under}</span> : null}
             </dt>
             <dd className="min-w-0 text-right text-[15px] font-medium text-foreground">
               {item.value}

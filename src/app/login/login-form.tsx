@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
@@ -43,6 +43,10 @@ export function LoginForm({ language }: { language: Language }) {
   const next = searchParams.get("next") ?? "/dashboard";
   const reason = REASONS[searchParams.get("reason") ?? ""];
   const failed = state.status === "error";
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (failed) errorRef.current?.focus();
+  }, [failed, state.message]);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -67,6 +71,7 @@ export function LoginForm({ language }: { language: Language }) {
           inputMode="email"
           placeholder="name@vpps.co.in"
           aria-invalid={failed || undefined}
+          aria-describedby={failed ? "login-error" : undefined}
         />
       </Field>
 
@@ -78,11 +83,14 @@ export function LoginForm({ language }: { language: Language }) {
           required
           autoComplete="current-password"
           aria-invalid={failed || undefined}
+          aria-describedby={failed ? "login-error" : undefined}
         />
       </Field>
 
       {failed && state.message ? (
-        <Notice tone="danger" text={state.message} language={language} />
+        <div id="login-error" ref={errorRef} tabIndex={-1} className="focus-ring rounded-xl">
+          <Notice tone="danger" text={state.message} language={language} />
+        </div>
       ) : null}
 
       <Button

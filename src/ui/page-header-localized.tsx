@@ -70,7 +70,7 @@ export function PageHeader({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           {eyebrow ? (
-            <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-subtle-foreground">
+            <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {/* One language: this is a date or a section name, and two of
                   them stacked above the title is noise above the point. */}
               {primary(eyebrow, language)}
@@ -80,13 +80,13 @@ export function PageHeader({
             {primary(title, language)}
           </h1>
           {titleUnder ? (
-            <p className="text-[13px] text-subtle-foreground">{titleUnder}</p>
+            <p className="text-[13px] text-muted-foreground">{titleUnder}</p>
           ) : null}
           {description ? (
             <p className="mt-1.5 text-[14px] leading-6 text-muted-foreground">
               {primary(description, language)}
               {descriptionUnder ? (
-                <span className="ml-1.5 opacity-80">{descriptionUnder}</span>
+                <span className="ml-1.5">{descriptionUnder}</span>
               ) : null}
             </p>
           ) : null}

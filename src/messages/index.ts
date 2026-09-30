@@ -14,6 +14,7 @@ import { t } from "@/platform/i18n/language";
  */
 
 export const m = {
+  skipToContent: t("मुख्य सामग्री पर जाएँ", "Skip to main content"),
   /* ------------------------------------------------------------- general */
   appName: t("VPPS One", "VPPS One"),
   save: t("सहेजें", "Save"),

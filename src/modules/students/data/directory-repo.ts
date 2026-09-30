@@ -4,6 +4,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
+import { chunkArray, fetchAllPages } from "@/platform/helpers/chunk";
 import {
   normaliseQuery,
   pageWindow,
@@ -15,8 +16,8 @@ import {
 /**
  * The student directory: search the fee app's roster, scoped to this session.
  *
- * **Filtered and counted in Postgres, not in the browser.** The staff list is
- * a few dozen and ships whole (D-29); the roster is a few hundred and will be
+ * **Filtered in Postgres and paginated on the server, not in the browser.**
+ * The staff list is a few dozen and ships whole (D-29); the roster is a few hundred and will be
  * a few thousand, and PostgREST truncates a read at a thousand rows with no
  * error at all (D-62). A directory that fetched everything would work today
  * and start silently hiding children the year the school grew.
@@ -44,6 +45,12 @@ export type DirectoryPage = {
   window: PageWindow;
 };
 
+type EnrolmentRow = { student_id: string; class_id: string; roll_no: string | null };
+
+// A UUID filter must fit behind ordinary proxy URL limits, even after encoding.
+const DIRECTORY_ID_CHUNK_SIZE = 100;
+const nameOrder = new Intl.Collator("en", { sensitivity: "variant" });
+
 type StudentRow = {
   id: string;
   full_name: string;
@@ -67,20 +74,21 @@ export async function searchStudents(
    * the one that answers "who was in this class in this session".
    */
   const supabase = await createClient();
-  let enrolmentQuery = supabase
-    .from("enrolments")
-    .select("student_id, class_id, roll_no")
-    .eq("session_label", sessionLabel)
-    .eq("status", "enrolled");
-
-  if (query.classId) enrolmentQuery = enrolmentQuery.eq("class_id", query.classId);
-
-  const { data: enrolments, error: enrolmentError } = await enrolmentQuery.returns<
-    { student_id: string; class_id: string; roll_no: string | null }[]
-  >();
+  const { data: enrolments, error: enrolmentError } = await fetchAllPages<EnrolmentRow>(
+    (from, to) => {
+      let roll = supabase
+        .from("enrolments")
+        .select("student_id, class_id, roll_no")
+        .eq("session_label", sessionLabel)
+        .eq("status", "enrolled");
+      if (query.classId) roll = roll.eq("class_id", query.classId);
+      return roll.order("student_id").range(from, to).returns<EnrolmentRow[]>();
+    },
+    200,
+  );
 
   if (enrolmentError) {
-    throw new Error(`Could not read the roll: ${enrolmentError.message}`);
+    throw new Error(`Could not read the roll: ${(enrolmentError as { message?: string }).message ?? "unknown error"}`);
   }
 
   const inScope = new Map(
@@ -94,51 +102,63 @@ export async function searchStudents(
   const text = normaliseQuery(query.text);
   const kind = queryKind(text);
 
-  let search = createAdminClient()
-    .schema(FEE_SCHEMA)
-    .from("students")
-    .select("id, full_name, admission_no, father_name, guardian_phone", {
-      count: "exact",
-    })
-    .in("id", [...inScope.keys()]);
+  const admin = createAdminClient();
+  const buildSearch = (ids: string[], columns: string) => {
+    let search = admin
+      .schema(FEE_SCHEMA)
+      .from("students")
+      .select(columns)
+      .in("id", ids);
 
-  if (kind === "admission") {
-    // Exact, not a substring: typing "12" must not return every child whose
-    // admission number happens to contain a 12.
-    search = search.eq("admission_no", text);
-  } else if (kind === "phone") {
-    const digits = text.replace(/\D/g, "");
-    search = search.or(`guardian_phone.eq.${digits},primary_phone.eq.${digits}`);
-  } else if (kind === "name") {
-    // Loose, and across three columns. The father's name, because the office is
-    // as likely to be given "Sharma's daughter" as a child's own full name —
-    // and the admission number, because this school issues alphanumeric ones
-    // (`TEST-CL6-002`), which the bare-number branch above never sees. Without
-    // it, pasting an SR from a spreadsheet searches only names and finds
-    // nothing, which reads as "that child is not here".
-    const escaped = text.replace(/[%,()]/g, " ");
-    search = search.or(
-      `full_name.ilike.%${escaped}%,father_name.ilike.%${escaped}%,admission_no.ilike.%${escaped}%`,
-    );
+    if (kind === "admission") {
+      // Exact, not a substring: typing "12" must not return every child whose
+      // admission number happens to contain a 12.
+      search = search.eq("admission_no", text);
+    } else if (kind === "phone") {
+      const digits = text.replace(/\D/g, "");
+      search = search.or(`guardian_phone.eq.${digits},primary_phone.eq.${digits}`);
+    } else if (kind === "name") {
+      // Office staff search a child's name, father's name or alphanumeric SR.
+      // Keep all three columns; bare-number admissions stay exact above.
+      const escaped = text.replace(/[%,()]/g, " ");
+      search = search.or(
+        `full_name.ilike.%${escaped}%,father_name.ilike.%${escaped}%,admission_no.ilike.%${escaped}%`,
+      );
+    }
+
+    return search;
+  };
+
+  // Apply the same SQL search to disjoint, bounded ID chunks. Only names/IDs
+  // are needed to form the global order and exact count; contact details for
+  // the other pages never leave Postgres. Fetching a page per chunk would
+  // scramble pagination; slicing happens only after the global merge.
+  const matches: { id: string; full_name: string }[] = [];
+  for (const ids of chunkArray([...inScope.keys()], DIRECTORY_ID_CHUNK_SIZE)) {
+    const { data, error } = await buildSearch(ids, "id, full_name")
+      .order("full_name").order("id")
+      .range(0, ids.length - 1)
+      .returns<{ id: string; full_name: string }[]>();
+    if (error) throw new Error(`Could not search the students: ${error.message}`);
+    matches.push(...(data ?? []));
   }
-
-  // A count first, so the page window is right before the rows are asked for.
-  const { count, error: countError } = await search.range(0, 0);
-  if (countError) {
-    throw new Error(`Could not search the students: ${countError.message}`);
-  }
-
-  const total = count ?? 0;
+  // Stable alphabetical ordering across chunks, including equal names. This
+  // server-side collation is independent of the viewer's chosen UI language.
+  matches.sort((a, b) => nameOrder.compare(a.full_name, b.full_name) || a.id.localeCompare(b.id));
+  const total = matches.length;
   const window = pageWindow(query.page, total);
-
   if (total === 0) return { rows: [], total, window };
 
-  const { data, error } = await search
-    .order("full_name")
-    .range(window.from, window.to)
-    .returns<StudentRow[]>();
-
+  const pageIds = matches.slice(window.from, window.to + 1).map((row) => row.id);
+  const { data: pageRows, error } = await buildSearch(
+    pageIds, "id, full_name, admission_no, father_name, guardian_phone",
+  ).range(0, pageIds.length - 1).returns<StudentRow[]>();
   if (error) throw new Error(`Could not search the students: ${error.message}`);
+  const byId = new Map((pageRows ?? []).map((row) => [row.id, row]));
+  const data = pageIds.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [row] : [];
+  });
 
   return {
     rows: (data ?? []).map((row) => {

@@ -127,20 +127,19 @@ export async function MobileDashboardScreen({
           Settings, which is where the old account menu now lives. */}
       <div className="flex items-start justify-between gap-2.5 pt-1">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-extrabold leading-tight tracking-tight text-foreground">
+          <h1 className="break-words text-2xl font-bold leading-tight tracking-tight text-foreground">
             {greeting}
           </h1>
-          <p className="truncate text-[11.5px] font-medium text-muted-foreground">{dateLine}</p>
+          <p className="mt-1 break-words text-sm leading-5 text-muted-foreground">{dateLine}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <ConnectionPill />
           {/* Cross-module search. The palette exists on every phone already;
               this is its first reachable entry point below md. */}
           <MobileCommandTrigger />
           <Link
             href={settingsHref}
             aria-label={t("account")}
-            className="focus-ring grid size-9 shrink-0 place-items-center rounded-full bg-nav text-[11.5px] font-extrabold text-nav-foreground"
+            className="focus-ring grid size-11 shrink-0 place-items-center rounded-full bg-nav text-[11.5px] font-extrabold text-nav-foreground"
           >
             {staffInitials}
           </Link>
@@ -148,12 +147,13 @@ export async function MobileDashboardScreen({
       </div>
 
       {/* Session switching was in the removed app bar — it stays one tap away. */}
-      <div className="flex justify-start">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <MobileSessionPill
           currentLabel={sessionLabel}
           isTest={sessionIsTest}
           initialSessions={sessionOptions}
         />
+        <ConnectionPill />
       </div>
 
       {/* ── Money taken today ─────────────────────────────────────────── */}
@@ -293,7 +293,7 @@ export async function MobileDashboardScreen({
         </Link>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className={canViewDefaulters ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
         {canViewDefaulters ? (
           <Link
             href={withSession("/fees/defaulters")}
@@ -337,7 +337,7 @@ export async function MobileDashboardScreen({
           action={
             <Link
               href={withSession("/fees/defaulters")}
-              className="focus-ring inline-flex items-center gap-1 text-[11px] font-extrabold text-accent"
+              className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-sm font-semibold text-accent-soft-foreground"
             >
               {t("seeAll")}
               <ArrowRight className="size-3" aria-hidden="true" />
@@ -346,12 +346,12 @@ export async function MobileDashboardScreen({
         >
           <ul className="flex flex-col gap-2.5">
             {topCalls.map((row) => (
-              <li key={row.studentId} className="flex items-center gap-2.5">
+              <li key={row.studentId} className="flex min-w-0 flex-wrap items-center gap-2.5">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12.5px] font-bold text-foreground">
+                  <span className="block break-words text-sm font-semibold leading-5 text-foreground">
                     {row.studentName}
                   </span>
-                  <span className="block truncate text-[10.5px] font-medium text-muted-foreground">
+                  <span className="mt-0.5 block break-words text-xs leading-5 text-muted-foreground">
                     {row.classLabel}
                     {row.nextDueLabel ? ` · ${row.nextDueLabel}` : ""}
                   </span>
@@ -363,7 +363,7 @@ export async function MobileDashboardScreen({
                   <a
                     href={`tel:${row.fatherPhone}`}
                     aria-label={`${t("callAction")} ${row.studentName}`}
-                    className="focus-ring grid size-9 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground"
+                    className="focus-ring grid size-11 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground"
                   >
                     <Phone className="size-4" aria-hidden="true" />
                   </a>

@@ -802,7 +802,7 @@
   }
 
   .mobile-bottom-nav-clearance {
-    padding-bottom: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-area-bottom));
+    padding-bottom: var(--mobile-bottom-nav-offset);
   }
 }
 
@@ -828,7 +828,7 @@ body[data-vpps-test-session="true"]::before {
 @media (max-width: 767px) {
   body[data-vpps-test-session="true"]::before {
     top: auto;
-    bottom: calc(var(--mobile-bottom-nav-height, 4.25rem) + var(--mobile-safe-area-bottom, 0px) + 8px);
+    bottom: calc(var(--mobile-bottom-nav-offset, 4.25rem) + 8px);
   }
 }
 
@@ -892,7 +892,86 @@ body[data-vpps-test-session="true"]::before {
    fee app has no equivalent for belongs below.
    ===================================================================== */
 
+/* VPPS readable metadata: the copied 56%-lightness gray is only ~3.3:1 on
+   paper at small sizes. This deliberate accessibility override keeps the
+   original token names/compiler contract, while meeting text contrast on all
+   three neutral surfaces. D-196 records the divergence from the fee reference. */
+@layer base {
+  :root:not(.dark) {
+    --subtle-foreground: 222 6% 42%;
+  }
+
+  .dark {
+    --subtle-foreground: 44 8% 68%;
+  }
+}
+
+@media print {
+  .dark {
+    --subtle-foreground: 222 6% 42%;
+  }
+}
+
+
 @layer utilities {
+  /* VPPS mobile refresh: readable type and generous task spacing, keeping
+     the shared colour/radius vocabulary and the documented contrast override. */
+  .mobile-workspace-screen {
+    overflow-wrap: anywhere;
+  }
+
+  /* One restrained entrance per screen or overlay. The children keep their
+     positions; transform/opacity-only motion never moves a neighbouring row. */
+  .anim-workspace-enter {
+    animation: workspace-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .anim-sheet-enter {
+    animation: sheet-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .anim-panel-enter {
+    animation: panel-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .mobile-workspace-screen .mobile-eyebrow {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+  }
+
+  .mobile-workspace-screen .mobile-row-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .mobile-workspace-screen .mobile-row-meta {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 767px) {
+    .mobile-app-main {
+      scroll-padding-block: 5rem calc(var(--mobile-bottom-nav-offset) + var(--keyboard-offset, 0px) + 1rem);
+    }
+
+    .mobile-app-main :is(input, select, textarea, button, a[href]) {
+      scroll-margin-block: 5rem;
+    }
+
+    .mobile-app-main[data-bottom-nav="true"] {
+      padding-bottom: calc(var(--mobile-bottom-nav-offset) + var(--keyboard-offset, 0px) + 1rem);
+    }
+
+    /* Compact density remains useful on a desk, never at the expense of a
+       phone hit target or a readable input. */
+    [data-density] .density-input {
+      min-height: 2.75rem;
+      font-size: 1rem;
+    }
+  }
+
   /* Reserve the fixed bottom bar on a scrolling page. The fee app solves
      this with `.mobile-bottom-nav-clearance`; this is the name VPPS One's
      25 existing call sites already use, kept as an alias rather than
@@ -904,6 +983,29 @@ body[data-vpps-test-session="true"]::before {
   /* Alias of `.mobile-safe-bottom-padding`, same reason. */
   .safe-bottom {
     padding-bottom: var(--mobile-safe-area-bottom);
+  }
+}
+
+@keyframes workspace-enter {
+  /* A transformed screen creates a containing block for fixed payment CTAs.
+     Fade the screen only; panels own the small spatial entrance. */
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sheet-enter {
+  from { opacity: 0; transform: translate3d(0, 20px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes panel-enter {
+  from { opacity: 0; transform: translate3d(16px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-workspace-enter, .anim-sheet-enter, .anim-panel-enter {
+    animation: none !important;
   }
 }
 

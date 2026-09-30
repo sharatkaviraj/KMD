@@ -1821,6 +1821,7 @@ export function PaymentDeskClient({
 
       {mobileSheetView ? <MobilePaymentFlowSheet
         view={mobileSheetView}
+        suspended={isConfirmOpen || isSuccessOpen || isDuplicateOpen || showPostingSheet}
         onClose={() => setMobileSheetView(null)}
         onOpenClassPicker={() => setMobileSheetView("class-picker")}
         classOptions={classOptions}

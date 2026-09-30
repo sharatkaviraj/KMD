@@ -22,12 +22,14 @@ import {
 import { ThemeToggle } from "@/ui/primitives/theme-toggle";
 import { CommandTrigger } from "@/ui/command/command-trigger";
 
-import { SidebarNav } from "./sidebar-nav";
+import { SidebarNav, type SidebarNavGroup } from "./sidebar-nav";
 import { StatusBadge } from "./status-badge";
 
 type AppTopBarProps = {
   staffEmail: string;
   staffRole: StaffRole;
+  sidebarGroups?: readonly SidebarNavGroup[];
+  staffRoleLabel?: string;
   /** Current hour in school time (IST), resolved on the server. */
   schoolHour: number;
   sessionPill?: ReactNode;
@@ -54,14 +56,16 @@ function firstNameOf(email: string) {
 }
 
 function greetingForHour(hour: number) {
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+  if (hour < 12) return "goodMorning";
+  if (hour < 17) return "goodAfternoon";
+  return "goodEvening";
 }
 
 export function AppTopBar({
   staffEmail,
   staffRole,
+  sidebarGroups,
+  staffRoleLabel,
   schoolHour,
   sessionPill,
   localeSwitcher,
@@ -70,16 +74,18 @@ export function AppTopBar({
   const searchParams = useSearchParams();
   const routeMeta = getProtectedRouteMeta(pathname);
   const passwordHref = appendCurrentSessionParam("/fees/password", searchParams);
+  const t = useTranslations("Navigation");
   const tRoles = useTranslations("Roles");
-  const roleLabel = tRoles.has(staffRole) ? tRoles(staffRole) : roleLabels[staffRole];
+  const roleLabel = staffRoleLabel ?? (tRoles.has(staffRole) ? tRoles(staffRole) : roleLabels[staffRole]);
   // On the dashboard the route label gives no information the page itself
   // doesn't — greet the person instead (Ledger Calm 2.0). The hour comes from
   // the server in school time, so the greeting is correct on first paint
   // instead of flashing "Welcome," and swapping after hydration.
   const isDashboard = pathname.startsWith("/fees/dashboard");
+  const nativeLabel = sidebarGroups?.flatMap((group) => group.items).filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]?.label;
   const headline = isDashboard
-    ? `${greetingForHour(schoolHour)}, ${firstNameOf(staffEmail)}`
-    : routeMeta.label;
+    ? t(greetingForHour(schoolHour), { name: firstNameOf(staffEmail) })
+    : nativeLabel ?? routeMeta.label;
 
   return (
     <header className="z-20 hidden border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 print:hidden md:sticky md:top-0 md:flex md:flex-col">
@@ -102,7 +108,7 @@ export function AppTopBar({
           <DropdownMenu>
             <DropdownMenuTrigger
               className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-2 focus-ring"
-              aria-label="Account menu"
+              aria-label={t("accountMenu")}
             >
               <span className="grid size-7 place-items-center rounded-full bg-surface-2 text-[11px] font-semibold uppercase text-foreground">
                 {initialsOf(staffEmail)}
@@ -125,14 +131,14 @@ export function AppTopBar({
               <DropdownMenuItem asChild>
                 <Link href={passwordHref} className="flex items-center gap-2">
                   <KeyRound className="size-4 text-muted-foreground" aria-hidden="true" />
-                  Change password
+                  {t("changePassword")}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <form action={logoutAction}>
                 <DropdownMenuItem asChild>
                   <SignOutSubmit className="flex w-full items-center gap-2 text-destructive focus:text-destructive">
-                    Sign out
+                    {t("signOut")}
                   </SignOutSubmit>
                 </DropdownMenuItem>
               </form>
@@ -143,7 +149,7 @@ export function AppTopBar({
 
       {/* Tablet (md) compact nav — sidebar hidden, bottom-nav also hidden here. */}
       <div className="hidden border-t border-border bg-background/60 px-4 py-2 sm:px-6 md:block lg:hidden">
-        <SidebarNav staffRole={staffRole} mode="topbar" />
+        <SidebarNav staffRole={staffRole} groups={sidebarGroups} mode="topbar" />
       </div>
     </header>
   );

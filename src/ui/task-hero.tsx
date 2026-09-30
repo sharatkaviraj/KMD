@@ -43,7 +43,7 @@ export function TaskHero({
       aria-labelledby="task-hero-title"
       className="rounded-2xl border border-accent/25 bg-accent-soft p-5"
     >
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-accent-soft-foreground/75">
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-accent-soft-foreground">
         {flat(eyebrow, language)}
       </p>
 
@@ -54,11 +54,11 @@ export function TaskHero({
         {primary(title, language)}
       </h2>
       {titleUnder ? (
-        <p className="text-[14px] text-accent-soft-foreground/80">{titleUnder}</p>
+        <p className="text-[14px] text-accent-soft-foreground">{titleUnder}</p>
       ) : null}
 
       {detail ? (
-        <p className="mt-2 text-[15px] leading-6 text-accent-soft-foreground/90">
+        <p className="mt-2 text-[15px] leading-6 text-accent-soft-foreground">
           {primary(detail, language)}
         </p>
       ) : null}
@@ -123,7 +123,7 @@ export function MetricCard({
         {value}
       </p>
       {detail ? (
-        <p className="mt-1.5 text-[12px] leading-4 text-subtle-foreground">
+        <p className="mt-1.5 text-[12px] leading-4 text-muted-foreground">
           {primary(detail, language)}
         </p>
       ) : null}

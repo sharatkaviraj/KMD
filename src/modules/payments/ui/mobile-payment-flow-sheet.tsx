@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+import { Sheet } from "@/ui/primitives/sheet";
 import { useTranslations } from "next-intl";
 
 import { MobileStepRail } from "@/ui/mobile/mobile-kit";
 import { useKeyboardOffset } from "@/ui/hooks/use-keyboard-offset";
+import { useMediaQuery } from "@/ui/hooks/use-media-query";
 import { UpiQrCode } from "@/modules/payments/ui/upi-qr-code";
 import { buildStudentFeeUpiPayment } from "@/modules/payments/domain/upi";
 import { Button } from "@/ui/primitives/button";
@@ -32,6 +34,8 @@ const SEARCH_RESULT_PAGE_SIZE = 20;
 type MobilePaymentFlowSheetProps = {
   view: "class-picker" | "student-picker" | "payment-entry" | null;
   onClose: () => void;
+  /** A confirmation/receipt overlay owns interaction; retain this draft. */
+  suspended?: boolean;
   /**
    * A post is in flight. Without this the Collect button stayed enabled and
    * unchanged through the whole fast-post round trip, which is what made a cash
@@ -174,9 +178,25 @@ function SheetHandle({ swipeHandlers }: { swipeHandlers?: ReturnType<typeof useS
   );
 }
 
+function PaymentFlowCloseButton({ onClose, disabled }: { onClose: () => void; disabled: boolean }) {
+  const tCommon = useTranslations("Common");
+  return (
+    <button
+      type="button"
+      aria-label={tCommon("close")}
+      disabled={disabled}
+      onClick={onClose}
+      className="focus-ring grid size-11 shrink-0 place-items-center rounded-xl border border-border text-muted-foreground hover:bg-surface-2"
+    >
+      <X className="size-5" aria-hidden="true" />
+    </button>
+  );
+}
+
 export function MobilePaymentFlowSheet({
   view,
   onClose,
+  suspended = false,
   onOpenClassPicker,
   classOptions,
   selectedClassId,
@@ -246,6 +266,7 @@ export function MobilePaymentFlowSheet({
   // directive to fall back to the hand-written memoisation.
   "use memo";
   const tMobile = useTranslations("MobileApp");
+  const isMobileView = useMediaQuery("(max-width: 767px)");
   const [pendingHeadsExpanded, setPendingHeadsExpanded] = React.useState(false);
   const [overdueHeadsExpanded, setOverdueHeadsExpanded] = React.useState(false);
   const amountInputRef = React.useRef<HTMLInputElement>(null);
@@ -276,7 +297,7 @@ export function MobilePaymentFlowSheet({
 
   // Focus amount input as soon as student data is available (not after preview loads)
   React.useEffect(() => {
-    if (view !== "payment-entry") return;
+    if (view !== "payment-entry" || suspended || !isMobileView) return;
     if (hasFocusedRef.current) return;
     if (studentSummaryLoading) return;
     hasFocusedRef.current = true;
@@ -284,17 +305,19 @@ export function MobilePaymentFlowSheet({
       amountInputRef.current?.focus({ preventScroll: true });
     }, 150);
     return () => clearTimeout(timer);
-  }, [view, studentSummaryLoading]);
+  }, [view, studentSummaryLoading, suspended, isMobileView]);
 
-  const classPickerSwipe = useSwipeDown(onClose);
-  const studentPickerSwipe = useSwipeDown(onBackToClassPicker);
-  const paymentEntrySwipe = useSwipeDown(onBackToStudentPicker);
+  const classPickerSwipe = useSwipeDown(() => { if (!isPosting) onClose(); });
+  const studentPickerSwipe = useSwipeDown(() => { if (!isPosting) onBackToClassPicker(); });
+  const paymentEntrySwipe = useSwipeDown(() => {
+    if (!isPosting) onBackToStudentPicker();
+  });
 
   // Portal the sheet to <body> so its z-index is evaluated in the body
   // stacking context, not trapped inside the Payment Desk page tree. Without
   // this, the fixed bottom navigation bar (rendered higher in the shell) paints
-  // over the sheet's bottom action button on mobile. This mirrors how
-  // ConfirmReceiptSheet and SuccessReceiptSheet already escape via createPortal.
+  // over the sheet's bottom action button on mobile. The shared Sheet owns the
+  // portal, modal focus, inert background and counted scroll lock.
   const [mounted, setMounted] = React.useState(false);
   /**
    * Progressive reveal for the global search results. This list used to be
@@ -314,16 +337,23 @@ export function MobilePaymentFlowSheet({
   React.useEffect(() => setMounted(true), []);
 
   if (view === null) return null;
-  if (!mounted) return null;
+  if (!mounted || !isMobileView) return null;
 
   const selectedClassLabel = classOptions.find((classOption) => classOption.id === selectedClassId)?.label ?? "All classes";
   const showTodayReceiptWarning = latestReceiptToday && latestReceiptToday.id !== dismissedTodayReceiptId;
   const disablePaymentActions = isLockedAfterSuccess || !canPost;
 
   const sheet = (
-    <div className="fixed inset-0 z-[45] md:hidden">
+    <Sheet
+      open
+      layout="custom"
+      suspended={suspended}
+      onClose={() => { if (!isPosting) onClose(); }}
+      historyDismiss={false}
+      aria-label={tMobile(view === "class-picker" ? "paymentFlowClassDialog" : view === "student-picker" ? "paymentFlowStudentDialog" : "paymentFlowEntryDialog")}
+    >
       {view !== "payment-entry" ? (
-        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+        <div data-payment-flow-backdrop className="absolute inset-0 bg-black/40" onClick={() => { if (!isPosting) onClose(); }} />
       ) : null}
 
       {view === "class-picker" ? (
@@ -339,14 +369,17 @@ export function MobilePaymentFlowSheet({
           }}
         >
           <SheetHandle swipeHandlers={classPickerSwipe} />
-          <h2 className="px-4 pb-2 text-base font-semibold text-foreground">Collect Payment</h2>
+          <div className="flex-none flex items-center justify-between gap-3 px-4 pb-2">
+            <h2 className="text-base font-semibold text-foreground">{tMobile("paymentFlowTitle")}</h2>
+            <PaymentFlowCloseButton onClose={onClose} disabled={isPosting} />
+          </div>
           <div className="flex-none px-3 pb-2">
             <Input
               placeholder="Search any student by name or SR no…"
               value={studentSearchQuery}
               onChange={(event) => onStudentSearchChange(event.target.value)}
               autoComplete="off"
-              aria-label="Search students directly"
+              aria-label={tMobile("paymentFlowSearchDirect")}
               /* No scroll-into-view on focus. This panel is already stretched
                  between `top: max(56px, …)` and `bottom: var(--keyboard-offset)`,
                  and the search box is second from its top — the keyboard
@@ -479,6 +512,10 @@ export function MobilePaymentFlowSheet({
           }}
         >
           <SheetHandle swipeHandlers={studentPickerSwipe} />
+          <div className="flex-none flex items-center justify-between gap-3 px-4 pb-2">
+            <h2 className="text-base font-semibold text-foreground">{tMobile("paymentFlowStudentTitle")}</h2>
+            <PaymentFlowCloseButton onClose={onClose} disabled={isPosting} />
+          </div>
           <MobileStepRail
             step={1}
             label={tMobile("stepOf", { step: 1, total: 4, label: tMobile("stepWho") })}
@@ -498,6 +535,7 @@ export function MobilePaymentFlowSheet({
           <div className="flex-none px-3 pb-2">
             <Input
               ref={studentSearchInputRef}
+              aria-label={tMobile("paymentFlowSearchClass")}
               role="combobox"
               aria-haspopup="listbox"
               aria-expanded
@@ -642,6 +680,10 @@ export function MobilePaymentFlowSheet({
         >
           <KeyboardScrollCorrection active targetRef={amountInputRef} />
           <SheetHandle swipeHandlers={paymentEntrySwipe} />
+          <div className="flex-none flex items-center justify-between gap-3 px-4 pb-2">
+            <h2 className="text-base font-semibold text-foreground">{tMobile("paymentFlowEntryTitle")}</h2>
+            <PaymentFlowCloseButton onClose={onClose} disabled={isPosting} />
+          </div>
           {/* One loading signal at a time. The skeleton below owns the
               first load (it communicates shape, which reads better on a
               phone); this bar is only for a background refresh over content
@@ -889,7 +931,7 @@ export function MobilePaymentFlowSheet({
                       autoCapitalize="off"
                       autoCorrect="off"
                       placeholder="0"
-                      aria-label="Amount received"
+                      aria-label={tMobile("paymentFlowAmountLabel")}
                       size={1}
                       className={cn(
                         'font-display-money w-auto min-w-0 max-w-full bg-transparent text-[46px] leading-none tabular-nums outline-none',
@@ -1446,6 +1488,7 @@ export function MobilePaymentFlowSheet({
             <div className="flex-none border-t border-border px-3 py-2">
               <div className="flex items-center gap-2">
                 <Input
+                  aria-label={tMobile("paymentFlowDateLabel")}
                   type="date"
                   value={paymentDate}
                   onChange={(event) => onSetPaymentDate(event.target.value)}
@@ -1503,8 +1546,8 @@ export function MobilePaymentFlowSheet({
           </div>
         </div>
       ) : null}
-    </div>
+    </Sheet>
   );
 
-  return createPortal(sheet, document.body);
+  return sheet;
 }

@@ -12,8 +12,8 @@ type InputProps = React.ComponentProps<"input"> & {
 };
 
 const sizeClasses: Record<NonNullable<InputProps["inputSize"]>, string> = {
-  sm: "h-8 px-3 text-sm max-md:h-10",
-  default: "h-9 px-3 text-sm max-md:h-11",
+  sm: "h-8 px-3 text-sm max-md:h-11 max-md:text-base",
+  default: "h-9 px-3 text-sm max-md:h-12 max-md:text-base",
   lg: "h-11 px-4 text-base",
 };
 

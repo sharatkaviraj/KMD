@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { GraduationCap } from "lucide-react";
 
 import { LoginForm } from "@/app/login/login-form";
 import { m } from "@/messages";
@@ -46,20 +47,30 @@ export default async function LoginPage() {
   const language = await readLanguageCookie();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-10">
-      <div className="mb-8 space-y-3">
-        <EnvironmentBadgeOnPaper language={language} />
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          VPPS One
-        </h1>
-        <p className="text-[15px] leading-6 text-muted-foreground">{getSchoolName()}</p>
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mb-6 flex flex-wrap items-center gap-3 px-1">
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-nav text-nav-foreground" aria-hidden="true">
+          <GraduationCap className="size-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-semibold tracking-tight text-foreground">VPPS One</p>
+          <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{getSchoolName()}</p>
+        </div>
       </div>
+      <section lang={language === "en" ? "en" : "hi"} aria-labelledby="login-heading" className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+        <div className="mb-6 space-y-3">
+          <EnvironmentBadgeOnPaper language={language} />
+          <h1 id="login-heading" className="text-2xl font-semibold leading-tight tracking-tight text-foreground">
+            {primary(m.signInTitle, language)}
+          </h1>
+        </div>
 
-      {/* useSearchParams() needs a boundary; without one the whole route is
+        {/* useSearchParams() needs a boundary; without one the whole route is
           forced dynamic at build time. */}
-      <Suspense fallback={<div className="h-72" aria-label={flat(m.loading, language)} />}>
-        <LoginForm language={language} />
-      </Suspense>
+        <Suspense fallback={<div className="h-72" aria-label={flat(m.loading, language)} />}>
+          <LoginForm language={language} />
+        </Suspense>
+      </section>
     </main>
   );
 }

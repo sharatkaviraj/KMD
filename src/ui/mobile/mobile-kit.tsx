@@ -34,7 +34,7 @@ export function MobileScreen({
   className?: string;
 }) {
   return (
-    <div className={cn("anim-slide-up flex flex-col gap-2.5 pb-2", className)}>
+    <div className={cn("mobile-workspace-screen anim-workspace-enter mx-auto flex w-full min-w-0 max-w-xl flex-col gap-4 pb-4", className)}>
       {children}
     </div>
   );
@@ -62,7 +62,7 @@ export function MobileCard({
   return (
     <Tag
       className={cn(
-        "rounded-xl border border-border bg-card p-4",
+        "rounded-2xl border border-border bg-card p-4",
         animate && "anim-settle-in",
         className,
       )}
@@ -85,7 +85,7 @@ export function InkCard({
       className={cn(
         // Always animates: this is the one hero card per screen, so it is the
         // arrival the design's `card-in` is describing.
-        "anim-settle-in relative overflow-hidden rounded-2xl bg-nav p-5 text-nav-foreground",
+        "relative overflow-hidden rounded-2xl bg-nav p-5 text-nav-foreground",
         className,
       )}
     >
@@ -116,7 +116,7 @@ export function HeroMoney({
   compact?: boolean;
 }) {
   return (
-    <p className={cn("font-display-money text-4xl leading-none", className)}>
+    <p className={cn("font-display-money break-words text-[clamp(1.75rem,8vw,2.5rem)] leading-tight", className)}>
       {formatInr(value, { compact })}
       {suffix ? <span className="text-base font-semibold">{suffix}</span> : null}
     </p>
@@ -174,23 +174,23 @@ export function MobileStatStrip({ stats }: { stats: MobileStat[] }) {
         <div
           key={stat.label}
           className={cn(
-            "px-1.5 py-3 text-center",
+            "min-w-0 px-2 py-4 text-center",
             index < stats.length - 1 && "border-r border-border/60",
           )}
         >
-          <p className="text-[9.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+          <p className="flex min-h-10 items-center justify-center break-words text-xs font-semibold leading-5 text-muted-foreground">
             {stat.label}
           </p>
           <p
             className={cn(
-              "tabular mt-1 text-base font-extrabold leading-tight",
+              "tabular mt-1 break-words text-lg font-bold leading-tight",
               statToneClass[stat.tone ?? "neutral"],
             )}
           >
             {stat.value}
           </p>
           {stat.meta ? (
-            <p className="text-[9.5px] leading-tight text-muted-foreground">{stat.meta}</p>
+            <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{stat.meta}</p>
           ) : null}
         </div>
       ))}
@@ -252,15 +252,15 @@ export function MobileRow({
     <div className={cn("flex min-h-[3.25rem] items-center gap-3", className)}>
       {icon}
       <span className="min-w-0 flex-1">
-        <span className="mobile-row-title block truncate text-foreground">{title}</span>
+        <span className="mobile-row-title block break-words text-foreground">{title}</span>
         {description ? (
-          <span className="mobile-row-meta block truncate text-muted-foreground">
+          <span className="mobile-row-meta mt-0.5 block break-words text-muted-foreground">
             {description}
           </span>
         ) : null}
       </span>
       {value ? (
-        <span className="tabular shrink-0 text-[12.5px] font-bold text-foreground">
+        <span className="tabular break-words text-sm font-semibold text-foreground">
           {value}
         </span>
       ) : null}
@@ -346,7 +346,7 @@ export function MobileNote({
       <span aria-hidden="true" className="text-base leading-tight">
         {icon}
       </span>
-      <p className="text-[11.5px] leading-relaxed text-muted-foreground">{children}</p>
+      <p className="text-sm leading-6 text-muted-foreground">{children}</p>
     </div>
   );
 }
@@ -366,8 +366,8 @@ export function MobileSectionCard({
 }) {
   return (
     <MobileCard className={className}>
-      <div className="flex items-baseline justify-between gap-2.5">
-        <h2 className="text-[13.5px] font-extrabold text-foreground">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 className="text-base font-bold leading-6 text-foreground">{title}</h2>
         {action}
       </div>
       <div className="mt-3">{children}</div>
@@ -456,21 +456,21 @@ export function MobileRecordCard({
   );
 
   return (
-    <li className={cn("rounded-xl border border-border bg-card p-3.5", className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[13.5px] font-extrabold leading-tight text-foreground">
+    <li className={cn("min-w-0 rounded-2xl border border-border bg-card p-4", className)}>
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-40">
+          <p className="break-words text-base font-bold leading-6 text-foreground">
             {title}
           </p>
           {subtitle ? (
-            <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
+            <p className="mt-1 break-words text-sm leading-5 text-muted-foreground">
               {subtitle}
             </p>
           ) : null}
         </div>
-        <div className="shrink-0 text-right">
+        <div className="min-w-0 max-w-full text-right [overflow-wrap:anywhere]">
           {amount ? (
-            <p className="tabular text-[14px] font-extrabold text-foreground">{amount}</p>
+            <p className="tabular break-words text-base font-bold text-foreground">{amount}</p>
           ) : null}
           {status ? <div className="mt-1 flex justify-end">{status}</div> : null}
         </div>
@@ -480,10 +480,10 @@ export function MobileRecordCard({
         <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-border pt-2.5">
           {shown.map((field) => (
             <div key={field.label} className="min-w-0">
-              <dt className="text-[9.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+              <dt className="break-words text-xs font-semibold leading-5 text-muted-foreground">
                 {field.label}
               </dt>
-              <dd className="truncate text-[12px] font-semibold text-foreground">
+              <dd className="break-words text-sm font-medium leading-6 text-foreground">
                 {field.value}
               </dd>
             </div>
@@ -492,7 +492,7 @@ export function MobileRecordCard({
       ) : null}
 
       {footnote ? (
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{footnote}</p>
+        <p className="mt-3 break-words text-sm leading-6 text-muted-foreground">{footnote}</p>
       ) : null}
 
       {actions ? (
@@ -538,7 +538,7 @@ export function MobileDesktopOnlyNotice({
       <div className="flex items-start gap-3">
         <Monitor className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0">
-          <p className="text-[13.5px] font-extrabold text-foreground">{title}</p>
+          <p className="text-base font-bold leading-6 text-foreground">{title}</p>
           <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{reason}</p>
         </div>
       </div>

@@ -16,6 +16,7 @@
  */
 
 import { Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@/platform/utils";
 
@@ -31,15 +32,16 @@ function fireOpen() {
 }
 
 export function MobileCommandTrigger({ className }: { className?: string }) {
+  const t = useTranslations("Common");
   return (
     <button
       type="button"
       onClick={fireOpen}
-      aria-label="Search students, receipts and actions"
+      aria-label={t("search")}
       className={cn(
         // The Home header's control vocabulary: a size-9 circle, like the
         // avatar it sits beside. md:hidden — the topbar pill takes over there.
-        "focus-ring grid size-9 shrink-0 place-items-center rounded-full border border-border bg-card text-muted-foreground md:hidden",
+        "focus-ring grid size-11 shrink-0 place-items-center rounded-full border border-border bg-card text-muted-foreground md:hidden",
         className,
       )}
     >

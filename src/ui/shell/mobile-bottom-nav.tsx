@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavCount, type NavCounts } from "@/ui/shell/nav-count";
 import { NAV_EVENT, NavLink, type NavPendingDetail } from "@/ui/shell/nav-link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type * as React from "react";
 import { type LucideIcon } from "lucide-react";
-import { ChevronRight, Ellipsis, X } from "lucide-react";
+import { ChevronRight, Ellipsis, LayoutGrid } from "lucide-react";
 
 import { type StaffRole } from "@/modules/fees/platform/roles";
 import {
@@ -15,7 +15,9 @@ import {
   getMobileMoreGroups,
   isMobileTakeoverRoute,
 } from "@/modules/fees/config/navigation";
-import { navIconFor } from "@/platform/config/navigation";
+import { Sheet } from "@/ui/primitives/sheet";
+import type { MobileMoreGroup } from "@/platform/config/mobile-navigation";
+import { activeNavHref, navIconFor } from "@/platform/config/navigation";
 import { appendCurrentSessionParam } from "@/platform/navigation/session-href";
 import { cn } from "@/platform/utils";
 
@@ -66,6 +68,8 @@ type MobileBottomNavProps = {
   countsPromise?: Promise<NavCounts>;
   /** Signed-in account, shown on the More hub's footer row. */
   staffEmail?: string;
+  staffRoleLabel?: string;
+  moreGroups?: readonly MobileMoreGroup[];
 };
 
 export function MobileBottomNav({
@@ -74,7 +78,10 @@ export function MobileBottomNav({
   counts,
   countsPromise,
   staffEmail,
+  staffRoleLabel,
+  moreGroups: injectedMoreGroups,
 }: MobileBottomNavProps) {
+  const navRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -94,21 +101,23 @@ export function MobileBottomNav({
   // Four, then More. The fee app fixes the fifth slot as an overflow hub
   // and this app's own bar does the same (MAX_TABS = 5), so the shapes
   // agree and only the source of the four differs.
-  const primaryItems = (injectedItems ?? getMobileBottomNavigation(staffRole)).slice(
-    0,
-    4,
+  const primaryItems = (injectedItems ?? getMobileBottomNavigation(staffRole))
+    .filter((item) => item.href !== "/more")
+    .slice(0, 4);
+  const moreGroups = useMemo(
+    () => injectedMoreGroups ?? getMobileMoreGroups(staffRole),
+    [injectedMoreGroups, staffRole],
   );
-  const moreGroups = useMemo(() => getMobileMoreGroups(staffRole), [staffRole]);
   const primaryHrefs = useMemo(
     () => new Set(primaryItems.map((item) => item.href)),
     [primaryItems],
   );
-  const overflowIsActive = moreGroups.some((group) =>
-    group.items.some((item) => {
-      if (primaryHrefs.has(item.href)) return false;
-      return pathname === item.href || pathname.startsWith(`${item.href}/`);
-    }),
-  );
+  const currentHref = activeNavHref(pathname, [
+    { href: "/preferences" },
+    ...primaryItems,
+    ...moreGroups.flatMap((group) => group.items),
+  ]);
+  const overflowIsActive = currentHref !== null && !primaryHrefs.has(currentHref);
   // Counts belonging to rows that now live behind More, summed onto the More
   // button. Rows already in the bar are skipped so a count is never shown twice.
   const selectOverflowCount = useCallback(
@@ -154,21 +163,53 @@ export function MobileBottomNav({
     return () => window.removeEventListener(NAV_EVENT, handleNav);
   }, []);
 
+  // A phone menu must release its modal lock when the viewport becomes a
+  // tablet. Hiding only the sheet panel would leave an invisible focus trap.
   useEffect(() => {
     if (!overflowOpen) return;
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOverflowOpen(false);
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = previousOverflow;
+    const tablet = window.matchMedia("(min-width: 768px)");
+    const closeOnTablet = () => {
+      if (tablet.matches) setOverflowOpen(false);
     };
+    closeOnTablet();
+    tablet.addEventListener("change", closeOnTablet);
+    return () => tablet.removeEventListener("change", closeOnTablet);
   }, [overflowOpen]);
+
+  // Wrapped labels and enlarged text can make the bar taller than its normal
+  // 68px footprint. Measure the real bar so the final task and fixed actions
+  // keep their clearance; its own minimum height stays independent of this
+  // variable, allowing the measurement to shrink after a viewport/font change.
+  const navHidden = isTakeover && !overflowOpen;
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav || navHidden || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const previousOffset = root.style.getPropertyValue("--mobile-bottom-nav-offset");
+    const previousPriority = root.style.getPropertyPriority("--mobile-bottom-nav-offset");
+    const restoreOffset = () => {
+      if (previousOffset) root.style.setProperty("--mobile-bottom-nav-offset", previousOffset, previousPriority);
+      else root.style.removeProperty("--mobile-bottom-nav-offset");
+    };
+    const updateHeight = () => {
+      if (!nav.getClientRects().length) {
+        restoreOffset();
+        return;
+      }
+      // The measured border box already includes the safe area. Publish the
+      // offset directly, without feeding it back into the nav's own sizing.
+      const height = Math.ceil(nav.getBoundingClientRect().height);
+      if (height > 0) root.style.setProperty("--mobile-bottom-nav-offset", `${height}px`);
+      else restoreOffset();
+    };
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(nav);
+    updateHeight();
+    return () => {
+      observer.disconnect();
+      restoreOffset();
+    };
+  }, [navHidden]);
 
   // Hooks must run unconditionally, so this early return sits below them.
   // The More overlay is still allowed to render over a takeover — it is a
@@ -177,125 +218,112 @@ export function MobileBottomNav({
 
   return (
     <>
-      {overflowOpen ? (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur print:hidden md:hidden">
-          <div className="flex h-full flex-col pb-[calc(var(--mobile-bottom-nav-offset)+0.75rem)]">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <div>
-                <p className="text-lg font-extrabold tracking-tight text-foreground">
-                  {t("more")}
-                </p>
-                <p className="text-xs text-muted-foreground">{t("moreDescription")}</p>
+      <Sheet
+        open={overflowOpen}
+        onClose={() => setOverflowOpen(false)}
+        title={t("more")}
+        description={t("moreDescription")}
+        closeLabel={t("closeMore")}
+        historyDismiss={false}
+        className="h-[100dvh] max-h-[100dvh] rounded-none print:hidden"
+      >
+        <div className="space-y-5 py-3">
+          {moreGroups.map((group) => (
+            <section key={group.key}>
+              <h2 className="px-1 pb-1.5 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                {group.i18nKey && tMobile.has(group.i18nKey) ? tMobile(group.i18nKey) : group.label}
+              </h2>
+              <div className="overflow-hidden rounded-xl border border-border bg-card">
+                {group.items.map((item, index) => {
+                  const Icon = navIconFor(item.href) ??
+                    ("icon" in item ? item.icon as LucideIcon : LayoutGrid);
+                  const active = currentHref === item.href;
+                  const href = appendCurrentSessionParam(item.href, searchParams);
+
+                  return (
+                    <NavLink
+                      key={item.href}
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setOverflowOpen(false)}
+                      className={cn(
+                        "focus-ring flex min-h-14 items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                        index > 0 && "border-t border-border/60",
+                        active && "bg-accent-soft",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-grid size-9 shrink-0 place-items-center rounded-xl bg-surface-2 text-muted-foreground",
+                          active && "tone-accent",
+                        )}
+                      >
+                        <Icon className="size-[18px]" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-bold leading-5 text-foreground">
+                          {item.i18nKey && tMobile.has(item.i18nKey)
+                            ? tMobile(item.i18nKey)
+                            : item.label}
+                        </span>
+                        <span className="block text-xs leading-5 text-muted-foreground">
+                          {item.i18nKey && tMobile.has(`${item.i18nKey}Desc`)
+                            ? tMobile(`${item.i18nKey}Desc`)
+                            : item.description}
+                        </span>
+                      </span>
+                    </NavLink>
+                  );
+                })}
               </div>
-              <button
-                type="button"
-                aria-label={t("closeMore")}
-                className="focus-ring inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"
-                onClick={() => setOverflowOpen(false)}
-              >
-                <X className="size-5" aria-hidden="true" />
-              </button>
-            </div>
-            {/* Grouped the way the office thinks about the work: the two
-                receipt lookups first, then the records they maintain, then
-                admin, then system. */}
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              {moreGroups.map((group) => (
-                <section key={group.key}>
-                  <h2 className="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                    {tMobile.has(group.i18nKey) ? tMobile(group.i18nKey) : group.label}
-                  </h2>
-                  <div className="overflow-hidden rounded-xl border border-border bg-card">
-                    {group.items.map((item, index) => {
-                      const Icon = item.icon;
-                      const active =
-                        pathname === item.href || pathname.startsWith(`${item.href}/`);
-                      const href = appendCurrentSessionParam(item.href, searchParams);
+            </section>
+          ))}
 
-                      return (
-                        <NavLink
-                          key={item.href}
-                          href={href}
-                          aria-current={active ? "page" : undefined}
-                          onClick={() => setOverflowOpen(false)}
-                          className={cn(
-                            "focus-ring flex min-h-14 items-center gap-3 px-3 py-2.5 text-left transition-colors",
-                            index > 0 && "border-t border-border/60",
-                            active && "bg-accent-soft",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "inline-grid size-9 shrink-0 place-items-center rounded-xl bg-surface-2 text-muted-foreground",
-                              active && "tone-accent",
-                            )}
-                          >
-                            <Icon className="size-[18px]" aria-hidden="true" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[13.5px] font-bold text-foreground">
-                              {item.i18nKey && tMobile.has(item.i18nKey)
-                                ? tMobile(item.i18nKey)
-                                : item.label}
-                            </span>
-                            <span className="block truncate text-[11px] text-muted-foreground">
-                              {item.i18nKey && tMobile.has(`${item.i18nKey}Desc`)
-                                ? tMobile(`${item.i18nKey}Desc`)
-                                : item.description}
-                            </span>
-                          </span>
-                        </NavLink>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
+          {/* Account row and build line close the hub, as in the design.
+              The phone app has no top bar, so this is the only place the
+              signed-in identity appears outside Settings itself. */}
+          {staffEmail ? (
+            <NavLink
+              href={appendCurrentSessionParam("/preferences", searchParams)}
+              aria-current={pathname === "/preferences" ? "page" : undefined}
+              onClick={() => setOverflowOpen(false)}
+              className="focus-ring flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors active:bg-surface-2"
+            >
+              <span className="inline-grid size-10 shrink-0 place-items-center rounded-full bg-nav text-[11.5px] font-extrabold text-nav-foreground">
+                {initialsFromEmail(staffEmail)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block break-words text-sm font-bold leading-5 text-foreground [overflow-wrap:anywhere]">
+                  {staffEmail}
+                </span>
+                <span className="block text-xs font-semibold text-muted-foreground">
+                  {staffRoleLabel ?? tRoles(staffRole)} · {t("preferences")}
+                </span>
+              </span>
+              <ChevronRight
+                className="size-[18px] shrink-0 text-subtle-foreground"
+                aria-hidden="true"
+              />
+            </NavLink>
+          ) : null}
 
-              {/* Account row and build line close the hub, as in the design.
-                  The phone app has no top bar, so this is the only place the
-                  signed-in identity appears outside Settings itself. */}
-              {staffEmail ? (
-                <NavLink
-                  href={appendCurrentSessionParam("/fees/settings", searchParams)}
-                  onClick={() => setOverflowOpen(false)}
-                  className="focus-ring flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors active:bg-surface-2"
-                >
-                  <span className="inline-grid size-10 shrink-0 place-items-center rounded-full bg-nav text-[11.5px] font-extrabold text-nav-foreground">
-                    {initialsFromEmail(staffEmail)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] font-bold text-foreground">
-                      {staffEmail}
-                    </span>
-                    <span className="block truncate text-[11px] font-semibold text-muted-foreground">
-                      {tRoles(staffRole)}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    className="size-[18px] shrink-0 text-subtle-foreground"
-                    aria-hidden="true"
-                  />
-                </NavLink>
-              ) : null}
-
-              <p className="pb-2 text-center text-[10.5px] font-semibold text-subtle-foreground">
-                {tMobile("buildLine")}
-              </p>
-            </div>
-          </div>
+          <p className="pb-2 text-center text-xs font-semibold text-muted-foreground">
+            {tMobile("buildLine")}
+          </p>
         </div>
-      ) : null}
+      </Sheet>
 
       <nav
+        ref={navRef}
         aria-label={t("primaryNavLabel")}
         className={cn(
           "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur",
-          "min-h-[var(--mobile-bottom-nav-height)] px-2 pb-1 pt-1.5 mobile-safe-bottom-padding",
-          "print:hidden md:hidden landscape:min-h-12 landscape:py-1",
+          "min-h-[4.25rem] px-2 mobile-safe-bottom-padding",
+          "print:hidden md:hidden landscape:min-h-12",
         )}
       >
         <div
-          className="mx-auto grid max-w-7xl gap-0.5"
+          className="mx-auto grid max-w-7xl gap-1 py-1.5 landscape:py-0.5"
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
         >
           {items.map((item) => {
@@ -309,7 +337,7 @@ export function MobileBottomNav({
             // tapped tab straight away while the navigation is in flight.
             const isHere = isOverflow
               ? overflowOpen || overflowIsActive
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              : currentHref === item.href;
             const active = pendingHref
               ? !isOverflow && pendingHref === item.href
               : isHere;
@@ -330,11 +358,11 @@ export function MobileBottomNav({
               <>
                 <span
                   className={cn(
-                    "relative flex size-8 items-center justify-center rounded-lg transition-all duration-200",
+                    "relative flex h-8 w-10 max-w-full landscape:h-6 shrink-0 items-center justify-center rounded-xl transition-[transform,background-color,color] duration-200 ease-out motion-reduce:transition-none motion-safe:group-active:scale-95",
                     isCollect
-                      ? "h-8 w-12 rounded-full bg-accent text-accent-foreground shadow-sm"
+                      ? "rounded-full bg-accent text-accent-foreground shadow-sm"
                       : active
-                        ? "bg-accent/10 text-accent"
+                        ? "bg-accent/10 text-accent motion-safe:-translate-y-0.5"
                         : "text-muted-foreground",
                   )}
                 >
@@ -350,7 +378,7 @@ export function MobileBottomNav({
                          often than a two-digit count, and a fixed box clipped
                          the "+". box-content keeps the padding outside the
                          height so the pill stays circular for single digits. */
-                      <span className="absolute -right-2 -top-1 box-content inline-flex h-[17px] min-w-[9px] items-center justify-center rounded-full bg-destructive px-1.5 text-[9.5px] font-extrabold tabular-nums text-destructive-foreground">
+                      <span className="absolute -right-2 -top-1 box-content inline-flex h-[17px] min-w-[9px] items-center justify-center rounded-full bg-destructive-soft px-1.5 text-[9.5px] font-extrabold tabular-nums text-destructive-soft-foreground">
                         {badge > 99 ? "99+" : badge}
                       </span>
                     )}
@@ -358,7 +386,7 @@ export function MobileBottomNav({
                 </span>
                 <span
                   className={cn(
-                    "mt-0.5 max-w-full truncate text-[10px] font-medium transition-colors",
+                    "mt-0.5 block w-full min-w-0 whitespace-normal text-center text-[0.6875rem] font-medium leading-[1.4] [overflow-wrap:anywhere] transition-colors duration-200 motion-reduce:transition-none",
                     isCollect || active ? "text-accent" : "text-muted-foreground",
                     isCollect && "font-semibold",
                   )}
@@ -377,7 +405,8 @@ export function MobileBottomNav({
                   type="button"
                   aria-label={t("openMore")}
                   aria-expanded={overflowOpen}
-                  className="focus-ring relative flex min-h-11 min-w-0 flex-col items-center justify-center rounded-md px-1 py-1 transition-colors"
+                  aria-haspopup="dialog"
+                  className="focus-ring group relative flex min-h-14 w-full min-w-0 flex-col items-center justify-start rounded-lg px-1 py-1 text-center transition-colors duration-200 active:bg-surface-2 motion-reduce:transition-none landscape:min-h-11"
                   onClick={() => setOverflowOpen(true)}
                 >
                   {content}
@@ -393,7 +422,7 @@ export function MobileBottomNav({
                 /* Full prefetch on touchstart, not just the skeleton: see
                    experimental.dynamicOnHover in next.config.ts. */
                 unstable_dynamicOnHover
-                className="focus-ring relative flex min-h-11 min-w-0 flex-col items-center justify-center rounded-md px-1 py-1 transition-colors"
+                className="focus-ring group relative flex min-h-14 w-full min-w-0 flex-col items-center justify-start rounded-lg px-1 py-1 text-center transition-colors duration-200 active:bg-surface-2 motion-reduce:transition-none landscape:min-h-11"
                 onClick={(event) => {
                   // A modified click opens a new tab; nothing moves here.
                   if (!isHere && !event.metaKey && !event.ctrlKey && !event.shiftKey) {

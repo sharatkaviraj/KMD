@@ -72,7 +72,7 @@ export function Panel({
           <h2 id={headingId} className="text-[16px] font-semibold text-foreground">
             {primary(title, language)}
             {titleUnder ? (
-              <span className="ml-2 text-[13px] font-normal text-subtle-foreground">
+              <span className="ml-2 text-[13px] font-normal text-muted-foreground">
                 {titleUnder}
               </span>
             ) : null}
@@ -81,7 +81,7 @@ export function Panel({
             <p className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
               {primary(description, language)}
               {descriptionUnder ? (
-                <span className="ml-1.5 opacity-75">{descriptionUnder}</span>
+                <span className="ml-1.5">{descriptionUnder}</span>
               ) : null}
             </p>
           ) : null}
@@ -171,7 +171,7 @@ export function PanelRow({
               looked for, and cutting it off defeats the looking (PLAN §3a). */}
           <span className="block text-[15px] font-medium text-foreground">{title}</span>
           {detail ? (
-            <span className="block text-[12px] leading-4 text-subtle-foreground">
+            <span className="block text-[12px] leading-4 text-muted-foreground">
               {detail}
             </span>
           ) : null}

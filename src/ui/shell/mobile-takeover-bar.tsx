@@ -47,7 +47,7 @@ export function MobileTakeoverBar() {
           }
           router.push("/fees/dashboard");
         }}
-        className="focus-ring inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-card pl-2 pr-3 text-[12.5px] font-extrabold text-foreground transition-colors active:bg-surface-2"
+        className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors active:bg-surface-2"
       >
         <ArrowLeft className="size-[18px]" aria-hidden="true" />
         {t("back")}

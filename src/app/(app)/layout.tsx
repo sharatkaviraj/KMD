@@ -1,4 +1,7 @@
+import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
+import { can, roleLabel } from "@/platform/auth/permissions";
+import { mobileMoreGroupsFor, permittedFeeNavigationHrefsFor } from "@/platform/config/mobile-navigation";
 import { feeRoleFor } from "@/platform/auth/fee-roles";
 import { getAppMode } from "@/platform/env";
 import { primary } from "@/platform/i18n/language";
@@ -64,14 +67,17 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
    * the one this is meant to look like. A `both` reader gets the Hindi lead
    * here and the pair everywhere it fits — headings, table columns, forms.
    */
+  const permittedFeeHrefs = permittedFeeNavigationHrefsFor(staff.role);
   const sidebarGroups = sidebarFor(staff.role).map((group) => ({
     key: group.title.en,
     label: primary(group.title, language),
-    items: group.items.map((item) => ({
+    items: group.items
+      .filter((item) => !item.href.startsWith("/fees/") || permittedFeeHrefs.has(item.href))
+      .map((item) => ({
       href: item.href,
       label: primary(item.label, language),
     })),
-  }));
+  })).filter((group) => group.items.length > 0);
 
   const mobileItems = navigationFor(staff.role).map((item) => ({
     href: item.href,
@@ -101,6 +107,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         staffRole={feeRoleFor(staff.role)}
         sidebarGroups={sidebarGroups}
         mobileItems={mobileItems}
+        mobileMoreGroups={mobileMoreGroupsFor(staff.role, language)}
+        staffRoleLabel={primary(roleLabel(staff.role), language)}
+        showFeeMetrics={can(staff, "fees:view")}
+        skipToContentLabel={primary(m.skipToContent, language)}
         homeHref={homeFor(staff.role)}
         viewSessionLabel={resolvedSession?.sessionLabel ?? ""}
         viewSessionIsTest={resolvedSession?.isTest ?? getAppMode() === "test"}

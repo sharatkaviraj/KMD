@@ -75,6 +75,7 @@ const buttonVariants = cva(
       { size: "sm", class: "max-md:h-11" },
       { size: "icon", class: "max-md:h-11 max-md:w-11" },
       { size: "icon-sm", class: "max-md:h-11 max-md:w-11" },
+      { size: "icon-lg", class: "max-md:h-12 max-md:w-12" },
       { size: "lg", class: "max-md:h-12" },
     ],
     defaultVariants: {

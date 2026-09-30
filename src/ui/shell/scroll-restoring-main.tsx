@@ -35,7 +35,12 @@ export function ScrollRestoringMain({
 
   useEffect(() => {
     const mainElement = mainRef.current;
-    const saved = sessionStorage.getItem(storageKey);
+    let saved: string | null = null;
+    try {
+      saved = sessionStorage.getItem(storageKey);
+    } catch {
+      // Private storage can be unavailable; navigation still works.
+    }
     if (saved) {
       try {
         const position = JSON.parse(saved) as { mainTop?: number; windowTop?: number };
@@ -50,18 +55,22 @@ export function ScrollRestoringMain({
           }
         });
       } catch {
-        sessionStorage.removeItem(storageKey);
+        try { sessionStorage.removeItem(storageKey); } catch { /* Best-effort navigation state only. */ }
       }
     }
 
     return () => {
-      sessionStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          mainTop: mainElement?.scrollTop ?? 0,
-          windowTop: window.scrollY,
-        }),
-      );
+      try {
+        sessionStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            mainTop: mainElement?.scrollTop ?? 0,
+            windowTop: window.scrollY,
+          }),
+        );
+      } catch {
+        // Scrolling must still work when storage is blocked.
+      }
     };
   }, [storageKey]);
 
@@ -72,6 +81,8 @@ export function ScrollRestoringMain({
   return (
     <main
       ref={mainRef}
+      id="main-content"
+      tabIndex={-1}
       className={cn("mobile-app-main", className)}
       data-bottom-nav={hasBottomNav ? "true" : "false"}
     >

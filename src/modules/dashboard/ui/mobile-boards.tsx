@@ -69,7 +69,7 @@ function SeeAllLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="focus-ring inline-flex shrink-0 items-center gap-1 text-[11px] font-extrabold text-accent"
+      className="focus-ring inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-sm font-semibold text-accent-soft-foreground"
     >
       {label}
       <ArrowRight className="size-3" aria-hidden="true" />

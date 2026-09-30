@@ -51,12 +51,27 @@ type FeeClassRow = {
  *
  * The fix cannot be a policy: rule 2 forbids adding one to a fee table. So the
  * read bypasses RLS and VPPS One's own permission check becomes the thing
- * protecting it — which is why `assertPermission` is called here rather than
- * left to the caller (D-32). It is free: the profile is cached per request.
+ * protecting it — which is why each exported class loader calls
+ * `assertPermission` rather than leaving it to the caller (D-32). It is free:
+ * the profile is cached per request.
  */
 export async function listFeeClasses(sessionLabel: string): Promise<FeeClass[]> {
   await assertPermission("academics:view");
+  return readFeeClasses(sessionLabel);
+}
 
+/**
+ * Class metadata for timetable viewing, including teachers and view-only
+ * staff who cannot browse academics master data. Keep this capability gate
+ * separate: timetable access must not grant `academics:view` to other callers.
+ */
+export async function listTimetableClasses(sessionLabel: string): Promise<FeeClass[]> {
+  await assertPermission("timetable:view");
+  return readFeeClasses(sessionLabel);
+}
+
+/** Internal query only: both exported entry points authorize before calling. */
+async function readFeeClasses(sessionLabel: string): Promise<FeeClass[]> {
   const { data, error } = await createAdminClient()
     .schema(FEE_SCHEMA)
     .from("classes")

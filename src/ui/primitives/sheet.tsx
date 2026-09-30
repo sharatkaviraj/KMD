@@ -1,11 +1,13 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   type ComponentPropsWithoutRef,
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -30,11 +32,17 @@ type SheetSize = keyof typeof sheetSizeClass;
 
 type SheetProps = ComponentPropsWithoutRef<"div"> & {
   open: boolean;
+  /** Keep custom payment panels and their scroll/keyboard geometry intact. */
+  layout?: "default" | "custom";
+  /** Retain draft DOM while another overlay owns modal interaction. */
+  suspended?: boolean;
   onClose: () => void;
   /** Optional title above the content. */
   title?: ReactNode;
   /** Optional description shown muted below the title. */
   description?: ReactNode;
+  /** Translated accessible name for both dismissal controls. */
+  closeLabel?: string;
   /** Side. Bottom is the default mobile pattern. */
   side?: "bottom" | "right";
   /** Lock background scroll while open. */
@@ -147,11 +155,19 @@ export function releaseAllSheetScrollLocks() {
 const SHEET_HISTORY_MARKER = "__vppsSheet";
 let sheetHistorySeq = 0;
 
+// Portals sit beside the app root. Counted inert ownership keeps the app
+// unavailable to assistive technology while nested sheets open and close.
+const inertOwners = new Map<HTMLElement, { count: number; wasInert: boolean }>();
+const activeDialogs: HTMLElement[] = [];
+
 export function Sheet({
   open,
   onClose,
+  layout = "default",
+  suspended = false,
   title,
   description,
+  closeLabel,
   side = "bottom",
   lockScroll = true,
   size = "full",
@@ -159,8 +175,19 @@ export function Sheet({
   className,
   footer,
   children,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: SheetProps) {
+  const active = open && !suspended;
+  const suspendedRef = useRef(suspended);
+  suspendedRef.current = suspended;
+  const tCommon = useTranslations("Common");
+  const dismissLabel = closeLabel ?? tCommon("close");
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   /**
    * Back-button integration. On open we push a marker entry; a popstate that
    * removes it closes the sheet. Any OTHER dismissal (Escape, X, backdrop,
@@ -200,7 +227,7 @@ export function Sheet({
   }, [historyDismiss]);
 
   useEffect(() => {
-    if (!open || !historyDismiss) return;
+    if (!active || !historyDismiss) return;
     if (typeof window === "undefined") return;
 
     sheetHistorySeq += 1;
@@ -230,11 +257,14 @@ export function Sheet({
         window.history.back();
       }
     };
-  }, [open, historyDismiss]);
+  }, [active, historyDismiss]);
 
   const handleKey = useCallback(
     (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeWithHistory();
+      if (event.key === "Escape" && activeDialogs.at(-1) === dialogRef.current) {
+        event.preventDefault();
+        closeWithHistory();
+      }
     },
     [closeWithHistory],
   );
@@ -242,10 +272,10 @@ export function Sheet({
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!active) return;
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [open, handleKey]);
+  }, [active, handleKey]);
 
   /**
    * Scroll lock is its own effect, keyed on `open`/`lockScroll` only. Sharing
@@ -254,10 +284,45 @@ export function Sheet({
    * back to the captured value, so a phone scrolled visibly on every keystroke.
    */
   useEffect(() => {
-    if (!open || !lockScroll) return;
+    if (!active || !lockScroll) return;
     acquireSheetScrollLock();
     return () => releaseSheetScrollLock();
-  }, [open, lockScroll]);
+  }, [active, lockScroll]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!active || !dialog) return;
+    activeDialogs.push(dialog);
+    const siblings = Array.from(document.body.children).filter(
+      (element): element is HTMLElement =>
+        element instanceof HTMLElement && element !== dialog &&
+        !["SCRIPT", "STYLE", "LINK"].includes(element.tagName),
+    );
+    for (const element of siblings) {
+      const owner = inertOwners.get(element) ?? { count: 0, wasInert: element.inert };
+      owner.count += 1;
+      inertOwners.set(element, owner);
+      element.inert = true;
+    }
+    // Two portals can mount in one commit. An earlier sheet's effect may
+    // have seen this portal already; the top dialog must remain interactive.
+    dialog.inert = false;
+    return () => {
+      const index = activeDialogs.indexOf(dialog);
+      if (index !== -1) activeDialogs.splice(index, 1);
+      for (const element of siblings) {
+        const owner = inertOwners.get(element);
+        if (!owner) continue;
+        owner.count -= 1;
+        if (owner.count === 0) {
+          element.inert = owner.wasInert;
+          inertOwners.delete(element);
+        }
+      }
+      const top = activeDialogs.at(-1);
+      if (top) top.inert = false;
+    };
+  }, [active]);
 
   /* ---- Audit 1.16: manual focus trap + restore ----
    * The sheet sets role="dialog" aria-modal="true" but did not trap Tab,
@@ -272,26 +337,29 @@ export function Sheet({
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!active) return;
     if (typeof document === "undefined") return;
 
-    previouslyFocusedRef.current =
+    // Suspension transfers ownership to a receipt overlay without replacing
+    // the original opener with a control inside that overlay on resume.
+    previouslyFocusedRef.current ??=
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     const panel = panelRef.current;
     if (panel) {
       // Defer focus to after the panel renders.
       const id = window.setTimeout(() => {
+        if (activeDialogs.at(-1) !== dialogRef.current) return;
         // A sheet can nominate where focus should land with
         // `data-sheet-initial-focus`. Without it focus goes to the first
         // focusable, which is the header's close button — so a picker's search
         // field lost focus a tick after `autoFocus` put it there. Call sites
         // that must NOT raise the on-screen keyboard simply omit the attribute.
         const preferred = panel.querySelector<HTMLElement>("[data-sheet-initial-focus]");
-        const focusables = panel.querySelectorAll<HTMLElement>(
+        const focusables = Array.from(panel.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        );
-        if (preferred) {
+        )).filter((element) => element.getClientRects().length > 0 && !element.closest("[inert]"));
+        if (preferred && preferred.getClientRects().length > 0 && !preferred.closest("[inert]")) {
           preferred.focus();
         } else if (focusables.length > 0) {
           focusables[0].focus();
@@ -302,12 +370,12 @@ export function Sheet({
       }, 0);
 
       const onTabKey = (event: KeyboardEvent) => {
-        if (event.key !== "Tab") return;
+        if (event.key !== "Tab" || activeDialogs.at(-1) !== dialogRef.current) return;
         const focusables = Array.from(
           panel.querySelectorAll<HTMLElement>(
             'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
           ),
-        ).filter((el) => el.offsetParent !== null);
+        ).filter((element) => element.getClientRects().length > 0 && !element.closest("[inert]"));
         if (focusables.length === 0) {
           event.preventDefault();
           return;
@@ -321,7 +389,7 @@ export function Sheet({
             last.focus();
           }
         } else {
-          if (active === last) {
+          if (active === last || !panel.contains(active)) {
             event.preventDefault();
             first.focus();
           }
@@ -333,13 +401,14 @@ export function Sheet({
         window.clearTimeout(id);
         document.removeEventListener("keydown", onTabKey);
         const previous = previouslyFocusedRef.current;
-        if (previous && document.body.contains(previous)) {
-          previous.focus();
+        if (!suspendedRef.current) {
+          if (previous && document.body.contains(previous)) previous.focus();
+          previouslyFocusedRef.current = null;
         }
       };
     }
     return undefined;
-  }, [open]);
+  }, [active]);
 
   /* ---- Swipe-to-dismiss for bottom sheets ---- */
   const [dragY, setDragY] = useState(0);
@@ -383,14 +452,27 @@ export function Sheet({
 
   return createPortal(
     <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex"
+      ref={dialogRef}
+      role={active ? "dialog" : undefined}
+      aria-modal={active ? true : undefined}
+      aria-hidden={suspended || undefined}
+      inert={suspended || undefined}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy ?? (title ? titleId : undefined)}
+      aria-describedby={ariaDescribedBy ?? (description ? descriptionId : undefined)}
+      className={layout === "custom" ? "fixed inset-0 z-[45] md:hidden" : "fixed inset-0 z-50 flex"}
       style={{ alignItems: isBottom ? "flex-end" : "stretch", justifyContent: isBottom ? "stretch" : "flex-end" }}
     >
+      {layout === "custom" ? (
+        <div ref={panelRef} className={cn("absolute inset-0", className)} {...props}>
+          {children}
+        </div>
+      ) : <>
       <button
         type="button"
-        aria-label="Close"
+        aria-label={dismissLabel}
+        tabIndex={-1}
+        aria-hidden="true"
         onClick={closeWithHistory}
         className="absolute inset-0 bg-foreground/30 anim-fade-in"
         style={{ animationDuration: "250ms" }}
@@ -400,8 +482,8 @@ export function Sheet({
         className={cn(
           "relative z-10 flex w-full flex-col bg-card text-foreground shadow-lg",
           isBottom
-            ? cn("rounded-t-xl border-t border-border anim-slide-up", sheetSizeClass[size])
-            : "h-full max-w-md rounded-l-xl border-l border-border anim-slide-up",
+            ? cn("mx-auto max-w-2xl rounded-t-2xl border-t border-border anim-sheet-enter", sheetSizeClass[size])
+            : "h-full max-w-md rounded-l-2xl border-l border-border anim-panel-enter",
           className,
         )}
         style={panelStyle}
@@ -423,12 +505,12 @@ export function Sheet({
           <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-4">
             <div className="min-w-0">
               {title ? (
-                <h3 className="text-base font-semibold tracking-tight text-foreground">
+                <h2 id={titleId} className="text-base font-semibold tracking-tight text-foreground">
                   {title}
-                </h3>
+                </h2>
               ) : null}
               {description ? (
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                <p id={descriptionId} className="mt-1 text-sm leading-6 text-muted-foreground">
                   {description}
                 </p>
               ) : null}
@@ -436,10 +518,10 @@ export function Sheet({
             <button
               type="button"
               onClick={closeWithHistory}
-              className="grid size-8 place-items-center rounded-md text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
-              aria-label="Close"
+              className="focus-ring grid size-11 shrink-0 place-items-center rounded-xl border border-border text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
+              aria-label={dismissLabel}
             >
-              <X className="size-4" />
+              <X className="size-5" aria-hidden="true" />
             </button>
           </header>
         )}
@@ -466,6 +548,7 @@ export function Sheet({
           </div>
         ) : null}
       </div>
+      </>}
     </div>,
     document.body,
   );
