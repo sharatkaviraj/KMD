@@ -108,6 +108,17 @@ describe("the day's figures", () => {
     expect(rowFor(complete, "exams").value).toBeNull();
     expect(rowFor(complete, "exams").total).toBeNull();
   });
+  it("distinguishes a failed cover read from no published plan", () => {
+    const failed = rowFor({ ...complete, coverPublished: false, coverUnavailable: true, coverArranged: null, coverNeeded: null }, "cover");
+    expect(failed.note).toBe(m.homeUnavailable);
+    expect(failed.figure).toBe("—");
+    expect(failed.value).toBeNull();
+  });
+  it("does not describe absence-derived teaching counts as confirmed presence", () => {
+    const staff = rowFor(complete, "staff");
+    expect(staff.label).toBe(m.overviewTeachingNotAway);
+    expect(staff.note).toBe(m.overviewTeachingBasis);
+  });
 
   it("keeps the same rows in the same order", () => {
     expect(overviewRows(complete).map((row) => row.key)).toEqual([

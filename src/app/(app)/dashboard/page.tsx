@@ -8,7 +8,8 @@ import {
 } from "@/platform/auth/current-staff";
 import { dayLabel, schoolToday, weekdayLabel } from "@/platform/dates";
 import { pageTitle } from "@/platform/i18n/page-title";
-import { navigationFor } from "@/platform/config/navigation";
+import { allowedFor, navigationFor } from "@/platform/config/navigation";
+import { schoolProfile } from "@/platform/config/school";
 import { appsFor, environmentLabel, schoolApp } from "@/platform/config/apps";
 import { getVppsOneEnvironment } from "@/platform/env";
 import {
@@ -25,6 +26,7 @@ import {
   needsAttention,
 } from "@/modules/home/domain/attention";
 import { overviewRows } from "@/modules/home/domain/overview";
+import { AdminOverview } from "@/modules/home/ui/admin-overview";
 import {
   FeeLine,
   RoundProgress,
@@ -118,6 +120,12 @@ export default async function DashboardPage() {
     `${weekdayLabel(today).hi}, ${dayLabel(today).hi}`,
     `${weekdayLabel(today).en}, ${dayLabel(today).en}`,
   );
+
+  if (isAdmin) {
+    return <AdminOverview attention={attention} overview={overview} apps={apps}
+      destinations={allowedFor(staff.role).filter(item => item.href !== "/dashboard")} day={dayText} language={language}
+      testData={getVppsOneEnvironment() === "dev"} schoolName={schoolProfile.name} />;
+  }
 
   /* -------------------------------------------------- needs attention */
 

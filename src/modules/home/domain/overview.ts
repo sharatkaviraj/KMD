@@ -38,6 +38,8 @@ export type OverviewFacts = {
   coverNeeded: number | null;
   /** False when nothing is published for today — different from "0 of 0". */
   coverPublished: boolean;
+  /** The plan read failed; distinct from no published plan. */
+  coverUnavailable?: boolean;
   /** Exams currently open for marks. */
   examsOpen: number | null;
   /** The newest open information round, if there is one. */
@@ -105,11 +107,11 @@ export function overviewRows(facts: OverviewFacts): OverviewRow[] {
     },
     {
       key: "staff",
-      label: m.overviewStaffPresent,
+      label: m.overviewTeachingNotAway,
       figure: fraction(facts.staffPresent, facts.staffTotal),
       value: facts.staffPresent,
       total: facts.staffTotal,
-      note: facts.staffPresent === null ? m.homeUnavailable : null,
+      note: facts.staffPresent === null ? m.homeUnavailable : m.overviewTeachingBasis,
       tone: staffAway !== null && staffAway > 0 ? "warning" : "neutral",
     },
     {
@@ -120,7 +122,7 @@ export function overviewRows(facts: OverviewFacts): OverviewRow[] {
       figure: facts.coverPublished ? fraction(facts.coverArranged, facts.coverNeeded) : "—",
       value: facts.coverPublished ? facts.coverArranged : null,
       total: facts.coverPublished ? facts.coverNeeded : null,
-      note: facts.coverPublished
+      note: facts.coverUnavailable ? m.homeUnavailable : facts.coverPublished
         ? facts.coverArranged === null
           ? m.homeUnavailable
           : null

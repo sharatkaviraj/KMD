@@ -1005,3 +1005,11 @@ version the MCP recorded (D-22), so this list and
 | What | Status | Branch / commit | Evidence / remaining |
 |---|---|---|---|
 | Mobile-first visual, accessibility and workload refresh; user-requested centering and animation polish | Implemented in this revision | `main`, this change | `docs/evidence/MOBILE-2026-09-30.md`: unified role navigation, readable/wrapping cards, shared targets, named/nested sheets, localized sessions, adaptive nav clearance, reduced-motion-safe animations, no unnecessary financial shell reads for non-fee roles. Final checks and exact deployment result are recorded at delivery. The isolated browser fixture is ready but Chromium launch is blocked; authenticated/physical acceptance and field-performance evidence remain pending. No database/config cutover |
+
+## Native admin overview correction - 2026-09-30
+
+The user approved the actual native design and all five follow-up refinements at 15:13 UTC, explicitly authorizing commit/main/deployment. This supersedes the earlier design-review hold below. PR 38 now prioritizes pending/unavailable work while retaining compact zero-count links, adds explicit navigation actions, labels absence-derived teaching counts precisely, separates cover-load errors from no plan, uses tracks only for genuine fractions, marks external live workspaces explicitly, and groups secondary destinations under keyboard-operable All screens. Final aggregate/browser verification and production release are in progress; no database/configuration changes.
+
+| What | Status | Branch / commit | Evidence / remaining |
+|---|---|---|---|
+| Complete the native admin School overview missed by PR 37 | Implemented; verification in progress; release awaiting user design approval | codex/native-admin-overview; this change | docs/evidence/NATIVE-ADMIN-2026-09-30.md: native compact header, attention hierarchy, earlier phone support cards, wrapping workspaces, preserved data/role contracts. Actual local TEST screenshots and final check results are recorded at delivery. No production push until approval. |

@@ -56,7 +56,7 @@ export function ShellSessionPillSkeleton({
       aria-hidden="true"
       className={
         isTest
-          ? "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-fuchsia-500 bg-surface px-2.5 text-xs font-semibold text-fuchsia-700 shadow-sm"
+          ? "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-fuchsia-500 bg-surface px-2.5 text-xs font-semibold text-fuchsia-700 dark:text-fuchsia-300 shadow-sm"
           : "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-surface px-2.5 text-xs font-semibold text-muted-foreground shadow-sm"
       }
     >

@@ -1,14 +1,20 @@
+import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Wallet } from "lucide-react";
 
 import { m } from "@/messages";
 import { environmentLabel, type SchoolApp } from "@/platform/config/apps";
-import { flat, primary, type Language } from "@/platform/i18n/language";
+import { primary, secondary, type Language, type Localized } from "@/platform/i18n/language";
 import type { OverviewRound } from "@/modules/home/data/home-repo";
 import { feeSummary, type OverviewRow } from "@/modules/home/domain/overview";
 import { AuthoredText } from "@/ui/authored-text";
 import { Card, Notice } from "@/ui/primitives";
 import { ProgressRow } from "@/ui/task-hero";
+
+function SummaryText({ text, language }: { text: Localized; language: Language }) {
+  const under = secondary(text, language);
+  return <><span lang={language === "en" ? "en" : "hi"}>{primary(text, language)}</span>{under ? <span lang="en" className="mt-0.5 block text-[12px] font-normal leading-5 text-muted-foreground">{under}</span> : null}</>;
+}
 
 /**
  * The three supporting panels on the administrator's home.
@@ -19,7 +25,7 @@ import { ProgressRow } from "@/ui/task-hero";
  * four progress bars to find the decision.
  */
 
-/** "Today at school": the day's fractions, with a bar each. */
+/** The day's facts; only a known fraction with a denominator draws a bar. */
 export function TodayAtSchool({
   rows,
   day,
@@ -31,7 +37,7 @@ export function TodayAtSchool({
   language: Language;
 }) {
   return (
-    <Card className="p-5">
+    <Card className="min-w-0 rounded-2xl p-4 md:p-5">
       <h2 className="text-[16px] font-semibold text-foreground">
         {primary(m.overviewTodayAtSchool, language)}
       </h2>
@@ -39,18 +45,21 @@ export function TodayAtSchool({
 
       <div className="mt-4 space-y-3.5">
         {rows.map((row) => (
-          <div key={row.key}>
-            <ProgressRow
+          <div key={row.key} data-overview-row={row.key}>
+            {row.value !== null && row.total !== null && row.total > 0 ? <ProgressRow
               label={row.label}
               value={row.value}
               total={row.total}
               figure={row.figure}
               language={language}
               tone={row.tone}
-            />
+            /> : <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 text-[14px] font-medium text-foreground"><SummaryText text={row.label} language={language} /></span>
+              <span className="shrink-0 text-[14px] font-semibold tabular-nums text-muted-foreground">{row.figure}</span>
+            </div>}
             {row.note ? (
               <p className="mt-1 text-[12px] leading-4 text-subtle-foreground">
-                {primary(row.note, language)}
+                <SummaryText text={row.note} language={language} />
               </p>
             ) : null}
           </div>
@@ -77,7 +86,7 @@ export function RoundProgress({
   language: Language;
 }) {
   return (
-    <Card className="p-5">
+    <Card className={round || unavailable ? "min-w-0 rounded-2xl p-4 md:p-5" : "min-w-0 rounded-2xl px-4 py-3 md:px-5"}>
       <h2 className="text-[16px] font-semibold text-foreground">
         {primary(m.overviewRoundProgress, language)}
       </h2>
@@ -99,14 +108,14 @@ export function RoundProgress({
             />
           </p>
           <div className="mt-3">
-            <ProgressRow
+            {round.members > 0 ? <ProgressRow
               label={m.overviewAnsweredOf}
               value={round.answered}
               total={round.members}
               figure={`${round.answered} / ${round.members}`}
               language={language}
               tone={round.answered < round.members ? "warning" : "neutral"}
-            />
+            /> : <p className="text-[14px] text-muted-foreground"><SummaryText text={m.overviewAnsweredOf} language={language} /> <span className="font-semibold tabular-nums">{round.answered} / {round.members}</span></p>}
           </div>
           <Link
             href={`/collection/rounds/${round.id}`}
@@ -142,7 +151,7 @@ export function FeeLine({
   const summary = feeSummary();
 
   return (
-    <Card className="p-5">
+    <Card className="min-w-0 rounded-2xl p-4 md:p-5">
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-[16px] font-semibold text-foreground">
           {primary(m.overviewFeeSummary, language)}
@@ -193,33 +202,36 @@ export function SchoolWorkspaces({
   if (apps.length === 0) return null;
 
   return (
-    <ul className="space-y-2">
+    <ul className="grid gap-3 sm:grid-cols-2">
       {apps.map((app) => (
         <li key={app.id}>
           <a
             href={app.home.href}
-            className="focus-ring flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
+            className="focus-ring flex h-full min-h-16 flex-col gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors duration-150 hover:bg-surface-2 motion-reduce:transition-none"
           >
             <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5">
-                <span className="min-w-0 truncate text-[15px] font-semibold text-foreground">
+              <span className="flex items-start gap-2">
+                <span className="min-w-0 flex-1 break-words text-[15px] font-bold leading-6 text-foreground">
                   {primary(app.name, language)}
                 </span>
                 <ExternalLink
                   aria-hidden
-                  className="size-4 shrink-0 text-subtle-foreground"
+                  className="mt-1 size-4 shrink-0 text-subtle-foreground"
                 />
               </span>
-              <span className="block truncate text-[12px] text-subtle-foreground">
+              <span data-workspace-environment={app.environment} className="mt-2 inline-flex rounded-md border border-warning/40 bg-warning-soft px-2 py-1 text-[12px] font-bold leading-5 text-warning-soft-foreground">
+                <span className="min-w-0 break-words"><SummaryText text={environmentLabel(app.environment)} language={language} /></span>
+              </span>
+              <span className="mt-1 block break-words text-[13px] leading-5 text-muted-foreground">
                 {primary(app.purpose, language)}
               </span>
-              <span className="block truncate text-[11px] text-subtle-foreground">
-                {flat(environmentLabel(app.environment), language)} ·{" "}
+              <span className="mt-2 block break-words text-[11px] leading-5 text-subtle-foreground">
                 {new URL(app.home.href).host}
               </span>
             </span>
-            <span className="shrink-0 text-[13px] font-semibold text-accent-soft-foreground">
-              {primary(m.overviewOpen, language)}
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-accent-soft-foreground">
+              <span className="min-w-0 flex-1 break-words"><SummaryText text={app.environment === "live" ? m.overviewOpenLive : m.overviewOpen} language={language} /></span>
+              <ArrowRight aria-hidden className="size-4 shrink-0" />
             </span>
           </a>
         </li>

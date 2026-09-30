@@ -307,6 +307,7 @@ export async function schoolOverview(
         plan === null ? null : plan.filter((row) => row.coveringStaffId !== null).length,
       coverNeeded: plan === null ? null : plan.length,
       coverPublished,
+      coverUnavailable: missing.includes("cover"),
       examsOpen:
         assessments === null
           ? null

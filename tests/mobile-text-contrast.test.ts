@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import colors from "tailwindcss/colors";
 
 const css = readFileSync("src/app/globals.css", "utf8");
 const lightBlock = css.slice(css.indexOf(":root {"), css.indexOf("  .dark {"));
@@ -26,8 +27,26 @@ function contrast(a: Hsl, b: Hsl) {
   const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (values[0] + 0.05) / (values[1] + 0.05);
 }
+function hexLuminance(hex: string) {
+  const rgb = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const linear = rgb.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
 
 describe("small metadata text contrast", () => {
+  for (const file of ["session-pill.tsx", "shell-session-pill.tsx"]) for (const theme of ["light", "dark"] as const) {
+    it(`${file}: TEST session label meets 4.5:1 in ${theme}`, () => {
+      const source = readFileSync(`src/ui/shell/${file}`, "utf8");
+      const shades = source.match(/text-fuchsia-(\d+) dark:text-fuchsia-(\d+)/);
+      expect(shades).not.toBeNull();
+      const shade = shades![theme === "light" ? 1 : 2] as keyof typeof colors.fuchsia;
+      const fg = hexLuminance(colors.fuchsia[shade]);
+      for (const surface of ["surface", "surface-2"]) {
+        const bg = luminance(token(theme === "light" ? lightBlock : darkBlock, surface));
+        expect((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
   for (const theme of ["light", "dark"] as const) {
     const block = theme === "light" ? lightBlock : darkBlock;
     const overrideBlock = theme === "light" ? override : override.slice(override.indexOf("  .dark {"));

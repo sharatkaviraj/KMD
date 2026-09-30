@@ -1337,6 +1337,15 @@ export const m = {
   teachFullWeek: t("पूरा सप्ताह", "Full week"),
 
   /* ------------------------------------- the administrator's overview (D2) */
+  overviewTeachingNotAway: t("अनुपस्थित दर्ज नहीं किए गए शिक्षक", "Teachers not marked away"),
+  overviewTeachingBasis: t("सक्रिय शिक्षक, दर्ज अनुपस्थितियों को छोड़कर; यह उपस्थिति पुष्टि नहीं है।", "Active teachers minus recorded absences; this is not confirmed attendance."),
+  overviewAllScreens: t("सभी स्क्रीन", "All screens"),
+  overviewOpenRegisters: t("रजिस्टर खोलें", "Open registers"),
+  overviewReviewChanges: t("बदलाव देखें", "Review changes"),
+  overviewReviewCorrections: t("सुधार देखें", "Review corrections"),
+  overviewOpenCover: t("प्रतिस्थापन खोलें", "Open cover plan"),
+  overviewOpenJobs: t("कार्य स्थिति देखें", "Open job status"),
+  overviewOpenLive: t("लाइव कार्यस्थान खोलें", "Open live workspace"),
   overviewTitle: t("स्कूल की स्थिति", "School overview"),
   overviewEyebrow: t("स्कूल संचालन", "School operations"),
   overviewTodayAtSchool: t("आज स्कूल में", "Today at school"),

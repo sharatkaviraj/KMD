@@ -356,7 +356,7 @@ export function SessionPill({
         className={cn(
           "inline-flex h-9 shrink-0 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold shadow-sm transition-colors focus-ring",
           displayIsTest
-            ? "border-fuchsia-500 bg-surface text-fuchsia-700 hover:bg-surface-2"
+            ? "border-fuchsia-500 bg-surface text-fuchsia-700 dark:text-fuchsia-300 hover:bg-surface-2"
             : displayIsLive
               ? "border-success/30 bg-success-soft text-success-soft-foreground hover:bg-success-soft/70"
               : "border-border bg-surface text-foreground hover:bg-surface-2",

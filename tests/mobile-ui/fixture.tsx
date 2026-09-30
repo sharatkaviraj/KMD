@@ -17,6 +17,10 @@ import { navigationFor } from "@/platform/config/navigation";
 import { feeRoleFor } from "@/platform/auth/fee-roles";
 import { roleLabel, staffRoles, type StaffRole } from "@/platform/auth/permissions";
 import { primary, type Language } from "@/platform/i18n/language";
+import { AdminOverview } from "@/modules/home/ui/admin-overview";
+import { adminFixture, longWorkspaces } from "../home-overview.fixture";
+import { attentionFor } from "@/modules/home/domain/attention";
+import { attentionFacts } from "../home-overview.fixture";
 import "../../src/app/globals.css";
 
 const params = new URLSearchParams(location.search);
@@ -31,6 +35,12 @@ if (params.get("theme") === "dark") document.documentElement.classList.add("dark
 function Fixture() {
   const [open, setOpen] = useState(false);
   const [nestedOpen, setNestedOpen] = useState(false);
+  if (params.get("view") === "admin") return <main className="min-h-screen bg-background p-4 md:p-6">
+    <AdminOverview {...adminFixture} language={language} apps={params.has("long") ? longWorkspaces : adminFixture.apps}
+      attention={params.get("state") === "empty" ? attentionFor("admin", { ...attentionFacts, registersOutstanding: 0, absencesToday: 0, pendingSubmissions: 0, pendingCorrections: 0, failedJobs: 0 }, { canMarkOnBehalf: true }) : params.get("state") === "error" ? attentionFor("admin", { ...attentionFacts, unavailable: ["registers", "jobs"] }, { canMarkOnBehalf: true }) : adminFixture.attention}
+      overview={params.get("state") === "empty" ? { ...adminFixture.overview, round: null, facts: { ...adminFixture.overview.facts, coverPublished: false, coverArranged: null, coverNeeded: null, examsOpen: 0 } } : params.get("state") === "error" ? { ...adminFixture.overview, round: null, facts: { ...adminFixture.overview.facts, coverPublished: false, coverUnavailable: true, coverArranged: null, coverNeeded: null, examsOpen: null, roundUnavailable: true } } : adminFixture.overview}
+    />
+  </main>;
   return <NextIntlClientProvider locale={locale} messages={catalogs[locale]}>
     <main className="mobile-app-main px-4 py-4" data-bottom-nav="true" id="main-content" tabIndex={-1}>
       <MobileScreen>
