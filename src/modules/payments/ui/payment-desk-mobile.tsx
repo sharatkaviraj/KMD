@@ -94,7 +94,7 @@ import { formatInr } from "@/platform/helpers/currency";
 import { cn } from "@/platform/utils";
 import { useOnline } from "@/platform/drafts/use-durable-draft";
 import { PaymentDraftStatus } from "@/ui/payment-draft-status";
-import { clearDraft, loadDraft, saveDraft, type PaymentDraftValue } from "@/modules/payments/domain/draft-store";
+import { buildPaymentDraftKey, clearDraft, loadDraft, saveDraft, type PaymentDraftValue } from "@/modules/payments/domain/draft-store";
 import { normalizeAmountInputShorthand, sanitizeDecimalInput } from "@/modules/payments/domain/payment-desk-client-helpers";
 import { getOfficeMetricSessionKind, recordOfficeMetric } from "@/platform/telemetry/office-telemetry";
 import {
@@ -266,7 +266,8 @@ export function PaymentDeskClient({
   const [studentSummaryNotice, setStudentSummaryNotice] = useState<string | null>(null);
   const [latestStudentReceipt, setLatestStudentReceipt] = useState(data.initialLatestReceipt);
   const [recoveredPaymentDraft, setRecoveredPaymentDraft] = useState<PaymentDraftValue | null>(null);
-  const [draftReady, setDraftReady] = useState(false);
+  const [readyDraftKey, setReadyDraftKey] = useState<string | null>(null);
+  const draftGeneration = useRef(0);
   const [draftStatus, setDraftStatus] = useState<"idle" | "writing" | "local" | "school" | "error">("idle");
   const draftEdits = useRef(0);
   const editPaymentAmount = useCallback((value: string) => {
@@ -1426,17 +1427,26 @@ export function PaymentDeskClient({
   // <KeyboardOffsetProvider/> (mounted in the root layout) so every
   // sheet — not just this one — can lift its actions above the keyboard.
 
+  const paymentDraftKey = selectedStudentId ? buildPaymentDraftKey({
+    ownerId, sessionLabel: paymentSessionLabel, studentId: selectedStudentId, paymentDate,
+  }) : null;
+  // Readiness must belong to this render's key. An effect reset alone is too
+  // late: the persistence effect in that same render still sees the old value.
+  const draftReady = paymentDraftKey !== null && readyDraftKey === paymentDraftKey;
+
   useEffect(() => {
-    if (!selectedStudentId) {
-      return;
-    }
+    // Never carry an account/session's in-memory amount into another scope.
+    setPaymentAmountInput("");
+  }, [ownerId, paymentSessionLabel]);
 
+  useEffect(() => {
     let cancelled = false;
-
+    const generation = ++draftGeneration.current;
     const startedWith = draftEdits.current;
-    setDraftReady(false);
+    setReadyDraftKey(null);
     setRecoveredPaymentDraft(null);
     setDraftStatus("idle");
+    if (!selectedStudentId || !paymentDraftKey) return;
     loadDraft({
       ownerId,
       sessionLabel: paymentSessionLabel,
@@ -1444,25 +1454,27 @@ export function PaymentDeskClient({
       paymentDate,
     }).then((draft) => {
       if (cancelled) return;
-      setDraftReady(true);
+      setReadyDraftKey(paymentDraftKey);
       if (draftEdits.current === startedWith) setRecoveredPaymentDraft(draft);
-    }).catch(() => { if (!cancelled) { setDraftReady(true); setDraftStatus("error"); } });
+    // A failed read must not authorize overwriting a draft we could not load.
+    }).catch(() => { if (!cancelled) setDraftStatus("error"); });
 
     return () => {
       cancelled = true;
+      draftGeneration.current = generation + 1;
     };
-    // setPaymentMode is a useState setter forwarded by useStoredPreference, so
-    // it is stable; the lint rule just cannot see through the custom hook.
-  }, [ownerId, paymentDate, paymentSessionLabel, selectedStudentId, setPaymentMode]);
+  }, [ownerId, paymentDate, paymentDraftKey, paymentSessionLabel, selectedStudentId]);
 
   useEffect(() => {
     if (!selectedStudentId || isLockedAfterSuccess || !draftReady || recoveredPaymentDraft) {
       return;
     }
 
+    let cancelled = false;
     const flushDraft = () => {
+      if (cancelled) return;
       if (!paymentAmountInput.trim()) {
-        void clearDraft({ ownerId, sessionLabel: paymentSessionLabel, studentId: selectedStudentId, paymentDate }).then(() => setDraftStatus("idle")).catch(() => setDraftStatus("error"));
+        void clearDraft({ ownerId, sessionLabel: paymentSessionLabel, studentId: selectedStudentId, paymentDate }).then(() => { if (!cancelled) setDraftStatus("idle"); }).catch(() => { if (!cancelled) setDraftStatus("error"); });
         return;
       }
       setDraftStatus("writing");
@@ -1476,7 +1488,7 @@ export function PaymentDeskClient({
           paymentMode,
           referenceNumber: "",
         },
-      }).then(() => setDraftStatus("local")).catch(() => setDraftStatus("error"));
+      }).then(() => { if (!cancelled) setDraftStatus("local"); }).catch(() => { if (!cancelled) setDraftStatus("error"); });
     };
 
     flushDraft();
@@ -1491,6 +1503,7 @@ export function PaymentDeskClient({
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("beforeunload", flushDraft);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -1811,14 +1824,23 @@ export function PaymentDeskClient({
     }
   }
 
-  const paymentDraftNotice = selectedStudentId || !isOnline ? <div aria-busy={pending}><PaymentDraftStatus status={isLockedAfterSuccess ? "school" : draftStatus} online={isOnline} recovered={Boolean(recoveredPaymentDraft)} changed onRestore={() => {
-        if (!recoveredPaymentDraft || pending) return;
+  // Payment drafts do not store a school-record baseline. Recovery alone is
+  // not evidence that the school record changed.
+  const paymentDraftNotice = selectedStudentId || !isOnline ? <div aria-busy={pending}><PaymentDraftStatus status={isLockedAfterSuccess ? "school" : draftStatus} online={isOnline} recovered={draftReady && Boolean(recoveredPaymentDraft)} onRestore={() => {
+        if (!draftReady || !recoveredPaymentDraft || pending) return;
         editPaymentAmount(recoveredPaymentDraft.amountInput);
         setPaymentMode(recoveredPaymentDraft.paymentMode as typeof paymentMode);
         setRecoveredPaymentDraft(null);
       }} onDiscard={() => {
-        if (pending) return;
-        void clearDraft({ ownerId, sessionLabel: paymentSessionLabel, studentId: selectedStudentId, paymentDate }).then(() => { setRecoveredPaymentDraft(null); setDraftStatus("idle"); }).catch(() => setDraftStatus("error"));
+        if (!draftReady || pending) return;
+        const generation = draftGeneration.current;
+        const edits = draftEdits.current;
+        void clearDraft({ ownerId, sessionLabel: paymentSessionLabel, studentId: selectedStudentId, paymentDate }).then(() => {
+          if (draftGeneration.current !== generation || draftEdits.current !== edits) return;
+          setPaymentAmountInput("");
+          setRecoveredPaymentDraft(null);
+          setDraftStatus("idle");
+        }).catch(() => { if (draftGeneration.current === generation) setDraftStatus("error"); });
       }} /></div> : null;
 
   return (
