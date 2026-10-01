@@ -2161,5 +2161,11 @@
     "clearAll": "सब हटाएँ",
     "showingCount": "{count} दिख रहे हैं",
     "yearClear": "वर्ष पूर्ण"
+  },
+  "ShellStatus": {
+    "day": "आज अब तक",
+    "unavailable": "जानकारी नहीं मिल रही",
+    "receipts": "आज {count} रसीद",
+    "writtenOff": "{amount} बकाया हटाया · प्राप्त नहीं हुआ"
   }
 }

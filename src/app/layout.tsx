@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_Devanagari, Source_Serif_4 } from "next/font/google";
 import { getLocale } from "next-intl/server";
+import { shellMessages } from "@/platform/i18n/shell-messages";
+import { KeyboardOffsetProvider } from "@/ui/system/keyboard-offset-provider";
+import { ServiceWorkerRegistration } from "@/ui/system/service-worker-registration";
 
 import { isSupportedLocale, type AppLocale } from "@/platform/i18n/locales";
 import {
@@ -47,7 +50,8 @@ const fontDevanagari = Noto_Sans_Devanagari({
 });
 
 /**
- * Only the active locale's catalogue is shipped.
+ * Only the active locale's shell namespaces are shipped at the root. Fee routes
+ * add their own complete catalogue beneath this provider.
  *
  * The three fee catalogues are 111 KB, 176 KB and 116 KB of JSON. Sending all
  * three to every reader was the fee app's biggest first-load win when it
@@ -57,15 +61,18 @@ const fontDevanagari = Noto_Sans_Devanagari({
 async function loadFeeMessages(locale: AppLocale): Promise<LanguageCatalogs> {
   switch (locale) {
     case "en":
-      return { en: (await import("@/messages/en.json")).default };
+      return { en: shellMessages((await import("@/messages/en.json")).default) };
     case "hi":
-      return { hi: (await import("@/messages/hi.json")).default };
+      return { hi: shellMessages((await import("@/messages/hi.json")).default) };
     case "hi-en":
-      return { "hi-en": (await import("@/messages/hi-en.json")).default };
+      return { "hi-en": shellMessages((await import("@/messages/hi-en.json")).default) };
   }
 }
 
 export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "VPPS One", statusBarStyle: "default" },
+  icons: { apple: "/branding/icon-192.png" },
   title: {
     default: "VPPS One",
     template: "%s",
@@ -118,8 +125,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           painted stock cool grey while every card on it was warm paper. */}
       <body className="min-h-dvh antialiased">
         {/*
-          Two catalogues, deliberately. This provider carries the ~2,000 keys
-          the ported fee screens read through `useTranslations`; the app's own
+          Two catalogues, deliberately. This provider carries the shared shell keys; fee routes add
+          their full catalogue locally. The app's own
           Hindi/English pairs reach components through the other
           `LanguageProvider`, mounted in `(app)/layout.tsx`. See
           `src/platform/i18n/bridge.ts` for why neither was rewritten into the
@@ -131,13 +138,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           and then failed at request time with "useLang must be used inside
           <LanguageProvider>" — on every signed-in screen.
 
-          Only the active locale's catalogue is sent; the provider imports the
-          others on the first switch.
+          Only the active locale's shell catalogue is sent here; the provider
+          imports other shell catalogues on the first switch.
         */}
-        <FeeLanguageProvider initialLocale={locale} catalogs={feeMessages}>
+        <FeeLanguageProvider initialLocale={locale} catalogs={feeMessages} shellOnly>
           <ThemeProvider>
             <DensityProvider>
               {children}
+              <ServiceWorkerRegistration />
+              <KeyboardOffsetProvider />
               <ToastViewport />
             </DensityProvider>
           </ThemeProvider>

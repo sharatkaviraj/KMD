@@ -1,34 +1,26 @@
-# `public/` — and the PWA that is deliberately switched off
+# Installed VPPS One
 
-`branding/`, `fonts/`, `manifest.webmanifest`, `offline.html` and
-`service-worker.js` came across with the School Fees port. The first two are
-live: the school mark in the sidebar and on the sign-in screen, and the fonts
-the design depends on.
+VPPS One is one installable school workspace for all eight staff roles. The
+public manifest has a stable `/` identity and neutral Home/Preferences shortcuts.
+`/` continues to resolve the account's saved start preference and permissions.
+The fee manifest endpoint redirects to this same manifest for compatibility.
 
-**The other three do nothing, on purpose.**
+Installation is available in Windows Chrome/Edge and Android. Preferences
+captures the browser's install prompt; iPhone/iPad instructions use Safari's
+Add to Home Screen. Prompt acceptance is not reported as an installed app until
+`appinstalled` or standalone display mode confirms it.
 
-Nothing links the manifest and nothing registers the worker —
-`src/ui/system/service-worker-registration.tsx` exists and is not mounted.
-Turning them on would make VPPS One an installable app, and the manifest's
-shortcuts are the fee app's: Payment Desk, Defaulters, Transactions. That is
-right for an accountant and wrong for a teacher, who would install a school
-workspace and find three fee shortcuts on her home screen.
+The production worker caches only public hashed build files, branding and the
+neutral reconnect page. It never stores protected HTML, RSC responses, private
+JSON, token pages or mutations. An offline cold launch shows the reconnect page.
+Already-open attendance, marks, request and payment forms have versioned device
+drafts; recovery is explicit and server saves still authorize each operation.
+Payments require an online server confirmation; they are never queued to post.
 
-Which shortcuts a person gets is a role question, and the fee app answered it
-with a role-aware `/api/manifest` route keyed to *its* five roles. This app has
-eight. Wiring that up is a product decision about what an installed VPPS One
-is, and nobody has made it — so the files sit here, correct and inert, rather
-than being deleted (they would only have to be ported again) or switched on
-without anybody choosing to.
+An updated worker waits. The user chooses reload, after pending draft writes
+finish. Open sheets, pending saves and failed draft storage block activation.
+Static cache size is bounded; old owned caches are removed on activation.
 
-## One thing that is not optional
-
-`src/proxy.ts` must keep excluding `manifest.webmanifest`, `offline.html`,
-`service-worker.js` and `branding/` from the auth matcher. It did not, and
-production answered the first two with a 307 to `/login`. An installed app
-fetches the manifest on every launch, and the offline page is wanted precisely
-when there is no network to sign in over — an auth redirect is the one answer
-neither can use. `branding/` is the logo on the sign-in screen, wanted before
-there is a session to check.
-
-That holds whether or not the PWA is ever switched on.
+`src/proxy.ts` must exclude manifest, worker, offline page and branding from auth.
+Physical Windows installation, Android lifecycle and iPhone keyboard/standalone
+checks remain device acceptance work; Chromium emulation is not physical evidence.

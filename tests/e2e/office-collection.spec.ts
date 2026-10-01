@@ -202,7 +202,15 @@ test("the office asks for a number, a teacher answers without signing in, and th
 
   /* ------------------------------------------ 7. the real answer lands */
 
+  await anonymous.setOffline(true);
   await input.fill(GOOD_NUMBER);
+  await expect(link.getByRole("status").filter({ hasText: new RegExp(`${m.draftWaiting.hi}|${m.draftWaiting.en}`) })).toBeVisible();
+  await expect(send).toBeDisabled();
+  await anonymous.setOffline(false);
+  await link.reload();
+  await expect(input).not.toHaveValue(GOOD_NUMBER);
+  await link.getByRole("button", { name: new RegExp(`${m.draftRestore.hi}|${m.draftRestore.en}`) }).click();
+  await expect(input).toHaveValue(GOOD_NUMBER);
   await expect(send).toBeEnabled();
   await send.click();
 

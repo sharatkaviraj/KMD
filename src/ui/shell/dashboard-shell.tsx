@@ -13,7 +13,7 @@ import {
 } from "@/ui/shell/shell-session-pill";
 import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { getDefaultProtectedHref } from "@/modules/fees/config/navigation";
-import { EMPTY_SHELL_PULSE, getShellPulse } from "@/modules/dashboard/data/shell-metrics";
+import { getShellPulse } from "@/modules/dashboard/data/shell-metrics";
 import { getFeePolicyForSession } from "@/modules/fees/domain/queries";
 import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
@@ -90,27 +90,22 @@ export function DashboardShell({
   // unhandled rejection, and separately: a failed shell read used to take down
   // the whole workspace. A missing "Day so far" figure is not a reason nobody
   // can reach the Payment Desk.
-  const pulsePromise = showFeeMetrics
-    ? getShellPulse(viewSessionLabel).catch(() => EMPTY_SHELL_PULSE)
-    : Promise.resolve(EMPTY_SHELL_PULSE);
-  const receiptPrefixPromise = showFeeMetrics
-    ? getFeePolicyForSession(viewSessionLabel)
-      .then((policy) => policy.receiptPrefix)
-      .catch(() => null)
-    : Promise.resolve(null);
-  const sessionSwitcherPromise = getSessionSwitcherData().catch(() => ({
+  const pulsePromise = showFeeMetrics ? getShellPulse(viewSessionLabel).catch(() => null) : Promise.resolve(null);
+  const receiptPrefixPromise = showFeeMetrics ? getFeePolicyForSession(viewSessionLabel)
+    .then((policy) => policy.receiptPrefix)
+    .catch(() => null) : Promise.resolve(null);
+  const sessionSwitcherPromise = showFeeMetrics ? getSessionSwitcherData().catch(() => ({
     activeSessionLabel: viewSessionLabel,
     availableSessions: [],
-  }));
+  })) : Promise.resolve({ activeSessionLabel: viewSessionLabel, availableSessions: [] });
   const navCountsPromise = pulsePromise.then((pulse) => ({
-    "/fees/payments": pulse.todayReceiptCount,
-    "/fees/defaulters": pulse.overdueStudentCount,
+    ...(pulse ? { "/fees/payments": pulse.todayReceiptCount, "/fees/defaulters": pulse.overdueStudentCount } : {}),
   }));
   // The phone bar gets only the follow-up count, same as before. A badge on
   // Collect would read as "3 payments waiting", which is not a thing. Derived
   // from the same promise, so it costs no second read.
   const mobileNavCountsPromise = pulsePromise.then((pulse) => ({
-    "/fees/defaulters": pulse.overdueStudentCount,
+    ...(pulse ? { "/fees/defaulters": pulse.overdueStudentCount } : {}),
   }));
 
   const homeHref = homeHrefProp ?? getDefaultProtectedHref(staffRole);
@@ -129,13 +124,13 @@ export function DashboardShell({
     <SessionSwitchingProvider>
       <div className="min-h-svh w-full overflow-x-clip bg-background text-foreground lg:h-screen lg:overflow-hidden">
       {skipToContentLabel ? (
-        <a href="#main-content" className="focus-ring sr-only fixed left-4 top-4 z-[70] rounded-xl bg-card px-4 py-3 text-foreground shadow-lg focus:not-sr-only">
+        <a href="#main-content" className="focus-ring sr-only fixed left-4 top-4 z-[70] rounded-xl bg-card text-foreground shadow-lg focus:not-sr-only focus:min-h-[44px] focus:px-4 focus:py-3">
           {skipToContentLabel}
         </a>
       ) : null}
       <Suspense fallback={null}>
         <RouteProgress />
-        <OfficeSyncListener sessionLabel={viewSessionLabel} />
+        {showFeeMetrics ? <OfficeSyncListener sessionLabel={viewSessionLabel} /> : null}
       </Suspense>
 
       {/* Sidebar (desktop) — ink surface */}
@@ -172,11 +167,9 @@ export function DashboardShell({
             ) : null}
           </p>
           {/* Day so far */}
-          {showFeeMetrics ? (
-            <Suspense fallback={<ShellDayCardSkeleton />}>
-              <ShellDayCard pulse={pulsePromise} receiptPrefix={receiptPrefixPromise} />
-            </Suspense>
-          ) : null}
+          {showFeeMetrics ? <Suspense fallback={<ShellDayCardSkeleton />}>
+            <ShellDayCard pulse={pulsePromise} receiptPrefix={receiptPrefixPromise} />
+          </Suspense> : null}
         </footer>
       </aside>
 
@@ -194,7 +187,7 @@ export function DashboardShell({
           sidebarGroups={sidebarGroups}
           staffRoleLabel={staffRoleLabel}
           sessionPill={
-            <Suspense
+            showFeeMetrics ? <Suspense
               fallback={
                 <ShellSessionPillSkeleton
                   currentLabel={viewSessionLabel}
@@ -207,7 +200,7 @@ export function DashboardShell({
                 isTest={viewSessionIsTest}
                 sessions={sessionSwitcherPromise}
               />
-            </Suspense>
+            </Suspense> : <span className="text-sm text-muted-foreground">{viewSessionLabel}</span>
           }
           localeSwitcher={localeSwitcher}
         />

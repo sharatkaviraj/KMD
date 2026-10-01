@@ -1,9 +1,9 @@
 {
-  "name": "Shri Veer Patta School Fee Admin",
-  "short_name": "VPPS Fee",
-  "id": "/fees",
+  "name": "VPPS One — Shri Veer Patta School",
+  "short_name": "VPPS One",
+  "id": "/",
   "scope": "/",
-  "start_url": "/fees/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
@@ -11,7 +11,7 @@
   "launch_handler": { "client_mode": "focus-existing" },
   "background_color": "#FAFAF7",
   "theme_color": "#FAFAF7",
-  "description": "Internal fee management workspace for VPPS office/accounts staff.",
+  "description": "School workspace for staff, attendance, timetable, assessments and fees.",
   "icons": [
     {
       "src": "/branding/icon-192.png",
@@ -34,16 +34,12 @@
   ],
   "shortcuts": [
     {
-      "name": "Payment Desk",
-      "url": "/fees/payments"
+      "name": "Home",
+      "url": "/"
     },
     {
-      "name": "Defaulters",
-      "url": "/fees/defaulters"
-    },
-    {
-      "name": "Today's Receipts",
-      "url": "/fees/transactions"
+      "name": "Preferences",
+      "url": "/preferences"
     }
   ]
 }

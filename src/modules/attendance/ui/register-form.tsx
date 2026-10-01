@@ -1,37 +1,23 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, CloudOff } from "lucide-react";
 
 import { saveRegisterAction } from "@/app/(app)/teach/actions";
+import { recordPerformance } from "@/platform/performance/record";
 import { m } from "@/messages";
 import {
   attendanceLabels,
   attendanceStatuses,
   compareRoll,
-  mergeQueued,
-  pendingFlushes,
-  queueKeyFor,
   tally,
   type AttendanceStatus,
-  type QueuedRegister,
   type RollStudent,
 } from "@/modules/attendance/domain/attendance";
 import { idleTeachState } from "@/modules/attendance/domain/teach-state";
-import {
-  parseQueue,
-  queueSnapshot,
-  readQueue,
-  serverQueueSnapshot,
-  subscribeQueue,
-  writeQueue,
-} from "@/modules/attendance/ui/queue-store";
+import { draftKey, isStringRecord } from "@/platform/drafts/policy";
+import { useDurableDraft } from "@/platform/drafts/use-durable-draft";
+import { DraftStatus } from "@/ui/draft-status";
 import { countOf, primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { cn } from "@/platform/utils";
@@ -40,24 +26,17 @@ import { Badge, Notice } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 
-/**
- * The register a teacher marks every morning.
- *
- * Built for a phone with one bar of signal in a corridor, which drives three
- * decisions:
- *
- *  - **every tap is written to storage immediately**, so work survives the
- *    browser being killed, the phone locking, or the signal going;
- *  - **the flush is one request for the whole register**, not one per child,
- *    so a drop halfway cannot leave a class half-marked;
- *  - **submitting twice is harmless** — the server upserts on
- *    (register, student), so the second attempt writes the same rows.
- *
- * The queue and the connection are both external systems, subscribed to rather
- * than copied into state: see `queue-store.ts`.
- */
+type RegisterDraft = { marks: Record<string, AttendanceStatus> };
+function isRegisterDraft(value: unknown): value is RegisterDraft {
+  if (!value || typeof value !== "object" || !("marks" in value) || !isStringRecord(value.marks)) return false;
+  return Object.values(value.marks).every(status => attendanceStatuses.includes(status as AttendanceStatus));
+}
+
+/** Account/session scoped draft; recovered work is reviewed before submission. */
 export function RegisterForm({
   roll,
+  ownerId,
+  sessionLabel,
   classId,
   classLabel,
   day,
@@ -67,6 +46,8 @@ export function RegisterForm({
   onBehalf,
 }: {
   roll: RollStudent[];
+  ownerId: string;
+  sessionLabel: string;
   classId: string;
   classLabel: string;
   day: string;
@@ -83,133 +64,78 @@ export function RegisterForm({
   const [saved, setSaved] = useState(false);
   const [failure, setFailure] = useState<Localized | null>(null);
 
-  // One id per marking session, reused across every retry of it.
-  const [clientId] = useState(
-    () => `${classId}:${day}:${period ?? "d"}:${Date.now()}`,
-  );
-
-  const online = useSyncExternalStore(subscribeOnline, isOnline, () => true);
-  const queued = useSyncExternalStore(
-    subscribeQueue,
-    queueSnapshot,
-    serverQueueSnapshot,
-  );
-  const queuedCount = Object.keys(parseQueue(queued)).length;
-
-  /** Put the current state in the queue. Called on every tap. */
-  const enqueue = useCallback(
-    (next: Record<string, AttendanceStatus>, submitted: boolean) => {
-      const key = queueKeyFor(classId, day, period);
-      const queue = readQueue();
-
-      const incoming: QueuedRegister = {
-        clientId,
-        classId,
-        day,
-        period,
-        marks: Object.fromEntries(
-          Object.entries(next).map(([studentId, status]) => [
-            studentId,
-            { status, note: null },
-          ]),
-        ),
-        submitted,
-        updatedAt: Date.now(),
-      };
-
-      writeQueue({ ...queue, [key]: mergeQueued(queue[key], incoming) });
-    },
-    [classId, clientId, day, period],
-  );
+  const current = useRef(existing);
+  const sending = useRef(false);
+  const retry = useRef<RegisterDraft | null>(null);
+  const draft = useDurableDraft(draftKey(ownerId, sessionLabel, `attendance/${classId}/${day}/${period ?? "daily"}`), JSON.stringify({ existing, ids: sorted.map(row => row.studentId) }), isRegisterDraft);
+  const { persist, clear, online } = draft;
+  const effectiveLocked = locked || saved;
 
   const flush = useCallback(async () => {
-    const pending = pendingFlushes(readQueue()).filter(
-      (entry) => Object.keys(entry.marks).length > 0,
-    );
-    if (pending.length === 0) return;
-
+    const entry = retry.current;
+    if (!entry || sending.current || !navigator.onLine) return;
+    sending.current = true;
     setSaving(true);
     setFailure(null);
-
-    for (const entry of pending) {
-      const formData = new FormData();
-      formData.set(
-        "payload",
-        JSON.stringify({
-          classId: entry.classId,
-          day: entry.day,
-          period: entry.period,
-          submit: entry.submitted,
-          marks: Object.entries(entry.marks).map(([studentId, mark]) => ({
-            studentId,
-            status: mark.status,
-            note: mark.note,
-          })),
-        }),
-      );
-
-      let result;
-      try {
-        result = await saveRegisterAction(idleTeachState, formData);
-      } catch {
-        // The request never landed — almost always the connection. The entry
-        // stays queued and the next flush picks it up.
-        setSaving(false);
-        return;
-      }
-
-      if (result.status === "error") {
-        // A refusal the teacher has to see: the wrong class, a locked
-        // register, a session that has moved on. Left in the queue
-        // deliberately, so nothing is silently dropped.
+    const formData = new FormData();
+    formData.set("payload", JSON.stringify({ classId, sessionLabel, day, period, submit: true,
+      marks: Object.entries(entry.marks).map(([studentId, status]) => ({ studentId, status, note: null })) }));
+    try {
+      const started = performance.now();
+      const result = await saveRegisterAction(idleTeachState, formData);
+      if (result.status === "saved") recordPerformance("form_saved", performance.now() - started);
+      if (result.status === "saved") {
+        retry.current = null;
+        setSaved(true);
+        await clear();
+      } else {
+        retry.current = null; // Server refusals require review, never automatic replay.
         setFailure(result.message ?? m.notSaved);
-        setSaving(false);
-        return;
       }
+    } catch { setFailure(m.notSaved); }
+    finally { sending.current = false; setSaving(false); }
+  }, [classId, sessionLabel, day, period, clear]);
 
-      const after = readQueue();
-      delete after[queueKeyFor(entry.classId, entry.day, entry.period)];
-      writeQueue(after);
-    }
-
-    setSaving(false);
-    setSaved(true);
-  }, []);
-
-  // Subscribing only — nothing here sets state synchronously, which is what
-  // the effect is allowed to do.
   useEffect(() => {
-    const onOnline = () => void flush();
+    const onOnline = () => { void flush(); };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
   }, [flush]);
 
-  const setStatus = (studentId: string, status: AttendanceStatus) => {
-    if (locked) return;
-    setSaved(false);
-    setMarks((current) => {
-      const next = { ...current, [studentId]: status };
-      enqueue(next, false);
-      return next;
-    });
-  };
+  const setStatus = useCallback((studentId: string, status: AttendanceStatus) => {
+    if (effectiveLocked || sending.current) return;
+    retry.current = null;
+    const next = { ...current.current, [studentId]: status };
+    current.current = next;
+    setMarks(next);
+    void persist({ marks: next });
+  }, [effectiveLocked, persist]);
 
   const markAllPresent = () => {
-    if (locked) return;
-    setSaved(false);
-
-    const next: Record<string, AttendanceStatus> = { ...marks };
-    for (const student of sorted) {
-      // Only the blanks: this is "the rest are here", not "undo my work".
-      if (!next[student.studentId]) next[student.studentId] = "present";
-    }
-
+    if (effectiveLocked || sending.current) return;
+    retry.current = null;
+    const next = { ...current.current };
+    for (const student of sorted) if (!next[student.studentId]) next[student.studentId] = "present";
+    current.current = next;
     setMarks(next);
-    enqueue(next, false);
+    void persist({ marks: next });
+  };
+
+  const restore = () => {
+    if (effectiveLocked) return;
+    const known = new Set(sorted.map(row => row.studentId));
+    const next = Object.fromEntries(Object.entries(draft.recovered?.value.marks ?? {}).filter(([id]) => known.has(id)));
+    current.current = next;
+    setMarks(next);
+    draft.dismissRecovery();
+    void persist({ marks: next });
   };
 
   const submit = async () => {
-    enqueue(marks, true);
+    if (effectiveLocked || sending.current) return;
+    const entry = { marks: { ...current.current } };
+    retry.current = entry;
+    await persist(entry);
     await flush();
   };
 
@@ -233,7 +159,8 @@ export function RegisterForm({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-busy={saving} data-work-form="true">
+      <DraftStatus status={draft.status} online={online} recovered={!effectiveLocked && Boolean(draft.recovered)} changed={draft.changedSinceDraft} onRestore={restore} onDiscard={() => void draft.discard()} language={language} />
       {onBehalf ? (
         <Notice tone="warning" text={m.attendanceOnBehalf} language={language} />
       ) : null}
@@ -250,7 +177,7 @@ export function RegisterForm({
         <Notice tone="danger" text={failure} language={language} />
       ) : null}
 
-      <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background px-4 py-2">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[14px] text-muted-foreground">
             {/* `countOf`, not two numbers around a translated "of": Hindi
@@ -267,13 +194,13 @@ export function RegisterForm({
                 {primary(attendanceLabels.absent, language)} {counts.absent}
               </Badge>
             ) : null}
-            {queuedCount > 0 ? (
+            {draft.status === "local" ? (
               <Badge tone="warning">
                 <CloudOff aria-hidden className="size-3" />
-                {queuedCount}
+                1
               </Badge>
             ) : null}
-            {saved && queuedCount === 0 ? (
+            {saved ? (
               <Badge tone="success">
                 <Check aria-hidden className="size-3" />
                 {primary(m.attendanceSubmitted, language)}
@@ -283,7 +210,7 @@ export function RegisterForm({
         </div>
       </div>
 
-      {!locked ? (
+      {!effectiveLocked ? (
         <Button variant="outline" size="sm" onClick={markAllPresent} fullWidth>
           {primary(m.attendanceMarkAllPresent, language)}
         </Button>
@@ -299,55 +226,11 @@ export function RegisterForm({
         description={legend}
         language={language}
       >
-        {sorted.map((student) => {
-          const status = marks[student.studentId];
-
-          return (
-            // A `<li>`, because `Panel` is a `<ul>`: a register is a list of
-            // children and a screen reader should say so.
-            <li
-              key={student.studentId}
-              className="px-4 py-3 sm:flex sm:items-center sm:gap-4"
-            >
-              <div className="mb-2 flex items-baseline gap-2 sm:mb-0 sm:min-w-0 sm:flex-1">
-                <span className="w-7 shrink-0 text-[13px] font-semibold tabular-nums text-subtle-foreground">
-                  {student.rollNo ?? "—"}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-foreground">
-                  {student.fullName}
-                </span>
-              </div>
-
-              {/* Four targets rather than a dropdown: a teacher marks forty
-                  children standing up, and a select costs two taps and a
-                  steady hand for each one. */}
-              <div className="grid grid-cols-4 gap-1.5 sm:w-auto sm:shrink-0">
-                {attendanceStatuses.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setStatus(student.studentId, option)}
-                    disabled={locked}
-                    aria-pressed={status === option}
-                    className={cn(
-                      "focus-ring min-h-11 rounded-xl border px-2 text-[13px] font-semibold transition-colors",
-                      "disabled:opacity-60 sm:min-w-20",
-                      status === option
-                        ? SELECTED[option]
-                        : "border-border bg-surface text-muted-foreground",
-                    )}
-                  >
-                    {primary(attendanceLabels[option], language)}
-                  </button>
-                ))}
-              </div>
-            </li>
-          );
-        })}
+        {sorted.map(student => <AttendanceRow key={student.studentId} student={student} status={marks[student.studentId]} disabled={effectiveLocked || saving} language={language} onStatus={setStatus} />)}
       </Panel>
 
-      {!locked ? (
-        <div className="safe-bottom sticky bottom-0 -mx-4 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
+      {!effectiveLocked ? (
+        <div className="work-action safe-bottom sticky bottom-0 -mx-4 border-t border-border bg-background px-4 pt-3">
           <Button
             onClick={submit}
             fullWidth
@@ -377,16 +260,45 @@ const SELECTED: Record<AttendanceStatus, string> = {
   leave: "border-border-strong bg-surface-3 text-foreground",
 };
 
-function isOnline() {
-  return navigator.onLine;
-}
 
-function subscribeOnline(onChange: () => void) {
-  window.addEventListener("online", onChange);
-  window.addEventListener("offline", onChange);
+const AttendanceRow = memo(function AttendanceRow({ student, status, disabled, language, onStatus }: {
+  student: RollStudent; status: AttendanceStatus | undefined; disabled: boolean;
+  language: ReturnType<typeof useLanguage>; onStatus: (id: string, status: AttendanceStatus) => void;
+}) { return (
+            <li
+              className="px-4 py-3 sm:flex sm:items-center sm:gap-4"
+            >
+              <div className="mb-2 flex items-baseline gap-2 sm:mb-0 sm:min-w-0 sm:flex-1">
+                <span className="w-7 shrink-0 text-[13px] font-semibold tabular-nums text-subtle-foreground">
+                  {student.rollNo ?? "—"}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-foreground">
+                  {student.fullName}
+                </span>
+              </div>
 
-  return () => {
-    window.removeEventListener("online", onChange);
-    window.removeEventListener("offline", onChange);
-  };
-}
+              {/* Four targets rather than a dropdown: a teacher marks forty
+                  children standing up, and a select costs two taps and a
+                  steady hand for each one. */}
+              <div className="grid grid-cols-4 gap-1.5 sm:w-auto sm:shrink-0">
+                {attendanceStatuses.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => onStatus(student.studentId, option)}
+                    disabled={disabled}
+                    aria-pressed={status === option}
+                    className={cn(
+                      "focus-ring min-h-11 rounded-xl border px-2 text-[13px] font-semibold transition-colors",
+                      "disabled:opacity-60 sm:min-w-20",
+                      status === option
+                        ? SELECTED[option]
+                        : "border-border bg-surface text-muted-foreground",
+                    )}
+                  >
+                    {primary(attendanceLabels[option], language)}
+                  </button>
+                ))}
+              </div>
+            </li>
+); });

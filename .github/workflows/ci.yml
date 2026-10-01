@@ -69,3 +69,6 @@ jobs:
           NEXT_PUBLIC_SCHOOL_NAME: Shri Veer Patta Senior Secondary School
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           VPPSONE_ENV: dev
+
+      - name: Route bundle budgets
+        run: npm run check:bundles

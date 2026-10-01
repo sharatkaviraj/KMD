@@ -77,6 +77,8 @@ export async function saveRegisterAction(
   const parsed = submitRegisterSchema.safeParse(payload);
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
 
+  if (parsed.data.sessionLabel && parsed.data.sessionLabel !== sessionLabel) return failure(m.noSessionFound);
+
   const own = await ownClassIds(actor.id, sessionLabel);
   const verdict = canMarkClass({
     hasMarkPermission: can(actor, "attendance:mark"),
@@ -99,6 +101,14 @@ export async function saveRegisterAction(
   );
 
   if (existing && existing.status === "submitted") {
+    // A lost response may retry the same submission, without editing a record.
+    if (parsed.data.submit && existing.takenBy === actor.id) {
+      const stored = await listMarks(existing.id);
+      if (stored.size === parsed.data.marks.length && new Set(parsed.data.marks.map(mark => mark.studentId)).size === stored.size && parsed.data.marks.every(mark => {
+        const found = stored.get(mark.studentId);
+        return found?.status === mark.status && (found.note ?? null) === (mark.note ?? null);
+      })) return { ...idleTeachState, status: "saved" };
+    }
     return failure(m.attendanceLocked);
   }
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { notFound } from "next/navigation";
 
 import { AuthoredText } from "@/ui/authored-text";
@@ -109,6 +110,8 @@ export default async function TokenRequestPage(props: PageProps<"/r/[token]">) {
       ) : null}
 
       <RequestForm
+        draftScope={createHash("sha256").update(token).digest("hex")}
+        sessionLabel={request.sessionLabel}
         token={token}
         fields={request.fields}
         roll={roll}

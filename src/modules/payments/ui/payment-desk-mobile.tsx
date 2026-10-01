@@ -24,7 +24,6 @@ import { pushOptimisticPayment } from "@/modules/dashboard/domain/optimistic-cou
 import { Banknote, Building2, FileText, Smartphone } from "lucide-react";
 import { PayeeSummaryStrip } from "@/modules/payments/ui/payee-summary-strip";
 import { DeskTotalsSection } from "@/modules/payments/ui/desk-totals-section";
-import { CollectDraftBanner } from "@/modules/payments/ui/collect-draft-banner";
 import {
   DesktopPaymentDeskBody,
   DesktopPaymentDeskMainPanel,
@@ -93,7 +92,9 @@ import { triggerHaptic } from "@/ui/hooks/use-haptics";
 import { useOverlayScrollLock } from "@/ui/hooks/use-overlay-scroll-lock";
 import { formatInr } from "@/platform/helpers/currency";
 import { cn } from "@/platform/utils";
-import { clearDraft, loadDraft, saveDraft } from "@/modules/payments/domain/draft-store";
+import { useOnline } from "@/platform/drafts/use-durable-draft";
+import { PaymentDraftStatus } from "@/ui/payment-draft-status";
+import { clearDraft, loadDraft, saveDraft, type PaymentDraftValue } from "@/modules/payments/domain/draft-store";
 import { normalizeAmountInputShorthand, sanitizeDecimalInput } from "@/modules/payments/domain/payment-desk-client-helpers";
 import { getOfficeMetricSessionKind, recordOfficeMetric } from "@/platform/telemetry/office-telemetry";
 import {
@@ -125,6 +126,7 @@ const MobilePaymentFlowSheet = dynamic(
 );
 
 export type PaymentDeskMobileProps = {
+  ownerId: string;
   data: PaymentEntryPageData;
   canPost: boolean;
   canViewDiagnostics: boolean;
@@ -221,6 +223,7 @@ function classifyPaymentSummaryError(error: unknown): string {
 type ClassStreak = { classId: string; count: number };
 
 export function PaymentDeskClient({
+  ownerId,
   data,
   canPost,
   canViewDiagnostics,
@@ -237,6 +240,7 @@ export function PaymentDeskClient({
   formId = "payment-entry-form",
 }: PaymentDeskMobileProps) {
   "use memo"; // React Compiler opt-in (annotation mode, next.config.ts). Remove to fall back to the hand-written memoisation.
+  const isOnline = useOnline();
   const tToasts = useTranslations("Toasts");
   const [state, formAction, pending] = useActionState(
     submitPaymentEntryAction,
@@ -261,6 +265,13 @@ export function PaymentDeskClient({
   const [studentSummaryLoading, setStudentSummaryLoading] = useState(false);
   const [studentSummaryNotice, setStudentSummaryNotice] = useState<string | null>(null);
   const [latestStudentReceipt, setLatestStudentReceipt] = useState(data.initialLatestReceipt);
+  const [recoveredPaymentDraft, setRecoveredPaymentDraft] = useState<PaymentDraftValue | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<"idle" | "writing" | "local" | "school" | "error">("idle");
+  const draftEdits = useRef(0);
+  const editPaymentAmount = useCallback((value: string) => {
+    draftEdits.current++; setRecoveredPaymentDraft(null); setPaymentAmountInput(value);
+  }, []);
   const [paymentAmountInput, setPaymentAmountInput] = useState("");
   const [quickDiscountInput, setQuickDiscountInput] = useState("");
   const [waiveFullLateFee, setWaiveFullLateFee] = useState(false);
@@ -1035,7 +1046,7 @@ export function PaymentDeskClient({
     creditBalance,
   });
   const confirmDisabled =
-    !canPost ||
+    !canPost || !isOnline ||
     isLockedAfterSuccess ||
     previewLoading ||
     studentSummaryLoading ||
@@ -1167,6 +1178,7 @@ export function PaymentDeskClient({
       if (state.studentId) {
         rememberRecentStudent(state.studentId);
         void clearDraft({
+          ownerId,
           sessionLabel: paymentSessionLabel,
           studentId: state.studentId,
           paymentDate: state.paymentDate ?? paymentDate,
@@ -1251,6 +1263,7 @@ export function PaymentDeskClient({
       triggerHaptic("error");
     }
   }, [
+    ownerId,
     actionStateKey,
     buildStudentSummaryCacheKey,
     printReceiptHref,
@@ -1410,7 +1423,7 @@ export function PaymentDeskClient({
 
 
   // --keyboard-offset is published for the whole workspace by
-  // <KeyboardOffsetProvider/> (mounted in app/fees/layout.tsx) so every
+  // <KeyboardOffsetProvider/> (mounted in the root layout) so every
   // sheet — not just this one — can lift its actions above the keyboard.
 
   useEffect(() => {
@@ -1420,33 +1433,41 @@ export function PaymentDeskClient({
 
     let cancelled = false;
 
+    const startedWith = draftEdits.current;
+    setDraftReady(false);
+    setRecoveredPaymentDraft(null);
+    setDraftStatus("idle");
     loadDraft({
+      ownerId,
       sessionLabel: paymentSessionLabel,
       studentId: selectedStudentId,
       paymentDate,
     }).then((draft) => {
-      if (cancelled || !draft) {
-        return;
-      }
-
-      setPaymentAmountInput(draft.amountInput);
-      setPaymentMode(draft.paymentMode as typeof paymentMode);
-    });
+      if (cancelled) return;
+      setDraftReady(true);
+      if (draftEdits.current === startedWith) setRecoveredPaymentDraft(draft);
+    }).catch(() => { if (!cancelled) { setDraftReady(true); setDraftStatus("error"); } });
 
     return () => {
       cancelled = true;
     };
     // setPaymentMode is a useState setter forwarded by useStoredPreference, so
     // it is stable; the lint rule just cannot see through the custom hook.
-  }, [paymentDate, paymentSessionLabel, selectedStudentId, setPaymentMode]);
+  }, [ownerId, paymentDate, paymentSessionLabel, selectedStudentId, setPaymentMode]);
 
   useEffect(() => {
-    if (!selectedStudentId || isLockedAfterSuccess) {
+    if (!selectedStudentId || isLockedAfterSuccess || !draftReady || recoveredPaymentDraft) {
       return;
     }
 
     const flushDraft = () => {
-      saveDraft({
+      if (!paymentAmountInput.trim()) {
+        void clearDraft({ ownerId, sessionLabel: paymentSessionLabel, studentId: selectedStudentId, paymentDate }).then(() => setDraftStatus("idle")).catch(() => setDraftStatus("error"));
+        return;
+      }
+      setDraftStatus("writing");
+      void saveDraft({
+        ownerId,
         sessionLabel: paymentSessionLabel,
         studentId: selectedStudentId,
         paymentDate,
@@ -1455,12 +1476,10 @@ export function PaymentDeskClient({
           paymentMode,
           referenceNumber: "",
         },
-      });
+      }).then(() => setDraftStatus("local")).catch(() => setDraftStatus("error"));
     };
 
-    const timer = window.setTimeout(() => {
-      flushDraft();
-    }, 350);
+    flushDraft();
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -1472,11 +1491,11 @@ export function PaymentDeskClient({
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearTimeout(timer);
       window.removeEventListener("beforeunload", flushDraft);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
+    ownerId, draftReady, recoveredPaymentDraft,
     isLockedAfterSuccess,
     paymentAmountInput,
     paymentDate,
@@ -1642,6 +1661,7 @@ export function PaymentDeskClient({
   }
 
   function openConfirmationDialog() {
+    if (!isOnline) return;
     // Fetch the receipt screen's chunk now. It is dynamic({ssr:false}) with no
     // loading state, so otherwise the download only BEGINS on success — on a
     // slow counter connection, seconds of a screen doing nothing after save.
@@ -1791,8 +1811,19 @@ export function PaymentDeskClient({
     }
   }
 
+  const paymentDraftNotice = selectedStudentId || !isOnline ? <div aria-busy={pending}><PaymentDraftStatus status={isLockedAfterSuccess ? "school" : draftStatus} online={isOnline} recovered={Boolean(recoveredPaymentDraft)} changed onRestore={() => {
+        if (!recoveredPaymentDraft || pending) return;
+        editPaymentAmount(recoveredPaymentDraft.amountInput);
+        setPaymentMode(recoveredPaymentDraft.paymentMode as typeof paymentMode);
+        setRecoveredPaymentDraft(null);
+      }} onDiscard={() => {
+        if (pending) return;
+        void clearDraft({ ownerId, sessionLabel: paymentSessionLabel, studentId: selectedStudentId, paymentDate }).then(() => { setRecoveredPaymentDraft(null); setDraftStatus("idle"); }).catch(() => setDraftStatus("error"));
+      }} /></div> : null;
+
   return (
     <PaymentDeskRoot phase={controllerState.phase}>
+      {mobileSheetView === "payment-entry" ? null : paymentDraftNotice}
       <OfficeRecentTracker
         student={
           selectedStudent
@@ -1817,10 +1848,10 @@ export function PaymentDeskClient({
         }
       />
 
-      <CollectDraftBanner />
 
       {mobileSheetView ? <MobilePaymentFlowSheet
         view={mobileSheetView}
+        draftNotice={paymentDraftNotice}
         suspended={isConfirmOpen || isSuccessOpen || isDuplicateOpen || showPostingSheet}
         onClose={() => setMobileSheetView(null)}
         onOpenClassPicker={() => setMobileSheetView("class-picker")}
@@ -1870,7 +1901,7 @@ export function PaymentDeskClient({
         formError={formError}
         isLockedAfterSuccess={isLockedAfterSuccess}
         isPosting={isPostInFlight}
-        canPost={canPost}
+        canPost={canPost && isOnline}
         draftValidationOk={draftValidation.ok}
         confirmDisabled={confirmDisabled}
         latestReceiptToday={
@@ -1885,7 +1916,7 @@ export function PaymentDeskClient({
         dismissedTodayReceiptId={dismissedTodayReceiptId}
         onDismissTodayReceipt={(id) => setDismissedTodayReceiptId(id)}
         onAmountChange={(value) => {
-          setPaymentAmountInput(value);
+          editPaymentAmount(value);
           setFormError(null);
         }}
         onSetPaymentMode={(mode) => {
@@ -1904,7 +1935,7 @@ export function PaymentDeskClient({
           setFormError(null);
         }}
         onQuickAmount={(amount) => {
-          setPaymentAmountInput(amount === null ? "" : String(amount));
+          editPaymentAmount(amount === null ? "" : String(amount));
           setFormError(null);
         }}
         onOpenConfirm={openConfirmationDialog}
@@ -1924,7 +1955,7 @@ export function PaymentDeskClient({
         lastPostedAmount={lastPostedAmount}
         onUseLastAmount={() => {
           if (lastPostedAmount !== null) {
-            setPaymentAmountInput(String(lastPostedAmount));
+            editPaymentAmount(String(lastPostedAmount));
           }
           setIsLastAmountArmed(true);
           setFormError(null);
@@ -2426,7 +2457,7 @@ export function PaymentDeskClient({
                     className="h-12 flex-1 rounded-none border-0 text-xl font-semibold shadow-none focus-visible:ring-0"
                     value={paymentAmountInput}
                     onChange={(event) => {
-                      setPaymentAmountInput(event.target.value);
+                      editPaymentAmount(event.target.value);
                       setFormError(null);
                     }}
                     onBlur={onAmountInputBlur}
@@ -2502,7 +2533,7 @@ export function PaymentDeskClient({
                       )}
                       onClick={() => {
                         setFormError(null);
-                        setPaymentAmountInput(qa.amount === null ? "" : String(qa.amount));
+                        editPaymentAmount(qa.amount === null ? "" : String(qa.amount));
                       }}
                     >
                       <span className="text-[11px] font-semibold">{qa.label}</span>
@@ -2521,7 +2552,7 @@ export function PaymentDeskClient({
                         className={getQuickAmountChipClassName(qa)}
                         onClick={() => {
                           setFormError(null);
-                          setPaymentAmountInput(qa.amount === null ? "" : String(qa.amount));
+                          editPaymentAmount(qa.amount === null ? "" : String(qa.amount));
                         }}
                       >
                         {getQuickAmountChipLabel(qa)}
@@ -2824,6 +2855,7 @@ export function PaymentDeskClient({
               className="payment-entry-form relative space-y-3"
               data-receipt-copy-markers={paymentDeskReceiptCopyMarkers.join("|")}
               onSubmit={(event) => {
+                if (!navigator.onLine) { event.preventDefault(); return; }
                 if (!isConfirmOpen && !fastPostRequestedRef.current) {
                   event.preventDefault();
                   openConfirmationDialog();
@@ -2962,7 +2994,7 @@ export function PaymentDeskClient({
                       ref={amountInputRef}
                       value={paymentAmountInput}
                       onChange={(event) => {
-                        setPaymentAmountInput(event.target.value);
+                        editPaymentAmount(event.target.value);
                         setFormError(null);
                       }}
                       onBlur={onAmountInputBlur}
@@ -2990,11 +3022,11 @@ export function PaymentDeskClient({
                           onClick={() => {
                             setFormError(null);
                             if (quickAmount.amount === null) {
-                              setPaymentAmountInput("");
+                              editPaymentAmount("");
                               return;
                             }
 
-                            setPaymentAmountInput(String(quickAmount.amount));
+                            editPaymentAmount(String(quickAmount.amount));
                           }}
                         >
                           {getQuickAmountChipLabel(quickAmount)}
@@ -3207,7 +3239,7 @@ export function PaymentDeskClient({
                       form={formId}
                       onBack={() => dispatchController({ type: "review_closed" })}
                       isSubmitting={pending}
-                      isDisabled={!draftValidation.ok || previewLoading || submittingRef.current}
+                      isDisabled={!isOnline || !draftValidation.ok || previewLoading || submittingRef.current}
                       confirmationSummary={{
                         ...confirmationSummary,
                         referenceNumber: confirmationSummary.referenceNumber ?? "",

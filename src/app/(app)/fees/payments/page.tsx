@@ -212,6 +212,7 @@ async function PaymentDeskDataLoader({
           classOptions={classOptions}
           workflowGuard={blockingReason}
           initialState={INITIAL_PAYMENT_ENTRY_ACTION_STATE}
+          ownerId={staff.id}
           defaultReceivedBy={staff.email ?? "Office desk"}
           submitPaymentEntryAction={submitPaymentEntryAction}
           repairPaymentDeskStudentDuesAction={repairPaymentDeskStudentDuesAction}
@@ -275,6 +276,7 @@ async function PaymentDeskDataLoader({
         classOptions={classOptions}
         workflowGuard={blockingReason}
         initialState={INITIAL_PAYMENT_ENTRY_ACTION_STATE}
+        ownerId={staff.id}
         defaultReceivedBy={staff.email ?? "Office desk"}
         submitPaymentEntryAction={submitPaymentEntryAction}
         repairPaymentDeskStudentDuesAction={repairPaymentDeskStudentDuesAction}

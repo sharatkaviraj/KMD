@@ -14,6 +14,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { toast } from "@/ui/primitives/toast";
 import { type AppLocale, supportedLocales } from "@/platform/i18n/locales";
 import { setLocaleAction } from "@/platform/locale/actions";
+import { shellMessages } from "@/platform/i18n/shell-messages";
 
 type MessageCatalog = Record<string, unknown>;
 
@@ -43,6 +44,7 @@ interface LanguageProviderProps {
   // ~2/3 smaller per page load.
   catalogs: LanguageCatalogs;
   children: React.ReactNode;
+  shellOnly?: boolean;
 }
 
 async function importCatalog(locale: AppLocale): Promise<MessageCatalog> {
@@ -60,6 +62,7 @@ export function LanguageProvider({
   initialLocale,
   catalogs,
   children,
+  shellOnly = false,
 }: LanguageProviderProps) {
   const [locale, setLocaleState] = useState<AppLocale>(initialLocale);
   const [isSwitching, startTransition] = useTransition();
@@ -96,12 +99,12 @@ export function LanguageProvider({
     let cancelled = false;
     void importCatalog(locale).then((catalog) => {
       if (cancelled) return;
-      setLoadedCatalogs((prev) => ({ ...prev, [locale]: catalog }));
+      setLoadedCatalogs((prev) => ({ ...prev, [locale]: shellOnly ? shellMessages(catalog) : catalog }));
     });
     return () => {
       cancelled = true;
     };
-  }, [locale, loadedCatalogs]);
+  }, [locale, loadedCatalogs, shellOnly]);
 
   const value = useMemo<LanguageContextValue>(
     () => ({ locale, setLocale, isSwitching }),

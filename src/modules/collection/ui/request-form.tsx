@@ -1,9 +1,13 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { Check, CircleAlert } from "lucide-react";
 
 import { submitAnswersAction } from "@/app/r/[token]/actions";
+import { draftKey, isStringRecord } from "@/platform/drafts/policy";
+import { useDurableDraft } from "@/platform/drafts/use-durable-draft";
+import { DraftStatus } from "@/ui/draft-status";
+import { recordPerformance } from "@/platform/performance/record";
 import { m } from "@/messages";
 import {
   validateField,
@@ -15,6 +19,11 @@ import { primary, secondary, type Language } from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";
 import { Notice } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
+
+type RequestDraft = { values: Record<string, string>; confirmed: string[] };
+function isRequestDraft(value: unknown): value is RequestDraft {
+  return Boolean(value && typeof value === "object" && "values" in value && isStringRecord(value.values) && "confirmed" in value && Array.isArray(value.confirmed) && value.confirmed.every(key => typeof key === "string"));
+}
 
 /**
  * The form a teacher fills in from a WhatsApp link.
@@ -33,16 +42,20 @@ import { Button } from "@/ui/primitives/button";
  */
 export function RequestForm({
   token,
+  draftScope,
+  sessionLabel,
   fields,
   roll,
   language,
 }: {
   token: string;
+  draftScope: string;
+  sessionLabel: string;
   fields: CollectionField[];
   roll: RollRow[];
   language: Language;
 }) {
-  const [state, action, pending] = useActionState(submitAnswersAction, idleLinkState);
+
 
   // Seeded from what the link already received, so reopening it shows her
   // where she actually stopped rather than an untouched list.
@@ -70,6 +83,31 @@ export function RequestForm({
     }
     return seed;
   });
+
+  const current = useRef<RequestDraft>({ values, confirmed: [...confirmed] });
+  const draft = useDurableDraft(draftKey(`request/${draftScope}`, sessionLabel, "answers"), JSON.stringify({ roll: roll.map(row => ({ id: row.studentId, answered: row.answered, current: row.current })), fields }), isRequestDraft);
+  const [state, action, pending] = useActionState(async (previous: typeof idleLinkState, formData: FormData) => {
+    try {
+      const started = performance.now();
+      const result = await submitAnswersAction(previous, formData);
+      if (result.status === "saved") recordPerformance("form_saved", performance.now() - started);
+      if (result.status === "saved") await draft.clear();
+      return result;
+    } catch { return { ...idleLinkState, status: "error" as const, message: m.notSaved }; }
+  }, idleLinkState);
+  const edit = (next: RequestDraft) => {
+    if (pending) return;
+    current.current = next;
+    setValues(next.values); setConfirmed(new Set(next.confirmed));
+    void draft.persist(next);
+  };
+  const restore = () => {
+    const saved = draft.recovered?.value;
+    if (!saved || pending) return;
+    const known = new Set(roll.flatMap(row => fields.map(field => `${row.studentId}|${field.key}`)));
+    edit({ values: Object.fromEntries(Object.entries(saved.values).filter(([key]) => known.has(key))), confirmed: saved.confirmed.filter(key => known.has(key)) });
+    draft.dismissRecovery();
+  };
 
   const errors = useMemo(() => {
     const found: Record<string, string> = {};
@@ -110,23 +148,11 @@ export function RequestForm({
     return out;
   }, [values, confirmed, roll, fields]);
 
-  const set = (key: string, value: string) => {
-    setValues((current) => ({ ...current, [key]: value }));
-    setConfirmed((current) => {
-      if (!current.has(key)) return current;
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
-  };
-
+  const set = (key: string, value: string) => edit({ values: { ...current.current.values, [key]: value }, confirmed: current.current.confirmed.filter(id => id !== key) });
   const confirm = (key: string) => {
-    setValues((current) => {
-      const next = { ...current };
-      delete next[key];
-      return next;
-    });
-    setConfirmed((current) => new Set(current).add(key));
+    const next = { ...current.current.values };
+    delete next[key];
+    edit({ values: next, confirmed: [...new Set([...current.current.confirmed, key])] });
   };
 
   if (roll.length === 0) {
@@ -134,10 +160,13 @@ export function RequestForm({
   }
 
   return (
-    <form action={action} className="space-y-3 pb-28">
+    <form action={action} aria-busy={pending} data-work-form="true" onSubmit={event => {
+      (event.currentTarget.elements.namedItem("payload") as HTMLInputElement).value = JSON.stringify(payload);
+    }} className="space-y-3 pb-28">
       <input type="hidden" name="token" value={token} />
-      <input type="hidden" name="payload" value={JSON.stringify(payload)} />
+      <input type="hidden" name="payload" defaultValue="" />
 
+      <DraftStatus status={draft.status} online={draft.online} recovered={Boolean(draft.recovered)} changed={draft.changedSinceDraft} onRestore={restore} onDiscard={() => { if (!pending) void draft.discard(); }} language={language} />
       {state.message ? (
         <Notice
           tone={state.status === "error" ? "danger" : "success"}
@@ -146,7 +175,7 @@ export function RequestForm({
         />
       ) : null}
 
-      <ul className="space-y-2">
+      <fieldset disabled={pending} className="min-w-0"><ul className="space-y-2">
         {roll.map((row) => (
           <li
             key={row.studentId}
@@ -223,6 +252,7 @@ export function RequestForm({
                       <Input
                         id={key}
                         field={field}
+                        language={language}
                         value={typed ?? ""}
                         onChange={(next) => set(key, next)}
                         invalid={Boolean(error)}
@@ -251,9 +281,9 @@ export function RequestForm({
             </div>
           </li>
         ))}
-      </ul>
+      </ul></fieldset>
 
-      <div className="safe-bottom fixed inset-x-0 bottom-0 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
+      <div className="work-action safe-bottom fixed inset-x-0 bottom-0 border-t border-border bg-background px-4 pt-3">
         <div className="mx-auto max-w-md">
           <Button
             type="submit"
@@ -261,7 +291,7 @@ export function RequestForm({
             size="lg"
             loading={pending}
             loadingText={primary(m.saving, language)}
-            disabled={touched === 0 || hasErrors}
+            disabled={touched === 0 || hasErrors || !draft.online}
           >
             {primary(m.linkSaveAll, language)}
             {touched > 0 ? ` (${payload.length})` : ""}
@@ -284,12 +314,14 @@ function Input({
   value,
   onChange,
   invalid,
+  language,
 }: {
   id: string;
   field: CollectionField;
   value: string;
   onChange: (value: string) => void;
   invalid: boolean;
+  language: Language;
 }) {
   const shared =
     "focus-ring w-full rounded-xl border bg-surface px-3 py-2 text-base text-foreground " +
@@ -332,7 +364,7 @@ function Input({
                 : "border-border bg-surface text-muted-foreground",
             )}
           >
-            {option.label.en}
+            {primary(option.label, language)}
           </button>
         ))}
       </div>

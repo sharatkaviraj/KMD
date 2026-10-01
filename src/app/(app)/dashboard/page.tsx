@@ -10,7 +10,7 @@ import { dayLabel, schoolToday, weekdayLabel } from "@/platform/dates";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { allowedFor, navigationFor } from "@/platform/config/navigation";
 import { schoolProfile } from "@/platform/config/school";
-import { appsFor, environmentLabel, schoolApp } from "@/platform/config/apps";
+import { appsFor, environmentLabel } from "@/platform/config/apps";
 import { getVppsOneEnvironment } from "@/platform/env";
 import {
   flat,
@@ -123,6 +123,7 @@ export default async function DashboardPage() {
 
   if (isAdmin) {
     return <AdminOverview attention={attention} overview={overview} apps={apps}
+      overviewCounts={{ children: summary?.school.childrenOnRoll ?? null, classes: summary?.school.classes ?? null, registers: summary?.school.registersIn ?? null }}
       destinations={allowedFor(staff.role).filter(item => item.href !== "/dashboard")} day={dayText} language={language}
       testData={getVppsOneEnvironment() === "dev"} schoolName={schoolProfile.name} />;
   }
@@ -335,8 +336,8 @@ export default async function DashboardPage() {
       <HomeColumns
         main={
           <>
-            {attentionSection}
             {viewerFigures}
+            {attentionSection}
             {workspaces}
             {openToYou}
             {whoCard}

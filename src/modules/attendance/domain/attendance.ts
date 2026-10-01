@@ -259,6 +259,7 @@ export const markSchema = z.object({
 });
 
 export const submitRegisterSchema = z.object({
+  sessionLabel: z.string().trim().min(1).max(40).optional(),
   classId: z.uuid({ message: encodeMessage(t("कक्षा चुनें", "Choose a class")) }),
   day: z
     .string()

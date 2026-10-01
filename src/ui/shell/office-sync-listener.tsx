@@ -14,13 +14,6 @@ const DEFER_RETRY_MS = 2000;
 /** Long enough for the next field to take focus before the check re-runs. */
 const FOCUS_SETTLE_MS = 250;
 /**
- * The longest a refresh is held back for. After this it goes ahead whatever
- * the cashier is doing: the number on screen must not fall further behind the
- * office than the server-side ceiling the dashboard already tolerates.
- */
-const DEFER_MAX_MS = 30_000;
-
-/**
  * Whether the staffer is in the middle of something a re-render would
  * disturb: a sheet is open, or the keyboard is up in a field.
  *
@@ -31,7 +24,8 @@ const DEFER_MAX_MS = 30_000;
 function isInteracting() {
   return (
     document.documentElement.hasAttribute("data-sheet-open") ||
-    Boolean(document.activeElement?.matches("input,textarea,select,[contenteditable]"))
+    Boolean(document.activeElement?.matches("input,textarea,select,[contenteditable]")) ||
+    Boolean(document.querySelector('[aria-busy="true"]'))
   );
 }
 
@@ -57,8 +51,7 @@ function isInteracting() {
  * **Refreshes wait for the cashier's hands to be free.** A refresh re-renders
  * the whole page, including an open payment sheet and whatever is being typed
  * into it. While a sheet is open or a field has focus the refresh is held back
- * and re-checked every couple of seconds, for at most DEFER_MAX_MS, and then
- * runs when the sheet closes or the field blurs -- whichever comes first.
+ * and re-checked every couple of seconds, waiting until the form is safe. It runs when the sheet closes or the field blurs -- whichever comes first.
  */
 export function OfficeSyncListener({ sessionLabel }: OfficeSyncListenerProps) {
   const router = useRouter();
@@ -79,9 +72,8 @@ export function OfficeSyncListener({ sessionLabel }: OfficeSyncListenerProps) {
         return;
       }
 
-      const waitedTooLong =
-        deferredSince !== null && Date.now() - deferredSince >= DEFER_MAX_MS;
-      if (!waitedTooLong && isInteracting()) {
+      if (document.hidden) { missedWhileHidden = true; return; }
+      if (isInteracting()) {
         deferredSince ??= Date.now();
         clearTimeout(timer);
         timer = setTimeout(refreshNow, DEFER_RETRY_MS);

@@ -217,27 +217,6 @@ export default async function TeachPage() {
       <HomeColumns
         main={
           <>
-      {/* ------------------------------------------- one thing to do next */}
-
-      {next.kind === "register" ? (
-        <TaskHero
-          eyebrow={m.teachFirstThingsFirst}
-          title={m.teachTakeRegisterNow}
-          detail={
-            waiting === null
-              ? null
-              : t(
-                  `${next.task.classLabel} में ${waiting} बच्चे — हाज़िरी बाकी है।`,
-                  `${waiting} children in ${next.task.classLabel} are waiting to be marked.`,
-                )
-          }
-          href={`/teach/attendance?class=${next.task.classId}&day=${today}`}
-          action={m.teachTakeRegister}
-          icon={ClipboardCheck}
-          language={language}
-        />
-      ) : null}
-
       {/* ------------------------------------------------- today in numbers */}
 
       <MetricGrid>
@@ -305,6 +284,27 @@ export default async function TeachPage() {
           />
         ) : null}
       </MetricGrid>
+
+      {/* ------------------------------------------- one thing to do next */}
+
+      {next.kind === "register" ? (
+        <TaskHero
+          eyebrow={m.teachFirstThingsFirst}
+          title={m.teachTakeRegisterNow}
+          detail={
+            waiting === null
+              ? null
+              : t(
+                  `${next.task.classLabel} में ${waiting} बच्चे — हाज़िरी बाकी है।`,
+                  `${waiting} children in ${next.task.classLabel} are waiting to be marked.`,
+                )
+          }
+          href={`/teach/attendance?class=${next.task.classId}&day=${today}`}
+          action={m.teachTakeRegister}
+          icon={ClipboardCheck}
+          language={language}
+        />
+      ) : null}
 
       {/* ------------------------------------------------ needs doing */}
 

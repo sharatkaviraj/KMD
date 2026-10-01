@@ -34,6 +34,7 @@ const SEARCH_RESULT_PAGE_SIZE = 20;
 type MobilePaymentFlowSheetProps = {
   view: "class-picker" | "student-picker" | "payment-entry" | null;
   onClose: () => void;
+  draftNotice?: React.ReactNode;
   /** A confirmation/receipt overlay owns interaction; retain this draft. */
   suspended?: boolean;
   /**
@@ -196,6 +197,7 @@ function PaymentFlowCloseButton({ onClose, disabled }: { onClose: () => void; di
 export function MobilePaymentFlowSheet({
   view,
   onClose,
+  draftNotice,
   suspended = false,
   onOpenClassPicker,
   classOptions,
@@ -875,6 +877,7 @@ export function MobilePaymentFlowSheet({
               })()
             ) : null}
 
+            {draftNotice ? <div className="px-3 py-2">{draftNotice}</div> : null}
             {isFirstLoad ? (
               /* Skeleton mirrors the real composer layout: three quick cards,
                  the amount field, and the mode row. Shimmer only — no pulse. */

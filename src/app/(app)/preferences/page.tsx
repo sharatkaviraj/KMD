@@ -1,3 +1,4 @@
+import { PwaInstallCard } from "@/ui/pwa-install-card";
 import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
@@ -67,6 +68,7 @@ export default async function PreferencesPage() {
     <>
       <PageHeader eyebrow={m.eyebrowPersonal} title={m.preferencesTitle} language={staff.language} />
 
+      <PwaInstallCard />
       <Section title={m.language} description={m.preferencesLanguageHint} language={staff.language}>
         <Card className="p-4">
           <LanguageForm current={staff.language} />

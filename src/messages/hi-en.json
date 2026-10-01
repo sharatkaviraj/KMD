@@ -2161,5 +2161,11 @@
     "clearAll": "Sab hataayein",
     "showingCount": "{count} dikh rahe hain",
     "yearClear": "Year clear"
+  },
+  "ShellStatus": {
+    "day": "आज अब तक · Day so far",
+    "unavailable": "जानकारी नहीं मिल रही · Unavailable",
+    "receipts": "आज {count} रसीद · {count} receipts today",
+    "writtenOff": "{amount} बकाया हटाया · written off, not collected"
   }
 }

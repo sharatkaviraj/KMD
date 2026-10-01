@@ -1,0 +1,30 @@
+{
+  "measuredAt": "2026-10-01T05:54:22.087Z",
+  "environment": "local production Next build, Chromium, dev database, desktop viewport, unthrottled; navigation includes server reads and paint readiness; not field CWV",
+  "results": [
+    {
+      "role": "teacher",
+      "route": "/teach",
+      "samples": 20,
+      "warmNavigationP50Ms": 882,
+      "warmNavigationP95Ms": 1845,
+      "documentBytes": 140633
+    },
+    {
+      "role": "admin",
+      "route": "/dashboard",
+      "samples": 20,
+      "warmNavigationP50Ms": 903,
+      "warmNavigationP95Ms": 1092,
+      "documentBytes": 211828
+    },
+    {
+      "role": "accountant",
+      "route": "/fees/payments",
+      "samples": 20,
+      "warmNavigationP50Ms": 669,
+      "warmNavigationP95Ms": 808,
+      "documentBytes": 321591
+    }
+  ]
+}

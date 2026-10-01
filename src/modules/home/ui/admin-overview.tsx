@@ -12,6 +12,7 @@ import type { NavItem } from "@/platform/config/navigation";
 import { flat, primary, secondary, type Language, type Localized } from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";
 import { Notice } from "@/ui/primitives";
+import { MetricCard, MetricGrid } from "@/ui/task-hero";
 import { FeeLine, RoundProgress, SchoolWorkspaces, TodayAtSchool } from "./overview-panels";
 
 function Pair({ text, language }: { text: Localized; language: Language }) {
@@ -35,7 +36,8 @@ function OverviewSection({ id, title, hint, language, children }: {
 }
 
 /** Native admin composition; data, permissions and destinations stay with the page. */
-export function AdminOverview({ attention, overview, apps, destinations, day, language, testData, schoolName }: {
+export function AdminOverview({ attention, overview, apps, destinations, day, language, testData, schoolName, overviewCounts }: {
+  overviewCounts?: { children: number | null; classes: number | null; registers: number | null };
   attention: AttentionItem[];
   overview: { facts: OverviewFacts; round: OverviewRound | null } | null;
   apps: SchoolApp[];
@@ -82,6 +84,12 @@ export function AdminOverview({ attention, overview, apps, destinations, day, la
         <span className="min-w-0"><Pair text={day} language={language} /></span>
       </div>
     </header>
+
+    {overviewCounts ? <MetricGrid>
+      <MetricCard label={m.homeChildrenOnRoll} value={overviewCounts.children?.toString() ?? "—"} language={language} />
+      <MetricCard label={m.homeClasses} value={overviewCounts.classes?.toString() ?? "—"} language={language} />
+      <MetricCard label={m.homeRegistersIn} value={overviewCounts.registers?.toString() ?? "—"} language={language} />
+    </MetricGrid> : null}
 
     <div className="grid min-w-0 items-start gap-5 md:gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
       {attention.length ? <OverviewSection id="admin-attention" title={m.homeNeedsAttention} hint={m.homeNeedsAttentionHint} language={language}>

@@ -197,6 +197,9 @@ export async function saveMarksAction(
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);
 
+  const loadedSession = formData.get("sessionLabel");
+  if (loadedSession && loadedSession !== sessionLabel) return failure(m.noSessionFound);
+
   const paperId = (formData.get("paperId") ?? "").toString();
   const reason = (formData.get("reason") ?? "").toString().trim() || null;
 

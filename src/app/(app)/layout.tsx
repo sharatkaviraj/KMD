@@ -1,6 +1,8 @@
 import { m } from "@/messages";
+import { PerformanceReporter } from "@/modules/performance/ui/performance-reporter";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { can, roleLabel } from "@/platform/auth/permissions";
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { mobileMoreGroupsFor, permittedFeeNavigationHrefsFor } from "@/platform/config/mobile-navigation";
 import { feeRoleFor } from "@/platform/auth/fee-roles";
 import { getAppMode } from "@/platform/env";
@@ -15,7 +17,6 @@ import { getViewSessionCookie } from "@/modules/fees/platform/session-context/co
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { CommandHost } from "@/ui/command/command-host";
 import { DashboardShell } from "@/ui/shell/dashboard-shell";
-import { KeyboardOffsetProvider } from "@/ui/system/keyboard-offset-provider";
 
 export const runtime = "nodejs";
 
@@ -41,15 +42,15 @@ export const runtime = "nodejs";
  * does the resolving and hands the shell an answer.
  */
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const [staff, resolvedSession] = await Promise.all([
-    requireStaff(),
-    getViewSessionCookie()
+  const staff = await requireStaff();
+  const financeEnabled = can(staff, "fees:view");
+  const resolvedSession = financeEnabled ? await getViewSessionCookie()
       .then((cookieSession) => resolveViewSession({ cookieSession }))
       // A fee screen without a session is broken; an attendance register
       // without one is fine. Falling back keeps the second working when the
       // first cannot, rather than taking the whole app down with it.
-      .catch(() => null),
-  ]);
+      .catch(() => null) : null;
+  const academicSession = financeEnabled ? null : await resolveSessionLabel().catch(() => null);
 
   const language = staff.language;
 
@@ -112,14 +113,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         showFeeMetrics={can(staff, "fees:view")}
         skipToContentLabel={primary(m.skipToContent, language)}
         homeHref={homeFor(staff.role)}
-        viewSessionLabel={resolvedSession?.sessionLabel ?? ""}
+        viewSessionLabel={resolvedSession?.sessionLabel ?? academicSession ?? ""}
         viewSessionIsTest={resolvedSession?.isTest ?? getAppMode() === "test"}
       >
-        <KeyboardOffsetProvider />
         {children}
+        <PerformanceReporter />
         <CommandHost
           navigation={commandNavigation}
-          canViewStudents={staff.role !== "teacher"}
+          canViewStudents={financeEnabled}
           canViewReceipts={
             sidebarGroups.some((group) =>
               group.items.some((item) => item.href.startsWith("/fees/")),

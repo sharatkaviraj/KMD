@@ -1,9 +1,13 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 
 import { saveMarksAction } from "@/app/(app)/assessments/actions";
+import { draftKey, isStringRecord } from "@/platform/drafts/policy";
+import { useDurableDraft } from "@/platform/drafts/use-durable-draft";
+import { DraftStatus } from "@/ui/draft-status";
+import { recordPerformance } from "@/platform/performance/record";
 import { m } from "@/messages";
 import {
   checkMark,
@@ -17,6 +21,11 @@ import { cn } from "@/platform/utils";
 import { Input, Notice, Textarea } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
+
+type MarksDraft = { values: Record<string, string>; absent: string[]; reason: string };
+function isMarksDraft(value: unknown): value is MarksDraft {
+  return Boolean(value && typeof value === "object" && "values" in value && isStringRecord(value.values) && "absent" in value && Array.isArray(value.absent) && value.absent.every(id => typeof id === "string") && "reason" in value && typeof value.reason === "string");
+}
 
 /**
  * One column of the grid: a paper, and every child who sat it.
@@ -34,23 +43,22 @@ import { EmptyState } from "@/ui/states";
  */
 export function MarksGrid({
   paper,
+  ownerId,
+  sessionLabel,
   roll,
   marks,
   locked,
   lockedReason,
 }: {
   paper: AssessmentSubject;
+  ownerId: string;
+  sessionLabel: string;
   roll: RollStudent[];
   marks: Record<string, { value: number | null; absent: boolean }>;
   locked: boolean;
   lockedReason: typeof m.marksLocked | null;
 }) {
   const language = useLanguage();
-  const [state, action, pending] = useActionState(
-    saveMarksAction,
-    idleAssessmentState,
-  );
-
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       roll.map((student) => {
@@ -71,6 +79,32 @@ export function MarksGrid({
           .map((student) => student.studentId),
       ),
   );
+
+  const [reason, setReason] = useState("");
+  const current = useRef<MarksDraft>({ values, absent: [...absent], reason: "" });
+  const draft = useDurableDraft(draftKey(ownerId, sessionLabel, `marks/${paper.id}`), JSON.stringify({ marks, ids: roll.map(row => row.studentId), max: paper.maxMarks }), isMarksDraft);
+  const [state, action, pending] = useActionState(async (previous: typeof idleAssessmentState, formData: FormData) => {
+    try {
+      const started = performance.now();
+      const result = await saveMarksAction(previous, formData);
+      if (result.status === "saved") recordPerformance("form_saved", performance.now() - started);
+      if (result.status === "saved") await draft.clear();
+      return result;
+    } catch { return { ...idleAssessmentState, status: "error" as const, message: m.notSaved }; }
+  }, idleAssessmentState);
+  const edit = (next: MarksDraft) => {
+    if (locked || pending) return;
+    current.current = next;
+    setValues(next.values); setAbsent(new Set(next.absent)); setReason(next.reason);
+    void draft.persist(next);
+  };
+  const restore = () => {
+    const saved = draft.recovered?.value;
+    if (!saved || locked || pending) return;
+    const known = new Set(roll.map(row => row.studentId));
+    edit({ values: Object.fromEntries(Object.entries(saved.values).filter(([id]) => known.has(id))), absent: saved.absent.filter(id => known.has(id)), reason: saved.reason });
+    draft.dismissRecovery();
+  };
 
   const errors = useMemo(() => {
     const found: Record<string, string> = {};
@@ -108,21 +142,21 @@ export function MarksGrid({
     [roll, marks, values, absent],
   );
 
-  const payload = roll.map((student) => ({
-    studentId: student.studentId,
-    value: values[student.studentId] ?? "",
-    absent: absent.has(student.studentId),
-  }));
-
   if (roll.length === 0) {
     return <EmptyState title={m.attendanceEmptyRoll} language={language} />;
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} aria-busy={pending} data-work-form="true" onSubmit={event => {
+      const input = event.currentTarget.elements.namedItem("payload") as HTMLInputElement;
+      const snapshot = current.current;
+      input.value = JSON.stringify(roll.map(student => ({ studentId: student.studentId, value: snapshot.values[student.studentId] ?? "", absent: snapshot.absent.includes(student.studentId) })));
+    }} className="space-y-4">
+      <input type="hidden" name="sessionLabel" value={sessionLabel} />
       <input type="hidden" name="paperId" value={paper.id} />
-      <input type="hidden" name="payload" value={JSON.stringify(payload)} />
+      <input type="hidden" name="payload" defaultValue="" />
 
+      <DraftStatus status={draft.status} online={draft.online} recovered={!locked && Boolean(draft.recovered)} changed={draft.changedSinceDraft} onRestore={restore} onDiscard={() => { if (!pending) void draft.discard(); }} language={language} />
       {lockedReason ? (
         <Notice tone="info" text={lockedReason} language={language} />
       ) : null}
@@ -135,7 +169,7 @@ export function MarksGrid({
         />
       ) : null}
 
-      <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background px-4 py-2">
         <p className="text-[14px] text-muted-foreground">
           <span className="font-semibold text-foreground">
             {countOf(entered, roll.length, language)}
@@ -178,12 +212,9 @@ export function MarksGrid({
                 // silently rewrites a mark somebody is reading past.
                 inputMode="decimal"
                 value={isAbsent ? "" : (values[student.studentId] ?? "")}
-                disabled={locked || isAbsent}
+                disabled={locked || pending || isAbsent}
                 onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    [student.studentId]: event.target.value,
-                  }))
+                  edit({ ...current.current, values: { ...current.current.values, [student.studentId]: event.target.value } })
                 }
                 aria-invalid={Boolean(error)}
                 className="h-11 w-20 shrink-0 text-center"
@@ -191,14 +222,9 @@ export function MarksGrid({
 
               <button
                 type="button"
-                disabled={locked}
+                disabled={locked || pending}
                 onClick={() =>
-                  setAbsent((current) => {
-                    const next = new Set(current);
-                    if (next.has(student.studentId)) next.delete(student.studentId);
-                    else next.add(student.studentId);
-                    return next;
-                  })
+                  edit({ ...current.current, absent: current.current.absent.includes(student.studentId) ? current.current.absent.filter(id => id !== student.studentId) : [...current.current.absent, student.studentId] })
                 }
                 aria-pressed={isAbsent}
                 className={cn(
@@ -222,20 +248,23 @@ export function MarksGrid({
               asks for one every time is a form people type "." into. */}
           <Textarea
             name="reason"
+            value={reason}
+            disabled={pending}
+            onChange={event => edit({ ...current.current, reason: event.target.value })}
             rows={2}
             maxLength={300}
             placeholder={primary(m.marksChangeReasonHint, language)}
             className="min-h-16"
           />
 
-          <div className="safe-bottom sticky bottom-0 -mx-4 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
+          <div className="work-action safe-bottom sticky bottom-0 -mx-4 border-t border-border bg-background px-4 pt-3">
             <Button
               type="submit"
               fullWidth
               size="lg"
               loading={pending}
               loadingText={primary(m.saving, language)}
-              disabled={hasErrors || !dirty}
+              disabled={hasErrors || !dirty || !draft.online}
             >
               {primary(m.marksSaveRow, language)}
             </Button>

@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
@@ -470,9 +471,9 @@ export async function deleteClassAlias(id: string): Promise<void> {
  * now answer this question the same way. The sort survives only for a database
  * that has no such row.
  */
-export async function resolveSessionLabel(
+export const resolveSessionLabel = cache(async (
   requested?: string | null,
-): Promise<string | null> {
+): Promise<string | null> => {
   const [labels, { data: setting }] = await Promise.all([
     listSessionLabels(),
     createAdminClient()
@@ -489,4 +490,4 @@ export async function resolveSessionLabel(
     active: setting?.value,
     labels,
   });
-}
+});

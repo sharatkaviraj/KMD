@@ -20,8 +20,8 @@ function isTyping(target: EventTarget | null) {
   return target.isContentEditable;
 }
 
-export function KeyboardShortcutsSheet() {
-  const [open, setOpen] = useState(false);
+export function KeyboardShortcutsSheet({ initiallyOpen = false }: { initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

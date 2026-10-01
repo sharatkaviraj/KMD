@@ -58,7 +58,8 @@ export function useIdlePrefetch(hrefs: readonly string[], enabled = true) {
         return;
       }
 
-      targets.forEach((href, index) => {
+      timers.splice(0).forEach(clearTimeout);
+      targets.slice(0, 3).forEach((href, index) => {
         timers.push(
           setTimeout(() => {
             if (!cancelled && canWarm() && Date.now() - (lastWarm.get(href) ?? -Infinity) >= 60_000) {

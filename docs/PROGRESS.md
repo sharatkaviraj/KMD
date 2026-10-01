@@ -47,13 +47,14 @@ implementation is claimed. See `QA-BASELINE-2026-09-17.md` for executed checks.
 | R4.1 | Student source/health tools and resumable import preview/error handling | R3.4 | todo | — |
 | R4.2 | Student photo capture/retake/replace, bulk filename matching and office-assisted workflow | R4.1 | todo | — |
 | R4.3 | Documents, workbook export and residual S-12–S-14 source parity | R4.2 | todo | — |
-| R5.1 | Attendance UX, durable/account-scoped drafts, corrections and atomic save recovery | R2, R0.3 | todo | — |
+| R5.1 | Attendance UX, durable/account-scoped drafts, corrections and atomic save recovery | R2, R0.3 | in progress | Draft/recovery/UI portion shipped in R7-smooth; complete correction/concurrency acceptance remains |
 | R5.2 | Timetable/cover usability, atomic publication and stale/concurrent plan handling | R5.1 | todo | — |
-| R5.3 | Marks entry/paste/history, report readiness and print; atomic/versioned saves | R5.2, R4.3 | todo | — |
+| R5.3 | Marks entry/paste/history, report readiness and print; atomic/versioned saves | R5.2, R4.3 | in progress | Scoped draft/recovery and submit-time payload shipped in R7-smooth; paste/history/report/versioning acceptance remains |
 | R6.1 | Complete all F-row fee destinations and verify authentication/context/environment handoff | R1.1, R2.3 | todo | — |
 | R6.2 | Reconcile fee summaries and validate original workflows in verified fee test environment | R6.1 | todo | Record unavailable sandbox as an evidence gap, never use live writes |
-| R7.1 | Measure and optimize query/render/bundle/image/save hotspots; before/after evidence | R3–R6 | todo | — |
-| R7.2 | Full responsive/language/keyboard/accessibility pass and performance budgets | R7.1 | todo | — |
+| R7.1 | Measure and optimize query/render/bundle/image/save hotspots; before/after evidence | R3–R6 | in progress | Bounded shell/directory/form work measured in R7-smooth; remaining workflow/image hotspots and field acceptance are open |
+| R7.2 | Full responsive/language/keyboard/accessibility pass and performance budgets | R7.1 | todo | Partial performance/PWA work in R7-smooth below; the full atlas state matrix remains owed |
+| R7-smooth | Requested desktop/mobile smoothness, installability, scoped drafts and measured performance | User request | done | `perf/installable-workspace` · `2c9ef2f` / `741318f` · [PR 39](https://github.com/veerpatta/vppsone/pull/39) · D-201–D-203 · `docs/evidence/smoothness-2026-10-01.md`; does not close all R5/R7/R8 parity work |
 | R8.1 | Full deep smoke matrix; fix P0/P1 with regression and cleanup evidence | R7.2 | todo | — |
 | R8.2 | CI/main/deployment verification, parity closure and rollback report | R8.1 | todo | — |
 | R8.3 | Timed teacher/office/admin and physical Android/webview/camera/print acceptance | R8.2 | todo | Code-delivered and staff-accepted are separate if physical evidence unavailable |
@@ -103,7 +104,7 @@ whatever still needs a link after the port, and is not yet revisited.
 | F10 | The academic session was read by sorting the labels, in six places | done | `pickSessionLabel()` + `tests/active-session.test.ts` (D-187) · every register, mark and cover plan would have worked in the rehearsal session on live |
 | F11 | A `.in()` list of more than ~300 ids fails silently after eight seconds | done | `platform/helpers/in-filter.ts` · the defaulters queue went 16,000ms to 880ms and stopped hiding four columns of data |
 | F12 | The fee matviews had no grants in dev, so the Payment Desk 503ed for everybody | done | Mirrored from live, deliberately not a migration (D-189) |
-| F8 | Decide what an installed VPPS One is, then switch the PWA on or delete it | todo | The manifest, the offline page and the service worker are here and inert — see `public/README.md` |
+| F8 | Decide what an installed VPPS One is, then switch the PWA on or delete it | done | `perf/installable-workspace` · [PR 39](https://github.com/veerpatta/vppsone/pull/39) · D-201/D-202 · Neutral installed workspace; browser-tested offline fallback, draft recovery and deliberate updates. See `docs/evidence/smoothness-2026-10-01.md`. Physical installation acceptance remains R8.3 |
 | F8-fix | The proxy auth-redirected `manifest.webmanifest` and `offline.html` | done | `31c102a` ([#33](https://github.com/veerpatta/vppsone/pull/33)) · found by probing the deployed site; `src/proxy.ts` excludes them, and `branding/`, now |
 | F9 | Merge and deploy | done | `cd4d1e2` ([#32](https://github.com/veerpatta/vppsone/pull/32)) and `31c102a` ([#33](https://github.com/veerpatta/vppsone/pull/33)) · live at `vppsone.vercel.app`, verified signed in |
 | F9-fix | B-44: the administrator's home said 19 registers outstanding on a Sunday | done | `31c102a` · `schoolOpenToday` reaches `attention.ts`; `tests/attention.test.ts` |
@@ -1013,3 +1014,26 @@ The user approved the actual native design and all five follow-up refinements at
 | What | Status | Branch / commit | Evidence / remaining |
 |---|---|---|---|
 | Complete the native admin School overview missed by PR 37 | Implemented; verification in progress; release awaiting user design approval | codex/native-admin-overview; this change | docs/evidence/NATIVE-ADMIN-2026-09-30.md: native compact header, attention hierarchy, earlier phone support cards, wrapping workspaces, preserved data/role contracts. Actual local TEST screenshots and final check results are recorded at delivery. No production push until approval. |
+
+### R7-smooth / F8 — desktop, phone and installed workspace
+
+The requested implementation is in [PR 39](https://github.com/veerpatta/vppsone/pull/39)
+on `perf/installable-workspace`: original implementation `2c9ef2f`, current-main
+integration `741318f`, preserving PR 37's mobile refresh and PR 38's approved native
+admin design. D-201–D-203 and `docs/evidence/smoothness-2026-10-01.md` record behavior
+and measurements against main `8ff94de`. Teacher/admin HTML/RSC documents shrank
+about 50%/39%; navigation timing is mixed, with no universal latency claim.
+
+Final production verification passed all 49 active browser journeys, 68 mobile
+fixture checks and 728 screen/role cases. CI passed 8,144 unit tests; final-head CI
+and matching hosted deployment metadata are release gates. Install/offline,
+scoped manual draft recovery, deliberate worker updates, local desktop details,
+online-only payment confirmation and privacy-conscious measurements are delivered.
+Client chunk growth remains inside the 10% route budget.
+
+The directory's bounded/fresh-query fix from current main is retained. Integration
+also corrected the visible-target helper for clipped skip links and added actual
+keyboard focus acceptance; update recovery now waits for reopening explicitly.
+Physical Windows/Android/iPhone installation and lifecycle acceptance,
+representative field metrics and unrelated R5/R7/R8 parity work remain open.
+No database/configuration cutover.

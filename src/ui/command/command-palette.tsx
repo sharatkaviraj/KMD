@@ -57,8 +57,10 @@ function useGlobalShortcut(setOpen: (open: boolean) => void) {
         setOpen(true);
       }
     };
+    const intent = () => setOpen(true);
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("vpps:open-command", intent);
+    return () => { document.removeEventListener("keydown", onKey); window.removeEventListener("vpps:open-command", intent); };
   }, [setOpen]);
 }
 
@@ -75,9 +77,9 @@ function flattenGroups(groups: CommandGroup[]): CommandItem[] {
   return groups.flatMap((group) => group.items);
 }
 
-export function CommandPalette({ providers }: CommandPaletteProps) {
+export function CommandPalette({ providers, initiallyOpen = false }: CommandPaletteProps & { initiallyOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [groups, setGroups] = useState<CommandGroup[]>([]);

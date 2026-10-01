@@ -221,6 +221,9 @@ export default async function AttendancePage(
         main={
           <>
             <RegisterForm
+              key={`${staff.id}/${sessionLabel}/${requestedClass}/${day}/${period}`}
+              ownerId={staff.id}
+              sessionLabel={sessionLabel}
               roll={roll}
               classId={requestedClass}
               classLabel={classLabel}

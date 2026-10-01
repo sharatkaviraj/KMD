@@ -2161,5 +2161,11 @@
     "clearAll": "Clear all",
     "showingCount": "Showing {count}",
     "yearClear": "Year clear"
+  },
+  "ShellStatus": {
+    "day": "Day so far",
+    "unavailable": "Unavailable",
+    "receipts": "{count, plural, =1 {# receipt today} other {# receipts today}}",
+    "writtenOff": "{amount} written off · not collected"
   }
 }

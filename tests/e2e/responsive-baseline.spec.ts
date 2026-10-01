@@ -71,18 +71,38 @@ async function targets(page: Page) {
             : element;
 
         const box = hitArea.getBoundingClientRect();
+        // Test the label's style for labelled inputs: a clipped checkbox can
+        // still have a visible row as its thumb target. A clipped skip link
+        // becomes visible only on keyboard focus, tested separately below.
+        const style = getComputedStyle(hitArea);
+        const visible = style.display !== "none" && style.visibility !== "hidden" &&
+          style.clip !== "rect(0px, 0px, 0px, 0px)";
         const label =
           element.getAttribute("aria-label") ??
           hitArea.textContent?.trim().slice(0, 40) ??
           element.tagName;
 
-        return { label, width: box.width, height: box.height };
+        return { label, width: box.width, height: box.height, visible };
       })
       // A zero box is a control that is not on screen at all — a hidden input,
       // something behind a closed disclosure. It has no target to be wrong about.
-      .filter((entry) => entry.width > 0 && entry.height > 0);
+      .filter((entry) => entry.visible && entry.width > 0 && entry.height > 0);
   });
 }
+
+test("keyboard skip link becomes a usable target and focuses the main content", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await openAs(page, browser, "teacher", "/teach");
+  const skipLink = page.locator('a[href="#main-content"]');
+  await page.keyboard.press("Tab");
+  await expect(skipLink).toBeFocused();
+  expect(await skipLink.evaluate(element => getComputedStyle(element).clip)).toBe("auto");
+  const box = await skipLink.boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+  expect(await horizontalOverflow(page)).toBe(0);
+});
 
 for (const width of WIDTHS) {
   test.describe(`at ${width}px`, () => {

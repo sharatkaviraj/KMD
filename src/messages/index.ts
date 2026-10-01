@@ -460,16 +460,16 @@ export const m = {
   // Said *while* the connection is down, so it is in the present tense and
   // only ever rendered behind `!online`.
   attendanceOffline: t(
-    "इंटरनेट नहीं है — दर्ज हो रहा है, बाद में अपने आप भेज दिया जाएगा।",
-    "No connection — your marks are saved on this phone and will be sent when it comes back.",
+    "इंटरनेट नहीं है — मसौदे की स्थिति नीचे देखें। जमा करें चुनने के बाद, इसी खुले फ़ॉर्म से इंटरनेट लौटने पर भेजने की कोशिश होगी।",
+    "No connection — check the draft status below. After you choose Submit, this open form retries when the connection returns.",
   ),
   // Said when the connection is *fine*: a standing note that the register
   // keeps working if it drops. Separate from `attendanceOffline` because the
   // Teach card used to show that one unconditionally, which told every teacher
   // on a perfectly good connection that she had none.
   attendanceWorksOffline: t(
-    "इंटरनेट चला जाए तो भी हाज़िरी लगती रहेगी — फ़ोन में दर्ज होकर बाद में अपने आप भेज दी जाएगी।",
-    "The register keeps working if the connection drops — marks are held on this phone and sent when it comes back.",
+    "इंटरनेट चला जाए तो भी खुले फ़ॉर्म में हाज़िरी लगती रहेगी। मसौदे की स्थिति देखें, फिर जमा करें। दोबारा खोलने पर मसौदा पहले जाँचें।",
+    "An opened register keeps working if the connection drops. Check the draft status, then submit. Review recovered drafts when reopening the form.",
   ),
   attendanceQueued: t("भेजना बाकी", "waiting to send"),
   attendanceEmptyRoll: t(
@@ -1450,6 +1450,31 @@ export const m = {
     "पढ़ाने वाले जिन्हें कक्षा नहीं मिली",
     "Teaching staff with no class of their own",
   ),
+  pwaTitle: t("अपने फ़ोन या कंप्यूटर पर लगाएँ", "Install on your phone or computer"),
+  pwaHint: t("VPPS One को अपने ऐप की तरह खोलें। इंटरनेट जाने पर खुले फ़ॉर्म का मसौदा इस डिवाइस पर रहेगा।", "Open VPPS One as an app. Drafts on opened forms stay on this device when the connection drops."),
+  pwaInstalled: t("यह ऐप पहले से लगा है।", "You are using the installed app."),
+  pwaIos: t("Safari में शेयर खोलें → होम स्क्रीन पर जोड़ें → जोड़ें।", "In Safari, open Share → Add to Home Screen → Add."),
+  pwaManual: t("Chrome या Edge के मेन्यू में ऐप इंस्टॉल करें चुनें। iPhone पर Safari से होम स्क्रीन पर जोड़ें।", "In Chrome or Edge, choose Install app from the browser menu. On iPhone, use Safari’s Add to Home Screen."),
+  pwaInstall: t("VPPS One लगाएँ", "Install VPPS One"),
+  pwaUpdate: t("नया संस्करण तैयार है", "Update available"),
+  pwaUpdateHint: t("आपका मसौदा सुरक्षित करके ऐप फिर खुलेगा।", "Save your drafts and reopen with the new version."),
+  pwaFinishForm: t("पहले खुला फ़ॉर्म पूरा या बंद करें। डिवाइस पर सेव न हो तो अभी अपडेट न करें।", "Finish or close the open form first. Resolve any draft storage error before updating."),
+  pwaReload: t("अपडेट करके फिर खोलें", "Update and reopen"),
+  draftFound: t("इस डिवाइस पर पिछला मसौदा मिला। सेव करने से पहले देखें।", "A draft was found on this device. Review it before saving."),
+  draftChanged: t("स्कूल का रिकॉर्ड बदल चुका है। पिछला मसौदा लाकर मिलान करें।", "The school record has changed. Restore the draft to review the differences."),
+  draftRestore: t("मसौदा लाकर देखें", "Restore and review"),
+  draftDiscard: t("मसौदा हटाएँ", "Discard draft"),
+  draftStorageError: t("इस डिवाइस पर सेव नहीं हुआ। ऐप बंद करने से पहले ऑनलाइन सेव करें।", "Could not save on this device. Save online before closing the app."),
+  draftWriting: t("डिवाइस पर सेव हो रहा है…", "Saving on this device…"),
+  draftSchool: t("स्कूल में सेव हो गया", "Saved by school"),
+  draftLocal: t("इस डिवाइस पर सेव है · स्कूल में भेजना बाकी है", "Saved on this device · not yet saved by school"),
+  draftWaiting: t("इस डिवाइस पर सेव है · इंटरनेट का इंतज़ार", "Saved on this device · waiting for a connection"),
+  draftOffline: t("इंटरनेट नहीं है · खुला काम जारी रख सकते हैं", "Offline · you can continue working on this form"),
+  draftReady: t("बदलाव इस डिवाइस पर अपने-आप सेव होंगे", "Changes save automatically on this device"),
+  directorySelect: t("बाईं सूची में बच्चे का नाम चुनें", "Select a student from the list"),
+  directoryOpen: t("पूरा रिकॉर्ड खोलें", "Open full record"),
+  overviewSummary: t("आज का सार", "Today's overview"),
+
 } as const;
 
 export type MessageKey = keyof typeof m;

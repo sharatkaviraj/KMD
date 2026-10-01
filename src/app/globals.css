@@ -1004,6 +1004,7 @@ body[data-vpps-test-session="true"]::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .work-action { transition: none; }
   .anim-workspace-enter, .anim-sheet-enter, .anim-panel-enter {
     animation: none !important;
   }
@@ -1038,4 +1039,10 @@ body[data-vpps-test-session="true"]::before {
   [data-print="register"] thead {
     display: table-header-group;
   }
+}
+
+/* VPPS One work forms: keep actions reachable with an overlay keyboard. */
+@media (max-width: 1023px) {
+  .work-action { bottom: var(--keyboard-offset, 0px); }
+  [data-work-form] input, [data-work-form] textarea { scroll-margin-block: 6rem 12rem; }
 }

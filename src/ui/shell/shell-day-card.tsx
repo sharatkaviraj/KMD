@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { formatInr } from "@/platform/helpers/currency";
 import type { ShellPulse } from "@/modules/dashboard/data/shell-metrics";
 
@@ -12,7 +13,7 @@ import type { ShellPulse } from "@/modules/dashboard/data/shell-metrics";
  */
 
 type ShellDayCardProps = {
-  pulse: Promise<ShellPulse>;
+  pulse: Promise<ShellPulse | null>;
   receiptPrefix: Promise<string | null>;
 };
 
@@ -22,17 +23,18 @@ const cardLabel =
   "text-[10px] font-semibold uppercase tracking-[0.14em] text-nav-muted";
 
 export async function ShellDayCard({ pulse, receiptPrefix }: ShellDayCardProps) {
-  const [{ todayTotalAmount, todayReceiptCount, todayWrittenOffAmount }, prefix] =
-    await Promise.all([pulse, receiptPrefix]);
+  const [result, prefix, t] = await Promise.all([pulse, receiptPrefix, getTranslations("ShellStatus")]);
+  if (!result) return <div className={cardShell}><p className={cardLabel}>{t("day")}</p><p className="text-xl text-nav-foreground">—</p><p className="text-xs text-nav-muted">{t("unavailable")}</p></div>;
+  const { todayTotalAmount, todayReceiptCount, todayWrittenOffAmount } = result;
 
   return (
     <div className={cardShell}>
-      <p className={cardLabel}>Day so far</p>
+      <p className={cardLabel}>{t("day")}</p>
       <p className="font-display-money mt-0.5 text-xl leading-tight text-nav-foreground">
         {formatInr(todayTotalAmount)}
       </p>
       <p className="mt-0.5 text-[11px] tabular-nums text-nav-muted">
-        {todayReceiptCount === 1 ? "1 receipt today" : `${todayReceiptCount} receipts today`}
+        {t("receipts", { count: todayReceiptCount })}
         {prefix ? ` · ${prefix}` : null}
       </p>
       {/*
@@ -45,7 +47,7 @@ export async function ShellDayCard({ pulse, receiptPrefix }: ShellDayCardProps) 
       */}
       {todayWrittenOffAmount > 0 ? (
         <p className="mt-1 border-t border-nav-hover pt-1 text-[11px] tabular-nums text-nav-muted">
-          {formatInr(todayWrittenOffAmount)} written off · not collected
+          {t("writtenOff", { amount: formatInr(todayWrittenOffAmount) })}
         </p>
       ) : null}
     </div>
@@ -60,7 +62,7 @@ export async function ShellDayCard({ pulse, receiptPrefix }: ShellDayCardProps) 
 export function ShellDayCardSkeleton() {
   return (
     <div className={cardShell} aria-hidden="true">
-      <p className={cardLabel}>Day so far</p>
+      <p className="h-3 w-16 rounded bg-nav-hover" />
       <p className="mt-1 h-[22px] w-24 rounded bg-nav-hover" />
       <p className="mt-1.5 h-[11px] w-28 rounded bg-nav-hover" />
     </div>

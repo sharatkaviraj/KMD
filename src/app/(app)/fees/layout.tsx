@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getLocale, getMessages } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
@@ -63,5 +65,6 @@ export default async function FeesLayout({ children }: LayoutProps<"/fees">) {
     );
   }
 
-  return <>{children}</>;
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  return <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Kolkata">{children}</NextIntlClientProvider>;
 }

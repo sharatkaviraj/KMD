@@ -94,6 +94,9 @@ export default async function MarksPage(
       />
 
       <MarksGrid
+        key={`${staff.id}/${sessionLabel}/${paper.id}`}
+        ownerId={staff.id}
+        sessionLabel={sessionLabel}
         paper={paper}
         roll={roll}
         marks={Object.fromEntries(

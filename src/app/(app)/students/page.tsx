@@ -9,6 +9,7 @@ import {
   classLabelMap,
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
+import { DirectoryWorkspace } from "@/modules/students/ui/directory-workspace";
 import { searchStudents } from "@/modules/students/data/directory-repo";
 import {
   directoryHref,
@@ -17,7 +18,7 @@ import {
   resolvePage,
 } from "@/modules/students/domain/directory";
 import { Select } from "@/ui/primitives";
-import { FootNote, Panel, PanelRow } from "@/ui/panel";
+import { FootNote, Panel } from "@/ui/panel";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/page-header-localized";
@@ -200,21 +201,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
             ) : null
           }
         >
-          {results.rows.map((row) => (
-            <PanelRow
-              key={row.studentId}
-              href={`/teach/student/${row.studentId}`}
-              lead={row.rollNo ?? "—"}
-              title={row.fullName}
-              detail={[
-                row.classId ? labels.get(row.classId) : null,
-                row.admissionNo ? `SR ${row.admissionNo}` : null,
-                row.fatherName,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            />
-          ))}
+          <li><DirectoryWorkspace key={`${text}/${classId}/${page}`} rows={results.rows} labels={Object.fromEntries(labels)} language={language} /></li>
         </Panel>
       )}
 
