@@ -39,7 +39,8 @@
     "verify:outbox": "node scripts/verify-staff-outbox.mjs",
     "verify:attendance": "node scripts/verify-attendance.mjs",
     "verify:marks": "node scripts/verify-marks.mjs",
-    "verify:reports": "node scripts/verify-reports.mjs"
+    "verify:reports": "node scripts/verify-reports.mjs",
+    "verify:parent-policy": "node scripts/verify-parent-policy.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",

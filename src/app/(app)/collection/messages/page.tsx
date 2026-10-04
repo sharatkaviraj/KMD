@@ -1,5 +1,14 @@
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { can } from "@/platform/auth/permissions";
+import { dayLabel } from "@/platform/dates";
+import { clearRouteFlagAction } from "@/app/(app)/collection/actions";
+import { openRouteFlags } from "@/modules/collection/data/parent-messages-repo";
+import { staleReasonLabels, type StaleReason } from "@/modules/collection/domain/parent-policy";
+import { FlagRouteForm, ParentSendControls } from "@/modules/collection/ui/parent-send-controls";
+import Link from "next/link";
+import { Input } from "@/ui/primitives";
 import { primary } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
@@ -66,10 +75,12 @@ export default async function MessagesPage() {
     );
   }
 
-  const [templates, sends] = await Promise.all([
+  const [templates, sends, flags] = await Promise.all([
     listTemplates(),
     listSends(sessionLabel),
+    openRouteFlags(),
   ]);
+  const admin = can(staff, "jobs:run");
 
   const active = templates.filter((template) => template.isActive);
   const queue = [...sends].sort(bySendOrder);
@@ -83,7 +94,47 @@ export default async function MessagesPage() {
         tone="warning"
         text={m.messagesParentRule}
         language={language}
-      />
+      >
+        <Link href="/collection/policy" className="text-[13px] font-semibold underline">
+          {primary(ms.policyTitle, language)}
+        </Link>
+      </Notice>
+
+      {/* Numbers somebody reported as wrong (P9): nothing goes to them, and an
+          administrator clears one only after checking, with a note. */}
+      {flags.length > 0 ? (
+        <Section className="mb-6" title={ms.messagesFlagged} language={language}>
+          <p className="mb-2 text-[13px] text-muted-foreground">{primary(ms.messagesFlaggedHint, language)}</p>
+          <ul className="space-y-2" data-route-flags>
+            {flags.map((flag) => (
+              <li key={flag.id}>
+                <Card className="p-3 text-[13px]">
+                  <p className="font-semibold text-foreground">{flag.phone}</p>
+                  <p className="text-muted-foreground">
+                    {flag.reason} · {flag.flaggedByName ?? "—"} · {primary(dayLabel(flag.flaggedAt.slice(0, 10)), language)}
+                  </p>
+                  {admin ? (
+                    <form action={clearRouteFlagAction} className="mt-2 flex flex-wrap gap-2">
+                      <input type="hidden" name="id" value={flag.id} />
+                      <Input
+                        name="note"
+                        required
+                        maxLength={300}
+                        aria-label={primary(ms.messagesFlagClearNote, language)}
+                        placeholder={primary(ms.messagesFlagClearNote, language)}
+                        className="h-10 min-w-0 flex-1"
+                      />
+                      <Button type="submit" variant="ghost" size="sm">
+                        {primary(ms.messagesFlagClear, language)}
+                      </Button>
+                    </form>
+                  ) : null}
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
 
       {/* -------------------------------------------------- the queue */}
 
@@ -107,9 +158,14 @@ export default async function MessagesPage() {
                         · {primary(messageAudienceLabels[send.audience], language)}
                       </p>
                     </div>
-                    <Badge tone={STATUS_TONE[send.status]}>
-                      {primary(sendStatusLabels[send.status], language)}
-                    </Badge>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Badge tone={STATUS_TONE[send.status]}>
+                        {primary(sendStatusLabels[send.status], language)}
+                      </Badge>
+                      {send.staleReason && send.status !== "cancelled" ? (
+                        <Badge tone="warning">{primary(ms.messagesStaleBadge, language)}</Badge>
+                      ) : null}
+                    </div>
                   </div>
 
                   {/* The text as it will actually read. This is the thing being
@@ -118,13 +174,53 @@ export default async function MessagesPage() {
                     {language === "en" ? send.renderedEn : send.renderedHi}
                   </p>
 
-                  {send.error ? (
+                  {send.status === "cancelled" && send.staleReason?.includes("route_flagged") ? (
+                    <p className="mt-2 text-[12px] text-destructive-soft-foreground" data-withdrawn={send.id}>
+                      {primary(ms.messagesWithdrawnWrongNumber, language)}
+                    </p>
+                  ) : send.error ? (
                     <p className="mt-2 text-[12px] text-destructive-soft-foreground">
                       {send.error}
                     </p>
                   ) : null}
 
-                  {send.status !== "sent" && send.status !== "cancelled" ? (
+                  {/* What changed under this message. Read from the row, so it is
+                      still here after the send is recorded and after a reload:
+                      a message that went out after something moved needs a
+                      correction, and the screen keeps saying so (P9). */}
+                  {send.staleReason && send.status !== "cancelled" ? (
+                    <Notice
+                      className="mt-2"
+                      tone="warning"
+                      text={send.status === "sent" ? ms.messagesSentWarning : ms.messagesStale}
+                      language={language}
+                    >
+                      <ul className="mt-1 list-disc pl-5 text-[12px]" data-stale-reasons={send.id}>
+                        {send.staleReason.split(",").map((reason) => (
+                          <li key={reason}>
+                            {staleReasonLabels[reason as StaleReason]
+                              ? primary(staleReasonLabels[reason as StaleReason], language)
+                              : reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </Notice>
+                  ) : null}
+
+                  {send.audience === "parent" && send.status !== "sent" && send.status !== "cancelled" ? (
+                    <div className="mt-3 space-y-2">
+                      <ParentSendControls id={send.id} approved={Boolean(send.approvedAt) && !send.staleReason} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <FlagRouteForm phone={send.toPhone} studentId={send.studentId} />
+                        <form action={cancelSendAction}>
+                          <input type="hidden" name="id" value={send.id} />
+                          <Button type="submit" variant="ghost" size="sm">
+                            {primary(m.messagesCancel, language)}
+                          </Button>
+                        </form>
+                      </div>
+                    </div>
+                  ) : send.status !== "sent" && send.status !== "cancelled" ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <a
                         href={waMeLink(

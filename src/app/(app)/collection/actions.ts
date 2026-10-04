@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
@@ -50,6 +51,18 @@ import {
   idleCollectionState,
   type CollectionState,
 } from "@/modules/collection/domain/form-state";
+import {
+  clearRouteFlag,
+  flagRoute,
+  markApproved,
+  markStale,
+  routeFlagged,
+  savePolicy,
+  staleness,
+} from "@/modules/collection/data/parent-messages-repo";
+import { parentCategories, staleReasonLabels, type ParentCategory } from "@/modules/collection/domain/parent-policy";
+import type { ParentSendState } from "@/modules/collection/domain/parent-send-state";
+import { waMeLink } from "@/modules/collection/domain/requests";
 
 function failure(message: Localized): CollectionState {
   return { status: "error", message };
@@ -364,6 +377,12 @@ export async function queueMessageAction(
   );
   if (!template) return failure(m.notSaved);
 
+  // A number somebody reported as wrong takes no new parent message until an
+  // administrator clears it (P9, D-232). Staff messages are not routed by it.
+  if (template.audience === "parent" && (await routeFlagged(parsed.data.toPhone))) {
+    return failure(ms.messagesNumberFlagged);
+  }
+
   try {
     await queueSend({
       queue: parsed.data,
@@ -430,4 +449,153 @@ export async function cancelSendAction(formData: FormData) {
 
   await cancelSend(id);
   revalidatePath("/collection/messages");
+}
+
+/* ------------------------------------------------------ parent messages */
+
+/**
+ * Approve one parent message and open it in WhatsApp (P9).
+ *
+ * The approval is checked against what is true now, not when it was queued:
+ * the number, the guardian number on the child's record, the request it is
+ * about, the text and the policy. Any of them changed, or the number was
+ * reported as wrong, and it is not approved — the reasons are shown, and the
+ * message is marked so nobody sends it as it was.
+ */
+export async function approveParentMessageAction(
+  _previous: ParentSendState,
+  formData: FormData,
+): Promise<ParentSendState> {
+  const actor = await assertPermission("collection:manage");
+  const id = (formData.get("id") ?? "").toString();
+  const send = id ? await getSend(id) : null;
+  if (!send || send.audience !== "parent") return { status: "error", message: m.notFound };
+  if (send.status === "sent" || send.status === "cancelled") return { status: "error", message: ms.messagesAlreadyClosed };
+
+  const { reasons } = await staleness(send);
+  if (reasons.length > 0) {
+    await markStale(send.id, reasons);
+    revalidatePath("/collection/messages");
+    return { status: "stale", reasons: reasons.map((reason) => staleReasonLabels[reason]) };
+  }
+
+  await markApproved(send.id, actor.id);
+  revalidatePath("/collection/messages");
+  return {
+    status: "approved",
+    link: waMeLink(send.toPhone, actor.language === "en" ? send.renderedEn : send.renderedHi),
+  };
+}
+
+/**
+ * Say an approved parent message was sent (P9).
+ *
+ * It is recorded whatever has changed since: a message that went is a
+ * disclosure that happened, and the record of it is kept, never coalesced
+ * away. What changed between approving and now is returned as a warning, so
+ * the office can prepare a correction rather than pretend.
+ */
+export async function confirmParentSentAction(
+  _previous: ParentSendState,
+  formData: FormData,
+): Promise<ParentSendState> {
+  const actor = await assertPermission("collection:manage");
+  const id = (formData.get("id") ?? "").toString();
+  const send = id ? await getSend(id) : null;
+  if (!send || send.audience !== "parent") return { status: "error", message: m.notFound };
+
+  const { reasons, extras } = await staleness(send);
+  if (!extras?.approved_at) return { status: "error", message: ms.messagesApproveFirst };
+
+  // What changed is written first: `markStale` leaves a sent row alone, so
+  // that nothing later rewrites the record of a disclosure — this send's own
+  // reasons have to land before it becomes one.
+  if (reasons.length > 0) await markStale(send.id, reasons);
+  await markSentByHand(send.id, actor.id);
+  revalidatePath("/collection/messages");
+  return { status: "sent", warnings: reasons.map((reason) => staleReasonLabels[reason]) };
+}
+
+/**
+ * Somebody says a parent number is wrong (P9). Nothing more is sent to it,
+ * every unsent message to it is withdrawn, and the flag waits for an
+ * administrator. A message already sent stays on the record.
+ */
+export async function flagRouteAction(
+  _previous: CollectionState,
+  formData: FormData,
+): Promise<CollectionState> {
+  const actor = await assertPermission("collection:manage");
+  const phone = (formData.get("phone") ?? "").toString();
+  const studentId = (formData.get("studentId") ?? "").toString() || null;
+  const reason = (formData.get("reason") ?? "").toString().trim();
+  if (!/^\d{10}$/.test(phone.replace(/\D/g, "").slice(-10)) || reason === "") {
+    return failure(ms.messagesFlagNeedsReason);
+  }
+
+  let withdrawn = 0;
+  try {
+    ({ withdrawn } = await flagRoute({ phone, studentId, reason: reason.slice(0, 300), actorStaffId: actor.id }));
+  } catch {
+    return failure(m.notSaved);
+  }
+
+  revalidatePath("/collection/messages");
+  return {
+    status: "saved",
+    message: t(
+      `नंबर गलत बताया गया। ${withdrawn} न भेजे संदेश वापस लिए गए। प्रशासक देखेंगे।`,
+      `Number reported as wrong. ${withdrawn} unsent message${withdrawn === 1 ? "" : "s"} withdrawn. An administrator will review it.`,
+    ),
+  };
+}
+
+/** An administrator clears a wrong-number flag, saying why. The flag is kept. */
+export async function clearRouteFlagAction(formData: FormData) {
+  const actor = await assertPermission("jobs:run");
+  const id = (formData.get("id") ?? "").toString();
+  const note = (formData.get("note") ?? "").toString().trim();
+  if (!id || note === "") return;
+  await clearRouteFlag({ id, note: note.slice(0, 300), actorStaffId: actor.id });
+  revalidatePath("/collection/messages");
+}
+
+/**
+ * Change one category's parent message policy (P9). An administrator's
+ * decision: turning approval off needs an exception that names its
+ * recipients, trigger, content and correction, and any change moves the
+ * policy version, which makes every message approved under the old one stale.
+ */
+export async function saveParentPolicyAction(
+  _previous: CollectionState,
+  formData: FormData,
+): Promise<CollectionState> {
+  const actor = await assertPermission("jobs:run");
+  const category = (formData.get("category") ?? "").toString() as ParentCategory;
+  if (!parentCategories.includes(category)) return failure(m.notSaved);
+
+  const text = (name: string) => (formData.get(name) ?? "").toString().trim().slice(0, 300) || null;
+  const approvalRequired = formData.get("approvalRequired") === "on";
+  const input = {
+    category,
+    approvalRequired,
+    autoRecipients: text("autoRecipients"),
+    autoTrigger: text("autoTrigger"),
+    autoContent: text("autoContent"),
+    autoCorrection: text("autoCorrection"),
+    actorStaffId: actor.id,
+  };
+  if (!approvalRequired && [input.autoRecipients, input.autoTrigger, input.autoContent, input.autoCorrection].some((value) => !value)) {
+    return failure(ms.policyExceptionIncomplete);
+  }
+
+  let outcome: "saved" | "stale";
+  try {
+    outcome = await savePolicy(input);
+  } catch {
+    return failure(m.notSaved);
+  }
+  revalidatePath("/collection/policy");
+  if (outcome === "stale") return failure(ms.policyStale);
+  return { ...idleCollectionState, status: "saved", message: ms.policySaved };
 }

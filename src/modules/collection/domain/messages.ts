@@ -73,6 +73,9 @@ export type MessageSend = {
   error: string | null;
   requestedByName: string | null;
   requestedAt: string;
+  /** P9: when a person approved it, and why it went out of date if it did. */
+  approvedAt?: string | null;
+  staleReason?: string | null;
   sentAt: string | null;
 };
 

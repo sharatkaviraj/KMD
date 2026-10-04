@@ -976,6 +976,8 @@ export const m = {
     "अभिभावक को संदेश हमेशा कोई व्यक्ति स्वयं भेजता है।",
     "A message to a parent is always pressed by a person, never by the app.",
   ),
+
+  // P9: approved against what is true when it goes; a wrong number stops use.
   messagesNotConfigured: t(
     "प्रदाता अभी जुड़ा नहीं है — व्हाट्सएप खोलकर भेजिए।",
     "No provider is connected, so open it in WhatsApp and press send.",

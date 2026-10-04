@@ -19,6 +19,16 @@ import {
   type DispatchResult,
   type MessageProvider,
 } from "@/modules/collection/data/message-provider";
+import {
+  categoryFor,
+  markStale,
+  parentDispatchSwitch,
+  parentPolicies,
+  pinSnapshot,
+  snapshotNow,
+  staleness,
+} from "@/modules/collection/data/parent-messages-repo";
+import { mayDispatchToParent } from "@/modules/collection/domain/parent-policy";
 
 /**
  * Templates and the send queue.
@@ -127,6 +137,8 @@ type SendRow = {
   error: string | null;
   requested_at: string;
   sent_at: string | null;
+  approved_at: string | null;
+  stale_reason: string | null;
   message_templates: {
     code: string;
     label_hi: string;
@@ -139,7 +151,7 @@ type SendRow = {
 const SEND_COLUMNS =
   "id, template_id, to_phone, to_name, student_id, request_id, staff_profile_id, " +
   "variables, rendered_hi, rendered_en, status, provider_message_id, error, " +
-  "requested_at, sent_at, " +
+  "requested_at, sent_at, approved_at, stale_reason, " +
   "message_templates!inner(code, label_hi, label_en, audience), " +
   // **Named, because `message_sends` points at `staff_profiles` twice** —
   // `requested_by` is who asked for the message and `staff_profile_id` is who
@@ -170,6 +182,8 @@ const toSend = (row: SendRow): MessageSend => ({
   requestedByName: row.staff_profiles?.display_name ?? null,
   requestedAt: row.requested_at,
   sentAt: row.sent_at,
+  approvedAt: row.approved_at,
+  staleReason: row.stale_reason,
 });
 
 export async function listSends(sessionLabel: string): Promise<MessageSend[]> {
@@ -219,6 +233,21 @@ export async function queueSend(input: {
     .single<{ id: string }>();
 
   if (error) throw error;
+
+  // A parent message keeps what it rests on, so an approval given later can
+  // be checked against what is true then (P9).
+  if (input.template.audience === "parent") {
+    const category = categoryFor({ requestId: input.queue.requestId });
+    const snapshot = await snapshotNow({
+      toPhone: input.queue.toPhone,
+      studentId: input.queue.studentId,
+      requestId: input.queue.requestId,
+      renderedHi: render(input.template.bodyHi, input.queue.variables),
+      renderedEn: render(input.template.bodyEn, input.queue.variables),
+      category,
+    });
+    await pinSnapshot(data.id, category, snapshot);
+  }
   return data.id;
 }
 
@@ -292,8 +321,29 @@ export async function markSentByHand(
  * would lose the sentence that says what to fix.
  */
 export async function dispatch(send: MessageSend): Promise<DispatchResult> {
-  const allowed = mayDispatch(send);
-  if (!allowed.ok) return { ok: false, error: allowed.reason.en };
+  if (send.audience === "parent") {
+    // A parent message goes from the app only under the school's switch, a
+    // named automatic exception for its category, and nothing stale (P9) —
+    // otherwise it is D-10: a person sends it.
+    if (send.status === "sent" || send.status === "cancelled") {
+      const refused = mayDispatch(send);
+      if (!refused.ok) return { ok: false, error: refused.reason.en };
+    }
+    const [switchOn, policies, check] = await Promise.all([
+      parentDispatchSwitch(),
+      parentPolicies(),
+      staleness(send),
+    ]);
+    const policy = policies.find((entry) => entry.category === (check.extras?.category ?? categoryFor(send))) ?? null;
+    const verdict = mayDispatchToParent({ switchOn, policy, stale: check.reasons });
+    if (!verdict.ok) {
+      if (check.reasons.length > 0) await markStale(send.id, check.reasons);
+      return { ok: false, error: verdict.reason.en };
+    }
+  } else {
+    const allowed = mayDispatch(send);
+    if (!allowed.ok) return { ok: false, error: allowed.reason.en };
+  }
 
   let provider: MessageProvider;
   try {

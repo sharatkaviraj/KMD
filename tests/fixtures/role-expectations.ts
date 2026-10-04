@@ -292,6 +292,11 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "The office presses send (D-10).",
   },
   {
+    route: "/collection/policy",
+    allow: ["admin", "office"],
+    because: "Whoever sends parent messages reads the policy; only an administrator changes it (P9).",
+  },
+  {
     route: "/collection/review",
     allow: ["admin", "office"],
     because: "Reviewing what came back is office work.",
