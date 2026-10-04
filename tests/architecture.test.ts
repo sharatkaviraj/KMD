@@ -235,7 +235,7 @@ describe("fee writes are deliberate", () => {
  */
 describe("the two message catalogues do not mix", () => {
   const USES_NEXT_INTL = /from\s+["']next-intl/;
-  const USES_PAIRS = /from\s+["']@\/messages["']/;
+  const USES_PAIRS = /from\s+["']@\/messages(\/setup)?["']/;
 
   const feeTerritory = (rel: string) =>
     // The same one list as the rule above, for the same reason.

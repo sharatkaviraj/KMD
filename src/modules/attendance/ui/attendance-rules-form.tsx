@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { saveAttendanceRulesAction } from "@/app/(app)/academics/actions";
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { idleAcademicsState } from "@/modules/academics/domain/form-state";
 import { primary } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
@@ -22,13 +23,13 @@ export function AttendanceRulesForm({ halfDayCredit }: { halfDayCredit: number }
   return (
     <form action={save} className="space-y-3">
       {state.status === "saved" ? (
-        <Notice tone="success" text={m.attendanceRulesSaved} language={language} />
+        <Notice tone="success" text={ms.attendanceRulesSaved} language={language} />
       ) : null}
       {state.message ? <Notice tone="danger" text={state.message} language={language} /> : null}
       <Field
-        label={m.attendanceRulesHalfDay}
+        label={ms.attendanceRulesHalfDay}
         htmlFor="half-day-credit"
-        hint={m.attendanceRulesHalfDayHint}
+        hint={ms.attendanceRulesHalfDayHint}
         error={state.fieldErrors.halfDayCredit ?? null}
         language={language}
       >

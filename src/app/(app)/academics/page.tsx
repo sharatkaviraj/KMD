@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { pageTitle } from "@/platform/i18n/page-title";
@@ -224,13 +225,13 @@ export default async function AcademicsPage() {
             {rules ? (
               <section className="mt-6" aria-labelledby="attendance-rules">
                 <h2 id="attendance-rules" className="mb-3 text-[15px] font-semibold text-foreground">
-                  {primary(m.attendanceRulesTitle, language)}
+                  {primary(ms.attendanceRulesTitle, language)}
                 </h2>
                 {can(staff, "academics:manage") ? (
                   <AttendanceRulesForm halfDayCredit={rules.halfDayCredit} />
                 ) : (
                   <p className="text-[14px] text-muted-foreground">
-                    {primary(m.attendanceRulesHalfDay, language)}: <b>{rules.halfDayCredit}</b>
+                    {primary(ms.attendanceRulesHalfDay, language)}: <b>{rules.halfDayCredit}</b>
                   </p>
                 )}
               </section>

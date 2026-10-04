@@ -1,9 +1,11 @@
 "use server";
 
 import { createHash } from "node:crypto";
+import { reportRefusals } from "@/modules/assessments/domain/report-refusals";
 import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { schoolToday } from "@/platform/dates";
@@ -34,10 +36,13 @@ import {
   type SaveMarksInput,
 } from "@/modules/assessments/domain/marks-command";
 import {
-  issueReportCard,
+  approveSchemeDraft,
+  issueReportCardCommand,
   logExport,
   previewReportCard,
+  saveSchemeDraft,
 } from "@/modules/assessments/data/reports-repo";
+import { parseBands, parseSignatories, reportSchemeSchema } from "@/modules/assessments/domain/report-scheme";
 import {
   assessmentSchema,
   paperSchema,
@@ -323,19 +328,132 @@ export async function issueReportCardAction(
 
   const studentId = (formData.get("studentId") ?? "").toString();
   const term = (formData.get("term") ?? "").toString();
-  if (!studentId || !term) return failure(m.notSaved);
+  const commandId = (formData.get("commandId") ?? "").toString();
+  const expectedRevision = Number((formData.get("expectedRevision") ?? "0").toString());
+  const reason = (formData.get("reason") ?? "").toString().trim() || null;
+  if (!studentId || !term || !/^[0-9a-f-]{36}$/i.test(commandId) || !Number.isInteger(expectedRevision)) {
+    return failure(m.notSaved);
+  }
 
-  const card = await previewReportCard({ studentId, sessionLabel, term });
-  if (!card) return failure(m.notFound);
+  // The card is worked out here, now, from the marks and the scheme as they
+  // stand — not taken from the browser — and the database refuses it if any
+  // paper it was made from has moved since (P8).
+  const preview = await previewReportCard({ studentId, sessionLabel, term });
+  if (!preview) return failure(m.notFound);
+  if (!preview.scheme) return failure(reportRefusals.no_approved_scheme);
+
+  const payloadHash = createHash("sha256")
+    .update(JSON.stringify({ studentId, term, expectedRevision, reason, scheme: preview.scheme.id }))
+    .digest("hex");
+
+  let outcome;
+  try {
+    outcome = await issueReportCardCommand({
+      commandId,
+      actorStaffId: actor.id,
+      sessionLabel,
+      term,
+      studentId,
+      schemeId: preview.scheme.id,
+      expectedRevision,
+      reason,
+      card: preview.card,
+      sources: preview.sources,
+      payloadHash,
+    });
+  } catch {
+    return failure(reportRefusals.failed);
+  }
+
+  if (outcome.outcome === "refused") {
+    const message = reportRefusals[outcome.reason] ?? reportRefusals.failed;
+    return failure(
+      outcome.papers.length > 0
+        ? t(`${message.hi} (${outcome.papers.join(", ")})`, `${message.en} (${outcome.papers.join(", ")})`)
+        : message,
+    );
+  }
+
+  revalidatePath(`/assessments/report/${studentId}`);
+  return {
+    ...idleAssessmentState,
+    status: "saved",
+    message: outcome.kind === "reissue" ? ms.reportReissued : m.reportIssued,
+  };
+}
+
+/* ------------------------------------------------------ the report scheme */
+
+/**
+ * Save the draft of a term's report scheme (P8). Only the exam office; an
+ * approved revision is never edited — saving after approval starts the next.
+ */
+export async function saveReportSchemeAction(
+  _previous: AssessmentState,
+  formData: FormData,
+): Promise<AssessmentState> {
+  await assertPermission("assessments:manage");
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) return failure(m.noSessionFound);
+
+  const parsed = reportSchemeSchema.safeParse({
+    term: (formData.get("term") ?? "").toString(),
+    bandsText: (formData.get("bandsText") ?? "").toString(),
+    percentDecimals: (formData.get("percentDecimals") ?? "1").toString(),
+    passPercent: (formData.get("passPercent") ?? "").toString(),
+    attendanceFrom: (formData.get("attendanceFrom") ?? "").toString(),
+    attendanceTo: (formData.get("attendanceTo") ?? "").toString(),
+    headerEn: (formData.get("headerEn") ?? "").toString(),
+    headerHi: (formData.get("headerHi") ?? "").toString(),
+    signatoriesText: (formData.get("signatoriesText") ?? "").toString(),
+  });
+  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+
+  const bands = parseBands(parsed.data.bandsText);
+  if (!bands.ok) return failure(bands.error);
 
   try {
-    await issueReportCard(card, actor.id);
+    await saveSchemeDraft({
+      sessionLabel,
+      term: parsed.data.term,
+      gradeBands: bands.bands,
+      percentDecimals: parsed.data.percentDecimals,
+      passPercent: parsed.data.passPercent,
+      attendanceFrom: parsed.data.attendanceFrom,
+      attendanceTo: parsed.data.attendanceTo,
+      headerEn: parsed.data.headerEn || null,
+      headerHi: parsed.data.headerHi || null,
+      signatories: parseSignatories(parsed.data.signatoriesText),
+    });
   } catch {
     return failure(m.notSaved);
   }
 
-  revalidatePath(`/assessments/report/${studentId}`);
-  return { ...idleAssessmentState, status: "saved", message: m.reportIssued };
+  revalidatePath("/assessments/scheme");
+  return { ...idleAssessmentState, status: "saved", message: ms.schemeDraftSaved };
+}
+
+/** Approve the draft: from now on cards are issued from it, and it does not change. */
+export async function approveReportSchemeAction(
+  _previous: AssessmentState,
+  formData: FormData,
+): Promise<AssessmentState> {
+  const actor = await assertPermission("assessments:manage");
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) return failure(m.noSessionFound);
+  const term = (formData.get("term") ?? "").toString();
+  if (!term) return failure(m.notSaved);
+
+  let approved = false;
+  try {
+    approved = await approveSchemeDraft({ sessionLabel, term, actorStaffId: actor.id });
+  } catch {
+    return failure(m.notSaved);
+  }
+  if (!approved) return failure(ms.schemeNoDraft);
+
+  revalidatePath("/assessments/scheme");
+  return { ...idleAssessmentState, status: "saved", message: ms.schemeApproved };
 }
 
 /* ------------------------------------------------------- the exports */

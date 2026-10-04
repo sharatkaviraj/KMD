@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Download } from "lucide-react";
 
 import {
@@ -10,6 +10,7 @@ import {
   savePaperAction,
 } from "@/app/(app)/assessments/actions";
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import {
   assessmentKindLabels,
   assessmentKinds,
@@ -19,7 +20,7 @@ import { idleAssessmentState } from "@/modules/assessments/domain/form-state";
 import { exportFileName } from "@/modules/assessments/domain/report-card";
 import { primary } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
-import { Field, Input, Notice, Select } from "@/ui/primitives";
+import { Field, Input, Notice, Select, Textarea } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 
 /** One exam: a term, a code, and how much it counts. */
@@ -248,25 +249,53 @@ export function PaperForm({
 }
 
 /** Freeze a report card as it currently reads. */
+/**
+ * Issue a card, or reissue it with a reason (P8).
+ *
+ * The submission id is minted once per form — the page draws a new form, with
+ * a new id, once a revision lands — so pressing twice, or retrying after an
+ * answer that never came, cannot issue twice. A reissue asks why: the earlier
+ * card is kept, and the reason is what tells a parent's question apart from a
+ * typo.
+ */
 export function IssueReportForm({
   studentId,
   term,
-  alreadyIssued,
+  expectedRevision,
 }: {
   studentId: string;
   term: string;
-  alreadyIssued: boolean;
+  expectedRevision: number;
 }) {
   const language = useLanguage();
   const [state, action, pending] = useActionState(
     issueReportCardAction,
     idleAssessmentState,
   );
+  const [commandId] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+          (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16),
+        ),
+  );
+  const alreadyIssued = expectedRevision > 0;
 
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="studentId" value={studentId} />
       <input type="hidden" name="term" value={term} />
+      <input type="hidden" name="commandId" value={commandId} />
+      <input type="hidden" name="expectedRevision" value={expectedRevision} />
+
+      {alreadyIssued ? (
+        <>
+          <label htmlFor="reissue-reason" className="block text-[13px] font-medium text-muted-foreground">
+            {primary(ms.reportReissueReason, language)}
+          </label>
+          <Textarea id="reissue-reason" name="reason" rows={2} maxLength={300} required />
+        </>
+      ) : null}
 
       {state.message ? (
         <Notice

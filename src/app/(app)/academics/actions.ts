@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
@@ -196,7 +197,7 @@ export async function saveAttendanceRulesAction(
   const raw = (formData.get("halfDayCredit") ?? "").toString().trim();
   const value = Number(raw);
   if (raw === "" || !Number.isFinite(value) || value < 0 || value > 1) {
-    return failure({ halfDayCredit: m.attendanceRulesRange });
+    return failure({ halfDayCredit: ms.attendanceRulesRange });
   }
 
   try {

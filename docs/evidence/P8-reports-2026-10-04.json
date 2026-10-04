@@ -1,0 +1,76 @@
+{
+  "ranAt": "2026-10-04T08:37:15.970Z",
+  "target": "schoolfees-dev",
+  "results": [
+    {
+      "name": "a card cannot be issued against a draft scheme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a card cannot be issued while a paper the class sat is unsubmitted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an incomplete card is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a card worked out before the marks last moved is refused, naming the paper",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a teacher cannot issue a card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the exam office issues revision 1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a repeated issue returns the same revision and writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reused id with a different payload is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reissue without a reason is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reissue against an older revision is stale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault after the old revision is superseded leaves it issued",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reissue is revision 2 with its reason; revision 1 is kept, superseded, and linked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an issued card cannot be edited or brought back, and an approved scheme cannot be changed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a card cannot be issued against a scheme that a newer approved revision replaced",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

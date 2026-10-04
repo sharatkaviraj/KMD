@@ -7,6 +7,11 @@ import {
   type Totals,
 } from "@/modules/assessments/domain/assessments";
 import { t, type Localized } from "@/platform/i18n/language";
+import {
+  gradeWith,
+  schemePercent,
+  type GradeBandRule,
+} from "@/modules/assessments/domain/report-scheme";
 
 /**
  * The report card, as a value.
@@ -56,12 +61,38 @@ export type ReportCard = {
   totals: Totals;
   grade: string | null;
   gradeDescription: Localized | null;
-  attendance: {
-    present: number;
-    counted: number;
-    percent: number | null;
-  } | null;
+  attendance: CardAttendance | null;
+  /** The rules the card was worked out by, copied in so it prints the same forever (P8). */
+  scheme: CardScheme | null;
+  /** Whether the overall percentage reaches the scheme's pass mark; null when it states none. */
+  passed: boolean | null;
   generatedAt: string;
+};
+
+/**
+ * Attendance over the scheme's reporting period (P8). Days the register was
+ * not recorded are counted separately and never as present: a percentage
+ * over recorded days only, with how many were missing beside it.
+ */
+export type CardAttendance = {
+  present: number;
+  counted: number;
+  percent: number | null;
+  from?: string | null;
+  to?: string | null;
+  /** School days in the period on which the class's register was not recorded. */
+  notRecorded?: number;
+};
+
+export type CardScheme = {
+  id: string;
+  revision: number;
+  percentDecimals: number;
+  passPercent: number | null;
+  bands: GradeBandRule[];
+  headerEn: string | null;
+  headerHi: string | null;
+  signatories: { en: string; hi: string }[];
 };
 
 export type ReportInput = {
@@ -79,7 +110,9 @@ export type ReportInput = {
   papers: AssessmentSubject[];
   /** `${assessmentSubjectId}|${studentId}` → the mark. */
   marks: Map<string, Mark>;
-  attendance: { present: number; counted: number; percent: number | null } | null;
+  attendance: CardAttendance | null;
+  /** The approved scheme, when there is one; the defaults otherwise (a preview). */
+  scheme?: CardScheme | null;
   generatedAt: string;
 };
 
@@ -96,6 +129,22 @@ export type ReportInput = {
  */
 export function buildReportCard(input: ReportInput): ReportCard {
   const byAssessment = new Map(input.assessments.map((entry) => [entry.id, entry]));
+  const scheme = input.scheme ?? null;
+
+  // With a scheme the percentage is the unrounded fraction rounded once, at
+  // the school's boundary, and graded on that rounded number — so a child at
+  // 32.95 with a band starting at 33 and one decimal is 33.0 and in it.
+  // Without one (a preview before the scheme is approved) the defaults stand.
+  const percentOf = (totals: Totals) =>
+    scheme ? schemePercent(totals.ratio, scheme.percentDecimals) : totals.percent;
+  const gradeOf = (percent: number | null) => {
+    if (!scheme) {
+      const band = gradeFor(percent);
+      return band ? { label: band.label, description: band.description } : null;
+    }
+    const band = gradeWith(percent, scheme.bands);
+    return band ? { label: band.label, description: t(band.hi, band.en) } : null;
+  };
 
   // One row per subject, whichever exams it was examined in.
   const bySubject = new Map<string, AssessmentSubject[]>();
@@ -146,13 +195,14 @@ export function buildReportCard(input: ReportInput): ReportCard {
       }),
       scored: totals.scored,
       outOf: totals.outOf,
-      percent: totals.percent,
-      grade: gradeFor(totals.percent)?.label ?? null,
+      percent: percentOf(totals),
+      grade: gradeOf(percentOf(totals))?.label ?? null,
     });
   }
 
-  const totals = totalsFor(everyResult);
-  const band = gradeFor(totals.percent);
+  const raw = totalsFor(everyResult);
+  const totals = { ...raw, percent: percentOf(raw) };
+  const band = gradeOf(totals.percent);
 
   return {
     sessionLabel: input.sessionLabel,
@@ -168,6 +218,11 @@ export function buildReportCard(input: ReportInput): ReportCard {
     grade: band?.label ?? null,
     gradeDescription: band?.description ?? null,
     attendance: input.attendance,
+    scheme,
+    passed:
+      scheme?.passPercent === null || scheme?.passPercent === undefined || totals.percent === null
+        ? null
+        : totals.percent >= scheme.passPercent,
     generatedAt: input.generatedAt,
   };
 }

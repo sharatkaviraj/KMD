@@ -115,7 +115,10 @@ database until the cutover phase.
    app in `hi`, `en` or `both` (PLAN §3a). Write every user-facing string as a
    pair in `src/messages/index.ts` and render it with `primary()` /
    `secondary()` / `flat()` against the reader's language. A hard-coded Hindi
-   string in a component is a bug.
+   string in a component is a bug. Pairs for set-up and policy screens a
+   handful of staff open go in `src/messages/setup.ts` (`ms`) instead:
+   `index.ts` ships with every page, and the route bundle budget fails when
+   it grows (D-229).
 
 9a. **The ported fee screens keep their own catalogue, and the two never mix.**
    Files under `PORTED_TREES` say their strings through `next-intl` out of

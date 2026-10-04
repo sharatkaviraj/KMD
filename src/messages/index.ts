@@ -557,14 +557,6 @@ export const m = {
     "गलती दिखे तो कक्षा-अध्यापक या कार्यालय से सुधार का अनुरोध करें।",
     "If something is wrong, ask the class teacher or the office for a correction.",
   ),
-  attendanceRulesTitle: t("हाज़िरी के नियम", "Attendance rules"),
-  attendanceRulesHalfDay: t("आधा दिन कितना गिना जाए", "How much a half day counts"),
-  attendanceRulesHalfDayHint: t(
-    "0 से 1 तक। 0.5 का अर्थ आधा दिन उपस्थित। हर रिपोर्ट और प्रतिशत यही नियम मानेगा।",
-    "From 0 to 1. 0.5 counts a half day as half present. Every report and percentage uses this rule.",
-  ),
-  attendanceRulesSaved: t("नियम सहेजा गया", "Rule saved"),
-  attendanceRulesRange: t("0 से 1 के बीच की संख्या लिखें", "Enter a number from 0 to 1"),
 
   /* ----------------------------------------------------- corrections */
   correctionsTitle: t("सुधार के निवेदन", "Corrections"),
@@ -1116,6 +1108,8 @@ export const m = {
   ),
   paperSubmitted: t("जमा", "Submitted"),
   paperDraft: t("मसौदा", "Draft"),
+
+  // P8: a card is issued once, from an approved scheme; a reissue keeps the old one.
 
   /* ----------------------------------------------------- progress */
   progressTitle: t("प्रगति", "Progress"),

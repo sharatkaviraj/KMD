@@ -1,4 +1,5 @@
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { dayLabel } from "@/platform/dates";
@@ -8,12 +9,13 @@ import { pageTitle } from "@/platform/i18n/page-title";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { listAssessments } from "@/modules/assessments/data/assessments-repo";
 import {
-  issuedReportCard,
+  issuedCards,
   previewReportCard,
 } from "@/modules/assessments/data/reports-repo";
 import { orderTerms } from "@/modules/assessments/domain/assessments";
 import { readiness } from "@/modules/assessments/domain/report-card";
 import { IssueReportForm } from "@/modules/assessments/ui/assessment-forms";
+import { reportRefusals } from "@/modules/assessments/domain/report-refusals";
 import { PrintButton } from "@/modules/attendance/ui/print-button";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
@@ -77,10 +79,11 @@ export default async function ReportCardPage(
     );
   }
 
-  const [preview, issued] = await Promise.all([
+  const [preview, revisions] = await Promise.all([
     previewReportCard({ studentId, sessionLabel, term }),
-    issuedReportCard({ studentId, sessionLabel, term }),
+    issuedCards({ studentId, sessionLabel, term }),
   ]);
+  const issued = revisions.find((entry) => entry.status === "issued") ?? null;
 
   if (!preview) {
     return (
@@ -93,8 +96,11 @@ export default async function ReportCardPage(
 
   // The issued card wins when there is one: it is what the family is holding,
   // and showing today's numbers under the same heading would be a quiet lie.
-  const card = issued?.card ?? preview;
-  const ready = readiness(preview);
+  // Anything else is a draft, and says so on the page and on paper (P8).
+  const card = issued?.card ?? preview.card;
+  const isDraft = !issued;
+  const ready = readiness(preview.card);
+  const unsubmitted = preview.sources.papers.filter((paper) => paper.entryStatus !== "submitted");
 
   return (
     <>
@@ -127,6 +133,15 @@ export default async function ReportCardPage(
           </div>
         ) : null}
 
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Link
+            href={`/assessments/scheme?term=${encodeURIComponent(term)}`}
+            className={buttonClasses({ variant: "outline", size: "sm" })}
+          >
+            {primary(ms.reportSchemeLink, language)}
+          </Link>
+        </div>
+
         {issued ? (
           <Notice
             className="mb-4"
@@ -134,10 +149,10 @@ export default async function ReportCardPage(
             text={m.reportFrozenHint}
             language={language}
           >
-            <span className="text-[13px]">
-              {primary(m.reportIssuedOn, language)}{" "}
-              {primary(dayLabel(issued.generatedAt.slice(0, 10)), language)}
-              {issued.generatedByName ? ` · ${issued.generatedByName}` : ""}
+            <span className="text-[13px]" data-report-issued={issued.revision}>
+              {primary(ms.reportRevision, language)} {issued.revision} · {primary(m.reportIssuedOn, language)}{" "}
+              {primary(dayLabel(issued.issuedAt.slice(0, 10)), language)}
+              {issued.issuedByName ? ` · ${issued.issuedByName}` : ""}
             </span>
           </Notice>
         ) : (
@@ -148,6 +163,16 @@ export default async function ReportCardPage(
             language={language}
           />
         )}
+
+        {!preview.scheme ? (
+          <Notice className="mb-4" tone="warning" text={ms.reportNoScheme} language={language} />
+        ) : null}
+
+        {unsubmitted.length > 0 ? (
+          <Notice className="mb-4" tone="warning" text={reportRefusals.papers_not_submitted} language={language}>
+            <span className="text-[13px]">{unsubmitted.map((paper) => paper.subjectCode).join(" · ")}</span>
+          </Notice>
+        ) : null}
 
         {!ready.ready ? (
           <Notice
@@ -165,13 +190,24 @@ export default async function ReportCardPage(
 
       {/* ------------------------------------------------- the card */}
 
-      <article className="rounded-2xl border border-border bg-surface p-5 print:rounded-none print:border-0 print:p-0">
+      <article
+        className="relative rounded-2xl border border-border bg-surface p-5 print:rounded-none print:border-0 print:p-0"
+        data-report-state={isDraft ? "draft" : "issued"}
+      >
+        {/* A draft says so on the screen and on paper: a preview printed and
+            handed over must not pass for the card (P8). */}
+        {isDraft ? (
+          <p className="mb-3 rounded-lg border-2 border-dashed border-warning px-3 py-1.5 text-center text-[14px] font-bold uppercase tracking-wide text-warning-soft-foreground">
+            {flat(ms.reportDraftWatermark, language)}
+          </p>
+        ) : null}
         <header className="mb-4 text-center">
           <h1 className="text-[18px] font-bold text-foreground">
-            {getSchoolName()}
+            {(language === "hi" ? card.scheme?.headerHi : card.scheme?.headerEn) || getSchoolName()}
           </h1>
           <p className="text-[13px] text-muted-foreground">
             {flat(m.reportTitle, language)} · {term} · {card.sessionLabel}
+            {!isDraft && issued ? ` · ${flat(ms.reportRevision, language)} ${issued.revision}` : ""}
           </p>
         </header>
 
@@ -308,6 +344,17 @@ export default async function ReportCardPage(
             <Badge tone="neutral">
               {primary(m.reportAttendance, language)}{" "}
               {countOf(card.attendance.present, card.attendance.counted, language)}
+              {card.attendance.percent !== null ? ` (${card.attendance.percent}%)` : ""}
+            </Badge>
+          ) : null}
+          {card.attendance?.notRecorded ? (
+            <Badge tone="warning">
+              {card.attendance.notRecorded} {primary(ms.reportAttendanceNotRecorded, language)}
+            </Badge>
+          ) : null}
+          {card.passed !== null && card.passed !== undefined ? (
+            <Badge tone={card.passed ? "success" : "warning"}>
+              {primary(card.passed ? ms.reportPassed : ms.reportNotPassed, language)}
             </Badge>
           ) : null}
         </div>
@@ -323,15 +370,48 @@ export default async function ReportCardPage(
             {primary(card.gradeDescription, language)}
           </p>
         ) : null}
+
+        {card.scheme?.signatories.length ? (
+          <div className="mt-10 grid grid-cols-2 gap-6 text-center text-[12px] sm:grid-cols-3">
+            {card.scheme.signatories.map((line) => (
+              <div key={line.en} className="border-t border-border pt-1.5 text-muted-foreground">
+                {language === "hi" ? line.hi : line.en}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </article>
 
       <div className="print:hidden">
-        <Notice
-          className="mt-4"
-          tone="neutral"
-          text={m.reportGradeDefault}
-          language={language}
-        />
+        {!card.scheme ? (
+          <Notice
+            className="mt-4"
+            tone="neutral"
+            text={m.reportGradeDefault}
+            language={language}
+          />
+        ) : null}
+
+        {revisions.length > 0 ? (
+          <Section className="mt-6" title={ms.reportHistory} language={language}>
+            <ol className="space-y-2 text-[13px]">
+              {revisions.map((entry) => (
+                <li key={entry.id} className="rounded-xl border border-border bg-surface px-3 py-2">
+                  <p className="font-medium text-foreground">
+                    {primary(ms.reportRevision, language)} {entry.revision} ·{" "}
+                    {primary(entry.status === "issued" ? ms.reportCurrent : ms.reportSuperseded, language)} ·{" "}
+                    {primary(dayLabel(entry.issuedAt.slice(0, 10)), language)}
+                    {entry.issuedByName ? ` · ${entry.issuedByName}` : ""}
+                  </p>
+                  {entry.kind === "imported" ? (
+                    <p className="text-muted-foreground">{primary(ms.reportImported, language)}</p>
+                  ) : null}
+                  {entry.reason ? <p className="text-muted-foreground">“{entry.reason}”</p> : null}
+                </li>
+              ))}
+            </ol>
+          </Section>
+        ) : null}
 
         {/* Issuing freezes a record, so it belongs to whoever runs the exams,
             not to everybody who can read a report (D-206). */}
@@ -339,9 +419,10 @@ export default async function ReportCardPage(
           <Section className="mt-6" title={m.reportIssue} language={language}>
             <Card className="p-4">
               <IssueReportForm
+                key={`${studentId}/${term}/${issued?.revision ?? 0}`}
                 studentId={studentId}
                 term={term}
-                alreadyIssued={Boolean(issued)}
+                expectedRevision={issued?.revision ?? 0}
               />
             </Card>
           </Section>

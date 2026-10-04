@@ -256,6 +256,12 @@ export type Totals = {
   /** Null when there is nothing to divide by — never 0, never 100. */
   percent: number | null;
   /**
+   * The unrounded fraction behind `percent` (0 to 1), so a report scheme
+   * can round it at the boundary the school agreed (P8) rather than
+   * rounding a number that has already been rounded once.
+   */
+  ratio: number | null;
+  /**
    * Whether `percent` came out of unequal weights.
    *
    * False whenever every paper counts the same, which is the normal case and
@@ -344,6 +350,7 @@ export function totalsFor(results: PaperResult[]): Totals {
       weightedOutOf === 0
         ? null
         : Math.round((weightedScored / weightedOutOf) * 1000) / 10,
+    ratio: weightedOutOf === 0 ? null : weightedScored / weightedOutOf,
     weighted: weightsUsed.size > 1,
   };
 }

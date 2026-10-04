@@ -252,6 +252,12 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because:
       "Report cards are issued by the exam coordinator. PLAN §3's teacher row is marks and attendance, not reports.",
   },
+  {
+    route: "/assessments/scheme",
+    allow: ["admin", "office", "academic_coordinator", "exam_coordinator"],
+    because:
+      "The rules a card is worked out by are read by whoever reads cards, and approved by the exam office (P8).",
+  },
 
   /* ------------------------------------------------------- the directory */
 
