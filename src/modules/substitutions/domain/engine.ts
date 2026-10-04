@@ -173,7 +173,17 @@ export type CoverWarning =
   | "full_day"
   | "excessive_consecutive";
 
-export type ScheduleSlot = { subject?: string | null; className?: string | null };
+export type ScheduleSlot = {
+  subject?: string | null;
+  className?: string | null;
+  /**
+   * The other classes in the same joint lesson. Without them a teacher who
+   * teaches 11 Science, Commerce and Arts together reads as teaching only
+   * whichever row was written last, and loses class familiarity with the other
+   * two (P2).
+   */
+  alsoClassNames?: string[] | null;
+};
 
 /** `schedule[day][periodIndex]` — null where the teacher is free. */
 export type TeacherSchedule = Record<string, (ScheduleSlot | null)[]>;
@@ -219,6 +229,19 @@ export type Vacancy = {
   className: string;
   subject: string;
   originalTeacher?: string;
+  /**
+   * Every other class in the same physical lesson (P2). A substitute for a
+   * joint lesson stands in front of all of them, so they must qualify for
+   * each: the candidate is ranked against every class and takes the worst
+   * result — the lowest tier, the lowest score, every block and warning.
+   */
+  alsoClassNames?: string[];
+  /**
+   * People who may not take this one — a teacher who said they cannot cover
+   * it (P5), or one the whole-plan check took it away from (P3). Blocked as
+   * unavailable, so they are never chosen and never suggested for it again.
+   */
+  excludeTeachers?: string[];
 };
 
 export type PlacedVacancy = Vacancy & { slotId: string };
@@ -624,15 +647,16 @@ export function buildTeacherProfiles(input: {
       for (const period of daySchedule ?? []) {
         if (!period) continue;
         if (period.subject) subjects.add(canonicalSubject(period.subject));
-        const grade = extractGrade(period.className);
-        if (grade) grades.add(grade);
-        if (period.className) {
-          classLoad[period.className] = (classLoad[period.className] ?? 0) + 1;
-          if (!classSubjects[period.className]) {
-            classSubjects[period.className] = new Set();
+        for (const className of [period.className, ...(period.alsoClassNames ?? [])]) {
+          const grade = extractGrade(className);
+          if (grade) grades.add(grade);
+          if (!className) continue;
+          classLoad[className] = (classLoad[className] ?? 0) + 1;
+          if (!classSubjects[className]) {
+            classSubjects[className] = new Set();
           }
           if (period.subject) {
-            classSubjects[period.className].add(canonicalSubject(period.subject));
+            classSubjects[className].add(canonicalSubject(period.subject));
           }
         }
       }
@@ -804,7 +828,57 @@ function getLoadFacts(
 
 /* ------------------------------------------------------------- scoring */
 
+/**
+ * How a teacher fits a vacancy — for a joint lesson, how they fit the worst of
+ * its classes.
+ *
+ * One class is ranked as it always was. For a joint lesson every member class
+ * is ranked on its own and the results are combined pessimistically: a teacher
+ * who teaches 11 Science every day but has never met 11 Arts is a stranger to
+ * a third of the room, and the room is one lesson.
+ */
 export function candidateForTeacher(
+  input: RankInput & { teacher?: string },
+  teacher: string,
+): Candidate | null {
+  const others = (input.vacancy?.alsoClassNames ?? []).filter(
+    (name) => name && name !== input.vacancy.className,
+  );
+  const first = candidateForClass(input, teacher);
+  if (!first || others.length === 0) return first;
+
+  const all = [first];
+  for (const className of others) {
+    const next = candidateForClass(
+      { ...input, vacancy: { ...input.vacancy, className, alsoClassNames: [] } },
+      teacher,
+    );
+    if (!next) return null;
+    all.push(next);
+  }
+  return mergeCandidates(all);
+}
+
+function mergeCandidates(all: Candidate[]): Candidate {
+  const worst = all.reduce((a, b) =>
+    tierRank(b.matchTier) > tierRank(a.matchTier) ||
+    (tierRank(b.matchTier) === tierRank(a.matchTier) && b.score < a.score)
+      ? b
+      : a,
+  );
+  return {
+    ...worst,
+    score: Math.min(...all.map((entry) => entry.score)),
+    autoEligible: all.every((entry) => entry.autoEligible),
+    blocked: [...new Set(all.flatMap((entry) => entry.blocked))],
+    warnings: [...new Set(all.flatMap((entry) => entry.warnings))],
+    classPeriods: Math.min(...all.map((entry) => entry.classPeriods)),
+    exactGrade: all.every((entry) => entry.exactGrade),
+    sameBand: all.every((entry) => entry.sameBand),
+  };
+}
+
+function candidateForClass(
   input: RankInput & { teacher?: string },
   teacher: string,
 ): Candidate | null {
@@ -830,6 +904,9 @@ export function candidateForTeacher(
     blocked.push("double_booked");
   }
   if (!isAvailableByPolicy(profile, periodIndex)) blocked.push("unavailable");
+  if (vacancy.excludeTeachers?.includes(teacher) && !blocked.includes("unavailable")) {
+    blocked.push("unavailable");
+  }
 
   const targetSubject = canonicalSubject(vacancy.subject);
   const className = vacancy.className;

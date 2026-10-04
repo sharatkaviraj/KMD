@@ -143,6 +143,16 @@ export function teacherDetailsFrom(
     const schedule = detail.schedule!;
     if (!schedule[slot.day]) schedule[slot.day] = Array(PERIOD_COUNT).fill(null);
 
+    // A joint lesson is several rows for one period. Keeping only the last
+    // one wrote the other classes out of the teacher's week, and with them the
+    // class familiarity the scorer ranks on (P2); they ride along instead.
+    const existing = schedule[slot.day][slot.period];
+    if (existing && existing.className !== slot.classLabel) {
+      const also = existing.alsoClassNames ?? [];
+      if (!also.includes(slot.classLabel)) existing.alsoClassNames = [...also, slot.classLabel];
+      continue;
+    }
+
     schedule[slot.day][slot.period] = {
       subject: slot.subjectCode,
       className: slot.classLabel,

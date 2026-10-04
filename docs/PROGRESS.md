@@ -35,7 +35,7 @@ regular bells as an editable default, admin-only role changes (D-205).
 |---|---|---|---|---|
 | P0 | Baseline, target isolation and a fail-closed client guard; redacted execution manifest | A | done | `p0-p1-isolation-and-authority` · `target-guard.ts`, `scripts/target-guard.mjs` · `docs/evidence/P0-P1-2026-10-04.md` · D-208. The "conflicting" ref `hkkrtspkawifcyqfzltx` exists nowhere |
 | P1 | One staff authority, admin-only role/activation, last-admin guard, scoped direct reads, teacher class scope in pages | C | done | same branch · migrations `*_staff_authority_and_scoped_reads`, `*_hide_phone_reason_and_token_columns` · `npm run verify:access` · D-205–D-209. Concurrent last-admin race never run on dev (reason in evidence); D-207 names the fee-role decision needed before cutover |
-| P2 | Bell schedule and physical teaching events: joint, parallel cohort and team block; every-member eligibility | B, D | todo | — |
+| P2 | Bell schedule and physical teaching events: joint, parallel cohort and team block; every-member eligibility | B, D | done | `p2-physical-duties` · `domain/events.ts`, `domain/bells.ts`, migration `*_bells_and_team_rules`, `/substitutions/rules` · `docs/evidence/P2-2026-10-04.md` · D-210, D-211. Team rules unset: ELGA stays manual until the school says how many must be present |
 | P3 | One atomic, versioned, idempotent "Save absence & arrange cover" command with receipt | E | todo | — |
 | P4 | Staff notice outbox: intents, leased attempts, current-state recheck, Unknown, mock transport | F | todo | — |
 | P5 | Teacher duty loop: Today + link to one authenticated duty, Acknowledge, Cannot cover, escalation | G | todo | — |

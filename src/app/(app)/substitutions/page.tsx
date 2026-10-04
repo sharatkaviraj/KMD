@@ -98,12 +98,20 @@ export default async function SubstitutionsPage(
       language={language}
       action={
         mayManage ? (
-          <Link
-            href="/substitutions/policies"
-            className={buttonClasses({ variant: "outline", size: "sm" })}
-          >
-            {primary(m.subsPoliciesTitle, language)}
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/substitutions/rules"
+              className={buttonClasses({ variant: "outline", size: "sm" })}
+            >
+              {primary(m.subsRulesTitle, language)}
+            </Link>
+            <Link
+              href="/substitutions/policies"
+              className={buttonClasses({ variant: "outline", size: "sm" })}
+            >
+              {primary(m.subsPoliciesTitle, language)}
+            </Link>
+          </div>
         ) : null
       }
     />

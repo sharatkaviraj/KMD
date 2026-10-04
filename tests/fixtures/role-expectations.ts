@@ -206,6 +206,12 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     allow: ["admin", "academic_coordinator"],
     because: "Who is on site and how much cover they take is a planning setting.",
   },
+  {
+    route: "/substitutions/rules",
+    allow: ["admin", "academic_coordinator"],
+    because:
+      "Bell times and how many of a team must be present are school rules the people who arrange cover set (P2).",
+  },
 
   /* ----------------------------------------------------------- assessments */
 
