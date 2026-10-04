@@ -2,7 +2,7 @@ import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-import { getRequiredEnvVar, VPPSONE_SCHEMA } from "@/platform/env";
+import { getRequiredEnvVar, getServerSupabaseUrl, VPPSONE_SCHEMA } from "@/platform/env";
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -20,7 +20,7 @@ export async function createClient(cookieStore?: CookieStore) {
   const resolvedCookieStore = cookieStore ?? (await getCookieStore());
 
   return createServerClient(
-    getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+    getServerSupabaseUrl(),
     getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
     {
       cookies: {

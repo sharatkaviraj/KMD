@@ -2,9 +2,11 @@
 
 Read `docs/PLAN.md` first, then `docs/PROGRESS.md` to find the next task.
 
-**Active work is PLAN revision 2, queue R0–R8. Start R0.1; do not restart original
-Phase 1.1 or stop at deferred live-cutover task 7.3.** Read `docs/PARITY.md`,
-`docs/QA.md` and the latest baseline.
+**Active work is the 4 October plan pack: P0–P12 in `docs/PROGRESS.md`, sourced
+from `docs/plan-pack/`.** Take the first P row that is not done; the residual
+R rows (R3.4 onward) follow it and stay open. Do not restart original Phase 1.1
+or stop at deferred live-cutover task 7.3. Read `docs/PARITY.md`, `docs/QA.md`
+and the latest baseline.
 
 **The School Fees app has been ported into this repo** (D-178, Janmejay's
 explicit call): 709 files, 48 screens, 20 modules, and fee data is writable

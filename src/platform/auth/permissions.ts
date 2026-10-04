@@ -338,3 +338,27 @@ export function canAny(
 export function permissionsFor(role: StaffRole): readonly StaffPermission[] {
   return rolePermissions[role];
 }
+
+/**
+ * The roles whose work is every class, not a few of them.
+ *
+ * A permission says what kind of thing somebody may do; this says over which
+ * classes. The office and the administrator run the school and the two
+ * coordinators oversee it, so a register, a roll or a mark sheet from any
+ * class is theirs to open. A teacher's classes are the ones she holds or
+ * teaches — `classScopeFor()` reads them — and nothing else, however many
+ * `:view` permissions she has (P1).
+ *
+ * `vppsone.reads_every_class()` asks the same question in SQL, and
+ * `tests/scoped-reads.test.ts` holds the two lists equal.
+ */
+export const SCHOOL_WIDE_ROLES: readonly StaffRole[] = [
+  "admin",
+  "office",
+  "academic_coordinator",
+  "exam_coordinator",
+];
+
+export function readsEveryClass(staff: { role: StaffRole } | null | undefined): boolean {
+  return Boolean(staff && SCHOOL_WIDE_ROLES.includes(staff.role));
+}

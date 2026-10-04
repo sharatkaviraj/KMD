@@ -1,5 +1,6 @@
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { can } from "@/platform/auth/permissions";
 import { dayLabel } from "@/platform/dates";
 import { getSchoolName } from "@/platform/env";
 import { countOf, flat, primary, t } from "@/platform/i18n/language";
@@ -330,15 +331,19 @@ export default async function ReportCardPage(
           language={language}
         />
 
-        <Section className="mt-6" title={m.reportIssue} language={language}>
-          <Card className="p-4">
-            <IssueReportForm
-              studentId={studentId}
-              term={term}
-              alreadyIssued={Boolean(issued)}
-            />
-          </Card>
-        </Section>
+        {/* Issuing freezes a record, so it belongs to whoever runs the exams,
+            not to everybody who can read a report (D-206). */}
+        {can(staff, "assessments:manage") ? (
+          <Section className="mt-6" title={m.reportIssue} language={language}>
+            <Card className="p-4">
+              <IssueReportForm
+                studentId={studentId}
+                term={term}
+                alreadyIssued={Boolean(issued)}
+              />
+            </Card>
+          </Section>
+        ) : null}
       </div>
     </>
   );

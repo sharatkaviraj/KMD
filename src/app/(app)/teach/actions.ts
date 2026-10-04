@@ -20,11 +20,15 @@ import {
 } from "@/modules/attendance/domain/corrections";
 import { writeNoteSchema } from "@/modules/notes/domain/notes";
 import {
+  classRoll,
   findRegister,
   listMarks,
+  registerById,
   saveRegister,
 } from "@/modules/attendance/data/attendance-repo";
-import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { classScopeFor, ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
+import { enrolmentForStudent } from "@/modules/students/data/student-repo";
 import {
   decideCorrection,
   getCorrection,
@@ -89,6 +93,16 @@ export async function saveRegisterAction(
 
   if (!verdict.allowed) {
     return failure(verdict.reason ?? m.notSaved);
+  }
+
+  // Every mark has to be for a child on this class's roll. The form only
+  // offers the roll, but the payload is JSON a browser built, and a register
+  // that records a child from another class is a record of something that did
+  // not happen (P1).
+  const roll = await classRoll({ classId: parsed.data.classId, sessionLabel });
+  const onRoll = new Set(roll.map((student) => student.studentId));
+  if (parsed.data.marks.some((mark) => !onRoll.has(mark.studentId))) {
+    return failure(m.notSaved);
   }
 
   // A submitted register is a record. Re-saving one is a correction request,
@@ -167,7 +181,17 @@ export async function requestCorrectionAction(
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
 
+  // The register as it is, read under the actor's own scope: one outside
+  // their classes is null, and its status is the real one rather than the
+  // "submitted" this action used to assume (P1).
+  const register = await registerById(parsed.data.registerId);
+  const sessionLabel = await resolveSessionLabel();
+  if (!register || !sessionLabel) return failure(m.notSaved);
+  const scope = await classScopeFor(actor, sessionLabel);
+  if (!scopeIncludes(scope, register.classId)) return failure(m.notYourClassTitle);
+
   const marks = await listMarks(parsed.data.registerId);
+  if (!marks.has(parsed.data.studentId)) return failure(m.notSaved);
   const current = marks.get(parsed.data.studentId)?.status ?? null;
   const pending = await hasPendingCorrection(
     parsed.data.registerId,
@@ -177,7 +201,7 @@ export async function requestCorrectionAction(
   // The register has to be submitted for a correction to make sense — an open
   // one is edited directly.
   const verdict = canRequestCorrection({
-    registerStatus: "submitted",
+    registerStatus: register.status,
     currentStatus: current,
     toStatus: parsed.data.toStatus,
     hasPendingRequest: pending,
@@ -260,6 +284,17 @@ export async function writeNoteAction(
   });
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+
+  // A note is about a class or a child the writer teaches (P1). A child is in
+  // scope through their enrolment this session, read under the writer's RLS.
+  const scope = await classScopeFor(actor, sessionLabel);
+  if (parsed.data.classId && !scopeIncludes(scope, parsed.data.classId)) {
+    return failure(m.notYourClassTitle);
+  }
+  if (parsed.data.studentId) {
+    const placement = await enrolmentForStudent(parsed.data.studentId, sessionLabel);
+    if (!scopeIncludes(scope, placement?.classId)) return failure(m.notYourStudentTitle);
+  }
 
   try {
     await writeNote(parsed.data, sessionLabel, actor.id);

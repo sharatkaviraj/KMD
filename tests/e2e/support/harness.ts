@@ -6,6 +6,7 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "../../../src/platform/config/active-session";
 import { qaAccount } from "../../fixtures/qa-accounts";
+import { isDevProjectUrl } from "../../../scripts/target-guard.mjs";
 
 /**
  * What a workflow test needs before it can press anything: a dev database, a
@@ -18,7 +19,6 @@ import { qaAccount } from "../../fixtures/qa-accounts";
  * a swallowed query error) all rendered perfectly while being wrong.
  */
 
-const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
 const repoRoot = path.resolve(process.cwd());
 
 function readEnv(): Record<string, string> {
@@ -35,7 +35,7 @@ function readEnv(): Record<string, string> {
 
 const env = readEnv();
 
-if (!(env.NEXT_PUBLIC_SUPABASE_URL ?? "").includes(DEV_PROJECT_REF)) {
+if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL ?? "")) {
   // Rule 3. These journeys write: they mark registers and create requests.
   throw new Error("Refusing to run workflow tests: .env.local is not the dev project.");
 }

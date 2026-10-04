@@ -12,8 +12,13 @@ import {
   normalizeShortName,
   SHORT_NAME_PATTERN,
   updateStaffSchema,
+  authorityChangeIn,
+  authorityRefusalMessages,
+  mayChangeAuthority,
+  rolesAssignableBy,
   type StaffProfile,
 } from "@/modules/staff/domain/staff";
+import { staffRoles } from "@/platform/auth/permissions";
 
 function profile(overrides: Partial<StaffProfile> = {}): StaffProfile {
   return {
@@ -317,6 +322,43 @@ describe("canDeactivate()", () => {
       expect(verdict.allowed).toBe(false);
       expect(verdict.reason?.hi).toBeTruthy();
       expect(verdict.reason?.en).toBeTruthy();
+    }
+  });
+});
+
+describe("who may change authority (D-205)", () => {
+  it("lets an administrator give any role", () => {
+    expect(rolesAssignableBy("admin")).toEqual(staffRoles);
+  });
+
+  it("lets anybody else create only teachers and viewers", () => {
+    for (const role of ["office", "academic_coordinator", "teacher"] as const) {
+      expect(rolesAssignableBy(role)).toEqual(["teacher", "view_only"]);
+      expect(rolesAssignableBy(role)).not.toContain("admin");
+      expect(rolesAssignableBy(role)).not.toContain("accountant");
+    }
+  });
+
+  it("keeps role and activation the administrator's alone", () => {
+    expect(mayChangeAuthority("admin")).toBe(true);
+    expect(mayChangeAuthority("office")).toBe(false);
+  });
+
+  it("separates an ordinary edit from an authority change", () => {
+    const target = profile({ role: "teacher", isActive: true });
+    expect(authorityChangeIn(target, { role: "teacher" })).toBeNull();
+    expect(authorityChangeIn(target, {})).toBeNull();
+    expect(authorityChangeIn(target, { role: "admin" })).toEqual({ role: "admin", isActive: true });
+    expect(authorityChangeIn(target, { isActive: false })).toEqual({
+      role: "teacher",
+      isActive: false,
+    });
+  });
+
+  it("names every refusal the database can give, in both languages", () => {
+    for (const reason of ["not_admin", "not_found", "self", "last_admin"] as const) {
+      expect(authorityRefusalMessages[reason].hi).toBeTruthy();
+      expect(authorityRefusalMessages[reason].en).toBeTruthy();
     }
   });
 });

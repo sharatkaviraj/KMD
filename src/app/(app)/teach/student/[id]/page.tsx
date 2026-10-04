@@ -13,7 +13,9 @@ import {
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
 import { studentAttendance } from "@/modules/attendance/data/attendance-repo";
-import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { classScopeFor, ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
+import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
 import { externalIdFor } from "@/modules/students/data/external-ids-repo";
 import {
   attendanceLabels,
@@ -97,6 +99,25 @@ export default async function StudentPage(
       <>
         <PageHeader eyebrow={m.eyebrowMyClass} title={m.studentTitle} language={language} back={BACK} />
         <EmptyState title={m.notFound} language={language} />
+      </>
+    );
+  }
+
+  // A teacher opens the children of her own classes, not any child whose id
+  // she can type. The card above carries guardian names and phone numbers and
+  // is read through the service role, so this check is the boundary (P1).
+  const [scope, placement] = await Promise.all([
+    classScopeFor(staff, sessionLabel),
+    enrolmentForStudent(studentId, sessionLabel),
+  ]);
+  if (
+    !scopeIncludes(scope, placement?.classId) &&
+    !scopeIncludes(scope, student.classId)
+  ) {
+    return (
+      <>
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.studentTitle} language={language} back={BACK} />
+        <NotYourClass language={language} title={m.notYourStudentTitle} />
       </>
     );
   }

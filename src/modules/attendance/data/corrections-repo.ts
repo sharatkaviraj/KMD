@@ -70,6 +70,7 @@ export async function listCorrections(
     registerId: row.register_id,
     studentId: row.student_id,
     studentName: names.get(row.student_id) ?? "—",
+    classId: row.attendance_registers?.class_id ?? null,
     classLabel: classLabels.get(row.attendance_registers?.class_id ?? "") ?? "—",
     day: row.attendance_registers?.day ?? "",
     fromStatus: row.from_status,

@@ -5,7 +5,9 @@ import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { t } from "@/platform/i18n/language";
+import { staffRoles } from "@/platform/auth/permissions";
 import { getStaffById } from "@/modules/staff/data/staff-repo";
+import { mayChangeAuthority } from "@/modules/staff/domain/staff";
 import { StaffForm } from "@/modules/staff/ui/staff-form";
 import { PageHeader } from "@/ui/page-header-localized";
 
@@ -38,6 +40,12 @@ export default async function EditStaffPage(props: PageProps<"/staff/[id]/edit">
         action={updateStaffAction}
         staff={person}
         cancelHref={`/staff/${id}`}
+        roles={
+          // Somebody who may not change authority sees the role, not a choice.
+          mayChangeAuthority(actor.role) && person.id !== actor.id
+            ? staffRoles
+            : [person.role]
+        }
       />
     </>
   );

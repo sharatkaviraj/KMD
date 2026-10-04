@@ -50,9 +50,9 @@ import {
 import { attendancePercent } from "../src/modules/attendance/domain/attendance.ts";
 import { buildReportCard } from "../src/modules/assessments/domain/report-card.ts";
 import { readActiveSession } from "./read-active-session.mjs";
+import { isDevProjectUrl } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
 const PERIOD_COUNT = 8;
 
 const env = Object.fromEntries(
@@ -65,7 +65,7 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!(env.NEXT_PUBLIC_SUPABASE_URL ?? "").includes(DEV_PROJECT_REF)) {
+if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
   console.error(`Refusing to run: .env.local is not the dev project (rule 3).`);
   process.exit(1);
 }

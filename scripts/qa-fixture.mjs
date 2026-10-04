@@ -44,9 +44,9 @@ import {
   QA_EMAIL_DOMAIN,
   pickTimetableTeachers,
 } from "../tests/fixtures/qa-accounts.ts";
+import { isDevProjectUrl } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
 
 const env = Object.fromEntries(
   readFileSync(path.join(repoRoot, ".env.local"), "utf8")
@@ -58,7 +58,7 @@ const env = Object.fromEntries(
     }),
 );
 
-if (!(env.NEXT_PUBLIC_SUPABASE_URL ?? "").includes(DEV_PROJECT_REF)) {
+if (!isDevProjectUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
   console.error("Refusing to run: .env.local is not the dev project (rule 3).");
   process.exit(1);
 }

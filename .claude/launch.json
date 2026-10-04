@@ -33,6 +33,18 @@
         "3200"
       ],
       "port": 3200
+    },
+    {
+      "name": "vppsone-prod-3300",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start",
+        "--",
+        "-p",
+        "3300"
+      ],
+      "port": 3300
     }
   ]
 }

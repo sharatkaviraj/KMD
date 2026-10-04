@@ -14,7 +14,7 @@ import {
   type Localized,
 } from "@/platform/i18n/language";
 import { getStaffById } from "@/modules/staff/data/staff-repo";
-import { canDeactivate } from "@/modules/staff/domain/staff";
+import { canDeactivate, mayChangeAuthority } from "@/modules/staff/domain/staff";
 import { Badge, Card, DetailList, Notice } from "@/ui/primitives";
 import { Button, buttonClasses } from "@/ui/primitives/button";
 import { PageHeader } from "@/ui/page-header-localized";
@@ -44,6 +44,9 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
   }
 
   const mayManage = can(actor, "staff:manage");
+  // Switching access on or off is the administrator's alone (D-205); the
+  // office still edits the record through the Edit button.
+  const maySwitchAccess = mayChangeAuthority(actor.role);
   const deactivation = canDeactivate(person, actor.id);
 
   return (
@@ -122,7 +125,7 @@ export default async function StaffDetailPage(props: PageProps<"/staff/[id]">) {
         />
       ) : null}
 
-      {mayManage ? (
+      {maySwitchAccess ? (
         <form action={setStaffActiveAction} className="mt-6">
           <input type="hidden" name="id" value={person.id} />
           <input

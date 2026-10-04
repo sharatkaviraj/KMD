@@ -31,6 +31,8 @@ export type Correction = {
   registerId: string;
   studentId: string;
   studentName: string;
+  /** Null only for a row whose register could not be read. */
+  classId: string | null;
   classLabel: string;
   day: string;
   fromStatus: AttendanceStatus | null;

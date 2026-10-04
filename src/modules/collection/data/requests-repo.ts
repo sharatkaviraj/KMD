@@ -2,10 +2,10 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
+import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { resolveLanguage } from "@/platform/i18n/language";
 import { createAdminClient } from "@/platform/supabase/admin";
-import { createClient } from "@/platform/supabase/server";
 import { toField } from "@/modules/collection/data/fields-repo";
 import type { CollectionField } from "@/modules/collection/domain/fields";
 import {
@@ -351,11 +351,20 @@ export async function rollForRequest(
 
 /* -------------------------------------------------------- the office */
 
+/*
+ * The office's two reads go through the service role, after the permission.
+ *
+ * A request's `token` is the whole authorization for its link, and before P1
+ * any signed-in account could read every one of them straight from PostgREST.
+ * The column is no longer readable directly; the office still needs it — to
+ * copy a link — so these two read it themselves, for `collection:view` only.
+ */
+
 export async function listRequests(
   sessionLabel: string,
 ): Promise<CollectionRequest[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  await assertPermission("collection:view");
+  const { data, error } = await createAdminClient()
     .from("collection_requests")
     .select(REQUEST_COLUMNS)
     .eq("session_label", sessionLabel)
@@ -374,8 +383,8 @@ export async function listRequests(
 }
 
 export async function getRequest(id: string): Promise<CollectionRequest | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  await assertPermission("collection:view");
+  const { data, error } = await createAdminClient()
     .from("collection_requests")
     .select(REQUEST_COLUMNS)
     .eq("id", id)

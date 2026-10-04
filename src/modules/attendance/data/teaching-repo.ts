@@ -1,7 +1,15 @@
 import "server-only";
 
+import { readsEveryClass, type StaffRole } from "@/platform/auth/permissions";
+import { schoolToday } from "@/platform/dates";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
+import {
+  EVERY_CLASS,
+  isEffectiveOn,
+  ownClasses,
+  type ClassScope,
+} from "@/modules/attendance/domain/class-scope";
 
 /**
  * Which classes a staff member is responsible for.
@@ -25,13 +33,7 @@ export async function ownClassIds(
   const supabase = await createClient();
 
   const [held, taught] = await Promise.all([
-    supabase
-      .from("class_teachers")
-      .select("class_id")
-      .eq("staff_profile_id", staffProfileId)
-      .eq("session_label", sessionLabel)
-      .is("effective_to", null)
-      .returns<{ class_id: string }[]>(),
+    heldClassIds(staffProfileId, sessionLabel),
     supabase
       .from("teaching_assignments")
       .select("class_id")
@@ -40,37 +42,59 @@ export async function ownClassIds(
       .returns<{ class_id: string }[]>(),
   ]);
 
-  if (held.error) {
-    throw new Error(`Could not read your classes: ${held.error.message}`);
-  }
   if (taught.error) {
     throw new Error(`Could not read your classes: ${taught.error.message}`);
   }
 
-  return [
-    ...new Set([
-      ...held.data.map((row) => row.class_id),
-      ...taught.data.map((row) => row.class_id),
-    ]),
-  ];
+  return [...new Set([...held, ...taught.data.map((row) => row.class_id)])];
 }
 
-/** The classes this staff member is class teacher of, today. */
+/**
+ * The classes this staff member is class teacher of, today.
+ *
+ * Today over the whole effective interval — see `isEffectiveOn` — which is
+ * also what `vppsone.my_class_keys()` uses, so the page and the database
+ * agree about whose class it is.
+ */
 export async function heldClassIds(
   staffProfileId: string,
   sessionLabel: string,
+  day: string = schoolToday(),
 ): Promise<string[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("class_teachers")
-    .select("class_id")
+    .select("class_id, effective_from, effective_to")
     .eq("staff_profile_id", staffProfileId)
     .eq("session_label", sessionLabel)
-    .is("effective_to", null)
-    .returns<{ class_id: string }[]>();
+    .returns<{ class_id: string; effective_from: string | null; effective_to: string | null }[]>();
 
   if (error) throw new Error(`Could not read your classes: ${error.message}`);
-  return data.map((row) => row.class_id);
+  return [
+    ...new Set(
+      data
+        .filter((row) =>
+          isEffectiveOn({ effectiveFrom: row.effective_from, effectiveTo: row.effective_to }, day),
+        )
+        .map((row) => row.class_id),
+    ),
+  ];
+}
+
+/**
+ * Which classes the signed-in member of staff may open the records of.
+ *
+ * Every page that shows a class's roll, register, notes or marks asks this
+ * first, and refuses a class outside it rather than rendering it empty — an
+ * empty roll reads as "nobody is enrolled", which is a different and wrong
+ * answer (P1).
+ */
+export async function classScopeFor(
+  staff: { id: string; role: StaffRole },
+  sessionLabel: string,
+): Promise<ClassScope> {
+  if (readsEveryClass(staff)) return EVERY_CLASS;
+  return ownClasses(await ownClassIds(staff.id, sessionLabel));
 }
 
 export type TodaySlot = {

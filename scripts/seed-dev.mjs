@@ -22,11 +22,12 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
+import { DEV_PROJECT_REFS, isDevProjectUrl } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The dev project. This script refuses to run against anything else. */
-const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
+const [DEV_PROJECT_REF] = DEV_PROJECT_REFS;
 
 /**
  * Seeded staff, one per QA account (kickoff task 1.1).
@@ -106,7 +107,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 // Rule 3. The live fee database is not a target, and a seed script holding a
 // service-role key is exactly the thing that must not be pointed at it by a
 // stale shell variable.
-if (!supabaseUrl.includes(DEV_PROJECT_REF)) {
+if (!isDevProjectUrl(supabaseUrl)) {
   fail(
     `Refusing to seed ${supabaseUrl}.\n  ` +
       `This script only runs against schoolfees-dev (${DEV_PROJECT_REF}).`,

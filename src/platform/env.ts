@@ -11,6 +11,8 @@
  * two environment declarations forced to agree rather than trusted.
  */
 
+import { assertPermittedTarget } from "@/platform/supabase/target-guard";
+
 const requiredEnvVars = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -105,6 +107,19 @@ export function getRequiredEnvVar(name: RequiredEnvVar): string {
   }
 
   return value;
+}
+
+/**
+ * The Supabase URL for a **server-side** client, refused before any request is
+ * made if it is not a permitted target (see `target-guard.ts`).
+ *
+ * The browser client does not call this: `VPPSONE_ENV` never reaches the
+ * browser, so it would read every deployment as dev and refuse the cutover.
+ * It does not need to — no page reaches the browser without a server render
+ * that has already been through this check.
+ */
+export function getServerSupabaseUrl(): string {
+  return assertPermittedTarget(getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_URL"));
 }
 
 export function getOptionalEnvVar(name: string): string | undefined {

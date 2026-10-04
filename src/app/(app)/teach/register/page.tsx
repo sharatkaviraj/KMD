@@ -17,6 +17,9 @@ import {
   classLabelMap,
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
+import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes, withinScope } from "@/modules/attendance/domain/class-scope";
+import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import {
   attendanceCalendar,
@@ -81,13 +84,17 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
       ? requestedMonth
       : schoolToday().slice(0, 7);
 
-  const labels = await classLabelMap(sessionLabel);
+  const [labels, scope] = await Promise.all([
+    classLabelMap(sessionLabel),
+    classScopeFor(staff, sessionLabel),
+  ]);
 
   /* ------------------------------------------------- nothing chosen */
 
   if (!requestedClass) {
-    // No sort: the map arrives in school order (B-06).
-    const choices = [...labels.entries()];
+    // No sort: the map arrives in school order (B-06). Only the classes this
+    // reader may open — a teacher sees her own, not the whole school (P1).
+    const choices = withinScope(scope, [...labels.entries()], ([classId]) => classId);
 
     return (
       <>
@@ -114,6 +121,15 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
   }
 
   /* ------------------------------------------------------ the sheet */
+
+  if (!scopeIncludes(scope, requestedClass)) {
+    return (
+      <>
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.registerMonthly} language={language} back={BACK} />
+        <NotYourClass language={language} />
+      </>
+    );
+  }
 
   const { from, to } = monthBounds(month);
   const classLabel = labels.get(requestedClass) ?? "—";

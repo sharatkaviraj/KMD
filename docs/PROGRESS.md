@@ -1,6 +1,6 @@
 # VPPS One — progress
 
-**Active queue: the School Fees port (F rows, below), then PLAN revision 2.**
+**Active queue: the 4 October plan pack (P rows, first table below), then the residual R rows.**
 F6 is done — `schoolfees-dev` carries a de-identified replica of the live fee
 database (D-186), and `docs/replica-and-smoke.md` is the account of what having
 real fee data uncovered. **F7 is done: an accountant posts a payment in VPPS One, and the role boundary holds at the database (D-191).** R3.4 is the next R row and still owes
@@ -20,6 +20,32 @@ atlas screens belong to this repo, which belong to `veerpatta/schoolfees`, and
 the five places the implementation deliberately departs from the pictures.
 
 Status: `todo` · `in progress` · `pr open` · `done` · `blocked (reason)`
+
+## Plan pack — 4 October 2026 (active)
+
+Raj supplied a planning pack on 4 October (`VPPS-One-Full-Plan.md`, coding
+prompts, PDF and a source-evidence archive) and asked for it end to end. Its
+tickets P0–P12 run **ahead of** the residual R rows below, which stay open and
+are not reset. First slice: absence → valid published cover → staff notice →
+teacher acknowledgement (P0–P5). Authorization given before work began: ship
+per rule 5, additive `vppsone` migrations on schoolfees-dev, Timetable2025
+regular bells as an editable default, admin-only role changes (D-205).
+
+| Task | Bounded deliverable | Gate | Status | Branch / commit / evidence |
+|---|---|---|---|---|
+| P0 | Baseline, target isolation and a fail-closed client guard; redacted execution manifest | A | done | `p0-p1-isolation-and-authority` · `target-guard.ts`, `scripts/target-guard.mjs` · `docs/evidence/P0-P1-2026-10-04.md` · D-208. The "conflicting" ref `hkkrtspkawifcyqfzltx` exists nowhere |
+| P1 | One staff authority, admin-only role/activation, last-admin guard, scoped direct reads, teacher class scope in pages | C | done | same branch · migrations `*_staff_authority_and_scoped_reads`, `*_hide_phone_reason_and_token_columns` · `npm run verify:access` · D-205–D-209. Concurrent last-admin race never run on dev (reason in evidence); D-207 names the fee-role decision needed before cutover |
+| P2 | Bell schedule and physical teaching events: joint, parallel cohort and team block; every-member eligibility | B, D | todo | — |
+| P3 | One atomic, versioned, idempotent "Save absence & arrange cover" command with receipt | E | todo | — |
+| P4 | Staff notice outbox: intents, leased attempts, current-state recheck, Unknown, mock transport | F | todo | — |
+| P5 | Teacher duty loop: Today + link to one authenticated duty, Acknowledge, Cannot cover, escalation | G | todo | — |
+| P6 | Attendance: effective roster, explicit whole-roster save, half-day, receipt recovery | — | todo | — |
+| P7 | Marks: blank/zero/absent/exempt distinct, draft then submit | — | todo | — |
+| P8 | SA1 reports: scheme, completeness, immutable issued revision | — | todo | — |
+| P9 | Parent message policy: approval by default, stale approval blocked | — | todo | — |
+| P10 | SamPark residual parity (R3.4/R4) | — | todo | — |
+| P11 | Archive catalogue and restore drill | — | todo | — |
+| P12 | Release report, pilot runbook, hosting decision inputs | H | todo | — |
 
 ## Revision 2 — active queue (2026-09-17)
 

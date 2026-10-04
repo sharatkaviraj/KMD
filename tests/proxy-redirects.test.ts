@@ -27,8 +27,10 @@ vi.mock("@supabase/ssr", () => ({
   }),
 }));
 
-// updateSession() reads these through @/platform/env at call time.
-process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+// updateSession() reads these through @/platform/env at call time. A local
+// URL, because the target guard refuses an unknown project before the stubbed
+// client is even made (P0).
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
 
 const { updateSession } = await import("@/platform/supabase/middleware");

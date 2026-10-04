@@ -1,5 +1,7 @@
 import "server-only";
 
+import { assertStaff } from "@/platform/auth/current-staff";
+import { can } from "@/platform/auth/permissions";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import type {
@@ -21,12 +23,23 @@ const COLUMNS =
   "id, staff_profile_id, day, periods, reason, " +
   "staff_profiles!inner(display_name, short_name)";
 
+/**
+ * Who is away on a day.
+ *
+ * Read through the service role because `reason` is no longer readable
+ * directly (P1): why a colleague is away is between them and the person who
+ * arranges cover, and before P1 every signed-in account — teachers included,
+ * and the fee app's accounts too — could read it. The reason comes back only
+ * to somebody who manages cover; everybody else gets who and when.
+ */
 export async function absencesOn(
   sessionLabel: string,
   day: string,
 ): Promise<TeacherAbsence[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const reader = await assertStaff();
+  const showReason = can(reader, "substitutions:manage");
+
+  const { data, error } = await createAdminClient()
     .from("teacher_absences")
     .select(COLUMNS)
     .eq("session_label", sessionLabel)
@@ -43,7 +56,7 @@ export async function absencesOn(
       shortName: row.staff_profiles?.short_name ?? "—",
       day: row.day,
       periods: row.periods,
-      reason: row.reason,
+      reason: showReason ? row.reason : null,
     }))
     .sort((a, b) => a.staffName.localeCompare(b.staffName, "en"));
 }

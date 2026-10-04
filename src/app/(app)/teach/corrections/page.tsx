@@ -9,6 +9,8 @@ import {
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
 import { listCorrections } from "@/modules/attendance/data/corrections-repo";
+import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { attendanceLabels } from "@/modules/attendance/domain/attendance";
 import {
   byQueueOrder,
@@ -57,10 +59,20 @@ export default async function CorrectionsPage() {
     );
   }
 
-  const labels = await classLabelMap(sessionLabel);
-  const corrections = (await listCorrections(sessionLabel, labels)).sort(
-    byQueueOrder,
-  );
+  const [labels, scope] = await Promise.all([
+    classLabelMap(sessionLabel),
+    classScopeFor(staff, sessionLabel),
+  ]);
+  // A teacher sees the requests about her own classes and the ones she made;
+  // the office and the coordinators see the whole queue (P1). The database
+  // applies the same rule, so this is the page agreeing with it rather than
+  // the only guard.
+  const corrections = (await listCorrections(sessionLabel, labels))
+    .filter(
+      (correction) =>
+        correction.requestedById === staff.id || scopeIncludes(scope, correction.classId),
+    )
+    .sort(byQueueOrder);
   const waiting = pendingCount(corrections);
 
   return (

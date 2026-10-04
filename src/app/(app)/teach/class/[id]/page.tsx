@@ -12,7 +12,9 @@ import {
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
 import { classRoll } from "@/modules/attendance/data/attendance-repo";
-import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { classScopeFor, ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
+import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
 import { compareRoll } from "@/modules/attendance/domain/attendance";
 import { listNoteKinds, notesForClass } from "@/modules/notes/data/notes-repo";
 import { canReadNote } from "@/modules/notes/domain/notes";
@@ -49,6 +51,18 @@ export default async function ClassPage(props: PageProps<"/teach/class/[id]">) {
       <>
         <PageHeader eyebrow={m.eyebrowMyClass} title={m.teachClassTitle} language={language} back={BACK} />
         <EmptyState title={m.noSessionFound} language={language} />
+      </>
+    );
+  }
+
+  // Scope before the roll: `classRoll` reads through the service role, so the
+  // page is the only thing between a teacher and another class's names (P1).
+  const scope = await classScopeFor(staff, sessionLabel);
+  if (!scopeIncludes(scope, classId)) {
+    return (
+      <>
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.teachClassTitle} language={language} back={BACK} />
+        <NotYourClass language={language} />
       </>
     );
   }

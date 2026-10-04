@@ -2,7 +2,11 @@ import "server-only";
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-import { getFeeSchema, getOptionalEnvVar, getRequiredEnvVar } from "@/platform/env";
+import {
+  getFeeSchema,
+  getOptionalEnvVar,
+  getServerSupabaseUrl,
+} from "@/platform/env";
 import { createGuardedFetch } from "@/platform/supabase/guarded-fetch";
 
 /**
@@ -37,7 +41,7 @@ export function createFeeAdminClient() {
   }
 
   return createSupabaseClient(
-    getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+    getServerSupabaseUrl(),
     serviceRoleKey,
     {
       db: { schema: getFeeSchema() },

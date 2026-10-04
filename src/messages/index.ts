@@ -196,6 +196,19 @@ export const m = {
     "अपनी भूमिका आप नहीं बदल सकते",
     "You cannot change your own role",
   ),
+  notYourClassTitle: t("यह आपकी कक्षा नहीं है", "This is not one of your classes"),
+  notYourClassDetail: t(
+    "आपकी कक्षाएँ आज वाले पेज पर हैं। किसी और कक्षा के रिकॉर्ड के लिए कार्यालय से पूछें।",
+    "Your classes are on Today. For another class's records, ask the office.",
+  ),
+  notYourStudentTitle: t(
+    "यह बच्चा आपकी किसी कक्षा में नहीं है",
+    "This child is not in one of your classes",
+  ),
+  roleAdminOnlyHint: t(
+    "भूमिका केवल कोई दूसरा प्रशासक बदल सकता है।",
+    "Only another administrator can change a role.",
+  ),
   shortNameImmutable: t(
     "संक्षिप्त नाम बदला नहीं जा सकता",
     "The short name cannot be changed",

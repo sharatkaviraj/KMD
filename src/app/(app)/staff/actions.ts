@@ -7,17 +7,21 @@ import { m } from "@/messages";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
 import {
+  authorityChangeIn,
+  authorityRefusalMessages,
   canDeactivate,
   checkboxValue,
   createStaffSchema,
+  mayChangeAuthority,
   normalizeShortName,
+  rolesAssignableBy,
   updateStaffSchema,
 } from "@/modules/staff/domain/staff";
 import {
+  changeStaffAuthority,
   createStaff,
   findByShortName,
   getStaffById,
-  setStaffActive,
   updateStaff,
 } from "@/modules/staff/data/staff-repo";
 
@@ -82,6 +86,13 @@ export async function createStaffAction(
     return failure(fieldErrorsFrom(parsed.error));
   }
 
+  // A new profile's role is who that person becomes the day a login is linked
+  // to it, so the office may create teachers and viewers and nothing that
+  // holds power (D-205). Checked here; the form only offers what passes.
+  if (!rolesAssignableBy(staff.role).includes(parsed.data.role)) {
+    return failure({ role: authorityRefusalMessages.not_admin });
+  }
+
   // Checked before the insert so the message lands on the field rather than
   // arriving as a unique-constraint violation nobody can read. The index is
   // still the thing that guarantees it — this is only for the wording.
@@ -143,6 +154,14 @@ export async function updateStaffAction(
     return failure({ role: m.cannotChangeOwnRole });
   }
 
+  // The record and the authority are two different edits (D-205). Anybody with
+  // `staff:manage` may correct a name or a number; only an administrator may
+  // change what this person is allowed to do.
+  const authority = authorityChangeIn(target, { role: parsed.data.role });
+  if (authority && !mayChangeAuthority(actor.role)) {
+    return failure({ role: authorityRefusalMessages.not_admin });
+  }
+
   // Submitting a short name at all means the form was tampered with: the field
   // is rendered read-only and is not in the update schema. Refuse rather than
   // silently ignore, so the caller learns the rule.
@@ -160,13 +179,36 @@ export async function updateStaffAction(
     return failure({}, m.changesNotSaved);
   }
 
+  if (authority) {
+    const result = await changeStaffAuthority({
+      actorStaffId: actor.id,
+      targetStaffId: id,
+      role: authority.role,
+      isActive: authority.isActive,
+    }).catch(() => null);
+
+    if (!result) return failure({}, m.changesNotSaved);
+    if (!result.ok) return failure({ role: authorityRefusalMessages[result.reason] });
+  }
+
   revalidatePath("/staff");
   revalidatePath(`/staff/${id}`);
   redirect(`/staff/${id}`);
 }
 
+/**
+ * Switch somebody's access on or off. Administrators only (D-205).
+ *
+ * A plain form action rather than a stateful one, so a refusal throws into the
+ * page's error boundary; the button is not rendered for anybody who would be
+ * refused, so reaching the throw means the form was replayed or tampered with.
+ */
 export async function setStaffActiveAction(formData: FormData) {
   const actor = await assertPermission("staff:manage");
+  if (!mayChangeAuthority(actor.role)) {
+    throw new Error(authorityRefusalMessages.not_admin.en);
+  }
+
   const id = (formData.get("id") ?? "").toString();
   const nextActive = formData.get("isActive") === "true";
 
@@ -184,7 +226,15 @@ export async function setStaffActiveAction(formData: FormData) {
     }
   }
 
-  await setStaffActive(id, nextActive);
+  const result = await changeStaffAuthority({
+    actorStaffId: actor.id,
+    targetStaffId: id,
+    role: target.role,
+    isActive: nextActive,
+  });
+  if (!result.ok) {
+    throw new Error(authorityRefusalMessages[result.reason].en);
+  }
 
   revalidatePath("/staff");
   revalidatePath(`/staff/${id}`);

@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
-import { getRequiredEnvVar, hasRequiredEnvVars } from "@/platform/env";
+import {
+  getRequiredEnvVar,
+  getServerSupabaseUrl,
+  hasRequiredEnvVars,
+} from "@/platform/env";
 
 /**
  * Paths a signed-out visitor may reach. Everything else needs a session.
@@ -70,7 +74,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const supabase = createServerClient(
-    getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+    getServerSupabaseUrl(),
     getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
     {
       cookies: {

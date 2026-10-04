@@ -17,7 +17,9 @@ import {
   findRegister,
   listMarks,
 } from "@/modules/attendance/data/attendance-repo";
-import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { classScopeFor, ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
+import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import { rankOf } from "@/modules/academics/domain/class-order";
 import {
@@ -83,9 +85,10 @@ export default async function AttendancePage(
       ? Number(requestedPeriod)
       : null;
 
-  const [labels, own] = await Promise.all([
+  const [labels, own, scope] = await Promise.all([
     classLabelMap(sessionLabel),
     ownClassIds(staff.id, sessionLabel),
+    classScopeFor(staff, sessionLabel),
   ]);
 
   const dayText = t(
@@ -157,6 +160,18 @@ export default async function AttendancePage(
     ownClassIds: own,
     classId: requestedClass,
   });
+
+  // Reading a class is wider than marking it — a coordinator reads every
+  // register and marks none — but it is still bounded. Outside the reader's
+  // scope the roll is never read, rather than read and shown greyed out (P1).
+  if (!verdict.allowed && !scopeIncludes(scope, requestedClass)) {
+    return (
+      <>
+        <PageHeader eyebrow={m.eyebrowMyClass} title={m.attendanceTitle} language={language} back={BACK} />
+        <NotYourClass language={language} />
+      </>
+    );
+  }
 
   const classLabel = labels.get(requestedClass) ?? "—";
 

@@ -2,6 +2,7 @@ import { createStaffAction } from "@/app/(app)/staff/actions";
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
+import { rolesAssignableBy } from "@/modules/staff/domain/staff";
 import { StaffForm } from "@/modules/staff/ui/staff-form";
 import { Notice } from "@/ui/primitives";
 import { PageHeader } from "@/ui/page-header-localized";
@@ -31,7 +32,11 @@ export default async function NewStaffPage() {
         language={language}
       />
 
-      <StaffForm action={createStaffAction} cancelHref="/staff" />
+      <StaffForm
+        action={createStaffAction}
+        cancelHref="/staff"
+        roles={rolesAssignableBy(staff.role)}
+      />
     </>
   );
 }

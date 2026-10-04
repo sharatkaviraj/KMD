@@ -15,6 +15,7 @@ const correction = (over: Partial<Correction> = {}): Correction => ({
   registerId: "r1",
   studentId: "s1",
   studentName: "Test Child",
+  classId: "class-6",
   classLabel: "Class 6",
   day: "2026-09-17",
   fromStatus: "absent",

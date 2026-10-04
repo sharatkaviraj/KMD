@@ -124,6 +124,7 @@ export type CreateStaffInput = z.infer<typeof createStaffSchema>;
  */
 export const updateStaffSchema = z.object({
   displayName,
+  /** Applied only when an administrator changes it — see `authorityChangeIn`. */
   role,
   phone: optionalPhone,
   whatsappPhone: optionalPhone,
@@ -186,6 +187,66 @@ export function matchesStaffSearch(staff: StaffProfile, query: string): boolean 
       ((staff.phone ?? "").includes(digits) ||
         (staff.whatsappPhone ?? "").includes(digits)))
   );
+}
+
+/* ------------------------------------------------------- who may change what */
+
+/**
+ * The roles somebody without the administrator's role may give a new profile.
+ *
+ * The office keeps staff records — names, numbers, who teaches — and that is
+ * worth keeping (PLAN §3). What it stops being able to do is decide who holds
+ * power: a profile created as an accountant or a coordinator becomes one the
+ * day a login is linked to it, and before P1 the office could also promote an
+ * existing linked colleague to administrator, or switch an administrator off
+ * (D-205). A teacher or a view-only profile grants nothing a teacher cannot
+ * already see.
+ */
+export const NON_ADMIN_ASSIGNABLE_ROLES: readonly StaffRole[] = ["teacher", "view_only"];
+
+/** The roles this actor may put on a profile they are creating. */
+export function rolesAssignableBy(actorRole: StaffRole): readonly StaffRole[] {
+  return actorRole === "admin" ? staffRoles : NON_ADMIN_ASSIGNABLE_ROLES;
+}
+
+/** Whether this actor may change role or activation at all. Only an admin. */
+export function mayChangeAuthority(actorRole: StaffRole): boolean {
+  return actorRole === "admin";
+}
+
+/** Why `change_staff_authority` said no. The database's own words. */
+export type AuthorityRefusal = "not_admin" | "not_found" | "self" | "last_admin";
+
+export const authorityRefusalMessages: Record<AuthorityRefusal, Localized> = {
+  not_admin: t(
+    "भूमिका या पहुँच केवल प्रशासक बदल सकते हैं।",
+    "Only an administrator can change a role or switch access on or off.",
+  ),
+  not_found: t("यह प्रोफ़ाइल नहीं मिली।", "That profile was not found."),
+  self: t(
+    "आप अपनी ही भूमिका या पहुँच नहीं बदल सकते।",
+    "You cannot change your own role or access. Ask another administrator.",
+  ),
+  last_admin: t(
+    "स्कूल में कम से कम एक सक्रिय प्रशासक रहना ज़रूरी है।",
+    "The school must keep at least one active administrator.",
+  ),
+};
+
+/**
+ * Whether an edit changes authority, which is admin-only, or only the record.
+ *
+ * Pure so the action and its test agree: the action calls this, then sends the
+ * record half through `updateStaff` and the authority half through the
+ * database command.
+ */
+export function authorityChangeIn(
+  target: Pick<StaffProfile, "role" | "isActive">,
+  next: { role?: StaffRole; isActive?: boolean },
+): { role: StaffRole; isActive: boolean } | null {
+  const role = next.role ?? target.role;
+  const isActive = next.isActive ?? target.isActive;
+  return role === target.role && isActive === target.isActive ? null : { role, isActive };
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   listSubjects,
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
+import { classRoll } from "@/modules/attendance/data/attendance-repo";
 import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
 import {
   deleteAssessment,
@@ -252,6 +253,12 @@ export async function saveMarksAction(
     writes.push({ studentId, value: away ? null : checked.value, absent: away });
   }
 
+  // Every mark has to be for a child on this paper's class roll (P1) — the
+  // payload is JSON a browser built, and the roll is the only list it may name.
+  const roll = await classRoll({ classId: paper.classId, sessionLabel });
+  const onRoll = new Set(roll.map((student) => student.studentId));
+  if (writes.some((write) => !onRoll.has(write.studentId))) return failure(m.notSaved);
+
   let changed = 0;
 
   try {
@@ -288,7 +295,9 @@ export async function issueReportCardAction(
   _previous: AssessmentState,
   formData: FormData,
 ): Promise<AssessmentState> {
-  const actor = await assertPermission("reports:view");
+  // Issuing writes a frozen record; reading one is `reports:view`, issuing it
+  // is the exam coordinator's and the administrator's (D-206).
+  const actor = await assertPermission("assessments:manage");
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);

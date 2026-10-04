@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import type { StaffFormState } from "@/app/(app)/staff/actions";
 import { m } from "@/messages";
-import { roleLabel, staffRoles } from "@/platform/auth/permissions";
+import { roleLabel, type StaffRole } from "@/platform/auth/permissions";
 import { flat, primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import type { StaffProfile } from "@/modules/staff/domain/staff";
@@ -27,11 +27,18 @@ export function StaffForm({
   action,
   staff,
   cancelHref,
+  roles,
 }: {
   action: Action;
   /** Absent when creating. */
   staff?: StaffProfile;
   cancelHref: string;
+  /**
+   * The roles this person may choose (D-205). An administrator gets all
+   * eight; anybody else creates teachers and viewers, and sees an existing
+   * profile's role without being able to change it.
+   */
+  roles: readonly StaffRole[];
 }) {
   const language = useLanguage();
   const [state, formAction, isPending] = useActionState<StaffFormState, FormData>(
@@ -101,15 +108,21 @@ export function StaffForm({
         <Select
           id="role"
           name="role"
-          defaultValue={staff?.role ?? "teacher"}
+          defaultValue={staff?.role ?? roles[0] ?? "teacher"}
           aria-invalid={Boolean(error("role")) || undefined}
+          aria-describedby={roles.length === 1 ? "role-help" : undefined}
         >
-          {staffRoles.map((role) => (
+          {roles.map((role) => (
             <option key={role} value={role}>
               {flat(roleLabel(role), language)}
             </option>
           ))}
         </Select>
+        {roles.length === 1 ? (
+          <p id="role-help" className="text-[13px] leading-5 text-muted-foreground">
+            {flat(m.roleAdminOnlyHint, language)}
+          </p>
+        ) : null}
       </Field>
 
       <Checkbox

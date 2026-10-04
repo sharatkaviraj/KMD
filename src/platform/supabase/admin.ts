@@ -4,7 +4,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import {
   getOptionalEnvVar,
-  getRequiredEnvVar,
+  getServerSupabaseUrl,
   VPPSONE_SCHEMA,
 } from "@/platform/env";
 import { createGuardedFetch } from "@/platform/supabase/guarded-fetch";
@@ -40,7 +40,7 @@ export function createAdminClient() {
   }
 
   return createSupabaseClient(
-    getRequiredEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+    getServerSupabaseUrl(),
     serviceRoleKey,
     {
       db: { schema: VPPSONE_SCHEMA },

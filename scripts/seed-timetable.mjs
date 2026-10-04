@@ -35,9 +35,10 @@ import {
   parseTimetable,
 } from "../src/modules/timetable/domain/parse-timetable.ts";
 import { readActiveSession } from "./read-active-session.mjs";
+import { DEV_PROJECT_REFS, isDevProjectUrl } from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
+const [DEV_PROJECT_REF] = DEV_PROJECT_REFS;
 const LABEL = "Fixture v11 (seeded)";
 
 function readEnv() {
@@ -55,7 +56,7 @@ function readEnv() {
 const env = readEnv();
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-if (!url.includes(DEV_PROJECT_REF)) {
+if (!isDevProjectUrl(url)) {
   console.error(
     `Refusing to run: .env.local points at ${url}, not the dev project ${DEV_PROJECT_REF} (rule 3).`,
   );

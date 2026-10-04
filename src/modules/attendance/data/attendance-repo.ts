@@ -140,6 +140,22 @@ export async function findRegister(
   return data ? toRegister(data) : null;
 }
 
+/**
+ * One register by id, under the reader's own RLS — so a register outside
+ * their classes comes back as null, exactly as if it did not exist.
+ */
+export async function registerById(id: string): Promise<Register | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("attendance_registers")
+    .select(REGISTER_COLUMNS)
+    .eq("id", id)
+    .maybeSingle<RegisterRow>();
+
+  if (error) throw new Error(`Could not read the register: ${error.message}`);
+  return data ? toRegister(data) : null;
+}
+
 export async function listMarks(
   registerId: string,
 ): Promise<Map<string, { status: AttendanceStatus; note: string | null }>> {

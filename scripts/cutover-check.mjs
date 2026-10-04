@@ -28,10 +28,14 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { createClient } from "@supabase/supabase-js";
+import {
+  isDevProjectUrl,
+  projectRefOf,
+  PROTECTED_LIVE_PROJECT_REF,
+} from "./target-guard.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DEV_PROJECT_REF = "wtgxcptmucjerhufzjcf";
-const LIVE_PROJECT_REF = "vgqyilgstjvgohrsiwkb";
+const LIVE_PROJECT_REF = PROTECTED_LIVE_PROJECT_REF;
 
 const env = Object.fromEntries(
   readFileSync(path.join(repoRoot, ".env.local"), "utf8")
@@ -45,12 +49,12 @@ const env = Object.fromEntries(
 
 const url = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-if (url.includes(LIVE_PROJECT_REF)) {
+if (projectRefOf(url) === LIVE_PROJECT_REF) {
   console.error("Refusing to run: that is the live fee project (rule 3).");
   process.exit(1);
 }
 
-if (!url.includes(DEV_PROJECT_REF)) {
+if (!isDevProjectUrl(url)) {
   console.error("Refusing to run: .env.local is not the dev project (rule 3).");
   process.exit(1);
 }
