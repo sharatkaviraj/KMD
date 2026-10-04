@@ -233,6 +233,9 @@ async function fillIds(route) {
   else if (route.startsWith("/staff/[id]")) map["[id]"] = await pick("staff_profiles");
   else if (route.startsWith("/timetable/[id]")) map["[id]"] = await pick("timetable_versions");
   else if (route.startsWith("/academics/subjects/[id]")) map["[id]"] = await pick("subjects");
+  // Any id will do: the duty page decides per row, and an id that names
+  // nothing is the neutral "not for your account" every role may see.
+  else if (route.startsWith("/duty/[id]")) map["[id]"] = "00000000-0000-4000-8000-000000000000";
   else if (route.startsWith("/teach/class/[id]")) {
     const { data } = await db.from("enrolments").select("class_id").limit(1).maybeSingle();
     map["[id]"] = data?.class_id ?? null;

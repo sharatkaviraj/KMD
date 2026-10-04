@@ -1,44 +1,34 @@
 import Link from "next/link";
-import { Pin, PinOff, X } from "lucide-react";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { addDays, dayLabel, isIsoDay, schoolToday, weekdayLabel } from "@/platform/dates";
-import { flat, primary, t } from "@/platform/i18n/language";
+import { flat, primary, t, type Language, type Localized } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { periodNumber } from "@/modules/timetable/domain/periods";
-import { buildPlanningContext } from "@/modules/substitutions/data/planning-context";
-import { getPlan, planAssignments } from "@/modules/substitutions/data/plans-repo";
 import {
-  planIsStale,
-  rankCandidates,
-  type Candidate,
-} from "@/modules/substitutions/domain/engine";
+  candidatesFor,
+  profilesFor,
+  readCoverDay,
+} from "@/modules/substitutions/data/arrange-day";
+import { noticesOn, type CoverDuty, type DutyNotice } from "@/modules/substitutions/data/cover-repo";
+import { needsHelpReasons } from "@/modules/substitutions/domain/cover-state";
+import type { Candidate } from "@/modules/substitutions/domain/engine";
+import { blockLabels, tierLabels, warningLabels } from "@/modules/substitutions/domain/labels";
+import { describePeriods } from "@/modules/substitutions/domain/plan";
+import { CoverResultBanner, CoverResultProvider } from "@/modules/substitutions/ui/cover-command";
 import {
-  blockLabels,
-  tierLabels,
-  warningLabels,
-} from "@/modules/substitutions/domain/labels";
-import {
-  describePeriods,
-  hostsInPeriod,
-  planCounts,
-} from "@/modules/substitutions/domain/plan";
-import { AbsenceForm } from "@/modules/substitutions/ui/absence-form";
-import {
-  CoverChoice,
-  GeneratePlanButton,
-  type CoverOption,
-} from "@/modules/substitutions/ui/plan-controls";
-import {
-  clearAbsenceAction,
-  publishPlanAction,
-  removeCoverAction,
-  togglePinAction,
-  unpublishPlanAction,
-} from "@/app/(app)/substitutions/actions";
+  AbsenceCommandForm,
+  AssignCommandForm,
+  BackAtSchoolForm,
+  RearrangeForm,
+  ReleaseCommandForm,
+  type CoverChoice,
+} from "@/modules/substitutions/ui/cover-forms";
+import { reconcileNoticeAction, sendNoticesNowAction } from "@/app/(app)/substitutions/actions";
+import { staffTransportName } from "@/modules/staff-notices/data/dispatcher";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { Button, buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
@@ -51,21 +41,19 @@ export async function generateMetadata() {
 }
 
 /**
- * The cover planner.
+ * Cover for one day (P3).
  *
- * One day at a time, in the order a coordinator actually works: who is away,
- * then what that leaves uncovered, then the allocation, then publish. The
- * engine's answer is a proposal on every row — the name it would choose is
- * selected, the names it refused are still in the list with the reason on
- * them, and nothing reaches a teacher until somebody presses publish.
+ * There is no draft and no publish button any more. Saving an absence is one
+ * command that records it, works out every lesson it leaves without a teacher,
+ * assigns the ones the app can assign safely, marks the rest as needing help,
+ * publishes all of it and queues the notices — or changes nothing. What the
+ * coordinator sees is what the teachers see.
  *
- * Hiding the refused names would make the staff room look smaller than it is,
- * which is the moment a coordinator stops trusting the screen and goes back to
- * the paper chart.
+ * Every duty says one of three things plainly: who has it, why nobody does
+ * yet, or that its period has begun and it is history. Assigned, needs help
+ * and "was anybody told" are separate facts and shown separately (§5).
  */
-export default async function SubstitutionsPage(
-  props: PageProps<"/substitutions">,
-) {
+export default async function SubstitutionsPage(props: PageProps<"/substitutions">) {
   const staff = await requirePermission("substitutions:view", "/substitutions");
   const language = staff.language;
   const mayManage = can(staff, "substitutions:manage");
@@ -84,209 +72,116 @@ export default async function SubstitutionsPage(
   const requestedDay = typeof params.day === "string" ? params.day : null;
   const day = requestedDay && isIsoDay(requestedDay) ? requestedDay : schoolToday();
 
-  const context = await buildPlanningContext(sessionLabel, day);
+  const coverDay = await readCoverDay(sessionLabel, day);
+  const [notices, profiles] = await Promise.all([
+    noticesOn(sessionLabel, day),
+    mayManage ? profilesFor(coverDay) : Promise.resolve(null),
+  ]);
+
+  const nameOf = new Map(coverDay.staff.map((person) => [person.id, person.displayName]));
+  for (const absence of coverDay.absences) nameOf.set(absence.staffProfileId, absence.staffName);
+  const contactOf = new Map(coverDay.staff.map((person) => [person.id, person]));
 
   const dayText = t(
     `${weekdayLabel(day).hi}, ${dayLabel(day).hi}`,
     `${weekdayLabel(day).en}, ${dayLabel(day).en}`,
   );
 
-  const header = (
-    <PageHeader eyebrow={m.eyebrowCover}
-      title={m.subsTitle}
-      description={dayText}
-      language={language}
-      action={
-        mayManage ? (
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/substitutions/rules"
-              className={buttonClasses({ variant: "outline", size: "sm" })}
-            >
-              {primary(m.subsRulesTitle, language)}
-            </Link>
-            <Link
-              href="/substitutions/policies"
-              className={buttonClasses({ variant: "outline", size: "sm" })}
-            >
-              {primary(m.subsPoliciesTitle, language)}
-            </Link>
-          </div>
-        ) : null
-      }
-    />
-  );
+  const live = coverDay.live;
+  const assigned = live.filter((duty) => duty.status === "assigned").length;
+  const needsHelp = live.filter((duty) => duty.status === "needs_help").length;
+  const history = coverDay.duties.length - live.length;
+  const noticeOf = latestNoticeByDuty(notices);
+  const canCommand = mayManage && Boolean(coverDay.versionId && coverDay.header);
+  const waiting = notices.filter((notice) => notice.status === "pending" || notice.status === "failed").length;
+  const transport = staffTransportName();
 
-  const dayNav = (
-    <div className="mb-5 flex items-center gap-2">
-      <Link
-        href={`/substitutions?day=${addDays(day, -1)}`}
-        className={buttonClasses({ variant: "outline", size: "sm" })}
-      >
-        ← {primary(dayLabel(addDays(day, -1)), language)}
-      </Link>
-      <Link
-        href={`/substitutions?day=${addDays(day, 1)}`}
-        className={buttonClasses({ variant: "outline", size: "sm" })}
-      >
-        {primary(dayLabel(addDays(day, 1)), language)} →
-      </Link>
-    </div>
-  );
+  const byPeriod = new Map<number, CoverDuty[]>();
+  for (const duty of live) byPeriod.set(duty.period, [...(byPeriod.get(duty.period) ?? []), duty]);
 
-  if (!context) {
-    return (
-      <>
-        {header}
-        {dayNav}
-        <Notice tone="warning" text={m.subsNoTimetable} language={language} />
-      </>
-    );
-  }
+  const awayIds = new Set(coverDay.absences.map((absence) => absence.staffProfileId));
+  const clashTouchesAbsence = coverDay.clashes.some((clash) => awayIds.has(clash.staffId));
 
-  const plan = await getPlan(sessionLabel, day);
-  const rows = plan ? await planAssignments(plan.id) : [];
-  const counts = planCounts(rows, context.vacancies.length);
-  const stale = planIsStale(plan, context.versionId);
-
-  /*
-   * The options on every row, ranked by the same engine that made the
-   * proposal. Computed here rather than in the client so the reasons — "away
-   * this period", "already covering another class" — arrive with the names
-   * rather than after a round trip.
-   */
-  const covered = new Map(
-    rows
-      .filter((row) => row.coveringStaffId)
-      .map((row) => [`${row.classId}|${row.period}`, row.coveringStaffId!]),
-  );
-
-  const nameById = new Map(context.staff.map((person) => [person.id, person.displayName]));
-
-  const optionsFor = (row: (typeof rows)[number]): CoverOption[] => {
-    if (!context.header) return [];
-
-    const ranked = rankCandidates({
-      day: context.header,
-      teacherProfiles: context.teacherProfiles,
-      absenceIndex: context.absenceIndex,
-      coverHistory: context.coverHistory,
-      assignments: rows
-        .filter((other) => other.coveringStaffId && other.id !== row.id)
-        .map((other) => ({
-          slotId: `${other.classId}|${other.period}`,
-          teacher: other.coveringStaffId!,
-          periodIndex: other.period,
-        })),
-      vacancy: {
-        slotId: `${row.classId}|${row.period}`,
-        periodIndex: row.period,
-        className: row.classLabel,
-        subject: row.subjectCode ?? "",
-      },
-    });
-
-    const describe = (candidate: Candidate) => {
-      if (candidate.blocked.length > 0) {
-        return primary(
-          blockLabels[candidate.blocked[0]] ?? { hi: "", en: candidate.blocked[0] },
-          language,
-        );
-      }
-      const tier = primary(tierLabels[candidate.matchTier], language);
-      const warning = candidate.warnings[0]
-        ? primary(
-            warningLabels[candidate.warnings[0]] ?? {
-              hi: "",
-              en: candidate.warnings[0],
-            },
-            language,
-          )
-        : "";
-      return warning ? `${tier} · ${warning}` : tier;
-    };
-
-    const teachers: CoverOption[] = ranked.map((candidate) => ({
-      kind: "teacher" as const,
-      id: candidate.teacher,
-      label: nameById.get(candidate.teacher) ?? candidate.teacher,
-      detail: describe(candidate),
-    }));
-
-    const hosts = hostsInPeriod(
-      context.slots,
-      context.header,
-      row.period,
-      context.absenceIndex,
-      covered,
-    )
-      .filter((host) => host.classId !== row.classId && host.teacher)
-      .map((host) => ({
-        kind: "merge" as const,
-        id: host.classId,
-        label: host.className,
-        detail: "",
-      }));
-
-    return [...teachers, ...hosts];
-  };
-
-  const currentChoice = (row: (typeof rows)[number]) =>
-    row.kind === "cover" && row.coveringStaffId
-      ? row.coveringStaffId
-      : row.kind === "merged" && row.mergeHostClassId
-        ? `merge:${row.mergeHostClassId}:${row.mergeHostClassLabel ?? ""}`
-        : "self_study";
-
-  const byPeriod = new Map<number, typeof rows>();
-  for (const row of rows) {
-    const list = byPeriod.get(row.period) ?? [];
-    list.push(row);
-    byPeriod.set(row.period, list);
-  }
+  const choicesFor = (duty: CoverDuty): CoverChoice[] =>
+    profiles
+      ? candidatesFor(coverDay, profiles.everyone, profiles.history, duty).map((candidate) => ({
+          id: candidate.teacher,
+          label: nameOf.get(candidate.teacher) ?? candidate.teacher,
+          detail: describeCandidate(candidate, language),
+          blocked: candidate.blocked.length > 0,
+        }))
+      : [];
 
   return (
-    <>
-      {header}
-      {dayNav}
+    <CoverResultProvider>
+      <PageHeader
+        eyebrow={m.eyebrowCover}
+        title={m.subsTitle}
+        description={dayText}
+        language={language}
+        action={
+          mayManage ? (
+            <div className="flex flex-wrap gap-2">
+              <Link href="/substitutions/rules" className={buttonClasses({ variant: "outline", size: "sm" })}>
+                {primary(m.subsRulesTitle, language)}
+              </Link>
+              <Link href="/substitutions/policies" className={buttonClasses({ variant: "outline", size: "sm" })}>
+                {primary(m.subsPoliciesTitle, language)}
+              </Link>
+            </div>
+          ) : null
+        }
+      />
 
-      {stale ? (
-        <Notice className="mb-4" tone="warning" text={m.subsStale} language={language} />
+      <div className="mb-5 flex items-center gap-2">
+        <Link href={`/substitutions?day=${addDays(day, -1)}`} className={buttonClasses({ variant: "outline", size: "sm" })}>
+          ← {primary(dayLabel(addDays(day, -1)), language)}
+        </Link>
+        <Link href={`/substitutions?day=${addDays(day, 1)}`} className={buttonClasses({ variant: "outline", size: "sm" })}>
+          {primary(dayLabel(addDays(day, 1)), language)} →
+        </Link>
+      </div>
+
+      <CoverResultBanner />
+
+      {!coverDay.versionId ? (
+        <Notice className="mb-4" tone="warning" text={m.subsNoTimetable} language={language} />
+      ) : !coverDay.header ? (
+        <Notice className="mb-4" tone="neutral" text={m.subsNoVacancies} language={language} />
       ) : null}
 
-      {/* ------------------------------------------------- who is away */}
+      {clashTouchesAbsence ? (
+        <Notice className="mb-4" tone="warning" text={m.coverClash} language={language}>
+          <Link href="/substitutions/rules" className={buttonClasses({ variant: "outline", size: "sm" })}>
+            {primary(m.subsRulesTitle, language)}
+          </Link>
+        </Notice>
+      ) : null}
+
+      {/* ------------------------------------------------------ who is away */}
 
       <Section title={m.subsAbsentToday} language={language}>
-        {context.absences.length === 0 ? (
+        {coverDay.absences.length === 0 ? (
           <EmptyState title={m.subsNobodyAway} language={language} />
         ) : (
           <ul className="space-y-1.5">
-            {context.absences.map((absence) => (
+            {coverDay.absences.map((absence) => (
               <li
                 key={absence.id}
-                className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
+                className="flex min-h-14 flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium text-foreground">
-                    {absence.staffName}
-                  </span>
+                  <span className="block truncate text-[15px] font-medium text-foreground">{absence.staffName}</span>
                   <span className="block truncate text-[12px] text-subtle-foreground">
                     {describePeriods(absence.periods)}
-                    {absence.reason ? ` · ${absence.reason}` : ""}
                   </span>
                 </span>
-                {mayManage ? (
-                  <form action={clearAbsenceAction}>
-                    <input type="hidden" name="id" value={absence.id} />
-                    <Button
-                      type="submit"
-                      variant="ghost"
-                      size="sm"
-                      aria-label={flat(m.subsRemoveAbsence, language)}
-                    >
-                      <X aria-hidden />
-                    </Button>
-                  </form>
+                {canCommand ? (
+                  <BackAtSchoolForm
+                    day={day}
+                    dayRevision={coverDay.dayRevision}
+                    staffProfileId={absence.staffProfileId}
+                  />
                 ) : null}
               </li>
             ))}
@@ -294,232 +189,288 @@ export default async function SubstitutionsPage(
         )}
       </Section>
 
-      {mayManage ? (
+      {canCommand ? (
         <Card className="mt-4 p-4">
-          <AbsenceForm day={day} staff={context.staff} />
+          <AbsenceCommandForm
+            day={day}
+            dayRevision={coverDay.dayRevision}
+            staff={coverDay.staff.map(({ id, displayName, shortName }) => ({ id, displayName, shortName }))}
+          />
         </Card>
       ) : null}
 
-      {/* ---------------------------------------------------- the plan */}
+      {/* ---------------------------------------------------------- duties */}
 
-      <Section className="mt-8" title={m.subsPlanSummary} language={language}>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge tone="neutral">
-            {counts.vacancies} {primary(m.teachPeriodsToday, language)}
+      <Section className="mt-8" title={m.coverDutiesTitle} language={language}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge tone="success">
+            {primary(m.coverAssigned, language)} {assigned}
           </Badge>
-          {counts.covered > 0 ? (
-            <Badge tone="success">
-              {primary(m.subsCovered, language)} {counts.covered}
-            </Badge>
-          ) : null}
-          {counts.needsReview > 0 ? (
-            <Badge tone="warning">
-              {primary(m.subsNeedsReview, language)} {counts.needsReview}
-            </Badge>
-          ) : null}
-          {counts.merged > 0 ? (
-            <Badge tone="accent">
-              {primary(m.subsMerged, language)} {counts.merged}
-            </Badge>
-          ) : null}
-          {counts.selfStudy > 0 ? (
-            <Badge tone="danger">
-              {primary(m.subsSelfStudy, language)} {counts.selfStudy}
-            </Badge>
-          ) : null}
-          <Badge tone={plan?.status === "published" ? "success" : "neutral"}>
-            {primary(
-              plan?.status === "published" ? m.subsPublished : m.subsDraft,
-              language,
-            )}
+          <Badge tone={needsHelp > 0 ? "warning" : "neutral"}>
+            {primary(m.coverNeedsHelp, language)} {needsHelp}
           </Badge>
+          {canCommand && live.length > 0 ? (
+            <span className="ml-auto">
+              <RearrangeForm day={day} dayRevision={coverDay.dayRevision} />
+            </span>
+          ) : null}
         </div>
-
-        {mayManage ? (
-          <div className="mt-4">
-            <GeneratePlanButton day={day} again={rows.length > 0} />
-          </div>
+        {mayManage && waiting > 0 ? (
+          <form action={sendNoticesNowAction} className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge tone="info">
+              {primary(m.coverNoticeQueued, language)} {waiting}
+            </Badge>
+            <Button type="submit" variant="outline" size="sm">
+              {primary(m.coverSendNow, language)}
+            </Button>
+            <span className="text-[12px] text-subtle-foreground">
+              {primary(m.coverTransport, language)}: {transport}
+            </span>
+          </form>
         ) : null}
       </Section>
 
-      {context.vacancies.length === 0 ? (
-        <EmptyState
-          className="mt-6"
-          title={m.subsNoVacancies}
-          language={language}
-        />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          className="mt-6"
-          title={m.subsGenerate}
-          detail={m.subsPinKeeps}
-          language={language}
-        />
+      {live.length === 0 ? (
+        <EmptyState className="mt-4" title={m.coverNothingNeeded} language={language} />
       ) : (
-        <div className="mt-6 space-y-6">
+        <div className="mt-4 space-y-6">
           {[...byPeriod.entries()]
             .sort((a, b) => a[0] - b[0])
-            .map(([period, list]) => (
-              <section key={period}>
-                <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-subtle-foreground">
-                  {primary(m.teachPeriod, language)} {periodNumber(period)}
-                </h3>
-                <ul className="space-y-2">
-                  {list.map((row) => (
-                    <li key={row.id}>
-                      <Card className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-[15px] font-semibold text-foreground">
-                              {row.classLabel}
-                              {row.subjectCode ? (
-                                <span className="ml-2 text-[13px] font-normal text-muted-foreground">
-                                  {row.subjectCode}
-                                </span>
-                              ) : null}
-                            </p>
-                            <p className="truncate text-[12px] text-subtle-foreground">
-                              {primary(m.subsOriginal, language)}:{" "}
-                              {row.originalStaffName ?? "—"}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1.5">
-                            {row.pinned ? (
-                              <Badge tone="accent">
-                                <Pin aria-hidden className="size-3" />
-                                {primary(m.subsPinned, language)}
-                              </Badge>
-                            ) : null}
-                            {row.source === "suggestion" ? (
-                              <Badge tone="warning">
-                                {primary(m.subsNeedsReview, language)}
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <p className="mt-2 text-[15px]">
-                          {row.kind === "cover" ? (
-                            <span className="font-semibold text-foreground">
-                              {row.coveringStaffName ?? "—"}
-                            </span>
-                          ) : row.kind === "merged" ? (
-                            <span className="font-medium text-accent-soft-foreground">
-                              {primary(m.subsMerged, language)} ·{" "}
-                              {row.mergeHostClassLabel ?? "—"}
-                            </span>
-                          ) : (
-                            <span className="font-medium text-destructive-soft-foreground">
-                              {primary(m.subsSelfStudy, language)}
-                            </span>
-                          )}
-                        </p>
-
-                        {row.matchTier ? (
-                          <p className="mt-1 text-[12px] text-subtle-foreground">
-                            {primary(tierLabels[row.matchTier], language)}
-                            {row.warnings.length > 0
-                              ? ` · ${row.warnings
-                                  .map((warning) =>
-                                    primary(
-                                      warningLabels[warning] ?? {
-                                        hi: "",
-                                        en: warning,
-                                      },
-                                      language,
-                                    ),
-                                  )
-                                  .join(" · ")}`
-                              : ""}
-                          </p>
-                        ) : null}
-
-                        {mayManage ? (
-                          <>
-                            <CoverChoice
-                              day={day}
-                              period={row.period}
-                              classId={row.classId}
-                              classLabel={row.classLabel}
-                              subjectCode={row.subjectCode}
-                              originalStaffId={row.originalStaffId}
-                              current={currentChoice(row)}
-                              options={optionsFor(row)}
-                            />
-
-                            <div className="mt-2 flex gap-2">
-                              <form action={togglePinAction}>
-                                <input type="hidden" name="id" value={row.id} />
-                                <input
-                                  type="hidden"
-                                  name="pinned"
-                                  value={row.pinned ? "false" : "true"}
-                                />
-                                <Button type="submit" variant="ghost" size="sm">
-                                  {row.pinned ? (
-                                    <PinOff aria-hidden />
-                                  ) : (
-                                    <Pin aria-hidden />
-                                  )}
-                                  {primary(
-                                    row.pinned ? m.subsUnpin : m.subsPin,
-                                    language,
-                                  )}
-                                </Button>
-                              </form>
-                              <form action={removeCoverAction}>
-                                <input type="hidden" name="id" value={row.id} />
-                                <Button type="submit" variant="ghost" size="sm">
-                                  {primary(m.remove, language)}
-                                </Button>
-                              </form>
-                            </div>
-                          </>
-                        ) : null}
-                      </Card>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
+            .map(([period, duties]) => {
+              const open = coverDay.openPeriods.has(period);
+              const window = coverDay.bells.periods.find((entry) => entry.index === period);
+              return (
+                <section key={period} aria-labelledby={`period-${period}`}>
+                  <h3
+                    id={`period-${period}`}
+                    className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-subtle-foreground"
+                  >
+                    {primary(m.teachPeriod, language)} {periodNumber(period)}
+                    {window ? (
+                      <span className="font-normal normal-case">
+                        {window.starts}–{window.ends}
+                      </span>
+                    ) : null}
+                    {!open ? <Badge tone="neutral">{primary(m.coverStarted, language)}</Badge> : null}
+                  </h3>
+                  <ul className="space-y-2">
+                    {duties.map((duty) => (
+                      <li key={duty.id} data-duty={duty.id} data-need-key={duty.needKey}>
+                        <DutyCard
+                          duty={duty}
+                          language={language}
+                          nameOf={nameOf}
+                          notice={noticeOf.get(duty.id) ?? null}
+                          contact={duty.coveringStaffId ? (contactOf.get(duty.coveringStaffId) ?? null) : null}
+                          manage={
+                            canCommand && open
+                              ? { day, dayRevision: coverDay.dayRevision, choices: choicesFor(duty) }
+                              : null
+                          }
+                          canReconcile={mayManage}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
         </div>
       )}
 
-      {/* ------------------------------------------------- publishing */}
-
-      {mayManage && plan && rows.length > 0 ? (
-        <Card className="mt-8 p-4">
-          {plan.status === "published" ? (
-            <>
-              <p className="mb-3 text-[13px] text-muted-foreground">
-                {primary(m.subsPublished, language)}
-                {plan.publishedByName ? ` · ${plan.publishedByName}` : ""}
-              </p>
-              <form action={unpublishPlanAction}>
-                <input type="hidden" name="planId" value={plan.id} />
-                <Button type="submit" variant="outline" fullWidth>
-                  {primary(m.subsUnpublish, language)}
-                </Button>
-              </form>
-            </>
-          ) : (
-            <>
-              <Notice
-                className="mb-3"
-                tone="neutral"
-                text={m.subsNotPublished}
-                language={language}
-              />
-              <form action={publishPlanAction}>
-                <input type="hidden" name="planId" value={plan.id} />
-                <Button type="submit" fullWidth size="lg">
-                  {primary(m.subsPublish, language)}
-                </Button>
-              </form>
-            </>
-          )}
-        </Card>
+      {history > 0 ? (
+        <p className="mt-6 text-[12px] text-subtle-foreground">
+          {primary(m.coverHistory, language)}: {history}
+        </p>
       ) : null}
-    </>
+    </CoverResultProvider>
   );
+}
+
+const KIND_LABEL: Record<CoverDuty["eventKind"], Localized | null> = {
+  ordinary: null,
+  joint: m.lessonJoint,
+  parallel_cohort: m.lessonParallel,
+  team_block: m.lessonTeam,
+};
+
+function DutyCard({
+  duty,
+  language,
+  nameOf,
+  notice,
+  contact,
+  manage,
+  canReconcile,
+}: {
+  duty: CoverDuty;
+  language: Language;
+  nameOf: Map<string, string>;
+  notice: DutyNotice | null;
+  contact: { hasPhone: boolean; hasLogin: boolean } | null;
+  manage: { day: string; dayRevision: number; choices: CoverChoice[] } | null;
+  canReconcile: boolean;
+}) {
+  const kind = KIND_LABEL[duty.eventKind];
+  const away = duty.absentStaffIds.map((id) => nameOf.get(id) ?? "—").join(", ");
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold text-foreground">
+            {duty.classLabels.join(", ")}
+            <span className="ml-2 text-[13px] font-normal text-muted-foreground">{duty.subjectCode}</span>
+          </p>
+          <p className="text-[12px] text-subtle-foreground">
+            {primary(m.coverFor, language)}: {away}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {kind ? <Badge tone="accent">{primary(kind, language)}</Badge> : null}
+          <Badge tone={duty.status === "assigned" ? "success" : "warning"}>
+            {primary(duty.status === "assigned" ? m.coverAssigned : m.coverNeedsHelp, language)}
+          </Badge>
+        </div>
+      </div>
+
+      {duty.status === "assigned" ? (
+        <div className="mt-2 space-y-1">
+          <p className="text-[15px] font-semibold text-foreground">
+            {nameOf.get(duty.coveringStaffId ?? "") ?? "—"}
+            {duty.source === "manual" ? (
+              <span className="ml-2 text-[12px] font-normal text-subtle-foreground">
+                {primary(m.coverManual, language)}
+              </span>
+            ) : null}
+          </p>
+          {duty.matchTier ? (
+            <p className="text-[12px] text-subtle-foreground">
+              {primary(labelOf(tierLabels as Record<string, Localized>, duty.matchTier), language)}
+              {duty.warnings.length > 0
+                ? ` · ${duty.warnings.map((warning) => primary(labelOf(warningLabels, warning), language)).join(" · ")}`
+                : ""}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <NoticeBadge notice={notice} contact={contact} language={language} />
+            {duty.cannotCoverAt ? (
+              <Badge tone="danger">{primary(m.coverCannotCover, language)}</Badge>
+            ) : duty.acknowledgedAt ? (
+              <Badge tone="success">{primary(m.coverAcknowledged, language)}</Badge>
+            ) : (
+              <Badge tone="neutral">{primary(m.coverNotAcknowledged, language)}</Badge>
+            )}
+            {contact && !contact.hasLogin ? (
+              <Badge tone="warning">{primary(m.coverNoLogin, language)}</Badge>
+            ) : null}
+          </div>
+          {canReconcile && notice && (notice.status === "unknown" || notice.status === "failed") ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <form action={reconcileNoticeAction}>
+                <input type="hidden" name="noticeId" value={notice.id} />
+                <input type="hidden" name="resolution" value="confirmed_received" />
+                <Button type="submit" variant="outline" size="sm">
+                  {primary(m.coverConfirmedReceived, language)}
+                </Button>
+              </form>
+              <form action={reconcileNoticeAction}>
+                <input type="hidden" name="noticeId" value={notice.id} />
+                <input type="hidden" name="resolution" value="resend" />
+                <Button type="submit" variant="ghost" size="sm">
+                  {primary(notice.status === "unknown" ? m.coverResendMaybeTwice : m.coverResend, language)}
+                </Button>
+              </form>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-2 space-y-1">
+          <p className="text-[14px] font-medium text-warning-soft-foreground">
+            {primary(needsHelpReasons[duty.reason ?? "no_candidate"] ?? needsHelpReasons.no_candidate, language)}
+          </p>
+          {duty.suggestedStaffId ? (
+            <p className="text-[12px] text-subtle-foreground">
+              {primary(m.coverSuggested, language)}: {nameOf.get(duty.suggestedStaffId) ?? "—"}
+            </p>
+          ) : null}
+        </div>
+      )}
+
+      {manage ? (
+        <>
+          <AssignCommandForm
+            day={manage.day}
+            dayRevision={manage.dayRevision}
+            needKey={duty.needKey}
+            choices={manage.choices}
+            current={duty.status === "assigned" ? duty.coveringStaffId : duty.suggestedStaffId}
+          />
+          {duty.status === "assigned" ? (
+            <ReleaseCommandForm day={manage.day} dayRevision={manage.dayRevision} needKey={duty.needKey} />
+          ) : null}
+        </>
+      ) : null}
+    </Card>
+  );
+}
+
+function NoticeBadge({
+  notice,
+  contact,
+  language,
+}: {
+  notice: DutyNotice | null;
+  contact: { hasPhone: boolean } | null;
+  language: Language;
+}) {
+  if (contact && !contact.hasPhone) {
+    return <Badge tone="warning">{primary(m.coverNoticeBlocked, language)}</Badge>;
+  }
+  if (!notice) return <Badge tone="neutral">{primary(m.coverNoticeNone, language)}</Badge>;
+  switch (notice.status) {
+    case "pending":
+    case "dispatching":
+      return <Badge tone="info">{primary(m.coverNoticeQueued, language)}</Badge>;
+    case "accepted":
+    case "delivered":
+    case "read":
+      return <Badge tone="success">{primary(m.coverNoticeSent, language)}</Badge>;
+    case "unknown":
+      return <Badge tone="warning">{primary(m.coverNoticeUnknown, language)}</Badge>;
+    case "failed":
+      return <Badge tone="danger">{primary(m.coverNoticeFailed, language)}</Badge>;
+    case "suppressed":
+      return notice.statusReason === "no_phone" ? (
+        <Badge tone="warning">{primary(m.coverNoticeBlocked, language)}</Badge>
+      ) : (
+        <Badge tone="neutral">{primary(m.coverNoticeNone, language)}</Badge>
+      );
+    default:
+      return <Badge tone="neutral">{primary(m.coverNoticeNone, language)}</Badge>;
+  }
+}
+
+function labelOf(labels: Record<string, Localized>, key: string): Localized {
+  return labels[key] ?? t(key, key);
+}
+
+/** The notice that speaks for a duty now: the newest telling its holder about it. */
+function latestNoticeByDuty(notices: readonly DutyNotice[]): Map<string, DutyNotice> {
+  const latest = new Map<string, DutyNotice>();
+  for (const notice of notices) {
+    if (notice.kind !== "cover_assigned" && notice.kind !== "cover_changed") continue;
+    const seen = latest.get(notice.dutyId);
+    if (!seen || seen.createdAt <= notice.createdAt) latest.set(notice.dutyId, notice);
+  }
+  return latest;
+}
+
+function describeCandidate(candidate: Candidate, language: Language): string {
+  if (candidate.blocked.length > 0) {
+    return flat(labelOf(blockLabels, candidate.blocked[0]), language);
+  }
+  const tier = primary(tierLabels[candidate.matchTier], language);
+  const warning = candidate.warnings[0] ? warningLabels[candidate.warnings[0]] : null;
+  return warning ? `${tier} · ${primary(warning, language)}` : tier;
 }

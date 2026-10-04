@@ -118,6 +118,9 @@ const PUPIL_TABLES = [
 ];
 const REFERENCE_TABLES = ["timetable_slots", "subjects", "class_teachers"];
 
+/** Tables without an `id`, counted by another column. */
+const COUNT_COLUMN = { collection_request_members: "request_id" };
+
 const totals = Object.fromEntries(
   await Promise.all([...PUPIL_TABLES, ...REFERENCE_TABLES].map(async (t) => [t, await countAll(t)])),
 );
@@ -147,7 +150,11 @@ async function ownKeysOf(staffProfileId) {
 async function probe(client) {
   const counts = {};
   for (const table of [...PUPIL_TABLES, ...REFERENCE_TABLES]) {
-    const { count, error } = await client.from(table).select("*", { count: "exact", head: true });
+    // Counted by a column every reader may see: `*` would include a revoked
+    // column and be refused outright, which says nothing about the rows.
+    const { count, error } = await client
+      .from(table)
+      .select(COUNT_COLUMN[table] ?? "id", { count: "exact", head: true });
     // A refusal by privilege is as good as zero rows, and is recorded as such.
     counts[table] = error ? `refused:${error.code ?? "?"}` : (count ?? 0);
   }

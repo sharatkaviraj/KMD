@@ -6,7 +6,10 @@ import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { periodNumber } from "@/modules/timetable/domain/periods";
-import { currentBells, teamRules } from "@/modules/substitutions/data/school-rules-repo";
+import { coverSwitches, currentBells, teamRules } from "@/modules/substitutions/data/school-rules-repo";
+import { setCoverSwitchAction } from "@/app/(app)/substitutions/actions";
+import { staffTransportName } from "@/modules/staff-notices/data/dispatcher";
+import { can } from "@/platform/auth/permissions";
 import {
   eventCounts,
   teachingEventsFor,
@@ -50,12 +53,14 @@ export default async function CoverRulesPage() {
     );
   }
 
-  const [bells, rules, published, people] = await Promise.all([
+  const [bells, rules, published, people, switches] = await Promise.all([
     currentBells(sessionLabel),
     teamRules(sessionLabel),
     getPublishedVersion(sessionLabel),
     listStaff(),
+    coverSwitches(),
   ]);
+  const mayThrowSwitches = can(staff, "jobs:run");
 
   const slots = published ? ((await listSlots(published.id)) as PlanSlot[]) : [];
   const days = [...new Set(slots.map((slot) => slot.day))];
@@ -81,6 +86,39 @@ export default async function CoverRulesPage() {
         language={language}
         back={BACK}
       />
+
+      {mayThrowSwitches ? (
+        <Section className="mb-8" title={m.coverSwitchesTitle} language={language}>
+          <Notice className="mb-3" tone="neutral" text={m.coverSwitchesHint} language={language} />
+          <Card className="divide-y divide-border p-0">
+            {(
+              [
+                ["cover_command", m.coverSwitchCommand, switches.coverCommand],
+                ["staff_notice_dispatch", m.coverSwitchNotices, switches.staffNoticeDispatch],
+              ] as const
+            ).map(([key, label, enabled]) => (
+              <form key={key} action={setCoverSwitchAction} className="flex flex-wrap items-center gap-3 p-4">
+                <input type="hidden" name="key" value={key} />
+                <input type="hidden" name="enabled" value={enabled ? "false" : "true"} />
+                <span className="min-w-0 flex-1 text-[15px] font-medium text-foreground">
+                  {primary(label, language)}
+                  {key === "staff_notice_dispatch" ? (
+                    <span className="block text-[12px] font-normal text-subtle-foreground">
+                      {primary(m.coverTransport, language)}: {staffTransportName()}
+                    </span>
+                  ) : null}
+                </span>
+                <Badge tone={enabled ? "success" : "neutral"}>
+                  {primary(enabled ? m.switchOn : m.switchOff, language)}
+                </Badge>
+                <Button type="submit" variant="outline" size="sm">
+                  {primary(enabled ? m.switchTurnOff : m.switchTurnOn, language)}
+                </Button>
+              </form>
+            ))}
+          </Card>
+        </Section>
+      ) : null}
 
       <Section title={m.bellsTitle} language={language}>
         <Notice className="mb-3" tone="neutral" text={m.bellsHint} language={language} />

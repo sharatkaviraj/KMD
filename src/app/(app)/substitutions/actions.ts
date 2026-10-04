@@ -1,58 +1,232 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { m } from "@/messages";
 import { assertPermission } from "@/platform/auth/current-staff";
-import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
+import { decodeMessage, type Localized } from "@/platform/i18n/language";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { clearAbsence, markAbsent } from "@/modules/substitutions/data/absences-repo";
-import { buildPlanningContext } from "@/modules/substitutions/data/planning-context";
+import { arrangeDay, type CoverIntent } from "@/modules/substitutions/data/arrange-day";
+import { findCommand, type CommandReceipt } from "@/modules/substitutions/data/cover-repo";
 import {
   clearCoverPolicy,
   upsertCoverPolicy,
 } from "@/modules/substitutions/data/policies-repo";
 import {
-  ensurePlan,
-  getPlan,
-  planAssignments,
-  publishPlan,
-  removeAssignment,
-  replaceGenerated,
-  setAssignment,
-  setPinned,
-  unpublishPlan,
-  type AssignmentWrite,
-} from "@/modules/substitutions/data/plans-repo";
-import {
-  chooseMergeHost,
-  generatePlan,
-  type AssignmentLike,
-  type GeneratedAssignment,
-} from "@/modules/substitutions/domain/engine";
-import { hostsInPeriod } from "@/modules/substitutions/domain/plan";
-import {
-  absenceSchema,
-  coverPolicySchema,
-} from "@/modules/substitutions/domain/policies";
+  idleCoverState,
+  refusalMessages,
+  type CoverReceipt,
+  type CoverState,
+} from "@/modules/substitutions/domain/cover-state";
+import { coverPolicySchema } from "@/modules/substitutions/domain/policies";
+import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
+import { createAdminClient } from "@/platform/supabase/admin";
+import { PERIOD_COUNT } from "@/modules/timetable/domain/parse-timetable";
 import {
   idleSubsState,
   type SubsState,
 } from "@/modules/substitutions/domain/form-state";
 
-function failure(message: Localized): SubsState {
-  return { status: "error", message };
+/*
+ * Every change to cover is one command (P3, Gate E).
+ *
+ * "Save absence & arrange cover", "back at school", "assign this teacher",
+ * "release this duty" and "arrange again" all go the same way: the server
+ * reads the day, applies the intent in memory, works out the whole day's
+ * cover and hands it to `commit_cover_command`, which validates and commits it
+ * — absence, duties and notice intents — as one transaction, or refuses it.
+ *
+ * Each form carries a submission id minted once by the browser and the day's
+ * revision as the page showed it. The same id again returns the first receipt
+ * (a double click, a lost response); a different id against an older revision
+ * is stale and nothing is written.
+ */
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function refused(reason: string): CoverState {
+  return {
+    status: reason === "stale" ? "stale" : reason === "failed" ? "error" : "refused",
+    message: refusalMessages[reason] ?? refusalMessages.failed,
+    receipt: null,
+  };
 }
+
+function toReceipt(receipt: CommandReceipt): CoverReceipt {
+  return {
+    commandId: receipt.command_id,
+    dayRevision: receipt.day_revision,
+    assigned: receipt.assigned,
+    needsHelp: receipt.needs_help,
+    added: receipt.new,
+    changed: receipt.changed,
+    cancelled: receipt.cancelled,
+    unchanged: receipt.unchanged,
+    pinned: receipt.pinned ?? 0,
+    skippedStarted: receipt.skipped_started,
+    noticesQueued: receipt.notices_queued,
+    noticesWithdrawn: receipt.notices_withdrawn,
+    noticeRecipients: receipt.notice_recipients,
+    recipientsWithoutPhone: receipt.recipients_without_phone,
+    replayed: receipt.replayed,
+  };
+}
+
+function intentFrom(formData: FormData): CoverIntent | null {
+  const kind = (formData.get("intent") ?? "").toString();
+  const staffProfileId = (formData.get("staffProfileId") ?? "").toString();
+  const needKey = (formData.get("needKey") ?? "").toString();
+  const coveringStaffId = (formData.get("coveringStaffId") ?? "").toString();
+
+  switch (kind) {
+    case "absence": {
+      const periods = formData
+        .getAll("periods")
+        .map((value) => Number(value.toString()))
+        .filter((value) => Number.isInteger(value) && value >= 0 && value < PERIOD_COUNT);
+      if (!UUID.test(staffProfileId) || periods.length === 0) return null;
+      return { kind, staffProfileId, periods: [...new Set(periods)].sort((a, b) => a - b) };
+    }
+    case "clear_absence":
+      return UUID.test(staffProfileId) ? { kind, staffProfileId } : null;
+    case "assign":
+      return needKey && UUID.test(coveringStaffId) ? { kind, needKey, coveringStaffId } : null;
+    case "release":
+      return needKey ? { kind, needKey } : null;
+    case "refresh":
+      return { kind };
+    default:
+      return null;
+  }
+}
+
+/** The one cover command. Every cover form posts here. */
+export async function coverCommandAction(
+  _previous: CoverState,
+  formData: FormData,
+): Promise<CoverState> {
+  const actor = await assertPermission("substitutions:manage");
+
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) return { ...idleCoverState, status: "error", message: m.noSessionFound };
+
+  const commandId = (formData.get("commandId") ?? "").toString();
+  const day = (formData.get("day") ?? "").toString();
+  const expectedDayRevision = Number((formData.get("dayRevision") ?? "").toString());
+  const intent = intentFrom(formData);
+
+  if (!UUID.test(commandId) || !DAY.test(day) || !Number.isInteger(expectedDayRevision) || !intent) {
+    return refused("bad_request");
+  }
+
+  let outcome;
+  try {
+    outcome = await arrangeDay({
+      actorStaffId: actor.id,
+      sessionLabel,
+      day,
+      commandId,
+      intent,
+      expectedDayRevision,
+    });
+  } catch {
+    // Not "nothing happened": the commit may have landed before the error.
+    // The screen asks `checkCoverCommandAction` before it says so.
+    return refused("failed");
+  }
+
+  if (!outcome.ok) {
+    if (outcome.reason === "stale") revalidatePath("/substitutions");
+    return refused(outcome.reason);
+  }
+
+  revalidatePath("/substitutions");
+  revalidatePath("/teach");
+
+  // Notices go out after the response, never inside the commit: a provider
+  // outage cannot undo a valid plan (P4). The nightly job is the safety net.
+  if (outcome.notices_queued > 0) {
+    after(() => dispatchStaffNotices({ max: 20 }).catch(() => undefined));
+  }
+
+  return { status: "saved", message: null, receipt: toReceipt(outcome) };
+}
+
+/* ------------------------------------------------------------- notices */
+
+/**
+ * A person settles a notice the machine could not: it arrived (they rang
+ * and checked), or send it again knowing it may be a duplicate. Recorded as
+ * theirs. An Unknown is never re-sent without this (P4).
+ */
+export async function reconcileNoticeAction(formData: FormData) {
+  const actor = await assertPermission("substitutions:manage");
+  const noticeId = (formData.get("noticeId") ?? "").toString();
+  const resolution = (formData.get("resolution") ?? "").toString();
+  if (!UUID.test(noticeId) || !["confirmed_received", "resend"].includes(resolution)) return;
+
+  const { data } = await createAdminClient().rpc("reconcile_staff_notice", {
+    p_notice: noticeId,
+    p_actor: actor.id,
+    p_resolution: resolution,
+  });
+
+  if ((data as { ok?: boolean } | null)?.ok && resolution === "resend") {
+    after(() => dispatchStaffNotices({ noticeId }).catch(() => undefined));
+  }
+  revalidatePath("/substitutions");
+}
+
+/** Send whatever is waiting now, rather than at the next change or the morning job. */
+export async function sendNoticesNowAction() {
+  await assertPermission("substitutions:manage");
+  await dispatchStaffNotices({ max: 20 });
+  revalidatePath("/substitutions");
+}
+
+/**
+ * The two switches an administrator can throw without deleting anything:
+ * stop new cover commands, stop sending notices. Committed duties, notices and
+ * their history stay readable either way (PLAN §22, rollback order).
+ */
+export async function setCoverSwitchAction(formData: FormData) {
+  const actor = await assertPermission("jobs:run");
+  const key = (formData.get("key") ?? "").toString();
+  const enabled = formData.get("enabled") === "true";
+  if (!["cover_command", "staff_notice_dispatch"].includes(key)) return;
+
+  await createAdminClient()
+    .from("runtime_flags")
+    .update({ enabled, updated_by: actor.id, updated_at: new Date().toISOString() })
+    .eq("key", key);
+  revalidatePath("/substitutions/rules");
+  revalidatePath("/substitutions");
+}
+
+/**
+ * Did this submission commit? Asked by the screen when an answer never came
+ * back, before it offers to try again — a lost response is not a failure (P3).
+ * Only the person who sent it gets its receipt.
+ */
+export async function checkCoverCommandAction(commandId: string): Promise<CoverState> {
+  const actor = await assertPermission("substitutions:manage");
+  if (!UUID.test(commandId)) return refused("bad_request");
+
+  const receipt = await findCommand(commandId, actor.id);
+  return receipt
+    ? { status: "saved", message: null, receipt: toReceipt(receipt) }
+    : idleCoverState;
+}
+
+/* ------------------------------------------------------------ policies */
 
 function fieldErrorsFrom(error: {
   issues: { path: PropertyKey[]; message: string }[];
 }): Localized {
   return decodeMessage(error.issues[0]?.message ?? "");
 }
-
-const isGenerated = (
-  item: AssignmentLike | GeneratedAssignment,
-): item is GeneratedAssignment => "source" in item;
 
 function numbersFrom(formData: FormData, field: string): number[] {
   return formData
@@ -61,328 +235,6 @@ function numbersFrom(formData: FormData, field: string): number[] {
     .filter((value) => Number.isInteger(value));
 }
 
-/* ------------------------------------------------------------ absences */
-
-export async function markAbsentAction(
-  _previous: SubsState,
-  formData: FormData,
-): Promise<SubsState> {
-  const actor = await assertPermission("substitutions:manage");
-
-  const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return failure(m.noSessionFound);
-
-  const parsed = absenceSchema.safeParse({
-    staffProfileId: (formData.get("staffProfileId") ?? "").toString(),
-    day: (formData.get("day") ?? "").toString(),
-    periods: numbersFrom(formData, "periods"),
-    reason: (formData.get("reason") ?? "").toString(),
-  });
-
-  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
-
-  try {
-    await markAbsent(parsed.data, sessionLabel, actor.userId);
-  } catch {
-    return failure(m.notSaved);
-  }
-
-  revalidatePath("/substitutions");
-  return { ...idleSubsState, status: "saved" };
-}
-
-export async function clearAbsenceAction(formData: FormData) {
-  await assertPermission("substitutions:manage");
-
-  const id = (formData.get("id") ?? "").toString();
-  if (!id) return;
-
-  await clearAbsence(id);
-  revalidatePath("/substitutions");
-}
-
-/* ----------------------------------------------------- generating a plan */
-
-/**
- * Work out the cover for a day.
- *
- * Everything the engine needs is assembled here and nowhere else: the
- * timetable it is planning against, who is away and for which periods, the
- * standing cover policies, and how often each teacher has covered lately.
- *
- * What is left over after the allocation is not a failure. A period nobody can
- * take is sent to the class next door when the grades are close enough, and
- * left as self study when they are not — both are decisions a school makes
- * every week, and a plan that reported them as errors would be a plan nobody
- * could act on.
- */
-export async function generatePlanAction(
-  _previous: SubsState,
-  formData: FormData,
-): Promise<SubsState> {
-  const actor = await assertPermission("substitutions:manage");
-
-  const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return failure(m.noSessionFound);
-
-  const day = (formData.get("day") ?? "").toString();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return failure(m.notSaved);
-
-  const context = await buildPlanningContext(sessionLabel, day);
-  if (!context) return failure(m.subsNoTimetable);
-
-  const { header, slots, absenceIndex, vacancies, teacherProfiles } = context;
-
-  // No block for this weekday — a Sunday, or a sheet that never had one.
-  if (!header) return failure(m.subsNoVacancies);
-
-  const planId = await ensurePlan({
-    sessionLabel,
-    day,
-    versionId: context.versionId,
-    createdByUserId: actor.userId,
-  });
-
-  if (vacancies.length === 0) {
-    // The plan row is still written, so the screen can say "nothing to do
-    // today" rather than looking like nothing was tried.
-    await replaceGenerated(planId, context.versionId, []);
-    revalidatePath("/substitutions");
-    return { ...idleSubsState, status: "saved", message: m.subsNoVacancies };
-  }
-
-  const existing = await planAssignments(planId);
-  const pins = existing.filter((row) => row.pinned);
-
-  const result = generatePlan({
-    day: header,
-    teacherProfiles,
-    absenceIndex,
-    coverHistory: context.coverHistory,
-    vacancies: vacancies.map((vacancy) => ({
-      slotId: vacancy.slotId,
-      periodIndex: vacancy.periodIndex,
-      className: vacancy.className,
-      subject: vacancy.subject,
-      originalTeacher: vacancy.originalTeacher,
-    })),
-    // Pinned rows are handed to the engine as work already done, so it never
-    // double-books against a decision somebody already made.
-    existingAssignments: pins
-      .filter((pin) => pin.coveringStaffId)
-      .map((pin) => ({
-        slotId: `${pin.classId}|${pin.period}`,
-        teacher: pin.coveringStaffId!,
-        periodIndex: pin.period,
-      })),
-  });
-
-  const byKey = new Map(vacancies.map((vacancy) => [vacancy.slotId, vacancy]));
-  const rows: AssignmentWrite[] = [];
-  const covered = new Map<string, string>();
-
-  for (const item of [...result.assignments, ...result.reviewSuggestions]) {
-    const vacancy = byKey.get(item.slotId ?? "");
-    if (!vacancy) continue;
-    // A pin came in as an existing assignment and is already in the table;
-    // only what the engine generated carries a `source`.
-    if (!isGenerated(item)) continue;
-
-    rows.push({
-      period: vacancy.periodIndex,
-      classId: vacancy.classId,
-      classLabel: vacancy.className,
-      subjectCode: vacancy.subject,
-      originalStaffId: vacancy.originalStaffId,
-      coveringStaffId: item.teacher,
-      kind: "cover",
-      matchTier: item.matchTier,
-      source: item.source,
-      warnings: item.warnings,
-    });
-
-    covered.set(`${vacancy.classId}|${vacancy.periodIndex}`, item.teacher);
-  }
-
-  /* ------------------------------------- what nobody could be found for */
-
-  for (const open of result.openSlots) {
-    const vacancy = byKey.get(open.slotId);
-    if (!vacancy) continue;
-
-    const hosts = hostsInPeriod(
-      slots,
-      header,
-      vacancy.periodIndex,
-      absenceIndex,
-      covered,
-    ).filter((host) => host.classId !== vacancy.classId);
-
-    const host = chooseMergeHost(vacancy.className, hosts);
-    const hostEntry = host
-      ? hosts.find((entry) => entry.className === host.className)
-      : null;
-
-    rows.push({
-      period: vacancy.periodIndex,
-      classId: vacancy.classId,
-      classLabel: vacancy.className,
-      subjectCode: vacancy.subject,
-      originalStaffId: vacancy.originalStaffId,
-      coveringStaffId: null,
-      kind: hostEntry ? "merged" : "self_study",
-      mergeHostClassId: hostEntry?.classId ?? null,
-      mergeHostClassLabel: hostEntry?.className ?? null,
-      source: "auto",
-      warnings: [],
-    });
-  }
-
-  try {
-    await replaceGenerated(planId, context.versionId, rows);
-  } catch {
-    return failure(m.notSaved);
-  }
-
-  revalidatePath("/substitutions");
-  revalidatePath("/teach");
-
-  return {
-    ...idleSubsState,
-    status: "saved",
-    message: t(
-      `${rows.length} पीरियड की व्यवस्था बनी।`,
-      `Worked out ${rows.length} period${rows.length === 1 ? "" : "s"}.`,
-    ),
-  };
-}
-
-/* ------------------------------------------------------ editing by hand */
-
-/**
- * Change one row by hand.
- *
- * Anything a coordinator sets is pinned by construction: they decided it, so
- * working the cover out again must not quietly undo it.
- */
-export async function setCoverAction(
-  _previous: SubsState,
-  formData: FormData,
-): Promise<SubsState> {
-  await assertPermission("substitutions:manage");
-
-  const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return failure(m.noSessionFound);
-
-  const day = (formData.get("day") ?? "").toString();
-  const classId = (formData.get("classId") ?? "").toString();
-  const classLabel = (formData.get("classLabel") ?? "").toString();
-  const subjectCode = (formData.get("subjectCode") ?? "").toString() || null;
-  const originalStaffId = (formData.get("originalStaffId") ?? "").toString() || null;
-  const period = Number((formData.get("period") ?? "").toString());
-  const choice = (formData.get("choice") ?? "").toString();
-
-  if (!classId || !Number.isInteger(period)) return failure(m.notSaved);
-
-  const plan = await getPlan(sessionLabel, day);
-  if (!plan) return failure(m.notSaved);
-
-  const base = {
-    period,
-    classId,
-    classLabel,
-    subjectCode,
-    originalStaffId,
-    source: "manual" as const,
-    pinned: true,
-  };
-
-  let row: AssignmentWrite;
-
-  if (choice === "self_study") {
-    row = { ...base, coveringStaffId: null, kind: "self_study" };
-  } else if (choice.startsWith("merge:")) {
-    const [, hostId, ...label] = choice.split(":");
-    row = {
-      ...base,
-      coveringStaffId: null,
-      kind: "merged",
-      mergeHostClassId: hostId,
-      mergeHostClassLabel: label.join(":"),
-    };
-  } else {
-    row = { ...base, coveringStaffId: choice, kind: "cover" };
-  }
-
-  try {
-    await setAssignment(plan.id, row);
-  } catch {
-    // The unique index refuses a teacher already covering another class this
-    // period. That is the engine's "no double booking" rule, held by the
-    // database for the one path the engine does not see.
-    return failure(
-      t(
-        "यह अध्यापक इसी पीरियड में कहीं और है।",
-        "That teacher is already covering another class this period.",
-      ),
-    );
-  }
-
-  revalidatePath("/substitutions");
-  revalidatePath("/teach");
-  return { ...idleSubsState, status: "saved" };
-}
-
-export async function togglePinAction(formData: FormData) {
-  await assertPermission("substitutions:manage");
-
-  const id = (formData.get("id") ?? "").toString();
-  if (!id) return;
-
-  await setPinned(id, formData.get("pinned") === "true");
-  revalidatePath("/substitutions");
-}
-
-export async function removeCoverAction(formData: FormData) {
-  await assertPermission("substitutions:manage");
-
-  const id = (formData.get("id") ?? "").toString();
-  if (!id) return;
-
-  await removeAssignment(id);
-  revalidatePath("/substitutions");
-  revalidatePath("/teach");
-}
-
-/* ---------------------------------------------------------- publishing */
-
-export async function publishPlanAction(formData: FormData) {
-  const actor = await assertPermission("substitutions:manage");
-
-  const planId = (formData.get("planId") ?? "").toString();
-  if (!planId) return;
-
-  await publishPlan(planId, actor.id);
-
-  // The covering teachers read it from their own Today card, which is the
-  // whole point: a cover nobody was told about is a class nobody turns up to.
-  revalidatePath("/substitutions");
-  revalidatePath("/teach");
-}
-
-export async function unpublishPlanAction(formData: FormData) {
-  await assertPermission("substitutions:manage");
-
-  const planId = (formData.get("planId") ?? "").toString();
-  if (!planId) return;
-
-  await unpublishPlan(planId);
-  revalidatePath("/substitutions");
-  revalidatePath("/teach");
-}
-
-/* ------------------------------------------------------------ policies */
-
 export async function saveCoverPolicyAction(
   _previous: SubsState,
   formData: FormData,
@@ -390,7 +242,7 @@ export async function saveCoverPolicyAction(
   const actor = await assertPermission("substitutions:manage");
 
   const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return failure(m.noSessionFound);
+  if (!sessionLabel) return { status: "error", message: m.noSessionFound };
 
   const parsed = coverPolicySchema.safeParse({
     staffProfileId: (formData.get("staffProfileId") ?? "").toString(),
@@ -400,12 +252,12 @@ export async function saveCoverPolicyAction(
     note: (formData.get("note") ?? "").toString(),
   });
 
-  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return { status: "error", message: fieldErrorsFrom(parsed.error) };
 
   try {
     await upsertCoverPolicy(parsed.data, sessionLabel, actor.userId);
   } catch {
-    return failure(m.notSaved);
+    return { status: "error", message: m.notSaved };
   }
 
   revalidatePath("/substitutions/policies");

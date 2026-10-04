@@ -34,7 +34,9 @@
     "replica:plan": "node scripts/replicate-live.mjs --plan",
     "replica:load": "node scripts/replicate-live.mjs --load",
     "test:mobile-ui": "playwright test --config mobile-ui.playwright.config.ts",
-    "verify:access": "node --import ./scripts/alias-hook.mjs scripts/verify-access.mjs"
+    "verify:access": "node --import ./scripts/alias-hook.mjs scripts/verify-access.mjs",
+    "verify:cover": "node scripts/verify-cover-command.mjs",
+    "verify:outbox": "node scripts/verify-staff-outbox.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",

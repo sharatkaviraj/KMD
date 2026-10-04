@@ -196,6 +196,15 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
   /* ----------------------------------------------------------------- cover */
 
   {
+    route: "/duty/[id]",
+    allow: EVERYONE,
+    because:
+      "Where a cover notice and Today both lead. Any signed-in member of staff may open it; " +
+      "the row decides what they see — the holder, a former holder, the office — and anybody " +
+      "else, a forwarded link included, sees that it is not for them and nothing more (P5).",
+  },
+
+  {
     route: "/substitutions",
     allow: ["admin", "office", "academic_coordinator", "teacher"],
     because:

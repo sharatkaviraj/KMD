@@ -21,7 +21,7 @@ type AbsenceRow = {
 
 const COLUMNS =
   "id, staff_profile_id, day, periods, reason, " +
-  "staff_profiles!inner(display_name, short_name)";
+  "staff_profiles!teacher_absences_staff_profile_id_fkey!inner(display_name, short_name)";
 
 /**
  * Who is away on a day.

@@ -27,7 +27,8 @@ grant select (
 
 revoke select on vppsone.teacher_absences from authenticated;
 grant select (
-  id, session_label, staff_profile_id, day, periods, created_by, created_at, updated_at
+  id, session_label, staff_profile_id, day, periods, created_by, created_at, updated_at,
+  revision, updated_by
 ) on vppsone.teacher_absences to authenticated;
 
 revoke select on vppsone.collection_requests from authenticated;

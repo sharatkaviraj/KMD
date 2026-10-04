@@ -1,0 +1,62 @@
+{
+  "ranAt": "2026-10-04T04:31:33.312Z",
+  "target": "schoolfees-dev",
+  "syntheticDay": "2027-03-02",
+  "results": [
+    {
+      "name": "with the switch off nothing is claimed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "two dispatchers at once: one claims, the other finds nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "only the lease holder can stamp what will be sent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a provider receipt makes the notice accepted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a duty moved after its notice went out queues a cancellation for that person",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a timeout is Unknown and is never re-sent by the machine",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an answer with no receipt id is Unknown, not sent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a resend is a person's decision, and a rate limit waits before the next attempt",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an expired lease before sending goes back to the queue; after sending it is Unknown, and a late answer does not overwrite it",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an unsent notice for a duty that moved on is withdrawn before anyone claims it",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a teacher with no phone is suppressed with the reason, never sent",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

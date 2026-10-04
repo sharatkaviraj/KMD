@@ -20,6 +20,7 @@ export const jobNames = [
   "attendance-reminder",
   "missing-marks-nudge",
   "daily-summary",
+  "staff-notices",
 ] as const;
 
 export type JobName = (typeof jobNames)[number];
@@ -97,6 +98,19 @@ export const JOBS: Record<JobName, JobDefinition> = {
     schedule: "0 13 * * *",
     when: t("हर शाम 6:30 बजे", "Every evening at 18:30"),
     oncePerDay: true,
+  },
+  "staff-notices": {
+    name: "staff-notices",
+    label: t("व्यवस्था की सूचनाएँ", "Cover notices"),
+    what: t(
+      "व्यवस्था की बाकी सूचनाएँ भेजता है और अटकी हुई जाँचता है। हर बदलाव के बाद भी अपने-आप चलता है।",
+      "Sends any cover notices still waiting and settles stuck ones. Also runs by itself after every cover change.",
+    ),
+    schedule: "0 2 * * *",
+    when: t("हर सुबह 7:30 बजे, और हर बदलाव के बाद", "Every morning at 7:30, and after every change"),
+    // A safety net, not the main path — running it twice only sends what is
+    // still due, because every send is claimed under a lease first (P4).
+    oncePerDay: false,
   },
 };
 
@@ -180,6 +194,16 @@ export const summaryLabels: Record<string, Localized> = {
   corrections_waiting: t("सुधार बाकी", "corrections waiting"),
   cover_plan: t("व्यवस्था", "cover plan"),
   covers_arranged: t("व्यवस्था हुई", "covers arranged"),
+  cover_duties: t("व्यवस्था के काम", "cover duties"),
+  transport: t("माध्यम", "transport"),
+  claimed: t("लीं", "claimed"),
+  accepted: t("स्वीकार हुईं", "accepted"),
+  failed: t("नहीं गईं", "failed"),
+  unknown: t("पुष्टि नहीं", "not confirmed"),
+  released: t("फिर कतार में", "back in queue"),
+  became_unknown: t("अनिश्चित हुईं", "became unconfirmed"),
+  stopped: t("रुकीं", "stopped"),
+  cover_needs_help: t("व्यवस्था में मदद चाहिए", "cover needing help"),
   drafted: t("संदेश तैयार", "messages drafted"),
   exams_open: t("खुली परीक्षाएँ", "exams open"),
   marks_outstanding: t("अंक बाकी", "marks outstanding"),

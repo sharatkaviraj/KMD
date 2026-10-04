@@ -9,6 +9,7 @@ import {
 } from "@/modules/academics/domain/calendar";
 import { isEntered } from "@/modules/assessments/domain/assessments";
 import type { JobName } from "@/modules/jobs/domain/jobs";
+import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
 
 /**
  * What each job actually does.
@@ -603,23 +604,18 @@ export async function dailySummary(day: string): Promise<Summary> {
   ).length;
   const counted = marks.filter((row) => row.status !== "leave").length;
 
-  const { data: plan, error: planError } = await admin
-    .from("substitution_plans")
-    .select("id, status")
-    .eq("session_label", sessionLabel)
-    .eq("day", day)
-    .maybeSingle();
-
-  if (planError) {
-    throw new Error(`Could not read today's cover plan: ${planError.message}`);
-  }
-
-  const covers = plan
-    ? await must(
-        admin.from("substitution_assignments").select("kind").eq("plan_id", plan.id),
-        "today's cover",
-      )
-    : [];
+  // The day's live cover duties (P3). Every live row is committed and
+  // published; "needs help" is the honest name for what used to be written
+  // down as self study or a merged class.
+  const duties = await must(
+    admin
+      .from("cover_duties")
+      .select("status")
+      .eq("session_label", sessionLabel)
+      .eq("day", day)
+      .in("status", ["assigned", "needs_help"]),
+    "today's cover",
+  );
 
   const { count: pendingCount, error: pendingError } = await admin
     .from("collection_submissions")
@@ -653,10 +649,9 @@ export async function dailySummary(day: string): Promise<Summary> {
     registers_outstanding: open ? byClass.size - submitted.length : 0,
     attendance_percent:
       counted === 0 ? "—" : String(Math.round((present / counted) * 1000) / 10),
-    cover_plan: plan ? (plan.status as string) : "none",
-    covers_arranged: covers.filter((row) => row.kind === "cover").length,
-    classes_merged: covers.filter((row) => row.kind === "merged").length,
-    self_study: covers.filter((row) => row.kind === "self_study").length,
+    cover_duties: duties.length,
+    covers_arranged: duties.filter((row) => row.status === "assigned").length,
+    cover_needs_help: duties.filter((row) => row.status === "needs_help").length,
     answers_to_review: pendingCount ?? 0,
     corrections_waiting: correctionsCount ?? 0,
   };
@@ -664,9 +659,25 @@ export async function dailySummary(day: string): Promise<Summary> {
 
 /* ------------------------------------------------------------- dispatch */
 
+/** Send what is due and settle what is stuck (P4). The day is not used: due is due. */
+async function staffNotices(): Promise<Summary> {
+  const result = await dispatchStaffNotices({ max: 50 });
+  return {
+    transport: result.transport,
+    claimed: result.claimed,
+    accepted: result.accepted,
+    failed: result.failed,
+    unknown: result.unknown,
+    released: result.swept.released,
+    became_unknown: result.swept.unknown,
+    stopped: result.stopped,
+  };
+}
+
 export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "open-registers": openRegisters,
   "attendance-reminder": attendanceReminder,
   "missing-marks-nudge": missingMarksNudge,
   "daily-summary": dailySummary,
+  "staff-notices": staffNotices,
 };

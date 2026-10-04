@@ -108,3 +108,17 @@ export async function clearTeamRule(sessionLabel: string, subjectCode: string): 
     .eq("subject_code", subjectCode);
   if (error) throw error;
 }
+
+export type CoverSwitches = { coverCommand: boolean; staffNoticeDispatch: boolean };
+
+/** The two operator switches (P3/P4). Read for display; written by an admin action. */
+export async function coverSwitches(): Promise<CoverSwitches> {
+  const { data, error } = await createAdminClient()
+    .from("runtime_flags")
+    .select("key, enabled")
+    .in("key", ["cover_command", "staff_notice_dispatch"])
+    .returns<{ key: string; enabled: boolean }[]>();
+  if (error) throw new Error(`Could not read the switches: ${error.message}`);
+  const on = (key: string) => data.find((row) => row.key === key)?.enabled ?? false;
+  return { coverCommand: on("cover_command"), staffNoticeDispatch: on("staff_notice_dispatch") };
+}

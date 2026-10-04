@@ -20,7 +20,7 @@ import {
 } from "@/modules/substitutions/data/absences-repo";
 import { listAssessments } from "@/modules/assessments/data/assessments-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
-import { getPlan, planAssignments } from "@/modules/substitutions/data/plans-repo";
+import { dutiesOn, liveOnly } from "@/modules/substitutions/data/cover-repo";
 import { listRounds } from "@/modules/collection/data/rounds-repo";
 import { linksForRound } from "@/modules/collection/data/fan-out-repo";
 import type { AttentionFacts, AttentionKey } from "@/modules/home/domain/attention";
@@ -259,13 +259,12 @@ export async function schoolOverview(
       guard("classes", () => classLabelMap(sessionLabel)),
       guard("staff", () => listStaff()),
       guard("absences", () => absencesOn(sessionLabel, today)),
-      // The published plan only. A draft is the coordinator still deciding,
-      // and reporting it as "cover arranged" would be reporting a decision
-      // nobody has taken (`publishedPlanFor()` applies the same rule).
+      // The live duties. There is no draft any more: a cover command commits
+      // and publishes in one step (P3), so every live row is a decision
+      // somebody took — assigned, or visibly needing help.
       guard("cover", async () => {
-        const found = await getPlan(sessionLabel, today);
-        if (!found || found.status !== "published") return null;
-        return planAssignments(found.id);
+        const live = liveOnly(await dutiesOn(sessionLabel, today));
+        return live.length === 0 ? null : live;
       }),
       guard("exams", () => listAssessments(sessionLabel)),
       guard("round", () => newestOpenRound(sessionLabel)),

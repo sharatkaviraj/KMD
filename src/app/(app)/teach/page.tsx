@@ -42,7 +42,8 @@ import {
   type PeriodSlot,
 } from "@/modules/attendance/domain/today";
 import { classRoll } from "@/modules/attendance/data/attendance-repo";
-import { coversForTeacher } from "@/modules/substitutions/data/plans-repo";
+import { myDutiesOn } from "@/modules/substitutions/data/duty-repo";
+import { listStaff } from "@/modules/staff/data/staff-repo";
 import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { Panel, PanelRow } from "@/ui/panel";
@@ -96,11 +97,16 @@ export default async function TeachPage() {
       can(staff, "attendance:correct")
         ? countPendingCorrections()
         : Promise.resolve(0),
-      // Published plans only: a draft is somebody's work in progress, and a
-      // teacher who turned up to a class the coordinator had not finished
-      // deciding about would be the reason nobody trusted the card again.
-      coversForTeacher(staff.id, sessionLabel, today),
+      // Her live cover duties. Every one is committed and published by the
+      // cover command (P3); there is no draft a teacher could be sent to.
+      myDutiesOn(staff.id, sessionLabel, today),
     ]);
+
+  // Who she is standing in for, by name — never why they are away.
+  const staffNames =
+    covers.length > 0
+      ? new Map((await listStaff()).map((person) => [person.id, person.displayName]))
+      : new Map<string, string>();
 
   const schoolOpen = isSchoolOpen(today, calendar);
 
@@ -366,20 +372,22 @@ export default async function TeachPage() {
           {covers.map((cover) => (
             <PanelRow
               key={cover.id}
-              href={`/teach/class/${cover.classId}`}
+              // The same page the WhatsApp link opens (P5), so Today works when
+              // the message never arrives.
+              href={`/duty/${cover.id}`}
               tone="accent"
               lead={periodNumber(cover.period)}
               title={
                 <>
-                  {cover.classLabel}
-                  {cover.subjectCode ? (
-                    <span className="ml-2 text-[13px] font-normal text-muted-foreground">
-                      {cover.subjectCode}
-                    </span>
-                  ) : null}
+                  {cover.classLabels.join(", ")}
+                  <span className="ml-2 text-[13px] font-normal text-muted-foreground">
+                    {cover.subjectCode}
+                  </span>
                 </>
               }
-              detail={`${primary(m.subsCoverFor, language)} ${cover.originalStaffName ?? "—"}`}
+              detail={`${primary(m.subsCoverFor, language)} ${cover.absentStaffIds
+                .map((id) => staffNames.get(id) ?? "—")
+                .join(", ")} · ${primary(cover.acknowledgedAt ? m.coverAcknowledged : m.teachCoverOpen, language)}`}
             />
           ))}
         </Panel>
