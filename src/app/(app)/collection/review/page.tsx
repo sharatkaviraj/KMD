@@ -1,6 +1,7 @@
 import { TriangleAlert } from "lucide-react";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { primary } from "@/platform/i18n/language";
@@ -202,12 +203,27 @@ export default async function ReviewPage() {
                     ) : null}
 
                     {mayDecide ? (
-                      <div className="mt-3 flex gap-2">
-                        <DecideForm
-                          submissionIds={[entry.id]}
-                          accept
-                          label={m.reviewAccept}
-                        />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {/* An older answer with a newer one waiting is only
+                            rejected; one about a value that moved is accepted
+                            only by somebody choosing to replace it (P10). */}
+                        {entry.isSuperseded ? null : stalenessOf({
+                            shown: entry.previousValue,
+                            heldNow: entry.heldNow,
+                          }).stale && entry.heldNow !== entry.value ? (
+                          <DecideForm
+                            submissionIds={[entry.id]}
+                            accept
+                            replaceNewer
+                            label={ms.reviewReplaceNewer}
+                          />
+                        ) : (
+                          <DecideForm
+                            submissionIds={[entry.id]}
+                            accept
+                            label={m.reviewAccept}
+                          />
+                        )}
                         <DecideForm
                           submissionIds={[entry.id]}
                           accept={false}

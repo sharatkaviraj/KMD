@@ -235,3 +235,82 @@ export async function recordsForStudent(
       source: row.source,
     }));
 }
+
+export type RecordChange = {
+  id: number;
+  fieldId: string;
+  labelHi: string;
+  labelEn: string;
+  outcome: "written" | "blocked";
+  reason: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  source: string;
+  sourceDetail: string | null;
+  actorName: string | null;
+  recordedAt: string;
+};
+
+/**
+ * How one child's values came to be what they are (P10, S-10): every write and
+ * every value precedence refused, newest first, read as the person asking —
+ * the history is scoped exactly like the record.
+ */
+export async function historyForStudent(studentId: string, limit = 40): Promise<RecordChange[]> {
+  await assertPermission("collection:view");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("student_record_history")
+    .select("id, field_id, outcome, reason, old_value, new_value, source, source_detail, actor_staff_id, recorded_at")
+    .eq("student_id", studentId)
+    .order("recorded_at", { ascending: false })
+    .limit(limit)
+    .returns<
+      {
+        id: number;
+        field_id: string;
+        outcome: "written" | "blocked";
+        reason: string | null;
+        old_value: string | null;
+        new_value: string | null;
+        source: string;
+        source_detail: string | null;
+        actor_staff_id: string | null;
+        recorded_at: string;
+      }[]
+    >();
+  if (error) throw new Error(`Could not read how the records changed: ${error.message}`);
+  if (data.length === 0) return [];
+
+  // The history keeps no foreign keys — it outlives fields and people — so
+  // the labels and names are looked up, and a missing one reads as "—".
+  const admin = createAdminClient();
+  const fieldIds = [...new Set(data.map((row) => row.field_id))];
+  const actorIds = [...new Set(data.map((row) => row.actor_staff_id).filter((id): id is string => Boolean(id)))];
+  const [fields, actors] = await Promise.all([
+    admin.from("collection_fields").select("id, label_hi, label_en").in("id", fieldIds)
+      .returns<{ id: string; label_hi: string; label_en: string }[]>(),
+    actorIds.length > 0
+      ? admin.from("staff_profiles").select("id, display_name").in("id", actorIds)
+          .returns<{ id: string; display_name: string }[]>()
+      : Promise.resolve({ data: [] as { id: string; display_name: string }[] }),
+  ]);
+  const fieldOf = new Map((fields.data ?? []).map((row) => [row.id, row]));
+  const nameOf = new Map((actors.data ?? []).map((row) => [row.id, row.display_name]));
+
+  return data.map((row) => ({
+    id: row.id,
+    fieldId: row.field_id,
+    labelHi: fieldOf.get(row.field_id)?.label_hi ?? "—",
+    labelEn: fieldOf.get(row.field_id)?.label_en ?? "—",
+    outcome: row.outcome,
+    reason: row.reason,
+    oldValue: row.old_value,
+    newValue: row.new_value,
+    source: row.source,
+    sourceDetail: row.source_detail,
+    actorName: row.actor_staff_id ? (nameOf.get(row.actor_staff_id) ?? null) : null,
+    recordedAt: row.recorded_at,
+  }));
+}

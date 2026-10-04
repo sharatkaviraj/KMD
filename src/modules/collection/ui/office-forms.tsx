@@ -20,7 +20,7 @@ import {
   fieldModes,
   type CollectionField,
 } from "@/modules/collection/domain/fields";
-import { idleCollectionState } from "@/modules/collection/domain/form-state";
+import { idleCollectionState, type CollectionState } from "@/modules/collection/domain/form-state";
 import {
   messageAudienceLabels,
   messageAudiences,
@@ -337,33 +337,49 @@ export function FieldForm({ field }: { field?: CollectionField }) {
   );
 }
 
-/** Accept or reject a batch of answers. */
+/**
+ * Accept or reject a batch of answers.
+ *
+ * The command id is minted here and kept until an answer comes back, so a
+ * press whose response was lost is asked about again with the same id — the
+ * database returns what it already did instead of deciding twice (P10).
+ */
 export function DecideForm({
   submissionIds,
   accept,
   label,
   variant = "primary",
+  replaceNewer = false,
 }: {
   submissionIds: string[];
   accept: boolean;
   label: typeof m.reviewAccept;
   variant?: "primary" | "outline";
+  /** Accept even though the record moved after the answer — offered only where it did. */
+  replaceNewer?: boolean;
 }) {
   const language = useLanguage();
+  const [commandId, setCommandId] = useState(() => crypto.randomUUID());
   const [state, action, pending] = useActionState(
-    decideSubmissionsAction,
+    async (previous: CollectionState, formData: FormData) => {
+      const result = await decideSubmissionsAction(previous, formData);
+      setCommandId(crypto.randomUUID());
+      return result;
+    },
     idleCollectionState,
   );
 
   return (
-    <form action={action} className="space-y-2">
+    <form action={action} className="space-y-2" data-decide={accept ? (replaceNewer ? "replace" : "accept") : "reject"}>
       {submissionIds.map((id) => (
         <input key={id} type="hidden" name="submissionIds" value={id} />
       ))}
       <input type="hidden" name="accept" value={accept ? "true" : "false"} />
+      <input type="hidden" name="commandId" value={commandId} />
+      <input type="hidden" name="replaceNewer" value={replaceNewer ? "true" : "false"} />
 
-      {state.status === "error" && state.message ? (
-        <Notice tone="danger" text={state.message} language={language} />
+      {state.message ? (
+        <Notice tone={state.status === "error" ? "warning" : "success"} text={state.message} language={language} />
       ) : null}
 
       <Button

@@ -110,6 +110,7 @@ const PUPIL_TABLES = [
   "notes",
   "marks",
   "student_records",
+  "student_record_history",
   "student_documents",
   "report_cards",
   "collection_requests",
@@ -299,7 +300,7 @@ try {
           admin.from("attendance_corrections").select("id", { count: "exact", head: true }).eq("requested_by", profile.id),
           admin.from("collection_requests").select("id", { count: "exact", head: true }).eq("assigned_staff_id", profile.id),
         ]);
-        for (const table of ["enrolments", "attendance_registers", "attendance_marks", "marks", "student_records", "student_documents", "report_cards", "message_sends"]) {
+        for (const table of ["enrolments", "attendance_registers", "attendance_marks", "marks", "student_records", "student_record_history", "student_documents", "report_cards", "message_sends"]) {
           expect(subject.key, result.counts[table] === 0, `a teacher with no classes read ${table}`);
         }
         expect(subject.key, result.counts.attendance_corrections === (askedFor ?? 0), "read corrections she did not ask for");

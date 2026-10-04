@@ -40,7 +40,7 @@ import {
   requestInputSchema,
   type RequestStatus,
 } from "@/modules/collection/domain/requests";
-import { decideSchema } from "@/modules/collection/domain/review";
+import { decideSchema, decisionSentence } from "@/modules/collection/domain/review";
 import {
   checkDocument,
   documentKinds,
@@ -218,35 +218,40 @@ export async function decideSubmissionsAction(
   const parsed = decideSchema.safeParse({
     submissionIds: stringsFrom(formData, "submissionIds"),
     accept: formData.get("accept") === "true",
+    commandId: (formData.get("commandId") ?? "").toString(),
+    replaceNewer: formData.get("replaceNewer") === "true",
     note: (formData.get("note") ?? "").toString(),
   });
 
   if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
 
-  let result: { decided: number; recorded: number };
-
-  try {
-    result = await decideSubmissions({
-      submissionIds: parsed.data.submissionIds,
-      accept: parsed.data.accept,
-      note: parsed.data.note,
-      deciderStaffId: actor.id,
-      sessionLabel,
-    });
-  } catch {
-    return failure(m.notSaved);
-  }
+  const receipt = await decideSubmissions({
+    commandId: parsed.data.commandId,
+    submissionIds: parsed.data.submissionIds,
+    accept: parsed.data.accept,
+    note: parsed.data.note,
+    replaceNewer: parsed.data.replaceNewer,
+    deciderStaffId: actor.id,
+    sessionLabel,
+  });
+  if (!receipt.ok) return failure(receipt.reason === "not_permitted" ? m.accessDenied : m.notSaved);
 
   revalidatePath("/collection/review");
   revalidatePath("/collection");
 
+  const refusedFor = (reason: string) => receipt.refused.filter((entry) => entry.reason === reason).length;
   return {
     ...idleCollectionState,
-    status: "saved",
-    message: t(
-      `${result.decided} पर फ़ैसला हुआ।`,
-      `Decided ${result.decided}, recorded ${result.recorded}.`,
-    ),
+    status: receipt.refused.length > 0 ? "error" : "saved",
+    message: decisionSentence({
+      accept: parsed.data.accept,
+      decided: receipt.decided,
+      recorded: receipt.recorded,
+      confirmed: receipt.confirmed,
+      alreadyDecided: receipt.alreadyDecided,
+      superseded: refusedFor("superseded"),
+      recordMoved: refusedFor("record_moved"),
+    }),
   };
 }
 

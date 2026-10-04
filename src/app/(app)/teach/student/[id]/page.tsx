@@ -2,12 +2,14 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { countOf, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { appsFor, schoolApp, studentLinkLabel } from "@/platform/config/apps";
 import { getVppsOneEnvironment } from "@/platform/env";
+import { dayLabel, toSchoolDay } from "@/platform/dates";
 import {
   classLabelMap,
   resolveSessionLabel,
@@ -26,11 +28,13 @@ import { deleteDocumentAction } from "@/app/(app)/collection/actions";
 import { termSummaries } from "@/modules/assessments/data/reports-repo";
 import {
   documentsForStudent,
+  historyForStudent,
   recordsForStudent,
 } from "@/modules/collection/data/documents-repo";
 import {
   documentKindLabels,
   humanSize,
+  recordChangeNote,
   recordSourceLabel,
 } from "@/modules/collection/domain/review";
 import { DocumentForm } from "@/modules/collection/ui/office-forms";
@@ -124,7 +128,7 @@ export default async function StudentPage(
 
   const seesMoney = can(staff, "collection:view");
 
-  const [enrolment, history, rules, labels, own, kinds, fees, records, documents] =
+  const [enrolment, history, rules, labels, own, kinds, fees, records, documents, changes] =
     await Promise.all([
       enrolmentForStudent(studentId, sessionLabel),
       studentAttendance(studentId, sessionLabel),
@@ -138,6 +142,9 @@ export default async function StudentPage(
         : Promise.resolve([]),
       can(staff, "documents:view")
         ? documentsForStudent(studentId)
+        : Promise.resolve([]),
+      can(staff, "collection:view")
+        ? historyForStudent(studentId)
         : Promise.resolve([]),
     ]);
 
@@ -385,6 +392,44 @@ export default async function StudentPage(
               }))}
             />
           </Card>
+
+          {/* How each value came to be what it is, and what was refused on
+              the way (P10): the question somebody asks before ringing a
+              parent on a number that "was corrected in September". */}
+          {changes.length > 0 ? (
+            <details className="mt-3" data-record-history>
+              <summary className="cursor-pointer text-[13px] font-semibold text-foreground">
+                {primary(ms.recordsHistoryTitle, language)} ({changes.length})
+              </summary>
+              <ul className="mt-2 space-y-2">
+                {changes.map((change) => {
+                  const note = recordChangeNote(change);
+                  return (
+                    <li key={change.id} className="rounded-xl bg-surface-2 px-3 py-2 text-[13px]" data-outcome={change.outcome}>
+                      <p className="font-medium text-foreground">
+                        {language === "en" ? change.labelEn : change.labelHi}
+                      </p>
+                      <p className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-muted-foreground line-through">{change.oldValue ?? "—"}</span>
+                        <span aria-hidden className="text-subtle-foreground">→</span>
+                        <span className={change.outcome === "blocked" ? "text-muted-foreground" : "font-semibold text-foreground"}>
+                          {change.newValue ?? "—"}
+                        </span>
+                        <Badge tone={change.source === "teacher" ? "success" : "neutral"}>
+                          {primary(recordSourceLabel(change.source), language)}
+                          {change.sourceDetail ? ` · ${change.sourceDetail}` : ""}
+                        </Badge>
+                      </p>
+                      <p className="text-[12px] text-subtle-foreground">
+                        {change.actorName ?? "—"} · {primary(dayLabel(toSchoolDay(new Date(change.recordedAt))), language)}
+                        {note ? <> · {primary(note, language)}</> : null}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          ) : null}
         </Section>
       ) : null}
 

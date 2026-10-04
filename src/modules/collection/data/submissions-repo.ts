@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -11,7 +13,6 @@ import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
 import type { CollectionField } from "@/modules/collection/domain/fields";
 import type { CollectionRequest } from "@/modules/collection/domain/requests";
 import type {
-  RecordSource,
   Submission,
   SubmissionStatus,
 } from "@/modules/collection/domain/review";
@@ -351,75 +352,93 @@ export async function phoneOwners(): Promise<Map<string, string[]>> {
 
 /* ------------------------------------------------------------ deciding */
 
+export type RefusalReason = "superseded" | "record_moved";
+
+export type DecisionReceipt =
+  | {
+      ok: true;
+      decided: number;
+      /** Values that changed the record. */
+      recorded: number;
+      /** Accepted without changing the record: blank, or the value already held. */
+      confirmed: number;
+      /** Somebody else decided these first; theirs stands. */
+      alreadyDecided: number;
+      refused: { submissionId: string; reason: RefusalReason }[];
+      replayed: boolean;
+    }
+  | { ok: false; reason: "not_permitted" | "id_reused" | "bad_request" | "unavailable" };
+
 /**
- * Accept or reject, and where an acceptance lands.
+ * Accept or reject, as one command (P10, D-233).
  *
- * On acceptance the value becomes `student_records` — VPPS One's own record.
- * **It never writes the fee app** (rule 2): where the two disagree, both are
- * shown and a person changes the fee app deliberately, in the fee app.
+ * `vppsone.accept_submissions` does all of it in one transaction: re-checks
+ * the actor, decides only what is still pending, and writes every accepted
+ * value through `write_student_value` — the one writer of `student_records`,
+ * which keeps every write in `student_record_history`. **It never writes the
+ * fee app** (rule 2).
  *
- * The submission is marked first and the record written second, so an
- * interruption leaves an accepted answer whose record has not caught up —
- * visible, and fixed by accepting again — rather than a record nobody approved.
+ * Two cases are refused rather than guessed, and come back by name: an answer
+ * with a newer one for the same child and field waiting behind it, and an
+ * answer about a value that has moved since the teacher was shown it — the
+ * second only until a person who has seen both says `replaceNewer`.
+ *
+ * The ids travel in the body, not the URL, so a bulk confirmation of four
+ * hundred is one call (rule 3b is about `.in()` filters).
  */
 export async function decideSubmissions(input: {
+  commandId: string;
   submissionIds: string[];
   accept: boolean;
   note: string | null;
+  replaceNewer: boolean;
   deciderStaffId: string;
   sessionLabel: string;
-}): Promise<{ decided: number; recorded: number }> {
-  const admin = createAdminClient();
-  const now = new Date().toISOString();
+}): Promise<DecisionReceipt> {
+  const ids = [...new Set(input.submissionIds)].sort();
+  const decision = input.accept ? "accept" : "reject";
+  const payloadHash = createHash("sha256")
+    .update(JSON.stringify({ decision, ids, note: input.note ?? "", replace: input.replaceNewer }))
+    .digest("hex");
 
-  const { data: rows, error: readError } = await admin
-    .from("collection_submissions")
-    .select("id, student_id, field_id, value")
-    .in("id", input.submissionIds)
-    .eq("status", "pending")
-    .returns<
-      { id: string; student_id: string; field_id: string; value: string | null }[]
-    >();
-
-  if (readError) throw readError;
-  if (!rows || rows.length === 0) return { decided: 0, recorded: 0 };
-
-  const { error } = await admin
-    .from("collection_submissions")
-    .update({
-      status: input.accept ? "accepted" : "rejected",
-      decided_by: input.deciderStaffId,
-      decided_at: now,
-      decision_note: input.note,
-    })
-    .in(
-      "id",
-      rows.map((row) => row.id),
-    )
-    // Only a pending one: two people deciding at once must not both win.
-    .eq("status", "pending");
-
-  if (error) throw error;
-  if (!input.accept) return { decided: rows.length, recorded: 0 };
-
-  // A blank answer means "no change", never "erase" — so it is accepted as a
-  // confirmation and writes nothing.
-  const changes = rows.filter((row) => (row.value ?? "").trim() !== "");
-  if (changes.length === 0) return { decided: rows.length, recorded: 0 };
-
-  const { error: recordError } = await admin.from("student_records").upsert(
-    changes.map((row) => ({
+  const { data, error } = await createAdminClient().rpc("accept_submissions", {
+    p: {
+      command_id: input.commandId,
+      actor_staff_id: input.deciderStaffId,
       session_label: input.sessionLabel,
-      student_id: row.student_id,
-      field_id: row.field_id,
-      value: row.value,
-      source: "teacher" as RecordSource,
-      source_submission_id: row.id,
-      recorded_by: input.deciderStaffId,
-    })),
-    { onConflict: "student_id,field_id" },
-  );
+      decision,
+      submission_ids: ids,
+      note: input.note,
+      replace_newer: input.replaceNewer,
+      payload_hash: payloadHash,
+    },
+  });
+  if (error || !data) return { ok: false, reason: "unavailable" };
 
-  if (recordError) throw recordError;
-  return { decided: rows.length, recorded: changes.length };
+  const receipt = data as {
+    ok: boolean;
+    reason?: string;
+    decided?: number;
+    recorded?: number;
+    confirmed?: number;
+    already_decided?: number;
+    refused?: { submission_id: string; reason: RefusalReason }[];
+    replayed?: boolean;
+  };
+  if (!receipt.ok) {
+    const reason = receipt.reason;
+    return {
+      ok: false,
+      reason: reason === "not_permitted" || reason === "id_reused" || reason === "bad_request" ? reason : "unavailable",
+    };
+  }
+  return {
+    ok: true,
+    decided: receipt.decided ?? 0,
+    recorded: receipt.recorded ?? 0,
+    confirmed: receipt.confirmed ?? 0,
+    alreadyDecided: receipt.already_decided ?? 0,
+    refused: (receipt.refused ?? []).map((entry) => ({ submissionId: entry.submission_id, reason: entry.reason })),
+    replayed: receipt.replayed === true,
+  };
 }

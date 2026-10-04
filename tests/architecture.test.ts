@@ -309,3 +309,22 @@ describe("migrations", () => {
     ).toBe(false);
   });
 });
+
+/**
+ * A child's collected values have one writer (P10, D-233).
+ *
+ * `vppsone.write_student_value()` applies precedence and keeps the history;
+ * the app reaches it only through `accept_submissions` (and, for imports, the
+ * import command). A `.from("student_records")` that inserts, upserts,
+ * updates or deletes is a second writer that skips both — the bug this
+ * replaced, where two people deciding at once could both write and the old
+ * value was simply gone. Tests and seed scripts may still set up fixtures.
+ */
+describe("student_records has one writer", () => {
+  const WRITE_AFTER = /\.from\(\s*["']student_records["']\s*\)[\s\S]{0,120}?\.(insert|upsert|update|delete)\(/;
+
+  it.each(sourceFiles.map((file) => [relative(file), file]))("%s does not write student_records", (rel, file) => {
+    const source = readFileSync(file, "utf8");
+    expect(WRITE_AFTER.test(source), `${rel} writes student_records directly; call the database command instead`).toBe(false);
+  });
+});

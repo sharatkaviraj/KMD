@@ -177,11 +177,55 @@ export function pendingCount(submissions: Submission[]): number {
   return submissions.filter((entry) => entry.status === "pending").length;
 }
 
+/**
+ * What a decision did, in one sentence, for the person who pressed the button.
+ *
+ * Every number is said, and so is every refusal by name: "decided 3" over a
+ * batch of five, with nothing about the other two, is the queue lying by
+ * omission.
+ */
+export function decisionSentence(receipt: {
+  accept: boolean;
+  decided: number;
+  recorded: number;
+  confirmed: number;
+  alreadyDecided: number;
+  superseded: number;
+  recordMoved: number;
+}): Localized {
+  const hi: string[] = [];
+  const en: string[] = [];
+  if (receipt.accept) {
+    hi.push(`${receipt.decided} स्वीकृत — ${receipt.recorded} रिकॉर्ड में दर्ज, ${receipt.confirmed} पहले जैसे।`);
+    en.push(`Accepted ${receipt.decided}: ${receipt.recorded} recorded, ${receipt.confirmed} confirmed as they were.`);
+  } else {
+    hi.push(`${receipt.decided} अस्वीकृत।`);
+    en.push(`Rejected ${receipt.decided}.`);
+  }
+  if (receipt.alreadyDecided > 0) {
+    hi.push(`${receipt.alreadyDecided} पर किसी और ने पहले फ़ैसला कर दिया था — उनका फ़ैसला रहेगा।`);
+    en.push(`${receipt.alreadyDecided} had already been decided by somebody else; theirs stands.`);
+  }
+  if (receipt.superseded > 0) {
+    hi.push(`${receipt.superseded} नहीं लिए गए — उसी बच्चे का नया जवाब इंतज़ार में है।`);
+    en.push(`${receipt.superseded} not taken: a newer answer for the same child is waiting.`);
+  }
+  if (receipt.recordMoved > 0) {
+    hi.push(`${receipt.recordMoved} नहीं लिए गए — जवाब के बाद रिकॉर्ड बदल चुका है; दोनों देखकर "नया मान बदलें" चुनें।`);
+    en.push(`${receipt.recordMoved} not taken: the record changed after the answer. Look at both, then choose "Replace the newer value".`);
+  }
+  return t(hi.join(" "), en.join(" "));
+}
+
 export const decideSchema = z.object({
   submissionIds: z.array(z.uuid()).min(1, {
     message: encodeMessage(t("कुछ चुनें", "Choose something to decide")),
   }),
   accept: z.boolean(),
+  /** Minted by the form, so a lost answer is asked about, never decided twice. */
+  commandId: z.uuid(),
+  /** Accept even though the record moved after she answered — a person who saw both. */
+  replaceNewer: z.boolean(),
   note: z
     .string()
     .trim()
@@ -304,4 +348,25 @@ export function recordSourceLabel(source: string): Localized {
   return (
     recordSourceLabels[source as RecordSource] ?? { hi: source, en: source }
   );
+}
+
+/**
+ * Why a line in a child's record history reads the way it does (P10). Null
+ * for an ordinary write, which needs no note.
+ */
+export function recordChangeNote(change: { outcome: "written" | "blocked"; reason: string | null }): Localized | null {
+  if (change.outcome === "blocked") {
+    return change.reason === "human_value"
+      ? t("लागू नहीं हुआ — किसी व्यक्ति का दर्ज मान रखा गया", "Not applied: a value a person recorded is kept")
+      : change.reason === "other_source"
+        ? t("लागू नहीं हुआ — यह किसी दूसरे आयात ने दर्ज किया था", "Not applied: a different import recorded this")
+        : t("लागू नहीं हुआ", "Not applied");
+  }
+  if (change.reason === "held_before_history") {
+    return t("बदलाव रखे जाने से पहले से दर्ज", "Held before changes were kept");
+  }
+  if (change.reason === "confirmed_by_person") {
+    return t("किसी व्यक्ति ने यही मान पक्का किया", "The same value, confirmed by a person");
+  }
+  return null;
 }
