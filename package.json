@@ -37,7 +37,8 @@
     "verify:access": "node --import ./scripts/alias-hook.mjs scripts/verify-access.mjs",
     "verify:cover": "node scripts/verify-cover-command.mjs",
     "verify:outbox": "node scripts/verify-staff-outbox.mjs",
-    "verify:attendance": "node scripts/verify-attendance.mjs"
+    "verify:attendance": "node scripts/verify-attendance.mjs",
+    "verify:marks": "node scripts/verify-marks.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",

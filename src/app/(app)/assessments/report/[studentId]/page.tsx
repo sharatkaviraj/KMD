@@ -262,11 +262,13 @@ export default async function ReportCardPage(
                     >
                       {/* Three states, kept apart on the page a family reads:
                           a mark, an absence, and a paper nobody has marked. */}
-                      {mark.absent
-                        ? primary(m.marksAbsent, language)
-                        : mark.value === null
-                          ? "—"
-                          : mark.value}
+                      {mark.exempt
+                        ? primary(m.marksExempt, language)
+                        : mark.absent
+                          ? primary(m.marksAbsent, language)
+                          : mark.value === null
+                            ? "—"
+                            : mark.value}
                     </td>
                   ))}
                   <td className="border border-border px-2 py-1 text-center tabular-nums">

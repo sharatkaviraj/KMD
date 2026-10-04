@@ -32,6 +32,8 @@ export type ReportRow = {
     assessmentLabelEn: string;
     value: number | null;
     absent: boolean;
+    /** Excused from the paper: shown as such, out of both halves (P7). */
+    exempt: boolean;
     maxMarks: number;
     weight: number;
   }[];
@@ -137,6 +139,7 @@ export function buildReportCard(input: ReportInput): ReportCard {
           assessmentLabelEn: assessment?.labelEn ?? "",
           value: mark?.value ?? null,
           absent: mark?.absent ?? false,
+          exempt: mark?.exempt ?? false,
           maxMarks: paper.maxMarks,
           weight: assessment?.weight ?? 1,
         };
@@ -184,7 +187,7 @@ export function readiness(card: ReportCard): {
   note: Localized;
 } {
   const subjects = card.rows
-    .filter((row) => row.marks.some((mark) => mark.value === null && !mark.absent))
+    .filter((row) => row.marks.some((mark) => mark.value === null && !mark.absent && !mark.exempt))
     .map((row) => row.subjectCode);
 
   const missing = card.totals.missing;
@@ -241,6 +244,7 @@ export type MarksExportRow = {
   assessmentCode: string;
   value: number | null;
   absent: boolean;
+  exempt: boolean;
   maxMarks: number;
 };
 
@@ -264,9 +268,9 @@ export function marksCsv(rows: MarksExportRow[]): string {
     row.assessmentCode,
     // An absence and a blank must not both read as an empty cell: one is a
     // fact about the child and the other is a fact about the school.
-    row.absent ? null : row.value,
+    row.absent || row.exempt ? null : row.value,
     row.maxMarks,
-    row.absent ? "Absent" : row.value === null ? "Not entered" : "Entered",
+    row.exempt ? "Exempt" : row.absent ? "Absent" : row.value === null ? "Not entered" : "Entered",
   ]);
 
   return toCsv([header, ...body]);

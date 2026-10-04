@@ -219,6 +219,19 @@ export function PaperForm({
             defaultValue={0}
           />
         </Field>
+        {/* The paper's scheme (P7): the smallest part of a mark it gives, and
+            whether a child may be excused from it rather than marked. */}
+        <Field label={m.paperMarkStep} htmlFor="p-step" language={language}>
+          <Select id="p-step" name="markStep" defaultValue="0.5">
+            <option value="1">{primary(m.paperMarkStepWhole, language)}</option>
+            <option value="0.5">{primary(m.paperMarkStepHalf, language)}</option>
+            <option value="0.25">{primary(m.paperMarkStepQuarter, language)}</option>
+          </Select>
+        </Field>
+        <label className="flex min-h-11 items-center gap-2 text-[14px] text-foreground sm:col-span-2">
+          <input type="checkbox" name="allowExempt" defaultChecked className="size-4" />
+          {primary(m.paperAllowExempt, language)}
+        </label>
       </div>
 
       <Button

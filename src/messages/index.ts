@@ -1056,7 +1056,7 @@ export const m = {
   marksAbsent: t("अनुपस्थित", "Absent"),
   marksNotEntered: t("नहीं भरा", "Not entered"),
   marksEntered: t("भरे गए", "entered"),
-  marksSaveRow: t("सहेजें", "Save"),
+  marksSaveRow: t("मसौदा सहेजें", "Save draft"),
   marksSaved: t("सहेज लिया", "Saved"),
   marksLocked: t(
     "यह परीक्षा बंद है।",
@@ -1071,6 +1071,51 @@ export const m = {
   ),
   marksWhoIsLeft: t("किनके अंक बाकी हैं", "Still to enter"),
   marksAllIn: t("सब अंक भर चुके हैं।", "Every mark is in."),
+
+  // P7: drafted, then submitted, then corrected only with a reason.
+  marksExempt: t("छूट", "Exempt"),
+  marksSubmit: t("अंक जमा करें", "Submit marks"),
+  marksSubmitCheck: t("जमा करने से पहले देख लें", "Check before submitting"),
+  marksSubmitMeans: t(
+    "जमा करने का अर्थ है कि आपने अंक भर दिए। इससे परिणाम स्वीकृत या रिपोर्ट जारी नहीं होती।",
+    "Submitting says you have finished entering. It does not approve a result or issue a report.",
+  ),
+  marksSubmitConfirm: t("हाँ, जमा करें", "Yes, submit"),
+  marksBack: t("अंकों पर लौटें", "Back to the marks"),
+  marksStillBlank: t("अभी खाली", "Still blank"),
+  marksBlankNeverZero: t("खाली को शून्य नहीं माना जाता।", "A blank is never counted as zero."),
+  marksDraftStatus: t("मसौदा — अभी जमा नहीं", "Draft — not submitted yet"),
+  marksSubmittedStatus: t("जमा", "Submitted"),
+  marksCorrect: t("जमा अंक सुधारें", "Correct submitted marks"),
+  marksCorrecting: t(
+    "आप जमा पेपर के अंक बदल रहे हैं। हर बदलाव कारण के साथ लेखे में रहेगा।",
+    "You are changing a submitted paper. Every change is kept in the log with your reason.",
+  ),
+  marksCorrectReason: t("बदलाव क्यों? (ज़रूरी)", "Why? (required)"),
+  marksSaveCorrection: t("सुधार सहेजें", "Save the correction"),
+  marksLeaveAsIs: t("जैसे हैं वैसे छोड़ें", "Leave them as they are"),
+  marksReopen: t("अध्यापक के लिए फिर खोलें", "Reopen for the teacher"),
+  marksChecking: t("जाँच रहे हैं कि अंक सहेजे गए या नहीं…", "Checking whether your save completed…"),
+  marksNotSavedRetry: t(
+    "सहेजे नहीं गए। फिर से कोशिश करें — दो बार नहीं सहेजे जाएँगे।",
+    "Not saved. Try again — it will not be saved twice.",
+  ),
+  marksReload: t("पेज फिर से खोलें", "Reload the page"),
+  marksNotYourSubject: t(
+    "इस कक्षा में यह विषय आपका नहीं है — अंक इसके विषय-अध्यापक भरेंगे।",
+    "This subject is not yours in this class — its subject teacher enters these marks.",
+  ),
+  paperMarkStep: t("अंक किस हिस्से तक", "Marks go to"),
+  paperMarkStepWhole: t("पूरे अंक", "Whole marks"),
+  paperMarkStepHalf: t("आधे अंक", "Halves"),
+  paperMarkStepQuarter: t("चौथाई अंक", "Quarters"),
+  paperAllowExempt: t("छूट दी जा सकती है", "A child may be exempt"),
+  paperSchemeInUse: t(
+    "इस पेपर के अंक भरे जा रहे हैं — पूर्णांक, अंक का हिस्सा या छूट अब नहीं बदल सकते।",
+    "Marks are being entered on this paper — its maximum, step and exemption cannot change now.",
+  ),
+  paperSubmitted: t("जमा", "Submitted"),
+  paperDraft: t("मसौदा", "Draft"),
 
   /* ----------------------------------------------------- progress */
   progressTitle: t("प्रगति", "Progress"),

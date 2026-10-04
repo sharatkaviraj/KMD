@@ -5,15 +5,20 @@ import { dayLabel } from "@/platform/dates";
 import { primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { classRoll } from "@/modules/attendance/data/attendance-repo";
-import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
+import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
 import {
   changeLogFor,
   getAssessment,
   getPaper,
+  isAssignedTo,
+  latestMarksReceipt,
   marksForPaper,
+  rosterForPaper,
 } from "@/modules/assessments/data/assessments-repo";
 import { canEnterMarks } from "@/modules/assessments/domain/assessments";
+import { paperAuthority } from "@/modules/assessments/domain/marks-command";
 import { MarksGrid } from "@/modules/assessments/ui/marks-grid";
 import { Card, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
@@ -62,21 +67,41 @@ export default async function MarksPage(
     );
   }
 
-  const [roll, marks, changes, own] = await Promise.all([
-    classRoll({ classId: paper.classId, sessionLabel }),
+  // Marks are the subject teacher's: the one the timetable gives this subject
+  // in this class, or whoever runs the exams (P7). A class teacher reads her
+  // class's papers; anybody else is told it is not their class.
+  const [assigned, scope] = await Promise.all([
+    isAssignedTo({
+      staffProfileId: staff.id,
+      sessionLabel,
+      classId: paper.classId,
+      subjectId: paper.subjectId,
+    }),
+    classScopeFor(staff, sessionLabel),
+  ]);
+  const authority = paperAuthority({
+    isManager: can(staff, "assessments:manage"),
+    isAssigned: assigned,
+    hasWritePermission: can(staff, "marks:write"),
+  });
+
+  if (!authority.enter && !scopeIncludes(scope, paper.classId)) {
+    return (
+      <>
+        <PageHeader eyebrow={m.eyebrowExams} title={m.marksGrid} language={language} back={BACK} />
+        <NotYourClass language={language} />
+      </>
+    );
+  }
+
+  const [roll, marks, changes, receipt] = await Promise.all([
+    rosterForPaper(paper.id),
     marksForPaper(paper.id),
     changeLogFor(paper.id),
-    ownClassIds(staff.id, sessionLabel),
+    latestMarksReceipt(paper.id),
   ]);
 
   const openness = canEnterMarks(assessment);
-
-  // `marks:write` says this person may enter marks; it does not say whose.
-  // The same row-level half as attendance, and the same shape.
-  const mine =
-    can(staff, "assessments:manage") || own.includes(paper.classId);
-
-  const locked = !openness.allowed || !can(staff, "marks:write") || !mine;
 
   return (
     <>
@@ -102,17 +127,14 @@ export default async function MarksPage(
         marks={Object.fromEntries(
           [...marks.entries()].map(([studentId, mark]) => [
             studentId,
-            { value: mark.value, absent: mark.absent },
+            { value: mark.value, absent: mark.absent, exempt: mark.exempt },
           ]),
         )}
-        locked={locked}
-        lockedReason={
-          !openness.allowed
-            ? m.marksLocked
-            : !mine
-              ? m.attendanceNotYours
-              : null
-        }
+        canEnter={authority.enter}
+        canReopen={authority.reopen}
+        examOpen={openness.allowed}
+        lockedReason={!openness.allowed ? m.marksLocked : !authority.enter ? m.marksNotYourSubject : null}
+        receipt={receipt}
       />
 
       {/* --------------------------------------------- the change log */}
@@ -127,17 +149,21 @@ export default async function MarksPage(
                 (entry) => entry.studentId === change.studentId,
               );
 
-              const before = change.fromAbsent
-                ? primary(m.marksAbsent, language)
-                : change.fromValue === null
-                  ? primary(m.marksNotEntered, language)
-                  : String(change.fromValue);
+              const before = change.fromExempt
+                ? primary(m.marksExempt, language)
+                : change.fromAbsent
+                  ? primary(m.marksAbsent, language)
+                  : change.fromValue === null
+                    ? primary(m.marksNotEntered, language)
+                    : String(change.fromValue);
 
-              const after = change.toAbsent
-                ? primary(m.marksAbsent, language)
-                : change.toValue === null
-                  ? primary(m.marksNotEntered, language)
-                  : String(change.toValue);
+              const after = change.toExempt
+                ? primary(m.marksExempt, language)
+                : change.toAbsent
+                  ? primary(m.marksAbsent, language)
+                  : change.toValue === null
+                    ? primary(m.marksNotEntered, language)
+                    : String(change.toValue);
 
               return (
                 <li key={change.id}>

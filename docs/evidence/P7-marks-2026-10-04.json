@@ -1,0 +1,121 @@
+{
+  "ranAt": "2026-10-04T08:11:11.062Z",
+  "target": "schoolfees-dev",
+  "results": [
+    {
+      "name": "a draft records a zero, an absence and an exemption as three different things, and writes nothing for a blank",
+      "ok": true,
+      "detail": "1 entered · 36 blank"
+    },
+    {
+      "name": "a repeated draft returns its receipt and writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reused id with a different payload is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a save against the old revision is stale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a mark above the maximum refuses the whole column — the valid cell beside it is not written either",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a quarter on a paper marked in halves is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a child not on the exam's roll is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "submitting with children still blank is refused, naming them, and the cells sent with it are not written",
+      "ok": true,
+      "detail": "35 still blank"
+    },
+    {
+      "name": "a draft that changes nothing is refused as no change",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "submitting a complete column marks the paper submitted, by whom, with a receipt",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a draft on a submitted paper is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a correction without a reason is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a correction cannot blank a submitted cell",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a correction with a reason changes the cell, logs the reason, and the paper stays submitted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the class teacher cannot enter a subject she does not teach, nor another teacher hers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the exam office may enter any paper",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "only the exam office hands a submitted paper back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a paper that allows no exemption refuses one, and a paper in whole marks refuses a half",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault after marks leaves the column as it was",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault before receipt leaves the column as it was",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "two saves of one paper at once: one lands, the other is told it is stale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a child admitted after the exam ended is not on its roll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a locked exam refuses every save",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

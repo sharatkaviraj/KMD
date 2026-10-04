@@ -102,10 +102,12 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
       expected: roll.length,
       entered,
       done: roll.length > 0 && entered === roll.length,
+      // A full column is not finished until its teacher submits it (P7).
+      submitted: paper.entryStatus === "submitted",
     };
   });
 
-  const outstanding = progress.filter((entry) => !entry.done);
+  const outstanding = progress.filter((entry) => !entry.submitted);
 
   const exportRows = papers.flatMap((paper) =>
     (rolls.get(paper.classId) ?? []).map((student) => {
@@ -118,6 +120,7 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
         assessmentCode: assessment.code,
         value: mark?.value ?? null,
         absent: mark?.absent ?? false,
+        exempt: mark?.exempt ?? false,
         maxMarks: paper.maxMarks,
       };
     }),
@@ -191,7 +194,8 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
                           : ""}
                       </span>
                     </span>
-                    <Badge tone={entry.done ? "success" : "warning"}>
+                    <Badge tone={entry.submitted ? "success" : entry.done ? "accent" : "warning"}>
+                      {entry.submitted ? `${primary(m.paperSubmitted, language)} · ` : ""}
                       {countOf(entry.entered, entry.expected, language)}
                     </Badge>
                     <ChevronRight

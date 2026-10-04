@@ -61,35 +61,54 @@ export type AssessmentSubject = {
   maxMarks: number;
   passMarks: number | null;
   sortOrder: number;
+  /** The smallest part of a mark this paper gives: 1, 0.5 or 0.25 (P7). */
+  markStep: number;
+  /** Whether a child may be excused from this paper rather than marked. */
+  allowExempt: boolean;
+  /** `open` while the teacher drafts; `submitted` once she says she is done. */
+  entryStatus: "open" | "submitted";
+  /** Each committed save adds one; a save against an older one is stale. */
+  entryRevision: number;
+  submittedAt: string | null;
 };
 
 /**
  * One cell in the grid.
  *
- * **Three states, not two.** `null` with `absent: false` means nobody has
- * entered it yet; `absent: true` means the child did not sit the paper; a
- * number is a number. A zero is a real mark somebody gave, and a grid that
- * could not tell it from a blank would make "who has not entered yet"
- * unanswerable — which is the question the whole board exists for.
+ * **Four states, not two.** Blank — `null`, not absent, not exempt — means
+ * nobody has entered it yet; `absent` means the child did not sit the paper;
+ * `exempt` means the child was excused from it (P7); a number is a number. A
+ * zero is a real mark somebody gave, and a grid that could not tell it from a
+ * blank would make "who has not entered yet" unanswerable — which is the
+ * question the whole board exists for.
  */
 export type Mark = {
   studentId: string;
   value: number | null;
   absent: boolean;
+  exempt: boolean;
   enteredByName: string | null;
   enteredAt: string | null;
 };
 
-export function isEntered(mark: Pick<Mark, "value" | "absent"> | undefined): boolean {
-  if (!mark) return false;
-  return mark.absent || mark.value !== null;
+export type CellState = "blank" | "value" | "absent" | "exempt";
+
+export function cellState(mark: Pick<Mark, "value" | "absent" | "exempt"> | undefined): CellState {
+  if (!mark) return "blank";
+  if (mark.exempt) return "exempt";
+  if (mark.absent) return "absent";
+  return mark.value === null ? "blank" : "value";
+}
+
+export function isEntered(mark: Pick<Mark, "value" | "absent" | "exempt"> | undefined): boolean {
+  return cellState(mark) !== "blank";
 }
 
 /** What a cell holds, with "nobody has entered this" spelled out. */
-export type MarkState = { value: number | null; absent: boolean };
+export type MarkState = { value: number | null; absent: boolean; exempt?: boolean };
 
 /** A cell nobody has touched. A missing row and a blank row are this, equally. */
-export const NOT_ENTERED: MarkState = { value: null, absent: false };
+export const NOT_ENTERED: MarkState = { value: null, absent: false, exempt: false };
 
 /**
  * Whether saving this would actually change anything.
@@ -105,7 +124,11 @@ export const NOT_ENTERED: MarkState = { value: null, absent: false };
  * what "unchanged" means, so the log and the table cannot disagree about it.
  */
 export function markChanged(before: MarkState, after: MarkState): boolean {
-  return before.value !== after.value || before.absent !== after.absent;
+  return (
+    before.value !== after.value ||
+    before.absent !== after.absent ||
+    (before.exempt ?? false) !== (after.exempt ?? false)
+  );
 }
 
 /* ------------------------------------------------------------ validation */
@@ -125,7 +148,7 @@ export type MarkCheck = { ok: true; value: number | null } | { ok: false; error:
  */
 export function checkMark(
   raw: string | number | null | undefined,
-  paper: Pick<AssessmentSubject, "maxMarks">,
+  paper: Pick<AssessmentSubject, "maxMarks"> & Partial<Pick<AssessmentSubject, "markStep">>,
 ): MarkCheck {
   const text = String(raw ?? "").trim();
   if (text === "") return { ok: true, value: null };
@@ -153,11 +176,19 @@ export function checkMark(
     };
   }
 
-  // Half marks are ordinary; a mark to four decimal places is a typo.
-  if (Math.round(value * 2) !== value * 2) {
+  // The paper's own step (P7): whole marks, halves or quarters. Anything
+  // finer is a typo — 37.3 on a paper marked in halves.
+  const step = paper.markStep ?? 0.5;
+  const units = value / step;
+  if (Math.abs(units - Math.round(units)) > 1e-9) {
     return {
       ok: false,
-      error: t("आधे अंक तक ही", "Marks go to the half only"),
+      error:
+        step === 1
+          ? t("केवल पूरे अंक", "Whole marks only")
+          : step === 0.5
+            ? t("आधे अंक तक ही", "Marks go to the half only")
+            : t("चौथाई अंक तक ही", "Marks go to the quarter only"),
     };
   }
 
@@ -217,6 +248,8 @@ export type Totals = {
   /** Papers the child sat but has no mark for yet. */
   missing: number;
   absent: number;
+  /** Papers the child was excused from — out of both halves (P7). */
+  exempt: number;
   /** The plain sum of what the teachers wrote — it adds up by hand. */
   scored: number;
   outOf: number;
@@ -259,6 +292,7 @@ export function totalsFor(results: PaperResult[]): Totals {
   let counted = 0;
   let missing = 0;
   let absent = 0;
+  let exempt = 0;
   let scored = 0;
   let outOf = 0;
 
@@ -270,6 +304,13 @@ export function totalsFor(results: PaperResult[]): Totals {
 
   for (const { paper, mark, weight } of results) {
     const counts = weight ?? 1;
+
+    // Excused is neither a mark nor a nought: out of both halves, like leave
+    // in the register (P7).
+    if (mark?.exempt) {
+      exempt += 1;
+      continue;
+    }
 
     if (mark?.absent) {
       absent += 1;
@@ -296,6 +337,7 @@ export function totalsFor(results: PaperResult[]): Totals {
     counted,
     missing,
     absent,
+    exempt,
     scored,
     outOf,
     percent:
@@ -343,10 +385,11 @@ export function gradeFor(percent: number | null): GradeBand | null {
 
 /** Whether this paper was passed, when the school set a pass mark for it. */
 export function passed(
-  mark: Pick<Mark, "value" | "absent"> | undefined,
+  mark: Pick<Mark, "value" | "absent" | "exempt"> | undefined,
   paper: Pick<AssessmentSubject, "passMarks">,
 ): boolean | null {
   if (paper.passMarks === null) return null;
+  if (mark?.exempt) return null;
   if (!mark || mark.absent) return false;
   if (mark.value === null) return null;
   return mark.value >= paper.passMarks;
@@ -359,7 +402,10 @@ export type PaperProgress = {
   expected: number;
   entered: number;
   percent: number;
+  /** Every child has a mark, an absence or an exemption. */
   done: boolean;
+  /** The teacher has said so — the task is complete only then (P7). */
+  submitted: boolean;
 };
 
 /**
@@ -388,11 +434,13 @@ export function paperProgress(
     entered,
     percent: roll === 0 ? 0 : Math.round((entered / roll) * 100),
     done: roll > 0 && entered === roll,
+    submitted: paper.entryStatus === "submitted",
   };
 }
 
+/** A paper is outstanding until its teacher submits it, however full it is. */
 export function outstandingPapers(progress: PaperProgress[]): PaperProgress[] {
-  return progress.filter((entry) => !entry.done);
+  return progress.filter((entry) => !entry.submitted);
 }
 
 /* ----------------------------------------------------------- validation */
@@ -451,6 +499,13 @@ export const paperSchema = z.object({
     .max(1000),
   passMarks: z.coerce.number().min(0).max(1000).nullable(),
   sortOrder: z.coerce.number().int().min(0).max(999),
+  /** The smallest part of a mark the paper gives (P7). */
+  markStep: z.coerce
+    .number()
+    .refine((value) => value === 1 || value === 0.5 || value === 0.25, {
+      message: encodeMessage(t("1, 0.5 या 0.25 चुनें", "Choose 1, 0.5 or 0.25")),
+    }),
+  allowExempt: z.boolean(),
 });
 
 export type PaperInput = z.infer<typeof paperSchema>;

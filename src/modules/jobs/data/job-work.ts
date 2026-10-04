@@ -15,6 +15,8 @@ import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
 import { FEE_SCHEMA } from "@/platform/env";
+import { chunkArray } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { SCHOOL_UTC_OFFSET_MINUTES } from "@/platform/dates";
 
 /**
@@ -241,6 +243,30 @@ async function classTeachers(
     if (contact) byClass.set(row.class_id as string, contact);
   }
   return byClass;
+}
+
+/** Name and number for a set of staff, active ones only. */
+async function staffContacts(ids: string[]): Promise<Map<string, StaffContact>> {
+  const found = new Map<string, StaffContact>();
+  for (const chunk of chunkArray(ids, IN_FILTER_CHUNK_SIZE)) {
+    const rows = await must(
+      createAdminClient()
+        .from("staff_profiles")
+        .select("id, display_name, phone, whatsapp_phone, is_active")
+        .in("id", chunk),
+      "the staff",
+    );
+    for (const row of rows as {
+      id: string;
+      display_name: string;
+      phone: string | null;
+      whatsapp_phone: string | null;
+      is_active: boolean;
+    }[]) {
+      if (row.is_active) found.set(row.id, { id: row.id, name: row.display_name, phone: row.whatsapp_phone ?? row.phone });
+    }
+  }
+  return found;
 }
 
 const fill = (body: string, values: string[]) =>
@@ -519,7 +545,7 @@ export async function missingMarksNudge(day: string): Promise<Summary> {
   const papers = await must(
     admin
       .from("assessment_subjects")
-      .select("id, class_id, class_label, subject_code")
+      .select("id, class_id, class_label, subject_id, subject_code, entry_status")
       .in("assessment_id", examIds),
     "the papers",
   );
@@ -528,33 +554,41 @@ export async function missingMarksNudge(day: string): Promise<Summary> {
     id: string;
     class_id: string;
     class_label: string;
+    subject_id: string;
     subject_code: string;
+    entry_status: "open" | "submitted";
   }[];
 
   if (paperList.length === 0) {
     return { exams_open: examIds.length, papers_outstanding: 0, drafted: 0 };
   }
 
-  const marks = await fetchAllRows(
-    (from, to) =>
-      admin
-        .from("marks")
-        .select("assessment_subject_id, student_id, value, absent")
-        .in(
-          "assessment_subject_id",
-          paperList.map((paper) => paper.id),
-        )
-        .range(from, to),
-    "the marks",
-  );
+  // Chunked: a few open exams across every class pass the ~300 ids a URL
+  // holds (rule 3b), and paged within each chunk past the 1000-row cap.
+  const marks: { assessment_subject_id: string; value: number | string | null; absent: boolean; exempt: boolean }[] = [];
+  for (const chunk of chunkArray(paperList.map((paper) => paper.id), IN_FILTER_CHUNK_SIZE)) {
+    marks.push(
+      ...((await fetchAllRows(
+        (from, to) =>
+          admin
+            .from("marks")
+            .select("assessment_subject_id, student_id, value, absent, exempt")
+            .in("assessment_subject_id", chunk)
+            .range(from, to),
+        "the marks",
+      )) as typeof marks),
+    );
+  }
 
   const entered = new Map<string, number>();
-  for (const row of marks as {
-    assessment_subject_id: string;
-    value: number | string | null;
-    absent: boolean;
-  }[]) {
-    if (!isEntered({ value: row.value === null ? null : Number(row.value), absent: row.absent })) {
+  for (const row of marks) {
+    if (
+      !isEntered({
+        value: row.value === null ? null : Number(row.value),
+        absent: row.absent,
+        exempt: row.exempt,
+      })
+    ) {
       continue;
     }
     const key = row.assessment_subject_id;
@@ -563,24 +597,44 @@ export async function missingMarksNudge(day: string): Promise<Summary> {
 
   const byClass = await classesWithChildren(sessionLabel);
 
+  // A paper is the teacher's task until she submits it (P7) — a full column
+  // she has not submitted is still hers to check.
   const outstanding = paperList.filter((paper) => {
     const expected = byClass.get(paper.class_id) ?? 0;
-    return expected > 0 && (entered.get(paper.id) ?? 0) < expected;
+    return expected > 0 && paper.entry_status !== "submitted";
   });
 
   const marksOutstanding = outstanding.reduce((total, paper) => {
     const expected = byClass.get(paper.class_id) ?? 0;
-    return total + (expected - (entered.get(paper.id) ?? 0));
+    return total + Math.max(0, expected - (entered.get(paper.id) ?? 0));
   }, 0);
 
-  const teachers = await classTeachers(sessionLabel);
+  // The subject teacher the timetable gives the paper to — the person who
+  // enters its marks (P7) — and the class teacher only where nobody teaches
+  // the subject.
+  const [teachers, assignments] = await Promise.all([
+    classTeachers(sessionLabel),
+    must(
+      admin
+        .from("teaching_assignments")
+        .select("class_id, subject_id, staff_profile_id")
+        .eq("session_label", sessionLabel),
+      "the teaching assignments",
+    ),
+  ]);
+  const subjectTeacher = new Map<string, string>();
+  for (const row of assignments as { class_id: string; subject_id: string; staff_profile_id: string }[]) {
+    subjectTeacher.set(`${row.class_id}|${row.subject_id}`, row.staff_profile_id);
+  }
+  const contacts = await staffContacts([...new Set(subjectTeacher.values())]);
 
   // One message per teacher, however many of her papers are behind: four
   // messages about four papers is how a reminder becomes something people mute.
   const perTeacher = new Map<string, { contact: StaffContact; papers: string[] }>();
 
   for (const paper of outstanding) {
-    const teacher = teachers.get(paper.class_id);
+    const assigned = subjectTeacher.get(`${paper.class_id}|${paper.subject_id}`);
+    const teacher = (assigned ? contacts.get(assigned) : undefined) ?? teachers.get(paper.class_id);
     if (!teacher?.phone) continue;
     const entry = perTeacher.get(teacher.id) ?? { contact: teacher, papers: [] };
     entry.papers.push(`${paper.class_label} ${paper.subject_code}`);

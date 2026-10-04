@@ -1,10 +1,18 @@
 import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { FEE_SCHEMA } from "@/platform/env";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
-import { markChanged } from "@/modules/assessments/domain/assessments";
+import {
+  toMarksReceipt,
+  type MarksReceipt,
+  type SaveMarksInput,
+} from "@/modules/assessments/domain/marks-command";
+import type { RollStudent } from "@/modules/attendance/domain/attendance";
 import type {
   Assessment,
   AssessmentInput,
@@ -19,8 +27,9 @@ import type {
  * Exams, papers and marks.
  *
  * Every write goes through the service-role client after a permission check,
- * the way every other write in this app does (D-13). The one that is different
- * is `saveMark`, which writes a log row beside the mark — see its own note.
+ * the way every other write in this app does (D-13). Marks are different: they
+ * are written only by `save_marks`, one database command per paper that checks
+ * who, what and when again and writes the cells and their log together (P7).
  */
 
 /* ---------------------------------------------------------- assessments */
@@ -166,11 +175,16 @@ type PaperRow = {
   max_marks: number | string;
   pass_marks: number | string | null;
   sort_order: number;
+  mark_step: number | string;
+  allow_exempt: boolean;
+  entry_status: "open" | "submitted";
+  entry_revision: number;
+  submitted_at: string | null;
 };
 
 const PAPER_COLUMNS =
   "id, assessment_id, class_id, class_label, subject_id, subject_code, " +
-  "max_marks, pass_marks, sort_order";
+  "max_marks, pass_marks, sort_order, mark_step, allow_exempt, entry_status, entry_revision, submitted_at";
 
 const toPaper = (row: PaperRow): AssessmentSubject => ({
   id: row.id,
@@ -182,6 +196,11 @@ const toPaper = (row: PaperRow): AssessmentSubject => ({
   maxMarks: Number(row.max_marks),
   passMarks: row.pass_marks === null ? null : Number(row.pass_marks),
   sortOrder: row.sort_order,
+  markStep: Number(row.mark_step),
+  allowExempt: row.allow_exempt,
+  entryStatus: row.entry_status,
+  entryRevision: row.entry_revision,
+  submittedAt: row.submitted_at,
 });
 
 export async function papersFor(assessmentId: string): Promise<AssessmentSubject[]> {
@@ -227,6 +246,8 @@ export async function upsertPaper(
         max_marks: input.maxMarks,
         pass_marks: input.passMarks,
         sort_order: input.sortOrder,
+        mark_step: input.markStep,
+        allow_exempt: input.allowExempt,
       },
       { onConflict: "assessment_id,class_id,subject_id" },
     );
@@ -268,18 +289,20 @@ type MarkRow = {
   student_id: string;
   value: number | string | null;
   absent: boolean;
+  exempt: boolean;
   entered_at: string;
   staff_profiles: { display_name: string } | null;
 };
 
 const MARK_COLUMNS =
-  "id, assessment_subject_id, student_id, value, absent, entered_at, " +
+  "id, assessment_subject_id, student_id, value, absent, exempt, entered_at, " +
   "staff_profiles(display_name)";
 
 const toMark = (row: MarkRow): Mark => ({
   studentId: row.student_id,
   value: row.value === null ? null : Number(row.value),
   absent: row.absent,
+  exempt: row.exempt,
   enteredByName: row.staff_profiles?.display_name ?? null,
   enteredAt: row.entered_at,
 });
@@ -332,81 +355,157 @@ export async function marksForPapers(
   );
 }
 
-export type MarkWrite = {
-  studentId: string;
-  value: number | null;
-  absent: boolean;
-};
+/* ------------------------------------------------------ the command */
+
+export type MarksOutcome =
+  | { outcome: "saved"; receipt: MarksReceipt }
+  | { outcome: "stale" }
+  | { outcome: "incomplete"; blank: string[] }
+  | { outcome: "invalid"; reason: string; studentId: string | null }
+  | { outcome: "refused"; reason: string };
 
 /**
- * Save one cell, and record what it was.
+ * Save one paper's marks: draft, submit, correct or reopen (P7).
  *
- * **The log is written from the value that was there, read in the same call.**
- * A mark that changes after a parent has seen it is the most sensitive write
- * in this app, and "it was 68 last week" has to have an answer that does not
- * depend on anybody remembering.
- *
- * Nothing is logged when nothing changed: a teacher tabbing through a grid
- * re-saves cells she did not touch, and a log full of 68 → 68 is a log nobody
- * reads — which is the same as not having one.
+ * `save_marks` checks again who may enter this paper, that the exam is open,
+ * the revision the page showed, every cell against the paper's scheme and
+ * roll, and for a submission that nobody is left blank — then writes the
+ * changed cells, a log row for each, the paper's new revision and the receipt
+ * in one transaction. A refused cell leaves the whole column as it was. A
+ * repeated `commandId` returns the first receipt.
  */
-export async function saveMark(input: {
-  assessmentSubjectId: string;
-  mark: MarkWrite;
-  staffProfileId: string;
-  reason: string | null;
-}): Promise<{ changed: boolean }> {
-  const admin = createAdminClient();
-
-  const { data: existing } = await admin
-    .from("marks")
-    .select("id, value, absent")
-    .eq("assessment_subject_id", input.assessmentSubjectId)
-    .eq("student_id", input.mark.studentId)
-    .maybeSingle<{ id: string; value: number | string | null; absent: boolean }>();
-
-  const before = {
-    value: existing?.value === null || existing === null ? null : Number(existing.value),
-    absent: existing?.absent ?? false,
-  };
-
-  // `markChanged()` owns what "unchanged" means — including that a missing row
-  // and a blank row are the same state, which is what this got wrong until
-  // somebody looked at the screen (D-80).
-  const after = {
-    value: input.mark.absent ? null : input.mark.value,
-    absent: input.mark.absent,
-  };
-
-  if (!markChanged(before, after)) return { changed: false };
-
-  const { error } = await admin.from("marks").upsert(
-    {
-      assessment_subject_id: input.assessmentSubjectId,
-      student_id: input.mark.studentId,
-      value: input.mark.absent ? null : input.mark.value,
-      absent: input.mark.absent,
-      entered_by: input.staffProfileId,
-      entered_at: new Date().toISOString(),
+export async function saveMarksCommand(
+  input: SaveMarksInput & {
+    actorStaffId: string;
+    payloadHash: string;
+    fault?: "after_marks" | "before_receipt";
+  },
+): Promise<MarksOutcome> {
+  const { data, error } = await createAdminClient().rpc("save_marks", {
+    p: {
+      command_id: input.commandId,
+      actor_staff_id: input.actorStaffId,
+      paper_id: input.paperId,
+      kind: input.kind,
+      expected_revision: input.expectedRevision,
+      reason: input.reason,
+      payload_hash: input.payloadHash,
+      entries: input.entries.map((entry) => ({
+        student_id: entry.studentId,
+        state: entry.state,
+        value: entry.state === "value" ? entry.value : null,
+      })),
+      fault: input.fault ?? null,
     },
-    { onConflict: "assessment_subject_id,student_id" },
-  );
-
-  if (error) throw error;
-
-  const { error: logError } = await admin.from("marks_change_log").insert({
-    assessment_subject_id: input.assessmentSubjectId,
-    student_id: input.mark.studentId,
-    from_value: before.value,
-    to_value: after.value,
-    from_absent: existing ? before.absent : null,
-    to_absent: after.absent,
-    reason: input.reason,
-    changed_by: input.staffProfileId,
   });
 
-  if (logError) throw logError;
-  return { changed: true };
+  if (error) {
+    const named = error.message.match(/marks:([a-z_]+)(?::(.*))?/);
+    if (!named) throw new Error(`Could not save the marks: ${error.message}`);
+    const [, reason, detail] = named;
+    if (reason === "incomplete") {
+      return { outcome: "incomplete", blank: (detail ?? "").split(",").filter(Boolean) };
+    }
+    if (reason === "invalid_value" || reason === "exempt_not_allowed" || reason === "not_on_roll" || reason === "cannot_blank") {
+      return { outcome: "invalid", reason, studentId: detail?.trim() || null };
+    }
+    if (reason.startsWith("injected_fault")) throw new Error(error.message);
+    return { outcome: "refused", reason };
+  }
+
+  const row = data as Record<string, unknown>;
+  if (row.ok === true) return { outcome: "saved", receipt: toMarksReceipt(row) };
+  if (row.reason === "stale") return { outcome: "stale" };
+  return { outcome: "refused", reason: String(row.reason ?? "failed") };
+}
+
+/** Whether a save with this id landed — asked after an answer that never came. */
+export async function findMarksCommand(commandId: string, actorStaffId: string): Promise<MarksReceipt | null> {
+  const { data, error } = await createAdminClient()
+    .from("marks_commands")
+    .select("receipt")
+    .eq("id", commandId)
+    .eq("actor_staff_id", actorStaffId)
+    .maybeSingle<{ receipt: Record<string, unknown> }>();
+  if (error) throw new Error(`Could not check the save: ${error.message}`);
+  return data ? toMarksReceipt({ ...data.receipt, replayed: true }) : null;
+}
+
+/** The latest committed receipt for a paper, for "Submitted by … at …". */
+export async function latestMarksReceipt(paperId: string): Promise<MarksReceipt | null> {
+  const { data, error } = await createAdminClient()
+    .from("marks_commands")
+    .select("receipt")
+    .eq("assessment_subject_id", paperId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ receipt: Record<string, unknown> }>();
+  if (error) throw new Error(`Could not read the receipt: ${error.message}`);
+  return data ? toMarksReceipt(data.receipt) : null;
+}
+
+/**
+ * Who sat a paper: the class roll during its exam, by the database's rule
+ * (`vppsone.paper_roster`) — the same rule the save applies. Every caller has
+ * already decided this reader may see the paper.
+ */
+export async function rosterForPaper(paperId: string): Promise<RollStudent[]> {
+  await assertPermission("marks:view");
+  const admin = createAdminClient();
+  const { data: ids, error } = await admin.rpc("paper_roster", { p_paper: paperId });
+  if (error) throw new Error(`Could not read who sat the paper: ${error.message}`);
+  const studentIds = ((ids ?? []) as string[]).filter(Boolean);
+  if (studentIds.length === 0) return [];
+
+  const { data: paper } = await admin
+    .from("assessment_subjects")
+    .select("assessments!inner(session_label)")
+    .eq("id", paperId)
+    .single<{ assessments: { session_label: string } }>();
+
+  const [enrolments, students] = await Promise.all([
+    fetchInChunks<{ student_id: string; roll_no: string | null }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+      admin
+        .from("enrolments")
+        .select("student_id, roll_no")
+        .eq("session_label", paper?.assessments.session_label ?? "")
+        .in("student_id", chunk),
+    ),
+    fetchInChunks<{ id: string; full_name: string; admission_no: string | null }>(
+      studentIds,
+      IN_FILTER_CHUNK_SIZE,
+      (chunk) => admin.schema(FEE_SCHEMA).from("students").select("id, full_name, admission_no").in("id", chunk),
+    ),
+  ]);
+  if (enrolments.error || students.error) throw new Error("Could not read who sat the paper.");
+
+  const rollNo = new Map(enrolments.data.map((row) => [row.student_id, row.roll_no]));
+  const byId = new Map(students.data.map((row) => [row.id, row]));
+  return studentIds.map((studentId) => ({
+    studentId,
+    fullName: byId.get(studentId)?.full_name ?? "—",
+    admissionNo: byId.get(studentId)?.admission_no ?? null,
+    rollNo: rollNo.get(studentId) ?? null,
+  }));
+}
+
+/** Whether the published timetable gives this subject in this class to this person. */
+export async function isAssignedTo(input: {
+  staffProfileId: string;
+  sessionLabel: string;
+  classId: string;
+  subjectId: string;
+}): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .from("teaching_assignments")
+    .select("id")
+    .eq("staff_profile_id", input.staffProfileId)
+    .eq("session_label", input.sessionLabel)
+    .eq("class_id", input.classId)
+    .eq("subject_id", input.subjectId)
+    .limit(1);
+  if (error) throw new Error(`Could not read your subjects: ${error.message}`);
+  return (data ?? []).length > 0;
 }
 
 export type MarkChange = {
@@ -417,6 +516,8 @@ export type MarkChange = {
   toValue: number | null;
   fromAbsent: boolean | null;
   toAbsent: boolean | null;
+  fromExempt: boolean | null;
+  toExempt: boolean | null;
   reason: string | null;
   changedByName: string | null;
   changedAt: string;
@@ -431,7 +532,7 @@ export async function changeLogFor(
   const { data, error } = await supabase
     .from("marks_change_log")
     .select(
-      "id, student_id, from_value, to_value, from_absent, to_absent, reason, " +
+      "id, student_id, from_value, to_value, from_absent, to_absent, from_exempt, to_exempt, reason, " +
         "changed_at, staff_profiles(display_name)",
     )
     .eq("assessment_subject_id", assessmentSubjectId)
@@ -445,6 +546,8 @@ export async function changeLogFor(
         to_value: number | string | null;
         from_absent: boolean | null;
         to_absent: boolean | null;
+        from_exempt: boolean | null;
+        to_exempt: boolean | null;
         reason: string | null;
         changed_at: string;
         staff_profiles: { display_name: string } | null;
@@ -461,6 +564,8 @@ export async function changeLogFor(
     toValue: row.to_value === null ? null : Number(row.to_value),
     fromAbsent: row.from_absent,
     toAbsent: row.to_absent,
+    fromExempt: row.from_exempt,
+    toExempt: row.to_exempt,
     reason: row.reason,
     changedByName: row.staff_profiles?.display_name ?? null,
     changedAt: row.changed_at,

@@ -35,6 +35,11 @@ const paper = (over: Partial<AssessmentSubject> = {}): AssessmentSubject => ({
   maxMarks: 100,
   passMarks: null,
   sortOrder: 0,
+  markStep: 0.5,
+  allowExempt: true,
+  entryStatus: "open",
+  entryRevision: 0,
+  submittedAt: null,
   ...over,
 });
 
@@ -42,6 +47,7 @@ const mark = (over: Partial<Mark> = {}): Mark => ({
   studentId: "st1",
   value: 60,
   absent: false,
+  exempt: false,
   enteredByName: null,
   enteredAt: null,
   ...over,
@@ -431,20 +437,42 @@ describe("paperProgress()", () => {
     expect(paperProgress(paper(), 0, new Map(), []).done).toBe(false);
   });
 
-  it("keeps finished papers on the list, and only drops them from outstanding", () => {
+  it("keeps finished papers on the list, and only drops submitted ones from outstanding", () => {
     // A board that dropped finished work would show a teacher who has entered
     // everything as absent, which reads identically to a teacher nobody asked.
-    const done = paperProgress(
-      paper({ id: "done" }),
+    // And a full column is still hers until she submits it (P7).
+    const submitted = paperProgress(
+      paper({ id: "submitted", entryStatus: "submitted" }),
+      1,
+      new Map([["a", mark({ studentId: "a" })]]),
+      ["a"],
+    );
+    const fullDraft = paperProgress(
+      paper({ id: "full" }),
       1,
       new Map([["a", mark({ studentId: "a" })]]),
       ["a"],
     );
     const notDone = paperProgress(paper({ id: "open" }), 1, new Map(), ["a"]);
 
-    expect(outstandingPapers([done, notDone]).map((entry) => entry.paper.id)).toEqual([
+    expect(fullDraft.done).toBe(true);
+    expect(outstandingPapers([submitted, fullDraft, notDone]).map((entry) => entry.paper.id)).toEqual([
+      "full",
       "open",
     ]);
+  });
+
+  it("counts an exempt child as entered, not as missing", () => {
+    const progress = paperProgress(
+      paper(),
+      2,
+      new Map([
+        ["a", mark({ studentId: "a", value: null, exempt: true })],
+        ["b", mark({ studentId: "b", value: 0 })],
+      ]),
+      ["a", "b"],
+    );
+    expect(progress).toMatchObject({ entered: 2, done: true });
   });
 });
 
@@ -696,6 +724,7 @@ describe("marksCsv()", () => {
         assessmentCode: "SA1",
         value: null,
         absent: true,
+        exempt: false,
         maxMarks: 80,
       },
       {
@@ -706,6 +735,7 @@ describe("marksCsv()", () => {
         assessmentCode: "SA1",
         value: null,
         absent: false,
+        exempt: false,
         maxMarks: 80,
       },
     ]);
@@ -724,6 +754,7 @@ describe("marksCsv()", () => {
         assessmentCode: "SA1",
         value: 0,
         absent: false,
+        exempt: false,
         maxMarks: 80,
       },
     ]);
@@ -790,6 +821,8 @@ describe("paperSchema", () => {
     maxMarks: "80",
     passMarks: "27",
     sortOrder: "0",
+    markStep: "0.5",
+    allowExempt: true,
   };
 
   it("accepts a paper", () => {
@@ -802,5 +835,11 @@ describe("paperSchema", () => {
 
   it("accepts no pass mark", () => {
     expect(paperSchema.safeParse({ ...valid, passMarks: null }).success).toBe(true);
+  });
+
+  it("takes only a step a mark can be given in", () => {
+    expect(paperSchema.safeParse({ ...valid, markStep: "1" }).success).toBe(true);
+    expect(paperSchema.safeParse({ ...valid, markStep: "0.25" }).success).toBe(true);
+    expect(paperSchema.safeParse({ ...valid, markStep: "0.1" }).success).toBe(false);
   });
 });
