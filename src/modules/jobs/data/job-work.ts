@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
@@ -10,6 +12,10 @@ import {
 import { isEntered } from "@/modules/assessments/domain/assessments";
 import type { JobName } from "@/modules/jobs/domain/jobs";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
+import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
+import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
+import { FEE_SCHEMA } from "@/platform/env";
+import { SCHOOL_UTC_OFFSET_MINUTES } from "@/platform/dates";
 
 /**
  * What each job actually does.
@@ -335,12 +341,53 @@ async function draftStaffMessage(input: {
 
 /* ------------------------------------------------ 2. attendance reminder */
 
+/** The instant a school-clock time falls on a day. */
+function schoolMoment(day: string, minutes: number): Date {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, date) + (minutes - SCHOOL_UTC_OFFSET_MINUTES) * 60_000);
+}
+
 /**
- * Who has not submitted a register, and a message ready for each.
+ * Who answers for each class's register on a day: the class teacher in
+ * effect that day, or the assistant when there is none. Not the one in effect
+ * today — a reminder about Tuesday goes to whoever held the class on Tuesday.
+ */
+async function responsibleForRegisters(sessionLabel: string, day: string): Promise<Map<string, string>> {
+  const rows = await must(
+    createAdminClient()
+      .from("class_teachers")
+      .select("class_id, staff_profile_id, role, effective_from, effective_to")
+      .eq("session_label", sessionLabel),
+    "the class teachers",
+  );
+  const byClass = new Map<string, { staff: string; role: string }>();
+  for (const row of rows as {
+    class_id: string;
+    staff_profile_id: string;
+    role: string;
+    effective_from: string | null;
+    effective_to: string | null;
+  }[]) {
+    if (row.effective_from && row.effective_from > day) continue;
+    if (row.effective_to && row.effective_to < day) continue;
+    const held = byClass.get(row.class_id);
+    if (!held || (held.role !== "class_teacher" && row.role === "class_teacher")) {
+      byClass.set(row.class_id, { staff: row.staff_profile_id, role: row.role });
+    }
+  }
+  return new Map([...byClass].map(([classId, held]) => [classId, held.staff]));
+}
+
+/**
+ * Remind whoever answers for each register still outstanding (P6).
  *
- * Only classes that actually have a teacher and a number get a draft; the rest
- * are counted, because "nobody to ask" is the more useful finding of the two
- * and a job that silently dropped them would hide it.
+ * After the first period, by the school's own bells: the cron is a daily
+ * trigger with an hour's slack, so a run that wakes before the first period
+ * has ended asks nobody. Each reminder is a staff notice in the P4 outbox,
+ * keyed by class, day and person, so a second run the same day adds nothing;
+ * and the outbox checks again at the moment it sends — a register saved in
+ * between, or a teacher no longer responsible, and the reminder is
+ * suppressed rather than sent. "Not saved" never means "everyone present".
  */
 export async function attendanceReminder(day: string): Promise<Summary> {
   const sessionLabel = await currentSession();
@@ -351,72 +398,94 @@ export async function attendanceReminder(day: string): Promise<Summary> {
     return { outstanding: 0, note: "school closed today" };
   }
 
+  const bells = await currentBells(sessionLabel);
+  const firstEnds = firstPeriodEnds(bells);
+  const clock = schoolClock(new Date());
+  if (firstEnds !== null && clock.day === day && clock.minutes < firstEnds) {
+    return { outstanding: 0, note: "the first period has not ended yet" };
+  }
+
   const admin = createAdminClient();
   const byClass = await classesWithChildren(sessionLabel);
 
   const registers = await must(
     admin
       .from("attendance_registers")
-      .select("class_id, status")
+      .select("class_id, revision")
       .eq("session_label", sessionLabel)
-      .eq("day", day),
+      .eq("day", day)
+      .is("period", null),
     "today's registers",
   );
-
-  const submitted = new Set(
-    registers
-      .filter((row) => row.status === "submitted")
-      .map((row) => row.class_id as string),
+  const recorded = new Set(
+    (registers as { class_id: string; revision: number }[])
+      .filter((row) => row.revision >= 1)
+      .map((row) => row.class_id),
   );
 
-  const outstanding = [...byClass.keys()].filter((classId) => !submitted.has(classId));
-  const teachers = await classTeachers(sessionLabel);
-
-  // Don't ask the same teacher for the same thing twice in a day — but only
-  // the same thing. Matching on any message at all meant a teacher who had
-  // been nudged about marks was then skipped for her register, which is a
-  // different question about a different day's work.
-  const alreadyAsked = await alreadyRemindedWith(
-    "vppsone_attendance_reminder",
-    sessionLabel,
-    day,
+  const outstanding = [...byClass.keys()].filter((classId) => !recorded.has(classId));
+  const responsible = await responsibleForRegisters(sessionLabel, day);
+  const classes = await must(
+    admin.schema(FEE_SCHEMA).from("classes").select("id, class_name"),
+    "the classes",
+  );
+  const labelOf = new Map(
+    (classes as { id: string; class_name: string }[]).map((row) => [row.id, row.class_name]),
   );
 
-  let drafted = 0;
-  let noTeacher = 0;
-  let noPhone = 0;
+  // Worth sending until the school day is over; after that it is noise.
+  const lastEnds = Math.max(
+    ...bells.periods.map((period) => {
+      const [hours, minutes] = period.ends.split(":").map(Number);
+      return hours * 60 + minutes;
+    }),
+  );
+  const notAfter = schoolMoment(day, Number.isFinite(lastEnds) ? lastEnds : 23 * 60 + 59).toISOString();
+  const commandId = randomUUID();
 
-  for (const classId of outstanding) {
-    const teacher = teachers.get(classId);
-    if (!teacher) {
-      noTeacher += 1;
-      continue;
-    }
-    if (!teacher.phone) {
-      noPhone += 1;
-      continue;
-    }
-    if (alreadyAsked.has(teacher.id)) continue;
+  const rows = outstanding.flatMap((classId) => {
+    const staffId = responsible.get(classId);
+    if (!staffId) return [];
+    return [
+      {
+        notice_key: `attendance:${classId}:${day}:${staffId}`,
+        kind: "attendance_reminder",
+        class_id: classId,
+        class_label: labelOf.get(classId) ?? null,
+        staff_profile_id: staffId,
+        session_label: sessionLabel,
+        day,
+        not_after: notAfter,
+        command_id: commandId,
+      },
+    ];
+  });
 
-    const wrote = await draftStaffMessage({
-      sessionLabel,
-      templateCode: "vppsone_attendance_reminder",
-      to: teacher,
-      variables: [teacher.name],
-    });
-
-    if (wrote) {
-      drafted += 1;
-      alreadyAsked.add(teacher.id);
-    }
+  let queued = 0;
+  if (rows.length > 0) {
+    const { data, error } = await admin
+      .from("staff_notices")
+      .upsert(rows, { onConflict: "notice_key", ignoreDuplicates: true })
+      .select("id");
+    if (error) throw new Error(`Could not queue the reminders: ${error.message}`);
+    queued = data?.length ?? 0;
   }
+
+  const sent = queued > 0 ? await dispatchStaffNotices({ max: queued + 5 }) : null;
 
   return {
     classes: byClass.size,
     outstanding: outstanding.length,
-    drafted,
-    no_class_teacher: noTeacher,
-    no_phone: noPhone,
+    queued,
+    no_class_teacher: outstanding.filter((classId) => !responsible.has(classId)).length,
+    ...(sent
+      ? {
+          transport: sent.transport,
+          accepted: sent.accepted,
+          unknown: sent.unknown,
+          failed: sent.failed,
+        }
+      : {}),
   };
 }
 

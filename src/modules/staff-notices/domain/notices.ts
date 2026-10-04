@@ -93,6 +93,35 @@ export function renderNotice(facts: NoticeFacts): {
   return { templateCode: NOTICE_TEMPLATES[facts.kind], params, text: text[facts.kind] };
 }
 
+/* ------------------------------------------------- the register reminder */
+
+/**
+ * The attendance reminder (P6): a class teacher whose register is still
+ * outstanding after the first period. Four parameters — {{1}} name, {{2}}
+ * day, {{3}} class, {{4}} link — and no child, no count, nothing about who is
+ * away. The link opens the register, which says "Recorded" if it was saved
+ * after this was sent.
+ */
+export const REMINDER_TEMPLATE = "vppsone_staff_attendance_reminder";
+
+export function renderReminder(facts: {
+  staffName: string;
+  language: Language;
+  day: string;
+  classLabel: string;
+  link: string;
+}): { templateCode: string; params: string[]; text: Localized } {
+  const when = dayText(facts.day);
+  return {
+    templateCode: REMINDER_TEMPLATE,
+    params: [facts.staffName, facts.language === "en" ? when.en : when.hi, facts.classLabel, facts.link],
+    text: t(
+      `${facts.staffName} जी, ${when.hi} की ${facts.classLabel} की हाज़िरी अभी दर्ज नहीं हुई है। यहाँ लें: ${facts.link}`,
+      `${facts.staffName}, ${facts.classLabel}'s register for ${when.en} has not been saved yet. Take it here: ${facts.link}`,
+    ),
+  };
+}
+
 /* ------------------------------------------------------------ outcomes */
 
 export type TransportOutcome =

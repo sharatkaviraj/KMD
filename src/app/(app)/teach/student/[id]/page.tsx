@@ -12,7 +12,7 @@ import {
   classLabelMap,
   resolveSessionLabel,
 } from "@/modules/academics/data/academics-repo";
-import { studentAttendance } from "@/modules/attendance/data/attendance-repo";
+import { attendanceRules, studentAttendance } from "@/modules/attendance/data/attendance-repo";
 import { classScopeFor, ownClassIds } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
@@ -124,10 +124,11 @@ export default async function StudentPage(
 
   const seesMoney = can(staff, "collection:view");
 
-  const [enrolment, history, labels, own, kinds, fees, records, documents] =
+  const [enrolment, history, rules, labels, own, kinds, fees, records, documents] =
     await Promise.all([
       enrolmentForStudent(studentId, sessionLabel),
       studentAttendance(studentId, sessionLabel),
+      attendanceRules(sessionLabel),
       classLabelMap(sessionLabel),
       ownClassIds(staff.id, sessionLabel),
       listNoteKinds(),
@@ -165,14 +166,14 @@ export default async function StudentPage(
     : null;
 
   const statuses = history.map((entry) => entry.status);
-  const summary = attendancePercent(statuses);
+  const summary = attendancePercent(statuses, rules);
 
   const counts = statuses.reduce<Record<AttendanceStatus, number>>(
     (totals, status) => {
       totals[status] += 1;
       return totals;
     },
-    { present: 0, absent: 0, late: 0, leave: 0 },
+    { present: 0, absent: 0, half_day: 0, late: 0, leave: 0 },
   );
 
   // One row per term, so the card says how the child is doing without making
@@ -269,6 +270,11 @@ export default async function StudentPage(
               <Badge tone="success">
                 {primary(attendanceLabels.present, language)} {counts.present}
               </Badge>
+              {counts.half_day > 0 ? (
+                <Badge tone="warning">
+                  {primary(attendanceLabels.half_day, language)} {counts.half_day}
+                </Badge>
+              ) : null}
               {counts.late > 0 ? (
                 <Badge tone="accent">
                   {primary(attendanceLabels.late, language)} {counts.late}

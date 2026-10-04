@@ -23,8 +23,10 @@ import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import {
   attendanceCalendar,
+  attendanceRules,
   classAttendanceRange,
   classRoll,
+  studentNames,
 } from "@/modules/attendance/data/attendance-repo";
 import {
   attendanceInitials,
@@ -134,15 +136,32 @@ export default async function RegisterPage(props: PageProps<"/teach/register">) 
   const { from, to } = monthBounds(month);
   const classLabel = labels.get(requestedClass) ?? "—";
 
-  const [roll, marks, calendar] = await Promise.all([
+  const [current, marks, calendar, rules] = await Promise.all([
     classRoll({ classId: requestedClass, sessionLabel }),
     classAttendanceRange(requestedClass, sessionLabel, from, to),
     attendanceCalendar(sessionLabel),
+    attendanceRules(sessionLabel),
   ]);
 
+  // Today's roll, plus anybody marked in this class this month who has since
+  // left it: their days happened, and a sheet that dropped them would quietly
+  // lose marks the registers recorded (P6).
+  const onRoll = new Set(current.map((student) => student.studentId));
+  const gone = [...new Set(marks.map((mark) => mark.studentId))].filter((id) => !onRoll.has(id));
+  const goneNames = await studentNames(gone);
+  const roll = [
+    ...current,
+    ...gone.map((studentId) => ({
+      studentId,
+      fullName: goneNames.get(studentId) ?? "—",
+      admissionNo: null,
+      rollNo: null,
+    })),
+  ];
+
   const openDays = daysInMonth(month).filter((day) => isSchoolOpen(day, calendar));
-  const sheet = buildMonthlySheet({ month, roll, openDays, marks });
-  const totals = sheetTotals(sheet);
+  const sheet = buildMonthlySheet({ month, roll, openDays, marks, rules });
+  const totals = sheetTotals(sheet, rules);
   const struggling = belowThreshold(sheet, 75);
 
   const previous = shiftMonth(month, -1);

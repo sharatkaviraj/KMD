@@ -70,12 +70,17 @@ export const JOBS: Record<JobName, JobDefinition> = {
     label: t("हाज़िरी की याद", "Attendance reminder"),
     name: "attendance-reminder",
     what: t(
-      "जिन कक्षाओं की हाज़िरी अब तक जमा नहीं हुई, उनके कक्षा-अध्यापकों के लिए संदेश तैयार करता है।",
-      "Queues a message to the class teacher of every class whose register is still not submitted.",
+      "पहला पीरियड खत्म होने के बाद, जिन कक्षाओं की हाज़िरी अब तक सहेजी नहीं गई, उनके कक्षा-अध्यापक को याद दिलाता है। भेजने से ठीक पहले फिर जाँचता है — तब तक सहेज ली गई हो तो नहीं भेजता।",
+      "After the first period ends, reminds the class teacher of every class whose register is still not saved. It checks again just before sending — a register saved meanwhile is not reminded.",
     ),
-    schedule: "30 5 * * *",
-    when: t("हर दिन 11:00 बजे", "Every day at 11:00"),
-    oncePerDay: true,
+    // 04:00 UTC is 09:30 in school, after the first period by the default
+    // bells; a daily cron may fire up to an hour late, never early. The job
+    // itself asks nobody before the first period has ended by the bells.
+    schedule: "0 4 * * *",
+    when: t("हर दिन पहले पीरियड के बाद (लगभग 9:30)", "Every day after the first period (about 9:30)"),
+    // Each reminder is keyed by class, day and person, so running it again —
+    // by hand at noon, say — reminds only who is still outstanding.
+    oncePerDay: false,
   },
   "missing-marks-nudge": {
     name: "missing-marks-nudge",
@@ -205,6 +210,7 @@ export const summaryLabels: Record<string, Localized> = {
   stopped: t("रुकीं", "stopped"),
   cover_needs_help: t("व्यवस्था में मदद चाहिए", "cover needing help"),
   drafted: t("संदेश तैयार", "messages drafted"),
+  queued: t("कतार में", "queued"),
   exams_open: t("खुली परीक्षाएँ", "exams open"),
   marks_outstanding: t("अंक बाकी", "marks outstanding"),
   no_class_teacher: t("कक्षा-अध्यापक नहीं", "no class teacher"),

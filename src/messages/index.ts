@@ -473,16 +473,16 @@ export const m = {
   // Said *while* the connection is down, so it is in the present tense and
   // only ever rendered behind `!online`.
   attendanceOffline: t(
-    "इंटरनेट नहीं है — मसौदे की स्थिति नीचे देखें। जमा करें चुनने के बाद, इसी खुले फ़ॉर्म से इंटरनेट लौटने पर भेजने की कोशिश होगी।",
-    "No connection — check the draft status below. After you choose Submit, this open form retries when the connection returns.",
+    "इंटरनेट नहीं है। आपकी हाज़िरी इसी फ़ोन पर रखी है — इंटरनेट लौटने पर सहेजें दबाएँ। अपने-आप कुछ नहीं भेजा जाएगा।",
+    "No connection. Your marks are kept on this phone — press Save when you are back online. Nothing is sent on its own.",
   ),
   // Said when the connection is *fine*: a standing note that the register
   // keeps working if it drops. Separate from `attendanceOffline` because the
   // Teach card used to show that one unconditionally, which told every teacher
   // on a perfectly good connection that she had none.
   attendanceWorksOffline: t(
-    "इंटरनेट चला जाए तो भी खुले फ़ॉर्म में हाज़िरी लगती रहेगी। मसौदे की स्थिति देखें, फिर जमा करें। दोबारा खोलने पर मसौदा पहले जाँचें।",
-    "An opened register keeps working if the connection drops. Check the draft status, then submit. Review recovered drafts when reopening the form.",
+    "इंटरनेट चला जाए तो भी खुले रजिस्टर में आपकी हाज़िरी फ़ोन पर रहती है। जब तक आप सहेजें न दबाएँ, कुछ दर्ज नहीं होता।",
+    "If the connection drops, an open register keeps your marks on this phone. Nothing is recorded until you press Save.",
   ),
   attendanceQueued: t("भेजना बाकी", "waiting to send"),
   attendanceEmptyRoll: t(
@@ -498,8 +498,8 @@ export const m = {
     "You are recording this on the teacher's behalf — it will be marked as such.",
   ),
   attendanceLocked: t(
-    "यह रजिस्टर जमा हो चुका है। बदलने के लिए निवेदन करें।",
-    "This register has been submitted. To change a mark, request a correction.",
+    "यह रजिस्टर दर्ज हो चुका है। बदलने के लिए कारण के साथ सुधार करें, या सुधार का अनुरोध भेजें।",
+    "This register is recorded. To change it, correct it with a reason — or ask for a correction.",
   ),
   attendanceMarked: t("दर्ज", "marked"),
   attendanceNoClassChosen: t(
@@ -510,6 +510,61 @@ export const m = {
   attendanceAlreadyIn: t("यह हाज़िरी जमा हो चुकी है।", "This register is already in."),
   attendanceTakenBy: t("दर्ज किया", "Recorded by"),
   attendanceStillOpen: t("अभी खुला है", "Still open"),
+
+  // P6: nothing is recorded until somebody saves, and a save is the whole roll.
+  attendanceNotRecorded: t("अभी दर्ज नहीं", "Not recorded yet"),
+  childOne: t("बच्चा", "child"),
+  childMany: t("बच्चे", "children"),
+  attendancePreview: t(
+    "अभी कुछ दर्ज नहीं हुआ। सहेजने तक सब उपस्थित दिखेंगे — केवल जो नहीं आए उन्हें बदलें।",
+    "Nothing is recorded yet. Everyone shows as present until you save — change only the children who are not.",
+  ),
+  attendanceReview: t("जाँचें और सहेजें", "Review and save"),
+  attendanceReviewCorrection: t("सुधार जाँचें", "Review the correction"),
+  attendanceCheckTitle: t("सहेजने से पहले देख लें", "Check before saving"),
+  attendanceEveryonePresent: t("सब उपस्थित", "Everyone present"),
+  attendanceExceptions: t("जो उपस्थित नहीं", "Not present"),
+  attendanceSaveConfirm: t("हाज़िरी सहेजें", "Save attendance"),
+  attendanceSaveCorrection: t("सुधार सहेजें", "Save the correction"),
+  attendanceBackToList: t("सूची पर लौटें", "Back to the list"),
+  attendanceRecorded: t("दर्ज", "Recorded"),
+  attendanceCorrect: t("इस रजिस्टर में सुधार करें", "Correct this register"),
+  attendanceCorrecting: t(
+    "आप दर्ज रजिस्टर में सुधार कर रहे हैं। पुराना संशोधन भी रखा जाएगा।",
+    "You are correcting a recorded register. The earlier revision is kept.",
+  ),
+  attendanceCorrectReason: t("सुधार क्यों? (ज़रूरी — रजिस्टर के साथ रखा जाएगा)", "Why? (required — kept with the register)"),
+  attendanceChanges: t("क्या बदलेगा", "What changes"),
+  attendanceNoChanges: t("अभी कुछ नहीं बदला", "Nothing has changed yet"),
+  attendanceCancelCorrection: t("सुधार छोड़ें", "Leave it as it is"),
+  attendanceChecking: t("जाँच रहे हैं कि हाज़िरी सहेजी गई या नहीं…", "Checking whether your save completed…"),
+  attendanceNotSavedRetry: t(
+    "सहेजी नहीं गई। फिर से कोशिश करें — यह दो बार नहीं सहेजी जाएगी।",
+    "Not saved. Try again — it will not be saved twice.",
+  ),
+  attendanceReloadList: t("नई सूची खोलें", "Open the new list"),
+  attendanceSeeSaved: t("जो सहेजा गया वह देखें", "See what was saved"),
+  attendanceJoined: t("अब सूची में", "Now on the list"),
+  attendanceLeft: t("अब सूची में नहीं", "No longer on the list"),
+  attendanceHistory: t("इतिहास", "History"),
+  attendanceHistoryImported: t("संशोधन रखे जाने से पहले दर्ज", "Recorded before revisions were kept"),
+  attendanceHistoryChanged: t("बदले", "changed"),
+  attendanceDue: t(
+    "रजिस्टर बाकी है — सहेजने पर ही दर्ज होगा।",
+    "This register is outstanding — it is recorded only when saved.",
+  ),
+  attendanceAskInstead: t(
+    "गलती दिखे तो कक्षा-अध्यापक या कार्यालय से सुधार का अनुरोध करें।",
+    "If something is wrong, ask the class teacher or the office for a correction.",
+  ),
+  attendanceRulesTitle: t("हाज़िरी के नियम", "Attendance rules"),
+  attendanceRulesHalfDay: t("आधा दिन कितना गिना जाए", "How much a half day counts"),
+  attendanceRulesHalfDayHint: t(
+    "0 से 1 तक। 0.5 का अर्थ आधा दिन उपस्थित। हर रिपोर्ट और प्रतिशत यही नियम मानेगा।",
+    "From 0 to 1. 0.5 counts a half day as half present. Every report and percentage uses this rule.",
+  ),
+  attendanceRulesSaved: t("नियम सहेजा गया", "Rule saved"),
+  attendanceRulesRange: t("0 से 1 के बीच की संख्या लिखें", "Enter a number from 0 to 1"),
 
   /* ----------------------------------------------------- corrections */
   correctionsTitle: t("सुधार के निवेदन", "Corrections"),
@@ -1541,8 +1596,8 @@ export const m = {
   panelRegisterSummary: t("हाज़िरी का हिसाब", "Register summary"),
   panelExceptionsFirst: t("पहले अपवाद भरिए", "Mark the exceptions first"),
   panelExceptionsFirstText: t(
-    "सब उपस्थित लगाइए, फिर जो अनुपस्थित या देर से आए उन्हें बदलिए, और सहेजने से पहले गिनती देख लीजिए।",
-    "Use mark-all-present, change the children who are absent or late, then check the counts before you save.",
+    "सब उपस्थित दिखते हैं। केवल जो अनुपस्थित, आधा दिन, देर से या छुट्टी पर हैं उन्हें बदलिए, गिनती देखिए, फिर सहेजिए।",
+    "Everyone starts as present. Change only the children who are absent, half day, late or on leave, check the counts, then save.",
   ),
   panelReviewQueue: t("जाँच की कतार", "Review queue"),
   panelCurrentMatters: t("अभी का रिकॉर्ड देखिए", "The current record matters"),

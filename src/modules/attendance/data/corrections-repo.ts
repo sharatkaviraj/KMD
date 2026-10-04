@@ -109,19 +109,21 @@ export async function getCorrection(id: string): Promise<{
   registerId: string;
   studentId: string;
   toStatus: AttendanceStatus;
+  reason: string;
   requestedBy: string;
   status: CorrectionStatus;
 } | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("attendance_corrections")
-    .select("id, register_id, student_id, to_status, requested_by, status")
+    .select("id, register_id, student_id, to_status, reason, requested_by, status")
     .eq("id", id)
     .maybeSingle<{
       id: string;
       register_id: string;
       student_id: string;
       to_status: AttendanceStatus;
+      reason: string;
       requested_by: string;
       status: CorrectionStatus;
     }>();
@@ -134,6 +136,7 @@ export async function getCorrection(id: string): Promise<{
     registerId: data.register_id,
     studentId: data.student_id,
     toStatus: data.to_status,
+    reason: data.reason,
     requestedBy: data.requested_by,
     status: data.status,
   };
@@ -179,45 +182,28 @@ export async function requestCorrection(input: {
 }
 
 /**
- * Decide a request.
+ * Turn a request down.
  *
- * On approval the mark is rewritten **after** the request is marked approved,
- * so an interruption leaves an approved request whose mark still says the old
- * thing — visible in the queue and fixable — rather than a changed mark with
- * no record of who changed it.
+ * Approving is not here: an approved request is a correction of the register,
+ * and `save_attendance_register` writes it — the new revision, its reason and
+ * the request's approval — in one transaction (P6).
  */
-export async function decideCorrection(input: {
+export async function rejectCorrection(input: {
   correctionId: string;
-  approve: boolean;
   decisionNote: string | null;
   deciderStaffId: string;
-  registerId: string;
-  studentId: string;
-  toStatus: AttendanceStatus;
 }): Promise<void> {
-  const admin = createAdminClient();
-
-  const { error } = await admin
+  const { error } = await createAdminClient()
     .from("attendance_corrections")
     .update({
-      status: input.approve ? "approved" : "rejected",
+      status: "rejected",
       decided_by: input.deciderStaffId,
       decided_at: new Date().toISOString(),
       decision_note: input.decisionNote,
     })
     .eq("id", input.correctionId)
-    // Only a pending one: two approvers pressing at once must not both win.
+    // Only a pending one: two people pressing at once must not both decide.
     .eq("status", "pending");
 
   if (error) throw error;
-
-  if (!input.approve) return;
-
-  const { error: markError } = await admin
-    .from("attendance_marks")
-    .update({ status: input.toStatus })
-    .eq("register_id", input.registerId)
-    .eq("student_id", input.studentId);
-
-  if (markError) throw markError;
 }

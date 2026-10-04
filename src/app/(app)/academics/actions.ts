@@ -25,6 +25,7 @@ import {
   idleAcademicsState,
   type AcademicsFormState,
 } from "@/modules/academics/domain/form-state";
+import { saveAttendanceRules } from "@/modules/attendance/data/attendance-repo";
 
 function failure(
   fieldErrors: Record<string, Localized> = {},
@@ -174,4 +175,40 @@ export async function deleteClassAliasAction(formData: FormData) {
 
   await deleteClassAlias(id);
   revalidatePath("/academics/classes");
+}
+
+/* ------------------------------------------------------ attendance rules */
+
+/**
+ * How much a half day counts, for the current session (P6). Every percentage
+ * reads it, so it is the academic coordinator's or an administrator's to set,
+ * not a teacher's.
+ */
+export async function saveAttendanceRulesAction(
+  _previous: AcademicsFormState,
+  formData: FormData,
+): Promise<AcademicsFormState> {
+  const actor = await assertPermission("academics:manage");
+
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) return failure({}, m.noSessionFound);
+
+  const raw = (formData.get("halfDayCredit") ?? "").toString().trim();
+  const value = Number(raw);
+  if (raw === "" || !Number.isFinite(value) || value < 0 || value > 1) {
+    return failure({ halfDayCredit: m.attendanceRulesRange });
+  }
+
+  try {
+    await saveAttendanceRules({
+      sessionLabel,
+      halfDayCredit: Math.round(value * 100) / 100,
+      actorStaffId: actor.id,
+    });
+  } catch {
+    return failure({}, m.notSaved);
+  }
+
+  revalidatePath("/academics");
+  return { ...idleAcademicsState, status: "saved" };
 }

@@ -1,17 +1,22 @@
 "use server";
 
+import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
-import { assertPermission } from "@/platform/auth/current-staff";
+import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { decodeMessage, type Localized } from "@/platform/i18n/language";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { getCurrentClassTeacher } from "@/modules/academics/data/class-teachers-repo";
 import {
-  canMarkClass,
-  submitRegisterSchema,
+  registerAuthority,
+  saveRegisterSchema,
+  type SaveRegisterInput,
 } from "@/modules/attendance/domain/attendance";
+import {
+  attendanceRefusals,
+  type AttendanceSaveState,
+} from "@/modules/attendance/domain/attendance-receipt";
 import {
   canDecide,
   canRequestCorrection,
@@ -20,19 +25,19 @@ import {
 } from "@/modules/attendance/domain/corrections";
 import { writeNoteSchema } from "@/modules/notes/domain/notes";
 import {
-  classRoll,
-  findRegister,
+  findAttendanceCommand,
   listMarks,
   registerById,
-  saveRegister,
+  saveRegisterCommand,
+  studentNames,
 } from "@/modules/attendance/data/attendance-repo";
-import { classScopeFor, ownClassIds } from "@/modules/attendance/data/teaching-repo";
+import { classScopeFor, heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
 import {
-  decideCorrection,
   getCorrection,
   hasPendingCorrection,
+  rejectCorrection,
   requestCorrection,
 } from "@/modules/attendance/data/corrections-repo";
 import { deleteOwnNote, writeNote } from "@/modules/notes/data/notes-repo";
@@ -54,114 +59,107 @@ function fieldErrorsFrom(error: {
 
 /* ------------------------------------------------------- attendance */
 
+/** What a repeated submission must match: the register as the person saved it. */
+function payloadHash(input: SaveRegisterInput): string {
+  const marks = [...input.marks].sort((a, b) => a.studentId.localeCompare(b.studentId));
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        classId: input.classId,
+        day: input.day,
+        kind: input.kind,
+        expectedRevision: input.expectedRevision,
+        reason: input.reason,
+        marks: marks.map((mark) => [mark.studentId, mark.status]),
+      }),
+    )
+    .digest("hex");
+}
+
 /**
- * Save or submit a register.
+ * Save or correct one class's daily register (P6).
  *
- * Called both by the form and by the browser's offline queue flushing, which
- * is why it takes the whole register rather than one mark: a flush after a
- * signal drop must be one request that either lands or does not, not twenty
- * that might half-land.
+ * The browser sends the whole roll as the person reviewed it, with the
+ * revision the page showed and a submission id minted once per save. This
+ * checks the parts only the app can (who may act, in words they will read)
+ * and leaves the rest to `save_attendance_register`, which checks it all
+ * again inside the transaction that writes.
  */
-export async function saveRegisterAction(
-  _previous: TeachState,
+export async function saveAttendanceAction(
+  _previous: AttendanceSaveState,
   formData: FormData,
-): Promise<TeachState> {
+): Promise<AttendanceSaveState> {
   const actor = await assertPermission("attendance:view");
 
   const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return failure(m.noSessionFound);
+  if (!sessionLabel) return { status: "refused", message: m.noSessionFound };
 
   let payload: unknown;
   try {
     payload = JSON.parse((formData.get("payload") ?? "").toString());
   } catch {
-    return failure(m.notSaved);
+    return { status: "refused", message: attendanceRefusals.bad_request };
   }
 
-  const parsed = submitRegisterSchema.safeParse(payload);
-  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
+  const parsed = saveRegisterSchema.safeParse(payload);
+  if (!parsed.success) return { status: "refused", message: fieldErrorsFrom(parsed.error) };
 
-  if (parsed.data.sessionLabel && parsed.data.sessionLabel !== sessionLabel) return failure(m.noSessionFound);
-
-  const own = await ownClassIds(actor.id, sessionLabel);
-  const verdict = canMarkClass({
+  const held = await heldClassIds(actor.id, sessionLabel);
+  const authority = registerAuthority({
+    isOwner: held.includes(parsed.data.classId),
     hasMarkPermission: can(actor, "attendance:mark"),
     hasMarkOnBehalfPermission: can(actor, "attendance:mark_on_behalf"),
-    ownClassIds: own,
-    classId: parsed.data.classId,
+    hasCorrectPermission: can(actor, "attendance:correct"),
   });
+  const allowed = parsed.data.kind === "save" ? authority.save : authority.correct;
+  if (!allowed) return { status: "refused", message: authority.reason ?? attendanceRefusals.not_permitted };
 
-  if (!verdict.allowed) {
-    return failure(verdict.reason ?? m.notSaved);
-  }
-
-  // Every mark has to be for a child on this class's roll. The form only
-  // offers the roll, but the payload is JSON a browser built, and a register
-  // that records a child from another class is a record of something that did
-  // not happen (P1).
-  const roll = await classRoll({ classId: parsed.data.classId, sessionLabel });
-  const onRoll = new Set(roll.map((student) => student.studentId));
-  if (parsed.data.marks.some((mark) => !onRoll.has(mark.studentId))) {
-    return failure(m.notSaved);
-  }
-
-  // A submitted register is a record. Re-saving one is a correction request,
-  // not an edit — checked here as well as hidden in the UI.
-  const existing = await findRegister(
-    parsed.data.classId,
-    sessionLabel,
-    parsed.data.day,
-    parsed.data.period,
-  );
-
-  if (existing && existing.status === "submitted") {
-    // A lost response may retry the same submission, without editing a record.
-    if (parsed.data.submit && existing.takenBy === actor.id) {
-      const stored = await listMarks(existing.id);
-      if (stored.size === parsed.data.marks.length && new Set(parsed.data.marks.map(mark => mark.studentId)).size === stored.size && parsed.data.marks.every(mark => {
-        const found = stored.get(mark.studentId);
-        return found?.status === mark.status && (found.note ?? null) === (mark.note ?? null);
-      })) return { ...idleTeachState, status: "saved" };
-    }
-    return failure(m.attendanceLocked);
-  }
-
-  // `on_behalf_of` names the teacher the office is standing in for, not the
-  // person pressing the button — `taken_by` already says that. Setting it to
-  // the actor would make the two columns agree and record nothing, which is
-  // the whole fact the column exists to keep.
-  let onBehalfOfStaffId: string | null = null;
-  if (verdict.onBehalf) {
-    const classTeacher = await getCurrentClassTeacher(
-      parsed.data.classId,
-      sessionLabel,
-      "class_teacher",
-    );
-    onBehalfOfStaffId =
-      classTeacher && classTeacher.staffProfileId !== actor.id
-        ? classTeacher.staffProfileId
-        : null;
-  }
-
+  let outcome;
   try {
-    await saveRegister({
+    outcome = await saveRegisterCommand({
+      ...parsed.data,
       sessionLabel,
-      classId: parsed.data.classId,
-      day: parsed.data.day,
-      period: parsed.data.period,
-      marks: parsed.data.marks,
-      submit: parsed.data.submit,
-      takenByStaffId: actor.id,
-      onBehalfOfStaffId,
-      createdByUserId: actor.userId,
+      actorStaffId: actor.id,
+      payloadHash: payloadHash(parsed.data),
     });
   } catch {
-    return failure(m.notSaved);
+    return { status: "error", message: attendanceRefusals.failed };
   }
 
-  revalidatePath("/teach");
-  revalidatePath(`/teach/attendance`);
-  return { ...idleTeachState, status: "saved" };
+  if (outcome.outcome === "saved") {
+    revalidatePath("/teach");
+    revalidatePath("/teach/attendance");
+    return { status: "saved", receipt: outcome.receipt };
+  }
+
+  if (outcome.outcome === "stale") {
+    return { status: "stale", latest: outcome.latest, message: attendanceRefusals.stale };
+  }
+
+  if (outcome.outcome === "roster_changed") {
+    // Names, not ids: "Asha joined, Ravi left" is what lets a teacher check.
+    const nameOf = await studentNames([...outcome.missing, ...outcome.extra]);
+    return {
+      status: "roster_changed",
+      joined: outcome.missing.map((id) => nameOf.get(id) ?? "—"),
+      left: outcome.extra.map((id) => nameOf.get(id) ?? "—"),
+      message: attendanceRefusals.roster_changed,
+    };
+  }
+
+  return { status: "refused", message: attendanceRefusals[outcome.reason] ?? attendanceRefusals.failed };
+}
+
+/**
+ * Did the save with this submission id land? Asked by the screen when an
+ * answer never arrived, before it offers to send again. Only the asker's own
+ * submissions are found.
+ */
+export async function checkAttendanceSaveAction(commandId: string): Promise<AttendanceSaveState> {
+  const actor = await assertStaff();
+  if (!/^[0-9a-f-]{36}$/i.test(commandId)) return { status: "error", message: attendanceRefusals.failed };
+  const receipt = await findAttendanceCommand(commandId, actor.id);
+  return receipt ? { status: "saved", receipt } : { status: "error", message: attendanceRefusals.failed };
 }
 
 /* ------------------------------------------------------ corrections */
@@ -252,17 +250,55 @@ export async function decideCorrectionAction(formData: FormData) {
     throw new Error(verdict.reason?.en ?? "Cannot decide this request.");
   }
 
-  await decideCorrection({
-    correctionId: correction.id,
-    approve: parsed.data.approve,
+  if (!parsed.data.approve) {
+    await rejectCorrection({
+      correctionId: correction.id,
+      decisionNote: parsed.data.decisionNote,
+      deciderStaffId: actor.id,
+    });
+    revalidatePath("/teach/corrections");
+    return;
+  }
+
+  // Approving is a correction of the whole register, with the request's own
+  // reason, made by the person approving — so the register's history says
+  // who changed it and why, and the request closes in the same transaction
+  // (P6). The rest of the register is carried over exactly as it stands.
+  const register = await registerById(correction.registerId);
+  const sessionLabel = await resolveSessionLabel();
+  if (!register || !sessionLabel || register.sessionLabel !== sessionLabel) {
+    throw new Error("That register is not in the current session.");
+  }
+  const marks = await listMarks(register.id);
+  const input: SaveRegisterInput = {
+    commandId: randomUUID(),
+    classId: register.classId,
+    day: register.day,
+    kind: "correction",
+    expectedRevision: register.revision,
+    reason: correction.reason,
+    marks: [...marks.entries()].map(([studentId, mark]) => ({
+      studentId,
+      status: studentId === correction.studentId ? correction.toStatus : mark.status,
+    })),
+  };
+
+  const outcome = await saveRegisterCommand({
+    ...input,
+    sessionLabel,
+    actorStaffId: actor.id,
+    payloadHash: payloadHash(input),
+    correctionRequestId: correction.id,
     decisionNote: parsed.data.decisionNote,
-    deciderStaffId: actor.id,
-    registerId: correction.registerId,
-    studentId: correction.studentId,
-    toStatus: correction.toStatus,
   });
 
+  if (outcome.outcome !== "saved") {
+    const reason = outcome.outcome === "refused" ? outcome.reason : outcome.outcome;
+    throw new Error((attendanceRefusals[reason] ?? attendanceRefusals.failed).en);
+  }
+
   revalidatePath("/teach/corrections");
+  revalidatePath("/teach/attendance");
 }
 
 /* ------------------------------------------------------------ notes */

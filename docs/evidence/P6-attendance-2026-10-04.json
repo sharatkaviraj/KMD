@@ -1,0 +1,121 @@
+{
+  "ranAt": "2026-10-04T06:21:23.661Z",
+  "target": "schoolfees-dev",
+  "days": [
+    "2026-09-19",
+    "2026-09-18",
+    "2026-09-17"
+  ],
+  "results": [
+    {
+      "name": "an unopened, unsaved register is not recorded",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the class teacher's save records every child, revision 1, with a receipt",
+      "ok": true,
+      "detail": "9 present · 1 absent · 1 half day"
+    },
+    {
+      "name": "a repeated submission returns its receipt and writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reused id with a different payload is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a second save against revision 0 is stale and shows the receipt it lost to",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a save missing a child is refused, naming the child",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a save naming a child not on that day's roll is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a child admitted after the date is not on that date's roll, and a save including them is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a correction with no reason is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a correction that changes nothing is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the class teacher's correction is revision 2, with its reason and its before-and-after; revision 1 is kept",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a subject teacher can neither save nor correct the class's register",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the office's save is recorded as on the class teacher's behalf",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a day that has not happened, and a day the school was shut, are refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault after register leaves the register as it was",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault after marks leaves the register as it was",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault before receipt leaves the register as it was",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "approving a request writes the correction and closes the request together; a decided request cannot be applied twice",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "two simultaneous first saves: one is recorded, the other is told it is stale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a register submitted by the old build is imported as revision 1, and a new save against it is stale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reminder is suppressed once the register is saved, and never goes to someone not responsible",
+      "ok": true,
+      "detail": "already_saved, not_responsible"
+    },
+    {
+      "name": "a half day counts as the school's credit, 0.5 unless it says otherwise",
+      "ok": true,
+      "detail": "credit 0.5"
+    }
+  ]
+}

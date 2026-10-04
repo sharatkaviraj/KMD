@@ -133,6 +133,26 @@ describe("sheetTotals()", () => {
     expect(totals.percent).toBe(66.7);
   });
 
+  it("counts a half day at the school's credit, in each row and in the total", () => {
+    const sheet = buildMonthlySheet({
+      month: "2026-09",
+      roll,
+      openDays: ["2026-09-01", "2026-09-02"],
+      marks: [
+        { studentId: "a", day: "2026-09-01", status: "half_day" },
+        { studentId: "a", day: "2026-09-02", status: "present" },
+        { studentId: "b", day: "2026-09-01", status: "present" },
+        { studentId: "b", day: "2026-09-02", status: "present" },
+      ],
+      rules: { halfDayCredit: 0.5 },
+    });
+
+    expect(sheet.rows[0]).toMatchObject({ half_day: 1, percent: 75 });
+    // 3.5 days of 4 at half; the same rule as the child's own figure.
+    expect(sheetTotals(sheet, { halfDayCredit: 0.5 })).toMatchObject({ half_day: 1, percent: 87.5 });
+    expect(sheetTotals(sheet, { halfDayCredit: 0 }).percent).toBe(75);
+  });
+
   it("is null, not zero, for a month nobody recorded", () => {
     const empty = buildMonthlySheet({
       month: "2026-09",

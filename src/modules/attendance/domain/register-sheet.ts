@@ -1,7 +1,9 @@
 import {
   attendancePercent,
   compareRoll,
-  COUNTS_AS_PRESENT,
+  dayCredit,
+  DEFAULT_ATTENDANCE_RULES,
+  type AttendanceRules,
   type AttendanceStatus,
   type RollStudent,
 } from "@/modules/attendance/domain/attendance";
@@ -25,6 +27,7 @@ export type SheetRow = {
   cells: SheetCell[];
   present: number;
   absent: number;
+  half_day: number;
   late: number;
   leave: number;
   /** Null when there is nothing to divide by — never 0, never 100. */
@@ -64,7 +67,10 @@ export function buildMonthlySheet(input: {
   roll: RollStudent[];
   openDays: string[];
   marks: { studentId: string; day: string; status: AttendanceStatus }[];
+  /** How a half day counts — the school's rule for the session (P6). */
+  rules?: AttendanceRules;
 }): MonthlySheet {
+  const rules = input.rules ?? DEFAULT_ATTENDANCE_RULES;
   const byStudent = new Map<string, Map<string, AttendanceStatus>>();
 
   for (const mark of input.marks) {
@@ -83,14 +89,14 @@ export function buildMonthlySheet(input: {
     const cells = days.map<SheetCell>((day) => marked?.get(day) ?? null);
     const statuses = cells.filter((cell): cell is AttendanceStatus => cell !== null);
 
-    const counts = { present: 0, absent: 0, late: 0, leave: 0 };
+    const counts = { present: 0, absent: 0, half_day: 0, late: 0, leave: 0 };
     for (const status of statuses) counts[status] += 1;
 
     return {
       student,
       cells,
       ...counts,
-      percent: attendancePercent(statuses).percent,
+      percent: attendancePercent(statuses, rules).percent,
     };
   });
 
@@ -109,24 +115,31 @@ export function buildMonthlySheet(input: {
  * and counting that as an absence would invent absences out of a teacher's
  * forgotten register.
  */
-export function sheetTotals(sheet: MonthlySheet): {
+export function sheetTotals(
+  sheet: MonthlySheet,
+  rules: AttendanceRules = DEFAULT_ATTENDANCE_RULES,
+): {
   present: number;
   absent: number;
+  half_day: number;
   late: number;
   leave: number;
   percent: number | null;
 } {
-  const totals = { present: 0, absent: 0, late: 0, leave: 0 };
+  const totals = { present: 0, absent: 0, half_day: 0, late: 0, leave: 0 };
 
   for (const row of sheet.rows) {
     totals.present += row.present;
     totals.absent += row.absent;
+    totals.half_day += row.half_day;
     totals.late += row.late;
     totals.leave += row.leave;
   }
 
-  const counted = totals.present + totals.absent + totals.late;
-  const attended = totals.present + totals.late;
+  // The same rule as a child's own percentage: leave out of both halves, a
+  // half day at the school's credit.
+  const counted = totals.present + totals.absent + totals.half_day + totals.late;
+  const attended = totals.present + totals.late + totals.half_day * rules.halfDayCredit;
 
   return {
     ...totals,
@@ -149,7 +162,10 @@ export function belowThreshold(
   );
 }
 
-/** How many of a set of statuses count as the child having been in school. */
-export function attendedCount(statuses: AttendanceStatus[]): number {
-  return statuses.filter((status) => COUNTS_AS_PRESENT[status]).length;
+/** How many days a set of statuses is worth under the school's rule. */
+export function attendedDays(
+  statuses: AttendanceStatus[],
+  rules: AttendanceRules = DEFAULT_ATTENDANCE_RULES,
+): number {
+  return statuses.reduce((sum, status) => sum + (dayCredit(status, rules) ?? 0), 0);
 }

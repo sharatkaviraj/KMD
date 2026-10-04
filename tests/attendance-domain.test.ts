@@ -2,18 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   attendancePercent,
-  canMarkClass,
   compareRoll,
-  COUNTS_AGAINST,
-  COUNTS_AS_PRESENT,
-  isEditable,
-  mergeQueued,
-  pendingFlushes,
-  queueKeyFor,
-  submitRegisterSchema,
+  dayCredit,
+  isRecorded,
+  registerAuthority,
+  saveRegisterSchema,
   tally,
-  type QueuedRegister,
-  type Register,
+  wasInSchool,
   type RollStudent,
 } from "@/modules/attendance/domain/attendance";
 
@@ -23,20 +18,27 @@ const student = (
   rollNo: string | null = null,
 ): RollStudent => ({ studentId, fullName, admissionNo: null, rollNo });
 
-describe("what counts as being in school", () => {
+describe("what a day is worth", () => {
   /**
    * A child who arrived at 9:15 was in school that day. A percentage that says
    * otherwise is wrong in the direction that gets a family a letter they do
    * not deserve.
    */
-  it("counts late as present", () => {
-    expect(COUNTS_AS_PRESENT.late).toBe(true);
-    expect(COUNTS_AGAINST.late).toBe(false);
+  it("counts late as a whole day", () => {
+    expect(dayCredit("late")).toBe(1);
+    expect(wasInSchool("late")).toBe(true);
   });
 
-  it("counts approved leave as neither", () => {
-    expect(COUNTS_AS_PRESENT.leave).toBe(false);
-    expect(COUNTS_AGAINST.leave).toBe(false);
+  it("counts approved leave as neither present nor absent", () => {
+    expect(dayCredit("leave")).toBeNull();
+    expect(wasInSchool("leave")).toBe(false);
+  });
+
+  it("counts a half day at the school's credit, half by default", () => {
+    expect(dayCredit("half_day")).toBe(0.5);
+    expect(dayCredit("half_day", { halfDayCredit: 0.75 })).toBe(0.75);
+    expect(dayCredit("half_day", { halfDayCredit: 0 })).toBe(0);
+    expect(wasInSchool("half_day")).toBe(true);
   });
 });
 
@@ -57,6 +59,14 @@ describe("attendancePercent()", () => {
 
   it("counts late towards attendance", () => {
     expect(attendancePercent(["present", "late", "absent", "late"]).percent).toBe(75);
+  });
+
+  it("counts a half day as the school says, the same everywhere it is asked", () => {
+    const statuses = ["present", "half_day", "absent", "present"] as const;
+    // 2.5 of 4 at the default half; 2.75 of 4 at three quarters.
+    expect(attendancePercent([...statuses])).toEqual({ percent: 62.5, counted: 4, present: 2.5 });
+    expect(attendancePercent([...statuses], { halfDayCredit: 0.75 }).percent).toBe(68.8);
+    expect(attendancePercent([...statuses], { halfDayCredit: 0 }).percent).toBe(50);
   });
 
   it("returns null rather than zero when there is nothing to divide by", () => {
@@ -111,14 +121,16 @@ describe("tally()", () => {
     expect(counted.complete).toBe(false);
   });
 
-  it("is complete only when everybody has a mark", () => {
+  it("is complete only when everybody has a mark, half days included", () => {
     const marks = new Map([
       ["a", "present" as const],
-      ["b", "late" as const],
+      ["b", "half_day" as const],
       ["c", "leave" as const],
     ]);
 
-    expect(tally(roll, marks).complete).toBe(true);
+    const counted = tally(roll, marks);
+    expect(counted.complete).toBe(true);
+    expect(counted.half_day).toBe(1);
   });
 
   it("is not complete for an empty class", () => {
@@ -127,213 +139,104 @@ describe("tally()", () => {
   });
 });
 
-/* ------------------------------------------------------ the offline queue */
-
-const queued = (over: Partial<QueuedRegister> = {}): QueuedRegister => ({
-  clientId: "session-1",
-  classId: "class-1",
-  day: "2026-09-17",
-  period: null,
-  marks: {},
-  submitted: false,
-  updatedAt: 1000,
-  ...over,
-});
-
-describe("mergeQueued()", () => {
-  /**
-   * The failure this prevents: a teacher marks twenty children, the signal
-   * goes, they mark the last ten, and the merge throws away the first twenty.
-   */
-  it("merges per student, not per register", () => {
-    const first = queued({
-      marks: { a: { status: "present", note: null } },
-      updatedAt: 1000,
-    });
-    const second = queued({
-      marks: { b: { status: "absent", note: null } },
-      updatedAt: 2000,
-    });
-
-    expect(mergeQueued(first, second).marks).toEqual({
-      a: { status: "present", note: null },
-      b: { status: "absent", note: null },
-    });
-  });
-
-  it("lets the newer mark win for the same child", () => {
-    const first = queued({ marks: { a: { status: "absent", note: null } } });
-    const second = queued({
-      marks: { a: { status: "present", note: null } },
-      updatedAt: 2000,
-    });
-
-    expect(mergeQueued(first, second).marks.a.status).toBe("present");
-  });
-
-  it("never un-submits a register", () => {
-    // A later edit is still work to flush, but the teacher believes they have
-    // handed this in — and they have.
-    const submitted = queued({ submitted: true, updatedAt: 2000 });
-    const edited = queued({ submitted: false, updatedAt: 3000 });
-
-    expect(mergeQueued(submitted, edited).submitted).toBe(true);
-  });
-
-  it("takes the newer of two different marking sessions", () => {
-    const stale = queued({ clientId: "old", updatedAt: 5000 });
-    const fresh = queued({ clientId: "new", updatedAt: 1000 });
-
-    // Different sessions do not merge: the older one is somebody's abandoned
-    // work, and blending them would produce a register nobody marked.
-    expect(mergeQueued(stale, fresh).clientId).toBe("old");
-  });
-
-  it("returns the incoming one when the queue is empty", () => {
-    const fresh = queued();
-    expect(mergeQueued(undefined, fresh)).toBe(fresh);
-  });
-});
-
-describe("queueKeyFor()", () => {
-  it("keeps the daily register and a period register apart", () => {
-    expect(queueKeyFor("c1", "2026-09-17", null)).not.toBe(
-      queueKeyFor("c1", "2026-09-17", 3),
-    );
-  });
-
-  it("is the same key for the same register, so a retry overwrites", () => {
-    expect(queueKeyFor("c1", "2026-09-17", null)).toBe(
-      queueKeyFor("c1", "2026-09-17", null),
-    );
-  });
-});
-
-describe("pendingFlushes()", () => {
-  it("sends the oldest work first", () => {
-    const flushes = pendingFlushes({
-      b: queued({ clientId: "b", updatedAt: 3000 }),
-      a: queued({ clientId: "a", updatedAt: 1000 }),
-    });
-
-    expect(flushes.map((entry) => entry.clientId)).toEqual(["a", "b"]);
-  });
-});
-
-/* -------------------------------------------------------------- who marks */
-
-describe("canMarkClass()", () => {
-  const base = {
-    hasMarkPermission: true,
+describe("registerAuthority()", () => {
+  const none = {
+    isOwner: false,
+    hasMarkPermission: false,
     hasMarkOnBehalfPermission: false,
-    ownClassIds: ["mine"],
-    classId: "mine",
+    hasCorrectPermission: false,
   };
 
-  it("lets a teacher mark their own class", () => {
-    expect(canMarkClass(base)).toEqual({ allowed: true, onBehalf: false });
-  });
-
-  it("refuses a class that is not theirs, and says why", () => {
-    const verdict = canMarkClass({ ...base, classId: "somebody-elses" });
-    expect(verdict.allowed).toBe(false);
-    expect(verdict.reason?.hi).toBeTruthy();
-    expect(verdict.reason?.en).toBeTruthy();
-  });
-
-  it("lets the office mark any class, and records that it did", () => {
-    // `onBehalf` is the whole point: "the office recorded this" and "the
-    // teacher recorded this" are different facts.
-    const verdict = canMarkClass({
-      ...base,
-      hasMarkPermission: false,
-      hasMarkOnBehalfPermission: true,
-      classId: "somebody-elses",
+  it("lets the class teacher take and correct her own register", () => {
+    expect(registerAuthority({ ...none, isOwner: true, hasMarkPermission: true })).toEqual({
+      save: true,
+      correct: true,
+      onBehalf: false,
     });
+  });
 
-    expect(verdict).toEqual({ allowed: true, onBehalf: true });
+  it("does not let a subject teacher take a class's register, and says what to do instead", () => {
+    const verdict = registerAuthority({ ...none, hasMarkPermission: true });
+    expect(verdict.save).toBe(false);
+    expect(verdict.correct).toBe(false);
+    expect(verdict.reason?.en).toMatch(/class teacher/);
+  });
+
+  it("lets the office record on the teacher's behalf, and records that it did", () => {
+    expect(
+      registerAuthority({ ...none, hasMarkOnBehalfPermission: true, hasCorrectPermission: true }),
+    ).toEqual({ save: true, correct: true, onBehalf: true });
   });
 
   it("does not mark a teacher's own class as on-behalf", () => {
-    const verdict = canMarkClass({ ...base, hasMarkOnBehalfPermission: true });
-    expect(verdict.onBehalf).toBe(false);
+    expect(
+      registerAuthority({
+        isOwner: true,
+        hasMarkPermission: true,
+        hasMarkOnBehalfPermission: true,
+        hasCorrectPermission: true,
+      }).onBehalf,
+    ).toBe(false);
   });
 
-  it("refuses somebody with neither permission", () => {
-    const verdict = canMarkClass({
-      ...base,
-      hasMarkPermission: false,
-      hasMarkOnBehalfPermission: false,
-    });
-
-    expect(verdict.allowed).toBe(false);
-  });
-});
-
-describe("isEditable()", () => {
-  const register = (status: "open" | "submitted"): Register => ({
-    id: "r1",
-    sessionLabel: "2026-27",
-    classId: "c1",
-    day: "2026-09-17",
-    period: null,
-    status,
-    takenBy: null,
-    onBehalfOf: null,
-    submittedAt: null,
-  });
-
-  it("treats a register that does not exist yet as editable", () => {
-    expect(isEditable(null)).toBe(true);
-  });
-
-  it("locks a submitted register", () => {
-    expect(isEditable(register("submitted"))).toBe(false);
-    expect(isEditable(register("open"))).toBe(true);
+  it("refuses somebody with no part in it", () => {
+    expect(registerAuthority(none).reason?.en).toMatch(/permission/);
   });
 });
 
-describe("submitRegisterSchema", () => {
+describe("isRecorded()", () => {
+  it("is recorded only once saved — an opened register is not", () => {
+    expect(isRecorded(null)).toBe(false);
+    expect(isRecorded({ revision: 0 })).toBe(false);
+    expect(isRecorded({ revision: 1 })).toBe(true);
+  });
+});
+
+describe("saveRegisterSchema", () => {
   const valid = {
-    classId: "0192e5b2-0000-7000-8000-000000000001",
+    commandId: "6f1d2c58-5b2e-4bf5-9b1c-3a0c5c0a7e11",
+    classId: "0d0e8a64-2f5b-4d0b-8a35-0a5b1e2c3d44",
     day: "2026-09-17",
-    period: null,
-    marks: [
-      {
-        studentId: "0192e5b2-0000-7000-8000-000000000002",
-        status: "present",
-        note: "",
-      },
-    ],
-    submit: true,
+    kind: "save" as const,
+    expectedRevision: 0,
+    marks: [{ studentId: "1c9a7f0e-4b7d-4a52-9d3e-6c1b8f2a0d55", status: "half_day" as const }],
   };
 
   it("accepts a whole register in one payload", () => {
-    const parsed = submitRegisterSchema.safeParse(valid);
-    expect(parsed.success).toBe(true);
-    // An empty note becomes null rather than an empty string, so the column
-    // has one representation of "nothing".
-    expect(parsed.success && parsed.data.marks[0].note).toBeNull();
+    expect(saveRegisterSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("refuses a register with no marks at all", () => {
-    expect(
-      submitRegisterSchema.safeParse({ ...valid, marks: [] }).success,
-    ).toBe(false);
+  it("refuses a register with nobody in it", () => {
+    expect(saveRegisterSchema.safeParse({ ...valid, marks: [] }).success).toBe(false);
   });
 
   it("refuses a day that is not a date", () => {
-    expect(
-      submitRegisterSchema.safeParse({ ...valid, day: "17/09/2026" }).success,
-    ).toBe(false);
+    expect(saveRegisterSchema.safeParse({ ...valid, day: "17/09/2026" }).success).toBe(false);
   });
 
   it("refuses a status it has never heard of", () => {
     expect(
-      submitRegisterSchema.safeParse({
+      saveRegisterSchema.safeParse({
         ...valid,
-        marks: [{ ...valid.marks[0], status: "maybe" }],
+        marks: [{ studentId: valid.marks[0].studentId, status: "excused" }],
       }).success,
     ).toBe(false);
+  });
+
+  it("refuses a correction that does not say why", () => {
+    expect(saveRegisterSchema.safeParse({ ...valid, kind: "correction", expectedRevision: 1 }).success).toBe(false);
+    expect(
+      saveRegisterSchema.safeParse({ ...valid, kind: "correction", expectedRevision: 1, reason: "  " }).success,
+    ).toBe(false);
+    expect(
+      saveRegisterSchema.safeParse({ ...valid, kind: "correction", expectedRevision: 1, reason: "Came at noon" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("refuses a submission without its id, so no retry can be told from a new save", () => {
+    const { commandId: _omitted, ...rest } = valid;
+    void _omitted;
+    expect(saveRegisterSchema.safeParse(rest).success).toBe(false);
   });
 });

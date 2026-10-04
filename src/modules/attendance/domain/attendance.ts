@@ -6,23 +6,27 @@ import { encodeMessage, t, type Localized } from "@/platform/i18n/language";
  * Attendance — the rules, with no database and no React.
  *
  * The screen this serves is the one a teacher uses every single morning, often
- * on a phone with one bar of signal in a corridor. Two things follow, and they
- * shape everything here:
+ * on a phone with one bar of signal in a corridor. Three things follow (P6):
  *
- *  - **marking must never lose work.** Marks are held locally and flushed, so
- *    a tap that happens with no signal is still a tap that happened.
- *  - **submitting twice must be harmless.** A teacher who sees nothing happen
- *    presses again; the second press has to produce the same register, not a
- *    second one.
+ *  - **nothing is recorded until somebody saves.** Opening the roll writes
+ *    nothing; every child shows as present only as a preview of what Save
+ *    will record. An unsaved register is outstanding, never "all present".
+ *  - **a save is the whole roll for that date.** Every child exactly once, or
+ *    the server refuses and says who joined or left in the meantime.
+ *  - **pressing twice, or losing the answer, is harmless.** The browser mints
+ *    one submission id per save; a repeat gets the first receipt back, and a
+ *    lost answer is asked about before anything is sent again. Marks waiting
+ *    on a phone are kept, but never replayed without a person pressing Save.
  */
 
-export const attendanceStatuses = ["present", "absent", "late", "leave"] as const;
+export const attendanceStatuses = ["present", "absent", "half_day", "late", "leave"] as const;
 
 export type AttendanceStatus = (typeof attendanceStatuses)[number];
 
 export const attendanceLabels: Record<AttendanceStatus, Localized> = {
   present: t("उपस्थित", "Present"),
   absent: t("अनुपस्थित", "Absent"),
+  half_day: t("आधा दिन", "Half day"),
   late: t("देर से", "Late"),
   leave: t("छुट्टी", "Leave"),
 };
@@ -31,37 +35,49 @@ export const attendanceLabels: Record<AttendanceStatus, Localized> = {
 export const attendanceInitials: Record<AttendanceStatus, Localized> = {
   present: t("उ", "P"),
   absent: t("अ", "A"),
+  half_day: t("आ", "H"),
   late: t("द", "L"),
   leave: t("छ", "V"),
 };
 
 /**
- * Whether a status counts as the child having been in school.
- *
- * `late` does. A child who arrived at 9:15 was in school that day, and a
- * percentage that says otherwise would be wrong in the direction that gets a
- * family a letter they do not deserve. `leave` does not count as present, but
- * it is also not the same as absent — see `countsAgainstAttendance`.
+ * How the school counts a day. Per session, from `vppsone.attendance_rules`;
+ * a half day is half unless the school says otherwise (P6).
  */
-export const COUNTS_AS_PRESENT: Record<AttendanceStatus, boolean> = {
-  present: true,
-  absent: false,
-  late: true,
-  leave: false,
-};
+export type AttendanceRules = { halfDayCredit: number };
+
+export const DEFAULT_ATTENDANCE_RULES: AttendanceRules = { halfDayCredit: 0.5 };
 
 /**
- * Whether a status counts against the child in the percentage.
+ * How much of a day each status is worth, or null when it is not counted.
  *
- * Approved leave is neither present nor a black mark: it comes out of the
- * denominator entirely, the way the school's paper register works.
+ * `late` is a whole day. A child who arrived at 9:15 was in school that day,
+ * and a percentage that says otherwise would be wrong in the direction that
+ * gets a family a letter they do not deserve. `half_day` is the school's
+ * credit. `leave` is out of both halves — neither present nor a black mark,
+ * the way the school's paper register works.
  */
-export const COUNTS_AGAINST: Record<AttendanceStatus, boolean> = {
-  present: false,
-  absent: true,
-  late: false,
-  leave: false,
-};
+export function dayCredit(
+  status: AttendanceStatus,
+  rules: AttendanceRules = DEFAULT_ATTENDANCE_RULES,
+): number | null {
+  switch (status) {
+    case "present":
+    case "late":
+      return 1;
+    case "half_day":
+      return rules.halfDayCredit;
+    case "absent":
+      return 0;
+    case "leave":
+      return null;
+  }
+}
+
+/** Whether a status puts the child in school at all, for "who was here today". */
+export function wasInSchool(status: AttendanceStatus): boolean {
+  return status === "present" || status === "late" || status === "half_day";
+}
 
 export const registerStatuses = ["open", "submitted"] as const;
 export type RegisterStatus = (typeof registerStatuses)[number];
@@ -83,6 +99,8 @@ export type Register = {
   takenBy: string | null;
   onBehalfOf: string | null;
   submittedAt: string | null;
+  /** 0 until the first save; each save or correction adds one. */
+  revision: number;
 };
 
 /* ------------------------------------------------------- what to show */
@@ -120,6 +138,7 @@ function rollSortKey(rollNo: string | null): number {
 export type AttendanceTally = {
   present: number;
   absent: number;
+  half_day: number;
   late: number;
   leave: number;
   marked: number;
@@ -132,14 +151,14 @@ export function tally(
   roll: RollStudent[],
   marks: Map<string, AttendanceStatus>,
 ): AttendanceTally {
-  const counts = { present: 0, absent: 0, late: 0, leave: 0 };
+  const counts = { present: 0, absent: 0, half_day: 0, late: 0, leave: 0 };
 
   for (const student of roll) {
     const status = marks.get(student.studentId);
     if (status) counts[status] += 1;
   }
 
-  const marked = counts.present + counts.absent + counts.late + counts.leave;
+  const marked = counts.present + counts.absent + counts.half_day + counts.late + counts.leave;
 
   return {
     ...counts,
@@ -153,15 +172,24 @@ export function tally(
  * A child's attendance percentage over a set of marks.
  *
  * Leave is excluded from both halves — it is neither attendance nor absence —
- * so a child who was properly on leave for a week is not punished for it.
- * A denominator of zero returns null rather than 0 or 100: "no data" and
- * "never came" must not look the same.
+ * so a child who was properly on leave for a week is not punished for it. A
+ * half day adds the school's credit. A denominator of zero returns null rather
+ * than 0 or 100: "no data" and "never came" must not look the same.
+ *
+ * `present` is the days credited, so it can be a half: 17.5 of 20.
  */
 export function attendancePercent(
   statuses: AttendanceStatus[],
+  rules: AttendanceRules = DEFAULT_ATTENDANCE_RULES,
 ): { percent: number | null; counted: number; present: number } {
-  const counted = statuses.filter((status) => status !== "leave").length;
-  const present = statuses.filter((status) => COUNTS_AS_PRESENT[status]).length;
+  let counted = 0;
+  let present = 0;
+  for (const status of statuses) {
+    const credit = dayCredit(status, rules);
+    if (credit === null) continue;
+    counted += 1;
+    present += credit;
+  }
 
   if (counted === 0) return { percent: null, counted: 0, present };
 
@@ -172,165 +200,88 @@ export function attendancePercent(
   };
 }
 
-/* ------------------------------------------------- the offline queue */
-
-/**
- * A marking session as the browser holds it while the teacher works.
- *
- * Kept as a plain value so the queue's rules are testable without a browser:
- * what merges, what wins, and what a retry does.
- */
-export type QueuedRegister = {
-  /**
-   * Identifies this marking session across retries.
-   *
-   * Generated once when the teacher opens the register and reused for every
-   * flush. It is what lets the server recognise the second attempt as the same
-   * one — together with the unique index on (session, class, day, period),
-   * which is the guarantee that actually holds.
-   */
-  clientId: string;
-  classId: string;
-  day: string;
-  period: number | null;
-  marks: Record<string, { status: AttendanceStatus; note: string | null }>;
-  /** Set when the teacher pressed submit; a queue may hold unsubmitted work. */
-  submitted: boolean;
-  /** Epoch ms, for ordering two queued versions of the same register. */
-  updatedAt: number;
-};
-
-export const QUEUE_KEY = "vppsone.attendance.queue.v1";
-
-/**
- * Merge a newly marked register into whatever the queue already holds.
- *
- * Last write wins *per student*, not per register: a teacher who marks twenty
- * children, loses signal, and marks the last ten must not lose the first
- * twenty when the two versions merge.
- */
-export function mergeQueued(
-  existing: QueuedRegister | undefined,
-  incoming: QueuedRegister,
-): QueuedRegister {
-  if (!existing) return incoming;
-
-  // Different marking sessions for the same class and day: the newer one is
-  // the one the teacher is looking at.
-  if (existing.clientId !== incoming.clientId) {
-    return existing.updatedAt > incoming.updatedAt ? existing : incoming;
-  }
-
-  return {
-    ...incoming,
-    marks: { ...existing.marks, ...incoming.marks },
-    // Once submitted, it stays submitted: a later unsubmitted edit is still
-    // work to flush, but it must not un-submit a register the teacher
-    // believes they have already handed in.
-    submitted: existing.submitted || incoming.submitted,
-    updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
-  };
-}
-
-export function queueKeyFor(classId: string, day: string, period: number | null) {
-  return `${classId}:${day}:${period ?? "daily"}`;
-}
-
-/** Everything still waiting to reach the server, oldest first. */
-export function pendingFlushes(
-  queue: Record<string, QueuedRegister>,
-): QueuedRegister[] {
-  return Object.values(queue).sort((a, b) => a.updatedAt - b.updatedAt);
-}
-
 /* ------------------------------------------------------- validation */
 
-export const markSchema = z.object({
-  studentId: z.uuid(),
-  status: z.enum(attendanceStatuses),
-  note: z
-    .string()
-    .trim()
-    .max(200, {
-      message: encodeMessage(t("टिप्पणी बहुत लंबी है", "That note is too long")),
-    })
-    .transform((value) => (value === "" ? null : value))
-    .nullable(),
-});
+/**
+ * One save of one daily register, as the browser sends it (P6).
+ *
+ * `commandId` is minted once per save and reused on every retry of it.
+ * `expectedRevision` is the revision the page showed — 0 for a register
+ * never saved — so a register somebody else saved meanwhile is refused as
+ * stale rather than overwritten. A correction carries a reason.
+ */
+export const saveRegisterSchema = z
+  .object({
+    commandId: z.uuid(),
+    classId: z.uuid({ message: encodeMessage(t("कक्षा चुनें", "Choose a class")) }),
+    day: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, {
+        message: encodeMessage(t("तारीख़ चुनें", "Choose a date")),
+      }),
+    kind: z.enum(["save", "correction"]),
+    expectedRevision: z.number().int().min(0),
+    reason: z
+      .string()
+      .trim()
+      .max(200, { message: encodeMessage(t("कारण बहुत लंबा है", "That reason is too long")) })
+      .nullish()
+      .transform((value) => (value ? value : null)),
+    marks: z
+      .array(z.object({ studentId: z.uuid(), status: z.enum(attendanceStatuses) }))
+      .min(1, {
+        message: encodeMessage(t("कक्षा में कोई बच्चा नहीं", "The class has nobody on its roll")),
+      }),
+  })
+  .refine((value) => value.kind === "save" || value.reason !== null, {
+    message: encodeMessage(t("सुधार का कारण लिखें", "Say why you are correcting it")),
+    path: ["reason"],
+  });
 
-export const submitRegisterSchema = z.object({
-  sessionLabel: z.string().trim().min(1).max(40).optional(),
-  classId: z.uuid({ message: encodeMessage(t("कक्षा चुनें", "Choose a class")) }),
-  day: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, {
-      message: encodeMessage(t("तारीख़ चुनें", "Choose a date")),
-    }),
-  period: z.number().int().min(0).max(15).nullable(),
-  marks: z.array(markSchema).min(1, {
-    message: encodeMessage(
-      t("कम से कम एक बच्चे को दर्ज करें", "Mark at least one child"),
-    ),
-  }),
-  submit: z.boolean(),
-});
-
-export type SubmitRegisterInput = z.infer<typeof submitRegisterSchema>;
+export type SaveRegisterInput = z.infer<typeof saveRegisterSchema>;
 
 /**
- * Whether this staff member may mark this class today.
+ * What this person may do with a class's daily register (P6).
  *
- * `attendance:mark` says a teacher may mark attendance; it does not say
- * *whose*. This is the row-level half — "own classes" — and it is the piece a
- * permission alone cannot express (see the note atop `permissions.ts`).
+ * The register belongs to the class teacher, or the assistant, as of today —
+ * a former one does not keep it. The office may record it on the class
+ * teacher's behalf and may correct any register; a subject teacher may read
+ * the classes she teaches and ask for a correction, but not take or change
+ * the register. The database applies the same rule again when it saves.
  */
-export function canMarkClass(input: {
+export function registerAuthority(input: {
+  /** Class teacher or assistant of this class today. */
+  isOwner: boolean;
   hasMarkPermission: boolean;
   hasMarkOnBehalfPermission: boolean;
-  /** Class ids this staff member teaches or is class teacher of. */
-  ownClassIds: string[];
-  classId: string;
-}): { allowed: boolean; onBehalf: boolean; reason?: Localized } {
-  const isOwn = input.ownClassIds.includes(input.classId);
+  hasCorrectPermission: boolean;
+}): { save: boolean; correct: boolean; onBehalf: boolean; reason?: Localized } {
+  const owner = input.isOwner && input.hasMarkPermission;
+  const save = owner || input.hasMarkOnBehalfPermission;
+  const correct = owner || input.hasCorrectPermission;
 
-  if (input.hasMarkPermission && isOwn) {
-    return { allowed: true, onBehalf: false };
-  }
-
-  // The office marking for a teacher who could not. A different act, recorded
-  // differently — `on_behalf_of` on the register says so.
-  if (input.hasMarkOnBehalfPermission) {
-    return { allowed: true, onBehalf: true };
-  }
-
-  if (input.hasMarkPermission && !isOwn) {
-    return {
-      allowed: false,
-      onBehalf: false,
-      reason: t(
-        "यह आपकी कक्षा नहीं है।",
-        "This is not one of your classes. Ask the office to record it.",
-      ),
-    };
+  if (save || correct) {
+    return { save, correct, onBehalf: !owner && input.hasMarkOnBehalfPermission };
   }
 
   return {
-    allowed: false,
+    save: false,
+    correct: false,
     onBehalf: false,
-    reason: t(
-      "आपको उपस्थिति दर्ज करने की अनुमति नहीं है।",
-      "You do not have permission to record attendance.",
-    ),
+    reason: input.hasMarkPermission
+      ? t(
+          "दैनिक उपस्थिति कक्षा-अध्यापक लेते हैं। गलती दिखे तो सुधार का अनुरोध भेजें।",
+          "The class teacher takes this register. If something is wrong, ask for a correction.",
+        )
+      : t(
+          "आपको उपस्थिति दर्ज करने की अनुमति नहीं है।",
+          "You do not have permission to record attendance.",
+        ),
   };
 }
 
-/**
- * Whether a register may still be edited directly.
- *
- * A submitted register is a record. Changing it is a correction request
- * (task 3.3), which carries a reason and a name.
- */
-export function isEditable(register: Register | null): boolean {
-  return register === null || register.status === "open";
+/** Recorded means saved at least once: revision 1 or more. */
+export function isRecorded(register: { revision: number } | null): boolean {
+  return register !== null && register.revision >= 1;
 }

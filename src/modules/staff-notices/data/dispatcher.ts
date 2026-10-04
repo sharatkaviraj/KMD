@@ -11,6 +11,7 @@ import {
   mockBehaviourFor,
   outcomeOfThrow,
   renderNotice,
+  renderReminder,
   type StaffNoticeKind,
   type TransportOutcome,
 } from "@/modules/staff-notices/domain/notices";
@@ -185,8 +186,17 @@ export async function dispatchStaffNotices(options: { max?: number; noticeId?: s
       | {
           claimed: true;
           attempt_id: string;
-          notice: { id: string; kind: StaffNoticeKind; day: string; period: number };
-          duty: { id: string; class_labels: string[]; subject_code: string; period: number; day: string };
+          notice: {
+            id: string;
+            kind: StaffNoticeKind | "attendance_reminder";
+            day: string;
+            period: number | null;
+            session_label: string;
+          };
+          /** A cover notice's duty; null for an attendance reminder. */
+          duty: { id: string; class_labels: string[]; subject_code: string; period: number; day: string } | null;
+          /** An attendance reminder's class; null for a cover notice. */
+          register: { class_id: string; class_label: string | null; day: string } | null;
           staff: { id: string; display_name: string; language: string };
           destination: string;
         };
@@ -197,23 +207,45 @@ export async function dispatchStaffNotices(options: { max?: number; noticeId?: s
     }
     summary.claimed += 1;
 
-    const sessionLabel = await sessionOf(claimed.duty.id);
-    if (!bellsBySession.has(sessionLabel)) bellsBySession.set(sessionLabel, await currentBells(sessionLabel));
-    const bells = bellsBySession.get(sessionLabel)!;
-    const window = bells.periods.find((period) => period.index === claimed.duty.period);
-
     const language = resolveLanguage(claimed.staff.language);
-    const rendered = renderNotice({
-      kind: claimed.notice.kind,
-      staffName: claimed.staff.display_name,
-      language,
-      day: claimed.duty.day,
-      period: claimed.duty.period,
-      periodTime: window ? `${window.starts}–${window.ends}` : null,
-      classLabels: claimed.duty.class_labels,
-      subjectCode: claimed.duty.subject_code,
-      link: `${siteOrigin()}/duty/${claimed.duty.id}`,
-    });
+    let rendered: { templateCode: string; params: string[]; text: { hi: string; en: string } };
+    let link: string;
+
+    if (claimed.notice.kind === "attendance_reminder" && claimed.register) {
+      // The register itself, which says "Recorded" if it was saved after this
+      // went out (P6).
+      link = `${siteOrigin()}/teach/attendance?class=${claimed.register.class_id}&day=${claimed.register.day}`;
+      rendered = renderReminder({
+        staffName: claimed.staff.display_name,
+        language,
+        day: claimed.register.day,
+        classLabel: claimed.register.class_label ?? "",
+        link,
+      });
+    } else if (claimed.duty && claimed.notice.kind !== "attendance_reminder") {
+      const sessionLabel = claimed.notice.session_label;
+      if (!bellsBySession.has(sessionLabel)) bellsBySession.set(sessionLabel, await currentBells(sessionLabel));
+      const bells = bellsBySession.get(sessionLabel)!;
+      const duty = claimed.duty;
+      const window = bells.periods.find((period) => period.index === duty.period);
+      link = `${siteOrigin()}/duty/${duty.id}`;
+      rendered = renderNotice({
+        kind: claimed.notice.kind,
+        staffName: claimed.staff.display_name,
+        language,
+        day: duty.day,
+        period: duty.period,
+        periodTime: window ? `${window.starts}–${window.ends}` : null,
+        classLabels: duty.class_labels,
+        subjectCode: duty.subject_code,
+        link,
+      });
+    } else {
+      // A claim naming neither a duty nor a register is a database fault: the
+      // constraint forbids it. Leave the attempt to the sweeper rather than
+      // send something half-formed.
+      continue;
+    }
 
     const { data: stamped } = await admin.rpc("stamp_staff_notice", {
       p_attempt: claimed.attempt_id,
@@ -221,7 +253,7 @@ export async function dispatchStaffNotices(options: { max?: number; noticeId?: s
       p_template: rendered.templateCode,
       p_language: language,
       p_params: { params: rendered.params, text: inLanguage(rendered.text, language) },
-      p_link: `${siteOrigin()}/duty/${claimed.duty.id}`,
+      p_link: link,
     });
     if (!stamped) continue; // The lease went; the sweeper will put it back.
 
@@ -252,11 +284,3 @@ export async function dispatchStaffNotices(options: { max?: number; noticeId?: s
   return summary;
 }
 
-async function sessionOf(dutyId: string): Promise<string> {
-  const { data } = await createAdminClient()
-    .from("cover_duties")
-    .select("session_label")
-    .eq("id", dutyId)
-    .maybeSingle<{ session_label: string }>();
-  return data?.session_label ?? "";
-}

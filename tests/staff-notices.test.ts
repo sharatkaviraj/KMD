@@ -6,6 +6,8 @@ import {
   NOTICE_TEMPLATES,
   outcomeOfThrow,
   renderNotice,
+  renderReminder,
+  REMINDER_TEMPLATE,
 } from "@/modules/staff-notices/domain/notices";
 
 /**
@@ -97,5 +99,30 @@ describe("renderNotice — what a teacher reads", () => {
     expect(Object.keys(facts).sort()).toEqual(
       ["classLabels", "day", "kind", "language", "link", "period", "periodTime", "staffName", "subjectCode"].sort(),
     );
+  });
+});
+
+describe("renderReminder — the register still outstanding (P6)", () => {
+  const reminder = renderReminder({
+    staffName: "QA Teacher",
+    language: "en",
+    day: "2026-10-01",
+    classLabel: "Class 1",
+    link: "https://example.invalid/teach/attendance?class=c&day=2026-10-01",
+  });
+
+  it("is four positional parameters: name, day, class, link", () => {
+    expect(reminder.templateCode).toBe(REMINDER_TEMPLATE);
+    expect(reminder.params).toHaveLength(4);
+    expect(reminder.params[0]).toBe("QA Teacher");
+    expect(reminder.params[2]).toBe("Class 1");
+    expect(reminder.params[3]).toMatch(/\/teach\/attendance\?class=c&day=2026-10-01$/);
+  });
+
+  it("names no child and no count, and links to the register itself", () => {
+    expect(reminder.text.en).toContain("Class 1");
+    expect(reminder.text.en).toContain("/teach/attendance");
+    expect(reminder.text.en).not.toMatch(/absent|present|\d+ (children|pupils)/i);
+    expect(reminder.text.hi).toContain("Class 1");
   });
 });

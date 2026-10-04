@@ -5,7 +5,7 @@ import { m } from "@/messages";
 import { attendanceLabels } from "@/modules/attendance/domain/attendance";
 import { primary } from "@/platform/i18n/language";
 import { draftKey } from "@/platform/drafts/policy";
-import { db, ownClassOf, signIn } from "./support/harness";
+import { db, ownClassOf, signIn, unrecordedSchoolDays } from "./support/harness";
 
 test("installation metadata and offline cold-launch fallback", async ({ page, context }) => {
   const account = await signIn(page, "teacher", "/preferences");
@@ -29,8 +29,9 @@ test("installation metadata and offline cold-launch fallback", async ({ page, co
 
 test("attendance draft survives offline edits and requires scoped recovery", async ({ page, context }) => {
   const scene = await ownClassOf("teacher");
-  // An unused historical day, no server submit: only device drafts are changed.
-  const day = "2024-04-02";
+  // A past school day with no register and children on its roll; nothing is
+  // saved, only device drafts are changed.
+  const [day] = await unrecordedSchoolDays(scene.classId, scene.sessionLabel, 1, 3);
   const path = `/teach/attendance?class=${scene.classId}&day=${day}`;
   const account = await signIn(page, "teacher", path);
   const button = page.getByRole("button", { name: primary(attendanceLabels.absent, account.language), exact: true }).first();
@@ -47,7 +48,7 @@ test("attendance draft survives offline edits and requires scoped recovery", asy
   await expect(button).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText(primary(m.draftLocal, account.language))).toBeVisible();
   // A different owner key cannot recover this draft.
-  const otherKey = draftKey("other-account", scene.sessionLabel, `attendance/${scene.classId}/${day}/daily`);
+  const otherKey = draftKey("other-account", scene.sessionLabel, `attendance/${scene.classId}/${day}`);
   expect(await page.evaluate(async key => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => { const r = indexedDB.open("vppsone-drafts", 1); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
     return await new Promise(resolve => { const r = db.transaction("drafts").objectStore("drafts").get(key); r.onsuccess = () => { resolve(r.result ?? null); db.close(); }; });
@@ -114,7 +115,7 @@ test("payment drafts recover only after review and never post while offline", as
 test("worker updates wait for user choice and recover persisted drafts after reload", async ({ page }) => {
   test.skip(Boolean(process.env.APP_ORIGIN && !["localhost", "127.0.0.1"].includes(new URL(process.env.APP_ORIGIN).hostname)), "The update fixture must run against a local production server.");
   const scene = await ownClassOf("teacher");
-  const day = "2024-04-03";
+  const [, day] = await unrecordedSchoolDays(scene.classId, scene.sessionLabel, 2, 3);
   const account = await signIn(page, "teacher", `/teach/attendance?class=${scene.classId}&day=${day}`);
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await page.reload();

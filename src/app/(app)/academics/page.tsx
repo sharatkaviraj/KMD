@@ -33,6 +33,8 @@ import {
 } from "@/modules/academics/domain/class-teachers";
 import { primary, secondary, t } from "@/platform/i18n/language";
 import { FootNote, Panel, PanelRow } from "@/ui/panel";
+import { attendanceRules } from "@/modules/attendance/data/attendance-repo";
+import { AttendanceRulesForm } from "@/modules/attendance/ui/attendance-rules-form";
 import { Badge, Notice } from "@/ui/primitives";
 import { PageHeader } from "@/ui/page-header-localized";
 import { HomeColumns } from "@/ui/task-hero";
@@ -55,7 +57,7 @@ export default async function AcademicsPage() {
   const language = staff.language;
 
   const sessionLabel = await resolveSessionLabel();
-  const [subjects, classes, aliases, teachers, calendar, enrolments] =
+  const [subjects, classes, aliases, teachers, calendar, enrolments, rules] =
     await Promise.all([
       listSubjects(),
       sessionLabel ? listFeeClasses(sessionLabel) : Promise.resolve([]),
@@ -63,6 +65,7 @@ export default async function AcademicsPage() {
       sessionLabel ? listClassTeachers(sessionLabel) : Promise.resolve([]),
       sessionLabel ? listCalendarDays(sessionLabel) : Promise.resolve([]),
       sessionLabel ? listEnrolments(sessionLabel) : Promise.resolve([]),
+      sessionLabel ? attendanceRules(sessionLabel) : Promise.resolve(null),
     ]);
 
   const progress = mappingProgress(joinClassesToAliases(classes, aliases));
@@ -216,6 +219,22 @@ export default async function AcademicsPage() {
               text={m.academicsNotice}
               language={language}
             />
+
+            {/* How a half day counts (P6): one rule every percentage reads. */}
+            {rules ? (
+              <section className="mt-6" aria-labelledby="attendance-rules">
+                <h2 id="attendance-rules" className="mb-3 text-[15px] font-semibold text-foreground">
+                  {primary(m.attendanceRulesTitle, language)}
+                </h2>
+                {can(staff, "academics:manage") ? (
+                  <AttendanceRulesForm halfDayCredit={rules.halfDayCredit} />
+                ) : (
+                  <p className="text-[14px] text-muted-foreground">
+                    {primary(m.attendanceRulesHalfDay, language)}: <b>{rules.halfDayCredit}</b>
+                  </p>
+                )}
+              </section>
+            ) : null}
           </>
         }
         aside={

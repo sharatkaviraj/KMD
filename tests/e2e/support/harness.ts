@@ -91,6 +91,45 @@ export function schoolToday(): string {
 }
 
 /**
+ * Past school days on which a class has no register, nearest first, at least
+ * `from` days back.
+ *
+ * A register's roll is the roll on its date (P6), so a test that wants a
+ * register with children in it needs a day inside the session, after the
+ * children were enrolled — a fixed date years back has nobody on it.
+ */
+export async function unrecordedSchoolDays(
+  classId: string,
+  sessionLabel: string,
+  count: number,
+  from = 7,
+): Promise<string[]> {
+  const [{ data: calendar }, { data: existing }] = await Promise.all([
+    db().from("academic_calendar_days").select("day, kind").eq("session_label", sessionLabel),
+    db()
+      .from("attendance_registers")
+      .select("day")
+      .eq("session_label", sessionLabel)
+      .eq("class_id", classId)
+      .is("period", null),
+  ]);
+  const kindOf = new Map((calendar ?? []).map((row) => [row.day as string, row.kind as string]));
+  const taken = new Set((existing ?? []).map((row) => row.day as string));
+  const open = (day: string) => {
+    const kind = kindOf.get(day);
+    if (kind) return kind !== "holiday" && kind !== "vacation";
+    return new Date(`${day}T00:00:00Z`).getUTCDay() !== 0;
+  };
+  const days: string[] = [];
+  for (let back = from; back < from + 120 && days.length < count; back += 1) {
+    const day = new Date(Date.parse(`${schoolToday()}T00:00:00Z`) - back * 86_400_000).toISOString().slice(0, 10);
+    if (open(day) && !taken.has(day)) days.push(day);
+  }
+  if (days.length < count) throw new Error(`Could not find ${count} past school days without a register.`);
+  return days;
+}
+
+/**
  * The current session label, derived the way the app derives it.
  *
  * That sentence was the intention; sorting the labels and taking the last was

@@ -106,6 +106,7 @@ const PUPIL_TABLES = [
   "attendance_registers",
   "attendance_marks",
   "attendance_corrections",
+  "attendance_register_revisions",
   "notes",
   "marks",
   "student_records",

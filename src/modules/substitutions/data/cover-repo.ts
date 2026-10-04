@@ -284,6 +284,9 @@ export async function noticesOn(sessionLabel: string, day: string): Promise<Duty
     .select("id, duty_id, kind, staff_profile_id, status, status_reason, created_at, updated_at")
     .eq("session_label", sessionLabel)
     .eq("day", day)
+    // Cover notices only: an attendance reminder shares the outbox and names
+    // a class, not a duty (P6).
+    .not("duty_id", "is", null)
     .order("created_at")
     .returns<
       {

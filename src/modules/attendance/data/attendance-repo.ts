@@ -2,15 +2,24 @@ import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
-import type {
-  AttendanceStatus,
-  Register,
-  RollStudent,
+import {
+  DEFAULT_ATTENDANCE_RULES,
+  type AttendanceRules,
+  type AttendanceStatus,
+  type Register,
+  type RollStudent,
+  type SaveRegisterInput,
 } from "@/modules/attendance/domain/attendance";
+import {
+  toAttendanceReceipt,
+  type AttendanceReceipt,
+} from "@/modules/attendance/domain/attendance-receipt";
 
 /**
  * The register, its marks, and the roll it is taken against.
@@ -89,6 +98,76 @@ export async function classRoll(input: {
   });
 }
 
+/**
+ * Who was on a class's roll on one date — the roll a register is saved
+ * against (P6).
+ *
+ * The rule is the database's (`vppsone.attendance_roster`), so the page and
+ * the save cannot disagree about who belongs: a child admitted after the date
+ * is not on it, one who left that day still is. Read through the service role
+ * because the function is not exposed to staff; every caller has already
+ * checked that this reader may see this class.
+ */
+export async function rosterOn(input: {
+  classId: string;
+  sessionLabel: string;
+  day: string;
+}): Promise<RollStudent[]> {
+  await assertPermission("attendance:view");
+  const admin = createAdminClient();
+
+  const { data: ids, error } = await admin.rpc("attendance_roster", {
+    p_session: input.sessionLabel,
+    p_class: input.classId,
+    p_day: input.day,
+  });
+  if (error) throw new Error(`Could not read the roll: ${error.message}`);
+
+  const studentIds = ((ids ?? []) as string[]).filter(Boolean);
+  if (studentIds.length === 0) return [];
+
+  const [enrolments, students] = await Promise.all([
+    fetchInChunks<{ student_id: string; roll_no: string | null }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+      admin
+        .from("enrolments")
+        .select("student_id, roll_no")
+        .eq("session_label", input.sessionLabel)
+        .in("student_id", chunk),
+    ),
+    fetchInChunks<{ id: string; full_name: string; admission_no: string | null }>(
+      studentIds,
+      IN_FILTER_CHUNK_SIZE,
+      (chunk) =>
+        admin.schema(FEE_SCHEMA).from("students").select("id, full_name, admission_no").in("id", chunk),
+    ),
+  ]);
+  if (enrolments.error) throw new Error("Could not read the roll numbers.");
+  if (students.error) throw new Error("Could not read the students.");
+
+  const rollNo = new Map(enrolments.data.map((row) => [row.student_id, row.roll_no]));
+  const byId = new Map(students.data.map((row) => [row.id, row]));
+
+  return studentIds.map((studentId) => ({
+    studentId,
+    fullName: byId.get(studentId)?.full_name ?? "—",
+    admissionNo: byId.get(studentId)?.admission_no ?? null,
+    rollNo: rollNo.get(studentId) ?? null,
+  }));
+}
+
+/** Names for a handful of children, by id — for "who joined, who left". */
+export async function studentNames(ids: string[]): Promise<Map<string, string>> {
+  const wanted = ids.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (wanted.length === 0) return new Map();
+  const { data, error } = await fetchInChunks<{ id: string; full_name: string }>(
+    wanted,
+    IN_FILTER_CHUNK_SIZE,
+    (chunk) => createAdminClient().schema(FEE_SCHEMA).from("students").select("id, full_name").in("id", chunk),
+  );
+  if (error) throw new Error("Could not read the students.");
+  return new Map(data.map((row) => [row.id, row.full_name]));
+}
+
 /* ------------------------------------------------------- the register */
 
 type RegisterRow = {
@@ -101,10 +180,11 @@ type RegisterRow = {
   taken_by: string | null;
   on_behalf_of: string | null;
   submitted_at: string | null;
+  revision: number;
 };
 
 const REGISTER_COLUMNS =
-  "id, session_label, class_id, day, period, status, taken_by, on_behalf_of, submitted_at";
+  "id, session_label, class_id, day, period, status, taken_by, on_behalf_of, submitted_at, revision";
 
 const toRegister = (row: RegisterRow): Register => ({
   id: row.id,
@@ -116,6 +196,7 @@ const toRegister = (row: RegisterRow): Register => ({
   takenBy: row.taken_by,
   onBehalfOf: row.on_behalf_of,
   submittedAt: row.submitted_at,
+  revision: row.revision,
 });
 
 export async function findRegister(
@@ -173,94 +254,198 @@ export async function listMarks(
   );
 }
 
+/* ------------------------------------------------- saving, and receipts */
+
+export type SaveOutcome =
+  | { outcome: "saved"; receipt: AttendanceReceipt }
+  | { outcome: "stale"; latest: AttendanceReceipt | null }
+  | { outcome: "roster_changed"; missing: string[]; extra: string[] }
+  | { outcome: "refused"; reason: string };
+
 /**
- * Write a register and its marks.
+ * Save or correct one daily register: one database command (P6).
  *
- * **Idempotent by construction.** The register is upserted on its unique
- * (session, class, day, period), and the marks on (register, student), so a
- * teacher who taps submit twice on a bad connection ends up with exactly one
- * register and one mark per child — not two of each.
- *
- * That matters more than it sounds: the failure mode without it is a class
- * appearing twice in the monthly register, which nobody notices until a report
- * card is wrong.
+ * `save_attendance_register` checks the actor's authority again, the date,
+ * the whole roll, the revision the page showed, and a correction's reason —
+ * then writes the register, every mark, the revision with its before-and-after
+ * and the receipt in one transaction. A repeated `commandId` returns the
+ * first receipt. A fault anywhere leaves nothing written.
  */
-export async function saveRegister(input: {
-  sessionLabel: string;
-  classId: string;
-  day: string;
-  period: number | null;
-  marks: { studentId: string; status: AttendanceStatus; note: string | null }[];
-  submit: boolean;
-  takenByStaffId: string;
-  onBehalfOfStaffId: string | null;
-  createdByUserId: string;
-}): Promise<{ registerId: string; written: number }> {
+export async function saveRegisterCommand(
+  input: SaveRegisterInput & {
+    sessionLabel: string;
+    actorStaffId: string;
+    payloadHash: string;
+    correctionRequestId?: string | null;
+    decisionNote?: string | null;
+    fault?: "after_register" | "after_marks" | "before_receipt";
+  },
+): Promise<SaveOutcome> {
+  const { data, error } = await createAdminClient().rpc("save_attendance_register", {
+    p: {
+      command_id: input.commandId,
+      actor_staff_id: input.actorStaffId,
+      session_label: input.sessionLabel,
+      class_id: input.classId,
+      day: input.day,
+      kind: input.kind,
+      expected_revision: input.expectedRevision,
+      reason: input.reason,
+      payload_hash: input.payloadHash,
+      marks: input.marks.map((mark) => ({ student_id: mark.studentId, status: mark.status })),
+      correction_request_id: input.correctionRequestId ?? null,
+      decision_note: input.decisionNote ?? null,
+      fault: input.fault ?? null,
+    },
+  });
+
+  if (error) {
+    const named = error.message.match(/attendance:([a-z_]+)/)?.[1];
+    if (named === "request_not_pending") return { outcome: "refused", reason: named };
+    throw new Error(`Could not save the register: ${error.message}`);
+  }
+
+  const row = data as Record<string, unknown>;
+  if (row.ok === true) return { outcome: "saved", receipt: toAttendanceReceipt(row) };
+  if (row.reason === "stale") {
+    const latest = row.latest as Record<string, unknown> | null;
+    return { outcome: "stale", latest: latest ? toAttendanceReceipt(latest) : null };
+  }
+  if (row.reason === "roster_changed") {
+    return {
+      outcome: "roster_changed",
+      missing: (row.missing as string[]) ?? [],
+      extra: (row.extra as string[]) ?? [],
+    };
+  }
+  return { outcome: "refused", reason: String(row.reason ?? "failed") };
+}
+
+/**
+ * Whether a save with this submission id landed, and its receipt if it did —
+ * what the screen asks after an answer that never arrived. Only the actor's
+ * own submissions are found.
+ */
+export async function findAttendanceCommand(
+  commandId: string,
+  actorStaffId: string,
+): Promise<AttendanceReceipt | null> {
   const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("attendance_register_revisions")
+    .select("id")
+    .eq("command_id", commandId)
+    .eq("actor_staff_id", actorStaffId)
+    .maybeSingle<{ id: string }>();
+  if (error) throw new Error(`Could not check the save: ${error.message}`);
+  if (!data) return null;
 
-  const existing = await findRegister(
-    input.classId,
-    input.sessionLabel,
-    input.day,
-    input.period,
-  );
+  const { data: receipt, error: receiptError } = await admin.rpc("attendance_receipt", {
+    p_revision: data.id,
+  });
+  if (receiptError) throw new Error(`Could not read the receipt: ${receiptError.message}`);
+  return toAttendanceReceipt({ ...(receipt as Record<string, unknown>), replayed: true });
+}
 
-  let registerId: string;
+export type RegisterRevision = {
+  revision: number;
+  kind: "save" | "correction" | "imported";
+  savedAt: string;
+  actorName: string | null;
+  reason: string | null;
+  changes: { studentId: string; from: AttendanceStatus | null; to: AttendanceStatus }[];
+};
 
-  if (existing) {
-    registerId = existing.id;
+/**
+ * Every revision of a register, newest first, under the reader's own scope:
+ * a register outside it has no history to show.
+ */
+export async function registerRevisions(registerId: string): Promise<RegisterRevision[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("attendance_register_revisions")
+    .select("revision, kind, created_at, reason, changes, staff_profiles(display_name)")
+    .eq("register_id", registerId)
+    .order("revision", { ascending: false })
+    .returns<
+      {
+        revision: number;
+        kind: RegisterRevision["kind"];
+        created_at: string;
+        reason: string | null;
+        changes: { student_id: string; from: AttendanceStatus | null; to: AttendanceStatus }[];
+        staff_profiles: { display_name: string } | null;
+      }[]
+    >();
 
-    const { error } = await admin
-      .from("attendance_registers")
-      .update({
-        status: input.submit ? "submitted" : existing.status,
-        taken_by: input.takenByStaffId,
-        on_behalf_of: input.onBehalfOfStaffId,
-        // Kept from the first submit: re-saving a submitted register should
-        // not make it look like it was handed in later than it was.
-        submitted_at:
-          existing.submittedAt ??
-          (input.submit ? new Date().toISOString() : null),
-      })
-      .eq("id", registerId);
+  if (error) throw new Error(`Could not read the register's history: ${error.message}`);
+  return data.map((row) => ({
+    revision: row.revision,
+    kind: row.kind,
+    savedAt: row.created_at,
+    actorName: row.staff_profiles?.display_name ?? null,
+    reason: row.reason,
+    changes: (row.changes ?? []).map((change) => ({
+      studentId: change.student_id,
+      from: change.from,
+      to: change.to,
+    })),
+  }));
+}
 
-    if (error) throw error;
-  } else {
-    const { data, error } = await admin
-      .from("attendance_registers")
-      .insert({
-        session_label: input.sessionLabel,
-        class_id: input.classId,
-        day: input.day,
-        period: input.period,
-        status: input.submit ? "submitted" : "open",
-        taken_by: input.takenByStaffId,
-        on_behalf_of: input.onBehalfOfStaffId,
-        submitted_at: input.submit ? new Date().toISOString() : null,
-        created_by: input.createdByUserId,
-      })
-      .select("id")
-      .single<{ id: string }>();
+/** The latest receipt of a register, for "Already saved by … at …". */
+export async function latestReceipt(registerId: string): Promise<AttendanceReceipt | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("attendance_register_revisions")
+    .select("id")
+    .eq("register_id", registerId)
+    .order("revision", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+  if (error) throw new Error(`Could not read the receipt: ${error.message}`);
+  if (!data) return null;
+  const { data: receipt, error: receiptError } = await admin.rpc("attendance_receipt", {
+    p_revision: data.id,
+  });
+  if (receiptError) throw new Error(`Could not read the receipt: ${receiptError.message}`);
+  return toAttendanceReceipt(receipt as Record<string, unknown>);
+}
 
-    if (error) throw error;
-    registerId = data.id;
-  }
+/* ---------------------------------------------------------- the rules */
 
-  if (input.marks.length > 0) {
-    const { error } = await admin.from("attendance_marks").upsert(
-      input.marks.map((mark) => ({
-        register_id: registerId,
-        student_id: mark.studentId,
-        status: mark.status,
-        note: mark.note,
-      })),
-      { onConflict: "register_id,student_id" },
-    );
+/** How this session counts a half day: the school's row, or the default. */
+export async function attendanceRules(sessionLabel: string): Promise<AttendanceRules> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("attendance_rules")
+    .select("half_day_credit")
+    .eq("session_label", sessionLabel)
+    .maybeSingle<{ half_day_credit: number | string }>();
+  if (error) throw new Error(`Could not read the attendance rules: ${error.message}`);
+  return data ? { halfDayCredit: Number(data.half_day_credit) } : DEFAULT_ATTENDANCE_RULES;
+}
 
-    if (error) throw error;
-  }
-
-  return { registerId, written: input.marks.length };
+/** Change it. The caller has checked `academics:manage`. */
+export async function saveAttendanceRules(input: {
+  sessionLabel: string;
+  halfDayCredit: number;
+  actorStaffId: string;
+}): Promise<void> {
+  const admin = createAdminClient();
+  const { data: current } = await admin
+    .from("attendance_rules")
+    .select("revision")
+    .eq("session_label", input.sessionLabel)
+    .maybeSingle<{ revision: number }>();
+  const { error } = await admin.from("attendance_rules").upsert({
+    session_label: input.sessionLabel,
+    half_day_credit: input.halfDayCredit,
+    revision: (current?.revision ?? 0) + 1,
+    updated_by: input.actorStaffId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error(`Could not save the attendance rules: ${error.message}`);
 }
 
 /* ------------------------------------------- history, for percentages */

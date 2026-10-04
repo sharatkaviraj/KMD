@@ -4,7 +4,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
-import { classRoll, studentAttendance } from "@/modules/attendance/data/attendance-repo";
+import { attendanceRules, classRoll, studentAttendance } from "@/modules/attendance/data/attendance-repo";
 import { attendancePercent } from "@/modules/attendance/domain/attendance";
 import {
   listAssessments,
@@ -65,10 +65,11 @@ export async function previewReportCard(input: {
 
   if (!enrolment) return null;
 
-  const [assessments, papers, attendance] = await Promise.all([
+  const [assessments, papers, attendance, rules] = await Promise.all([
     listAssessments(input.sessionLabel),
     papersForClass(enrolment.class_id, input.sessionLabel),
     studentAttendance(input.studentId, input.sessionLabel),
+    attendanceRules(input.sessionLabel),
   ]);
 
   const inTerm = assessments.filter((entry) => entry.term === input.term);
@@ -76,7 +77,9 @@ export async function previewReportCard(input: {
   const termPapers = papers.filter((paper) => termIds.has(paper.assessmentId));
 
   const marks = await marksForPapers(termPapers.map((paper) => paper.id));
-  const summary = attendancePercent(attendance.map((entry) => entry.status));
+  // The school's half-day rule, the same one the register and the student
+  // card use, so a report cannot disagree with them (P6).
+  const summary = attendancePercent(attendance.map((entry) => entry.status), rules);
 
   return buildReportCard({
     sessionLabel: input.sessionLabel,
