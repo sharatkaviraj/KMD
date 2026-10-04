@@ -328,3 +328,32 @@ describe("student_records has one writer", () => {
     expect(WRITE_AFTER.test(source), `${rel} writes student_records directly; call the database command instead`).toBe(false);
   });
 });
+
+/**
+ * No migration here changes the fee app's code or rows (P12, Prompt 8).
+ *
+ * "No migration modifies shared fee schemas/functions without separately
+ * approved scope." The rule above refuses creating anything in `public`; this
+ * one refuses replacing a fee function or trigger in `public` or `private`,
+ * altering one, and inserting, updating or deleting `public` rows. The single
+ * approved exception is D-191's `private.current_staff_role()` fallback.
+ * `npm run verify:fee-parity` checks the same boundary from the database's
+ * side, against a committed fingerprint of every fee function, trigger and
+ * index.
+ */
+describe("no migration changes the fee app's code or rows", () => {
+  const migrationsDir = path.join(repoRoot, "supabase/migrations");
+  const migrations = readdirSync(migrationsDir).filter((file) => file.endsWith(".sql"));
+  const APPROVED = new Set(["20260922100000_current_staff_role_reads_vppsone.sql"]);
+  const TOUCHES_FEE =
+    /\b(create\s+(or\s+replace\s+)?(function|trigger)\s+(public|private)\.|alter\s+(function|trigger)\s+(public|private)\.|drop\s+(function|trigger)\s+(if\s+exists\s+)?(public|private)\.|insert\s+into\s+public\.|update\s+public\.|delete\s+from\s+public\.)/i;
+
+  it.each(migrations.filter((file) => !APPROVED.has(file)))("%s leaves the fee app's functions, triggers and rows alone", (file) => {
+    const sql = readFileSync(path.join(migrationsDir, file), "utf8").replace(/--[^\n]*/g, "");
+    expect(TOUCHES_FEE.test(sql), `${file} changes a fee object; that needs its own approval (P12)`).toBe(false);
+  });
+
+  it("still has its one approved exception, so the allowlist cannot quietly go stale", () => {
+    expect(migrations).toContain("20260922100000_current_staff_role_reads_vppsone.sql");
+  });
+});

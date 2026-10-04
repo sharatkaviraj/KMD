@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { dayLabel } from "@/platform/dates";
 import { countOf, counted, primary } from "@/platform/i18n/language";
@@ -104,6 +105,16 @@ export default async function RoundPage({
           </Badge>
         }
       />
+
+      {mayManage ? (
+        <p className="mt-2">
+          {/* A workbook of the round: each link a sheet, what each teacher was
+              shown beside her answer (P10d). */}
+          <a href={`/collection/rounds/${id}/export`} className="text-[13px] font-semibold underline" data-export-round>
+            {primary(ms.exportRound, language)}
+          </a>
+        </p>
+      ) : null}
 
       <Section className="mt-6" title={m.roundWho} language={language}>
         <Card className="p-4">

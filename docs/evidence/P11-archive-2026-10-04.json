@@ -1,0 +1,55 @@
+{
+  "ranAt": "2026-10-04T13:40:16.671Z",
+  "results": [
+    {
+      "name": "1. every VPPS One table is in the archive, each with its rows, digest and checksum",
+      "ok": true,
+      "detail": "66 tables, 4564 rows"
+    },
+    {
+      "name": "2. every document and photograph is copied, with its checksum",
+      "ok": true,
+      "detail": "5 files"
+    },
+    {
+      "name": "3. a quiet table's archived digest is the live table's",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4. the restore drill reloads every table to the same digest and re-hashes every file",
+      "ok": true,
+      "detail": "{\"tables\":66,\"objects\":5,\"roundTrip\":\"ok\"}"
+    },
+    {
+      "name": "5. a file that does not match its checksum fails the drill",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6. rows that do not reload to the archived digest fail the drill",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "7. a missing file fails the drill",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "8. a photograph whose bytes changed fails the drill",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. the archive bucket is private: no key, no manifest",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "10. the archive's files and row are gone afterwards",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

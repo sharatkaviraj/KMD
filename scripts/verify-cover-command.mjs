@@ -346,7 +346,24 @@ try {
   const outsider = profiles.find((p) => !managerRoles.has(p.role));
   const r12 = await rpc(command({ actor_staff_id: outsider.id, expected: { ...at1, day_revision: 5 } }));
   check("an actor without substitutions:manage is refused", r12.ok === false && r12.reason === "not_permitted");
+
+  // 13. The operator's switch (pilot runbook): off means no command lands,
+  // and nothing already committed is touched.
+  await db.from("runtime_flags").update({ enabled: false }).eq("key", "cover_command");
+  try {
+    const before = await dayState();
+    const r13 = await rpc(command({ expected: { ...at1, day_revision: 5 } }));
+    const after = await dayState();
+    check(
+      "with the operator switch off a command is refused, and nothing committed changes",
+      r13.ok === false && r13.reason === "disabled" && JSON.stringify(after) === JSON.stringify(before),
+      r13.reason,
+    );
+  } finally {
+    await db.from("runtime_flags").update({ enabled: true }).eq("key", "cover_command");
+  }
 } finally {
+  await db.from("runtime_flags").update({ enabled: true }).eq("key", "cover_command");
   await setFault(false);
   await cleanup();
 }

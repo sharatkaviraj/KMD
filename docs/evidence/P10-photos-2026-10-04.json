@@ -1,0 +1,50 @@
+{
+  "ranAt": "2026-10-04T13:37:42.778Z",
+  "results": [
+    {
+      "name": "1. a teacher cannot place a photograph",
+      "ok": true,
+      "detail": "not_permitted"
+    },
+    {
+      "name": "2. the first photograph is placed and is the child's current one",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "3. the same command again returns what it did, and places nothing more",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4. a photograph placed without seeing the current one is refused, not put on top",
+      "ok": true,
+      "detail": "stale"
+    },
+    {
+      "name": "5. a retake replaces it, and the earlier photograph is kept — row and bytes — pointing at its replacement",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6. two retakes at once: one is placed, the other is told",
+      "ok": true,
+      "detail": "1 placed, 1 told"
+    },
+    {
+      "name": "7. a photograph of nobody on the roll is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "8. the bucket is private: no key, no bytes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. nothing synthetic is left behind",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

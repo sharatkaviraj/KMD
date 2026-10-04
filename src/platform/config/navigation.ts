@@ -252,6 +252,9 @@ export const MAX_TABS = 5;
  */
 export const NON_NAV_SCREENS = [
   "/access-denied",
+  // Archives and their restore drills (P11): an administrator's, a few times
+  // a year, reached from Scheduled jobs rather than from the thumb bar.
+  "/archives",
   "/calendar",
   "/enrolments",
   // Your own settings. Not a tab for the same reason the calendar is not: it

@@ -1,0 +1,90 @@
+{
+  "ranAt": "2026-10-04T13:37:36.707Z",
+  "results": [
+    {
+      "name": "1. a teacher cannot apply an import",
+      "ok": true,
+      "detail": "not_permitted"
+    },
+    {
+      "name": "2. the matched rows are applied and nothing else",
+      "ok": true,
+      "detail": "{\"rows\":3,\"written\":1}"
+    },
+    {
+      "name": "3. a value nobody held is recorded as an import from SamPark",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4. and the row's SamPark id now points at that child (SamPark's links resolve)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. a value a person recorded is kept, and the refusal is in the history",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6. a value a different import recorded is kept",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "7. the same command again returns what it did",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "8. applying the batch again finds nothing left to apply",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. a newer SamPark file corrects what SamPark wrote",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "10. a row whose SamPark id is already another child's goes back to a person, naming both",
+      "ok": true,
+      "detail": "{\"resolution\":\"ambiguous\",\"why\":\"ids_disagree\",\"applied_at\":null,\"candidates\":[\"00619267-165c-43b6-a9a4-3461a0982f16\",\"01be7410-9a4b-4549-8bed-6b2268a640d9\"],\"student_id\":null}"
+    },
+    {
+      "name": "11. a person chooses the child for an unmatched row, and it is applied by hand",
+      "ok": true,
+      "detail": "{\"ok\":true,\"applied\":true,\"written\":1,\"no_field\":0,\"unchanged\":0,\"command_id\":\"dbd9f818-4a84-470d-87d6-f0bbf2f1f9a5\",\"resolution\":\"resolved\",\"kept_person\":0,\"kept_other_import\":0}"
+    },
+    {
+      "name": "12. setting a row aside needs a reason",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "13. with a reason it is set aside, and writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "14. a decided row is not decided again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "15. a teacher cannot decide the queue",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "16. a failure after the first row leaves nothing applied and no mapping made",
+      "ok": true,
+      "detail": "fault injected after the first row"
+    },
+    {
+      "name": "17. nothing synthetic is left behind",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

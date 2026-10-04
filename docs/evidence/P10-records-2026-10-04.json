@@ -1,0 +1,100 @@
+{
+  "ranAt": "2026-10-04T13:37:12.741Z",
+  "results": [
+    {
+      "name": "1. a teacher cannot decide answers",
+      "ok": true,
+      "detail": "not_permitted"
+    },
+    {
+      "name": "2. accepting writes the record as the teacher's, naming the answer",
+      "ok": true,
+      "detail": "{\"recorded\":1,\"source\":\"teacher\"}"
+    },
+    {
+      "name": "3. and keeps it in the history",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4. the same command again returns what it did, and does nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. the same id for a different decision is refused",
+      "ok": true,
+      "detail": "id_reused"
+    },
+    {
+      "name": "6. deciding an answer somebody already decided changes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "7. an older answer with a newer one waiting is refused, and stays pending",
+      "ok": true,
+      "detail": "[{\"reason\":\"superseded\",\"submission_id\":\"5cf09b85-8404-4b18-9f84-5c5c7097c7a1\"}]"
+    },
+    {
+      "name": "8. the newer one is accepted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "9. an answer about a value that has since moved is refused by name",
+      "ok": true,
+      "detail": "[{\"reason\":\"record_moved\",\"submission_id\":\"5cf09b85-8404-4b18-9f84-5c5c7097c7a1\"}]"
+    },
+    {
+      "name": "10. replaced only when a person says so, and the history keeps the value it replaced",
+      "ok": true,
+      "detail": "{\"old_value\":\"9800000202\",\"new_value\":\"9800000201\",\"outcome\":\"written\"}"
+    },
+    {
+      "name": "11. a blank answer is a confirmation and writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "12. the value already held is confirmed, not rewritten",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "13. a rejection writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "14. four hundred ids are one call (they travel in the body, not the URL)",
+      "ok": true,
+      "detail": "decided 1"
+    },
+    {
+      "name": "15. two people deciding at once: one decides, the other is told, one write",
+      "ok": true,
+      "detail": "1 decided, 1 told"
+    },
+    {
+      "name": "16. a failure after the first write leaves nothing written and nothing decided",
+      "ok": true,
+      "detail": "fault injected after the first write"
+    },
+    {
+      "name": "17. a history row cannot be edited or deleted",
+      "ok": true,
+      "detail": "42501/42501"
+    },
+    {
+      "name": "18. not even a synthetic one can be edited",
+      "ok": true,
+      "detail": "42501"
+    },
+    {
+      "name": "19. the synthetic field leaves nothing behind",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

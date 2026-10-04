@@ -3,6 +3,7 @@ import { MessageSquare } from "lucide-react";
 
 import { AuthoredText } from "@/ui/authored-text";
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { dayLabel } from "@/platform/dates";
@@ -120,6 +121,31 @@ export default async function CollectionPage() {
         >
           {primary(m.messagesTitle, language)}
         </Link>
+        {mayManage ? (
+          <>
+            <Link
+              href="/collection/photos"
+              className={buttonClasses({ variant: "outline", size: "sm" })}
+            >
+              {primary(ms.photoTitle, language)}
+            </Link>
+            <Link
+              href="/collection/import"
+              className={buttonClasses({ variant: "outline", size: "sm" })}
+            >
+              {primary(ms.importTitle, language)}
+            </Link>
+            {/* A download, not a page: a plain link so the browser saves it. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a route handler returning a file, not a page */}
+            <a
+              href="/collection/export/students"
+              className={buttonClasses({ variant: "outline", size: "sm" })}
+              data-export-students
+            >
+              {primary(ms.exportStudents, language)}
+            </a>
+          </>
+        ) : null}
       </div>
 
       {requests.length === 0 ? (

@@ -1,0 +1,172 @@
+import "server-only";
+
+import { createHash } from "node:crypto";
+
+import { assertPermission } from "@/platform/auth/current-staff";
+import { FEE_SCHEMA, getVppsOneEnvironment } from "@/platform/env";
+import { chunkArray } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { createAdminClient } from "@/platform/supabase/admin";
+import { PHOTO_MAX_BYTES, PHOTO_TYPES } from "@/modules/collection/domain/photo-placement";
+
+/**
+ * Children's photographs (P10c, S-11, D-236).
+ *
+ * The bytes are in the private `vppsone-photos` bucket and are only ever
+ * reached through a short-lived signed URL minted here, after a permission
+ * check. A photograph is placed by `vppsone.place_student_photo`, which keeps
+ * the one it replaces; nothing here deletes a placed photograph.
+ */
+
+export const PHOTOS_BUCKET = "vppsone-photos";
+const SIGNED_SECONDS = 300;
+
+export type RosterChild = {
+  studentId: string;
+  name: string;
+  srNo: string | null;
+  externalId: string | null;
+  photoId: string | null;
+  photoUrl: string | null;
+  uploadedAt: string | null;
+};
+
+/** A class's children, with their current photograph — the missing-photo view's source. */
+export async function classPhotoRoster(classId: string, sessionLabel: string): Promise<RosterChild[]> {
+  await assertPermission("collection:manage");
+  const admin = createAdminClient();
+
+  const { data: roll } = await admin
+    .from("enrolments")
+    .select("student_id")
+    .eq("class_id", classId)
+    .eq("session_label", sessionLabel)
+    .eq("status", "enrolled")
+    .returns<{ student_id: string }[]>();
+  const ids = (roll ?? []).map((row) => row.student_id);
+  if (ids.length === 0) return [];
+
+  const students: { id: string; full_name: string | null; admission_no: string | null }[] = [];
+  const mappings: { student_id: string; external_id: string }[] = [];
+  const photos: { id: string; student_id: string; storage_path: string; uploaded_at: string }[] = [];
+  for (const chunk of chunkArray(ids, IN_FILTER_CHUNK_SIZE)) {
+    const [s, x, p] = await Promise.all([
+      admin.schema(FEE_SCHEMA).from("students").select("id, full_name, admission_no").in("id", chunk)
+        .returns<{ id: string; full_name: string | null; admission_no: string | null }[]>(),
+      admin.from("external_student_ids").select("student_id, external_id").eq("app_id", "sampark")
+        .eq("source_environment", getVppsOneEnvironment()).in("student_id", chunk)
+        .returns<{ student_id: string; external_id: string }[]>(),
+      admin.from("student_photos").select("id, student_id, storage_path, uploaded_at").is("replaced_at", null).in("student_id", chunk)
+        .returns<{ id: string; student_id: string; storage_path: string; uploaded_at: string }[]>(),
+    ]);
+    if (s.error || x.error || p.error) throw new Error("Could not read the class's photographs.");
+    students.push(...(s.data ?? []));
+    mappings.push(...(x.data ?? []));
+    photos.push(...(p.data ?? []));
+  }
+
+  const urls = new Map<string, string>();
+  if (photos.length > 0) {
+    const { data: signed } = await admin.storage
+      .from(PHOTOS_BUCKET)
+      .createSignedUrls(photos.map((photo) => photo.storage_path), SIGNED_SECONDS);
+    for (const entry of signed ?? []) {
+      if (entry.path && entry.signedUrl) urls.set(entry.path, entry.signedUrl);
+    }
+  }
+
+  const studentOf = new Map(students.map((row) => [row.id, row]));
+  const externalOf = new Map(mappings.map((row) => [row.student_id, row.external_id]));
+  const photoOf = new Map(photos.map((row) => [row.student_id, row]));
+
+  return ids
+    .map((id) => {
+      const photo = photoOf.get(id);
+      return {
+        studentId: id,
+        name: studentOf.get(id)?.full_name ?? "—",
+        srNo: studentOf.get(id)?.admission_no ?? null,
+        externalId: externalOf.get(id) ?? null,
+        photoId: photo?.id ?? null,
+        photoUrl: photo ? (urls.get(photo.storage_path) ?? null) : null,
+        uploadedAt: photo?.uploaded_at ?? null,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export type PlaceReceipt =
+  | { ok: true; photoId: string; replaced: string | null; replayed: boolean }
+  | { ok: false; reason: "too_large" | "wrong_type" | "stale" | "not_permitted" | "no_such_child" | "id_reused" | "unavailable" };
+
+const EXTENSION: Record<(typeof PHOTO_TYPES)[number], string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+/**
+ * Store a photograph's bytes and place it, as one command.
+ *
+ * The object is named by the command id, so a retry after a lost answer finds
+ * its own bytes already there and goes straight to the command — which
+ * returns what it did the first time. A refused command removes the bytes it
+ * uploaded, so the bucket never holds a photograph no row points at.
+ */
+export async function placePhoto(input: {
+  commandId: string;
+  studentId: string;
+  sessionLabel: string;
+  bytes: ArrayBuffer;
+  contentType: string;
+  width: number | null;
+  height: number | null;
+  source: "camera" | "file" | "folder";
+  sourceRef: string | null;
+  expectedCurrent: string | null;
+  actorStaffId: string;
+}): Promise<PlaceReceipt> {
+  if (!(PHOTO_TYPES as readonly string[]).includes(input.contentType)) return { ok: false, reason: "wrong_type" };
+  if (input.bytes.byteLength === 0 || input.bytes.byteLength > PHOTO_MAX_BYTES) return { ok: false, reason: "too_large" };
+
+  const admin = createAdminClient();
+  const sha256 = createHash("sha256").update(Buffer.from(input.bytes)).digest("hex");
+  const path = `${input.studentId}/${input.commandId}.${EXTENSION[input.contentType as (typeof PHOTO_TYPES)[number]]}`;
+
+  const upload = await admin.storage.from(PHOTOS_BUCKET).upload(path, input.bytes, { contentType: input.contentType, upsert: false });
+  const uploadedNow = !upload.error;
+  if (upload.error && !/exists|duplicate/i.test(upload.error.message)) return { ok: false, reason: "unavailable" };
+
+  const payload = {
+    student: input.studentId,
+    sha256,
+    expected: input.expectedCurrent ?? "",
+    source: input.source,
+  };
+  const { data, error } = await admin.rpc("place_student_photo", {
+    p: {
+      command_id: input.commandId,
+      actor_staff_id: input.actorStaffId,
+      student_id: input.studentId,
+      session_label: input.sessionLabel,
+      storage_path: path,
+      content_type: input.contentType,
+      byte_size: input.bytes.byteLength,
+      sha256,
+      width: input.width,
+      height: input.height,
+      source: input.source,
+      source_ref: input.sourceRef,
+      expected_current: input.expectedCurrent,
+      payload_hash: createHash("sha256").update(JSON.stringify(payload)).digest("hex"),
+    },
+  });
+
+  const receipt = (error ? null : data) as { ok?: boolean; reason?: string; photo_id?: string; replaced?: string | null; replayed?: boolean } | null;
+  if (!receipt?.ok) {
+    if (uploadedNow) await admin.storage.from(PHOTOS_BUCKET).remove([path]);
+    const reason = receipt?.reason;
+    return {
+      ok: false,
+      reason:
+        reason === "stale" || reason === "not_permitted" || reason === "no_such_child" || reason === "id_reused" ? reason : "unavailable",
+    };
+  }
+  return { ok: true, photoId: receipt.photo_id!, replaced: receipt.replaced ?? null, replayed: receipt.replayed === true };
+}

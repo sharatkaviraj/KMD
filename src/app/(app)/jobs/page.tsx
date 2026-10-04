@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { dayLabel } from "@/platform/dates";
@@ -59,6 +62,14 @@ export default async function JobsPage() {
         language={language}
         back={BACK}
       />
+
+      {/* Archives and their restore drills live one step from the jobs that
+          keep the school running (P11). */}
+      <p className="mb-4">
+        <Link href="/archives" className="text-[13px] font-semibold underline" data-archives-link>
+          {primary(ms.archiveTitle, language)}
+        </Link>
+      </p>
 
       <Section title={m.jobsTitle} language={language}>
         <ul className="space-y-3">

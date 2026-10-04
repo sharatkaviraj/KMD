@@ -24,7 +24,6 @@ import {
   markStale,
   parentDispatchSwitch,
   parentPolicies,
-  pinSnapshot,
   snapshotNow,
   staleness,
 } from "@/modules/collection/data/parent-messages-repo";
@@ -213,6 +212,29 @@ export async function queueSend(input: {
   sessionLabel: string;
   requestedByStaffId: string;
 }): Promise<string> {
+  const renderedHi = render(input.template.bodyHi, input.queue.variables);
+  const renderedEn = render(input.template.bodyEn, input.queue.variables);
+
+  // A parent message keeps what it rests on, so an approval given later can
+  // be checked against what is true then (P9). Taken before the insert and
+  // written with it: a row nobody can approve because its snapshot has not
+  // landed yet is a row that exists for no reason.
+  const parent =
+    input.template.audience === "parent"
+      ? await (async () => {
+          const category = categoryFor({ requestId: input.queue.requestId });
+          const snapshot = await snapshotNow({
+            toPhone: input.queue.toPhone,
+            studentId: input.queue.studentId,
+            requestId: input.queue.requestId,
+            renderedHi,
+            renderedEn,
+            category,
+          });
+          return { category, snapshot };
+        })()
+      : null;
+
   const { data, error } = await createAdminClient()
     .from("message_sends")
     .insert({
@@ -224,30 +246,16 @@ export async function queueSend(input: {
       request_id: input.queue.requestId,
       staff_profile_id: input.queue.staffProfileId,
       variables: input.queue.variables,
-      rendered_hi: render(input.template.bodyHi, input.queue.variables),
-      rendered_en: render(input.template.bodyEn, input.queue.variables),
+      rendered_hi: renderedHi,
+      rendered_en: renderedEn,
       status: "queued",
       requested_by: input.requestedByStaffId,
+      ...(parent ? { category: parent.category, snapshot: parent.snapshot } : {}),
     })
     .select("id")
     .single<{ id: string }>();
 
   if (error) throw error;
-
-  // A parent message keeps what it rests on, so an approval given later can
-  // be checked against what is true then (P9).
-  if (input.template.audience === "parent") {
-    const category = categoryFor({ requestId: input.queue.requestId });
-    const snapshot = await snapshotNow({
-      toPhone: input.queue.toPhone,
-      studentId: input.queue.studentId,
-      requestId: input.queue.requestId,
-      renderedHi: render(input.template.bodyHi, input.queue.variables),
-      renderedEn: render(input.template.bodyEn, input.queue.variables),
-      category,
-    });
-    await pinSnapshot(data.id, category, snapshot);
-  }
   return data.id;
 }
 

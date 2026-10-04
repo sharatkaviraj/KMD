@@ -178,15 +178,6 @@ export async function snapshotNow(input: {
   };
 }
 
-/** Pin the snapshot and the category on a freshly queued parent message. */
-export async function pinSnapshot(sendId: string, category: ParentCategory, snapshot: ParentSnapshot): Promise<void> {
-  const { error } = await createAdminClient()
-    .from("message_sends")
-    .update({ category, snapshot })
-    .eq("id", sendId);
-  if (error) throw new Error(`Could not record what the message rests on: ${error.message}`);
-}
-
 /** Whether a number has an open "wrong number" flag. */
 export async function routeFlagged(phone: string): Promise<boolean> {
   const { data } = await createAdminClient()

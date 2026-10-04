@@ -292,6 +292,16 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "The office presses send (D-10).",
   },
   {
+    route: "/collection/import",
+    allow: ["admin", "office"],
+    because: "Bringing SamPark's records in and deciding the rows no id could match is office work (P10b).",
+  },
+  {
+    route: "/collection/photos",
+    allow: ["admin", "office"],
+    because: "Placing children's photographs, one at a time or a folder by filename, is office work (P10c).",
+  },
+  {
     route: "/collection/policy",
     allow: ["admin", "office"],
     because: "Whoever sends parent messages reads the policy; only an administrator changes it (P9).",
@@ -408,6 +418,11 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
 
   /* -------------------------------------------------------------- platform */
 
+  {
+    route: "/archives",
+    allow: ["admin"],
+    because: "Building archives and running restore drills is the school record owner's; the administrator holds it (P11).",
+  },
   {
     route: "/jobs",
     allow: ["admin"],
