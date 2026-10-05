@@ -38,7 +38,7 @@ export default async function PreferencesPage() {
   /**
    * Where you start, offered from what this role already reaches.
    *
-   * The list is built on the server from `allowedFor()` and the app registry,
+   * The list is built on the server from permitted native routes,
    * so the radio group cannot contain a destination the account may not open —
    * and the action re-checks the posted value against the same function rather
    * than trusting the list it rendered.
@@ -58,7 +58,7 @@ export default async function PreferencesPage() {
       value: option.value,
       label: option.label,
       hint: startOptionHint(option),
-      external: option.kind === "app",
+      external: false,
     })),
   ];
 

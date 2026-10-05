@@ -1,5 +1,5 @@
 // Cache public assets only. Protected pages, private JSON and mutations stay online.
-const CACHE = "vppsone-public-v4";
+const CACHE = "vppsone-public-v5";
 const PRECACHE = ["/offline.html", "/manifest.webmanifest", "/branding/icon-192.png", "/branding/icon-512.png"];
 let writes = 0;
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PRECACHE))));

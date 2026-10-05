@@ -1,5 +1,5 @@
 {
-  "name": "VPPS One — Shri Veer Patta School",
+  "name": "VPPS One — Veer Patta Public School",
   "short_name": "VPPS One",
   "id": "/",
   "scope": "/",
@@ -9,8 +9,8 @@
   "orientation": "any",
   "categories": ["business", "education"],
   "launch_handler": { "client_mode": "focus-existing" },
-  "background_color": "#FAFAF7",
-  "theme_color": "#FAFAF7",
+  "background_color": "#F7FAFC",
+  "theme_color": "#F7FAFC",
   "description": "School workspace for staff, attendance, timetable, assessments and fees.",
   "icons": [
     {
@@ -24,12 +24,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "/branding/veer-patta-school-logo.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "any"
     }
   ],
   "shortcuts": [

@@ -87,13 +87,13 @@ test.describe("where a role lands", () => {
     expect(text).toMatch(/School overview|स्कूल की स्थिति/);
     expect(text).toMatch(/Needs attention|ध्यान चाहिए/);
     expect(text).toMatch(/Today at school|आज स्कूल में/);
-    expect(text).toMatch(/School workspaces|स्कूल के कार्यक्षेत्र/);
+    expect(text).toMatch(/Your workspaces|आपके कार्यक्षेत्र/);
     expect(text).toMatch(/Fee collection|फ़ीस का हिसाब/);
 
     // **No invented rupees.** The fee source is not read here until R6, and
     // the handoff is explicit: unavailable with a next step, never ₹0.
     expect(text).not.toMatch(/₹/);
-    expect(text).toMatch(/School Fees|स्कूल फ़ीस/);
+    await expect(page.locator('[aria-labelledby="admin-workspaces"] a[href="/fees"]')).toBeVisible();
   });
 
   test("accounts staff open the School Fees workspace", async ({ request }) => {
@@ -104,17 +104,16 @@ test.describe("where a role lands", () => {
     await setStart(profileId, "app:schoolfees");
 
     try {
-      // The redirect is read rather than followed. The destination is the
-      // school's **live** fee app, and a test suite has no business loading a
-      // production page to prove where a Location header points.
+      // A legacy preference must redirect to the native fee workspace.
+      // Read the Location header to test the callback before /fees redirects.
       const response = await request.get(await signInUrl("office"), {
         maxRedirects: 0,
       });
 
       expect(response.status()).toBe(307);
-      expect(response.headers().location).toBe(
-        "https://vpps-one.vercel.app/protected/dashboard",
-      );
+      const landing = new URL(response.headers().location, response.url());
+      expect(landing.origin).toBe(new URL(response.url()).origin);
+      expect(landing.pathname).toBe("/fees");
     } finally {
       await setStart(profileId, null);
     }
@@ -141,8 +140,8 @@ test.describe("where a role lands", () => {
   });
 
   test("a start screen the role may not use is ignored", async ({ page }) => {
-    // A teacher is not offered either sibling app — `apps:view` is admin and
-    // office only — so a stored value naming one must not be honoured.
+    // A teacher has no fees:view permission, so a stored fee preference must
+    // fall back to her classroom home.
     const profileId = await profileIdOf("teacher");
     await setStart(profileId, "app:schoolfees");
 

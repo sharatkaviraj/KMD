@@ -110,14 +110,12 @@ const NAV_ITEMS: readonly NavItem[] = [
     permission: "collection:view",
     ready: true,
   },
-  // The way to the other two apps. Above the master data on purpose: the
-  // office reaches for School Fees several times a day and for the subject
-  // list a few times a year.
+  // One native fee workspace; its prefix also highlights nested fee screens.
   {
-    href: "/apps",
-    label: m.navApps,
-    icon: SquareArrowOutUpRight,
-    permission: "apps:view",
+    href: "/fees",
+    label: m.navFees,
+    icon: BadgeIndianRupee,
+    permission: "fees:view",
     ready: true,
   },
   {
@@ -252,6 +250,8 @@ export const MAX_TABS = 5;
  */
 export const NON_NAV_SCREENS = [
   "/access-denied",
+  // Compatibility for old bookmarks, redirected to the role's Home.
+  "/apps",
   // Archives and their restore drills (P11): an administrator's, a few times
   // a year, reached from Scheduled jobs rather than from the thumb bar.
   "/archives",
@@ -261,12 +261,16 @@ export const NON_NAV_SCREENS = [
   // is somewhere you go twice a year, and it is reached from the More hub and
   // from the sign-out corner of the top bar rather than from the thumb bar.
   "/preferences",
-  // The fee desk's front door: somewhere you are sent, like `/access-denied`.
-  // It resolves the role to its right fee screen and redirects. The fee tabs a
-  // person actually navigates to — the Payment Desk, Transactions, Students —
-  // are `NAV_ITEMS` entries in the `money` group.
-  "/fees",
 ] as const;
+
+/** Primary modules use native destinations and the existing permission map. */
+export function workspacesFor(role: StaffRole): NavItem[] {
+  const allowed = allowedFor(role);
+  return ["/fees", "/collection", "/timetable", "/students"].flatMap((href) => {
+    const item = allowed.find((entry) => entry.href === href);
+    return item ? [item] : [];
+  });
+}
 
 /* ------------------------------------------------- where each role starts */
 
@@ -319,9 +323,9 @@ export function homeFor(role: StaffRole): string {
  * still reachable — it falls to More, and the desktop sidebar shows all of it.
  */
 const NAV_PRIORITY: Record<StaffRole, readonly string[]> = {
-  // "Home, Students, SamPark, Apps, More" — Students arrives in R2.3.
-  admin: ["/dashboard", "/students", "/collection", "/apps"],
-  office: ["/dashboard", "/students", "/collection", "/apps"],
+  // Four daily native destinations; More holds the remaining workflows.
+  admin: ["/dashboard", "/students", "/collection", "/fees"],
+  office: ["/dashboard", "/students", "/collection", "/fees"],
   // The fee desk. These are the routes that exist today; the fee screens
   // themselves arrive with their own tabs and take the lead here then.
   // The fee desk, in the fee app's own order: collect first.
@@ -421,6 +425,7 @@ const GROUP_OF: Record<string, "daily" | "money" | "records" | "setup"> = {
   // there at all — and an admin, who sees both, should be able to tell at
   // a glance which half of the school a link belongs to.
   "/fees/payments": "money",
+  "/fees": "money",
   "/fees/transactions": "money",
   "/fees/defaulters": "money",
   "/fees/students": "money",
@@ -430,7 +435,6 @@ const GROUP_OF: Record<string, "daily" | "money" | "records" | "setup"> = {
   "/fees/admin-tools": "money",
   "/timetable": "records",
   "/assessments": "records",
-  "/apps": "records",
   "/academics": "setup",
   "/staff": "setup",
   "/jobs": "setup",

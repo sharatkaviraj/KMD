@@ -1,12 +1,12 @@
 import Image from "next/image";
 
-import { schoolProfile } from "@/platform/config/school";
+import { schoolBrand } from "@/platform/config/school-brand";
 import { cn } from "@/platform/utils";
 
 type SchoolBrandProps = {
   className?: string;
   variant?: "hero" | "sidebar" | "sidebar-ink" | "compact" | "icon";
-  priority?: boolean;
+  preload?: boolean;
 };
 
 const variantStyles = {
@@ -27,10 +27,8 @@ const variantStyles = {
   "sidebar-ink": {
     root: "gap-3",
     frame: "size-11 rounded-lg p-1 shadow-xs",
-    // Saffron (--accent) on ink is only 3.7:1 — below AA for 10px text. The
-    // brand colour stays on non-text marks (icons, rules); the eyebrow uses
-    // the ink foreground so it stays readable.
-    eyebrow: "text-[10px] font-semibold uppercase tracking-[0.14em] text-nav-foreground/75",
+    // Essential small copy stays full-strength on the navy sidebar.
+    eyebrow: "text-[10px] font-semibold uppercase tracking-[0.14em] text-nav-foreground",
     title: "mt-0.5 font-display text-[15px] font-semibold leading-tight tracking-tight text-nav-foreground",
     subtitle: "mt-0.5 text-[11px] leading-4 text-nav-muted",
   },
@@ -53,7 +51,7 @@ const variantStyles = {
 export function SchoolBrand({
   className,
   variant = "compact",
-  priority = false,
+  preload = false,
 }: SchoolBrandProps) {
   const style = variantStyles[variant];
 
@@ -62,28 +60,26 @@ export function SchoolBrand({
       <div
         className={cn(
           "shrink-0 overflow-hidden border",
-          variant === "sidebar-ink" ? "border-nav-border bg-nav-surface" : "border-border bg-surface",
+          variant === "sidebar-ink" ? "border-nav-border bg-white" : "border-border bg-white",
           style.frame,
         )}
       >
         <Image
-          src="/branding/veer-patta-school-logo.jpg"
-          alt={`${schoolProfile.name} logo`}
-          width={96}
-          height={96}
-          priority={priority}
+          src={variant === "hero" ? schoolBrand.logo : schoolBrand.emblem}
+          alt={`${schoolBrand.name} logo`}
+          width={variant === "hero" ? 1500 : 344}
+          height={variant === "hero" ? 1500 : 283}
+          sizes={variant === "hero" ? "64px" : "44px"}
+          preload={preload}
           className="h-full w-full object-contain"
         />
       </div>
 
       {variant === "icon" ? null : (
         <div className="min-w-0">
-          {/* "Fee Management" was right when this mark only ever appeared in
-              the fee app. It is the whole school's workspace now — a teacher
-              sees this in her sidebar every morning — so it says so. */}
-          <p className={style.eyebrow}>Shri Veer Patta School</p>
+          <p className={style.eyebrow}>{schoolBrand.name}</p>
           <h2 className={style.title}>VPPS One</h2>
-          <p className={style.subtitle}>{schoolProfile.shortName ?? "Veer Patta School"}</p>
+          <p className={style.subtitle}>{schoolBrand.location}</p>
         </div>
       )}
     </div>

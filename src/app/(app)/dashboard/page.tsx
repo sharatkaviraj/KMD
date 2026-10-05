@@ -1,4 +1,3 @@
-import { ExternalLink } from "lucide-react";
 
 import { m } from "@/messages";
 import { can, type StaffRole } from "@/platform/auth/permissions";
@@ -8,9 +7,7 @@ import {
 } from "@/platform/auth/current-staff";
 import { dayLabel, schoolToday, weekdayLabel } from "@/platform/dates";
 import { pageTitle } from "@/platform/i18n/page-title";
-import { allowedFor, navigationFor } from "@/platform/config/navigation";
-import { schoolProfile } from "@/platform/config/school";
-import { appsFor, environmentLabel } from "@/platform/config/apps";
+import { allowedFor, navigationFor, workspacesFor } from "@/platform/config/navigation";
 import { getVppsOneEnvironment } from "@/platform/env";
 import {
   flat,
@@ -80,8 +77,8 @@ export async function generateMetadata() {
  *
  * An administrator gets the same queue plus the **combined school overview**
  * the design package asks for: attendance, staff, cover, exams and the current
- * information round beside it, and the two other apps as workspaces rather
- * than as a launcher grid. It is one screen because the administrator's
+ * information round beside it, with native Fees and Collection destinations.
+ * It is one screen because the administrator's
  * question is "is the day going normally, and what needs me" — two screens
  * would make them ask it twice.
  *
@@ -97,7 +94,7 @@ export default async function DashboardPage() {
   const destinations = navigationFor(staff.role).filter(
     (item) => item.href !== "/dashboard",
   );
-  const apps = appsFor(staff.role);
+  const nativeWorkspaces = workspacesFor(staff.role);
   const isAdmin = staff.role === "admin";
 
   const today = schoolToday();
@@ -122,10 +119,11 @@ export default async function DashboardPage() {
   );
 
   if (isAdmin) {
-    return <AdminOverview attention={attention} overview={overview} apps={apps}
+    return <AdminOverview attention={attention} overview={overview} workspaces={nativeWorkspaces}
       overviewCounts={{ children: summary?.school.childrenOnRoll ?? null, classes: summary?.school.classes ?? null, registers: summary?.school.registersIn ?? null }}
       destinations={allowedFor(staff.role).filter(item => item.href !== "/dashboard")} day={dayText} language={language}
-      testData={getVppsOneEnvironment() === "dev"} schoolName={schoolProfile.name} />;
+      testData={getVppsOneEnvironment() === "dev"} displayName={staff.displayName}
+      sessionLabel={sessionLabel ?? undefined} schoolHour={Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hour12: false }).format(new Date()))} />;
   }
 
   /* -------------------------------------------------- needs attention */
@@ -211,49 +209,11 @@ export default async function DashboardPage() {
 
   /* ------------------------------------------------------ the workspaces */
 
-  const workspaces =
-    apps.length > 0 ? (
-      <Section
-        className="mt-7"
-        title={isAdmin ? m.overviewWorkspaces : m.navApps}
-        description={isAdmin ? m.overviewWorkspacesHint : m.appsIntro}
-        language={language}
-      >
-        {isAdmin ? (
-          <SchoolWorkspaces apps={apps} language={language} />
-        ) : (
-          // The other two apps, above the list of screens rather than inside
-          // it. PLAN §5 R1: "put both original apps on office/admin home
-          // immediately" — the office reaches for School Fees several times a
-          // day. Each button says which host it opens; two of the three
-          // hostnames a reader would guess belong to somebody else.
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {apps.map((app) => (
-              <li key={app.id}>
-                <a
-                  href={app.home.href}
-                  className="focus-ring flex min-h-16 flex-col justify-center gap-0.5 rounded-2xl border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="min-w-0 truncate text-[15px] font-semibold text-foreground">
-                      {primary(app.name, language)}
-                    </span>
-                    <ExternalLink
-                      aria-hidden
-                      className="size-4 shrink-0 text-subtle-foreground"
-                    />
-                  </span>
-                  <span className="truncate text-[12px] text-subtle-foreground">
-                    {flat(environmentLabel(app.environment), language)} ·{" "}
-                    {new URL(app.home.href).host}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-    ) : null;
+  const workspaces = nativeWorkspaces.length ? (
+    <Section className="mt-7" title={m.nativeWorkspaces} description={m.nativeWorkspacesHint} language={language}>
+      <SchoolWorkspaces workspaces={nativeWorkspaces} language={language} />
+    </Section>
+  ) : null;
 
   /* ----------------------------------------------------- everything else */
 

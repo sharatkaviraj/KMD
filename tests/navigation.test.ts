@@ -323,14 +323,14 @@ describe("each role's bar leads with its own work (B-04)", () => {
 
     expect(office).toContain("/students");
     expect(office).toContain("/collection");
-    expect(office).toContain("/apps");
+    expect(office).toContain("/fees");
 
-    // PLAN section 3 office bar: Home, Students, SamPark, Apps, More.
+    // PLAN section 3 office bar: Home, Students, Collection, Fees, More.
     expect(office.slice(0, 4)).toEqual([
       "/dashboard",
       "/students",
       "/collection",
-      "/apps",
+      "/fees",
     ]);
   });
 

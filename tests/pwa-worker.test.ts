@@ -55,7 +55,7 @@ it("never intercepts private JSON or mutations, and never stores protected navig
 it("bounds static caches and preserves the reconnect shell", async () => {
   const w = worker(); await w.dispatch("install");
   for (let i = 0; i < 180; i++) await w.fetch(`/_next/static/${i}.js`);
-  const entries = w.stored.get("vppsone-public-v4")!;
+  const entries = w.stored.get("vppsone-public-v5")!;
   expect(entries.size).toBeLessThanOrEqual(160);
   expect(entries.has("https://school.test/offline.html")).toBe(true);
 });

@@ -1,18 +1,18 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, ChevronDown, School } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { m } from "@/messages";
 import type { AttentionItem } from "@/modules/home/domain/attention";
 import { needsAttention } from "@/modules/home/domain/attention";
 import { overviewRows, type OverviewFacts } from "@/modules/home/domain/overview";
 import type { OverviewRound } from "@/modules/home/data/home-repo";
-import type { SchoolApp } from "@/platform/config/apps";
 import type { NavItem } from "@/platform/config/navigation";
 import { flat, primary, secondary, type Language, type Localized } from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";
 import { Notice } from "@/ui/primitives";
 import { MetricCard, MetricGrid } from "@/ui/task-hero";
+import { SchoolWelcome } from "@/ui/branding/school-welcome";
 import { FeeLine, RoundProgress, SchoolWorkspaces, TodayAtSchool } from "./overview-panels";
 
 function Pair({ text, language }: { text: Localized; language: Language }) {
@@ -36,16 +36,18 @@ function OverviewSection({ id, title, hint, language, children }: {
 }
 
 /** Native admin composition; data, permissions and destinations stay with the page. */
-export function AdminOverview({ attention, overview, apps, destinations, day, language, testData, schoolName, overviewCounts }: {
+export function AdminOverview({ attention, overview, workspaces, destinations, day, language, testData, displayName, sessionLabel, schoolHour, overviewCounts }: {
   overviewCounts?: { children: number | null; classes: number | null; registers: number | null };
   attention: AttentionItem[];
   overview: { facts: OverviewFacts; round: OverviewRound | null } | null;
-  apps: SchoolApp[];
+  workspaces: NavItem[];
   destinations: NavItem[];
   day: Localized;
   language: Language;
   testData: boolean;
-  schoolName: string;
+  displayName?: string;
+  sessionLabel?: string;
+  schoolHour?: number;
 }) {
   // Presentation only: every original count, owner and destination remains.
   const pending = attention.filter(item => item.count === null || item.count > 0);
@@ -73,17 +75,7 @@ export function AdminOverview({ attention, overview, apps, destinations, day, la
     </Link>
   </li>;
   return <div className="min-w-0 space-y-5 md:space-y-6" data-admin-overview>
-    <header className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-border pb-4 md:pb-5">
-      <div className="min-w-0 flex-1 basis-52">
-        <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground" lang={language === "en" ? "en" : "hi"}>{primary(m.overviewEyebrow, language)}</p>
-        <h1 className="text-[25px] font-bold leading-tight tracking-tight text-foreground md:text-[32px]"><Pair text={m.overviewTitle} language={language} /></h1>
-        <p className="mt-2 flex items-start gap-1.5 text-[12px] leading-5 text-muted-foreground"><School aria-hidden className="mt-0.5 size-4 shrink-0" /><span className="min-w-0 break-words">{schoolName}</span></p>
-      </div>
-      <div className="flex max-w-full items-start gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-[12px] font-medium leading-5 text-foreground">
-        <CalendarDays aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0"><Pair text={day} language={language} /></span>
-      </div>
-    </header>
+    <SchoolWelcome language={language} heading={m.overviewTitle} displayName={displayName} schoolHour={schoolHour} day={day} sessionLabel={sessionLabel} />
 
     {overviewCounts ? <MetricGrid>
       <MetricCard label={m.homeChildrenOnRoll} value={overviewCounts.children?.toString() ?? "—"} language={language} />
@@ -105,8 +97,8 @@ export function AdminOverview({ attention, overview, apps, destinations, day, la
         <FeeLine language={language} />
       </div> : null}
 
-      {apps.length ? <OverviewSection id="admin-workspaces" title={m.overviewWorkspaces} hint={m.overviewWorkspacesHint} language={language}>
-        <SchoolWorkspaces apps={apps} language={language} />
+      {workspaces.length ? <OverviewSection id="admin-workspaces" title={m.nativeWorkspaces} hint={m.nativeWorkspacesHint} language={language}>
+        <SchoolWorkspaces workspaces={workspaces} language={language} />
       </OverviewSection> : null}
 
       {destinations.length ? <details data-all-screens className="group min-w-0 rounded-2xl border border-border bg-surface">

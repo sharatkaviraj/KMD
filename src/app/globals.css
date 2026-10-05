@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 /* =====================================================================
-   Veer Patta Fees — "Ledger Calm" design tokens
-   Foundation: warm off-white paper, ink near-black, single saffron accent.
+   Veer Patta Public School — school blue and teal on the Ledger Calm base.
+   Brand colours differ intentionally; geometry and financial semantics remain.
    Tokens are HSL triplets so Tailwind's `hsl(var(--token) / <alpha>)` works.
    ===================================================================== */
 
@@ -21,7 +21,7 @@
       ui-serif, serif;
 
     /* Surfaces ---------------------------------------------------------- */
-    --background: 46 42% 97%;        /* warmer paper (Ledger Calm 2.0) */
+    --background: 203 50% 98%;       /* school paper */
     --foreground: 222 25% 11%;       /* ink */
     --card: 0 0% 100%;
     --card-foreground: 222 25% 11%;
@@ -29,41 +29,39 @@
     --popover-foreground: 222 25% 11%;
 
     --surface: 0 0% 100%;
-    --surface-2: 44 18% 96%;         /* subtle inset / hover row */
-    --surface-3: 44 14% 92%;         /* deeper inset */
+    --surface-2: 202 44% 96%;        /* pale blue inset / hover row */
+    --surface-3: 202 35% 92%;
 
     /* Text -------------------------------------------------------------- */
-    --muted: 44 18% 96%;
+    --muted: 202 44% 96%;
     --muted-foreground: 222 9% 42%;
     --subtle-foreground: 222 6% 56%;
 
     /* Lines ------------------------------------------------------------- */
-    --border: 40 14% 88%;
-    --border-strong: 40 12% 78%;
-    --input: 40 14% 86%;
+    --border: 204 25% 87%;
+    --border-strong: 204 25% 74%;
+    --input: 204 25% 82%;
 
     /* Brand & action ---------------------------------------------------- */
-    --primary: 222 25% 11%;          /* ink — solid CTAs */
+    --primary: 203 83% 26%;          /* logo blue */
     --primary-foreground: 48 33% 98%;
-    --secondary: 44 18% 94%;
+    --secondary: 202 40% 94%;
     --secondary-foreground: 222 25% 11%;
-    --accent: 20 86% 41%;            /* saffron — hero CTA, focus, brand */
+    --accent: 186 80% 27%;           /* readable school teal */
     --accent-foreground: 48 33% 99%;
-    --accent-soft: 28 92% 96%;       /* tinted accent surface */
-    --accent-soft-foreground: 20 86% 33%;
-    --ring: 20 86% 45%;
+    --accent-soft: 186 55% 95%;
+    --accent-soft-foreground: 186 80% 22%;
+    --ring: 186 80% 27%;
 
     /* Ink navigation surfaces — sidebar, hero band, WhatsApp card -------- */
-    --nav: 222 28% 10%;              /* sidebar / hero band bg */
+    --nav: 204 80% 16%;              /* school navy */
     --nav-foreground: 44 22% 96%;
     --nav-muted: 44 12% 70%;
-    --nav-surface: 222 22% 14%;      /* cards sitting on ink */
-    --nav-hover: 222 20% 16%;
-    --nav-border: 222 16% 20%;
-    /* Saffron lifted one step, for accent marks drawn ON the ink band.
-       --accent is tuned for paper; at 41% lightness it goes muddy against
-       10% ink, which is how the year-rate gauge arc lost its contrast. */
-    --nav-accent: 20 86% 52%;
+    --nav-surface: 204 60% 21%;
+    --nav-hover: 204 55% 25%;
+    --nav-border: 204 40% 31%;
+    /* Lighter teal keeps accent marks readable on school navy. */
+    --nav-accent: 186 65% 70%;
 
     /* Semantic ---------------------------------------------------------- */
     --success: 151 56% 24%;
@@ -87,8 +85,8 @@
     --info-soft-foreground: 221 70% 32%;
 
     /* Charts (used sparingly — quiet hues) ------------------------------ */
-    --chart-1: 222 25% 22%;
-    --chart-2: 20 86% 41%;
+    --chart-1: 203 83% 26%;
+    --chart-2: 186 80% 27%;
     --chart-3: 151 40% 32%;
     --chart-4: 30 70% 42%;
     --chart-5: 221 50% 38%;
@@ -147,28 +145,28 @@
     --border-strong: 222 14% 28%;
     --input: 222 14% 22%;
 
-    /* Brand & action — lift the ink to paper, keep saffron warm */
+    /* Brand & action — light text and teal on the dark surfaces */
     --primary: 44 22% 96%;
     --primary-foreground: 222 25% 11%;
     --secondary: 222 18% 16%;
     --secondary-foreground: 44 22% 96%;
-    --accent: 22 88% 52%;
+    --accent: 186 65% 70%;
     --accent-foreground: 222 25% 11%;
-    --accent-soft: 22 50% 18%;
-    --accent-soft-foreground: 22 88% 78%;
-    --ring: 22 88% 58%;
+    --accent-soft: 186 45% 15%;
+    --accent-soft-foreground: 186 65% 80%;
+    --ring: 186 65% 70%;
 
     /* Ink navigation surfaces — slightly lighter ink at night */
-    --nav: 222 22% 14%;
+    --nav: 204 65% 12%;
     --nav-foreground: 44 22% 96%;
     --nav-muted: 44 12% 70%;
-    --nav-surface: 222 20% 18%;
-    --nav-hover: 222 18% 20%;
-    --nav-border: 222 16% 24%;
+    --nav-surface: 204 45% 18%;
+    --nav-hover: 204 40% 22%;
+    --nav-border: 204 30% 28%;
     /* At night the page is already ink, so --accent is on the same footing
        and the two match. Kept as its own token so the ink surfaces stay
        adjustable without touching every accent on the page. */
-    --nav-accent: 22 88% 52%;
+    --nav-accent: 186 65% 70%;
 
     /* Semantic — bump softs to readable dark tones */
     --success: 151 50% 40%;
@@ -193,7 +191,7 @@
 
     /* Charts — keep the role mapping consistent */
     --chart-1: 44 22% 88%;
-    --chart-2: 22 88% 58%;
+    --chart-2: 186 65% 70%;
     --chart-3: 151 50% 56%;
     --chart-4: 30 80% 60%;
     --chart-5: 221 70% 64%;
@@ -887,9 +885,9 @@ body[data-vpps-test-session="true"]::before {
 /* =====================================================================
    VPPS One additions.
 
-   Everything above this line is School Fees' `globals.css`, copied so the
-   two apps compile the same class strings to the same CSS. Only what the
-   fee app has no equivalent for belongs below.
+   The fee foundation above retains its token names, geometry and behaviour.
+   Blue/teal branding is documented in docs/SCHOOL-BRANDING.md.
+   VPPS One-specific accessibility and workspace patterns belong below.
    ===================================================================== */
 
 /* VPPS readable metadata: the copied 56%-lightness gray is only ~3.3:1 on

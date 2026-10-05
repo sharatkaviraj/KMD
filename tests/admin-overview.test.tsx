@@ -28,14 +28,12 @@ describe("native admin overview contracts", () => {
       expect(host.querySelectorAll("h1")).toHaveLength(1);
       expect(host.querySelector("h1")!.textContent).toContain(primary(m.overviewTitle, language));
     });
-    it(`keeps allowed destinations and exact workspace URLs/data labels in ${language}`, () => {
+    it(`keeps allowed native destinations in ${language}`, () => {
       const host = render({ language });
-      for (const app of adminFixture.apps) {
-        const link = [...host.querySelectorAll("#admin-workspaces + ul a")].find(link => link.getAttribute("href") === app.home.href)
-          ?? [...host.querySelectorAll("a")].find(link => link.getAttribute("href") === app.home.href)!;
+      for (const workspace of adminFixture.workspaces) {
+        const link = [...host.querySelectorAll('[aria-labelledby="admin-workspaces"] a')].find(link => link.getAttribute("href") === workspace.href);
         expect(link).toBeTruthy();
-        expect(link.textContent).toContain(primary(app.purpose, language));
-        expect(link.textContent).toContain(new URL(app.home.href).host);
+        expect(link!.textContent).toContain(primary(workspace.label, language));
       }
       for (const item of adminFixture.destinations) expect([...host.querySelectorAll("a")].some(a => a.getAttribute("href") === item.href)).toBe(true);
       expect(host.querySelector('a[href="/fees/dashboard"]')!.textContent).toContain(primary(m.overviewFeeDesk, language));
@@ -99,14 +97,15 @@ describe("native admin overview contracts", () => {
     expect(unknown.querySelector('[data-overview-row="cover"]')!.textContent).toContain(m.homeUnavailable.en);
     expect(unknown.textContent).not.toContain(m.overviewCoverNoPlan.en);
   });
-  it("makes external live workspace actions explicit and leaves the fee desk internal", () => {
+  it("keeps every workflow inside VPPS One and retains the test-data notice", () => {
     const host = render();
-    for (const app of adminFixture.apps) {
-      const link = [...host.querySelectorAll("a")].find(e => e.getAttribute("href") === app.home.href)!;
-      expect(link.querySelector('[data-workspace-environment="live"]')).not.toBeNull();
-      expect(link.textContent).toContain(m.overviewOpenLive.en);
+    for (const link of host.querySelectorAll('[aria-labelledby="admin-workspaces"] a')) {
+      expect(link.getAttribute("href")!.startsWith("/")).toBe(true);
+      expect(link.getAttribute("href")!.startsWith("//")).toBe(false);
+      expect(link.querySelector("[data-workspace-environment]")).toBeNull();
     }
-    expect(host.querySelector('a[href="/fees/dashboard"]')!.querySelector("[data-workspace-environment]")).toBeNull();
+    expect(host.textContent).toContain(m.testDataNotice.en);
+    expect(host.textContent).toContain("Good morning, Test administrator");
   });
   it("distinguishes no open round, unread round and real round counts", () => {
     const overview = adminFixture.overview;
@@ -116,10 +115,9 @@ describe("native admin overview contracts", () => {
     expect(unread.textContent).not.toContain(m.overviewRoundNone.en);
     expect(render().querySelector('a[href="/collection/rounds/synthetic-round"]')).not.toBeNull();
   });
-  it("preserves complete long workspace names and purposes", () => {
-    const host = render({ apps: longWorkspaces });
-    expect(host.textContent).toContain(longWorkspaces[0].name.en);
-    expect(host.textContent).toContain(longWorkspaces[0].purpose.en);
+  it("preserves complete long workspace labels", () => {
+    const host = render({ workspaces: longWorkspaces });
+    expect(host.textContent).toContain(longWorkspaces[0].label.en);
     expect(host.querySelector('[aria-labelledby="admin-workspaces"] .truncate')).toBeNull();
   });
   it("uses explicit language tags for bilingual title and secondary labels", () => {

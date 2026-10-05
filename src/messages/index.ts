@@ -837,7 +837,7 @@ export const m = {
   teachCoverNone: t("आज कोई व्यवस्था नहीं है।", "No cover duty today."),
 
   /* ---------------------------------------------------- collection */
-  navCollection: t("जानकारी", "Collect"),
+  navCollection: t("जानकारी", "Collection"),
   collectionTitle: t("जानकारी जुटाएँ", "Collect information"),
   collectionIntro: t(
     "एक लिंक भेजिए — अध्यापक बिना साइन इन किए भर देंगे।",
@@ -1520,6 +1520,17 @@ export const m = {
   navGroupRecords: t("रिकॉर्ड", "Records"),
   navGroupSetup: t("व्यवस्था", "Setup"),
   navGroupMoney: t("शुल्क डेस्क", "Fee desk"),
+  navFees: t("फ़ीस", "Fees"),
+  schoolWelcome: t("आपके स्कूल का कार्यक्षेत्र", "Your school workspace"),
+  schoolLocation: t("अमेट, राजस्थान", "Amet, Rajasthan"),
+  schoolWorkspaceHint: t("स्कूल के सभी काम, एक ही जगह।", "Your school day, together in one place."),
+  schoolMorning: t("सुप्रभात", "Good morning"),
+  schoolAfternoon: t("नमस्कार", "Good afternoon"),
+  schoolEvening: t("शुभ संध्या", "Good evening"),
+  nativeWorkspaces: t("आपके कार्यक्षेत्र", "Your workspaces"),
+  nativeWorkspacesHint: t("फ़ीस, जानकारी और समय-चक्र इसी कार्यक्षेत्र में खोलें।", "Open fees, collection and timetable here in VPPS One."),
+  nativeStudentFees: t("इस बच्चे की फ़ीस खोलें", "Open this student's fees"),
+  nativeCollection: t("जानकारी का कार्यक्षेत्र खोलें", "Open Collection"),
   navPaymentDesk: t("भुगतान", "Payment Desk"),
   navTransactions: t("लेन-देन", "Transactions"),
   navDefaulters: t("बकाया", "Defaulters"),

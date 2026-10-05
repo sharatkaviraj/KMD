@@ -1,3 +1,5 @@
+export { schoolBrand } from "./school-brand";
+
 export const schoolProfile = {
   name:
     process.env.NEXT_PUBLIC_SCHOOL_NAME?.trim() ||

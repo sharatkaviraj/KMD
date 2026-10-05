@@ -1,5 +1,18 @@
 # Decisions
 
+## School branding and native navigation — 2026-10-05
+
+The owner selected school blue/teal, branding plus native navigation first,
+and one shared theme with familiar workflows. After reviewing the design, the
+owner removed campus photos, retained logos/theme and authorised merging and
+deploying the mobile/desktop PWA. `schoolBrand` owns the workspace identity, independently of receipt
+configuration. CSS brand values deliberately differ from the fee reference;
+Tailwind token names, geometry, fonts and financial semantics remain compatible.
+School-workflow navigation stays inside VPPS One. Legacy Apps bookmarks and
+saved start values resolve to authorised native destinations. No database target
+or role grants change. See [asset sources](SCHOOL-BRANDING.md) and the
+[next-stage parity checklist](NATIVE-INTEGRATION-CHECKLIST.md).
+
 Settings, not facts to re-derive. Add a row rather than arguing a point twice.
 An agent that picks a default the plan left open records it here.
 

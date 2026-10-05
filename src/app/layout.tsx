@@ -4,6 +4,7 @@ import { getLocale } from "next-intl/server";
 import { shellMessages } from "@/platform/i18n/shell-messages";
 import { KeyboardOffsetProvider } from "@/ui/system/keyboard-offset-provider";
 import { ServiceWorkerRegistration } from "@/ui/system/service-worker-registration";
+import { schoolBrand } from "@/platform/config/school-brand";
 
 import { isSupportedLocale, type AppLocale } from "@/platform/i18n/locales";
 import {
@@ -72,13 +73,12 @@ async function loadFeeMessages(locale: AppLocale): Promise<LanguageCatalogs> {
 export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "VPPS One", statusBarStyle: "default" },
-  icons: { apple: "/branding/icon-192.png" },
+  icons: { icon: "/branding/icon-192.png", apple: "/branding/icon-192.png" },
   title: {
     default: "VPPS One",
     template: "%s",
   },
-  description:
-    "Shri Veer Patta Senior Secondary School — staff, timetable, attendance, assessments.",
+  description: `${schoolBrand.name} — one workspace for fees, staff, timetable, attendance and assessments.`,
 };
 
 export const viewport: Viewport = {
@@ -89,10 +89,9 @@ export const viewport: Viewport = {
   // `cover` so the app draws under the home indicator; every fixed bar
   // reserves `env(safe-area-inset-bottom)` itself.
   viewportFit: "cover",
-  // Matches --background, the warm paper the app actually draws on. It was
-  // stock slate-900, which is the colour of a different product.
+  // Browser chrome follows the school's light paper and dark workspace.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FAFAF7" },
+    { media: "(prefers-color-scheme: light)", color: "#F7FAFC" },
     { media: "(prefers-color-scheme: dark)", color: "#11131A" },
   ],
 };

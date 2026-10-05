@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { GraduationCap } from "lucide-react";
 
 import { LoginForm } from "@/app/login/login-form";
 import { m } from "@/messages";
@@ -8,7 +7,10 @@ import { getCurrentStaff } from "@/platform/auth/current-staff";
 import { homeFor } from "@/platform/config/navigation";
 import { flat, primary } from "@/platform/i18n/language";
 import { readLanguageCookie } from "@/platform/i18n/language-cookie";
-import { getSchoolName, hasRequiredEnvVars } from "@/platform/env";
+import { hasRequiredEnvVars } from "@/platform/env";
+import { SchoolWelcome } from "@/ui/branding/school-welcome";
+import { SchoolBrand } from "@/ui/branding/school-brand";
+import { PwaInstallCard } from "@/ui/pwa-install-card";
 import { EnvironmentBadgeOnPaper } from "@/ui/environment-badge";
 
 export const runtime = "nodejs";
@@ -47,15 +49,10 @@ export default async function LoginPage() {
   const language = await readLanguageCookie();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mb-6 flex flex-wrap items-center gap-3 px-1">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-nav text-nav-foreground" aria-hidden="true">
-          <GraduationCap className="size-6" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-lg font-semibold tracking-tight text-foreground">VPPS One</p>
-          <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{getSchoolName()}</p>
-        </div>
+    <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col justify-center gap-5 px-4 py-8 sm:px-6 sm:py-12 lg:grid lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-8">
+      <div className="space-y-4">
+        <div className="px-1"><SchoolBrand variant="hero" preload /></div>
+        <SchoolWelcome language={language} />
       </div>
       <section lang={language === "en" ? "en" : "hi"} aria-labelledby="login-heading" className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
         <div className="mb-6 space-y-3">
@@ -70,6 +67,7 @@ export default async function LoginPage() {
         <Suspense fallback={<div className="h-72" aria-label={flat(m.loading, language)} />}>
           <LoginForm language={language} />
         </Suspense>
+        <PwaInstallCard />
       </section>
     </main>
   );

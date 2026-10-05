@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
@@ -7,8 +7,6 @@ import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { countOf, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
-import { appsFor, schoolApp, studentLinkLabel } from "@/platform/config/apps";
-import { getVppsOneEnvironment } from "@/platform/env";
 import { dayLabel, toSchoolDay } from "@/platform/dates";
 import {
   classLabelMap,
@@ -18,7 +16,6 @@ import { attendanceRules, studentAttendance } from "@/modules/attendance/data/at
 import { classScopeFor, ownClassIds } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { NotYourClass } from "@/modules/attendance/ui/not-your-class";
-import { externalIdFor } from "@/modules/students/data/external-ids-repo";
 import {
   attendanceLabels,
   attendancePercent,
@@ -147,30 +144,6 @@ export default async function StudentPage(
         ? historyForStudent(studentId)
         : Promise.resolve([]),
     ]);
-
-  // The registry decides whether an id may travel to the fee app at all.
-  // Today it may not - this app is on dev data and the fee app is live - so
-  // this comes back as a search link and the button says so (D-122).
-  const feeLink = schoolApp("schoolfees").student(
-    { studentId, search: student.admissionNo ?? student.fullName },
-    getVppsOneEnvironment(),
-  );
-
-  // SamPark keeps its own text ids, so this one needs a mapping row as well as
-  // matching datasets (S-10). Nothing writes the mapping table yet, so today
-  // this is always null and the link is a search — asked for anyway, because
-  // the day a mapping lands the card should already know what to do with it.
-  const seesSampark = appsFor(staff.role).some((app) => app.id === "sampark");
-  const samparkLink = seesSampark
-    ? schoolApp("sampark").student(
-        {
-          studentId,
-          search: student.admissionNo ?? student.fullName,
-          externalId: await externalIdFor("sampark", studentId),
-        },
-        getVppsOneEnvironment(),
-      )
-    : null;
 
   const statuses = history.map((entry) => entry.status);
   const summary = attendancePercent(statuses, rules);
@@ -304,9 +277,9 @@ export default async function StudentPage(
 
       {/* --------------------------------------------------------- fees */}
 
-      {seesMoney && fees ? (
+      {(seesMoney && fees) || can(staff, "fees:view") ? (
         <Section className="mt-7" title={m.studentFees} language={language}>
-          {!fees.available ? (
+          {seesMoney && fees ? (!fees.available ? (
             <Notice
               tone="warning"
               text={m.studentFeeUnavailable}
@@ -326,7 +299,12 @@ export default async function StudentPage(
                 {primary(m.studentFeeNote, language)}
               </p>
             </Card>
-          )}
+          )) : null}
+          {can(staff, "fees:view") ? (
+            <Link href={`/fees/students/${studentId}`} className={buttonClasses({ variant: "outline", className: "mt-4 w-full" })}>
+              {primary(m.nativeStudentFees, language)}<ArrowRight aria-hidden />
+            </Link>
+          ) : null}
         </Section>
       ) : null}
 
@@ -433,61 +411,11 @@ export default async function StudentPage(
         </Section>
       ) : null}
 
-      {/* ------------------------------------------ the fee app, for this child */}
-
-      {seesMoney ? (
-        <Section className="mt-7" title={m.appSchoolFees} language={language}>
-          <Card className="p-4">
-            {/* **Search, not a deep link, while the datasets differ.** This app
-                is on schoolfees-dev and the fee app is on live records, so an
-                id from here means nothing there — the registry falls back and
-                the button says which it is doing (D-122). */}
-            <p className="text-[14px] leading-6 text-muted-foreground">
-              {primary(
-                feeLink.kind === "detail" ? m.appOpenThisChild : m.appSearchInstead,
-                language,
-              )}
-            </p>
-            <a
-              href={feeLink.href}
-              className={buttonClasses({ variant: "outline", className: "mt-3 w-full" })}
-            >
-              {primary(studentLinkLabel(feeLink.kind), language)}
-              <ExternalLink aria-hidden />
-            </a>
-            <p className="mt-2 text-center font-mono text-[12px] text-subtle-foreground">
-              {new URL(feeLink.href).host}
-            </p>
-          </Card>
-        </Section>
-      ) : null}
-
-      {/* --------------------------------------------- SamPark, for this child */}
-
-      {samparkLink ? (
-        <Section className="mt-7" title={m.appSampark} language={language}>
-          <Card className="p-4">
-            {/* **A different app's ids, not a different environment.** SamPark
-                keys its students on its own text id, so this is a search until
-                somebody loads the mapping — and then a deep link, with no
-                change here (S-10). */}
-            <p className="text-[14px] leading-6 text-muted-foreground">
-              {primary(
-                samparkLink.kind === "detail" ? m.appOpenThisChild : m.appSearchInstead,
-                language,
-              )}
-            </p>
-            <a
-              href={samparkLink.href}
-              className={buttonClasses({ variant: "outline", className: "mt-3 w-full" })}
-            >
-              {primary(studentLinkLabel(samparkLink.kind), language)}
-              <ExternalLink aria-hidden />
-            </a>
-            <p className="mt-2 text-center font-mono text-[12px] text-subtle-foreground">
-              {new URL(samparkLink.href).host}
-            </p>
-          </Card>
+      {can(staff, "collection:view") ? (
+        <Section className="mt-7" title={m.navCollection} language={language}>
+          <Link href="/collection" className={buttonClasses({ variant: "outline", className: "w-full" })}>
+            {primary(m.nativeCollection, language)}<ArrowRight aria-hidden />
+          </Link>
         </Section>
       ) : null}
 

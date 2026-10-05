@@ -142,7 +142,7 @@ export function DashboardShell({
           href={homeHref}
           className="flex items-center gap-3 border-b border-nav-border px-4 py-4 transition-colors hover:bg-nav-hover focus-ring-ink"
         >
-          <SchoolBrand variant="sidebar-ink" priority />
+          <SchoolBrand variant="sidebar-ink" preload />
         </Link>
 
         {/* no-scrollbar: a light OS scrollbar track on the ink panel reads as

@@ -89,11 +89,9 @@ export async function saveLanguageAction(
  * there is no id to tamper with.
  *
  * **What it cannot do is grant anything.** The posted value has to be one of
- * `startOptionsFor(role)`, which is built from the permission map and the app
- * registry — so an account can only choose a start screen it could already
+ * the permission map, so an account can only choose a start screen it could already
  * open, and a value typed into the form by hand is refused rather than stored.
- * Choosing School Fees opens a door that was already on the Apps hub; the fee
- * app still decides what happens on the other side of it.
+ * Legacy values are normalized to native routes before storage.
  */
 export async function saveStartAction(
   _previous: PreferencesState,
@@ -104,9 +102,10 @@ export async function saveStartAction(
 
   // "" is the role's own Home, which is stored as NULL — the absence of a
   // choice rather than a choice of the default, so a role change moves it.
-  const value = chosen === "" ? null : chosen;
+  const resolved = chosen === "" ? null : resolveStart(staff.role, chosen);
+  const value = resolved?.value ?? null;
 
-  if (value !== null && !resolveStart(staff.role, value)) {
+  if (chosen !== "" && !resolved) {
     return { status: "error", message: m.notSaved };
   }
 

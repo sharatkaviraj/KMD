@@ -1,9 +1,9 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, ExternalLink, Wallet } from "lucide-react";
+import { ArrowRight, Wallet } from "lucide-react";
 
 import { m } from "@/messages";
-import { environmentLabel, type SchoolApp } from "@/platform/config/apps";
+import type { NavItem } from "@/platform/config/navigation";
 import { primary, secondary, type Language, type Localized } from "@/platform/i18n/language";
 import type { OverviewRound } from "@/modules/home/data/home-repo";
 import { feeSummary, type OverviewRow } from "@/modules/home/domain/overview";
@@ -185,55 +185,21 @@ export function FeeLine({
   );
 }
 
-/**
- * The other two apps as workspaces rather than as a launcher grid.
- *
- * Same registry, same verified origins, same honest host line as `/apps` — the
- * difference is only that an administrator's home names the desk ("Collections
- * and dues") instead of listing an application.
- */
-export function SchoolWorkspaces({
-  apps,
-  language,
-}: {
-  apps: SchoolApp[];
+/** Every workspace stays inside the current account, session and dataset. */
+export function SchoolWorkspaces({ workspaces, language }: {
+  workspaces: readonly NavItem[];
   language: Language;
 }) {
-  if (apps.length === 0) return null;
-
+  if (workspaces.length === 0) return null;
   return (
     <ul className="grid gap-3 sm:grid-cols-2">
-      {apps.map((app) => (
-        <li key={app.id}>
-          <a
-            href={app.home.href}
-            className="focus-ring flex h-full min-h-16 flex-col gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors duration-150 hover:bg-surface-2 motion-reduce:transition-none"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="flex items-start gap-2">
-                <span className="min-w-0 flex-1 break-words text-[15px] font-bold leading-6 text-foreground">
-                  {primary(app.name, language)}
-                </span>
-                <ExternalLink
-                  aria-hidden
-                  className="mt-1 size-4 shrink-0 text-subtle-foreground"
-                />
-              </span>
-              <span data-workspace-environment={app.environment} className="mt-2 inline-flex rounded-md border border-warning/40 bg-warning-soft px-2 py-1 text-[12px] font-bold leading-5 text-warning-soft-foreground">
-                <span className="min-w-0 break-words"><SummaryText text={environmentLabel(app.environment)} language={language} /></span>
-              </span>
-              <span className="mt-1 block break-words text-[13px] leading-5 text-muted-foreground">
-                {primary(app.purpose, language)}
-              </span>
-              <span className="mt-2 block break-words text-[11px] leading-5 text-subtle-foreground">
-                {new URL(app.home.href).host}
-              </span>
-            </span>
-            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-accent-soft-foreground">
-              <span className="min-w-0 flex-1 break-words"><SummaryText text={app.environment === "live" ? m.overviewOpenLive : m.overviewOpen} language={language} /></span>
-              <ArrowRight aria-hidden className="size-4 shrink-0" />
-            </span>
-          </a>
+      {workspaces.map(({ href, label, icon: Icon }) => (
+        <li key={href} className="min-w-0">
+          <Link href={href} className="focus-ring flex h-full min-h-20 items-start gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors duration-150 hover:bg-surface-2 motion-reduce:transition-none">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-soft-foreground"><Icon aria-hidden className="size-5" /></span>
+            <span className="min-w-0 flex-1 break-words text-[15px] font-semibold leading-6 text-foreground"><SummaryText text={label} language={language} /></span>
+            <ArrowRight aria-hidden className="mt-1 size-4 shrink-0 text-accent-soft-foreground" />
+          </Link>
         </li>
       ))}
     </ul>
