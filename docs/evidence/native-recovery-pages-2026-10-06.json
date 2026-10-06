@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-10-06T04:48:11.886Z",
+  "origin": "http://localhost:3470",
+  "sourceCommit": "808ade7157012ac1e9042ddf111146fbd8968b12",
+  "results": [
+    {
+      "role": "admin",
+      "status": 200,
+      "passed": true,
+      "fullResponseMs": 1153
+    },
+    {
+      "role": "office",
+      "status": 200,
+      "passed": true,
+      "fullResponseMs": 1221
+    },
+    {
+      "role": "accountant",
+      "status": 200,
+      "passed": true,
+      "fullResponseMs": 996
+    },
+    {
+      "role": "feeCollector",
+      "status": 200,
+      "passed": true,
+      "fullResponseMs": 817
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-06T05:21:35.470Z",
+  "origin": "https://vppsone.vercel.app",
+  "sourceCommit": "8c5dbe5574927093473348a867390efbea1b3f1a",
+  "method": "Three serial full-response rechecks of isolated slow samples in the smoke sweeps; QA accounts, dev data. This is not browser paint timing.",
+  "results": [
+    {
+      "role": "office",
+      "path": "/fees/dashboard",
+      "observedMs": 11744,
+      "recheckFullResponseMs": [
+        1578,
+        368,
+        296
+      ]
+    },
+    {
+      "role": "admin",
+      "path": "/fees/admin-tools/session-health",
+      "observedMs": 14609,
+      "recheckFullResponseMs": [
+        1028,
+        761,
+        722
+      ]
+    }
+  ]
+}

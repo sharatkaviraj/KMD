@@ -1,32 +1,32 @@
 {
-  "measuredAt": "2026-10-06T04:32:17.493Z",
+  "measuredAt": "2026-10-06T05:20:18.941Z",
   "origin": "https://vppsone.vercel.app",
-  "sourceCommit": "efca99ec8f7fb019b196f850ad0e906e42d9421d",
+  "sourceCommit": "8c5dbe5574927093473348a867390efbea1b3f1a",
   "environment": "deployed production Next build, Chromium, dev database, desktop viewport, unthrottled; navigation includes server reads and paint readiness; not field CWV",
   "results": [
     {
       "role": "teacher",
       "route": "/teach",
       "samples": 20,
-      "warmNavigationP50Ms": 518,
-      "warmNavigationP95Ms": 1074,
+      "warmNavigationP50Ms": 573,
+      "warmNavigationP95Ms": 891,
       "documentBytes": 143134
     },
     {
       "role": "admin",
       "route": "/dashboard",
       "samples": 20,
-      "warmNavigationP50Ms": 533,
-      "warmNavigationP95Ms": 1178,
-      "documentBytes": 217592
+      "warmNavigationP50Ms": 585,
+      "warmNavigationP95Ms": 838,
+      "documentBytes": 217549
     },
     {
       "role": "accountant",
       "route": "/fees/payments",
       "samples": 20,
-      "warmNavigationP50Ms": 549,
-      "warmNavigationP95Ms": 978,
-      "documentBytes": 331145
+      "warmNavigationP50Ms": 791,
+      "warmNavigationP95Ms": 4505,
+      "documentBytes": 331188
     }
   ]
 }

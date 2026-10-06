@@ -1,0 +1,106 @@
+{
+  "measuredAt": "2026-10-06T04:48:58.223Z",
+  "origin": "http://localhost:3470",
+  "samples": 5,
+  "method": "Local production build, traced with scripts/trace-fetch.mjs. calls and depth count Supabase requests during one document load; depth is the critical path. serverMs is this machine's load time, not production's.",
+  "results": [
+    {
+      "role": "teacher",
+      "path": "/teach",
+      "status": 200,
+      "calls": 15,
+      "depth": 6,
+      "serverMs": 306
+    },
+    {
+      "role": "teacher",
+      "path": "/teach/attendance",
+      "status": 200,
+      "calls": 7,
+      "depth": 3,
+      "serverMs": 146
+    },
+    {
+      "role": "admin",
+      "path": "/dashboard",
+      "status": 200,
+      "calls": 18,
+      "depth": 3,
+      "serverMs": 249
+    },
+    {
+      "role": "admin",
+      "path": "/students",
+      "status": 200,
+      "calls": 15,
+      "depth": 7,
+      "serverMs": 329
+    },
+    {
+      "role": "admin",
+      "path": "/timetable",
+      "status": 200,
+      "calls": 10,
+      "depth": 5,
+      "serverMs": 500
+    },
+    {
+      "role": "admin",
+      "path": "/substitutions",
+      "status": 200,
+      "calls": 15,
+      "depth": 6,
+      "serverMs": 645
+    },
+    {
+      "role": "office",
+      "path": "/collection",
+      "status": 200,
+      "calls": 11,
+      "depth": 5,
+      "serverMs": 329
+    },
+    {
+      "role": "accountant",
+      "path": "/fees/dashboard",
+      "status": 200,
+      "calls": 8,
+      "depth": 4,
+      "serverMs": 1009
+    },
+    {
+      "role": "accountant",
+      "path": "/fees/payments",
+      "status": 200,
+      "calls": 1,
+      "depth": 1,
+      "serverMs": 113
+    },
+    {
+      "role": "accountant",
+      "path": "/fees/transactions",
+      "status": 200,
+      "calls": 16,
+      "depth": 8,
+      "serverMs": 600
+    },
+    {
+      "role": "accountant",
+      "path": "/fees/defaulters",
+      "status": 200,
+      "calls": 21,
+      "depth": 7,
+      "serverMs": 695
+    },
+    {
+      "role": "public",
+      "path": "/r/[unknown token]",
+      "status": 404,
+      "calls": 4,
+      "depth": 4,
+      "serverMs": 190
+    }
+  ],
+  "sourceCommit": "808ade7157012ac1e9042ddf111146fbd8968b12",
+  "buildId": "2k1n9P63trsa5DPpPoRJm"
+}

@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-10-06 05:19:42 UTC",
+  "origin": "https://vppsone.vercel.app",
+  "sourceCommit": "8c5dbe5574927093473348a867390efbea1b3f1a",
+  "deploymentId": "dpl_FNZ7LGixXKh8HGrhcy8L6mUSXFqr",
+  "regions": [
+    "bom1"
+  ],
+  "screenChecks": {
+    "strictRoles": 784,
+    "passed": 784,
+    "drifted": 0,
+    "failed": 0,
+    "accountScreens": 991,
+    "broken": 0,
+    "missingFixtures": 0,
+    "temporaryFixturesRemovedAndAbsenceVerified": true
+  },
+  "runtimeLogCheck": {
+    "tool": "vercel_get_runtime_logs",
+    "environment": "production",
+    "deploymentId": "dpl_FNZ7LGixXKh8HGrhcy8L6mUSXFqr",
+    "since": "20m",
+    "level": [
+      "error",
+      "fatal"
+    ],
+    "groupBy": "level",
+    "rows": [],
+    "errorOrFatalCount": 0
+  },
+  "previousFinding": {
+    "deploymentId": "dpl_HPbioNjK72bdrqee1vbZaxBEaYUp",
+    "sourceCommit": "1a7509ab45f28b60572fd07eeaf1a52c322b4820",
+    "query": "recovery state refresh failed",
+    "matchingRequests": 10,
+    "fix": "D-247: native fee permission checked before the ported fee session is returned"
+  }
+}
