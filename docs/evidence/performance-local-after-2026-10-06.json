@@ -1,0 +1,32 @@
+{
+  "measuredAt": "2026-10-06T03:57:18.700Z",
+  "origin": "http://localhost:3450",
+  "sourceCommit": "2889fe607cff27ee8f4fff261c12da9f16abe3fe",
+  "environment": "local production Next build, Chromium, dev database, desktop viewport, unthrottled; navigation includes server reads and paint readiness; not field CWV",
+  "results": [
+    {
+      "role": "teacher",
+      "route": "/teach",
+      "samples": 20,
+      "warmNavigationP50Ms": 1301,
+      "warmNavigationP95Ms": 2545,
+      "documentBytes": 142686
+    },
+    {
+      "role": "admin",
+      "route": "/dashboard",
+      "samples": 20,
+      "warmNavigationP50Ms": 1047,
+      "warmNavigationP95Ms": 1584,
+      "documentBytes": 214877
+    },
+    {
+      "role": "accountant",
+      "route": "/fees/payments",
+      "samples": 20,
+      "warmNavigationP50Ms": 567,
+      "warmNavigationP95Ms": 950,
+      "documentBytes": 324766
+    }
+  ]
+}

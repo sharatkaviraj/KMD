@@ -411,9 +411,9 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
 
   {
     route: "/apps",
-    allow: ["admin", "office"],
+    allow: EVERYONE,
     because:
-      "PLAN §3 puts Apps on the admin and office navigation and nowhere else: a teacher gets no fee cards, and neither coordinator has an errand in SamPark or School Fees.",
+      "No longer a screen. Since the native navigation (#51) the school's work opens inside VPPS One, and `/apps` only sends an old bookmark to its owner's own Home — which every account may reach. Nothing on it is shown to anybody.",
   },
 
   /* -------------------------------------------------------------- platform */

@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useId, type ComponentProps, type ReactNode } from "react";
 import Link, { useLinkStatus } from "next/link";
 
 /** Broadcast whenever a Link starts or stops navigating. */
 export const NAV_EVENT = "vpps-nav";
 
 export type NavPendingDetail = { pending: boolean };
+
+// Links may mount during a streamed navigation, and two links may briefly be
+// pending at once. An idle link must not cancel another link's feedback.
+const pendingLinks = new Set<string>();
 
 /**
  * Reports whether THIS link's navigation is still in flight.
@@ -17,22 +21,23 @@ export type NavPendingDetail = { pending: boolean };
  */
 function LinkPending({ children }: { children: ReactNode }) {
   const { pending } = useLinkStatus();
+  const id = useId();
 
   useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent<NavPendingDetail>(NAV_EVENT, { detail: { pending } }),
+    const notify = () => window.dispatchEvent(
+      new CustomEvent<NavPendingDetail>(NAV_EVENT, { detail: { pending: pendingLinks.size > 0 } }),
     );
+    if (pending) {
+      pendingLinks.add(id);
+      notify();
+    }
 
     // A link unmounting mid-navigation (the nav collapsing on a phone) must not
     // leave the progress bar stuck on.
     return () => {
-      if (pending) {
-        window.dispatchEvent(
-          new CustomEvent<NavPendingDetail>(NAV_EVENT, { detail: { pending: false } }),
-        );
-      }
+      if (pendingLinks.delete(id)) notify();
     };
-  }, [pending]);
+  }, [pending, id]);
 
   return <>{children}</>;
 }

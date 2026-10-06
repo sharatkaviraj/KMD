@@ -29,7 +29,7 @@
  * not press anything.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -44,6 +44,7 @@ import {
   productAllows,
 } from "../tests/fixtures/role-expectations.ts";
 import { isDevProjectUrl } from "./target-guard.mjs";
+import { hasRenderedError } from "./smoke-response.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3000";
@@ -214,8 +215,9 @@ function guards() {
 /* ---------------------------------------------------- real ids to visit */
 
 async function fillIds(route) {
-  const pick = async (table, where = {}) => {
-    let query = db.from(table).select("id").limit(1);
+  if (!route.includes("[")) return route;
+  const pick = async (table, where = {}, schema = "vppsone") => {
+    let query = db.schema(schema).from(table).select("id").limit(1);
     for (const [k, v] of Object.entries(where)) query = query.eq(k, v);
     const { data } = await query.maybeSingle();
     return data?.id ?? null;
@@ -223,8 +225,13 @@ async function fillIds(route) {
 
   const map = {
     "[id]": null,
-    "[paperId]": await pick("assessment_subjects"),
+    "[paperId]": route.includes("[paperId]") ? await pick("assessment_subjects") : null,
     "[studentId]": null,
+    "[receiptId]": route.includes("[receiptId]") ? await pick("receipts", {}, "public") : null,
+    "[familyGroupId]": route.includes("[familyGroupId]") ? await pick("student_family_groups", {}, "public") : null,
+    "[runId]": route.includes("[runId]")
+      ? await pick(route.includes("/promotion/") ? "promotion_runs" : "whatsapp_campaign_runs", {}, "public")
+      : null,
   };
 
   if (route.startsWith("/assessments/[id]")) map["[id]"] = await pick("assessments");
@@ -233,9 +240,7 @@ async function fillIds(route) {
   else if (route.startsWith("/staff/[id]")) map["[id]"] = await pick("staff_profiles");
   else if (route.startsWith("/timetable/[id]")) map["[id]"] = await pick("timetable_versions");
   else if (route.startsWith("/academics/subjects/[id]")) map["[id]"] = await pick("subjects");
-  // Any id will do: the duty page decides per row, and an id that names
-  // nothing is the neutral "not for your account" every role may see.
-  else if (route.startsWith("/duty/[id]")) map["[id]"] = "00000000-0000-4000-8000-000000000000";
+  else if (route.startsWith("/duty/[id]")) map["[id]"] = await pick("cover_duties");
   else if (route.startsWith("/teach/class/[id]")) {
     const { data } = await db.from("enrolments").select("class_id").limit(1).maybeSingle();
     map["[id]"] = data?.class_id ?? null;
@@ -245,8 +250,11 @@ async function fillIds(route) {
   }
 
   if (route.includes("[studentId]")) {
-    const { data } = await db.from("enrolments").select("student_id").limit(1).maybeSingle();
-    map["[studentId]"] = data?.student_id ?? null;
+    if (route.startsWith("/fees/")) map["[studentId]"] = await pick("students", {}, "public");
+    else {
+      const { data } = await db.from("enrolments").select("student_id").limit(1).maybeSingle();
+      map["[studentId]"] = data?.student_id ?? null;
+    }
   }
 
   let filled = route;
@@ -255,7 +263,7 @@ async function fillIds(route) {
     if (!value) return null;
     filled = filled.replace(token, value);
   }
-  return filled;
+  return filled.includes("[") ? null : filled;
 }
 
 /* ------------------------------------------------------------ signing in */
@@ -287,6 +295,7 @@ async function signIn(email) {
   let url = `${origin}/auth/confirm?token_hash=${data.properties.hashed_token}&type=magiclink&next=%2Fdashboard`;
 
   for (let hop = 0; hop < 5; hop += 1) {
+    if (new URL(url).origin !== new URL(origin).origin) throw new Error("QA sign-in redirected outside the test app.");
     const response = await fetch(url, {
       redirect: "manual",
       headers: jar.size ? { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join("; ") } : {},
@@ -317,6 +326,7 @@ async function visit(pathname, cookie) {
   let url = `${origin}${pathname}`;
 
   for (let hop = 0; hop < 6; hop += 1) {
+    if (new URL(url).origin !== new URL(origin).origin) return `redirected-to ${url}`;
     const response = await fetch(url, { redirect: "manual", headers: { cookie } });
     const location = response.headers.get("location");
 
@@ -347,7 +357,7 @@ async function visit(pathname, cookie) {
 
       // Next renders the error boundary with a 200 too, so the status alone
       // does not tell you the page threw.
-      if (body.includes("कुछ गड़बड़ हो गई") || body.includes("Something went wrong")) {
+      if (hasRenderedError(body)) {
         return "error";
       }
       return "rendered";
@@ -389,6 +399,10 @@ console.log(`origin ${origin}\n`);
 const results = [];
 const failures = [];
 const drifts = [];
+// This sweep is read-only. Resolve each fixture once for the same snapshot
+// across roles, instead of asking the database again for every static page.
+const fixturePaths = new Map();
+for (const route of routes) fixturePaths.set(route, await fillIds(route));
 
 for (const role of staffRoles) {
   const cookie = await signIn(ACCOUNTS[role]);
@@ -407,7 +421,7 @@ for (const role of staffRoles) {
      * and "no assessments in the database" looks exactly like "everything
      * passed".
      */
-    const filled = await fillIds(route);
+    const filled = fixturePaths.get(route);
 
     if (!filled) {
       const result = {
@@ -540,6 +554,12 @@ const report = {
   failed: failures.length,
   results,
 };
+
+const writeAt = process.argv.indexOf("--write");
+if (writeAt !== -1) {
+  if (!process.argv[writeAt + 1]) throw new Error("--write requires a report path.");
+  writeFileSync(process.argv[writeAt + 1], `${JSON.stringify(report, null, 2)}\n`);
+}
 
 if (asJson) {
   console.log(JSON.stringify(report, null, 2));

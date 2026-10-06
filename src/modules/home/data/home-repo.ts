@@ -135,7 +135,7 @@ export async function homeSummary(
         ? attempt("review", missing, () => pendingSubmissionCount())
         : null,
       wants("corrections") && can(staff, "attendance:correct")
-        ? attempt("corrections", missing, () => countPendingCorrections())
+        ? attempt("corrections", missing, () => countPendingCorrections(sessionLabel))
         : null,
       wants("jobs") ? attempt("jobs", missing, () => jobsBoard()) : null,
       wants("school")

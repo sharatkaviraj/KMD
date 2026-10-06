@@ -95,30 +95,14 @@ export default async function TeachPage() {
       getPublishedVersion(sessionLabel),
       registersForDay(sessionLabel, today),
       can(staff, "attendance:correct")
-        ? countPendingCorrections()
+        ? countPendingCorrections(sessionLabel)
         : Promise.resolve(0),
       // Her live cover duties. Every one is committed and published by the
       // cover command (P3); there is no draft a teacher could be sent to.
       myDutiesOn(staff.id, sessionLabel, today),
     ]);
 
-  // Who she is standing in for, by name — never why they are away.
-  const staffNames =
-    covers.length > 0
-      ? new Map((await listStaff()).map((person) => [person.id, person.displayName]))
-      : new Map<string, string>();
-
   const schoolOpen = isSchoolOpen(today, calendar);
-
-  // The published timetable writes its own day headers, so today's block is
-  // matched rather than assumed — see `matchDayHeader()`.
-  let slots: PeriodSlot[] = [];
-  if (published && schoolOpen && timetableRuns(today, calendar)) {
-    const header = matchDayHeader(await dayHeaders(published.id), today);
-    if (header) {
-      slots = await periodsOn(staff.id, published.id, header);
-    }
-  }
 
   const heldClasses = held.map((classId) => ({
     classId,
@@ -128,13 +112,7 @@ export default async function TeachPage() {
   const tasks = registersDue({ heldClasses, registers, schoolOpen });
   const todo = outstanding(tasks);
   const quiet = quietReason({ schoolOpen, heldClasses, tasks });
-  const classes = classesToday({ heldClasses, slots });
   const next = nextAction({ schoolOpen, heldClasses, tasks });
-
-  // **One lesson per period, not one per class.** A subject taught to five
-  // classes at once is five rows in `timetable_slots`, and rendering them as
-  // five rows gave a teacher twenty entries for an eight-period day (B-20).
-  const lessons = lessonsToday(slots);
 
   /**
    * How many children are on the roll of the class this screen is about.
@@ -149,9 +127,34 @@ export default async function TeachPage() {
   const soleClass = heldClasses.length === 1 ? heldClasses[0] : null;
   const rollClassId = soleClass?.classId ?? (next.kind === "register" ? next.task.classId : null);
 
-  const waiting = rollClassId
-    ? (await classRoll({ classId: rollClassId, sessionLabel })).length
-    : null;
+  /*
+   * The three reads left depend on what came back above and not on each
+   * other, so they go together rather than one round trip after another.
+   */
+  const [staffNames, slots, waiting] = await Promise.all([
+    // Who she is standing in for, by name — never why they are away.
+    covers.length > 0
+      ? listStaff().then((people) => new Map(people.map((person) => [person.id, person.displayName])))
+      : new Map<string, string>(),
+    // The published timetable writes its own day headers, so today's block is
+    // matched rather than assumed — see `matchDayHeader()`.
+    published && schoolOpen && timetableRuns(today, calendar)
+      ? dayHeaders(published.id).then((headers): Promise<PeriodSlot[]> | PeriodSlot[] => {
+          const header = matchDayHeader(headers, today);
+          return header ? periodsOn(staff.id, published.id, header) : [];
+        })
+      : ([] as PeriodSlot[]),
+    rollClassId
+      ? classRoll({ classId: rollClassId, sessionLabel }).then((roll) => roll.length)
+      : null,
+  ]);
+
+  const classes = classesToday({ heldClasses, slots });
+
+  // **One lesson per period, not one per class.** A subject taught to five
+  // classes at once is five rows in `timetable_slots`, and rendering them as
+  // five rows gave a teacher twenty entries for an eight-period day (B-20).
+  const lessons = lessonsToday(slots);
 
   const dayText = t(
     `${weekdayLabel(today).hi}, ${dayLabel(today).hi}`,

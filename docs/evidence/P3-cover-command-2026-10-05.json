@@ -1,0 +1,107 @@
+{
+  "ranAt": "2026-10-05T15:53:09.064Z",
+  "target": "schoolfees-dev",
+  "syntheticDay": "2027-03-01",
+  "results": [
+    {
+      "name": "a command commits the absence, the duty and the notice together",
+      "ok": true,
+      "detail": "assigned 1, notices 1"
+    },
+    {
+      "name": "a repeated submission returns its receipt and writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reused id with a different payload is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a command against an older revision is stale and writes nothing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a teacher who is teaching is refused, and the absence change is rolled back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "one teacher on two duties in one period is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault after absences leaves nothing behind",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault after duties leaves nothing behind",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an injected fault before receipt leaves nothing behind",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "two simultaneous commands on one revision: one commits, one is stale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a reassignment supersedes rather than edits, and keeps the old revision",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "only the holder may answer, and acknowledging twice is acknowledging once",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "\"cannot cover\" escalates to whoever arranges cover and does not free the duty",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an old link to a duty that moved cannot be acknowledged",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "assigning the current holder pins the duty in place and notifies nobody",
+      "ok": true,
+      "detail": "pinned 1, changed 0"
+    },
+    {
+      "name": "an unsent notice for a duty that moved is withdrawn, not corrected",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the teacher comes back: the duty is cancelled and the person who was told is told",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a period on a past day is never arrangeable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an actor without substitutions:manage is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "with the operator switch off a command is refused, and nothing committed changes",
+      "ok": true,
+      "detail": "disabled"
+    }
+  ]
+}

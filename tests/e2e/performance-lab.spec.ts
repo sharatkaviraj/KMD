@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { signIn } from "./support/harness";
 
-test("production browser measurements", async ({ page }) => {
+test("production browser measurements", async ({ page }, testInfo) => {
   test.setTimeout(300000);
   const output = process.env.PERFORMANCE_EVIDENCE;
   test.skip(!output, "Run explicitly with PERFORMANCE_EVIDENCE to collect a bounded lab sample.");
@@ -22,5 +22,7 @@ test("production browser measurements", async ({ page }) => {
     durations.sort((a, b) => a - b);
     results.push({ role, route: path, samples: 20, warmNavigationP50Ms: durations[9], warmNavigationP95Ms: durations[18], documentBytes });
   }
-  writeFileSync(output!, JSON.stringify({ measuredAt: new Date().toISOString(), environment: "local production Next build, Chromium, dev database, desktop viewport, unthrottled; navigation includes server reads and paint readiness; not field CWV", results }, null, 2) + "\n");
+  const origin = testInfo.project.use.baseURL ?? "http://localhost:3100";
+  const hosting = new URL(origin).hostname === "localhost" ? "local production Next build" : "deployed production Next build";
+  writeFileSync(output!, JSON.stringify({ measuredAt: new Date().toISOString(), origin, sourceCommit: process.env.PERFORMANCE_COMMIT ?? null, environment: `${hosting}, Chromium, dev database, desktop viewport, unthrottled; navigation includes server reads and paint readiness; not field CWV`, results }, null, 2) + "\n");
 });

@@ -41,6 +41,7 @@ export function RouteProgress() {
   const hideTimer = useRef<number | null>(null);
   const maxTimer = useRef<number | null>(null);
   const shownAt = useRef<number | null>(null);
+  const navPending = useRef(false);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -81,10 +82,18 @@ export function RouteProgress() {
 
     function handleNav(event: Event) {
       const { pending } = (event as CustomEvent<NavPendingDetail>).detail;
+      navPending.current = pending;
 
       if (!pending) {
         scheduleHide();
         return;
+      }
+
+      // A second navigation can begin while the first bar is settling. Its
+      // completion timer must not hide feedback for the new request.
+      if (hideTimer.current !== null) {
+        window.clearTimeout(hideTimer.current);
+        hideTimer.current = null;
       }
 
       if (showTimer.current !== null || shownAt.current !== null) {
@@ -106,13 +115,15 @@ export function RouteProgress() {
     };
   }, []);
 
-  // Fallback + hide trigger: the URL changing means a navigation has committed,
-  // whether or not it came through a NavLink.
+  // A URL can commit while another link still has work in flight. Let those
+  // links finish; the URL fallback only settles untracked navigations.
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
+
+    if (navPending.current) return;
 
     if (showTimer.current !== null) {
       window.clearTimeout(showTimer.current);
@@ -150,7 +161,7 @@ export function RouteProgress() {
             "linear-gradient(90deg, transparent 0%, hsl(var(--accent)) 35%, hsl(var(--accent)) 65%, transparent 100%)",
         }}
       >
-        <div className="h-full w-full anim-route-progress bg-accent" />
+        <div className={`h-full w-full bg-accent${showProgress ? " anim-route-progress" : ""}`} />
       </div>
     </div>
   );

@@ -1,0 +1,80 @@
+{
+  "ranAt": "2026-10-05T15:53:41.289Z",
+  "results": [
+    {
+      "name": "1. four categories exist, and every one needs a person's approval",
+      "ok": true,
+      "detail": "absence_notice:approval, collection_request:approval, general:approval, report_delivery:approval"
+    },
+    {
+      "name": "2. the app's own parent dispatch is switched off",
+      "ok": true,
+      "detail": "parent_dispatch=false"
+    },
+    {
+      "name": "3. turning approval off with nothing named is refused",
+      "ok": true,
+      "detail": "23514"
+    },
+    {
+      "name": "4. a blank field in the exception is as good as a missing one",
+      "ok": true,
+      "detail": "23514"
+    },
+    {
+      "name": "5. an exception that names all four is accepted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6. the policy is put back exactly, version included",
+      "ok": true,
+      "detail": "approval=true, version=11"
+    },
+    {
+      "name": "7. a flag must say why",
+      "ok": true,
+      "detail": "23514"
+    },
+    {
+      "name": "8. a flag is cleared by somebody, never anonymously",
+      "ok": true,
+      "detail": "23514"
+    },
+    {
+      "name": "9. a flag with a reason and a person is kept",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "10. the office (office) reads a flag",
+      "ok": true,
+      "detail": "1 row"
+    },
+    {
+      "name": "11. the office cannot change a flag directly",
+      "ok": true,
+      "detail": "refused:42501"
+    },
+    {
+      "name": "12. the office cannot change the policy directly",
+      "ok": true,
+      "detail": "refused:42501"
+    },
+    {
+      "name": "10. the teacher (teacher) does not read a flag",
+      "ok": true,
+      "detail": "0 row"
+    },
+    {
+      "name": "11. the teacher cannot change a flag directly",
+      "ok": true,
+      "detail": "refused:42501"
+    },
+    {
+      "name": "12. the teacher cannot change the policy directly",
+      "ok": true,
+      "detail": "refused:42501"
+    }
+  ]
+}

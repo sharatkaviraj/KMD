@@ -17,19 +17,70 @@ export function chunkArray<T>(items: readonly T[], size: number): T[][] {
 }
 
 /**
- * Runs `fetchChunk` for each chunk of `ids` sequentially and concatenates the
- * rows. Mirrors the `{ data, error }` shape of a supabase query so call sites
+ * How many chunk reads one `fetchInChunks` call keeps in flight.
+ *
+ * The chunks used to be read one after another, and each one waited a full
+ * round trip for the last: the whole school is three chunks of 200, a
+ * session's receipts six. Traced on 5 October, `/fees/transactions` spent six
+ * sequential round trips on receipts and `/fees/defaulters` two chains of
+ * three, which is what a page costs when its server and its database are not
+ * in the same place. Four is enough to make the common case one round trip
+ * without letting one read take a pool's worth of connections.
+ */
+export const CHUNK_CONCURRENCY = 4;
+
+/**
+ * `fn` over `items`, at most `concurrency` at a time, results in input order.
+ *
+ * Rejects with the first rejection, like `Promise.all`; work already started
+ * is left to finish and its results are discarded.
+ */
+export async function mapConcurrently<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T, index: number) => PromiseLike<R>,
+): Promise<R[]> {
+  if (!Number.isInteger(concurrency) || concurrency <= 0) {
+    throw new Error(`mapConcurrently concurrency must be a positive integer, got ${concurrency}`);
+  }
+  const results = new Array<R>(items.length);
+  let next = 0;
+  let failed = false;
+  const worker = async () => {
+    while (!failed && next < items.length) {
+      const index = next++;
+      try {
+        results[index] = await fn(items[index], index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+
+/**
+ * Runs `fetchChunk` for each chunk of `ids` and concatenates the rows in chunk
+ * order. Mirrors the `{ data, error }` shape of a supabase query so call sites
  * can swap a single `.in(...)` query for a chunked one without reshaping their
- * error handling. Stops at the first error.
+ * error handling.
+ *
+ * Chunks are read `CHUNK_CONCURRENCY` at a time, which changes when they are
+ * asked for and nothing about what comes back: the rows are joined in chunk
+ * order, and the answer is still the rows before the first failing chunk plus
+ * its error. `fetchChunk` must build a fresh query for every chunk — a
+ * PostgREST builder is mutable, and every call site already does.
  */
 export async function fetchInChunks<T>(
   ids: readonly string[],
   size: number,
   fetchChunk: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>,
 ): Promise<{ data: T[]; error: unknown }> {
+  const results = await mapConcurrently(chunkArray(ids, size), CHUNK_CONCURRENCY, fetchChunk);
   const data: T[] = [];
-  for (const chunk of chunkArray(ids, size)) {
-    const result = await fetchChunk(chunk);
+  for (const result of results) {
     if (result.error) {
       return { data, error: result.error };
     }

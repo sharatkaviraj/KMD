@@ -48,6 +48,7 @@ export async function listCorrections(
   const { data, error } = await supabase
     .from("attendance_corrections")
     .select(COLUMNS)
+    .eq("attendance_registers.session_label", sessionLabel)
     .order("requested_at", { ascending: false })
     .limit(200)
     .returns<CorrectionRow[]>();
@@ -93,11 +94,12 @@ export async function listCorrections(
  * hundred rows plus their student names to render "3" would be the kind of
  * query that is invisible until the school has a year of data.
  */
-export async function countPendingCorrections(): Promise<number> {
+export async function countPendingCorrections(sessionLabel: string): Promise<number> {
   const supabase = await createClient();
   const { count, error } = await supabase
     .from("attendance_corrections")
-    .select("id", { count: "exact", head: true })
+    .select("id, attendance_registers!inner(session_label)", { count: "exact", head: true })
+    .eq("attendance_registers.session_label", sessionLabel)
     .eq("status", "pending");
 
   if (error) throw new Error(`Could not count the requests: ${error.message}`);

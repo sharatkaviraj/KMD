@@ -4,7 +4,7 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
-import { chunkArray, fetchAllPages } from "@/platform/helpers/chunk";
+import { CHUNK_CONCURRENCY, chunkArray, fetchAllPages, mapConcurrently } from "@/platform/helpers/chunk";
 import {
   normaliseQuery,
   pageWindow,
@@ -133,12 +133,20 @@ export async function searchStudents(
   // are needed to form the global order and exact count; contact details for
   // the other pages never leave Postgres. Fetching a page per chunk would
   // scramble pagination; slicing happens only after the global merge.
+  // The chunks are independent and the merge is sorted below, so they are
+  // read side by side rather than one round trip after another — the whole
+  // school was six sequential requests before the page could render.
+  const chunkResults = await mapConcurrently(
+    chunkArray([...inScope.keys()], DIRECTORY_ID_CHUNK_SIZE),
+    CHUNK_CONCURRENCY,
+    (ids) =>
+      buildSearch(ids, "id, full_name")
+        .order("full_name").order("id")
+        .range(0, ids.length - 1)
+        .returns<{ id: string; full_name: string }[]>(),
+  );
   const matches: { id: string; full_name: string }[] = [];
-  for (const ids of chunkArray([...inScope.keys()], DIRECTORY_ID_CHUNK_SIZE)) {
-    const { data, error } = await buildSearch(ids, "id, full_name")
-      .order("full_name").order("id")
-      .range(0, ids.length - 1)
-      .returns<{ id: string; full_name: string }[]>();
+  for (const { data, error } of chunkResults) {
     if (error) throw new Error(`Could not search the students: ${error.message}`);
     matches.push(...(data ?? []));
   }

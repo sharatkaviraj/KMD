@@ -45,6 +45,17 @@ export default async function warmServer(config: FullConfig) {
   const started = Date.now();
   const timings: string[] = [];
 
+  // A port being open does not prove it belongs to this app. Refuse a wrong
+  // origin before any journey starts setting up or changing database rows.
+  const identity = await fetch(new URL("/manifest.webmanifest", baseURL), {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!identity.ok) throw new Error(`Workflow origin ${baseURL} has no VPPS One manifest.`);
+  const manifest = await identity.json();
+  if (manifest.short_name !== "VPPS One" || manifest.id !== "/") {
+    throw new Error(`Refusing workflow tests: ${baseURL} is not VPPS One.`);
+  }
+
   for (const path of WARM) {
     const at = Date.now();
     try {

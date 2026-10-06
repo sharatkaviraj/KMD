@@ -1,0 +1,40 @@
+{
+  "ranAt": "2026-10-05T15:56:38.501Z",
+  "results": [
+    {
+      "name": "1. a repeated post is idempotent: receipts are unique per student and client_request_id, where one is given",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "2. posting serialises receipt numbering with an advisory lock and carries client_request_id",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "3. receipts and payments are append-only: a delete is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "4. a receipt's money columns are protected",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "5. a late-fee waiver is locked, capped, idempotent and keeps owed-versus-collected provenance",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "6. a reversal and a voided waiver are serialised",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "7. no fee function, trigger or index changed, appeared or disappeared since the baseline",
+      "ok": true,
+      "detail": "505 objects match"
+    }
+  ]
+}

@@ -1,5 +1,16 @@
 # Decisions
 
+## Test-data smoke and responsiveness — 2026-10-05
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-240 | Run Vercel functions in Mumbai and read independent query chunks concurrently, bounded to four | Provider metadata confirmed both Supabase projects in `ap-south-1`, while the prior production deployment ran in `iad1`. Teacher Home's independent follow-up reads and directory chunks now overlap. Ordered results and errors are preserved, and a thrown request stops new work |
+| D-241 | Navigation feedback represents all pending links, and idle pages run no progress animation | Reproduced false completion when idle links mounted, when one overlapping navigation finished, and when a URL committed with another link still pending. Link identities keep pending work separate; a new request cancels the previous dismissal timer. The URL fallback defers to pending links. Six regression cases cover this |
+| D-242 | Attendance corrections and their Home counts belong to the selected academic session | A browser fixture reproduced a different session's correction appearing in the current queue. Both list and count now filter the register's session. The fixture deletes only its own two registers and their cascading correction rows |
+| D-243 | Keep attendance row geometry fixed; verify the app origin before workflow fixtures; use bounded thread workers | Attendance press feedback respects reduced motion, and offscreen rows use existing content visibility. The workflow setup checks VPPS One's manifest before mutating test data. Vitest's Windows fork handshake timed out; the same 10,035 tests passed using two thread workers |
+| D-244 | Screen smoke must resolve every dynamic route, follow internal streamed aliases, and keep QA cookies at their origin | `smoke:screens` supplies a cancelled duty and a finished zero-recipient campaign run on dev, with exact-ID cleanup verified in `finally`. Both strict roles and all-account screens run without silent fixture skips. The update-worker test uses a fresh cache version instead of an obsolete literal |
+| D-245 | Workbook exports belong in the export log's kind labels; detect streamed errors before accepting HTTP 200 | The existing `students` and `round` enum values crashed the export log because their labels were missing. Both now have Hindi/English labels, with tests tied to their database migration. Screen smoke also reads Next error frames and visible error boundaries while ignoring unused messages inside scripts. The retired `/apps` bookmark is an alias to each account's Home, so its product expectation includes every staff role |
+
 ## School branding and native navigation — 2026-10-05
 
 The owner selected school blue/teal, branding plus native navigation first,

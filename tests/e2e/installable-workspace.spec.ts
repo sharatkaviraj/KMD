@@ -126,7 +126,9 @@ test("worker updates wait for user choice and recover persisted drafts after rel
   // Browser update-script fetches bypass Playwright routing. Change the public
   // fixture on our local production server and restore it even on failure.
   const original = readFileSync("public/service-worker.js", "utf8");
-  writeFileSync("public/service-worker.js", original.replaceAll("vppsone-public-v4", "vppsone-public-v5"));
+  const updated = original.replace(/const CACHE = "[^"]+";/, `const CACHE = "vppsone-public-qa-${randomUUID()}";`);
+  if (updated === original) throw new Error("The service-worker fixture must change its cache version.");
+  writeFileSync("public/service-worker.js", updated);
   try {
     await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready; await registration.update(); });
     await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.waiting))).toBe(true);

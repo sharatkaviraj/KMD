@@ -14,10 +14,8 @@
  *
  * Two things only this one sees:
  *
- *  - **The fee routes' dynamic segments.** `smoke:roles` fills `[id]` from the
- *    `vppsone` schema only, so `/fees/students/[studentId]`,
- *    `/fees/receipts/[receiptId]` and the rest resolve to nothing and are
- *    skipped. Those are the screens an accountant spends the day on.
+ *  - **All accounts.** Unlike the role gate, this also covers every teacher
+ *    account and the staff account that must be refused entry.
  *  - **Timing.** A screen that renders in 4s is passing every correctness test
  *    there is and is still the reason somebody goes back to the paper register.
  *
@@ -33,6 +31,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { QA_ACCOUNTS } from "../tests/fixtures/qa-accounts.ts";
 import { isDevProjectUrl } from "./target-guard.mjs";
+import { hasRenderedError } from "./smoke-response.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const origin = process.env.APP_ORIGIN ?? "http://localhost:3000";
@@ -109,6 +108,7 @@ async function ids() {
     "/assessments/report/[studentId]": await one(vppsone, "enrolments", "student_id"),
     "/collection/[id]": await one(vppsone, "collection_requests"),
     "/collection/rounds/[id]": await one(vppsone, "collection_rounds"),
+    "/duty/[id]": await one(vppsone, "cover_duties"),
     "/staff/[id]": await one(vppsone, "staff_profiles"),
     "/staff/[id]/edit": await one(vppsone, "staff_profiles"),
     "/teach/class/[id]": await one(vppsone, "enrolments", "class_id"),
@@ -142,6 +142,9 @@ async function signIn(email) {
   let url = `${origin}/auth/confirm?token_hash=${data.properties.hashed_token}&type=magiclink&next=%2Fdashboard`;
 
   for (let hop = 0; hop < 6; hop += 1) {
+    if (new URL(url).origin !== new URL(origin).origin) {
+      throw new Error("QA sign-in redirected outside the test app.");
+    }
     const response = await fetch(url, {
       redirect: "manual",
       headers: jar.size ? { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join("; ") } : {},
@@ -173,6 +176,11 @@ async function visit(pathname, cookie) {
   let url = `${origin}${pathname}`;
 
   for (let hop = 0; hop < 6; hop += 1) {
+    // Stop at an external handoff: the browser would not send these cookies
+    // to a different origin, and neither should the smoke runner.
+    if (new URL(url).origin !== new URL(origin).origin) {
+      return { result: "rendered", handoff: new URL(url).origin, ms: Date.now() - started };
+    }
     const response = await fetch(url, {
       redirect: "manual",
       headers: { cookie },
@@ -200,12 +208,13 @@ async function visit(pathname, cookie) {
         const target = streamed[1];
         if (target.includes("/access-denied")) return { result: "access-denied", ms };
         if (target.includes("/login")) return { result: "login", ms };
-        return { result: `redirected-to ${target}`, ms };
+        url = new URL(target.replaceAll("&amp;", "&"), origin).toString();
+        continue;
       }
 
       // The error boundary renders with a 200, so the status does not say
       // whether the page threw.
-      if (body.includes("कुछ गड़बड़ हो गई") || body.includes("Something went wrong")) {
+      if (hasRenderedError(body)) {
         return { result: "error", ms, status: response.status };
       }
 
@@ -225,9 +234,7 @@ async function visit(pathname, cookie) {
 const ALL_ROUTES = routes();
 const ID_MAP = await ids();
 
-const missingFixtures = Object.entries(ID_MAP)
-  .filter(([, value]) => value == null)
-  .map(([route]) => route);
+const missingFixtures = ALL_ROUTES.filter((route) => route.includes("[") && ID_MAP[route] == null);
 
 function resolve(route) {
   if (!route.includes("[")) return route;
@@ -359,8 +366,10 @@ const report = {
   slowest,
 };
 
-const out = path.join(repoRoot, "docs", "deep-smoke-report.json");
+const writeAt = process.argv.indexOf("--write");
+if (writeAt !== -1 && !process.argv[writeAt + 1]) throw new Error("--write requires a report path.");
+const out = writeAt === -1 ? path.join(repoRoot, "docs", "deep-smoke-report.json") : path.resolve(process.argv[writeAt + 1]);
 writeFileSync(out, `${JSON.stringify(asJson ? { ...report, cases } : report, null, 2)}\n`);
 console.log(`\n  Report: ${path.relative(repoRoot, out)}\n`);
 
-process.exit(failures.length > 0 ? 1 : 0);
+process.exit(failures.length > 0 || missingFixtures.length > 0 ? 1 : 0);

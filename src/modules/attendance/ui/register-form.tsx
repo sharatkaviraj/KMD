@@ -293,8 +293,10 @@ export function RegisterForm({
           <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background px-4 py-2">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[14px] font-medium text-foreground">{primary(totals, language)}</p>
-              {draft.status === "local" && editing ? (
-                <Badge tone="warning">
+              {/* Keep the badge's space while the draft is first being saved,
+                  so its appearance never pushes a child's row under a thumb. */}
+              {editing ? (
+                <Badge tone="warning" className={draft.status === "local" ? "shrink-0" : "invisible shrink-0"} aria-hidden={draft.status !== "local"}>
                   <CloudOff aria-hidden className="size-3" />
                   {primary(m.attendanceNotRecorded, language)}
                 </Badge>
@@ -509,7 +511,7 @@ const AttendanceRow = memo(function AttendanceRow({
   onStatus: (id: string, status: AttendanceStatus) => void;
 }) {
   return (
-    <li className="px-4 py-3 sm:flex sm:items-center sm:gap-4" data-student={student.studentId}>
+    <li className="cv-row px-4 py-3 sm:flex sm:items-center sm:gap-4" data-student={student.studentId}>
       <div className="mb-2 flex items-baseline gap-2 sm:mb-0 sm:min-w-0 sm:flex-1">
         <span className="w-7 shrink-0 text-[13px] font-semibold tabular-nums text-subtle-foreground">
           {student.rollNo ?? "—"}
@@ -528,7 +530,7 @@ const AttendanceRow = memo(function AttendanceRow({
             disabled={disabled}
             aria-pressed={status === option}
             className={cn(
-              "focus-ring min-h-11 rounded-xl border px-1 text-[12px] font-semibold leading-tight transition-colors",
+              "focus-ring min-h-11 rounded-xl border px-1 text-[12px] font-semibold leading-tight transition-[background-color,border-color,color,transform] duration-150 ease-out motion-safe:active:scale-[0.98] motion-reduce:transition-none motion-reduce:transform-none",
               "disabled:opacity-60 sm:min-w-[4.5rem] sm:text-[13px]",
               status === option ? SELECTED[option] : "border-border bg-surface text-muted-foreground",
             )}
