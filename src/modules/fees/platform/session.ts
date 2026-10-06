@@ -3,9 +3,10 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import { feePermissionsFor, feeRoleFor } from "@/platform/auth/fee-roles";
+import { can } from "@/platform/auth/permissions";
 import {
   getCurrentStaff,
-  requireStaff,
+  requirePermission,
   type CurrentStaff,
 } from "@/platform/auth/current-staff";
 import { feeLocaleFor } from "@/platform/i18n/bridge";
@@ -91,23 +92,25 @@ function toFeeSession(staff: CurrentStaff) {
 
 export async function getAuthenticatedStaff(): Promise<AuthenticatedStaffSession | null> {
   const staff = await getCurrentStaff();
-  return staff ? toFeeSession(staff) : null;
+  return staff && can(staff, "fees:view") ? toFeeSession(staff) : null;
 }
 
 /**
  * The fee app defaulted this to its own `/auth/login`. There is one door here
- * and `requireStaff()` knows where it is, so the parameter is now only the
+ * and the native permission guard knows where it is, so the parameter is only the
  * path to come back to — kept so the ported call sites that pass one still
  * compile, and so a deep link survives the round trip through sign-in.
  */
 export async function requireAuthenticatedStaff(
   redirectTo?: string,
 ): Promise<AuthenticatedStaffSession> {
-  // `requireStaff()` already redirects a signed-out, profile-less or
+  // The page and its layout can execute concurrently. Enforce native fee
+  // access here before a ported guard can grant its broader read-only role.
+  // `requirePermission()` already redirects a signed-out, profile-less or
   // deactivated account to /login with the reason attached — a better screen
   // than the fee app's bare redirect, so the explicit isActive check the fee
   // version needed is not repeated here.
-  const staff = await requireStaff(redirectTo);
+  const staff = await requirePermission("fees:view", redirectTo);
   return toFeeSession(staff);
 }
 
