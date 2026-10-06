@@ -351,10 +351,13 @@ export type NoCallFlag = {
   reason: string | null;
 };
 
-export async function refreshDefaulterRecoveryState(sessionLabel: string): Promise<void> {
-  const supabase = await createClient();
+export async function refreshDefaulterRecoveryState(
+  sessionLabel: string,
+  client?: Awaited<ReturnType<typeof createClient>>,
+): Promise<void> {
+  const supabase = client ?? await createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).rpc("refresh_defaulter_recovery_state", {
+  const { error } = await (supabase as any).schema("vppsone").rpc("refresh_defaulter_recovery_state", {
     p_session_label: sessionLabel,
   });
 

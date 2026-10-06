@@ -385,9 +385,10 @@ export async function getDefaultersPageData(
   // or one whose refresh failed — from being stuck with empty promise counts,
   // without any render waiting on it.
   if (candidateIds.length > 0) {
-    after(() => {
-      void refreshDefaulterRecoveryState(resolvedSessionLabel);
-    });
+    // Request cookies must be read before a Server Component's after callback.
+    // Returning the promise lets the host keep the refresh alive after sending.
+    const recoveryClient = await createClient();
+    after(() => refreshDefaulterRecoveryState(resolvedSessionLabel, recoveryClient));
   }
 
   const [contactSummaries, familyMembership, noCallFlags, promiseReliability] =

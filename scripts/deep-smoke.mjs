@@ -108,7 +108,7 @@ async function ids() {
     "/assessments/report/[studentId]": await one(vppsone, "enrolments", "student_id"),
     "/collection/[id]": await one(vppsone, "collection_requests"),
     "/collection/rounds/[id]": await one(vppsone, "collection_rounds"),
-    "/duty/[id]": await one(vppsone, "cover_duties"),
+    "/duty/[id]": process.env.SMOKE_DUTY_ID ?? await one(vppsone, "cover_duties"),
     "/staff/[id]": await one(vppsone, "staff_profiles"),
     "/staff/[id]/edit": await one(vppsone, "staff_profiles"),
     "/teach/class/[id]": await one(vppsone, "enrolments", "class_id"),
@@ -117,7 +117,7 @@ async function ids() {
 
     "/fees/admin-tools/promotion/[runId]": await one(fees, "promotion_runs"),
     "/fees/receipts/[receiptId]": await one(fees, "receipts"),
-    "/fees/reminders/runs/[runId]": await one(fees, "whatsapp_campaign_runs"),
+    "/fees/reminders/runs/[runId]": process.env.SMOKE_RUN_ID ?? await one(fees, "whatsapp_campaign_runs"),
     "/fees/reports/ledger/[studentId]/print": await one(fees, "students"),
     "/fees/students/[studentId]": await one(fees, "students"),
     "/fees/students/[studentId]/edit": await one(fees, "students"),
@@ -189,7 +189,7 @@ async function visit(pathname, cookie) {
     const location = response.headers.get("location");
 
     if (!location) {
-      const ms = Date.now() - started;
+      let ms = Date.now() - started;
       if (response.status >= 500) return { result: "error", ms, status: response.status };
       if (response.status === 404) return { result: "not-found", ms, status: 404 };
       if (response.status >= 400) {
@@ -197,6 +197,7 @@ async function visit(pathname, cookie) {
       }
 
       const body = await response.text();
+      ms = Date.now() - started;
 
       // A guard that fires after the shell has started streaming cannot send
       // a 307; Next puts the destination in a meta refresh instead. Reading

@@ -1,0 +1,74 @@
+{
+  "measuredAt": "2026-10-06T04:36:32.264Z",
+  "project": "wtgxcptmucjerhufzjcf",
+  "results": [
+    {
+      "name": "a promise is not broken on its promised date",
+      "ok": true
+    },
+    {
+      "name": "admin: native fee permission allows refresh",
+      "ok": true
+    },
+    {
+      "name": "legacy permission map reproduces refusal for the native office role",
+      "ok": true
+    },
+    {
+      "name": "office: native fee permission allows refresh",
+      "ok": true
+    },
+    {
+      "name": "accountant: native fee permission allows refresh",
+      "ok": true
+    },
+    {
+      "name": "feeCollector: native fee permission allows refresh",
+      "ok": true
+    },
+    {
+      "name": "academic: native fee permission refuses refresh",
+      "ok": true
+    },
+    {
+      "name": "exam: native fee permission refuses refresh",
+      "ok": true
+    },
+    {
+      "name": "teacher: native fee permission refuses refresh",
+      "ok": true
+    },
+    {
+      "name": "teacher2: native fee permission refuses refresh",
+      "ok": true
+    },
+    {
+      "name": "teacherWithoutClasses: native fee permission refuses refresh",
+      "ok": true
+    },
+    {
+      "name": "inactive: native fee permission refuses refresh",
+      "ok": true
+    },
+    {
+      "name": "viewOnly: native fee permission refuses refresh",
+      "ok": true
+    },
+    {
+      "name": "anonymous execution is revoked",
+      "ok": true
+    },
+    {
+      "name": "repeated authorized refreshes count the promise exactly once",
+      "ok": true
+    },
+    {
+      "name": "defaulter_contacts: temporary fixture removed",
+      "ok": true
+    },
+    {
+      "name": "defaulter_recovery_state: temporary fixture removed",
+      "ok": true
+    }
+  ]
+}

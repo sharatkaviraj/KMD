@@ -335,8 +335,9 @@ describe("student_records has one writer", () => {
  * "No migration modifies shared fee schemas/functions without separately
  * approved scope." The rule above refuses creating anything in `public`; this
  * one refuses replacing a fee function or trigger in `public` or `private`,
- * altering one, and inserting, updating or deleting `public` rows. The single
- * approved exception is D-191's `private.current_staff_role()` fallback.
+ * altering one, and inserting, updating or deleting `public` rows during a
+ * migration. D-191 allows the legacy role fallback; D-246 allows one native
+ * runtime function to refresh derived counters through the ported fee module.
  * `npm run verify:fee-parity` checks the same boundary from the database's
  * side, against a committed fingerprint of every fee function, trigger and
  * index.
@@ -345,12 +346,32 @@ describe("no migration changes the fee app's code or rows", () => {
   const migrationsDir = path.join(repoRoot, "supabase/migrations");
   const migrations = readdirSync(migrationsDir).filter((file) => file.endsWith(".sql"));
   const APPROVED = new Set(["20260922100000_current_staff_role_reads_vppsone.sql"]);
-  const TOUCHES_FEE =
-    /\b(create\s+(or\s+replace\s+)?(function|trigger)\s+(public|private)\.|alter\s+(function|trigger)\s+(public|private)\.|drop\s+(function|trigger)\s+(if\s+exists\s+)?(public|private)\.|insert\s+into\s+public\.|update\s+public\.|delete\s+from\s+public\.)/i;
+  const RUNTIME_COUNTER_REFRESH = "20261006043431_native_defaulter_recovery_refresh.sql";
+  const TOUCHES_FEE_CODE =
+    /\b(create\s+(or\s+replace\s+)?(function|trigger)\s+(public|private)\.|alter\s+(function|trigger)\s+(public|private)\.|drop\s+(function|trigger)\s+(if\s+exists\s+)?(public|private)\.)/i;
+  const WRITES_FEE_ROWS = /\b(insert\s+into\s+public\.|update\s+public\.|delete\s+from\s+public\.)/i;
+  const withoutCounterFunctionBody = (sql: string) => sql.replace(
+    /(create\s+or\s+replace\s+function\s+vppsone\.refresh_defaulter_recovery_state\b[\s\S]*?\bas\s+)(\$[a-z_]*\$)[\s\S]*?\2/i,
+    "$1''",
+  );
 
   it.each(migrations.filter((file) => !APPROVED.has(file)))("%s leaves the fee app's functions, triggers and rows alone", (file) => {
     const sql = readFileSync(path.join(migrationsDir, file), "utf8").replace(/--[^\n]*/g, "");
-    expect(TOUCHES_FEE.test(sql), `${file} changes a fee object; that needs its own approval (P12)`).toBe(false);
+    expect(TOUCHES_FEE_CODE.test(sql), `${file} changes a fee object; that needs its own approval (P12)`).toBe(false);
+    const migrationStatements = file === RUNTIME_COUNTER_REFRESH ? withoutCounterFunctionBody(sql) : sql;
+    expect(WRITES_FEE_ROWS.test(migrationStatements), `${file} writes fee rows during migration (P12)`).toBe(false);
+  });
+
+  it.each(["insert into public.students values ('qa')", "update public.students set name = 'qa'", "delete from public.students"])(
+    "still rejects a migration-time fee write outside the native body: %s", (write) => {
+      const sql = `create or replace function vppsone.refresh_defaulter_recovery_state() returns void language plpgsql as $function$ begin insert into public.defaulter_recovery_state values ('qa'); end; $function$; ${write};`;
+      expect(WRITES_FEE_ROWS.test(withoutCounterFunctionBody(sql))).toBe(true);
+    },
+  );
+
+  it("does not exclude another native function's fee writes", () => {
+    const sql = "create or replace function vppsone.another_writer() returns void language plpgsql as $$ begin delete from public.students; end; $$;";
+    expect(WRITES_FEE_ROWS.test(withoutCounterFunctionBody(sql))).toBe(true);
   });
 
   it("still has its one approved exception, so the allowlist cannot quietly go stale", () => {

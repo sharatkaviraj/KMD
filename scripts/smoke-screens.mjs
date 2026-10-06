@@ -57,7 +57,7 @@ try {
     ["scripts/deep-smoke.mjs", ["--json", "--write", `docs/evidence/deep-smoke-${date}.json`]],
   ]) {
     const result = spawnSync(process.execPath, ["--import", "./scripts/alias-hook.mjs", script, ...args], {
-      stdio: "inherit", env: { ...process.env, APP_ORIGIN: origin },
+      stdio: "inherit", env: { ...process.env, APP_ORIGIN: origin, SMOKE_DUTY_ID: dutyId, SMOKE_RUN_ID: runId },
     });
     if (result.error) throw result.error;
     if (result.status !== 0) failed = true;

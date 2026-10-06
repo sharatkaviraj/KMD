@@ -230,7 +230,9 @@ async function fillIds(route) {
     "[receiptId]": route.includes("[receiptId]") ? await pick("receipts", {}, "public") : null,
     "[familyGroupId]": route.includes("[familyGroupId]") ? await pick("student_family_groups", {}, "public") : null,
     "[runId]": route.includes("[runId]")
-      ? await pick(route.includes("/promotion/") ? "promotion_runs" : "whatsapp_campaign_runs", {}, "public")
+      ? route.includes("/promotion/")
+        ? await pick("promotion_runs", {}, "public")
+        : (process.env.SMOKE_RUN_ID ?? await pick("whatsapp_campaign_runs", {}, "public"))
       : null,
   };
 
@@ -240,7 +242,7 @@ async function fillIds(route) {
   else if (route.startsWith("/staff/[id]")) map["[id]"] = await pick("staff_profiles");
   else if (route.startsWith("/timetable/[id]")) map["[id]"] = await pick("timetable_versions");
   else if (route.startsWith("/academics/subjects/[id]")) map["[id]"] = await pick("subjects");
-  else if (route.startsWith("/duty/[id]")) map["[id]"] = await pick("cover_duties");
+  else if (route.startsWith("/duty/[id]")) map["[id]"] = process.env.SMOKE_DUTY_ID ?? await pick("cover_duties");
   else if (route.startsWith("/teach/class/[id]")) {
     const { data } = await db.from("enrolments").select("class_id").limit(1).maybeSingle();
     map["[id]"] = data?.class_id ?? null;
