@@ -1,0 +1,7814 @@
+{
+  "at": "2026-10-06T04:41:19.745Z",
+  "origin": "https://vppsone.vercel.app",
+  "accounts": 11,
+  "routes": 99,
+  "cases": [
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/academics",
+      "result": "rendered",
+      "ms": 223,
+      "status": 200,
+      "bytes": 134593
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/academics/class-teachers",
+      "result": "rendered",
+      "ms": 208,
+      "status": 200,
+      "bytes": 214520
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/academics/classes",
+      "result": "rendered",
+      "ms": 161,
+      "status": 200,
+      "bytes": 163337
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/academics/subjects",
+      "result": "rendered",
+      "ms": 147,
+      "status": 200,
+      "bytes": 210480
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/academics/subjects/[id]",
+      "result": "rendered",
+      "ms": 143,
+      "status": 200,
+      "bytes": 110265
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/academics/subjects/new",
+      "result": "rendered",
+      "ms": 197,
+      "status": 200,
+      "bytes": 109490
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 232,
+      "status": 200,
+      "bytes": 106569
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 445,
+      "status": 200,
+      "bytes": 196998
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/archives",
+      "result": "rendered",
+      "ms": 203,
+      "status": 200,
+      "bytes": 108462
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/assessments",
+      "result": "rendered",
+      "ms": 181,
+      "status": 200,
+      "bytes": 122655
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/assessments/[id]",
+      "result": "rendered",
+      "ms": 367,
+      "status": 200,
+      "bytes": 164711
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/assessments/exports",
+      "result": "rendered",
+      "ms": 154,
+      "status": 200,
+      "bytes": 111987
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/assessments/marks/[paperId]",
+      "result": "rendered",
+      "ms": 364,
+      "status": 200,
+      "bytes": 122261
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/assessments/report/[studentId]",
+      "result": "rendered",
+      "ms": 357,
+      "status": 200,
+      "bytes": 122679
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/assessments/scheme",
+      "result": "rendered",
+      "ms": 204,
+      "status": 200,
+      "bytes": 117754
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/calendar",
+      "result": "rendered",
+      "ms": 141,
+      "status": 200,
+      "bytes": 110105
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection",
+      "result": "rendered",
+      "ms": 300,
+      "status": 200,
+      "bytes": 142604
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/[id]",
+      "result": "rendered",
+      "ms": 335,
+      "status": 200,
+      "bytes": 145813
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/fields",
+      "result": "rendered",
+      "ms": 125,
+      "status": 200,
+      "bytes": 196162
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/import",
+      "result": "rendered",
+      "ms": 123,
+      "status": 200,
+      "bytes": 109425
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/messages",
+      "result": "rendered",
+      "ms": 187,
+      "status": 200,
+      "bytes": 417641
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/photos",
+      "result": "rendered",
+      "ms": 167,
+      "status": 200,
+      "bytes": 117471
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/policy",
+      "result": "rendered",
+      "ms": 107,
+      "status": 200,
+      "bytes": 120342
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/review",
+      "result": "rendered",
+      "ms": 283,
+      "status": 200,
+      "bytes": 135965
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/rounds",
+      "result": "rendered",
+      "ms": 133,
+      "status": 200,
+      "bytes": 121467
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/rounds/[id]",
+      "result": "rendered",
+      "ms": 204,
+      "status": 200,
+      "bytes": 112118
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/rounds/new",
+      "result": "rendered",
+      "ms": 146,
+      "status": 200,
+      "bytes": 150876
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/collection/rounds/upload",
+      "result": "rendered",
+      "ms": 261,
+      "status": 200,
+      "bytes": 109863
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 402,
+      "status": 200,
+      "bytes": 196955
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 239,
+      "status": 200,
+      "bytes": 109125
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/enrolments",
+      "result": "rendered",
+      "ms": 198,
+      "status": 200,
+      "bytes": 118920
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees",
+      "result": "rendered",
+      "ms": 786,
+      "status": 200,
+      "bytes": 676581
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools",
+      "result": "rendered",
+      "ms": 756,
+      "status": 200,
+      "bytes": 267408
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/activity",
+      "result": "rendered",
+      "ms": 223,
+      "status": 200,
+      "bytes": 528228
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "rendered",
+      "ms": 414,
+      "status": 200,
+      "bytes": 238522
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/promotion",
+      "result": "rendered",
+      "ms": 117,
+      "status": 200,
+      "bytes": 219845
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "rendered",
+      "ms": 730,
+      "status": 200,
+      "bytes": 2635115
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/recovery",
+      "result": "rendered",
+      "ms": 251,
+      "status": 200,
+      "bytes": 265892
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/session-health",
+      "result": "rendered",
+      "ms": 824,
+      "status": 200,
+      "bytes": 241645
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "rendered",
+      "ms": 179,
+      "status": 200,
+      "bytes": 220707
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "rendered",
+      "ms": 807,
+      "status": 200,
+      "bytes": 1245421
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/advanced",
+      "result": "rendered",
+      "ms": 1174,
+      "status": 200,
+      "bytes": 267451
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/collections",
+      "result": "rendered",
+      "ms": 464,
+      "status": 200,
+      "bytes": 342877
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/dashboard",
+      "result": "rendered",
+      "ms": 333,
+      "status": 200,
+      "bytes": 676581
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/defaulters",
+      "result": "rendered",
+      "ms": 1368,
+      "status": 200,
+      "bytes": 1008022
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/dues",
+      "result": "rendered",
+      "ms": 1879,
+      "status": 200,
+      "bytes": 944982
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/exports",
+      "result": "rendered",
+      "ms": 183,
+      "status": 200,
+      "bytes": 263131
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/fee-setup",
+      "result": "rendered",
+      "ms": 733,
+      "status": 200,
+      "bytes": 1187431
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/fee-setup/generate",
+      "result": "rendered",
+      "ms": 4553,
+      "status": 200,
+      "bytes": 211256
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "rendered",
+      "ms": 358,
+      "status": 200,
+      "bytes": 580777
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/fee-structure",
+      "result": "rendered",
+      "ms": 625,
+      "status": 200,
+      "bytes": 1193917
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/finance-controls",
+      "result": "rendered",
+      "ms": 202,
+      "status": 200,
+      "bytes": 241724
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/imports",
+      "result": "rendered",
+      "ms": 242,
+      "status": 200,
+      "bytes": 207461
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/ledger",
+      "result": "rendered",
+      "ms": 145,
+      "status": 200,
+      "bytes": 250762
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/master-data",
+      "result": "rendered",
+      "ms": 197,
+      "status": 200,
+      "bytes": 931965
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/password",
+      "result": "rendered",
+      "ms": 117,
+      "status": 200,
+      "bytes": 204826
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/payments",
+      "result": "rendered",
+      "ms": 196,
+      "status": 200,
+      "bytes": 342834
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/payments/bulk",
+      "result": "rendered",
+      "ms": 123,
+      "status": 200,
+      "bytes": 213141
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/receipts",
+      "result": "rendered",
+      "ms": 369,
+      "status": 200,
+      "bytes": 302794
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "rendered",
+      "ms": 198,
+      "status": 200,
+      "bytes": 273045
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/reminders",
+      "result": "rendered",
+      "ms": 666,
+      "status": 200,
+      "bytes": 1245421
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/reminders/campaigns",
+      "result": "rendered",
+      "ms": 337,
+      "status": 200,
+      "bytes": 213965
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/reminders/lists",
+      "result": "rendered",
+      "ms": 567,
+      "status": 200,
+      "bytes": 891036
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "rendered",
+      "ms": 289,
+      "status": 200,
+      "bytes": 231488
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/reminders/unreachable",
+      "result": "rendered",
+      "ms": 322,
+      "status": 200,
+      "bytes": 291073
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/reports",
+      "result": "rendered",
+      "ms": 1883,
+      "status": 200,
+      "bytes": 11921326
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "rendered",
+      "ms": 304,
+      "status": 200,
+      "bytes": 210304
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/settings",
+      "result": "rendered",
+      "ms": 219,
+      "status": 200,
+      "bytes": 249109
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/settings/glossary",
+      "result": "rendered",
+      "ms": 111,
+      "status": 200,
+      "bytes": 275937
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/setup",
+      "result": "rendered",
+      "ms": 979,
+      "status": 200,
+      "bytes": 267408
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/staff",
+      "result": "rendered",
+      "ms": 493,
+      "status": 200,
+      "bytes": 419103
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/students",
+      "result": "rendered",
+      "ms": 468,
+      "status": 200,
+      "bytes": 547681
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/students/[studentId]",
+      "result": "rendered",
+      "ms": 435,
+      "status": 200,
+      "bytes": 368421
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "rendered",
+      "ms": 465,
+      "status": 200,
+      "bytes": 303525
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "rendered",
+      "ms": 287,
+      "status": 200,
+      "bytes": 298571
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/students/bulk-update",
+      "result": "rendered",
+      "ms": 118,
+      "status": 200,
+      "bytes": 231081
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "rendered",
+      "ms": 522,
+      "status": 200,
+      "bytes": 400451
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/students/new",
+      "result": "rendered",
+      "ms": 164,
+      "status": 200,
+      "bytes": 282621
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/fees/transactions",
+      "result": "rendered",
+      "ms": 555,
+      "status": 200,
+      "bytes": 944982
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/jobs",
+      "result": "rendered",
+      "ms": 137,
+      "status": 200,
+      "bytes": 183017
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 128,
+      "status": 200,
+      "bytes": 149599
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 102,
+      "status": 200,
+      "bytes": 126155
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/staff",
+      "result": "rendered",
+      "ms": 172,
+      "status": 200,
+      "bytes": 156758
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/staff/[id]",
+      "result": "rendered",
+      "ms": 110,
+      "status": 200,
+      "bytes": 114352
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/staff/[id]/edit",
+      "result": "rendered",
+      "ms": 125,
+      "status": 200,
+      "bytes": 112722
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/staff/new",
+      "result": "rendered",
+      "ms": 103,
+      "status": 200,
+      "bytes": 112833
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/students",
+      "result": "rendered",
+      "ms": 338,
+      "status": 200,
+      "bytes": 156420
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/substitutions",
+      "result": "rendered",
+      "ms": 427,
+      "status": 200,
+      "bytes": 125431
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/substitutions/policies",
+      "result": "rendered",
+      "ms": 186,
+      "status": 200,
+      "bytes": 341790
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/substitutions/rules",
+      "result": "rendered",
+      "ms": 286,
+      "status": 200,
+      "bytes": 135637
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/teach",
+      "result": "rendered",
+      "ms": 290,
+      "status": 200,
+      "bytes": 115455
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/teach/attendance",
+      "result": "rendered",
+      "ms": 154,
+      "status": 200,
+      "bytes": 153466
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/teach/class/[id]",
+      "result": "rendered",
+      "ms": 345,
+      "status": 200,
+      "bytes": 184554
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/teach/corrections",
+      "result": "rendered",
+      "ms": 261,
+      "status": 200,
+      "bytes": 117452
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/teach/register",
+      "result": "rendered",
+      "ms": 142,
+      "status": 200,
+      "bytes": 117610
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/teach/student/[id]",
+      "result": "rendered",
+      "ms": 526,
+      "status": 200,
+      "bytes": 135842
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 279,
+      "status": 200,
+      "bytes": 484494
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 287,
+      "status": 200,
+      "bytes": 109212
+    },
+    {
+      "account": "admin",
+      "role": "admin",
+      "route": "/timetable/import",
+      "result": "rendered",
+      "ms": 99,
+      "status": 200,
+      "bytes": 107164
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/academics",
+      "result": "rendered",
+      "ms": 175,
+      "status": 200,
+      "bytes": 117597
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/academics/class-teachers",
+      "result": "rendered",
+      "ms": 166,
+      "status": 200,
+      "bytes": 200945
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/academics/classes",
+      "result": "rendered",
+      "ms": 224,
+      "status": 200,
+      "bytes": 150294
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/academics/subjects",
+      "result": "rendered",
+      "ms": 144,
+      "status": 200,
+      "bytes": 198379
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/academics/subjects/[id]",
+      "result": "rendered",
+      "ms": 195,
+      "status": 200,
+      "bytes": 97757
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/academics/subjects/new",
+      "result": "rendered",
+      "ms": 170,
+      "status": 200,
+      "bytes": 97124
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 158,
+      "status": 200,
+      "bytes": 94229
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 386,
+      "status": 200,
+      "bytes": 127937
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 138
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/assessments",
+      "result": "rendered",
+      "ms": 149,
+      "status": 200,
+      "bytes": 102695
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/assessments/[id]",
+      "result": "rendered",
+      "ms": 356,
+      "status": 200,
+      "bytes": 118619
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/assessments/exports",
+      "result": "rendered",
+      "ms": 140,
+      "status": 200,
+      "bytes": 99384
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/assessments/marks/[paperId]",
+      "result": "rendered",
+      "ms": 341,
+      "status": 200,
+      "bytes": 108981
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/assessments/report/[studentId]",
+      "result": "rendered",
+      "ms": 342,
+      "status": 200,
+      "bytes": 106322
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/assessments/scheme",
+      "result": "rendered",
+      "ms": 176,
+      "status": 200,
+      "bytes": 96480
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/calendar",
+      "result": "rendered",
+      "ms": 129,
+      "status": 200,
+      "bytes": 96890
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection",
+      "result": "rendered",
+      "ms": 324,
+      "status": 200,
+      "bytes": 128634
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/[id]",
+      "result": "rendered",
+      "ms": 343,
+      "status": 200,
+      "bytes": 133219
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/fields",
+      "result": "rendered",
+      "ms": 147,
+      "status": 200,
+      "bytes": 176749
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/import",
+      "result": "rendered",
+      "ms": 127,
+      "status": 200,
+      "bytes": 96519
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/messages",
+      "result": "rendered",
+      "ms": 209,
+      "status": 200,
+      "bytes": 400757
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/photos",
+      "result": "rendered",
+      "ms": 136,
+      "status": 200,
+      "bytes": 104591
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/policy",
+      "result": "rendered",
+      "ms": 170,
+      "status": 200,
+      "bytes": 100082
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/review",
+      "result": "rendered",
+      "ms": 255,
+      "status": 200,
+      "bytes": 123267
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/rounds",
+      "result": "rendered",
+      "ms": 163,
+      "status": 200,
+      "bytes": 109274
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/rounds/[id]",
+      "result": "rendered",
+      "ms": 218,
+      "status": 200,
+      "bytes": 99811
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/rounds/new",
+      "result": "rendered",
+      "ms": 167,
+      "status": 200,
+      "bytes": 137358
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/collection/rounds/upload",
+      "result": "rendered",
+      "ms": 202,
+      "status": 200,
+      "bytes": 97344
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 617,
+      "status": 200,
+      "bytes": 127894
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 300,
+      "status": 200,
+      "bytes": 96759
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/enrolments",
+      "result": "rendered",
+      "ms": 199,
+      "status": 200,
+      "bytes": 106064
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees",
+      "result": "rendered",
+      "ms": 819,
+      "status": 200,
+      "bytes": 659870
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/activity",
+      "result": "access-denied",
+      "ms": 150
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "access-denied",
+      "ms": 125
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 135
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/recovery",
+      "result": "rendered",
+      "ms": 204,
+      "status": 200,
+      "bytes": 249818
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/session-health",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "access-denied",
+      "ms": 309
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/advanced",
+      "result": "access-denied",
+      "ms": 280
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/collections",
+      "result": "access-denied",
+      "ms": 746
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/dashboard",
+      "result": "rendered",
+      "ms": 347,
+      "status": 200,
+      "bytes": 659870
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/defaulters",
+      "result": "rendered",
+      "ms": 1178,
+      "status": 200,
+      "bytes": 978504
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/dues",
+      "result": "rendered",
+      "ms": 1506,
+      "status": 200,
+      "bytes": 225898
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/exports",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/fee-setup",
+      "result": "access-denied",
+      "ms": 132
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 158
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "access-denied",
+      "ms": 158
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/fee-structure",
+      "result": "access-denied",
+      "ms": 124
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/finance-controls",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/imports",
+      "result": "access-denied",
+      "ms": 143
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/ledger",
+      "result": "access-denied",
+      "ms": 1952
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/password",
+      "result": "rendered",
+      "ms": 129,
+      "status": 200,
+      "bytes": 193041
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/payments",
+      "result": "access-denied",
+      "ms": 176
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/receipts",
+      "result": "rendered",
+      "ms": 195,
+      "status": 200,
+      "bytes": 219854
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "rendered",
+      "ms": 248,
+      "status": 200,
+      "bytes": 246281
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/reminders",
+      "result": "access-denied",
+      "ms": 258
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/reminders/campaigns",
+      "result": "access-denied",
+      "ms": 142
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/reminders/lists",
+      "result": "access-denied",
+      "ms": 148
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "access-denied",
+      "ms": 167
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/reminders/unreachable",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/reports",
+      "result": "access-denied",
+      "ms": 148
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "access-denied",
+      "ms": 154
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/settings",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/settings/glossary",
+      "result": "rendered",
+      "ms": 205,
+      "status": 200,
+      "bytes": 264142
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/setup",
+      "result": "access-denied",
+      "ms": 256
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 134
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/students",
+      "result": "rendered",
+      "ms": 445,
+      "status": 200,
+      "bytes": 455108
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/students/[studentId]",
+      "result": "rendered",
+      "ms": 761,
+      "status": 200,
+      "bytes": 317707
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 6488
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "rendered",
+      "ms": 1421,
+      "status": 200,
+      "bytes": 287221
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 413
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "rendered",
+      "ms": 2803,
+      "status": 200,
+      "bytes": 384525
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 163
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/fees/transactions",
+      "result": "rendered",
+      "ms": 349,
+      "status": 200,
+      "bytes": 225855
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 245
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 131,
+      "status": 200,
+      "bytes": 121570
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 144,
+      "status": 200,
+      "bytes": 109698
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/staff",
+      "result": "rendered",
+      "ms": 175,
+      "status": 200,
+      "bytes": 144448
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/staff/[id]",
+      "result": "rendered",
+      "ms": 111,
+      "status": 200,
+      "bytes": 99399
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/staff/[id]/edit",
+      "result": "rendered",
+      "ms": 107,
+      "status": 200,
+      "bytes": 99645
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/staff/new",
+      "result": "rendered",
+      "ms": 142,
+      "status": 200,
+      "bytes": 99088
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/students",
+      "result": "rendered",
+      "ms": 495,
+      "status": 200,
+      "bytes": 143667
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/substitutions",
+      "result": "rendered",
+      "ms": 336,
+      "status": 200,
+      "bytes": 98494
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 95
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/teach",
+      "result": "rendered",
+      "ms": 429,
+      "status": 200,
+      "bytes": 102459
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/teach/attendance",
+      "result": "rendered",
+      "ms": 152,
+      "status": 200,
+      "bytes": 140937
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/teach/class/[id]",
+      "result": "rendered",
+      "ms": 243,
+      "status": 200,
+      "bytes": 166675
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/teach/corrections",
+      "result": "rendered",
+      "ms": 218,
+      "status": 200,
+      "bytes": 105407
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/teach/register",
+      "result": "rendered",
+      "ms": 143,
+      "status": 200,
+      "bytes": 105534
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/teach/student/[id]",
+      "result": "rendered",
+      "ms": 582,
+      "status": 200,
+      "bytes": 115598
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 335,
+      "status": 200,
+      "bytes": 470068
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 210,
+      "status": 200,
+      "bytes": 96657
+    },
+    {
+      "account": "office",
+      "role": "office",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/academics",
+      "result": "access-denied",
+      "ms": 186
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/academics/class-teachers",
+      "result": "access-denied",
+      "ms": 179
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/academics/classes",
+      "result": "access-denied",
+      "ms": 189
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/academics/subjects",
+      "result": "access-denied",
+      "ms": 162
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/academics/subjects/[id]",
+      "result": "access-denied",
+      "ms": 188
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/academics/subjects/new",
+      "result": "access-denied",
+      "ms": 190
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 141,
+      "status": 200,
+      "bytes": 93848
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 469,
+      "status": 200,
+      "bytes": 330726
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 144
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/assessments",
+      "result": "access-denied",
+      "ms": 96
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/assessments/[id]",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/assessments/exports",
+      "result": "access-denied",
+      "ms": 93
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/assessments/marks/[paperId]",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/assessments/report/[studentId]",
+      "result": "access-denied",
+      "ms": 95
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/assessments/scheme",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/calendar",
+      "result": "access-denied",
+      "ms": 289
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 290
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 136
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 135
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 95
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 91
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 150,
+      "status": 200,
+      "bytes": 112799
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 171,
+      "status": 200,
+      "bytes": 94068
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/enrolments",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees",
+      "result": "rendered",
+      "ms": 321,
+      "status": 200,
+      "bytes": 330460
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools",
+      "result": "rendered",
+      "ms": 1044,
+      "status": 200,
+      "bytes": 244592
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/activity",
+      "result": "rendered",
+      "ms": 172,
+      "status": 200,
+      "bytes": 518581
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "rendered",
+      "ms": 370,
+      "status": 200,
+      "bytes": 227271
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 149
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/recovery",
+      "result": "rendered",
+      "ms": 222,
+      "status": 200,
+      "bytes": 250351
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/session-health",
+      "result": "rendered",
+      "ms": 856,
+      "status": 200,
+      "bytes": 230308
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "rendered",
+      "ms": 240,
+      "status": 200,
+      "bytes": 208898
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "rendered",
+      "ms": 740,
+      "status": 200,
+      "bytes": 1234331
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/advanced",
+      "result": "rendered",
+      "ms": 995,
+      "status": 200,
+      "bytes": 244592
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/collections",
+      "result": "rendered",
+      "ms": 335,
+      "status": 200,
+      "bytes": 330683
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/dashboard",
+      "result": "rendered",
+      "ms": 723,
+      "status": 200,
+      "bytes": 666020
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/defaulters",
+      "result": "rendered",
+      "ms": 938,
+      "status": 200,
+      "bytes": 983839
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/dues",
+      "result": "rendered",
+      "ms": 2853,
+      "status": 200,
+      "bytes": 832415
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/exports",
+      "result": "rendered",
+      "ms": 128,
+      "status": 200,
+      "bytes": 252037
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/fee-setup",
+      "result": "rendered",
+      "ms": 5716,
+      "status": 200,
+      "bytes": 1167638
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 955
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "rendered",
+      "ms": 1294,
+      "status": 200,
+      "bytes": 222540
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/fee-structure",
+      "result": "rendered",
+      "ms": 580,
+      "status": 200,
+      "bytes": 1174235
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/finance-controls",
+      "result": "rendered",
+      "ms": 528,
+      "status": 200,
+      "bytes": 230660
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/imports",
+      "result": "rendered",
+      "ms": 257,
+      "status": 200,
+      "bytes": 196264
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/ledger",
+      "result": "rendered",
+      "ms": 130,
+      "status": 200,
+      "bytes": 239514
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 104
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/password",
+      "result": "rendered",
+      "ms": 108,
+      "status": 200,
+      "bytes": 193578
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/payments",
+      "result": "rendered",
+      "ms": 222,
+      "status": 200,
+      "bytes": 330683
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 96
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/receipts",
+      "result": "rendered",
+      "ms": 326,
+      "status": 200,
+      "bytes": 291439
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "rendered",
+      "ms": 338,
+      "status": 200,
+      "bytes": 259628
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/reminders",
+      "result": "rendered",
+      "ms": 887,
+      "status": 200,
+      "bytes": 1234374
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/reminders/campaigns",
+      "result": "rendered",
+      "ms": 219,
+      "status": 200,
+      "bytes": 202062
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/reminders/lists",
+      "result": "rendered",
+      "ms": 497,
+      "status": 200,
+      "bytes": 879787
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "rendered",
+      "ms": 490,
+      "status": 200,
+      "bytes": 220243
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/reminders/unreachable",
+      "result": "rendered",
+      "ms": 271,
+      "status": 200,
+      "bytes": 279828
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/reports",
+      "result": "rendered",
+      "ms": 4995,
+      "status": 200,
+      "bytes": 11910012
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "rendered",
+      "ms": 624,
+      "status": 200,
+      "bytes": 199101
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/settings",
+      "result": "rendered",
+      "ms": 223,
+      "status": 200,
+      "bytes": 237867
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/settings/glossary",
+      "result": "rendered",
+      "ms": 120,
+      "status": 200,
+      "bytes": 264801
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/setup",
+      "result": "rendered",
+      "ms": 2190,
+      "status": 200,
+      "bytes": 244592
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 492
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/students",
+      "result": "rendered",
+      "ms": 458,
+      "status": 200,
+      "bytes": 488664
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/students/[studentId]",
+      "result": "rendered",
+      "ms": 1664,
+      "status": 200,
+      "bytes": 330524
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 156
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "rendered",
+      "ms": 1410,
+      "status": 200,
+      "bytes": 287365
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "rendered",
+      "ms": 510,
+      "status": 200,
+      "bytes": 389213
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 103
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/fees/transactions",
+      "result": "rendered",
+      "ms": 1193,
+      "status": 200,
+      "bytes": 832415
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 250
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 114,
+      "status": 200,
+      "bytes": 103408
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 96,
+      "status": 200,
+      "bytes": 104598
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/staff",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/staff/[id]",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 83
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 145
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/substitutions",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 95
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/teach",
+      "result": "access-denied",
+      "ms": 97
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/teach/attendance",
+      "result": "access-denied",
+      "ms": 100
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/teach/class/[id]",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/teach/corrections",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/teach/register",
+      "result": "access-denied",
+      "ms": 88
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/teach/student/[id]",
+      "result": "access-denied",
+      "ms": 103
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/timetable",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/timetable/[id]",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "accountant",
+      "role": "accountant",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/academics",
+      "result": "access-denied",
+      "ms": 169
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/academics/class-teachers",
+      "result": "access-denied",
+      "ms": 179
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/academics/classes",
+      "result": "access-denied",
+      "ms": 166
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/academics/subjects",
+      "result": "access-denied",
+      "ms": 156
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/academics/subjects/[id]",
+      "result": "access-denied",
+      "ms": 159
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/academics/subjects/new",
+      "result": "access-denied",
+      "ms": 359
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 142,
+      "status": 200,
+      "bytes": 89917
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 1159,
+      "status": 200,
+      "bytes": 978552
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 942
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/assessments",
+      "result": "access-denied",
+      "ms": 137
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/assessments/[id]",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/assessments/exports",
+      "result": "access-denied",
+      "ms": 93
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/assessments/marks/[paperId]",
+      "result": "access-denied",
+      "ms": 93
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/assessments/report/[studentId]",
+      "result": "access-denied",
+      "ms": 158
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/assessments/scheme",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/calendar",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 88
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 96
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 104
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 88
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 89
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 170
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 97
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 122,
+      "status": 200,
+      "bytes": 106004
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 132,
+      "status": 200,
+      "bytes": 90194
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/enrolments",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees",
+      "result": "rendered",
+      "ms": 866,
+      "status": 200,
+      "bytes": 978595
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools",
+      "result": "rendered",
+      "ms": 890,
+      "status": 200,
+      "bytes": 239672
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/activity",
+      "result": "rendered",
+      "ms": 184,
+      "status": 200,
+      "bytes": 512061
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "rendered",
+      "ms": 307,
+      "status": 200,
+      "bytes": 222347
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/recovery",
+      "result": "rendered",
+      "ms": 203,
+      "status": 200,
+      "bytes": 245427
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/session-health",
+      "result": "rendered",
+      "ms": 848,
+      "status": 200,
+      "bytes": 225490
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "rendered",
+      "ms": 148,
+      "status": 200,
+      "bytes": 203978
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "rendered",
+      "ms": 706,
+      "status": 200,
+      "bytes": 1229305
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/advanced",
+      "result": "rendered",
+      "ms": 715,
+      "status": 200,
+      "bytes": 239672
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/collections",
+      "result": "rendered",
+      "ms": 476,
+      "status": 200,
+      "bytes": 327024
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/dashboard",
+      "result": "rendered",
+      "ms": 674,
+      "status": 200,
+      "bytes": 655510
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/defaulters",
+      "result": "rendered",
+      "ms": 633,
+      "status": 200,
+      "bytes": 978552
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/dues",
+      "result": "rendered",
+      "ms": 1357,
+      "status": 200,
+      "bytes": 827409
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/exports",
+      "result": "rendered",
+      "ms": 105,
+      "status": 200,
+      "bytes": 246969
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/fee-setup",
+      "result": "rendered",
+      "ms": 523,
+      "status": 200,
+      "bytes": 1162698
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 91
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "rendered",
+      "ms": 171,
+      "status": 200,
+      "bytes": 217786
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/fee-structure",
+      "result": "rendered",
+      "ms": 501,
+      "status": 200,
+      "bytes": 1169189
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/finance-controls",
+      "result": "rendered",
+      "ms": 147,
+      "status": 200,
+      "bytes": 225740
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/imports",
+      "result": "rendered",
+      "ms": 193,
+      "status": 200,
+      "bytes": 191301
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/ledger",
+      "result": "rendered",
+      "ms": 112,
+      "status": 200,
+      "bytes": 234594
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 96
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/password",
+      "result": "rendered",
+      "ms": 167,
+      "status": 200,
+      "bytes": 188666
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/payments",
+      "result": "rendered",
+      "ms": 1164,
+      "status": 200,
+      "bytes": 326981
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 139
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/receipts",
+      "result": "rendered",
+      "ms": 439,
+      "status": 200,
+      "bytes": 286209
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "rendered",
+      "ms": 220,
+      "status": 200,
+      "bytes": 243556
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/reminders",
+      "result": "rendered",
+      "ms": 592,
+      "status": 200,
+      "bytes": 1229305
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/reminders/campaigns",
+      "result": "rendered",
+      "ms": 210,
+      "status": 200,
+      "bytes": 197142
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/reminders/lists",
+      "result": "rendered",
+      "ms": 453,
+      "status": 200,
+      "bytes": 874863
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "rendered",
+      "ms": 287,
+      "status": 200,
+      "bytes": 215323
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/reminders/unreachable",
+      "result": "rendered",
+      "ms": 215,
+      "status": 200,
+      "bytes": 274904
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/reports",
+      "result": "rendered",
+      "ms": 1498,
+      "status": 200,
+      "bytes": 11905084
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "rendered",
+      "ms": 321,
+      "status": 200,
+      "bytes": 194138
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/settings",
+      "result": "rendered",
+      "ms": 145,
+      "status": 200,
+      "bytes": 232944
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/settings/glossary",
+      "result": "rendered",
+      "ms": 106,
+      "status": 200,
+      "bytes": 259775
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/setup",
+      "result": "rendered",
+      "ms": 790,
+      "status": 200,
+      "bytes": 239672
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 101
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/students",
+      "result": "rendered",
+      "ms": 474,
+      "status": 200,
+      "bytes": 450802
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/students/[studentId]",
+      "result": "rendered",
+      "ms": 419,
+      "status": 200,
+      "bytes": 321610
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "rendered",
+      "ms": 325,
+      "status": 200,
+      "bytes": 282385
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 97
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "rendered",
+      "ms": 394,
+      "status": 200,
+      "bytes": 384265
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 101
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/fees/transactions",
+      "result": "rendered",
+      "ms": 428,
+      "status": 200,
+      "bytes": 827409
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 209
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 189,
+      "status": 200,
+      "bytes": 96718
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 104,
+      "status": 200,
+      "bytes": 99889
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/staff",
+      "result": "access-denied",
+      "ms": 259
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/staff/[id]",
+      "result": "access-denied",
+      "ms": 99
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 95
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 95
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/substitutions",
+      "result": "access-denied",
+      "ms": 88
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 86
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 91
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/teach",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/teach/attendance",
+      "result": "access-denied",
+      "ms": 97
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/teach/class/[id]",
+      "result": "access-denied",
+      "ms": 101
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/teach/corrections",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/teach/register",
+      "result": "access-denied",
+      "ms": 100
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/teach/student/[id]",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/timetable",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/timetable/[id]",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "feeCollector",
+      "role": "fee_collector",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 90
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/academics",
+      "result": "rendered",
+      "ms": 183,
+      "status": 200,
+      "bytes": 100244
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/academics/class-teachers",
+      "result": "rendered",
+      "ms": 145,
+      "status": 200,
+      "bytes": 188167
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/academics/classes",
+      "result": "rendered",
+      "ms": 136,
+      "status": 200,
+      "bytes": 137561
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/academics/subjects",
+      "result": "rendered",
+      "ms": 164,
+      "status": 200,
+      "bytes": 185675
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/academics/subjects/[id]",
+      "result": "rendered",
+      "ms": 105,
+      "status": 200,
+      "bytes": 85110
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/academics/subjects/new",
+      "result": "rendered",
+      "ms": 119,
+      "status": 200,
+      "bytes": 84418
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 121,
+      "status": 200,
+      "bytes": 81598
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 259,
+      "status": 200,
+      "bytes": 103078
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 178
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/assessments",
+      "result": "rendered",
+      "ms": 135,
+      "status": 200,
+      "bytes": 89941
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/assessments/[id]",
+      "result": "rendered",
+      "ms": 345,
+      "status": 200,
+      "bytes": 105751
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/assessments/exports",
+      "result": "rendered",
+      "ms": 175,
+      "status": 200,
+      "bytes": 86605
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/assessments/marks/[paperId]",
+      "result": "rendered",
+      "ms": 355,
+      "status": 200,
+      "bytes": 96234
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/assessments/report/[studentId]",
+      "result": "rendered",
+      "ms": 272,
+      "status": 200,
+      "bytes": 93611
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/assessments/scheme",
+      "result": "rendered",
+      "ms": 159,
+      "status": 200,
+      "bytes": 83775
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/calendar",
+      "result": "rendered",
+      "ms": 107,
+      "status": 200,
+      "bytes": 84232
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 96
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 147
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 131
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 153,
+      "status": 200,
+      "bytes": 103078
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 218,
+      "status": 200,
+      "bytes": 84012
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/enrolments",
+      "result": "rendered",
+      "ms": 140,
+      "status": 200,
+      "bytes": 93379
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/activity",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/recovery",
+      "result": "access-denied",
+      "ms": 157
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/session-health",
+      "result": "access-denied",
+      "ms": 101
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "access-denied",
+      "ms": 98
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/advanced",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/collections",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/dashboard",
+      "result": "access-denied",
+      "ms": 453
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/defaulters",
+      "result": "access-denied",
+      "ms": 736
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/dues",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/exports",
+      "result": "access-denied",
+      "ms": 187
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/fee-setup",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 134
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "access-denied",
+      "ms": 97
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/fee-structure",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/finance-controls",
+      "result": "access-denied",
+      "ms": 154
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/imports",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/ledger",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 155
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/password",
+      "result": "access-denied",
+      "ms": 95
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/payments",
+      "result": "access-denied",
+      "ms": 150
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 207
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/receipts",
+      "result": "access-denied",
+      "ms": 195
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "access-denied",
+      "ms": 194
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/reminders",
+      "result": "access-denied",
+      "ms": 178
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/reminders/campaigns",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/reminders/lists",
+      "result": "access-denied",
+      "ms": 159
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "access-denied",
+      "ms": 101
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/reminders/unreachable",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/reports",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/settings",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/settings/glossary",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/setup",
+      "result": "access-denied",
+      "ms": 103
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/students",
+      "result": "access-denied",
+      "ms": 341
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/students/[studentId]",
+      "result": "access-denied",
+      "ms": 326
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "access-denied",
+      "ms": 276
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "access-denied",
+      "ms": 408
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 104
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/fees/transactions",
+      "result": "access-denied",
+      "ms": 986
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 125,
+      "status": 200,
+      "bytes": 91056
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 121,
+      "status": 200,
+      "bytes": 92188
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/staff",
+      "result": "rendered",
+      "ms": 144,
+      "status": 200,
+      "bytes": 129775
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/staff/[id]",
+      "result": "rendered",
+      "ms": 101,
+      "status": 200,
+      "bytes": 84328
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 100
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/substitutions",
+      "result": "rendered",
+      "ms": 360,
+      "status": 200,
+      "bytes": 99623
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/substitutions/policies",
+      "result": "rendered",
+      "ms": 163,
+      "status": 200,
+      "bytes": 306162
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/substitutions/rules",
+      "result": "rendered",
+      "ms": 581,
+      "status": 200,
+      "bytes": 100866
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/teach",
+      "result": "rendered",
+      "ms": 329,
+      "status": 200,
+      "bytes": 86120
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/teach/attendance",
+      "result": "rendered",
+      "ms": 351,
+      "status": 200,
+      "bytes": 80196
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/teach/class/[id]",
+      "result": "rendered",
+      "ms": 275,
+      "status": 200,
+      "bytes": 153890
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/teach/corrections",
+      "result": "rendered",
+      "ms": 245,
+      "status": 200,
+      "bytes": 88031
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/teach/register",
+      "result": "rendered",
+      "ms": 171,
+      "status": 200,
+      "bytes": 92816
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/teach/student/[id]",
+      "result": "rendered",
+      "ms": 437,
+      "status": 200,
+      "bytes": 90167
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 305,
+      "status": 200,
+      "bytes": 459428
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 239,
+      "status": 200,
+      "bytes": 83978
+    },
+    {
+      "account": "academic",
+      "role": "academic_coordinator",
+      "route": "/timetable/import",
+      "result": "rendered",
+      "ms": 122,
+      "status": 200,
+      "bytes": 82211
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/academics",
+      "result": "rendered",
+      "ms": 176,
+      "status": 200,
+      "bytes": 97100
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/academics/class-teachers",
+      "result": "rendered",
+      "ms": 155,
+      "status": 200,
+      "bytes": 116600
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/academics/classes",
+      "result": "rendered",
+      "ms": 162,
+      "status": 200,
+      "bytes": 123718
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/academics/subjects",
+      "result": "rendered",
+      "ms": 599,
+      "status": 200,
+      "bytes": 107107
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/academics/subjects/[id]",
+      "result": "access-denied",
+      "ms": 143
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/academics/subjects/new",
+      "result": "access-denied",
+      "ms": 142
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 152,
+      "status": 200,
+      "bytes": 80629
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 321,
+      "status": 200,
+      "bytes": 95940
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 156
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/assessments",
+      "result": "rendered",
+      "ms": 161,
+      "status": 200,
+      "bytes": 95900
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/assessments/[id]",
+      "result": "rendered",
+      "ms": 282,
+      "status": 200,
+      "bytes": 136857
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/assessments/exports",
+      "result": "rendered",
+      "ms": 132,
+      "status": 200,
+      "bytes": 85664
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/assessments/marks/[paperId]",
+      "result": "rendered",
+      "ms": 312,
+      "status": 200,
+      "bytes": 96472
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/assessments/report/[studentId]",
+      "result": "rendered",
+      "ms": 259,
+      "status": 200,
+      "bytes": 95784
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/assessments/scheme",
+      "result": "rendered",
+      "ms": 163,
+      "status": 200,
+      "bytes": 90470
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/calendar",
+      "result": "rendered",
+      "ms": 135,
+      "status": 200,
+      "bytes": 78917
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 134
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 131
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 145
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 146
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 125,
+      "status": 200,
+      "bytes": 95940
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 156,
+      "status": 200,
+      "bytes": 80845
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/enrolments",
+      "result": "rendered",
+      "ms": 177,
+      "status": 200,
+      "bytes": 92418
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools",
+      "result": "access-denied",
+      "ms": 130
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/activity",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 143
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/recovery",
+      "result": "access-denied",
+      "ms": 205
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/session-health",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "access-denied",
+      "ms": 132
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "access-denied",
+      "ms": 125
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/advanced",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/collections",
+      "result": "access-denied",
+      "ms": 144
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/dashboard",
+      "result": "access-denied",
+      "ms": 654
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/defaulters",
+      "result": "access-denied",
+      "ms": 862
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/dues",
+      "result": "access-denied",
+      "ms": 134
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/exports",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/fee-setup",
+      "result": "access-denied",
+      "ms": 138
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 167
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/fee-structure",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/finance-controls",
+      "result": "access-denied",
+      "ms": 143
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/imports",
+      "result": "access-denied",
+      "ms": 125
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/ledger",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/password",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/payments",
+      "result": "access-denied",
+      "ms": 155
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 134
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/receipts",
+      "result": "access-denied",
+      "ms": 217
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "access-denied",
+      "ms": 202
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/reminders",
+      "result": "access-denied",
+      "ms": 153
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/reminders/campaigns",
+      "result": "access-denied",
+      "ms": 165
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/reminders/lists",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "access-denied",
+      "ms": 198
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/reminders/unreachable",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/reports",
+      "result": "access-denied",
+      "ms": 137
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/settings",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/settings/glossary",
+      "result": "access-denied",
+      "ms": 124
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/setup",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/students",
+      "result": "access-denied",
+      "ms": 418
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/students/[studentId]",
+      "result": "access-denied",
+      "ms": 353
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "access-denied",
+      "ms": 291
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "access-denied",
+      "ms": 418
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/fees/transactions",
+      "result": "access-denied",
+      "ms": 1262
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 120,
+      "status": 200,
+      "bytes": 87451
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 110,
+      "status": 200,
+      "bytes": 90518
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/staff",
+      "result": "rendered",
+      "ms": 171,
+      "status": 200,
+      "bytes": 128834
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/staff/[id]",
+      "result": "rendered",
+      "ms": 119,
+      "status": 200,
+      "bytes": 83387
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/substitutions",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/teach",
+      "result": "rendered",
+      "ms": 252,
+      "status": 200,
+      "bytes": 85159
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/teach/attendance",
+      "result": "rendered",
+      "ms": 138,
+      "status": 200,
+      "bytes": 79235
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/teach/class/[id]",
+      "result": "rendered",
+      "ms": 326,
+      "status": 200,
+      "bytes": 151812
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/teach/corrections",
+      "result": "rendered",
+      "ms": 282,
+      "status": 200,
+      "bytes": 87070
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/teach/register",
+      "result": "rendered",
+      "ms": 157,
+      "status": 200,
+      "bytes": 91855
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/teach/student/[id]",
+      "result": "rendered",
+      "ms": 357,
+      "status": 200,
+      "bytes": 88089
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 220,
+      "status": 200,
+      "bytes": 456487
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 184,
+      "status": 200,
+      "bytes": 83017
+    },
+    {
+      "account": "exam",
+      "role": "exam_coordinator",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/academics",
+      "result": "access-denied",
+      "ms": 125
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/academics/class-teachers",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/academics/classes",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/academics/subjects",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/academics/subjects/[id]",
+      "result": "access-denied",
+      "ms": 144
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/academics/subjects/new",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 110,
+      "status": 200,
+      "bytes": 80910
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 483,
+      "status": 200,
+      "bytes": 126308
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 174
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/assessments",
+      "result": "rendered",
+      "ms": 129,
+      "status": 200,
+      "bytes": 87954
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/assessments/[id]",
+      "result": "rendered",
+      "ms": 220,
+      "status": 200,
+      "bytes": 93826
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/assessments/exports",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/assessments/marks/[paperId]",
+      "result": "rendered",
+      "ms": 204,
+      "status": 200,
+      "bytes": 82670
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/assessments/report/[studentId]",
+      "result": "access-denied",
+      "ms": 104
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/assessments/scheme",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/calendar",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 124
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 145
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 149
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 164
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 131
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 119,
+      "status": 200,
+      "bytes": 96277
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 189,
+      "status": 200,
+      "bytes": 81839
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/enrolments",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools",
+      "result": "access-denied",
+      "ms": 830
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/activity",
+      "result": "access-denied",
+      "ms": 182
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "access-denied",
+      "ms": 370
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 138
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/recovery",
+      "result": "access-denied",
+      "ms": 190
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/session-health",
+      "result": "access-denied",
+      "ms": 782
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "access-denied",
+      "ms": 151
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "access-denied",
+      "ms": 132
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/advanced",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/collections",
+      "result": "access-denied",
+      "ms": 131
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/dashboard",
+      "result": "access-denied",
+      "ms": 641
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/defaulters",
+      "result": "access-denied",
+      "ms": 677
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/dues",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/exports",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/fee-setup",
+      "result": "access-denied",
+      "ms": 505
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "access-denied",
+      "ms": 193
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/fee-structure",
+      "result": "access-denied",
+      "ms": 469
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/finance-controls",
+      "result": "access-denied",
+      "ms": 174
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/imports",
+      "result": "access-denied",
+      "ms": 216
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/ledger",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 93
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/password",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/payments",
+      "result": "access-denied",
+      "ms": 387
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/receipts",
+      "result": "access-denied",
+      "ms": 484
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "access-denied",
+      "ms": 207
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/reminders",
+      "result": "access-denied",
+      "ms": 496
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/reminders/campaigns",
+      "result": "access-denied",
+      "ms": 335
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/reminders/lists",
+      "result": "access-denied",
+      "ms": 422
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "access-denied",
+      "ms": 460
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/reminders/unreachable",
+      "result": "access-denied",
+      "ms": 296
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/reports",
+      "result": "access-denied",
+      "ms": 2685
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "access-denied",
+      "ms": 485
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/settings",
+      "result": "access-denied",
+      "ms": 151
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/settings/glossary",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/setup",
+      "result": "access-denied",
+      "ms": 134
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 145
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/students",
+      "result": "access-denied",
+      "ms": 423
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]",
+      "result": "access-denied",
+      "ms": 629
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 245
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "access-denied",
+      "ms": 281
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "access-denied",
+      "ms": 454
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/fees/transactions",
+      "result": "access-denied",
+      "ms": 499
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 143
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 110,
+      "status": 200,
+      "bytes": 81831
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 114,
+      "status": 200,
+      "bytes": 90134
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/staff",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/staff/[id]",
+      "result": "access-denied",
+      "ms": 139
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 137
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/substitutions",
+      "result": "rendered",
+      "ms": 317,
+      "status": 200,
+      "bytes": 85244
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/teach",
+      "result": "rendered",
+      "ms": 423,
+      "status": 200,
+      "bytes": 126308
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/teach/attendance",
+      "result": "rendered",
+      "ms": 441,
+      "status": 200,
+      "bytes": 83101
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/teach/class/[id]",
+      "result": "rendered",
+      "ms": 135,
+      "status": 200,
+      "bytes": 82483
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/teach/corrections",
+      "result": "rendered",
+      "ms": 202,
+      "status": 200,
+      "bytes": 79048
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/teach/register",
+      "result": "rendered",
+      "ms": 146,
+      "status": 200,
+      "bytes": 82500
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/teach/student/[id]",
+      "result": "rendered",
+      "ms": 173,
+      "status": 200,
+      "bytes": 82765
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 297,
+      "status": 200,
+      "bytes": 456818
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 211,
+      "status": 200,
+      "bytes": 83407
+    },
+    {
+      "account": "teacher",
+      "role": "teacher",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/academics",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/academics/class-teachers",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/academics/classes",
+      "result": "access-denied",
+      "ms": 302
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/academics/subjects",
+      "result": "access-denied",
+      "ms": 159
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/academics/subjects/[id]",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/academics/subjects/new",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 148,
+      "status": 200,
+      "bytes": 81697
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 386,
+      "status": 200,
+      "bytes": 139783
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 178
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/assessments",
+      "result": "rendered",
+      "ms": 167,
+      "status": 200,
+      "bytes": 88603
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/assessments/[id]",
+      "result": "rendered",
+      "ms": 362,
+      "status": 200,
+      "bytes": 94424
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/assessments/exports",
+      "result": "access-denied",
+      "ms": 140
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/assessments/marks/[paperId]",
+      "result": "rendered",
+      "ms": 415,
+      "status": 200,
+      "bytes": 97567
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/assessments/report/[studentId]",
+      "result": "access-denied",
+      "ms": 146
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/assessments/scheme",
+      "result": "access-denied",
+      "ms": 136
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/calendar",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 140
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 130
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 130
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 97
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 140
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 152
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 119,
+      "status": 200,
+      "bytes": 97013
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 170,
+      "status": 200,
+      "bytes": 81939
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/enrolments",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees",
+      "result": "access-denied",
+      "ms": 103
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools",
+      "result": "access-denied",
+      "ms": 1003
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/activity",
+      "result": "access-denied",
+      "ms": 151
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "access-denied",
+      "ms": 269
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 139
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/recovery",
+      "result": "access-denied",
+      "ms": 173
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/session-health",
+      "result": "access-denied",
+      "ms": 797
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "access-denied",
+      "ms": 145
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "access-denied",
+      "ms": 186
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/advanced",
+      "result": "access-denied",
+      "ms": 243
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/collections",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/dashboard",
+      "result": "access-denied",
+      "ms": 682
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/defaulters",
+      "result": "access-denied",
+      "ms": 856
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/dues",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/exports",
+      "result": "access-denied",
+      "ms": 207
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/fee-setup",
+      "result": "access-denied",
+      "ms": 639
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "access-denied",
+      "ms": 233
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/fee-structure",
+      "result": "access-denied",
+      "ms": 534
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/finance-controls",
+      "result": "access-denied",
+      "ms": 177
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/imports",
+      "result": "access-denied",
+      "ms": 343
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/ledger",
+      "result": "access-denied",
+      "ms": 143
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/password",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/payments",
+      "result": "access-denied",
+      "ms": 377
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/receipts",
+      "result": "access-denied",
+      "ms": 505
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "access-denied",
+      "ms": 253
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/reminders",
+      "result": "access-denied",
+      "ms": 546
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/reminders/campaigns",
+      "result": "access-denied",
+      "ms": 314
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/reminders/lists",
+      "result": "access-denied",
+      "ms": 431
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "access-denied",
+      "ms": 322
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/reminders/unreachable",
+      "result": "access-denied",
+      "ms": 297
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/reports",
+      "result": "access-denied",
+      "ms": 2119
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "access-denied",
+      "ms": 342
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/settings",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/settings/glossary",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/setup",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 140
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/students",
+      "result": "access-denied",
+      "ms": 390
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]",
+      "result": "access-denied",
+      "ms": 416
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 201
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "access-denied",
+      "ms": 277
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "access-denied",
+      "ms": 1747
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/fees/transactions",
+      "result": "access-denied",
+      "ms": 451
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 94
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 102,
+      "status": 200,
+      "bytes": 82584
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 106,
+      "status": 200,
+      "bytes": 90945
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/staff",
+      "result": "access-denied",
+      "ms": 133
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/staff/[id]",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 119
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 103
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/substitutions",
+      "result": "rendered",
+      "ms": 311,
+      "status": 200,
+      "bytes": 85894
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 104
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/teach",
+      "result": "rendered",
+      "ms": 348,
+      "status": 200,
+      "bytes": 139783
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/teach/attendance",
+      "result": "rendered",
+      "ms": 162,
+      "status": 200,
+      "bytes": 83816
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/teach/class/[id]",
+      "result": "rendered",
+      "ms": 234,
+      "status": 200,
+      "bytes": 159105
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/teach/corrections",
+      "result": "rendered",
+      "ms": 290,
+      "status": 200,
+      "bytes": 88184
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/teach/register",
+      "result": "rendered",
+      "ms": 127,
+      "status": 200,
+      "bytes": 86754
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/teach/student/[id]",
+      "result": "rendered",
+      "ms": 367,
+      "status": 200,
+      "bytes": 95549
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 240,
+      "status": 200,
+      "bytes": 457581
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 256,
+      "status": 200,
+      "bytes": 84111
+    },
+    {
+      "account": "teacher2",
+      "role": "teacher",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/academics",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/academics/class-teachers",
+      "result": "access-denied",
+      "ms": 99
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/academics/classes",
+      "result": "access-denied",
+      "ms": 98
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/academics/subjects",
+      "result": "access-denied",
+      "ms": 104
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/academics/subjects/[id]",
+      "result": "access-denied",
+      "ms": 104
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/academics/subjects/new",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 187,
+      "status": 200,
+      "bytes": 80920
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 439,
+      "status": 200,
+      "bytes": 85380
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 166
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/assessments",
+      "result": "rendered",
+      "ms": 154,
+      "status": 200,
+      "bytes": 87964
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/assessments/[id]",
+      "result": "rendered",
+      "ms": 286,
+      "status": 200,
+      "bytes": 93836
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/assessments/exports",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/assessments/marks/[paperId]",
+      "result": "rendered",
+      "ms": 196,
+      "status": 200,
+      "bytes": 82680
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/assessments/report/[studentId]",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/assessments/scheme",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/calendar",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 102
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 107
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 96
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 155,
+      "status": 200,
+      "bytes": 96293
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 135,
+      "status": 200,
+      "bytes": 81268
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/enrolments",
+      "result": "access-denied",
+      "ms": 101
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools",
+      "result": "access-denied",
+      "ms": 859
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/activity",
+      "result": "access-denied",
+      "ms": 151
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "access-denied",
+      "ms": 301
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 132
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/recovery",
+      "result": "access-denied",
+      "ms": 197
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/session-health",
+      "result": "access-denied",
+      "ms": 900
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "access-denied",
+      "ms": 155
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "access-denied",
+      "ms": 148
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/advanced",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/collections",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/dashboard",
+      "result": "access-denied",
+      "ms": 632
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/defaulters",
+      "result": "access-denied",
+      "ms": 766
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/dues",
+      "result": "access-denied",
+      "ms": 125
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/exports",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/fee-setup",
+      "result": "access-denied",
+      "ms": 632
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 125
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "access-denied",
+      "ms": 223
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/fee-structure",
+      "result": "access-denied",
+      "ms": 666
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/finance-controls",
+      "result": "access-denied",
+      "ms": 188
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/imports",
+      "result": "access-denied",
+      "ms": 237
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/ledger",
+      "result": "access-denied",
+      "ms": 129
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/password",
+      "result": "access-denied",
+      "ms": 150
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/payments",
+      "result": "access-denied",
+      "ms": 364
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 136
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/receipts",
+      "result": "access-denied",
+      "ms": 393
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "access-denied",
+      "ms": 206
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/reminders",
+      "result": "access-denied",
+      "ms": 460
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/reminders/campaigns",
+      "result": "access-denied",
+      "ms": 218
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/reminders/lists",
+      "result": "access-denied",
+      "ms": 398
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "access-denied",
+      "ms": 318
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/reminders/unreachable",
+      "result": "access-denied",
+      "ms": 237
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/reports",
+      "result": "access-denied",
+      "ms": 1911
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "access-denied",
+      "ms": 318
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/settings",
+      "result": "access-denied",
+      "ms": 171
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/settings/glossary",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/setup",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 136
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/students",
+      "result": "access-denied",
+      "ms": 429
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]",
+      "result": "access-denied",
+      "ms": 351
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 240
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "access-denied",
+      "ms": 257
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 157
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "access-denied",
+      "ms": 381
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/fees/transactions",
+      "result": "access-denied",
+      "ms": 439
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 140
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 142,
+      "status": 200,
+      "bytes": 81841
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 143,
+      "status": 200,
+      "bytes": 90144
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/staff",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/staff/[id]",
+      "result": "access-denied",
+      "ms": 135
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 143
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 134
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/substitutions",
+      "result": "rendered",
+      "ms": 295,
+      "status": 200,
+      "bytes": 85254
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/teach",
+      "result": "rendered",
+      "ms": 260,
+      "status": 200,
+      "bytes": 85380
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/teach/attendance",
+      "result": "rendered",
+      "ms": 173,
+      "status": 200,
+      "bytes": 79654
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/teach/class/[id]",
+      "result": "rendered",
+      "ms": 139,
+      "status": 200,
+      "bytes": 82493
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/teach/corrections",
+      "result": "rendered",
+      "ms": 192,
+      "status": 200,
+      "bytes": 79058
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/teach/register",
+      "result": "rendered",
+      "ms": 133,
+      "status": 200,
+      "bytes": 79111
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/teach/student/[id]",
+      "result": "rendered",
+      "ms": 179,
+      "status": 200,
+      "bytes": 82775
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 348,
+      "status": 200,
+      "bytes": 456828
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 361,
+      "status": 200,
+      "bytes": 83417
+    },
+    {
+      "account": "teacherWithoutClasses",
+      "role": "teacher",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "inactive",
+      "role": "teacher",
+      "route": "(sign-in)",
+      "result": "refused"
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/academics",
+      "result": "access-denied",
+      "ms": 135
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/academics/class-teachers",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/academics/classes",
+      "result": "access-denied",
+      "ms": 160
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/academics/subjects",
+      "result": "access-denied",
+      "ms": 148
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/academics/subjects/[id]",
+      "result": "access-denied",
+      "ms": 126
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/academics/subjects/new",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/access-denied",
+      "result": "rendered",
+      "ms": 116,
+      "status": 200,
+      "bytes": 72863
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/apps",
+      "result": "rendered",
+      "ms": 315,
+      "status": 200,
+      "bytes": 84081
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/archives",
+      "result": "access-denied",
+      "ms": 169
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/assessments",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/assessments/[id]",
+      "result": "access-denied",
+      "ms": 186
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/assessments/exports",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/assessments/marks/[paperId]",
+      "result": "access-denied",
+      "ms": 120
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/assessments/report/[studentId]",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/assessments/scheme",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/calendar",
+      "result": "access-denied",
+      "ms": 105
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/[id]",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/fields",
+      "result": "access-denied",
+      "ms": 112
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/import",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/messages",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/photos",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/policy",
+      "result": "access-denied",
+      "ms": 106
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/review",
+      "result": "access-denied",
+      "ms": 145
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/rounds",
+      "result": "access-denied",
+      "ms": 150
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/rounds/[id]",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/rounds/new",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/collection/rounds/upload",
+      "result": "access-denied",
+      "ms": 99
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/dashboard",
+      "result": "rendered",
+      "ms": 145,
+      "status": 200,
+      "bytes": 84081
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/duty/[id]",
+      "result": "rendered",
+      "ms": 158,
+      "status": 200,
+      "bytes": 73197
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/enrolments",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools",
+      "result": "access-denied",
+      "ms": 133
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/activity",
+      "result": "access-denied",
+      "ms": 118
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/prev-year-dues",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/promotion",
+      "result": "access-denied",
+      "ms": 131
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "result": "access-denied",
+      "ms": 141
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/recovery",
+      "result": "access-denied",
+      "ms": 248
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/session-health",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/whatsapp",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/advanced",
+      "result": "access-denied",
+      "ms": 139
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/collections",
+      "result": "access-denied",
+      "ms": 162
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/dashboard",
+      "result": "access-denied",
+      "ms": 586
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/defaulters",
+      "result": "access-denied",
+      "ms": 713
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/dues",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/exports",
+      "result": "access-denied",
+      "ms": 132
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/fee-setup",
+      "result": "access-denied",
+      "ms": 131
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/fee-setup/generate",
+      "result": "access-denied",
+      "ms": 166
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/fee-setup/time-travel",
+      "result": "access-denied",
+      "ms": 115
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/fee-structure",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/finance-controls",
+      "result": "access-denied",
+      "ms": 175
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/imports",
+      "result": "access-denied",
+      "ms": 154
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/ledger",
+      "result": "access-denied",
+      "ms": 218
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/master-data",
+      "result": "access-denied",
+      "ms": 100
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/password",
+      "result": "access-denied",
+      "ms": 117
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/payments",
+      "result": "access-denied",
+      "ms": 149
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/payments/bulk",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/receipts",
+      "result": "access-denied",
+      "ms": 299
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/receipts/[receiptId]",
+      "result": "access-denied",
+      "ms": 199
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/reminders",
+      "result": "access-denied",
+      "ms": 182
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/reminders/campaigns",
+      "result": "access-denied",
+      "ms": 180
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/reminders/lists",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/reminders/runs/[runId]",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/reminders/unreachable",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/reports",
+      "result": "access-denied",
+      "ms": 137
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/reports/ledger/[studentId]/print",
+      "result": "access-denied",
+      "ms": 243
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/settings",
+      "result": "access-denied",
+      "ms": 150
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/settings/glossary",
+      "result": "access-denied",
+      "ms": 140
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/setup",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/staff",
+      "result": "access-denied",
+      "ms": 114
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/students",
+      "result": "access-denied",
+      "ms": 375
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/students/[studentId]",
+      "result": "access-denied",
+      "ms": 351
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/students/[studentId]/edit",
+      "result": "access-denied",
+      "ms": 145
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/students/[studentId]/statement",
+      "result": "access-denied",
+      "ms": 273
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/students/bulk-update",
+      "result": "access-denied",
+      "ms": 130
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "result": "access-denied",
+      "ms": 431
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/students/new",
+      "result": "access-denied",
+      "ms": 109
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/fees/transactions",
+      "result": "access-denied",
+      "ms": 1364
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/jobs",
+      "result": "access-denied",
+      "ms": 116
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/more",
+      "result": "rendered",
+      "ms": 112,
+      "status": 200,
+      "bytes": 73770
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/preferences",
+      "result": "rendered",
+      "ms": 110,
+      "status": 200,
+      "bytes": 80006
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/staff",
+      "result": "access-denied",
+      "ms": 108
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/staff/[id]",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/staff/[id]/edit",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/staff/new",
+      "result": "access-denied",
+      "ms": 150
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/students",
+      "result": "access-denied",
+      "ms": 128
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/substitutions",
+      "result": "access-denied",
+      "ms": 101
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/substitutions/policies",
+      "result": "access-denied",
+      "ms": 122
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/substitutions/rules",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/teach",
+      "result": "access-denied",
+      "ms": 111
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/teach/attendance",
+      "result": "access-denied",
+      "ms": 127
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/teach/class/[id]",
+      "result": "access-denied",
+      "ms": 110
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/teach/corrections",
+      "result": "access-denied",
+      "ms": 123
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/teach/register",
+      "result": "access-denied",
+      "ms": 121
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/teach/student/[id]",
+      "result": "access-denied",
+      "ms": 113
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/timetable",
+      "result": "rendered",
+      "ms": 367,
+      "status": 200,
+      "bytes": 448757
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/timetable/[id]",
+      "result": "rendered",
+      "ms": 223,
+      "status": 200,
+      "bytes": 75346
+    },
+    {
+      "account": "viewOnly",
+      "role": "view_only",
+      "route": "/timetable/import",
+      "result": "access-denied",
+      "ms": 120
+    }
+  ],
+  "failures": [],
+  "missingFixtures": [],
+  "slowest": [
+    {
+      "route": "/fees/fee-setup/generate",
+      "worst": 4553,
+      "median": 4553,
+      "opens": 1
+    },
+    {
+      "route": "/fees/reports",
+      "worst": 4995,
+      "median": 1883,
+      "opens": 3
+    },
+    {
+      "route": "/fees/dues",
+      "worst": 2853,
+      "median": 1879,
+      "opens": 4
+    },
+    {
+      "route": "/fees/students/[studentId]/statement",
+      "worst": 1421,
+      "median": 1410,
+      "opens": 4
+    },
+    {
+      "route": "/fees/defaulters",
+      "worst": 1368,
+      "median": 1178,
+      "opens": 4
+    },
+    {
+      "route": "/fees/advanced",
+      "worst": 1174,
+      "median": 995,
+      "opens": 3
+    },
+    {
+      "route": "/fees/setup",
+      "worst": 2190,
+      "median": 979,
+      "opens": 3
+    },
+    {
+      "route": "/fees/admin-tools",
+      "worst": 1044,
+      "median": 890,
+      "opens": 3
+    },
+    {
+      "route": "/fees/admin-tools/session-health",
+      "worst": 856,
+      "median": 848,
+      "opens": 3
+    },
+    {
+      "route": "/fees",
+      "worst": 866,
+      "median": 819,
+      "opens": 4
+    },
+    {
+      "route": "/fees/students/[studentId]",
+      "worst": 1664,
+      "median": 761,
+      "opens": 4
+    },
+    {
+      "route": "/fees/admin-tools/whatsapp-reminders",
+      "worst": 807,
+      "median": 740,
+      "opens": 3
+    },
+    {
+      "route": "/fees/fee-setup",
+      "worst": 5716,
+      "median": 733,
+      "opens": 3
+    },
+    {
+      "route": "/fees/admin-tools/promotion/[runId]",
+      "worst": 730,
+      "median": 730,
+      "opens": 1
+    },
+    {
+      "route": "/fees/dashboard",
+      "worst": 723,
+      "median": 674,
+      "opens": 4
+    },
+    {
+      "route": "/fees/reminders",
+      "worst": 887,
+      "median": 666,
+      "opens": 3
+    },
+    {
+      "route": "/substitutions/rules",
+      "worst": 581,
+      "median": 581,
+      "opens": 2
+    },
+    {
+      "route": "/fees/fee-structure",
+      "worst": 625,
+      "median": 580,
+      "opens": 3
+    },
+    {
+      "route": "/fees/transactions",
+      "worst": 1193,
+      "median": 555,
+      "opens": 4
+    },
+    {
+      "route": "/fees/students/family/[familyGroupId]/statement",
+      "worst": 2803,
+      "median": 522,
+      "opens": 4
+    }
+  ]
+}
