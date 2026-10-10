@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Accountant today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.yf{display:flex;align-items:center;gap:8px}
+.yc{display:flex;flex-direction:column;min-width:0}
+.ye{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.yj{justify-content:space-between}
+.yw{flex-wrap:wrap}
+.y1{flex:1}
+.ym{font-size:12px;color:var(--mut)}
+.yb{font-size:14px;font-weight:600}
+.yv{font-size:15px;font-weight:700}
+.yi{width:16px;height:16px}
+.yx{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.yan{animation:xIn .32s var(--ease) both}
+.yav{flex:none;width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.yo{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;border:0;padding:0;margin:0;background:transparent;border-radius:inherit;cursor:pointer}
+.ycd{padding:16px 18px;gap:12px}
+.yhb{width:44px;height:44px;padding:0;border-radius:22px;display:flex;align-items:center;justify-content:center}
+.yq{position:relative;height:62px;border-radius:18px;border:1.5px solid var(--bds);background:var(--card);padding:0 16px;color:var(--mut);transition:border-color .2s ease,box-shadow .2s ease}
+.yq:focus-within{border-color:var(--acc);box-shadow:0 0 0 4px var(--accs)}
+.vx .yq input{outline:none}.vx a.pri{color:var(--prifg)}
+.yq input{flex:1;min-width:0;height:58px;border:0;outline:none;background:transparent;font-size:17px}
+.yrw{position:relative;display:flex;align-items:center;gap:12px;padding:11px 4px;border-radius:12px}
+.ybar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden}
+.ybar>span{display:block;height:8px;border-radius:4px;transform-origin:left;animation:xGrowX .7s var(--ease) both}
+.ytl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.yt{position:relative;padding:16px;gap:6px;min-height:150px;overflow:hidden}
+.yt.big{grid-column:span 2;grid-row:span 2;background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.yt.big .ym{color:inherit;opacity:.8}
+.yt:hover{box-shadow:var(--shh)}
+.ylay{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:18px;align-items:start}
+@container vx (max-width:899px){.vx .ytl{grid-template-columns:repeat(2,minmax(0,1fr))}.vx .yt{min-height:132px}.vx .yt.big{grid-row:auto;min-height:120px}.vx .yb{font-size:15px}.vx .ym{font-size:13px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="home" role="accountant" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+
+<header class="only-d glass" style="flex: none; height: 64px; display: flex; align-items: center; gap: 10px; padding: 0 22px 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="yc y1"><span class="ym">{{top.crumb}}</span><span class="serif ye" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+<button class="tap btn ghost" type="button" onClick="{{hb.go}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{hb.icon}}"></path></svg>{{hb.label}}</button>
+<button class="tap btn sec" type="button" aria-label="Switch language" onClick="{{lang}}" style="width: 52px; padding: 0">{{langLabel}}</button>
+<button class="tap btn sec" type="button" aria-label="Help" accesskey="h" onClick="{{help}}" style="width: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+<a href="PayDesk.dc.html" class="tap btn pri" accesskey="c"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg>{{L.collect}}<span class="k" style="background: rgba(255,255,255,.16); color: inherit; border-color: rgba(255,255,255,.3)">Alt C</span></a>
+</header>
+
+<header class="only-m glass" style="flex: none; min-height: 58px; display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<sc-if value="{{is.evening}}"><button class="tap btn ghost yhb" type="button" aria-label="Back to today" onClick="{{goHome}}" style="margin-left: -6px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<sc-if value="{{is.notEvening}}"><span class="yav" style="width: 38px; height: 38px; border-radius: 19px; background: var(--oks); color: var(--ok)">NS</span></sc-if>
+<span class="yc y1" style="padding-left: 4px"><span class="ye" style="font-size: 17px; font-weight: 700">{{top.mTitle}}</span><span class="ym ye">{{top.mSub}}</span></span>
+<button class="tap btn ghost yhb" type="button" aria-label="Switch language" onClick="{{lang}}" style="font-size: 14px">{{langLabel}}</button>
+<button class="tap btn ghost yhb" type="button" aria-label="Help" onClick="{{help}}"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+
+<!-- ============ TODAY ============ -->
+<sc-if value="{{is.home}}">
+<div class="pad ylay stack" style="padding: 22px 28px 40px; animation: {{anim}}">
+<div class="yc" style="gap: 16px">
+
+<div class="card yc ycd" style="padding: 18px">
+<span class="yf yj"><span class="yv">{{L.find}}</span><span class="ym hide-m">Opens the collect desk</span></span>
+<label class="yq yf"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="yx">Find a student or family</span><input type="search" autofocus accesskey="f" value="{{q}}" onChange="{{onQ}}" placeholder="{{ph}}"><span class="k only-d">Alt F</span></label>
+<sc-if value="{{sr.idle}}"><div class="yf hs" style="gap: 6px"><span class="ym" style="flex: none">Try</span><sc-for list="{{tries}}" as="c"><button class="tap chip" type="button" onClick="{{c.go}}">{{c.label}}</button></sc-for></div></sc-if>
+<sc-if value="{{sr.has}}">
+<div class="yc fadein">
+<sc-for list="{{sr.rows}}" as="r"><div class="row yrw yan" style="border-top: {{r.bt}}; animation-delay: {{r.delay}}"><span class="yav" style="background: {{r.abg}}; color: {{r.afg}}">{{r.ini}}</span><span class="yc y1"><span class="yb ye">{{r.name}}</span><span class="ym ye">{{r.sub}}</span></span><span class="yc" style="align-items: flex-end"><span class="num yv" style="color: {{r.tone}}">{{r.amt}}</span><span class="ym">{{r.amtSub}}</span></span><svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg><a class="yo only-d" href="PayDesk.dc.html" aria-label="Collect from {{r.name}}"></a><a class="yo only-m" href="M-PayDesk.dc.html" aria-label="Collect from {{r.name}}"></a></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{sr.empty}}"><div class="yf fadein ym" style="padding: 6px 4px; font-size: 13px"><svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span class="y1">No family found. Try the father’s name or the last 3 digits of the phone.</span><button class="tap btn ghost" type="button" onClick="{{clearQ}}" style="height: 34px">Clear</button></div></sc-if>
+</div>
+
+<div class="card yc ycd" style="padding: 18px 20px">
+<div class="yf yj"><span class="yf"><span style="width: 10px; height: 10px; border-radius: 5px; background: var(--ok); animation: xPulse 1.8s ease infinite"></span><span class="yv">{{L.collected}}</span><span class="ym">· live</span></span><a href="AC-Fees.dc.html" class="tap btn ghost only-d" style="height: 34px; padding: 0 10px">See receipts<svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a><a href="MAC-Fees.dc.html" class="tap btn ghost only-m" style="height: 36px; padding: 0 10px">Receipts<svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a></div>
+<div class="yf yj yw" style="align-items: flex-end; gap: 12px">
+<span class="yc"><span class="num rise" style="font-size: 38px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1">₹38,400</span><span class="ym">14 receipts · last one at 10:38 am</span><span class="yf" style="margin-top: 6px"><span class="pill num" style="height: 24px; background: var(--oks); color: var(--ok); animation: xPopIn .45s .4s var(--spring) both"><svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 3" aria-hidden="true"><path d="{{ic.arrowUp}}"></path></svg>18% vs usual day</span><span class="ym">Usual Thursday by now ₹32,600</span></span></span>
+<svg viewBox="0 0 200 60" width="210" height="64" aria-hidden="true" style="flex: none; overflow: visible"><polyline points="{{spark.usual}}" style="fill: none; stroke: var(--bds); stroke-width: 1.5; stroke-dasharray: 4 4"></polyline><polygon points="{{spark.area}}" style="fill: var(--accs); opacity: .8; animation: xFade .8s .3s ease both"></polygon><polyline points="{{spark.line}}" style="fill: none; stroke: var(--acc); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; --len: 320; stroke-dasharray: 320; animation: xDraw 1.1s var(--ease) both"></polyline><circle cx="200" cy="{{spark.endY}}" r="4" style="fill: var(--acc); animation: xPopIn .4s 1s var(--spring) both"></circle></svg>
+</div>
+<div class="yc" style="gap: 9px; padding-top: 12px; border-top: 1px solid var(--bd)">
+<sc-for list="{{modes}}" as="m"><div style="display: grid; grid-template-columns: 62px minmax(0, 1fr) 128px; gap: 10px; align-items: center"><span class="yb" style="font-size: 13px">{{m.label}}</span><span class="ybar"><span style="width: {{m.w}}; background: {{m.c}}; animation-delay: {{m.delay}}"></span></span><span class="num" style="font-size: 13px; text-align: right"><b>{{m.amt}}</b> <span class="ym">· {{m.n}}</span></span></div></sc-for>
+</div>
+</div>
+
+<div class="card yc ycd">
+<div class="yf yj"><span class="yf"><span class="yv">{{L.queue}}</span><span class="pill num" style="background: var(--accs); color: var(--accfg)">{{queueN}}</span></span><span class="ym hide-m">Oldest first</span></div>
+<sc-for list="{{queue}}" as="r">
+<div class="yf yan" style="gap: 12px; padding-top: 10px; border-top: {{r.bt}}; animation-delay: {{r.delay}}">
+<span class="yav" style="background: {{r.abg}}; color: {{r.afg}}">{{r.ini}}</span>
+<span class="yc y1"><span class="yb">{{r.name}}</span><span class="ym">{{r.kids}} · <b class="num" style="color: var(--warnfg)">{{r.amt}}</b> pending</span><span class="ym" style="color: {{r.tone}}">{{r.wait}}</span></span>
+<button class="tap btn ghost hide-m" type="button" onClick="{{r.gone}}" style="height: 40px; padding: 0 10px; color: var(--mut)">Left</button>
+<a href="PayDesk.dc.html" class="tap btn pri only-d" style="padding: 0 16px">{{L.take}}</a><a href="M-PayDesk.dc.html" class="tap btn pri only-m" style="height: 48px; padding: 0 16px">{{L.take}}</a>
+</div>
+</sc-for>
+<sc-if value="{{queueEmpty}}"><div class="yc fadein" style="align-items: center; gap: 6px; padding: 12px 0; text-align: center"><svg class="i" viewBox="0 0 24 24" style="width: 28px; height: 28px; color: var(--ok)" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span class="yb">No one waiting at the counter</span><a href="PayDesk.dc.html" class="tap btn sec only-d">Open the collect desk</a><a href="M-PayDesk.dc.html" class="tap btn sec only-m">Open the collect desk</a></div></sc-if>
+</div>
+</div>
+
+<div class="yc" style="gap: 16px">
+<div class="card yc ycd" style="gap: 4px">
+<span class="sech" style="margin-bottom: 4px">{{L.jobs}}</span>
+<sc-for list="{{jobs}}" as="j">
+<div class="row yrw yan" style="border-top: {{j.bt}}; border-radius: 0; animation-delay: {{j.delay}}">
+<span class="yav" style="background: {{j.bg}}; color: {{j.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{j.icon}}"></path></svg></span>
+<span class="yc y1" style="gap: 3px"><span class="yb">{{j.label}}</span><span class="ym">{{j.sub}}</span><sc-if value="{{j.hasBar}}"><span class="ybar" style="height: 6px; max-width: 220px"><span style="height: 6px; width: {{j.w}}; background: var(--ok)"></span></span></sc-if></span>
+<span class="pill num" style="min-width: 26px; height: 26px; justify-content: center; font-size: 13px; background: {{j.bg}}; color: {{j.fg}}">{{j.n}}</span>
+<svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+<a class="yo only-d" href="{{j.hd}}" aria-label="{{j.label}}"></a><a class="yo only-m" href="{{j.hm}}" aria-label="{{j.label}}"></a>
+</div>
+</sc-for>
+</div>
+
+<div class="card yc ycd" style="gap: 10px">
+<div class="yf yj"><span class="yv">{{L.admin}}</span><span class="ym">{{adminLine}}</span></div>
+<sc-for list="{{admin}}" as="a"><div class="yf yan" style="gap: 12px; padding-top: 10px; border-top: {{a.bt}}; align-items: flex-start; animation-delay: {{a.delay}}"><span class="yav" style="width: 36px; height: 36px; border-radius: 11px; background: var(--s2); color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg></span><span class="yc y1" style="gap: 2px"><span class="yb">{{a.label}}</span><span class="ym">{{a.sub}}</span><span class="yf yw" style="gap: 6px; margin-top: 4px"><span class="pill" style="height: 24px; background: {{a.sbg}}; color: {{a.sfg}}; animation: xPopIn .4s var(--spring) both">{{a.st}}</span><sc-if value="{{a.canRemind}}"><button class="tap btn ghost" type="button" onClick="{{a.remind}}" style="height: 30px; padding: 0 8px; font-size: 12px; color: var(--info)">Remind admin</button></sc-if></span></span></div></sc-for>
+</div>
+
+<div class="card yc ycd">
+<div class="yf" style="gap: 12px; align-items: flex-start"><span class="yav" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.bell}}"></path></svg></span><span class="yc y1"><span class="yv">{{L.rem}}</span><span class="ym">{{rem.sub}}</span></span><button class="tap" type="button" role="switch" aria-checked="{{rem.aria}}" aria-label="Send reminders at 4 pm" onClick="{{rem.toggle}}" style="border: 0; background: transparent; padding: 4px"><span class="sw {{rem.cls}}"><span></span></span></button></div>
+<div class="yf yj yw" style="gap: 8px"><span class="pill" style="height: 26px; padding: 0 10px; background: {{rem.pbg}}; color: {{rem.pfg}}">{{rem.pill}}</span><a href="AC-Reminders.dc.html" class="tap btn ghost only-d" style="height: 34px; padding: 0 10px">See the message<svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a><a href="MAC-Reminders.dc.html" class="tap btn ghost only-m" style="height: 40px; padding: 0 10px">See the message<svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a></div>
+</div>
+
+<div class="card yc ycd" style="border-color: var(--bds)">
+<div class="yf" style="gap: 12px"><svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true" style="flex: none"><circle cx="26" cy="26" r="21" style="fill: none; stroke: var(--s3); stroke-width: 6"></circle><circle cx="26" cy="26" r="21" transform="rotate(-90 26 26)" style="fill: none; stroke: var(--acc); stroke-width: 6; stroke-linecap: round; stroke-dasharray: {{close.dash}}; --len: 132; animation: xDraw .9s .2s var(--ease) both"></circle><text x="26" y="30" text-anchor="middle" style="fill: var(--fg); font-size: 12px; font-weight: 700">{{close.frac}}</text></svg><span class="yc y1"><span class="yv">{{L.close}}</span><span class="ym">{{close.hint}}</span></span><span class="pill" style="height: 26px; padding: 0 10px; background: var(--warns); color: var(--warnfg)"><svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>Close by 5:30 pm</span></div>
+<div class="yc" style="gap: 2px">
+<sc-for list="{{close.steps}}" as="c"><div class="yf" style="gap: 10px; padding: 7px 0; border-top: {{c.bt}}"><span style="flex: none; width: 22px; height: 22px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: {{c.bg}}; color: {{c.fg}}"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke-width: 3" aria-hidden="true"><path d="{{c.icon}}"></path></svg></span><span class="y1" style="font-size: 13px; font-weight: 600">{{c.label}}</span><span class="ym num">{{c.sub}}</span></div></sc-for>
+</div>
+<a href="AC-Fees.dc.html" class="tap btn pri only-d" style="height: 46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>Count cash and close the day</a><a href="MAC-Fees.dc.html" class="tap btn pri only-m" style="height: 52px; font-size: 15px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>Count cash and close the day</a>
+<button class="tap btn ghost" type="button" onClick="{{goEvening}}" style="height: 36px; font-size: 13px; color: var(--mut)">After closing: see tonight’s summary<svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ MENU ============ -->
+<sc-if value="{{is.menu}}">
+<div class="pad yc" style="padding: 22px 28px 40px; gap: 16px; max-width: 1120px; animation: {{anim}}">
+<div class="card yf ycd" style="gap: 14px; flex-wrap: wrap">
+<span class="yav" style="width: 54px; height: 54px; border-radius: 27px; font-size: 18px; background: var(--oks); color: var(--ok)">NS</span>
+<span class="yc y1" style="min-width: 200px"><span class="serif" style="font-size: 21px; font-weight: 600">Ms. Neelam Sharma</span><span class="ym">Accountant · Office counter · Session 2026–27</span></span>
+<span class="pill" style="height: 28px; padding: 0 12px; font-size: 12px; background: var(--oks); color: var(--ok)"><span style="width: 8px; height: 8px; border-radius: 4px; background: var(--ok)"></span>Counter open since 8:00 am</span>
+</div>
+<div class="ytl">
+<sc-for list="{{tiles}}" as="t">
+<div class="card yc yt tap {{t.cls}}" style="animation: xRise .42s var(--ease) both; animation-delay: {{t.delay}}">
+<div class="yf yj" style="align-items: flex-start"><span class="yav" style="width: {{t.sz}}; height: {{t.sz}}; border-radius: 15px; background: {{t.bg}}; color: {{t.fg}}"><svg class="i" viewBox="0 0 24 24" style="width: {{t.isz}}; height: {{t.isz}}" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span><sc-if value="{{t.hasBadge}}"><span class="pill num" style="height: 24px; min-width: 24px; justify-content: center; font-size: 12px; background: var(--bad); color: var(--onsolid)">{{t.badge}}</span></sc-if></div>
+<span class="y1"></span>
+<span style="font-size: {{t.fs}}; font-weight: 700; line-height: 1.2">{{t.a}}</span>
+<span class="ym" style="font-weight: 600">{{t.b}}</span>
+<span class="ym">{{t.sub}}</span>
+<sc-if value="{{t.isLink}}"><a class="yo only-d" href="{{t.hd}}" aria-label="{{t.a}}"></a><a class="yo only-m" href="{{t.hm}}" aria-label="{{t.a}}"></a></sc-if>
+<sc-if value="{{t.isBtn}}"><button class="yo" type="button" aria-label="{{t.a}}" onClick="{{help}}"></button></sc-if>
+</div>
+</sc-for>
+</div>
+<span class="ym yf"><svg class="i yi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg>Fee setup is view only for the accountant. To change a fee, use “Ask admin to change” inside it.</span>
+</div>
+</sc-if>
+
+<!-- ============ EVENING ============ -->
+<sc-if value="{{is.evening}}">
+<div class="pad yc" style="padding: 22px 28px 40px; gap: 16px; max-width: 1120px; animation: {{anim}}">
+<div class="card yf ycd" style="gap: 18px; padding: 20px 22px; flex-wrap: wrap">
+<svg width="88" height="88" viewBox="0 0 96 96" aria-hidden="true" style="flex: none; animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="yc y1" style="min-width: 240px"><span class="serif" style="font-size: 28px; font-weight: 600; line-height: 1.2">{{L.closed}}</span><span style="font-size: 14px; color: var(--mut)">Closed by Neelam at 5:22 pm · receipts locked. Anything taken now counts for Fri 9 Oct.</span><span style="font-size: 13px; color: var(--sub)">आज का हिसाब बंद हो गया। धन्यवाद!</span></span>
+</div>
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{ev.sum}}" as="k"><div class="card yc rise" style="padding: 14px 16px; gap: 2px; animation-delay: {{k.delay}}"><span class="ym" style="font-weight: 600">{{k.label}}</span><span class="num" style="font-size: 22px; font-weight: 700">{{k.v}}</span><span class="ym" style="color: {{k.tone}}">{{k.sub}}</span></div></sc-for>
+</div>
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+<div class="card yc ycd" style="gap: 4px">
+<div class="yf yj" style="margin-bottom: 4px"><span class="yv">{{L.tomorrow}}</span><span class="ym num">{{ev.promLine}}</span></div>
+<sc-for list="{{ev.prom}}" as="p"><div class="yf yan" style="gap: 12px; padding: 10px 0; border-top: {{p.bt}}; animation-delay: {{p.delay}}"><span class="yav" style="background: {{p.abg}}; color: {{p.afg}}">{{p.ini}}</span><span class="yc y1"><span class="yb ye">{{p.name}}</span><span class="ym ye">{{p.sub}}</span></span><span class="yc" style="align-items: flex-end"><span class="num yv">{{p.amt}}</span><span class="pill" style="background: var(--infos); color: var(--info)">{{p.kind}}</span></span></div></sc-for>
+<a href="AC-Dues.dc.html" class="tap btn sec only-d" style="margin-top: 8px">Open dues &amp; calls</a><a href="MAC-Dues.dc.html" class="tap btn sec only-m" style="margin-top: 8px">Open dues &amp; calls</a>
+</div>
+<div class="card yc ycd" style="gap: 4px">
+<div class="yf yj" style="margin-bottom: 4px"><span class="yv">{{L.bank}}</span><span class="ym num">{{ev.chqLine}}</span></div>
+<sc-for list="{{ev.chq}}" as="c"><button class="tap yf yan" type="button" role="checkbox" aria-checked="{{c.aria}}" onClick="{{c.go}}" style="gap: 12px; padding: 10px 0; border: 0; border-top: {{c.bt}}; background: transparent; color: var(--fg); text-align: left; width: 100%; animation-delay: {{c.delay}}"><span style="flex: none; width: 24px; height: 24px; border-radius: 7px; border: 2px solid {{c.boxBd}}; background: {{c.boxBg}}; display: flex; align-items: center; justify-content: center; color: #FFFFFF; transition: background-color .2s ease"><svg class="i" viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 3; opacity: {{c.op}}; transform: scale({{c.op}}); transition: transform .25s var(--spring)" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span class="yc y1"><span class="yb ye">{{c.who}}</span><span class="ym ye num">Cheque {{c.no}} · {{c.bank}} · {{c.when}}</span></span><span class="yc" style="align-items: flex-end"><span class="num yv">{{c.amt}}</span><span class="ym" style="color: {{c.tone}}">{{c.st}}</span></span></button></sc-for>
+<div class="yf yw" style="gap: 8px; margin-top: 8px"><button class="tap btn pri" type="button" onClick="{{ev.slip}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>Deposit slip PDF</button><a href="AccBooks.dc.html" class="tap btn ghost only-d">Cheques, UPI &amp; refunds</a><a href="M-AccBooks.dc.html" class="tap btn ghost only-m">Cheques, UPI &amp; refunds</a></div>
+</div>
+</div>
+<div class="card yf ycd yw" style="gap: 12px"><span class="yav" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.bell}}"></path></svg></span><span class="yc y1"><span class="yb">Reminders went out at 4:00 pm</span><span class="ym">46 sent · 31 read · 4 families paid after reading · ₹40.48 spent</span></span><a href="AC-Reminders.dc.html" class="tap btn ghost only-d">See replies</a><a href="MAC-Reminders.dc.html" class="tap btn ghost only-m">See replies</a></div>
+<div class="yf yw" style="gap: 8px"><button class="tap btn sec" type="button" onClick="{{ev.report}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>Day report PDF</button><a href="AC-Fees.dc.html" class="tap btn ghost only-d">See today’s receipts</a><a href="MAC-Fees.dc.html" class="tap btn ghost only-m">See today’s receipts</a><span class="y1"></span><button class="tap btn ghost" type="button" onClick="{{goHome}}">Back to today</button></div>
+</div>
+</sc-if>
+</main>
+
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="{{nav}}" role="accountant" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ HELP SHEET ============ -->
+<sc-if value="{{sheet.open}}">
+<button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sheet.state}}" role="dialog" aria-label="Help">
+<div class="grab"></div>
+<div class="yf yj" style="flex: none; align-items: flex-start; padding: 14px 20px 10px"><span class="yc"><span class="serif" style="font-size: 22px; font-weight: 600">{{helpHead}}</span><span class="ym" style="font-size: 13px">3 steps · मदद</span></span><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll yc" style="flex: 1; min-height: 0; padding: 4px 20px 14px; gap: 10px">
+<sc-for list="{{helpSteps}}" as="h"><div class="yf yan" style="gap: 14px; padding: 12px; border-radius: 16px; background: var(--s2); animation-delay: {{h.delay}}"><span style="position: relative; flex: none; width: 64px; height: 64px; border-radius: 18px; background: {{h.bg}}; color: {{h.fg}}; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 30px; height: 30px" aria-hidden="true"><path d="{{h.icon}}"></path></svg><span class="num" style="position: absolute; top: -6px; left: -6px; width: 24px; height: 24px; border-radius: 12px; background: var(--pri); color: var(--prifg); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--card)">{{h.n}}</span></span><span class="yc"><span class="yv">{{h.title}}</span><span style="font-size: 13px; color: var(--mut)">{{h.text}}</span><span style="font-size: 13px; color: var(--sub)">{{h.hi}}</span></span></div></sc-for>
+<span class="ym only-d">Keyboard: <span class="k">Alt F</span> find a family · <span class="k">Alt C</span> collect fee · <span class="k">Alt H</span> help</span>
+</div>
+<div class="yf" style="flex: none; padding: 12px 20px 20px; border-top: 1px solid var(--bd)"><button class="tap btn pri" type="button" onClick="{{closeSheet}}" style="flex: 1; height: 48px">Got it · समझ गए</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["home","menu","evening"],"default":"home"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+/*VX_ICONS*/
+    // father, children, phone last digits, pending today
+    const DIR = [['Rakesh Sharma', 'Aarav · Class 7 · SR 1234, Diya · Class 3 · SR 1311', '512', 12640], ['Kishan Jain', 'Aryan · Class 9 · SR 1027', '724', 7800], ['Sunil Mehta', 'Jiya · Class 4 · SR 1192', '533', 5700], ['Prakash Joshi', 'Neha · Class 8 · SR 1048, Rohit · Class 5 · SR 1375', '274', 22080], ['Sanjay Verma', 'Kunal · Class 4 · SR 1187', '641', 0], ['Anil Agarwal', 'Mohit · Class 9 · SR 1031', '806', 8500]];
+    const QUEUE = [[0, 'Waiting since 10:39 · 3 min', 'mut'], [1, 'Promised to pay today · since 10:41', 'info'], [2, 'Promised to pay today · just came', 'info']];
+    // minutes after 8:00, amount (today R-0404 … R-0417)
+    const REC = [[5, 3100], [18, 1000], [30, 3150], [39, 700], [47, 2500], [58, 1175], [72, 4800], [80, 1200], [91, 6000], [104, 1500], [118, 3900], [125, 2175], [141, 2850], [158, 4350]];
+    const ADMIN = [['percent', 'Waive late fee ₹230 · Riya Singh, Class 6', 'Asked 9:40 am · father lost his job in August', 0], ['percent', 'Waive late fee ₹300 · Mohit Agarwal, Class 9', 'Asked yesterday · first time late', 1], ['undo', 'Reverse R-0409 · Sneha Bhati', 'Asked 10:20 am · typed ₹1,175, parent paid ₹1,275', 0]];
+    const TOM = [['Mahendra Singh', 'Riya · Class 6', 7800, 'Visit · 11 am'], ['Lalit Regar', 'Nikhil · Class 9, Sonu · Class 6', 12400, 'UPI · morning'], ['Dinesh Sen', 'Ayaan · Class 1', 6900, 'Visit · after school'], ['Suresh Meena', 'Pihu · UKG', 4350, 'Half now']];
+    const CHQ = [['004512', 'SBI Amet', 'Dev Rathore · 11 Science', 7000, 'Wed 7 Oct'], ['553019', 'HDFC Rajsamand', 'Ritu Solanki · Class 5', 8200, 'Tue 6 Oct'], ['220871', 'PNB Amet', 'Naman Kothari · Class 2', 6400, 'Tue 6 Oct'], ['330145', 'SBI Amet', 'Vansh Chouhan · Class 8', 4400, 'today 3:05 pm']];
+    this._d = { IC, DIR, QUEUE, REC, ADMIN, TOM, CHQ };
+    return this._d;
+  }
+
+  st() {
+    const base = { screen: 'home', q: '', hi: false, gone: {}, reminded: {}, remOn: true, bag: { 0: 1, 1: 1, 2: 1 }, anim: 'none', sheet: '', closing: false, toast: null };
+    const map = { menu: { screen: 'menu' }, evening: { screen: 'evening' } };
+    return Object.assign(base, map[(this.props || {}).start] || {}, this.state || {});
+  }
+
+  inr(n) { return (n < 0 ? '−₹' : '₹') + Math.abs(Math.round(n)).toLocaleString('en-IN'); }
+
+  toast(text, undo) {
+    const id = Date.now() + Math.random();
+    this._undo = undo || null;
+    this.setState({ toast: { id, text, undo: !!undo } });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+  }
+
+  undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+  openSheet(name) { clearTimeout(this._ct); this.setState({ sheet: name, closing: false }); }
+
+  closeSheet() {
+    if (!this.st().sheet) return;
+    this.setState({ closing: true });
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+  }
+
+  renderVals() {
+    const D = this.data();
+    const s = this.st();
+    const IC = D.IC;
+    const A = Object.assign;
+    const set = (o) => this.setState(o);
+    const V = (x) => 'var(--' + x + ')';
+    const inr = (n) => this.inr(n);
+    const t = (en, hi) => (s.hi ? hi : en);
+    const delay = (i) => (Math.min(i, 12) * 40) + 'ms';
+    const ini = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('');
+    const tones = [[V('accs'), V('accfg')], [V('infos'), V('info')], [V('oks'), V('ok')], [V('warns'), V('warnfg')], [V('s3'), V('fg')]];
+    const bt = (i) => (i ? '1px solid var(--bd)' : '0');
+    const scr = s.screen;
+    const L = {
+      collect: t('Collect fee', 'फीस जमा करें'), take: t('Collect', 'जमा करें'), find: t('Find a student or family', 'छात्र या परिवार खोजें'), collected: t('Collected today', 'आज जमा'), queue: t('At the counter now', 'काउंटर पर अभी'),
+      jobs: t('Today’s jobs', 'आज के काम'), admin: t('Waiting for admin', 'एडमिन के पास'), rem: t('Fee reminders at 4:00 pm', 'शाम 4 बजे रिमाइंडर'),
+      close: t('Close the day', 'दिन बंद करें'), closed: t('Day closed · Thu 8 Oct', 'दिन बंद · गुरु 8 अक्टूबर'), tomorrow: t('Tomorrow’s promises · Fri 9 Oct', 'कल के वादे · शुक्र 9 अक्टूबर'), bank: t('Cheques for the bank · morning', 'सुबह बैंक ले जाएं')
+    };
+
+    // ---------- search ----------
+    const q = (s.q || '').trim().toLowerCase();
+    const qd = q.replace(/[^0-9]/g, '');
+    const hits = q ? D.DIR.filter((d) => (d[0] + ' ' + d[1]).toLowerCase().indexOf(q) >= 0 || (qd.length >= 2 && (d[2].indexOf(qd) >= 0 || d[1].indexOf(qd) >= 0))) : [];
+    const sr = {
+      idle: !q, has: hits.length > 0, empty: !!q && hits.length === 0,
+      rows: hits.map((d, i) => ({ name: d[0], ini: ini(d[0]), sub: d[1] + ' · 98290 ••' + d[2], amt: d[3] ? inr(d[3]) : 'All paid', amtSub: d[3] ? 'pending today' : 'up to today', tone: d[3] ? V('warnfg') : V('ok'), abg: tones[i % 5][0], afg: tones[i % 5][1], bt: bt(i), delay: delay(i) }))
+    };
+    const tries = [['Rakesh', 'Rakesh'], ['SR 1234', '1234'], ['Phone ••512', '512'], ['Joshi', 'Joshi']].map((x) => ({ label: x[0], go: () => set({ q: x[1] }) }));
+
+    // ---------- collected today ----------
+    let cum = 0;
+    const pts = [[0, 58]].concat(D.REC.map((r) => { cum += r[1]; return [Math.round(r[0] / 165 * 2000) / 10, Math.round((58 - cum / 38400 * 52) * 10) / 10]; })).concat([[200, Math.round((58 - cum / 38400 * 52) * 10) / 10]]);
+    const line = pts.map((p) => p[0] + ',' + p[1]).join(' ');
+    const spark = { line, area: '0,58 ' + line + ' 200,58', endY: String(pts[pts.length - 1][1]), usual: '0,58 60,48 120,32 200,' + (58 - 32600 / 38400 * 52).toFixed(1) };
+    const modes = [['UPI', 31175, 9, 'c1'], ['Cash', 7225, 5, 'c2'], ['Cheque', 0, 0, 'c3'], ['Bank', 0, 0, 'c4']].map((m, i) => ({ label: m[0], amt: inr(m[1]), n: m[2] ? m[2] + ' receipts' : 'none yet', w: (m[1] / 38400 * 100).toFixed(1) + '%', c: V(m[3]), delay: (i * 90 + 200) + 'ms' }));
+
+    // ---------- queue ----------
+    const qList = D.QUEUE.filter((x) => !s.gone[x[0]]);
+    const queue = qList.map((x, i) => {
+      const d = D.DIR[x[0]];
+      return { name: d[0], ini: ini(d[0]), kids: d[1].replace(/ · SR \d+/g, ''), amt: inr(d[3]), wait: x[1], tone: V(x[2] === 'info' ? 'info' : 'mut'), abg: tones[x[0] % 5][0], afg: tones[x[0] % 5][1], bt: bt(i), delay: delay(i),
+        gone: () => { const b = this.st().gone; const n = A({}, b); n[x[0]] = 1; set({ gone: n }); this.toast(d[0] + ' left the counter · kept on today’s dues list', () => set({ gone: b })); } };
+    });
+
+    // ---------- jobs ----------
+    const J = (icon, label, sub, n, tone, hd, hm, w) => ({ icon: IC[icon], label, sub, n: String(n), bg: V(tone + 's'), fg: V(tone === 'warn' ? 'warnfg' : tone), hd, hm, hasBar: !!w, w: w || '0%' });
+    const jobs = [
+      J('calCheck', t('Promises due today', 'आज के वादे'), '2 kept so far · ₹59,700 expected · next: Vinod Paliwal', 9, 'info', 'AC-Dues.dc.html', 'MAC-Dues.dc.html', '22%'),
+      J('file', t('Cheques to deposit', 'जमा करने के चेक'), '3 cheques · ₹21,600 · take to the bank by 2 pm', 3, 'warn', 'AccBooks.dc.html', 'M-AccBooks.dc.html'),
+      J('zap', t('UPI to match', 'UPI मिलान'), '2 payments · ₹3,375 not seen in the bank app yet', 2, 'acc', 'AccBooks.dc.html', 'M-AccBooks.dc.html')
+    ].map((j, i) => A(j, { bt: bt(i), delay: delay(i) }));
+
+    // ---------- waiting for admin ----------
+    const admin = D.ADMIN.map((a, i) => {
+      const ok = !!a[3]; const rm = !!s.reminded[i];
+      return { icon: IC[a[0]], label: a[1], sub: a[2], st: ok ? 'Approved by Janmejay · 10:12 am' : (rm ? 'Waiting · reminded just now' : 'Waiting for Janmejay'), sbg: ok ? V('oks') : V('warns'), sfg: ok ? V('ok') : V('warnfg'), canRemind: !ok && !rm, bt: bt(i), delay: delay(i),
+        remind: () => { const n = A({}, this.st().reminded); n[i] = 1; set({ reminded: n }); this.toast('Janmejay is reminded in Needs you'); } };
+    });
+
+    // ---------- reminders + close ----------
+    const rem = {
+      sub: s.remOn ? '46 families with Installment 2 pending today · हिंदी first · about ₹40' : 'Paused for today · nothing will be sent',
+      aria: s.remOn ? 'true' : 'false', cls: s.remOn ? 'on' : '', pill: s.remOn ? 'Goes out in 5 h 18 m' : 'Paused · turn on to send at 4 pm', pbg: s.remOn ? V('infos') : V('s2'), pfg: s.remOn ? V('info') : V('mut'),
+      toggle: () => { const on = !this.st().remOn; set({ remOn: on }); this.toast(on ? 'Reminders will go out at 4:00 pm' : 'Reminders paused for today', () => set({ remOn: !on })); }
+    };
+    const steps = [['Count the cash', 'expected ₹7,225 · 5 receipts', 0], ['Match UPI with the bank app', '2 of 9 left', 0], ['Cheques in the bag', '3 · ₹21,600', 1]];
+    const close = {
+      hint: '6 h 48 m left · usually closed at 5:10 pm', frac: '1/3', dash: (132 / 3).toFixed(1) + ' 132',
+      steps: steps.map((c, i) => ({ label: c[0], sub: c[1], icon: c[2] ? IC.check : IC.clock, bg: c[2] ? V('oks') : V('s2'), fg: c[2] ? V('ok') : V('mut'), bt: bt(i) }))
+    };
+
+    // ---------- menu tiles ----------
+    const T = (icon, en, hi, sub, hd, hm, badge, cls) => ({ icon: IC[icon], a: t(en, hi), b: t(hi, en), sub, hd, hm, isLink: !!hd, isBtn: !hd, hasBadge: !!badge, badge: String(badge || ''), cls: cls || '' });
+    const tiles = [
+      T('rupee', 'Collect fee', 'फीस जमा करें', 'Find a family, tick what they pay, take the money · Alt C', 'PayDesk.dc.html', 'M-PayDesk.dc.html', 0, 'big'),
+      T('receipt', 'Receipts & day close', 'रसीदें व दिन बंद', '14 today · close by 5:30 pm', 'AC-Fees.dc.html', 'MAC-Fees.dc.html'),
+      T('phone', 'Dues & calls', 'बकाया व कॉल', '9 promises due today', 'AC-Dues.dc.html', 'MAC-Dues.dc.html', 9),
+      T('bell', 'Fee reminders', 'फीस रिमाइंडर', '46 going at 4 pm', 'AC-Reminders.dc.html', 'MAC-Reminders.dc.html'),
+      T('swap', 'Cheques, UPI & refunds', 'चेक, UPI व रिफंड', '3 cheques · 2 UPI to match', 'AccBooks.dc.html', 'M-AccBooks.dc.html', 3),
+      T('chart', 'Reports', 'रिपोर्ट', 'Day, month and class-wise', 'AC-Reports.dc.html', 'MAC-Reports.dc.html'),
+      T('sliders', 'Fee setup — view only', 'फीस ढांचा — केवल देखें', 'Ask admin to change', 'AC-FeeSetup.dc.html', 'MAC-FeeSetup.dc.html'),
+      T('help', 'Help', 'मदद', '3 picture steps for each screen', ''),
+      T('logout', 'Sign out', 'लॉग आउट', 'Ends this session on this device', 'Auth.dc.html', 'M-Auth.dc.html')
+    ].map((x, i) => A(x, { delay: delay(i), sz: x.cls ? '56px' : '46px', isz: x.cls ? '28px' : '22px', fs: x.cls ? '24px' : '16px', bg: x.cls ? 'rgba(255,255,255,.14)' : (i === 8 ? V('bads') : tones[i % 5][0]), fg: x.cls ? 'inherit' : (i === 8 ? V('bad') : tones[i % 5][1]) }));
+
+    // ---------- evening ----------
+    const inBag = D.CHQ.filter((c, i) => s.bag[i]);
+    const ev = {
+      sum: [['Collected', '₹61,240', '23 receipts · 0 reversed', 'mut'], ['Cash', '₹18,650', 'counted · matches ✓', 'ok'], ['UPI', '₹38,190', 'all matched in the bank app ✓', 'ok'], ['Cheques', '₹4,400', '1 new · subject to clearing', 'mut']].map((k, i) => ({ label: k[0], v: k[1], sub: k[2], tone: V(k[3]), delay: delay(i) })),
+      promLine: '4 families · ' + inr(D.TOM.reduce((x, p) => x + p[2], 0)),
+      prom: D.TOM.map((p, i) => ({ name: p[0], ini: ini(p[0]), sub: p[1], amt: inr(p[2]), kind: p[3], abg: tones[(i + 1) % 5][0], afg: tones[(i + 1) % 5][1], bt: bt(i), delay: delay(i) })),
+      chqLine: inBag.length + ' of 4 in the bag · ' + inr(D.CHQ.reduce((x, c) => x + c[3], 0)),
+      chq: D.CHQ.map((c, i) => { const on = !!s.bag[i]; return { no: c[0], bank: c[1], who: c[2], amt: inr(c[3]), when: c[4], st: on ? 'in the bag' : 'put it in the bag', tone: on ? V('ok') : V('warnfg'), aria: on ? 'true' : 'false', boxBg: on ? V('ok') : V('card'), boxBd: on ? V('ok') : V('bds'), op: on ? '1' : '0', bt: bt(i), delay: delay(i),
+        go: () => { const n = A({}, this.st().bag); if (n[i]) delete n[i]; else n[i] = 1; set({ bag: n }); } }; }),
+      slip: () => this.toast('Deposit slip PDF ready · ' + inBag.length + ' cheques · ' + inr(inBag.reduce((x, c) => x + c[3], 0))),
+      report: () => this.toast('Day report PDF ready · Thu 8 Oct')
+    };
+
+    // ---------- chrome ----------
+    const anims = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'xIn .3s var(--ease) both' };
+    const tops = {
+      home: { crumb: 'Accountant · Thu 8 Oct · counter open', title: t('Good morning, Neelam', 'सुप्रभात, नीलम जी'), mTitle: t('Good morning, Neelam', 'सुप्रभात, नीलम जी'), mSub: 'Thu 8 Oct · ' + qList.length + ' at the counter' },
+      menu: { crumb: 'Accountant · everything in one place', title: t('Menu', 'मेन्यू'), mTitle: t('Menu', 'मेन्यू'), mSub: 'Ms. Neelam Sharma · Accountant' },
+      evening: { crumb: 'Accountant · Thu 8 Oct · 5:22 pm', title: t('Good evening, Neelam', 'शुभ संध्या, नीलम जी'), mTitle: t('Evening · day closed', 'शाम · दिन बंद'), mSub: 'Thu 8 Oct · locked at 5:22 pm' }
+    };
+    const help = [
+      ['search', 'Find the family', 'Type a name, SR no. or the last 3 digits of the phone in the big search box.', 'परिवार खोजें', 'accs', 'accfg'],
+      ['rupee', 'Collect', 'Pending today is already ticked. Pick how they pay — the receipt goes on WhatsApp.', 'फीस जमा करें', 'oks', 'ok'],
+      ['lock', 'Close the day by 5:30 pm', 'Count the cash, match UPI, put the cheques in the bag, then lock.', 'शाम 5:30 तक दिन बंद करें', 'warns', 'warnfg']
+    ].map((x, i) => ({ n: String(i + 1), icon: IC[x[0]], title: x[1], text: x[2], hi: x[3], bg: V(x[4]), fg: V(x[5]), delay: delay(i) }));
+
+    return {
+      ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '', L,
+      is: { home: scr === 'home', menu: scr === 'menu', evening: scr === 'evening', notEvening: scr !== 'evening' },
+      nav: scr === 'menu' ? 'menu' : 'home', top: tops[scr] || tops.home, anim: anims[s.anim] || anims.none,
+      lang: () => set({ hi: !this.st().hi }), langLabel: s.hi ? 'EN' : 'हि',
+      help: () => this.openSheet('help'), helpSteps: help, helpHead: scr === 'evening' ? 'Closing the day' : 'How the counter works',
+      q: s.q, onQ: (e) => set({ q: e.target.value }), clearQ: () => set({ q: '' }), ph: t('Name, SR no., father, phone', 'नाम, SR नं., पिता, फ़ोन'), sr, tries,
+      spark, modes, queue, queueN: qList.length + ' waiting', queueEmpty: qList.length === 0, jobs, admin, adminLine: '2 waiting · 1 approved', rem, close, tiles, ev,
+      hb: scr === 'home' ? { label: t('All places', 'सभी जगहें'), icon: IC.grid, go: () => set({ screen: 'menu', anim: 'push' }) } : { label: t('Back to today', 'आज पर वापस'), icon: IC.chevLeft, go: () => set({ screen: 'home', anim: 'pop' }) },
+      goHome: () => set({ screen: 'home', anim: 'pop' }), goEvening: () => set({ screen: 'evening', anim: 'push' }),
+      sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open' }, closeSheet: () => this.closeSheet(),
+      toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+    };
+  }
+}
+</script>
+</body>
+</html>

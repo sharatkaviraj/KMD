@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cheques, UPI and refunds</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.zf{display:flex;align-items:center;gap:8px}
+.zc{display:flex;flex-direction:column;min-width:0}
+.ze{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.zm{font-size:12px;color:var(--mut)}
+.zb{font-size:14px;font-weight:600}
+.zv{font-size:15px;font-weight:700}
+.zi{width:16px;height:16px}
+.zs{height:34px;padding:0 12px;font-size:13px}
+.zt{font-size:22px;font-weight:600}
+.ib{flex:none;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.zsh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}
+.zsb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:10px}
+.zsf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.zin{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.zcb{flex:none;width:40px;height:40px;border:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center}
+.zcb>span{width:22px;height:22px;border-radius:7px;border:2px solid;display:flex;align-items:center;justify-content:center;color:var(--prifg);transition:background-color .2s ease,border-color .2s ease}
+.zcb svg{width:14px;height:14px;stroke-width:3;transition:transform .25s var(--spring),opacity .2s ease}
+.zrc{display:flex;align-items:center;gap:12px;min-height:54px;padding:10px 14px;border-radius:14px;color:var(--fg);text-align:left;width:100%}
+.zrc>i{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid;display:flex;align-items:center;justify-content:center}
+.zrc>i>b{width:10px;height:10px;border-radius:5px;background:var(--acc);transition:transform .25s var(--spring)}
+.zwa{border-radius:16px;background:var(--wabg);padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start}
+.zwb{max-width:94%;padding:9px 11px 6px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);box-shadow:0 1px 1px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.5;animation:xIn .35s var(--ease) both}
+.zwb>p{margin:0;white-space:pre-line}
+.zwb>hr{width:100%;margin:0;border:0;border-top:1px solid currentColor;opacity:.15}
+.zwb>small{align-self:flex-end;font-size:11px;opacity:.6}
+.zsw{padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;color:var(--fg);width:100%}
+.kp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kp>button{padding:14px 16px;gap:12px;text-align:left;color:var(--fg);width:100%;animation:xRise .42s var(--ease) both}
+.cth,.ct{display:grid;grid-template-columns:44px 74px minmax(0,1.5fr) minmax(0,1fr) 86px 64px 92px var(--aw,190px);gap:10px;align-items:center;padding:0 16px 0 6px}
+.cth{height:42px;background:var(--s2);border-bottom:1px solid var(--bd)}
+.ct{min-height:62px;border-top:1px solid var(--bd);overflow:hidden;animation:xIn .32s var(--ease) both}
+.ct.lv{min-height:0;animation:xLeave .45s var(--ease) forwards}
+.ct.nw{background:var(--accs)}
+.c-amt{display:flex;flex-direction:column;align-items:flex-end}
+.c-act{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.ur{display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);align-items:center;animation:xIn .32s var(--ease) both}
+.ur>.card{padding:12px 14px;display:flex;align-items:center;gap:12px;min-width:0}
+.ul{position:relative;display:flex;align-items:center;justify-content:center}
+.ul:before{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid;transform-origin:left;animation:xGrowX .5s var(--ease) both}
+.ul.dash:before{border-top-style:dashed}
+.ul>b{position:relative;width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--card);border:2px solid;animation:xPopIn .4s .25s var(--spring) both}
+.tl{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.tl>i{position:absolute;left:12px;right:12px;top:11px;height:3px;border-radius:2px;background:var(--s3)}
+.tl>i>b{display:block;height:3px;border-radius:2px;background:var(--ok);transform-origin:left;transition:width .6s var(--ease);animation:xGrowX .7s .1s var(--ease) both}
+.tl>div{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tl>div>span:first-child{width:24px;height:24px;border-radius:12px;border:2px solid;display:flex;align-items:center;justify-content:center;background:var(--card)}
+.slip{border:1.5px dashed var(--bds);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:var(--card)}
+.sr{display:grid;grid-template-columns:28px 150px minmax(0,1fr) 92px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--bd);font-size:13px}
+@container vx (max-width:899px){.vx .kp{display:flex;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 4px}.vx .kp>button{flex:none;width:208px}.vx .ctb{background:transparent;border:0;box-shadow:none;overflow:visible;display:flex;flex-direction:column;gap:10px}.vx .cth,.vx .c-no,.vx .c-bank,.vx .c-dt,.vx .c-rec{display:none}.vx .ct{grid-template-columns:40px minmax(0,1fr) auto;grid-template-areas:"cb fam amt" ". act act";gap:6px 8px;align-items:start;padding:10px 12px 12px 4px;border:1px solid var(--bd);border-radius:18px;background:var(--card);box-shadow:var(--sh)}.vx .ct.nw{background:var(--accs)}.vx .c-cb{grid-area:cb}.vx .c-fam{grid-area:fam;padding-top:6px}.vx .c-amt{grid-area:amt;padding-top:6px}.vx .c-act{grid-area:act;justify-content:flex-start;flex-wrap:wrap}.vx .ur{grid-template-columns:minmax(0,1fr)}.vx .ul{height:34px}.vx .ul:before{left:50%;right:auto;top:0;bottom:0;border-top:0;border-left:2px solid;transform-origin:top;animation-name:xGrowY}.vx .ul.dash:before{border-left-style:dashed}.vx .uh{display:none}.vx .sr{grid-template-columns:22px minmax(0,1fr) 84px}.vx .sr>.c3{display:none}.vx .seg>button{font-size:12px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="books" role="accountant" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+
+<header class="only-d glass" style="flex: none; height: 64px; display: flex; align-items: center; gap: 10px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="zc" style="flex: 1"><span class="zm">Money · Thu 8 Oct · {{top.crumb}}</span><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.15">Cheques, UPI &amp; refunds</span></div>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{help}}" style="width: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+<sc-if value="{{top.hasAct}}"><button class="tap btn {{top.cls}}" type="button" onClick="{{top.act}}" style="opacity: {{top.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{top.icon}}"></path></svg>{{top.label}}</button></sc-if>
+</header>
+
+<header class="only-m glass" style="flex: none; min-height: 58px; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<a href="M-AccHome-Menu.dc.html" class="tap" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a>
+<span class="zc" style="flex: 1; padding-left: 2px"><span class="ze" style="font-size: 17px; font-weight: 700">{{top.mTitle}}</span><span class="zm ze">{{top.mSub}}</span></span>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{help}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+<sc-if value="{{top.hasAct}}"><button class="tap btn soft" type="button" onClick="{{top.act}}" style="height: 40px; padding: 0 12px; font-size: 13px; opacity: {{top.op}}"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{top.icon}}"></path></svg>{{top.mLabel}}</button></sc-if>
+</header>
+
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+<section class="pad" style="padding: 22px 28px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+
+<div class="kp" role="tablist" aria-label="Sections">
+<sc-for list="{{kpis}}" as="k"><button class="tap card zf" type="button" role="tab" aria-selected="{{k.on}}" onClick="{{k.pick}}" style="border-color: {{k.bd}}; box-shadow: {{k.sh}}; animation-delay: {{k.delay}}">
+<span class="ib" style="background: {{k.bg}}; color: {{k.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{k.icon}}"></path></svg></span>
+<span class="zc" style="flex: 1; gap: 1px"><span class="zm ze" style="font-weight: 600">{{k.label}}</span><span class="num" style="font-size: 20px; font-weight: 700; white-space: nowrap">{{k.value}}</span><span class="zm ze">{{k.sub}}</span></span>
+</button></sc-for>
+</div>
+
+<!-- ============ CHEQUES ============ -->
+<sc-if value="{{is.cheques}}">
+<div class="zc" style="gap: 12px; animation: xIn .32s var(--ease) both">
+<div class="zf" style="flex-wrap: wrap; gap: 10px">
+<div class="seg mfull" style="grid-template-columns: repeat(4, minmax(0, 1fr)); width: 520px; max-width: 100%">
+<span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 4); transform: translateX({{ct.thumb}})"></span>
+<sc-for list="{{ct.tabs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}" style="padding: 0 2px">{{o.label}} <span class="num" style="font-weight: 600; color: var(--sub)">{{o.count}}</span></button></sc-for>
+</div>
+<span class="zm" style="flex: 1; min-width: 220px">{{ct.hint}}</span>
+</div>
+
+<div class="card ctb" style="overflow: hidden; --aw: {{ct.aw}}">
+<div class="cth"><span></span><span class="sech">Cheque</span><span class="sech">Family</span><span class="sech">Bank</span><span class="sech">Dated</span><span class="sech">Receipt</span><span class="sech" style="text-align: right">Amount</span><span class="sech" style="text-align: right">Status</span></div>
+<sc-for list="{{ct.rows}}" as="r">
+<div class="row ct {{r.cls}}" style="animation-delay: {{r.delay}}">
+<sc-if value="{{r.canSel}}"><button class="tap zcb c-cb" type="button" role="checkbox" aria-checked="{{r.selOn}}" aria-label="Select cheque {{r.no}}" onClick="{{r.toggle}}"><span style="background: {{r.boxBg}}; border-color: {{r.boxBd}}; border-style: {{r.boxSt}}"><svg class="i" viewBox="0 0 24 24" style="opacity: {{r.boxOp}}; transform: scale({{r.boxOp}})" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span></button></sc-if>
+<sc-if value="{{r.noSel}}"><span class="c-cb zf" style="justify-content: center; width: 40px; height: 40px"><span class="ib" style="width: 30px; height: 30px; border-radius: 10px; background: {{r.ibg}}; color: {{r.ifg}}"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span></span></sc-if>
+<span class="num c-no" style="font-size: 13px; font-weight: 700">{{r.no}}</span>
+<span class="zc c-fam"><span class="zb ze">{{r.fam}}</span><span class="zm ze">{{r.kids}}</span><span class="zm ze num only-m">{{r.meta}}</span></span>
+<span class="zm ze c-bank" style="font-size: 13px">{{r.bank}}</span>
+<span class="num c-dt" style="font-size: 13px">{{r.date}}</span>
+<span class="num zm c-rec" style="font-size: 13px">{{r.rec}}</span>
+<span class="c-amt"><span class="num zv">{{r.amt}}</span><span class="num zm only-m">{{r.date}}</span></span>
+<span class="c-act"><span class="pill" style="height: 24px; background: {{r.pbg}}; color: {{r.pfg}}">{{r.pill}}</span><sc-for list="{{r.btns}}" as="b"><button class="tap btn {{b.cls}} zs" type="button" onClick="{{b.go}}" style="color: {{b.c}}"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{b.icon}}"></path></svg>{{b.label}}</button></sc-for></span>
+</div>
+</sc-for>
+</div>
+
+<sc-if value="{{ct.empty}}">
+<div class="card zc" style="padding: 34px 24px; align-items: center; gap: 10px; text-align: center; animation: xIn .32s var(--ease) both">
+<span class="ib" style="width: 56px; height: 56px; border-radius: 28px; background: var(--oks); color: var(--ok); animation: xPopIn .5s var(--spring) both"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span>
+<span style="font-size: 16px; font-weight: 700">{{ct.emptyTitle}}</span><span class="zm" style="font-size: 13px">{{ct.emptySub}}</span>
+<button class="tap btn sec" type="button" onClick="{{ct.emptyGo}}">{{ct.emptyBtn}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{bar.show}}">
+<div class="glass zf" style="position: sticky; bottom: 12px; z-index: 4; flex-wrap: wrap; padding: 10px 12px; border-radius: 18px; border: 1px solid var(--bds); box-shadow: var(--shh); animation: xToast .32s var(--spring) both">
+<span class="zc" style="padding-left: 4px; margin-right: auto"><span class="zb" style="font-weight: 700">{{bar.line}}</span><span class="zm">{{bar.sub}}</span></span>
+<button class="tap btn ghost" type="button" onClick="{{bar.clear}}">Clear</button>
+<button class="tap btn pri mfull" type="button" onClick="{{bar.go}}" style="height: 48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.file}}"></path></svg>{{bar.label}}</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- ============ UPI MATCHING ============ -->
+<sc-if value="{{is.upi}}">
+<div class="zc" style="gap: 12px; animation: xIn .32s var(--ease) both">
+<div class="card zf" style="padding: 16px 18px; gap: 16px; flex-wrap: wrap">
+<svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" style="flex: none"><circle cx="32" cy="32" r="26" style="fill: none; stroke: var(--s3); stroke-width: 7"></circle><circle cx="32" cy="32" r="26" transform="rotate(-90 32 32)" style="fill: none; stroke: var(--ok); stroke-width: 7; stroke-linecap: round; stroke-dasharray: {{up.dash}}; --len: 163.4; animation: xDraw .9s .1s var(--ease) both; transition: stroke-dasharray .6s var(--ease)"></circle></svg>
+<span class="zc" style="flex: 1; min-width: 200px; gap: 4px"><span class="serif zt">{{up.title}}</span><span class="zm" style="font-size: 13px">{{up.sub}}</span><span style="display: block; height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; margin-top: 4px"><span style="display: block; height: 8px; border-radius: 4px; width: {{up.pct}}; background: var(--ok); transition: width .5s var(--ease)"></span></span></span>
+<button class="tap btn sec" type="button" onClick="{{up.upload}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.upload}}"></path></svg>New statement</button>
+</div>
+
+<sc-if value="{{up.done}}">
+<div class="card zf" style="padding: 16px 18px; gap: 14px; background: var(--oks); border-color: var(--okm); animation: xIn .4s var(--ease) both">
+<svg width="52" height="52" viewBox="0 0 96 96" aria-hidden="true" style="flex: none; animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--card)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 5; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="zc"><span class="zv" style="color: var(--ok)">Every UPI payment is sorted</span><span style="font-size: 13px; color: var(--ok)">The bank and the app agree for Wed 7 – Thu 8 Oct. Day close can use this.</span></span>
+</div>
+</sc-if>
+
+<div class="seg mfull" style="grid-template-columns: repeat(3, minmax(0, 1fr)); width: 420px; max-width: 100%">
+<span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{up.thumb}})"></span>
+<sc-for list="{{up.tabs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for>
+</div>
+
+<div class="ur uh" style="animation: none"><span class="sech">In the bank statement · SBI ••4821</span><span></span><span class="sech">In VPPS One · receipts</span></div>
+<sc-for list="{{up.rows}}" as="r">
+<div class="ur" style="animation-delay: {{r.delay}}">
+<div class="card" style="border-color: {{r.bbd}}">
+<span class="ib" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.zap}}"></path></svg></span>
+<span class="zc" style="flex: 1"><span class="zb ze">{{r.payer}}</span><span class="zm ze num">{{r.when}} · UPI ref {{r.ref}}</span></span>
+<span class="num zv">{{r.amt}}</span>
+</div>
+<div class="ul {{r.lcls}}" style="color: {{r.lc}}" aria-hidden="true"><b><svg class="i zi" viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 3"><path d="{{r.licon}}"></path></svg></b></div>
+<sc-if value="{{r.isMatched}}">
+<div class="card" style="background: {{r.abg}}">
+<span class="ib" style="background: {{r.rbg}}; color: {{r.rfg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.ricon}}"></path></svg></span>
+<span class="zc" style="flex: 1"><span class="zb ze">{{r.rtitle}}</span><span class="zm ze">{{r.rsub}}</span></span>
+<span class="zc" style="align-items: flex-end; gap: 4px"><span class="num zv">{{r.ramt}}</span><span class="pill" style="background: {{r.pbg}}; color: {{r.pfg}}">{{r.pill}}</span></span>
+<sc-if value="{{r.canUndo}}"><button class="tap btn ghost" type="button" aria-label="Undo this match" onClick="{{r.undo}}" style="width: 34px; height: 34px; padding: 0"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg></button></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{r.isOpen}}">
+<div class="card zc" style="align-items: stretch; gap: 8px; border-color: var(--warnm); background: var(--warns)">
+<span class="zb" style="color: var(--warnfg)">No receipt found for this payment</span>
+<span class="zm" style="color: var(--warnfg)">{{r.hint}}</span>
+<div class="zf" style="flex-wrap: wrap; gap: 6px">
+<button class="tap btn pri zs" type="button" onClick="{{r.match}}"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.link}}"></path></svg>Match with a receipt</button>
+<button class="tap btn sec zs" type="button" onClick="{{r.make}}">Make a receipt</button>
+<button class="tap btn ghost zs" type="button" onClick="{{r.notFee}}" style="padding: 0 8px">Not a fee payment</button>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<span class="zm zf" style="padding: 0 4px"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg>{{up.more}}</span>
+</div>
+</sc-if>
+
+<!-- ============ REFUNDS & ADVANCES ============ -->
+<sc-if value="{{is.refunds}}">
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; animation: xIn .32s var(--ease) both">
+<div class="card zc" style="padding: 16px 18px 8px">
+<div class="zf" style="justify-content: space-between; margin-bottom: 4px"><span class="zc"><span class="zv">Advances held for families</span><span class="zm">Paid more than the fee. Used for the next fee unless you ask for a refund.</span></span><span class="num zv">{{rf.advTotal}}</span></div>
+<sc-for list="{{rf.adv}}" as="a">
+<div class="zc" style="gap: 8px; padding: 12px 0; border-top: {{a.border}}; animation: xIn .32s var(--ease) both; animation-delay: {{a.delay}}">
+<div class="zf" style="gap: 12px"><span class="ib" style="background: var(--accs); color: var(--accfg)">{{a.ini}}</span><span class="zc" style="flex: 1"><span class="zb ze">{{a.fam}}</span><span class="zm ze">{{a.kid}}</span></span><span class="num zv">{{a.amt}}</span></div>
+<span class="zm" style="padding-left: 50px">{{a.why}}</span>
+<div class="zf" style="padding-left: 50px; flex-wrap: wrap; gap: 6px"><span class="pill" style="height: 26px; padding: 0 10px; background: {{a.pbg}}; color: {{a.pfg}}; animation: xPopIn .4s var(--spring) both"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px" aria-hidden="true"><path d="{{a.picon}}"></path></svg>{{a.pill}}</span><span style="flex: 1"></span><button class="tap btn {{a.cls}} zs" type="button" onClick="{{a.go}}"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></div>
+</div>
+</sc-for>
+</div>
+<div class="zc" style="gap: 16px">
+<div class="card zc" style="padding: 16px 18px 8px">
+<div class="zf" style="justify-content: space-between; margin-bottom: 4px"><span class="zv">Refund requests</span><span class="zm">The admin approves every refund</span></div>
+<sc-for list="{{rf.reqs}}" as="q">
+<div class="zf" style="gap: 12px; padding: 12px 0; border-top: {{q.border}}; align-items: flex-start; animation: xIn .32s var(--ease) both; animation-delay: {{q.delay}}">
+<span class="ib" style="background: {{q.bg}}; color: {{q.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{q.icon}}"></path></svg></span>
+<span class="zc" style="flex: 1; gap: 2px"><span class="zb">{{q.who}}</span><span class="zm">{{q.why}}</span><span class="pill" style="align-self: flex-start; margin-top: 4px; background: {{q.bg}}; color: {{q.fg}}">{{q.status}}</span></span>
+<span class="num zv">{{q.amt}}</span>
+</div>
+</sc-for>
+<button class="tap btn ghost" type="button" onClick="{{rf.seeReqs}}" style="align-self: flex-start; margin: 4px 0 8px; color: var(--acc)">See all in My requests<svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></button>
+</div>
+<div class="zin" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.shield}}"></path></svg><span>Refunds are never paid from the counter cash without the admin’s OK. After approval you pay it back and a refund receipt (RF-…) is written. The family’s history keeps both.</span></div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ MY REQUESTS ============ -->
+<sc-if value="{{is.requests}}">
+<div class="zc" style="gap: 12px; animation: xIn .32s var(--ease) both">
+<div class="zf" style="flex-wrap: wrap; gap: 10px">
+<div class="seg mfull" style="grid-template-columns: repeat(3, minmax(0, 1fr)); width: 360px; max-width: 100%">
+<span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{rq.thumb}})"></span>
+<sc-for list="{{rq.tabs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for>
+</div>
+<span class="zm">Late-fee waivers, reversals and refunds go to Janmejay in Needs you.</span>
+</div>
+<div class="stack" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start">
+<sc-for list="{{rq.rows}}" as="q">
+<div class="card zc" style="padding: 14px 16px; gap: 12px; border-color: {{q.bd}}; animation: xIn .32s var(--ease) both; animation-delay: {{q.delay}}">
+<div class="zf" style="gap: 12px; align-items: flex-start">
+<span class="ib" style="background: {{q.bg}}; color: {{q.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{q.icon}}"></path></svg></span>
+<span class="zc" style="flex: 1; gap: 1px"><span class="zf" style="flex-wrap: wrap; gap: 6px"><span class="zb" style="font-weight: 700">{{q.type}}</span><sc-if value="{{q.isNew}}"><span class="pill" style="background: var(--accs); color: var(--accfg); animation: xPopIn .4s var(--spring) both">New</span></sc-if></span><span class="zm">{{q.who}}</span><span class="zm" style="color: var(--sub)">{{q.why}}</span></span>
+<span class="num zv">{{q.amt}}</span>
+</div>
+<div class="tl"><i><b style="width: {{q.fill}}; background: {{q.fc}}"></b></i>
+<sc-for list="{{q.steps}}" as="t"><div style="align-items: {{t.al}}; text-align: {{t.ta}}"><span style="border-color: {{t.bd}}; background: {{t.bg}}; color: {{t.fg}}; animation: {{t.anim}}"><svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 3" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span><span style="font-size: 12px; font-weight: 700; color: {{t.c}}">{{t.label}}</span><span class="num" style="font-size: 11px; color: var(--sub)">{{t.when}}</span></div></sc-for>
+</div>
+<sc-if value="{{q.hasNote}}"><div class="zin" style="padding: 9px 12px; background: {{q.nbg}}; color: {{q.nfg}}"><span>{{q.note}}</span></div></sc-if>
+<sc-if value="{{q.waiting}}"><div class="zf" style="gap: 6px; justify-content: flex-end"><button class="tap btn ghost zs" type="button" onClick="{{q.withdraw}}" style="color: var(--bad)">Withdraw</button><button class="tap btn sec zs" type="button" onClick="{{q.remind}}"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.bell}}"></path></svg>Remind admin</button></div></sc-if>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{rq.empty}}"><div class="card zc" style="padding: 30px; align-items: center; gap: 8px; text-align: center"><span class="zv">Nothing here</span><span class="zm">Requests you send to the admin show up here with their status.</span></div></sc-if>
+</div>
+</sc-if>
+</section>
+</main>
+
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="menu" role="accountant" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ SHEETS ============ -->
+<sc-if value="{{sheet.open}}">
+<button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.cls}} {{sheet.state}}" role="dialog" aria-label="{{sh.title}}">
+<div class="grab"></div>
+<div class="zsh"><div class="zc"><span class="serif zt">{{sh.title}}</span><span class="num zm" style="font-size: 13px">{{sh.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll zsb">
+
+<sc-if value="{{sheet.isDep}}">
+<div class="slip">
+<div class="zf" style="gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--bd)"><span class="ib" style="background: #082F49; color: #F7F6F3"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.bank}}"></path></svg></span><span class="zc" style="flex: 1"><span class="serif" style="font-size: 16px; font-weight: 600">State Bank of India · Amet branch</span><span class="zm">Pay-in slip · cheques · {{dp.no}}</span></span><span class="num zm" style="text-align: right">Date<br><b style="color: var(--fg)">08/10/2026</b></span></div>
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 6px 16px; font-size: 13px">
+<span class="zc"><span class="zm" style="font-size: 11px">Account name</span><span style="font-weight: 600">Shri Veer Patta Sr. Sec. School</span></span>
+<span class="zc"><span class="zm" style="font-size: 11px">Account no.</span><span class="num" style="font-weight: 600">•••• •••• 4821</span></span>
+</div>
+<div class="zc">
+<div class="sr" style="border-top: 0; padding-bottom: 4px"><span class="sech">#</span><span class="sech">Cheque</span><span class="sech c3">Drawn on</span><span class="sech" style="text-align: right">Amount</span></div>
+<sc-for list="{{dp.rows}}" as="d"><div class="sr" style="animation: xIn .3s var(--ease) both; animation-delay: {{d.delay}}"><span class="num zm">{{d.i}}</span><span class="zc"><span class="num" style="font-weight: 700">{{d.no}}</span><span class="zm ze">{{d.fam}}</span></span><span class="c3 zm ze">{{d.bank}}</span><span class="num" style="text-align: right; font-weight: 700">{{d.amt}}</span></div></sc-for>
+<div class="zf" style="justify-content: space-between; padding: 10px 0 2px; border-top: 2px solid var(--bd)"><span class="zb" style="font-weight: 700">Total · {{dp.count}}</span><span class="num" style="font-size: 20px; font-weight: 700">{{dp.total}}</span></div>
+<span style="font-size: 12px; color: var(--mut); font-style: italic">{{dp.words}}</span>
+</div>
+<div class="zf" style="justify-content: space-between; padding-top: 10px; border-top: 1.5px dashed var(--bds); font-size: 12px; color: var(--mut)"><span>Deposited by Neelam Sharma</span><span>Signature ____________</span></div>
+</div>
+<div class="zin" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>Print two copies. After the bank stamps the slip, tap <b>Mark as deposited</b>. Cheques usually clear in 2–3 working days.</span></div>
+</sc-if>
+
+<sc-if value="{{sheet.isBnc}}">
+<span class="sech">What did the bank say?</span>
+<sc-for list="{{bn.why}}" as="r"><button class="tap zrc" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="border: {{r.bd}}; background: {{r.bg}}; min-height: 48px"><i style="border-color: {{r.ring}}"><b style="transform: scale({{r.dot}})"></b></i><span class="zb">{{r.label}}</span></button></sc-for>
+<div class="zin" style="flex-direction: column; gap: 8px; background: var(--warns); color: var(--warnfg)"><span style="font-weight: 700">What happens next</span><sc-for list="{{bn.lines}}" as="l"><span class="zf" style="align-items: flex-start; gap: 10px"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{l.icon}}"></path></svg><span>{{l.text}}</span></span></sc-for></div>
+<button class="tap card zsw" type="button" role="switch" aria-checked="{{bn.tellOn}}" onClick="{{bn.toggleTell}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg><span class="zc" style="flex: 1"><span class="zb">Tell the parent</span><span class="zm">{{bn.tellLine}}</span></span><span class="sw {{bn.tellCls}}"><span></span></span></button>
+<sc-if value="{{bn.tell}}"><div class="zwa"><div class="zwb"><p>{{bn.hi}}</p><hr><p>{{bn.en}}</p><small>now</small></div></div></sc-if>
+</sc-if>
+
+<sc-if value="{{sheet.isMatch}}">
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{mt.thumb}})"></span><sc-for list="{{mt.modes}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<span class="sech" style="margin-top: 4px">{{mt.head}}</span>
+<sc-for list="{{mt.opts}}" as="r"><button class="tap zrc" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="border: {{r.bd}}; background: {{r.bg}}"><i style="border-color: {{r.ring}}"><b style="transform: scale({{r.dot}})"></b></i><span class="zc" style="flex: 1"><span class="zb">{{r.label}}</span><span class="zm">{{r.sub}}</span></span><span class="zc" style="align-items: flex-end"><span class="num zv">{{r.amt}}</span><span class="pill" style="background: {{r.tbg}}; color: {{r.tfg}}">{{r.tag}}</span></span></button></sc-for>
+<div class="zin" style="background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{mt.info}}</span></div>
+</sc-if>
+
+<sc-if value="{{sheet.isRf}}">
+<label class="field"><span>For which family?</span><select class="inp" value="{{rs.fam}}" onChange="{{rs.onFam}}"><sc-for list="{{rs.fams}}" as="o"><option value="{{o.id}}">{{o.label}}</option></sc-for></select></label>
+<label class="field"><span>Amount to give back (₹)</span><input class="{{rs.inpCls}}" inputmode="numeric" value="{{rs.amt}}" onChange="{{rs.onAmt}}"></label>
+<sc-if value="{{rs.err}}"><span style="font-size: 12px; font-weight: 600; color: var(--bad); margin-top: -4px; animation: xIn .3s var(--ease) both">{{rs.errText}}</span></sc-if>
+<span class="sech" style="margin-top: 4px">Why?</span>
+<div class="stack" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><sc-for list="{{rs.whys}}" as="r"><button class="tap zrc" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="border: {{r.bd}}; background: {{r.bg}}"><i style="border-color: {{r.ring}}"><b style="transform: scale({{r.dot}})"></b></i><span class="zb">{{r.label}}</span></button></sc-for></div>
+<span class="sech" style="margin-top: 4px">Pay back by</span>
+<div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{rs.hows}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<label class="field" style="margin-top: 4px"><span>Note for the admin (optional)</span><textarea class="inp" value="{{rs.note}}" onChange="{{rs.onNote}}" placeholder="For example: father asked on the phone, bank details are on file" style="min-height: 64px"></textarea></label>
+<div class="zin" style="background: var(--warns); color: var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{rs.impact}}</span></div>
+</sc-if>
+
+<sc-if value="{{sheet.isHelp}}">
+<sc-for list="{{hp}}" as="h"><div class="zf" style="gap: 14px; padding: 10px 0; border-top: {{h.border}}; animation: xIn .32s var(--ease) both; animation-delay: {{h.delay}}"><span class="ib" style="width: 56px; height: 56px; border-radius: 18px; background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{h.icon}}"></path></svg></span><span class="zc"><span class="zb" style="font-weight: 700">{{h.n}}. {{h.title}}</span><span class="zm" style="font-size: 13px">{{h.text}}</span></span></div></sc-for>
+</sc-if>
+</div>
+<div class="zsf"><button class="tap btn sec" type="button" onClick="{{sh.no}}" style="flex: 1; height: 48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{sh.noIcon}}"></path></svg>{{sh.noLabel}}</button><button class="tap btn {{sh.okCls}}" type="button" onClick="{{sh.ok}}" style="flex: 1.6; height: 48px; opacity: {{sh.okOp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{sh.okIcon}}"></path></svg>{{sh.okLabel}}</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["cheques","deposit","bounce","upi","refunds","requests"],"default":"cheques"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+/*VX_ICONS*/
+    IC.bank = 'M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3';
+    // id, cheque no, family, child, bank, amount, cheque date, receipt, status, extra
+    const C = (id, no, fam, kids, bank, amt, date, rec, st, x) => Object.assign({ id, no, fam, kids, bank, amt, date, rec, st }, x || {});
+    const CHQ = [
+      C('c1', '004512', 'Ajay Rathore', 'Dev · 11 Science', 'SBI · Amet', 7000, 'Wed 7 Oct', 'R-0401', 'todep'),
+      C('c2', '551203', 'Dilip Mehta', 'Yashvi · Class 8', 'Bank of Baroda · Amet', 8400, 'Tue 6 Oct', 'R-0392', 'todep'),
+      C('c3', '087745', 'Ramesh Gurjar', 'Lakshya · Class 4', 'PNB · Kelwa', 6200, 'Mon 5 Oct', 'R-0384', 'todep'),
+      C('c4', '340961', 'Gajendra Solanki', 'Ruhi · Class 2', 'ICICI · Rajsamand', 10200, 'Thu 15 Oct', 'R-0386', 'todep', { post: 1 }),
+      C('c5', '771420', 'Bharat Paliwal', 'Gungun · UKG', 'SBI · Amet', 4350, 'Sat 3 Oct', 'R-0371', 'dep', { slip: 'DS-0021', hi: 'गुनगुन', cl: 'यूकेजी' }),
+      C('c6', '102938', 'Prem Vyas', 'Kavya · Class 3', 'HDFC · Rajsamand', 5100, 'Fri 2 Oct', 'R-0368', 'dep', { slip: 'DS-0021', hi: 'काव्या', cl: 'कक्षा 3' }),
+      C('c7', '665012', 'Sohan Regar', 'Ankit · Class 9', 'Bank of Baroda · Amet', 7800, 'Fri 2 Oct', 'R-0366', 'dep', { slip: 'DS-0021', hi: 'अंकित', cl: 'कक्षा 9' }),
+      C('c8', '448120', 'Naveen Jain', 'Aanya · Class 5', 'SBI · Amet', 6300, 'Tue 29 Sep', 'R-0347', 'clr', { on: 'Fri 2 Oct' }),
+      C('c9', '219004', 'Mukesh Kothari', 'Reyansh · Class 10', 'Axis · Rajsamand', 7800, 'Mon 28 Sep', 'R-0341', 'clr', { on: 'Thu 1 Oct' }),
+      C('c10', '730055', 'Sanjay Chouhan', 'Priya & Veer · Class 7, 3', 'SBI · Amet', 12150, 'Sat 26 Sep', 'R-0336', 'clr', { on: 'Wed 30 Sep' }),
+      C('c11', '560782', 'Hitesh Rawal', 'Kiara · LKG', 'PNB · Amet', 4350, 'Thu 24 Sep', 'R-0329', 'clr', { on: 'Tue 29 Sep' }),
+      C('c12', '412207', 'Kishore Bhati', 'Tanu · Class 5', 'Axis · Rajsamand', 5100, 'Fri 25 Sep', 'R-0352', 'bnc')
+    ];
+    // matched UPI: time, payer, ref, amount, receipt, student, class
+    const UM = [['10:38', 'DINESH MEHTA', '••4417', 4350, 'R-0417', 'Pooja Mehta', '11 Commerce'], ['9:58', 'NARESH VYAS', '••0932', 3900, 'R-0414', 'Harsh Vyas', 'Class 8'], ['9:31', 'SURESH SOLANKI', '••7781', 6000, 'R-0412', 'Kabir Solanki', 'Class 6'], ['9:20', 'HITESH DAVE', '••2290', 1200, 'R-0411', 'Anaya Dave', 'UKG'], ['9:12', 'ALOK TRIVEDI', '••5126', 4800, 'R-0410', 'Vivaan Trivedi', '12 Science'], ['8:47', 'DEEPAK PUROHIT', '••6603', 2500, 'R-0408', 'Ritika Purohit', 'Class 5'], ['8:30', 'VIVEK KOTHARI', '••3318', 3150, 'R-0406', 'Ishaan Kothari', 'Class 1'], ['8:05', 'RAJESH JAIN', '••8854', 3100, 'R-0404', 'Aditi Jain', 'Class 10']];
+    const UU = [
+      { id: 'u1', when: 'Today 10:04', payer: 'SUNITA DEVI', ref: '••7310', amt: 2175, mode: 'match', pick: 'R-0415', hint: 'Looks like R-0415 · Tanvi Paliwal · same amount, 1 minute later. Paid from the mother’s account, so the name differs.' },
+      { id: 'u2', when: 'Wed 7 Oct · 7:58 pm', payer: 'D K SEN', ref: '••0476', amt: 5000, mode: 'make', pick: 'f1', hint: 'No receipt has ₹5,000. Probably a family that paid from home without telling the office.' }
+    ];
+    const REC = [['R-0415', 'Tanvi Paliwal', 'LKG', 2175, 'Today 10:05 · UPI · Office desk'], ['R-0396', 'Saanvi Mehta', 'Class 2', 5400, 'Tue 6 Oct · UPI · Office desk'], ['R-0398', 'Prisha Agarwal', 'Class 8', 9600, 'Tue 6 Oct · UPI · Janmejay']];
+    const FAMS = [['f1', 'Dinesh Sen', 'Ayaan · Class 1', 7125, 'Name matches “SEN”'], ['f2', 'Ravi Sen', 'Myra · Class 7', 6450, 'Name matches “SEN”'], ['f3', 'Kailash Kanwar', 'Mahi · Class 5', 12600, 'Same area · pending']];
+    const ADV = [['a1', 'Bhupendra Rathore', 'Ishita · 12 Science', 1200, 'Paid Installment 2 twice — cash on 14 Sep and UPI on 15 Sep.', 'twice'], ['a2', 'Pankaj Mehta', 'Saanvi · Class 2', 450, 'Paid ₹450 more than the fee on Tue 6 Oct.', 'extra'], ['a3', 'Alok Trivedi', 'Vivaan · 12 Science', 3000, 'Paid part of Installment 3 early. It counts on 15 Nov.', 'early']];
+    // my requests: id, type, icon, amount, who, why, sent, seen, decided, result, note
+    const Q = (id, type, icon, amt, who, why, sent, seen, end, res, note) => ({ id, type, icon, amt, who, why, sent, seen, end, res, note: note || '' });
+    const REQ = [
+      Q('q3', 'Late-fee waiver', 'percent', 530, 'Mahendra Singh · Riya, Class 6', '“Will pay the full fee on Saturday”', 'Today · 9:40', '', '', ''),
+      Q('q2', 'Refund', 'swap', 2100, 'Siddharth Kothari · Class 8 · took TC', 'Bus fee for Nov–Jan, not used', 'Mon 5 Oct · 12:40', 'Mon 5 Oct · 4:15 pm', '', ''),
+      Q('q1', 'Late-fee waiver', 'percent', 460, 'Prakash Joshi · Neha & Rohit', '“Father was in hospital in September”', 'Tue 6 Oct · 11:20', 'Tue 6 Oct · 2:05 pm', 'Wed 7 Oct · 9:10', 'ok', 'Approved by Janmejay. Late fee ₹460 removed; the fee itself is still pending.'),
+      Q('q4', 'Late-fee waiver', 'percent', 300, 'Hemraj Gurjar · Kavya, Class 2', '“Joined late in August”', 'Wed 7 Oct · 10:05', 'Wed 7 Oct · 12:30', 'Wed 7 Oct · 12:32', 'no', '“The promise was broken twice. Please collect the late fee.” — Janmejay'),
+      Q('q5', 'Reversal', 'undo', 5100, 'Kishore Bhati · Tanu · R-0352', 'Cheque 412207 bounced · not enough money', 'Thu 1 Oct · 3:10 pm', 'Thu 1 Oct · 3:40 pm', 'Fri 2 Oct · 9:00', 'ok', 'R-0352 reversed. ₹5,100 is pending again for the Bhati family; the parent was told.')
+    ];
+    this._d = { IC, CHQ, UM, UU, REC, FAMS, ADV, REQ };
+    return this._d;
+  }
+
+  st() {
+    const base = {
+      sec: 'cheques', ct: 'todep', sel: { c1: 1, c2: 1, c3: 1 }, cst: {}, leaving: {}, slipN: 22,
+      sheet: '', closing: false, bId: 'c7', bWhy: 'funds', tell: true,
+      upi: {}, uf: 'all', mId: 'u1', mMode: 'match', mPick: 'R-0415',
+      rfFam: 'a1', rfAmt: '', rfWhy: 'twice', rfHow: 'neft', rfNote: '', adv: {}, rq: [], rqf: 'all', wd: {}, seen: {}, toast: null
+    };
+    const map = {
+      deposit: { sheet: 'deposit' }, bounce: { ct: 'dep', sel: {}, sheet: 'bounce' }, upi: { sec: 'upi' }, refunds: { sec: 'refunds' }, requests: { sec: 'requests' }
+    };
+    return Object.assign(base, map[(this.props || {}).start] || {}, this.state || {});
+  }
+
+  inr(n) { return (n < 0 ? '−₹' : '₹') + Math.abs(Math.round(n)).toLocaleString('en-IN'); }
+
+  words(n) {
+    const a = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    const two = (x) => (x < 20 ? a[x] : b[Math.floor(x / 10)] + (x % 10 ? '-' + a[x % 10] : ''));
+    const three = (x) => (x >= 100 ? a[Math.floor(x / 100)] + ' hundred' + (x % 100 ? ' ' : '') : '') + (x % 100 ? two(x % 100) : '');
+    const p = [];
+    const l = Math.floor(n / 100000); const t = Math.floor((n % 100000) / 1000); const r = n % 1000;
+    if (l) p.push(two(l) + ' lakh');
+    if (t) p.push(two(t) + ' thousand');
+    if (r) p.push(three(r));
+    return 'Rupees ' + (p.join(' ') || 'zero') + ' only';
+  }
+
+  toast(text, undo) {
+    const id = Date.now() + Math.random();
+    this._undo = undo || null;
+    this.setState({ toast: { id, text, undo: !!undo } });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+  }
+
+  undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+  openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+  closeSheet() {
+    if (!this.st().sheet) return;
+    this.setState({ closing: true });
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+  }
+
+  // a new request is "seen" by the admin a little later (simulated)
+  addReq(q) {
+    const t = this.st();
+    this.setState({ rq: [q].concat(t.rq) });
+    clearTimeout(this._st);
+    this._st = setTimeout(() => { const n = Object.assign({}, this.st().seen); n[q.id] = 'Just now'; this.setState({ seen: n }); }, 2600);
+  }
+
+  renderVals() {
+    const D = this.data();
+    const s = this.st();
+    const IC = D.IC;
+    const A = Object.assign;
+    const set = (o) => this.setState(o);
+    const V = (x) => 'var(--' + x + ')';
+    const inr = (n) => this.inr(n);
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    const delay = (i) => (Math.min(i, 14) * 28) + 'ms';
+    const ini = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('');
+    const radio = (on) => ({ on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? V('accs') : V('card'), ring: on ? V('acc') : V('bds'), dot: on ? '1' : '0' });
+    const chipOn = (on) => ({ cls: on ? 'on' : '', pressed: on ? 'true' : 'false' });
+    const segOpts = (opts, cur, key) => opts.map((o) => ({ label: o[1], count: o[2] || '', cls: cur === o[0] ? 'tap on' : 'tap', pressed: cur === o[0] ? 'true' : 'false', pick: () => { const x = {}; x[key] = o[0]; set(x); } }));
+    const thumb = (opts, cur) => (Math.max(0, opts.map((o) => o[0]).indexOf(cur)) * 100) + '%';
+    const btn = (label, icon, cls, go, c) => ({ label, icon: IC[icon], cls, go, c: c || V('fg') });
+
+    // ---------- cheques ----------
+    const stOf = (c) => (s.cst[c.id] ? s.cst[c.id].st : c.st);
+    const inTab = (c, tab) => { const x = stOf(c); return tab === 'bnc' ? x === 'bnc' || x === 'bncw' : x === tab; };
+    const byId = {}; D.CHQ.forEach((c) => { byId[c.id] = c; });
+    const todep = D.CHQ.filter((c) => inTab(c, 'todep'));
+    const ready = todep.filter((c) => !c.post);
+    const selC = ready.filter((c) => s.sel[c.id] && !s.leaving[c.id]);
+    const selAmt = sum(selC.map((c) => c.amt));
+    const TABS = [['todep', 'To deposit'], ['dep', 'Deposited'], ['clr', 'Cleared'], ['bnc', 'Bounced']].map((t) => [t[0], t[1], String(D.CHQ.filter((c) => inTab(c, t[0])).length)]);
+    const markCleared = (c) => () => { const b = this.st().cst; const n = A({}, b); n[c.id] = { st: 'clr', on: 'today' }; set({ cst: n }); this.toast('Cheque ' + c.no + ' cleared · ' + inr(c.amt) + ' is in the school account', () => set({ cst: b })); };
+    const rows = D.CHQ.filter((c) => inTab(c, s.ct)).map((c, i) => {
+      const x = stOf(c); const o = s.cst[c.id] || {}; const fresh = !!o.fresh; const on = !!s.sel[c.id];
+      const look = {
+        todep: c.post ? ['Dated ' + c.date + ' · wait', V('warns'), V('warnfg')] : ['Ready', V('oks'), V('ok')],
+        dep: fresh ? ['Deposited just now', V('accs'), V('accfg')] : ['In clearing', V('infos'), V('info')],
+        clr: ['Cleared ' + (o.on || c.on), V('oks'), V('ok')],
+        bnc: ['Reversed · parent told', V('bads'), V('bad')],
+        bncw: ['Bounced · waiting for admin', V('bads'), V('bad')]
+      }[x];
+      const ic = { dep: ['clock', V('infos'), V('info')], clr: ['check', V('oks'), V('ok')], bnc: ['alert', V('bads'), V('bad')], bncw: ['alert', V('bads'), V('bad')], todep: ['file', V('s2'), V('mut')] }[x];
+      return {
+        no: c.no, fam: c.fam, kids: c.kids, bank: c.bank, date: c.date, rec: c.rec, amt: inr(c.amt), meta: 'Cheque ' + c.no + ' · ' + c.bank + ' · ' + c.rec + (o.slip || c.slip ? ' · slip ' + (o.slip || c.slip) : ''),
+        cls: (s.leaving[c.id] ? 'lv ' : '') + (fresh ? 'nw' : ''), delay: s.leaving[c.id] ? '0ms' : delay(i),
+        canSel: x === 'todep', noSel: x !== 'todep', icon: IC[ic[0]], ibg: ic[1], ifg: ic[2],
+        selOn: on && !c.post ? 'true' : 'false', boxBg: on && !c.post ? V('pri') : V('card'), boxBd: c.post ? V('warn') : (on ? V('pri') : V('bds')), boxSt: c.post ? 'dashed' : 'solid', boxOp: on && !c.post ? '1' : '0',
+        toggle: () => { if (c.post) { this.toast('Cheque ' + c.no + ' is dated ' + c.date + '. It can go to the bank from that day.'); return; } const n = A({}, this.st().sel); if (n[c.id]) delete n[c.id]; else n[c.id] = 1; set({ sel: n }); },
+        pill: look[0], pbg: look[1], pfg: look[2],
+        btns: x === 'dep' ? [btn('Cleared', 'check', 'soft', markCleared(c)), btn('Bounced', 'alert', 'ghost', () => this.openSheet('bounce', { bId: c.id, bWhy: 'funds', tell: true }), V('bad'))]
+          : x === 'bncw' ? [btn('See request', 'chevRight', 'ghost', () => set({ sec: 'requests', rqf: 'wait' }), V('acc'))] : []
+      };
+    });
+    const hints = { todep: 'Ready cheques are ticked for you. A post-dated cheque waits for its date.', dep: 'Slip DS-0021 went to the bank on Tue 6 Oct' + (s.slipN > 22 ? ', DS-0022 today' : '') + '. Cheques clear in 2–3 working days.', clr: 'Cleared this month. The money is in the school account.', bnc: 'A bounced cheque is reversed only after the admin approves.' };
+    const ct = {
+      tabs: segOpts(TABS, s.ct, 'ct'), thumb: thumb(TABS, s.ct), hint: hints[s.ct], rows, empty: rows.length === 0, aw: { todep: '180px', dep: '310px', clr: '150px', bnc: '310px' }[s.ct],
+      emptyTitle: s.ct === 'dep' ? 'Nothing waiting at the bank' : 'Nothing here', emptySub: s.ct === 'dep' ? 'Every deposited cheque has cleared or bounced.' : 'Cheques show up here as their status changes.',
+      emptyBtn: 'See cheques to deposit', emptyGo: () => set({ ct: 'todep' })
+    };
+    const openDep = () => { if (!selC.length) { this.toast(ready.length ? 'Tick the cheques you are taking to the bank' : 'No cheques are ready to deposit'); return; } this.openSheet('deposit'); };
+    const bar = {
+      show: s.sec === 'cheques' && s.ct === 'todep' && selC.length > 0,
+      line: selC.length + (selC.length === 1 ? ' cheque' : ' cheques') + ' · ' + inr(selAmt), sub: 'SBI Amet · school account ••4821',
+      label: 'Make a deposit slip (' + selC.length + ' · ' + inr(selAmt) + ')', clear: () => set({ sel: {} }), go: openDep
+    };
+
+    // ---------- deposit slip ----------
+    const slip = 'DS-00' + s.slipN;
+    const dp = {
+      no: slip, count: selC.length + (selC.length === 1 ? ' cheque' : ' cheques'), total: inr(selAmt), words: this.words(selAmt),
+      rows: selC.map((c, i) => ({ i: String(i + 1), no: c.no, fam: c.fam, bank: c.bank, amt: inr(c.amt), delay: (i * 60) + 'ms' }))
+    };
+    const deposit = () => {
+      const t = this.st(); const ids = selC.map((c) => c.id);
+      if (!ids.length) { this.closeSheet(); return; }
+      const before = { cst: t.cst, sel: t.sel, ct: t.ct, slipN: t.slipN, leaving: {} };
+      const lv = {}; ids.forEach((id) => { lv[id] = true; });
+      set({ leaving: lv }); this.closeSheet();
+      clearTimeout(this._lt);
+      this._lt = setTimeout(() => {
+        const u = this.st(); if (!Object.keys(u.leaving).length) return;
+        const n = A({}, u.cst); ids.forEach((id) => { n[id] = { st: 'dep', slip, fresh: true }; });
+        set({ cst: n, leaving: {}, sel: {}, ct: 'dep', slipN: u.slipN + 1 });
+      }, 460);
+      this.toast(ids.length + ' cheques marked as deposited · slip ' + slip + ' · ' + inr(selAmt), () => { clearTimeout(this._lt); set(before); });
+    };
+
+    // ---------- bounce ----------
+    const bc = byId[s.bId] || byId.c7;
+    const WHY = [['funds', 'Not enough money in the account'], ['sign', 'Signature does not match'], ['closed', 'Account closed'], ['other', 'Some other reason']];
+    const bwhy = (WHY.filter((w) => w[0] === s.bWhy)[0] || WHY[0])[1];
+    const bn = {
+      why: WHY.map((w) => A({ label: w[1], pick: () => set({ bWhy: w[0] }) }, radio(s.bWhy === w[0]))),
+      lines: [['undo', 'Receipt ' + bc.rec + ' gets reversed after the admin approves. Nothing changes before that.'], ['rupee', inr(bc.amt) + ' comes back as pending on the ' + bc.fam.split(' ')[1] + ' family. Late fee stays separate.'], ['archive', 'The receipt stays in history, marked BOUNCED. Nothing is deleted.']].map((l) => ({ icon: IC[l[0]], text: l[1] })),
+      tell: !!s.tell, tellOn: s.tell ? 'true' : 'false', tellCls: s.tell ? 'on' : '', toggleTell: () => set({ tell: !this.st().tell }),
+      tellLine: s.tell ? '1 family · 1 WhatsApp message · about ₹0.88' : 'The parent is not told now. You can call them instead.',
+      hi: 'आदरणीय अभिभावक,\n' + (bc.hi || bc.kids.split(' ')[0]) + ' (' + (bc.cl || bc.kids.split('· ')[1]) + ') की फीस के लिए दिया गया चेक नं. ' + bc.no + ' (' + inr(bc.amt) + ') बैंक से वापस आ गया है। कृपया 7 दिनों में नकद, UPI या नया चेक जमा करें।\n— श्री वीर पत्ता स्कूल, आमेट',
+      en: 'Dear ' + bc.fam + ', cheque no. ' + bc.no + ' (' + inr(bc.amt) + ') for ' + bc.kids.split(' ')[0] + '’s fee has come back from the bank unpaid. Please pay by cash, UPI or a new cheque within 7 days.\n— VPPS, Amet'
+    };
+    const bounce = () => {
+      const t = this.st(); const before = { cst: t.cst, ct: t.ct, rq: t.rq };
+      const n = A({}, t.cst); n[bc.id] = { st: 'bncw' };
+      set({ cst: n, ct: 'bnc' }); this.closeSheet();
+      this.addReq({ id: 'n' + bc.id, type: 'Reversal', icon: 'undo', amt: bc.amt, who: bc.fam + ' · ' + bc.kids.split(' ')[0] + ' · ' + bc.rec, why: 'Cheque ' + bc.no + ' bounced · ' + bwhy.toLowerCase(), sent: 'Today · just now', seen: '', end: '', res: '', note: '', isNew: true });
+      this.toast('Cheque ' + bc.no + ' marked bounced · reversal sent to the admin' + (t.tell ? ' · parent told' : ''), () => set(before));
+    };
+
+    // ---------- UPI ----------
+    const fixed = D.UU.filter((u) => s.upi[u.id]).length;
+    const matched = 48 + fixed;
+    const recOf = (no) => D.REC.filter((r) => r[0] === no)[0] || D.REC[0];
+    const famOf = (id) => D.FAMS.filter((f) => f[0] === id)[0] || D.FAMS[0];
+    const uRows = [];
+    if (s.uf !== 'ok') D.UU.forEach((u) => {
+      const m = s.upi[u.id];
+      const r = { payer: u.payer, when: u.when, ref: u.ref, amt: inr(u.amt), bbd: m ? V('bd') : V('warnm'), isMatched: !!m, isOpen: !m, hint: u.hint, canUndo: !!m,
+        lcls: m ? '' : 'dash', lc: m ? (m.how === 'not' ? V('sub') : V('ok')) : V('warn'), licon: m ? (m.how === 'not' ? IC.minus : IC.check) : IC.help,
+        match: () => this.openSheet('match', { mId: u.id, mMode: 'match', mPick: u.mode === 'match' ? u.pick : '' }),
+        make: () => this.openSheet('match', { mId: u.id, mMode: 'make', mPick: u.mode === 'make' ? u.pick : '' }),
+        notFee: () => { const b = this.st().upi; const n = A({}, b); n[u.id] = { how: 'not' }; set({ upi: n }); this.toast(inr(u.amt) + ' from ' + u.payer + ' kept out of fee totals', () => set({ upi: b })); },
+        undo: () => { const b = this.st().upi; const n = A({}, b); delete n[u.id]; set({ upi: n }); this.toast('Match removed · the payment needs you again', () => set({ upi: b })); }
+      };
+      if (m && m.how === 'match') { const x = recOf(m.rec); A(r, { rtitle: x[0] + ' · ' + x[1], rsub: x[2] + ' · ' + x[4], ramt: inr(x[3]), pill: 'Matched by you', ricon: IC.receipt }); }
+      if (m && m.how === 'make') { const f = famOf(m.fam); A(r, { rtitle: m.rec + ' · ' + f[2].split(' ·')[0] + ' ' + f[1].split(' ')[1], rsub: f[2] + ' · new receipt · sent on WhatsApp', ramt: inr(u.amt), pill: 'Receipt made', ricon: IC.receipt }); }
+      if (m && m.how === 'not') A(r, { rtitle: 'Not a fee payment', rsub: 'Kept out of fee totals · by Neelam', ramt: inr(u.amt), pill: 'Set aside', ricon: IC.minus });
+      if (m) A(r, { abg: m.how === 'not' ? V('s2') : V('card'), rbg: m.how === 'not' ? V('s3') : V('oks'), rfg: m.how === 'not' ? V('mut') : V('ok'), pbg: m.how === 'not' ? V('s3') : V('oks'), pfg: m.how === 'not' ? V('mut') : V('ok') });
+      uRows.push(r);
+    });
+    if (s.uf !== 'need') D.UM.forEach((m) => uRows.push({ payer: m[1], when: 'Today ' + m[0], ref: m[2], amt: inr(m[3]), bbd: V('bd'), isMatched: true, isOpen: false, hint: '', canUndo: false, lcls: '', lc: V('ok'), licon: IC.check, rtitle: m[4] + ' · ' + m[5], rsub: m[6] + ' · UPI', ramt: inr(m[3]), pill: 'Auto-matched', ricon: IC.receipt, abg: V('card'), rbg: V('oks'), rfg: V('ok'), pbg: V('oks'), pfg: V('ok') }));
+    uRows.forEach((r, i) => { r.delay = delay(i); });
+    const UF = [['all', 'All 50'], ['need', 'Needs you · ' + (2 - fixed)], ['ok', 'Matched · ' + matched]];
+    const up = {
+      title: matched + ' of 50 matched', sub: 'Bank statement for Wed 7 – Thu 8 Oct · SBI ••4821 · uploaded 9:05 am by Neelam',
+      pct: (matched / 50 * 100) + '%', dash: (163.4 * matched / 50).toFixed(1) + ' 163.4', done: matched === 50,
+      tabs: segOpts(UF, s.uf, 'uf'), thumb: thumb(UF, s.uf), rows: uRows,
+      more: s.uf === 'need' ? 'Matched pairs are under All and Matched.' : '40 more pairs matched by themselves, by amount and UPI reference.',
+      upload: () => this.toast('Upload the bank’s PDF or Excel statement · matching runs by itself')
+    };
+    const mu = D.UU.filter((u) => u.id === s.mId)[0] || D.UU[0];
+    const MM = [['match', 'Match with a receipt'], ['make', 'Make a receipt']];
+    const isMake = s.mMode === 'make';
+    const mt = {
+      modes: segOpts(MM, s.mMode, 'mMode').map((o, i) => A(o, { pick: () => set({ mMode: MM[i][0], mPick: '' }) })), thumb: thumb(MM, s.mMode),
+      head: isMake ? 'Which family paid?' : 'Receipts with no bank line yet',
+      opts: isMake ? D.FAMS.map((f) => A({ label: f[1], sub: f[2] + ' · ' + f[4], amt: 'pending ' + inr(f[3]), tag: f[3] > mu.amt ? 'part payment' : 'full', tbg: V('s2'), tfg: V('mut'), pick: () => set({ mPick: f[0] }) }, radio(s.mPick === f[0])))
+        : D.REC.map((r) => { const same = r[3] === mu.amt; return A({ label: r[0] + ' · ' + r[1], sub: r[2] + ' · ' + r[4], amt: inr(r[3]), tag: same ? 'same amount' : 'amount differs', tbg: same ? V('oks') : V('warns'), tfg: same ? V('ok') : V('warnfg'), pick: () => set({ mPick: r[0] }) }, radio(s.mPick === r[0])); }),
+      info: isMake ? 'A new receipt R-0418 for ' + inr(mu.amt) + ' (UPI, ref ' + mu.ref + ') is made for the family and sent on WhatsApp. If it is less than the pending fee, the rest stays pending.' : 'The bank line and the receipt are linked. No money changes. If the amount differs, check with the family first.'
+    };
+    const doMatch = () => {
+      const t = this.st();
+      if (!t.mPick) { this.toast(isMake ? 'Pick the family that paid' : 'Pick the receipt this payment belongs to'); return; }
+      if (!isMake && recOf(t.mPick)[3] !== mu.amt) { this.toast('The amounts differ. Pick the receipt with the same amount, or make a new one.'); return; }
+      const b = t.upi; const n = A({}, b); n[mu.id] = isMake ? { how: 'make', rec: 'R-0418', fam: t.mPick } : { how: 'match', rec: t.mPick };
+      set({ upi: n }); this.closeSheet();
+      this.toast(isMake ? 'Receipt R-0418 made for ' + famOf(t.mPick)[1] + ' · matched with the bank' : inr(mu.amt) + ' matched with ' + t.mPick, () => set({ upi: b }));
+    };
+
+    // ---------- refunds & advances ----------
+    const allReqs = s.rq.concat(D.REQ).filter((q) => !s.wd[q.id]);
+    const advRows = D.ADV.map((a, i) => {
+      const asked = !!s.adv[a[0]];
+      return {
+        fam: a[1], kid: a[2], ini: ini(a[1]), amt: inr(a[3]), why: a[4], border: i ? '1px solid var(--bd)' : '0', delay: delay(i),
+        pill: asked ? 'Refund asked · waiting for admin' : (a[5] === 'early' ? 'Counts for Installment 3 · 15 Nov' : 'Used for the next fee · 15 Nov'), pbg: asked ? V('warns') : V('infos'), pfg: asked ? V('warnfg') : V('info'), picon: asked ? IC.clock : IC.calendar,
+        label: asked ? 'See request' : 'Request refund', icon: asked ? IC.chevRight : IC.swap, cls: asked ? 'ghost' : 'sec',
+        go: asked ? () => set({ sec: 'requests', rqf: 'wait' }) : () => this.openSheet('refund', { rfFam: a[0], rfAmt: '', rfWhy: a[5] === 'early' ? 'early' : a[5], rfHow: 'neft', rfNote: '' })
+      };
+    });
+    const refReqs = allReqs.filter((q) => q.type === 'Refund').map((q) => ({ who: q.who, why: q.why, amt: inr(q.amt), done: !!q.res || !!q.done }));
+    refReqs.push({ who: 'Bhavya Jain · LKG · admission cancelled', why: 'Admission fee, cancelled before school began', amt: inr(1200), done: true });
+    const rf = {
+      adv: advRows, advTotal: inr(sum(D.ADV.map((a) => a[3]))),
+      reqs: refReqs.map((q, i) => A(q, { status: q.done ? 'Approved · paid back by NEFT · RF-0003' : 'Waiting for the admin', bg: q.done ? V('oks') : V('warns'), fg: q.done ? V('ok') : V('warnfg'), icon: q.done ? IC.check : IC.clock, border: i ? '1px solid var(--bd)' : '0', delay: delay(i) })),
+      seeReqs: () => set({ sec: 'requests', rqf: 'all' })
+    };
+    const ra = D.ADV.filter((a) => a[0] === s.rfFam)[0] || D.ADV[0];
+    const rAmt = s.rfAmt === '' ? ra[3] : Number(String(s.rfAmt).replace(/[^0-9]/g, ''));
+    const rBad = !(rAmt > 0 && rAmt <= ra[3]);
+    const RW = [['twice', 'Paid twice'], ['extra', 'Paid extra'], ['early', 'Paid early, wants it back'], ['tc', 'Left school (TC)']];
+    const HOW = [['cash', 'Cash at the office', 'cash at the office'], ['neft', 'Bank transfer (NEFT)', 'bank transfer (NEFT)'], ['chq', 'Cheque', 'cheque']];
+    const rs = {
+      fam: s.rfFam, fams: D.ADV.map((a) => ({ id: a[0], label: a[1] + ' · ' + a[2].split(' ·')[0] + ' · ' + inr(a[3]) + ' held' })), onFam: (e) => { const ok = D.ADV.filter((a) => a[0] === e.target.value)[0]; set({ rfFam: ok ? ok[0] : 'a1', rfAmt: '' }); },
+      amt: s.rfAmt === '' ? String(ra[3]) : String(s.rfAmt), onAmt: (e) => set({ rfAmt: e.target.value }), inpCls: rBad ? 'inp err' : 'inp', err: rBad, errText: 'Enter an amount from ₹1 to ' + inr(ra[3]) + ' (what is held for this family).',
+      whys: RW.map((r) => A({ label: r[1], pick: () => set({ rfWhy: r[0] }) }, radio(s.rfWhy === r[0]))),
+      hows: HOW.map((h) => A({ label: h[1], pick: () => set({ rfHow: h[0] }) }, chipOn(s.rfHow === h[0]))),
+      note: s.rfNote, onNote: (e) => set({ rfNote: e.target.value }),
+      impact: 'Nothing is paid yet. Janmejay sees this in Needs you. After he approves, you pay ' + inr(rBad ? ra[3] : rAmt) + ' back by ' + (HOW.filter((h) => h[0] === s.rfHow)[0] || HOW[1])[2] + ' and a refund receipt is written.'
+    };
+    const sendRefund = () => {
+      if (rBad) { this.toast('Check the amount first'); return; }
+      const t = this.st(); const before = { adv: t.adv, rq: t.rq };
+      const n = A({}, t.adv); n[ra[0]] = true; set({ adv: n }); this.closeSheet();
+      this.addReq({ id: 'r' + ra[0], type: 'Refund', icon: 'swap', amt: rAmt, who: ra[1] + ' · ' + ra[2], why: (RW.filter((r) => r[0] === t.rfWhy)[0] || RW[0])[1] + (t.rfNote ? ' · “' + t.rfNote + '”' : ''), sent: 'Today · just now', seen: '', end: '', res: '', note: '', isNew: true });
+      this.toast('Refund of ' + inr(rAmt) + ' sent to the admin · see My requests', () => set(before));
+    };
+
+    // ---------- my requests ----------
+    const waiting = allReqs.filter((q) => !q.res);
+    const RQ = [['all', 'All · ' + allReqs.length], ['wait', 'Waiting · ' + waiting.length], ['done', 'Decided · ' + (allReqs.length - waiting.length)]];
+    const shownQ = allReqs.filter((q) => (s.rqf === 'wait' ? !q.res : s.rqf === 'done' ? !!q.res : true));
+    const rq = {
+      tabs: segOpts(RQ, s.rqf, 'rqf'), thumb: thumb(RQ, s.rqf), empty: shownQ.length === 0,
+      rows: shownQ.map((q, i) => {
+        const seen = q.seen || s.seen[q.id] || '';
+        const ok = q.res === 'ok'; const no = q.res === 'no';
+        const step = (label, when, done, c, icon, al, ta, anim) => ({ label, when, c: done ? c : V('sub'), bd: done ? c : V('bds'), bg: done ? c : V('card'), fg: done ? V('onsolid') : V('sub'), icon: IC[icon], al, ta, anim });
+        return {
+          type: q.type, who: q.who, why: q.why, amt: inr(q.amt), icon: IC[q.icon], isNew: !!q.isNew, delay: delay(i),
+          bg: ok ? V('oks') : no ? V('bads') : V('warns'), fg: ok ? V('ok') : no ? V('bad') : V('warnfg'), bd: q.isNew ? V('acc') : V('bd'),
+          fill: q.res ? '100%' : seen ? '50%' : '0%', fc: no ? V('bad') : V('ok'),
+          steps: [step('Sent', q.sent, true, V('ok'), 'send', 'flex-start', 'left', 'xPopIn .4s var(--spring) both'),
+            step('Seen', seen || 'not yet', !!seen, V('ok'), 'eye', 'center', 'center', seen ? 'xPopIn .4s .3s var(--spring) both' : 'none'),
+            q.res ? step(ok ? 'Approved' : 'Declined', q.end, true, ok ? V('ok') : V('bad'), ok ? 'check' : 'x', 'flex-end', 'right', 'xPopIn .45s .6s var(--spring) both')
+              : step('Waiting', seen ? 'with Janmejay' : '', false, V('ok'), 'clock', 'flex-end', 'right', seen ? 'xPulse 1.6s ease infinite' : 'none')],
+          hasNote: !!q.note, note: q.note, nbg: no ? V('bads') : V('s2'), nfg: no ? V('bad') : V('mut'), waiting: !q.res,
+          withdraw: () => { const b = this.st().wd; const n = A({}, b); n[q.id] = true; set({ wd: n }); this.toast(q.type + ' request withdrawn', () => set({ wd: b })); },
+          remind: () => this.toast('Janmejay was reminded in Needs you')
+        };
+      })
+    };
+
+    // ---------- kpis = section tabs ----------
+    const advAsked = Object.keys(s.adv).length;
+    const KP = [
+      ['cheques', 'Cheques to deposit', inr(sum(todep.map((c) => c.amt))), todep.length + ' cheques · ' + ready.length + ' ready today', 'file', V('warns'), V('warnfg')],
+      ['upi', 'UPI matched', matched + ' of 50', matched === 50 ? 'All matched' : (50 - matched) + ' need you', 'zap', V('oks'), V('ok')],
+      ['refunds', 'Advances held', rf.advTotal, '3 families' + (advAsked ? ' · ' + advAsked + ' refund asked' : ' · 1 refund waiting'), 'swap', V('accs'), V('accfg')],
+      ['requests', 'My requests', waiting.length + ' waiting', (allReqs.length - waiting.length) + ' decided this week', 'inbox', V('infos'), V('info')]
+    ];
+    const kpis = KP.map((k, i) => { const on = s.sec === k[0]; return { label: k[1], value: k[2], sub: k[3], icon: IC[k[4]], bg: k[5], fg: k[6], on: on ? 'true' : 'false', bd: on ? V('acc') : V('bd'), sh: on ? '0 0 0 1px var(--acc), var(--sh)' : 'var(--sh)', delay: delay(i), pick: () => set({ sec: k[0] }) }; });
+
+    // ---------- help ----------
+    const HELP = {
+      cheques: [['file', 'Tick the cheques', 'Ready cheques are ticked for you. Untick any you are not taking today.'], ['printer', 'Print the slip', 'Make a deposit slip, print two copies and take them to SBI Amet.'], ['check', 'Mark them', 'Mark as deposited, then Cleared or Bounced when the bank shows it.']],
+      upi: [['upload', 'Upload the statement', 'Download it from the bank app and upload it here.'], ['link', 'Most match by themselves', 'Same amount and UPI reference link up on their own.'], ['help', 'Fix the rest', 'Match, make a receipt, or set aside what is not a fee.']],
+      refunds: [['swap', 'Extra money is kept', 'Money paid extra is used for the next fee by itself.'], ['send', 'Ask for a refund', 'If the family wants it back, send a refund request.'], ['shield', 'Admin approves', 'Pay back only after the admin approves.']],
+      requests: [['send', 'You send', 'Waivers, reversals and refunds go to the admin.'], ['eye', 'Admin sees it', 'You can see when it was seen.'], ['check', 'Decision comes back', 'Approved or declined, with the admin’s note.']]
+    };
+    const hp = (HELP[s.sec] || HELP.cheques).map((h, i) => ({ icon: IC[h[0]], n: String(i + 1), title: h[1], text: h[2], border: i ? '1px solid var(--bd)' : '0', delay: (i * 80) + 'ms' }));
+
+    // ---------- sheet shell ----------
+    const close = () => this.closeSheet();
+    const SH = {
+      deposit: ['Deposit slip ' + slip, dp.count + ' · ' + dp.total + ' · Thu 8 Oct', 'Print', 'printer', () => this.toast('Slip ' + slip + ' sent to the office printer · 2 copies'), 'Mark as deposited', 'check', 'pri', deposit, selC.length ? '1' : '0.5', 'wide'],
+      bounce: ['Cheque ' + bc.no + ' bounced?', bc.fam + ' · ' + bc.kids + ' · ' + inr(bc.amt) + ' · ' + bc.rec, 'Not bounced', 'x', close, 'Mark bounced', 'alert', 'danger', bounce, '1', ''],
+      match: [inr(mu.amt) + ' from ' + mu.payer, mu.when + ' · UPI ref ' + mu.ref, 'Cancel', 'x', close, isMake ? 'Make receipt R-0418' : 'Match', isMake ? 'receipt' : 'link', 'pri', doMatch, s.mPick ? '1' : '0.5', ''],
+      refund: ['Request a refund', ra[1] + ' · ' + ra[2] + ' · ' + inr(ra[3]) + ' held', 'Cancel', 'x', close, 'Send to admin', 'send', 'pri', sendRefund, rBad ? '0.5' : '1', ''],
+      help: ['How this screen works', '3 simple steps', 'Close', 'x', close, 'Got it', 'check', 'pri', close, '1', '']
+    };
+    const x = SH[s.sheet] || SH.help;
+    const sh = { title: x[0], sub: x[1], noLabel: x[2], noIcon: IC[x[3]], no: x[4], okLabel: x[5], okIcon: IC[x[6]], okCls: x[7], ok: x[8], okOp: x[9], cls: x[10] };
+
+    // ---------- chrome ----------
+    const TOP = {
+      cheques: ['Cheques', todep.length + ' to deposit · ' + inr(sum(todep.map((c) => c.amt))), 'Make a deposit slip', 'Slip', 'file', 'pri', openDep, selC.length ? '1' : '0.5'],
+      upi: ['UPI matching', matched + ' of 50 matched', 'Upload bank statement', 'Upload', 'upload', 'sec', up.upload, '1'],
+      refunds: ['Refunds & advances', rf.advTotal + ' held for 3 families', 'Request refund', 'Refund', 'swap', 'pri', () => this.openSheet('refund', { rfFam: 'a1', rfAmt: '', rfWhy: 'twice', rfHow: 'neft', rfNote: '' }), '1'],
+      requests: ['My requests', waiting.length + ' waiting for the admin', '', '', 'inbox', 'sec', () => {}, '1']
+    }[s.sec] || [];
+    const top = { crumb: TOP[0], mTitle: TOP[0], mSub: TOP[1], label: TOP[2], mLabel: TOP[3], icon: IC[TOP[4]], cls: TOP[5], act: TOP[6], op: TOP[7], hasAct: !!TOP[2] };
+
+    return {
+      ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+      is: { cheques: s.sec === 'cheques', upi: s.sec === 'upi', refunds: s.sec === 'refunds', requests: s.sec === 'requests' },
+      top, kpis, ct, bar, up, rf, rq, help: () => this.openSheet('help'),
+      sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', isDep: s.sheet === 'deposit', isBnc: s.sheet === 'bounce', isMatch: s.sheet === 'match', isRf: s.sheet === 'refund', isHelp: s.sheet === 'help' },
+      closeSheet: close, sh, dp, bn, mt, rs, hp,
+      toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+    };
+  }
+}
+</script>
+</body>
+</html>

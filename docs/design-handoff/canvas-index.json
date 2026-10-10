@@ -1,0 +1,2730 @@
+[
+ {
+  "frame": "App.dc.html",
+  "page": "final",
+  "title": "▶ Prototype — press Play",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/App.webp"
+ },
+ {
+  "frame": "F01-Today.dc.html",
+  "page": "final",
+  "title": "Today",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F01-Today.webp"
+ },
+ {
+  "frame": "F02-NeedsYou.dc.html",
+  "page": "final",
+  "title": "Needs you",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F02-NeedsYou.webp"
+ },
+ {
+  "frame": "F03-QuickActions.dc.html",
+  "page": "final",
+  "title": "+ Quick actions",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F03-QuickActions.webp"
+ },
+ {
+  "frame": "F04-Search.dc.html",
+  "page": "final",
+  "title": "Search everything",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F04-Search.webp"
+ },
+ {
+  "frame": "F05-Students.dc.html",
+  "page": "final",
+  "title": "Students",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F05-Students.webp"
+ },
+ {
+  "frame": "F06-Student360.dc.html",
+  "page": "final",
+  "title": "Student 360 · Overview",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F06-Student360.webp"
+ },
+ {
+  "frame": "F07-Student360-Fees.dc.html",
+  "page": "final",
+  "title": "Student 360 · Fees",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F07-Student360-Fees.webp"
+ },
+ {
+  "frame": "F08-Student360-Family.dc.html",
+  "page": "final",
+  "title": "Student 360 · Family",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F08-Student360-Family.webp"
+ },
+ {
+  "frame": "F09-Collect.dc.html",
+  "page": "final",
+  "title": "Payment Desk · Aarav's dues and payment",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F09-Collect.webp"
+ },
+ {
+  "frame": "F10-CollectDone.dc.html",
+  "page": "final",
+  "title": "Payment Desk · saved, receipt",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F10-CollectDone.webp"
+ },
+ {
+  "frame": "F11-Attendance.dc.html",
+  "page": "final",
+  "title": "Attendance board",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F11-Attendance.webp"
+ },
+ {
+  "frame": "F12-MarkAttendance.dc.html",
+  "page": "final",
+  "title": "Mark attendance · Class 9",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F12-MarkAttendance.webp"
+ },
+ {
+  "frame": "F13-Menu.dc.html",
+  "page": "final",
+  "title": "Menu",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F13-Menu.webp"
+ },
+ {
+  "frame": "F14-TodayDark.dc.html",
+  "page": "final",
+  "title": "Today · dark mode",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/final/F14-TodayDark.webp"
+ },
+ {
+  "frame": "Desktop.dc.html",
+  "page": "desktop",
+  "title": "▶ Desktop prototype — press Play",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/Desktop.webp"
+ },
+ {
+  "frame": "D01-Students.dc.html",
+  "page": "desktop",
+  "title": "Students · sortable table, bulk select",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D01-Students.webp"
+ },
+ {
+  "frame": "D02-Student360.dc.html",
+  "page": "desktop",
+  "title": "Student 360 · side drawer",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D02-Student360.webp"
+ },
+ {
+  "frame": "D03-NeedsYou.dc.html",
+  "page": "desktop",
+  "title": "Needs you · two-pane",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D03-NeedsYou.webp"
+ },
+ {
+  "frame": "D04-Attendance.dc.html",
+  "page": "desktop",
+  "title": "Attendance · classes + marking panel",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D04-Attendance.webp"
+ },
+ {
+  "frame": "D05-Collect.dc.html",
+  "page": "desktop",
+  "title": "Payment Desk · amount and where it goes",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D05-Collect.webp"
+ },
+ {
+  "frame": "D06-Receipt.dc.html",
+  "page": "desktop",
+  "title": "Payment Desk · saved, receipt",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D06-Receipt.webp"
+ },
+ {
+  "frame": "D07-Search.dc.html",
+  "page": "desktop",
+  "title": "Search or jump to",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D07-Search.webp"
+ },
+ {
+  "frame": "D08-TodayDark.dc.html",
+  "page": "desktop",
+  "title": "Today · dark mode",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/desktop/D08-TodayDark.webp"
+ },
+ {
+  "frame": "D09-Laptop.dc.html",
+  "page": "desktop",
+  "title": "Small laptop · 1180 px",
+  "w": 1180,
+  "h": 800,
+  "screenshot": "screenshots/desktop/D09-Laptop.webp"
+ },
+ {
+  "frame": "D10-Tablet.dc.html",
+  "page": "desktop",
+  "title": "Tablet · 834 px",
+  "w": 834,
+  "h": 1112,
+  "screenshot": "screenshots/desktop/D10-Tablet.webp"
+ },
+ {
+  "frame": "PX-PayDesk.dc.html",
+  "page": "money",
+  "title": "Admin · Payment Desk",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/PX-PayDesk.webp"
+ },
+ {
+  "frame": "PX-PayDesk-Student.dc.html",
+  "page": "money",
+  "title": "Admin · student dues and payment",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/PX-PayDesk-Student.webp"
+ },
+ {
+  "frame": "MPX-PayDesk.dc.html",
+  "page": "money",
+  "title": "Admin · find a student",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/MPX-PayDesk.webp"
+ },
+ {
+  "frame": "MPX-PayDesk-Student.dc.html",
+  "page": "money",
+  "title": "Admin · dues and payment",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/MPX-PayDesk-Student.webp"
+ },
+ {
+  "frame": "Fees.dc.html",
+  "page": "money",
+  "title": "Receipts · today",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/Fees.webp"
+ },
+ {
+  "frame": "DX-Fees-Receipt.dc.html",
+  "page": "money",
+  "title": "Receipt open beside the list",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Fees-Receipt.webp"
+ },
+ {
+  "frame": "DX-Fees-Close.dc.html",
+  "page": "money",
+  "title": "Close the day · count cash",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Fees-Close.webp"
+ },
+ {
+  "frame": "M-Fees.dc.html",
+  "page": "money",
+  "title": "Receipts",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Fees.webp"
+ },
+ {
+  "frame": "M-Fees-Receipt.dc.html",
+  "page": "money",
+  "title": "Receipt",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Fees-Receipt.webp"
+ },
+ {
+  "frame": "M-Fees-Reverse.dc.html",
+  "page": "money",
+  "title": "Reverse a receipt",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Fees-Reverse.webp"
+ },
+ {
+  "frame": "M-Fees-Close.dc.html",
+  "page": "money",
+  "title": "Close the day",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Fees-Close.webp"
+ },
+ {
+  "frame": "Dues.dc.html",
+  "page": "money",
+  "title": "Dues · call list",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/Dues.webp"
+ },
+ {
+  "frame": "DX-Dues-Family.dc.html",
+  "page": "money",
+  "title": "Family open beside the list",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Dues-Family.webp"
+ },
+ {
+  "frame": "DX-Dues-Plan.dc.html",
+  "page": "money",
+  "title": "Set up an EMI plan",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Dues-Plan.webp"
+ },
+ {
+  "frame": "DX-Dues-Aging.dc.html",
+  "page": "money",
+  "title": "Aging · how late the money is",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Dues-Aging.webp"
+ },
+ {
+  "frame": "M-Dues.dc.html",
+  "page": "money",
+  "title": "Dues · call list",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Dues.webp"
+ },
+ {
+  "frame": "M-Dues-Family.dc.html",
+  "page": "money",
+  "title": "Family",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Dues-Family.webp"
+ },
+ {
+  "frame": "M-Dues-Call.dc.html",
+  "page": "money",
+  "title": "Log a call",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Dues-Call.webp"
+ },
+ {
+  "frame": "M-Dues-Promises.dc.html",
+  "page": "money",
+  "title": "Promises",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Dues-Promises.webp"
+ },
+ {
+  "frame": "M-Dues-Writeoff.dc.html",
+  "page": "money",
+  "title": "Request a write-off",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Dues-Writeoff.webp"
+ },
+ {
+  "frame": "Reminders.dc.html",
+  "page": "money",
+  "title": "Fee reminders",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/Reminders.webp"
+ },
+ {
+  "frame": "DX-Reminders-Message.dc.html",
+  "page": "money",
+  "title": "New reminder · message",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Reminders-Message.webp"
+ },
+ {
+  "frame": "DX-Reminders-Results.dc.html",
+  "page": "money",
+  "title": "Reminder results",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Reminders-Results.webp"
+ },
+ {
+  "frame": "DX-Reminders-Sending.dc.html",
+  "page": "money",
+  "title": "Sending",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Reminders-Sending.webp"
+ },
+ {
+  "frame": "M-Reminders.dc.html",
+  "page": "money",
+  "title": "Fee reminders",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reminders.webp"
+ },
+ {
+  "frame": "M-Reminders-Audience.dc.html",
+  "page": "money",
+  "title": "New reminder · who",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reminders-Audience.webp"
+ },
+ {
+  "frame": "M-Reminders-Review.dc.html",
+  "page": "money",
+  "title": "Check and send",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reminders-Review.webp"
+ },
+ {
+  "frame": "M-Reminders-Rule.dc.html",
+  "page": "money",
+  "title": "Automatic reminder",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reminders-Rule.webp"
+ },
+ {
+  "frame": "M-Reminders-Empty.dc.html",
+  "page": "money",
+  "title": "First time",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reminders-Empty.webp"
+ },
+ {
+  "frame": "FeeSetup.dc.html",
+  "page": "money",
+  "title": "Fee structure by class band",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/FeeSetup.webp"
+ },
+ {
+  "frame": "DX-FeeSetup-Edit.dc.html",
+  "page": "money",
+  "title": "Edit a class fee",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-FeeSetup-Edit.webp"
+ },
+ {
+  "frame": "DX-FeeSetup-Installments.dc.html",
+  "page": "money",
+  "title": "Installments and split",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-FeeSetup-Installments.webp"
+ },
+ {
+  "frame": "DX-FeeSetup-Review.dc.html",
+  "page": "money",
+  "title": "Review and publish",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-FeeSetup-Review.webp"
+ },
+ {
+  "frame": "M-FeeSetup.dc.html",
+  "page": "money",
+  "title": "Fee structure",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-FeeSetup.webp"
+ },
+ {
+  "frame": "M-FeeSetup-Edit.dc.html",
+  "page": "money",
+  "title": "Edit a class fee",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-FeeSetup-Edit.webp"
+ },
+ {
+  "frame": "M-FeeSetup-LateFee.dc.html",
+  "page": "money",
+  "title": "Late fee rule",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-FeeSetup-LateFee.webp"
+ },
+ {
+  "frame": "M-FeeSetup-Route.dc.html",
+  "page": "money",
+  "title": "Edit a bus route",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-FeeSetup-Route.webp"
+ },
+ {
+  "frame": "M-FeeSetup-Discounts.dc.html",
+  "page": "money",
+  "title": "Discounts · dark",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-FeeSetup-Discounts.webp"
+ },
+ {
+  "frame": "Reports.dc.html",
+  "page": "money",
+  "title": "Reports hub",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/Reports.webp"
+ },
+ {
+  "frame": "DX-Reports-Collection.dc.html",
+  "page": "money",
+  "title": "Daily collection",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Reports-Collection.webp"
+ },
+ {
+  "frame": "DX-Reports-Defaulters.dc.html",
+  "page": "money",
+  "title": "Defaulter list · Hindi first",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Reports-Defaulters.webp"
+ },
+ {
+  "frame": "DX-Reports-Cell.dc.html",
+  "page": "money",
+  "title": "Pending by class · students",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/money/DX-Reports-Cell.webp"
+ },
+ {
+  "frame": "M-Reports.dc.html",
+  "page": "money",
+  "title": "Reports",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reports.webp"
+ },
+ {
+  "frame": "M-Reports-Collection.dc.html",
+  "page": "money",
+  "title": "Daily collection",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reports-Collection.webp"
+ },
+ {
+  "frame": "M-Reports-Send.dc.html",
+  "page": "money",
+  "title": "Send to class teachers",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reports-Send.webp"
+ },
+ {
+  "frame": "M-Reports-Export.dc.html",
+  "page": "money",
+  "title": "Export a report",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reports-Export.webp"
+ },
+ {
+  "frame": "M-Reports-Schedule.dc.html",
+  "page": "money",
+  "title": "Scheduled sends · dark",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/money/M-Reports-Schedule.webp"
+ },
+ {
+  "frame": "Admissions.dc.html",
+  "page": "people",
+  "title": "Admissions · enquiry to admitted",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/Admissions.webp"
+ },
+ {
+  "frame": "DX-Admissions-Fees.dc.html",
+  "page": "people",
+  "title": "Add a student · fees",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Admissions-Fees.webp"
+ },
+ {
+  "frame": "DX-Admissions-Duplicate.dc.html",
+  "page": "people",
+  "title": "Possible duplicate",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Admissions-Duplicate.webp"
+ },
+ {
+  "frame": "DX-Admissions-Withdraw.dc.html",
+  "page": "people",
+  "title": "Withdraw and TC",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Admissions-Withdraw.webp"
+ },
+ {
+  "frame": "DX-Admissions-Add.dc.html",
+  "page": "people",
+  "title": "Add a student · step 1",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Admissions-Add.webp"
+ },
+ {
+  "frame": "M-Admissions.dc.html",
+  "page": "people",
+  "title": "Admissions",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Admissions.webp"
+ },
+ {
+  "frame": "M-Admissions-Student.dc.html",
+  "page": "people",
+  "title": "Add a student",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Admissions-Student.webp"
+ },
+ {
+  "frame": "M-Admissions-Sibling.dc.html",
+  "page": "people",
+  "title": "Link a brother or sister",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Admissions-Sibling.webp"
+ },
+ {
+  "frame": "M-Admissions-Done.dc.html",
+  "page": "people",
+  "title": "Admitted",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Admissions-Done.webp"
+ },
+ {
+  "frame": "M-Admissions-Edit.dc.html",
+  "page": "people",
+  "title": "Edit student · change class",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Admissions-Edit.webp"
+ },
+ {
+  "frame": "StudentTools.dc.html",
+  "page": "people",
+  "title": "Promote & import · tools",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/StudentTools.webp"
+ },
+ {
+  "frame": "DX-StudentTools-Promote.dc.html",
+  "page": "people",
+  "title": "Year-end promotion · classes",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-StudentTools-Promote.webp"
+ },
+ {
+  "frame": "DX-StudentTools-Validate.dc.html",
+  "page": "people",
+  "title": "Excel import · check rows",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-StudentTools-Validate.webp"
+ },
+ {
+  "frame": "DX-StudentTools-Quality.dc.html",
+  "page": "people",
+  "title": "Data quality",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-StudentTools-Quality.webp"
+ },
+ {
+  "frame": "M-StudentTools.dc.html",
+  "page": "people",
+  "title": "Promote & import",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-StudentTools.webp"
+ },
+ {
+  "frame": "M-StudentTools-Review.dc.html",
+  "page": "people",
+  "title": "Check and promote",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-StudentTools-Review.webp"
+ },
+ {
+  "frame": "M-StudentTools-Mapping.dc.html",
+  "page": "people",
+  "title": "Match Excel columns",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-StudentTools-Mapping.webp"
+ },
+ {
+  "frame": "M-StudentTools-Families.dc.html",
+  "page": "people",
+  "title": "Families",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-StudentTools-Families.webp"
+ },
+ {
+  "frame": "M-StudentTools-Merge.dc.html",
+  "page": "people",
+  "title": "Merge two families",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-StudentTools-Merge.webp"
+ },
+ {
+  "frame": "Staff.dc.html",
+  "page": "people",
+  "title": "Staff · list",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/Staff.webp"
+ },
+ {
+  "frame": "DX-Staff-Profile.dc.html",
+  "page": "people",
+  "title": "Profile beside the list",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Staff-Profile.webp"
+ },
+ {
+  "frame": "DX-Staff-Roles.dc.html",
+  "page": "people",
+  "title": "Roles & permissions · 3 changes",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Staff-Roles.webp"
+ },
+ {
+  "frame": "DX-Staff-Disable.dc.html",
+  "page": "people",
+  "title": "Disable a login",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Staff-Disable.webp"
+ },
+ {
+  "frame": "M-Staff.dc.html",
+  "page": "people",
+  "title": "Staff",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Staff.webp"
+ },
+ {
+  "frame": "M-Staff-Roles.dc.html",
+  "page": "people",
+  "title": "Permissions for one role",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Staff-Roles.webp"
+ },
+ {
+  "frame": "M-Staff-Invite.dc.html",
+  "page": "people",
+  "title": "Create a login",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Staff-Invite.webp"
+ },
+ {
+  "frame": "M-Staff-Created.dc.html",
+  "page": "people",
+  "title": "Login created",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Staff-Created.webp"
+ },
+ {
+  "frame": "M-Staff-Reset.dc.html",
+  "page": "people",
+  "title": "Reset password",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Staff-Reset.webp"
+ },
+ {
+  "frame": "Notes.dc.html",
+  "page": "people",
+  "title": "Notes on children · board",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/Notes.webp"
+ },
+ {
+  "frame": "DX-Notes-Detail.dc.html",
+  "page": "people",
+  "title": "Note open beside the board",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Notes-Detail.webp"
+ },
+ {
+  "frame": "DX-Notes-Student.dc.html",
+  "page": "people",
+  "title": "One child · all notes",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Notes-Student.webp"
+ },
+ {
+  "frame": "DX-Notes-Plan.dc.html",
+  "page": "people",
+  "title": "Support plan",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Notes-Plan.webp"
+ },
+ {
+  "frame": "DX-Notes-Listening.dc.html",
+  "page": "people",
+  "title": "Speak a note",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/people/DX-Notes-Listening.webp"
+ },
+ {
+  "frame": "M-Notes.dc.html",
+  "page": "people",
+  "title": "Notes · board",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Notes.webp"
+ },
+ {
+  "frame": "M-Notes-Add.dc.html",
+  "page": "people",
+  "title": "Add a note",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Notes-Add.webp"
+ },
+ {
+  "frame": "M-Notes-Listening.dc.html",
+  "page": "people",
+  "title": "Listening",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Notes-Listening.webp"
+ },
+ {
+  "frame": "M-Notes-Detail.dc.html",
+  "page": "people",
+  "title": "Note · status & replies",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Notes-Detail.webp"
+ },
+ {
+  "frame": "M-Notes-Plan.dc.html",
+  "page": "people",
+  "title": "Support plan",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Notes-Plan.webp"
+ },
+ {
+  "frame": "M-Notes-Student.dc.html",
+  "page": "people",
+  "title": "One child",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/people/M-Notes-Student.webp"
+ },
+ {
+  "frame": "Exams.dc.html",
+  "page": "academics",
+  "title": "Exams · session timeline",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/Exams.webp"
+ },
+ {
+  "frame": "DX-Exams-Cell.dc.html",
+  "page": "academics",
+  "title": "Marks tracker · Class 9 Science",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Exams-Cell.webp"
+ },
+ {
+  "frame": "DX-Exams-Entry.dc.html",
+  "page": "academics",
+  "title": "Enter marks (admin)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Exams-Entry.webp"
+ },
+ {
+  "frame": "DX-Exams-Preview.dc.html",
+  "page": "academics",
+  "title": "Report card preview",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Exams-Preview.webp"
+ },
+ {
+  "frame": "M-Exams.dc.html",
+  "page": "academics",
+  "title": "Exams",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Exams.webp"
+ },
+ {
+  "frame": "M-Exams-Grid.dc.html",
+  "page": "academics",
+  "title": "Marks tracker",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Exams-Grid.webp"
+ },
+ {
+  "frame": "M-Exams-Remind.dc.html",
+  "page": "academics",
+  "title": "Remind late teachers",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Exams-Remind.webp"
+ },
+ {
+  "frame": "M-Exams-Entry.dc.html",
+  "page": "academics",
+  "title": "Enter marks",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Exams-Entry.webp"
+ },
+ {
+  "frame": "M-Exams-Sampark.dc.html",
+  "page": "academics",
+  "title": "Sampark links",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Exams-Sampark.webp"
+ },
+ {
+  "frame": "M-Exams-ReportCards.dc.html",
+  "page": "academics",
+  "title": "Report cards",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Exams-ReportCards.webp"
+ },
+ {
+  "frame": "Timetable.dc.html",
+  "page": "academics",
+  "title": "Class timetable · Class 9",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/Timetable.webp"
+ },
+ {
+  "frame": "DX-Timetable-Subs.dc.html",
+  "page": "academics",
+  "title": "Substitutions today",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Timetable-Subs.webp"
+ },
+ {
+  "frame": "DX-Timetable-Clash.dc.html",
+  "page": "academics",
+  "title": "Edit a period · clash check",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Timetable-Clash.webp"
+ },
+ {
+  "frame": "DX-Timetable-Teacher.dc.html",
+  "page": "academics",
+  "title": "Teacher timetable",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Timetable-Teacher.webp"
+ },
+ {
+  "frame": "M-Timetable.dc.html",
+  "page": "academics",
+  "title": "Class timetable",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Timetable.webp"
+ },
+ {
+  "frame": "M-Timetable-Subs.dc.html",
+  "page": "academics",
+  "title": "Substitutions",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Timetable-Subs.webp"
+ },
+ {
+  "frame": "M-Timetable-Assign.dc.html",
+  "page": "academics",
+  "title": "Assign a substitute",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Timetable-Assign.webp"
+ },
+ {
+  "frame": "M-Timetable-Leave.dc.html",
+  "page": "academics",
+  "title": "Teacher leave",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Timetable-Leave.webp"
+ },
+ {
+  "frame": "M-Timetable-Publish.dc.html",
+  "page": "academics",
+  "title": "Publish changes · dark",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Timetable-Publish.webp"
+ },
+ {
+  "frame": "Calendar.dc.html",
+  "page": "academics",
+  "title": "Calendar · October",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/Calendar.webp"
+ },
+ {
+  "frame": "DX-Calendar-Event.dc.html",
+  "page": "academics",
+  "title": "PTM · Class 10",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Calendar-Event.webp"
+ },
+ {
+  "frame": "DX-Calendar-Add.dc.html",
+  "page": "academics",
+  "title": "Add an event",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Calendar-Add.webp"
+ },
+ {
+  "frame": "DX-Calendar-Holidays.dc.html",
+  "page": "academics",
+  "title": "Holiday notice to parents",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/academics/DX-Calendar-Holidays.webp"
+ },
+ {
+  "frame": "M-Calendar.dc.html",
+  "page": "academics",
+  "title": "Calendar · month",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Calendar.webp"
+ },
+ {
+  "frame": "M-Calendar-Day.dc.html",
+  "page": "academics",
+  "title": "Today in detail",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Calendar-Day.webp"
+ },
+ {
+  "frame": "M-Calendar-Agenda.dc.html",
+  "page": "academics",
+  "title": "Next 30 days",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Calendar-Agenda.webp"
+ },
+ {
+  "frame": "M-Calendar-Add.dc.html",
+  "page": "academics",
+  "title": "Add an event",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Calendar-Add.webp"
+ },
+ {
+  "frame": "M-Calendar-Holidays.dc.html",
+  "page": "academics",
+  "title": "Holidays",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/academics/M-Calendar-Holidays.webp"
+ },
+ {
+  "frame": "Messages.dc.html",
+  "page": "system",
+  "title": "Messages · sent",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/Messages.webp"
+ },
+ {
+  "frame": "DX-Messages-Detail.dc.html",
+  "page": "system",
+  "title": "Delivery and who read it",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Messages-Detail.webp"
+ },
+ {
+  "frame": "DX-Messages-Compose.dc.html",
+  "page": "system",
+  "title": "New notice with live preview",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Messages-Compose.webp"
+ },
+ {
+  "frame": "DX-Messages-Replies.dc.html",
+  "page": "system",
+  "title": "Parent replies",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Messages-Replies.webp"
+ },
+ {
+  "frame": "M-Messages.dc.html",
+  "page": "system",
+  "title": "Messages",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Messages.webp"
+ },
+ {
+  "frame": "M-Messages-Compose.dc.html",
+  "page": "system",
+  "title": "New notice",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Messages-Compose.webp"
+ },
+ {
+  "frame": "M-Messages-Preview.dc.html",
+  "page": "system",
+  "title": "Preview and send",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Messages-Preview.webp"
+ },
+ {
+  "frame": "M-Messages-Sending.dc.html",
+  "page": "system",
+  "title": "Sending",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Messages-Sending.webp"
+ },
+ {
+  "frame": "M-Messages-Templates.dc.html",
+  "page": "system",
+  "title": "New template",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Messages-Templates.webp"
+ },
+ {
+  "frame": "Settings.dc.html",
+  "page": "system",
+  "title": "Settings · school profile",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/Settings.webp"
+ },
+ {
+  "frame": "DX-Settings-Activity.dc.html",
+  "page": "system",
+  "title": "Activity log · before → after",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Settings-Activity.webp"
+ },
+ {
+  "frame": "DX-Settings-Backups.dc.html",
+  "page": "system",
+  "title": "Backups & archive",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Settings-Backups.webp"
+ },
+ {
+  "frame": "DX-Settings-Master.dc.html",
+  "page": "system",
+  "title": "Master data",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Settings-Master.webp"
+ },
+ {
+  "frame": "M-Settings.dc.html",
+  "page": "system",
+  "title": "Settings",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Settings.webp"
+ },
+ {
+  "frame": "M-Settings-Prefs.dc.html",
+  "page": "system",
+  "title": "Preferences · dark",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Settings-Prefs.webp"
+ },
+ {
+  "frame": "M-Settings-Restore.dc.html",
+  "page": "system",
+  "title": "Restore a backup",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Settings-Restore.webp"
+ },
+ {
+  "frame": "M-Settings-Integrations.dc.html",
+  "page": "system",
+  "title": "Integrations",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Settings-Integrations.webp"
+ },
+ {
+  "frame": "M-Settings-Glossary.dc.html",
+  "page": "system",
+  "title": "Glossary",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Settings-Glossary.webp"
+ },
+ {
+  "frame": "Auth.dc.html",
+  "page": "system",
+  "title": "Sign in",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/Auth.webp"
+ },
+ {
+  "frame": "DX-Auth-Offline.dc.html",
+  "page": "system",
+  "title": "Offline · receipts waiting to sync",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Auth-Offline.webp"
+ },
+ {
+  "frame": "DX-Auth-Denied.dc.html",
+  "page": "system",
+  "title": "No access · who to ask",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Auth-Denied.webp"
+ },
+ {
+  "frame": "DX-Auth-Expired.dc.html",
+  "page": "system",
+  "title": "Signed out after 8 hours",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/system/DX-Auth-Expired.webp"
+ },
+ {
+  "frame": "M-Auth.dc.html",
+  "page": "system",
+  "title": "Sign in",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Auth.webp"
+ },
+ {
+  "frame": "M-Auth-Error.dc.html",
+  "page": "system",
+  "title": "Wrong password",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Auth-Error.webp"
+ },
+ {
+  "frame": "M-Auth-Password.dc.html",
+  "page": "system",
+  "title": "Make your own password",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Auth-Password.webp"
+ },
+ {
+  "frame": "M-Auth-Session.dc.html",
+  "page": "system",
+  "title": "Pick session and role",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Auth-Session.webp"
+ },
+ {
+  "frame": "M-Auth-Update.dc.html",
+  "page": "system",
+  "title": "Update ready",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/system/M-Auth-Update.webp"
+ },
+ {
+  "frame": "TchHome.dc.html",
+  "page": "r-teacher",
+  "title": "Teacher · Today",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/TchHome.webp"
+ },
+ {
+  "frame": "DX-TchHome-Later.dc.html",
+  "page": "r-teacher",
+  "title": "Afternoon · all set",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchHome-Later.webp"
+ },
+ {
+  "frame": "DX-TchHome-Subs.dc.html",
+  "page": "r-teacher",
+  "title": "Substitution for you",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchHome-Subs.webp"
+ },
+ {
+  "frame": "DX-TchHome-News.dc.html",
+  "page": "r-teacher",
+  "title": "Notice from the office",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchHome-News.webp"
+ },
+ {
+  "frame": "M-TchHome.dc.html",
+  "page": "r-teacher",
+  "title": "Teacher · Today",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchHome.webp"
+ },
+ {
+  "frame": "M-TchHome-Later.dc.html",
+  "page": "r-teacher",
+  "title": "Afternoon · all set",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchHome-Later.webp"
+ },
+ {
+  "frame": "M-TchHome-Subs.dc.html",
+  "page": "r-teacher",
+  "title": "Substitution for you",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchHome-Subs.webp"
+ },
+ {
+  "frame": "M-TchHome-Leave.dc.html",
+  "page": "r-teacher",
+  "title": "Apply leave",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchHome-Leave.webp"
+ },
+ {
+  "frame": "M-TchHome-Link.dc.html",
+  "page": "r-teacher",
+  "title": "Marks link",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchHome-Link.webp"
+ },
+ {
+  "frame": "M-TchHome-Help.dc.html",
+  "page": "r-teacher",
+  "title": "Help · 3 steps",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchHome-Help.webp"
+ },
+ {
+  "frame": "TchAttend.dc.html",
+  "page": "r-teacher",
+  "title": "Mark attendance",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/TchAttend.webp"
+ },
+ {
+  "frame": "DX-TchAttend-Save.dc.html",
+  "page": "r-teacher",
+  "title": "Save attendance",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchAttend-Save.webp"
+ },
+ {
+  "frame": "DX-TchAttend-Saved.dc.html",
+  "page": "r-teacher",
+  "title": "Saved · change for 30 min",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchAttend-Saved.webp"
+ },
+ {
+  "frame": "DX-TchAttend-History.dc.html",
+  "page": "r-teacher",
+  "title": "October history",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchAttend-History.webp"
+ },
+ {
+  "frame": "M-TchAttend.dc.html",
+  "page": "r-teacher",
+  "title": "Mark attendance",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchAttend.webp"
+ },
+ {
+  "frame": "M-TchAttend-Marked2.dc.html",
+  "page": "r-teacher",
+  "title": "2 absent tapped",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchAttend-Marked2.webp"
+ },
+ {
+  "frame": "M-TchAttend-Save.dc.html",
+  "page": "r-teacher",
+  "title": "Save attendance",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchAttend-Save.webp"
+ },
+ {
+  "frame": "M-TchAttend-Saved.dc.html",
+  "page": "r-teacher",
+  "title": "Saved",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchAttend-Saved.webp"
+ },
+ {
+  "frame": "M-TchAttend-Change.dc.html",
+  "page": "r-teacher",
+  "title": "Ask the office to change",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchAttend-Change.webp"
+ },
+ {
+  "frame": "M-TchAttend-History.dc.html",
+  "page": "r-teacher",
+  "title": "October history",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchAttend-History.webp"
+ },
+ {
+  "frame": "TchClass.dc.html",
+  "page": "r-teacher",
+  "title": "My class · Class 6",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/TchClass.webp"
+ },
+ {
+  "frame": "DX-TchClass-Student.dc.html",
+  "page": "r-teacher",
+  "title": "Child page · Riya Singh",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchClass-Student.webp"
+ },
+ {
+  "frame": "DX-TchClass-Subject.dc.html",
+  "page": "r-teacher",
+  "title": "Class 7 Science · syllabus & notes",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchClass-Subject.webp"
+ },
+ {
+  "frame": "DX-TchClass-Roster.dc.html",
+  "page": "r-teacher",
+  "title": "All 31 children",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchClass-Roster.webp"
+ },
+ {
+  "frame": "M-TchClass.dc.html",
+  "page": "r-teacher",
+  "title": "My class",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchClass.webp"
+ },
+ {
+  "frame": "M-TchClass-Roster.dc.html",
+  "page": "r-teacher",
+  "title": "Children list",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchClass-Roster.webp"
+ },
+ {
+  "frame": "M-TchClass-Student.dc.html",
+  "page": "r-teacher",
+  "title": "Child page",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchClass-Student.webp"
+ },
+ {
+  "frame": "M-TchClass-Subjects.dc.html",
+  "page": "r-teacher",
+  "title": "My subjects",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchClass-Subjects.webp"
+ },
+ {
+  "frame": "M-TchClass-Subject.dc.html",
+  "page": "r-teacher",
+  "title": "Class 7 Science",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchClass-Subject.webp"
+ },
+ {
+  "frame": "TchNotes.dc.html",
+  "page": "r-teacher",
+  "title": "Notes on children",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/TchNotes.webp"
+ },
+ {
+  "frame": "DX-TchNotes-Add.dc.html",
+  "page": "r-teacher",
+  "title": "New note · speak or type",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchNotes-Add.webp"
+ },
+ {
+  "frame": "DX-TchNotes-Listening.dc.html",
+  "page": "r-teacher",
+  "title": "Listening · live words",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchNotes-Listening.webp"
+ },
+ {
+  "frame": "DX-TchNotes-Detail.dc.html",
+  "page": "r-teacher",
+  "title": "Note · status & replies",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchNotes-Detail.webp"
+ },
+ {
+  "frame": "DX-TchNotes-Plan.dc.html",
+  "page": "r-teacher",
+  "title": "Support plan",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchNotes-Plan.webp"
+ },
+ {
+  "frame": "M-TchNotes.dc.html",
+  "page": "r-teacher",
+  "title": "Notes on children",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchNotes.webp"
+ },
+ {
+  "frame": "M-TchNotes-Add.dc.html",
+  "page": "r-teacher",
+  "title": "New note",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchNotes-Add.webp"
+ },
+ {
+  "frame": "M-TchNotes-Listening.dc.html",
+  "page": "r-teacher",
+  "title": "Listening",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchNotes-Listening.webp"
+ },
+ {
+  "frame": "M-TchNotes-Review.dc.html",
+  "page": "r-teacher",
+  "title": "Check and save",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchNotes-Review.webp"
+ },
+ {
+  "frame": "M-TchNotes-Saved.dc.html",
+  "page": "r-teacher",
+  "title": "Saved",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchNotes-Saved.webp"
+ },
+ {
+  "frame": "M-TchNotes-Detail.dc.html",
+  "page": "r-teacher",
+  "title": "Note detail",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchNotes-Detail.webp"
+ },
+ {
+  "frame": "TchMarks.dc.html",
+  "page": "r-teacher",
+  "title": "Marks · what to fill",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/TchMarks.webp"
+ },
+ {
+  "frame": "DX-TchMarks-Entry.dc.html",
+  "page": "r-teacher",
+  "title": "Enter marks · list + live stats",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchMarks-Entry.webp"
+ },
+ {
+  "frame": "DX-TchMarks-Check.dc.html",
+  "page": "r-teacher",
+  "title": "Check before sending",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchMarks-Check.webp"
+ },
+ {
+  "frame": "DX-TchMarks-Remarks.dc.html",
+  "page": "r-teacher",
+  "title": "Report card remarks",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchMarks-Remarks.webp"
+ },
+ {
+  "frame": "M-TchMarks.dc.html",
+  "page": "r-teacher",
+  "title": "Marks · what to fill",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMarks.webp"
+ },
+ {
+  "frame": "M-TchMarks-Keypad.dc.html",
+  "page": "r-teacher",
+  "title": "Number pad entry",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMarks-Keypad.webp"
+ },
+ {
+  "frame": "M-TchMarks-Entry.dc.html",
+  "page": "r-teacher",
+  "title": "Type marks in a list",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMarks-Entry.webp"
+ },
+ {
+  "frame": "M-TchMarks-Check.dc.html",
+  "page": "r-teacher",
+  "title": "Check before sending",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMarks-Check.webp"
+ },
+ {
+  "frame": "M-TchMarks-Submitted.dc.html",
+  "page": "r-teacher",
+  "title": "Marks sent",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMarks-Submitted.webp"
+ },
+ {
+  "frame": "M-TchMarks-Remarks.dc.html",
+  "page": "r-teacher",
+  "title": "Report card remarks",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMarks-Remarks.webp"
+ },
+ {
+  "frame": "TchMore.dc.html",
+  "page": "r-teacher",
+  "title": "More · overview",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/TchMore.webp"
+ },
+ {
+  "frame": "DX-TchMore-News.dc.html",
+  "page": "r-teacher",
+  "title": "Notices from the office",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchMore-News.webp"
+ },
+ {
+  "frame": "DX-TchMore-Links.dc.html",
+  "page": "r-teacher",
+  "title": "My marks links (Sampark)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchMore-Links.webp"
+ },
+ {
+  "frame": "DX-TchMore-Timetable.dc.html",
+  "page": "r-teacher",
+  "title": "My week",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchMore-Timetable.webp"
+ },
+ {
+  "frame": "DX-TchMore-Profile.dc.html",
+  "page": "r-teacher",
+  "title": "My profile",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-teacher/DX-TchMore-Profile.webp"
+ },
+ {
+  "frame": "M-TchMore.dc.html",
+  "page": "r-teacher",
+  "title": "More tab",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMore.webp"
+ },
+ {
+  "frame": "M-TchMore-News.dc.html",
+  "page": "r-teacher",
+  "title": "Notices",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMore-News.webp"
+ },
+ {
+  "frame": "M-TchMore-Links.dc.html",
+  "page": "r-teacher",
+  "title": "Marks links",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMore-Links.webp"
+ },
+ {
+  "frame": "M-TchMore-Timetable.dc.html",
+  "page": "r-teacher",
+  "title": "Today's periods",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMore-Timetable.webp"
+ },
+ {
+  "frame": "M-TchMore-Leave.dc.html",
+  "page": "r-teacher",
+  "title": "Apply leave",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMore-Leave.webp"
+ },
+ {
+  "frame": "M-TchMore-Help.dc.html",
+  "page": "r-teacher",
+  "title": "How do I…",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-teacher/M-TchMore-Help.webp"
+ },
+ {
+  "frame": "AccHome.dc.html",
+  "page": "r-accountant",
+  "title": "Accountant · today",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/AccHome.webp"
+ },
+ {
+  "frame": "DX-AccHome-Menu.dc.html",
+  "page": "r-accountant",
+  "title": "Menu · every place",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-AccHome-Menu.webp"
+ },
+ {
+  "frame": "DX-AccHome-Evening.dc.html",
+  "page": "r-accountant",
+  "title": "Evening · after day close",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-AccHome-Evening.webp"
+ },
+ {
+  "frame": "DX-AccHome-Dark.dc.html",
+  "page": "r-accountant",
+  "title": "Today · dark",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-AccHome-Dark.webp"
+ },
+ {
+  "frame": "M-AccHome.dc.html",
+  "page": "r-accountant",
+  "title": "Today",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccHome.webp"
+ },
+ {
+  "frame": "M-AccHome-Menu.dc.html",
+  "page": "r-accountant",
+  "title": "Menu",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccHome-Menu.webp"
+ },
+ {
+  "frame": "M-AccHome-Evening.dc.html",
+  "page": "r-accountant",
+  "title": "Evening · day closed",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccHome-Evening.webp"
+ },
+ {
+  "frame": "M-AccHome-Dark.dc.html",
+  "page": "r-accountant",
+  "title": "Today · dark",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccHome-Dark.webp"
+ },
+ {
+  "frame": "PayDesk.dc.html",
+  "page": "r-accountant",
+  "title": "Payment Desk · pick a student",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/PayDesk.webp"
+ },
+ {
+  "frame": "DX-PayDesk-Amount.dc.html",
+  "page": "r-accountant",
+  "title": "₹7,000 by UPI · where it goes",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-PayDesk-Amount.webp"
+ },
+ {
+  "frame": "DX-PayDesk-Saved.dc.html",
+  "page": "r-accountant",
+  "title": "Saved · receipt SVP20261008-0015",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-PayDesk-Saved.webp"
+ },
+ {
+  "frame": "DX-PayDesk-Bulk.dc.html",
+  "page": "r-accountant",
+  "title": "Enter many payments · admin only",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-PayDesk-Bulk.webp"
+ },
+ {
+  "frame": "M-PayDesk.dc.html",
+  "page": "r-accountant",
+  "title": "Find a student",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-PayDesk.webp"
+ },
+ {
+  "frame": "M-PayDesk-Student.dc.html",
+  "page": "r-accountant",
+  "title": "Dues · enter the payment",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-PayDesk-Student.webp"
+ },
+ {
+  "frame": "M-PayDesk-Amount.dc.html",
+  "page": "r-accountant",
+  "title": "₹7,000 · where it goes",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-PayDesk-Amount.webp"
+ },
+ {
+  "frame": "M-PayDesk-Confirm.dc.html",
+  "page": "r-accountant",
+  "title": "Check and save",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-PayDesk-Confirm.webp"
+ },
+ {
+  "frame": "M-PayDesk-Saved.dc.html",
+  "page": "r-accountant",
+  "title": "Saved · receipt",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-PayDesk-Saved.webp"
+ },
+ {
+  "frame": "M-PayDesk-Duplicate.dc.html",
+  "page": "r-accountant",
+  "title": "Already saved?",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-PayDesk-Duplicate.webp"
+ },
+ {
+  "frame": "AccBooks.dc.html",
+  "page": "r-accountant",
+  "title": "Cheques to deposit",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/AccBooks.webp"
+ },
+ {
+  "frame": "DX-AccBooks-Deposit.dc.html",
+  "page": "r-accountant",
+  "title": "Deposit slip",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-AccBooks-Deposit.webp"
+ },
+ {
+  "frame": "DX-AccBooks-Upi.dc.html",
+  "page": "r-accountant",
+  "title": "UPI matching",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-AccBooks-Upi.webp"
+ },
+ {
+  "frame": "DX-AccBooks-Bounce.dc.html",
+  "page": "r-accountant",
+  "title": "Cheque bounced",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-AccBooks-Bounce.webp"
+ },
+ {
+  "frame": "DX-AccBooks-Requests.dc.html",
+  "page": "r-accountant",
+  "title": "My requests to the admin",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/DX-AccBooks-Requests.webp"
+ },
+ {
+  "frame": "M-AccBooks.dc.html",
+  "page": "r-accountant",
+  "title": "Cheques",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccBooks.webp"
+ },
+ {
+  "frame": "M-AccBooks-Deposit.dc.html",
+  "page": "r-accountant",
+  "title": "Deposit slip",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccBooks-Deposit.webp"
+ },
+ {
+  "frame": "M-AccBooks-Bounce.dc.html",
+  "page": "r-accountant",
+  "title": "Cheque bounced",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccBooks-Bounce.webp"
+ },
+ {
+  "frame": "M-AccBooks-Upi.dc.html",
+  "page": "r-accountant",
+  "title": "UPI matching",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccBooks-Upi.webp"
+ },
+ {
+  "frame": "M-AccBooks-Refunds.dc.html",
+  "page": "r-accountant",
+  "title": "Refunds & advances",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccBooks-Refunds.webp"
+ },
+ {
+  "frame": "M-AccBooks-Requests.dc.html",
+  "page": "r-accountant",
+  "title": "My requests",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/M-AccBooks-Requests.webp"
+ },
+ {
+  "frame": "AC-Fees.dc.html",
+  "page": "r-accountant",
+  "title": "Receipts & day close (accountant)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/AC-Fees.webp"
+ },
+ {
+  "frame": "AC-Dues.dc.html",
+  "page": "r-accountant",
+  "title": "Dues & calls (accountant)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/AC-Dues.webp"
+ },
+ {
+  "frame": "AC-Reminders.dc.html",
+  "page": "r-accountant",
+  "title": "Fee reminders (accountant)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/AC-Reminders.webp"
+ },
+ {
+  "frame": "AC-Reports.dc.html",
+  "page": "r-accountant",
+  "title": "Reports (accountant)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/AC-Reports.webp"
+ },
+ {
+  "frame": "AC-FeeSetup.dc.html",
+  "page": "r-accountant",
+  "title": "Fee setup (accountant view)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-accountant/AC-FeeSetup.webp"
+ },
+ {
+  "frame": "MAC-Fees.dc.html",
+  "page": "r-accountant",
+  "title": "Receipts (accountant)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/MAC-Fees.webp"
+ },
+ {
+  "frame": "MAC-Dues.dc.html",
+  "page": "r-accountant",
+  "title": "Dues (accountant)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/MAC-Dues.webp"
+ },
+ {
+  "frame": "MAC-Reminders.dc.html",
+  "page": "r-accountant",
+  "title": "Fee reminders (accountant)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/MAC-Reminders.webp"
+ },
+ {
+  "frame": "MAC-Reports.dc.html",
+  "page": "r-accountant",
+  "title": "Reports (accountant)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/MAC-Reports.webp"
+ },
+ {
+  "frame": "MAC-FeeSetup.dc.html",
+  "page": "r-accountant",
+  "title": "Fee setup (accountant)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-accountant/MAC-FeeSetup.webp"
+ },
+ {
+  "frame": "AcadHome.dc.html",
+  "page": "r-academic",
+  "title": "Coordinator · Today",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/AcadHome.webp"
+ },
+ {
+  "frame": "DX-AcadHome-Week.dc.html",
+  "page": "r-academic",
+  "title": "Weekly summary for the principal",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadHome-Week.webp"
+ },
+ {
+  "frame": "DX-AcadHome-Remind.dc.html",
+  "page": "r-academic",
+  "title": "Remind 7 late teachers",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadHome-Remind.webp"
+ },
+ {
+  "frame": "DX-AcadHome-Dark.dc.html",
+  "page": "r-academic",
+  "title": "Today · dark",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadHome-Dark.webp"
+ },
+ {
+  "frame": "M-AcadHome.dc.html",
+  "page": "r-academic",
+  "title": "Today",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadHome.webp"
+ },
+ {
+  "frame": "M-AcadHome-Menu.dc.html",
+  "page": "r-academic",
+  "title": "Menu",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadHome-Menu.webp"
+ },
+ {
+  "frame": "M-AcadHome-Remind.dc.html",
+  "page": "r-academic",
+  "title": "Remind late teachers",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadHome-Remind.webp"
+ },
+ {
+  "frame": "M-AcadHome-Week.dc.html",
+  "page": "r-academic",
+  "title": "Weekly summary",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadHome-Week.webp"
+ },
+ {
+  "frame": "AcadProgress.dc.html",
+  "page": "r-academic",
+  "title": "Student progress · all classes",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/AcadProgress.webp"
+ },
+ {
+  "frame": "DX-AcadProgress-Student.dc.html",
+  "page": "r-academic",
+  "title": "Mohit Agarwal · Class 9",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadProgress-Student.webp"
+ },
+ {
+  "frame": "DX-AcadProgress-Class.dc.html",
+  "page": "r-academic",
+  "title": "Class 9 · Half-yearly",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadProgress-Class.webp"
+ },
+ {
+  "frame": "DX-AcadProgress-Attention.dc.html",
+  "page": "r-academic",
+  "title": "Needs attention · 23",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadProgress-Attention.webp"
+ },
+ {
+  "frame": "DX-AcadProgress-Plan.dc.html",
+  "page": "r-academic",
+  "title": "Support plan · Mohit",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadProgress-Plan.webp"
+ },
+ {
+  "frame": "M-AcadProgress.dc.html",
+  "page": "r-academic",
+  "title": "Student progress",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadProgress.webp"
+ },
+ {
+  "frame": "M-AcadProgress-Student.dc.html",
+  "page": "r-academic",
+  "title": "Mohit Agarwal",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadProgress-Student.webp"
+ },
+ {
+  "frame": "M-AcadProgress-Class.dc.html",
+  "page": "r-academic",
+  "title": "Class 9",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadProgress-Class.webp"
+ },
+ {
+  "frame": "M-AcadProgress-Attention.dc.html",
+  "page": "r-academic",
+  "title": "Needs attention",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadProgress-Attention.webp"
+ },
+ {
+  "frame": "M-AcadProgress-Plan.dc.html",
+  "page": "r-academic",
+  "title": "Support plan",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadProgress-Plan.webp"
+ },
+ {
+  "frame": "M-AcadProgress-Compare.dc.html",
+  "page": "r-academic",
+  "title": "Compare classes",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadProgress-Compare.webp"
+ },
+ {
+  "frame": "AcadAttendance.dc.html",
+  "page": "r-academic",
+  "title": "Attendance · today (coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/AcadAttendance.webp"
+ },
+ {
+  "frame": "DX-AcadAttendance-Month.dc.html",
+  "page": "r-academic",
+  "title": "October, day by day",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadAttendance-Month.webp"
+ },
+ {
+  "frame": "DX-AcadAttendance-Register.dc.html",
+  "page": "r-academic",
+  "title": "Class 6 register · October",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadAttendance-Register.webp"
+ },
+ {
+  "frame": "DX-AcadAttendance-Corrections.dc.html",
+  "page": "r-academic",
+  "title": "Change requests",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadAttendance-Corrections.webp"
+ },
+ {
+  "frame": "DX-AcadAttendance-Mark.dc.html",
+  "page": "r-academic",
+  "title": "Mark Class 9 for a teacher on leave",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/DX-AcadAttendance-Mark.webp"
+ },
+ {
+  "frame": "M-AcadAttendance.dc.html",
+  "page": "r-academic",
+  "title": "Attendance · today",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadAttendance.webp"
+ },
+ {
+  "frame": "M-AcadAttendance-Remind.dc.html",
+  "page": "r-academic",
+  "title": "Remind 2 teachers",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadAttendance-Remind.webp"
+ },
+ {
+  "frame": "M-AcadAttendance-Chronic.dc.html",
+  "page": "r-academic",
+  "title": "Below 75%",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadAttendance-Chronic.webp"
+ },
+ {
+  "frame": "M-AcadAttendance-Corrections.dc.html",
+  "page": "r-academic",
+  "title": "Change requests",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadAttendance-Corrections.webp"
+ },
+ {
+  "frame": "M-AcadAttendance-Register.dc.html",
+  "page": "r-academic",
+  "title": "Class 6 register",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadAttendance-Register.webp"
+ },
+ {
+  "frame": "M-AcadAttendance-Month.dc.html",
+  "page": "r-academic",
+  "title": "This month",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/M-AcadAttendance-Month.webp"
+ },
+ {
+  "frame": "AD-Notes.dc.html",
+  "page": "r-academic",
+  "title": "Notes on children (coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/AD-Notes.webp"
+ },
+ {
+  "frame": "AD-Exams.dc.html",
+  "page": "r-academic",
+  "title": "Marks & results (coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/AD-Exams.webp"
+ },
+ {
+  "frame": "AD-Timetable.dc.html",
+  "page": "r-academic",
+  "title": "Timetable (coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/AD-Timetable.webp"
+ },
+ {
+  "frame": "AD-Calendar.dc.html",
+  "page": "r-academic",
+  "title": "Calendar (coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-academic/AD-Calendar.webp"
+ },
+ {
+  "frame": "MAD-Notes.dc.html",
+  "page": "r-academic",
+  "title": "Notes on children (coordinator)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/MAD-Notes.webp"
+ },
+ {
+  "frame": "MAD-Exams.dc.html",
+  "page": "r-academic",
+  "title": "Results (coordinator)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/MAD-Exams.webp"
+ },
+ {
+  "frame": "MAD-Timetable.dc.html",
+  "page": "r-academic",
+  "title": "Timetable (coordinator)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/MAD-Timetable.webp"
+ },
+ {
+  "frame": "MAD-Calendar.dc.html",
+  "page": "r-academic",
+  "title": "Calendar (coordinator)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-academic/MAD-Calendar.webp"
+ },
+ {
+  "frame": "ExamHome.dc.html",
+  "page": "r-exam",
+  "title": "Exam coordinator · today",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/ExamHome.webp"
+ },
+ {
+  "frame": "DX-ExamHome-Checklist.dc.html",
+  "page": "r-exam",
+  "title": "Unit Test 2 checklist",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamHome-Checklist.webp"
+ },
+ {
+  "frame": "DX-ExamHome-Late.dc.html",
+  "page": "r-exam",
+  "title": "Late teachers",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamHome-Late.webp"
+ },
+ {
+  "frame": "DX-ExamHome-Dark.dc.html",
+  "page": "r-exam",
+  "title": "Today · dark",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamHome-Dark.webp"
+ },
+ {
+  "frame": "M-ExamHome.dc.html",
+  "page": "r-exam",
+  "title": "Exam coordinator · today",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamHome.webp"
+ },
+ {
+  "frame": "M-ExamHome-Menu.dc.html",
+  "page": "r-exam",
+  "title": "Menu",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamHome-Menu.webp"
+ },
+ {
+  "frame": "M-ExamHome-Checklist.dc.html",
+  "page": "r-exam",
+  "title": "Unit Test 2 checklist",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamHome-Checklist.webp"
+ },
+ {
+  "frame": "M-ExamHome-Late.dc.html",
+  "page": "r-exam",
+  "title": "Late teachers",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamHome-Late.webp"
+ },
+ {
+  "frame": "M-ExamHome-Remind.dc.html",
+  "page": "r-exam",
+  "title": "Remind late teachers",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamHome-Remind.webp"
+ },
+ {
+  "frame": "ExamPlan.dc.html",
+  "page": "r-exam",
+  "title": "Unit Test 2 · date sheet",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/ExamPlan.webp"
+ },
+ {
+  "frame": "DX-ExamPlan-Clash.dc.html",
+  "page": "r-exam",
+  "title": "Fix a clash",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamPlan-Clash.webp"
+ },
+ {
+  "frame": "DX-ExamPlan-Room.dc.html",
+  "page": "r-exam",
+  "title": "Room 4 · seat chart",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamPlan-Room.webp"
+ },
+ {
+  "frame": "DX-ExamPlan-Duties.dc.html",
+  "page": "r-exam",
+  "title": "Invigilation duties",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamPlan-Duties.webp"
+ },
+ {
+  "frame": "DX-ExamPlan-Publish.dc.html",
+  "page": "r-exam",
+  "title": "Publish the date sheet",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamPlan-Publish.webp"
+ },
+ {
+  "frame": "M-ExamPlan.dc.html",
+  "page": "r-exam",
+  "title": "Date sheet",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamPlan.webp"
+ },
+ {
+  "frame": "M-ExamPlan-Slot.dc.html",
+  "page": "r-exam",
+  "title": "Change a paper",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamPlan-Slot.webp"
+ },
+ {
+  "frame": "M-ExamPlan-Seating.dc.html",
+  "page": "r-exam",
+  "title": "Seating",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamPlan-Seating.webp"
+ },
+ {
+  "frame": "M-ExamPlan-Room.dc.html",
+  "page": "r-exam",
+  "title": "Room 4 · seats",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamPlan-Room.webp"
+ },
+ {
+  "frame": "M-ExamPlan-Duties.dc.html",
+  "page": "r-exam",
+  "title": "Duties",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamPlan-Duties.webp"
+ },
+ {
+  "frame": "M-ExamPlan-Papers.dc.html",
+  "page": "r-exam",
+  "title": "Question papers",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamPlan-Papers.webp"
+ },
+ {
+  "frame": "ExamResults.dc.html",
+  "page": "r-exam",
+  "title": "Half-yearly results · pipeline",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/ExamResults.webp"
+ },
+ {
+  "frame": "DX-ExamResults-Moderation.dc.html",
+  "page": "r-exam",
+  "title": "Check marks",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamResults-Moderation.webp"
+ },
+ {
+  "frame": "DX-ExamResults-Grace.dc.html",
+  "page": "r-exam",
+  "title": "Grace marks",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamResults-Grace.webp"
+ },
+ {
+  "frame": "DX-ExamResults-Cards.dc.html",
+  "page": "r-exam",
+  "title": "Report cards ready",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamResults-Cards.webp"
+ },
+ {
+  "frame": "DX-ExamResults-Recheck.dc.html",
+  "page": "r-exam",
+  "title": "Re-check requests",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/DX-ExamResults-Recheck.webp"
+ },
+ {
+  "frame": "M-ExamResults.dc.html",
+  "page": "r-exam",
+  "title": "Results pipeline",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamResults.webp"
+ },
+ {
+  "frame": "M-ExamResults-Moderation.dc.html",
+  "page": "r-exam",
+  "title": "Check marks",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamResults-Moderation.webp"
+ },
+ {
+  "frame": "M-ExamResults-Lock.dc.html",
+  "page": "r-exam",
+  "title": "Lock marks",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamResults-Lock.webp"
+ },
+ {
+  "frame": "M-ExamResults-Publish.dc.html",
+  "page": "r-exam",
+  "title": "Publish results",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamResults-Publish.webp"
+ },
+ {
+  "frame": "M-ExamResults-Recheck.dc.html",
+  "page": "r-exam",
+  "title": "Re-check a mark",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/M-ExamResults-Recheck.webp"
+ },
+ {
+  "frame": "EX-Exams.dc.html",
+  "page": "r-exam",
+  "title": "Marks tracker (exam coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/EX-Exams.webp"
+ },
+ {
+  "frame": "EX-Calendar.dc.html",
+  "page": "r-exam",
+  "title": "Calendar (exam coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/EX-Calendar.webp"
+ },
+ {
+  "frame": "EX-Messages.dc.html",
+  "page": "r-exam",
+  "title": "Notices (exam coordinator)",
+  "w": 1440,
+  "h": 900,
+  "screenshot": "screenshots/r-exam/EX-Messages.webp"
+ },
+ {
+  "frame": "MEX-Exams.dc.html",
+  "page": "r-exam",
+  "title": "Marks tracker (exam coordinator)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/MEX-Exams.webp"
+ },
+ {
+  "frame": "MEX-Calendar.dc.html",
+  "page": "r-exam",
+  "title": "Calendar (exam coordinator)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/MEX-Calendar.webp"
+ },
+ {
+  "frame": "MEX-Messages.dc.html",
+  "page": "r-exam",
+  "title": "Notices (exam coordinator)",
+  "w": 390,
+  "h": 844,
+  "screenshot": "screenshots/r-exam/MEX-Messages.webp"
+ }
+]

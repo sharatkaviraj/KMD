@@ -1,0 +1,13 @@
+[
+  {"file": "AcadProgress.dc.html", "device": "desktop", "title": "Student progress · all classes"},
+  {"file": "DX-AcadProgress-Student.dc.html", "device": "desktop", "start": "student", "title": "Mohit Agarwal · Class 9"},
+  {"file": "DX-AcadProgress-Class.dc.html", "device": "desktop", "start": "class", "title": "Class 9 · Half-yearly"},
+  {"file": "DX-AcadProgress-Attention.dc.html", "device": "desktop", "start": "attention", "title": "Needs attention · 23"},
+  {"file": "DX-AcadProgress-Plan.dc.html", "device": "desktop", "start": "plan", "title": "Support plan · Mohit"},
+  {"file": "M-AcadProgress.dc.html", "device": "phone", "start": "overview", "title": "Student progress"},
+  {"file": "M-AcadProgress-Student.dc.html", "device": "phone", "start": "student", "title": "Mohit Agarwal"},
+  {"file": "M-AcadProgress-Class.dc.html", "device": "phone", "start": "class", "title": "Class 9"},
+  {"file": "M-AcadProgress-Attention.dc.html", "device": "phone", "start": "attention", "title": "Needs attention"},
+  {"file": "M-AcadProgress-Plan.dc.html", "device": "phone", "start": "plan", "title": "Support plan"},
+  {"file": "M-AcadProgress-Compare.dc.html", "device": "phone", "start": "compare", "title": "Compare classes"}
+]

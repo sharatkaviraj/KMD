@@ -1,0 +1,11 @@
+[
+  {"file": "TchClass.dc.html", "device": "desktop", "title": "My class · Class 6"},
+  {"file": "DX-TchClass-Student.dc.html", "device": "desktop", "start": "student", "title": "Child page · Riya Singh"},
+  {"file": "DX-TchClass-Subject.dc.html", "device": "desktop", "start": "subject", "title": "Class 7 Science · syllabus & notes"},
+  {"file": "DX-TchClass-Roster.dc.html", "device": "desktop", "start": "roster", "title": "All 31 children"},
+  {"file": "M-TchClass.dc.html", "device": "phone", "start": "class", "title": "My class"},
+  {"file": "M-TchClass-Roster.dc.html", "device": "phone", "start": "roster", "title": "Children list"},
+  {"file": "M-TchClass-Student.dc.html", "device": "phone", "start": "student", "title": "Child page"},
+  {"file": "M-TchClass-Subjects.dc.html", "device": "phone", "start": "subjects", "title": "My subjects"},
+  {"file": "M-TchClass-Subject.dc.html", "device": "phone", "start": "subject", "title": "Class 7 Science"}
+]

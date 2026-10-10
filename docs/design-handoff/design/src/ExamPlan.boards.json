@@ -1,0 +1,13 @@
+[
+  {"file": "ExamPlan.dc.html", "device": "desktop", "title": "Unit Test 2 · date sheet"},
+  {"file": "DX-ExamPlan-Clash.dc.html", "device": "desktop", "start": "clash", "title": "Fix a clash"},
+  {"file": "DX-ExamPlan-Room.dc.html", "device": "desktop", "start": "room", "title": "Room 4 · seat chart"},
+  {"file": "DX-ExamPlan-Duties.dc.html", "device": "desktop", "start": "duties", "title": "Invigilation duties"},
+  {"file": "DX-ExamPlan-Publish.dc.html", "device": "desktop", "start": "publish", "title": "Publish the date sheet"},
+  {"file": "M-ExamPlan.dc.html", "device": "phone", "start": "datesheet", "title": "Date sheet"},
+  {"file": "M-ExamPlan-Slot.dc.html", "device": "phone", "start": "slot", "title": "Change a paper"},
+  {"file": "M-ExamPlan-Seating.dc.html", "device": "phone", "start": "seating", "title": "Seating"},
+  {"file": "M-ExamPlan-Room.dc.html", "device": "phone", "start": "room", "title": "Room 4 · seats"},
+  {"file": "M-ExamPlan-Duties.dc.html", "device": "phone", "start": "duties", "title": "Duties"},
+  {"file": "M-ExamPlan-Papers.dc.html", "device": "phone", "start": "papers", "title": "Question papers"}
+]

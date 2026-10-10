@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notes on children</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.co{display:flex;flex-direction:column}.ro{display:flex;align-items:center}.wr{flex-wrap:wrap}.fx{flex:1;min-width:0}.mu{color:var(--mut)}.sm{font-size:12px;color:var(--mut)}.b7{font-weight:700}.b6{font-weight:600}
+.f12{font-size:12px}.f13{font-size:13px}.f14{font-size:14px}.f15{font-size:15px}.f16{font-size:16px}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}.ib{flex:none;display:flex;align-items:center;justify-content:center}.ic{flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px}
+.ani{animation:xIn .32s var(--ease) both}.bar{display:flex;height:10px;border-radius:5px;background:var(--s3);overflow:hidden}.bar>*{height:100%;border-radius:inherit;transition:width .5s var(--ease)}
+.nt{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.hn{font-size:11px;font-weight:500;color:var(--mut)}
+.big{height:52px;font-size:15px;padding:0 20px}.sbody{flex:1;min-height:0;padding:4px 20px 12px;display:flex;flex-direction:column;gap:12px}.sfoot{flex:none;display:flex;align-items:center;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.srch{position:relative;display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--bds);background:var(--card);color:var(--mut)}.srch input{flex:1;min-width:0;height:40px;border:0;outline:none;background:transparent;font-size:15px}
+.lang{flex:none;height:36px;padding:3px;border-radius:18px;border:1px solid var(--bd);background:var(--s2);display:inline-flex;gap:2px}.lang>span{min-width:32px;height:28px;padding:0 6px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mut);transition:background-color .2s ease,color .2s ease}.lang>span.y{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
+.vx a.pri{color:var(--prifg)}.vx a.soft{color:var(--accfg)}.sg>button{height:46px}.cd{padding:16px 18px;gap:12px}.hd{display:flex;align-items:center;gap:12px}.st{flex:none;width:28px;height:28px;border-radius:14px;background:var(--pri);color:var(--prifg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.sbar{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 28px;border-top:1px solid var(--bd)}.sbar .rt{min-width:200px}.fab{position:absolute;right:28px;bottom:28px;z-index:6;height:60px;padding:0 24px 0 18px;border-radius:30px;font-size:16px;box-shadow:0 16px 30px -12px rgba(11,79,121,.7)}
+.mic{width:64px;height:64px;border-radius:32px;background:var(--pri);color:var(--prifg);display:flex;align-items:center;justify-content:center;box-shadow:0 14px 26px -12px rgba(11,79,121,.8)}.wv{width:6px;border-radius:3px;background:var(--acc);transform-origin:center;animation:xWave .9s ease-in-out infinite}
+.wd{animation:xFade .3s ease both}.caret{display:inline-block;width:2px;height:1.05em;margin-left:2px;background:var(--acc);vertical-align:-3px;animation:xCaret 1s steps(1) infinite}.rip{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:50%;background:var(--pri);animation:xRipple 1.6s ease-out infinite}
+.wa{display:flex;flex-direction:column;align-items:flex-end;padding:12px;border-radius:14px;background:var(--wabg)}.wa>div{max-width:92%;padding:8px 10px 6px;border-radius:10px 10px 2px 10px;background:var(--wab);color:var(--wafg);font-size:13px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12)}.wa span{display:block}
+.qp{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:0;padding:6px 12px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;line-height:1.3;text-align:left}
+.hb{height:64px;padding:0 28px}
+@container vx (max-width:899px){.vx .hb{height:auto;min-height:58px;padding:6px 8px}.vx .f14{font-size:15px}.vx .f15{font-size:16px}.vx .big{height:56px;font-size:16px}.vx .sbar{padding:10px 16px;gap:6px}.vx .sbar .rt{order:2;min-width:0;width:100%;text-align:center}.vx .sbar .rt>.f14{display:none}.vx .fab{right:16px;bottom:92px}.vx .srch input{font-size:16px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position:relative;width:100%;height:100vh;min-height:560px;overflow:hidden;display:flex;background:var(--bg);color:var(--fg);font-family:Inter, 'Noto Sans Devanagari', system-ui, sans-serif;font-size:14px;line-height:1.45">
+<div class="only-d" style="flex:none;height:100%"><dc-import name="XSide" active="notes" role="teacher" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div class="co" style="flex:1;min-width:0;min-height:0;position:relative">
+<header class="glass ro hb" style="flex:none;gap:6px;border-bottom:1px solid var(--bd);position:relative;z-index:5">
+<sc-if value="{{top.mLink}}"><a href="M-TchMore.dc.html" class="only-m tap ib" aria-label="Back to menu" style="width:44px;height:44px;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.back}}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<div class="co fx" style="padding-left:2px"><span class="sm only-d">{{top.crumb}}</span><span class="serif el only-d" style="font-size:22px;font-weight:600;line-height:1.15">{{top.title}}</span><span class="el only-m" style="font-size:17px;font-weight:700">{{top.mTitle}}</span><span class="sm el only-m">{{top.mSub}}</span></div>
+<button class="tap lang" type="button" role="switch" aria-checked="{{lng.on}}" aria-label="Show labels in Hindi" onClick="{{lng.flip}}"><span class="{{lng.en}}">EN</span><span class="{{lng.hi}}">हि</span></button>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{openHelp}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+<main class="scroll" style="flex:1;min-height:0;position:relative">
+<sc-if value="{{is.list}}">
+<div class="pad co" style="padding:18px 28px 120px;gap:18px;animation:{{anim}}">
+<div class="card rise ro wr" style="padding:16px 18px;gap:14px;background:var(--accs);border-color:transparent">
+<span class="ic" style="width:48px;height:48px;background:var(--card);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.note}}"></path></svg></span>
+<span class="co fx" style="min-width:200px"><span class="f16 b7" style="color:var(--accfg)">{{lb.intro.a}}</span><span class="f13" style="color:var(--accfg)">{{lb.intro.b}} · Speak or type. It gets noted and followed up.</span></span>
+<span class="ro" style="gap:8px"><sc-for list="{{kpis}}" as="k"><span class="co" style="align-items:center;min-width:64px;padding:6px 10px;border-radius:12px;background:var(--card)"><span class="num b7" style="font-size:20px;color:{{k.c}}">{{k.n}}</span><span class="sm" style="white-space:nowrap">{{k.l}}</span></span></sc-for></span>
+</div>
+<div class="co" style="gap:10px">
+<div class="hs ro" style="gap:8px"><sc-for list="{{tagChips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{c.icon}}"></path></svg>{{c.label}}</button></sc-for></div>
+<div class="seg" style="grid-template-columns:repeat(4,minmax(0,1fr));max-width:460px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 4);transform:translateX({{clsSeg.thumb}})"></span><sc-for list="{{clsSeg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.a}}</button></sc-for></div>
+</div>
+<sc-for list="{{secs}}" as="g">
+<div class="co" style="gap:10px">
+<div class="ro" style="gap:8px"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px;color:{{g.c}}" aria-hidden="true"><path d="{{g.icon}}"></path></svg><span class="sech" style="color:{{g.c}}">{{g.title}}</span><span class="hn">· {{g.hi}}</span><span class="pill num" style="background:var(--s3);color:var(--mut)">{{g.n}}</span></div>
+<div class="g2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+<sc-for list="{{g.notes}}" as="n">
+<button class="tap card lift co ani" type="button" onClick="{{n.open}}" style="width:100%;padding:14px 16px;gap:10px;text-align:left;color:var(--fg);border-left:4px solid {{n.c}};background:{{g.bg}};animation-delay:{{n.delay}}">
+<sc-if value="{{n.dueTop}}"><span class="ro f13 b7" style="gap:6px;color:var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{ic.bell}}"></path></svg>{{n.dueBig}}</span></sc-if>
+<span class="ro" style="gap:10px;width:100%"><span class="av f13" style="width:40px;height:40px;background:{{n.abg}};color:{{n.afg}}">{{n.ini}}</span><span class="co fx"><span class="f15 b7 el">{{n.kid}}</span><span class="sm el">{{n.sub}}</span></span><span class="pill" style="background:{{n.sbg}};color:{{n.sfg}}">{{n.status}}</span></span>
+<span class="f14" style="line-height:1.5">{{n.text}}</span>
+<span class="ro wr" style="gap:6px"><sc-for list="{{n.tags}}" as="t"><span class="pill" style="background:{{t.bg}};color:{{t.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px" aria-hidden="true"><path d="{{t.icon}}"></path></svg>{{t.label}}</span></sc-for><sc-if value="{{n.hasDue}}"><span class="pill" style="background:var(--s2);color:var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{n.due}}</span></sc-if><sc-if value="{{n.priv}}"><span class="pill" style="background:var(--s2);color:var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px" aria-hidden="true"><path d="{{ic.eyeOff}}"></path></svg>Only me</span></sc-if><sc-if value="{{n.hasR}}"><span class="pill" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px" aria-hidden="true"><path d="{{ic.message}}"></path></svg>{{n.rN}}</span></sc-if></span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{noNotes}}">
+<div class="card ani co" style="padding:40px 24px;align-items:center;gap:10px;text-align:center">
+<span class="av" style="width:64px;height:64px;background:var(--s2);color:var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width:28px;height:28px" aria-hidden="true"><path d="{{ic.note}}"></path></svg></span>
+<span class="f16 b7">No notes here yet</span><span class="f13 mu">Try another tag or class — or speak a new note.</span>
+<button class="tap btn sec big" type="button" onClick="{{clearF}}">Show all notes</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{is.add}}">
+<div class="co" style="min-height:100%;animation:{{anim}}">
+<div class="pad stack" style="flex:1;padding:18px 28px 24px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start">
+<div class="co" style="gap:16px;min-width:0">
+<div class="card co cd" style="border-color:{{cp.kidBd}}">
+<div class="hd"><span class="st">1</span><span class="co fx"><span class="f16 b7">{{lb.who.a}}</span><span class="hn">{{lb.who.b}}</span></span></div>
+<sc-if value="{{cp.picked}}">
+<div class="ro ani" style="gap:12px;padding:10px 12px;border-radius:14px;background:var(--s2)"><span class="av f14" style="width:46px;height:46px;background:{{cp.abg}};color:{{cp.afg}}">{{cp.ini}}</span><span class="co fx"><span class="f16 b7">{{cp.kidName}}</span><span class="sm">{{cp.kidSub}}</span></span><button class="tap btn sec" type="button" onClick="{{cp.change}}">Change</button></div>
+</sc-if>
+<sc-if value="{{cp.picking}}">
+<span class="sech">Recent</span>
+<div class="hs ro" style="gap:8px"><sc-for list="{{cp.recent}}" as="r"><button class="tap chip" type="button" onClick="{{r.pick}}" style="height:46px;padding:0 14px 0 6px"><span class="av f12" style="width:34px;height:34px;background:{{r.bg}};color:{{r.fg}}">{{r.ini}}</span><span class="co" style="line-height:1.15;text-align:left">{{r.name}}<span class="hn">Class {{r.cls}}</span></span></button></sc-for></div>
+<div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 3);transform:translateX({{cp.seg.thumb}})"></span><sc-for list="{{cp.seg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.a}}</button></sc-for></div>
+<label class="srch"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="sr">Find a child</span><input type="search" value="{{cp.pq}}" onChange="{{cp.onPq}}" placeholder="Type a name · नाम लिखें"></label>
+<div class="co"><sc-for list="{{cp.list}}" as="k"><button class="tap row ro ani" type="button" onClick="{{k.pick}}" style="width:100%;gap:12px;min-height:52px;padding:6px 8px;border:0;border-radius:12px;background:transparent;color:var(--fg);text-align:left;animation-delay:{{k.delay}}"><span class="num sm b7" style="width:22px;text-align:center">{{k.roll}}</span><span class="av f12" style="width:34px;height:34px;background:{{k.bg}};color:{{k.fg}}">{{k.ini}}</span><span class="f15 b6 fx el">{{k.name}}</span><span class="sm">{{k.cls}}</span></button></sc-for></div>
+<span class="sm">{{cp.more}}</span>
+</sc-if>
+</div>
+
+<div class="card co cd" style="border-color:{{cp.txtBd}}">
+<div class="hd"><span class="st">2</span><span class="co fx"><span class="f16 b7">{{lb.what.a}}</span><span class="hn">{{lb.what.b}}</span></span><sc-if value="{{cp.hasDraft}}"><span class="pill ani" style="background:var(--oks);color:var(--ok)"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px" aria-hidden="true"><path d="{{ic.cloud}}"></path></svg>Saved as draft · 2 sec ago</span></sc-if></div>
+<sc-if value="{{cp.voiceIdle}}">
+<div class="co ani" style="align-items:center;gap:12px;padding:16px 8px 8px;text-align:center">
+<button class="tap co" type="button" onClick="{{startVoice}}" aria-label="Tap and speak" style="align-items:center;gap:10px;border:0;background:transparent;color:var(--fg)"><span class="mic"><svg class="i" viewBox="0 0 24 24" style="width:30px;height:30px" aria-hidden="true"><path d="{{ic.mic}}"></path></svg></span><span class="f16 b7">Tap and speak · बोलकर लिखें</span></button>
+<div class="ro" style="gap:6px"><sc-for list="{{langChips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<button class="tap btn ghost" type="button" onClick="{{typeIt}}" style="color:var(--acc)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.keyboard}}"></path></svg>Type instead · लिखकर</button>
+</div>
+</sc-if>
+<sc-if value="{{cp.editing}}">
+<sc-if value="{{cp.fromVoice}}"><div class="nt ani" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top:1px" aria-hidden="true"><path d="{{ic.mic}}"></path></svg><span><b>Written from your voice.</b> Check the words — tap the text to fix anything. · आवाज़ से लिखा</span></div></sc-if>
+<label class="field"><span class="sr">Your note</span><textarea class="inp {{cp.err}}" value="{{cp.text}}" onChange="{{cp.onText}}" placeholder="What did you notice? For example: Finds fractions hard" style="min-height:120px;font-size:16px"></textarea></label>
+<div class="ro wr" style="gap:8px"><button class="tap btn soft" type="button" onClick="{{startVoice}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.mic}}"></path></svg>{{cp.micLabel}}</button><sc-if value="{{cp.fromVoice}}"><button class="tap btn ghost" type="button" onClick="{{addMore}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>Add more</button></sc-if><span class="fx"></span><span class="sm">In the app this uses the phone’s own voice typing.</span></div>
+</sc-if>
+<sc-if value="{{cp.showPhr}}"><span class="sech" style="margin-top:4px">Quick phrases · झटपट वाक्य</span>
+<div class="ro wr" style="gap:6px"><sc-for list="{{phr}}" as="p"><button class="tap qp" type="button" onClick="{{p.add}}">{{p.en}}<span class="hn">{{p.hi}}</span></button></sc-for></div></sc-if>
+</div>
+
+</div>
+
+<div class="co" style="gap:16px;min-width:0">
+<div class="card co cd">
+<div class="hd"><span class="st">3</span><span class="co fx"><span class="f16 b7">{{lb.tags.a}}</span><span class="hn">{{lb.tags.b}}</span></span></div>
+<div class="ro wr" style="gap:8px"><sc-for list="{{cp.tags}}" as="t"><button class="tap chip" type="button" aria-pressed="{{t.pressed}}" onClick="{{t.pick}}" style="height:44px;padding:0 14px;background:{{t.bg}};color:{{t.fg}};border:{{t.bd}}"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{t.icon}}"></path></svg><span class="co" style="line-height:1.1;text-align:left">{{t.label}}<span style="font-size:10px;font-weight:500;opacity:.8">{{t.sub}}</span></span></button></sc-for></div>
+</div>
+<div class="card co cd">
+<div class="hd"><span class="st">4</span><span class="co fx"><span class="f16 b7">{{lb.fol.a}}</span><span class="hn">{{lb.fol.b}}</span></span></div>
+<div class="seg sg" style="grid-template-columns:repeat(2,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{folSeg.thumb}})"></span><sc-for list="{{folSeg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}"><span class="co" style="align-items:center;line-height:1.15">{{o.a}}<span class="hn">{{o.b}}</span></span></button></sc-for></div>
+<sc-if value="{{cp.follow}}">
+<div class="co ani" style="gap:10px">
+<span class="sech">When</span>
+<div class="ro wr" style="gap:6px"><sc-for list="{{cp.dates}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<span class="sech">Who follows up</span>
+<div class="ro wr" style="gap:6px"><sc-for list="{{cp.whos}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+</div>
+</sc-if>
+<sc-if value="{{cp.noting}}"><span class="sm ani">Just noting — it is kept on the child’s record. No reminder.</span></sc-if>
+</div>
+
+<div class="card co cd">
+<div class="hd"><span class="st">5</span><span class="co fx"><span class="f16 b7">{{lb.vis.a}}</span><span class="hn">{{lb.vis.b}}</span></span></div>
+<div class="seg sg" style="grid-template-columns:repeat(2,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{visSeg.thumb}})"></span><sc-for list="{{visSeg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}"><span class="co" style="align-items:center;line-height:1.15">{{o.a}}<span class="hn">{{o.b}}</span></span></button></sc-for></div>
+<span class="sm">{{cp.visLine}}</span>
+</div>
+
+<div class="card co cd">
+<button class="tap ro" type="button" role="switch" aria-checked="{{cp.tellOn}}" onClick="{{cp.toggleTell}}" style="gap:12px;width:100%;padding:0;border:0;background:transparent;color:var(--fg);text-align:left;opacity:{{cp.tellOp}}"><span class="st">6</span><span class="co fx"><span class="f16 b7">{{lb.tell.a}}</span><span class="hn">{{lb.tell.b}} · optional</span></span><span class="sw {{cp.tellCls}}"><span></span></span></button>
+<sc-if value="{{cp.tellPrev}}">
+<div class="wa ani"><div><span>{{cp.waHi}}</span><span style="margin-top:6px;opacity:.8">{{cp.waEn}}</span><span style="font-size:11px;text-align:right;opacity:.6">sends after you save</span></div></div>
+<span class="sm">{{cp.waTo}}</span>
+</sc-if>
+<sc-if value="{{cp.tellOff}}"><span class="sm">{{cp.tellHint}}</span></sc-if>
+</div>
+</div>
+</div>
+<div class="glass sbar">
+<span class="co fx rt"><span class="f14 b7">{{cp.saveT}}</span><span class="sm">{{cp.route}}</span></span>
+<button class="tap btn pri big mfull" type="button" onClick="{{save}}" style="opacity:{{cp.saveOp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{lb.save.a}} · {{lb.save.b}}</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{is.listening}}">
+<div class="co" style="min-height:100%;align-items:center;justify-content:center;padding:24px 20px 32px;gap:18px;text-align:center;animation:{{anim}}">
+<span class="pill" style="height:32px;padding:0 12px 0 4px;font-size:13px;background:var(--card);color:var(--fg);border:1px solid var(--bd)"><span class="av" style="width:24px;height:24px;font-size:10px;background:var(--accs);color:var(--accfg)">{{ls.ini}}</span>Note about {{ls.kid}}</span>
+<span class="ib" style="position:relative;width:96px;height:96px;margin:34px 0">
+<span class="rip" style="opacity:.35"></span><span class="rip" style="opacity:.35;animation-delay:.8s"></span>
+<span class="mic" style="position:relative;width:96px;height:96px;border-radius:48px"><svg class="i" viewBox="0 0 24 24" style="width:40px;height:40px" aria-hidden="true"><path d="{{ic.mic}}"></path></svg></span>
+</span>
+<span class="ro" style="gap:10px"><span class="serif" style="font-size:26px;font-weight:600">{{ls.status}}</span><span class="pill num" style="height:28px;padding:0 10px;font-size:13px;background:var(--bads);color:var(--bad)"><span style="width:8px;height:8px;border-radius:4px;background:var(--bad);animation:xCaret 1s steps(1) infinite"></span>{{ls.timer}}</span></span>
+<div class="ro" style="gap:6px;height:52px" aria-hidden="true"><sc-for list="{{ls.bars}}" as="b"><span class="wv" style="height:{{b.h}};animation-delay:{{b.d}};opacity:{{b.op}}"></span></sc-for></div>
+<div class="ro" style="gap:6px"><sc-for list="{{langChips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<div class="card" aria-live="polite" style="width:100%;max-width:640px;min-height:132px;padding:20px 22px;text-align:left;font-size:20px;line-height:1.6">
+<sc-if value="{{ls.empty}}"><span class="mu">Start speaking… · बोलना शुरू करें…</span></sc-if><sc-for list="{{ls.words}}" as="w"><span class="wd">{{w}} </span></sc-for><span class="caret"></span>
+</div>
+<div class="ro" style="gap:10px;width:100%;max-width:640px">
+<button class="tap btn sec big" type="button" onClick="{{ls.cancel}}" style="flex:1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg>Cancel · रद्द</button>
+<button class="tap btn pri big" type="button" onClick="{{ls.done}}" style="flex:1.5"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Done · हो गया</button>
+</div>
+<span class="sm">In the app this uses the phone’s own voice typing.</span>
+</div>
+</sc-if>
+<sc-if value="{{is.saved}}">
+<div class="pad co" style="padding:26px 28px 40px;gap:18px;max-width:780px;margin:0 auto;animation:{{anim}}">
+<div class="co" style="align-items:center;gap:10px;text-align:center">
+<svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation:xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="serif" style="font-size:28px;font-weight:600;line-height:1.2">{{lb.saved.a}} · {{lb.saved.b}}</span>
+<span class="f15 mu" style="max-width:520px">{{sv.line}}</span>
+<div class="ro wr" style="gap:6px;justify-content:center"><sc-for list="{{sv.who}}" as="w"><span class="pill ani" style="height:30px;padding:0 12px 0 4px;font-size:12px;background:var(--card);color:var(--fg);border:1px solid var(--bd);animation-delay:{{w.delay}}"><span class="av" style="width:22px;height:22px;font-size:10px;background:{{w.bg}};color:{{w.fg}}">{{w.ini}}</span>{{w.label}}</span></sc-for></div>
+</div>
+<div class="co" style="gap:10px">
+<span class="sech">{{sv.tlTitle}}</span>
+<sc-for list="{{sv.tl}}" as="n">
+<div style="display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px">
+<span style="position:relative;display:flex;justify-content:center"><span style="position:absolute;top:0;bottom:-10px;width:2px;background:var(--bd)"></span><span style="position:relative;margin-top:18px;width:14px;height:14px;border-radius:7px;background:{{n.dot}};box-shadow:0 0 0 3px var(--bg)"></span></span>
+<div class="card co" style="padding:14px 16px;gap:8px;border:{{n.bd}};opacity:{{n.op}};animation:{{n.anim}}">
+<div class="ro wr" style="gap:6px"><span class="f13 b7" style="color:{{n.wc}}">{{n.when}}</span><span class="fx"></span><sc-for list="{{n.tags}}" as="t"><span class="pill" style="background:{{t.bg}};color:{{t.fg}}">{{t.label}}</span></sc-for><span class="pill" style="background:{{n.sbg}};color:{{n.sfg}}">{{n.status}}</span></div>
+<span class="f15">{{n.text}}</span><span class="sm">{{n.meta}}</span>
+</div>
+</div>
+</sc-for>
+</div>
+<div class="ro wr" style="gap:8px;justify-content:center">
+<button class="tap btn sec big" type="button" onClick="{{sv.undo}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>Undo</button>
+<button class="tap btn soft big" type="button" onClick="{{sv.plan}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.layers}}"></path></svg>Make a support plan</button>
+<button class="tap btn pri big" type="button" onClick="{{sv.done}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Done · all notes</button>
+</div>
+<button class="tap btn ghost" type="button" onClick="{{sv.another}}" style="align-self:center;color:var(--acc)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.mic}}"></path></svg>Speak another note</button>
+</div>
+</sc-if>
+<sc-if value="{{is.detail}}">
+<div class="pad stack" style="padding:18px 28px 40px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start;animation:{{anim}}">
+<div class="co" style="gap:16px;min-width:0">
+<div class="card rise co" style="padding:18px 20px;gap:12px;border-left:4px solid {{dt.c}}">
+<div class="ro" style="gap:12px"><span class="av f16" style="width:52px;height:52px;background:{{dt.abg}};color:{{dt.afg}}">{{dt.ini}}</span><span class="co fx"><span class="serif" style="font-size:24px;font-weight:600;line-height:1.15">{{dt.kid}}</span><span class="sm">{{dt.sub}}</span></span>
+<sc-if value="{{dt.page}}"><a href="DX-TchClass-Student.dc.html" class="only-d tap btn sec">Open {{dt.first}}’s page</a><a href="M-TchClass-Student.dc.html" class="only-m tap btn sec" style="padding:0 12px">Page</a></sc-if></div>
+<div class="ro wr" style="gap:6px"><sc-for list="{{dt.tags}}" as="t"><span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:{{t.bg}};color:{{t.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:13px;height:13px" aria-hidden="true"><path d="{{t.icon}}"></path></svg>{{t.label}}</span></sc-for></div>
+<span style="font-size:18px;line-height:1.55">{{dt.text}}</span>
+<sc-for list="{{dt.facts}}" as="f"><span class="ro f13" style="gap:8px;color:var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{f.icon}}"></path></svg>{{f.t}}</span></sc-for>
+</div>
+<div class="card rise co cd" style="animation-delay:60ms">
+<span class="ro" style="gap:8px"><span class="f16 b7 fx">{{lb.where.a}} <span class="hn">· {{lb.where.b}}</span></span><span class="sm">Tap to change</span></span>
+<div style="position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+<span style="position:absolute;left:16.6%;right:16.6%;top:21px;height:4px;border-radius:2px;background:var(--s3)"></span>
+<span style="position:absolute;left:16.6%;top:21px;height:4px;width:{{dt.line}};border-radius:2px;background:var(--ok);transition:width .5s var(--ease)"></span>
+<sc-for list="{{dt.steps}}" as="p"><button class="tap co" type="button" role="radio" aria-checked="{{p.on}}" onClick="{{p.pick}}" style="position:relative;align-items:center;gap:6px;padding:0 0 4px;border:0;background:transparent;color:var(--fg)"><span class="ib" style="width:46px;height:46px;border-radius:23px;background:{{p.bg}};color:{{p.fg}};border:{{p.bd}};transform:scale({{p.sc}});transition:transform .32s var(--spring),background-color .25s ease"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px" aria-hidden="true"><path d="{{p.icon}}"></path></svg></span><span class="f13 b7" style="color:{{p.tc}}">{{p.label}}</span><span class="hn">{{p.hi}}</span></button></sc-for>
+</div>
+</div>
+<div class="card rise co cd" style="animation-delay:120ms">
+<div class="hd"><span class="ic" style="background:var(--accs);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.layers}}"></path></svg></span><span class="co fx"><span class="f16 b7">{{lb.plan.a}}</span><span class="hn">{{lb.plan.b}}</span></span><span class="num b7 f16">{{dt.pl.n}}</span></div>
+<sc-if value="{{dt.pl.has}}"><div class="bar"><span style="width:{{dt.pl.w}};background:var(--ok)"></span></div><span class="f13 mu">{{dt.pl.next}}</span></sc-if>
+<sc-if value="{{dt.pl.none}}"><span class="f13 mu">Turn this note into 3–5 small steps — each with a person and a date.</span></sc-if>
+<button class="tap btn soft big" type="button" onClick="{{dt.pl.go}}">{{dt.pl.btn}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button>
+</div>
+</div>
+<div class="co" style="gap:16px;min-width:0">
+<div class="card rise co cd" style="animation-delay:80ms">
+<span class="f16 b7">{{lb.rep.a}} <span class="hn">· {{lb.rep.b}}</span></span>
+<sc-for list="{{dt.replies}}" as="r">
+<div class="co" style="align-items:{{r.al}};gap:3px;animation:{{r.anim}}"><span class="sm">{{r.who}}</span><span class="f14" style="max-width:88%;padding:10px 14px;border-radius:{{r.rad}};background:{{r.bg}};color:{{r.fg}};line-height:1.5">{{r.text}}</span><span class="sm" style="font-size:11px">{{r.when}}</span></div>
+</sc-for>
+<sc-if value="{{dt.noR}}"><span class="f13 mu">No replies yet. The coordinator and class teacher can reply here.</span></sc-if>
+<sc-if value="{{rp.live}}"><div class="ro ani" style="gap:5px;height:28px;padding:0 4px"><sc-for list="{{rp.bars}}" as="b"><span class="wv" style="height:{{b.h}};animation-delay:{{b.d}}"></span></sc-for><span class="f13 b7" style="margin-left:6px;color:var(--acc)">Listening… tap the mic to stop</span></div></sc-if>
+<div class="ro" style="gap:8px">
+<label class="srch fx" style="height:52px;border-radius:26px"><span class="sr">Your reply</span><input type="text" value="{{rp.text}}" onChange="{{rp.onText}}" placeholder="Write a reply · जवाब लिखें"></label>
+<button class="tap ib" type="button" aria-label="{{rp.micAria}}" onClick="{{rp.mic}}" style="width:52px;height:52px;border-radius:26px;border:0;background:{{rp.micBg}};color:{{rp.micFg}}"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{rp.micIcon}}"></path></svg></button>
+<button class="tap btn pri" type="button" onClick="{{rp.send}}" style="height:52px;border-radius:26px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg><span class="hide-m">Send</span></button>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{is.plan}}">
+<div class="co" style="min-height:100%;animation:{{anim}}">
+<div class="pad stack" style="flex:1;padding:18px 28px 24px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start">
+<div class="co" style="gap:16px;min-width:0">
+<div class="card rise ro" style="padding:16px 18px;gap:14px">
+<span style="position:relative;flex:none;width:72px;height:72px"><svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true" style="transform:rotate(-90deg)"><circle cx="36" cy="36" r="30" style="fill:none;stroke:var(--s3);stroke-width:8"></circle><circle cx="36" cy="36" r="30" style="fill:none;stroke:var(--ok);stroke-width:8;stroke-linecap:round;stroke-dasharray:{{pl.dash}};transition:stroke-dasharray .5s var(--ease)"></circle></svg><span class="co" style="position:absolute;top:0;left:0;right:0;bottom:0;align-items:center;justify-content:center"><span class="num b7 f16">{{pl.n}}</span></span></span>
+<span class="co fx"><span class="f16 b7">{{pl.title}}</span><span class="f13 mu">For: “{{pl.for}}”</span><span class="sm">{{pl.hint}}</span></span>
+</div>
+<div class="card co" style="padding:8px 14px">
+<sc-for list="{{pl.steps}}" as="p">
+<div class="ro ani" style="gap:10px;padding:10px 0;border-top:{{p.border}};animation:{{p.anim}}">
+<button class="tap ib" type="button" role="checkbox" aria-checked="{{p.on}}" aria-label="Mark step done: {{p.t}}" onClick="{{p.toggle}}" style="width:44px;height:44px;border-radius:14px;border:{{p.bd}};background:{{p.bg}};color:var(--onsolid)"><sc-if value="{{p.done}}"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px;stroke-width:3;animation:xTick .45s var(--spring) both" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></button>
+<span class="co fx" style="gap:6px"><span class="f15 b6" style="color:{{p.tc}};text-decoration:{{p.strike}}">{{p.t}}</span>
+<span class="ro wr" style="gap:6px"><button class="tap pill" type="button" onClick="{{p.cycWho}}" style="height:30px;padding:0 10px;font-size:12px;border:1px solid var(--bd);background:var(--s2);color:var(--fg)"><svg class="i" viewBox="0 0 24 24" style="width:13px;height:13px" aria-hidden="true"><path d="{{ic.user}}"></path></svg>{{p.who}}</button><button class="tap pill" type="button" onClick="{{p.cycWhen}}" style="height:30px;padding:0 10px;font-size:12px;border:1px solid var(--bd);background:var(--s2);color:var(--fg)"><svg class="i" viewBox="0 0 24 24" style="width:13px;height:13px" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{p.when}}</button></span></span>
+<button class="tap btn ghost" type="button" aria-label="Remove step: {{p.t}}" onClick="{{p.remove}}" style="width:40px;padding:0;color:var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button>
+</div>
+</sc-for>
+<sc-if value="{{pl.empty}}"><div class="co" style="padding:24px 8px;align-items:center;gap:6px;text-align:center"><span class="f15 b7">No steps yet</span><span class="f13 mu">Tap a suggestion below to start.</span></div></sc-if>
+</div>
+<div class="card co cd">
+<span class="f16 b7">{{lb.sugg.a}} <span class="hn">· {{lb.sugg.b}}</span></span>
+<div class="ro wr" style="gap:8px"><sc-for list="{{pl.sugg}}" as="c"><button class="tap qp" type="button" onClick="{{c.add}}" style="opacity:{{pl.sop}}"><span class="ro" style="gap:6px"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>{{c.en}}</span><span class="hn">{{c.hi}}</span></button></sc-for></div>
+<div class="ro" style="gap:8px"><label class="srch fx" style="border-radius:14px"><span class="sr">Write your own step</span><input type="text" value="{{pl.own}}" onChange="{{pl.onOwn}}" placeholder="Write your own step"></label><button class="tap btn sec" type="button" onClick="{{pl.addOwn}}" style="height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>Add</button></div>
+</div>
+</div>
+<div class="co" style="gap:16px;min-width:0">
+<div class="card co cd">
+<button class="tap ro" type="button" role="switch" aria-checked="{{pl.tellOn}}" onClick="{{pl.toggleTell}}" style="gap:12px;width:100%;padding:0;border:0;background:transparent;color:var(--fg);text-align:left"><span class="ic" style="background:var(--oks);color:var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg></span><span class="co fx"><span class="f16 b7">{{lb.tell.a}}</span><span class="hn">{{lb.tell.b}} · Hindi first</span></span><span class="sw {{pl.tellCls}}"><span></span></span></button>
+<sc-if value="{{pl.tellPrev}}"><div class="wa ani"><div><span>{{pl.waHi}}</span><span style="margin-top:6px;opacity:.8">{{pl.waEn}}</span><span style="font-size:11px;text-align:right;opacity:.6">sends when you save</span></div></div><span class="sm">{{pl.waTo}}</span></sc-if>
+<sc-if value="{{pl.tellOff}}"><span class="sm">Off · parents are not told. You can turn it on any time.</span></sc-if>
+</div>
+<div class="nt" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top:1px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>Everyone named in a step gets a reminder on their date. Ms. Asha Purohit (coordinator) sees how the plan is going.</span></div>
+</div>
+</div>
+<div class="glass sbar">
+<span class="co fx rt"><span class="f14 b7">{{pl.n}} steps done</span><span class="sm">{{pl.saveHint}}</span></span>
+<button class="tap btn pri big mfull" type="button" onClick="{{pl.save}}" style="opacity:{{pl.saveOp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Save plan · योजना सहेजें</button>
+</div>
+</div>
+</sc-if>
+</main>
+<sc-if value="{{is.list}}"><button class="tap btn pri fab" type="button" onClick="{{newNote}}"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.mic}}"></path></svg><span class="co" style="align-items:flex-start;line-height:1.1">Speak a note<span style="font-size:11px;font-weight:500;opacity:.85">बोलकर लिखें</span></span></button></sc-if>
+<div class="only-m" style="flex:none"><dc-import name="XNav" active="notes" role="teacher" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<sc-if value="{{sh.open}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="How this page works">
+<div class="grab"></div>
+<div class="ro" style="flex:none;gap:12px;padding:14px 20px 10px"><div class="co fx" style="gap:2px"><span class="serif" style="font-size:22px;font-weight:600;line-height:1.2">How this page works</span><span class="f13 mu">3 quick steps · मदद</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width:44px;height:44px;padding:0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll sbody"><sc-for list="{{help}}" as="h"><div class="ro ani" style="gap:14px;padding:12px 14px;border-radius:16px;background:var(--s2);animation-delay:{{h.delay}}"><span class="ib" style="position:relative;width:64px;height:64px;border-radius:20px;background:{{h.bg}};color:{{h.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:30px;height:30px" aria-hidden="true"><path d="{{h.icon}}"></path></svg><span class="av f12" style="position:absolute;top:-6px;left:-6px;width:24px;height:24px;background:var(--pri);color:var(--prifg)">{{h.n}}</span></span><span class="co fx" style="gap:2px"><span class="f15 b7">{{h.t}}</span><span class="f13 mu">{{h.d}}</span></span></div></sc-for></div>
+<div class="sfoot"><button class="tap btn pri big" type="button" onClick="{{closeSheet}}" style="flex:1">Got it · ठीक है</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="f14" style="line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["list","add","listening","review","saved","detail","plan"],"default":"list"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+IC.note='M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4zM4 4h8M4 8h5';
+IC.mic='M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8';
+IC.keyboard='M2 6h20v12H2zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10';
+IC.smile='M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01';
+IC.heart='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z';
+const rnd=(a,b)=>{const x=Math.sin(a*12.9898+b*78.233)*43758.5453;return x-Math.floor(x);};
+const ROST={
+6:'Aadhya Jain,Aarav Kumawat,Ananya Vyas,Arjun Gurjar,Bhavya Paliwal,Chirag Mehta,Divya Rathore,Gaurav Choudhary,Harshita Dave,Ishaan Purohit,Jiya Kothari,Kabir Solanki,Khushi Sharma,Om Regar,Manav Joshi,Naina Chouhan,Nikhil Meena,Palak Agarwal,Pari Sen,Pranav Rawal,Riya Singh,Rohan Sharma,Saanvi Kumawat,Sahil Gurjar,Sneha Vyas,Tanish Jain,Tanya Paliwal,Utkarsh Mehta,Vani Rathore,Yash Dave,Zoya Khan'.split(','),
+7:'Aarav Sharma,Aditya Mehta,Bhumika Jain,Chetan Kumawat,Deepika Rathore,Dhruv Paliwal,Gunjan Vyas,Hardik Choudhary,Isha Purohit,Jatin Solanki,Kavya Jain,Kritika Dave,Lokesh Gurjar,Muskan Trivedi,Nidhi Chouhan,Nikita Regar,Parth Kothari,Rahul Rawal,Ritika Meena,Sakshi Agarwal,Tushar Joshi,Urvashi Singh,Vansh Kanwar,Vikas Sen,Yamini Bhati,Yuvraj Sharma,Zara Khan'.split(','),
+8:'Aditi Rawal,Anjali Meena,Arnav Jain,Bhavesh Gurjar,Charu Paliwal,Daksh Sharma,Diya Kothari,Garv Solanki,Harsh Vyas,Jhanvi Purohit,Karan Choudhary,Lavanya Dave,Mayank Regar,Mehul Kumawat,Neha Joshi,Ojas Trivedi,Prisha Agarwal,Rachit Singh,Rhea Mehta,Sameer Khan,Shreya Rathore,Siddharth Sen,Tanvi Bhati,Ujjwal Chouhan,Vedika Jain,Vihaan Kanwar,Yashika Sharma,Yug Paliwal'.split(',')
+};
+const HN={Riya:'रिया',Om:'ओम',Aarav:'आरव',Pari:'परी',Kabir:'कबीर',Neha:'नेहा',Khushi:'ख़ुशी',Nikhil:'निखिल',Pranav:'प्रणव',Jiya:'जिया'};
+const FN='Ramesh Gopal Sunil Kailash Ajay Bhanwar Naresh Lalit Prakash Hitesh Manoj Mahendra Dinesh Suresh Mukesh'.split(' ');
+const TAG={studies:['Studies','पढ़ाई','book','var(--infos)','var(--info)'],behaviour:['Behaviour','व्यवहार','smile','var(--accs)','var(--accfg)'],health:['Health','सेहत','heart','var(--bads)','var(--bad)'],family:['Family','परिवार','home','var(--warns)','var(--warnfg)'],talent:['Talent','प्रतिभा','star','var(--oks)','var(--ok)'],attendance:['Attendance','हाज़िरी','calCheck','var(--s3)','var(--fg)']};
+const KW={studies:/भिन्न|सवाल|गणित|पढ़|गृहकार्य|अभ्यास|fraction|math|homework|practice|marks|read|lab/i,health:/तबीयत|बुखार|सिर|दर्द|unwell|fever|headache|sick/i,attendance:/अनुपस्थित|छुट्टी|नहीं आ|absent|late|leave/i,behaviour:/झगड़|चुप|शरारत|quiet|fight|rude|alone|talks/i,family:/घर|पिता|माता|दादी|परिवार|father|mother|family|grand/i,talent:/चित्र|गाना|खेल|drawing|sing|sport|quiz|talent|excellent|very good/i};
+const N=(id,kid,cls,tags,text,date,status,follow,extra)=>Object.assign({id,kid,cls,tags:tags.split(' '),text,by:'me',rel:cls==='6'?'class teacher':'Science teacher',date,status,follow,vis:'all',replies:[]},extra||{});
+const NOTES=[
+N('n1','Riya Singh','6','studies','Finds fractions hard; started practice sheets','Mon 5 Oct','work',{date:'Mon 12 Oct',who:'me',ord:2,big:'Due Monday · Mon 12 Oct'},{replies:[['Ms. Asha Purohit','Coordinator','Let’s add Riya to the Saturday remedial class.','Tue 6 Oct · 4:10 pm'],['Ms. Bhati (you)','','Good idea. I will tell her parents on Friday.','Wed 7 Oct · 8:05 am']]}),
+N('n2','Om Regar','6','attendance family','Absent 3 days, father says grandmother is unwell — call again Friday','Tue 6 Oct','work',{date:'Fri 9 Oct',who:'me',ord:1,big:'Due tomorrow · Fri 9 Oct'}),
+N('n3','Aarav Sharma','7','studies','Not submitting lab notebook','Tue 6 Oct','open',{date:'Mon 12 Oct',who:'ct',ord:2},{reached:'Mr. Choudhary',replies:[['Mr. Choudhary','Class teacher, Class 7','Thanks — I will speak to his father Rakesh ji today.','Wed 7 Oct · 2:15 pm']]}),
+N('n4','Kabir Solanki','6','talent','Excellent at drawing — suggest for district art competition','Wed 30 Sep','open',{date:'Fri 16 Oct',who:'coord',ord:4}),
+N('n5','Pari Sen','6','behaviour','Quiet lately, sits alone at lunch — will talk to her','Wed 7 Oct','open',null,{vis:'me'}),
+N('n8','Pari Sen','6','studies','Homework not done three days this week','Mon 5 Oct','open',null,{by:'Mr. Verma',rel:'Maths teacher',reached:'you'}),
+N('n6','Khushi Sharma','6','health','Headache after morning assembly twice; parents informed','Fri 25 Sep','done',null),
+N('n7','Neha Joshi','8','talent','Asks very good questions in Science — give her the science quiz','Thu 1 Oct','note',null)
+];
+const STEPS=[['Extra practice sheets twice a week','हफ्ते में दो बार अभ्यास शीट'],['Saturday remedial class','शनिवार की अतिरिक्त कक्षा'],['Sit in the front row','आगे की बेंच पर बैठना'],['Call parents every Friday','हर शुक्रवार माता-पिता से बात'],['Study buddy','पढ़ाई में एक साथी'],['Check homework diary daily','रोज़ गृहकार्य डायरी देखना'],['Praise small wins','छोटी सफलता पर शाबाशी']];
+const PLANS={n1:[{t:STEPS[0][0],who:0,when:4,done:true},{t:STEPS[1][0],who:2,when:1,done:false},{t:STEPS[2][0],who:0,when:0,done:false},{t:STEPS[3][0],who:0,when:3,done:false}]};
+const PHR=[['Needs extra practice','अधिक अभ्यास चाहिए'],['Did very well today','आज बहुत अच्छा किया'],['Homework not done','गृहकार्य नहीं किया'],['Seems unwell','तबीयत ठीक नहीं लगती'],['Talk to parents','माता-पिता से बात करें'],['Quiet and alone','चुप-चुप और अकेला']];
+this._d={IC,rnd,ROST,HN,FN,TAG,KW,NOTES,STEPS,PLANS,PHR,CT:{6:'you',7:'Mr. Choudhary',8:'Mr. Solanki'}};
+return this._d;
+}
+
+st(){
+const p=this.props||{};
+const base={screen:'list',anim:'none',hi:false,ftag:'all',fcls:'all',kid:'',pcls:'6',pq:'',mode:'voice',text:'',fromVoice:false,tags:{},follow:true,fdate:1,who:'me',vis:'all',tell:false,err:'',lang:'hi',words:0,added:[],savedId:'',cur:'n1',status:{},replies:{},rtext:'',rlive:false,plans:{},own:'',ptell:false,sheet:'',closing:false,toast:null};
+const R='Riya Singh|6';
+const fresh={id:'x1',kid:'Riya Singh',cls:'6',tags:['studies'],text:this.sentence({lang:'hi',kid:R}).join(' '),by:'me',rel:'class teacher',date:'Today · 9:42 am',status:'open',follow:{date:'Mon 12 Oct',who:'me',ord:2,big:'Due Monday · Mon 12 Oct'},vis:'all',replies:[]};
+const map={
+add:{screen:'add',kid:R},
+listening:{screen:'listening',kid:R,words:9},
+review:{screen:'add',kid:R,text:fresh.text,fromVoice:true,tags:{studies:true}},
+saved:{screen:'saved',kid:R,added:[fresh],savedId:'x1'},
+detail:{screen:'detail',cur:'n1'},
+plan:{screen:'plan',cur:'n1'}
+};
+return Object.assign(base,map[p.start]||{},this.state||{});
+}
+
+sentence(s){
+const D=this.data();
+if(s.rlive){
+const f=(s.rkid||'Riya').split(' ')[0];
+return(s.lang==='en'?'Okay, we will send '+f+' to the Saturday remedial class from this week':'ठीक है, इस हफ्ते से '+(D.HN[f]||f)+' को शनिवार की अतिरिक्त कक्षा में भेजेंगे').split(' ');
+}
+const f=(s.kid||'Riya Singh|6').split(' ')[0];
+return(s.lang==='en'?f+' is finding fraction sums hard, we will give practice sheets twice a week':(D.HN[f]||f)+' को भिन्न वाले सवालों में दिक्कत आ रही है, हफ्ते में दो बार अभ्यास शीट देंगे').split(' ');
+}
+
+tick(){
+clearTimeout(this._wt);
+this._wt=setTimeout(()=>{
+const s=this.st();
+if(s.screen!=='listening'&&!s.rlive)return;
+const w=this.sentence(s);
+if(s.words>=w.length){if(s.rlive)this.setState({rlive:false,rtext:w.join(' ')});return;}
+this.setState({words:s.words+1});
+this.tick();
+},230);
+}
+
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.setState({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.setState({toast:null});},4500);
+}
+
+undoToast(){const f=this._undo;this._undo=null;this.setState({toast:null});if(f)f();}
+
+closeSheet(){
+if(!this.st().sheet)return;
+this.setState({closing:true});
+clearTimeout(this._ct);
+this._ct=setTimeout(()=>this.setState({sheet:'',closing:false}),240);
+}
+
+renderVals(){
+const D=this.data();
+const s=this.st();
+const S=(o)=>this.setState(o);
+const IC=D.IC;
+if((s.screen==='listening'||s.rlive)&&!this._wt)this.tick();
+const V=(x)=>'var(--'+x+')';
+const L=(en,hi)=>({a:s.hi?hi:en,b:s.hi?en:hi});
+const dl=(i)=>(Math.min(i,12)*40)+'ms';
+const TONES=[[V('accs'),V('accfg')],[V('infos'),V('info')],[V('oks'),V('ok')],[V('warns'),V('warnfg')],[V('s3'),V('fg')]];
+const tone=(name)=>TONES[name.length % 5];
+const ini=(n)=>n.split(' ').map((w)=>w[0]).slice(0,2).join('');
+const set=(o)=>()=>S(o);
+const go=(screen,extra,anim)=>()=>S(Object.assign({screen,anim:anim||'push'},extra||{}));
+const seg=(defs,cur,key,after)=>({thumb:(Math.max(0,defs.map((d)=>d[0]).indexOf(cur))*100)+'%',opts:defs.map((d)=>({a:s.hi&&d[2]?d[2]:d[1],b:s.hi?d[1]:(d[2]||''),cls:cur===d[0]?'tap on':'tap',pressed:cur===d[0]?'true':'false',pick:()=>{S({[key]:d[0]});if(after)after(d[0]);}}))});
+const ST={open:['Open','खुला',V('warns'),V('warnfg')],work:['Working on it','काम चल रहा',V('infos'),V('info')],done:['Done','पूरा',V('oks'),V('ok')],note:['Just noting','सिर्फ़ नोट',V('s3'),V('mut')]};
+const WHO={me:'Me',ct:'Class teacher',coord:'Coordinator',admin:'Admin'};
+const DATES=[['Fri 9 Oct','Tomorrow · Fri 9 Oct',1],['Mon 12 Oct','Next Monday · 12 Oct',2],['Mon 19 Oct','Mon 19 Oct',3]];
+const OWN=['Me','Class teacher','Coordinator','Parents','Mr. Verma (Maths)'];
+const WHEN=['From Fri 9 Oct','From Sat 10 Oct','Mon 12 Oct','Every Friday','Tue & Fri'];
+const sc=s.screen;
+const tagPills=(n)=>n.tags.map((t)=>({label:D.TAG[t][0],icon:IC[D.TAG[t][2]],bg:D.TAG[t][3],fg:D.TAG[t][4]}));
+const all=s.added.concat(D.NOTES);
+const stOf=(n)=>s.status[n.id]||n.status;
+const repOf=(n)=>n.replies.concat(s.replies[n.id]||[]);
+const kidCls=(k)=>(k||'|').split('|');
+const parentOf=(kid,cls)=>{
+const list=D.ROST[cls]||D.ROST[6];
+const i=Math.max(0,list.indexOf(kid));
+const sur=kid.split(' ')[1]||'';
+const f={'Riya Singh':'Vikram','Aarav Sharma':'Rakesh','Neha Joshi':'Prakash'}[kid]||D.FN[i % D.FN.length];
+return[f+' '+sur,'98290 ••'+(100+Math.round(D.rnd(cls==='6'?i+1:i+40,30)*899))];
+};
+const routeOf=(cls,vis)=>(vis==='me'?'Only you can see this note.':(cls==='6'?'You are the class teacher. Ms. Asha Purohit (coordinator) and the office can see it.':'It reaches '+D.CT[cls]+' (class teacher of Class '+cls+') automatically. The coordinator can see it too.'));
+const nv=(n,i,sec)=>{
+const st=ST[stOf(n)];
+const t0=D.TAG[n.tags[0]];
+const r=repOf(n).length;
+const open=stOf(n)!=='done'&&stOf(n)!=='note';
+return{
+kid:n.kid,ini:ini(n.kid),abg:tone(n.kid)[0],afg:tone(n.kid)[1],c:t0[4],text:n.text,tags:tagPills(n),
+sub:'Class '+n.cls+' · '+(n.by==='me'?'you':n.by+', '+n.rel)+' · '+n.date+(n.reached&&n.reached!=='you'?' · sent to '+n.reached:''),
+status:st[0],sbg:st[2],sfg:st[3],hasDue:!!(n.follow&&open&&sec!=='due'),due:n.follow?'Follow up '+n.follow.date+' · '+WHO[n.follow.who]:'',
+dueTop:sec==='due',dueBig:n.follow?(n.follow.big||'Due '+n.follow.date):'',priv:n.vis==='me',hasR:r>0,rN:r+(r===1?' reply':' replies'),delay:dl(i),
+open:go('detail',{cur:n.id})
+};
+};
+
+//----------list----------
+const shownN=all.filter((n)=>(s.ftag==='all'||n.tags.indexOf(s.ftag)>=0)&&(s.fcls==='all'||n.cls===s.fcls));
+const isDue=(n)=>n.follow&&n.follow.who==='me'&&['open','work'].indexOf(stOf(n))>=0;
+const due=shownN.filter(isDue).sort((a,b)=>a.follow.ord-b.follow.ord);
+const opn=shownN.filter((n)=>!isDue(n)&&['open','work'].indexOf(stOf(n))>=0);
+const rest=shownN.filter((n)=>['done','note'].indexOf(stOf(n))>=0);
+const secs=[['due','Follow-ups due','ध्यान देना है','bell',V('warnfg'),V('card'),due],['open','Open notes','खुले नोट्स','note',V('mut'),V('card'),opn],['rest','All my notes','बाकी नोट्स','archive',V('mut'),V('card'),rest]].filter((g)=>g[6].length).map((g)=>({title:g[1],hi:g[2],icon:IC[g[3]],c:g[4],bg:g[5],n:String(g[6].length),notes:g[6].map((n,i)=>nv(n,i,g[0]))}));
+const kpis=[[String(all.filter(isDue).length),'due soon',V('warnfg')],[String(all.filter((n)=>['open','work'].indexOf(stOf(n))>=0).length),'open',V('fg')],[String(all.filter((n)=>stOf(n)==='done').length),'done',V('ok')]].map((k)=>({n:k[0],l:k[1],c:k[2]}));
+const tagChips=[['all','All','note']].concat(Object.keys(D.TAG).map((t)=>[t,D.TAG[t][0],D.TAG[t][2]])).map((t)=>({label:s.hi&&D.TAG[t[0]]?D.TAG[t[0]][1]:t[1],icon:IC[t[2]],cls:s.ftag===t[0]?'on':'',pressed:s.ftag===t[0]?'true':'false',pick:set({ftag:t[0]})}));
+const clsSeg=seg([['all','All classes'],['6','Class 6'],['7','Class 7'],['8','Class 8']],s.fcls,'fcls');
+
+//----------composer----------
+const kc=kidCls(s.kid);
+const kid=kc[0];
+const kcls=kc[1]||'6';
+const txt=s.text||'';
+const sugg=Object.keys(D.KW).filter((t)=>D.KW[t].test(txt));
+const pickKid=(name,cls)=>()=>S({kid:name+'|'+cls,pq:'',err:'',who:cls==='6'?'me':'ct'});
+const pq=(s.pq||'').trim().toLowerCase();
+const pool=pq?[6,7,8].reduce((a,c)=>a.concat(D.ROST[c].map((n,i)=>[n,String(c),i+1])),[]).filter((x)=>x[0].toLowerCase().indexOf(pq)>=0):D.ROST[s.pcls].map((n,i)=>[n,s.pcls,i+1]);
+const par=parentOf(kid||'Riya Singh',kcls);
+const first=(kid||'Riya Singh').split(' ')[0];
+const roleHi=kcls==='6'?'कक्षा अध्यापिका':'विज्ञान अध्यापिका';
+const cp={
+picked:!!kid,picking:!kid,kidName:kid,kidSub:'Class '+kcls+' · '+(kcls==='6'?'you are the class teacher':'you teach Science · class teacher '+D.CT[kcls]),ini:ini(kid||'R S'),abg:tone(kid)[0],afg:tone(kid)[1],
+kidBd:s.err==='kid'?V('bad'):V('bd'),txtBd:s.err==='text'?V('bad'):V('bd'),
+change:set({kid:'',pq:''}),
+recent:[['Riya Singh','6'],['Om Regar','6'],['Aarav Sharma','7'],['Pari Sen','6'],['Neha Joshi','8']].map((r)=>({name:r[0],cls:r[1],ini:ini(r[0]),bg:tone(r[0])[0],fg:tone(r[0])[1],pick:pickKid(r[0],r[1])})),
+seg:seg([['6','Class 6'],['7','Class 7'],['8','Class 8']],s.pcls,'pcls'),
+pq:s.pq,onPq:(e)=>S({pq:e.target.value}),
+list:pool.slice(0,8).map((x,i)=>({name:x[0],cls:'Class '+x[1],roll:String(x[2]),ini:ini(x[0]),bg:tone(x[0])[0],fg:tone(x[0])[1],delay:dl(i),pick:pickKid(x[0],x[1])})),
+more:pool.length>8?(pool.length-8)+' more in this list — type a name to find them':(pool.length?'':'No child with that name. Check the spelling.'),
+hasDraft:txt.trim().length>0,showPhr:!(s.fromVoice&&txt),voiceIdle:!txt&&s.mode==='voice',editing:!!txt||s.mode==='type',fromVoice:!!s.fromVoice&&!!txt,
+text:txt,err:s.err==='text'?'err':'',onText:(e)=>S({text:e.target.value,err:''}),micLabel:!txt?'Speak instead':(s.fromVoice?'Speak again':'Add by speaking'),
+tags:Object.keys(D.TAG).map((t)=>{
+const on=!!s.tags[t];
+const sg=!on&&sugg.indexOf(t)>=0;
+return{label:s.hi?D.TAG[t][1]:D.TAG[t][0],sub:sg?'✦ Suggested':(on&&s.fromVoice&&sugg.indexOf(t)>=0?'✦ From your words':(s.hi?D.TAG[t][0]:D.TAG[t][1])),icon:IC[D.TAG[t][2]],pressed:on?'true':'false',bg:on?D.TAG[t][4]:(sg?D.TAG[t][3]:V('card')),fg:on?V('onsolid'):(sg?D.TAG[t][4]:V('fg')),bd:on?'1px solid transparent':(sg?'1.5px dashed '+D.TAG[t][4]:'1px solid var(--bd)'),pick:()=>{const n=Object.assign({},this.st().tags);n[t]=!n[t];S({tags:n});}};
+}),
+follow:!!s.follow,noting:!s.follow,
+dates:DATES.map((d,i)=>({label:d[1],cls:s.fdate===i?'on':'',pressed:s.fdate===i?'true':'false',pick:set({fdate:i})})),
+whos:Object.keys(WHO).map((w)=>({label:WHO[w]+(w==='ct'&&kcls!=='6'?' · '+D.CT[kcls]:''),cls:s.who===w?'on':'',pressed:s.who===w?'true':'false',pick:set({who:w})})),
+visLine:s.vis==='me'?'Only you will see this note. Good for private thoughts.':'Teachers of '+first+', the coordinator and the office can see it. Parents never see notes.',
+tellOn:s.tell&&s.vis==='all'?'true':'false',tellCls:s.tell&&s.vis==='all'?'on':'',tellOp:s.vis==='me'?'0.5':'1',
+tellPrev:!!s.tell&&s.vis==='all',tellOff:!(s.tell&&s.vis==='all'),
+tellHint:s.vis==='me'?'Not for “Only me” notes.':'Off · parents are not told. Turn on to send a WhatsApp after saving.',
+toggleTell:()=>{const c=this.st();if(c.vis==='me'){this.toast('“Only me” notes are not sent to parents');return;}S({tell:!c.tell});},
+waHi:'नमस्ते, '+(D.HN[first]||first)+' के बारे में '+roleHi+' कविता भाटी का संदेश: “'+(txt||'…')+'” — श्री वीर पत्ता स्कूल, आमेट',
+waEn:'Hello, a message about '+first+' from '+(kcls==='6'?'class teacher':'Science teacher')+' Kavita Bhati: “'+(txt||'…')+'” — Shri Veer Patta School, Amet',
+waTo:'Goes to '+par[0]+' (father) · '+par[1]+' · 1 WhatsApp from the school’s number',
+saveT:kid?'Note about '+kid:'Pick a child first',route:kid?routeOf(kcls,s.vis):'Then speak or type what you noticed.',saveOp:kid&&txt.trim()?'1':'0.6'
+};
+const langChips=[['hi','हिंदी'],['en','English']].map((l)=>({label:l[1],cls:s.lang===l[0]?'on':'',pressed:s.lang===l[0]?'true':'false',pick:()=>{S({lang:l[0],words:0});if(this.st().screen==='listening')this.tick();}}));
+const phr=D.PHR.map((p)=>({en:p[0],hi:p[1],add:()=>{const c=this.st();const t=(c.text||'').trim();const ph=c.lang==='hi'?p[1]:p[0];S({text:t?t+(/[।.!?]$/.test(t)?' ':'. ')+ph:ph,mode:'type',err:''});}}));
+const save=()=>{
+const c=this.st();
+const kk=kidCls(c.kid);
+const text=(c.text||'').trim();
+if(!kk[0]){S({err:'kid'});this.toast('First pick the child · पहले बच्चा चुनें');return;}
+if(text.length<3){S({err:'text'});this.toast('Speak or type a few words first');return;}
+const sg=Object.keys(D.KW).filter((t)=>D.KW[t].test(text));
+let tags=Object.keys(c.tags).filter((t)=>c.tags[t]);
+if(!tags.length)tags=[sg[0]||'studies'];
+const d=DATES[c.fdate]||DATES[1];
+const n={id:'x'+(c.added.length+1),kid:kk[0],cls:kk[1],tags,text,by:'me',rel:kk[1]==='6'?'class teacher':'Science teacher',date:'Today · 9:42 am',status:c.follow?'open':'note',follow:c.follow?{date:d[0],who:c.who,ord:d[2],big:'Due '+d[1]}:null,vis:c.vis,tell:!!(c.tell&&c.vis==='all'),replies:[]};
+if(kk[1]!=='6')n.reached=D.CT[kk[1]];
+const keep={text:c.text,tags:c.tags,fromVoice:c.fromVoice,kid:c.kid};
+const undo=()=>{const x=this.st();S(Object.assign({added:x.added.filter((a)=>a.id!==n.id),screen:'add',anim:'pop'},keep));};
+this._lastUndo=undo;
+S({added:[n].concat(c.added),savedId:n.id,screen:'saved',anim:'push',text:'',fromVoice:false,tags:{},tell:false,err:'',mode:'voice'});
+this.toast('Note saved'+(n.tell?' · WhatsApp going to parents':''),undo);
+};
+
+//----------listening----------
+const sent=this.sentence(s);
+const nW=Math.min(s.words,sent.length);
+const sec=Math.round(nW*0.45);
+const ls={
+kid:kid||'Riya Singh',ini:ini(kid||'Riya Singh'),status:nW>=sent.length?'Got it · तैयार':'Listening… · सुन रहे हैं',
+timer:'0:'+(sec<10?'0':'')+sec,words:sent.slice(0,nW),empty:nW===0,
+bars:[0.5,0.8,1,0.7,0.9,0.6,0.4].map((h,i)=>({h:Math.round(h*48)+'px',d:(i*110)+'ms',op:nW>=sent.length?'0.35':'1'})),
+cancel:()=>{clearTimeout(this._wt);S({screen:'add',anim:'pop',words:0});this.toast('Nothing was saved');},
+done:()=>{
+clearTimeout(this._wt);
+const c=this.st();
+const w=this.sentence(c).slice(0,c.words).join(' ');
+if(!w){S({screen:'add',anim:'pop'});this.toast('Did not catch anything — tap the mic and try again');return;}
+const t=(c.text&&c.mode==='more')?c.text.trim()+' '+w:w;
+const tg=Object.assign({},c.tags);
+Object.keys(D.KW).forEach((k)=>{if(D.KW[k].test(t))tg[k]=true;});
+S({screen:'add',anim:'pop',text:t,fromVoice:true,tags:tg,mode:'voice',words:0});
+}
+};
+const startVoice=()=>{const c=this.st();if(!kidCls(c.kid)[0]){S({err:'kid'});this.toast('First pick the child · पहले बच्चा चुनें');return;}S({screen:'listening',anim:'push',words:0,mode:c.text&&!c.fromVoice?'more':'voice'});this.tick();};
+const addMore=()=>{S({screen:'listening',anim:'push',words:0,mode:'more'});this.tick();};
+
+//----------saved----------
+const SN=all.filter((n)=>n.id===s.savedId)[0]||all[0];
+const svPar=parentOf(SN.kid,SN.cls);
+const svWho=[['Ms. Bhati (you)','KB']];
+if(SN.vis!=='me'){if(SN.cls!=='6')svWho.push([D.CT[SN.cls]+' · class teacher',ini(D.CT[SN.cls])]);svWho.push(['Ms. Asha Purohit · coordinator','AP']);svWho.push(['Office','OF']);}
+const sv={
+line:(SN.vis==='me'?'Only you can see this note.':(SN.cls==='6'?'Ms. Asha Purohit (coordinator) and the office can see it now.':D.CT[SN.cls]+' (class teacher) and the coordinator can see this.'))+(SN.tell?' A WhatsApp is going to '+svPar[0]+'.':'')+(SN.follow?' Reminder on '+SN.follow.date+'.':''),
+who:svWho.map((w,i)=>({label:w[0],ini:w[1],bg:TONES[i][0],fg:TONES[i][1],delay:(300+i*90)+'ms'})),
+tlTitle:SN.kid+'’s notes · timeline',
+tl:all.filter((n)=>n.kid===SN.kid).map((n,i)=>{
+const st=ST[stOf(n)];
+const me=n.id===SN.id;
+return{when:me?'Just now':n.date,wc:me?V('acc'):V('mut'),text:n.text,meta:(n.by==='me'?'Ms. Bhati (you)':n.by)+(n.follow?' · follow up '+n.follow.date+' · '+WHO[n.follow.who]:''),tags:tagPills(n),status:st[0],sbg:st[2],sfg:st[3],dot:me?V('acc'):V('bds'),bd:me?'2px solid var(--acc)':'1px solid var(--bd)',op:me?'1':'0.75',anim:me?'xRise .6s .35s var(--ease) both':'xIn .3s var(--ease) both'};
+}),
+undo:()=>{const f=this._lastUndo;if(f){this._lastUndo=null;S({toast:null});f();this.toast('Note taken back — nothing was saved');}else{S({added:this.st().added.filter((a)=>a.id!==SN.id),screen:'add',anim:'pop',kid:SN.kid+'|'+SN.cls,text:SN.text});this.toast('Note taken back — nothing was saved');}},
+plan:go('plan',{cur:SN.id}),done:go('list',{},'pop'),
+another:()=>S({screen:'add',anim:'push',kid:'',text:'',tags:{},fromVoice:false,mode:'voice'})
+};
+
+//----------detail----------
+const DN=all.filter((n)=>n.id===s.cur)[0]||D.NOTES[0];
+const dst=stOf(DN);
+const sIdx=['open','work','done'].indexOf(dst);
+const steps=s.plans[DN.id]||D.PLANS[DN.id]||[];
+const nDone=steps.filter((p)=>p.done).length;
+const nextStep=steps.filter((p)=>!p.done)[0];
+const setSt=(v)=>()=>{const before=this.st().status;const n=Object.assign({},before);n[DN.id]=v;S({status:n});this.toast('Status: '+ST[v][0]+' · '+ST[v][1],()=>S({status:before}));};
+const dt={
+kid:DN.kid,first:DN.kid.split(' ')[0],ini:ini(DN.kid),abg:tone(DN.kid)[0],afg:tone(DN.kid)[1],c:D.TAG[DN.tags[0]][4],page:DN.kid==='Riya Singh',
+sub:'Class '+DN.cls+' · '+(DN.by==='me'?'written by you ('+DN.rel+')':'from '+DN.by+' ('+DN.rel+')')+' · '+DN.date,text:DN.text,tags:DN.tags.map((t)=>({label:D.TAG[t][0]+' · '+D.TAG[t][1],icon:IC[D.TAG[t][2]],bg:D.TAG[t][3],fg:D.TAG[t][4]})),
+facts:[DN.follow?['calendar','Follow up '+DN.follow.date+' · '+WHO[DN.follow.who]]:['note','Just noting · no reminder'],[DN.vis==='me'?'eyeOff':'eye',DN.vis==='me'?'Only you can see this':'Teachers & office can see this']].concat(DN.reached?[['send',DN.reached==='you'?'Reached you as class teacher':'Reached '+DN.reached+' (class teacher) automatically']]:[]).map((f)=>({icon:IC[f[0]],t:f[1]})),
+line:sIdx<=0?'0%':(sIdx===1?'33.4%':'66.8%'),
+steps:[['open','Open','खुला','flag'],['work','Working on it','काम चल रहा','activity'],['done','Done','पूरा','check']].map((x,i)=>{
+const on=i===sIdx;
+const past=i<sIdx;
+return{label:x[1],hi:x[2],icon:IC[x[3]],on:on?'true':'false',bg:on?(i===2?V('ok'):V('pri')):(past?V('okm'):V('card')),fg:on?V('onsolid'):(past?V('ok'):V('mut')),bd:on||past?'2px solid transparent':'2px solid var(--bds)',sc:on?'1.12':'1',tc:on?V('fg'):V('mut'),pick:setSt(x[0])};
+}),
+pl:{has:steps.length>0,none:!steps.length,n:steps.length?nDone+' of '+steps.length:'—',w:(steps.length?nDone/steps.length*100:0).toFixed(1)+'%',next:nextStep?'Next: '+nextStep.t+' · '+OWN[nextStep.who]+' · '+WHEN[nextStep.when]:'All steps done. Well done!',btn:steps.length?'Open support plan':'Make a support plan',go:go('plan',{})},
+replies:repOf(DN).map((r,i)=>{const me=r[0].indexOf('(you)')>=0;return{who:r[0]+(r[1]?' · '+r[1]:''),text:r[2],when:r[3],al:me?'flex-end':'flex-start',bg:me?V('pri'):V('s2'),fg:me?V('prifg'):V('fg'),rad:me?'16px 16px 4px 16px':'16px 16px 16px 4px',anim:r[4]?'xRise .4s var(--ease) both':'none'};}),
+noR:repOf(DN).length===0
+};
+const rText=s.rlive?this.sentence(s).slice(0,s.words).join(' '):s.rtext;
+const rp={
+live:!!s.rlive,text:rText,onText:(e)=>S({rtext:e.target.value}),
+micAria:s.rlive?'Stop listening':'Speak a reply',micBg:s.rlive?V('bad'):V('accs'),micFg:s.rlive?V('onsolid'):V('accfg'),micIcon:s.rlive?IC.x:IC.mic,
+bars:[0.5,0.9,0.6,1,0.7].map((h,i)=>({h:Math.round(h*26)+'px',d:(i*120)+'ms'})),
+mic:()=>{const c=this.st();if(c.rlive){clearTimeout(this._wt);S({rlive:false,rtext:this.sentence(c).slice(0,c.words).join(' ')});}else{S({rlive:true,rkid:DN.kid,words:0,rtext:''});this.tick();}},
+send:()=>{
+const c=this.st();
+clearTimeout(this._wt);
+const t=(c.rlive?this.sentence(c).slice(0,c.words).join(' '):c.rtext||'').trim();
+if(!t){this.toast('Write or speak a reply first');return;}
+const before=c.replies;
+const n=Object.assign({},before);
+n[DN.id]=(n[DN.id]||[]).concat([['Ms. Bhati (you)','',t,'Just now',true]]);
+S({replies:n,rtext:'',rlive:false});
+this.toast('Reply sent · everyone on this note can see it',()=>S({replies:before}));
+}
+};
+
+//----------plan----------
+const setSteps=(fn)=>{const c=this.st();const cur=(c.plans[DN.id]||D.PLANS[DN.id]||[]).map((p)=>Object.assign({},p));const plans=Object.assign({},c.plans);plans[DN.id]=fn(cur);S({plans});};
+const used=steps.map((p)=>p.t);
+const hiOf=(t)=>(D.STEPS.filter((x)=>x[0]===t)[0]||[t,t])[1];
+const plPar=parentOf(DN.kid,DN.cls);
+const pFirst=DN.kid.split(' ')[0];
+const pl={
+title:'Support plan for '+DN.kid,for:DN.text,n:nDone+' of '+steps.length,dash:(steps.length?nDone/steps.length*188.5:0).toFixed(1)+' 188.5',
+hint:steps.length<3?'Add '+(3-steps.length)+' more step'+(3-steps.length===1?'':'s')+' · 3 to 5 work best':(steps.length>=5?'That is enough steps — keep it simple':'Tap the box when a step is done'),
+empty:!steps.length,
+steps:steps.map((p,i)=>({
+t:p.t,who:OWN[p.who]||OWN[0],when:WHEN[p.when]||WHEN[0],done:!!p.done,on:p.done?'true':'false',bg:p.done?V('ok'):'transparent',bd:p.done?'2px solid var(--ok)':'2px solid var(--bds)',tc:p.done?V('mut'):V('fg'),strike:p.done?'line-through':'none',border:i?'1px solid var(--bd)':'0',anim:p.fresh?'xRise .4s var(--ease) both':'none',
+toggle:()=>setSteps((a)=>{if(a[i])a[i].done=!a[i].done;return a;}),
+cycWho:()=>setSteps((a)=>{if(a[i])a[i].who=(a[i].who+1)% OWN.length;return a;}),
+cycWhen:()=>setSteps((a)=>{if(a[i])a[i].when=(a[i].when+1)% WHEN.length;return a;}),
+remove:()=>{const before=this.st().plans;setSteps((a)=>a.filter((x,j)=>j!==i));this.toast('Step removed',()=>S({plans:before}));}
+})),
+sop:steps.length>=5?'0.45':'1',
+sugg:D.STEPS.filter((x)=>used.indexOf(x[0])<0).map((x)=>({en:x[0],hi:x[1],add:()=>{if((this.st().plans[DN.id]||steps).length>=5){this.toast('5 steps is plenty — remove one first');return;}setSteps((a)=>a.concat([{t:x[0],who:0,when:0,done:false,fresh:true}]));}})),
+own:s.own,onOwn:(e)=>S({own:e.target.value}),
+addOwn:()=>{const t=(this.st().own||'').trim();if(t.length<3){this.toast('Write the step first');return;}if((this.st().plans[DN.id]||steps).length>=5){this.toast('5 steps is plenty — remove one first');return;}setSteps((a)=>a.concat([{t,who:0,when:0,done:false,fresh:true}]));S({own:''});},
+tellOn:s.ptell?'true':'false',tellCls:s.ptell?'on':'',tellPrev:!!s.ptell&&steps.length>0,tellOff:!s.ptell||!steps.length,toggleTell:set({ptell:!s.ptell}),
+waHi:'नमस्ते, '+(D.HN[pFirst]||pFirst)+' की मदद के लिए हमने यह योजना बनाई है: '+steps.map((p,i)=>(i+1)+'. '+hiOf(p.t)).join('  ')+'। आपका साथ ज़रूरी है। — कविता भाटी, श्री वीर पत्ता स्कूल',
+waEn:'Hello, we have made this plan to help '+pFirst+': '+steps.map((p,i)=>(i+1)+'. '+p.t).join('  ')+'. Your support matters. — Kavita Bhati, Shri Veer Patta School',
+waTo:'Goes to '+plPar[0]+' (father) · '+plPar[1]+' · 1 WhatsApp from the school’s number',
+saveHint:steps.length<3?'Add at least 3 steps to save':'Ms. Asha Purohit (coordinator) will see this plan',saveOp:steps.length>=3?'1':'0.6',
+save:()=>{const c=this.st();const n=(c.plans[DN.id]||steps).length;if(n<3){this.toast('Add at least 3 steps first');return;}S({screen:'detail',anim:'pop',ptell:false});this.toast('Plan saved'+(c.ptell?' · WhatsApp going to '+plPar[0]:' · the coordinator can see it'));}
+};
+
+//----------chrome----------
+const isRev=sc==='add'&&cp.fromVoice;
+const TOP={
+list:['Teacher · notes on children',L('Notes on children','बच्चों के नोट्स').a,L('Notes on children','बच्चों के नोट्स').a,all.length+' notes · '+all.filter(isDue).length+' due soon',false],
+add:['Notes › New note',isRev?'Check and save':L('New note','नया नोट').a,isRev?'Check and save':L('New note','नया नोट').a,kid?kid+' · Class '+kcls:'Pick a child',true],
+listening:['Notes › New note','Listening…','Listening…','Speak now · बोलिए',true],
+saved:['Notes › Saved','Note saved','Note saved',SN.kid,true],
+detail:['Notes › '+DN.kid,DN.kid+' · note',DN.kid,'Class '+DN.cls+' · '+ST[dst][0],true],
+plan:['Notes › '+DN.kid+' › Support plan','Support plan · '+DN.kid,'Support plan',DN.kid+' · '+nDone+' of '+steps.length+' done',true]
+}[sc]||['','','','',false];
+const HELP={
+list:[['bell','Follow-ups first','Notes you must act on soon are on top. Then open notes, then the rest.'],['filter','Filter','Tap a tag or a class to see only those notes.'],['mic','Speak a note','Tap the big “Speak a note” button and just talk.']],
+add:[['user','Pick the child','Tap a recent name, or pick the class and search.'],['mic','Speak or type','Tap the mic and talk in Hindi or English. Or tap “Type instead”.'],['check','Choose and save','Tags, follow-up day and who can see it are already filled. Change anything, then Save.']],
+listening:[['mic','Just talk','Speak normally. Your words appear as you speak.'],['globe','Change language','Tap हिंदी or English.'],['check','Tap Done','You can fix any word before saving.']],
+saved:[['check','Saved','Your note is safe. You can see who can read it.'],['undo','Changed your mind?','Tap Undo to take it back.'],['layers','Make a plan','A support plan turns the note into small steps.']],
+detail:[['activity','Update the status','Tap Open, Working on it or Done.'],['message','Reply','Type or speak a reply. Everyone on this note sees it.'],['layers','Support plan','Small steps, each with a person and a date.']],
+plan:[['plus','Add steps','Tap a suggestion or write your own. 3 to 5 steps work best.'],['user','Who and when','Tap the person or the date on a step to change it.'],['message','Tell parents','Turn it on to send the plan in Hindi and English.']]
+}[sc]||[];
+const ANIM={push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both',none:'none'};
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',
+is:{list:sc==='list',add:sc==='add',listening:sc==='listening',saved:sc==='saved',detail:sc==='detail',plan:sc==='plan'},
+anim:ANIM[s.anim]||'none',
+top:{crumb:TOP[0],title:TOP[1],mTitle:TOP[2],mSub:TOP[3],back:TOP[4],mLink:!TOP[4]},
+lng:{on:s.hi?'true':'false',en:s.hi?'':'y',hi:s.hi?'y':'',flip:()=>{const h=!this.st().hi;S({hi:h});this.toast(h?'Labels now in Hindi':'Labels now in English');}},
+lb:{
+intro:L('Notes on children','बच्चों के नोट्स'),who:L('Which child?','कौन सा बच्चा?'),what:L('What did you notice?','आपने क्या देखा?'),tags:L('Tags','विषय चुनें'),
+fol:L('Follow-up','आगे क्या करना है'),vis:L('Who can see it','कौन देख सकता है'),tell:L('Tell parents','माता-पिता को बताएँ'),save:L('Save note','नोट सहेजें'),saved:L('Saved','सहेजा गया'),
+where:L('Where is this?','स्थिति'),plan:L('Support plan','सहायता योजना'),rep:L('Replies','जवाब'),sugg:L('Suggested steps','सुझाए गए कदम')
+},
+kpis,tagChips,clsSeg,secs,noNotes:secs.length===0,clearF:set({ftag:'all',fcls:'all'}),
+newNote:()=>S({screen:'add',anim:'push',kid:'',text:'',tags:{},fromVoice:false,mode:'voice',err:''}),
+cp,langChips,phr,save,startVoice,addMore,typeIt:set({mode:'type'}),
+folSeg:seg([['no','Just noting','सिर्फ़ नोट'],['yes','Needs follow-up','ध्यान देना है']],s.follow?'yes':'no','fsel',(v)=>S({follow:v==='yes'})),
+visSeg:seg([['all','Teachers & office','शिक्षक व ऑफिस'],['me','Only me','सिर्फ़ मैं']],s.vis,'vis',(v)=>{if(v==='me')S({tell:false});}),
+ls,sv,dt,rp,pl,
+back:()=>{
+const c=this.st();
+clearTimeout(this._wt);
+const to={add:'list',listening:'add',saved:'list',detail:'list',plan:'detail'}[c.screen]||'list';
+S({screen:to,anim:'pop',rlive:false,words:0});
+},
+openHelp:()=>{clearTimeout(this._ct);S({sheet:'help',closing:false});},
+help:HELP.map((h,i)=>({n:String(i+1),icon:IC[h[0]],t:h[1],d:h[2],bg:TONES[i][0],fg:TONES[i][1],delay:(i*90)+'ms'})),
+sh:{open:!!s.sheet,state:s.closing?'closing':'open'},closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

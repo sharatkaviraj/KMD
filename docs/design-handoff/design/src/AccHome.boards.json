@@ -1,0 +1,10 @@
+[
+  {"file": "AccHome.dc.html", "device": "desktop", "title": "Accountant · today"},
+  {"file": "DX-AccHome-Menu.dc.html", "device": "desktop", "start": "menu", "title": "Menu · every place"},
+  {"file": "DX-AccHome-Evening.dc.html", "device": "desktop", "start": "evening", "title": "Evening · after day close"},
+  {"file": "DX-AccHome-Dark.dc.html", "device": "desktop", "start": "home", "dark": true, "title": "Today · dark"},
+  {"file": "M-AccHome.dc.html", "device": "phone", "start": "home", "title": "Today"},
+  {"file": "M-AccHome-Menu.dc.html", "device": "phone", "start": "menu", "title": "Menu"},
+  {"file": "M-AccHome-Evening.dc.html", "device": "phone", "start": "evening", "title": "Evening · day closed"},
+  {"file": "M-AccHome-Dark.dc.html", "device": "phone", "start": "home", "dark": true, "title": "Today · dark"}
+]

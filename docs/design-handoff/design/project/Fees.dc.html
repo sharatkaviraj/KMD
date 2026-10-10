@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Receipts and day close</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+  <div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="fees" role="{{role}}" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+
+    <!-- desktop top bar -->
+    <header class="only-d glass" style="flex: none; height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 12px; color: var(--mut)">{{top.crumb}}</span><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+      <sc-if value="{{is.list}}" hint-placeholder-val="{{ true }}">
+        <label style="position: relative; height: 40px; width: 280px; border-radius: 12px; border: 1px solid var(--bd); background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search receipts</span><input type="search" value="{{q}}" onChange="{{onQ}}" placeholder="Receipt no., name or class" style="flex: 1; min-width: 0; height: 36px; border: 0; outline: none; background: transparent; font-size: 14px"></label>
+        <button class="tap btn sec" type="button" onClick="{{exportDay}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>Export</button>
+        <button class="tap btn pri" type="button" onClick="{{goClose}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>Close the day</button>
+      </sc-if>
+      <sc-if value="{{is.close}}" hint-placeholder-val="{{ false }}">
+        <button class="tap btn ghost" type="button" onClick="{{goList}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>Back to receipts</button>
+      </sc-if>
+    </header>
+
+    <!-- phone top bar -->
+    <header class="only-m glass" style="flex: none; min-height: 58px; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+      <sc-if value="{{top.mBackLink}}" hint-placeholder-val="{{ true }}"><a href="{{roleMenu}}" class="tap" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+      <sc-if value="{{top.mBackBtn}}" hint-placeholder-val="{{ false }}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; padding-left: 2px"><span style="font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{top.mTitle}}</span><span style="font-size: 12px; color: var(--mut)">{{top.mSub}}</span></span>
+      <sc-if value="{{is.list}}" hint-placeholder-val="{{ true }}"><button class="tap btn soft" type="button" onClick="{{goClose}}" style="height: 40px; padding: 0 12px; font-size: 13px"><svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>Close day</button></sc-if>
+    </header>
+
+    <main class="scroll" style="flex: 1; min-height: 0; position: relative">
+
+      <!-- ============ RECEIPTS LIST (+ detail panel) ============ -->
+      <sc-if value="{{is.list}}" hint-placeholder-val="{{ true }}">
+      <div class="stack" style="display: grid; grid-template-columns: {{split.cols}}; align-items: start; min-height: 100%">
+        <section class="pad {{split.listCls}}" style="padding: 22px 28px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 0; animation: {{anim.list}}">
+
+          <div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+            <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+              <div class="card rise" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; animation-delay: {{k.delay}}">
+                <span style="font-size: 12px; color: var(--mut); font-weight: 600">{{k.label}}</span>
+                <span class="num" style="font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: {{k.tone}}">{{k.value}}</span>
+                <span style="font-size: 12px; color: var(--mut)">{{k.sub}}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div class="card" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><span style="font-size: 13px; font-weight: 700">How it came in</span><span class="num" style="font-size: 12px; color: var(--mut)">{{mix.total}}</span></div>
+            <div style="display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--s3)">
+              <sc-for list="{{mix.parts}}" as="p" hint-placeholder-count="4"><span title="{{p.title}}" style="height: 12px; width: {{p.w}}; background: {{p.c}}; transition: width .5s var(--ease)"></span></sc-for>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 14px">
+              <sc-for list="{{mix.parts}}" as="p" hint-placeholder-count="4"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{p.c}}"></span>{{p.label}}<span class="num" style="font-weight: 700">{{p.amt}}</span></span></sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+            <div class="seg" style="grid-template-columns: repeat(3, minmax(0, 1fr)); width: 300px; max-width: 100%">
+              <span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{daySeg.thumb}})"></span>
+              <sc-for list="{{daySeg.opts}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for>
+            </div>
+            <div class="hs" style="display: flex; gap: 6px; flex: 1; min-width: 0">
+              <sc-for list="{{modeChips}}" as="c" hint-placeholder-count="5"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for>
+              <span style="flex: none; width: 1px; background: var(--bd); margin: 4px 2px"></span>
+              <sc-for list="{{staffChips}}" as="c" hint-placeholder-count="3"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for>
+            </div>
+          </div>
+
+          <label class="only-m" style="position: relative; height: 46px; border-radius: 23px; border: 1px solid var(--bds); background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 14px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search receipts</span><input type="search" value="{{q}}" onChange="{{onQ}}" placeholder="Receipt no., name or class" style="flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; font-size: 16px"></label>
+
+          <!-- desktop table -->
+          <div class="only-d card" style="overflow: hidden">
+            <div style="display: grid; grid-template-columns: 100px 76px minmax(190px, 2fr) 104px minmax(110px, 1fr) 104px 28px; gap: 8px; align-items: center; height: 42px; padding: 0 16px; background: var(--s2); border-bottom: 1px solid var(--bd)">
+              <span class="sech">Receipt</span><span class="sech">Time</span><span class="sech">Student</span><span class="sech">Mode</span><span class="sech">Taken by</span><span class="sech" style="text-align: right">Amount</span><span></span>
+            </div>
+            <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 6px; background: var(--card); border-top: 1px solid var(--bd)"><span style="font-size: 12px; font-weight: 700; color: var(--mut)">{{g.label}}</span><span class="num" style="font-size: 12px; font-weight: 700; color: var(--mut)">{{g.total}} · {{g.count}}</span></div>
+              <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="6">
+                <button class="tap row {{r.selCls}}" type="button" onClick="{{r.open}}" style="width: 100%; display: grid; grid-template-columns: 100px 76px minmax(190px, 2fr) 104px minmax(110px, 1fr) 104px 28px; gap: 8px; align-items: center; min-height: 56px; padding: 0 16px; border: 0; border-top: 1px solid var(--bd); background: transparent; color: var(--fg); text-align: left; opacity: {{r.op}}; animation: xIn .32s var(--ease) both; animation-delay: {{r.delay}}">
+                  <span class="num" style="font-size: 13px; font-weight: 700; text-decoration: {{r.strike}}">{{r.no}}</span>
+                  <span class="num" style="font-size: 13px; color: var(--mut)">{{r.time}}</span>
+                  <span style="display: flex; align-items: center; gap: 10px; min-width: 0"><span style="flex: none; width: 32px; height: 32px; border-radius: 16px; background: {{r.abg}}; color: {{r.afg}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">{{r.ini}}</span><span style="min-width: 0; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span><span style="font-size: 12px; color: var(--mut)">{{r.cls}}</span></span></span>
+                  <span><span class="pill" style="background: {{r.mbg}}; color: {{r.mfg}}">{{r.mode}}</span></span>
+                  <span style="font-size: 13px; color: var(--mut)">{{r.by}}</span>
+                  <span class="num" style="font-size: 14px; font-weight: 700; text-align: right; text-decoration: {{r.strike}}">{{r.amt}}</span>
+                  <svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+                </button>
+              </sc-for>
+            </sc-for>
+          </div>
+
+          <!-- phone list -->
+          <div class="only-m" style="display: flex; flex-direction: column; gap: 14px">
+            <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="display: flex; justify-content: space-between; padding: 0 4px"><span class="sech">{{g.label}}</span><span class="num" style="font-size: 12px; font-weight: 700; color: var(--mut)">{{g.total}} · {{g.count}}</span></div>
+                <div class="card" style="overflow: hidden">
+                  <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="6">
+                    <button class="tap row" type="button" onClick="{{r.open}}" style="width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; border-top: {{r.border}}; background: transparent; color: var(--fg); text-align: left; opacity: {{r.op}}; animation: xIn .32s var(--ease) both; animation-delay: {{r.delay}}">
+                      <span style="flex: none; width: 40px; height: 40px; border-radius: 12px; background: {{r.mbg}}; color: {{r.mfg}}; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.micon}}"></path></svg></span>
+                      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span><span class="num" style="font-size: 12px; color: var(--mut)">{{r.no}} · {{r.cls}} · {{r.time}}</span></span>
+                      <span style="display: flex; flex-direction: column; align-items: flex-end"><span class="num" style="font-size: 15px; font-weight: 700; text-decoration: {{r.strike}}">{{r.amt}}</span><span style="font-size: 11px; color: {{r.stTone}}; font-weight: 600">{{r.stLabel}}</span></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+            <div class="card fadein" style="padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+              <span style="width: 56px; height: 56px; border-radius: 28px; background: var(--s2); color: var(--mut); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.receipt}}"></path></svg></span>
+              <span style="font-size: 16px; font-weight: 700">No receipts match</span>
+              <span style="font-size: 13px; color: var(--mut)">Try another mode or name, or clear the filters.</span>
+              <button class="tap btn sec" type="button" onClick="{{clearFilters}}">Clear filters</button>
+            </div>
+          </sc-if>
+        </section>
+
+        <!-- receipt detail -->
+        <sc-for list="{{panels}}" as="p" hint-placeholder-count="1">
+          <sc-if value="{{p.isOpen}}" hint-placeholder-val="{{ false }}">
+          <aside class="unstick" style="position: sticky; top: 0; height: calc(100vh - 64px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--bg); animation: xPush .36s var(--ease) both">
+            <div style="padding: 18px 22px 28px; display: flex; flex-direction: column; gap: 14px">
+              <div class="only-d" style="display: flex; align-items: center; justify-content: space-between"><span class="pill" style="height: 26px; padding: 0 10px; font-size: 12px; background: {{p.stBg}}; color: {{p.stFg}}">{{p.stLabel}}</span><button class="tap btn ghost" type="button" aria-label="Close receipt" onClick="{{closePanel}}" style="width: 36px; height: 36px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+
+              <div class="card" style="position: relative; padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+                <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1.5px dashed var(--bds)">
+                  <span class="serif" style="flex: none; width: 42px; height: 42px; border-radius: 12px; background: #082F49; color: #F7F6F3; display: flex; align-items: center; justify-content: center; font-weight: 700">VP</span>
+                  <span style="display: flex; flex-direction: column; min-width: 0"><span class="serif" style="font-size: 16px; font-weight: 600; line-height: 1.2">Shri Veer Patta Sr. Sec. School, Amet</span><span style="font-size: 12px; color: var(--mut)">श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट</span></span>
+                </div>
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px"><span style="font-size: 13px; font-weight: 700; color: var(--mut)">रसीद · FEE RECEIPT</span><span class="num" style="font-size: 15px; font-weight: 700">{{p.no}}</span></div>
+                <div class="g2" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; font-size: 13px">
+                  <span style="display: flex; flex-direction: column"><span style="color: var(--mut); font-size: 11px">Student</span><span style="font-weight: 600">{{p.name}}</span></span>
+                  <span style="display: flex; flex-direction: column"><span style="color: var(--mut); font-size: 11px">Class · SR</span><span style="font-weight: 600">{{p.cls}} · {{p.sr}}</span></span>
+                  <span style="display: flex; flex-direction: column"><span style="color: var(--mut); font-size: 11px">Father</span><span style="font-weight: 600">{{p.father}}</span></span>
+                  <span style="display: flex; flex-direction: column"><span style="color: var(--mut); font-size: 11px">Date · time</span><span class="num" style="font-weight: 600">{{p.date}} · {{p.time}}</span></span>
+                </div>
+                <div style="display: flex; flex-direction: column; border-top: 1px solid var(--bd)">
+                  <sc-for list="{{p.heads}}" as="h" hint-placeholder-count="2"><div style="display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--bd); font-size: 13px"><span>{{h.label}}</span><span class="num" style="font-weight: 600">{{h.amt}}</span></div></sc-for>
+                  <div style="display: flex; justify-content: space-between; padding: 10px 0 2px"><span style="font-size: 14px; font-weight: 700">Total received</span><span class="num" style="font-size: 18px; font-weight: 700">{{p.amt}}</span></div>
+                  <span style="font-size: 12px; color: var(--mut); font-style: italic">{{p.words}}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--mut); padding-top: 4px; border-top: 1.5px dashed var(--bds)"><span>{{p.modeLine}}</span><span>Taken by {{p.by}}</span></div>
+                <sc-if value="{{p.isRev}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="position: absolute; top: 46%; left: 50%; padding: 6px 18px; border: 3px solid var(--bad); border-radius: 10px; color: var(--bad); font-size: 26px; font-weight: 800; letter-spacing: .12em; transform: translate(-50%, -50%) rotate(-14deg); background: var(--card); opacity: .92; animation: xPopIn .5s var(--spring) both">REVERSED</span></sc-if>
+              </div>
+
+              <sc-if value="{{p.canAct}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <button class="tap btn pri" type="button" onClick="{{p.send}}" style="height: 46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{p.sendLabel}}</button>
+                <div class="g3" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+                  <button class="tap btn sec" type="button" onClick="{{p.print}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.printer}}"></path></svg>Print</button>
+                  <button class="tap btn sec" type="button" onClick="{{p.pdf}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>PDF</button>
+                  <button class="tap btn sec" type="button" onClick="{{p.reverse}}" style="color: var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>Reverse</button>
+                </div>
+              </div>
+              </sc-if>
+
+              <div class="card" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 0">
+                <span class="sech" style="margin-bottom: 8px">History</span>
+                <sc-for list="{{p.log}}" as="l" hint-placeholder-count="3">
+                  <div style="display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 6px 0; animation: xIn .3s var(--ease) both; animation-delay: {{l.delay}}">
+                    <span style="width: 10px; height: 10px; margin-top: 4px; border-radius: 5px; background: {{l.dot}}"></span>
+                    <span style="font-size: 13px">{{l.text}}</span>
+                    <span class="num" style="font-size: 12px; color: var(--mut)">{{l.time}}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-size: 12px; color: var(--mut); line-height: 1.5">Receipts are never edited. A reversal writes a separate entry and this receipt stays in history.</span>
+            </div>
+          </aside>
+          </sc-if>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- ============ CLOSE THE DAY ============ -->
+      <sc-if value="{{is.close}}" hint-placeholder-val="{{ false }}">
+      <div class="pad" style="padding: 22px 28px 40px; animation: {{anim.close}}">
+        <sc-if value="{{close.open}}" hint-placeholder-val="{{ true }}">
+        <div class="stack" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 20px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+            <div class="card" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; align-items: baseline; justify-content: space-between"><span style="font-size: 16px; font-weight: 700">What the app expects</span><span style="font-size: 12px; color: var(--mut)">Thu 8 Oct · 14 receipts</span></div>
+              <sc-for list="{{close.expected}}" as="e" hint-placeholder-count="4">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: {{e.border}}">
+                  <span style="flex: none; width: 36px; height: 36px; border-radius: 11px; background: {{e.bg}}; color: {{e.fg}}; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{e.icon}}"></path></svg></span>
+                  <span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600">{{e.label}}</span><span style="font-size: 12px; color: var(--mut)">{{e.count}}</span></span>
+                  <span class="num" style="font-size: 16px; font-weight: 700">{{e.amt}}</span>
+                </div>
+              </sc-for>
+              <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid var(--bd)"><span style="font-size: 14px; font-weight: 700">Total</span><span class="num" style="font-size: 18px; font-weight: 700">{{close.total}}</span></div>
+            </div>
+            <button class="tap card" type="button" role="switch" aria-checked="{{close.upiOn}}" onClick="{{close.toggleUpi}}" style="padding: 14px 16px; display: flex; align-items: center; gap: 12px; text-align: left; color: var(--fg); width: 100%">
+              <span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600">UPI matches the bank app</span><span class="num" style="font-size: 12px; color: var(--mut)">{{close.upiLine}}</span></span>
+              <span class="sw {{close.upiCls}}"><span></span></span>
+            </button>
+            <label class="field"><span>Note for the record (needed if cash does not match)</span><textarea class="inp" value="{{close.note}}" onChange="{{close.onNote}}" placeholder="For example: ₹100 given back as change to a parent, to be collected tomorrow"></textarea></label>
+          </div>
+
+          <div class="card" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+            <div style="display: flex; align-items: baseline; justify-content: space-between"><span style="font-size: 16px; font-weight: 700">Count the cash</span><span class="num" style="font-size: 12px; color: var(--mut)">Expected {{close.cashExp}}</span></div>
+            <sc-for list="{{close.denoms}}" as="d" hint-placeholder-count="7">
+              <div style="display: grid; grid-template-columns: 74px minmax(0, 1fr) 96px; gap: 10px; align-items: center; padding: 4px 0">
+                <span class="num" style="font-size: 15px; font-weight: 700">{{d.label}}</span>
+                <span style="display: flex; align-items: center; gap: 6px">
+                  <button class="tap btn sec" type="button" aria-label="One less {{d.label}}" onClick="{{d.dec}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.minus}}"></path></svg></button>
+                  <span class="num" style="min-width: 44px; text-align: center; font-size: 17px; font-weight: 700">{{d.count}}</span>
+                  <button class="tap btn sec" type="button" aria-label="One more {{d.label}}" onClick="{{d.inc}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg></button>
+                </span>
+                <span class="num" style="text-align: right; font-size: 14px; font-weight: 600; color: var(--mut)">{{d.sub}}</span>
+              </div>
+            </sc-for>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 2px solid var(--bd)">
+              <span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: var(--mut)">Counted</span><span class="num" style="font-size: 26px; font-weight: 700">{{close.counted}}</span></span>
+              <span class="pill" style="height: 32px; padding: 0 12px; font-size: 13px; background: {{close.diffBg}}; color: {{close.diffFg}}; animation: {{close.diffAnim}}"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px" aria-hidden="true"><path d="{{close.diffIcon}}"></path></svg>{{close.diffLabel}}</span>
+            </div>
+            <button class="tap btn pri" type="button" onClick="{{close.submit}}" style="height: 48px; font-size: 15px; margin-top: 6px; opacity: {{close.btnOp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>Close the day and lock receipts</button>
+            <span style="font-size: 12px; color: var(--mut); text-align: center">{{close.hint}}</span>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{close.done}}" hint-placeholder-val="{{ false }}">
+        <div class="card fadein" style="max-width: 620px; margin: 10px auto 0; padding: 32px 28px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+          <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+          <span class="serif" style="font-size: 28px; font-weight: 600">Day closed · Thu 8 Oct</span>
+          <span style="font-size: 14px; color: var(--mut)">Closed by Janmejay at 5:10 pm. Receipts after this count for Friday 9 Oct.</span>
+          <div style="width: 100%; display: flex; flex-direction: column; border-top: 1px solid var(--bd); margin-top: 6px">
+            <sc-for list="{{close.summary}}" as="s" hint-placeholder-count="4"><div style="display: flex; justify-content: space-between; padding: 10px 2px; border-bottom: 1px solid var(--bd); font-size: 14px"><span style="color: var(--mut)">{{s.k}}</span><span class="num" style="font-weight: 700">{{s.v}}</span></div></sc-for>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px">
+            <button class="tap btn pri" type="button" onClick="{{close.report}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>Day report PDF</button>
+            <button class="tap btn sec" type="button" onClick="{{goList}}">Back to receipts</button>
+            <button class="tap btn ghost" type="button" onClick="{{close.reopen}}" style="color: var(--bad)">Reopen day (admin)</button>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+    </main>
+
+    <div class="only-m" style="flex: none"><dc-import name="XNav" active="menu" role="{{role}}" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+  </div>
+
+  <!-- ============ REVERSE SHEET ============ -->
+  <sc-if value="{{sheet.open}}" hint-placeholder-val="{{ false }}">
+    <button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+    <section class="sheet {{sheet.state}}" role="dialog" aria-label="Reverse receipt">
+      <div class="grab"></div>
+      <div style="flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px 20px 10px">
+        <div style="display: flex; flex-direction: column; gap: 2px"><span class="serif" style="font-size: 22px; font-weight: 600">Reverse {{rev.no}}?</span><span style="font-size: 13px; color: var(--mut)">{{rev.line}}</span></div>
+        <button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button>
+      </div>
+      <div class="scroll" style="flex: 1; min-height: 0; padding: 4px 20px 12px; display: flex; flex-direction: column; gap: 10px">
+        <span class="sech">Why?</span>
+        <sc-for list="{{rev.reasons}}" as="r" hint-placeholder-count="4">
+          <button class="tap" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border-radius: 14px; border: {{r.bd}}; background: {{r.bg}}; color: var(--fg); text-align: left">
+            <span style="flex: none; width: 20px; height: 20px; border-radius: 10px; border: 2px solid {{r.ring}}; display: flex; align-items: center; justify-content: center"><span style="width: 10px; height: 10px; border-radius: 5px; background: var(--acc); transform: scale({{r.dot}}); transition: transform .25s var(--spring)"></span></span>
+            <span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600">{{r.label}}</span><span style="font-size: 12px; color: var(--mut)">{{r.sub}}</span></span>
+          </button>
+        </sc-for>
+        <label class="field" style="margin-top: 4px"><span>Note (optional)</span><textarea class="inp" value="{{rev.note}}" onChange="{{rev.onNote}}" placeholder="Anything the accountant should know" style="min-height: 72px"></textarea></label>
+        <div style="padding: 12px 14px; border-radius: 14px; background: var(--warns); color: var(--warnfg); font-size: 13px; line-height: 1.5; display: flex; gap: 10px"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{rev.impact}}</span></div>
+      </div>
+      <div style="flex: none; display: flex; gap: 8px; padding: 12px 20px 20px; border-top: 1px solid var(--bd)">
+        <button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex: 1">Keep receipt</button>
+        <button class="tap btn danger" type="button" onClick="{{rev.confirm}}" style="flex: 1.4"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>Reverse {{rev.amt}}</button>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}">
+    <div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["list","receipt","reverse","reversed","close","closed","empty"],"default":"list"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+    const R = (no, day, time, name, cls, sr, father, mode, amt, by, bus, extra) => Object.assign({ no, day, time, name, cls, sr, father, mode, amt, by, bus: bus || '' }, extra || {});
+    const RECEIPTS = [
+      R('R-0417', 'today', '10:38', 'Pooja Mehta', '11 Commerce', '0933', 'Dinesh Mehta', 'UPI', 4350, 'Janmejay'),
+      R('R-0416', 'today', '10:21', 'Kunal Verma', 'Class 4', '1187', 'Sanjay Verma', 'Cash', 2850, 'Office desk', 'Route 1'),
+      R('R-0415', 'today', '10:05', 'Tanvi Paliwal', 'LKG', '1420', 'Gopal Paliwal', 'UPI', 2175, 'Office desk'),
+      R('R-0414', 'today', '9:58', 'Harsh Vyas', 'Class 8', '1046', 'Naresh Vyas', 'UPI', 3900, 'Janmejay', 'Route 2'),
+      R('R-0413', 'today', '9:44', 'Meera Choudhary', 'Class 2', '1361', 'Ramesh Choudhary', 'Cash', 1500, 'Office desk'),
+      R('R-0412', 'today', '9:31', 'Kabir Solanki', 'Class 6', '1219', 'Suresh Solanki', 'UPI', 6000, 'Janmejay', 'Route 3'),
+      R('R-0411', 'today', '9:20', 'Anaya Dave', 'UKG', '1398', 'Hitesh Dave', 'UPI', 1200, 'Office desk'),
+      R('R-0410', 'today', '9:12', 'Vivaan Trivedi', '12 Science', '0861', 'Alok Trivedi', 'UPI', 4800, 'Janmejay'),
+      R('R-0409', 'today', '8:58', 'Sneha Bhati', 'Class 9', '1030', 'Manoj Bhati', 'Cash', 1175, 'Office desk'),
+      R('R-0408', 'today', '8:47', 'Ritika Purohit', 'Class 5', '1377', 'Deepak Purohit', 'UPI', 2500, 'Office desk', 'Route 1'),
+      R('R-0407', 'today', '8:39', 'Arjun Rawal', 'Class 3', '1314', 'Bharat Rawal', 'Cash', 700, 'Office desk'),
+      R('R-0406', 'today', '8:30', 'Ishaan Kothari', 'Class 1', '1385', 'Vivek Kothari', 'UPI', 3150, 'Janmejay'),
+      R('R-0405', 'today', '8:18', 'Nidhi Chouhan', 'Class 7', '1241', 'Prem Chouhan', 'Cash', 1000, 'Office desk'),
+      R('R-0404', 'today', '8:05', 'Aditi Jain', 'Class 10', '0975', 'Rajesh Jain', 'UPI', 3100, 'Janmejay', 'Route 2'),
+      R('R-0403', 'yesterday', '4:40 pm', 'Yash Mehta', 'Class 9', '1028', 'Kamal Mehta', 'UPI', 6000, 'Janmejay'),
+      R('R-0402', 'yesterday', '1:15 pm', 'Khushi Sharma', 'Class 6', '1222', 'Lokesh Sharma', 'Cash', 4600, 'Office desk', 'Route 3'),
+      R('R-0401', 'yesterday', '11:20', 'Dev Rathore', '11 Science', '0912', 'Ajay Rathore', 'Cheque', 7000, 'Office desk', '', { ref: 'Cheque 004512 · SBI Amet' }),
+      R('R-0400', 'yesterday', '10:05', 'Manvi Joshi', 'Class 4', '1190', 'Sunil Joshi', 'UPI', 5000, 'Janmejay'),
+      R('R-0399', 'yesterday', '9:30', 'Rudra Singh', 'Class 3', '1309', 'Vikram Singh', 'Cash', 3000, 'Office desk', '', { reversed: 'Wrong student — moved to R-0400' }),
+      R('R-0398', 'tue', '3:10 pm', 'Prisha Agarwal', 'Class 8', '1052', 'Rohit Agarwal', 'UPI', 9600, 'Janmejay'),
+      R('R-0397', 'tue', '12:40', 'Om Kumawat', 'Class 5', '1372', 'Mahesh Kumawat', 'Cash', 6300, 'Office desk', 'Route 2'),
+      R('R-0396', 'tue', '10:15', 'Saanvi Mehta', 'Class 2', '1366', 'Pankaj Mehta', 'UPI', 5400, 'Office desk'),
+      R('R-0395', 'tue', '9:05', 'Aarav Bhatt', '12 Commerce', '0866', 'Jitendra Bhatt', 'Bank', 4500, 'Janmejay', '', { ref: 'NEFT · SBI' })
+    ];
+    const DAYS = { today: ['Today · Thu 8 Oct', 'Thu 8 Oct'], yesterday: ['Yesterday · Wed 7 Oct', 'Wed 7 Oct'], tue: ['Tue 6 Oct', 'Tue 6 Oct'] };
+    const DENOMS = [[500, 12], [200, 3], [100, 4], [50, 2], [20, 1], [10, 0], [1, 5]];
+    this._d = { IC, RECEIPTS, DAYS, DENOMS };
+    return this._d;
+  }
+
+  st() {
+    const p = this.props || {};
+    const start = p.start || 'list';
+    const base = {
+      screen: 'list', open: '', day: 'today', mode: 'all', staff: 'all', q: '', anim: 'none',
+      sheet: '', closing: false, revNo: '', reason: 'amount', revNote: '', reversed: {}, sent: {},
+      denoms: null, upiOk: true, note: '', dayClosed: false, toast: null
+    };
+    const map = {
+      receipt: { open: 'R-0417' },
+      reverse: { open: 'R-0416', sheet: 'reverse', revNo: 'R-0416' },
+      reversed: { day: 'yesterday', open: 'R-0399' },
+      close: { screen: 'close' },
+      closed: { screen: 'close', dayClosed: true },
+      empty: { mode: 'Cheque' }
+    };
+    return Object.assign(base, map[start] || {}, this.state || {});
+  }
+
+  inr(n) { return (n < 0 ? '−₹' : '₹') + Math.abs(Math.round(n)).toLocaleString('en-IN'); }
+
+  words(n) {
+    const a = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    const two = (x) => (x < 20 ? a[x] : b[Math.floor(x / 10)] + (x % 10 ? '-' + a[x % 10] : ''));
+    const three = (x) => (x >= 100 ? a[Math.floor(x / 100)] + ' hundred' + (x % 100 ? ' ' : '') : '') + (x % 100 ? two(x % 100) : '');
+    const parts = [];
+    const lakh = Math.floor(n / 100000);
+    const th = Math.floor((n % 100000) / 1000);
+    const rest = n % 1000;
+    if (lakh) parts.push(two(lakh) + ' lakh');
+    if (th) parts.push(two(th) + ' thousand');
+    if (rest) parts.push(three(rest));
+    const s = parts.join(' ') || 'zero';
+    return 'Rupees ' + s + ' only';
+  }
+
+  toast(text, undo) {
+    const id = Date.now() + Math.random();
+    this._undo = undo || null;
+    this.setState({ toast: { id, text, undo: !!undo } });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+  }
+
+  undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+  openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+  closeSheet() {
+    if (!this.st().sheet) return;
+    this.setState({ closing: true });
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+  }
+
+  renderVals() { const v = this._rv(); const r = this.props.role || 'admin'; v.role = r; v.roleMenu = { admin: 'F13-Menu.dc.html', teacher: 'M-TchMore.dc.html', accountant: 'M-AccHome-Menu.dc.html', academic: 'M-AcadHome-Menu.dc.html', exam: 'M-ExamHome-Menu.dc.html' }[r] || 'F13-Menu.dc.html'; return v; }
+
+  _rv() {
+    const D = this.data();
+    const s = this.st();
+    const IC = D.IC;
+    const inr = (n) => this.inr(n);
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    const delay = (i) => (Math.min(i, 14) * 28) + 'ms';
+    const tones = [['var(--accs)', 'var(--accfg)'], ['var(--infos)', 'var(--info)'], ['var(--oks)', 'var(--ok)'], ['var(--warns)', 'var(--warnfg)'], ['var(--s3)', 'var(--fg)']];
+    const modeLook = { UPI: ['var(--accs)', 'var(--accfg)', 'zap'], Cash: ['var(--oks)', 'var(--ok)', 'rupee'], Cheque: ['var(--warns)', 'var(--warnfg)', 'file'], Bank: ['var(--infos)', 'var(--info)', 'database'] };
+    const initials = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('');
+    const isRev = (r) => !!(r.reversed || s.reversed[r.no]);
+
+    // ---------- filtering ----------
+    const days = s.day === 'today' ? ['today'] : (s.day === 'yesterday' ? ['yesterday'] : ['today', 'yesterday', 'tue']);
+    const q = (s.q || '').trim().toLowerCase();
+    const inDays = D.RECEIPTS.filter((r) => days.indexOf(r.day) >= 0);
+    const shown = inDays.filter((r) => (s.mode === 'all' || r.mode === s.mode) && (s.staff === 'all' || r.by === s.staff) && (!q || r.no.toLowerCase().indexOf(q) >= 0 || r.name.toLowerCase().indexOf(q) >= 0 || r.cls.toLowerCase().indexOf(q) >= 0));
+    const net = (list) => sum(list.filter((r) => !isRev(r)).map((r) => r.amt));
+    let gi = 0;
+    const groups = days.map((d) => {
+      const rows = shown.filter((r) => r.day === d);
+      return {
+        label: D.DAYS[d][0], total: inr(net(rows)), count: rows.length + (rows.length === 1 ? ' receipt' : ' receipts'),
+        rows: rows.map((r, i) => {
+          const rev = isRev(r);
+          const k = D.RECEIPTS.indexOf(r) % 5;
+          const ml = modeLook[r.mode];
+          const row = {
+            no: r.no, time: r.time, name: r.name, cls: r.cls, mode: r.mode, by: r.by, amt: inr(r.amt), ini: initials(r.name), abg: tones[k][0], afg: tones[k][1],
+            mbg: ml[0], mfg: ml[1], micon: IC[ml[2]], strike: rev ? 'line-through' : 'none', op: rev ? '0.55' : '1',
+            stLabel: rev ? 'Reversed' : (s.sent[r.no] || r.day !== 'today' ? 'Sent' : r.mode), stTone: rev ? 'var(--bad)' : 'var(--mut)',
+            selCls: s.open === r.no ? 'sel' : '', border: i === 0 ? '0' : '1px solid var(--bd)', delay: delay(gi),
+            open: () => this.setState({ open: r.no, anim: 'push' })
+          };
+          gi += 1;
+          return row;
+        })
+      };
+    }).filter((g) => g.rows.length);
+
+    // ---------- kpis + mix ----------
+    const live = inDays.filter((r) => !isRev(r));
+    const byMode = (m) => live.filter((r) => r.mode === m);
+    const kpis = [
+      { label: s.day === 'today' ? 'Collected today' : (s.day === 'yesterday' ? 'Collected yesterday' : 'Last 3 days'), value: inr(net(inDays)), sub: live.length + ' receipts', tone: 'var(--fg)' },
+      { label: 'Cash', value: inr(sum(byMode('Cash').map((r) => r.amt))), sub: byMode('Cash').length + ' receipts · to count', tone: 'var(--fg)' },
+      { label: 'UPI', value: inr(sum(byMode('UPI').map((r) => r.amt))), sub: byMode('UPI').length + ' receipts', tone: 'var(--fg)' },
+      { label: 'Reversed', value: String(inDays.filter(isRev).length), sub: 'kept in history, not counted', tone: inDays.filter(isRev).length ? 'var(--bad)' : 'var(--fg)' }
+    ].map((k, i) => Object.assign(k, { delay: delay(i) }));
+    const tot = Math.max(1, net(inDays));
+    const mixDefs = [['UPI', 'var(--c1)'], ['Cash', 'var(--c2)'], ['Cheque', 'var(--c3)'], ['Bank', 'var(--c4)']];
+    const mix = {
+      total: inr(net(inDays)) + ' net',
+      parts: mixDefs.map((m) => { const a = sum(byMode(m[0]).map((r) => r.amt)); return { label: m[0], c: m[1], w: (a / tot * 100).toFixed(1) + '%', amt: inr(a), title: m[0] + ' · ' + inr(a) }; })
+    };
+
+    // ---------- filters ----------
+    const dayOpts = [['today', 'Today'], ['yesterday', 'Yesterday'], ['3d', 'Last 3 days']];
+    const dIdx = Math.max(0, dayOpts.map((d) => d[0]).indexOf(s.day));
+    const daySeg = { thumb: (dIdx * 100) + '%', opts: dayOpts.map((d) => ({ label: d[1], cls: s.day === d[0] ? 'tap on' : 'tap', pressed: s.day === d[0] ? 'true' : 'false', pick: () => this.setState({ day: d[0], open: '' }) })) };
+    const modeChips = [['all', 'All modes'], ['Cash', 'Cash'], ['UPI', 'UPI'], ['Cheque', 'Cheque'], ['Bank', 'Bank']].map((m) => ({ label: m[1], cls: s.mode === m[0] ? 'on' : '', pressed: s.mode === m[0] ? 'true' : 'false', pick: () => this.setState({ mode: m[0] }) }));
+    const staffChips = [['all', 'Everyone'], ['Janmejay', 'Janmejay'], ['Office desk', 'Office desk']].map((m) => ({ label: m[1], cls: s.staff === m[0] ? 'on' : '', pressed: s.staff === m[0] ? 'true' : 'false', pick: () => this.setState({ staff: m[0] }) }));
+
+    // ---------- receipt panel ----------
+    const openR = D.RECEIPTS.filter((r) => r.no === s.open)[0];
+    const panels = D.RECEIPTS.map((r) => {
+      const rev = isRev(r);
+      const transport = r.bus && r.amt > 1500 ? 900 : 0;
+      const heads = [{ label: 'Tuition · Installment 2', amt: inr(r.amt - transport) }];
+      if (transport) heads.push({ label: 'Transport · ' + r.bus + ' · October', amt: inr(transport) });
+      const revInfo = s.reversed[r.no];
+      const log = [{ text: 'Receipt created by ' + r.by, time: r.time, dot: 'var(--acc)' }];
+      if (r.day !== 'today' || s.sent[r.no]) log.push({ text: 'Sent to ' + r.father + ' on WhatsApp', time: r.day === 'today' ? 'just now' : r.time, dot: 'var(--ok)' });
+      if (r.day !== 'today') log.push({ text: 'Read by parent', time: 'later that day', dot: 'var(--ok)' });
+      if (rev) log.push({ text: 'Reversed · ' + (revInfo ? revInfo.reason : r.reversed), time: revInfo ? 'just now' : 'next day', dot: 'var(--bad)' });
+      return {
+        isOpen: r.no === s.open, no: r.no, name: r.name, cls: r.cls, sr: 'SR ' + r.sr, father: r.father, date: D.DAYS[r.day][1], time: r.time,
+        heads, amt: inr(r.amt), words: this.words(r.amt), modeLine: r.mode + (r.ref ? ' · ' + r.ref : (r.mode === 'UPI' ? ' · ref 4271••••' + r.sr : '')), by: r.by,
+        isRev: rev, canAct: !rev,
+        stLabel: rev ? 'Reversed' : (r.day !== 'today' || s.sent[r.no] ? 'Sent · read' : 'Not sent yet'), stBg: rev ? 'var(--bads)' : (r.day !== 'today' || s.sent[r.no] ? 'var(--oks)' : 'var(--warns)'), stFg: rev ? 'var(--bad)' : (r.day !== 'today' || s.sent[r.no] ? 'var(--ok)' : 'var(--warnfg)'),
+        sendLabel: s.sent[r.no] || r.day !== 'today' ? 'Send again on WhatsApp' : 'Send to ' + r.father.split(' ')[0] + ' on WhatsApp',
+        send: () => { const n = Object.assign({}, this.st().sent); n[r.no] = true; this.setState({ sent: n }); this.toast('Receipt ' + r.no + ' sent to ' + r.father + ' on WhatsApp'); },
+        print: () => this.toast('Sent to the office printer'), pdf: () => this.toast(r.no + '.pdf saved'),
+        reverse: () => this.openSheet('reverse', { revNo: r.no, reason: 'amount', revNote: '' }),
+        log: log.map((l, i) => Object.assign(l, { delay: (i * 60) + 'ms' }))
+      };
+    });
+    const isList = s.screen === 'list';
+    const split = { cols: openR ? 'minmax(0, 1fr) 460px' : 'minmax(0, 1fr)', listCls: openR ? 'hide-m' : '' };
+
+    // ---------- reverse sheet ----------
+    const rr = D.RECEIPTS.filter((r) => r.no === s.revNo)[0] || D.RECEIPTS[0];
+    const reasonDefs = [['amount', 'Wrong amount typed', 'A new receipt can be made with the right amount'], ['student', 'Wrong student', 'The money moves to the right child'], ['cheque', 'Cheque bounced', 'The dues come back on the family'], ['duplicate', 'Entered twice', 'The second copy is cancelled']];
+    const rev = {
+      no: rr.no, amt: inr(rr.amt), line: rr.name + ' · ' + rr.cls + ' · ' + inr(rr.amt) + ' · ' + rr.mode,
+      reasons: reasonDefs.map((d) => { const on = s.reason === d[0]; return { label: d[1], sub: d[2], on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? 'var(--accs)' : 'var(--card)', ring: on ? 'var(--acc)' : 'var(--bds)', dot: on ? '1' : '0', pick: () => this.setState({ reason: d[0] }) }; }),
+      note: s.revNote, onNote: (e) => this.setState({ revNote: e.target.value }),
+      impact: 'A reversal entry of ' + inr(-rr.amt) + ' is written today. ' + rr.no + ' stays in history marked REVERSED, ' + rr.name.split(' ')[0] + '’s dues go back up by ' + inr(rr.amt) + ', and the day total drops.',
+      confirm: () => {
+        const reason = reasonDefs.filter((d) => d[0] === this.st().reason)[0][1];
+        const before = this.st().reversed;
+        const n = Object.assign({}, before);
+        n[rr.no] = { reason };
+        this.setState({ reversed: n, open: rr.no });
+        this.closeSheet();
+        this.toast(rr.no + ' reversed · ' + reason.toLowerCase(), () => this.setState({ reversed: before }));
+      }
+    };
+
+    // ---------- close the day ----------
+    const denCounts = s.denoms || D.DENOMS.reduce((o, d) => { o[d[0]] = d[1]; return o; }, {});
+    const cashExp = sum(D.RECEIPTS.filter((r) => r.day === 'today' && r.mode === 'Cash' && !isRev(r)).map((r) => r.amt));
+    const upiExp = sum(D.RECEIPTS.filter((r) => r.day === 'today' && r.mode === 'UPI' && !isRev(r)).map((r) => r.amt));
+    const counted = sum(D.DENOMS.map((d) => d[0] * (denCounts[d[0]] || 0)));
+    const diff = counted - cashExp;
+    const setDen = (v, dlt) => () => { const n = Object.assign({}, this.st().denoms || denCounts); n[v] = Math.max(0, (n[v] || 0) + dlt); this.setState({ denoms: n }); };
+    const canClose = (diff === 0 || (s.note || '').trim().length > 5) && s.upiOk;
+    const todayLive = D.RECEIPTS.filter((r) => r.day === 'today' && !isRev(r));
+    const close = {
+      open: !s.dayClosed, done: !!s.dayClosed,
+      expected: [['Cash', 'rupee', 'var(--oks)', 'var(--ok)'], ['UPI', 'zap', 'var(--accs)', 'var(--accfg)'], ['Cheque', 'file', 'var(--warns)', 'var(--warnfg)'], ['Bank', 'database', 'var(--infos)', 'var(--info)']].map((m, i) => { const list = todayLive.filter((r) => r.mode === m[0]); return { label: m[0], icon: IC[m[1]], bg: m[2], fg: m[3], count: list.length ? list.length + ' receipts' : 'none today', amt: inr(sum(list.map((r) => r.amt))), border: i === 0 ? '0' : '1px solid var(--bd)' }; }),
+      total: inr(sum(todayLive.map((r) => r.amt))), cashExp: inr(cashExp),
+      upiOn: s.upiOk ? 'true' : 'false', upiCls: s.upiOk ? 'on' : '', upiLine: 'Expected ' + inr(upiExp) + (s.upiOk ? ' · matched' : ' · not checked yet'),
+      toggleUpi: () => this.setState({ upiOk: !this.st().upiOk }),
+      note: s.note, onNote: (e) => this.setState({ note: e.target.value }),
+      denoms: D.DENOMS.map((d) => ({ label: d[0] === 1 ? 'Coins' : '₹' + d[0], count: String(denCounts[d[0]] || 0), sub: inr(d[0] * (denCounts[d[0]] || 0)), dec: setDen(d[0], -1), inc: setDen(d[0], 1) })),
+      counted: inr(counted),
+      diffLabel: diff === 0 ? 'Matches' : (diff < 0 ? 'Short by ' + inr(-diff) : 'Over by ' + inr(diff)),
+      diffBg: diff === 0 ? 'var(--oks)' : (diff < 0 ? 'var(--warns)' : 'var(--infos)'), diffFg: diff === 0 ? 'var(--ok)' : (diff < 0 ? 'var(--warnfg)' : 'var(--info)'),
+      diffIcon: diff === 0 ? IC.check : IC.alert, diffAnim: diff === 0 ? 'xPopIn .45s var(--spring) both' : 'none',
+      btnOp: canClose ? '1' : '0.5',
+      hint: !s.upiOk ? 'Tick the UPI check first.' : (diff === 0 ? 'Everything matches — you can close the day.' : 'Cash does not match. Recount, or write a note to close anyway.'),
+      submit: () => {
+        if (!canClose) { this.toast(!s.upiOk ? 'Check UPI against the bank app first' : 'Cash does not match — recount or add a note'); return; }
+        this.setState({ dayClosed: true });
+        this.toast('Day closed · receipts locked for Thu 8 Oct');
+      },
+      summary: [['Collected', inr(sum(todayLive.map((r) => r.amt)))], ['Cash counted', inr(counted) + (diff ? ' (' + (diff < 0 ? 'short ' : 'over ') + inr(Math.abs(diff)) + ')' : '')], ['UPI', inr(upiExp) + ' · matched'], ['Receipts', todayLive.length + ' · ' + D.RECEIPTS.filter((r) => r.day === 'today' && isRev(r)).length + ' reversed']].map((r) => ({ k: r[0], v: r[1] })),
+      report: () => this.toast('Day report PDF is ready'),
+      reopen: () => { this.setState({ dayClosed: false }); this.toast('Day reopened — receipts can be added again'); }
+    };
+
+    // ---------- chrome ----------
+    const top = isList
+      ? { crumb: 'Money · Session 2026–27', title: 'Receipts', mTitle: openR ? openR.no : 'Receipts', mSub: openR ? openR.name : 'Today · ' + inr(net(D.RECEIPTS.filter((r) => r.day === 'today'))), mBackLink: !openR, mBackBtn: !!openR }
+      : { crumb: 'Money · Thu 8 Oct', title: 'Close the day', mTitle: 'Close the day', mSub: 'Count cash · check UPI · lock', mBackLink: false, mBackBtn: true };
+    const anims = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'none' };
+
+    return {
+      ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+      is: { list: isList, close: s.screen === 'close' },
+      top, anim: { list: s.anim === 'pop' ? anims.pop : 'none', close: s.anim === 'push' ? anims.push : 'none' },
+      q: s.q, onQ: (e) => this.setState({ q: e.target.value }),
+      kpis, mix, daySeg, modeChips, staffChips, groups, empty: groups.length === 0,
+      clearFilters: () => this.setState({ mode: 'all', staff: 'all', q: '' }),
+      split, panels, closePanel: () => this.setState({ open: '' }),
+      exportDay: () => this.toast('Exported ' + shown.length + ' receipts to Excel'),
+      goClose: () => this.setState({ screen: 'close', open: '', anim: 'push' }),
+      goList: () => this.setState({ screen: 'list', anim: 'pop' }),
+      back: () => { if (this.st().screen === 'close') this.setState({ screen: 'list', anim: 'pop' }); else this.setState({ open: '', anim: 'pop' }); },
+      sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open' }, closeSheet: () => this.closeSheet(), rev,
+      close,
+      toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop sidebar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+</style>
+</helmet>
+<aside class="vxt {{theme}}" aria-label="Main navigation" style="width: 248px; height: 100vh; display: flex; flex-direction: column; background: var(--nav); color: var(--navfg); padding: 14px 0 12px; font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.4">
+  <a href="{{home}}" style="flex: none; display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 20px; margin-bottom: 6px; color: var(--navfg)">
+    <span class="serif" style="flex: none; width: 36px; height: 36px; border-radius: 11px; background: #F7F6F3; color: #082F49; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">VP</span>
+    <span style="display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 700; font-size: 15px">VPPS One</span><span style="font-size: 12px; color: var(--navm)">{{roleLine}}</span></span>
+  </a>
+  <nav class="scroll" style="flex: 1; min-height: 0; padding: 2px 12px 8px; scrollbar-width: none">
+    <sc-for list="{{items}}" as="n" hint-placeholder-count="12">
+      <sc-if value="{{n.isH}}" hint-placeholder-val="{{ false }}"><div style="height: 28px; padding: 10px 12px 0; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--navm)">{{n.h}}</div></sc-if>
+      <sc-if value="{{n.isI}}" hint-placeholder-val="{{ true }}">
+        <a href="{{n.href}}" class="tap sidei {{n.cls}}" aria-current="{{n.current}}" style="position: relative; height: {{n.hgt}}; margin-bottom: 2px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 11px; font-size: {{n.fs}}; animation: {{n.anim}}">
+          <svg class="i" viewBox="0 0 24 24" style="width: 19px; height: 19px" aria-hidden="true"><path d="{{n.icon}}"></path></svg>
+          <span style="flex: 1; display: flex; flex-direction: column; min-width: 0"><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.label}}</span><sc-if value="{{n.hasHi}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; color: var(--navm); font-weight: 500">{{n.hi}}</span></sc-if></span>
+          <sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span class="pill num" style="min-width: 22px; justify-content: center; background: #E05252; color: #FFFFFF">{{n.badge}}</span></sc-if>
+        </a>
+      </sc-if>
+    </sc-for>
+  </nav>
+  <div style="flex: none; padding: 10px 12px 0; border-top: 1px solid var(--navb)">
+    <a href="{{me.href}}" class="tap sidei" style="display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 6px; border-radius: 12px">
+      <span style="flex: none; width: 38px; height: 38px; border-radius: 19px; background: {{me.bg}}; color: #082F49; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">{{me.ini}}</span>
+      <span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 14px; font-weight: 600; color: var(--navfg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{me.name}}</span><span style="font-size: 12px; color: var(--navm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{me.sub}}</span></span>
+    </a>
+  </div>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"text","default":"fees"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":248,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+/*VX_ICONS*/
+    IC.note = 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4zM4 4h8M4 8h5';
+    IC.eyeRole = 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
+    const role = this.props.role || 'admin';
+    const active = this.props.active || (role === 'admin' ? 'fees' : 'home');
+    const teacher = role === 'teacher';
+    const H = (h) => ({ isH: true, isI: false, h, href: '#', cls: '', current: 'false', anim: 'none', icon: '', label: '', hasBadge: false, badge: '', hasHi: false, hi: '', hgt: '38px', fs: '14px' });
+    const I = (k, label, ic, href, badge, hi) => {
+      const on = k === active;
+      return { isH: false, isI: true, h: '', href, cls: on ? 'on' : '', current: on ? 'page' : 'false', anim: on ? 'xFade .35s ease both' : 'none', icon: IC[ic] || IC.grid, label, hasBadge: !!badge, badge: String(badge || ''), hasHi: !!(teacher && hi), hi: hi || '', hgt: teacher ? '48px' : '38px', fs: teacher ? '15px' : '14px' };
+    };
+    const NAV = {
+      admin: [
+        I('today', 'Today', 'home', 'Desktop.dc.html'),
+        I('inbox', 'Needs you', 'inbox', 'D03-NeedsYou.dc.html', 6),
+        I('students', 'Students', 'users', 'D01-Students.dc.html'),
+        I('attendance', 'Attendance', 'calCheck', 'D04-Attendance.dc.html'),
+        H('Money'),
+        I('paydesk', 'Payment Desk', 'rupee', 'PX-PayDesk.dc.html'),
+        I('fees', 'Receipts & day close', 'receipt', 'Fees.dc.html'),
+        I('dues', 'Dues & calls', 'phone', 'Dues.dc.html'),
+        I('reminders', 'Fee reminders', 'bell', 'Reminders.dc.html'),
+        I('feesetup', 'Fee setup', 'sliders', 'FeeSetup.dc.html'),
+        I('reports', 'Reports', 'chart', 'Reports.dc.html'),
+        H('Academics'),
+        I('exams', 'Exams & marks', 'clipboard', 'Exams.dc.html'),
+        I('timetable', 'Timetable', 'clock', 'Timetable.dc.html'),
+        I('calendar', 'Calendar', 'calendar', 'Calendar.dc.html'),
+        I('notes', 'Notes on children', 'note', 'Notes.dc.html', 4),
+        H('People'),
+        I('admissions', 'Admissions', 'userPlus', 'Admissions.dc.html'),
+        I('studenttools', 'Promote & import', 'upload', 'StudentTools.dc.html'),
+        I('staff', 'Staff & roles', 'shield', 'Staff.dc.html'),
+        H('System'),
+        I('messages', 'Messages', 'megaphone', 'Messages.dc.html'),
+        I('settings', 'Settings', 'settings', 'Settings.dc.html'),
+        I('auth', 'Sign-in & states', 'lock', 'Auth.dc.html'),
+        H('See the app as'),
+        I('as-teacher', 'Teacher', 'grad', 'TchHome.dc.html'),
+        I('as-accountant', 'Accountant', 'rupee', 'AccHome.dc.html'),
+        I('as-academic', 'Academic coordinator', 'trend', 'AcadHome.dc.html'),
+        I('as-exam', 'Exam coordinator', 'award', 'ExamHome.dc.html')
+      ],
+      teacher: [
+        I('home', 'Today', 'home', 'TchHome.dc.html', 0, 'आज'),
+        I('attendance', 'Attendance', 'calCheck', 'TchAttend.dc.html', 0, 'हाज़िरी'),
+        I('class', 'My class & subjects', 'users', 'TchClass.dc.html', 0, 'मेरी कक्षा'),
+        I('marks', 'Marks', 'clipboard', 'TchMarks.dc.html', 0, 'अंक'),
+        I('notes', 'Notes on children', 'note', 'TchNotes.dc.html', 2, 'बच्चों के नोट्स'),
+        I('more', 'Notices, links & leave', 'megaphone', 'TchMore.dc.html', 2, 'सूचना व लिंक')
+      ],
+      accountant: [
+        I('home', 'Today', 'home', 'AccHome.dc.html'),
+        I('collect', 'Payment Desk', 'rupee', 'PayDesk.dc.html'),
+        I('fees', 'Receipts & day close', 'receipt', 'AC-Fees.dc.html'),
+        I('dues', 'Dues & calls', 'phone', 'AC-Dues.dc.html', 9),
+        I('reminders', 'Fee reminders', 'bell', 'AC-Reminders.dc.html'),
+        I('books', 'Cheques, UPI & refunds', 'swap', 'AccBooks.dc.html', 3),
+        I('reports', 'Reports', 'chart', 'AC-Reports.dc.html'),
+        I('feesetup', 'Fee setup (view)', 'sliders', 'AC-FeeSetup.dc.html')
+      ],
+      academic: [
+        I('home', 'Today', 'home', 'AcadHome.dc.html'),
+        I('progress', 'Student progress', 'trend', 'AcadProgress.dc.html'),
+        I('attendance', 'Attendance', 'calCheck', 'AcadAttendance.dc.html'),
+        I('notes', 'Notes on children', 'note', 'AD-Notes.dc.html', 4),
+        I('exams', 'Marks & results', 'clipboard', 'AD-Exams.dc.html'),
+        I('timetable', 'Timetable', 'clock', 'AD-Timetable.dc.html'),
+        I('calendar', 'Calendar', 'calendar', 'AD-Calendar.dc.html')
+      ],
+      exam: [
+        I('home', 'Today', 'home', 'ExamHome.dc.html'),
+        I('plan', 'Date sheet & seating', 'calendar', 'ExamPlan.dc.html'),
+        I('exams', 'Marks tracker', 'clipboard', 'EX-Exams.dc.html', 7),
+        I('results', 'Results & report cards', 'award', 'ExamResults.dc.html'),
+        I('calendar', 'Calendar', 'calendar', 'EX-Calendar.dc.html'),
+        I('messages', 'Notices', 'megaphone', 'EX-Messages.dc.html')
+      ]
+    };
+    const ME = {
+      admin: { ini: 'JS', name: 'Janmejay Singh', sub: 'Admin · settings', href: 'Settings.dc.html', bg: '#81DAE4' },
+      teacher: { ini: 'KB', name: 'Ms. Kavita Bhati', sub: 'Class 6 · Science', href: 'TchMore.dc.html', bg: '#F6D9A8' },
+      accountant: { ini: 'NS', name: 'Ms. Neelam Sharma', sub: 'Accountant', href: 'AccHome.dc.html', bg: '#CDEFDD' },
+      academic: { ini: 'AP', name: 'Ms. Asha Purohit', sub: 'Academic coordinator', href: 'AcadHome.dc.html', bg: '#C9D7F8' },
+      exam: { ini: 'HT', name: 'Mr. Hemant Trivedi', sub: 'Exam coordinator', href: 'ExamHome.dc.html', bg: '#F3C7C7' }
+    };
+    const LINE = { admin: 'Admin · 2026–27', teacher: 'Teacher · 2026–27', accountant: 'Accounts · 2026–27', academic: 'Academics · 2026–27', exam: 'Exams · 2026–27' };
+    return { items: NAV[role] || NAV.admin, me: ME[role] || ME.admin, roleLine: LINE[role] || LINE.admin, home: (NAV[role] || NAV.admin)[0].href, theme: this.props.dark ? 'dark' : '' };
+  }
+}
+</script>
+</body>
+</html>

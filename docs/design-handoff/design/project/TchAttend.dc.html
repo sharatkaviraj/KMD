@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Teacher · Mark attendance</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.a-c{display:flex;flex-direction:column}.a-r{display:flex;align-items:center}.a-f{flex:1;min-width:0}.a-w{flex-wrap:wrap}
+.a-m{color:var(--mut)}.a-s{font-size:12.5px;color:var(--mut);line-height:1.4}.a-b{font-weight:700}.a-6{font-weight:600}.a-p{font-size:15px}
+.a-el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.a-ib{flex:none;display:flex;align-items:center;justify-content:center}
+.a-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
+.a-x{width:44px;height:44px;padding:0;border-radius:22px}
+.a-lang{grid-template-columns:repeat(2,minmax(0,1fr));width:84px;flex:none}.a-lang>button{height:30px;font-size:13px}
+.a-card{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.a-t{font-size:17px;font-weight:700;line-height:1.25}
+.a-cnt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.a-n{font-size:30px;font-weight:700;line-height:1.1;display:block;animation:xIn .35s var(--ease) both}
+.a-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:10px}
+.a-kid{display:flex;align-items:center;gap:10px;width:100%;min-height:68px;padding:10px 12px;border-radius:16px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:background-color .3s ease,border-color .3s ease,transform .14s var(--ease);animation:xIn .32s var(--ease) both}
+.a-st{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;min-width:34px;padding:0 9px;border-radius:17px;font-size:13px;font-weight:700;transition:background-color .3s ease,color .3s ease}
+.a-pop{animation:xPopIn .42s var(--spring) both}.a-in{animation:xIn .32s var(--ease) both}
+.a-bar{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;gap:16px;padding:12px 28px 14px;border-top:1px solid var(--bd)}
+.a-save{height:60px;min-width:320px;padding:0 28px;border-radius:18px;font-size:17px;font-weight:700}
+.a-stk{display:flex;height:10px;border-radius:5px;background:var(--s3);overflow:hidden}.a-stk>span{height:100%;transition:width .5s var(--ease)}
+.a-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.45}
+.a-opt{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+.a-sb{flex:1;min-height:0;padding:4px 20px 16px;display:flex;flex-direction:column;gap:14px}
+.a-sf{flex:none;display:flex;align-items:center;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.a-bb{height:54px;font-size:16px;border-radius:14px}
+.a-wa{display:flex;flex-direction:column;align-items:flex-end;padding:14px 12px;border-radius:14px;background:var(--wabg);animation:xIn .3s var(--ease) both}
+.a-wa>div{max-width:92%;padding:8px 10px 6px;border-radius:12px 12px 2px 12px;background:var(--wab);color:var(--wafg);font-size:14px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12)}
+.a-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.a-day{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px;min-height:66px;padding:7px 2px 8px;border-radius:12px;border:1px solid var(--bd);color:var(--fg);animation:xPopIn .32s var(--ease) both}
+.a-tile{display:flex;flex-direction:column;align-items:center;padding:12px 6px;border-radius:14px}
+.a-pic{flex:none;width:128px;height:92px;border-radius:14px;background:var(--s2);display:flex;flex-direction:column;justify-content:center;gap:5px;padding:12px}
+.a-mini{display:flex;align-items:center;gap:5px;height:18px;padding:0 6px;border-radius:6px;background:var(--card)}
+.a-sk{height:6px;border-radius:3px;background:var(--s3);flex:1}
+@container vx (min-width:900px){.vx .a-stw{display:none}}
+@container vx (max-width:899px){.vx .a-p{font-size:16px}.vx .a-t{font-size:18px}.vx .a-card{padding:16px}.vx .a-grid{grid-template-columns:minmax(0,1fr);gap:8px}.vx .a-kid{min-height:70px;padding:10px 12px 10px 10px}.vx .a-bar{flex-direction:column;align-items:stretch;gap:6px;padding:10px 16px 12px}.vx .a-save{width:100%;min-width:0;padding:0 16px;height:60px}.vx .a-n{font-size:26px}.vx .a-cnt{gap:8px}.vx .a-day{min-height:54px;padding:5px 1px 6px}.vx .a-cal{gap:4px}.vx .a-gr{font-size:24px!important}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+  <div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="attendance" role="teacher" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+  <div class="a-c" style="flex: 1; min-width: 0; min-height: 0; position: relative">
+
+    <header class="only-d glass a-r" style="flex: none; height: 64px; gap: 10px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+      <sc-if value="{{is.history}}" hint-placeholder-val="{{ false }}"><button class="tap btn ghost a-x" type="button" aria-label="Back" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+      <div class="a-c a-f"><span class="a-s">{{top.crumb}}</span><span class="serif a-el" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+      <div class="seg a-lang" role="group" aria-label="Language"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{lang.thumb}})"></span><sc-for list="{{lang.opts}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+      <sc-if value="{{top.hist}}" hint-placeholder-val="{{ true }}"><button class="tap btn sec" type="button" onClick="{{goHistory}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{tx.past.a}}</button></sc-if>
+      <button class="tap btn sec" type="button" onClick="{{openHelp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg>{{tx.help.a}}</button>
+    </header>
+
+    <header class="only-m glass a-r" style="flex: none; min-height: 58px; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+      <sc-if value="{{top.mLink}}" hint-placeholder-val="{{ true }}"><a href="{{top.mHref}}" class="tap a-ib" aria-label="Back to Today" style="width: 44px; height: 44px; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+      <sc-if value="{{is.history}}" hint-placeholder-val="{{ false }}"><button class="tap btn ghost a-x" type="button" aria-label="Back" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+      <span class="a-c a-f" style="padding-left: 2px"><span class="a-el" style="font-size: 17px; font-weight: 700">{{top.mTitle}}</span><span class="a-s a-el">{{top.mSub}}</span></span>
+      <div class="seg a-lang" role="group" aria-label="Language"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{lang.thumb}})"></span><sc-for list="{{lang.opts}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+      <button class="tap btn ghost a-x" type="button" aria-label="Help" onClick="{{openHelp}}"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+    </header>
+
+    <main class="scroll" style="flex: 1; min-height: 0; position: relative">
+
+      <!-- ============ MARK ============ -->
+      <sc-if value="{{is.mark}}" hint-placeholder-val="{{ true }}">
+      <div class="a-c" style="min-height: 100%; animation: {{anim}}">
+        <div class="pad stack" style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; padding: 20px 28px 24px">
+          <div class="a-c" style="gap: 14px; min-width: 0">
+            <div class="a-note a-in" style="background: {{mk.bnBg}}; color: {{mk.bnFg}}; padding: 14px 16px; align-items: center">
+              <span class="a-ib" style="width: 42px; height: 42px; border-radius: 13px; background: var(--card)"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{mk.bnIcon}}"></path></svg></span>
+              <span class="a-c a-f"><span class="a-b a-p">{{mk.bnA}}</span><span style="font-size: 13px; opacity: .85">{{mk.bnB}}</span></span>
+            </div>
+            <div class="a-cnt">
+              <sc-for list="{{cnt}}" as="c" hint-placeholder-count="3">
+                <div class="card a-c" style="padding: 12px 14px; gap: 2px; border-color: {{c.bd}}; overflow: hidden">
+                  <span class="a-r a-6" style="gap: 6px; font-size: 13px"><span style="flex: none; width: 9px; height: 9px; border-radius: 5px; background: {{c.c}}"></span><span class="a-el">{{c.a}}</span></span>
+                  <span class="num" style="color: {{c.c}}"><sc-if value="{{c.even}}" hint-placeholder-val="{{ true }}"><span class="a-n">{{c.n}}</span></sc-if><sc-if value="{{c.odd}}" hint-placeholder-val="{{ false }}"><span class="a-n">{{c.n}}</span></sc-if></span>
+                  <span class="a-s a-el">{{c.b}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div class="a-r a-w" style="gap: 10px">
+              <div class="hs a-r" style="gap: 8px">
+                <button class="tap chip {{same.cls}}" type="button" aria-pressed="{{same.on}}" onClick="{{same.go}}" style="height: 42px; padding: 0 16px; font-size: 14px"><svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{same.icon}}"></path></svg>{{same.label}}</button>
+                <button class="tap chip only-m" type="button" onClick="{{goHistory}}" style="height: 42px; padding: 0 16px; font-size: 14px"><svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{tx.past.a}}</button>
+              </div>
+              <label class="a-r" style="flex: 1 1 220px; max-width: 420px; position: relative; height: 46px; border-radius: 23px; border: 1px solid var(--bds); background: var(--card); gap: 8px; padding: 0 14px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Find a child</span><input type="search" value="{{q}}" onChange="{{onQ}}" placeholder="{{tx.find.a}}" style="flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; font-size: 16px"></label>
+            </div>
+            <span class="a-s">{{tx.tapHow.a}} · {{tx.tapHow.b}}</span>
+            <div class="a-grid">
+              <sc-for list="{{kids}}" as="k" hint-placeholder-count="12">
+                <button class="tap a-kid" type="button" onClick="{{k.tap}}" aria-label="{{k.aria}}" style="background: {{k.bg}}; border-color: {{k.bd}}; animation-delay: {{k.delay}}">
+                  <span class="num a-b a-m" style="flex: none; width: 22px; font-size: 13px; text-align: right">{{k.roll}}</span>
+                  <span class="a-av" style="width: 40px; height: 40px; font-size: 13px; background: {{k.abg}}; color: {{k.afg}}">{{k.ini}}</span>
+                  <span class="a-c a-f" style="gap: 1px">
+                    <span class="a-6 a-el" style="font-size: 15px">{{k.name}}</span>
+                    <span class="only-d" style="font-size: 12px; font-weight: 600; line-height: 1.3; color: {{k.fg}}">{{k.lineD}}</span>
+                    <sc-if value="{{k.hasHint}}" hint-placeholder-val="{{ false }}"><span class="a-r only-m" style="gap: 4px; font-size: 12.5px; font-weight: 600; color: {{k.hintC}}"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px" aria-hidden="true"><path d="{{k.hintIcon}}"></path></svg><span class="a-el">{{k.hint}}</span></span></sc-if>
+                  </span>
+                  <span class="a-st" style="background: {{k.sbg}}; color: {{k.sfg}}">
+                    <sc-if value="{{k.isP}}" hint-placeholder-val="{{ true }}"><svg class="i a-pop" viewBox="0 0 24 24" style="width: 17px; height: 17px; stroke-width: 2.6" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if>
+                    <sc-if value="{{k.isA}}" hint-placeholder-val="{{ false }}"><svg class="i a-pop" viewBox="0 0 24 24" style="width: 17px; height: 17px; stroke-width: 2.6" aria-hidden="true"><path d="{{ic.x}}"></path></svg></sc-if>
+                    <sc-if value="{{k.isL}}" hint-placeholder-val="{{ false }}"><svg class="i a-pop" viewBox="0 0 24 24" style="width: 17px; height: 17px" aria-hidden="true"><path d="{{ic.calMinus}}"></path></svg></sc-if>
+                    <span class="a-stw">{{k.label}}</span>
+                  </span>
+                </button>
+              </sc-for>
+            </div>
+            <sc-if value="{{none}}" hint-placeholder-val="{{ false }}">
+              <div class="card a-c a-in" style="padding: 32px 20px; align-items: center; gap: 10px; text-align: center">
+                <span class="a-av" style="width: 56px; height: 56px; background: var(--s2); color: var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.search}}"></path></svg></span>
+                <span class="a-b a-p">No child called “{{q}}”</span><span class="a-s">Try the first name or the roll number.</span>
+                <button class="tap btn sec" type="button" onClick="{{clearQ}}" style="height: 48px">Show all 31</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <aside class="only-d card a-card" style="position: sticky; top: 20px; gap: 14px">
+            <span class="sech">{{tx.sofar.a}} · {{tx.sofar.b}}</span>
+            <div class="a-stk"><sc-for list="{{side.bar}}" as="b" hint-placeholder-count="3"><span style="width: {{b.w}}; background: {{b.c}}"></span></sc-for></div>
+            <span class="num a-b" style="font-size: 26px">{{side.pct}}<span class="a-s" style="font-weight: 500"> present</span></span>
+            <div class="a-c" style="gap: 8px">
+              <span class="a-6">{{side.head}}</span>
+              <sc-for list="{{side.list}}" as="n" hint-placeholder-count="2"><span class="a-r a-in" style="gap: 10px"><span class="a-av" style="width: 30px; height: 30px; font-size: 11px; background: {{n.bg}}; color: {{n.fg}}">{{n.ini}}</span><span class="a-c a-f"><span class="a-6 a-el">{{n.name}}</span><span class="a-s">{{n.sub}}</span></span></span></sc-for>
+              <sc-if value="{{side.empty}}" hint-placeholder-val="{{ false }}"><span class="a-s">No one marked absent yet. Tap a child to mark them away.</span></sc-if>
+            </div>
+            <div class="a-note" style="background: var(--s2); font-size: 13px"><svg class="i" viewBox="0 0 24 24" style="margin-top: 1px; color: var(--acc)" aria-hidden="true"><path d="{{ic.message}}"></path></svg><span>Parents of absent children get a WhatsApp at 10 am. You can turn it off before saving.</span></div>
+            <span class="a-s">Yesterday: Om Regar and Pari Sen were absent.</span>
+          </aside>
+        </div>
+
+        <div class="glass a-bar">
+          <span class="a-c a-f only-d"><span class="a-b a-p">{{bar.title}}</span><span class="a-s">{{bar.note}}</span></span>
+          <button class="tap btn pri a-save" type="button" onClick="{{openSave}}"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="a-c" style="align-items: flex-start; line-height: 1.2"><span>{{bar.label}}</span><span class="num" style="font-size: 13px; font-weight: 600; opacity: .85">{{bar.parts}}</span></span></button>
+          <span class="a-s only-m" style="text-align: center">{{bar.note}}</span>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ SAVED ============ -->
+      <sc-if value="{{is.saved}}" hint-placeholder-val="{{ false }}">
+      <div class="pad stack" style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; padding: 24px 28px 40px; max-width: 1180px; margin: 0 auto; animation: {{anim}}">
+        <div class="a-c" style="gap: 16px; min-width: 0">
+          <div class="card a-c" style="padding: 28px 24px 22px; align-items: center; gap: 10px; text-align: center">
+            <svg width="104" height="104" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+            <span class="serif a-gr" style="font-size: 30px; font-weight: 600; line-height: 1.15">{{sv.title}}</span>
+            <span class="a-p a-m">{{tx.officeSees.a}}<br>{{tx.officeSees.b}}</span>
+            <div style="width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px">
+              <sc-for list="{{sv.tiles}}" as="t" hint-placeholder-count="3"><div class="a-tile a-pop" style="background: {{t.bg}}; color: {{t.fg}}; animation-delay: {{t.delay}}"><span class="num a-b" style="font-size: 28px; line-height: 1.1">{{t.n}}</span><span class="a-b" style="font-size: 13px">{{t.label}}</span></div></sc-for>
+            </div>
+            <span class="a-r a-s" style="gap: 6px; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px" aria-hidden="true"><path d="{{ic.message}}"></path></svg>{{sv.wa}}</span>
+          </div>
+
+          <sc-if value="{{sv.canChange}}" hint-placeholder-val="{{ true }}">
+          <div class="card a-r a-w a-in" style="padding: 16px 18px; gap: 14px">
+            <span style="position: relative; flex: none; width: 60px; height: 60px"><svg width="60" height="60" viewBox="0 0 60 60" aria-hidden="true" style="transform: rotate(-90deg)"><circle cx="30" cy="30" r="24" style="fill: none; stroke: var(--s3); stroke-width: 6"></circle><circle cx="30" cy="30" r="24" style="fill: none; stroke: var(--acc); stroke-width: 6; stroke-linecap: round; --len: 150.8; stroke-dasharray: 150.8; animation: xDraw 1800s linear reverse both"></circle></svg><span class="a-ib num a-b" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; font-size: 12px">9:22</span></span>
+            <span class="a-c a-f" style="min-width: 180px"><span class="a-b a-p">You can still change it</span><span class="a-s">About 30 minutes left · until 9:22 am. After that, the office changes it for you.</span></span>
+            <button class="tap btn sec" type="button" onClick="{{sv.change}}" style="height: 48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>{{tx.change.a}}</button>
+          </div>
+          </sc-if>
+          <sc-if value="{{sv.closed}}" hint-placeholder-val="{{ false }}">
+          <div class="card a-r a-w a-in" style="padding: 16px 18px; gap: 14px">
+            <span class="a-ib" style="width: 52px; height: 52px; border-radius: 16px; background: var(--s2); color: var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.lock}}"></path></svg></span>
+            <span class="a-c a-f" style="min-width: 180px"><span class="a-b a-p">Changing closed at 9:22 am</span><span class="a-s">Something wrong? The office can still change it for you.</span></span>
+            <button class="tap btn pri" type="button" onClick="{{sv.ask}}" style="height: 48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{tx.ask.a}}</button>
+          </div>
+          </sc-if>
+          <sc-if value="{{sv.canChange}}" hint-placeholder-val="{{ true }}"><button class="tap a-s" type="button" onClick="{{sv.ask}}" style="align-self: flex-start; border: 0; background: transparent; padding: 4px; color: var(--acc); font-weight: 600">After 9:22? Ask the office to change it</button></sc-if>
+        </div>
+
+        <div class="a-c" style="gap: 16px; min-width: 0">
+          <sc-for list="{{sv.reqs}}" as="r" hint-placeholder-count="1">
+            <div class="a-note a-in" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.clock}}"></path></svg><span class="a-c a-f"><span class="a-b">Waiting for the office</span><span>{{r.text}}</span></span></div>
+          </sc-for>
+          <div class="card a-card a-in" style="border-color: var(--warnm); animation-delay: 120ms">
+            <span class="sech" style="color: var(--warnfg)">Next step · अगला कदम</span>
+            <div class="a-r" style="gap: 12px">
+              <span class="a-av" style="width: 48px; height: 48px; font-size: 15px; background: var(--bads); color: var(--bad)">OR</span>
+              <span class="a-c a-f"><span class="a-b a-p">Om Regar: absent 3 days</span><span class="a-s">{{nx.sub}}</span></span>
+            </div>
+            <sc-if value="{{nx.called}}" hint-placeholder-val="{{ false }}"><span class="pill a-pop" style="align-self: flex-start; height: 30px; padding: 0 12px; font-size: 13px; background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Called Mr. Mohan Regar at 8:55</span></sc-if>
+            <div class="g2" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <button class="tap btn pri a-bb" type="button" onClick="{{nx.call}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>{{nx.callLabel}}</button>
+              <a href="DX-TchNotes-Add.dc.html" class="only-d tap btn sec a-bb"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Add note</a>
+              <a href="M-TchNotes-Add.dc.html" class="only-m tap btn sec a-bb"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Add note</a>
+            </div>
+          </div>
+          <div class="a-c" style="gap: 8px">
+            <a href="DX-TchHome-Later.dc.html" class="only-d tap btn pri a-bb" style="color: var(--prifg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.home}}"></path></svg>{{tx.backToday.a}}</a>
+            <a href="M-TchHome-Later.dc.html" class="only-m tap btn pri a-bb" style="color: var(--prifg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.home}}"></path></svg>{{tx.backToday.a}}</a>
+            <button class="tap btn sec a-bb" type="button" onClick="{{goHistory}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{tx.month.a}}</button>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ HISTORY ============ -->
+      <sc-if value="{{is.history}}" hint-placeholder-val="{{ false }}">
+      <div class="pad stack" style="display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; align-items: start; padding: 22px 28px 40px; animation: {{anim}}">
+        <div class="card a-card" style="min-width: 0">
+          <div class="a-r a-w" style="gap: 10px"><span class="a-c a-f"><span class="serif" style="font-size: 24px; font-weight: 600">October 2026</span><span class="a-s">Class 6 · 31 children · tap a day to see who was away</span></span><span class="pill num" style="height: 30px; padding: 0 12px; font-size: 13px; background: var(--accs); color: var(--accfg)">{{hs.avg}}</span></div>
+          <div class="a-r a-w" style="gap: 12px"><sc-for list="{{hs.legend}}" as="l" hint-placeholder-count="5"><span class="a-r a-s" style="gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: {{l.bg}}; border: {{l.bd}}"></span>{{l.label}}</span></sc-for></div>
+          <div class="a-cal">
+            <sc-for list="{{hs.wd}}" as="w" hint-placeholder-count="7"><span class="a-s a-b" style="text-align: center">{{w}}</span></sc-for>
+            <sc-for list="{{hs.cells}}" as="c" hint-placeholder-count="35">
+              <button class="tap a-day" type="button" onClick="{{c.pick}}" aria-label="{{c.aria}}" aria-pressed="{{c.on}}" style="background: {{c.bg}}; border-color: {{c.bd}}; box-shadow: {{c.ring}}; opacity: {{c.op}}; animation-delay: {{c.delay}}">
+                <span class="num a-b" style="font-size: 13px; color: {{c.dc}}">{{c.d}}</span>
+                <span class="pill num" style="padding: 0 5px; font-size: 11px; background: {{c.pbg}}; color: {{c.pfg}}">{{c.chip}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="a-c" style="gap: 16px; min-width: 0">
+          <div class="card a-card a-in">
+            <div class="a-r" style="gap: 10px"><span class="a-c a-f"><span class="serif" style="font-size: 22px; font-weight: 600">{{dy.title}}</span><span class="a-s">{{dy.sub}}</span></span><sc-if value="{{dy.hasPct}}" hint-placeholder-val="{{ true }}"><span class="pill num a-pop" style="height: 30px; padding: 0 12px; font-size: 14px; background: {{dy.pbg}}; color: {{dy.pfg}}">{{dy.pct}}</span></sc-if></div>
+            <sc-if value="{{dy.hasData}}" hint-placeholder-val="{{ true }}">
+              <div class="a-stk"><sc-for list="{{dy.bar}}" as="b" hint-placeholder-count="3"><span style="width: {{b.w}}; background: {{b.c}}"></span></sc-for></div>
+              <sc-for list="{{dy.groups}}" as="g" hint-placeholder-count="2">
+                <div class="a-c" style="gap: 6px"><span class="sech">{{g.label}}</span>
+                  <sc-for list="{{g.kids}}" as="n" hint-placeholder-count="2"><span class="a-r a-in" style="gap: 10px"><span class="a-av" style="width: 34px; height: 34px; font-size: 12px; background: {{g.bg}}; color: {{g.fg}}">{{n.ini}}</span><span class="a-c a-f"><span class="a-6">{{n.name}}</span><span class="a-s">{{n.sub}}</span></span></span></sc-for>
+                </div>
+              </sc-for>
+              <sc-if value="{{dy.allHere}}" hint-placeholder-val="{{ false }}"><span class="a-note" style="background: var(--oks); color: var(--ok)">Everyone came this day.</span></sc-if>
+              <span class="a-s">{{dy.by}}</span>
+              <sc-for list="{{dy.reqs}}" as="r" hint-placeholder-count="1"><div class="a-note a-in" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.clock}}"></path></svg><span>Waiting for the office · {{r.text}}</span></div></sc-for>
+              <button class="tap btn sec a-bb" type="button" onClick="{{dy.ask}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{tx.ask.a}}</button>
+            </sc-if>
+            <sc-if value="{{dy.todo}}" hint-placeholder-val="{{ false }}">
+              <div class="a-note" style="background: var(--s2)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px; color: var(--mut)" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>Not marked yet. Until you save, the office sees Class 6 as Not marked — never as present.</span></div>
+              <button class="tap btn pri a-bb" type="button" onClick="{{goMark}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calCheck}}"></path></svg>Mark now</button>
+            </sc-if>
+          </div>
+
+          <div class="card a-card a-in" style="animation-delay: 100ms">
+            <div class="a-c"><span class="a-t">Children absent often</span><span class="a-s">बार-बार अनुपस्थित · this month</span></div>
+            <sc-for list="{{hs.streaks}}" as="k" hint-placeholder-count="2">
+              <div class="a-c" style="gap: 8px; padding-top: 12px; border-top: 1px solid var(--bd)">
+                <div class="a-r" style="gap: 12px">
+                  <span class="a-av" style="width: 42px; height: 42px; font-size: 13px; background: var(--bads); color: var(--bad)">{{k.ini}}</span>
+                  <span class="a-c a-f"><span class="a-b a-p">{{k.name}}</span><span class="a-s">{{k.sub}}</span></span>
+                </div>
+                <div class="a-r" style="gap: 5px; padding-left: 54px"><sc-for list="{{k.dots}}" as="d" hint-placeholder-count="6"><span class="a-c" style="align-items: center; gap: 3px"><span style="width: 22px; height: 22px; border-radius: 7px; background: {{d.c}}; border: {{d.bd}}"></span><span class="num" style="font-size: 10px; color: var(--mut)">{{d.d}}</span></span></sc-for></div>
+                <div class="a-r a-w" style="gap: 8px; padding-left: 54px">
+                  <button class="tap btn soft" type="button" onClick="{{k.call}}" style="height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>Call parents</button>
+                  <a href="DX-TchNotes-Add.dc.html" class="only-d tap btn sec" style="height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Add note</a><a href="M-TchNotes-Add.dc.html" class="only-m tap btn sec" style="height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Add note</a>
+                </div>
+              </div>
+            </sc-for>
+            <span class="a-s">Everyone else came at least 4 of the 5 school days.</span>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+    </main>
+
+    <div class="only-m" style="flex: none"><dc-import name="XNav" active="none" role="teacher" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+  </div>
+
+  <!-- ============ SHEETS ============ -->
+  <sc-if value="{{sh.open}}" hint-placeholder-val="{{ false }}">
+    <button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+    <section class="sheet {{sh.state}}" role="dialog" aria-label="{{sh.title}}">
+      <div class="grab"></div>
+      <div class="a-r" style="flex: none; align-items: flex-start; gap: 10px; padding: 14px 20px 10px">
+        <div class="a-c a-f" style="gap: 2px"><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.2">{{sh.title}}</span><span class="a-m" style="font-size: 13px">{{sh.sub}}</span></div>
+        <button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 44px; height: 44px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button>
+      </div>
+
+      <!-- save -->
+      <sc-if value="{{sh.save}}" hint-placeholder-val="{{ false }}">
+        <div class="scroll a-sb">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{sv.tiles}}" as="t" hint-placeholder-count="3"><div class="a-tile a-pop" style="background: {{t.bg}}; color: {{t.fg}}; animation-delay: {{t.delay}}"><span class="num a-b" style="font-size: 26px; line-height: 1.1">{{t.n}}</span><span class="a-b" style="font-size: 13px">{{t.label}}</span></div></sc-for></div>
+          <sc-for list="{{sa.groups}}" as="g" hint-placeholder-count="1">
+            <div class="a-c" style="gap: 8px"><span class="sech">{{g.label}}</span>
+              <sc-for list="{{g.kids}}" as="n" hint-placeholder-count="2"><span class="a-r a-in" style="gap: 10px"><span class="a-av" style="width: 38px; height: 38px; font-size: 12px; background: {{g.bg}}; color: {{g.fg}}">{{n.ini}}</span><span class="a-c a-f"><span class="a-6 a-p">{{n.name}}</span><span class="a-s">{{n.sub}}</span></span></span></sc-for>
+            </div>
+          </sc-for>
+          <sc-if value="{{sa.allHere}}" hint-placeholder-val="{{ false }}"><div class="a-note" style="background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span class="a-6">Everyone is here today. No messages will go to parents.</span></div></sc-if>
+          <sc-if value="{{sa.hasAbs}}" hint-placeholder-val="{{ true }}">
+            <button class="tap a-opt" type="button" role="switch" aria-checked="{{sa.waOn}}" onClick="{{sa.toggle}}" style="background: var(--s2)">
+              <span class="a-ib" style="width: 40px; height: 40px; border-radius: 12px; background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg></span>
+              <span class="a-c a-f"><span class="a-6 a-p">Send WhatsApp to their parents at 10 am</span><span class="a-s num">{{sa.waSub}}</span></span>
+              <span class="sw {{sa.waCls}}"><span></span></span>
+            </button>
+            <sc-if value="{{sa.prev}}" hint-placeholder-val="{{ true }}"><div class="a-wa"><div><span style="display: block">{{sa.hi}}</span><span style="display: block; margin-top: 6px; opacity: .8">{{sa.en}}</span><span class="num" style="display: block; text-align: right; font-size: 11px; opacity: .6">10:00 am</span></div></div><span class="a-s" style="margin-top: -6px">{{sa.more}}</span></sc-if>
+          </sc-if>
+          <span class="a-s">{{sa.note}}</span>
+        </div>
+        <div class="a-sf"><button class="tap btn sec a-bb" type="button" onClick="{{closeSheet}}" style="flex: 1">Check again</button><button class="tap btn pri a-bb" type="button" onClick="{{sa.go}}" style="flex: 1.6"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{sa.btn}}</button></div>
+      </sc-if>
+
+      <!-- change request -->
+      <sc-if value="{{sh.change}}" hint-placeholder-val="{{ false }}">
+        <div class="scroll a-sb">
+          <div class="a-c" style="gap: 8px"><span class="sech">Which child? · कौन सा बच्चा</span>
+            <sc-for list="{{cg.picks}}" as="p" hint-placeholder-count="2">
+              <button class="tap a-opt" type="button" role="radio" aria-checked="{{p.on}}" onClick="{{p.pick}}" style="border: {{p.bd}}; background: {{p.bg}}"><span class="a-av" style="width: 36px; height: 36px; font-size: 12px; background: {{p.abg}}; color: {{p.afg}}">{{p.ini}}</span><span class="a-c a-f"><span class="a-6 a-p">{{p.name}}</span><span class="a-s">{{p.sub}}</span></span><span style="flex: none; width: 22px; height: 22px; border-radius: 11px; border: 2px solid {{p.ring}}; display: flex; align-items: center; justify-content: center"><span style="width: 11px; height: 11px; border-radius: 6px; background: var(--acc); transform: scale({{p.dot}}); transition: transform .25s var(--spring)"></span></span></button>
+            </sc-for>
+            <label class="field"><span>Or pick another child</span><select class="inp" value="{{cg.roll}}" onChange="{{cg.onPick}}"><sc-for list="{{cg.all}}" as="o" hint-placeholder-count="31"><option value="{{o.v}}">{{o.label}}</option></sc-for></select></label>
+          </div>
+          <div class="a-c" style="gap: 8px"><span class="sech">Change · बदलाव</span>
+            <div class="a-r a-w" style="gap: 10px">
+              <span class="pill" style="height: 40px; padding: 0 14px; font-size: 14px; background: {{cg.fbg}}; color: {{cg.ffg}}">{{cg.from}}</span>
+              <svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg>
+              <sc-for list="{{cg.tos}}" as="t" hint-placeholder-count="2"><button class="tap chip {{t.cls}}" type="button" role="radio" aria-checked="{{t.on}}" onClick="{{t.pick}}" style="height: 44px; padding: 0 16px; font-size: 14px">{{t.label}}</button></sc-for>
+            </div>
+          </div>
+          <div class="a-c" style="gap: 8px"><span class="sech">Why? · कारण</span>
+            <div class="a-r a-w" style="gap: 8px"><sc-for list="{{cg.why}}" as="w" hint-placeholder-count="4"><button class="tap chip {{w.cls}}" type="button" aria-pressed="{{w.on}}" onClick="{{w.pick}}" style="height: 44px; padding: 0 16px; font-size: 14px">{{w.label}}</button></sc-for></div>
+          </div>
+          <label class="field"><span>Note for the office (optional)</span><input class="inp" type="text" value="{{cg.note}}" onChange="{{cg.onNote}}" placeholder="For example: came at 9:10 with her father"></label>
+          <div class="a-note" style="background: var(--s2)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px; color: var(--acc)" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{cg.line}}</span></div>
+        </div>
+        <div class="a-sf"><button class="tap btn sec a-bb" type="button" onClick="{{closeSheet}}" style="flex: 1">Cancel</button><button class="tap btn pri a-bb" type="button" onClick="{{cg.send}}" style="flex: 1.6"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>Send request</button></div>
+      </sc-if>
+
+      <!-- help -->
+      <sc-if value="{{sh.help}}" hint-placeholder-val="{{ false }}">
+        <div class="scroll a-sb">
+          <sc-for list="{{help}}" as="h" hint-placeholder-count="3">
+            <div class="a-r a-in" style="gap: 14px; align-items: stretch; animation-delay: {{h.delay}}">
+              <div class="a-pic">
+                <sc-for list="{{h.rows}}" as="m" hint-placeholder-count="3"><span class="a-mini" style="background: {{m.bg}}"><span class="a-sk"></span><span style="width: 18px; height: 12px; border-radius: 6px; background: {{m.c}}"></span></span></sc-for>
+                <sc-if value="{{h.btn}}" hint-placeholder-val="{{ false }}"><span class="a-ib a-b" style="height: 30px; border-radius: 9px; background: var(--pri); color: var(--prifg); font-size: 11px">Save attendance</span></sc-if>
+              </div>
+              <span class="a-c a-f" style="gap: 3px; justify-content: center"><span class="a-r" style="gap: 8px"><span class="a-av num" style="width: 26px; height: 26px; background: var(--accs); color: var(--accfg); font-size: 13px">{{h.n}}</span><span class="a-b a-p">{{h.t}}</span></span><span class="a-m">{{h.s}}</span><span class="a-s">{{h.hi}}</span></span>
+            </div>
+          </sc-for>
+        </div>
+        <div class="a-sf"><button class="tap btn sec a-bb" type="button" onClick="{{callOffice}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>Call the office</button><button class="tap btn pri a-bb" type="button" onClick="{{closeSheet}}" style="flex: 1">Got it</button></div>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}">
+    <div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["mark","marked2","save","saved","change","history","help"],"default":"mark"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+    IC.calMinus = 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16h6';
+    IC.cake = 'M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1M2 21h20M7 8v3M12 8v3M17 8v3M7 4h.01M12 4h.01M17 4h.01';
+    IC.sun = 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42';
+    const KIDS = ('Aadhya Jain|आध्या जैन,Aarav Kumawat|आरव कुमावत,Ananya Vyas|अनन्या व्यास,Arjun Gurjar|अर्जुन गुर्जर,Bhavya Paliwal|भव्या पालीवाल,Chirag Mehta|चिराग मेहता,' +
+      'Divya Rathore|दिव्या राठौड़,Gaurav Choudhary|गौरव चौधरी,Harshita Dave|हर्षिता दवे,Ishaan Purohit|ईशान पुरोहित,Jiya Kothari|जिया कोठारी,Kabir Solanki|कबीर सोलंकी,' +
+      'Khushi Sharma|ख़ुशी शर्मा,Om Regar|ओम रेगर,Manav Joshi|मानव जोशी,Naina Chouhan|नैना चौहान,Nikhil Meena|निखिल मीणा,Palak Agarwal|पलक अग्रवाल,Pari Sen|परी सेन,' +
+      'Pranav Rawal|प्रणव रावल,Riya Singh|रिया सिंह,Rohan Sharma|रोहन शर्मा,Saanvi Kumawat|सान्वी कुमावत,Sahil Gurjar|साहिल गुर्जर,Sneha Vyas|स्नेहा व्यास,Tanish Jain|तनिश जैन,' +
+      'Tanya Paliwal|तान्या पालीवाल,Utkarsh Mehta|उत्कर्ष मेहता,Vani Rathore|वाणी राठौड़,Yash Dave|यश दवे,Zoya Khan|ज़ोया ख़ान').split(',')
+      .map((x, i) => { const p = x.split('|'); return { roll: i + 1, name: p[0], hi: p[1], ini: p[0].split(' ').map((w) => w[0]).join('') }; });
+    // October school days: absent (a) and leave (l) rolls, marked time
+    const OCT = { 1: { a: [17, 24], t: '8:44' }, 3: { a: [17, 31, 26], l: [7], t: '8:49' }, 5: { a: [14], t: '8:41' }, 6: { a: [14, 17, 18], t: '8:46' }, 7: { a: [14, 19], t: '8:47' } };
+    const HOL = { 2: 'Gandhi Jayanti', 20: 'Dussehra' };
+    this._d = { IC, KIDS, OCT, HOL };
+    return this._d;
+  }
+
+  st() {
+    const p = this.props || {};
+    const two = { 14: 'A', 19: 'A' };
+    const base = {
+      lang: 'en', screen: 'mark', anim: 'none', att: {}, flip: { P: 0, A: 0, L: 0 }, same: false, q: '', sheet: '', closing: false, wa: true,
+      saved: false, edits: 0, editing: false, over: false, reqs: [], cRoll: 19, cTo: 'P', cWhy: 'late', cNote: '', cDay: '8', called: false, day: '7', toast: null
+    };
+    const map = {
+      marked2: { att: two }, save: { att: two, sheet: 'save' }, saved: { att: two, screen: 'saved', saved: true },
+      change: { att: two, screen: 'saved', saved: true, over: true, sheet: 'change' },
+      history: { att: two, saved: true, screen: 'history' }, help: { sheet: 'help' }
+    };
+    return Object.assign(base, map[p.start] || {}, this.state || {});
+  }
+
+  toast(text, undo) {
+    const id = Date.now() + Math.random();
+    this._undo = undo || null;
+    this.setState({ toast: { id, text, undo: !!undo } });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+  }
+
+  undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+  openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+  closeSheet() {
+    if (!this.st().sheet) return;
+    this.setState({ closing: true });
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+  }
+
+  counts(att) {
+    const c = { P: 31, A: 0, L: 0 };
+    Object.keys(att || {}).forEach((r) => { const v = att[r]; if (v === 'A' || v === 'L') { c[v] += 1; c.P -= 1; } });
+    return c;
+  }
+
+  apply(next, extra) {
+    const s = this.st();
+    const c0 = this.counts(s.att);
+    const c1 = this.counts(next);
+    const flip = Object.assign({}, s.flip);
+    ['P', 'A', 'L'].forEach((k) => { if (c0[k] !== c1[k]) flip[k] = (flip[k] || 0) + 1; });
+    this.setState(Object.assign({ att: next, flip }, extra || {}));
+  }
+
+  renderVals() {
+    const D = this.data();
+    const s = this.st();
+    const IC = D.IC;
+    const hi = s.lang === 'hi';
+    const L = (en, h) => (hi ? { a: h, b: en } : { a: en, b: h });
+    const V = (x) => 'var(--' + x + ')';
+    const choose = (k, v) => () => this.setState({ [k]: v });
+    const att = s.att || {};
+    const c = this.counts(att);
+    const st = (r) => att[r] || 'P';
+    const nm = (k) => (hi ? k.hi : k.name);
+    const TONES = [[V('accs'), V('accfg')], [V('infos'), V('info')], [V('oks'), V('ok')], [V('warns'), V('warnfg')], [V('s3'), V('fg')]];
+    const LOOK = {
+      P: { a: L('Present', 'उपस्थित'), bg: V('card'), bd: V('bd'), sbg: V('oks'), sfg: V('ok'), fg: V('ok') },
+      A: { a: L('Absent', 'अनुपस्थित'), bg: V('bads'), bd: V('bad'), sbg: V('bad'), sfg: V('onsolid'), fg: V('bad') },
+      L: { a: L('Leave', 'छुट्टी'), bg: V('warns'), bd: V('warnm'), sbg: V('warn'), sfg: V('onsolid'), fg: V('warnfg') }
+    };
+    const NEXT = { P: 'A', A: 'L', L: 'P' };
+    const tx = {
+      help: L('Help', 'मदद'), past: L('Past days', 'पिछले दिन'), find: L('Find a child', 'नाम या रोल नंबर खोजें'),
+      tapHow: L('Tap once for Absent, twice for Leave, three times for Present again', 'एक बार टैप = अनुपस्थित, दो बार = छुट्टी'),
+      sofar: L('Today so far', 'अब तक'), officeSees: L('The office can see it now.', 'कार्यालय अब इसे देख सकता है।'),
+      change: L('Change attendance', 'हाज़िरी बदलें'), ask: L('Ask the office to change it', 'कार्यालय से बदलवाएँ'),
+      backToday: L('Back to Today', 'आज पर वापस'), month: L('See this month', 'इस महीने की हाज़िरी')
+    };
+    const lang = { thumb: hi ? '100%' : '0%', opts: [['en', 'EN'], ['hi', 'हि']].map((o) => ({ label: o[1], cls: s.lang === o[0] ? 'tap on' : 'tap', pressed: s.lang === o[0] ? 'true' : 'false', pick: choose('lang', o[0]) })) };
+    const ANIM = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'none' };
+    const go = (screen, anim, extra) => () => { this.setState(Object.assign({ screen, anim }, extra || {})); };
+
+    // ---------- mark ----------
+    const q = (s.q || '').trim().toLowerCase();
+    const shown = D.KIDS.filter((k) => !q || k.name.toLowerCase().indexOf(q) >= 0 || k.hi.indexOf(q) >= 0 || String(k.roll) === q);
+    const kids = shown.map((k, i) => {
+      const v = st(k.roll);
+      const lk = LOOK[v];
+      let hint = '';
+      let hintIcon = IC.phone;
+      let hintC = V('warnfg');
+      if (k.roll === 14) hint = v === 'A' ? '4th day in a row · call parents after saving' : '3 days absent · call parents?';
+      else if (k.roll === 11) { hint = 'Birthday today'; hintIcon = IC.cake; hintC = V('acc'); }
+      else if (k.roll === 17) { hint = 'Often absent · 72% this session'; hintIcon = IC.info; hintC = V('mut'); }
+      return {
+        roll: String(k.roll), name: nm(k), ini: k.ini, abg: TONES[k.roll % 5][0], afg: TONES[k.roll % 5][1],
+        bg: lk.bg, bd: lk.bd, sbg: lk.sbg, sfg: lk.sfg, fg: v === 'P' && hint ? hintC : lk.fg, label: lk.a.a, lineD: v === 'P' ? (hint || lk.a.a) : lk.a.a + (k.roll === 14 ? ' · 4th day in a row' : ''),
+        hasHint: !!hint, hint, hintIcon, hintC, isP: v === 'P', isA: v === 'A', isL: v === 'L', delay: (Math.min(i, 16) * 22) + 'ms',
+        aria: k.name + ', roll ' + k.roll + ', ' + lk.a.a + '. Tap to change.',
+        tap: () => { const a = Object.assign({}, this.st().att); const nx = NEXT[a[k.roll] || 'P']; if (nx === 'P') delete a[k.roll]; else a[k.roll] = nx; this.apply(a); }
+      };
+    });
+    const CNT = [['P', L('Present', 'उपस्थित'), V('ok'), V('okm')], ['A', L('Absent', 'अनुपस्थित'), V('bad'), V('bad')], ['L', L('Leave', 'छुट्टी'), V('warn'), V('warnm')]];
+    const cnt = CNT.map((x) => { const f = (s.flip || {})[x[0]] || 0; return { a: x[1].a, b: x[1].b, n: String(c[x[0]]), c: x[2], bd: c[x[0]] && x[0] !== 'P' ? x[3] : V('bd'), even: f % 2 === 0, odd: f % 2 === 1 }; });
+    const YEST = [14, 19];
+    const sameDone = YEST.every((r) => att[r] === 'A');
+    const same = {
+      cls: sameDone ? 'on' : '', on: sameDone ? 'true' : 'false', icon: sameDone ? IC.check : IC.undo,
+      label: (hi ? 'कल जैसा' : 'Same as yesterday') + ' (2)',
+      go: () => {
+        const before = Object.assign({}, this.st().att);
+        if (YEST.every((r) => before[r] === 'A')) { this.toast('Om Regar and Pari Sen are already marked Absent'); return; }
+        const a = Object.assign({}, before); YEST.forEach((r) => { a[r] = 'A'; });
+        this.apply(a, { same: true });
+        this.toast('Om Regar and Pari Sen marked Absent, like yesterday', () => this.apply(before, { same: false }));
+      }
+    };
+    const editing = !!s.editing;
+    const mk = {
+      bnA: editing ? 'You are changing today’s attendance' : (hi ? 'सभी बच्चे उपस्थित माने गए हैं।' : 'Everyone is marked Present.'),
+      bnB: editing ? 'The office still sees what you saved at 8:52 until you save again.' : (hi ? 'Tap only the children who are absent.' : 'Tap only the children who are absent. · सिर्फ़ अनुपस्थित बच्चों पर टैप करें।'),
+      bnBg: editing ? V('warns') : V('accs'), bnFg: editing ? V('warnfg') : V('accfg'), bnIcon: editing ? IC.edit : IC.sun
+    };
+    const parts = [c.P + ' present', c.A + ' absent'].concat(c.L ? [c.L + ' on leave'] : []).join(' · ');
+    const bar = {
+      label: editing ? (hi ? 'बदलाव सेव करें' : 'Save changes') : (hi ? 'हाज़िरी सेव करें' : 'Save attendance'), parts,
+      title: 'Class 6 · ' + parts,
+      note: editing ? 'Until you save again, the office keeps your 8:52 attendance.' : 'Until you save, the office sees Class 6 as Not marked.'
+    };
+    const listOf = (v) => D.KIDS.filter((k) => att[k.roll] === v);
+    const absK = listOf('A');
+    const lvK = listOf('L');
+    const side = {
+      bar: [['P', V('ok')], ['A', V('bad')], ['L', V('warn')]].map((x) => ({ w: (c[x[0]] / 31 * 100).toFixed(1) + '%', c: x[1] })),
+      pct: Math.round(c.P / 31 * 100) + '%', head: absK.length + lvK.length ? 'Away today' : 'Everyone is here',
+      list: absK.concat(lvK).map((k) => ({ ini: k.ini, name: nm(k), sub: att[k.roll] === 'A' ? 'Absent · roll ' + k.roll : 'On leave · roll ' + k.roll, bg: att[k.roll] === 'A' ? V('bads') : V('warns'), fg: att[k.roll] === 'A' ? V('bad') : V('warnfg') })),
+      empty: !(absK.length + lvK.length)
+    };
+
+    // ---------- save sheet ----------
+    const kSub = (k, v) => (v === 'A' ? (k.roll === 14 ? 'Roll 14 · 4th day in a row' : (k.roll === 19 ? 'Roll 19 · absent yesterday too' : 'Roll ' + k.roll)) : 'Roll ' + k.roll + ' · on leave');
+    const tiles = [['P', 'Present', V('oks'), V('ok')], ['A', 'Absent', V('bads'), V('bad')], ['L', 'Leave', V('warns'), V('warnfg')]].map((x, i) => ({ n: String(c[x[0]]), label: L(x[1], LOOK[x[0]].a.b).a, bg: x[2], fg: x[3], delay: (200 + i * 90) + 'ms' }));
+    const nA = absK.length;
+    const fst = absK[0] || D.KIDS[13];
+    const sa = {
+      groups: [['Absent today · आज अनुपस्थित', absK, 'A', V('bads'), V('bad')], ['On leave · छुट्टी पर', lvK, 'L', V('warns'), V('warnfg')]].filter((g) => g[1].length).map((g) => ({ label: g[0] + ' (' + g[1].length + ')', bg: g[3], fg: g[4], kids: g[1].map((k) => ({ ini: k.ini, name: nm(k), sub: kSub(k, g[2]) })) })),
+      allHere: !absK.length && !lvK.length, hasAbs: nA > 0, waOn: s.wa ? 'true' : 'false', waCls: s.wa ? 'on' : '', prev: !!s.wa && nA > 0,
+      waSub: s.wa ? nA + (nA === 1 ? ' parent' : ' parents') + ' · Hindi first' : 'Off · no message will go to parents',
+      toggle: () => { const on = !this.st().wa; this.setState({ wa: on }); this.toast(on ? 'WhatsApp to parents is on' : 'No WhatsApp will go to parents today', () => this.setState({ wa: !on })); },
+      hi: 'नमस्ते, आज गुरुवार 8 अक्टूबर को ' + fst.hi + ' स्कूल नहीं आए। कृपया कक्षा अध्यापिका को कारण बताएँ। — श्री वीर पत्ता स्कूल, आमेट',
+      en: 'Hello, ' + fst.name + ' was absent from school today, Thu 8 Oct. Please tell the class teacher why. — Shri Veer Patta School, Amet',
+      more: nA > 1 ? 'The same message goes to ' + (nA - 1) + ' more ' + (nA === 2 ? 'family' : 'families') + ' with their child’s name.' : 'Only this family gets a message.',
+      note: editing ? 'Saving again replaces what you saved at 8:52. The office is told it was changed.' : 'After saving you can still change it for 30 minutes.',
+      btn: editing ? 'Save changes' : 'Save attendance',
+      go: () => {
+        const cur = this.st();
+        this.closeSheet();
+        this.setState({ screen: 'saved', anim: 'push', saved: true, editing: false, edits: cur.editing ? (cur.edits || 0) + 1 : cur.edits || 0 });
+      }
+    };
+
+    // ---------- saved ----------
+    const over = !!s.over;
+    const reqs = s.reqs || [];
+    const sv = {
+      title: s.edits ? 'Updated at 8:58.' : 'Saved at 8:52.', tiles,
+      wa: nA ? (s.wa ? 'WhatsApp to ' + nA + (nA === 1 ? ' parent' : ' parents') + ' goes at 10 am · Hindi first' : 'No WhatsApp will go to parents today') : 'No one absent · no messages to parents',
+      canChange: !over, closed: over,
+      change: () => this.setState({ screen: 'mark', anim: 'pop', editing: true }),
+      ask: () => this.openSheet('change', { cDay: '8', cRoll: (absK[0] || lvK[0] || D.KIDS[18]).roll, cTo: 'P', cWhy: 'late', cNote: '' }),
+      reqs: reqs.filter((r) => r.day === '8').map((r) => ({ text: r.text }))
+    };
+    const om = st(14);
+    const nx = {
+      sub: om === 'A' ? 'Mon, Tue, Wed — and today again. Father said grandmother is unwell.' : 'He is back today after 3 days away. A short note helps the office.',
+      called: !!s.called, callLabel: s.called ? 'Call again' : 'Call parents',
+      call: () => { const was = !!this.st().called; this.setState({ called: true }); this.toast('Calling Mr. Mohan Regar · 98290 ••514', () => this.setState({ called: was })); }
+    };
+
+    // ---------- history ----------
+    const pctOf = (d) => { const o = D.OCT[d]; return o ? Math.round((31 - o.a.length - (o.l || []).length) / 31 * 100) : null; };
+    const todayData = s.saved ? { a: absK.map((k) => k.roll), l: lvK.map((k) => k.roll), t: s.edits ? '8:58' : '8:52' } : null;
+    const dataOf = (d) => (d === 8 ? todayData : D.OCT[d] || null);
+    const scale = (p) => (p >= 95 ? [V('ok'), V('onsolid')] : (p >= 90 ? [V('okm'), V('ok')] : (p >= 85 ? [V('warnm'), V('warnfg')] : [V('bads'), V('bad')])));
+    const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const cells = [];
+    for (let i = 0; i < 35; i++) {
+      const d = i - 2;
+      const out = d < 1 || d > 31;
+      const dow = i % 7;
+      const hol = D.HOL[d];
+      const dat = out ? null : dataOf(d);
+      const p = dat ? Math.round((31 - dat.a.length - (dat.l || []).length) / 31 * 100) : null;
+      const sc = p !== null ? scale(p) : null;
+      const sel = !out && String(d) === String(s.day);
+      let chip = '';
+      if (out) chip = '';
+      else if (dow === 6) chip = 'Sun';
+      else if (hol) chip = 'Holiday';
+      else if (p !== null) chip = p + '%';
+      else if (d === 8) chip = 'Not yet';
+      else if (d > 8) chip = '·';
+      cells.push({
+        d: out ? (d < 1 ? String(30 + d) : String(d - 31)) : String(d), chip: chip || '·', on: sel ? 'true' : 'false',
+        aria: out ? 'Outside October' : DOW[dow] + ' ' + d + ' Oct · ' + (p !== null ? p + '% present' : (hol || (dow === 6 ? 'Sunday' : (d === 8 ? 'not marked yet' : 'coming up')))),
+        bg: d === 8 ? V('accs') : (hol || dow === 6 ? V('s2') : V('card')), bd: d === 8 ? V('acc') : V('bd'), ring: sel ? 'inset 0 0 0 2px var(--acc)' : 'none', op: out ? '0.35' : (d > 8 && !hol ? '0.7' : '1'),
+        dc: d === 8 ? V('accfg') : V('fg'), pbg: sc ? sc[0] : 'transparent', pfg: sc ? sc[1] : V('sub'), delay: (i * 12) + 'ms',
+        pick: () => {
+          if (out) return;
+          if (dow === 6 || hol) { this.toast(hol ? hol + ' holiday · no school' : 'Sunday · no school'); return; }
+          if (d > 8) { this.toast('This day has not come yet'); return; }
+          this.setState({ day: String(d) });
+        }
+      });
+    }
+    const avg = [1, 3, 5, 6, 7].map(pctOf).reduce((a, b) => a + b, 0) / 5;
+    const dNum = +s.day || 7;
+    const dDat = dataOf(dNum);
+    const dP = dDat ? Math.round((31 - dDat.a.length - (dDat.l || []).length) / 31 * 100) : 0;
+    const dSc = scale(dP);
+    const byRoll = (r) => D.KIDS[r - 1];
+    const dayLabel = (d) => DOW[(d + 2) % 7] + ' ' + d + ' Oct';
+    const streakNote = (r, d) => (r === 14 && d >= 5 ? (d === 8 ? '4th day in a row' : (d - 4) + (d === 5 ? 'st' : (d === 6 ? 'nd' : 'rd')) + ' day in a row') : 'Roll ' + r);
+    const dy = {
+      title: dNum === 8 ? 'Today · Thu 8 Oct' : dayLabel(dNum), hasData: !!dDat, todo: !dDat, hasPct: !!dDat,
+      sub: dDat ? (31 - dDat.a.length - (dDat.l || []).length) + ' of 31 present' + (dDat.l && dDat.l.length ? ' · ' + dDat.l.length + ' on leave' : '') : 'Class 6 · 31 children',
+      pct: dP + '%', pbg: dSc[0], pfg: dSc[1],
+      bar: dDat ? [['P', 31 - dDat.a.length - (dDat.l || []).length, V('ok')], ['A', dDat.a.length, V('bad')], ['L', (dDat.l || []).length, V('warn')]].map((x) => ({ w: (x[1] / 31 * 100).toFixed(1) + '%', c: x[2] })) : [],
+      groups: dDat ? [['Absent', dDat.a, V('bads'), V('bad')], ['On leave', dDat.l || [], V('warns'), V('warnfg')]].filter((g) => g[1].length).map((g) => ({ label: g[0] + ' (' + g[1].length + ')', bg: g[2], fg: g[3], kids: g[1].map((r) => ({ ini: byRoll(r).ini, name: nm(byRoll(r)), sub: g[0] === 'Absent' ? streakNote(r, dNum) : 'Leave letter given · roll ' + r })) })) : [],
+      allHere: !!dDat && !dDat.a.length && !(dDat.l || []).length,
+      by: dDat ? 'Marked by Ms. Bhati at ' + dDat.t + ' am' + (dNum === 8 && s.edits ? ' · changed once' : '') : '',
+      reqs: reqs.filter((r) => r.day === String(dNum)).map((r) => ({ text: r.text })),
+      ask: () => { const r0 = dDat && (dDat.a[0] || (dDat.l || [])[0]); this.openSheet('change', { cDay: String(dNum), cRoll: r0 || 1, cTo: 'P', cWhy: 'late', cNote: '' }); }
+    };
+    const dotStrip = (r) => [1, 3, 5, 6, 7, 8].map((d) => {
+      const dat = dataOf(d);
+      const v = !dat ? 'N' : (dat.a.indexOf(r) >= 0 ? 'A' : ((dat.l || []).indexOf(r) >= 0 ? 'L' : 'P'));
+      return { d: d === 8 ? 'Today' : String(d), c: { P: V('ok'), A: V('bad'), L: V('warn'), N: 'transparent' }[v], bd: v === 'N' ? '1.5px dashed var(--bds)' : '0' };
+    });
+    const callK = (k) => () => this.toast('Calling ' + k + '’s parents');
+    const hs = {
+      avg: 'Average ' + Math.round(avg) + '%',
+      legend: [['95%+', V('ok'), '0'], ['90–94%', V('okm'), '0'], ['85–89%', V('warnm'), '0'], ['Below 85%', V('bads'), '0'], ['Holiday', V('s2'), '1px solid var(--bd)']].map((l) => ({ label: l[0], bg: l[1], bd: l[2] })),
+      wd: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], cells,
+      streaks: [
+        { ini: 'OR', name: hi ? 'ओम रेगर' : 'Om Regar', sub: (om === 'A' && s.saved ? '4 days in a row' : '3 days in a row') + ' · 68% this session · grandmother unwell', dots: dotStrip(14), call: callK('Om') },
+        { ini: 'NM', name: hi ? 'निखिल मीणा' : 'Nikhil Meena', sub: '3 of 5 days absent this month · 72% this session', dots: dotStrip(17), call: callK('Nikhil') }
+      ]
+    };
+
+    // ---------- change request ----------
+    const cDay = +s.cDay || 8;
+    const cDat = dataOf(cDay) || { a: [], l: [] };
+    const statusOn = (r) => (cDat.a.indexOf(r) >= 0 ? 'A' : ((cDat.l || []).indexOf(r) >= 0 ? 'L' : 'P'));
+    const cRoll = Math.min(31, Math.max(1, +s.cRoll || 1));
+    const from = statusOn(cRoll);
+    const to = s.cTo !== from ? s.cTo : (from === 'P' ? 'A' : 'P');
+    const cK = byRoll(cRoll);
+    const picksR = cDat.a.concat(cDat.l || []);
+    const CW = [['late', 'Came late'], ['mistake', 'Marked by mistake'], ['letter', 'Had a leave letter'], ['other', 'Other']];
+    const cWhy = (CW.filter((w) => w[0] === s.cWhy)[0] || CW[0]);
+    const cg = {
+      picks: picksR.map((r) => { const k = byRoll(r); const on = r === cRoll; const v = statusOn(r); return { ini: k.ini, name: nm(k), sub: 'Roll ' + r + ' · ' + LOOK[v].a.a, on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? V('accs') : V('card'), ring: on ? V('acc') : V('bds'), dot: on ? '1' : '0', abg: LOOK[v].sbg, afg: LOOK[v].sfg, pick: choose('cRoll', r) }; }),
+      roll: String(cRoll), onPick: (e) => this.setState({ cRoll: +e.target.value || 1 }),
+      all: D.KIDS.map((k) => ({ v: String(k.roll), label: k.roll + ' · ' + k.name })),
+      from: cK.name.split(' ')[0] + ' · ' + LOOK[from].a.a, fbg: LOOK[from].sbg, ffg: LOOK[from].sfg,
+      tos: ['P', 'A', 'L'].filter((v) => v !== from).map((v) => ({ label: LOOK[v].a.a, cls: v === to ? 'on' : '', on: v === to ? 'true' : 'false', pick: choose('cTo', v) })),
+      why: CW.map((w) => ({ label: w[1], cls: s.cWhy === w[0] ? 'on' : '', on: s.cWhy === w[0] ? 'true' : 'false', pick: choose('cWhy', w[0]) })),
+      note: s.cNote, onNote: (e) => this.setState({ cNote: e.target.value }),
+      line: 'The office will change ' + cK.name + ' from ' + LOOK[from].a.a + ' to ' + LOOK[to].a.a + ' for ' + dayLabel(cDay) + '. You will see it here once it is done.',
+      send: () => {
+        const before = this.st().reqs || [];
+        const text = cK.name + ' · ' + LOOK[from].a.a + ' → ' + LOOK[to].a.a + ' · ' + dayLabel(cDay) + ' · ' + cWhy[1].toLowerCase();
+        this.closeSheet();
+        this.setState({ reqs: before.concat([{ day: String(cDay), text }]) });
+        this.toast('Request sent · the office will change it', () => this.setState({ reqs: before }));
+      }
+    };
+
+    // ---------- help ----------
+    const G = V('oks');
+    const help = [
+      ['Everyone starts as Present', 'You do not need to tap the children who came.', 'सब बच्चे पहले से उपस्थित हैं।', [[G, V('ok')], [G, V('ok')], [G, V('ok')]], false],
+      ['Tap a child who is away', 'Once = Absent (red). Twice = Leave (yellow). Three times = Present again.', 'एक बार = अनुपस्थित, दो बार = छुट्टी।', [[V('card'), V('ok')], [V('bads'), V('bad')], [V('warns'), V('warn')]], false],
+      ['Press Save attendance', 'The office sees it at once. You can change it for 30 minutes.', 'सेव दबाएँ — कार्यालय तुरंत देख लेगा।', [[V('card'), V('ok')]], true]
+    ].map((h, i) => ({ n: String(i + 1), t: h[0], s: h[1], hi: h[2], rows: h[3].map((m) => ({ bg: m[0], c: m[1] })), btn: h[4], delay: (i * 90) + 'ms' }));
+
+    // ---------- chrome ----------
+    const scr = s.screen;
+    const T = {
+      mark: ['Attendance · हाज़िरी', 'Class 6 · Thu 8 Oct · हाज़िरी', hi ? 'कक्षा 6 · हाज़िरी' : 'Class 6 · हाज़िरी', 'Thu 8 Oct · 31 children'],
+      saved: ['Attendance · Class 6', 'Attendance saved', hi ? 'हाज़िरी सेव हो गई' : 'Attendance saved', 'Class 6 · Thu 8 Oct'],
+      history: ['Attendance · Class 6', 'October · Class 6', hi ? 'अक्टूबर · कक्षा 6' : 'October · Class 6', 'Tap a day to see who was away']
+    }[scr] || ['', '', '', ''];
+    const SH = {
+      save: [editing ? 'Save the changes?' : 'Save Class 6 attendance?', 'Thu 8 Oct · ' + parts],
+      change: ['Ask the office to change it', dayLabel(cDay) + ' · Class 6 · after 9:22 only the office can change it'],
+      help: [hi ? 'हाज़िरी कैसे लगाएँ' : 'How to mark attendance', '3 easy steps · 3 आसान कदम']
+    }[s.sheet] || ['', ''];
+
+    return {
+      ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '', tx, lang,
+      is: { mark: scr === 'mark', saved: scr === 'saved', history: scr === 'history' }, anim: ANIM[s.anim] || 'none',
+      top: { crumb: T[0], title: T[1], mTitle: T[2], mSub: T[3], hist: scr !== 'history', mLink: scr !== 'history', mHref: scr === 'saved' ? 'M-TchHome-Later.dc.html' : 'M-TchHome.dc.html' },
+      back: () => { const cur = this.st(); this.setState({ screen: cur.saved ? 'saved' : 'mark', anim: 'pop' }); },
+      goHistory: go('history', 'push', { day: this.st().saved ? '8' : '7' }), goMark: go('mark', 'pop'),
+      q: s.q, onQ: (e) => this.setState({ q: e.target.value }), clearQ: choose('q', ''), none: shown.length === 0,
+      kids, cnt, same, mk, bar, side, openSave: () => this.openSheet('save'), sa, sv, nx, hs, dy, cg, help,
+      openHelp: () => this.openSheet('help'), callOffice: () => this.toast('Calling the school office · 02908 ••210'),
+      sh: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', title: SH[0], sub: SH[1], save: s.sheet === 'save', change: s.sheet === 'change', help: s.sheet === 'help' },
+      closeSheet: () => this.closeSheet(),
+      toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+    };
+  }
+}
+</script>
+</body>
+</html>

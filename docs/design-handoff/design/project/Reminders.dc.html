@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fee reminders</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.zf{display:flex;align-items:center;gap:8px}
+.zc{display:flex;flex-direction:column;min-width:0}
+.ze{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.zm{font-size:12px;color:var(--mut)}
+.zb{font-size:14px;font-weight:600}
+.zv{font-size:15px;font-weight:700}
+.zd{flex:none;width:8px;height:8px;border-radius:4px}
+.zs{padding:0 12px;font-size:13px}
+.zi{width:16px;height:16px}
+.zin{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.znb{border:0;background:transparent;color:var(--fg);text-align:left;padding:0;min-width:0}
+.zsh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}
+.zsb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:10px}
+.zsf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.zrc{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 14px;border-radius:14px;color:var(--fg);text-align:left}
+.zrc>i{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid;display:flex;align-items:center;justify-content:center}
+.zrc>i>b{width:10px;height:10px;border-radius:5px;background:var(--acc);transition:transform .25s var(--spring)}
+.zwa{border-radius:16px;background:var(--wabg);padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.zwb{max-width:94%;padding:9px 11px 6px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);box-shadow:0 1px 1px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.5;animation:xIn .35s var(--ease) both}
+.zwb>p{margin:0;white-space:pre-line}
+.zwb>p>span{border-radius:4px;transition:background-color .25s ease}
+.zwb>hr{width:100%;margin:0;border:0;border-top:1px solid currentColor;opacity:.15}
+.zwb>small{align-self:flex-end;font-size:11px;opacity:.6}
+.zsw{padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;color:var(--fg);width:100%;border:0;background:transparent}
+.ytile{padding:12px 14px;border-radius:14px;background:var(--s2);display:flex;flex-direction:column;gap:2px;min-width:0}
+.ycr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 110px 18px;gap:8px 16px;align-items:center;padding:14px 18px;width:100%;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--fg);text-align:left;animation:xIn .32s var(--ease) both}
+.yfb{position:relative;height:8px;border-radius:4px;background:var(--s3);overflow:hidden}
+.yfb>span{position:absolute;left:0;top:0;bottom:0;border-radius:4px;transform-origin:left;animation:xGrowX .7s var(--ease) both}
+.yst{flex:none;width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;transition:background-color .3s ease,color .3s ease}
+@container vx (max-width:899px){.ycr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"a c" "b b";padding:14px 16px}.ycr>.ya{grid-area:a}.ycr>.yb{grid-area:b}.ycr>.yc{grid-area:c}.ycr>.ydx{display:none}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="reminders" role="{{role}}" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+
+<header class="only-d glass" style="flex: none; height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="zc" style="flex: 1"><span class="zm">{{top.crumb}}</span><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+<sc-if value="{{top.dBack}}"><button class="tap btn ghost" type="button" onClick="{{top.back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>{{top.backLabel}}</button></sc-if>
+<sc-if value="{{top.dNew}}"><button class="tap btn sec" type="button" onClick="{{topUp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg>Top up AiSensy</button><button class="tap btn pri" type="button" onClick="{{newRem}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>New reminder</button></sc-if>
+</header>
+
+<header class="only-m glass" style="flex: none; min-height: 58px; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<sc-if value="{{top.mLink}}"><a href="{{roleMenu}}" class="tap" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.mBtn}}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{top.back}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="zc" style="flex: 1; padding-left: 2px"><span class="ze" style="font-size: 17px; font-weight: 700">{{top.title}}</span><span class="zm ze">{{top.mSub}}</span></span>
+<sc-if value="{{top.dNew}}"><button class="tap btn soft" type="button" onClick="{{newRem}}" style="height: 40px; padding: 0 12px; font-size: 13px"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>New</button></sc-if>
+</header>
+
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+
+<!-- ============ CAMPAIGNS + AUTOMATIC RULES ============ -->
+<sc-if value="{{is.list}}">
+<div class="pad zc" style="padding: 22px 28px 40px; gap: 16px; animation: {{anim}}">
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+<div class="card rise zf" style="padding: 14px 16px; gap: 10px; animation-delay: {{k.delay}}">
+<div class="zc" style="flex: 1; gap: 2px"><span class="zm" style="font-weight: 600">{{k.label}}</span><span class="num" style="font-size: 22px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; color: {{k.tone}}">{{k.value}}</span><span class="zm">{{k.sub}}</span></div>
+<sc-if value="{{k.ring}}"><svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true" style="flex: none"><circle cx="23" cy="23" r="18" style="fill: none; stroke: var(--s3); stroke-width: 6"></circle><circle cx="23" cy="23" r="18" transform="rotate(-90 23 23)" style="fill: none; stroke: var(--c2); stroke-width: 6; stroke-linecap: round; stroke-dasharray: {{k.dash}}; --len: 113.1; animation: xDraw .9s .2s var(--ease) both"></circle></svg></sc-if>
+</div>
+</sc-for>
+</div>
+
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start">
+<div class="card" style="overflow: hidden">
+<div class="zf" style="justify-content: space-between; padding: 14px 18px 12px"><span class="zc"><span class="zv">Reminders sent</span><span class="zm">Sent → delivered → read → paid within 7 days</span></span><span class="zf zm" style="gap: 10px"><span class="zf" style="gap: 4px"><span class="zd" style="background: var(--c4)"></span>Delivered</span><span class="zf" style="gap: 4px"><span class="zd" style="background: var(--c2)"></span>Read</span><span class="zf" style="gap: 4px"><span class="zd" style="background: var(--ok)"></span>Paid</span></span></div>
+<sc-for list="{{camps}}" as="c" hint-placeholder-count="5">
+<button class="tap row ycr" type="button" onClick="{{c.open}}" style="animation-delay: {{c.delay}}">
+<span class="zc ya" style="gap: 2px"><span class="zf" style="gap: 6px"><span class="ze zb">{{c.name}}</span><sc-if value="{{c.auto}}"><span class="pill" style="background: var(--s2); color: var(--mut)">Automatic</span></sc-if></span><span class="ze zm">{{c.date}} · {{c.aud}}</span></span>
+<span class="zc yb" style="gap: 5px"><span class="yfb"><span style="width: 100%; background: var(--s3)"></span><span style="width: {{c.wd}}; background: var(--c4)"></span><span style="width: {{c.wr}}; background: var(--c2); animation-delay: .15s"></span><span style="width: {{c.wp}}; background: var(--ok); animation-delay: .3s"></span></span><span class="num zm">{{c.funnel}}</span></span>
+<span class="zc yc" style="align-items: flex-end"><span class="num zv" style="color: {{c.amtC}}">{{c.amt}}</span><span class="zm" style="font-size: 11px; white-space: nowrap">{{c.status}}</span></span>
+<svg class="i ydx" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+</button>
+</sc-for>
+<button class="tap row zf zm" type="button" onClick="{{intro}}" style="width: 100%; padding: 12px 18px; border: 0; border-top: 1px solid var(--bd); background: var(--s2); font-weight: 600"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg>New here? See how reminders work</button>
+</div>
+
+<div class="card" style="overflow: hidden">
+<div class="zc" style="padding: 14px 18px 10px"><span class="zv">Automatic reminders</span><span class="zm">They run on their own. Each one shows the next run and how many families it reaches.</span></div>
+<sc-for list="{{rules}}" as="r" hint-placeholder-count="4">
+<div class="zf" style="gap: 0; border-top: 1px solid var(--bd); padding-right: 14px; animation: xIn .32s var(--ease) both; animation-delay: {{r.delay}}">
+<button class="tap row znb zf" type="button" onClick="{{r.open}}" style="flex: 1; gap: 12px; padding: 12px 8px 12px 18px">
+<span style="flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: {{r.ibg}}; color: {{r.ifg}}; transition: background-color .3s ease, color .3s ease"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span>
+<span class="zc"><span class="zb">{{r.title}}</span><span class="zm">{{r.line}}</span></span>
+</button>
+<button class="tap" type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.title}}" onClick="{{r.toggle}}" style="border: 0; background: transparent; padding: 8px 0 8px 6px"><span class="sw {{r.cls}}"><span></span></span></button>
+</div>
+</sc-for>
+<div class="zf zm" style="padding: 12px 18px; border-top: 1px solid var(--bd); background: var(--s2)"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.moon}}"></path></svg>Quiet hours 8 pm – 8 am. Nothing is sent at night.</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ EMPTY (first time) ============ -->
+<sc-if value="{{is.empty}}">
+<div class="pad" style="padding: 40px 28px; display: flex; justify-content: center; animation: xFade .4s ease both">
+<div class="card zc" style="max-width: 520px; width: 100%; padding: 36px 28px; align-items: center; gap: 12px; text-align: center">
+<span style="width: 76px; height: 76px; border-radius: 38px; background: var(--accs); color: var(--accfg); display: flex; align-items: center; justify-content: center; animation: xPopIn .5s var(--spring) both, xPulse 2s 1s ease infinite"><svg class="i" viewBox="0 0 24 24" style="width: 34px; height: 34px" aria-hidden="true"><path d="{{ic.bell}}"></path></svg></span>
+<span class="serif" style="font-size: 26px; font-weight: 600">Remind families on WhatsApp</span>
+<span class="zm" style="font-size: 14px; line-height: 1.6">Send a reminder to families with fees pending today, in Hindi with English below.<br>You always see who gets it and what it costs before anything is sent.</span>
+<button class="tap btn pri" type="button" onClick="{{newRem}}" style="height: 48px; padding: 0 22px; margin-top: 6px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>New reminder</button>
+<span class="zm">AiSensy is connected · balance ₹1,840</span>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ NEW REMINDER WIZARD ============ -->
+<sc-if value="{{is.wiz}}">
+<div class="zc" style="min-height: 100%; animation: {{anim}}">
+<div class="pad zc" style="flex: 1; padding: 18px 28px 24px; gap: 16px">
+<div class="card zf" style="padding: 14px 18px; gap: 0">
+<sc-for list="{{wz.steps}}" as="x" hint-placeholder-count="3">
+<button class="tap znb zf" type="button" onClick="{{x.go}}" style="gap: 10px; flex: none"><span class="yst" style="background: {{x.bg}}; color: {{x.fg}}; box-shadow: {{x.ring}}"><sc-if value="{{x.done}}"><svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke-width: 3; animation: xPopIn .4s var(--spring) both" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if><sc-if value="{{x.todo}}">{{x.n}}</sc-if></span><span class="zc {{x.lc}}"><span class="zb" style="color: {{x.tc}}">{{x.label}}</span><span class="zm hide-m">{{x.sub}}</span></span></button>
+<sc-if value="{{x.bar}}"><span style="flex: 1; min-width: 12px; height: 3px; margin: 0 10px; border-radius: 2px; background: var(--s3); overflow: hidden"><span style="display: block; height: 3px; width: {{x.fill}}; background: var(--acc); transition: width .5s var(--ease)"></span></span></sc-if>
+</sc-for>
+</div>
+
+<!-- step 1 · who -->
+<sc-if value="{{wz.s1}}">
+<div class="stack fadein" style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start">
+<div class="zc" style="gap: 14px">
+<div class="card zc" style="padding: 16px 18px; gap: 10px">
+<span class="sech">Who gets it</span>
+<div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{aud.chips}}" as="c" hint-placeholder-count="4"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<span class="zm">Pending today means an installment whose due date has passed. Turn it off to also reach families whose next installment is not due yet.</span>
+<span class="sech" style="margin-top: 6px">Classes</span>
+<div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{aud.bands}}" as="c" hint-placeholder-count="6"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+</div>
+<div class="card" style="overflow: hidden">
+<div class="zc" style="padding: 14px 18px 6px"><span class="sech">Leave out</span></div>
+<sc-for list="{{aud.ex}}" as="x" hint-placeholder-count="3"><button class="tap zsw row" type="button" role="switch" aria-checked="{{x.on}}" onClick="{{x.toggle}}" style="border-top: 1px solid var(--bd); padding: 12px 18px"><span class="zc" style="flex: 1"><span class="zb">{{x.label}}</span><span class="zm">{{x.sub}}</span></span><span class="pill num" style="background: var(--s2); color: var(--mut)">{{x.n}}</span><span class="sw {{x.cls}}"><span></span></span></button></sc-for>
+</div>
+</div>
+<div class="card zc" style="position: sticky; top: 16px; padding: 18px; gap: 12px">
+<span class="sech">This reminder goes to</span>
+<div class="zf" style="align-items: baseline; gap: 10px; flex-wrap: wrap; min-height: 46px">
+<sc-if value="{{aud.flipA}}"><span class="num" style="font-size: 38px; font-weight: 700; letter-spacing: -0.02em; animation: xPopIn .45s var(--spring) both">{{aud.count}}</span></sc-if>
+<sc-if value="{{aud.flipB}}"><span class="num" style="font-size: 38px; font-weight: 700; letter-spacing: -0.02em; animation: xPopIn .45s var(--spring) both">{{aud.count}}</span></sc-if>
+<span class="zv">families</span><span class="num zm" style="font-size: 14px">· about {{aud.cost}}</span>
+</div>
+<div class="yfb" style="height: 10px"><span style="width: {{aud.w}}; background: var(--acc); transition: width .5s var(--ease)"></span></div>
+<span class="zm">{{aud.of}}</span>
+<span class="sech" style="margin-top: 4px">A few of them</span>
+<sc-for list="{{aud.sample}}" as="f" hint-placeholder-count="4"><div class="zf" style="gap: 10px; padding: 6px 0; border-top: {{f.bt}}; animation: xIn .3s var(--ease) both; animation-delay: {{f.delay}}"><span class="zc" style="flex: 1"><span class="ze zb">{{f.father}}</span><span class="ze zm">{{f.kids}}</span></span><span class="num" style="font-weight: 700">{{f.amt}}</span></div></sc-for>
+<sc-if value="{{aud.none}}"><span class="zin" style="background: var(--warns); color: var(--warnfg)">No family matches. Turn a filter off.</span></sc-if>
+</div>
+</div>
+</sc-if>
+
+<!-- step 2 · message -->
+<sc-if value="{{wz.s2}}">
+<div class="stack fadein" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+<div class="zc" style="gap: 14px">
+<div class="card zc" style="padding: 16px 18px; gap: 8px">
+<span class="sech">Approved template</span>
+<sc-for list="{{msg.tpls}}" as="r" hint-placeholder-count="3"><button class="tap zrc" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="border: {{r.bd}}; background: {{r.bg}}"><i style="border-color: {{r.ring}}"><b style="transform: scale({{r.dot}})"></b></i><span class="zc" style="flex: 1"><span class="zb">{{r.label}}</span><span class="zm">{{r.sub}}</span></span><span class="pill" style="background: var(--oks); color: var(--ok)">Approved</span></button></sc-for>
+</div>
+<div class="card zc" style="padding: 16px 18px; gap: 10px">
+<span class="sech">Language</span>
+<div class="seg" style="grid-template-columns: repeat(3, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{msg.thumb}})"></span><sc-for list="{{msg.langs}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<span class="sech" style="margin-top: 6px">Filled in for each family</span>
+<div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{msg.vars}}" as="c" hint-placeholder-count="5"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="font-family: ui-monospace, monospace; font-size: 12px">{{c.label}}</button></sc-for></div>
+<span class="zm">Tap a field to see where it goes in the message.</span>
+</div>
+</div>
+<div class="card zc" style="position: sticky; top: 16px; padding: 16px 18px; gap: 10px">
+<div class="zf" style="justify-content: space-between"><span class="sech">Preview · हिंदी first</span><span class="zf" style="gap: 4px"><button class="tap btn ghost" type="button" aria-label="Previous family" onClick="{{msg.prev}}" style="width: 36px; height: 36px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button><span class="num zm" style="min-width: 54px; text-align: center">{{msg.pos}}</span><button class="tap btn ghost" type="button" aria-label="Next family" onClick="{{msg.next}}" style="width: 36px; height: 36px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></button></span></div>
+<span class="zm">Preview as <b style="color: var(--fg)">{{msg.who}}</b></span>
+<div class="zwa">
+<div class="zwb">
+<sc-if value="{{msg.showHi}}"><p><sc-for list="{{msg.hi}}" as="g" hint-placeholder-count="6"><span style="background: {{g.bg}}">{{g.t}}</span></sc-for></p></sc-if>
+<sc-if value="{{msg.both}}"><hr></sc-if>
+<sc-if value="{{msg.showEn}}"><p><sc-for list="{{msg.en}}" as="g" hint-placeholder-count="6"><span style="background: {{g.bg}}">{{g.t}}</span></sc-for></p></sc-if>
+<small>10:00 am</small>
+</div>
+<span class="zwb zf" style="flex-direction: row; justify-content: center; width: 94%; border-radius: 10px; padding: 9px; color: var(--info); font-weight: 600; background: {{msg.ctaBg}}"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px" aria-hidden="true"><path d="{{ic.link}}"></path></svg>फीस जमा करें · Pay fee</span>
+</div>
+<span class="zm">The pay button opens the family’s own pay link. Late fee is never added to the amount.</span>
+</div>
+</div>
+</sc-if>
+
+<!-- step 3 · check and send -->
+<sc-if value="{{wz.s3}}">
+<div class="stack fadein" style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start">
+<div class="card" style="overflow: hidden">
+<div class="zc" style="padding: 14px 18px 8px"><span class="sech">Check before sending</span></div>
+<sc-for list="{{rev.rows}}" as="x" hint-placeholder-count="5"><button class="tap row znb" type="button" onClick="{{x.go}}" style="display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 12px 18px; border-top: 1px solid var(--bd); animation: xIn .3s var(--ease) both; animation-delay: {{x.delay}}"><svg class="i" viewBox="0 0 24 24" style="color: var(--acc)" aria-hidden="true"><path d="{{x.icon}}"></path></svg><span class="zc"><span class="zm">{{x.k}}</span><span class="zb">{{x.v}}</span></span><span class="zm">{{x.edit}}</span></button></sc-for>
+</div>
+<div class="zc" style="gap: 14px">
+<div class="card zc" style="padding: 16px 18px; gap: 10px">
+<span class="sech">When</span>
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{rev.thumb}})"></span><sc-for list="{{rev.whens}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<sc-if value="{{rev.later}}"><div class="zc fadein" style="gap: 8px"><div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{rev.days}}" as="c" hint-placeholder-count="4"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div><div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{rev.times}}" as="c" hint-placeholder-count="4"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>{{c.label}}</button></sc-for></div></div></sc-if>
+<span class="zm">{{rev.whenLine}}</span>
+</div>
+<div class="card zf" style="padding: 14px 18px; gap: 12px"><span class="zc" style="flex: 1"><span class="zb">Send a test to my phone first</span><span class="zm">Goes to Janmejay · 98290 ••001 · ₹0.88</span></span><button class="tap btn sec zs" type="button" onClick="{{rev.test}}"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>{{rev.testLabel}}</button></div>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div class="glass pad zf" style="position: sticky; bottom: 0; z-index: 4; padding: 12px 28px; border-top: 1px solid var(--bd)">
+<button class="tap btn sec" type="button" onClick="{{wz.back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>{{wz.backLabel}}</button>
+<span class="zm num hide-m" style="flex: 1; text-align: center">{{wz.line}}</span><span class="only-m" style="flex: 1"></span>
+<button class="tap btn pri" type="button" onClick="{{wz.next}}" style="opacity: {{wz.nextOp}}">{{wz.nextLabel}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{wz.nextIcon}}"></path></svg></button>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ SENDING ============ -->
+<sc-if value="{{is.sending}}">
+<div class="pad" style="padding: 28px; display: flex; justify-content: center; animation: {{anim}}">
+<div class="card zc" style="max-width: 620px; width: 100%; padding: 28px 24px; align-items: center; gap: 14px; text-align: center">
+<div style="position: relative; width: 168px; height: 168px">
+<svg width="168" height="168" viewBox="0 0 168 168" aria-hidden="true"><circle cx="84" cy="84" r="72" style="fill: none; stroke: var(--s3); stroke-width: 12"></circle><circle cx="84" cy="84" r="72" transform="rotate(-90 84 84)" style="fill: none; stroke: {{snd.c}}; stroke-width: 12; stroke-linecap: round; stroke-dasharray: {{snd.dash}}; transition: stroke-dasharray .45s var(--ease), stroke .3s ease"></circle></svg>
+<div class="zc" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; align-items: center; justify-content: center">
+<sc-if value="{{snd.busy}}"><span class="num" style="font-size: 34px; font-weight: 700">{{snd.pct}}</span><span class="zm">sending</span></sc-if>
+<sc-if value="{{snd.done}}"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><path d="M16 33l11 11 22-24" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 56; stroke-dasharray: 56; animation: xDraw .45s .15s var(--ease) both"></path></svg></sc-if>
+</div>
+</div>
+<span class="serif" style="font-size: 24px; font-weight: 600">{{snd.title}}</span>
+<span class="zm" style="font-size: 14px">{{snd.sub}}</span>
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%">
+<sc-for list="{{snd.tiles}}" as="t" hint-placeholder-count="4"><div class="ytile" style="align-items: center"><span class="num" style="font-size: 22px; font-weight: 700; color: {{t.c}}">{{t.v}}</span><span class="zm">{{t.k}}</span></div></sc-for>
+</div>
+<sc-if value="{{snd.busy}}"><span class="zf zm" style="font-size: 13px"><span class="zd" style="background: var(--acc); animation: xPulse 1.6s ease infinite"></span>You can leave this page. Sending goes on, and the result shows in the list.</span></sc-if>
+<div class="zf" style="flex-wrap: wrap; justify-content: center">
+<sc-if value="{{snd.done}}"><button class="tap btn pri" type="button" onClick="{{snd.see}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chart}}"></path></svg>See results</button></sc-if>
+<button class="tap btn sec" type="button" onClick="{{goList}}">Back to reminders</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ RESULTS ============ -->
+<sc-if value="{{is.results}}">
+<div class="pad zc" style="padding: 22px 28px 40px; gap: 16px; animation: {{anim}}">
+<div class="zf" style="flex-wrap: wrap; gap: 6px 10px"><span class="pill" style="height: 26px; padding: 0 10px; font-size: 12px; background: var(--s2); color: var(--mut)">{{res.date}}</span><span class="zm" style="font-size: 13px">{{res.aud}}</span></div>
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start">
+<div class="zc" style="gap: 16px">
+<div class="card zc" style="padding: 18px; gap: 14px">
+<div class="zf" style="justify-content: space-between"><span class="zv">What happened</span><span class="num zm">{{res.cost}}</span></div>
+<sc-for list="{{res.funnel}}" as="f" hint-placeholder-count="4"><div class="zc" style="gap: 6px"><div class="zf" style="justify-content: space-between"><span class="zb">{{f.k}}</span><span class="zf" style="gap: 10px"><span class="zm">{{f.rate}}</span><span class="num zv" style="min-width: 40px; text-align: right">{{f.v}}</span></span></div><div style="height: 14px; border-radius: 7px; background: var(--s2); overflow: hidden"><div style="height: 14px; width: {{f.w}}; border-radius: 7px; background: {{f.c}}; transform-origin: left; animation: xGrowX .8s var(--ease) both; animation-delay: {{f.delay}}"></div></div></div></sc-for>
+<div class="g3" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 4px"><sc-for list="{{res.tiles}}" as="t" hint-placeholder-count="3"><div class="ytile"><span class="zm">{{t.k}}</span><span class="num zv" style="color: {{t.c}}">{{t.v}}</span></div></sc-for></div>
+<sc-if value="{{res.live}}"><span class="zin" style="background: var(--infos); color: var(--info)">Reads and payments come in over the next few days. Check back tomorrow.</span></sc-if>
+</div>
+<div class="card" style="overflow: hidden">
+<div style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, .7fr)) minmax(0, 1fr); gap: 8px; padding: 12px 18px; background: var(--s2)"><span class="sech">Class</span><span class="sech" style="text-align: right">Sent</span><span class="sech" style="text-align: right">Read</span><span class="sech" style="text-align: right">Paid</span><span class="sech" style="text-align: right">Amount</span></div>
+<sc-for list="{{res.cls}}" as="r" hint-placeholder-count="6"><div class="num" style="display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, .7fr)) minmax(0, 1fr); gap: 8px; padding: 10px 18px; border-top: {{r.bt}}; font-size: 13px; font-weight: {{r.w}}"><span class="ze">{{r.k}}</span><span style="text-align: right">{{r.sent}}</span><span style="text-align: right">{{r.read}}</span><span style="text-align: right">{{r.paid}}</span><span style="text-align: right">{{r.amt}}</span></div></sc-for>
+</div>
+</div>
+<div class="zc" style="gap: 16px">
+<sc-if value="{{res.canFollow}}">
+<div class="card zc" style="padding: 16px 18px; gap: 10px; background: var(--accs); border-color: transparent">
+<span class="zf" style="gap: 10px; color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.eyeOff}}"></path></svg><span class="zv">{{res.unreadTitle}}</span></span>
+<span style="font-size: 13px; color: var(--accfg)">Delivered but not opened. A second message often works. {{res.unreadCost}}</span>
+<button class="tap btn pri" type="button" onClick="{{res.follow}}" style="align-self: flex-start"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{res.unreadBtn}}</button>
+</div>
+</sc-if>
+<div class="card" style="overflow: hidden">
+<div class="zc" style="padding: 14px 18px 8px"><span class="zv">{{res.failTitle}}</span><span class="zm">Fix the number and send again. Nothing is charged for failed messages.</span></div>
+<sc-for list="{{res.fails}}" as="x" hint-placeholder-count="4">
+<div class="zc" style="gap: 8px; padding: 12px 18px; border-top: 1px solid var(--bd); animation: xIn .3s var(--ease) both; animation-delay: {{x.delay}}">
+<div class="zf" style="gap: 10px"><span class="zc" style="flex: 1"><span class="ze zb">{{x.name}}</span><span class="num ze zm">{{x.meta}}</span></span><span class="pill" style="background: {{x.pbg}}; color: {{x.pfg}}">{{x.status}}</span></div>
+<sc-if value="{{x.canFix}}"><button class="tap btn sec zs" type="button" onClick="{{x.edit}}" style="align-self: flex-start"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Fix number</button></sc-if>
+<sc-if value="{{x.editing}}"><div class="zc fadein" style="gap: 6px"><div class="zf"><input class="{{x.inpCls}}" inputmode="tel" aria-label="New number for {{x.name}}" value="{{x.val}}" onChange="{{x.onVal}}" placeholder="10-digit mobile number" style="flex: 1; min-width: 0"><button class="tap btn pri zs" type="button" onClick="{{x.save}}">Save</button><button class="tap btn ghost" type="button" aria-label="Cancel" onClick="{{x.cancel}}" style="width: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div><sc-if value="{{x.err}}"><span style="font-size: 12px; font-weight: 600; color: var(--bad)">Enter a 10-digit mobile number</span></sc-if></div></sc-if>
+<sc-if value="{{x.canResend}}"><button class="tap btn soft zs" type="button" onClick="{{x.resend}}" style="align-self: flex-start; animation: xPopIn .4s var(--spring) both"><svg class="i zi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>Send again · 1 message · ₹0.88</button></sc-if>
+</div>
+</sc-for>
+<sc-if value="{{res.noFails}}"><div class="zf zm" style="padding: 14px 18px; border-top: 1px solid var(--bd)"><svg class="i zi" viewBox="0 0 24 24" style="color: var(--ok)" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg>Every message reached the family.</div></sc-if>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+</main>
+
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="menu" role="{{role}}" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ SHEET (rule · confirm send) ============ -->
+<sc-if value="{{sheet.open}}">
+<button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sheet.state}}" role="dialog" aria-label="{{sh.title}}">
+<div class="grab"></div>
+<div class="zsh"><div class="zc"><span class="serif" style="font-size: 22px; font-weight: 600">{{sh.title}}</span><span class="zm" style="font-size: 13px">{{sh.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll zsb">
+<sc-if value="{{sheet.isRule}}">
+<button class="tap card zsw" type="button" role="switch" aria-checked="{{ru.on}}" onClick="{{ru.toggle}}" style="border: 1px solid var(--bd)"><span class="zc" style="flex: 1"><span class="zb">{{ru.onLabel}}</span><span class="zm">{{ru.next}}</span></span><span class="sw {{ru.cls}}"><span></span></span></button>
+<span class="sech" style="margin-top: 4px">When</span>
+<div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{ru.tims}}" as="c" hint-placeholder-count="3"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{ru.times}}" as="c" hint-placeholder-count="4"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>{{c.label}}</button></sc-for></div>
+<span class="sech" style="margin-top: 4px">Who</span>
+<sc-for list="{{ru.auds}}" as="r" hint-placeholder-count="2"><button class="tap zrc" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="border: {{r.bd}}; background: {{r.bg}}"><i style="border-color: {{r.ring}}"><b style="transform: scale({{r.dot}})"></b></i><span class="zc"><span class="zb">{{r.label}}</span><span class="zm">{{r.sub}}</span></span></button></sc-for>
+<span class="sech" style="margin-top: 4px">Template</span>
+<div class="zf" style="flex-wrap: wrap; gap: 6px"><sc-for list="{{ru.tpls}}" as="c" hint-placeholder-count="3"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<button class="tap card zsw" type="button" role="switch" aria-checked="{{ru.quietOn}}" onClick="{{ru.toggleQuiet}}" style="border: 1px solid var(--bd); margin-top: 4px"><svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{ic.moon}}"></path></svg><span class="zc" style="flex: 1"><span class="zb">Quiet hours · 8 pm to 8 am</span><span class="zm">Messages due at night wait till 8 am</span></span><span class="sw {{ru.quietCls}}"><span></span></span></button>
+<div class="zin" style="background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg><span>{{ru.summary}}</span></div>
+</sc-if>
+<sc-if value="{{sheet.isConfirm}}">
+<div class="g3" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{cf.tiles}}" as="t" hint-placeholder-count="3"><div class="ytile" style="animation: xPopIn .4s var(--spring) both; animation-delay: {{t.delay}}"><span class="zm">{{t.k}}</span><span class="num" style="font-size: 22px; font-weight: 700">{{t.v}}</span></div></sc-for></div>
+<sc-for list="{{cf.lines}}" as="l" hint-placeholder-count="3"><span class="zf" style="font-size: 13px; align-items: flex-start"><svg class="i zi" viewBox="0 0 24 24" style="color: var(--acc); margin-top: 1px" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{l.t}}</span></sc-for>
+<div class="zin" style="background: var(--warns); color: var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{cf.warn}}</span></div>
+</sc-if>
+</div>
+<div class="zsf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex: 1">{{sh.no}}</button><button class="tap btn pri" type="button" onClick="{{sh.ok}}" style="flex: 1.6"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{sh.okIcon}}"></path></svg>{{sh.okLabel}}</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["list","audience","message","review","sending","results","rule","empty"],"default":"list"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+    // every family on the roll (fictional, generated the same way each time): band, pending today, owes Inst 2, amount, bus, promised, paid in last 3 days, left
+    const PER = [4350, 5100, 6450, 7800, 8700];
+    const POOL = [];
+    for (let i = 0; i < 336; i += 1) {
+      const r = (i * 53) % 336; const b = (i * 97) % 336;
+      const band = b < 47 ? 0 : b < 145 ? 1 : b < 212 ? 2 : b < 257 ? 3 : 4;
+      const bus = ((i * 31) % 336) < 118; const pend = r < 112;
+      POOL.push({ band, pend, inst2: r < 104, bus, amt: pend ? PER[band] * (r < 40 ? 2 : 1) + (bus ? 1575 : 0) : 0, prom: pend && r % 8 === 3, paid3: pend && r % 19 === 6, left: false });
+    }
+    for (let i = 0; i < 7; i += 1) POOL.push({ band: i % 5, pend: true, inst2: true, bus: false, amt: 6000 + i * 500, prom: false, paid3: false, left: true });
+    // named families for the sample list and the preview (same people as Dues & calls)
+    const N = (father, fhi, kids, khi, band, amt, two, bus, flag) => ({ father, fhi, kids, khi, band, amt, two, bus, pend: true, inst2: true, prom: flag === 'prom', paid3: flag === 'paid', left: flag === 'left' });
+    const SAMPLE = [
+      N('Rakesh Sharma', 'राकेश शर्मा', 'Aarav · Class 7, Diya · Class 3', 'आरव और दीया', 2, 12840, false, true),
+      N('Prakash Joshi', 'प्रकाश जोशी', 'Neha · Class 8, Rohit · Class 5', 'नेहा और रोहित', 2, 22080, true, false),
+      N('Mohan Kumawat', 'मोहन कुमावत', 'Aarti · Class 10', 'आरती', 3, 15600, true, false),
+      N('Bhupendra Rathore', 'भूपेंद्र राठौड़', 'Ishita · 12 Science', 'इशिता', 4, 9600, false, false, 'prom'),
+      N('Anil Agarwal', 'अनिल अग्रवाल', 'Mohit · Class 9', 'मोहित', 3, 9375, false, true),
+      N('Suresh Meena', 'सुरेश मीणा', 'Pihu · UKG', 'पीहू', 0, 4350, false, false),
+      N('Harish Chouhan', 'हरीश चौहान', 'Vansh · Class 8', 'वंश', 2, 5025, false, true, 'paid'),
+      N('Dinesh Sen', 'दिनेश सेन', 'Ayaan · Class 1', 'अयान', 1, 7125, false, true),
+      N('Om Prakash Choudhary', 'ओम प्रकाश चौधरी', 'Yuvraj · left Class 7', 'युवराज', 2, 9300, false, false, 'left'),
+      N('Gopal Purohit', 'गोपाल पुरोहित', 'Tanya · 11 Commerce', 'तान्या', 4, 17400, true, false)
+    ];
+    // id, name, date, audience, sent, delivered, read, paid families, paid amount, automatic
+    const C = (id, name, date, aud, sent, del, read, paid, amt, auto) => ({ id, name, date, aud, sent, del, read, paid, amt, auto: !!auto });
+    const CAMPS = [
+      C('c1', 'Inst 2 · last reminder before calls', 'Mon 5 Oct', 'Pending today · all classes', 124, 121, 97, 22, 89450),
+      C('c0', 'Every Monday · 90+ days overdue', 'Mon 5 Oct', 'Last session dues', 8, 8, 6, 0, 0, 1),
+      C('c2', 'Inst 2 · one week late', 'Tue 22 Sep', 'Pending today · all classes', 212, 204, 171, 38, 210600),
+      C('c3', 'Inst 2 is due today', 'Tue 15 Sep', 'Everyone with Inst 2 unpaid', 268, 259, 222, 11, 39950, 1),
+      C('c4', 'Bus fee · Routes 3 and 4', 'Tue 1 Sep', 'Uses bus · Route 3, 4', 46, 45, 39, 17, 31200)
+    ];
+    // per class band for the 22 Sep reminder: sent, read, paid, amount
+    const BANDROWS = [['Nursery–UKG', 28, 22, 6, 26100], ['Class 1–5', 61, 49, 11, 56700], ['Class 6–8', 47, 39, 9, 52200], ['Class 9–10', 34, 27, 6, 42900], ['Class 11–12', 42, 34, 6, 32700]];
+    const FAILED = [['Kamal Rawal', 'Tisha · Class 4', '98290 ••7', 'bad'], ['Sohan Gurjar', 'Lakshya · Class 6', '98290 ••41', 'bad'], ['Pankaj Jain', 'Riddhi · UKG', '98290 ••633', 'wa'], ['Mukesh Regar', 'Aryan · Class 9', '98290 ••208', 'wa'], ['Hemant Vyas', 'Dhruvi · Class 2', '91234 ••', 'bad'], ['Ravi Kanwar', 'Kavya · 11 Arts', '98290 ••559', 'wa'], ['Naveen Sen', 'Ishaan · Class 5', '98290 ••914', 'wa'], ['Ashok Bhati', 'Pari · LKG', '98290 ••37', 'bad'], ['Sunita Meena', 'Om · Class 8', '98290 ••776', 'wa']];
+    const TPLS = [
+      { id: 'gentle', label: 'Gentle reminder', sub: 'Polite note with the amount and a pay button',
+        hi: 'नमस्ते {parent} जी,\n{student} की फीस {amount} {due date} से बकाया है। कृपया जल्द जमा करें।\nधन्यवाद — श्री वीर पत्ता स्कूल, आमेट',
+        en: 'Dear {parent},\nThe fee of {amount} for {student} is pending since {due date}. Please pay soon.\nThank you — VPPS, Amet' },
+      { id: 'final', label: 'Firm reminder', sub: 'Says the office will call in 3 days',
+        hi: 'नमस्ते {parent} जी,\n{student} की फीस {amount} {due date} से बकाया है। कृपया 3 दिन में जमा करें, नहीं तो स्कूल ऑफिस से फ़ोन आएगा।\n— श्री वीर पत्ता स्कूल, आमेट',
+        en: 'Dear {parent},\nThe fee of {amount} for {student} is pending since {due date}. Please pay within 3 days, or the school office will call you.\n— VPPS, Amet' },
+      { id: 'upcoming', label: 'Coming up', sub: 'For an installment that is not due yet',
+        hi: 'नमस्ते {parent} जी,\n{student} की अगली किस्त {amount} {due date} को देय है। समय पर जमा करने पर कोई विलंब शुल्क नहीं लगेगा।\n— श्री वीर पत्ता स्कूल, आमेट',
+        en: 'Dear {parent},\nThe next installment of {amount} for {student} is due on {due date}. Paying on time means no late fee.\n— VPPS, Amet' }
+    ];
+    // title, next run, families, timing choices, picked timing, icon
+    const RULES = [
+      ['3 days before a due date', 'Thu 12 Nov', 298, ['1 day before', '3 days before', '7 days before'], 1, 'calendar'],
+      ['On the due date', 'Sun 15 Nov', 298, ['On the due date'], 0, 'bell'],
+      ['7 days after a due date', 'Sun 22 Nov', 140, ['3 days after', '7 days after', '15 days after'], 1, 'alert'],
+      ['Every Monday for 90+ days overdue', 'Mon 12 Oct', 12, ['Every Monday', 'Every Thursday'], 0, 'refresh']
+    ];
+    this._d = { IC, POOL, SAMPLE, CAMPS, BANDROWS, FAILED, TPLS, RULES };
+    return this._d;
+  }
+
+  st() {
+    const live = { id: 'n1', name: 'Gentle reminder · pending today', date: 'Today', aud: '92 families · Pending today', sent: 92, del: 89, read: 0, paid: 0, amt: 0, live: true };
+    const base = {
+      screen: 'list', step: 1, anim: 'none',
+      pend: true, inst2: false, bands: {}, big: false, bus: false, exProm: true, exPaid: true, exLeft: true, audV: 0,
+      tpl: 'gentle', lang: 'both', hl: '', pv: 0, when: 'now', day: 'fri', time: '10', tested: false,
+      sp: 0, sendN: 92, mine: [], camp: 'c2', fix: {}, fixVal: {},
+      rules: [true, true, false, true], rule: 0, rTim: 1, rTime: '10', rAud: 'all', rTpl: 'upcoming', quiet: true,
+      sheet: '', closing: false, cfKind: 'wizard', intro: false, toast: null
+    };
+    const map = {
+      audience: { screen: 'wiz', step: 1 }, message: { screen: 'wiz', step: 2, hl: 'amount' }, review: { screen: 'wiz', step: 3 },
+      sending: { screen: 'sending', sp: 6, mine: [live] },
+      results: { screen: 'results', camp: 'c2' },
+      rule: { sheet: 'rule' },
+      empty: { screen: 'empty' }
+    };
+    return Object.assign(base, map[(this.props || {}).start] || {}, this.state || {});
+  }
+
+  inr(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+
+  toast(text, undo) {
+    const id = Date.now() + Math.random();
+    this._undo = undo || null;
+    this.setState({ toast: { id, text, undo: !!undo } });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+  }
+
+  undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+  openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+  closeSheet() {
+    if (!this.st().sheet) return;
+    this.setState({ closing: true });
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+  }
+
+  // sending ticks forward in small steps (safe: plain timers, stops at 10)
+  tick() {
+    clearTimeout(this._tk);
+    this._tk = setTimeout(() => {
+      const s = this.st();
+      if (s.sp >= 10) return;
+      this.setState({ sp: s.sp + 1 });
+      if (s.sp + 1 < 10) this.tick();
+    }, 480);
+  }
+
+  renderVals() { const v = this._rv(); const r = this.props.role || 'admin'; v.role = r; v.roleMenu = { admin: 'F13-Menu.dc.html', teacher: 'M-TchMore.dc.html', accountant: 'M-AccHome-Menu.dc.html', academic: 'M-AcadHome-Menu.dc.html', exam: 'M-ExamHome-Menu.dc.html' }[r] || 'F13-Menu.dc.html'; return v; }
+
+  _rv() {
+    const D = this.data();
+    const s = this.st();
+    const IC = D.IC;
+    const set = (o) => this.setState(o);
+    const A = Object.assign;
+    const V = (x) => 'var(--' + x + ')';
+    const inr = (n) => this.inr(n);
+    const lakh = (n) => '₹' + (n / 100000).toFixed(1) + ' L';
+    const pc = (a, b) => (b ? Math.round(a / b * 100) : 0) + '%';
+    const delay = (i) => (Math.min(i, 12) * 40) + 'ms';
+    const radio = (on) => ({ on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? V('accs') : V('card'), ring: on ? V('acc') : V('bds'), dot: on ? '1' : '0' });
+    const chip = (label, on, pick) => ({ label, pick, cls: on ? 'on' : '', pressed: on ? 'true' : 'false' });
+    const seg = (opts, cur) => ({ thumb: (Math.max(0, opts.map((o) => o[0]).indexOf(cur)) * 100) + '%', opts: opts.map((o) => ({ label: o[1], pick: o[2], cls: cur === o[0] ? 'tap on' : 'tap', pressed: cur === o[0] ? 'true' : 'false' })) });
+    const BANDS = ['Nursery–UKG', 'Class 1–5', 'Class 6–8', 'Class 9–10', 'Class 11–12'];
+    const anims = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'none' };
+
+    // ---------- audience ----------
+    const anyBand = Object.keys(s.bands).some((k) => s.bands[k]);
+    const match = (f, skip) => !(f.left && s.exLeft && skip !== 'left') && !(s.pend && !f.pend) && !(s.inst2 && !f.inst2) && !(anyBand && !s.bands[f.band]) &&
+      !(s.big && f.amt <= 10000) && !(s.bus && !f.bus) && !(s.exProm && f.prom && skip !== 'prom') && !(s.exPaid && f.paid3 && skip !== 'paid');
+    const count = D.POOL.filter((f) => match(f)).length;
+    const cost = Math.round(count * 0.88);
+    const extra = (k) => D.POOL.filter((f) => match(f, k)).length - count;
+    const fset = (o) => set(A({ audV: this.st().audV + 1 }, o));
+    const matched = D.SAMPLE.filter((f) => match(f));
+    const aud = {
+      count: String(count), cost: inr(cost), w: pc(count, 343), flipA: s.audV % 2 === 0, flipB: s.audV % 2 === 1, none: count === 0,
+      of: count + ' of 343 families on the list · each message costs about ₹0.88',
+      chips: [['pend', 'Pending today'], ['inst2', 'Installment 2'], ['big', 'Over ₹10,000'], ['bus', 'Has bus']].map((c) => chip(c[1], !!s[c[0]], () => { const o = {}; o[c[0]] = !this.st()[c[0]]; fset(o); })),
+      bands: [chip('All classes', !anyBand, () => fset({ bands: {} }))].concat(BANDS.map((b, i) => chip(b, !!s.bands[i], () => { const n = A({}, this.st().bands); n[i] = !n[i]; fset({ bands: n }); }))),
+      ex: [['exProm', 'prom', 'Already promised to pay', 'Their promise date has not passed'], ['exPaid', 'paid', 'Paid in the last 3 days', 'Part paid, the rest may follow'], ['exLeft', 'left', 'Students who left', 'Chased by calls and letters instead']]
+        .map((x) => ({ label: x[2], sub: x[3], on: s[x[0]] ? 'true' : 'false', cls: s[x[0]] ? 'on' : '', n: s[x[0]] ? '−' + extra(x[1]) : 'included', toggle: () => { const o = {}; o[x[0]] = !this.st()[x[0]]; fset(o); } })),
+      sample: matched.slice(0, 4).map((f, i) => ({ father: f.father, kids: f.kids, amt: inr(f.amt), bt: i ? '1px solid var(--bd)' : '0', delay: delay(i) }))
+    };
+    const audLine = (s.pend ? 'Pending today' : 'Pending or coming up') + (s.inst2 ? ' · Inst 2' : '') + (anyBand ? ' · ' + BANDS.filter((b, i) => s.bands[i]).join(', ') : ' · all classes') + (s.big ? ' · over ₹10,000' : '') + (s.bus ? ' · has bus' : '');
+
+    // ---------- message ----------
+    const tpl = D.TPLS.filter((t) => t.id === s.tpl)[0] || D.TPLS[0];
+    const pool = matched.length ? matched : D.SAMPLE;
+    const pi = ((s.pv % pool.length) + pool.length) % pool.length;
+    const fam = pool[pi];
+    const up = tpl.id === 'upcoming';
+    const vals = {
+      parent: [fam.fhi, fam.father], student: [fam.khi, fam.kids.replace(/ · [^,]+/g, '').replace(', ', ' and ')],
+      amount: [inr(up ? Math.round(fam.amt / (fam.two ? 2 : 1)) : fam.amt), inr(up ? Math.round(fam.amt / (fam.two ? 2 : 1)) : fam.amt)],
+      'due date': up ? ['15 नवंबर', '15 Nov'] : fam.two ? ['15 जुलाई', '15 Jul'] : ['15 सितंबर', '15 Sep']
+    };
+    const HL = { parent: 'parent', student: 'student', amount: 'amount', 'due date': 'due', 'pay link': 'link' };
+    const segs = (text, li) => text.split(/(\{[a-z ]+\})/).filter((x) => x).map((x) => {
+      const k = x.charAt(0) === '{' ? x.slice(1, -1) : '';
+      return { t: k ? vals[k][li] : x, bg: k ? (s.hl === HL[k] ? 'rgba(var(--heat), .42)' : 'rgba(var(--heat), .12)') : 'transparent' };
+    });
+    const msg = {
+      tpls: D.TPLS.map((t) => A({ label: t.label, sub: t.sub, pick: () => set({ tpl: t.id }) }, radio(s.tpl === t.id))),
+      langs: seg([['both', 'हिंदी + English', () => set({ lang: 'both' })], ['hi', 'हिंदी', () => set({ lang: 'hi' })], ['en', 'English', () => set({ lang: 'en' })]], s.lang).opts,
+      thumb: seg([['both'], ['hi'], ['en']], s.lang).thumb,
+      vars: ['parent', 'student', 'amount', 'due date', 'pay link'].map((k) => chip('{' + k + '}', s.hl === HL[k], () => set({ hl: this.st().hl === HL[k] ? '' : HL[k] }))),
+      showHi: s.lang !== 'en', showEn: s.lang !== 'hi', both: s.lang === 'both', hi: segs(tpl.hi, 0), en: segs(tpl.en, 1),
+      ctaBg: s.hl === 'link' ? 'rgba(var(--heat), .42)' : V('wab'),
+      who: fam.father, pos: (pi + 1) + ' of ' + pool.length,
+      prev: () => set({ pv: this.st().pv - 1 }), next: () => set({ pv: this.st().pv + 1 })
+    };
+    const langName = { both: 'हिंदी + English', hi: 'हिंदी only', en: 'English only' }[s.lang];
+
+    // ---------- check and send ----------
+    const DAYS = [['today', 'Today · Thu 8 Oct'], ['fri', 'Fri 9 Oct'], ['sat', 'Sat 10 Oct'], ['mon', 'Mon 12 Oct']];
+    const TIMES = [['10', '10 am'], ['12', '12 pm'], ['17', '5 pm'], ['19', '7 pm']];
+    const later = s.when === 'later';
+    const whenTxt = (DAYS.filter((d) => d[0] === s.day)[0] || DAYS[1])[1].replace('Today · ', '') + ', ' + (TIMES.filter((t) => t[0] === s.time)[0] || TIMES[0])[1];
+    const goStep = (n) => () => set({ step: n, anim: 'pop' });
+    const rev = {
+      rows: [['users', 'Who', count + ' families · ' + audLine, 1], ['filter', 'Left out', [['exProm', 'prom', 'promised'], ['exPaid', 'paid', 'paid in last 3 days'], ['exLeft', 'left', 'left']].filter((x) => s[x[0]]).map((x) => extra(x[1]) + ' ' + x[2]).join(' · ') || 'Nobody', 1],
+        ['message', 'Message', tpl.label + ' · ' + langName, 2], ['rupee', 'Cost', count + ' × ₹0.88 = about ' + inr(cost), 0], ['database', 'AiSensy balance after', '₹1,840 → ' + inr(1840 - cost), 0]]
+        .map((r, i) => ({ icon: IC[r[0]], k: r[1], v: r[2], edit: r[3] ? 'Change' : '', go: r[3] ? goStep(r[3]) : () => this.toast('Balance updates as messages go out'), delay: delay(i) })),
+      whens: seg([['now', 'Send now', () => set({ when: 'now' })], ['later', 'Schedule', () => set({ when: 'later' })]], s.when).opts,
+      thumb: seg([['now'], ['later']], s.when).thumb, later,
+      days: DAYS.map((d) => chip(d[1], s.day === d[0], () => set({ day: d[0] }))),
+      times: TIMES.map((t) => chip(t[1], s.time === t[0], () => set({ time: t[0] }))),
+      whenLine: later ? 'Goes out on ' + whenTxt + '. Quiet hours: nothing is sent from 8 pm to 8 am.' : 'Goes out in the next few minutes. Families usually read it within an hour.',
+      testLabel: s.tested ? 'Sent · again' : 'Send test',
+      test: () => { set({ tested: true }); this.toast('Test sent to your WhatsApp · 98290 ••001 · ₹0.88'); }
+    };
+
+    // ---------- wizard chrome ----------
+    const STEPS = [['Who', 'Pick families'], ['Message', 'Template and language'], ['Check & send', 'Count, cost, time']];
+    const wz = {
+      s1: s.step === 1, s2: s.step === 2, s3: s.step === 3,
+      steps: STEPS.map((x, i) => {
+        const n = i + 1; const done = n < s.step; const cur = n === s.step;
+        return { n: String(n), label: x[0], sub: x[1], lc: cur ? '' : 'hide-m', done, todo: !done, bar: n < 3, fill: done ? '100%' : '0%', bg: done ? V('acc') : cur ? V('pri') : V('s3'), fg: done || cur ? V('prifg') : V('mut'), ring: cur ? '0 0 0 4px var(--accs)' : 'none', tc: cur || done ? V('fg') : V('mut'), go: () => (n < this.st().step ? set({ step: n, anim: 'pop' }) : null) };
+      }),
+      line: count + ' families · about ' + inr(cost) + ' · ' + tpl.label,
+      backLabel: s.step === 1 ? 'Cancel' : 'Back',
+      back: () => (this.st().step === 1 ? set({ screen: 'list', anim: 'pop' }) : set({ step: this.st().step - 1, anim: 'pop' })),
+      nextLabel: s.step === 3 ? (later ? 'Schedule for ' + count : 'Send to ' + count + ' families') : 'Next', nextIcon: s.step === 3 ? IC.send : IC.chevRight, nextOp: count ? '1' : '0.5',
+      next: () => {
+        if (!count) { this.toast('No family matches · turn a filter off'); return; }
+        if (this.st().step < 3) set({ step: this.st().step + 1, anim: 'push' });
+        else this.openSheet('confirm', { cfKind: 'wizard' });
+      }
+    };
+
+    // ---------- campaigns ----------
+    const all = s.mine.concat(D.CAMPS);
+    const camp = all.filter((c) => c.id === s.camp)[0] || D.CAMPS[2];
+    const doneSending = s.sp >= 10;
+    const camps = all.map((c, i) => {
+      const sending = c.live && !doneSending;
+      return {
+        name: c.name, date: c.date, aud: c.aud, auto: !!c.auto, delay: delay(i),
+        wd: pc(c.del, c.sent), wr: pc(c.read, c.sent), wp: pc(c.paid, c.sent),
+        funnel: c.sched ? 'Waiting · ' + c.sent + ' families' : c.sent + ' → ' + c.del + ' → ' + c.read + ' → ' + c.paid,
+        amt: c.sched ? 'Scheduled' : c.live ? (sending ? Math.round(s.sp * 10) + '%' : 'Sent') : inr(c.amt), amtC: c.amt ? V('ok') : V('fg'),
+        status: c.sched ? c.when : c.live ? (sending ? 'sending now' : 'reads coming in') : 'paid within 7 days',
+        open: () => (c.sched ? this.toast('Scheduled for ' + c.when + ' · it can be cancelled until then') : set({ screen: c.live && !doneSending ? 'sending' : 'results', camp: c.id, anim: 'push' }))
+      };
+    });
+    const mineSent = s.mine.filter((c) => !c.sched).reduce((a, c) => a + c.sent, 0);
+    const kpis = [
+      { label: 'Sent · last 30 days', value: String(612 + mineSent), sub: '₹' + Math.round((612 + mineSent) * 0.88) + ' spent', tone: V('fg'), ring: false, dash: '0 1' },
+      { label: 'Read rate', value: '81%', sub: '496 of 612 opened', tone: V('fg'), ring: true, dash: (113.1 * 0.81).toFixed(1) + ' 113.1' },
+      { label: 'Paid within 7 days', value: '₹3.4 L', sub: '71 families after a reminder', tone: V('ok'), ring: false, dash: '0 1' },
+      { label: 'AiSensy balance', value: inr(1840 - Math.round(mineSent * 0.88)), sub: 'about ' + Math.floor((1840 - mineSent * 0.88) / 0.88).toLocaleString('en-IN') + ' messages left', tone: V('fg'), ring: false, dash: '0 1' }
+    ].map((k, i) => A(k, { delay: delay(i) }));
+    const rules = D.RULES.map((r, i) => {
+      const on = !!s.rules[i];
+      return {
+        title: r[0], icon: IC[r[5]], on: on ? 'true' : 'false', cls: on ? 'on' : '', ibg: on ? V('accs') : V('s2'), ifg: on ? V('accfg') : V('sub'), delay: delay(i),
+        line: on ? 'Next ' + r[1] + ' · about ' + r[2] + ' families' : 'Off · would reach about ' + r[2] + ' families',
+        open: () => this.openSheet('rule', { rule: i, rTim: r[4], rTime: '10', rAud: 'all', rTpl: i === 0 ? 'upcoming' : i === 3 ? 'final' : 'gentle' }),
+        toggle: () => { const b = this.st().rules; const n = b.slice(); n[i] = !n[i]; set({ rules: n }); this.toast(r[0] + (n[i] ? ' · switched on' : ' · paused'), () => set({ rules: b })); }
+      };
+    });
+
+    // ---------- sending ----------
+    const SN = s.sendN; const fF = Math.round(SN * 0.03); const dF = SN - fF;
+    const sent = Math.min(SN, Math.round(SN * s.sp / 7));
+    const dl = Math.min(dF, Math.round(dF * Math.max(0, s.sp - 1) / 8));
+    const fl = s.sp >= 6 ? Math.min(fF, Math.round(fF * (s.sp - 5) / 4)) : 0;
+    const prog = doneSending ? 1 : (dl + fl) / SN;
+    const snd = {
+      busy: !doneSending, done: doneSending, pct: Math.round(prog * 100) + '%', c: doneSending ? V('ok') : V('acc'), dash: (452.4 * prog).toFixed(1) + ' 452.4',
+      title: doneSending ? 'Sent to ' + dF + ' families' : 'Sending to ' + SN + ' families…',
+      sub: doneSending ? fF + ' could not be delivered. You can fix those numbers in the results.' : 'Through AiSensy · about ' + inr(Math.round(SN * 0.88)) + ' · Hindi first, English below',
+      tiles: [['Queued', SN - sent, 'fg'], ['Sent', sent, 'fg'], ['Delivered', dl, 'ok'], ['Failed', fl, fl ? 'bad' : 'fg']].map((t) => ({ k: t[0], v: String(t[1]), c: V(t[2]) })),
+      see: () => set({ screen: 'results', camp: (s.mine[0] || camp).id, anim: 'push' })
+    };
+
+    // ---------- results ----------
+    const cDel = camp.live ? (doneSending ? camp.del : dl) : camp.del;
+    const W = [28, 61, 47, 34, 42];
+    const split = (v) => { let left = v; return W.map((w, i) => { const x = i === 4 ? left : Math.round(v * w / 212); left -= x; return x; }); };
+    const bandRows = camp.id === 'c2' ? D.BANDROWS : (() => { const a = split(camp.sent); const b = split(camp.read); const c = split(camp.paid); const d = split(camp.amt); return BANDS.map((k, i) => [k, a[i], b[i], c[i], d[i]]); })();
+    const failN = camp.sent - cDel;
+    const unread = cDel - camp.read;
+    const fix = (id, st) => { const n = A({}, this.st().fix); n[id] = st; set({ fix: n }); };
+    const res = {
+      date: camp.date, aud: camp.aud + ' · sent by ' + (camp.auto ? 'an automatic rule' : 'Janmejay'), live: !!camp.live, cost: 'cost ' + inr(Math.round(camp.sent * 0.88)),
+      funnel: [['Sent', camp.sent, '', 'c4'], ['Delivered', cDel, pc(cDel, camp.sent) + ' of sent', 'c2'], ['Read', camp.read, pc(camp.read, cDel) + ' of delivered', 'c1'], ['Paid within 7 days', camp.paid, pc(camp.paid, camp.sent) + ' of sent · ' + lakh(camp.amt), 'ok']]
+        .map((f, i) => ({ k: f[0], v: String(f[1]), rate: f[2], w: pc(f[1], camp.sent), c: V(f[3]), delay: (i * 140) + 'ms' })),
+      tiles: [['Paid after it', inr(camp.amt), 'ok'], ['Cost', inr(Math.round(camp.sent * 0.88)), 'fg'], ['For each ₹1 spent', camp.amt ? inr(camp.amt / (camp.sent * 0.88)) : '—', 'fg']].map((t) => ({ k: t[0], v: t[1], c: V(t[2]) })),
+      cls: bandRows.concat([['All classes', camp.sent, camp.read, camp.paid, camp.amt]]).map((r, i, a) => ({ k: r[0], sent: String(r[1]), read: String(r[2]), paid: String(r[3]), amt: inr(r[4]), bt: i === a.length - 1 ? '2px solid var(--bd)' : '1px solid var(--bd)', w: i === a.length - 1 ? '700' : '500' })),
+      canFollow: !camp.live && unread > 0, unreadTitle: 'Remind those who did not read (' + unread + ')', unreadCost: unread + ' messages · about ' + inr(Math.round(unread * 0.88)) + '.', unreadBtn: 'Remind ' + unread + ' families',
+      follow: () => this.openSheet('confirm', { cfKind: 'unread' }),
+      failTitle: failN ? failN + ' not delivered' : 'Not delivered', noFails: failN === 0,
+      fails: D.FAILED.slice(0, Math.max(0, failN)).map((f, i) => {
+        const id = camp.id + i; const st = s.fix[id] || ''; const val = s.fixVal[id] || ''; const ok = String(val).replace(/\D/g, '').length === 10;
+        return {
+          name: f[0], meta: f[1] + ' · ' + f[2], delay: delay(i),
+          status: st === 'sent' ? 'Sent again' : st === 'saved' ? 'Number updated' : f[3] === 'bad' ? 'Invalid number' : 'Not on WhatsApp',
+          pbg: st ? V('oks') : f[3] === 'bad' ? V('bads') : V('warns'), pfg: st ? V('ok') : f[3] === 'bad' ? V('bad') : V('warnfg'),
+          canFix: !st, editing: st === 'edit', canResend: st === 'saved', val, err: st === 'edit' && val !== '' && !ok, inpCls: st === 'edit' && val !== '' && !ok ? 'inp err' : 'inp',
+          edit: () => fix(id, 'edit'), cancel: () => fix(id, ''), onVal: (e) => { const n = A({}, this.st().fixVal); n[id] = e.target.value; set({ fixVal: n }); },
+          save: () => { if (!ok) { this.toast('Enter a 10-digit mobile number'); return; } fix(id, 'saved'); this.toast('Number saved for ' + f[0]); },
+          resend: () => { fix(id, 'sent'); this.toast('Sent again to ' + f[0] + ' · ₹0.88'); }
+        };
+      })
+    };
+
+    // ---------- sheets: rule · confirm ----------
+    const rr = D.RULES[s.rule] || D.RULES[0]; const ron = !!s.rules[s.rule];
+    const skipN = Math.round(rr[2] * 0.9);
+    const ru = {
+      on: ron ? 'true' : 'false', cls: ron ? 'on' : '', onLabel: ron ? 'This reminder is on' : 'This reminder is off',
+      next: 'Next run ' + rr[1] + ' · ' + (TIMES.filter((t) => t[0] === s.rTime)[0] || TIMES[0])[1],
+      toggle: () => { const n = this.st().rules.slice(); n[s.rule] = !n[s.rule]; set({ rules: n }); },
+      tims: rr[3].map((t, i) => chip(t, s.rTim === i, () => set({ rTim: i }))),
+      times: TIMES.map((t) => chip(t[1], s.rTime === t[0], () => set({ rTime: t[0] }))),
+      auds: [['all', 'Everyone it applies to', 'about ' + rr[2] + ' families'], ['skip', 'Skip families who promised to pay', 'about ' + skipN + ' families']].map((a) => A({ label: a[1], sub: a[2], pick: () => set({ rAud: a[0] }) }, radio(s.rAud === a[0]))),
+      tpls: D.TPLS.map((t) => chip(t.label, s.rTpl === t.id, () => set({ rTpl: t.id }))),
+      quietOn: s.quiet ? 'true' : 'false', quietCls: s.quiet ? 'on' : '', toggleQuiet: () => set({ quiet: !this.st().quiet }),
+      summary: 'Next run ' + rr[1] + ', ' + (TIMES.filter((t) => t[0] === s.rTime)[0] || TIMES[0])[1] + ' · about ' + (s.rAud === 'skip' ? skipN : rr[2]) + ' families · about ' + inr(Math.round((s.rAud === 'skip' ? skipN : rr[2]) * 0.88)) + '. Hindi first, English below.'
+    };
+    const cfN = s.cfKind === 'unread' ? unread : count;
+    const cfCost = Math.round(cfN * 0.88);
+    const cfName = s.cfKind === 'unread' ? 'Did not read · ' + camp.name : tpl.label + ' · ' + (s.pend ? 'pending today' : 'pending or coming up');
+    const cf = {
+      tiles: [['Families', String(cfN)], ['Cost', 'about ' + inr(cfCost)], ['Balance after', inr(1840 - Math.round(mineSent * 0.88) - cfCost)]].map((t, i) => ({ k: t[0], v: t[1], delay: (i * 80) + 'ms' })),
+      lines: [{ t: s.cfKind === 'unread' ? 'Only families who got the message but did not open it' : count + ' families · ' + audLine }, { t: 'Hindi first, English below · approved AiSensy template' }, { t: 'Families who promised or paid in the last 3 days are left out' }],
+      warn: later && s.cfKind === 'wizard' ? 'It goes out on ' + whenTxt + '. You can cancel it until then.' : 'Messages cannot be taken back once they are sent.'
+    };
+    const confirm = () => {
+      const t = this.st();
+      if (t.cfKind === 'wizard' && t.when === 'later') {
+        const b = t.mine;
+        set({ mine: [{ id: 'q' + b.length, name: cfName, date: 'Scheduled', aud: count + ' families · ' + audLine, sent: count, del: 0, read: 0, paid: 0, amt: 0, sched: true, when: whenTxt }].concat(b), screen: 'list', step: 1, anim: 'pop' });
+        this.closeSheet();
+        this.toast('Scheduled for ' + whenTxt + ' · ' + count + ' families', () => set({ mine: b }));
+        return;
+      }
+      set({ mine: [{ id: 'n' + t.mine.length, name: cfName, date: 'Today', aud: cfN + ' families · ' + (t.cfKind === 'unread' ? 'did not read' : audLine), sent: cfN, del: cfN - Math.round(cfN * 0.03), read: 0, paid: 0, amt: 0, live: true }].concat(t.mine.map((c) => (c.live ? A({}, c, { live: false }) : c))), screen: 'sending', sp: 0, sendN: cfN, step: 1, anim: 'push' });
+      this.closeSheet();
+      this.tick();
+    };
+    const isRule = s.sheet === 'rule';
+    const sh = isRule
+      ? { title: rr[0], sub: 'Automatic reminder · runs on its own', no: 'Cancel', okLabel: 'Save', okIcon: IC.check, ok: () => { this.closeSheet(); this.toast('Saved · ' + rr[0]); } }
+      : { title: (later && s.cfKind === 'wizard' ? 'Schedule ' : 'Send ') + cfN + ' WhatsApp messages?', sub: cfName, no: 'Not yet', okLabel: (later && s.cfKind === 'wizard' ? 'Schedule · about ' : 'Send now · about ') + inr(cfCost), okIcon: IC.send, ok: confirm };
+
+    // ---------- chrome ----------
+    const goList = () => set({ screen: 'list', intro: false, anim: 'pop' });
+    const scr = s.screen;
+    const T = {
+      list: ['Money · WhatsApp through AiSensy', 'Fee reminders', 'Balance ' + kpis[3].value + ' · 3 rules on', 0],
+      empty: ['Money · WhatsApp through AiSensy', 'Fee reminders', s.intro ? 'How reminders work' : 'Not set up yet', s.intro ? 1 : 0],
+      wiz: ['Fee reminders', 'New reminder', 'Step ' + s.step + ' of 3 · ' + STEPS[s.step - 1][0], 1],
+      sending: ['Fee reminders', 'Sending', SN + ' families', 1],
+      results: ['Fee reminders · results', camp.name, camp.date, 1]
+    }[scr] || [];
+    const top = { crumb: T[0], title: T[1], mSub: T[2], mLink: !T[3], mBtn: !!T[3], dBack: !!T[3], dNew: scr === 'list', backLabel: scr === 'wiz' ? 'Cancel' : 'Back to reminders', back: scr === 'wiz' ? wz.back : goList };
+    if (scr === 'list') top.mSub = 'Balance ' + kpis[3].value + ' · ' + s.rules.filter((x) => x).length + ' automatic on';
+
+    return {
+      ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+      is: { list: scr === 'list', empty: scr === 'empty', wiz: scr === 'wiz', sending: scr === 'sending', results: scr === 'results' },
+      top, anim: anims[s.anim] || 'none', kpis, camps, rules, aud, msg, rev, wz, snd, res, ru, cf, sh, goList,
+      newRem: () => set({ screen: 'wiz', step: 1, anim: 'push' }),
+      intro: () => set({ screen: 'empty', intro: true, anim: 'push' }),
+      topUp: () => this.toast('Opening AiSensy to top up · balance ' + kpis[3].value),
+      sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', isRule, isConfirm: s.sheet === 'confirm' },
+      closeSheet: () => this.closeSheet(),
+      toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+[
+  {"file": "ExamHome.dc.html", "device": "desktop", "title": "Exam coordinator · today"},
+  {"file": "DX-ExamHome-Checklist.dc.html", "device": "desktop", "start": "checklist", "title": "Unit Test 2 checklist"},
+  {"file": "DX-ExamHome-Late.dc.html", "device": "desktop", "start": "late", "title": "Late teachers"},
+  {"file": "DX-ExamHome-Dark.dc.html", "device": "desktop", "start": "home", "dark": true, "title": "Today · dark"},
+  {"file": "M-ExamHome.dc.html", "device": "phone", "start": "home", "title": "Exam coordinator · today"},
+  {"file": "M-ExamHome-Menu.dc.html", "device": "phone", "start": "menu", "title": "Menu"},
+  {"file": "M-ExamHome-Checklist.dc.html", "device": "phone", "start": "checklist", "title": "Unit Test 2 checklist"},
+  {"file": "M-ExamHome-Late.dc.html", "device": "phone", "start": "late", "title": "Late teachers"},
+  {"file": "M-ExamHome-Remind.dc.html", "device": "phone", "start": "remind", "title": "Remind late teachers"}
+]

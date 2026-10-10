@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Promote and import</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.fc{display:flex;flex-direction:column}.fr{display:flex;align-items:center}.cc{display:flex;align-items:center;justify-content:center;flex:none}.f1{flex:1;min-width:0}.mw{min-width:0}.sb{justify-content:space-between}.wr{flex-wrap:wrap}.gp4{gap:4px}.gp6{gap:6px}.gp8{gap:8px}.gp10{gap:10px}.gp12{gap:12px}.gp14{gap:14px}.t13{font-size:13px}.t14{font-size:14px}.t15{font-size:15px}.b6{font-weight:600}.b7{font-weight:700}.mu{color:var(--mut)}.m{font-size:12px;color:var(--mut)}.m:empty{display:none}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.bt{border-top:1px solid var(--bd)}.tw{background:var(--warns);color:var(--warnfg)}.to{background:var(--oks);color:var(--ok)}.ta{background:var(--accs);color:var(--accfg)}.ti{background:var(--infos);color:var(--info)}.ts{background:var(--s2);color:var(--fg)}.cs{padding:16px 18px;display:flex;flex-direction:column;gap:12px}.gr2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.in{animation:xIn .32s var(--ease) both}.av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}.ib{flex:none;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}.i15{width:15px;height:15px}.lb{width:100%;border:0;background:transparent;color:var(--fg);text-align:left}.rc{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;width:100%}.rc.on{border-color:var(--acc);background:var(--accs);box-shadow:inset 0 0 0 1px var(--acc)}.ring{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center}.ring>span{width:10px;height:10px;border-radius:5px;background:var(--acc);transform:scale(0);transition:transform .25s var(--spring)}.on>.ring{border-color:var(--acc)}.on>.ring>span{transform:scale(1)}.bar{position:sticky;bottom:0;z-index:4;margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 28px;border-top:1px solid var(--bd)}.nt{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}.hd{flex:none;height:64px;padding:0 28px;border-bottom:1px solid var(--bd);position:relative;z-index:5}.bk{width:44px;height:44px;padding:0;border-radius:22px}.bk>.i{width:24px;height:24px}.pg{padding:22px 28px 40px}.ttl{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.2}.srch{position:relative;height:44px;border-radius:14px;border:1px solid var(--bds);background:var(--card);gap:8px;padding:0 14px;color:var(--mut)}.srch input{flex:1;min-width:0;height:40px;border:0;outline:none;background:transparent;font-size:15px}.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.box{width:22px;height:22px;border-radius:7px;border:2px solid var(--bds);color:var(--onsolid);transition:background-color .2s ease,border-color .2s ease}.on>.box{background:var(--acc);border-color:var(--acc)}.prow{display:grid;grid-template-columns:minmax(110px,1fr) minmax(150px,1.3fr) 70px 80px 80px 80px 20px;gap:8px;align-items:center;min-height:52px;padding:0 16px}.mrow{display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,1.4fr) 18px minmax(180px,1fr) 92px;gap:10px;align-items:center;padding:10px 16px}.frow{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(0,1.5fr) 180px;gap:12px;align-items:center;padding:12px 16px}.chs{height:30px;padding:0 10px;font-size:12px}.cardb{padding:12px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card)}
+@container vx (max-width:899px){.vx .hd{height:auto;min-height:58px;padding:6px 10px 6px 6px;gap:4px}.vx .bar{padding:10px 16px}.vx .prow{grid-template-columns:auto minmax(0,1fr) auto 20px;padding:12px 14px}.vx .mrow{grid-template-columns:minmax(0,1fr) auto;padding:12px 14px}.vx .mrow>:nth-child(5){order:1}.vx .mrow>:nth-child(2){order:2;grid-column:1/-1}.vx .mrow>:nth-child(4){order:3;grid-column:1/-1}.vx .frow{grid-template-columns:minmax(0,1fr);gap:8px;padding:12px 14px}}
+</style>
+</helmet><div class="vx {{theme}}" style="position:relative;width:100%;height:100vh;min-height:560px;overflow:hidden;display:flex;background:var(--bg);color:var(--fg);font-family:Inter,'Noto Sans Devanagari',system-ui,sans-serif;font-size:14px;line-height:1.45"><div class="only-d" style="flex:none;height:100%"><dc-import name="XSide" active="studenttools" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div><div class="fc" style="flex:1;min-width:0;min-height:0;position:relative">
+
+<header class="glass fr gp10 hd"><sc-if value="{{top.mBackLink}}"><a href="F13-Menu.dc.html" class="tap cc bk only-m" aria-label="Back to menu"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if><sc-if value="{{top.mBackBtn}}"><button class="tap btn ghost bk only-m" type="button" aria-label="Back" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if><div class="fc f1"><span class="m only-d">{{top.crumb}}</span><span class="serif el only-d" style="font-size:22px;font-weight:600;line-height:1.15">{{top.title}}</span><span class="el only-m" style="font-size:17px;font-weight:700">{{top.title}}</span><span class="m el only-m">{{top.sub}}</span></div><sc-if value="{{top.mBackBtn}}"><button class="tap btn ghost only-d" type="button" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>{{top.backLabel}}</button></sc-if></header>
+
+<main class="scroll" style="flex:1;min-height:0;position:relative">
+
+<sc-if value="{{is.hub}}"><div class="pad pg fc" style="gap:18px;animation:{{anim}}"><div class="g2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px"><sc-for list="{{tools}}" as="t"><button class="tap lift card fc" type="button" onClick="{{t.go}}" style="width:100%;color:var(--fg);text-align:left;padding:18px;gap:14px;animation:xRise .42s var(--ease) both;animation-delay:{{t.delay}}"><span class="fr gp14"><span class="ib" style="width:52px;height:52px;border-radius:16px;background:{{t.bg}};color:{{t.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span><span class="fc f1"><span class="b7" style="font-size:17px">{{t.title}}</span><span class="m">{{t.desc}}</span></span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></span><span class="fr gp10 bt" style="padding-top:12px;width:100%"><sc-if value="{{t.ring}}"><svg width="34" height="34" viewBox="0 0 36 36" aria-hidden="true" style="flex:none;transform:rotate(-90deg)"><circle cx="18" cy="18" r="15" style="fill:none;stroke:var(--s3);stroke-width:4"></circle><circle cx="18" cy="18" r="15" style="fill:none;stroke:var(--warn);stroke-width:4;stroke-linecap:round;stroke-dasharray:{{t.dash}} 94.3;--len:94.3;animation:xDraw .9s .2s var(--ease) both"></circle></svg></sc-if><span class="t13 b6 f1">{{t.status}}</span><span class="pill" style="background:{{t.pbg}};color:{{t.pfg}}">{{t.pill}}</span></span></button></sc-for></div><div class="card" style="padding:14px 16px"><span class="sech">Recent bulk changes</span><div class="fc" style="margin-top:8px"><sc-for list="{{hist}}" as="l"><div style="display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;padding:7px 0;animation:xIn .3s var(--ease) both;animation-delay:{{l.delay}}"><span style="width:10px;height:10px;margin-top:4px;border-radius:5px;background:{{l.dot}}"></span><span class="fc"><span class="t13">{{l.text}}</span><span class="m">{{l.who}}</span></span><span class="m num">{{l.when}}</span></div></sc-for></div></div></div></sc-if>
+
+<sc-if value="{{is.promote}}"><div class="fc" style="min-height:100%;animation:{{anim}}"><div class="pad pg fc gp14"><div class="nt ti"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>Annual results come in March. Prepare now — your ticks are kept, and nobody moves until you confirm on the next step.</span></div><div class="fr gp8 wr"><sc-for list="{{sumChips}}" as="c"><span class="pill num" style="height:30px;padding:0 12px;font-size:13px;background:{{c.bg}};color:{{c.fg}}">{{c.t}}</span></sc-for></div><div class="card" style="overflow:hidden"><div class="only-d prow" style="min-height:40px;background:var(--s2)"><span class="sech">Class now</span><span class="sech">Goes to</span><span class="sech">Students</span><span class="sech">Moving</span><span class="sech">Held back</span><span class="sech">Leaving</span><span></span></div><sc-for list="{{pr}}" as="r"><div style="border-top:{{r.bd}}"><button class="tap row lb prow" type="button" onClick="{{r.toggle}}" aria-expanded="{{r.exp}}"><span class="t14 b7">{{r.from}}</span><span class="fr gp6 t14 mw"><svg class="i i15 mu" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg><span class="el">{{r.to}}</span></span><span class="num t13 only-d">{{r.n}}</span><span class="num t13 b7 only-d" style="color:var(--ok)">{{r.up}}</span><span class="num t13 b7 only-d" style="color:{{r.hc}}">{{r.held}}</span><span class="num t13 b7 only-d" style="color:{{r.lc}}">{{r.left}}</span><span class="m only-m num">{{r.msum}}</span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub);transform:rotate({{r.rot}});transition:transform .3s var(--spring)" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg></button><sc-if value="{{r.open}}"><div class="fc gp10 in" style="padding:6px 16px 16px;background:var(--s2)"><span class="m">{{r.help}}</span><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px"><sc-for list="{{r.kids}}" as="k"><div class="fc gp6 cardb" style="padding:9px 10px;border-color:{{k.bc}};animation:xIn .3s var(--ease) both;animation-delay:{{k.delay}}"><button class="tap fr gp8 lb {{k.cls}}" type="button" role="checkbox" aria-checked="{{k.on}}" onClick="{{k.tick}}" style="padding:0"><span class="cc box"><sc-if value="{{k.ticked}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px;stroke-width:3;animation:xPopIn .3s var(--spring) both" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></span><span class="fc f1"><span class="el t13 b6">{{k.name}}</span><span class="m el">{{k.note}}</span></span></button><sc-if value="{{k.hasOpts}}"><div class="fr gp4 wr in"><sc-for list="{{k.opts}}" as="o"><button class="tap chip chs {{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></sc-if></div></sc-for></div></div></sc-if></div></sc-for></div></div><div class="glass bar"><span class="m hide-m f1">Tap a class to untick anyone who is held back or leaving.</span><button class="tap btn pri mfull" type="button" onClick="{{toReview}}" style="min-width:190px">Next: check and confirm<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></div></div></sc-if>
+
+<sc-if value="{{is.review}}"><div class="fc" style="min-height:100%;animation:{{anim}}"><div class="pad pg fc gp14"><div class="g4" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px"><sc-for list="{{rv.kpis}}" as="k"><div class="card rise fc" style="padding:14px 16px;gap:2px;animation-delay:{{k.delay}}"><span class="m b6">{{k.label}}</span><span class="num b7" style="font-size:26px;color:{{k.c}}">{{k.v}}</span><span class="m">{{k.sub}}</span></div></sc-for></div><div class="card cs"><div class="fr sb gp10"><span class="t15 b7">Where all 434 go</span><span class="m">{{rv.streams}}</span></div><div class="fr" style="height:14px;border-radius:7px;overflow:hidden;background:var(--s3)"><sc-for list="{{rv.kpis}}" as="k"><span style="height:14px;width:{{k.w}};background:{{k.c}};transform-origin:left;animation:xGrowX .8s var(--ease) both;animation-delay:{{k.delay}}"></span></sc-for></div><div class="gr2 g2" style="gap:18px"><sc-for list="{{rv.lists}}" as="g"><div class="fc gp6"><span class="sech">{{g.t}}</span><sc-for list="{{g.rows}}" as="x"><div class="fr gp10 bt" style="padding-top:7px"><span class="t13 b6 f1 el">{{x.name}}</span><span class="m">{{x.sub}}</span></div></sc-for></div></sc-for></div></div><div class="nt tw"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg><span><b>Pending fees stay with the student.</b> Nothing is waived or moved. Anyone who leaves or passes out owing money stays in Dues, marked “Left”.</span></div><a href="FeeSetup.dc.html" class="tap nt ts fr" style="justify-content:space-between">2027–28 fee plans and installments come from Fee setup<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a></div><div class="glass bar"><span class="m hide-m f1">You can undo for 10 minutes after promoting.</span><button class="tap btn sec mfull" type="button" onClick="{{back}}">Back</button><button class="tap btn pri mfull" type="button" onClick="{{rv.ask}}" style="min-width:200px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.grad}}"></path></svg>Promote {{rv.n}} students</button></div></div></sc-if>
+
+<sc-if value="{{is.res}}"><div class="pad pg" style="animation:xIn .4s var(--ease) both"><sc-if value="{{res.run}}"><div class="card fc gp12" style="max-width:560px;margin:40px auto 0;padding:28px 24px"><span class="fr gp10 t15 b7"><span style="flex:none;width:18px;height:18px;border-radius:9px;border:3px solid var(--s3);border-top-color:var(--acc);animation:xLoop .8s linear infinite"></span>{{res.runLabel}}</span><div style="height:10px;border-radius:5px;background:var(--s3);overflow:hidden"><div style="height:10px;background:var(--acc);transform-origin:left;animation:xGrowX 1.6s var(--ease) both"></div></div><span class="m">{{res.runSub}}</span></div></sc-if><sc-if value="{{res.done}}"><div class="card fc gp10" style="max-width:620px;margin:0 auto;padding:30px 26px;align-items:center;text-align:center"><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation:xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both"></path></svg><span class="serif" style="font-size:26px;font-weight:600;line-height:1.25">{{res.title}}</span><span class="t14 mu">{{res.sub}}</span><div class="fr gp6 wr" style="justify-content:center"><sc-for list="{{res.chips}}" as="c"><span class="pill num" style="background:{{c.bg}};color:{{c.fg}}">{{c.t}}</span></sc-for></div><div class="gr2 g2" style="width:100%;margin-top:10px;gap:10px"><a href="D01-Students.dc.html" class="tap btn pri only-d" style="height:48px;color:var(--prifg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg>{{res.view}}</a><a href="F05-Students.dc.html" class="tap btn pri only-m" style="height:48px;color:var(--prifg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg>{{res.view}}</a><button class="tap btn sec" type="button" onClick="{{res.undo}}" style="height:48px;color:var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>{{res.undoLabel}}</button></div><span class="m">{{res.note}}</span></div></sc-if></div></sc-if>
+
+<sc-if value="{{is.import}}"><div class="fc" style="min-height:100%;animation:{{anim}}"><div class="pad pg fc gp14" style="max-width:860px;width:100%;margin:0 auto"><button class="tap lift fc lb" type="button" onClick="{{im.pick}}" style="align-items:center;text-align:center;gap:8px;padding:34px 20px;border-radius:20px;border:2px dashed {{im.dz}};background:{{im.dzbg}}"><span class="ib ta" style="width:58px;height:58px;border-radius:18px;animation:{{im.ianim}}"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="{{im.icon}}"></path></svg></span><span class="b7" style="font-size:17px">{{im.title}}</span><span class="m">Excel (.xlsx) or .csv · the first row has the column names</span></button><button class="tap btn ghost" type="button" onClick="{{im.tpl}}" style="align-self:center;color:var(--acc)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>Download the template</button><sc-if value="{{im.reading}}"><div class="card cs"><span class="skel" style="height:18px;width:55%"></span><span class="skel" style="height:48px"></span><span class="skel" style="height:48px"></span></div></sc-if><sc-if value="{{im.ready}}"><div class="card cs in"><div class="fr gp12"><span class="ib to"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.table}}"></path></svg></span><span class="fc f1"><span class="t14 b7 el">Admissions_July.xlsx</span><span class="m">3 sheets · 186 rows · 24 KB</span></span><button class="tap btn ghost" type="button" aria-label="Remove file" onClick="{{im.clear}}" style="width:40px;padding:0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div><span class="sech">Which sheet has the students?</span><sc-for list="{{im.sheets}}" as="r"><button class="tap rc {{r.cls}}" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}"><span class="ring"><span></span></span><span class="fc f1"><span class="t14 b6">{{r.name}}</span><span class="m">{{r.sub}}</span></span></button></sc-for></div></sc-if></div><div class="glass bar"><span class="m hide-m f1">Step 1 of 3 · Nothing is saved until the last step.</span><button class="tap btn pri mfull" type="button" onClick="{{im.next}}" style="min-width:190px;opacity:{{im.op}}">Next: match columns<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></div></div></sc-if>
+
+<sc-if value="{{is.mapping}}"><div class="fc" style="min-height:100%;animation:{{anim}}"><div class="pad pg fc gp14"><div class="fr gp10 wr"><span class="fc f1"><span class="t15 b7">{{mp.head}}</span><span class="m">Exact and Likely matches were done for you. Pick a place for the rest, or leave them out.</span></span><span class="pill" style="height:28px;padding:0 12px;font-size:12px;background:{{mp.pbg}};color:{{mp.pfg}}">{{mp.pill}}</span></div><div class="card" style="overflow:hidden"><div class="only-d mrow" style="min-height:40px;background:var(--s2)"><span class="sech">Excel column</span><span class="sech">Sample values</span><span></span><span class="sech">Goes into</span><span class="sech">Match</span></div><sc-for list="{{mp.rows}}" as="r"><div class="mrow" style="border-top:{{r.bd}};animation:xIn .3s var(--ease) both;animation-delay:{{r.delay}}"><span class="t14 b7 el">{{r.col}}</span><span class="m el">{{r.sample}}</span><svg class="i only-d mu" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg><button class="tap fr gp8" type="button" onClick="{{r.pick}}" style="height:42px;padding:0 12px;border-radius:12px;border:1px solid {{r.fb}};background:var(--card);color:{{r.fc}};text-align:left"><span class="f1 el t14 b6">{{r.field}}</span><svg class="i i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg></button><span><span class="pill" style="background:{{r.pbg}};color:{{r.pfg}};animation:{{r.panim}}">{{r.conf}}</span></span></div></sc-for></div></div><div class="glass bar"><span class="m hide-m f1">Step 2 of 3 · {{mp.hint}}</span><button class="tap btn sec mfull" type="button" onClick="{{back}}">Back</button><button class="tap btn pri mfull" type="button" onClick="{{mp.next}}" style="min-width:190px">{{mp.nextLabel}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></div></div></sc-if>
+
+<sc-if value="{{is.validate}}"><div class="fc" style="min-height:100%;animation:{{anim}}"><div class="pad pg fc gp14"><div class="card fr gp14 wr" style="padding:16px 18px"><span style="position:relative;flex:none;width:104px;height:104px"><svg width="104" height="104" viewBox="0 0 104 104" aria-hidden="true" style="transform:rotate(-90deg)"><circle cx="52" cy="52" r="42" style="fill:none;stroke:var(--s3);stroke-width:12"></circle><sc-for list="{{vl.ring}}" as="g"><circle cx="52" cy="52" r="42" style="fill:none;stroke:{{g.c}};stroke-width:12;stroke-dasharray:{{g.dash}};stroke-dashoffset:{{g.off}};transition:stroke-dasharray .5s var(--ease),stroke-dashoffset .5s var(--ease)"></circle></sc-for></svg><span class="fc cc" style="position:absolute;top:0;left:0;right:0;bottom:0"><span class="num b7" style="font-size:22px">186</span><span class="m">rows</span></span></span><div class="fc gp8 f1" style="min-width:200px"><span class="t15 b7">{{vl.head}}</span><sc-for list="{{vl.legend}}" as="g"><span class="fr gp8 t13"><span style="width:10px;height:10px;border-radius:3px;background:{{g.c}}"></span><span class="f1">{{g.label}}</span><span class="num b7">{{g.n}}</span></span></sc-for></div></div><div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:480px;width:100%"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 3);transform:translateX({{vl.thumb}})"></span><sc-for list="{{vl.tabs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div><sc-if value="{{vl.hasAll}}"><div class="fr gp10 wr nt ta"><span class="f1">{{vl.allText}}</span><button class="tap btn pri" type="button" onClick="{{vl.fixAll}}" style="height:36px;font-size:13px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.zap}}"></path></svg>{{vl.allLabel}}</button></div></sc-if><sc-for list="{{vl.rows}}" as="r"><div class="card fc gp8" style="padding:12px 14px;animation:xIn .3s var(--ease) both;animation-delay:{{r.delay}}"><div class="fr gp10"><span class="pill num ts">Row {{r.row}}</span><span class="t14 b7 f1 el">{{r.name}}</span><sc-if value="{{r.done}}"><span class="pill" style="background:{{r.sbg}};color:{{r.sfg}};animation:xPopIn .4s var(--spring) both">{{r.state}}</span></sc-if></div><span class="t13" style="color:{{r.pc}}">{{r.prob}}</span><sc-if value="{{r.open}}"><div class="fr gp8 wr"><sc-if value="{{r.hasSug}}"><button class="tap btn soft" type="button" onClick="{{r.useSug}}" style="height:38px;font-size:13px">Use “{{r.sug}}”</button></sc-if><sc-if value="{{r.hasInput}}"><input class="inp {{r.err}}" value="{{r.v}}" onChange="{{r.onV}}" placeholder="{{r.ph}}" aria-label="{{r.ph}}" style="flex:1 1 160px;width:auto;height:40px"><button class="tap btn sec" type="button" onClick="{{r.save}}" style="height:40px">Save</button></sc-if><button class="tap btn ghost" type="button" onClick="{{r.skip}}" style="height:38px;font-size:13px;color:var(--mut)">{{r.skipLabel}}</button></div></sc-if></div></sc-for><sc-if value="{{vl.more}}"><span class="m" style="text-align:center">{{vl.moreText}}</span></sc-if></div><div class="glass bar"><span class="m hide-m f1" style="color:{{vl.hc}}">{{vl.hint}}</span><button class="tap btn sec mfull" type="button" onClick="{{back}}">Back</button><button class="tap btn pri mfull" type="button" onClick="{{vl.go}}" style="min-width:180px;opacity:{{vl.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.upload}}"></path></svg>Import {{vl.n}} rows</button></div></div></sc-if>
+
+<sc-if value="{{is.quality}}"><div class="pad pg fc gp14" style="animation:{{anim}}"><div class="card cs"><div class="fr sb gp10"><span class="t15 b7">{{q.head}}</span><span class="num t14 b7" style="color:var(--ok)">{{q.pct}}</span></div><div style="height:10px;border-radius:5px;background:var(--s3);overflow:hidden"><div style="height:10px;width:{{q.w}};border-radius:5px;background:var(--ok);transition:width .5s var(--ease)"></div></div><span class="m">{{q.sub}}</span></div><sc-for list="{{q.groups}}" as="g"><div class="card" style="overflow:hidden;animation:xIn .32s var(--ease) both;animation-delay:{{g.delay}}"><button class="tap row lb fr gp12" type="button" onClick="{{g.toggle}}" aria-expanded="{{g.exp}}" style="padding:14px 16px"><span class="ib" style="background:{{g.bg}};color:{{g.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{g.icon}}"></path></svg></span><span class="fc f1"><span class="fr gp8 t15 b7">{{g.title}}<span class="pill num" style="background:{{g.bg}};color:{{g.fg}};animation:{{g.panim}}">{{g.count}}</span></span><span class="m">{{g.sub}}</span></span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub);transform:rotate({{g.rot}});transition:transform .3s var(--spring)" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg></button><sc-if value="{{g.open}}"><div class="fc in bt"><sc-if value="{{g.hasAll}}"><div class="fr gp10 wr" style="padding:10px 16px;background:var(--s2)"><span class="m" style="flex:1 1 200px">{{g.allHint}}</span><button class="tap btn soft" type="button" onClick="{{g.all}}" style="height:36px;font-size:13px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.zap}}"></path></svg>{{g.allLabel}}</button></div></sc-if><sc-for list="{{g.rows}}" as="r"><div class="fr gp10 wr" style="padding:10px 16px;border-top:1px solid var(--bd);overflow:hidden;animation:{{r.anim}}"><span class="fc" style="flex:1 1 190px;min-width:0"><span class="t14 b6 el">{{r.name}}</span><span class="m">{{r.sub}}</span></span><sc-if value="{{r.hasTag}}"><span class="pill ti">{{r.tag}}</span></sc-if><sc-if value="{{r.hasInput}}"><input class="inp {{r.err}}" value="{{r.v}}" onChange="{{r.onV}}" placeholder="{{r.ph}}" aria-label="{{r.ph}}" style="flex:1 1 150px;width:auto;height:40px"></sc-if><button class="tap btn {{r.c1}}" type="button" onClick="{{r.save}}" style="height:40px">{{r.saveLabel}}</button><button class="tap btn ghost" type="button" onClick="{{r.skip}}" style="height:40px;color:var(--mut)">{{r.skipLabel}}</button></div></sc-for><sc-if value="{{g.hasMore}}"><span class="m bt" style="padding:10px 16px">{{g.more}}</span></sc-if><sc-if value="{{g.empty}}"><div class="fr gp8 to t14 b6" style="padding:14px 16px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg>All done in this group</div></sc-if></div></sc-if></div></sc-for></div></sc-if>
+
+<sc-if value="{{is.families}}"><div class="pad pg fc gp14" style="animation:{{anim}}"><div class="fr gp10 wr"><label class="fr srch f1" style="min-width:220px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="vh">Search families</span><input type="search" value="{{fa.q}}" onChange="{{fa.onQ}}" placeholder="Father, child or phone"></label><button class="tap btn sec" type="button" onClick="{{fa.merge}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.link}}"></path></svg>Merge two families</button><button class="tap btn sec" type="button" onClick="{{fa.split}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.swap}}"></path></svg>Split a child</button></div><div class="fr gp8 wr"><sc-for list="{{fa.stats}}" as="c"><span class="pill num" style="height:30px;padding:0 12px;font-size:13px;background:{{c.bg}};color:{{c.fg}}">{{c.t}}</span></sc-for></div><div class="card" style="overflow:hidden"><sc-for list="{{fa.rows}}" as="r"><div class="frow" style="border-top:{{r.bd}};animation:{{r.anim}}"><span class="fr gp10 mw"><span class="av t13" style="width:36px;height:36px;background:{{r.abg}};color:{{r.afg}}">{{r.ini}}</span><span class="fc mw"><span class="t14 b6 el">{{r.father}}</span><span class="m num">{{r.line}}</span></span></span><span class="fr gp4 wr"><sc-for list="{{r.kids}}" as="k"><span class="pill ts">{{k}}</span></sc-for></span><sc-if value="{{r.multi}}"><button class="tap fr gp10" type="button" role="switch" aria-checked="{{r.on}}" onClick="{{r.toggle}}" style="border:0;background:transparent;color:var(--fg);padding:0;justify-content:space-between"><span class="m">Sibling discount 10%</span><span class="sw {{r.swc}}"><span></span></span></button></sc-if><sc-if value="{{r.single}}"><span class="m">One child · no discount</span></sc-if></div></sc-for><sc-if value="{{fa.empty}}"><div class="m" style="padding:26px;text-align:center">No family matches “{{fa.q}}”. Try the child’s name or a phone number.</div></sc-if><div class="m bt" style="padding:10px 16px">{{fa.foot}}</div></div></div></sc-if></main>
+
+<div class="only-m" style="flex:none"><dc-import name="XNav" active="menu" dark="{{dark}}" hint-size="100%,76px"></dc-import></div></div>
+
+<sc-if value="{{sheet.open}}"><button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button><section class="sheet {{sh.wide}} {{sheet.state}}" role="dialog" aria-label="{{sh.title}}"><div class="grab"></div><div class="fc" style="flex:none;padding:14px 20px 8px"><span class="ttl">{{sh.title}}</span><span class="m">{{sh.sub}}</span></div><div class="scroll fc gp8" style="flex:1;min-height:0;padding:4px 20px 12px"><sc-if value="{{sheet.list}}"><sc-for list="{{sh.items}}" as="r"><div class="fr gp12" style="padding:10px 12px;border-radius:12px;background:var(--s2);align-items:flex-start;animation:xIn .3s var(--ease) both;animation-delay:{{r.delay}}"><span class="cc" style="width:28px;height:28px;border-radius:9px;background:{{r.bg}};color:{{r.fg}}"><svg class="i i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span><span class="t13" style="line-height:1.5;padding-top:4px">{{r.t}}</span></div></sc-for></sc-if><sc-if value="{{sheet.radio}}"><sc-for list="{{sh.opts}}" as="r"><button class="tap rc {{r.cls}}" type="button" role="{{r.role}}" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="opacity:{{r.op}}"><span class="{{r.mark}}"><span></span><sc-if value="{{r.ticked}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px;stroke-width:3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></span><span class="fc f1 gp4"><span class="t14 b6">{{r.label}}</span><span class="m">{{r.sub}}</span></span><sc-if value="{{r.hasPill}}"><span class="pill tw">{{r.pill}}</span></sc-if></button></sc-for></sc-if><sc-if value="{{sheet.split}}"><span class="sech" style="margin-top:6px">Which child moves out?</span><div class="fr gp6 wr"><sc-for list="{{sp.kids}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div><label class="field"><span>Father of the new family</span><input class="inp {{sp.err}}" value="{{sp.name}}" onChange="{{sp.onName}}" placeholder="Full name"></label></sc-if><sc-if value="{{sheet.prev}}"><div class="nt fc in" style="gap:4px;background:{{sh.pbg}};color:{{sh.pfg}}"><span class="b7">{{sh.pHead}}</span><span>{{sh.pText}}</span></div></sc-if><sc-if value="{{sheet.wa}}"><div style="padding:16px 14px;border-radius:16px;background:var(--wabg)"><div class="fc gp8 t14" style="max-width:92%;padding:10px 12px 6px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12);animation:xPopIn .4s var(--spring) both"><span>नमस्ते, आपके बच्चे के स्कूल रिकॉर्ड में माँ का नाम नहीं है। कृपया इस संदेश के जवाब में माँ का पूरा नाम भेज दें। धन्यवाद — श्री वीर पत्ता स्कूल, आमेट</span><span style="opacity:.85;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">Namaste, your child’s school record has no mother’s name. Please reply with the mother’s full name. Thank you — Shri Veer Patta School, Amet</span><span style="align-self:flex-end;font-size:11px;opacity:.6">11:42 am</span></div></div><span class="m">Approved template · 5 parents · about ₹4.40 in all</span></sc-if></div><div class="fr gp8" style="flex:none;padding:12px 20px 20px;border-top:1px solid var(--bd)"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">{{sh.b1}}</button><button class="tap btn {{sh.c2}}" type="button" onClick="{{sh.f2}}" style="flex:1.4;opacity:{{sh.op}}">{{sh.b2}}</button></div></section></sc-if>
+
+<sc-if value="{{toast.show}}"><div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="t14" style="line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div></sc-if></div></x-dc><script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["hub","promote","promote-review","promoted","import","mapping","validate","imported","quality","families","merge"],"default":"hub"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+const rows=t=>t.split('|').map(r=>r.split('~'));
+const CL=rows('Nursery~18|LKG~20|UKG~22|Class 1~23|Class 2~25|Class 3~24|Class 4~29|Class 5~26|Class 6~31|Class 7~27|Class 8~28|Class 9~28|Class 10~30|11 Science~22|11 Commerce~18|11 Arts~14|12 Science~20|12 Commerce~17|12 Arts~12').map(r=>[r[0],+r[1]]);
+const TO='LKG|UKG|Class 1|Class 2|Class 3|Class 4|Class 5|Class 6|Class 7|Class 8|Class 9|Class 10|Class 11 · pick stream|12 Science|12 Commerce|12 Arts|Passed out|Passed out|Passed out'.split('|');
+const FN='Aarav Vivaan Aditya Kabir Arjun Reyansh Ayaan Krish Harsh Yash Rohan Om Dev Mohit Rudra Laksh Veer Parth Tushar Manan Ananya Diya Kavya Myra Saanvi Ishita Aadhya Pihu Khushi Neha Siya Navya Anika Meera Ira Avni Jiya Riddhi Payal Mahi'.split(' ');
+const SN='Sharma Jain Mehta Paliwal Kumawat Rathore Choudhary Vyas Purohit Solanki Bhati Dave Trivedi Chouhan Kothari Rawal Meena Agarwal Joshi Singh Sen Regar Gurjar'.split(' ');
+const KN={'9:0':'Aarav Sharma','5:0':'Diya Sharma','12:0':'Aarti Kumawat','16:0':'Ishita Rathore','6:0':'Kunal Verma','11:0':'Mohit Agarwal','10:0':'Neha Joshi','7:0':'Rohit Joshi','14:0':'Pooja Mehta','8:0':'Riya Singh','2:0':'Aarush Jain','1:0':'Tanvi Paliwal'};
+const PRE={};
+rows('7:5~Bhavesh Regar~h~Needs another year · parents agreed|10:9~Sumit Gurjar~h~Repeats after the annual result|11:4~Lokesh Meena~h~Repeats after the annual result|0:6~Avni Jain~l~Moving to Udaipur|5:11~Rohan Sen~l~Moving to Bhilwara|8:3~Yuvraj Gurjar~l~TC issued in October|9:7~Harshita Vyas~l~Joining a school in Rajsamand|12:8~Manav Dave~l~Class 11 at another school|12:19~Sakshi Bhati~l~Class 11 at another school|15:2~Gaurav Rawal~l~Moving to Jaipur').forEach(r=>{PRE[r[0]]={name:r[1],st:r[2],note:r[3]};});
+const KIDS=CL.map((c,ci)=>Array.from({length:c[1]},(_,i)=>{const k=ci+':'+i,p=PRE[k];return{k,name:p?p.name:(KN[k]||FN[(ci*7+i*3+1)% FN.length]+' '+SN[(ci*5+i*2)% SN.length]),st:p?p.st:'p',note:p?p.note:'',stream:'SSCCA'[i % 5]};}));
+const COLS=rows('Student Name~name~Exact~Ishita Kumawat, Rohan Sen, Mahi Choudhary|नाम (हिंदी)~hi~Exact~इशिता कुमावत, रोहन सेन|DOB~dob~Likely~03-07-2018, 21-11-2016|Class~cls~Exact~6th, Class 2, UKG|Father~father~Likely~Mahesh Kumawat, Ajay Sen|Mother Name~mother~Exact~Laxmi Kumawat, Rekha Sen|Mobile No~phone~Likely~98290 ••412, 98290 ••730|Gaon~~Pick~Kelwa, Amet, Railmagra~village|Bus~~Pick~R1, R3, (blank)~route|Remarks~~Pick~fees later, TC pending~skip');
+const FIELDS=rows('name~Student name|hi~Name in Hindi|dob~Date of birth|cls~Class|father~Father’s name|mother~Mother’s name|phone~Phone|village~Village or town|route~Bus route|addr~Address|prev~Previous school|note~Notes for the office|skip~Don’t import this column');
+const ERR=rows('e1~64~(name is empty)~Student name is empty — the row cannot be saved~i~Student’s full name|e2~91~Aditya Kumawat~Class is missing~i~For example Class 5|e3~155~Kavya Sen~Already in school as SR 1429, Class 2 — same father and birth date~x~');
+const WARN=rows('w1~12~Mahi Choudhary~Class written as “6th”~s~Class 6|w2~18~Kunal Sen~Class written as “2nd”~s~Class 2|w3~27~Riddhi Jain~Class written as “VII”~s~Class 7|w4~33~Harsh Bhati~Phone has 9 digits: 98290 ••521~i~10-digit phone|w5~41~Tanu Rawal~Phone has 9 digits: 98290 ••187~i~10-digit phone|w6~58~Dev Purohit~Birth date “3/7/19” is unclear~s~03-07-2019|w7~77~Ayaan Meena~Village “Amet.” has a stray dot~s~Amet|w8~102~Nisha Solanki~Hindi name is empty~s~निशा सोलंकी|w9~140~Raghav Dave~Mother’s name is empty~i~Mother’s name');
+const QG=rows('phone~Father’s phone missing~phone~Needed for receipts and reminders~i~10-digit phone~Copy from sibling families~3 of these have a brother or sister with a phone on record~Save~Skip|dup~Possible duplicates~copy~Same name and father — check if it is one child~b~~Merge the 2 exact matches~2 pairs match on name, father and birth date~Same child · merge~Different children|dob~Date of birth missing~calendar~Needed for the TC and board forms~i~DD-MM-YYYY~Ask class teachers on Sampark~Teachers fill it from the admission form, no login needed~Save~Skip|mother~Mother’s name missing~user~Printed on the TC and report cards~i~Mother’s full name~Ask parents on WhatsApp~5 parents · about ₹4.40 · Hindi first~Save~Skip|age~Age looks wrong for the class~alert~Usually a typing mistake in the birth date~i~Correct birth date~~~Save~It’s correct|photo~Photo missing~image~Low priority · needed for ID cards later~b~~Ask class teachers for photos~41 students · teachers take photos on Sampark~Add photo~Later');
+const QR={
+phone:rows('Aditya Kumawat~Class 4 · father Mahesh Kumawat~9829043301|Payal Regar~Class 6 · father Kailash Regar~9829046120|Tushar Sen~Class 2 · father Pankaj Sen~|Kritika Jain~Class 9 · father Sandeep Jain~9829047712|Hemant Rawal~Class 7 · father Naveen Rawal~|Simran Bhati~UKG · father Mahendra Bhati~|Rahul Meena~11 Arts · father Ramesh Meena~|Jiya Solanki~LKG · father Gajendra Solanki~'),
+dup:rows('Riya Singh · SR 1219 and SR 1402~Class 6 · same father, same birth date~x|Om Kumawat · SR 1372 and SR 1416~Class 5 · same father, same birth date~x|Anaya Dave and Ananya Dave~UKG · same father, birth dates 2 days apart~'),
+dob:rows('Krish Paliwal~Class 1 · SR 1388|Saanvi Trivedi~Class 3 · SR 1316|Manan Choudhary~Class 5 · SR 1371|Pihu Kothari~Nursery · SR 1409|Yash Solanki~Class 8 · SR 1050'),
+mother:rows('Laksh Agarwal~Class 2 · father Rohit Agarwal|Navya Purohit~Class 4 · father Deepak Purohit|Parth Rathore~Class 7 · father Ajay Rathore|Ira Mehta~LKG · father Kamal Mehta|Veer Chouhan~Class 9 · father Dilip Chouhan'),
+age:rows('Aarav Paliwal~Class 2 · born 04-02-2015 · that is 11 years old|Mitali Joshi~Class 9 · born 12-06-2020 · that is 6 years old'),
+photo:rows('Kabir Sen~Class 1 · admitted 2 Oct|Kavya Sen~Class 2 · admitted 2 Oct|Dhruv Meena~Class 9 · admitted 7 Oct|Siya Chouhan~Class 4 · admitted 29 Sep')
+};
+const FAMS=rows('sharma~Rakesh Sharma~9829041512~Amet~Aarav:Class 7/Diya:Class 3~1|kum1~Mahesh Kumawat~9829043301~Amet~Naina:Class 3~0|kum2~Mahesh Kumawat~9829043301~Amet~Om:Class 5~0|joshi~Prakash Joshi~9829042277~Amet~Neha:Class 8/Rohit:Class 5~1|trivedi~Alok Trivedi~9829040861~Kelwa~Vivaan:12 Science/Devansh:11 Science~1|kothari~Vivek Kothari~9829041385~Amet~Ishaan:Class 1/Anvi:UKG~1|singh~Vikram Singh~9829041309~Amet~Riya:Class 6/Rudra:Class 3~1|agarwal~Rohit Agarwal~9829041052~Kelwa~Mohit:Class 9/Prisha:Class 8~0|chouhan~Prem Chouhan~9829041241~Amet~Nidhi:Class 7/Siya:Class 4~1|regar~Mukesh Regar~9829041733~Amet~Priya:Class 5~0|verma~Sanjay Verma~9829041187~Amet~Kunal:Class 4~0|mehta~Dinesh Mehta~9829040933~Amet~Pooja:11 Commerce~0')
+.map(r=>({id:r[0],father:r[1],phone:r[2],village:r[3],kids:r[4].split('/').map(k=>k.split(':')),disc:r[5]==='1'}));
+const HIST=rows('Imported 184 rows from Admissions_June.xlsx~Janmejay~3 Jul|Merged two Sharma families~Office desk~22 Sep|Fixed 12 phone numbers~Office desk~18 Sep|Promoted 2025–26 to 2026–27 · 401 students~Janmejay~1 Apr');
+const ORD='Nursery LKG UKG 1 2 3 4 5 6 7 8 9 10 11 12'.split(' ');
+this._d={IC,CL,TO,KIDS,COLS,FIELDS,ERR,WARN,QG,QR,FAMS,HIST,ORD};
+return this._d;
+}
+st(){
+const start=(this.props||{}).start||'hub';
+const base={screen:'hub',anim:'none',open:-1,pst:{},strm:{},phase:'done',promoted:false,file:'',sheetSel:0,map:{},pickCol:-1,pickSel:'',vtab:'err',fx:{},fv:{},ferr:{},imported:false,qd:{},ql:{},qopen:{phone:true},qv:{},qe:{},asked:{},fq:'',disc:{},hide:{},add:{},newFam:[],msel:[],sfam:'singh',skid:'Rudra',sname:'',serr:false,sheet:'',closing:false,toast:null,hist:[]};
+const full={7:'village',8:'route',9:'skip'};
+const map={
+promote:{screen:'promote',open:0},'promote-review':{screen:'review'},promoted:{screen:'promoted',promoted:true},
+import:{screen:'import',file:'ready'},mapping:{screen:'mapping',file:'ready'},validate:{screen:'validate',file:'ready',map:full},
+imported:{screen:'imported',imported:true,map:full,fx:{e1:'skip',e2:'skip',e3:'skip'}},quality:{screen:'quality'},families:{screen:'families'},
+merge:{screen:'families',sheet:'merge',msel:['kum1','kum2']}
+};
+return Object.assign(base,map[start]||{},this.state||{});
+}
+inr(n){return(n<0?'−₹':'₹')+Math.abs(Math.round(n)).toLocaleString('en-IN');}
+mask(p){const d=String(p||'').replace(/\D/g,'');return d.length>=10?d.slice(0,5)+' ••'+d.slice(-3):(d||'—');}
+av(n){const t=[['var(--accs)','var(--accfg)'],['var(--infos)','var(--info)'],['var(--oks)','var(--ok)'],['var(--warns)','var(--warnfg)'],['var(--s3)','var(--fg)']][String(n).length % 5];return{ini:String(n).split(' ').map(w=>w[0]).slice(0,2).join(''),abg:t[0],afg:t[1]};}
+S(o){this.setState(o);}
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.S({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.S({toast:null});},4500);
+}
+undoToast(){const f=this._undo;this._undo=null;this.S({toast:null});if(f)f();}
+openSheet(name,extra){clearTimeout(this._ct);this.S(Object.assign({sheet:name,closing:false},extra||{}));}
+closeSheet(){
+if(!this.st().sheet)return;
+this.S({closing:true});
+clearTimeout(this._ct);
+this._ct=setTimeout(()=>this.S({sheet:'',closing:false}),240);
+}
+go(screen,anim){this.S({screen,anim:anim||'push',sheet:''});}
+log(text){this.S({hist:[{text,who:'Janmejay',when:'Just now',dot:'var(--acc)'}].concat(this.st().hist)});}
+run(o){this.S(Object.assign({phase:'run',anim:'push'},o));clearTimeout(this._rt);this._rt=setTimeout(()=>this.S({phase:'done'}),1800);}
+rank(c){const m=/\d+/.exec(c);return m?+m[0]+2:this.data().ORD.indexOf(c);}
+back(){
+const s=this.st(),to={review:'promote',mapping:'import',validate:'mapping'}[s.screen]||'hub';
+this.go(to,'pop');
+}
+renderVals(){
+const D=this.data(),s=this.st(),IC=D.IC,inr=n=>this.inr(n),yes=b=>(b?'true':'false');
+const dl=i=>(Math.min(i,14)*30)+'ms';
+const A={push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both'}[s.anim]||'none';
+const TW=['var(--warns)','var(--warnfg)'],TO=['var(--oks)','var(--ok)'],TS=['var(--s2)','var(--mut)'],TA=['var(--accs)','var(--accfg)'],TI=['var(--infos)','var(--info)'],TB=['var(--bads)','var(--bad)'];
+const chip=(o,cur,pick)=>o.map(x=>({label:x[1],cls:cur===x[0]?'on':'',pressed:yes(cur===x[0]),pick:()=>pick(x[0])}));
+const pill=(t,c)=>({t,bg:c[0],fg:c[1]});
+const stOf=k=>s.pst[k.k]||k.st,strOf=k=>s.strm[k.k]||k.stream;
+const all=[].concat.apply([],D.KIDS.map((ks,ci)=>ks.map(k=>({k,ci,st:stOf(k)}))));
+const cnt=f=>all.filter(f).length;
+const T={up:cnt(x=>x.ci<16&&x.st==='p'),pass:cnt(x=>x.ci>=16&&x.st==='p'),held:cnt(x=>x.st==='h'),left:cnt(x=>x.st==='l')};
+const S10={S:0,C:0,A:0};
+D.KIDS[12].forEach(k=>{if(stOf(k)==='p')S10[strOf(k)]+=1;});
+const sumChips=[pill(T.up+' move up',TO),pill(T.held+' held back',TW),pill(T.left+' leaving',TB),pill(T.pass+' passed out',TI)];
+const pr=D.CL.map((c,ci)=>{
+const ks=D.KIDS[ci],open=s.open===ci,n=st=>ks.filter(k=>stOf(k)===st).length,up=n('p'),h=n('h'),l=n('l'),x12=ci>=16;
+return{
+from:c[0],to:ci===12?'Class 11 · '+S10.S+' Sci · '+S10.C+' Com · '+S10.A+' Arts':D.TO[ci],n:String(ks.length),up:String(up),held:h?String(h):'—',left:l?String(l):'—',hc:h?'var(--warnfg)':'var(--sub)',lc:l?'var(--bad)':'var(--sub)',
+msum:up+(x12?' pass':' up')+(h?' · '+h+' held':'')+(l?' · '+l+' leave':''),open,exp:yes(open),rot:open?'180deg':'0deg',bd:ci?'1px solid var(--bd)':'0',
+toggle:()=>this.S({open:this.st().open===ci?-1:ci}),
+help:x12?'Ticked students pass out after the board result. Untick anyone who will repeat Class 12.':(ci===12?'Ticked students go to Class 11 — pick each one’s stream. Untick anyone held back or leaving.':'Ticked students move to '+D.TO[ci]+'. Untick anyone held back or leaving.'),
+kids:open?ks.map((k,i)=>{
+const st=stOf(k),on=st==='p',opts=on?(ci===12?chip([['S','Science'],['C','Commerce'],['A','Arts']],strOf(k),v=>{const m=Object.assign({},this.st().strm);m[k.k]=v;this.S({strm:m});}):[]):(x12?[]:chip([['h','Held back'],['l','Leaving']],st,v=>{const m=Object.assign({},this.st().pst);m[k.k]=v;this.S({pst:m});}));
+return{name:k.name,note:on?'':(k.note||(st==='h'?(x12?'Repeats Class 12':'Stays in '+c[0]):'Leaves on 31 Mar')),on:yes(on),ticked:on,cls:on?'on':'',bc:on?'var(--bd)':(st==='l'?'var(--bad)':'var(--warn)'),hasOpts:opts.length>0,opts,delay:dl(i),
+tick:()=>{const m=Object.assign({},this.st().pst);m[k.k]=on?'h':'p';this.S({pst:m});}};
+}):[]
+};
+});
+const listOf=st=>all.filter(x=>x.st===st).map(x=>({name:x.k.name,sub:st==='h'?'Stays in '+D.CL[x.ci][0]:D.CL[x.ci][0]+' · '+(x.k.note||'leaves on 31 Mar')}));
+const rv={
+n:String(T.up+T.pass),streams:'Class 10 → 11: Science '+S10.S+' · Commerce '+S10.C+' · Arts '+S10.A,
+kpis:[['Move up a class',T.up,'var(--c1)','Into their next class'],['Passed out',T.pass,'var(--c2)','Class 12 · after board result'],['Held back',T.held,'var(--c3)','Stay in the same class'],['Leaving',T.left,'var(--bad)','Leave the roll on 31 Mar']].map((k,i)=>({label:k[0],v:String(k[1]),c:k[2],sub:k[3],w:(k[1]/434*100).toFixed(1)+'%',delay:dl(i)})),
+lists:[{t:'Held back · '+T.held,rows:listOf('h')},{t:'Leaving · '+T.left,rows:listOf('l')}],
+ask:()=>this.openSheet('confirm')
+};
+const ready=s.file==='ready';
+const im={
+reading:s.file==='reading',ready,dz:ready?'var(--acc)':'var(--bds)',dzbg:ready?'var(--accs)':'var(--card)',icon:ready?IC.check:IC.upload,ianim:ready?'xPopIn .45s var(--spring) both':'none',
+title:ready?'File read · drop another to replace':(s.file==='reading'?'Reading the file…':'Drop an Excel file here, or tap to choose'),
+pick:()=>{this.S({file:'reading'});clearTimeout(this._ft);this._ft=setTimeout(()=>this.S({file:'ready'}),700);},
+clear:()=>this.S({file:''}),tpl:()=>this.toast('VPPS_students_template.xlsx downloaded'),
+sheets:[['July admissions','186 rows · 10 columns'],['Bus list','52 rows · 4 columns'],['Notes','4 rows · 2 columns']].map((r,i)=>({name:r[0],sub:r[1],on:yes(s.sheetSel===i),cls:s.sheetSel===i?'on':'',pick:()=>this.S({sheetSel:i})})),
+op:ready?'1':'0.5',next:()=>(this.st().file==='ready'?this.go('mapping'):this.toast('Choose a file first'))
+};
+const fname=k=>(D.FIELDS.filter(f=>f[0]===k)[0]||['',''])[1];
+const fieldOf=i=>(s.map[i]!==undefined?s.map[i]:D.COLS[i][1]);
+const open=D.COLS.map((c,i)=>i).filter(i=>!fieldOf(i));
+const pickIt=i=>this.openSheet('pick',{pickCol:i,pickSel:fieldOf(i)||D.COLS[i][4]||''});
+const mp={
+head:'Matched '+(10-open.length)+' of 10 columns',pill:open.length?open.length+' to pick':'All set',pbg:open.length?TW[0]:TO[0],pfg:open.length?TW[1]:TO[1],
+rows:D.COLS.map((c,i)=>{const f=fieldOf(i),mine=s.map[i]!==undefined,t=mine?(f==='skip'?TS:TA):({Exact:TO,Likely:TI,Pick:TW}[c[2]]);return{col:c[0],sample:c[3],field:f?fname(f):'Pick a field…',fb:f?'var(--bds)':'var(--warn)',fc:f==='skip'?'var(--mut)':'var(--fg)',conf:mine?(f==='skip'?'Left out':'You picked'):c[2],pbg:t[0],pfg:t[1],panim:mine?'xPopIn .4s var(--spring) both':'none',bd:i?'1px solid var(--bd)':'0',delay:dl(i),pick:()=>pickIt(i)};}),
+hint:open.length?open.length+' columns still need a place':'All columns have a place',
+nextLabel:open.length?'Match '+open.length+' more':'Next: check rows',next:()=>(open.length?pickIt(open[0]):this.go('validate'))
+};
+const pc=D.COLS[s.pickCol]||D.COLS[7];
+const usedBy=k=>D.COLS.map((c,i)=>i).filter(i=>i!==s.pickCol&&fieldOf(i)===k&&k!=='skip'&&k!=='note').map(i=>D.COLS[i][0])[0];
+const fxv=id=>s.fx[id];
+const errOpen=D.ERR.filter(r=>!fxv(r[0])).length,warnOpen=D.WARN.filter(r=>!fxv(r[0])).length;
+const fixedW=D.WARN.filter(r=>fxv(r[0])==='fixed'||fxv(r[0])==='kept').length,fixedE=D.ERR.filter(r=>fxv(r[0])==='fixed').length,skipped=D.ERR.filter(r=>fxv(r[0])==='skip').length;
+const nImp=174+fixedW+fixedE;
+const setFx=(id,v)=>{const m=Object.assign({},this.st().fx);m[id]=v;this.S({fx:m});};
+const rowVM=(r,i,isErr)=>{
+const st=fxv(r[0]),kind=r[4],val=s.fv[r[0]]!==undefined?s.fv[r[0]]:'';
+return{row:r[1],name:r[2],prob:r[3],pc:isErr?'var(--bad)':'var(--warnfg)',done:!!st,open:!st,state:{fixed:'Fixed',kept:'Kept as is',skip:'Skipped'}[st]||'',sbg:st==='skip'?TS[0]:TO[0],sfg:st==='skip'?TS[1]:TO[1],delay:dl(i),
+hasSug:kind==='s',sug:r[5],useSug:()=>setFx(r[0],'fixed'),hasInput:kind==='i',v:val,ph:r[5],err:s.ferr[r[0]]?'err':'',
+onV:ev=>{const m=Object.assign({},this.st().fv),e=Object.assign({},this.st().ferr);m[r[0]]=ev.target.value;e[r[0]]=false;this.S({fv:m,ferr:e});},
+save:()=>{const v=String(this.st().fv[r[0]]||'').trim(),ok=/phone/.test(r[5])?v.replace(/\D/g,'').length===10:v.length>1;const e=Object.assign({},this.st().ferr);e[r[0]]=!ok;this.S({ferr:e});if(ok)setFx(r[0],'fixed');},
+skipLabel:isErr?'Skip this row':'Keep as is',skip:()=>setFx(r[0],isErr?'skip':'kept')};
+};
+const C3=2*Math.PI*42,seg3=[[nImp,'var(--ok)','Ready to import'],[warnOpen,'var(--warn)','Warnings · can fix later'],[errOpen,'var(--bad)','Errors · fix or skip'],[skipped,'var(--bds)','Skipped']];
+let acc=0;
+const tabs=[['err','Errors · '+errOpen],['warn','Warnings · '+warnOpen],['ok','Ready · '+nImp]],ti=Math.max(0,tabs.map(t=>t[0]).indexOf(s.vtab));
+const sugW=D.WARN.filter(r=>r[4]==='s'&&!fxv(r[0]));
+const vl={
+head:errOpen?errOpen+(errOpen===1?' row needs':' rows need')+' you before importing':'Ready to import',thumb:(ti*100)+'%',
+ring:seg3.map(g=>{const len=g[0]/186*C3,o={c:g[1],dash:len.toFixed(1)+' '+C3.toFixed(1),off:(-acc).toFixed(1)};acc+=len;return o;}),
+legend:seg3.filter(g=>g[0]>0||g[2][0]!=='S').map(g=>({c:g[1],label:g[2],n:String(g[0])})),
+tabs:tabs.map(t=>({label:t[1],cls:s.vtab===t[0]?'tap on':'tap',pressed:yes(s.vtab===t[0]),pick:()=>this.S({vtab:t[0]})})),
+rows:s.vtab==='err'?D.ERR.map((r,i)=>rowVM(r,i,true)):(s.vtab==='warn'?D.WARN.map((r,i)=>rowVM(r,i,false)):'Ishita Kumawat~Rohan Sen~Mahi Choudhary~Aryan Jain~Kiara Solanki~Tanmay Vyas'.split('~').map((n,i)=>({row:String(i+2),name:n,prob:'All fields look right',pc:'var(--ok)',done:true,open:false,state:'Ready',sbg:TO[0],sfg:TO[1],delay:dl(i),hasSug:false,sug:'',useSug:()=>{},hasInput:false,v:'',ph:'',err:'',onV:()=>{},save:()=>{},skipLabel:'',skip:()=>{}}))),
+more:s.vtab==='ok',moreText:'and '+(nImp-6)+' more rows ready',
+hasAll:s.vtab==='warn'&&sugW.length>0,allText:sugW.length+' warnings have a sure fix — like “6th” → “Class 6”.',allLabel:'Fix all '+sugW.length,
+fixAll:()=>{const before=this.st().fx,m=Object.assign({},before);sugW.forEach(r=>{m[r[0]]='fixed';});this.S({fx:m});this.toast(sugW.length+' rows fixed with suggestions',()=>this.S({fx:before}));},
+n:String(nImp),op:errOpen?'0.5':'1',hc:errOpen?'var(--bad)':'var(--mut)',
+hint:errOpen?'Fix or skip '+(errOpen===1?'the row':'the '+errOpen+' rows')+' with errors to continue':(warnOpen?warnOpen+(warnOpen===1?' row':' rows')+' with warnings wait in Data quality — you can fix them later':'Everything is ready'),
+go:()=>{if(errOpen){this.S({vtab:'err'});this.toast('Fix or skip the rows with errors first');return;}this.run({screen:'imported',imported:true});this.log('Imported '+nImp+' rows from Admissions_July.xlsx');}
+};
+const isP=s.screen==='promoted';
+const res=isP?{
+runLabel:'Moving students to 2027–28…',runSub:'Nursery → LKG, LKG → UKG … Class 12 → Passed out',
+title:T.up+' students promoted to 2027–28',sub:'Done by Janmejay · Thu 8 Oct, 11:42 am',chips:[pill(T.pass+' passed out',TI),pill(T.held+' held back',TW),pill(T.left+' left the roll',TB)],
+view:'Open class lists',undoLabel:'Undo promotion',note:'Undo works for 10 minutes, until 11:52 am. Pending fees did not change.',
+undo:()=>{this.S({promoted:false,screen:'review',anim:'pop'});this.toast('Promotion undone · everyone is back in 2026–27');}
+}:{
+runLabel:'Importing '+nImp+' students…',runSub:'Making records, linking families, setting fee plans',
+title:nImp+' students imported',sub:'From Admissions_July.xlsx · by Janmejay',chips:[pill(warnOpen+' kept aside in Data quality',TW),pill(skipped+' rows skipped',TS)].filter(c=>!/^0/.test(c.t)),
+view:'View imported students',undoLabel:'Undo import',note:'Undo works for 10 minutes. After that, remove students one by one.',
+undo:()=>{this.S({imported:false,screen:'validate',anim:'pop'});this.toast('Import undone · '+nImp+' students removed');}
+};
+Object.assign(res,{run:s.phase==='run',done:s.phase!=='run'});
+const qGroups=D.QG.map((g,gi)=>{
+const key=g[0],rows=D.QR[key],total=key==='photo'?41:rows.length,isOpen=!!s.qopen[key];
+const live=rows.map((r,i)=>({r,id:key+i})).filter(x=>!s.qd[x.id]);
+const fixedHere=rows.length-live.length,left=total-fixedHere;
+const asked=!!s.asked[key],hasAll=!!g[6]&&!(key!=='phone'&&key!=='dup'&&asked)&&live.length>0;
+const tone=key==='photo'?TS:(key==='dup'||key==='age'?TW:TB);
+const done=(ids,label)=>{const before={qd:this.st().qd,ql:this.st().ql},l=Object.assign({},before.ql);ids.forEach(id=>{l[id]=true;});this.S({ql:l});setTimeout(()=>{const d=Object.assign({},this.st().qd);ids.forEach(id=>{d[id]=1;});this.S({qd:d});},460);if(label)this.toast(label,()=>this.S(before));};
+return{
+title:g[1],icon:IC[g[2]],bg:tone[0],fg:tone[1],count:String(left),sub:g[3],open:isOpen,exp:yes(isOpen),rot:isOpen?'180deg':'0deg',delay:dl(gi),panim:fixedHere?'xPopIn .4s var(--spring) both':'none',
+toggle:()=>{const o=Object.assign({},this.st().qopen);o[key]=!o[key];this.S({qopen:o});},
+hasAll,allLabel:g[6]+(key==='phone'?' ('+live.filter(x=>x.r[2]).length+')':''),allHint:g[7],
+all:()=>{
+if(key==='phone'){const ids=live.filter(x=>x.r[2]).map(x=>x.id);done(ids,ids.length+' phone numbers copied from sibling families');}
+else if(key==='dup'){const ids=live.filter(x=>x.r[2]).map(x=>x.id);done(ids,ids.length+' duplicate pairs merged · fees and receipts kept');}
+else if(key==='mother')this.openSheet('ask');
+else{const a=Object.assign({},this.st().asked);a[key]=true;this.S({asked:a});this.toast(key==='dob'?'Sent to 5 class teachers on Sampark':'Photo request sent to class teachers on Sampark');}
+},
+rows:(key==='photo'?live.slice(0,4):live).map(x=>{
+const id=x.id,inp=g[4]==='i',v=s.qv[id]!==undefined?s.qv[id]:'';
+return{name:x.r[0],sub:x.r[1]+(key==='phone'&&x.r[2]?' · sibling family has '+this.mask(x.r[2]):''),hasInput:inp,v,ph:g[5],err:s.qe[id]?'err':'',hasTag:asked&&key!=='phone',tag:key==='mother'?'Asked on WhatsApp':'Teacher asked',
+anim:s.ql[id]?'xLeave .5s var(--ease) forwards':'none',c1:inp?'sec':'soft',saveLabel:g[8],skipLabel:g[9],
+onV:ev=>{const m=Object.assign({},this.st().qv),e=Object.assign({},this.st().qe);m[id]=ev.target.value;e[id]=false;this.S({qv:m,qe:e});},
+save:()=>{if(inp){const val=String(this.st().qv[id]||'').trim(),ok=key==='phone'?val.replace(/\D/g,'').length===10:(key==='mother'?val.length>2:/^\d{1,2}[-\/.]\d{1,2}[-\/.]\d{4}$/.test(val));const e=Object.assign({},this.st().qe);e[id]=!ok;this.S({qe:e});if(!ok)return;}done([id],'');},
+skip:()=>done([id],'')};
+}),
+hasMore:key==='photo'&&live.length>4,more:'and '+(left-4)+' more students without a photo',empty:live.length===0
+};
+});
+const qDone=Object.keys(s.qd).filter(k=>k.indexOf('photo')!==0).length;
+const q={groups:qGroups,head:qDone+' of 23 fixed',pct:Math.round(qDone/23*100)+'%',w:(qDone/23*100).toFixed(1)+'%',sub:(23-qDone)+' left · photos (41) are low priority and counted apart. Skipped items come back next month.'};
+const fams=s.newFam.concat(D.FAMS).filter(f=>!s.hide[f.id]).map(f=>Object.assign({},f,{kids:f.kids.filter(k=>!(s.hide[f.id+':'+k[0]])).concat(s.add[f.id]||[])}));
+const fq=String(s.fq||'').trim().toLowerCase();
+const shown=fams.filter(f=>!fq||(f.father+' '+f.phone+' '+f.kids.map(k=>k[0]).join(' ')).toLowerCase().indexOf(fq)>=0);
+const discOn=f=>(s.disc[f.id]!==undefined?s.disc[f.id]:(f.disc||f.kids.length>1&&!!s.add[f.id]));
+const youngest=f=>f.kids.slice().sort((a,b)=>this.rank(a[1])-this.rank(b[1]))[0];
+const yearly=c=>[17400,20400,25800,31200,34800][[2,7,10,12,99].findIndex(x=>this.rank(c)<=x)];
+const fa={
+q:s.fq,onQ:ev=>this.S({fq:ev.target.value}),
+stats:[pill((212-Object.keys(s.hide).filter(k=>k.indexOf(':')<0).length+s.newFam.length)+' families',TS),pill('41 with brothers or sisters',TA),pill('Sibling discount on · '+fams.filter(f=>f.kids.length>1&&discOn(f)).length+' in this list',TO)],
+rows:shown.map((f,i)=>{const on=discOn(f),multi=f.kids.length>1;return Object.assign(this.av(f.father),{father:f.father,line:this.mask(f.phone)+' · '+f.village,kids:f.kids.map(k=>k[0]+' · '+k[1]),multi,single:!multi,on:yes(on),swc:on?'on':'',bd:i?'1px solid var(--bd)':'0',anim:f.fresh||s.add[f.id]?'xPopIn .45s var(--spring) both':'xIn .3s var(--ease) both',
+toggle:()=>{const before=this.st().disc,d=Object.assign({},before);d[f.id]=!on;this.S({disc:d});const y=youngest(f);this.toast('Sibling discount '+(on?'off':'on')+' for '+y[0]+' · '+(on?'+':'−')+inr(yearly(y[1])*0.1)+' a year, from the next installment',()=>this.S({disc:before}));}});}),
+empty:shown.length===0,foot:'Showing '+shown.length+' of 212 families · search to find the rest',
+merge:()=>this.openSheet('merge',{msel:[]}),split:()=>this.openSheet('split',{sname:'',serr:false})
+};
+const multi=fams.filter(f=>f.kids.length>1);
+const sf=multi.filter(f=>f.id===s.sfam)[0]||multi[0];
+const sk=sf?(sf.kids.filter(k=>k[0]===s.skid)[0]||sf.kids[sf.kids.length-1]):null;
+const sp={kids:sf?chip(sf.kids.map(k=>[k[0],k[0]+' · '+k[1]]),sk[0],v=>this.S({skid:v})):[],name:s.sname,err:s.serr?'err':'',onName:ev=>this.S({sname:ev.target.value,serr:false})};
+const msel=s.msel.map(id=>fams.filter(f=>f.id===id)[0]).filter(Boolean);
+const close=()=>this.closeSheet();
+const sh={
+confirm:{title:'Promote '+(T.up+T.pass)+' students to 2027–28?',sub:'This is what will happen',b1:'Not yet',b2:'Promote now',c2:'pri',list:true,
+items:[[IC.trend,TO,T.up+' students move up a class. Class 10 goes to Class 11 by stream.'],[IC.grad,TI,T.pass+' Class 12 students are marked Passed out.'],[IC.flag,TW,T.held+' stay in their class and '+T.left+' leave the roll on 31 Mar 2027.'],[IC.rupee,TW,'Pending fees stay with each student. Nothing is waived.'],[IC.undo,TS,'You can undo for 10 minutes.']],
+f2:()=>{this.closeSheet();this.run({screen:'promoted',promoted:true});this.log('Promoted 2026–27 to 2027–28 · '+(T.up+T.pass)+' students');}},
+pick:{title:'Where does “'+pc[0]+'” go?',sub:'Samples: '+pc[3],b1:'Cancel',b2:'Use this field',c2:'pri',radio:true,
+opts:D.FIELDS.map(f=>{const by=usedBy(f[0]),on=s.pickSel===f[0];return{label:f[1],sub:by?'Already used by “'+by+'”':(f[0]===pc[4]?'Suggested for this column':(f[0]==='skip'?'The column is left out of the import':'')),on:yes(on),cls:on?'on':'',role:'radio',mark:'ring',ticked:false,op:by?'0.5':'1',hasPill:f[0]===pc[4],pill:'Best match',pick:()=>(by?this.toast('“'+f[1]+'” already has “'+by+'”'):this.S({pickSel:f[0]}))};}),
+f2:()=>{const c=this.st();if(!c.pickSel){this.toast('Pick a field first');return;}const m=Object.assign({},c.map);m[c.pickCol]=c.pickSel;this.S({map:m});this.closeSheet();}},
+merge:{title:'Merge two families',sub:'Pick the two records that are really one family',b1:'Cancel',b2:'Merge families',c2:'pri',radio:true,wide:'wide',op:msel.length===2?'1':'0.5',
+opts:fams.slice().sort((a,b)=>(b.id.indexOf('kum')===0)-(a.id.indexOf('kum')===0)).slice(0,8).map(f=>{const on=s.msel.indexOf(f.id)>=0;return{label:f.father+' · '+f.kids.map(k=>k[0]).join(', '),sub:this.mask(f.phone)+' · '+f.village+' · '+f.kids.map(k=>k[1]).join(', '),on:yes(on),cls:on?'on':'',role:'checkbox',mark:'cc box',ticked:on,op:'1',hasPill:f.id.indexOf('kum')===0,pill:'Same phone',pick:()=>{const c=this.st().msel;this.S({msel:on?c.filter(x=>x!==f.id):c.concat([f.id]).slice(-2)});}};}),
+prev:msel.length===2,pHead:msel.length===2?'After merging: '+msel[0].father+' · '+msel[0].kids.concat(msel[1].kids).map(k=>k[0]+' ('+k[1]+')').join(', '):'',
+pText:msel.length===2?(()=>{const y=youngest({kids:msel[0].kids.concat(msel[1].kids)});return 'Sibling discount turns on: 10% off '+y[0]+'’s academic fee, '+inr(yearly(y[1])*0.1)+' less a year. Receipts and pending fees stay with each child.';})():'',pbg:TO[0],pfg:TO[1],
+f2:()=>{const c=this.st();if(msel.length!==2){this.toast('Pick two families');return;}const before={hide:c.hide,add:c.add},h=Object.assign({},c.hide),ad=Object.assign({},c.add);h[msel[1].id]=true;ad[msel[0].id]=(ad[msel[0].id]||[]).concat(msel[1].kids);this.S({hide:h,add:ad,fq:''});this.closeSheet();this.log('Merged two '+msel[0].father.split(' ')[1]+' families');this.toast('Families merged · sibling discount on',()=>this.S(before));}},
+split:{title:'Split a child into a new family',sub:'For a child linked to the wrong family',b1:'Cancel',b2:'Split',c2:'pri',radio:true,split:true,
+opts:multi.slice(0,6).map(f=>{const on=sf&&f.id===sf.id;return{label:f.father,sub:f.kids.map(k=>k[0]+' · '+k[1]).join(', '),on:yes(on),cls:on?'on':'',role:'radio',mark:'ring',ticked:false,op:'1',hasPill:false,pill:'',pick:()=>this.S({sfam:f.id,skid:f.kids[f.kids.length-1][0]})};}),
+prev:!!sk,pHead:sk?(sf.kids.length===2?'Sibling discount stops for this family':'The family keeps its discount'):'',pText:sk?sk[0]+' gets a new family record. '+(sf.kids.length===2?'The 10% discount ends from the next installment ('+inr(yearly(youngest(sf)[1])*0.1)+' a year more).':'')+' Receipts stay with '+sk[0]+'.':'',pbg:TW[0],pfg:TW[1],
+f2:()=>{const c=this.st();if(String(c.sname||'').trim().length<3){this.S({serr:true});return;}const before={hide:c.hide,newFam:c.newFam},h=Object.assign({},c.hide);h[sf.id+':'+sk[0]]=true;this.S({hide:h,newFam:[{id:'new'+c.newFam.length,father:c.sname.trim(),phone:'',village:sf.village,kids:[sk],disc:false,fresh:true}].concat(c.newFam),fq:''});this.closeSheet();this.toast(sk[0]+' moved to a new family',()=>this.S(before));}},
+ask:{title:'Ask parents for the mother’s name',sub:'5 parents · WhatsApp · Hindi first',b1:'Not now',b2:'Send 5 · ₹4.40',c2:'pri',wa:true,
+f2:()=>{const a=Object.assign({},this.st().asked);a.mother=true;this.S({asked:a});this.closeSheet();this.toast('Sent to 5 parents · ₹4.40 · replies fill the names');}}
+}[s.sheet]||{title:'',sub:'',b1:'Close',b2:'Done',c2:'pri',f2:close};
+sh.wide=sh.wide||'';sh.op=sh.op||'1';
+sh.items=(sh.items||[]).map((r,i)=>({icon:r[0],bg:r[1][0],fg:r[1][1],t:r[2],delay:dl(i)}));
+sh.opts=sh.opts||[];
+['pHead','pText','pbg','pfg'].forEach(k=>{sh[k]=sh[k]||'transparent';});
+const qLeft=23-qDone;
+const tools=[
+{icon:IC.grad,t:TA,title:'Year-end promotion',desc:'Move every class up for 2027–28',status:s.promoted?'Promoted · undo until 11:52 am':'Opens after annual results — prepare now',p:s.promoted?pill('Done',TO):pill('March',TS),go:()=>this.go(s.promoted?'promoted':'promote')},
+{icon:IC.upload,t:TI,title:'Import from Excel',desc:'Add many students from one sheet',status:s.imported?'Imported today · '+nImp+' rows':'Last import 3 Jul · 184 rows',p:pill(s.imported?'Today':'3 Jul',s.imported?TO:TS),go:()=>this.go(s.imported?'imported':'import')},
+{icon:IC.shield,t:TW,title:'Data quality',desc:'Fill gaps and fix mistakes, row by row',status:qLeft+' things to fix · '+Math.round(qDone/23*100)+'% done',p:pill('+41 photos',TS),ring:true,go:()=>this.go('quality')},
+{icon:IC.users,t:TO,title:'Families',desc:'Brothers and sisters, merge and split',status:'212 families · 41 with siblings',p:pill('Discounts',TS),go:()=>this.go('families')}
+].map((x,i)=>({icon:x.icon,bg:x.t[0],fg:x.t[1],title:x.title,desc:x.desc,status:x.status,pill:x.p.t,pbg:x.p.bg,pfg:x.p.fg,ring:!!x.ring,dash:(Math.max(0.04,qLeft/23)*94.3).toFixed(1),delay:dl(i),go:x.go}));
+const hist=s.hist.concat(D.HIST.map(h=>({text:h[0],who:h[1],when:h[2],dot:'var(--c4)'}))).map((h,i)=>Object.assign({},h,{delay:dl(i)}));
+const scr=s.screen;
+const TT={hub:['Promote & import','Students · Session 2026–27','4 tools · '+qLeft+' things to fix'],promote:['Promote to 2027–28','Promote & import · Year-end','Step 1 of 2 · check each class'],review:['Check and promote','Promote & import · Year-end','Step 2 of 2 · '+(T.up+T.pass)+' students'],promoted:['Promotion','Promote & import','2026–27 → 2027–28'],import:['Import from Excel','Promote & import · Import','Step 1 of 3 · choose a file'],mapping:['Match the columns','Promote & import · Import','Step 2 of 3 · Admissions_July.xlsx'],validate:['Check the rows','Promote & import · Import','Step 3 of 3 · 186 rows'],imported:['Import','Promote & import','Admissions_July.xlsx'],quality:['Data quality','Promote & import',qDone+' of 23 fixed'],families:['Families','Promote & import','212 families · 41 with siblings']}[scr]||['','',''];
+const top={title:TT[0],crumb:TT[1],sub:TT[2],mBackLink:scr==='hub',mBackBtn:scr!=='hub',backLabel:{review:'Back to classes',mapping:'Back to file',validate:'Back to columns'}[scr]||'Back to tools'};
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',
+is:{hub:scr==='hub',promote:scr==='promote',review:scr==='review',res:scr==='promoted'||scr==='imported',import:scr==='import',mapping:scr==='mapping',validate:scr==='validate',quality:scr==='quality',families:scr==='families'},
+top,anim:A,back:()=>this.back(),toReview:()=>this.go('review'),
+tools,hist,sumChips,pr,rv,res,im,mp,vl,q,fa,sp,sh,
+sheet:{open:!!s.sheet,list:!!sh.list,radio:!!sh.radio,split:!!sh.split,prev:!!sh.prev,wa:!!sh.wa,state:s.closing?'closing':'open'},closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

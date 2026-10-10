@@ -1,0 +1,11 @@
+[
+  {"file": "Messages.dc.html", "device": "desktop", "title": "Messages · sent"},
+  {"file": "DX-Messages-Detail.dc.html", "device": "desktop", "start": "detail", "title": "Delivery and who read it"},
+  {"file": "DX-Messages-Compose.dc.html", "device": "desktop", "start": "compose", "title": "New notice with live preview"},
+  {"file": "DX-Messages-Replies.dc.html", "device": "desktop", "start": "replies", "title": "Parent replies"},
+  {"file": "M-Messages.dc.html", "device": "phone", "start": "list", "title": "Messages"},
+  {"file": "M-Messages-Compose.dc.html", "device": "phone", "start": "compose", "title": "New notice"},
+  {"file": "M-Messages-Preview.dc.html", "device": "phone", "start": "preview", "title": "Preview and send"},
+  {"file": "M-Messages-Sending.dc.html", "device": "phone", "start": "sending", "title": "Sending"},
+  {"file": "M-Messages-Templates.dc.html", "device": "phone", "start": "template-new", "title": "New template"}
+]

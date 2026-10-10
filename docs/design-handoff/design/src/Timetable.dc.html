@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Timetable</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.xr{display:flex;align-items:center}.xc{display:flex;flex-direction:column}.xw{flex-wrap:wrap}.xf{flex:1;min-width:0}.xj{justify-content:space-between}.xi{flex:none;display:flex;align-items:center;justify-content:center}.xac{align-items:center}.xjc{justify-content:center}.xgd{display:grid}.xrl{position:relative}.xn0{min-width:0}.xf1{flex:1}.xoh{overflow:hidden}.xtc{text-align:center}
+.x4{gap:4px}.x6{gap:6px}.x8{gap:8px}.x10{gap:10px}.x12{gap:12px}.x14{gap:14px}
+.xm{font-size:12px;color:var(--mut)}.xs{font-size:13px}.xt{font-size:15px;font-weight:700}.xb{font-weight:700}.x6w{font-weight:600}.x11{font-size:11px}.xmu{color:var(--mut)}.xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xh{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}
+.xo{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.xa{flex:none;width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.xp{padding:14px 16px}.xq{width:40px;padding:0!important}.xl{width:100%;display:flex;align-items:center;gap:12px;border:0;background:transparent;color:var(--fg);text-align:left}
+.xd+.xd{border-top:1px solid var(--bd)}.xbt{border-top:1px solid var(--bd)}.xmb{margin-bottom:6px}
+.xst>*{animation:xIn .3s var(--ease) both}.xst>:nth-child(2){animation-delay:.04s}.xst>:nth-child(3){animation-delay:.08s}.xst>:nth-child(4){animation-delay:.12s}.xst>:nth-child(5){animation-delay:.16s}.xst>:nth-child(n+6){animation-delay:.2s}
+.xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}.xbar>span{height:100%;transition:width .5s var(--ease)}
+.xg circle{fill:none;stroke-linecap:round;stroke-width:inherit}.xg .q0{stroke:var(--s3)}.xg .q1{transform:rotate(-90deg);transform-origin:50% 50%;animation:xDraw .9s var(--ease) both;transition:stroke-dasharray .5s var(--ease)}
+.xsc{padding:16px 28px 40px;display:flex;flex-direction:column;gap:14px}
+.xlg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 0;font-size:13px}.xlg>i{width:10px;height:10px;margin-top:4px;border-radius:5px}
+.xsh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}.xsb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:14px}.xsf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}.xdt{flex:none;width:8px;height:8px;border-radius:4px}
+.xrd{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center}.xrd>span{width:10px;height:10px;border-radius:5px;background:var(--acc);transition:transform .25s var(--spring)}
+.xwa{padding:12px;border-radius:16px;background:var(--wabg);display:flex;flex-direction:column;gap:6px}.xwb{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;white-space:pre-line;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}
+.tg{display:grid;grid-template-columns:62px repeat(4,minmax(0,1fr)) 22px repeat(4,minmax(0,1fr));gap:6px;align-items:stretch}
+.tc{position:relative;min-height:58px;padding:7px 8px 6px 10px;border-radius:10px;display:flex;flex-direction:column;justify-content:center;gap:1px;text-align:left;color:var(--fg);min-width:0;overflow:hidden;border-left-width:3px!important}
+.tl{border-radius:8px;background:repeating-linear-gradient(135deg,var(--s3) 0 5px,transparent 5px 10px);opacity:.6}
+.tdt{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:4px}
+.tnow{flex:none;width:8px;height:8px;border-radius:4px;background:var(--acc);animation:xPulse 1.8s ease infinite}
+@container vx (max-width:899px){.tc{min-height:54px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+<div class="only-d" style="flex:none;height:100%"><dc-import name="XSide" active="timetable" role="{{role}}" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div class="xc" style="flex:1;min-width:0;min-height:0;position:relative">
+
+<header class="only-d glass xr x10" style="flex:none;height:64px;padding:0 28px;border-bottom:1px solid var(--bd);position:relative;z-index:5">
+<sc-if value="{{top.back}}"><button class="tap btn ghost xq" type="button" aria-label="Back" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<div class="xc xf"><span class="xm">{{top.crumb}}</span><span class="xh xe">{{top.title}}</span></div>
+<sc-for list="{{top.acts}}" as="a"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.go}}"><svg class="i" viewBox="0 0 24 24"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for>
+</header>
+<header class="only-m glass xr x4" style="flex:none;min-height:58px;padding:6px 8px;border-bottom:1px solid var(--bd);position:relative;z-index:5">
+<sc-if value="{{top.mLink}}"><a href="{{roleMenu}}" class="tap xi" aria-label="Back to menu" style="width:44px;height:44px;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.back}}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="xc xf" style="padding-left:2px"><span class="xe" style="font-size:17px;font-weight:700">{{top.mTitle}}</span><span class="xm xe">{{top.mSub}}</span></span>
+<sc-for list="{{top.mActs}}" as="a"><button class="tap btn soft" type="button" onClick="{{a.go}}" style="height:40px;padding:0 12px;font-size:13px"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for>
+</header>
+
+<main class="scroll" style="flex:1;min-height:0;position:relative">
+<sc-if value="{{tabs.show}}">
+<div class="pad" style="padding:16px 28px 0"><div class="seg mfull" style="grid-template-columns:repeat(4,minmax(0,1fr));width:560px;max-width:100%"><span class="thumb" style="width:calc((100% - 6px) / 4);transform:translateX({{tabs.thumb}})"></span><sc-for list="{{tabs.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}"><span class="only-d">{{o.label}}</span><span class="only-m">{{o.short}}</span></button></sc-for></div></div>
+</sc-if>
+
+<!-- class / teacher week -->
+<sc-if value="{{is.week}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="hs xr x6"><sc-for list="{{wk.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}"><span class="xdt" style="background:{{c.dot}}"></span>{{c.label}}</button></sc-for></div>
+<sc-for list="{{wk.notes}}" as="n"><button class="tap xno xl" type="button" onClick="{{n.go}}" style="background:{{n.bg}};color:{{n.fg}};animation:xIn .3s var(--ease) both"><svg class="i" viewBox="0 0 24 24"><path d="{{n.icon}}"></path></svg><span class="xf">{{n.t}}</span><b class="xr x4 xs">{{n.cta}}<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="{{ic.chevRight}}"></path></svg></b></button></sc-for>
+<sc-if value="{{wk.isT}}">
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px">
+<div class="card xr x14 xp">
+<div class="xrl" style="flex:none;width:76px;height:76px"><svg width="76" height="76" viewBox="0 0 100 100" class="xg" style="stroke-width:11"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:var(--acc);stroke-dasharray:{{wk.load.dash}};--len:{{wk.load.len}}"></circle></svg><span class="xo"><b class="num" style="font-size:20px;line-height:1">{{wk.load.n}}</b><span class="xm x11">of 48</span></span></div>
+<span class="xc xf"><span class="xt">{{wk.load.line}}</span><span class="xm">{{wk.load.sub}}</span>
+<span class="xr x6" style="align-items:flex-end;height:46px;margin-top:6px"><sc-for list="{{wk.load.bars}}" as="b"><span class="xc xac x4 xf1" style="height:100%;justify-content:flex-end"><span style="width:100%;max-width:26px;height:{{b.h}};border-radius:5px 5px 2px 2px;background:{{b.c}};transform-origin:bottom;animation:xGrowY .6s var(--ease) both;transition:height .4s var(--ease)"></span><span class="xm x11">{{b.d}}</span></span></sc-for></span></span>
+</div>
+<div class="card xc xp"><span class="sech xmb">Subs taken this week · {{wk.subsN}}</span><div class="xst"><sc-for list="{{wk.subs}}" as="l"><div class="xlg"><i style="background:{{l.dot}}"></i><span>{{l.text}}</span><span class="num xm">{{l.time}}</span></div></sc-for></div><sc-if value="{{wk.noSubs}}"><span class="xm">No cover periods taken this week.</span></sc-if></div>
+</div>
+</sc-if>
+<div class="card xp xc x10">
+<div class="xr xw xj x8"><span class="xs"><b>{{wk.title}}</b> · <span class="xmu">{{wk.info}}</span></span><span class="xr xw x10 xm hide-m"><sc-for list="{{wk.legend}}" as="l"><span class="xr x4"><span class="xdt" style="background:{{l.c}}"></span>{{l.t}}</span></sc-for></span></div>
+<div class="only-d xc x6">
+<div class="tg"><span></span><sc-for list="{{wk.heads}}" as="h"><sc-if value="{{h.isL}}"><span class="xm x11 xtc" style="writing-mode:vertical-rl;align-self:center">Lunch</span></sc-if><sc-if value="{{h.isP}}"><span class="xc xac" style="padding:2px 0 4px"><span class="xr x4 xb xs">{{h.p}}<sc-if value="{{h.now}}"><span class="tnow"></span></sc-if></span><span class="xm x11 num">{{h.time}}</span></span></sc-if></sc-for></div>
+<sc-for list="{{wk.rows}}" as="r">
+<div class="tg" style="padding:4px;margin:0 -4px;border-radius:14px;background:{{r.bg}}">
+<span class="xc xjc" style="padding-left:6px"><b class="xs" style="color:{{r.fg}}">{{r.day}}</b><span class="xm x11">{{r.date}}</span></span>
+<sc-for list="{{r.cells}}" as="c"><sc-if value="{{c.isL}}"><span class="tl"></span></sc-if><sc-if value="{{c.isP}}"><button class="tap tc" type="button" aria-label="{{c.aria}}" onClick="{{c.open}}" style="background:{{c.bg}};border:{{c.b}};border-left-color:{{c.bar}};animation:{{c.anim}}"><b class="xs xe">{{c.t1}}</b><span class="xm x11 xe">{{c.t2}}</span><span class="tdt" style="background:{{c.dot}};animation:{{c.pulse}}"></span></button></sc-if></sc-for>
+</div>
+</sc-for>
+</div>
+<div class="only-m xc x10">
+<div class="seg" style="grid-template-columns:repeat(6,minmax(0,1fr))"><span class="thumb" style="width:calc((100% - 6px) / 6);transform:translateX({{wk.thumb}})"></span><sc-for list="{{wk.days}}" as="o"><button class="{{o.cls}} xc xjc" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}" style="height:46px;line-height:1.15"><span>{{o.label}}</span><span class="x11" style="font-weight:500">{{o.date}}</span></button></sc-for></div>
+<sc-for list="{{wk.rows}}" as="r"><sc-if value="{{r.on}}"><div class="xc x8" style="animation:{{wk.dAnim}}">
+<sc-for list="{{r.cells}}" as="c"><sc-if value="{{c.isL}}"><div class="xr x8 xm" style="padding:2px 0"><span class="xf" style="height:1px;background:var(--bd)"></span>Lunch · 10:40–11:20<span class="xf" style="height:1px;background:var(--bd)"></span></div></sc-if><sc-if value="{{c.isP}}"><button class="tap xl" type="button" aria-label="{{c.aria}}" onClick="{{c.open}}" style="gap:10px"><span class="xc xac" style="flex:none;width:46px"><b class="xs xr x4">{{c.p}}</b><span class="xm x11 num">{{c.time}}</span></span><span class="tc xf" style="background:{{c.bg}};border:{{c.b}};border-left-color:{{c.bar}}"><b class="xe">{{c.t1}}</b><span class="xm xe">{{c.t2m}}</span><span class="tdt" style="background:{{c.dot}};animation:{{c.pulse}}"></span></span></button></sc-if></sc-for>
+</div></sc-if></sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- substitutions today -->
+<sc-if value="{{is.subs}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px">
+<div class="card xc xp"><span class="sech xmb">Away today · Thu 8 Oct</span><div class="xst"><sc-for list="{{sb.away}}" as="a"><div class="xr x12 xd" style="padding:8px 0"><span class="xa" style="background:{{a.abg}};color:{{a.afg}}">{{a.ini}}</span><span class="xc xf"><span class="x6w">{{a.name}}</span><span class="xm">{{a.why}}</span></span><span class="pill" style="background:var(--warns);color:var(--warnfg)">{{a.n}}</span></div></sc-for></div></div>
+<div class="card xr x14 xp">
+<div class="xrl" style="flex:none;width:76px;height:76px"><svg width="76" height="76" viewBox="0 0 100 100" class="xg" style="stroke-width:11"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:var(--ok);stroke-dasharray:{{sb.dash}};--len:{{sb.len}}"></circle></svg><span class="xo"><b class="num" style="font-size:18px;line-height:1">{{sb.frac}}</b><span class="xm x11">covered</span></span></div>
+<span class="xc xf x4"><span class="xt">{{sb.line}}</span><span class="xm">{{sb.sub}}</span></span>
+</div>
+</div>
+<sc-if value="{{sb.all}}"><div class="card xr x12 xp fadein" style="background:var(--oks);color:var(--ok);border-color:var(--okm)"><svg width="28" height="28" viewBox="0 0 24 24" style="flex:none;animation:xPopIn .5s var(--spring) both"><path d="M5 12.5l4.5 4.5L19 7.5" style="fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;--len:22;stroke-dasharray:22;animation:xDraw .45s .15s var(--ease) both"></path></svg><span class="xc"><b>Every period today is covered</b><span class="xs">All substitute teachers have been told on WhatsApp.</span></span></div></sc-if>
+<sc-for list="{{sb.needs}}" as="n">
+<div class="card xc xoh" style="animation:xIn .3s var(--ease) both">
+<div class="xr x12 xp">
+<span class="xi xc" style="width:54px;height:54px;border-radius:14px;background:{{n.pbg}};color:{{n.pfg}};transition:background-color .3s ease"><b>{{n.p}}</b><span class="x11 num">{{n.time}}</span></span>
+<span class="xc xf"><span class="xt">{{n.title}}</span><span class="xm">{{n.why}}</span></span>
+<sc-if value="{{n.now}}"><span class="pill" style="background:var(--accs);color:var(--accfg)"><span class="tnow"></span>Now</span></sc-if>
+<sc-if value="{{n.done}}"><span class="xr x6 xb xs" style="color:var(--ok);animation:xPopIn .45s var(--spring) both"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" style="fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;--len:22;stroke-dasharray:22;animation:xDraw .45s .15s var(--ease) both"></path></svg><span class="hide-m">{{n.by}}</span></span></sc-if>
+</div>
+<sc-if value="{{n.done}}"><div class="xr xj x8 xbt" style="padding:8px 16px;animation:xIn .3s var(--ease) both"><span class="xm">{{n.told}}</span><button class="tap btn ghost" type="button" onClick="{{n.change}}" style="height:36px">Change</button></div></sc-if>
+<sc-if value="{{n.open}}"><div class="xc xbt" style="padding:4px 16px 14px">
+<sc-for list="{{n.opts}}" as="o"><button class="tap xl xd" type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="min-height:52px;padding:8px 0"><span class="xrd" style="border-color:{{o.ring}}"><span style="transform:scale({{o.dot}})"></span></span><span class="xc xf"><span class="x6w">{{o.name}}</span><span class="xm">{{o.why}}</span></span><sc-if value="{{o.best}}"><span class="pill" style="background:var(--oks);color:var(--ok)">Best match</span></sc-if></button></sc-for>
+<div class="xr xw x8" style="margin-top:8px"><button class="tap btn pri mfull" type="button" onClick="{{n.assign}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.send}}"></path></svg>{{n.label}}</button><button class="tap btn ghost mfull" type="button" onClick="{{n.more}}">See all {{n.freeN}} free teachers</button><span class="xm">1 WhatsApp · ₹0.88</span></div>
+</div></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- teacher leave -->
+<sc-if value="{{is.leave}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="card xc x10 xp"><div class="xr xw xj x8"><span class="xt">Who is away · 5–18 Oct</span><span class="xr x10 xm"><span class="xr x4"><span class="xdt" style="background:var(--acc)"></span>Approved</span><span class="xr x4"><span class="xdt" style="border:1.5px dashed var(--warn)"></span>Asked</span></span></div>
+<div class="hs xr x6"><sc-for list="{{lv.strip}}" as="d"><div class="xc xac x4" style="flex:none;width:60px;padding:8px 4px;border-radius:12px;background:{{d.bg}};border:1px solid {{d.bd}};opacity:{{d.op}}"><span class="xm x11 xb">{{d.wd}}</span><b class="num">{{d.n}}</b><span class="xr" style="min-height:24px;padding-left:4px"><sc-for list="{{d.who}}" as="w"><span class="xa" title="{{w.name}}" style="width:24px;height:24px;font-size:9px;margin-left:-4px;border:{{w.bd}};background:{{w.bg}};color:{{w.fg}};animation:xPopIn .35s var(--spring) both">{{w.ini}}</span></sc-for></span></div></sc-for></div>
+</div>
+<span class="sech">Waiting for you · {{lv.pendN}}</span>
+<sc-for list="{{lv.pend}}" as="l"><div class="card xr xw x12 xp" style="animation:{{l.anim}}"><span class="xa" style="background:{{l.abg}};color:{{l.afg}}">{{l.ini}}</span><span class="xc xf" style="min-width:210px"><span class="x6w">{{l.name}} · {{l.dates}}</span><span class="xm">{{l.type}} · {{l.why}} · {{l.asked}}</span><span class="xs" style="color:var(--warnfg)">{{l.impact}}</span></span><span class="xr x8 mfull"><button class="tap btn ghost xf1" type="button" onClick="{{l.no}}">Decline</button><button class="tap btn pri xf1" type="button" onClick="{{l.ok}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>Approve</button></span></div></sc-for>
+<sc-if value="{{lv.noPend}}"><div class="card xc xac x6 fadein" style="padding:24px;text-align:center"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px;color:var(--ok)"><path d="{{ic.checkCircle}}"></path></svg><b>No leave requests waiting</b><span class="xm">New requests from teachers show up here.</span></div></sc-if>
+<span class="sech">Approved · coming up</span>
+<div class="card xst"><sc-for list="{{lv.ok}}" as="l"><div class="xr x12 xd" style="padding:12px 16px"><span class="xa" style="background:{{l.abg}};color:{{l.afg}}">{{l.ini}}</span><span class="xc xf"><span class="x6w">{{l.name}} · {{l.dates}}</span><span class="xm">{{l.type}} · {{l.why}}</span></span><span class="xm hide-m">{{l.by}}</span></div></sc-for></div>
+</div>
+</sc-if>
+
+<!-- publish changes -->
+<sc-if value="{{is.pub}}">
+<div class="pad xsc" style="max-width:880px;margin:0 auto;animation:{{anim}}">
+<sc-if value="{{pb.open}}">
+<div class="card xoh"><div class="xr xj x8" style="padding:12px 16px;background:var(--s2);border-bottom:1px solid var(--bd)"><span class="sech">Changes not published · {{pb.n}}</span><span class="xm">Teachers still see the old timetable</span></div>
+<div class="xst"><sc-for list="{{pb.rows}}" as="r"><div class="xr xw x12 xd" style="padding:12px 16px"><span class="xc" style="min-width:130px"><b>{{r.where}}</b><span class="xm num">{{r.when}}</span></span><span class="xr xw x8 xf" style="min-width:230px"><span class="pill" style="height:28px;padding:0 10px;font-size:12px;text-decoration:line-through;background:var(--s2);color:var(--mut)">{{r.from}}</span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub)"><path d="{{ic.arrowRight}}"></path></svg><span class="pill" style="height:28px;padding:0 10px;font-size:12px;background:{{r.bg}};color:var(--fg)">{{r.to}}</span></span><span class="xm">{{r.by}}</span><button class="tap btn ghost xq" type="button" aria-label="Drop this change" onClick="{{r.drop}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div></sc-for></div>
+<sc-if value="{{pb.none}}"><div class="xc xac x8" style="padding:26px;text-align:center"><b>Nothing waiting to publish</b><span class="xm">Tap any period in the class timetable to change it.</span><button class="tap btn sec" type="button" onClick="{{pb.toClass}}">Open class timetable</button></div></sc-if>
+</div>
+<div class="card xc x8 xp"><span class="sech">Starts from</span><div class="xr xw x6"><sc-for list="{{pb.effs}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+<button class="tap card xr x12 xp" type="button" role="switch" aria-checked="{{pb.tellOn}}" onClick="{{pb.toggle}}" style="width:100%;text-align:left;color:var(--fg)"><span class="xc xf"><span class="x6w">Tell affected teachers on WhatsApp</span><span class="xm">{{pb.tellLine}}</span></span><span class="sw {{pb.swCls}}"><span></span></span></button>
+<sc-if value="{{pb.tell}}"><div class="xwa"><span class="xb x11" style="color:var(--wafg);opacity:.7">{{pb.waTo}}</span><div class="xwb">{{pb.hi}}<div style="margin-top:6px;opacity:.78">{{pb.en}}</div><div class="x11" style="text-align:right;opacity:.6">9:41 am</div></div></div><div class="xr xw x6"><sc-for list="{{pb.who}}" as="w"><span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:var(--s2);color:var(--fg);border:1px solid var(--bd)">{{w.t}}</span></sc-for></div></sc-if>
+<button class="tap btn pri" type="button" onClick="{{pb.go}}" style="height:50px;font-size:15px;opacity:{{pb.op}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.upload}}"></path></svg>{{pb.label}}</button>
+</sc-if>
+<sc-if value="{{pb.done}}"><div class="card fadein xc x12 xac" style="padding:32px 28px;text-align:center"><svg width="96" height="96" viewBox="0 0 96 96" style="animation:xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both"></path></svg><span class="serif" style="font-size:26px;font-weight:600">{{pb.doneT}}</span><span class="xmu">{{pb.doneL}}</span><button class="tap btn pri" type="button" onClick="{{pb.toClass}}">Back to timetable</button></div></sc-if>
+<div class="card xc xp"><span class="sech xmb">Versions · who published what</span><div class="xst"><sc-for list="{{pb.hist}}" as="l"><div class="xlg"><i style="background:{{l.dot}}"></i><span>{{l.text}}</span><span class="num xm">{{l.time}}</span></div></sc-for></div></div>
+</div>
+</sc-if>
+</main>
+<div class="only-m" style="flex:none"><dc-import name="XNav" active="menu" role="{{role}}" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- edit period sheet -->
+<sc-if value="{{sh.edit}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet wide {{sh.state}}" role="dialog" aria-label="Edit period">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{ed.title}}</span><span class="xm xs">{{ed.sub}}</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<div class="field"><span>Subject</span><div class="xr xw x6"><sc-for list="{{ed.subs}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}"><span class="xdt" style="background:{{o.dot}}"></span>{{o.label}}</button></sc-for></div></div>
+<div class="field"><span>Teacher</span><div class="card xc" style="padding:0 14px;box-shadow:none"><sc-for list="{{ed.ts}}" as="o"><button class="tap xl xd" type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="min-height:50px;padding:6px 0"><span class="xrd" style="border-color:{{o.ring}}"><span style="transform:scale({{o.dot}})"></span></span><span class="xc xf"><span class="x6w">{{o.name}}</span><span class="xm">{{o.sub}}</span></span><span class="pill" style="background:{{o.bg}};color:{{o.fg}}">{{o.st}}</span></button></sc-for></div></div>
+<sc-if value="{{ed.clash}}"><div class="xno xc" style="background:var(--warns);color:var(--warnfg);animation:xShake .4s ease"><span class="xr x8 xb"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.alert}}"></path></svg>{{ed.clashT}}</span><span>Pick a free teacher, or keep the period as it was.</span><div class="xr xw x6"><sc-for list="{{ed.sugg}}" as="g"><button class="tap btn sec" type="button" onClick="{{g.go}}" style="height:36px;font-size:13px">{{g.label}}</button></sc-for></div></div></sc-if>
+<sc-if value="{{ed.fine}}"><div class="xno fadein" style="background:var(--oks);color:var(--ok)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.checkCircle}}"></path></svg><span>{{ed.fineT}}</span></div></sc-if>
+<div class="field"><span>Room</span><div class="xr xw x6"><sc-for list="{{ed.rooms}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+</div>
+<div class="xsf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">Cancel</button><button class="tap btn pri" type="button" onClick="{{ed.save}}" style="flex:1.6;opacity:{{ed.op}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>Save change</button></div>
+</section>
+</sc-if>
+
+<!-- assign substitute sheet -->
+<sc-if value="{{sh.assign}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="Assign a substitute">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{as.title}}</span><span class="xm xs">{{as.sub}}</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<span class="sech">Free in {{as.p}} · best first</span>
+<div class="xc x8"><sc-for list="{{as.opts}}" as="o"><button class="tap xl" type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="min-height:58px;padding:10px 14px;border-radius:14px;border:{{o.bd}};background:{{o.bg}}"><span class="xrd" style="border-color:{{o.ring}}"><span style="transform:scale({{o.dot}})"></span></span><span class="xc xf"><span class="x6w">{{o.name}}</span><span class="xm">{{o.why}}</span></span><sc-if value="{{o.best}}"><span class="pill" style="background:var(--oks);color:var(--ok)">Best match</span></sc-if></button></sc-for></div>
+<button class="tap card xr x12 xp" type="button" role="switch" aria-checked="{{as.tellOn}}" onClick="{{as.toggle}}" style="width:100%;text-align:left;color:var(--fg);box-shadow:none"><span class="xc xf"><span class="x6w">Tell {{as.name}} on WhatsApp</span><span class="xm">1 message · ₹0.88 · AiSensy</span></span><span class="sw {{as.swCls}}"><span></span></span></button>
+<sc-if value="{{as.tell}}"><div class="xwa"><span class="xb x11" style="color:var(--wafg);opacity:.7">Preview · to {{as.name}}</span><div class="xwb">{{as.hi}}<div style="margin-top:6px;opacity:.78">{{as.en}}</div><div class="x11" style="text-align:right;opacity:.6">9:41 am</div></div></div></sc-if>
+</div>
+<div class="xsf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">Cancel</button><button class="tap btn pri" type="button" onClick="{{as.go}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>Assign {{as.name}}</button></div>
+</section>
+</sc-if>
+
+<!-- add leave sheet -->
+<sc-if value="{{sh.leave}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="Add leave">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">Add leave</span><span class="xm xs">Approved straight away · shows up in substitutions</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<label class="field"><span>Teacher</span><select class="inp" value="{{nl.t}}" onChange="{{nl.onT}}"><sc-for list="{{nl.opts}}" as="o"><option value="{{o.v}}">{{o.v}}</option></sc-for></select></label>
+<div class="g2 xgd" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px"><label class="field"><span>From</span><input class="inp" type="date" value="{{nl.from}}" onChange="{{nl.onFrom}}"></label><label class="field"><span>To</span><input class="inp" type="date" value="{{nl.to}}" onChange="{{nl.onTo}}"></label></div>
+<div class="field"><span>How long</span><div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))"><span class="thumb" style="width:calc((100% - 6px) / 2);transform:translateX({{nl.thumb}})"></span><sc-for list="{{nl.kinds}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+<div class="field"><span>Reason</span><div class="xr xw x6"><sc-for list="{{nl.whys}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+<label class="field"><span>Note (optional)</span><textarea class="inp" value="{{nl.note}}" onChange="{{nl.onNote}}" placeholder="Anything the office should know" style="min-height:64px"></textarea></label>
+<div class="xno" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px"><path d="{{ic.info}}"></path></svg><span>{{nl.impact}}</span></div>
+</div>
+<div class="xsf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">Cancel</button><button class="tap btn pri" type="button" onClick="{{nl.save}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>Save leave</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)"><path d="{{ic.check}}"></path></svg><span style="font-size:14px;line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["class","teacher","subs","assign","leave","edit","clash","publish"],"default":"class"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+data() {
+if (this._d) return this._d;
+/*VX_ICONS*/
+const hs = (x) => { let h = 2166136261; for (let i = 0; i < x.length; i++) { h ^= x.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 15; h = Math.imul(h, 2246822507); h ^= h >>> 13; return (h >>> 0) / 4294967296; };
+const sp = (x) => x.split(',');
+const SNR = [1, 4, 6, 3, 0, 5]; const W3 = [0, 1, 3, 2, 4, 0, 1, 2];
+// subjects | teachers (blank = class teacher) | 8-slot daily pattern | day offsets. Classes in a group rotate the pattern, so a shared teacher never has two classes at once.
+const G = {
+pre: ['English,Maths,Hindi,EVS,Drawing,Rhymes & play', ',,,,Ms. Regar,', [0, 1, 2, 3, 4, 0, 1, 5], [0, 2, 4, 6, 1, 3]],
+p15: ['English,Maths,Hindi,EVS,Social Sci.,Sanskrit,Computer', ',,Ms. Kumawat,,,Mr. Gurjar,Mr. Sen', [0, 1, 2, 3, 4, 5, 6, 1], [2, 5, 7, 0, 4, 1]],
+p68: ['Maths,Science,English,Hindi,Social Sci.,Sanskrit,Computer', 'Mr. Joshi,Ms. Bhati,Ms. Singh,Ms. Sukhwal,Mr. Choudhary,Mr. Solanki,Ms. Agarwal', [0, 1, 2, 3, 0, 4, 5, 6], [4, 6, 2, 1, 3, 0]],
+sec: ['Science,Maths,English,Social Sci.,Hindi,Sanskrit', 'Mr. Meena,Ms. Dave,Ms. Dadhich,Mr. Lohar,Mr. Saini,Mr. Tak', [0, 1, 2, 0, 3, 1, 4, 5], [0, 3, 5, 6, 2, 7]],
+sci: ['Physics,Chemistry,Maths / Bio,English,Hindi', 'Mr. Trivedi,Mr. Bhatt,Ms. Shekhawat,Mr. Sisodia,Mr. Sanadhya', W3, SNR],
+com: ['Accountancy,Business St.,Economics,English,Hindi', 'Mr. Purohit,Ms. Kothari,Mr. Rajawat,Mr. Sisodia,Mr. Sanadhya', W3, SNR],
+art: ['History,Geography,Political Sci.,English,Hindi Lit.', 'Ms. Chouhan,Mr. Rawal,Ms. Mewara,Mr. Sisodia,Mr. Sanadhya', W3, SNR]
+};
+const CL = 'Nursery|Ms. Kanwar|pre|0;LKG|Ms. Rathore|pre|1;UKG|Ms. Mehta|pre|2;Class 1|Ms. Jain|p15|0;Class 2|Ms. Vyas|p15|1;Class 3|Ms. Sharma|p15|2;Class 4|Mr. Verma|p15|3;Class 5|Ms. Paliwal|p15|4;Class 6|Ms. Bhati|p68|0;Class 7|Mr. Choudhary|p68|1;Class 8|Mr. Solanki|p68|2;Class 9|Mr. Meena|sec|0;Class 10|Ms. Dave|sec|1;11 Science|Mr. Trivedi|sci|0;11 Commerce|Mr. Purohit|com|2;11 Arts|Ms. Chouhan|art|4;12 Science|Mr. Bhatt|sci|1;12 Commerce|Ms. Kothari|com|3;12 Arts|Mr. Rawal|art|5'.split(';').map((r) => { const a = r.split('|'); const g = G[a[2]]; return { name: a[0], ct: a[1], c: +a[3], subs: sp(g[0]), tch: sp(g[1]).map((t) => t || a[1]), w: g[2], o: g[3], chip: a[0].replace('Science', 'Sci').replace('Commerce', 'Com'), room: 'Room ' + a[0].replace('Class ', '').replace(' Science', 'S').replace(' Commerce', 'C').replace(' Arts', 'A') }; });
+const base = (k, d, p) => { if (d === 5 && p > 5) return { sub: 'Activity', t: '', room: 'Ground' }; const i = k.w[(p + k.c + k.o[d]) % 8]; const sub = k.subs[i]; return { sub, t: k.tch[i], room: sub === 'Computer' ? 'Computer lab' : (sub === 'Drawing' ? 'Art room' : k.room) }; };
+const MAIN = {}; CL.forEach((k) => k.subs.forEach((s, i) => { if (!MAIN[k.tch[i]]) MAIN[k.tch[i]] = s; }));
+const TINT = {}; sp('English:c1,Hindi:warn,Hindi Lit.:warn,Sanskrit:warn,Maths:info,Maths / Bio:info,Science:ok,Physics:ok,Chemistry:ok,EVS:ok,Social Sci.:c3,History:c3,Geography:c3,Political Sci.:c3,Computer:c2,Accountancy:acc,Business St.:acc,Economics:acc,Drawing:bad,Rhymes & play:bad,Activity:bad').forEach((x) => { const a = x.split(':'); TINT[a[0]] = a[1]; });
+const SUBHI = {}; sp('English:अंग्रेज़ी,Hindi:हिंदी,Maths:गणित,EVS:पर्यावरण,Science:विज्ञान,Social Sci.:सामाजिक विज्ञान,Sanskrit:संस्कृत,Computer:कंप्यूटर,Drawing:चित्रकला,Physics:भौतिकी,Chemistry:रसायन,Maths / Bio:गणित / जीव विज्ञान,Accountancy:लेखाशास्त्र,Business St.:व्यवसाय अध्ययन,Economics:अर्थशास्त्र,History:इतिहास,Geography:भूगोल,Political Sci.:राजनीति विज्ञान,Hindi Lit.:हिंदी साहित्य,Rhymes & play:कविता व खेल').forEach((x) => { const a = x.split(':'); SUBHI[a[0]] = a[1]; });
+// id | teacher | from | to (October) | half day after period (0 = full day) | reason | status | note
+const LV = '1|Mr. Meena|8|9|0|Fever|ok|Janmejay · Wed 7 Oct;2|Ms. Jain|8|8|5|PTM at her son’s school|ok|Janmejay · Tue 6 Oct;3|Mr. Rawal|15|15|0|Board exam duty|ok|Janmejay · Mon 5 Oct;4|Ms. Paliwal|12|13|0|Family wedding|pend|asked Tue 6 Oct;5|Mr. Sen|9|9|4|Doctor visit|pend|asked today 7:40;6|Ms. Singh|16|16|0|Personal work|pend|asked yesterday'.split(';').map((r) => { const a = r.split('|'); return { id: +a[0], t: a[1], from: +a[2], to: +a[3], half: +a[4], why: a[5], st: a[6], note: a[7] }; });
+this._d = { IC, hs, CL, base, MAIN, TINT, SUBHI, LV, TEACH: Object.keys(MAIN).sort(), SUBW: { 'Ms. Bhati': 1, 'Mr. Trivedi': 2, 'Mr. Bhatt': 3, 'Ms. Shekhawat': 2, 'Ms. Dave': 1, 'Mr. Gurjar': 2 } };
+return this._d;
+}
+
+st() {
+const p = this.props || {};
+const base = { screen: 'class', anim: 'none', cls: 'Class 9', tch: 'Mr. Meena', day: 3, dDir: 'push', sheet: '', closing: false, toast: null,
+chg: [{ key: 'Class 7|0|1', to: { sub: 'Maths', t: 'Mr. Joshi' }, at: 'Today 9:05' }, { key: 'Class 7|0|7', to: { sub: 'Sanskrit', t: 'Mr. Solanki' }, at: 'Today 9:05' }],
+pub: {}, ver: 13, done: false, eff: 'fri', pTell: true,
+cover: { 'Class 10|1': 'Mr. Bhatt', 'Class 9|5': 'Ms. Dave', 'Class 1|7': 'Mr. Gurjar' }, pick: {}, as: 'Class 9|2', aTell: true,
+lv: null, gone: {}, ed: { k: 'Class 9', d: 3, p: 4 }, nl: { t: 'Ms. Vyas', from: '2026-10-14', to: '2026-10-14', half: false, why: 'Sick', note: '' } };
+const map = { teacher: { screen: 'teacher' }, subs: { screen: 'subs' }, assign: { screen: 'subs', sheet: 'assign' }, leave: { screen: 'leave' }, edit: { sheet: 'edit' }, clash: { sheet: 'edit', ed: { k: 'Class 9', d: 3, p: 4, sub: 'Science', t: 'Mr. Meena' } }, publish: { screen: 'publish' } };
+return Object.assign(base, map[p.start] || {}, this.state || {});
+}
+
+toast(text, undo) {
+const id = Date.now() + Math.random();
+this._undo = undo || null;
+this.setState({ toast: { id, text, undo: !!undo } });
+clearTimeout(this._tt);
+this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+}
+
+undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+closeSheet() {
+if (!this.st().sheet) return;
+this.setState({ closing: true });
+clearTimeout(this._ct);
+this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+}
+
+// change + close sheet + toast with Undo
+act(patch, label) {
+const s = this.st(); const before = {};
+Object.keys(patch).forEach((k) => { before[k] = s[k]; });
+this.setState(patch); this.closeSheet();
+this.toast(label, () => this.setState(before));
+}
+
+renderVals() { const v = this._rv(); const r = this.props.role || 'admin'; v.role = r; v.roleMenu = { admin: 'F13-Menu.dc.html', teacher: 'M-TchMore.dc.html', accountant: 'M-AccHome-Menu.dc.html', academic: 'M-AcadHome-Menu.dc.html', exam: 'M-ExamHome-Menu.dc.html' }[r] || 'F13-Menu.dc.html'; return v; }
+
+_rv() {
+const D = this.data(); const s = this.st(); const IC = D.IC; const scr = s.screen;
+const S = (o) => this.setState(o); const T = (m, u) => this.toast(m, u); const C = () => this.st();
+const V = (n) => 'var(--' + n + ')';
+const tintBg = (sub) => 'color-mix(in srgb, ' + V(D.TINT[sub] || 's3') + ' 15%, var(--card))';
+const chip = (on, pick, o) => Object.assign({ cls: on ? 'on' : '', pr: String(on), pick }, o);
+const segO = (on, pick, o) => Object.assign({ cls: on ? 'tap on' : 'tap', pr: String(on), pick }, o);
+const radio = (on, pick, o) => Object.assign({ on: String(on), ring: V(on ? 'acc' : 'bds'), dot: on ? '1' : '0', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: V(on ? 'accs' : 'card'), pick }, o);
+const TONES = [['accs', 'accfg'], ['infos', 'info'], ['oks', 'ok'], ['warns', 'warnfg'], ['s3', 'fg']];
+const av = (n) => { const t = TONES[Math.floor(D.hs(n) * 5)]; return { ini: n.split(' ')[1].slice(0, 2), abg: V(t[0]), afg: V(t[1]) }; };
+const ring = (p) => { const L = Math.max(0.5, 263.9 * Math.min(100, p) / 100); return { dash: L.toFixed(1) + ' 263.9', len: L.toFixed(1) }; };
+const anims = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', fade: 'xIn .3s var(--ease) both', none: 'none' };
+const PER = [['P1', '8:00', '8:40'], ['P2', '8:40', '9:20'], ['P3', '9:20', '10:00'], ['P4', '10:00', '10:40'], ['P5', '11:20', '12:00'], ['P6', '12:00', '12:40'], ['P7', '12:40', '1:20'], ['P8', '1:20', '2:00']];
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; const DHI = ['सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
+const WD = (n) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][(n + 3) % 7];
+const byName = (n) => D.CL.filter((k) => k.name === n)[0];
+const hiCls = (n) => (/^Class/.test(n) ? 'कक्षा ' + n.slice(6) : n);
+const greet = (t) => 'नमस्ते ' + (/^Mr/.test(t) ? 'सर' : 'मैडम') + ',\n';
+
+// effective timetable = published edits, then pending changes, then the base pattern
+const chgMap = {}; s.chg.forEach((c) => { chgMap[c.key] = c; });
+const eff = (k, d, p) => { const key = k.name + '|' + d + '|' + p; const b = D.base(k, d, p); const c = s.pub[key] || (chgMap[key] && chgMap[key].to); return c ? { sub: c.sub, t: c.t, room: c.room || b.room, edited: !!chgMap[key] } : b; };
+const busy = (t, d, p, skip) => D.CL.filter((k) => k.name !== skip && eff(k, d, p).t === t)[0];
+
+// today (Thu) · who is away, which periods need cover
+const lvAll = (s.lv || D.LV).filter((l) => !s.gone[l.id]);
+const absent = (t, p) => lvAll.some((l) => l.st === 'ok' && l.t === t && l.from <= 8 && l.to >= 8 && (!l.half || p >= l.half));
+const needs = [];
+for (let p = 0; p < 8; p++) D.CL.forEach((k) => { const c = eff(k, 3, p); if (c.t && absent(c.t, p)) needs.push({ k, p, c, key: k.name + '|' + p }); });
+const coverAt = (t, p) => Object.keys(s.cover).some((key) => s.cover[key] === t && +key.split('|')[1] === p);
+const todayN = (t) => Object.keys(s.cover).filter((key) => s.cover[key] === t).length;
+const subsW = (t) => (D.SUBW[t] !== undefined ? D.SUBW[t] : Math.floor(D.hs(t) * 3)) + todayN(t);
+const cands = (n) => D.TEACH.filter((t) => !absent(t, n.p) && !busy(t, 3, n.p) && (!coverAt(t, n.p) || s.cover[n.key] === t)).map((t) => {
+const same = D.TINT[D.MAIN[t]] === D.TINT[n.c.sub]; const w = subsW(t) - (s.cover[n.key] === t ? 1 : 0);
+return { t, same, w, why: 'Free in ' + PER[n.p][0] + ' · ' + (same ? D.MAIN[t] + ' teacher' : 'teaches ' + D.MAIN[t]) + ' · ' + w + (w === 1 ? ' sub' : ' subs') + ' this week' };
+}).sort((a, b) => (a.same === b.same ? a.w - b.w : (a.same ? -1 : 1)));
+const pickOf = (n, list) => s.pick[n.key] || (list[0] ? list[0].t : '');
+const assign = (n, t, tell) => this.act({ cover: Object.assign({}, C().cover, { [n.key]: t }) }, t + (tell === false ? ' assigned to ' : ' told on WhatsApp · ') + PER[n.p][0] + ' ' + n.k.name);
+const covN = needs.filter((n) => s.cover[n.key]).length;
+
+// week grid · class or teacher
+const isT = scr === 'teacher';
+const ck = byName(s.cls) || D.CL[11];
+const cell = (d, p) => {
+const now = d === 3 && p === 2; const key = d + '|' + p; let c; let t1; let t2; let t2m; let open; let b = '1px solid transparent'; let bar; let bg;
+if (isT) {
+const k = busy(s.tch, d, p);
+if (!k) { t1 = 'Free'; t2 = DAYS[d] + ' ' + PER[p][0]; t2m = 'Free period'; bg = 'transparent'; b = '1.5px dashed var(--bds)'; bar = V('bds'); open = () => T(s.tch + ' is free on ' + DAYS[d] + ' in ' + PER[p][0]); c = { sub: '' }; }
+else { c = eff(k, d, p); t1 = k.name; t2 = c.sub; t2m = c.sub + ' · ' + c.room; open = () => this.openSheet('edit', { ed: { k: k.name, d, p } }); }
+} else {
+c = eff(ck, d, p); t1 = c.sub; t2 = c.t || c.room; t2m = (c.t ? c.t + ' · ' : '') + c.room; open = () => this.openSheet('edit', { ed: { k: ck.name, d, p } });
+}
+if (c.sub) { bg = tintBg(c.sub); bar = V(D.TINT[c.sub] || 's3'); }
+if (d === 3 && c.t && absent(c.t, p)) { const k2 = isT ? busy(s.tch, d, p) : ck; const by = k2 && s.cover[k2.name + '|' + p]; t2 = by ? 'Sub: ' + by : 'Needs cover'; t2m = by ? 'Covered by ' + by : c.t + ' away · needs cover'; b = '1.5px dashed ' + V(by ? 'ok' : 'warn'); bar = V(by ? 'ok' : 'warn'); }
+return { isP: true, isL: false, p: PER[p][0], time: PER[p][1], t1, t2, t2m: t2m || '', bg, b, bar, open, anim: 'none', aria: DAYS[d] + ' ' + PER[p][0] + ': ' + t1 + ' · ' + t2, dot: now ? V('acc') : (c.edited ? V('warn') : 'transparent'), pulse: now ? 'xPulse 1.8s ease infinite' : 'none', key };
+};
+const L = { isP: false, isL: true };
+const rows = DAYS.map((dn, d) => { const cells = [0, 1, 2, 3].map((p) => cell(d, p)).concat([L], [4, 5, 6, 7].map((p) => cell(d, p))); return { day: dn, date: (5 + d) + ' Oct', cells, on: d === s.day, bg: d === 3 ? V('accs') : 'transparent', fg: d === 3 ? V('accfg') : V('fg') }; });
+const tLoad = isT ? rows.map((r) => r.cells.filter((c) => c.isP && c.t1 !== 'Free').length) : [];
+const tN = tLoad.reduce((a, x) => a + x, 0);
+const notes = [];
+if (!isT) {
+const nd = needs.filter((n) => n.k === ck);
+if (nd.length) notes.push({ t: 'Today ' + nd.map((n) => PER[n.p][0]).join(' and ') + (nd.length > 1 ? ' need' : ' needs') + ' cover · ' + nd[0].c.t + ' is away · ' + nd.filter((n) => s.cover[n.key]).length + ' of ' + nd.length + ' covered', cta: 'Substitutions', icon: IC.swap, bg: V('warns'), fg: V('warnfg'), go: () => this.setState({ screen: 'subs', anim: 'push' }) });
+if (s.chg.length) notes.push({ t: s.chg.length + (s.chg.length === 1 ? ' change is' : ' changes are') + ' not published yet · teachers still see the old timetable', cta: 'Review', icon: IC.edit, bg: V('infos'), fg: V('info'), go: () => this.setState({ screen: 'publish', anim: 'push' }) });
+} else {
+const l = lvAll.filter((x) => x.st === 'ok' && x.t === s.tch && x.to >= 8)[0];
+if (l) notes.push({ t: s.tch + ' is on leave ' + (l.from === l.to ? WD(l.from) + ' ' + l.from + ' Oct' : WD(l.from) + ' ' + l.from + ' – ' + WD(l.to) + ' ' + l.to + ' Oct') + (l.half ? ' (after P' + l.half + ')' : '') + ' · ' + l.why, cta: 'Cover today', icon: IC.calendar, bg: V('warns'), fg: V('warnfg'), go: () => this.setState({ screen: 'subs', anim: 'push' }) });
+}
+const legend = ['Science:Science', 'Maths:Maths', 'English:English', 'Hindi:Languages', 'Social Sci.:Social sci.', 'Computer:Computer'].map((x) => { const a = x.split(':'); return { t: a[1], c: V(D.TINT[a[0]]) }; });
+const subsT = Object.keys(s.cover).filter((key) => s.cover[key] === s.tch).map((key) => ({ text: key.split('|')[0] + ' · for ' + eff(byName(key.split('|')[0]), 3, +key.split('|')[1]).t, time: 'Thu ' + PER[+key.split('|')[1]][0], dot: V('acc') }));
+const pastN = D.SUBW[s.tch] !== undefined ? D.SUBW[s.tch] : Math.floor(D.hs(s.tch) * 3);
+for (let i = 0; i < pastN; i++) { const d = i % 3; const p = [1, 3, 5][i]; const k = D.CL[Math.floor(D.hs(s.tch + i) * D.CL.length)]; subsT.push({ text: k.name + ' · for ' + (eff(k, d, p).t || 'activity'), time: DAYS[d] + ' ' + PER[p][0], dot: V('sub') }); }
+const wk = {
+isT, chips: isT ? D.TEACH.map((t) => chip(t === s.tch, () => S({ tch: t }), { label: t, dot: V(lvAll.some((l) => l.st === 'ok' && l.t === t && l.to >= 8 && l.from <= 9) ? 'warn' : 'ok') })) : D.CL.map((k) => chip(k === ck, () => S({ cls: k.name }), { label: k.chip, dot: V(needs.some((n) => n.k === k && !s.cover[n.key]) ? 'warn' : (s.chg.some((c) => c.key.split('|')[0] === k.name) ? 'info' : 'ok')) })),
+notes, legend: isT ? [] : legend,
+title: isT ? s.tch : ck.name, info: isT ? 'Teaches ' + D.MAIN[s.tch] + ' · ' + tN + ' periods a week' : 'Class teacher ' + ck.ct + ' · ' + ck.room + ' · tap a period to change it',
+heads: [0, 1, 2, 3].map((p) => ({ isP: true, isL: false, p: PER[p][0], time: PER[p][1], now: p === 2 })).concat([{ isP: false, isL: true, p: '', time: '', now: false }], [4, 5, 6, 7].map((p) => ({ isP: true, isL: false, p: PER[p][0], time: PER[p][1], now: false }))),
+rows, thumb: (s.day * 100) + '%', dAnim: anims[s.dDir] || 'none',
+days: DAYS.map((dn, d) => segO(d === s.day, () => S({ day: d, dDir: d < C().day ? 'pop' : 'push' }), { label: d === 3 ? 'Today' : dn, date: String(5 + d) })),
+load: Object.assign(ring(tN / 48 * 100), { n: String(tN), line: tN + ' periods a week · ' + (48 - tN) + ' free', sub: 'Free periods are dashed below. Most in a day: ' + Math.max.apply(null, tLoad.concat([0])) + '.', bars: tLoad.map((n, i) => ({ d: DAYS[i].slice(0, 2), h: Math.round(n / 8 * 100) + '%', c: V(i === 3 ? 'acc' : 'c2') })) }),
+subs: subsT, subsN: String(subsT.length), noSubs: !subsT.length
+};
+
+// substitutions screen
+const awayT = []; needs.forEach((n) => { if (awayT.indexOf(n.c.t) < 0) awayT.push(n.c.t); });
+const cv = ring(needs.length ? covN / needs.length * 100 : 100);
+const sb = {
+away: awayT.map((t) => { const l = lvAll.filter((x) => x.st === 'ok' && x.t === t)[0]; const n = needs.filter((x) => x.c.t === t).length; return Object.assign(av(t), { name: t, why: (l.half ? 'Half day · away after P' + l.half : 'On leave' + (l.to > l.from ? ' till ' + WD(l.to) + ' ' + l.to + ' Oct' : '')) + ' · ' + l.why, n: n + (n === 1 ? ' period' : ' periods') }); }),
+dash: cv.dash, len: cv.len, frac: covN + '/' + needs.length, line: covN + ' of ' + needs.length + ' periods covered', sub: needs.length - covN ? (needs.length - covN) + ' still need a teacher · best matches are picked for you' : 'Everyone knows where to be today', all: needs.length > 0 && covN === needs.length,
+needs: needs.map((n) => {
+const by = s.cover[n.key]; const list = cands(n); const pk = pickOf(n, list);
+return { p: PER[n.p][0], time: PER[n.p][1], title: n.k.name + ' · ' + n.c.sub, why: n.c.t + (n.p >= 4 && n.c.t === 'Ms. Jain' ? ' leaves after P5' : ' is on leave') + ' · ' + n.c.room, now: n.p === 2, done: !!by, open: !by,
+pbg: V(by ? 'oks' : (n.p === 2 ? 'accs' : 'warns')), pfg: V(by ? 'ok' : (n.p === 2 ? 'accfg' : 'warnfg')),
+by: 'Covered by ' + by, told: by ? by + ' was told on WhatsApp · ' + (n.p < 2 ? 'read 7:52' : 'delivered') : '',
+change: () => { const c2 = Object.assign({}, C().cover); delete c2[n.key]; this.act({ cover: c2 }, 'Cover removed · pick someone else for ' + PER[n.p][0]); },
+opts: list.slice(0, 3).map((o, i) => radio(o.t === pk, () => S({ pick: Object.assign({}, C().pick, { [n.key]: o.t }) }), { name: o.t, why: o.why, best: i === 0 && o.same })),
+label: pk ? 'Assign ' + pk : 'Nobody is free', assign: () => (pk ? assign(n, pk) : T('Nobody is free in ' + PER[n.p][0] + ' · try merging with another section')), more: () => this.openSheet('assign', { as: n.key }), freeN: String(list.length) };
+})
+};
+
+// assign sheet
+const an = needs.filter((n) => n.key === s.as)[0] || needs.filter((n) => !s.cover[n.key])[0] || needs[0];
+const aList = an ? cands(an) : []; const aPick = an ? (s.pick[an.key] || s.cover[an.key] || (aList[0] ? aList[0].t : '')) : '';
+const as = an ? {
+title: 'Cover ' + PER[an.p][0] + ' · ' + an.k.name, sub: PER[an.p][1] + '–' + PER[an.p][2] + ' · ' + an.c.sub + ' · ' + an.c.t + ' is away', p: PER[an.p][0], name: aPick || 'teacher',
+opts: aList.map((o, i) => radio(o.t === aPick, () => S({ pick: Object.assign({}, C().pick, { [an.key]: o.t }) }), { name: o.t, why: o.why, best: i === 0 && o.same })),
+tell: !!s.aTell, tellOn: String(!!s.aTell), swCls: s.aTell ? 'on' : '', toggle: () => S({ aTell: !C().aTell }),
+hi: greet(aPick) + 'आज (गुरुवार 8 अक्टूबर) ' + PER[an.p][0] + ' (' + PER[an.p][1] + '–' + PER[an.p][2] + ') में ' + hiCls(an.k.name) + ' ' + (D.SUBHI[an.c.sub] || an.c.sub) + ' की कक्षा आप लेंगे। कमरा: ' + an.c.room + '।',
+en: 'Today ' + PER[an.p][0] + ' (' + PER[an.p][1] + '–' + PER[an.p][2] + '): please take ' + an.k.name + ' ' + an.c.sub + ' in ' + an.c.room + '. ' + an.c.t + ' is away.',
+go: () => (aPick ? assign(an, aPick, C().aTell) : T('Pick a teacher first'))
+} : { title: 'Nothing to cover', sub: '', p: '', name: '', opts: [], tell: false, tellOn: 'false', swCls: '', toggle: () => S({ aTell: !C().aTell }), hi: '', en: '', go: () => this.closeSheet() };
+
+// leave
+const strip = []; for (let n = 5; n <= 18; n++) { const wd = WD(n); const on = lvAll.filter((l) => l.from <= n && l.to >= n); strip.push({ wd, n: String(n), bg: V(n === 8 ? 'accs' : (wd === 'Sun' ? 's2' : 'card')), bd: V(n === 8 ? 'acc' : 'bd'), op: wd === 'Sun' ? '0.55' : '1', who: wd === 'Sun' ? [] : on.slice(0, 3).map((l) => { const a = av(l.t); return { name: l.t + (l.st === 'ok' ? ' · approved' : ' · asked'), ini: a.ini, bg: l.st === 'ok' ? a.abg : V('card'), fg: a.afg, bd: l.st === 'ok' ? '2px solid var(--card)' : '1.5px dashed var(--warn)' }; }) }); }
+const periodsOn = (l) => { let n = 0; for (let x = l.from; x <= l.to; x++) { const d = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(WD(x)); if (d < 0) continue; for (let p = l.half || 0; p < 8; p++) if (busy(l.t, d, p)) n++; } return n; };
+const dates = (l) => (l.from === l.to ? WD(l.from) + ' ' + l.from + ' Oct' : WD(l.from) + ' ' + l.from + ' – ' + WD(l.to) + ' ' + l.to + ' Oct');
+const setLv = (id, patch) => (s.lv || D.LV).map((l) => (l.id === id ? Object.assign({}, l, patch) : l));
+const lv = {
+strip, pend: lvAll.filter((l) => l.st === 'pend').map((l) => Object.assign(av(l.t), { name: l.t, dates: dates(l), type: l.half ? 'Half day · after P' + l.half : (l.to > l.from ? (l.to - l.from + 1) + ' full days' : 'Full day'), why: l.why, asked: l.note, impact: periodsOn(l) + ' periods will need cover', anim: s.gone['x' + l.id] ? 'xLeave .45s var(--ease) forwards' : 'xIn .3s var(--ease) both',
+ok: () => { S({ gone: Object.assign({}, C().gone, { ['x' + l.id]: 1 }) }); setTimeout(() => { const before = { lv: C().lv, gone: C().gone }; this.setState({ lv: setLv(l.id, { st: 'ok', note: 'Janmejay · just now' }), gone: Object.assign({}, C().gone, { ['x' + l.id]: 0 }) }); T('Leave approved · ' + l.t + ' told on WhatsApp', () => this.setState(before)); }, 380); },
+no: () => { S({ gone: Object.assign({}, C().gone, { ['x' + l.id]: 1 }) }); setTimeout(() => { const before = { gone: Object.assign({}, C().gone, { ['x' + l.id]: 0 }) }; this.setState({ gone: Object.assign({}, C().gone, { [l.id]: 1, ['x' + l.id]: 0 }) }); T('Leave declined · ' + l.t + ' told on WhatsApp', () => this.setState(before)); }, 380); } })),
+ok: lvAll.filter((l) => l.st === 'ok').map((l) => Object.assign(av(l.t), { name: l.t, dates: dates(l), type: l.half ? 'Half day · after P' + l.half : 'Full day', why: l.why, by: 'Approved by ' + l.note }))
+};
+lv.pendN = String(lv.pend.length); lv.noPend = !lv.pend.length;
+
+// add leave sheet
+const nl0 = s.nl; const dOf = (v) => { const m = /^2026-10-(\d{2})$/.exec(v || ''); return m ? +m[1] : 0; };
+const nf = dOf(nl0.from); const nt = Math.max(nf, dOf(nl0.to));
+const nlL = { t: nl0.t, from: nf, to: nt, half: nl0.half ? 5 : 0 };
+const setNl = (o) => S({ nl: Object.assign({}, C().nl, o) });
+const nl = {
+t: nl0.t, opts: D.TEACH.map((v) => ({ v })), onT: (e) => { if (D.TEACH.indexOf(e.target.value) >= 0) setNl({ t: e.target.value }); },
+from: nl0.from, to: nl0.to, onFrom: (e) => setNl({ from: e.target.value }), onTo: (e) => setNl({ to: e.target.value }),
+thumb: nl0.half ? '100%' : '0%', kinds: [[false, 'Full day'], [true, 'Half day (after P5)']].map((o) => segO(nl0.half === o[0], () => setNl({ half: o[0] }), { label: o[1] })),
+whys: ['Sick', 'Family', 'Personal', 'School duty'].map((w) => chip(nl0.why === w, () => setNl({ why: w }), { label: w })),
+note: nl0.note, onNote: (e) => setNl({ note: e.target.value }),
+impact: nf ? nl0.t + ' has ' + periodsOn(nlL) + ' periods in these days. They will show up in Substitutions for cover.' : 'Pick the dates in October to see how many periods need cover.',
+save: () => { if (!nf) { T('Pick a date in October'); return; } const lvs = (C().lv || D.LV); this.act({ lv: lvs.concat([{ id: lvs.length + 10, t: nl0.t, from: nf, to: nt, half: nlL.half, why: nl0.why + (nl0.note ? ' · ' + nl0.note : ''), st: 'ok', note: 'Janmejay · just now' }]) }, 'Leave added for ' + nl0.t + ' · ' + dates({ from: nf, to: nt })); }
+};
+
+// edit period sheet
+const ek = byName(s.ed.k) || D.CL[11]; const ed0 = eff(ek, s.ed.d, s.ed.p);
+const eSub = s.ed.sub || ed0.sub; const eT = s.ed.t !== undefined && s.ed.t !== null ? s.ed.t : ed0.t; const eRoom = s.ed.room || ed0.room;
+const setEd = (o) => S({ ed: Object.assign({}, C().ed, o) });
+const clashK = eT ? busy(eT, s.ed.d, s.ed.p, ek.name) : null;
+const tOf = (sub) => { const out = []; D.CL.forEach((k) => k.subs.forEach((x, i) => { if (D.TINT[x] === D.TINT[sub] && out.indexOf(k.tch[i]) < 0 && (x === sub || k === ek)) out.push(k.tch[i]); })); const own = ek.tch[ek.subs.indexOf(sub)]; if (own) out.unshift(own); return out.filter((t, i) => out.indexOf(t) === i).sort((a, b) => (a === own ? -1 : b === own ? 1 : (busy(a, s.ed.d, s.ed.p, ek.name) ? 1 : 0) - (busy(b, s.ed.d, s.ed.p, ek.name) ? 1 : 0))).slice(0, 5); };
+const tl = tOf(eSub); if (eT && tl.indexOf(eT) < 0) tl.unshift(eT);
+const freeOf = tl.filter((t) => t !== eT && !busy(t, s.ed.d, s.ed.p, ek.name));
+const where = ek.name + ' · ' + DAYS[s.ed.d] + ' · ' + PER[s.ed.p][0];
+const ed = {
+title: where, sub: PER[s.ed.p][1] + '–' + PER[s.ed.p][2] + ' · now: ' + ed0.sub + (ed0.t ? ' · ' + ed0.t : ''),
+subs: ek.subs.map((x) => chip(x === eSub, () => setEd({ sub: x, t: ek.tch[ek.subs.indexOf(x)] }), { label: x, dot: V(D.TINT[x]) })),
+ts: tl.map((t) => { const k = busy(t, s.ed.d, s.ed.p, ek.name); return radio(t === eT, () => setEd({ t }), { name: t, sub: 'Teaches ' + D.MAIN[t], st: k ? 'Busy · ' + k.name : 'Free', bg: V(k ? 'warns' : 'oks'), fg: V(k ? 'warnfg' : 'ok') }); }),
+rooms: [ek.room, 'Science lab', 'Computer lab', 'Library'].map((r) => chip(r === eRoom, () => setEd({ room: r }), { label: r })),
+clash: !!clashK, clashT: clashK ? eT + ' already teaches ' + clashK.name + ' in ' + PER[s.ed.p][0] + ' on ' + DAYS[s.ed.d] : '',
+sugg: freeOf.slice(0, 2).map((t) => ({ label: 'Use ' + t + ' · free', go: () => setEd({ t }) })).concat([{ label: 'Keep ' + ed0.sub + (ed0.t ? ' · ' + ed0.t : ''), go: () => setEd({ sub: ed0.sub, t: ed0.t }) }]),
+fine: !clashK && (eSub !== ed0.sub || eT !== ed0.t || eRoom !== ed0.room), fineT: 'No clash · ' + (eT || 'this teacher') + ' is free then. Saved changes wait for you to publish.',
+op: clashK ? '0.5' : '1',
+save: () => {
+if (clashK) { T('Fix the clash first'); return; }
+if (eSub === ed0.sub && eT === ed0.t && eRoom === ed0.room) { this.closeSheet(); return; }
+const key = ek.name + '|' + s.ed.d + '|' + s.ed.p;
+this.act({ chg: C().chg.filter((c) => c.key !== key).concat([{ key, to: { sub: eSub, t: eT, room: eRoom }, at: 'just now' }]), ed: { k: ek.name, d: s.ed.d, p: s.ed.p } }, 'Change saved for ' + where + ' · publish to tell teachers');
+}
+};
+
+// publish
+const pRows = s.chg.map((c) => { const a = c.key.split('|'); const k = byName(a[0]); const b = D.base(k, +a[1], +a[2]); return { c, k, d: +a[1], p: +a[2], b }; });
+const touched = []; pRows.forEach((r) => [r.b.t, r.c.to.t].forEach((t) => { if (t && touched.indexOf(t) < 0) touched.push(t); }));
+const effs = [['fri', 'Tomorrow · Fri 9 Oct'], ['mon', 'Mon 12 Oct']];
+const effL = s.eff === 'mon' ? 'सोमवार 12 अक्टूबर' : 'कल (शुक्रवार 9 अक्टूबर)';
+const r0 = pRows[0];
+const hist = (s.ver > 13 ? [['v' + s.ver + ' · just now · Janmejay', s.pubN + ' changes · starts ' + (s.eff === 'mon' ? 'Mon 12 Oct' : 'Fri 9 Oct')]] : []).concat([['v13 · 28 Sep · Janmejay', 'Lab periods moved for Class 11 Science'], ['v12 · 14 Aug · Janmejay', 'Half-yearly exam week'], ['v11 · 1 Jul · Janmejay', 'Session start']]).map((h, i) => ({ text: h[1], time: h[0], dot: V(i ? 'sub' : 'acc') }));
+const pb = {
+open: !s.done, done: !!s.done, n: String(pRows.length), none: !pRows.length,
+rows: pRows.map((r) => ({ where: r.k.name + ' · ' + DAYS[r.d] + ' ' + PER[r.p][0], when: PER[r.p][1] + '–' + PER[r.p][2], from: r.b.sub + (r.b.t ? ' · ' + r.b.t : ''), to: r.c.to.sub + (r.c.to.t ? ' · ' + r.c.to.t : ''), bg: tintBg(r.c.to.sub), by: 'Janmejay · ' + r.c.at,
+drop: () => this.act({ chg: C().chg.filter((c) => c !== r.c) }, 'Change dropped · ' + r.k.name + ' ' + DAYS[r.d] + ' ' + PER[r.p][0]) })),
+effs: effs.map((o) => chip(s.eff === o[0], () => S({ eff: o[0] }), { label: o[1] })),
+tell: !!s.pTell && touched.length > 0, tellOn: String(!!s.pTell), swCls: s.pTell ? 'on' : '', toggle: () => S({ pTell: !C().pTell }),
+tellLine: s.pTell ? touched.length + ' teachers · ' + touched.length + ' messages · ₹' + (touched.length * 0.88).toFixed(2) : 'Nobody is told · they will see it next time they open the app',
+waTo: 'Preview · to ' + (r0 ? r0.c.to.t : '') + (touched.length > 1 ? ' (each one gets their own changes)' : ''), who: touched.map((t) => ({ t })),
+hi: r0 ? greet(r0.c.to.t) + 'समय-सारणी में बदलाव, ' + effL + ' से: ' + hiCls(r0.k.name) + ', ' + DHI[r0.d] + ' ' + PER[r0.p][0] + ' अब ' + (D.SUBHI[r0.c.to.sub] || r0.c.to.sub) + ' (' + r0.c.to.t + ')।' : '',
+en: r0 ? 'Timetable change from ' + (s.eff === 'mon' ? 'Mon 12 Oct' : 'tomorrow, Fri 9 Oct') + ': ' + r0.k.name + ', ' + DAYS[r0.d] + ' ' + PER[r0.p][0] + ' is now ' + r0.c.to.sub + ' (' + r0.c.to.t + ').' : '',
+label: pRows.length ? 'Publish ' + pRows.length + (pRows.length === 1 ? ' change' : ' changes') + (s.pTell && touched.length ? ' and tell ' + touched.length + ' teachers' : '') : 'Nothing to publish', op: pRows.length ? '1' : '0.5',
+go: () => {
+const c = C(); if (!c.chg.length) { T('Nothing to publish yet'); return; }
+const pub = Object.assign({}, c.pub); c.chg.forEach((x) => { pub[x.key] = Object.assign({ room: D.base(byName(x.key.split('|')[0]), +x.key.split('|')[1], +x.key.split('|')[2]).room }, x.to); });
+const before = { chg: c.chg, pub: c.pub, ver: c.ver, done: false };
+this.setState({ chg: [], pub, ver: c.ver + 1, done: true, pubN: c.chg.length });
+T('Timetable v' + (c.ver + 1) + ' published' + (c.pTell ? ' · ' + touched.length + ' teachers told' : ''), () => this.setState(before));
+},
+doneT: 'Timetable v' + s.ver + ' is live', doneL: 'Published by Janmejay just now · starts ' + (s.eff === 'mon' ? 'Mon 12 Oct' : 'tomorrow, Fri 9 Oct') + '. Teachers see it in their app.',
+toClass: () => this.setState({ screen: 'class', anim: 'pop', done: false }),
+hist
+};
+
+// chrome
+const pending = s.chg.length;
+const pubAct = pending ? [['Publish changes (' + pending + ')', 'upload', 'pri', () => S({ screen: 'publish', anim: 'push', done: false })]] : [];
+const addLeave = () => this.openSheet('leave');
+const tops = {
+class: ['Academics · Session 2026–27', 'Timetable', pubAct, ck.name + ' · today Thu 8 Oct · P3 now', pending ? [['Publish ' + pending, 'upload', pubAct[0][3]]] : []],
+teacher: ['Timetable', 'Teacher timetable', pubAct, s.tch + ' · ' + tN + ' periods a week'],
+subs: ['Timetable · today Thu 8 Oct', 'Substitutions', [['Teacher leave', 'calendar', 'sec', () => S({ screen: 'leave', anim: 'fade' })]], covN + ' of ' + needs.length + ' periods covered'],
+leave: ['Timetable', 'Teacher leave', [['Add leave', 'plus', 'pri', addLeave]], lv.pend.length + ' waiting · ' + lv.ok.length + ' approved', [['Add', 'plus', addLeave]]],
+publish: ['Timetable · changes', 'Publish changes', [], pending + ' waiting · v' + s.ver + ' is live']
+};
+const t0 = tops[scr] || tops.class;
+const TABS = [['class', 'Class', 'Class'], ['teacher', 'Teacher', 'Teacher'], ['subs', 'Substitutions', 'Cover'], ['leave', 'Leave', 'Leave']];
+const tIdx = TABS.map((t) => t[0]).indexOf(scr);
+return {
+ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+is: { week: scr === 'class' || scr === 'teacher', subs: scr === 'subs', leave: scr === 'leave', pub: scr === 'publish' },
+top: { crumb: t0[0], title: t0[1], mTitle: t0[1], mSub: t0[3], mLink: scr === 'class', back: scr !== 'class', acts: t0[2].map((a) => ({ label: a[0], icon: IC[a[1]], cls: a[2], go: a[3] })), mActs: (t0[4] || []).map((a) => ({ label: a[0], icon: IC[a[1]], go: a[2] })) },
+tabs: { show: tIdx >= 0, thumb: (Math.max(0, tIdx) * 100) + '%', opts: TABS.map((t) => segO(scr === t[0], () => S({ screen: t[0], anim: 'fade' }), { label: t[1], short: t[2] })) },
+anim: anims[s.anim] || 'none',
+back: () => { const c = C(); if (c.sheet) { this.closeSheet(); return; } S({ screen: 'class', anim: 'pop', done: false }); },
+wk: scr === 'class' || scr === 'teacher' ? wk : {}, sb: scr === 'subs' ? sb : {}, as: s.sheet === 'assign' ? as : {}, lv: scr === 'leave' ? lv : {}, nl: s.sheet === 'leave' ? nl : {}, ed: s.sheet === 'edit' ? ed : {}, pb: scr === 'publish' ? pb : {},
+sh: { edit: s.sheet === 'edit', assign: s.sheet === 'assign', leave: s.sheet === 'leave', state: s.closing ? 'closing' : 'open' }, closeSheet: () => this.closeSheet(),
+toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

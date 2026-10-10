@@ -1,0 +1,61 @@
+[
+  {
+    "file": "Exams.dc.html",
+    "device": "desktop",
+    "title": "Exams · session timeline"
+  },
+  {
+    "file": "DX-Exams-Cell.dc.html",
+    "device": "desktop",
+    "start": "cell",
+    "title": "Marks tracker · Class 9 Science"
+  },
+  {
+    "file": "DX-Exams-Entry.dc.html",
+    "device": "desktop",
+    "start": "entry",
+    "title": "Enter marks (admin)"
+  },
+  {
+    "file": "DX-Exams-Preview.dc.html",
+    "device": "desktop",
+    "start": "preview",
+    "title": "Report card preview"
+  },
+  {
+    "file": "M-Exams.dc.html",
+    "device": "phone",
+    "start": "list",
+    "title": "Exams"
+  },
+  {
+    "file": "M-Exams-Grid.dc.html",
+    "device": "phone",
+    "start": "grid",
+    "title": "Marks tracker"
+  },
+  {
+    "file": "M-Exams-Remind.dc.html",
+    "device": "phone",
+    "start": "remind",
+    "title": "Remind late teachers"
+  },
+  {
+    "file": "M-Exams-Entry.dc.html",
+    "device": "phone",
+    "start": "entry",
+    "title": "Enter marks"
+  },
+  {
+    "file": "M-Exams-Sampark.dc.html",
+    "device": "phone",
+    "start": "sampark",
+    "title": "Sampark links"
+  },
+  {
+    "file": "M-Exams-ReportCards.dc.html",
+    "device": "phone",
+    "start": "reportcards",
+    "title": "Report cards"
+  }
+]

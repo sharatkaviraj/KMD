@@ -1,0 +1,11 @@
+[
+  {"file": "Staff.dc.html", "device": "desktop", "title": "Staff · list"},
+  {"file": "DX-Staff-Profile.dc.html", "device": "desktop", "start": "profile", "title": "Profile beside the list"},
+  {"file": "DX-Staff-Roles.dc.html", "device": "desktop", "start": "changes", "title": "Roles & permissions · 3 changes"},
+  {"file": "DX-Staff-Disable.dc.html", "device": "desktop", "start": "deactivate", "title": "Disable a login"},
+  {"file": "M-Staff.dc.html", "device": "phone", "start": "list", "title": "Staff"},
+  {"file": "M-Staff-Roles.dc.html", "device": "phone", "start": "changes", "title": "Permissions for one role"},
+  {"file": "M-Staff-Invite.dc.html", "device": "phone", "start": "invite", "title": "Create a login"},
+  {"file": "M-Staff-Created.dc.html", "device": "phone", "start": "created", "title": "Login created"},
+  {"file": "M-Staff-Reset.dc.html", "device": "phone", "start": "reset", "title": "Reset password"}
+]

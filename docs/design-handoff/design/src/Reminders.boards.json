@@ -1,0 +1,11 @@
+[
+  {"file": "Reminders.dc.html", "device": "desktop", "title": "Fee reminders"},
+  {"file": "DX-Reminders-Message.dc.html", "device": "desktop", "start": "message", "title": "New reminder · message"},
+  {"file": "DX-Reminders-Results.dc.html", "device": "desktop", "start": "results", "title": "Reminder results"},
+  {"file": "DX-Reminders-Sending.dc.html", "device": "desktop", "start": "sending", "title": "Sending"},
+  {"file": "M-Reminders.dc.html", "device": "phone", "start": "list", "title": "Fee reminders"},
+  {"file": "M-Reminders-Audience.dc.html", "device": "phone", "start": "audience", "title": "New reminder · who"},
+  {"file": "M-Reminders-Review.dc.html", "device": "phone", "start": "review", "title": "Check and send"},
+  {"file": "M-Reminders-Rule.dc.html", "device": "phone", "start": "rule", "title": "Automatic reminder"},
+  {"file": "M-Reminders-Empty.dc.html", "device": "phone", "start": "empty", "title": "First time"}
+]

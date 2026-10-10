@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone bottom bar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+</style>
+</helmet>
+<nav class="vxt glass {{theme}}" aria-label="Primary navigation" style="height: 76px; padding: 6px 6px 16px; border-top: 1px solid var(--bd); background: var(--glass2); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif">
+  <sc-for list="{{items}}" as="n" hint-placeholder-count="5">
+    <sc-if value="{{n.isCenter}}" hint-placeholder-val="{{ false }}">
+      <a href="{{n.href}}" class="tap" aria-label="{{n.label}}" style="display: flex; align-items: center; justify-content: center"><span style="width: 50px; height: 50px; border-radius: 18px; background: var(--pri); color: var(--prifg); display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 22px -10px rgba(11,79,121,.75)"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px; stroke-width: 2.4" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span></a>
+    </sc-if>
+    <sc-if value="{{n.notCenter}}" hint-placeholder-val="{{ true }}">
+      <a href="{{n.href}}" class="tap" aria-current="{{n.current}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: {{n.color}}; font-size: 11px; font-weight: {{n.weight}}">
+        <span style="position: relative; width: 56px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; background: {{n.pill}}"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{n.icon}}"></path></svg>
+          <sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span class="num" style="position: absolute; top: -3px; right: 8px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--bad); color: var(--onsolid); border: 2px solid var(--card); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{n.badge}}</span></sc-if>
+        </span>{{n.label}}</a>
+    </sc-if>
+  </sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"text","default":"menu"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":76}}'>
+class Component extends DCLogic {
+  renderVals() {
+/*VX_ICONS*/
+    IC.note = 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4zM4 4h8M4 8h5';
+    const role = this.props.role || 'admin';
+    const active = this.props.active || 'menu';
+    const tab = (k, label, ic, href, badge) => {
+      const on = k === active;
+      return { isCenter: false, notCenter: true, label, icon: IC[ic], href, color: on ? 'var(--pri)' : 'var(--mut)', weight: on ? '700' : '500', pill: on ? 'var(--accs)' : 'transparent', current: on ? 'page' : 'false', hasBadge: !!badge, badge: String(badge || '') };
+    };
+    const mid = (label, ic, href) => ({ isCenter: true, notCenter: false, label, icon: IC[ic], href, color: '', weight: '', pill: '', current: 'false', hasBadge: false, badge: '' });
+    const NAV = {
+      admin: [tab('today', 'Today', 'home', 'App.dc.html'), tab('students', 'Students', 'users', 'F05-Students.dc.html'), mid('Quick actions', 'plus', 'F03-QuickActions.dc.html'), tab('inbox', 'Needs you', 'inbox', 'F02-NeedsYou.dc.html', 6), tab('menu', 'Menu', 'grid', 'F13-Menu.dc.html')],
+      teacher: [tab('home', 'Today', 'home', 'M-TchHome.dc.html'), tab('class', 'Class', 'users', 'M-TchClass.dc.html'), mid('Mark attendance', 'calCheck', 'M-TchAttend.dc.html'), tab('notes', 'Notes', 'note', 'M-TchNotes.dc.html', 2), tab('more', 'More', 'grid', 'M-TchMore.dc.html', 2)],
+      accountant: [tab('home', 'Today', 'home', 'M-AccHome.dc.html'), tab('fees', 'Receipts', 'receipt', 'MAC-Fees.dc.html'), mid('Payment Desk', 'rupee', 'M-PayDesk.dc.html'), tab('dues', 'Dues', 'phone', 'MAC-Dues.dc.html', 9), tab('menu', 'Menu', 'grid', 'M-AccHome-Menu.dc.html')],
+      academic: [tab('home', 'Today', 'home', 'M-AcadHome.dc.html'), tab('progress', 'Progress', 'trend', 'M-AcadProgress.dc.html'), mid('Attendance', 'calCheck', 'M-AcadAttendance.dc.html'), tab('notes', 'Notes', 'note', 'MAD-Notes.dc.html', 4), tab('menu', 'Menu', 'grid', 'M-AcadHome-Menu.dc.html')],
+      exam: [tab('home', 'Today', 'home', 'M-ExamHome.dc.html'), tab('plan', 'Plan', 'calendar', 'M-ExamPlan.dc.html'), mid('Marks tracker', 'clipboard', 'MEX-Exams.dc.html'), tab('results', 'Results', 'award', 'M-ExamResults.dc.html'), tab('menu', 'Menu', 'grid', 'M-ExamHome-Menu.dc.html')]
+    };
+    return { items: NAV[role] || NAV.admin, theme: this.props.dark ? 'dark' : '' };
+  }
+}
+</script>
+</body>
+</html>

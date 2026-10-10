@@ -1,0 +1,12 @@
+[
+  {"file": "TchHome.dc.html", "device": "desktop", "title": "Teacher · Today"},
+  {"file": "DX-TchHome-Later.dc.html", "device": "desktop", "start": "later", "title": "Afternoon · all set"},
+  {"file": "DX-TchHome-Subs.dc.html", "device": "desktop", "start": "subs", "title": "Substitution for you"},
+  {"file": "DX-TchHome-News.dc.html", "device": "desktop", "start": "news", "title": "Notice from the office"},
+  {"file": "M-TchHome.dc.html", "device": "phone", "start": "home", "title": "Teacher · Today"},
+  {"file": "M-TchHome-Later.dc.html", "device": "phone", "start": "later", "title": "Afternoon · all set"},
+  {"file": "M-TchHome-Subs.dc.html", "device": "phone", "start": "subs", "title": "Substitution for you"},
+  {"file": "M-TchHome-Leave.dc.html", "device": "phone", "start": "leave", "title": "Apply leave"},
+  {"file": "M-TchHome-Link.dc.html", "device": "phone", "start": "link", "title": "Marks link"},
+  {"file": "M-TchHome-Help.dc.html", "device": "phone", "start": "help", "title": "Help · 3 steps"}
+]

@@ -1,0 +1,9 @@
+[
+  {"file": "Fees.dc.html", "device": "desktop", "title": "Receipts · today"},
+  {"file": "DX-Fees-Receipt.dc.html", "device": "desktop", "start": "receipt", "title": "Receipt open beside the list"},
+  {"file": "DX-Fees-Close.dc.html", "device": "desktop", "start": "close", "title": "Close the day · count cash"},
+  {"file": "M-Fees.dc.html", "device": "phone", "start": "list", "title": "Receipts"},
+  {"file": "M-Fees-Receipt.dc.html", "device": "phone", "start": "receipt", "title": "Receipt"},
+  {"file": "M-Fees-Reverse.dc.html", "device": "phone", "start": "reverse", "title": "Reverse a receipt"},
+  {"file": "M-Fees-Close.dc.html", "device": "phone", "start": "close", "title": "Close the day"}
+]

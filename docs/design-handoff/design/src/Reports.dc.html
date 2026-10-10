@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reports</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.fr{display:flex;align-items:center;gap:8px;min-width:0}.fc{display:flex;flex-direction:column;min-width:0}.f1{flex:1;min-width:0}.jb{justify-content:space-between}.wr{flex-wrap:wrap}.ta{text-align:right}.mu{color:var(--mut)}.s11{font-size:11px}.s12{font-size:12px}.s13{font-size:13px}.s14{font-size:14px}.b6{font-weight:600}.b7{font-weight:700}.tt{font-size:15px;font-weight:700}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib{display:flex;align-items:center;justify-content:center;flex:none}.bt{border-top:1px solid var(--bd)}.vx .ls>*+*{border-top:1px solid var(--bd)}.vx .sq{flex:none;width:38px;height:38px;padding:0}.t36{width:36px;height:36px;border-radius:11px}.dt{width:10px;height:10px;border-radius:5px;flex:none}.scr{padding:20px 28px 40px;display:flex;flex-direction:column;gap:16px}.sb{flex:1;min-height:0;padding:4px 20px 12px;display:flex;flex-direction:column;gap:14px}.sf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}.sf>*{flex:1}.sf>*+*{flex:1.6}.nt{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:14px;font-size:13px;line-height:1.5}.rb{display:flex;align-items:center;gap:12px;border:0;background:transparent;color:var(--fg);text-align:left;width:100%}.xi{animation:xIn .32s var(--ease) both;animation-delay:var(--d,0ms)}.i.sm{width:14px;height:14px}.h2{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.2}.ac{background:var(--accs);color:var(--accfg)}.wa{background:var(--warns);color:var(--warnfg)}.ok{background:var(--oks);color:var(--ok)}.in{background:var(--infos);color:var(--info)}.er{background:var(--bads);color:var(--bad)}.nu{background:var(--s3);color:var(--mut)}.G3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.cg{display:grid;grid-template-columns:minmax(130px,1.5fr) 72px repeat(5,minmax(76px,1fr));gap:8px;align-items:center;padding:0 16px;min-height:44px}.hw{display:grid;grid-template-columns:minmax(120px,1.3fr) repeat(6,minmax(0,1fr));gap:4px;align-items:center;padding:4px 12px}.dg{display:grid;grid-template-columns:minmax(150px,1.6fr) minmax(110px,1.2fr) 104px 100px 80px 96px;gap:10px;align-items:center}.bk{display:grid;grid-template-columns:70px 78px minmax(160px,2fr) 84px 100px 110px;gap:8px;align-items:center;padding:0 16px;min-height:52px}.paper{max-width:860px;width:100%;margin:0 auto;padding:30px 34px;border-radius:6px;background:var(--card);box-shadow:var(--shh);border:1px solid var(--bd)}.cell{border:0;border-radius:10px;min-height:46px;padding:4px 6px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;font-variant-numeric:tabular-nums}.cb{width:20px;height:20px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;transition:background-color .2s ease}
+@container vx (max-width:899px){.vx .G3{grid-template-columns:minmax(0,1fr)}.vx .hw{grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr));padding:4px 8px}.vx .paper{padding:18px 14px}.vx .scr{gap:14px}.vx .unstick{overflow:visible!important}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="reports" role="{{role}}" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+<header class="only-d glass" style="flex: none; height: 64px; display: flex; align-items: center; gap: 10px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="fc f1"><span class="s12 mu">{{top.crumb}}</span><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+<sc-if value="{{is.hub}}">
+<label style="height: 40px; width: 280px; border-radius: 12px; border: 1px solid var(--bd); background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><input type="search" aria-label="Find a report" value="{{q}}" onChange="{{onQ}}" placeholder="Find a report" style="flex: 1; min-width: 0; height: 36px; border: 0; outline: none; background: transparent; font-size: 14px"></label>
+<button class="tap btn sec" type="button" onClick="{{goSchedule}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>Scheduled sends<span class="pill ac num">{{schedN}}</span></button>
+</sc-if>
+<sc-if value="{{is.sub}}">
+<button class="tap btn ghost" type="button" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>All reports</button>
+<sc-for list="{{acts}}" as="a"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.fn}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for>
+</sc-if>
+</header>
+<header class="only-m glass" style="flex: none; min-height: 58px; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<sc-if value="{{is.hub}}"><a href="{{roleMenu}}" class="tap ib" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{is.sub}}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="fc f1" style="padding-left: 2px"><span class="el" style="font-size: 17px; font-weight: 700">{{top.mTitle}}</span><span class="s12 mu el">{{top.mSub}}</span></span>
+<sc-if value="{{is.hub}}"><button class="tap btn ghost" type="button" aria-label="Scheduled sends" onClick="{{goSchedule}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{ic.clock}}"></path></svg></button></sc-if>
+</header>
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+<sc-if value="{{is.mActs}}"><div class="only-m hs" style="display: flex; gap: 8px; padding: 12px 16px 0"><sc-for list="{{acts}}" as="a"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.fn}}" style="flex: none; height: 40px; font-size: 13px"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for></div></sc-if>
+<sc-if value="{{is.hub}}">
+<div class="pad scr" style="animation: {{anim}}">
+<label class="only-m" style="height: 46px; border-radius: 23px; border: 1px solid var(--bds); background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 14px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><input type="search" aria-label="Find a report" value="{{q}}" onChange="{{onQ}}" placeholder="Find a report" style="flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; font-size: 16px"></label>
+<sc-if value="{{hub.pinOn}}">
+<div class="fc" style="gap: 8px"><span class="sech">Pinned</span>
+<div class="hs" style="display: flex; gap: 10px; padding: 2px 2px 6px"><sc-for list="{{hub.pinned}}" as="c"><button class="tap card lift fr xi" type="button" onClick="{{c.open}}" style="flex: none; min-width: 230px; padding: 12px 14px; gap: 12px; text-align: left; color: var(--fg); --d: {{c.delay}}"><span class="ib t36 {{c.tone}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.icon}}"></path></svg></span><span class="fc"><span class="s14 b7">{{c.title}}</span><span class="num s13"><b>{{c.big}}</b> <span class="mu">{{c.small}}</span></span></span></button></sc-for></div>
+</div>
+</sc-if>
+<sc-for list="{{hub.groups}}" as="g">
+<div class="fc" style="gap: 8px"><span class="sech">{{g.label}}</span>
+<div class="G3"><sc-for list="{{g.cards}}" as="c">
+<div class="card lift xi" style="position: relative; --d: {{c.delay}}">
+<button class="tap rb" type="button" onClick="{{c.open}}" style="flex-direction: column; align-items: stretch; gap: 12px; padding: 14px 16px; border-radius: 18px">
+<span class="fr" style="gap: 12px; padding-right: 34px"><span class="ib t36 {{c.tone}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.icon}}"></path></svg></span><span class="fc f1"><span class="tt">{{c.title}}</span><span class="s12 mu">{{c.desc}}</span></span></span>
+<span class="fr jb" style="align-items: flex-end; min-height: 36px"><span class="fc"><span class="num b7" style="font-size: 19px">{{c.big}}</span><span class="s12 mu">{{c.small}}</span></span>
+<sc-if value="{{c.isSpark}}"><svg width="96" height="32" viewBox="0 0 96 32" aria-hidden="true" style="flex: none"><polyline points="{{c.pts}}" style="fill: none; stroke: var(--acc); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; --len: {{c.len}}; stroke-dasharray: {{c.len}}; animation: xDraw 1.1s .2s var(--ease) both"></polyline></svg></sc-if>
+<sc-if value="{{c.isStack}}"><span style="display: flex; flex: none; width: 96px; height: 10px; border-radius: 5px; overflow: hidden; background: var(--s3); transform-origin: left; animation: xGrowX .8s .2s var(--ease) both"><sc-for list="{{c.parts}}" as="p"><span style="width: {{p.w}}; background: {{p.c}}"></span></sc-for></span></sc-if>
+<sc-if value="{{c.isProg}}"><span style="flex: none; width: 96px; height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden"><span style="display: block; height: 8px; width: {{c.pw}}; background: var(--acc); transform-origin: left; animation: xGrowX .9s .2s var(--ease) both"></span></span></sc-if>
+</span>
+<span class="s11 fr" style="gap: 4px; color: var(--sub)"><svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>{{c.opened}}</span>
+</button>
+<button class="tap btn ghost sq {{c.pinCls}}" type="button" aria-label="Pin {{c.title}}" aria-pressed="{{c.pinS}}" onClick="{{c.pin}}" style="position: absolute; top: 10px; right: 10px"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.pin}}"></path></svg></button>
+</div>
+</sc-for></div>
+</div>
+</sc-for>
+<sc-if value="{{hub.empty}}"><div class="card fadein fc" style="align-items: center; gap: 10px; padding: 40px 24px; text-align: center"><span class="ib nu" style="width: 56px; height: 56px; border-radius: 28px"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.search}}"></path></svg></span><span class="tt">No report matches “{{q}}”</span><span class="s13 mu">Try “fee”, “attendance” or “students”.</span><button class="tap btn sec" type="button" onClick="{{clearQ}}">Show all reports</button></div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{is.collection}}">
+<div class="pad scr" style="animation: {{anim}}">
+<div class="fr wr" style="gap: 10px">
+<div class="seg" style="grid-template-columns: repeat(4, minmax(0, 1fr)); width: 440px; max-width: 100%"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 4); transform: translateX({{co.thumb}})"></span><sc-for list="{{co.ranges}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<div class="hs f1" style="display: flex; gap: 6px"><sc-for list="{{co.classes}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+</div>
+<div class="hs" style="display: flex; gap: 6px"><sc-for list="{{co.modes}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}"><span class="dt" style="width: 8px; height: 8px; background: {{c.dot}}"></span>{{c.label}}</button></sc-for></div>
+<sc-if value="{{co.custom}}"><div class="fr wr fadein" style="gap: 10px"><label class="field"><span>From</span><input class="inp" type="date" value="{{co.from}}" onChange="{{co.onFrom}}"></label><label class="field"><span>To</span><input class="inp" type="date" value="{{co.to}}" onChange="{{co.onTo}}"></label></div></sc-if>
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px"><sc-for list="{{co.kpis}}" as="k"><div class="card rise fc" style="padding: 14px 16px; gap: 2px; animation-delay: {{k.delay}}"><span class="s12 b6 mu">{{k.label}}</span><span class="num" style="font-size: 21px; font-weight: 700; color: {{k.fg}}">{{k.v}}</span><span class="fr s12 mu wr" style="gap: 6px"><sc-if value="{{k.pillOn}}"><span class="pill {{k.tone}}">{{k.pill}}</span></sc-if>{{k.sub}}</span></div></sc-for></div>
+<div class="card" style="padding: 16px">
+<div class="fr jb wr"><span class="fc"><span class="tt">{{co.title}}</span><span class="s12 mu">{{co.hint}}</span></span><span class="fr s12 mu"><span class="dt" style="background: var(--c1)"></span>Collected<span class="dt" style="background: var(--acc); margin-left: 8px"></span>{{co.hiLabel}}</span></div>
+<div class="hs" style="margin-top: 8px">
+<div style="min-width: {{co.minW}}; height: 210px; display: flex; align-items: flex-end; gap: 4px; padding-top: 40px; border-bottom: 1px solid var(--bd)"><sc-for list="{{co.bars}}" as="b"><button class="tap" type="button" aria-label="{{b.aria}}" onClick="{{b.pick}}" onMouseEnter="{{b.pick}}" style="flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; border: 0; background: transparent; padding: 0; position: relative">
+<sc-if value="{{b.sel}}"><span style="position: absolute; bottom: calc({{b.h}} + 6px); left: {{b.tl}}; transform: translateX({{b.tx}}); z-index: 2"><span class="pill num" style="height: 26px; padding: 0 10px; font-size: 12px; background: var(--tbg); color: var(--tfg); animation: xPopIn .25s var(--spring) both">{{b.tip}}</span></span></sc-if>
+<span style="width: 100%; max-width: 28px; height: {{b.h}}; border-radius: 6px 6px 2px 2px; background: {{b.bg}}; border: {{b.bd}}; transform-origin: bottom; animation: xGrowY .6s var(--ease) both; animation-delay: {{b.delay}}"></span>
+</button></sc-for></div>
+<div style="min-width: {{co.minW}}; display: flex; gap: 4px; padding-top: 6px"><sc-for list="{{co.bars}}" as="b"><span class="num s11" style="flex: 1; min-width: 0; text-align: center; color: {{b.lfg}}; font-weight: {{b.lfw}}">{{b.lab}}</span></sc-for></div>
+</div>
+</div>
+<div class="only-d card" style="overflow: clip">
+<div class="cg s12 b7 mu" style="position: sticky; top: 0; z-index: 2; background: var(--s2); border-bottom: 1px solid var(--bd); text-transform: uppercase; letter-spacing: .05em"><span>{{co.col0}}</span><span class="ta">Receipts</span><span class="ta">UPI</span><span class="ta">Cash</span><span class="ta">Cheque</span><span class="ta">Bank</span><span class="ta">Total</span></div>
+<div class="ls"><sc-for list="{{co.rows}}" as="r"><div class="cg row num s13 xi" style="opacity: {{r.op}}; --d: {{r.delay}}"><span class="b6 fr" style="color: var(--fg)">{{r.label}}<sc-if value="{{r.noteOn}}"><span class="pill nu">{{r.note}}</span></sc-if></span><span class="ta mu">{{r.n}}</span><sc-for list="{{r.m}}" as="x"><span class="ta">{{x}}</span></sc-for><span class="ta b7">{{r.total}}</span></div></sc-for></div>
+<div class="cg num s14 b7" style="background: var(--s2); border-top: 2px solid var(--bd)"><span>Total</span><span class="ta">{{co.tot.n}}</span><sc-for list="{{co.tot.m}}" as="x"><span class="ta">{{x}}</span></sc-for><span class="ta">{{co.tot.total}}</span></div>
+</div>
+<div class="only-m card ls" style="overflow: hidden"><sc-for list="{{co.rows}}" as="r"><div class="fc" style="gap: 6px; padding: 12px 14px; opacity: {{r.op}}"><div class="fr jb"><span class="fc"><span class="s14 b6">{{r.label}}</span><span class="s12 mu">{{r.sub}}</span></span><span class="num tt">{{r.total}}</span></div><span style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--s3)"><sc-for list="{{r.mix}}" as="p"><span style="width: {{p.w}}; background: {{p.c}}"></span></sc-for></span></div></sc-for><div class="fr jb" style="padding: 12px 14px; background: var(--s2)"><span class="b7">Total · {{co.tot.n}} receipts</span><span class="num tt">{{co.tot.total}}</span></div></div>
+</div>
+</sc-if>
+<sc-if value="{{is.defaulters}}">
+<div class="pad scr" style="animation: {{anim}}">
+<div class="card fc" style="padding: 14px 16px; gap: 12px">
+<div class="fr wr" style="gap: 10px 18px">
+<div class="seg" style="grid-template-columns: repeat(3, minmax(0, 1fr)); width: 300px; max-width: 100%"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{df.thumb}})"></span><sc-for list="{{df.langs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<button class="tap rb" type="button" role="switch" aria-checked="{{df.sw.on}}" onClick="{{df.toggleLeft}}" style="width: auto; gap: 10px"><span class="sw {{df.sw.cls}}"><span></span></span><span class="s14 b6">Include students who left</span></button>
+</div>
+<div class="hs" style="display: flex; gap: 6px"><sc-for list="{{df.classes}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+</div>
+<div class="nt in"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span><b>{{df.sum}}</b> Only installments already due (1, 2) count. Not-due-yet and late fee are never added in.</span></div>
+<sc-if value="{{df.sentOn}}"><div class="nt ok fadein"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span>{{df.sent}}</span></div></sc-if>
+<div class="paper xi">
+<div class="fr" style="gap: 12px; padding-bottom: 12px; border-bottom: 2px solid var(--fg)"><span class="ib serif" style="width: 44px; height: 44px; border-radius: 12px; background: #082F49; color: #F7F6F3; font-weight: 700">VP</span><span class="fc f1"><span class="b7" style="font-size: 16px">श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट</span><span class="serif s14">Shri Veer Patta Sr. Sec. School, Amet</span></span><span class="fc s11 mu ta">सत्र 2026–27<br>08-10-2026</span></div>
+<div class="fc" style="align-items: center; padding: 14px 0 4px; text-align: center"><span class="serif" style="font-size: 21px; font-weight: 700">{{df.head}}</span><span class="s12 mu">{{df.meta}}</span></div>
+<sc-for list="{{df.secs}}" as="c">
+<div class="fc" style="margin-top: 16px">
+<div class="fr jb" style="padding: 6px 0; border-bottom: 1.5px solid var(--fg)"><span class="b7 s14">{{c.title}}</span><span class="s12 mu">{{c.teacher}}</span></div>
+<div class="dg only-d s11 b7 mu" style="padding: 6px 0; border-bottom: 1px solid var(--bd)"><sc-for list="{{df.cols}}" as="h"><span class="{{h.cls}}">{{h.a}}<sc-if value="{{h.two}}"><br><span style="font-weight: 500">{{h.b}}</span></sc-if></span></sc-for></div>
+<sc-for list="{{c.rows}}" as="r">
+<div class="dg only-d s13" style="min-height: 40px; padding: 4px 0; border-bottom: 1px solid var(--bd)"><span class="fc"><span class="b6 fr" style="gap: 6px">{{r.nm}}<sc-if value="{{r.left}}"><span class="pill er">{{df.leftL}}</span></sc-if></span><sc-if value="{{r.two}}"><span class="s11 mu">{{r.nm2}}</span></sc-if></span><span>{{r.fa}}</span><span class="num mu">{{r.ph}}</span><span class="num b7 ta">{{r.amt}}</span><span class="num ta" style="color: var(--warnfg)">{{r.late}}</span><span style="height: 24px; border-bottom: 1px dashed var(--bds)"></span></div>
+<div class="only-m fr jb" style="align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--bd)"><span class="fc"><span class="b6 s14 fr" style="gap: 6px">{{r.nm}}<sc-if value="{{r.left}}"><span class="pill er">{{df.leftL}}</span></sc-if></span><span class="s12 mu">{{r.fa}} · <span class="num">{{r.ph}}</span></span></span><span class="fc" style="align-items: flex-end"><span class="num b7 s14">{{r.amt}}</span><span class="num s11" style="color: var(--warnfg)">{{df.lateL}} {{r.late}}</span></span></div>
+</sc-for>
+<div class="fr jb wr s13" style="padding: 8px 0; gap: 6px"><span class="b7">{{c.totL}} <span class="num">{{c.tot}}</span></span><span class="num" style="color: var(--warnfg)">{{c.lateTot}}</span></div>
+</div>
+</sc-for>
+<div class="s11 mu" style="margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--bd); line-height: 1.6">{{df.foot}}</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{is.classwise}}">
+<div class="stack" style="display: grid; grid-template-columns: {{cw.cols}}; align-items: start; min-height: 100%">
+<section class="pad scr {{cw.listCls}}" style="min-width: 0; animation: {{anim}}">
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px"><sc-for list="{{cw.kpis}}" as="k"><div class="card rise fc" style="padding: 14px 16px; gap: 2px; animation-delay: {{k.delay}}"><span class="s12 b6 mu">{{k.label}}</span><span class="num" style="font-size: 21px; font-weight: 700; color: {{k.fg}}">{{k.v}}</span><span class="s12 mu">{{k.sub}}</span></div></sc-for></div>
+<div class="fr jb wr s12 mu" style="gap: 8px"><span>Tap any cell to see those students. Darker = more pending.</span><span class="fr" style="gap: 4px">Less<sc-for list="{{cw.legend}}" as="l"><span style="width: 18px; height: 10px; border-radius: 3px; background: {{l}}"></span></sc-for>More</span></div>
+<div class="card" style="overflow: clip; padding-bottom: 6px">
+<div class="hw s11 b7" style="position: sticky; top: 0; z-index: 2; background: var(--card); padding-top: 10px; border-bottom: 1px solid var(--bd)"><span class="mu">CLASS</span><span class="ta" style="color: var(--warnfg); grid-column: span 2">PENDING TODAY</span><span class="hide-m"></span><span class="ta mu hide-m" style="grid-column: span 3">NOT DUE YET</span><span class="ta mu only-m">NOT DUE</span></div>
+<div class="hw s11 mu" style="padding-bottom: 6px"><span></span><span class="ta">Inst 1 · 15 Jul</span><span class="ta">Inst 2 · 15 Sep</span><span class="ta hide-m">Total</span><span class="ta hide-m">Inst 3 · 15 Nov</span><span class="ta hide-m">Inst 4 · 15 Jan</span><span class="ta">Total</span></div>
+<sc-for list="{{cw.rows}}" as="r"><div class="hw xi" style="--d: {{r.delay}}">
+<span class="fc"><span class="s13 b7 el">{{r.name}}</span><span class="s11 mu el">{{r.teacher}}</span></span>
+<sc-for list="{{r.p}}" as="c"><button class="tap cell {{c.x}}" type="button" aria-label="{{c.aria}}" onClick="{{c.pick}}" style="background: {{c.bg}}; color: {{c.fg}}; box-shadow: {{c.ring}}"><span class="s13 b7">{{c.v}}</span><span class="s11" style="opacity: .8">{{c.n}}</span></button></sc-for>
+<span class="num s13 b7 ta hide-m" style="color: var(--warnfg)">{{r.pt}}</span>
+<sc-for list="{{r.d}}" as="c"><button class="tap cell hide-m" type="button" aria-label="{{c.aria}}" onClick="{{c.pick}}" style="background: transparent; color: var(--mut); box-shadow: {{c.ring}}"><span class="s13 b6">{{c.v}}</span><span class="s11">{{c.n}}</span></button></sc-for>
+<span class="num s13 ta mu">{{r.dt}}</span>
+</div></sc-for>
+<div class="hw num s13 b7" style="margin-top: 4px; padding-top: 10px; border-top: 2px solid var(--bd)"><span>All classes</span><span class="ta">{{cw.t1}}</span><span class="ta">{{cw.t2}}</span><span class="ta hide-m" style="color: var(--warnfg)">{{cw.tp}}</span><span class="ta mu hide-m">{{cw.t3}}</span><span class="ta mu hide-m">{{cw.t4}}</span><span class="ta mu">{{cw.td}}</span></div>
+</div>
+</section>
+<sc-if value="{{cw.open}}">
+<aside class="unstick" style="position: sticky; top: 0; height: calc(100vh - 64px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--bg); animation: xPush .36s var(--ease) both">
+<div class="fc" style="padding: 18px 20px 28px; gap: 14px">
+<div class="fr jb" style="align-items: flex-start"><span class="fc hide-m"><span class="h2">{{sl.title}}</span><span class="s13 mu">{{sl.sub}}</span></span><button class="tap btn ghost sq only-d" type="button" aria-label="Close" onClick="{{closeCell}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="nt {{sl.tone}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{sl.note}}</span></div>
+<div class="card ls" style="overflow: hidden"><sc-for list="{{sl.list}}" as="p"><div class="fr xi" style="gap: 10px; padding: 10px 12px; --d: {{p.delay}}"><span class="ib s12 b7 nu" style="width: 34px; height: 34px; border-radius: 17px; color: var(--fg)">{{p.ini}}</span><span class="fc f1"><span class="s14 b6 el">{{p.name}}</span><span class="s12 mu el">{{p.fa}} · <span class="num">{{p.ph}}</span></span></span><span class="fc" style="align-items: flex-end"><span class="num s14 b7">{{p.amt}}</span><sc-if value="{{p.lateOn}}"><span class="num s11" style="color: var(--warnfg)">late fee {{p.late}}</span></sc-if></span><a href="D02-Student360.dc.html" class="tap only-d ib" aria-label="Open {{p.name}}" style="width: 32px; height: 32px; border-radius: 10px; color: var(--sub)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.chevRight}}"></path></svg></a><a href="F06-Student360.dc.html" class="tap only-m ib" aria-label="Open {{p.name}}" style="width: 32px; height: 32px; border-radius: 10px; color: var(--sub)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.chevRight}}"></path></svg></a></div></sc-for></div>
+<span class="s12 mu">{{sl.more}}</span>
+<sc-if value="{{sl.due}}"><a href="Reminders.dc.html" class="tap btn pri" style="height: 46px; color: var(--prifg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.bell}}"></path></svg>Remind these families</a></sc-if>
+</div>
+</aside>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{is.daybook}}">
+<div class="pad scr" style="animation: {{anim}}">
+<div class="fr jb wr" style="gap: 10px"><div class="hs" style="display: flex; gap: 6px"><sc-for list="{{db.days}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{c.label}}</button></sc-for></div>
+<span class="fr"><span class="pill {{db.tone}}" style="height: 30px; padding: 0 12px; font-size: 12px; animation: xPopIn .4s var(--spring) both"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path d="{{db.icon}}"></path></svg>{{db.status}}</span><sc-if value="{{db.open}}"><a href="Fees.dc.html" class="tap btn soft" style="height: 36px"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>Close the day</a></sc-if></span></div>
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px"><sc-for list="{{db.kpis}}" as="k"><div class="card rise fc" style="padding: 12px 14px; animation-delay: {{k.delay}}"><span class="s12 b6 mu">{{k.label}}</span><span class="num" style="font-size: 20px; font-weight: 700; color: {{k.fg}}">{{k.v}}</span><span class="s12 mu">{{k.sub}}</span></div></sc-for></div>
+<div class="card" style="overflow: clip">
+<div class="bk only-d s12 b7 mu" style="position: sticky; top: 0; z-index: 2; background: var(--s2); min-height: 40px; text-transform: uppercase; letter-spacing: .05em"><span>Time</span><span>Entry</span><span>Student</span><span>Mode</span><span class="ta">Amount</span><span class="ta">Running total</span></div>
+<div class="ls"><sc-for list="{{db.rows}}" as="r">
+<div class="bk only-d s13 row xi" style="--d: {{r.delay}}; background: {{r.bg}}"><span class="num mu">{{r.time}}</span><span class="num b7" style="text-decoration: {{r.strike}}">{{r.no}}</span><span class="fc"><span class="b6 el">{{r.name}}</span><span class="s12 mu el">{{r.sub}}</span></span><span><span class="pill {{r.tone}}">{{r.mode}}</span></span><span class="num b7 ta" style="color: {{r.fg}}">{{r.amt}}</span><span class="num ta mu">{{r.run}}</span></div>
+<div class="only-m fr xi" style="gap: 10px; padding: 10px 14px; --d: {{r.delay}}; background: {{r.bg}}"><span class="num s12 mu" style="width: 44px">{{r.time}}</span><span class="fc f1"><span class="s14 b6 el">{{r.name}}</span><span class="s12 mu el">{{r.no}} · {{r.mode}} · {{r.sub}}</span></span><span class="fc" style="align-items: flex-end"><span class="num b7" style="color: {{r.fg}}">{{r.amt}}</span><span class="num s11 mu">= {{r.run}}</span></span></div>
+</sc-for></div>
+<div class="fr jb" style="padding: 12px 16px; background: var(--s2); border-top: 2px solid var(--bd)"><span class="b7">{{db.endL}}</span><span class="num tt">{{db.end}}</span></div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{is.schedule}}">
+<div class="pad scr" style="max-width: 900px; animation: {{anim}}">
+<div class="nt ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg><span>Sent on WhatsApp as a PDF · about ₹0.88 a message · Hindi first for teachers.</span></div>
+<div class="fc" style="gap: 10px"><sc-for list="{{sc.items}}" as="x">
+<div class="card fr xi" style="gap: 14px; padding: 14px 16px; align-items: flex-start; --d: {{x.delay}}; opacity: {{x.op}}; transition: opacity .3s ease">
+<span class="ib t36 {{x.tone}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{x.icon}}"></path></svg></span>
+<span class="fc f1" style="gap: 2px"><span class="tt">{{x.title}}</span><span class="s13">{{x.when}}</span><span class="s12 mu">{{x.meta}}</span><span class="s12 fr" style="gap: 4px; color: {{x.lastFg}}"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{x.last}}</span></span>
+<button class="tap" type="button" role="switch" aria-checked="{{x.sw.on}}" aria-label="{{x.title}} on or off" onClick="{{x.toggle}}" style="border: 0; background: transparent; padding: 4px"><span class="sw {{x.sw.cls}}"><span></span></span></button>
+</div>
+</sc-for></div>
+</div>
+</sc-if>
+</main>
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="menu" role="{{role}}" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+<sc-if value="{{sheet.open}}">
+<button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sheet.state}}" role="dialog" aria-label="{{sheet.title}}">
+<div class="grab"></div>
+<sc-if value="{{sheet.head}}"><div class="fr jb" style="flex: none; align-items: flex-start; padding: 14px 20px 10px"><div class="fc" style="gap: 2px"><span class="h2">{{sheet.title}}</span><span class="s13 mu">{{sheet.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div></sc-if>
+<sc-if value="{{sh.exForm}}">
+<div class="scroll sb">
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Format</span><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{ex.fmts}}" as="f"><button class="tap" type="button" role="radio" aria-checked="{{f.on}}" onClick="{{f.pick}}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; border-radius: 14px; border: {{f.bd}}; background: {{f.bg}}; color: var(--fg); text-align: left"><span class="fr jb" style="width: 100%"><span class="ib t36 {{f.tone}}" style="width: 32px; height: 32px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{f.icon}}"></path></svg></span><span class="ib" style="width: 18px; height: 18px; border-radius: 9px; border: 2px solid {{f.ring}}"><span class="dt" style="width: 8px; height: 8px; background: var(--acc); transform: scale({{f.dot}}); transition: transform .25s var(--spring)"></span></span></span><span class="s14 b7">{{f.label}}</span><span class="s11 mu">{{f.sub}}</span></button></sc-for></div></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Dates</span><div class="hs" style="display: flex; gap: 6px"><sc-for list="{{ex.ranges}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Columns · {{ex.colN}}</span><div class="g2" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px"><sc-for list="{{ex.cols}}" as="c"><button class="tap rb" type="button" role="checkbox" aria-checked="{{c.on}}" onClick="{{c.pick}}" style="gap: 10px; min-height: 40px"><span class="cb" style="background: {{c.bg}}; border: {{c.bd}}; color: var(--onsolid)"><svg class="i" viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 3; opacity: {{c.op}}; transition: opacity .2s ease" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span class="s14">{{c.label}}</span></button></sc-for></div></div>
+<button class="tap card rb" type="button" role="switch" aria-checked="{{ex.sw.on}}" onClick="{{ex.toggleLeft}}" style="padding: 12px 14px; border: 1px solid var(--bd)"><span class="fc f1"><span class="s14 b6">Include students who left</span><span class="s12 mu">Marked “Left” · they still owe money</span></span><span class="sw {{ex.sw.cls}}"><span></span></span></button>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{ex.go}}" style="opacity: {{ex.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>Export {{ex.fmtL}}</button></div>
+</sc-if>
+<sc-if value="{{sh.exBusy}}">
+<div class="fc" style="flex: 1; align-items: center; gap: 14px; padding: 36px 24px 40px; text-align: center">
+<span class="tt">Preparing {{ex.file}}</span>
+<div style="width: 100%; max-width: 360px; height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden"><span style="display: block; height: 8px; width: {{ex.pct}}; background: var(--acc); transition: width .5s var(--ease)"></span></div>
+<span class="s13 mu num">{{ex.step}}</span>
+</div>
+</sc-if>
+<sc-if value="{{sh.exDone}}">
+<div class="fadein fc" style="flex: 1; align-items: center; gap: 10px; padding: 28px 24px 24px; text-align: center">
+<svg width="88" height="88" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="serif" style="font-size: 24px; font-weight: 600">File is ready</span>
+<span class="s14 mu">{{ex.file}} · {{ex.rows}}</span>
+<div class="fr wr" style="justify-content: center; margin-top: 6px"><button class="tap btn pri" type="button" onClick="{{ex.open}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.file}}"></path></svg>Open file</button><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Done</button></div>
+</div>
+</sc-if>
+<sc-if value="{{sh.send}}">
+<div class="scroll sb">
+<div class="fr" style="gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--s2)"><span class="ib t36 ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg></span><span class="fc f1"><span class="tt num">{{sd.count}}</span><span class="s12 mu">{{sd.cost}}</span></span></div>
+<div class="fr wr" style="gap: 6px"><sc-for list="{{sd.who}}" as="w"><span class="pill nu" style="height: 26px; padding: 0 10px; color: var(--fg)">{{w}}</span></sc-for></div>
+<div style="padding: 12px; border-radius: 14px; background: var(--wabg)"><div style="max-width: 440px; padding: 10px 12px 8px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; box-shadow: 0 1px 1px rgba(0,0,0,.12)"><span class="fr" style="gap: 8px; padding: 8px; margin-bottom: 8px; border-radius: 8px; background: rgba(0,0,0,.06)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.file}}"></path></svg><span class="fc"><span class="b6">{{sd.file}}</span><span class="s11" style="opacity: .7">PDF · Hindi</span></span></span>{{sd.hi}}<span style="display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.08); opacity: .85">{{sd.en}}</span></div></div>
+<span class="s12 mu">Each teacher gets only their own class.</span>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{sd.go}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{sd.cta}}</button></div>
+</sc-if>
+<sc-if value="{{sh.newsch}}">
+<div class="scroll sb">
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Report</span><div class="fr wr" style="gap: 6px"><sc-for list="{{ns.reports}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Send to</span><div class="fr wr" style="gap: 6px"><sc-for list="{{ns.to}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">How often</span><div class="seg" style="grid-template-columns: repeat(3, minmax(0, 1fr)); width: 300px; max-width: 100%"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{ns.thumb}})"></span><sc-for list="{{ns.freqs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<sc-if value="{{ns.daysOn}}"><div class="hs fadein" style="display: flex; gap: 6px"><sc-for list="{{ns.days}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></sc-if></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Time</span><div class="hs" style="display: flex; gap: 6px"><sc-for list="{{ns.times}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+<div class="nt in"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg><span><b>{{ns.cost}}</b> {{ns.costSub}}</span></div>
+<div style="padding: 12px; border-radius: 14px; background: var(--wabg)"><div style="max-width: 420px; padding: 10px 12px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5">{{ns.hi}}<span style="display: block; margin-top: 6px; opacity: .85">{{ns.en}}</span></div></div>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{ns.save}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>Schedule it</button></div>
+</sc-if>
+</section>
+</sc-if>
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="s14" style="padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["hub","collection","defaulters","send","classwise","cell","daybook","export","schedule","newsch"],"default":"hub"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+ data() {
+  if (this._d) return this._d;
+/*VX_ICONS*/
+  IC.gift = 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z';
+  const REPORTS = [
+   ['coll', 'Money', 'Daily collection', 'Receipts by day, mode and class', 'chart', 'ac', '₹38,400', 'today · 14 receipts', 'spark', 'Opened today', 'collection'],
+   ['day', 'Money', 'Day book', 'Every receipt and reversal in time order', 'book', 'in', '14', 'receipts today · 0 reversed', '', 'Opened yesterday', 'daybook'],
+   ['mode', 'Money', 'Collection by mode', 'Cash, UPI, cheque and bank', 'pie', 'ac', '81% UPI', 'October so far', 'stack', 'Opened 3 days ago', 'collection'],
+   ['pend', 'Money', 'Pending by class', 'Class × installment heat map', 'grid', 'wa', '₹6.4 L', 'pending today · 138 students', '', 'Opened 2 days ago', 'classwise'],
+   ['def', 'Money', 'Defaulter list (हिंदी)', 'Printable list for class teachers', 'alert', 'er', '138', 'students · pending today', '', 'Opened last week', 'defaulters'],
+   ['conc', 'Money', 'Concessions given', 'Sibling, staff, RTE and merit', 'percent', 'in', '₹5.06 L', '73 students', '', 'Opened 2 weeks ago', ''],
+   ['late', 'Money', 'Late fee collected', 'Always kept apart from fees', 'clock', 'wa', '₹18,240', 'this session', 'spark', 'Opened last month', ''],
+   ['bus', 'Money', 'Transport dues', 'Bus fee pending by route', 'bus', 'nu', '₹1.2 L', 'pending today · 4 routes', '', 'Opened last month', ''],
+   ['str', 'Students', 'Strength by class', 'On roll, boys and girls', 'users', 'ac', '434', 'on roll · 19 classes', 'stack', 'Opened 4 days ago', ''],
+   ['new', 'Students', 'New admissions', 'New students this session', 'userPlus', 'ok', '38', 'since 1 Apr', '', 'Opened last week', ''],
+   ['left', 'Students', 'Left students', 'TC issued · dues still shown', 'logout', 'er', '7', 'left · 3 still owe fees', '', 'Opened 2 weeks ago', ''],
+   ['bday', 'Students', 'Birthdays this month', 'October birthdays by class', 'gift', 'wa', '31', 'in October · 2 today', '', 'Opened 5 days ago', ''],
+   ['att', 'Academics', 'Attendance summary', 'By class, this week', 'calCheck', 'ok', '93.4%', 'this week · unmarked not counted', 'spark', 'Opened today', ''],
+   ['marks', 'Academics', 'Marks summary', 'Half-yearly entry progress', 'clipboard', 'in', '62%', 'half-yearly marks entered', 'prog', 'Opened yesterday', ''],
+   ['res', 'Academics', 'Result analysis', 'Unit Test 1 averages and toppers', 'award', 'ac', '71%', 'Unit Test 1 average', '', 'Opened last month', '']
+  ].map((r) => ({ id: r[0], grp: r[1], title: r[2], desc: r[3], icon: r[4], tone: r[5], big: r[6], small: r[7], vis: r[8], opened: r[9], screen: r[10] }));
+  const SPARK = { coll: [26, 18, 31, 24, 29, 22, 41, 25, 32, 26, 23, 38], late: [3, 5, 2, 6, 4, 7, 5, 8, 6, 9, 7, 8], att: [92.1, 93.4, 94, 91.8, 93.9, 94.6, 93.4] };
+  const STACK = { mode: [[81, 'var(--c1)'], [16, 'var(--c2)'], [2, 'var(--c3)'], [1, 'var(--c4)']], str: [[14, 'var(--c1)'], [29, 'var(--c2)'], [20, 'var(--c3)'], [37, 'var(--c4)']] };
+  const OCT = [[1, 'Thu', 28050, 8700, 4500, 0, 14], [2, 'Fri', 0, 0, 0, 0, 0, 'Gandhi Jayanti'], [3, 'Sat', 15200, 9500, 0, 0, 9], [4, 'Sun', 0, 0, 0, 0, 0, 'Sunday'], [5, 'Mon', 22400, 9500, 0, 0, 11], [6, 'Tue', 15000, 6300, 0, 4500, 4], [7, 'Wed', 11000, 4600, 7000, 0, 4], [8, 'Thu', 31175, 7225, 0, 0, 14]];
+  const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const SEP = [];
+  for (let d = 1; d <= 30; d += 1) { const w = DOW[(d + 1) % 7]; const v = w === 'Sun' ? 0 : Math.round((1 + 2.4 * Math.exp(-((d - 14) * (d - 14)) / 16) + ((d * 7) % 5) / 10) * 12800 / 100) * 100; SEP.push([d, w, Math.round(v * 0.7 / 25) * 25, Math.round(v * 0.22 / 25) * 25, Math.round(v * 0.05 / 25) * 25, Math.round(v * 0.03 / 25) * 25, Math.round(v / 4300), w === 'Sun' ? 'Sunday' : '']); }
+  const SESS = [['Apr', 90000, 21], ['May', 40000, 9], ['Jun', 120000, 28], ['Jul', 580000, 131], ['Aug', 260000, 60], ['Sep', 615000, 142], ['Oct', 184650, 56], ['Nov'], ['Dec'], ['Jan'], ['Feb'], ['Mar']];
+  const DEF = [
+   ['Class 3', 'कक्षा 3', 'Ms. Sharma', 'सुश्री शर्मा', [['Diya Sharma', 'दिया शर्मा', 'Rakesh Sharma', 'राकेश शर्मा', '512', 5250, 230], ['Arjun Rawal', 'अर्जुन रावल', 'Bharat Rawal', 'भरत रावल', '208', 4550, 230]]],
+   ['Class 6', 'कक्षा 6', 'Ms. Bhati', 'सुश्री भाटी', [['Riya Singh', 'रिया सिंह', 'Mahendra Singh', 'महेंद्र सिंह', '377', 6650, 230], ['Karan Regar', 'करण रेगर', 'Mukesh Regar', 'मुकेश रेगर', '941', 13300, 530]]],
+   ['Class 7', 'कक्षा 7', 'Mr. Choudhary', 'श्री चौधरी', [['Aarav Sharma', 'आरव शर्मा', 'Rakesh Sharma', 'राकेश शर्मा', '512', 6650, 230]]],
+   ['Class 8', 'कक्षा 8', 'Mr. Solanki', 'श्री सोलंकी', [['Neha Joshi', 'नेहा जोशी', 'Prakash Joshi', 'प्रकाश जोशी', '663', 6650, 230]]],
+   ['Class 9', 'कक्षा 9', 'Mr. Meena', 'श्री मीणा', [['Mohit Agarwal', 'मोहित अग्रवाल', 'Suresh Agarwal', 'सुरेश अग्रवाल', '184', 16100, 530], ['Vikas Gurjar', 'विकास गुर्जर', 'Ramesh Gurjar', 'रमेश गुर्जर', '726', 8050, 300, 1]]],
+   ['Class 10', 'कक्षा 10', 'Ms. Dave', 'सुश्री दवे', [['Aarti Kumawat', 'आरती कुमावत', 'Mahesh Kumawat', 'महेश कुमावत', '439', 8050, 230]]]
+  ];
+  const CL = [['Nursery', 'Ms. Kanwar', 18, 4, 4450], ['LKG', 'Ms. Rathore', 20, 5, 4450], ['UKG', 'Ms. Mehta', 22, 6, 4450], ['Class 1', 'Ms. Jain', 23, 5, 5250], ['Class 2', 'Ms. Vyas', 25, 7, 5250], ['Class 3', 'Ms. Sharma', 24, 8, 5250], ['Class 4', 'Mr. Verma', 29, 9, 5250], ['Class 5', 'Ms. Paliwal', 26, 7, 5250], ['Class 6', 'Ms. Bhati', 31, 10, 6650], ['Class 7', 'Mr. Choudhary', 27, 9, 6650], ['Class 8', 'Mr. Solanki', 28, 8, 6650], ['Class 9', 'Mr. Meena', 28, 11, 8050], ['Class 10', 'Ms. Dave', 30, 9, 8050], ['11 Science', 'Mr. Trivedi', 22, 6, 9900], ['11 Commerce', 'Mr. Purohit', 18, 7, 9000], ['11 Arts', 'Ms. Chouhan', 14, 5, 9000], ['12 Science', 'Mr. Bhatt', 20, 6, 9900], ['12 Commerce', 'Ms. Kothari', 17, 9, 9000], ['12 Arts', 'Mr. Rawal', 12, 7, 9000]];
+  const E = (time, no, name, cls, mode, amt, x) => ({ time, no, name, cls, mode, amt, rev: x || '' });
+  const BOOK = {
+   6: [E('9:05', 'R-0395', 'Aarav Bhatt', '12 Commerce', 'Bank', 4500), E('10:15', 'R-0396', 'Saanvi Mehta', 'Class 2', 'UPI', 5400), E('12:40', 'R-0397', 'Om Kumawat', 'Class 5', 'Cash', 6300), E('3:10 pm', 'R-0398', 'Prisha Agarwal', 'Class 8', 'UPI', 9600)],
+   7: [E('9:30', 'R-0399', 'Rudra Singh', 'Class 3', 'Cash', 3000, 'Reversed at 11:02'), E('10:05', 'R-0400', 'Manvi Joshi', 'Class 4', 'UPI', 5000), E('11:02', 'Reversal', 'Rudra Singh', 'R-0399 · wrong student', 'Cash', -3000, 'rev'), E('11:20', 'R-0401', 'Dev Rathore', '11 Science', 'Cheque', 7000), E('1:15 pm', 'R-0402', 'Khushi Sharma', 'Class 6', 'Cash', 4600), E('4:40 pm', 'R-0403', 'Yash Mehta', 'Class 9', 'UPI', 6000)],
+   8: [E('8:05', 'R-0404', 'Aditi Jain', 'Class 10', 'UPI', 3100), E('8:18', 'R-0405', 'Nidhi Chouhan', 'Class 7', 'Cash', 1000), E('8:30', 'R-0406', 'Ishaan Kothari', 'Class 1', 'UPI', 3150), E('8:39', 'R-0407', 'Arjun Rawal', 'Class 3', 'Cash', 700), E('8:47', 'R-0408', 'Ritika Purohit', 'Class 5', 'UPI', 2500), E('8:58', 'R-0409', 'Sneha Bhati', 'Class 9', 'Cash', 1175), E('9:12', 'R-0410', 'Vivaan Trivedi', '12 Science', 'UPI', 4800), E('9:20', 'R-0411', 'Anaya Dave', 'UKG', 'UPI', 1200), E('9:31', 'R-0412', 'Kabir Solanki', 'Class 6', 'UPI', 6000), E('9:44', 'R-0413', 'Meera Choudhary', 'Class 2', 'Cash', 1500), E('9:58', 'R-0414', 'Harsh Vyas', 'Class 8', 'UPI', 3900), E('10:05', 'R-0415', 'Tanvi Paliwal', 'LKG', 'UPI', 2175), E('10:21', 'R-0416', 'Kunal Verma', 'Class 4', 'Cash', 2850), E('10:38', 'R-0417', 'Pooja Mehta', '11 Commerce', 'UPI', 4350)]
+  };
+  const BOOKD = { 6: ['Tue 6 Oct', 'Closed by Janmejay · 5:05 pm', 0], 7: ['Wed 7 Oct', 'Closed by Janmejay · 5:10 pm', 460], 8: ['Today · Thu 8 Oct', '', 230] };
+  const SCHED = [
+   ['s1', 'coll', 'Daily collection → Janmejay', 'Every day · 6:00 pm · WhatsApp', 'Next: today 6:00 pm · 30 a month · about ₹26', 'Last sent Wed 7 Oct · read', true],
+   ['s2', 'pend', 'Pending by class → 19 class teachers', 'Mondays · 8:00 am · Hindi first', 'Next: Mon 12 Oct · 76 a month · about ₹67', 'Last sent Mon 5 Oct · 17 of 19 read', true],
+   ['s4', 'def', 'Defaulter list (हिंदी) → class teachers', '1st and 16th · 8:00 am · Hindi first', 'Paused · 34 a month · about ₹30', 'Last sent Thu 1 Oct · 15 of 17 read', false]
+  ].map((x) => ({ id: x[0], rep: x[1], title: x[2], when: x[3], meta: x[4], last: x[5], on: x[6] }));
+  this._d = { IC, REPORTS, SPARK, STACK, OCT, SEP, SESS, DEF, CL, BOOK, BOOKD, SCHED };
+  return this._d;
+ }
+ st() {
+  const map = { collection: { screen: 'collection' }, defaulters: { screen: 'defaulters' }, send: { screen: 'defaulters', sheet: 'send' }, classwise: { screen: 'classwise' }, cell: { screen: 'classwise', cell: '9.1' }, daybook: { screen: 'daybook' }, export: { screen: 'collection', sheet: 'export' }, schedule: { screen: 'schedule' }, newsch: { screen: 'schedule', sheet: 'newsch' } };
+  return Object.assign({ screen: 'hub', anim: 'none', q: '', pins: ['coll', 'def', 'pend'], opened: {}, range: 'month', cls: 'all', mode: 'all', bar: 7, from: '2026-10-01', to: '2026-10-08', lang: 'hi', left: true, dcls: 'all', sentDef: false, cell: '', day: 8, sheet: '', closing: false, exRep: 'Daily collection', ex: { fmt: 'xlsx', range: 'month', off: {}, left: true, stage: 'form', pct: 0 }, sched: {}, extra: [], ns: { rep: 'coll', to: 'me', freq: 'daily', day: 'Mon', time: '6 pm' }, toast: null }, map[(this.props || {}).start] || {}, this.state || {});
+ }
+ inr(n) { return (n < 0 ? '−₹' : '₹') + Math.abs(Math.round(n)).toLocaleString('en-IN'); }
+ toast(text, undo) {
+  const id = Date.now() + Math.random();
+  this._undo = undo || null;
+  this.setState({ toast: { id, text, undo: !!undo } });
+  clearTimeout(this._tt);
+  this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+ }
+ undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+ openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+ closeSheet() {
+  if (!this.st().sheet) return;
+  this.setState({ closing: true });
+  clearTimeout(this._ct);
+  this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+ }
+ renderVals() { const v = this._rv(); const r = this.props.role || 'admin'; v.role = r; v.roleMenu = { admin: 'F13-Menu.dc.html', teacher: 'M-TchMore.dc.html', accountant: 'M-AccHome-Menu.dc.html', academic: 'M-AcadHome-Menu.dc.html', exam: 'M-ExamHome-Menu.dc.html' }[r] || 'F13-Menu.dc.html'; return v; }
+ _rv() {
+  const D = this.data(), s = this.st(), IC = D.IC;
+  const g = () => this.st();
+  const set = (o) => this.setState(o);
+  const toast = (t, u) => this.toast(t, u);
+  const inr = (n) => this.inr(n);
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const delay = (i) => (Math.min(i, 16) * 28) + 'ms';
+  const lakh = (n) => (n >= 1e5 ? '₹' + (n / 1e5).toFixed(2).replace(/0$/, '').replace(/\.0$/, '') + ' L' : inr(n));
+  const sw = (on) => ({ on: on ? 'true' : 'false', cls: on ? 'on' : '' });
+  const chip = (on, pick, label) => ({ label, cls: on ? 'on' : '', pr: on ? 'true' : 'false', pick });
+  const seg = (opts, cur, key) => { const i = Math.max(0, opts.map((o) => o[0]).indexOf(cur)); return { thumb: (i * 100) + '%', opts: opts.map((o) => ({ label: o[1], cls: o[0] === cur ? 'tap on' : 'tap', pr: o[0] === cur ? 'true' : 'false', pick: () => set({ [key]: o[0], bar: -1 }) })) }; };
+  const ini = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('');
+  const rep = (id) => D.REPORTS.filter((r) => r.id === id)[0] || D.REPORTS[0];
+  const go = (screen) => set({ screen, anim: 'push', cell: '' });
+  const MC = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)'];
+  const MODES = ['UPI', 'Cash', 'Cheque', 'Bank'];
+  const openRep = (r) => () => { set({ opened: Object.assign({}, g().opened, { [r.id]: true }) }); if (r.screen) go(r.screen); else this.openSheet('export', { exRep: r.title, ex: Object.assign({}, g().ex, { stage: 'form' }) }); };
+  const q = (s.q || '').trim().toLowerCase();
+  const card = (r, i) => {
+   const pinned = s.pins.indexOf(r.id) >= 0;
+   const c = { title: r.title, desc: r.desc, icon: IC[r.icon], tone: r.tone, big: r.big, small: r.small, opened: s.opened[r.id] ? 'Opened just now' : r.opened, delay: delay(i), open: openRep(r), isSpark: r.vis === 'spark', isStack: r.vis === 'stack', isProg: r.vis === 'prog', pts: '', len: '0', parts: [], pw: '62%',
+    pinS: pinned ? 'true' : 'false', pinCls: pinned ? 'ac' : '', pin: () => { const p = g().pins; const on = p.indexOf(r.id) >= 0; set({ pins: on ? p.filter((x) => x !== r.id) : p.concat([r.id]) }); toast(on ? r.title + ' unpinned' : r.title + ' pinned to the top'); } };
+   const sp = D.SPARK[r.id];
+   if (sp) { const mn = Math.min.apply(null, sp), mx = Math.max.apply(null, sp); const P = sp.map((v, j) => [j * 96 / (sp.length - 1), 29 - (v - mn) / ((mx - mn) || 1) * 26]); c.pts = P.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '); c.len = Math.ceil(sum(P.slice(1).map((p, j) => Math.hypot(p[0] - P[j][0], p[1] - P[j][1])))) + ''; }
+   if (D.STACK[r.id]) c.parts = D.STACK[r.id].map((p) => ({ w: p[0] + '%', c: p[1] }));
+   return c;
+  };
+  const shown = D.REPORTS.filter((r) => !q || (r.title + ' ' + r.desc + ' ' + r.grp).toLowerCase().indexOf(q) >= 0);
+  let ci = 0;
+  const hub = {
+   pinOn: !q && s.pins.length > 0, pinned: s.pins.map((id, i) => card(rep(id), i)), empty: shown.length === 0,
+   groups: ['Money', 'Students', 'Academics'].map((gname) => ({ label: gname, cards: shown.filter((r) => r.grp === gname).map((r) => card(r, ci++)) })).filter((x) => x.cards.length)
+  };
+  const CLS = [['all', 'All classes', 1], ['pre', 'Pre-primary', 0.11], ['pri', 'Class 1–5', 0.26], ['mid', 'Class 6–8', 0.22], ['sec', 'Class 9–10', 0.16], ['sr', 'Class 11–12', 0.25]];
+  const share = (CLS.filter((c) => c[0] === s.cls)[0] || CLS[0])[2];
+  const mi = MODES.indexOf(s.mode);
+  const pick = (m) => (mi < 0 ? m : m.map((v, j) => (j === mi ? v : 0)));
+  const scale = (m) => pick(m).map((v) => Math.round(v * share / 25) * 25);
+  let src;
+  if (s.range === 'session') src = D.SESS.map((m) => ({ key: m[0], lab: m[0], label: m[0] + (m[0] === 'Oct' ? ' (so far)' : ' 2026').replace('Jan 2026', 'Jan 2027').replace('Feb 2026', 'Feb 2027').replace('Mar 2026', 'Mar 2027'), m: m[1] ? scale([m[1] * 0.74, m[1] * 0.2, m[1] * 0.04, m[1] * 0.02]) : null, n: m[2] || 0, fut: !m[1], today: m[0] === 'Oct', note: '' }));
+  else {
+   const days = s.range === 'last' ? D.SEP : D.OCT;
+   const mon = s.range === 'last' ? 'Sep' : 'Oct';
+   src = days.map((d) => ({ key: d[0], lab: String(d[0]), label: d[1] + ' ' + d[0] + ' ' + mon, m: scale(d.slice(2, 6)), n: Math.round(d[6] * share), fut: false, today: mon === 'Oct' && d[0] === 8, note: d[7] || '' }));
+   if (s.range !== 'last') for (let d = 9; d <= 31; d += 1) src.push({ key: d, lab: String(d), label: '', m: null, n: 0, fut: true, today: false, note: '' });
+  }
+  const live = src.filter((x) => x.m);
+  const tot = (x) => sum(x.m);
+  const maxV = Math.max.apply(null, live.map(tot).concat([1]));
+  const sel = s.bar >= 0 && src[s.bar] && src[s.bar].m ? s.bar : -1;
+  const totalAll = sum(live.map(tot));
+  const nAll = sum(live.map((x) => x.n));
+  const work = live.filter((x) => tot(x) > 0);
+  const best = work.slice().sort((a, b) => tot(b) - tot(a))[0] || { label: '—', m: [0] };
+  const RG = [['month', 'This month'], ['last', 'Last month'], ['session', 'Session'], ['custom', 'Custom']];
+  const lateBy = { month: 1240, custom: 1240, last: 6980, session: 18240 };
+  const delta = { month: ['+12% vs Sep 1–8', 'ok'], custom: ['+12% vs Sep 1–8', 'ok'], last: ['+136% vs Aug', 'ok'], session: ['61% of ₹31.2 L expected', 'in'] }[s.range];
+  const rsg = seg(RG, s.range, 'range');
+  const mixOf = (m) => { const t = sum(m) || 1; return m.map((v, j) => ({ w: (v / t * 100).toFixed(1) + '%', c: MC[j] })); };
+  const co = {
+   thumb: rsg.thumb, ranges: rsg.opts, custom: s.range === 'custom', from: s.from, to: s.to, onFrom: (e) => set({ from: String(e.target.value || '') }), onTo: (e) => set({ to: String(e.target.value || '') }),
+   classes: CLS.map((c) => chip(s.cls === c[0], () => set({ cls: c[0] }), c[1])),
+   modes: [['all', 'All modes', 'var(--sub)']].concat(MODES.map((m, j) => [m, m, MC[j]])).map((m) => Object.assign(chip(s.mode === m[0], () => set({ mode: m[0] }), m[1]), { dot: m[2] })),
+   kpis: [['Collected', inr(totalAll), nAll + ' receipts', 'var(--fg)', delta], ['Average per working day', inr(totalAll / (work.length || 1)), work.length + ' working ' + (s.range === 'session' ? 'months' : 'days'), 'var(--fg)'], ['Best ' + (s.range === 'session' ? 'month' : 'day'), inr(tot(best)), best.label, 'var(--fg)'], ['Late fee collected', inr(lateBy[s.range]), 'kept apart · not in the total', 'var(--warnfg)']].map((k, i) => ({ label: k[0], v: k[1], sub: k[2], fg: k[3], pillOn: !!k[4], pill: k[4] ? k[4][0] : '', tone: k[4] ? k[4][1] : '', delay: delay(i) })),
+   title: s.range === 'session' ? 'Collected by month · 2026–27' : (s.range === 'last' ? 'Collected by day · September' : 'Collected by day · October'), hint: 'Hover or tap a bar to see the amount', hiLabel: s.range === 'last' ? 'Selected' : (s.range === 'session' ? 'This month' : 'Today'),
+   minW: s.range === 'session' ? '100%' : Math.max(560, src.length * 22) + 'px',
+   bars: src.map((x, i) => { const v = x.m ? tot(x) : 0; const on = i === sel; const h = x.fut ? '6%' : (v ? Math.max(3, v / maxV * 100).toFixed(1) + '%' : '2%'); return { h, lab: x.lab, sel: on, tip: x.label + ' · ' + inr(v), tl: i < 3 ? '0' : (i > src.length - 4 ? '100%' : '50%'), tx: i < 3 ? '0' : (i > src.length - 4 ? '-100%' : '-50%'), aria: x.fut ? x.lab + ' not yet' : x.label + ' ' + inr(v),
+    bg: x.fut ? 'transparent' : (on || x.today ? 'var(--acc)' : (v ? 'var(--c1)' : 'var(--s3)')), bd: x.fut ? '1.5px dashed var(--bds)' : '0', lfg: x.today || on ? 'var(--accfg)' : 'var(--sub)', lfw: x.today || on ? '700' : '500', delay: delay(i),
+    pick: () => { if (x.m) set({ bar: i }); } }; }),
+   col0: s.range === 'session' ? 'Month' : 'Day',
+   rows: live.filter((x) => tot(x) > 0 || x.note).map((x, i) => ({ label: x.label, note: x.note, noteOn: !!x.note, n: x.note ? '—' : String(x.n), sub: x.note || (x.n + ' receipts'), m: x.m.map((v) => (v ? inr(v) : '—')), total: x.note ? '—' : inr(tot(x)), op: x.note ? '0.55' : '1', mix: mixOf(x.m), delay: delay(i) })),
+   tot: { n: String(nAll), m: [0, 1, 2, 3].map((j) => inr(sum(live.map((x) => x.m[j])))), total: inr(totalAll) }
+  };
+  const L = s.lang;
+  const tr2 = (hi, en) => (L === 'hi' ? hi : (L === 'en' ? en : hi + ' · ' + en));
+  const secs = D.DEF.filter((c) => s.dcls === 'all' || s.dcls === c[0]).map((c) => {
+   const rows = c[4].filter((r) => s.left || !r[7]);
+   return { title: tr2(c[1], c[0]), teacher: tr2('कक्षा अध्यापक ' + c[3], 'Class teacher ' + c[2]), totL: tr2('कुल', 'Total'), tot: inr(sum(rows.map((r) => r[5]))), lateTot: tr2('विलंब शुल्क (अलग) ', 'Late fee (separate) ') + inr(sum(rows.map((r) => r[6]))),
+    rows: rows.map((r) => ({ nm: L === 'en' ? r[0] : r[1], nm2: r[0], two: L === 'both', fa: L === 'en' ? r[2] : r[3], ph: '98290 ••' + r[4], amt: inr(r[5]), late: inr(r[6]), left: !!r[7] })) };
+  }).filter((c) => c.rows.length);
+  const allRows = D.DEF.filter((c) => s.dcls === 'all' || s.dcls === c[0]).reduce((a, c) => a.concat(c[4].filter((r) => s.left || !r[7])), []);
+  const teachers = s.dcls === 'all' ? 17 : 1;
+  const firstCls = D.DEF.filter((c) => s.dcls === 'all' || s.dcls === c[0])[0] || D.DEF[2];
+  const lg = seg([['hi', 'हिंदी'], ['en', 'English'], ['both', 'दोनों · Both']], s.lang, 'lang');
+  const df = {
+   thumb: lg.thumb, langs: lg.opts, sw: sw(s.left), toggleLeft: () => set({ left: !g().left }),
+   classes: [['all', 'All classes']].concat(D.DEF.map((c) => [c[0], c[0]])).map((c) => chip(s.dcls === c[0], () => set({ dcls: c[0] }), c[1])),
+   sum: s.dcls === 'all' ? '138 students owe ₹6.4 L today (late fee ₹21,860, separate).' : allRows.length + ' students in ' + s.dcls + ' owe ' + inr(sum(allRows.map((r) => r[5]))) + ' today.',
+   head: tr2('बकाया शुल्क सूची', 'Pending fee list'), meta: tr2('दिनांक 08-10-2026 · केवल देय तिथि निकल चुकी किस्तें (1 और 2)', 'Date 08-10-2026 · only installments already due (1 and 2)'),
+   cols: [['छात्र', 'Student'], ['पिता', 'Father'], ['फ़ोन', 'Phone'], ['आज तक बकाया', 'Pending today'], ['विलंब शुल्क', 'Late fee'], ['हस्ताक्षर', 'Signature']].map((h, i) => ({ a: L === 'en' ? h[1] : h[0], b: h[1], two: L === 'both', cls: i === 3 || i === 4 ? 'ta' : '' })),
+   secs, leftL: tr2('छोड़ गए', 'Left'), lateL: tr2('विलंब', 'Late'),
+   foot: tr2('किस्त 3 और 4 (अभी देय नहीं) इस सूची में नहीं हैं। विलंब शुल्क अलग दिखाया गया है, बकाया में नहीं जोड़ा गया। जिन 3 परिवारों पर केवल विलंब शुल्क है, वे इस सूची में नहीं हैं। · पृष्ठ 1 / 9', 'Installments 3–4 (not due yet) are not listed. Late fee is separate, never added. 3 families owing only late fee are not listed. · Page 1 of 9'),
+   sentOn: !!s.sentDef, sent: 'Sent to ' + teachers + (teachers === 1 ? ' class teacher' : ' class teachers') + ' at 5:12 pm · delivery ticks in Messages'
+  };
+  const sd = {
+   count: teachers + (teachers === 1 ? ' class teacher · 1 message' : ' class teachers · ' + teachers + ' messages'), cost: 'About ₹' + (teachers * 0.88).toFixed(2).replace(/\.?0+$/, '') + ' on WhatsApp · one PDF each',
+   who: s.dcls === 'all' ? D.DEF.map((c) => c[2] + ' · ' + c[0]).concat(['+ 11 more']) : [firstCls[2] + ' · ' + firstCls[0]],
+   file: 'बकाया-सूची-' + firstCls[1].replace(' ', '-') + '.pdf',
+   hi: 'नमस्ते ' + firstCls[3] + ' जी, ' + firstCls[1] + ' की बकाया शुल्क सूची (केवल आज तक देय किस्तें) संलग्न है। कृपया अभिभावकों से बात करें। — श्री वीर पत्ता स्कूल',
+   en: 'Hello ' + firstCls[2] + ', the pending fee list for ' + firstCls[0] + ' (only installments due till today) is attached. Please speak to the parents. — VPPS',
+   cta: 'Send ' + teachers + (teachers === 1 ? ' message' : ' messages'),
+   go: () => { this.closeSheet(); set({ sentDef: true }); toast('Sending to ' + teachers + (teachers === 1 ? ' class teacher' : ' class teachers') + '…', () => set({ sentDef: false })); }
+  };
+  const C1 = D.CL.map((c) => Math.round(c[3] * 0.35) * c[4] * 0.9), C2 = D.CL.map((c) => c[3] * c[4] * 0.85);
+  const kP = 640000 / (sum(C1) + sum(C2));
+  const ND = D.CL.map((c) => c[2] * c[4]);
+  const kD = 590000 / (2 * sum(ND));
+  const r50 = (v) => Math.round(v / 50) * 50;
+  const CW = D.CL.map((c, i) => ({ c, p: [[r50(C1[i] * kP), Math.round(c[3] * 0.35)], [r50(C2[i] * kP), c[3]]], d: [[r50(ND[i] * kD * 1.04), Math.round(c[2] * 0.42)], [r50(ND[i] * kD * 0.96), Math.round(c[2] * 0.4)]] }));
+  const pMax = Math.max.apply(null, CW.map((x) => Math.max(x.p[0][0], x.p[1][0])));
+  const heat = (a) => 'rgba(var(--heat), ' + a.toFixed(2) + ')';
+  const cellKey = s.cell.split('.');
+  const cwI = parseInt(cellKey[0], 10), cwJ = parseInt(cellKey[1], 10);
+  const colSum = (k, j) => sum(CW.map((x) => x[k][j][0]));
+  const mkCell = (x, i, k, j) => { const v = x[k][j][0], n = x[k][j][1], a = 0.1 + 0.75 * v / pMax, on = s.cell === i + '.' + (k === 'p' ? j : j + 2); return { v: lakh(v).replace('₹', '₹'), n: n + (n === 1 ? ' student' : ' students'), bg: heat(a), fg: a > 0.5 ? 'var(--onsolid)' : 'var(--fg)', ring: on ? '0 0 0 2px var(--acc)' : 'none', x: '', aria: x.c[0] + ' installment ' + (k === 'p' ? j + 1 : j + 3) + ' ' + inr(v), pick: () => set({ cell: i + '.' + (k === 'p' ? j : j + 2), anim: 'push' }) }; };
+  const cw = {
+   cols: s.cell ? 'minmax(0, 1fr) 400px' : 'minmax(0, 1fr)', listCls: s.cell ? 'hide-m' : '', open: !!s.cell,
+   kpis: [['Pending today', lakh(colSum('p', 0) + colSum('p', 1)), '138 students · installments 1–2', 'var(--warnfg)'], ['Installment 1 · 15 Jul', lakh(colSum('p', 0)), 'still unpaid', 'var(--fg)'], ['Installment 2 · 15 Sep', lakh(colSum('p', 1)), 'still unpaid', 'var(--fg)'], ['Not due yet', lakh(colSum('d', 0) + colSum('d', 1)), 'installments 3–4 · kept apart', 'var(--mut)']].map((k, i) => ({ label: k[0], v: k[1], sub: k[2], fg: k[3], delay: delay(i) })),
+   legend: [0.15, 0.35, 0.55, 0.75, 0.85].map(heat),
+   rows: CW.map((x, i) => ({ name: x.c[0], teacher: x.c[1], delay: delay(i), p: [0, 1].map((j) => mkCell(x, i, 'p', j)), pt: lakh(x.p[0][0] + x.p[1][0]), d: [0, 1].map((j) => { const cc = mkCell(x, i, 'd', j); return Object.assign(cc, { v: lakh(x.d[j][0]) }); }), dt: lakh(x.d[0][0] + x.d[1][0]) })),
+   t1: lakh(colSum('p', 0)), t2: lakh(colSum('p', 1)), tp: lakh(colSum('p', 0) + colSum('p', 1)), t3: lakh(colSum('d', 0)), t4: lakh(colSum('d', 1)), td: lakh(colSum('d', 0) + colSum('d', 1))
+  };
+  const FN = ['Aarav', 'Diya', 'Kabir', 'Meera', 'Riya', 'Arjun', 'Ishaan', 'Anaya', 'Vivaan', 'Saanvi', 'Yash', 'Khushi', 'Om', 'Prisha', 'Dev', 'Tanvi', 'Kunal', 'Neha', 'Mohit', 'Pooja'];
+  const SN = ['Sharma', 'Jain', 'Mehta', 'Paliwal', 'Kumawat', 'Rathore', 'Choudhary', 'Vyas', 'Purohit', 'Solanki', 'Bhati', 'Dave', 'Trivedi', 'Chouhan', 'Kothari', 'Rawal', 'Meena', 'Agarwal', 'Joshi', 'Singh'];
+  const FF = ['Rakesh', 'Suresh', 'Mahesh', 'Dinesh', 'Prakash', 'Naresh', 'Lokesh', 'Ramesh', 'Mukesh', 'Sunil'];
+  const X = CW[cwI] || CW[9];
+  const jj = isNaN(cwJ) ? 1 : cwJ;
+  const due = jj < 2;
+  const cellV = due ? X.p[jj] : X.d[jj - 2];
+  const known = due ? ((D.DEF.filter((c) => c[0] === X.c[0])[0] || [0, 0, 0, 0, []])[4]) : [];
+  const shownN = Math.min(cellV[1], 8);
+  const per = r50(cellV[0] / (cellV[1] || 1));
+  const sl = {
+   title: X.c[0] + ' · Installment ' + (jj + 1), sub: (due ? 'Due ' + ['Wed 15 Jul', 'Tue 15 Sep'][jj] : 'Due ' + ['Sun 15 Nov', 'Fri 15 Jan'][jj - 2]) + ' · ' + cellV[1] + ' students · ' + inr(cellV[0]), tone: due ? 'wa' : 'in', due,
+   note: due ? 'Pending today. Late fee is shown on its own and is not part of this amount.' : 'Not due yet — no follow-up needed. These are shown so you can plan, not to chase.',
+   list: Array.from({ length: shownN }, (_, k) => { const kn = known[k]; const sn = SN[(cwI * 5 + k * 7) % 20]; const name = kn ? kn[0] : FN[(cwI * 7 + k * 3) % 20] + ' ' + sn; return { name, ini: ini(name), fa: kn ? kn[2] : FF[k % 10] + ' ' + sn, ph: '98290 ••' + (kn ? kn[4] : 100 + (cwI * 37 + k * 53) % 900), amt: inr(kn && due ? kn[5] / (jj === 1 && kn[5] > 9000 ? 2 : 1) : per), lateOn: due, late: inr(jj === 0 ? 300 : 230), delay: delay(k) }; }),
+   more: cellV[1] > shownN ? '+ ' + (cellV[1] - shownN) + ' more students in this cell' : 'That is everyone in this cell.'
+  };
+  const dk = D.BOOK[s.day] ? s.day : 8;
+  const bd = D.BOOKD[dk];
+  let run = 0;
+  const bRows = D.BOOK[dk].map((e, i) => { run += e.amt; const isRev = e.rev === 'rev'; return { time: e.time, no: e.no, name: e.name, sub: e.rev && !isRev ? e.cls + ' · ' + e.rev : e.cls, mode: e.mode, tone: { UPI: 'ac', Cash: 'ok', Cheque: 'wa', Bank: 'in' }[e.mode], amt: inr(e.amt), fg: e.amt < 0 ? 'var(--bad)' : 'var(--fg)', run: inr(run), strike: e.rev && !isRev ? 'line-through' : 'none', bg: isRev ? 'var(--bads)' : 'transparent', delay: delay(i) }; });
+  const recs = D.BOOK[dk].filter((e) => e.amt > 0);
+  const revs = D.BOOK[dk].filter((e) => e.amt < 0);
+  const db = {
+   days: [6, 7, 8].map((d) => chip(dk === d, () => set({ day: d }), D.BOOKD[d][0])), open: dk === 8,
+   status: dk === 8 ? 'Day not closed yet' : bd[1], tone: dk === 8 ? 'wa' : 'ok', icon: dk === 8 ? IC.clock : IC.lock,
+   kpis: [['Receipts', String(recs.length), inr(sum(recs.map((e) => e.amt))), 'var(--fg)'], ['Reversals', String(revs.length), revs.length ? inr(sum(revs.map((e) => e.amt))) : 'none', revs.length ? 'var(--bad)' : 'var(--fg)'], ['Net for the day', inr(run), 'after reversals', 'var(--fg)'], ['Late fee', inr(bd[2]), 'separate · not in net', 'var(--warnfg)']].map((k, i) => ({ label: k[0], v: k[1], sub: k[2], fg: k[3], delay: delay(i) })),
+   rows: bRows, endL: 'Closing total · ' + bd[0], end: inr(run)
+  };
+  const allS = s.extra.concat(D.SCHED);
+  const sc = { items: allS.map((x, i) => { const on = s.sched[x.id] === undefined ? x.on : s.sched[x.id]; const r = rep(x.rep); return { title: x.title, when: x.when, meta: on ? x.meta : 'Paused · nothing will be sent', last: x.last, lastFg: x.last.indexOf('Not sent') === 0 ? 'var(--sub)' : 'var(--ok)', icon: IC[r.icon], tone: r.tone, op: on ? '1' : '0.6', sw: sw(on), delay: delay(i),
+   toggle: () => { const cur = g().sched; const was = cur[x.id] === undefined ? x.on : cur[x.id]; set({ sched: Object.assign({}, cur, { [x.id]: !was }) }); toast((was ? 'Paused · ' : 'Turned on · ') + x.title, () => set({ sched: cur })); } }; }) };
+  const n_ = s.ns;
+  const setNs = (o) => set({ ns: Object.assign({}, g().ns, o) });
+  const NR = [['coll', 'Daily collection', 'दैनिक संग्रह'], ['day', 'Day book', 'दैनिक बही'], ['pend', 'Pending by class', 'कक्षावार बकाया'], ['def', 'Defaulter list', 'बकाया शुल्क सूची'], ['att', 'Attendance summary', 'उपस्थिति सारांश']];
+  const TO = [['me', 'Me · Janmejay', 1], ['acc', 'Accountant · Ms. Neelam Sharma', 1], ['ct', 'All class teachers (19)', 19], ['pr', 'Principal', 1]];
+  const nrep = NR.filter((r) => r[0] === n_.rep)[0] || NR[0];
+  const nto = TO.filter((t) => t[0] === n_.to)[0] || TO[0];
+  const perMonth = nto[2] * ({ daily: 26, weekly: 4, monthly: 1 }[n_.freq] || 26);
+  const fq = seg([['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']], n_.freq, '_');
+  const whenL = (n_.freq === 'daily' ? 'Every school day' : (n_.freq === 'weekly' ? 'Every ' + n_.day : 'On the 1st')) + ' · ' + n_.time;
+  const ns = {
+   reports: NR.map((r) => chip(n_.rep === r[0], () => setNs({ rep: r[0] }), r[1])), to: TO.map((t) => chip(n_.to === t[0], () => setNs({ to: t[0] }), t[1])),
+   thumb: fq.thumb, freqs: fq.opts.map((o, i) => Object.assign(o, { pick: () => setNs({ freq: ['daily', 'weekly', 'monthly'][i] }) })), daysOn: n_.freq === 'weekly',
+   days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => chip(n_.day === d, () => setNs({ day: d }), d)), times: ['8 am', '1 pm', '6 pm', '8 pm'].map((t) => chip(n_.time === t, () => setNs({ time: t }), t)),
+   cost: perMonth + ' messages a month · about ₹' + Math.round(perMonth * 0.88) + '.', costSub: whenL + ' · WhatsApp via AiSensy.',
+   hi: nrep[2] + ' — ' + whenL.replace('Every school day', 'हर स्कूल दिवस').replace('Every', 'हर').replace('On the 1st', 'हर महीने की 1 तारीख') + '। रिपोर्ट PDF में संलग्न है। — श्री वीर पत्ता स्कूल', en: nrep[1] + ' report attached as PDF. — VPPS Amet',
+   save: () => { const id = 'x' + Date.now(); const x = { id, rep: nrep[0], title: nrep[1] + ' → ' + nto[1].split(' · ')[0], when: whenL + ' · WhatsApp', meta: 'New · ' + perMonth + ' a month · about ₹' + Math.round(perMonth * 0.88), last: 'Not sent yet', on: true }; set({ extra: [x].concat(g().extra), screen: 'schedule' }); this.closeSheet(); toast('Scheduled · ' + x.title, () => set({ extra: g().extra.filter((y) => y.id !== id) })); }
+  };
+  const ex = s.ex;
+  const setEx = (o) => set({ ex: Object.assign({}, g().ex, o) });
+  const COLS = ['Date', 'Receipt no.', 'Student', 'Class', 'Father', 'Mode', 'Amount', 'Taken by', 'Late fee (own column)'];
+  const FM = [['xlsx', 'Excel', '.xlsx · for sums', 'table', 'ok'], ['pdf', 'PDF', 'Ready to print', 'file', 'er'], ['csv', 'CSV', 'For other software', 'list', 'nu']];
+  const fm = FM.filter((f) => f[0] === ex.fmt)[0] || FM[0];
+  const colN = COLS.filter((c) => !ex.off[c]).length;
+  const fileName = s.exRep + ' · ' + ({ month: 'Oct 2026', last: 'Sep 2026', session: '2026–27' }[ex.range] || 'Oct 2026') + '.' + fm[0];
+  const rowsN = { month: 56, last: 142, session: 447 }[ex.range] || 56;
+  const exG = {
+   fmts: FM.map((f) => { const on = ex.fmt === f[0]; return { label: f[1], sub: f[2], icon: IC[f[3]], tone: f[4], on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? 'var(--accs)' : 'var(--card)', ring: on ? 'var(--acc)' : 'var(--bds)', dot: on ? '1' : '0', pick: () => setEx({ fmt: f[0] }) }; }),
+   ranges: [['month', 'This month'], ['last', 'Last month'], ['session', 'Whole session']].map((r) => chip(ex.range === r[0], () => setEx({ range: r[0] }), r[1])),
+   cols: COLS.map((c) => { const on = !ex.off[c]; return { label: c, on: on ? 'true' : 'false', bg: on ? 'var(--acc)' : 'var(--card)', bd: on ? '0' : '2px solid var(--bds)', op: on ? '1' : '0', pick: () => setEx({ off: Object.assign({}, g().ex.off, { [c]: on }) }) }; }),
+   colN: colN + ' of ' + COLS.length, sw: sw(ex.left), toggleLeft: () => setEx({ left: !g().ex.left }), fmtL: fm[1], op: colN ? '1' : '0.5', file: fileName, pct: ex.pct + '%',
+   step: ex.pct < 40 ? 'Reading ' + rowsN + ' rows…' : (ex.pct < 90 ? 'Adding totals and late fee column…' : 'Saving the file…'), rows: rowsN + ' rows · ' + colN + ' columns',
+   go: () => {
+    if (!colN) return toast('Pick at least one column');
+    setEx({ stage: 'busy', pct: 8 });
+    clearTimeout(this._xt);
+    const step = (p) => { this._xt = setTimeout(() => { if (g().ex.stage !== 'busy') return; if (p >= 100) { setEx({ stage: 'done', pct: 100 }); toast(fileName + ' is ready'); } else { setEx({ pct: p }); step(p + 46); } }, 420); };
+    step(54);
+   },
+   open: () => { this.closeSheet(); toast('Opening ' + fileName); }
+  };
+  const scr = s.screen;
+  const titles = { collection: 'Daily collection', defaulters: 'Defaulter list (हिंदी)', classwise: 'Pending by class', daybook: 'Day book', schedule: 'Scheduled reports' };
+  const subs = { collection: 'October · ' + inr(co.tot.total ? totalAll : 0), defaulters: '138 students · pending today', classwise: '₹6.4 L pending today', daybook: bd[0] + ' · ' + inr(run), schedule: allS.length + ' scheduled · WhatsApp' };
+  const exportFor = (name) => () => this.openSheet('export', { exRep: name, ex: Object.assign({}, g().ex, { stage: 'form' }) });
+  const A = (label, icon, cls, fn) => ({ label, icon: IC[icon], cls, fn });
+  const actsBy = {
+   collection: [A('Print', 'printer', 'sec', () => toast('Sent to the office printer')), A('Schedule', 'clock', 'sec', () => this.openSheet('newsch', { ns: Object.assign({}, g().ns, { rep: 'coll' }) })), A('Export', 'download', 'pri', exportFor('Daily collection'))],
+   defaulters: [A('Print', 'printer', 'sec', () => toast('Sent to the office printer · ' + (s.dcls === 'all' ? '9 pages' : '1 page'))), A('PDF', 'download', 'sec', () => toast('बकाया-सूची.pdf saved · Hindi')), A('Send to class teachers', 'send', 'pri', () => this.openSheet('send'))],
+   classwise: [A('Print', 'printer', 'sec', () => toast('Sent to the office printer')), A('Export', 'download', 'pri', exportFor('Pending by class'))],
+   daybook: [A('Print', 'printer', 'sec', () => toast('Day book sent to the printer')), A('Export', 'download', 'pri', exportFor('Day book'))],
+   schedule: [A('Schedule a report', 'plus', 'pri', () => this.openSheet('newsch'))]
+  };
+  const isHub = scr === 'hub';
+  const top = isHub ? { crumb: 'Money · Students · Academics', title: 'Reports', mTitle: 'Reports', mSub: D.REPORTS.length + ' reports · ' + allS.filter((x) => (s.sched[x.id] === undefined ? x.on : s.sched[x.id])).length + ' scheduled' }
+   : { crumb: 'Reports', title: titles[scr], mTitle: s.cell && scr === 'classwise' ? sl.title : titles[scr], mSub: s.cell && scr === 'classwise' ? sl.sub : subs[scr] };
+  const shTitle = { export: s.sheet === 'export' && ex.stage === 'form' ? 'Export · ' + s.exRep : '', send: 'Send to class teachers', newsch: 'Schedule a report' }[s.sheet] || 'Export';
+  const shSub = { export: 'Pick a format and what to include', send: 'Count and cost before anything goes out', newsch: 'Sent automatically on WhatsApp' }[s.sheet] || '';
+  return {
+   ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+   is: { hub: isHub, sub: !isHub, mActs: !isHub && !(scr === 'classwise' && s.cell), collection: scr === 'collection', defaulters: scr === 'defaulters', classwise: scr === 'classwise', daybook: scr === 'daybook', schedule: scr === 'schedule' },
+   top, anim: { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both' }[s.anim] || 'none', acts: actsBy[scr] || [],
+   q: s.q, onQ: (e) => set({ q: String((e && e.target && e.target.value) || '') }), clearQ: () => set({ q: '' }), hub, co, df, sd, cw, sl, db, sc, ns, ex: exG,
+   schedN: String(allS.filter((x) => (s.sched[x.id] === undefined ? x.on : s.sched[x.id])).length),
+   goSchedule: () => go('schedule'), closeCell: () => set({ cell: '', anim: 'pop' }),
+   back: () => { if (g().screen === 'classwise' && g().cell) set({ cell: '', anim: 'pop' }); else set({ screen: 'hub', anim: 'pop', cell: '' }); },
+   sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', head: !(s.sheet === 'export' && ex.stage !== 'form'), title: shTitle, sub: shSub },
+   sh: { exForm: s.sheet === 'export' && ex.stage === 'form', exBusy: s.sheet === 'export' && ex.stage === 'busy', exDone: s.sheet === 'export' && ex.stage === 'done', send: s.sheet === 'send', newsch: s.sheet === 'newsch' },
+   closeSheet: () => { this.closeSheet(); clearTimeout(this._xt); if (g().ex.stage !== 'form') setTimeout(() => setEx({ stage: 'form', pct: 0 }), 260); },
+   toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+  };
+ }
+}
+</script>
+</body>
+</html>

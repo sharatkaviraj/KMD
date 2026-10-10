@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Enter marks</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.qr{display:flex;align-items:center}.qc{display:flex;flex-direction:column}.qw{flex-wrap:wrap}.qf{flex:1;min-width:0}.qj{justify-content:space-between}.qx{flex:none;display:flex;align-items:center;justify-content:center}
+.z4{gap:4px}.z6{gap:6px}.z8{gap:8px}.z10{gap:10px}.z12{gap:12px}.z14{gap:14px}.z16{gap:16px}
+.t11{font-size:11px}.t12{font-size:12px}.t13{font-size:13px}.t16{font-size:16px}.b{font-weight:700}.b6{font-weight:600}.m{color:var(--mut)}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb{font-size:14px}.ts{font-size:13px}.h1{font-family:'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600;line-height:1.15}.h2{font-size:18px;font-weight:700;line-height:1.25}.hi{font-size:12px;color:var(--mut);font-weight:500}
+.av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}.ib{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:14px}
+.bar{height:10px;border-radius:5px;background:var(--s3);overflow:hidden;display:flex}.bar>span{height:100%;border-radius:inherit;transition:width .5s var(--ease)}
+.nt{display:flex;gap:10px;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.5;align-items:flex-start}.nt>svg{margin-top:2px}
+.scr{padding:22px 28px 40px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.bb{width:100%;border:0;background:transparent;color:var(--fg);text-align:left}
+.bg{height:52px;font-size:16px;border-radius:14px;padding:0 22px}
+.sbar{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 28px;border-top:1px solid var(--bd)}
+.shh{flex:none;display:flex;align-items:flex-start;gap:12px;padding:14px 20px 10px}.shb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:12px}.shf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.in{animation:xIn .32s var(--ease) both}.pi{animation:xPopIn .45s var(--spring) both}.sp{flex:none;width:13px;height:13px;border-radius:7px;border:2px solid var(--okm);border-top-color:var(--ok);animation:xLoop .7s linear infinite}
+.i16{width:16px;height:16px}.i22{width:22px;height:22px}
+.rg circle{fill:none;stroke-width:8;stroke-linecap:round}.rg .r1{transform:rotate(-90deg);transform-origin:50% 50%;animation:xDraw .9s var(--ease) both;transition:stroke-dasharray .5s var(--ease)}
+.mrows{--rh:68px;position:relative;overflow:hidden}.mrow{display:grid;grid-template-columns:40px minmax(0,1fr) 100px 108px 96px;gap:12px;align-items:center;height:var(--rh);padding:0 18px}
+.key{height:56px;border-radius:14px;border:1px solid var(--bd);font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px}
+.kc{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@container vx (max-width:899px){.vx .scr{padding:16px 16px 28px;gap:14px}.vx .tb{font-size:16px}.vx .ts{font-size:14px}.vx .h1{font-size:24px}.vx .sbar{padding:12px 16px}.vx .mw{width:100%!important}.vx .mrows{--rh:84px}.vx .mrow{grid-template-columns:28px minmax(0,1fr) 78px 70px;gap:8px;padding:0 12px}.vx .mrow>:nth-child(5){display:none}.vx .kc{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="marks" role="teacher" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div class="qc" style="flex: 1; min-width: 0; min-height: 0; position: relative">
+<header class="only-d glass qr z10" style="flex: none; height: 64px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="qc qf"><span class="t12 m">{{top.crumb}}</span><span class="serif el" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+<sc-if value="{{sv.show}}" hint-placeholder-val="{{ false }}"><span class="pill" style="height: 30px; padding: 0 12px; font-size: 12px; background: var(--oks); color: var(--ok)"><sc-if value="{{sv.busy}}" hint-placeholder-val="{{ false }}"><span class="sp"></span></sc-if><sc-if value="{{sv.idle}}" hint-placeholder-val="{{ true }}"><svg class="i i16" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if>{{sv.label}}</span></sc-if>
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 88px; flex: none"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{lang.x}})"></span><sc-for list="{{lang.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" aria-label="{{o.aria}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{openHelp}}" style="width: 42px; padding: 0"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+<header class="only-m glass qr z4" style="flex: none; min-height: 58px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<sc-if value="{{top.mLink}}" hint-placeholder-val="{{ true }}"><a href="M-TchMore.dc.html" class="tap qx" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.mBack}}" hint-placeholder-val="{{ false }}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="qc qf" style="padding-left: 2px"><span class="el" style="font-size: 17px; font-weight: 700">{{top.title}}</span><span class="t12 m el">{{top.sub}}</span></span>
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 80px; flex: none"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{lang.x}})"></span><sc-for list="{{lang.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" aria-label="{{o.aria}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{openHelp}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+
+<!-- ============ PICK ============ -->
+<sc-if value="{{is.pick}}" hint-placeholder-val="{{ true }}">
+<div class="scr" style="max-width: 1040px; animation: {{anim}}">
+<div class="qc z4"><span class="h1">{{pk.q}}</span><span class="tb m">{{pk.qs}}</span></div>
+<div class="nt" style="background: var(--warns); color: var(--warnfg); align-items: center"><span class="ib" style="width: 40px; height: 40px; background: var(--card); color: var(--warn)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg></span><span class="qc qf"><span class="tb b">{{pk.due}}</span><span class="ts">{{pk.dueS}}</span></span></div>
+<div class="g2" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+<sc-for list="{{pk.cards}}" as="c" hint-placeholder-count="4">
+<div class="card in qc z12" style="padding: 18px 20px; border: {{c.bd}}; animation-delay: {{c.delay}}">
+<div class="qr z12"><span class="ib" style="background: {{c.ibg}}; color: {{c.ifg}}"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.ic}}"></path></svg></span><span class="qc qf"><span class="t12 m b6">{{c.kick}}</span><span class="h2">{{c.title}}</span><span class="hi">{{c.hi}}</span></span><span class="pill" style="background: {{c.pbg}}; color: {{c.pfg}}">{{c.pill}}</span></div>
+<div class="bar"><span style="width: {{c.pct}}; background: {{c.barc}}"></span></div>
+<div class="qr z10 qw"><span class="qf tb b6 num" style="min-width: 140px">{{c.cnt}}</span><button class="tap btn {{c.bcls}} bg mw only-d" type="button" onClick="{{c.go}}">{{c.btn}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button><button class="tap btn {{c.bcls}} bg mw only-m" type="button" onClick="{{c.goM}}">{{c.btn}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></div>
+</div>
+</sc-for>
+</div>
+<div class="card qr z12 qw" style="padding: 14px 16px; background: var(--s2)">
+<span class="ib" style="width: 40px; height: 40px; background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.link}}"></path></svg></span>
+<span class="qc qf" style="min-width: 200px"><span class="tb b6">{{pk.sam}}</span><span class="ts m">{{pk.samS}}</span></span>
+<a href="DX-TchMore-Links.dc.html" class="tap btn sec only-d">{{pk.samB}}</a><a href="M-TchMore-Links.dc.html" class="tap btn sec only-m mw">{{pk.samB}}</a>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ ENTRY (list) ============ -->
+<sc-if value="{{is.entry}}" hint-placeholder-val="{{ false }}">
+<div class="qc" style="min-height: 100%; animation: {{anim}}">
+<div class="stack" style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 316px; align-items: start">
+<section class="scr">
+<div class="card qc z10" style="padding: 16px 18px">
+<div class="qr z12 qw"><span class="qc qf" style="min-width: 180px"><span class="h2">{{hd.title}}</span><span class="ts m">{{hd.sub}}</span></span>
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 230px"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{mode.x}})"></span><sc-for list="{{mode.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div></div>
+<div class="qr z10"><div class="bar qf"><span style="width: {{hd.pct}}; background: {{hd.barc}}"></span></div><span class="num b tb">{{hd.cnt}}</span></div>
+<sc-if value="{{sv.show}}" hint-placeholder-val="{{ false }}"><span class="pill only-m" style="align-self: flex-start; height: 28px; padding: 0 10px; font-size: 12px; background: var(--oks); color: var(--ok)"><sc-if value="{{sv.busy}}" hint-placeholder-val="{{ false }}"><span class="sp"></span></sc-if>{{sv.label}}</span></sc-if>
+</div>
+<sc-if value="{{hd.locked}}" hint-placeholder-val="{{ false }}"><div class="nt fadein" style="background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg><span>{{hd.lockMsg}}</span></div></sc-if>
+<sc-if value="{{hd.open}}" hint-placeholder-val="{{ true }}"><span class="ts m">{{en.tip}}</span></sc-if>
+<div class="card" style="overflow: hidden">
+<div class="mrow hide-m" style="height: 42px; background: var(--s2); border-bottom: 1px solid var(--bd)"><span class="sech">Roll</span><span class="sech">Child</span><span class="sech" style="text-align: center">Mark / 80</span><span class="sech" style="text-align: center">Absent?</span><span class="sech">Status</span></div>
+<sc-if value="{{en.folded}}" hint-placeholder-val="{{ false }}"><button class="tap bb qr z10" type="button" onClick="{{en.unfold}}" style="height: 50px; padding: 0 18px; border-bottom: 1px solid var(--bd); background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span class="qf tb b6">{{en.foldT}}</span><span class="ts b">{{en.foldB}}</span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg></button></sc-if>
+<div class="mrows" style="pointer-events: {{en.pe}}">
+<span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: var(--rh); background: var(--accs); box-shadow: inset 4px 0 0 var(--acc); transform: translateY(calc(var(--rh) * {{en.hl}})); transition: transform .4s var(--spring); opacity: {{en.hlop}}"></span>
+<sc-for list="{{en.rows}}" as="r" hint-placeholder-count="10">
+<div class="mrow" onClick="{{r.pick}}" style="position: relative; border-top: {{r.bt}}">
+<span class="num b m tb">{{r.roll}}</span>
+<span class="qc" style="min-width: 0"><span class="el tb b6">{{r.nm}}</span><span class="t12 el" style="color: {{r.subc}}; font-weight: {{r.subw}}">{{r.sub}}</span></span>
+<input ref="{{r.focusRef}}" class="inp num {{r.err}}" type="text" inputmode="numeric" value="{{r.val}}" onChange="{{r.onIn}}" onKeyDown="{{r.onKey}}" placeholder="{{r.ph}}" aria-label="{{r.aria}}" style="height: 52px; padding: 0 6px; text-align: center; font-size: 22px; font-weight: 700; border: {{r.bdr}}; opacity: {{r.inop}}">
+<button class="tap" type="button" aria-pressed="{{r.abP}}" aria-label="{{r.abAria}}" onClick="{{r.ab}}" style="height: 46px; border-radius: 12px; border: 1px solid {{r.abBd}}; background: {{r.abBg}}; color: {{r.abFg}}; font-size: 13px; font-weight: 700">{{en.abL}}</button>
+<span class="ts b6" style="color: {{r.stc}}">{{r.st}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+<aside class="hide-m qc z14" style="position: sticky; top: 0; padding: 22px 28px 22px 0">
+<div class="card qc z10" style="padding: 18px; align-items: center">
+<div style="position: relative; width: 132px; height: 132px"><svg class="rg" viewBox="0 0 100 100" width="132" height="132" aria-hidden="true"><circle cx="50" cy="50" r="42" style="stroke: var(--s3)"></circle><circle class="r1" cx="50" cy="50" r="42" style="stroke: var(--acc); stroke-dasharray: {{stt.dash}}; --len: 263.9"></circle></svg><span class="qc" style="position: absolute; inset: 0; align-items: center; justify-content: center"><span class="num b" style="font-size: 30px; line-height: 1">{{stt.done}}</span><span class="t12 m">{{stt.of}}</span></span></div>
+<span class="tb b6">{{stt.left}}</span>
+</div>
+<div class="card qc" style="padding: 6px 16px">
+<sc-for list="{{stt.rows}}" as="x" hint-placeholder-count="4"><div class="qr z10 qj" style="padding: 11px 0; border-top: {{x.bt}}"><span class="qc"><span class="ts m">{{x.k}}</span><span class="t12" style="color: var(--sub)">{{x.s}}</span></span><span class="num b" style="font-size: 18px; color: {{x.c}}">{{x.v}}</span></div></sc-for>
+</div>
+<div class="card qc z8" style="padding: 14px 16px">
+<span class="sech">Quick keys</span>
+<sc-for list="{{stt.keys}}" as="k" hint-placeholder-count="3"><span class="qr z8 ts"><span class="k">{{k.k}}</span>{{k.t}}</span></sc-for>
+</div>
+</aside>
+</div>
+<div class="glass sbar"><span class="qc qf" style="min-width: 180px"><span class="tb b">{{en.hint}}</span><span class="t12 m">{{en.hint2}}</span></span><button class="tap btn pri bg mw" type="button" onClick="{{en.next}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{en.btnIc}}"></path></svg>{{en.btn}}</button></div>
+</div>
+</sc-if>
+
+<!-- ============ KEYPAD ============ -->
+<sc-if value="{{is.keypad}}" hint-placeholder-val="{{ false }}">
+<div class="stack" style="height: 100%; display: grid; grid-template-columns: minmax(0, 470px) minmax(0, 1fr); animation: {{anim}}">
+<section class="qc" style="height: 100%; min-height: 0; border-right: 1px solid var(--bd); overflow: hidden">
+<div class="qc z10" style="flex: none; padding: 14px 16px 0">
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{mode.x}})"></span><sc-for list="{{mode.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<div class="qr z10"><div class="bar qf" style="height: 8px"><span style="width: {{hd.pct}}; background: {{hd.barc}}"></span></div><span class="num b ts">{{hd.cnt}}</span><sc-if value="{{sv.busy}}" hint-placeholder-val="{{ false }}"><span class="sp"></span></sc-if><sc-if value="{{sv.idle}}" hint-placeholder-val="{{ true }}"><svg class="i i16" viewBox="0 0 24 24" style="color: var(--ok)" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></div>
+</div>
+<div class="qc qf" style="justify-content: center; gap: 10px; padding: 8px 0; min-height: 0">
+<div data-ok="1" style="display: flex; gap: 12px; transform: translateX({{kp.tx}}); transition: transform .45s var(--spring)">
+<sc-for list="{{kp.cards}}" as="k" hint-placeholder-count="3">
+<button class="tap card qc z4" type="button" onClick="{{k.go}}" aria-label="{{k.aria}}" style="flex: 0 0 76%; padding: 16px 14px; align-items: center; color: var(--fg); border: 2px solid {{k.bd}}; transform: scale({{k.sc}}); opacity: {{k.op}}; transition: transform .45s var(--spring), opacity .3s ease, border-color .3s ease">
+<span class="pill" style="background: var(--s3); color: var(--mut)">{{k.roll}}</span>
+<span class="el" style="max-width: 100%; font-size: 21px; font-weight: 700">{{k.nm}}</span>
+<span class="t12" style="color: var(--sub)">{{k.u}}</span>
+<span style="animation: {{kp.sh1}}"><span class="qr" style="height: 74px; gap: 2px; animation: {{kp.sh2}}"><span class="num" style="font-size: 60px; font-weight: 700; line-height: 1; color: {{k.bigc}}">{{k.big}}</span><sc-if value="{{k.caret}}" hint-placeholder-val="{{ false }}"><span style="width: 3px; height: 52px; border-radius: 2px; background: var(--acc); animation: xCaret 1s steps(1) infinite"></span></sc-if><span class="num m" style="font-size: 18px; align-self: flex-end; padding-bottom: 8px">/80</span></span></span>
+<span class="t12 b6" style="color: {{k.stc}}">{{k.st}}</span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{kp.isErr}}" hint-placeholder-val="{{ false }}"><span class="pill fadein" style="align-self: center; height: 32px; padding: 0 14px; font-size: 14px; background: var(--bads); color: var(--bad)"><svg class="i i16" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg>{{kp.errT}}</span></sc-if>
+</div>
+<div class="glass qc z8" style="flex: none; padding: 10px 12px 12px; border-top: 1px solid var(--bd)">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{kp.keys}}" as="k" hint-placeholder-count="12"><button class="tap key" type="button" aria-label="{{k.aria}}" onClick="{{k.go}}" style="background: {{k.bg}}; color: {{k.fg}}; font-size: {{k.fs}}"><sc-if value="{{k.isIc}}" hint-placeholder-val="{{ false }}"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.del}}"></path></svg></sc-if>{{k.l}}</button></sc-for>
+</div>
+<button class="tap btn pri bg" type="button" onClick="{{kp.next}}" style="width: 100%; height: 54px">{{kp.nextL}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button>
+</div>
+</section>
+<section class="hide-m scroll scr" style="height: 100%">
+<div class="qr z10 qj"><span class="qc"><span class="h2">{{hd.title}}</span><span class="ts m">{{kp.side}}</span></span><button class="tap btn sec" type="button" onClick="{{en.next}}">{{en.btn}}</button></div>
+<div class="kc">
+<sc-for list="{{kp.cards}}" as="k" hint-placeholder-count="12"><button class="tap row qr z8" type="button" onClick="{{k.go}}" style="height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid {{k.lbd}}; background: {{k.lbg}}; color: var(--fg); text-align: left"><span class="num t12 m" style="width: 18px">{{k.r}}</span><span class="qf el ts b6">{{k.nm}}</span><span class="num b" style="color: {{k.lc}}">{{k.mk}}</span></button></sc-for>
+</div>
+</section>
+</div>
+</sc-if>
+
+<!-- ============ CHECK ============ -->
+<sc-if value="{{is.check}}" hint-placeholder-val="{{ false }}">
+<div class="qc" style="min-height: 100%; animation: {{anim}}">
+<div class="scr" style="flex: 1; max-width: 1100px">
+<div class="qc z4"><span class="h1">{{ck.h}}</span><span class="tb m">{{ck.sub}}</span></div>
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{ck.kpis}}" as="k" hint-placeholder-count="4"><div class="card rise qc z4" style="padding: 14px 16px; animation-delay: {{k.delay}}"><span class="t12 m b6">{{k.l}}</span><span class="num b" style="font-size: 24px; line-height: 1.2; color: {{k.c}}">{{k.v}}</span><span class="t12 m el">{{k.s}}</span></div></sc-for>
+</div>
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+<div class="qc z16" style="min-width: 0">
+<div class="card qc z12" style="padding: 16px 18px">
+<span class="tb b">{{ck.distT}}</span>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: end; height: 150px; border-bottom: 1px solid var(--bd)">
+<sc-for list="{{ck.bands}}" as="b" hint-placeholder-count="4"><div class="qc z4" style="height: 100%; align-items: center; justify-content: flex-end"><span class="num b ts">{{b.n}}</span><span style="width: 100%; max-width: 54px; height: {{b.h}}; border-radius: 10px 10px 3px 3px; background: {{b.c}}; transform-origin: bottom; animation: xGrowY .6s var(--ease) both; animation-delay: {{b.delay}}; transition: height .5s var(--ease)"></span></div></sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: -4px"><sc-for list="{{ck.bands}}" as="b" hint-placeholder-count="4"><span class="t12 m b6 num" style="text-align: center">{{b.l}}</span></sc-for></div>
+</div>
+<div class="card qc" style="padding: 16px 18px 8px">
+<span class="tb b">{{ck.lowT}}</span><span class="ts m" style="margin-bottom: 6px">{{ck.lowS}}</span>
+<sc-for list="{{ck.low}}" as="x" hint-placeholder-count="2"><div class="qr z10 qw in" style="padding: 10px 0; border-top: 1px solid var(--bd); animation-delay: {{x.delay}}"><span class="av t12" style="width: 36px; height: 36px; background: var(--warns); color: var(--warnfg)">{{x.ini}}</span><span class="qc qf" style="min-width: 140px"><span class="tb b6">{{x.nm}}</span><span class="t12 m num">{{x.s}}</span></span><a href="DX-TchNotes-Add.dc.html" class="tap btn soft only-d" style="height: 36px; color: var(--accfg)">{{ck.noteB}}</a><a href="M-TchNotes-Add.dc.html" class="tap btn soft only-m" style="color: var(--accfg)">{{ck.noteB}}</a></div></sc-for>
+<sc-if value="{{ck.noLow}}" hint-placeholder-val="{{ false }}"><span class="ts m" style="padding: 8px 0 10px">No one is below 27. Well done, Class 7!</span></sc-if>
+</div>
+</div>
+<div class="qc z16" style="min-width: 0">
+<sc-if value="{{ck.hasMiss}}" hint-placeholder-val="{{ true }}">
+<div style="animation: {{ck.sh1}}"><div class="card qc" style="padding: 16px 18px 8px; border-color: var(--warnm); animation: {{ck.sh2}}">
+<span class="tb b">{{ck.missT}}</span><span class="ts m" style="margin-bottom: 6px">{{ck.missS}}</span>
+<sc-for list="{{ck.miss}}" as="x" hint-placeholder-count="2"><div class="qr z8 qw" style="padding: 10px 0; border-top: 1px solid var(--bd)"><span class="num b m" style="width: 26px">{{x.r}}</span><span class="qf tb b6" style="min-width: 120px">{{x.nm}}</span><button class="tap btn sec" type="button" onClick="{{x.ab}}" style="height: 40px">{{ck.abL}}</button><button class="tap btn soft" type="button" onClick="{{x.go}}" style="height: 40px">{{ck.enterL}}</button></div></sc-for>
+</div></div>
+</sc-if>
+<sc-if value="{{ck.noMiss}}" hint-placeholder-val="{{ false }}"><div class="nt fadein" style="background: var(--oks); color: var(--ok); align-items: center"><span class="av pi" style="width: 34px; height: 34px; background: var(--ok); color: var(--onsolid)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span class="tb b6">{{ck.allT}}</span></div></sc-if>
+<div class="card qc z10" style="padding: 16px 18px">
+<div class="qr z12"><span class="av t13" style="width: 44px; height: 44px; background: #F3C7C7; color: #082F49">HT</span><span class="qc qf"><span class="tb b">Mr. Hemant Trivedi</span><span class="ts m">Exam coordinator · gets your marks</span></span></div>
+<div class="nt" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{ck.after}}</span></div>
+</div>
+</div>
+</div>
+</div>
+<div class="glass sbar"><span class="qc qf" style="min-width: 180px"><span class="tb b">{{ck.hint}}</span><span class="t12 m">{{ck.hint2}}</span></span><button class="tap btn pri bg mw" type="button" onClick="{{ck.send}}" style="opacity: {{ck.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{ck.btn}}</button></div>
+</div>
+</sc-if>
+
+<!-- ============ SUBMITTED ============ -->
+<sc-if value="{{is.submitted}}" hint-placeholder-val="{{ false }}">
+<div class="scr" style="animation: {{anim}}">
+<div class="card qc z12" style="max-width: 640px; width: 100%; margin: 0 auto; padding: 32px 26px; align-items: center; text-align: center">
+<svg width="104" height="104" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="h1">{{sm.t}}</span><span class="tb">{{sm.s}}</span><span class="ts m num">{{sm.line}}</span>
+<div class="nt" style="width: 100%; background: var(--s2); color: var(--fg); align-items: center; text-align: left"><svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{ic.clock}}"></path></svg><span class="qf">{{sm.undoT}}</span><button class="tap btn sec" type="button" onClick="{{sm.undo}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>{{sm.undoB}}</button></div>
+<div class="qr z8 qw" style="justify-content: center; margin-top: 4px"><button class="tap btn pri bg" type="button" onClick="{{sm.next}}">{{sm.nextB}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button><a href="TchHome.dc.html" class="tap btn sec bg only-d">{{sm.home}}</a><a href="M-TchHome.dc.html" class="tap btn sec bg only-m">{{sm.home}}</a></div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ REMARKS ============ -->
+<sc-if value="{{is.remarks}}" hint-placeholder-val="{{ false }}">
+<div class="qc" style="min-height: 100%; animation: {{anim}}">
+<div class="stack" style="flex: 1; display: grid; grid-template-columns: 300px minmax(0, 1fr); align-items: start">
+<aside class="hide-m qc z10" style="position: sticky; top: 0; height: calc(100vh - 64px); overflow-y: auto; border-right: 1px solid var(--bd); padding: 18px 14px">
+<div class="qr z10"><div class="bar qf"><span style="width: {{rm.pct}}; background: var(--ok)"></span></div><span class="num b ts">{{rm.prog}}</span></div>
+<div class="seg" style="grid-template-columns: repeat(3, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{rm.seg.x}})"></span><sc-for list="{{rm.seg.o}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<div class="qc z4">
+<sc-for list="{{rm.list}}" as="x" hint-placeholder-count="10"><button class="tap row bb qr z10" type="button" onClick="{{x.go}}" aria-current="{{x.cur}}" style="min-height: 48px; padding: 6px 10px; border-radius: 12px; background: {{x.bg}}"><span class="num t12 m" style="width: 20px">{{x.r}}</span><span class="qf el tb b6">{{x.nm}}</span><span class="av" style="width: 22px; height: 22px; background: {{x.dbg}}; color: var(--onsolid)"><sc-if value="{{x.done}}" hint-placeholder-val="{{ false }}"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></span></button></sc-for>
+<sc-if value="{{rm.empty}}" hint-placeholder-val="{{ false }}"><span class="ts m" style="padding: 12px 6px">{{rm.emptyT}}</span></sc-if>
+</div>
+</aside>
+<section class="scr" style="max-width: 860px">
+<div class="only-m qc z10">
+<div class="qr z10"><div class="bar qf"><span style="width: {{rm.pct}}; background: var(--ok)"></span></div><span class="num b ts">{{rm.prog}}</span></div>
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{rm.mseg.x}})"></span><sc-for list="{{rm.mseg.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<div class="hs" style="display: flex; gap: 6px"><sc-for list="{{rm.mlist}}" as="x" hint-placeholder-count="6"><button class="tap chip {{x.cls}}" type="button" aria-pressed="{{x.cur}}" onClick="{{x.go}}"><span class="num" style="opacity: .7">{{x.r}}</span>{{x.first}}<sc-if value="{{x.done}}" hint-placeholder-val="{{ false }}"><svg class="i" viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></button></sc-for></div>
+</div>
+<sc-if value="{{rm.allDone}}" hint-placeholder-val="{{ false }}"><div class="nt fadein" style="background: var(--oks); color: var(--ok); align-items: center"><svg class="i pi" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span class="tb b6">{{rm.allT}}</span></div></sc-if>
+<div class="card qr z14 qw" style="padding: 16px 18px">
+<span class="av serif pi" style="width: 56px; height: 56px; font-size: 20px; background: {{rm.k.abg}}; color: {{rm.k.afg}}">{{rm.k.ini}}</span>
+<span class="qc qf" style="min-width: 180px"><span class="h2">{{rm.k.nm}}</span><span class="ts m">{{rm.k.line}}</span></span>
+<div class="qr z6 qw"><sc-for list="{{rm.k.facts}}" as="f" hint-placeholder-count="3"><span class="pill" style="height: 28px; padding: 0 10px; font-size: 12px; background: {{f.bg}}; color: {{f.fg}}">{{f.t}}</span></sc-for></div>
+</div>
+<span class="sech">{{rm.sugT}}</span>
+<div class="qc z10" role="radiogroup" aria-label="Suggested remarks">
+<sc-for list="{{rm.k.sug}}" as="g" hint-placeholder-count="3">
+<button class="tap card qr z12 in" type="button" role="radio" aria-checked="{{g.on}}" onClick="{{g.pick}}" style="width: 100%; padding: 14px 16px; text-align: left; color: var(--fg); border: {{g.bd}}; background: {{g.bg}}; animation-delay: {{g.delay}}">
+<span class="qx" style="width: 26px; height: 26px; border-radius: 13px; border: 2px solid {{g.ring}}; background: {{g.dot}}; color: var(--onsolid); transition: background-color .25s ease"><sc-if value="{{g.isOn}}" hint-placeholder-val="{{ false }}"><svg class="i pi" viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></span>
+<span class="qc qf z4"><span class="tb b6">{{g.a}}</span><span class="ts m">{{g.b}}</span><span class="t11 b" style="color: var(--acc); text-transform: uppercase; letter-spacing: .05em">{{g.src}}</span></span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{rm.k.has}}" hint-placeholder-val="{{ false }}">
+<div class="card qc z10 fadein" style="padding: 16px 18px">
+<div class="qr z10 qj"><span class="sech">{{rm.prevT}}</span><button class="tap btn ghost" type="button" onClick="{{rm.k.edit}}" style="height: 36px; color: var(--acc)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>{{rm.k.editL}}</button></div>
+<sc-if value="{{rm.k.red}}" hint-placeholder-val="{{ false }}"><label class="field"><span>Your words (English)</span><textarea class="inp" value="{{rm.k.text}}" onChange="{{rm.k.onText}}" style="min-height: 84px"></textarea></label></sc-if>
+<div class="qc z4" style="padding: 12px 14px; border-radius: 12px; background: var(--s2); border-left: 4px solid var(--acc)"><span class="tb" style="font-weight: 500">{{rm.k.pHi}}</span><span class="ts m">{{rm.k.pEn}}</span></div>
+<sc-if value="{{rm.k.sim}}" hint-placeholder-val="{{ false }}"><button class="tap btn soft" type="button" onClick="{{rm.k.useSim}}" style="align-self: flex-start; height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg>{{rm.k.simL}}</button><span class="t12 m">{{rm.k.simS}}</span></sc-if>
+</div>
+</sc-if>
+</section>
+</div>
+<div class="glass sbar"><span class="qc qf" style="min-width: 170px"><span class="tb b">{{rm.hint}}</span><span class="t12 m">{{rm.hint2}}</span></span><button class="tap btn pri bg mw" type="button" onClick="{{rm.next}}">{{rm.nextL}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></div>
+</div>
+</sc-if>
+</main>
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="none" role="teacher" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ SHEETS ============ -->
+<sc-if value="{{sh.open}}" hint-placeholder-val="{{ false }}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}} {{sh.wide}}" role="dialog" aria-label="{{sh.title}}">
+<div class="grab"></div>
+<div class="shh"><div class="qc qf z4"><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.2">{{sh.title}}</span><span class="ts m">{{sh.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<sc-if value="{{sh.send}}" hint-placeholder-val="{{ false }}">
+<div class="scroll shb">
+<sc-for list="{{sd.rows}}" as="x" hint-placeholder-count="3"><div class="qr z12" style="padding: 10px 0; border-bottom: 1px solid var(--bd)"><span class="ib" style="width: 38px; height: 38px; background: {{x.bg}}; color: {{x.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{x.ic}}"></path></svg></span><span class="qf tb">{{x.t}}</span></div></sc-for>
+<div class="nt" style="background: var(--warns); color: var(--warnfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{sd.warn}}</span></div>
+</div>
+<div class="shf"><button class="tap btn sec bg" type="button" onClick="{{closeSheet}}" style="flex: 1">{{sd.no}}</button><button class="tap btn pri bg" type="button" onClick="{{sd.ok}}" style="flex: 1.5"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{sd.yes}}</button></div>
+</sc-if>
+<sc-if value="{{sh.help}}" hint-placeholder-val="{{ false }}">
+<div class="scroll shb" style="gap: 14px">
+<sc-for list="{{hp.steps}}" as="p" hint-placeholder-count="3">
+<div class="qr z14 in" style="align-items: stretch; animation-delay: {{p.delay}}">
+<div class="qc z6" style="flex: none; width: 168px; padding: 10px; border-radius: 16px; background: var(--s2); border: 1px solid var(--bd); justify-content: center">
+<sc-for list="{{p.els}}" as="x" hint-placeholder-count="3"><div class="qr z6" style="height: {{x.h}}; padding: 0 8px; border-radius: 8px; background: {{x.bg}}; color: {{x.fg}}; border: {{x.bd}}; justify-content: {{x.jc}}; font-size: 11px; font-weight: {{x.fw}}; animation: {{x.an}}"><sc-if value="{{x.hasIc}}" hint-placeholder-val="{{ false }}"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if><span class="el" style="flex: {{x.fl}}">{{x.t}}</span><sc-if value="{{x.hasR}}" hint-placeholder-val="{{ false }}"><span class="num b" style="padding: 1px 7px; border-radius: 6px; background: var(--s3); color: var(--fg)">{{x.r}}</span></sc-if></div></sc-for>
+</div>
+<div class="qc z4 qf" style="justify-content: center"><span class="av t13" style="width: 28px; height: 28px; background: var(--pri); color: var(--prifg)">{{p.n}}</span><span class="t16 b">{{p.t}}</span><span class="hi">{{p.h}}</span><span class="ts m">{{p.s}}</span></div>
+</div>
+</sc-for>
+</div>
+<div class="shf"><button class="tap btn pri bg" type="button" onClick="{{closeSheet}}" style="flex: 1">{{hp.ok}}</button></div>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["pick","entry","keypad","check","submitted","remarks"],"default":"pick"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+data() {
+if (this._d) return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+const sp = (x) => x.split(',');
+const N6 = sp('Aadhya Jain,Aarav Kumawat,Ananya Vyas,Arjun Gurjar,Bhavya Paliwal,Chirag Mehta,Divya Rathore,Gaurav Choudhary,Harshita Dave,Ishaan Purohit,Jiya Kothari,Kabir Solanki,Khushi Sharma,Om Regar,Manav Joshi,Naina Chouhan,Nikhil Meena,Palak Agarwal,Pari Sen,Pranav Rawal,Riya Singh,Rohan Sharma,Saanvi Kumawat,Sahil Gurjar,Sneha Vyas,Tanish Jain,Tanya Paliwal,Utkarsh Mehta,Vani Rathore,Yash Dave,Zoya Khan');
+const N7 = sp('Aarav Sharma,Aditya Mehta,Bhumika Jain,Chetan Kumawat,Deepika Rathore,Dhruv Paliwal,Gunjan Vyas,Hardik Choudhary,Isha Purohit,Jatin Solanki,Kavya Jain,Kritika Dave,Lokesh Gurjar,Muskan Trivedi,Nidhi Chouhan,Nikita Regar,Parth Kothari,Rahul Rawal,Ritika Meena,Sakshi Agarwal,Tushar Joshi,Urvashi Singh,Vansh Kanwar,Vikas Sen,Yamini Bhati,Yuvraj Sharma,Zara Khan');
+const N8 = sp('Aditi Rawal,Anjali Meena,Arnav Jain,Bhavesh Gurjar,Charu Paliwal,Daksh Sharma,Diya Kothari,Garv Solanki,Harsh Vyas,Jhanvi Purohit,Karan Choudhary,Lavanya Dave,Mayank Regar,Mehul Kumawat,Neha Joshi,Ojas Trivedi,Prisha Agarwal,Rachit Singh,Rhea Mehta,Sameer Khan,Shreya Rathore,Siddharth Sen,Tanvi Bhati,Ujjwal Chouhan,Vedika Jain,Vihaan Kanwar,Yashika Sharma,Yug Paliwal');
+const H7 = [68, 61, 72, 24, 'AB', 64, 55, 41, 70, 58, 76, 62, 38, 52, 66, 74, 57, 26, 71, 63, 69, 53, 60, 31, 70, 54, 22];
+const U7 = [33, 30, 35, 14, 27, 31, 26, 20, 34, 28, 37, 30, 19, 25, 32, 36, 27, 13, 35, 31, 33, 26, 29, 16, 34, 27, 12];
+const CL = { 6: { n: N6, u: N6.map((_, i) => 16 + ((i * 11 + 5) % 23)) }, 7: { n: N7, u: U7 }, 8: { n: N8, u: N8.map((_, i) => 15 + ((i * 13 + 7) % 24)) } };
+const MK0 = { 6: {}, 7: {}, 8: {} };
+N6.forEach((_, i) => { MK0[6][i + 1] = 30 + ((i * 29 + 11) % 49); });
+H7.forEach((v, i) => { if (i < 12) MK0[7][i + 1] = v; });
+const f7 = (skip) => { const o = {}; H7.forEach((v, i) => { if (i > 11 && skip.indexOf(i + 1) < 0) o[i + 1] = v; }); return { 7: o }; };
+const OV = N6.map((_, i) => 62 + ((i * 37 + 9) % 35));
+const AT = N6.map((_, i) => 86 + ((i * 7 + 3) % 13));
+[[10, 76], [12, 79], [13, 88], [14, 61], [17, 52], [19, 84], [21, 58]].forEach((x) => { OV[x[0] - 1] = x[1]; });
+AT[13] = 68; AT[16] = 72;
+const NT = { 12: ['tal', 'Talent · drawing'], 13: ['', 'Health · headache twice'], 14: ['', 'Note · absent 3 days'], 19: ['beh', 'Behaviour · quiet lately'], 21: ['stu', 'Studies · fractions'] };
+const S = {
+hA: ['Excellent work this term. Keep it up!', 'इस सत्र में उत्कृष्ट काम। ऐसे ही आगे बढ़ते रहो!'],
+hB: ['Bright and curious; always ready to answer in class.', 'होशियार और जिज्ञासु; कक्षा में उत्तर देने को सदा तैयार।'],
+gA: ['Good progress this term. More reading at home will help.', 'इस सत्र में अच्छी प्रगति। घर पर और पढ़ना मदद करेगा।'],
+gB: ['Sincere and hard-working; can aim even higher.', 'ईमानदार और मेहनती; और ऊँचा लक्ष्य रख सकते हैं।'],
+nA: ['Needs regular practice at home. We will help in school too.', 'घर पर रोज़ अभ्यास ज़रूरी है। स्कूल में भी हम मदद करेंगे।'],
+nB: ['Improving slowly; please check homework every day.', 'धीरे-धीरे सुधार हो रहा है; कृपया रोज़ गृहकार्य देखें।'],
+at: ['Must come to school every day to keep up with lessons.', 'पढ़ाई में साथ बने रहने के लिए रोज़ स्कूल आना ज़रूरी है।'],
+tal: ['Very good at drawing — chosen for the district art competition.', 'चित्रकला में बहुत अच्छा — ज़िला कला प्रतियोगिता के लिए चुना गया।'],
+stu: ['Working hard on fractions and getting better every week.', 'भिन्न पर मेहनत कर रही है और हर हफ़्ते सुधार हो रहा है।'],
+beh: ['Kind and gentle; we are helping her speak up more in class.', 'विनम्र और शांत; कक्षा में खुलकर बोलने में हम मदद कर रहे हैं।'],
+ok: ['Regular and on time — a very good habit. Keep it up.', 'नियमित और समय पर — बहुत अच्छी आदत, ऐसे ही रखें।']
+};
+const band = (r) => (OV[r - 1] >= 85 ? 'h' : (OV[r - 1] >= 70 ? 'g' : 'n'));
+const RK0 = {};
+for (let r = 1; r <= 9; r++) RK0[r] = { k: band(r) + 'A' };
+this._d = { IC, CL, MK0, F7c: f7([24, 27]), F7f: f7([]), OV, AT, NT, S, band, RK0 };
+return this._d;
+}
+
+st() {
+const D = this.data();
+const base = { screen: 'pick', anim: 'none', hi: false, cls: '7', mk: {}, cur: 13, buf: '', err: null, shk: 0, busy: false, saved: false, sent: { 6: true }, sheet: '', closing: false, rk: D.RK0, rc: 10, rf: 'all', red: false, fold: true, anc: 13, toast: null };
+const map = { entry: { screen: 'entry' }, keypad: { screen: 'keypad' }, check: { screen: 'check', mk: D.F7c }, submitted: { screen: 'submitted', mk: D.F7f, sent: { 6: true, 7: true } }, remarks: { screen: 'remarks' } };
+return Object.assign(base, map[(this.props || {}).start] || {}, this.state || {});
+}
+
+toast(text, undo) {
+const id = Date.now() + Math.random();
+this._undo = undo || null;
+this.setState({ toast: { id, text, undo: !!undo } });
+clearTimeout(this._tt);
+this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+}
+
+undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+openSheet(name) { clearTimeout(this._ct); this.setState({ sheet: name, closing: false }); }
+
+closeSheet() {
+if (!this.st().sheet) return;
+this.setState({ closing: true });
+clearTimeout(this._ct);
+this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+}
+
+go(screen, anim, x) { this.setState(Object.assign({ screen, anim: anim || 'push', err: null, buf: '', shk: 0, red: false }, x || {})); }
+
+eff(c) { return Object.assign({}, this.data().MK0[c], (this.st().mk || {})[c] || {}); }
+
+setMark(c, r, v) {
+const s = this.st();
+const mk = Object.assign({}, s.mk);
+mk[c] = Object.assign({}, mk[c]);
+mk[c][r] = v;
+this.setState({ mk, err: null, busy: true, saved: true });
+clearTimeout(this._sv);
+this._sv = setTimeout(() => this.setState({ busy: false }), 700);
+}
+
+adv(r) {
+const s = this.st();
+const n = this.data().CL[s.cls].n.length;
+if (r >= n) { this.setState({ cur: n, buf: '' }); this.toast(s.hi ? 'आख़िरी बच्चा हो गया · अब “जाँचें और भेजें” दबाएँ' : 'That was the last child · now tap “Check & send”'); return; }
+this._focus = r + 1;
+this.setState({ cur: r + 1, buf: '', err: null });
+}
+
+typed(r, raw) {
+const s = this.st();
+const c = s.cls;
+if (s.sent[c]) return;
+const t = String(raw == null ? '' : raw);
+if (/a/i.test(t)) { this.setMark(c, r, 'AB'); this.adv(r); return; }
+const d = t.replace(/\D/g, '').slice(0, 3);
+if (!d) { this.setMark(c, r, ''); this.setState({ cur: r }); return; }
+if (+d > 80) { this.setState({ err: { c, r, raw: d }, shk: s.shk + 1, cur: r }); return; }
+this.setMark(c, r, +d);
+this.setState({ cur: r });
+if (d.length > 1) this.adv(r);
+}
+
+press(k) {
+const s = this.st();
+const c = s.cls;
+const r = s.cur;
+if (s.sent[c]) { this.toast('These marks are already sent · ask Mr. Trivedi to change'); return; }
+if (k === 'del') { if (s.buf) this.setState({ buf: s.buf.slice(0, -1), err: null }); else this.setMark(c, r, ''); return; }
+if (k === 'ab') { this.setMark(c, r, 'AB'); this.adv(r); return; }
+if (k === 'next') { if (s.buf) this.setMark(c, r, +s.buf); this.adv(r); return; }
+const b = s.buf + k;
+if (+b > 80) { this.setState({ buf: '', err: { c, r, raw: b }, shk: s.shk + 1 }); return; }
+if (b.length > 1) { this.setMark(c, r, +b); this.adv(r); return; }
+this.setState({ buf: b, err: null });
+}
+
+renderVals() {
+const D = this.data();
+const s = this.st();
+const IC = D.IC;
+const sc = s.screen;
+const V = (x) => 'var(--' + x + ')';
+const L = (e, h) => (s.hi ? h : e);
+const set = (o) => () => this.setState(o);
+const go = (scr, anim, x) => () => this.go(scr, anim, x);
+const dl = (i) => (Math.min(i, 14) * 30) + 'ms';
+const val = (ev) => (ev && ev.target ? ev.target.value : '');
+const ini = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('');
+const has = (v) => v !== undefined && v !== '';
+const ANIM = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'none' };
+const seg = (defs, cur, pick) => ({ x: (Math.max(0, defs.map((d) => d[0]).indexOf(cur)) * 100) + '%', o: defs.map((d) => ({ l: d[1], aria: d[2] || d[1], cls: cur === d[0] ? 'tap on' : 'tap', p: cur === d[0] ? 'true' : 'false', go: () => pick(d[0]) })) });
+const c = D.CL[s.cls] ? s.cls : '7';
+const C = D.CL[c];
+const n = C.n.length;
+const info = (cc) => { const e = this.eff(cc); const N = D.CL[cc].n; return { e, n: N.length, done: N.filter((_, i) => has(e[i + 1])).length, sent: !!s.sent[cc] }; };
+const I = info(c);
+const e = I.e;
+const done = I.done;
+const locked = I.sent;
+const nums = C.n.map((_, i) => e[i + 1]).filter((v) => typeof v === 'number');
+const avg = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+const top1 = nums.length ? Math.max.apply(null, nums) : 0;
+const topNm = nums.length ? C.n[C.n.findIndex((_, i) => e[i + 1] === top1)] : '';
+const low = C.n.map((nm, i) => ({ nm, r: i + 1, v: e[i + 1], u: C.u[i] })).filter((x) => typeof x.v === 'number' && x.v < 27);
+const miss = C.n.map((nm, i) => ({ nm, r: i + 1 })).filter((x) => !has(e[x.r]));
+const abs = C.n.filter((_, i) => e[i + 1] === 'AB').length;
+const cur = Math.min(Math.max(1, s.cur || 1), n);
+const pct = Math.round(done / n * 100) + '%';
+const label = L('Class ' + c + ' · Science', 'कक्षा ' + c + ' · विज्ञान');
+const openCls = (cc, scr) => () => { const f = info(cc); const first = D.CL[cc].n.findIndex((_, i) => !has(f.e[i + 1])); this._focus = first + 1; this.go(scr, 'push', { cls: cc, cur: first < 0 ? 1 : first + 1, anc: first + 1, fold: true }); };
+
+// ---------- pick ----------
+const card = (cc) => {
+const f = info(cc);
+const st = f.sent ? 'sent' : (f.done ? 'mid' : 'new');
+const K = { sent: [L('View', 'देखें'), 'sec', L('Done ✓', 'पूरा ✓'), V('oks'), V('ok'), V('ok')], mid: [L('Continue', 'जारी रखें'), 'pri', L('In progress', 'चल रहा है'), V('accs'), V('accfg'), V('acc')], new: [L('Start', 'शुरू करें'), 'sec', L('Not started', 'शुरू नहीं'), V('s3'), V('mut'), V('acc')] }[st];
+return { kick: L('Half-yearly · out of 80', 'अर्धवार्षिक · 80 में से'), title: L('Class ' + cc + ' Science', 'कक्षा ' + cc + ' विज्ञान'), hi: L('कक्षा ' + cc + ' विज्ञान', 'Class ' + cc + ' Science'), ic: IC.clipboard, ibg: V('infos'), ifg: V('info'),
+pill: K[2], pbg: K[3], pfg: K[4], barc: K[5], pct: Math.round(f.done / f.n * 100) + '%', btn: K[0], bcls: K[1], bd: st === 'mid' ? '2px solid var(--acc)' : '1px solid var(--bd)',
+cnt: f.sent ? L('All ' + f.n + ' sent to Mr. Trivedi', 'सभी ' + f.n + ' भेज दिए') : L(f.done + ' of ' + f.n + ' entered', f.n + ' में से ' + f.done + ' भरे'),
+go: openCls(cc, 'entry'), goM: f.sent ? openCls(cc, 'entry') : openCls(cc, 'keypad') };
+};
+const rdone = D.CL[6].n.filter((_, i) => !!s.rk[i + 1]).length;
+const cards = ['7', '8', '6'].map(card);
+cards.push({ kick: L('Report cards · your class', 'रिपोर्ट कार्ड · आपकी कक्षा'), title: L('Class 6 remarks', 'कक्षा 6 टिप्पणियाँ'), hi: L('कक्षा 6 टिप्पणियाँ', 'Class 6 remarks'), ic: IC.edit, ibg: V('warns'), ifg: V('warnfg'), pill: L('Class teacher', 'कक्षा अध्यापिका'), pbg: V('warns'), pfg: V('warnfg'), barc: V('ok'), pct: Math.round(rdone / 31 * 100) + '%', btn: L('Continue', 'जारी रखें'), bcls: 'sec', bd: '1px solid var(--bd)', cnt: L(rdone + ' of 31 done', '31 में से ' + rdone + ' पूरी'), go: go('remarks'), goM: go('remarks') });
+cards.forEach((x, i) => { x.delay = dl(i); });
+const pk = {
+q: L('What do you want to fill?', 'आज क्या भरना है?'), qs: L('Tap a card. Everything saves by itself.', 'कोई कार्ड दबाएँ। सब अपने आप सेव होता है।'),
+due: L('Enter by Wed 14 Oct', 'बुधवार 14 अक्टूबर तक भरें'), dueS: L('6 days left · results on Sat 17 Oct (PTM)', '6 दिन बाकी · परिणाम शनिवार 17 अक्टूबर'), cards,
+sam: L('You can also use your Sampark link', 'आप सम्पर्क लिंक से भी भर सकते हैं'), samS: L('The marks land in the same place — use whichever is easier.', 'अंक एक ही जगह पहुँचते हैं — जो आसान लगे वही चुनें।'), samB: L('My marks links', 'मेरे लिंक')
+};
+
+// ---------- entry ----------
+const errNow = !!(s.err && s.err.c === c);
+const rows = C.n.map((nm, i) => {
+const r = i + 1;
+const v = e[r];
+const er = errNow && s.err.r === r;
+const isAb = v === 'AB';
+const on = r === cur && !locked;
+return {
+roll: String(r), nm, sub: er ? L('Most is 80 · ' + s.err.raw + ' is too high', 'अधिकतम 80 · ' + s.err.raw + ' ज़्यादा है') : 'UT1: ' + C.u[i] + '/40', subc: er ? V('bad') : V('sub'), subw: er ? '700' : '500',
+val: er ? s.err.raw : (has(v) && !isAb ? String(v) : ''), ph: isAb ? 'AB' : '', err: er ? 'err' : '', aria: 'Mark for ' + nm + ', out of 80',
+bdr: (on || er ? '2px solid ' : '1px solid ') + (er ? V('bad') : (on ? V('acc') : V('bds'))), inop: isAb ? '0.55' : '1',
+abBg: isAb ? V('bad') : V('card'), abFg: isAb ? V('onsolid') : V('fg'), abBd: isAb ? V('bad') : V('bds'), abP: isAb ? 'true' : 'false', abAria: nm + ' was absent on exam day',
+st: isAb ? L('Absent', 'अनुपस्थित') : (has(v) ? '✓ ' + L('Saved', 'सेव') : (on ? L('Typing here', 'यहाँ लिखें') : '—')), stc: isAb ? V('bad') : (has(v) ? V('ok') : (on ? V('acc') : V('sub'))),
+bt: i ? '1px solid var(--bd)' : '0',
+pick: () => { if (this.st().cur !== r) this.setState({ cur: r }); },
+onIn: (ev) => this.typed(r, val(ev)),
+onKey: (ev) => { if (ev && ev.key === 'Enter') this.adv(r); },
+ab: () => { if (locked) return; if (isAb) this.setMark(c, r, ''); else { this.setMark(c, r, 'AB'); this.adv(r); } },
+focusRef: (el) => { if (el && this._focus === r) { this._focus = 0; setTimeout(() => { try { el.focus(); el.select(); } catch (x) { /* ignore */ } }, 40); } }
+};
+});
+const st0 = s.fold && !locked && s.anc > 2 ? Math.max(0, Math.min(s.anc, cur) - 2) : 0;
+const rows2 = rows.slice(st0);
+rows2.forEach((r, i) => { r.bt = i ? '1px solid var(--bd)' : '0'; });
+const left = n - done;
+const hd = {
+title: label, sub: 'Half-yearly · ' + L('out of 80 · enter by Wed 14 Oct', '80 में से · 14 अक्टूबर तक'), pct, barc: left ? V('acc') : V('ok'), cnt: done + ' / ' + n,
+locked, open: !locked, lockMsg: L('Sent to Mr. Trivedi' + (c === '6' ? ' on Mon 5 Oct' : '') + '. To change a mark, ask him.', 'श्री त्रिवेदी को भेज दिए। कोई अंक बदलना हो तो उनसे कहें।')
+};
+const en = {
+rows: rows2, hl: String(cur - 1 - st0), folded: st0 > 0, foldT: L(st0 + ' children above are done', 'ऊपर ' + st0 + ' बच्चे पूरे'), foldB: L('Show', 'दिखाएँ'), unfold: set({ fold: false }), hlop: locked ? '0' : '1', pe: locked ? 'none' : 'auto', abL: L('Absent', 'अनुपस्थित'),
+tip: L('Type the mark — after 2 numbers it jumps to the next child. Press Enter for a single number.', 'अंक लिखें — 2 अंक लिखते ही अगला बच्चा आ जाता है। एक अंक हो तो Enter दबाएँ।'),
+hint: locked ? L('Sent to the exam coordinator', 'परीक्षा प्रभारी को भेजे') : (left ? L(done + ' of ' + n + ' done · ' + left + ' left', n + ' में से ' + done + ' पूरे · ' + left + ' बाकी') : L('All ' + n + ' entered', 'सभी ' + n + ' भर गए')),
+hint2: locked ? 'Mr. Hemant Trivedi has these marks' : L('Saved as you type · nothing is lost', 'लिखते ही सेव · कुछ नहीं खोता'),
+btn: locked ? L('Ask to change a mark', 'अंक बदलवाएँ') : L('Check & send', 'जाँचें और भेजें'), btnIc: locked ? IC.message : IC.checkCircle,
+next: locked ? () => this.toast('Message sent to Mr. Trivedi · he will reply on WhatsApp') : go('check')
+};
+const stt = {
+dash: (done / n * 263.9).toFixed(1) + ' 263.9', done: String(done), of: L('of ' + n + ' children', n + ' में से'), left: left ? left + ' ' + L('still to fill', 'बाकी') : L('Everyone has a mark', 'सबके अंक भर गए'),
+rows: [[L('Average so far', 'अब तक औसत'), nums.length ? avg.toFixed(1) : '—', 'out of 80', V('fg')], [L('Highest', 'सबसे ज़्यादा'), top1 ? String(top1) : '—', topNm || '—', V('ok')], [L('Below 27 (33%)', '27 से कम'), String(low.length), low.map((x) => x.nm.split(' ')[0]).join(', ') || 'no one', low.length ? V('warn') : V('fg')], [L('Absent on exam day', 'परीक्षा में अनुपस्थित'), String(abs), abs ? 'counted as entered' : 'none', V('fg')]].map((x, i) => ({ k: x[0], v: x[1], s: x[2], c: x[3], bt: i ? '1px solid var(--bd)' : '0' })),
+keys: [['12', L('2 numbers → next child', '2 अंक → अगला बच्चा')], ['Enter', L('next child', 'अगला बच्चा')], ['A', L('mark absent', 'अनुपस्थित')]].map((k) => ({ k: k[0], t: k[1] }))
+};
+const mode = seg([['entry', L('Type in list', 'सूची में लिखें')], ['keypad', L('Number pad', 'नंबर पैड')]], sc, (m) => { if (this.st().screen !== m) this.go(m, 'none', { cur, anc: cur }); });
+
+// ---------- keypad ----------
+const kErr = errNow && s.err.r === cur;
+const kp = {
+tx: 'calc(12% - ' + ((cur - 1) * 76) + '% - ' + ((cur - 1) * 12) + 'px)',
+cards: C.n.map((nm, i) => {
+const r = i + 1;
+const v = e[r];
+const on = r === cur;
+const typing = on && !!s.buf;
+const mk = v === 'AB' ? 'AB' : (has(v) ? String(v) : '—');
+const big = typing ? s.buf : (has(v) ? mk : '00');
+return {
+r: String(r), nm, roll: L('Roll ', 'रोल ') + r, u: 'UT1: ' + C.u[i] + '/40', big, mk, aria: nm + ', roll ' + r,
+bigc: typing ? V('fg') : (v === 'AB' ? V('bad') : (has(v) ? V('fg') : V('bd'))), lc: has(v) ? (v === 'AB' ? V('bad') : V('fg')) : V('sub'), sc: on ? '1' : '0.86', op: on ? '1' : '0.45', bd: on ? V('acc') : V('bd'), caret: on && !locked,
+st: v === 'AB' ? L('Absent', 'अनुपस्थित') : (has(v) ? '✓ ' + L('Saved', 'सेव') : L('Not entered yet', 'अभी नहीं भरा')), stc: v === 'AB' ? V('bad') : (has(v) ? V('ok') : V('mut')),
+lbd: on ? V('acc') : V('bd'), lbg: on ? V('accs') : V('card'),
+go: () => this.setState({ cur: r, buf: '', err: null })
+};
+}),
+keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'ab', '0', 'del'].map((k) => ({ l: k === 'ab' ? L('Absent', 'अनुपस्थित') : (k === 'del' ? '' : k), isIc: k === 'del', aria: k === 'del' ? 'Delete' : (k === 'ab' ? 'Absent' : k), bg: k === 'ab' ? V('bads') : (k === 'del' ? V('s2') : V('card')), fg: k === 'ab' ? V('bad') : V('fg'), fs: k === 'ab' ? '15px' : '24px', go: () => this.press(k) })),
+next: () => this.press('next'), nextL: s.buf ? L('Save ' + s.buf + ' · next child', s.buf + ' सेव · अगला') : L('Next child', 'अगला बच्चा'),
+isErr: kErr, errT: kErr ? L(s.err.raw + ' is too high · most is 80', s.err.raw + ' ज़्यादा है · अधिकतम 80') : '',
+sh1: kErr && s.shk % 2 ? 'xShake .4s ease' : 'none', sh2: kErr && !(s.shk % 2) ? 'xShake .4s ease' : 'none',
+side: L('Tap any child to jump to them', 'किसी भी बच्चे पर टैप करें')
+};
+
+// ---------- check ----------
+const B = [[0, 26, '0–26', V('warn')], [27, 47, '27–47', V('c2')], [48, 63, '48–63', V('c2')], [64, 80, '64–80', V('c1')]];
+const bc = B.map((b) => nums.filter((v) => v >= b[0] && v <= b[1]).length);
+const bmax = Math.max(1, Math.max.apply(null, bc));
+const sendNow = () => { const f = info(this.st().cls); const N = D.CL[this.st().cls].n; if (N.some((_, i) => !has(f.e[i + 1]))) { this.setState({ shk: this.st().shk + 1 }); this.toast(L('Fill the missing children first — or mark them Absent', 'पहले बचे हुए बच्चों के अंक भरें या अनुपस्थित करें')); return; } this.openSheet('send'); };
+const ck = {
+h: L('Check before sending', 'भेजने से पहले जाँचें'), sub: label + ' · Half-yearly · ' + L('out of 80', '80 में से'),
+kpis: [[L('Class average', 'कक्षा औसत'), nums.length ? avg.toFixed(1) : '—', L('out of 80', '80 में से'), V('fg')], [L('Highest', 'सबसे ज़्यादा'), top1 ? String(top1) : '—', topNm, V('ok')], [L('Marks entered', 'भरे गए'), done + '/' + n, miss.length ? miss.length + ' ' + L('missing', 'बाकी') : L('everyone', 'सभी'), miss.length ? V('warn') : V('fg')], [L('Absent', 'अनुपस्थित'), String(abs), L('on exam day', 'परीक्षा के दिन'), V('fg')]].map((k, i) => ({ l: k[0], v: k[1], s: k[2], c: k[3], delay: dl(i) })),
+distT: L('How the class did', 'कक्षा का प्रदर्शन'),
+bands: B.map((b, i) => ({ l: b[2], n: String(bc[i]), h: Math.max(4, Math.round(bc[i] / bmax * 100)) + '%', c: b[3], delay: (i * 80) + 'ms' })),
+lowT: L('Children below 27 (33%)', '27 (33%) से कम वाले बच्चे'), lowS: L('Nothing to change — just so you know. A short note helps their class teacher.', 'कुछ बदलना नहीं है — बस जानकारी के लिए। एक छोटा नोट कक्षा अध्यापक की मदद करेगा।'),
+low: low.map((x, i) => ({ nm: x.nm, ini: ini(x.nm), s: x.v + ' / 80 · UT1 was ' + x.u + '/40', delay: dl(i) })), noLow: low.length === 0, noteB: L('Add a note', 'नोट लिखें'),
+hasMiss: miss.length > 0, noMiss: miss.length === 0, missT: miss.length + ' ' + L(miss.length === 1 ? 'child has no mark yet' : 'children have no mark yet', 'बच्चों के अंक बाकी हैं'), missS: L('Enter the mark, or tap Absent if they missed the exam.', 'अंक भरें, या परीक्षा छूटी हो तो अनुपस्थित दबाएँ।'),
+miss: miss.map((x) => ({ r: String(x.r), nm: x.nm, ab: () => { this.setMark(this.st().cls, x.r, 'AB'); this.toast(x.nm + ' ' + L('marked absent', 'अनुपस्थित'), () => this.setMark(c, x.r, '')); }, go: () => { this._focus = x.r; this.go('entry', 'pop', { cur: x.r, anc: x.r, fold: true }); } })),
+abL: L('Absent', 'अनुपस्थित'), enterL: L('Enter mark', 'अंक भरें'), allT: L('Every child has a mark ✓', 'सभी बच्चों के अंक भर गए ✓'),
+after: L('After sending, ask Mr. Trivedi if you need to change a mark.', 'भेजने के बाद कोई अंक बदलना हो तो श्री त्रिवेदी से कहें।'),
+hint: miss.length ? miss.length + ' ' + L('still missing', 'अभी बाकी') : L('Ready to send', 'भेजने के लिए तैयार'), hint2: 'To Mr. Hemant Trivedi · exam coordinator',
+btn: L('Send to exam coordinator', 'परीक्षा प्रभारी को भेजें'), op: miss.length ? '0.55' : '1', send: sendNow,
+sh1: s.shk % 2 ? 'xShake .4s ease' : 'none', sh2: s.shk && !(s.shk % 2) ? 'xShake .4s ease' : 'none'
+};
+const sd = {
+rows: [[IC.users, n + ' ' + L('children · every one has a mark', 'बच्चे · सबके अंक भरे'), V('accs'), V('accfg')], [IC.chart, L('Class average ', 'कक्षा औसत ') + (nums.length ? avg.toFixed(1) : '—') + ' · ' + L('highest ', 'सबसे ज़्यादा ') + top1, V('infos'), V('info')], [IC.alert, low.length + ' ' + L('below 27 · ', '27 से कम · ') + abs + ' ' + L('absent', 'अनुपस्थित'), V('warns'), V('warnfg')]].map((x) => ({ ic: x[0], t: x[1], bg: x[2], fg: x[3] })),
+warn: L('Mr. Hemant Trivedi (exam coordinator) will get these marks. After sending, you cannot change them here — ask Mr. Trivedi if you need to change a mark.', 'ये अंक श्री हेमंत त्रिवेदी (परीक्षा प्रभारी) को मिलेंगे। भेजने के बाद यहाँ नहीं बदल सकते — बदलना हो तो श्री त्रिवेदी से कहें।'),
+no: L('Not yet', 'अभी नहीं'), yes: L('Yes, send', 'हाँ, भेजें'),
+ok: () => { const cc = this.st().cls; const sent = Object.assign({}, this.st().sent); sent[cc] = true; this.closeSheet(); this.go('submitted', 'push', { sent }); }
+};
+const sm = {
+t: L('Marks sent', 'अंक भेज दिए'), s: L('Mr. Hemant Trivedi (exam coordinator) has your marks.', 'श्री हेमंत त्रिवेदी (परीक्षा प्रभारी) को आपके अंक मिल गए।'), line: label + ' · ' + n + ' ' + L('children', 'बच्चे') + ' · ' + L('sent at 10:14 am, Thu 8 Oct', 'गुरु 8 अक्टूबर, 10:14 बजे'),
+undoT: L('Made a mistake? You can undo for 10 minutes (till 10:24 am).', 'गलती हुई? 10 मिनट (10:24 तक) वापस ले सकते हैं।'), undoB: L('Undo', 'वापस लें'),
+undo: () => { const sent = Object.assign({}, this.st().sent); sent[this.st().cls] = false; this.go('check', 'pop', { sent }); this.toast(L('Taken back · you can change marks again', 'वापस ले लिए · अब अंक बदल सकते हैं')); },
+nextB: s.sent[8] ? L('Report card remarks', 'रिपोर्ट कार्ड टिप्पणी') : L('Next: Class 8 Science', 'अगला: कक्षा 8 विज्ञान'), next: s.sent[8] ? go('remarks') : openCls('8', 'entry'), home: L('Back to Today', 'आज पर लौटें')
+};
+
+// ---------- remarks ----------
+const rk = s.rk || {};
+const isDone = (r) => !!rk[r];
+const allR = D.CL[6].n.map((nm, i) => ({ nm, r: i + 1 }));
+const rc = Math.min(Math.max(1, s.rc || 1), 31);
+const keysOf = (r) => { const k = []; const nt = D.NT[r]; if (nt && nt[0]) k.push(nt[0]); if (D.AT[r - 1] < 75) k.push('at'); k.push(D.band(r) + 'A', D.band(r) + 'B'); if (D.AT[r - 1] >= 85) k.push('ok'); return k.slice(0, 3); };
+const txt = (x) => (x.k === 'own' ? [x.t, ''] : D.S[x.k]);
+const nextTodo = (from) => { for (let j = 1; j <= 31; j++) { const r = ((from - 1 + j) % 31) + 1; if (!this.st().rk[r]) return r; } return 0; };
+const setRk = (r, v) => { const o = Object.assign({}, this.st().rk); o[r] = v; this.setState({ rk: o, busy: true, saved: true }); clearTimeout(this._sv); this._sv = setTimeout(() => this.setState({ busy: false }), 700); };
+const kid = D.CL[6].n[rc - 1];
+const ov = D.OV[rc - 1];
+const at = D.AT[rc - 1];
+const ch = rk[rc];
+const bandK = D.band(rc);
+const simList = ch && /^[hgn][AB]$/.test(ch.k) ? allR.filter((x) => x.r !== rc && !isDone(x.r) && D.band(x.r) === bandK) : [];
+const TN = [[V('accs'), V('accfg')], [V('infos'), V('info')], [V('oks'), V('ok')], [V('warns'), V('warnfg')]];
+const facts = [{ t: 'Half-yearly ' + ov + '%', bg: ov < 60 ? V('warns') : V('s3'), fg: ov < 60 ? V('warnfg') : V('fg') }, { t: L('Attendance ', 'हाज़िरी ') + at + '%', bg: at < 75 ? V('bads') : V('oks'), fg: at < 75 ? V('bad') : V('ok') }];
+if (D.NT[rc]) facts.push({ t: D.NT[rc][1], bg: V('infos'), fg: V('info') });
+const rdn = allR.filter((x) => isDone(x.r)).length;
+const rl = allR.filter((x) => s.rf === 'all' || (s.rf === 'done') === isDone(x.r));
+const rrow = (x) => ({ r: String(x.r), nm: x.nm, first: x.nm.split(' ')[0], done: isDone(x.r), dbg: isDone(x.r) ? V('ok') : V('s3'), bg: x.r === rc ? V('accs') : 'transparent', cls: x.r === rc ? 'on' : '', cur: x.r === rc ? 'true' : 'false', go: () => this.setState({ rc: x.r, red: false }) });
+const mdone = s.rf === 'done';
+const rm = {
+mseg: seg([['todo', L('To do · ', 'बाकी · ') + (31 - rdn)], ['done', L('Done · ', 'पूरी · ') + rdn]], mdone ? 'done' : 'todo', (f) => this.setState({ rf: f })),
+mlist: allR.filter((x) => (mdone ? isDone(x.r) : (!isDone(x.r) || x.r === rc))).map(rrow),
+pct: Math.round(rdn / 31 * 100) + '%', prog: rdn + ' ' + L('of 31 done', '/ 31 पूरी'),
+seg: seg([['all', L('Everyone', 'सभी')], ['todo', L('To do', 'बाकी')], ['done', L('Done', 'पूरी')]], s.rf, (f) => this.setState({ rf: f })),
+list: rl.map(rrow),
+empty: rl.length === 0, emptyT: s.rf === 'done' ? L('None done yet.', 'अभी कोई पूरी नहीं।') : L('All done — well done!', 'सब पूरी — शाबाश!'),
+allDone: rdn === 31, allT: L('All 31 remarks are ready. They print on the report cards on Sat 17 Oct.', 'सभी 31 टिप्पणियाँ तैयार। ये 17 अक्टूबर को रिपोर्ट कार्ड पर छपेंगी।'),
+sugT: L('Suggested remarks · tap one', 'सुझाई गई टिप्पणियाँ · एक चुनें'), prevT: L('On the report card', 'रिपोर्ट कार्ड पर'),
+k: {
+nm: kid, ini: ini(kid), abg: TN[rc % 4][0], afg: TN[rc % 4][1], line: L('Class 6 · Roll ' + rc + ' · your class', 'कक्षा 6 · रोल ' + rc), facts,
+sug: keysOf(rc).map((k, j) => { const on = !!ch && ch.k === k; const t = D.S[k]; return { a: s.hi ? t[1] : t[0], b: s.hi ? t[0] : t[1], src: k === 'at' || k === 'ok' ? L('From attendance · ', 'हाज़िरी से · ') + at + '%' : (/^[hgn][AB]$/.test(k) ? L('From marks · ', 'अंकों से · ') + ov + '%' : L('From your note', 'आपके नोट से')), isOn: on, on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? V('accs') : V('card'), ring: on ? V('acc') : V('bds'), dot: on ? V('acc') : 'transparent', delay: dl(j), pick: () => setRk(rc, { k }) }; }),
+has: !!ch, red: !!s.red && !!ch, text: ch ? txt(ch)[0] : '', editL: s.red ? L('Done editing', 'संपादन पूरा') : L('Change words', 'शब्द बदलें'),
+edit: () => this.setState({ red: !this.st().red }), onText: (ev) => setRk(rc, { k: 'own', t: val(ev) }),
+pHi: ch ? (txt(ch)[1] || txt(ch)[0]) : '', pEn: ch ? (txt(ch)[1] ? txt(ch)[0] : L('Your own words · the office adds Hindi', 'आपके शब्द · हिंदी ऑफ़िस जोड़ेगा')) : '',
+sim: simList.length > 0, simL: L('Use the same for ' + simList.length + ' similar ' + (simList.length === 1 ? 'child' : 'children'), 'ऐसे ही ' + simList.length + ' बच्चों के लिए भी'), simS: L('Children with similar marks who have no remark yet: ', 'मिलते अंकों वाले बच्चे: ') + simList.slice(0, 4).map((x) => x.nm.split(' ')[0]).join(', ') + (simList.length > 4 ? '…' : ''),
+useSim: () => { const before = this.st().rk; const o = Object.assign({}, before); simList.forEach((x) => { o[x.r] = { k: ch.k }; }); this.setState({ rk: o }); this.toast(L('Used for ' + simList.length + ' similar children', simList.length + ' बच्चों के लिए लगाई'), () => this.setState({ rk: before })); }
+},
+hint: ch ? '✓ ' + L('Saved as draft · just now', 'ड्राफ़्ट सेव · अभी') : L('Pick a remark for ' + kid.split(' ')[0], kid.split(' ')[0] + ' के लिए टिप्पणी चुनें'), hint2: L('Tap a suggestion, or change the words', 'सुझाव चुनें या शब्द बदलें'),
+nextL: L('Next child', 'अगला बच्चा'),
+next: () => { const nx = nextTodo(rc); if (!nx) { this.toast(L('All 31 remarks are done ✓', 'सभी 31 टिप्पणियाँ पूरी ✓')); return; } this.setState({ rc: nx, red: false, anim: 'none' }); }
+};
+
+// ---------- help ----------
+const E = (k, t, r, hl) => { const K = { row: ['24px', 'card', 'fg', 'flex-start', '600'], soft: ['24px', 'accs', 'accfg', 'flex-start', '700'], btn: ['30px', 'pri', 'prifg', 'center', '700'], ok: ['46px', 'oks', 'ok', 'center', '700'] }[k]; return { h: K[0], bg: V(K[1]), fg: V(K[2]), jc: K[3], fw: K[4], fl: K[3] === 'center' ? '0 1 auto' : '1', t, r: r || '', hasR: !!r, hasIc: k === 'ok', bd: hl ? '2px solid var(--acc)' : (k === 'row' ? '1px solid var(--bd)' : '1px solid transparent'), an: hl ? 'xPulse 1.8s ease infinite' : 'none' }; };
+const P = (t, h, sub, els) => ({ t, h, s: sub, els });
+const HELP = sc === 'remarks'
+? [P('Pick a child', 'बच्चा चुनें', 'Tap a name in the list, or tap Next child.', [E('row', '10 Ishaan', '', true), E('row', '11 Jiya', ''), E('row', '12 Kabir', '')]), P('Tap a suggestion', 'सुझाव चुनें', 'Suggestions come from marks, attendance and your notes.', [E('soft', 'Good progress…', '', true), E('row', 'Sincere and…', ''), E('row', 'Must come…', '')]), P('Same for similar', 'मिलते बच्चों के लिए भी', 'One tap fills the same remark for children with similar marks.', [E('btn', 'Use for 6 similar', '', true), E('ok', '')])]
+: [P('Pick the class', 'कक्षा चुनें', 'Tap Continue on the class you want.', [E('row', 'Class 7 Science', '12/27'), E('btn', 'Continue', '', true), E('row', 'Class 8 Science', '0/28')]), P('Type the mark', 'अंक लिखें', 'After 2 numbers it jumps to the next child by itself.', [E('row', 'Lokesh', '38'), E('soft', 'Muskan', '5_', true), E('row', 'Nidhi', '')]), P('Check and send', 'जाँचें और भेजें', 'See the summary, then send to Mr. Trivedi.', [E('row', 'Average', '56'), E('btn', 'Send', '', true), E('ok', '')])];
+const hp = { steps: HELP.map((p, i) => Object.assign(p, { n: String(i + 1), delay: (i * 90) + 'ms', t: L(p.t, p.h), h: L(p.h, p.t) })), ok: L('Got it', 'समझ गए') };
+
+// ---------- chrome ----------
+const T = {
+pick: [L('Enter marks', 'अंक भरें'), L('Half-yearly · by Wed 14 Oct', 'अर्धवार्षिक · 14 अक्टूबर तक')],
+entry: [label, L(done + ' of ' + n + ' · out of 80', done + '/' + n + ' · 80 में से')], keypad: [label, L('Number pad · ', 'नंबर पैड · ') + done + '/' + n],
+check: [L('Check and send', 'जाँचें और भेजें'), label], submitted: [L('Marks sent', 'अंक भेज दिए'), label],
+remarks: [L('Report card remarks', 'रिपोर्ट कार्ड टिप्पणी'), L('Class 6 · ' + rdn + ' of 31 done', 'कक्षा 6 · ' + rdn + '/31 पूरी')]
+}[sc] || ['', ''];
+const top = { crumb: sc === 'remarks' ? 'Class 6 · report cards · Half-yearly' : 'Marks · Half-yearly 2026–27', title: T[0], sub: T[1], mLink: sc === 'pick', mBack: sc !== 'pick' };
+const back = () => { const cs = this.st().screen; this.go(cs === 'check' ? 'entry' : 'pick', 'pop'); };
+const lang = seg([['en', 'EN', 'English'], ['hi', 'हि', 'हिंदी']], s.hi ? 'hi' : 'en', (l) => this.setState({ hi: l === 'hi' }));
+const shown = (sc === 'entry' || sc === 'keypad' || sc === 'remarks') && (s.saved || s.busy);
+const SH = { send: [L('Send ' + label + ' marks?', label + ' के अंक भेजें?'), L('Please read once before sending', 'भेजने से पहले एक बार पढ़ लें')], help: [L(sc === 'remarks' ? 'How to write remarks' : 'How to enter marks', sc === 'remarks' ? 'टिप्पणी कैसे लिखें' : 'अंक कैसे भरें'), L('3 easy steps', '3 आसान कदम')] }[s.sheet] || ['', ''];
+
+return {
+ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+is: { pick: sc === 'pick', entry: sc === 'entry', keypad: sc === 'keypad', check: sc === 'check', submitted: sc === 'submitted', remarks: sc === 'remarks' },
+anim: ANIM[s.anim] || 'none', top, back, lang, openHelp: () => this.openSheet('help'),
+sv: { show: shown, busy: !!s.busy, idle: !s.busy, label: s.busy ? L('Saving…', 'सेव हो रहा है…') : (s.saved ? L('Saved · just now', 'सेव · अभी') : L('Saved · 2 min ago', 'सेव · 2 मिनट पहले')) },
+pk, hd, en, stt, mode, kp, ck, sd, sm, rm, hp,
+sh: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', wide: s.sheet === 'help' ? 'wide' : '', title: SH[0], sub: SH[1], send: s.sheet === 'send', help: s.sheet === 'help' },
+closeSheet: () => this.closeSheet(),
+toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+[
+  {"file": "Notes.dc.html", "device": "desktop", "title": "Notes on children · board"},
+  {"file": "DX-Notes-Detail.dc.html", "device": "desktop", "start": "detail", "title": "Note open beside the board"},
+  {"file": "DX-Notes-Student.dc.html", "device": "desktop", "start": "student", "title": "One child · all notes"},
+  {"file": "DX-Notes-Plan.dc.html", "device": "desktop", "start": "plan", "title": "Support plan"},
+  {"file": "DX-Notes-Listening.dc.html", "device": "desktop", "start": "listening", "title": "Speak a note", "dark": true},
+  {"file": "M-Notes.dc.html", "device": "phone", "title": "Notes · board"},
+  {"file": "M-Notes-Add.dc.html", "device": "phone", "start": "add", "title": "Add a note"},
+  {"file": "M-Notes-Listening.dc.html", "device": "phone", "start": "listening", "title": "Listening"},
+  {"file": "M-Notes-Detail.dc.html", "device": "phone", "start": "detail", "title": "Note · status & replies"},
+  {"file": "M-Notes-Plan.dc.html", "device": "phone", "start": "plan", "title": "Support plan"},
+  {"file": "M-Notes-Student.dc.html", "device": "phone", "start": "student", "title": "One child"}
+]

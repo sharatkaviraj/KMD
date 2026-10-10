@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My class and my subjects</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.co{display:flex;flex-direction:column}.ro{display:flex;align-items:center}.wr{flex-wrap:wrap}.fx{flex:1;min-width:0}.mu{color:var(--mut)}.sm{font-size:12px;color:var(--mut)}.b7{font-weight:700}.b6{font-weight:600}
+.f11{font-size:11px}.f12{font-size:12px}.f13{font-size:13px}.f14{font-size:14px}.f15{font-size:15px}.f16{font-size:16px}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}.ib{flex:none;display:flex;align-items:center;justify-content:center}
+.ic{flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px}.bt{border:0;background:transparent;color:var(--fg);text-align:left;width:100%}
+.ani{animation:xIn .32s var(--ease) both}.bar{display:flex;height:8px;border-radius:5px;background:var(--s3);overflow:hidden}.bar>*{height:100%;border-radius:inherit;transition:width .5s var(--ease);transform-origin:left;animation:xGrowX .8s var(--ease) both}
+.nt{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.hn{font-size:11px;font-weight:500;color:var(--mut)}
+.big{height:52px;font-size:15px;padding:0 20px}.opt{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+.sbody{flex:1;min-height:0;padding:4px 20px 12px;display:flex;flex-direction:column;gap:12px}.sfoot{flex:none;display:flex;align-items:center;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.srch{position:relative;display:flex;align-items:center;gap:8px;height:50px;padding:0 16px;border-radius:25px;border:1px solid var(--bds);background:var(--card);color:var(--mut)}.srch input{flex:1;min-width:0;height:40px;border:0;outline:none;background:transparent;font-size:15px}
+.lang{flex:none;height:36px;padding:3px;border-radius:18px;border:1px solid var(--bd);background:var(--s2);display:inline-flex;gap:2px}.lang>span{min-width:32px;height:28px;padding:0 6px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mut);transition:background-color .2s ease,color .2s ease}.lang>span.y{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
+.sg>button{height:46px}.cc{display:flex;flex-direction:column;gap:16px;min-width:0}.ring{position:relative;flex:none;width:56px;height:56px}.ring svg{position:absolute;top:0;left:0;transform:rotate(-90deg)}.ring .av{position:absolute;top:7px;left:7px;width:42px;height:42px;font-size:13px}
+.vx a.pri{color:var(--prifg)}.vx a.soft{color:var(--accfg)}.hdr{flex-direction:column;align-items:center;text-align:center}.hdr>.co{align-items:center}
+.srow{display:grid;grid-template-columns:40px minmax(0,1fr) 70px 100px 96px;gap:8px;align-items:center;min-height:52px;padding:6px 16px}
+.hb{height:64px;padding:0 28px}
+@container vx (max-width:899px){.vx .hb{height:auto;min-height:58px;padding:6px 8px}.vx .f14{font-size:15px}.vx .f15{font-size:16px}.vx .big{height:56px;font-size:16px}.vx .cc{display:contents}.vx .srow{grid-template-columns:30px minmax(0,1fr);min-height:62px}.vx .srch input{font-size:16px}.vx .hdr{flex-direction:row;text-align:left}.vx .hdr>.co{align-items:flex-start}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position:relative;width:100%;height:100vh;min-height:560px;overflow:hidden;display:flex;background:var(--bg);color:var(--fg);font-family:Inter, 'Noto Sans Devanagari', system-ui, sans-serif;font-size:14px;line-height:1.45">
+<div class="only-d" style="flex:none;height:100%"><dc-import name="XSide" active="class" role="teacher" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div class="co" style="flex:1;min-width:0;min-height:0;position:relative">
+<header class="glass ro hb" style="flex:none;gap:6px;border-bottom:1px solid var(--bd);position:relative;z-index:5">
+<sc-if value="{{top.mLink}}"><a href="M-TchMore.dc.html" class="only-m tap ib" aria-label="Back to menu" style="width:44px;height:44px;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.back}}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<div class="co fx" style="padding-left:2px"><span class="sm only-d">{{top.crumb}}</span><span class="serif el only-d" style="font-size:22px;font-weight:600;line-height:1.15">{{top.title}}</span><span class="el only-m" style="font-size:17px;font-weight:700">{{top.mTitle}}</span><span class="sm el only-m">{{top.mSub}}</span></div>
+<sc-if value="{{is.student}}"><a href="DX-TchNotes-Add.dc.html" class="only-d tap btn pri"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.mic}}"></path></svg>Speak a note</a></sc-if>
+<button class="tap lang" type="button" role="switch" aria-checked="{{lng.on}}" aria-label="Show labels in Hindi" onClick="{{lng.flip}}"><span class="{{lng.en}}">EN</span><span class="{{lng.hi}}">हि</span></button>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{openHelp}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+<main class="scroll" style="flex:1;min-height:0;position:relative">
+<sc-if value="{{is.top}}">
+<div class="pad" style="padding:18px 28px 0"><div class="seg sg" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:480px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{topSeg.thumb}})"></span><sc-for list="{{topSeg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}"><span class="co" style="align-items:center;line-height:1.15">{{o.a}}<span class="hn">{{o.b}}</span></span></button></sc-for></div></div>
+</sc-if>
+
+<!-- ============ MY CLASS ============ -->
+<sc-if value="{{is.class}}">
+<div class="pad stack" style="padding:16px 28px 40px;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start;animation:{{anim}}">
+<div class="cc">
+<div class="card rise co" style="order:1;padding:22px;gap:14px;background:var(--pri);color:var(--prifg);border-color:transparent">
+<span class="ro f12 b7" style="gap:8px;letter-spacing:.06em;text-transform:uppercase;opacity:.82"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{ic.users}}"></path></svg>{{lb.cls.a}} · {{lb.cls.b}}</span>
+<div class="ro wr" style="gap:14px">
+<span class="co fx" style="min-width:180px"><span class="serif" style="font-size:36px;font-weight:600;line-height:1.05">{{lb.kids.a}}</span><span class="f14" style="opacity:.86">{{lb.kids.b}} · 16 girls · 15 boys · Room 6</span></span>
+<button class="tap ro" type="button" onClick="{{goRoster}}" aria-label="See all 31 children" style="border:0;background:transparent;padding:0 0 0 10px;color:inherit"><sc-for list="{{stack}}" as="a"><span class="av f12" style="width:40px;height:40px;margin-left:-10px;background:{{a.bg}};color:{{a.fg}};border:2px solid var(--pri);animation:xPopIn .4s var(--spring) both;animation-delay:{{a.delay}}">{{a.ini}}</span></sc-for><span class="av f12 num" style="width:40px;height:40px;margin-left:-10px;background:var(--prifg);color:var(--pri);border:2px solid var(--pri)">+24</span></button>
+</div>
+<span class="f14" style="opacity:.9">You are the class teacher. You see everything about these children — except fees, which stay with the office.</span>
+<button class="tap btn big" type="button" onClick="{{goRoster}}" style="align-self:flex-start;background:var(--prifg);color:var(--pri)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg>{{lb.all.a}}</button>
+</div>
+
+<div class="card rise co" style="order:2;padding:18px 20px;gap:14px;animation-delay:60ms">
+<div class="ro" style="gap:12px"><span class="ic" style="background:var(--s3);color:var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calCheck}}"></path></svg></span><span class="co fx"><span class="f16 b7">{{lb.today.a}}</span><span class="hn">{{lb.today.b}} · Thu 8 Oct</span></span><span class="pill" style="height:28px;padding:0 12px;font-size:12px;background:var(--s3);color:var(--mut)"><span style="width:9px;height:9px;border-radius:5px;border:2px dashed var(--mut)"></span>Not marked</span></div>
+<div class="ro wr" style="gap:18px;align-items:center">
+<div class="co fx" style="gap:10px;min-width:220px">
+<span class="f14">Class 6 is not marked yet. Until you press <b>Save attendance</b>, the office sees “Not marked”.</span>
+<span class="sm">Yesterday 29 of 31 came · Om Regar and Pari Sen were absent.</span>
+<a href="TchAttend.dc.html" class="only-d tap btn pri big" style="align-self:flex-start"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calCheck}}"></path></svg>{{lb.mark.a}} · {{lb.mark.b}}</a>
+<a href="M-TchAttend.dc.html" class="only-m tap btn pri big"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calCheck}}"></path></svg>{{lb.mark.a}} · {{lb.mark.b}}</a>
+</div>
+<div class="co" style="align-items:center;gap:4px;margin:0 auto">
+<span style="position:relative;width:96px;height:96px"><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="transform:rotate(-90deg)"><circle cx="48" cy="48" r="40" style="fill:none;stroke:var(--s3);stroke-width:10"></circle><circle cx="48" cy="48" r="40" style="fill:none;stroke:var(--ok);stroke-width:10;stroke-linecap:round;stroke-dasharray:233.7 251.3;--len:233.7;animation:xDraw 1s var(--ease) both"></circle></svg><span class="co" style="position:absolute;top:0;left:0;right:0;bottom:0;align-items:center;justify-content:center"><span class="num b7" style="font-size:22px">93%</span></span></span>
+<span class="sm">{{lb.month.a}} · Sep 91%</span>
+</div>
+</div>
+</div>
+
+<div class="card rise co" style="order:4;padding:18px 20px;gap:12px;animation-delay:120ms">
+<div class="ro" style="gap:10px"><span class="co fx"><span class="f16 b7">{{lb.avg.a}}</span><span class="hn">{{lb.avg.b}}</span></span><span class="co" style="align-items:flex-end"><span class="num b7" style="font-size:24px">{{avg.all}}</span><span class="sm">class average</span></span></div>
+<sc-for list="{{avg.rows}}" as="r">
+<div class="co ani" style="gap:6px;animation-delay:{{r.delay}}">
+<div class="ro" style="gap:8px"><span class="f14 b6 fx el">{{r.name}} <span class="sm">· {{r.by}}</span></span><span class="sm num" style="color:{{r.sc}}">{{r.st}}</span><span class="num b7 f14" style="width:46px;text-align:right">{{r.pct}}</span></div>
+<div class="bar" style="height:10px"><span style="width:{{r.pct}};background:{{r.c}};opacity:{{r.op}};animation-delay:{{r.delay}}"></span></div>
+</div>
+</sc-for>
+<span class="sm">Every subject teacher fills their own marks. Out of 80 · Half-yearly, 23 Sep – 3 Oct.</span>
+</div>
+
+<div class="card rise co" style="order:5;padding:16px 16px 10px;gap:4px;animation-delay:160ms">
+<div class="ro" style="gap:10px;padding:0 4px 6px"><span class="co fx"><span class="f16 b7">{{lb.tt.a}}</span><span class="hn">{{lb.tt.b}}</span></span><span class="sm">Thu 8 Oct</span></div>
+<sc-for list="{{tt}}" as="p">
+<div class="ro ani" style="gap:12px;padding:8px 10px;border-radius:12px;background:{{p.bg}};border:{{p.bd}};opacity:{{p.op}};animation-delay:{{p.delay}}">
+<span class="co num" style="flex:none;width:46px"><span class="f13 b7">{{p.no}}</span><span class="sm">{{p.time}}</span></span>
+<span class="co fx"><span class="f14 b6 el">{{p.subj}}</span><span class="sm el">{{p.who}}</span></span>
+<sc-if value="{{p.hasTag}}"><span class="pill" style="background:{{p.tbg}};color:{{p.tfg}}">{{p.tag}}</span></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div class="cc">
+<div class="card rise co" style="order:3;padding:16px 14px 10px;gap:2px;animation-delay:90ms">
+<div class="ro" style="gap:12px;padding:0 4px 8px"><span class="ic" style="background:var(--bads);color:var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg></span><span class="co fx"><span class="f16 b7">{{lb.attn.a}}</span><span class="hn">{{lb.attn.b}}</span></span><span class="pill num" style="height:26px;min-width:26px;justify-content:center;background:var(--bads);color:var(--bad);font-size:13px">{{attnN}}</span></div>
+<sc-for list="{{attn}}" as="k">
+<button class="tap row bt ro ani" type="button" onClick="{{k.open}}" style="gap:12px;padding:10px 6px;border-radius:12px;border-top:{{k.border}};animation-delay:{{k.delay}}">
+<span class="av f13" style="width:44px;height:44px;background:{{k.bg}};color:{{k.fg}}">{{k.ini}}</span>
+<span class="co fx" style="gap:5px"><span class="f15 b6">{{k.name}} <span class="sm num">· Roll {{k.roll}}</span></span><span class="ro wr" style="gap:5px"><sc-for list="{{k.why}}" as="w"><span class="pill" style="background:{{w.bg}};color:{{w.fg}}">{{w.label}}</span></sc-for></span></span>
+<svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+</button>
+</sc-for>
+<span class="sm" style="padding:6px 6px 2px">The list builds itself: attendance below 75%, any subject below 33%, or 2+ open notes.</span>
+</div>
+
+<div class="card rise co" style="order:6;padding:14px 12px 8px;gap:2px;animation-delay:200ms">
+<span class="ro" style="gap:8px;padding:0 6px 6px"><span class="f16 b7 fx">{{lb.bday.a}} <span class="hn">· {{lb.bday.b}}</span></span></span>
+<sc-for list="{{bdays}}" as="b">
+<button class="tap row bt ro" type="button" onClick="{{b.open}}" style="gap:12px;padding:8px 6px;border-radius:12px">
+<span class="av" style="width:40px;height:40px;background:{{b.bg}};color:{{b.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.cake}}"></path></svg></span>
+<span class="co fx"><span class="f14 b6">{{b.name}}</span><span class="sm">{{b.sub}}</span></span>
+<sc-if value="{{b.today}}"><span class="pill" style="background:var(--warns);color:var(--warnfg);animation:xPopIn .5s var(--spring) both">Today</span></sc-if>
+</button>
+</sc-for>
+</div>
+
+<div class="card rise co" style="order:7;padding:16px 18px;gap:10px;animation-delay:240ms">
+<div class="ro" style="gap:12px"><span class="ic" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg></span><span class="co fx"><span class="sech">{{lb.ptm.a}} · {{lb.ptm.b}}</span><span class="f15 b7">Sat 17 Oct · 9 am – 12 noon</span></span><span class="co" style="align-items:center"><span class="num b7" style="font-size:22px;line-height:1">9</span><span class="sm">days</span></span></div>
+<span class="f13 mu">Half-yearly result day. Parents of all 31 children are invited. Report cards come from the office.</span>
+<button class="tap opt" type="button" onClick="{{ptmGo}}" style="background:var(--s2)"><span class="co fx"><span class="f14 b6">Talk about these {{attnN}} first</span><span class="sm el">{{ptmNames}}</span></span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ ROSTER ============ -->
+<sc-if value="{{is.roster}}">
+<div class="pad co" style="padding:18px 28px 40px;gap:14px;animation:{{anim}}">
+<label class="srch" style="max-width:560px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="sr">Search my class</span><input type="search" value="{{q}}" onChange="{{onQ}}" placeholder="Name or roll number · नाम या रोल नंबर"></label>
+<div class="hs ro" style="gap:8px"><sc-for list="{{rf}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{c.icon}}"></path></svg>{{c.label}}<span class="num" style="opacity:.7">{{c.n}}</span></button></sc-for></div>
+<span class="sm">{{ro.line}}</span>
+<div class="only-d" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+<sc-for list="{{ro.rows}}" as="k">
+<button class="tap card lift co ani" type="button" onClick="{{k.open}}" style="padding:14px;gap:8px;align-items:center;text-align:center;color:var(--fg);animation-delay:{{k.delay}}">
+<span class="ro" style="align-self:stretch;justify-content:space-between"><span class="pill num" style="background:var(--s2);color:var(--mut)">Roll {{k.roll}}</span><span class="num f12 b7" style="color:{{k.rc}}">{{k.att}}</span></span>
+<span class="ring"><svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="25" style="fill:none;stroke:var(--s3);stroke-width:4"></circle><circle cx="28" cy="28" r="25" style="fill:none;stroke:{{k.rc}};stroke-width:4;stroke-linecap:round;stroke-dasharray:{{k.dash}};--len:{{k.len}};animation:xDraw .8s var(--ease) both;animation-delay:{{k.delay}}"></circle></svg><span class="av" style="background:{{k.bg}};color:{{k.fg}}">{{k.ini}}</span></span>
+<span class="f15 b7">{{k.name}}</span>
+<span class="ro wr" style="gap:4px;justify-content:center;min-height:22px"><sc-for list="{{k.why}}" as="w"><span class="pill" style="background:{{w.bg}};color:{{w.fg}}">{{w.label}}</span></sc-for></span>
+</button>
+</sc-for>
+</div>
+<div class="only-m card" style="overflow:hidden">
+<sc-for list="{{ro.rows}}" as="k">
+<button class="tap row bt ro ani" type="button" onClick="{{k.open}}" style="gap:12px;min-height:76px;padding:10px 14px;border-top:{{k.border}};animation-delay:{{k.delay}}">
+<span class="num sm b7" style="flex:none;width:22px;text-align:center">{{k.roll}}</span>
+<span class="ring"><svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="25" style="fill:none;stroke:var(--s3);stroke-width:4"></circle><circle cx="28" cy="28" r="25" style="fill:none;stroke:{{k.rc}};stroke-width:4;stroke-linecap:round;stroke-dasharray:{{k.dash}};--len:{{k.len}};animation:xDraw .8s var(--ease) both;animation-delay:{{k.delay}}"></circle></svg><span class="av" style="background:{{k.bg}};color:{{k.fg}}">{{k.ini}}</span></span>
+<span class="co fx" style="gap:4px"><span class="f16 b6 el">{{k.name}}</span><span class="ro wr" style="gap:4px"><span class="num f12 b7" style="color:{{k.rc}}">{{k.att}}</span><sc-for list="{{k.why}}" as="w"><span class="pill" style="background:{{w.bg}};color:{{w.fg}}">{{w.label}}</span></sc-for></span></span>
+<svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{ro.none}}">
+<div class="card ani co" style="padding:40px 24px;align-items:center;gap:10px;text-align:center">
+<span class="av" style="width:64px;height:64px;background:var(--s2);color:var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width:28px;height:28px" aria-hidden="true"><path d="{{ic.search}}"></path></svg></span>
+<span class="f16 b7">No child matches “{{q}}”</span><span class="f13 mu">Try another name or roll number.</span>
+<button class="tap btn pri big" type="button" onClick="{{clearQ}}">Show all 31 children</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- ============ STUDENT ============ -->
+<sc-if value="{{is.student}}">
+<div class="pad stack" style="padding:18px 28px 40px;display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:18px;align-items:start;animation:{{anim}}">
+<div class="cc">
+<div class="card rise hdr" style="order:1;display:flex;padding:20px;gap:16px">
+<span class="ring" style="width:96px;height:96px"><svg width="96" height="96" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="25" style="fill:none;stroke:var(--s3);stroke-width:3"></circle><circle cx="28" cy="28" r="25" style="fill:none;stroke:{{sp.rc}};stroke-width:3;stroke-linecap:round;stroke-dasharray:{{sp.dash}};--len:{{sp.len}};animation:xDraw 1s var(--ease) both"></circle></svg><span class="av serif" style="top:11px;left:11px;width:74px;height:74px;font-size:26px;background:{{sp.bg}};color:{{sp.fg}}">{{sp.ini}}</span></span>
+<span class="co fx" style="gap:6px;min-width:0"><span class="serif" style="font-size:28px;font-weight:600;line-height:1.15">{{sp.name}}</span>
+<span class="f13 mu num">{{sp.line}}</span>
+<span class="ro wr" style="gap:6px"><sc-for list="{{sp.why}}" as="w"><span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:{{w.bg}};color:{{w.fg}}">{{w.label}}</span></sc-for></span>
+<span class="ro" style="gap:6px"><span class="num b7" style="font-size:26px;color:{{sp.rc}}">{{sp.att}}</span><span class="sm" style="text-align:left">attendance<br>this session</span></span></span>
+</div>
+<div class="card co" style="order:2;padding:14px 18px 12px">
+<span class="sech">{{lb.par.a}} · {{lb.par.b}}</span>
+<sc-for list="{{sp.parents}}" as="g">
+<div class="co" style="gap:10px;padding:12px 0;border-top:{{g.border}}">
+<span class="ro" style="gap:10px"><span class="av f12" style="width:38px;height:38px;background:var(--s3);color:var(--fg)">{{g.ini}}</span><span class="co fx"><span class="f15 b6">{{g.name}}</span><span class="sm num">{{g.rel}} · {{g.phone}}</span></span></span>
+<div class="ro" style="gap:8px"><button class="tap btn sec big" type="button" onClick="{{g.call}}" style="flex:1;padding:0 10px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>Call</button><button class="tap btn big" type="button" onClick="{{g.wa}}" style="flex:1;padding:0 10px;background:var(--oks);color:var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg>WhatsApp</button></div>
+</div>
+</sc-for>
+<span class="sm">Numbers are partly hidden. The call goes from your own phone.</span>
+</div>
+<div class="nt" style="order:9;background:var(--s2);color:var(--mut)"><svg class="i" viewBox="0 0 24 24" style="margin-top:1px" aria-hidden="true"><path d="{{ic.lock}}"></path></svg><span><b style="color:var(--fg)">Fee details are with the office.</b> If a parent asks about fees, please send them to the office desk.</span></div>
+</div>
+<div class="co" style="order:3;gap:14px;min-width:0">
+<div class="seg sg" style="grid-template-columns:repeat(4,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 4);transform:translateX({{tabs.thumb}})"></span><sc-for list="{{tabs.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}"><span class="co" style="align-items:center;line-height:1.15">{{o.a}}<span class="hn">{{o.b}}</span></span></button></sc-for></div>
+
+<sc-if value="{{tab.about}}">
+<div class="card co ani" style="padding:6px 18px">
+<sc-for list="{{sp.facts}}" as="f"><div class="ro" style="gap:12px;padding:12px 0;border-top:{{f.border}}"><span class="ic" style="width:36px;height:36px;border-radius:11px;background:var(--s2);color:var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{f.icon}}"></path></svg></span><span class="co fx"><span class="sm">{{f.k}}</span><span class="f15 b6">{{f.v}}</span></span></div></sc-for>
+</div>
+<div class="card co ani" style="padding:14px 18px;gap:6px">
+<span class="sech">Recent contact with parents</span>
+<sc-for list="{{sp.log}}" as="l"><div class="ro ani" style="gap:10px;padding:6px 0"><span style="flex:none;width:10px;height:10px;border-radius:5px;background:{{l.dot}}"></span><span class="f13 fx">{{l.t}}</span><span class="sm num">{{l.when}}</span></div></sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{tab.att}}">
+<div class="card co ani" style="padding:16px 18px;gap:12px">
+<div class="ro wr" style="gap:10px"><span class="f16 b7 fx">Attendance by day</span><div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));width:210px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{hm.seg.thumb}})"></span><sc-for list="{{hm.seg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.a}}</button></sc-for></div></div>
+<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px">
+<sc-for list="{{hm.wd}}" as="w"><span class="f11 b7 mu" style="text-align:center">{{w}}</span></sc-for>
+<sc-for list="{{hm.cells}}" as="c"><span class="ib num f12 b6" title="{{c.t}}" style="height:42px;border-radius:11px;background:{{c.bg}};color:{{c.fg}};border:{{c.bd}};animation:xPopIn .3s var(--ease) both;animation-delay:{{c.delay}}">{{c.d}}</span></sc-for>
+</div>
+<div class="ro wr f12" style="gap:12px"><sc-for list="{{hm.legend}}" as="l"><span class="ro" style="gap:6px"><span style="width:12px;height:12px;border-radius:4px;background:{{l.bg}};border:{{l.bd}}"></span>{{l.label}}</span></sc-for></div>
+<span class="f13 mu num">{{hm.sum}}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{tab.marks}}">
+<div class="card co ani" style="padding:14px 18px;gap:4px">
+<div class="ro wr" style="gap:12px;padding-bottom:6px"><span class="f16 b7 fx">Unit Test 1 vs Half-yearly</span><span class="ro sm" style="gap:6px"><span style="width:12px;height:12px;border-radius:4px;background:var(--c4)"></span>UT1</span><span class="ro sm" style="gap:6px"><span style="width:12px;height:12px;border-radius:4px;background:var(--c1)"></span>Half-yearly</span></div>
+<sc-for list="{{sp.marks}}" as="m">
+<div class="co ani" style="gap:6px;padding:10px 0;border-top:1px solid var(--bd);animation-delay:{{m.delay}}">
+<div class="ro" style="gap:8px"><span class="f14 b6 fx">{{m.name}}</span><sc-if value="{{m.hasD}}"><span class="pill" style="background:{{m.dbg}};color:{{m.dfg}}">{{m.delta}}</span></sc-if></div>
+<div class="ro" style="gap:8px"><span class="sm" style="flex:none;width:82px">Unit Test 1</span><div class="bar fx"><span style="width:{{m.u}};background:var(--c4);animation-delay:{{m.delay}}"></span></div><span class="num f13 b6" style="flex:none;width:52px;text-align:right">{{m.uv}}</span></div>
+<div class="ro" style="gap:8px"><span class="sm" style="flex:none;width:82px">Half-yearly</span><div class="bar fx"><span style="width:{{m.h}};background:{{m.hc}};animation-delay:{{m.delay}}"></span></div><span class="num f13 b7" style="flex:none;width:52px;text-align:right;color:{{m.hvc}}">{{m.hv}}</span></div>
+</div>
+</sc-for>
+<span class="sm" style="padding-top:6px">Shown as a share of full marks (UT1 out of 20, Half-yearly out of 80). Red means below 33%.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{tab.notes}}">
+<div class="card co ani" style="padding:18px;gap:12px;align-items:center;text-align:center;background:var(--accs);border-color:transparent">
+<span class="f15 b7" style="color:var(--accfg)">Noticed something about {{sp.first}}?</span>
+<a href="DX-TchNotes-Add.dc.html" class="only-d tap btn pri big"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.mic}}"></path></svg>{{lb.speak.a}} · {{lb.speak.b}}</a>
+<a href="M-TchNotes-Add.dc.html" class="only-m tap btn pri big" style="width:100%"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.mic}}"></path></svg>{{lb.speak.a}} · {{lb.speak.b}}</a>
+<span class="sm">Speak in Hindi or English — the app writes it down.</span>
+</div>
+<sc-for list="{{sp.notes}}" as="n">
+<div class="card co ani" style="padding:14px 16px;gap:8px;border-left:4px solid {{n.fg}};animation-delay:{{n.delay}}">
+<div class="ro wr" style="gap:6px"><sc-for list="{{n.tags}}" as="t"><span class="pill" style="background:{{t.bg}};color:{{t.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px" aria-hidden="true"><path d="{{t.icon}}"></path></svg>{{t.label}}</span></sc-for><span class="fx"></span><span class="pill" style="background:{{n.sbg}};color:{{n.sfg}}">{{n.status}}</span></div>
+<span class="f15">{{n.text}}</span>
+<span class="sm">{{n.meta}}</span>
+</div>
+</sc-for>
+<sc-if value="{{sp.noNotes}}"><div class="card co ani" style="padding:28px;align-items:center;gap:6px;text-align:center"><span class="f15 b7">No notes yet</span><span class="f13 mu">Notes from you and other teachers will show here.</span></div></sc-if>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ MY SUBJECTS ============ -->
+<sc-if value="{{is.subjects}}">
+<div class="pad co" style="padding:16px 28px 40px;gap:16px;animation:{{anim}}">
+<span class="f14 mu">Science for Classes 6, 7 and 8 · 30 periods a week · Half-yearly marks due <b style="color:var(--fg)">Wed 14 Oct</b></span>
+<div class="g3" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+<sc-for list="{{subs}}" as="c">
+<div class="card lift rise co" style="padding:18px;gap:14px;animation-delay:{{c.delay}}">
+<div class="ro" style="gap:12px"><span class="ic" style="width:48px;height:48px;background:var(--accs);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.flask}}"></path></svg></span><span class="co fx"><span class="f16 b7">{{c.title}}</span><span class="sm">{{c.sub}}</span></span><sc-if value="{{c.mine}}"><span class="pill" style="background:var(--warns);color:var(--warnfg)">My class</span></sc-if></div>
+<div class="co" style="gap:6px"><div class="ro" style="gap:8px"><span class="f13 b6 fx">Half-yearly marks</span><span class="num f13 b7">{{c.mk}}</span></div><div class="bar"><span style="width:{{c.mkw}};background:{{c.mkc}}"></span></div><span class="f12 b6" style="color:{{c.mkfg}}">{{c.mkst}}</span></div>
+<div class="co" style="gap:6px"><div class="ro" style="gap:8px"><span class="f13 b6 fx">Syllabus</span><span class="num f13 b7">{{c.sy}}</span></div><div class="bar"><span style="width:{{c.syw}};background:var(--acc)"></span></div><span class="sm el">{{c.syst}}</span></div>
+<span class="ro f13" style="gap:8px;padding:10px 12px;border-radius:12px;background:{{c.nbg}}"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px;color:{{c.nfg}}" aria-hidden="true"><path d="{{ic.clock}}"></path></svg><span class="fx"><b style="color:{{c.nfg}}">Next:</b> {{c.next}}</span></span>
+<div class="ro" style="gap:8px;margin-top:auto">
+<button class="tap btn pri big" type="button" onClick="{{c.open}}" style="flex:1.3;padding:0 12px">Open class<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button>
+<a href="TchMarks.dc.html" class="only-d tap btn sec big" style="flex:1;padding:0 12px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clipboard}}"></path></svg>Marks</a>
+<a href="M-TchMarks.dc.html" class="only-m tap btn sec big" style="flex:1;padding:0 12px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clipboard}}"></path></svg>Marks</a>
+</div>
+</div>
+</sc-for>
+</div>
+<div class="card rise co" style="padding:16px 18px;gap:4px;animation-delay:160ms">
+<div class="ro" style="gap:12px;padding-bottom:8px"><span class="ic" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.link}}"></path></svg></span><span class="co fx"><span class="f16 b7">Your marks links (Sampark)</span><span class="sm">Half-yearly · works without login · valid till Thu 15 Oct</span></span></div>
+<sc-for list="{{links}}" as="l">
+<div class="ro wr" style="gap:10px;padding:12px 0;border-top:1px solid var(--bd)">
+<span class="co fx" style="min-width:180px"><span class="f15 b6">{{l.title}}</span><span class="f12 b6 num" style="color:{{l.fg}}">{{l.st}}</span></span>
+<a href="TchMarks.dc.html" class="only-d tap btn soft">Open</a><a href="M-TchMarks.dc.html" class="only-m tap btn soft">Open</a>
+<button class="tap btn sec" type="button" onClick="{{l.share}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg>Share on WhatsApp</button>
+<button class="tap btn ghost" type="button" onClick="{{l.copy}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.copy}}"></path></svg>Copy</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ ONE SUBJECT ============ -->
+<sc-if value="{{is.subject}}">
+<div class="pad co" style="padding:18px 28px 40px;gap:16px;animation:{{anim}}">
+<div class="card rise ro wr" style="padding:18px 20px;gap:14px">
+<span class="ic" style="width:56px;height:56px;border-radius:18px;background:var(--accs);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="width:28px;height:28px" aria-hidden="true"><path d="{{ic.flask}}"></path></svg></span>
+<span class="co fx" style="min-width:200px;gap:2px"><span class="serif" style="font-size:26px;font-weight:600;line-height:1.15">{{sj.title}}</span><span class="f13 mu">{{sj.sub}}</span></span>
+<span class="pill" style="height:32px;padding:0 12px;font-size:12px;background:{{sj.nbg}};color:{{sj.nfg}}"><span style="width:8px;height:8px;border-radius:4px;background:currentColor;animation:{{sj.pulse}}"></span>{{sj.next}}</span>
+</div>
+<div class="stack" style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start">
+<div class="cc">
+<div class="card rise" style="order:3;overflow:hidden;animation-delay:80ms">
+<div class="ro" style="gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd)"><span class="co fx"><span class="f16 b7">{{lb.kids2.a}}</span><span class="hn">{{lb.kids2.b}}</span></span><span class="sm num">{{sj.mkLine}}</span></div>
+<div class="only-d srow" style="min-height:38px;background:var(--s2)"><span class="sech">Roll</span><span class="sech">Child</span><span class="sech">UT1</span><span class="sech">Half-yearly</span><span class="sech">My periods</span></div>
+<sc-for list="{{sj.rows}}" as="r">
+<button class="tap row bt srow ani" type="button" onClick="{{r.note}}" aria-label="Write a note about {{r.name}}" style="border-top:1px solid var(--bd);animation-delay:{{r.delay}}">
+<span class="num f13 b7 mu">{{r.roll}}</span>
+<span class="co" style="min-width:0"><span class="f14 b6 el">{{r.name}}</span><span class="sm num only-m">{{r.line}}</span></span>
+<span class="num f13 hide-m">{{r.ut}}</span>
+<span class="hide-m"><span class="pill num" style="background:{{r.hbg}};color:{{r.hfg}}">{{r.hy}}</span></span>
+<span class="num f13 hide-m" style="color:{{r.pc}}">{{r.per}}</span>
+</button>
+</sc-for>
+<span class="sm" style="display:block;padding:10px 16px 14px">Tap a child to write a note for the class teacher.</span>
+</div>
+</div>
+<div class="cc">
+<div class="card rise co" style="order:1;padding:18px;gap:12px">
+<div class="ro" style="gap:10px"><span class="co fx"><span class="f16 b7">{{lb.sy.a}}</span><span class="hn">{{lb.sy.b}}</span></span><span class="co" style="align-items:flex-end"><span class="num b7" style="font-size:22px">{{sy.done}}</span><span class="sm">chapters done</span></span></div>
+<div class="bar" style="height:10px"><span style="width:{{sy.w}};background:var(--acc)"></span></div>
+<span class="sm">{{sy.line}}</span>
+<sc-if value="{{sy.can}}"><button class="tap opt" type="button" onClick="{{sy.mark}}" style="min-height:64px;border:2px solid var(--acc);background:var(--accs)"><span class="ic" style="background:var(--acc);color:var(--onsolid)"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px;stroke-width:2.6" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span class="co fx"><span class="f15 b7">{{lb.topic.a}}</span><span class="f13" style="color:var(--accfg)">{{sy.topic}}</span></span></button></sc-if>
+<sc-if value="{{sy.fin}}"><div class="nt ani" style="background:var(--oks);color:var(--ok)"><svg class="i" viewBox="0 0 24 24" style="animation:xTick .5s var(--spring) both" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span><b>Today’s topic is done.</b> {{sy.finLine}}</span></div></sc-if>
+<div class="co">
+<sc-for list="{{sy.ch}}" as="c">
+<div class="co" style="border-top:1px solid var(--bd)">
+<div class="ro" style="gap:10px;padding:8px 2px"><span class="ib" style="width:26px;height:26px;border-radius:13px;background:{{c.bg}};color:{{c.fg}};border:{{c.bd}}"><sc-if value="{{c.done}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px;stroke-width:3;animation:{{c.tick}}" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if><sc-if value="{{c.todo}}"><span class="f11 b7 num">{{c.no}}</span></sc-if></span><span class="f14 fx" style="color:{{c.tc}};font-weight:{{c.fw}}">{{c.name}}</span><sc-if value="{{c.cur}}"><span class="pill" style="background:var(--acc);color:var(--onsolid)">Now</span></sc-if></div>
+<sc-if value="{{c.cur}}"><div class="co" style="gap:4px;padding:0 0 10px 36px"><sc-for list="{{c.topics}}" as="t"><button class="tap row bt ro" type="button" role="checkbox" aria-checked="{{t.on}}" onClick="{{t.pick}}" style="gap:10px;min-height:44px;padding:6px 8px;border-radius:10px"><span class="ib" style="width:22px;height:22px;border-radius:7px;background:{{t.bg}};border:{{t.bd}};color:var(--onsolid)"><sc-if value="{{t.done}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px;stroke-width:3;animation:xTick .4s var(--spring) both" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></span><span class="f13 fx" style="color:{{t.tc}}">{{t.name}}</span></button></sc-for></div></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+<div class="card rise co" style="order:2;padding:18px;gap:10px;animation-delay:60ms">
+<div class="ro" style="gap:12px"><span class="ic" style="background:var(--warns);color:var(--warnfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.note}}"></path></svg></span><span class="co fx"><span class="f16 b7">{{lb.ctn.a}}</span><span class="hn">{{lb.ctn.b}}</span></span></div>
+<span class="f13 mu">{{ct.line}}</span>
+<sc-for list="{{ct.list}}" as="n">
+<div class="co" style="gap:4px;padding:12px 14px;border-radius:14px;background:var(--s2);animation:{{n.anim}}"><div class="ro" style="gap:8px"><span class="f14 b7 fx">{{n.kid}}</span><span class="pill" style="background:var(--warns);color:var(--warnfg)">{{n.st}}</span></div><span class="f14">{{n.text}}</span><span class="sm">{{n.meta}}</span></div>
+</sc-for>
+<sc-if value="{{ct.other}}"><button class="tap btn pri big" type="button" onClick="{{ct.open}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>{{ct.btn}}</button></sc-if>
+<sc-if value="{{ct.mine}}"><a href="TchNotes.dc.html" class="only-d tap btn soft big"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.note}}"></path></svg>Open my notes</a><a href="M-TchNotes.dc.html" class="only-m tap btn soft big"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.note}}"></path></svg>Open my notes</a></sc-if>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+</main>
+<div class="only-m" style="flex:none"><dc-import name="XNav" active="class" role="teacher" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<sc-if value="{{sh.open}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{sh.title}}">
+<div class="grab"></div>
+<div class="ro" style="flex:none;gap:12px;padding:14px 20px 10px"><div class="co fx" style="gap:2px"><span class="serif" style="font-size:22px;font-weight:600;line-height:1.2">{{sh.title}}</span><span class="f13 mu">{{sh.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width:44px;height:44px;padding:0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<sc-if value="{{sh.help}}">
+<div class="scroll sbody"><sc-for list="{{help}}" as="h"><div class="ro ani" style="gap:14px;padding:12px 14px;border-radius:16px;background:var(--s2);animation-delay:{{h.delay}}"><span class="ib" style="position:relative;width:64px;height:64px;border-radius:20px;background:{{h.bg}};color:{{h.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:30px;height:30px" aria-hidden="true"><path d="{{h.icon}}"></path></svg><span class="av f12" style="position:absolute;top:-6px;left:-6px;width:24px;height:24px;background:var(--pri);color:var(--prifg)">{{h.n}}</span></span><span class="co fx" style="gap:2px"><span class="f15 b7">{{h.t}}</span><span class="f13 mu">{{h.d}}</span></span></div></sc-for></div>
+<div class="sfoot"><button class="tap btn pri big" type="button" onClick="{{closeSheet}}" style="flex:1">Got it · ठीक है</button></div>
+</sc-if>
+<sc-if value="{{sh.ct}}">
+<div class="scroll sbody">
+<label class="field"><span>Which child?</span><select class="inp" value="{{cts.kid}}" onChange="{{cts.onKid}}"><sc-for list="{{cts.opts}}" as="o"><option value="{{o.v}}">{{o.label}}</option></sc-for></select></label>
+<span class="sech">Quick phrases · झटपट वाक्य</span>
+<div class="ro wr" style="gap:6px"><sc-for list="{{cts.phr}}" as="c"><button class="tap chip" type="button" onClick="{{c.add}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>{{c.label}}</button></sc-for></div>
+<label class="field"><span>Your note</span><textarea class="inp {{cts.err}}" value="{{cts.text}}" onChange="{{cts.onText}}" placeholder="What did you notice in Science class?" style="min-height:88px"></textarea></label>
+<div class="ro wr" style="gap:6px"><sc-for list="{{cts.tags}}" as="t"><button class="tap chip {{t.cls}}" type="button" aria-pressed="{{t.pressed}}" onClick="{{t.pick}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><path d="{{t.icon}}"></path></svg>{{t.label}}</button></sc-for></div>
+<div class="nt" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top:1px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{cts.foot}}</span></div>
+</div>
+<div class="sfoot">
+<a href="DX-TchNotes-Add.dc.html" class="only-d tap btn sec big" style="padding:0 14px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.mic}}"></path></svg>Speak instead</a>
+<a href="M-TchNotes-Add.dc.html" class="only-m tap btn sec big" style="padding:0 14px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.mic}}"></path></svg>Speak</a>
+<button class="tap btn pri big" type="button" onClick="{{cts.send}}" style="flex:1;padding:0 12px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{cts.btn}}</button>
+</div>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="f14" style="line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["class","roster","student","subjects","subject"],"default":"class"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+IC.note='M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4zM4 4h8M4 8h5';
+IC.mic='M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8';
+IC.cake='M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1M2 21h20M7 8v3M12 8v3M17 8v3M7 4h.01M12 4h.01M17 4h.01';
+IC.flask='M9 2h6M10 2v6L4.5 19a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2M7 15h10';
+IC.smile='M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01';
+IC.heart='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z';
+const rnd=(a,b)=>{const x=Math.sin(a*12.9898+b*78.233)*43758.5453;return x-Math.floor(x);};
+const C6='Aadhya Jain,Aarav Kumawat,Ananya Vyas,Arjun Gurjar,Bhavya Paliwal,Chirag Mehta,Divya Rathore,Gaurav Choudhary,Harshita Dave,Ishaan Purohit,Jiya Kothari,Kabir Solanki,Khushi Sharma,Om Regar,Manav Joshi,Naina Chouhan,Nikhil Meena,Palak Agarwal,Pari Sen,Pranav Rawal,Riya Singh,Rohan Sharma,Saanvi Kumawat,Sahil Gurjar,Sneha Vyas,Tanish Jain,Tanya Paliwal,Utkarsh Mehta,Vani Rathore,Yash Dave,Zoya Khan'.split(',');
+const C7='Aarav Sharma,Aditya Mehta,Bhumika Jain,Chetan Kumawat,Deepika Rathore,Dhruv Paliwal,Gunjan Vyas,Hardik Choudhary,Isha Purohit,Jatin Solanki,Kavya Jain,Kritika Dave,Lokesh Gurjar,Muskan Trivedi,Nidhi Chouhan,Nikita Regar,Parth Kothari,Rahul Rawal,Ritika Meena,Sakshi Agarwal,Tushar Joshi,Urvashi Singh,Vansh Kanwar,Vikas Sen,Yamini Bhati,Yuvraj Sharma,Zara Khan'.split(',');
+const C8='Aditi Rawal,Anjali Meena,Arnav Jain,Bhavesh Gurjar,Charu Paliwal,Daksh Sharma,Diya Kothari,Garv Solanki,Harsh Vyas,Jhanvi Purohit,Karan Choudhary,Lavanya Dave,Mayank Regar,Mehul Kumawat,Neha Joshi,Ojas Trivedi,Prisha Agarwal,Rachit Singh,Rhea Mehta,Sameer Khan,Shreya Rathore,Siddharth Sen,Tanvi Bhati,Ujjwal Chouhan,Vedika Jain,Vihaan Kanwar,Yashika Sharma,Yug Paliwal'.split(',');
+const GIRLS=' Aadhya Ananya Bhavya Divya Harshita Jiya Khushi Naina Palak Pari Riya Saanvi Sneha Tanya Vani Zoya ';
+const FN='Ramesh Gopal Sunil Kailash Ajay Bhanwar Naresh Lalit Prakash Hitesh Manoj Mahendra Dinesh Suresh Mukesh'.split(' ');
+const MN='Sunita Rekha Pushpa Kamla Seema Manju Geeta Sarita Anita Lalita Usha Kavita Pooja'.split(' ');
+const SUBJ=[['English','Ms. Dave'],['Hindi','Ms. Paliwal'],['Maths','Mr. Verma'],['Science','you'],['Social Science','Mr. Solanki'],['Sanskrit','Mr. Purohit']];
+const SP={21:{2:[9,24]},20:{2:[10,25]},14:{3:[9,30]}};
+const BD={11:['Today · turns 11',0],12:['Sat 10 Oct · in 2 days',2],29:['Wed 14 Oct · next week',6],16:['Wed 21 Oct · in 2 weeks',13]};
+const KIDS=C6.map((name,i)=>{
+const roll=i+1;
+const p=name.split(' ');
+const sp=SP[roll]||{};
+return{
+roll,name,first:p[0],girl:GIRLS.indexOf(' '+p[0]+' ')>=0,
+att:{14:68,17:72}[roll]||Math.round(84+rnd(roll,1)*15),
+ut:SUBJ.map((x,j)=>(sp[j]?sp[j][0]:Math.round(9+rnd(roll,j+9)*10))),
+hy:SUBJ.map((x,j)=>(j===5&&roll>18?null:(sp[j]?sp[j][1]:Math.round(36+rnd(roll,j+2)*40)))),
+bd:BD[roll]||null,
+father:(roll===21?'Vikram':FN[i % FN.length])+' '+p[1],
+mother:roll===21?'Meena Kanwar':MN[i % MN.length]+' '+p[1],
+ph:['••'+(100+Math.round(rnd(roll,30)*899)),'••'+(100+Math.round(rnd(roll,31)*899))]
+};
+});
+const TAG={studies:['Studies','पढ़ाई','book','var(--infos)','var(--info)'],behaviour:['Behaviour','व्यवहार','smile','var(--accs)','var(--accfg)'],health:['Health','सेहत','heart','var(--bads)','var(--bad)'],family:['Family','परिवार','home','var(--warns)','var(--warnfg)'],talent:['Talent','प्रतिभा','star','var(--oks)','var(--ok)'],attendance:['Attendance','हाज़िरी','calCheck','var(--s3)','var(--fg)']};
+const NOTES=[
+[21,'studies','Finds fractions hard; started practice sheets','Ms. Bhati (you) · Mon 5 Oct · follow up Mon 12 Oct · 1 reply from Ms. Asha Purohit','work'],
+[14,'attendance family','Absent 3 days, father says grandmother is unwell — call again Friday','Ms. Bhati (you) · Tue 6 Oct · follow up Fri 9 Oct','work'],
+[12,'talent','Excellent at drawing — suggest for district art competition','Ms. Bhati (you) · Wed 30 Sep · coordinator to follow up','open'],
+[19,'behaviour','Quiet lately, sits alone at lunch — will talk to her','Ms. Bhati (you) · Wed 7 Oct · only you can see this','open'],
+[19,'studies','Homework not done three days this week','Mr. Verma (Maths teacher) · Mon 5 Oct','open'],
+[13,'health','Headache after morning assembly twice; parents informed','Ms. Bhati (you) · Fri 25 Sep','done']
+];
+const TT=[['P1','8:10','Science','You · Ms. Bhati','done'],['P2','8:50','Maths','Mr. Verma','done'],['P3','9:30','English','Ms. Dave','now'],['P4','10:10','Hindi','Ms. Paliwal',''],['','10:50','Break','20 minutes','break'],['P5','11:10','Social Science','Mr. Solanki',''],['P6','11:50','Science lab','You · Ms. Bhati','me'],['P7','12:30','Sanskrit','Mr. Purohit',''],['P8','1:10','Games','Mr. Gurjar','']];
+const CLS={
+6:{kids:C6,ct:'you',mk:31,sent:true,done:6,tdone:2,next:'Today · P6 11:50 · Science lab',now:false,
+ch:'Food: Where Does It Come From?|Components of Food|Fibre to Fabric|Sorting Materials into Groups|Separation of Substances|Changes Around Us|Getting to Know Plants|Body Movements|Living Organisms and Their Surroundings|Motion and Measurement of Distances|Light, Shadows and Reflections|Electricity and Circuits'.split('|'),
+topics:['Herbs, shrubs and trees','Stem','Leaf','Root']},
+7:{kids:C7,ct:'Mr. Choudhary',mk:12,done:5,tdone:3,next:'Now · P3 9:30–10:10 · Room 7',now:true,
+ch:'Nutrition in Plants|Nutrition in Animals|Heat|Acids, Bases and Salts|Physical and Chemical Changes|Respiration in Organisms|Transportation in Animals and Plants|Reproduction in Plants|Motion and Time|Electric Current and its Effects|Light|Forests: Our Lifeline'.split('|'),
+topics:['Why do we respire?','Breathing','How do we breathe?','Breathing in other animals']},
+8:{kids:C8,ct:'Mr. Solanki',mk:0,done:7,tdone:1,next:'Fri · P1 8:10 · Room 8',now:false,
+ch:'Crop Production and Management|Microorganisms: Friend and Foe|Coal and Petroleum|Combustion and Flame|Conservation of Plants and Animals|Reproduction in Animals|Reaching the Age of Adolescence|Force and Pressure|Friction|Sound|Chemical Effects of Electric Current|Some Natural Phenomena'.split('|'),
+topics:['Force — a push or a pull','Forces come from an interaction','Contact and non-contact forces','Pressure']}
+};
+const CTN={7:[['Aarav Sharma','Not submitting lab notebook','Sent Tue 6 Oct · seen by Mr. Choudhary','Open']],8:[]};
+this._d={IC,rnd,KIDS,SUBJ,TAG,NOTES,TT,CLS,CTN};
+return this._d;
+}
+
+st(){
+const p=this.props||{};
+const base={screen:'class',from:'class',anim:'none',hi:false,q:'',filt:'all',stu:21,tab:'about',mon:'oct',subj:'7',td:{},ctSent:[],calls:[],sheet:'',closing:false,ctKid:1,ctText:'',ctTag:'studies',ctErr:false,toast:null};
+const map={roster:{screen:'roster'},student:{screen:'student'},subjects:{screen:'subjects'},subject:{screen:'subject'}};
+return Object.assign(base,map[p.start]||{},this.state||{});
+}
+
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.setState({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.setState({toast:null});},4500);
+}
+
+undoToast(){const f=this._undo;this._undo=null;this.setState({toast:null});if(f)f();}
+
+openSheet(name,extra){clearTimeout(this._ct);this.setState(Object.assign({sheet:name,closing:false},extra||{}));}
+
+closeSheet(){
+if(!this.st().sheet)return;
+this.setState({closing:true});
+clearTimeout(this._ct);
+this._ct=setTimeout(()=>this.setState({sheet:'',closing:false}),240);
+}
+
+renderVals(){
+const D=this.data();
+const s=this.st();
+const S=(o)=>this.setState(o);
+const IC=D.IC;
+const V=(x)=>'var(--'+x+')';
+const L=(en,hi)=>({a:s.hi?hi:en,b:s.hi?en:hi});
+const dl=(i)=>(Math.min(i,14)*30)+'ms';
+const TONES=[[V('accs'),V('accfg')],[V('infos'),V('info')],[V('oks'),V('ok')],[V('warns'),V('warnfg')],[V('s3'),V('fg')]];
+const ini=(n)=>n.split(' ').map((w)=>w[0]).slice(0,2).join('');
+const pc=(v,max)=>Math.round(v/max*100);
+const set=(o)=>()=>S(o);
+const go=(screen,extra,anim)=>()=>{this.closeSheet();S(Object.assign({screen,anim:anim||'push'},extra||{}));};
+const seg=(defs,cur,key,extra)=>({thumb:(Math.max(0,defs.map((d)=>d[0]).indexOf(cur))*100)+'%',opts:defs.map((d)=>({a:s.hi&&d[2]?d[2]:d[1],b:s.hi?d[1]:(d[2]||''),cls:cur===d[0]?'tap on':'tap',pressed:cur===d[0]?'true':'false',pick:()=>S(Object.assign({[key]:d[0]},extra?extra(d[0]):{}))}))});
+const kids=D.KIDS;
+const sc=s.screen;
+const look={bad:[V('bads'),V('bad')],warn:[V('warns'),V('warnfg')],ok:[V('oks'),V('ok')],info:[V('infos'),V('info')],mut:[V('s3'),V('mut')]};
+const ST={open:['Open','warn'],work:['Working on it','info'],done:['Done','ok']};
+const notesOf=(k)=>D.NOTES.filter((n)=>n[0]===k.roll);
+const why=(k)=>{
+const w=[];
+if(k.att<75)w.push(['Attendance '+k.att+'%','bad']);
+if(k.roll===14)w.push(['Absent 3 days','bad']);
+k.hy.forEach((h,j)=>{if(h!=null&&h/80<0.33)w.push([D.SUBJ[j][0]+' '+pc(h,80)+'%','bad']);});
+const o=notesOf(k).filter((n)=>n[4]!=='done').length;
+if(o>=2||(o&&w.length))w.push([o+(o===1?' open note':' open notes'),'warn']);
+return w.map((x)=>({label:x[0],bg:look[x[1]][0],fg:look[x[1]][1]}));
+};
+const needs=(k)=>k.att<75||k.hy.some((h)=>h!=null&&h/80<0.33)||notesOf(k).filter((n)=>n[4]!=='done').length>=2;
+const ring=(att)=>{const c=157.08;const d=(att/100*c).toFixed(1);return{dash:d+' '+c,len:d,rc:att<75?V('bad'):(att<85?V('warn'):V('ok'))};};
+const openKid=(k,from)=>go('student',{stu:k.roll,from,tab:'about',mon:'oct'});
+const ANIM={push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both',tab:'xIn .32s var(--ease) both',none:'none'};
+
+//----------my class----------
+const attnK=kids.filter(needs);
+const attn=attnK.map((k,i)=>({name:k.name,roll:String(k.roll),ini:ini(k.name),bg:TONES[k.roll % 5][0],fg:TONES[k.roll % 5][1],why:why(k),border:i?'1px solid var(--bd)':'0',delay:dl(i),open:openKid(k,'class')}));
+const stack=[21,14,12,3,9,26,31].map((r,i)=>{const k=kids[r-1];return{ini:ini(k.name),bg:TONES[i % 5][0],fg:TONES[i % 5][1],delay:(i*50+120)+'ms'};});
+const avgRows=D.SUBJ.map((x,j)=>{
+const vals=kids.map((k)=>k.hy[j]).filter((v)=>v!=null);
+const a=Math.round(vals.reduce((p,q)=>p+q,0)/vals.length/80*100);
+const full=vals.length===31;
+return{name:x[0],by:x[1]==='you'?'you':x[1],pct:a+'%',c:a<55?V('c3'):V('c1'),op:full?'1':'0.55',st:full?'31 of 31 ✓':vals.length+' of 31 entered',sc:full?V('ok'):V('warnfg'),delay:(j*70)+'ms',a};
+});
+const avgAll=Math.round(avgRows.reduce((p,r)=>p+r.a,0)/avgRows.length)+'%';
+const tt=D.TT.map((t,i)=>{
+const tg={done:['Done',V('s3'),V('mut')],now:['Now',V('acc'),V('onsolid')],me:['You',V('warns'),V('warnfg')]}[t[4]];
+return{no:t[0],time:t[1],subj:t[2],who:t[3],hasTag:!!tg,tag:tg?tg[0]:'',tbg:tg?tg[1]:'transparent',tfg:tg?tg[2]:'inherit',bg:t[4]==='now'?V('accs'):(t[4]==='break'?'transparent':(t[4]==='me'?V('warns'):V('s2'))),bd:t[4]==='now'?'1px solid var(--acc)':(t[4]==='break'?'1px dashed var(--bd)':'1px solid transparent'),op:t[4]==='done'?'0.6':'1',delay:dl(i)};
+});
+const bdays=kids.filter((k)=>k.bd).sort((a,b)=>a.bd[1]-b.bd[1]).map((k,i)=>({name:k.name,sub:k.bd[0]+' · Roll '+k.roll,today:k.bd[1]===0,bg:k.bd[1]===0?V('warns'):TONES[i % 5][0],fg:k.bd[1]===0?V('warnfg'):TONES[i % 5][1],open:openKid(k,'class')}));
+
+//----------roster----------
+const q=(s.q||'').trim().toLowerCase();
+const FILT=[['all','All','users',()=>true],['attn','Needs attention','alert',needs],['low','Low attendance','calCheck',(k)=>k.att<75],['bday','Birthdays','cake',(k)=>!!k.bd],['notes','Has notes','note',(k)=>notesOf(k).length>0]];
+const fdef=FILT.filter((f)=>f[0]===s.filt)[0]||FILT[0];
+const shown=kids.filter((k)=>fdef[3](k)&&(!q||k.name.toLowerCase().indexOf(q)>=0||String(k.roll)===q));
+const rf=FILT.map((f)=>({label:f[1],icon:IC[f[2]],n:String(kids.filter(f[3]).length),cls:s.filt===f[0]?'on':'',pressed:s.filt===f[0]?'true':'false',pick:set({filt:f[0]})}));
+const ro={
+line:shown.length===31?'All 31 children · ring shows attendance this session':shown.length+' of 31 shown',
+none:shown.length===0,
+rows:shown.map((k,i)=>Object.assign({roll:String(k.roll),name:k.name,ini:ini(k.name),att:k.att+'%',bg:TONES[k.roll % 5][0],fg:TONES[k.roll % 5][1],why:why(k),border:i?'1px solid var(--bd)':'0',delay:dl(i),open:openKid(k,'roster')},ring(k.att)))
+};
+
+//----------student----------
+const K=kids[(s.stu||21)-1]||kids[20];
+const rk=ring(K.att);
+const parents=[[K.father,'Father',K.ph[0]],[K.mother,'Mother',K.ph[1]]].map((g,i)=>({
+name:g[0],rel:g[1],phone:'98290 '+g[2],ini:ini(g[0]),border:i?'1px solid var(--bd)':'0',
+call:()=>{S({calls:[{t:'You called '+g[0]+' ('+g[1].toLowerCase()+')',who:K.roll}].concat(this.st().calls)});this.toast('Calling '+g[0]+' from your phone…');},
+wa:()=>{S({calls:[{t:'You opened WhatsApp with '+g[0],who:K.roll}].concat(this.st().calls)});this.toast('Opening WhatsApp with '+g[0]);}
+}));
+const facts=[['Date of birth',K.roll===21?'14 Mar 2015':(1+K.roll % 27)+' '+['Jan','Mar','May','Jul','Aug','Nov'][K.roll % 6]+' 2015','calendar'],['Bus',K.roll===21?'Route 1 · Amet town':(K.roll % 3?'Walks or comes with parents':'Route 2 · Kelwa'),'bus'],['Lives at',['Near Charbhuja temple, Amet','Station road, Amet','Kelwa road, Amet'][K.roll % 3],'mapPin'],['Blood group',['B+','O+','A+','AB+'][K.roll % 4],'heart'],['In this school since',K.roll % 4?'Class 1 · 2021':'Class 4 · 2024','grad'],['House',['Pratap','Panna','Meera','Bhamashah'][K.roll % 4],'flag']].map((f,i)=>({k:f[0],v:f[1],icon:IC[f[2]],border:i?'1px solid var(--bd)':'0'}));
+const log=s.calls.filter((c)=>c.who===K.roll).map((c)=>({t:c.t,when:'just now',dot:V('acc')})).concat([{t:'PTM after Unit Test 1 · father came',when:'Sat 1 Aug',dot:V('ok')},{t:'Absence message sent on WhatsApp',when:'Tue 15 Sep',dot:V('bds')}]);
+const marks=D.SUBJ.map((x,j)=>{
+const u=pc(K.ut[j],20);
+const h=K.hy[j]==null?null:pc(K.hy[j],80);
+const d=h==null?0:h-u;
+return{name:x[0],u:u+'%',uv:K.ut[j]+'/20',h:(h||0)+'%',hv:h==null?'Not yet':K.hy[j]+'/80',hc:h!=null&&h<33?V('bad'):V('c1'),hvc:h!=null&&h<33?V('bad'):V('fg'),hasD:Math.abs(d)>=10,delta:(d>0?'↑ ':'↓ ')+Math.abs(d)+'%',dbg:d>0?V('oks'):V('bads'),dfg:d>0?V('ok'):V('bad'),delay:(j*60)+'ms'};
+});
+const knotes=notesOf(K).map((n,i)=>{
+const st=ST[n[4]];
+return{text:n[2],meta:n[3],status:st[0],sbg:look[st[1]][0],sfg:look[st[1]][1],fg:D.TAG[n[1].split(' ')[0]][4],delay:dl(i),tags:n[1].split(' ').map((t)=>({label:D.TAG[t][0],icon:IC[D.TAG[t][2]],bg:D.TAG[t][3],fg:D.TAG[t][4]}))};
+});
+const sp=Object.assign({name:K.name,first:K.first,ini:ini(K.name),bg:TONES[K.roll % 5][0],fg:TONES[K.roll % 5][1],line:'Class 6 · Roll '+K.roll+' · '+(K.girl?'Girl':'Boy'),att:K.att+'%',why:why(K),parents,facts,log,marks,notes:knotes,noNotes:knotes.length===0},rk);
+const tabs=seg([['about','About','परिचय'],['att','Attendance','हाज़िरी'],['marks','Marks','अंक'],['notes','Notes','नोट्स']],s.tab,'tab');
+
+//heat grid
+const MON={sep:[30,1,'September'],oct:[31,3,'October']};
+const m=MON[s.mon]||MON.oct;
+const SC={P:[V('okm'),V('ok'),'1px solid transparent','Present'],A:[V('bad'),V('onsolid'),'1px solid transparent','Absent'],L:[V('warnm'),V('warnfg'),'1px solid transparent','Leave'],H:[V('s3'),V('sub'),'1px solid transparent','Holiday'],N:['transparent',V('mut'),'1.5px dashed var(--bds)','Not marked'],F:['transparent',V('sub'),'1px solid var(--bd)','Coming']};
+const dayStat=(d)=>{
+const dow=(m[1]+d-1)% 7;
+if(dow===6||(s.mon==='oct'&&d===2))return 'H';
+if(s.mon==='oct'){
+if(d===8)return 'N';
+if(d>8)return 'F';
+if(K.roll===14&&d>=5)return 'A';
+if(K.roll===19&&d===7)return 'A';
+return 'P';
+}
+if(K.roll===21)return d===15?'A':(d===22?'L':'P');
+const r=D.rnd(K.roll,d+50);
+return r<(100-K.att)/100?'A':(r>0.97?'L':'P');
+};
+const cells=[];
+for(let i=0;i<m[1];i++)cells.push({d:'',t:'',bg:'transparent',fg:'transparent',bd:'0',delay:'0ms'});
+const cnt={P:0,A:0,L:0};
+for(let d=1;d<=m[0];d++){const k=dayStat(d);if(cnt[k]!=null)cnt[k]+=1;const c=SC[k];cells.push({d:String(d),t:d+' '+m[2]+' · '+c[3],bg:c[0],fg:c[1],bd:c[2],delay:(d*12)+'ms'});}
+const tot=cnt.P+cnt.A+cnt.L;
+const hm={
+seg:seg([['sep','September'],['oct','October']],s.mon,'mon'),wd:['Mo','Tu','We','Th','Fr','Sa','Su'],cells,
+legend:['P','A','L','H','N'].map((k)=>({label:SC[k][3],bg:SC[k][0],bd:k==='N'?SC.N[2]:'0'})),
+sum:m[2]+': '+cnt.P+' present · '+cnt.A+' absent · '+cnt.L+' leave'+(tot?' · '+Math.round(cnt.P/tot*100)+'%':'')+(s.mon==='oct'?' · today not marked yet':'')
+};
+
+//----------subjects----------
+const tdOf=(c)=>(s.td[c]!=null?s.td[c]:D.CLS[c].tdone);
+const chOf=(c)=>D.CLS[c].done+(tdOf(c)>=D.CLS[c].topics.length?1:0);
+const subs=['6','7','8'].map((c,i)=>{
+const C=D.CLS[c];
+const n=C.kids.length;
+const mkSt=C.sent?['All entered · sent to Mr. Trivedi',V('ok'),V('ok')]:(C.mk?['In progress · due Wed 14 Oct',V('acc'),V('warnfg')]:['Not started · due Wed 14 Oct',V('bds'),V('bad')]);
+return{title:'Class '+c+' Science',sub:n+' children · class teacher '+(C.ct==='you'?'you':C.ct),mine:C.ct==='you',mk:C.mk+' of '+n,mkw:pc(C.mk,n)+'%',mkc:mkSt[1],mkst:mkSt[0],mkfg:mkSt[2],sy:chOf(c)+' of 12',syw:pc(chOf(c),12)+'%',syst:'Now: Ch '+(C.done+1)+' · '+C.ch[C.done],next:C.next,nbg:C.now?V('accs'):V('s2'),nfg:C.now?V('accfg'):V('fg'),delay:dl(i),open:go('subject',{subj:c})};
+});
+const links=['6','7','8'].map((c)=>{
+const C=D.CLS[c];
+const n=C.kids.length;
+return{title:'Class '+c+' · Science · Half-yearly',st:C.sent?n+' of '+n+' · sent':(C.mk?C.mk+' of '+n+' · in progress':'0 of '+n+' · not started'),fg:C.sent?V('ok'):(C.mk?V('warnfg'):V('bad')),share:()=>this.toast('WhatsApp opened with your Class '+c+' marks link'),copy:()=>this.toast('Class '+c+' marks link copied')};
+});
+
+//----------one subject----------
+const cs=D.CLS[s.subj]?s.subj:'7';
+const C=D.CLS[cs];
+const td=tdOf(cs);
+const allT=td>=C.topics.length;
+const chDone=chOf(cs);
+const justDone=allT&&s.td[cs]!=null&&C.tdone<C.topics.length;
+const sciRow=(name,i)=>{
+const roll=i+1;
+const k6=cs==='6'?kids[i]:null;
+const ut=k6?k6.ut[3]:Math.round(8+D.rnd(roll,+cs*7)*11);
+const hasHy=roll<=C.mk;
+const hy=k6?k6.hy[3]:Math.round(30+D.rnd(roll,+cs*9)*46);
+const per=name==='Aarav Sharma'?24:30-Math.round(D.rnd(roll,+cs*11)*5);
+return{roll:String(roll),name,ut:ut+'/20',hy:hasHy?hy+'/80':'Not entered',hbg:hasHy?(hy<27?V('bads'):V('s2')):'transparent',hfg:hasHy?(hy<27?V('bad'):V('fg')):V('sub'),per:per+'/30',pc:per<26?V('bad'):V('fg'),line:'UT1 '+ut+'/20 · HY '+(hasHy?hy+'/80':'not entered')+' · '+per+'/30 periods',delay:dl(i),note:()=>this.openCt(i+1)};
+};
+const sj={
+title:'Class '+cs+' · Science',sub:C.kids.length+' children · class teacher '+(C.ct==='you'?'you':C.ct)+' · Half-yearly '+C.mk+' of '+C.kids.length+' entered',
+next:C.next,nbg:C.now?V('accs'):V('s2'),nfg:C.now?V('accfg'):V('mut'),pulse:C.now?'xPulse 2s ease infinite':'none',
+mkLine:'My periods = Science periods since 1 Sep',rows:C.kids.map(sciRow)
+};
+const sy={
+done:chDone+' of 12',w:(chDone/12*100).toFixed(1)+'%',can:!allT,fin:allT,
+line:allT?'Chapter '+(C.done+1)+' is finished.':'Teaching Chapter '+(C.done+1)+' · '+td+' of '+C.topics.length+' topics done',
+topic:'Ch '+(C.done+1)+' · '+C.topics[Math.min(td,C.topics.length-1)],
+finLine:'Next class starts Chapter '+(C.done+2)+' · '+(C.ch[C.done+1]||''),
+mark:()=>{const before=this.st().td;const n=Object.assign({},before);n[cs]=td+1;S({td:n});this.toast(td+1>=C.topics.length?'Chapter '+(C.done+1)+' finished · '+(C.done+1)+' of 12 done':'Topic marked done · “'+C.topics[td]+'”',()=>S({td:before}));},
+ch:C.ch.map((name,i)=>{
+const done=i<chDone;
+const cur=i===C.done&&!allT;
+return{
+no:String(i+1),name,done,todo:!done,cur,tick:done&&i===C.done&&justDone?'xTick .5s var(--spring) both':'none',
+bg:done?V('ok'):(cur?V('accs'):'transparent'),fg:done?V('onsolid'):(cur?V('accfg'):V('mut')),bd:done?'0':(cur?'2px solid var(--acc)':'1px solid var(--bd)'),
+tc:done?V('mut'):V('fg'),fw:cur?'700':'500',
+topics:C.topics.map((t,j)=>({name:t,done:j<td,on:j<td?'true':'false',bg:j<td?V('ok'):'transparent',bd:j<td?'0':'2px solid var(--bds)',tc:j<td?V('mut'):V('fg'),pick:()=>{const n=Object.assign({},this.st().td);n[cs]=j<td?j:j+1;S({td:n});}}))
+};
+})
+};
+const ctList=(D.CTN[cs]||[]).map((n)=>({kid:n[0],text:n[1],meta:n[2],st:n[3],anim:'none'}));
+const ct={
+mine:C.ct==='you',other:C.ct!=='you',
+line:C.ct==='you'?'You are the class teacher of Class 6. Notes from other teachers about your children come to you.':'Your note goes straight to '+C.ct+' (class teacher of Class '+cs+'). The coordinator can see it too.',
+btn:'Write a note for '+C.ct,open:()=>this.openCt(1),
+list:s.ctSent.filter((n)=>n.cls===cs).map((n)=>({kid:n.kid,text:n.text,meta:'Sent just now · reaches '+C.ct,st:'Open',anim:'xRise .45s var(--ease) both'})).concat(ctList)
+};
+const ctK=C.kids[(s.ctKid||1)-1]||C.kids[0];
+const cts={
+kid:String(s.ctKid||1),opts:C.kids.map((n,i)=>({v:String(i+1),label:(i+1)+' · '+n})),
+onKid:(e)=>{const v=parseInt(e.target.value,10);S({ctKid:v>=1&&v<=C.kids.length?v:1});},
+phr:['Not submitting lab notebook','Talks during practicals','Very good in experiments','Science homework missing'].map((p)=>({label:p,add:()=>{const t=(this.st().ctText||'').trim();S({ctText:t?t+'. '+p:p,ctErr:false});}})),
+text:s.ctText,err:s.ctErr?'err':'',onText:(e)=>S({ctText:e.target.value,ctErr:false}),
+tags:Object.keys(D.TAG).map((t)=>({label:D.TAG[t][0],icon:IC[D.TAG[t][2]],cls:s.ctTag===t?'on':'',pressed:s.ctTag===t?'true':'false',pick:set({ctTag:t})})),
+foot:'This note about '+ctK.split(' ')[0]+' reaches '+C.ct+' (class teacher of Class '+cs+') straight away. Ms. Asha Purohit (coordinator) can see it too. Parents do not see it.',
+btn:'Send to '+C.ct,
+send:()=>{
+const c=this.st();
+const text=(c.ctText||'').trim();
+if(text.length<3){S({ctErr:true});this.toast('Write a few words, or tap a quick phrase');return;}
+const before=c.ctSent;
+S({ctSent:[{cls:cs,kid:ctK,text}].concat(before),ctText:'',ctErr:false});
+this.closeSheet();
+this.toast('Sent to '+C.ct+' · about '+ctK,()=>S({ctSent:before}));
+}
+};
+
+//----------chrome----------
+const TOP={
+class:['Teacher · session 2026–27',L('My class · Class 6','मेरी कक्षा · कक्षा 6').a,L('My class','मेरी कक्षा').a,'Class 6 · 31 children',false],
+roster:['My class › Children','Class 6 · all children','Children · Class 6',shown.length+' shown',true],
+student:['My class › '+K.name,K.name,K.name,'Class 6 · Roll '+K.roll,true],
+subjects:['Teacher · Science 6–8',L('My subjects','मेरे विषय').a,L('My subjects','मेरे विषय').a,'Science · Classes 6, 7, 8',false],
+subject:['My subjects › Class '+cs,'Class '+cs+' · Science','Class '+cs+' · Science',C.kids.length+' children',true]
+}[sc]||['','','','',false];
+const HELP={
+class:[['users','Your whole class','Attendance, marks and who needs help — all of Class 6 on one page.'],['alert','Who needs attention','The app picks children with low attendance, low marks or open notes. Tap a name.'],['calCheck','Mark attendance','Tap the big blue button. Until you press Save, the office sees “Not marked”.']],
+roster:[['search','Find a child','Type a name or a roll number.'],['filter','Use the chips','Show only children who need attention, have notes or a birthday.'],['chevRight','Tap a child','See parents, attendance, marks and notes.']],
+student:[['phone','Call or WhatsApp','The big buttons call the parent from your phone. Numbers stay partly hidden.'],['grid','Use the tabs','About · Attendance · Marks · Notes. Slide between them.'],['mic','Speak a note','Say what you noticed. The app writes it down for you.']],
+subjects:[['flask','Your Science classes','Each card shows marks, syllabus and your next period.'],['clipboard','Enter marks','Tap “Marks”. Your Sampark link also works without logging in.'],['arrowRight','Open a class','See the children, tick today’s topic and send notes.']],
+subject:[['check','Tick today’s topic','One tap after class. The chapter list fills itself.'],['users','Children and marks','Tap a child to write a note for the class teacher.'],['send','Note for class teacher','It reaches '+C.ct+' straight away.']]
+}[sc]||[];
+const isTop=sc==='class'||sc==='subjects';
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',
+is:{class:sc==='class',roster:sc==='roster',student:sc==='student',subjects:sc==='subjects',subject:sc==='subject',top:isTop},
+anim:ANIM[s.anim]||'none',
+top:{crumb:TOP[0],title:TOP[1],mTitle:TOP[2],mSub:TOP[3],back:TOP[4],mLink:!TOP[4]},
+lng:{on:s.hi?'true':'false',en:s.hi?'':'y',hi:s.hi?'y':'',flip:()=>{const h=!this.st().hi;S({hi:h});this.toast(h?'Labels now in Hindi':'Labels now in English');}},
+lb:{
+cls:L('My class','मेरी कक्षा'),kids:L('31 children','31 बच्चे'),all:L('See all 31 children','सभी 31 बच्चे देखें'),today:L('Today’s attendance','आज की हाज़िरी'),
+mark:L('Mark attendance','हाज़िरी लगाएँ'),month:L('This month','इस महीने'),avg:L('Half-yearly · average per subject','अर्धवार्षिक · विषय औसत'),tt:L('Class 6 timetable today','आज की समय-सारणी'),
+attn:L('Children who need attention','इन बच्चों पर ध्यान दें'),bday:L('Birthdays','जन्मदिन'),ptm:L('Next PTM','अगली अभिभावक बैठक'),par:L('Parents','माता-पिता'),
+speak:L('Speak a note','बोलकर लिखें'),kids2:L('Children · Science marks','बच्चे · विज्ञान के अंक'),sy:L('Syllabus','पाठ्यक्रम'),topic:L('Mark today’s topic done','आज का टॉपिक पूरा'),ctn:L('Note for the class teacher','कक्षा अध्यापक के लिए नोट')
+},
+topSeg:seg([['class','My class · Class 6','मेरी कक्षा'],['subjects','My subjects','मेरे विषय']],isTop?sc:'class','screen',()=>({anim:'tab'})),
+stack,attn,attnN:String(attn.length),avg:{rows:avgRows,all:avgAll},tt,bdays,
+ptmNames:attnK.map((k)=>k.first).join(', '),ptmGo:go('roster',{filt:'attn',q:''}),
+goRoster:go('roster',{filt:'all',q:''}),
+q:s.q,onQ:(e)=>S({q:e.target.value}),clearQ:set({q:'',filt:'all'}),rf,ro,
+sp,tabs,tab:{about:s.tab==='about',att:s.tab==='att',marks:s.tab==='marks',notes:s.tab==='notes'},hm,
+subs,links,sj,sy,ct,cts,
+back:()=>{const c=this.st();const to=c.screen==='student'?c.from:(c.screen==='subject'?'subjects':'class');S({screen:to||'class',anim:'pop'});},
+openHelp:()=>this.openSheet('help'),
+help:HELP.map((h,i)=>({n:String(i+1),icon:IC[h[0]],t:h[1],d:h[2],bg:TONES[i][0],fg:TONES[i][1],delay:(i*90)+'ms'})),
+sh:{open:!!s.sheet,state:s.closing?'closing':'open',help:s.sheet==='help',ct:s.sheet==='ct',title:s.sheet==='ct'?'Note for '+C.ct:'How this page works',sub:s.sheet==='ct'?'Class '+cs+' Science · from Ms. Bhati':'3 quick steps'},
+closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+
+openCt(kid){this.openSheet('ct',{ctKid:kid,ctText:'',ctErr:false,ctTag:'studies'});}
+}
+</script>
+</body>
+</html>

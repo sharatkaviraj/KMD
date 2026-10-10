@@ -1,0 +1,13 @@
+[
+  {"file": "AccBooks.dc.html", "device": "desktop", "title": "Cheques to deposit"},
+  {"file": "DX-AccBooks-Deposit.dc.html", "device": "desktop", "start": "deposit", "title": "Deposit slip"},
+  {"file": "DX-AccBooks-Upi.dc.html", "device": "desktop", "start": "upi", "title": "UPI matching"},
+  {"file": "DX-AccBooks-Bounce.dc.html", "device": "desktop", "start": "bounce", "title": "Cheque bounced"},
+  {"file": "DX-AccBooks-Requests.dc.html", "device": "desktop", "start": "requests", "title": "My requests to the admin", "dark": true},
+  {"file": "M-AccBooks.dc.html", "device": "phone", "title": "Cheques"},
+  {"file": "M-AccBooks-Deposit.dc.html", "device": "phone", "start": "deposit", "title": "Deposit slip"},
+  {"file": "M-AccBooks-Bounce.dc.html", "device": "phone", "start": "bounce", "title": "Cheque bounced"},
+  {"file": "M-AccBooks-Upi.dc.html", "device": "phone", "start": "upi", "title": "UPI matching"},
+  {"file": "M-AccBooks-Refunds.dc.html", "device": "phone", "start": "refunds", "title": "Refunds & advances"},
+  {"file": "M-AccBooks-Requests.dc.html", "device": "phone", "start": "requests", "title": "My requests"}
+]

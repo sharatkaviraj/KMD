@@ -1,0 +1,11 @@
+[
+  {"file": "Timetable.dc.html", "device": "desktop", "title": "Class timetable · Class 9"},
+  {"file": "DX-Timetable-Subs.dc.html", "device": "desktop", "start": "subs", "title": "Substitutions today"},
+  {"file": "DX-Timetable-Clash.dc.html", "device": "desktop", "start": "clash", "title": "Edit a period · clash check"},
+  {"file": "DX-Timetable-Teacher.dc.html", "device": "desktop", "start": "teacher", "title": "Teacher timetable"},
+  {"file": "M-Timetable.dc.html", "device": "phone", "start": "class", "title": "Class timetable"},
+  {"file": "M-Timetable-Subs.dc.html", "device": "phone", "start": "subs", "title": "Substitutions"},
+  {"file": "M-Timetable-Assign.dc.html", "device": "phone", "start": "assign", "title": "Assign a substitute"},
+  {"file": "M-Timetable-Leave.dc.html", "device": "phone", "start": "leave", "title": "Teacher leave"},
+  {"file": "M-Timetable-Publish.dc.html", "device": "phone", "start": "publish", "title": "Publish changes · dark", "dark": true}
+]

@@ -1,0 +1,11 @@
+[
+  {"file": "Reports.dc.html", "device": "desktop", "title": "Reports hub"},
+  {"file": "DX-Reports-Collection.dc.html", "device": "desktop", "start": "collection", "title": "Daily collection"},
+  {"file": "DX-Reports-Defaulters.dc.html", "device": "desktop", "start": "defaulters", "title": "Defaulter list · Hindi first"},
+  {"file": "DX-Reports-Cell.dc.html", "device": "desktop", "start": "cell", "title": "Pending by class · students"},
+  {"file": "M-Reports.dc.html", "device": "phone", "start": "hub", "title": "Reports"},
+  {"file": "M-Reports-Collection.dc.html", "device": "phone", "start": "collection", "title": "Daily collection"},
+  {"file": "M-Reports-Send.dc.html", "device": "phone", "start": "send", "title": "Send to class teachers"},
+  {"file": "M-Reports-Export.dc.html", "device": "phone", "start": "export", "title": "Export a report"},
+  {"file": "M-Reports-Schedule.dc.html", "device": "phone", "start": "schedule", "title": "Scheduled sends · dark", "dark": true}
+]

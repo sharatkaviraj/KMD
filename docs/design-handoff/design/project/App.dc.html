@@ -1,0 +1,1524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VPPS One — admin phone app</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+:where(.vp) a{color:inherit;text-decoration:none}
+.vp{--bg:#F7FAFC;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#D6E0E6;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#2F556F;--navm:#C2BDB0;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--glass:rgba(247,250,252,.84);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.5);--sh:0 1px 2px rgba(21,25,35,.04),0 10px 24px -14px rgba(21,25,35,.22);--shl:0 -18px 40px -18px rgba(21,25,35,.4);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vp.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1E2C;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--glass:rgba(14,17,23,.82);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.6);--sh:0 1px 2px rgba(0,0,0,.4),0 10px 24px -14px rgba(0,0,0,.7);--shl:0 -18px 40px -18px rgba(0,0,0,.8);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vp,.vp *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+.vp{transition:background-color .3s ease,color .3s ease}
+.vp button{font-family:inherit;cursor:pointer}
+.vp input{font-family:inherit}
+.vp input::placeholder{color:var(--sub)}
+.scroll{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.hs{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;scroll-snap-type:x mandatory}
+.scroll::-webkit-scrollbar,.hs::-webkit-scrollbar{display:none}
+.snap{scroll-snap-align:start}
+.snapend{scroll-snap-align:end}
+.tap{transition:transform .16s var(--ease),background-color .25s ease,color .25s ease,opacity .2s ease,box-shadow .25s ease}
+.tap:active{transform:scale(.96)}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:20px;box-shadow:var(--sh)}
+.chip{flex:none;height:38px;padding:0 14px;border-radius:19px;border:1px solid var(--bd);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn{height:44px;padding:0 16px;border-radius:22px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.soft{background:var(--accs);color:var(--accfg)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4)}
+.rise{animation:vpRise .44s var(--ease) both}
+@keyframes vpPush{from{transform:translateX(34%);opacity:0}to{transform:none;opacity:1}}
+@keyframes vpPop{from{transform:translateX(-22%);opacity:0}to{transform:none;opacity:1}}
+@keyframes vpFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes vpUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes vpDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes vpIn{from{opacity:0}to{opacity:1}}
+@keyframes vpOut{from{opacity:1}to{opacity:0}}
+@keyframes vpToast{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes vpRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes vpGrowY{from{transform:scaleY(0)}}
+@keyframes vpGrowX{from{transform:scaleX(0)}}
+@keyframes vpDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes vpPulse{0%{box-shadow:0 0 0 0 rgba(129,218,228,.75)}70%{box-shadow:0 0 0 9px rgba(129,218,228,0)}100%{box-shadow:0 0 0 0 rgba(129,218,228,0)}}
+@keyframes vpPulse2{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes vpPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes vpLeave{0%{opacity:1;transform:none;max-height:340px}55%{opacity:0;transform:translateX(36%);max-height:340px}100%{opacity:0;transform:translateX(36%);max-height:0;margin-top:-12px;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes vpCaret{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.vp,.vp *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+</style>
+</helmet>
+<div class="vp {{themeCls}}" style="position: relative; width: 390px; height: 844px; overflow: hidden; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 15px; line-height: 1.4">
+
+<!-- ============ TODAY ============ -->
+<sc-if value="{{is.today}}" hint-placeholder-val="{{ true }}">
+<div class="scroll" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding-bottom: 120px; animation: {{screenAnim}}">
+  <section style="background: var(--nav); color: var(--navfg); padding: 14px 18px 20px; border-radius: 0 0 30px 30px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+        <span class="serif" style="width: 38px; height: 38px; border-radius: 12px; background: #F7F6F3; color: #082F49; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">VP</span>
+        <span style="display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 600; font-size: 15px">VPPS One</span><span style="font-size: 12px; color: var(--navm)">Admin · Session 2026–27</span></span>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button class="tap" type="button" aria-label="Search everything" onClick="{{openSearch}}" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--navb); background: var(--navs); color: var(--navfg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg></button>
+        <button class="tap" type="button" aria-label="Your account and settings" onClick="{{goMenu}}" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #81DAE4; color: #082F49; font-size: 14px; font-weight: 700">JS</button>
+      </div>
+    </div>
+    <div style="margin-top: 18px; display: flex; flex-direction: column; gap: 6px">
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--navm)"><span style="width: 8px; height: 8px; border-radius: 4px; background: #81DAE4; animation: vpPulse 2.2s infinite"></span>Thu 8 Oct · Period 2 running</span>
+      <h1 class="serif" style="margin: 0; font-size: 30px; font-weight: 600; line-height: 1.12">Good morning, Janmejay</h1>
+    </div>
+    <div style="margin-top: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <div style="grid-column: 1 / -1; border: 1px solid var(--navb); background: var(--navs); border-radius: 20px; padding: 14px 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+        <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 12px; color: var(--navm)">Fees collected today</span><span class="num" style="font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1">{{t.fees}}</span><span style="font-size: 12px; color: var(--navm)">{{t.modes}}</span></span>
+        <svg width="128" height="54" viewBox="0 0 128 54" aria-hidden="true" style="flex: none; overflow: visible"><polyline points="{{t.spark}}" style="fill: none; stroke: #81DAE4; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; --len: 190; stroke-dasharray: 190; animation: vpDraw 1.2s var(--ease) both"></polyline><circle cx="124" cy="6" r="4.5" style="fill: #81DAE4; animation: vpPopIn .4s 1s var(--spring) both"></circle></svg>
+      </div>
+      <button class="tap" type="button" onClick="{{goAttendance}}" style="text-align: left; border: 1px solid var(--navb); background: var(--navs); color: var(--navfg); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <span style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: var(--navm)">Attendance<svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></span>
+        <span style="display: flex; align-items: center; gap: 12px">
+          <svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true" style="flex: none; transform: rotate(-90deg)"><circle cx="27" cy="27" r="22" style="fill: none; stroke: var(--navb); stroke-width: 7"></circle><circle cx="27" cy="27" r="22" style="fill: none; stroke: #81DAE4; stroke-width: 7; stroke-linecap: round; --len: 138.2; stroke-dasharray: 138.2; stroke-dashoffset: {{t.ringOff}}; animation: vpDraw 1s var(--ease) both; transition: stroke-dashoffset .7s var(--ease)"></circle></svg>
+          <span style="display: flex; flex-direction: column"><span class="num" style="font-size: 22px; font-weight: 700">{{t.marked}}</span><span style="font-size: 12px; color: var(--navm)">classes · {{t.presentPct}}</span></span>
+        </span>
+      </button>
+      <button class="tap" type="button" onClick="{{goCover}}" style="text-align: left; border: 1px solid var(--navb); background: var(--navs); color: var(--navfg); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <span style="display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: var(--navm)">Teachers on leave<svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></span>
+        <span class="num" style="font-size: 22px; font-weight: 700; line-height: 1.2">2</span>
+        <span style="display: flex; flex-direction: column; gap: 6px"><span style="display: flex; gap: 5px"><sc-for list="{{t.cover}}" as="d" hint-placeholder-count="5"><span style="width: 18px; height: 6px; border-radius: 3px; background: {{d.bg}}; transition: background-color .4s"></span></sc-for></span><span style="font-size: 12px; color: var(--navm)">{{t.coverTxt}}</span></span>
+      </button>
+      <button class="tap" type="button" onClick="{{goCalls}}" style="grid-column: 1 / -1; text-align: left; border: 0; background: #81DAE4; color: #082F49; border-radius: 18px; padding: 12px 14px; display: flex; align-items: center; gap: 12px">
+        <span style="width: 36px; height: 36px; border-radius: 12px; background: rgba(8,47,73,.12); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg></span>
+        <span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">{{t.calls}} families to call today</span><span style="font-size: 12px; font-weight: 500">Pending fees, oldest first · 6 promised today</span></span>
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+      </button>
+    </div>
+  </section>
+
+  <section style="padding: 24px 18px 0; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 8px">Needs you<span class="pill num" style="min-width: 22px; justify-content: center; background: var(--bad); color: var(--onsolid)">{{needCount}}</span></h2>
+      <button class="tap" type="button" onClick="{{goInbox}}" style="height: 44px; padding: 0 0 0 12px; border: 0; background: transparent; color: var(--acc); font-size: 14px; font-weight: 600">See all</button>
+    </div>
+    <sc-if value="{{hasTopNeeds}}" hint-placeholder-val="{{ true }}">
+      <div class="card" style="overflow: hidden">
+        <sc-for list="{{topNeeds}}" as="n" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: {{n.border}}; overflow: hidden; animation: {{n.anim}}; animation-delay: {{n.delay}}">
+            <span style="flex: none; width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: {{n.tbg}}; color: {{n.tfg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 600; line-height: 1.3">{{n.short}}</span><span style="font-size: 13px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.sub}}</span></span>
+            <button class="tap btn soft" type="button" onClick="{{n.quick}}" style="flex: none; padding: 0 14px">{{n.quickLabel}}</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{noNeeds}}" hint-placeholder-val="{{ false }}">
+      <div class="card" style="padding: 18px; display: flex; align-items: center; gap: 14px; animation: vpFade .3s var(--ease) both">
+        <span style="width: 44px; height: 44px; border-radius: 22px; background: var(--oks); color: var(--ok); display: flex; align-items: center; justify-content: center; animation: vpPopIn .5s var(--spring) both"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span>
+        <span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">All clear</span><span style="font-size: 13px; color: var(--mut)">Nothing is waiting on you right now.</span></span>
+      </div>
+    </sc-if>
+  </section>
+
+  <section style="padding: 24px 18px 0">
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{quick4}}" as="a" hint-placeholder-count="4">
+        <sc-if value="{{a.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap rise" type="button" onClick="{{a.act}}" style="border: 0; background: transparent; padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--fg); font-size: 12px; font-weight: 600; animation-delay: {{a.delay}}">
+          <span style="width: 58px; height: 58px; border-radius: 20px; background: {{a.bg}}; color: {{a.fg}}; display: flex; align-items: center; justify-content: center; box-shadow: var(--sh)"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{a.icon}}"></path></svg></span>{{a.label}}</button></sc-if><sc-if value="{{a.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{a.href}}" class="tap rise" style="border: 0; background: transparent; padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--fg); font-size: 12px; font-weight: 600; animation-delay: {{a.delay}}">
+          <span style="width: 58px; height: 58px; border-radius: 20px; background: {{a.bg}}; color: {{a.fg}}; display: flex; align-items: center; justify-content: center; box-shadow: var(--sh)"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{a.icon}}"></path></svg></span>{{a.label}}</a></sc-if>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="padding: 26px 18px 0; display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700">Today at school</h2>
+    <div class="card" style="padding: 6px 16px">
+      <sc-for list="{{timeline}}" as="e" hint-placeholder-count="5">
+        <button class="tap" type="button" onClick="{{e.act}}" style="width: 100%; display: grid; grid-template-columns: 46px 16px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 0; border: 0; background: transparent; color: var(--fg); text-align: left">
+          <span class="num" style="font-size: 13px; font-weight: 700; color: {{e.timeColor}}; padding-top: 1px">{{e.time}}</span>
+          <span style="display: flex; flex-direction: column; align-items: center; align-self: stretch"><span style="flex: none; width: 12px; height: 12px; border-radius: 6px; margin-top: 4px; background: {{e.dot}}; border: {{e.ring}}; animation: {{e.pulse}}"></span><span style="flex: 1; width: 2px; margin-top: 4px; margin-bottom: -14px; border-radius: 1px; background: var(--bd); opacity: {{e.lineOp}}"></span></span>
+          <span style="display: flex; flex-direction: column; gap: 1px; padding-bottom: 2px"><span style="font-size: 15px; font-weight: 600; color: {{e.titleColor}}">{{e.title}}</span><span style="font-size: 13px; color: var(--mut)">{{e.sub}}</span></span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="padding: 26px 18px 0; display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700">This session</h2>
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px"><span style="font-size: 14px; font-weight: 600">Fees collected</span><span class="num" style="font-size: 13px; color: var(--mut)">{{pace.collected}} of {{pace.expected}}</span></div>
+      <div style="position: relative; height: 12px; border-radius: 6px; background: var(--s3)">
+        <div style="height: 12px; border-radius: 6px; width: {{pace.barW}}; background: var(--acc); transform-origin: left; animation: vpGrowX .9s var(--ease) both; transition: width .6s var(--ease)"></div>
+        <span style="position: absolute; top: -4px; bottom: -4px; left: {{pace.markerL}}; width: 2px; border-radius: 1px; background: var(--fg)"></span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--mut)"><span class="num">{{pace.pctTxt}} collected</span><span>Should be 62% by today</span></div>
+      <span style="font-size: 13px; line-height: 1.45; color: {{pace.tone}}; font-weight: 600">{{pace.gapTxt}}</span>
+      <span style="font-size: 13px; line-height: 1.45; color: var(--mut)">{{pace.catchUp}}</span>
+    </div>
+    <button class="tap card" type="button" onClick="{{goAttendance}}" style="padding: 16px; display: flex; flex-direction: column; gap: 12px; color: var(--fg); text-align: left; width: 100%">
+      <span style="display: flex; align-items: baseline; justify-content: space-between; width: 100%"><span style="font-size: 14px; font-weight: 600">Attendance this week</span><span style="font-size: 13px; color: var(--mut)">present %</span></span>
+      <span style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; align-items: end; height: 92px; width: 100%">
+        <sc-for list="{{week}}" as="w" hint-placeholder-count="6">
+          <span style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; height: 92px">
+            <span class="num" style="font-size: 11px; font-weight: 700; color: var(--mut)">{{w.v}}</span>
+            <span style="width: 100%; height: {{w.h}}; border-radius: 8px; background: {{w.c}}; transform-origin: bottom; animation: vpGrowY .7s var(--ease) both; animation-delay: {{w.delay}}"></span>
+            <span style="font-size: 11px; color: {{w.lc}}; font-weight: {{w.lw}}">{{w.d}}</span>
+          </span>
+        </sc-for>
+      </span>
+    </button>
+  </section>
+</div>
+</sc-if>
+
+<!-- ============ STUDENTS ============ -->
+<sc-if value="{{is.students}}" hint-placeholder-val="{{ false }}">
+<div class="scroll" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding-bottom: 120px; animation: {{screenAnim}}">
+  <div class="glass" style="position: sticky; top: 0; z-index: 5; padding: 14px 18px 10px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--bd)">
+    <div style="display: flex; align-items: baseline; justify-content: space-between"><h1 class="serif" style="margin: 0; font-size: 30px; font-weight: 600">Students</h1><span class="num" style="font-size: 13px; color: var(--mut)">{{stuCount}}</span></div>
+    <label style="position: relative; height: 48px; border-radius: 24px; background: var(--card); border: 1px solid var(--bds); display: flex; align-items: center; gap: 10px; padding: 0 16px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search students</span><input type="search" value="{{sq}}" onChange="{{onSq}}" placeholder="Name, SR no. or class" style="flex: 1; min-width: 0; height: 44px; border: 0; outline: none; background: transparent; color: var(--fg); font-size: 16px"></label>
+    <div class="hs" role="group" aria-label="Filter students" style="display: flex; gap: 8px; margin: 0 -18px; padding: 0 18px 2px">
+      <sc-for list="{{segs}}" as="g" hint-placeholder-count="5">
+        <button class="tap chip snap" type="button" aria-pressed="{{g.pressed}}" onClick="{{g.pick}}" style="background: {{g.bg}}; color: {{g.fg}}; border-color: {{g.bd}}">{{g.label}}<span class="num" style="opacity: .7">{{g.count}}</span></button>
+      </sc-for>
+    </div>
+  </div>
+  <div style="padding: 12px 18px; display: flex; flex-direction: column; gap: 10px">
+    <sc-for list="{{stuList}}" as="r" hint-placeholder-count="8">
+      <div class="hs rise" style="display: flex; border-radius: 20px; animation-delay: {{r.delay}}">
+        <button class="tap snap card" type="button" onClick="{{r.open}}" style="flex: none; width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-align: left; color: var(--fg); box-shadow: none">
+          <span style="flex: none; width: 46px; height: 46px; border-radius: 23px; background: {{r.abg}}; color: {{r.afg}}; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700">{{r.ini}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span><span style="font-size: 13px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.meta}}</span></span>
+          <span style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px"><span class="num" style="font-size: 14px; font-weight: 700; color: {{r.tone}}">{{r.amt}}</span><span style="font-size: 11px; color: var(--mut)">{{r.amtSub}}</span></span>
+        </button>
+        <div class="snapend" style="flex: none; display: flex; gap: 6px; padding-left: 8px">
+          <button class="tap" type="button" onClick="{{r.call}}" style="width: 62px; border-radius: 18px; border: 0; background: var(--infos); color: var(--info); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>Call</button>
+          <button class="tap" type="button" onClick="{{r.wa}}" style="width: 62px; border-radius: 18px; border: 0; background: var(--oks); color: var(--ok); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg>WhatsApp</button>
+          <sc-if value="{{r.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap" type="button" onClick="{{r.collect}}" style="width: 62px; border-radius: 18px; border: 0; background: var(--pri); color: var(--prifg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg>Collect</button></sc-if><sc-if value="{{r.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{r.href}}" class="tap" style="width: 62px; border-radius: 18px; border: 0; background: var(--pri); color: var(--prifg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg>Collect</a></sc-if>
+        </div>
+      </div>
+    </sc-for>
+    <sc-if value="{{noStu}}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 40px 20px; text-align: center; color: var(--mut); font-size: 14px; animation: vpFade .3s var(--ease) both">No student matches. Try an SR no., class or a parent's phone number.</div>
+    </sc-if>
+    <p style="margin: 6px 0 0; text-align: center; font-size: 12px; color: var(--sub)">Swipe a row left for Call · WhatsApp · Collect</p>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ STUDENT 360 ============ -->
+<sc-if value="{{is.student}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; animation: {{screenAnim}}">
+<div class="scroll" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding-bottom: 116px">
+  <div class="glass" style="position: sticky; top: 0; z-index: 5; height: 56px; padding: 0 6px; display: flex; align-items: center; justify-content: space-between">
+    <button class="tap" type="button" aria-label="Back" onClick="{{back}}" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button>
+    <span style="font-size: 15px; font-weight: 600">Student 360</span>
+    <button class="tap" type="button" aria-label="More: edit, print ID card, withdraw" onClick="{{stuMore}}" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.more}}"></path></svg></button>
+  </div>
+
+  <header style="padding: 2px 18px 16px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px">
+    <div style="position: relative; width: 96px; height: 96px">
+      <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="transform: rotate(-90deg)"><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--s3); stroke-width: 6"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--acc); stroke-width: 6; stroke-linecap: round; --len: 276.5; stroke-dasharray: 276.5; stroke-dashoffset: {{stu.ringOff}}; animation: vpDraw 1s var(--ease) both; transition: stroke-dashoffset .8s var(--ease)"></circle></svg>
+      <span class="serif" style="position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border-radius: 38px; background: {{stu.abg}}; color: {{stu.afg}}; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 600">{{stu.ini}}</span>
+    </div>
+    <h1 class="serif" style="margin: 4px 0 0; font-size: 27px; font-weight: 600; line-height: 1.1">{{stu.name}}</h1>
+    <span style="font-size: 14px; color: var(--mut)">{{stu.meta}}</span>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 6px">
+      <sc-for list="{{stu.chips}}" as="c" hint-placeholder-count="3"><span class="pill" style="height: 26px; padding: 0 10px; font-size: 12px; background: {{c.bg}}; color: {{c.fg}}">{{c.label}}</span></sc-for>
+    </div>
+    <span style="font-size: 12px; color: var(--mut)">{{stu.pctTxt}}</span>
+  </header>
+
+  <div style="padding: 0 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+    <sc-for list="{{stuStats}}" as="k" hint-placeholder-count="3">
+      <button class="tap card" type="button" onClick="{{k.pick}}" style="padding: 12px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; color: var(--fg); text-align: left; box-shadow: none">
+        <span style="font-size: 11px; color: var(--mut); font-weight: 600">{{k.k}}</span><span class="num" style="font-size: 18px; font-weight: 700; color: {{k.tone}}">{{k.v}}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div class="hs" role="tablist" aria-label="Student sections" style="display: flex; gap: 6px; padding: 16px 18px 4px">
+    <sc-for list="{{tabs}}" as="b" hint-placeholder-count="6">
+      <button class="tap chip snap" type="button" role="tab" aria-selected="{{b.sel}}" onClick="{{b.pick}}" style="background: {{b.bg}}; color: {{b.fg}}; border-color: {{b.bd}}">{{b.label}}</button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{tabIs.overview}}" hint-placeholder-val="{{ true }}">
+  <div style="padding: 12px 18px 0; display: flex; flex-direction: column; gap: 12px; animation: vpFade .28s var(--ease) both">
+    <button class="tap card" type="button" onClick="{{toFees}}" style="padding: 16px; display: flex; flex-direction: column; gap: 12px; color: var(--fg); text-align: left; width: 100%">
+      <span style="display: flex; align-items: center; justify-content: space-between; width: 100%"><span style="font-size: 15px; font-weight: 700">Fees 2026–27</span><span style="font-size: 13px; font-weight: 600; color: var(--acc)">Ledger</span></span>
+      <span style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%">
+        <sc-for list="{{inst}}" as="m" hint-placeholder-count="4">
+          <span style="display: flex; flex-direction: column; gap: 6px"><span style="height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; display: block"><span style="display: block; height: 8px; width: {{m.barW}}; background: {{m.barC}}; transform-origin: left; animation: vpGrowX .8s var(--ease) both; animation-delay: {{m.delay}}"></span></span><span style="font-size: 11px; color: {{m.lc}}; font-weight: 600">{{m.mon}}</span></span>
+        </sc-for>
+      </span>
+      <span style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%">
+        <span style="display: flex; flex-direction: column"><span style="font-size: 11px; color: var(--mut)">Pending today</span><span class="num" style="font-size: 16px; font-weight: 700; color: {{stu.pendingTone}}">{{stu.pendingTxt}}</span></span>
+        <span style="display: flex; flex-direction: column"><span style="font-size: 11px; color: var(--mut)">Not due yet</span><span class="num" style="font-size: 16px; font-weight: 700">{{stu.notDueTxt}}</span></span>
+        <span style="display: flex; flex-direction: column"><span style="font-size: 11px; color: var(--mut)">Paid</span><span class="num" style="font-size: 16px; font-weight: 700; color: var(--ok)">{{stu.paidTxt}}</span></span>
+      </span>
+    </button>
+
+    <button class="tap card" type="button" onClick="{{toAtt}}" style="padding: 16px; display: flex; flex-direction: column; gap: 10px; color: var(--fg); text-align: left; width: 100%">
+      <span style="display: flex; align-items: baseline; justify-content: space-between; width: 100%"><span style="font-size: 15px; font-weight: 700">Attendance · last 4 weeks</span><span class="num" style="font-size: 14px; font-weight: 700">88%</span></span>
+      <span style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; width: 100%">
+        <sc-for list="{{heat}}" as="d" hint-placeholder-count="24"><span title="{{d.title}}" class="num" style="height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: {{d.bg}}; color: {{d.fg}}; border: {{d.bd}}; animation: vpIn .4s ease both; animation-delay: {{d.delay}}">{{d.text}}</span></sc-for>
+      </span>
+    </button>
+
+    <button class="tap card" type="button" onClick="{{toMarks}}" style="padding: 16px; display: flex; flex-direction: column; gap: 9px; color: var(--fg); text-align: left; width: 100%">
+      <span style="display: flex; align-items: baseline; justify-content: space-between; width: 100%"><span style="font-size: 15px; font-weight: 700">{{exam.title}}</span><span class="num" style="font-size: 14px; font-weight: 700">{{exam.avg}}</span></span>
+      <sc-for list="{{marks}}" as="m" hint-placeholder-count="5">
+        <span style="display: grid; grid-template-columns: 82px minmax(0, 1fr) 30px; align-items: center; gap: 10px; width: 100%"><span style="font-size: 13px">{{m.subject}}</span><span style="height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; display: block"><span style="display: block; height: 8px; width: {{m.width}}; background: {{m.color}}; transform-origin: left; animation: vpGrowX .8s var(--ease) both; animation-delay: {{m.delay}}"></span></span><span class="num" style="font-size: 13px; font-weight: 700; text-align: right; color: {{m.color}}">{{m.score}}</span></span>
+      </sc-for>
+    </button>
+
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 15px; font-weight: 700">Notes from teachers</span><span style="display: flex; gap: 14px"><a href="M-Notes-Student.dc.html" class="tap" style="height: 44px; display: flex; align-items: center; color: var(--mut); font-size: 14px; font-weight: 600">All notes</a><a href="M-Notes-Add.dc.html" class="tap" style="height: 44px; display: flex; align-items: center; color: var(--acc); font-size: 14px; font-weight: 600">Speak a note</a></span></div>
+      <sc-for list="{{notes}}" as="o" hint-placeholder-count="2">
+        <div style="padding: 10px 12px; border-radius: 14px; background: var(--s2); display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; line-height: 1.4">{{o.text}}</span><span style="font-size: 12px; color: var(--mut)">{{o.by}}</span></div>
+      </sc-for>
+      <sc-if value="{{noNotes}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: var(--mut)">No notes yet. Notes from calls and meetings show up here for every staff member who can see this student.</span></sc-if>
+    </div>
+    <div style="display: flex; align-items: flex-start; gap: 8px; padding: 0 4px; font-size: 12px; color: var(--mut); line-height: 1.45"><svg class="i" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-top: 2px" aria-hidden="true"><path d="{{ic.shield}}"></path></svg><span>Subject teachers see this page without money. Who sees what is set in Staff &amp; roles.</span></div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{tabIs.fees}}" hint-placeholder-val="{{ false }}">
+  <div style="padding: 12px 18px 0; display: flex; flex-direction: column; gap: 12px; animation: vpFade .28s var(--ease) both">
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; gap: 14px">
+        <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" style="flex: none; transform: rotate(-90deg)"><circle cx="32" cy="32" r="26" style="fill: none; stroke: var(--s3); stroke-width: 8"></circle><circle cx="32" cy="32" r="26" style="fill: none; stroke: var(--acc); stroke-width: 8; stroke-linecap: round; --len: 163.4; stroke-dasharray: 163.4; stroke-dashoffset: {{stu.ringOff2}}; animation: vpDraw 1s var(--ease) both; transition: stroke-dashoffset .8s var(--ease)"></circle></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: var(--mut)">Pending today</span><span class="num" style="font-size: 28px; font-weight: 700; color: {{stu.pendingTone}}; line-height: 1.1">{{stu.pendingTxt}}</span><span class="num" style="font-size: 13px; color: var(--mut)">{{stu.paidTxt}} paid of {{stu.totalTxt}} · {{stu.notDueTxt}} not due yet</span></div>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <a href="{{payHrefCur}}" class="tap btn pri" style="flex: 1">{{stu.collectLabel}}</a>
+        <button class="tap btn sec" type="button" onClick="{{sendStatement}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.send}}"></path></svg>Statement</button>
+      </div>
+    </div>
+    <h2 class="sech" style="padding: 6px 4px 0">Installments</h2>
+    <div class="card" style="overflow: hidden">
+      <sc-for list="{{inst}}" as="m" hint-placeholder-count="4">
+        <div style="padding: 14px 16px; border-top: {{m.border}}; display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">{{m.label}}</span><span style="font-size: 12px; color: var(--mut)">Due {{m.date}} · {{m.amtTxt}}</span></span><span class="pill" style="background: {{m.sbg}}; color: {{m.sfg}}">{{m.status}}</span></div>
+          <div style="height: 6px; border-radius: 3px; background: var(--s3); overflow: hidden"><div style="height: 6px; width: {{m.barW}}; background: {{m.barC}}; transform-origin: left; animation: vpGrowX .8s var(--ease) both; animation-delay: {{m.delay}}"></div></div>
+          <span class="num" style="font-size: 12px; color: var(--mut)">{{m.paidLine}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <h2 class="sech" style="padding: 6px 4px 0">Receipts</h2>
+    <div class="card" style="overflow: hidden">
+      <sc-for list="{{receipts}}" as="r" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: {{r.border}}; animation: vpFade .3s var(--ease) both">
+          <span style="flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--s2); color: var(--pri); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.receipt}}"></path></svg></span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px">{{r.no}}<sc-if value="{{r.isNew}}" hint-placeholder-val="{{ false }}"><span class="pill" style="background: var(--oks); color: var(--ok)">New</span></sc-if></span><span style="font-size: 12px; color: var(--mut)">{{r.date}} · {{r.mode}}</span></span>
+          <span class="num" style="font-size: 15px; font-weight: 700">{{r.amtTxt}}</span>
+          <button class="tap" type="button" aria-label="Send receipt to parent on WhatsApp" onClick="{{r.send}}" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--oks); color: var(--ok); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.send}}"></path></svg></button>
+        </div>
+      </sc-for>
+      <sc-if value="{{noReceipts}}" hint-placeholder-val="{{ false }}"><div style="padding: 16px; font-size: 13px; color: var(--mut)">No receipts yet this session.</div></sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{tabIs.attendance}}" hint-placeholder-val="{{ false }}">
+  <div style="padding: 12px 18px 0; display: flex; flex-direction: column; gap: 12px; animation: vpFade .28s var(--ease) both">
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 16px; font-weight: 700">October 2026</span><span class="num" style="font-size: 13px; color: var(--mut)">6 of 7 days · 86%</span></div>
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{calHead}}" as="h" hint-placeholder-count="7"><span style="text-align: center; font-size: 11px; font-weight: 600; color: var(--mut)">{{h}}</span></sc-for>
+        <sc-for list="{{cal}}" as="d" hint-placeholder-count="35"><span title="{{d.title}}" class="num" style="aspect-ratio: 1; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: {{d.bg}}; color: {{d.fg}}; border: {{d.bd}}; animation: vpIn .35s ease both; animation-delay: {{d.delay}}">{{d.text}}</span></sc-for>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--mut)">
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--okm)"></span>Present</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--bad)"></span>Absent</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--warnm)"></span>Half day</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: var(--s3)"></span>Holiday / Sunday</span>
+      </div>
+    </div>
+    <div class="card" style="padding: 14px 16px; display: flex; gap: 12px; align-items: center">
+      <span style="flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--bads); color: var(--bad); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg></span>
+      <span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600">Absent on Tue 6 Oct</span><span style="font-size: 13px; color: var(--mut)">Session so far 88% · school average 93%</span></span>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{tabIs.marks}}" hint-placeholder-val="{{ false }}">
+  <div style="padding: 12px 18px 0; display: flex; flex-direction: column; gap: 12px; animation: vpFade .28s var(--ease) both">
+    <div style="position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 4px; border-radius: 16px; background: var(--s3)">
+      <span aria-hidden="true" style="position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 2); border-radius: 12px; background: var(--card); box-shadow: var(--sh); transform: translateX({{exam.thumb}}); transition: transform .34s var(--spring)"></span>
+      <sc-for list="{{examChips}}" as="x" hint-placeholder-count="2"><button class="tap" type="button" aria-pressed="{{x.sel}}" onClick="{{x.pick}}" style="position: relative; height: 40px; border: 0; background: transparent; color: {{x.fg}}; font-size: 13px; font-weight: 700">{{x.label}}</button></sc-for>
+    </div>
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 11px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between"><span style="font-size: 15px; font-weight: 700">{{exam.title}}</span><span class="num" style="font-size: 22px; font-weight: 700">{{exam.avg}}</span></div>
+      <sc-for list="{{marks}}" as="m" hint-placeholder-count="5">
+        <div style="display: grid; grid-template-columns: 82px minmax(0, 1fr) 30px; align-items: center; gap: 10px"><span style="font-size: 14px">{{m.subject}}</span><div style="height: 10px; border-radius: 5px; background: var(--s3); overflow: hidden"><div style="height: 10px; width: {{m.width}}; background: {{m.color}}; transform-origin: left; animation: vpGrowX .8s var(--ease) both; animation-delay: {{m.delay}}; transition: width .5s var(--ease)"></div></div><span class="num" style="font-size: 14px; font-weight: 700; text-align: right; color: {{m.color}}">{{m.score}}</span></div>
+      </sc-for>
+      <span style="font-size: 12px; color: var(--mut)">Entered by subject teachers through Sampark. Below 60 shows in amber.</span>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button class="tap btn sec" type="button" onClick="{{reportCard}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.receipt}}"></path></svg>Report card</button>
+      <button class="tap btn soft" type="button" onClick="{{sendProgress}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.send}}"></path></svg>Send to parent</button>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{tabIs.family}}" hint-placeholder-val="{{ false }}">
+  <div style="padding: 12px 18px 0; display: flex; flex-direction: column; gap: 12px; animation: vpFade .28s var(--ease) both">
+    <div class="card" style="overflow: hidden">
+      <sc-for list="{{parents}}" as="p" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: {{p.border}}">
+          <span style="flex: none; width: 42px; height: 42px; border-radius: 21px; background: var(--s3); color: var(--fg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">{{p.ini}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">{{p.name}}</span><span style="font-size: 12px; color: var(--mut)">{{p.role}} · {{p.phone}}</span></span>
+          <button class="tap" type="button" aria-label="Call {{p.name}}" onClick="{{p.call}}" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--infos); color: var(--info); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.phone}}"></path></svg></button>
+          <button class="tap" type="button" aria-label="WhatsApp {{p.name}}" onClick="{{p.wa}}" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--oks); color: var(--ok); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.message}}"></path></svg></button>
+        </div>
+      </sc-for>
+    </div>
+    <h2 class="sech" style="padding: 6px 4px 0">Siblings in school</h2>
+    <sc-for list="{{sibs}}" as="b" hint-placeholder-count="1">
+      <button class="tap card" type="button" onClick="{{b.open}}" style="padding: 12px 14px; display: flex; align-items: center; gap: 12px; color: var(--fg); text-align: left; width: 100%">
+        <span style="flex: none; width: 46px; height: 46px; border-radius: 23px; background: {{b.abg}}; color: {{b.afg}}; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700">{{b.ini}}</span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">{{b.name}}</span><span style="font-size: 12px; color: var(--mut)">{{b.meta}}</span></span>
+        <span class="num" style="font-size: 14px; font-weight: 700; color: {{b.tone}}">{{b.amt}}</span>
+        <svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px; color: var(--mut)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+      </button>
+    </sc-for>
+    <sc-if value="{{noSibs}}" hint-placeholder-val="{{ false }}">
+      <div class="card" style="padding: 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px"><span style="font-size: 13px; color: var(--mut)">No siblings linked yet.</span><button class="tap btn sec" type="button" onClick="{{linkSib}}">Link sibling</button></div>
+    </sc-if>
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <span style="font-size: 15px; font-weight: 700">Family total</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <span style="display: flex; flex-direction: column"><span style="font-size: 11px; color: var(--mut)">Year total</span><span class="num" style="font-size: 16px; font-weight: 700">{{fam.total}}</span></span>
+        <span style="display: flex; flex-direction: column"><span style="font-size: 11px; color: var(--mut)">Paid</span><span class="num" style="font-size: 16px; font-weight: 700; color: var(--ok)">{{fam.paid}}</span></span>
+        <span style="display: flex; flex-direction: column"><span style="font-size: 11px; color: var(--mut)">Pending today</span><span class="num" style="font-size: 16px; font-weight: 700; color: {{fam.tone}}">{{fam.pending}}</span></span>
+      </div>
+      <button class="tap btn sec" type="button" onClick="{{famStatement}}"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.receipt}}"></path></svg>Family statement PDF</button>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{tabIs.info}}" hint-placeholder-val="{{ false }}">
+  <div style="padding: 12px 18px 0; display: flex; flex-direction: column; gap: 12px; animation: vpFade .28s var(--ease) both">
+    <div class="card" style="overflow: hidden">
+      <sc-for list="{{info}}" as="f" hint-placeholder-count="10">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; border-top: {{f.border}}"><span style="font-size: 13px; color: var(--mut)">{{f.k}}</span><span style="font-size: 14px; font-weight: 600; text-align: right; color: {{f.color}}">{{f.v}}</span></div>
+      </sc-for>
+    </div>
+    <button class="tap btn sec" type="button" onClick="{{editInfo}}"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Edit details · 2 not filled</button>
+  </div>
+  </sc-if>
+</div>
+
+<div class="glass" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 10; padding: 10px 14px 24px; border-top: 1px solid var(--bd); display: flex; gap: 8px; align-items: center">
+  <button class="tap" type="button" aria-label="Call parent" onClick="{{callParent}}" style="flex: none; width: 52px; height: 52px; border-radius: 18px; border: 1px solid var(--bd); background: var(--card); color: var(--info); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg></button>
+  <button class="tap" type="button" aria-label="WhatsApp parent" onClick="{{waParent}}" style="flex: none; width: 52px; height: 52px; border-radius: 18px; border: 1px solid var(--bd); background: var(--card); color: var(--ok); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg></button>
+  <a href="{{payHrefCur}}" class="tap btn pri" style="flex: 1; height: 52px; border-radius: 18px; font-size: 16px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg>{{stu.collectLabel}}</a>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ NEEDS YOU ============ -->
+<sc-if value="{{is.inbox}}" hint-placeholder-val="{{ false }}">
+<div class="scroll" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding-bottom: 120px; animation: {{screenAnim}}">
+  <div class="glass" style="position: sticky; top: 0; z-index: 5; padding: 14px 18px 10px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--bd)">
+    <div style="display: flex; align-items: baseline; justify-content: space-between"><h1 class="serif" style="margin: 0; font-size: 30px; font-weight: 600">Needs you</h1><span class="num" style="font-size: 13px; color: var(--mut)">{{inboxSub}}</span></div>
+    <div class="hs" role="group" aria-label="Filter by type" style="display: flex; gap: 8px; margin: 0 -18px; padding: 0 18px 2px">
+      <sc-for list="{{inboxChips}}" as="g" hint-placeholder-count="5"><button class="tap chip snap" type="button" aria-pressed="{{g.pressed}}" onClick="{{g.pick}}" style="background: {{g.bg}}; color: {{g.fg}}; border-color: {{g.bd}}">{{g.label}}<span class="num" style="opacity: .7">{{g.count}}</span></button></sc-for>
+    </div>
+  </div>
+  <div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 12px">
+    <sc-for list="{{inboxList}}" as="it" hint-placeholder-count="5">
+      <article class="card" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; animation: {{it.anim}}; animation-delay: {{it.delay}}">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><span class="pill" style="height: 26px; padding: 0 10px; font-size: 12px; background: {{it.tbg}}; color: {{it.tfg}}"><svg class="i" viewBox="0 0 24 24" style="width: 14px; height: 14px" aria-hidden="true"><path d="{{it.icon}}"></path></svg>{{it.tag}}</span><span style="font-size: 12px; color: var(--mut)">{{it.time}}</span></div>
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.3">{{it.title}}</h2>
+        <p style="margin: 0; font-size: 14px; color: var(--mut); line-height: 1.45">{{it.body}}</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px">
+          <button class="tap btn pri" type="button" onClick="{{it.pAct}}">{{it.pLabel}}</button>
+          <sc-if value="{{it.sShow}}" hint-placeholder-val="{{ true }}"><button class="tap btn sec" type="button" onClick="{{it.sAct}}" style="color: {{it.sColor}}">{{it.sLabel}}</button></sc-if>
+        </div>
+      </article>
+    </sc-for>
+    <sc-if value="{{inboxEmpty}}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 60px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; animation: vpFade .35s var(--ease) both">
+        <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true"><circle cx="44" cy="44" r="40" style="fill: var(--oks)"></circle><path d="M27 45l11 11 23-24" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 56; stroke-dasharray: 56; animation: vpDraw .5s .15s var(--ease) both"></path></svg>
+        <span class="serif" style="font-size: 24px; font-weight: 600">All clear</span>
+        <span style="font-size: 14px; color: var(--mut)">Nothing in this list is waiting on you.</span>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ ATTENDANCE ============ -->
+<sc-if value="{{is.attendance}}" hint-placeholder-val="{{ false }}">
+<div class="scroll" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding-bottom: 40px; animation: {{screenAnim}}">
+  <div class="glass" style="position: sticky; top: 0; z-index: 5; height: 56px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between">
+    <button class="tap" type="button" aria-label="Back" onClick="{{back}}" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button>
+    <button class="tap" type="button" onClick="{{register}}" style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px"><svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{ic.receipt}}"></path></svg>Monthly register</button>
+  </div>
+  <div style="padding: 0 18px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; justify-content: space-between"><h1 class="serif" style="margin: 0; font-size: 30px; font-weight: 600">Attendance</h1><span class="pill" style="height: 30px; padding: 0 12px; font-size: 12px; background: var(--s3); color: var(--fg)">Today · Thu 8 Oct</span></div>
+    <div class="card" style="padding: 16px; display: flex; align-items: center; gap: 16px">
+      <div style="position: relative; width: 84px; height: 84px; flex: none">
+        <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true" style="transform: rotate(-90deg)"><circle cx="42" cy="42" r="34" style="fill: none; stroke: var(--s3); stroke-width: 9"></circle><circle cx="42" cy="42" r="34" style="fill: none; stroke: var(--acc); stroke-width: 9; stroke-linecap: round; --len: 213.6; stroke-dasharray: 213.6; stroke-dashoffset: {{att.ringOff}}; animation: vpDraw 1s var(--ease) both; transition: stroke-dashoffset .7s var(--ease)"></circle></svg>
+        <span style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center"><span class="num" style="font-size: 20px; font-weight: 700; line-height: 1">{{att.marked}}</span><span style="font-size: 11px; color: var(--mut)">of 19</span></span>
+      </div>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 15px; font-weight: 700">{{att.headline}}</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+          <span style="padding: 6px 8px; border-radius: 10px; background: var(--oks); display: flex; flex-direction: column"><span style="font-size: 10px; font-weight: 700; color: var(--ok)">PRESENT</span><span class="num" style="font-size: 16px; font-weight: 700; color: var(--ok)">{{att.p}}</span></span>
+          <span style="padding: 6px 8px; border-radius: 10px; background: var(--bads); display: flex; flex-direction: column"><span style="font-size: 10px; font-weight: 700; color: var(--bad)">ABSENT</span><span class="num" style="font-size: 16px; font-weight: 700; color: var(--bad)">{{att.a}}</span></span>
+          <span style="padding: 6px 8px; border-radius: 10px; background: var(--warns); display: flex; flex-direction: column"><span style="font-size: 10px; font-weight: 700; color: var(--warnfg)">HALF DAY</span><span class="num" style="font-size: 16px; font-weight: 700; color: var(--warnfg)">{{att.h}}</span></span>
+        </div>
+      </div>
+    </div>
+    <span style="font-size: 12px; color: var(--mut); line-height: 1.45; margin-top: -4px">Counts only marked classes. A class that is not marked is never treated as all present.</span>
+    <div style="position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px; border-radius: 16px; background: var(--s3)">
+      <span aria-hidden="true" style="position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 12px; background: var(--card); box-shadow: var(--sh); transform: translateX({{att.thumb}}); transition: transform .34s var(--spring)"></span>
+      <sc-for list="{{attSeg}}" as="x" hint-placeholder-count="3"><button class="tap" type="button" aria-pressed="{{x.sel}}" onClick="{{x.pick}}" style="position: relative; height: 40px; border: 0; background: transparent; color: {{x.fg}}; font-size: 13px; font-weight: 700">{{x.label}}</button></sc-for>
+    </div>
+    <div class="card" style="overflow: hidden">
+      <sc-for list="{{attRows}}" as="c" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: {{c.border}}; animation: vpFade .3s var(--ease) both; animation-delay: {{c.delay}}">
+          <span style="flex: none; width: 10px; height: 10px; border-radius: 5px; background: {{c.dot}}"></span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">{{c.name}}</span><span style="font-size: 12px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.sub}}</span></span>
+          <button class="tap btn" type="button" onClick="{{c.act}}" style="flex: none; height: 40px; padding: 0 14px; background: {{c.bg}}; color: {{c.fg}}; font-size: 13px">{{c.btn}}</button>
+        </div>
+      </sc-for>
+      <sc-if value="{{noAttRows}}" hint-placeholder-val="{{ false }}"><div style="padding: 20px 16px; font-size: 14px; color: var(--mut); text-align: center">Every class has marked attendance today.</div></sc-if>
+    </div>
+    <sc-if value="{{att.showRemindAll}}" hint-placeholder-val="{{ true }}">
+      <button class="tap btn pri" type="button" onClick="{{remindAll}}" style="height: 52px; border-radius: 18px; font-size: 15px; animation: vpFade .3s var(--ease) both"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg>{{att.remindLabel}}</button>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ MENU ============ -->
+<sc-if value="{{is.menu}}" hint-placeholder-val="{{ false }}">
+<div class="scroll" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding-bottom: 120px; animation: {{screenAnim}}">
+  <div style="padding: 14px 18px 0; display: flex; flex-direction: column; gap: 14px">
+    <h1 class="serif" style="margin: 0; font-size: 30px; font-weight: 600">Menu</h1>
+    <button class="tap" type="button" onClick="{{openSearch}}" style="height: 48px; border-radius: 24px; background: var(--card); border: 1px solid var(--bds); color: var(--mut); display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 15px; text-align: left"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg>Search students, receipts, pages…</button>
+    <div class="card" style="overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px">
+        <span style="flex: none; width: 48px; height: 48px; border-radius: 24px; background: var(--pri); color: var(--prifg); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700">JS</span>
+        <span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 16px; font-weight: 700">Janmejay Singh</span><span style="font-size: 13px; color: var(--mut)">Admin · every workspace</span></span>
+      </div>
+      <button class="tap" type="button" role="switch" aria-checked="{{sw.darkOn}}" onClick="{{toggleDark}}" style="width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border: 0; border-top: 1px solid var(--bd); background: transparent; color: var(--fg); text-align: left">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.moon}}"></path></svg><span style="flex: 1; font-size: 15px; font-weight: 600">Dark mode</span>
+        <span style="width: 52px; height: 32px; border-radius: 16px; padding: 3px; background: {{sw.darkTrack}}; transition: background-color .25s; display: flex"><span style="width: 26px; height: 26px; border-radius: 13px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,.3); transform: translateX({{sw.darkKnob}}); transition: transform .32s var(--spring)"></span></span>
+      </button>
+      <button class="tap" type="button" role="switch" aria-checked="{{sw.hiOn}}" onClick="{{toggleHindi}}" style="width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border: 0; border-top: 1px solid var(--bd); background: transparent; color: var(--fg); text-align: left">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.globe}}"></path></svg><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">Hindi labels</span><span style="font-size: 12px; color: var(--mut)">हिंदी नाम हर टाइल के नीचे</span></span>
+        <span style="width: 52px; height: 32px; border-radius: 16px; padding: 3px; background: {{sw.hiTrack}}; transition: background-color .25s; display: flex"><span style="width: 26px; height: 26px; border-radius: 13px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,.3); transform: translateX({{sw.hiKnob}}); transition: transform .32s var(--spring)"></span></span>
+      </button>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px"><h2 class="sech">Pinned</h2><button class="tap" type="button" onClick="{{editPins}}" style="height: 36px; padding: 0 0 0 12px; border: 0; background: transparent; color: var(--acc); font-size: 13px; font-weight: 600">Edit</button></div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{pinned}}" as="p" hint-placeholder-count="4">
+        <sc-if value="{{p.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap" type="button" onClick="{{p.act}}" style="border: 0; background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--fg); font-size: 12px; font-weight: 600; text-align: center; line-height: 1.25">
+          <span style="width: 56px; height: 56px; border-radius: 18px; background: var(--nav); color: #81DAE4; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{p.icon}}"></path></svg></span>{{p.t}}</button></sc-if><sc-if value="{{p.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{p.href}}" class="tap" style="border: 0; background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--fg); font-size: 12px; font-weight: 600; text-align: center; line-height: 1.25">
+          <span style="width: 56px; height: 56px; border-radius: 18px; background: var(--nav); color: #81DAE4; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{p.icon}}"></path></svg></span>{{p.t}}</a></sc-if>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{menuItems}}" as="m" hint-placeholder-count="12">
+        <sc-if value="{{m.isH}}" hint-placeholder-val="{{ false }}"><h2 class="sech" style="grid-column: 1 / -1; padding: 14px 2px 2px">{{m.h}}<span style="display: {{hiInline}}; text-transform: none; letter-spacing: 0; font-weight: 500"> · {{m.hi}}</span></h2></sc-if>
+        <sc-if value="{{m.isT}}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{m.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap" type="button" onClick="{{m.act}}" style="display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 10px; border-radius: 16px; background: var(--card); border: 1px solid var(--bd); color: var(--fg); text-align: left">
+            <span style="flex: none; width: 36px; height: 36px; border-radius: 11px; background: var(--s2); color: var(--pri); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{m.icon}}"></path></svg></span>
+            <span style="min-width: 0; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600; line-height: 1.25">{{m.t}}</span><span style="display: {{hiBlock}}; font-size: 12px; color: var(--mut); line-height: 1.35">{{m.hi}}</span></span>
+          </button></sc-if><sc-if value="{{m.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{m.href}}" class="tap" style="display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 10px; border-radius: 16px; background: var(--card); border: 1px solid var(--bd); color: var(--fg); text-align: left">
+            <span style="flex: none; width: 36px; height: 36px; border-radius: 11px; background: var(--s2); color: var(--pri); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{m.icon}}"></path></svg></span>
+            <span style="min-width: 0; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600; line-height: 1.25">{{m.t}}</span><span style="display: {{hiBlock}}; font-size: 12px; color: var(--mut); line-height: 1.35">{{m.hi}}</span></span>
+          </a></sc-if>
+        </sc-if>
+      </sc-for>
+    </div>
+    <a href="M-Auth.dc.html" class="tap btn sec" style="margin-top: 10px; color: var(--bad)"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.logout}}"></path></svg>Sign out</a>
+    <span style="text-align: center; font-size: 12px; color: var(--sub)">VPPS One · staff workspace · sample data</span>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ BOTTOM NAV ============ -->
+<nav aria-label="Primary navigation" class="glass" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; height: 86px; padding: 6px 6px 22px; background: var(--glass2); border-top: 1px solid var(--bd); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); transform: {{navShift}}; transition: transform .38s var(--ease)">
+  <span aria-hidden="true" style="position: absolute; top: 9px; left: 0; width: 56px; height: 32px; border-radius: 16px; background: var(--accs); transform: translateX({{navPillX}}); opacity: {{navPillOp}}; transition: transform .45s var(--spring), opacity .2s"></span>
+  <sc-for list="{{navItems}}" as="n" hint-placeholder-count="5">
+    <sc-if value="{{n.isCenter}}" hint-placeholder-val="{{ false }}">
+      <button class="tap" type="button" aria-label="Quick actions" onClick="{{n.go}}" style="border: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; min-height: 56px">
+        <span style="width: 52px; height: 52px; border-radius: 18px; background: var(--pri); color: var(--prifg); display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 22px -10px rgba(11,79,121,.75); transform: rotate({{n.rot}}); transition: transform .4s var(--spring)"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px; stroke-width: 2.4" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+      </button>
+    </sc-if>
+    <sc-if value="{{n.notCenter}}" hint-placeholder-val="{{ true }}">
+      <button class="tap" type="button" aria-current="{{n.current}}" onClick="{{n.go}}" style="position: relative; border: 0; background: transparent; min-height: 56px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: {{n.color}}; font-size: 11px; font-weight: {{n.weight}}">
+        <span style="position: relative; width: 56px; height: 32px; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{n.icon}}"></path></svg><sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span class="num" style="position: absolute; top: -2px; right: 8px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--bad); color: var(--onsolid); border: 2px solid var(--card); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; animation: vpPopIn .45s var(--spring) both">{{n.badge}}</span></sc-if></span>{{n.label}}</button>
+    </sc-if>
+  </sc-for>
+</nav>
+
+<!-- ============ SHEETS ============ -->
+<sc-if value="{{scrimShow}}" hint-placeholder-val="{{ false }}">
+  <button type="button" aria-label="Close" onClick="{{closeSheet}}" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 30; border: 0; padding: 0; background: var(--scrim); animation: {{scrimAnim}}"></button>
+</sc-if>
+
+<sc-if value="{{sh.actions}}" hint-placeholder-val="{{ false }}">
+<section role="dialog" aria-label="Quick actions" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 31; background: var(--card); border-radius: 30px 30px 0 0; padding: 10px 18px 30px; box-shadow: var(--shl); display: flex; flex-direction: column; gap: 14px; animation: {{sheetAnim}}">
+  <div style="width: 40px; height: 5px; border-radius: 3px; background: var(--bd); align-self: center"></div>
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 2px"><h2 class="serif" style="margin: 0; font-size: 25px; font-weight: 600">Quick actions</h2><span style="font-size: 13px; color: var(--mut)">The six things you do most</span></div>
+    <button class="tap" type="button" aria-label="Close" onClick="{{closeSheet}}" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--s2); color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+    <sc-for list="{{qa}}" as="a" hint-placeholder-count="6">
+      <sc-if value="{{a.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap" type="button" onClick="{{a.act}}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px; border-radius: 20px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); font-size: 13px; font-weight: 600; text-align: center; line-height: 1.25; animation: vpRise .42s var(--ease) both; animation-delay: {{a.delay}}">
+        <span style="width: 50px; height: 50px; border-radius: 17px; background: {{a.bg}}; color: {{a.fg}}; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 23px; height: 23px" aria-hidden="true"><path d="{{a.icon}}"></path></svg></span>{{a.label}}</button></sc-if><sc-if value="{{a.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{a.href}}" class="tap" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px; border-radius: 20px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); font-size: 13px; font-weight: 600; text-align: center; line-height: 1.25; animation: vpRise .42s var(--ease) both; animation-delay: {{a.delay}}">
+        <span style="width: 50px; height: 50px; border-radius: 17px; background: {{a.bg}}; color: {{a.fg}}; display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 23px; height: 23px" aria-hidden="true"><path d="{{a.icon}}"></path></svg></span>{{a.label}}</a></sc-if>
+    </sc-for>
+  </div>
+  <button class="tap" type="button" onClick="{{repeatLast}}" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; border-radius: 18px; border: 0; background: var(--s2); color: var(--fg); text-align: left; animation: vpRise .42s .22s var(--ease) both">
+    <svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>
+    <span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 12px; color: var(--mut)">Repeat last</span><span style="font-size: 14px; font-weight: 600">Collect fee · Aarav Sharma, Class 7</span></span>
+    <svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+  </button>
+</section>
+</sc-if>
+
+<sc-if value="{{sh.collect}}" hint-placeholder-val="{{ false }}">
+<section role="dialog" aria-label="Collect fee" style="position: absolute; left: 0; right: 0; bottom: 0; top: 34px; z-index: 31; background: var(--card); border-radius: 30px 30px 0 0; box-shadow: var(--shl); display: flex; flex-direction: column; animation: {{sheetAnim}}">
+  <div style="width: 40px; height: 5px; border-radius: 3px; background: var(--bd); margin: 8px auto 0; flex: none"></div>
+  <div style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px 4px">
+    <sc-if value="{{col.showBack}}" hint-placeholder-val="{{ false }}"><button class="tap" type="button" aria-label="Back to choose student" onClick="{{col.backAct}}" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+    <sc-if value="{{col.noBack}}" hint-placeholder-val="{{ true }}"><span style="width: 44px"></span></sc-if>
+    <span style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 16px; font-weight: 700">Collect fee</span><span style="font-size: 12px; color: var(--mut)">{{col.stepTxt}}</span></span>
+    <button class="tap" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--s2); color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button>
+  </div>
+
+  <sc-if value="{{col.who}}" hint-placeholder-val="{{ false }}">
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 8px 18px 0; animation: vpFade .25s var(--ease) both">
+    <label style="position: relative; flex: none; height: 48px; border-radius: 24px; background: var(--s2); display: flex; align-items: center; gap: 10px; padding: 0 16px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Find student</span><input type="search" value="{{cq}}" onChange="{{onCq}}" placeholder="Name, SR no. or class" style="flex: 1; min-width: 0; height: 44px; border: 0; outline: none; background: transparent; color: var(--fg); font-size: 16px"></label>
+    <span class="sech" style="padding: 4px 2px 0">With fees pending · most first</span>
+    <div class="scroll" style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-bottom: 24px">
+      <sc-for list="{{whoList}}" as="w" hint-placeholder-count="6">
+        <button class="tap" type="button" onClick="{{w.pick}}" style="flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 18px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); text-align: left; animation: vpRise .38s var(--ease) both; animation-delay: {{w.delay}}">
+          <span style="flex: none; width: 42px; height: 42px; border-radius: 21px; background: {{w.abg}}; color: {{w.afg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">{{w.ini}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">{{w.name}}</span><span style="font-size: 12px; color: var(--mut)">{{w.meta}}</span></span>
+          <span class="num" style="font-size: 14px; font-weight: 700; color: {{w.tone}}">{{w.amt}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{col.amount}}" hint-placeholder-val="{{ true }}">
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 6px 18px 22px; animation: vpFade .25s var(--ease) both">
+    <button class="tap" type="button" onClick="{{col.changeStu}}" style="flex: none; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 18px; border: 1px solid var(--bd); background: var(--s2); color: var(--fg); text-align: left">
+      <span style="flex: none; width: 40px; height: 40px; border-radius: 20px; background: {{stu.abg}}; color: {{stu.afg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">{{stu.ini}}</span>
+      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">{{stu.name}}</span><span style="font-size: 12px; color: var(--mut)">{{col.stuMeta}}</span></span>
+      <span style="font-size: 13px; font-weight: 600; color: var(--acc)">Change</span>
+    </button>
+    <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0">
+      <span style="font-size: 12px; color: var(--mut); font-weight: 600">AMOUNT RECEIVED</span>
+      <span class="num" aria-live="polite" style="font-size: 48px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; color: {{col.amtColor}}; display: flex; align-items: center">{{col.amountTxt}}<span style="width: 3px; height: 42px; margin-left: 4px; border-radius: 2px; background: var(--acc); animation: vpCaret 1.05s steps(1) infinite"></span></span>
+      <span style="font-size: 13px; font-weight: 600; color: {{col.hintColor}}; text-align: center">{{col.hint}}</span>
+    </div>
+    <div class="hs" style="flex: none; display: flex; gap: 8px; margin: 0 -18px; padding: 0 18px">
+      <sc-for list="{{amtChips}}" as="c" hint-placeholder-count="3"><button class="tap chip snap" type="button" onClick="{{c.pick}}" style="background: {{c.bg}}; color: {{c.fg}}; border-color: {{c.bd}}">{{c.label}}</button></sc-for>
+    </div>
+    <div role="group" aria-label="How was it paid" style="flex: none; position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 4px; border-radius: 16px; background: var(--s3)">
+      <span aria-hidden="true" style="position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4); border-radius: 12px; background: var(--card); box-shadow: var(--sh); transform: translateX({{col.modeX}}); transition: transform .34s var(--spring)"></span>
+      <sc-for list="{{modes}}" as="m" hint-placeholder-count="4"><button class="tap" type="button" aria-pressed="{{m.sel}}" onClick="{{m.pick}}" style="position: relative; height: 40px; border: 0; background: transparent; color: {{m.fg}}; font-size: 13px; font-weight: 700">{{m.label}}</button></sc-for>
+    </div>
+    <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(46px, 1fr); gap: 8px">
+      <sc-for list="{{keys}}" as="k" hint-placeholder-count="12">
+        <button class="tap num" type="button" aria-label="{{k.aria}}" onClick="{{k.press}}" style="border: 0; border-radius: 16px; background: var(--s2); color: var(--fg); font-size: 24px; font-weight: 600; display: flex; align-items: center; justify-content: center">
+          <sc-if value="{{k.isDel}}" hint-placeholder-val="{{ false }}"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.del}}"></path></svg></sc-if>
+          <sc-if value="{{k.notDel}}" hint-placeholder-val="{{ true }}">{{k.k}}</sc-if>
+        </button>
+      </sc-for>
+    </div>
+    <button class="tap btn pri" type="button" onClick="{{col.confirm}}" style="flex: none; height: 58px; border-radius: 20px; font-size: 17px; opacity: {{col.btnOp}}">{{col.label}}</button>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{col.done}}" hint-placeholder-val="{{ false }}">
+  <div class="scroll" style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 18px 20px 28px; text-align: center">
+    <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="flex: none; animation: vpPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: vpDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: vpDraw .45s .5s var(--ease) both"></path></svg>
+    <h2 class="serif num" style="margin: 0; font-size: 32px; font-weight: 600; animation: vpRise .4s .2s var(--ease) both">{{col.doneAmt}} received</h2>
+    <span style="font-size: 14px; color: var(--mut); animation: vpRise .4s .28s var(--ease) both">{{col.doneStu}}</span>
+    <div style="width: 100%; border: 1.5px dashed var(--bds); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; animation: vpRise .4s .34s var(--ease) both">
+      <div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 12px; font-weight: 700; color: var(--mut)">रसीद · RECEIPT</span><span class="num" style="font-size: 13px; font-weight: 700">{{col.doneNo}}</span></div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: var(--mut)">Mode</span><span style="font-weight: 600">{{col.doneMode}}</span></div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: var(--mut)">Time</span><span class="num" style="font-weight: 600">{{col.doneTime}}</span></div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: var(--mut)">Still pending</span><span class="num" style="font-weight: 600">{{col.doneLeft}}</span></div>
+    </div>
+    <button class="tap btn pri" type="button" onClick="{{col.send}}" style="width: 100%; height: 54px; border-radius: 18px; font-size: 16px; animation: vpRise .4s .4s var(--ease) both"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>Send receipt on WhatsApp</button>
+    <div style="width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; animation: vpRise .4s .46s var(--ease) both">
+      <button class="tap btn sec" type="button" onClick="{{col.print}}"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.printer}}"></path></svg>Print</button>
+      <button class="tap btn sec" type="button" onClick="{{col.again}}"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>New payment</button>
+    </div>
+    <button class="tap btn" type="button" onClick="{{closeSheet}}" style="background: transparent; color: var(--acc); font-size: 15px">Done</button>
+    <span style="font-size: 12px; color: var(--mut); line-height: 1.5">Undo stays available for 10 minutes. A reversal writes a new entry — receipts are never edited.</span>
+    <button class="tap btn" type="button" onClick="{{col.undo}}" style="background: var(--bads); color: var(--bad)">Undo this payment</button>
+  </div>
+  </sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{sh.mark}}" hint-placeholder-val="{{ false }}">
+<section role="dialog" aria-label="Mark attendance for Class 9" style="position: absolute; left: 0; right: 0; bottom: 0; top: 50px; z-index: 31; background: var(--card); border-radius: 30px 30px 0 0; box-shadow: var(--shl); display: flex; flex-direction: column; animation: {{sheetAnim}}">
+  <div style="width: 40px; height: 5px; border-radius: 3px; background: var(--bd); margin: 8px auto 0; flex: none"></div>
+  <div style="flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 8px 18px 10px">
+    <div style="display: flex; flex-direction: column; gap: 2px"><h2 class="serif" style="margin: 0; font-size: 24px; font-weight: 600">Class 9 · today</h2><span style="font-size: 13px; color: var(--mut)">Class teacher on leave — marking as admin</span></div>
+    <button class="tap" type="button" aria-label="Close" onClick="{{closeSheet}}" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--s2); color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button>
+  </div>
+  <div style="flex: none; padding: 0 18px 10px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 13px"><span class="num" style="font-weight: 700">{{mk.done}} of 28 marked</span><span class="num" style="color: var(--mut)">P {{mk.p}} · A {{mk.a}} · H {{mk.h}}</span></div>
+    <div style="height: 6px; border-radius: 3px; background: var(--s3); overflow: hidden"><div style="height: 6px; width: {{mk.barW}}; background: var(--acc); transition: width .35s var(--ease)"></div></div>
+    <div style="display: flex; gap: 8px"><button class="tap btn soft" type="button" onClick="{{mk.allPresent}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Everyone present</button><button class="tap btn sec" type="button" onClick="{{mk.clear}}">Clear</button></div>
+  </div>
+  <div class="scroll" style="flex: 1; min-height: 0; padding: 0 18px 12px; display: flex; flex-direction: column">
+    <sc-for list="{{roster}}" as="r" hint-placeholder-count="10">
+      <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--bd)">
+        <span class="num" style="flex: none; width: 24px; font-size: 12px; color: var(--mut); font-weight: 700">{{r.roll}}</span>
+        <span style="flex: 1; min-width: 0; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</span>
+        <div role="group" aria-label="{{r.name}}" style="flex: none; display: flex; gap: 4px">
+          <button class="tap" type="button" aria-pressed="{{r.pOn}}" onClick="{{r.pickP}}" style="width: 44px; height: 40px; border-radius: 12px; border: 0; background: {{r.pBg}}; color: {{r.pFg}}; font-size: 14px; font-weight: 700">P</button>
+          <button class="tap" type="button" aria-pressed="{{r.aOn}}" onClick="{{r.pickA}}" style="width: 44px; height: 40px; border-radius: 12px; border: 0; background: {{r.aBg}}; color: {{r.aFg}}; font-size: 14px; font-weight: 700">A</button>
+          <button class="tap" type="button" aria-pressed="{{r.hOn}}" onClick="{{r.pickH}}" style="width: 44px; height: 40px; border-radius: 12px; border: 0; background: {{r.hBg}}; color: {{r.hFg}}; font-size: 14px; font-weight: 700">½</button>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div class="glass" style="flex: none; padding: 10px 18px 24px; border-top: 1px solid var(--bd)">
+    <button class="tap btn pri" type="button" onClick="{{mk.submit}}" style="width: 100%; height: 54px; border-radius: 18px; font-size: 16px; opacity: {{mk.btnOp}}">{{mk.label}}</button>
+  </div>
+</section>
+</sc-if>
+
+<sc-if value="{{sh.search}}" hint-placeholder-val="{{ false }}">
+<section role="dialog" aria-label="Search everything" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 32; background: var(--bg); display: flex; flex-direction: column; animation: {{searchAnim}}">
+  <div class="glass" style="flex: none; display: flex; align-items: center; gap: 6px; padding: 12px 12px 10px 6px; border-bottom: 1px solid var(--bd)">
+    <button class="tap" type="button" aria-label="Close search" onClick="{{closeSheet}}" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: var(--fg); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button>
+    <label style="position: relative; flex: 1; min-width: 0; height: 48px; border-radius: 24px; border: 2px solid var(--acc); background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 14px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search students, receipts, staff and pages</span><input ref="{{searchRef}}" type="search" value="{{q}}" onChange="{{onQ}}" placeholder="Name, SR no., phone, receipt…" style="flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; color: var(--fg); font-size: 16px"></label>
+  </div>
+  <div class="scroll" style="flex: 1; min-height: 0; padding: 14px 16px 30px; display: flex; flex-direction: column; gap: 16px">
+    <sc-if value="{{qEmpty}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 10px; animation: vpFade .25s var(--ease) both">
+        <h2 class="sech" style="padding: 0 4px">Recent</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px"><sc-for list="{{recent}}" as="c" hint-placeholder-count="3"><button class="tap chip" type="button" onClick="{{c.pick}}" style="background: var(--card); color: var(--fg)"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px; color: var(--mut)" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>{{c.label}}</button></sc-for></div>
+        <h2 class="sech" style="padding: 10px 4px 0">Jump to</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><sc-for list="{{jump}}" as="j" hint-placeholder-count="4"><sc-if value="{{j.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap" type="button" onClick="{{j.act}}" style="display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border-radius: 16px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); font-size: 14px; font-weight: 600; text-align: left"><svg class="i" viewBox="0 0 24 24" style="color: var(--pri)" aria-hidden="true"><path d="{{j.icon}}"></path></svg>{{j.t}}</button></sc-if><sc-if value="{{j.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{j.href}}" class="tap" style="display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border-radius: 16px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); font-size: 14px; font-weight: 600; text-align: left"><svg class="i" viewBox="0 0 24 24" style="color: var(--pri)" aria-hidden="true"><path d="{{j.icon}}"></path></svg>{{j.t}}</a></sc-if></sc-for></div>
+        <p style="margin: 8px 4px 0; font-size: 13px; color: var(--mut); line-height: 1.5">One box finds students, parents' phone numbers, receipt numbers, staff and any page.</p>
+      </div>
+    </sc-if>
+    <sc-if value="{{hasResStu}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <h2 class="sech" style="padding: 0 4px">Students</h2>
+        <div class="card" style="overflow: hidden">
+          <sc-for list="{{resStu}}" as="r" hint-placeholder-count="3">
+            <button class="tap" type="button" onClick="{{r.open}}" style="width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 0; border-top: {{r.border}}; background: transparent; color: var(--fg); text-align: left">
+              <span style="flex: none; width: 42px; height: 42px; border-radius: 21px; background: {{r.abg}}; color: {{r.afg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">{{r.ini}}</span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: 15px">{{r.h1}}<strong style="font-weight: 800; color: var(--acc)">{{r.h2}}</strong>{{r.h3}}</span><span style="font-size: 12px; color: var(--mut)">{{r.meta}}</span></span>
+              <span class="num" style="font-size: 13px; font-weight: 700; color: {{r.tone}}">{{r.amt}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{hasResAct}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <h2 class="sech" style="padding: 0 4px">Do it now</h2>
+        <sc-for list="{{resAct}}" as="a" hint-placeholder-count="2">
+          <sc-if value="{{a.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap" type="button" onClick="{{a.act}}" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; border-radius: 16px; border: {{a.bd}}; background: {{a.bg}}; color: {{a.fg}}; font-size: 15px; font-weight: 600; text-align: left"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg><span style="flex: 1">{{a.label}}</span><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></button></sc-if><sc-if value="{{a.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{a.href}}" class="tap" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; border-radius: 16px; border: {{a.bd}}; background: {{a.bg}}; color: {{a.fg}}; font-size: 15px; font-weight: 600; text-align: left"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg><span style="flex: 1">{{a.label}}</span><svg class="i" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a></sc-if>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{hasResRc}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <h2 class="sech" style="padding: 0 4px">Receipts</h2>
+        <sc-for list="{{resRc}}" as="r" hint-placeholder-count="1">
+          <button class="tap card" type="button" onClick="{{r.act}}" style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; color: var(--fg); text-align: left; box-shadow: none"><span style="flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--s2); color: var(--pri); display: flex; align-items: center; justify-content: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.receipt}}"></path></svg></span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 600">{{r.no}} · {{r.amt}}</span><span style="font-size: 12px; color: var(--mut)">{{r.who}} · {{r.date}}</span></span></button>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{hasResPages}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <h2 class="sech" style="padding: 0 4px">Pages</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><sc-for list="{{resPages}}" as="j" hint-placeholder-count="2"><sc-if value="{{j.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap" type="button" onClick="{{j.act}}" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px; border-radius: 16px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); font-size: 14px; font-weight: 600; text-align: left"><svg class="i" viewBox="0 0 24 24" style="color: var(--pri)" aria-hidden="true"><path d="{{j.icon}}"></path></svg>{{j.t}}</button></sc-if><sc-if value="{{j.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{j.href}}" class="tap" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px; border-radius: 16px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); font-size: 14px; font-weight: 600; text-align: left"><svg class="i" viewBox="0 0 24 24" style="color: var(--pri)" aria-hidden="true"><path d="{{j.icon}}"></path></svg>{{j.t}}</a></sc-if></sc-for></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{noRes}}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 40px 10px; text-align: center; font-size: 14px; color: var(--mut); animation: vpFade .25s var(--ease) both">Nothing matches “{{q}}”. Try an SR no., a phone number or a receipt number.</div>
+    </sc-if>
+  </div>
+</section>
+</sc-if>
+
+<!-- ============ TOAST ============ -->
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+  <div role="status" style="position: absolute; left: 14px; right: 14px; bottom: {{toastBottom}}; z-index: 40; background: var(--tbg); color: var(--tfg); border-radius: 18px; padding: 8px 8px 8px 16px; min-height: 52px; display: flex; align-items: center; gap: 10px; box-shadow: 0 14px 32px -10px rgba(0,0,0,.5); animation: vpToast .34s var(--spring) both">
+    <svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg>
+    <span style="flex: 1; font-size: 14px; line-height: 1.35">{{toastText}}</span>
+    <sc-if value="{{toastUndo}}" hint-placeholder-val="{{ false }}"><button class="tap" type="button" onClick="{{undoToast}}" style="flex: none; height: 40px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--tacs); color: var(--tacc); font-size: 14px; font-weight: 700">Undo</button></sc-if>
+  </div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["today","students","student","student-fees","student-attendance","student-marks","student-family","student-info","collect","collect-done","inbox","actions","search","attendance","mark","menu"],"default":"today"},"dark":{"editor":"boolean","default":false},"hindi":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+    const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
+    };
+    const mk = (id, name, cls, sr, roll, total, paid, o) => Object.assign({ id, name, cls, sr, roll, total, paid, bus: '', isNew: false, sib: [], father: '', mother: '', dob: '', since: '' }, o || {});
+    const S = [
+      mk('aarav', 'Aarav Sharma', 'Class 7', '1234', 12, 26400, 9000, { bus: 'Route 3', sib: ['diya'], father: 'Rakesh Sharma', mother: 'Sunita Sharma', dob: '14 Mar 2014', since: '2019' }),
+      mk('aarti', 'Aarti Kumawat', 'Class 10', '0981', 3, 31200, 31200, { father: 'Mahesh Kumawat', mother: 'Kiran Kumawat', dob: '2 Aug 2011', since: '2016' }),
+      mk('aarush', 'Aarush Jain', 'UKG', '1402', 2, 18600, 9300, { isNew: true, father: 'Nitin Jain', mother: 'Ritu Jain', dob: '9 Jan 2021', since: '2026' }),
+      mk('diya', 'Diya Sharma', 'Class 3', '1311', 8, 21600, 6600, { bus: 'Route 3', sib: ['aarav'], father: 'Rakesh Sharma', mother: 'Sunita Sharma', dob: '22 Jun 2018', since: '2022' }),
+      mk('ishita', 'Ishita Rathore', 'Class 12 Science', '0874', 5, 38400, 19200, { father: 'Vikram Rathore', mother: 'Meena Rathore', dob: '30 Nov 2008', since: '2014' }),
+      mk('kunal', 'Kunal Verma', 'Class 4', '1187', 15, 22800, 22800, { bus: 'Route 1', father: 'Sanjay Verma', mother: 'Pooja Verma', dob: '5 May 2017', since: '2021' }),
+      mk('mohit', 'Mohit Agarwal', 'Class 9', '1022', 19, 27600, 6900, { bus: 'Route 2', father: 'Anil Agarwal', mother: 'Seema Agarwal', dob: '17 Feb 2012', since: '2018' }),
+      mk('neha', 'Neha Joshi', 'Class 8', '1099', 11, 25800, 25800, { sib: ['rohit'], father: 'Prakash Joshi', mother: 'Kavita Joshi', dob: '8 Sep 2013', since: '2018' }),
+      mk('pooja', 'Pooja Mehta', 'Class 11 Commerce', '0933', 7, 34800, 17400, { father: 'Dinesh Mehta', mother: 'Anita Mehta', dob: '12 Dec 2009', since: '2015' }),
+      mk('riya', 'Riya Singh', 'Class 6', '1250', 21, 24600, 6150, { bus: 'Route 1', father: 'Mahendra Singh', mother: 'Sarita Kanwar', dob: '3 Apr 2015', since: '2020' }),
+      mk('rohit', 'Rohit Joshi', 'Class 5', '1376', 14, 23400, 0, { bus: 'Route 2', sib: ['neha'], father: 'Prakash Joshi', mother: 'Kavita Joshi', dob: '19 Jul 2016', since: '2021' }),
+      mk('tanvi', 'Tanvi Paliwal', 'LKG', '1420', 6, 17400, 8700, { isNew: true, father: 'Gopal Paliwal', mother: 'Rekha Paliwal', dob: '25 Oct 2022', since: '2026' })
+    ];
+    const c = (id, name, t, size, present, half, time, leave) => ({ id, name, t, size, present, half: half || 0, time: time || '', leave: !!leave });
+    const CLASSES = [
+      c('nur', 'Nursery', 'Ms. Kanwar', 18, 17, 0, '8:36'), c('lkg', 'LKG', 'Ms. Rathore', 20, 19, 0, '8:38'), c('ukg', 'UKG', 'Ms. Mehta', 22, 21, 1, '8:40'),
+      c('c1', 'Class 1', 'Ms. Jain', 23, 22, 0, '8:41'), c('c2', 'Class 2', 'Ms. Vyas', 25, 25, 0, '8:39'), c('c3', 'Class 3', 'Ms. Sharma', 24, null),
+      c('c4', 'Class 4', 'Mr. Verma', 29, 27, 1, '8:50'), c('c5', 'Class 5', 'Ms. Paliwal', 26, null), c('c6', 'Class 6', 'Ms. Bhati', 31, 30, 0, '8:52'),
+      c('c7', 'Class 7', 'Mr. Choudhary', 27, null), c('c8', 'Class 8', 'Mr. Solanki', 28, 26, 1, '8:55'), c('c9', 'Class 9', 'Mr. Meena', 28, null, 0, '', true),
+      c('c10', 'Class 10', 'Ms. Dave', 30, 28, 0, '8:47'), c('s11', '11 Science', 'Mr. Trivedi', 22, 21, 0, '9:02'), c('m11', '11 Commerce', 'Mr. Purohit', 18, null),
+      c('a11', '11 Arts', 'Ms. Chouhan', 14, 13, 0, '9:05'), c('s12', '12 Science', 'Mr. Bhatt', 20, 19, 0, '8:58'), c('m12', '12 Commerce', 'Ms. Kothari', 17, 16, 0, '9:10'),
+      c('a12', '12 Arts', 'Mr. Rawal', 12, 12, 0, '9:12')
+    ];
+    const INBOX = [
+      { id: 'sub', type: 'timetable', tag: 'Timetable', time: 'Today 8:05', title: 'Cover Period 3 · Class 9 Physics', body: 'Mr. Meena is on leave. Free in Period 3: Ms. Bhati (Science), Mr. Verma (Maths). Assigning sends the teacher a WhatsApp.', p: 'Assign Ms. Bhati', sx: 'Other teacher', ok: 'Ms. Bhati assigned · WhatsApp sent', no: '', short: 'Cover Period 3 · Class 9', sub: 'Mr. Meena on leave · 2 teachers free', quick: 'Assign' },
+      { id: 'cor', type: 'attendance', icon: 'edit', tag: 'Correction', time: '2 days ago', title: 'Riya Singh · Class 6 · 6 Oct', body: "Absent → present. Class teacher's reason: came late with a parent and signed in at the gate.", p: 'Approve', sx: 'Reject', ok: 'Correction approved for Riya Singh', no: 'Correction rejected', short: 'Correction · Riya Singh', sub: 'Class 6 · absent → present on 6 Oct', quick: 'Approve' },
+      { id: 'ref', type: 'money', tag: 'Refund', time: 'Yesterday', title: 'Refund ₹2,500 · Transport fee', body: 'Aman K., Class 10, left in September. Requested by the accountant.', p: 'Approve', sx: 'Reject', ok: 'Refund of ₹2,500 approved', no: 'Refund rejected', short: 'Refund ₹2,500', sub: 'Transport fee · by the accountant', quick: 'Review' },
+      { id: 'wo', type: 'money', tag: 'Write-off', time: 'Yesterday', title: 'Write off ₹1,200 old balance', body: 'Joshi family (Neha and Rohit). Reason on file: hardship. A write-off never counts as collection.', p: 'Approve', sx: 'Reject', ok: 'Write-off of ₹1,200 approved', no: 'Write-off rejected', short: 'Write-off ₹1,200', sub: 'Joshi family · hardship', quick: 'Review' },
+      { id: 'dup', type: 'students', tag: 'Student data', time: '3 days ago', title: 'Same SR no. on two records', body: 'SR 1187 appears twice for Kunal Verma in Class 4 — probably a double entry.', p: 'Merge records', sx: 'Keep both', ok: 'Records merged · SR 1187', no: 'Kept both records', short: 'Duplicate SR 1187', sub: 'Kunal Verma · Class 4', quick: 'Review' }
+    ];
+    const t = (tt, hi, ic, o) => Object.assign({ t: tt, hi, ic }, o || {});
+    const h = (hh, hi) => ({ h: hh, hi });
+    const MENU = [
+      h('Daily', 'रोज़ के काम'),
+      t('Attendance', 'उपस्थिति', 'calCheck', { go: 'attendance' }),
+      t('Substitutions', 'व्यवस्था कालांश', 'swap', { go: 'inbox', f: 'timetable' }),
+      t('Collect fee', 'फीस जमा', 'rupee', { collect: true }),
+      t('Dues & calls', 'बकाया व कॉल', 'phone', { go: 'students', seg: 'dues' }),
+      h('People', 'लोग'),
+      t('Students', 'विद्यार्थी', 'users', { go: 'students', seg: 'all' }),
+      t('Families', 'परिवार', 'home'),
+      t('Staff & roles', 'स्टाफ व अधिकार', 'shield'),
+      t('Admissions', 'प्रवेश', 'userPlus'),
+      h('Academics', 'पढ़ाई'),
+      t('Marks & exams', 'अंक व परीक्षा', 'clipboard'),
+      t('Report cards', 'रिपोर्ट कार्ड', 'grad'),
+      t('Timetable', 'समय-सारणी', 'clock'),
+      t('Calendar', 'शैक्षणिक कैलेंडर', 'calendar'),
+      t('Notes on children', 'बच्चों के नोट्स', 'edit'),
+      h('Money', 'फीस व हिसाब'),
+      t('Fee setup', 'फीस ढांचा', 'sliders'),
+      t('Receipts', 'रसीदें', 'receipt'),
+      t('Fee reminders', 'फीस रिमाइंडर', 'bell'),
+      t('Approvals & refunds', 'स्वीकृति व रिफंड', 'undo', { go: 'inbox', f: 'money' }),
+      t('Reports', 'रिपोर्ट', 'chart'),
+      t('Transport', 'परिवहन', 'bus', { go: 'students', seg: 'bus' }),
+      h('Messages', 'संदेश'),
+      t('WhatsApp notices', 'व्हाट्सऐप सूचना', 'megaphone'),
+      t('Sent messages', 'भेजे गए संदेश', 'message'),
+      h('System', 'सिस्टम'),
+      t('Import data', 'डेटा आयात', 'upload'),
+      t('Master data', 'कक्षा, रूट, छूट', 'database'),
+      t('Activity log', 'गतिविधि', 'activity'),
+      t('Backups & archive', 'बैकअप', 'archive'),
+      t('Settings', 'सेटिंग्स', 'settings'),
+      t('Money words', 'शब्दों का अर्थ', 'book'),
+      h('See the app as', 'दूसरे रूप में देखें'),
+      t('Teacher view', 'शिक्षक', 'grad'),
+      t('Accountant view', 'अकाउंटेंट', 'rupee'),
+      t('Academic coordinator view', 'शैक्षणिक समन्वयक', 'chart'),
+      t('Exam coordinator view', 'परीक्षा प्रभारी', 'clipboard')
+    ];
+    const ROSTER = ['Aditya Sharma', 'Bhavna Kumawat', 'Chetan Jain', 'Deepika Rathore', 'Farhan Khan', 'Gaurav Mehta', 'Harshita Joshi', 'Imran Qureshi', 'Jyoti Paliwal', 'Karan Singh', 'Lata Verma', 'Manish Agarwal', 'Naina Purohit', 'Om Prakash', 'Priya Sharma', 'Rahul Dave', 'Sakshi Bhati', 'Tarun Vyas', 'Usha Kanwar', 'Vikram Solanki', 'Yash Trivedi', 'Zoya Ali', 'Ankit Kothari', 'Bhumi Chouhan', 'Dev Rawal', 'Esha Bhatt', 'Hemant Jain', 'Kavya Mehta'];
+    const MARKS = {
+      half: { title: 'Half-yearly · September', rows: [['English', 78], ['Hindi', 85], ['Maths', 58], ['Science', 72], ['Social Sc.', 64]] },
+      unit: { title: 'Unit test 1 · July', rows: [['English', 72], ['Hindi', 80], ['Maths', 61], ['Science', 68], ['Social Sc.', 70]] }
+    };
+    this._d = { IC, S, CLASSES, INBOX, MENU, ROSTER, MARKS };
+    return this._d;
+  }
+
+  st() {
+    const p = this.props || {};
+    const start = p.start || 'today';
+    const base = {
+      screen: 'today', prev: 'today', anim: 'none', tab: 'overview', exam: 'half',
+      sheet: '', closing: false, step: 'amount', fromWho: false, sid: 'aarav', amount: '', mode: 'UPI', cq: '',
+      dark: !!p.dark, hindi: p.hindi !== false,
+      inboxF: 'all', done: {}, leaving: {},
+      attF: 'pending', reminded: {}, markedNow: {}, roster: {},
+      q: '', sq: '', seg: 'all', toast: null, payments: [], lastNo: ''
+    };
+    const part = {};
+    for (let i = 0; i < 14; i++) part[i] = i === 3 ? 'A' : (i === 9 ? 'H' : 'P');
+    const map = {
+      students: { screen: 'students' },
+      student: { screen: 'student', prev: 'students' },
+      'student-fees': { screen: 'student', prev: 'students', tab: 'fees' },
+      'student-attendance': { screen: 'student', prev: 'students', tab: 'attendance' },
+      'student-marks': { screen: 'student', prev: 'students', tab: 'marks' },
+      'student-family': { screen: 'student', prev: 'students', tab: 'family' },
+      'student-info': { screen: 'student', prev: 'students', tab: 'info' },
+      collect: { screen: 'student', prev: 'students', sheet: 'collect', step: 'amount', amount: '4200' },
+      'collect-done': { screen: 'student', prev: 'students', sheet: 'collect', step: 'done', amount: '4200', lastNo: 'R-0418', payments: [{ sid: 'aarav', amt: 4200, mode: 'UPI', no: 'R-0418', time: '10:42' }] },
+      inbox: { screen: 'inbox' },
+      actions: { sheet: 'actions' },
+      search: { sheet: 'search', q: 'aar' },
+      attendance: { screen: 'attendance', prev: 'today' },
+      mark: { screen: 'attendance', prev: 'today', sheet: 'mark', roster: part },
+      menu: { screen: 'menu' }
+    };
+    return Object.assign(base, map[start] || {}, this.state || {});
+  }
+
+  inr(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+  lakh(n) { return '₹' + (n / 100000).toFixed(1) + ' L'; }
+  haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch (e) { /* no haptics */ } }
+
+  calc(x, s) {
+    const extra = s.payments.filter((p) => p.sid === x.id).reduce((a, p) => a + p.amt, 0);
+    const paid = x.paid + extra;
+    const per = x.total / 4;
+    const meta = [['Installment 1', '15 Jul', 'Jul', true], ['Installment 2', '15 Sep', 'Sep', true], ['Installment 3', '15 Nov', 'Nov', false], ['Installment 4', '15 Jan', 'Jan', false]];
+    let left = paid;
+    let pending = 0;
+    let notDue = 0;
+    const inst = meta.map((m) => {
+      const got = Math.min(per, left);
+      left -= got;
+      const rem = per - got;
+      let status;
+      if (rem <= 0) status = 'Paid';
+      else if (m[3]) { status = got > 0 ? 'Part paid · overdue' : 'Overdue'; pending += rem; }
+      else { status = got > 0 ? 'Part paid' : 'Upcoming'; notDue += rem; }
+      return { label: m[0], date: m[1], mon: m[2], amt: per, got, rem, status };
+    });
+    return { paidNow: paid, due: Math.max(0, x.total - paid), pending, notDue, inst, pct: Math.min(100, Math.round(paid / x.total * 100)), advance: Math.max(0, left) };
+  }
+
+  go(screen, extra) {
+    const s = this.st();
+    const tabs = ['today', 'students', 'inbox', 'menu'];
+    const anim = (tabs.indexOf(screen) >= 0 && tabs.indexOf(s.screen) >= 0) ? 'tab' : 'push';
+    const prev = s.screen === screen ? s.prev : s.screen;
+    this.setState(Object.assign({ screen, prev, anim, sheet: '', closing: false }, extra || {}));
+    this.haptic();
+  }
+
+  back() {
+    const s = this.st();
+    const to = (s.prev && s.prev !== s.screen) ? s.prev : 'today';
+    this.setState({ screen: to, prev: 'today', anim: 'pop' });
+    this.haptic();
+  }
+
+  openSheet(name, extra) {
+    clearTimeout(this._ct);
+    this.setState(Object.assign({ sheet: name, closing: false }, extra || {}));
+    this.haptic();
+  }
+
+  closeSheet() {
+    if (!this.st().sheet) return;
+    this.setState({ closing: true });
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 230);
+  }
+
+  toast(text, undo) {
+    const id = Date.now() + Math.random();
+    this._undo = undo || null;
+    this.setState({ toast: { id, text, undo: !!undo } });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => { const cur = this.st().toast; if (cur && cur.id === id) this.setState({ toast: null }); }, 4200);
+  }
+
+  undoToast() {
+    const f = this._undo;
+    this._undo = null;
+    this.setState({ toast: null });
+    if (f) f();
+    this.haptic();
+  }
+
+  resolve(id, msg) {
+    const s = this.st();
+    const leaving = Object.assign({}, s.leaving);
+    leaving[id] = true;
+    this.setState({ leaving });
+    setTimeout(() => {
+      const s2 = this.st();
+      const l2 = Object.assign({}, s2.leaving);
+      delete l2[id];
+      const d2 = Object.assign({}, s2.done);
+      d2[id] = true;
+      this.setState({ leaving: l2, done: d2 });
+    }, 330);
+    this.toast(msg, () => { const s3 = this.st(); const d3 = Object.assign({}, s3.done); delete d3[id]; this.setState({ done: d3 }); });
+    this.haptic(12);
+  }
+
+  remind(ids, silent) {
+    const s = this.st();
+    const before = s.reminded;
+    const r = Object.assign({}, before);
+    ids.forEach((id) => { r[id] = '10:05'; });
+    this.setState({ reminded: r });
+    if (!silent) this.toast(ids.length === 1 ? 'Reminder sent on WhatsApp' : 'Reminded ' + ids.length + ' class teachers on WhatsApp', () => this.setState({ reminded: before }));
+    this.haptic(12);
+  }
+
+  openCollect(sid) {
+    if (sid) {
+      const D = this.data();
+      const s = this.st();
+      const x = D.S.filter((y) => y.id === sid)[0];
+      const c = this.calc(x, s);
+      this.openSheet('collect', { step: 'amount', sid, amount: c.pending ? String(c.pending) : '', mode: 'UPI', fromWho: false });
+    } else {
+      this.openSheet('collect', { step: 'who', cq: '', fromWho: true });
+    }
+  }
+
+  pressKey(k) {
+    const a = this.st().amount || '';
+    let n = a;
+    if (k === 'del') n = a.slice(0, -1);
+    else if (a.length < 7) n = (a + k).replace(/^0+/, '');
+    this.setState({ amount: n });
+    this.haptic(6);
+  }
+
+  confirmCollect() {
+    const s = this.st();
+    const amt = Number(s.amount || 0);
+    if (!amt) { this.toast('Type the amount received first'); return; }
+    const no = 'R-0' + (418 + s.payments.length);
+    const mins = 42 + s.payments.length;
+    this.setState({ payments: s.payments.concat([{ sid: s.sid, amt, mode: s.mode, no, time: '10:' + mins }]), step: 'done', lastNo: no });
+    this.haptic([10, 40, 14]);
+  }
+
+  undoPay(no) {
+    const s = this.st();
+    this.setState({ payments: s.payments.filter((p) => p.no !== no) });
+    this.closeSheet();
+    this.toast('Payment undone · ' + no + ' cancelled');
+  }
+
+  setMark(i, v) {
+    const s = this.st();
+    const r = Object.assign({}, s.roster);
+    r[i] = v;
+    this.setState({ roster: r });
+    this.haptic(6);
+  }
+
+  allPresent() {
+    const r = {};
+    for (let i = 0; i < 28; i++) r[i] = 'P';
+    this.setState({ roster: r });
+    this.haptic(12);
+  }
+
+  submitMark() {
+    const s = this.st();
+    const vals = Object.keys(s.roster).map((k) => s.roster[k]);
+    if (vals.length < 28) { this.toast((28 - vals.length) + ' still to mark — “not marked” never counts as present'); return; }
+    const p = vals.filter((v) => v === 'P').length;
+    const a = vals.filter((v) => v === 'A').length;
+    const h = vals.filter((v) => v === 'H').length;
+    const m = Object.assign({}, s.markedNow);
+    m.c9 = { p, a, h, time: '10:46' };
+    this.setState({ markedNow: m, attF: 'marked' });
+    this.closeSheet();
+    this.toast('Class 9 submitted · ' + p + ' present, ' + a + ' absent', () => { const s2 = this.st(); const m2 = Object.assign({}, s2.markedNow); delete m2.c9; this.setState({ markedNow: m2 }); });
+    this.haptic([10, 40, 14]);
+  }
+
+  renderVals() {
+    const QHREF = { "Collect fee": "MPX-PayDesk.dc.html", "Send notice": "M-Messages-Compose.dc.html", "Add student": "M-Admissions-Student.dc.html" };
+    const L = (o, href) => Object.assign(o, { href: href || "#", isLink: !!href, isBtn: !href });
+    const MHREF = {"Substitutions": "M-Timetable-Subs.dc.html", "Dues & calls": "M-Dues.dc.html", "Families": "M-StudentTools-Families.dc.html", "Staff & roles": "M-Staff.dc.html", "Admissions": "M-Admissions.dc.html", "Marks & exams": "M-Exams.dc.html", "Report cards": "M-Exams-ReportCards.dc.html", "Timetable": "M-Timetable.dc.html", "Calendar": "M-Calendar.dc.html", "Fee setup": "M-FeeSetup.dc.html", "Receipts": "M-Fees.dc.html", "Fee reminders": "M-Reminders.dc.html", "Reports": "M-Reports.dc.html", "WhatsApp notices": "M-Messages-Compose.dc.html", "Sent messages": "M-Messages.dc.html", "Import data": "M-StudentTools.dc.html", "Master data": "M-Settings.dc.html", "Activity log": "M-Settings.dc.html", "Backups & archive": "M-Settings.dc.html", "Settings": "M-Settings.dc.html", "Money words": "M-Settings-Glossary.dc.html", "Teacher view": "M-TchHome.dc.html", "Collect fee": "MPX-PayDesk.dc.html", "Notes on children": "M-Notes.dc.html", "Accountant view": "M-AccHome.dc.html", "Academic coordinator view": "M-AcadHome.dc.html", "Exam coordinator view": "M-ExamHome.dc.html"};
+    const D = this.data();
+    const s = this.st();
+    const IC = D.IC;
+    const inr = (n) => this.inr(n);
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    const tones = [['var(--accs)', 'var(--accfg)'], ['var(--infos)', 'var(--info)'], ['var(--oks)', 'var(--ok)'], ['var(--warns)', 'var(--warnfg)'], ['var(--s3)', 'var(--fg)']];
+    const initials = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('');
+    const ON = { bg: 'var(--pri)', fg: 'var(--prifg)', bd: 'var(--pri)' };
+    const OFF = { bg: 'var(--card)', fg: 'var(--fg)', bd: 'var(--bd)' };
+    const delay = (i) => (Math.min(i, 12) * 35) + 'ms';
+    const border = (i) => (i === 0 ? '0' : '1px solid var(--bd)');
+    const toastOnly = (msg) => () => this.toast(msg);
+
+    // ---------- students ----------
+    const all = D.S.map((x, i) => Object.assign({}, x, this.calc(x, s), { abg: tones[i % 5][0], afg: tones[i % 5][1], ini: initials(x.name) }));
+    const byId = {};
+    all.forEach((x) => { byId[x.id] = x; });
+    const cur = byId[s.sid] || byId.aarav;
+    const statusOf = (x) => (x.pending > 0 ? { amt: inr(x.pending), sub: 'pending today', tone: 'var(--bad)' } : (x.due > 0 ? { amt: 'On track', sub: inr(x.due) + ' later', tone: 'var(--fg)' } : { amt: 'Paid up', sub: 'year clear', tone: 'var(--ok)' }));
+    const match = (x, q) => !q || x.name.toLowerCase().indexOf(q) >= 0 || x.sr.indexOf(q) >= 0 || x.cls.toLowerCase().indexOf(q) >= 0 || x.father.toLowerCase().indexOf(q) >= 0;
+    const segDefs = [['all', 'All', () => true], ['dues', 'Pending', (x) => x.pending > 0], ['bus', 'On bus', (x) => !!x.bus], ['new', 'New this year', (x) => x.isNew], ['paid', 'Paid up', (x) => x.due === 0]];
+    const segFn = (segDefs.filter((d) => d[0] === s.seg)[0] || segDefs[0])[2];
+    const segs = segDefs.map((d) => { const sel = d[0] === s.seg; const k = sel ? ON : OFF; return { label: d[1], count: String(all.filter(d[2]).length), bg: k.bg, fg: k.fg, bd: k.bd, pressed: sel ? 'true' : 'false', pick: () => { this.setState({ seg: d[0] }); this.haptic(6); } }; });
+    const sq = (s.sq || '').trim().toLowerCase();
+    const stuList = all.filter(segFn).filter((x) => match(x, sq)).sort((a, b) => (a.name < b.name ? -1 : 1)).map((x, i) => {
+      const st = statusOf(x);
+      return {
+        name: x.name, meta: x.cls + ' · SR ' + x.sr + (x.bus ? ' · ' + x.bus : ''), ini: x.ini, abg: x.abg, afg: x.afg,
+        amt: st.amt, amtSub: st.sub, tone: st.tone, delay: delay(i),
+        open: () => this.go('student', { sid: x.id, tab: 'overview' }),
+        call: () => this.toast('Calling ' + x.father + ' (father)…'),
+        wa: () => this.toast('Opening WhatsApp for ' + x.father + '…'),
+        collect: () => this.openCollect(x.id), href: x.id === 'aarav' ? 'MPX-PayDesk-Student.dc.html' : 'MPX-PayDesk.dc.html', isLink: true, isBtn: false
+      };
+    });
+
+    // ---------- money today ----------
+    const sessionAmt = sum(s.payments.map((p) => p.amt));
+    const upi = 9 + s.payments.filter((p) => p.mode === 'UPI').length;
+    const cash = 5 + s.payments.filter((p) => p.mode === 'Cash').length;
+    const other = s.payments.filter((p) => p.mode !== 'UPI' && p.mode !== 'Cash').length;
+    const rc = 14 + s.payments.length;
+
+    // ---------- attendance ----------
+    const cls = D.CLASSES.map((k) => { const m = s.markedNow[k.id]; return m ? Object.assign({}, k, { present: m.p, half: m.h, time: m.time, fresh: true }) : k; });
+    const pend = cls.filter((k) => k.present == null);
+    const marked = cls.filter((k) => k.present != null);
+    const P = sum(marked.map((k) => k.present));
+    const H = sum(marked.map((k) => k.half));
+    const A = sum(marked.map((k) => k.size - k.present - k.half));
+    const presentPct = Math.round((P + H / 2) / Math.max(1, P + A + H) * 100);
+    const remindable = pend.filter((k) => !k.leave && !s.reminded[k.id]);
+    const leavePend = pend.filter((k) => k.leave);
+    const remindAllFn = () => {
+      const ids = remindable.map((k) => k.id);
+      if (!ids.length) return;
+      this.remind(ids, true);
+      this.resolve('att', 'Reminded ' + ids.length + ' class teachers on WhatsApp' + (leavePend.length ? ' · Class 9 still needs you' : ''));
+    };
+
+    // ---------- inbox ----------
+    const typeMeta = { attendance: ['var(--warns)', 'var(--warnfg)', 'calCheck'], timetable: ['var(--infos)', 'var(--info)', 'swap'], money: ['var(--accs)', 'var(--accfg)', 'rupee'], students: ['var(--s3)', 'var(--fg)', 'alert'] };
+    const attItem = {
+      id: 'att', type: 'attendance', tag: 'Attendance', time: 'Today 9:20',
+      title: pend.length + (pend.length === 1 ? " class hasn't" : " classes haven't") + ' marked attendance',
+      body: pend.map((k) => k.name).join(', ') + '. “Not marked” is never counted as present.',
+      p: remindable.length ? 'Remind on WhatsApp' : 'Open board', sx: 'Open board',
+      short: pend.length + (pend.length === 1 ? ' class' : ' classes') + ' not marked', sub: 'Period 1 ended 9:20', quick: remindable.length ? 'Remind' : 'Open'
+    };
+    const items = [attItem].concat(D.INBOX).filter((it) => !s.done[it.id] && !(it.id === 'att' && pend.length === 0));
+    const actFor = (it) => {
+      if (it.id === 'att') return { p: remindable.length ? remindAllFn : () => this.go('attendance'), sx: () => this.go('attendance'), sShow: remindable.length > 0, quick: remindable.length ? remindAllFn : () => this.go('attendance') };
+      if (it.id === 'sub') return { p: () => this.resolve('sub', it.ok), sx: toastOnly('Showing every teacher free in Period 3'), sShow: true, quick: () => this.resolve('sub', it.ok) };
+      if (it.id === 'cor') return { p: () => this.resolve(it.id, it.ok), sx: () => this.resolve(it.id, it.no), sShow: true, quick: () => this.resolve(it.id, it.ok) };
+      return { p: () => this.resolve(it.id, it.ok), sx: () => this.resolve(it.id, it.no), sShow: true, quick: () => this.go('inbox', { inboxF: it.type }) };
+    };
+    const decorate = (it, i) => {
+      const tm = typeMeta[it.type];
+      const a = actFor(it);
+      return {
+        id: it.id, tag: it.tag, time: it.time, title: it.title, body: it.body, tbg: tm[0], tfg: tm[1], icon: IC[it.icon || tm[2]],
+        pLabel: it.p, sLabel: it.sx, sShow: a.sShow, pAct: a.p, sAct: a.sx, sColor: (it.sx === 'Reject' ? 'var(--bad)' : 'var(--fg)'),
+        anim: s.leaving[it.id] ? 'vpLeave .34s var(--ease) forwards' : 'vpRise .44s var(--ease) both', delay: s.leaving[it.id] ? '0ms' : delay(i),
+        short: it.short, sub: it.sub, quickLabel: it.quick, quick: a.quick, border: border(i)
+      };
+    };
+    const chipDefs = [['all', 'All'], ['attendance', 'Attendance'], ['money', 'Money'], ['timetable', 'Timetable'], ['students', 'Students']];
+    const inboxChips = chipDefs.map((d) => { const sel = d[0] === s.inboxF; const k = sel ? ON : OFF; return { label: d[1], count: String(d[0] === 'all' ? items.length : items.filter((it) => it.type === d[0]).length), bg: k.bg, fg: k.fg, bd: k.bd, pressed: sel ? 'true' : 'false', pick: () => { this.setState({ inboxF: d[0] }); this.haptic(6); } }; });
+    const inboxList = items.filter((it) => s.inboxF === 'all' || it.type === s.inboxF).map(decorate);
+    const topNeeds = items.slice(0, 3).map(decorate);
+
+    // ---------- today ----------
+    const subDone = !!s.done.sub;
+    const coverN = subDone ? 4 : 3;
+    const pace = (() => {
+      const expected = 3120000;
+      const collected = 1860000 + sessionAmt;
+      const pct = collected / expected;
+      const gap = Math.max(0, 0.62 * expected - collected);
+      return {
+        collected: this.lakh(collected), expected: this.lakh(expected), pctTxt: Math.round(pct * 100) + '%', barW: (pct * 100).toFixed(1) + '%', markerL: '62%',
+        gapTxt: gap > 0 ? inr(Math.round(gap / 1000) * 1000) + ' behind where the year should be' : 'On pace for the year', tone: gap > 0 ? 'var(--warnfg)' : 'var(--ok)',
+        catchUp: gap > 0 ? 'Clearing ' + inr(Math.ceil(gap / 23 / 100) * 100) + ' a day for the remaining 23 days of October puts the year back on pace.' : 'Collections are on pace. Keep the reminders going.'
+      };
+    })();
+    const tl = [
+      { time: '08:00', title: 'Assembly', sub: 'Done', state: 'past', act: toastOnly('Assembly is done for today') },
+      { time: '09:20', title: 'Attendance closes', sub: pend.length ? pend.length + ' classes not marked yet' : 'All 19 classes marked', state: pend.length ? 'warn' : 'past', act: () => this.go('attendance') },
+      { time: '10:40', title: 'Period 3 · Class 9 Physics', sub: subDone ? 'Ms. Bhati covering · WhatsApp sent' : 'Needs a substitute — Mr. Meena on leave', state: 'next', act: () => this.go('inbox', { inboxF: 'timetable' }) },
+      { time: '13:30', title: 'PTM · Class 10', sub: 'Parents meet subject teachers in the hall', state: 'later', act: toastOnly('PTM details open from the calendar') },
+      { time: '16:00', title: 'Fee reminders go out', sub: '23 families on WhatsApp · automatic', state: 'later', act: toastOnly('Reminder run: 23 families, sent at 4:00 pm') }
+    ];
+    const timeline = tl.map((e, i) => ({
+      time: e.time, title: e.title, sub: e.sub, act: e.act,
+      timeColor: e.state === 'next' ? 'var(--acc)' : (e.state === 'past' ? 'var(--sub)' : 'var(--fg)'),
+      titleColor: e.state === 'past' ? 'var(--mut)' : 'var(--fg)',
+      dot: e.state === 'past' ? 'var(--bds)' : (e.state === 'warn' ? 'var(--warn)' : (e.state === 'next' ? 'var(--acc)' : 'var(--card)')),
+      ring: e.state === 'later' ? '2px solid var(--bds)' : '0',
+      pulse: e.state === 'next' ? 'vpPulse2 2s infinite' : 'none',
+      lineOp: i === tl.length - 1 ? '0' : '1'
+    }));
+    const weekV = [92, 95, 91, presentPct, 0, 0];
+    const week = ['Mon', 'Tue', 'Wed', 'Today', 'Fri', 'Sat'].map((d, i) => ({ d, v: weekV[i] ? weekV[i] + '' : '–', h: weekV[i] ? Math.round(weekV[i] * 0.56) + 'px' : '6px', c: i === 3 ? 'var(--acc)' : (weekV[i] ? 'var(--pri)' : 'var(--s3)'), lc: i === 3 ? 'var(--fg)' : 'var(--mut)', lw: i === 3 ? '700' : '500', delay: (i * 60) + 'ms' }));
+    const quick4 = [
+      { label: 'Collect fee', icon: IC.rupee, bg: 'var(--pri)', fg: 'var(--prifg)', act: () => this.openCollect() },
+      { label: 'Attendance', icon: IC.calCheck, bg: 'var(--card)', fg: 'var(--pri)', act: () => this.go('attendance') },
+      { label: 'Send notice', icon: IC.megaphone, bg: 'var(--card)', fg: 'var(--pri)', act: toastOnly('Opening the notice composer') },
+      { label: 'Add student', icon: IC.userPlus, bg: 'var(--card)', fg: 'var(--pri)', act: toastOnly('Opening the admission form') }
+    ].map((a, i) => L(Object.assign(a, { delay: delay(i) }), QHREF[a.label]));
+    const callsN = 13 + all.filter((x) => x.pending > 0).length;
+    const tday = {
+      fees: inr(38400 + sessionAmt), modes: rc + ' receipts · UPI ' + upi + ' · Cash ' + cash + (other ? ' · Other ' + other : ''),
+      spark: '2,50 22,48 42,44 62,36 82,27 102,17 124,6',
+      marked: marked.length + '/19', presentPct: presentPct + '% present', ringOff: (138.2 * (1 - marked.length / 19)).toFixed(1),
+      cover: [0, 1, 2, 3, 4].map((i) => ({ bg: i < coverN ? '#81DAE4' : 'var(--navb)' })), coverTxt: coverN + ' of 5 periods covered',
+      calls: String(callsN)
+    };
+
+    // ---------- student 360 ----------
+    const sibs = cur.sib.map((id) => byId[id]).filter(Boolean);
+    const fam = [cur].concat(sibs);
+    const chips = [{ label: 'Active', bg: 'var(--oks)', fg: 'var(--ok)' }];
+    if (cur.bus) chips.push({ label: 'Bus · ' + cur.bus, bg: 'var(--infos)', fg: 'var(--info)' });
+    if (sibs.length) chips.push({ label: sibs.length + (sibs.length === 1 ? ' sibling' : ' siblings'), bg: 'var(--s3)', fg: 'var(--fg)' });
+    if (cur.isNew) chips.push({ label: 'New this year', bg: 'var(--accs)', fg: 'var(--accfg)' });
+    const examKey = s.exam === 'unit' ? 'unit' : 'half';
+    const ex = D.MARKS[examKey];
+    const avg = Math.round(sum(ex.rows.map((r) => r[1])) / ex.rows.length);
+    const halfAvg = Math.round(sum(D.MARKS.half.rows.map((r) => r[1])) / D.MARKS.half.rows.length);
+    const marksRows = ex.rows.map((r, i) => ({ subject: r[0], score: String(r[1]), width: r[1] + '%', color: r[1] < 60 ? 'var(--warn)' : 'var(--pri)', delay: (i * 60) + 'ms' }));
+    const setTab = (k) => () => { this.setState({ tab: k }); this.haptic(6); };
+    const tabDefs = [['overview', 'Overview'], ['fees', 'Fees'], ['attendance', 'Attendance'], ['marks', 'Marks'], ['family', 'Family'], ['info', 'Info']];
+    const tabs = tabDefs.map((d) => { const sel = d[0] === s.tab; const k = sel ? ON : OFF; return { label: d[1], sel: sel ? 'true' : 'false', bg: k.bg, fg: k.fg, bd: k.bd, pick: setTab(d[0]) }; });
+    const tabIs = {};
+    tabDefs.forEach((d) => { tabIs[d[0]] = d[0] === s.tab; });
+    const stMeta = { 'Paid': ['var(--oks)', 'var(--ok)', 'var(--ok)'], 'Overdue': ['var(--bads)', 'var(--bad)', 'var(--bad)'], 'Part paid · overdue': ['var(--bads)', 'var(--bad)', 'var(--bad)'], 'Upcoming': ['var(--s3)', 'var(--mut)', 'var(--bds)'], 'Part paid': ['var(--accs)', 'var(--accfg)', 'var(--acc)'] };
+    const inst = cur.inst.map((m, i) => {
+      const sm = stMeta[m.status];
+      const filled = m.rem <= 0 ? 100 : (m.got > 0 ? m.got / m.amt * 100 : ((m.status === 'Overdue') ? 100 : 0));
+      return {
+        label: m.label, date: m.date, mon: m.mon, amtTxt: inr(m.amt), status: m.status, sbg: sm[0], sfg: sm[1],
+        barW: filled.toFixed(0) + '%', barC: m.status === 'Overdue' ? 'var(--bads)' : sm[2], lc: m.status.indexOf('overdue') >= 0 || m.status === 'Overdue' ? 'var(--bad)' : 'var(--mut)',
+        paidLine: m.rem <= 0 ? 'Paid in full' : (m.got > 0 ? inr(m.got) + ' paid · ' + inr(m.rem) + ' left' : inr(m.rem) + ' to pay'),
+        border: border(i), delay: (i * 80) + 'ms'
+      };
+    });
+    const per = cur.total / 4;
+    const rn = (k) => 'R-0' + String(100 + ((Number(cur.sr) * (k + 3)) % 300));
+    const baseR = cur.id === 'aarav' ? [{ no: 'R-0412', date: '2 Oct', mode: 'UPI', amt: 2400 }, { no: 'R-0127', date: '12 Jul', mode: 'Cash', amt: 6600 }]
+      : (cur.paid > per ? [{ no: rn(1), date: '14 Sep', mode: 'UPI', amt: cur.paid - per }, { no: rn(0), date: '11 Jul', mode: 'Cash', amt: per }] : (cur.paid > 0 ? [{ no: rn(0), date: '11 Jul', mode: 'Cash', amt: cur.paid }] : []));
+    const sessR = s.payments.filter((p) => p.sid === cur.id).slice().reverse().map((p) => ({ no: p.no, date: 'Today ' + p.time, mode: p.mode, amt: p.amt, fresh: true }));
+    const receipts = sessR.concat(baseR).map((r, i) => ({ no: r.no, date: r.date, mode: r.mode, amtTxt: inr(r.amt), isNew: !!r.fresh, border: border(i), send: toastOnly('Receipt ' + r.no + ' sent to ' + cur.father + ' on WhatsApp') }));
+    const looks = {
+      P: ['var(--okm)', 'var(--ok)', '0'], A: ['var(--bad)', 'var(--onsolid)', '0'], H: ['var(--warnm)', 'var(--warnfg)', '0'],
+      X: ['var(--s3)', 'var(--mut)', '0'], S: ['var(--s3)', 'var(--sub)', '0'], T: ['var(--okm)', 'var(--ok)', '2px solid var(--pri)'],
+      F: ['transparent', 'var(--sub)', '1px dashed var(--bd)'], B: ['transparent', 'transparent', '0']
+    };
+    const names = { P: 'Present', A: 'Absent', H: 'Half day', X: 'Holiday', S: 'Sunday', T: 'Today · present', F: 'Not yet', B: '' };
+    const heatSrc = [['14', 'P'], ['15', 'P'], ['16', 'P'], ['17', 'P'], ['18', 'P'], ['19', 'P'], ['21', 'P'], ['22', 'P'], ['23', 'A'], ['24', 'P'], ['25', 'P'], ['26', 'P'], ['28', 'P'], ['29', 'P'], ['30', 'H'], ['1', 'P'], ['2', 'X'], ['3', 'P'], ['5', 'P'], ['6', 'A'], ['7', 'P'], ['8', 'T'], ['9', 'F'], ['10', 'F']];
+    const heat = heatSrc.map((d, i) => ({ text: d[0], title: d[0] + ': ' + names[d[1]], bg: looks[d[1]][0], fg: looks[d[1]][1], bd: looks[d[1]][2], delay: (i * 18) + 'ms' }));
+    const octStat = { 1: 'P', 2: 'X', 3: 'P', 4: 'S', 5: 'P', 6: 'A', 7: 'P', 8: 'T' };
+    const cal = [];
+    for (let b = 0; b < 3; b++) cal.push({ text: '', title: '', bg: 'transparent', fg: 'transparent', bd: '0', delay: '0ms' });
+    for (let d = 1; d <= 31; d++) {
+      const dow = (d + 2) % 7;
+      const k = octStat[d] || (dow === 6 ? 'S' : 'F');
+      cal.push({ text: String(d), title: d + ' Oct: ' + names[k] + (d === 2 ? ' (Gandhi Jayanti)' : ''), bg: looks[k][0], fg: looks[k][1], bd: looks[k][2], delay: (d * 12) + 'ms' });
+    }
+    const notes = cur.id === 'aarav' ? [{ text: 'Not submitting his Science lab notebook — will check again on Monday.', by: 'Ms. Bhati · Science teacher · 7 Oct · Studies · spoken note' }, { text: 'Father promised ₹4,200 by 15 Oct.', by: 'Janmejay · 2 Oct · Fees' }, { text: 'Weak in Maths — Saturday extra class suggested to parents.', by: 'Class teacher · 28 Sep · Academics' }] : [];
+    const famPend = sum(fam.map((x) => x.pending));
+    const curSt = statusOf(cur);
+    const stu = {
+      name: cur.name, ini: cur.ini, abg: cur.abg, afg: cur.afg,
+      meta: cur.cls + ' · SR ' + cur.sr + ' · Roll ' + cur.roll,
+      ringOff: (276.5 * (1 - cur.pct / 100)).toFixed(1), ringOff2: (163.4 * (1 - cur.pct / 100)).toFixed(1),
+      pctTxt: cur.pct + '% of the year’s fees paid',
+      chips,
+      pendingTxt: inr(cur.pending), pendingTone: cur.pending > 0 ? 'var(--bad)' : 'var(--ok)',
+      paidTxt: inr(cur.paidNow), totalTxt: inr(cur.total), notDueTxt: inr(cur.notDue),
+      collectLabel: cur.pending > 0 ? 'Collect ' + inr(cur.pending) : 'Collect fee'
+    };
+    const stuStats = [
+      { k: 'Pending today', v: inr(cur.pending), tone: cur.pending > 0 ? 'var(--bad)' : 'var(--ok)', pick: setTab('fees') },
+      { k: 'Attendance', v: '88%', tone: 'var(--fg)', pick: setTab('attendance') },
+      { k: 'Half-yearly', v: halfAvg + '%', tone: 'var(--fg)', pick: setTab('marks') }
+    ];
+    const parents = [[cur.father, 'Father', '98••• ••' + String(200 + Number(cur.sr) % 99)], [cur.mother, 'Mother', '94••• ••' + String(300 + Number(cur.sr) % 97)]].map((p, i) => ({ name: p[0], role: p[1], phone: p[2], ini: initials(p[0]), border: border(i), call: toastOnly('Calling ' + p[0] + '…'), wa: toastOnly('Opening WhatsApp for ' + p[0] + '…') }));
+    const sibList = sibs.map((x) => { const st = statusOf(x); return { name: x.name, meta: x.cls + ' · SR ' + x.sr, ini: x.ini, abg: x.abg, afg: x.afg, amt: st.amt, tone: st.tone, open: () => this.setState({ sid: x.id, tab: 'overview', anim: 'push', screen: 'student' }) }; });
+    const info = [
+      ['SR number', cur.sr], ['Class and roll', cur.cls + ' · Roll ' + cur.roll], ['Date of birth', cur.dob], ['With us since', cur.since],
+      ['Transport', cur.bus || 'Not on transport'], ['Father', cur.father], ['Mother', cur.mother], ['Discount', 'None'], ['APAAR ID', ''], ['Address', '']
+    ].map((r, i) => ({ k: r[0], v: r[1] || 'Not filled', color: r[1] ? 'var(--fg)' : 'var(--warn)', border: border(i) }));
+
+    // ---------- attendance screen ----------
+    const attDefs = [['pending', 'Not marked · ' + pend.length], ['marked', 'Marked · ' + marked.length], ['all', 'All · ' + cls.length]];
+    const attIdx = Math.max(0, attDefs.map((d) => d[0]).indexOf(s.attF));
+    const attSeg = attDefs.map((d) => ({ label: d[1], sel: d[0] === s.attF ? 'true' : 'false', fg: d[0] === s.attF ? 'var(--fg)' : 'var(--mut)', pick: () => { this.setState({ attF: d[0] }); this.haptic(6); } }));
+    const pendRows = pend.map((k) => {
+      if (k.leave) return { name: k.name, sub: k.t + ' · on leave today', dot: 'var(--warn)', btn: 'Mark it', bg: 'var(--pri)', fg: 'var(--prifg)', act: () => this.openSheet('mark') };
+      if (s.reminded[k.id]) return { name: k.name, sub: k.t + ' · reminded at ' + s.reminded[k.id], dot: 'var(--warn)', btn: 'Call', bg: 'var(--infos)', fg: 'var(--info)', act: toastOnly('Calling ' + k.t + '…') };
+      return { name: k.name, sub: k.t + ' · class teacher', dot: 'var(--warn)', btn: 'Remind', bg: 'var(--accs)', fg: 'var(--accfg)', act: () => this.remind([k.id]) };
+    });
+    const markedRows = marked.slice().sort((a, b) => (a.time < b.time ? 1 : -1)).map((k) => {
+      const absent = k.size - k.present - k.half;
+      const subTxt = (absent === 0 && k.half === 0 ? 'All ' + k.size + ' present' : k.present + ' of ' + k.size + ' present' + (k.half ? ' · ' + k.half + ' half day' : '')) + ' · ' + k.time;
+      if (k.id === 'c6' && !s.done.cor) return { name: k.name, sub: subTxt, dot: 'var(--ok)', btn: '1 correction', bg: 'var(--warns)', fg: 'var(--warnfg)', act: () => this.go('inbox', { inboxF: 'attendance' }) };
+      return { name: k.name, sub: subTxt, dot: k.fresh ? 'var(--acc)' : 'var(--ok)', btn: k.fresh ? 'Just now' : 'Done', bg: 'var(--s2)', fg: 'var(--mut)', act: toastOnly(k.name + ' marked at ' + k.time + ' by ' + (k.fresh ? 'you' : k.t)) };
+    });
+    const attRowsRaw = s.attF === 'pending' ? pendRows : (s.attF === 'marked' ? markedRows : pendRows.concat(markedRows));
+    const attRows = attRowsRaw.map((r, i) => Object.assign(r, { border: border(i), delay: delay(i) }));
+    const att = {
+      ringOff: (213.6 * (1 - marked.length / 19)).toFixed(1), marked: String(marked.length),
+      headline: pend.length ? pend.length + ' classes still to mark' : 'Every class is marked',
+      p: String(P), a: String(A), h: String(H), thumb: (attIdx * 100) + '%',
+      showRemindAll: remindable.length > 0 && s.attF !== 'marked', remindLabel: 'Remind ' + remindable.length + ' class teachers on WhatsApp'
+    };
+
+    // ---------- menu ----------
+    const tileAct = (m) => () => {
+      if (m.collect) return this.openCollect();
+      if (m.go) { const ex2 = {}; if (m.seg) ex2.seg = m.seg; if (m.f) ex2.inboxF = m.f; return this.go(m.go, ex2); }
+      this.toast(m.t + ' opens from the Menu');
+    };
+    const menuItems = D.MENU.map((m) => L({ isH: !!m.h, isT: !m.h, h: m.h || '', t: m.t || '', hi: m.hi, icon: m.ic ? IC[m.ic] : '', act: m.h ? (() => {}) : tileAct(m) }, m.h ? '' : MHREF[m.t]));
+    const findT = (name) => D.MENU.filter((m) => m.t === name)[0];
+    const pinned = ['Collect fee', 'Attendance', 'Dues & calls', 'Timetable'].map((n) => { const m = findT(n); return L({ t: n, icon: IC[m.ic], act: tileAct(m) }, MHREF[n]); });
+    const sw = {
+      darkOn: s.dark ? 'true' : 'false', darkTrack: s.dark ? 'var(--acc)' : 'var(--bds)', darkKnob: s.dark ? '20px' : '0px',
+      hiOn: s.hindi ? 'true' : 'false', hiTrack: s.hindi ? 'var(--acc)' : 'var(--bds)', hiKnob: s.hindi ? '20px' : '0px'
+    };
+
+    // ---------- quick actions ----------
+    const qa = [
+      { label: 'Collect fee', icon: IC.rupee, bg: 'var(--pri)', fg: 'var(--prifg)', act: () => this.openCollect() },
+      { label: 'Mark attendance', icon: IC.calCheck, bg: 'var(--accs)', fg: 'var(--accfg)', act: () => this.go('attendance') },
+      { label: 'Send notice', icon: IC.megaphone, bg: 'var(--infos)', fg: 'var(--info)', act: toastOnly('Opening the notice composer') },
+      { label: 'Add student', icon: IC.userPlus, bg: 'var(--oks)', fg: 'var(--ok)', act: toastOnly('Opening the admission form') },
+      { label: 'Assign substitute', icon: IC.swap, bg: 'var(--warns)', fg: 'var(--warnfg)', act: () => this.go('inbox', { inboxF: 'timetable' }) },
+      { label: 'Add a note', icon: IC.edit, bg: 'var(--s3)', fg: 'var(--fg)', act: () => this.go('students') }
+    ].map((a, i) => L(Object.assign(a, { delay: (60 + i * 40) + 'ms' }), QHREF[a.label]));
+
+    // ---------- collect ----------
+    const amt = Number(s.amount || 0);
+    let hint = 'Type the amount, or tap a suggestion';
+    let hintColor = 'var(--mut)';
+    if (amt) {
+      if (amt > cur.due) { hint = 'More than due — ' + inr(amt - cur.due) + ' is kept as advance'; hintColor = 'var(--info)'; }
+      else if (amt === cur.due) { hint = 'Clears the whole year'; hintColor = 'var(--ok)'; }
+      else if (cur.pending > 0 && amt >= cur.pending) { hint = 'Clears everything pending today'; hintColor = 'var(--ok)'; }
+      else if (cur.pending > 0) { hint = inr(cur.pending - amt) + ' will still be pending'; hintColor = 'var(--warnfg)'; }
+      else { hint = 'Paid ahead of the due date'; hintColor = 'var(--ok)'; }
+    }
+    const chipVals = [];
+    if (cur.pending > 0) chipVals.push(['Pending ' + inr(cur.pending), cur.pending]);
+    const nextI = cur.inst.filter((m) => m.status === 'Upcoming' || m.status === 'Part paid')[0];
+    if (nextI) chipVals.push(['Till ' + nextI.mon + ' ' + inr(cur.pending + nextI.rem), cur.pending + nextI.rem]);
+    if (cur.due > 0 && (!nextI || cur.due !== cur.pending + nextI.rem)) chipVals.push(['Full year ' + inr(cur.due), cur.due]);
+    const amtChips = chipVals.map((c) => { const sel = amt === c[1]; const k = sel ? ON : OFF; return { label: c[0], bg: k.bg, fg: k.fg, bd: k.bd, pick: () => { this.setState({ amount: String(c[1]) }); this.haptic(6); } }; });
+    const modeList = ['Cash', 'UPI', 'Cheque', 'Bank'];
+    const modeIdx = Math.max(0, modeList.indexOf(s.mode));
+    const modes = modeList.map((m) => ({ label: m, sel: m === s.mode ? 'true' : 'false', fg: m === s.mode ? 'var(--fg)' : 'var(--mut)', pick: () => { this.setState({ mode: m }); this.haptic(6); } }));
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'del'].map((k) => ({ k, isDel: k === 'del', notDel: k !== 'del', aria: k === 'del' ? 'Delete last digit' : k, press: () => this.pressKey(k) }));
+    const cq = (s.cq || '').trim().toLowerCase();
+    const whoList = all.filter((x) => x.due > 0 && match(x, cq)).sort((a, b) => b.pending - a.pending).map((x, i) => { const st = statusOf(x); return { name: x.name, meta: x.cls + ' · SR ' + x.sr, ini: x.ini, abg: x.abg, afg: x.afg, amt: st.amt, tone: st.tone, delay: delay(i), pick: () => { this.setState({ step: 'amount', sid: x.id, amount: x.pending ? String(x.pending) : '', mode: 'UPI', fromWho: true }); this.haptic(6); } }; });
+    const lastPay = s.payments.filter((p) => p.no === s.lastNo)[0] || { amt: 0, mode: '', no: '', time: '' };
+    const col = {
+      who: s.step === 'who', amount: s.step === 'amount', done: s.step === 'done',
+      stepTxt: s.step === 'who' ? 'Step 1 of 2 · who is paying' : (s.step === 'amount' ? 'Step 2 of 2 · how much, how paid' : 'Saved'),
+      showBack: s.step === 'amount' && s.fromWho, noBack: !(s.step === 'amount' && s.fromWho),
+      backAct: () => this.setState({ step: 'who' }),
+      changeStu: () => this.setState({ step: 'who', fromWho: true, cq: '' }),
+      stuMeta: cur.cls + ' · ' + (cur.pending > 0 ? inr(cur.pending) + ' pending today' : (cur.due > 0 ? inr(cur.due) + ' not due yet' : 'paid up')),
+      amountTxt: inr(amt), amtColor: amt ? 'var(--fg)' : 'var(--sub)', hint, hintColor,
+      modeX: (modeIdx * 100) + '%',
+      label: amt ? 'Collect ' + inr(amt) + ' · ' + s.mode : 'Type the amount',
+      btnOp: amt ? '1' : '0.45',
+      confirm: () => this.confirmCollect(),
+      doneAmt: inr(lastPay.amt), doneNo: lastPay.no, doneMode: lastPay.mode, doneTime: 'Today ' + lastPay.time,
+      doneStu: cur.name + ' · ' + cur.cls, doneLeft: cur.pending > 0 ? inr(cur.pending) : 'Nothing today',
+      send: () => { this.toast('Receipt ' + lastPay.no + ' sent to ' + cur.father + ' on WhatsApp'); this.closeSheet(); },
+      print: toastOnly('Sent to the office printer'),
+      again: () => this.setState({ step: 'who', fromWho: true, cq: '', amount: '' }),
+      undo: () => this.undoPay(lastPay.no)
+    };
+
+    // ---------- mark sheet ----------
+    const R = s.roster || {};
+    const vals = Object.keys(R).map((k) => R[k]);
+    const cnt = (v) => vals.filter((x) => x === v).length;
+    const pick = (i, v) => () => this.setMark(i, v);
+    const look = (on, bg, fg) => (on ? [bg, fg] : ['var(--s2)', 'var(--mut)']);
+    const roster = D.ROSTER.map((name, i) => {
+      const v = R[i] || '';
+      const pL = look(v === 'P', 'var(--ok)', 'var(--onsolid)');
+      const aL = look(v === 'A', 'var(--bad)', 'var(--onsolid)');
+      const hL = look(v === 'H', 'var(--warn)', 'var(--onsolid)');
+      return { name, roll: String(i + 1), pOn: v === 'P' ? 'true' : 'false', aOn: v === 'A' ? 'true' : 'false', hOn: v === 'H' ? 'true' : 'false', pBg: pL[0], pFg: pL[1], aBg: aL[0], aFg: aL[1], hBg: hL[0], hFg: hL[1], pickP: pick(i, 'P'), pickA: pick(i, 'A'), pickH: pick(i, 'H') };
+    });
+    const mk = {
+      done: String(vals.length), p: String(cnt('P')), a: String(cnt('A')), h: String(cnt('H')), barW: (vals.length / 28 * 100).toFixed(1) + '%',
+      label: vals.length < 28 ? (28 - vals.length) + ' still to mark' : 'Submit · ' + cnt('P') + ' present, ' + cnt('A') + ' absent',
+      btnOp: vals.length < 28 ? '0.55' : '1',
+      allPresent: () => this.allPresent(), clear: () => this.setState({ roster: {} }), submit: () => this.submitMark()
+    };
+
+    // ---------- search ----------
+    const q = (s.q || '').trim().toLowerCase();
+    const hl = (name) => { const i = name.toLowerCase().indexOf(q); return i < 0 || !q ? [name, '', ''] : [name.slice(0, i), name.slice(i, i + q.length), name.slice(i + q.length)]; };
+    const stuHits = q ? all.filter((x) => match(x, q)) : [];
+    const resStu = stuHits.slice(0, 4).map((x, i) => { const st = statusOf(x); const p3 = hl(x.name); return { h1: p3[0], h2: p3[1], h3: p3[2], meta: x.cls + ' · SR ' + x.sr, ini: x.ini, abg: x.abg, afg: x.afg, amt: st.amt, tone: st.tone, border: border(i), open: () => this.go('student', { sid: x.id, tab: 'overview' }) }; });
+    const first = stuHits[0];
+    const resAct = first ? [
+      { label: 'Collect fee for ' + first.name, icon: IC.rupee, bg: 'var(--pri)', fg: 'var(--prifg)', bd: '0', act: () => this.openCollect(first.id), href: first.id === 'aarav' ? 'MPX-PayDesk-Student.dc.html' : 'MPX-PayDesk.dc.html', isLink: true, isBtn: false },
+      { label: 'Call ' + first.father + ' (father)', icon: IC.phone, bg: 'var(--card)', fg: 'var(--fg)', bd: '1px solid var(--bd)', act: toastOnly('Calling ' + first.father + '…'), href: '#', isLink: false, isBtn: true }
+    ] : [];
+    const rcAll = [{ no: 'R-0412', who: 'Aarav Sharma', amt: '₹2,400', date: '2 Oct · UPI', sid: 'aarav' }, { no: 'R-0127', who: 'Aarav Sharma', amt: '₹6,600', date: '12 Jul · Cash', sid: 'aarav' }];
+    const resRc = q ? rcAll.filter((r) => r.no.toLowerCase().indexOf(q) >= 0 || r.who.toLowerCase().indexOf(q) >= 0).slice(0, 2).map((r) => Object.assign({}, r, { act: () => this.go('student', { sid: r.sid, tab: 'fees' }) })) : [];
+    const resPages = q ? D.MENU.filter((m) => m.t && (m.t.toLowerCase().indexOf(q) >= 0 || m.hi.indexOf(s.q.trim()) >= 0)).slice(0, 4).map((m) => L({ t: m.t, icon: IC[m.ic], act: tileAct(m) }, MHREF[m.t])) : [];
+    const recent = ['Aarav', 'R-0412', 'Fee setup'].map((r) => ({ label: r, pick: () => this.setState({ q: r }) }));
+    const jump = ['Attendance', 'Students', 'Approvals & refunds', 'Collect fee'].map((n) => { const m = findT(n); return { t: n === 'Approvals & refunds' ? 'Needs you' : n, icon: IC[m.ic], act: n === 'Approvals & refunds' ? () => this.go('inbox') : tileAct(m), href: MHREF[n] || '#', isLink: !!MHREF[n], isBtn: !MHREF[n] }; });
+
+    // ---------- shell ----------
+    const tabsOrder = ['today', 'students', 'inbox', 'menu'];
+    const navVisible = tabsOrder.indexOf(s.screen) >= 0;
+    const pillIdx = { today: 0, students: 1, inbox: 3, menu: 4 };
+    const slot = (390 - 12) / 5;
+    const navKey = (k, label, icon, extra) => Object.assign({
+      isCenter: false, notCenter: true, label, icon, color: s.screen === k ? 'var(--pri)' : 'var(--mut)', weight: s.screen === k ? '700' : '500',
+      current: s.screen === k ? 'page' : 'false', hasBadge: false, badge: '', rot: '0deg', go: () => { if (s.screen !== k) this.go(k); }
+    }, extra || {});
+    const navItems = [
+      navKey('today', 'Today', IC.home),
+      navKey('students', 'Students', IC.users),
+      { isCenter: true, notCenter: false, label: '', icon: IC.plus, color: '', weight: '', current: 'false', hasBadge: false, badge: '', rot: (s.sheet === 'actions' && !s.closing) ? '45deg' : '0deg', go: () => this.openSheet('actions') },
+      navKey('inbox', 'Needs you', IC.inbox, { hasBadge: items.length > 0, badge: String(items.length) }),
+      navKey('menu', 'Menu', IC.grid)
+    ];
+    const animMap = { push: 'vpPush .36s var(--ease) both', pop: 'vpPop .32s var(--ease) both', tab: 'vpFade .26s var(--ease) both', none: 'none' };
+    const sheetOpen = !!s.sheet;
+    const toastBottom = (sheetOpen && !s.closing) ? '24px' : (navVisible ? '100px' : (s.screen === 'student' ? '100px' : '24px'));
+
+    return {
+      ic: IC, themeCls: s.dark ? 'dark' : '',
+      is: { today: s.screen === 'today', students: s.screen === 'students', student: s.screen === 'student', inbox: s.screen === 'inbox', attendance: s.screen === 'attendance', menu: s.screen === 'menu' },
+      screenAnim: animMap[s.anim] || 'none',
+      openSearch: () => { this._wantFocus = true; this.openSheet('search', { q: '' }); },
+      goMenu: () => this.go('menu'), goInbox: () => this.go('inbox', { inboxF: 'all' }), goAttendance: () => this.go('attendance'),
+      goCover: () => this.go('inbox', { inboxF: 'timetable' }), goCalls: () => this.go('students', { seg: 'dues' }),
+      back: () => this.back(),
+      t: tday, needCount: String(items.length), hasTopNeeds: topNeeds.length > 0, noNeeds: topNeeds.length === 0, topNeeds, quick4, timeline, pace, week,
+      sq: s.sq, onSq: (e) => this.setState({ sq: e.target.value }), segs, stuList, noStu: stuList.length === 0, stuCount: 'Showing ' + stuList.length,
+      stu, stuStats, tabs, tabIs, inst, receipts, noReceipts: receipts.length === 0, heat, cal, calHead: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+      exam: { title: ex.title, avg: avg + '%', thumb: examKey === 'unit' ? '0%' : '100%' },
+      examChips: [['unit', 'Unit test 1'], ['half', 'Half-yearly']].map((d) => ({ label: d[1], sel: d[0] === examKey ? 'true' : 'false', fg: d[0] === examKey ? 'var(--fg)' : 'var(--mut)', pick: () => { this.setState({ exam: d[0] }); this.haptic(6); } })),
+      marks: marksRows, notes, noNotes: notes.length === 0, parents, sibs: sibList, noSibs: sibList.length === 0,
+      fam: { total: inr(sum(fam.map((x) => x.total))), paid: inr(sum(fam.map((x) => x.paidNow))), pending: inr(famPend), tone: famPend > 0 ? 'var(--bad)' : 'var(--ok)' },
+      info,
+      toFees: setTab('fees'), toAtt: setTab('attendance'), toMarks: setTab('marks'),
+      collectCur: () => this.openCollect(cur.id), payHrefCur: cur.id === 'aarav' ? 'MPX-PayDesk-Student.dc.html' : 'MPX-PayDesk.dc.html',
+      callParent: toastOnly('Calling ' + cur.father + ' (father)…'), waParent: toastOnly('Opening WhatsApp for ' + cur.father + '…'),
+      sendStatement: toastOnly('Fee statement PDF sent to ' + cur.father + ' on WhatsApp'),
+      famStatement: toastOnly('Family statement PDF is ready to share'),
+      reportCard: toastOnly('Report card PDF is ready'), sendProgress: toastOnly('Progress report sent to ' + cur.father),
+      addNote: toastOnly('Note composer opens here'), stuMore: toastOnly('Edit details, print ID card, withdraw student'),
+      linkSib: toastOnly('Pick a student to link as a sibling'), editInfo: toastOnly('Edit form opens here — every field optional'),
+      inboxChips, inboxList, inboxEmpty: inboxList.length === 0, inboxSub: items.length ? items.length + ' waiting · oldest 5 Oct' : 'All clear',
+      att, attSeg, attRows, noAttRows: attRows.length === 0, remindAll: remindAllFn, register: toastOnly('October register PDF is ready to print'),
+      menuItems, pinned, sw, hiBlock: s.hindi ? 'block' : 'none', hiInline: s.hindi ? 'inline' : 'none',
+      toggleDark: () => { this.setState({ dark: !s.dark }); this.haptic(10); }, toggleHindi: () => { this.setState({ hindi: !s.hindi }); this.haptic(10); },
+      editPins: toastOnly('Drag tiles to choose up to 4 pins'), signOut: toastOnly('Sign out is disabled in the prototype'),
+      navItems, navShift: navVisible ? 'translateY(0)' : 'translateY(110%)', navPillX: ((pillIdx[s.screen] || 0) * slot + 6 + (slot - 56) / 2).toFixed(1) + 'px', navPillOp: navVisible ? '1' : '0',
+      scrimShow: sheetOpen && s.sheet !== 'search', scrimAnim: s.closing ? 'vpOut .23s ease forwards' : 'vpIn .3s ease both',
+      sheetAnim: s.closing ? 'vpDown .23s var(--ease) forwards' : 'vpUp .42s var(--ease) both',
+      searchAnim: s.closing ? 'vpOut .2s ease forwards' : 'vpFade .24s var(--ease) both',
+      sh: { actions: s.sheet === 'actions', collect: s.sheet === 'collect', mark: s.sheet === 'mark', search: s.sheet === 'search' },
+      closeSheet: () => this.closeSheet(),
+      qa, repeatLast: () => this.openCollect('aarav'),
+      col, amtChips, modes, keys, whoList, cq: s.cq, onCq: (e) => this.setState({ cq: e.target.value }),
+      roster, mk,
+      q: s.q, onQ: (e) => this.setState({ q: e.target.value }),
+      searchRef: (el) => { if (el && this._wantFocus) { this._wantFocus = false; setTimeout(() => { try { el.focus(); } catch (e) { /* ignore */ } }, 80); } },
+      qEmpty: !q, hasResStu: resStu.length > 0, resStu, hasResAct: resAct.length > 0, resAct, hasResRc: resRc.length > 0, resRc, hasResPages: resPages.length > 0, resPages,
+      noRes: !!q && !resStu.length && !resRc.length && !resPages.length, recent, jump,
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '', toastUndo: !!(s.toast && s.toast.undo), undoToast: () => this.undoToast(), toastBottom
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notices, links and leave</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.qr{display:flex;align-items:center}.qc{display:flex;flex-direction:column}.qw{flex-wrap:wrap}.qf{flex:1;min-width:0}.qj{justify-content:space-between}.qx{flex:none;display:flex;align-items:center;justify-content:center}
+.z4{gap:4px}.z6{gap:6px}.z8{gap:8px}.z10{gap:10px}.z12{gap:12px}.z14{gap:14px}.z16{gap:16px}
+.t11{font-size:11px}.t12{font-size:12px}.t13{font-size:13px}.t16{font-size:16px}.b{font-weight:700}.b6{font-weight:600}.m{color:var(--mut)}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb{font-size:14px}.ts{font-size:13px}.h1{font-family:'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600;line-height:1.15}.h2{font-size:18px;font-weight:700;line-height:1.25}.hi{font-size:12px;color:var(--mut);font-weight:500}
+.av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}.ib{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:14px}
+.nt{display:flex;gap:10px;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.5;align-items:flex-start}.nt>svg{margin-top:2px}
+.scr{padding:22px 28px 40px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.bb{width:100%;border:0;background:transparent;color:var(--fg);text-align:left}
+.bg{height:52px;font-size:16px;border-radius:14px;padding:0 22px}
+.shh{flex:none;display:flex;align-items:flex-start;gap:12px;padding:14px 20px 10px}.shb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:14px}.shf{flex:none;display:flex;align-items:center;gap:10px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.in{animation:xIn .32s var(--ease) both}.pi{animation:xPopIn .45s var(--spring) both}.i16{width:16px;height:16px}.i22{width:22px;height:22px}
+.tl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row dense;gap:12px}.tile{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px;min-height:136px;text-align:left;color:var(--fg);width:100%}
+.bdg{position:absolute;top:12px;right:12px;min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:var(--bad);color:var(--onsolid);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.dot{flex:none;width:10px;height:10px;border-radius:5px}
+.rg circle{fill:none;stroke-width:9;stroke-linecap:round}.rg .r1{transform:rotate(-90deg);transform-origin:50% 50%;animation:xDraw .9s var(--ease) both}
+.tt{display:grid;grid-template-columns:92px repeat(6,minmax(0,1fr))}.tt>*{border-top:1px solid var(--bd)}
+.cel{height:62px;margin:4px;padding:6px 10px;border-radius:12px;display:flex;flex-direction:column;justify-content:center;position:relative}
+.ill{flex:none;width:100%;height:124px;padding:10px;border-radius:16px;background:var(--s2);border:1px solid var(--bd);display:flex;flex-direction:column;gap:6px;justify-content:center}
+@container vx (max-width:899px){.vx .scr{padding:16px 16px 28px;gap:14px}.vx .tb{font-size:16px}.vx .ts{font-size:14px}.vx .h1{font-size:24px}.vx .mw{width:100%!important}.vx .tg{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .tg .ib{width:36px;height:36px}.vx .tl{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vx .tile{min-height:122px;padding:14px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="more" role="teacher" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div class="qc" style="flex: 1; min-width: 0; min-height: 0; position: relative">
+<header class="only-d glass qr z10" style="flex: none; height: 64px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="qc qf"><span class="t12 m">{{top.crumb}}</span><span class="serif el" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 88px; flex: none"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{lang.x}})"></span><sc-for list="{{lang.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" aria-label="{{o.aria}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{goHelp}}" style="width: 42px; padding: 0"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+<sc-if value="{{top.hasAct}}" hint-placeholder-val="{{ false }}"><button class="tap btn {{top.actCls}}" type="button" onClick="{{top.act}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{top.actIc}}"></path></svg>{{top.actL}}</button></sc-if>
+</header>
+<header class="only-m glass qr z4" style="flex: none; min-height: 58px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<sc-if value="{{top.mMe}}" hint-placeholder-val="{{ true }}"><button class="tap qx av t13" type="button" aria-label="My profile" onClick="{{goProfile}}" style="width: 40px; height: 40px; margin: 0 4px; border: 0; background: #F6D9A8; color: #082F49">KB</button></sc-if>
+<sc-if value="{{top.mBack}}" hint-placeholder-val="{{ false }}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="qc qf" style="padding-left: 2px"><span class="el" style="font-size: 17px; font-weight: 700">{{top.title}}</span><span class="t12 m el">{{top.sub}}</span></span>
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 80px; flex: none"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{lang.x}})"></span><sc-for list="{{lang.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" aria-label="{{o.aria}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{goHelp}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+<main class="scroll" style="flex: 1; min-height: 0; position: relative; zoom: {{zoom}}">
+
+<!-- ============ MENU ============ -->
+<sc-if value="{{is.menu}}" hint-placeholder-val="{{ true }}">
+<div class="scr" style="max-width: 1120px; animation: {{anim}}">
+<div class="card qr z14 qw" style="padding: 18px 20px; background: var(--nav); color: var(--navfg); border-color: transparent">
+<span class="av serif t16" style="width: 56px; height: 56px; background: #F6D9A8; color: #082F49">KB</span>
+<span class="qc qf" style="min-width: 190px"><span class="serif" style="font-size: 22px; font-weight: 600">{{mn.hello}}</span><span class="ts" style="color: var(--navm)">{{mn.role}}</span></span>
+<span class="qr z8 ts b6" style="padding: 8px 12px; border-radius: 12px; background: var(--navs)"><span class="dot" style="background: #81DAE4; animation: xPulse 2s ease infinite"></span>{{mn.now}}</span>
+</div>
+<div class="tl">
+<sc-for list="{{mn.tiles}}" as="t" hint-placeholder-count="11">
+<sc-if value="{{t.isLink}}" hint-placeholder-val="{{ true }}">
+<a href="{{t.hd}}" class="tap lift card tile only-d in" style="grid-column: {{t.sp}}; animation-delay: {{t.delay}}"><span class="ib" style="background: {{t.bg}}; color: {{t.fg}}"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.ic}}"></path></svg></span><span class="qc"><span class="t16 b">{{t.en}}</span><span class="hi">{{t.hi}}</span></span><span class="t12 m">{{t.info}}</span></a>
+<a href="{{t.hm}}" class="tap card tile only-m in" style="grid-column: {{t.sp}}; animation-delay: {{t.delay}}"><span class="ib" style="background: {{t.bg}}; color: {{t.fg}}"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.ic}}"></path></svg></span><span class="qc"><span class="t16 b">{{t.en}}</span><span class="hi">{{t.hi}}</span></span><span class="t12 m">{{t.info}}</span></a>
+</sc-if>
+<sc-if value="{{t.isBtn}}" hint-placeholder-val="{{ false }}">
+<button class="tap lift card tile in" type="button" onClick="{{t.go}}" style="grid-column: {{t.sp}}; animation-delay: {{t.delay}}"><span class="ib" style="background: {{t.bg}}; color: {{t.fg}}"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.ic}}"></path></svg></span><span class="qc"><span class="t16 b">{{t.en}}</span><span class="hi">{{t.hi}}</span></span><span class="t12 m">{{t.info}}</span><sc-if value="{{t.hasN}}" hint-placeholder-val="{{ false }}"><span class="tb b6" style="padding-top: 8px; border-top: 1px solid var(--bd)">{{t.news}}</span></sc-if><sc-if value="{{t.hasB}}" hint-placeholder-val="{{ false }}"><span class="bdg pi num">{{t.b}}</span></sc-if></button>
+</sc-if>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ NOTICES ============ -->
+<sc-if value="{{is.news}}" hint-placeholder-val="{{ false }}">
+<div class="stack scr" style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; max-width: 1120px; animation: {{anim}}">
+<div class="qc z14" style="min-width: 0">
+<div class="qr z10 qw qj"><span class="qc"><span class="h1">{{nw.h}}</span><span class="tb m">{{nw.s}}</span></span>
+<div class="seg mw" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 240px"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{nw.seg.x}})"></span><sc-for list="{{nw.seg.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div></div>
+<sc-for list="{{nw.list}}" as="n" hint-placeholder-count="4">
+<article class="card qc z10 in" style="padding: 16px 18px; border: {{n.bd}}; animation-delay: {{n.delay}}">
+<div class="qr z8"><sc-if value="{{n.pin}}" hint-placeholder-val="{{ false }}"><span class="pill" style="background: var(--warns); color: var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px" aria-hidden="true"><path d="{{ic.pin}}"></path></svg>{{nw.pinL}}</span></sc-if><sc-if value="{{n.unread}}" hint-placeholder-val="{{ true }}"><span class="dot" style="background: var(--acc)" aria-label="Not read yet"></span></sc-if><span class="t12 m qf el">{{n.from}} · {{n.time}}</span></div>
+<span class="qc z4"><span class="h2">{{n.t}}</span><span class="ts m">{{n.t2}}</span></span>
+<span class="tb" style="line-height: 1.55">{{n.body}}</span>
+<div class="qr z8 qw">
+<sc-if value="{{n.hasPdf}}" hint-placeholder-val="{{ false }}"><button class="tap chip" type="button" onClick="{{n.pdf}}"><svg class="i i16" viewBox="0 0 24 24" style="color: var(--bad)" aria-hidden="true"><path d="{{ic.file}}"></path></svg>{{n.pdfL}}</button></sc-if>
+<sc-if value="{{n.hasGo}}" hint-placeholder-val="{{ false }}"><a href="TchMarks.dc.html" class="tap chip only-d"><svg class="i i16" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clipboard}}"></path></svg>{{nw.goL}}</a><a href="M-TchMarks.dc.html" class="tap chip only-m"><svg class="i i16" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clipboard}}"></path></svg>{{nw.goL}}</a></sc-if>
+<span class="qf"></span>
+<sc-if value="{{n.unread}}" hint-placeholder-val="{{ true }}"><button class="tap btn pri mw" type="button" onClick="{{n.got}}" style="height: 46px; font-size: 15px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{nw.gotL}}</button></sc-if>
+<sc-if value="{{n.seen}}" hint-placeholder-val="{{ false }}"><span class="pill" style="height: 34px; padding: 0 12px; font-size: 13px; background: var(--oks); color: var(--ok)"><svg class="i pi" viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{nw.seenL}}</span></sc-if>
+</div>
+</article>
+</sc-for>
+<sc-if value="{{nw.empty}}" hint-placeholder-val="{{ false }}"><div class="card qc z10 fadein" style="padding: 40px 24px; align-items: center; text-align: center"><span class="av pi" style="width: 64px; height: 64px; background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" style="width: 30px; height: 30px" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span class="h2">{{nw.emptyT}}</span><span class="ts m">{{nw.emptyS}}</span><button class="tap btn sec bg" type="button" onClick="{{nw.all}}">{{nw.allL}}</button></div></sc-if>
+</div>
+<aside class="hide-m qc z12" style="position: sticky; top: 0">
+<div class="card qc z10" style="padding: 18px">
+<span class="sech">{{nw.sumT}}</span>
+<span class="num b" style="font-size: 34px; line-height: 1; color: {{nw.sumC}}">{{nw.unread}}</span><span class="ts m">{{nw.sumS}}</span>
+<sc-if value="{{nw.anyUnread}}" hint-placeholder-val="{{ true }}"><button class="tap btn soft" type="button" onClick="{{nw.allSeen}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg>{{nw.allSeenL}}</button></sc-if>
+</div>
+<div class="nt" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.eye}}"></path></svg><span>{{nw.tip}}</span></div>
+</aside>
+</div>
+</sc-if>
+
+<!-- ============ MARKS LINKS ============ -->
+<sc-if value="{{is.links}}" hint-placeholder-val="{{ false }}">
+<div class="scr" style="max-width: 1120px; animation: {{anim}}">
+<div class="qc z4"><span class="h1">{{lk.h}}</span><span class="tb m">{{lk.s}}</span></div>
+<div class="nt" style="background: var(--accs); color: var(--accfg); align-items: center"><span class="ib" style="background: var(--card); color: var(--acc)"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.link}}"></path></svg></span><span class="qc qf"><span class="tb b">{{lk.ex}}</span><span class="ts">{{lk.ex2}}</span></span></div>
+<div class="g2" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+<sc-for list="{{lk.cards}}" as="c" hint-placeholder-count="4">
+<div class="card qc z12 in" style="padding: 18px 20px; animation-delay: {{c.delay}}; opacity: {{c.op}}">
+<div class="qr z14">
+<div style="position: relative; flex: none; width: 84px; height: 84px"><svg class="rg" viewBox="0 0 100 100" width="84" height="84" aria-hidden="true"><circle cx="50" cy="50" r="42" style="stroke: var(--s3)"></circle><circle class="r1" cx="50" cy="50" r="42" style="stroke: {{c.rc}}; stroke-dasharray: {{c.dash}}; --len: 263.9; opacity: {{c.rop}}"></circle></svg><span class="qc" style="position: absolute; inset: 0; align-items: center; justify-content: center"><span class="num b t16">{{c.cnt}}</span><span class="t11 m">{{c.of}}</span></span></div>
+<span class="qc qf z4"><span class="t12 m b6">{{c.kick}}</span><span class="h2">{{c.t}}</span><span class="hi">{{c.hi}}</span><span class="pill" style="align-self: flex-start; background: {{c.pbg}}; color: {{c.pfg}}">{{c.pill}}</span></span>
+</div>
+<span class="ts m">{{c.line}}</span>
+<sc-if value="{{c.live}}" hint-placeholder-val="{{ true }}">
+<div class="qc z8">
+<button class="tap btn pri bg" type="button" onClick="{{c.open}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.globe}}"></path></svg>{{lk.openL}}</button>
+<div class="qr z8"><button class="tap btn soft qf" type="button" onClick="{{c.wa}}" style="height: 46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg>{{lk.waL}}</button><button class="tap btn sec" type="button" onClick="{{c.copy}}" style="height: 46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.cpIc}}"></path></svg>{{c.cpL}}</button></div>
+</div>
+</sc-if>
+<sc-if value="{{c.dead}}" hint-placeholder-val="{{ false }}"><button class="tap btn {{c.askCls}} bg" type="button" onClick="{{c.ask}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.askIc}}"></path></svg>{{c.askL}}</button></sc-if>
+</div>
+</sc-for>
+</div>
+<span class="ts m">{{lk.foot}}</span>
+</div>
+</sc-if>
+
+<!-- ============ TIMETABLE ============ -->
+<sc-if value="{{is.timetable}}" hint-placeholder-val="{{ false }}">
+<div class="scr" style="animation: {{anim}}">
+<div class="qr z10 qw qj"><span class="qc"><span class="h1">{{tt.h}}</span><span class="tb m">{{tt.s}}</span></span><div class="qr z8 qw t12"><sc-for list="{{tt.legend}}" as="l" hint-placeholder-count="4"><span class="qr z6"><span class="dot" style="background: {{l.c}}; border: {{l.bd}}"></span>{{l.t}}</span></sc-for></div></div>
+<div class="card only-d tt" style="overflow: hidden">
+<span style="background: var(--s2); border-top: 0"></span>
+<sc-for list="{{tt.head}}" as="h" hint-placeholder-count="6"><span class="qx z6 ts b" style="height: 46px; background: {{h.bg}}; color: {{h.fg}}; border-top: 0">{{h.d}}<sc-if value="{{h.today}}" hint-placeholder-val="{{ false }}"><span class="pill" style="background: var(--acc); color: var(--onsolid)">{{tt.todayL}}</span></sc-if></span></sc-for>
+<sc-for list="{{tt.grid}}" as="g" hint-placeholder-count="9">
+<sc-if value="{{g.brk}}" hint-placeholder-val="{{ false }}"><span class="qx t12 b m" style="grid-column: 1 / -1; height: 30px; background: var(--s2); letter-spacing: .06em">{{tt.brkL}}</span></sc-if>
+<sc-if value="{{g.per}}" hint-placeholder-val="{{ true }}">
+<span class="qc num" style="justify-content: center; padding: 0 14px"><span class="ts b">{{g.p}}</span><span class="t11 m">{{g.time}}</span></span>
+<sc-for list="{{g.cells}}" as="c" hint-placeholder-count="6"><div style="background: {{c.col}}"><div class="cel in" style="background: {{c.bg}}; color: {{c.fg}}; border: {{c.bd}}; opacity: {{c.op}}; box-shadow: {{c.ring}}; animation-delay: {{c.delay}}"><span class="ts b el">{{c.t}}</span><span class="t11 el" style="opacity: .85">{{c.s}}</span><sc-if value="{{c.now}}" hint-placeholder-val="{{ false }}"><span class="dot" style="position: absolute; top: 8px; right: 8px; background: var(--acc); animation: xPulse 2s ease infinite"></span></sc-if></div></div></sc-for>
+</sc-if>
+</sc-for>
+</div>
+<div class="only-m qc z12">
+<div class="seg" style="grid-template-columns: repeat(6, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 6); transform: translateX({{tt.seg.x}})"></span><sc-for list="{{tt.seg.o}}" as="o" hint-placeholder-count="6"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div>
+<div class="card" style="overflow: hidden">
+<sc-for list="{{tt.day}}" as="p" hint-placeholder-count="9">
+<sc-if value="{{p.brk}}" hint-placeholder-val="{{ false }}"><div class="qx t12 b m" style="height: 34px; background: var(--s2); border-top: 1px solid var(--bd)">{{tt.brkL}}</div></sc-if>
+<sc-if value="{{p.per}}" hint-placeholder-val="{{ true }}"><div class="qr z12 in" style="min-height: 68px; padding: 10px 14px; border-top: {{p.bt}}; background: {{p.rbg}}; opacity: {{p.op}}; animation-delay: {{p.delay}}"><span class="qc num" style="width: 46px"><span class="tb b">{{p.p}}</span><span class="t11 m">{{p.time}}</span></span><span class="dot" style="background: {{p.dc}}; animation: {{p.pulse}}"></span><span class="qc qf"><span class="tb b6 el">{{p.t}}</span><span class="t12 m el">{{p.s}}</span></span><sc-if value="{{p.hasTag}}" hint-placeholder-val="{{ false }}"><span class="pill" style="background: {{p.tbg}}; color: {{p.tfg}}">{{p.tag}}</span></sc-if></div></sc-if>
+</sc-for>
+</div>
+</div>
+<div class="nt" style="background: var(--warns); color: var(--warnfg); align-items: center"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.swap}}"></path></svg><span class="qf">{{tt.subT}}</span></div>
+</div>
+</sc-if>
+
+<!-- ============ LEAVE ============ -->
+<sc-if value="{{is.leave}}" hint-placeholder-val="{{ false }}">
+<div class="scr" style="max-width: 860px; animation: {{anim}}">
+<div class="qr z10 qw qj"><span class="qc"><span class="h1">{{lv.h}}</span><span class="tb m">{{lv.s}}</span></span><button class="tap btn pri bg mw" type="button" onClick="{{lv.open}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{lv.applyL}}</button></div>
+<div class="g2" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px"><sc-for list="{{lv.bal}}" as="b" hint-placeholder-count="2"><div class="card qc z6" style="padding: 14px 16px"><span class="ts m b6">{{b.t}}</span><span class="qr z8"><span class="num b" style="font-size: 24px">{{b.v}}</span><span class="ts m">{{b.of}}</span></span><div style="height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden"><span style="display: block; height: 100%; width: {{b.w}}; background: var(--acc); border-radius: 4px"></span></div></div></sc-for></div>
+<span class="sech">{{lv.listT}}</span>
+<sc-for list="{{lv.list}}" as="r" hint-placeholder-count="3">
+<div class="card qr z12 qw" style="padding: 14px 16px; animation: {{r.an}}">
+<span class="ib" style="background: {{r.ibg}}; color: {{r.ifg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.ic}}"></path></svg></span>
+<span class="qc qf" style="min-width: 170px"><span class="tb b">{{r.when}}</span><span class="ts m">{{r.what}}</span><span class="t12" style="color: var(--sub)">{{r.by}}</span></span>
+<span class="pill" style="height: 28px; padding: 0 12px; font-size: 12px; background: {{r.pbg}}; color: {{r.pfg}}">{{r.st}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- ============ HELP ============ -->
+<sc-if value="{{is.help}}" hint-placeholder-val="{{ false }}">
+<div class="scr" style="max-width: 1120px; animation: {{anim}}">
+<div class="qc z4"><span class="h1">{{hp.h}}</span><span class="tb m">{{hp.s}}</span></div>
+<div class="tg" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{hp.topics}}" as="t" hint-placeholder-count="6"><button class="tap card qr z12" type="button" role="radio" aria-checked="{{t.on}}" onClick="{{t.go}}" style="padding: 12px; text-align: left; color: var(--fg); border: {{t.bd}}; background: {{t.bg}}"><span class="ib" style="width: 40px; height: 40px; background: {{t.ibg}}; color: {{t.ifg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.ic}}"></path></svg></span><span class="qc qf"><span class="tb b6">{{t.en}}</span><span class="hi">{{t.hi}}</span></span></button></sc-for>
+</div>
+<div class="card qc z14" style="padding: 18px 20px">
+<span class="h2">{{hp.tt}}</span>
+<div class="g3" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<sc-for list="{{hp.steps}}" as="p" hint-placeholder-count="3">
+<div class="qc z10 in" style="animation-delay: {{p.delay}}">
+<div class="ill"><sc-for list="{{p.els}}" as="x" hint-placeholder-count="3"><div class="qr z6" style="height: {{x.h}}; padding: 0 9px; border-radius: {{x.rad}}; background: {{x.bg}}; color: {{x.fg}}; border: {{x.bd}}; justify-content: {{x.jc}}; font-size: 11px; font-weight: {{x.fw}}; animation: {{x.an}}; align-self: {{x.as}}; width: {{x.w}}"><sc-if value="{{x.hasIc}}" hint-placeholder-val="{{ false }}"><svg class="i" viewBox="0 0 24 24" style="width: {{x.isz}}; height: {{x.isz}}; stroke-width: 2.6" aria-hidden="true"><path d="{{x.ic}}"></path></svg></sc-if><span class="el" style="flex: {{x.fl}}">{{x.t}}</span><sc-if value="{{x.hasR}}" hint-placeholder-val="{{ false }}"><span class="num b" style="padding: 1px 7px; border-radius: 6px; background: var(--s3); color: var(--fg)">{{x.r}}</span></sc-if></div></sc-for></div>
+<div class="qr z10"><span class="av t13" style="width: 30px; height: 30px; background: var(--pri); color: var(--prifg)">{{p.n}}</span><span class="qc qf"><span class="t16 b">{{p.t}}</span><span class="hi">{{p.h}}</span></span></div>
+<span class="ts m">{{p.s}}</span>
+</div>
+</sc-for>
+</div>
+<div class="qr z8 qw">
+<sc-if value="{{hp.isLink}}" hint-placeholder-val="{{ true }}"><a href="{{hp.tryD}}" class="tap btn pri bg only-d" style="color: var(--prifg)">{{hp.tryL}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a><a href="{{hp.tryM}}" class="tap btn pri bg only-m mw" style="color: var(--prifg)">{{hp.tryL}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a></sc-if>
+<sc-if value="{{hp.isBtn}}" hint-placeholder-val="{{ false }}"><button class="tap btn pri bg mw" type="button" onClick="{{hp.tryGo}}">{{hp.tryL}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></sc-if>
+</div>
+</div>
+<div class="card qr z14 qw" style="padding: 16px 18px">
+<span class="ib" style="background: var(--oks); color: var(--ok)"><svg class="i i22" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg></span>
+<span class="qc qf" style="min-width: 180px"><span class="tb b">{{hp.callT}}</span><span class="ts m">{{hp.callS}}</span></span>
+<button class="tap btn sec bg mw" type="button" onClick="{{hp.call}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>{{hp.callL}}</button>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ PROFILE ============ -->
+<sc-if value="{{is.profile}}" hint-placeholder-val="{{ false }}">
+<div class="scr" style="max-width: 760px; animation: {{anim}}">
+<div class="card qr z16 qw" style="padding: 20px">
+<span class="av serif pi" style="width: 72px; height: 72px; font-size: 24px; background: #F6D9A8; color: #082F49">KB</span>
+<span class="qc qf z4" style="min-width: 200px"><span class="h1" style="font-size: 26px">Ms. Kavita Bhati</span><span class="ts m">{{pf.role}}</span><span class="ts m num">98290 ••318 · kavita.bhati@vpps.school</span></span>
+</div>
+<div class="card qc z10" style="padding: 16px 18px">
+<span class="sech">{{pf.clsT}}</span>
+<div class="qr z8 qw"><sc-for list="{{pf.cls}}" as="c" hint-placeholder-count="4"><span class="pill" style="height: 34px; padding: 0 14px; font-size: 13px; background: {{c.bg}}; color: {{c.fg}}">{{c.t}}</span></sc-for></div>
+</div>
+<div class="card qc" style="padding: 6px 18px">
+<div class="qr z12 qw" style="padding: 14px 0"><span class="ib" style="width: 40px; height: 40px; background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.globe}}"></path></svg></span><span class="qc qf" style="min-width: 140px"><span class="tb b6">{{pf.langT}}</span><span class="hi">{{pf.langS}}</span></span><div class="seg mw" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 220px"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{lang.x}})"></span><sc-for list="{{pf.lang}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div></div>
+<div class="qc z10" style="padding: 14px 0; border-top: 1px solid var(--bd)">
+<div class="qr z12 qw"><span class="ib" style="width: 40px; height: 40px; background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.type}}"></path></svg></span><span class="qc qf" style="min-width: 140px"><span class="tb b6">{{pf.sizeT}}</span><span class="hi">{{pf.sizeS}}</span></span><div class="seg mw" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 220px"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{pf.size.x}})"></span><sc-for list="{{pf.size.o}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}">{{o.l}}</button></sc-for></div></div>
+<div class="qc z4" style="padding: 12px 14px; border-radius: 14px; background: var(--s2); border: 1px dashed var(--bds)"><span class="t11 b m" style="letter-spacing: .06em; text-transform: uppercase">{{pf.prevL}}</span><span class="b" style="font-size: {{pf.pv1}}; transition: font-size .3s var(--ease)">{{pf.prev1}}</span><span style="font-size: {{pf.pv2}}; color: var(--mut); transition: font-size .3s var(--ease)">{{pf.prev2}}</span></div>
+</div>
+<button class="tap bb qr z12" type="button" role="switch" aria-checked="{{pf.dkOn}}" onClick="{{pf.dkGo}}" style="padding: 14px 0; border-top: 1px solid var(--bd)"><span class="ib" style="width: 40px; height: 40px; background: var(--s3); color: var(--fg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.moon}}"></path></svg></span><span class="qc qf"><span class="tb b6">{{pf.dkT}}</span><span class="hi">{{pf.dkS}}</span></span><span class="sw {{pf.dkCls}}"><span></span></span></button>
+<button class="tap bb qr z12" type="button" role="switch" aria-checked="{{pf.waOn}}" onClick="{{pf.waGo}}" style="padding: 14px 0; border-top: 1px solid var(--bd)"><span class="ib" style="width: 40px; height: 40px; background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.bell}}"></path></svg></span><span class="qc qf"><span class="tb b6">{{pf.waT}}</span><span class="hi">{{pf.waS}}</span></span><span class="sw {{pf.waCls}}"><span></span></span></button>
+</div>
+<a href="Auth.dc.html" class="tap btn sec bg only-d" style="align-self: flex-start; color: var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.logout}}"></path></svg>{{pf.outL}}</a>
+<a href="M-Auth.dc.html" class="tap btn sec bg only-m" style="color: var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.logout}}"></path></svg>{{pf.outL}}</a>
+<span class="t12 m">{{pf.foot}}</span>
+</div>
+</sc-if>
+</main>
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="more" role="teacher" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ LEAVE SHEET ============ -->
+<sc-if value="{{sh.open}}" hint-placeholder-val="{{ false }}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{lf.title}}">
+<div class="grab"></div>
+<div class="shh"><div class="qc qf z4"><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.2">{{lf.title}}</span><span class="ts m">{{lf.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<sc-if value="{{lf.form}}" hint-placeholder-val="{{ true }}">
+<div class="scroll shb">
+<span class="sech">{{lf.whenT}}</span>
+<div class="qr z8 qw"><sc-for list="{{lf.dates}}" as="d" hint-placeholder-count="6"><button class="tap chip {{d.cls}}" type="button" aria-pressed="{{d.p}}" onClick="{{d.go}}" style="height: 46px; padding: 0 14px; font-size: 14px"><sc-if value="{{d.on}}" hint-placeholder-val="{{ false }}"><svg class="i pi" viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if>{{d.l}}</button></sc-for></div>
+<div class="seg" style="grid-template-columns: repeat(3, minmax(0, 1fr))"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 3); transform: translateX({{lf.part.x}})"></span><sc-for list="{{lf.part.o}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" type="button" aria-pressed="{{o.p}}" onClick="{{o.go}}" style="height: 42px">{{o.l}}</button></sc-for></div>
+<span class="sech">{{lf.whyT}}</span>
+<div style="animation: {{lf.sh1}}"><div class="qr z8 qw" style="animation: {{lf.sh2}}"><sc-for list="{{lf.reasons}}" as="r" hint-placeholder-count="3"><button class="tap chip {{r.cls}}" type="button" aria-pressed="{{r.p}}" onClick="{{r.go}}" style="height: 52px; padding: 0 16px; font-size: 14px; flex-direction: column; justify-content: center; gap: 0; line-height: 1.2"><span>{{r.l}}</span><span class="t11" style="opacity: .75; font-weight: 500">{{r.h}}</span></button></sc-for></div></div>
+<sc-if value="{{lf.err}}" hint-placeholder-val="{{ false }}"><span class="ts b fadein" style="color: var(--bad); margin-top: -6px">{{lf.errT}}</span></sc-if>
+<label class="field"><span>{{lf.noteT}}</span><textarea class="inp" value="{{lf.note}}" onChange="{{lf.onNote}}" placeholder="{{lf.noteP}}" style="min-height: 64px"></textarea></label>
+<div class="nt" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg><span class="qc z4"><b>{{lf.cover}}</b><span class="ts">{{lf.periods}}</span></span></div>
+</div>
+<div class="shf"><span class="qc qf"><span class="t12 m">{{lf.askT}}</span><span class="tb b el">{{lf.sum}}</span></span><button class="tap btn pri bg" type="button" onClick="{{lf.submit}}" style="opacity: {{lf.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{lf.sendL}}</button></div>
+</sc-if>
+<sc-if value="{{lf.done}}" hint-placeholder-val="{{ false }}">
+<div class="shb" style="align-items: center; text-align: center; padding-top: 12px">
+<svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="h1" style="font-size: 24px">{{lf.okT}}</span><span class="tb">{{lf.sum}}</span><span class="ts m">{{lf.okS}}</span>
+</div>
+<div class="shf"><button class="tap btn pri bg" type="button" onClick="{{closeSheet}}" style="flex: 1">{{lf.doneL}}</button></div>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["menu","news","links","timetable","leave","help","profile"],"default":"menu"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+data() {
+if (this._d) return this._d;
+/*VX_ICONS*/
+IC.note = 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4zM4 4h8M4 8h5';
+IC.mic = 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3';
+IC.type = 'M4 7V4h16v3M9 20h6M12 4v16';
+const NEWS = [
+{ id: 'n1', pin: true, from: 'Janmejay Singh · Admin', time: 'Today 9:05 am', t: 'PTM for Classes 9–10 on Sat 17 Oct, 10 am', h: 'कक्षा 9–10 की अभिभावक बैठक — शनिवार 17 अक्टूबर, सुबह 10 बजे', body: 'Parents meet subject teachers in the hall. Class teachers of 9 and 10, please bring report cards. Tea for staff at 9:45 am.', pdf: 'PTM plan.pdf · 1 page' },
+{ id: 'n2', from: 'Janmejay Singh · Admin', time: 'Yesterday 4:30 pm', t: 'Enter Half-yearly marks by Wed 14 Oct', h: 'अर्धवार्षिक अंक बुधवार 14 अक्टूबर तक भरें', body: 'Use the app or your Sampark link — both go to the same place. Mr. Trivedi locks marks on Thu 15 Oct.', go: true },
+{ id: 'n3', from: 'Janmejay Singh · Admin', time: 'Mon 5 Oct', t: 'Dussehra holiday on Tue 20 Oct', h: 'मंगलवार 20 अक्टूबर को दशहरा का अवकाश', body: 'School stays closed. Please give holiday homework by Mon 19 Oct.' },
+{ id: 'n4', from: 'Janmejay Singh · Admin', time: 'Mon 5 Oct', t: 'Staff meeting Fri 9 Oct, 3:30 pm, library', h: 'स्टाफ़ मीटिंग — शुक्रवार 9 अक्टूबर, 3:30 बजे, पुस्तकालय', body: 'We will talk about Half-yearly results, the PTM plan and winter uniform.' }
+];
+const LINKS = [
+{ k: 'c7', c: 'Class 7 Science', h: 'कक्षा 7 विज्ञान', done: 12, n: 27, st: 'mid', seen: 'Opened yesterday 7:40 pm' },
+{ k: 'c8', c: 'Class 8 Science', h: 'कक्षा 8 विज्ञान', done: 0, n: 28, st: 'new', seen: 'Not opened yet' },
+{ k: 'c6', c: 'Class 6 Science', h: 'कक्षा 6 विज्ञान', done: 31, n: 31, st: 'sent', seen: 'Sent to Mr. Trivedi on Mon 5 Oct' },
+{ k: 'p8', c: 'Class 8 Science practical', h: 'कक्षा 8 विज्ञान प्रायोगिक', done: 0, n: 28, st: 'dead', seen: 'Out of 20 · link closed on Sun 4 Oct' }
+];
+const WEEK = { Mon: '6-78-687', Tue: '76-8-6-7', Wed: '8-67-L-6', Thu: '687-SL--', Fri: '67-86-78', Sat: '8-76-6--' };
+const TIMES = ['8:10', '8:50', '9:30', '10:10', '11:10', '11:50', '12:30', '1:10'];
+const DATES = [['d0', 'Today · Thu 8', 'Thu', 'Thu 8 Oct'], ['d1', 'Fri 9', 'Fri', 'Fri 9 Oct'], ['d2', 'Sat 10', 'Sat', 'Sat 10 Oct'], ['d3', 'Mon 12', 'Mon', 'Mon 12 Oct'], ['d4', 'Tue 13', 'Tue', 'Tue 13 Oct'], ['d5', 'Wed 14', 'Wed', 'Wed 14 Oct']];
+const LEAVES = [
+{ when: 'Mon 26 Oct', part: 'First half', why: 'Personal work', st: 'Pending', by: 'Sent Tue 6 Oct · waiting for Janmejay Singh' },
+{ when: 'Fri 25 Sep', part: 'Full day', why: 'Unwell', st: 'Approved', by: 'Approved by Janmejay Singh · Thu 24 Sep' },
+{ when: 'Mon 31 Aug – Tue 1 Sep', part: '2 days', why: 'Family function', st: 'Approved', by: 'Approved by Janmejay Singh · Fri 28 Aug' }
+];
+this._d = { IC, NEWS, LINKS, WEEK, TIMES, DATES, LEAVES };
+return this._d;
+}
+
+st() {
+const base = { screen: 'menu', anim: 'none', hi: false, big: false, dk: null, wa: true, seen: { n3: true, n4: true }, nf: 'all', asked: {}, cp: '', day: 'Thu', topic: 'att', sheet: '', closing: false, ld: ['d0'], lp: 'full', lr: '', ln: '', lerr: 0, ldone: false, mine: [], toast: null };
+const map = { news: { screen: 'news' }, links: { screen: 'links' }, timetable: { screen: 'timetable' }, leave: { screen: 'leave', sheet: 'leave' }, help: { screen: 'help' }, profile: { screen: 'profile' } };
+return Object.assign(base, map[(this.props || {}).start] || {}, this.state || {});
+}
+
+toast(text, undo) {
+const id = Date.now() + Math.random();
+this._undo = undo || null;
+this.setState({ toast: { id, text, undo: !!undo } });
+clearTimeout(this._tt);
+this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+}
+
+undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+openSheet(x) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: 'leave', closing: false }, x || {})); }
+
+closeSheet() {
+if (!this.st().sheet) return;
+this.setState({ closing: true });
+clearTimeout(this._ct);
+this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+}
+
+go(screen, anim, x) { this.setState(Object.assign({ screen, anim: anim || 'push' }, x || {})); }
+
+renderVals() {
+const D = this.data();
+const s = this.st();
+const IC = D.IC;
+const sc = s.screen;
+const V = (x) => 'var(--' + x + ')';
+const L = (e, h) => (s.hi ? h : e);
+const go = (scr, x) => () => this.go(scr, 'push', x);
+const dl = (i) => (Math.min(i, 14) * 30) + 'ms';
+const val = (ev) => (ev && ev.target ? ev.target.value : '');
+const ANIM = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'none' };
+const seg = (defs, cur, pick) => ({ x: (Math.max(0, defs.map((d) => d[0]).indexOf(cur)) * 100) + '%', o: defs.map((d) => ({ l: d[1], aria: d[2] || d[1], cls: cur === d[0] ? 'tap on' : 'tap', p: cur === d[0] ? 'true' : 'false', go: () => pick(d[0]) })) });
+const unread = D.NEWS.filter((x) => !s.seen[x.id]);
+const pending = s.mine.length + 1;
+const openLeave = () => this.openSheet({ ld: ['d0'], lp: 'full', lr: '', ln: '', lerr: 0, ldone: false });
+
+// ---------- menu ----------
+const T = (k, ic, en, hi, info, tone, hd, hm, gofn, b) => ({ k, ic: IC[ic], en: L(en, hi), hi: L(hi, en), info, bg: V(tone[0]), fg: V(tone[1]), isLink: !!hd, isBtn: !hd, hd: hd || '', hm: hm || '', go: gofn || (() => 0), hasB: !!b, b: String(b || '') });
+const TA = ['accs', 'accfg'];
+const TI = ['infos', 'info'];
+const TO = ['oks', 'ok'];
+const TW = ['warns', 'warnfg'];
+const TS = ['s3', 'fg'];
+const tiles = [
+T('home', 'home', 'Today', 'आज', L('P3 Class 7 Science now', 'अभी P3 कक्षा 7'), TA, 'TchHome.dc.html', 'M-TchHome.dc.html'),
+T('att', 'calCheck', 'Attendance', 'हाज़िरी', L('Class 6 · 31 children', 'कक्षा 6 · 31 बच्चे'), TO, 'TchAttend.dc.html', 'M-TchAttend.dc.html'),
+T('class', 'users', 'My class', 'मेरी कक्षा', L('Class 6 and my subjects', 'कक्षा 6 और विषय'), TI, 'TchClass.dc.html', 'M-TchClass.dc.html'),
+T('marks', 'clipboard', 'Marks', 'अंक', L('Class 7 · 12 of 27 entered', 'कक्षा 7 · 27 में से 12'), TW, 'TchMarks.dc.html', 'M-TchMarks.dc.html'),
+T('notes', 'note', 'Notes', 'नोट्स', L('2 need follow-up', '2 पर ध्यान देना है'), TS, 'TchNotes.dc.html', 'M-TchNotes.dc.html'),
+T('news', 'megaphone', 'Notices', 'सूचनाएँ', unread.length ? L(unread.length + ' new · PTM Sat 17 Oct', unread.length + ' नई · PTM 17 अक्टूबर') : L('All read', 'सब पढ़ लीं'), TA, '', '', go('news'), unread.length),
+T('links', 'link', 'Marks links', 'अंक लिंक', L('3 links · till Thu 15 Oct', '3 लिंक · 15 अक्टूबर तक'), TI, '', '', go('links')),
+T('tt', 'clock', 'Timetable', 'समय-सारणी', L('30 periods a week', 'हफ़्ते में 30 पीरियड'), TS, '', '', go('timetable')),
+T('leave', 'calendar', 'Apply leave', 'छुट्टी', L(pending + ' waiting for approval', pending + ' मंज़ूरी बाकी'), TW, '', '', () => { this.go('leave', 'push'); openLeave(); }),
+T('help', 'help', 'Help', 'मदद', L('How do I…', 'कैसे करें…'), TO, '', '', go('help')),
+T('me', 'user', 'My profile', 'मेरी प्रोफ़ाइल', L('Language, text size', 'भाषा, अक्षर का आकार'), TS, '', '', go('profile'))
+];
+const n0 = unread[0];
+tiles.forEach((t, i) => { const big = t.k === 'news'; t.delay = dl(i); t.sp = big ? 'span 2' : 'auto'; t.hasN = big && !!n0; t.news = n0 ? L(n0.t, n0.h) : ''; });
+const mn = { hello: L('Good morning, Ms. Bhati', 'सुप्रभात, सुश्री भाटी'), role: L('Class 6 class teacher · Science for Classes 6, 7 and 8', 'कक्षा 6 की कक्षा अध्यापिका · कक्षा 6, 7, 8 विज्ञान'), now: L('Now · P3 Class 7 Science till 10:10', 'अभी · P3 कक्षा 7 विज्ञान, 10:10 तक'), tiles };
+
+// ---------- notices ----------
+const setSeen = (ids, on) => { const o = Object.assign({}, this.st().seen); ids.forEach((id) => { o[id] = on; }); this.setState({ seen: o }); };
+const shownN = D.NEWS.filter((x) => s.nf === 'all' || !s.seen[x.id]);
+const nw = {
+h: L('Notices', 'सूचनाएँ'), s: L('From the school office · tap Got it after reading', 'स्कूल ऑफ़िस से · पढ़कर “समझ गए” दबाएँ'),
+seg: seg([['all', L('All', 'सभी') + ' · ' + D.NEWS.length], ['unread', L('Unread', 'नहीं पढ़ीं') + ' · ' + unread.length]], s.nf, (f) => this.setState({ nf: f })),
+list: shownN.map((x, i) => { const u = !s.seen[x.id]; return { t: L(x.t, x.h), t2: L(x.h, x.t), body: x.body, from: x.from, time: x.time, pin: !!x.pin, unread: u, seen: !u, bd: x.pin && u ? '2px solid var(--warnm)' : '1px solid var(--bd)', delay: dl(i), hasPdf: !!x.pdf, pdfL: x.pdf || '', hasGo: !!x.go, pdf: () => this.toast(L('Opening “' + x.pdf + '”…', '“' + x.pdf + '” खुल रहा है…')), got: () => setSeen([x.id], true) }; }),
+pinL: L('Pinned', 'ज़रूरी'), gotL: L('Got it', 'समझ गए'), seenL: L('Seen', 'देख लिया'), goL: L('Open marks', 'अंक खोलें'),
+empty: shownN.length === 0, emptyT: L('All caught up!', 'सब पढ़ लिया!'), emptyS: L('No unread notices. New ones show up here.', 'कोई नई सूचना नहीं। नई सूचनाएँ यहाँ आएँगी।'), allL: L('Show all notices', 'सभी सूचनाएँ दिखाएँ'), all: () => this.setState({ nf: 'all' }),
+unread: String(unread.length), anyUnread: unread.length > 0, sumT: L('To read', 'पढ़ना बाकी'), sumC: unread.length ? V('acc') : V('ok'), sumS: unread.length ? L('notices are waiting for you', 'सूचनाएँ बाकी हैं') : L('You are up to date ✓', 'सब पढ़ लिया ✓'),
+allSeenL: L('Mark all as seen', 'सब देख लिया'), allSeen: () => { const ids = unread.map((x) => x.id); setSeen(ids, true); this.toast(L(ids.length + ' notices marked as seen', ids.length + ' सूचनाएँ देख लीं'), () => setSeen(ids, false)); },
+tip: L('When you tap Got it, the office can see that you have read the notice.', '“समझ गए” दबाने पर ऑफ़िस को पता चलता है कि आपने सूचना पढ़ ली।')
+};
+
+// ---------- links ----------
+const LK = { mid: [L('In progress', 'चल रहा है'), V('accs'), V('accfg'), V('acc')], new: [L('Not started', 'शुरू नहीं'), V('s3'), V('mut'), V('acc')], sent: [L('Done ✓', 'पूरा ✓'), V('oks'), V('ok'), V('ok')], dead: [L('Link expired', 'लिंक बंद'), V('bads'), V('bad'), V('bds')] };
+const lk = {
+h: L('Your marks links (Sampark)', 'आपके अंक लिंक (सम्पर्क)'), s: L('Half-yearly · valid till Thu 15 Oct', 'अर्धवार्षिक · 15 अक्टूबर तक'),
+ex: L('Opens a simple page where you type marks. No password needed.', 'एक आसान पेज खुलता है जहाँ आप अंक लिखते हैं। पासवर्ड नहीं चाहिए।'), ex2: L('The marks land in the same place as the app. Keep the link to yourself.', 'अंक ऐप वाली जगह ही पहुँचते हैं। लिंक किसी और को न दें।'),
+openL: L('Open link', 'लिंक खोलें'), waL: L('Share on WhatsApp', 'व्हाट्सऐप पर भेजें'),
+cards: D.LINKS.map((x, i) => {
+const K = LK[x.st];
+const asked = !!s.asked[x.k];
+const copied = s.cp === x.k;
+return {
+kick: L('Half-yearly · ', 'अर्धवार्षिक · ') + (x.st === 'dead' ? L('out of 20', '20 में से') : L('out of 80', '80 में से')), t: L(x.c, x.h), hi: L(x.h, x.c), pill: asked ? L('New link asked', 'नया लिंक माँगा') : K[0], pbg: asked ? V('warns') : K[1], pfg: asked ? V('warnfg') : K[2],
+rc: K[3], rop: x.done ? '1' : '0', dash: (x.done / x.n * 263.9).toFixed(1) + ' 263.9', cnt: String(x.done), of: L('of ', '/ ') + x.n, line: x.seen, delay: dl(i), op: x.st === 'dead' && !asked ? '0.92' : '1',
+live: x.st !== 'dead', dead: x.st === 'dead',
+open: () => this.toast(L('Opening your ' + x.c + ' marks page…', x.h + ' का अंक पेज खुल रहा है…')),
+wa: () => this.toast(L('WhatsApp opened with your ' + x.c + ' link', x.h + ' का लिंक व्हाट्सऐप पर खुला')),
+copy: () => { this.setState({ cp: x.k }); this.toast(L('Copied', 'कॉपी हो गया')); clearTimeout(this._cpt); this._cpt = setTimeout(() => this.setState({ cp: '' }), 2200); },
+cpL: copied ? L('Copied', 'कॉपी') : L('Copy', 'कॉपी करें'), cpIc: copied ? IC.check : IC.copy,
+askL: asked ? L('Asked · you will get it on WhatsApp', 'माँग लिया · व्हाट्सऐप पर मिलेगा') : L('Ask for a new link', 'नया लिंक माँगें'), askCls: asked ? 'sec' : 'pri', askIc: asked ? IC.check : IC.refresh,
+ask: () => { if (this.st().asked[x.k]) return; const o = Object.assign({}, this.st().asked); o[x.k] = true; this.setState({ asked: o }); this.toast(L('Request sent to Mr. Trivedi · the new link comes on WhatsApp', 'श्री त्रिवेदी को अनुरोध भेजा · नया लिंक व्हाट्सऐप पर आएगा'), () => { const b = Object.assign({}, this.st().asked); b[x.k] = false; this.setState({ asked: b }); }); }
+};
+}),
+foot: L('Links stop working when Mr. Trivedi locks the marks. Lost a link? Ask for a new one here.', 'अंक लॉक होने पर लिंक बंद हो जाते हैं। लिंक खो गया? यहीं से नया माँगें।')
+};
+
+// ---------- timetable ----------
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DH = { Mon: 'सोम', Tue: 'मंगल', Wed: 'बुध', Thu: 'गुरु', Fri: 'शुक्र', Sat: 'शनि' };
+const COL = { 6: ['accs', 'accfg', 'c2'], 7: ['infos', 'info', 'c1'], 8: ['oks', 'ok', 'ok'], L: ['accs', 'accfg', 'c2'], S: ['warns', 'warnfg', 'warn'] };
+const cell = (d, i) => {
+const ch = D.WEEK[d][i];
+const today = d === 'Thu';
+const now = today && i === 2;
+const past = today && i < 2;
+if (ch === '-') return { t: L('Free', 'खाली'), s: L('Staff room', 'स्टाफ़ रूम'), bg: 'transparent', fg: V('sub'), bd: '1px dashed var(--bd)', dc: V('bds'), kind: 'free', now: false, past };
+const k = COL[ch];
+const t = ch === 'S' ? L('Class 9 · Physics', 'कक्षा 9 · भौतिकी') : (ch === 'L' ? L('Class 6 · Science lab', 'कक्षा 6 · विज्ञान लैब') : L('Class ' + ch + ' · Science', 'कक्षा ' + ch + ' · विज्ञान'));
+const sub = ch === 'S' ? L('Cover for Mr. Meena · Room 9', 'श्री मीणा की जगह · कमरा 9') : (ch === 'L' ? L('Science lab', 'विज्ञान लैब') : L('Room ' + ch, 'कमरा ' + ch) + (ch === '6' ? L(' · my class', ' · मेरी कक्षा') : ''));
+return { t, s: sub, bg: V(k[0]), fg: V(k[1]), bd: ch === 'S' ? '2px solid var(--warn)' : '1px solid transparent', dc: V(k[2]), kind: ch === 'S' ? 'sub' : 'cls', now, past };
+};
+const grid = [];
+D.TIMES.forEach((tm, i) => {
+if (i === 4) grid.push({ brk: true, per: false, p: '', time: '', cells: [] });
+grid.push({ brk: false, per: true, p: 'P' + (i + 1), time: tm, cells: DAYS.map((d, j) => { const c = cell(d, i); return Object.assign(c, { col: d === 'Thu' ? V('s2') : 'transparent', op: c.past ? '0.55' : '1', ring: c.now ? '0 0 0 2px var(--acc)' : 'none', delay: (Math.min(i * 6 + j, 40) * 8) + 'ms' }); }) });
+});
+const dayPick = D.WEEK[s.day] ? s.day : 'Thu';
+const dayRows = [];
+D.TIMES.forEach((tm, i) => {
+if (i === 4) dayRows.push({ brk: true, per: false });
+const c = cell(dayPick, i);
+const tag = c.now ? [L('Now', 'अभी'), V('acc'), V('onsolid')] : (c.past ? [L('Done', 'हो गया'), V('s3'), V('mut')] : (c.kind === 'sub' ? [L('Cover', 'बदली'), V('warn'), V('onsolid')] : null));
+dayRows.push({ brk: false, per: true, p: 'P' + (i + 1), time: tm, t: c.t, s: c.s, dc: c.dc, pulse: c.now ? 'xPulse 2s ease infinite' : 'none', rbg: c.now ? V('accs') : (c.kind === 'sub' ? V('warns') : 'transparent'), op: c.past ? '0.55' : '1', bt: i ? '1px solid var(--bd)' : '0', hasTag: !!tag, tag: tag ? tag[0] : '', tbg: tag ? tag[1] : 'transparent', tfg: tag ? tag[2] : 'inherit', delay: dl(i) });
+});
+const tt = {
+h: L('My timetable', 'मेरी समय-सारणी'), s: L('30 periods a week · today is Thursday', 'हफ़्ते में 30 पीरियड · आज गुरुवार'),
+legend: [[L('Class 6', 'कक्षा 6'), V('c2'), '0'], [L('Class 7', 'कक्षा 7'), V('c1'), '0'], [L('Class 8', 'कक्षा 8'), V('ok'), '0'], [L('Cover', 'बदली'), V('warn'), '0'], [L('Free', 'खाली'), 'transparent', '1.5px dashed var(--bds)']].map((l) => ({ t: l[0], c: l[1], bd: l[2] })),
+head: DAYS.map((d) => ({ d: L(d, DH[d]), today: d === 'Thu', bg: d === 'Thu' ? V('accs') : V('s2'), fg: d === 'Thu' ? V('accfg') : V('fg') })), todayL: L('Today', 'आज'),
+grid, brkL: L('BREAK · 10:50 – 11:10', 'मध्यांतर · 10:50 – 11:10'),
+seg: seg(DAYS.map((d) => [d, L(d, DH[d])]), dayPick, (d) => this.setState({ day: d })), day: dayRows,
+subT: L('Today P5 (11:10): you cover Class 9 Physics for Mr. Meena. His note: Motion, numericals 4–8 on page 112.', 'आज P5 (11:10): श्री मीणा की जगह कक्षा 9 भौतिकी। उनका नोट: गति, पेज 112 के प्रश्न 4–8।')
+};
+
+// ---------- leave ----------
+const LP = { full: L('Full day', 'पूरा दिन'), am: L('First half', 'पहली पाली'), pm: L('Second half', 'दूसरी पाली') };
+const RS = [['Unwell', 'बीमार'], ['Family function', 'पारिवारिक कार्यक्रम'], ['Personal work', 'निजी काम']];
+const pickD = D.DATES.filter((d) => s.ld.indexOf(d[0]) >= 0);
+const per = [];
+pickD.forEach((d) => { D.WEEK[d[2]].split('').forEach((ch, i) => { if (ch !== '-' && ch !== 'S' && (s.lp === 'full' || (s.lp === 'am' ? i < 4 : i > 3))) per.push(d[2] + ' P' + (i + 1) + ' ' + (ch === 'L' ? L('Class 6 lab', 'कक्षा 6 लैब') : L('Class ' + ch, 'कक्षा ' + ch))); }); });
+const sum = pickD.length ? (pickD.length === 1 ? pickD[0][3] : pickD.map((d) => d[1].replace('Today · ', '')).join(', ') + ' Oct') + ' · ' + (pickD.length > 1 && s.lp === 'full' ? pickD.length + L(' days', ' दिन') : LP[s.lp]) : L('Pick a day', 'दिन चुनें');
+const lerr = s.lerr > 0 && !s.lr;
+const submit = () => {
+const c = this.st();
+if (!c.ld.length) { this.toast(L('Pick at least one day', 'कम से कम एक दिन चुनें')); return; }
+if (!c.lr) { this.setState({ lerr: c.lerr + 1 }); return; }
+const item = { when: sum.split(' · ')[0], part: LP[c.lp], why: c.lr, st: 'Pending', by: L('Sent just now · waiting for Janmejay Singh', 'अभी भेजा · श्री जनमेजय सिंह की मंज़ूरी बाकी'), fresh: true };
+const before = c.mine;
+this.setState({ mine: [item].concat(before), ldone: true });
+this.toast(L('Leave request sent to the office', 'छुट्टी का अनुरोध ऑफ़िस को भेजा'), () => this.setState({ mine: before }));
+};
+const lf = {
+title: L('Apply leave', 'छुट्टी के लिए आवेदन'), sub: L('Casual leave left: 6 of 12', 'आकस्मिक अवकाश बाकी: 12 में से 6'), form: !s.ldone, done: !!s.ldone,
+whenT: L('Which day?', 'कौन-सा दिन?'), whyT: L('Why?', 'कारण?'), noteT: L('Anything the office should know (optional)', 'ऑफ़िस के लिए कुछ (ज़रूरी नहीं)'), noteP: L('For example: fever since last night', 'जैसे: कल रात से बुखार'),
+dates: D.DATES.map((d) => { const on = s.ld.indexOf(d[0]) >= 0; return { l: d[0] === 'd0' ? L('Today · Thu 8', 'आज · गुरु 8') : L(d[1], DH[d[2]] + ' ' + d[1].split(' ')[1]), on, cls: on ? 'on' : '', p: on ? 'true' : 'false', go: () => { const cur = this.st().ld; this.setState({ ld: on ? cur.filter((x) => x !== d[0]) : cur.concat([d[0]]) }); } }; }),
+part: seg([['full', LP.full], ['am', LP.am], ['pm', LP.pm]], s.lp, (p) => this.setState({ lp: p })),
+reasons: RS.map((r) => ({ l: L(r[0], r[1]), h: L(r[1], r[0]), cls: s.lr === r[0] ? 'on' : '', p: s.lr === r[0] ? 'true' : 'false', go: () => this.setState({ lr: r[0] }) })),
+err: lerr, errT: L('Please pick a reason', 'कृपया कारण चुनें'), sh1: lerr && s.lerr % 2 ? 'xShake .4s ease' : 'none', sh2: lerr && !(s.lerr % 2) ? 'xShake .4s ease' : 'none',
+note: s.ln, onNote: (ev) => this.setState({ ln: val(ev) }),
+cover: L('The office will arrange your classes', 'आपकी कक्षाएँ ऑफ़िस संभालेगा'), periods: per.length ? L('Your ' + per.length + ' periods: ', 'आपके ' + per.length + ' पीरियड: ') + per.slice(0, 6).join(', ') + (per.length > 6 ? '…' : '') : L('No periods to cover.', 'कोई पीरियड नहीं।'),
+askT: L('You are asking for', 'आप माँग रहे हैं'), sum, sendL: L('Send', 'भेजें'), op: s.lr && s.ld.length ? '1' : '0.6', submit,
+okT: L('Sent to the office', 'ऑफ़िस को भेज दिया'), okS: L('Janmejay Singh will approve it. You will get a WhatsApp when he does.', 'श्री जनमेजय सिंह मंज़ूरी देंगे। मंज़ूरी पर व्हाट्सऐप आएगा।'), doneL: L('Done', 'ठीक है')
+};
+const LS = { Pending: [L('Pending', 'बाकी'), V('warns'), V('warnfg'), IC.clock], Approved: [L('Approved', 'मंज़ूर'), V('oks'), V('ok'), IC.check] };
+const lv = {
+h: L('My leave', 'मेरी छुट्टियाँ'), s: L('Ask for leave in two taps. The office sees it at once.', 'दो टैप में छुट्टी माँगें। ऑफ़िस तुरंत देखता है।'), applyL: L('Apply leave', 'छुट्टी माँगें'), open: openLeave,
+bal: [[L('Casual leave', 'आकस्मिक अवकाश'), 6, 12], [L('Sick leave', 'बीमारी अवकाश'), 8, 10]].map((b) => ({ t: b[0], v: String(b[1]), of: L('of ' + b[2] + ' left', b[2] + ' में से बाकी'), w: Math.round(b[1] / b[2] * 100) + '%' })),
+listT: L('My requests', 'मेरे अनुरोध'),
+list: s.mine.concat(D.LEAVES).map((r) => { const K = LS[r.st]; const why = RS.filter((x) => x[0] === r.why)[0]; return { when: r.when, what: r.part + ' · ' + (why ? L(why[0], why[1]) : r.why), by: r.by, st: K[0], pbg: K[1], pfg: K[2], ibg: K[1], ifg: K[2], ic: K[3], an: r.fresh ? 'xRise .42s var(--ease) both' : 'none' }; })
+};
+
+// ---------- help ----------
+const E = (k, t, r, hl) => { const K = { row: ['24px', 'card', 'fg', 'flex-start', '600'], soft: ['24px', 'accs', 'accfg', 'flex-start', '700'], btn: ['30px', 'pri', 'prifg', 'center', '700'], ok: ['44px', 'oks', 'ok', 'center', '700'], bad: ['24px', 'bads', 'bad', 'flex-start', '700'], good: ['24px', 'oks', 'ok', 'flex-start', '600'], mic: ['56px', 'pri', 'prifg', 'center', '700'], wa: ['40px', 'wab', 'wafg', 'flex-start', '500'] }[k]; const ic = { ok: IC.check, mic: IC.mic }[k]; return { h: K[0], bg: V(K[1]), fg: V(K[2]), jc: K[3], fw: K[4], fl: K[3] === 'center' ? '0 1 auto' : '1', t, r: r || '', hasR: !!r, hasIc: !!ic, ic: ic || '', isz: k === 'mic' ? '26px' : '22px', rad: k === 'mic' ? '28px' : (k === 'wa' ? '10px 10px 2px 10px' : '8px'), as: k === 'mic' ? 'center' : (k === 'wa' ? 'flex-end' : 'stretch'), w: k === 'mic' ? '56px' : (k === 'wa' ? '84%' : 'auto'), bd: hl ? '2px solid var(--acc)' : (k === 'row' ? '1px solid var(--bd)' : '1px solid transparent'), an: hl ? 'xPulse 1.8s ease infinite' : (k === 'mic' ? 'xPulse 2s ease infinite' : 'none') }; };
+const P = (t, h, sub, els) => ({ t, h, s: sub, els });
+const TOP = {
+att: ['calCheck', 'Mark attendance', 'हाज़िरी लगाएँ', TO, 'TchAttend.dc.html', 'M-TchAttend.dc.html', [
+P('Open Attendance', 'हाज़िरी खोलें', 'Tap the big round button at the bottom.', [E('soft', 'Attendance', '', true), E('row', 'My class'), E('row', 'Marks')]),
+P('Tap who is absent', 'अनुपस्थित पर टैप करें', 'Everyone starts Present. Tap once for Absent, again for Leave.', [E('good', 'Aadhya · Present'), E('bad', 'Om · Absent', '', true), E('good', 'Pari · Present')]),
+P('Save attendance', 'हाज़िरी सेव करें', 'Until you save, the office sees “Not marked”.', [E('btn', 'Save attendance', '', true), E('ok', '')])]],
+marks: ['clipboard', 'Enter marks', 'अंक भरें', TW, 'TchMarks.dc.html', 'M-TchMarks.dc.html', [
+P('Pick the class', 'कक्षा चुनें', 'Tap Continue on the class you want.', [E('row', 'Class 7 Science', '12/27'), E('btn', 'Continue', '', true), E('row', 'Class 8 Science', '0/28')]),
+P('Type the mark', 'अंक लिखें', 'After 2 numbers it jumps to the next child by itself.', [E('row', 'Lokesh', '38'), E('soft', 'Muskan', '5_', true), E('row', 'Nidhi')]),
+P('Check and send', 'जाँचें और भेजें', 'See the summary, then send to Mr. Trivedi.', [E('row', 'Average', '56'), E('btn', 'Send', '', true), E('ok', '')])]],
+note: ['mic', 'Speak a note', 'बोलकर नोट लिखें', TI, 'DX-TchNotes-Add.dc.html', 'M-TchNotes-Add.dc.html', [
+P('Tap the mic', 'माइक दबाएँ', 'In Notes, tap the big round mic button.', [E('mic', '', '', false)]),
+P('Speak in Hindi or English', 'हिंदी या अंग्रेज़ी में बोलें', 'Your words appear as you speak. Fix any word by typing.', [E('row', 'Riya finds fractions…'), E('soft', 'started practice sheets|', '', true)]),
+P('Save the note', 'नोट सेव करें', 'It reaches the class teacher by itself.', [E('btn', 'Save note', '', true), E('ok', '')])]],
+link: ['link', 'Share a marks link', 'अंक लिंक भेजें', TA, '', '', [
+P('Open Marks links', 'अंक लिंक खोलें', 'More → Marks links. One card for each class.', [E('soft', 'Class 7 Science', '12/27', true), E('row', 'Class 8 Science', '0/28')]),
+P('Tap Share on WhatsApp', 'व्हाट्सऐप पर भेजें दबाएँ', 'Send it to yourself to open on any phone.', [E('btn', 'Share on WhatsApp', '', true), E('row', 'Copy')]),
+P('Open it and type marks', 'खोलें और अंक लिखें', 'No password. Marks land in the same place.', [E('wa', 'Your marks link · Class 7'), E('ok', '')])]],
+news: ['megaphone', 'Read notices', 'सूचनाएँ पढ़ें', TS, '', '', [
+P('Open Notices', 'सूचनाएँ खोलें', 'The red number shows how many are new.', [E('soft', 'Notices', '2', true), E('row', 'Marks links')]),
+P('Read the notice', 'सूचना पढ़ें', 'Pinned ones are on top. Some have a PDF.', [E('row', 'PTM Sat 17 Oct', 'PDF', true), E('row', 'Marks by Wed 14')]),
+P('Tap Got it', '“समझ गए” दबाएँ', 'The office can see you have read it.', [E('btn', 'Got it', '', true), E('ok', '')])]],
+leave: ['calendar', 'Apply leave', 'छुट्टी माँगें', TW, '', '', [
+P('Pick the day', 'दिन चुनें', 'Today · full day is already picked.', [E('soft', 'Today · Thu 8', '', true), E('row', 'Fri 9')]),
+P('Pick a reason', 'कारण चुनें', 'Unwell, Family function or Personal work.', [E('row', 'Unwell', '', true), E('row', 'Family function')]),
+P('Send', 'भेजें', 'The office arranges your classes.', [E('btn', 'Send', '', true), E('ok', '')])]]
+};
+const tk = TOP[s.topic] ? s.topic : 'att';
+const tp = TOP[tk];
+const hp = {
+h: L('How do I…', 'कैसे करें…'), s: L('Pick a task. Each one is 3 easy steps.', 'कोई काम चुनें। हर काम 3 आसान कदम।'),
+topics: Object.keys(TOP).map((k) => { const x = TOP[k]; const on = k === tk; return { en: L(x[1], x[2]), hi: L(x[2], x[1]), ic: IC[x[0]], ibg: V(x[3][0]), ifg: V(x[3][1]), on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? V('accs') : V('card'), go: () => this.setState({ topic: k }) }; }),
+tt: L(tp[1], tp[2]),
+steps: tp[6].map((p, i) => ({ n: String(i + 1), t: L(p.t, p.h), h: L(p.h, p.t), s: p.s, els: p.els, delay: (i * 90) + 'ms' })),
+isLink: !!tp[4], isBtn: !tp[4], tryD: tp[4] || 'TchHome.dc.html', tryM: tp[5] || 'M-TchHome.dc.html', tryL: L('Try it now', 'अभी करके देखें'),
+tryGo: () => { if (tk === 'leave') { this.go('leave', 'push'); openLeave(); } else this.go(tk === 'link' ? 'links' : 'news', 'push'); },
+callT: L('Still stuck? Call the office', 'फिर भी दिक्कत? ऑफ़िस को फ़ोन करें'), callS: L('Mon–Sat · 8 am to 2 pm · 02908 220145', 'सोम–शनि · सुबह 8 से 2 बजे · 02908 220145'), callL: L('Call the office', 'ऑफ़िस को फ़ोन'),
+call: () => this.toast(L('Calling the office · 02908 220145', 'ऑफ़िस को फ़ोन लग रहा है · 02908 220145'))
+};
+
+// ---------- profile ----------
+const dark = s.dk === null ? !!this.props.dark : !!s.dk;
+const pf = {
+role: L('Class 6 class teacher · Science for Classes 6, 7 and 8', 'कक्षा 6 की कक्षा अध्यापिका · कक्षा 6, 7, 8 विज्ञान'),
+clsT: L('My classes', 'मेरी कक्षाएँ'), cls: [[L('Class 6 · class teacher', 'कक्षा 6 · कक्षा अध्यापिका'), 'accs', 'accfg'], [L('Class 6 Science', 'कक्षा 6 विज्ञान'), 's3', 'fg'], [L('Class 7 Science', 'कक्षा 7 विज्ञान'), 's3', 'fg'], [L('Class 8 Science', 'कक्षा 8 विज्ञान'), 's3', 'fg'], [L('Class 9 Physics · today’s cover', 'कक्षा 9 भौतिकी · आज की बदली'), 'warns', 'warnfg']].map((c) => ({ t: c[0], bg: V(c[1]), fg: V(c[2]) })),
+langT: L('Language', 'भाषा'), langS: L('भाषा · Hindi or English', 'Language · हिंदी या English'), lang: seg([['en', 'English'], ['hi', 'हिंदी']], s.hi ? 'hi' : 'en', (l) => this.setState({ hi: l === 'hi' })).o,
+sizeT: L('Text size', 'अक्षर का आकार'), sizeS: L('अक्षर का आकार · bigger is easier to read', 'Text size · बड़ा पढ़ने में आसान'),
+size: seg([['n', L('Normal', 'सामान्य')], ['l', L('Large', 'बड़ा')]], s.big ? 'l' : 'n', (z) => this.setState({ big: z === 'l' })),
+prevL: L('Preview', 'झलक'), prev1: L('Class 7 · Science — 12 of 27 entered', 'कक्षा 7 · विज्ञान — 27 में से 12 भरे'), prev2: L('This is how text looks in the app.', 'ऐप में अक्षर ऐसे दिखेंगे।'), pv1: s.big ? '19px' : '16px', pv2: s.big ? '16px' : '13px',
+dkT: L('Dark mode', 'डार्क मोड'), dkS: L('डार्क मोड · easier on the eyes at night', 'Dark mode · रात में आँखों को आराम'), dkOn: dark ? 'true' : 'false', dkCls: dark ? 'on' : '', dkGo: () => this.setState({ dk: !dark }),
+waT: L('WhatsApp alerts for notices', 'सूचनाओं के व्हाट्सऐप अलर्ट'), waS: L('सूचना आने पर व्हाट्सऐप', 'WhatsApp when a notice comes'), waOn: s.wa ? 'true' : 'false', waCls: s.wa ? 'on' : '', waGo: () => { const on = !this.st().wa; this.setState({ wa: on }); this.toast(on ? L('WhatsApp alerts on', 'व्हाट्सऐप अलर्ट चालू') : L('WhatsApp alerts off', 'व्हाट्सऐप अलर्ट बंद'), () => this.setState({ wa: !on })); },
+outL: L('Sign out', 'साइन आउट'), foot: L('VPPS One · Shri Veer Patta Sr. Sec. School, Amet · Teacher app', 'VPPS One · श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट')
+};
+
+// ---------- chrome ----------
+const TT = {
+menu: ['Teacher · 2026–27', L('More', 'और'), L('Ms. Kavita Bhati · Class 6', 'सुश्री कविता भाटी · कक्षा 6')],
+news: ['More · Notices', L('Notices', 'सूचनाएँ'), unread.length ? L(unread.length + ' new', unread.length + ' नई') : L('All read', 'सब पढ़ लीं')],
+links: ['More · Marks links', L('Marks links', 'अंक लिंक'), L('Sampark · till Thu 15 Oct', 'सम्पर्क · 15 अक्टूबर तक')],
+timetable: ['More · Timetable', L('My timetable', 'मेरी समय-सारणी'), L('30 periods a week', 'हफ़्ते में 30 पीरियड')],
+leave: ['More · Leave', L('My leave', 'मेरी छुट्टियाँ'), L('Casual 6 of 12 left', 'आकस्मिक 12 में से 6 बाकी')],
+help: ['More · Help', L('Help', 'मदद'), L('How do I…', 'कैसे करें…')],
+profile: ['More · My profile', L('My profile', 'मेरी प्रोफ़ाइल'), L('Language, text size, dark mode', 'भाषा, आकार, डार्क मोड')]
+}[sc] || ['', '', ''];
+const ACT = { timetable: ['sec', IC.calendar, L('Apply leave', 'छुट्टी माँगें'), () => { this.go('leave', 'push'); openLeave(); }] }[sc];
+const top = { crumb: TT[0], title: TT[1], sub: TT[2], mMe: sc === 'menu', mBack: sc !== 'menu', hasAct: !!ACT, actCls: ACT ? ACT[0] : '', actIc: ACT ? ACT[1] : '', actL: ACT ? ACT[2] : '', act: ACT ? ACT[3] : () => 0 };
+const HT = { news: 'news', links: 'link', leave: 'leave', timetable: 'leave' };
+return {
+ic: IC, dark, theme: dark ? 'dark' : '', zoom: s.big ? '1.12' : '1',
+is: { menu: sc === 'menu', news: sc === 'news', links: sc === 'links', timetable: sc === 'timetable', leave: sc === 'leave', help: sc === 'help', profile: sc === 'profile' },
+anim: ANIM[s.anim] || 'none', top, back: () => this.go('menu', 'pop'), goProfile: go('profile'), goHelp: () => this.go('help', 'push', { topic: HT[sc] || this.st().topic }),
+lang: seg([['en', 'EN', 'English'], ['hi', 'हि', 'हिंदी']], s.hi ? 'hi' : 'en', (l) => this.setState({ hi: l === 'hi' })),
+mn, nw, lk, tt, lv, lf, hp, pf,
+sh: { open: !!s.sheet, state: s.closing ? 'closing' : 'open' }, closeSheet: () => this.closeSheet(),
+toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

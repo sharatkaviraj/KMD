@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fee setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.fr{display:flex;align-items:center;gap:8px;min-width:0}.fc{display:flex;flex-direction:column;min-width:0}.f1{flex:1;min-width:0}.jb{justify-content:space-between}.wr{flex-wrap:wrap}.ta{text-align:right}.ae{align-items:flex-end}.mu{color:var(--mut)}.s11{font-size:11px}.s12{font-size:12px}.s13{font-size:13px}.s14{font-size:14px}.b6{font-weight:600}.b7{font-weight:700}.tt{font-size:15px;font-weight:700}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ib{display:flex;align-items:center;justify-content:center;flex:none}.bt{border-top:1px solid var(--bd)}.vx .ls>*+*{border-top:1px solid var(--bd)}.vx .sq{flex:none;width:38px;height:38px;padding:0}.vx .sq4{flex:none;width:44px;height:44px;padding:0}.t36{width:36px;height:36px;border-radius:11px}.dt{width:10px;height:10px;border-radius:5px;flex:none}.scr{padding:20px 28px 40px;display:flex;flex-direction:column;gap:16px}.sb{flex:1;min-height:0;padding:4px 20px 12px;display:flex;flex-direction:column;gap:14px}.sf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}.sf>button{flex:1}.sf>button+button{flex:1.6}.nt{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:14px;font-size:13px;line-height:1.5}.rb{display:flex;align-items:center;gap:12px;border:0;background:transparent;color:var(--fg);text-align:left;width:100%}.xi{animation:xIn .32s var(--ease) both;animation-delay:var(--d,0ms)}.i.sm{width:14px;height:14px}.h2{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.2}.big{min-width:56px;font-size:16px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}.G2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ac{background:var(--accs);color:var(--accfg)}.wa{background:var(--warns);color:var(--warnfg)}.ok{background:var(--oks);color:var(--ok)}.in{background:var(--infos);color:var(--info)}.er{background:var(--bads);color:var(--bad)}.nu{background:var(--s3);color:var(--mut)}.pl{height:28px;padding:0 10px;font-size:13px}.rp{position:relative;flex:1;min-width:0}.rp>span{position:absolute;left:14px;top:12px;color:var(--mut)}.rp>input{padding-left:30px;font-weight:700}.pbar{position:absolute;left:0;right:0;bottom:22px;z-index:30;display:flex;justify-content:center;pointer-events:none;padding:0 24px}.pbar>div{min-width:0;pointer-events:auto;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;min-height:56px;border-radius:18px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xUp .42s var(--ease) both}.vx .tw2{bottom:104px}
+@container vx (max-width:899px){.vx .pbar{bottom:88px;padding:0 12px}.vx .pbar>div{flex:1}.vx .tw2{bottom:156px}.vx .scr{gap:14px}.vx .unstick{overflow:visible!important}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="feesetup" role="{{role}}" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+<header class="only-d glass" style="flex: none; height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="fc f1"><span class="s12 mu">{{top.crumb}}</span><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+<sc-if value="{{is.setup}}"><button class="tap btn sec" type="button" onClick="{{goHistory}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.history}}"></path></svg>History</button></sc-if>
+<sc-if value="{{is.history}}"><button class="tap btn ghost" type="button" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>Back to fee setup</button></sc-if>
+</header>
+<header class="only-m glass" style="flex: none; min-height: 58px; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<sc-if value="{{top.mLink}}"><a href="{{roleMenu}}" class="tap ib" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.mBack}}"><button class="tap btn ghost sq4" type="button" aria-label="Back" onClick="{{back}}" style="border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="fc f1" style="padding-left: 2px"><span class="el" style="font-size: 17px; font-weight: 700">{{top.mTitle}}</span><span class="s12 mu el">{{top.mSub}}</span></span>
+<sc-if value="{{top.mHist}}"><button class="tap btn ghost sq4" type="button" aria-label="History" onClick="{{goHistory}}" style="border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px"><path d="{{ic.history}}"></path></svg></button></sc-if>
+</header>
+<sc-if value="{{tabs.show}}">
+<div class="pad {{tabs.cls}}" style="flex: none; padding: 12px 28px; border-bottom: 1px solid var(--bd); background: var(--bg); position: relative; z-index: 4">
+<div class="fr jb" style="gap: 16px"><div class="hs f1"><div class="seg" style="grid-template-columns: repeat(5, minmax(0, 1fr)); width: 660px; min-width: 600px"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 5); transform: translateX({{tabs.thumb}})"></span><sc-for list="{{tabs.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path d="{{o.icon}}"></path></svg>{{o.label}}</button></sc-for></div></div></div>
+</div>
+</sc-if>
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+<!-- STRUCTURE -->
+<sc-if value="{{is.structure}}">
+<div class="stack" style="display: grid; grid-template-columns: {{sx.cols}}; align-items: start; min-height: 100%">
+<section class="pad scr {{sx.listCls}}" style="gap: 14px; animation: {{anim}}">
+<div class="fr jb wr" style="gap: 10px"><span class="fc"><span class="tt">Yearly fee by class band</span><span class="s12 mu">7 bands · 434 students · 4 installments</span></span><button class="tap btn sec mfull" type="button" onClick="{{openCopy}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.copy}}"></path></svg>Copy from 2025–26 and raise by %</button></div>
+<div class="nt wa"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg><span>Receipts exist for Installments 1–2 in every band. <b>Changes apply to unpaid installments only</b> (3 and 4).</span></div>
+<div class="only-d card" style="overflow: hidden">
+<div style="display: grid; grid-template-columns: {{sx.gc}}; gap: 8px; align-items: center; height: 42px; padding: 0 16px; background: var(--s2); border-bottom: 1px solid var(--bd)"><span class="sech">Band</span><span class="sech ta">Students</span><sc-for list="{{sx.heads}}" as="h"><span class="sech ta {{h.x}}">{{h.label}}</span></sc-for><span></span></div>
+<sc-for list="{{sx.groups}}" as="g">
+<sc-if value="{{g.head}}"><div class="s12 b7 mu bt" style="padding: 10px 16px 4px">{{g.label}}</div></sc-if>
+<sc-for list="{{g.rows}}" as="r">
+<button class="tap row xi bt {{r.sel}}" type="button" onClick="{{r.open}}" style="width: 100%; display: grid; grid-template-columns: {{sx.gc}}; gap: 8px; align-items: center; min-height: 60px; padding: 8px 16px; border: 0; border-top: 1px solid var(--bd); background: transparent; color: var(--fg); text-align: left; --d: {{r.delay}}">
+<span class="fc" style="padding-left: {{r.indent}}"><span class="s14 b7 el">{{r.name}}</span><span class="s12 mu el">{{r.cls}}</span></span>
+<span class="num s13 mu ta">{{r.n}}</span>
+<sc-for list="{{r.cells}}" as="c"><span class="fc num {{c.x}}" style="align-items: flex-end"><sc-if value="{{c.wasOn}}"><span class="s11" style="color: var(--sub); text-decoration: line-through">{{c.was}}</span></sc-if><span class="s14 {{c.tone}}" style="font-weight: {{c.fw}}; padding: 0 6px; border-radius: 6px">{{c.v}}</span></span></sc-for>
+<svg class="i sm" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>
+</button>
+</sc-for>
+</sc-for>
+</div>
+<div class="only-m fc" style="gap: 14px">
+<sc-for list="{{sx.groups}}" as="g">
+<div class="fc" style="gap: 8px"><span class="sech" style="padding: 0 4px">{{g.label}}</span>
+<sc-for list="{{g.rows}}" as="r">
+<div class="card xi" style="overflow: hidden; --d: {{r.delay}}">
+<button class="tap rb" type="button" aria-expanded="{{r.expS}}" onClick="{{r.toggle}}" style="padding: 14px">
+<span class="fc f1" style="gap: 2px"><span class="tt el">{{r.name}}</span><span class="s12 mu">{{r.cls}}</span><span class="s12 fr" style="gap: 4px; color: var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px" aria-hidden="true"><path d="{{ic.lock}}"></path></svg>Unpaid only</span></span>
+<span class="fc ae"><span class="num tt" style="color: {{r.totFg}}">{{r.total}}</span><span class="num s12 mu">{{r.per}}</span></span>
+<svg class="i" viewBox="0 0 24 24" style="color: var(--sub); transform: rotate({{r.rot}}); transition: transform .3s var(--spring)" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg>
+</button>
+<sc-if value="{{r.exp}}">
+<div class="bt" style="padding: 0 14px 14px">
+<sc-for list="{{r.list}}" as="h"><div class="fr jb xi" style="padding: 10px 0; border-bottom: 1px solid var(--bd); --d: {{h.delay}}"><span class="fc"><span class="s14 b6">{{h.label}}</span><span class="s12 mu">{{h.sub}}</span></span><span class="num s14 b7" style="color: {{h.fg}}">{{h.v}}</span></div></sc-for>
+<button class="tap btn soft" type="button" onClick="{{r.open}}" style="width: 100%; margin-top: 12px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Edit fees for {{r.name}}</button>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</section>
+<sc-if value="{{is.edit}}">
+<aside class="unstick" style="position: sticky; top: 0; height: calc(100vh - 123px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--bg); animation: xPush .36s var(--ease) both; display: flex; flex-direction: column">
+<div class="fc" style="flex: 1; padding: 18px 22px; gap: 14px">
+<span class="fc hide-m"><span class="h2">{{ed.title}}</span><span class="s13 mu">{{ed.sub}}</span></span>
+<div class="nt wa s12" style="padding: 10px 12px"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.lock}}"></path></svg><span>{{ed.lock}}</span></div>
+<sc-for list="{{ed.heads}}" as="h">
+<label class="field xi" style="--d: {{h.delay}}"><span>{{h.label}}</span>
+<span class="rp"><span>₹</span><input class="inp num {{h.err}}" inputmode="numeric" value="{{h.val}}" onChange="{{h.on}}"></span>
+<span class="s12" style="font-weight: 500; color: {{h.wasFg}}">{{h.sub}} · {{h.was}}</span>
+</label>
+</sc-for>
+<div class="card fc" style="padding: 14px 16px; gap: 10px">
+<div class="fr jb"><span class="fc"><span class="s12 b7 mu">Yearly total</span><span class="num" style="font-size: 26px; font-weight: 700">{{ed.total}}</span></span><sc-if value="{{ed.diffOn}}"><span class="pill in pl" style="animation: xPopIn .4s var(--spring) both">{{ed.diff}}</span></sc-if></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px"><sc-for list="{{ed.insts}}" as="t"><span class="fc {{t.tone}}" style="padding: 8px; border-radius: 10px; gap: 2px"><span class="s11 b7 fr" style="gap: 3px; opacity: .75"><svg class="i" viewBox="0 0 24 24" style="width: 11px; height: 11px" aria-hidden="true"><path d="{{t.icon}}"></path></svg>{{t.label}}</span><span class="num s13 b7">{{t.v}}</span></span></sc-for></div>
+<div class="fr s13 b6" style="align-items: flex-start; color: {{ed.impFg}}"><svg class="i sm" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.users}}"></path></svg><span>{{ed.impact}}</span></div>
+</div>
+</div>
+<div class="glass sf" style="position: sticky; bottom: 0; padding: 12px 22px 16px"><button class="tap btn sec" type="button" onClick="{{ed.cancel}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{ed.save}}" style="opacity: {{ed.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Save to changes</button></div>
+</aside>
+</sc-if>
+</div>
+</sc-if>
+<!-- INSTALLMENTS -->
+<sc-if value="{{is.installments}}">
+<div class="pad scr" style="animation: {{anim}}">
+<div class="card" style="padding: 18px 16px 16px">
+<div class="fr jb" style="margin-bottom: 16px"><span class="tt">When fees fall due</span><span class="s12 mu">Today · Thu 8 Oct</span></div>
+<div style="position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+<span style="position: absolute; top: 17px; left: 12.5%; right: 12.5%; height: 4px; border-radius: 2px; background: var(--s3)"></span>
+<span style="position: absolute; top: 17px; left: 12.5%; width: 34.4%; height: 4px; border-radius: 2px; background: var(--ok); transform-origin: left; animation: xGrowX .9s .15s var(--ease) both"></span>
+<sc-for list="{{ins.nodes}}" as="n">
+<div class="fc xi" style="align-items: center; gap: 6px; text-align: center; position: relative; --d: {{n.delay}}">
+<span class="ib" style="width: 38px; height: 38px; border-radius: 19px; background: {{n.bg}}; color: {{n.fg}}; border: {{n.bd}}; animation: {{n.pulse}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+<span class="b7 s13">Inst {{n.no}}</span>
+<button class="tap chip {{n.chip}}" type="button" aria-pressed="{{n.pr}}" aria-label="Due date {{n.date}}" onClick="{{n.toggle}}" style="height: 30px; padding: 0 9px; font-size: 12px"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="{{n.dicon}}"></path></svg>{{n.date}}</button>
+<span class="s12" style="color: {{n.stFg}}; line-height: 1.3">{{n.status}}</span>
+</div>
+</sc-for>
+</div>
+<span class="s12 mu" style="display: block; margin-top: 12px; text-align: center">Tap the date of Inst 3 or 4 to move it. Passed dates are locked.</span>
+</div>
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; align-items: start">
+<div class="card fc" style="padding: 16px 18px; gap: 4px">
+<div class="fr jb"><span class="tt">How the year is split</span><span class="pill num pl {{ins.tone}}" style="animation: {{ins.shake}}">{{ins.tot}}</span></div>
+<span class="s12 mu">Each installment’s share of the yearly fee. Must add up to 100%.</span>
+<div style="display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--s3); margin: 12px 0 6px"><sc-for list="{{ins.rows}}" as="r"><span style="width: {{r.w}}; background: {{r.c}}; transition: width .5s var(--ease)"></span></sc-for></div>
+<div class="fc ls"><sc-for list="{{ins.rows}}" as="r">
+<div class="fr" style="gap: 12px; padding: 9px 0">
+<span class="dt" style="border-radius: 3px; background: {{r.c}}"></span>
+<span class="fc f1"><span class="s14 b6">Installment {{r.no}}</span><span class="s12 mu fr" style="gap: 4px"><sc-if value="{{r.lock}}"><svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px" aria-hidden="true"><path d="{{ic.lock}}"></path></svg></sc-if>{{r.sub}}</span></span>
+<span class="fr" style="gap: 4px; opacity: {{r.op}}"><button class="tap btn sec sq" type="button" aria-label="5% less on installment {{r.no}}" onClick="{{r.dec}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.minus}}"></path></svg></button><span class="big" style="color: {{r.fg}}">{{r.pct}}</span><button class="tap btn sec sq" type="button" aria-label="5% more on installment {{r.no}}" onClick="{{r.inc}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.plus}}"></path></svg></button></span>
+</div>
+</sc-for></div>
+<sc-if value="{{ins.bad}}"><div class="nt er b6" style="margin-top: 6px; animation: xShake .4s ease"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg>{{ins.err}}</div></sc-if>
+</div>
+<div class="card" style="overflow: hidden">
+<div class="fc" style="padding: 14px 16px 10px"><span class="tt">What each band pays</span><span class="s12 mu">Per installment, with your split and any edited fees</span></div>
+<div class="ls">
+<div style="display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(5, minmax(0, 1fr)); gap: 6px; padding: 8px 16px; background: var(--s2)"><span class="sech s11">Band</span><sc-for list="{{ins.cols}}" as="c"><span class="sech s11 ta">{{c}}</span></sc-for></div>
+<sc-for list="{{ins.prev}}" as="r"><div style="display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(5, minmax(0, 1fr)); gap: 6px; align-items: center; min-height: 42px; padding: 0 16px"><span class="s13 b6 el"><span class="only-d">{{r.name}}</span><span class="only-m">{{r.short}}</span></span><sc-for list="{{r.v}}" as="c"><span class="num s13 ta" style="font-weight: {{c.fw}}; color: {{c.fg}}">{{c.v}}</span></sc-for></div></sc-for>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+<!-- DISCOUNTS -->
+<sc-if value="{{is.discounts}}">
+<div class="pad scr" style="animation: {{anim}}">
+<div class="fr jb wr" style="gap: 10px"><span class="fc"><span class="tt">Discounts and concessions</span><span class="s12 mu">{{dc.sum}}</span></span><button class="tap btn pri mfull" type="button" onClick="{{dc.add}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>Add a rule</button></div>
+<div class="g2 G2">
+<sc-for list="{{dc.rules}}" as="r">
+<div class="card rise fc" style="padding: 16px; gap: 10px; animation-delay: {{r.delay}}">
+<div class="fr" style="gap: 12px; align-items: flex-start; opacity: {{r.op}}; transition: opacity .3s ease">
+<span class="ib {{r.tone}}" style="width: 42px; height: 42px; border-radius: 13px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span>
+<span class="fc f1"><span class="tt">{{r.name}}</span><span class="s12 mu">{{r.desc}}</span></span>
+<button class="tap" type="button" role="switch" aria-checked="{{r.sw.on}}" aria-label="{{r.name}}" onClick="{{r.toggle}}" style="border: 0; background: transparent; padding: 4px"><span class="sw {{r.sw.cls}}"><span></span></span></button>
+</div>
+<div class="fr jb" style="align-items: flex-end; opacity: {{r.op}}; transition: opacity .3s ease"><span class="num serif" style="font-size: 28px; font-weight: 600; line-height: 1">{{r.val}}</span><span class="fc ae"><span class="num s13 b7">{{r.stat}}</span><span class="s12 mu">{{r.amt}}</span></span></div>
+<div class="fr wr s12 mu" style="gap: 6px">{{r.applies}} ·<span class="pill {{r.apT}}">{{r.appr}}</span></div>
+<sc-if value="{{r.noteOn}}"><div class="fadein s12 b6 wa" style="padding: 8px 10px; border-radius: 10px">{{r.note}}</div></sc-if>
+</div>
+</sc-for>
+</div>
+<div class="card" style="overflow: hidden">
+<div class="fr jb" style="padding: 14px 16px 10px"><span class="fc"><span class="tt">Waiting for your approval</span><span class="s12 mu">They start from the next unpaid installment</span></span><span class="pill num wa pl">{{dc.waiting}}</span></div>
+<sc-for list="{{dc.appr}}" as="a">
+<div class="fr wr bt" style="gap: 10px 14px; padding: 12px 16px; overflow: hidden; animation: {{a.anim}}; animation-delay: {{a.delay}}">
+<span class="fc f1" style="min-width: 180px"><span class="s14 b7">{{a.name}} <span class="mu b6 s12">· {{a.cls}}</span></span><span class="s12 mu">{{a.why}} · asked by {{a.by}}, {{a.when}}</span></span>
+<span class="fc ae"><span class="pill ac">{{a.rule}}</span><span class="num s12 mu" style="margin-top: 2px">{{a.amt}}</span></span>
+<span class="fr"><button class="tap btn ghost" type="button" onClick="{{a.decline}}" style="color: var(--bad)">Decline</button><button class="tap btn soft" type="button" onClick="{{a.approve}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Approve</button></span>
+</div>
+</sc-for>
+<sc-if value="{{dc.none}}"><div class="fadein fc bt" style="align-items: center; gap: 6px; padding: 26px 16px; text-align: center"><span class="ib ok" style="width: 48px; height: 48px; border-radius: 24px; animation: xPopIn .5s var(--spring) both"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span class="tt">All caught up</span><span class="s13 mu">New requests from the office desk show up here.</span></div></sc-if>
+</div>
+</div>
+</sc-if>
+<!-- LATE FEE -->
+<sc-if value="{{is.latefee}}">
+<div class="pad scr" style="animation: {{anim}}">
+<div class="stack G2" style="gap: 16px; align-items: start">
+<div class="card fc" style="padding: 6px 18px 16px">
+<button class="tap rb" type="button" role="switch" aria-checked="{{lf.sw.on}}" onClick="{{lf.toggle}}" style="padding: 12px 0"><span class="fc f1"><span class="tt">Charge a late fee</span><span class="s12 mu">{{lf.swSub}}</span></span><span class="sw {{lf.sw.cls}}"><span></span></span></button>
+<sc-for list="{{lf.rows}}" as="r">
+<div class="fr bt" style="gap: 10px; padding: 11px 0; opacity: {{lf.op}}; transition: opacity .3s ease"><span class="fc f1"><span class="s14 b6">{{r.label}}</span><span class="s12 mu">{{r.sub}}</span></span><button class="tap btn sec sq" type="button" aria-label="Less {{r.label}}" onClick="{{r.dec}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.minus}}"></path></svg></button><span class="big" style="min-width: 62px; color: {{r.fg}}">{{r.v}}</span><button class="tap btn sec sq" type="button" aria-label="More {{r.label}}" onClick="{{r.inc}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.plus}}"></path></svg></button></div>
+</sc-for>
+<div class="fc bt" style="gap: 8px; padding-top: 12px"><span class="fc"><span class="s14 b6">Who can waive a late fee</span><span class="s12 mu">Each waiver needs a reason and is logged</span></span><div class="fr wr" style="gap: 6px"><sc-for list="{{lf.roles}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}"><sc-if value="{{c.on}}"><svg class="i sm" viewBox="0 0 24 24" style="animation: xPopIn .3s var(--spring) both" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if>{{c.label}}</button></sc-for></div></div>
+</div>
+<div class="fc" style="gap: 16px">
+<div class="card fc" style="padding: 16px 18px; gap: 12px">
+<span class="fc"><span class="tt">Try it</span><span class="s12 mu">Installment 2 · due Tue 15 Sep · Class 7 · ₹6,650</span></span>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Paid on</span><div class="hs" style="display: flex; gap: 6px"><sc-for list="{{lf.paid}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+<div class="fc" style="gap: 8px; padding: 14px; border-radius: 14px; background: var(--s2)">
+<div class="fr jb" style="align-items: baseline"><span class="s13 b6">Late fee</span><span class="num serif" style="font-size: 30px; font-weight: 600; line-height: 1; color: {{lf.amtFg}}">{{lf.amt}}</span></div>
+<div class="fr jb s12 mu"><span>{{lf.line}}</span><span class="num">{{lf.cap}}</span></div>
+</div>
+<div class="fr s13 b6" style="align-items: flex-start; color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{lf.verdict}}</span></div>
+</div>
+<div class="nt ok" style="border-radius: 16px; padding: 14px 16px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.shield}}"></path></svg><span><b>A family whose only debt is a late fee is not a defaulter.</b> They stay off the defaulter list and dues reminders. Late fee always has its own line.</span></div>
+</div>
+</div>
+</div>
+</sc-if>
+<!-- TRANSPORT -->
+<sc-if value="{{is.transport}}">
+<div class="pad scr" style="animation: {{anim}}">
+<span class="fc"><span class="tt">Bus routes</span><span class="s12 mu">4 routes · 165 students · monthly fee for 9 months (Jul–Mar)</span></span>
+<div class="g2 G2">
+<sc-for list="{{tr}}" as="r">
+<div class="card rise fc" style="padding: 16px; gap: 12px; animation-delay: {{r.delay}}">
+<div class="fr" style="gap: 12px; align-items: flex-start">
+<span class="ib serif" style="width: 44px; height: 44px; border-radius: 13px; background: var(--pri); color: var(--prifg); font-size: 20px; font-weight: 700">{{r.no}}</span>
+<span class="fc f1"><span class="tt el">{{r.name}}</span><span class="s12 mu">{{r.n}} · {{r.bus}} · {{r.driver}}</span></span>
+<span class="fc ae"><span class="num tt">{{r.fee}}</span><span class="num s12 mu">{{r.year}}</span></span>
+</div>
+<div class="fc" style="padding-left: 6px">
+<sc-for list="{{r.stops}}" as="t"><div class="fr" style="gap: 12px; min-height: 30px; position: relative"><span style="position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: var(--bd)"></span><span class="dt" style="position: relative; background: var(--card); border: 2px solid var(--acc)"></span><span class="s13 f1 el">{{t.name}}</span></div></sc-for>
+<div class="fr" style="gap: 12px; min-height: 28px"><span class="dt" style="background: var(--acc)"></span><span class="s13 b7 f1">School</span></div>
+</div>
+<button class="tap btn sec" type="button" onClick="{{r.edit}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Edit route</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<!-- HISTORY -->
+<sc-if value="{{is.history}}">
+<div class="pad scr" style="max-width: 860px; gap: 14px; animation: {{anim}}">
+<div class="fc">
+<sc-for list="{{hs}}" as="v">
+<div class="xi" style="display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 12px; --d: {{v.delay}}; background: linear-gradient(var(--bd), var(--bd)) 6px 0 / 2px 100% no-repeat">
+<span style="width: 14px; height: 14px; margin-top: 18px; border-radius: 7px; background: {{v.dot}}; box-shadow: 0 0 0 4px var(--bg)"></span>
+<div class="card fc" style="margin-bottom: 10px; padding: 14px 16px; gap: 8px">
+<div class="fr wr" style="gap: 10px"><span class="pill num nu" style="height: 24px; color: var(--fg)">{{v.v}}</span><span class="tt f1" style="min-width: 160px">{{v.what}}</span><sc-if value="{{v.live}}"><span class="pill ok">Live now</span></sc-if></div>
+<span class="s12 mu">{{v.who}} · {{v.when}}</span>
+<sc-if value="{{v.open}}"><div class="fc" style="padding: 8px 12px; border-radius: 12px; background: var(--s2)"><sc-for list="{{v.items}}" as="t"><span class="fr s13 xi" style="padding: 4px 0"><span class="dt" style="width: 6px; height: 6px; background: var(--acc)"></span>{{t.t}}</span></sc-for></div></sc-if>
+<div class="fr"><button class="tap btn ghost" type="button" aria-expanded="{{v.openS}}" onClick="{{v.view}}" style="height: 36px; padding: 0 10px"><svg class="i" viewBox="0 0 24 24" style="transform: rotate({{v.rot}}); transition: transform .3s var(--spring)" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg>{{v.viewL}}</button><sc-if value="{{v.canRestore}}"><button class="tap btn sec" type="button" onClick="{{v.restore}}" style="height: 36px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>Restore this version</button></sc-if></div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<div style="height: {{bar.space}}"></div>
+</main>
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="menu" role="{{role}}" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+<sc-if value="{{bar.show}}">
+<div class="pbar"><div role="status">
+<span class="dt" style="background: {{bar.dot}}; animation: xPulse 1.8s ease infinite"></span>
+<span class="fc f1"><span class="s14 b7 num">{{bar.n}}</span><span class="s12 el" style="opacity: .75">{{bar.sub}}</span></span>
+<button class="tap btn hide-m" type="button" onClick="{{bar.discard}}" style="background: transparent; color: var(--tfg); opacity: .8">Discard</button>
+<button class="tap btn" type="button" onClick="{{bar.review}}" style="background: var(--tacc); color: var(--tbg)">Review<span class="hide-m">&amp; publish</span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button>
+</div></div>
+</sc-if>
+</div>
+<!-- SHEETS -->
+<sc-if value="{{sheet.open}}">
+<button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sheet.state}} {{sheet.wide}}" role="dialog" aria-label="{{sheet.title}}">
+<div class="grab"></div>
+<sc-if value="{{sheet.head}}"><div class="fr jb" style="flex: none; align-items: flex-start; padding: 14px 20px 10px"><div class="fc" style="gap: 2px"><span class="h2">{{sheet.title}}</span><span class="s13 mu">{{sheet.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div></sc-if>
+<sc-if value="{{sh.copy}}">
+<div class="scroll sb" style="gap: 12px">
+<div class="fr jb" style="padding: 12px 14px; border-radius: 14px; background: var(--s2)"><span class="fc"><span class="s14 b7">Raise 2025–26 fees by</span><span class="s12 mu">Academic and lab fees · rounded to ₹100</span></span><span class="fr"><button class="tap btn sec sq4" type="button" aria-label="1% less" onClick="{{cp.dec}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.minus}}"></path></svg></button><span class="num serif" style="min-width: 60px; text-align: center; font-size: 28px; font-weight: 600">{{cp.pct}}</span><button class="tap btn sec sq4" type="button" aria-label="1% more" onClick="{{cp.inc}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.plus}}"></path></svg></button></span></div>
+<div class="card ls" style="overflow: hidden">
+<sc-for list="{{cp.rows}}" as="r"><div style="display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; min-height: 46px; padding: 0 14px"><span class="fc"><span class="s13 b6 el">{{r.name}}</span><span class="num s12 mu">{{r.last}}</span></span><span class="num s14 b7 ta">{{r.nw}}</span><span class="ta"><span class="pill num {{r.tone}}">{{r.d}}</span></span></div></sc-for>
+</div>
+<span class="s12 mu">Nothing goes live until you publish.</span>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{cp.apply}}">{{cp.cta}}</button></div>
+</sc-if>
+<sc-if value="{{sh.rule}}">
+<div class="scroll sb">
+<label class="field"><span>Rule name</span><input class="inp {{ru.nameCls}}" value="{{ru.name}}" onChange="{{ru.onName}}" placeholder="For example: Single parent"></label>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Type and amount</span><div class="fr wr" style="gap: 10px"><sc-for list="{{ru.types}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for><span class="fr"><button class="tap btn sec sq" type="button" aria-label="Less" onClick="{{ru.dec}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.minus}}"></path></svg></button><span class="big" style="min-width: 76px; font-size: 18px">{{ru.val}}</span><button class="tap btn sec sq" type="button" aria-label="More" onClick="{{ru.inc}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.plus}}"></path></svg></button></span></div></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Applies to</span><div class="fr wr"><sc-for list="{{ru.scopes}}" as="c"><button class="tap chip {{c.cls}}" type="button" role="radio" aria-checked="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Who qualifies</span><div class="fr wr" style="gap: 6px"><sc-for list="{{ru.whos}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+<button class="tap card rb" type="button" role="switch" aria-checked="{{ru.sw.on}}" onClick="{{ru.toggle}}" style="padding: 12px 14px; border: 1px solid var(--bd)"><span class="fc f1"><span class="s14 b6">Needs admin approval</span><span class="s12 mu">Office desk asks, you approve each student</span></span><span class="sw {{ru.sw.cls}}"><span></span></span></button>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{ru.add}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>Add rule to changes</button></div>
+</sc-if>
+<sc-if value="{{sh.route}}">
+<div class="scroll sb">
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Fee per month</span><div class="fr"><button class="tap btn sec sq4" type="button" aria-label="₹50 less" onClick="{{rt.dec}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.minus}}"></path></svg></button><span class="rp"><span>₹</span><input class="inp num {{rt.feeCls}}" inputmode="numeric" aria-label="Fee per month" value="{{rt.fee}}" onChange="{{rt.onFee}}"></span><button class="tap btn sec sq4" type="button" aria-label="₹50 more" onClick="{{rt.inc}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.plus}}"></path></svg></button></div><span class="s12 b6" style="color: {{rt.impFg}}">{{rt.impact}}</span></div>
+<div class="g2 G2" style="gap: 10px"><label class="field"><span>Bus number</span><input class="inp" value="{{rt.bus}}" onChange="{{rt.onBus}}"></label><label class="field"><span>Driver</span><input class="inp" value="{{rt.driver}}" onChange="{{rt.onDriver}}"></label></div>
+<div class="fc" style="gap: 6px"><span class="s12 b7 mu">Stops in pickup order</span>
+<div class="card ls" style="overflow: hidden"><sc-for list="{{rt.stops}}" as="t"><div class="fr" style="gap: 8px; min-height: 52px; padding: 4px 6px 4px 12px; animation: {{t.anim}}"><span class="ib num s12 b7 ac" style="width: 26px; height: 26px; border-radius: 13px">{{t.no}}</span><span class="s14 f1 el">{{t.name}}</span><button class="tap btn ghost sq" type="button" aria-label="Move {{t.name}} up" onClick="{{t.up}}" style="opacity: {{t.upOp}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.chevUp}}"></path></svg></button><button class="tap btn ghost sq" type="button" aria-label="Move {{t.name}} down" onClick="{{t.down}}" style="opacity: {{t.downOp}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.chevDown}}"></path></svg></button><button class="tap btn ghost sq" type="button" aria-label="Remove {{t.name}}" onClick="{{t.del}}" style="color: var(--bad)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div></sc-for></div>
+<div class="fr"><label class="f1"><input class="inp" aria-label="New stop" value="{{rt.newStop}}" onChange="{{rt.onNew}}" placeholder="Add a stop, e.g. Petrol pump"></label><button class="tap btn soft" type="button" onClick="{{rt.add}}" style="height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>Add stop</button></div>
+</div>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{rt.save}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Save to changes</button></div>
+</sc-if>
+<sc-if value="{{sh.review}}">
+<div class="scroll sb">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{rv.kpis}}" as="k"><span class="fc rise" style="padding: 10px 12px; border-radius: 14px; background: var(--s2); animation-delay: {{k.delay}}"><span class="s12 b7 mu">{{k.label}}</span><span class="num" style="font-size: 18px; font-weight: 700; color: {{k.fg}}">{{k.v}}</span><span class="s12 mu">{{k.sub}}</span></span></sc-for></div>
+<sc-if value="{{rv.bad}}"><div class="nt er b6" style="animation: xShake .4s ease"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg>{{rv.err}}</div></sc-if>
+<div class="fc"><span class="sech">What changes</span>
+<div class="fc ls"><sc-for list="{{rv.items}}" as="c"><div class="fr xi" style="align-items: flex-start; gap: 12px; padding: 12px 0; --d: {{c.delay}}"><span class="ib t36 ac"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.icon}}"></path></svg></span><span class="fc f1" style="gap: 3px"><span class="s14 b6">{{c.title}}</span><span class="fr wr" style="gap: 6px"><span class="num s13" style="color: var(--sub); text-decoration: line-through">{{c.old}}</span><svg class="i sm" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg><span class="num s13 b7 ac" style="padding: 1px 8px; border-radius: 7px">{{c.nw}}</span></span><span class="s12" style="color: {{c.impFg}}">{{c.impact}}</span></span></div></sc-for></div>
+</div>
+<div class="card" style="padding: 4px 14px 12px">
+<button class="tap rb" type="button" role="switch" aria-checked="{{rv.sw.on}}" onClick="{{rv.toggleTell}}" style="padding: 10px 0"><span class="ib t36 ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg></span><span class="fc f1"><span class="s14 b6">Tell parents on WhatsApp</span><span class="s12 mu">{{rv.tellSub}}</span></span><span class="sw {{rv.sw.cls}}"><span></span></span></button>
+<sc-if value="{{rv.tell}}"><div class="fadein" style="padding: 12px; border-radius: 14px; background: var(--wabg)"><div style="max-width: 440px; padding: 10px 12px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 1px rgba(0,0,0,.12)">{{rv.hi}}<span style="display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.08); opacity: .85">{{rv.en}}</span></div></div></sc-if>
+</div>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Keep editing</button><button class="tap btn pri" type="button" onClick="{{rv.publish}}" style="opacity: {{rv.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{rv.cta}}</button></div>
+</sc-if>
+<sc-if value="{{sh.done}}">
+<div class="fadein fc" style="flex: 1; align-items: center; gap: 10px; padding: 28px 24px 24px; text-align: center">
+<svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="serif" style="font-size: 26px; font-weight: 600">{{pb.title}}</span>
+<span class="s14 mu">Published by Janmejay at 5:12 pm · applies from Installment 3 · 15 Nov</span>
+<span class="pill ok pl">{{pb.line}}</span>
+<div class="fr wr" style="gap: 8px; justify-content: center; margin-top: 6px"><button class="tap btn pri" type="button" onClick="{{closeSheet}}">Done</button><button class="tap btn sec" type="button" onClick="{{pb.history}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.history}}"></path></svg>See history</button></div>
+</div>
+</sc-if>
+<sc-if value="{{sh.restore}}">
+<div class="scroll sb" style="gap: 10px">
+<span class="sech">This undoes</span>
+<div class="card ls" style="overflow: hidden"><sc-for list="{{rs.undoes}}" as="u"><div class="fc" style="padding: 10px 14px"><span class="s14 b6">{{u.t}}</span><span class="s12 mu">{{u.who}}</span></div></sc-for></div>
+<div class="nt wa"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>Only unpaid installments change. Receipts stay as they are. Saved as a new version you can undo.</span></div>
+</div>
+<div class="sf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}">Keep live version</button><button class="tap btn danger" type="button" onClick="{{rs.confirm}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>{{rs.cta}}</button></div>
+</sc-if>
+</section>
+</sc-if>
+<sc-if value="{{toast.show}}">
+<div class="toastwrap {{toast.cls}}"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="s14" style="padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["structure","edit","copy","installments","discounts","rule","latefee","transport","route","review","history"],"default":"structure"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+ data() {
+  if (this._d) return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+  IC.history = 'M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8M12 7v5l4 2';
+  const S = 'Senior 11–12 · by stream';
+  const BANDS = [
+   ['pre', 'Pre-primary', 'Pre-primary', 'Pre-pri', 'पूर्व-प्राथमिक', 'Nursery · LKG · UKG', 60, 96, 17400, 0, 400, 16400, 0],
+   ['pri', 'Primary', 'Primary 1–5', '1–5', 'कक्षा 1–5', 'Class 1–5', 127, 214, 20400, 0, 600, 19200, 0],
+   ['mid', 'Middle', 'Middle 6–8', '6–8', 'कक्षा 6–8', 'Class 6–8', 86, 151, 25800, 0, 800, 24300, 0],
+   ['sec', 'Secondary', 'Secondary 9–10', '9–10', 'कक्षा 9–10', 'Class 9–10', 58, 98, 31200, 0, 1000, 29400, 0],
+   ['sci', S, 'Science', '11–12 Sci', '11–12 विज्ञान', '11 and 12 Science', 42, 71, 34800, 3600, 1200, 32800, 3400],
+   ['com', S, 'Commerce', '11–12 Com', '11–12 वाणिज्य', '11 and 12 Commerce', 35, 58, 34800, 0, 1200, 32800, 0],
+   ['arts', S, 'Arts', '11–12 Arts', '11–12 कला', '11 and 12 Arts', 26, 41, 34800, 0, 1200, 32800, 0]
+  ].map((b) => ({ id: b[0], grp: b[1], name: b[2], full: b[1] === S ? 'Senior 11–12 ' + b[2] : b[2], short: b[3], hi: b[4], cls: b[5], n: b[6], rc: b[7], h: { academic: b[8], lab: b[9], exam: b[10], admission: 1200 }, la: b[11], ll: b[12] }));
+  const HEADS = [['academic', 'Academic', 'Every student', 'शिक्षण शुल्क'], ['lab', 'Lab', 'Science 11–12 only', 'लैब शुल्क'], ['exam', 'Exam', 'Half-yearly and annual papers', 'परीक्षा शुल्क'], ['admission', 'Admission', 'New students only · paid once', 'प्रवेश शुल्क']];
+  const RULES = [
+   ['sib', 'users', 'Sibling discount', 'भाई-बहन छूट', '10%', 'Younger child’s academic fee', 46, 110000, 'Academic fee only', false],
+   ['staff', 'briefcase', 'Staff child', 'स्टाफ़ बच्चों की छूट', '50%', 'Children of school staff', 9, 118000, 'Academic fee only', false],
+   ['rte', 'shield', 'RTE seat', 'आरटीई सीट', '100%', 'Right to Education quota · govt repays', 12, 248000, 'All fee heads', true],
+   ['merit', 'award', 'Merit scholarship', 'मेधा छात्रवृत्ति', '₹5,000', '90%+ in last year’s result', 6, 30000, 'Academic fee only', true]
+  ].map((r) => ({ id: r[0], icon: r[1], name: r[2], hi: r[3], val: r[4], desc: r[5], n: r[6], amt: r[7], applies: r[8], appr: r[9] }));
+  const APPROVALS = [
+   ['a1', 'Diya Sharma', 'Class 3', 'Sibling 10%', 'Brother Aarav Sharma in Class 7', 2040, 'Office desk', 'Tue 6 Oct'],
+   ['a2', 'Rohit Joshi', 'Class 5', 'Sibling 10%', 'Sister Neha Joshi in Class 8', 2040, 'Office desk', 'Wed 7 Oct'],
+   ['a3', 'Aarti Kumawat', 'Class 10', 'Merit ₹5,000', '94.2% in the Class 9 result', 5000, 'Ms. Dave', 'Mon 5 Oct']
+  ].map((a) => ({ id: a[0], name: a[1], cls: a[2], rule: a[3], why: a[4], amt: a[5], by: a[6], when: a[7] }));
+  const ROUTES = [
+   ['r1', 1, 'Amet town', 'आमेट शहर', 600, 64, 'RJ27 PA 1182', 'Mr. Gurjar', ['Station road', 'Bus stand', 'Sadar bazaar', 'Sabzi mandi', 'Hospital road', 'Jain mandir']],
+   ['r2', 2, 'Kelwa', 'केलवा', 700, 41, 'RJ27 PA 2245', 'Mr. Regar', ['Kelwa chowk', 'Kelwa bus stand', 'Dairy circle', 'Petrol pump', 'Amet bypass']],
+   ['r3', 3, 'Railmagra', 'रेलमगरा', 800, 38, 'RJ27 PA 3307', 'Mr. Sen', ['Railmagra market', 'Bhim road', 'Panchayat bhawan', 'Sardargarh phata', 'Amet bypass']],
+   ['r4', 4, 'Kunwariya', 'कुंवारिया', 900, 22, 'RJ27 PB 0419', 'Mr. Meena', ['Kunwariya bus stand', 'Temple chowk', 'Water tank', 'Highway phata', 'Amet bypass']]
+  ].map((r) => ({ id: r[0], no: r[1], name: r[2], hi: r[3], fee: r[4], n: r[5], bus: r[6], driver: r[7], stops: r[8] }));
+  const J = 'Janmejay Singh';
+  const VERSIONS = [
+   [6, 'Route 3 · new stop', J, 'Tue 6 Oct · 4:20 pm', ['Route 3 · stop added: Bhim road', 'Route 3 · bus changed to RJ27 PA 3307']],
+   [5, 'Late fee cap raised', 'Ms. Neelam Sharma', 'Mon 14 Sep · 11:05 am', ['Late fee cap ₹250 → ₹300']],
+   [4, 'Merit scholarship added', J, 'Sat 1 Aug · 10:30 am', ['New rule: Merit scholarship ₹5,000 · needs approval']],
+   [3, 'Installment dates set', J, 'Wed 1 Jul · 9:15 am', ['Installment 3 due 10 Nov → 15 Nov', 'Parents told · 388 messages']]
+  ].map((v) => ({ v: v[0], what: v[1], who: v[2], when: v[3], items: v[4] }));
+  this._d = { IC, BANDS, HEADS, RULES, APPROVALS, ROUTES, VERSIONS, INST: ['94% paid', '81% paid', 'Next · in 38 days', 'In 99 days'], DOPTS: [[], [], ['15 Nov', '20 Nov', '30 Nov', '10 Nov'], ['15 Jan', '20 Jan', '31 Jan', '10 Jan']], PAID: [['15 Sep', 0], ['18 Sep', 3], ['25 Sep', 10], ['5 Oct', 20], ['Today · 8 Oct', 23], ['30 Oct', 45]] };
+  return this._d;
+ }
+ base() { return { fees: {}, split: [25, 25, 25, 25], dates: ['15 Jul', '15 Sep', '15 Nov', '15 Jan'], late: { on: true, rate: 10, grace: 0, cap: 300, roles: ['Admin', 'Accountant'] }, rules: { sib: true, staff: true, rte: true, merit: true }, added: [], routes: {} }; }
+ st() {
+  const r1 = this.data().ROUTES[0];
+  const mid = { academic: 27000, lab: 0, exam: 800, admission: 1200 };
+  const nr = { name: '', type: 'pct', val: 25, scope: 'academic', who: 'Single parent', appr: true, err: false };
+  const map = {
+   edit: { editBand: 'mid', draft: Object.assign({}, mid) },
+   copy: { sheet: 'copy' },
+   installments: { tab: 'installments' },
+   discounts: { tab: 'discounts' },
+   rule: { tab: 'discounts', sheet: 'rule', nr: Object.assign({}, nr, { name: 'Single parent' }) },
+   latefee: { tab: 'latefee' },
+   transport: { tab: 'transport' },
+   route: { tab: 'transport', sheet: 'route', rd: Object.assign({}, r1, { stops: r1.stops.concat(['Bhilwara road']) }) },
+   review: { sheet: 'review', fees: { mid }, routes: { r1: Object.assign({}, r1, { fee: 650 }) }, late: { on: true, rate: 10, grace: 3, cap: 300, roles: ['Admin', 'Accountant'] } },
+   history: { screen: 'history' }
+  };
+  return Object.assign(this.base(), { tab: 'structure', screen: 'setup', anim: 'none', editBand: '', draft: null, exp: 'mid', sheet: '', closing: false, raise: 8, nr, routeId: 'r1', rd: null, newStop: '', moved: [], mv: 0, done: {}, leaving: {}, paidOn: 2, hOpen: 6, restoreV: 4, pubs: [], pub: 'form', tell: true, toast: null }, map[(this.props || {}).start] || {}, this.state || {});
+ }
+ inr(n) { return (n < 0 ? '−₹' : '₹') + Math.abs(Math.round(n)).toLocaleString('en-IN'); }
+ toast(text, undo) {
+  const id = Date.now() + Math.random();
+  this._undo = undo || null;
+  this.setState({ toast: { id, text, undo: !!undo } });
+  clearTimeout(this._tt);
+  this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+ }
+ undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+ openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+ closeSheet() {
+  if (!this.st().sheet) return;
+  this.setState({ closing: true });
+  clearTimeout(this._ct);
+  this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+ }
+ renderVals() { const v = this._rv(); const r = this.props.role || 'admin'; v.role = r; v.roleMenu = { admin: 'F13-Menu.dc.html', teacher: 'M-TchMore.dc.html', accountant: 'M-AccHome-Menu.dc.html', academic: 'M-AcadHome-Menu.dc.html', exam: 'M-ExamHome-Menu.dc.html' }[r] || 'F13-Menu.dc.html'; return v; }
+ _rv() {
+  const D = this.data(), s = this.st(), IC = D.IC, B0 = this.base(), L = s.late;
+  const g = () => this.st();
+  const set = (o) => this.setState(o);
+  const toast = (t, u) => this.toast(t, u);
+  const inr = (n) => this.inr(n);
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const delay = (i) => (Math.min(i, 14) * 30) + 'ms';
+  const sign = (d) => (d > 0 ? '+' : (d < 0 ? '−' : '')) + inr(Math.abs(d));
+  const lakh = (n) => (n < 0 ? '−' : '') + (Math.abs(n) >= 1e5 ? '₹' + (Math.abs(n) / 1e5).toFixed(2).replace(/0$/, '').replace(/\.0$/, '') + ' L' : inr(Math.abs(n)));
+  const sw = (on) => ({ on: on ? 'true' : 'false', cls: on ? 'on' : '' });
+  const chip = (on, pick, label) => ({ label, cls: on ? 'on' : '', pr: on ? 'true' : 'false', pick });
+  const num = (e) => parseInt(String((e && e.target && e.target.value) || '').replace(/[^0-9]/g, ''), 10) || 0;
+  const txt = (e) => String((e && e.target && e.target.value) || '');
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  const cp1 = (k, o) => Object.assign({}, g()[k], o);
+  const band = (id) => D.BANDS.filter((b) => b.id === id)[0];
+  const curH = (b) => s.fees[b.id] || b.h;
+  const yr = (h) => h.academic + h.lab + h.exam;
+  const same = (a, b) => D.HEADS.every((h) => a[h[0]] === b[h[0]]);
+  const sp = s.split, spSum = sum(sp), spOk = spSum === 100;
+  const instOf = (b, h, a0) => { const o = yr(b.h); const d = yr(h) - o; const a = a0 || sp; const r = (a[2] + a[3]) || 1; return [o * a[0] / 100, o * a[1] / 100, o * a[2] / 100 + d * a[2] / r, o * a[3] / 100 + d * a[3] / r].map(Math.round); };
+  const hiM = (d) => d.replace('Nov', 'नवंबर').replace('Jan', 'जनवरी');
+  const route = (id) => D.ROUTES.filter((r) => r.id === id)[0] || D.ROUTES[0];
+  const curR = (r) => s.routes[r.id] || r;
+  const sameR = (x, r) => x.fee === r.fee && x.bus === r.bus && x.driver === r.driver && x.stops.join() === r.stops.join();
+  // pending changes
+  const changes = [];
+  const add = (c) => changes.push(Object.assign({ students: 0, money: 0, all: false, gk: '', tell: true }, c, { en: c.title + ' ' + c.old + ' → ' + c.nw }));
+  D.BANDS.forEach((b) => {
+   const f = s.fees[b.id];
+   if (f) D.HEADS.forEach((h) => {
+    const k = h[0], o = b.h[k], nv = f[k], adm = k === 'admission';
+    if (o !== nv) add({ icon: IC.layers, title: b.full + ' · ' + h[1] + ' fee', old: inr(o), nw: inr(nv), impact: adm ? 'Only for students admitted from now on' : b.n + ' students · ' + sign(nv - o) + ' each on Installments 3–4', students: adm ? 0 : b.n, gk: b.id, money: adm ? 0 : (nv - o) * b.n, hi: b.hi + ' — ' + h[3] + ' ' + inr(o) + ' से ' + inr(nv) });
+   });
+  });
+  if (sp.join() !== B0.split.join()) add({ icon: IC.pie, title: 'Installment split', old: B0.split.join(' · ') + ' %', nw: sp.join(' · ') + ' %', impact: spOk ? 'All 434 students · yearly total stays the same' : 'Adds up to ' + spSum + '% — must be 100%', all: true, hi: 'किस्तों का बँटवारा अब ' + sp.join(' / ') + ' %' });
+  [2, 3].forEach((i) => { if (s.dates[i] !== B0.dates[i]) add({ icon: IC.calendar, title: 'Installment ' + (i + 1) + ' due date', old: B0.dates[i], nw: s.dates[i], impact: 'All families · late fee counts from the new date', all: true, hi: 'किस्त ' + (i + 1) + ' की अंतिम तिथि ' + hiM(B0.dates[i]) + ' से ' + hiM(s.dates[i]) }); });
+  [['on', 'Late fee', (v) => (v ? 'On' : 'Off'), (v) => (v ? 'चालू' : 'बंद')], ['rate', 'Late fee per day', inr, (v) => inr(v) + ' प्रति दिन'], ['grace', 'Late fee grace', (v) => plural(v, 'day'), (v) => 'अंतिम तिथि के बाद ' + v + ' दिन की छूट'], ['cap', 'Late fee cap', inr, (v) => 'अधिकतम ' + inr(v) + ' प्रति किस्त']].forEach((d) => {
+   const k = d[0];
+   if (L[k] !== B0.late[k]) add({ icon: IC.clock, title: d[1], old: d[2](B0.late[k]), nw: d[2](L[k]), impact: 'Charged apart from fees', all: true, hi: 'विलंब शुल्क: ' + d[3](L[k]) });
+  });
+  if (L.roles.slice().sort().join() !== B0.late.roles.slice().sort().join()) add({ icon: IC.shield, title: 'Who can waive late fee', old: B0.late.roles.join(', '), nw: L.roles.join(', ') || 'Nobody', impact: 'Staff only · parents are not told', tell: false });
+  D.RULES.forEach((r) => { if (s.rules[r.id] !== true) add({ icon: IC.percent, title: r.name, old: 'On', nw: 'Off', impact: r.n + ' students lose ' + lakh(r.amt) + ' of discount from Installment 3', students: r.n, gk: r.id, money: r.amt, hi: r.hi + ' बंद' }); });
+  s.added.forEach((r) => add({ icon: IC.tag, title: 'New rule · ' + r.name, old: '—', nw: r.val + ' · ' + r.scopeL, impact: r.appr ? 'Applies once you approve each student' : 'Applies automatically · ' + r.who.toLowerCase(), hi: 'नई छूट: ' + r.name + ' (' + r.val + ')' }));
+  D.ROUTES.forEach((r) => {
+   const c = s.routes[r.id];
+   if (!c) return;
+   const nm = 'Route ' + r.no + ' ' + r.name;
+   if (c.fee !== r.fee) add({ icon: IC.bus, title: nm + ' · fee', old: inr(r.fee) + ' a month', nw: inr(c.fee) + ' a month', impact: r.n + ' students · ' + sign(c.fee - r.fee) + ' a month from November', students: r.n, gk: r.id, money: (c.fee - r.fee) * r.n * 5, hi: 'रूट ' + r.no + ' (' + r.hi + ') बस शुल्क ' + inr(r.fee) + ' से ' + inr(c.fee) + ' प्रति माह' });
+   if (!sameR(Object.assign({}, c, { fee: r.fee }), r)) add({ icon: IC.mapPin, title: nm + ' · bus and stops', old: plural(r.stops.length, 'stop'), nw: plural(c.stops.length, 'stop') + ' · ' + c.bus, impact: r.n + ' students · pickup times may move', students: r.n, gk: r.id, hi: 'रूट ' + r.no + ' की बस/स्टॉप में बदलाव' });
+  });
+  const n = changes.length;
+  const anyAll = changes.some((c) => c.all);
+  const gm = {};
+  changes.forEach((c) => { if (c.gk) gm[c.gk] = c.students; });
+  const affected = anyAll ? 434 : Math.min(434, sum(Object.keys(gm).map((k) => gm[k])));
+  const money = sum(changes.map((c) => c.money));
+  const tellable = changes.filter((c) => c.tell);
+  const fam = tellable.length ? Math.max(1, Math.round(affected * 0.88)) : 0;
+  const snap = () => { const t = g(); return { fees: t.fees, split: t.split, dates: t.dates, late: t.late, rules: t.rules, added: t.added, routes: t.routes }; };
+  // chrome
+  const TABS = [['structure', 'Structure', 'layers'], ['installments', 'Installments', 'calendar'], ['discounts', 'Discounts', 'percent'], ['latefee', 'Late fee', 'clock'], ['transport', 'Transport', 'bus']];
+  const tk = TABS.map((t) => t[0]);
+  const ti = Math.max(0, tk.indexOf(s.tab));
+  const setup = s.screen !== 'history';
+  const editing = setup && s.tab === 'structure' && !!s.editBand;
+  const tabs = { show: setup, cls: editing ? 'hide-m' : '', thumb: (ti * 100) + '%',
+   opts: TABS.map((t, i) => ({ label: t[1], icon: IC[t[2]], cls: i === ti ? 'tap on' : 'tap', pr: i === ti ? 'true' : 'false', pick: () => { const c = tk.indexOf(g().tab); if (c !== i) set({ tab: t[0], editBand: '', draft: null, anim: i > c ? 'push' : 'pop' }); } })) };
+  const liveV = 6 + s.pubs.length;
+  const eb = band(s.editBand) || D.BANDS[2];
+  const top = !setup ? { crumb: 'Money · Fee setup', title: 'History', mTitle: 'Fee setup history', mSub: (D.VERSIONS.length + s.pubs.length) + ' versions · who changed what', mBack: true }
+   : (editing ? { crumb: 'Money · Fee setup', title: 'Fee setup', mTitle: eb.full, mSub: 'Edit fees · ' + eb.n + ' students', mBack: true }
+    : { crumb: 'Money · Session 2026–27 · live version ' + liveV, title: 'Fee setup', mTitle: 'Fee setup', mSub: TABS[ti][1] + ' · live v' + liveV, mBack: false });
+  Object.assign(top, { mLink: !top.mBack, mHist: !top.mBack });
+  // structure
+  const X = editing ? 'hide-d' : '';
+  const groups = [];
+  D.BANDS.forEach((b, bi) => {
+   const h = curH(b), ed = !!s.fees[b.id], sr = b.grp === D.BANDS[4].grp;
+   const cell = (nv, ov, x, dash, bold) => ({ v: nv === 0 && dash ? '—' : inr(nv), was: inr(ov), wasOn: nv !== ov, tone: nv !== ov ? 'ac' : (nv === 0 && dash ? 'mu' : ''), fw: bold ? '700' : '500', x });
+   const ia = instOf(b, h), ib = instOf(b, b.h, B0.split), exp = s.exp === b.id;
+   const row = { name: b.name, cls: b.cls, n: String(b.n), sel: editing && s.editBand === b.id ? 'sel' : '', indent: sr ? '12px' : '0', delay: delay(bi),
+    cells: [cell(h.academic, b.h.academic, X), cell(h.lab, b.h.lab, X, true), cell(h.exam, b.h.exam, X), cell(yr(h), yr(b.h), '', false, true), cell(ia[2], ib[2], ''), cell(h.admission, b.h.admission, X)],
+    open: () => set({ editBand: b.id, draft: Object.assign({}, curH(b)), anim: 'push' }),
+    total: inr(yr(h)), totFg: ed ? 'var(--accfg)' : 'var(--fg)', per: ia[2] === ia[0] ? '4 × ' + inr(ia[0]) : 'Inst 3–4: ' + inr(ia[2]),
+    exp, expS: exp ? 'true' : 'false', rot: exp ? '180deg' : '0deg', toggle: () => set({ exp: g().exp === b.id ? '' : b.id }),
+    list: D.HEADS.filter((x) => x[0] !== 'lab' || b.h.lab).map((x, j) => ({ label: x[1], sub: x[2], v: inr(h[x[0]]), fg: h[x[0]] !== b.h[x[0]] ? 'var(--accfg)' : 'var(--fg)', delay: delay(j) })) };
+   const gr = groups.filter((x) => x.label === b.grp)[0];
+   if (gr) gr.rows.push(row); else groups.push({ label: b.grp, head: sr, rows: [row] });
+  });
+  const sx = { cols: editing ? 'minmax(0, 1fr) 420px' : 'minmax(0, 1fr)', listCls: editing ? 'hide-m' : '', groups,
+   gc: editing ? 'minmax(0, 1.6fr) 64px minmax(84px, 1fr) minmax(84px, 1fr) 16px' : 'minmax(170px, 1.7fr) 64px repeat(3, minmax(70px, 1fr)) minmax(90px, 1fr) minmax(90px, 1fr) minmax(84px, 1fr) 16px',
+   heads: [['Academic', X], ['Lab', X], ['Exam', X], ['Yearly total', ''], ['Per installment', ''], ['Admission · new', X]].map((h) => ({ label: h[0], x: h[1] })) };
+  // edit panel
+  const dr = s.draft || curH(eb);
+  const setDraft = (k, v) => set({ draft: Object.assign({}, g().draft || dr, { [k]: Math.max(0, Math.min(500000, v)) }) });
+  const eD = yr(dr) - yr(eb.h), eI = instOf(eb, dr), eI0 = instOf(eb, eb.h, B0.split);
+  const ed = {
+   title: eb.full, sub: eb.cls + ' · ' + eb.n + ' students', lock: eb.rc + ' receipts exist for Inst 1–2 · changes apply to unpaid installments only',
+   heads: D.HEADS.filter((h) => h[0] !== 'lab' || eb.h.lab || dr.lab).map((h, i) => {
+    const k = h[0], v = dr[k], ch = v !== eb.h[k];
+    return { label: h[1] + (k === 'admission' ? ' · one time' : ' · per year'), sub: h[2], val: String(v), was: ch ? 'live now ' + inr(eb.h[k]) : 'same as live', wasFg: ch ? 'var(--accfg)' : 'var(--mut)', err: k === 'academic' && v <= 0 ? 'err' : '', on: (e) => setDraft(k, num(e)), delay: delay(i) };
+   }),
+   total: inr(yr(dr)), diffOn: eD !== 0, diff: sign(eD) + ' a year',
+   insts: eI.map((a, i) => ({ label: 'Inst ' + (i + 1), v: inr(a), icon: i < 2 ? IC.lock : (a !== eI0[i] ? IC.arrowUp : IC.calendar), tone: a !== eI0[i] && i > 1 ? 'ac' : 'nu' })),
+   impact: eD === 0 ? 'No change to the yearly fee yet' : 'Affects ' + eb.n + ' students · ' + sign(eD) + ' each on Installments 3–4', impFg: eD === 0 ? 'var(--mut)' : 'var(--info)',
+   op: !same(dr, curH(eb)) && dr.academic > 0 ? '1' : '0.5',
+   cancel: () => set({ editBand: '', draft: null, anim: 'pop' }),
+   save: () => {
+    const d0 = g().draft || dr;
+    if (d0.academic <= 0) return toast('Academic fee can’t be zero');
+    if (same(d0, curH(eb))) return toast('Nothing changed yet — type a new amount');
+    const back = same(d0, eb.h), fs = cp1('fees');
+    if (back) delete fs[eb.id]; else fs[eb.id] = Object.assign({}, d0);
+    set({ fees: fs, editBand: '', draft: null, anim: 'pop', exp: eb.id });
+    toast(back ? eb.full + ' is back to the live fee' : eb.full + ' saved to changes · not live yet');
+   }
+  };
+  // copy
+  const up = (v) => Math.round(v * (1 + s.raise / 100) / 100) * 100;
+  const cpRows = D.BANDS.map((b) => { const na = up(b.la), nl = b.ll ? up(b.ll) : 0, d = na + nl + b.h.exam - yr(b.h); return { b, na, nl, name: b.full.replace('Senior ', ''), last: '2025–26 ' + inr(b.la + b.ll + b.h.exam), nw: inr(na + nl + b.h.exam), d: d === 0 ? 'Same' : sign(d), tone: d === 0 ? 'nu' : (d > 0 ? 'in' : 'wa') }; });
+  const cpN = cpRows.filter((r) => r.d !== 'Same').length;
+  const cp = { pct: s.raise + '%', rows: cpRows, cta: cpN ? 'Put ' + plural(cpN, 'band') + ' into changes' : 'Same as today — nothing to change',
+   dec: () => set({ raise: Math.max(0, g().raise - 1) }), inc: () => set({ raise: Math.min(20, g().raise + 1) }),
+   apply: () => {
+    const before = g().fees, fs = cp1('fees');
+    cpRows.forEach((r) => { const nh = Object.assign({}, curH(r.b), { academic: r.na, lab: r.nl }); if (same(nh, r.b.h)) delete fs[r.b.id]; else fs[r.b.id] = nh; });
+    set({ fees: fs }); this.closeSheet();
+    toast('2025–26 + ' + g().raise + '% copied · ' + plural(cpN, 'band') + ' changed', () => set({ fees: before }));
+   } };
+  // installments
+  const C4 = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)'];
+  const wmax = Math.max(100, spSum);
+  const lockMsg = (i, w) => toast('Installment ' + (i + 1) + ' is already due — its ' + w + ' is locked');
+  const ins = {
+   nodes: D.INST.map((t, i) => {
+    const lk = i < 2, nx = i === 2;
+    return { no: String(i + 1), date: s.dates[i], status: lk ? 'Due passed · ' + t : t, stFg: lk ? 'var(--ok)' : (nx ? 'var(--accfg)' : 'var(--mut)'), delay: delay(i),
+     bg: lk ? 'var(--ok)' : 'var(--card)', fg: lk ? 'var(--onsolid)' : (nx ? 'var(--acc)' : 'var(--sub)'), bd: lk ? '0' : (nx ? '3px solid var(--acc)' : '2px solid var(--bds)'), pulse: nx ? 'xPulse 1.8s ease infinite' : 'none', icon: lk ? IC.check : (nx ? IC.clock : IC.calendar),
+     chip: s.dates[i] !== B0.dates[i] ? 'on' : '', pr: s.dates[i] !== B0.dates[i] ? 'true' : 'false', dicon: lk ? IC.lock : IC.calendar,
+     toggle: () => { if (lk) return lockMsg(i, 'date'); const o = D.DOPTS[i], ds = g().dates.slice(); ds[i] = o[(o.indexOf(ds[i]) + 1) % o.length]; set({ dates: ds }); toast('Installment ' + (i + 1) + ' now due ' + ds[i] + ' · in your changes'); } };
+   }),
+   rows: D.INST.map((t, i) => {
+    const lk = i < 2;
+    const step = (dl) => () => { if (lk) return lockMsg(i, 'share'); const a = g().split.slice(); a[i] = Math.max(0, Math.min(100, a[i] + dl)); set({ split: a }); };
+    return { no: String(i + 1), sub: lk ? 'Due passed · locked' : 'Due ' + s.dates[i], lock: lk, pct: sp[i] + '%', w: (sp[i] / wmax * 100).toFixed(1) + '%', c: C4[i], fg: sp[i] !== 25 ? 'var(--accfg)' : 'var(--fg)', op: lk ? '0.45' : '1', dec: step(-5), inc: step(5) };
+   }),
+   tot: 'Total ' + spSum + '%', tone: spOk ? 'ok' : 'er', shake: spOk ? 'none' : 'xShake .4s ease', bad: !spOk,
+   err: 'Adds up to ' + spSum + '% — ' + (spSum > 100 ? 'take ' + (spSum - 100) + '% off' : 'add ' + (100 - spSum) + '% to') + ' Installment 3 or 4',
+   cols: ['Inst 1', 'Inst 2', 'Inst 3', 'Inst 4', 'Year'],
+   prev: D.BANDS.map((b) => { const a = instOf(b, curH(b)), o = instOf(b, b.h, B0.split); a.push(sum(a)); o.push(sum(o)); return { name: b.full.replace('Senior ', ''), short: b.short, v: a.map((x, i) => ({ v: inr(x), fw: x !== o[i] || i === 4 ? '700' : '500', fg: x !== o[i] ? 'var(--accfg)' : (i < 2 ? 'var(--mut)' : 'var(--fg)') })) }; })
+  };
+  // discounts
+  const ap = (a) => ({ appr: a ? 'Needs approval' : 'Automatic', apT: a ? 'wa' : 'ok' });
+  const ruleCards = D.RULES.map((r, i) => {
+   const on = s.rules[r.id] !== false;
+   return Object.assign({ name: r.name, icon: IC[r.icon], val: r.val, desc: r.desc, stat: r.n + ' students', amt: lakh(r.amt) + ' this session', applies: r.applies, tone: 'ac', sw: sw(on), op: on ? '1' : '0.5', delay: delay(i), noteOn: !on, note: 'Turns off from Installment 3 once you publish · ' + r.n + ' students lose ' + lakh(r.amt), toggle: () => set({ rules: cp1('rules', { [r.id]: !g().rules[r.id] }) }) }, ap(r.appr));
+  }).concat(s.added.map((r, i) => Object.assign({ name: r.name, icon: IC.tag, val: r.val, desc: 'For ' + r.who.toLowerCase(), stat: 'New rule', amt: 'not live yet', applies: r.scopeL, tone: 'in', sw: sw(true), op: '1', delay: delay(4 + i), noteOn: true, note: 'Goes live when you publish. Switch off to remove it.', toggle: () => set({ added: g().added.filter((x) => x.id !== r.id) }) }, ap(r.appr))));
+  this._lt = this._lt || {};
+  const decide = (a, ok) => () => {
+   if (g().leaving[a.id] || g().done[a.id]) return;
+   set({ leaving: cp1('leaving', { [a.id]: true }) });
+   const fin = (dn) => { const lv = cp1('leaving'); delete lv[a.id]; set({ done: dn, leaving: lv }); };
+   clearTimeout(this._lt[a.id]);
+   this._lt[a.id] = setTimeout(() => fin(cp1('done', { [a.id]: ok ? 'ok' : 'no' })), 430);
+   toast(ok ? 'Approved · ' + a.name + ' gets ' + inr(a.amt) + ' off from Installment 3' : 'Declined · ' + a.name + '’s request', () => { clearTimeout(this._lt[a.id]); const dn = cp1('done'); delete dn[a.id]; fin(dn); });
+  };
+  const apprList = D.APPROVALS.filter((a) => !s.done[a.id]).map((a, i) => ({ name: a.name, cls: a.cls, rule: a.rule, why: a.why, by: a.by, when: a.when, amt: inr(a.amt) + ' a year', anim: s.leaving[a.id] ? 'xLeave .45s var(--ease) forwards' : 'xIn .32s var(--ease) both', delay: s.leaving[a.id] ? '0ms' : delay(i), approve: decide(a, true), decline: decide(a, false) }));
+  const onR = D.RULES.filter((r) => s.rules[r.id] !== false);
+  const dc = { rules: ruleCards, appr: apprList, none: !apprList.length, waiting: D.APPROVALS.filter((a) => !s.done[a.id] && !s.leaving[a.id]).length + ' waiting',
+   sum: 'Given this session ' + lakh(sum(onR.map((r) => r.amt))) + ' · ' + sum(onR.map((r) => r.n)) + ' students · ' + plural(D.RULES.length + s.added.length, 'rule'),
+   add: () => this.openSheet('rule', { nr: { name: '', type: 'pct', val: 25, scope: 'academic', who: 'Single parent', appr: true, err: false } }) };
+  // add rule
+  const nr = s.nr, pct = nr.type === 'pct';
+  const setNr = (o) => set({ nr: cp1('nr', o) });
+  const ru = {
+   name: nr.name, nameCls: nr.err ? 'err' : '', onName: (e) => setNr({ name: txt(e), err: false }), val: pct ? nr.val + '%' : inr(nr.val),
+   types: [['pct', '% off'], ['amt', '₹ off']].map((x) => chip(nr.type === x[0], () => setNr({ type: x[0], val: x[0] === 'pct' ? 25 : 5000 }), x[1])),
+   dec: () => { const x = g().nr; setNr({ val: x.type === 'pct' ? Math.max(5, x.val - 5) : Math.max(500, x.val - 500) }); },
+   inc: () => { const x = g().nr; setNr({ val: x.type === 'pct' ? Math.min(100, x.val + 5) : Math.min(30000, x.val + 500) }); },
+   scopes: [['academic', 'Academic fee only'], ['all', 'All fee heads']].map((x) => chip(nr.scope === x[0], () => setNr({ scope: x[0] }), x[1])),
+   whos: ['Single parent', 'Sports quota', 'Siblings', 'Staff children', 'Picked by admin'].map((w) => chip(nr.who === w, () => setNr({ who: w }), w)),
+   sw: sw(nr.appr), toggle: () => setNr({ appr: !g().nr.appr }),
+   add: () => {
+    const t = g().nr, nm = String(t.name || '').trim();
+    if (!nm) { setNr({ err: true }); return toast('Give the rule a name first'); }
+    const r = { id: 'n' + Date.now(), name: nm, val: t.type === 'pct' ? t.val + '%' : inr(t.val), scopeL: t.scope === 'academic' ? 'Academic fee only' : 'All fee heads', who: t.who, appr: t.appr };
+    set({ added: g().added.concat([r]) }); this.closeSheet();
+    toast('“' + nm + '” added to changes', () => set({ added: g().added.filter((x) => x.id !== r.id) }));
+   }
+  };
+  // late fee
+  const setL = (o) => set({ late: cp1('late', o) });
+  const pd = D.PAID[s.paidOn] || D.PAID[2];
+  const cd = Math.max(0, pd[1] - L.grace);
+  const lfA = L.on ? Math.min(L.cap, cd * L.rate) : 0;
+  const lf = {
+   sw: sw(L.on), swSub: L.on ? 'On · after each due date' : 'Off for everyone', op: L.on ? '1' : '0.45', toggle: () => setL({ on: !g().late.on }),
+   rows: [['rate', 'Per day', 'For each day after the due date', inr(L.rate), 1, 50], ['grace', 'Grace days', 'Days before it starts', plural(L.grace, 'day'), 1, 15], ['cap', 'Cap per installment', 'Never more than this', inr(L.cap), 50, 1000]]
+    .map((r) => ({ label: r[1], sub: r[2], v: r[3], fg: L[r[0]] !== B0.late[r[0]] ? 'var(--accfg)' : 'var(--fg)', dec: () => setL({ [r[0]]: Math.max(0, g().late[r[0]] - r[4]) }), inc: () => setL({ [r[0]]: Math.min(r[5], g().late[r[0]] + r[4]) }) })),
+   roles: ['Admin', 'Accountant', 'Fee collector', 'Class teacher'].map((r) => { const on = L.roles.indexOf(r) >= 0; return Object.assign(chip(on, () => { const c = g().late.roles; setL({ roles: c.indexOf(r) >= 0 ? c.filter((x) => x !== r) : c.concat([r]) }); }, r), { on }); }),
+   paid: D.PAID.map((p, i) => chip(s.paidOn === i, () => set({ paidOn: i }), p[0])),
+   amt: inr(lfA), amtFg: lfA ? 'var(--warnfg)' : 'var(--ok)', cap: 'Cap ' + inr(L.cap),
+   line: !L.on ? 'Late fee is off' : (pd[1] === 0 ? 'Paid on the due date' : (cd === 0 ? pd[1] + ' days late · inside grace' : cd + ' days × ' + inr(L.rate) + (cd * L.rate > L.cap ? ' · capped' : ''))),
+   verdict: lfA ? 'Late fee ' + inr(lfA) + ' — shown separately, never added to the fee due' : 'No late fee — the family owes only the fee itself'
+  };
+  // transport
+  const tr = D.ROUTES.map((r, i) => {
+   const c = curR(r);
+   return { no: String(r.no), name: 'Route ' + r.no + ' · ' + r.name, fee: inr(c.fee) + ' / month', year: inr(c.fee * 9) + ' a year', n: r.n + ' students', bus: c.bus, driver: c.driver, delay: delay(i),
+    stops: c.stops.map((x) => ({ name: x })),
+    edit: () => { const x = curR(r); this.openSheet('route', { routeId: r.id, rd: { fee: x.fee, bus: x.bus, driver: x.driver, stops: x.stops.slice() }, newStop: '', moved: [] }); } };
+  });
+  const rr = route(s.routeId), rd = s.rd || curR(rr), rtD = rd.fee - rr.fee;
+  const gRd = () => g().rd || rd;
+  const setRd = (o) => set({ rd: Object.assign({}, gRd(), o) });
+  const move = (j, dl) => () => { const t = gRd(), k = j + dl; if (k < 0 || k >= t.stops.length) return; const a = t.stops.slice(); a[j] = t.stops[k]; a[k] = t.stops[j]; set({ rd: Object.assign({}, t, { stops: a }), moved: [k, j], mv: g().mv + 1 }); };
+  const rt = {
+   fee: String(rd.fee), feeCls: rd.fee <= 0 ? 'err' : '', onFee: (e) => setRd({ fee: Math.min(5000, num(e)) }),
+   dec: () => setRd({ fee: Math.max(0, gRd().fee - 50) }), inc: () => setRd({ fee: Math.min(5000, gRd().fee + 50) }),
+   impact: inr(rd.fee * 9) + ' a year · ' + (rtD === 0 ? 'same as live' : rr.n + ' students pay ' + sign(rtD) + ' a month from November'), impFg: rtD === 0 ? 'var(--mut)' : 'var(--info)',
+   bus: rd.bus, onBus: (e) => setRd({ bus: txt(e) }), driver: rd.driver, onDriver: (e) => setRd({ driver: txt(e) }),
+   stops: rd.stops.map((t, j) => { const mi = s.moved.indexOf(j), odd = s.mv % 2; return { no: String(j + 1), name: t, up: move(j, -1), down: move(j, 1), upOp: j === 0 ? '0.3' : '1', downOp: j === rd.stops.length - 1 ? '0.3' : '1',
+    anim: mi < 0 ? 'none' : (mi === 0 ? (odd ? 'xIn' : 'xRise') : (odd ? 'xMenu' : 'xFade')) + ' .34s var(--ease) both',
+    del: () => { const t2 = gRd(); if (t2.stops.length <= 1) return toast('A route needs at least one stop'); set({ rd: Object.assign({}, t2, { stops: t2.stops.filter((_, k) => k !== j) }), moved: [] }); } }; }),
+   newStop: s.newStop, onNew: (e) => set({ newStop: txt(e) }),
+   add: () => { const v = String(g().newStop || '').trim(); if (!v) return toast('Type the stop name first'); const t2 = gRd(); set({ rd: Object.assign({}, t2, { stops: t2.stops.concat([v]) }), newStop: '', moved: [t2.stops.length], mv: g().mv + 1 }); },
+   save: () => {
+    const t2 = gRd();
+    if (t2.fee <= 0) return toast('Fee per month can’t be zero');
+    const rs = cp1('routes'), back = sameR(t2, rr);
+    if (back) delete rs[rr.id]; else rs[rr.id] = { fee: t2.fee, bus: t2.bus, driver: t2.driver, stops: t2.stops.slice() };
+    set({ routes: rs }); this.closeSheet();
+    toast(back ? 'Route ' + rr.no + ' is the same as live' : 'Route ' + rr.no + ' saved to changes · not live yet');
+   }
+  };
+  // review + publish
+  const lines = (k, more) => tellable.slice(0, 3).map((c) => '• ' + c[k]).join('\n') + (tellable.length > 3 ? '\n• ' + more : '');
+  const nextV = 7 + s.pubs.length;
+  const rv = {
+   kpis: [['Students affected', String(affected), anyAll ? 'whole school' : 'in the changed groups', 'var(--fg)'], ['Change this session', money === 0 ? '₹0' : (money > 0 ? '+' : '') + lakh(money), money >= 0 ? 'more to collect' : 'less to collect', money > 0 ? 'var(--info)' : 'var(--fg)'], ['Starts from', 'Inst 3', 'Sun 15 Nov · next unpaid', 'var(--fg)']].map((k, i) => ({ label: k[0], v: k[1], sub: k[2], fg: k[3], delay: delay(i) })),
+   items: changes.map((c, i) => ({ icon: c.icon, title: c.title, old: c.old, nw: c.nw, impact: c.impact, impFg: c.impact.indexOf('must be 100') >= 0 ? 'var(--bad)' : 'var(--mut)', delay: delay(i) })),
+   bad: !spOk, err: 'Split adds up to ' + spSum + '%. Fix it on the Installments tab first.',
+   sw: sw(s.tell && fam > 0), tell: !!(s.tell && fam > 0), toggleTell: () => (fam ? set({ tell: !g().tell }) : toast('Nothing here needs to go to parents')),
+   tellSub: fam ? fam + ' families · ' + fam + ' messages · about ₹' + Math.round(fam * 0.88) + ' · Hindi first' : 'Only staff settings changed — nothing for parents',
+   hi: 'प्रिय अभिभावक, सत्र 2026–27 की शुल्क व्यवस्था में बदलाव:\n' + lines('hi', 'और ' + (tellable.length - 3) + ' बदलाव') + '\nये बदलाव केवल बाकी किस्तों पर (किस्त 3 · 15 नवंबर से) लागू होंगे। — श्री वीर पत्ता सी. सै. स्कूल, आमेट',
+   en: 'Dear parent, fee changes for 2026–27:\n' + lines('en', (tellable.length - 3) + ' more changes') + '\nThey apply only to unpaid installments (from Installment 3 · 15 Nov). — VPPS Amet',
+   op: spOk && n ? '1' : '0.5', cta: n ? 'Publish ' + plural(n, 'change') : 'Nothing to publish',
+   publish: () => {
+    if (!n) return toast('Nothing to publish yet');
+    if (!spOk) return toast('Fix the installment split first — it must add up to 100%');
+    const prev = snap(), told = g().tell && fam > 0;
+    const rec = { v: nextV, what: plural(n, 'change'), who: 'Janmejay Singh', when: 'Today · 5:12 pm', items: changes.map((c) => c.en), students: affected, fam: told ? fam : 0, tell: told };
+    set(Object.assign({ pubs: [rec].concat(g().pubs), pub: 'done', hOpen: nextV }, this.base()));
+    toast('Version ' + nextV + ' is live' + (told ? ' · WhatsApp to ' + fam + ' families queued' : ''), () => set(Object.assign({ pubs: g().pubs.slice(1), pub: 'form' }, prev)));
+   }
+  };
+  const lp = s.pubs[0] || { v: nextV, what: '—', students: 0, fam: 0, tell: false };
+  const pb = { title: 'Version ' + lp.v + ' is live', line: lp.what + ' · ' + lp.students + ' students · ' + (lp.tell ? lp.fam + ' families told on WhatsApp' : 'parents not messaged'),
+   history: () => { this.closeSheet(); set({ screen: 'history', anim: 'push', hOpen: lp.v }); } };
+  // history
+  const allV = s.pubs.concat(D.VERSIONS);
+  const hs = allV.map((v, i) => { const op = s.hOpen === v.v; return { v: 'v' + v.v, what: v.what, who: v.who, when: v.when, live: !i, canRestore: !!i, open: op, openS: op ? 'true' : 'false', rot: op ? '180deg' : '0deg', viewL: op ? 'Hide' : 'View', dot: i ? 'var(--bds)' : 'var(--ok)', delay: delay(i), items: v.items.map((x) => ({ t: x })),
+   view: () => set({ hOpen: g().hOpen === v.v ? 0 : v.v }), restore: () => this.openSheet('restore', { restoreV: v.v }) }; });
+  const rsV = allV.filter((v) => v.v === s.restoreV)[0] || allV[1];
+  const rs = { undoes: allV.filter((v) => v.v > rsV.v).map((v) => ({ t: 'v' + v.v + ' · ' + v.what, who: v.who + ' · ' + v.when })), cta: 'Restore version ' + rsV.v,
+   confirm: () => {
+    const nv = 7 + g().pubs.length;
+    set({ pubs: [{ v: nv, what: 'Restored version ' + rsV.v, who: 'Janmejay Singh', when: 'Today · 5:14 pm', items: ['Went back to v' + rsV.v + ' · ' + rsV.what, 'Unpaid installments recalculated · receipts untouched'], students: 434, fam: 0, tell: false }].concat(g().pubs), hOpen: nv });
+    this.closeSheet();
+    toast('Version ' + rsV.v + ' restored · saved as v' + nv, () => set({ pubs: g().pubs.slice(1) }));
+   } };
+  // sheet + bar
+  const done = s.sheet === 'review' && s.pub === 'done';
+  const tt = { copy: ['Copy from 2025–26', 'Last year’s fees, raised by a percent'], rule: ['Add a discount rule', 'Goes into your changes'], route: ['Route ' + rr.no + ' · ' + rr.name, rr.n + ' students · bus fee for 9 months'], review: ['Review and publish', plural(n, 'change') + ' · not live until you publish'], restore: ['Restore version ' + rsV.v + '?', rsV.what + ' · ' + rsV.when] }[s.sheet] || ['Published', ''];
+  const showBar = setup && !editing && n > 0;
+  const bar = { show: showBar, space: showBar ? '96px' : '0px', n: plural(n, 'unsaved change'), dot: spOk ? 'var(--tacc)' : 'var(--warn)',
+   sub: spOk ? 'Not live yet · parents see nothing till you publish' : 'Split adds up to ' + spSum + '% — fix it to publish',
+   review: () => this.openSheet('review', { pub: 'form' }),
+   discard: () => { const prev = snap(); set(this.base()); toast('All ' + plural(n, 'change') + ' discarded', () => set(prev)); } };
+  return {
+   ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+   is: { setup, history: !setup, structure: setup && s.tab === 'structure', edit: editing, installments: setup && s.tab === 'installments', discounts: setup && s.tab === 'discounts', latefee: setup && s.tab === 'latefee', transport: setup && s.tab === 'transport' },
+   top, tabs, anim: { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both' }[s.anim] || 'none', sx, ed, ins, dc, lf, tr, hs, bar, cp, ru, rt, rv, pb, rs,
+   openCopy: () => this.openSheet('copy'),
+   goHistory: () => set({ screen: 'history', editBand: '', draft: null, anim: 'push' }),
+   back: () => set(g().screen === 'history' ? { screen: 'setup', anim: 'pop' } : { editBand: '', draft: null, anim: 'pop' }),
+   sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', wide: s.sheet === 'review' ? 'wide' : '', head: !done, title: tt[0], sub: tt[1] },
+   sh: { copy: s.sheet === 'copy', rule: s.sheet === 'rule', route: s.sheet === 'route', review: s.sheet === 'review' && !done, done, restore: s.sheet === 'restore' },
+   closeSheet: () => this.closeSheet(),
+   toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo), cls: showBar ? 'tw2' : '' }, undoToast: () => this.undoToast()
+  };
+ }
+}
+</script>
+</body>
+</html>

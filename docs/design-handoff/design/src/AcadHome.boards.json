@@ -1,0 +1,10 @@
+[
+  {"file": "AcadHome.dc.html", "device": "desktop", "title": "Coordinator · Today"},
+  {"file": "DX-AcadHome-Week.dc.html", "device": "desktop", "start": "week", "title": "Weekly summary for the principal"},
+  {"file": "DX-AcadHome-Remind.dc.html", "device": "desktop", "start": "remind", "title": "Remind 7 late teachers"},
+  {"file": "DX-AcadHome-Dark.dc.html", "device": "desktop", "start": "home", "dark": true, "title": "Today · dark"},
+  {"file": "M-AcadHome.dc.html", "device": "phone", "start": "home", "title": "Today"},
+  {"file": "M-AcadHome-Menu.dc.html", "device": "phone", "start": "menu", "title": "Menu"},
+  {"file": "M-AcadHome-Remind.dc.html", "device": "phone", "start": "remind", "title": "Remind late teachers"},
+  {"file": "M-AcadHome-Week.dc.html", "device": "phone", "start": "week", "title": "Weekly summary"}
+]

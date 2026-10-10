@@ -1,0 +1,61 @@
+[
+  {
+    "file": "Admissions.dc.html",
+    "device": "desktop",
+    "title": "Admissions · enquiry to admitted"
+  },
+  {
+    "file": "DX-Admissions-Fees.dc.html",
+    "device": "desktop",
+    "start": "step3",
+    "title": "Add a student · fees"
+  },
+  {
+    "file": "DX-Admissions-Duplicate.dc.html",
+    "device": "desktop",
+    "start": "duplicate",
+    "title": "Possible duplicate"
+  },
+  {
+    "file": "DX-Admissions-Withdraw.dc.html",
+    "device": "desktop",
+    "start": "withdraw",
+    "title": "Withdraw and TC"
+  },
+  {
+    "file": "M-Admissions.dc.html",
+    "device": "phone",
+    "start": "list",
+    "title": "Admissions"
+  },
+  {
+    "file": "M-Admissions-Student.dc.html",
+    "device": "phone",
+    "start": "step1",
+    "title": "Add a student"
+  },
+  {
+    "file": "M-Admissions-Sibling.dc.html",
+    "device": "phone",
+    "start": "sibling",
+    "title": "Link a brother or sister"
+  },
+  {
+    "file": "M-Admissions-Done.dc.html",
+    "device": "phone",
+    "start": "done",
+    "title": "Admitted"
+  },
+  {
+    "file": "M-Admissions-Edit.dc.html",
+    "device": "phone",
+    "start": "edit",
+    "title": "Edit student · change class"
+  },
+  {
+    "file": "DX-Admissions-Add.dc.html",
+    "device": "desktop",
+    "start": "step1",
+    "title": "Add a student · step 1"
+  }
+]

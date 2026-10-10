@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admissions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.fc{display:flex;flex-direction:column}.fr{display:flex;align-items:center}.cc{display:flex;align-items:center;justify-content:center;flex:none}.f1{flex:1;min-width:0}.mw{min-width:0}.sb{justify-content:space-between}.wr{flex-wrap:wrap}.gp4{gap:4px}.gp6{gap:6px}.gp8{gap:8px}.gp10{gap:10px}.gp12{gap:12px}.gp14{gap:14px}.t12{font-size:12px}.t13{font-size:13px}.t14{font-size:14px}.t15{font-size:15px}.b6{font-weight:600}.b7{font-weight:700}.mu{color:var(--mut)}.m{font-size:12px;color:var(--mut)}.el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.bt{border-top:1px solid var(--bd)}.tw{background:var(--warns);color:var(--warnfg)}.to{background:var(--oks);color:var(--ok)}.ta{background:var(--accs);color:var(--accfg)}.ti{background:var(--infos);color:var(--info)}.ts{background:var(--s2);color:var(--fg)}.cs{padding:16px 18px;display:flex;flex-direction:column;gap:12px}.gr2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.in{animation:xIn .32s var(--ease) both}.er:empty{display:none}.er{font-size:12px;font-weight:600;color:var(--bad);animation:xIn .25s var(--ease) both}.av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}.ib{flex:none;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}.i15{width:15px;height:15px}.lb{width:100%;border:0;background:transparent;color:var(--fg);text-align:left}.rc{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;width:100%}.rc.on{border-color:var(--acc);background:var(--accs);box-shadow:inset 0 0 0 1px var(--acc)}.ring{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center}.ring>span{width:10px;height:10px;border-radius:5px;background:var(--acc);transform:scale(0);transition:transform .25s var(--spring)}.on>.ring{border-color:var(--acc)}.on>.ring>span{transform:scale(1)}.swr{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 2px;border:0;background:transparent;color:var(--fg);text-align:left}.bar{position:sticky;bottom:0;z-index:4;margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 28px;border-top:1px solid var(--bd)}.nt{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}.kv{display:flex;flex-direction:column;font-size:13px;min-width:0}.kv>span:first-child{font-size:11px;color:var(--mut)}.hd{flex:none;height:64px;padding:0 28px;border-bottom:1px solid var(--bd);position:relative;z-index:5}.bk{width:44px;height:44px;padding:0;border-radius:22px}.bk>.i{width:24px;height:24px}.pg{padding:22px 28px 40px}.ttl{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.2}.srch{position:relative;height:46px;border-radius:14px;border:1px solid var(--bds);background:var(--card);gap:8px;padding:0 14px;color:var(--mut)}.srch input{flex:1;min-width:0;height:40px;border:0;outline:none;background:transparent;font-size:15px}.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.pcol{padding:10px;border-radius:18px;background:var(--s2);border:1px solid var(--bd);min-height:236px}.rrow{display:grid;grid-template-columns:minmax(170px,2fr) 64px minmax(110px,1fr) 92px 92px 92px 20px;gap:8px;align-items:center;min-height:56px;padding:0 16px}.vx a.pri{color:var(--prifg)}.tile{align-items:flex-start;gap:4px;padding:9px 10px;border-radius:12px;color:var(--fg);text-align:left}
+@container vx (max-width:899px){.vx .hd{height:auto;min-height:58px;padding:6px 10px 6px 6px;gap:4px}.vx .bar{padding:10px 16px}.vx .pcol{min-height:0}.vx .rrow{grid-template-columns:auto auto auto 1fr;padding:12px 14px;gap:8px 6px}.vx .rrow>:first-child{grid-column:1/-1}}
+</style>
+</helmet><div class="vx {{theme}}" style="position:relative;width:100%;height:100vh;min-height:560px;overflow:hidden;display:flex;background:var(--bg);color:var(--fg);font-family:Inter,'Noto Sans Devanagari',system-ui,sans-serif;font-size:14px;line-height:1.45"><div class="only-d" style="flex:none;height:100%"><dc-import name="XSide" active="admissions" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div><div class="fc" style="flex:1;min-width:0;min-height:0;position:relative">
+
+<header class="glass fr gp10 hd"><sc-if value="{{top.mBackLink}}"><a href="F13-Menu.dc.html" class="tap cc bk only-m" aria-label="Back to menu"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if><sc-if value="{{top.mBackBtn}}"><button class="tap btn ghost bk only-m" type="button" aria-label="Back" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if><div class="fc f1"><span class="m only-d">{{top.crumb}}</span><span class="serif el only-d" style="font-size:22px;font-weight:600;line-height:1.15">{{top.title}}</span><span class="el only-m" style="font-size:17px;font-weight:700">{{top.mTitle}}</span><span class="m el only-m">{{top.mSub}}</span></div><sc-if value="{{top.dBack}}"><button class="tap btn ghost only-d" type="button" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>{{top.backLabel}}</button></sc-if><sc-if value="{{top.dAdd}}"><button class="tap btn pri" type="button" onClick="{{goAdd}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.userPlus}}"></path></svg><span class="only-d">Add a student</span><span class="only-m">Add</span></button></sc-if></header>
+
+<main class="scroll" style="flex:1;min-height:0;position:relative">
+
+<sc-if value="{{is.list}}"><div class="pad pg fc" style="gap:18px;animation:{{anim.list}}"><div class="g4" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px"><sc-for list="{{kpis}}" as="k"><div class="card rise fc" style="padding:14px 16px;gap:2px;animation-delay:{{k.delay}}"><span class="m b6">{{k.label}}</span><span class="fr gp8"><span class="num b7" style="font-size:24px">{{k.value}}</span><sc-if value="{{k.hasPill}}"><span class="pill to" style="animation:xPopIn .45s .3s var(--spring) both">{{k.pill}}</span></sc-if></span><span class="m">{{k.sub}}</span></div></sc-for><div class="card rise fc gp6" style="padding:14px 16px 12px;animation-delay:96ms"><div class="fr sb"><span class="m b6">Seats left</span><span class="num b7" style="font-size:20px">{{seats.total}}</span></div><div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px"><sc-for list="{{seats.bands}}" as="b"><span class="fc" title="{{b.title}}" style="align-items:center;gap:3px"><span class="fr" style="width:100%;height:30px;border-radius:6px;background:var(--s3);align-items:flex-end;overflow:hidden"><span style="width:100%;height:{{b.h}};background:{{b.c}};transform-origin:bottom;animation:xGrowY .7s var(--ease) both;animation-delay:{{b.delay}}"></span></span><span class="num t12 b7" style="line-height:1.1">{{b.left}}</span><span class="mu" style="font-size:10px;line-height:1.1">{{b.short}}</span></span></sc-for></div></div></div>
+
+<div class="fc gp10"><div class="fr sb gp10"><span class="sech">Enquiry to admission</span><span class="m hide-m">Press Move when a family reaches the next step</span></div><div class="seg only-m" style="grid-template-columns:repeat(4,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 4);transform:translateX({{stageSeg.thumb}})"></span><sc-for list="{{stageSeg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}" style="font-size:12px;height:38px">{{o.label}}</button></sc-for></div><div class="stack" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start"><sc-for list="{{pipe}}" as="col"><div class="fc gp8 pcol {{col.mcls}}"><div class="fr gp8 only-d" style="padding:2px 4px"><span style="width:9px;height:9px;border-radius:5px;background:{{col.c}}"></span><span class="f1 t13 b7">{{col.label}}</span><span class="pill num" style="background:var(--card);color:var(--mut)">{{col.count}}</span></div><sc-for list="{{col.cards}}" as="c"><div class="card fc" style="padding:11px 12px;gap:9px;border-radius:14px;animation:{{c.anim}};animation-delay:{{c.delay}}"><div class="fr gp10"><span class="av t12" style="width:34px;height:34px;background:{{c.abg}};color:{{c.afg}}">{{c.ini}}</span><span class="fc f1"><span class="el t14 b6">{{c.name}}</span><span class="m el">{{c.cls}} · {{c.parent}}</span></span></div><div class="fr sb gp6"><span class="pill" style="background:{{c.dbg}};color:{{c.dfg}}">{{c.days}}</span><sc-if value="{{c.canMove}}"><button class="tap btn {{c.btn}}" type="button" onClick="{{c.move}}" style="height:34px;padding:0 12px;font-size:12px">{{c.moveLabel}}<svg class="i i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></sc-if></div></div></sc-for><sc-if value="{{col.empty}}"><span class="m" style="text-align:center;padding:22px 8px">Nobody here right now</span></sc-if></div></sc-for></div></div>
+
+<div class="fc gp10 mw"><div class="fr sb gp10"><span class="sech">Recently admitted</span><span class="pill tw">{{docsLine}}</span></div><div class="card" style="overflow:hidden"><sc-for list="{{recent}}" as="r"><button class="tap row lb rrow" type="button" onClick="{{r.edit}}" style="border-top:{{r.border}};animation:xIn .32s var(--ease) both;animation-delay:{{r.delay}}"><span class="fr gp10 mw"><span class="av t12" style="width:34px;height:34px;background:{{r.abg}};color:{{r.afg}}">{{r.ini}}</span><span class="fc mw"><span class="fr gp6"><span class="el t14 b6">{{r.name}}</span><sc-if value="{{r.isNew}}"><span class="pill ta" style="animation:xPopIn .45s var(--spring) both">New</span></sc-if></span><span class="m num">{{r.cls}}<span class="only-m"> · SR {{r.sr}} · {{r.date}}</span></span></span></span><span class="num t13 b6 only-d">SR {{r.sr}}</span><span class="fc only-d"><span class="num t13">{{r.date}}</span><span class="m">{{r.by}}</span></span><sc-for list="{{r.docs}}" as="d"><span><span class="pill" style="background:{{d.bg}};color:{{d.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px" aria-hidden="true"><path d="{{d.icon}}"></path></svg>{{d.label}}</span></span></sc-for><svg class="i only-d" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></button></sc-for></div></div></div></sc-if>
+
+<sc-if value="{{is.wiz}}"><div class="fc" style="min-height:100%"><div class="pad fc gp14" style="padding:20px 28px 24px;max-width:860px;width:100%;margin:0 auto"><div class="card" style="padding:14px 8px 12px"><div style="position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))"><span style="position:absolute;top:15px;left:12.5%;right:12.5%;height:3px;border-radius:2px;background:var(--s3)"></span><span style="position:absolute;top:15px;left:12.5%;height:3px;border-radius:2px;background:var(--acc);width:{{wz.fill}};transition:width .5s var(--ease)"></span><sc-for list="{{wz.steps}}" as="p"><button class="tap fc" type="button" onClick="{{p.go}}" aria-current="{{p.cur}}" style="position:relative;align-items:center;gap:6px;border:0;padding:0;background:transparent;color:var(--fg)"><span class="cc t13 b7" style="width:32px;height:32px;border-radius:16px;background:{{p.bg}};color:{{p.fg}};box-shadow:0 0 0 4px var(--card),inset 0 0 0 2px {{p.bd}};transition:background-color .3s ease"><sc-if value="{{p.done}}"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px;animation:xPopIn .4s var(--spring) both" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if><sc-if value="{{p.todo}}">{{p.n}}</sc-if></span><span class="t12 b7" style="color:{{p.tc}}">{{p.label}}</span></button></sc-for></div></div>
+
+<sc-if value="{{wz.s1}}"><div class="fc gp14" style="animation:{{anim.step}}"><div class="card cs"><div class="fr gp14" style="align-items:flex-start"><button class="tap cc fc gp4 mu" type="button" aria-label="{{f.phLabel}}" onClick="{{f.photoTap}}" style="width:84px;height:100px;border-radius:16px;border:{{f.phBd}};background:{{f.phBg}}"><sc-if value="{{f.hasPhoto}}"><span class="av serif" style="width:56px;height:56px;font-size:20px;background:var(--acc);color:var(--onsolid);animation:xPopIn .45s var(--spring) both">{{f.ini}}</span><span class="b7" style="font-size:11px;color:var(--ok)">Photo added</span></sc-if><sc-if value="{{f.noPhoto}}"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="{{ic.camera}}"></path></svg><span class="b7" style="font-size:11px">Take photo</span></sc-if></button><div class="fc f1 gp12"><label class="field"><span>Child’s name (English)</span><input class="inp {{e.en.cls}}" value="{{f.en}}" onChange="{{f.onEn}}" placeholder="For example: Ishaan Regar"><span class="er">{{e.en.t}}</span></label><label class="field"><span class="fr gp6">नाम हिंदी में · Name in Hindi<span class="pill" style="background:{{f.hiBg}};color:{{f.hiFg}}">{{f.hiTag}}</span></span><input class="inp" lang="hi" value="{{f.hi}}" onChange="{{f.onHi}}" placeholder="अपने आप भरेगा"></label></div></div><div class="g3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px"><label class="field"><span>Date of birth</span><input class="inp {{e.dob.cls}}" value="{{f.dob}}" onChange="{{f.onDob}}" placeholder="DD-MM-YYYY" inputmode="numeric"><span class="er">{{e.dob.t}}</span><sc-if value="{{f.hasAge}}"><span class="t12 b6" style="color:{{f.ageTone}}">{{f.ageLine}}</span></sc-if></label><sc-for list="{{f.segs}}" as="g"><div class="field"><span>{{g.label}}</span><div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{g.thumb}})"></span><sc-for list="{{g.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}" style="height:38px">{{o.label}}</button></sc-for></div></div></sc-for></div></div><div class="card cs"><div class="fr sb gp10"><span class="t15 b7">Class</span><span class="m">Seats left this session</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;animation:{{e.cls.anim}}"><sc-for list="{{f.tiles}}" as="t"><button class="tap fc tile" type="button" role="radio" aria-checked="{{t.on}}" onClick="{{t.pick}}" style="border:1px solid {{t.bd}};box-shadow:{{t.sh}};background:{{t.bg}};opacity:{{t.op}}"><span class="t13 b7">{{t.name}}</span><span class="b6" style="font-size:11px;color:{{t.lc}}">{{t.left}}</span><span class="fr" style="width:100%;height:4px;border-radius:2px;background:var(--s3);overflow:hidden"><span style="height:4px;width:{{t.fill}};background:{{t.lc}}"></span></span></button></sc-for></div><span class="er">{{e.cls.t}}</span><label class="field"><span>Previous school (if any)</span><input class="inp" value="{{f.prev}}" onChange="{{f.onPrev}}" placeholder="Name and town"></label></div></div></sc-if>
+
+<sc-if value="{{wz.s2}}"><div class="fc gp14" style="animation:{{anim.step}}"><div class="card cs"><div class="fr gp12"><span class="ib ta"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg></span><span class="fc"><span class="t15 b7">Is a brother or sister already here?</span><span class="m">Linking fills in the family and turns on the sibling discount.</span></span></div><sc-if value="{{fm.unlinked}}"><label class="fr srch"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="vh">Find a family</span><input type="search" value="{{fm.q}}" onChange="{{fm.onQ}}" placeholder="Surname, father’s name or phone — e.g. Sharma"></label><sc-for list="{{fm.hits}}" as="h"><div class="fr gp12 in" style="padding:10px 12px;border-radius:14px;background:var(--s2);animation-delay:{{h.delay}}"><span class="av t12" style="width:36px;height:36px;background:var(--card)">{{h.ini}}</span><span class="fc f1 gp4"><span class="el t14 b6">{{h.father}} · {{h.village}}</span><span class="fr gp4 wr"><sc-for list="{{h.kids}}" as="k"><span class="pill" style="background:var(--card)">{{k}}</span></sc-for></span></span><button class="tap btn soft" type="button" onClick="{{h.pick}}" style="height:36px;padding:0 12px;font-size:13px"><svg class="i i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.link}}"></path></svg>Link</button></div></sc-for><sc-if value="{{fm.noHits}}"><span class="m">No family found. Fill in the details below — you can link later.</span></sc-if></sc-if><sc-if value="{{fm.linked}}"><div class="fr gp12 wr in to" style="padding:12px 14px;border-radius:14px"><span class="ib" style="background:var(--card)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.link}}"></path></svg></span><span class="fc f1 gp4" style="min-width:180px;color:var(--fg)"><span class="t14 b7">Linked to {{fm.famName}}’s family</span><span class="fr gp4 wr"><sc-for list="{{fm.kids}}" as="k"><span class="pill" style="background:var(--card)">{{k}}</span></sc-for><span class="pill" style="background:var(--ok);color:var(--onsolid);animation:xPopIn .5s .15s var(--spring) both">{{fm.discLine}}</span></span></span><button class="tap btn ghost" type="button" onClick="{{fm.unlink}}" style="height:36px;font-size:13px">Unlink</button></div></sc-if></div><div class="card cs"><span class="t15 b7">Parents</span><div class="gr2 g2"><label class="field"><span>Father’s name</span><input class="inp {{e.father.cls}}" value="{{fm.father}}" onChange="{{fm.onFather}}" placeholder="Father or guardian"><span class="er">{{e.father.t}}</span></label><label class="field"><span>Mother’s name</span><input class="inp" value="{{fm.mother}}" onChange="{{fm.onMother}}" placeholder="Mother’s name"></label><label class="field"><span>Phone</span><input class="inp {{e.phone.cls}}" value="{{fm.phone}}" onChange="{{fm.onPhone}}" placeholder="10 digits" inputmode="tel"><span class="er">{{e.phone.t}}</span></label><div class="field"><span>WhatsApp</span><button class="tap fr gp12" type="button" role="switch" aria-checked="{{fm.waOn}}" onClick="{{fm.toggleWa}}" style="height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left"><span class="f1 t14 b6">Same number has WhatsApp</span><span class="sw {{fm.waCls}}"><span></span></span></button></div></div><sc-if value="{{fm.needWa}}"><label class="field in"><span>WhatsApp number</span><input class="inp {{e.wa2.cls}}" value="{{fm.wa2}}" onChange="{{fm.onWa2}}" placeholder="Receipts and notices go here" inputmode="tel"><span class="er">{{e.wa2.t}}</span></label></sc-if><label class="field"><span>Address</span><input class="inp" value="{{fm.addr}}" onChange="{{fm.onAddr}}" placeholder="House, street or mohalla"></label><label class="field"><span>Village or town</span><input class="inp" value="{{fm.village}}" onChange="{{fm.onVillage}}" placeholder="Amet, Kelwa, Railmagra or Kunwariya"></label></div></div></sc-if>
+
+<sc-if value="{{wz.s3}}"><div class="fc gp14" style="animation:{{anim.step}}"><div class="card cs"><div class="fr gp12"><span class="ib ta"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg></span><span class="fc f1"><span class="t15 b7">{{fp.plan}}</span><span class="m">{{fp.planSub}}</span></span><span class="num t15 b7">{{fp.acad}}</span></div><span class="sech" style="margin-top:4px">School bus · charged from October</span><div class="fr gp6 wr"><sc-for list="{{fp.routes}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div><div class="card" style="padding:6px 18px"><span class="sech" style="display:block;padding-top:10px">Concession · one per child</span><sc-for list="{{fp.conc}}" as="x"><button class="tap swr" type="button" role="switch" aria-checked="{{x.on}}" onClick="{{x.toggle}}" style="border-top:{{x.bd}}"><span class="fc f1"><span class="fr gp6 t14 b6">{{x.label}}<sc-if value="{{x.hasPill}}"><span class="pill ta" style="animation:xPopIn .4s var(--spring) both">{{x.pill}}</span></sc-if></span><span class="m">{{x.sub}}</span></span><span class="sw {{x.cls}}"><span></span></span></button></sc-for></div><div class="card cs"><div class="fr sb gp10"><span class="t15 b7">Installments</span><span class="m">Updates as you choose</span></div><sc-for list="{{fp.inst}}" as="r"><div class="fr gp10 bt" style="padding-top:10px"><span class="fc f1"><span class="t14 b6">{{r.label}}</span><span class="m">{{r.parts}}</span></span><span class="fc gp4" style="align-items:flex-end"><span class="num t15 b7">{{r.amt}}</span><span class="pill" style="background:{{r.bg}};color:{{r.fg}}">{{r.st}}</span></span></div></sc-for><div class="gr2 g2" style="padding-top:4px"><div class="fc tw" style="padding:12px 14px;border-radius:14px"><span class="t12 b7">Pending today if admitted now</span><span class="num b7" style="font-size:22px">{{fp.pend}}</span><span class="t12">Installments 1 and 2 are already due</span></div><div class="fc ts" style="padding:12px 14px;border-radius:14px"><span class="m b7">Not due yet</span><span class="num b7" style="font-size:22px">{{fp.notDue}}</span><span class="m">15 Nov and 15 Jan</span></div></div><span class="m">{{fp.lateNote}}</span></div><div class="card" style="padding:6px 18px"><sc-for list="{{fp.collect}}" as="x"><button class="tap swr" type="button" role="switch" aria-checked="{{x.on}}" onClick="{{x.toggle}}"><span class="fc f1"><span class="t14 b6">{{x.label}}</span><span class="m">{{x.sub}}</span></span><span class="sw {{x.cls}}"><span></span></span></button></sc-for></div></div></sc-if>
+
+<sc-if value="{{wz.s4}}"><div class="fc gp14" style="animation:{{anim.step}}"><div class="card cs"><div class="fr gp14"><span class="av serif" style="width:60px;height:60px;font-size:22px;background:{{rv.abg}};color:{{rv.afg}}">{{rv.ini}}</span><span class="fc f1"><span class="ttl el">{{rv.hi}}</span><span class="el t15 b6">{{rv.en}}</span><span class="m">{{rv.line}}</span></span></div><sc-for list="{{rv.secs}}" as="g"><div class="fc gp8 bt" style="padding-top:12px"><span class="sech">{{g.title}}</span><div class="gr2" style="gap:8px 16px"><sc-for list="{{g.rows}}" as="r"><span class="kv"><span>{{r.k}}</span><span class="el b6">{{r.v}}</span></span></sc-for></div></div></sc-for></div><div class="card fr gp14" style="padding:14px 18px"><span class="ib ti"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.hash}}"></path></svg></span><span class="fc f1"><span class="t14 b6">SR number to be given</span><span class="m">The next free number, fixed when you save.</span></span><span class="num serif b7" style="font-size:28px;animation:xPopIn .5s var(--spring) both">{{rv.sr}}</span></div><div class="card" style="padding:10px 18px 6px"><div class="fr sb gp10"><span class="t15 b7">Documents received</span><span class="pill" style="background:{{rv.dBg}};color:{{rv.dFg}}">{{rv.dLine}}</span></div><sc-for list="{{rv.docs}}" as="x"><button class="tap swr" type="button" role="switch" aria-checked="{{x.on}}" onClick="{{x.toggle}}" style="border-top:{{x.bd}}"><span class="fc f1"><span class="t14 b6">{{x.label}}</span><span class="m">{{x.sub}}</span></span><span class="sw {{x.cls}}"><span></span></span></button></sc-for></div></div></sc-if></div><div class="glass bar"><span class="m hide-m f1" style="color:{{wz.hintTone}}">{{wz.hint}}</span><button class="tap btn sec mfull" type="button" onClick="{{back}}" style="min-width:110px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>{{wz.backLabel}}</button><button class="tap btn pri mfull" type="button" onClick="{{wz.next}}" style="min-width:170px">{{wz.nextLabel}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{wz.nextIcon}}"></path></svg></button></div></div></sc-if>
+
+<sc-if value="{{is.done}}"><div class="pad pg" style="animation:xIn .4s var(--ease) both"><div class="card fc gp10" style="max-width:640px;margin:0 auto;padding:30px 26px;align-items:center;text-align:center"><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation:xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both"></path></svg><span class="serif" style="font-size:26px;font-weight:600;line-height:1.25">{{dn.title}}</span><span class="pill num ti" style="height:30px;padding:0 14px;font-size:14px;animation:xPopIn .45s .7s var(--spring) both">{{dn.sr}}</span><span class="t14 mu">{{dn.sub}}</span><div class="gr2 g2" style="width:100%;margin-top:10px;gap:10px"><a href="D05-Collect.dc.html" class="tap btn pri only-d" style="height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg>{{dn.collect}}</a><a href="F09-Collect.dc.html" class="tap btn pri only-m" style="height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.rupee}}"></path></svg>{{dn.collect}}</a><sc-for list="{{dn.acts}}" as="x"><button class="tap btn {{x.cls}}" type="button" onClick="{{x.fn}}" style="height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{x.icon}}"></path></svg>{{x.label}}</button></sc-for></div></div></div></sc-if>
+
+<sc-if value="{{is.edit}}"><div class="fc" style="min-height:100%;animation:{{anim.edit}}"><div class="pad stack" style="padding:22px 28px 24px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start"><div class="fc gp14 mw"><div class="card fr gp14" style="padding:16px 18px"><span class="av serif" style="width:56px;height:56px;font-size:20px;background:{{ed.abg}};color:{{ed.afg}}">{{ed.ini}}</span><span class="fc f1" style="gap:2px"><span class="ttl el">{{ed.name}}</span><span class="m num">{{ed.line}}</span></span></div><sc-for list="{{ed.secs}}" as="g"><div class="card cs"><span class="sech">{{g.title}}</span><div class="gr2 g2"><sc-for list="{{g.fields}}" as="x"><label class="field"><span class="fr gp6">{{x.label}}<sc-if value="{{x.changed}}"><span class="pill tw" style="animation:xPopIn .35s var(--spring) both">Changed</span></sc-if></span><input class="inp" value="{{x.v}}" onChange="{{x.on}}"></label></sc-for></div></div></sc-for><div class="card cs"><div class="fr sb gp10"><span class="sech">Class &amp; fees</span><button class="tap btn ghost" type="button" onClick="{{ed.toggleChg}}" style="height:34px;font-size:13px;color:var(--acc)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.swap}}"></path></svg>{{ed.chgLabel}}</button></div><div class="fr gp12"><span class="ib ta"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.grad}}"></path></svg></span><span class="fc f1"><span class="t15 b7">{{ed.clsNow}}</span><span class="m">{{ed.clsSub}}</span></span></div><sc-if value="{{ed.chg}}"><div class="hs fr gp6 in" style="padding-bottom:2px"><sc-for list="{{ed.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></sc-if><sc-if value="{{ed.clsChanged}}"><div class="fc gp8 in tw" style="padding:14px;border-radius:14px"><span class="fr gp8 t14 b7"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg>{{ed.impTitle}}</span><div class="t13" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px"><span></span><span class="b7" style="font-size:11px">Now</span><span class="b7" style="font-size:11px">After</span><sc-for list="{{ed.imp}}" as="r"><span>{{r.k}}</span><span class="num" style="text-align:right;text-decoration:line-through;opacity:.7">{{r.a}}</span><span class="num b7" style="text-align:right">{{r.b}}</span></sc-for></div><span class="t12" style="line-height:1.5">{{ed.impNote}}</span></div></sc-if><sc-if value="{{ed.clsSame}}"><span class="m num">{{ed.feeNow}}</span></sc-if></div><div class="card cs"><span class="sech">Transport</span><div class="hs fr gp6"><sc-for list="{{ed.routes}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div><span class="t12 b6" style="color:{{ed.rtTone}}">{{ed.rtLine}}</span></div></div><div class="unstick fc gp14" style="position:sticky;top:22px"><div class="card" style="padding:14px 16px"><span class="sech">Change history</span><div class="fc" style="margin-top:8px"><sc-for list="{{ed.log}}" as="l"><div style="display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px;padding:7px 0;animation:xIn .3s var(--ease) both;animation-delay:{{l.delay}}"><span style="width:10px;height:10px;margin-top:4px;border-radius:5px;background:{{l.dot}}"></span><span class="fc"><span class="t13">{{l.text}}</span><span class="m">{{l.who}} · {{l.when}}</span></span></div></sc-for></div></div><div class="card fc gp8" style="padding:14px 16px"><span class="t14 b7">Leaving the school?</span><span class="m">Withdraw and print the TC. Pending fees stay in Dues.</span><button class="tap btn sec" type="button" onClick="{{ed.goWd}}" style="color:var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.logout}}"></path></svg>Withdraw · TC</button></div></div></div><sc-if value="{{ed.dirty}}"><div class="glass bar in"><span class="fr f1 gp10"><span style="flex:none;width:9px;height:9px;border-radius:5px;background:var(--warn);animation:xPulse 1.8s infinite"></span><span class="el t14 b6">{{ed.count}}</span></span><button class="tap btn ghost" type="button" onClick="{{ed.discard}}">Discard</button><button class="tap btn pri" type="button" onClick="{{ed.save}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Save changes</button></div></sc-if></div></sc-if>
+
+<sc-if value="{{is.wd}}"><div class="fc" style="min-height:100%;animation:{{anim.wd}}"><div class="pad stack" style="padding:22px 28px 24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start"><div class="fc gp14 mw"><div class="card fr gp12" style="padding:14px 16px"><span class="av t15" style="width:46px;height:46px;background:{{wd.abg}};color:{{wd.afg}}">{{wd.ini}}</span><span class="fc f1"><span class="el b7" style="font-size:16px">{{wd.name}}</span><span class="m num">{{wd.line}}</span></span></div><sc-if value="{{wd.open}}"><div class="card cs"><span class="t15 b7">Why is {{wd.first}} leaving?</span><div class="gr2 g2" style="gap:8px"><sc-for list="{{wd.reasons}}" as="r"><button class="tap rc {{r.cls}}" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}"><span class="ring"><span></span></span><span class="fc mw"><span class="t14 b6">{{r.label}}</span><span class="m">{{r.sub}}</span></span></button></sc-for></div><sc-if value="{{wd.isOther}}"><label class="field in"><span>Write the reason</span><input class="inp" value="{{wd.note}}" onChange="{{wd.onNote}}" placeholder="It is printed on the TC"></label></sc-if></div><div class="card cs"><span class="t15 b7">Last day in school</span><div class="hs fr gp6"><sc-for list="{{wd.days}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div><span class="m">{{wd.dayNote}}</span></div><sc-if value="{{wd.owes}}"><div class="nt fc tw" style="gap:8px"><span class="fr gp8 t14 b7"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg>{{wd.dueHead}}</span><span>{{wd.dueText}}</span><a href="Dues.dc.html" class="tap fr gp6 b7" style="color:var(--warnfg);text-decoration:underline">Open {{wd.first}} in Dues<svg class="i i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a></div></sc-if><sc-if value="{{wd.clean}}"><div class="nt to"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span>No fees pending today. Future installments are dropped.</span></div></sc-if></sc-if><sc-if value="{{wd.done}}"><div class="nt fc to fadein" style="gap:4px"><span class="t15 b7">{{wd.doneTitle}}</span><span>{{wd.doneSub}}</span></div></sc-if></div><div class="fc gp8 mw"><span class="sech">TC preview · Hindi first</span><div class="card fc gp12" style="position:relative;padding:20px;overflow:hidden"><div class="fr gp12" style="padding-bottom:12px;border-bottom:1.5px dashed var(--bds)"><span class="serif cc b7" style="width:42px;height:42px;border-radius:12px;background:#082F49;color:#F7F6F3">VP</span><span class="fc mw"><span class="t14 b6">श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट</span><span class="serif m">Shri Veer Patta Sr. Sec. School, Amet</span></span></div><div class="fc" style="align-items:center;gap:2px"><span class="serif b7" style="font-size:19px">स्थानांतरण प्रमाण पत्र</span><span class="m b6" style="letter-spacing:.06em">TRANSFER CERTIFICATE · {{wd.tcNo}}</span></div><div class="fc bt"><sc-for list="{{wd.tc}}" as="r"><div class="t13" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:10px;padding:7px 0;border-bottom:1px solid var(--bd)"><span class="fc"><span>{{r.hi}}</span><span class="mu" style="font-size:11px">{{r.en}}</span></span><span class="b6">{{r.v}}</span></div></sc-for></div><div class="fr sb m" style="padding-top:18px"><span>कक्षा अध्यापक · Class teacher</span><span>प्रधानाचार्य · Principal</span></div><sc-if value="{{wd.done}}"><span aria-hidden="true" style="position:absolute;top:48%;left:50%;padding:6px 18px;border:3px solid var(--bad);border-radius:10px;color:var(--bad);font-size:26px;font-weight:800;letter-spacing:.12em;transform:translate(-50%,-50%) rotate(-12deg);background:var(--card);opacity:.92;animation:xPopIn .5s .2s var(--spring) both">ISSUED</span></sc-if></div></div></div><div class="glass bar"><span class="m hide-m f1">{{wd.barHint}}</span><sc-if value="{{wd.open}}"><button class="tap btn danger mfull" type="button" onClick="{{wd.ask}}" style="min-width:220px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.logout}}"></path></svg>Withdraw and issue TC</button></sc-if><sc-if value="{{wd.done}}"><a href="Dues.dc.html" class="tap btn sec mfull">Open in Dues</a><button class="tap btn pri mfull" type="button" onClick="{{wd.print}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.printer}}"></path></svg>Print TC</button></sc-if></div></div></sc-if></main>
+
+<div class="only-m" style="flex:none"><dc-import name="XNav" active="menu" dark="{{dark}}" hint-size="100%,76px"></dc-import></div></div>
+
+<sc-if value="{{sheet.open}}"><button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button><section class="sheet {{sh.wide}} {{sheet.state}}" role="dialog" aria-label="{{sh.title}}"><div class="grab"></div><div class="fr gp10" style="flex:none;padding:14px 20px 8px;align-items:flex-start"><span class="fc f1"><span class="ttl">{{sh.title}}</span><span class="m num">{{sh.sub}}</span></span></div><div class="scroll fc gp8" style="flex:1;min-height:0;padding:4px 20px 12px"><sc-if value="{{sheet.dup}}"><div class="t13" style="display:grid;grid-template-columns:84px minmax(0,1fr) minmax(0,1fr);gap:0 8px"><span></span><span class="sech ta" style="padding:8px 10px;border-radius:10px 10px 0 0">You are adding</span><span class="sech ts" style="padding:8px 10px;border-radius:10px 10px 0 0">Already in school</span><sc-for list="{{dup.rows}}" as="r"><span class="bt mu" style="padding:9px 0">{{r.k}}</span><span class="bt el b6" style="padding:9px 10px;background:var(--accs)">{{r.a}}</span><span class="bt fr gp6 b6" style="padding:9px 10px;background:var(--s2)"><span class="el f1">{{r.b}}</span><sc-if value="{{r.same}}"><span class="pill tw">Same</span></sc-if></span></sc-for></div><div class="nt ts" style="margin-top:6px"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>Two records mean double fees and reminders. If it is the same child, open the existing one.</span></div></sc-if><sc-if value="{{sheet.sib}}"><label class="fr srch" style="height:44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="vh">Search families</span><input type="search" value="{{fm.q}}" onChange="{{fm.onQ}}" placeholder="Surname, father or phone"></label><span class="sech" style="margin-top:4px">{{sib.count}}</span><sc-for list="{{sib.list}}" as="h"><button class="tap rc {{h.cls}}" type="button" role="radio" aria-checked="{{h.on}}" onClick="{{h.pick}}" style="animation:xIn .3s var(--ease) both;animation-delay:{{h.delay}}"><span class="ring"><span></span></span><span class="fc f1 gp4"><span class="el t14 b7">{{h.father}} <span class="mu" style="font-weight:500">· {{h.mother}}</span></span><span class="fr gp4 wr"><sc-for list="{{h.kids}}" as="k"><span class="pill ts">{{k}}</span></sc-for></span><span class="m num">{{h.phone}} · {{h.village}}</span></span></button></sc-for><sc-if value="{{sib.has}}"><div class="nt fc in" style="gap:4px;background:{{sib.ibg}};color:{{sib.ifg}}"><span class="b7">{{sib.impHead}}</span><span>{{sib.impText}}</span></div></sc-if></sc-if><sc-if value="{{sheet.wa}}"><div style="padding:16px 14px;border-radius:16px;background:var(--wabg)"><div class="fc gp8 t14" style="max-width:92%;padding:10px 12px 6px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12);animation:xPopIn .4s var(--spring) both"><span>{{wa.hi}}</span><span style="opacity:.85;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">{{wa.en}}</span><span style="align-self:flex-end;font-size:11px;opacity:.6">11:42 am</span></div></div><span class="m">Approved template · 1 message · about ₹0.88</span></sc-if><sc-if value="{{sheet.wdc}}"><sc-for list="{{wd.impact}}" as="r"><div class="fr gp12" style="padding:10px 12px;border-radius:12px;background:var(--s2);align-items:flex-start;animation:xIn .3s var(--ease) both;animation-delay:{{r.delay}}"><span class="cc" style="width:28px;height:28px;border-radius:9px;background:{{r.bg}};color:{{r.fg}}"><svg class="i i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span><span class="t13" style="line-height:1.5;padding-top:4px">{{r.t}}</span></div></sc-for></sc-if></div><div class="fr gp8" style="flex:none;padding:12px 20px 20px;border-top:1px solid var(--bd)"><button class="tap btn sec" type="button" onClick="{{sh.f1}}" style="flex:1">{{sh.b1}}</button><button class="tap btn {{sh.c2}}" type="button" onClick="{{sh.f2}}" style="flex:1.4;opacity:{{sh.op}}">{{sh.b2}}</button></div></section></sc-if>
+
+<sc-if value="{{toast.show}}"><div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="t14" style="line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div></sc-if></div></x-dc><script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["list","step1","step2","step3","step4","done","duplicate","sibling","edit","withdraw"],"default":"list"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+/*VX_ICONS*/
+IC.camera='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z';
+const rows=t=>t.split('|').map(r=>r.split('~'));
+const CL=rows('Nursery~18~25~0~Ms. Kanwar|LKG~20~25~0~Ms. Rathore|UKG~22~25~0~Ms. Mehta|Class 1~23~30~1~Ms. Jain|Class 2~25~30~1~Ms. Vyas|Class 3~24~30~1~Ms. Sharma|Class 4~29~30~1~Mr. Verma|Class 5~26~30~1~Ms. Paliwal|Class 6~31~31~2~Ms. Bhati|Class 7~27~35~2~Mr. Choudhary|Class 8~28~35~2~Mr. Solanki|Class 9~28~35~3~Mr. Meena|Class 10~30~35~3~Ms. Dave|11 Science~22~30~4~Mr. Trivedi|11 Commerce~18~25~4~Mr. Purohit|11 Arts~14~20~4~Ms. Chouhan|12 Science~20~25~4~Mr. Bhatt|12 Commerce~17~20~4~Ms. Kothari|12 Arts~12~15~4~Mr. Rawal').map(r=>[r[0],+r[1],+r[2],+r[3],r[4]]);
+const BANDS=[['Pre-primary','Pre',17400],['Primary','1–5',20400],['Middle','6–8',25800],['Secondary','9–10',31200],['Senior','11–12',34800]];
+const ROUTES=[['none','No bus','Comes with family',0],['r1','Route 1','Amet town',600],['r2','Route 2','Kelwa',700],['r3','Route 3','Railmagra',800],['r4','Route 4','Kunwariya',900]];
+const STG=[['Enquiry','var(--c4)'],['Visited','var(--c3)'],['Form given','var(--c2)'],['Admitted','var(--ok)']];
+const PIPE=rows('advik~Advik Sen~UKG~Pankaj Sen~2~0|myra~Myra Kumawat~Class 1~Suresh Kumawat~5~0~Girl|reyansh~Reyansh Chouhan~Class 7~Dilip Chouhan~1~0|kiara~Kiara Rawal~LKG~Naveen Rawal~9~0~Girl|laksh~Laksh Gurjar~Class 9~Bhagwan Gurjar~3~0|aadhya~Aadhya Bhati~Nursery~Mahendra Bhati~4~1~Girl|vihaan~Vihaan Jain~Class 3~Sandeep Jain~2~1|prisha~Prisha Dave~11 Commerce~Hitesh Dave~6~1~Girl|rudransh~Rudransh Solanki~Class 7~Gajendra Solanki~1~1|ishaan~Ishaan Regar~Class 2~Mukesh Regar~3~2~Boy~21-08-2019~Sunita Regar~9829041733~Near bus stand, Ward 4~Amet~Bal Vidya Mandir, Rajsamand|kavya2~Kavya Sen~Class 2~Manish Sen~8~2~Girl~14-03-2019~Rekha Sen~9829047730~Sen Mohalla~Amet|tanishka~Tanishka Meena~Class 8~Ramesh Meena~2~2~Girl|dhruvp~Dhruv Meena~Class 9~Ramesh Meena~1~3~~~~~~~~1432|anvip~Anvi Kothari~UKG~Vivek Kothari~3~3~~~~~~~~1431|kartikp~Kartik Purohit~Class 6~Hemant Purohit~5~3~~~~~~~~1430')
+.map(r=>({id:r[0],name:r[1],cls:r[2],parent:r[3],days:+r[4],st:+r[5],g:r[6]||'Boy',dob:r[7]||'',mother:r[8]||'',phone:r[9]||'',addr:r[10]||'',village:r[11]||'Amet',prev:r[12]||'',sr:+r[13]||0}));
+const STU={};
+rows('dhruv~Dhruv Meena~Class 9~1432~Wed 7 Oct~Office desk~Ramesh Meena~Kamla Meena~9829045208~17-06-2011~Kelwa~r2~Boy~0~0~100|anvi~Anvi Kothari~UKG~1431~Mon 5 Oct~Janmejay~Vivek Kothari~Pallavi Kothari~9829041385~09-01-2021~Amet~none~Girl~0.1~0~1n1|kartik~Kartik Purohit~Class 6~1430~Sat 3 Oct~Office desk~Hemant Purohit~Seema Purohit~9829042961~26-04-2015~Railmagra~r3~Boy~0~0~101|kavya~Kavya Sen~Class 2~1429~Fri 2 Oct~Office desk~Manish Sen~Rekha Sen~9829047730~14-03-2019~Amet~none~Girl~0~0~110|siya~Siya Chouhan~Class 4~1427~Tue 29 Sep~Janmejay~Prem Chouhan~Anita Chouhan~9829041241~30-05-2017~Amet~r1~Girl~0.1~0~010|devansh~Devansh Trivedi~11 Science~1424~Sat 12 Sep~Office desk~Alok Trivedi~Meenakshi Trivedi~9829040861~05-02-2011~Kelwa~r2~Boy~0.1~8640~101|yuvraj~Yuvraj Gurjar~Class 6~1258~Mon 3 Apr 2023~Office desk~Bhanwar Gurjar~Santosh Gurjar~9829044617~11-12-2014~Kunwariya~r4~Boy~0~0~111')
+.forEach(r=>{const d=c=>(c==='n'?'na':c==='1');STU[r[0]]={name:r[1],cls:r[2],sr:+r[3],date:r[4],by:r[5],father:r[6],mother:r[7],phone:r[8],dob:r[9],village:r[10],route:r[11],gender:r[12],conc:+r[13],paid:+r[14],docs:{birth:d(r[15][0]),tc:d(r[15][1]),photo:d(r[15][2])},log:[]};});
+STU.devansh.log=[['Phone changed 98290 ••118 → 98290 ••861','Office desk','Tue 6 Oct · 11:20'],['Bus set to Route 2 · Kelwa','Janmejay','Mon 14 Sep · 9:05'],['Sibling linked: Vivaan Trivedi (12 Science)','Office desk','Sat 12 Sep · 12:40']];
+Object.assign(STU.yuvraj,{pend:4200,notDue:17400,reason:'move'});
+const FAMS=rows('regar~Mukesh Regar~Sunita Regar~9829041733~Near bus stand, Ward 4~Amet~Priya:Class 5|regar2~Kailash Regar~Geeta Regar~9829046120~Regar Mohalla~Kelwa~Mohit:Class 8|sharma~Rakesh Sharma~Sunita Sharma~9829041512~Ward 7, Station Road~Amet~Aarav:Class 7/Diya:Class 3|sharma2~Lokesh Sharma~Kavita Sharma~9829043208~Kumharon ka Mohalla~Amet~Khushi:Class 6|sharma3~Mahendra Sharma~Rekha Sharma~9829045590~Gandhi Nagar~Railmagra~Tanay:Class 9/Ira:LKG|kothari~Vivek Kothari~Pallavi Kothari~9829041385~Kothari Bhawan~Amet~Ishaan:Class 1/Anvi:UKG')
+.map(r=>({id:r[0],father:r[1],mother:r[2],phone:r[3],addr:r[4],village:r[5],kids:r[6].split('/').map(k=>k.split(':'))}));
+const HI={};
+'ishaan:ईशान,kavya:काव्या,diya:दीया,kumawat:कुमावत,rathore:राठौड़,choudhary:चौधरी,vyas:व्यास,solanki:सोलंकी,chouhan:चौहान,kothari:कोठारी,meena:मीणा,devansh:देवांश,yuvraj:युवराज,myra:मायरा,manish:मनीष,bhanwar:भंवर'.split(',').forEach(p=>{const k=p.split(':');HI[k[0]]=k[1];});
+this._d={IC,CL,BANDS,ROUTES,STG,PIPE,STU,FAMS,HI,MON:'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')};
+return this._d;
+}
+blankF(){return{en:'',hi:null,dob:'',gender:'Boy',cls:'',kind:'new',prev:'',photo:false};}
+blankFam(){return{link:'',q:'',father:'',mother:'',phone:'',wa:true,wa2:'',addr:'',village:''};}
+fee0(){return{route:'none',sib:false,staff:false,rte:false,collect:true};}
+docs0(){return{birth:false,tc:false,photo:false,aadhaar:false,addr:false};}
+st(){
+const start=(this.props||{}).start||'list';
+const base={screen:'list',step:1,maxStep:1,anim:'none',stage:0,moved:{},srOf:{},flash:'',admits:[],newStu:{},f:this.blankF(),fam:this.blankFam(),fee:this.fee0(),docs:this.docs0(),tried:{},dupOk:false,from:'',sheet:'',closing:false,sel:'',eid:'devansh',ed:{},chg:false,saved:{},elog:{},wid:'yuvraj',wfrom:'list',wr:'',wday:0,wnote:'',wdone:{},sent:false,toast:null};
+const pc=id=>this.pre(this.data().PIPE.filter(c=>c.id===id)[0]),I=pc('ishaan'),ish=I.f,famI=I.fam;
+const famQ=Object.assign({},famI,{q:'Regar'});
+const famL=Object.assign({},famI,{link:'regar'});
+const feeL={route:'r1',sib:true,staff:false,rte:false,collect:true};
+const w=(step,x)=>Object.assign({screen:'wizard',step,maxStep:step,f:ish,fam:famI,from:'ishaan'},x||{});
+const fin={f:Object.assign({},ish,{photo:true}),fam:famL,fee:feeL,docs:{birth:true,tc:true,photo:true,aadhaar:true,addr:false}};
+const map={
+step1:w(1),step2:w(2,{fam:famQ}),sibling:w(2,{fam:famQ,sheet:'sib',sel:'regar'}),step3:w(3,{fam:famL,fee:feeL}),step4:w(4,fin),
+duplicate:w(2,Object.assign(pc('kavya2'),{from:'kavya2',sheet:'dup',sel:'kavya'})),
+edit:{screen:'edit',eid:'devansh',ed:{cls:'11 Commerce'},chg:true},
+withdraw:{screen:'withdraw',wid:'yuvraj'}
+};
+if(start==='done')map.done=Object.assign(w(4,fin),this.saveState(Object.assign({},base,w(4,fin))));
+return Object.assign(base,map[start]||{},this.state||{});
+}
+inr(n){return(n<0?'−₹':'₹')+Math.abs(Math.round(n)).toLocaleString('en-IN');}
+mask(p){const d=String(p||'').replace(/\D/g,'');return d.length>=10?d.slice(0,5)+' ••'+d.slice(-3):(d||'—');}
+ini(n){return String(n||'').trim().split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase()||'+';}
+av(n){const t=[['var(--accs)','var(--accfg)'],['var(--infos)','var(--info)'],['var(--oks)','var(--ok)'],['var(--warns)','var(--warnfg)'],['var(--s3)','var(--fg)']][String(n||'').length % 5];return{ini:this.ini(n),abg:t[0],afg:t[1]};}
+first(n){return String(n||'').trim().split(/\s+/)[0]||'The child';}
+cl(c){return this.data().CL.filter(x=>x[0]===c)[0]||null;}
+gi(c){const i=this.data().CL.map(x=>x[0]).indexOf(c);return i<0?-1:(i<=12?i:(i<=15?13:14));}
+yearly(c){const r=this.cl(c);return r?this.data().BANDS[r[3]][2]+(/Science/.test(c)?3600:0):0;}
+route(id){const R=this.data().ROUTES;return R.filter(r=>r[0]===id)[0]||R[0];}
+fam(id){return this.data().FAMS.filter(x=>x.id===id)[0]||null;}
+younger(c,f){const g=this.gi(c);return!!f&&f.kids.every(k=>g<=this.gi(k[1]));}
+tr(word){
+const w=String(word).toLowerCase(),D=this.data();
+if(D.HI[w])return D.HI[w];
+const V=[['aa','आ','ा'],['ai','ऐ','ै'],['au','औ','ौ'],['ee','ई','ी'],['oo','ऊ','ू'],['a','अ',''],['i','इ','ि'],['u','उ','ु'],['e','ए','े'],['o','ओ','ो']];
+const C='chh:छ kh:ख gh:घ ch:च jh:झ th:थ dh:ध ph:फ bh:भ sh:श k:क g:ग j:ज t:त d:द n:न p:प f:फ b:ब m:म y:य r:र l:ल v:व w:व s:स h:ह z:ज़ q:क c:क x:क्स'.split(' ').map(p=>p.split(':'));
+let out='',i=0,pc=false;
+while(i<w.length){
+let m=C.filter(c=>w.substr(i,c[0].length)===c[0])[0];
+if(m){out+=(pc?'्':'')+m[1];i+=m[0].length;pc=true;continue;}
+m=V.filter(v=>w.substr(i,v[0].length)===v[0])[0];
+if(m){out+=pc?(i===w.length-1&&'ai'.indexOf(m[0])>=0?['ा','ी']['ai'.indexOf(m[0])]:m[2]):m[1];i+=m[0].length;pc=false;continue;}
+out+=w[i];i+=1;pc=false;
+}
+return out;
+}
+hiName(en){return String(en||'').trim().split(/\s+/).filter(Boolean).map(x=>this.tr(x)).join(' ');}
+hiCls(c){return String(c).replace('Class ','कक्षा ').replace('Nursery','नर्सरी').replace('LKG','एलकेजी').replace('UKG','यूकेजी').replace(/^1([12])\s/,'कक्षा 1$1 ').replace('Science','विज्ञान').replace('Commerce','वाणिज्य').replace('Arts','कला');}
+dob(v){
+const m=/^\s*(\d{1,2})[-\/.\s](\d{1,2})[-\/.\s](\d{4})\s*$/.exec(v||'');
+if(!m)return null;
+const d=+m[1],mo=+m[2],y=+m[3];
+if(d<1||d>31||mo<1||mo>12||y<2004||y>2023)return null;
+const n=(2026-y)*12+(7-mo)-(d>1?1:0);
+return{yrs:Math.floor(n/12),mos:n % 12,txt:d+' '+this.data().MON[mo-1]+' '+y};
+}
+seatsLeft(s,c){
+const D=this.data(),r=this.cl(c);
+if(!r)return 0;
+const added=s.admits.filter(id=>(s.newStu[id]||{}).cls===c).length;
+const gone=Object.keys(s.wdone).filter(id=>s.wdone[id]&&(D.STU[id]||{}).cls===c).length;
+return r[2]-r[1]-added+gone;
+}
+errs(s){
+const f=s.f,m=s.fam,o={};
+if(!String(f.en||'').trim())o.en='Write the child’s name';
+if(!this.dob(f.dob))o.dob=String(f.dob||'').trim()?'Write the date like 21-08-2019':'Date of birth is needed';
+if(!f.cls)o.cls='Pick a class';
+else if(this.seatsLeft(s,f.cls)<=0)o.cls=f.cls+' is full. Pick another class or keep the enquiry open.';
+if(!String(m.father||'').trim())o.father='Father’s or guardian’s name is needed';
+const dg=String(m.phone||'').replace(/\D/g,'').length;
+if(dg!==10)o.phone=dg?'Phone needs 10 digits — this one has '+dg:'A phone number is needed';
+if(!m.wa&&String(m.wa2||'').replace(/\D/g,'').length!==10)o.wa2='WhatsApp number needs 10 digits';
+return o;
+}
+fees(f,fee){
+const conc=fee.rte?1:(fee.staff?0.5:(fee.sib?0.1:0));
+const acad=Math.round(this.yearly(f.cls)*(1-conc)),per=Math.round(acad/4);
+const adm=f.kind==='new'&&!fee.rte?1200:0,m=this.route(fee.route)[3];
+const bus=[0,m,m*2,m*3],amt=bus.map((b,i)=>per+b+(i?0:adm));
+return{conc,acad,per,adm,bus,amt,pend:amt[0]+amt[1],notDue:amt[2]+amt[3]};
+}
+saveState(s){
+const sr=1433+s.admits.length,id='n'+sr,fe=this.fees(s.f,s.fee),jr=this.gi(s.f.cls)<=2&&s.f.kind==='new';
+const rec={name:s.f.en.trim(),cls:s.f.cls,sr,date:'Thu 8 Oct',by:'Janmejay',father:s.fam.father,mother:s.fam.mother,phone:s.fam.phone,dob:s.f.dob,village:s.fam.village,route:s.fee.route,gender:s.f.gender,conc:fe.conc,paid:0,pend:fe.pend,from:s.from,isNew:true,docs:{birth:!!s.docs.birth,tc:jr?'na':!!s.docs.tc,photo:!!(s.docs.photo||s.f.photo)},log:[]};
+const newStu=Object.assign({},s.newStu),moved=Object.assign({},s.moved),srOf=Object.assign({},s.srOf);
+newStu[id]=rec;
+if(s.from){moved[s.from]=3;srOf[s.from]=sr;}
+return{screen:'done',admits:[id].concat(s.admits),newStu,moved,srOf,flash:s.from,sent:false,anim:'push',sheet:'',closing:false};
+}
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.S({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.S({toast:null});},4500);
+}
+undoToast(){const f=this._undo;this._undo=null;this.S({toast:null});if(f)f();}
+openSheet(name,extra){clearTimeout(this._ct);this.S(Object.assign({sheet:name,closing:false},extra||{}));}
+closeSheet(){
+if(!this.st().sheet)return;
+this.S({closing:true});
+clearTimeout(this._ct);
+this._ct=setTimeout(()=>this.S({sheet:'',closing:false}),240);
+}
+S(o){this.setState(o);}
+up(k,patch){const o={};o[k]=Object.assign({},this.st()[k],patch);this.S(o);}
+pre(c){
+const f=this.blankF(),fam=this.blankFam();
+if(c){Object.assign(f,{en:c.name,dob:c.dob,gender:c.g,cls:c.cls,prev:c.prev});Object.assign(fam,{father:c.parent,mother:c.mother,phone:c.phone,addr:c.addr,village:c.village});}
+return{f,fam};
+}
+startWiz(c){
+this.S(Object.assign({screen:'wizard',step:1,maxStep:1,anim:'push',fee:this.fee0(),docs:this.docs0(),tried:{},dupOk:false,from:c?c.id:'',sheet:''},this.pre(c)));
+}
+next(){
+const s=this.st(),e=this.errs(s),keys={1:['en','dob','cls'],2:['father','phone','wa2']}[s.step]||[];
+if(keys.some(k=>e[k])){const t=Object.assign({},s.tried);t[s.step]=true;this.S({tried:t});return;}
+if(s.step===2&&!s.dupOk){
+const D=this.data(),lc=x=>String(x||'').trim().toLowerCase();
+const hit=Object.keys(D.STU).filter(id=>{const x=D.STU[id];return lc(x.name)===lc(s.f.en)&&lc(x.father)===lc(s.fam.father)&&x.dob===String(s.f.dob).trim();})[0];
+if(hit){this.openSheet('dup',{sel:hit});return;}
+}
+if(s.step===4){this.S(this.saveState(s));return;}
+this.S({step:s.step+1,maxStep:Math.max(s.maxStep,s.step+1),anim:'push'});
+}
+back(){
+const s=this.st();
+if(s.screen==='wizard'&&s.step>1)this.S({step:s.step-1,anim:'pop'});
+else if(s.screen==='withdraw'&&s.wfrom==='edit')this.S({screen:'edit',anim:'pop'});
+else this.S({screen:'list',anim:'pop',sheet:''});
+}
+linkFam(id){
+const s=this.st(),fm=this.fam(id);
+if(!fm)return;
+const y=this.younger(s.f.cls,fm);
+this.S({fam:Object.assign({},s.fam,{link:id,q:'',father:fm.father,mother:fm.mother,phone:fm.phone,wa:true,addr:fm.addr,village:fm.village}),fee:Object.assign({},s.fee,{sib:y,staff:false,rte:false})});
+this.closeSheet();
+this.toast('Linked to '+fm.father+'’s family'+(y?' · sibling discount on':''));
+}
+renderVals(){
+const D=this.data(),s=this.st(),IC=D.IC,inr=n=>this.inr(n),yes=b=>(b?'true':'false'),fst=n=>this.first(n);
+const dl=i=>(Math.min(i,14)*30)+'ms';
+const A={push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both'}[s.anim]||'none';
+const stu=id=>s.newStu[id]||D.STU[id];
+const seg=(o,cur,pick)=>({thumb:Math.max(0,o.map(x=>x[0]).indexOf(cur))*100+'%',opts:o.map(x=>({label:x[1],cls:cur===x[0]?'tap on':'tap',pressed:yes(cur===x[0]),pick:()=>pick(x[0])}))});
+const chip=(o,cur,pick)=>o.map(x=>({label:x[1],cls:cur===x[0]?'on':'',pressed:yes(cur===x[0]),pick:()=>pick(x[0])}));
+const sw=(label,sub,on,toggle,i,pill)=>({label,sub,on:yes(on),cls:on?'on':'',bd:i?'1px solid var(--bd)':'0',hasPill:!!pill,pill:pill||'',toggle});
+const TW=['var(--warns)','var(--warnfg)'],TO=['var(--oks)','var(--ok)'],TS=['var(--s2)','var(--mut)'];
+const docsOf=r=>[['birth','Birth'],['tc','TC'],['photo','Photo']].map(d=>{const v=r.docs[d[0]],k=v==='na'?0:(v?1:2),t=[TS,TO,TW][k];return{label:d[1]+[' · n/a',' ✓',' · pending'][k],bg:t[0],fg:t[1],icon:[IC.minus,IC.check,IC.alert][k]};});
+const recIds=s.admits.concat(['dhruv','anvi','kartik','kavya','siya','devansh']);
+const recent=recIds.map((id,i)=>{const r=stu(id);return Object.assign(this.av(r.name),{name:r.name,cls:r.cls,sr:String(r.sr),date:r.date,by:r.by,isNew:!!r.isNew,docs:docsOf(r),border:i?'1px solid var(--bd)':'0',delay:dl(i),edit:()=>this.S({screen:'edit',eid:id,ed:{},chg:false,anim:'push'})});});
+const missing=recIds.reduce((n,id)=>n+['birth','tc','photo'].filter(k=>stu(id).docs[k]===false).length,0);
+const stOf=c=>(s.moved[c.id]!==undefined?s.moved[c.id]:c.st);
+const cardVM=(c,i)=>{
+const st=stOf(c),mv=s.moved[c.id]!==undefined,late=c.days>=7&&!mv,t=st===3?TO:(late?TW:TS);
+return Object.assign(this.av(c.name),{name:c.name,cls:c.cls,parent:c.parent,days:st===3?'SR '+(s.srOf[c.id]||c.sr):(mv?'Moved today':c.days+(c.days===1?' day':' days')+(late?' · call back':'')),dbg:t[0],dfg:t[1],canMove:st<3,moveLabel:st===2?'Admit':'Move',btn:st===2?'pri':'soft',anim:s.flash===c.id?'xPush .5s var(--spring) both':'xIn .32s var(--ease) both',delay:s.flash===c.id?'0ms':dl(i),
+move:()=>{if(st===2){this.startWiz(c);return;}if(st>2)return;const before=this.st().moved,m=Object.assign({},before);m[c.id]=st+1;this.S({moved:m,flash:c.id});this.toast(c.name+' moved to '+D.STG[st+1][0],()=>this.S({moved:before}));}});
+};
+const extra=s.admits.filter(id=>!s.newStu[id].from).map(id=>{const r=s.newStu[id];return{id,name:r.name,cls:r.cls,parent:r.father,days:0,st:3,sr:r.sr};});
+const pipe=D.STG.map((g,k)=>{const cards=(k===3?extra:[]).concat(D.PIPE.filter(c=>stOf(c)===k).sort((a,b)=>(s.flash===b.id)-(s.flash===a.id))).map(cardVM);return{label:g[0],c:g[1],count:String(cards.length),cards,empty:!cards.length,mcls:s.stage===k?'':'hide-m'};});
+const open=pipe[0].cards.length+pipe[1].cards.length+pipe[2].cards.length;
+const bands=D.BANDS.map((b,k)=>{const cs=D.CL.filter(c=>c[3]===k),cap=cs.reduce((n,c)=>n+c[2],0),left=cs.reduce((n,c)=>n+this.seatsLeft(s,c[0]),0),fill=(cap-left)/cap;return{short:b[1],left:String(left),n:left,h:Math.round(fill*100)+'%',c:fill>0.9?'var(--warn)':'var(--c2)',title:b[0]+' · '+(cap-left)+' of '+cap+' filled · '+left+' left',delay:(k*70+200)+'ms'};});
+const seatsTotal=bands.reduce((n,b)=>n+b.n,0);
+const kpis=[['New this session',String(64+s.admits.length),'Since 1 Apr','+9 vs last year'],['Open enquiries',String(open),pipe[0].cards.filter(c=>/call back/.test(c.days)).length+' waiting more than a week'],['Documents pending',String(missing),'Birth certificates, TCs and photos']].map((k,i)=>({label:k[0],value:k[1],sub:k[2],hasPill:!!k[3],pill:k[3]||'',delay:dl(i)}));
+const f=s.f,fmS=s.fam,E=this.errs(s),fe=this.fees(f,s.fee),famObj=this.fam(fmS.link),age=this.dob(f.dob),gi=this.gi(f.cls),hiSug=this.hiName(f.en),hiNow=f.hi===null?hiSug:f.hi;
+const er=(k,step)=>{const on=!!(s.tried[step]&&E[k]);return{on,t:on?E[k]:'',cls:on?'err':'',anim:on?'xShake .4s ease':'none'};};
+const e={en:er('en',1),dob:er('dob',1),cls:er('cls',1),father:er('father',2),phone:er('phone',2),wa2:er('wa2',2)};
+const fits=!!age&&(gi<0||Math.abs(gi-(age.yrs-3))<=1),expName=age?D.CL[Math.min(12,Math.max(0,age.yrs-3))][0]:'';
+const SN=['Student','Family','Fees','Review'];
+const bad=({1:['en','dob','cls'],2:['father','phone','wa2']}[s.step]||[]).filter(k=>e[k].on).length;
+const rt=this.route(s.fee.route),concName=s.fee.rte?'RTE seat · free':(s.fee.staff?'Staff child · 50%':(s.fee.sib?'Sibling · 10%':'None'));
+const sr=1433+s.admits.length,q=String(fmS.q||'').trim().toLowerCase();
+const hits=q.length>=2?D.FAMS.filter(x=>(x.father+' '+x.mother+' '+x.kids.map(k=>k[0]).join(' ')).toLowerCase().indexOf(q)>=0||x.phone.indexOf(q.replace(/\D/g,'')||'#')>=0):[];
+const kidsTxt=x=>x.kids.map(k=>k[0]+' · '+k[1]);
+const wz={
+s1:s.step===1,s2:s.step===2,s3:s.step===3,s4:s.step===4,fill:((s.step-1)*25)+'%',
+steps:SN.map((n,i)=>{const k=i+1,done=k<s.step,cur=k===s.step;return{n:String(k),label:n,done,todo:!done,cur:cur?'step':'false',bg:done?'var(--acc)':(cur?'var(--card)':'var(--s2)'),fg:done?'var(--onsolid)':(cur?'var(--acc)':'var(--mut)'),bd:done||cur?'var(--acc)':'var(--bd)',tc:cur?'var(--fg)':'var(--mut)',go:()=>{const c=this.st();if(k<c.step)this.S({step:k,anim:'pop'});}};}),
+hint:bad?bad+(bad===1?' thing to fix above':' things to fix above'):['Name, birth date and class are needed','Father and phone are needed','Check the bus and concession','Check once, then save'][s.step-1],
+hintTone:bad?'var(--bad)':'var(--mut)',backLabel:s.step===1?'Cancel':'Back',
+nextLabel:s.step===4?'Save admission':'Next: '+SN[s.step],nextIcon:s.step===4?IC.check:IC.arrowRight,next:()=>this.next()
+};
+const fv={
+en:f.en,onEn:ev=>this.up('f',{en:ev.target.value}),
+hi:hiNow,onHi:ev=>this.up('f',{hi:ev.target.value.trim()?ev.target.value:null}),
+hiTag:f.hi===null?'Suggested':'Edited · clear to reset',hiBg:f.hi===null?'var(--accs)':'var(--s3)',hiFg:f.hi===null?'var(--accfg)':'var(--mut)',
+dob:f.dob,onDob:ev=>this.up('f',{dob:ev.target.value}),
+hasAge:!!age&&!e.dob.on,ageLine:age?age.txt+' · '+age.yrs+' yrs '+age.mos+' mo on 1 Jul'+(f.cls?(fits?' · right age for '+f.cls:' · most children this age are in '+expName):''):'',ageTone:fits?'var(--ok)':'var(--warnfg)',
+segs:[Object.assign(seg([['Boy','Boy'],['Girl','Girl']],f.gender,g=>this.up('f',{gender:g})),{label:'Gender'}),Object.assign(seg([['new','New to school'],['old','Was here before']],f.kind,k=>this.up('f',{kind:k})),{label:'New or returning'})],
+prev:f.prev,onPrev:ev=>this.up('f',{prev:ev.target.value}),
+hasPhoto:!!f.photo,noPhoto:!f.photo,ini:this.ini(f.en),phLabel:f.photo?'Retake photo':'Take photo',phBd:f.photo?'2px solid var(--ok)':'1.5px dashed var(--bds)',phBg:f.photo?'var(--oks)':'var(--s2)',
+photoTap:()=>{const on=!this.st().f.photo;this.up('f',{photo:on});if(on)this.toast('Photo added');},
+tiles:D.CL.map(c=>{const left=this.seatsLeft(s,c[0]),on=f.cls===c[0],full=left<=0;return{name:c[0],left:full?'Full':left+' left',fill:Math.round((c[2]-left)/c[2]*100)+'%',lc:full?'var(--bad)':(left<=2?'var(--warn)':'var(--ok)'),on:yes(on),bd:on?'var(--acc)':'var(--bd)',sh:on?'inset 0 0 0 1px var(--acc)':'none',bg:on?'var(--accs)':'var(--card)',op:full&&!on?'0.55':'1',pick:()=>(full?this.toast(c[0]+' is full — the enquiry can wait for a seat'):this.up('f',{cls:c[0]}))};})
+};
+const ff=k=>ev=>{const o={};o[k]=ev.target.value;this.up('fam',o);};
+const fm={
+unlinked:!famObj,linked:!!famObj,q:fmS.q,onQ:ff('q'),
+hits:hits.slice(0,3).map((x,i)=>({father:x.father,village:x.village,ini:this.ini(x.father),kids:kidsTxt(x),delay:dl(i),pick:()=>this.openSheet('sib',{sel:x.id})})),
+noHits:q.length>=2&&!hits.length,
+famName:famObj?famObj.father:'',kids:famObj?kidsTxt(famObj):[],discLine:this.younger(f.cls,famObj)?'Sibling discount 10% will apply':'Discount stays on the younger child',
+unlink:()=>{this.S({fam:Object.assign({},this.st().fam,{link:''}),fee:Object.assign({},this.st().fee,{sib:false})});this.toast('Family unlinked · sibling discount off');},
+father:fmS.father,onFather:ff('father'),mother:fmS.mother,onMother:ff('mother'),phone:fmS.phone,onPhone:ff('phone'),
+waOn:yes(fmS.wa),waCls:fmS.wa?'on':'',toggleWa:()=>this.up('fam',{wa:!this.st().fam.wa}),needWa:!fmS.wa,wa2:fmS.wa2,onWa2:ff('wa2'),
+addr:fmS.addr,onAddr:ff('addr'),village:fmS.village,onVillage:ff('village')
+};
+const CONC=[['sib','Brother or sister in school',famObj?'10% off the younger child’s academic fee':'Link the family in step 2 to use this'],['staff','Staff child','50% off the academic fee'],['rte','RTE seat','Free seat — the government pays the school']];
+const fp={
+plan:(f.cls||'No class')+' · '+(gi>=0?D.BANDS[this.cl(f.cls)[3]][0]:'')+' fee plan',
+planSub:'Academic fee a year'+(fe.conc?' after '+concName.toLowerCase():'')+' · 4 installments of '+inr(fe.per)+' · '+(fe.adm?'admission fee '+inr(fe.adm)+' one time':(f.kind==='new'?'no admission fee on an RTE seat':'no admission fee — was here before')),acad:inr(fe.acad),
+routes:chip(D.ROUTES.map(r=>[r[0],r[1]+(r[3]?' · '+inr(r[3])+'/mo':'')]),s.fee.route,v=>this.up('fee',{route:v})),
+conc:CONC.map((c,i)=>{const on=!!s.fee[c[0]];return sw(c[1],c[2],on,()=>{if(c[0]==='sib'&&!famObj){this.toast('Link a brother or sister in step 2 first');return;}const n={sib:false,staff:false,rte:false};n[c[0]]=!on;this.up('fee',n);},i,c[0]==='sib'&&on&&famObj?'Auto':'');}),
+inst:['15 Jul','15 Sep','15 Nov','15 Jan'].map((d,i)=>{const due=i<2,p=['Academic '+inr(fe.per)],t=due?TW:TS;if(!i&&fe.adm)p.push('admission '+inr(fe.adm));if(fe.bus[i])p.push('bus '+['','Oct','Nov–Dec','Jan–Mar'][i]+' '+inr(fe.bus[i]));return{label:'Installment '+(i+1)+' · '+d,parts:p.join(' + '),amt:inr(fe.amt[i]),st:due?'Pending today':'Not due yet',bg:t[0],fg:t[1]};}),
+pend:inr(fe.pend),notDue:inr(fe.notDue),lateNote:'Late fee: none — '+fst(f.en)+' joins after these dates. Late fee is always kept separate.',
+collect:[sw('Collect the first payment now',s.fee.collect?'After saving, go straight to Collect fee with '+inr(fe.pend):'The family can pay later — it shows in Dues',s.fee.collect,()=>this.up('fee',{collect:!this.st().fee.collect}),0)]
+};
+const jr=gi>=0&&gi<=2&&f.kind==='new';
+const DOCS=[['birth','Birth certificate','Copy checked with the original'],['tc','TC from the old school',jr?'Not needed for pre-primary':'Needed for Class 1 and above'],['photo','Passport photo',f.photo?'Taken in step 1':'Or take it in step 1'],['aadhaar','Aadhaar card copy','Only the last 4 digits are kept · •••• 4821']];
+const docOn=k=>(k==='photo'?!!(s.docs.photo||f.photo):!!s.docs[k]);
+const miss=DOCS.filter(d=>!docOn(d[0])&&!(d[0]==='tc'&&jr)).length;
+const kv=a=>a.map(r=>({k:r[0],v:r[1]||'—'}));
+const rv=Object.assign(this.av(f.en),{
+en:f.en||'—',hi:hiNow||'—',line:[f.cls,f.gender,f.kind==='new'?'New to school':'Was here before'].filter(Boolean).join(' · '),sr:String(sr),
+secs:[{title:'Student',rows:kv([['Date of birth',age&&age.txt],['Class',f.cls]])},{title:'Family',rows:kv([['Father',fmS.father],['Mother',fmS.mother],['Phone',this.mask(fmS.phone)+(fmS.wa?' · WhatsApp':'')],['Village',fmS.village]])},{title:'Fees',rows:kv([['Bus',rt[3]?rt[1]+' · '+rt[2]:'No bus'],['Concession',concName],['Pending today',inr(fe.pend)],['Not due yet',inr(fe.notDue)]])}],
+docs:DOCS.map((d,i)=>{const on=docOn(d[0]);return sw(d[1],d[2],on,()=>{const n={};n[d[0]]=!on;this.up('docs',n);if(d[0]==='photo'&&on)this.up('f',{photo:false});},i);}),
+dLine:miss?miss+' to collect later':'All received',dBg:miss?TW[0]:TO[0],dFg:miss?TW[1]:TO[1]
+});
+const L=s.admits.length?s.newStu[s.admits[0]]:{name:f.en,cls:f.cls,sr,father:fmS.father,phone:fmS.phone,pend:fe.pend,docs:{}};
+const dn={
+title:(L.name||'Student')+' admitted to '+(L.cls||'class'),sr:'SR '+L.sr,sub:'Saved by Janmejay · Thu 8 Oct · '+inr(L.pend)+' pending today'+([['birth','birth certificate'],['tc','TC'],['photo','photo']].filter(d=>L.docs[d[0]]===false).map(d=>d[1]).join(', ').replace(/^(.+)$/,' · still to collect: $1')),
+collect:s.fee.collect?'Collect '+inr(L.pend)+' now':'Collect admission fee',
+acts:[['sec',s.sent?IC.check:IC.message,s.sent?'Welcome sent':'Send welcome on WhatsApp',()=>(this.st().sent?this.toast('Already sent · read by '+fst(L.father)):this.openSheet('wa'))],['sec',IC.printer,'Print admission form',()=>this.toast('Admission form sent to the office printer')],['soft',IC.userPlus,'Add another',()=>this.startWiz(null)]].map(x=>({cls:x[0],icon:x[1],label:x[2],fn:x[3]}))
+};
+const wa={
+hi:'नमस्ते '+this.hiName(fst(L.father))+' जी, श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट में '+this.hiName(fst(L.name))+' का प्रवेश '+this.hiCls(L.cls)+' में हो गया है। SR नंबर '+L.sr+' है। स्कूल का समय सुबह 8 से दोपहर 2 बजे तक है। आपका स्वागत है!',
+en:'Namaste '+fst(L.father)+' ji, '+fst(L.name)+' is now admitted to '+L.cls+' at Shri Veer Patta Sr. Sec. School, Amet. SR number '+L.sr+'. School time is 8 am to 2 pm. Welcome!'
+};
+const exId=D.STU[s.sel]?s.sel:'kavya',ex=D.STU[exId];
+const dup={rows:[['Name',f.en,ex.name],['Father',fmS.father,ex.father],['Born',f.dob,ex.dob],['Class',f.cls,ex.cls],['Phone',this.mask(fmS.phone),this.mask(ex.phone)],['Added','Now',ex.date+' · '+ex.by]].map(r=>({k:r[0],a:r[1]||'—',b:r[2],same:String(r[1]||'').trim().toLowerCase()===String(r[2]).toLowerCase()}))};
+const selF=hits.filter(x=>x.id===s.sel)[0]||null,yng=this.younger(f.cls,selF),yrF=this.yearly(f.cls);
+const sib={
+count:hits.length?hits.length+(hits.length===1?' family found':' families found'):(q.length>=2?'No match — try a phone number':'Type at least 2 letters'),
+list:hits.map((x,i)=>{const on=s.sel===x.id;return{father:x.father,mother:x.mother,kids:kidsTxt(x),phone:this.mask(x.phone),village:x.village,on:yes(on),cls:on?'on':'',delay:dl(i),pick:()=>this.S({sel:x.id})};}),
+has:!!selF,
+impHead:selF?(yng?'Sibling discount for '+fst(f.en):'No change to '+fst(f.en)+'’s fee'):'',
+impText:selF?(yng?fst(f.en)+' is the youngest, so 10% comes off the academic fee: '+inr(yrF)+' → '+inr(yrF*0.9)+' a year ('+inr(yrF*0.1)+' less). Parents, phone and address are filled in for you.':fst(f.en)+' is older than '+selF.kids.map(k=>k[0]).join(' and ')+', so the 10% stays on the younger child. Family details are still filled in.'):'',
+ibg:yng?TO[0]:'var(--s2)',ifg:yng?TO[1]:'var(--fg)'
+};
+const E0=Object.assign({},stu(s.eid)||D.STU.devansh,s.saved[s.eid]||{});
+E0.hi=E0.hi||this.hiName(E0.name);
+const cur=Object.assign({},E0,s.ed);
+const LB={name:'Name',hi:'Name in Hindi',dob:'Date of birth',father:'Father',mother:'Mother',phone:'Phone',village:'Village',cls:'Class',route:'Bus'};
+const dirty=Object.keys(s.ed).filter(k=>s.ed[k]!==E0[k]);
+const setEd=(k,v)=>{const n=Object.assign({},this.st().ed);n[k]=v;this.S({ed:n});};
+const fld=(k,label)=>({label,v:cur[k],changed:dirty.indexOf(k)>=0,on:ev=>setEd(k,ev.target.value)});
+const calc=(c,o)=>{const yr=Math.round(this.yearly(c)*(1-(o.conc||0))),per=Math.round(yr/4),over=Math.max(0,(o.paid||0)-2*per);return{yr,pend:Math.max(0,2*per-(o.paid||0)),notDue:2*per-over,over};};
+const a=calc(E0.cls,E0),b=calc(cur.cls,E0),rA=this.route(E0.route),rB=this.route(cur.route);
+const fmt=(k,v)=>(k==='phone'?this.mask(v):(k==='route'?this.route(v)[1]:v));
+const ed=Object.assign(this.av(E0.name),{
+name:E0.name,line:E0.cls+' · SR '+E0.sr+' · admitted '+E0.date+' · '+(E0.route!=='none'?rA[1]:'no bus')+(E0.conc?' · sibling 10%':''),
+secs:[{title:'Student',fields:[fld('name','Name (English)'),fld('hi','नाम हिंदी में'),fld('dob','Date of birth (DD-MM-YYYY)')]},{title:'Family',fields:[fld('father','Father’s name'),fld('mother','Mother’s name'),fld('phone','Phone · also WhatsApp'),fld('village','Village or town')]}],
+chg:!!s.chg,chgLabel:s.chg?'Done':'Change class',toggleChg:()=>this.S({chg:!this.st().chg}),
+clsNow:cur.cls+(cur.cls!==E0.cls?' (was '+E0.cls+')':''),clsSub:'Class teacher '+(this.cl(cur.cls)||[0,0,0,0,'—'])[4]+' · '+inr(b.yr)+' a year',
+chips:chip(D.CL.map(c=>[c[0],c[0]]),cur.cls,v=>setEd('cls',v)),clsChanged:cur.cls!==E0.cls,clsSame:cur.cls===E0.cls,
+impTitle:'Fees change if '+fst(E0.name)+' moves to '+cur.cls,
+imp:[['Academic fee a year',a.yr,b.yr],['Pending today',a.pend,b.pend],['Not due yet',a.notDue,b.notDue]].map(r=>({k:r[0],a:inr(r[1]),b:inr(r[2])})),
+impNote:'Receipts already given stay as they are.'+(b.over?' '+inr(b.over)+' already paid moves forward as credit.':'')+(E0.conc?' The sibling discount is kept.':''),
+feeNow:'Pending today '+inr(a.pend)+' · Not due yet '+inr(a.notDue),
+routes:chip(D.ROUTES.map(r=>[r[0],r[1]+(r[3]?' · '+r[2]:'')]),cur.route,v=>setEd('route',v)),
+rtLine:cur.route===E0.route?(rA[3]?inr(rA[3])+' a month, charged with each installment':'No bus fee'):'From 1 Nov: '+inr(rA[3])+' → '+inr(rB[3])+' a month · '+(rB[3]>=rA[3]?'+':'')+inr((rB[3]-rA[3])*5)+' for the rest of the year',
+rtTone:cur.route===E0.route?'var(--mut)':'var(--warnfg)',
+log:(s.elog[s.eid]||[]).concat(E0.log.map(l=>({text:l[0],who:l[1],when:l[2],dot:'var(--c4)'})),[{text:'Admitted to '+stu(s.eid).cls+' · SR '+E0.sr,who:E0.by,when:E0.date,dot:'var(--ok)'}]).map((l,i)=>Object.assign({},l,{delay:dl(i)})),
+dirty:dirty.length>0,count:dirty.length+(dirty.length===1?' change':' changes')+' not saved · '+dirty.map(k=>LB[k]).join(', '),
+discard:()=>{this.S({ed:{},chg:false});this.toast('Changes discarded');},
+save:()=>{
+const c=this.st(),before={saved:c.saved,elog:c.elog},saved=Object.assign({},c.saved),elog=Object.assign({},c.elog),patch={};
+dirty.forEach(k=>{patch[k]=cur[k];});
+saved[c.eid]=Object.assign({},saved[c.eid]||{},patch);
+elog[c.eid]=dirty.map(k=>({text:LB[k]+': '+fmt(k,E0[k])+' → '+fmt(k,cur[k]),who:'Janmejay',when:'Thu 8 Oct · just now',dot:'var(--acc)'})).concat(c.elog[c.eid]||[]);
+this.S({saved,elog,ed:{},chg:false});
+this.toast('Saved '+dirty.length+(dirty.length===1?' change':' changes')+' for '+fst(E0.name),()=>this.S(before));
+},
+goWd:()=>this.S({screen:'withdraw',wid:s.eid,wfrom:'edit',wr:'',wday:0,wnote:'',anim:'push'})
+});
+const W=Object.assign({},stu(s.wid)||D.STU.yuvraj,s.saved[s.wid]||{}),wc=calc(W.cls,W);
+const wPend=W.pend!==undefined?W.pend:wc.pend,wNot=W.notDue!==undefined?W.notDue:wc.notDue;
+const wr=s.wr||W.reason||'move';
+const RS=[['move','Moving to another town','The family is shifting','Family moving to another town','परिवार दूसरे शहर जा रहा है'],['school','Going to another school','In Amet or nearby','Joining another school','दूसरे विद्यालय में प्रवेश'],['fees','Cannot pay the fees','We still follow up kindly','Parent’s request','अभिभावक के अनुरोध पर'],['other','Other reason','Write a short note','','']];
+const rr=RS.filter(r=>r[0]===wr)[0]||RS[0];
+const DAYS=['Thu 8 Oct','Wed 7 Oct','Sat 3 Oct','Wed 30 Sep'],wday=DAYS[s.wday]||DAYS[0];
+const done=!!s.wdone[s.wid],tcNo='TC/2026–27/018',cn=(this.cl(W.cls)||[0,30])[1];
+const wd=Object.assign(this.av(W.name),{
+name:W.name,first:fst(W.name),line:W.cls+' · SR '+W.sr+' · '+W.father+' · '+this.mask(W.phone),open:!done,done,tcNo,barHint:done?'Withdrawn by Janmejay · Thu 8 Oct · undo from the message below':'Nothing changes until you confirm. You can undo for 10 minutes.',
+reasons:RS.map(r=>{const on=wr===r[0];return{label:r[1],sub:r[2],on:yes(on),cls:on?'on':'',pick:()=>this.S({wr:r[0]})};}),
+isOther:wr==='other',note:s.wnote,onNote:ev=>this.S({wnote:ev.target.value}),
+days:chip(DAYS.map((d,i)=>[i,i?d:'Today · '+d]),s.wday,i=>this.S({wday:i})),
+dayNote:'Attendance stops after '+wday+'. Installments not yet due ('+inr(wNot)+') are dropped.',
+owes:wPend>0&&!done,clean:wPend<=0&&!done,dueHead:inr(wPend)+' pending today',
+dueText:fst(W.name)+' moves to “Left owing” in Dues, so follow-up continues. The TC can still be issued — it is never held back for fees.',
+tc:[['नाम','Name',W.name],['पिता का नाम','Father',W.father],['कक्षा','Class',this.hiCls(W.cls)+' · '+W.cls],['जन्म तिथि','Date of birth',(this.dob(W.dob)||{txt:W.dob}).txt],['प्रवेश तिथि','Admitted on',W.date+' · SR '+W.sr],['अंतिम दिन','Last day',wday+' 2026'],['कारण','Reason',wr==='other'?(s.wnote||'—'):rr[4]+' · '+rr[3]],['आचरण','Conduct','अच्छा · Good']].map(r=>({hi:r[0],en:r[1],v:r[2]})),
+ask:()=>{if(wr==='other'&&!String(this.st().wnote||'').trim()){this.toast('Write the reason — it is printed on the TC');return;}this.openSheet('wdc');},
+impact:[[IC.users,'var(--s3)','var(--fg)',fst(W.name)+' leaves the roll after '+wday+'. '+W.cls+' goes from '+cn+' to '+(cn-1)+' students.'],[IC.rupee,wPend?TW[0]:TO[0],wPend?TW[1]:TO[1],wPend?inr(wPend)+' stays in Dues as “Left owing”. Nothing is waived.':'No fees pending today.'],[IC.calendar,'var(--s3)','var(--fg)','Installments not due yet ('+inr(wNot)+') are dropped.'],[IC.file,'var(--infos)','var(--info)',tcNo+' is created, ready to print.']].map((r,i)=>({icon:r[0],bg:r[1],fg:r[2],t:r[3],delay:dl(i)})),
+doneTitle:W.name+' has left the roll',doneSub:tcNo+' issued · last day '+wday+(wPend?' · '+inr(wPend)+' moved to Left owing in Dues':''),
+print:()=>this.toast(tcNo+' sent to the office printer')
+});
+const close=()=>this.closeSheet();
+const sh={
+dup:{title:'This child may already be in school',sub:'Same name, father and date of birth as SR '+ex.sr+' · '+ex.cls,wide:'wide',b1:'Open existing',f1:()=>{this.closeSheet();this.S({screen:'edit',eid:exId,ed:{},chg:false,anim:'push'});this.toast('Opened the existing record · nothing new was saved');},b2:'It’s a different child, continue',c2:'pri',f2:()=>{this.closeSheet();this.S({dupOk:true,step:3,maxStep:Math.max(3,this.st().maxStep),anim:'push'});this.toast('Noted · added as a different child');}},
+sib:{title:'Link '+fst(f.en)+' to a family',sub:'Pick the family where a brother or sister already studies',b1:'Cancel',f1:close,b2:'Link family',c2:'pri',op:selF?'1':'0.5',f2:()=>{const c=this.st();if(!hits.filter(x=>x.id===c.sel).length){this.toast('Pick a family first');return;}this.linkFam(c.sel);}},
+wa:{title:'Send welcome on WhatsApp',sub:'To '+L.father+' · '+this.mask(L.phone),b1:'Not now',f1:close,b2:'Send · ₹0.88',c2:'pri',f2:()=>{this.S({sent:true});this.closeSheet();this.toast('Welcome sent to '+L.father+' · ₹0.88');}},
+wdc:{title:'Withdraw '+W.name+'?',sub:'This is what will happen',b1:'Keep on the roll',f1:close,b2:'Withdraw and issue TC',c2:'danger',f2:()=>{const c=this.st(),before=c.wdone,n=Object.assign({},before);n[c.wid]=true;this.S({wdone:n});this.closeSheet();this.toast(W.name+' withdrawn · '+tcNo+' issued',()=>this.S({wdone:before}));}}
+}[s.sheet]||{title:'',sub:'',b1:'Close',f1:close,b2:'Done',c2:'pri',f2:close};
+sh.wide=sh.wide||'';sh.op=sh.op||'1';
+const scr=s.screen;
+const top={
+list:{crumb:'Students · Session 2026–27',title:'Admissions',mTitle:'Admissions',mSub:open+' open enquiries · '+seatsTotal+' seats left'},
+wizard:{crumb:'Admissions · Step '+s.step+' of 4',title:s.from?'Admit '+(f.en||'student'):'Add a student',mTitle:s.from?'Admit '+fst(f.en):'Add a student',mSub:'Step '+s.step+' of 4 · '+SN[s.step-1]},
+done:{crumb:'Admissions',title:'Admission saved',mTitle:'Admission saved',mSub:L.name+' · SR '+L.sr},
+edit:{crumb:'Admissions · Edit student',title:E0.name,mTitle:E0.name,mSub:E0.cls+' · SR '+E0.sr},
+withdraw:{crumb:'Admissions · Withdraw',title:'Withdraw · Transfer certificate',mTitle:'Withdraw · TC',mSub:W.name+' · '+W.cls}
+}[scr]||{crumb:'',title:'',mTitle:'',mSub:''};
+Object.assign(top,{mBackLink:scr==='list',mBackBtn:scr!=='list',dAdd:scr==='list',dBack:scr!=='list'&&scr!=='wizard',backLabel:scr==='withdraw'&&s.wfrom==='edit'?'Back to student':'Back to admissions'});
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',
+is:{list:scr==='list',wiz:scr==='wizard',done:scr==='done',edit:scr==='edit',wd:scr==='withdraw'},
+top,anim:{list:scr==='list'?A:'none',step:A,edit:A,wd:A},
+back:()=>this.back(),goAdd:()=>this.startWiz(null),goList:()=>this.S({screen:'list',anim:'pop'}),
+kpis,seats:{total:String(seatsTotal),bands},pipe,stageSeg:seg(D.STG.map((g,k)=>[k,(k===2?'Form':g[0])+' · '+pipe[k].cards.length]),s.stage,k=>this.S({stage:k})),
+recent,docsLine:missing+' documents pending',
+wz,f:fv,e,fm,fp,rv,dn,wa,dup,sib,ed,wd,sh,
+sheet:{open:!!s.sheet,dup:s.sheet==='dup',sib:s.sheet==='sib',wa:s.sheet==='wa',wdc:s.sheet==='wdc',state:s.closing?'closing':'open'},closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

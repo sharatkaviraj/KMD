@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Academic coordinator · Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.xr{display:flex;align-items:center}.xc{display:flex;flex-direction:column}.xf{flex:1;min-width:0}.xw{flex-wrap:wrap}.xj{justify-content:space-between}.xac{align-items:center}.xgd{display:grid}.xn0{min-width:0}.xfn{flex:none}.xrl{position:relative}.xw1{width:100%}.xi{flex:none;display:flex;align-items:center;justify-content:center}.x4{gap:4px}.x6{gap:6px}.x8{gap:8px}.x10{gap:10px}.x12{gap:12px}.x14{gap:14px}.x16{gap:16px}.xm{font-size:12px;color:var(--mut)}.xs{font-size:13px}.x11{font-size:11px}.xb{font-weight:700}.x6w{font-weight:600}.xmu{color:var(--mut)}.xt{font-size:15px;font-weight:700}.xtc{text-align:center}.xtr{text-align:right}.xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.xh{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}.xp2{padding:16px 18px}.xsc{padding:20px 28px 40px;display:flex;flex-direction:column;gap:16px}.xq{width:40px;padding:0!important}.xa{flex:none;width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}.xd+.xd{border-top:1px solid var(--bd)}.xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}.xbar>span{height:100%;border-radius:4px;transform-origin:left;animation:xGrowX .7s var(--ease) both;transition:width .5s var(--ease)}.xov{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:1}.xg circle{fill:none;stroke-linecap:round}.xg .q0{stroke:var(--s3)}.xg .q1{transform:rotate(-90deg);transform-origin:50% 50%;animation:xDraw .9s var(--ease) both;transition:stroke-dasharray .5s var(--ease)}.xo{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.xsh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}.xsb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:12px}.xsf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}.xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}.xfa{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;font-size:13px}.xwa{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}.xst>*{animation:xIn .3s var(--ease) both}.xst>:nth-child(2){animation-delay:.04s}.xst>:nth-child(3){animation-delay:.08s}.xst>:nth-child(4){animation-delay:.12s}.xst>:nth-child(5){animation-delay:.16s}.xst>:nth-child(n+6){animation-delay:.2s}.xbot{position:sticky;bottom:0;z-index:4;margin:16px -28px 0;padding:12px 28px;border-top:1px solid var(--bd)}.xhs{grid-template-columns:repeat(19,minmax(0,1fr))}.xtl{grid-template-columns:repeat(4,minmax(0,1fr))}
+@container vx (max-width:899px){.xmn{font-size:16px}.xsc{padding:16px 16px 28px}.xbot{margin:16px -16px 0;padding:10px 16px 12px}.xbot .btn,.xsf .btn{height:52px;flex:1}.xhs{grid-template-columns:repeat(7,minmax(0,1fr))}.xtl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</helmet>
+<div class="vx {{theme}} xrl" style="width:100%;height:100vh;min-height:560px;overflow:hidden;display:flex;background:var(--bg);color:var(--fg);font-family:Inter, 'Noto Sans Devanagari', system-ui, sans-serif;font-size:14px;line-height:1.45">
+
+<div class="only-d xfn" style="height:100%"><dc-import name="XSide" active="home" role="academic" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+<div class="xc xf xrl" style="min-height:0">
+
+<header class="only-d glass xr x10 xfn xrl" style="height:64px;padding:0 28px;border-bottom:1px solid var(--bd);z-index:5">
+<sc-if value="{{top.back}}"><button class="tap btn ghost xq" type="button" aria-label="Back to today" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<div class="xc xf"><span class="xm">{{top.crumb}}</span><span class="xh xe">{{top.title}}</span></div>
+<div class="seg" role="group" aria-label="Language" style="grid-template-columns:repeat(2,minmax(0,1fr));width:96px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{lang.thumb}})"></span><sc-for list="{{lang.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}" style="height:30px">{{o.label}}</button></sc-for></div>
+<button class="tap btn ghost xq" type="button" aria-label="Help for this screen" onClick="{{openHelp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+<sc-for list="{{top.acts}}" as="a"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.go}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for>
+</header>
+
+<header class="only-m glass xr x4 xfn xrl" style="min-height:58px;padding:6px 8px;border-bottom:1px solid var(--bd);z-index:5">
+<sc-if value="{{top.mBack}}"><button class="tap btn ghost" type="button" aria-label="Back to today" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<sc-if value="{{top.mAv}}"><span class="xa" style="width:40px;height:40px;border-radius:20px;margin:0 4px;background:#C9D7F8;color:#082F49">AP</span></sc-if>
+<span class="xc xf" style="padding-left:2px"><span class="xe xb" style="font-size:17px">{{top.mTitle}}</span><span class="xm xe">{{top.mSub}}</span></span>
+<button class="tap btn sec" type="button" aria-label="{{lang.aria}}" onClick="{{lang.flip}}" style="height:38px;padding:0 12px;font-size:14px">{{lang.m}}</button>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{openHelp}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+
+<main class="scroll xf xrl xmn" style="min-height:0">
+
+<!-- ============ TODAY ============ -->
+<sc-if value="{{is.home}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="xr xw x12">
+<div class="xc xf" style="min-width:250px;gap:2px"><span class="serif" style="font-size:26px;font-weight:600;line-height:1.2">{{hm.hello}}</span><span class="xmu" style="font-size:14px;line-height:1.5">{{hm.line}}</span></div>
+<button class="only-m tap btn sec xw1" type="button" onClick="{{goWeek}}" style="height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.file}}"></path></svg>{{hm.week}}</button>
+</div>
+
+<div class="g4 xgd" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+<sc-for list="{{kpis}}" as="k">
+<div class="card lift rise xrl xc x6" style="padding:14px 16px;animation-delay:{{k.dl}}">
+<a href="{{k.d}}" class="only-d xov" aria-label="{{k.aria}}"></a><a href="{{k.m}}" class="only-m xov" aria-label="{{k.aria}}"></a>
+<span class="xr x8"><span class="xf xs x6w xmu" style="line-height:1.3">{{k.label}}</span>
+<sc-if value="{{k.noRing}}"><span class="xi" style="width:34px;height:34px;border-radius:11px;background:{{k.bg}};color:{{k.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px" aria-hidden="true"><path d="{{k.icon}}"></path></svg></span></sc-if>
+<sc-if value="{{k.ring}}"><span class="xfn" style="width:40px;height:40px"><svg width="40" height="40" viewBox="0 0 100 100" class="xg" style="stroke-width:13" aria-hidden="true"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:var(--acc);stroke-dasharray:{{k.dash}};--len:{{k.len}}"></circle></svg></span></sc-if></span>
+<span class="num xb" style="font-size:30px;line-height:1.05;letter-spacing:-.02em">{{k.value}}</span>
+<span class="xr xw x6"><span class="pill" style="background:{{k.pbg}};color:{{k.pfg}}">{{k.pill}}</span><span class="xm">{{k.sub}}</span></span>
+</div>
+</sc-for>
+</div>
+
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:16px;align-items:start">
+<div class="xc x16 xn0">
+
+<section class="card xc x12 xp2">
+<div class="xr x10"><span class="xc xf"><span class="xt">{{tx.att}}</span><span class="xm">{{att.sub}}</span></span><a href="AcadAttendance.dc.html" class="only-d tap btn ghost xs">Open<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a><a href="M-AcadAttendance.dc.html" class="only-m tap btn ghost xs">Open<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a></div>
+<div class="xgd xhs" style="gap:6px">
+<sc-for list="{{att.cells}}" as="c"><button class="tap xc xac x4" type="button" aria-label="{{c.aria}}" aria-pressed="{{c.pr}}" onClick="{{c.pick}}" style="padding:0;border:0;background:transparent;color:var(--fg);min-width:0;animation:xIn .3s var(--ease) both;animation-delay:{{c.dl}}"><span class="xi num xb xw1" style="height:46px;border-radius:10px;font-size:13px;background:{{c.bg}};color:{{c.fg}};border:{{c.bd}};box-shadow:{{c.sel}};transition:box-shadow .2s ease">{{c.v}}</span><span class="x11 x6w xmu xe xw1 xtc">{{c.short}}</span></button></sc-for>
+</div>
+<div class="xr xw x12 xm"><sc-for list="{{att.legend}}" as="l"><span class="xr x6"><span style="width:12px;height:12px;border-radius:4px;background:{{l.bg}};border:{{l.bd}}"></span>{{l.t}}</span></sc-for></div>
+<div class="xno xw" style="background:{{att.dBg}};align-items:center">
+<svg class="i" viewBox="0 0 24 24" style="color:{{att.dFg}}" aria-hidden="true"><path d="{{att.dIcon}}"></path></svg>
+<span class="xf" style="white-space:pre-line;min-width:200px">{{att.detail}}</span>
+<sc-if value="{{att.hasBtn}}"><button class="tap btn {{att.btnCls}} xfn" type="button" onClick="{{att.btnGo}}" style="height:38px;padding:0 14px;font-size:13px">{{att.btn}}</button></sc-if>
+</div>
+</section>
+
+<section class="card xc x12 xp2">
+<div class="xr xw x12">
+<span class="xrl xfn" style="width:58px;height:58px"><svg width="58" height="58" viewBox="0 0 100 100" class="xg" style="stroke-width:11" aria-hidden="true"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:var(--acc);stroke-dasharray:{{mk.dash}};--len:{{mk.len}}"></circle></svg><span class="xo num xb xs">{{mk.pct}}</span></span>
+<span class="xc xf" style="min-width:180px"><span class="xt">{{tx.marks}}</span><span class="xm">{{mk.sub}}</span></span>
+<button class="tap btn {{mk.allCls}} mfull" type="button" onClick="{{mk.all}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{mk.allIcon}}"></path></svg>{{mk.allLabel}}</button>
+</div>
+<div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:340px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{mk.thumb}})"></span><sc-for list="{{mk.tabs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<sc-if value="{{mk.isT}}"><div class="xc xst"><sc-for list="{{mk.rows}}" as="r">
+<div class="xr x12 xd" style="padding:10px 0">
+<span class="xa" style="background:{{r.abg}};color:{{r.afg}}">{{r.ini}}</span>
+<span class="xc xf x4"><span class="xr xw x6"><span class="x6w">{{r.name}}</span><sc-if value="{{r.leave}}"><span class="pill" style="background:var(--warns);color:var(--warnfg)">On leave today</span></sc-if><sc-if value="{{r.done}}"><span class="pill" style="background:var(--oks);color:var(--ok);animation:xPopIn .4s var(--spring) both">Reminded · just now</span></sc-if></span><span class="xm">{{r.items}}</span><span class="xbar" style="height:6px;max-width:320px"><span style="width:{{r.w}};background:{{r.bar}}"></span></span></span>
+<button class="tap btn {{r.cls}} xfn" type="button" aria-label="{{r.aria}}" onClick="{{r.go}}" style="height:40px;padding:0 12px;font-size:13px"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{r.icon}}"></path></svg>{{r.label}}</button>
+</div>
+</sc-for></div></sc-if>
+<sc-if value="{{mk.isC}}"><div class="g2 xgd" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 22px"><sc-for list="{{mk.cls}}" as="c"><div class="xr x10" style="min-height:34px;animation:xIn .3s var(--ease) both;animation-delay:{{c.dl}}"><span class="xs x6w xe" style="width:96px">{{c.name}}</span><span class="xbar xf" style="height:6px"><span style="width:{{c.w}};background:{{c.c}}"></span></span><span class="num xs xb xtr" style="width:42px">{{c.p}}</span></div></sc-for></div></sc-if>
+</section>
+</div>
+
+<div class="xc x16 xn0">
+<section class="card xc xp2">
+<div class="xc" style="margin-bottom:6px"><span class="xt">{{tx.attn}} · {{kidsN}}</span><span class="xm">Built by the app at 8:00 am from attendance, marks and notes</span></div>
+<div class="xc xst"><sc-for list="{{kids}}" as="r">
+<div class="row xrl xc x6 xd" style="padding:10px 6px">
+<a href="DX-AcadProgress-Student.dc.html" class="only-d xov" aria-label="Open {{r.name}}"></a><a href="M-AcadProgress-Student.dc.html" class="only-m xov" aria-label="Open {{r.name}}"></a>
+<span class="xr x10"><span class="xa" style="background:{{r.abg}};color:{{r.afg}}">{{r.ini}}</span><span class="xc xf"><span class="x6w xe">{{r.name}}</span><span class="xm">{{r.cls}}</span></span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></span>
+<span class="xr xw x4" style="padding-left:46px"><sc-for list="{{r.chips}}" as="c"><span class="pill" style="background:{{c.bg}};color:{{c.fg}}">{{c.t}}</span></sc-for></span>
+</div>
+</sc-for></div>
+<a href="DX-AcadProgress-Attention.dc.html" class="only-d tap btn soft" style="margin-top:10px">See all {{kidsN}} children<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a><a href="M-AcadProgress-Attention.dc.html" class="only-m tap btn soft" style="margin-top:10px;height:48px">See all {{kidsN}} children<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a>
+</section>
+
+<section class="card xc xp2">
+<div class="xr x10" style="margin-bottom:4px"><span class="xt xf">{{tx.up}}</span><a href="AD-Calendar.dc.html" class="only-d tap btn ghost xs">Calendar<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a><a href="MAD-Calendar.dc.html" class="only-m tap btn ghost xs">Calendar<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a></div>
+<div class="xc xst"><sc-for list="{{up}}" as="u"><div class="xr x12 xd" style="padding:10px 0">
+<span class="xc xac xfn" style="width:50px;padding:6px 0;border-radius:12px;background:{{u.bg}};color:{{u.fg}}"><span class="x11 xb">{{u.mon}}</span><span class="num xb" style="font-size:19px;line-height:1.1">{{u.d}}</span></span>
+<span class="xc xf"><span class="x6w">{{u.t}}</span><span class="xm">{{u.sub}}</span></span>
+<span class="pill num" style="background:var(--s2);color:var(--mut)">{{u.in}}</span>
+</div></sc-for></div>
+</section>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ MENU ============ -->
+<sc-if value="{{is.menu}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="card xr xw x14 xp2">
+<span class="xa" style="width:56px;height:56px;border-radius:28px;font-size:18px;background:#C9D7F8;color:#082F49">AP</span>
+<span class="xc xf" style="min-width:200px"><span class="serif" style="font-size:21px;font-weight:600">Ms. Asha Purohit</span><span class="xm">Academic coordinator · Shri Veer Patta Sr. Sec. School · 2026–27</span></span>
+<span class="pill" style="height:28px;padding:0 12px;background:var(--accs);color:var(--accfg)">{{mn.line}}</span>
+</div>
+<span class="sech">{{tx.open}}</span>
+<div class="xgd xtl" style="gap:12px">
+<sc-for list="{{tiles}}" as="t">
+<div class="card lift rise xrl xc x8" style="padding:16px;min-height:150px;animation-delay:{{t.dl}}">
+<sc-if value="{{t.link}}"><a href="{{t.d}}" class="only-d xov" aria-label="{{t.en}}"></a><a href="{{t.m}}" class="only-m xov" aria-label="{{t.en}}"></a></sc-if>
+<sc-if value="{{t.act}}"><button class="tap xov" type="button" aria-label="{{t.en}}" onClick="{{t.go}}" style="border:0;background:transparent;padding:0"></button></sc-if>
+<span class="xi" style="width:48px;height:48px;border-radius:15px;background:{{t.bg}};color:{{t.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:23px;height:23px" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span>
+<span class="xc"><span class="xb" style="font-size:16px;line-height:1.25">{{t.l1}}</span><span class="xmu" style="font-size:13px">{{t.l2}}</span></span>
+<span class="xs x6w" style="margin-top:auto;color:{{t.sc}}">{{t.sub}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ WEEKLY SUMMARY ============ -->
+<sc-if value="{{is.week}}">
+<div class="pad xsc" style="animation:{{anim}};padding-bottom:0">
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start">
+<div class="xc x16 xn0">
+<article class="card xc x12" style="padding:20px 22px">
+<div class="xr xw x10"><span class="xc xf" style="min-width:210px"><span class="xm">To Janmejay Singh (Admin) · from Ms. Asha Purohit</span><span class="xh">{{wk.title}}</span></span>
+<div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));width:200px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{wk.thumb}})"></span><sc-for list="{{wk.len2}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+<div class="xc x8" style="font-size:15px;line-height:1.65"><sc-for list="{{wk.paras}}" as="p"><p style="margin:0;animation:xIn .35s var(--ease) both;animation-delay:{{p.dl}}">{{p.t}}</p></sc-for></div>
+<span class="xr x6 xm"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--acc)" aria-hidden="true"><path d="{{ic.zap}}"></path></svg>Written by the app from this week’s attendance, marks and notes</span>
+<label class="field"><span>Add a line from you (optional)</span><textarea class="inp" value="{{wk.extra}}" onChange="{{wk.onExtra}}" placeholder="For example: Please speak to Class 9 parents at the PTM" style="min-height:70px"></textarea></label>
+<button class="tap xr x12" type="button" role="switch" aria-checked="{{wk.namesOn}}" onClick="{{wk.flipNames}}" style="padding:4px 0;border:0;background:transparent;color:var(--fg);text-align:left"><span class="xc xf"><span class="x6w">Show children’s names</span><span class="xm">Turn off before sharing with a wider group</span></span><span class="sw {{wk.swCls}}"><span></span></span></button>
+</article>
+<div class="g2 xgd" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start">
+<section class="card xc xp2"><span class="xt" style="margin-bottom:4px;color:var(--ok)">Improved this week</span><div class="xc xst"><sc-for list="{{wk.imp}}" as="r"><div class="xr x10 xd" style="padding:9px 0"><span class="xa" style="width:32px;height:32px;background:var(--oks);color:var(--ok)">{{r.ini}}</span><span class="xc xf"><span class="x6w xe">{{r.name}}</span><span class="xm">{{r.t}}</span></span></div></sc-for></div></section>
+<section class="card xc xp2"><span class="xt" style="margin-bottom:4px;color:var(--bad)">Need help</span><div class="xc xst"><sc-for list="{{wk.help}}" as="r"><div class="xr x10 xd" style="padding:9px 0"><span class="xa" style="width:32px;height:32px;background:var(--bads);color:var(--bad)">{{r.ini}}</span><span class="xc xf"><span class="x6w xe">{{r.name}}</span><span class="xm">{{r.t}}</span></span></div></sc-for></div></section>
+</div>
+</div>
+<div class="xc x16 xn0">
+<section class="card xc x10 xp2">
+<div class="xr x10"><span class="xc xf"><span class="xt">Attendance trend</span><span class="xm">Weekly average · last 8 weeks</span></span><span class="xc" style="align-items:flex-end"><span class="num xb" style="font-size:24px">{{wk.now}}</span><span class="pill" style="background:var(--oks);color:var(--ok)">{{wk.delta}}</span></span></div>
+<svg viewBox="0 0 300 96" style="width:100%;height:auto;overflow:visible" role="img" aria-label="Attendance went from 91.8% to 93.8% over 8 weeks">
+<line x1="0" x2="300" y1="84" y2="84" style="stroke:var(--bd);stroke-dasharray:4 4"></line>
+<polygon points="{{wk.area}}" style="fill:rgba(var(--heat),.12);animation:xFade .8s .4s ease both"></polygon>
+<polyline points="{{wk.pts}}" style="fill:none;stroke:var(--acc);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;--len:{{wk.len}};stroke-dasharray:{{wk.len}};animation:xDraw 1.1s var(--ease) both"></polyline>
+<sc-for list="{{wk.dots}}" as="d"><circle cx="{{d.x}}" cy="{{d.y}}" r="{{d.r}}" style="fill:{{d.f}};stroke:var(--acc);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:xPopIn .4s var(--spring) both;animation-delay:{{d.dl}}"></circle></sc-for>
+</svg>
+<div class="xr xj x11 xmu"><sc-for list="{{wk.lab}}" as="l"><span>{{l.t}}</span></sc-for></div>
+<span class="sech" style="padding-top:10px;border-top:1px solid var(--bd)">This week by day</span>
+<div class="xgd" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+<sc-for list="{{wk.days}}" as="d"><div class="xc xac x4"><span class="num xs xb">{{d.v}}</span><span class="xr xw1" style="max-width:48px;height:56px;align-items:flex-end;background:var(--s2);border-radius:8px;overflow:hidden"><span class="xw1" style="height:{{d.h}};background:{{d.c}};transform-origin:bottom;animation:xGrowY .7s var(--ease) both;animation-delay:{{d.dl}}"></span></span><span class="xm">{{d.t}}</span></div></sc-for>
+</div>
+</section>
+<section class="card xc x10 xp2">
+<div class="xr x10"><span class="xc xf"><span class="xt">Half-yearly marks</span><span class="xm">113 class-subjects · deadline Wed 14 Oct</span></span><span class="num xb" style="font-size:24px">68%</span></div>
+<div class="xbar" style="height:12px"><sc-for list="{{wk.parts}}" as="p"><span style="width:{{p.w}};background:{{p.c}};border-radius:0"></span></sc-for></div>
+<div class="xr xw x12 xm"><sc-for list="{{wk.parts}}" as="p"><span class="xr x6"><span style="width:10px;height:10px;border-radius:3px;background:{{p.c}}"></span>{{p.l}} <b class="num" style="color:var(--fg)">{{p.n}}</b></span></sc-for></div>
+</section>
+</div>
+</div>
+<div class="glass xr xw x8 xbot">
+<span class="xm xf hide-m">{{wk.foot}}</span>
+<button class="tap btn sec" type="button" onClick="{{wk.pdf}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg>Share as PDF</button>
+<button class="tap btn {{wk.sendCls}}" type="button" onClick="{{wk.send}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{wk.sendIcon}}"></path></svg>{{wk.sendLabel}}</button>
+</div>
+</div>
+</sc-if>
+</main>
+
+<div class="only-m xfn"><dc-import name="XNav" active="{{nav}}" role="academic" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ SEND SHEET (remind teachers / send summary) ============ -->
+<sc-if value="{{sh.cf}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{cf.title}}">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{cf.title}}</span><span class="xm xs">{{cf.sub}}</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<sc-if value="{{cf.hasWho}}"><div class="xc x6"><span class="sech">Who gets it · tap a name to leave them out</span><div class="xr xw x6"><sc-for list="{{cf.who}}" as="w"><button class="tap chip {{w.cls}}" type="button" aria-pressed="{{w.pr}}" onClick="{{w.pick}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px;display:{{w.icD}}" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{w.t}}</button></sc-for></div><span class="xm">{{cf.whoNote}}</span></div></sc-if>
+<div class="xc x6" style="padding:12px;border-radius:16px;background:var(--wabg)">
+<span class="xb x11" style="color:var(--wafg);opacity:.7">{{cf.waTo}}</span>
+<div class="xwa">
+<sc-if value="{{cf.hasAtt}}"><div class="xr x8 xs x6w" style="margin-bottom:6px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.06)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.file}}"></path></svg>{{cf.att}}</div></sc-if>
+<div style="white-space:pre-line">{{cf.hi}}</div>
+<sc-if value="{{cf.hasLink}}"><div style="color:var(--info);text-decoration:underline">{{cf.link}}</div></sc-if>
+<div style="white-space:pre-line;margin-top:6px;opacity:.78">{{cf.en}}</div>
+<div class="xtr x11" style="opacity:.6">9:41 am</div>
+</div>
+</div>
+<div class="card xc" style="padding:0 14px;box-shadow:none"><sc-for list="{{cf.facts}}" as="f"><div class="xfa xd"><span class="xmu">{{f.k}}</span><span class="num xb xtr">{{f.v}}</span></div></sc-for></div>
+<div class="xno" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{cf.note}}</span></div>
+</div>
+<div class="xsf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">Cancel</button><button class="tap btn pri" type="button" onClick="{{cf.go}}" style="flex:1.6;opacity:{{cf.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{cf.ok}}</button></div>
+</section>
+</sc-if>
+
+<!-- ============ HELP SHEET ============ -->
+<sc-if value="{{sh.help}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="Help">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{help.title}}</span><span class="xm xs">3 steps · मदद</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb xst">
+<sc-for list="{{help.steps}}" as="h"><div class="xr x14" style="padding:6px 0">
+<span class="xrl xi" style="width:64px;height:64px;border-radius:20px;background:{{h.bg}};color:{{h.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:28px;height:28px" aria-hidden="true"><path d="{{h.icon}}"></path></svg><span class="xi num xb x11" style="position:absolute;top:-6px;left:-6px;width:22px;height:22px;border-radius:11px;background:var(--pri);color:var(--prifg)">{{h.n}}</span></span>
+<span class="xc xf"><span class="xt">{{h.t}}</span><span class="xmu xs" style="line-height:1.5">{{h.d}}</span></span>
+</div></sc-for>
+</div>
+<div class="xsf"><button class="tap btn pri" type="button" onClick="{{closeSheet}}" style="flex:1">Got it · ठीक है</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size:14px;line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["home","menu","remind","week"],"default":"home"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+data() {
+if (this._d) return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+IC.note = 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4zM4 4h8M4 8h5';
+const rows = (x) => x.split(';').map((r) => r.split('|'));
+// class · short · class teacher · students · present today (-1 = not marked) · marked at · absent names
+const ATT = rows('Nursery|Nur|Ms. Kanwar|18|16|8:20;LKG|LKG|Ms. Rathore|20|19|8:18;UKG|UKG|Ms. Mehta|22|20|8:25;Class 1|1|Ms. Jain|23|22|8:15;Class 2|2|Ms. Vyas|25|24|8:22;Class 3|3|Ms. Sharma|24|23|8:19;Class 4|4|Mr. Verma|29|27|8:31;Class 5|5|Ms. Paliwal|26|25|8:16;Class 6|6|Ms. Bhati|31|29|8:12|Om Regar (3rd day in a row), Nikhil Meena;Class 7|7|Mr. Choudhary|27|25|8:27;Class 8|8|Mr. Solanki|28|27|8:24;Class 9|9|Mr. Meena|28|-1|;Class 10|10|Ms. Dave|30|28|8:14;11 Science|11 S|Mr. Trivedi|22|21|8:35;11 Commerce|11 C|Mr. Purohit|18|17|8:29;11 Arts|11 A|Ms. Chouhan|14|-1|;12 Science|12 S|Mr. Bhatt|20|19|8:33;12 Commerce|12 C|Ms. Kothari|17|15|8:26;12 Arts|12 A|Mr. Rawal|12|10|8:40')
+  .map((a) => ({ name: a[0], short: a[1], ct: a[2], n: +a[3], p: +a[4], at: a[5], ab: a[6] || '' }));
+// late teachers: name · masked phone · Sampark code · [class, subject, entered, total] · on leave
+const LATE = [
+  ['Ms. Kavita Bhati', '98290 ••218', 'k7q2m', [['Class 8', 'Science', 0, 28], ['Class 7', 'Science', 12, 27]]],
+  ['Mr. Choudhary', '98290 ••604', 'c3x9a', [['Class 6', 'Social Sci.', 0, 31], ['Class 7', 'Social Sci.', 0, 27]]],
+  ['Ms. Agarwal', '98290 ••731', 'a8d1r', [['Class 6', 'Computer', 0, 31], ['Class 7', 'Computer', 0, 27]]],
+  ['Mr. Lohar', '98290 ••455', 'l2v6t', [['Class 9', 'Social Sci.', 0, 28]]],
+  ['Ms. Shekhawat', '98290 ••389', 's5h0e', [['11 Science', 'Maths / Bio', 0, 22]]],
+  ['Mr. Rawal', '98290 ••127', 'r9w3l', [['11 Arts', 'Geography', 0, 14], ['12 Arts', 'Geography', 0, 12]]],
+  ['Mr. Meena', '98290 ••512', 'm4n8e', [['Class 9', 'Science', 12, 28]], 1]
+];
+const MK = rows('Nursery|100;LKG|92;UKG|80;Class 1|90;Class 2|70;Class 3|66;Class 4|72;Class 5|75;Class 6|52;Class 7|44;Class 8|71;Class 9|54;Class 10|100;11 Science|41;11 Commerce|69;11 Arts|58;12 Science|60;12 Commerce|62;12 Arts|48');
+// needs attention (built by the app): a = attendance %, m = below 33% in, d = dropped % / subject, n = open notes
+const KIDS = rows('Mohit Agarwal|Class 9|m:Maths|d:18/Maths|n:2;Ananya Solanki|11 Science|m:Chemistry|d:21/Chemistry;Vivaan Jain|Class 8|m:Maths|d:15/Maths;Dev Gurjar|Class 7|a:70|m:Hindi;Muskan Meena|12 Arts|a:74|n:2;Aditya Kumawat|Class 9|a:72|m:Sanskrit;Aarav Sharma|Class 7|d:16/Science|n:2;Om Regar|Class 6|a:68;Kabir Rawal|Class 9|m:Maths+Science;Riya Singh|Class 6|m:Maths;Nikhil Meena|Class 6|a:72;Tanya Kumawat|Class 10|m:Science;Harsh Vyas|Class 8|a:73;Sneha Bhati|Class 9|d:17/English;Payal Regar|Class 5|a:71;Rudra Sen|Class 4|m:Maths;Laksh Kothari|11 Commerce|d:19/Economics;Jhanvi Sen|11 Arts|a:69;Parth Chouhan|12 Science|m:Physics;Isha Trivedi|Class 10|n:2;Krish Dave|Class 3|a:70;Yash Purohit|Class 2|a:74;Meera Paliwal|12 Commerce|m:Accountancy')
+  .map((a) => ({ name: a[0], cls: a[1], rs: a.slice(2).map((x) => x.split(':')) }));
+const SUBHI = { Science: 'विज्ञान', 'Social Sci.': 'सामाजिक विज्ञान', Computer: 'कंप्यूटर', 'Maths / Bio': 'गणित / जीव विज्ञान', Geography: 'भूगोल' };
+const HI = { Today: 'आज', 'Attendance today': 'आज की हाज़िरी', 'Half-yearly marks entered': 'अर्धवार्षिक अंक भरे गए', 'Children needing attention': 'ध्यान देने वाले बच्चे', 'Notes needing action': 'कार्रवाई वाले नोट्स', "Today's attendance by class": 'कक्षावार आज की हाज़िरी', 'Half-yearly marks entry': 'अर्धवार्षिक अंक प्रविष्टि', 'Needs attention': 'ध्यान दें', 'Coming up': 'आगे क्या है', 'Weekly summary': 'साप्ताहिक सारांश', 'Remind all late': 'देर वालों को याद दिलाएँ', 'Open a section': 'कोई भाग खोलें', Menu: 'मेनू', 'All sections': 'सभी भाग' };
+const HELP = {
+  home: ['Your day at a glance', [['Look at the top', 'home', 'accs', 'accfg', 'Attendance, marks and children who need help are counted for you every morning.'], ['Tap to act', 'send', 'warns', 'warnfg', 'Press Remind next to a late teacher, or tap a child to see why they are on the list.'], ['Send the week', 'file', 'infos', 'info', 'On Friday open Weekly summary, check it, and send it to the admin.']]],
+  menu: ['Find any section', [['Big tiles', 'grid', 'accs', 'accfg', 'Each tile opens one part of your work. The small line shows what is waiting.'], ['Hindi or English', 'globe', 'infos', 'info', 'Tap हि at the top to see the main labels in Hindi.'], ['Sign out', 'logout', 'bads', 'bad', 'Use the last tile when you hand the phone to someone else.']]],
+  week: ['Weekly summary', [['Read the draft', 'file', 'accs', 'accfg', 'The app writes it from this week’s attendance, marks and notes.'], ['Make it yours', 'edit', 'warns', 'warnfg', 'Choose short or detailed, add one line, or hide children’s names.'], ['Send it', 'send', 'oks', 'ok', 'Share as PDF, or send it to the admin on WhatsApp. You see a preview first.']]]
+};
+this._d = { IC, ATT, LATE, MK, KIDS, SUBHI, HI, HELP };
+return this._d;
+}
+
+st() {
+const p = this.props || {};
+const base = { screen: 'home', anim: 'none', hi: false, sel: '', mkTab: 't', sheet: '', closing: false, cf: '', cfT: '', excl: {}, rem: {}, asked: {}, long: false, names: true, extra: '', sentA: false, toast: null };
+const map = { menu: { screen: 'menu' }, remind: { sheet: 'cf', cf: 'all' }, week: { screen: 'week' } };
+return Object.assign(base, map[p.start] || {}, this.state || {});
+}
+
+toast(text, undo) {
+const id = Date.now() + Math.random();
+this._undo = undo || null;
+this.setState({ toast: { id, text, undo: !!undo } });
+clearTimeout(this._tt);
+this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+}
+
+undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+closeSheet() {
+if (!this.st().sheet) return;
+this.setState({ closing: true });
+clearTimeout(this._ct);
+this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+}
+
+act(patch, label) {
+const s = this.st(); const before = {};
+Object.keys(patch).forEach((k) => { before[k] = s[k]; });
+this.setState(patch);
+this.closeSheet();
+this.toast(label, () => this.setState(before));
+}
+
+renderVals() {
+const D = this.data(); const s = this.st(); const IC = D.IC; const scr = s.screen;
+const S = (o) => this.setState(o); const T = (m, u) => this.toast(m, u); const C = () => this.st();
+const V = (n) => 'var(--' + n + ')';
+const t = (en) => (s.hi && D.HI[en]) || en;
+const ring = (p) => { const L = Math.max(0.5, 263.9 * Math.min(100, p) / 100); return { dash: L.toFixed(1) + ' 263.9', len: L.toFixed(1) }; };
+const TONES = [['accs', 'accfg'], ['infos', 'info'], ['oks', 'ok'], ['warns', 'warnfg'], ['s3', 'fg']];
+const hsh = (x) => { let h = 7; for (let i = 0; i < x.length; i++) h = (h * 31 + x.charCodeAt(i)) >>> 0; return h; };
+const av = (x) => { const k = TONES[hsh(x) % 5]; return { abg: V(k[0]), afg: V(k[1]) }; };
+const ini = (n) => n.replace(/^(Ms|Mr)\. /, '').split(' ').map((w) => w[0]).slice(0, 2).join('');
+const segO = (on, pick, label) => ({ cls: on ? 'tap on' : 'tap', pr: String(on), pick, label });
+const anims = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'none' };
+const go = (sc) => () => S({ screen: sc, anim: 'push', sheet: '' });
+
+// ---------- attendance today ----------
+const marked = D.ATT.filter((c) => c.p >= 0); const nm = D.ATT.filter((c) => c.p < 0);
+const pres = marked.reduce((a, c) => a + c.p, 0); const tot = marked.reduce((a, c) => a + c.n, 0);
+const attPct = Math.round(pres / tot * 100);
+const heat = (p) => (p < 0 ? ['var(--s2)', 'var(--mut)', '1.5px dashed var(--bds)'] : (p >= 95 ? ['rgb(var(--heat))', 'var(--onsolid)', '0'] : (p >= 90 ? ['rgba(var(--heat),.5)', 'var(--fg)', '0'] : (p >= 85 ? ['rgba(var(--heat),.22)', 'var(--fg)', '0'] : ['var(--warns)', 'var(--warnfg)', '0']))));
+const cells = D.ATT.map((c, i) => {
+  const p = c.p < 0 ? -1 : c.p / c.n * 100; const h = heat(p); const on = s.sel === c.name;
+  return { short: c.short, v: c.p < 0 ? '—' : String(Math.round(p)), bg: h[0], fg: h[1], bd: h[2], sel: on ? '0 0 0 2px var(--bg), 0 0 0 4px var(--acc)' : 'none', pr: String(on), dl: (i * 18) + 'ms', aria: c.name + ' · ' + (c.p < 0 ? 'not marked' : Math.round(p) + '% present'), pick: () => S({ sel: C().sel === c.name ? '' : c.name }) };
+});
+const selC = D.ATT.filter((c) => c.name === s.sel)[0];
+const ask = (list) => () => { const before = C().asked; const n = Object.assign({}, before); list.forEach((c) => { n[c.name] = true; }); S({ asked: n }); T('Asked ' + list.map((c) => (c.name === 'Class 9' ? 'the office (Class 9)' : c.ct + ' (' + c.name + ')')).join(' and ') + ' to mark attendance · app message', () => S({ asked: before })); };
+const waitT = () => T('Already asked · the class shows as marked once they save');
+let att;
+if (selC && selC.p >= 0) att = { dIcon: IC.checkCircle, dFg: V('ok'), dBg: V('s2'), detail: selC.name + ' · ' + selC.p + ' of ' + selC.n + ' present · ' + (selC.n - selC.p) + ' absent\nMarked by ' + selC.ct + ' at ' + selC.at + ' am' + (selC.ab ? '\nAbsent: ' + selC.ab : ''), hasBtn: false, btn: '', btnCls: 'sec', btnGo: waitT };
+else if (selC) { const done = !!s.asked[selC.name]; att = { dIcon: IC.alert, dFg: V('warnfg'), dBg: V('warns'), detail: selC.name + ' · not marked yet\n' + (selC.name === 'Class 9' ? 'Mr. Meena is on leave today. ' : selC.ct + ' usually marks by 8:30 am. ') + 'Until it is saved it counts as not marked — never as present.', hasBtn: true, btn: done ? 'Asked ✓' : (selC.name === 'Class 9' ? 'Ask the office to mark' : 'Remind ' + selC.ct), btnCls: done ? 'soft' : 'pri', btnGo: done ? waitT : ask([selC]) }; }
+else { const all = nm.every((c) => s.asked[c.name]); att = { dIcon: IC.info, dFg: V('info'), dBg: V('s2'), detail: nm.length + ' classes not marked yet: ' + nm.map((c) => c.name + (c.name === 'Class 9' ? ' (Mr. Meena on leave)' : ' (' + c.ct + ')')).join(' and ') + '. Tap any class to see who marked it.', hasBtn: true, btn: all ? 'Asked both ✓' : 'Ask both to mark', btnCls: all ? 'soft' : 'pri', btnGo: all ? waitT : ask(nm) }; }
+att.cells = cells;
+att.sub = attPct + '% present in ' + marked.length + ' marked classes · ' + pres + ' of ' + tot + ' children';
+att.legend = [['95%+', 'rgb(var(--heat))', '0'], ['90–95', 'rgba(var(--heat),.5)', '0'], ['85–90', 'rgba(var(--heat),.22)', '0'], ['Below 85', 'var(--warns)', '0'], ['Not marked', 'var(--s2)', '1.5px dashed var(--bds)']].map((l) => ({ t: l[0], bg: l[1], bd: l[2] }));
+
+// ---------- marks entry ----------
+const late = D.LATE;
+const todo = late.filter((x) => !s.rem[x[0]]);
+const hiCls = (n) => 'कक्षा ' + n.replace('Class ', '').replace('Science', 'विज्ञान').replace('Commerce', 'वाणिज्य').replace('Arts', 'कला');
+const itemTxt = (x) => x[3].map((it) => it[0] + ' ' + it[1] + ' ' + it[2] + '/' + it[3]).join(' · ');
+const itemHi = (x) => x[3].map((it) => hiCls(it[0]) + ' ' + D.SUBHI[it[1]] + ' (' + it[2] + '/' + it[3] + ')').join(', ');
+const remindAll = todo.length ? () => this.openSheet('cf', { cf: 'all', excl: {} }) : () => T('Everyone was reminded · you can remind again after 2 pm');
+const allLabel = todo.length ? t('Remind all late') + ' (' + todo.length + ')' : 'Reminded all · just now';
+const mk = Object.assign(ring(68), {
+  pct: '68%', sub: 'Half-yearly · deadline Wed 14 Oct · ' + late.length + ' teachers behind',
+  allCls: todo.length ? 'pri' : 'soft', allIcon: todo.length ? IC.send : IC.checkCircle, allLabel, all: remindAll,
+  thumb: (s.mkTab === 'c' ? 100 : 0) + '%', isT: s.mkTab === 't', isC: s.mkTab === 'c',
+  tabs: [segO(s.mkTab === 't', () => S({ mkTab: 't' }), 'Late teachers · ' + late.length), segO(s.mkTab === 'c', () => S({ mkTab: 'c' }), 'By class · ' + D.MK.length)],
+  rows: late.map((x) => {
+    const done = !!s.rem[x[0]]; const e = x[3].reduce((a, it) => a + it[2], 0); const all = x[3].reduce((a, it) => a + it[3], 0);
+    return Object.assign(av(x[0]), { name: x[0], ini: ini(x[0]), leave: !!x[4], done, items: itemTxt(x), w: Math.max(3, Math.round(e / all * 100)) + '%', bar: e ? V('c3') : V('bad'), cls: done ? 'ghost' : 'soft', icon: done ? IC.check : IC.send, label: done ? 'Sent' : 'Remind', aria: 'Remind ' + x[0] + ' on WhatsApp', go: done ? () => T(x[0] + ' was reminded a minute ago') : () => this.openSheet('cf', { cf: 'one', cfT: x[0], excl: {} }) });
+  }),
+  cls: D.MK.map((c, i) => ({ name: c[0], p: c[1] + '%', w: c[1] + '%', c: V(+c[1] === 100 ? 'ok' : (+c[1] < 50 ? 'c3' : 'acc')), dl: (i * 20) + 'ms' }))
+});
+
+// ---------- needs attention ----------
+const RS = { a: (v) => ['Attendance ' + v + '%', 'warns', 'warnfg'], m: (v) => ['Below 33% in ' + v.replace('+', ' & '), 'bads', 'bad'], d: (v) => ['Marks dropped ' + v.split('/')[0] + '%', 'infos', 'info'], n: (v) => [v + ' open notes', 'accs', 'accfg'] };
+const chipsOf = (k) => k.rs.map((r) => { const x = RS[r[0]](r[1]); return { t: x[0], bg: V(x[1]), fg: V(x[2]) }; });
+const kids = D.KIDS.slice(0, 6).map((k) => Object.assign(av(k.name), { name: k.name, cls: k.cls, ini: ini(k.name), chips: chipsOf(k) }));
+const up = [['14', 'Oct', 'Half-yearly marks deadline', 'Wed · ' + late.length + ' teachers still behind', 'in 6 days', 'warns', 'warnfg'], ['17', 'Oct', 'Results day + PTM', 'Sat · Classes 9–10 at 10 am · report cards go out', 'in 9 days', 'accs', 'accfg'], ['20', 'Oct', 'Dussehra holiday', 'Tue · school closed', 'in 12 days', 's2', 'mut'], ['7', 'Dec', 'Unit Test 2 begins', 'Mon 7 – Sat 12 Dec', 'in 60 days', 'infos', 'info']].map((u) => ({ d: u[0], mon: u[1].toUpperCase(), t: u[2], sub: u[3], in: u[4], bg: V(u[5]), fg: V(u[6]) }));
+
+// ---------- KPIs ----------
+const kpis = [
+  [t('Attendance today'), attPct + '%', 'calCheck', 'oks', 'ok', nm.length + ' not marked', 'warns', 'warnfg', marked.length + ' of ' + D.ATT.length + ' classes marked', 'AcadAttendance.dc.html', 'M-AcadAttendance.dc.html', 0],
+  [t('Half-yearly marks entered'), '68%', 'clipboard', 's2', 'fg', late.length + ' teachers late', 'bads', 'bad', 'Deadline Wed 14 Oct', 'AD-Exams.dc.html', 'MAD-Exams.dc.html', 1],
+  [t('Children needing attention'), String(D.KIDS.length), 'users', 'infos', 'info', '4 new this week', 'infos', 'info', 'From marks, attendance & notes', 'DX-AcadProgress-Attention.dc.html', 'M-AcadProgress-Attention.dc.html', 0],
+  [t('Notes needing action'), '4', 'note', 'accs', 'accfg', '2 due Mon 12 Oct', 'accs', 'accfg', 'Follow-ups from teachers', 'AD-Notes.dc.html', 'MAD-Notes.dc.html', 0]
+].map((k, i) => Object.assign({ label: k[0], value: k[1], icon: IC[k[2]], bg: V(k[3]), fg: V(k[4]), pill: k[5], pbg: V(k[6]), pfg: V(k[7]), sub: k[8], d: k[9], m: k[10], ring: !!k[11], noRing: !k[11], aria: k[0] + ' · ' + k[1] + ' · open', dl: (i * 60) + 'ms' }, ring(68)));
+const hm = {
+  hello: s.hi ? 'सुप्रभात, आशा जी' : 'Good morning, Ms. Purohit',
+  line: nm.length + ' classes have not marked attendance, ' + todo.length + ' teachers are behind on Half-yearly marks and ' + D.KIDS.length + ' children need attention.',
+  week: t('Weekly summary') + ' for the principal'
+};
+
+// ---------- menu ----------
+const tiles = [['Student progress', 'छात्र प्रगति', 'trend', 'accs', 'accfg', D.KIDS.length + ' children need attention', 'AcadProgress.dc.html', 'M-AcadProgress.dc.html'], ['Attendance', 'हाज़िरी', 'calCheck', 'oks', 'ok', nm.length + ' classes not marked yet', 'AcadAttendance.dc.html', 'M-AcadAttendance.dc.html'], ['Notes on children', 'बच्चों के नोट्स', 'note', 'warns', 'warnfg', '4 need action', 'AD-Notes.dc.html', 'MAD-Notes.dc.html'], ['Marks & results', 'अंक व परिणाम', 'clipboard', 'infos', 'info', 'Half-yearly 68% entered', 'AD-Exams.dc.html', 'MAD-Exams.dc.html'], ['Timetable', 'समय सारणी', 'clock', 's3', 'fg', 'Mr. Meena’s periods covered', 'AD-Timetable.dc.html', 'MAD-Timetable.dc.html'], ['Calendar', 'कैलेंडर', 'calendar', 'accs', 'accfg', 'Results + PTM Sat 17 Oct', 'AD-Calendar.dc.html', 'MAD-Calendar.dc.html'], ['Weekly summary', 'साप्ताहिक सारांश', 'file', 'infos', 'info', 'Ready to send', '', '', go('week')], ['Remind late teachers', 'शिक्षकों को याद दिलाएँ', 'send', 'warns', 'warnfg', todo.length ? todo.length + ' still behind' : 'All reminded today', '', '', remindAll], ['Sign out', 'साइन आउट', 'logout', 'bads', 'bad', 'Ms. Asha Purohit', 'Auth.dc.html', 'M-Auth.dc.html']]
+  .map((x, i) => ({ en: x[0], l1: s.hi ? x[1] : x[0], l2: s.hi ? x[0] : x[1], icon: IC[x[2]], bg: V(x[3]), fg: V(x[4]), sub: x[5], sc: x[0] === 'Sign out' ? V('mut') : V(x[4] === 'fg' ? 'mut' : x[4]), d: x[6], m: x[7], link: !!x[6], act: !x[6], go: x[8] || (() => {}), dl: (i * 40) + 'ms' }));
+
+// ---------- weekly summary ----------
+const TR = [91.8, 92.6, 90.9, 92.1, 93.0, 92.2, 93.1, 93.8]; const WL = ['17 Aug', '24', '31', '7 Sep', '14', '21', '28', '5 Oct'];
+const px = (i) => 8 + i * (284 / 7); const py = (v) => 84 - (v - 90) * 16;
+let len = 0; for (let i = 1; i < TR.length; i++) len += Math.hypot(px(i) - px(i - 1), py(TR[i]) - py(TR[i - 1]));
+const pts = TR.map((v, i) => px(i).toFixed(1) + ',' + py(v).toFixed(1));
+const nmOn = s.names;
+const anyRem = Object.keys(s.rem).length > 0;
+const P = ['Attendance this week is 93.8%, up 0.7 points on last week. Today ' + nm.length + ' classes (Class 9 and 11 Arts) had not marked by 9:30 am.',
+  'Half-yearly marks are 68% entered. ' + late.length + ' teachers are behind' + (anyRem ? ' and I reminded them on WhatsApp today.' : '; reminders go out today.') + ' The deadline is Wed 14 Oct.',
+  D.KIDS.length + ' children need attention (4 new this week). ' + (nmOn ? 'Kunal Verma, Pooja Mehta and Neha Joshi' : 'Three children') + ' improved.'];
+if (s.long) { P.splice(2, 0, 'The lowest class average so far is Class 9 at 56%, down 6 points from Unit Test 1, mostly in Maths. ' + (nmOn ? 'Mohit Agarwal' : 'One Class 9 child') + ' dropped 18% in Maths; a support plan is suggested.'); P.push('Support plans: 3 running, 1 finished this week. Next: results day and PTM on Sat 17 Oct, Unit Test 2 from Mon 7 Dec.'); }
+if ((s.extra || '').trim()) P.push('From me: ' + s.extra.trim());
+const masked = (n, c) => (nmOn ? n : 'A ' + c + ' child');
+const wk = {
+  title: 'This week · Mon 5 – Thu 8 Oct', thumb: (s.long ? 100 : 0) + '%',
+  len2: [segO(!s.long, () => S({ long: false }), 'Short'), segO(s.long, () => S({ long: true }), 'Detailed')],
+  paras: P.map((x, i) => ({ t: x, dl: (i * 70) + 'ms' })),
+  extra: s.extra, onExtra: (e) => S({ extra: e.target.value }),
+  namesOn: String(nmOn), swCls: nmOn ? 'on' : '', flipNames: () => S({ names: !C().names }),
+  imp: [['Kunal Verma', 'Class 4', 'Attendance 78% → 92%'], ['Pooja Mehta', '11 Commerce', 'Accountancy 48% → 66%'], ['Neha Joshi', 'Class 8', 'Science 52% → 71%']].map((r) => ({ name: masked(r[0], r[1]), ini: nmOn ? ini(r[0]) : '•', t: r[1] + ' · ' + r[2] })),
+  help: D.KIDS.slice(0, 4).map((k) => ({ name: masked(k.name, k.cls), ini: nmOn ? ini(k.name) : '•', t: k.cls + ' · ' + chipsOf(k)[0].t })),
+  now: '93.8%', delta: '▲ 0.7 vs last week', len: len.toFixed(1), pts: pts.join(' '), area: '8,96 ' + pts.join(' ') + ' 292,96',
+  dots: TR.map((v, i) => ({ x: px(i).toFixed(1), y: py(v).toFixed(1), r: i === TR.length - 1 ? '5' : '3', f: i === TR.length - 1 ? 'var(--acc)' : 'var(--card)', dl: (300 + i * 90) + 'ms' })),
+  lab: WL.map((x) => ({ t: x })),
+  days: [['Mon', 92.9], ['Tue', 94.1], ['Wed', 94.4], ['Thu', attPct]].map((d, i) => ({ t: d[0], v: d[1] + '%', h: Math.round((d[1] - 85) / 15 * 100) + '%', c: i === 3 ? V('acc') : V('c2'), dl: (i * 80) + 'ms' })),
+  parts: [['Locked', 34, 'c1'], ['Done', 29, 'c2'], ['In progress', 39, 'c3'], ['Not started', 11, 'bad']].map((p) => ({ l: p[0], n: String(p[1]), w: (p[1] / 113 * 100).toFixed(1) + '%', c: V(p[2]) })),
+  foot: 'Goes to Janmejay Singh · last sent Fri 2 Oct',
+  pdf: () => T('Weekly-summary-5-8-Oct.pdf saved · 2 pages'),
+  sendCls: s.sentA ? 'soft' : 'pri', sendIcon: s.sentA ? IC.checkCircle : IC.send, sendLabel: s.sentA ? 'Sent to admin · just now' : 'Send to admin on WhatsApp',
+  send: s.sentA ? () => T('Already sent · Janmejay Singh has it on WhatsApp') : () => this.openSheet('cf', { cf: 'admin' })
+};
+
+// ---------- send sheet ----------
+let cf = {};
+if (s.cf === 'all' || s.cf === 'one') {
+  const pool0 = s.cf === 'one' ? late.filter((x) => x[0] === s.cfT) : todo;
+  const pool = pool0.length ? pool0 : late.slice(0, 1);
+  const inc = pool.filter((x) => !s.excl[x[0]]); const t0 = inc[0] || pool[0]; const n = inc.length;
+  cf = {
+    title: s.cf === 'one' ? 'Remind ' + t0[0] + '?' : 'Remind ' + pool.length + ' late teachers?', sub: 'Half-yearly marks · deadline Wed 14 Oct',
+    hasWho: pool.length > 1, who: pool.map((x) => { const on = !s.excl[x[0]]; return { t: x[0] + (x[4] ? ' · on leave' : ''), cls: on ? 'on' : '', pr: String(on), icD: on ? 'block' : 'none', pick: () => S({ excl: Object.assign({}, C().excl, { [x[0]]: on }) }) }; }),
+    whoNote: 'Mr. Meena is on leave today — you can leave him out.',
+    waTo: 'Preview · to ' + t0[0] + (n > 1 ? ' (each one gets their own link)' : ''),
+    hi: 'नमस्ते ' + (/^Mr/.test(t0[0]) ? 'सर' : 'मैडम') + ',\nअर्धवार्षिक परीक्षा के अंक अभी बाकी हैं: ' + itemHi(t0) + '।\nकृपया बुधवार 14 अक्टूबर तक इस लिंक से भरें — लॉगिन की ज़रूरत नहीं।\n— आशा पुरोहित',
+    hasLink: true, link: 'vpps.one/s/' + t0[2],
+    en: 'Half-yearly marks are pending for ' + itemTxt(t0) + '. Please enter them by Wed 14 Oct from this link — no login needed. — Asha Purohit',
+    facts: [['To', n + (n === 1 ? ' teacher' : ' teachers')], ['Cost', '₹' + (n * 0.88).toFixed(2) + ' · ' + n + ' × ₹0.88'], ['Sent through', 'AiSensy · WhatsApp']],
+    note: 'Each teacher gets their own Sampark link. You can undo for a few seconds after sending.',
+    ok: n ? 'Send ' + n + (n === 1 ? ' reminder' : ' reminders') : 'Pick a teacher first', op: n ? '1' : '0.5',
+    go: () => { if (!n) { T('Pick at least one teacher'); return; } const r = Object.assign({}, C().rem); inc.forEach((x) => { r[x[0]] = true; }); this.act({ rem: r }, 'Reminder sent to ' + (n === 1 ? t0[0] : n + ' teachers') + ' on WhatsApp'); }
+  };
+} else if (s.cf === 'admin') {
+  cf = {
+    title: 'Send the summary to the admin?', sub: 'Janmejay Singh · Admin', waTo: 'Preview · to Janmejay Singh', hasAtt: true, att: 'Weekly summary · 5–8 Oct.pdf · 2 pages',
+    hi: 'नमस्ते सर,\nइस सप्ताह का शैक्षणिक सारांश संलग्न है — उपस्थिति 93.8%, अर्धवार्षिक अंक 68% भरे गए, ' + D.KIDS.length + ' बच्चों पर ध्यान देना है।\n— आशा पुरोहित',
+    en: 'Hello Sir, this week’s academic summary is attached — attendance 93.8%, Half-yearly marks 68% entered, ' + D.KIDS.length + ' children need attention. — Asha Purohit',
+    facts: [['To', '1 person · Admin'], ['Cost', '₹0.88 · 1 × ₹0.88'], ['Sent through', 'AiSensy · WhatsApp']],
+    note: 'The PDF has the full summary with charts' + (nmOn ? '' : ', without children’s names') + '. You can undo for a few seconds.',
+    ok: 'Send on WhatsApp', go: () => this.act({ sentA: true }, 'Weekly summary sent to Janmejay Singh on WhatsApp')
+  };
+}
+cf = Object.assign({ title: '', sub: '', hasWho: false, who: [], whoNote: '', waTo: '', hasAtt: false, att: '', hi: '', hasLink: false, link: '', en: '', facts: [], note: '', ok: 'OK', op: '1', go: () => this.closeSheet() }, cf);
+cf.facts = cf.facts.map((f) => ({ k: f[0], v: f[1] }));
+
+// ---------- chrome ----------
+const H = D.HELP[scr] || D.HELP.home;
+const help = { title: H[0], steps: H[1].map((x, i) => ({ n: String(i + 1), t: x[0], icon: IC[x[1]], bg: V(x[2]), fg: V(x[3]), d: x[4] })) };
+const tops = {
+  home: ['Academics · Thu 8 Oct 2026', t('Today'), [[t('All sections'), 'grid', 'ghost', go('menu')], [t('Weekly summary'), 'file', 'sec', go('week')], [allLabel, todo.length ? IC.send : IC.checkCircle, todo.length ? 'pri' : 'soft', remindAll]], t('Today'), 'Thu 8 Oct · Ms. Asha Purohit', false, true],
+  menu: ['Academics · Ms. Asha Purohit', t('Menu'), [], t('Menu'), 'Academic coordinator', false, false],
+  week: ['Academics · for the principal', t('Weekly summary'), [['Share as PDF', 'download', 'sec', wk.pdf]], t('Weekly summary'), 'Mon 5 – Thu 8 Oct · for the principal', true, false]
+};
+const q = tops[scr] || tops.home;
+const top = { crumb: q[0], title: q[1], mTitle: q[3], mSub: q[4], mBack: q[5], mAv: q[6], back: scr !== 'home', acts: q[2].map((a) => ({ label: a[0], icon: IC[a[1]] || a[1], cls: a[2], go: a[3] })) };
+const lang = { thumb: (s.hi ? 100 : 0) + '%', opts: [segO(!s.hi, () => S({ hi: false }), 'EN'), segO(s.hi, () => S({ hi: true }), 'हि')], m: s.hi ? 'EN' : 'हि', aria: s.hi ? 'Switch to English' : 'Switch to Hindi', flip: () => S({ hi: !C().hi }) };
+
+return {
+  ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '', nav: scr === 'menu' ? 'menu' : 'home',
+  is: { home: scr === 'home', menu: scr === 'menu', week: scr === 'week' }, anim: anims[s.anim] || 'none',
+  top, lang, tx: { att: t("Today's attendance by class"), marks: t('Half-yearly marks entry'), attn: t('Needs attention'), up: t('Coming up'), open: t('Open a section') },
+  hm, kpis, att, mk, kids, kidsN: String(D.KIDS.length), up, tiles, mn: { line: 'Academics · 2026–27' }, wk, goWeek: go('week'),
+  back: () => { if (C().sheet) { this.closeSheet(); return; } S({ screen: 'home', anim: 'pop' }); },
+  openHelp: () => this.openSheet('help'), help,
+  sh: { cf: s.sheet === 'cf', help: s.sheet === 'help', state: s.closing ? 'closing' : 'open' }, cf, closeSheet: () => this.closeSheet(),
+  toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

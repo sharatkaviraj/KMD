@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attendance oversight</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.xr{display:flex;align-items:center}.xc{display:flex;flex-direction:column}.xf{flex:1;min-width:0}.xf1{flex:1}.xfn{flex:none}.xw{flex-wrap:wrap}.xj{justify-content:space-between}.xrl{position:relative}.xn0{min-width:0}.xw1{width:100%}.xoh{overflow:hidden}.xgd{display:grid}.x4{gap:4px}.x6{gap:6px}.x8{gap:8px}.x10{gap:10px}.x12{gap:12px}.x14{gap:14px}.x16{gap:16px}.xm{font-size:12px;color:var(--mut)}.xs{font-size:13px}.x11{font-size:11px}.x15{font-size:15px}.xb{font-weight:700}.x6w{font-weight:600}.xmu{color:var(--mut)}.xtr{text-align:right}.xtc{text-align:center}.xt{font-size:15px;font-weight:700}.xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.xh{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}.xi{flex:none;display:flex;align-items:center;justify-content:center}.xp{padding:14px 16px}.xp2{padding:18px 20px}.xbb{border-bottom:1px solid var(--bd)}.xd+.xd{border-top:1px solid var(--bd)}.xq{width:40px;padding:0!important}.xdt{flex:none;width:9px;height:9px;border-radius:5px;display:inline-block}
+.xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}.xbar>span{height:100%;transition:width .5s var(--ease)}
+.xg circle{fill:none;stroke-linecap:round}.xg .q0{stroke:var(--s3)}.xg .q1{transform:rotate(-90deg);transform-origin:50% 50%;animation:xDraw .9s var(--ease) both;transition:stroke-dasharray .6s var(--ease),stroke .3s ease}
+.xo{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.xa{flex:none;width:38px;height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.xst>*{animation:xIn .3s var(--ease) both}.xst>:nth-child(2){animation-delay:.03s}.xst>:nth-child(3){animation-delay:.06s}.xst>:nth-child(4){animation-delay:.09s}.xst>:nth-child(5){animation-delay:.12s}.xst>:nth-child(n+6){animation-delay:.15s}
+.xsc{padding:18px 28px 40px;display:flex;flex-direction:column;gap:16px}
+.xsh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}.xsb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:12px}.xsf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}.xsf>.btn{height:52px;font-size:15px}
+.xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.xlg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 0;font-size:13px}.xlg>i{width:10px;height:10px;margin-top:4px;border-radius:5px}
+.xwa{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:16px;background:var(--wabg)}.xwa>div{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}
+.xfa{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;font-size:13px}
+.xopt{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 14px;border-radius:14px;color:var(--fg);text-align:left;width:100%}
+.xchk{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid;display:flex;align-items:center;justify-content:center;color:#FFFFFF;transition:background-color .2s ease}
+.xlang{grid-template-columns:repeat(2,minmax(0,1fr));width:84px;flex:none}.xlang>button{height:30px}
+.xtabs{grid-template-columns:repeat(5,minmax(0,1fr));width:740px;max-width:100%}.xtabs>button{display:flex;align-items:center;justify-content:center;gap:6px;height:38px;min-width:0;padding:0 6px;position:relative}
+.xbdg{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:var(--onsolid);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.xtl{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}.xtile{padding:12px 14px;gap:8px;animation:xIn .32s var(--ease) both}.xtile .btn{height:36px;font-size:13px;padding:0 10px}
+.xchart{position:relative;height:220px;display:flex;align-items:flex-end;gap:3px;padding-left:34px;border-bottom:1px solid var(--bds)}.xgl{position:absolute;left:34px;right:0;border-top:1px dashed var(--bd);pointer-events:none}.xgl>span{position:absolute;left:-34px;top:-8px;font-size:10px;color:var(--sub)}
+.xcol{flex:1;min-width:0;height:100%;display:flex;align-items:flex-end;justify-content:center;border:0;padding:0;background:transparent;border-radius:5px;position:relative}
+.xbv{position:relative;width:100%;max-width:22px;border-radius:5px 5px 2px 2px;transform-origin:bottom;animation:xGrowY .7s var(--ease) both;transition:height .5s var(--ease),background-color .3s ease}
+.xdip{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--warnfg);white-space:nowrap}
+.xhol{width:100%;max-width:22px;height:100%;border-radius:5px;background:repeating-linear-gradient(135deg,var(--s3) 0 4px,transparent 4px 8px);display:flex;align-items:center;justify-content:center}.xhol>span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;color:var(--mut);white-space:nowrap}
+.xfut{width:100%;max-width:22px;height:6px;border-radius:3px;background:var(--s3)}
+.xchx{display:flex;gap:3px;padding-left:34px}.xchx>span{flex:1;min-width:0;text-align:center;font-size:10px;font-weight:600}
+.x75{position:absolute;left:75%;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:var(--fg);opacity:.45}
+.xrg{display:grid;gap:2px;align-items:center;padding:0 14px}.xrg>.xdc{height:26px;display:flex;align-items:center;justify-content:center;border-radius:4px}.xdc>i{width:12px;height:12px;border-radius:6px}
+.xmini{display:flex;gap:2px}.xmini>i{flex:1;max-width:12px;height:10px;border-radius:3px}
+.xstamp{position:absolute;top:50%;left:50%;padding:6px 16px;border:3px solid;border-radius:10px;font-size:22px;font-weight:800;letter-spacing:.12em;background:var(--card);transform:translate(-50%,-50%) rotate(-10deg);animation:xPopIn .45s var(--spring) both}
+.xkg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.xtl{align-items:start}
+@container vx (max-width:899px){.xring{width:100px!important;height:100px!important}.xring svg{width:100px;height:100px}.xring .num{font-size:24px!important}.xhti{order:3;flex-basis:100%}.xtabs{width:100%}.xtabs>button{flex-direction:column;gap:1px;height:56px;font-size:11px;padding:0 1px;letter-spacing:-.01em}.xtabs .xbdg{position:absolute;top:3px;right:4px}.xtl{grid-template-columns:repeat(2,minmax(0,1fr))}.xchart{height:180px;gap:2px}.xchx{gap:2px}.xchx>span:not(.xk){visibility:hidden}.xkg{grid-template-columns:minmax(0,1fr)}.xsf>.btn{flex:1}}
+</style>
+</helmet>
+<div class="vx {{theme}} xrl xw1 xoh" style="height:100vh;min-height:560px;display:flex;background:var(--bg);color:var(--fg);font-family:Inter, 'Noto Sans Devanagari', system-ui, sans-serif;font-size:14px;line-height:1.45">
+
+<div class="only-d xfn" style="height:100%"><dc-import name="XSide" active="attendance" role="academic" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+<div class="xc xf xrl" style="min-height:0">
+
+<header class="only-d glass xr x10 xfn xbb xrl" style="height:64px;padding:0 28px;z-index:5">
+<sc-if value="{{top.back}}"><button class="tap btn ghost xq" type="button" aria-label="Back to today" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<div class="xc xf"><span class="xm">{{top.crumb}}</span><span class="xh xe">{{top.title}}</span></div>
+<div class="seg xlang" role="group" aria-label="Language"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{lang.thumb}})"></span><sc-for list="{{lang.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<button class="tap btn ghost xq" type="button" aria-label="Help for this screen" onClick="{{openHelp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+<sc-for list="{{top.acts}}" as="a"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.go}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for>
+</header>
+
+<header class="only-m glass xr x4 xfn xbb xrl" style="min-height:58px;padding:6px 8px;z-index:5">
+<sc-if value="{{top.mLink}}"><a href="M-AcadHome-Menu.dc.html" class="tap xi" aria-label="Back to menu" style="width:44px;height:44px;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.back}}"><button class="tap btn ghost" type="button" aria-label="Back to today" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="xc xf" style="padding-left:2px"><span class="xe xb" style="font-size:17px">{{top.title}}</span><span class="xm xe">{{top.mSub}}</span></span>
+<div class="seg xlang" role="group" aria-label="Language"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{lang.thumb}})"></span><sc-for list="{{lang.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{openHelp}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+
+<main class="scroll xf1 xrl" style="min-height:0">
+
+<div class="pad" style="padding:16px 28px 0"><div class="seg xtabs"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 5);transform:translateX({{tabs.thumb}})"></span><sc-for list="{{tabs.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{o.icon}}"></path></svg><span class="xe" style="max-width:100%">{{o.label}}</span><sc-if value="{{o.hasN}}"><span class="xbdg num">{{o.n}}</span></sc-if></button></sc-for></div></div>
+
+<!-- ============ TODAY ============ -->
+<sc-if value="{{is.today}}">
+<div class="pad stack xgd" style="padding:16px 28px 40px;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;animation:{{anim}}">
+<section class="xc x16 xn0">
+
+<div class="card xc x14 xp2">
+<div class="xr xw" style="gap:22px">
+<div class="xrl xfn xring" style="width:128px;height:128px"><svg width="128" height="128" viewBox="0 0 100 100" class="xg" style="stroke-width:9" aria-hidden="true"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:{{td.rc}};stroke-dasharray:{{td.ring.dash}};--len:{{td.ring.len}}"></circle></svg><span class="xo"><span class="num xb" style="font-size:30px;line-height:1">{{td.ringTxt}}</span><span class="xm">{{td.ringSub}}</span></span></div>
+<div class="xc x6 xf xhti" style="min-width:220px">
+<span class="pill" style="align-self:flex-start;background:var(--accs);color:var(--accfg)"><span class="xdt" style="background:var(--acc);animation:xPulse 1.8s ease infinite"></span>Live · Thu 8 Oct · 9:41 am</span>
+<span class="serif" style="font-size:28px;font-weight:600;line-height:1.12">{{td.title}}</span>
+<span class="xs xmu">{{td.titleSub}}</span>
+</div>
+<div class="xc" style="gap:2px;min-width:150px">
+<span class="xm xb">{{td.presLabel}}</span>
+<span class="num xb" style="font-size:40px;line-height:1.05;color:var(--ok)">{{td.pct}}</span>
+<span class="xm num">{{td.pctSub}}</span>
+</div>
+</div>
+<div class="xbar" style="height:12px"><sc-for list="{{td.parts}}" as="p"><span title="{{p.label}}" style="width:{{p.w}};background:{{p.c}}"></span></sc-for></div>
+<div class="xr xw xs" style="gap:6px 14px"><sc-for list="{{td.parts}}" as="p"><span class="xr x6"><span class="xdt" style="border-radius:3px;background:{{p.c}}"></span>{{p.label}}<b class="num">{{p.n}}</b></span></sc-for></div>
+<div class="xr xw x10">
+<div class="xno xf" style="background:var(--s2);color:var(--fg);min-width:240px;padding:10px 12px"><svg class="i" viewBox="0 0 24 24" style="color:var(--acc);margin-top:1px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>A class counts as marked only after its teacher presses <b>Save</b>. Not marked is never counted as present.</span></div>
+<sc-if value="{{td.hasLeft}}"><button class="tap btn {{td.remCls}} mfull" type="button" onClick="{{td.remindAll}}" style="height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{td.remIcon}}"></path></svg>{{td.remLabel}}</button></sc-if>
+</div>
+</div>
+
+<div class="g4 xgd" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+<sc-for list="{{td.kpis}}" as="k"><div class="card rise xc xp" style="gap:2px;animation-delay:{{k.dl}}"><span class="xr x6 xm xb"><span class="xdt" style="background:{{k.c}}"></span>{{k.label}}</span><span class="num xb" style="font-size:24px">{{k.value}}</span><span class="xm">{{k.sub}}</span></div></sc-for>
+</div>
+
+<div class="xr xw x8 xj">
+<span class="sech">{{td.secLabel}}</span>
+<div class="xr x6"><sc-for list="{{td.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}"><span class="xdt" style="background:{{c.dot}}"></span>{{c.label}}<span class="num" style="opacity:.7">{{c.n}}</span></button></sc-for></div>
+</div>
+<div class="xtl">
+<sc-for list="{{td.tiles}}" as="t">
+<div class="card xc xtile" style="border-color:{{t.bc}};border-style:{{t.bs}};background:{{t.bg}};animation:{{t.anim}}">
+<div class="xr x8"><span class="xc xf"><span class="xb x15 xe">{{t.name}}</span><span class="xm xe">{{t.who}}</span></span><span class="xr x4 xfn"><span class="xi" style="width:30px;height:30px;border-radius:15px;background:{{t.ibg}};color:{{t.ifg}}"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span></span></div>
+<sc-if value="{{t.mk}}">
+<span class="xr xj x6 xs"><span><b class="num">{{t.pres}}</b> present</span><span class="num xm">{{t.time}}</span></span>
+<div class="xbar" style="height:6px"><sc-for list="{{t.parts}}" as="p"><span style="width:{{p.w}};background:{{p.c}}"></span></sc-for></div>
+<span class="xm xe">{{t.sub}}</span>
+</sc-if>
+<sc-if value="{{t.nm}}">
+<span class="xs xb xmu">Not marked yet</span>
+<button class="tap btn {{t.rcls}}" type="button" onClick="{{t.remind}}"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{t.ricon}}"></path></svg>{{t.rlabel}}</button>
+</sc-if>
+<sc-if value="{{t.lv}}">
+<span class="xs" style="color:var(--warnfg);line-height:1.35">{{t.lvLine}}</span>
+<button class="tap btn pri" type="button" onClick="{{t.markIt}}"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{ic.calCheck}}"></path></svg>Mark for them</button>
+<button class="tap btn {{t.acls}}" type="button" onClick="{{t.ask}}"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{t.aicon}}"></path></svg>{{t.alabel}}</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</section>
+
+<aside class="xc x14 xn0">
+<div class="card xc x10 xp">
+<div class="xr x10"><span class="xi" style="width:38px;height:38px;border-radius:12px;background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.clock}}"></path></svg></span><span class="xc xf"><span class="xt">Came late today · {{td.late}}</span><span class="xm">Counted present · late is noted</span></span></div>
+<div class="xc"><sc-for list="{{td.lateRows}}" as="l"><div class="xfa xd"><span>{{l.k}}</span><b class="num" style="white-space:nowrap">{{l.v}}</b></div></sc-for></div>
+</div>
+<div class="card xc xoh">
+<span class="sech" style="padding:14px 16px 6px">Look closer</span>
+<sc-for list="{{td.more}}" as="m"><button class="tap row xr x12 xd" type="button" onClick="{{m.go}}" style="width:100%;padding:12px 16px;border:0;background:transparent;color:var(--fg);text-align:left">
+<span class="xi" style="width:38px;height:38px;border-radius:12px;background:{{m.bg}};color:{{m.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{m.icon}}"></path></svg></span>
+<span class="xc xf"><span class="x6w">{{m.label}}</span><span class="xm xe">{{m.sub}}</span></span>
+<svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+</button></sc-for>
+</div>
+<div class="card xc xp"><span class="sech" style="margin-bottom:6px">Today · who did what</span><div class="xst"><sc-for list="{{td.log}}" as="l"><div class="xlg"><i style="background:{{l.dot}}"></i><span>{{l.text}}</span><span class="num xm">{{l.time}}</span></div></sc-for></div></div>
+</aside>
+</div>
+</sc-if>
+
+<!-- ============ MONTH ============ -->
+<sc-if value="{{is.month}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="xr xw x12">
+<div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));width:240px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{mseg.thumb}})"></span><sc-for list="{{mseg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<span class="xm xf" style="min-width:200px">{{mo.note}}</span>
+</div>
+<div class="g4 xgd" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+<sc-for list="{{mo.kpis}}" as="k"><div class="card rise xc xp" style="gap:2px;animation-delay:{{k.dl}}"><span class="xm xb">{{k.label}}</span><span class="num xb" style="font-size:22px;color:{{k.tone}}">{{k.value}}</span><span class="xm">{{k.sub}}</span></div></sc-for>
+</div>
+<div class="card xc x10 xp2">
+<div class="xr xj xw x8"><span class="xt">{{mo.title}}</span><span class="xm">Each bar = one school day · % of children present</span></div>
+<div class="xchart" style="margin-top:18px">
+<span class="xgl" style="bottom:100%"><span>100%</span></span><span class="xgl" style="bottom:50%"><span>90%</span></span><span class="xgl" style="bottom:0"><span>80%</span></span>
+<sc-for list="{{mo.bars}}" as="b">
+<button class="tap xcol" type="button" aria-label="{{b.aria}}" aria-pressed="{{b.pr}}" onClick="{{b.pick}}">
+<sc-if value="{{b.bar}}"><span class="xbv" style="height:{{b.h}};background:{{b.c}};box-shadow:{{b.sel}};animation-delay:{{b.dl}}"><sc-if value="{{b.dip}}"><span class="xdip hide-m num">{{b.v}}</span></sc-if></span></sc-if>
+<sc-if value="{{b.hol}}"><span class="xhol"><span class="hide-m">{{b.gl}}</span></span></sc-if>
+<sc-if value="{{b.fut}}"><span class="xfut"></span></sc-if>
+</button>
+</sc-for>
+</div>
+<div class="xchx"><sc-for list="{{mo.bars}}" as="b"><span class="{{b.lk}}" style="color:{{b.lc}}">{{b.dn}}</span></sc-for></div>
+<div class="xr xw xm" style="gap:6px 14px"><sc-for list="{{mo.legend}}" as="l"><span class="xr x6"><span class="xdt" style="border-radius:3px;background:{{l.c}}"></span>{{l.t}}</span></sc-for></div>
+<div class="xno fadein" style="background:var(--s2);color:var(--fg);align-items:center">
+<span class="xi" style="width:40px;height:40px;border-radius:12px;background:{{mo.sel.bg}};color:{{mo.sel.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{mo.sel.icon}}"></path></svg></span>
+<span class="xc xf"><span class="xb">{{mo.sel.title}}</span><span class="xm" style="line-height:1.45">{{mo.sel.sub}}</span></span>
+<span class="num xb" style="font-size:20px">{{mo.sel.v}}</span>
+</div>
+</div>
+<div class="stack xgd" style="grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;align-items:start">
+<div class="card xc xp2"><span class="xt" style="margin-bottom:6px">Dips and holidays</span>
+<div class="xst"><sc-for list="{{mo.notes}}" as="n"><div class="xr x12 xd" style="padding:10px 0;align-items:flex-start">
+<span class="xi" style="width:34px;height:34px;border-radius:10px;background:{{n.bg}};color:{{n.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+<span class="xc xf"><span class="xr xj x8"><span class="x6w">{{n.when}}</span><b class="num xs" style="color:{{n.fg}}">{{n.v}}</b></span><span class="xm" style="line-height:1.45">{{n.why}}</span></span>
+</div></sc-for></div>
+</div>
+<div class="card xc xp2"><div class="xr xj x8" style="margin-bottom:6px"><span class="xt">Classes ranked</span><span class="xm">{{mo.rankSub}}</span></div>
+<div class="xst"><sc-for list="{{mo.rank}}" as="r"><div class="xgd xd" style="grid-template-columns:24px minmax(0,1fr) minmax(70px,1.2fr) 52px;gap:10px;align-items:center;padding:7px 0">
+<span class="num xm xb">{{r.n}}</span><span class="xc xn0"><span class="x6w xe">{{r.name}}</span><span class="xm xe">{{r.t}}</span></span>
+<span class="xbar" style="height:8px"><span style="width:{{r.w}};background:{{r.c}};transform-origin:left;animation:xGrowX .7s var(--ease) both;animation-delay:{{r.dl}}"></span></span>
+<span class="num xb xs xtr" style="color:{{r.tc}}">{{r.v}}</span>
+</div></sc-for></div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ BELOW 75% ============ -->
+<sc-if value="{{is.chronic}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="card xr xw xp2" style="gap:14px 20px">
+<span class="xi" style="width:56px;height:56px;border-radius:16px;background:var(--bads);color:var(--bad)"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="{{ic.alert}}"></path></svg></span>
+<span class="xc xf" style="min-width:220px;gap:2px"><span class="xh">{{ch.title}}</span><span class="xm" style="line-height:1.5">This session, Jul to today. The list builds itself every morning. Children need 75% to sit the annual exam.</span></span>
+<div class="hs xr x6" style="max-width:100%"><sc-for list="{{ch.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}<span class="num" style="opacity:.7">{{c.n}}</span></button></sc-for></div>
+</div>
+<div class="stack xgd" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start">
+<sc-for list="{{ch.rows}}" as="c">
+<div class="card xc x10 xp2" style="animation:xIn .32s var(--ease) both;animation-delay:{{c.dl}}">
+<div class="xr x12">
+<span class="xa" style="background:{{c.abg}};color:{{c.afg}}">{{c.ini}}</span>
+<span class="xc xf"><span class="xb x15 xe">{{c.name}}</span><span class="xm xe">{{c.cls}}</span></span>
+<span class="xc" style="align-items:flex-end"><span class="num xb" style="font-size:24px;line-height:1.1;color:{{c.tone}}">{{c.pct}}</span><span class="xm">this session</span></span>
+</div>
+<div class="xbar xrl" style="height:10px;overflow:visible"><span style="width:{{c.pct}};background:{{c.tone}};border-radius:5px"></span><i class="x75" title="75% needed"></i></div>
+<div class="xr xw xj x8">
+<span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:{{c.sbg}};color:{{c.sfg}}">{{c.streak}}</span>
+<span class="xr x4"><span class="xm" style="margin-right:4px">Last 10 days</span><sc-for list="{{c.dots}}" as="d"><i class="xdt" style="width:10px;height:10px;background:{{d.c}}" title="{{d.t}}"></i></sc-for></span>
+</div>
+<sc-if value="{{c.hasNote}}"><div class="xno xc" style="gap:3px;background:var(--s2);color:var(--fg);padding:10px 12px"><span>“{{c.note}}”</span><span class="xm">{{c.noteBy}}</span></div></sc-if>
+<sc-if value="{{c.noNote}}"><span class="xm">No note yet · {{c.parent}}</span></sc-if>
+<sc-if value="{{c.hasCall}}"><div class="xr x8 xs xb" style="color:var(--ok);animation:xPopIn .45s var(--spring) both"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span class="xe">{{c.callLine}}</span></div></sc-if>
+<button class="tap btn {{c.callCls}}" type="button" onClick="{{c.call}}" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>{{c.callLabel}}</button>
+<div class="xgd" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+<span class="xrl"><a href="Notes.dc.html" class="only-d tap btn sec xw1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.note}}"></path></svg>Add note</a><a href="M-Notes-Add.dc.html" class="only-m tap btn sec xw1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.note}}"></path></svg>Add note</a></span>
+<span class="xrl"><a href="DX-AcadProgress-Student.dc.html" class="only-d tap btn sec xw1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.trend}}"></path></svg>Open progress</a><a href="M-AcadProgress-Student.dc.html" class="only-m tap btn sec xw1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.trend}}"></path></svg>Progress</a></span>
+</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ch.empty}}"><div class="card fadein xc xp2" style="align-items:center;gap:10px;padding:36px 24px;text-align:center"><span class="xi" style="width:56px;height:56px;border-radius:28px;background:var(--oks);color:var(--ok)"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span class="xt">Everyone here has been called</span><span class="xm">Calls you log stay on each child.</span><button class="tap btn sec" type="button" onClick="{{ch.showAll}}">Show all children</button></div></sc-if>
+</div>
+</sc-if>
+
+<!-- ============ CHANGE REQUESTS ============ -->
+<sc-if value="{{is.corr}}">
+<div class="pad xsc" style="max-width:940px;animation:{{anim}}">
+<div class="xno" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top:1px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>Teachers can ask to change a day in the last 7 days. Read the reason, then approve or decline. The register changes only after you approve, and the history keeps who and when.</span></div>
+<span class="sech">{{co.waitLabel}}</span>
+<sc-for list="{{co.open}}" as="q">
+<div class="card xc x12 xp2 xrl" style="animation:{{q.anim}};overflow:hidden">
+<div class="xr xw x12">
+<span class="xa" style="background:{{q.abg}};color:{{q.afg}}">{{q.ini}}</span>
+<span class="xc xf" style="min-width:160px"><span class="xb x15">{{q.child}} · {{q.cls}}</span><span class="xm">{{q.day}}</span></span>
+<span class="xr x8"><span class="pill" style="height:28px;padding:0 12px;font-size:13px;background:{{q.fbg}};color:{{q.ffg}};text-decoration:line-through">{{q.fromL}}</span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg><span class="pill" style="height:28px;padding:0 12px;font-size:13px;background:{{q.tbg}};color:{{q.tfg}}">{{q.toL}}</span></span>
+</div>
+<div class="xno" style="background:var(--s2);color:var(--fg);padding:10px 12px">“{{q.why}}”</div>
+<div class="xr xw xm" style="gap:4px 14px"><span>{{q.by}}</span><span class="xr x4"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><path d="{{ic.info}}"></path></svg>{{q.eff}}</span><sc-if value="{{q.urgent}}"><span class="pill" style="background:var(--warns);color:var(--warnfg)">Decide today · 7 days old</span></sc-if></div>
+<sc-if value="{{q.act}}"><div class="xr x8"><button class="tap btn sec xf1" type="button" aria-pressed="{{q.declP}}" onClick="{{q.decline}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg>Decline</button><button class="tap btn pri" type="button" onClick="{{q.approve}}" style="flex:1.5"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Approve</button></div></sc-if>
+<sc-if value="{{q.declOpen}}"><div class="xc x8 fadein"><span class="xm xb">Why? The teacher gets this reason on the app.</span><div class="xr xw x6"><sc-for list="{{q.reasons}}" as="r"><button class="tap chip" type="button" onClick="{{r.pick}}">{{r.label}}</button></sc-for></div></div></sc-if>
+<sc-if value="{{q.stamp}}"><span class="xstamp" style="color:{{q.sc}};border-color:{{q.sc}}">{{q.st}}</span></sc-if>
+</div>
+</sc-for>
+<sc-if value="{{co.none}}"><div class="card fadein xc xp2" style="align-items:center;gap:10px;padding:32px 24px;text-align:center"><svg width="72" height="72" viewBox="0 0 96 96" aria-hidden="true" style="animation:xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .2s var(--ease) both"></path></svg><span class="xt">No requests waiting</span><span class="xm">New requests from teachers show up here.</span></div></sc-if>
+<div class="card xc xp2"><span class="sech" style="margin-bottom:6px">History · who did what</span>
+<div class="xst"><sc-for list="{{co.hist}}" as="h"><div class="xr x12 xd" style="padding:10px 0;align-items:flex-start">
+<span class="xi" style="width:30px;height:30px;border-radius:15px;background:{{h.bg}};color:{{h.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{h.icon}}"></path></svg></span>
+<span class="xc xf"><span class="xs"><b>{{h.verb}}</b> · {{h.what}}</span><span class="xm">{{h.who}}</span></span>
+</div></sc-for></div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ CLASS REGISTER ============ -->
+<sc-if value="{{is.reg}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="card xr xw xp2" style="gap:14px 18px">
+<span class="xi" style="width:48px;height:48px;border-radius:14px;background:var(--accs);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.table}}"></path></svg></span>
+<span class="xc xf" style="min-width:220px;gap:2px"><span class="xh">{{rg.title}}</span><span class="xm">{{rg.sub}}</span></span>
+<div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));width:240px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{mseg.thumb}})"></span><sc-for list="{{mseg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+</div>
+<div class="xr xw x8 xj">
+<div class="hs xr x6"><sc-for list="{{rg.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}<span class="num" style="opacity:.7">{{c.n}}</span></button></sc-for></div>
+<div class="xr xw xm" style="gap:6px 12px"><sc-for list="{{rg.legend}}" as="l"><span class="xr x6"><i class="xdt" style="width:11px;height:11px;background:{{l.bg}};border:{{l.bd}}"></i>{{l.t}}</span></sc-for></div>
+</div>
+<sc-if value="{{rg.hasNm}}"><div class="xno" style="background:var(--warns);color:var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="margin-top:1px" aria-hidden="true"><path d="{{ic.alert}}"></path></svg><span>{{rg.nmNote}}</span></div></sc-if>
+<div class="only-d card xoh">
+<div class="xrg xbb" style="grid-template-columns:{{rg.cols}};background:var(--s2);min-height:46px">
+<span class="sech">Child</span>
+<sc-for list="{{rg.head}}" as="h"><span class="xc xtc num" style="line-height:1.1;color:{{h.c}};background:{{h.bg}};border-radius:4px;padding:3px 0"><b class="x11">{{h.d}}</b><span style="font-size:9px">{{h.w}}</span></span></sc-for>
+<span class="sech xtr">%</span>
+</div>
+<div class="xst"><sc-for list="{{rg.rows}}" as="c"><div class="xrg row xd" style="grid-template-columns:{{rg.cols}};min-height:34px">
+<span class="xr x8 xn0"><span class="num xm xb" style="width:18px">{{c.roll}}</span><span class="xs x6w xe">{{c.name}}</span></span>
+<sc-for list="{{c.cells}}" as="d"><span class="xdc" title="{{d.t}}" style="background:{{d.cbg}}"><i style="background:{{d.bg}};border:{{d.bd}}"></i></span></sc-for>
+<span class="num xb xs xtr" style="color:{{c.tone}}">{{c.pct}}</span>
+</div></sc-for></div>
+</div>
+<div class="only-m card xoh"><div class="xst"><sc-for list="{{rg.rows}}" as="c"><div class="xr x10 xd" style="padding:10px 14px;min-height:56px">
+<span class="num xm xb" style="width:20px">{{c.roll}}</span>
+<span class="xc xf x6"><span class="x6w xe x15">{{c.name}}</span><span class="xmini" aria-label="{{c.cnt}}"><sc-for list="{{c.strip}}" as="d"><i style="background:{{d.bg}};border:{{d.bd}}"></i></sc-for></span></span>
+<span class="xc" style="align-items:flex-end"><span class="num xb x15" style="color:{{c.tone}}">{{c.pct}}</span><span class="xm num">{{c.cnt}}</span></span>
+</div></sc-for></div></div>
+<sc-if value="{{rg.empty}}"><div class="card fadein xc" style="align-items:center;gap:8px;padding:32px 24px;text-align:center"><span class="xt">Nobody in this list</span><button class="tap btn sec" type="button" onClick="{{rg.showAll}}">Show all 31 children</button></div></sc-if>
+</div>
+</sc-if>
+</main>
+
+<div class="only-m xfn"><dc-import name="XNav" active="none" role="academic" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ REMIND SHEET ============ -->
+<sc-if value="{{sh.remind}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{rm.title}}">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{rm.title}}</span><span class="xm xs">{{rm.sub}}</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<sc-if value="{{rm.any}}">
+<sc-for list="{{rm.list}}" as="t"><button class="tap xopt" type="button" role="checkbox" aria-checked="{{t.on}}" onClick="{{t.toggle}}" style="border:{{t.bd}};background:{{t.bg}}">
+<span class="xchk" style="background:{{t.cb}};border-color:{{t.cbd}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px;stroke-width:3;opacity:{{t.op}}" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span>
+<span class="xa" style="background:{{t.abg}};color:{{t.afg}}">{{t.ini}}</span>
+<span class="xc xf"><span class="x6w">{{t.name}}</span><span class="xm">{{t.sub}}</span></span>
+</button></sc-for>
+<div class="xwa"><span class="xb x11" style="color:var(--wafg);opacity:.7">{{rm.waTo}}</span><div><div style="white-space:pre-line">{{rm.hi}}</div><div style="white-space:pre-line;margin-top:6px;opacity:.78">{{rm.en}}</div><div class="xtr x11" style="opacity:.6">9:41 am</div></div></div>
+<div class="card xc" style="padding:0 14px;box-shadow:none"><sc-for list="{{rm.facts}}" as="f"><div class="xfa xd"><span class="xmu">{{f.k}}</span><span class="num xb xtr">{{f.v}}</span></div></sc-for></div>
+<span class="xm">You can undo for a few seconds after sending.</span>
+</sc-if>
+<sc-if value="{{rm.none}}"><div class="xc fadein" style="align-items:center;gap:8px;padding:24px 0;text-align:center"><svg width="72" height="72" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .1s var(--ease) both"></path></svg><span class="xt">Every class is marked</span><span class="xm">Nobody needs a reminder today.</span></div></sc-if>
+</div>
+<div class="xsf"><button class="tap btn sec xf1" type="button" onClick="{{closeSheet}}">Cancel</button><sc-if value="{{rm.any}}"><button class="tap btn pri" type="button" onClick="{{rm.go}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{rm.ok}}</button></sc-if></div>
+</section>
+</sc-if>
+
+<!-- ============ MARK FOR THEM (Class 9) ============ -->
+<sc-if value="{{sh.mark}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet wide {{sh.state}}" role="dialog" aria-label="Mark Class 9">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">Mark Class 9 for Mr. Meena</span><span class="xm xs">He is on leave today. Everyone starts as Present — tap a child to change.</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<div class="xr xw x8"><sc-for list="{{mk.counts}}" as="k"><span class="pill num" style="height:30px;padding:0 12px;font-size:13px;background:{{k.bg}};color:{{k.fg}}">{{k.t}}</span></sc-for><span class="xm">Tap: Present → Absent → Leave</span></div>
+<div class="xkg">
+<sc-for list="{{mk.kids}}" as="k"><button class="tap xopt" type="button" aria-label="{{k.aria}}" onClick="{{k.tap}}" style="min-height:52px;border:1px solid {{k.bd}};background:{{k.bg}}">
+<span class="num xm xb" style="width:20px">{{k.roll}}</span><span class="xf x6w xe">{{k.name}}</span>
+<span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:{{k.pbg}};color:{{k.pfg}};animation:{{k.anim}}">{{k.st}}</span>
+</button></sc-for>
+</div>
+</div>
+<div class="xsf"><button class="tap btn sec xf1" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{mk.save}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{mk.ok}}</button></div>
+</section>
+</sc-if>
+
+<!-- ============ CALL PARENTS ============ -->
+<sc-if value="{{sh.call}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{cl.title}}">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{cl.title}}</span><span class="xm xs">{{cl.sub}}</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<button class="tap btn {{cl.dialCls}}" type="button" onClick="{{cl.dial}}" style="height:54px;font-size:16px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>{{cl.dialLabel}}</button>
+<sc-if value="{{cl.hasNote}}"><div class="xno xc" style="gap:3px;background:var(--s2);color:var(--fg)"><span class="xm xb">Last note</span><span>“{{cl.note}}”</span><span class="xm">{{cl.noteBy}}</span></div></sc-if>
+<span class="sech">How did it go?</span>
+<div class="xr xw x8"><sc-for list="{{cl.outs}}" as="o"><button class="tap chip {{o.cls}}" type="button" role="radio" aria-checked="{{o.pr}}" onClick="{{o.pick}}" style="height:42px"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{o.icon}}"></path></svg>{{o.label}}</button></sc-for></div>
+<sc-if value="{{cl.hasHint}}"><div class="xno fadein" style="background:var(--infos);color:var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top:1px" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{cl.hint}}</span></div></sc-if>
+<label class="field"><span>Note (optional)</span><textarea class="inp" value="{{cl.note2}}" onChange="{{cl.onNote}}" placeholder="For example: mother says he will come from Monday" style="min-height:72px"></textarea></label>
+<span class="xm">The call is saved on {{cl.first}}’s record so the class teacher sees it too.</span>
+</div>
+<div class="xsf"><button class="tap btn sec xf1" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{cl.save}}" style="flex:1.6;opacity:{{cl.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Save call</button></div>
+</section>
+</sc-if>
+
+<!-- ============ HELP ============ -->
+<sc-if value="{{sh.help}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="Help">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{hp.title}}</span><span class="xm xs">3 quick steps · मदद</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb xst"><sc-for list="{{hp.steps}}" as="p"><div class="xr x14" style="padding:6px 0">
+<span class="xi xrl" style="width:64px;height:64px;border-radius:20px;background:{{p.bg}};color:{{p.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:28px;height:28px" aria-hidden="true"><path d="{{p.icon}}"></path></svg><span class="xi num xb" style="position:absolute;top:-6px;left:-6px;width:24px;height:24px;border-radius:12px;background:var(--pri);color:var(--prifg);font-size:12px">{{p.n}}</span></span>
+<span class="xc xf"><span class="xt">{{p.t}}</span><span class="xm" style="line-height:1.5">{{p.s}}</span></span>
+</div></sc-for></div>
+<div class="xsf"><button class="tap btn pri xf1" type="button" onClick="{{closeSheet}}">Got it</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size:14px;line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["today","remind","mark","month","chronic","call","corrections","register"],"default":"today"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+/*VX_ICONS*/
+IC.note='M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4zM4 4h8M4 8h5';
+const hs=(x)=>{let h=2166136261;for(let i=0;i<x.length;i++){h^=x.charCodeAt(i);h=Math.imul(h,16777619);}h^=h>>>15;h=Math.imul(h,2246822507);h^=h>>>13;h=Math.imul(h,3266489909);h^=h>>>16;return(h>>>0)/4294967296;};
+// class | class teacher | children | present,absent,leave (- = not saved) | saved at | came late
+const CL='Nursery|Ms. Kanwar|18|16,1,1|8:41|0;LKG|Ms. Rathore|20|18,2,0|8:44|1;UKG|Ms. Mehta|22|21,1,0|8:47|0;Class 1|Ms. Jain|23|22,1,0|8:38|1;Class 2|Ms. Vyas|25|23,1,1|8:50|0;Class 3|Ms. Sharma|24|22,2,0|8:46|1;Class 4|Mr. Verma|29|-|-|0;Class 5|Ms. Paliwal|26|25,1,0|8:55|2;Class 6|Ms. Bhati|31|29,2,0|8:52|0;Class 7|Mr. Choudhary|27|25,1,1|8:49|1;Class 8|Mr. Solanki|28|26,2,0|8:58|2;Class 9|Mr. Meena|28|-|-|0;Class 10|Ms. Dave|30|28,1,1|8:43|1;11 Science|Mr. Trivedi|22|20,2,0|9:02|1;11 Commerce|Mr. Purohit|18|17,1,0|9:05|0;11 Arts|Ms. Chouhan|14|12,1,1|9:00|0;12 Science|Mr. Bhatt|20|19,1,0|8:57|1;12 Commerce|Ms. Kothari|17|16,0,1|9:04|0;12 Arts|Mr. Rawal|12|11,1,0|9:08|0'.split(';').map((row)=>{const a=row.split('|');const c=a[3]==='-'?null:a[3].split(',').map(Number);return{name:a[0],t:a[1],n:+a[2],r:c?{p:c[0],a:c[1],l:c[2],time:a[4],by:a[1]}:null,late:+a[5]};});
+const C6='Aadhya Jain,Aarav Kumawat,Ananya Vyas,Arjun Gurjar,Bhavya Paliwal,Chirag Mehta,Divya Rathore,Gaurav Choudhary,Harshita Dave,Ishaan Purohit,Jiya Kothari,Kabir Solanki,Khushi Sharma,Om Regar,Manav Joshi,Naina Chouhan,Nikhil Meena,Palak Agarwal,Pari Sen,Pranav Rawal,Riya Singh,Rohan Sharma,Saanvi Kumawat,Sahil Gurjar,Sneha Vyas,Tanish Jain,Tanya Paliwal,Utkarsh Mehta,Vani Rathore,Yash Dave,Zoya Khan'.split(',');
+const FIRST='Aditya Arjun Kabir Rudra Harsh Dev Laksh Parth Krish Hemant Ananya Aditi Kavya Isha Meera Nidhi Priya Ritika Tanya Bhavna Jhanvi Muskan Payal Deepak Sonal'.split(' ');
+const SUR='Sharma Jain Mehta Paliwal Kumawat Rathore Choudhary Vyas Purohit Solanki Dave Trivedi Chouhan Kothari Rawal Joshi Singh Regar Gurjar'.split(' ');
+const C9=(()=>{const seen={'Mohit Agarwal':1,'Raju Sen':1};const out=['Mohit Agarwal','Raju Sen'];for(let i=0;out.length<28&&i<600;i++){const nm=FIRST[Math.floor(hs('f'+i)*FIRST.length)]+' '+SUR[Math.floor(hs('s'+i)*SUR.length)];if(!seen[nm]){seen[nm]=1;out.push(nm);}}return out.sort();})();
+// name | class | class teacher | session % | absent-in-a-row | last note | note by | parent | phone | last 10 school days
+const CH='Vikas Meena|12 Arts|Mr. Rawal|62|0|Works at his uncle’s shop in the mornings. Father promised he will come every day.|Mr. Rawal · Mon 28 Sep · Working on it|Father · Ramprasad Meena|98290 ••274|PAAPAPPAPP;Sunita Gurjar|Class 3|Ms. Sharma|66|4|||Mother · Kamla Gurjar|98290 ••163|APPAPPAAAA;Om Regar|Class 6|Ms. Bhati|68|3|Absent 3 days, father says grandmother is unwell — call again Friday.|Ms. Bhati · Tue 6 Oct · Working on it|Father · Mangilal Regar|98290 ••437|PAPPAPPAAA;Heena Chouhan|UKG|Ms. Mehta|69|1|Often unwell — mother says it is asthma. Doctor visit fixed for Saturday.|Ms. Mehta · Thu 1 Oct · Open|Mother · Sushila Chouhan|98290 ••518|PPAPLAPPPA;Kartik Gurjar|Class 8|Mr. Solanki|70|2|Helps the family in the fields during harvest.|Mr. Solanki · Mon 5 Oct · Open|Father · Bhagwan Gurjar|98290 ••390|PPAPPAPPAA;Lakshya Bhati|Class 5|Ms. Paliwal|71|0|||Father · Narendra Bhati|98290 ••652|APPAPAPLPP;Nikhil Meena|Class 6|Ms. Bhati|72|1|Comes late on Mondays — lives far and misses the Route 2 bus.|Ms. Bhati · Mon 5 Oct · Open|Father · Ramesh Meena|98290 ••781|PAPPPAPPPA;Raju Sen|Class 9|Mr. Meena|73|0|||Father · Kishan Sen|98290 ••905|PPAPAPPPAP;Payal Kumawat|11 Arts|Ms. Chouhan|74|0|||Mother · Geeta Kumawat|98290 ••146|PPAPPPAPPP'.split(';').map((r)=>{const a=r.split('|');return{name:a[0],cls:a[1],t:a[2],pct:+a[3],streak:+a[4],note:a[5],noteBy:a[6],parent:a[7],phone:a[8],rec:a[9]};});
+// id | teacher | class | child | day | from | to | reason | asked | effect | urgent
+const RQ='r1|Ms. Bhati|Class 6|Pari Sen|Wed 7 Oct|A|P|She came at 10:15 after a doctor visit. I had already saved attendance before she reached.|Today 8:58|Her October goes from 80% to 100%|0;r2|Mr. Choudhary|Class 7|Aarav Sharma|Mon 5 Oct|A|L|His father Rakesh Sharma sent a leave note for a family wedding. It reached me a day late.|Yesterday 4:10 pm|Shows as leave with the father’s note|0;r3|Ms. Dave|Class 10|Aarti Kumawat|Tue 6 Oct|A|L|She was at the district handball trial for the school. This is school-duty leave.|Yesterday 1:30 pm|Shows as school-duty leave|0;r4|Mr. Solanki|Class 8|Neha Joshi|Thu 1 Oct|P|A|I tapped the wrong name. Neha was absent that day.|Mon 5 Oct 3:20 pm|Her October drops by one day · parents are not messaged|1'.split(';').map((r)=>{const a=r.split('|');return{id:a[0],t:a[1],cls:a[2],child:a[3],day:a[4],from:a[5],to:a[6],why:a[7],asked:a[8],eff:a[9],urgent:a[10]==='1'};});
+const MON={
+oct:{label:'October',hi:'अक्टूबर',short:'Oct',days:31,dow0:4,upto:8,hol:{2:'Gandhi Jayanti',20:'Dussehra'},nm:{3:2},pct:{1:95.8,3:89.6,5:93.0,6:92.4,7:93.6},dip:{3:'Last exam day — many seniors had no paper. Class 6 and 11 Arts did not press Save, so they are left out, never counted as present.'}},
+sep:{label:'September',hi:'सितंबर',short:'Sep',days:30,dow0:2,upto:30,hol:{4:'Janmashtami'},nm:{},pct:{1:93.1,2:94.0,3:92.6,5:91.2,7:93.4,8:94.1,9:92.8,10:93.9,11:91.7,12:90.4,14:86.4,15:91.9,16:93.2,17:94.4,18:92.1,19:88.1,21:92.7,22:93.5,23:96.2,24:96.8,25:96.4,26:95.9,28:96.6,29:97.1,30:96.3},dip:{14:'Heavy rain — the Route 2 bus (Kelwa) did not run.',19:'Viral fever going round in the primary classes.'}}
+};
+const OV={'Om Regar':{1:'P',5:'P',6:'A',7:'A',8:'A'},'Pari Sen':{1:'P',5:'P',6:'P',7:'A'},'Nikhil Meena':{1:'P',5:'P',6:'P',8:'A'}};
+const RATE={'Om Regar':0.68,'Nikhil Meena':0.74,'Pari Sen':0.9};
+const LOG0=[['Mr. Rawal saved 12 Arts · 11 of 12 present','9:08','ok'],['Ms. Bhati asked to change Pari Sen · Wed 7 Oct','8:58','info'],['Ms. Bhati saved Class 6 · 29 of 31 present','8:52','ok'],['Janmejay approved Mr. Meena’s leave for today','Wed 7 Oct','warn']];
+this._d={IC,hs,CL,C6,C9,CH,RQ,MON,OV,RATE,LOG0,WD:['Sun','Mon','Tue','Wed','Thu','Fri','Sat']};
+return this._d;
+}
+
+st(){
+const p=this.props||{};
+const base={scr:'today',anim:'none',sheet:'',closing:false,toast:null,hi:false,marked:{},rem:{},pick:{v:1,b:1},mk:{},tf:'all',mon:'oct',day:8,cf:'all',calls:{},callFor:'Om Regar',outc:'',cnote:'',dialed:false,dec:{},leav:{},decl:'',rf:'all',hlog:[]};
+const map={remind:{sheet:'remind'},mark:{sheet:'mark'},month:{scr:'month'},chronic:{scr:'chronic'},call:{scr:'chronic',sheet:'call',callFor:'Om Regar'},corrections:{scr:'corr'},register:{scr:'reg'}};
+return Object.assign(base,map[p.start]||{},this.state||{});
+}
+
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.setState({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.setState({toast:null});},4500);
+}
+undoToast(){const f=this._undo;this._undo=null;this.setState({toast:null});if(f)f();}
+openSheet(name,extra){clearTimeout(this._ct);this.setState(Object.assign({sheet:name,closing:false},extra||{}));}
+closeSheet(){
+if(!this.st().sheet)return;
+this.setState({closing:true});
+clearTimeout(this._ct);
+this._ct=setTimeout(()=>this.setState({sheet:'',closing:false}),240);
+}
+
+renderVals(){
+const D=this.data();const s=this.st();const IC=D.IC;const scr=s.scr;
+const S=(o)=>this.setState(o);const T=(m,u)=>this.toast(m,u);const C=()=>this.st();
+const V=(n)=>'var(--'+n+')';const A=(o,p)=>Object.assign({},o,p);
+const hi=!!s.hi;const L=(en,h)=>(hi?h:en);
+const sum=(a,f)=>a.reduce((x,k)=>x+f(k),0);
+const p1=(v)=>v.toFixed(1)+'%';
+const ring=(p)=>{const l=Math.max(0.5,263.9*Math.min(100,p)/100);return{dash:l.toFixed(1)+' 263.9',len:l.toFixed(1)};};
+const TONES=[['accs','accfg'],['infos','info'],['oks','ok'],['warns','warnfg'],['s3','fg']];
+const av=(x)=>{const t=TONES[Math.floor(D.hs(x)*5)];return{abg:V(t[0]),afg:V(t[1]),ini:x.replace(/^(Mr|Ms)\. /,'').split(' ').map((w)=>w[0]).slice(0,2).join('')};};
+const chip=(on,pick,o)=>A({cls:on?'on':'',pr:String(on),pick},o);
+const segO=(on,pick,o)=>A({cls:on?'tap on':'tap',pr:String(on),pick},o);
+const dl=(i)=>(Math.min(i,12)*40)+'ms';
+const lg=(a)=>a.map((l)=>({text:l[0],time:l[1],dot:V(l[2])}));
+const NOW='9:41';
+const ST={P:['Present','oks','ok','ok'],A:['Absent','bads','bad','bad'],L:['Leave','warns','warnfg','warn'],N:['Not marked','s2','mut','bds']};
+const anims={push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both',fade:'xIn .3s var(--ease) both',none:'none'};
+const go=(k)=>()=>S({scr:k,anim:'push'});
+
+// ---------- today ----------
+const cls=D.CL.map((k)=>A(k,{r:s.marked[k.name]||k.r}));
+const done=cls.filter((k)=>k.r);const left=cls.filter((k)=>!k.r);
+const P=sum(done,(k)=>k.r.p);const Ab=sum(done,(k)=>k.r.a);const Lv=sum(done,(k)=>k.r.l);const inM=sum(done,(k)=>k.n);const tot=sum(cls,(k)=>k.n);const lateN=sum(done,(k)=>k.late);
+const todayPct=inM?P/inM*100:0;
+const byCls=(n)=>cls.filter((k)=>k.name===n)[0];
+const TG=[{key:'v',name:'Mr. Verma',cls:'Class 4',sub:'Class 4 · class teacher · has not opened the app today',hi:'नमस्ते सर,\nकक्षा 4 की आज (गुरुवार 8 अक्टूबर) की हाज़िरी अभी सेव नहीं हुई है। कृपया ऐप में हाज़िरी लगाकर Save दबाएँ।\n— आशा पुरोहित, शैक्षणिक समन्वयक',en:'Class 4 attendance for today (Thu 8 Oct) is not saved yet. Please mark it in the app and press Save.'},{key:'b',name:'Ms. Bhati',cls:'Class 9',sub:'Class 9 · Mr. Meena is on leave · she is free in Period 4',hi:'नमस्ते मैडम,\nश्री मीणा आज छुट्टी पर हैं। कृपया कक्षा 9 की आज की हाज़िरी लगाकर Save दबाएँ — आप चौथे पीरियड में खाली हैं।\n— आशा पुरोहित, शैक्षणिक समन्वयक',en:'Mr. Meena is on leave today. Please mark Class 9 attendance and press Save — you are free in Period 4.'}].filter((t)=>!byCls(t.cls).r);
+const todo=TG.filter((t)=>!s.rem[t.key]);
+const openRemind=(pick)=>()=>this.openSheet('remind',{pick});
+const tCount=(n)=>n+(n===1?' teacher':' teachers');
+const tiles=cls.filter((k)=>(s.tf==='all'||(s.tf==='nm'?!k.r:!!k.r))).map((k,i)=>{
+const r=k.r;const isLv=k.name==='Class 9'&&!r;
+const t={time:r?r.time:'',name:k.name,anim:(r&&r.fresh?'xPopIn .5s var(--spring) both':'xIn .32s var(--ease) both'),mk:!!r,nm:!r&&!isLv,lv:isLv,bc:V('bd'),bs:'solid',bg:V('card'),who:k.t,ibg:V('s2'),ifg:V('mut'),icon:IC.clock};
+if(r){
+Object.assign(t,{who:r.by===k.t?k.t:'Saved by '+r.by,ibg:V('oks'),ifg:V('ok'),icon:IC.check,pres:r.p+'/'+k.n,sub:[r.a?r.a+' absent':'',r.l?r.l+' leave':''].filter((x)=>x).join(' · ')||'Everyone present',parts:[['p','ok'],['a','bad'],['l','warn']].map((x)=>({w:(r[x[0]]/k.n*100).toFixed(1)+'%',c:V(x[1])}))});
+}else if(isLv){
+const asked=s.rem.b;
+Object.assign(t,{who:'Mr. Meena · on leave',bc:V('warnm'),bg:V('warns'),ibg:V('card'),ifg:V('warnfg'),icon:IC.user,lvLine:asked?'Ms. Bhati was asked at '+asked+' · she will mark in Period 4':'Nobody has marked yet. Mark it yourself or ask a free teacher.',acls:asked?'soft':'sec',aicon:asked?IC.checkCircle:IC.send,alabel:asked?'Ms. Bhati asked':'Ask Ms. Bhati',
+markIt:()=>this.openSheet('mark',{mk:{}}),ask:()=>(C().rem.b?T('Ms. Bhati was asked at '+C().rem.b+' · you can still mark it yourself'):openRemind({v:0,b:1})())});
+}else{
+const done1=s.rem.v;
+Object.assign(t,{bc:V('bds'),bs:'dashed',bg:V('s2'),rcls:done1?'soft':'sec',ricon:done1?IC.checkCircle:IC.bell,rlabel:done1?'Reminded '+done1:'Remind',remind:()=>(C().rem.v?T('Mr. Verma was reminded at '+C().rem.v+' · waiting for him to save'):openRemind({v:1,b:0})())});
+}
+return t;
+});
+const td={
+ring:ring(done.length/cls.length*100),rc:left.length?V('acc'):V('ok'),ringTxt:done.length+'/'+cls.length,ringSub:L('classes','कक्षाएँ'),
+title:left.length?L(done.length+' of '+cls.length+' classes marked',cls.length+' में से '+done.length+' कक्षाओं की हाज़िरी लगी'):L('All 19 classes marked','सभी 19 कक्षाओं की हाज़िरी लगी'),
+titleSub:left.length?left.length+' not saved yet: '+left.map((k)=>k.name+' ('+(k.name==='Class 9'?'Mr. Meena on leave':k.t)+')').join(', '):'Every class teacher pressed Save. Nice work, everyone.',
+presLabel:L('Present today','आज उपस्थित'),pct:p1(todayPct),pctSub:P+' of '+inM+' in marked classes',
+parts:[['Present',P,'ok'],['Absent',Ab,'bad'],['Leave',Lv,'warn'],['Not marked',tot-inM,'bds']].map((x)=>({label:x[0],n:String(x[1]),w:(x[1]/tot*100).toFixed(2)+'%',c:V(x[2])})),
+hasLeft:TG.length>0,remCls:todo.length?'pri':'soft',remIcon:todo.length?IC.send:IC.checkCircle,
+remLabel:todo.length?L('Remind '+tCount(todo.length),todo.length+' शिक्षकों को याद दिलाएँ'):'Reminded · waiting',
+remindAll:()=>(todo.length?openRemind({v:todo.some((t)=>t.key==='v')?1:0,b:todo.some((t)=>t.key==='b')?1:0})():T('Reminders went out at '+NOW+' · tiles turn green when teachers save')),
+kpis:[['Present',P,p1(todayPct)+' of marked','ok'],['Absent',Ab,'in '+done.length+' classes','bad'],['On leave',Lv,'with a reason','warn'],['Came late',lateN,'counted present','info']].map((k,i)=>({label:k[0],value:String(k[1]),sub:k[2],c:V(k[3]),dl:dl(i)})),
+secLabel:L('Classes today','आज की कक्षाएँ'),
+chips:[['all','All',cls.length,'bds'],['nm','Not marked',left.length,'mut'],['mk','Marked',done.length,'ok']].map((c)=>chip(s.tf===c[0],()=>S({tf:c[0]}),{label:c[1],n:String(c[2]),dot:V(c[3])})),
+tiles,late:String(lateN),lateRows:[['Route 2 bus (Kelwa) 15 min late','6 children'],['Walked in after 8:15','5 children']].map((x)=>({k:x[0],v:x[1]})),
+log:lg(s.hlog).concat(lg(D.LOG0)).slice(0,6)
+};
+
+// ---------- month ----------
+const M=D.MON[s.mon];const isOct=s.mon==='oct';
+const pctOf=(d)=>(isOct&&d===8?todayPct:(M.pct[d]||0));
+const dayList=(m)=>{const out=[];for(let d=1;d<=m.days;d++){const dow=(m.dow0+d-1)%7;out.push({d,dow,kind:m.hol[d]?'hol':(dow===0?'sun':(d>m.upto?'fut':'day')),hol:m.hol[d]||''});}return out;};
+const days=dayList(M);
+const school=days.filter((x)=>x.kind==='day');
+const vals=school.map((x)=>pctOf(x.d));
+const avg=vals.reduce((a,b)=>a+b,0)/Math.max(1,vals.length);
+const best=school.slice().sort((a,b)=>pctOf(b.d)-pctOf(a.d))[0];const worst=school.slice().sort((a,b)=>pctOf(a.d)-pctOf(b.d))[0];
+const dname=(x)=>D.WD[x.dow]+' '+x.d+' '+M.short;
+const nmDays=Object.keys(M.nm).reduce((a,k)=>a+M.nm[k],0)+(isOct?left.length:0);
+const selD=days.filter((x)=>x.d===s.day)[0]||school[school.length-1];
+const isToday=(x)=>isOct&&x.d===8;
+const bars=days.map((x,i)=>{
+const v=x.kind==='day'?pctOf(x.d):0;const dip=x.kind==='day'&&v<90&&!isToday(x);
+return{bar:x.kind==='day',hol:x.kind==='hol',fut:x.kind==='fut',dip,v:p1(v),h:Math.max(3,(v-80)/20*100).toFixed(1)+'%',c:V(isToday(x)?'acc':(dip?'c3':'c2')),sel:s.day===x.d?'0 0 0 2px var(--card), 0 0 0 4px var(--fg)':'none',dl:(i*16)+'ms',gl:x.hol,
+dn:String(x.d),lk:(x.d===1||x.d%7===1)?'xk':'',lc:V(x.kind==='day'?'mut':'sub'),pr:String(s.day===x.d),
+aria:dname(x)+' · '+(x.kind==='day'?p1(v)+' present':(x.kind==='hol'?'Holiday · '+x.hol:(x.kind==='sun'?'Sunday':'Not yet'))),pick:()=>S({day:x.d})};
+});
+const selV=selD.kind==='day'?pctOf(selD.d):0;
+const selLook=selD.kind==='day'?(isToday(selD)?['accs','accfg','clock']:(selV<90?['warns','warnfg','alert']:['oks','ok','check'])):['s3','mut','calendar'];
+const mo={
+title:L(M.label+' 2026 · school attendance',M.hi+' 2026 · स्कूल की हाज़िरी'),
+note:isOct?'October so far · '+school.length+' school days · tap a bar to see the day':'Full month · '+school.length+' school days · tap a bar to see the day',
+kpis:[['Average',p1(avg),school.length+' school days','fg'],['Best day',p1(pctOf(best.d)),dname(best),'ok'],['Lowest day',p1(pctOf(worst.d)),dname(worst),'warnfg'],['Class-days not saved',String(nmDays),'never counted as present',nmDays?'bad':'fg']].map((k,i)=>({label:k[0],value:k[1],sub:k[2],tone:V(k[3]),dl:dl(i)})),
+bars,
+legend:[['Normal day','c2'],['Dip (below 90%)','c3'],['Today, so far','acc'],['Holiday','s3']].filter((l)=>isOct||l[1]!=='acc').map((l)=>({t:l[0],c:V(l[1])})),
+sel:{title:dname(selD)+(isToday(selD)?' · today':''),bg:V(selLook[0]),fg:V(selLook[1]),icon:IC[selLook[2]],
+v:selD.kind==='day'?p1(selV):(selD.kind==='hol'?'Holiday':(selD.kind==='sun'?'Sunday':'—')),
+sub:selD.kind==='day'?(isToday(selD)?done.length+' of 19 classes saved so far · classes not marked are left out':(M.nm[selD.d]?(19-M.nm[selD.d])+' of 19 classes saved · '+M.nm[selD.d]+' left out':'All 19 classes saved'))+(M.dip[selD.d]?' · '+M.dip[selD.d]:''):(selD.kind==='hol'?selD.hol+' · school closed':(selD.kind==='sun'?'School closed':'This day has not come yet'))},
+notes:school.filter((x)=>pctOf(x.d)<90&&!isToday(x)).map((x)=>({when:dname(x),v:p1(pctOf(x.d)),why:M.dip[x.d]||'Lower than usual.',icon:IC.alert,bg:V('warns'),fg:V('warnfg')})).concat(days.filter((x)=>x.kind==='hol').map((x)=>({when:dname(x),v:'Holiday',why:x.hol+' · school closed, not counted',icon:IC.calendar,bg:V('s2'),fg:V('mut')}))),
+rankSub:'average · '+M.label
+};
+
+// ---------- register (Class 6) ----------
+const r1ok=s.dec.r1&&s.dec.r1.v==='ok';
+const reg=(nm,d)=>{
+if(isOct){if(d===3)return 'N';if(nm==='Pari Sen'&&d===7&&r1ok)return 'P';const o=(D.OV[nm]||{})[d];if(o)return o;if(d===7||d===8)return 'P';}
+const rate=D.RATE[nm]||(0.9+D.hs(nm)*0.09);
+return D.hs(nm+s.mon+d)<rate?'P':(D.hs(nm+d+'l')<0.35?'L':'A');
+};
+const dotLook=(v)=>({bg:v==='N'?'transparent':V(ST[v][3]),bd:v==='N'?'2px solid var(--bds)':'0'});
+const lastDay=school[school.length-1];
+const rAll=D.C6.map((nm,i)=>{
+const c={P:0,A:0,L:0,N:0};
+const cells=days.map((x)=>{if(x.kind!=='day')return{cbg:x.kind==='fut'?'transparent':V('s2'),bg:'transparent',bd:'0',t:dname(x)+(x.hol?' · '+x.hol:(x.kind==='sun'?' · Sunday':''))};const v=reg(nm,x.d);c[v]+=1;return A(dotLook(v),{cbg:'transparent',t:dname(x)+' · '+ST[v][0]});});
+const md=c.P+c.A+c.L;const pct=md?c.P/md*100:0;
+return{roll:String(i+1),name:nm,cells,strip:school.map((x)=>dotLook(reg(nm,x.d))),pct:Math.round(pct)+'%',pv:pct,tone:V(pct<75?'bad':(pct<90?'warnfg':'ok')),cnt:c.P+' P · '+c.A+' A'+(c.L?' · '+c.L+' L':''),low:pct<75,abs:reg(nm,lastDay.d)==='A'};
+});
+const c6avg=rAll.reduce((a,r)=>a+r.pv,0)/rAll.length;
+const rRows=rAll.filter((r)=>s.rf==='all'||(s.rf==='low'?r.low:r.abs));
+const hasNm=isOct;
+const rg={
+title:L('Class 6 · '+M.label,'कक्षा 6 · '+M.hi),sub:'Ms. Kavita Bhati · 31 children · class average '+p1(c6avg)+(isOct?' · October so far':''),
+cols:'190px repeat('+days.length+', minmax(0, 1fr)) 50px',
+head:days.map((x)=>({d:String(x.d),w:D.WD[x.dow].slice(0,2),c:V(x.kind==='day'?'mut':'sub'),bg:x.kind==='hol'||x.kind==='sun'?V('s3'):'transparent'})),
+rows:rRows,empty:!rRows.length,showAll:()=>S({rf:'all'}),
+chips:[['all','All',rAll.length],['low','Below 75%',rAll.filter((r)=>r.low).length],['abs','Absent '+(isOct?'today':'on '+lastDay.d+' '+M.short),rAll.filter((r)=>r.abs).length]].map((c)=>chip(s.rf===c[0],()=>S({rf:c[0]}),{label:c[1],n:String(c[2])})),
+legend:[['Present','P'],['Absent','A'],['Leave','L'],['Not marked','N']].map((l)=>A(dotLook(l[1]),{t:l[0]})).concat([{t:'Holiday / Sunday',bg:V('s3'),bd:'0'}]),
+hasNm,nmNote:'Sat 3 Oct was not saved by the class teacher. It shows as an empty ring and is never counted as present.'
+};
+mo.rank=D.CL.map((k)=>{const v=k.name==='Class 6'?c6avg:(k.name==='Class 9'?(isOct?86.9:88.6):89+D.hs(k.name+s.mon)*8);return{k,v};}).sort((a,b)=>b.v-a.v).map((x,i)=>({n:String(i+1),name:x.k.name,t:x.k.t,v:p1(x.v),w:x.v.toFixed(1)+'%',c:V(x.v<90?'c3':'c2'),tc:V(x.v<90?'warnfg':'fg'),dl:dl(i)}));
+
+// ---------- below 75% ----------
+const chAll=D.CH.map((c,i)=>{
+const call=s.calls[c.name];const a=av(c.name);
+return A(a,{name:c.name,cls:c.cls+' · '+c.t,pct:c.pct+'%',tone:V(c.pct<70?'bad':'warnfg'),streak:c.streak?'Absent '+c.streak+(c.streak===1?' day':' days in a row'):(c.cls==='Class 9'?'Today not marked yet':'Came today'),sbg:V(c.streak>=2?'bads':(c.streak?'warns':'oks')),sfg:V(c.streak>=2?'bad':(c.streak?'warnfg':'ok')),
+dots:c.rec.split('').map((v)=>({c:V(ST[v][3]),t:ST[v][0]})),hasNote:!!c.note,noNote:!c.note,note:c.note,noteBy:c.noteBy,parent:c.parent+' · '+c.phone,
+hasCall:!!call,callLine:call?'Called '+call.time+' · '+call.label:'',callCls:call?'sec':'pri',callLabel:call?'Call again':'Call parents',
+call:()=>this.openSheet('call',{callFor:c.name,outc:'',cnote:'',dialed:false}),away:c.streak>=2,called:!!call,dl:dl(i)});
+});
+const chRows=chAll.filter((c)=>s.cf==='all'||(s.cf==='away'?c.away:!c.called));
+const ch={
+title:L(D.CH.length+' children below 75%','75% से कम हाज़िरी वाले '+D.CH.length+' बच्चे'),rows:chRows,empty:!chRows.length,showAll:()=>S({cf:'all'}),
+chips:[['all','All',chAll.length],['away','Absent 2+ days now',chAll.filter((c)=>c.away).length],['nocall','Not called yet',chAll.filter((c)=>!c.called).length]].map((c)=>chip(s.cf===c[0],()=>S({cf:c[0]}),{label:c[1],n:String(c[2])}))
+};
+const cc=D.CH.filter((c)=>c.name===s.callFor)[0]||D.CH[2];
+const OUT=[['come','Will come tomorrow','calCheck','We will check tomorrow’s attendance for you.'],['ill','Child is unwell','alert','Ask for a doctor’s note when the child is back.'],['none','No answer','phone','Try again after 4 pm. The class teacher can also try.'],['fam','Family function','users','Remind them that 75% is needed to sit the annual exam.'],['meet','Will come to meet us','user','Add the meeting to the calendar so the class teacher can join.']];
+const oSel=OUT.filter((o)=>o[0]===s.outc)[0];
+const first=cc.name.split(' ')[0];
+const cl={
+title:'Call '+first+'’s family',sub:cc.parent+' · '+cc.cls+' · '+cc.pct+'% this session',first,
+dialCls:s.dialed?'soft':'pri',dialLabel:s.dialed?'Calling '+cc.phone+' from your phone…':'Call '+cc.phone,dial:()=>{S({dialed:true});T('Calling '+cc.parent.split(' · ')[1]+' from your phone');},
+hasNote:!!cc.note,note:cc.note,noteBy:cc.noteBy,
+outs:OUT.map((o)=>chip(s.outc===o[0],()=>S({outc:o[0]}),{label:o[1],icon:IC[o[2]]})),hasHint:!!oSel,hint:oSel?oSel[3]:'',
+note2:s.cnote,onNote:(e)=>S({cnote:e.target.value}),op:oSel?'1':'0.55',
+save:()=>{const c=C();const o=OUT.filter((x)=>x[0]===c.outc)[0];if(!o){T('Pick how the call went first');return;}const before={calls:c.calls,hlog:c.hlog};S({calls:A(c.calls,{[cc.name]:{label:o[1],time:NOW}}),hlog:[['You called '+cc.name+'’s family · '+o[1],NOW,'info']].concat(c.hlog)});this.closeSheet();T('Call saved · '+cc.name+' · '+o[1],()=>S(before));}
+};
+
+// ---------- change requests ----------
+const LBL={P:'Present',A:'Absent',L:'Leave'};
+const rq=D.RQ.filter((q)=>!s.dec[q.id]||s.leav[q.id]);
+const decide=(q,v,why)=>()=>{const c=C();const before={dec:c.dec,leav:c.leav,decl:c.decl};S({dec:A(c.dec,{[q.id]:{v,why:why||'',t:'just now'}}),leav:A(c.leav,{[q.id]:true}),decl:''});clearTimeout(this._lv);this._lv=setTimeout(()=>this.setState({leav:{}}),1500);T(v==='ok'?'Approved · '+q.child+' is now '+LBL[q.to]+' on '+q.day:'Declined · '+q.t+' will see your reason',()=>{clearTimeout(this._lv);S(before);});};
+const co={
+waitLabel:L('Waiting for you · '+D.RQ.filter((q)=>!s.dec[q.id]).length,'आपके फ़ैसले का इंतज़ार · '+D.RQ.filter((q)=>!s.dec[q.id]).length),
+open:rq.map((q,i)=>{const d=s.dec[q.id];const lv=!!(d&&s.leav[q.id]);const a=av(q.child);const F=ST[q.from];const To=ST[q.to];
+return A(a,{child:q.child,cls:q.cls,day:q.day,fromL:LBL[q.from],toL:LBL[q.to],fbg:V(F[1]),ffg:V(F[2]),tbg:V(To[1]),tfg:V(To[2]),why:q.why,by:'Asked by '+q.t+' (class teacher) · '+q.asked,eff:q.eff,urgent:q.urgent&&!d,
+act:!d&&s.decl!==q.id,declOpen:!d&&s.decl===q.id,declP:String(s.decl===q.id),decline:()=>S({decl:C().decl===q.id?'':q.id}),approve:decide(q,'ok'),
+reasons:['Need a note from parents','Too late to change','Talk to me first','Cancel'].map((r)=>({label:r,pick:r==='Cancel'?()=>S({decl:''}):decide(q,'no',r)})),
+stamp:lv,st:d&&d.v==='ok'?'APPROVED':'DECLINED',sc:V(d&&d.v==='ok'?'ok':'bad'),anim:lv?'xLeave .55s .95s var(--ease) forwards':'xIn .32s var(--ease) both;animation-delay:'+dl(i)});}),
+none:!rq.length,
+hist:D.RQ.filter((q)=>s.dec[q.id]&&!s.leav[q.id]).reverse().map((q)=>{const d=s.dec[q.id];const ok=d.v==='ok';return{verb:ok?'Approved':'Declined',what:q.child+' ('+q.cls+') · '+q.day+' · '+LBL[q.from]+' → '+LBL[q.to],who:'By you, Ms. Asha Purohit · '+d.t+' · asked by '+q.t+(d.why?' · “'+d.why+'”':''),bg:V(ok?'oks':'bads'),fg:V(ok?'ok':'bad'),icon:ok?IC.check:IC.x};}).concat([
+{verb:'Approved',what:'Kunal Verma (Class 4) · Sat 3 Oct · Absent → Present',who:'By Ms. Asha Purohit · Mon 5 Oct 11:20 · asked by Mr. Verma · came late with the Route 1 bus',bg:V('oks'),fg:V('ok'),icon:IC.check},
+{verb:'Declined',what:'Mohit Agarwal (Class 9) · Thu 1 Oct · Absent → Present',who:'By Ms. Asha Purohit · Sat 3 Oct 12:05 · asked by Mr. Meena · “Not on the exam hall list that day”',bg:V('bads'),fg:V('bad'),icon:IC.x}])
+};
+
+// ---------- remind sheet ----------
+const picked=TG.filter((t)=>s.pick[t.key]);const t0=picked[0]||TG[0];
+const rm={
+any:TG.length>0,none:!TG.length,
+title:picked.length===1&&t0.key==='b'?'Ask Ms. Bhati to mark Class 9?':'Remind '+tCount(picked.length)+'?',
+sub:'Teachers who have not pressed Save today',
+list:TG.map((t)=>{const on=!!s.pick[t.key];return A(av(t.name),{name:t.name+(s.rem[t.key]?' · reminded '+s.rem[t.key]:''),sub:t.sub,on:String(on),bd:on?'2px solid var(--acc)':'1px solid var(--bd)',bg:on?V('accs'):V('card'),cb:on?V('acc'):'transparent',cbd:on?V('acc'):V('bds'),op:on?'1':'0',toggle:()=>S({pick:A(C().pick,{[t.key]:C().pick[t.key]?0:1})})});}),
+waTo:t0?'Preview · to '+t0.name+(picked.length>1?' (each teacher gets their own class)':''):'',hi:t0?t0.hi:'',en:t0?t0.en:'',
+facts:[['To',tCount(picked.length)],['Cost','₹'+(picked.length*0.88).toFixed(2)+' · '+picked.length+' × ₹0.88'],['Sent through','AiSensy · WhatsApp']].map((f)=>({k:f[0],v:f[1]})),
+ok:picked.length?'Send '+picked.length+(picked.length===1?' reminder':' reminders'):'Pick a teacher',
+go:()=>{
+const c=C();const list=TG.filter((t)=>c.pick[t.key]);
+if(!list.length){T('Pick at least one teacher');return;}
+const before={rem:c.rem,hlog:c.hlog};const rem=A(c.rem,{});list.forEach((t)=>{rem[t.key]=NOW;});
+S({rem,hlog:[['You reminded '+list.map((t)=>t.name).join(' and ')+' on WhatsApp',NOW,'warn']].concat(c.hlog)});
+this.closeSheet();clearTimeout(this._sim);
+if(rem.v&&!c.marked['Class 4'])this._sim=setTimeout(()=>{const c2=this.st();if(!c2.rem.v||c2.marked['Class 4'])return;this.setState({marked:A(c2.marked,{'Class 4':{p:27,a:2,l:0,time:'9:46',by:'Mr. Verma',fresh:true}}),hlog:[['Mr. Verma saved Class 4 · 27 of 29 present','9:46','ok']].concat(c2.hlog)});this.toast('Mr. Verma saved Class 4 · 27 of 29 present');},5200);
+T('Sent to '+tCount(list.length)+' on WhatsApp · ₹'+(list.length*0.88).toFixed(2),()=>{clearTimeout(this._sim);S(before);});
+}
+};
+
+// ---------- mark Class 9 ----------
+const mStat=(i)=>s.mk[i]||'P';
+const mc={P:0,A:0,L:0};D.C9.forEach((n,i)=>{mc[mStat(i)]+=1;});
+const NEXT={P:'A',A:'L',L:'P'};
+const mk={
+counts:[['P','Present'],['A','Absent'],['L','Leave']].map((x)=>({t:mc[x[0]]+' '+x[1].toLowerCase(),bg:V(ST[x[0]][1]),fg:V(ST[x[0]][2])})),
+kids:D.C9.map((n,i)=>{const v=mStat(i);const X=ST[v];return{roll:String(i+1),name:n,st:X[0],pbg:V(X[1]),pfg:V(X[2]),bd:v==='P'?V('bd'):V(X[3]),bg:v==='P'?V('card'):V(X[1]),anim:v==='P'?'none':'xPopIn .3s var(--spring) both',aria:n+' · '+X[0]+' · tap to change',tap:()=>S({mk:A(C().mk,{[i]:NEXT[mStat(i)]})})};}),
+ok:'Save attendance · '+mc.P+' present',
+save:()=>{const c=C();const before={marked:c.marked,hlog:c.hlog};S({marked:A(c.marked,{'Class 9':{p:mc.P,a:mc.A,l:mc.L,time:NOW,by:'you (for Mr. Meena)',fresh:true}}),hlog:[['You saved Class 9 for Mr. Meena · '+mc.P+' of 28 present',NOW,'ok']].concat(c.hlog)});this.closeSheet();T('Saved. Class 9 now counts as marked · '+mc.P+' of 28 present',()=>S(before));}
+};
+
+// ---------- help ----------
+const HELP={
+today:['Attendance today',[['calCheck','Watch the ring','It fills as each class teacher presses Save. Grey tiles are not marked yet.'],['bell','Remind in one tap','Send a WhatsApp nudge to teachers who have not saved. You can undo.'],['user','Teacher on leave?','Mark the class yourself, or ask a free teacher to do it.']]],
+month:['This month',[['chart','One bar = one school day','Gaps are holidays. Sundays are left empty.'],['alert','Amber bars are dips','The reason is written under the chart.'],['search','Tap a bar','See that day’s numbers and how many classes saved.']]],
+chronic:['Below 75%',[['alert','The list builds itself','Children under 75% this session show up here every morning.'],['phone','Call the family','Pick how the call went — it is saved on the child’s record.'],['note','Plan help','Add a note or open progress to plan support with the class teacher.']]],
+corr:['Change requests',[['edit','Teachers ask here','They can ask to change a day in the last 7 days.'],['check','Approve or decline','Read the reason first. Declining sends your reason to the teacher.'],['clock','Nothing is lost','The history keeps who changed what, and when.']]],
+reg:['Class register',[['table','One dot = one child, one day','Rows are children, columns are days.'],['info','Colours','Green present, red absent, amber leave, empty ring not marked.'],['shield','Not marked is not present','Days the teacher did not save never count as present.']]]
+};
+const hp0=HELP[scr]||HELP.today;
+const hp={title:hp0[0],steps:hp0[1].map((x,i)=>({n:String(i+1),icon:IC[x[0]],t:x[1],s:x[2],bg:V(['accs','infos','oks'][i]),fg:V(['accfg','info','ok'][i])}))};
+
+// ---------- chrome ----------
+const TABS=[['today','calCheck','Today','आज'],['month','chart','Month','महीना'],['chronic','alert','< 75%','75% से कम',String(D.CH.length)],['corr','edit','Changes','बदलाव',String(D.RQ.filter((q)=>!s.dec[q.id]).length)],['reg','table','Register','रजिस्टर']];
+const tIdx=Math.max(0,TABS.map((t)=>t[0]).indexOf(scr));
+const TT={today:['Attendance today','आज की हाज़िरी',done.length+' of 19 marked · '+p1(todayPct)+' present'],month:['This month','इस महीने की हाज़िरी',M.label+' · average '+p1(avg)],chronic:['Below 75%','75% से कम हाज़िरी',D.CH.length+' children · this session'],corr:['Change requests','हाज़िरी में बदलाव',D.RQ.filter((q)=>!s.dec[q.id]).length+' waiting for you'],reg:['Class 6 register','कक्षा 6 रजिस्टर',M.label+' · 31 children']};
+const tt=TT[scr]||TT.today;
+const ACTS={
+today:[],
+month:[['Download '+M.short+' report','download','sec',()=>T('Attendance-'+M.label+'-2026.pdf saved')]],
+chronic:[['Share list with class teachers','send','sec',()=>T('List shared with '+D.CH.length+' class teachers in the app')]],
+corr:[],
+reg:[['Print register','printer','sec',()=>T('Class 6 register · '+M.label+' sent to the office printer')]]
+};
+const top={crumb:'Academics · Thu 8 Oct',title:L(tt[0],tt[1]),mSub:tt[2],mLink:scr==='today',back:scr!=='today',acts:(ACTS[scr]||[]).map((a)=>({label:a[0],icon:IC[a[1]],cls:a[2],go:a[3]}))};
+const mOpts=[['sep','September','सितंबर'],['oct','October','अक्टूबर']];
+td.more=[['month','chart','infos','info',L('This month','इस महीने'),'October so far · average '+p1(avg)],['chronic','alert','bads','bad',L('Below 75%','75% से कम'),D.CH.length+' children · '+chAll.filter((c)=>c.away).length+' absent 2+ days now'],['corr','edit','warns','warnfg',L('Change requests','बदलाव के अनुरोध'),D.RQ.filter((q)=>!s.dec[q.id]).length+' waiting for you'],['reg','table','accs','accfg',L('Class 6 register','कक्षा 6 रजिस्टर'),'A dot for every child, every day']].map((m)=>({go:go(m[0]),icon:IC[m[1]],bg:V(m[2]),fg:V(m[3]),label:m[4],sub:m[5]}));
+if(!isOct)td.more[0].sub='Open to see October so far';
+
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',
+is:{today:scr==='today',month:scr==='month',chronic:scr==='chronic',corr:scr==='corr',reg:scr==='reg'},
+top,anim:anims[s.anim]||'none',
+back:()=>{const c=C();if(c.sheet){this.closeSheet();return;}S({scr:'today',anim:'pop'});},
+lang:{thumb:hi?'100%':'0%',opts:[['EN',false],['हि',true]].map((o)=>segO(hi===o[1],()=>S({hi:o[1]}),{label:o[0]}))},
+tabs:{thumb:(tIdx*100)+'%',opts:TABS.map((t)=>segO(scr===t[0],()=>S({scr:t[0],anim:'fade'}),{label:L(t[2],t[3]),icon:IC[t[1]],hasN:!!(t[4]&&t[4]!=='0'),n:t[4]||''}))},
+mseg:{thumb:isOct?'100%':'0%',opts:mOpts.map((o)=>segO(s.mon===o[0],()=>S({mon:o[0],day:o[0]==='oct'?8:14}),{label:L(o[1],o[2])}))},
+td,mo,ch,co,rg,
+rm:s.sheet==='remind'?rm:{},mk:s.sheet==='mark'?mk:{},cl:s.sheet==='call'?cl:{},hp,
+openHelp:()=>this.openSheet('help'),
+sh:{remind:s.sheet==='remind',mark:s.sheet==='mark',call:s.sheet==='call',help:s.sheet==='help',state:s.closing?'closing':'open'},closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Staff and roles</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.sf-c{display:flex;flex-direction:column}.sf-r{display:flex;align-items:center}.sf-w{flex-wrap:wrap}.sf-f{flex:1;min-width:0}.sf-m{color:var(--mut)}.sf-s{color:var(--mut);font-size:12px}
+.sf-11{font-size:11px}.sf-12{font-size:12px}.sf-13{font-size:13px}.sf-14{font-size:14px}.sf-15{font-size:15px}.sf-b{font-weight:700}.sf-6{font-weight:600}.sf-h{font-size:16px;font-weight:700}
+.sf-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}.sf-ic{flex:none;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px}
+.sf-el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sf-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.sf-bt{border:0;background:transparent;color:var(--fg);text-align:left;padding:0}
+.sf-note{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;font-size:13px;text-align:left;line-height:1.45}.sf-note svg{margin-top:1px}
+.sf-in{animation:xIn .32s var(--ease) both}.sf-pop{animation:xPopIn .4s var(--spring) both}.sf-i16{width:16px;height:16px}.sf-x{width:40px;height:40px;padding:0}
+.sf-srch{position:relative;display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--mut)}.sf-srch input{flex:1;min-width:0;height:36px;border:0;outline:none;background:transparent;font-size:14px}
+.sf-opt{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+.sf-wa{display:flex;flex-direction:column;align-items:flex-end;padding:12px;border-radius:14px;background:var(--wabg);animation:xIn .3s var(--ease) both}.sf-wa>div{max-width:92%;padding:8px 10px 6px;border-radius:10px 10px 2px 10px;background:var(--wab);color:var(--wafg);font-size:13px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12)}.sf-wa span{display:block}
+.sf-sbody{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:12px}.sf-sfoot{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.sf-sbar{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;gap:10px;padding:12px 28px;border-top:1px solid var(--bd)}
+.sf-row{display:grid;grid-template-columns:minmax(200px,1.5fr) minmax(150px,1.1fr) minmax(140px,1.1fr) 168px 104px;gap:10px;align-items:center;min-height:62px;padding:8px 16px}
+.sf-narrow .sf-row{grid-template-columns:minmax(0,1fr) 156px}.sf-narrow .sf-hx{display:none}
+.sf-mx{display:grid;grid-template-columns:minmax(210px,1.8fr) repeat(7,minmax(64px,1fr));gap:4px;align-items:center;padding:4px 12px 4px 16px}
+.sf-cell{height:42px;border:0;border-radius:10px;display:flex;align-items:center;justify-content:center;transition:background-color .25s ease,box-shadow .25s ease}
+.sf-rad{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center}.sf-rad>span{width:10px;height:10px;border-radius:5px;background:var(--acc);transition:transform .25s var(--spring)}
+@container vx (max-width:899px){.vx .sf-row{grid-template-columns:minmax(0,1fr) auto;padding:10px 14px}.vx .sf-hx{display:none}.vx .sf-sbar{padding:12px 16px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="staff" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div class="sf-c" style="flex: 1; min-width: 0; min-height: 0; position: relative">
+
+<!-- desktop top bar -->
+<header class="only-d glass sf-r" style="flex: none; height: 64px; gap: 12px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<div class="sf-c sf-f"><span class="sf-s">{{top.crumb}}</span><span class="serif sf-el" style="font-size: 22px; font-weight: 600; line-height: 1.15">{{top.title}}</span></div>
+<sc-if value="{{is.list}}"><label class="sf-srch" style="width: 280px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="sf-sr">Search staff</span><input type="search" value="{{q}}" onChange="{{onQ}}" placeholder="Name, class or subject"></label></sc-if>
+<button class="tap btn pri" type="button" onClick="{{invite}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.userPlus}}"></path></svg>Create login</button>
+</header>
+
+<!-- phone top bar -->
+<header class="only-m glass sf-r" style="flex: none; min-height: 58px; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+<sc-if value="{{top.mBackLink}}"><a href="F13-Menu.dc.html" class="tap sf-ic" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.mBackBtn}}"><button class="tap btn ghost" type="button" aria-label="Back to staff list" onClick="{{closePanel}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="sf-c sf-f" style="padding-left: 2px"><span class="sf-el" style="font-size: 17px; font-weight: 700">{{top.mTitle}}</span><span class="sf-s sf-el">{{top.mSub}}</span></span>
+<sc-if value="{{top.mBackLink}}"><button class="tap btn soft sf-13" type="button" onClick="{{invite}}" style="height: 40px; padding: 0 12px"><svg class="i sf-i16" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.userPlus}}"></path></svg>Add login</button></sc-if>
+</header>
+
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+
+<!-- ============ STAFF LIST + PROFILE ============ -->
+<sc-if value="{{is.list}}">
+<div class="stack" style="display: grid; grid-template-columns: {{split.cols}}; align-items: start; min-height: 100%">
+<section class="pad sf-c {{split.listCls}}" style="padding: 20px 28px 40px; gap: 14px; min-width: 0; animation: {{anim}}">
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 380px; max-width: 100%"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{vseg.thumb}})"></span><sc-for list="{{vseg.opts}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<div class="g4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="4"><button class="tap card rise sf-c" type="button" aria-pressed="{{k.pressed}}" onClick="{{k.pick}}" style="padding: 14px 16px; gap: 2px; text-align: left; color: var(--fg); border-color: {{k.bd}}; animation-delay: {{k.delay}}"><span class="sf-s sf-6">{{k.label}}</span><span class="num sf-b" style="font-size: 24px; color: {{k.tone}}">{{k.value}}</span><span class="sf-s">{{k.sub}}</span></button></sc-for>
+</div>
+<label class="only-m sf-srch" style="height: 46px; border-radius: 23px; border-color: var(--bds)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="sf-sr">Search staff</span><input type="search" value="{{q}}" onChange="{{onQ}}" placeholder="Name, class or subject" style="font-size: 16px"></label>
+<div class="hs" style="display: flex; gap: 6px">
+<sc-for list="{{roleChips}}" as="c" hint-placeholder-count="6"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}<span class="num" style="opacity: .65">{{c.n}}</span></button></sc-for>
+<span style="flex: none; width: 1px; background: var(--bd); margin: 4px 2px"></span>
+<sc-for list="{{statChips}}" as="c" hint-placeholder-count="4"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}<span class="num" style="opacity: .65">{{c.n}}</span></button></sc-for>
+</div>
+<sc-if value="{{any}}">
+<div class="card" style="overflow: hidden">
+<div class="sf-row hide-m" style="min-height: 42px; background: var(--s2); border-bottom: 1px solid var(--bd)"><span class="sech">Person</span><span class="sech sf-hx">Roles</span><span class="sech sf-hx">Classes · subjects</span><span class="sech">Login</span><span class="sech sf-hx" style="text-align: right">Actions</span></div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+<div class="row sf-row sf-in {{r.sel}}" style="border-top: {{r.border}}; animation-delay: {{r.delay}}">
+<button class="tap sf-bt sf-r" type="button" onClick="{{r.open}}" style="gap: 12px; min-width: 0; min-height: 44px"><span class="sf-av sf-12" style="width: 38px; height: 38px; background: {{r.abg}}; color: {{r.afg}}">{{r.ini}}</span><span class="sf-c" style="min-width: 0"><span class="sf-el sf-14 sf-6">{{r.name}}</span><span class="sf-s sf-el num hide-m">{{r.sub}}</span><span class="sf-s sf-el hide-d">{{r.roleTxt}}</span></span></button>
+<span class="sf-r sf-w sf-hx" style="gap: 4px"><sc-for list="{{r.roles}}" as="p" hint-placeholder-count="2"><span class="pill" style="background: {{p.bg}}; color: {{p.fg}}">{{p.label}}</span></sc-for></span>
+<span class="sf-13 sf-hx sf-el">{{r.teach}}</span>
+<span class="sf-c" style="gap: 2px; align-items: flex-start"><span class="pill" style="background: {{r.lbg}}; color: {{r.lfg}}; transition: background-color .3s ease"><span style="width: 6px; height: 6px; border-radius: 3px; background: currentColor"></span>{{r.lLabel}}</span><span class="sf-s hide-m">{{r.lSub}}</span></span>
+<span class="sf-r sf-hx" style="gap: 4px; justify-content: flex-end"><sc-for list="{{r.acts}}" as="a" hint-placeholder-count="2"><button class="tap btn {{a.cls}}" type="button" aria-label="{{a.aria}}" title="{{a.aria}}" onClick="{{a.go}}" style="height: 34px; padding: {{a.pad}}; font-size: 13px"><svg class="i sf-i16" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for><sc-if value="{{r.noNeed}}"><span class="sf-s">No login needed</span></sc-if></span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{none}}">
+<div class="card fadein sf-c" style="padding: 40px 24px; align-items: center; gap: 10px; text-align: center">
+<span class="sf-av" style="width: 56px; height: 56px; background: var(--s2); color: var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.users}}"></path></svg></span>
+<span class="sf-h">No one matches</span><span class="sf-m sf-13">Try another name, or clear the filters.</span>
+<button class="tap btn sec" type="button" onClick="{{clearAll}}">Show all staff</button>
+</div>
+</sc-if>
+</section>
+
+<sc-for list="{{panels}}" as="p" hint-placeholder-count="1">
+<aside class="unstick" style="position: sticky; top: 0; height: calc(100vh - 64px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--bg); animation: xPush .36s var(--ease) both">
+<div class="sf-c" style="padding: 18px 22px 28px; gap: 14px">
+<div class="only-d sf-r" style="justify-content: space-between"><span class="sech">Staff profile</span><button class="tap btn ghost sf-x" type="button" aria-label="Close profile" onClick="{{closePanel}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="sf-r" style="gap: 14px"><span class="sf-av serif sf-pop" style="width: 60px; height: 60px; font-size: 20px; background: {{p.abg}}; color: {{p.afg}}">{{p.ini}}</span><span class="sf-c sf-f" style="gap: 4px"><span class="serif" style="font-size: 24px; font-weight: 600; line-height: 1.15">{{p.name}}</span><span class="sf-s">{{p.title}}</span><span class="sf-r sf-w" style="gap: 4px"><sc-for list="{{p.roles}}" as="x" hint-placeholder-count="2"><span class="pill sf-pop" style="background: {{x.bg}}; color: {{x.fg}}">{{x.label}}</span></sc-for></span></span></div>
+<div class="card sf-c" style="padding: 2px 16px">
+<sc-for list="{{p.facts}}" as="f" hint-placeholder-count="3"><div class="sf-r" style="gap: 10px; padding: 10px 0; border-top: {{f.border}}"><svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{f.icon}}"></path></svg><span class="sf-s" style="width: 92px; flex: none">{{f.k}}</span><span class="sf-f sf-14 sf-6 num">{{f.v}}</span></div></sc-for>
+</div>
+<sc-if value="{{p.teaches}}">
+<div class="card sf-c" style="padding: 14px 16px; gap: 10px">
+<div class="sf-r" style="justify-content: space-between"><span class="sf-h">Timetable load</span><span class="num sf-13 sf-6">{{p.load}} of 48 periods</span></div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; align-items: end; height: 64px"><sc-for list="{{p.days}}" as="d" hint-placeholder-count="6"><div class="sf-c" style="height: 100%; justify-content: flex-end; align-items: center; gap: 4px"><span style="width: 100%; max-width: 28px; height: {{d.h}}; border-radius: 6px 6px 2px 2px; background: var(--c2); transform-origin: bottom; animation: xGrowY .5s var(--ease) both; animation-delay: {{d.delay}}"></span><span class="sf-11 sf-m">{{d.l}}</span></div></sc-for></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 10px; border-top: 1px solid var(--bd)"><sc-for list="{{p.leave}}" as="l" hint-placeholder-count="2"><div class="sf-c" style="gap: 6px"><span class="sf-s">{{l.k}}</span><span class="num sf-14 sf-b">{{l.v}}</span><div style="height: 6px; border-radius: 3px; background: var(--s3); overflow: hidden"><div style="height: 6px; width: {{l.w}}; border-radius: 3px; background: {{l.c}}; transition: width .5s var(--ease)"></div></div></div></sc-for></div>
+</div>
+</sc-if>
+<div class="card sf-c" style="padding: 14px 16px; gap: 10px">
+<div class="sf-r" style="gap: 10px"><span class="sf-ic" style="background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.key}}"></path></svg></span><span class="sf-h sf-f">Login</span><span class="pill sf-pop" style="background: {{p.lbg}}; color: {{p.lfg}}">{{p.lLabel}}</span></div>
+<sc-for list="{{p.lfacts}}" as="f" hint-placeholder-count="3"><div class="sf-r sf-13" style="justify-content: space-between; gap: 10px"><span class="sf-m">{{f.k}}</span><span class="sf-6 num" style="text-align: right">{{f.v}}</span></div></sc-for>
+<sc-if value="{{p.hasNote}}"><div class="sf-note" style="background: {{p.nbg}}; color: {{p.nfg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{p.note}}</span></div></sc-if>
+<div class="sf-r sf-w" style="gap: 8px"><sc-for list="{{p.acts}}" as="a" hint-placeholder-count="3"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.go}}" style="flex: 1 1 auto"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for></div>
+</div>
+<div class="card sf-c" style="padding: 14px 16px">
+<span class="sech" style="margin-bottom: 6px">Activity</span>
+<sc-for list="{{p.log}}" as="l" hint-placeholder-count="4"><div class="sf-in" style="display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; padding: 7px 0; animation-delay: {{l.delay}}"><span style="width: 10px; height: 10px; margin-top: 4px; border-radius: 5px; background: {{l.dot}}"></span><span class="sf-13">{{l.text}}</span><span class="sf-s num">{{l.time}}</span></div></sc-for>
+</div>
+</div>
+</aside>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- ============ ROLES & PERMISSIONS ============ -->
+<sc-if value="{{is.roles}}">
+<div class="sf-c" style="min-height: 100%; animation: {{anim}}">
+<div class="pad sf-c" style="flex: 1; padding: 20px 28px 28px; gap: 14px">
+<div class="seg" style="grid-template-columns: repeat(2, minmax(0, 1fr)); width: 380px; max-width: 100%"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / 2); transform: translateX({{vseg.thumb}})"></span><sc-for list="{{vseg.opts}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<div class="sf-note" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.shield}}"></path></svg><span><b>Who can do what.</b> Admin always has everything. Teachers never see fee amounts, so the Money rows stay off for them. Tap a permission name to see what it means.</span></div>
+
+<div class="only-d card" style="overflow: hidden">
+<div class="sf-mx" style="min-height: 58px; background: var(--s2); border-bottom: 1px solid var(--bd)"><span class="sech">Permission</span><sc-for list="{{rl.cols}}" as="c" hint-placeholder-count="7"><span class="sf-c" style="align-items: center; text-align: center; line-height: 1.2"><span class="sf-12 sf-b">{{c.label}}</span><span class="sf-11 sf-m num">{{c.n}}</span></span></sc-for></div>
+<sc-for list="{{rl.groups}}" as="g" hint-placeholder-count="4">
+<div class="sf-r" style="gap: 8px; padding: 12px 16px 6px; border-top: {{g.border}}"><span class="sech" style="color: var(--fg)">{{g.label}}</span><span class="sf-s">{{g.note}}</span></div>
+<sc-for list="{{g.rows}}" as="p" hint-placeholder-count="5">
+<div class="sf-mx row">
+<button class="tap sf-bt sf-c" type="button" aria-expanded="{{p.open}}" title="{{p.ex}}" onClick="{{p.why}}" style="padding: 6px 0"><span class="sf-r sf-14 sf-6" style="gap: 6px">{{p.label}}<svg class="i" viewBox="0 0 24 24" style="width: 14px; height: 14px; color: var(--sub)" aria-hidden="true"><path d="{{ic.help}}"></path></svg></span><sc-if value="{{p.isOpen}}"><span class="sf-s fadein">{{p.ex}}</span></sc-if></button>
+<sc-for list="{{p.cells}}" as="c" hint-placeholder-count="7"><button class="tap sf-cell" type="button" role="switch" aria-checked="{{c.on}}" aria-disabled="{{c.lock}}" aria-label="{{c.aria}}" title="{{c.tip}}" onClick="{{c.flip}}" style="background: {{c.bg}}; box-shadow: {{c.ring}}"><span class="sw {{c.cls}}" style="opacity: {{c.op}}"><span></span></span></button></sc-for>
+</div>
+</sc-for>
+</sc-for>
+</div>
+
+<div class="only-m sf-c" style="gap: 12px">
+<div class="hs" style="display: flex; gap: 6px"><sc-for list="{{rl.mChips}}" as="c" hint-placeholder-count="7"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<span class="sf-s">{{rl.mNote}}</span>
+<sc-for list="{{rl.groups}}" as="g" hint-placeholder-count="4">
+<span class="sech" style="margin-top: 4px">{{g.label}}</span>
+<div class="card" style="overflow: hidden"><sc-for list="{{g.rows}}" as="p" hint-placeholder-count="5"><button class="tap sf-r sf-bt" type="button" role="switch" aria-checked="{{p.m.on}}" aria-disabled="{{p.m.lock}}" onClick="{{p.m.flip}}" style="width: 100%; gap: 12px; padding: 12px 14px; border-top: {{p.border}}; background: {{p.m.bg}}; transition: background-color .25s ease"><span class="sf-c sf-f"><span class="sf-14 sf-6">{{p.label}}</span><span class="sf-s">{{p.ex}}</span></span><span class="sw {{p.m.cls}}" style="opacity: {{p.m.op}}"><span></span></span></button></sc-for></div>
+</sc-for>
+</div>
+
+<div class="card sf-c" style="padding: 14px 16px">
+<div class="sf-r" style="gap: 8px; margin-bottom: 6px"><span class="sech sf-f">Recent changes</span><span class="sf-s">Only Admin can change permissions</span></div>
+<sc-for list="{{rl.log}}" as="l" hint-placeholder-count="3"><div class="sf-in" style="display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; padding: 7px 0; animation-delay: {{l.delay}}"><span style="width: 10px; height: 10px; margin-top: 4px; border-radius: 5px; background: {{l.dot}}"></span><span class="sf-13">{{l.text}}</span><span class="sf-s num">{{l.time}}</span></div></sc-for>
+</div>
+</div>
+<sc-if value="{{rl.dirty}}">
+<div class="glass sf-sbar fadein">
+<span class="sf-av sf-pop num sf-13" style="width: 32px; height: 32px; background: var(--warn); color: var(--onsolid)">{{rl.n}}</span>
+<span class="sf-c sf-f"><span class="sf-14 sf-b">{{rl.count}}</span><span class="sf-s sf-el">{{rl.summary}}</span></span>
+<button class="tap btn ghost" type="button" onClick="{{rl.discard}}">Discard</button>
+<button class="tap btn pri" type="button" onClick="{{rl.save}}" style="padding: 0 20px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Save</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</main>
+
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="menu" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ SHEETS (one shell) ============ -->
+<sc-if value="{{sh.open}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{sh.title}}">
+<div class="grab"></div>
+<div class="sf-r" style="flex: none; gap: 12px; padding: 14px 20px 10px"><div class="sf-c sf-f" style="gap: 2px"><span class="serif" style="font-size: 22px; font-weight: 600; line-height: 1.2">{{sh.title}}</span><span class="sf-m sf-13">{{sh.sub}}</span></div><button class="tap btn ghost sf-x" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll sf-sbody">
+
+<sc-if value="{{sh.inv}}">
+<span class="sech">Who gets the login</span>
+<sc-for list="{{iv.people}}" as="o" hint-placeholder-count="3"><button class="tap sf-opt" type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="padding: 10px 14px; border: {{o.bd}}; background: {{o.bg}}"><span class="sf-rad" style="border-color: {{o.ring}}"><span style="transform: scale({{o.dot}})"></span></span><span class="sf-av sf-12" style="width: 34px; height: 34px; background: var(--s3)">{{o.ini}}</span><span class="sf-c sf-f"><span class="sf-14 sf-6">{{o.name}}</span><span class="sf-s">{{o.sub}}</span></span></button></sc-for>
+<sc-if value="{{iv.drvBtn}}"><button class="tap btn ghost sf-13" type="button" onClick="{{iv.showDrv}}" style="align-self: flex-start; height: 34px; margin: -4px 0 0 -6px; padding: 0 8px; color: var(--acc)">{{iv.drvLabel}}</button></sc-if>
+<div class="sf-r" style="gap: 12px; padding: 10px 14px; border-radius: 14px; background: var(--s2)"><svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{ic.phone}}"></path></svg><span class="sf-c sf-f"><span class="sf-s">Username · their phone number</span><span class="sf-15 sf-b num">{{iv.user}}</span></span><svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.lock}}"></path></svg></div>
+<span class="sech">Roles</span>
+<div class="sf-r sf-w" style="gap: 6px"><sc-for list="{{iv.roles}}" as="c" hint-placeholder-count="7"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+</sc-if>
+
+<sc-if value="{{sh.target}}"><div class="sf-r" style="gap: 12px; padding: 10px 14px; border-radius: 14px; background: var(--s2)"><span class="sf-av sf-12" style="width: 38px; height: 38px; background: {{tg.abg}}; color: {{tg.afg}}">{{tg.ini}}</span><span class="sf-c sf-f"><span class="sf-14 sf-6">{{tg.name}}</span><span class="sf-s num">{{tg.sub}}</span></span></div></sc-if>
+
+<sc-if value="{{sh.chr}}">
+<sc-for list="{{cr.roles}}" as="o" hint-placeholder-count="7"><button class="tap sf-opt" type="button" role="checkbox" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="padding: 10px 14px; border: {{o.bd}}; background: {{o.bg}}"><span class="sf-ic" style="width: 24px; height: 24px; border-radius: 7px; background: {{o.box}}; color: var(--onsolid)"><sc-if value="{{o.isOn}}"><svg class="i sf-pop" viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></span><span class="sf-c sf-f"><span class="sf-14 sf-6">{{o.label}}</span><span class="sf-s">{{o.sub}}</span></span></button></sc-for>
+<div class="sf-note" style="background: var(--s2); color: var(--fg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.shield}}"></path></svg><span>{{cr.can}}</span></div>
+</sc-if>
+
+<sc-if value="{{sh.pw}}">
+<span class="sech">Temporary password</span>
+<div class="sf-r" style="gap: 4px; padding: 8px 8px 8px 16px; border-radius: 14px; border: 1.5px dashed var(--bds); background: var(--card)">
+<sc-if value="{{pw.a}}"><span class="num sf-f sf-pop" style="font-size: 20px; font-weight: 700; letter-spacing: .06em">{{pw.text}}</span></sc-if>
+<sc-if value="{{pw.b}}"><span class="num sf-f sf-pop" style="font-size: 20px; font-weight: 700; letter-spacing: .06em">{{pw.text}}</span></sc-if>
+<button class="tap btn ghost sf-x" type="button" aria-label="{{pw.eyeLabel}}" onClick="{{pw.eye}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{pw.eyeIcon}}"></path></svg></button>
+<button class="tap btn ghost sf-x" type="button" aria-label="Copy password" onClick="{{pw.copy}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.copy}}"></path></svg></button>
+<button class="tap btn ghost sf-x" type="button" aria-label="Make a new password" onClick="{{pw.again}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.refresh}}"></path></svg></button>
+</div>
+<span class="sf-s">{{pw.note}}</span>
+</sc-if>
+
+<sc-if value="{{sh.reset}}"><button class="tap sf-opt" type="button" role="switch" aria-checked="{{rs.on}}" onClick="{{rs.toggle}}"><span class="sf-c sf-f"><span class="sf-14 sf-6">Sign out of other phones</span><span class="sf-s">Anyone using the old password is signed out now</span></span><span class="sw {{rs.cls}}"><span></span></span></button></sc-if>
+
+<sc-if value="{{sh.pw}}">
+<button class="tap sf-opt" type="button" role="switch" aria-checked="{{wa.on}}" onClick="{{wa.toggle}}"><span class="sf-ic" style="background: var(--oks); color: var(--ok)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.message}}"></path></svg></span><span class="sf-c sf-f"><span class="sf-14 sf-6">Send on WhatsApp</span><span class="sf-s num">{{wa.sub}}</span></span><span class="sw {{wa.cls}}"><span></span></span></button>
+<sc-if value="{{wa.show}}"><div class="sf-wa"><div><span>{{wa.hi}}</span><span style="margin-top: 6px; opacity: .78">{{wa.en}}</span></div></div></sc-if>
+</sc-if>
+
+<sc-if value="{{sh.deact}}">
+<div class="sf-note" style="background: var(--warns); color: var(--warnfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg><span><b>{{dx.impact}}</b> {{dx.more}}</span></div>
+<span class="sech">Why?</span>
+<sc-for list="{{dx.reasons}}" as="o" hint-placeholder-count="4"><button class="tap sf-opt" type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="padding: 10px 14px; border: {{o.bd}}; background: {{o.bg}}"><span class="sf-rad" style="border-color: {{o.ring}}"><span style="transform: scale({{o.dot}})"></span></span><span class="sf-14 sf-6">{{o.label}}</span></button></sc-for>
+</sc-if>
+
+<sc-if value="{{sh.done}}">
+<div class="sf-c" style="align-items: center; gap: 10px; text-align: center; padding: 8px 0 4px">
+<svg width="88" height="88" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="serif" style="font-size: 24px; font-weight: 600; line-height: 1.2">{{dn.title}}</span>
+<span class="sf-m sf-14">{{dn.sub}}</span>
+</div>
+<div class="card sf-c" style="padding: 2px 16px; box-shadow: none"><sc-for list="{{dn.rows}}" as="f" hint-placeholder-count="3"><div class="sf-r sf-13" style="justify-content: space-between; gap: 10px; padding: 10px 0; border-top: {{f.border}}"><span class="sf-m">{{f.k}}</span><span class="sf-6 num" style="text-align: right">{{f.v}}</span></div></sc-for></div>
+</sc-if>
+
+<sc-if value="{{sh.hasErr}}"><span class="sf-12 sf-6 fadein" style="color: var(--bad)">{{sh.err}}</span></sc-if>
+</div>
+<div class="sf-sfoot"><button class="tap btn sec" type="button" onClick="{{ft.secGo}}" style="flex: 1">{{ft.sec}}</button><button class="tap btn {{ft.cls}}" type="button" onClick="{{ft.go}}" style="flex: 1.4; opacity: {{ft.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ft.icon}}"></path></svg>{{ft.label}}</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="sf-14" style="line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["list","profile","roles","changes","invite","created","reset","deactivate"],"default":"list"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+data() {
+if (this._d) return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+const STAFF = `js|Janmejay Singh|Admin · principal’s office|a|Whole school|A|Online now|
+neelam|Ms. Neelam Sharma|Accountant|c|Fees and accounts|A|10 min ago|
+desk|Office desk|Shared counter login|f|Fee counter, front office|A|2 min ago|
+pratap|Mr. Pratap Singh|Trustee · read only|v|Reports only|A|Yesterday|
+kanwar|Ms. Sunita Kanwar|Class teacher · Nursery|ts|Nursery · all subjects|N||
+rathore|Ms. Rekha Rathore|Class teacher · LKG|ts|LKG · all subjects|A|1 h ago|
+mehta|Ms. Anjali Mehta|Class teacher · UKG|ts|UKG · all subjects|A|Today 8:10|
+jain|Ms. Priya Jain|Class teacher · Class 1|ts|Class 1 · English, EVS|A|Yesterday|
+vyas|Ms. Seema Vyas|Class teacher · Class 2|ts|Class 2 · Hindi, Maths|A|Today 8:02|
+msharma|Ms. Meenakshi Sharma|Class teacher · Class 3|ts|Class 3 · English, Maths|A|2 days ago|
+verma|Mr. Anil Verma|Class teacher · Class 4|ts|Class 4 · Maths 4–5|A|Today 8:20|
+paliwal|Ms. Usha Paliwal|Class teacher · Class 5|ts|Class 5 · EVS, Hindi|A|Today 7:58|
+bhati|Ms. Kavita Bhati|Class teacher · Class 6|ts|Class 6 · Science 6–8|A|10 min ago|
+choudhary|Mr. Vinod Choudhary|Class teacher · Class 7|ts|Class 7 · Social Science 6–8|A|25 min ago|
+solanki|Mr. Hemant Solanki|Class teacher · Class 8|ts|Class 8 · English 6–8|A|Today 8:41|
+meena|Mr. Rajendra Meena|Class teacher · Class 9 · on leave today|ts|Class 9 · Physics 9–12|A|Yesterday|
+dave|Ms. Nisha Dave|Class teacher · Class 10|ts|Class 10 · English 9–10|A|1 h ago|
+trivedi|Mr. Ashok Trivedi|Class teacher · 11 Science|tse|11 Science · Chemistry 11–12|A|5 min ago|
+purohit|Mr. Girish Purohit|Class teacher · 11 Commerce|ts|11 Commerce · Accountancy|A|Today 9:02|
+chouhan|Ms. Lata Chouhan|Class teacher · 11 Arts|ts|11 Arts · History|A|3 days ago|
+bhatt|Mr. Naveen Bhatt|Class teacher · 12 Science|ts|12 Science · Biology|A|Today 8:15|
+kothari|Ms. Shalini Kothari|Class teacher · 12 Commerce|ts|12 Commerce · Business Studies|A|Yesterday|
+rawal|Mr. Bhanu Rawal|Class teacher · 12 Arts|ts|12 Arts · Political Science|N||
+sen|Mr. Tarun Sen|Maths teacher|s|Maths 6–12|A|20 min ago|
+regar|Ms. Kiran Regar|Computer teacher · joined Mon 5 Oct|s|Computer 3–12|X||
+gurjar|Mr. Bhupendra Gurjar|PT and sports|s|PT · all classes|D|Fri 2 Oct|Lost phone
+joshi|Ms. Hema Joshi|Hindi teacher|s|Hindi 6–10|N||
+agarwal|Ms. Kanchan Agarwal|Art and music|s|Art, Music 1–8|D|Mon 21 Sep|On long leave till December
+bhairu|Mr. Bhairu Lal|Driver|d|Route 1 · Amet town|X||
+kishan|Mr. Kishan Meena|Driver|d|Route 2 · Kelwa|X||
+ratan|Mr. Ratan Lal Gurjar|Driver|d|Route 3 · Railmagra|X||
+shankar|Mr. Shankar Kumawat|Driver|d|Route 4 · Kunwariya|X||`.split('\n').map((l, i) => { const p = l.split('|'); return { i, id: p[0], name: p[1], title: p[2], roles: p[3], teach: p[4], login: p[5], seen: p[6], why: p[7] || '' }; });
+const ROLES = [['a', 'Admin', 'Everything, always'], ['c', 'Accountant', 'Money, reports and admissions'], ['t', 'Class teacher', 'Their class: attendance, marks, remarks'], ['s', 'Subject teacher', 'Marks for the subjects they teach'], ['e', 'Exam coordinator', 'Opens marks entry and publishes results'], ['f', 'Fee collector', 'Takes fees at the counter'], ['v', 'Viewer', 'Can look, can’t change anything']];
+const PERMS = [
+['Money', 'Teachers never see fee amounts', [['collect', 'Collect fee', 'Take money and print a receipt', 'acf'], ['reverse', 'Reverse a receipt', 'Cancel a wrong receipt with a reversal entry', 'ac'], ['close', 'Close the day', 'Count the cash and lock today’s receipts', 'acf'], ['setup', 'Fee setup', 'Change fee amounts, installments and discounts', 'a'], ['writeoff', 'Approve write-off', 'Let a family’s dues go, with a written reason', 'a']]],
+['Students', '', [['view', 'View students', 'See profiles and parent contacts', 'actsefv'], ['edit', 'Edit students', 'Fix names, addresses and phone numbers', 'act'], ['admit', 'Admit', 'Add a new child to the school', 'ac'], ['promote', 'Promote', 'Move a whole class up at session end', 'a']]],
+['Academics', '', [['mark', 'Mark attendance', 'Mark today’s attendance for their class', 'at'], ['past', 'Change past attendance', 'Edit attendance after it was submitted', 'a'], ['marks', 'Enter marks', 'Type exam marks for their subjects', 'atse'], ['publish', 'Publish results', 'Lock marks and share report cards', 'ae']]],
+['System', '', [['msg', 'Send messages', 'WhatsApp parents from the school number (costs money)', 'ac'], ['settings', 'Settings', 'School details, sessions and logins', 'a'], ['backups', 'Backups', 'Download or restore the school’s data', 'a']]]
+];
+const BASE = {};
+PERMS.forEach((g) => g[2].forEach((p) => ROLES.forEach((r) => { BASE[p[0] + '|' + r[0]] = p[3].indexOf(r[0]) >= 0; })));
+this._d = { IC, STAFF, ROLES, PERMS, BASE, PW: ['Amet-4821', 'Mewar-3907', 'Patta-5164', 'Kelwa-2738', 'Bagh-6052'] };
+return this._d;
+}
+
+st() {
+const p = this.props || {};
+const D = this.data();
+const chg = Object.assign({}, D.BASE, { 'msg|t': true, 'past|e': true, 'close|f': false });
+const base = {
+view: 'list', open: '', anim: 'none', q: '', role: 'all', stat: 'all', sheet: '', closing: false, who: 'bhati', inv: 'regar', invRoles: null, pwI: 0, pwShow: false,
+wa: true, drv: false, signout: true, done: false, reason: 'leave', chR: null, err: '', login: {}, roleOv: {}, logs: {}, saved: null, draft: null, rlog: [], why: '', mrole: 't', toast: null
+};
+const map = {
+profile: { open: 'bhati' }, roles: { view: 'roles' }, changes: { view: 'roles', draft: chg, mrole: 't' }, invite: { sheet: 'invite' },
+created: { sheet: 'invite', done: true, login: { regar: 'N' } }, reset: { open: 'solanki', sheet: 'reset', who: 'solanki' }, deactivate: { open: 'dave', sheet: 'deactivate', who: 'dave' }
+};
+return Object.assign(base, map[p.start || 'list'] || {}, this.state || {});
+}
+
+toast(text, undo) {
+const id = Date.now() + Math.random();
+this._undo = undo || null;
+this.setState({ toast: { id, text, undo: !!undo } });
+clearTimeout(this._tt);
+this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+}
+
+undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false, err: '', done: false, pwShow: false }, extra || {})); }
+
+closeSheet() {
+if (!this.st().sheet) return;
+this.setState({ closing: true });
+clearTimeout(this._ct);
+this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+}
+
+// write a change to one person with a history line, and offer Undo
+change(id, patch, line, msg) {
+const s = this.st();
+const before = { login: s.login, roleOv: s.roleOv, logs: s.logs };
+const logs = Object.assign({}, s.logs);
+logs[id] = [{ text: line, time: 'just now' }].concat(logs[id] || []);
+this.setState(Object.assign({ logs }, patch));
+this.toast(msg, () => this.setState(before));
+}
+
+renderVals() {
+const D = this.data();
+const s = this.st();
+const IC = D.IC;
+const V = (x) => 'var(--' + x + ')';
+const set = (o) => () => this.setState(o);
+const delay = (i) => (Math.min(i, 14) * 26) + 'ms';
+const TONES = [['accs', 'accfg'], ['infos', 'info'], ['oks', 'ok'], ['warns', 'warnfg'], ['s3', 'fg']];
+const ini = (n) => n.replace(/^(Mr|Ms)\. /, '').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+const pad3 = (n) => ('00' + (n % 1000)).slice(-3);
+const RN = {}; D.ROLES.forEach((r) => { RN[r[0]] = r[1]; }); RN.d = 'Driver';
+const RT = { a: ['accs', 'accfg'], c: ['infos', 'info'], t: ['oks', 'ok'], s: ['s3', 'fg'], e: ['warns', 'warnfg'], f: ['infos', 'info'], v: ['s3', 'mut'], d: ['s3', 'mut'] };
+const people = D.STAFF.map((p) => Object.assign({}, p, { roles: (s.roleOv || {})[p.id] !== undefined ? s.roleOv[p.id] : p.roles, login: (s.login || {})[p.id] || p.login }));
+const byId = (id) => people.filter((p) => p.id === id)[0];
+const first = (p) => (/^M[rs]\. /.test(p.name) ? p.name.split(' ')[1] : p.name.split(' ')[0]);
+const short = (p) => (/^M[rs]\. /.test(p.name) ? p.name.split(' ')[0] + ' ' + p.name.split(' ').slice(-1)[0] : p.name);
+const she = (p) => (p.name.indexOf('Ms.') === 0 ? ['She', 'her'] : (p.id === 'desk' ? ['The desk', 'its'] : ['He', 'his']));
+const phone = (p) => '98290 ••' + pad3(p.i * 67 + 305);
+const pills = (p) => p.roles.split('').map((r) => ({ label: RN[r], bg: V(RT[r][0]), fg: V(RT[r][1]) }));
+const LOOK = { A: ['Active', 'oks', 'ok'], N: ['Never signed in', 'warns', 'warnfg'], D: ['Disabled', 'bads', 'bad'], X: ['No login', 's3', 'mut'] };
+const isDriver = (p) => p.roles === 'd';
+const hasLogin = (p) => p.login !== 'X';
+const loginSub = (p) => ({ A: 'Last seen ' + p.seen.replace(/^([A-Z])/, (m) => m.toLowerCase()), N: 'Sent, not used yet', D: 'Since ' + p.seen, X: isDriver(p) ? 'Not needed' : 'Not set up' }[p.login]);
+const openSheet = (name, id, extra) => () => this.openSheet(name, Object.assign({ who: id, pwI: (this.st().pwI || 0) + 1 }, extra || {}));
+const enable = (p) => () => this.change(p.id, { login: Object.assign({}, this.st().login, { [p.id]: 'A' }) }, 'Login turned back on by Janmejay', short(p) + ' can sign in again');
+const actsFor = (p, full) => {
+if (p.login === 'D') return [{ label: 'Enable', aria: 'Turn ' + short(p) + '’s login back on', icon: IC.refresh, cls: 'soft', pad: '0 12px', go: enable(p) }];
+if (p.login === 'X') return isDriver(p) ? [] : [{ label: 'Create login', aria: 'Create a login for ' + short(p), icon: IC.userPlus, cls: 'soft', pad: '0 12px', go: openSheet('invite', p.id, { inv: p.id }) }];
+return [{ label: full ? 'Reset password' : '', aria: 'Reset password for ' + short(p), icon: IC.key, cls: full ? 'sec' : 'ghost', pad: full ? '0 14px' : '0 10px', go: openSheet('reset', p.id) }];
+};
+
+// ---------- filters + list ----------
+const RF = { all: () => true, office: (p) => /[acfv]/.test(p.roles), t: (p) => p.roles.indexOf('t') >= 0, s: (p) => p.roles.indexOf('s') >= 0, e: (p) => p.roles.indexOf('e') >= 0, d: isDriver };
+const SF = { all: () => true, L: hasLogin, N: (p) => p.login === 'N', D: (p) => p.login === 'D', X: (p) => p.login === 'X' };
+const q = (s.q || '').trim().toLowerCase();
+const shown = people.filter((p) => (RF[s.role] || RF.all)(p) && (SF[s.stat] || SF.all)(p) && (!q || (p.name + ' ' + p.title + ' ' + p.teach).toLowerCase().indexOf(q) >= 0));
+const cnt = (f) => String(people.filter(f).length);
+const chip = (key, cur, k, label, f) => ({ label, n: cnt(f), cls: cur === k ? 'on' : '', pressed: cur === k ? 'true' : 'false', pick: set({ [key]: k }) });
+const rows = shown.map((p, i) => {
+const L = LOOK[p.login];
+return {
+name: p.name, ini: ini(p.name), abg: V(TONES[p.i % 5][0]), afg: V(TONES[p.i % 5][1]), sub: isDriver(p) ? p.teach : phone(p), roleTxt: p.roles.split('').map((r) => RN[r]).join(' · '),
+roles: pills(p), teach: p.teach, lLabel: L[0], lbg: V(L[1]), lfg: V(L[2]), lSub: loginSub(p), acts: actsFor(p, false), noNeed: isDriver(p) && p.login === 'X',
+sel: s.open === p.id ? 'sel' : '', border: i ? '1px solid var(--bd)' : '0', delay: delay(i), open: () => this.setState({ open: p.id, anim: 'push' })
+};
+});
+const KP = [['Staff', 'all', String(people.length), '24 teachers · 4 office · 4 drivers', 'fg'], ['With login', 'L', cnt(hasLogin), people.filter((p) => p.login === 'A').length + ' active', 'fg'], ['Never signed in', 'N', cnt(SF.N), 'Send the login again', 'warnfg'], ['Disabled', 'D', cnt(SF.D), 'Records are kept', 'bad']];
+const kpis = KP.map((k, i) => ({ label: k[0], value: k[2], sub: k[3], tone: V(k[4]), delay: delay(i), pressed: s.stat === k[1] ? 'true' : 'false', bd: s.stat === k[1] && k[1] !== 'all' ? V('acc') : V('bd'), pick: set({ stat: k[1] }) }));
+
+// ---------- profile panel ----------
+const op = s.open ? byId(s.open) : null;
+const DEV = ['Android phone · Chrome', 'Android phone · VPPS One app', 'Office PC · Chrome', 'iPhone · Safari'];
+const panel = (p) => {
+const L = LOOK[p.login];
+const tch = /[ts]/.test(p.roles);
+const load = 22 + (p.i * 7) % 11;
+const pr = she(p);
+const base = [];
+if (p.login === 'A' && p.roles.indexOf('t') >= 0) base.push({ text: 'Marked ' + p.teach.split(' · ')[0] + ' attendance', time: 'Today 8:1' + (p.i % 10), dot: V('ok') });
+if (p.login === 'A' && tch) base.push({ text: 'Entered Half-yearly marks', time: 'Tue 6 Oct', dot: V('info') });
+if (p.roles.indexOf('e') >= 0) base.push({ text: 'Role added: Exam coordinator · by Janmejay', time: 'Wed 1 Jul', dot: V('warn') });
+if (/[cf]/.test(p.roles)) base.push({ text: 'Closed the day · receipts locked', time: 'Wed 7 Oct', dot: V('ok') });
+if (p.login === 'D') base.push({ text: 'Login disabled by Janmejay · ' + (p.why || 'no reason given'), time: p.seen, dot: V('bad') });
+if (p.login === 'N') base.push({ text: 'Login sent on WhatsApp by Janmejay', time: 'Mon 28 Sep', dot: V('warn') });
+base.push(hasLogin(p) ? { text: 'Login created by Janmejay', time: p.id === 'js' ? 'Apr 2026' : 'Wed 1 Jul', dot: V('acc') } : { text: 'Added to the staff list by Ms. Neelam Sharma', time: p.id === 'regar' ? 'Mon 5 Oct' : 'Apr 2026', dot: V('acc') });
+const extra = ((s.logs || {})[p.id] || []).map((l) => ({ text: l.text, time: l.time, dot: V('acc') }));
+const acts = p.login === 'X' ? actsFor(p, true).map((a) => Object.assign(a, { cls: 'pri' })) : (p.login === 'D' ? actsFor(p, true).map((a) => Object.assign(a, { label: 'Enable login', cls: 'pri' })) : actsFor(p, true));
+if (hasLogin(p) || !isDriver(p)) acts.push({ label: 'Change roles', icon: IC.shield, cls: 'sec', go: openSheet('roles', p.id, { chR: null }) });
+if (p.login === 'A' || p.login === 'N') acts.push({ label: 'Disable login', icon: IC.lock, cls: 'ghost', go: p.id === 'js' ? () => this.toast('You can’t disable your own login') : openSheet('deactivate', p.id, { reason: 'leave' }) });
+const notes = {
+N: [short(p) + ' has never signed in. Reset the password to send a fresh one on WhatsApp.', 'warns', 'warnfg'],
+D: ['Disabled by Janmejay · ' + (p.why || 'no reason given') + '. ' + pr[0] + ' can’t sign in; ' + pr[1] + ' records stay.', 'bads', 'bad'],
+X: isDriver(p) ? ['Drivers don’t need a login. Route changes reach them on WhatsApp.', 's2', 'mut'] : ['No login yet, so ' + short(p) + ' can’t open VPPS One.', 'infos', 'info']
+}[p.login];
+return {
+name: p.name, title: p.title, ini: ini(p.name), abg: V(TONES[p.i % 5][0]), afg: V(TONES[p.i % 5][1]), roles: pills(p),
+facts: [['Phone', phone(p), 'phone'], [isDriver(p) ? 'Route' : 'Works on', p.teach, isDriver(p) ? 'bus' : 'book'], ['Joined', p.id === 'regar' ? 'Mon 5 Oct 2026' : 'July ' + (2008 + p.i % 17), 'calendar']].map((f, i) => ({ k: f[0], v: f[1], icon: IC[f[2]], border: i ? '1px solid var(--bd)' : '0' })),
+teaches: tch, load: String(load),
+days: ['M', 'T', 'W', 'T', 'F', 'S'].map((d, j) => { const v = j === 5 ? 3 + (p.i % 2) : 4 + ((p.i + j * 3) % 4); return { l: d, h: Math.round(v / 8 * 100) + '%', delay: (j * 50) + 'ms' }; }),
+leave: [['Casual leave left', 12 - (p.i % 7), 12], ['Sick leave left', 10 - (p.i % 4), 10]].map((l) => ({ k: l[0], v: l[1] + ' of ' + l[2], w: Math.round(l[1] / l[2] * 100) + '%', c: l[1] / l[2] < 0.5 ? V('warn') : V('acc') })),
+lLabel: L[0], lbg: V(L[1]), lfg: V(L[2]),
+lfacts: hasLogin(p) ? [['Username', phone(p) + ' (phone)'], ['Last sign-in', p.login === 'N' ? 'Never' : p.seen], ['Device', p.login === 'N' ? '—' : (p.id === 'desk' || p.id === 'neelam' ? DEV[2] : DEV[p.i % 4])]].map((f) => ({ k: f[0], v: f[1] })) : [],
+hasNote: !!notes, note: notes ? notes[0] : '', nbg: notes ? V(notes[1]) : 'transparent', nfg: notes ? V(notes[2]) : 'inherit',
+acts, log: extra.concat(base).map((l, i) => Object.assign(l, { delay: (i * 50) + 'ms' }))
+};
+};
+
+// ---------- roles & permissions ----------
+const saved = s.saved || D.BASE;
+const draft = s.draft || saved;
+const locked = (pk, r) => (r === 'a' ? 'Admin always has every permission' : ((r === 't' || r === 's') && D.PERMS[0][2].some((x) => x[0] === pk) ? 'Teachers never see fee amounts' : ''));
+const changed = Object.keys(draft).filter((k) => !!draft[k] !== !!saved[k]);
+const labelOf = (pk) => { let l = pk; D.PERMS.forEach((g) => g[2].forEach((x) => { if (x[0] === pk) l = x[1]; })); return l; };
+const descr = (k) => { const a = k.split('|'); return (draft[k] ? 'On: ' : 'Off: ') + labelOf(a[0]) + ' for ' + RN[a[1]]; };
+const cell = (pk, r) => {
+const k = pk + '|' + r;
+const lk = locked(pk, r);
+const on = r === 'a' ? true : (lk ? false : !!draft[k]);
+const ch = changed.indexOf(k) >= 0;
+return {
+on: on ? 'true' : 'false', cls: on ? 'on' : '', lock: lk ? 'true' : 'false', op: lk ? '0.4' : '1', tip: lk || (labelOf(pk) + ' · ' + RN[r]), aria: labelOf(pk) + ' for ' + RN[r],
+bg: ch ? V('warns') : 'transparent', ring: ch ? 'inset 0 0 0 2px var(--warn)' : 'none',
+flip: () => { if (lk) { this.toast(lk); return; } const c = this.st(); const d = Object.assign({}, c.draft || c.saved || D.BASE); d[k] = !d[k]; this.setState({ draft: d }); }
+};
+};
+const holders = (r) => people.filter((p) => p.roles.indexOf(r) >= 0).length;
+const mr = D.ROLES.some((r) => r[0] === s.mrole) ? s.mrole : 't';
+const rl = {
+cols: D.ROLES.map((r) => ({ label: r[1], n: holders(r[0]) + (holders(r[0]) === 1 ? ' person' : ' people') })),
+groups: D.PERMS.map((g, gi) => ({
+label: g[0], note: g[1], border: gi ? '1px solid var(--bd)' : '0',
+rows: g[2].map((x, i) => ({ label: x[1], ex: x[2], isOpen: s.why === x[0], open: s.why === x[0] ? 'true' : 'false', why: () => this.setState({ why: this.st().why === x[0] ? '' : x[0] }), cells: D.ROLES.map((r) => cell(x[0], r[0])), m: cell(x[0], mr), border: i ? '1px solid var(--bd)' : '0' }))
+})),
+mChips: D.ROLES.map((r) => ({ label: r[1], cls: mr === r[0] ? 'on' : '', pressed: mr === r[0] ? 'true' : 'false', pick: set({ mrole: r[0] }) })),
+mNote: RN[mr] + ' · ' + holders(mr) + (holders(mr) === 1 ? ' person · ' : ' people · ') + D.ROLES.filter((r) => r[0] === mr)[0][2],
+dirty: changed.length > 0, n: String(changed.length), count: changed.length + (changed.length === 1 ? ' change' : ' changes'), summary: 'Not saved yet · ' + changed.slice(0, 3).map(descr).join(' · '),
+discard: () => { this.setState({ draft: null }); this.toast('Changes discarded'); },
+save: () => {
+const c = this.st();
+const before = { saved: c.saved, draft: c.draft, rlog: c.rlog };
+const lines = changed.map((k) => ({ text: 'Janmejay turned ' + (draft[k] ? 'on ' : 'off ') + labelOf(k.split('|')[0]) + ' for ' + RN[k.split('|')[1]], time: 'just now', dot: draft[k] ? V('ok') : V('bad') }));
+this.setState({ saved: Object.assign({}, draft), draft: null, rlog: lines.concat(c.rlog || []) });
+this.toast('Permissions saved · ' + changed.length + (changed.length === 1 ? ' change' : ' changes'), () => this.setState(before));
+},
+log: (s.rlog || []).concat([
+{ text: 'Janmejay turned off Fee setup for Accountant', time: 'Mon 14 Sep', dot: V('bad') },
+{ text: 'Janmejay gave Exam coordinator to Mr. Trivedi', time: 'Wed 1 Jul', dot: V('ok') },
+{ text: 'Janmejay added the Viewer role for trustees', time: 'Mon 15 Jun', dot: V('acc') }
+]).map((l, i) => Object.assign({}, l, { delay: (i * 50) + 'ms' }))
+};
+
+// ---------- sheets ----------
+const sh = s.sheet;
+const tp = byId(sh === 'invite' ? s.inv : s.who) || byId('bhati');
+const pwText = D.PW[(s.pwI || 0) % D.PW.length];
+const pwShown = s.pwShow ? pwText : '••••-••••';
+const noLogin = people.filter((p) => p.login === 'X');
+const invRoles = s.invRoles !== null && s.invRoles !== undefined ? s.invRoles : (tp.roles === 'd' ? '' : tp.roles);
+const chR = s.chR !== null && s.chR !== undefined ? s.chR : tp.roles.replace('d', '');
+const toggleIn = (str, r) => (str.indexOf(r) >= 0 ? str.replace(r, '') : str + r);
+const radio = (on) => ({ on: on ? 'true' : 'false', bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? V('accs') : V('card'), ring: on ? V('acc') : V('bds'), dot: on ? '1' : '0' });
+const rolesTxt = (str) => str.split('').map((r) => RN[r]).join(', ') || 'none';
+const iv = {
+people: noLogin.filter((p) => s.drv || !isDriver(p) || p.id === tp.id).map((p) => Object.assign(radio(p.id === tp.id), { name: p.name, ini: ini(p.name), sub: isDriver(p) ? p.teach + ' · drivers usually don’t need one' : p.title, pick: () => this.setState({ inv: p.id, invRoles: null, err: '' }) })),
+user: phone(tp), drvBtn: !s.drv && !isDriver(tp), drvLabel: 'Show ' + noLogin.filter(isDriver).length + ' drivers too (they usually don’t need a login)', showDrv: set({ drv: true }),
+roles: D.ROLES.map((r) => ({ label: r[1], cls: invRoles.indexOf(r[0]) >= 0 ? 'on' : '', pressed: invRoles.indexOf(r[0]) >= 0 ? 'true' : 'false', pick: () => this.setState({ invRoles: toggleIn(invRoles, r[0]), err: '' }) }))
+};
+const can = [];
+D.PERMS.forEach((g) => g[2].forEach((x) => { if (chR.split('').some((r) => r === 'a' || (!locked(x[0], r) && saved[x[0] + '|' + r]))) can.push(x[1]); }));
+const cr = {
+roles: D.ROLES.map((r) => { const on = chR.indexOf(r[0]) >= 0; return Object.assign(radio(on), { label: r[1], sub: r[2], isOn: on, box: on ? V('acc') : V('s3'), pick: () => this.setState({ chR: toggleIn(chR, r[0]), err: '' }) }); }),
+can: chR ? short(tp) + ' will be able to: ' + can.join(', ') + '.' : 'No roles means no access. To stop someone signing in, disable the login instead.'
+};
+const waHi = sh === 'reset'
+? 'नमस्ते ' + first(tp) + ' जी, आपका VPPS One पासवर्ड बदल दिया गया है। नया अस्थायी पासवर्ड: ' + pwShown + '। साइन-इन करके अपना नया पासवर्ड बनाएं।'
+: 'नमस्ते ' + first(tp) + ' जी, VPPS One में आपका लॉगिन तैयार है। यूज़रनेम: आपका फ़ोन नंबर। अस्थायी पासवर्ड: ' + pwShown + '। पहली बार साइन-इन पर अपना पासवर्ड बनाएं।';
+const waEn = sh === 'reset'
+? 'Hello ' + first(tp) + ' ji, your VPPS One password was reset. New temporary password: ' + pwShown + '. Sign in and set your own password.'
+: 'Hello ' + first(tp) + ' ji, your VPPS One login is ready. Username: your phone number. Temporary password: ' + pwShown + '. Set your own password the first time you sign in.';
+const pr = she(tp);
+const DX = [['left', 'Left the school'], ['leave', 'On long leave'], ['phone', 'Lost phone'], ['other', 'Something else']];
+const dReason = (DX.filter((d) => d[0] === s.reason)[0] || DX[1])[1];
+const createLogin = () => {
+const c = this.st();
+if (!invRoles) { this.setState({ err: 'Pick at least one role.' }); return; }
+const logs = Object.assign({}, c.logs);
+logs[tp.id] = [{ text: 'Login created by Janmejay · ' + rolesTxt(invRoles) + (c.wa ? ' · sent on WhatsApp' : ''), time: 'just now' }].concat(logs[tp.id] || []);
+this.setState({ login: Object.assign({}, c.login, { [tp.id]: 'N' }), roleOv: Object.assign({}, c.roleOv, { [tp.id]: invRoles }), logs, done: true, err: '' });
+};
+const FT = {
+invite: s.done ? ['Open profile', () => { this.closeSheet(); this.setState({ view: 'list', open: tp.id, anim: 'push' }); }, 'Done', 'pri', IC.check, () => this.closeSheet()] : ['Cancel', () => this.closeSheet(), 'Create login', 'pri', IC.userPlus, createLogin],
+reset: ['Cancel', () => this.closeSheet(), 'Reset password', 'pri', IC.key, () => {
+const c = this.st();
+this.closeSheet();
+this.change(tp.id, {}, 'Password reset by Janmejay' + (c.wa ? ' · sent on WhatsApp' : '') + (c.signout ? ' · other phones signed out' : ''), c.wa ? 'New password sent to ' + short(tp) + ' on WhatsApp' : 'Password reset · share it with ' + short(tp));
+}],
+deactivate: ['Keep login', () => this.closeSheet(), 'Disable login', 'danger', IC.lock, () => {
+this.closeSheet();
+this.change(tp.id, { login: Object.assign({}, this.st().login, { [tp.id]: 'D' }) }, 'Login disabled by Janmejay · ' + dReason, short(tp) + '’s login is disabled');
+}],
+roles: ['Cancel', () => this.closeSheet(), 'Save roles', 'pri', IC.check, () => {
+if (!chR) { this.setState({ err: 'Pick at least one role, or disable the login instead.' }); return; }
+const old = tp.roles;
+const add = chR.split('').filter((r) => old.indexOf(r) < 0).map((r) => '+ ' + RN[r]);
+const rem = old.split('').filter((r) => chR.indexOf(r) < 0 && r !== 'd').map((r) => '− ' + RN[r]);
+this.closeSheet();
+if (!add.length && !rem.length) return;
+this.change(tp.id, { roleOv: Object.assign({}, this.st().roleOv, { [tp.id]: chR }) }, 'Roles changed by Janmejay: ' + add.concat(rem).join(', '), 'Roles saved for ' + short(tp));
+}]
+}[sh] || ['Close', () => this.closeSheet(), 'Done', 'pri', IC.check, () => this.closeSheet()];
+const SH = {
+invite: s.done ? ['Login created', 'Thu 8 Oct · by Janmejay'] : ['Create a login', 'For staff who don’t have one yet'],
+reset: ['Reset password', 'The old password stops working right away'],
+deactivate: ['Disable ' + short(tp) + '’s login?', 'You can turn it back on any time'],
+roles: ['Change roles', 'Roles decide what ' + short(tp) + ' can see and do']
+}[sh] || ['', ''];
+
+// ---------- chrome ----------
+const isList = s.view !== 'roles';
+const VS = [['list', 'People'], ['roles', 'Roles & permissions']];
+const vIdx = isList ? 0 : 1;
+return {
+ic: IC, dark: !!this.props.dark, theme: this.props.dark ? 'dark' : '',
+is: { list: isList, roles: !isList },
+anim: { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both' }[s.anim] || 'none',
+top: isList
+? { crumb: 'People · Session 2026–27', title: 'Staff & roles', mTitle: op ? op.name : 'Staff & roles', mSub: op ? op.title : people.length + ' staff · ' + cnt(hasLogin) + ' with login', mBackLink: !op, mBackBtn: !!op }
+: { crumb: 'People · Staff & roles', title: 'Roles & permissions', mTitle: 'Roles & permissions', mSub: '7 roles · 16 permissions', mBackLink: true, mBackBtn: false },
+vseg: { thumb: (vIdx * 100) + '%', opts: VS.map((v, i) => ({ label: v[1], cls: vIdx === i ? 'tap on' : 'tap', pressed: vIdx === i ? 'true' : 'false', pick: () => this.setState({ view: v[0], open: '', anim: i ? 'push' : 'pop' }) })) },
+q: s.q, onQ: (ev) => this.setState({ q: ev && ev.target ? ev.target.value : '' }),
+kpis,
+roleChips: [['all', 'Everyone'], ['office', 'Office'], ['t', 'Class teachers'], ['s', 'Subject teachers'], ['e', 'Exam coordinator'], ['d', 'Drivers']].map((c) => chip('role', s.role, c[0], c[1], RF[c[0]])),
+statChips: [['all', 'Any login'], ['N', 'Never signed in'], ['D', 'Disabled'], ['X', 'No login']].map((c) => chip('stat', s.stat, c[0], c[1], SF[c[0]])),
+rows, any: rows.length > 0, none: rows.length === 0, clearAll: set({ q: '', role: 'all', stat: 'all' }),
+split: { cols: op ? 'minmax(0, 1fr) 440px' : 'minmax(0, 1fr)', listCls: op ? 'hide-m sf-narrow' : '' },
+panels: op ? [panel(op)] : [], closePanel: () => this.setState({ open: '', anim: 'pop' }),
+invite: () => this.openSheet('invite', { inv: 'regar', invRoles: null, pwI: (this.st().pwI || 0) + 1 }),
+rl,
+sh: {
+open: !!sh, state: s.closing ? 'closing' : 'open', title: SH[0], sub: SH[1],
+inv: sh === 'invite' && !s.done, target: (sh === 'reset' || sh === 'deactivate' || sh === 'roles'), chr: sh === 'roles', pw: (sh === 'invite' && !s.done) || sh === 'reset',
+reset: sh === 'reset', deact: sh === 'deactivate', done: sh === 'invite' && !!s.done, hasErr: !!s.err, err: s.err || ''
+},
+tg: { name: tp.name, ini: ini(tp.name), abg: V(TONES[tp.i % 5][0]), afg: V(TONES[tp.i % 5][1]), sub: tp.title + ' · ' + phone(tp) },
+iv, cr,
+pw: {
+a: (s.pwI || 0) % 2 === 0, b: (s.pwI || 0) % 2 === 1, text: pwShown, eyeIcon: s.pwShow ? IC.eyeOff : IC.eye, eyeLabel: s.pwShow ? 'Hide password' : 'Show password',
+eye: () => this.setState({ pwShow: !this.st().pwShow }), copy: () => this.toast('Password copied'), again: () => this.setState({ pwI: (this.st().pwI || 0) + 1, pwShow: true }),
+note: 'Works once. ' + pr[0] + ' must set a new password at first sign-in.'
+},
+rs: { on: s.signout ? 'true' : 'false', cls: s.signout ? 'on' : '', toggle: () => this.setState({ signout: !this.st().signout }) },
+wa: { on: s.wa ? 'true' : 'false', cls: s.wa ? 'on' : '', show: !!s.wa, toggle: () => this.setState({ wa: !this.st().wa }), sub: s.wa ? '1 message · about ₹0.88 · to ' + phone(tp) + ' · Hindi first' : 'Off · you share the password yourself', hi: waHi, en: waEn },
+dx: {
+impact: pr[0] + ' can’t sign in.', more: pr[1].charAt(0).toUpperCase() + pr[1].slice(1) + ' marks and attendance records stay. You can turn the login back on any time.',
+reasons: DX.map((d) => Object.assign(radio(s.reason === d[0]), { label: d[1], pick: set({ reason: d[0] }) }))
+},
+dn: {
+title: short(tp) + ' can sign in now', sub: pr[0] + '’ll set ' + pr[1] + ' own password on first sign-in.',
+rows: [['Username', phone(tp)], ['Roles', rolesTxt(tp.roles)], ['Password', s.wa ? 'Sent on WhatsApp' : 'Share it yourself']].map((f, i) => ({ k: f[0], v: f[1], border: i ? '1px solid var(--bd)' : '0' }))
+},
+ft: { sec: FT[0], secGo: FT[1], label: FT[2], cls: FT[3], icon: FT[4], go: FT[5], op: (sh === 'invite' && !s.done && !invRoles) || (sh === 'roles' && !chR) ? '0.5' : '1' },
+closeSheet: () => this.closeSheet(),
+toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

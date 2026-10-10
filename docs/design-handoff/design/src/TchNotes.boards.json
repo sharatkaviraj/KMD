@@ -1,0 +1,13 @@
+[
+  {"file": "TchNotes.dc.html", "device": "desktop", "title": "Notes on children"},
+  {"file": "DX-TchNotes-Add.dc.html", "device": "desktop", "start": "add", "title": "New note · speak or type"},
+  {"file": "DX-TchNotes-Listening.dc.html", "device": "desktop", "start": "listening", "title": "Listening · live words"},
+  {"file": "DX-TchNotes-Detail.dc.html", "device": "desktop", "start": "detail", "title": "Note · status & replies"},
+  {"file": "DX-TchNotes-Plan.dc.html", "device": "desktop", "start": "plan", "title": "Support plan"},
+  {"file": "M-TchNotes.dc.html", "device": "phone", "start": "list", "title": "Notes on children"},
+  {"file": "M-TchNotes-Add.dc.html", "device": "phone", "start": "add", "title": "New note"},
+  {"file": "M-TchNotes-Listening.dc.html", "device": "phone", "start": "listening", "title": "Listening"},
+  {"file": "M-TchNotes-Review.dc.html", "device": "phone", "start": "review", "title": "Check and save"},
+  {"file": "M-TchNotes-Saved.dc.html", "device": "phone", "start": "saved", "title": "Saved"},
+  {"file": "M-TchNotes-Detail.dc.html", "device": "phone", "start": "detail", "title": "Note detail"}
+]

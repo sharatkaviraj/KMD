@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Exam planning</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.xr{display:flex;align-items:center}.xc{display:flex;flex-direction:column}.xw{flex-wrap:wrap}.xf{flex:1;min-width:0}.xj{justify-content:space-between}.xjc{justify-content:center}.xac{align-items:center}.xi{flex:none;display:flex;align-items:center;justify-content:center}.xrl{position:relative}.xgd{display:grid}.xoh{overflow:hidden}.xn0{min-width:0}.x4{gap:4px}.x6{gap:6px}.x8{gap:8px}.x10{gap:10px}.x12{gap:12px}.x14{gap:14px}.xm{font-size:12px;color:var(--mut)}.xmu{color:var(--mut)}.xt{font-size:15px;font-weight:700}.xb{font-weight:700}.x6w{font-weight:600}.xs{font-size:13px}.x11{font-size:11px}.xtc{text-align:center}.xtr{text-align:right}.xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.xh{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}.xp{padding:14px 16px}.xp2{padding:16px 18px}.xbt{border-top:1px solid var(--bd)}.xq{width:40px;padding:0!important}.xl{width:100%;display:flex;align-items:center;gap:12px;border:0;background:transparent;color:var(--fg);text-align:left}.xd+.xd{border-top:1px solid var(--bd)}.xst>*{animation:xIn .3s var(--ease) both}.xst>:nth-child(2){animation-delay:.03s}.xst>:nth-child(3){animation-delay:.06s}.xst>:nth-child(4){animation-delay:.09s}.xst>:nth-child(5){animation-delay:.12s}.xst>:nth-child(n+6){animation-delay:.15s}.xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}.xbar>span{height:100%;transition:width .5s var(--ease)}.xdt{flex:none;width:8px;height:8px;border-radius:4px}.xa{flex:none;width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}.xlg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 0;font-size:13px}.xlg>i{width:10px;height:10px;margin-top:4px;border-radius:5px}.xsh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}.xsb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:12px}.xsf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}.xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}.xfa{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;font-size:13px}.xsp{flex:none;width:16px;height:16px;border-radius:8px;border:2px solid var(--bds);border-top-color:var(--acc);animation:xLoop .7s linear infinite}.xsc{padding:16px 28px 40px;display:flex;flex-direction:column;gap:14px}.xhd{flex:none;height:64px;padding:0 28px;border-bottom:1px solid var(--bd);position:relative;z-index:5}.xhm{flex:none;min-height:58px;padding:6px 8px;border-bottom:1px solid var(--bd);position:relative;z-index:5}.xtab{height:50px!important;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}.xwa{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:16px;background:var(--wabg)}.xwb{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;white-space:pre-line;font-size:13px;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}.xrd{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center}.xrd>span{width:10px;height:10px;border-radius:5px;background:var(--acc);transition:transform .25s var(--spring)}.xside{position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto;border-left:1px solid var(--bd);background:var(--bg)}.xmbar{position:sticky;bottom:0;z-index:4;padding:10px 16px 12px;border-top:1px solid var(--bd)}.xbig{height:48px;font-size:15px}.xtk{flex:none;animation:xPopIn .5s var(--spring) both}.xtk .a{fill:var(--oks)}.xtk .b{fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both}.xtk path{fill:none;stroke-linecap:round;stroke-linejoin:round}.xtk path{stroke:var(--ok);stroke-width:6;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both}.xdg{display:grid;gap:8px;align-items:stretch}.xpc{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 9px;border-radius:10px;border:1.5px solid transparent;text-align:left;line-height:1.25}.xpe{width:100%;min-height:46px;flex:1;border-radius:10px;border:1.5px dashed var(--bd);background:transparent;color:var(--sub);font-size:12px;font-weight:600}.xblk{position:absolute;height:26px;border-radius:7px;padding:0 8px;display:flex;align-items:center;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;transform-origin:left;animation:xGrowX .5s var(--ease) both}.xseat{border:1.5px solid;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;padding:0;min-width:0;animation:xPopIn .35s var(--spring) both}.xseat>span{font-size:9px;font-weight:600;opacity:.75}.xboard{height:30px;border-radius:8px;background:var(--nav);color:var(--navfg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;letter-spacing:.04em}.xdm{display:grid;grid-template-columns:230px repeat(6,minmax(0,1fr)) 96px;gap:8px;align-items:center;padding:6px 16px;min-height:50px}.xdc{height:34px;border-radius:9px;border:1.5px solid;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0;min-width:0}.xpt{display:grid;grid-template-columns:96px repeat(5,minmax(0,1fr));gap:6px;padding:8px 10px}.xpcl{display:flex;flex-direction:column}.xpm{display:grid;grid-template-columns:130px repeat(6,minmax(0,1fr));gap:6px;align-items:center;padding:6px 14px;min-height:50px}.xpq{height:38px;border-radius:10px;border:0;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:700;padding:0 6px;min-width:0}
+@container vx (max-width:899px){.xsc{gap:12px}.xbig{height:52px;width:100%}.xmain{font-size:15px}.xdm{grid-template-columns:minmax(0,1fr) repeat(6,30px) 22px;gap:4px;padding:6px 10px}.xdc{height:32px}.xpm{grid-template-columns:66px repeat(6,minmax(0,1fr));gap:4px;padding:6px 10px}.xpq{height:36px;padding:0 2px;font-size:11px}.xpt{grid-template-columns:minmax(0,1fr);gap:4px}.xpcl{flex-direction:row;justify-content:space-between;gap:8px;text-align:right}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position:relative;width:100%;height:100vh;min-height:560px;overflow:hidden;display:flex;background:var(--bg);color:var(--fg);font-family:Inter, 'Noto Sans Devanagari', system-ui, sans-serif;font-size:14px;line-height:1.45">
+
+<div class="only-d" style="flex:none;height:100%"><dc-import name="XSide" active="plan" role="exam" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+<div class="xc xf xrl" style="min-height:0">
+
+<header class="only-d glass xr x10 xhd">
+<sc-if value="{{top.back}}"><button class="tap btn ghost xq" type="button" aria-label="Back" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<div class="xc xf"><span class="xm xe">{{top.crumb}}</span><span class="xr x10"><span class="xh xe">{{top.title}}</span><span class="pill" style="background:var(--accs);color:var(--accfg)">{{top.pill}}</span></span></div>
+<button class="tap btn ghost xq" type="button" aria-label="Help for this screen" onClick="{{help}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.help}}"></path></svg></button>
+<sc-for list="{{top.acts}}" as="a"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.go}}"><svg class="i" viewBox="0 0 24 24"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for>
+</header>
+
+<header class="only-m glass xr x4 xhm">
+<sc-if value="{{top.mLink}}"><a href="M-ExamHome-Menu.dc.html" class="tap xi" aria-label="Back to menu" style="width:44px;height:44px;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.back}}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="xc xf" style="padding-left:2px"><span class="xe xb" style="font-size:17px">{{top.title}}</span><span class="xm xe">{{top.mSub}}</span></span>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{help}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="{{ic.help}}"></path></svg></button>
+</header>
+
+<main class="scroll xf xrl xmain" style="min-height:0">
+
+<sc-if value="{{tabs.show}}">
+<div class="pad {{tabs.cls}}" style="padding:16px 28px 0">
+<div class="seg only-d" style="grid-template-columns:repeat(4,minmax(0,1fr));width:720px;max-width:100%"><span class="thumb" style="width:calc((100% - 6px) / 4);transform:translateX({{tabs.thumb}})"></span><sc-for list="{{tabs.opts}}" as="o"><button class="{{o.cls}} xtab" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}"><span class="xr x6"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="{{o.icon}}"></path></svg>{{o.label}}<span class="xdt" style="background:{{o.dot}}"></span></span><span class="x11" style="font-weight:500">{{o.sub}}</span></button></sc-for></div>
+<div class="hs only-m xr x6"><sc-for list="{{tabs.opts}}" as="o"><button class="tap chip {{o.ccls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="{{o.icon}}"></path></svg>{{o.label}}<span class="xdt" style="background:{{o.dot}}"></span></button></sc-for></div>
+</div>
+</sc-if>
+
+<!-- ============ DATE SHEET (+ clash panel) ============ -->
+<sc-if value="{{is.ds}}">
+<div class="stack xgd" style="grid-template-columns:{{split.cols}};align-items:start">
+<section class="pad xsc xn0 {{split.cls}}" style="animation:{{anim}}">
+<sc-if value="{{ds.copy}}">
+<div class="card xr xw x12 xp" style="border-color:var(--acc);background:var(--accs);color:var(--accfg);animation:xIn .3s var(--ease) both">
+<span class="xi" style="width:42px;height:42px;border-radius:13px;background:var(--card)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.copy}}"></path></svg></span>
+<span class="xc xf" style="min-width:220px"><b class="xt">Copied from Unit Test 1 — check and adjust</b><span class="xs">Same order as Unit Test 1 (14–18 Jul), moved to Mon 7 – Sat 12 Dec. Sunday is left out.</span></span>
+<button class="tap btn sec mfull" type="button" onClick="{{ds.ok}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>Looks good</button>
+</div>
+</sc-if>
+<sc-for list="{{ds.alerts}}" as="c"><button class="tap xno xl" type="button" onClick="{{c.go}}" style="background:var(--bads);color:var(--bad);animation:xIn .3s var(--ease) both"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.alert}}"></path></svg><span class="xc xf"><b>{{c.t}}</b><span class="xs">{{c.s}}</span></span><b class="xr x4 xs">See fixes<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="{{ic.chevRight}}"></path></svg></b></button></sc-for>
+
+<div class="only-d card xoh">
+<div class="xdg" style="grid-template-columns:{{ds.cols}};padding:10px 12px;background:var(--s2);border-bottom:1px solid var(--bd)"><span class="sech" style="align-self:center">Classes</span><sc-for list="{{ds.heads}}" as="d"><span class="xc xac"><b class="xs">{{d.t}}</b><span class="xm x11">{{d.s}}</span></span></sc-for></div>
+<div class="xst"><sc-for list="{{ds.rows}}" as="r">
+<div class="xdg xd" style="grid-template-columns:{{ds.cols}};padding:8px 12px">
+<span class="xc xn0" style="align-self:center"><b class="xe">{{r.name}}</b><span class="xm xe">{{r.sub}}</span><span class="xm num xe">{{r.time}}</span></span>
+<sc-for list="{{r.cells}}" as="c"><div class="xc x4 xn0" style="padding:3px;border-radius:12px;background:{{c.bg}}">
+<sc-for list="{{c.ps}}" as="p"><button class="tap xpc" type="button" aria-label="{{p.aria}}" onClick="{{p.open}}" style="background:{{p.bg}};color:{{p.fg}};border-color:{{p.bd}};animation:{{p.anim}}"><b class="xs">{{p.t}}</b><span class="x11 num" style="opacity:.8">{{p.time}}</span></button></sc-for>
+<sc-if value="{{c.empty}}"><button class="tap xpe" type="button" aria-label="{{c.aria}}" onClick="{{c.add}}">No paper</button></sc-if>
+</div></sc-for>
+</div>
+</sc-for></div>
+</div>
+
+<div class="only-m xc x10">
+<div class="seg" style="grid-template-columns:repeat(6,minmax(0,1fr))"><span class="thumb" style="width:calc((100% - 6px) / 6);transform:translateX({{ds.thumb}})"></span><sc-for list="{{ds.dayOpts}}" as="o"><button class="{{o.cls}} xtab" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}"><span>{{o.label}}</span><span class="xr x4 x11" style="font-weight:500">{{o.n}}<span class="xdt" style="width:6px;height:6px;background:{{o.dot}}"></span></span></button></sc-for></div>
+<div class="card xoh" style="animation:{{ds.mAnim}}"><sc-for list="{{ds.mrows}}" as="r">
+<div class="xr x12 xd" style="padding:12px 14px;align-items:flex-start;background:{{r.bg}}">
+<span class="xc" style="flex:none;width:96px"><b>{{r.name}}</b><span class="xm">{{r.sub}}</span></span>
+<span class="xc x6 xf"><sc-for list="{{r.ps}}" as="p"><button class="tap xpc" type="button" aria-label="{{p.aria}}" onClick="{{p.open}}" style="min-height:48px;background:{{p.bg}};color:{{p.fg}};border-color:{{p.bd}};animation:{{p.anim}}"><b style="font-size:15px">{{p.t}}</b><span class="xs num" style="opacity:.8">{{p.time}}</span></button></sc-for><sc-if value="{{r.empty}}"><button class="tap xpe" type="button" aria-label="{{r.aria}}" onClick="{{r.add}}" style="min-height:48px">No paper · tap to add</button></sc-if></span>
+</div>
+</sc-for></div>
+</div>
+<span class="xm">Tap any paper to change its day, time or length. Reporting time is 8:15 am every day.</span>
+</section>
+
+<sc-if value="{{cl.open}}">
+<aside class="unstick xside" style="animation:xPush .36s var(--ease) both">
+<div class="xc x14" style="padding:18px 22px 28px">
+<div class="only-d xr xj"><span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:{{cl.bbg}};color:{{cl.bfg}}">{{cl.badge}}</span><button class="tap btn ghost xq" type="button" aria-label="Close the clash panel" onClick="{{cl.close}}" style="height:36px"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div>
+<sc-if value="{{cl.has}}">
+<div class="card xc x12 xp2" style="border-color:var(--bad)">
+<span class="xr x10"><span class="xi" style="width:40px;height:40px;border-radius:12px;background:var(--bads);color:var(--bad);animation:xShake .5s ease"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.alert}}"></path></svg></span><span class="xh" style="font-size:19px">{{cl.title}}</span></span>
+<span class="xs xmu" style="line-height:1.5">{{cl.why}}</span>
+<span class="sech">{{cl.day}}</span>
+<div class="xrl" style="height:74px;border-radius:12px;background:var(--s2)"><sc-for list="{{cl.blocks}}" as="b"><span class="xblk" style="left:{{b.l}};width:{{b.w}};top:{{b.top}};background:{{b.bg}};color:{{b.fg}}">{{b.t}}</span></sc-for></div>
+<div class="xr xj xm num"><span>8:00</span><span>9:00</span><span>10:00</span><span>11:00</span><span>12:00</span><span>1:00</span></div>
+</div>
+<span class="sech">Ways to fix it</span>
+<sc-for list="{{cl.opts}}" as="o"><button class="tap xl" type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="min-height:58px;padding:10px 14px;border-radius:14px;border:{{o.bd}};background:{{o.bg}}"><span class="xrd" style="border-color:{{o.ring}}"><span style="transform:scale({{o.dot}})"></span></span><span class="xc xf"><span class="x6w">{{o.t}}</span><span class="xm">{{o.s}}</span></span><sc-if value="{{o.best}}"><span class="pill" style="background:var(--oks);color:var(--ok)">Best fix</span></sc-if></button></sc-for>
+<button class="tap btn pri xbig" type="button" onClick="{{cl.fix}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>{{cl.fixL}}</button>
+<span class="xm">You can undo it for a few seconds after.</span>
+</sc-if>
+<sc-if value="{{cl.none}}">
+<div class="card xc xac x10 fadein" style="padding:28px 22px;text-align:center">
+<svg class="xtk" width="80" height="80" viewBox="0 0 96 96"><circle class="a" cx="48" cy="48" r="44"></circle><circle class="b" cx="48" cy="48" r="44"></circle><path d="M30 49l12 12 24-26"></path></svg>
+<span class="serif" style="font-size:22px;font-weight:600">No clashes left</span>
+<span class="xmu">Every class has one paper a day.</span>
+<button class="tap btn pri mfull" type="button" onClick="{{cl.pub}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.upload}}"></path></svg>Publish date sheet</button>
+<button class="tap btn ghost mfull" type="button" onClick="{{cl.close}}">Back to the date sheet</button>
+</div>
+</sc-if>
+</div>
+</aside>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- ============ SEATING ============ -->
+<sc-if value="{{is.seat}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="card xr xw x14" style="padding:18px 20px">
+<span class="xi" style="width:52px;height:52px;border-radius:15px;background:var(--accs);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="{{ic.grid}}"></path></svg></span>
+<span class="xc xf" style="min-width:240px;gap:2px"><span class="xt">Seat by roll numbers · two classes per room</span><span class="xm" style="line-height:1.5">Two classes sit in alternate columns, so no child sits next to a classmate. Pre-primary stay in their own rooms.</span><span class="num xs xb" style="color:{{se.c}}">{{se.line}}</span></span>
+<sc-if value="{{se.idle}}"><button class="tap btn pri xbig mfull" type="button" onClick="{{se.run}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.zap}}"></path></svg>Seat everyone</button></sc-if>
+<sc-if value="{{se.running}}"><div class="xc x6 mfull fadein" style="width:260px"><span class="xr x8 xs x6w"><span class="xsp"></span>{{se.prog}}</span><span class="xbar"><span style="width:{{se.w}};background:var(--acc);transition:width .14s linear"></span></span></div></sc-if>
+<sc-if value="{{se.done}}"><span class="xr x8 xb mfull fadein" style="color:var(--ok)"><svg class="i" viewBox="0 0 24 24" style="animation:xPopIn .4s var(--spring) both"><path d="{{ic.checkCircle}}"></path></svg>Everyone has a seat<button class="tap btn ghost" type="button" onClick="{{se.run}}" style="height:36px;margin-left:auto"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.refresh}}"></path></svg>Redo</button></span></sc-if>
+</div>
+<div class="xgd" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px">
+<sc-for list="{{se.rooms}}" as="r"><button class="tap card lift xc x8 xp" type="button" onClick="{{r.open}}" style="text-align:left;color:var(--fg);animation:xIn .3s var(--ease) both;animation-delay:{{r.dl}}">
+<span class="xr xj x8"><b class="xt">{{r.name}}</b><span class="num xm xb">{{r.fill}}</span></span>
+<span class="xbar"><span style="width:{{r.w}};background:{{r.bc}}"></span></span>
+<sc-for list="{{r.cls}}" as="c"><span class="xr x6 xs"><span class="xdt" style="background:{{c.c}}"></span>{{c.t}}</span></sc-for>
+<span class="xm">{{r.note}}</span>
+</button></sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ ONE ROOM ============ -->
+<sc-if value="{{is.room}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="hs xr x6"><sc-for list="{{rm.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start">
+<div class="card xc x12" style="padding:18px">
+<div class="xr xw xj x8"><span class="xc"><span class="xh">{{rm.name}}</span><span class="xm">{{rm.sub}}</span></span></div>
+<div class="xboard">Blackboard · ब्लैकबोर्ड</div>
+<sc-if value="{{rm.empty}}"><div class="xno" style="background:var(--warns);color:var(--warnfg)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.info}}"></path></svg><span class="xf">{{rm.emptyT}}</span></div></sc-if>
+<div class="xgd" style="grid-template-columns:repeat({{rm.cols}},minmax(0,1fr));gap:{{rm.gap}}"><sc-for list="{{rm.seats}}" as="t"><button class="tap xseat" type="button" aria-label="{{t.aria}}" onClick="{{t.pick}}" style="height:{{rm.h}};background:{{t.bg}};color:{{t.fg}};border-color:{{t.bd}};animation-name:{{rm.an}};animation-delay:{{t.dl}};box-shadow:{{t.sel}}"><b class="num" style="font-size:{{rm.fs}}">{{t.roll}}</b><span style="display:{{rm.tag}}">{{t.c}}</span></button></sc-for></div>
+<div class="xr xj xm"><span class="xr x4"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="{{ic.door}}"></path></svg>Door</span><span class="num">{{rm.cap}}</span></div>
+<div class="xno" style="background:var(--s2)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.user}}"></path></svg><span class="xf">{{rm.info}}</span></div>
+</div>
+<div class="xc x14">
+<div class="card xc x8" style="padding:18px 20px;border-style:dashed;border-width:1.5px">
+<span class="sech">Door list · दरवाज़े पर</span>
+<span class="serif" style="font-size:26px;font-weight:600;line-height:1.1">{{rm.hiName}} · {{rm.name}}</span>
+<sc-for list="{{rm.door}}" as="d"><div class="xr x10 xd" style="padding:8px 0"><span style="width:12px;height:12px;border-radius:4px;background:{{d.c}}"></span><span class="xc xf"><b>{{d.hi}}</b><span class="xm">{{d.en}}</span></span><span class="num xb">{{d.n}}</span></div></sc-for>
+<span class="xm">Unit Test 2 · Mon 7 – Sat 12 Dec · reach by 8:15 am</span>
+</div>
+<div class="g2 xgd" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"><button class="tap btn pri" type="button" onClick="{{rm.print}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.printer}}"></path></svg>Print room chart</button><button class="tap btn sec" type="button" onClick="{{rm.doorP}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.door}}"></path></svg>Print door list</button></div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ DUTIES ============ -->
+<sc-if value="{{is.duty}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px">
+<div class="card xc x10 xp2">
+<div class="xr xj x8"><span class="xc"><span class="xt">Is it fair?</span><span class="xm">How many duties each teacher has</span></span><span class="pill" style="height:28px;padding:0 11px;font-size:12px;background:{{fa.bg}};color:{{fa.fg}}">{{fa.verdict}}</span></div>
+<div class="xc x4"><div class="xr xj xm"><span>Fewest <b class="num" style="color:var(--fg)">{{fa.min}}</b></span><span>Most <b class="num" style="color:var(--fg)">{{fa.max}}</b></span></div><div class="xbar" style="height:12px;border-radius:6px"><span style="width:{{fa.l}};background:transparent"></span><span style="width:{{fa.w}};background:{{fa.c}};border-radius:6px"></span></div></div>
+<button class="tap btn {{fa.cls}} xbig" type="button" onClick="{{fa.share}}"><svg class="i" viewBox="0 0 24 24"><path d="{{fa.icon}}"></path></svg>{{fa.label}}</button>
+</div>
+<div class="card xc x10 xp2">
+<span class="xt">Rules the app follows</span>
+<sc-for list="{{fa.rules}}" as="r"><div class="xr x10" style="align-items:flex-start"><span class="xi" style="width:34px;height:34px;border-radius:11px;background:{{r.bg}};color:{{r.fg}}"><svg class="i" viewBox="0 0 24 24"><path d="{{r.icon}}"></path></svg></span><span class="xc xf"><b class="xs">{{r.t}}</b><span class="xm" style="color:{{r.sc}}">{{r.s}}</span></span></div></sc-for>
+</div>
+</div>
+<div class="card xoh">
+<div class="xdm" style="background:var(--s2);min-height:44px"><span class="sech">Teacher</span><sc-for list="{{du.heads}}" as="h"><span class="xc xac"><b class="xs">{{h.w}}</b><span class="xm x11 num">{{h.n}}</span></span></sc-for><span class="sech xtr hide-m">Duties</span><span class="sech xtr only-m">#</span></div>
+<div class="xst"><sc-for list="{{du.rows}}" as="t">
+<div class="xdm xd">
+<span class="xr x10 xn0"><span class="xa hide-m" style="background:{{t.abg}};color:{{t.afg}}">{{t.ini}}</span><span class="xc xn0"><span class="xe x6w">{{t.name}}</span><span class="xm xe">{{t.sub}}</span></span></span>
+<sc-for list="{{t.cells}}" as="c"><button class="tap xdc" type="button" aria-label="{{c.aria}}" onClick="{{c.tog}}" style="background:{{c.bg}};color:{{c.fg}};border-color:{{c.bd}};animation:{{c.anim}}"><span class="only-d">{{c.t}}</span><span class="only-m">{{c.m}}</span></button></sc-for>
+<span class="xc x4" style="align-items:flex-end"><b class="num" style="color:{{t.tc}}">{{t.n}}</b><span class="xbar hide-m" style="height:5px;width:100%"><span style="width:{{t.w}};background:{{t.tc}}"></span></span></span>
+</div>
+</sc-for></div>
+<div class="xdm xbt" style="background:var(--s2);min-height:42px"><span class="xm x6w">Guards given · 13 a day</span><sc-for list="{{du.foot}}" as="f"><span class="num xs xb xtc" style="color:{{f.c}}">{{f.t}}</span></sc-for><span class="num xs xb xtr">{{du.total}}</span></div>
+</div>
+<span class="xm">Tap a box to add or remove a duty. The number is the room (H = Hall). Pre-primary rooms stay with their class teachers.</span>
+<div class="card xc xp">
+<div class="xr xj x8" style="margin-bottom:4px"><span class="xt">Swap requests</span><span class="pill" style="background:var(--warns);color:var(--warnfg)">{{du.reqN}}</span></div>
+<sc-for list="{{du.reqs}}" as="q"><div class="xr xw x12 xd" style="padding:12px 0">
+<span class="xr x6" style="flex:none"><span class="xa" style="background:{{q.abg}};color:{{q.afg}}">{{q.ia}}</span><svg class="i" viewBox="0 0 24 24" style="color:var(--sub)"><path d="{{ic.arrowRight}}"></path></svg><span class="xa" style="background:var(--s3);color:var(--fg)">{{q.ib}}</span></span>
+<span class="xc xf" style="min-width:200px"><span class="x6w">{{q.t}}</span><span class="xm">{{q.s}}</span></span>
+<sc-if value="{{q.open}}"><span class="xr x8 mfull"><button class="tap btn ghost" type="button" onClick="{{q.no}}" style="flex:1">Decline</button><button class="tap btn pri" type="button" onClick="{{q.ok}}" style="flex:1"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>Approve</button></span></sc-if>
+<sc-if value="{{q.shut}}"><span class="pill" style="height:28px;padding:0 11px;font-size:12px;background:{{q.bg}};color:{{q.fg}};animation:xPopIn .4s var(--spring) both">{{q.st}}</span></sc-if>
+</div></sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- ============ QUESTION PAPERS ============ -->
+<sc-if value="{{is.paper}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px">
+<div class="card xr xw x14 xp2">
+<div class="xrl" style="flex:none;width:84px;height:84px"><svg width="84" height="84" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" style="fill:none;stroke:var(--s3);stroke-width:11"></circle><circle cx="50" cy="50" r="42" style="fill:none;stroke:var(--acc);stroke-width:11;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;stroke-dasharray:{{pa.dash}};--len:{{pa.len}};animation:xDraw .9s var(--ease) both;transition:stroke-dasharray .5s var(--ease)"></circle></svg><span class="xc xac xjc" style="position:absolute;top:0;left:0;right:0;bottom:0"><b class="num" style="font-size:20px;line-height:1">{{pa.got}}</b><span class="xm x11">of {{pa.all}}</span></span></div>
+<span class="xc xf" style="min-width:220px;gap:8px"><span class="xc"><span class="xt">{{pa.line}}</span><span class="xm">Papers are due Fri 20 Nov · 2 weeks before the test</span></span>
+<span class="xr x4"><sc-for list="{{pa.stages}}" as="g"><span class="xc xac xf" style="padding:6px 2px;border-radius:10px;background:{{g.bg}}"><b class="num" style="font-size:17px;color:{{g.fg}}">{{g.n}}</b><span class="x11 xtc xe" style="color:{{g.fg}};max-width:100%">{{g.t}}</span></span></sc-for></span></span>
+</div>
+<div class="card xc x10 xp2">
+<span class="xr x10"><span class="xi" style="width:40px;height:40px;border-radius:12px;background:var(--warns);color:var(--warnfg)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.bell}}"></path></svg></span><span class="xc xf"><b>{{pa.remT}}</b><span class="xm">{{pa.remS}}</span></span></span>
+<button class="tap btn {{pa.remCls}} xbig" type="button" onClick="{{pa.remind}}"><svg class="i" viewBox="0 0 24 24"><path d="{{pa.remIcon}}"></path></svg>{{pa.remL}}</button>
+</div>
+</div>
+<div class="hs xr x6"><sc-for list="{{pa.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pr}}" onClick="{{c.pick}}"><span class="xdt" style="background:{{c.dot}}"></span>{{c.label}}<span class="num" style="opacity:.7">{{c.n}}</span></button></sc-for></div>
+<div class="card xoh xst"><sc-for list="{{pa.rows}}" as="r">
+<div class="xpm xd">
+<b class="xe">{{r.name}}</b>
+<sc-for list="{{r.cells}}" as="c"><sc-if value="{{c.real}}"><button class="tap xpq" type="button" aria-label="{{c.aria}}" onClick="{{c.open}}" style="background:{{c.bg}};color:{{c.fg}};opacity:{{c.op}};box-shadow:{{c.ring}}"><svg class="i hide-m" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="{{c.icon}}"></path></svg><span class="xe only-d">{{c.t}}</span><span class="only-m">{{c.m}}</span></button></sc-if><sc-if value="{{c.pad}}"><span></span></sc-if></sc-for>
+</div>
+</sc-for></div>
+<span class="xm">Pre-primary tests are spoken and picture papers made in class, so they are not tracked here.</span>
+</div>
+</sc-if>
+
+<!-- ============ PUBLISH ============ -->
+<sc-if value="{{is.pub}}">
+<div class="pad xsc" style="animation:{{anim}}">
+<sc-if value="{{pb.warn}}"><div class="xno xr xw" style="background:var(--warns);color:var(--warnfg)"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.alert}}"></path></svg><span class="xf" style="min-width:200px">{{pb.warnT}}</span><button class="tap btn sec" type="button" onClick="{{pb.fix}}" style="height:36px">Fix the clash</button></div></sc-if>
+<div class="stack xgd" style="grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start">
+<article class="card xc x12" style="padding:24px 26px">
+<div class="xr x14" style="padding-bottom:12px;border-bottom:2px solid var(--fg)"><span class="serif xi xb" style="width:50px;height:50px;border-radius:14px;background:#082F49;color:#F7F6F3;font-size:17px">VP</span><span class="xc xf"><span class="x6w" style="font-size:16px">श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट</span><span class="serif x6w" style="font-size:16px;line-height:1.25">Shri Veer Patta Sr. Sec. School, Amet</span></span></div>
+<div class="xc xac xtc" style="padding:8px;border-radius:8px;background:var(--s2)"><span class="x6w xt">यूनिट टेस्ट 2 · परीक्षा कार्यक्रम</span><span class="xb x11 xmu" style="letter-spacing:.08em">UNIT TEST 2 · DATE SHEET · 7–12 DEC 2026</span></div>
+<div class="xoh" style="border:1px solid var(--bds);border-radius:8px">
+<div class="xpt x11 xb xmu hide-m" style="background:var(--s2);line-height:1.3"><span class="xc"><span>दिनांक</span><span>Date</span></span><sc-for list="{{pb.heads}}" as="h"><span class="xc"><span>{{h.hi}}</span><span>{{h.en}}</span></span></sc-for></div>
+<div class="xst"><sc-for list="{{pb.rows}}" as="r"><div class="xpt xbt"><span class="xc"><b class="xs">{{r.hi}}</b><span class="xm">{{r.en}}</span></span><sc-for list="{{r.cells}}" as="c"><span class="xpcl xn0"><span class="only-m xm">{{c.g}}</span><span class="xc"><b class="xs" style="color:{{c.c}}">{{c.hi}}</b><span class="x11 xmu">{{c.en}}</span></span></span></sc-for></div></sc-for></div>
+</div>
+<span class="xm" style="line-height:1.6">समय: सुबह 8:30 बजे (पूर्व-प्राथमिक 9:00) · बच्चे 8:15 तक पहुँचें।<br>Time: 8:30 am (pre-primary 9:00 am) · Children reach by 8:15 am.</span>
+<div class="xr xj xm" style="padding-top:18px"><span>Mr. Hemant Trivedi · परीक्षा प्रभारी</span><span>Janmejay Singh · प्रधानाचार्य</span></div>
+</article>
+<div class="xc x14">
+<sc-for list="{{pb.sends}}" as="x">
+<div class="card xc x10 xp2">
+<span class="xr x10"><span class="xi" style="width:40px;height:40px;border-radius:12px;background:var(--accs);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24"><path d="{{x.icon}}"></path></svg></span><span class="xc xf"><b class="xt">{{x.title}}</b><span class="xm">{{x.sub}}</span></span></span>
+<sc-if value="{{x.hasFmt}}"><div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))"><span class="thumb" style="width:calc((100% - 6px) / 2);transform:translateX({{pb.fThumb}})"></span><sc-for list="{{pb.fmts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></sc-if>
+<div class="xwa"><span class="xb x11" style="color:var(--wafg);opacity:.7">{{x.to}}</span><div class="xwb"><div class="xr x8 xs x6w" style="padding:8px 10px;margin-bottom:6px;border-radius:8px;background:rgba(0,0,0,.06)"><svg class="i" viewBox="0 0 24 24"><path d="{{x.attIcon}}"></path></svg>{{x.att}}</div>{{x.hi}}<div style="margin-top:6px;opacity:.78">{{x.en}}</div><div class="x11 xtr" style="opacity:.6">9:41 am</div></div></div>
+<div class="xc"><sc-for list="{{x.facts}}" as="f"><div class="xfa xd"><span class="xmu">{{f.k}}</span><span class="num xb xtr">{{f.v}}</span></div></sc-for></div>
+<sc-if value="{{x.todo}}"><button class="tap btn pri xbig" type="button" onClick="{{x.go}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.send}}"></path></svg>{{x.label}}</button></sc-if>
+<sc-if value="{{x.done}}"><div class="xr x12 fadein" style="padding:10px 12px;border-radius:14px;background:var(--oks);color:var(--ok)"><svg class="xtk" width="44" height="44" viewBox="0 0 96 96"><circle class="a" cx="48" cy="48" r="44"></circle><circle class="b" cx="48" cy="48" r="44"></circle><path d="M30 49l12 12 24-26"></path></svg><span class="xc xf"><b>{{x.doneT}}</b><span class="xs">Read ticks show in Notices.</span></span></div></sc-if>
+</div>
+</sc-for>
+<button class="tap btn sec" type="button" onClick="{{pb.print}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.printer}}"></path></svg>Print for the notice board</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{mb.show}}"><div class="only-m glass xmbar"><button class="tap btn {{mb.cls}} xbig" type="button" onClick="{{mb.go}}"><svg class="i" viewBox="0 0 24 24"><path d="{{mb.icon}}"></path></svg>{{mb.label}}</button></div></sc-if>
+</main>
+
+<div class="only-m" style="flex:none"><dc-import name="XNav" active="plan" role="exam" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ SHEETS ============ -->
+<sc-if value="{{sh.open}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{sh.title}}">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{sh.title}}</span><span class="xm xs">{{sh.sub}}</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.x}}"></path></svg></button></div>
+<sc-if value="{{sh.slot}}">
+<div class="scroll xsb">
+<div class="field"><span>Paper</span><div class="xr xw x6"><sc-for list="{{sl.subs}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div><span class="xm" style="font-weight:500">{{sl.subNote}}</span></div>
+<div class="field"><span>Day</span><div class="xr xw x6"><sc-for list="{{sl.days}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}<span class="xdt" style="background:{{o.dot}}"></span></button></sc-for></div></div>
+<div class="field"><span>Starts at</span><div class="xr xw x6"><sc-for list="{{sl.starts}}" as="o"><button class="tap chip {{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+<div class="field"><span>How long</span><div class="xr x8"><button class="tap btn sec" type="button" aria-label="Shorter by 15 minutes" onClick="{{sl.less}}" style="width:44px;padding:0"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.minus}}"></path></svg></button><span class="num xb xtc" style="min-width:104px;font-size:17px">{{sl.dur}}</span><button class="tap btn sec" type="button" aria-label="Longer by 15 minutes" onClick="{{sl.more}}" style="width:44px;padding:0"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.plus}}"></path></svg></button><span class="xm">{{sl.ends}}</span></div></div>
+<div class="xno" style="background:{{sl.nbg}};color:{{sl.nfg}};animation:{{sl.nAnim}}"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px"><path d="{{sl.nIcon}}"></path></svg><span>{{sl.note}}</span></div>
+</div>
+<div class="xsf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">Cancel</button><button class="tap btn pri" type="button" onClick="{{sl.save}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.check}}"></path></svg>Save change</button></div>
+</sc-if>
+<sc-if value="{{sh.paper}}">
+<div class="scroll xsb">
+<div class="xc"><sc-for list="{{pp.steps}}" as="g"><div class="xgd" style="grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:start">
+<span class="xc xac" style="height:100%"><span class="xi" style="width:24px;height:24px;border-radius:12px;background:{{g.bg}};color:{{g.fg}};border:2px solid {{g.bd}};animation:{{g.anim}}"><svg class="i" viewBox="0 0 24 24" style="width:13px;height:13px;stroke-width:3;display:{{g.tick}}"><path d="{{ic.check}}"></path></svg></span><span style="flex:1;width:2px;min-height:14px;background:{{g.line}}"></span></span>
+<span class="xc" style="padding-bottom:12px"><b class="xs" style="color:{{g.tc}}">{{g.t}}</b><span class="xm">{{g.s}}</span></span>
+<span class="xm num">{{g.when}}</span>
+</div></sc-for></div>
+<div class="card xc" style="padding:0 14px;box-shadow:none"><sc-for list="{{pp.facts}}" as="f"><div class="xfa xd"><span class="xmu">{{f.k}}</span><span class="x6w xtr">{{f.v}}</span></div></sc-for></div>
+<div class="xc"><span class="sech" style="margin-bottom:4px">History</span><sc-for list="{{pp.log}}" as="l"><div class="xlg"><i style="background:{{l.dot}}"></i><span>{{l.text}}</span><span class="num xm">{{l.time}}</span></div></sc-for></div>
+</div>
+<div class="xsf"><button class="tap btn sec" type="button" onClick="{{pp.alt}}" style="flex:1">{{pp.altL}}</button><sc-if value="{{pp.canNext}}"><button class="tap btn pri" type="button" onClick="{{pp.next}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24"><path d="{{pp.nIcon}}"></path></svg>{{pp.nextL}}</button></sc-if></div>
+</sc-if>
+<sc-if value="{{sh.dsend}}">
+<div class="scroll xsb">
+<sc-if value="{{dz.todo}}">
+<div class="xwa"><span class="xb x11" style="color:var(--wafg);opacity:.7">{{dz.to}}</span><div class="xwb">{{dz.hi}}<div style="margin-top:6px;opacity:.78">{{dz.en}}</div><div class="x11 xtr" style="opacity:.6">9:41 am</div></div></div>
+<div class="card xc" style="padding:0 14px;box-shadow:none"><sc-for list="{{dz.facts}}" as="f"><div class="xfa xd"><span class="xmu">{{f.k}}</span><span class="num xb xtr">{{f.v}}</span></div></sc-for></div>
+<sc-if value="{{dz.warn}}"><div class="xno" style="background:var(--warns);color:var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="margin-top:2px"><path d="{{ic.alert}}"></path></svg><span>{{dz.warnT}}</span></div></sc-if>
+</sc-if>
+<sc-if value="{{dz.done}}"><div class="xc xac x10 fadein" style="padding:18px 0;text-align:center"><svg class="xtk" width="88" height="88" viewBox="0 0 96 96"><circle class="a" cx="48" cy="48" r="44"></circle><circle class="b" cx="48" cy="48" r="44"></circle><path d="M30 49l12 12 24-26"></path></svg><span class="serif" style="font-size:24px;font-weight:600">{{dz.doneT}}</span><span class="xmu">Read ticks show in Notices. If you change a duty later, send again and only that teacher is told.</span></div></sc-if>
+</div>
+<div class="xsf"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">{{dz.closeL}}</button><sc-if value="{{dz.todo}}"><button class="tap btn pri" type="button" onClick="{{dz.go}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24"><path d="{{ic.send}}"></path></svg>{{dz.ok}}</button></sc-if></div>
+</sc-if>
+<sc-if value="{{sh.help}}">
+<div class="scroll xsb xst"><sc-for list="{{hp.steps}}" as="h"><div class="card xr x14 xp" style="box-shadow:none"><span class="xi" style="width:56px;height:56px;border-radius:16px;background:{{h.bg}};color:{{h.fg}};position:relative"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="{{h.icon}}"></path></svg><b class="xi num x11" style="position:absolute;top:-6px;left:-6px;width:22px;height:22px;border-radius:11px;background:var(--pri);color:var(--prifg)">{{h.n}}</b></span><span class="xf" style="font-size:15px;line-height:1.45">{{h.t}}</span></div></sc-for></div>
+<div class="xsf"><button class="tap btn pri" type="button" onClick="{{closeSheet}}" style="flex:1">Got it</button></div>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)"><path d="{{ic.check}}"></path></svg><span style="font-size:14px;line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["datesheet","slot","clash","seating","room","duties","papers","publish"],"default":"datesheet"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+/*VX_ICONS*/
+IC.door='M13 4h3a2 2 0 0 1 2 2v14M2 20h3M13 20h9M10 12v.01M13 4.56v16.88a.5.5 0 0 1-.68.47L5 19V5.98a1 1 0 0 1 .76-.97l6-1.5a1 1 0 0 1 1.24.97z';
+const hs=x=>{let h=2166136261;for(let i=0;i<x.length;i++){h^=x.charCodeAt(i);h=Math.imul(h,16777619);}h^=h>>>15;h=Math.imul(h,2246822507);h^=h>>>13;return(h>>>0)/4294967296;};
+const sp=(x,c)=>x.split(c||';');
+const DAYS=sp('Mon 7|सोम 7;Tue 8|मंगल 8;Wed 9|बुध 9;Thu 10|गुरु 10;Fri 11|शुक्र 11;Sat 12|शनि 12').map(x=>{const a=x.split('|');const b=a[0].split(' ');return{en:a[0],hi:a[1],long:a[0]+' Dec',hl:a[1]+' दिस.',w:b[0],n:b[1]};});
+const GR=sp('pre|Pre-primary|पूर्व-प्राथमिक|60 children|540|45;p15|Classes 1–5|कक्षा 1–5|127 children|510|60;p68|Classes 6–8|कक्षा 6–8|86 children|510|90;sec|Classes 9–10|कक्षा 9–10|58 children|510|90;snr|Classes 11–12|कक्षा 11–12|103 children|510|90').map(x=>{const a=x.split('|');return{k:a[0],en:a[1],hi:a[2],sub:a[3],st:+a[4],du:+a[5]};});
+const G={};GR.forEach(g=>{G[g.k]=g;});
+const PP=sp('pre|0|English;pre|1|Hindi;pre|2|Maths;pre|3|EVS;pre|4|Drawing;p15|0|English;p15|1|Hindi;p15|2|Maths;p15|3|EVS;p15|4|Sanskrit;p15|5|Computer;p68|0|Science;p68|1|English;p68|2|Maths;p68|3|Hindi;p68|4|Social Sci.;p68|5|Sanskrit;sec|0|English;sec|1|Hindi;sec|2|Social Sci.;sec|3|Maths;sec|3|Science|660;sec|4|Sanskrit;snr|0|English;snr|1|Physics+Accountancy+History;snr|2|Hindi+Hindi+Hindi Lit.;snr|3|Chemistry+Business St.+Geography;snr|4|Maths / Bio+Economics+Political Sci.').map((x,i)=>{const a=x.split('|');return{i,g:a[0],day:+a[1],subs:a[2].split('+'),start:a[3]?+a[3]:G[a[0]].st,dur:G[a[0]].du};});
+const SUBHI={};const AB={};const TN={};
+sp('English:अंग्रेज़ी:Eng:0,Hindi:हिंदी:Hin:1,Maths:गणित:Mat:2,EVS:पर्यावरण:EVS:3,Drawing:चित्रकला:Drw:4,Sanskrit:संस्कृत:San:4,Computer:कंप्यूटर:Cmp:4,Science:विज्ञान:Sci:3,Social Sci.:सामाजिक विज्ञान:SSt:4,Physics:भौतिकी:Phy:3,Chemistry:रसायन:Che:3,Maths / Bio:गणित / जीव विज्ञान:M/B:2,Accountancy:लेखाशास्त्र:Acc:2,Business St.:व्यवसाय अध्ययन:Bus:4,Economics:अर्थशास्त्र:Eco:4,History:इतिहास:His:4,Geography:भूगोल:Geo:4,Political Sci.:राजनीति विज्ञान:Pol:4,Hindi Lit.:हिंदी साहित्य:HLt:1',',').forEach(x=>{const a=x.split(':');SUBHI[a[0]]=a[1];AB[a[0]]=a[2];TN[a[0]]=+a[3];});
+const SH={Accountancy:'Accounts','Business St.':'Business','Political Sci.':'Pol. Sci.','Maths / Bio':'Maths/Bio'};
+const CL=sp('Nursery|pre|18|Ms. Kanwar;LKG|pre|20|Ms. Rathore;UKG|pre|22|Ms. Mehta;Class 1|p15|23|Ms. Jain;Class 2|p15|25|Ms. Vyas;Class 3|p15|24|Ms. Sharma;Class 4|p15|29|Mr. Verma;Class 5|p15|26|Ms. Paliwal;Class 6|p68|31|Ms. Bhati;Class 7|p68|27|Mr. Choudhary;Class 8|p68|28|Mr. Solanki;Class 9|sec|28|Mr. Meena;Class 10|sec|30|Ms. Dave;11 Science|snr|22|Mr. Trivedi|0;11 Commerce|snr|18|Mr. Purohit|1;11 Arts|snr|14|Ms. Chouhan|2;12 Science|snr|20|Mr. Bhatt|0;12 Commerce|snr|17|Ms. Kothari|1;12 Arts|snr|12|Mr. Rawal|2').map(x=>{const a=x.split('|');return{name:a[0],g:a[1],n:+a[2],ct:a[3],sm:+(a[4]||0)};});
+const CG={'Class 11':'snr','Class 12':'snr'};CL.forEach(c=>{CG[c.name]=c.g;});
+const RM=sp('Room 1|Class 10|1|21|Class 6|1|14;Room 2|Class 6|15|31|Class 10|22|30;Room 3|Class 8|1|21|Class 5|1|14;Room 4|Class 9|1|21|Class 7|1|14;Room 5|Class 7|15|27|Class 9|22|28;Room 6|Class 5|15|26|Class 8|22|28;Room 7|Class 4|1|21|Class 2|1|14;Room 8|Class 2|15|25|Class 4|22|29;Room 9|Class 3|1|21|Class 1|1|14;Room 10|Class 1|15|23|Class 3|22|24;Room 11;Room 12|Nursery|1|18;Room 13|LKG|1|20;Room 14|UKG|1|22;Hall|Class 11|1|54|Class 12|1|49').map(x=>{const a=x.split('|');const hall=a[0]==='Hall';const parts=[];for(let j=1;j<a.length;j+=3)parts.push({c:a[j],f:+a[j+1],t:+a[j+2]});return{name:a[0],hall,cap:hall?120:35,cols:hall?10:5,rows:hall?12:7,parts,n:parts.reduce((s,p)=>s+p.t-p.f+1,0),hi:hall?'सभागार':'कक्ष '+a[0].slice(5)};});
+const TD=sp('Ms. Jain|p15|*|Class 1;Ms. Vyas|p15|*|Class 2;Ms. Sharma|p15|*|Class 3;Mr. Verma|p15|*|Class 4;Ms. Paliwal|p15|*|Class 5;Mr. Sen|p15|Computer;Ms. Kumawat|p15|Sanskrit;Ms. Singh|p68|English;Mr. Joshi|p68|Maths;Ms. Bhati|p68|Science;Mr. Choudhary|p68|Social Sci.;Mr. Solanki|p68|Sanskrit;Ms. Dadhich|sec|English;Mr. Saini|sec|Hindi;Ms. Dave|sec|Maths;Mr. Meena|sec|Science;Mr. Lohar|sec|Social Sci.;Mr. Purohit|snr|Accountancy;Ms. Kothari|snr|Business St.;Mr. Rawal|snr|Geography').map((x,i)=>{const a=x.split('|');return{i,name:a[0],g:a[1],sub:a[2],cls:a[3]||''};});
+const enc='03.4.7c2c1...7bb...149...8..6...5.2......56..c5.197.717508b23c.6c4.b30.684a2a.56..8c4a933a201a909..709b.8518a.6..b..2.43';
+const DU0=TD.map((t,ti)=>[0,1,2,3,4,5].map(d=>'0123456789abc'.indexOf(enc[ti*6+d])));
+const REQ=[['Ms. Kothari','Mr. Rawal','Doctor’s appointment in Udaipur'],['Mr. Lohar','Mr. Sen','Brother’s wedding in Kelwa']];
+const PT={};TD.concat(sp('Ms. Sukhwal|p68|Hindi;Mr. Tak|sec|Sanskrit;Mr. Trivedi|snr|Physics;Mr. Bhatt|snr|Chemistry;Ms. Shekhawat|snr|Maths / Bio;Mr. Sisodia|snr|English;Mr. Sanadhya|snr|Hindi;Mr. Sanadhya|snr|Hindi Lit.;Mr. Rajawat|snr|Economics;Ms. Chouhan|snr|History;Ms. Mewara|snr|Political Sci.').map(x=>{const a=x.split('|');return{name:a[0],g:a[1],sub:a[2]};})).forEach(t=>{if(t.sub!=='*')(PT[t.g]=PT[t.g]||{})[t.sub]=t.name;});
+const PS0={'Class 10|Maths':2,'Class 8|Science':1,'Class 6|Science':1,'11 Science|Physics':3};
+this._d={IC,hs,DAYS,GR,G,PP,SUBHI,AB,TN,SH,CL,CG,RM,TD,DU0,REQ,PT,PS0};
+return this._d;
+}
+
+st(){
+const p=this.props||{};
+const base={scr:'ds',anim:'none',sheet:'',closing:false,toast:null,log:[],copyOk:false,pp:{},keep:{},clash:false,fix:0,mv:null,mDay:3,slot:null,seat:-1,room:'Room 4',pick:'',sgen:0,du:null,dgen:0,reqs:{},dSent:false,pst:{},pFilt:'all',reminded:false,pOpen:'Class 9|Maths',fmt:'img',sentP:false,sentT:false};
+const map={slot:{sheet:'slot',slot:{p:21,g:'sec',day:3,sub:'Science',start:660,dur:90}},clash:{clash:true},seating:{scr:'seat'},room:{scr:'room',seat:99,pick:'2|1'},duties:{scr:'duty'},papers:{scr:'paper'},publish:{scr:'pub'}};
+return Object.assign(base,map[p.start]||{},this.state||{});
+}
+
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.setState({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.setState({toast:null});},4500);
+}
+undoToast(){const f=this._undo;this._undo=null;this.setState({toast:null});if(f)f();}
+openSheet(name,extra){clearTimeout(this._ct);this.setState(Object.assign({sheet:name,closing:false},extra||{}));}
+closeSheet(){
+if(!this.st().sheet)return;
+this.setState({closing:true});
+clearTimeout(this._ct);
+this._ct=setTimeout(()=>this.setState({sheet:'',closing:false}),240);
+}
+go(scr,extra){this.setState(Object.assign({scr,anim:'push',clash:false},extra||{}));}
+// change + log who did it + toast with Undo (keep = leave the sheet open)
+act(patch,label,dot,keep){
+const s=this.st();const before={log:s.log};
+Object.keys(patch).forEach(k=>{before[k]=s[k];});
+this.setState(Object.assign({},patch,{log:[{text:label,time:'just now',dot:'var(--'+(dot||'acc')+')'}].concat(s.log)}));
+if(!keep)this.closeSheet();
+this.toast(label,()=>this.setState(before));
+}
+runSeat(){
+clearTimeout(this._st);
+const n=this.data().RM.length;
+const step=()=>{const c=this.st().seat;if(c+1>=n){this.setState({seat:99});this.toast('434 children seated · 13 rooms and the Hall',()=>this.setState({seat:-1}));return;}this.setState({seat:c+1});this._st=setTimeout(step,140);};
+this.setState({seat:0,sgen:this.st().sgen+1});
+this._st=setTimeout(step,140);
+}
+
+renderVals(){return this._rv();}
+
+_rv(){
+const D=this.data();const s=this.st();const IC=D.IC;const scr=s.scr;
+const DY=D.DAYS,TD=D.TD,RM=D.RM,G=D.G,GR=D.GR,PP=D.PP,CL=D.CL,CG=D.CG,SH=D.SH,AB=D.AB,SUBHI=D.SUBHI,PT=D.PT,PS0=D.PS0,REQ=D.REQ,DU0=D.DU0;
+const A=(p,l,d,k)=>this.act(p,l,d,k);const O=(n,e)=>this.openSheet(n,e);const M=(k,o)=>Object.assign({},C()[k],o||{});
+const S=o=>this.setState(o);const T=(m,u)=>this.toast(m,u);const C=()=>this.st();
+const V=n=>'var(--'+n+')';
+const chip=(on,pick,o)=>Object.assign({cls:on?'on':'',pr:String(on),pick},o||{});
+const segO=(on,pick,o)=>Object.assign({cls:on?'tap on':'tap',pr:String(on),pick},o||{});
+const rup=n=>'₹'+n.toFixed(2);
+const tm=m=>{const h=Math.floor(m/60);const x=m%60;return(h>12?h-12:h)+':'+(x<10?'0':'')+x;};
+const dur=m=>(m>=60?Math.floor(m/60)+' h':'')+(m%60?(m>=60?' ':'')+(m%60)+' min':'');
+const lg=a=>a.map(l=>({text:l[0],time:l[1],dot:V(l[2])}));
+const anims={push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both',fade:'xIn .3s var(--ease) both',none:'none'};
+const TONES=[['infos','info'],['warns','warnfg'],['accs','accfg'],['oks','ok'],['s3','fg']];
+const tone=sb=>TONES[D.TN[sb]==null?4:D.TN[sb]];
+const av=x=>{const t=TONES[Math.floor(D.hs(x)*4)];return{abg:V(t[0]),afg:V(t[1])};};
+const ini=n=>n.split(' ').slice(-1)[0].slice(0,2);
+const pop=n=>(n%2?'xPopIn':'xTick')+' .42s var(--spring) both';
+const uq=a=>a.filter((x,i)=>a.indexOf(x)===i);
+const many=(n,w)=>n+' '+w+(n===1?'':'s');
+
+// ---------- date sheet ----------
+const P=PP.map(b=>Object.assign({},b,s.pp[b.i]||{}));
+const gp=g=>P.filter(p=>p.g===g);
+const dps=(g,di)=>gp(g).filter(p=>p.day===di).sort((a,b)=>a.start-b.start);
+const lab=p=>uq(p.subs).join(' · ');
+const labS=p=>uq(p.subs).map(x=>SH[x]||x).join(' · ');
+const clashes=[];
+GR.forEach(g=>DY.forEach((d,di)=>{const ps=dps(g.k,di);if(ps.length>1&&!s.keep[g.k+'|'+di])clashes.push({g,di,ps});}));
+const inClash=p=>clashes.some(c=>c.ps.indexOf(p)>=0);
+const nCl=clashes.length;
+const openSlot=p=>()=>O('slot',{slot:{p:p.i,g:p.g,day:p.day,sub:p.subs[0],start:p.start,dur:p.dur}});
+const addSlot=(g,di)=>()=>{const c=clashes.filter(x=>x.g===g)[0];const pick=c?c.ps[c.ps.length-1]:gp(g.k)[0];O('slot',{slot:{p:-1,g:g.k,day:di,sub:pick.subs[0],start:g.st,dur:pick.dur}});};
+const pcell=p=>{const t=tone(p.subs[0]);const bad=inClash(p);return{t:labS(p),time:tm(p.start)+'–'+tm(p.start+p.dur),bg:V(bad?'bads':t[0]),fg:V(bad?'bad':t[1]),bd:bad?V('bad'):'transparent',anim:s.mv&&s.mv.i===p.i?pop(s.mv.n):'none',open:openSlot(p),aria:G[p.g].en+' '+lab(p)+' on '+DY[p.day].long+(bad?' · clash':'')};};
+const dayBad=(g,di)=>clashes.some(c=>c.g.k===g&&c.di===di);
+const ds={
+copy:!s.copyOk,
+ok:()=>{S({copyOk:true});T(nCl?'Date sheet checked · '+many(nCl,'clash')+' still to fix':'Date sheet checked · ready to publish',()=>S({copyOk:false}));},
+alerts:clashes.slice(0,1).map(c=>({t:c.g.en+' have '+c.ps.map(lab).join(' and ')+' on the same day',s:c.g.sub+' · '+DY[c.di].long+' · '+c.ps.map(p=>tm(p.start)).join(' and '),go:()=>S({clash:true})})),
+cols:s.clash?'104px repeat(6,minmax(0,1fr))':'150px repeat(6,minmax(0,1fr))',
+heads:DY.map(d=>({t:d.en,s:d.hi})),
+rows:GR.map(g=>({name:g.en,sub:g.sub,time:tm(g.st)+' · '+dur(g.du),cells:DY.map((d,di)=>{const ps=dps(g.k,di);return{ps:ps.map(pcell),empty:!ps.length,add:addSlot(g,di),aria:'Add a paper for '+g.en+' on '+d.long,bg:dayBad(g.k,di)?V('bads'):'transparent'};})})),
+thumb:(s.mDay*100)+'%',mAnim:pop(s.mDay+1),
+dayOpts:DY.map((d,di)=>segO(s.mDay===di,()=>S({mDay:di}),{label:d.w,n:d.n,dot:clashes.some(c=>c.di===di)?V('bad'):'transparent'})),
+mrows:GR.map(g=>{const ps=dps(g.k,s.mDay);return{name:g.en.replace('Classes ',''),sub:tm(g.st)+' · '+dur(g.du),ps:ps.map(pcell),empty:!ps.length,add:addSlot(g,s.mDay),aria:'Add a paper for '+g.en,bg:dayBad(g.k,s.mDay)?V('bads'):'transparent'};})
+};
+
+// clash panel
+const c0=clashes[0];let opts=[];
+const movePatch=(p,day)=>{const pp=M('pp');pp[p.i]={day,start:G[p.g].st,dur:p.dur};return{pp,mv:{i:p.i,n:(C().mv?C().mv.n:0)+1}};};
+if(c0){
+const F=c0.ps[0];const Z=c0.ps[c0.ps.length-1];const used=gp(c0.g.k).map(p=>p.day);
+const free=[0,1,2,3,4,5].filter(i=>used.indexOf(i)<0).sort((a,b)=>Math.abs(a-c0.di)-Math.abs(b-c0.di));
+if(free.length){const f=free[0];const fd=DY[f].long;
+opts.push({t:'Move '+lab(Z)+' to '+fd,s:fd+' is free for '+c0.g.en+'. '+lab(F)+' stays on '+DY[c0.di].en+'.',best:true,run:()=>A(movePatch(Z,f),'Moved '+lab(Z)+' ('+c0.g.en+') to '+fd,'ok',true)});
+opts.push({t:'Move '+lab(F)+' to '+fd,s:lab(Z)+' stays on '+DY[c0.di].en+' and moves to 8:30.',best:false,run:()=>{const a=movePatch(F,f);a.pp[Z.i]={day:Z.day,start:G[Z.g].st,dur:Z.dur};A(a,'Moved '+lab(F)+' ('+c0.g.en+') to '+fd,'ok',true);}});}
+opts.push({t:'Keep both on '+DY[c0.di].long,s:'Allowed, but children sit two papers that day.',best:false,run:()=>A({keep:M('keep',{[c0.g.k+'|'+c0.di]:true})},'Kept two papers on '+DY[c0.di].long+' for '+c0.g.en,'warn',true)});
+}
+const fx=Math.min(s.fix,Math.max(0,opts.length-1));
+const cl={
+open:s.clash&&scr==='ds',has:!!c0,none:!c0,badge:c0?many(nCl,'clash')+' found':'All clear',bbg:V(c0?'bads':'oks'),bfg:V(c0?'bad':'ok'),
+title:c0?c0.g.en+' have '+c0.ps.map(lab).join(' and ')+' on the same day':'',
+why:'Children should write one big paper a day. Two papers tire them out and leave no time to revise the evening before.',
+day:c0?DY[c0.di].long+' · '+c0.g.sub:'',
+blocks:c0?c0.ps.map((p,j)=>{const t=tone(p.subs[0]);return{t:lab(p),l:((p.start-480)/300*100).toFixed(1)+'%',w:(p.dur/300*100).toFixed(1)+'%',top:(8+j*32)+'px',bg:V(t[0]),fg:V(t[1])};}):[],
+opts:opts.map((o,j)=>{const on=j===fx;return{t:o.t,s:o.s,best:o.best,on:String(on),bd:on?'2px solid var(--acc)':'1px solid var(--bd)',bg:on?V('accs'):V('card'),ring:on?V('acc'):V('bds'),dot:on?'1':'0',pick:()=>S({fix:j})};}),
+fixL:opts[fx]&&opts[fx].best?'Fix it':'Use this fix',
+fix:()=>{if(opts[fx])opts[fx].run();S({fix:0});},
+close:()=>S({clash:false}),pub:()=>this.go('pub')
+};
+const split={cols:cl.open?'minmax(0,1fr) 400px':'minmax(0,1fr)',cls:cl.open?'hide-m':''};
+
+// ---------- seating ----------
+const nR=RM.length;const seatN=s.seat===99?nR:Math.max(0,s.seat);
+const filled=ri=>s.seat===99||(s.seat>=0&&ri<seatN);
+const seatedN=RM.reduce((a,r,ri)=>a+(filled(ri)?r.n:0),0);
+const PC=[['accs','accfg','acc'],['warns','warnfg','warn']];
+const se={
+idle:s.seat<0,running:s.seat>=0&&s.seat<99,done:s.seat===99,run:()=>this.runSeat(),
+prog:'Seating '+(RM[Math.min(seatN,nR-1)].name)+'…',w:(seatN/nR*100).toFixed(0)+'%',
+line:seatedN+' of 434 seated'+(s.seat===99?' · 13 rooms + Hall · 176 seats spare':' · 610 seats in 14 rooms + Hall'),c:V(s.seat===99?'ok':'fg'),
+rooms:RM.map((r,ri)=>{const f=filled(ri);const n=f?r.n:0;return{name:r.name,fill:n+'/'+r.cap,w:(n/r.cap*100).toFixed(1)+'%',bc:V(n/r.cap>0.9?'c1':'c2'),cls:f?r.parts.map((p,pi)=>({t:p.c+' · rolls '+p.f+'–'+p.t,c:V(PC[pi][2])})):[],note:!r.n?'Spare room · not needed':(f?(r.parts.length>1?'Two classes · alternate columns':'Own class + class teacher'):'Not seated yet'),dl:(ri*25)+'ms',open:()=>this.go('room',{room:r.name,pick:''})};})
+};
+
+// ---------- duties ----------
+const DU=s.du||DU0;
+const rmOf=k=>(k<10?RM[k]:RM[14]);
+const rn=k=>(k<10?'Room '+(k+1):'Hall');
+const blocked=(t,d,k)=>rmOf(k).parts.some(pt=>{if(t.cls)return pt.c===t.cls&&gp(CG[pt.c]).some(p=>p.day===d);if(CG[pt.c]!==t.g)return false;return gp(t.g).some(p=>p.day===d&&p.subs.indexOf(t.sub)>=0);});
+const cnt=DU.map(r=>r.filter(k=>k>=0).length);
+const mn=Math.min.apply(null,cnt);const mx=Math.max.apply(null,cnt);
+const viol=[];DU.forEach((r,ti)=>r.forEach((k,d)=>{if(k>=0&&blocked(TD[ti],d,k))viol.push({t:TD[ti],d,k});}));
+const dayN=[0,1,2,3,4,5].map(d=>DU.filter(r=>r[d]>=0).length);
+const fairOk=mx-mn<=1&&!viol.length;
+const share=()=>{const n=TD.map(()=>0);const out=TD.map(()=>[-1,-1,-1,-1,-1,-1]);for(let d=0;d<6;d++){for(let k=0;k<13;k++){let b=-1;let bs=1e9;TD.forEach((t,ti)=>{if(out[ti][d]>=0||blocked(t,d,k))return;const sc=n[ti]*100+((ti*7+d*11+k*3)%23);if(sc<bs){bs=sc;b=ti;}});if(b>=0){out[b][d]=k;n[b]+=1;}}}return out;};
+const tog=(ti,d)=>()=>{const cur=(C().du||DU0).map(r=>r.slice());const t=TD[ti];
+if(cur[ti][d]>=0){const k=cur[ti][d];cur[ti][d]=-1;A({du:cur},'Removed '+t.name+' from '+rn(k)+' on '+DY[d].en+' · that room needs a guard','warn');return;}
+const taken=cur.map(r=>r[d]);const free=[0,1,2,3,4,5,6,7,8,9,10,11,12].filter(k=>taken.indexOf(k)<0&&!blocked(t,d,k));
+if(!free.length){T(taken.filter(k=>k>=0).length>=13?'Every room already has a guard on '+DY[d].en:t.name+' can’t guard the free rooms that day — own subject’s paper');return;}
+cur[ti][d]=free[0];A({du:cur},t.name+' will guard '+rn(free[0])+' on '+DY[d].en,'acc');};
+const fa={
+verdict:fairOk?'Fair':'Not fair yet',bg:V(fairOk?'oks':'warns'),fg:V(fairOk?'ok':'warnfg'),
+min:String(mn),max:String(mx),l:((mn-1)/5*100).toFixed(0)+'%',w:(Math.max(0.6,mx-mn)/5*100).toFixed(0)+'%',c:V(mx-mn<=1?'ok':'warn'),
+cls:fairOk?'soft':'pri',icon:fairOk?IC.checkCircle:IC.zap,label:fairOk?'Shared fairly · everyone has '+mn+(mx>mn?' or '+mx:'')+' duties':'Share duties fairly',
+share:()=>(fairOk?T('Duties are already fair · '+mn+'–'+mx+' each'):A({du:share(),dgen:C().dgen+1},'Duties shared fairly · 78 duties, '+TD.length+' teachers, 3 or 4 each','ok')),
+rules:[[viol.length?'alert':'shield','No one guards their own subject’s paper',viol.length?viol.length+(viol.length===1?' duty breaks':' duties break')+' this rule · '+viol[0].t.name+' in '+rn(viol[0].k)+' on '+DY[viol[0].d].en:'Every duty follows this rule',viol.length?'bad':'ok'],['users','Every room has a guard each day · Hall gets 3',dayN.every(n=>n===13)?'All 78 duties are filled':'Some days are short of guards',dayN.every(n=>n===13)?'ok':'warn']].map(r=>({icon:IC[r[0]],t:r[1],s:r[2],bg:V(r[3]+'s'),fg:V(r[3]==='warn'?'warnfg':r[3]),sc:V(r[3]==='bad'?'bad':'mut')}))
+};
+const reqs=REQ.map((q,qi)=>{
+const a=TD.filter(t=>t.name===q[0])[0];const b=TD.filter(t=>t.name===q[1])[0];const done=s.reqs[qi];
+let d=-1;for(let x=0;x<6;x++){const k=DU[a.i][x];if(k>=0&&DU[b.i][x]<0&&!blocked(b,x,k)){d=x;break;}}
+const k=d>=0?DU[a.i][d]:-1;const ab=av(a.name);
+return{ia:ini(a.name),ib:ini(b.name),abg:ab.abg,afg:ab.afg,t:a.name+' asks '+b.name+' to take a duty',s:done?done.line:(d>=0?DY[d].long+' · '+rn(k)+' · “'+q[2]+'”':'No matching duty this week · “'+q[2]+'”'),
+open:!done,shut:!!done,st:done?(done.ok?'Approved · both told':'Declined'):'',bg:V(done&&done.ok?'oks':'s3'),fg:V(done&&done.ok?'ok':'mut'),
+ok:()=>{if(d<0){T('Nothing to swap — '+a.name+' has no duty '+b.name+' can take');return;}const cur=DU.map(r=>r.slice());cur[b.i][d]=k;cur[a.i][d]=-1;A({du:cur,dgen:C().dgen+1,reqs:M('reqs',{[qi]:{ok:true,line:b.name+' takes '+rn(k)+' on '+DY[d].long}})},'Approved · '+b.name+' takes '+a.name+'’s '+rn(k)+' on '+DY[d].en,'ok');},
+no:()=>A({reqs:M('reqs',{[qi]:{ok:false,line:a.name+' keeps the duty · told on WhatsApp'}})},'Declined · '+a.name+' keeps the duty','warn')};
+});
+const du={
+heads:DY.map(d=>({w:d.w,n:d.n})),
+rows:TD.map((t,ti)=>{const c=cnt[ti];const tc=V(c>mn+1||c<mx-1?'warn':'acc');return Object.assign(av(t.name),{name:t.name,ini:ini(t.name),sub:t.cls?'Class teacher · '+t.cls:t.sub+' · '+G[t.g].en.replace('Classes ',''),n:String(c),w:(c/6*100).toFixed(0)+'%',tc:fairOk?V('ok'):tc,
+cells:DU[ti].map((k,d)=>{const bad=k>=0&&blocked(t,d,k);return{t:k<0?'·':(k<10?'R'+(k+1):'Hall'),m:k<0?'·':(k<10?String(k+1):'H'),bg:V(bad?'bads':(k<0?'card':'accs')),fg:V(bad?'bad':(k<0?'sub':'accfg')),bd:bad?V('bad'):(k<0?V('bd'):'transparent'),anim:s.dgen?pop(s.dgen+ti+d):'none',tog:tog(ti,d),aria:t.name+' · '+DY[d].long+' · '+(k<0?'no duty, tap to add':rn(k)+(bad?' · own subject’s paper':'')+', tap to remove')};})});}),
+foot:dayN.map(n=>({t:n+'/13',c:V(n===13?'ok':'warnfg')})),total:dayN.reduce((a,b)=>a+b,0)+'/78',
+reqs,reqN:reqs.filter(q=>q.open).length+' waiting'
+};
+const firstT=TD[0];const myDays=DU[0].map((k,d)=>(k>=0?DY[d].hl+' – '+(k<10?'कक्ष '+(k+1):'सभागार'):'')).filter(x=>x);
+const dz={
+title:s.dSent?'Duties sent':'Send duties to '+TD.length+' teachers?',todo:!s.dSent,done:s.dSent,doneT:'Sent to '+TD.length+' teachers',closeL:s.dSent?'Close':'Cancel',
+to:'Preview · to '+firstT.name+' (each teacher gets their own list)',
+hi:'नमस्ते मैडम,\nयूनिट टेस्ट 2 में आपकी ड्यूटी:\n'+myDays.join('\n')+'\nसुबह 8:10 तक कक्ष में पहुँचें।',
+en:'Your Unit Test 2 duties are listed above. Please reach the room by 8:10 am.',
+facts:[['To',TD.length+' teachers'],['Cost',rup(TD.length*0.88)+' · '+TD.length+' × ₹0.88'],['Sent through','AiSensy · WhatsApp']].map(f=>({k:f[0],v:f[1]})),
+warn:!fairOk,warnT:viol.length?viol.length+(viol.length===1?' duty still breaks':' duties still break')+' the own-subject rule. Share duties fairly first, or send anyway.':'Duties are not shared fairly yet ('+mn+'–'+mx+' each).',
+ok:'Send '+TD.length+' messages',go:()=>A({dSent:true},'Duties sent to '+TD.length+' teachers on WhatsApp','ok',true)
+};
+
+// ---------- question papers ----------
+const STG=[['Set by teacher','s3','mut','edit'],['Received','infos','info','inbox'],['Checked','accs','accfg','check'],['Printed','warns','warnfg','printer'],['Sealed','oks','ok','lock']];
+const PCL=CL.filter(c=>c.g!=='pre');
+const subsOf=c=>PP.filter(p=>p.g===c.g).map(p=>p.subs[Math.min(c.sm,p.subs.length-1)]);
+const tOf=(c,sb)=>(PT[c.g]&&PT[c.g][sb])||c.ct;
+const stg=k=>(s.pst[k]!=null?s.pst[k]:(PS0[k]||0));
+let AP=[];PCL.forEach(c=>{AP=AP.concat(subsOf(c).map(sb=>({c,sb,k:c.name+'|'+sb,st:stg(c.name+'|'+sb),t:tOf(c,sb)})));});
+const got=AP.filter(p=>p.st>=1).length;
+const pend=uq(AP.filter(p=>p.st===0&&p.t!=='Mr. Trivedi').map(p=>p.t));
+const shown=st=>s.pFilt==='all'||String(st)===s.pFilt;
+const ringP=v=>{const L=Math.max(0.5,263.9*v);return{dash:L.toFixed(1)+' 263.9',len:L.toFixed(1)};};
+const rp=ringP(got/AP.length);
+const pa={
+got:String(got),all:String(AP.length),dash:rp.dash,len:rp.len,line:got+' of '+AP.length+' papers received',
+stages:STG.map((g,i)=>({t:g[0],n:String(AP.filter(p=>p.st===i).length),bg:V(g[1]),fg:V(g[2])})),
+remT:many(pend.length,'teacher')+' still setting papers',remS:s.reminded?'Reminded just now · they see it on WhatsApp':'One gentle reminder each, with their class list',
+remCls:s.reminded?'soft':'pri',remIcon:s.reminded?IC.checkCircle:IC.send,remL:s.reminded?'Reminded · just now':'Remind '+pend.length+' teachers · '+rup(pend.length*0.88),
+remind:()=>(C().reminded?T('Already reminded today · you can remind again tomorrow'):A({reminded:true},'Reminded '+pend.length+' teachers on WhatsApp · '+rup(pend.length*0.88),'warn')),
+chips:[['all','All',AP.length,'bds']].concat(STG.map((g,i)=>[String(i),g[0],AP.filter(p=>p.st===i).length,g[2]==='mut'?'bds':g[2]])).map(c=>chip(s.pFilt===c[0],()=>S({pFilt:c[0]}),{label:c[1],n:String(c[2]),dot:V(c[3])})),
+rows:PCL.map(c=>{const cells=subsOf(c).map(sb=>{const k=c.name+'|'+sb;const st=stg(k);const g=STG[st];return{real:true,pad:false,t:SH[sb]||sb,m:AB[sb],icon:IC[g[3]],bg:V(g[1]),fg:V(g[2]),op:shown(st)?'1':'0.25',ring:s.pOpen===k&&s.sheet==='paper'?'0 0 0 2px var(--acc)':'none',aria:c.name+' '+sb+' · '+g[0]+' · '+tOf(c,sb),open:()=>O('paper',{pOpen:k})};});while(cells.length<6)cells.push({real:false,pad:true});return{name:c.name.replace('Science','Sci').replace('Commerce','Com'),cells};})
+};
+const pk=s.pOpen;const pc=CL.filter(c=>c.name===pk.split('|')[0])[0]||CL[11];const psb=pk.split('|')[1]||'Maths';const pst=stg(pk);const pT=tOf(pc,psb);
+const pPaper=gp(pc.g).filter(p=>p.subs.indexOf(psb)>=0)[0];
+const WH=['Mon 5 Oct','Tue 6 Oct','Wed 7 Oct','today'];
+const pl=[['Asked '+pT+' to set the paper','Mon 28 Sep','sub']];
+if(pst>=1)pl.push(['Paper received from '+pT,WH[1],'info']);if(pst>=2)pl.push(['Checked by Mr. Trivedi · no changes',WH[2],'acc']);if(pst>=3)pl.push(['Printed '+(pc.n+2)+' copies in the office','Thu 8 Oct','warn']);if(pst>=4)pl.push(['Sealed in an envelope · kept in the office cupboard','just now','ok']);
+const pp={
+title:pc.name+' · '+psb,sub:'Set by '+pT+' · due Fri 20 Nov',
+steps:STG.map((g,i)=>{const dn=i<pst||(i===pst&&i===4);const now=i===pst&&!dn;return{t:g[0],s:['Teacher is writing it','In your hands','No mistakes','For the class + 2 spare','Kept safe till the day'][i],when:dn?'Done':(now?'Now':''),bg:V(dn?'ok':(now?'accs':'card')),fg:V(dn?'onsolid':'accfg'),bd:V(dn?'ok':(now?'acc':'bds')),tick:dn?'block':'none',tc:V(now?'fg':(dn?'ok':'mut')),line:i===4?'transparent':V(i<pst?'ok':'bd'),anim:now?'xPulse 1.8s ease infinite':'none'};}),
+facts:[['Teacher',pT],['Exam day',pPaper?DY[pPaper.day].long+' · '+tm(pPaper.start):'—'],['Copies',(pc.n+2)+' · '+pc.n+' children + 2 spare']].map(f=>({k:f[0],v:f[1]})),
+log:lg(pl),canNext:pst<4,nIcon:IC[STG[Math.min(4,pst+1)][3]],
+nextL:['Mark as received','Mark as checked','Mark as printed · '+(pc.n+2)+' copies','Mark as sealed','Sealed'][pst],
+next:()=>(pst>=4?T('Already sealed'):A({pst:M('pst',{[pk]:pst+1})},pc.name+' '+psb+' · '+STG[pst+1][0].toLowerCase(),'ok',true)),
+altL:pst===0?'Remind '+pT:'Close',
+alt:()=>{if(pst===0){T('Reminder sent to '+pT+' on WhatsApp · ₹0.88');return;}this.closeSheet();}
+};
+
+// ---------- one room ----------
+const room=RM.filter(r=>r.name===s.room)[0]||RM[3];const ri=RM.indexOf(room);
+const rFill=filled(ri);
+const seats=[];
+for(let r=0;r<room.rows;r++)for(let c=0;c<room.cols;c++){
+let pt=null;let k=0;let pi=0;
+if(room.parts.length===2){pi=c%2;pt=room.parts[pi];k=Math.floor(c/2)*room.rows+r;}else if(room.parts.length===1){pt=room.parts[0];k=c*room.rows+r;}
+const roll=pt&&rFill?pt.f+k:0;const real=pt&&roll<=pt.t&&roll>0;const key=c+'|'+r;const sel=s.pick===key;
+const col=PC[pi];
+seats.push({roll:real?String(roll):'',c:real?pt.c.replace('Class ','').replace('Nursery','N').replace('LKG','L').replace('UKG','U'):'',bg:real?V(col[0]):V('s2'),fg:real?V(col[1]):V('sub'),bd:sel?V('fg'):(real?V(col[2]):V('bd')),sel:sel?'0 0 0 3px var(--accs)':'none',dl:((r*room.cols+c)*(room.hall?6:14))+'ms',
+aria:'Column '+(c+1)+', row '+(r+1)+(real?' · '+pt.c+' roll '+roll:' · empty seat'),
+pick:()=>S({pick:key})});
+}
+const pkA=s.pick.split('|');const pc0=+pkA[0];const pr0=+pkA[1];
+let info='Tap a seat to see who sits there.';
+if(s.pick&&pc0<room.cols&&pr0<room.rows){const t=seats[pr0*room.cols+pc0];info=t.roll?'Column '+(pc0+1)+', row '+(pr0+1)+' · '+room.parts[room.parts.length===2?pc0%2:0].c+' · Roll '+t.roll:'Column '+(pc0+1)+', row '+(pr0+1)+' · empty seat';}
+const rm={
+name:room.name,hiName:room.hi,sub:room.n?room.n+' of '+room.cap+' seats · '+(room.parts.length>1?'two classes in alternate columns':'one class'):'Spare room · nobody seated',
+cols:String(room.cols),gap:room.hall?'4px':'8px',h:room.hall?'30px':'50px',fs:room.hall?'11px':'16px',tag:room.hall?'none':'block',an:s.sgen%2?'xPopIn':'xTick',
+seats,empty:!rFill&&room.n>0,emptyT:'Not seated yet. Go back and press “Seat everyone” — this room fills by itself.',
+cap:room.cap+' seats · '+room.cols+' columns × '+room.rows+' rows',info,
+door:room.parts.map((p,i)=>({hi:(p.c.indexOf('Class')===0?'कक्षा '+p.c.slice(6):p.c)+' · रोल '+p.f+'–'+p.t,en:p.c+' · rolls '+p.f+' to '+p.t,n:String(p.t-p.f+1),c:V(PC[i][2])})),
+chips:RM.filter(r=>r.n).map(r=>chip(r===room,()=>S({room:r.name,pick:'',sgen:C().sgen+1}),{label:r.name})),
+print:()=>T(room.name+' seat chart sent to the office printer · 1 page'),doorP:()=>T(room.name+' door list sent to the printer · Hindi and English')
+};
+
+// ---------- publish ----------
+const pfam=389;const ptch=38;
+const sendCard=who=>{const par=who==='p';const n=par?pfam:ptch;const done=par?s.sentP:s.sentT;return{
+title:par?'Send to parents':'Send to teachers',sub:par?pfam+' families · Hindi first, English below':ptch+' teachers · duties go separately',icon:par?IC.users:IC.grad,hasFmt:par,
+to:'Preview · to '+(par?'Rakesh Sharma (Aarav, Class 7)':'Ms. Bhati'),attIcon:par&&s.fmt==='img'?IC.image:IC.file,att:par&&s.fmt==='img'?'Date sheet · Unit Test 2.jpg':'Date sheet · Unit Test 2.pdf · 1 page',
+hi:par?'प्रिय अभिभावक,\nयूनिट टेस्ट 2 (सोम 7 – शनि 12 दिसंबर) का परीक्षा कार्यक्रम संलग्न है। बच्चे सुबह 8:15 बजे तक स्कूल पहुँचें।\n— श्री वीर पत्ता सी. सै. स्कूल, आमेट':'नमस्ते मैडम,\nयूनिट टेस्ट 2 का परीक्षा कार्यक्रम संलग्न है। प्रश्न पत्र शुक्र 20 नवंबर तक जमा करें।',
+en:par?'Dear parent, the Unit Test 2 date sheet (Mon 7 – Sat 12 Dec) is attached. Children should reach school by 8:15 am.':'The Unit Test 2 date sheet is attached. Please hand in question papers by Fri 20 Nov.',
+facts:[['To',n+(par?' families':' teachers')],['Cost',rup(n*0.88)+' · '+n+' × ₹0.88'],['Sent through','AiSensy · approved template']].map(f=>({k:f[0],v:f[1]})),
+todo:!done,done,label:'Send to '+n+(par?' families':' teachers'),doneT:'Sent to '+n+(par?' families':' teachers')+' · 9:41 am',
+go:()=>A(par?{sentP:true}:{sentT:true},'Date sheet sent to '+n+(par?' families':' teachers')+' on WhatsApp','ok',true)};};
+const pb={
+warn:nCl>0,warnT:many(nCl,'clash')+' still in the date sheet. Parents will see two papers on one day.',fix:()=>this.go('ds',{clash:true,anim:'pop'}),
+heads:GR.map(g=>({en:g.en,hi:g.hi})),
+rows:DY.map((d,di)=>({en:d.long,hi:d.hl,cells:GR.map(g=>{const ps=dps(g.k,di);return{g:g.en,hi:ps.length?ps.map(p=>uq(p.subs).map(x=>SUBHI[x]).join(' / ')).join(' + '):'—',en:ps.length?ps.map(lab).join(' + '):'No paper',c:V(ps.length>1&&dayBad(g.k,di)?'bad':'fg')};})})),
+fThumb:(s.fmt==='pdf'?100:0)+'%',fmts:[['img','Image · opens in chat'],['pdf','PDF · for printing']].map(o=>segO(s.fmt===o[0],()=>S({fmt:o[0]}),{label:o[1]})),
+sends:[sendCard('p'),sendCard('t')],print:()=>T('Date sheet sent to the office printer · A4, Hindi and English')
+};
+
+// ---------- slot sheet ----------
+const sl0=s.slot||{p:-1,g:'sec',day:5,sub:'Science',start:510,dur:90};
+const sg=G[sl0.g];const sps=gp(sl0.g);
+const X=sl0.p>=0?P[sl0.p]:null;
+const Y=sps.filter(p=>p.subs[0]===sl0.sub)[0]||sps[0];
+const others=sps.filter(p=>p!==X&&p!==Y&&p.day===sl0.day);
+const setSl=o=>()=>S({slot:Object.assign({},C().slot||sl0,o)});
+const sl={
+title:X?sg.en+' · '+lab(X):sg.en+' · '+DY[sl0.day].long,
+sub:X?DY[X.day].long+' · '+tm(X.start)+'–'+tm(X.start+X.dur)+' · '+dur(X.dur):'No paper on this day yet · pick one to move here',
+subs:sps.map(p=>chip(p===Y,setSl({sub:p.subs[0]}),{label:labS(p)})),
+subNote:X&&Y!==X?'Swap: '+lab(Y)+' comes here and '+lab(X)+' moves to '+DY[Y.day].long+'.':(X?'Pick another paper to swap the two days.':lab(Y)+' moves here from '+DY[Y.day].long+'.'),
+days:DY.map((d,di)=>{const busy=sps.some(p=>p!==X&&p!==Y&&p.day===di);return chip(sl0.day===di,setSl({day:di,start:busy?sl0.start:sg.st}),{label:d.en,dot:busy?(sl0.day===di?'var(--prifg)':V('warn')):'transparent'});}),
+starts:[480,510,540,660].map(m=>chip(sl0.start===m,setSl({start:m}),{label:tm(m)+(m<720?' am':' pm')})),
+dur:dur(sl0.dur),ends:'Ends at '+tm(sl0.start+sl0.dur),
+less:setSl({dur:Math.max(30,sl0.dur-15)}),more:setSl({dur:Math.min(180,sl0.dur+15)}),
+note:others.length?sg.en+' will have 2 papers on '+DY[sl0.day].long+' ('+others.map(lab).join(', ')+' is already there).':'No clash · one paper that day for '+sg.en+'.',
+nbg:V(others.length?'bads':'oks'),nfg:V(others.length?'bad':'ok'),nIcon:others.length?IC.alert:IC.checkCircle,nAnim:others.length?'xShake .4s ease':'none',
+save:()=>{const pp=M('pp');const v={day:sl0.day,start:sl0.start,dur:sl0.dur};let msg='';
+if(X&&Y!==X){pp[Y.i]=v;pp[X.i]={day:Y.day,start:Y.start,dur:Y.dur};msg='Swapped '+lab(X)+' and '+lab(Y)+' · '+sg.en;}
+else{pp[Y.i]=v;msg=lab(Y)+' · '+sg.en+' → '+DY[sl0.day].en+', '+tm(sl0.start)+'–'+tm(sl0.start+sl0.dur);}
+A({pp,mv:{i:Y.i,n:(C().mv?C().mv.n:0)+1},mDay:sl0.day},msg,'acc');}
+};
+
+// ---------- help ----------
+const HELP={
+ds:['Date sheet',[['copy','Copied from Unit Test 1. Check it once.','accs','accfg'],['alert','Red = one class has two papers on a day. Tap to fix.','bads','bad'],['upload','Looks right? Publish it to parents.','oks','ok']]],
+seat:['Seating',[['zap','Press Seat everyone. Roll numbers go in order.','accs','accfg'],['grid','Two classes share a room, in alternate columns.','warns','warnfg'],['printer','Open a room to print its chart and door list.','oks','ok']]],
+duty:['Duties',[['users','Each box is a duty. The number is the room.','accs','accfg'],['shield','No one guards their own subject’s paper.','bads','bad'],['zap','Share fairly gives everyone 3 or 4.','oks','ok']]],
+paper:['Question papers',[['edit','Teachers set papers and hand them in.','s3','fg'],['check','Mark each step: received, checked, printed, sealed.','accs','accfg'],['bell','One tap reminds everyone still writing.','warns','warnfg']]],
+pub:['Publishing',[['eye','Check the printed date sheet.','s3','fg'],['send','Send on WhatsApp, Hindi first.','accs','accfg'],['checkCircle','A green tick means it went out.','oks','ok']]]
+};
+const hk=HELP[scr==='room'?'seat':scr]||HELP.ds;
+const hp={title:hk[0],steps:hk[1].map((h,i)=>({n:String(i+1),icon:IC[h[0]],t:h[1],bg:V(h[2]),fg:V(h[3])}))};
+
+const shT={slot:[sl.title,sl.sub],paper:[pp.title,pp.sub],dsend:[dz.title,'Each teacher gets only their own days and rooms'],help:[hp.title,'Three steps · मदद']}[s.sheet]||['',''];
+// ---------- chrome ----------
+const isTab=['ds','seat','duty','paper'].indexOf(scr)>=0;
+const TABS=[['ds','Date sheet','डेट शीट','calendar',nCl?'bad':(s.copyOk?'ok':'warn')],['seat','Seating','बैठक व्यवस्था','grid',s.seat===99?'ok':'warn'],['duty','Duties','ड्यूटी','users',fairOk?'ok':'warn'],['paper','Papers','प्रश्न पत्र','file',got===AP.length?'ok':'warn']];
+const tIdx=TABS.map(t=>t[0]).indexOf(scr);
+const tabs={show:isTab,cls:cl.open?'hide-m':'',thumb:(Math.max(0,tIdx)*100)+'%',opts:TABS.map(t=>{const on=scr===t[0];return{label:t[1],sub:t[2],icon:IC[t[3]],dot:V(t[4]),cls:on?'tap on':'tap',ccls:on?'on':'',pr:String(on),pick:()=>S({scr:t[0],anim:'fade',clash:false})};})};
+const sendD=()=>O('dsend');
+const TOP={
+ds:['Date sheet',[['Publish date sheet','upload','pri',()=>this.go('pub')]],nCl?many(nCl,'clash')+' to fix':P.length+' papers · no clashes'],
+seat:['Seating',s.seat===99?[['Print all room charts','printer','sec',()=>T('14 room charts and door lists sent to the printer')]]:[],s.seat===99?'434 seated · 13 rooms + Hall':'Not seated yet'],
+duty:['Invigilation duties',[[s.dSent?'Sent · send again':'Send duties on WhatsApp','send',s.dSent?'sec':'pri',sendD]],TD.length+' teachers · '+du.total+' duties'],
+paper:['Question papers',[],got+' of '+AP.length+' received'],
+room:[room.name,[],room.n+' of '+room.cap+' seats'],
+pub:['Publish date sheet',[],pfam+' families · '+ptch+' teachers']
+};
+const t0=TOP[scr]||TOP.ds;
+const top={crumb:'Exam planning · Unit Test 2 · Mon 7 – Sat 12 Dec',title:t0[0],pill:'Starts in 60 days',mSub:t0[2],back:!isTab||cl.open,mLink:isTab&&!cl.open,acts:t0[1].map(a=>({label:a[0],icon:IC[a[1]],cls:a[2],go:a[3]}))};
+const MB={ds:['Publish date sheet','upload','pri',()=>this.go('pub')],seat:s.seat<0?['Seat everyone','zap','pri',()=>this.runSeat()]:null,duty:[s.dSent?'Sent · send again':'Send duties · '+rup(TD.length*0.88),'send',s.dSent?'sec':'pri',sendD],paper:[pa.remL,s.reminded?'checkCircle':'send',s.reminded?'soft':'pri',pa.remind],room:['Print room chart','printer','pri',rm.print]}[scr];
+const mb=MB&&!cl.open?{show:true,label:MB[0],icon:IC[MB[1]],cls:MB[2],go:MB[3]}:{show:false,label:'',icon:'',cls:'',go:()=>{}};
+
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',
+is:{ds:scr==='ds',seat:scr==='seat',duty:scr==='duty',paper:scr==='paper',room:scr==='room',pub:scr==='pub'},
+top,tabs,anim:anims[s.anim]||'none',mb,
+help:()=>O('help'),
+back:()=>{const c=C();if(c.sheet){this.closeSheet();return;}if(c.scr==='ds'&&c.clash){S({clash:false,anim:'pop'});return;}S({scr:c.scr==='room'?'seat':'ds',anim:'pop',clash:false});},
+ds:scr==='ds'?ds:{},cl,split,
+se:scr==='seat'?se:{},rm:scr==='room'?rm:{},fa:scr==='duty'?fa:{},du:scr==='duty'?du:{},pa:scr==='paper'?pa:{},pb:scr==='pub'?pb:{},
+sl:s.sheet==='slot'?sl:{},pp:s.sheet==='paper'?pp:{},dz:s.sheet==='dsend'?dz:{},hp,
+sh:Object.assign({open:!!s.sheet,title:shT[0],sub:shT[1]},{slot:s.sheet==='slot',paper:s.sheet==='paper',dsend:s.sheet==='dsend',help:s.sheet==='help',state:s.closing?'closing':'open'}),closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

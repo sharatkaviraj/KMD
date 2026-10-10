@@ -1,0 +1,11 @@
+[
+  {"file": "Auth.dc.html", "device": "desktop", "title": "Sign in"},
+  {"file": "DX-Auth-Offline.dc.html", "device": "desktop", "start": "offline", "title": "Offline · receipts waiting to sync"},
+  {"file": "DX-Auth-Denied.dc.html", "device": "desktop", "start": "denied", "title": "No access · who to ask"},
+  {"file": "DX-Auth-Expired.dc.html", "device": "desktop", "start": "expired", "title": "Signed out after 8 hours"},
+  {"file": "M-Auth.dc.html", "device": "phone", "start": "signin", "title": "Sign in"},
+  {"file": "M-Auth-Error.dc.html", "device": "phone", "start": "error", "title": "Wrong password"},
+  {"file": "M-Auth-Password.dc.html", "device": "phone", "start": "password", "title": "Make your own password"},
+  {"file": "M-Auth-Session.dc.html", "device": "phone", "start": "session", "title": "Pick session and role"},
+  {"file": "M-Auth-Update.dc.html", "device": "phone", "start": "update", "title": "Update ready"}
+]

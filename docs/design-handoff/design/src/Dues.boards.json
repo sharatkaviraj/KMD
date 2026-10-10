@@ -1,0 +1,11 @@
+[
+  {"file": "Dues.dc.html", "device": "desktop", "title": "Dues · call list"},
+  {"file": "DX-Dues-Family.dc.html", "device": "desktop", "start": "family", "title": "Family open beside the list"},
+  {"file": "DX-Dues-Plan.dc.html", "device": "desktop", "start": "plan", "title": "Set up an EMI plan"},
+  {"file": "DX-Dues-Aging.dc.html", "device": "desktop", "start": "aging", "title": "Aging · how late the money is", "dark": true},
+  {"file": "M-Dues.dc.html", "device": "phone", "start": "list", "title": "Dues · call list"},
+  {"file": "M-Dues-Family.dc.html", "device": "phone", "start": "family", "title": "Family"},
+  {"file": "M-Dues-Call.dc.html", "device": "phone", "start": "call", "title": "Log a call"},
+  {"file": "M-Dues-Promises.dc.html", "device": "phone", "start": "promises", "title": "Promises"},
+  {"file": "M-Dues-Writeoff.dc.html", "device": "phone", "start": "writeoff", "title": "Request a write-off"}
+]

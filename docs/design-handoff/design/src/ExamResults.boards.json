@@ -1,0 +1,12 @@
+[
+  {"file": "ExamResults.dc.html", "device": "desktop", "title": "Half-yearly results · pipeline"},
+  {"file": "DX-ExamResults-Moderation.dc.html", "device": "desktop", "start": "moderation", "title": "Check marks"},
+  {"file": "DX-ExamResults-Grace.dc.html", "device": "desktop", "start": "grace", "title": "Grace marks"},
+  {"file": "DX-ExamResults-Cards.dc.html", "device": "desktop", "start": "cards", "title": "Report cards ready"},
+  {"file": "DX-ExamResults-Recheck.dc.html", "device": "desktop", "start": "recheck", "title": "Re-check requests"},
+  {"file": "M-ExamResults.dc.html", "device": "phone", "start": "pipeline", "title": "Results pipeline"},
+  {"file": "M-ExamResults-Moderation.dc.html", "device": "phone", "start": "moderation", "title": "Check marks"},
+  {"file": "M-ExamResults-Lock.dc.html", "device": "phone", "start": "lock", "title": "Lock marks"},
+  {"file": "M-ExamResults-Publish.dc.html", "device": "phone", "start": "publish", "title": "Publish results"},
+  {"file": "M-ExamResults-Recheck.dc.html", "device": "phone", "start": "recheck", "title": "Re-check a mark"}
+]

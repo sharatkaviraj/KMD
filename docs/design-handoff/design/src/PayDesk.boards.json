@@ -1,0 +1,16 @@
+[
+  {"file": "PayDesk.dc.html", "device": "desktop", "title": "Payment Desk · pick a student"},
+  {"file": "DX-PayDesk-Amount.dc.html", "device": "desktop", "start": "amount", "title": "₹7,000 by UPI · where it goes"},
+  {"file": "DX-PayDesk-Saved.dc.html", "device": "desktop", "start": "saved", "title": "Saved · receipt SVP20261008-0015"},
+  {"file": "DX-PayDesk-Bulk.dc.html", "device": "desktop", "start": "bulk", "title": "Enter many payments · admin only"},
+  {"file": "PX-PayDesk.dc.html", "device": "desktop", "start": "find", "role": "admin", "title": "Admin · Payment Desk"},
+  {"file": "PX-PayDesk-Student.dc.html", "device": "desktop", "start": "student", "role": "admin", "title": "Admin · student dues and payment"},
+  {"file": "M-PayDesk.dc.html", "device": "phone", "start": "find", "title": "Find a student"},
+  {"file": "M-PayDesk-Student.dc.html", "device": "phone", "start": "student", "title": "Dues · enter the payment"},
+  {"file": "M-PayDesk-Amount.dc.html", "device": "phone", "start": "amount", "title": "₹7,000 · where it goes"},
+  {"file": "M-PayDesk-Confirm.dc.html", "device": "phone", "start": "confirm", "title": "Check and save"},
+  {"file": "M-PayDesk-Saved.dc.html", "device": "phone", "start": "saved", "title": "Saved · receipt"},
+  {"file": "M-PayDesk-Duplicate.dc.html", "device": "phone", "start": "duplicate", "title": "Already saved?"},
+  {"file": "MPX-PayDesk.dc.html", "device": "phone", "start": "find", "role": "admin", "title": "Admin · find a student"},
+  {"file": "MPX-PayDesk-Student.dc.html", "device": "phone", "start": "student", "role": "admin", "title": "Admin · dues and payment"}
+]

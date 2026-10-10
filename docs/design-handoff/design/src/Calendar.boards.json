@@ -1,0 +1,11 @@
+[
+  {"file": "Calendar.dc.html", "device": "desktop", "title": "Calendar · October"},
+  {"file": "DX-Calendar-Event.dc.html", "device": "desktop", "start": "event", "title": "PTM · Class 10"},
+  {"file": "DX-Calendar-Add.dc.html", "device": "desktop", "start": "add", "title": "Add an event"},
+  {"file": "DX-Calendar-Holidays.dc.html", "device": "desktop", "start": "notify", "title": "Holiday notice to parents"},
+  {"file": "M-Calendar.dc.html", "device": "phone", "start": "month", "title": "Calendar · month"},
+  {"file": "M-Calendar-Day.dc.html", "device": "phone", "start": "day", "title": "Today in detail"},
+  {"file": "M-Calendar-Agenda.dc.html", "device": "phone", "start": "agenda", "title": "Next 30 days"},
+  {"file": "M-Calendar-Add.dc.html", "device": "phone", "start": "add", "title": "Add an event"},
+  {"file": "M-Calendar-Holidays.dc.html", "device": "phone", "start": "holidays", "title": "Holidays"}
+]

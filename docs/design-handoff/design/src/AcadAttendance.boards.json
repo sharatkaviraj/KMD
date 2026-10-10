@@ -1,0 +1,13 @@
+[
+  {"file": "AcadAttendance.dc.html", "device": "desktop", "title": "Attendance · today (coordinator)"},
+  {"file": "DX-AcadAttendance-Month.dc.html", "device": "desktop", "start": "month", "title": "October, day by day"},
+  {"file": "DX-AcadAttendance-Register.dc.html", "device": "desktop", "start": "register", "title": "Class 6 register · October"},
+  {"file": "DX-AcadAttendance-Corrections.dc.html", "device": "desktop", "start": "corrections", "title": "Change requests"},
+  {"file": "DX-AcadAttendance-Mark.dc.html", "device": "desktop", "start": "mark", "title": "Mark Class 9 for a teacher on leave"},
+  {"file": "M-AcadAttendance.dc.html", "device": "phone", "title": "Attendance · today"},
+  {"file": "M-AcadAttendance-Remind.dc.html", "device": "phone", "start": "remind", "title": "Remind 2 teachers"},
+  {"file": "M-AcadAttendance-Chronic.dc.html", "device": "phone", "start": "chronic", "title": "Below 75%"},
+  {"file": "M-AcadAttendance-Corrections.dc.html", "device": "phone", "start": "corrections", "title": "Change requests"},
+  {"file": "M-AcadAttendance-Register.dc.html", "device": "phone", "start": "register", "title": "Class 6 register"},
+  {"file": "M-AcadAttendance-Month.dc.html", "device": "phone", "start": "month", "title": "This month"}
+]

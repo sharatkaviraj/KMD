@@ -1,0 +1,11 @@
+[
+  {"file": "StudentTools.dc.html", "device": "desktop", "title": "Promote & import · tools"},
+  {"file": "DX-StudentTools-Promote.dc.html", "device": "desktop", "start": "promote", "title": "Year-end promotion · classes"},
+  {"file": "DX-StudentTools-Validate.dc.html", "device": "desktop", "start": "validate", "title": "Excel import · check rows"},
+  {"file": "DX-StudentTools-Quality.dc.html", "device": "desktop", "start": "quality", "title": "Data quality"},
+  {"file": "M-StudentTools.dc.html", "device": "phone", "start": "hub", "title": "Promote & import"},
+  {"file": "M-StudentTools-Review.dc.html", "device": "phone", "start": "promote-review", "title": "Check and promote"},
+  {"file": "M-StudentTools-Mapping.dc.html", "device": "phone", "start": "mapping", "title": "Match Excel columns"},
+  {"file": "M-StudentTools-Families.dc.html", "device": "phone", "start": "families", "title": "Families"},
+  {"file": "M-StudentTools-Merge.dc.html", "device": "phone", "start": "merge", "title": "Merge two families"}
+]

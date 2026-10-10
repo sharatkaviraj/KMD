@@ -1,0 +1,12 @@
+[
+  {"file": "TchMarks.dc.html", "device": "desktop", "title": "Marks · what to fill"},
+  {"file": "DX-TchMarks-Entry.dc.html", "device": "desktop", "start": "entry", "title": "Enter marks · list + live stats"},
+  {"file": "DX-TchMarks-Check.dc.html", "device": "desktop", "start": "check", "title": "Check before sending"},
+  {"file": "DX-TchMarks-Remarks.dc.html", "device": "desktop", "start": "remarks", "title": "Report card remarks"},
+  {"file": "M-TchMarks.dc.html", "device": "phone", "start": "pick", "title": "Marks · what to fill"},
+  {"file": "M-TchMarks-Keypad.dc.html", "device": "phone", "start": "keypad", "title": "Number pad entry"},
+  {"file": "M-TchMarks-Entry.dc.html", "device": "phone", "start": "entry", "title": "Type marks in a list"},
+  {"file": "M-TchMarks-Check.dc.html", "device": "phone", "start": "check", "title": "Check before sending"},
+  {"file": "M-TchMarks-Submitted.dc.html", "device": "phone", "start": "submitted", "title": "Marks sent"},
+  {"file": "M-TchMarks-Remarks.dc.html", "device": "phone", "start": "remarks", "title": "Report card remarks"}
+]

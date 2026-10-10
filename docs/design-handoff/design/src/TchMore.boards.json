@@ -1,0 +1,13 @@
+[
+  {"file": "TchMore.dc.html", "device": "desktop", "title": "More · overview"},
+  {"file": "DX-TchMore-News.dc.html", "device": "desktop", "start": "news", "title": "Notices from the office"},
+  {"file": "DX-TchMore-Links.dc.html", "device": "desktop", "start": "links", "title": "My marks links (Sampark)"},
+  {"file": "DX-TchMore-Timetable.dc.html", "device": "desktop", "start": "timetable", "title": "My week"},
+  {"file": "DX-TchMore-Profile.dc.html", "device": "desktop", "start": "profile", "title": "My profile"},
+  {"file": "M-TchMore.dc.html", "device": "phone", "start": "menu", "title": "More tab"},
+  {"file": "M-TchMore-News.dc.html", "device": "phone", "start": "news", "title": "Notices"},
+  {"file": "M-TchMore-Links.dc.html", "device": "phone", "start": "links", "title": "Marks links"},
+  {"file": "M-TchMore-Timetable.dc.html", "device": "phone", "start": "timetable", "title": "Today's periods"},
+  {"file": "M-TchMore-Leave.dc.html", "device": "phone", "start": "leave", "title": "Apply leave"},
+  {"file": "M-TchMore-Help.dc.html", "device": "phone", "start": "help", "title": "How do I…"}
+]

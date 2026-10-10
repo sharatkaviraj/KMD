@@ -1,0 +1,11 @@
+[
+  {"file": "FeeSetup.dc.html", "device": "desktop", "title": "Fee structure by class band"},
+  {"file": "DX-FeeSetup-Edit.dc.html", "device": "desktop", "start": "edit", "title": "Edit a class fee"},
+  {"file": "DX-FeeSetup-Installments.dc.html", "device": "desktop", "start": "installments", "title": "Installments and split"},
+  {"file": "DX-FeeSetup-Review.dc.html", "device": "desktop", "start": "review", "title": "Review and publish"},
+  {"file": "M-FeeSetup.dc.html", "device": "phone", "start": "structure", "title": "Fee structure"},
+  {"file": "M-FeeSetup-Edit.dc.html", "device": "phone", "start": "edit", "title": "Edit a class fee"},
+  {"file": "M-FeeSetup-LateFee.dc.html", "device": "phone", "start": "latefee", "title": "Late fee rule"},
+  {"file": "M-FeeSetup-Route.dc.html", "device": "phone", "start": "route", "title": "Edit a bus route"},
+  {"file": "M-FeeSetup-Discounts.dc.html", "device": "phone", "start": "discounts", "title": "Discounts · dark", "dark": true}
+]

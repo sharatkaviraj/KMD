@@ -1,0 +1,6 @@
+[
+  {"file": "F09-Collect.dc.html", "module": "PayDesk", "role": "admin", "device": "phone", "start": "student", "title": "Payment Desk · Aarav's dues and payment"},
+  {"file": "F10-CollectDone.dc.html", "module": "PayDesk", "role": "admin", "device": "phone", "start": "saved", "title": "Payment Desk · saved, receipt"},
+  {"file": "D05-Collect.dc.html", "module": "PayDesk", "role": "admin", "device": "desktop", "start": "amount", "title": "Payment Desk · amount and where it goes"},
+  {"file": "D06-Receipt.dc.html", "module": "PayDesk", "role": "admin", "device": "desktop", "start": "saved", "title": "Payment Desk · saved, receipt"}
+]

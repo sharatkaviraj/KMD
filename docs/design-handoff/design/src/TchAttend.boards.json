@@ -1,0 +1,12 @@
+[
+  {"file": "TchAttend.dc.html", "device": "desktop", "title": "Mark attendance"},
+  {"file": "DX-TchAttend-Save.dc.html", "device": "desktop", "start": "save", "title": "Save attendance"},
+  {"file": "DX-TchAttend-Saved.dc.html", "device": "desktop", "start": "saved", "title": "Saved · change for 30 min"},
+  {"file": "DX-TchAttend-History.dc.html", "device": "desktop", "start": "history", "title": "October history"},
+  {"file": "M-TchAttend.dc.html", "device": "phone", "start": "mark", "title": "Mark attendance"},
+  {"file": "M-TchAttend-Marked2.dc.html", "device": "phone", "start": "marked2", "title": "2 absent tapped"},
+  {"file": "M-TchAttend-Save.dc.html", "device": "phone", "start": "save", "title": "Save attendance"},
+  {"file": "M-TchAttend-Saved.dc.html", "device": "phone", "start": "saved", "title": "Saved"},
+  {"file": "M-TchAttend-Change.dc.html", "device": "phone", "start": "change", "title": "Ask the office to change"},
+  {"file": "M-TchAttend-History.dc.html", "device": "phone", "start": "history", "title": "October history"}
+]

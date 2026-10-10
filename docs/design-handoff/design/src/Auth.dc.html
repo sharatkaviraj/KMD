@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign-in and app states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.vx .fx{display:flex;align-items:center}.vx .col{display:flex;flex-direction:column}.vx .ctr{flex:none;display:flex;align-items:center;justify-content:center}.vx .grow{flex:1;min-width:0}.vx .sb{justify-content:space-between}.vx .wr{flex-wrap:wrap}.vx .oh{overflow:hidden}.vx .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx .m12{font-size:12px;color:var(--mut)}.vx .m13{font-size:13px;color:var(--mut)}.vx .t14{font-size:14px;font-weight:600}.vx .t15{font-size:15px;font-weight:700}.vx .h22{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600}.vx .h28{font-family:'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600;line-height:1.15}.vx .tile{width:36px;height:36px;border-radius:11px}.vx .rbtn{width:100%;border:0;background:transparent;color:var(--fg);text-align:left}.vx .okp{background:var(--oks);color:var(--ok)}.vx .ldot{width:8px;height:8px;border-radius:4px;flex:none;animation:xPulse 2s infinite}.vx .stg{animation:xIn .32s var(--ease) both}.vx .pbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden}.vx .pbar>span{display:block;height:8px;border-radius:4px;background:var(--acc);transition:width .5s var(--ease)}.vx .crest{flex:none;display:flex;align-items:center;justify-content:center;background:#F7F6F3;color:#082F49;font-family:'Source Serif 4',Georgia,serif;font-weight:700}.vx .note{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.5}.vx .pw{position:relative}.vx .pw .inp{padding-right:52px}.vx .pw>button{position:absolute;right:4px;bottom:2px;width:40px;height:40px;padding:0;border:0;border-radius:10px;background:transparent;color:var(--mut)}.vx .bt{border-top:1px solid var(--bd)}.vx a.pri{color:var(--prifg)}.vx a.sec{color:var(--fg)}.vx .g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.vx .g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.vx .bnr{position:absolute;left:0;right:0;bottom:92px;z-index:45;display:flex;justify-content:center;padding:0 14px;pointer-events:none}@container vx (min-width:900px){.vx .bnr{bottom:28px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+
+<!-- ================= BEFORE SIGN-IN: no sidebar, no bottom bar ================= -->
+<sc-if value="{{is.pre}}" hint-placeholder-val="{{ true }}">
+<div class="stack" style="flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 100%">
+
+<!-- brand panel (desktop) -->
+<div class="only-d col" style="position: relative; overflow: hidden; background: #082F49; color: #F7F6F3; padding: 44px 56px; justify-content: space-between">
+ <svg aria-hidden="true" viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%">
+  <defs><pattern id="vpjaali" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M22 4l18 18-18 18L4 22zM22 15l7 7-7 7-7-7z" style="fill: none; stroke: #81DAE4; stroke-width: 1"></path></pattern></defs>
+  <g style="opacity: .14"><rect width="600" height="900" style="fill: url(#vpjaali); animation: xFade 6s ease-in-out infinite alternate"></rect></g>
+  <g style="opacity: .5"><circle cx="90" cy="120" r="150" style="fill: #0E717C; opacity: .35; animation: xFade 8s ease-in-out infinite alternate"></circle></g>
+  <g style="transform-origin: 500px 780px; animation: xLoop 140s linear infinite"><circle cx="500" cy="780" r="250" style="fill: none; stroke: #81DAE4; stroke-opacity: .22; stroke-width: 1.5; stroke-dasharray: 3 12"></circle><circle cx="500" cy="780" r="190" style="fill: none; stroke: #81DAE4; stroke-opacity: .16; stroke-width: 10; stroke-dasharray: 40 22"></circle></g>
+  <g style="transform-origin: 500px 780px; animation: xLoop 90s linear infinite reverse"><circle cx="500" cy="780" r="330" style="fill: none; stroke: #F7F6F3; stroke-opacity: .12; stroke-width: 1; stroke-dasharray: 1 14"></circle></g>
+ </svg>
+ <div class="fx" style="position: relative; gap: 12px"><span class="crest" style="width: 44px; height: 44px; border-radius: 13px; font-size: 16px">VP</span><span class="col"><span style="font-weight: 700; font-size: 16px">VPPS One</span><span style="font-size: 12px; color: #AFC0CC">School office app</span></span></div>
+ <div class="col" style="position: relative; gap: 14px; animation: xRise .6s var(--ease) both">
+  <span class="crest" style="width: 92px; height: 92px; border-radius: 28px; font-size: 36px; box-shadow: 0 20px 40px -18px rgba(0,0,0,.6); animation: xPopIn .6s var(--spring) both">VP</span>
+  <span class="serif" style="font-size: 38px; font-weight: 600; line-height: 1.12">Shri Veer Patta Sr. Sec. School, Amet</span>
+  <span style="font-size: 20px; color: #CFE3EA">श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट</span>
+ </div>
+ <div class="col" style="position: relative; gap: 8px; font-size: 13px; color: #AFC0CC"><span>Fees, attendance, marks and messages — in one place.</span><span class="fx" style="gap: 8px"><span class="ldot" style="background: #5FCB97"></span>Backed up every night at 2:00 am</span></div>
+</div>
+
+<!-- form side -->
+<div class="scroll col" style="height: 100%; background: var(--bg)">
+ <div class="only-m col" style="flex: none; align-items: center; gap: 8px; padding: 34px 20px 26px; background: #082F49; color: #F7F6F3; border-radius: 0 0 28px 28px; text-align: center">
+  <span class="crest" style="width: 64px; height: 64px; border-radius: 20px; font-size: 24px; animation: xPopIn .5s var(--spring) both">VP</span>
+  <span class="serif" style="font-size: 19px; font-weight: 600; line-height: 1.2">Shri Veer Patta Sr. Sec. School, Amet</span>
+  <span style="font-size: 14px; color: #CFE3EA">श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट</span>
+ </div>
+ <div class="col" style="margin: auto; width: 100%; max-width: 440px; padding: 28px 20px 32px; gap: 18px; animation: {{anim.pre}}">
+
+ <!-- SIGN IN -->
+ <sc-if value="{{is.signin}}" hint-placeholder-val="{{ true }}">
+  <div class="col" style="gap: 4px"><span class="h28">Sign in</span><span class="m13">Welcome back. Use the mobile number or username the office gave you.</span></div>
+  <label class="field"><span>Mobile number or username</span><input class="inp {{su.userCls}}" autocomplete="username" value="{{su.user}}" onChange="{{su.onUser}}" placeholder="10-digit mobile or username"></label>
+  <label class="field pw"><span>Password</span><input class="inp {{su.pwCls}}" type="{{su.type}}" autocomplete="current-password" value="{{su.pw}}" onChange="{{su.onPw}}" placeholder="Your password"><button class="tap" type="button" aria-label="{{su.eyeLabel}}" aria-pressed="{{su.eyeOn}}" onClick="{{su.toggleEye}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{su.eyeIcon}}"></path></svg></button></label>
+  <sc-if value="{{su.isWrong}}" hint-placeholder-val="{{ false }}"><div class="note fadein" role="alert" style="background: var(--bads); color: var(--bad)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.alert}}"></path></svg><span class="col"><span style="font-weight: 600">That password didn’t match. Try again or ask the admin to reset it.</span><span style="font-size: 12px">{{su.triesLine}}</span></span></div></sc-if>
+  <sc-if value="{{su.isEmpty}}" hint-placeholder-val="{{ false }}"><span class="fadein" role="alert" style="font-size: 13px; color: var(--bad); font-weight: 600; margin-top: -8px">{{su.emptyLine}}</span></sc-if>
+  <button class="tap row rbtn fx" type="button" role="switch" aria-checked="{{su.remOn}}" onClick="{{su.toggleRem}}" style="gap: 12px; padding: 4px 0"><span class="grow col"><span class="t14">Remember this phone</span><span class="m12">Keeps your username here. Never your password.</span></span><span class="sw {{su.remCls}}"><span></span></span></button>
+  <button class="tap btn pri" type="button" onClick="{{su.submit}}" style="height: 52px; font-size: 16px; border-radius: 14px; background: {{su.btnBg}}"><svg class="i" viewBox="0 0 24 24" style="width: 20px; height: 20px; animation: {{su.btnAnim}}" aria-hidden="true"><path d="{{su.btnIcon}}"></path></svg>{{su.btnLabel}}</button>
+  <div class="fx sb wr" style="gap: 8px"><button class="tap btn ghost" type="button" onClick="{{su.forgot}}" style="padding: 0 8px; margin-left: -8px; color: var(--accfg)">Forgot password?</button><span class="m12">VPPS One 1.8.0 · new here? Ask the admin</span></div>
+ </sc-if>
+
+ <!-- CHANGE PASSWORD (first sign-in with a temporary password) -->
+ <sc-if value="{{is.password}}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{np.form}}" hint-placeholder-val="{{ true }}">
+   <div class="col" style="gap: 4px"><span class="pill" style="align-self: flex-start; background: var(--warns); color: var(--warnfg)">Temporary password</span><span class="h28" style="margin-top: 6px">Make your own password</span><span class="m13">The admin gave you a temporary one. Pick a new password only you know.</span></div>
+   <label class="field pw"><span>New password</span><input class="inp" type="{{np.type}}" autocomplete="new-password" value="{{np.v}}" onChange="{{np.onV}}" placeholder="At least 8 characters"><button class="tap" type="button" aria-label="{{np.eyeLabel}}" aria-pressed="{{np.eyeOn}}" onClick="{{np.toggleEye}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{np.eyeIcon}}"></path></svg></button></label>
+   <div class="col" style="gap: 6px; margin-top: -6px">
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px" aria-hidden="true"><sc-for list="{{np.segs}}" as="g" hint-placeholder-count="4"><span class="oh" style="height: 6px; border-radius: 3px; background: var(--s3)"><span style="display: block; height: 6px; border-radius: 3px; background: {{np.color}}; transform: scaleX({{g.on}}); transform-origin: left; transition: transform .4s var(--ease), background-color .3s ease; transition-delay: {{g.delay}}"></span></span></sc-for></div>
+    <span class="fx sb" style="font-size: 12px"><span style="color: var(--mut)">Strength</span><span style="font-weight: 700; color: {{np.color}}">{{np.label}}</span></span>
+   </div>
+   <div class="col" style="gap: 8px">
+    <sc-for list="{{np.rules}}" as="r" hint-placeholder-count="3"><div class="fx" style="gap: 10px; font-size: 14px; color: {{r.fg}}; font-weight: {{r.w}}; transition: color .25s ease"><span class="ctr" style="width: 22px; height: 22px; border-radius: 11px; background: {{r.bg}}; border: 2px solid {{r.bd}}; color: var(--onsolid); transition: background-color .25s ease, border-color .25s ease"><sc-if value="{{r.ok}}" hint-placeholder-val="{{ true }}"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke-width: 3; animation: xPopIn .4s var(--spring) both" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if></span>{{r.t}}</div></sc-for>
+   </div>
+   <label class="field pw"><span>Type it again</span><input class="inp {{np.cCls}}" type="{{np.type}}" autocomplete="new-password" value="{{np.c}}" onChange="{{np.onC}}" placeholder="Same password again"><sc-if value="{{np.match}}" hint-placeholder-val="{{ false }}"><span class="ctr okp" aria-label="Passwords match" style="position: absolute; right: 10px; bottom: 9px; width: 26px; height: 26px; border-radius: 13px; animation: xPopIn .4s var(--spring) both"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke-width: 3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span></sc-if></label>
+   <button class="tap btn pri" type="button" onClick="{{np.save}}" style="height: 52px; font-size: 16px; border-radius: 14px; opacity: {{np.op}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.key}}"></path></svg>Save my password</button>
+   <span class="m12" style="text-align: center; margin-top: -8px">{{np.hint}}</span>
+  </sc-if>
+  <sc-if value="{{np.done}}" hint-placeholder-val="{{ false }}">
+   <div class="col fadein" style="align-items: center; gap: 12px; text-align: center; padding: 20px 0">
+    <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation: xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill: var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill: none; stroke: var(--ok); stroke-width: 4; --len: 276.5; stroke-dasharray: 276.5; animation: xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; --len: 60; stroke-dasharray: 60; animation: xDraw .45s .5s var(--ease) both"></path></svg>
+    <span class="h28">Password saved</span><span class="m13">Use it next time you sign in. The temporary one no longer works.</span>
+    <button class="tap btn pri" type="button" onClick="{{np.next}}" style="height: 50px; width: 100%; font-size: 16px; border-radius: 14px">Continue<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button>
+   </div>
+  </sc-if>
+ </sc-if>
+
+ <!-- SESSION + ROLE PICKER -->
+ <sc-if value="{{is.session}}" hint-placeholder-val="{{ false }}">
+  <div class="col" style="gap: 4px"><span class="h28">Hello, Janmejay</span><span class="m13">Pick the year and the role to work in. You can switch any time from the menu.</span></div>
+  <div class="col" style="gap: 8px"><span class="sech">Session</span>
+   <sc-for list="{{sp.sessions}}" as="r" hint-placeholder-count="2"><button class="tap fx stg" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="gap: 12px; padding: 13px 14px; border-radius: 16px; border: {{r.bd}}; background: {{r.bg}}; color: var(--fg); text-align: left; animation-delay: {{r.delay}}">
+    <span class="ctr" style="width: 20px; height: 20px; border-radius: 10px; border: 2px solid {{r.ring}}"><span style="width: 10px; height: 10px; border-radius: 5px; background: var(--acc); transform: scale({{r.dot}}); transition: transform .25s var(--spring)"></span></span>
+    <span class="grow col"><span class="t15">{{r.label}}</span><span class="m12">{{r.sub}}</span></span>
+    <span class="pill" style="background: {{r.pbg}}; color: {{r.pfg}}">{{r.pill}}</span>
+   </button></sc-for>
+  </div>
+  <div class="col" style="gap: 8px"><span class="sech">Work as</span>
+   <div class="g2"><sc-for list="{{sp.roles}}" as="r" hint-placeholder-count="2"><button class="tap col stg" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="gap: 8px; padding: 14px; border-radius: 16px; border: {{r.bd}}; background: {{r.bg}}; color: var(--fg); text-align: left; animation-delay: {{r.delay}}">
+    <span class="fx sb"><span class="ctr tile" style="background: {{r.ibg}}; color: {{r.ifg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span><span class="ctr" style="width: 20px; height: 20px; border-radius: 10px; border: 2px solid {{r.ring}}"><span style="width: 10px; height: 10px; border-radius: 5px; background: var(--acc); transform: scale({{r.dot}}); transition: transform .25s var(--spring)"></span></span></span>
+    <span class="t15">{{r.label}}</span><span class="m12">{{r.sub}}</span>
+   </button></sc-for></div>
+  </div>
+  <sc-if value="{{sp.readOnly}}" hint-placeholder-val="{{ false }}"><div class="note fadein" style="background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.lock}}"></path></svg><span>2025–26 is archived. You can look, search and print — nothing can be changed.</span></div></sc-if>
+  <sc-if value="{{sp.isAdmin}}" hint-placeholder-val="{{ true }}"><button class="tap btn pri" type="button" onClick="{{sp.go}}" style="height: 52px; font-size: 16px; border-radius: 14px">{{sp.goLabel}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></sc-if>
+  <sc-if value="{{sp.isTeacher}}" hint-placeholder-val="{{ false }}"><a href="TchHome.dc.html" class="tap btn pri only-d" style="height: 52px; font-size: 16px; border-radius: 14px">{{sp.goLabel}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a><a href="M-TchHome.dc.html" class="tap btn pri only-m" style="height: 52px; font-size: 16px; border-radius: 14px">{{sp.goLabel}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a></sc-if>
+ </sc-if>
+ </div>
+</div>
+</div>
+</sc-if>
+
+<!-- ================= INSIDE THE APP: normal chrome ================= -->
+<sc-if value="{{is.app}}" hint-placeholder-val="{{ false }}">
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="auth" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+ <header class="only-d glass fx" style="flex: none; height: 64px; gap: 12px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+  <div class="grow col"><span class="m12">{{top.crumb}}</span><span class="h22" style="line-height: 1.15">{{top.title}}</span></div>
+  <span class="pill" style="height: 28px; padding: 0 12px; font-size: 12px; background: {{net.bg}}; color: {{net.fg}}"><span class="ldot" style="background: {{net.dot}}"></span>{{net.label}}</span>
+  <button class="tap btn ghost" type="button" onClick="{{openStates}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.layers}}"></path></svg>States</button>
+ </header>
+ <header class="only-m glass fx" style="flex: none; min-height: 58px; gap: 8px; padding: 6px 8px 6px 16px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+  <span class="grow col"><span class="ell" style="font-size: 17px; font-weight: 700">{{top.title}}</span><span class="m12 ell">{{top.mSub}}</span></span>
+  <span class="ldot" aria-label="{{net.label}}" style="background: {{net.dot}}"></span>
+  <button class="tap btn ghost" type="button" aria-label="Preview app states" onClick="{{openStates}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 22px; height: 22px" aria-hidden="true"><path d="{{ic.layers}}"></path></svg></button>
+ </header>
+
+ <main class="scroll" style="flex: 1; min-height: 0; position: relative">
+  <!-- offline / back-online banner -->
+  <sc-if value="{{off.show}}" hint-placeholder-val="{{ false }}"><div class="pad fx wr stg" role="status" style="position: sticky; top: 0; z-index: 4; gap: 10px 12px; padding: 12px 28px; background: {{off.bg}}; color: {{off.fg}}; border-bottom: 1px solid var(--bd)">
+   <svg class="i" viewBox="0 0 24 24" style="width: 20px; height: 20px" aria-hidden="true"><path d="{{off.icon}}"></path></svg>
+   <span class="grow" style="font-size: 14px; font-weight: 600; min-width: 200px">{{off.text}}</span>
+   <sc-if value="{{off.canRetry}}" hint-placeholder-val="{{ true }}"><button class="tap btn sec" type="button" onClick="{{off.retry}}" style="height: 36px"><svg class="i" viewBox="0 0 24 24" style="animation: {{off.spin}}" aria-hidden="true"><path d="{{ic.refresh}}"></path></svg>{{off.btn}}</button></sc-if>
+  </div></sc-if>
+
+  <div class="pad col" style="padding: 22px 28px 130px; gap: 16px; filter: {{blur}}; transition: filter .3s ease; animation: {{appAnim}}">
+
+  <!-- queued receipts while offline -->
+  <sc-if value="{{off.show}}" hint-placeholder-val="{{ false }}"><div class="card oh rise">
+   <div class="fx sb" style="padding: 14px 18px 8px"><span class="t15">{{off.qTitle}}</span><span class="m12">{{off.qSub}}</span></div>
+   <sc-for list="{{off.queue}}" as="q" hint-placeholder-count="2"><div class="fx bt stg" style="gap: 12px; padding: 12px 18px; animation-delay: {{q.delay}}">
+    <span class="ctr" style="width: 22px; height: 22px"><span class="ldot" style="width: 10px; height: 10px; border-radius: 5px; background: {{q.dot}}; animation: {{q.pulse}}"></span></span>
+    <span class="grow col"><span class="t14">{{q.name}}</span><span class="num m12">{{q.sub}}</span></span>
+    <span class="col" style="align-items: flex-end"><span class="num" style="font-size: 15px; font-weight: 700">{{q.amt}}</span><span class="pill" style="background: {{q.pbg}}; color: {{q.pfg}}; animation: {{q.panim}}">{{q.pill}}</span></span>
+   </div></sc-for>
+  </div></sc-if>
+
+  <!-- loading skeleton -->
+  <sc-if value="{{is.skel}}" hint-placeholder-val="{{ false }}"><div class="col" aria-busy="true" style="gap: 16px">
+   <div class="fx wr" style="gap: 10px; padding: 10px 10px 10px 14px; border-radius: 14px; background: var(--s2); font-size: 13px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" style="animation: xLoop 1s linear infinite" aria-hidden="true"><path d="{{ic.refresh}}"></path></svg><span class="grow">Loading today’s numbers…</span><button class="tap btn sec" type="button" onClick="{{showLoaded}}" style="height: 34px; font-size: 13px">Show loaded</button></div>
+   <span class="skel" style="width: 300px; max-width: 80%; height: 28px"></span>
+   <div class="g4"><sc-for list="{{sk.kpi}}" as="k" hint-placeholder-count="4"><div class="card col" style="padding: 16px; gap: 10px"><span class="skel" style="width: 55%; height: 11px"></span><span class="skel" style="width: 75%; height: 22px"></span><span class="skel" style="width: 45%; height: 10px"></span></div></sc-for></div>
+   <div class="stack" style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px"><sc-for list="{{sk.cards}}" as="c" hint-placeholder-count="2"><div class="card col" style="padding: 16px; gap: 14px"><span class="skel" style="width: 40%; height: 14px"></span><sc-for list="{{sk.rows}}" as="r" hint-placeholder-count="4"><div class="fx" style="gap: 12px"><span class="skel" style="flex: none; width: 36px; height: 36px; border-radius: 18px"></span><span class="grow col" style="gap: 7px"><span class="skel" style="width: {{r.w}}; height: 12px"></span><span class="skel" style="width: 40%; height: 10px"></span></span></div></sc-for></div></sc-for></div>
+  </div></sc-if>
+
+  <!-- today (the normal page behind the states) -->
+  <sc-if value="{{is.today}}" hint-placeholder-val="{{ false }}"><div class="col" style="gap: 16px; animation: {{todayAnim}}">
+   <div class="col"><span class="h22">Good afternoon, Janmejay</span><span class="m13">Thu 8 Oct · 434 students · Half-yearly marks in progress</span></div>
+   <div class="g4"><sc-for list="{{kpis}}" as="k" hint-placeholder-count="4"><div class="card rise col" style="padding: 14px 16px; gap: 2px; animation-delay: {{k.delay}}"><span class="m12" style="font-weight: 600">{{k.label}}</span><span class="num" style="font-size: 22px; font-weight: 700; color: {{k.tone}}">{{k.value}}</span><span class="m12">{{k.sub}}</span></div></sc-for></div>
+   <div class="stack" style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start">
+    <div class="card oh"><div class="fx sb" style="padding: 14px 18px 8px"><span class="t15">Today’s receipts</span><a href="Fees.dc.html" class="tap m13" style="font-weight: 600; color: var(--accfg)">All 14 →</a></div>
+     <sc-for list="{{rcpts}}" as="r" hint-placeholder-count="4"><div class="fx bt stg" style="gap: 12px; padding: 11px 18px; animation-delay: {{r.delay}}"><span class="ctr" style="width: 36px; height: 36px; border-radius: 18px; background: var(--accs); color: var(--accfg); font-size: 12px; font-weight: 700">{{r.ini}}</span><span class="grow col"><span class="t14 ell">{{r.name}}</span><span class="num m12">{{r.sub}}</span></span><span class="num" style="font-weight: 700">{{r.amt}}</span></div></sc-for>
+    </div>
+    <div class="card oh"><div style="padding: 14px 18px 8px"><span class="t15">Needs you</span></div>
+     <sc-for list="{{needs}}" as="n" hint-placeholder-count="3"><div class="fx bt stg" style="gap: 12px; padding: 12px 18px; animation-delay: {{n.delay}}"><span class="ctr tile" style="background: {{n.bg}}; color: {{n.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span><span class="grow col"><span class="t14">{{n.t}}</span><span class="m12">{{n.s}}</span></span></div></sc-for>
+    </div>
+   </div>
+  </div></sc-if>
+
+  <!-- permission denied -->
+  <sc-if value="{{is.denied}}" hint-placeholder-val="{{ false }}"><div class="card col rise" style="max-width: 560px; width: 100%; margin: 24px auto 0; padding: 30px 26px; gap: 14px; align-items: center; text-align: center">
+   <span class="ctr" style="width: 72px; height: 72px; border-radius: 36px; background: var(--warns); color: var(--warnfg); animation: xPopIn .5s var(--spring) both"><svg class="i" viewBox="0 0 24 24" style="width: 32px; height: 32px" aria-hidden="true"><path d="{{ic.shield}}"></path></svg></span>
+   <span class="h22" style="font-size: 24px">Only Admin and Accountant can open Fee setup</span>
+   <span class="m13" style="font-size: 14px; line-height: 1.55">This phone is signed in as <b>Office desk · Fee collector</b>. Fee setup changes what every family pays, so only two people can change it.</span>
+   <div class="col" style="width: 100%; border: 1px solid var(--bd); border-radius: 16px; text-align: left">
+    <sc-for list="{{dn.people}}" as="p" hint-placeholder-count="2"><div class="fx" style="gap: 12px; padding: 12px 14px; border-top: {{p.border}}"><span class="ctr" style="width: 38px; height: 38px; border-radius: 19px; background: {{p.bg}}; color: {{p.fg}}; font-size: 13px; font-weight: 700">{{p.ini}}</span><span class="grow col"><span class="t14">{{p.name}}</span><span class="num m12">{{p.sub}}</span></span><button class="tap btn soft" type="button" aria-label="Call {{p.name}}" onClick="{{p.call}}" style="width: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg></button></div></sc-for>
+   </div>
+   <div class="g2" style="width: 100%; gap: 8px">
+    <button class="tap btn {{dn.cls}}" type="button" onClick="{{dn.request}}" style="height: 46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{dn.icon}}"></path></svg>{{dn.label}}</button>
+    <a href="Desktop.dc.html" class="only-d tap btn sec" style="height: 46px">Go to Today</a><a href="App.dc.html" class="only-m tap btn sec" style="height: 46px">Go to Today</a>
+   </div>
+  </div></sc-if>
+
+  <!-- not found -->
+  <sc-if value="{{is.notfound}}" hint-placeholder-val="{{ false }}"><div class="col rise" style="max-width: 600px; width: 100%; margin: 20px auto 0; gap: 16px; align-items: center; text-align: center">
+   <svg width="120" height="96" viewBox="0 0 120 96" aria-hidden="true"><rect x="16" y="14" width="88" height="68" rx="12" style="fill: var(--card); stroke: var(--bds); stroke-width: 2"></rect><path d="M16 32h88" style="stroke: var(--bds); stroke-width: 2"></path><circle cx="28" cy="23" r="3" style="fill: var(--bds)"></circle><circle cx="38" cy="23" r="3" style="fill: var(--bds)"></circle><path d="M44 66c4-10 28-10 32 0M48 48l6 6m0-6l-6 6M66 48l6 6m0-6l-6 6" style="fill: none; stroke: var(--acc); stroke-width: 3; stroke-linecap: round; --len: 120; stroke-dasharray: 120; animation: xDraw 1s .2s var(--ease) both"></path></svg>
+   <span class="h22" style="font-size: 26px">This page moved or no longer exists</span>
+   <span class="m13" style="font-size: 14px">The link may be old. Search for what you need, or pick a page below.</span>
+   <label class="fx" style="position: relative; width: 100%; height: 48px; border-radius: 24px; border: 1px solid var(--bds); background: var(--card); gap: 10px; padding: 0 16px; color: var(--mut); box-shadow: var(--sh)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search pages</span><input type="search" value="{{nf.q}}" onChange="{{nf.onQ}}" placeholder="Search pages, e.g. dues or reports" style="flex: 1; min-width: 0; height: 44px; border: 0; outline: none; background: transparent; font-size: 15px"></label>
+   <div class="g2" style="width: 100%; gap: 10px; text-align: left"><sc-for list="{{nf.links}}" as="l" hint-placeholder-count="6"><a href="{{l.href}}" class="tap card lift fx stg" style="gap: 12px; padding: 12px 14px; animation-delay: {{l.delay}}"><span class="ctr tile" style="background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{l.icon}}"></path></svg></span><span class="grow t14">{{l.label}}</span><svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></a></sc-for></div>
+   <sc-if value="{{nf.empty}}" hint-placeholder-val="{{ false }}"><span class="m13 fadein">No page called “{{nf.q}}”. Try another word.</span></sc-if>
+   <a href="Desktop.dc.html" class="only-d tap btn pri" style="height: 46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.home}}"></path></svg>Go to Today</a><a href="App.dc.html" class="only-m tap btn pri" style="height: 46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.home}}"></path></svg>Go to Today</a>
+  </div></sc-if>
+  </div>
+ </main>
+ <div class="only-m" style="flex: none"><dc-import name="XNav" active="today" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- update ready banner -->
+<sc-if value="{{up.banner}}" hint-placeholder-val="{{ false }}"><div class="bnr"><div class="toast" role="status" style="gap: 8px; padding: 8px 8px 8px 14px">
+ <span class="ctr" style="width: 30px; height: 30px; border-radius: 15px; background: var(--tacs); color: var(--tacc)"><svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{ic.download}}"></path></svg></span>
+ <span style="font-size: 14px; font-weight: 600; padding-right: 4px">A new version is ready</span>
+ <button type="button" onClick="{{up.open}}">What’s new</button>
+ <button type="button" aria-label="Later" onClick="{{up.later}}" style="width: 36px; padding: 0; background: transparent; color: var(--tfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button>
+</div></div></sc-if>
+</sc-if>
+
+<!-- ================= SHEETS (forgot · expired · update · states) ================= -->
+<sc-if value="{{sheet.open}}" hint-placeholder-val="{{ false }}">
+ <sc-if value="{{sheet.locked}}" hint-placeholder-val="{{ false }}"><div class="scrim {{sheet.state}}"></div></sc-if>
+ <sc-if value="{{sheet.free}}" hint-placeholder-val="{{ true }}"><button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button></sc-if>
+ <section class="sheet {{sheet.state}}" role="dialog" aria-label="{{sheet.title}}">
+  <div class="grab"></div>
+  <div class="fx sb" style="flex: none; align-items: flex-start; gap: 10px; padding: 14px 20px 8px">
+   <div class="col" style="gap: 2px"><span class="h22">{{sheet.title}}</span><span class="m13">{{sheet.sub}}</span></div>
+   <sc-if value="{{sheet.free}}" hint-placeholder-val="{{ true }}"><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></sc-if>
+  </div>
+  <div class="scroll col" style="flex: 1; min-height: 0; padding: 6px 20px 14px; gap: 12px">
+   <sc-if value="{{sh.forgot}}" hint-placeholder-val="{{ false }}">
+    <div class="note" style="flex: none; background: var(--infos); color: var(--info)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.shield}}"></path></svg><span>There is no reset by SMS or email. Only the admin can give a new password, so nobody can get into the fee records with a lost or stolen phone.</span></div>
+    <div class="fx" style="flex: none; gap: 12px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--bd)"><span class="ctr" style="width: 44px; height: 44px; border-radius: 22px; background: #81DAE4; color: #082F49; font-weight: 700">JS</span><span class="grow col"><span class="t15">Ask Janmejay (Admin) to reset it</span><span class="num m12">Janmejay Singh · 98290 ••512 · usually within an hour</span></span></div>
+    <div class="col" style="flex: none; gap: 6px; padding: 14px; border-radius: 16px; background: var(--wabg)"><span class="m12" style="color: var(--wafg); opacity: .7">WhatsApp message we will open for you</span><div style="align-self: flex-end; max-width: 92%; padding: 9px 12px; border-radius: 12px 12px 4px 12px; background: var(--wab); color: var(--wafg); font-size: 14px; line-height: 1.5; animation: xPopIn .4s var(--spring) both"><span lang="hi">नमस्ते सर, मैं अपना VPPS One पासवर्ड भूल गया हूँ। कृपया रीसेट कर दें।</span><br>Hello sir, I forgot my VPPS One password. Please reset it.</div></div>
+   </sc-if>
+   <sc-if value="{{sh.expired}}" hint-placeholder-val="{{ false }}">
+    <div class="fx" style="flex: none; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--s2)"><span class="ctr" style="width: 42px; height: 42px; border-radius: 21px; background: #81DAE4; color: #082F49; font-weight: 700">JS</span><span class="grow col"><span class="t15">Janmejay Singh</span><span class="m12">Admin · signed in at 7:52 am on this phone</span></span><svg class="i" viewBox="0 0 24 24" style="color: var(--mut)" aria-hidden="true"><path d="{{ic.clock}}"></path></svg></div>
+    <label class="field pw" style="flex: none"><span>Password</span><input class="inp {{ex.cls}}" type="{{ex.type}}" autocomplete="current-password" value="{{ex.v}}" onChange="{{ex.onV}}" placeholder="Your password"><button class="tap" type="button" aria-label="{{ex.eyeLabel}}" aria-pressed="{{ex.eyeOn}}" onClick="{{ex.toggleEye}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ex.eyeIcon}}"></path></svg></button></label>
+    <span class="m12 fx" style="flex: none; gap: 6px"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px; color: var(--ok)" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg>{{ex.line}}</span>
+   </sc-if>
+   <sc-if value="{{sh.update}}" hint-placeholder-val="{{ false }}">
+    <span class="pill num" style="flex: none; align-self: flex-start; height: 26px; padding: 0 10px; background: var(--accs); color: var(--accfg)">1.8.0 → 1.9.0</span>
+    <sc-for list="{{up.news}}" as="n" hint-placeholder-count="3"><div class="fx stg" style="flex: none; gap: 12px; align-items: flex-start; animation-delay: {{n.delay}}"><span class="ctr tile" style="background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span><span class="col"><span class="t14">{{n.t}}</span><span class="m12">{{n.s}}</span></span></div></sc-for>
+    <span class="m12" style="flex: none">Takes about 10 seconds. Anything saved stays saved.</span>
+   </sc-if>
+   <sc-if value="{{sh.states}}" hint-placeholder-val="{{ false }}">
+    <sc-for list="{{states}}" as="r" hint-placeholder-count="8"><button class="tap fx stg" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="flex: none; gap: 12px; padding: 10px 12px; border-radius: 14px; border: {{r.bd}}; background: {{r.bg}}; color: var(--fg); text-align: left; animation-delay: {{r.delay}}"><span class="ctr tile" style="background: var(--s2); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span><span class="grow col"><span class="t14">{{r.label}}</span><span class="m12">{{r.sub}}</span></span></button></sc-for>
+   </sc-if>
+  </div>
+  <sc-if value="{{sheet.foot}}" hint-placeholder-val="{{ true }}"><div class="fx bt" style="flex: none; gap: 8px; padding: 12px 20px 20px">
+   <button class="tap btn sec" type="button" onClick="{{sheet.b1}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{sheet.i1}}"></path></svg>{{sheet.l1}}</button>
+   <button class="tap btn pri" type="button" onClick="{{sheet.b2}}" style="flex: 1.3"><svg class="i" viewBox="0 0 24 24" style="animation: {{sheet.spin}}" aria-hidden="true"><path d="{{sheet.i2}}"></path></svg>{{sheet.l2}}</button>
+  </div></sc-if>
+ </section>
+</sc-if>
+
+<!-- updating overlay -->
+<sc-if value="{{up.running}}" hint-placeholder-val="{{ false }}"><div class="col" role="status" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 70; align-items: center; justify-content: center; gap: 16px; background: var(--bg); animation: xFade .3s ease both">
+ <span class="crest" style="width: 76px; height: 76px; border-radius: 24px; font-size: 28px; background: #082F49; color: #F7F6F3; animation: xPopIn .5s var(--spring) both">VP</span>
+ <span class="t15">Updating to VPPS One 1.9.0…</span>
+ <div class="pbar" style="width: 220px"><span style="width: {{up.pct}}"></span></div>
+ <span class="m12">Your work is safe. This takes a few seconds.</span>
+</div></sc-if>
+
+<sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}"><div class="toastwrap"><div class="toast" role="status" style="background: {{toast.bg}}; color: {{toast.fg}}"><svg class="i" viewBox="0 0 24 24" style="color: {{toast.ic}}" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 8px">{{toast.text}}</span></div></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["signin","error","signing","forgot","password","session","offline","denied","notfound","loading","expired","update"],"default":"signin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+ data() {
+  if (this._d) return this._d;
+/*VX_ICONS*/
+  const KPI = [['Collected today', '₹38,400', '14 receipts · 9 UPI, 5 cash', 'var(--fg)'], ['Pending today', '₹6.4 L', '138 students · late fee shown apart', 'var(--warnfg)'], ['Attendance', '17 of 19', 'classes marked · 2 not marked yet', 'var(--fg)'], ['Needs you', '6', '3 promises due today', 'var(--fg)']];
+  const RCPT = [['Pooja Mehta', 'R-0417 · 11 Commerce · UPI · 10:38', '₹4,350'], ['Kunal Verma', 'R-0416 · Class 4 · Cash · 10:21', '₹2,850'], ['Tanvi Paliwal', 'R-0415 · LKG · UPI · 10:05', '₹2,175'], ['Harsh Vyas', 'R-0414 · Class 8 · UPI · 9:58', '₹3,900']];
+  const NEEDS = [['lock', 'Close the day', 'Count ₹7,600 cash · check UPI', 3], ['phone', '3 promises due today', 'Aarav Sharma, Neha Joshi, Mohit Agarwal', 0], ['calCheck', '2 classes not marked', 'Class 9 and 12 Arts · not counted as present', 1]];
+  const QUEUE = [['Riya Singh', 'Class 6 · Cash · made 3:40 pm', '₹6,450', 'R-0418'], ['Mohit Agarwal', 'Class 9 · UPI · made 3:46 pm', '₹7,800', 'R-0419']];
+  const LINKS = [['Receipts & day close', 'receipt', 'Fees.dc.html'], ['Dues & calls', 'phone', 'Dues.dc.html'], ['Reports', 'chart', 'Reports.dc.html'], ['Exams & marks', 'clipboard', 'Exams.dc.html'], ['Messages', 'megaphone', 'Messages.dc.html'], ['Settings', 'settings', 'Settings.dc.html']];
+  const STATES = [['today', 'Today · normal', 'Everything working', 'home'], ['offline', 'Offline', 'No internet · receipts wait on this phone', 'wifiOff'], ['denied', 'No access', 'A page this role cannot open', 'shield'], ['notfound', 'Page not found', 'An old or broken link', 'search'], ['loading', 'Loading', 'Skeleton while numbers load', 'layers'], ['expired', 'Signed out', 'Session ended after 8 hours', 'clock'], ['update', 'Update ready', 'A new version is waiting', 'download'], ['signin', 'Sign-in screen', 'Back to the start', 'lock']];
+  const NEWS = [['zap', 'Faster student search', 'Results show as you type, even on slow internet.'], ['receipt', 'Offline receipts get their number sooner', 'Within seconds of being back online.'], ['calCheck', 'Attendance reminder at 10 am', 'For classes not marked yet.']];
+  this._d = { IC, KPI, RCPT, NEEDS, QUEUE, LINKS, STATES, NEWS };
+  return this._d;
+ }
+
+ st() {
+  const start = (this.props || {}).start || 'signin';
+  const base = {
+   scr: 'signin', page: 'today', anim: 'none', user: '', pw: '', eye: false, remember: true, tries: 0, err: '', signing: false, ok: false,
+   sheet: '', closing: false, toast: null, np: '', cp: '', eye2: false, pwDone: false, sess: '2026', role: 'admin',
+   online: false, retrying: false, requested: false, nq: '', loaded: false, xpw: '', xeye: false, xerr: false, xsign: false,
+   banner: false, upPct: -1, fresh: 0
+  };
+  const map = {
+   error: { user: 'janmejay', pw: 'amet2025', tries: 1, err: 'wrong' }, signing: { user: 'janmejay', pw: 'Temp4821', tries: 1, signing: true }, forgot: { sheet: 'forgot' },
+   password: { scr: 'password', np: 'amet2026' }, session: { scr: 'session' },
+   offline: { scr: 'app', page: 'offline' }, denied: { scr: 'app', page: 'denied' }, notfound: { scr: 'app', page: 'notfound' }, loading: { scr: 'app', page: 'loading' },
+   expired: { scr: 'app', sheet: 'expired' }, update: { scr: 'app', banner: true }
+  };
+  return Object.assign(base, map[start] || {}, this.state || {});
+ }
+
+ toast(text, ok) {
+  const id = Date.now() + Math.random();
+  this.setState({ toast: { id, text, ok: !!ok } });
+  clearTimeout(this._tt);
+  this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4200);
+ }
+
+ openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+ closeSheet(then) {
+  if (!this.st().sheet) { if (then) then(); return; }
+  this.setState({ closing: true });
+  clearTimeout(this._ct);
+  this._ct = setTimeout(() => { this.setState({ sheet: '', closing: false }); if (then) then(); }, 240);
+ }
+
+ // re-add an error class so the shake animation plays again
+ flash(key, val) { this.setState({ [key]: '' }); setTimeout(() => this.setState({ [key]: val }), 40); }
+
+ renderVals() {
+  const D = this.data();
+  const s = this.st();
+  const S = () => this.st();
+  const IC = D.IC;
+  const B = (x) => (x ? 'true' : 'false');
+  const delay = (i) => (Math.min(i, 12) * 40) + 'ms';
+  const T = [['var(--accs)', 'var(--accfg)'], ['var(--infos)', 'var(--info)'], ['var(--oks)', 'var(--ok)'], ['var(--warns)', 'var(--warnfg)']];
+  const radio = (on) => ({ on: B(on), bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? 'var(--accs)' : 'var(--card)', ring: on ? 'var(--acc)' : 'var(--bds)', dot: on ? '1' : '0' });
+  const eye = (key) => { const on = !!s[key]; return { type: on ? 'text' : 'password', eyeOn: B(on), eyeLabel: on ? 'Hide password' : 'Show password', eyeIcon: on ? IC.eyeOff : IC.eye, toggleEye: () => this.setState({ [key]: !S()[key] }) }; };
+  const pre = s.scr !== 'app';
+  const page = s.page;
+  const anims = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both', none: 'none' };
+
+  // ---------- sign in ----------
+  const tl = 5 - s.tries;
+  const su = Object.assign(eye('eye'), {
+   user: s.user, pw: s.pw, onUser: (e) => this.setState({ user: e.target.value, err: '' }), onPw: (e) => this.setState({ pw: e.target.value, err: '' }),
+   userCls: s.err === 'nouser' ? 'err' : '', pwCls: s.err === 'wrong' || s.err === 'empty' ? 'err' : '',
+   isWrong: s.err === 'wrong', isEmpty: s.err === 'empty' || s.err === 'nouser',
+   emptyLine: s.err === 'nouser' ? 'Type your mobile number or username.' : 'Type your password to sign in.',
+   triesLine: tl + (tl === 1 ? ' try' : ' tries') + ' left before the admin has to unlock it. Check that Caps Lock is off.',
+   remOn: B(s.remember), remCls: s.remember ? 'on' : '', toggleRem: () => this.setState({ remember: !S().remember }),
+   btnBg: s.ok ? 'var(--ok)' : 'var(--pri)', btnLabel: s.ok ? 'Signed in' : (s.signing ? 'Signing in…' : 'Sign in'),
+   btnIcon: s.ok ? IC.check : (s.signing ? IC.refresh : IC.arrowRight), btnAnim: s.signing ? 'xLoop 1s linear infinite' : (s.ok ? 'xPopIn .4s var(--spring) both' : 'none'),
+   forgot: () => this.openSheet('forgot'),
+   submit: () => {
+    const c = S();
+    if (c.signing || c.ok) return;
+    if (!c.user.trim()) { this.flash('err', 'nouser'); return; }
+    if (!c.pw) { this.flash('err', 'empty'); return; }
+    if (c.tries === 0) { this.setState({ tries: 1 }); this.flash('err', 'wrong'); return; }
+    this.setState({ signing: true, err: '' });
+    setTimeout(() => this.setState({ signing: false, ok: true }), 1100);
+    setTimeout(() => this.setState({ scr: 'password', ok: false, anim: 'push' }), 1900);
+   }
+  });
+
+  // ---------- change password ----------
+  const v = s.np;
+  const rules = [v.length >= 8, /\d/.test(v), v.length > 0 && v.replace(/\D/g, '').indexOf('98290') < 0];
+  const score = !v ? 0 : Math.max(1, [v.length >= 8, /\d/.test(v), /[A-Z]/.test(v) || /[^A-Za-z0-9]/.test(v), v.length >= 12].filter(Boolean).length);
+  const match = s.cp.length > 0 && s.cp === v;
+  const ready = rules.every(Boolean) && match;
+  const np = Object.assign(eye('eye2'), {
+   form: !s.pwDone, done: s.pwDone, v, c: s.cp, onV: (e) => this.setState({ np: e.target.value }), onC: (e) => this.setState({ cp: e.target.value }),
+   segs: [0, 1, 2, 3].map((i) => ({ on: i < score ? '1' : '0', delay: (i * 60) + 'ms' })),
+   label: ['Type a password', 'Weak', 'Okay', 'Good', 'Strong'][score], color: ['var(--mut)', 'var(--bad)', 'var(--warn)', 'var(--acc)', 'var(--ok)'][score],
+   rules: ['8 or more characters', 'At least one number', 'Not your phone number'].map((t, i) => ({ t, ok: rules[i], fg: rules[i] ? 'var(--ok)' : 'var(--mut)', w: rules[i] ? '600' : '400', bg: rules[i] ? 'var(--ok)' : 'transparent', bd: rules[i] ? 'var(--ok)' : 'var(--bds)' })),
+   match, cCls: s.cp.length >= v.length && s.cp.length > 0 && !match ? 'err' : '',
+   op: ready ? '1' : '0.55', hint: ready ? 'All set — save it and you are in.' : (rules.every(Boolean) ? 'Type the same password again to save.' : 'Tick all three rules, then type it again.'),
+   save: () => { if (!ready) { this.toast(rules.every(Boolean) ? 'The two passwords are not the same yet' : 'Tick all three rules first'); return; } this.setState({ pwDone: true }); },
+   next: () => this.setState({ scr: 'session', anim: 'push' })
+  });
+
+  // ---------- session + role ----------
+  const sp = {
+   sessions: [['2026', '2026–27', 'Wed 1 Apr 2026 – Wed 31 Mar 2027', 'Current', 'var(--oks)', 'var(--ok)'], ['2025', '2025–26', 'Closed on Tue 31 Mar 2026', 'Archived · read-only', 'var(--s3)', 'var(--mut)']].map((r, i) => Object.assign(radio(s.sess === r[0]), { label: r[1], sub: r[2], pill: r[3], pbg: r[4], pfg: r[5], delay: delay(i), pick: () => this.setState({ sess: r[0] }) })),
+   roles: [['admin', 'Admin', 'Money, students, staff and settings', 'shield', 0], ['teacher', 'Class teacher', 'Attendance, marks and parents of your class', 'grad', 3]].map((r, i) => Object.assign(radio(s.role === r[0]), { label: r[1], sub: r[2], icon: IC[r[3]], ibg: T[r[4]][0], ifg: T[r[4]][1], delay: delay(i + 2), pick: () => this.setState({ role: r[0] }) })),
+   readOnly: s.sess === '2025', isAdmin: s.role === 'admin', isTeacher: s.role !== 'admin',
+   goLabel: 'Continue as ' + (s.role === 'admin' ? 'Admin' : 'class teacher') + ' · ' + (s.sess === '2026' ? '2026–27' : '2025–26'),
+   go: () => { this.setState({ scr: 'app', page: 'loading', loaded: false, anim: 'none' }); setTimeout(() => { if (S().page === 'loading' && !S().loaded) { this.setState({ loaded: true }); this.toast('Welcome back, Janmejay · ' + (S().sess === '2026' ? '2026–27' : '2025–26 (read-only)')); } }, 1800); }
+  };
+
+  // ---------- inside the app ----------
+  const off = page === 'offline';
+  const showToday = page === 'today' || off || (page === 'loading' && s.loaded);
+  const net = off && !s.online ? { label: 'Offline', bg: 'var(--warns)', fg: 'var(--warnfg)', dot: 'var(--warn)' } : { label: 'Online', bg: 'var(--oks)', fg: 'var(--ok)', dot: 'var(--ok)' };
+  const offv = {
+   show: off, canRetry: !s.online, bg: s.online ? 'var(--oks)' : 'var(--warns)', fg: s.online ? 'var(--ok)' : 'var(--warnfg)', icon: s.online ? IC.checkCircle : IC.wifiOff,
+   text: s.online ? 'Back online · 2 receipts synced as R-0418 and R-0419' : 'You’re offline — receipts you make are saved on this phone and sync when you’re back',
+   btn: s.retrying ? 'Checking…' : 'Try again', spin: s.retrying ? 'xLoop 1s linear infinite' : 'none',
+   retry: () => { if (S().retrying) return; this.setState({ retrying: true }); setTimeout(() => { this.setState({ retrying: false, online: true }); this.toast('Back online · 2 synced', true); }, 1300); },
+   qTitle: s.online ? 'Synced just now' : 'Waiting to sync · 2', qSub: s.online ? 'Receipt numbers given' : 'Saved on this phone only',
+   queue: D.QUEUE.map((q, i) => ({ name: q[0], sub: q[1], amt: q[2], delay: delay(i), dot: s.online ? 'var(--ok)' : 'var(--warn)', pulse: s.online ? 'none' : 'xPulse 1.6s infinite', pill: s.online ? q[3] + ' ✓' : 'Waiting', pbg: s.online ? 'var(--oks)' : 'var(--warns)', pfg: s.online ? 'var(--ok)' : 'var(--warnfg)', panim: s.online ? 'xPopIn .45s var(--spring) both' : 'none' }))
+  };
+  const dn = {
+   people: [['JS', 'Janmejay Singh', 'Admin · 98290 ••512', 0], ['NS', 'Ms. Neelam Sharma', 'Accountant · 98290 ••207', 2]].map((p, i) => ({ ini: p[0], name: p[1], sub: p[2], bg: T[p[3]][0], fg: T[p[3]][1], border: i ? '1px solid var(--bd)' : '0', call: () => this.toast('Calling ' + p[1] + '…') })),
+   cls: s.requested ? 'sec' : 'pri', icon: s.requested ? IC.check : IC.send, label: s.requested ? 'Request sent' : 'Request access',
+   request: () => { if (S().requested) return; this.setState({ requested: true }); this.toast('Request sent to Janmejay and Ms. Neelam Sharma on WhatsApp'); }
+  };
+  const nq = (s.nq || '').trim().toLowerCase();
+  const links = D.LINKS.filter((l) => !nq || l[0].toLowerCase().indexOf(nq) >= 0);
+  const nf = { q: s.nq, onQ: (e) => this.setState({ nq: e.target.value }), empty: links.length === 0, links: links.map((l, i) => ({ label: l[0], icon: IC[l[1]], href: l[2], delay: delay(i) })) };
+  const titles = { today: 'Today', offline: 'Today', loading: 'Today', denied: 'Fee setup', notfound: 'Page not found' };
+  const top = { crumb: page === 'denied' ? 'Money · Fee setup' : 'Thu 8 Oct · Session 2026–27', title: titles[page] || 'Today', mSub: page === 'denied' ? 'No access for this role' : (off && !s.online ? 'Offline · 2 receipts waiting' : 'Thu 8 Oct · 2026–27') };
+
+  // ---------- states picker ----------
+  const cur = s.scr !== 'app' ? 'signin' : (s.sheet === 'expired' ? 'expired' : (s.banner ? 'update' : page));
+  const pick = (k) => () => {
+   const reset = { online: false, retrying: false, requested: false, nq: '', loaded: false, banner: false, xpw: '', xerr: false };
+   if (k === 'signin') { this.closeSheet(() => this.setState(Object.assign(reset, { scr: 'signin', pw: '', err: '', tries: 0, ok: false, signing: false, anim: 'pop' }))); return; }
+   if (k === 'expired') { this.setState(Object.assign(reset, { page: 'today', sheet: 'expired', closing: false })); return; }
+   this.closeSheet(() => this.setState(Object.assign(reset, k === 'update' ? { page: 'today', banner: true } : { page: k })));
+  };
+  const states = D.STATES.map((r, i) => Object.assign(radio(cur === r[0]), { label: r[1], sub: r[2], icon: IC[r[3]], delay: delay(i), pick: pick(r[0]) }));
+
+  // ---------- update ----------
+  const up = {
+   banner: s.banner && s.upPct < 0, running: s.upPct >= 0, pct: Math.max(0, s.upPct) + '%',
+   open: () => this.openSheet('update'), later: () => { this.setState({ banner: false }); this.toast('We’ll remind you tomorrow morning'); },
+   news: D.NEWS.map((n, i) => ({ icon: IC[n[0]], t: n[1], s: n[2], delay: delay(i) }))
+  };
+  const runUpdate = () => this.closeSheet(() => {
+   this.setState({ upPct: 8, banner: false });
+   [35, 62, 88, 100].forEach((p, i) => setTimeout(() => this.setState({ upPct: p }), 420 * (i + 1)));
+   setTimeout(() => { this.setState({ upPct: -1, fresh: S().fresh + 1 }); this.toast('Updated to 1.9.0 · nothing was lost', true); }, 420 * 5 + 200);
+  });
+
+  // ---------- expired ----------
+  const ex = Object.assign(eye('xeye'), {
+   v: s.xpw, onV: (e) => this.setState({ xpw: e.target.value, xerr: '' }), cls: s.xerr ? 'err' : '',
+   line: s.xerr ? 'Type your password to carry on.' : 'Your receipts and changes from today are all saved.'
+  });
+  const xSign = () => {
+   const c = S();
+   if (c.xsign) return;
+   if (!c.xpw) { this.flash('xerr', 'yes'); return; }
+   this.setState({ xsign: true });
+   setTimeout(() => { this.setState({ xsign: false, xpw: '' }); this.closeSheet(); this.toast('Welcome back · you are where you left off', true); }, 1100);
+  };
+
+  // ---------- sheets ----------
+  const sheets = {
+   forgot: ['Forgot your password?', 'No problem — the admin can reset it in a minute.', IC.phone, 'Call', () => this.toast('Calling Janmejay Singh…'), IC.message, 'WhatsApp', () => { this.closeSheet(); this.toast('WhatsApp opened with your message to Janmejay'); }],
+   expired: ['You were signed out after 8 hours', 'Sign in again — nothing you saved is lost.', IC.user, 'Switch user', pick('signin'), s.xsign ? IC.refresh : IC.arrowRight, s.xsign ? 'Signing in…' : 'Sign in', xSign],
+   update: ['What’s new in 1.9.0', 'Ready to install on this phone and computer.', IC.clock, 'Later', () => this.closeSheet(), IC.refresh, 'Update now', runUpdate],
+   states: ['App states', 'Preview what the app shows in each situation.']
+  };
+  const sd = sheets[s.sheet] || sheets.states;
+
+  const dark = !!this.props.dark;
+  const tk = s.toast;
+  return {
+   ic: IC, dark, theme: dark ? 'dark' : '',
+   is: { pre, app: !pre, signin: s.scr === 'signin', password: s.scr === 'password', session: s.scr === 'session', skel: page === 'loading' && !s.loaded, today: showToday, denied: page === 'denied', notfound: page === 'notfound' },
+   anim: { pre: anims[s.anim] || 'none' },
+   su, np, sp, top, net, off: offv, dn, nf, states, up,
+   kpis: D.KPI.map((k, i) => ({ label: k[0], value: k[1], sub: k[2], tone: k[3], delay: delay(i) })),
+   rcpts: D.RCPT.map((r, i) => ({ name: r[0], sub: r[1], amt: r[2], ini: r[0].split(' ').map((w) => w[0]).join(''), delay: delay(i + 2) })),
+   needs: D.NEEDS.map((n, i) => ({ icon: IC[n[0]], t: n[1], s: n[2], bg: T[n[3]][0], fg: T[n[3]][1], delay: delay(i + 3) })),
+   sk: { kpi: [0, 1, 2, 3].map((i) => ({ i })), cards: [0, 1].map((i) => ({ i })), rows: ['70%', '55%', '82%', '62%'].map((w) => ({ w })) },
+   showLoaded: () => this.setState({ loaded: true }),
+   todayAnim: page === 'loading' ? 'xFade .5s ease both' : 'none',
+   appAnim: s.fresh % 2 ? 'xFade .6s ease both' : (s.fresh ? 'xIn .6s var(--ease) both' : 'none'),
+   blur: s.sheet === 'expired' ? 'blur(6px)' : 'none',
+   openStates: () => this.openSheet('states'),
+   ex,
+   sh: { forgot: s.sheet === 'forgot', expired: s.sheet === 'expired', update: s.sheet === 'update', states: s.sheet === 'states' },
+   sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', locked: s.sheet === 'expired', free: s.sheet !== 'expired', foot: s.sheet !== 'states', title: sd[0], sub: sd[1], i1: sd[2] || IC.x, l1: sd[3] || '', b1: sd[4] || (() => this.closeSheet()), i2: sd[5] || IC.check, l2: sd[6] || '', b2: sd[7] || (() => this.closeSheet()), spin: s.xsign ? 'xLoop 1s linear infinite' : 'none' },
+   closeSheet: () => this.closeSheet(),
+   toast: { show: !!tk, text: tk ? tk.text : '', bg: tk && tk.ok ? 'var(--ok)' : 'var(--tbg)', fg: tk && tk.ok ? 'var(--onsolid)' : 'var(--tfg)', ic: tk && tk.ok ? 'var(--onsolid)' : 'var(--tacc)' }
+  };
+ }
+}
+</script>
+</body>
+</html>

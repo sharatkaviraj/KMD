@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.vx .fx{display:flex;align-items:center}.vx .col{display:flex;flex-direction:column}.vx .ctr{flex:none;display:flex;align-items:center;justify-content:center}.vx .grow{flex:1;min-width:0}.vx .sb{justify-content:space-between}.vx .wr{flex-wrap:wrap}.vx .oh{overflow:hidden}.vx .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx .sro{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.vx .m12{font-size:12px;color:var(--mut)}.vx .m13{font-size:13px;color:var(--mut)}.vx .t14{font-size:14px;font-weight:600}.vx .t15{font-size:15px;font-weight:700}.vx .h22{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600}.vx .tile{width:36px;height:36px;border-radius:11px}.vx .rbtn{width:100%;border:0;background:transparent;color:var(--fg);text-align:left}.vx .ibtn{width:38px;height:38px;padding:0}.vx .okp{background:var(--oks);color:var(--ok)}.vx .ldot{width:7px;height:7px;border-radius:4px;background:var(--ok);animation:xPulse 2s infinite}.vx .stg{animation:xIn .32s var(--ease) both}.vx .pbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden}.vx .pbar>span{display:block;height:8px;border-radius:4px;background:var(--acc);transition:width .5s var(--ease)}.vx .crest{flex:none;display:flex;align-items:center;justify-content:center;background:#082F49;color:#F7F6F3;font-family:'Source Serif 4',Georgia,serif;font-weight:700}.vx .srch{position:relative;display:flex;align-items:center;gap:8px;padding:0 14px;border:1px solid var(--bds);background:var(--card);color:var(--mut)}.vx .srch input{flex:1;min-width:0;height:38px;border:0;outline:none;background:transparent;font-size:15px}.vx .box{display:flex;flex-direction:column;padding:10px 12px;border-radius:14px;background:var(--s2)}.vx .gap{display:flex;flex-direction:column;gap:16px}.vx .g2,.vx .g3{display:grid;gap:12px}.vx .g2{grid-template-columns:repeat(2,minmax(0,1fr))}.vx .g3{grid-template-columns:repeat(3,minmax(0,1fr))}.vx .note{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.5}.vx .bt{border-top:1px solid var(--bd)}.vx a.pri{color:var(--prifg)}.vx a.soft{color:var(--accfg)}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position: relative; width: 100%; height: 100vh; min-height: 560px; overflow: hidden; display: flex; background: var(--bg); color: var(--fg); font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; font-size: 14px; line-height: 1.45">
+<div class="only-d" style="flex: none; height: 100%"><dc-import name="XSide" active="settings" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative">
+
+<header class="only-d glass fx" style="flex: none; height: 64px; gap: 12px; padding: 0 28px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+ <div class="grow col"><span class="m12">{{top.crumb}}</span><span class="h22" style="line-height: 1.15">{{top.title}}</span></div>
+</header>
+<header class="only-m glass fx" style="flex: none; min-height: 58px; gap: 4px; padding: 6px 12px 6px 8px; border-bottom: 1px solid var(--bd); position: relative; z-index: 5">
+ <sc-if value="{{top.mBackLink}}" hint-placeholder-val="{{ true }}"><a href="F13-Menu.dc.html" class="tap ctr" aria-label="Back to menu" style="width: 44px; height: 44px; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+ <sc-if value="{{top.mBackBtn}}" hint-placeholder-val="{{ false }}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width: 44px; height: 44px; padding: 0; border-radius: 22px"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+ <span class="grow col" style="padding-left: 2px"><span class="ell" style="font-size: 17px; font-weight: 700">{{top.mTitle}}</span><span class="m12 ell">{{top.mSub}}</span></span>
+</header>
+<sc-if value="{{saved.show}}" hint-placeholder-val="{{ false }}"><span class="pill okp" role="status" style="position: absolute; top: 16px; right: 20px; z-index: 6; height: 30px; padding: 0 12px; font-size: 13px; box-shadow: var(--sh); animation: {{saved.anim}}"><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Saved</span></sc-if>
+<main class="scroll" style="flex: 1; min-height: 0; position: relative">
+<div class="stack" style="display: grid; grid-template-columns: 300px minmax(0, 1fr); align-items: start; min-height: 100%">
+
+<!-- ============ SECTION LIST (desktop column · phone first screen) ============ -->
+<nav class="unstick {{lay.navCls}}" aria-label="Settings sections" style="position: sticky; top: 0; height: calc(100vh - 64px); overflow-y: auto; border-top: 0; scrollbar-width: thin; animation: {{anim.nav}}">
+<div class="pad gap" style="padding: 18px 14px 28px; zoom: {{zoom}}">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="4">
+<div class="col" style="gap: 6px">
+<span class="sech" style="padding: 0 8px">{{g.label}}</span>
+<div class="card oh" style="padding: 4px">
+<sc-for list="{{g.items}}" as="n" hint-placeholder-count="3">
+<sc-if value="{{n.isLink}}" hint-placeholder-val="{{ false }}"><a href="{{n.href}}" class="tap row fx stg" style="gap: 12px; min-height: 56px; padding: 8px 10px; border-radius: 13px; animation-delay: {{n.delay}}">
+ <span class="ctr tile" style="background: {{n.bg}}; color: {{n.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+ <span class="grow col"><span class="t14">{{n.label}}</span><span class="m12 ell">{{n.status}}</span></span>
+ <svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg>
+</a></sc-if>
+<sc-if value="{{n.isBtn}}" hint-placeholder-val="{{ true }}"><button class="tap row rbtn fx stg {{n.sel}}" type="button" aria-current="{{n.cur}}" onClick="{{n.go}}" style="gap: 12px; min-height: 56px; padding: 8px 10px; border-radius: 13px; animation-delay: {{n.delay}}">
+ <span class="ctr tile" style="background: {{n.bg}}; color: {{n.fg}}"><svg class="i" viewBox="0 0 24 24" style="animation: {{n.spin}}" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+ <span class="grow col"><span class="t14">{{n.label}}</span><span class="ell" style="font-size: 12px; color: {{n.stTone}}">{{n.status}}</span></span>
+ <svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{n.chev}}"></path></svg>
+</button></sc-if>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<a href="Auth.dc.html" class="tap btn sec" style="height: 46px; color: var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.logout}}"></path></svg>Sign out</a>
+</div>
+</nav>
+
+<!-- ============ CONTENT ============ -->
+<section class="unstick {{lay.bodyCls}}" style="position: relative; min-width: 0; min-height: calc(100vh - 64px); border-left: 1px solid var(--bd); border-top: 0">
+<div class="pad" style="padding: 22px 28px 40px; zoom: {{zoom}}">
+
+<!-- SCHOOL PROFILE -->
+<sc-if value="{{is.school}}" hint-placeholder-val="{{ true }}">
+<div class="stack" style="display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; animation: {{anim.c}}">
+<div class="gap" style="min-width: 0">
+<div class="card col" style="padding: 18px 20px; gap: 14px">
+ <div class="fx sb wr" style="gap: 6px"><span class="t15">Name and address</span><button class="tap btn ghost" type="button" onClick="{{prof.history}}" style="height: 30px; padding: 0 8px; font-size: 12px; color: var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width: 14px; height: 14px" aria-hidden="true"><path d="{{ic.clock}}"></path></svg>{{prof.last}}</button></div>
+ <div class="g2"><label class="field"><span>School name · English</span><input class="inp" value="{{prof.en}}" onChange="{{prof.onEn}}"></label><label class="field"><span>School name · हिंदी</span><input class="inp" lang="hi" value="{{prof.hi}}" onChange="{{prof.onHi}}"></label></div>
+ <label class="field"><span>Address</span><textarea class="inp" value="{{prof.addr}}" onChange="{{prof.onAddr}}" style="min-height: 70px"></textarea></label>
+ <div class="g2"><label class="field"><span>Affiliation number (sample)</span><input class="inp num" value="{{prof.aff}}" onChange="{{prof.onAff}}"></label><label class="field"><span>Office phone</span><input class="inp num" value="{{prof.phone}}" onChange="{{prof.onPhone}}"></label></div>
+</div>
+<div class="card col" style="padding: 18px 20px; gap: 12px">
+ <span class="t15">Logo and signature</span>
+ <div class="g2"><sc-for list="{{media}}" as="m" hint-placeholder-count="2"><div class="fx" style="gap: 12px; padding: 12px; border-radius: 14px; border: 1.5px dashed var(--bds); background: var(--s2)">
+  <span class="ctr" style="width: 64px; height: 64px; border-radius: 14px; background: var(--card); border: 1px solid var(--bd)">
+   <sc-if value="{{m.isLogo}}" hint-placeholder-val="{{ true }}"><span class="crest" style="width: 48px; height: 48px; border-radius: 14px; font-size: 18px; animation: {{m.anim}}">VP</span></sc-if>
+   <sc-if value="{{m.isSign}}" hint-placeholder-val="{{ false }}"><svg width="56" height="32" viewBox="0 0 56 32" aria-hidden="true"><path d="{{sig}}" style="fill: none; stroke: var(--info); stroke-width: 2; stroke-linecap: round; --len: 140; stroke-dasharray: 140; animation: xDraw 1.2s var(--ease) both"></path></svg></sc-if>
+  </span>
+  <span class="grow col" style="gap: 4px"><span class="t14">{{m.title}}</span><span class="m12 ell">{{m.sub}}</span><label class="tap btn sec" style="position: relative; overflow: hidden; height: 34px; padding: 0 12px; font-size: 13px; align-self: flex-start"><svg class="i" viewBox="0 0 24 24" style="width: 16px; height: 16px" aria-hidden="true"><path d="{{ic.upload}}"></path></svg>Replace<input type="file" accept="image/*" aria-label="{{m.aria}}" onChange="{{m.pick}}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer"></label></span>
+ </div></sc-for></div>
+ <span class="m12">PNG or JPG. Square works best for the logo; a clear scan on white paper for the signature.</span>
+</div>
+<div class="card col" style="padding: 18px 20px; gap: 10px">
+ <div class="fx sb"><span class="t15">Receipt footer</span><span class="num" style="font-size: 12px; color: {{prof.countTone}}">{{prof.count}}</span></div>
+ <label class="field"><span>Printed at the bottom of every receipt · Hindi first, then English</span><textarea class="inp" value="{{prof.foot}}" onChange="{{prof.onFoot}}" style="min-height: 84px"></textarea></label>
+</div>
+</div>
+<aside class="unstick col" style="position: sticky; top: 0; border-top: 0; gap: 10px">
+ <div class="fx sb"><span class="sech">Live receipt preview</span><span class="m12">Updates as you type</span></div>
+ <div class="card col" style="padding: 18px; gap: 10px; font-size: 12px">
+  <div class="fx" style="gap: 10px; padding-bottom: 10px; border-bottom: 1.5px dashed var(--bds)"><span class="crest" style="width: 40px; height: 40px; border-radius: 11px">VP</span><span class="col" style="min-width: 0"><span class="serif" style="font-size: 14px; font-weight: 600; line-height: 1.2">{{prof.en}}</span><span class="m12">{{prof.hi}}</span><span style="font-size: 11px; color: var(--sub)">{{prof.addrLine}}</span></span></div>
+  <div class="fx sb"><span style="font-weight: 700; color: var(--mut)">रसीद · FEE RECEIPT</span><span class="num" style="font-weight: 700">R-0418</span></div>
+  <div class="fx sb"><span>Aarav Sharma · Class 7 · SR 1234</span><span class="num">Thu 8 Oct</span></div>
+  <div class="col bt"><sc-for list="{{rcpt}}" as="h" hint-placeholder-count="3"><div class="fx sb" style="padding: 7px 0; border-bottom: 1px solid var(--bd); font-weight: {{h.w}}"><span>{{h.k}}</span><span class="num">{{h.v}}</span></div></sc-for></div>
+  <span style="padding: 8px 10px; border-radius: 10px; background: var(--s2); color: var(--mut); font-style: italic; line-height: 1.5; white-space: pre-line">{{prof.foot}}</span>
+  <div class="fx sb" style="align-items: flex-end; gap: 10px; padding-top: 6px; border-top: 1.5px dashed var(--bds)"><span class="num" style="color: var(--mut); font-size: 11px">{{prof.phone}} · Aff. {{prof.aff}}</span><span class="col" style="align-items: center"><svg width="56" height="26" viewBox="0 0 56 32" aria-hidden="true"><path d="{{sig}}" style="fill: none; stroke: var(--info); stroke-width: 2; stroke-linecap: round"></path></svg><span style="font-size: 10px; color: var(--mut)">Principal</span></span></div>
+ </div>
+</aside>
+</div>
+</sc-if>
+
+<!-- PREFERENCES -->
+<sc-if value="{{is.prefs}}" hint-placeholder-val="{{ false }}">
+<div class="gap" style="max-width: 780px; animation: {{anim.c}}">
+<span class="m13">Changes save as soon as you make them, for your account on every device.</span>
+<div class="card oh">
+<sc-for list="{{pf.segs}}" as="r" hint-placeholder-count="2"><div class="fx wr" style="gap: 12px 14px; padding: 14px 18px; border-top: {{r.border}}">
+ <span class="ctr tile" style="background: var(--s2); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span>
+ <span class="col" style="flex: 1; min-width: 160px"><span class="t14">{{r.label}}</span><span class="m12">{{r.sub}}</span></span>
+ <div class="seg mfull" role="radiogroup" aria-label="{{r.label}}" style="grid-template-columns: repeat({{r.n}}, minmax(0, 1fr)); width: {{r.w}}"><span class="thumb" aria-hidden="true" style="width: calc((100% - 6px) / {{r.n}}); transform: translateX({{r.thumb}})"></span><sc-for list="{{r.opts}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+</div></sc-for>
+<sc-for list="{{pf.sws}}" as="n" hint-placeholder-count="4">
+ <sc-if value="{{n.head}}" hint-placeholder-val="{{ false }}"><div class="col bt" style="padding: 16px 18px 6px"><span class="t15">Alerts on WhatsApp</span><span class="m12">Sent to your phone only, never to parents.</span></div></sc-if>
+ <button class="tap row rbtn fx bt" type="button" role="switch" aria-checked="{{n.on}}" onClick="{{n.toggle}}" style="gap: 14px; padding: 13px 18px"><span class="ctr tile" style="background: {{n.bg}}; color: {{n.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span><span class="grow col"><span class="t14">{{n.label}}</span><span class="m12">{{n.sub}}</span></span><span class="sw {{n.cls}}"><span></span></span></button>
+</sc-for>
+</div>
+<div class="card col" style="padding: 16px 18px; gap: 14px">
+ <div class="col" style="gap: 8px"><span class="t14">Open the app on</span><div class="hs" style="display: flex; gap: 6px"><sc-for list="{{pf.landing}}" as="c" hint-placeholder-count="4"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div>
+ <div class="fx wr" style="align-items: flex-end; gap: 10px">
+  <label class="field" style="flex: 1; min-width: 220px"><span>Receipt printer</span><select class="inp" value="{{pf.printer}}" onChange="{{pf.onPrinter}}"><option value="thermal">Office desk · thermal (3 inch)</option><option value="laser">Accounts room · laser (A5)</option><option value="ask">Ask every time</option></select></label>
+  <button class="tap btn sec mfull" type="button" onClick="{{pf.testPrint}}" style="height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.printer}}"></path></svg>Test print</button>
+ </div>
+</div>
+</div>
+</sc-if>
+
+<!-- SESSION & YEAR -->
+<sc-if value="{{is.session}}" hint-placeholder-val="{{ false }}">
+<div class="gap" style="max-width: 880px; animation: {{anim.c}}">
+<div class="card rise fx wr" style="padding: 20px; gap: 22px">
+ <svg width="112" height="112" viewBox="0 0 112 112" aria-hidden="true" style="flex: none"><circle cx="56" cy="56" r="46" style="fill: none; stroke: var(--s3); stroke-width: 10"></circle><circle cx="56" cy="56" r="46" transform="rotate(-90 56 56)" style="fill: none; stroke: var(--acc); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 150.5 289; --len: 150.5; animation: xDraw 1s .1s var(--ease) both"></circle><text x="56" y="54" text-anchor="middle" style="font-size: 22px; font-weight: 700; fill: var(--fg)">52%</text><text x="56" y="72" text-anchor="middle" style="font-size: 10px; fill: var(--mut)">of the year</text></svg>
+ <div class="col" style="flex: 1; min-width: 220px; gap: 4px"><span class="pill okp" style="align-self: flex-start"><span class="ldot"></span>Current session</span><span class="serif" style="font-size: 32px; font-weight: 600; line-height: 1.1">2026–27</span><span class="m13">Wed 1 Apr 2026 – Wed 31 Mar 2027 · week 28 of 52</span></div>
+ <div class="g3" style="flex-basis: 100%; gap: 10px"><sc-for list="{{sess.stats}}" as="k" hint-placeholder-count="3"><div class="box"><span class="m12" style="font-weight: 600">{{k.k}}</span><span class="num" style="font-size: 18px; font-weight: 700">{{k.v}}</span><span class="m12">{{k.s}}</span></div></sc-for></div>
+</div>
+<div class="card col" style="padding: 18px 20px; gap: 12px; border-style: dashed; border-color: var(--bds)">
+ <div class="fx wr" style="gap: 12px"><span class="col" style="flex: 1; min-width: 200px"><span class="sech">Next session</span><span class="h22">2027–28</span><span class="m13">Starts Thu 1 Apr 2027 · not prepared yet</span></span><a href="StudentTools.dc.html" class="tap btn pri mfull" style="height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg>Prepare 2027–28</a></div>
+ <span class="m13">Three steps: copy the fee setup → promote students class by class → open the new session. Nothing changes in 2026–27 until the last step.</span>
+</div>
+<div class="col" style="gap: 8px">
+ <span class="sech" style="padding: 0 4px">Past sessions · read only</span>
+ <div class="card oh"><sc-for list="{{sess.past}}" as="p" hint-placeholder-count="3"><button class="tap row rbtn fx stg" type="button" onClick="{{p.open}}" style="gap: 12px; padding: 13px 16px; border-top: {{p.border}}; animation-delay: {{p.delay}}">
+  <span class="ctr tile" style="background: var(--s2); color: var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{p.icon}}"></path></svg></span>
+  <span class="grow col"><span class="t15" style="font-weight: 600">{{p.name}}</span><span class="num m12">{{p.sub}}</span></span>
+  <span class="pill" style="background: {{p.bg}}; color: {{p.fg}}">{{p.pill}}</span>
+ </button></sc-for></div>
+</div>
+</div>
+</sc-if>
+
+<!-- ACTIVITY LOG -->
+<sc-if value="{{is.activity}}" hint-placeholder-val="{{ false }}">
+<div class="col" style="gap: 14px; animation: {{anim.c}}">
+<div class="fx" style="gap: 10px"><div class="hs grow" style="display: flex; gap: 6px"><sc-for list="{{act.types}}" as="c" hint-placeholder-count="6"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div><button class="tap btn sec" type="button" onClick="{{act.export}}" aria-label="Export to Excel"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.download}}"></path></svg><span class="hide-m">Export</span></button></div>
+<div class="hs fx" style="gap: 6px"><span class="m12" style="flex: none; font-weight: 600">Who</span><sc-for list="{{act.people}}" as="c" hint-placeholder-count="5"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div>
+<sc-for list="{{act.groups}}" as="g" hint-placeholder-count="2"><div class="col" style="gap: 8px">
+ <div class="fx sb" style="padding: 0 4px"><span class="sech">{{g.label}}</span><span class="m12" style="font-weight: 600">{{g.count}}</span></div>
+ <div class="card oh"><sc-for list="{{g.rows}}" as="r" hint-placeholder-count="5"><div class="stg" style="border-top: {{r.border}}; animation-delay: {{r.delay}}">
+  <button class="tap row rbtn" type="button" aria-expanded="{{r.exp}}" onClick="{{r.toggle}}" style="display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 18px; gap: 12px; align-items: center; padding: 12px 16px; background: {{r.bg}}">
+   <span class="ctr" style="width: 36px; height: 36px; border-radius: 18px; background: {{r.abg}}; color: {{r.afg}}; font-size: 12px; font-weight: 700">{{r.ini}}</span>
+   <span class="col" style="min-width: 0; gap: 3px"><span style="font-size: 14px; line-height: 1.35"><span style="font-weight: 700">{{r.who}}</span> · {{r.what}}</span><span class="fx m12" style="gap: 6px"><span class="pill" style="background: {{r.tbg}}; color: {{r.tfg}}">{{r.type}}</span>{{r.via}}<span class="only-m num">· {{r.time}}</span></span></span>
+   <span class="num m12 hide-m" style="white-space: nowrap">{{r.time}}</span>
+   <svg class="i" viewBox="0 0 24 24" style="color: var(--sub); transform: rotate({{r.rot}}); transition: transform .3s var(--spring)" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg>
+  </button>
+  <sc-if value="{{r.isOpen}}" hint-placeholder-val="{{ false }}"><div class="pad col stg" style="padding: 2px 16px 16px 64px; gap: 8px">
+   <sc-for list="{{r.diff}}" as="d" hint-placeholder-count="2"><div class="stack" style="display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 4px 12px; align-items: center; font-size: 13px"><span style="color: var(--mut); font-weight: 600">{{d.k}}</span><span class="fx wr" style="gap: 8px"><span class="num" style="padding: 3px 9px; border-radius: 8px; background: {{d.abg}}; color: {{d.afg}}; text-decoration: {{d.deco}}">{{d.a}}</span><svg class="i" viewBox="0 0 24 24" style="width: 15px; height: 15px; color: var(--sub)" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg><span class="num okp" style="padding: 3px 9px; border-radius: 8px; font-weight: 700; animation: xPopIn .42s .15s var(--spring) both">{{d.b}}</span></span></div></sc-for>
+   <span style="font-size: 12px; color: var(--sub)">{{r.foot}}</span>
+  </div></sc-if>
+ </div></sc-for></div>
+</div></sc-for>
+<sc-if value="{{act.empty}}" hint-placeholder-val="{{ false }}"><div class="card fadein col" style="padding: 36px 24px; align-items: center; gap: 10px; text-align: center"><span class="ctr" style="width: 52px; height: 52px; border-radius: 26px; background: var(--s2); color: var(--mut)"><svg class="i" viewBox="0 0 24 24" style="width: 24px; height: 24px" aria-hidden="true"><path d="{{ic.activity}}"></path></svg></span><span class="t15">Nothing logged for this filter</span><button class="tap btn sec" type="button" onClick="{{act.clear}}">Show everything</button></div></sc-if>
+<span class="m12" style="padding: 0 4px">Kept for 2 years. Nobody can edit or delete the log, including the admin.</span>
+</div>
+</sc-if>
+
+<!-- BACKUPS -->
+<sc-if value="{{is.backups}}" hint-placeholder-val="{{ false }}">
+<div class="gap" style="animation: {{anim.c}}">
+<div class="card rise col" style="padding: 18px 20px; gap: 14px">
+ <div class="fx wr" style="gap: 14px">
+  <span class="ctr okp" style="width: 52px; height: 52px; border-radius: 16px; animation: xPopIn .5s var(--spring) both"><svg class="i" viewBox="0 0 24 24" style="width: 26px; height: 26px" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg></span>
+  <span class="col" style="flex: 1; min-width: 200px"><span class="h22">{{bk.title}}</span><span class="m13">{{bk.line}}</span></span>
+  <div class="fx mfull" style="gap: 8px"><button class="tap btn sec" type="button" onClick="{{bk.openRestore}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.undo}}"></path></svg>Restore…</button><button class="tap btn pri" type="button" onClick="{{bk.run}}" style="flex: 1.4; opacity: {{bk.btnOp}}"><svg class="i" viewBox="0 0 24 24" style="animation: {{bk.spin}}" aria-hidden="true"><path d="{{bk.btnIcon}}"></path></svg>{{bk.btnLabel}}</button></div>
+ </div>
+ <sc-if value="{{bk.running}}" hint-placeholder-val="{{ false }}"><div class="fadein col" style="gap: 6px"><div class="fx sb" style="font-size: 12px; font-weight: 600"><span>{{bk.step}}</span><span class="num">{{bk.pct}}</span></div><div class="pbar"><span style="width: {{bk.pct}}"></span></div></div></sc-if>
+ <sc-if value="{{bk.hasRestored}}" hint-placeholder-val="{{ false }}"><div class="fadein note" style="background: var(--infos); color: var(--info); font-size: 13px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg>{{bk.restoredLine}}</div></sc-if>
+</div>
+<div class="g2" style="gap: 14px"><sc-for list="{{bk.dest}}" as="d" hint-placeholder-count="2"><div class="card rise col" style="padding: 16px 18px; gap: 10px; animation-delay: {{d.delay}}">
+ <div class="fx" style="gap: 12px"><span class="ctr tile" style="width: 40px; height: 40px; background: var(--s2); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{d.icon}}"></path></svg></span><span class="grow col"><span class="t15">{{d.name}}</span><span class="m12 ell">{{d.where}}</span></span><span class="pill okp"><span class="ldot"></span>Working</span></div>
+ <div class="g3" style="gap: 8px"><sc-for list="{{bk.kv}}" as="k" hint-placeholder-count="3"><span class="box" style="padding: 8px 10px"><span style="font-size: 11px; color: var(--mut); font-weight: 600">{{k.k}}</span><span class="num" style="font-size: 13px; font-weight: 700">{{k.v}}</span></span></sc-for></div>
+</div></sc-for></div>
+<button class="tap card lift fx" type="button" onClick="{{bk.openArchive}}" style="width: 100%; padding: 14px 18px; gap: 14px; text-align: left; color: var(--fg)">
+ <span class="ctr tile" style="width: 40px; height: 40px; background: {{bk.archBg}}; color: {{bk.archFg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{bk.archIcon}}"></path></svg></span>
+ <span class="grow col"><span class="t15">Archive old sessions</span><span class="m12">{{bk.archLine}}</span></span>
+ <svg class="i" viewBox="0 0 24 24" style="color: var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+</button>
+<div class="card oh">
+ <div class="fx wr" style="padding: 14px 18px 10px; align-items: flex-end; gap: 16px"><span class="col" style="flex: 1; min-width: 180px"><span class="t15">Last 14 nights</span><span class="m12">Every one reached both places. Each is kept for 30 days.</span></span><div class="fx" aria-hidden="true" style="height: 44px; align-items: flex-end; gap: 4px"><sc-for list="{{bk.bars}}" as="b" hint-placeholder-count="14"><span style="width: 9px; height: {{b.h}}; border-radius: 3px; background: {{b.c}}; transform-origin: bottom; animation: xGrowY .5s var(--ease) both; animation-delay: {{b.delay}}"></span></sc-for></div></div>
+ <sc-for list="{{bk.hist}}" as="h" hint-placeholder-count="14"><div class="stg bt" style="display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 18px; animation-delay: {{h.delay}}">
+  <span class="col" style="min-width: 0"><span class="num t14">{{h.when}}</span><span class="m12">{{h.note}}</span></span><span class="num m13">{{h.size}}</span>
+  <span class="pill okp" title="Saved to Google Drive and Cloudflare R2"><svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Drive<svg class="i" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-left: 4px" aria-hidden="true"><path d="{{ic.check}}"></path></svg>R2</span>
+ </div></sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- MASTER DATA -->
+<sc-if value="{{is.master}}" hint-placeholder-val="{{ false }}">
+<div class="col" style="max-width: 860px; gap: 14px; animation: {{anim.c}}">
+<div class="hs" role="tablist" style="display: flex; gap: 2px; border-bottom: 1px solid var(--bd)"><sc-for list="{{md.tabs}}" as="t" hint-placeholder-count="5"><button class="tap" type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="flex: none; height: 44px; padding: 0 14px; border: 0; border-bottom: 2.5px solid {{t.line}}; background: transparent; color: {{t.color}}; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px">{{t.label}}<span class="pill num" style="background: var(--s3); color: var(--mut)">{{t.count}}</span></button></sc-for></div>
+<div class="fx sb wr" style="gap: 10px"><span class="m13">{{md.help}}</span><sc-if value="{{md.isHol}}" hint-placeholder-val="{{ false }}"><a href="Calendar.dc.html" class="tap btn soft"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>Open calendar</a></sc-if></div>
+<div class="card oh">
+<sc-for list="{{md.rows}}" as="r" hint-placeholder-count="8"><div class="row fx stg" style="gap: 10px; min-height: 60px; padding: 8px 10px 8px 16px; border-top: {{r.border}}; background: {{r.bg}}; animation-delay: {{r.delay}}">
+ <sc-if value="{{r.view}}" hint-placeholder-val="{{ true }}">
+  <span class="num" style="flex: none; width: 22px; font-size: 12px; color: var(--sub); font-weight: 700">{{r.n}}</span><span style="flex: none; width: 12px; height: 12px; border-radius: 6px; background: {{r.dot}}"></span>
+  <span class="grow col"><span class="t14 ell">{{r.name}}</span><span class="m12 ell">{{r.sub}}</span></span>
+  <button class="tap btn ghost ibtn" type="button" aria-label="Move {{r.name}} up" onClick="{{r.up}}" style="opacity: {{r.upOp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevUp}}"></path></svg></button>
+  <button class="tap btn ghost ibtn" type="button" aria-label="Move {{r.name}} down" onClick="{{r.down}}" style="opacity: {{r.downOp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg></button>
+  <button class="tap btn ghost ibtn" type="button" aria-label="Edit {{r.name}}" onClick="{{r.edit}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg></button>
+ </sc-if>
+ <sc-if value="{{r.editing}}" hint-placeholder-val="{{ false }}">
+  <label class="field fadein grow"><span class="sro">Name</span><input class="inp" value="{{md.editVal}}" onChange="{{md.onEdit}}" style="height: 42px"></label>
+  <button class="tap btn ghost ibtn" type="button" aria-label="Delete {{r.name}}" onClick="{{r.del}}" style="color: var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.trash}}"></path></svg></button>
+  <button class="tap btn pri" type="button" onClick="{{r.saveEdit}}">Save</button>
+ </sc-if>
+ <sc-if value="{{r.confirm}}" hint-placeholder-val="{{ false }}">
+  <span class="fadein grow col"><span style="font-size: 14px; font-weight: 700; color: var(--bad)">Delete {{r.name}}?</span><span class="m12">{{r.delNote}}</span></span>
+  <button class="tap btn sec" type="button" onClick="{{md.cancel}}">Keep</button><button class="tap btn danger" type="button" onClick="{{r.confirmDel}}">Delete</button>
+ </sc-if>
+</div></sc-for>
+<div class="fx bt" style="gap: 8px; padding: 12px 14px; background: var(--s2)"><label class="field grow"><span class="sro">Add new</span><input class="inp {{md.addCls}}" value="{{md.addVal}}" onChange="{{md.onAdd}}" placeholder="{{md.addPh}}"></label><button class="tap btn pri" type="button" onClick="{{md.add}}" style="height: 44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>Add</button></div>
+</div>
+<span class="m12" style="padding: 0 4px">The order here is the order in every list, report and report card. Changes show everywhere at once and go into the activity log.</span>
+</div>
+</sc-if>
+
+<!-- INTEGRATIONS -->
+<sc-if value="{{is.integrations}}" hint-placeholder-val="{{ false }}">
+<div class="col" style="gap: 14px; animation: {{anim.c}}">
+<span class="m13">The outside services VPPS One talks to. Press Test any time — nothing is sent to parents.</span>
+<div class="g2" style="gap: 14px"><sc-for list="{{intg}}" as="c" hint-placeholder-count="4"><div class="card rise col" style="padding: 16px 18px; gap: 12px; animation-delay: {{c.delay}}">
+ <div class="fx" style="gap: 12px"><span class="ctr" style="width: 44px; height: 44px; border-radius: 13px; background: {{c.bg}}; color: {{c.fg}}"><svg class="i" viewBox="0 0 24 24" style="width: 21px; height: 21px" aria-hidden="true"><path d="{{c.icon}}"></path></svg></span><span class="grow col"><span class="t15">{{c.name}}</span><span class="m12">{{c.sub}}</span></span><span class="pill okp"><span class="ldot"></span>{{c.status}}</span></div>
+ <div class="col"><sc-for list="{{c.kv}}" as="k" hint-placeholder-count="3"><div class="fx sb bt" style="gap: 10px; padding: 7px 0; font-size: 13px"><span style="color: var(--mut)">{{k.k}}</span><span class="num" style="font-weight: 600; text-align: right">{{k.v}}</span></div></sc-for></div>
+ <div class="fx wr" style="gap: 8px">
+  <button class="tap btn {{c.testCls}}" type="button" onClick="{{c.test}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" style="animation: {{c.spin}}" aria-hidden="true"><path d="{{c.testIcon}}"></path></svg>{{c.testLabel}}</button>
+  <sc-if value="{{c.hasBtn}}" hint-placeholder-val="{{ false }}"><button class="tap btn soft" type="button" onClick="{{c.act}}" style="flex: 1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.actIcon}}"></path></svg>{{c.actLabel}}</button></sc-if>
+  <sc-if value="{{c.hasLink}}" hint-placeholder-val="{{ false }}"><a href="Exams.dc.html" class="tap btn soft" style="flex: 1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.actIcon}}"></path></svg>{{c.actLabel}}</a></sc-if>
+ </div>
+</div></sc-for></div>
+</div>
+</sc-if>
+
+<!-- GLOSSARY -->
+<sc-if value="{{is.glossary}}" hint-placeholder-val="{{ false }}">
+<div class="col" style="gap: 14px; animation: {{anim.c}}">
+<label class="srch" style="height: 48px; max-width: 520px; border-radius: 24px; padding: 0 16px; box-shadow: var(--sh)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span class="sro">Search the glossary</span><input type="search" value="{{gl.q}}" onChange="{{gl.onQ}}" placeholder="Look up a word · शब्द खोजें"></label>
+<span class="m13">{{gl.count}}</span>
+<div class="g2"><sc-for list="{{gl.items}}" as="t" hint-placeholder-count="6"><div class="card col stg" style="padding: 16px 18px; gap: 6px; animation-delay: {{t.delay}}">
+ <div class="fx wr" style="align-items: baseline; gap: 8px"><span style="font-size: 16px; font-weight: 700">{{t.en}}</span><span lang="hi" style="font-size: 15px; color: var(--accfg); font-weight: 600">{{t.hi}}</span><span class="pill" style="margin-left: auto; background: {{t.bg}}; color: {{t.fg}}">{{t.tag}}</span></div>
+ <span style="font-size: 14px; line-height: 1.5">{{t.d}}</span><span class="m13" lang="hi" style="line-height: 1.6">{{t.dh}}</span>
+</div></sc-for></div>
+<sc-if value="{{gl.empty}}" hint-placeholder-val="{{ false }}"><div class="card fadein col" style="padding: 32px 22px; align-items: center; gap: 10px; text-align: center"><span class="t15">No word matches “{{gl.q}}”</span><span class="m13">Try a shorter word, or ask Janmejay to add it.</span><button class="tap btn sec" type="button" onClick="{{gl.clear}}">Clear search</button></div></sc-if>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{prof.dirty}}" hint-placeholder-val="{{ false }}"><div class="glass fx stg" style="position: sticky; bottom: 0; z-index: 4; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--bd)"><span class="grow" style="font-size: 13px; font-weight: 600">{{prof.dirtyLine}}</span><button class="tap btn ghost" type="button" onClick="{{prof.discard}}">Discard</button><button class="tap btn pri" type="button" onClick="{{prof.save}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Save changes</button></div></sc-if>
+</section>
+</div>
+</main>
+<div class="only-m" style="flex: none"><dc-import name="XNav" active="menu" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ SHEET (restore · archive) ============ -->
+<sc-if value="{{sheet.open}}" hint-placeholder-val="{{ false }}">
+<button class="scrim {{sheet.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sheet.state}}" role="dialog" aria-label="{{sheet.title}}">
+<div class="grab"></div>
+<div class="fx sb" style="flex: none; align-items: flex-start; gap: 10px; padding: 14px 20px 10px"><div class="col" style="gap: 2px"><span class="h22">{{sheet.title}}</span><span class="m13">{{sheet.sub}}</span></div><button class="tap btn ghost" type="button" aria-label="Close" onClick="{{closeSheet}}" style="width: 40px; height: 40px; padding: 0"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll col" style="flex: 1; min-height: 0; padding: 4px 20px 12px; gap: 10px">
+<sc-if value="{{sh.restore}}" hint-placeholder-val="{{ false }}">
+ <sc-for list="{{rs.points}}" as="r" hint-placeholder-count="5"><button class="tap fx" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="flex: none; gap: 12px; min-height: 54px; padding: 10px 14px; border-radius: 14px; border: {{r.bd}}; background: {{r.bg}}; color: var(--fg); text-align: left">
+  <span class="ctr" style="width: 20px; height: 20px; border-radius: 10px; border: 2px solid {{r.ring}}"><span style="width: 10px; height: 10px; border-radius: 5px; background: var(--acc); transform: scale({{r.dot}}); transition: transform .25s var(--spring)"></span></span>
+  <span class="grow col"><span class="num t14">{{r.label}}</span><span class="m12">{{r.sub}}</span></span>
+ </button></sc-for>
+ <div class="note" style="flex: none; background: var(--warns); color: var(--warnfg)"><svg class="i" viewBox="0 0 24 24" style="margin-top: 2px" aria-hidden="true"><path d="{{ic.alert}}"></path></svg><span>{{rs.impact}}</span></div>
+ <span class="m13 fx" style="flex: none; gap: 8px"><svg class="i" viewBox="0 0 24 24" style="color: var(--ok)" aria-hidden="true"><path d="{{ic.shield}}"></path></svg>A copy of right now is saved first, so this can be undone.</span>
+</sc-if>
+<sc-if value="{{sh.archive}}" hint-placeholder-val="{{ false }}">
+ <div class="g3" style="flex: none; gap: 8px"><sc-for list="{{arc.stats}}" as="k" hint-placeholder-count="3"><span class="box"><span style="font-size: 11px; color: var(--mut); font-weight: 600">{{k.k}}</span><span class="num" style="font-size: 17px; font-weight: 700">{{k.v}}</span></span></sc-for></div>
+ <sc-for list="{{arc.points}}" as="p" hint-placeholder-count="3"><div class="fx" style="flex: none; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5"><span class="ctr" style="width: 22px; height: 22px; margin-top: 1px; border-radius: 11px; background: var(--accs); color: var(--accfg)"><svg class="i" viewBox="0 0 24 24" style="width: 13px; height: 13px" aria-hidden="true"><path d="{{ic.check}}"></path></svg></span><span>{{p.t}}</span></div></sc-for>
+ <sc-if value="{{arc.running}}" hint-placeholder-val="{{ false }}"><div class="fadein col" style="flex: none; gap: 6px"><div class="fx sb" style="font-size: 12px; font-weight: 600"><span>Packing 2025–26 into a read-only archive…</span><span class="num">{{arc.pct}}</span></div><div class="pbar"><span style="width: {{arc.pct}}"></span></div></div></sc-if>
+ <sc-if value="{{arc.done}}" hint-placeholder-val="{{ false }}"><div class="fadein fx okp" style="flex: none; gap: 12px; padding: 12px 14px; border-radius: 14px">
+  <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true" style="flex: none; animation: xPopIn .5s var(--spring) both"><circle cx="17" cy="17" r="15" style="fill: var(--ok)"></circle><path d="M10 17.5l4.5 4.5 9-10" style="fill: none; stroke: var(--onsolid); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; --len: 24; stroke-dasharray: 24; animation: xDraw .4s .3s var(--ease) both"></path></svg>
+  <span class="col"><span style="font-size: 14px; font-weight: 700">Archived · read-only from now on</span><span style="font-size: 12px">Today 3:42 pm by Janmejay Singh</span></span>
+ </div></sc-if>
+ <span class="m12" style="flex: none">2024–25 and 2023–24 are already archived. Open them read-only from Session &amp; year.</span>
+</sc-if>
+</div>
+<div class="fx bt" style="flex: none; gap: 8px; padding: 12px 20px 20px"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex: 1">{{sheet.cancel}}</button><button class="tap btn {{sheet.okCls}}" type="button" onClick="{{sheet.ok}}" style="flex: 1.4"><svg class="i" viewBox="0 0 24 24" style="animation: {{sheet.spin}}" aria-hidden="true"><path d="{{sheet.okIcon}}"></path></svg>{{sheet.okLabel}}</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}"><div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color: var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size: 14px; line-height: 1.35; padding-right: 6px">{{toast.text}}</span><sc-if value="{{toast.undo}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["home","school","prefs","session","activity","backups","restore","archive","master","integrations","glossary"],"default":"home"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+ data() {
+  if (this._d) return this._d;
+/*VX_ICONS*/
+  IC.building = 'M3 21h18M5 21V8l7-5 7 5v13M9 21v-5h6v5M9 10h.01M15 10h.01M12 10h.01';
+  IC.text = 'M4 7V4h16v3M9 20h6M12 4v16';
+  const NAV = [
+   ['School', [['school', 'School profile', 'building', 0], ['prefs', 'Preferences', 'sliders', 1], ['session', 'Session & year', 'calendar', 3], ['users', 'Users & roles', 'shield', 2, 'Staff.dc.html']]],
+   ['Records', [['activity', 'Activity log', 'activity', 0], ['backups', 'Backups & archive', 'cloud', 2], ['master', 'Master data', 'layers', 1]]],
+   ['Connected', [['integrations', 'Integrations', 'link', 3]]],
+   ['Help', [['glossary', 'Glossary', 'book', 4], ['about', 'About', 'info', 4]]]
+  ];
+  const TITLES = {};
+  NAV.forEach((g) => g[1].forEach((n) => { if (!n[4] && n[0] !== 'about') TITLES[n[0]] = n[1]; }));
+  const PROF = { en: 'Shri Veer Patta Sr. Sec. School', hi: 'श्री वीर पत्ता सीनियर सेकेंडरी स्कूल', addr: 'Near Bus Stand, Amet\nDistrict Rajsamand, Rajasthan 313332', aff: 'RBSE-0457', phone: '98290 ••512', foot: 'जमा की गई फीस वापस नहीं होगी। रसीद संभाल कर रखें।\nFees once paid are not refunded. Please keep this receipt safe.' };
+  const L = (id, day, time, who, type, what, via, diff) => ({ id, day, time, who, type, what, via, diff });
+  const LOG = [
+   L('a1', 'Today', '3:12 pm', 'Janmejay Singh', 'Settings', 'turned on the “Day not closed by 6 pm” alert', 'Phone', [['Alert', 'Off', 'On']]),
+   L('a2', 'Today', '1:05 pm', 'Ms. Neelam Sharma', 'Money', 'reversed receipt R-0399 · wrong student', 'Office PC', [['R-0399 · Rudra Singh', '₹3,000 paid', 'Reversed'], ['Money moved to', '—', 'R-0400 · Manvi Joshi']]),
+   L('a3', 'Today', '12:20 pm', 'Mr. Meena', 'Marks', 'entered Half-yearly marks · Class 9 Science', 'Sampark link', [['Marks entered', '0 of 28', '28 of 28']]),
+   L('a4', 'Today', '11:02 am', 'Janmejay Singh', 'Students', 'changed Aarav Sharma’s bus route', 'Office PC', [['Route', 'Route 2 · Kelwa', 'Route 3 · Railmagra'], ['Transport a month', '₹700', '₹800']]),
+   L('a5', 'Today', '10:38 am', 'Office desk', 'Money', 'made receipt R-0417 · Pooja Mehta', 'Office PC', [['Amount', '—', '₹4,350'], ['Mode', '—', 'UPI']]),
+   L('a6', 'Today', '8:01 am', 'Office desk', 'Sign-in', 'signed in', 'Office PC · Chrome', [['Device', '—', 'Office PC · Chrome']]),
+   L('a7', 'Yesterday', '5:06 pm', 'Janmejay Singh', 'Money', 'closed the day · Wed 7 Oct', 'Office PC', [['Cash counted', '—', '₹7,600 · matched'], ['Receipts', 'Open', 'Locked']]),
+   L('a8', 'Yesterday', '4:15 pm', 'Ms. Dave', 'Students', 'updated Aarti Kumawat’s mother’s phone', 'Phone', [['Mother’s phone', '98290 ••318', '98290 ••774']]),
+   L('a9', 'Yesterday', '2:30 pm', 'Ms. Neelam Sharma', 'Settings', 'added a holiday · Dussehra', 'Office PC', [['Tue 20 Oct', 'School day', 'Holiday']]),
+   L('a10', 'Yesterday', '11:45 am', 'Mr. Solanki', 'Marks', 'changed a mark · Neha Joshi · Science', 'Sampark link', [['Half-yearly Science', '62', '68']]),
+  ];
+  const NIGHTS = ['Thu 8 Oct', 'Wed 7 Oct', 'Tue 6 Oct', 'Mon 5 Oct', 'Sun 4 Oct', 'Sat 3 Oct', 'Fri 2 Oct', 'Thu 1 Oct', 'Wed 30 Sep', 'Tue 29 Sep', 'Mon 28 Sep', 'Sun 27 Sep', 'Sat 26 Sep', 'Fri 25 Sep'];
+  const SIZES = [212, 211, 210, 210, 208, 208, 207, 206, 205, 204, 204, 203, 201, 200];
+  const M = (p, dot, list) => list.map((x, i) => ({ id: p + i, name: x[0], sub: x[1], use: x[2] || '', dot: x[3] || dot }));
+  const CT = [['Nursery', 'Ms. Kanwar', 18], ['LKG', 'Ms. Rathore', 20], ['UKG', 'Ms. Mehta', 22], ['Class 1', 'Ms. Jain', 23], ['Class 2', 'Ms. Vyas', 25], ['Class 3', 'Ms. Sharma', 24], ['Class 4', 'Mr. Verma', 29], ['Class 5', 'Ms. Paliwal', 26], ['Class 6', 'Ms. Bhati', 31], ['Class 7', 'Mr. Choudhary', 27], ['Class 8', 'Mr. Solanki', 28], ['Class 9', 'Mr. Meena', 28], ['Class 10', 'Ms. Dave', 30], ['11 Science', 'Mr. Trivedi', 22], ['11 Commerce', 'Mr. Purohit', 18], ['11 Arts', 'Ms. Chouhan', 14], ['12 Science', 'Mr. Bhatt', 20], ['12 Commerce', 'Ms. Kothari', 17], ['12 Arts', 'Mr. Rawal', 12]];
+  const house = (n, c, k, dot) => [n + ' House', c + ' · ' + k + ' students', k + ' students will need a new house.', dot];
+  const MASTER = {
+   classes: M('c', 'var(--acc)', CT.map((c) => [c[0], 'Section A · ' + c[1] + ' · ' + c[2] + ' students', c[2] + ' students are in this class. They show as “no class” until moved.'])),
+   subjects: M('s', 'var(--info)', [['English', 'All classes'], ['Hindi', 'All classes'], ['Maths', 'Class 1 – 12'], ['Science', 'Class 1 – 10'], ['Social Science', 'Class 6 – 10'], ['Sanskrit', 'Class 6 – 8'], ['Physics', '11–12 Science'], ['Chemistry', '11–12 Science'], ['Biology', '11–12 Science'], ['Accountancy', '11–12 Commerce'], ['Economics', '11–12 Commerce, Arts'], ['Geography', '11–12 Arts']]),
+   houses: M('h', '', [house('Pratap', 'Red', 108, 'var(--bad)'), house('Meera', 'Yellow', 109, 'var(--c3)'), house('Panna', 'Green', 108, 'var(--ok)'), house('Bhamashah', 'Blue', 109, 'var(--c1)')]),
+   modes: M('m', 'var(--acc)', [['Cash', 'Counted at day close'], ['UPI', 'Matched with the bank app'], ['Cheque', 'Needs cheque number and bank'], ['Bank (NEFT)', 'Needs the reference number']]),
+   holidays: M('o', 'var(--warn)', [['Dussehra', 'Tue 20 Oct'], ['Diwali break', 'Sat 7 Nov – Wed 11 Nov · 5 days'], ['Guru Nanak Jayanti', 'Tue 24 Nov'], ['Winter break', 'Fri 25 Dec – Fri 1 Jan · 8 days'], ['Republic Day', 'Tue 26 Jan · flag hoisting only'], ['Holi', 'Mon 22 Mar']])
+  };
+  const G = (en, hi, tag, d, dh) => ({ en, hi, tag, d, dh });
+  const GLOSS = [
+   G('Pending today', 'आज बकाया', 'Money', 'Installments past their due date and still unpaid. The money to follow up.', 'जिन किस्तों की तारीख निकल चुकी है और जो अभी तक जमा नहीं हुईं।'),
+   G('Not due yet', 'अभी देय नहीं', 'Money', 'Installments whose due date is still ahead (15 Nov, 15 Jan). Never added to pending today.', 'जिन किस्तों की तारीख अभी आनी है। इन्हें आज के बकाया में नहीं जोड़ा जाता।'),
+   G('Late fee (separate)', 'विलंब शुल्क (अलग)', 'Money', '₹10 a day after a due date, at most ₹300 per installment. Always shown on its own line, never added into the fee.', 'देय तिथि के बाद ₹10 प्रतिदिन, एक किस्त पर अधिकतम ₹300। यह हमेशा अलग दिखता है, फीस में नहीं जुड़ता।'),
+   G('Reversal', 'रसीद रद्द (रिवर्सल)', 'Money', 'Receipts are never edited. A mistake is fixed with a reversal entry and a new receipt. Undo works for 10 minutes.', 'रसीद कभी बदली नहीं जाती। गलती सुधारने के लिए रिवर्सल एंट्री और नई रसीद बनती है।'),
+   G('Day close', 'दिन बंद', 'Money', 'At day end, cash is counted, UPI is checked with the bank app and the day’s receipts are locked.', 'दिन के अंत में नकद गिनकर, UPI मिलाकर उस दिन की रसीदें लॉक की जाती हैं।'),
+   G('Promise', 'भुगतान का वादा', 'Money', 'A date a parent gave to pay by. The app reminds you on that day.', 'अभिभावक द्वारा बताई गई भुगतान की तारीख। उस दिन ऐप याद दिलाता है।'),
+   G('Left owing', 'बकाया छोड़कर गए', 'Students', 'A student who left the school but still owes fees. They stay in Dues marked “Left”, but are not counted in headcount.', 'जो विद्यार्थी स्कूल छोड़ गए पर फीस बाकी है। वे बकाया सूची में “Left” के साथ रहते हैं, गिनती में नहीं।'),
+   G('EMI plan', 'किस्त योजना', 'Money', 'An agreed plan to pay what is pending in smaller monthly parts, with dates.', 'बकाया राशि को तय तारीखों पर छोटे मासिक हिस्सों में चुकाने की योजना।'),
+   G('Sampark link', 'संपर्क लिंक', 'Marks', 'A personal link sent to a teacher on WhatsApp to enter marks or attendance. No password needed.', 'शिक्षक को WhatsApp पर भेजा गया निजी लिंक, जिससे बिना पासवर्ड अंक या उपस्थिति भरी जा सके।'),
+   G('Not marked (attendance)', 'उपस्थिति दर्ज नहीं', 'Attendance', 'Attendance not taken yet for a student or class. It is never counted as present.', 'जिसकी उपस्थिति अभी दर्ज नहीं हुई। उसे कभी उपस्थित नहीं माना जाता।'),
+   G('Defaulter', 'बकायादार', 'Money', 'A family with fees pending past the due date. A late fee alone does not make a defaulter.', 'जिस परिवार की देय तिथि निकल चुकी फीस बाकी है। केवल विलंब शुल्क से कोई बकायादार नहीं बनता।')
+  ];
+  this._d = { IC, NAV, TITLES, PROF, LOG, NIGHTS, SIZES, MASTER, GLOSS };
+  return this._d;
+ }
+
+ st() {
+  const start = (this.props || {}).start || 'home';
+  const base = {
+   sec: 'home', anim: 'none', sheet: '', closing: false, toast: null, saved: 0, savedOn: false,
+   themePref: 'auto', big: false, lang: 'en', landing: 'today', printer: 'thermal', notif: { daily: true, close: true, backup: true },
+   prof: null, draft: null, files: {}, logType: 'all', logWho: 'all', openLog: '', extraLog: [],
+   bk: 0, bkRun: false, extraBk: [], rp: 0, restoring: false, restored: '', archived: false, arcPct: -1,
+   mtab: 'classes', master: null, editId: '', editVal: '', delId: '', addVal: '', addErr: false,
+   testing: '', tested: {}, gq: '', checking: false
+  };
+  const map = { home: {}, activity: { sec: 'activity', openLog: 'a2' }, restore: { sec: 'backups', sheet: 'restore' }, archive: { sec: 'backups', sheet: 'archive' } };
+  return Object.assign(base, map[start] || { sec: start }, this.state || {});
+ }
+
+ toast(text, undo) {
+  const id = Date.now() + Math.random();
+  this._undo = undo || null;
+  this.setState({ toast: { id, text, undo: !!undo } });
+  clearTimeout(this._tt);
+  this._tt = setTimeout(() => { const t = this.st().toast; if (t && t.id === id) this.setState({ toast: null }); }, 4500);
+ }
+
+ undoToast() { const f = this._undo; this._undo = null; this.setState({ toast: null }); if (f) f(); }
+
+ openSheet(name, extra) { clearTimeout(this._ct); this.setState(Object.assign({ sheet: name, closing: false }, extra || {})); }
+
+ closeSheet() {
+  if (!this.st().sheet) return;
+  this.setState({ closing: true });
+  clearTimeout(this._ct);
+  this._ct = setTimeout(() => this.setState({ sheet: '', closing: false }), 240);
+ }
+
+ // instant save: patch state, flash the Saved pill, add a line to the activity log
+ save(patch, what, diff, type) {
+  const s = this.st();
+  const n = s.saved + 1;
+  const log = [{ id: 'x' + n, day: 'Today', time: 'just now', who: 'Janmejay Singh', type: type || 'Settings', what, via: 'This device', diff: diff || [] }].concat(s.extraLog);
+  this.setState(Object.assign({}, patch, { saved: n, savedOn: true, extraLog: log }));
+  clearTimeout(this._sv);
+  this._sv = setTimeout(() => this.setState({ savedOn: false }), 2000);
+ }
+
+ // fake progress: set key to each value in turn, then call done
+ steps(key, vals, ms, done) { vals.forEach((v, i) => setTimeout(() => { const p = {}; p[key] = v; this.setState(p); }, ms * (i + 1))); setTimeout(done, ms * (vals.length + 1)); }
+
+ renderVals() {
+  const D = this.data();
+  const s = this.st();
+  const S = () => this.st();
+  const IC = D.IC;
+  const B = (x) => (x ? 'true' : 'false');
+  const delay = (i) => (Math.min(i, 14) * 28) + 'ms';
+  const T = [['var(--accs)', 'var(--accfg)'], ['var(--infos)', 'var(--info)'], ['var(--oks)', 'var(--ok)'], ['var(--warns)', 'var(--warnfg)'], ['var(--s3)', 'var(--fg)']];
+  const radio = (on) => ({ on: B(on), bd: on ? '2px solid var(--acc)' : '1px solid var(--bd)', bg: on ? 'var(--accs)' : 'var(--card)', ring: on ? 'var(--acc)' : 'var(--bds)', dot: on ? '1' : '0' });
+  const spin = (on) => (on ? 'xLoop 1s linear infinite' : 'none');
+  const kv = (a) => a.map((k) => ({ k: k[0], v: k[1], s: k[2] || '', w: k[3] || '400' }));
+  const go = (k, extra) => () => this.setState(Object.assign({ sec: k, anim: 'push', editId: '', delId: '' }, extra || {}));
+  const view = s.sec === 'home' ? 'school' : s.sec;
+  const dark = s.themePref === 'dark' || (s.themePref === 'auto' && !!this.props.dark);
+  const prof = Object.assign({}, D.PROF, s.prof || {});
+  const draft = Object.assign({}, prof, s.draft || {});
+  const ML = s.master || D.MASTER;
+
+  // ---------- section list ----------
+  const st = {
+   school: ['Name, logo, signature, receipt footer'],
+   prefs: [{ light: 'Light', dark: 'Dark', auto: 'Auto' }[s.themePref] + ' theme · ' + (s.lang === 'hi' ? 'हिंदी' : 'English') + (s.big ? ' · large text' : '')],
+   session: ['2026–27 · running since 1 Apr'], users: ['14 people · 7 roles'], activity: [(6 + s.extraLog.length) + ' changes today'],
+   backups: [s.bkRun ? 'Backing up now…' : 'Last backup 2:00 am ✓', 'var(--ok)'],
+   master: [ML.classes.length + ' classes · ' + ML.subjects.length + ' subjects · ' + ML.houses.length + ' houses'],
+   integrations: ['AiSensy · Sampark · Drive · R2 — all working', 'var(--ok)'],
+   glossary: ['Plain meanings · English + हिंदी'], about: [s.checking ? 'Checking for updates…' : 'VPPS One 1.8.0 · tap to check for updates']
+  };
+  const checkUpd = () => { if (S().checking) return; this.setState({ checking: true }); setTimeout(() => { this.setState({ checking: false }); this.toast('You have the latest version · VPPS One 1.8.0'); }, 1000); };
+  let ni = 0;
+  const nav = D.NAV.map((g) => ({
+   label: g[0],
+   items: g[1].map((n) => {
+    const on = view === n[0];
+    const ab = n[0] === 'about';
+    ni += 1;
+    return { label: n[1], icon: IC[n[2]], spin: spin(ab && s.checking), chev: ab ? IC.refresh : IC.chevRight, bg: T[n[3]][0], fg: T[n[3]][1], status: st[n[0]][0], stTone: st[n[0]][1] || 'var(--mut)', isLink: !!n[4], isBtn: !n[4], href: n[4] || '#', sel: on ? 'sel' : '', cur: on ? 'page' : 'false', go: ab ? checkUpd : (n[4] ? () => null : go(n[0])), delay: delay(ni - 1) };
+   })
+  }));
+
+  // ---------- school profile ----------
+  const fields = ['en', 'hi', 'addr', 'aff', 'phone', 'foot'];
+  const FN = { en: 'School name (English)', hi: 'School name (Hindi)', addr: 'Address', aff: 'Affiliation number', phone: 'Office phone', foot: 'Receipt footer' };
+  const changed = fields.filter((f) => draft[f] !== prof[f]);
+  const setD = (f) => (e) => { const d = Object.assign({}, S().draft || {}); d[f] = e.target.value; this.setState({ draft: d }); };
+  const pf = {
+   en: draft.en, hi: draft.hi, addr: draft.addr, aff: draft.aff, phone: draft.phone, foot: draft.foot, addrLine: draft.addr.split('\n').join(', '),
+   onEn: setD('en'), onHi: setD('hi'), onAddr: setD('addr'), onAff: setD('aff'), onPhone: setD('phone'), onFoot: setD('foot'),
+   count: draft.foot.length + ' / 160', countTone: draft.foot.length > 160 ? 'var(--bad)' : 'var(--mut)',
+   last: s.prof ? 'Changed just now by you' : 'Last changed Fri 2 Oct · Janmejay',
+   history: go('activity', { logType: 'Settings', logWho: 'all' }),
+   dirty: view === 'school' && changed.length > 0,
+   dirtyLine: changed.length + (changed.length === 1 ? ' change' : ' changes') + ' not saved yet',
+   discard: () => { this.setState({ draft: null }); this.toast('Changes discarded'); },
+   save: () => {
+    const nd = Object.assign({}, prof, S().draft || {});
+    this.save({ prof: nd, draft: null }, 'updated the school profile', fields.filter((f) => nd[f] !== prof[f]).map((f) => [FN[f], prof[f].split('\n')[0], nd[f].split('\n')[0]]));
+    this.toast('School profile saved · new receipts use it from now');
+   }
+  };
+  const media = [['logo', 'School logo', 'vpps-crest.png · 1 Apr'], ['sign', 'Principal’s signature', 'signature-scan.png · 14 Jul']].map((m) => ({
+   isLogo: m[0] === 'logo', isSign: m[0] === 'sign', title: m[1], aria: 'Replace ' + m[1].toLowerCase(),
+   sub: s.files[m[0]] ? s.files[m[0]] + ' · just now' : m[2], anim: s.files[m[0]] ? 'xPopIn .5s var(--spring) both' : 'none',
+   pick: (e) => {
+    const fl = e && e.target && e.target.files && e.target.files[0];
+    const f = Object.assign({}, S().files); f[m[0]] = (fl && fl.name) || 'new-image.png';
+    this.save({ files: f }, 'replaced the ' + m[1].toLowerCase(), [[m[1], m[2].split(' · ')[0], f[m[0]]]]);
+    this.toast(m[1] + ' updated · shows on new receipts');
+   }
+  }));
+
+  // ---------- preferences ----------
+  const seg = (key, label, sub, icon, opts, w) => {
+   const idx = Math.max(0, opts.map((o) => o[0]).indexOf(s[key]));
+   return {
+    label, sub, icon: IC[icon], n: String(opts.length), w, thumb: (idx * 100) + '%',
+    opts: opts.map((o) => ({ label: o[1], cls: s[key] === o[0] ? 'tap on' : 'tap', on: B(s[key] === o[0]), pick: () => { const old = S()[key]; if (old === o[0]) return; const pt = {}; pt[key] = o[0]; this.save(pt, 'changed ' + label.toLowerCase(), [[label, (opts.filter((x) => x[0] === old)[0] || opts[0])[1], o[1]]]); } }))
+   };
+  };
+  const landDefs = [['today', 'Today'], ['needs', 'Needs you'], ['receipts', 'Receipts'], ['students', 'Students']];
+  const printers = { thermal: 'Office desk · thermal', laser: 'Accounts room · laser', ask: 'Ask every time' };
+  const swDefs = [['big', 'Large text', 'Bigger letters and buttons, right away.', 'text', 4], ['daily', 'Daily summary at 6 pm', 'Money in, attendance and anything left to do.', 'calCheck', 0], ['close', 'Day not closed by 6 pm', 'A nudge if cash is not counted and locked.', 'lock', 3], ['backup', 'Backup failed', 'Only if a nightly backup misses Drive or R2.', 'cloud', 2]];
+  const prefs = {
+   segs: [seg('themePref', 'Theme', 'Auto follows this device’s light or dark setting.', 'moon', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']], '270px'), seg('lang', 'App language', 'Menus and labels. Parent messages are always Hindi first.', 'globe', [['en', 'English'], ['hi', 'हिंदी']], '200px')].map((r, i) => Object.assign(r, { border: i ? '1px solid var(--bd)' : '0' })),
+   sws: swDefs.map((n, i) => {
+    const on = i === 0 ? s.big : !!s.notif[n[0]];
+    return {
+     head: i === 1, label: n[1], sub: n[2], icon: IC[n[3]], bg: T[n[4]][0], fg: T[n[4]][1], on: B(on), cls: on ? 'on' : '',
+     toggle: () => {
+      const v = i === 0 ? !S().big : !S().notif[n[0]];
+      const nn = Object.assign({}, S().notif); nn[n[0]] = v;
+      this.save(i === 0 ? { big: v } : { notif: nn }, 'turned ' + (v ? 'on' : 'off') + ' “' + n[1] + '”', [[n[1], v ? 'Off' : 'On', v ? 'On' : 'Off']]);
+     }
+    };
+   }),
+   landing: landDefs.map((l) => ({ label: l[1], cls: s.landing === l[0] ? 'on' : '', on: B(s.landing === l[0]), pick: () => { const old = (landDefs.filter((x) => x[0] === S().landing)[0] || landDefs[0])[1]; if (old !== l[1]) this.save({ landing: l[0] }, 'changed the start page', [['Open the app on', old, l[1]]]); } })),
+   printer: s.printer,
+   onPrinter: (e) => { const v = printers[e.target.value] ? e.target.value : 'ask'; this.save({ printer: v }, 'changed the receipt printer', [['Receipt printer', printers[S().printer] || 'Ask every time', printers[v]]]); },
+   testPrint: () => this.toast('Test receipt sent to ' + (printers[s.printer] || 'the printer'))
+  };
+
+  // ---------- session ----------
+  const sess = {
+   stats: kv([['Students', '434', 'on the roll · 19 classes'], ['Installments', '2 of 4 due', 'next on Sun 15 Nov'], ['Exams', 'Half-yearly', 'marks: 16 of 23 teachers done']]),
+   past: [['2025–26', '421 students · ₹29.6 L collected · 1.4 GB', s.archived], ['2024–25', '409 students · ₹27.1 L collected · 1.1 GB', true], ['2023–24', '398 students · ₹24.8 L collected · 0.9 GB', true]].map((p, i) => ({
+    name: p[0], sub: p[1], border: i ? '1px solid var(--bd)' : '0', delay: delay(i), icon: p[2] ? IC.lock : IC.archive,
+    pill: p[2] ? 'Archived · read-only' : 'Closed · archive it', bg: p[2] ? 'var(--s3)' : 'var(--warns)', fg: p[2] ? 'var(--mut)' : 'var(--warnfg)',
+    open: p[2] ? () => this.toast('Opening ' + p[0] + ' read-only') : () => this.openSheet('archive')
+   }))
+  };
+
+  // ---------- activity ----------
+  const teachers = ['Mr. Meena', 'Ms. Dave', 'Mr. Solanki'];
+  const typeTone = { Money: T[0], Students: T[1], Marks: T[3], Settings: T[4], 'Sign-in': T[2] };
+  const whoTone = (w) => (teachers.indexOf(w) >= 0 ? T[3] : T[Math.max(0, ['Janmejay Singh', 'Office desk', 'Ms. Neelam Sharma'].indexOf(w))]);
+  const shownLog = s.extraLog.concat(D.LOG).filter((l) => (s.logType === 'all' || l.type === s.logType) && (s.logWho === 'all' || (s.logWho === 'teachers' ? teachers.indexOf(l.who) >= 0 : l.who === s.logWho)));
+  let li = 0;
+  const act = {
+   types: ['all', 'Money', 'Students', 'Marks', 'Settings', 'Sign-in'].map((t) => ({ label: t === 'all' ? 'All' : t, cls: s.logType === t ? 'on' : '', on: B(s.logType === t), pick: () => this.setState({ logType: t }) })),
+   people: [['all', 'Everyone'], ['Janmejay Singh', 'Janmejay'], ['Office desk', 'Office desk'], ['Ms. Neelam Sharma', 'Ms. Neelam'], ['teachers', 'Teachers']].map((w) => ({ label: w[1], cls: s.logWho === w[0] ? 'on' : '', on: B(s.logWho === w[0]), pick: () => this.setState({ logWho: w[0] }) })),
+   groups: ['Today', 'Yesterday'].map((d) => {
+    const rows = shownLog.filter((l) => l.day === d);
+    return {
+     label: d === 'Today' ? 'Today · Thu 8 Oct' : 'Yesterday · Wed 7 Oct', count: rows.length + (rows.length === 1 ? ' change' : ' changes'),
+     rows: rows.map((l, i) => {
+      const open = s.openLog === l.id;
+      const tt = typeTone[l.type];
+      const wt = whoTone(l.who);
+      li += 1;
+      return {
+       who: l.time === 'just now' ? 'You' : l.who, what: l.what, via: l.via, time: l.time, type: l.type, tbg: tt[0], tfg: tt[1], ini: l.who.replace(/^(Mr|Ms)\. /, '').split(' ').map((w) => w[0].toUpperCase()).slice(0, 2).join(''), abg: wt[0], afg: wt[1],
+       border: i ? '1px solid var(--bd)' : '0', delay: delay(li - 1), isOpen: open, exp: B(open), rot: open ? '180deg' : '0deg', bg: open ? 'var(--s2)' : 'transparent',
+       toggle: () => this.setState({ openLog: S().openLog === l.id ? '' : l.id }),
+       diff: l.diff.map((x) => ({ k: x[0], a: x[1], b: x[2], abg: x[1] === '—' ? 'var(--s3)' : 'var(--bads)', afg: x[1] === '—' ? 'var(--mut)' : 'var(--bad)', deco: x[1] === '—' ? 'none' : 'line-through' })),
+       foot: (d === 'Today' ? 'Thu 8 Oct' : 'Wed 7 Oct') + ' · ' + l.time + ' · ' + l.via
+      };
+     })
+    };
+   }).filter((g) => g.rows.length),
+   empty: shownLog.length === 0,
+   clear: () => this.setState({ logType: 'all', logWho: 'all' }),
+   export: () => this.toast('Exported ' + shownLog.length + ' log entries to Excel')
+  };
+
+  // ---------- backups ----------
+  const pts = ['Today', 'Yesterday · Wed 7 Oct', 'Tue 6 Oct', 'Mon 5 Oct', 'Sun 4 Oct'];
+  const rp = pts[s.rp] ? s.rp : 0;
+  const manual = s.extraBk.length > 0;
+  const hist = s.extraBk.concat(D.NIGHTS.map((n, i) => ({ when: n + ' · 2:00 am', size: D.SIZES[i], note: i === 4 ? 'R2 was slow · retried at 2:20 am and worked' : 'Nightly · ' + (3 + (i % 3)) + ' min' })));
+  const A = s.archived;
+  const bk = {
+   title: s.bkRun ? 'Backing up now' : 'All backed up', running: s.bkRun,
+   line: manual ? 'Last: today 3:42 pm · 213 MB in both places. Next: tonight 2:00 am.' : 'Every night at 2:00 am, to two places. Last: today 2:00 am · 212 MB.',
+   pct: Math.min(100, s.bk) + '%', step: ['Collecting records…', 'Packing…', 'Sending to Google Drive…', 'Sending to Cloudflare R2…', 'Checking both copies…'][Math.min(4, Math.floor(s.bk / 21))],
+   btnLabel: s.bkRun ? 'Backing up…' : 'Back up now', btnIcon: s.bkRun ? IC.refresh : IC.upload, spin: spin(s.bkRun), btnOp: s.bkRun ? '0.7' : '1',
+   run: () => {
+    if (S().bkRun) return;
+    this.setState({ bkRun: true, bk: 6 });
+    this.steps('bk', [24, 47, 69, 88, 100], 420, () => { this.setState({ bkRun: false, bk: 0, extraBk: [{ when: 'Today · 3:42 pm', size: 213, note: 'Made by you · Back up now' }].concat(S().extraBk) }); this.save({}, 'made a backup now', [['Backup', 'Today 2:00 am', 'Today 3:42 pm · 213 MB']]); this.toast('Backup done · 213 MB saved to Google Drive and R2'); });
+   },
+   openRestore: () => this.openSheet('restore', { rp: 0 }), openArchive: () => this.openSheet('archive'),
+   hasRestored: !!s.restored, restoredLine: 'Restored to ' + s.restored + ' · just now by you. A copy from before the restore is kept.',
+   archLine: A ? '2025–26 archived today · all past sessions are read-only' : '2025–26 is closed and ready to archive · 1.4 GB',
+   archIcon: A ? IC.lock : IC.archive, archBg: A ? 'var(--oks)' : 'var(--warns)', archFg: A ? 'var(--ok)' : 'var(--warnfg)',
+   dest: [['Google Drive', 'cloud', 'Office account · vpps••••@gmail.com'], ['Cloudflare R2', 'database', 'Bucket vpps-backups']].map((d, i) => ({ name: d[0], icon: IC[d[1]], where: d[2], delay: delay(i + 1) })),
+   kv: kv([['Last run', manual ? '3:42 pm' : '2:00 am'], ['Size', manual ? '213 MB' : '212 MB'], ['Next run', '2:00 am']]),
+   bars: D.SIZES.slice().reverse().map((z, i) => ({ h: (10 + (z - 198) * 2.4).toFixed(0) + 'px', c: i === 13 ? 'var(--acc)' : 'var(--c4)', delay: (i * 30) + 'ms' })),
+   hist: hist.slice(0, 14).map((h, i) => ({ when: h.when, note: h.note, size: h.size + ' MB', delay: delay(i) }))
+  };
+  const rs = {
+   points: pts.map((p, i) => Object.assign(radio(rp === i), { label: p + ' · 2:00 am', sub: D.SIZES[i] + ' MB · saved in Drive and R2', pick: () => this.setState({ rp: i }) })),
+   impact: rp === 0 ? 'Everything after 2:00 am today will be replaced. Receipts made after that can be re-entered from the day book.' : 'Everything after 2:00 am on ' + pts[rp].replace('Yesterday · ', '') + ' will be replaced — about ' + [14, 31, 47, 58, 71][rp] + ' receipts plus attendance and marks. Receipts can be re-entered from the day book.'
+  };
+  const arc = {
+   running: s.arcPct >= 0, done: A, pct: Math.max(0, s.arcPct) + '%',
+   stats: kv([['Size', '1.4 GB'], ['Receipts', '4,812'], ['Students', '421']]),
+   points: ['Becomes read-only — nobody can change its marks, receipts or attendance.', 'Still opens, searches and prints old receipts, report cards and TCs.', 'Money still owed from 2025–26 stays in Dues.'].map((t) => ({ t }))
+  };
+
+  // ---------- master data ----------
+  const tabs = [['classes', 'Classes & sections', 'Class', 'Add a class or section, e.g. Class 9 B', 'One section each. Teachers and strength come from Staff and Students.'], ['subjects', 'Subjects', 'Subject', 'Add a subject, e.g. Music', 'Subjects used in timetables, marks and report cards.'], ['houses', 'Houses', 'House', 'Add a house', 'Houses for sports day and activities.'], ['modes', 'Payment modes', 'Mode', 'Add a payment mode', 'How parents can pay. Old receipts always keep their mode.'], ['holidays', 'Holidays', 'Holiday', 'Add a holiday', 'Holidays for 2026–27. They also show in the calendar.']];
+  const tab = tabs.filter((t) => t[0] === s.mtab)[0] || tabs[0];
+  const list = ML[tab[0]] || [];
+  const setList = (nl, what, diff) => { const m = Object.assign({}, S().master || D.MASTER); m[tab[0]] = nl; this.save({ master: m, editId: '', delId: '' }, what, diff); };
+  const move = (i, d) => () => { const j = i + d; if (j < 0 || j >= list.length) return; const nl = list.slice(); nl[i] = list[j]; nl[j] = list[i]; setList(nl, 'moved ' + list[i].name + (d < 0 ? ' up' : ' down'), [['Position', String(i + 1), String(j + 1)]]); };
+  const md = {
+   tabs: tabs.map((t) => { const on = t[0] === tab[0]; return { label: t[1], count: String((ML[t[0]] || []).length), on: B(on), line: on ? 'var(--acc)' : 'transparent', color: on ? 'var(--fg)' : 'var(--mut)', pick: () => this.setState({ mtab: t[0], editId: '', delId: '', addVal: '', addErr: false }) }; }),
+   help: tab[4], isHol: tab[0] === 'holidays',
+   rows: list.map((it, i) => {
+    const ed = s.editId === it.id;
+    const dl = s.delId === it.id;
+    return {
+     n: String(i + 1), name: it.name, sub: it.sub, dot: it.dot, view: !ed && !dl, editing: ed, confirm: dl, delNote: it.use || 'Old records keep it in history.',
+     border: i ? '1px solid var(--bd)' : '0', delay: delay(i), bg: dl ? 'var(--bads)' : (ed ? 'var(--s2)' : 'transparent'),
+     upOp: i === 0 ? '0.3' : '1', downOp: i === list.length - 1 ? '0.3' : '1', up: move(i, -1), down: move(i, 1),
+     edit: () => this.setState({ editId: it.id, editVal: it.name, delId: '' }),
+     del: () => this.setState({ delId: it.id, editId: '' }),
+     saveEdit: () => { const v = (S().editVal || '').trim(); if (!v || v === it.name) { this.setState({ editId: '' }); return; } setList(list.map((x) => (x.id === it.id ? Object.assign({}, x, { name: v }) : x)), 'renamed ' + it.name, [[tab[2], it.name, v]]); this.toast('Renamed to ' + v); },
+     confirmDel: () => { const before = S().master; setList(list.filter((x) => x.id !== it.id), 'deleted ' + it.name, [[tab[2], it.name, 'Deleted']]); this.toast(it.name + ' deleted', () => this.setState({ master: before })); }
+    };
+   }),
+   editVal: s.editVal, onEdit: (e) => this.setState({ editVal: e.target.value }), cancel: () => this.setState({ editId: '', delId: '' }),
+   addVal: s.addVal, addCls: s.addErr ? 'err' : '', addPh: tab[3], onAdd: (e) => this.setState({ addVal: e.target.value, addErr: false }),
+   add: () => {
+    const v = (S().addVal || '').trim();
+    if (!v) { this.setState({ addErr: true }); return; }
+    setList(list.concat([{ id: 'n' + Date.now(), name: v, sub: 'Added just now by you', use: '', dot: 'var(--acc)' }]), 'added ' + v, [[tab[2], '—', v]]);
+    this.setState({ addVal: '' });
+    this.toast(v + ' added at the end · move it with the arrows');
+   }
+  };
+
+  // ---------- integrations ----------
+  const intDefs = [
+   ['aisensy', 'AiSensy WhatsApp', 'Messages and receipts to parents', 'message', 2, 'Connected', [['Balance', '₹1,840 · about 2,090 messages'], ['Templates', '14 approved · 2 waiting'], ['Cost', 'about ₹0.88 a message']], 'btn', 'Top up', 'plus', 'test message delivered to your phone (98290 ••512)'],
+   ['sampark', 'Sampark links', 'Marks entry without a login', 'link', 0, 'Active', [['Links active', '23 · one per teacher'], ['Half-yearly marks', '16 of 23 teachers done'], ['Last used', 'Today 12:20 pm · Mr. Meena']], 'link', 'Manage links', 'clipboard', 'your test link opened fine'],
+   ['drive', 'Google Drive', 'Nightly backup, copy 1', 'cloud', 1, 'Connected', [['Signed in as', 'Office account · vpps••••@gmail.com'], ['Last backup', 'Today 2:00 am · 212 MB'], ['Space used', '3.4 of 15 GB']], 'btn', 'Open folder', 'file', 'a test file was written and removed'],
+   ['r2', 'Cloudflare R2', 'Nightly backup, copy 2', 'database', 3, 'Connected', [['Bucket', 'vpps-backups'], ['Last backup', 'Today 2:00 am · 212 MB'], ['Stored', '2.9 GB · last 30 nights']], '', '', 'plus', 'a test file was written and removed']
+  ];
+  const intg = intDefs.map((c, i) => {
+   const on = s.testing === c[0];
+   const ok = !!s.tested[c[0]];
+   return {
+    name: c[1], sub: c[2], icon: IC[c[3]], bg: T[c[4]][0], fg: T[c[4]][1], status: c[5], delay: delay(i), kv: kv(c[6]),
+    testLabel: on ? 'Testing…' : (ok ? 'Works · test again' : 'Test'), testIcon: on ? IC.refresh : (ok ? IC.check : IC.zap), testCls: ok ? 'sec' : 'sec', spin: spin(on),
+    test: () => { if (S().testing) return; this.setState({ testing: c[0] }); setTimeout(() => { const t = Object.assign({}, S().tested); t[c[0]] = true; this.setState({ testing: '', tested: t }); this.toast(c[1] + ' is working · ' + c[10]); }, 900); },
+    hasBtn: c[7] === 'btn', hasLink: c[7] === 'link', actLabel: c[8], actIcon: IC[c[9]],
+    act: () => this.toast(c[0] === 'aisensy' ? 'AiSensy top-up opened · pay by UPI' : 'Opened the VPPS Backups folder in Google Drive')
+   };
+  });
+  // ---------- glossary ----------
+  const gq = (s.gq || '').trim().toLowerCase();
+  const gItems = D.GLOSS.filter((g) => !gq || (g.en + ' ' + g.hi + ' ' + g.d).toLowerCase().indexOf(gq) >= 0);
+  const tagTone = { Money: T[0], Students: T[1], Marks: T[3], Attendance: T[2] };
+  const gl = {
+   q: s.gq, onQ: (e) => this.setState({ gq: e.target.value }), clear: () => this.setState({ gq: '' }), empty: gItems.length === 0,
+   count: gq ? gItems.length + ' of ' + D.GLOSS.length + ' words' : D.GLOSS.length + ' words the app uses, in plain language',
+   items: gItems.map((g, i) => Object.assign({ bg: tagTone[g.tag][0], fg: tagTone[g.tag][1], delay: delay(i) }, g))
+  };
+
+  // ---------- sheet ----------
+  const sheetDefs = {
+   restore: ['Restore a backup', 'Pick the point to go back to.', 'Not now', 'danger', s.restoring ? IC.refresh : IC.undo, s.restoring ? 'Restoring…' : 'Restore this copy', () => {
+    if (S().restoring) return;
+    this.setState({ restoring: true });
+    setTimeout(() => { const lbl = pts[rp] + ' · 2:00 am'; this.setState({ restoring: false, restored: lbl }); this.closeSheet(); this.save({}, 'restored a backup', [['Data', 'Now', lbl]]); this.toast('Restored to ' + lbl, () => { this.setState({ restored: '' }); this.toast('Undone · back to how it was before the restore'); }); }, 1100);
+   }],
+   archive: A
+    ? ['Session 2025–26', 'Archived today · read-only', 'Close', 'pri', IC.download, 'Download archive · 1.4 GB', () => this.toast('Download started · vpps-2025-26-archive.zip · 1.4 GB')]
+    : ['Archive 2025–26?', 'Closed on Tue 31 Mar 2026. One step — you can still read and print it.', 'Not now', 'pri', s.arcPct >= 0 ? IC.refresh : IC.archive, s.arcPct >= 0 ? 'Archiving…' : 'Archive 2025–26', () => {
+     if (S().arcPct >= 0) return;
+     this.setState({ arcPct: 5 });
+     this.steps('arcPct', [28, 54, 79, 100], 450, () => { this.setState({ arcPct: -1, archived: true }); this.save({}, 'archived session 2025–26', [['2025–26', 'Closed', 'Archived · read-only']]); this.toast('2025–26 archived · it is read-only now'); });
+    }]
+  };
+  const sd = sheetDefs[s.sheet] || sheetDefs.restore;
+  const busy = s.restoring || s.arcPct >= 0;
+
+  // ---------- chrome ----------
+  const title = D.TITLES[view];
+  const anims = { push: 'xPush .36s var(--ease) both', pop: 'xPop .32s var(--ease) both' };
+  const is = {};
+  Object.keys(D.TITLES).forEach((k) => { is[k] = view === k; });
+  return {
+   ic: IC, dark, theme: dark ? 'dark' : '', zoom: s.big ? '1.12' : '1', is,
+   top: {
+    crumb: 'System · Settings', title,
+    mTitle: s.sec === 'home' ? 'Settings' : title, mSub: s.sec === 'home' ? 'Janmejay Singh · Admin' : st[view][0], mBackLink: s.sec === 'home', mBackBtn: s.sec !== 'home'
+   },
+   lay: { navCls: s.sec === 'home' ? '' : 'hide-m', bodyCls: s.sec === 'home' ? 'hide-m' : '' },
+   anim: { c: anims[s.anim] || 'none', nav: s.sec === 'home' && s.anim === 'pop' ? anims.pop : 'none' },
+   saved: { show: s.savedOn, anim: s.saved % 2 ? 'xPopIn .45s var(--spring) both' : 'xToast .4s var(--spring) both' },
+   back: () => this.setState({ sec: 'home', anim: 'pop', editId: '', delId: '' }),
+   nav,
+   sig: 'M3 22c6-12 9-16 11-12s-4 14 1 12 7-15 10-12-2 11 2 10 6-9 9-8 1 6 4 6 6-4 12-5',
+   rcpt: kv([['Academic fee · Installment 2', '₹6,450', '', '400'], ['Transport · Route 3 · October', '₹800', '', '400'], ['Total received', '₹7,250', '', '700']]),
+   prof: pf, media, pf: prefs, sess, act, bk, rs, arc, md, intg, gl,
+   sh: { restore: s.sheet === 'restore', archive: s.sheet === 'archive' },
+   sheet: { open: !!s.sheet, state: s.closing ? 'closing' : 'open', title: sd[0], sub: sd[1], cancel: sd[2], okCls: sd[3], okIcon: sd[4], okLabel: sd[5], ok: sd[6], spin: spin(busy) },
+   closeSheet: () => this.closeSheet(),
+   toast: { show: !!s.toast, text: s.toast ? s.toast.text : '', undo: !!(s.toast && s.toast.undo) }, undoToast: () => this.undoToast()
+  };
+ }
+}
+</script>
+</body>
+</html>

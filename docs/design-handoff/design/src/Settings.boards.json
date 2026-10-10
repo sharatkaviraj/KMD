@@ -1,0 +1,11 @@
+[
+  {"file": "Settings.dc.html", "device": "desktop", "title": "Settings · school profile"},
+  {"file": "DX-Settings-Activity.dc.html", "device": "desktop", "start": "activity", "title": "Activity log · before → after"},
+  {"file": "DX-Settings-Backups.dc.html", "device": "desktop", "start": "backups", "title": "Backups & archive"},
+  {"file": "DX-Settings-Master.dc.html", "device": "desktop", "start": "master", "title": "Master data"},
+  {"file": "M-Settings.dc.html", "device": "phone", "start": "home", "title": "Settings"},
+  {"file": "M-Settings-Prefs.dc.html", "device": "phone", "start": "prefs", "title": "Preferences · dark", "dark": true},
+  {"file": "M-Settings-Restore.dc.html", "device": "phone", "start": "restore", "title": "Restore a backup"},
+  {"file": "M-Settings-Integrations.dc.html", "device": "phone", "start": "integrations", "title": "Integrations"},
+  {"file": "M-Settings-Glossary.dc.html", "device": "phone", "start": "glossary", "title": "Glossary"}
+]

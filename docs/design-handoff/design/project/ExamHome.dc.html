@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Exam coordinator today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+body{margin:0}
+.vx,.vxt{--bg:#F4F7FA;--card:#FFFFFF;--s2:#F0F6F9;--s3:#E3EDF2;--fg:#151923;--mut:#5C6270;--sub:#8A8E98;--bd:#DCE4EA;--bds:#ACC0CD;--pri:#0B4F79;--prifg:#FFFFFF;--acc:#0E717C;--accs:#E6F6F7;--accfg:#0B5C65;--nav:#082F49;--navs:#153C56;--navb:#24465E;--navm:#AFC0CC;--navfg:#F7F6F3;--ok:#1B5F3E;--oks:#E9F8F0;--okm:#CDEFDD;--warn:#A95C0F;--warns:#FEF5E7;--warnfg:#83470B;--warnm:#F6D9A8;--bad:#B41D1D;--bads:#FDEEEE;--info:#1D48A5;--infos:#EEF3FE;--c1:#0B4F79;--c2:#2A9DA8;--c3:#E0A042;--c4:#A9BCC9;--heat:14,113,124;--glass:rgba(244,247,250,.86);--glass2:rgba(255,255,255,.9);--scrim:rgba(8,20,30,.45);--wabg:#ECE5DD;--wab:#DCF8C6;--wafg:#111B21;--sh:0 1px 2px rgba(21,25,35,.04),0 12px 28px -18px rgba(21,25,35,.28);--shh:0 2px 4px rgba(21,25,35,.05),0 20px 40px -18px rgba(21,25,35,.36);--shl:0 30px 80px -24px rgba(8,20,30,.5);--onsolid:#FFFFFF;--tbg:#151923;--tfg:#F7F6F3;--tacc:#81DAE4;--tacs:rgba(129,218,228,.16);--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+.vx.dark,.vxt.dark{--bg:#0E1117;--card:#161A22;--s2:#1C212B;--s3:#262C37;--fg:#F3F1EC;--mut:#B3AFA4;--sub:#8E8A80;--bd:#2A303B;--bds:#3B4250;--pri:#81DAE4;--prifg:#08202A;--acc:#81DAE4;--accs:#123139;--accfg:#A9E9F0;--nav:#0A1824;--navs:#132D40;--navb:#21425A;--ok:#5FCB97;--oks:#122A22;--okm:#1D4A37;--warn:#F2A85A;--warns:#2E2318;--warnfg:#F6C88F;--warnm:#5B3F1E;--bad:#F27E7E;--bads:#33191C;--info:#8FB0F5;--infos:#18213A;--c1:#81DAE4;--c2:#3E9AA6;--c3:#F2A85A;--c4:#6E7F8C;--heat:129,218,228;--glass:rgba(14,17,23,.84);--glass2:rgba(22,26,34,.9);--scrim:rgba(0,0,0,.55);--wabg:#0B141A;--wab:#005C4B;--wafg:#E9EDEF;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -18px rgba(0,0,0,.7);--shh:0 2px 4px rgba(0,0,0,.4),0 20px 40px -18px rgba(0,0,0,.8);--shl:0 30px 80px -24px rgba(0,0,0,.85);--onsolid:#10131A;--tbg:#F3F1EC;--tfg:#151923;--tacc:#0B5C65;--tacs:rgba(11,92,101,.12)}
+.vx{container:vx/inline-size}
+.vx,.vx *,.vxt,.vxt *{box-sizing:border-box}
+.vx{transition:background-color .3s ease,color .3s ease}
+.vx button,.vxt button{font-family:inherit;cursor:pointer}
+.vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
+.vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
+.vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vx a,.vxt a{color:inherit;text-decoration:none}
+.scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
+.hs{overflow-x:auto;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.tap{transition:transform .14s var(--ease),background-color .2s ease,color .2s ease,box-shadow .25s ease,opacity .2s ease,border-color .2s ease,filter .2s ease}
+.tap:active{transform:scale(.97)}
+.lift{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s ease}
+.lift:hover{transform:translateY(-2px);box-shadow:var(--shh);border-color:var(--bds)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:var(--sh)}
+.chip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+.btn{height:40px;padding:0 16px;border-radius:12px;border:0;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.pri{background:var(--pri);color:var(--prifg)}
+.pri:hover{filter:brightness(1.12)}
+.sec{background:var(--card);color:var(--fg);border:1px solid var(--bds)}
+.sec:hover{background:var(--s2)}
+.soft{background:var(--accs);color:var(--accfg)}
+.soft:hover{filter:brightness(.96)}
+.ghost{background:transparent;color:var(--fg)}
+.ghost:hover{background:var(--s2)}
+.danger{background:var(--bad);color:var(--onsolid)}
+.danger:hover{filter:brightness(1.08)}
+.pill{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sech{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
+.k{font-family:Inter,sans-serif;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:12px;font-weight:700;color:var(--mut)}
+.inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.row{transition:background-color .18s ease}
+.row:hover{background:var(--s2)}
+.row.sel{background:var(--accs)}
+.sw{width:46px;height:28px;border-radius:14px;padding:3px;display:flex;flex:none;background:var(--bds);transition:background-color .25s ease}
+.sw.on{background:var(--acc)}
+.sw>span{width:22px;height:22px;border-radius:11px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s var(--spring)}
+.sw.on>span{transform:translateX(18px)}
+.seg{position:relative;display:grid;padding:3px;border-radius:12px;background:var(--s3)}
+.seg>.thumb{position:absolute;top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--card);box-shadow:var(--sh);transition:transform .32s var(--spring)}
+.seg>button{position:relative;height:34px;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--mut);transition:color .2s ease}
+.seg>button.on{color:var(--fg)}
+.sidei{color:var(--navm)}
+.sidei:hover{background:rgba(255,255,255,.07)}
+.sidei.on{background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);color:#FFFFFF;font-weight:700}
+.rise{animation:xRise .42s var(--ease) both}
+.fadein{animation:xIn .32s var(--ease) both}
+.push{animation:xPush .36s var(--ease) both}
+.pop{animation:xPop .32s var(--ease) both}
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 37%,var(--s2) 63%);background-size:400% 100%;animation:xShimmer 1.4s ease infinite;border-radius:10px}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;z-index:50;border:0;padding:0;background:var(--scrim);cursor:default}
+.scrim.open{animation:xFade .25s ease both}
+.scrim.closing{animation:xOut .22s ease forwards}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:51;max-height:92%;display:flex;flex-direction:column;background:var(--card);border-radius:28px 28px 0 0;box-shadow:var(--shl);overflow:hidden}
+.sheet.open{animation:xUp .42s var(--ease) both}
+.sheet.closing{animation:xDown .24s var(--ease) forwards}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--bd);margin:8px auto 0;flex:none}
+.toastwrap{position:absolute;left:0;right:0;bottom:92px;z-index:60;display:flex;justify-content:center;pointer-events:none;padding:0 14px}
+.toast{pointer-events:auto;max-width:560px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;min-height:50px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+.toast button{flex:none;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--tacs);color:var(--tacc);font-size:14px;font-weight:700}
+@keyframes xIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xFade{from{opacity:0}to{opacity:1}}
+@keyframes xOut{from{opacity:1}to{opacity:0}}
+@keyframes xRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes xPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes xPop{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes xUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xDown{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xModal{from{opacity:0;transform:translate(-50%,-47%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes xModalOut{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+@keyframes xMenu{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xGrowY{from{transform:scaleY(0)}}
+@keyframes xGrowX{from{transform:scaleX(0)}}
+@keyframes xDraw{from{stroke-dashoffset:var(--len)}}
+@keyframes xSpin{from{transform:rotate(-150deg) scale(.86);opacity:0}to{transform:rotate(-90deg);opacity:1}}
+@keyframes xLoop{to{transform:rotate(360deg)}}
+@keyframes xPulse{0%{box-shadow:0 0 0 0 rgba(14,113,124,.5)}70%{box-shadow:0 0 0 9px rgba(14,113,124,0)}100%{box-shadow:0 0 0 0 rgba(14,113,124,0)}}
+@keyframes xPopIn{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes xLeave{0%{opacity:1;transform:none;max-height:220px}55%{opacity:0;transform:translateX(-28px);max-height:220px}100%{opacity:0;transform:translateX(-28px);max-height:0;padding-top:0;padding-bottom:0;border-width:0}}
+@keyframes xToast{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes xShimmer{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes xShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+@keyframes xWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes xRipple{from{transform:scale(1);opacity:.55}to{transform:scale(1.9);opacity:0}}
+@keyframes xCaret{50%{opacity:0}}
+@keyframes xTick{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@container vx (max-width:899px){.vx .only-d{display:none!important}.vx .g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx .g3,.vx .g2{grid-template-columns:minmax(0,1fr)!important}.vx .unstick{position:static!important;height:auto!important;max-height:none!important;border-left:0!important;border-top:1px solid var(--bd)}.vx .mfull{width:100%!important;max-width:none!important}.vx .hide-m{display:none!important}.vx .stack{grid-template-columns:minmax(0,1fr)!important}.vx .pad{padding-left:16px!important;padding-right:16px!important}.vx .btn{height:44px}.vx .chip{height:38px}.vx .inp{font-size:16px}}
+@container vx (min-width:900px){.vx .only-m{display:none!important}.vx .hide-d{display:none!important}.vx .sheet{left:50%;right:auto;bottom:auto;top:50%;width:580px;max-width:calc(100% - 48px);max-height:86%;border-radius:22px;transform:translate(-50%,-50%)}.vx .sheet.wide{width:760px}.vx .sheet.open{animation:xModal .3s var(--ease) both}.vx .sheet.closing{animation:xModalOut .2s var(--ease) forwards}.vx .grab{display:none}.vx .toastwrap{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.vx,.vx *,.vxt,.vxt *{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+.xr{display:flex;align-items:center}.xc{display:flex;flex-direction:column}.xf{flex:1;min-width:0}.xf1{flex:1}.xfn{flex:none}.xw{flex-wrap:wrap}.xj{justify-content:space-between}.xrl{position:relative}.xn0{min-width:0}.xw1{width:100%}.xoh{overflow:hidden}.xgd{display:grid}.x4{gap:4px}.x6{gap:6px}.x8{gap:8px}.x10{gap:10px}.x12{gap:12px}.x14{gap:14px}.x16{gap:16px}.xm{font-size:12px;color:var(--mut)}.xs{font-size:13px}.x11{font-size:11px}.x15{font-size:15px}.xb{font-weight:700}.x6w{font-weight:600}.xmu{color:var(--mut)}.xtr{text-align:right}.xtc{text-align:center}.xt{font-size:15px;font-weight:700}.xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.xh{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}.xi{flex:none;display:flex;align-items:center;justify-content:center}.xp{padding:14px 16px}.xp2{padding:18px 20px}.xbb{border-bottom:1px solid var(--bd)}.xd+.xd{border-top:1px solid var(--bd)}.xq{width:40px;padding:0!important}.xdt{flex:none;width:9px;height:9px;border-radius:5px;display:inline-block}
+.xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}.xbar>span{height:100%;transition:width .5s var(--ease)}
+.xg circle{fill:none;stroke-linecap:round}.xg .q0{stroke:var(--s3)}.xg .q1{transform:rotate(-90deg);transform-origin:50% 50%;animation:xDraw .9s var(--ease) both;transition:stroke-dasharray .6s var(--ease)}
+.xo{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.xa{flex:none;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.xst>*{animation:xIn .3s var(--ease) both}.xst>:nth-child(2){animation-delay:.04s}.xst>:nth-child(3){animation-delay:.08s}.xst>:nth-child(4){animation-delay:.12s}.xst>:nth-child(5){animation-delay:.16s}.xst>:nth-child(n+6){animation-delay:.2s}
+.xsc{padding:18px 28px 40px;display:flex;flex-direction:column;gap:16px}
+.xsh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}.xsb{flex:1;min-height:0;padding:4px 20px 14px;display:flex;flex-direction:column;gap:12px}.xsf{flex:none;display:flex;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}.xsf>.btn{height:52px;font-size:15px}
+.xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.xlg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 0;font-size:13px}.xlg>i{width:10px;height:10px;margin-top:4px;border-radius:5px}
+.xwa{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:16px;background:var(--wabg)}.xwa>div{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}
+.xfa{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;font-size:13px}
+.xlang{grid-template-columns:repeat(2,minmax(0,1fr));width:84px;flex:none}.xlang>button{height:30px}
+.xov{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:1}
+.xhero{padding:20px;gap:14px;animation:xRise .45s var(--ease) both}
+.xstep{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.xstep>span{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:var(--mut);line-height:1.25}.xstep>span>i{height:5px;border-radius:3px}
+.xtline{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.xtrack{position:absolute;left:12.5%;right:12.5%;top:23px;height:4px;border-radius:2px;background:var(--s3)}.xtrack>span{display:block;height:100%;border-radius:2px;background:var(--acc);transform-origin:left;animation:xGrowX 1s .2s var(--ease) both}
+.xnode{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;border:0;background:transparent;color:var(--fg);padding:0 2px;position:relative;z-index:1}
+.xqa{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.xtile{position:relative;padding:16px;gap:10px;min-height:118px}
+.xmenu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.xsr{display:grid;grid-template-columns:44px minmax(0,1fr) 150px 190px;gap:14px;align-items:center}
+.xpl{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:10px;font-size:12px;font-weight:600;background:var(--s2);white-space:nowrap}
+@container vx (max-width:899px){.xsc{padding:14px 16px 32px}.xqa{grid-template-columns:repeat(2,minmax(0,1fr))}.xmenu{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.xsr{grid-template-columns:36px minmax(0,1fr);gap:10px}.xsr>:nth-child(3),.xsr>:nth-child(4){grid-column:1/-1}.xsr{align-items:start}.xsr>:nth-child(4){justify-content:flex-start!important}.xsr>:nth-child(4)>.btn{flex:1}.xnode .xm{font-size:11px}.xhero{padding:16px}}
+</style>
+</helmet>
+<div class="vx {{theme}} xrl xw1 xoh" style="height:100vh;min-height:560px;display:flex;background:var(--bg);color:var(--fg);font-family:Inter, 'Noto Sans Devanagari', system-ui, sans-serif;font-size:14px;line-height:1.45">
+
+<div class="only-d xfn" style="height:100%"><dc-import name="XSide" active="home" role="exam" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+
+<div class="xc xf xrl" style="min-height:0">
+
+<header class="only-d glass xr x10 xfn xbb xrl" style="height:64px;padding:0 28px;z-index:5">
+<sc-if value="{{top.back}}"><button class="tap btn ghost xq" type="button" aria-label="Back to today" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<div class="xc xf"><span class="xm">{{top.crumb}}</span><span class="xh xe">{{top.title}}</span></div>
+<div class="seg xlang" role="group" aria-label="Language"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{lang.thumb}})"></span><sc-for list="{{lang.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<button class="tap btn ghost xq" type="button" aria-label="Help for this screen" onClick="{{openHelp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+<sc-for list="{{top.acts}}" as="a"><button class="tap btn {{a.cls}}" type="button" onClick="{{a.go}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{a.icon}}"></path></svg>{{a.label}}</button></sc-for>
+</header>
+
+<header class="only-m glass xr x4 xfn xbb xrl" style="min-height:58px;padding:6px 8px;z-index:5">
+<sc-if value="{{top.back}}"><button class="tap btn ghost" type="button" aria-label="Back to today" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<sc-if value="{{top.root}}"><span class="xi serif xb" style="width:38px;height:38px;margin:0 4px;border-radius:12px;background:var(--nav);color:var(--navfg);font-size:14px">VP</span></sc-if>
+<span class="xc xf" style="padding-left:2px"><span class="xe xb" style="font-size:17px">{{top.title}}</span><span class="xm xe">{{top.mSub}}</span></span>
+<div class="seg xlang" role="group" aria-label="Language"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{lang.thumb}})"></span><sc-for list="{{lang.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+<button class="tap btn ghost" type="button" aria-label="Help for this screen" onClick="{{openHelp}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.help}}"></path></svg></button>
+</header>
+
+<main class="scroll xf1 xrl" style="min-height:0">
+
+<!-- ============ HOME ============ -->
+<sc-if value="{{is.home}}">
+<div class="pad stack xgd" style="padding:20px 28px 40px;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;animation:{{anim}}">
+<section class="xc x16 xn0">
+<div class="xc" style="gap:2px"><span class="serif" style="font-size:26px;font-weight:600;line-height:1.15">{{hm.hello}}</span><span class="xm xs">{{hm.helloSub}}</span></div>
+
+<div class="stack xgd" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch">
+<!-- hero 1: half-yearly results -->
+<div class="card xc xhero" style="border-color:var(--acc);box-shadow:var(--shh)">
+<div class="xr xj x8"><span class="pill" style="background:var(--accs);color:var(--accfg)"><span class="xdt" style="background:var(--acc);animation:xPulse 1.8s ease infinite"></span>{{hm.h1.tag}}</span><span class="pill num" style="height:26px;padding:0 10px;font-size:12px;background:var(--warns);color:var(--warnfg)">{{hm.h1.left}}</span></div>
+<span class="xc" style="gap:2px"><span class="serif" style="font-size:24px;font-weight:600;line-height:1.15">{{hm.h1.title}}</span><span class="xm">Sat 17 Oct · results go home at the PTM</span></span>
+<div class="xr x14">
+<div class="xrl xfn" style="width:96px;height:96px"><svg width="96" height="96" viewBox="0 0 100 100" class="xg" style="stroke-width:9" aria-hidden="true"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:var(--acc);stroke-dasharray:{{hm.h1.ring.dash}};--len:{{hm.h1.ring.len}}"></circle></svg><span class="xo"><span class="num xb" style="font-size:22px;line-height:1">68%</span><span class="xm x11">entered</span></span></div>
+<div class="xc x6 xf">
+<span class="xs"><b>Marks entry</b> · due Wed 14 Oct</span>
+<button class="tap xr x8 xw1" type="button" onClick="{{goLate}}" style="height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--bad);background:var(--bads);color:var(--bad);font-size:13px;font-weight:700;text-align:left"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{ic.alert}}"></path></svg><span class="xf">{{hm.h1.late}}</span><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg></button>
+<span class="xm">{{hm.h1.remLine}}</span>
+</div>
+</div>
+<div class="xc x4"><sc-for list="{{hm.h1.groups}}" as="g"><div class="xgd xs" style="grid-template-columns:96px minmax(0,1fr) 38px;gap:10px;align-items:center"><span class="xm xe">{{g.t}}</span><span class="xbar" style="height:6px"><span style="width:{{g.w}};background:{{g.c}};transform-origin:left;animation:xGrowX .7s var(--ease) both"></span></span><span class="num xb xs xtr">{{g.w}}</span></div></sc-for></div>
+<div class="xstep"><sc-for list="{{hm.h1.steps}}" as="p"><span style="color:{{p.c}}"><i style="background:{{p.bar}}"></i>{{p.t}}</span></sc-for></div>
+<div class="xgd" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px;margin-top:auto">
+<button class="tap btn {{hm.h1.remCls}}" type="button" onClick="{{hm.h1.remind}}" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{hm.h1.remIcon}}"></path></svg>{{hm.h1.remLabel}}</button>
+<span class="xrl"><a href="ExamResults.dc.html" class="only-d tap btn sec xw1" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.award}}"></path></svg>Open results</a><a href="M-ExamResults.dc.html" class="only-m tap btn sec xw1" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.award}}"></path></svg>Open results</a></span>
+</div>
+</div>
+
+<!-- hero 2: unit test 2 setup -->
+<div class="card xc xhero" style="animation-delay:.08s">
+<div class="xr xj x8"><span class="pill" style="background:var(--infos);color:var(--info)">{{hm.h2.tag}}</span><span class="pill num" style="height:26px;padding:0 10px;font-size:12px;background:var(--s2);color:var(--fg)">{{hm.h2.left}}</span></div>
+<span class="xc" style="gap:2px"><span class="serif" style="font-size:24px;font-weight:600;line-height:1.15">{{hm.h2.title}}</span><span class="xm">Mon 7 – Sat 12 Dec · Classes 1–12</span></span>
+<div class="xr x12"><div class="xbar xf" style="height:10px"><span style="width:{{ck.pct}};background:var(--info)"></span></div><span class="num xb xs">{{ck.pct}} ready</span></div>
+<div class="xc">
+<sc-for list="{{hm.h2.items}}" as="it"><div class="tap row xr x10 xd xrl" style="min-height:44px;padding:0 4px;border-radius:10px">
+<span class="xi" style="width:28px;height:28px;border-radius:14px;background:{{it.bg}};color:{{it.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><path d="{{it.icon}}"></path></svg></span>
+<span class="xf x6w xs xe">{{it.t}}</span>
+<span class="pill" style="background:{{it.bg}};color:{{it.fg}}">{{it.st}}</span>
+<a href="{{it.hd}}" class="only-d xov" aria-label="Open {{it.t}}"></a><a href="{{it.hm}}" class="only-m xov" aria-label="Open {{it.t}}"></a>
+</div></sc-for>
+</div>
+<div class="xgd" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px;margin-top:auto">
+<button class="tap btn pri" type="button" onClick="{{goCheck}}" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.list}}"></path></svg>{{hm.h2.open}}</button>
+<span class="xrl"><a href="ExamPlan.dc.html" class="only-d tap btn sec xw1" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>Open plan</a><a href="M-ExamPlan.dc.html" class="only-m tap btn sec xw1" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>Open plan</a></span>
+</div>
+</div>
+</div>
+
+<!-- timeline -->
+<div class="card xc x14 xp2">
+<div class="xr xj x8"><span class="xt">{{hm.tlTitle}}</span><span class="xm">Tap an exam</span></div>
+<div class="xtline">
+<span class="xtrack" aria-hidden="true"><span style="width:{{hm.tlFill}}"></span></span>
+<sc-for list="{{hm.tl}}" as="n"><button class="tap xnode" type="button" onClick="{{n.go}}" aria-label="{{n.name}} · {{n.st}}">
+<span class="xi" style="width:50px;height:50px;border-radius:25px;background:{{n.bg}};color:{{n.fg}};border:4px solid var(--card);box-shadow:{{n.ring}};animation:{{n.pulse}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+<span class="xb xs"><span class="hide-m">{{n.name}}</span><span class="only-m">{{n.sn}}</span></span><span class="xm num" style="margin-top:-4px">{{n.when}}</span><span class="pill" style="height:auto;min-height:22px;white-space:normal;padding:3px 8px;background:{{n.pbg}};color:{{n.pfg}}"><span class="hide-m">{{n.st}}</span><span class="only-m">{{n.ss}}</span></span>
+</button></sc-for>
+</div>
+</div>
+
+<!-- quick actions -->
+<span class="sech">{{hm.qaTitle}}</span>
+<div class="xqa">
+<sc-for list="{{hm.qa}}" as="q"><div class="card lift xc xtile">
+<span class="xi" style="width:44px;height:44px;border-radius:14px;background:{{q.bg}};color:{{q.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{q.icon}}"></path></svg></span>
+<span class="xc"><span class="xt">{{q.t}}</span><span class="xm">{{q.sub}}</span></span>
+<a href="{{q.hd}}" class="only-d xov tap" aria-label="{{q.t}}"></a><a href="{{q.hm}}" class="only-m xov tap" aria-label="{{q.t}}"></a>
+</div></sc-for>
+</div>
+</section>
+
+<aside class="xc x14 xn0">
+<div class="card xc xoh">
+<span class="sech" style="padding:14px 16px 6px">{{hm.needTitle}}</span>
+<sc-for list="{{hm.need}}" as="m"><button class="tap row xr x12 xd" type="button" onClick="{{m.go}}" style="width:100%;padding:12px 16px;border:0;background:transparent;color:var(--fg);text-align:left">
+<span class="xi" style="width:38px;height:38px;border-radius:12px;background:{{m.bg}};color:{{m.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{m.icon}}"></path></svg></span>
+<span class="xc xf"><span class="x6w">{{m.t}}</span><span class="xm">{{m.sub}}</span></span>
+<svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+</button></sc-for>
+</div>
+<div class="card xc xp"><span class="sech" style="margin-bottom:6px">Recent · who did what</span><div class="xst"><sc-for list="{{log}}" as="l"><div class="xlg"><i style="background:{{l.dot}}"></i><span>{{l.text}}</span><span class="num xm">{{l.time}}</span></div></sc-for></div></div>
+</aside>
+</div>
+</sc-if>
+
+<!-- ============ CHECKLIST ============ -->
+<sc-if value="{{is.check}}">
+<div class="pad xsc" style="max-width:980px;animation:{{anim}}">
+<div class="card xr xw xp2" style="gap:16px 22px">
+<div class="xrl xfn" style="width:104px;height:104px"><svg width="104" height="104" viewBox="0 0 100 100" class="xg" style="stroke-width:9" aria-hidden="true"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:{{ck.rc}};stroke-dasharray:{{ck.ring.dash}};--len:{{ck.ring.len}}"></circle></svg><span class="xo"><span class="num xb" style="font-size:24px;line-height:1">{{ck.pct}}</span><span class="xm x11">ready</span></span></div>
+<div class="xc x6 xf" style="min-width:180px">
+<span class="xh">{{ck.title}}</span>
+<span class="xm">Mon 7 – Sat 12 Dec · 60 days left · each step opens the right place</span>
+<div class="xbar" style="height:10px;margin-top:4px"><span style="width:{{ck.donePct}};background:var(--ok)"></span><span style="width:{{ck.partPct}};background:var(--c3)"></span></div>
+<span class="xs num"><b>{{ck.doneLine}}</b> · {{ck.partLine}}</span>
+</div>
+<div class="seg mfull" style="grid-template-columns:repeat(3,minmax(0,1fr));width:300px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 3);transform:translateX({{ck.seg.thumb}})"></span><sc-for list="{{ck.seg.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pr}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+</div>
+<div class="xc xst">
+<sc-for list="{{ck.rows}}" as="r">
+<div class="xgd" style="grid-template-columns:34px minmax(0,1fr);gap:12px">
+<div class="xc" style="align-items:center"><span class="xi" style="width:34px;height:34px;margin-top:18px;border-radius:17px;background:{{r.cbg}};color:{{r.cfg}};border:2px solid {{r.cbd}};animation:{{r.pop}}"><sc-if value="{{r.isDone}}"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px;stroke-width:3" aria-hidden="true"><path d="{{ic.check}}"></path></svg></sc-if><sc-if value="{{r.notDone}}"><span class="num xb xs">{{r.n}}</span></sc-if></span><span class="xf1" style="width:2px;margin-top:4px;background:{{r.line}}"></span></div>
+<div class="card xc x10 xp" style="margin-bottom:12px;opacity:{{r.op}}">
+<div class="xr xw x8 xj"><span class="xc xf" style="min-width:200px;gap:2px"><span class="xt">{{r.t}}</span><span class="xm" style="line-height:1.45">{{r.help}}</span></span><span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:{{r.pbg}};color:{{r.pfg}};animation:{{r.pop}}">{{r.st}}</span></div>
+<sc-if value="{{r.hasBar}}"><div class="xr x10"><div class="xbar xf"><span style="width:{{r.bw}};background:var(--c3)"></span></div><span class="num xm xb">{{r.bl}}</span></div></sc-if>
+<div class="xr xw x8">
+<span class="xpl"><span class="xi xb" style="width:20px;height:20px;border-radius:10px;font-size:10px;background:{{r.abg}};color:{{r.afg}}">{{r.ini}}</span>{{r.owner}}</span>
+<span class="xpl num" style="color:{{r.dc}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><path d="{{ic.calendar}}"></path></svg>{{r.due}}</span>
+<span class="xf"></span>
+<sc-if value="{{r.canMark}}"><button class="tap btn ghost" type="button" onClick="{{r.mark}}" style="height:36px;font-size:13px"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg>Mark done</button></sc-if>
+<span class="xrl"><a href="{{r.hd}}" class="only-d tap btn soft" style="height:36px;font-size:13px">{{r.open}}<svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a><a href="{{r.hm}}" class="only-m tap btn soft" style="height:40px;font-size:13px">{{r.open}}<svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></a></span>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+<span class="xm">Steps owned by others are ticked by them in their own app. Every change is logged with who and when.</span>
+</div>
+</sc-if>
+
+<!-- ============ LATE TEACHERS ============ -->
+<sc-if value="{{is.late}}">
+<div class="pad xsc" style="max-width:1080px;animation:{{anim}}">
+<div class="card xr xw xp2" style="gap:16px 22px">
+<div class="xrl xfn" style="width:96px;height:96px"><svg width="96" height="96" viewBox="0 0 100 100" class="xg" style="stroke-width:9" aria-hidden="true"><circle cx="50" cy="50" r="42" class="q0"></circle><circle cx="50" cy="50" r="42" class="q1" style="stroke:var(--acc);stroke-dasharray:{{hm.h1.ring.dash}};--len:{{hm.h1.ring.len}}"></circle></svg><span class="xo"><span class="num xb" style="font-size:22px;line-height:1">68%</span><span class="xm x11">entered</span></span></div>
+<div class="xc x4 xf" style="min-width:220px"><span class="xh">{{lt.title}}</span><span class="xm" style="line-height:1.5">Half-yearly marks are due Wed 14 Oct (6 days). Results go home Sat 17 Oct. Each reminder carries the teacher’s own Sampark link — no login needed.</span></div>
+<button class="tap btn {{lt.allCls}} mfull" type="button" onClick="{{lt.all}}" style="height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{lt.allIcon}}"></path></svg>{{lt.allLabel}}</button>
+</div>
+<div class="card xoh">
+<div class="only-d xsr xbb" style="min-height:42px;padding:0 18px;background:var(--s2)"><span></span><span class="sech">Teacher · classes</span><span class="sech">Entered</span><span class="sech xtr">Actions</span></div>
+<div class="xst"><sc-for list="{{lt.rows}}" as="t">
+<div class="xd xc" style="padding:14px 18px;gap:10px">
+<div class="xsr">
+<span class="xa" style="background:{{t.abg}};color:{{t.afg}}">{{t.ini}}</span>
+<span class="xc xn0" style="gap:6px">
+<span class="xr xw x8"><span class="xt">{{t.name}}</span><span class="xm num">{{t.phone}}</span><sc-if value="{{t.hasTag}}"><span class="pill" style="background:{{t.tbg}};color:{{t.tfg}};animation:xPopIn .4s var(--spring) both">{{t.tag}}</span></sc-if></span>
+<span class="xr xw x6"><sc-for list="{{t.items}}" as="i"><span class="xpl num" style="background:{{i.bg}};color:{{i.fg}}">{{i.t}}<b>{{i.n}}</b></span></sc-for></span>
+<span class="xm">{{t.seen}}</span>
+</span>
+<span class="xc x4"><span class="num xb xs">{{t.prog}}</span><span class="xbar" style="height:6px"><span style="width:{{t.w}};background:{{t.bar}}"></span></span></span>
+<span class="xr x8" style="justify-content:flex-end">
+<button class="tap btn sec" type="button" onClick="{{t.call}}" aria-pressed="{{t.callP}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.phone}}"></path></svg>Call</button>
+<button class="tap btn {{t.remCls}}" type="button" onClick="{{t.remind}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.remIcon}}"></path></svg>{{t.remLabel}}</button>
+</span>
+</div>
+<sc-if value="{{t.callOpen}}"><div class="xno fadein xc" style="gap:8px;background:var(--s2);color:var(--fg)"><span class="xr x8 xs"><svg class="i" viewBox="0 0 24 24" style="color:var(--acc)" aria-hidden="true"><path d="{{ic.phone}}"></path></svg><span>Calling {{t.phone}} from your phone… How did it go?</span></span><div class="xr xw x6"><sc-for list="{{t.outs}}" as="o"><button class="tap chip" type="button" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div></sc-if>
+</div>
+</sc-for></div>
+</div>
+<span class="xm">Teachers who finished: 24 of 31. Their names are in the Marks tracker.</span>
+</div>
+</sc-if>
+
+<!-- ============ MENU ============ -->
+<sc-if value="{{is.menu}}">
+<div class="pad xsc" style="max-width:980px;animation:{{anim}}">
+<div class="card xr x14 xp2">
+<span class="xa" style="width:56px;height:56px;border-radius:28px;font-size:18px;background:#F3C7C7;color:#082F49">HT</span>
+<span class="xc xf"><span class="xh">Mr. Hemant Trivedi</span><span class="xm">Exam coordinator · Session 2026–27 · 98290 ••260</span></span>
+<button class="tap btn soft hide-m" type="button" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.home}}"></path></svg>{{mn.today}}</button>
+</div>
+<div class="xmenu xst">
+<sc-for list="{{mn.tiles}}" as="q"><div class="card lift xc xtile" style="min-height:150px;border-color:{{q.bd}}">
+<span class="xi" style="width:52px;height:52px;border-radius:16px;background:{{q.bg}};color:{{q.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:26px;height:26px" aria-hidden="true"><path d="{{q.icon}}"></path></svg></span>
+<span class="xc" style="gap:1px"><span class="xt" style="font-size:16px;color:{{q.tc}}">{{q.t}}</span><span class="xs xmu">{{q.hi}}</span></span>
+<span class="xm" style="line-height:1.4">{{q.sub}}</span>
+<a href="{{q.hd}}" class="only-d xov tap" aria-label="{{q.t}}"></a><a href="{{q.hm}}" class="only-m xov tap" aria-label="{{q.t}}"></a>
+</div></sc-for>
+</div>
+<div class="card xc xoh">
+<sc-for list="{{mn.rows}}" as="m"><button class="tap row xr x12 xd" type="button" onClick="{{m.go}}" style="width:100%;min-height:60px;padding:10px 16px;border:0;background:transparent;color:var(--fg);text-align:left">
+<span class="xi" style="width:38px;height:38px;border-radius:12px;background:{{m.bg}};color:{{m.fg}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{m.icon}}"></path></svg></span>
+<span class="xc xf"><span class="x6w">{{m.t}}</span><span class="xm">{{m.sub}}</span></span>
+<svg class="i" viewBox="0 0 24 24" style="color:var(--sub)" aria-hidden="true"><path d="{{ic.chevRight}}"></path></svg>
+</button></sc-for>
+</div>
+</div>
+</sc-if>
+</main>
+
+<div class="only-m xfn"><dc-import name="XNav" active="{{navKey}}" role="exam" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- ============ REMIND SHEET ============ -->
+<sc-if value="{{sh.remind}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{rm.title}}">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{rm.title}}</span><span class="xm xs">{{rm.sub}}</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb">
+<div class="xwa"><span class="xb x11" style="color:var(--wafg);opacity:.7">{{rm.waTo}}</span><div><div style="white-space:pre-line">{{rm.hi}}</div><div style="color:var(--info);text-decoration:underline">{{rm.link}}</div><div style="white-space:pre-line;margin-top:6px;opacity:.78">{{rm.en}}</div><div class="xtr x11" style="opacity:.6">9:41 am</div></div></div>
+<sc-if value="{{rm.many}}"><div class="xr xw x6"><sc-for list="{{rm.who}}" as="w"><span class="pill" style="height:26px;padding:0 10px;font-size:12px;background:var(--s2);color:var(--fg);border:1px solid var(--bd)">{{w.t}}</span></sc-for></div></sc-if>
+<div class="card xc" style="padding:0 14px;box-shadow:none"><sc-for list="{{rm.facts}}" as="f"><div class="xfa xd"><span class="xmu">{{f.k}}</span><span class="num xb xtr">{{f.v}}</span></div></sc-for></div>
+<span class="xm">Each teacher gets their own link with only their classes. You can undo for a few seconds after sending.</span>
+</div>
+<div class="xsf"><button class="tap btn sec xf1" type="button" onClick="{{closeSheet}}">Cancel</button><button class="tap btn pri" type="button" onClick="{{rm.go}}" style="flex:1.6"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{rm.ok}}</button></div>
+</section>
+</sc-if>
+
+<!-- ============ HELP ============ -->
+<sc-if value="{{sh.help}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="Help">
+<div class="grab"></div>
+<div class="xsh"><div class="xc"><span class="xh">{{hp.title}}</span><span class="xm xs">3 quick steps · मदद</span></div><button class="tap btn ghost xq" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll xsb xst"><sc-for list="{{hp.steps}}" as="p"><div class="xr x14" style="padding:6px 0">
+<span class="xi xrl" style="width:64px;height:64px;border-radius:20px;background:{{p.bg}};color:{{p.fg}}"><svg class="i" viewBox="0 0 24 24" style="width:28px;height:28px" aria-hidden="true"><path d="{{p.icon}}"></path></svg><span class="xi num xb" style="position:absolute;top:-6px;left:-6px;width:24px;height:24px;border-radius:12px;background:var(--pri);color:var(--prifg);font-size:12px">{{p.n}}</span></span>
+<span class="xc xf"><span class="xt">{{p.t}}</span><span class="xm" style="line-height:1.5">{{p.s}}</span></span>
+</div></sc-for></div>
+<div class="xsf"><button class="tap btn pri xf1" type="button" onClick="{{closeSheet}}">Got it</button></div>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}">
+<div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size:14px;line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["home","menu","checklist","late","remind"],"default":"home"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+const IC = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+      chevRight: 'M9 18l6-6-6-6',
+      chevLeft: 'M15 18l-6-6 6-6',
+      chevDown: 'M6 9l6 6 6-6',
+      chevUp: 'M18 15l-6-6-6 6',
+      arrowUp: 'M12 19V5M5 12l7-7 7 7',
+      arrowRight: 'M5 12h14M12 5l7 7-7 7',
+      x: 'M18 6 6 18M6 6l12 12',
+      plus: 'M12 5v14M5 12h14',
+      minus: 'M5 12h14',
+      check: 'M20 6 9 17l-5-5',
+      checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      userPlus: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6',
+      inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+      rupee: 'M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.667 0 6.667-10 0-10',
+      receipt: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+      calCheck: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 16l2 2 4-4',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+      swap: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+      phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      message: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
+      megaphone: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
+      bell: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
+      edit: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z',
+      trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+      more: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+      alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+      info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+      shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+      eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+      mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+      printer: 'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
+      download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+      copy: 'M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+      link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+      image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+      filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z',
+      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+      chart: 'M12 20V10M18 20V4M6 20v-4',
+      pie: 'M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z',
+      trend: 'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+      bus: 'M6 18v2M18 18v2M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12H4zM4 12h16M8 15h.01M16 15h.01',
+      book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+      grad: 'M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
+      clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9zM9 12h6M9 16h4',
+      archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+      database: 'M12 8c4.97 0 9-1.34 9-3s-4.03-3-9-3-9 1.34-9 3 4.03 3 9 3zM21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5',
+      activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+      globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+      sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+      logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+      undo: 'M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10',
+      refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
+      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
+      wifiOff: 'M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01',
+      layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+      list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18',
+      zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+      award: 'M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+      percent: 'M19 5 5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+      tag: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      mapPin: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+      star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+      flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+      hash: 'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+      pin: 'M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+      del: 'M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6'
+    };
+const hs=(x)=>{let h=2166136261;for(let i=0;i<x.length;i++){h^=x.charCodeAt(i);h=Math.imul(h,16777619);}h^=h>>>15;h=Math.imul(h,2246822507);h^=h>>>13;h=Math.imul(h,3266489909);h^=h>>>16;return(h>>>0)/4294967296;};
+// teacher | phone | class~subject~entered~students, … | link status | extra tag
+const LATE='Ms. Bhati|98290 ••318|Class 6~Science~31~31,Class 7~Science~12~27,Class 8~Science~0~28|Opened her link today 8:12|;Mr. Meena|98290 ••512|Class 9~Science~12~28,Class 10~Science~0~30|Opened his link yesterday 7:40 pm|On leave today;Mr. Lohar|98290 ••726|Class 9~Social Sci.~0~28,Class 10~Social Sci.~0~30|Never opened · his link expired Tue 6 Oct|;Ms. Shekhawat|98290 ••455|11 Science~Chemistry~0~22,12 Science~Chemistry~9~20|Opened her link Tue 6 Oct|;Mr. Sanadhya|98290 ••641|11 Commerce~Hindi~6~18,12 Commerce~Hindi~0~17|Opened his link yesterday 9:30 pm|;Ms. Mewara|98290 ••283|11 Arts~Political Sci.~6~14,12 Arts~Political Sci.~8~12|Opened her link today 7:55|;Mr. Sen|98290 ••907|Class 4~Computer~0~29,Class 5~Computer~0~26|Never opened · link sent Fri 18 Sep|'.split(';').map((r)=>{const a=r.split('|');const items=a[2].split(',').map((x)=>{const b=x.split('~');return{k:b[0],sub:b[1],e:+b[2],n:+b[3]};});return{name:a[0],phone:a[1],items,seen:a[3],tag:a[4],e:items.reduce((s,i)=>s+i.e,0),n:items.reduce((s,i)=>s+i.n,0),expired:/expired/.test(a[3])};});
+LATE.sort((a,b)=>a.e/a.n-b.e/b.n);
+const SUBHI={Science:'विज्ञान','Social Sci.':'सामाजिक विज्ञान',Chemistry:'रसायन विज्ञान',Hindi:'हिंदी','Political Sci.':'राजनीति विज्ञान',Computer:'कंप्यूटर'};
+const hiCls=(n)=>'कक्षा '+n.replace('Class ','').replace('Science','विज्ञान').replace('Commerce','वाणिज्य').replace('Arts','कला');
+// id | step | helper | owner | due | days left | status (done / doing:label / todo) | part done 0-1 | desktop link | phone link | open label
+const STEPS='created|Exam created|7–12 Dec · Classes 1–12 · out of 20 · pass 33%|You|Mon 5 Oct|0|done|1|EX-Calendar.dc.html|MEX-Calendar.dc.html|See on calendar;datesheet|Date sheet|Copied from last year’s Unit Test 2. Check the dates, then make it final.|You|Fri 30 Oct|22|doing:Draft|0.5|ExamPlan.dc.html|M-ExamPlan.dc.html|Open date sheet;parents|Tell parents the dates|One Hindi-first WhatsApp to 434 families once the date sheet is final.|You|Mon 2 Nov|25|todo|0|EX-Messages.dc.html|MEX-Messages.dc.html|Open notices;seating|Seating|Fills itself by roll numbers · Rooms 1–14 and Hall · two classes per room.|You|Fri 20 Nov|43|todo|0|ExamPlan.dc.html|M-ExamPlan.dc.html|Open seating;duties|Invigilation duties|The app shares duties fairly among 31 teachers. You only check it.|You|Fri 20 Nov|43|todo|0|ExamPlan.dc.html|M-ExamPlan.dc.html|Open duties;papers|Question papers|4 of 38 papers received from subject teachers.|Subject teachers|Mon 23 Nov|46|doing:4 of 38|0.105|ExamPlan.dc.html|M-ExamPlan.dc.html|Open papers;admit|Admit slips|Made from the seating plan. The office prints them.|Office desk|Thu 3 Dec|56|todo|0|ExamPlan.dc.html|M-ExamPlan.dc.html|Open admit slips'.split(';').map((r,i)=>{const a=r.split('|');return{id:a[0],t:a[1],help:a[2],owner:a[3],due:a[4],left:+a[5],st:a[6],part:+a[7],hd:a[8],hm:a[9],open:a[10],n:i+1};});
+const LOG0=[['Ms. Dave locked Class 10 Maths','9:40','ok'],['Ms. Mewara entered 6 marks · 11 Arts','7:55','acc'],['3 question papers came in · Classes 6–8 English','Yest.','info'],['You copied last year’s UT2 date sheet as a draft','Mon 5 Oct','sub'],['You created Unit Test 2 · 7–12 Dec','Mon 5 Oct','sub']];
+this._d={IC,hs,LATE,SUBHI,hiCls,STEPS,LOG0};
+return this._d;
+}
+
+st(){
+const p=this.props||{};
+const base={scr:'home',anim:'none',sheet:'',closing:false,toast:null,hi:false,done:{},rem:{},pick:[],calls:{},callOpen:'',cf:'all',hlog:[]};
+const map={menu:{scr:'menu'},checklist:{scr:'check'},late:{scr:'late'},remind:{scr:'late',sheet:'remind',pick:['*']}};
+return Object.assign(base,map[p.start]||{},this.state||{});
+}
+
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.setState({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.setState({toast:null});},4500);
+}
+undoToast(){const f=this._undo;this._undo=null;this.setState({toast:null});if(f)f();}
+openSheet(name,extra){clearTimeout(this._ct);this.setState(Object.assign({sheet:name,closing:false},extra||{}));}
+closeSheet(){
+if(!this.st().sheet)return;
+this.setState({closing:true});
+clearTimeout(this._ct);
+this._ct=setTimeout(()=>this.setState({sheet:'',closing:false}),240);
+}
+
+renderVals(){
+const D=this.data();const s=this.st();const IC=D.IC;const scr=s.scr;
+const S=(o)=>this.setState(o);const T=(m,u)=>this.toast(m,u);const C=()=>this.st();
+const V=(n)=>'var(--'+n+')';const A=(o,p)=>Object.assign({},o,p);
+const hi=!!s.hi;const L=(en,h)=>(hi?h:en);
+const ring=(p)=>{const l=Math.max(0.5,263.9*Math.min(100,p)/100);return{dash:l.toFixed(1)+' 263.9',len:l.toFixed(1)};};
+const TONES=[['accs','accfg'],['infos','info'],['oks','ok'],['warns','warnfg'],['s3','fg']];
+const av=(x)=>{const t=TONES[Math.floor(D.hs(x)*5)];return{abg:V(t[0]),afg:V(t[1]),ini:x.replace(/^(Mr|Ms)\. /,'').slice(0,2).toUpperCase()};};
+const segO=(on,pick,o)=>A({cls:on?'tap on':'tap',pr:String(on),pick},o);
+const lg=(a)=>a.map((l)=>({text:l[0],time:l[1],dot:V(l[2])}));
+const NOW='9:41';
+const anims={push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both',none:'none'};
+const go=(k)=>()=>S({scr:k,anim:'push',callOpen:''});
+const many=(n,w)=>n+' '+w+(n===1?'':'s');
+const rup=(n)=>'₹'+(n*0.88).toFixed(2);
+
+// ---------- late teachers ----------
+const late=D.LATE;
+const notRem=late.filter((t)=>!s.rem[t.name]);
+const link=(t)=>'vpps.one/s/'+Math.floor(D.hs(t.name+'k')*1e9).toString(36).slice(0,5)+(t.expired?'n':'');
+const openRemind=(names)=>()=>this.openSheet('remind',{pick:names});
+const OUTS=['Will finish today','Will finish by Saturday','Needs help with the link','No answer'];
+const lt={
+title:L(many(late.length,'teacher')+' have not finished',late.length+' शिक्षकों के अंक बाकी हैं'),
+allCls:notRem.length?'pri':'soft',allIcon:notRem.length?IC.send:IC.checkCircle,
+allLabel:notRem.length?(notRem.length===late.length?'Remind all '+late.length+' on WhatsApp':'Remind the other '+notRem.length):'All reminded · '+NOW,
+all:()=>(notRem.length?openRemind(['*'])():T('Everyone was reminded at '+NOW+' · you can remind again after 2 pm')),
+rows:late.map((t)=>{
+const r=s.rem[t.name];const call=s.calls[t.name];const pct=t.e/t.n*100;
+const tag=call?'Called · '+call:(r?'Reminded '+r:(t.tag||''));
+return A(av(t.name),{name:t.name,phone:t.phone,seen:t.seen,hasTag:!!tag,tag,tbg:V(call?'oks':(r?'accs':'warns')),tfg:V(call?'ok':(r?'accfg':'warnfg')),
+items:t.items.map((i)=>{const d=i.e>=i.n;return{t:i.k+' '+i.sub+' ',n:d?'✓':i.e+'/'+i.n,bg:V(d?'oks':(i.e?'warns':'bads')),fg:V(d?'ok':(i.e?'warnfg':'bad'))};}),
+prog:t.e+' of '+t.n+' marks',w:pct.toFixed(1)+'%',bar:V(pct<25?'bad':'c3'),
+remCls:r?'soft':'pri',remIcon:r?IC.checkCircle:IC.send,remLabel:r?'Reminded':'Remind',
+remind:()=>(C().rem[t.name]?T(t.name+' was reminded at '+C().rem[t.name]):openRemind([t.name])()),
+callOpen:s.callOpen===t.name,callP:String(s.callOpen===t.name),call:()=>S({callOpen:C().callOpen===t.name?'':t.name}),
+outs:OUTS.map((o)=>({label:o,pick:()=>{const c=C();const before={calls:c.calls,hlog:c.hlog,callOpen:t.name};S({calls:A(c.calls,{[t.name]:o}),callOpen:'',hlog:[['You called '+t.name+' · '+o,NOW,'info']].concat(c.hlog)});T('Call saved · '+t.name+' · '+o,()=>S(before));}}))});
+})
+};
+
+// ---------- remind sheet ----------
+const list=(s.pick||[]).indexOf('*')>=0?(notRem.length?notRem:late):late.filter((t)=>(s.pick||[]).indexOf(t.name)>=0);
+const t0=list[0]||late[0];
+const pend=t0.items.filter((i)=>i.e<i.n);
+const nNew=list.filter((t)=>t.expired||/Never/.test(t.seen)).length;
+const rm={
+title:list.length===1?'Remind '+t0.name+'?':'Remind '+list.length+' teachers?',sub:'Half-yearly marks · due Wed 14 Oct',
+waTo:'Preview · to '+t0.name+(list.length>1?' (each teacher gets their own link)':''),
+hi:'नमस्ते '+(/^Mr/.test(t0.name)?'सर':'मैडम')+',\nअर्धवार्षिक परीक्षा के अंक अभी बाकी हैं: '+pend.map((i)=>D.hiCls(i.k)+' '+D.SUBHI[i.sub]+' ('+i.e+'/'+i.n+')').join(', ')+'।\nकृपया बुधवार 14 अक्टूबर तक इस लिंक से भरें — लॉगिन की ज़रूरत नहीं।\n— हेमंत त्रिवेदी, परीक्षा प्रभारी',
+link:link(t0),en:'Half-yearly marks are pending for '+pend.map((i)=>i.k+' '+i.sub+' ('+i.e+'/'+i.n+')').join(', ')+'. Please enter them by Wed 14 Oct from this link. No login needed.',
+many:list.length>1,who:list.map((t)=>({t:t.name})),
+facts:[['To',many(list.length,'teacher')],['New links',nNew?nNew+' · old link expired or never opened':'None needed'],['Cost',rup(list.length)+' · '+list.length+' × ₹0.88'],['Sent through','AiSensy · WhatsApp']].map((f)=>({k:f[0],v:f[1]})),
+ok:'Send '+many(list.length,'reminder'),
+go:()=>{const c=C();const before={rem:c.rem,hlog:c.hlog};const rem=A(c.rem,{});list.forEach((t)=>{rem[t.name]=NOW;});S({rem,hlog:[['You reminded '+(list.length===1?t0.name:list.length+' teachers')+' on WhatsApp',NOW,'warn']].concat(c.hlog)});this.closeSheet();T('Sent to '+many(list.length,'teacher')+' on WhatsApp · '+rup(list.length),()=>S(before));}
+};
+
+// ---------- checklist ----------
+const stOf=(x)=>(s.done[x.id]?'done':x.st);
+let score=0;let nDone=0;let nPart=0;
+D.STEPS.forEach((x)=>{const st=stOf(x);if(st==='done'){score+=1;nDone+=1;}else{score+=x.part;if(x.part)nPart+=1;}});
+const pct=score/D.STEPS.length*100;
+const LOOK={done:['oks','ok','Done','checkCircle'],doing:['warns','warnfg','','clock'],todo:['s2','mut','Not started','calendar']};
+const stepLook=(x)=>{const st=stOf(x);const k=st.split(':')[0];const Lk=LOOK[k];return{k,bg:V(Lk[0]),fg:V(Lk[1]),label:Lk[2]||st.split(':')[1],icon:IC[Lk[3]]};};
+const mine=(x)=>x.owner==='You';
+const fIdx=['all','mine','others'].indexOf(s.cf);
+const shownSteps=D.STEPS.filter((x)=>s.cf==='all'||(s.cf==='mine'?mine(x):!mine(x)));
+const ck={
+title:L('Unit Test 2 · setup','यूनिट टेस्ट 2 · तैयारी'),pct:Math.round(pct)+'%',ring:ring(pct),rc:pct>=100?V('ok'):V('info'),
+donePct:(nDone/D.STEPS.length*100).toFixed(1)+'%',partPct:(nPart/D.STEPS.length*100*0.5).toFixed(1)+'%',
+doneLine:nDone+' of '+D.STEPS.length+' steps done',partLine:nPart+' under way',
+seg:{thumb:(Math.max(0,fIdx)*100)+'%',opts:[['all','All steps'],['mine','Mine'],['others','Others']].map((o)=>segO(s.cf===o[0],()=>S({cf:o[0]}),{label:o[1]}))},
+rows:shownSteps.map((x,i)=>{const Lk=stepLook(x);const d=Lk.k==='done';const a=av(x.owner==='You'?'Mr. Hemant Trivedi':x.owner);const fresh=!!s.done[x.id];
+return A(a,{n:String(x.n),t:x.t,help:x.help,isDone:d,notDone:!d,cbg:d?V('ok'):(Lk.k==='doing'?V('warns'):V('card')),cfg:d?V('onsolid'):Lk.fg,cbd:d?V('ok'):(Lk.k==='doing'?V('warn'):V('bds')),pop:fresh?'xPopIn .45s var(--spring) both':'none',line:i===shownSteps.length-1?'transparent':V(d?'ok':'bd'),
+st:Lk.label,pbg:Lk.bg,pfg:Lk.fg,hasBar:x.id==='papers'&&!d,bw:'10.5%',bl:'4 of 38',op:d&&!fresh&&x.id==='created'?'0.82':'1',
+ini:x.owner==='You'?'HT':a.ini,owner:x.owner==='You'?'You':x.owner,due:x.left?x.due+' · in '+x.left+' days':x.due,dc:x.left&&x.left<=25&&!d?V('warnfg'):V('fg'),
+canMark:!d&&mine(x),mark:()=>{const c=C();const before={done:c.done,hlog:c.hlog};S({done:A(c.done,{[x.id]:1}),hlog:[['You marked “'+x.t+'” done',NOW,'ok']].concat(c.hlog)});T('“'+x.t+'” marked done',()=>S(before));},
+hd:x.hd,hm:x.hm,open:x.open});})
+};
+
+// ---------- home ----------
+const h2keys=['datesheet','seating','duties','papers','admit'];
+const hm={
+hello:L('Good morning, Mr. Trivedi','सुप्रभात, त्रिवेदी जी'),helloSub:'Thu 8 Oct · Half-yearly results are 9 days away. Unit Test 2 setup has started.',
+h1:{tag:L('Half-yearly results','अर्धवार्षिक परिणाम'),left:'9 days left',title:L('Half-yearly results','अर्धवार्षिक परिणाम'),ring:ring(68),
+late:many(late.length,'teacher')+' late'+(notRem.length<late.length?' · reminded':''),remLine:'24 of 31 teachers done · 6 days to the deadline',
+steps:[['Marks entry','acc','now'],['Check & moderate','bds',''],['Lock · report cards','bds',''],['PTM · Sat 17','bds','']].map((p,i)=>({t:p[0],bar:i===0?'linear-gradient(90deg, var(--acc) 68%, var(--s3) 68%)':V('s3'),c:i===0?V('fg'):V('mut')})),
+groups:[['Pre-primary',96],['Classes 1–5',71],['Classes 6–8',74],['Classes 9–10',55],['Classes 11–12',58]].map((g)=>({t:g[0],w:g[1]+'%',c:V(g[1]<60?'c3':'c2')})),
+remCls:notRem.length?'pri':'soft',remIcon:notRem.length?IC.send:IC.checkCircle,remLabel:notRem.length?L('Remind '+notRem.length+' late',notRem.length+' को याद दिलाएँ'):'All reminded',
+remind:()=>(notRem.length?openRemind(['*'])():T('All late teachers were reminded at '+NOW))},
+h2:{tag:L('Next exam · setting up','अगली परीक्षा · तैयारी'),left:'60 days left',title:L('Unit Test 2','यूनिट टेस्ट 2'),open:L('Open checklist','चेकलिस्ट खोलें'),
+items:h2keys.map((k)=>{const x=D.STEPS.filter((y)=>y.id===k)[0];const Lk=stepLook(x);return{t:x.t,st:Lk.label,bg:Lk.bg,fg:Lk.fg,icon:Lk.icon,hd:x.hd,hm:x.hm};})},
+tlTitle:L('Exam year 2026–27','परीक्षा वर्ष 2026–27'),tlFill:'34%',
+tl:[['Unit Test 1','14–18 Jul','Done · cards sent 4 Aug','done','checkCircle',()=>T('Unit Test 1 is closed · 431 report cards went out on 4 Aug'),'UT 1','Done'],['Half-yearly','23 Sep – 3 Oct','Now · results 17 Oct','now','clipboard',go('late'),'Half-yearly','Now'],['Unit Test 2','7–12 Dec','Setting up · '+Math.round(pct)+'%','next','calendar',go('check'),'UT 2',Math.round(pct)+'%'],['Annual exam','Mar 2027','Not set up yet','later','flag',()=>T('Set up the annual exam after Unit Test 2 · from the Marks tracker'),'Annual','Later']].map((n)=>{const k=n[3];return{name:n[0],when:n[1],st:n[2],sn:n[6],ss:n[7],icon:IC[n[4]],go:n[5],
+bg:V(k==='done'?'ok':(k==='now'?'acc':(k==='next'?'infos':'s2'))),fg:k==='done'||k==='now'?V('onsolid'):V(k==='next'?'info':'mut'),ring:k==='now'?'0 0 0 2px var(--acc)':'0 0 0 1px var(--bd)',pulse:k==='now'?'xPulse 1.8s ease infinite':'none',
+pbg:V(k==='done'?'oks':(k==='now'?'accs':(k==='next'?'infos':'s2'))),pfg:V(k==='done'?'ok':(k==='now'?'accfg':(k==='next'?'info':'mut')))};}),
+qaTitle:L('Quick actions','जल्दी के काम'),
+qa:[['Date sheet','डेट शीट','calendar','accs','accfg','ExamPlan.dc.html','M-ExamPlan.dc.html'],['Seating','बैठक व्यवस्था','grid','infos','info','ExamPlan.dc.html','M-ExamPlan.dc.html'],['Marks tracker','अंक प्रगति','clipboard','warns','warnfg','EX-Exams.dc.html','MEX-Exams.dc.html'],['Results','परिणाम','award','oks','ok','ExamResults.dc.html','M-ExamResults.dc.html']].map((q)=>({t:hi?q[1]:q[0],sub:hi?q[0]:q[1],icon:IC[q[2]],bg:V(q[3]),fg:V(q[4]),hd:q[5],hm:q[6]})),
+needTitle:L('Needs you today','आज आपके काम'),
+need:[[many(late.length,'teacher')+' not finished','Half-yearly marks · due Wed 14 Oct','alert','bads','bad',go('late')],['UT2 date sheet is a draft','Make it final by Fri 30 Oct','calendar','warns','warnfg',go('check')],['Seating and duties not started','Both fill themselves · about 2 minutes','grid','infos','info',go('check')]].map((m)=>({t:m[0],sub:m[1],icon:IC[m[2]],bg:V(m[3]),fg:V(m[4]),go:m[5]}))
+};
+if(s.done.datesheet)hm.need[1]={t:'UT2 date sheet is final',sub:'Next: tell parents the dates',icon:IC.checkCircle,bg:V('oks'),fg:V('ok'),go:go('check')};
+
+// ---------- menu ----------
+const mn={
+today:L('Back to today','आज पर लौटें'),
+tiles:[['Date sheet & seating','डेट शीट और बैठक','Unit Test 2 · date sheet is a draft','calendar','accs','accfg','ExamPlan.dc.html','M-ExamPlan.dc.html'],['Marks tracker','अंक प्रगति','Half-yearly · 68% entered · 7 late','clipboard','warns','warnfg','EX-Exams.dc.html','MEX-Exams.dc.html'],['Results & report cards','परिणाम व प्रगति पत्र','Results day Sat 17 Oct · PTM','award','oks','ok','ExamResults.dc.html','M-ExamResults.dc.html'],['Calendar','कैलेंडर','PTM Sat 17 Oct · Dussehra Tue 20 Oct','calendar','infos','info','EX-Calendar.dc.html','MEX-Calendar.dc.html'],['Notices','सूचनाएँ','Send a notice to staff or parents','megaphone','s2','fg','EX-Messages.dc.html','MEX-Messages.dc.html'],['Sign out','साइन आउट','You are signed in on this device','logout','bads','bad','Auth.dc.html','M-Auth.dc.html']].map((q)=>({t:hi?q[1]:q[0],hi:hi?q[0]:q[1],sub:q[2],icon:IC[q[3]],bg:V(q[4]),fg:V(q[5]),hd:q[6],hm:q[7],tc:q[3]==='logout'?V('bad'):V('fg'),bd:q[3]==='logout'?V('bads'):V('bd')})),
+rows:[['Unit Test 2 checklist',Math.round(pct)+'% ready · '+nDone+' of 7 steps done','list','infos','info',go('check')],['Late teachers',late.length+' not finished · '+notRem.length+' not reminded','alert','bads','bad',go('late')],['Help','3 quick steps for this screen','help','s2','mut',()=>this.openSheet('help')]].map((m)=>({t:m[0],sub:m[1],icon:IC[m[2]],bg:V(m[3]),fg:V(m[4]),go:m[5]}))
+};
+
+// ---------- help ----------
+const HELP={
+home:['Your day',[['award','Two big jobs','Results for Half-yearly, and setting up Unit Test 2. Each has its own card.'],['send','Late teachers','One tap reminds them on WhatsApp with their own marks link.'],['grid','Quick actions','Date sheet, seating, marks and results are one tap away.']]],
+check:['Unit Test 2 checklist',[['list','Steps in order','Each step shows who does it and by when.'],['arrowRight','Open the right place','The button on each step takes you straight there.'],['checkCircle','Tick when done','The ring fills as steps finish. You can undo.']]],
+late:['Late teachers',[['users','Who is behind','Teachers with marks still missing, least done first.'],['send','Remind on WhatsApp','The message is in Hindi first and carries their Sampark link.'],['phone','Or call','Pick how the call went so everyone can see it.']]],
+menu:['Menu',[['grid','Big tiles','Each tile opens one part of your work.'],['globe','EN | हि','Switch the main words to Hindi from the top bar.'],['logout','Sign out','Use it on a shared phone or computer.']]]
+};
+const hp0=HELP[scr]||HELP.home;
+const hp={title:hp0[0],steps:hp0[1].map((x,i)=>({n:String(i+1),icon:IC[x[0]],t:x[1],s:x[2],bg:V(['accs','infos','oks'][i]),fg:V(['accfg','info','ok'][i])}))};
+
+// ---------- chrome ----------
+const TT={home:['Today','आज','Thu 8 Oct · Mr. Hemant Trivedi'],check:['Unit Test 2 checklist','यूनिट टेस्ट 2 चेकलिस्ट',Math.round(pct)+'% ready · 60 days left'],late:['Late teachers','देर वाले शिक्षक',late.length+' not finished · due Wed 14 Oct'],menu:['Menu','मेनू','Exam coordinator · 2026–27']};
+const tt=TT[scr]||TT.home;
+const ACTS={home:[['All tools','grid','sec',go('menu')]].concat(notRem.length?[['Remind '+notRem.length+' late teachers','send','pri',openRemind(['*'])]]:[]),check:[],late:[],menu:[]};
+const top={crumb:'Exams · Session 2026–27',title:L(tt[0],tt[1]),mSub:tt[2],back:scr==='check'||scr==='late',root:scr==='home'||scr==='menu',acts:(ACTS[scr]||[]).map((a)=>({label:a[0],icon:IC[a[1]],cls:a[2],go:a[3]}))};
+
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',navKey:scr==='menu'?'menu':'home',
+is:{home:scr==='home',check:scr==='check',late:scr==='late',menu:scr==='menu'},
+top,anim:anims[s.anim]||'none',
+back:()=>{if(C().sheet){this.closeSheet();return;}S({scr:'home',anim:'pop',callOpen:''});},
+goLate:go('late'),goCheck:go('check'),
+lang:{thumb:hi?'100%':'0%',opts:[['EN',false],['हि',true]].map((o)=>segO(hi===o[1],()=>S({hi:o[1]}),{label:o[0]}))},
+hm,ck,lt,mn,hp,log:lg(s.hlog).concat(lg(D.LOG0)).slice(0,6),
+rm:s.sheet==='remind'?rm:{},openHelp:()=>this.openSheet('help'),
+sh:{remind:s.sheet==='remind',help:s.sheet==='help',state:s.closing?'closing':'open'},closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>

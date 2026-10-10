@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Messages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&amp;display=swap">
+<style>
+/*VX_CSS*/
+.w-r{display:flex;align-items:center}.w-c{display:flex;flex-direction:column}.w-f{flex:1;min-width:0}.w-w{flex-wrap:wrap}.w-sp{justify-content:space-between}.w-st{align-items:flex-start}
+.w-g2{gap:2px}.w-g4{gap:4px}.w-g6{gap:6px}.w-g8{gap:8px}.w-g10{gap:10px}.w-g12{gap:12px}.w-g16{gap:16px}
+.w-m{font-size:12px;color:var(--mut)}.w-m3{font-size:13px;color:var(--mut)}.w-t{font-size:14px;font-weight:600}.w-h{font-size:15px;font-weight:700}
+.w-tt{font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.2}.w-kv{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.w-e{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.w-i{display:flex;align-items:center;justify-content:center;flex:none}
+.w-b{padding:16px 18px;display:flex;flex-direction:column;gap:10px}.w-x{padding:10px 12px;border-radius:14px;background:var(--s2)}
+.w-pg{padding:22px 28px 32px}.w-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:start;max-width:1180px}
+.w-wa{background:var(--wabg);border-radius:16px;padding:14px 12px;display:flex;flex-direction:column;gap:8px}
+.w-bu{max-width:92%;margin-left:auto;background:var(--wab);color:var(--wafg);border-radius:14px 4px 14px 14px;padding:9px 11px 5px;font-size:13.5px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.1);animation:xIn .3s var(--ease) both;white-space:pre-line;overflow-wrap:anywhere}
+.w-bu>*+*{margin-top:7px}.w-in2{margin-left:0;margin-right:auto;background:var(--card);color:var(--fg);border-radius:4px 14px 14px 14px}
+.w-sig{font-size:12px;opacity:.75}.w-tm{display:flex;justify-content:flex-end;align-items:center;gap:3px;font-size:11px;opacity:.75;margin-top:2px!important}
+.w-att{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.06)}
+.w-in{animation:xIn .32s var(--ease) both}.w-ib{width:40px;height:40px;padding:0}.w-sm{height:36px;padding:0 11px;font-size:13px}.w-i15{width:15px;height:15px}
+.w-sb{position:sticky;bottom:0;z-index:3;padding:10px 16px;border-top:1px solid var(--bd)}
+.w-sw{display:flex;align-items:center;gap:12px;min-height:54px;width:100%;padding:8px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+.w-a{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;font-weight:700;font-size:13px}.w-ic{width:40px;height:40px;border-radius:12px}
+.w-row{width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--fg);text-align:left;animation:xIn .32s var(--ease) both}
+.w-dot{flex:none;width:10px;height:10px;border-radius:5px}.w-pl{height:26px;padding:0 10px;font-size:12px}
+.w-sh{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 20px 10px}
+.w-sf{flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--bd)}
+.w-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--s3);max-width:240px}.w-bar>span{height:6px;transform-origin:left;animation:xGrowX .6s var(--ease) both}
+.w-ph{width:320px;margin:0 auto;border-radius:34px;border:8px solid var(--fg);overflow:hidden;background:var(--wabg);box-shadow:var(--shh)}
+.w-phh{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--pri);color:var(--prifg)}
+.w-cnt{font-size:11px;color:var(--sub);text-align:right;margin-top:-2px}
+@container vx (max-width:899px){.vx .w-pg{padding-top:16px}.vx .w-kv{font-size:19px}.vx .w-ph{width:100%;border-width:0;border-radius:18px;box-shadow:none}.vx .w-row{padding:12px 14px}}
+</style>
+</helmet>
+<div class="vx {{theme}}" style="position:relative;width:100%;height:100vh;min-height:560px;overflow:hidden;display:flex;background:var(--bg);color:var(--fg);font-family:Inter,'Noto Sans Devanagari',system-ui,sans-serif;font-size:14px;line-height:1.45">
+<div class="only-d" style="flex:none;height:100%"><dc-import name="XSide" active="messages" role="{{role}}" dark="{{dark}}" hint-size="248px,100vh"></dc-import></div>
+<div class="w-c w-f" style="min-height:0;position:relative">
+<header class="only-d glass w-r w-g12" style="flex:none;height:64px;padding:0 28px;border-bottom:1px solid var(--bd);position:relative;z-index:5">
+<div class="w-c w-f"><span class="w-m">{{top.crumb}}</span><span class="w-tt w-e">{{top.title}}</span></div>
+<sc-if value="{{is.top}}"><div class="seg" role="group" aria-label="Messages view" style="grid-template-columns:repeat(3,minmax(0,1fr));width:340px"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 3);transform:translateX({{tabs.thumb}})"></span><sc-for list="{{tabs.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div><button class="tap btn pri" type="button" onClick="{{newNotice}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>New notice</button></sc-if>
+<sc-if value="{{is.sub}}"><button class="tap btn ghost" type="button" onClick="{{back}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg>{{top.backL}}</button></sc-if>
+</header>
+<header class="only-m glass w-r" style="flex:none;min-height:58px;gap:4px;padding:6px 8px;border-bottom:1px solid var(--bd);position:relative;z-index:5">
+<sc-if value="{{top.mLink}}"><a href="{{roleMenu}}" class="tap w-i" aria-label="Back to menu" style="width:44px;height:44px;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></a></sc-if>
+<sc-if value="{{top.mBtn}}"><button class="tap btn ghost" type="button" aria-label="Back" onClick="{{back}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:24px;height:24px" aria-hidden="true"><path d="{{ic.chevLeft}}"></path></svg></button></sc-if>
+<span class="w-c w-f" style="padding-left:2px"><span class="w-e" style="font-size:17px;font-weight:700">{{top.mTitle}}</span><span class="w-m w-e">{{top.mSub}}</span></span>
+<sc-if value="{{is.top}}"><button class="tap btn pri" type="button" aria-label="New notice" onClick="{{newNotice}}" style="width:44px;height:44px;padding:0;border-radius:22px"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px" aria-hidden="true"><path d="{{ic.plus}}"></path></svg></button></sc-if>
+</header>
+
+<main class="scroll" style="flex:1;min-height:0;position:relative">
+<sc-if value="{{tabs.mShow}}"><div class="only-m" style="padding:14px 16px 0"><div class="seg" role="group" aria-label="Messages view" style="grid-template-columns:repeat(3,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 3);transform:translateX({{tabs.thumb}})"></span><sc-for list="{{tabs.opts}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div></sc-if>
+
+<!-- SENT LIST -->
+<sc-if value="{{is.list}}">
+<div class="pad w-pg w-c w-g16" style="max-width:1180px;animation:{{anim}}">
+<div class="g4 w-g12" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr))"><sc-for list="{{kpis}}" as="k"><div class="card rise w-c w-g2" style="padding:14px 16px;min-width:0;animation-delay:{{k.delay}}"><span class="w-m" style="font-weight:600">{{k.label}}</span><span class="w-r w-g8"><span class="num w-kv" style="color:{{k.c}}">{{k.v}}</span><sc-if value="{{k.spark}}"><svg width="64" height="24" viewBox="0 0 64 24" aria-hidden="true" style="flex:none"><polyline points="{{sparkPts}}" style="fill:none;stroke:var(--ok);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;--len:90;stroke-dasharray:90;animation:xDraw 1s .2s var(--ease) both"></polyline></svg></sc-if></span><span class="w-r w-g6"><span class="w-m w-e">{{k.sub}}</span><sc-if value="{{k.link}}"><button class="tap" type="button" onClick="{{topUp}}" style="border:0;background:none;padding:0;color:var(--acc);font-size:12px;font-weight:700">Top up</button></sc-if></span></div></sc-for></div>
+<div class="w-r w-g10 w-w">
+<div class="hs w-r w-g6 w-f"><sc-for list="{{fchips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}<span class="num" style="opacity:.65;font-size:11px">{{c.n}}</span></button></sc-for></div>
+<label class="only-d w-r w-g8" style="height:38px;width:240px;border-radius:12px;border:1px solid var(--bd);background:var(--card);padding:0 12px;color:var(--mut)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.search}}"></path></svg><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Search messages</span><input type="search" value="{{q}}" onChange="{{onQ}}" placeholder="Search messages" style="flex:1;min-width:0;height:34px;border:0;outline:none;background:transparent;font-size:14px"></label>
+</div>
+<sc-for list="{{groups}}" as="g"><div class="w-c w-g8"><div class="w-r w-sp" style="padding:0 4px"><span class="sech">{{g.label}}</span><span class="num w-m" style="font-weight:700">{{g.n}}</span></div>
+<div class="card" style="overflow:hidden"><sc-for list="{{g.rows}}" as="r"><button class="tap row w-row" type="button" onClick="{{r.open}}" style="border-top:{{r.bd}};animation-delay:{{r.delay}}">
+<span class="w-i w-ic" style="background:{{r.s}};color:{{r.f}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span>
+<span class="w-c w-f w-g4"><span class="w-t w-e">{{r.title}}</span><span class="w-m w-e">{{r.aud}} · {{r.when}}</span><sc-if value="{{r.hasBar}}"><span class="w-r w-g8"><span class="w-bar w-f"><span style="width:{{r.wr}};background:var(--ok)"></span><span style="width:{{r.wd}};background:var(--okm);animation-delay:.1s"></span><span style="width:{{r.wf}};background:var(--bad);animation-delay:.2s"></span></span><span class="num w-m" style="flex:none">{{r.readL}}</span></span></sc-if></span>
+<span class="pill hide-m" style="background:{{r.s}};color:{{r.f}}">{{r.type}}</span>
+<span class="w-c" style="align-items:flex-end;flex:none"><span class="num w-t">{{r.cost}}</span><span class="w-m" style="color:{{r.stC}}">{{r.stL}}</span></span>
+</button></sc-for></div>
+</div></sc-for>
+<sc-if value="{{empty}}"><div class="card fadein w-c w-g10" style="padding:36px 20px;align-items:center;text-align:center"><span class="w-h">No messages match</span><button class="tap btn sec" type="button" onClick="{{clearF}}">Show all</button></div></sc-if>
+</div>
+</sc-if>
+
+<!-- DETAIL -->
+<sc-if value="{{is.detail}}">
+<div class="pad w-pg" style="animation:{{anim}}"><div class="stack w-2">
+<div class="w-c w-g16" style="min-width:0">
+<div class="card w-b">
+<div class="w-r w-g8 w-w"><span class="pill w-pl" style="background:{{dt.s}};color:{{dt.f}}"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px" aria-hidden="true"><path d="{{dt.icon}}"></path></svg>{{dt.type}}</span><span class="pill w-pl" style="background:var(--s3);color:var(--mut)">{{dt.when}}</span></div>
+<span class="w-tt" style="font-size:24px">{{dt.title}}</span><span class="w-m3">{{dt.audL}}</span>
+<div class="w-wa"><div class="w-bu"><sc-if value="{{dt.b.hasHi}}"><div>{{dt.b.hi}}</div></sc-if><div>{{dt.b.en}}</div><sc-if value="{{dt.b.att}}"><div class="w-att"><svg class="i" viewBox="0 0 24 24" style="color:var(--bad)" aria-hidden="true"><path d="{{ic.file}}"></path></svg><span class="w-c"><span style="font-size:13px;font-weight:600">{{dt.b.attN}}</span><span style="font-size:11px;opacity:.7">PDF · 84 KB</span></span></div></sc-if><div class="w-sig">— श्री वीर पत्ता सी. सै. स्कूल, आमेट</div><div class="w-tm">{{dt.b.time}}<svg class="i w-i15" viewBox="0 0 24 24" style="color:var(--info)" aria-hidden="true"><path d="{{ic.checks}}"></path></svg></div></div></div>
+</div>
+<div class="card w-b">
+<div class="w-r w-sp"><span class="w-h">Delivery</span><span class="w-m">{{dt.cost}}</span></div>
+<sc-for list="{{dt.funnel}}" as="x"><div class="w-c w-g4"><div class="w-r w-sp" style="font-size:13px"><span class="w-t">{{x.k}}</span><span class="num"><b>{{x.v}}</b><span class="w-m"> · {{x.p}}</span></span></div><div style="height:10px;border-radius:5px;background:var(--s3);overflow:hidden"><div style="height:10px;width:{{x.w}};background:{{x.c}};border-radius:5px;transform-origin:left;animation:xGrowX .7s var(--ease) both;animation-delay:{{x.delay}}"></div></div></div></sc-for>
+<div class="w-r w-g8 w-w" style="margin-top:4px">
+<sc-if value="{{dt.canResend}}"><button class="tap btn sec mfull" type="button" onClick="{{dt.resend}}" style="color:var(--bad)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.refresh}}"></path></svg>{{dt.resendL}}</button></sc-if>
+<sc-if value="{{dt.canRemind}}"><button class="tap btn soft mfull" type="button" onClick="{{dt.remind}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.bell}}"></path></svg>{{dt.remindL}}</button></sc-if>
+</div>
+<sc-for list="{{dt.notes}}" as="n"><span class="pill" style="height:30px;padding:0 12px;font-size:12px;background:var(--oks);color:var(--ok);align-self:flex-start;animation:xPopIn .4s var(--spring) both"><svg class="i w-i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{n.t}}</span></sc-for>
+</div>
+</div>
+<div class="card" style="overflow:hidden;min-width:0">
+<div class="w-c w-g10" style="padding:14px 16px 10px">
+<div class="w-r w-sp"><span class="w-h">Who got it</span><span class="w-m">{{dt.showL}}</span></div>
+<div class="hs w-r w-g6"><sc-for list="{{dt.rchips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}"><svg class="i w-i15" viewBox="0 0 24 24" style="color:{{c.ic}}" aria-hidden="true"><path d="{{c.icon}}"></path></svg>{{c.label}}<span class="num" style="opacity:.7;font-size:11px">{{c.n}}</span></button></sc-for></div>
+</div>
+<sc-for list="{{dt.rows}}" as="r"><div class="w-row" style="cursor:default;animation-delay:{{r.delay}}"><span class="w-a" style="background:{{r.ab}};color:{{r.af}}">{{r.ini}}</span><span class="w-c w-f"><span class="w-t w-e">{{r.name}}</span><span class="w-m w-e">{{r.sub}}</span></span><span class="w-c" style="align-items:flex-end;flex:none"><svg class="i" viewBox="0 0 24 24" style="color:{{r.tc}}" aria-label="{{r.st}}"><path d="{{r.tick}}"></path></svg><span class="w-m" style="color:{{r.lc}}">{{r.when}}</span></span></div></sc-for>
+<div class="w-m" style="padding:12px 16px;border-top:1px solid var(--bd)">✓ sent · ✓✓ delivered · <span style="color:var(--info);font-weight:700">✓✓</span> read · <span style="color:var(--bad);font-weight:700">!</span> not delivered</div>
+</div>
+</div></div>
+</sc-if>
+
+<!-- COMPOSE + PREVIEW -->
+<sc-if value="{{is.cp}}">
+<div class="pad w-pg" style="animation:{{anim}}"><div class="stack" style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:22px;align-items:start;max-width:1180px">
+<sc-if value="{{is.compose}}">
+<div class="card w-c w-g16" style="padding:20px;min-width:0">
+<div class="field"><span>Who gets it</span><div class="w-g8" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr))"><sc-for list="{{cf.auds}}" as="r"><button class="tap w-sw" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="border:{{r.bd}};background:{{r.bg}};min-height:58px"><span class="w-i w-ic" style="width:34px;height:34px;background:var(--card);color:var(--acc)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{r.icon}}"></path></svg></span><span class="w-c w-f"><span class="w-t">{{r.label}}</span><span class="w-m">{{r.sub}}</span></span></button></sc-for></div></div>
+<sc-if value="{{cf.showCls}}"><div class="w-r w-g6 w-w w-in"><sc-for list="{{cf.clsChips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="height:32px;padding:0 11px">{{c.label}}</button></sc-for></div></sc-if>
+<sc-if value="{{cf.showLists}}"><div class="w-r w-g6 w-w w-in"><sc-for list="{{cf.lists}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}<span class="num" style="opacity:.7;font-size:11px">{{c.n}}</span></button></sc-for></div></sc-if>
+<div class="w-x w-r w-g10" style="background:var(--accs);color:var(--accfg)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.users}}"></path></svg><span class="num w-f" style="font-size:14px;font-weight:700">{{cf.countL}}</span><span class="num" style="font-size:13px;font-weight:600">{{cf.costL}}</span></div>
+<div class="field"><span>Language</span><div class="seg" role="group" aria-label="Language" style="grid-template-columns:repeat(3,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 3);transform:translateX({{cf.lthumb}})"></span><sc-for list="{{cf.langs}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+<sc-if value="{{cf.langErr}}"><span class="w-x w-in" style="background:var(--warns);color:var(--warnfg);font-size:13px">Parents always get Hindi first. English only is for staff — pick हिंदी + English.</span></sc-if>
+<label class="field"><span>Title (bold first line)</span><input class="inp {{cf.tCls}}" value="{{cf.title}}" onChange="{{cf.onTitle}}" placeholder="For example: Unit Test 2 datesheet"></label>
+<sc-if value="{{cf.showHi}}"><label class="field"><span>Message in Hindi</span><textarea class="inp {{cf.hCls}}" value="{{cf.hi}}" onChange="{{cf.onHi}}" placeholder="प्रिय {parent}, ..."></textarea><span class="w-cnt num">{{cf.hiN}}</span></label></sc-if>
+<sc-if value="{{cf.showEn}}"><label class="field"><span>Message in English</span><textarea class="inp {{cf.eCls}}" value="{{cf.en}}" onChange="{{cf.onEn}}" placeholder="Dear {parent}, ..."></textarea><span class="w-cnt num">{{cf.enN}}</span></label></sc-if>
+<sc-if value="{{cf.err}}"><span class="w-in" style="font-size:12px;font-weight:600;color:var(--bad);margin-top:-8px">{{cf.errL}}</span></sc-if>
+<div class="w-c w-g6"><span class="w-m" style="font-weight:700">Fills in for each parent</span><div class="w-r w-g6 w-w"><sc-for list="{{cf.vars}}" as="c"><button class="tap chip" type="button" onClick="{{c.pick}}" style="height:32px;font-family:ui-monospace,monospace;font-size:12px">{{c.label}}</button></sc-for></div></div>
+<div class="w-r w-g6 w-w"><sc-for list="{{cf.atts}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}"><svg class="i w-i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.icon}}"></path></svg>{{c.label}}</button></sc-for></div>
+<div class="field"><span>When</span><div class="seg" role="group" aria-label="When" style="grid-template-columns:repeat(2,minmax(0,1fr))"><span class="thumb" aria-hidden="true" style="width:calc((100% - 6px) / 2);transform:translateX({{cf.wthumb}})"></span><sc-for list="{{cf.whens}}" as="o"><button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+<sc-if value="{{cf.sched}}"><div class="w-c w-g8 w-in"><div class="w-r w-g6 w-w"><sc-for list="{{cf.days}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div><div class="w-r w-g6 w-w"><sc-for list="{{cf.times}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for></div></div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{is.preview}}">
+<div class="w-c w-g16 w-in">
+<div class="card w-b"><span class="w-h">Check before sending</span><sc-for list="{{pv.sum}}" as="x"><div class="w-r w-g10" style="padding:8px 0;border-top:1px solid var(--bd)"><svg class="i" viewBox="0 0 24 24" style="color:var(--mut)" aria-hidden="true"><path d="{{x.icon}}"></path></svg><span class="w-m3" style="width:96px;flex:none">{{x.k}}</span><span class="num w-t w-f">{{x.v}}</span></div></sc-for></div>
+<div class="only-d w-r w-g8"><button class="tap btn sec" type="button" onClick="{{back}}" style="flex:1;height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Edit</button><button class="tap btn pri" type="button" onClick="{{pv.go}}" style="flex:2;height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{pv.goL}}</button></div>
+</div>
+</sc-if>
+<div class="unstick {{pv.colCls}} w-c w-g12" style="position:sticky;top:0;order:{{pv.ord}}">
+<span class="sech">{{pv.head}}</span>
+<div class="w-ph"><div class="w-phh"><span class="w-a serif" style="width:32px;height:32px;background:var(--prifg);color:var(--pri);font-size:12px">VP</span><span class="w-c w-f"><span style="font-size:13px;font-weight:700">Shri Veer Patta School</span><span style="font-size:11px;opacity:.8">Business account</span></span></div>
+<div class="w-wa" style="border-radius:0;min-height:300px;padding:16px 10px"><span class="pill" style="align-self:center;background:var(--card);color:var(--mut)">Today</span><div class="w-bu" style="max-width:96%"><b>{{pv.title}}</b><sc-if value="{{pv.hasHi}}"><div>{{pv.hi}}</div></sc-if><sc-if value="{{pv.hasEn}}"><div>{{pv.en}}</div></sc-if><sc-if value="{{pv.att}}"><div class="w-att"><svg class="i" viewBox="0 0 24 24" style="color:var(--bad)" aria-hidden="true"><path d="{{pv.attIc}}"></path></svg><span style="font-size:13px;font-weight:600">{{pv.attN}}</span></div></sc-if><div class="w-sig">— श्री वीर पत्ता सी. सै. स्कूल, आमेट</div><div class="w-tm">{{pv.time}}</div></div><span class="pill" style="align-self:flex-end;height:34px;padding:0 16px;font-size:13px;background:var(--card);color:var(--acc)">ठीक है · Okay</span></div>
+</div>
+<span class="w-m" style="text-align:center">{{pv.note}}</span>
+<sc-if value="{{is.compose}}"><button class="tap btn pri" type="button" onClick="{{cf.next}}" style="height:46px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.eye}}"></path></svg>Preview and send</button></sc-if>
+</div>
+</div></div>
+<sc-if value="{{is.compose}}"><div class="only-m glass w-sb w-r w-g10"><span class="w-c w-f"><span class="num w-t">{{cf.countL}}</span><span class="num w-m">{{cf.costL}}</span></span><button class="tap btn pri" type="button" onClick="{{cf.next}}" style="height:48px">Preview<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.arrowRight}}"></path></svg></button></div></sc-if>
+<sc-if value="{{is.preview}}"><div class="only-m glass w-sb"><button class="tap btn pri" type="button" onClick="{{pv.go}}" style="width:100%;height:48px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>{{pv.goL}}</button></div></sc-if>
+</sc-if>
+
+<!-- SENDING / SENT -->
+<sc-if value="{{is.sending}}">
+<div class="pad w-pg fadein"><div class="card w-c w-g12" style="max-width:560px;margin:10px auto 0;padding:32px 24px;align-items:center;text-align:center">
+<div style="position:relative;width:168px;height:168px"><svg width="168" height="168" viewBox="0 0 168 168" aria-hidden="true" style="transform:rotate(-90deg)"><circle cx="84" cy="84" r="70" style="fill:none;stroke:var(--s3);stroke-width:12"></circle><circle cx="84" cy="84" r="70" style="fill:none;stroke:var(--acc);stroke-width:12;stroke-linecap:round;stroke-dasharray:439.8;stroke-dashoffset:{{sg.off}};transition:stroke-dashoffset .25s linear"></circle></svg><span class="w-c w-i" style="position:absolute;top:0;left:0;right:0;bottom:0"><span class="num" style="font-size:34px;font-weight:700">{{sg.pct}}</span><span class="w-m">sent</span></span></div>
+<span class="w-r w-g8 w-h"><span style="width:10px;height:10px;border-radius:5px;background:var(--acc);animation:xPulse 1.6s infinite"></span>{{sg.line}}</span>
+<div class="w-r" style="width:100%;border-top:1px solid var(--bd);padding-top:12px"><sc-for list="{{sg.cnt}}" as="x"><span class="w-c w-f"><span class="num" style="font-size:22px;font-weight:700;color:{{x.c}}">{{x.v}}</span><span class="w-m">{{x.k}}</span></span></sc-for></div>
+<span class="w-m3">You can leave this screen — sending carries on.</span>
+<div class="w-r w-g8"><button class="tap btn ghost" type="button" onClick="{{sg.stop}}" style="color:var(--bad)">Stop sending</button><button class="tap btn sec" type="button" onClick="{{goList}}">Back to messages</button></div>
+</div></div>
+</sc-if>
+<sc-if value="{{is.sent}}">
+<div class="pad w-pg"><div class="card fadein w-c w-g12" style="max-width:580px;margin:10px auto 0;padding:32px 24px;align-items:center;text-align:center">
+<svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style="animation:xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><circle cx="48" cy="48" r="44" style="fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both"></path></svg>
+<span class="w-tt" style="font-size:26px">{{sd.head}}</span><span class="w-m3">{{sd.line}}</span>
+<div class="w-c" style="width:100%;border-top:1px solid var(--bd)"><sc-for list="{{sd.rows}}" as="x"><div class="w-r w-sp" style="padding:10px 2px;border-bottom:1px solid var(--bd);font-size:14px"><span style="color:var(--mut)">{{x.k}}</span><span class="num" style="font-weight:700">{{x.v}}</span></div></sc-for></div>
+<div class="w-r w-g8 w-w" style="justify-content:center"><button class="tap btn pri" type="button" onClick="{{sd.track}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.activity}}"></path></svg>Track delivery</button><button class="tap btn sec" type="button" onClick="{{goList}}">Back to messages</button></div>
+</div></div>
+</sc-if>
+
+<!-- TEMPLATES -->
+<sc-if value="{{is.templates}}">
+<div class="stack" style="display:grid;grid-template-columns:minmax(0,1fr) 400px;align-items:start;align-content:start;min-height:100%">
+<section class="pad w-pg w-c w-g12 {{tp.listCls}}" style="min-width:0;animation:{{anim}}">
+<div class="w-r w-g10 w-w"><span class="w-c w-f" style="min-width:200px"><span class="w-h">AiSensy templates</span><span class="w-m">WhatsApp must approve a template before it can go to parents.</span></span><button class="tap btn soft" type="button" onClick="{{tp.add}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.plus}}"></path></svg>New template</button></div>
+<div class="card" style="overflow:hidden"><sc-for list="{{tp.rows}}" as="r"><button class="tap row w-row {{r.sel}}" type="button" onClick="{{r.open}}" style="border-top:{{r.bd}};animation-delay:{{r.delay}}">
+<span class="w-c w-f w-g2"><span class="w-t w-e">{{r.label}}</span><span class="w-m w-e" style="font-family:ui-monospace,monospace">{{r.name}}</span><span class="w-r w-g6 w-w" style="margin-top:3px"><span class="pill" style="background:var(--s3);color:var(--mut)">{{r.cat}}</span><span class="pill" style="background:var(--s3);color:var(--mut)">{{r.lang}}</span></span><sc-if value="{{r.hasWhy}}"><span style="font-size:12px;color:var(--bad)">{{r.why}}</span></sc-if></span>
+<span class="pill" style="background:{{r.sb}};color:{{r.sf}};animation:{{r.anim}}">{{r.st}}</span>
+</button></sc-for></div>
+</section>
+<aside class="unstick {{tp.panelCls}}" style="position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto;border-left:1px solid var(--bd);background:var(--bg)">
+<div class="pad w-c w-g12 w-in" style="padding:20px 22px 28px">
+<div class="w-r w-g8"><span class="pill w-pl" style="background:{{tp.p.sb}};color:{{tp.p.sf}}">{{tp.p.st}}</span></div>
+<span class="w-tt">{{tp.p.label}}</span><span class="w-m" style="font-family:ui-monospace,monospace">{{tp.p.name}} · {{tp.p.cat}} · {{tp.p.lang}}</span>
+<sc-if value="{{tp.p.hasWhy}}"><div class="w-x w-r w-g10 w-st" style="background:var(--bads);color:var(--bad);font-size:13px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.alert}}"></path></svg><span>{{tp.p.why}}</span></div></sc-if>
+<div class="w-wa"><div class="w-bu"><sc-if value="{{tp.p.hasHi}}"><div>{{tp.p.hi}}</div></sc-if><sc-if value="{{tp.p.hasEn}}"><div>{{tp.p.en}}</div></sc-if><div class="w-sig">— श्री वीर पत्ता सी. सै. स्कूल, आमेट</div></div></div>
+<span class="w-m">Words in {curly brackets} fill in for each parent.</span>
+<div class="w-x w-c w-g4" style="font-size:13px"><sc-for list="{{tp.p.facts}}" as="x"><span class="w-r w-sp"><span style="color:var(--mut)">{{x.k}}</span><span class="num" style="font-weight:600">{{x.v}}</span></span></sc-for></div>
+<sc-if value="{{tp.p.ok}}"><button class="tap btn pri" type="button" onClick="{{tp.use}}" style="height:44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>Use in a new notice</button></sc-if>
+<sc-if value="{{tp.p.bad}}"><button class="tap btn pri" type="button" onClick="{{tp.fix}}" style="height:44px"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.edit}}"></path></svg>Fix and send again</button></sc-if>
+<sc-if value="{{tp.p.wait}}"><span class="w-x w-m3">Waiting for WhatsApp. Utility: about an hour. Marketing: up to a day.</span></sc-if>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<!-- REPLIES -->
+<sc-if value="{{is.replies}}">
+<div class="stack" style="display:grid;grid-template-columns:minmax(0,1fr) 440px;align-items:start;align-content:start;min-height:100%">
+<section class="pad w-pg w-c w-g12 {{rp.listCls}}" style="min-width:0;animation:{{anim}}">
+<div class="w-r w-g6 w-w"><sc-for list="{{rp.chips}}" as="c"><button class="tap chip {{c.cls}}" type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">{{c.label}}<span class="num" style="opacity:.7;font-size:11px">{{c.n}}</span></button></sc-for></div>
+<div class="card" style="overflow:visible"><sc-for list="{{rp.rows}}" as="r"><div class="w-r" style="position:relative;border-top:{{r.bd}};overflow:hidden;animation:{{r.anim}};animation-delay:{{r.delay}}">
+<button class="tap row w-row w-f {{r.sel}}" type="button" onClick="{{r.open}}" style="border:0;align-items:flex-start;animation:none">
+<span class="w-a" style="background:{{r.ab}};color:{{r.af}}">{{r.ini}}</span>
+<span class="w-c w-f w-g2"><span class="w-r w-g8"><span class="w-t w-e w-f">{{r.name}}</span><span class="w-m" style="flex:none">{{r.time}}</span></span><span class="w-m w-e">{{r.child}}</span><span class="w-e" style="font-size:13px">{{r.text}}</span><span class="w-r w-g6 w-w" style="margin-top:4px"><span class="pill" style="background:var(--s3);color:var(--mut)">Re: {{r.re}}</span><span class="pill" style="background:{{r.asB}};color:{{r.asF}}">{{r.as}}</span></span></span>
+</button>
+<button class="tap btn ghost w-ib" type="button" aria-label="Mark done" onClick="{{r.done}}" style="margin-right:10px;color:var(--ok);flex:none"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg></button>
+</div></sc-for>
+<sc-if value="{{rp.empty}}"><div class="w-c w-g8" style="padding:36px 20px;align-items:center;text-align:center"><svg class="i" viewBox="0 0 24 24" style="width:32px;height:32px;color:var(--ok)" aria-hidden="true"><path d="{{ic.checkCircle}}"></path></svg><span class="w-h">All caught up</span><span class="w-m3">No replies waiting here.</span></div></sc-if></div>
+</section>
+<aside class="unstick {{rp.panelCls}}" style="position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto;border-left:1px solid var(--bd);background:var(--bg)">
+<sc-if value="{{rp.has}}"><div class="pad w-c w-g12 w-in" style="padding:18px 22px 28px">
+<div class="w-r w-g10"><span class="w-a" style="width:44px;height:44px;background:{{rp.p.ab}};color:{{rp.p.af}}">{{rp.p.ini}}</span><span class="w-c w-f"><span class="w-h">{{rp.p.name}}</span><span class="w-m">{{rp.p.child}} · 98290 ••{{rp.p.ph}}</span></span><a href="D02-Student360.dc.html" class="only-d tap btn ghost w-sm">Open student</a><a href="F06-Student360.dc.html" class="only-m tap btn ghost w-sm">Student</a></div>
+<div class="w-r w-g8" style="position:relative"><span class="w-m">Assigned to</span><button class="tap chip" type="button" aria-haspopup="true" onClick="{{rp.toggleMenu}}" style="height:32px;background:{{rp.p.asB}};color:{{rp.p.asF}}">{{rp.p.as}}<svg class="i w-i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.chevDown}}"></path></svg></button>
+<sc-if value="{{rp.menu}}"><div class="card w-c" role="menu" style="position:absolute;top:38px;left:80px;z-index:6;padding:6px;min-width:230px;box-shadow:var(--shh);animation:xMenu .2s var(--ease) both;transform-origin:top left"><sc-for list="{{rp.who}}" as="o"><button class="tap row w-r w-g8" type="button" role="menuitem" onClick="{{o.pick}}" style="height:40px;padding:0 10px;border:0;border-radius:10px;background:transparent;color:var(--fg);font-size:13px;font-weight:600;text-align:left"><svg class="i w-i15" viewBox="0 0 24 24" style="opacity:{{o.op}}" aria-hidden="true"><path d="{{ic.check}}"></path></svg>{{o.label}}</button></sc-for></div></sc-if>
+</div>
+<div class="w-wa" style="padding:14px 10px">
+<div class="w-bu" style="font-size:12.5px;opacity:.9"><b>{{rp.p.re}}</b><div>{{rp.p.reHi}}</div><div class="w-tm">{{rp.p.reWhen}}<svg class="i w-i15" viewBox="0 0 24 24" style="color:var(--info)" aria-hidden="true"><path d="{{ic.checks}}"></path></svg></div></div>
+<div class="w-bu w-in2"><div>{{rp.p.text}}</div><div class="w-tm">{{rp.p.time}}</div></div>
+<sc-for list="{{rp.p.out}}" as="o"><div class="w-bu"><div>{{o.t}}</div><div class="w-tm">just now<svg class="i w-i15" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.checks}}"></path></svg></div></div></sc-for>
+</div>
+<span class="sech">Quick replies</span>
+<div class="w-c w-g6"><sc-for list="{{rp.quick}}" as="q"><button class="tap w-sw" type="button" onClick="{{q.pick}}" style="min-height:44px;padding:8px 12px;font-size:13px"><span class="w-f">{{q.t}}</span></button></sc-for></div>
+<label class="field"><span>Your reply</span><textarea class="inp" value="{{rp.draft}}" onChange="{{rp.onDraft}}" placeholder="Type a reply — Hindi first is best" style="min-height:80px"></textarea></label>
+<div class="w-r w-g8 w-w"><button class="tap btn pri" type="button" onClick="{{rp.send}}" style="flex:1.4;opacity:{{rp.sendOp}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.send}}"></path></svg>Send · free</button><button class="tap btn sec" type="button" onClick="{{rp.doneP}}" style="flex:1"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.check}}"></path></svg>Mark done</button></div>
+<span class="w-m">1 parent · free, because it is a reply within 24 hours of their message.</span>
+</div></sc-if>
+</aside>
+</div>
+</sc-if>
+</main>
+<div class="only-m" style="flex:none"><dc-import name="XNav" active="menu" role="{{role}}" dark="{{dark}}" hint-size="100%,76px"></dc-import></div>
+</div>
+
+<!-- CONFIRM SHEET (send / resend / remind) -->
+<sc-if value="{{sh.open}}">
+<button class="scrim {{sh.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet {{sh.state}}" role="dialog" aria-label="{{sh.head}}">
+<div class="grab"></div>
+<div class="w-sh"><div class="w-c w-g2"><span class="w-tt">{{sh.head}}</span><span class="w-m3">{{sh.line}}</span></div><button class="tap btn ghost w-ib" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<div class="scroll w-c w-g10" style="flex:1;min-height:0;padding:4px 20px 14px">
+<sc-if value="{{sh.hasWarn}}"><div class="w-x w-r w-g10 w-st" style="background:var(--warns);color:var(--warnfg);font-size:13px;line-height:1.5"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.info}}"></path></svg><span>{{sh.warn}}</span></div></sc-if>
+<sc-if value="{{sh.hasSw}}"><button class="tap w-sw" type="button" role="switch" aria-checked="{{sh.sw.on}}" onClick="{{sh.sw.toggle}}"><span class="w-c w-f"><span class="w-t">{{sh.sw.label}}</span><span class="w-m">{{sh.sw.sub}}</span></span><span class="sw {{sh.sw.cls}}"><span></span></span></button></sc-if>
+<sc-for list="{{sh.sum}}" as="x"><div class="w-r w-g10" style="padding:7px 0;border-bottom:1px solid var(--bd);font-size:14px"><svg class="i" viewBox="0 0 24 24" style="color:var(--ok)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span class="w-f" style="color:var(--mut)">{{x.k}}</span><span class="num" style="font-weight:600">{{x.v}}</span></div></sc-for>
+<sc-if value="{{sh.hasBub}}"><div class="w-wa"><div class="w-bu"><sc-if value="{{sh.b.hasHi}}"><div>{{sh.b.hi}}</div></sc-if><div>{{sh.b.en}}</div><div class="w-sig">— श्री वीर पत्ता सी. सै. स्कूल, आमेट</div></div></div></sc-if>
+</div>
+<div class="w-sf"><div class="w-r w-sp" style="font-size:13px"><span style="color:var(--mut)">{{sh.countL}}</span><span class="num" style="font-weight:700">{{sh.costL}}</span></div><div class="w-r w-g8"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">{{sh.noL}}</button><button class="tap btn {{sh.btn}}" type="button" onClick="{{sh.confirm}}" style="flex:1.7"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{sh.icon}}"></path></svg>{{sh.confirmL}}</button></div></div>
+</section>
+</sc-if>
+
+<!-- NEW TEMPLATE SHEET -->
+<sc-if value="{{tn.open}}">
+<button class="scrim {{tn.state}}" type="button" aria-label="Close" onClick="{{closeSheet}}"></button>
+<section class="sheet wide {{tn.state}}" role="dialog" aria-label="New template">
+<div class="grab"></div>
+<div class="w-sh"><div class="w-c w-g2"><span class="w-tt">{{tn.head}}</span><span class="w-m3">WhatsApp checks every template once. After that you can use it any time.</span></div><button class="tap btn ghost w-ib" type="button" aria-label="Close" onClick="{{closeSheet}}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.x}}"></path></svg></button></div>
+<sc-if value="{{tn.form}}">
+<div class="scroll" style="flex:1;min-height:0;padding:4px 20px 14px"><div class="stack w-g16" style="display:grid;grid-template-columns:minmax(0,1fr) 250px;align-items:start">
+<div class="w-c w-g12" style="min-width:0">
+<label class="field"><span>Name · {{tn.slug}}</span><input class="inp {{tn.nCls}}" value="{{tn.name}}" onChange="{{tn.onName}}" placeholder="For example: Unit test datesheet"></label>
+<div class="field"><span>Category</span><div class="g2 w-g8" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr))"><sc-for list="{{tn.cats}}" as="r"><button class="tap w-sw w-st" type="button" role="radio" aria-checked="{{r.on}}" onClick="{{r.pick}}" style="border:{{r.bd}};background:{{r.bg}};flex-direction:column;gap:2px"><span class="w-t">{{r.label}}</span><span class="w-m">{{r.sub}}</span></button></sc-for></div></div>
+<label class="field"><span>Hindi text</span><textarea class="inp {{tn.hCls}}" value="{{tn.hi}}" onChange="{{tn.onHi}}" placeholder="प्रिय {parent}, ..." style="min-height:84px"></textarea></label>
+<label class="field"><span>English text</span><textarea class="inp {{tn.eCls}}" value="{{tn.en}}" onChange="{{tn.onEn}}" placeholder="Dear {parent}, ..." style="min-height:84px"></textarea></label>
+<div class="w-r w-g6 w-w"><span class="w-m" style="font-weight:700">Insert:</span><sc-for list="{{tn.vars}}" as="c"><button class="tap chip" type="button" onClick="{{c.pick}}" style="height:30px;font-family:ui-monospace,monospace;font-size:12px">{{c.label}}</button></sc-for></div>
+<sc-if value="{{tn.hasSamples}}"><div class="w-c w-g8"><span class="w-m" style="font-weight:700">Sample values (WhatsApp needs an example for each)</span><div class="g2 w-g8" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr))"><sc-for list="{{tn.samples}}" as="x"><label class="field"><span>{{x.k}}</span><input class="inp" value="{{x.v}}" onChange="{{x.on}}" style="height:40px"></label></sc-for></div></div></sc-if>
+<sc-if value="{{tn.err}}"><span class="w-in" style="font-size:12px;font-weight:600;color:var(--bad)">{{tn.errL}}</span></sc-if>
+</div>
+<div class="w-c w-g8 w-x" style="padding:14px;font-size:13px;line-height:1.45"><span class="w-r w-g6" style="font-weight:700"><svg class="i w-i15" viewBox="0 0 24 24" style="color:var(--acc)" aria-hidden="true"><path d="{{ic.help}}"></path></svg>Tips for a quick yes</span><sc-for list="{{tn.tips}}" as="x"><span class="w-r w-g8 w-st"><svg class="i w-i15" viewBox="0 0 24 24" style="color:var(--ok);margin-top:2px" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span>{{x.t}}</span></span></sc-for></div>
+</div></div>
+<div class="w-sf"><div class="w-r w-g8"><button class="tap btn sec" type="button" onClick="{{closeSheet}}" style="flex:1">Cancel</button><button class="tap btn pri" type="button" onClick="{{tn.submit}}" style="flex:1.7"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ic.upload}}"></path></svg>Send for approval</button></div></div>
+</sc-if>
+<sc-if value="{{tn.done}}"><div class="w-c w-g10 fadein" style="padding:18px 24px 28px;align-items:center;text-align:center">
+<svg width="84" height="84" viewBox="0 0 96 96" aria-hidden="true" style="animation:xPopIn .5s var(--spring) both"><circle cx="48" cy="48" r="44" style="fill:var(--oks)"></circle><path d="M30 49l12 12 24-26" style="fill:none;stroke:var(--ok);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;--len:60;stroke-dasharray:60;animation:xDraw .45s .3s var(--ease) both"></path></svg>
+<span class="w-tt">Sent for approval</span><span class="w-m3">{{tn.doneL}}</span>
+<button class="tap btn pri" type="button" onClick="{{closeSheet}}" style="margin-top:6px">Done</button>
+</div></sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{toast.show}}"><div class="toastwrap"><div class="toast" role="status"><svg class="i" viewBox="0 0 24 24" style="color:var(--tacc)" aria-hidden="true"><path d="{{ic.check}}"></path></svg><span style="font-size:14px;line-height:1.35;padding-right:6px">{{toast.text}}</span><sc-if value="{{toast.undo}}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if></div></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["list","detail","compose","preview","sending","sent","templates","template-new","replies"],"default":"list"},"role":{"editor":"enum","options":["admin","teacher","accountant","academic","exam"],"default":"admin"},"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic{
+data(){
+if(this._d)return this._d;
+/*VX_ICONS*/
+IC.checks='M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16';
+const TY={Notice:['megaphone','var(--accs)','var(--accfg)'],Holiday:['flag','var(--bads)','var(--bad)'],PTM:['users','var(--warns)','var(--warnfg)'],Fee:['rupee','var(--s3)','var(--mut)'],Result:['award','var(--infos)','var(--info)'],Staff:['briefcase','var(--s3)','var(--fg)']};
+const m=(id,type,title,aud,n,when,grp,del,read,rep,hi,en,att)=>({id,type,title,aud,n,when,grp,del,read,rep,hi:hi||'',en:en||'',att:att||''});
+const M=[
+m('m0','Notice','Sports day · Sat 31 Oct','All parents',434,'Fri 30 Oct, 4:00 pm','sched',0,0,0,'प्रिय अभिभावक, शनिवार, 31 अक्टूबर को विद्यालय मैदान में खेल दिवस है।','Dear parent, Sports day is on Sat 31 Oct at the school ground.'),
+m('m1','PTM','Half-yearly results and PTM on Sat 17 Oct','All parents',434,'Tue 6 Oct, 10:00 am','week',421,352,12,'प्रिय अभिभावक, अर्धवार्षिक परिणाम शनिवार, 17 अक्टूबर की PTM में मिलेगा। नर्सरी–कक्षा 9: सुबह 9 बजे, कक्षा 10–12: दोपहर 12 बजे। कृपया अवश्य पधारें।','Dear parent, half-yearly results will be given at the PTM on Sat 17 Oct: 9 am for Nursery to Class 9, 12 pm for Classes 10 to 12. Please do come.'),
+m('m2','Staff','Staff meeting · Sat 10 Oct, 2 pm','All staff',38,'Wed 7 Oct, 5:10 pm','week',38,35,6,'','Dear colleagues, staff meeting on Sat 10 Oct at 2 pm in the staff room to review half-yearly results. Please bring your class mark sheets.'),
+m('m4','PTM','PTM · Class 10 · Sat 17 Oct, 12 pm','Class 10 parents',30,'Tue 6 Oct, 10:05 am','week',29,24,2,'प्रिय अभिभावक, कक्षा 10 की अभिभावक-शिक्षक बैठक शनिवार, 17 अक्टूबर को दोपहर 12 बजे कक्षा 10 के कमरे में होगी। बोर्ड परीक्षा की तैयारी पर भी बात होगी।','Dear parent, the Class 10 PTM is on Sat 17 Oct at 12 pm in the Class 10 room. We will also talk about board exam preparation.'),
+m('m3','Fee','Installment 2 pending · gentle reminder','Parents with Installment 2 pending',138,'Mon 5 Oct, 6:30 pm','week',136,101,9,'प्रिय {parent}, {student} की दूसरी किस्त ({amount}) 15 सितंबर को देय थी। कृपया विद्यालय में या UPI से जमा करें। विलंब शुल्क अलग से दिखाया जाता है।','Dear {parent}, Installment 2 for {student} ({amount}) was due on 15 Sep. Please pay at school or by UPI. Any late fee is shown separately.'),
+m('m5','Staff','Marks entry · your Sampark link','Subject teachers',31,'Sat 3 Oct, 6:00 pm','earlier',31,30,0,'','Dear {teacher}, please enter half-yearly marks through your Sampark link by Fri 9 Oct, 5 pm.'),
+m('m7','Notice','Sports day volunteers needed','Classes 9–12 parents',161,'Thu 1 Oct, 11:20 am','earlier',158,120,18),
+m('m6','Holiday','Gandhi Jayanti holiday · Fri 2 Oct','All parents',434,'Wed 30 Sep, 4:00 pm','earlier',425,389,4,'प्रिय अभिभावक, गांधी जयंती के अवसर पर शुक्रवार, 2 अक्टूबर को विद्यालय बंद रहेगा।','Dear parent, school will be closed on Fri 2 Oct for Gandhi Jayanti.'),
+m('m10','Result','Class 12 practical marks published','Class 12 parents',49,'Mon 28 Sep, 3:00 pm','earlier',49,44,3),
+m('m8','Notice','Half-yearly datesheet','Classes 6–12 parents',247,'Fri 18 Sep, 5:00 pm','earlier',244,231,3,'प्रिय अभिभावक, अर्धवार्षिक परीक्षा की समय-सारणी साथ में भेजी गई है।','Dear parent, the half-yearly datesheet is attached.','Half-yearly datesheet.pdf')
+];
+const PEO=[['Rakesh Sharma','Aarav','Class 7','512'],['Prakash Joshi','Neha','Class 8','208'],['Sunita Kumawat','Aarti','Class 10','771'],['Hemraj Regar','Lakshya','Class 5','093'],['Dinesh Mehta','Pooja','11 Commerce','445'],['Gopal Paliwal','Tanvi','LKG','630'],['Sanjay Verma','Kunal','Class 4','317'],['Bhawani Gurjar','Ritu','Class 2','859'],['Ajay Rathore','Ishita','12 Science','902'],['Kamal Mehta','Yash','Class 9','266']];
+const STF=[['Ms. Dave','Class 10 teacher','118'],['Mr. Solanki','Class 8 teacher','402'],['Ms. Bhati','Class 6 teacher','377'],['Mr. Meena','Class 9 teacher','260'],['Ms. Jain','Class 1 teacher','845'],['Mr. Trivedi','11 Science teacher','593']];
+const T=[
+['t1','school_notice','School notice','Utility','Hindi + English','ok',42,'Tue 6 Oct','प्रिय {parent}, {student} ({class}) के लिए विद्यालय की सूचना: {notice}','Dear {parent}, a notice from school for {student} ({class}): {notice}'],
+['t2','holiday_notice','Holiday notice','Utility','Hindi + English','ok',11,'Wed 30 Sep','प्रिय अभिभावक, {reason} के अवसर पर {date} को विद्यालय बंद रहेगा।','Dear parent, school will be closed on {date} for {reason}.'],
+['t3','ptm_invite','PTM invite','Utility','Hindi + English','ok',6,'Tue 6 Oct','प्रिय {parent}, {class} की अभिभावक-शिक्षक बैठक {date} को {time} बजे होगी।','Dear {parent}, the {class} PTM is on {date} at {time}.'],
+['t4','fee_reminder_gentle','Fee reminder (gentle)','Utility','Hindi + English','ok',18,'Mon 5 Oct','प्रिय {parent}, {student} की किस्त ({amount}) {date} को देय थी। कृपया जमा करें।','Dear {parent}, the installment for {student} ({amount}) was due on {date}. Please pay.'],
+['t6','staff_notice','Staff notice','Utility','English','ok',23,'Wed 7 Oct','','Dear {teacher}, {notice}'],
+['t7','admission_open_2027','Admissions open 2027–28','Marketing','Hindi + English','wait',0,'','प्रिय अभिभावक, सत्र 2027–28 के लिए प्रवेश शुरू हो गए हैं। विवरण के लिए विद्यालय आएँ।','Dear parent, admissions for 2027–28 are open. Visit the school office for details.'],
+['t8','sports_day_invite','Sports day invite','Utility','Hindi + English','bad',0,'','प्रिय {parent}, खेल दिवस {date} को है। सबसे अच्छी फ़ोटो पर इनाम!','Dear {parent}, Sports day is on {date}. Prize for the best photo!']
+];
+const R=[
+['r1','Rakesh Sharma','Aarav Sharma · Class 7','सर, PTM में 11 बजे के बाद आ सकते हैं क्या? सुबह खेत पर काम है।','10:42 am','m1','','512'],
+['r2','Prakash Joshi','Neha · Class 8 and Rohit · Class 5','दोनों बच्चों का रिज़ल्ट कार्ड एक साथ ले सकते हैं क्या?','9:58 am','m1','Mr. Solanki','208'],
+['r3','Sunita Kumawat','Aarti Kumawat · Class 10','क्या PTM में बोर्ड परीक्षा की तैयारी पर बात होगी? मैं ज़रूर आऊँगी।','9:30 am','m4','Ms. Dave','771'],
+['r4','Ajay Rathore','Ishita Rathore · 12 Science','Ishita will be away on the 17th for a family wedding. Can I meet the teacher on Friday instead?','Yesterday','m1','','902'],
+['r5','Mahesh Meena','Kavita Meena · Class 6','Fees UPI se bhar di hai, receipt bhej dijiye.','Yesterday','m3','Office desk','388'],
+['r6','Dinesh Mehta','Pooja Mehta · 11 Commerce','The datesheet PDF does not open on my phone. Please send it again.','Mon 5 Oct','m8','','445'],
+['r7','Gopal Paliwal','Tanvi Paliwal · LKG','धन्यवाद, जानकारी मिल गई।','Wed 30 Sep','m6','','630',1]
+];
+const CLS=[['Nursery',18],['LKG',20],['UKG',22],['Class 1',23],['Class 2',25],['Class 3',24],['Class 4',29],['Class 5',26],['Class 6',31],['Class 7',27],['Class 8',28],['Class 9',28],['Class 10',30],['11 Science',22],['11 Commerce',18],['11 Arts',14],['12 Science',20],['12 Commerce',17],['12 Arts',12]];
+const LISTS=[['route2','Route 2 parents',52],['inst2','Installment 2 pending',138],['team','Sports team parents',22],['ct','Class teachers',19]];
+this._d={IC,TY,M,PEO,STF,T,R,CLS,LISTS};
+return this._d;
+}
+cDef(){return{aud:'school',cls:[12],list:'route2',lang:'both',title:'',hi:'',en:'',att:'',when:'now',day:'Fri 9 Oct',time:'8:00 am',last:'hi'};}
+st(){
+const start=(this.props||{}).start||'list';
+const filled=Object.assign(this.cDef(),{title:'Unit Test 2 datesheet',hi:'प्रिय {parent}, {student} ({class}) की इकाई परीक्षा-2 सोमवार, 7 दिसंबर से शुरू होगी। समय-सारणी साथ में भेजी गई है।',en:'Dear {parent}, Unit Test 2 for {student} ({class}) starts on Mon 7 Dec. The datesheet is attached.',att:'pdf'});
+const base={screen:'list',anim:'none',ft:'all',q:'',msg:'m1',rf:'all',resent:{},reminded:{},newMsg:null,skip:true,bal:1840,
+c:this.cDef(),cErr:false,prog:0,stopped:false,tpl:'t1',tplOpen:false,tAdded:[],tf:null,tfErr:false,tfDone:false,
+rsel:'r1',rOpen:false,rfil:'open',done:{},leaving:{},assign:{},menu:false,drafts:{},outs:{},sheet:'',closing:false,toast:null};
+const map={
+detail:{screen:'detail',msg:'m1'},compose:{screen:'compose',c:filled},preview:{screen:'preview',c:filled},
+sending:{screen:'sending',c:filled,prog:64},sent:{screen:'sent',c:filled,prog:100,newMsg:1},
+templates:{screen:'templates'},'template-new':{screen:'templates',sheet:'tpl'},replies:{screen:'replies'}
+};
+return Object.assign(base,map[start]||{},this.state||{});
+}
+toast(text,undo){
+const id=Date.now()+Math.random();
+this._undo=undo||null;
+this.setState({toast:{id,text,undo:!!undo}});
+clearTimeout(this._tt);
+this._tt=setTimeout(()=>{const t=this.st().toast;if(t&&t.id===id)this.setState({toast:null});},4500);
+}
+undoToast(){const f=this._undo;this._undo=null;this.setState({toast:null});if(f)f();}
+openSheet(name,extra){clearTimeout(this._ct);this.setState(Object.assign({sheet:name,closing:false,menu:false},extra||{}));}
+closeSheet(){if(!this.st().sheet)return;this.setState({closing:true});clearTimeout(this._ct);this._ct=setTimeout(()=>this.setState({sheet:'',closing:false,tfDone:false}),240);}
+go(screen,anim,extra){this.setState(Object.assign({screen,anim:anim||'push',menu:false},extra||{}));}
+cp(k){return Object.assign({},this.st()[k]);}
+tick(){
+clearTimeout(this._pt);
+this._pt=setTimeout(()=>{
+const s=this.st();
+if(s.screen!=='sending'||s.stopped)return;
+const p=Math.min(100,s.prog+9);
+this.setState({prog:p});
+if(p<100)this.tick();else this._pt=setTimeout(()=>{if(this.st().screen==='sending')this.go('sent','push',{newMsg:1});},450);
+},160);
+}
+T12(x){const h=Math.floor(x/60);return(h%12||12)+':'+String(x%60).padStart(2,'0')+(h<12?' am':' pm');}
+fill(t,s){return(t||'').replace(/\{parent\}/g,s.p).replace(/\{student\}/g,s.s).replace(/\{class\}/g,s.c).replace(/\{date\}/g,'Mon 7 Dec').replace(/\{amount\}/g,'₹5,200').replace(/\{teacher\}/g,'Ms. Dave');}
+renderVals() { const v = this._rv(); const r = this.props.role || 'admin'; v.role = r; v.roleMenu = { admin: 'F13-Menu.dc.html', teacher: 'M-TchMore.dc.html', accountant: 'M-AccHome-Menu.dc.html', academic: 'M-AcadHome-Menu.dc.html', exam: 'M-ExamHome-Menu.dc.html' }[r] || 'F13-Menu.dc.html'; return v; }
+_rv() {
+const D=this.data(),s=this.st(),IC=D.IC;
+const nf=n=>Number(n).toLocaleString('en-IN');
+const cost=n=>'₹'+nf(Math.round(n*0.88));
+const delay=i=>(Math.min(i,14)*30)+'ms';
+const pct=(a,b)=>(b?Math.round(a/b*100):0)+'%';
+const ini=n=>n.replace(/^(Mr|Ms)\.\s*/,'').split(' ').map(w=>w[0]).slice(0,2).join('');
+const opt=(on,x)=>Object.assign({cls:on?'on':'',pressed:on?'true':'false'},x);
+const segO=(on,x)=>Object.assign({cls:on?'tap on':'tap',pressed:on?'true':'false'},x);
+const radio=(on,x)=>Object.assign({on:on?'true':'false',bd:on?'2px solid var(--acc)':'1px solid var(--bd)',bg:on?'var(--accs)':'var(--card)'},x);
+const tones=[['var(--accs)','var(--accfg)'],['var(--infos)','var(--info)'],['var(--oks)','var(--ok)'],['var(--warns)','var(--warnfg)'],['var(--s3)','var(--fg)']];
+const c=s.c;
+// ----- compose numbers -----
+const audN=c.aud==='school'?434:(c.aud==='staff'?38:(c.aud==='classes'?c.cls.reduce((a,i)=>a+D.CLS[i][1],0):(D.LISTS.filter(l=>l[0]===c.list)[0]||D.LISTS[0])[2]));
+const isStaff=c.aud==='staff'||(c.aud==='custom'&&c.list==='ct');
+const audW=isStaff?'staff':'parents';
+const audLabel=c.aud==='school'?'Whole school':(c.aud==='staff'?'All staff':(c.aud==='classes'?(c.cls.length<=2?c.cls.map(i=>D.CLS[i][0]).join(', '):c.cls.length+' classes'):(D.LISTS.filter(l=>l[0]===c.list)[0]||D.LISTS[0])[1]));
+const showHi=c.lang!=='en',showEn=c.lang!=='hi',langErr=c.lang==='en'&&!isStaff;
+const whenL=c.when==='now'?'Now':c.day+', '+c.time;
+const tplName=isStaff?'staff_notice':'school_notice';
+// ----- messages -----
+const nm=s.newMsg?{id:'new',type:isStaff?'Staff':'Notice',title:c.title||'Notice',aud:audLabel+(isStaff?'':' parents').replace('Whole school parents','All parents'),n:audN,when:'Today, just now',grp:'today',del:Math.round(audN*0.93),read:Math.round(audN*0.21),rep:0,hi:c.hi,en:c.en,att:c.att?(c.att==='pdf'?'Datesheet UT-2.pdf':'Notice photo.jpg'):'',fresh:1}:null;
+const msgs=(nm?[nm]:[]).concat(D.M);
+const stat=x=>{const rs=s.resent[x.id]||0;const failed=x.grp==='sched'?0:(x.fresh?3:x.n-x.del);return{failed:Math.max(0,failed-rs),pend:x.fresh?x.n-x.del-3:0,notRead:x.del-x.read};};
+const q=(s.q||'').trim().toLowerCase();
+const shown=msgs.filter(x=>(s.ft==='all'||x.type===s.ft)&&(!q||x.title.toLowerCase().indexOf(q)>=0||x.aud.toLowerCase().indexOf(q)>=0));
+let gi=0;
+const groups=[['today','Today'],['sched','Scheduled'],['week','This week'],['earlier','Earlier']].map(g=>{
+const rows=shown.filter(x=>x.grp===g[0]);
+return{label:g[1],n:rows.length+(rows.length===1?' message':' messages'),rows:rows.map((x,i)=>{
+const t=D.TY[x.type],st=stat(x),sched=x.grp==='sched';
+return{title:x.title,aud:x.aud+' · '+nf(x.n),when:x.when,type:x.type,icon:IC[t[0]],s:t[1],f:t[2],bd:i===0?'0':'1px solid var(--bd)',delay:delay(gi++),
+hasBar:!sched,wr:pct(x.read,x.n),wd:pct(x.del-x.read,x.n),wf:pct(st.failed,x.n),readL:pct(x.read,x.n)+' read',
+cost:sched?'about '+cost(x.n):cost(x.n),stL:sched?'Scheduled':(x.fresh?'Sending':(st.failed?st.failed+' failed':'All delivered')),stC:sched?'var(--info)':(st.failed?'var(--bad)':'var(--ok)'),
+open:()=>this.go('detail','push',{msg:x.id,rf:'all'})};
+})};
+}).filter(g=>g.rows.length);
+const kpis=[
+['Sent this month',nf(1284+(nm?audN:0)),'+18% vs September','var(--fg)'],['Read','79%','of delivered messages','var(--ok)'],
+['Cost this month','₹'+nf(1130+(nm?Math.round(audN*0.88):0)),'₹0.88 a message','var(--fg)'],['AiSensy balance','₹'+nf(s.bal-(nm?Math.round(audN*0.88):0)),'≈ '+nf(Math.floor((s.bal-(nm?audN*0.88:0))/0.88))+' messages','var(--acc)']
+].map((k,i)=>({label:k[0],v:k[1],sub:k[2],c:k[3],delay:delay(i),spark:i===1,link:i===3}));
+const fchips=['all','Notice','Holiday','PTM','Fee','Result','Staff'].map(t=>opt(s.ft===t,{label:t==='all'?'All':t,n:String(msgs.filter(x=>t==='all'||x.type===t).length),pick:()=>this.setState({ft:t})}));
+// ----- detail -----
+const X=msgs.filter(x=>x.id===s.msg)[0]||D.M[1];
+const XT=D.TY[X.type],XS=stat(X),xStaff=X.type==='Staff';
+const sample=xStaff?{p:'Ms. Dave',s:'Ms. Dave',c:'Class 10'}:{p:'Rakesh Sharma',s:'Aarav',c:'Class 7'};
+const xsched=X.grp==='sched';
+const funnel=[['Sent',X.n,'var(--pri)'],['Delivered',X.del,'var(--c2)'],['Read',X.read,'var(--ok)'],['Replied',X.rep,'var(--c3)']].map((f,i)=>({k:f[0],v:nf(f[1]),p:pct(f[1],X.n),w:pct(f[1],X.n),c:f[2],delay:(i*90)+'ms'}));
+// recipient sample rows
+const pool=xStaff?D.STF.map(p=>[p[0],p[1],p[2]]):D.PEO.map(p=>[p[0],p[1]+' · '+p[2],p[3]]);
+const want=[['read',X.read],['del',X.del-X.read],['fail',XS.failed],['sent',XS.pend]].filter(w=>w[1]>0);
+const tot=want.reduce((a,w)=>a+w[1],0)||1;
+const slots=[];
+want.sort((a,b)=>a[1]-b[1]).forEach(w=>{const k=Math.max(1,Math.round(pool.length*w[1]/tot));for(let i=0;i<k;i++)slots.push(w[0]);});
+const order=slots.slice(0,pool.length);
+const mix=order.map((x,i)=>i).sort((a,b)=>((a*7)%11)-((b*7)%11)).map(i=>order[i]);
+const LK={read:['Read',IC.checks,'var(--info)'],del:['Delivered',IC.checks,'var(--mut)'],sent:['Sent',IC.check,'var(--mut)'],fail:['Not delivered',IC.alert,'var(--bad)']};
+const allRows=xsched?[]:pool.slice(0,mix.length).map((p,i)=>{const st=mix[i];const tm=this.T12(605+i*7);return{st,name:p[0],sub:p[1]+' · 98290 ••'+p[2],ini:ini(p[0]),ab:tones[i%5][0],af:tones[i%5][1],tick:LK[st][1],tc:LK[st][2],lc:st==='fail'?'var(--bad)':'var(--mut)',when:st==='fail'?(i%2?'Phone off 24 h':'Not on WhatsApp'):(st==='sent'?'Waiting':tm)};});
+const rf=allRows.filter(r=>s.rf==='all'||r.st===s.rf).map((r,i)=>Object.assign(r,{delay:delay(i)}));
+const rcount={all:X.n,read:X.read,del:X.del-X.read,fail:XS.failed,sent:XS.pend};
+const rchips=[['all','All',''],['read','Read','read'],['del','Not read','del'],['fail','Not delivered','fail'],['sent','Waiting','sent']].filter(r=>r[0]==='all'||rcount[r[0]]>0)
+.map(r=>opt(s.rf===r[0],{label:r[1],n:nf(rcount[r[0]]),icon:r[2]?LK[r[2]][1]:IC.users,ic:r[2]?LK[r[2]][2]:'var(--mut)',pick:()=>this.setState({rf:r[0]})}));
+const notes=[];
+if(s.resent[X.id])notes.push({t:'Resent to '+s.resent[X.id]+' · waiting for delivery'});
+if(s.reminded[X.id])notes.push({t:'Reminder sent to '+nf(XS.notRead)+' just now'});
+const dt={
+title:X.title,type:X.type,icon:IC[XT[0]],s:XT[1],f:XT[2],when:xsched?'Scheduled · '+X.when:X.when,audL:X.aud+' · '+nf(X.n)+' people',
+cost:xsched?'about '+cost(X.n)+' when sent':cost(X.n)+' · ₹0.88 each',
+b:{hasHi:!!X.hi,hi:this.fill(X.hi||'प्रिय अभिभावक, विद्यालय की सूचना: “'+X.title+'”।',sample),en:this.fill(X.en||'Dear parent, a notice from school: “'+X.title+'”.',sample),att:!!X.att,attN:X.att,time:X.when.split(', ')[1]||'now'},
+funnel,notes,rchips,rows:rf,showL:xsched?'Not sent yet':'Showing '+rf.length+' of '+nf(rcount[s.rf]||0),
+canResend:XS.failed>0&&!s.resent[X.id],resendL:'Resend to '+XS.failed+' not delivered',resend:()=>this.openSheet('resend',{skip:true}),
+canRemind:XS.notRead>0&&!s.reminded[X.id],remindL:'Remind '+nf(XS.notRead)+' who did not read',remind:()=>this.openSheet('remind')
+};
+// ----- compose form -----
+const setC=p=>this.setState({c:Object.assign({},this.st().c,p),cErr:false});
+const cur=()=>this.st().c;
+const missing=!c.title.trim()?'Add a title.':((showHi&&!c.hi.trim())?'Write the Hindi message — parents read it first.':((showEn&&!c.en.trim())?'Write the English message.':''));
+const ins=v=>()=>{const k=cur();const f=k.last==='en'&&k.lang!=='hi'?'en':(k.lang==='en'?'en':'hi');const o={};o[f]=(k[f]||'')+(k[f]&&!/\s$/.test(k[f])?' ':'')+v;setC(o);};
+const langs=[['both','हिंदी + English'],['hi','हिंदी'],['en','English']],li=Math.max(0,langs.map(l=>l[0]).indexOf(c.lang));
+const cf={
+auds:[['school','Whole school','434 parents','home'],['classes','Classes','Pick classes','grad'],['staff','Staff','38 people','briefcase'],['custom','Saved list','Route, team, dues','list']].map(a=>radio(c.aud===a[0],{label:a[1],sub:a[2],icon:IC[a[3]],pick:()=>setC({aud:a[0]})})),
+showCls:c.aud==='classes',showLists:c.aud==='custom',
+clsChips:D.CLS.map((k,i)=>opt(c.cls.indexOf(i)>=0,{label:k[0],pick:()=>{const l=cur().cls;setC({cls:l.indexOf(i)>=0?l.filter(x=>x!==i):l.concat([i]).sort((a,b)=>a-b)});}})),
+lists:D.LISTS.map(l=>opt(c.list===l[0],{label:l[1],n:String(l[2]),pick:()=>setC({list:l[0]})})),
+countL:nf(audN)+' '+audW+' · '+audLabel,costL:'about '+cost(audN),
+lthumb:(li*100)+'%',langs:langs.map(l=>segO(c.lang===l[0],{label:l[1],pick:()=>setC({lang:l[0]})})),langErr,
+title:c.title,onTitle:e=>setC({title:e.target.value}),tCls:s.cErr&&!c.title.trim()?'err':'',
+showHi,hi:c.hi,onHi:e=>setC({hi:e.target.value,last:'hi'}),hCls:s.cErr&&showHi&&!c.hi.trim()?'err':'',hiN:c.hi.length+' / 1024',
+showEn,en:c.en,onEn:e=>setC({en:e.target.value,last:'en'}),eCls:s.cErr&&showEn&&!c.en.trim()?'err':'',enN:c.en.length+' / 1024',
+err:!!(s.cErr&&(missing||langErr)),errL:langErr?'Pick हिंदी + English for parents.':missing,
+vars:['{parent}','{student}','{class}','{date}'].map(v=>({label:v,pick:ins(v)})),
+atts:[['pdf','Attach PDF','Datesheet UT-2.pdf','file'],['img','Attach image','Notice photo.jpg','image']].map(a=>opt(c.att===a[0],{label:c.att===a[0]?a[2]+'  ✕':a[1],icon:IC[a[3]],pick:()=>setC({att:cur().att===a[0]?'':a[0]})})),
+wthumb:c.when==='now'?'0%':'100%',whens:[['now','Send now'],['later','Schedule']].map(w=>segO(c.when===w[0],{label:w[1],pick:()=>setC({when:w[0]})})),sched:c.when!=='now',
+days:['Fri 9 Oct','Sat 10 Oct','Mon 12 Oct'].map(d=>opt(c.day===d,{label:d,pick:()=>setC({day:d})})),
+times:['8:00 am','10:00 am','4:00 pm','7:00 pm'].map(t=>opt(c.time===t,{label:t,pick:()=>setC({time:t})})),
+next:()=>{if(missing||langErr){this.setState({cErr:true});this.toast(langErr?'Parents get Hindi first — pick हिंदी + English':missing);return;}this.go('preview','push');}
+};
+const smp=isStaff?{p:'Ms. Dave',s:'',c:''}:{p:'Rakesh Sharma',s:'Aarav',c:'Class 7'};
+const pv={
+colCls:s.screen==='compose'?'only-d':'',ord:s.screen==='preview'?'-1':'0',head:s.screen==='compose'?'Live preview':'What '+audW+' will see',
+title:c.title||'Title',hasHi:showHi,hi:this.fill(c.hi||'हिंदी संदेश यहाँ दिखेगा',smp),hasEn:showEn,en:this.fill(c.en||'English message shows here',smp),
+att:!!c.att,attN:c.att==='pdf'?'Datesheet UT-2.pdf · PDF':'Notice photo.jpg',attIc:c.att==='img'?IC.image:IC.file,time:c.when==='now'?'10:42 am':c.time,
+note:'Shown as '+smp.p+' sees it. Every '+(isStaff?'person':'parent')+' gets their own name.',
+sum:[['users','Who',nf(audN)+' '+audW+' · '+audLabel],['globe','Language',langs[li][1]],['file','Template',tplName+' · approved'],['clock','When',whenL],['rupee','Cost','about '+cost(audN)+' (₹0.88 each)'],['database','Balance after','₹'+nf(s.bal-Math.round(audN*0.88))]].map(x=>({icon:IC[x[0]],k:x[1],v:x[2]})),
+goL:(c.when==='now'?'Send to ':'Schedule for ')+nf(audN)+' · '+cost(audN),go:()=>this.openSheet('send')
+};
+// ----- sending / sent -----
+const sentN=Math.round(audN*s.prog/100);
+const sg={off:(439.8*(1-s.prog/100)).toFixed(1),pct:s.prog+'%',line:s.stopped?'Stopped':'Sending through AiSensy',
+cnt:[['Sent of '+nf(audN),nf(sentN),'var(--fg)'],['Delivered',nf(Math.round(sentN*0.9)),'var(--ok)'],['Failed',String(Math.min(3,Math.floor(sentN/120))),'var(--bad)']].map(x=>({k:x[0],v:x[1],c:x[2]})),
+stop:()=>{const p=this.st().prog;clearTimeout(this._pt);this.setState({stopped:true});this.go('list','pop');this.toast('Stopped · '+nf(Math.round(audN*p/100))+' sent, '+nf(audN-Math.round(audN*p/100))+' not sent');}};
+const sd={head:(isStaff?'Sent to ':'Notice sent to ')+nf(audN)+' '+audW,line:(c.title||'Notice')+' · '+audLabel,
+rows:[['Delivered so far',nf(Math.round(audN*0.93))],['Cost',cost(audN)],['AiSensy balance','₹'+nf(s.bal-Math.round(audN*0.88))]].map(x=>({k:x[0],v:x[1]})),
+track:()=>this.go('detail','push',{msg:'new',newMsg:1,rf:'all'})};
+// ----- sheets -----
+const state=s.closing?'closing':'open';
+const sw0={on:'false',cls:'',label:'',sub:'',toggle:()=>{}};
+let sh={head:'',line:'',hasWarn:false,warn:'',hasSw:false,sw:sw0,sum:[],hasBub:false,b:{hasHi:false,hi:'',en:''},countL:'',costL:'',noL:'Not now',btn:'pri',icon:IC.send,confirmL:'',confirm:()=>this.closeSheet()};
+if(s.sheet==='send'){
+sh=Object.assign(sh,{head:(c.when==='now'?'Send now to ':'Schedule for ')+nf(audN)+' '+audW+'?',line:c.title||'Notice',
+sum:[['Hindi first, English below',showHi?'Yes':'English only'],['Template',tplName],['When',whenL],['Balance after','₹'+nf(s.bal-Math.round(audN*0.88))]].map(x=>({k:x[0],v:x[1]})),
+hasWarn:true,warn:c.when==='now'?'A WhatsApp cannot be taken back once delivered. You can stop it while sending.':'It goes out on '+whenL+'. You can cancel it before then.',
+countL:nf(audN)+' '+audW+' × ₹0.88',costL:'about '+cost(audN),noL:'Go back',confirmL:(c.when==='now'?'Send to ':'Schedule for ')+nf(audN),
+confirm:()=>{this.closeSheet();if(c.when==='now'){this.go('sending','push',{prog:0,stopped:false});this.tick();}else{this.go('list','pop');this.toast('Scheduled for '+whenL+' · '+nf(audN)+' '+audW,()=>{});}}});
+}else if(s.sheet==='resend'){
+const notWA=Math.ceil(XS.failed/2),n2=s.skip?XS.failed-notWA:XS.failed;
+sh=Object.assign(sh,{head:'Resend to '+XS.failed+' not delivered?',line:X.title,hasWarn:true,warn:notWA+' numbers are not on WhatsApp, so they will fail again. The office can call them instead.',
+hasSw:true,sw:{on:s.skip?'true':'false',cls:s.skip?'on':'',label:'Skip the '+notWA+' not on WhatsApp',sub:'Their list goes to Office desk to call',toggle:()=>this.setState({skip:!this.st().skip})},
+countL:n2+' '+(xStaff?'staff':'parents')+' × ₹0.88',costL:'about '+cost(n2),confirmL:'Resend to '+n2,icon:IC.refresh,
+confirm:()=>{const prev=this.st().resent,r=Object.assign({},prev);r[X.id]=n2;this.setState({resent:r});this.closeSheet();this.toast('Resending to '+n2+' · '+cost(n2),()=>this.setState({resent:prev}));}});
+}else if(s.sheet==='remind'){
+sh=Object.assign(sh,{head:'Remind '+nf(XS.notRead)+' who did not read?',line:X.title,hasBub:true,
+b:{hasHi:!!X.hi||!xStaff,hi:'स्मरण: '+this.fill(X.hi||'विद्यालय की सूचना “'+X.title+'” देखें।',sample),en:'Reminder: '+this.fill(X.en||'Please see the school notice “'+X.title+'”.',sample)},
+sum:[['Only people who got it but did not open it',nf(XS.notRead)]].map(x=>({k:x[0],v:x[1]})),
+countL:nf(XS.notRead)+' × ₹0.88',costL:'about '+cost(XS.notRead),confirmL:'Send reminder · '+cost(XS.notRead),icon:IC.bell,
+confirm:()=>{const prev=this.st().reminded,r=Object.assign({},prev);r[X.id]=1;this.setState({reminded:r});this.closeSheet();this.toast('Reminder sent to '+nf(XS.notRead)+' · '+cost(XS.notRead),()=>this.setState({reminded:prev}));}});
+}
+sh.open=!!s.sheet&&s.sheet!=='tpl';sh.state=state;
+// ----- templates -----
+const allT=D.T.concat(s.tAdded);
+const TS={ok:['Approved','var(--oks)','var(--ok)'],wait:['Waiting for approval','var(--warns)','var(--warnfg)'],bad:['Rejected','var(--bads)','var(--bad)']};
+const why='Looks like marketing: it offers a prize. Remove the prize line or choose Marketing.';
+const TP=allT.filter(t=>t[0]===s.tpl)[0]||allT[0];
+const tp={
+listCls:s.tplOpen?'hide-m':'',panelCls:s.tplOpen?'':'hide-m',
+rows:allT.map((t,i)=>({label:t[2],name:t[1],cat:t[3],lang:t[4],st:TS[t[5]][0],sb:TS[t[5]][1],sf:TS[t[5]][2],hasWhy:t[5]==='bad',why,sel:t[0]===TP[0]?'sel':'',bd:i===0?'0':'1px solid var(--bd)',delay:delay(i),anim:t[10]?'xPopIn .5s var(--spring) both':'none',
+open:()=>this.setState({tpl:t[0],tplOpen:true,anim:'push'})})),
+p:{label:TP[2],name:TP[1],cat:TP[3],lang:TP[4],st:TS[TP[5]][0],sb:TS[TP[5]][1],sf:TS[TP[5]][2],hasWhy:TP[5]==='bad',why,hasHi:!!TP[8],hi:TP[8],hasEn:!!TP[9],en:TP[9],ok:TP[5]==='ok',bad:TP[5]==='bad',wait:TP[5]==='wait',
+facts:[['Used',TP[6]?TP[6]+' times':'Not yet'],['Last used',TP[7]||'—'],['Cost','₹0.88 a message']].map(x=>({k:x[0],v:x[1]}))},
+use:()=>this.go('compose','push',{c:Object.assign(this.cDef(),{aud:TP[1]==='staff_notice'?'staff':'school',lang:TP[8]?'both':'en',title:TP[2],hi:TP[8].replace('{notice}',''),en:TP[9].replace('{notice}','')})}),
+fix:()=>this.openSheet('tpl',{tf:{name:TP[2],cat:'Utility',hi:TP[8].replace(' सबसे अच्छी फ़ोटो पर इनाम!',''),en:TP[9].replace(' Prize for the best photo!',''),last:'hi',sv:{}},tfErr:false,tfDone:false}),
+add:()=>this.openSheet('tpl',{tf:null,tfErr:false,tfDone:false})
+};
+const tf=s.tf||{name:'',cat:'Utility',hi:'',en:'',last:'hi',sv:{}};
+const setT=p=>this.setState({tf:Object.assign({},this.st().tf||tf,p),tfErr:false});
+const slug=(tf.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'template_name';
+const used=[];((tf.hi||'')+' '+(tf.en||'')).replace(/\{(\w+)\}/g,(a,v)=>{if(used.indexOf(v)<0)used.push(v);return a;});
+const SV={parent:'Rakesh Sharma',student:'Aarav',class:'Class 7',date:'Mon 7 Dec',amount:'₹5,200'};
+const tErr=!tf.name.trim()?'Give it a name.':(!tf.hi.trim()?'Write the Hindi text — parents read it first.':(!tf.en.trim()?'Write the English text.':''));
+const tn={
+open:s.sheet==='tpl',state,form:!s.tfDone,done:!!s.tfDone,head:s.tf&&s.tf.name?'Fix template':'New template',slug,
+name:tf.name,onName:e=>setT({name:e.target.value}),nCls:s.tfErr&&!tf.name.trim()?'err':'',
+cats:[['Utility','Holidays, fees, results, PTMs. Approved faster — usually within an hour.'],['Marketing','Greetings and admissions. Slower to approve.']].map(k=>radio(tf.cat===k[0],{label:k[0],sub:k[1],pick:()=>setT({cat:k[0]})})),
+hi:tf.hi,onHi:e=>setT({hi:e.target.value,last:'hi'}),hCls:s.tfErr&&!tf.hi.trim()?'err':'',
+en:tf.en,onEn:e=>setT({en:e.target.value,last:'en'}),eCls:s.tfErr&&!tf.en.trim()?'err':'',
+vars:['{parent}','{student}','{class}','{date}','{amount}'].map(v=>({label:v,pick:()=>{const k=this.st().tf||tf,f=k.last==='en'?'en':'hi',o={};o[f]=(k[f]||'')+(k[f]?' ':'')+v;setT(o);}})),
+hasSamples:used.length>0,samples:used.map(v=>({k:'{'+v+'}',v:(tf.sv||{})[v]||SV[v]||'',on:e=>{const sv=Object.assign({},(this.st().tf||tf).sv);sv[v]=e.target.value;setT({sv});}})),
+err:!!(s.tfErr&&tErr),errL:tErr,
+tips:['Utility messages are approved faster.','No prizes, offers or discounts in Utility.','Hindi first, English below.','Do not start or end with a {blank}.'].map(t=>({t})),
+doneL:'“'+slug+'” is with WhatsApp now. It shows here as Waiting for approval — utility ones are usually approved within an hour.',
+submit:()=>{
+if(tErr){this.setState({tfErr:true});this.toast(tErr);return;}
+const id='tn'+(s.tAdded.length+1);
+this.setState({tAdded:s.tAdded.concat([[id,slug,tf.name.trim(),tf.cat,'Hindi + English','wait',0,'',tf.hi,tf.en,1]]),tfDone:true,tpl:id});
+}
+};
+// ----- replies -----
+const rows=D.R.map(r=>({id:r[0],name:r[1],child:r[2],text:r[3],time:r[4],re:(D.M.filter(m=>m.id===r[5])[0]||D.M[1]),as:s.assign[r[0]]!==undefined?s.assign[r[0]]:r[6],ph:r[7],done:s.done[r[0]]!==undefined?s.done[r[0]]:!!r[8]}));
+const open=rows.filter(r=>!r.done);
+const fl={open:r=>!r.done,un:r=>!r.done&&!r.as,done:r=>r.done};
+const vis=rows.filter(fl[s.rfil]||fl.open);
+const P=rows.filter(r=>r.id===s.rsel)[0]||vis[0]||rows[0];
+const asLook=a=>(a?['var(--accs)','var(--accfg)',a]:['var(--warns)','var(--warnfg)','Not assigned']);
+const markDone=r=>()=>{
+const L0=this.cp('leaving');L0[r.id]=1;this.setState({leaving:L0,menu:false});
+this._lt=this._lt||{};clearTimeout(this._lt[r.id]);
+this._lt[r.id]=setTimeout(()=>{const d=this.cp('done'),L1=this.cp('leaving');d[r.id]=true;delete L1[r.id];const nx=open.filter(o=>o.id!==r.id)[0];this.setState({done:d,leaving:L1,rsel:nx?nx.id:this.st().rsel,rOpen:false});},420);
+this.toast('Marked done · '+r.name,()=>{clearTimeout(this._lt[r.id]);const d=this.cp('done'),L2=this.cp('leaving');d[r.id]=false;delete L2[r.id];this.setState({done:d,leaving:L2,rsel:r.id});});
+};
+const draft=s.drafts[P.id]||'';
+const QR=['धन्यवाद, आपका संदेश मिल गया। · Thank you, we got your message.','कक्षा अध्यापक आपको कॉल करेंगे। · The class teacher will call you.','ठीक है, आपका समय नोट कर लिया है। · Okay, we have noted your time.','कृपया कार्यालय में 9 से 2 बजे के बीच आएँ। · Please visit the office between 9 am and 2 pm.'];
+const rp={
+listCls:s.rOpen?'hide-m':'',panelCls:s.rOpen?'':'hide-m',has:!!P,menu:!!s.menu,
+chips:[['open','Open',open.length],['un','Not assigned',open.filter(r=>!r.as).length],['done','Done',rows.filter(r=>r.done).length]].map(k=>opt(s.rfil===k[0],{label:k[1],n:String(k[2]),pick:()=>this.setState({rfil:k[0]})})),
+rows:vis.map((r,i)=>{const a=asLook(r.as);return{name:r.name,child:r.child,text:r.text,time:r.time,re:r.re.title,as:a[2],asB:a[0],asF:a[1],ini:ini(r.name),ab:tones[i%5][0],af:tones[i%5][1],bd:i===0?'0':'1px solid var(--bd)',sel:r.id===P.id?'sel':'',delay:delay(i),
+anim:s.leaving[r.id]?'xLeave .45s var(--ease) forwards':'xIn .32s var(--ease) both',open:()=>this.setState({rsel:r.id,rOpen:true,menu:false,anim:'push'}),done:markDone(r)};}),
+empty:vis.length===0,
+p:(()=>{const a=asLook(P.as);return{name:P.name,child:P.child,ph:P.ph,ini:ini(P.name),ab:'var(--accs)',af:'var(--accfg)',as:a[2],asB:a[0],asF:a[1],text:P.text,time:P.time,re:P.re.title,reHi:(P.re.hi||P.re.en).slice(0,110)+'…',reWhen:P.re.when.split(', ')[1]||'',out:(s.outs[P.id]||[]).map(t=>({t}))};})(),
+toggleMenu:()=>this.setState({menu:!this.st().menu}),
+who:['','Ms. Dave','Mr. Solanki','Office desk','Ms. Neelam Sharma'].map(w=>({label:w||'Not assigned',op:(P.as||'')===w?'1':'0',pick:()=>{const prev=this.st().assign,a=Object.assign({},prev);a[P.id]=w;this.setState({assign:a,menu:false});this.toast(w?'Assigned to '+w:'Unassigned',()=>this.setState({assign:prev}));}})),
+quick:QR.map(t=>({t,pick:()=>{const d=this.cp('drafts');d[P.id]=t;this.setState({drafts:d});}})),
+draft,onDraft:e=>{const d=this.cp('drafts');d[P.id]=e.target.value;this.setState({drafts:d});},sendOp:draft.trim()?'1':'0.5',
+send:()=>{const t=((this.st().drafts||{})[P.id]||'').trim();if(!t){this.toast('Pick a quick reply or type one first');return;}const o=this.cp('outs'),d=this.cp('drafts');o[P.id]=(o[P.id]||[]).concat([t]);d[P.id]='';this.setState({outs:o,drafts:d});this.toast('Reply sent to '+P.name+' · free');},
+doneP:markDone(P)
+};
+// ----- chrome -----
+const sc=s.screen,top3=['list','replies','templates'],isTop=top3.indexOf(sc)>=0;
+const ti=Math.max(0,top3.indexOf(sc));
+const tabs={thumb:(ti*100)+'%',mShow:isTop&&!((sc==='templates'&&s.tplOpen)||(sc==='replies'&&s.rOpen)),
+opts:[['list','Sent'],['replies','Replies · '+open.length],['templates','Templates']].map((t,i)=>segO(sc===t[0],{label:t[1],pick:()=>{if(this.st().screen!==t[0])this.go(t[0],i>ti?'push':'pop',{tplOpen:false,rOpen:false});}}))};
+const inner=(sc==='templates'&&s.tplOpen)||(sc==='replies'&&s.rOpen);
+const T2={
+list:['Messages','Messages','WhatsApp through AiSensy'],replies:['Messages',inner?P.name:'Parent replies',inner?P.child:open.length+' waiting'],templates:['Messages',inner?TP[2]:'Templates',inner?TS[TP[5]][0]:'AiSensy · WhatsApp approval'],
+detail:[X.title,X.title,X.when],compose:['New notice','New notice',nf(audN)+' '+audW+' · '+cost(audN)],preview:['Preview and send','Preview','Check, then send'],
+sending:['Sending','Sending',s.prog+'% done'],sent:['Sent','Sent',nf(audN)+' '+audW]
+}[sc]||['Messages','Messages',''];
+const top={crumb:isTop?'System · WhatsApp (AiSensy)':'Messages',title:T2[0],mTitle:T2[1],mSub:T2[2],mLink:isTop&&!inner,mBtn:!isTop||inner,backL:{detail:'Back to messages',compose:'Back',preview:'Back to edit'}[sc]||'Back to messages'};
+return{
+ic:IC,dark:!!this.props.dark,theme:this.props.dark?'dark':'',
+is:{top:isTop,sub:!isTop,cp:sc==='compose'||sc==='preview',list:sc==='list',detail:sc==='detail',compose:sc==='compose',preview:sc==='preview',sending:sc==='sending',sent:sc==='sent',templates:sc==='templates',replies:sc==='replies'},
+anim:{push:'xPush .36s var(--ease) both',pop:'xPop .32s var(--ease) both'}[s.anim]||'none',top,tabs,
+back:()=>{const st0=this.st();if(st0.screen==='templates'&&st0.tplOpen)this.setState({tplOpen:false,anim:'pop'});else if(st0.screen==='replies'&&st0.rOpen)this.setState({rOpen:false,anim:'pop'});else this.go({preview:'compose'}[st0.screen]||'list','pop');},
+newNotice:()=>this.go('compose','push',{c:this.cDef(),cErr:false}),goList:()=>this.go('list','pop'),
+kpis,sparkPts:'0,18 9,15 18,16 27,11 36,12 45,8 54,9 63,5',topUp:()=>this.toast('Opening the AiSensy wallet · balance ₹'+nf(s.bal)+' · pay by school UPI'),
+fchips,groups,empty:groups.length===0,q:s.q,onQ:e=>this.setState({q:e.target.value}),clearF:()=>this.setState({ft:'all',q:''}),
+dt,cf,pv,sg,sd,sh,tp,tn,rp,closeSheet:()=>this.closeSheet(),
+toast:{show:!!s.toast,text:s.toast?s.toast.text:'',undo:!!(s.toast&&s.toast.undo)},undoToast:()=>this.undoToast()
+};
+}
+}
+</script>
+</body>
+</html>
