@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { Ic } from "@/vx/icons";
 import { Bi, useVx } from "@/vx/i18n";
-import { ago, dayMonth, initials, shortDay } from "@/vx/format";
+import { agoP, dayMonth, initials, shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Field, Input, Seg, Select, SwitchRow, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
@@ -101,7 +101,7 @@ export function NoteCard({ note, today, href, selected, showChild = true }: { no
           {showChild ? <strong className="clip">{note.studentName}</strong> : null}
           <span style={{ fontSize: 12, color: "var(--mut)" }}>
             {showChild ? `${note.classLabel} · ` : ""}
-            {note.writtenByName} · {ago(note.createdAt)}
+            {note.writtenByName} · {tx(agoP(note.createdAt))}
           </span>
         </span>
         <StatusPill status={note.status} />
@@ -563,7 +563,7 @@ export function NoteDetail({
           <div className="n-tlItem">
             <span className="n-tlDot" />
             <span>
-              <strong style={{ fontSize: 14 }}>{note.writtenByName}</strong> <span style={{ fontSize: 12, color: "var(--mut)" }}>{ago(note.createdAt)}</span>
+              <strong style={{ fontSize: 14 }}>{note.writtenByName}</strong> <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(agoP(note.createdAt))}</span>
               <div style={{ fontSize: 14 }}>{tx(p("Wrote the note", "नोट लिखा"))}</div>
             </span>
           </div>
@@ -571,7 +571,7 @@ export function NoteDetail({
             <div key={r.id} className="n-tlItem">
               <span className="n-tlDot" style={r.source === "system" ? { background: "var(--s3)", borderColor: "var(--bds)" } : undefined} />
               <span>
-                <strong style={{ fontSize: 14 }}>{r.writtenByName}</strong> <span style={{ fontSize: 12, color: "var(--mut)" }}>{ago(r.createdAt)}</span>
+                <strong style={{ fontSize: 14 }}>{r.writtenByName}</strong> <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(agoP(r.createdAt))}</span>
                 <div style={{ fontSize: 14, color: r.source === "system" ? "var(--mut)" : undefined, whiteSpace: "pre-wrap" }}>{r.body}</div>
               </span>
             </div>

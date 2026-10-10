@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
-import { ago } from "@/vx/format";
+import { agoP } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Field, Input, Seg, Select, SwitchRow } from "@/vx/ui/controls";
 import { Confirm, Sheet, useToast } from "@/vx/ui/overlays";
@@ -355,7 +355,7 @@ function ExamList(props: ExamsProps & { href: Href }) {
             <div key={a.id} style={{ display: "flex", gap: 10, fontSize: 13 }}>
               <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--acc)", marginTop: 6, flex: "none" }} />
               <span style={{ flex: 1 }}>{tx(a.text)}</span>
-              <span style={{ color: "var(--mut)", whiteSpace: "nowrap" }}>{ago(a.at)}</span>
+              <span style={{ color: "var(--mut)", whiteSpace: "nowrap" }}>{tx(agoP(a.at))}</span>
             </div>
           ))}
         </Card>
@@ -562,10 +562,10 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
         {props.manage ? (
           <div style={{ display: "flex", flexDirection: "column", fontSize: 13 }}>
             <Line k={p("Phone", "फ़ोन")} v={cell.phoneMasked || "—"} />
-            <Line k={p("Reminded", "याद दिलाया")} v={cell.remindedAt ? ago(cell.remindedAt) : "—"} />
+            <Line k={p("Reminded", "याद दिलाया")} v={cell.remindedAt ? tx(agoP(cell.remindedAt)) : "—"} />
             <Line
               k={p("Sampark link", "संपर्क लिंक")}
-              v={cell.link ? `${tx(p("Active", "चालू"))}${cell.link.openedAt ? ` · ${tx(p("opened", "खोला"))} ${ago(cell.link.openedAt)}` : ` · ${tx(p("not opened", "नहीं खोला"))}`}` : tx(p("None yet", "अभी नहीं"))}
+              v={cell.link ? `${tx(p("Active", "चालू"))}${cell.link.openedAt ? ` · ${tx(p("opened", "खोला"))} ${tx(agoP(cell.link.openedAt))}` : ` · ${tx(p("not opened", "नहीं खोला"))}`}` : tx(p("None yet", "अभी नहीं"))}
               tone={cell.link ? "var(--ok)" : undefined}
             />
           </div>
@@ -607,7 +607,7 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
           <div key={i} style={{ display: "flex", gap: 10, fontSize: 13, alignItems: "baseline" }}>
             <span style={{ width: 8, height: 8, borderRadius: 4, background: h.tone, flex: "none" }} />
             <span style={{ flex: 1 }}>{tx(h.text)}</span>
-            <span style={{ color: "var(--mut)", whiteSpace: "nowrap" }}>{ago(h.at)}</span>
+            <span style={{ color: "var(--mut)", whiteSpace: "nowrap" }}>{tx(agoP(h.at))}</span>
           </div>
         ))}
       </Card>
@@ -675,7 +675,7 @@ function Sampark(props: ExamsProps) {
               </div>
             </div>
             <Pill tone={t.link ? (t.link.openedAt ? "ok" : "info") : "mut"}>
-              {t.link ? (t.link.openedAt ? `${tx(p("Opened", "खोला"))} ${ago(t.link.openedAt)}` : tx(p("Not opened yet", "अभी नहीं खोला"))) : tx(p("No link", "लिंक नहीं"))}
+              {t.link ? (t.link.openedAt ? `${tx(p("Opened", "खोला"))} ${tx(agoP(t.link.openedAt))}` : tx(p("Not opened yet", "अभी नहीं खोला"))) : tx(p("No link", "लिंक नहीं"))}
             </Pill>
           </div>
           <Progress value={t.entered} max={Math.max(1, t.total)} tone={t.late ? "var(--bad)" : "var(--ok)"} />

@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
-import { ago, initials } from "@/vx/format";
+import { agoP, initials } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Seg } from "@/vx/ui/controls";
 import { HelpButton, useToast } from "@/vx/ui/overlays";
@@ -654,7 +654,7 @@ function HomeBody({
             <div key={a.id} style={{ display: "flex", gap: 10, fontSize: 13 }}>
               <span style={{ width: 9, height: 9, borderRadius: 5, marginTop: 5, flex: "none", background: a.kind === "locked" ? "var(--ok)" : a.kind === "reminded" ? "var(--warn)" : a.kind === "submitted" ? "var(--acc)" : "var(--info)" }} />
               <span style={{ flex: 1 }}>{tx(a.text)}</span>
-              <span style={{ color: "var(--mut)", whiteSpace: "nowrap" }}>{ago(a.at)}</span>
+              <span style={{ color: "var(--mut)", whiteSpace: "nowrap" }}>{tx(agoP(a.at))}</span>
             </div>
           ))}
         </Card>

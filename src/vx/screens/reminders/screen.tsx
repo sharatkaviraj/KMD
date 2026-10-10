@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { cancelBatchAction, saveRuleAction } from "@/app/(app)/reminders/actions";
 import { addDays } from "@/modules/receipts/vx/domain/day-close";
 import { funnelRates, messageCost, SEND_TIMES, TEMPLATE_IDS, TEMPLATES, type SendTime, type TemplateId } from "@/modules/whatsapp/vx/domain/reminders";
-import { ago, dayMonth, pct, rupees, shortDay } from "@/vx/format";
+import { agoP, dayMonth, pct, rupees, shortDay } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import type { IconName } from "@/vx/icons";
 import { Chip, ChipRow, RadioCard, Switch, SwitchRow } from "@/vx/ui/controls";
@@ -268,7 +268,7 @@ export function RemindersScreen(props: RemindersProps) {
                   href={`/reminders?view=sending&batch=${b.id}`}
                   lead={<IconTile icon="inbox" tone={b.status === "cancelled" ? "mut" : "acc"} size={38} />}
                   title={b.name}
-                  sub={`${b.familyCount} ${tx(W.families)} · ${rupees(b.costEstimate)} · ${b.createdByName ?? ""} · ${ago(b.createdAt)}`}
+                  sub={`${b.familyCount} ${tx(W.families)} · ${rupees(b.costEstimate)} · ${b.createdByName ?? ""} · ${tx(agoP(b.createdAt))}`}
                   trail={<Pill tone={b.status === "cancelled" ? "mut" : b.status === "scheduled" ? "info" : "warn"}>{tx(b.status === "cancelled" ? W.cancelled : b.status === "scheduled" ? W.scheduled : W.tQueued)}</Pill>}
                 />
               ))}

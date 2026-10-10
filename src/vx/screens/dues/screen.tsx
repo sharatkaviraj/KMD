@@ -11,7 +11,7 @@ import {
   type ClassBand,
   type DuesFamily,
 } from "@/modules/defaulters/vx/domain/families";
-import { ago, dayMonth, initials, rupees, rupeesShort } from "@/vx/format";
+import { agoP, dayMonth, initials, rupees, rupeesShort } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import { Chip, ChipRow, SearchBox, Seg } from "@/vx/ui/controls";
 import { Banner, DataList, Grid, Section, Split, TopBar, VxPage, type Column } from "@/vx/ui/page";
@@ -107,7 +107,7 @@ export function DuesScreen(props: DuesProps) {
       cell: (f) =>
         f.lastContact?.lastContactedAt ? (
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <span>{ago(f.lastContact.lastContactedAt)}</span>
+            <span>{tx(agoP(f.lastContact.lastContactedAt))}</span>
             {f.lastContact.lastOutcome ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(LOG_OUTCOME_WORD[f.lastContact.lastOutcome] ?? W.never)}</span> : null}
           </span>
         ) : (

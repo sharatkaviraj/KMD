@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { ago, dateLabel, longDay, shortDay } from "@/vx/format";
+import { agoP, dateLabel, longDay, shortDay } from "@/vx/format";
 import { Ic } from "@/vx/icons";
 import { HelpButton } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -212,7 +212,7 @@ export async function SchoolCalendar(props: Props) {
                 <div key={n.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : undefined }}>
                   <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <Pill tone={s.tone}>{s.text}</Pill>
-                    <span style={{ fontSize: 13, color: "var(--mut)" }}>{n.by} · {ago(n.requestedAt)}</span>
+                    <span style={{ fontSize: 13, color: "var(--mut)" }}>{n.by} · {say(agoP(n.requestedAt).en, agoP(n.requestedAt).hi)}</span>
                   </span>
                   <span style={{ fontSize: 14 }}>{say(n.textEn, n.textHi)}</span>
                 </div>

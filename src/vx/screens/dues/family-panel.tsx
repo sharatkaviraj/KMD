@@ -7,7 +7,7 @@ import { activatePlanAction, logCallAction, previewPlanAction, queueFamilyRemind
 import { CALL_OUTCOMES, type CallOutcome, type DuesFamily } from "@/modules/defaulters/vx/domain/families";
 import { addDays } from "@/modules/receipts/vx/domain/day-close";
 import { renderMessage } from "@/modules/whatsapp/vx/domain/reminders";
-import { ago, dateLabel, dayMonth, initials, rupees, shortDay } from "@/vx/format";
+import { agoP, dateLabel, dayMonth, initials, rupees, shortDay } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import { Chip, ChipRow, DateChips, Field, Input, RadioCard, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
@@ -235,7 +235,7 @@ export function FamilyPanel(props: Props) {
                   </span>
                   <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{nameOf(c.studentId)}{c.note ? ` · ${c.note}` : ""}</span>
                 </span>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{ago(c.at)}</span>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(agoP(c.at))}</span>
               </div>
             ))
           )}

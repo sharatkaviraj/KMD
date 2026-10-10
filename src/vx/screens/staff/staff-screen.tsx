@@ -14,7 +14,7 @@ import {
   setLoginActiveAction,
   type StaffActionResult,
 } from "@/app/(app)/staff/vx-actions";
-import { ago, dateLabel, initials, shortDay } from "@/vx/format";
+import { agoP, dateLabel, initials, shortDay } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
@@ -170,7 +170,7 @@ export function StaffScreen({
           <span style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-start" }}>
             <Pill tone={tone}>{tx(LOGIN_LABELS[state])}</Pill>
             <span style={{ fontSize: 12, color: "var(--mut)" }}>
-              {state === "active" && r.lastSignInAt ? `Last seen ${ago(r.lastSignInAt)}` : state === "never" ? "Sent, not used yet" : state === "none" ? "Create one when needed" : "Records are kept"}
+              {state === "active" && r.lastSignInAt ? `Last seen ${tx(agoP(r.lastSignInAt))}` : state === "never" ? "Sent, not used yet" : state === "none" ? "Create one when needed" : "Records are kept"}
             </span>
           </span>
         );
@@ -461,7 +461,7 @@ function ProfilePanel({
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: "var(--mut)" }}>Last sign-in</span>
-            <span style={{ fontWeight: 600 }}>{row.lastSignInAt ? ago(row.lastSignInAt) : "Never"}</span>
+            <span style={{ fontWeight: 600 }}>{row.lastSignInAt ? tx(agoP(row.lastSignInAt)) : "Never"}</span>
           </div>
         </div>
         {isAdmin ? (

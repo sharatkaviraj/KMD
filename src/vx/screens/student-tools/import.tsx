@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { approveSafeRowsAction, checkImportAction, commitImportAction, uploadImportAction } from "@/app/(app)/student-tools/actions";
-import { ago } from "@/vx/format";
+import { agoP } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
 import { Seg, Select, WizardSteps } from "@/vx/ui/controls";
@@ -104,7 +104,7 @@ function Upload({ sessionLabel, recent }: ImportProps) {
           {recent.map((r) => (
             <a key={r.id} href={`/student-tools?view=${r.status === "completed" ? "imported" : r.status === "uploaded" ? "mapping" : "validate"}&batch=${r.id}`} className="tap" style={{ display: "flex", gap: 10, padding: "10px 0", borderTop: "1px solid var(--bd)", color: "inherit", textDecoration: "none" }}>
               <span style={{ flex: 1, minWidth: 0 }} className="clip">{r.filename}</span>
-              <span style={{ color: "var(--mut)", fontSize: 12 }}>{ago(r.createdAt)}</span>
+              <span style={{ color: "var(--mut)", fontSize: 12 }}>{tx(agoP(r.createdAt))}</span>
               <Pill tone={r.status === "completed" ? "ok" : "mut"}>{r.status === "completed" ? `${r.importedRows}/${r.totalRows}` : r.status}</Pill>
             </a>
           ))}

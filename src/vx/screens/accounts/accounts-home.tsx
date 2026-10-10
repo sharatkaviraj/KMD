@@ -10,7 +10,7 @@ import { addToQueueAction, searchFamiliesAction, setRemindersPausedAction, updat
 import { remindAdminAction } from "@/app/(app)/accounts/books/actions";
 import { logoutAction } from "@/app/login/actions";
 import type { AccountsHomeData, FamilyHit } from "@/modules/finance-controls/vx/types";
-import { ago, clock, initials, longDay, rupees, shortDay } from "@/vx/format";
+import { agoP, clock, initials, longDay, rupees, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p } from "@/vx/text";
@@ -287,7 +287,7 @@ function HomeView({ data, canAct, canCollect, canManage, run, busy }: { data: Ac
                 <span className="ac-c ac-1">
                   <span className="ac-b ac-e">{r.familyLabel}</span>
                   <span className="ac-m">{r.classLabel} · <b className="num" style={{ color: "var(--warnfg)" }}>{rupees(r.pendingToday)}</b> pending</span>
-                  <span className="ac-m">{r.note ? `${r.note} · ` : ""}waiting {ago(r.arrivedAt)}</span>
+                  <span className="ac-m">{r.note ? `${r.note} · ` : ""}waiting {tx(agoP(r.arrivedAt))}</span>
                 </span>
                 {canAct ? (
                   <>
@@ -343,13 +343,13 @@ function HomeView({ data, canAct, canCollect, canManage, run, busy }: { data: Ac
             </div>
             {data.requests.slice(0, 4).map((a, i) => {
               const tone = a.status === "approved" ? ["var(--oks)", "var(--ok)"] : a.status === "declined" ? ["var(--bads)", "var(--bad)"] : a.status === "withdrawn" ? ["var(--s3)", "var(--mut)"] : ["var(--warns)", "var(--warnfg)"];
-              const st = a.status === "approved" ? `Approved${a.decidedByName ? ` by ${a.decidedByName}` : ""}` : a.status === "declined" ? "Declined" : a.status === "withdrawn" ? "Withdrawn" : a.remindedAt ? `Waiting · reminded ${ago(a.remindedAt)}` : "Waiting for the admin";
+              const st = a.status === "approved" ? `Approved${a.decidedByName ? ` by ${a.decidedByName}` : ""}` : a.status === "declined" ? "Declined" : a.status === "withdrawn" ? "Withdrawn" : a.remindedAt ? `Waiting · reminded ${tx(agoP(a.remindedAt))}` : "Waiting for the admin";
               return (
                 <div key={a.id} className="ac-f ac-an" style={{ gap: 12, paddingTop: 10, borderTop: bt(i), alignItems: "flex-start", animationDelay: delay(i) }}>
                   <span className="ac-av" style={{ width: 36, height: 36, borderRadius: 11, background: "var(--s2)", color: "var(--mut)" }}><Ic n={a.kind === "late_fee_waiver" ? "percent" : a.kind === "reversal" ? "undo" : a.kind === "refund" ? "swap" : "sliders"} size={18} /></span>
                   <span className="ac-c ac-1" style={{ gap: 2 }}>
                     <span className="ac-b">{a.title}{a.studentName ? ` · ${a.studentName}` : ""}</span>
-                    <span className="ac-m">Asked {ago(a.requestedAt)}{a.mine ? "" : ` by ${a.requestedByName}`} · {a.reason}</span>
+                    <span className="ac-m">Asked {tx(agoP(a.requestedAt))}{a.mine ? "" : ` by ${a.requestedByName}`} · {a.reason}</span>
                     <span className="ac-f ac-w" style={{ gap: 6, marginTop: 4 }}>
                       <span className="pill" style={{ height: 24, background: tone[0], color: tone[1] }}>{st}</span>
                       {a.mine && a.canRemind && canAct ? (

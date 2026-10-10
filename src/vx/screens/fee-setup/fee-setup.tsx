@@ -23,7 +23,7 @@ import {
   type FeeSetupDraft,
 } from "@/modules/fees/vx/domain/fee-setup";
 import type { FeeSetupVxData } from "@/modules/fees/vx/fee-setup-data";
-import { ago, dayMonth, rupees, rupeesShort, shortDay } from "@/vx/format";
+import { ago, agoP, dayMonth, rupees, rupeesShort, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p } from "@/vx/text";
@@ -167,7 +167,7 @@ export function FeeSetup({
   return (
     <VxPage>
       <TopBar
-        crumb={`Money · Session ${data.sessionLabel}${data.updatedAt ? ` · saved ${ago(data.updatedAt)}` : ""}`}
+        crumb={`Money · Session ${data.sessionLabel}${data.updatedAt ? ` · saved ${tx(agoP(data.updatedAt))}` : ""}`}
         title={tx(T.title)}
         mSub={`${tx(TABS.find((t) => t.key === tab)!.label)} · ${data.sessionLabel}`}
         mBack="/menu"

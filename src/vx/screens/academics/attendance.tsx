@@ -5,7 +5,7 @@ import { can } from "@/platform/auth/permissions";
 import { listCorrections } from "@/modules/attendance/data/corrections-repo";
 import { withinScope } from "@/modules/attendance/domain/class-scope";
 import { canDecide, type Correction } from "@/modules/attendance/domain/corrections";
-import { ago, clock, dateLabel, dayMonth, shortDay } from "@/vx/format";
+import { agoP, clock, dateLabel, dayMonth, shortDay } from "@/vx/format";
 import { Ic } from "@/vx/icons";
 import { HelpButton } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -210,7 +210,7 @@ export async function AcadAttendance(props: Props) {
                   <strong>{c.name}</strong>
                   <span style={{ fontSize: 13, color: "var(--mut)" }}>{c.classLabel} · {say(`${c.absentDays} days absent`, `${c.absentDays} दिन अनुपस्थित`)}{c.absentLastWeek >= 2 ? ` · ${say(`${c.absentLastWeek} this week`, `इस सप्ताह ${c.absentLastWeek}`)}` : ""}</span>
                   <span style={{ fontSize: 12, color: c.lastCall ? "var(--fg)" : "var(--mut)" }}>
-                    {c.lastCall ? say(`Last call: ${followLabel("call", c.lastCall.outcome, say)} · ${c.lastCall.by} · ${ago(c.lastCall.at)}`, `पिछली कॉल: ${followLabel("call", c.lastCall.outcome, say)} · ${c.lastCall.by}`) : say("Parents not called yet", "अभिभावक को अभी कॉल नहीं")}
+                    {c.lastCall ? say(`Last call: ${followLabel("call", c.lastCall.outcome, say)} · ${c.lastCall.by} · ${say(agoP(c.lastCall.at).en, agoP(c.lastCall.at).hi)}`, `पिछली कॉल: ${followLabel("call", c.lastCall.outcome, say)} · ${c.lastCall.by}`) : say("Parents not called yet", "अभिभावक को अभी कॉल नहीं")}
                   </span>
                 </Link>
                 {c.absentLastWeek >= 2 ? <Pill tone="bad">{say("Absent 2+ days now", "अभी 2+ दिन अनुपस्थित")}</Pill> : null}
@@ -257,7 +257,7 @@ export async function AcadAttendance(props: Props) {
                       <strong>{c.studentName}</strong>
                       <span style={{ fontSize: 13, color: "var(--mut)" }}>{c.classLabel} · {shortDay(c.day)}</span>
                     </span>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{ago(c.requestedAt)}</span>
+                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(agoP(c.requestedAt).en, agoP(c.requestedAt).hi)}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span className="pill" style={{ background: from.bg, color: from.fg }}>{statusName(c.fromStatus)}</span>

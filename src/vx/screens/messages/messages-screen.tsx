@@ -14,7 +14,7 @@ import {
   setReplyDoneAction,
   type MessageResult,
 } from "@/app/(app)/messages/actions";
-import { ago, clock, dateLabel, dayMonth, initials, rupees } from "@/vx/format";
+import { agoP, clock, dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { p } from "@/vx/text";
@@ -763,7 +763,7 @@ function Replies({
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                 <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <b className="clip">{r.fromName}</b>
-                  <span style={{ fontSize: 12, color: "var(--mut)", flex: "none" }}>{ago(r.receivedAt)}</span>
+                  <span style={{ fontSize: 12, color: "var(--mut)", flex: "none" }}>{tx(agoP(r.receivedAt))}</span>
                 </span>
                 {r.studentLabel ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{r.studentLabel}</span> : null}
                 <span style={{ fontSize: 14 }}>{r.body}</span>

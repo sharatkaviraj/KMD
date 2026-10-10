@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
-import { ago, initials } from "@/vx/format";
+import { agoP, initials } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Field, Input, Seg, Select, Stepper, SwitchRow, Textarea } from "@/vx/ui/controls";
 import { Confirm, HelpButton, Sheet } from "@/vx/ui/overlays";
@@ -833,7 +833,7 @@ function Publish(props: ResultsProps & { pending: boolean; run: Run }) {
   return (
     <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 420px", gap: 16, alignItems: "start" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {exam.publishedAt ? <Banner tone="ok">{tx(p(`Released ${ago(exam.publishedAt)}.`, `${ago(exam.publishedAt)} जारी।`))}</Banner> : exam.publishAt ? <Banner tone="info">{tx(p(`Scheduled for ${new Date(exam.publishAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.`, "समय तय है।"))}</Banner> : null}
+        {exam.publishedAt ? <Banner tone="ok">{tx(p(`Released ${tx(agoP(exam.publishedAt))}.`, `${tx(agoP(exam.publishedAt))} जारी।`))}</Banner> : exam.publishAt ? <Banner tone="info">{tx(p(`Scheduled for ${new Date(exam.publishAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.`, "समय तय है।"))}</Banner> : null}
         {unlocked ? <Banner tone="warn">{tx(p(`${unlocked} classes are not locked yet — their cards wait until they are.`, `${unlocked} कक्षाएँ अभी बंद नहीं — उनके कार्ड रुकेंगे।`))}</Banner> : null}
         <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <strong style={{ fontSize: 17 }}>{tx(p("When should results go out?", "परिणाम कब जारी हों?"))}</strong>
@@ -981,7 +981,7 @@ function Rechecks(props: ResultsProps & { pending: boolean; run: Run }) {
               </span>
               {r.note ? <div style={{ padding: 10, borderRadius: 12, background: "var(--s2)", fontStyle: "italic" }}>“{r.note}”</div> : null}
               <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                {r.askedBy} · {ago(r.createdAt)}
+                {r.askedBy} · {tx(agoP(r.createdAt))}
               </span>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <span style={{ color: "var(--mut)" }}>{tx(p("Marks now", "अभी अंक"))}</span>

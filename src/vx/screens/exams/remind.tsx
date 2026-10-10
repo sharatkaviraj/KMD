@@ -8,7 +8,7 @@ import { Ic } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Avatar, avatarColor, Btn, Pill, Progress, WhatsAppPreview } from "@/vx/ui/primitives";
-import { ago, initials } from "@/vx/format";
+import { agoP, initials } from "@/vx/format";
 
 import { bilingualReminder, waLink } from "./domain/messages";
 import type { ActionResult } from "./save-types";
@@ -189,11 +189,11 @@ export function TeacherLateRow({
   const { tx } = useVx();
   const share = t.total ? (t.entered / t.total) * 100 : 0;
   const seen = t.link?.openedAt
-    ? `${tx(p("Opened the link", "लिंक खोला"))} ${ago(t.link.openedAt)}`
+    ? `${tx(p("Opened the link", "लिंक खोला"))} ${tx(agoP(t.link.openedAt))}`
     : t.link
       ? tx(p("Link not opened yet", "लिंक अभी खोला नहीं"))
       : tx(p("No link yet", "अभी कोई लिंक नहीं"));
-  const tag = callTag ?? (t.remindedAt ? `${tx(p("Reminded", "याद दिलाया"))} ${ago(t.remindedAt)}` : null);
+  const tag = callTag ?? (t.remindedAt ? `${tx(p("Reminded", "याद दिलाया"))} ${tx(agoP(t.remindedAt))}` : null);
   return (
     <div className="row" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", flexWrap: "wrap" }}>
       <Avatar text={initials(t.name)} bg={avatarColor(t.id)} size={40} />

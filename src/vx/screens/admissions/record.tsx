@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { editStudentAction, undoWithdrawAction, withdrawAction } from "@/app/(app)/admissions/actions";
-import { ago, dateLabel } from "@/vx/format";
+import { agoP, dateLabel } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
 import { DateChips, Field, Input, RadioCard, Select, Seg, Textarea } from "@/vx/ui/controls";
@@ -252,7 +252,7 @@ function EditPanel(props: RecordProps) {
         ) : (
           props.history.map((h, i) => (
             <div key={i} style={{ display: "flex", gap: 10, padding: "8px 0", borderTop: i ? "1px solid var(--bd)" : undefined, fontSize: 13 }}>
-              <span style={{ color: "var(--mut)", minWidth: 90 }}>{ago(h.at)}</span>
+              <span style={{ color: "var(--mut)", minWidth: 90 }}>{tx(agoP(h.at))}</span>
               <span>
                 {h.action === "insert"
                   ? tx(p("Admitted", "दाख़िला हुआ"))

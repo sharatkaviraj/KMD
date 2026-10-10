@@ -137,15 +137,21 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((b - a) / 86_400_000);
 }
 
-/** "3 min ago", "2 h ago", "yesterday", "8 Oct". */
+/** "3 min ago", "2 h ago", "yesterday", "8 Oct" — in English. Say `agoP` to readers. */
 export function ago(value: string | Date, now: Date = new Date()): string {
+  return agoP(value, now).en;
+}
+
+/** `ago` as an English/Hindi pair, for `tx()` or `say()`. */
+export function agoP(value: string | Date, now: Date = new Date()): { en: string; hi: string } {
   const d = asDate(value);
   const s = Math.round((now.getTime() - d.getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86_400) return `${Math.round(s / 3600)} h ago`;
-  if (s < 2 * 86_400) return "yesterday";
-  return dayMonth(d);
+  if (s < 60) return { en: "just now", hi: "अभी" };
+  if (s < 3600) return { en: `${Math.round(s / 60)} min ago`, hi: `${Math.round(s / 60)} मिनट पहले` };
+  if (s < 86_400) return { en: `${Math.round(s / 3600)} h ago`, hi: `${Math.round(s / 3600)} घंटे पहले` };
+  if (s < 2 * 86_400) return { en: "yesterday", hi: "कल" };
+  const day = dayMonth(d);
+  return { en: day, hi: day };
 }
 
 /** "12 of 27". */

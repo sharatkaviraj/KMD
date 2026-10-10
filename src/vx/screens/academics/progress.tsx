@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { ago, dateLabel, initials } from "@/vx/format";
+import { agoP, dateLabel, initials } from "@/vx/format";
 import { Ic } from "@/vx/icons";
 import { HelpButton } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -260,7 +260,7 @@ export async function AcadProgress(props: Props) {
               </Card>
               {mayFollow ? (
                 <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <CardHead title={say("Follow-up", "फ़ॉलो-अप")} sub={child.followups[0] ? say(`Last: ${followLabel(child.followups[0].kind, child.followups[0].outcome, say)} · ${child.followups[0].by} · ${ago(child.followups[0].at)}`, `पिछला: ${followLabel(child.followups[0].kind, child.followups[0].outcome, say)} · ${child.followups[0].by}`) : say("Nothing recorded yet", "अभी कुछ दर्ज नहीं")} />
+                  <CardHead title={say("Follow-up", "फ़ॉलो-अप")} sub={child.followups[0] ? say(`Last: ${followLabel(child.followups[0].kind, child.followups[0].outcome, say)} · ${child.followups[0].by} · ${say(agoP(child.followups[0].at).en, agoP(child.followups[0].at).hi)}`, `पिछला: ${followLabel(child.followups[0].kind, child.followups[0].outcome, say)} · ${child.followups[0].by}`) : say("Nothing recorded yet", "अभी कुछ दर्ज नहीं")} />
                   <FollowupButtons studentId={child.studentId} staff={staffList} />
                 </Card>
               ) : null}
@@ -273,7 +273,7 @@ export async function AcadProgress(props: Props) {
                   <div key={n.id} style={{ padding: "10px 16px", borderTop: "1px solid var(--bd)", display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <Pill tone={n.tone === "concern" ? "warn" : n.tone === "good" ? "ok" : "mut"}>{n.kind}</Pill>
-                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{n.by} · {ago(n.at)}</span>
+                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{n.by} · {say(agoP(n.at).en, agoP(n.at).hi)}</span>
                       {n.status !== "done" ? <Pill tone="acc">{n.status === "working" ? say("Working", "चल रहा") : say("Open", "खुला")}</Pill> : null}
                     </span>
                     <span style={{ fontSize: 14 }}>{n.body}</span>
@@ -326,7 +326,7 @@ export async function AcadProgress(props: Props) {
                   trail={
                     <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, fontSize: 12, color: "var(--mut)", textAlign: "right", maxWidth: 180 }}>
                       {child.plan ? <Pill tone={child.plan === "active" ? "ok" : "mut"}>{child.plan === "active" ? say("Plan active", "योजना चालू") : say("Plan draft", "योजना ड्राफ़्ट")}</Pill> : null}
-                      {child.followup ? <span>{followLabel(child.followup.kind, child.followup.outcome, say)} · {ago(child.followup.at)}</span> : <span>{say("No follow-up yet", "अभी कोई फ़ॉलो-अप नहीं")}</span>}
+                      {child.followup ? <span>{followLabel(child.followup.kind, child.followup.outcome, say)} · {say(agoP(child.followup.at).en, agoP(child.followup.at).hi)}</span> : <span>{say("No follow-up yet", "अभी कोई फ़ॉलो-अप नहीं")}</span>}
                     </span>
                   }
                 />

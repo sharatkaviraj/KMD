@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { logoutAction } from "@/app/login/actions";
 import { Ic, type IconName } from "@/vx/icons";
 import { Bi, useVx } from "@/vx/i18n";
-import { ago, initials, shortDay } from "@/vx/format";
+import { agoP, initials, shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { SwitchRow } from "@/vx/ui/controls";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -199,7 +199,7 @@ export function TeachMore({ data, initialView, initialSheet }: { data: MoreData;
                   {n.bodyHi ? <p lang="hi" style={{ margin: "8px 0 0", whiteSpace: "pre-wrap" }}>{n.bodyHi}</p> : null}
                   {n.bodyEn ? <p style={{ margin: "6px 0 0", whiteSpace: "pre-wrap", color: n.bodyHi ? "var(--mut)" : undefined }}>{n.bodyEn}</p> : null}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 8 }}>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{n.fromName} · {ago(n.createdAt)}</span>
+                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{n.fromName} · {tx(agoP(n.createdAt))}</span>
                     {!seen.has(n.id) ? <Btn variant="pri" icon="check" disabled={pending} onClick={() => gotIt([n.id])}>{tx(p("Got it", "ठीक है"))}</Btn> : null}
                   </div>
                 </Card>
