@@ -47,3 +47,39 @@ export function groupOf(className: string): GroupKey | null {
 export function isGroupKey(value: unknown): value is GroupKey {
   return typeof value === "string" && (GROUP_KEYS as readonly string[]).includes(value);
 }
+
+/** Subjects the school marks but does not sit as a written paper. */
+export const NOT_A_PAPER = new Set(["NoteBook Checking", "Self Study", "Robotics", "CCS", "Sports"]);
+
+const SUBJECT_HI: Record<string, string> = {
+  english: "अंग्रेज़ी",
+  "eng lit": "अंग्रेज़ी साहित्य",
+  hindi: "हिंदी",
+  "hindi lit": "हिंदी साहित्य",
+  maths: "गणित",
+  mathematics: "गणित",
+  science: "विज्ञान",
+  evs: "पर्यावरण",
+  sst: "सामाजिक विज्ञान",
+  "social sci.": "सामाजिक विज्ञान",
+  sanskrit: "संस्कृत",
+  computer: "कंप्यूटर",
+  drawing: "चित्रकला",
+  physics: "भौतिकी",
+  chemistry: "रसायन",
+  biology: "जीव विज्ञान",
+  accountancy: "लेखाशास्त्र",
+  "business studies": "व्यवसाय अध्ययन",
+  economics: "अर्थशास्त्र",
+  geography: "भूगोल",
+  history: "इतिहास",
+  "political science": "राजनीति विज्ञान",
+  "general studies": "सामान्य अध्ययन",
+  elga: "अंग्रेज़ी भाषा",
+};
+
+/** A subject's name in both languages, as far as the school's list knows it. */
+export function subjectPair(code: string): Pair {
+  const hi = SUBJECT_HI[code.trim().toLowerCase()];
+  return hi ? { en: code, hi } : { en: code };
+}
