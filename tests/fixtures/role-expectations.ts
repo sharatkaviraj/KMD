@@ -613,6 +613,7 @@ function redesign(): RouteExpectation[] {
     row("/teach/marks", ["admin", "exam_coordinator", "teacher"], "A teacher enters marks for her own class-subjects."),
     row("/teach/notes", ["admin", "teacher"], "A teacher writes notes on her own classes."),
     row("/teach/more", COORDINATORS_AND_TEACHERS, "The teacher's overflow menu."),
+    row("/teach/class", STAFF_AT_WORK, "A teacher's own class: children by name, attendance and marks, never money."),
   ];
 }
 
