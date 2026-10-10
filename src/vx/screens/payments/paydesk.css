@@ -1,0 +1,75 @@
+/* Payment Desk (docs/design-handoff PayDesk.dc.html). Scoped to the vx tree;
+   sheets live in #vx-layer (.vxt), so their pieces use :where(.vx,.vxt). */
+
+:where(.vx) .pd-grid{display:grid;grid-template-columns:minmax(300px,392px) minmax(0,1fr);gap:20px;align-items:start;padding:20px 28px 0}
+:where(.vx) .pd-left{display:flex;flex-direction:column;gap:14px;min-width:0}
+:where(.vx) .pd-right{min-width:0;display:flex;flex-direction:column;gap:16px}
+:where(.vx) .pd-pin{display:grid;grid-template-columns:minmax(0,1fr) 312px;gap:16px;align-items:start}
+:where(.vx) .pd-pin>aside{position:sticky;top:80px}
+:where(.vx) .pd-cls{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+:where(.vx) .pd-cls>button{height:34px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:700;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:where(.vx) .pd-cls>button.on{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+:where(.vx) .pd-list{max-height:min(560px,calc(100dvh - 330px));overflow-y:auto;overscroll-behavior:contain}
+:where(.vx) .pd-srow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:9px 14px;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--fg);text-align:left}
+:where(.vx) .pd-srow:hover{background:var(--s2)}
+:where(.vx) .pd-srow.sel{background:var(--accs)}
+:where(.vx) .pd-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+:where(.vx) .pd-tile{border-radius:14px;background:var(--s2);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+:where(.vx) .pd-tile.hl{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--acc)}
+:where(.vx) .pd-tile b{font-size:20px;line-height:1.2}
+:where(.vx) .pd-ledger>div{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--bd)}
+:where(.vx) .pd-late{border-radius:16px;background:var(--warns);border:1px solid var(--warnm);padding:12px 14px;display:flex;flex-direction:column;gap:10px;color:var(--warnfg)}
+:where(.vx) .pd-amt{position:relative;display:flex;align-items:center;height:68px;border-radius:16px;border:1.5px solid var(--bds);background:var(--card);padding:0 16px;gap:8px;transition:border-color .2s ease,box-shadow .2s ease}
+:where(.vx) .pd-amt:focus-within{border-color:var(--acc);box-shadow:0 0 0 4px var(--accs)}
+:where(.vx) .pd-amt.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
+:where(.vx) .pd-amt span{font-size:28px;font-weight:600;color:var(--mut)}
+:where(.vx) .pd-amt input{flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+:where(.vx) .pd-chips{display:flex;flex-wrap:wrap;gap:8px}
+:where(.vx) .pd-chips .chip{height:36px}
+:where(.vx) .pd-chips .chip b{font-variant-numeric:tabular-nums}
+:where(.vx) .pd-walk>div{padding:12px 0;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:6px}
+:where(.vx) .pd-walk>div:first-child{border-top:0}
+:where(.vx) .pd-bar{height:6px;border-radius:3px;background:var(--s3);overflow:hidden}
+:where(.vx) .pd-bar>i{display:block;height:100%;border-radius:3px;transform-origin:left;animation:xGrowX .5s var(--ease) both}
+:where(.vx) .pd-after{border-radius:14px;background:var(--s2);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+:where(.vx) .pd-after>div{display:flex;justify-content:space-between;gap:10px}
+:where(.vx) .pd-pbar{position:sticky;bottom:0;z-index:15;margin-top:4px;display:flex;align-items:center;gap:16px;padding:12px 16px;border-radius:18px 18px 0 0;border:1px solid var(--bd);border-bottom:0;box-shadow:0 -12px 28px -20px rgba(21,25,35,.35)}
+:where(.vx) .pd-receipt{border-radius:18px;background:var(--card);border:1px solid var(--bd);box-shadow:var(--sh);padding:18px 20px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
+:where(.vx) .pd-receipt .kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+:where(.vx) .pd-receipt .ln{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
+:where(.vx) .pd-stamp{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-14deg);font-size:44px;font-weight:800;letter-spacing:.12em;color:var(--bad);opacity:.22;border:5px solid var(--bad);border-radius:12px;padding:2px 16px;pointer-events:none}
+:where(.vx) .pd-saved{display:grid;grid-template-columns:minmax(0,1fr) 324px;gap:16px;align-items:start}
+
+/* Bulk */
+:where(.vx) .pd-bk{display:grid;grid-template-columns:36px 110px minmax(150px,1.4fr) 100px 150px 120px minmax(130px,1fr) 64px;gap:8px;align-items:center;padding:8px 14px}
+:where(.vx) .pd-bk .inp{height:40px;padding:0 10px;font-size:14px}
+:where(.vx) .pd-bkrow{border-top:1px solid var(--bd)}
+:where(.vx) .pd-bkrow.warn{background:var(--warns)}
+:where(.vx) .pd-bkrow.err{background:var(--bads)}
+:where(.vx) .pd-bkmsg{padding:0 14px 8px;font-size:12px;font-weight:700}
+:where(.vx) .pd-drop{border:2px dashed var(--bds);border-radius:18px;padding:30px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;background:var(--s2)}
+:where(.vx) .pd-drop.over{border-color:var(--acc);background:var(--accs)}
+
+@container vx (max-width:899px){
+  .vx .pd-grid{grid-template-columns:minmax(0,1fr);padding:14px 16px 0;gap:14px}
+  .vx .pd-pin{grid-template-columns:minmax(0,1fr)}
+  .vx .pd-pin>aside{position:static}
+  .vx .pd-cls{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .vx .pd-cls>button{height:40px}
+  .vx .pd-list{max-height:none}
+  .vx .pd-hide-m{display:none!important}
+  .vx .pd-pbar{bottom:calc(76px + env(safe-area-inset-bottom));flex-wrap:wrap;gap:10px;margin:0 -16px;border-radius:18px 18px 0 0}
+  .vx .pd-pbar .btn{width:100%}
+  .vx .pd-saved{grid-template-columns:minmax(0,1fr)}
+  .vx .pd-receipt .kv{grid-template-columns:minmax(0,1fr)}
+  .vx .pd-bk{grid-template-columns:28px minmax(0,1fr) minmax(0,1fr) 40px;grid-template-areas:"n sr amt c" "n who who who" "n date mode mode" "n ref ref ref";padding:10px 12px}
+  .vx .pd-bk>.a-n{grid-area:n;align-self:start;padding-top:10px}
+  .vx .pd-bk>.a-sr{grid-area:sr}
+  .vx .pd-bk>.a-who{grid-area:who}
+  .vx .pd-bk>.a-amt{grid-area:amt}
+  .vx .pd-bk>.a-date{grid-area:date}
+  .vx .pd-bk>.a-mode{grid-area:mode}
+  .vx .pd-bk>.a-ref{grid-area:ref}
+  .vx .pd-bk>.a-c{grid-area:c;justify-self:end}
+  .vx .pd-bk.head{display:none}
+}

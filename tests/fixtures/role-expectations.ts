@@ -592,6 +592,7 @@ function redesign(): RouteExpectation[] {
     row("/inbox", ["admin", "office"], "Needs you: the admin's queue of corrections, leave and approvals (design F01/D02)."),
     row("/attendance", ["admin", "office"], "Whole-school attendance and marking on a teacher's behalf is the office's act (PLAN §3)."),
     row("/payments", ["admin", "accountant"], "Taking money is granted one person at a time through the accountant role, never by job title."),
+    row("/payments/bulk", ["admin", "accountant"], "Bulk entry opens for whoever takes money; saving many at once stays admin-only (payments:bulk) inside the screen."),
     row("/receipts", FEE_READERS, "Receipts and the day close are fee screens, read by everyone who reads the fee app."),
     row("/dues", FEE_READERS, "Who owes what; the fee collector's follow-up list starts here."),
     row("/reminders", FEE_READERS, "Fee reminders are drafted from the dues list by the fee desk."),
