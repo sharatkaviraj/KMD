@@ -26,7 +26,13 @@ export function SessionExpiredSheet() {
   const [expired, setExpired] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
+    // A prompt about the session must never be what breaks the page.
+    let supabase: ReturnType<typeof createClient>;
+    try {
+      supabase = createClient();
+    } catch {
+      return;
+    }
     let leaving = false;
     const markLeaving = () => {
       leaving = true;

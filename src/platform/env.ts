@@ -91,8 +91,24 @@ function isPlaceholderValue(value: string) {
   return placeholderPatterns.some((pattern) => normalized.includes(pattern));
 }
 
+/**
+ * Each public variable read by its literal name. Next inlines
+ * `process.env.NEXT_PUBLIC_*` into browser bundles only when written out like
+ * this; `process.env[name]` is empty in the browser, so a browser client built
+ * from it threw "Missing environment variable" and took the whole signed-in
+ * layout down with it.
+ */
+function readRequiredEnvVar(name: RequiredEnvVar): string | undefined {
+  switch (name) {
+    case "NEXT_PUBLIC_SUPABASE_URL":
+      return process.env.NEXT_PUBLIC_SUPABASE_URL;
+    case "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY":
+      return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  }
+}
+
 export function getRequiredEnvVar(name: RequiredEnvVar): string {
-  const value = process.env[name]?.trim();
+  const value = readRequiredEnvVar(name)?.trim();
 
   if (!value) {
     throw new Error(
