@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { byClassLabel } from "@/modules/academics/domain/class-order";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { shortDay } from "@/vx/format";
@@ -175,7 +176,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
             ),
           };
         })
-        .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
+        .sort((a, b) => a.sort - b.sort || byClassLabel(a.label, b.label));
       bands.push({ key, label: GROUP_LABELS[key], subjects: subjects.map((s) => ({ code: s, name: subjectPair(s) })), rows });
     }
   }
@@ -231,7 +232,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
         return { id, label: info?.label ?? "", sort: info?.sort ?? 999, children: kids.length, issued: kids.filter((k) => issued.has(k.studentId)).length, locked: lockedSet.has(id) };
       })
       .filter((c) => c.label)
-      .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
+      .sort((a, b) => a.sort - b.sort || byClassLabel(a.label, b.label));
     const studentId = one("student");
     let classId = one("class") && classList.some((c) => c.id === one("class")) ? one("class")! : null;
     if (!classId && studentId) classId = [...progress.roll].find(([, kids]) => kids.some((k) => k.studentId === studentId))?.[0] ?? null;
@@ -287,7 +288,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
     const classList = classIds
       .map((id) => ({ id, label: ctx.classes.find((c) => c.id === id)?.label ?? "", sort: ctx.classes.find((c) => c.id === id)?.sort ?? 999 }))
       .filter((c) => c.label)
-      .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
+      .sort((a, b) => a.sort - b.sort || byClassLabel(a.label, b.label));
     const classId = one("class") && classIds.includes(one("class")!) ? one("class")! : (classList.find((c) => progress.papers.filter((x) => x.classId === c.id).every((x) => x.entryStatus === "submitted"))?.id ?? classList[0]?.id ?? null);
     if (classId) {
       const papers = progress.rows.filter((r) => r.class_id === classId).sort((a, b) => a.sort_order - b.sort_order || a.subject_code.localeCompare(b.subject_code));

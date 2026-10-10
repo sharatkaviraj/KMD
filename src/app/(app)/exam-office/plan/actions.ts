@@ -38,12 +38,6 @@ const NOT_SAVED: Pair = p("Not saved. Try again.", "सहेजा नहीं
 
 const db = () => createAdminClient();
 
-async function guard() {
-  const staff = await assertPermission("assessments:manage");
-  const preview = await previewRefusal();
-  return { staff, preview };
-}
-
 function done(path = "/exam-office/plan") {
   revalidatePath(path);
   revalidatePath("/exam-office");
@@ -59,7 +53,8 @@ export async function saveSlotAction(input: {
   start: string;
   minutes: number;
 }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   const subject = input.subject.trim();
   if (
@@ -97,7 +92,8 @@ export async function saveSlotAction(input: {
 
 /** Two papers of one band swap their days and times. */
 export async function swapSlotsAction(input: { examId: string; a: string; b: string }): Promise<ActionResult> {
-  const { preview } = await guard();
+  await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !UUID.test(input.a) || !UUID.test(input.b) || input.a === input.b) return { ok: false, message: RELOAD };
   const slots = await slotsFor(input.examId);
@@ -114,7 +110,8 @@ export async function swapSlotsAction(input: { examId: string; a: string; b: str
 }
 
 export async function deleteSlotAction(input: { examId: string; slotId: string }): Promise<ActionResult> {
-  const { preview } = await guard();
+  await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !UUID.test(input.slotId)) return { ok: false, message: RELOAD };
   const { error } = await db().from("exam_slots").delete().eq("id", input.slotId).eq("assessment_id", input.examId);
@@ -125,7 +122,8 @@ export async function deleteSlotAction(input: { examId: string; slotId: string }
 
 /** Start this exam's date sheet from another's: same order, this exam's school days. */
 export async function copyDatesheetAction(input: { examId: string; fromExamId: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !UUID.test(input.fromExamId) || input.examId === input.fromExamId) return { ok: false, message: RELOAD };
   const [target, source] = await Promise.all([slotsFor(input.examId), slotsFor(input.fromExamId)]);
@@ -161,7 +159,8 @@ export async function copyDatesheetAction(input: { examId: string; fromExamId: s
 
 /** "Looks good": the coordinator has checked the dates. */
 export async function checkDatesheetAction(input: { examId: string; checked: boolean }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId)) return { ok: false, message: RELOAD };
   const { error } = await db()
@@ -178,7 +177,8 @@ export async function checkDatesheetAction(input: { examId: string; checked: boo
  * does not message anybody.
  */
 export async function publishDatesheetAction(input: { examId: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId)) return { ok: false, message: RELOAD };
   const slots = await slotsFor(input.examId);
@@ -195,7 +195,8 @@ export async function publishDatesheetAction(input: { examId: string }): Promise
 
 /** Fill every room by roll number, two classes to a room in alternate seats. Replaces the old plan. */
 export async function fillSeatingAction(input: { examId: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId)) return { ok: false, message: RELOAD };
   const { data: exam } = await db().from("assessments").select("session_label, starts_on, ends_on").eq("id", input.examId).maybeSingle<{ session_label: string; starts_on: string | null; ends_on: string | null }>();
@@ -231,7 +232,8 @@ export async function fillSeatingAction(input: { examId: string }): Promise<Acti
 
 /** Share invigilation fairly: every room in use has its guards each exam day, fewest duties first. */
 export async function shareDutiesAction(input: { examId: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId)) return { ok: false, message: RELOAD };
   const [slots, seats, people] = await Promise.all([slotsFor(input.examId), seatsFor(input.examId), staffList()]);
@@ -260,7 +262,8 @@ const QP_STATUS = ["waiting", "received", "checked", "printed"] as const;
 
 /** Where one question paper has got to. */
 export async function setPaperStatusAction(input: { examId: string; slotId: string; status: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   const status = QP_STATUS.find((s) => s === input.status);
   if (!UUID.test(input.examId) || !UUID.test(input.slotId) || !status) return { ok: false, message: RELOAD };
@@ -276,7 +279,8 @@ export async function setPaperStatusAction(input: { examId: string; slotId: stri
 
 /** Who sets a question paper. */
 export async function setPaperSetterAction(input: { examId: string; slotId: string; staffId: string | null }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !UUID.test(input.slotId) || (input.staffId !== null && !UUID.test(input.staffId))) return { ok: false, message: RELOAD };
   const { error } = await db()
@@ -289,7 +293,8 @@ export async function setPaperSetterAction(input: { examId: string; slotId: stri
 
 /** The exam's dates and reporting time, from the plan. */
 export async function saveExamTimesAction(input: { examId: string; reportingTime: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !TIME.test(input.reportingTime) || minutesOf(input.reportingTime) < 6 * 60) return { ok: false, message: RELOAD };
   const { error } = await db()

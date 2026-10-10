@@ -30,12 +30,6 @@ const RELOAD: Pair = p("Something was missing. Reload the page.", "कुछ अ
 const NOT_SAVED: Pair = p("Not saved. Try again.", "सहेजा नहीं गया। फिर से कोशिश करें।");
 const db = () => createAdminClient();
 
-async function guard() {
-  const staff = await assertPermission("assessments:manage");
-  const preview = await previewRefusal();
-  return { staff, preview };
-}
-
 function refresh() {
   revalidatePath("/exam-office/results");
   revalidatePath("/exam-office");
@@ -52,7 +46,8 @@ async function examOf(id: string) {
 
 /** The exam office looked at an average that moved: it is fine, or the teacher re-checks the copies. */
 export async function moderateAction(input: { paperId: string; decision: "fine" | "recheck"; note?: string | null }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.paperId) || !["fine", "recheck"].includes(input.decision)) return { ok: false, message: RELOAD };
   const paper = await paperById(input.paperId);
@@ -83,7 +78,8 @@ export async function moderateAction(input: { paperId: string; decision: "fine" 
 
 /** The school's grace rule for this exam. */
 export async function saveGraceRuleAction(input: { examId: string; max: number; subjects: number }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !(input.max >= 0 && input.max <= 10) || ![1, 2].includes(input.subjects)) return { ok: false, message: RELOAD };
   const { error } = await db()
@@ -100,7 +96,8 @@ export async function saveGraceRuleAction(input: { examId: string; max: number; 
  * Locked classes are left as they are.
  */
 export async function giveGraceAction(input: { examId: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId)) return { ok: false, message: RELOAD };
   const found = await examOf(input.examId);
@@ -140,7 +137,8 @@ export async function giveGraceAction(input: { examId: string }): Promise<Action
 
 /** Take back grace on one paper for one child. */
 export async function removeGraceAction(input: { paperId: string; studentId: string }): Promise<ActionResult> {
-  const { preview } = await guard();
+  await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.paperId) || !UUID.test(input.studentId)) return { ok: false, message: RELOAD };
   const paper = await paperById(input.paperId);
@@ -155,7 +153,8 @@ export async function removeGraceAction(input: { paperId: string; studentId: str
 
 /** Lock classes: after this no mark on their papers changes, in either app, until the admin unlocks. */
 export async function lockClassesAction(input: { examId: string; classIds: string[] }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   const ids = [...new Set(input.classIds)].filter((id) => UUID.test(id));
   if (!UUID.test(input.examId) || ids.length === 0) return { ok: false, message: RELOAD };
@@ -177,7 +176,8 @@ export async function lockClassesAction(input: { examId: string; classIds: strin
 
 /** Only the administrator opens a locked class again. */
 export async function unlockClassAction(input: { examId: string; classId: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (staff.role !== "admin") return { ok: false, message: p("Only the admin can unlock a class.", "कक्षा केवल प्रशासक खोल सकते हैं।") };
   if (!UUID.test(input.examId) || !UUID.test(input.classId)) return { ok: false, message: RELOAD };
@@ -190,7 +190,8 @@ export async function unlockClassAction(input: { examId: string; classId: string
 
 /** Issue every card in a class that is not issued yet, each through `issue_report_card`. */
 export async function issueClassCardsAction(input: { examId: string; classId: string; reissue?: boolean }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !UUID.test(input.classId)) return { ok: false, message: RELOAD };
   const found = await examOf(input.examId);
@@ -228,7 +229,8 @@ export async function issueClassCardsAction(input: { examId: string; classId: st
  * approved before it leaves.
  */
 export async function publishResultsAction(input: { examId: string; when: "now" | "scheduled"; at: string | null; ptm: boolean }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.examId) || !["now", "scheduled"].includes(input.when) || (input.when === "scheduled" && (!input.at || Number.isNaN(Date.parse(input.at))))) {
     return { ok: false, message: RELOAD };
@@ -254,7 +256,8 @@ export async function publishResultsAction(input: { examId: string; when: "now" 
 
 /** A parent asked for a paper to be checked again. */
 export async function addRecheckAction(input: { paperId: string; studentId: string; askedBy: string; note: string }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   const askedBy = input.askedBy.trim().slice(0, 120);
   if (!UUID.test(input.paperId) || !UUID.test(input.studentId) || askedBy.length < 2) return { ok: false, message: RELOAD };
@@ -268,7 +271,8 @@ export async function addRecheckAction(input: { paperId: string; studentId: stri
 
 /** The subject teacher has been asked. */
 export async function recheckWithTeacherAction(input: { recheckId: string }): Promise<ActionResult> {
-  const { preview } = await guard();
+  await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.recheckId)) return { ok: false, message: RELOAD };
   const { error } = await db().from("exam_rechecks").update({ status: "with_teacher" }).eq("id", input.recheckId).is("resolved_at", null);
@@ -283,7 +287,8 @@ export async function recheckWithTeacherAction(input: { recheckId: string }): Pr
  * locked class refuses it until it is unlocked.
  */
 export async function resolveRecheckAction(input: { recheckId: string; delta: number }): Promise<ActionResult> {
-  const { staff, preview } = await guard();
+  const staff = await assertPermission("assessments:manage");
+  const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
   if (!UUID.test(input.recheckId) || !Number.isFinite(input.delta) || Math.abs(input.delta) > 100) return { ok: false, message: RELOAD };
   const { data: rc } = await db()

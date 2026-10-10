@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { byClassLabel } from "@/modules/academics/domain/class-order";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { schoolToday } from "@/platform/dates";
@@ -80,7 +81,7 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     // The next paper of hers in the same exam that is not yet sent.
     const mine = await myPaperIds(staff.id, sessionLabel, paper.assessment_id, isManager(staff));
     const rows = (await papersOf([paper.assessment_id])).filter((r) => mine.has(`${r.class_id}|${r.subject_id}`) && r.id !== paper.id && r.entry_status === "open");
-    const next = rows.sort((a, b) => a.class_label.localeCompare(b.class_label, "en", { numeric: true }))[0] ?? null;
+    const next = rows.sort((a, b) => byClassLabel(a.class_label, b.class_label))[0] ?? null;
 
     const phase: SheetPhase = view === "check" ? "check" : view === "submitted" ? "sent" : "entry";
     return (

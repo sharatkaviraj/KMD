@@ -1,3 +1,4 @@
+import { byClassLabel } from "@/modules/academics/domain/class-order";
 import { groupOf, NOT_A_PAPER, type GroupKey } from "./groups";
 import { isLate, type PaperFacts } from "./tracker";
 
@@ -71,7 +72,7 @@ export function papersToCreate(input: {
     byClass.set(a.classId, [...(byClass.get(a.classId) ?? []), { subjectId: subject.id, code: subject.code, sort: subject.sortOrder }]);
   }
   const out: PlannedPaper[] = [];
-  const classIds = [...byClass.keys()].sort((a, b) => (classOf.get(a)!.sort - classOf.get(b)!.sort) || classOf.get(a)!.label.localeCompare(classOf.get(b)!.label));
+  const classIds = [...byClass.keys()].sort((a, b) => (classOf.get(a)!.sort - classOf.get(b)!.sort) || byClassLabel(classOf.get(a)!.label, classOf.get(b)!.label));
   for (const classId of classIds) {
     const klass = classOf.get(classId)!;
     const max = input.maxFor(groupOf(klass.label)!);

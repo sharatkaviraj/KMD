@@ -1,3 +1,4 @@
+import { byClassLabel } from "@/modules/academics/domain/class-order";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { daysBetween, shortDay } from "@/vx/format";
 import { lead, p } from "@/vx/text";
@@ -151,7 +152,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         issued: issuedBy.get(classId) ?? 0,
       };
     })
-    .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
+    .sort((a, b) => a.sort - b.sort || byClassLabel(a.label, b.label));
 
   /* moderation: complete classes, their papers with a spread */
   const modClassId = one("class") && classes.some((c) => c.id === one("class")) ? one("class")! : (classes.find((c) => c.allSubmitted && c.unusualOpen) ?? classes.find((c) => c.allSubmitted) ?? classes[0])?.id ?? null;

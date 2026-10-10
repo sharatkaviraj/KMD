@@ -1,3 +1,5 @@
+import { byClassLabel } from "@/modules/academics/domain/class-order";
+
 /*
  * The marks tracker: where every paper of an exam has got to, who is behind,
  * and how far each class is from a report card. Pure, so the board, the
@@ -182,7 +184,7 @@ export function classRows(papers: PaperFacts[], expected: number): ClassRow[] {
   }
   return [...by.values()]
     .map((row) => ({ ...row, percent: row.total === 0 ? 0 : Math.round((row.entered / row.total) * 100) }))
-    .sort((a, b) => a.classSort - b.classSort || a.classLabel.localeCompare(b.classLabel));
+    .sort((a, b) => a.classSort - b.classSort || byClassLabel(a.classLabel, b.classLabel));
 }
 
 /** The grid's columns: every subject any class sits, in a stable order. */
