@@ -37,6 +37,12 @@ export type CurrentStaff = {
    * follow without the check.
    */
   preferredStart: string | null;
+  /**
+   * The role's permissions as `vppsone.role_permissions` holds them now — the
+   * matrix an admin edits on Staff → Roles. `can()` reads these; null means
+   * the read failed and the built-in map in `permissions.ts` answers instead.
+   */
+  permissions?: readonly string[] | null;
 };
 
 type StaffProfileRow = {
@@ -109,6 +115,8 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     return { staff: null, reason: NO_PROFILE };
   }
 
+  const permissions = await readMatrixPermissions(supabase);
+
   const staff: CurrentStaff = {
     id: data.id,
     userId,
@@ -120,6 +128,7 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     isActive: data.is_active,
     language: resolveLanguage(data.preferred_language),
     preferredStart: data.preferred_start,
+    permissions,
   };
 
   if (!staff.isActive) {
@@ -128,6 +137,26 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
 
   return { staff, reason: null };
 });
+
+/**
+ * The signed-in person's permissions from the editable matrix, through
+ * `vppsone.my_permissions()` (security definer, own row only). Any failure
+ * falls back to the built-in map rather than to nothing: an unreachable
+ * matrix must not lock the school out, and the role's seed is what it was
+ * before the matrix became editable.
+ */
+async function readMatrixPermissions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<readonly string[] | null> {
+  try {
+    if (typeof supabase.rpc !== "function") return null;
+    const { data, error } = await supabase.rpc("my_permissions");
+    if (error || !Array.isArray(data)) return null;
+    return (data as unknown[]).filter((value): value is string => typeof value === "string");
+  } catch {
+    return null;
+  }
+}
 
 /** The staff member behind this request, or null. */
 export async function getCurrentStaff(): Promise<CurrentStaff | null> {
