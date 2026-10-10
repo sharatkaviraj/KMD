@@ -8,7 +8,8 @@ import { OfficeSyncListener } from "@/ui/shell/office-sync-listener";
 import { RouteProgress } from "@/ui/shell/route-progress";
 import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { ShellSessionPill, ShellSessionPillSkeleton } from "@/ui/shell/shell-session-pill";
-import { initials } from "@/vx/format";
+import { initials, schoolToday } from "@/vx/format";
+import { loadInbox } from "@/vx/screens/admin/data";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS, type DesignMenu } from "@/vx/nav";
 import { avatarColor } from "@/vx/ui/primitives";
 import { ToastProvider } from "@/vx/ui/overlays";
@@ -33,10 +34,15 @@ const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", 
 
 async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges> {
   const out: Badges = {};
-  if (can(viewer.staff, "fees:view") && sessionLabel) {
-    const pulse = await getShellPulse(sessionLabel).catch(() => null);
-    if (pulse) out.dues = pulse.overdueStudentCount;
-  }
+  const [pulse, inbox] = await Promise.all([
+    can(viewer.staff, "fees:view") && sessionLabel ? getShellPulse(sessionLabel).catch(() => null) : null,
+    // The admin queue, counted from the same reads the Needs you page uses.
+    !viewer.previewing && can(viewer.staff, "attendance:correct") && sessionLabel
+      ? loadInbox(viewer.staff, sessionLabel, schoolToday()).catch(() => null)
+      : null,
+  ]);
+  if (pulse) out.dues = pulse.overdueStudentCount;
+  if (inbox) out.inbox = inbox.items.length;
   return out;
 }
 

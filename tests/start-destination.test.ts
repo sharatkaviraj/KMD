@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { staffRoles, type StaffRole } from "@/platform/auth/permissions";
-import { allowedFor, homeFor } from "@/platform/config/navigation";
+import { allowedFor } from "@/platform/config/navigation";
+import { homeForRole as homeFor } from "@/vx/nav";
 import { landingFor, resolveStart, startHref, startOptionsFor } from "@/platform/config/start";
 
 describe("native start destinations", () => {

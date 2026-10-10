@@ -224,3 +224,8 @@ export const ROLE_PREVIEW_MENUS: DesignMenu[] = ["teacher", "accountant", "acade
 export const VX_HREFS: readonly string[] = [
   ...new Set([...Object.values(MENUS).flatMap((g) => g.flatMap((x) => x.items.map((i) => i.href))), "/menu"]),
 ];
+
+/** Where a role lands (PLAN P2): admin → `/`, teacher → `/teach`, accountant → `/accounts`, … */
+export function homeForRole(role: StaffRole): string {
+  return MENU_HOME[designMenuFor(role)];
+}

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/app/login/login-form";
 import { m } from "@/messages";
 import { getCurrentStaff } from "@/platform/auth/current-staff";
-import { homeFor } from "@/platform/config/navigation";
+import { homeForRole as homeFor } from "@/vx/nav";
 import { flat, primary } from "@/platform/i18n/language";
 import { readLanguageCookie } from "@/platform/i18n/language-cookie";
 import { hasRequiredEnvVars } from "@/platform/env";

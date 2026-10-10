@@ -5,7 +5,7 @@ import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import { roleLabel } from "@/platform/auth/permissions";
-import { homeFor } from "@/platform/config/navigation";
+import { homeForRole as homeFor } from "@/vx/nav";
 import { flat, primary } from "@/platform/i18n/language";
 import { buttonClasses } from "@/ui/primitives/button";
 import { Card, DetailList } from "@/ui/primitives";

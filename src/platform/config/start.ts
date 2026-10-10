@@ -2,7 +2,8 @@ import { m } from "@/messages";
 import { isSafeInternalPath } from "@/platform/env";
 import type { Localized } from "@/platform/i18n/language";
 import type { StaffRole } from "@/platform/auth/permissions";
-import { allowedFor, homeFor } from "@/platform/config/navigation";
+import { allowedFor } from "@/platform/config/navigation";
+import { homeForRole as homeFor } from "@/vx/nav";
 import type { AppId } from "@/platform/config/app-origins";
 
 /** Preferences select existing, permission-checked screens inside VPPS One. */
