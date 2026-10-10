@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { Ic } from "@/vx/icons";
 import { Bi, useVx } from "@/vx/i18n";
 import { dayMonth } from "@/vx/format";
-import { p } from "@/vx/text";
+import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Select } from "@/vx/ui/controls";
 import { Section, Split, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Card, EmptyState } from "@/vx/ui/primitives";
@@ -64,7 +64,7 @@ function focusTitle(focus: NonNullable<NotesFocus>) {
   return p("Child's notes", "बच्चे के नोट्स");
 }
 
-function Shell({ title, crumb, base, back, props, children, add }: { title: { en: string; hi: string }; crumb: string; base: string; back: string | undefined; props: NotesProps; children: ReactNode; add: ReactNode }) {
+function Shell({ title, crumb, base, back, props, children, add }: { title: Pair; crumb: string; base: string; back: string | undefined; props: NotesProps; children: ReactNode; add: ReactNode }) {
   const { tx } = useVx();
   const [sheet, setSheet] = useState<"add" | null>(props.initialSheet);
   const focus = props.focus;

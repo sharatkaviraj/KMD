@@ -158,7 +158,7 @@ export function TeachMore({ data, initialView, initialSheet }: { data: MoreData;
           <>
             <Card>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <Avatar text={initials(data.profile.name)} seed={data.profile.email} size={56} />
+                <Avatar text={initials(data.profile.name)} seed={data.profile.email ?? data.profile.name} size={56} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong style={{ fontSize: 18 }}>{data.profile.name}</strong>
                   <div style={{ color: "var(--mut)", fontSize: 13 }}>{data.profile.classes.filter((c) => c.held).map((c) => c.classLabel).join(", ") || data.profile.subjects.join(", ")}</div>
@@ -281,7 +281,7 @@ export function TeachMore({ data, initialView, initialSheet }: { data: MoreData;
           <>
             <Card>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <Avatar text={initials(data.profile.name)} seed={data.profile.email} size={64} />
+                <Avatar text={initials(data.profile.name)} seed={data.profile.email ?? data.profile.name} size={64} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong style={{ fontSize: 20 }}>{data.profile.name}</strong>
                   <div style={{ color: "var(--mut)", fontSize: 13 }}>{data.profile.email}</div>

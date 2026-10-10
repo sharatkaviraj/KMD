@@ -63,6 +63,11 @@ type Outbox = { payload: string; alerts: boolean; commandId: string; at: number 
 
 /* --------------------------------------------------------- choose a class */
 
+/** The time a draft was written; called from event handlers only. */
+function stamp(): number {
+  return Date.now();
+}
+
 export function AttendChoose({ data }: { data: AttendChoices }) {
   const { tx } = useVx();
   return (
@@ -169,7 +174,7 @@ export function TeachAttend({
     const next = { ...marks, [id]: nextTap(marks[id]) };
     setMarks(next);
     setFlash(id);
-    void saveDraft(draftId, { version: 1, baseline: String(data.revision), value: { marks: next, revision: data.revision }, updatedAt: Date.now() }).catch(() => undefined);
+    void saveDraft(draftId, { version: 1, baseline: String(data.revision), value: { marks: next, revision: data.revision }, updatedAt: stamp() }).catch(() => undefined);
   };
 
   const settle = (res: VxSaveState) => {
@@ -201,7 +206,7 @@ export function TeachAttend({
       } catch {
         // No answer: keep it in the outbox and try again when the phone is back online.
         setOutbox(box);
-        await saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: Date.now() }).catch(() => undefined);
+        await saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() }).catch(() => undefined);
       } finally {
         sending.current = false;
       }
@@ -230,7 +235,7 @@ export function TeachAttend({
     if (!online) {
       setOutbox(box);
       setSheet(null);
-      void saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: Date.now() }).catch(() => undefined);
+      void saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() }).catch(() => undefined);
       toast.show({ text: tx(p("No internet. Saved on this phone — it will be sent when you are back online.", "इंटरनेट नहीं। फ़ोन पर रखा है — इंटरनेट आते ही भेज देंगे।")), tone: "info" });
       return;
     }
