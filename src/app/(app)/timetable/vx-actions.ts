@@ -13,6 +13,7 @@ import { classLabelMap, listSubjects, resolveSessionLabel } from "@/modules/acad
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { coverDayRevision } from "@/modules/substitutions/data/cover-repo";
 import { idleCoverState, receiptSentence } from "@/modules/substitutions/domain/cover-state";
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import { createDraft, getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { publishVersion } from "@/modules/timetable/data/timetable-repo";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -172,7 +173,7 @@ export async function publishChangesAction(input: { notify: boolean }): Promise<
     versionId = await createDraft({
       sessionLabel,
       label: `${published.label} + ${changes.length} ${changes.length === 1 ? "change" : "changes"}`.slice(0, 120),
-      notes: `Published from the Timetable screen: ${changes.map((c) => `${c.classLabel} ${c.day} P${c.period + 1} → ${c.subjectCode}/${c.teacherShortName}`).join("; ")}`.slice(0, 2000),
+      notes: `Published from the Timetable screen: ${changes.map((c) => `${c.classLabel} ${c.day} P${periodNumber(c.period)} → ${c.subjectCode}/${c.teacherShortName}`).join("; ")}`.slice(0, 2000),
       sourceText: `Edited copy of version ${published.id}`,
       cellCount: new Set(next.map((s) => `${s.classId}|${s.day}|${s.period}`)).size,
       slots: next.map((s) => ({ day: s.day, period: s.period, classLabel: s.classLabel, classId: s.classId, subjectCode: s.subjectCode, subjectId: s.subjectId, teacherShortName: s.teacherShortName, staffProfileId: s.staffProfileId, parallel: s.parallel, shared: s.shared })),

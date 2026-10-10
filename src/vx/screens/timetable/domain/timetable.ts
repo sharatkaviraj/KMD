@@ -1,3 +1,4 @@
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import { p, type Pair } from "@/vx/text";
 
 /*
@@ -279,7 +280,7 @@ export function affectedTeachers(changes: readonly PendingChange[], slots: reado
 
 /** One teacher's notice, Hindi then English. */
 export function changeNotice(name: string, changes: readonly PendingChange[], subjectName: (code: string) => string): { hi: string; en: string } {
-  const lines = changes.map((c) => `${c.classLabel}, ${WEEK_SHORT[c.day as Weekday] ?? c.day} P${c.period + 1}: ${subjectName(c.subjectCode)} (${c.teacherShortName})`);
+  const lines = changes.map((c) => `${c.classLabel}, ${WEEK_SHORT[c.day as Weekday] ?? c.day} P${periodNumber(c.period)}: ${subjectName(c.subjectCode)} (${c.teacherShortName})`);
   return {
     hi: `नमस्ते ${name}, समय-सारणी में बदलाव:\n${lines.join("\n")}`,
     en: `Hello ${name}, timetable changes:\n${lines.join("\n")}`,

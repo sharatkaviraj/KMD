@@ -10,7 +10,6 @@ import { archiveSessionAction, backupNowAction, restoreDrillAction, savePrefsAct
 import { clock, dateLabel, initials, longDay, schoolToday } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
-import { p } from "@/vx/text";
 import { Chip, ChipRow, Field, Input, RadioCard, Seg, SearchBox, SwitchRow, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner, Grid, Section, TopBar, VxPage } from "@/vx/ui/page";

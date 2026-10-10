@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import {
   coverAction,
   decideLeaveAction,
@@ -77,7 +78,7 @@ function href(s: Partial<TimetableState>): string {
   if (s.view && s.view !== "class") qs.set("view", s.view);
   if (s.classId) qs.set("class", s.classId);
   if (s.teacherId) qs.set("teacher", s.teacherId);
-  if (s.cell) qs.set("cell", `${s.cell.day}-${s.cell.period + 1}`);
+  if (s.cell) qs.set("cell", `${s.cell.day}-${periodNumber(s.cell.period)}`);
   if (s.pick) qs.set("pick", s.pick);
   if (s.duty) qs.set("duty", s.duty);
   if (s.sheet) qs.set("sheet", s.sheet);
@@ -206,7 +207,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
         </ChipRow>
         {needCover.length && data.me.mayViewCover ? (
           <Banner tone="warn" action={<Btn variant="ghost" href={href({ view: "subs" })}>Substitutions</Btn>}>
-            Today {needCover.map((d) => `P${d.period + 1}`).join(", ")} need cover · {awayToday.map((a) => a.name).join(", ") || "a teacher"} away · {covered.length} of {covered.length + needCover.length} covered
+            Today {needCover.map((d) => `P${periodNumber(d.period)}`).join(", ")} need cover · {awayToday.map((a) => a.name).join(", ") || "a teacher"} away · {covered.length} of {covered.length + needCover.length} covered
           </Banner>
         ) : null}
         {data.changes.length ? (
@@ -297,7 +298,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
             if (duty) {
               return { body: <><b className="clip" style={{ display: "block" }}>{duty.classLabels.join(", ")}</b><span style={{ fontSize: 12, color: "var(--mut)" }}>Covering · {subjectName(duty.subjectCode)}</span></>, style: cellStyle(subjectFamily(duty.subjectCode), { cover: true }) };
             }
-            if (list.length === 0) return { body: <><b style={{ display: "block" }}>Free</b><span style={{ fontSize: 12, color: "var(--mut)" }}>{WEEK_SHORT[day]} P{period + 1}</span></>, style: cellStyle("other", { free: true }) };
+            if (list.length === 0) return { body: <><b style={{ display: "block" }}>Free</b><span style={{ fontSize: 12, color: "var(--mut)" }}>{WEEK_SHORT[day]} P{periodNumber(period)}</span></>, style: cellStyle("other", { free: true }) };
             return {
               body: (
                 <>
@@ -468,7 +469,7 @@ function WeekGrid({
         {PERIODS.map((period) => (
           <div key={period} style={{ display: "grid", gridTemplateColumns: "52px minmax(0,1fr)", gap: 8, alignItems: "stretch" }}>
             <span style={{ display: "flex", flexDirection: "column", justifyContent: "center", fontSize: 12 }}>
-              <b>P{period + 1}</b>
+              <b>P{periodNumber(period)}</b>
               <span style={{ color: "var(--mut)" }}>{bell(period)?.starts}</span>
             </span>
             {tile(cell(phoneDay, period), `m${period}`)}
@@ -529,7 +530,7 @@ function EditSheet({
       open
       onClose={onClose}
       wide
-      title={`${cls?.label ?? "Class"} · ${WEEK_SHORT[day]} · P${period + 1}`}
+      title={`${cls?.label ?? "Class"} · ${WEEK_SHORT[day]} · P${periodNumber(period)}`}
       sub={`${bell ? `${bell.starts}–${bell.ends}` : ""} · now: ${now.length ? now.map((s) => `${subjectName(s.subjectCode)} · ${s.teacherShortName}`).join(", ") : "free"}`}
       footer={
         <div style={{ display: "flex", gap: 10 }}>
@@ -569,7 +570,7 @@ function EditSheet({
         </Field>
         {clash ? (
           <div style={{ background: "var(--warns)", color: "var(--warnfg)", borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            <b><Ic n="alert" size={16} /> {nameOf(staffId)} already teaches {clash.classLabel} in P{period + 1} on {WEEK_SHORT[day]}</b>
+            <b><Ic n="alert" size={16} /> {nameOf(staffId)} already teaches {clash.classLabel} in P{periodNumber(period)} on {WEEK_SHORT[day]}</b>
             <span>Pick a free teacher, or keep the period as it was.</span>
             <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {firstFree ? <Btn variant="sec" onClick={() => setStaffId(firstFree.id)}>Use {firstFree.name} · free</Btn> : null}
@@ -671,7 +672,7 @@ function Subs({
           <Card key={d.id} pad={false} style={{ overflow: "hidden" }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "14px 16px" }}>
               <span style={{ width: 52, height: 52, borderRadius: 12, background: d.status === "assigned" ? "var(--oks)" : "var(--warns)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: "none" }}>
-                <b>P{d.period + 1}</b>
+                <b>P{periodNumber(d.period)}</b>
                 <span style={{ fontSize: 11 }}>{bell?.starts}</span>
               </span>
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -702,7 +703,7 @@ function Subs({
                           <input type="radio" name={`c-${d.id}`} checked={picked === x.id} onChange={() => setChoice((m) => ({ ...m, [d.needKey]: x.id }))} />
                           <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                             <b>{x.name}</b>
-                            <span style={{ fontSize: 12, color: "var(--mut)" }}>Free in P{d.period + 1} · {x.detail} · {x.subsThisWeek} subs this week</span>
+                            <span style={{ fontSize: 12, color: "var(--mut)" }}>Free in P{periodNumber(d.period)} · {x.detail} · {x.subsThisWeek} subs this week</span>
                           </span>
                           {i === 0 ? <Pill tone="ok">Best match</Pill> : null}
                         </label>
@@ -738,7 +739,7 @@ function AssignSheet({ duty, pending, subjectName, onClose, onAssign }: { duty: 
     <Sheet
       open={Boolean(duty)}
       onClose={onClose}
-      title={duty ? `Cover P${duty.period + 1} · ${duty.classLabels.join(", ")}` : "Cover"}
+      title={duty ? `Cover P${periodNumber(duty.period)} · ${duty.classLabels.join(", ")}` : "Cover"}
       sub={duty ? `${subjectName(duty.subjectCode)} · ${duty.absentNames.join(", ")} is away` : undefined}
       footer={
         <div style={{ display: "flex", gap: 10 }}>
@@ -749,7 +750,7 @@ function AssignSheet({ duty, pending, subjectName, onClose, onAssign }: { duty: 
     >
       {duty ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }} role="radiogroup">
-          <SecHead>Free in P{duty.period + 1} · best first</SecHead>
+          <SecHead>Free in P{periodNumber(duty.period)} · best first</SecHead>
           {duty.candidates.length === 0 ? <EmptyState icon="users" title="Nobody to offer" body="Cover is managed by the coordinator." /> : null}
           {duty.candidates.map((c, i) => (
             <RadioCard
@@ -757,7 +758,7 @@ function AssignSheet({ duty, pending, subjectName, onClose, onAssign }: { duty: 
               checked={pick === c.id}
               onSelect={() => !c.blocked && setPick(c.id)}
               title={c.name}
-              sub={`${c.blocked ? "Not available" : `Free in P${duty.period + 1}`} · ${c.detail} · ${c.subsThisWeek} subs this week`}
+              sub={`${c.blocked ? "Not available" : `Free in P${periodNumber(duty.period)}`} · ${c.detail} · ${c.subsThisWeek} subs this week`}
               trail={i === 0 && !c.blocked ? <Pill tone="ok">Best match</Pill> : c.blocked ? <Pill tone="mut">Busy</Pill> : undefined}
             />
           ))}
@@ -940,7 +941,7 @@ function PublishSheet({
           {changes.length === 0 ? <EmptyState icon="checkCircle" title="Nothing waiting" /> : null}
           {changes.map((c) => (
             <div key={c.id} style={{ padding: "12px 16px", borderTop: "1px solid var(--bd)", display: "flex", flexDirection: "column", gap: 6 }}>
-              <b>{c.classLabel} · {WEEK_SHORT[c.day as Weekday] ?? c.day} P{c.period + 1}</b>
+              <b>{c.classLabel} · {WEEK_SHORT[c.day as Weekday] ?? c.day} P{periodNumber(c.period)}</b>
               <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
                 <span style={{ textDecoration: "line-through", color: "var(--mut)", padding: "2px 8px", borderRadius: 8, background: "var(--s2)" }}>{c.fromSubjectCode ? `${subjectName(c.fromSubjectCode)} · ${c.fromTeacher}` : "Free"}</span>
                 <Ic n="arrowRight" size={14} />
