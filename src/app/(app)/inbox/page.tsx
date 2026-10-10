@@ -1,7 +1,7 @@
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { pendingRefunds } from "@/modules/dashboard/vx/admin-today";
+import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { schoolToday } from "@/vx/format";
 import { sortInbox } from "@/vx/screens/admin/logic";
 import { loadInbox } from "@/vx/screens/admin/data";
@@ -43,7 +43,7 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
   }
 
   const { items, unavailable } = await loadInbox(staff, sessionLabel, schoolToday(), {
-    refunds: can(staff, "fees:view") ? pendingRefunds : undefined,
+    refunds: can(staff, "fees:view") ? pendingMoneyRequests : undefined,
   });
 
   return (

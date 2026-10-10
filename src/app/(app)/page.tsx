@@ -4,7 +4,7 @@ import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { resolveStart } from "@/platform/config/start";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { pendingRefunds, todayMoney } from "@/modules/dashboard/vx/admin-today";
+import { pendingMoneyRequests, todayMoney } from "@/modules/dashboard/vx/admin-today";
 import { longDay, schoolToday } from "@/vx/format";
 import { MENU_HOME } from "@/vx/nav";
 import { boardSummary, runningPeriod, schoolMinutes, sortInbox } from "@/vx/screens/admin/logic";
@@ -60,7 +60,7 @@ export default async function TodayPage() {
     loadToday(staff, sessionLabel, today, schoolMinutes()),
     seesMoney ? todayMoney(today).catch(() => null) : Promise.resolve(null),
     can(staff, "attendance:correct")
-      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingRefunds : undefined })
+      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingMoneyRequests : undefined })
       : Promise.resolve(null),
   ]);
 

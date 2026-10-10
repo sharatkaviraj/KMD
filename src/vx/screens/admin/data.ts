@@ -327,7 +327,7 @@ export async function loadInbox(
   staff: CurrentStaff,
   sessionLabel: string,
   day: string,
-  extra: { refunds?: () => Promise<{ id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string }[]> } = {},
+  extra: { refunds?: () => Promise<{ id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string }[]> } = {},
 ): Promise<{ items: InboxItem[]; unavailable: string[] }> {
   const missing: string[] = [];
   const items: InboxItem[] = [];
@@ -508,7 +508,7 @@ export async function loadInbox(
           { label: T.reason, value: r.reason ?? "—" },
         ],
         footnote: T.refundFootnote,
-        href: "/fees/finance-controls",
+        href: r.href ?? "/fees/finance-controls",
       });
     }
   }

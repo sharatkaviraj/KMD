@@ -78,6 +78,8 @@ export type PendingRefund = {
   amount: number;
   reason: string | null;
   requestedAt: string;
+  /** Where the request is decided; the fee refund screen when absent. */
+  href?: string;
 };
 
 /** Refund requests waiting for approval — shown in Needs you, decided on the fee screen. */
@@ -109,4 +111,50 @@ export async function pendingRefunds(): Promise<PendingRefund[]> {
     reason: row.reason,
     requestedAt: row.created_at,
   }));
+}
+
+/**
+ * Reversals and write-offs asked for at the fee desk by staff who cannot do
+ * them (`vppsone.fee_desk_requests`), for the admin's Needs you. Each links to
+ * the screen where the admin decides it; nothing here moves money.
+ */
+export async function pendingDeskRequests(): Promise<PendingRefund[]> {
+  await assertPermission("fees:view");
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .schema("vppsone")
+    .from("fee_desk_requests")
+    .select("id, kind, student_id, receipt_number, amount, reason_code, note, requested_by_name, created_at")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(50)
+    .returns<{ id: string; kind: "reversal" | "write_off"; student_id: string; receipt_number: string | null; amount: number | string; reason_code: string; note: string | null; requested_by_name: string | null; created_at: string }[]>();
+  if (error) throw new Error(`Could not read the fee desk requests: ${error.message}`);
+  if (data.length === 0) return [];
+
+  const ids = [...new Set(data.map((row) => row.student_id))];
+  const names = await fetchInChunks<{ id: string; full_name: string }>(ids, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    admin.from("students").select("id, full_name").in("id", chunk),
+  );
+  if (names.error) throw new Error("Could not read the students.");
+  const nameOf = new Map(names.data.map((row) => [row.id, row.full_name]));
+
+  return data.map((row) => ({
+    id: `desk:${row.id}`,
+    studentId: row.student_id,
+    studentName: nameOf.get(row.student_id) ?? "—",
+    amount: Number(row.amount || 0),
+    reason: `${row.kind === "reversal" ? `Reverse receipt ${row.receipt_number ?? ""}`.trim() : "Write off"} · ${row.note || row.reason_code}${row.requested_by_name ? ` · ${row.requested_by_name}` : ""}`,
+    requestedAt: row.created_at,
+    href:
+      row.kind === "reversal" && row.receipt_number
+        ? `/receipts/${encodeURIComponent(row.receipt_number)}?sheet=reverse`
+        : `/dues?tab=left&wo=${row.student_id}&sheet=wo`,
+  }));
+}
+
+/** Everything money-side that waits on an admin: refunds plus the desk's reversal and write-off requests. */
+export async function pendingMoneyRequests(): Promise<PendingRefund[]> {
+  const [refunds, desk] = await Promise.all([pendingRefunds(), pendingDeskRequests()]);
+  return [...refunds, ...desk];
 }
