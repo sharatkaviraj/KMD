@@ -105,3 +105,24 @@ export async function logoutAction() {
   // almost always the same person.
   redirect("/login");
 }
+
+/**
+ * Sign in as one of the QA test accounts without a password (UI-63): mints a
+ * one-time magic-link token with the admin API and hands it to `/auth/confirm`,
+ * the door every link already uses. Refuses unless this deployment is on the
+ * dev database, and only knows QA-domain addresses.
+ */
+export async function testSignInAction(formData: FormData): Promise<void> {
+  const { testSignInEnabled, TEST_ACCOUNTS } = await import("@/platform/auth/test-accounts");
+  const key = formData.get("key");
+  if (!testSignInEnabled(key)) redirect("/login");
+  const account = TEST_ACCOUNTS.find((entry) => entry.key === formData.get("account"));
+  if (!account) redirect("/login");
+
+  const { createAdminClient } = await import("@/platform/supabase/admin");
+  const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: account.email });
+  const tokenHash = data?.properties?.hashed_token;
+  if (error || !tokenHash) redirect("/login?error=link");
+
+  redirect(`/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=magiclink`);
+}

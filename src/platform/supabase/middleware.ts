@@ -20,7 +20,9 @@ import {
  * and it is not an opening: it does nothing at all without a one-time
  * `token_hash` that only the service role can mint.
  */
-const PUBLIC_PATHS = new Set(["/login", "/auth/confirm"]);
+// `/login/test` is the keyed QA sign-in (UI-63): it 404s without the secret
+// key and on the live database, and can only sign in as a QA-domain account.
+const PUBLIC_PATHS = new Set(["/login", "/login/test", "/auth/confirm"]);
 
 /**
  * The token links, which are open by design.
