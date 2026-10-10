@@ -35,7 +35,7 @@ export default async function ClassTeachersPage() {
         <PageHeader eyebrow={m.eyebrowAcademics}
           title={m.classTeachers}
           language={language}
-          back={{ href: "/academics", label: m.academicsTitle }}
+          back={{ href: "/academics/setup", label: m.academicsTitle }}
         />
         <EmptyState title={m.classLabelsNothing} language={language} />
       </>
@@ -67,7 +67,7 @@ export default async function ClassTeachersPage() {
           `${m.session.en} ${sessionLabel} — ${progress.assigned} / ${progress.total} ${m.classTeachersAssigned.en}`,
         )}
         language={language}
-        back={{ href: "/academics", label: m.academicsTitle }}
+        back={{ href: "/academics/setup", label: m.academicsTitle }}
       />
 
       <Notice

@@ -210,6 +210,6 @@ export async function saveAttendanceRulesAction(
     return failure({}, m.notSaved);
   }
 
-  revalidatePath("/academics");
+  revalidatePath("/academics/setup");
   return { ...idleAcademicsState, status: "saved" };
 }

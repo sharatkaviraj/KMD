@@ -35,7 +35,7 @@ export default async function ClassAliasesPage() {
         <PageHeader eyebrow={m.eyebrowAcademics}
           title={m.classLabels}
           language={language}
-          back={{ href: "/academics", label: m.academicsTitle }}
+          back={{ href: "/academics/setup", label: m.academicsTitle }}
         />
         <EmptyState title={m.classLabelsNothing} language={language} />
       </>
@@ -63,7 +63,7 @@ export default async function ClassAliasesPage() {
           `${m.session.en} ${sessionLabel} — ${progress.mapped} / ${progress.total}`,
         )}
         language={language}
-        back={{ href: "/academics", label: m.academicsTitle }}
+        back={{ href: "/academics/setup", label: m.academicsTitle }}
       />
 
       <Notice
