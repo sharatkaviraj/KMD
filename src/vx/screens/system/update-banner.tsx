@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { flushDraftWrites } from "@/platform/drafts/store";
-import { usePwaState, waitingWorker } from "@/platform/pwa/store";
+import { requestActivation, updatePwa, usePwaState } from "@/platform/pwa/store";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
 import { Btn, IconTile } from "@/vx/ui/primitives";
@@ -33,6 +33,12 @@ export function UpdateBanner() {
   const [blocked, setBlocked] = useState(false);
   const [later, setLater] = useState(false);
 
+  // While this prompt is mounted the root layout's older card stays hidden.
+  useEffect(() => {
+    updatePwa({ prompted: true });
+    return () => updatePwa({ prompted: false });
+  }, []);
+
   if (!pwa.waiting || later) return null;
 
   async function activate() {
@@ -43,9 +49,7 @@ export function UpdateBanner() {
     setBusy(true);
     try {
       await flushDraftWrites();
-      const worker = waitingWorker();
-      if (worker) worker.postMessage({ type: "ACTIVATE_UPDATE" });
-      else setBusy(false);
+      if (!requestActivation()) setBusy(false);
     } catch {
       setBlocked(true);
       setBusy(false);

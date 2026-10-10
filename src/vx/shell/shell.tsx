@@ -14,6 +14,9 @@ import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS, type D
 import { avatarColor } from "@/vx/ui/primitives";
 import { ToastProvider } from "@/vx/ui/overlays";
 import type { Viewer } from "@/vx/view-as";
+import { OfflineBanner } from "@/vx/screens/system/offline-banner";
+import { SessionExpiredSheet } from "@/vx/screens/system/session-expired";
+import { UpdateBanner } from "@/vx/screens/system/update-banner";
 
 import { VxBottomBar } from "./bottom-bar";
 import { LazySearchPalette } from "./lazy";
@@ -76,7 +79,7 @@ export function VxShell({
     initials: initials(staff.displayName),
     name: staff.displayName,
     sub: staff.email ?? MENU_LABEL[menu].en,
-    href: "/settings",
+    href: can(staff, "settings:manage") ? "/settings" : "/preferences",
     color: avatarColor(staff.displayName),
   };
   const previewMenus =
@@ -121,6 +124,7 @@ export function VxShell({
             sessionPill={sessionPill}
           />
           <div className="vx-content">
+            <OfflineBanner />
             <SessionSwitchOverlayMount />
             {previewing ? <PreviewBanner label={MENU_LABEL[previewing].en} /> : null}
             <main id="vx-main" className="vx-main vx-reset">
@@ -130,6 +134,8 @@ export function VxShell({
           <VxBottomBar tabs={tabs} badges={badges} />
         </div>
         <LazySearchPalette items={palette} />
+        <UpdateBanner />
+        <SessionExpiredSheet />
         <div id="vx-layer" className="vxt vx-layer" />
       </ToastProvider>
     </SessionSwitchingProvider>

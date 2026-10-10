@@ -13,6 +13,15 @@ export const runtime = "nodejs";
 
 const PREVIEW_ROLE = { admin: "admin", teacher: "teacher", accountant: "accountant", academic: "academic_coordinator", exam: "exam_coordinator" } as const;
 
+const ACCOUNT = {
+  title: { en: "My account", hi: "मेरा खाता" },
+  rows: [
+    { href: "/preferences", icon: "settings", label: { en: "Language and start screen", hi: "भाषा और पहली स्क्रीन" } },
+    { href: "/preferences/password", icon: "key", label: { en: "Change password", hi: "पासवर्ड बदलें" } },
+    { href: "/preferences/session", icon: "calendar", label: { en: "Session", hi: "सत्र" } },
+  ],
+} as const;
+
 /** The phone Menu tab (F02-Menu): everything the bottom bar has no room for. */
 export default async function MenuPage() {
   const { staff, menu, previewing } = await getViewer();
@@ -50,6 +59,22 @@ export default async function MenuPage() {
               </Card>
             </section>
           ))}
+          <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <h2 className="sech">{lead(ACCOUNT.title, lang)}</h2>
+            <Card pad={false} style={{ overflow: "hidden" }}>
+              {ACCOUNT.rows.map((r, ri) => (
+                <ListRow
+                  key={r.href}
+                  href={r.href}
+                  lead={<IconTile icon={r.icon} tone="pri" size={38} />}
+                  title={lead(r.label, lang)}
+                  sub={under(r.label, lang) ?? undefined}
+                  trail={<Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />}
+                  style={ri === 0 ? { borderTop: 0 } : undefined}
+                />
+              ))}
+            </Card>
+          </section>
           <MenuPrefs />
           <form action={logoutAction}>
             <button type="submit" className="btn sec tap" style={{ width: "100%", height: 48, color: "var(--bad)" }}>
