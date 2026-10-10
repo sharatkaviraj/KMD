@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
 import type { Language } from "@/platform/i18n/language";
-import { Ic } from "@/vx/icons";
+import { Eye, EyeOff, Info, KeyRound, LoaderCircle, TriangleAlert } from "lucide-react";
+
 import { lead, p, under, type Pair } from "@/vx/text";
-import { Sheet } from "@/vx/ui/overlays";
 
 // Defined here rather than in actions.ts: a "use server" module may only
 // export async functions.
@@ -74,7 +74,7 @@ function Note({ tone, pair, language, id, focusRef }: { tone: "warn" | "bad" | "
       role={tone === "bad" ? "alert" : tone === "warn" ? "status" : undefined}
       style={{ display: "flex", gap: 10, padding: tone === "mut" ? 0 : "12px 14px", borderRadius: 12, background: colors.bg, color: colors.fg, fontSize: 14, lineHeight: 1.45, textAlign: tone === "mut" ? "center" : undefined }}
     >
-      {tone !== "mut" ? <Ic n={tone === "bad" ? "alert" : "info"} size={18} /> : null}
+      {tone === "bad" ? <TriangleAlert size={18} aria-hidden /> : tone === "warn" ? <Info size={18} aria-hidden /> : null}
       <span style={{ minWidth: 0 }}>
         <Two pair={pair} language={language} />
       </span>
@@ -153,39 +153,37 @@ export function LoginForm({ language }: { language: Language }) {
             aria-pressed={showPassword}
             style={{ position: "absolute", right: 2, top: 0, width: 44, height: 44, border: 0, background: "none", color: "var(--mut)", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            <Ic n={showPassword ? "eyeOff" : "eye"} size={20} />
+            {showPassword ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
           </button>
         </span>
       </label>
 
-      <button type="button" className="tap" onClick={() => setForgot(true)} style={{ alignSelf: "flex-end", border: 0, background: "none", color: "var(--acc)", fontWeight: 600, fontSize: 14, padding: "4px 0", minHeight: 44 }}>
+      <button type="button" className="tap" onClick={() => setForgot((v) => !v)} aria-expanded={forgot} aria-controls="login-forgot" style={{ alignSelf: "flex-end", border: 0, background: "none", color: "var(--acc)", fontWeight: 600, fontSize: 14, padding: "4px 0", minHeight: 44 }}>
         {lead(T.forgot, language)}
       </button>
+
+      {/* State `forgot`: inline rather than a sheet, so the sign-in page does
+        not load the overlay kit (the /login bundle budget, check:bundles). */}
+      {forgot ? (
+        <div id="login-forgot" role="region" aria-label={lead(T.forgotTitle, language)} style={{ display: "flex", gap: 12, padding: "14px 16px", borderRadius: 14, background: "var(--s2)", border: "1px solid var(--bd)" }}>
+          <KeyRound size={20} aria-hidden style={{ flex: "none", color: "var(--acc)", marginTop: 2 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+            <strong><Two pair={T.forgotTitle} language={language} small /></strong>
+            <p style={{ margin: 0, lineHeight: 1.5, fontSize: 14 }}><Two pair={T.forgotBody} language={language} /></p>
+            <button type="button" className="tap btn sec" style={{ alignSelf: "flex-start" }} onClick={() => setForgot(false)}>{lead(T.ok, language)}</button>
+          </div>
+        </div>
+      ) : null}
 
       {failed && state.message ? <Note tone="bad" pair={state.message} language={language} id="login-error" focusRef={errorRef} /> : null}
 
       <button type="submit" className="tap btn pri big" disabled={isPending} style={{ width: "100%" }}>
-        {isPending ? <Ic n="refresh" size={18} className="spin" /> : null}
+        {isPending ? <LoaderCircle size={18} className="spin" aria-hidden /> : null}
         {lead(isPending ? T.signingIn : T.signIn, language)}
       </button>
 
       <Note tone="mut" pair={T.noSignup} language={language} />
 
-      <Sheet
-        open={forgot}
-        onClose={() => setForgot(false)}
-        icon="key"
-        title={lead(T.forgotTitle, language)}
-        footer={
-          <button type="button" className="tap btn pri" style={{ flex: 1 }} onClick={() => setForgot(false)}>
-            {lead(T.ok, language)}
-          </button>
-        }
-      >
-        <p style={{ margin: 0, lineHeight: 1.5 }}>
-          <Two pair={T.forgotBody} language={language} />
-        </p>
-      </Sheet>
     </form>
   );
 }

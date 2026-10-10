@@ -81,8 +81,6 @@ export default async function LoginPage() {
           <PwaInstallCard />
         </section>
       </main>
-      {/* Sheets (Forgot password) render here; the signed-in shell is not mounted on /login. */}
-      <div id="vx-layer" className="vxt vx-layer" />
     </div>
   );
 }
