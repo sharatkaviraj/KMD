@@ -94,6 +94,8 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "substitutions:view",
     "substitutions:manage",
     "attendance:view",
+    "attendance:mark_on_behalf",
+    "attendance:correct",
     "notes:view",
     "assessments:view",
     "marks:view",

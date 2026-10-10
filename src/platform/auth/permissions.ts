@@ -195,6 +195,10 @@ const academicCoordinatorPermissions: readonly StaffPermission[] = [
   "substitutions:view",
   "substitutions:manage",
   "attendance:view",
+  // Attendance oversight (design AcadAttendance): marks a class for a teacher
+  // on leave and approves teachers' change requests, as the office does.
+  "attendance:mark_on_behalf",
+  "attendance:correct",
   "notes:view",
   "assessments:view",
   "marks:view",
