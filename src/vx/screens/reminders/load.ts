@@ -1,5 +1,7 @@
 import "server-only";
 
+import { byClassLabel } from "@/modules/academics/domain/class-order";
+
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { loadDuesBoard, loadLeftOwing } from "@/modules/defaulters/vx/data";
@@ -112,7 +114,7 @@ export async function loadReminders(staff: CurrentStaff, search: Search): Promis
       result = {
         run,
         notDelivered: recipients.filter((r) => r.status === "failed").map((r) => ({ studentId: r.studentId, studentName: r.studentName, error: r.error })),
-        byClass: [...byClass.values()].sort((a, b) => a.classLabel.localeCompare(b.classLabel, "en", { numeric: true })),
+        byClass: [...byClass.values()].sort((a, b) => byClassLabel(a.classLabel, b.classLabel)),
       };
     } else {
       view = "list";

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { byClassLabel } from "@/modules/academics/domain/class-order";
+
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createClient } from "@/modules/fees/platform/supabase/server";
@@ -72,7 +74,7 @@ export async function loadDuesBoard(sessionLabel: string): Promise<DuesBoard> {
     contacts[id] = { lastContactedAt: c.lastContactedAt, lastOutcome: c.lastOutcome ?? null, lastChannel: c.lastChannel ?? null, snoozeUntil: c.snoozeUntil };
   }
 
-  const classByInst = [...byClass.values()].sort((a, b) => a.classLabel.localeCompare(b.classLabel, "en", { numeric: true }));
+  const classByInst = [...byClass.values()].sort((a, b) => byClassLabel(a.classLabel, b.classLabel));
   return { students, contacts, classByInst };
 }
 
