@@ -1,3 +1,4 @@
+import { schoolToday } from "@/platform/dates";
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
@@ -56,7 +57,7 @@ export default async function ClassTeachersPage() {
     .filter((person) => person.isActive && person.isTeaching)
     .sort((a, b) => a.displayName.localeCompare(b.displayName, "en"));
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = schoolToday();
 
   return (
     <>

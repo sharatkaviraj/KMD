@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import {
@@ -9,7 +10,7 @@ import {
   saveAttendanceAction,
 } from "@/app/(app)/teach/actions";
 import { acknowledgeDutyAction, cannotCoverAction } from "@/app/(app)/duty/[id]/actions";
-import { assertPermission } from "@/platform/auth/current-staff";
+import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { schoolProfile } from "@/platform/config/school";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -51,10 +52,25 @@ export type VxSaveState = AttendanceSaveState & { queued?: number };
  * window. With `alerts`, the absent children's parents get a 10 am message
  * queued — never sent from here.
  */
+/**
+ * A server-side failure comes back as "refused" with its reason. Only a save
+ * that never got an answer throws on the phone, and only that goes to the
+ * offline outbox; before, a permission or database error was retried forever
+ * as "waiting to send" and the teacher never saw why.
+ */
 export async function saveRegisterVx(payloadJson: string, alerts: boolean): Promise<VxSaveState> {
   const actor = await assertPermission("attendance:view");
-  await assertNotPreviewing();
+  try {
+    await assertNotPreviewing();
+    return await saveRegisterVxUnsafe(actor, payloadJson, alerts);
+  } catch (error) {
+    unstable_rethrow(error);
+    const reason = error instanceof Error && error.message ? error.message : "Something went wrong.";
+    return { status: "refused", message: { en: `Not saved: ${reason}`, hi: `सहेजा नहीं गया: ${reason}` } };
+  }
+}
 
+async function saveRegisterVxUnsafe(actor: CurrentStaff, payloadJson: string, alerts: boolean): Promise<VxSaveState> {
   let payload: { classId?: string; day?: string; kind?: string; marks?: { studentId: string; status: string }[] };
   try {
     payload = JSON.parse(payloadJson);

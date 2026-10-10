@@ -270,16 +270,22 @@ export async function savePlanAction(input: { studentId: string; goal: string; s
     planId = data.id;
   }
 
-  const { data: current } = await admin.from("support_plan_steps").select("id").eq("plan_id", planId).is("removed_at", null).returns<{ id: string }[]>();
+  const { data: current, error: currentError } = await admin.from("support_plan_steps").select("id").eq("plan_id", planId).is("removed_at", null).returns<{ id: string }[]>();
+  if (currentError) return fail("Could not save the plan.", "योजना सहेजी नहीं जा सकी।");
   const kept = new Set(steps.map((s) => s.id).filter(isUuid));
   const gone = (current ?? []).map((row) => row.id).filter((id) => !kept.has(id));
-  if (gone.length) await admin.from("support_plan_steps").update({ removed_at: now }).in("id", gone);
+  if (gone.length) {
+    const { error: goneError } = await admin.from("support_plan_steps").update({ removed_at: now }).in("id", gone);
+    if (goneError) return fail("Could not save the plan.", "योजना सहेजी नहीं जा सकी।");
+  }
   for (const [i, s] of steps.entries()) {
     const row = { text: s.text, owner_staff_id: isUuid(s.ownerId) ? s.ownerId : null, due_label: (s.due ?? "").trim().slice(0, 40) || null, sort_order: i };
     if (s.id && isUuid(s.id) && (current ?? []).some((c) => c.id === s.id)) {
-      await admin.from("support_plan_steps").update(row).eq("id", s.id).eq("plan_id", planId);
+      const { error: stepError } = await admin.from("support_plan_steps").update(row).eq("id", s.id).eq("plan_id", planId);
+      if (stepError) return fail("Could not save the plan.", "योजना सहेजी नहीं जा सकी।");
     } else {
-      await admin.from("support_plan_steps").insert({ ...row, plan_id: planId, done_at: s.done ? now : null, done_by: s.done ? actor.id : null });
+      const { error: stepError } = await admin.from("support_plan_steps").insert({ ...row, plan_id: planId, done_at: s.done ? now : null, done_by: s.done ? actor.id : null });
+      if (stepError) return fail("Could not save the plan.", "योजना सहेजी नहीं जा सकी।");
     }
   }
   revalidateAcademics();

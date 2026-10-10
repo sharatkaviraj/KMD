@@ -283,7 +283,7 @@ export async function answerReplyAction(input: { replyId: string; body: string }
   let sendId: string | null = null;
   if (phone && id) {
     const policyVersion = await generalPolicyVersion();
-    const { data: send } = await admin
+    const { data: send, error: sendError } = await admin
       .from("message_sends")
       .insert({
         session_label: reply.session_label,
@@ -307,6 +307,7 @@ export async function answerReplyAction(input: { replyId: string; body: string }
       })
       .select("id")
       .single<{ id: string }>();
+    if (sendError) return fail(p("The reply could not be queued. Try again.", "जवाब कतार में नहीं जुड़ा। फिर कोशिश करें।"));
     sendId = send?.id ?? null;
   }
   const { error } = await admin.from("parent_reply_answers").insert({ reply_id: reply.id, body, message_send_id: sendId, answered_by: actor.id });

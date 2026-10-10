@@ -58,7 +58,7 @@ function toEvent(r: CloseEventDb): CloseEventRow {
 }
 
 /** Close and reopen events for the days from `from` to `to`, oldest first. */
-export async function listCloseEvents(from: string, to: string): Promise<CloseEventRow[]> {
+export async function listCloseEvents(from: string, to: string, opts: { strict?: boolean } = {}): Promise<CloseEventRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("fee_day_close_events")
@@ -66,7 +66,12 @@ export async function listCloseEvents(from: string, to: string): Promise<CloseEv
     .gte("payment_date", from)
     .lte("payment_date", to)
     .order("created_at", { ascending: true });
-  if (error) return [];
+  // Strict for the close and reopen actions: an unreadable history read as
+  // "never closed" would let the same day be closed twice.
+  if (error) {
+    if (opts.strict) throw new Error(`Could not read the day's close history: ${error.message}`);
+    return [];
+  }
   return ((data ?? []) as CloseEventDb[]).map(toEvent);
 }
 
@@ -152,4 +157,18 @@ export async function insertReversalRequest(r: {
     throw new Error(error.message);
   }
   return "created";
+}
+
+/**
+ * The admin has reversed the receipt: any request for it is now decided.
+ * Without this the request stayed "pending" in Needs you for good.
+ */
+export async function approveReversalRequests(receiptId: string, deciderId: string, note: string | null): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("fee_desk_requests")
+    .update({ status: "approved", decided_by: deciderId, decided_at: new Date().toISOString(), decision_note: note })
+    .eq("kind", "reversal")
+    .eq("status", "pending")
+    .eq("receipt_id", receiptId);
+  if (error) throw new Error(error.message);
 }

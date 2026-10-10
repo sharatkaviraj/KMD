@@ -132,12 +132,13 @@ async function enrich(rows: NoteRow[], sessionLabel: string): Promise<BoardNote[
  * classes; the school-wide roles read the session. `studentId` narrows to
  * one child.
  */
-export async function visibleNotes(viewer: NoteViewer, sessionLabel: string, opts: { studentId?: string; limit?: number } = {}): Promise<BoardNote[]> {
+export async function visibleNotes(viewer: NoteViewer, sessionLabel: string, opts: { studentId?: string; noteId?: string; limit?: number } = {}): Promise<BoardNote[]> {
   const admin = createAdminClient();
   const limit = opts.limit ?? 600;
   const base = () => {
     let q = admin.from("notes").select(COLUMNS).eq("session_label", sessionLabel);
     if (opts.studentId) q = q.eq("student_id", opts.studentId);
+    if (opts.noteId) q = q.eq("id", opts.noteId);
     return q;
   };
 

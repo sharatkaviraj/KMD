@@ -199,7 +199,8 @@ export async function undoNoteAction(noteId: string): Promise<NoteResult> {
 async function workable(staff: CurrentStaff, noteId: string) {
   const ctx = await context(staff);
   if (!ctx || !UUID.safeParse(noteId).success) return null;
-  const notes = await visibleNotes(ctx.viewer, ctx.sessionLabel, { limit: 600 });
+  // Looked up by id, so a note older than the board's newest 600 can still be worked on.
+  const notes = await visibleNotes(ctx.viewer, ctx.sessionLabel, { noteId, limit: 1 });
   const note = notes.find((n) => n.id === noteId) ?? null;
   return note ? { ...ctx, note } : null;
 }
@@ -325,7 +326,11 @@ export async function createPlanAction(input: z.input<typeof planSchema>): Promi
       created_by: staff.id,
     })),
   );
-  if (stepError) return NOT_SAVED();
+  if (stepError) {
+    // Without its steps the plan is an empty shell, and a retry would make a second one.
+    await admin.from("support_plans").delete().eq("id", data.id);
+    return NOT_SAVED();
+  }
 
   if (v.noteId) await admin.from("notes").update({ status: "working", status_changed_at: now, status_changed_by: staff.id }).eq("id", v.noteId).neq("status", "done");
 

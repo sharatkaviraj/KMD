@@ -233,10 +233,11 @@ export async function decideCorrectionAction(formData: FormData) {
     decisionNote: (formData.get("decisionNote") ?? "").toString(),
   });
 
-  if (!parsed.success) return;
+  // Thrown rather than returned: the inbox reports success when this returns.
+  if (!parsed.success) throw new Error("Choose a correction request.");
 
   const correction = await getCorrection(parsed.data.correctionId);
-  if (!correction) return;
+  if (!correction) throw new Error("That request is no longer waiting. Someone may have decided it already.");
 
   // Nobody approves their own — the point of the queue is a second person.
   const verdict = canDecide({

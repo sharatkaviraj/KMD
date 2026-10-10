@@ -16,7 +16,7 @@ import {
   summarizeReceipts,
   type DenominationCounts,
 } from "@/modules/receipts/vx/domain/day-close";
-import { insertCloseEvent, insertReversalRequest, listCloseEvents } from "@/vx/screens/receipts/data";
+import { approveReversalRequests, insertCloseEvent, insertReversalRequest, listCloseEvents } from "@/vx/screens/receipts/data";
 import { assertNotPreviewing } from "@/vx/view-as";
 
 export type DeskActionResult = { ok: true; kind?: "reversed" | "requested" | "exists" } | { ok: false; error: string };
@@ -49,7 +49,7 @@ export async function closeDayAction(input: {
     await assertNotPreviewing();
     if (!isIsoDate(input.date)) return { ok: false, error: "Pick a real day." };
 
-    const events = await listCloseEvents(input.date, input.date);
+    const events = await listCloseEvents(input.date, input.date, { strict: true });
     if (latestCloseState(events).closed) return { ok: false, error: "This day is already closed." };
 
     const { rows } = await loadDeskReceipts(input.sessionLabel, input.date, input.date);
@@ -103,7 +103,7 @@ export async function reopenDayAction(input: { date: string; sessionLabel: strin
     if (!isIsoDate(input.date)) return { ok: false, error: "Pick a real day." };
     const note = input.note.trim().slice(0, 500);
     if (note.length < 5) return { ok: false, error: "Say why the day is being reopened." };
-    const events = await listCloseEvents(input.date, input.date);
+    const events = await listCloseEvents(input.date, input.date, { strict: true });
     if (!latestCloseState(events).closed) return { ok: false, error: "This day is not closed." };
     await insertCloseEvent({
       paymentDate: input.date,
@@ -140,7 +140,14 @@ export async function reverseReceiptAction(input: { receiptNumber: string; reaso
 
     const found = await getDeskReceipt(input.receiptNumber);
     if (!found) return { ok: false, error: "Receipt not found." };
-    if (found.isReversed) return { ok: false, error: "This receipt is already reversed." };
+    if (found.isReversed) {
+      // Reversed elsewhere (the fee app, or another admin): close any request still waiting on it.
+      if (feePermissionsFor(staff.role).includes("payments:reverse_any")) {
+        await approveReversalRequests(found.detail.id, staff.id, null).catch(() => undefined);
+        revalidatePath("/inbox");
+      }
+      return { ok: false, error: "This receipt is already reversed." };
+    }
     const { detail } = found;
     const note = input.note.trim().slice(0, 400);
 
@@ -154,7 +161,10 @@ export async function reverseReceiptAction(input: { receiptNumber: string; reaso
       form.set("reasonNote", note || REASON_LABEL[input.reasonCode]);
       const result = await reverseReceiptAdminAction(form);
       if (!result.ok) return { ok: false, error: result.message ?? "Could not reverse this receipt." };
+      // The money has moved; a failure to close the request must not read as a failed reversal.
+      await approveReversalRequests(detail.id, staff.id, note || null).catch(() => undefined);
       revalidatePath("/receipts");
+      revalidatePath("/inbox");
       return { ok: true, kind: "reversed" };
     }
 
