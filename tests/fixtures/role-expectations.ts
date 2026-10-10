@@ -432,6 +432,7 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
   /* ------------------------------------------------------------- the fee desk */
 
   ...feeDeskScreens(),
+  ...redesign(),
 ];
 
 /**
@@ -573,6 +574,45 @@ function feeDeskScreens(): RouteExpectation[] {
         "accountant, and day-close, corrections, staff and master data are the " +
         "admin's alone.",
     ),
+  ];
+}
+
+/*
+ * The redesigned app (docs/design-handoff, docs/ui/DECISIONS.md). One row per
+ * screen the new navigation names, read from the design's role menus
+ * (XSide.dc.html) and PLAN §3: the fee desk gets money, coordinators their
+ * office, teachers their own classes, and admin everything.
+ */
+function redesign(): RouteExpectation[] {
+  const FEE_READERS: readonly StaffRole[] = ["admin", "office", "accountant", "fee_collector"];
+  const COORDINATORS_AND_TEACHERS: readonly StaffRole[] = ["admin", "office", "academic_coordinator", "exam_coordinator", "teacher"];
+  const row = (route: string, allow: readonly StaffRole[], because: string): RouteExpectation => ({ route, allow, because });
+  return [
+    row("/menu", EVERYONE, "The phone Menu tab: everything a role's bottom bar has no room for, filtered by the same permissions."),
+    row("/inbox", ["admin", "office"], "Needs you: the admin's queue of corrections, leave and approvals (design F01/D02)."),
+    row("/attendance", ["admin", "office"], "Whole-school attendance and marking on a teacher's behalf is the office's act (PLAN §3)."),
+    row("/payments", ["admin", "accountant"], "Taking money is granted one person at a time through the accountant role, never by job title."),
+    row("/receipts", FEE_READERS, "Receipts and the day close are fee screens, read by everyone who reads the fee app."),
+    row("/dues", FEE_READERS, "Who owes what; the fee collector's follow-up list starts here."),
+    row("/reminders", FEE_READERS, "Fee reminders are drafted from the dues list by the fee desk."),
+    row("/fee-setup", FEE_READERS, "Fee setup is read by the fee desk; changing it stays admin-only inside the screen."),
+    row("/reports", FEE_READERS, "Money reports belong to the fee desk and the office."),
+    row("/accounts", FEE_READERS, "The accountant's home: the day's money at a glance."),
+    row("/accounts/books", FEE_READERS, "The books: ledger and day closes, read-only for the fee desk."),
+    row("/admissions", ["admin"], "Admitting a child creates a fee record; the fee app keeps that to the admin."),
+    row("/student-tools", ["admin"], "Promotion and bulk changes are the admin's alone in the fee app."),
+    row("/academics/progress", COORDINATORS_AND_TEACHERS, "Class progress from marks, for the people who teach and plan."),
+    row("/academics/attendance", COORDINATORS_AND_TEACHERS, "Attendance trends by class, for the people who teach and plan."),
+    row("/exams", COORDINATORS_AND_TEACHERS, "The exam list: who sits what, when."),
+    row("/exam-office", ["admin", "exam_coordinator"], "The exam coordinator's home (PLAN §3: exams, marks, reports)."),
+    row("/exam-office/plan", ["admin", "exam_coordinator"], "Planning an exam is the exam coordinator's job."),
+    row("/exam-office/results", ["admin", "exam_coordinator"], "Publishing results and report cards is the exam coordinator's job."),
+    row("/notes", ["admin", "office", "academic_coordinator", "teacher"], "Notes on children, read by the people responsible for them."),
+    row("/messages", ["admin", "office", "academic_coordinator", "exam_coordinator"], "Notices go out from the office and the coordinators, never from a single teacher's account."),
+    row("/settings", ["admin"], "School-wide settings and the role matrix are the admin's."),
+    row("/teach/marks", ["admin", "exam_coordinator", "teacher"], "A teacher enters marks for her own class-subjects."),
+    row("/teach/notes", ["admin", "teacher"], "A teacher writes notes on her own classes."),
+    row("/teach/more", COORDINATORS_AND_TEACHERS, "The teacher's overflow menu."),
   ];
 }
 

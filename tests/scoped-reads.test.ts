@@ -25,10 +25,15 @@ const authority = readdirSync(migrations).find((name) =>
   name.endsWith("_staff_authority_and_scoped_reads.sql"),
 );
 const sql = readFileSync(path.join(migrations, authority!), "utf8");
+// Later migrations that only add rows to the map (`*_role_permissions.sql`).
+const additions = readdirSync(migrations)
+  .filter((name) => name.endsWith("_role_permissions.sql"))
+  .map((name) => readFileSync(path.join(migrations, name), "utf8"))
+  .join("\n");
 
 describe("vppsone.role_permissions", () => {
   it("is seeded with exactly the TypeScript map", () => {
-    const seeded = [...sql.matchAll(/\('([a-z_]+)', '([a-z_]+:[a-z_]+)'\)/g)].map(
+    const seeded = [...`${sql}\n${additions}`.matchAll(/\('([a-z_]+)', '([a-z_]+:[a-z_]+)'\)/g)].map(
       ([, role, permission]) => `${role} ${permission}`,
     );
     const expected = staffRoles.flatMap((role) =>

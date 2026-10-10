@@ -13,8 +13,8 @@ Database: schoolfees-dev `wtgxcptmucjerhufzjcf` only. Never `vgqyilgstjvgohrsiwk
 | Phase | Status | What shipped | Routes | Migrations applied | Open items |
 |---|---|---|---|---|---|
 | P0 Inventory and ledger | done | Pack in `docs/design-handoff/`, `INVENTORY.md`, this file, `DECISIONS.md`. Supabase ref confirmed `wtgxcptmucjerhufzjcf` (schoolfees-dev, ACTIVE_HEALTHY) | — | — | — |
-| P1 Design system | not started | | | | |
-| P2 App shell and roles | not started | | | | |
+| P1 Design system | done | `src/vx/`: tokens and component CSS (`vx.css`), icons, format helpers, language pairs, primitives, controls, sheets/toasts/confirm, voice note, page frame (`VxPage`, `TopBar`, `Split`, `DataList`) | — | — | `/dev/ui` gallery folded into P12 shots |
+| P2 App shell and roles | done | `VxShell` in `(app)/layout.tsx`: sidebar (collapsible, badges, theme, EN·हि), phone bottom bar with quick actions, `/menu`, Ctrl K search (pages, students, receipts), admin "See the app as" with read-only banner, fee session pill. New permissions `messages:send`, `settings:manage`. Every new nav route exists; ones not rebuilt yet redirect to the classic screen | `/menu` + interim redirects | `20261010100247_vx_role_permissions` | Interim redirects are replaced phase by phase |
 | P3 Payment Desk | not started | | | | |
 | P4 Rest of Money | not started | | | | |
 | P5 Admin core | not started | | | | |

@@ -62,6 +62,8 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // post payments in the fee app today, and folding that app in is the
     // moment to stop granting the power to take money by job title.
     "fees:view",
+    // Notices to staff and families from the redesigned Messages screen.
+    "messages:send",
   ],
 
   // The fee desk, and nothing academic. An accountant is not a teacher — the
@@ -96,6 +98,7 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "assessments:view",
     "marks:view",
     "reports:view",
+    "messages:send",
   ],
 
   exam_coordinator: [
@@ -109,6 +112,7 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     "marks:view",
     "marks:write",
     "reports:view",
+    "messages:send",
   ],
 
   teacher: [

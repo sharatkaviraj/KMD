@@ -16,6 +16,7 @@ import { ThemeProvider } from "@/ui/system/theme-provider";
 import { ToastViewport } from "@/ui/primitives/toast";
 
 import "./globals.css";
+import "@/vx/vx.css";
 
 /*
  * Three families, matching School Fees exactly.

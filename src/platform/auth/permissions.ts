@@ -107,6 +107,12 @@ export const staffPermissions = [
   "jobs:view",
   "jobs:run",
   "audit:view",
+
+  // The redesigned app (docs/design-handoff). Messages sends a notice to
+  // staff or families; Settings holds school-wide settings and the role
+  // matrix. Rows in `20261010100247_vx_role_permissions.sql`.
+  "messages:send",
+  "settings:manage",
 ] as const;
 
 export type StaffPermission = (typeof staffPermissions)[number];
@@ -163,6 +169,7 @@ const officePermissions: readonly StaffPermission[] = [
   "reports:view",
   "apps:view",
   "students:view",
+  "messages:send",
   // Reads the fee screens, cannot take money. Office staff do post
   // payments in the fee app today, so this is a real reduction — and a
   // deliberate one: posting is granted one person at a time through the
@@ -192,6 +199,7 @@ const academicCoordinatorPermissions: readonly StaffPermission[] = [
   "assessments:view",
   "marks:view",
   "reports:view",
+  "messages:send",
 ];
 
 /** Exam coordinator: assessments, marks, report cards. */
@@ -206,6 +214,7 @@ const examCoordinatorPermissions: readonly StaffPermission[] = [
   "marks:view",
   "marks:write",
   "reports:view",
+  "messages:send",
 ];
 
 /**

@@ -22,6 +22,7 @@ import {
   staffRoles,
   type StaffRole,
 } from "@/platform/auth/permissions";
+import { VX_HREFS } from "@/vx/nav";
 
 describe("the navigation map", () => {
   it("names only permissions that exist", () => {
@@ -112,7 +113,8 @@ describe("every screen is reachable", () => {
   });
 
   it.each(screens)("%s is a tab or is declared not to be", (href) => {
-    const isTab = NAV_ITEMS.some((item) => item.href === href);
+    // The redesigned shell's menus (src/vx/nav.ts) are the navigation now.
+    const isTab = NAV_ITEMS.some((item) => item.href === href) || VX_HREFS.includes(href);
     const isDeclared = (NON_NAV_SCREENS as readonly string[]).includes(href);
     // The More hub is a tab the bar produces rather than one in the list.
     const isMore = href === MORE_ITEM.href;
