@@ -70,4 +70,21 @@ queries, no figure recomputed.
 `/mnt/project-files/perf/measure.mjs` (also run from `.perf/` on the office
 PC) signs in as the QA admin and times: list full load, opening Student 360,
 switching a tab, browser Back, the phone back arrow, and Back after 70 s. It
-only opens pages. Results are in PROGRESS.
+only opens pages.
+
+### Results on live, 10 Oct (median ms, 3 rounds)
+
+| Step | Desktop before → after | Phone before → after |
+|---|---|---|
+| List, full load | 1434 → 1312 | 1623 → 1306 |
+| Open Student 360 | 1027 → 1298 | 1042 → 950 |
+| Switch tab | 685 → 51 | 615 → 46 |
+| Browser Back to list | 159 → 107 | 116 → 95 |
+| Phone back arrow to list | — | 154 → 91 |
+| Back after 70 s | — → 135 | 89 → 106 |
+
+Tabs are the win: no server trip after the first switch (the first still pays
+600–700 ms while the page settles). Back is one press from any tab now, since
+tabs replace the history entry. Opening Student 360 did not get faster; it is
+still about one second, and it is the next thing to attack (streaming the fee
+side with Suspense, above).
