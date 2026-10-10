@@ -589,6 +589,8 @@ function redesign(): RouteExpectation[] {
   const row = (route: string, allow: readonly StaffRole[], because: string): RouteExpectation => ({ route, allow, because });
   return [
     row("/menu", EVERYONE, "The phone Menu tab: everything a role's bottom bar has no room for, filtered by the same permissions."),
+    row("/", EVERYONE, "The doorway: the admin menu's Today, filtered by permission; every other menu is sent on to its own home."),
+    row("/students/[id]", ["admin", "office"], "Student 360 is the Students list's detail, so it follows the list: admin and office (PLAN section 3)."),
     row("/inbox", ["admin", "office"], "Needs you: the admin's queue of corrections, leave and approvals (design F01/D02)."),
     row("/attendance", ["admin", "office"], "Whole-school attendance and marking on a teacher's behalf is the office's act (PLAN §3)."),
     row("/payments", ["admin", "accountant"], "Taking money is granted one person at a time through the accountant role, never by job title."),
