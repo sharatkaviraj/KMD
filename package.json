@@ -11,7 +11,7 @@
     "typecheck": "npm run typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:bundles": "node scripts/performance-bundles.mjs --baseline docs/evidence/smoothness-before.json",
+    "check:bundles": "node scripts/performance-bundles.mjs --baseline docs/evidence/smoothness-redesign.json",
     "check": "npm run typecheck && npm run lint && npm run check:theme && npm run check:port && npm run test && npm run build && npm run check:bundles",
     "seed:dev": "node scripts/seed-dev.mjs",
     "seed:timetable": "node --import ./scripts/alias-hook.mjs scripts/seed-timetable.mjs",

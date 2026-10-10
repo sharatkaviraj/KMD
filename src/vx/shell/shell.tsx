@@ -15,7 +15,8 @@ import { ToastProvider } from "@/vx/ui/overlays";
 import type { Viewer } from "@/vx/view-as";
 
 import { VxBottomBar } from "./bottom-bar";
-import { SearchPalette, type PaletteItem } from "./palette";
+import { LazySearchPalette } from "./lazy";
+import type { PaletteItem } from "./palette";
 import { PreviewBanner } from "./preview-banner";
 import { VxSidebar, type Badges } from "./sidebar";
 
@@ -122,7 +123,7 @@ export function VxShell({
           </div>
           <VxBottomBar tabs={tabs} badges={badges} />
         </div>
-        <SearchPalette items={palette} />
+        <LazySearchPalette items={palette} />
         <div id="vx-layer" className="vxt vx-layer" />
       </ToastProvider>
     </SessionSwitchingProvider>
