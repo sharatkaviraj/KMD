@@ -65,6 +65,10 @@ export async function logCallAction(input: {
     if (input.outcome === "promised" && !(amount > 0)) return { ok: false, error: "Enter the amount they promised." };
     const note = (input.note ?? "").trim().slice(0, 500);
 
+    // Every child is tried. Stopping at the first failure left the earlier
+    // siblings logged, and the obvious retry logged them twice.
+    let logged = 0;
+    let lastError: string | null = null;
     for (const id of ids) {
       const form = new FormData();
       form.set("studentId", id);
@@ -77,7 +81,13 @@ export async function logCallAction(input: {
       if (note) form.set("note", note);
       if (input.phone) form.set("contactedPhone", input.phone);
       const res = await logContactAction({ status: "idle" }, form);
-      if (res.status === "error") return { ok: false, error: res.message ?? "Could not log the call." };
+      if (res.status === "error") lastError = res.message ?? "Could not log the call.";
+      else logged += 1;
+    }
+    if (logged === 0) return { ok: false, error: lastError ?? "Could not log the call." };
+    if (lastError) {
+      revalidatePath("/dues");
+      return { ok: false, error: `Logged for ${logged} of ${ids.length} children; do not log it again. The rest failed: ${lastError}` };
     }
 
     if (needsDay) {

@@ -1085,7 +1085,12 @@ export async function upcomingEvents(session: string, from: string, days: number
     ...(events ?? []).map((e) => ({ id: e.id, kind: e.kind, title: e.title, titleHi: e.title_hi, startsOn: e.starts_on, endsOn: e.ends_on, startsAt: e.starts_at, place: e.place })),
     ...(holidays ?? []).map((h) => ({ id: `day:${h.day}`, kind: "holiday", title: h.label_en ?? "Holiday", titleHi: h.label_hi, startsOn: h.day, endsOn: h.day, startsAt: null, place: null })),
   ];
-  return list.sort((a, b) => a.startsOn.localeCompare(b.startsOn) || (a.startsAt ?? "").localeCompare(b.startsAt ?? ""));
+  // A one-day event today whose time passed more than an hour ago is over, not coming up.
+  const nowIst = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+  const [h, m] = nowIst.split(":").map(Number);
+  const cutoff = `${String(Math.max(0, h - 1)).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const over = (e: UpcomingEvent) => e.endsOn === from && e.startsOn === from && from === schoolToday() && !!e.startsAt && e.startsAt.slice(0, 5) < cutoff;
+  return list.filter((e) => !over(e)).sort((a, b) => a.startsOn.localeCompare(b.startsOn) || (a.startsAt ?? "").localeCompare(b.startsAt ?? ""));
 }
 
 /** Pending attendance change requests for the badge. */

@@ -162,7 +162,7 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
   if (v.tellParents) {
     const kid = (await childBasics([v.studentId])).get(v.studentId);
     const msg = parentNoteMessage({ childName: kid?.fullName ?? "", teacher: staff.displayName, body: v.body, school: schoolProfile.shortName });
-    await admin.from("parent_message_queue").insert({
+    const queued = await admin.from("parent_message_queue").insert({
       session_label: ctx.sessionLabel,
       kind: "note",
       student_id: v.studentId,
@@ -173,6 +173,9 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
       body_en: msg.en,
       queued_by: staff.id,
     });
+    // The note is saved either way; it must not claim parents were told when
+    // the message never reached the queue. "Tell parents" on the note retries.
+    if (queued.error) await admin.from("notes").update({ tell_parents: false }).eq("id", data.id);
   }
 
   revalidateNotes();
