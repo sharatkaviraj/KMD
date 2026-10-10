@@ -32,7 +32,7 @@ export default async function SubjectsPage() {
         title={m.subjects}
         description={m.subjectsIntro}
         language={language}
-        back={{ href: "/academics", label: m.academicsTitle }}
+        back={{ href: "/academics/setup", label: m.academicsTitle }}
         action={
           mayManage ? (
             <Link href="/academics/subjects/new" className={buttonClasses({ size: "sm" })}>

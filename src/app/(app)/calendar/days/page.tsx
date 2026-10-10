@@ -17,7 +17,7 @@ export async function generateMetadata() {
 }
 
 export default async function CalendarPage() {
-  const staff = await requirePermission("academics:view", "/calendar");
+  const staff = await requirePermission("academics:view", "/calendar/days");
   const language = staff.language;
   const sessionLabel = await resolveSessionLabel();
 

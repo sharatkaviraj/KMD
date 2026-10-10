@@ -603,6 +603,8 @@ function redesign(): RouteExpectation[] {
     row("/student-tools", ["admin"], "Promotion and bulk changes are the admin's alone in the fee app."),
     row("/academics/progress", COORDINATORS_AND_TEACHERS, "Class progress from marks, for the people who teach and plan."),
     row("/academics/attendance", COORDINATORS_AND_TEACHERS, "Attendance trends by class, for the people who teach and plan."),
+    row("/academics/setup", ["admin", "office", "academic_coordinator", "exam_coordinator"], "The old Academics hub, kept as set-up: subjects, class labels, class teachers and attendance rules."),
+    row("/calendar/days", ["admin", "office", "academic_coordinator", "exam_coordinator"], "The day-by-day calendar editor the redesigned calendar's holidays view links to."),
     row("/exams", COORDINATORS_AND_TEACHERS, "The exam list: who sits what, when."),
     row("/exam-office", ["admin", "exam_coordinator"], "The exam coordinator's home (PLAN §3: exams, marks, reports)."),
     row("/exam-office/plan", ["admin", "exam_coordinator"], "Planning an exam is the exam coordinator's job."),

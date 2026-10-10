@@ -154,7 +154,7 @@ export async function saveCalendarDayAction(
     return failure({}, m.notSaved);
   }
 
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
   return { ...idleAcademicsState, status: "saved" };
 }
 
@@ -164,5 +164,5 @@ export async function deleteCalendarDayAction(formData: FormData) {
   if (!id) return;
 
   await deleteCalendarDay(id);
-  revalidatePath("/calendar");
+  revalidatePath("/calendar", "layout");
 }
