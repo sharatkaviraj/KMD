@@ -1,8 +1,222 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { requirePermission } from "@/platform/auth/current-staff";
+import { schoolToday } from "@/platform/dates";
+import { shortDay } from "@/vx/format";
+import { lead, p } from "@/vx/text";
+import { EmptyState } from "@/vx/ui/primitives";
+import { Section, TopBar, VxPage } from "@/vx/ui/page";
+import { getViewer } from "@/vx/view-as";
+import {
+  assignmentsFor,
+  attendanceFor,
+  classesFor,
+  currentExam,
+  enrolmentsFor,
+  listExams,
+  liveLinks,
+  marksLinkUrl,
+  marksOf,
+  paperById,
+  papersOf,
+  remarksFor,
+  staffList,
+  studentsByIds,
+  termStanding,
+  trackerFor,
+} from "@/vx/screens/exams/data";
+import { onRoll, paperStatus } from "@/vx/screens/exams/domain/tracker";
+import { suggestRemarks } from "@/vx/screens/exams/domain/messages";
+import { classTeacherOf, isManager, mayEnterPaper } from "@/vx/screens/exams/guards";
+import { MarksSheet, type SheetPhase } from "@/vx/screens/exams/marks-sheet";
+import { daysLeft, loadSheet } from "@/vx/screens/exams/sheet-data";
+import { TeacherPick, TeacherRemarks, type PickCard, type RemarkChild, type RemarksCard } from "@/vx/screens/exams/teacher-marks";
+
+import { makeMyMarksLinkAction, saveRemarkAction, saveTeacherMarksAction, withdrawTeacherMarksAction } from "./actions";
 
 export const runtime = "nodejs";
 
-/** Interim: the redesigned screen replaces this redirect (docs/ui/PROGRESS.md). */
-export default function Page() {
-  redirect("/assessments");
+const VIEWS = ["pick", "entry", "keypad", "check", "submitted", "remarks"] as const;
+type View = (typeof VIEWS)[number];
+
+/**
+ * A teacher's marks (TchMarks): pick a class-subject, type marks in a list or
+ * on a number pad, check, send, undo for ten minutes — and, for a class
+ * teacher, the remarks on her class's report cards. Only her own papers and
+ * her own class ever reach this page.
+ */
+export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
+  await requirePermission("marks:write");
+  const { staff } = await getViewer();
+  const lang = staff.language;
+  const sp = await props.searchParams;
+  const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const view: View = (VIEWS as readonly string[]).includes(one("view") ?? "") ? (one("view") as View) : one("paper") ? "entry" : "pick";
+
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) {
+    return (
+      <VxPage>
+        <TopBar title={lead(p("Marks", "अंक"), lang)} />
+        <main><Section><EmptyState icon="calendar" title={lead(p("No session is set up yet", "अभी कोई सत्र नहीं है"), lang)} /></Section></main>
+      </VxPage>
+    );
+  }
+  const today = schoolToday();
+  const exams = await listExams(sessionLabel);
+  const exam = currentExam(exams, today, one("exam"));
+  const crumb = `${lead(p("Marks", "अंक"), lang)} · ${exam ? lead({ en: exam.labelEn, hi: exam.labelHi }, lang) : ""} ${sessionLabel}`;
+
+  /* ---------------------------------------------------------- a sheet */
+  const paperId = one("paper");
+  if (paperId && view !== "remarks") {
+    if (!/^[0-9a-f-]{36}$/i.test(paperId)) notFound();
+    const paper = await paperById(paperId);
+    if (!paper || !(await mayEnterPaper(staff, paper, sessionLabel))) notFound();
+    const sheet = await loadSheet(paper.id, { exams, paper });
+    if (!sheet) notFound();
+
+    // The next paper of hers in the same exam that is not yet sent.
+    const mine = await myPaperIds(staff.id, sessionLabel, paper.assessment_id, isManager(staff));
+    const rows = (await papersOf([paper.assessment_id])).filter((r) => mine.has(`${r.class_id}|${r.subject_id}`) && r.id !== paper.id && r.entry_status === "open");
+    const next = rows.sort((a, b) => a.class_label.localeCompare(b.class_label, "en", { numeric: true }))[0] ?? null;
+
+    const phase: SheetPhase = view === "check" ? "check" : view === "submitted" ? "sent" : "entry";
+    return (
+      <MarksSheet
+        paper={sheet.paper}
+        students={sheet.students}
+        saved={sheet.saved}
+        coordinatorName={sheet.coordinatorName}
+        onSave={saveTeacherMarksAction}
+        onWithdraw={withdrawTeacherMarksAction}
+        canCorrect={isManager(staff)}
+        canReopen={isManager(staff)}
+        initialPhase={phase}
+        initialMode={view === "keypad" ? "pad" : "list"}
+        crumb={crumb}
+        backHref="/teach/marks"
+        nextHref={next ? `/teach/marks?paper=${next.id}` : null}
+        nextLabel={next ? `${next.class_label} ${next.subject_code}` : null}
+        doneHref="/teach/marks"
+        noteHref="/teach/notes?student="
+      />
+    );
+  }
+
+  /* ---------------------------------------------------------- remarks */
+  const myClasses = await classTeacherOf(staff.id, sessionLabel);
+  const classes = await classesFor(sessionLabel);
+  if (view === "remarks") {
+    const classId = one("class") && myClasses.includes(one("class")!) ? one("class")! : myClasses[0];
+    const klass = classes.find((c) => c.id === classId);
+    if (!klass || !exam) {
+      return (
+        <VxPage>
+          <TopBar crumb={crumb} title={lead(p("Report card remarks", "प्रगति पत्र टिप्पणी"), lang)} mBack="/teach/marks" />
+          <main><Section><EmptyState icon="users" title={lead(p("You are not a class teacher this session", "आप इस सत्र किसी कक्षा के कक्षा अध्यापक नहीं हैं"), lang)} /></Section></main>
+        </VxPage>
+      );
+    }
+    const term = exam.term;
+    const termExams = exams.filter((e) => e.term === term && e.status !== "draft");
+    const [roll, termPapers, attendance] = await Promise.all([
+      enrolmentsFor(sessionLabel, [klass.id]),
+      papersOf(termExams.map((e) => e.id)),
+      attendanceFor(klass.id, sessionLabel).catch(() => new Map<string, number>()),
+    ]);
+    const kids = roll.filter((e) => onRoll(e, { startsOn: today, endsOn: today }, today));
+    const classPapers = termPapers.filter((r) => r.class_id === klass.id);
+    const [marks, names, remarks] = await Promise.all([
+      marksOf(classPapers.map((r) => r.id)),
+      studentsByIds(kids.map((k) => k.studentId)),
+      remarksFor(sessionLabel, term, kids.map((k) => k.studentId)),
+    ]);
+    const children: RemarkChild[] = kids
+      .map((k) => {
+        const standing = termStanding(classPapers, marks, k.studentId);
+        const att = attendance.get(k.studentId) ?? null;
+        return {
+          id: k.studentId,
+          name: names.get(k.studentId)?.name ?? "—",
+          roll: k.roll ?? null,
+          remark: remarks.get(k.studentId) ?? null,
+          percent: standing.percent,
+          attendance: att,
+          suggestions: suggestRemarks({ percent: standing.percent, attendancePct: att, strongest: standing.strongest, weakest: standing.weakest }),
+        };
+      })
+      .sort((a, b) => Number(a.roll ?? 999) - Number(b.roll ?? 999) || a.name.localeCompare(b.name));
+    return (
+      <TeacherRemarks
+        classLabel={klass.label}
+        term={term}
+        examLabel={{ en: exam.labelEn, hi: exam.labelHi }}
+        kids={children}
+        save={saveRemarkAction}
+        crumb={`${klass.label} · ${lead(p("report cards", "प्रगति पत्र"), lang)} · ${lead({ en: exam.labelEn, hi: exam.labelHi }, lang)}`}
+      />
+    );
+  }
+
+  /* ------------------------------------------------------------- pick */
+  const openExams = exams.filter((e) => e.status === "open" && e.papers > 0 && (!e.startsOn || e.startsOn <= today));
+  const staffAll = await staffList();
+  const coordinator = staffAll.find((s) => s.role === "exam_coordinator")?.name ?? null;
+  const cards: PickCard[] = [];
+  for (const e of openExams.slice(-2).reverse()) {
+    const mine = await myPaperIds(staff.id, sessionLabel, e.id, false);
+    if (mine.size === 0) continue;
+    const { papers } = await trackerFor({ exam: e, classes, staff: staffAll, today, onlyPapers: (r) => mine.has(`${r.class_id}|${r.subject_id}`) });
+    for (const paper of papers.sort((a, b) => a.classSort - b.classSort || a.subjectCode.localeCompare(b.subjectCode))) {
+      cards.push({
+        paperId: paper.paperId,
+        examLabel: { en: e.labelEn, hi: e.labelHi },
+        classLabel: paper.classLabel,
+        subjectCode: paper.subjectCode,
+        maxMarks: paper.maxMarks,
+        entered: paper.entered,
+        total: paper.total,
+        status: paperStatus(paper),
+        submittedToName: coordinator,
+      });
+    }
+  }
+  // Unfinished first, then the done ones.
+  cards.sort((a, b) => Number(a.status === "done") - Number(b.status === "done"));
+
+  const remarksCards: RemarksCard[] = [];
+  if (exam && myClasses.length) {
+    for (const classId of myClasses) {
+      const klass = classes.find((c) => c.id === classId);
+      if (!klass) continue;
+      const roll = (await enrolmentsFor(sessionLabel, [classId])).filter((e) => onRoll(e, { startsOn: today, endsOn: today }, today));
+      const remarks = await remarksFor(sessionLabel, exam.term, roll.map((r) => r.studentId));
+      remarksCards.push({ classId, classLabel: klass.label, done: remarks.size, total: roll.length, examLabel: { en: exam.labelEn, hi: exam.labelHi } });
+    }
+  }
+
+  const links = await Promise.all(
+    openExams.map(async (e) => {
+      const live = (await liveLinks(e.id)).find((l) => l.staff_profile_id === staff.id);
+      return { examId: e.id, examLabel: { en: e.labelEn, hi: e.labelHi }, url: live ? marksLinkUrl(live.token) : null };
+    }),
+  );
+
+  const due = exam?.plan?.marksDueOn
+    ? { label: shortDay(exam.plan.marksDueOn), daysLeft: daysLeft(exam.plan.marksDueOn, today), results: exam.plan.resultsOn ? `${shortDay(exam.plan.resultsOn)}${exam.plan.ptmAt ? " (PTM)" : ""}` : null }
+    : null;
+
+  return <TeacherPick cards={cards} remarks={remarksCards} due={due} links={links} makeLink={makeMyMarksLinkAction} crumb={crumb} />;
+}
+
+/** "classId|subjectId" for each paper the timetable gives this person in an exam's session. */
+async function myPaperIds(staffId: string, sessionLabel: string, _examId: string, everything: boolean): Promise<Set<string>> {
+  if (everything) {
+    const all = await assignmentsFor(sessionLabel);
+    return new Set(all.map((a) => `${a.classId}|${a.subjectId}`));
+  }
+  const mine = await assignmentsFor(sessionLabel, staffId);
+  return new Set(mine.map((a) => `${a.classId}|${a.subjectId}`));
 }
