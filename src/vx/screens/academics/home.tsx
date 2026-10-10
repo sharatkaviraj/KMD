@@ -59,6 +59,8 @@ export async function AcadHome({ staff, view, sheet, marks, what }: Props) {
   const late = entry.late;
   const examName = entry.exam ? (language === "hi" && entry.exam.labelHi ? entry.exam.labelHi : entry.exam.label) : say("Marks", "अंक");
   const mayRemind = can(staff, "messages:send");
+  // The exam coordinator opens this page too and has no notes screen.
+  const notesHref = can(staff, "notes:view") ? "/notes" : undefined;
   const firstName = staff.displayName;
   const summary = say(
     `${today.notMarked.length} ${today.notMarked.length === 1 ? "class has" : "classes have"} not marked attendance, ${late.length} teachers are behind on ${examName} marks and ${attention.length} children need attention.`,
@@ -98,7 +100,7 @@ export async function AcadHome({ staff, view, sheet, marks, what }: Props) {
       { href: "/academics", icon: "home", title: say("Today", "आज"), sub: say("Attendance, marks and who needs you", "हाज़िरी, अंक और किसे ज़रूरत है") },
       { href: "/academics/progress", icon: "trend", title: say("Student progress", "विद्यार्थी प्रगति"), sub: say("Classes, subjects and each child", "कक्षाएँ, विषय और हर बच्चा") },
       { href: "/academics/attendance", icon: "calCheck", title: say("Attendance", "हाज़िरी"), sub: say(`${today.marked} of ${today.classes.length} classes marked today`, `आज ${today.classes.length} में ${today.marked} कक्षाएँ दर्ज`) },
-      { href: "/notes", icon: "note", title: say("Notes on children", "बच्चों पर नोट"), sub: say(`${notes.open} need action`, `${notes.open} पर कार्रवाई`), badge: notes.open || undefined },
+      ...(notesHref ? [{ href: notesHref, icon: "note" as IconName, title: say("Notes on children", "बच्चों पर नोट"), sub: say(`${notes.open} need action`, `${notes.open} पर कार्रवाई`), badge: notes.open || undefined }] : []),
       { href: "/exams", icon: "clipboard", title: say("Marks & results", "अंक और परिणाम"), sub: say(`${examName} ${entry.pct}% entered`, `${examName} ${entry.pct}% दर्ज`) },
       { href: "/timetable", icon: "clock", title: say("Timetable", "समय सारणी"), sub: say("Classes, teachers and cover", "कक्षाएँ, शिक्षक और व्यवस्था") },
       { href: "/calendar", icon: "calendar", title: say("Calendar", "कैलेंडर"), sub: say("Exams, PTMs and holidays", "परीक्षा, बैठकें और छुट्टियाँ") },
@@ -231,7 +233,7 @@ export async function AcadHome({ staff, view, sheet, marks, what }: Props) {
             sub={say("From marks, attendance & notes", "अंक, हाज़िरी और नोट से")}
           />
           <Kpi
-            href="/notes"
+            href={notesHref}
             icon="note"
             label={say("Notes needing action", "कार्रवाई वाले नोट")}
             value={notes.open}

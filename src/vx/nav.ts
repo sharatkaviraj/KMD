@@ -147,13 +147,28 @@ const MENUS: Record<DesignMenu, NavGroup[]> = {
 };
 
 /** The phone bottom bar: four tabs and a centre action, per menu (XNav). */
-const BOTTOM: Record<DesignMenu, { tabs: [string, string, string, string]; center: { label: Pair; icon: IconName; href: string } }> = {
-  admin: { tabs: ["today", "students", "inbox", "menu"], center: { label: L("Quick actions", "जल्दी करें"), icon: "plus", href: "#quick" } },
-  teacher: { tabs: ["home", "class", "notes", "more"], center: { label: L("Mark attendance", "हाज़िरी लगाएँ"), icon: "calCheck", href: "/teach/attendance" } },
-  accountant: { tabs: ["home", "fees", "dues", "menu"], center: { label: L("Payment Desk", "फीस जमा"), icon: "rupee", href: "/payments" } },
-  academic: { tabs: ["home", "progress", "notes", "menu"], center: { label: L("Attendance", "हाज़िरी"), icon: "calCheck", href: "/academics/attendance" } },
-  exam: { tabs: ["home", "plan", "results", "menu"], center: { label: L("Marks tracker", "अंक ट्रैकर"), icon: "clipboard", href: "/exams" } },
+const BOTTOM: Record<DesignMenu, { tabs: [string, string, string, string]; center: { label: Pair; icon: IconName; href: string; permission: StaffPermission } }> = {
+  admin: { tabs: ["today", "students", "inbox", "menu"], center: { label: L("Quick actions", "जल्दी करें"), icon: "plus", href: "#quick", permission: "dashboard:view" } },
+  teacher: { tabs: ["home", "class", "notes", "more"], center: { label: L("Mark attendance", "हाज़िरी लगाएँ"), icon: "calCheck", href: "/teach/attendance", permission: "attendance:mark" } },
+  accountant: { tabs: ["home", "fees", "dues", "menu"], center: { label: L("Payment Desk", "फीस जमा"), icon: "rupee", href: "/payments", permission: "fees:collect" } },
+  academic: { tabs: ["home", "progress", "notes", "menu"], center: { label: L("Attendance", "हाज़िरी"), icon: "calCheck", href: "/academics/attendance", permission: "attendance:view" } },
+  exam: { tabs: ["home", "plan", "results", "menu"], center: { label: L("Marks tracker", "अंक ट्रैकर"), icon: "clipboard", href: "/exams", permission: "assessments:view" } },
 };
+
+/**
+ * The admin's centre "+" sheet (F03), each with the permission its screen is
+ * guarded on. The office and view-only readers share the admin menu, and
+ * before these were filtered they were offered actions that end on
+ * "access denied" (smoke test, 10 Oct 2026).
+ */
+export const QUICK_ACTIONS: readonly { key: string; label: Pair; icon: IconName; tone: "pri" | "acc" | "info" | "ok" | "warn" | "plain"; href: string; permission: StaffPermission }[] = [
+  { key: "collect", label: L("Collect fee", "फीस जमा"), icon: "rupee", tone: "pri", href: "/payments", permission: "fees:collect" },
+  { key: "mark", label: L("Mark attendance", "हाज़िरी"), icon: "calCheck", tone: "acc", href: "/attendance", permission: "attendance:mark_on_behalf" },
+  { key: "notice", label: L("Send notice", "सूचना भेजें"), icon: "megaphone", tone: "info", href: "/messages?compose=1", permission: "messages:send" },
+  { key: "admit", label: L("Add student", "नया विद्यार्थी"), icon: "userPlus", tone: "ok", href: "/admissions/new", permission: "fees:manage" },
+  { key: "cover", label: L("Assign substitute", "सब्स्टिट्यूट"), icon: "swap", tone: "warn", href: "/timetable?view=subs", permission: "substitutions:manage" },
+  { key: "note", label: L("Add a note", "नोट लिखें"), icon: "edit", tone: "plain", href: "/notes?add=1", permission: "notes:view" },
+];
 
 /** Short labels the bottom bar uses where the sidebar label is long. */
 const SHORT: Partial<Record<string, Pair>> = {
@@ -190,7 +205,7 @@ export function groupsFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
     .filter((g) => g.items.length > 0);
 }
 
-export type BottomTab = { key: string; label: Pair; icon: IconName; href: string; badge?: BadgeKey; center?: boolean };
+export type BottomTab = { key: string; label: Pair; icon: IconName; href: string; badge?: BadgeKey; center?: boolean; quick?: string[] };
 
 export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boolean): BottomTab[] {
   const all = MENUS[menu].flatMap((g) => g.items);
@@ -202,7 +217,11 @@ export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
     return { key, label: SHORT[`${menu}:${key}`] ?? item.label, icon: item.icon, href: item.href, badge: item.badge };
   };
   const [a, b, c, d] = spec.tabs.map(tab);
-  const center: BottomTab = { key: "center", label: spec.center.label, icon: spec.center.icon, href: spec.center.href, center: true };
+  const quick = spec.center.href === "#quick" ? QUICK_ACTIONS.filter((q) => allowed(q.permission)).map((q) => q.key) : undefined;
+  const center: BottomTab | null =
+    allowed(spec.center.permission) && (quick === undefined || quick.length > 0)
+      ? { key: "center", label: spec.center.label, icon: spec.center.icon, href: spec.center.href, center: true, quick }
+      : null;
   return [a, b, center, c, d].filter((x): x is BottomTab => Boolean(x));
 }
 

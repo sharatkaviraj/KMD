@@ -108,6 +108,7 @@ export default async function TodayPage() {
         inbox={inbox ? sortInbox(inbox.items) : null}
         timeline={facts.timeline}
         actions={actions}
+        links={{ collect: can(staff, "fees:collect"), attendance: can(staff, "attendance:mark_on_behalf"), substitutions: can(staff, "substitutions:view") }}
         unavailable={facts.unavailable.length > 0 || (inbox?.unavailable.length ?? 0) > 0}
       />
     </VxPage>

@@ -688,7 +688,7 @@ function Seating(props: PlanProps & { href: (v: PlanView, extra?: string) => str
           <span style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             <strong className="num" style={{ fontSize: 18 }}>{seated}</strong>
             <span style={{ fontSize: 11, color: "var(--mut)" }}>
-              {tx(p("of", "में से"))} {totalChildren}
+              {tx(p(`of ${totalChildren}`, `${totalChildren} में से`))}
             </span>
           </span>
         </Ring>
@@ -751,7 +751,7 @@ function RoomChart(props: PlanProps & { href: (v: PlanView, extra?: string) => s
           <div>
             <strong className="serif" style={{ fontSize: 22 }}>{room.name}</strong>
             <span style={{ display: "block", fontSize: 13, color: "var(--mut)" }}>
-              {room.used} {tx(p("of", "में से"))} {room.seats} {tx(p("seats", "सीटें"))} · {tx(p("two classes in alternate seats", "दो कक्षाएँ बारी-बारी"))}
+              {tx(p(`${room.used} of ${room.seats} seats`, `${room.seats} में से ${room.used} सीटें`))} · {tx(p("two classes in alternate seats", "दो कक्षाएँ बारी-बारी"))}
             </span>
           </div>
           <div style={{ background: "var(--pri)", color: "var(--onsolid, #fff)", borderRadius: 8, textAlign: "center", padding: 6, fontSize: 13, fontWeight: 600 }}>
@@ -948,7 +948,7 @@ function Papers(props: PlanProps & { onOpen: (slotId: string) => void; onRemind:
             <span style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <strong className="num" style={{ fontSize: 20 }}>{received}</strong>
               <span style={{ fontSize: 11, color: "var(--mut)" }}>
-                {tx(p("of", "में से"))} {slots.length}
+                {tx(p(`of ${slots.length}`, `${slots.length} में से`))}
               </span>
             </span>
           </Ring>

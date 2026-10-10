@@ -136,7 +136,8 @@ export async function loadBoard(sessionLabel: string, day: string): Promise<Boar
     if (error) missing.push("marks");
     for (const row of data ?? []) {
       const t = tally.get(row.register_id) ?? { present: 0, absent: 0, halfDay: 0, other: 0 };
-      if (row.status === "present") t.present += 1;
+      // Late is counted present, as on the register sheet and the coordinator's board.
+      if (row.status === "present" || row.status === "late") t.present += 1;
       else if (row.status === "absent") t.absent += 1;
       else if (row.status === "half_day") t.halfDay += 1;
       else t.other += 1;
@@ -575,8 +576,9 @@ export async function loadStudentSchool(staff: CurrentStaff, studentId: string, 
   ]);
 
   const credit = rules?.halfDayCredit ?? 0.5;
-  const counted = (attendance ?? []).filter((row) => row.status === "present" || row.status === "absent" || row.status === "half_day");
-  const presentCredit = counted.reduce((sum, row) => sum + (row.status === "present" ? 1 : row.status === "half_day" ? credit : 0), 0);
+  // As the register sheet counts: leave is left out, late counts as present.
+  const counted = (attendance ?? []).filter((row) => row.status === "present" || row.status === "late" || row.status === "absent" || row.status === "half_day");
+  const presentCredit = counted.reduce((sum, row) => sum + (row.status === "present" || row.status === "late" ? 1 : row.status === "half_day" ? credit : 0), 0);
   const classId = enrolment?.classId ?? card.classId;
 
   return {

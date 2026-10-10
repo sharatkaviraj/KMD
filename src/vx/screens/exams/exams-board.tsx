@@ -662,7 +662,7 @@ function Sampark(props: ExamsProps) {
         ))}
       </Banner>
       <SecHead>
-        {live} {tx(p("of", "में से"))} {props.teachers.length} {tx(p("teachers have a live link", "शिक्षकों के पास चालू लिंक"))}
+        {tx(p(`${live} of ${props.teachers.length} teachers have a live link`, `${props.teachers.length} में से ${live} शिक्षकों के पास चालू लिंक`))}
       </SecHead>
       {props.teachers.length === 0 ? <EmptyState icon="link" title={tx(p("No teacher has papers in this exam", "इस परीक्षा में किसी शिक्षक के पेपर नहीं"))} /> : null}
       {props.teachers.map((t) => (
@@ -795,7 +795,7 @@ function Preview(props: ExamsProps & { href: Href }) {
         <div style={{ flex: 1, textAlign: "center" }}>
           <b>{c.name}</b>
           <div style={{ fontSize: 12, color: "var(--mut)" }}>
-            {c.position} {tx(p("of", "में से"))} {c.of} · {c.classLabel}
+            {tx(p(`${c.position} of ${c.of}`, `${c.of} में से ${c.position}`))} · {c.classLabel}
           </div>
         </div>
         <Btn variant="ghost" icon="chevRight" href={go(c.nextId)} disabled={!c.nextId} ariaLabel={tx(p("Next child", "अगला बच्चा"))} />

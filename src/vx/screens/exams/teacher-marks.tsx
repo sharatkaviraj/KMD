@@ -113,7 +113,7 @@ export function TeacherPick({
                     <span style={{ flex: 1, fontSize: 14 }}>
                       {c.status === "done"
                         ? `${tx(p("All", "सभी"))} ${c.total} ${tx(p("sent", "भेजे"))}${c.submittedToName ? ` ${tx(p("to", "को"))} ${c.submittedToName}` : ""}`
-                        : `${c.entered} ${tx(p("of", "में से"))} ${c.total} ${tx(p("entered", "भरे"))}`}
+                        : tx(p(`${c.entered} of ${c.total} entered`, `${c.total} में से ${c.entered} भरे`))}
                     </span>
                     <Btn variant={c.status === "in_progress" ? "pri" : "sec"} href={href}>
                       {c.status === "done" ? tx(p("View", "देखें")) : c.status === "in_progress" ? tx(p("Continue", "जारी रखें")) : tx(p("Start", "शुरू करें"))}
@@ -135,7 +135,7 @@ export function TeacherPick({
                 </div>
                 <Progress value={r.done} max={Math.max(1, r.total)} tone="var(--ok)" />
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ flex: 1 }}>{r.done} {tx(p("of", "में से"))} {r.total} {tx(p("done", "पूरी"))}</span>
+                  <span style={{ flex: 1 }}>{tx(p(`${r.done} of ${r.total} done`, `${r.total} में से ${r.done} पूरी`))}</span>
                   <Btn variant="sec" href={`/teach/marks?view=remarks&class=${r.classId}`}>
                     {r.done ? tx(p("Continue", "जारी रखें")) : tx(p("Start", "शुरू करें"))} <Ic n="arrowRight" size={16} />
                   </Btn>
@@ -267,7 +267,7 @@ export function TeacherRemarks({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ flex: 1 }}><Progress value={done} max={Math.max(1, kids.length)} tone="var(--ok)" /></span>
-        <strong className="num" style={{ fontSize: 14 }}>{done} {tx(p("of", "में से"))} {kids.length} {tx(p("done", "पूरी"))}</strong>
+        <strong className="num" style={{ fontSize: 14 }}>{tx(p(`${done} of ${kids.length} done`, `${kids.length} में से ${done} पूरी`))}</strong>
       </div>
       <Seg
         value={filter}
@@ -284,7 +284,7 @@ export function TeacherRemarks({
 
   return (
     <VxPage>
-      <TopBar crumb={crumb} title={tx(p("Report card remarks", "प्रगति पत्र टिप्पणी"))} mTitle={tx(p("Report card remarks", "प्रगति पत्र टिप्पणी"))} mSub={`${classLabel} · ${done} ${tx(p("of", "में से"))} ${kids.length} ${tx(p("done", "पूरी"))}`} mBack="/teach/marks" actions={help} mAction={help} />
+      <TopBar crumb={crumb} title={tx(p("Report card remarks", "प्रगति पत्र टिप्पणी"))} mTitle={tx(p("Report card remarks", "प्रगति पत्र टिप्पणी"))} mSub={`${classLabel} · ${tx(p(`${done} of ${kids.length} done`, `${kids.length} में से ${done} पूरी`))}`} mBack="/teach/marks" actions={help} mAction={help} />
       <main>
         <div className="stack" style={{ display: "grid", gridTemplateColumns: "300px minmax(0,1fr)", minHeight: "calc(100dvh - 64px)" }}>
           <aside className="only-d" style={{ borderRight: "1px solid var(--bd)", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10, background: "var(--card)" }}>

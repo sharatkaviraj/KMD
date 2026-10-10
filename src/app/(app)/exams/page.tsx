@@ -104,7 +104,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
         crumb={`${lead(p("Exams", "परीक्षा"), lang)} · ${owner ? lead({ en: owner.labelEn, hi: owner.labelHi }, lang) : ""}`}
         backHref={`/exams?view=cell&paper=${paper.id}`}
         doneHref="/exams?view=grid"
-        noteHref="/teach/notes?student="
+        noteHref={can(staff, "notes:write") ? "/teach/notes?student=" : undefined}
       />
     );
   }

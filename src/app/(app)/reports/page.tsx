@@ -3,6 +3,7 @@ import { resolveViewSession } from "@/modules/fees/platform/session-context/reso
 import { getReportsPageData } from "@/modules/reports/vx/reports-page-data";
 import type { CollectionPreset, ReportsSheet, ReportsView } from "@/modules/reports/vx/types";
 import { requirePermission } from "@/platform/auth/current-staff";
+import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { schoolProfile } from "@/platform/config/school";
 import { schoolToday } from "@/vx/format";
 import { Reports } from "@/vx/screens/reports/reports";
@@ -20,7 +21,7 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : A
  * `?view=collection|defaulters|send|classwise|cell|daybook|export|schedule|newsch`.
  */
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requirePermission("fees:view", "/reports");
+  const staff = await requirePermission("fees:view", "/reports");
   const { previewing } = await getViewer();
   const sp = await searchParams;
   const session = await resolveViewSession({ searchParamSession: sp.session, cookieSession: await getViewSessionCookie() });
@@ -52,5 +53,5 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     cellInst: Number.isFinite(inst) && inst > 0 ? inst : undefined,
   });
 
-  return <Reports data={data} initialSheet={sheet} initialLeft={one(sp.left) === "1"} readOnly={Boolean(previewing)} />;
+  return <Reports data={data} initialSheet={sheet} initialLeft={one(sp.left) === "1"} readOnly={Boolean(previewing)} detailed={feePermissionsFor(staff.role).includes("reports:view")} />;
 }

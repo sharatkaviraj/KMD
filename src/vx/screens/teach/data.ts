@@ -52,6 +52,20 @@ function timeOf(bells: BellSchedule, index: number): { starts: string; ends: str
   return { starts: p?.starts ?? "", ends: p?.ends ?? "" };
 }
 
+/**
+ * Today's counts for a saved register: from its save receipt, or, when it has
+ * none (registers written before revisions were kept), from its own marks.
+ * Without the fallback a fully marked class read "0/39 present".
+ */
+async function registerTotals(registerId: string, receipt: Awaited<ReturnType<typeof latestReceipt>> | null) {
+  if (receipt?.totals) return receipt.totals;
+  const marks = await listMarks(registerId).catch(() => null);
+  if (!marks) return undefined;
+  const t = { present: 0, absent: 0, half_day: 0, late: 0, leave: 0, total: marks.size };
+  for (const m of marks.values()) if (m.status in t) t[m.status as keyof Omit<typeof t, "total">] += 1;
+  return t;
+}
+
 /* ------------------------------------------------------------ the notices */
 
 export type StaffNotice = { id: string; title: string; bodyHi: string | null; bodyEn: string | null; createdAt: string; fromName: string; seen: boolean; kind: string };
@@ -269,7 +283,7 @@ export async function loadHome(staff: CurrentStaff) {
       classInsight(myClassId, sessionLabel, staff).catch(() => null),
       reg && reg.revision >= 1 ? latestReceipt(reg.id).catch(() => null) : Promise.resolve(null),
     ]);
-    const totals = receipt?.totals;
+    const totals = reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
     myClass = {
       classId: myClassId,
       classLabel: labels.get(myClassId) ?? "—",
@@ -434,7 +448,13 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     saved: Object.fromEntries([...marks.entries()].map(([id, m]) => [id, m.status])) as Record<string, Mark>,
     yesterday: Object.fromEntries([...prevMarks.entries()].map(([id, m]) => [id, m.status])) as Record<string, Mark>,
     firstSavedAt,
-    receipt: receipt ? { savedAt: receipt.savedAt, actorName: receipt.actorName, revision: receipt.revision } : null,
+    // A register with no stored revision (one written before revisions were
+    // kept) still has its own save time; "Saved at —" told the teacher nothing.
+    receipt: receipt
+      ? { savedAt: receipt.savedAt, actorName: receipt.actorName, revision: receipt.revision }
+      : recorded && register?.submittedAt
+        ? { savedAt: register.submittedAt, actorName: null, revision: register.revision }
+        : null,
     queuedAlerts,
     pending,
     month,
@@ -483,7 +503,7 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
     classInsight(classId, sessionLabel, staff),
     reg && reg.revision >= 1 ? latestReceipt(reg.id).catch(() => null) : Promise.resolve(null),
   ]);
-  const totals = receipt?.totals;
+  const totals = reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
   return {
     kind: "class" as const,
     sessionLabel,

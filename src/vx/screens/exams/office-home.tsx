@@ -251,7 +251,7 @@ export function ExamHome({
             </span>
             <Progress value={next.readiness.percent} max={100} tone="var(--ok)" />
             <span style={{ fontSize: 13 }}>
-              <strong>{next.readiness.done} {tx(p("of", "में से"))} {next.steps.length} {tx(p("steps done", "कदम पूरे"))}</strong> · {next.readiness.underWay} {tx(p("under way", "जारी"))}
+              <strong>{tx(p(`${next.readiness.done} of ${next.steps.length} steps done`, `${next.steps.length} में से ${next.readiness.done} कदम पूरे`))}</strong> · {next.readiness.underWay} {tx(p("under way", "जारी"))}
             </span>
           </span>
           <Seg
@@ -512,7 +512,7 @@ function HomeBody({
                     </Link>
                   ) : null}
                   <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                    {results.teachersDone} {tx(p("of", "में से"))} {results.teachersTotal} {tx(p("teachers done", "शिक्षक पूरे"))}
+                    {tx(p(`${results.teachersDone} of ${results.teachersTotal} teachers done`, `${results.teachersTotal} में से ${results.teachersDone} शिक्षक पूरे`))}
                     {results.daysToDue !== null && results.daysToDue >= 0 ? ` · ${results.daysToDue} ${tx(p("days to the deadline", "दिन बाकी"))}` : ""}
                   </span>
                 </span>
@@ -698,7 +698,7 @@ function MenuView({ staffName, sessionLabel, results, next, teachers }: { staffN
       </div>
       <Card pad={false} style={{ overflow: "hidden" }}>
         {[
-          { t: p("Next exam checklist", "अगली परीक्षा चेकलिस्ट"), s: next ? `${next.readiness.percent}% ${tx(p("ready", "तैयार"))} · ${next.readiness.done} ${tx(p("of", "में से"))} ${next.steps.length} ${tx(p("steps done", "कदम पूरे"))}` : "", icon: "list" as IconName, tone: "info" as Tone, href: "/exam-office?view=checklist" },
+          { t: p("Next exam checklist", "अगली परीक्षा चेकलिस्ट"), s: next ? `${next.readiness.percent}% ${tx(p("ready", "तैयार"))} · ${tx(p(`${next.readiness.done} of ${next.steps.length} steps done`, `${next.steps.length} में से ${next.readiness.done} कदम पूरे`))}` : "", icon: "list" as IconName, tone: "info" as Tone, href: "/exam-office?view=checklist" },
           { t: p("Late teachers", "देर वाले शिक्षक"), s: `${teachers.length} ${tx(p("not finished", "बाकी"))} · ${teachers.filter((t) => !t.remindedAt).length} ${tx(p("not reminded", "को याद नहीं दिलाया"))}`, icon: "alert" as IconName, tone: "bad" as Tone, href: "/exam-office?view=late" },
         ].map((r) => (
           <Link key={r.t.en} href={r.href} className="tap row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: "1px solid var(--bd)", color: "inherit", textDecoration: "none" }}>

@@ -214,7 +214,7 @@ export function TeacherLateRow({
       </span>
       <span style={{ width: 150, display: "flex", flexDirection: "column", gap: 4 }}>
         <strong style={{ fontSize: 13 }}>
-          {t.entered} {tx(p("of", "में से"))} {t.total} {tx(p("marks", "अंक"))}
+          {tx(p(`${t.entered} of ${t.total} marks`, `${t.total} में से ${t.entered} अंक`))}
         </strong>
         <Progress value={share} max={100} tone={share < 25 ? "var(--bad)" : "var(--warn)"} height={5} />
       </span>

@@ -193,7 +193,7 @@ export function ResultsBoard(props: ResultsProps) {
     publish: p("Publish results", "परिणाम जारी करें"),
     recheck: p("Re-checks", "दोबारा जाँच"),
   };
-  const crumb = `${tx(p("Results", "परिणाम"))} · ${tx(exam.name)} ${exam.sessionLabel} · ${props.classes.length} ${tx(p("classes", "कक्षाएँ"))} · ${props.childrenTotal} ${tx(p("children", "बच्चे"))}`;
+  const crumb = `${tx(p("Results", "परिणाम"))} · ${tx(exam.name)} ${exam.sessionLabel} · ${props.classes.length} ${tx(props.classes.length === 1 ? p("class", "कक्षा") : p("classes", "कक्षाएँ"))} · ${props.childrenTotal} ${tx(props.childrenTotal === 1 ? p("child", "बच्चा") : p("children", "बच्चे"))}`;
   const badge = exam.resultsLabel ? (
     <Pill tone="ok">
       {tx(p("Results day", "परिणाम दिवस"))} {exam.resultsLabel}
@@ -264,7 +264,7 @@ export function ResultsBoard(props: ResultsProps) {
           </span>
         }
         mTitle={tx(titles[view])}
-        mSub={view === "lock" ? `${props.classes.filter((c) => c.locked).length} ${tx(p("of", "में से"))} ${props.classes.length} ${tx(p("classes locked", "कक्षाएँ बंद"))}` : `${tx(exam.name)}${exam.resultsLabel ? ` · ${exam.resultsLabel}` : ""}`}
+        mSub={view === "lock" ? tx(p(`${props.classes.filter((c) => c.locked).length} of ${props.classes.length} classes locked`, `${props.classes.length} में से ${props.classes.filter((c) => c.locked).length} कक्षाएँ बंद`)) : `${tx(exam.name)}${exam.resultsLabel ? ` · ${exam.resultsLabel}` : ""}`}
         mBack={view === "pipeline" ? "/exam-office" : href("pipeline")}
         actions={
           <>
@@ -315,8 +315,8 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
     entered: { title: p("Marks entered", "अंक भरे"), big: `${overall.percent}%`, sub: tx(p(`${overall.entered} of ${overall.total} marks · ${teachers.filter((t) => t.late).length} teachers late`, `${overall.total} में से ${overall.entered} · ${teachers.filter((t) => t.late).length} शिक्षक देर से`)), btn: p("Marks tracker", "अंक ट्रैकर"), href: "/exams?view=grid", value: overall.percent },
     checked: { title: p("Checked", "जाँचे"), big: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual`, `${props.unusualOpen} असामान्य`)) : tx(p("All fine", "सब ठीक")), sub: tx(p(`Class averages that moved a lot${exam.prevName ? ` since ${exam.prevName.en}` : ""}`, "जिन कक्षाओं का औसत बहुत बदला")), btn: p("Check marks", "अंक जाँचें"), href: props.href("moderation"), value: props.unusualCount ? ((props.unusualCount - props.unusualOpen) / props.unusualCount) * 100 : 100 },
     grace: { title: p("Grace", "ग्रेस"), big: tx(p(`${props.grace.rows.filter((g) => g.canPass).length} children`, `${props.grace.rows.filter((g) => g.canPass).length} बच्चे`)), sub: tx(p(`Can pass with up to ${props.grace.max} grace marks`, `${props.grace.max} तक ग्रेस से पास हो सकते`)), btn: p("Review grace", "ग्रेस देखें"), href: props.href("grace"), value: props.grace.rows.length ? (props.grace.rows.filter((g) => g.given).length / Math.max(1, props.grace.rows.filter((g) => g.canPass).length)) * 100 : 0 },
-    locked: { title: p("Locked", "बंद"), big: `${locked} ${tx(p("of", "में से"))} ${classes.length}`, sub: tx(p(`${ready} classes ready to lock`, `${ready} कक्षाएँ बंद करने को तैयार`)), btn: p("Lock marks", "अंक बंद करें"), href: props.href("lock"), value: classes.length ? (locked / classes.length) * 100 : 0 },
-    cards: { title: p("Report cards", "प्रगति पत्र"), big: `${props.cards.issuedTotal} ${tx(p("of", "में से"))} ${props.childrenTotal}`, sub: tx(p("Issued once a class is locked", "कक्षा बंद होने पर जारी")), btn: p("Report cards", "प्रगति पत्र"), href: props.href("cards"), value: props.childrenTotal ? (props.cards.issuedTotal / props.childrenTotal) * 100 : 0 },
+    locked: { title: p("Locked", "बंद"), big: tx(p(`${locked} of ${classes.length}`, `${classes.length} में से ${locked}`)), sub: tx(p(`${ready} ${ready === 1 ? "class" : "classes"} ready to lock`, `${ready} कक्षाएँ बंद करने को तैयार`)), btn: p("Lock marks", "अंक बंद करें"), href: props.href("lock"), value: classes.length ? (locked / classes.length) * 100 : 0 },
+    cards: { title: p("Report cards", "प्रगति पत्र"), big: tx(p(`${props.cards.issuedTotal} of ${props.childrenTotal}`, `${props.childrenTotal} में से ${props.cards.issuedTotal}`)), sub: tx(p("Issued once a class is locked", "कक्षा बंद होने पर जारी")), btn: p("Report cards", "प्रगति पत्र"), href: props.href("cards"), value: props.childrenTotal ? (props.cards.issuedTotal / props.childrenTotal) * 100 : 0 },
     published: { title: p("Published", "जारी"), big: exam.publishedAt ? tx(p("Released", "जारी")) : (exam.resultsLabel ?? "—"), sub: exam.ptmAt ? tx(p(`Results day · PTM at ${exam.ptmAt}`, `परिणाम दिवस · PTM ${exam.ptmAt}`)) : tx(p("Results day", "परिणाम दिवस")), btn: p("Schedule", "समय तय करें"), href: props.href("publish"), value: exam.publishedAt ? 100 : 0 },
   };
   return (
@@ -415,7 +415,7 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <strong className="clip" style={{ fontSize: 14 }}>{t.name}</strong>
                 <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>
-                  {t.papers.filter((x) => x.status !== "done").map((x) => `${x.classLabel} ${x.subjectCode}`).join(", ")} · {t.entered} {tx(p("of", "में से"))} {t.total}
+                  {t.papers.filter((x) => x.status !== "done").map((x) => `${x.classLabel} ${x.subjectCode}`).join(", ")} · {tx(p(`${t.entered} of ${t.total}`, `${t.total} में से ${t.entered}`))}
                 </span>
               </span>
             </div>
@@ -729,7 +729,7 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
             <span style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <strong className="num" style={{ fontSize: 18 }}>{cards.issuedTotal}</strong>
               <span style={{ fontSize: 11, color: "var(--mut)" }}>
-                {tx(p("of", "में से"))} {childrenTotal}
+                {tx(p(`of ${childrenTotal}`, `${childrenTotal} में से`))}
               </span>
             </span>
           </Ring>

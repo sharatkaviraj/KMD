@@ -4,7 +4,7 @@ import "./reports.css";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
+import { createContext, use, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { createScheduleAction, toggleScheduleAction } from "@/app/(app)/reports/actions";
 import { bucketCollection, sectionDefaulters, sumBuckets, teacherListText, type DefaulterRow } from "@/modules/reports/vx/domain/reports";
@@ -85,16 +85,25 @@ function usePins(): [string[], (key: string) => void] {
 
 /* ---------- the screen ---------- */
 
+/**
+ * Whether this reader may open the detailed fee reports and the exports
+ * (the fee app's `reports:view`). The office reads these screens but its fee
+ * role does not have it, and the links used to end on "access denied".
+ */
+const DetailedReports = createContext(true);
+
 export function Reports({
   data,
   initialSheet,
   initialLeft,
   readOnly,
+  detailed = true,
 }: {
   data: ReportsPageData;
   initialSheet: ReportsSheet;
   initialLeft: boolean;
   readOnly: boolean;
+  detailed?: boolean;
 }) {
   const [sheet, setSheetState] = useState<ReportsSheet>(initialSheet);
   const setSheet = (s: ReportsSheet) => {
@@ -106,6 +115,10 @@ export function Reports({
   };
   const close = () => setSheet("");
 
+  return <DetailedReports value={detailed}>{reportView(data, sheet, setSheet, close, initialLeft, readOnly)}</DetailedReports>;
+}
+
+function reportView(data: ReportsPageData, sheet: ReportsSheet, setSheet: (s: ReportsSheet) => void, close: () => void, initialLeft: boolean, readOnly: boolean) {
   switch (data.view) {
     case "collection":
       return <CollectionView data={data} sheet={sheet} setSheet={setSheet} close={close} />;
@@ -181,9 +194,10 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
         { key: "all", group: "more", icon: "list", tone: ["var(--s3)", "var(--fg)"], title: T.all, sub: "Outstanding, ledger, receipt register, imports", value: "5", caption: "detailed reports with CSV", href: "/fees/reports" },
       ]
     : [];
+  const detailed = use(DetailedReports);
   const needle = q.trim().toLowerCase();
-  const shown = cards.filter((c) => !needle || `${c.title.en} ${c.title.hi} ${c.sub}`.toLowerCase().includes(needle));
-  const pinned = cards.filter((c) => pins.includes(c.key));
+  const shown = cards.filter((c) => detailed || c.key !== "all").filter((c) => !needle || `${c.title.en} ${c.title.hi} ${c.sub}`.toLowerCase().includes(needle));
+  const pinned = cards.filter((c) => (detailed || c.key !== "all") && pins.includes(c.key));
 
   const card = (c: HubCard, i: number) => {
     const on = pins.includes(c.key);
@@ -1020,6 +1034,7 @@ function NewScheduleSheet({ open, onClose, readOnly }: { open: boolean; onClose:
 /* ---------- export ---------- */
 
 function ExportSheet({ data, open, onClose, filters = {} }: { data: ReportsPageData; open: boolean; onClose: () => void; filters?: { classId?: string; mode?: string } }) {
+  const detailed = use(DetailedReports);
   const [format, setFormat] = useState<"xlsx" | "pdf" | "csv">("xlsx");
   const c = data.collection;
   const [dates, setDates] = useState<"range" | "session">("range");
@@ -1063,7 +1078,11 @@ function ExportSheet({ data, open, onClose, filters = {} }: { data: ReportsPageD
       footer={
         <>
           <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>Cancel</button>
-          <a className="tap btn pri" style={{ flex: 1.6, height: 48 }} href={href} download onClick={onClose}><Ic n="download" size={18} />Export {label}</a>
+          {detailed ? (
+            <a className="tap btn pri" style={{ flex: 1.6, height: 48 }} href={href} download onClick={onClose}><Ic n="download" size={18} />Export {label}</a>
+          ) : (
+            <span style={{ flex: 1.6, alignSelf: "center", fontSize: 13, color: "var(--mut)" }}>Exports are for the admin and the accountant.</span>
+          )}
         </>
       }
     >

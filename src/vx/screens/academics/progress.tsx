@@ -266,7 +266,7 @@ export async function AcadProgress(props: Props) {
               ) : null}
               <Card pad={false}>
                 <div style={{ padding: "16px 16px 8px" }}>
-                  <CardHead title={say("Notes from teachers", "शिक्षकों के नोट")} action={<Btn variant="ghost" href="/notes">{say("All notes", "सभी नोट")}</Btn>} />
+                  <CardHead title={say("Notes from teachers", "शिक्षकों के नोट")} action={can(staff, "notes:view") ? <Btn variant="ghost" href="/notes">{say("All notes", "सभी नोट")}</Btn> : undefined} />
                 </div>
                 {child.notes.length === 0 ? <p style={{ margin: 0, padding: "0 16px 16px", color: "var(--mut)" }}>{say("No notes.", "कोई नोट नहीं।")}</p> : null}
                 {child.notes.slice(0, 6).map((n) => (

@@ -33,7 +33,20 @@ const REASON_TEXT: Record<AttentionReason, Pair> = {
   notes: p("Open notes", "खुले नोट्स"),
 };
 
-export function TeachHome({ data, name, initialSheet, school }: { data: HomeData; name: string; initialSheet: string | null; school: string }) {
+export function TeachHome({
+  data,
+  name,
+  initialSheet,
+  school,
+  allowed = { attendance: true, marks: true, notes: true },
+}: {
+  data: HomeData;
+  name: string;
+  initialSheet: string | null;
+  school: string;
+  /** Office and coordinators can open this page too; their quick actions stop at what they may open. */
+  allowed?: { attendance: boolean; marks: boolean; notes: boolean };
+}) {
   const { tx, sub } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -243,11 +256,11 @@ export function TeachHome({ data, name, initialSheet, school }: { data: HomeData
       <Head t={p("Quick actions", "जल्दी के काम")} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 }}>
         {[
-          { href: data.myClass ? `/teach/attendance?class=${data.myClass.classId}&day=${data.today}` : "/teach/attendance", icon: "calCheck" as const, t: p("Mark attendance", "हाज़िरी लगाएँ") },
-          { href: "/teach/marks", icon: "clipboard" as const, t: p("Enter marks", "अंक भरें") },
-          { href: "/teach/notes?sheet=add", icon: "mic" as const, t: p("Speak a note", "नोट बोलें") },
+          allowed.attendance ? { href: data.myClass ? `/teach/attendance?class=${data.myClass.classId}&day=${data.today}` : "/teach/attendance", icon: "calCheck" as const, t: p("Mark attendance", "हाज़िरी लगाएँ") } : null,
+          allowed.marks ? { href: "/teach/marks", icon: "clipboard" as const, t: p("Enter marks", "अंक भरें") } : null,
+          allowed.notes ? { href: "/teach/notes?sheet=add", icon: "mic" as const, t: p("Speak a note", "नोट बोलें") } : null,
           { onClick: () => setSheet("leave"), icon: "calMinus" as const, t: p("Apply leave", "छुट्टी लें") },
-        ].map((a) => {
+        ].filter((a) => a !== null).map((a) => {
           const inner = (
             <>
               <span style={{ width: 44, height: 44, borderRadius: 13, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}><Ic n={a.icon} size={22} /></span>

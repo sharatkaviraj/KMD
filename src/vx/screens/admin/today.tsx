@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { rupees, rupeesShort, dayMonth } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
@@ -53,6 +53,8 @@ export type TodayProps = {
   inbox: InboxItem[] | null;
   timeline: TimelineItem[];
   actions: { key: string; label: Pair; icon: IconName; href: string }[];
+  /** Which screens behind the tiles this reader may open; a tile they cannot open is not a link. */
+  links: { collect: boolean; attendance: boolean; substitutions: boolean };
   unavailable: boolean;
 };
 
@@ -102,7 +104,7 @@ export function TodayScreen(props: TodayProps) {
         />
       ) : null}
       {attendance ? (
-        <Link href="/attendance" className="card rise tap lift" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+        <MaybeLink href={props.links.attendance ? "/attendance" : null} className="card rise tap lift" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
           <Ring value={attendance.marked} max={Math.max(1, attendance.total)} size={58} stroke={8} />
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <span style={{ fontSize: 13, color: "var(--mut)", fontWeight: 600 }}>{tx(T.attendance)}</span>
@@ -113,13 +115,13 @@ export function TodayScreen(props: TodayProps) {
               {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
             </span>
           </span>
-        </Link>
+        </MaybeLink>
       ) : null}
       {props.staffAway !== null ? (
         <Kpi
           label={tx(T.teachersOnLeave)}
           value={props.staffAway}
-          href="/substitutions"
+          href={props.links.substitutions ? "/substitutions" : undefined}
           icon="calMinus"
           sub={
             props.cover && props.cover.needed > 0 ? (
@@ -264,7 +266,7 @@ export function TodayScreen(props: TodayProps) {
             {money ? (
               <div style={{ display: "flex", gap: 10 }} className="only-d">
                 <Btn icon="fileText" href="/reports">{tx(T.dayReport)}</Btn>
-                <Btn icon="rupee" variant="pri" href="/payments">{tx(T.paymentDesk)}</Btn>
+                {props.links.collect ? <Btn icon="rupee" variant="pri" href="/payments">{tx(T.paymentDesk)}</Btn> : null}
               </div>
             ) : null}
           </div>
@@ -379,5 +381,20 @@ export function TodayScreen(props: TodayProps) {
         </Section>
       </main>
     </>
+  );
+}
+
+function MaybeLink({ href, className, style, children }: { href: string | null; className: string; style: CSSProperties; children: ReactNode }) {
+  if (href) {
+    return (
+      <Link href={href} className={className} style={style}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <div className={className.replace(/\b(tap|lift)\b/g, "").trim()} style={style}>
+      {children}
+    </div>
   );
 }

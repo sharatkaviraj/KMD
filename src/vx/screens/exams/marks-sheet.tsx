@@ -546,7 +546,7 @@ export function MarksSheet({
     <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 18px" }}>
       <Ring value={c.filled} max={Math.max(1, c.total)} size={128} stroke={12} tone="var(--pri)">
         <strong className="num" style={{ fontSize: 30 }}>{c.filled}</strong>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("of", "में से"))} {c.total} {tx(p("children", "बच्चे"))}</span>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p(`of ${c.total} children`, `${c.total} बच्चे में से`))}</span>
       </Ring>
       <strong>{c.blank ? `${c.blank} ${tx(p("still to fill", "बाकी"))}` : tx(p("All filled", "सब भरे"))}</strong>
     </Card>
@@ -723,7 +723,7 @@ export function MarksSheet({
         </section>
         <div className="glass" style={{ position: "sticky", bottom: 0, zIndex: 10, borderTop: "1px solid var(--bd)", padding: "12px 28px", display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <strong>{c.filled} {tx(p("of", "में से"))} {c.total} {tx(p("done", "भरे"))} · {c.blank} {tx(p("left", "बाकी"))}</strong>
+            <strong>{tx(p(`${c.filled} of ${c.total} done`, `${c.total} में से ${c.filled} भरे`))} · {c.blank} {tx(p("left", "बाकी"))}</strong>
             <span style={{ fontSize: 12, color: status === "error" || status === "stale" ? "var(--bad)" : "var(--mut)" }}>{statusLine}</span>
           </span>
           {entryStatus === "submitted" && !correcting ? (

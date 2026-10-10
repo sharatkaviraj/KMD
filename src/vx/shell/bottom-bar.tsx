@@ -6,7 +6,7 @@ import { Suspense, use, useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import type { BottomTab } from "@/vx/nav";
+import { QUICK_ACTIONS, type BottomTab } from "@/vx/nav";
 import { Sheet } from "@/vx/ui/overlays";
 
 import type { Badges } from "./sidebar";
@@ -56,7 +56,7 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
           ),
         )}
       </nav>
-      <QuickActions open={quick} onClose={() => setQuick(false)} />
+      <QuickActions open={quick} onClose={() => setQuick(false)} keys={tabs.find((t) => t.center)?.quick ?? []} />
     </>
   );
 }
@@ -79,33 +79,33 @@ function TabBadge({ badges, k }: { badges: Promise<Badges>; k: keyof Badges }) {
   );
 }
 
-const QUICK: { label: string; hi: string; icon: IconName; bg: string; fg: string; href: string }[] = [
-  { label: "Collect fee", hi: "फीस जमा", icon: "rupee", bg: "var(--pri)", fg: "var(--prifg)", href: "/payments" },
-  { label: "Mark attendance", hi: "हाज़िरी", icon: "calCheck", bg: "var(--accs)", fg: "var(--accfg)", href: "/attendance" },
-  { label: "Send notice", hi: "सूचना भेजें", icon: "megaphone", bg: "var(--infos)", fg: "var(--info)", href: "/messages?compose=1" },
-  { label: "Add student", hi: "नया विद्यार्थी", icon: "userPlus", bg: "var(--oks)", fg: "var(--ok)", href: "/admissions/new" },
-  { label: "Assign substitute", hi: "सब्स्टिट्यूट", icon: "swap", bg: "var(--warns)", fg: "var(--warnfg)", href: "/timetable?view=subs" },
-  { label: "Add a note", hi: "नोट लिखें", icon: "edit", bg: "var(--s3)", fg: "var(--fg)", href: "/notes?add=1" },
-];
+const TONE: Record<(typeof QUICK_ACTIONS)[number]["tone"], { bg: string; fg: string }> = {
+  pri: { bg: "var(--pri)", fg: "var(--prifg)" },
+  acc: { bg: "var(--accs)", fg: "var(--accfg)" },
+  info: { bg: "var(--infos)", fg: "var(--info)" },
+  ok: { bg: "var(--oks)", fg: "var(--ok)" },
+  warn: { bg: "var(--warns)", fg: "var(--warnfg)" },
+  plain: { bg: "var(--s3)", fg: "var(--fg)" },
+};
 
 /** The admin's centre "+" sheet: the six things done most (F03). */
-export function QuickActions({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function QuickActions({ open, onClose, keys }: { open: boolean; onClose: () => void; keys: readonly string[] }) {
   const { tx } = useVx();
   return (
-    <Sheet open={open} onClose={onClose} title="Quick actions" sub="The six things you do most">
+    <Sheet open={open} onClose={onClose} title="Quick actions" sub="The things you do most">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, paddingBottom: 8 }}>
-        {QUICK.map((a, i) => (
+        {QUICK_ACTIONS.filter((a) => keys.includes(a.key)).map((a, i) => (
           <Link
-            key={a.label}
+            key={a.key}
             href={a.href}
             onClick={onClose}
             className="tap"
             style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "14px 6px", borderRadius: 20, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 13, fontWeight: 600, textAlign: "center", animation: `xRise .42s var(--ease) ${60 + i * 40}ms both` }}
           >
-            <span style={{ width: 50, height: 50, borderRadius: 17, background: a.bg, color: a.fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ width: 50, height: 50, borderRadius: 17, background: TONE[a.tone].bg, color: TONE[a.tone].fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Ic n={a.icon} size={23} />
             </span>
-            {tx({ en: a.label, hi: a.hi })}
+            {tx(a.label)}
           </Link>
         ))}
       </div>
