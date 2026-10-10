@@ -29,10 +29,12 @@ const nextConfig: NextConfig = {
    * Without this every PDF on Vercel failed with MODULE_NOT_FOUND for
    * Helvetica.cjs: the receipt PDF, the WhatsApp receipt attachment, fee
    * statements and collection lists. Every route, because server actions
-   * render them too; the folder is 190 KB.
+   * render them too; the folder is 190 KB. `**` because each font file
+   * requires its glyph names from `standard-fonts/chunks/`, which `*.cjs`
+   * left out (the first fix still failed, on that chunk).
    */
   outputFileTracingIncludes: {
-    "/**": ["./node_modules/pdfkit/js/standard-fonts/*.cjs"],
+    "/**": ["./node_modules/pdfkit/js/standard-fonts/**/*.cjs"],
   },
 
   /*
