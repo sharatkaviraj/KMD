@@ -1,8 +1,71 @@
-import { redirect } from "next/navigation";
+import { requirePermission } from "@/platform/auth/current-staff";
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { longDay, schoolToday } from "@/vx/format";
+import { runningPeriod, schoolMinutes, type BoardFilter } from "@/vx/screens/admin/logic";
+import { AttendanceScreen } from "@/vx/screens/admin/attendance";
+import { loadBoard, loadSheet } from "@/vx/screens/admin/data";
+import { T } from "@/vx/screens/admin/text";
+import { lead } from "@/vx/text";
+import { Section, TopBar, VxPage } from "@/vx/ui/page";
+import { EmptyState } from "@/vx/ui/primitives";
+import { getViewer } from "@/vx/view-as";
 
 export const runtime = "nodejs";
 
-/** Interim: the redesigned screen replaces this redirect (docs/ui/PROGRESS.md). */
-export default function Page() {
-  redirect("/teach/attendance");
+export const metadata = { title: "Attendance" };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The whole-school attendance board (P5, design F11/D04): every class's
+ * register today, and a panel to mark one on the class teacher's behalf.
+ * `?class=<id>` opens the panel; `?f=pending|marked` keeps the filter.
+ */
+export default async function AttendanceBoardPage(props: PageProps<"/attendance">) {
+  const staff = await requirePermission("attendance:mark_on_behalf", "/attendance");
+  const { previewing } = await getViewer();
+  const params = await props.searchParams;
+  const classId = typeof params.class === "string" && UUID.test(params.class) ? params.class : null;
+  const f = typeof params.f === "string" ? params.f : "all";
+  const filter: BoardFilter = f === "pending" || f === "marked" ? f : "all";
+  const today = schoolToday();
+  const sessionLabel = await resolveSessionLabel();
+
+  if (!sessionLabel) {
+    return (
+      <VxPage>
+        <TopBar title={lead(T.attendanceTitle, staff.language)} />
+        <main>
+          <Section>
+            <EmptyState icon="calendar" title={lead(T.noSession, staff.language)} />
+          </Section>
+        </main>
+      </VxPage>
+    );
+  }
+
+  const board = await loadBoard(sessionLabel, today);
+  const sheet = classId ? await loadSheet(sessionLabel, today, classId, board) : null;
+  const running = runningPeriod(board.bells, schoolMinutes());
+  const first = [...board.bells].sort((a, b) => a.starts.localeCompare(b.starts))[0];
+  const status = !board.schoolOpen
+    ? lead(T.schoolClosed, staff.language)
+    : running
+      ? lead(running.state === "running" ? T.periodRunning(running.number) : T.periodBreak(running.number), staff.language)
+      : first
+        ? lead(schoolMinutes() < Number(first.starts.slice(0, 2)) * 60 + Number(first.starts.slice(3, 5)) ? T.beforeSchool : T.dayOver, staff.language)
+        : "";
+
+  return (
+    <VxPage label={lead(T.attendanceTitle, staff.language)}>
+      <AttendanceScreen
+        board={board}
+        sheet={sheet}
+        filter={filter}
+        dayLine={`${longDay(today)}${status ? ` · ${status}` : ""}`}
+        previewing={previewing !== null}
+        canMark
+      />
+    </VxPage>
+  );
 }
