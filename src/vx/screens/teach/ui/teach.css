@@ -1,0 +1,91 @@
+/* Teacher screens and notes (design TchHome, TchAttend, TchClass, TchNotes,
+   TchMore, Notes). Local to these screens; tokens are the kit's. */
+
+:where(.vx,.vxt) .t-hero{position:relative;overflow:hidden;border-radius:22px;padding:22px;color:#fff;background:linear-gradient(135deg,var(--c1) 0%,#0E717C 100%);box-shadow:var(--sh)}
+.dark .vx .t-hero{background:linear-gradient(135deg,#123a52 0%,#0f4f57 100%)}
+:where(.vx,.vxt) .t-hero.done{background:linear-gradient(135deg,#1B5F3E 0%,#2A9DA8 100%)}
+:where(.vx,.vxt) .t-hero.quiet{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
+:where(.vx,.vxt) .t-hero .t-heroBtn{height:56px;border-radius:16px;border:0;background:#fff;color:#0B4F79;font-size:17px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:0 22px;box-shadow:0 10px 24px -12px rgba(0,0,0,.45)}
+:where(.vx,.vxt) .t-hero .t-heroBtn .hi{font-size:13px;font-weight:600;opacity:.75}
+:where(.vx,.vxt) .t-hero::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
+:where(.vx,.vxt) .t-heroMut{color:rgba(255,255,255,.82)}
+:where(.vx,.vxt) .t-hero.quiet .t-heroMut{color:var(--mut)}
+
+:where(.vx,.vxt) .t-tl{position:relative;display:flex;flex-direction:column;gap:10px}
+:where(.vx,.vxt) .t-tlRow{display:grid;grid-template-columns:52px 14px minmax(0,1fr);gap:10px;align-items:stretch}
+:where(.vx,.vxt) .t-tlTime{display:flex;flex-direction:column;align-items:flex-end;padding-top:10px;font-size:12px;color:var(--mut)}
+:where(.vx,.vxt) .t-tlTime b{font-size:14px;color:var(--fg)}
+:where(.vx,.vxt) .t-tlRail{position:relative;display:flex;justify-content:center}
+:where(.vx,.vxt) .t-tlRail::before{content:"";position:absolute;top:0;bottom:-10px;width:2px;background:var(--bd)}
+:where(.vx,.vxt) .t-tlRow:last-child .t-tlRail::before{bottom:50%}
+:where(.vx,.vxt) .t-tlDot{position:relative;margin-top:16px;width:10px;height:10px;border-radius:5px;background:var(--bds)}
+:where(.vx,.vxt) .t-tlDot.now{background:var(--acc);box-shadow:0 0 0 4px var(--accs)}
+:where(.vx,.vxt) .t-tlDot.cover{background:var(--warn)}
+:where(.vx,.vxt) .t-tlCard{border:1px solid var(--bd);border-radius:14px;padding:10px 14px;background:var(--card);display:flex;align-items:center;gap:12px;min-height:58px}
+:where(.vx,.vxt) .t-tlCard.done{opacity:.6}
+:where(.vx,.vxt) .t-tlCard.now{border-color:var(--acc);background:var(--accs)}
+:where(.vx,.vxt) .t-tlCard.cover{border-color:var(--warnm);background:var(--warns);flex-wrap:wrap}
+
+:where(.vx,.vxt) .t-kids{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@container vx (max-width:1100px){.vx .t-kids{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container vx (max-width:899px){.vx .t-kids{grid-template-columns:minmax(0,1fr)}}
+:where(.vx,.vxt) .t-kid{display:flex;align-items:center;gap:10px;min-height:68px;padding:10px 12px;border-radius:16px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;width:100%;font:inherit;user-select:none;-webkit-tap-highlight-color:transparent}
+:where(.vx,.vxt) .t-kid .t-roll{width:22px;flex:none;text-align:right;font-size:13px;color:var(--mut)}
+:where(.vx,.vxt) .t-kid .t-mark{margin-left:auto;flex:none;width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+:where(.vx,.vxt) .t-kid.p .t-mark{background:var(--oks);color:var(--ok)}
+:where(.vx,.vxt) .t-kid.a{border-color:var(--bad);background:var(--bads)}
+:where(.vx,.vxt) .t-kid.a .t-mark{background:var(--bad);color:var(--onsolid)}
+:where(.vx,.vxt) .t-kid.h{border-color:var(--warn);background:var(--warns)}
+:where(.vx,.vxt) .t-kid.h .t-mark{background:var(--warn);color:var(--onsolid)}
+:where(.vx,.vxt) .t-kid.flash{animation:xPopIn .28s var(--spring)}
+:where(.vx,.vxt) .t-kid[disabled]{cursor:default}
+
+:where(.vx,.vxt) .t-count{border-radius:18px;padding:14px 16px;border:1px solid var(--bd);background:var(--card);display:flex;flex-direction:column;gap:2px}
+:where(.vx,.vxt) .t-count b{font-size:30px;line-height:1.1}
+:where(.vx,.vxt) .t-dot{width:9px;height:9px;border-radius:5px;display:inline-block}
+
+:where(.vx,.vxt) .t-savebar{position:sticky;bottom:0;z-index:15;display:flex;align-items:center;gap:12px;padding:12px 28px;border-top:1px solid var(--bd);background:var(--glass2);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+@container vx (max-width:899px){.vx .t-savebar{bottom:calc(76px + env(safe-area-inset-bottom));padding:10px 16px;border-radius:18px 18px 0 0}}
+
+:where(.vx,.vxt) .t-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+:where(.vx,.vxt) .t-calDay{aspect-ratio:1/1;border-radius:12px;border:1px solid var(--bd);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;font-weight:600;color:var(--fg)}
+:where(.vx,.vxt) .t-calDay.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--accs)}
+:where(.vx,.vxt) .t-calDay.off{background:var(--s2);color:var(--sub)}
+:where(.vx,.vxt) .t-calDay small{font-size:10px;font-weight:700}
+
+:where(.vx,.vxt) .t-menu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@container vx (max-width:899px){.vx .t-menu{grid-template-columns:repeat(2,minmax(0,1fr))}}
+:where(.vx,.vxt) .t-menuTile{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:18px;border:1px solid var(--bd);background:var(--card);min-height:116px;color:var(--fg);text-align:left;font:inherit;position:relative}
+:where(.vx,.vxt) .t-badge{position:absolute;top:12px;right:12px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--bad);color:var(--onsolid);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+:where(.vx,.vxt) .t-wk{display:grid;gap:6px;overflow-x:auto}
+:where(.vx,.vxt) .t-wkCell{min-height:52px;border-radius:10px;background:var(--s2);padding:6px 8px;font-size:12px;display:flex;flex-direction:column;justify-content:center}
+:where(.vx,.vxt) .t-wkCell.has{background:var(--accs);color:var(--accfg)}
+:where(.vx,.vxt) .t-wkCell.today{outline:2px solid var(--acc)}
+
+:where(.vx,.vxt) .n-card{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:18px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;font:inherit;width:100%}
+:where(.vx,.vxt) .n-card.sel{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+:where(.vx,.vxt) .n-card.due{border-left:4px solid var(--bad)}
+:where(.vx,.vxt) .n-fab{position:fixed;right:20px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:30;height:56px;border-radius:28px;padding:0 22px;border:0;background:var(--pri);color:var(--prifg);font-size:16px;font-weight:700;display:inline-flex;align-items:center;gap:10px;box-shadow:var(--shl)}
+@container vx (min-width:900px){.vx .n-fab{bottom:28px;right:32px}}
+:where(.vx,.vxt) .n-steps{display:flex;align-items:center;gap:6px}
+:where(.vx,.vxt) .n-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--mut)}
+:where(.vx,.vxt) .n-step i{width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--s3);font-style:normal}
+:where(.vx,.vxt) .n-step.on{color:var(--fg)}
+:where(.vx,.vxt) .n-step.on i{background:var(--acc);color:var(--onsolid)}
+:where(.vx,.vxt) .n-line{flex:1;height:2px;background:var(--bd);margin-bottom:18px}
+:where(.vx,.vxt) .n-line.on{background:var(--acc)}
+:where(.vx,.vxt) .n-listen{display:flex;flex-direction:column;align-items:center;gap:18px;padding:18px 0}
+:where(.vx,.vxt) .n-mic{position:relative;width:96px;height:96px;border-radius:48px;border:0;background:var(--bad);color:var(--onsolid);display:flex;align-items:center;justify-content:center}
+:where(.vx,.vxt) .n-mic::before{content:"";position:absolute;inset:0;border-radius:48px;background:var(--bad);animation:xRipple 1.6s ease-out infinite}
+:where(.vx,.vxt) .n-mic.idle{background:var(--pri)}
+:where(.vx,.vxt) .n-mic.idle::before{display:none}
+:where(.vx,.vxt) .n-tl{display:flex;flex-direction:column;gap:0}
+:where(.vx,.vxt) .n-tlItem{display:grid;grid-template-columns:18px minmax(0,1fr);gap:12px;position:relative;padding-bottom:16px}
+:where(.vx,.vxt) .n-tlItem::before{content:"";position:absolute;left:8px;top:16px;bottom:0;width:2px;background:var(--bd)}
+:where(.vx,.vxt) .n-tlItem:last-child::before{display:none}
+:where(.vx,.vxt) .n-tlDot{width:18px;height:18px;border-radius:9px;background:var(--accs);border:2px solid var(--acc);margin-top:2px}
+:where(.vx,.vxt) .n-check{width:26px;height:26px;border-radius:8px;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center;background:var(--card);flex:none;color:var(--onsolid)}
+:where(.vx,.vxt) .n-check.on{background:var(--ok);border-color:var(--ok)}
+:where(.vx,.vxt) .t-large{font-size:17px}
+:where(.vx,.vxt) .t-large .btn{font-size:16px}
