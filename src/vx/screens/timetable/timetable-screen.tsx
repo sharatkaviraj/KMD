@@ -168,6 +168,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
             <Btn variant="pri" icon="upload" href={href({ view: state.view, classId: state.classId, teacherId: state.teacherId, sheet: "publish" })}>Publish changes ({data.changes.length})</Btn>
           ) : null}
           {data.me.mayEdit ? <Btn variant="ghost" icon="upload" href="/timetable/import">Import</Btn> : null}
+          <Btn variant="ghost" icon="layers" href="/timetable/classic">Versions</Btn>
           <HelpButton
             title="Timetable"
             steps={[
