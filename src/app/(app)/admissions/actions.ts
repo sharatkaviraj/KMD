@@ -31,18 +31,13 @@ import { assertNotPreviewing } from "@/vx/view-as";
  * functions check the fee app's own `students:write` again underneath.
  */
 
-async function guard() {
-  const staff = await assertPermission("fees:manage");
-  await assertNotPreviewing();
-  return staff;
-}
-
 function message(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong. Please try again.";
 }
 
 export async function addEnquiryAction(input: { sessionLabel: string; childName: string; classLabel: string; parentName: string; phone: string }) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   if (!input.childName.trim()) return { ok: false as const, message: "Write the child's name." };
   try {
     await insertEnquiry({ ...input, childName: input.childName.trim(), staffId: staff.id });
@@ -54,7 +49,8 @@ export async function addEnquiryAction(input: { sessionLabel: string; childName:
 }
 
 export async function moveEnquiryAction(id: string, from: Stage) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   const to = nextStage(from);
   if (!to) return { ok: false as const, message: "This family is ready to admit." };
   try {
@@ -67,7 +63,8 @@ export async function moveEnquiryAction(id: string, from: Stage) {
 }
 
 export async function undoMoveEnquiryAction(id: string, back: Stage) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     await setEnquiryStage(id, back);
     revalidatePath("/admissions");
@@ -78,7 +75,8 @@ export async function undoMoveEnquiryAction(id: string, back: Stage) {
 }
 
 export async function closeEnquiryAction(id: string) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     await setEnquiryStage(id, "closed");
     revalidatePath("/admissions");
@@ -115,7 +113,8 @@ export type AdmitRequest = Omit<AdmitInput, "dateOfBirth"> & {
 };
 
 export async function admitAction(request: AdmitRequest) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   const dateOfBirth = parseDob(request.dob);
   if (!dateOfBirth) return { ok: false as const, message: "Write the date like 21-08-2019.", fieldErrors: { dateOfBirth: "Write the date like 21-08-2019." } };
   try {
@@ -139,7 +138,8 @@ export async function admitAction(request: AdmitRequest) {
 }
 
 export async function editStudentAction(studentId: string, sessionLabel: string, patch: EditPatch & { dob?: string; nameHi?: string; docs?: Partial<Record<DocKey, boolean>> }) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   const { dob, nameHi, docs, ...rest } = patch;
   const fee: EditPatch = { ...rest };
   if (dob !== undefined) {
@@ -163,7 +163,8 @@ export async function editStudentAction(studentId: string, sessionLabel: string,
 }
 
 export async function withdrawAction(input: { studentId: string; sessionLabel: string; leftOn: string; reason: string }) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.leftOn)) return { ok: false as const, message: "Pick the last day in school." };
   try {
     const tc = tcNumber(input.sessionLabel, (await countTcsIssued(input.sessionLabel)) + 1);
@@ -177,7 +178,8 @@ export async function withdrawAction(input: { studentId: string; sessionLabel: s
 }
 
 export async function undoWithdrawAction(studentId: string) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     const result = await undoWithdraw(studentId);
     revalidatePath(`/admissions/${studentId}`);

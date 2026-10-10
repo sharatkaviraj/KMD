@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { admitAction, checkDuplicateAction, searchFamiliesAction, type DuplicateHit } from "@/app/(app)/admissions/actions";
 import { rupees, dateLabel, initials } from "@/vx/format";
@@ -76,9 +76,7 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
   const fit = cls ? ageFit(dobIso, cls.label, ctx.sessionLabel) : null;
   const route = ctx.routes.find((r) => r.id === fee.routeId) ?? null;
   const policy = ctx.policies.find((x) => x.id === fee.policyId) ?? null;
-  const plan = useMemo(
-    () =>
-      buildFeePlan({
+  const plan = buildFeePlan({
         classTuition: cls?.tuition ?? 0,
         transportAnnual: route?.annual ?? 0,
         academicFee: f.kind === "new" ? ctx.newAcademicFee : ctx.oldAcademicFee,
@@ -86,9 +84,7 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
         schedule: ctx.schedule,
         distribution: ctx.distribution,
         today: ctx.today,
-      }),
-    [cls, route, policy, f.kind, ctx],
-  );
+      });
 
   const step1Errors = { fullName: !f.fullName.trim(), dob: !dobIso, classId: !cls };
   const phoneDigits = normalizeMobile(fam.phone);

@@ -35,23 +35,28 @@ export function useOnline(): boolean {
 export function OfflineBanner() {
   const { tx, sub } = useVx();
   const online = useOnline();
-  const [wasOffline, setWasOffline] = useState(false);
+  // "Back online" shows for a few seconds after the connection returns.
   const [backAt, setBackAt] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!online) {
-      setWasOffline(true);
+    let timer: number | undefined;
+    const back = () => {
+      setBackAt(Date.now());
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setBackAt(null), 4000);
+    };
+    const gone = () => {
+      window.clearTimeout(timer);
       setBackAt(null);
-      return;
-    }
-    if (!wasOffline) return;
-    setBackAt(Date.now());
-    const timer = window.setTimeout(() => {
-      setBackAt(null);
-      setWasOffline(false);
-    }, 4000);
-    return () => window.clearTimeout(timer);
-  }, [online, wasOffline]);
+    };
+    window.addEventListener("online", back);
+    window.addEventListener("offline", gone);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", back);
+      window.removeEventListener("offline", gone);
+    };
+  }, []);
 
   if (online && backAt === null) return null;
 

@@ -18,12 +18,6 @@ import { assertNotPreviewing } from "@/vx/view-as";
  * underneath, as the School Fees admin tools did.
  */
 
-async function guard() {
-  const staff = await assertPermission("fees:manage");
-  await assertNotPreviewing();
-  return staff;
-}
-
 function message(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong. Please try again.";
 }
@@ -35,7 +29,8 @@ function done() {
 /* --------------------------------------------------------------- promote */
 
 export async function buildPromotionListAction(source: string, target: string) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     const runId = await buildPromotionList(source, target);
     done();
@@ -46,7 +41,8 @@ export async function buildPromotionListAction(source: string, target: string) {
 }
 
 export async function markStudentAction(input: { runId: string; entryId: string; studentId: string; kind: PromoMark | null }) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     await saveMark({ ...input, staffId: staff.id });
     return { ok: true as const };
@@ -57,7 +53,8 @@ export async function markStudentAction(input: { runId: string; entryId: string;
 
 /** Save the class map and marks into the run, then apply it. */
 export async function applyPromotionAction(input: { runId: string; classMap: Record<string, string>; marks: Record<string, PromoMark> }) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     const board = await loadPromotionBoard(input.runId);
     if (!board.detail || board.detail.run.id !== input.runId) return { ok: false as const, message: "That promotion list was not found." };
@@ -82,7 +79,8 @@ export async function applyPromotionAction(input: { runId: string; classMap: Rec
 }
 
 export async function undoPromotionAction(runId: string) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     await rollbackPromotion(runId);
     await logBulkChange({ kind: "promote_undo", title: "Promotion undone", detail: { runId }, staffId: staff.id });
@@ -96,7 +94,8 @@ export async function undoPromotionAction(runId: string) {
 /* ---------------------------------------------------------------- import */
 
 export async function uploadImportAction(formData: FormData) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   const file = formData.get("file");
   const session = formData.get("sessionLabel");
   if (!(file instanceof File) || file.size === 0) return { ok: false as const, message: "Choose a CSV or Excel file first." };
@@ -110,7 +109,8 @@ export async function uploadImportAction(formData: FormData) {
 }
 
 export async function checkImportAction(batchId: string, mapping: Record<string, string>, headers: string[]) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     const clean = Object.fromEntries(Object.entries(mapping).filter(([, v]) => v));
     const res = await checkImportRows(batchId, clean, headers);
@@ -122,7 +122,8 @@ export async function checkImportAction(batchId: string, mapping: Record<string,
 }
 
 export async function approveSafeRowsAction(batchId: string) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     await approveSafeRows(batchId);
     done();
@@ -133,7 +134,8 @@ export async function approveSafeRowsAction(batchId: string) {
 }
 
 export async function commitImportAction(batchId: string, filename: string) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     const result = await commitImport(batchId);
     if (result.importedCount > 0 && result.remainingCount === 0) {
@@ -157,7 +159,8 @@ const ISSUE_FIELD: Partial<Record<QualityIssue, keyof EditPatch>> = {
 };
 
 export async function fixQualityAction(input: { studentId: string; issue: QualityIssue; value: string }) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   const field = ISSUE_FIELD[input.issue];
   if (!field) return { ok: false as const, message: "This one is fixed from the student's record." };
   let value = input.value.trim();
@@ -183,7 +186,8 @@ export async function fixQualityAction(input: { studentId: string; issue: Qualit
 }
 
 export async function skipQualityAction(input: { studentId: string; issue: QualityIssue; days: number }) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   if (!QUALITY_ISSUES.includes(input.issue)) return { ok: false as const, message: "Unknown item." };
   const until = new Date(Date.now() + Math.min(365, Math.max(1, input.days)) * 86_400_000).toISOString().slice(0, 10);
   try {
@@ -196,7 +200,8 @@ export async function skipQualityAction(input: { studentId: string; issue: Quali
 }
 
 export async function unskipQualityAction(input: { studentId: string; issue: QualityIssue }) {
-  await guard();
+  await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     await unskipQualityItem(input.studentId, input.issue);
     done();
@@ -209,7 +214,8 @@ export async function unskipQualityAction(input: { studentId: string; issue: Qua
 /* -------------------------------------------------------------- families */
 
 export async function mergeFamilyAction(input: { studentIds: string[]; sessionLabel: string; father: string }) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     const res = await mergeFamily(input.studentIds, input.sessionLabel);
     if (!res.ok) return { ok: false as const, message: res.message };
@@ -222,7 +228,8 @@ export async function mergeFamilyAction(input: { studentIds: string[]; sessionLa
 }
 
 export async function splitFamilyAction(input: { studentId: string; familyGroupId: string; sessionLabel: string; name: string }) {
-  const staff = await guard();
+  const staff = await assertPermission("fees:manage");
+  await assertNotPreviewing();
   try {
     const res = await splitFromFamily(input.studentId, input.familyGroupId, input.sessionLabel);
     if (!res.ok) return { ok: false as const, message: res.message };

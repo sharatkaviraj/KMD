@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { applyPromotionAction, buildPromotionListAction, markStudentAction, undoPromotionAction } from "@/app/(app)/student-tools/actions";
 import { dateLabel } from "@/vx/format";
@@ -44,16 +44,10 @@ export function PromoteFlow(props: PromoteProps) {
   const [error, setError] = useState<string | null>(null);
 
   const entries = props.entries;
-  const plan = useMemo(
-    () => planPromotion(entries.map((e) => ({ id: e.id, studentId: e.studentId, fromClassId: e.fromClassId, decision: e.decision, newClassId: e.newClassId })), map, marks),
-    [entries, map, marks],
-  );
+  const plan = planPromotion(entries.map((e) => ({ id: e.id, studentId: e.studentId, fromClassId: e.fromClassId, decision: e.decision, newClassId: e.newClassId })), map, marks);
   const counts = planCounts(plan);
-  const byClass = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const e of entries) if (e.fromClassId) m.set(e.fromClassId, (m.get(e.fromClassId) ?? 0) + 1);
-    return m;
-  }, [entries]);
+  const byClass = new Map<string, number>();
+  for (const e of entries) if (e.fromClassId) byClass.set(e.fromClassId, (byClass.get(e.fromClassId) ?? 0) + 1);
   const needsClass = props.sourceClasses.filter((c) => (byClass.get(c.id) ?? 0) > 0 && !map[c.id]);
   const targetLabel = (id: string) => (id === "graduate" ? tx(p("Leaves school (passed out)", "विद्यालय से उत्तीर्ण")) : (props.targetClasses.find((t) => t.id === id)?.label ?? "—"));
 
