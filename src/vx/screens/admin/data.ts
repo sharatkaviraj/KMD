@@ -327,7 +327,7 @@ export async function loadInbox(
   staff: CurrentStaff,
   sessionLabel: string,
   day: string,
-  extra: { refunds?: () => Promise<{ id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string }[]> } = {},
+  extra: { refunds?: () => Promise<{ id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null }[]> } = {},
 ): Promise<{ items: InboxItem[]; unavailable: string[] }> {
   const missing: string[] = [];
   const items: InboxItem[] = [];
@@ -500,14 +500,19 @@ export async function loadInbox(
         kind: "refund",
         at: r.requestedAt,
         urgent: false,
-        badge: T.bRefund,
-        title: T.refundTitle(amount, r.studentName),
+        badge: r.deskKind === "reversal" ? p("Reversal", "रसीद रद्द") : r.deskKind === "write_off" ? p("Write-off", "माफ़ी") : T.bRefund,
+        title:
+          r.deskKind === "reversal"
+            ? p(`Reverse receipt ${r.receiptNumber ?? ""} · ${amount} · ${r.studentName}`.replace("  ", " "), `रसीद ${r.receiptNumber ?? ""} रद्द · ${amount} · ${r.studentName}`.replace("  ", " "))
+            : r.deskKind === "write_off"
+              ? p(`Write off ${amount} · ${r.studentName}`, `${amount} माफ़ · ${r.studentName}`)
+              : T.refundTitle(amount, r.studentName),
         sub: p(r.reason ?? "—"),
         facts: [
           { label: p("Amount", "राशि"), value: amount },
           { label: T.reason, value: r.reason ?? "—" },
         ],
-        footnote: T.refundFootnote,
+        footnote: r.deskKind ? p("Decided on the receipt or dues screen; nothing moves until you confirm it there.", "फ़ैसला रसीद या बकाया स्क्रीन पर होता है; वहाँ पुष्टि के बिना कुछ नहीं बदलता।") : T.refundFootnote,
         href: r.href ?? "/fees/finance-controls",
       });
     }

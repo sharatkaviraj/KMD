@@ -80,6 +80,9 @@ export type PendingRefund = {
   requestedAt: string;
   /** Where the request is decided; the fee refund screen when absent. */
   href?: string;
+  /** Set for a fee desk request, which is not a refund. */
+  deskKind?: "reversal" | "write_off";
+  receiptNumber?: string | null;
 };
 
 /** Refund requests waiting for approval — shown in Needs you, decided on the fee screen. */
@@ -144,7 +147,9 @@ export async function pendingDeskRequests(): Promise<PendingRefund[]> {
     studentId: row.student_id,
     studentName: nameOf.get(row.student_id) ?? "—",
     amount: Number(row.amount || 0),
-    reason: `${row.kind === "reversal" ? `Reverse receipt ${row.receipt_number ?? ""}`.trim() : "Write off"} · ${row.note || row.reason_code}${row.requested_by_name ? ` · ${row.requested_by_name}` : ""}`,
+    reason: `${row.note || row.reason_code}${row.requested_by_name ? ` · ${row.requested_by_name}` : ""}`,
+    deskKind: row.kind,
+    receiptNumber: row.receipt_number,
     requestedAt: row.created_at,
     href:
       row.kind === "reversal" && row.receipt_number

@@ -130,8 +130,8 @@
 .vx-legacy{flex:1;min-width:0;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
 @media (min-width:900px){.vx-legacy{padding:22px 28px 40px}}
 .vx-bottom{position:fixed;left:0;right:0;bottom:0;z-index:40;padding-bottom:env(safe-area-inset-bottom)}
-@media (max-width:899px){.vx-shell>.vx-side{display:none}}
-@media (min-width:900px){.vx-bottom{display:none}}
+@media (max-width:899px){.vx-shell>.vx-side{display:none!important}}
+@media (min-width:900px){.vx-bottom{display:none!important}}
 .vx-page{display:flex;flex-direction:column;min-height:100dvh}
 .vx-page>main{flex:1;min-height:0;position:relative;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
 @container vx (min-width:900px){.vx-page>main{padding-bottom:0}}

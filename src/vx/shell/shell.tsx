@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 
 import { getShellPulse } from "@/modules/dashboard/data/shell-metrics";
+import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
 import { can, type StaffPermission } from "@/platform/auth/permissions";
@@ -33,7 +34,9 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
     can(viewer.staff, "fees:view") && sessionLabel ? getShellPulse(sessionLabel).catch(() => null) : null,
     // The admin queue, counted from the same reads the Needs you page uses.
     !viewer.previewing && can(viewer.staff, "attendance:correct") && sessionLabel
-      ? loadInbox(viewer.staff, sessionLabel, schoolToday()).catch(() => null)
+      ? loadInbox(viewer.staff, sessionLabel, schoolToday(), {
+          refunds: can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined,
+        }).catch(() => null)
       : null,
   ]);
   if (pulse) out.dues = pulse.overdueStudentCount;
