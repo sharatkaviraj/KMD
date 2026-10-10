@@ -123,7 +123,8 @@ export function categoryFor(input: { requestId: string | null }): ParentCategory
   return input.requestId ? "collection_request" : "general";
 }
 
-const contentHash = (renderedHi: string, renderedEn: string) =>
+/** The text hash a parent snapshot carries; exported so bulk queues compute the same one. */
+export const contentHash = (renderedHi: string, renderedEn: string) =>
   createHash("sha256").update(`${renderedHi}\n--\n${renderedEn}`).digest("hex");
 
 /**

@@ -615,6 +615,8 @@ function redesign(): RouteExpectation[] {
     row("/notes", ["admin", "office", "academic_coordinator", "teacher"], "Notes on children, read by the people responsible for them."),
     row("/messages", ["admin", "office", "academic_coordinator", "exam_coordinator"], "Notices go out from the office and the coordinators, never from a single teacher's account."),
     row("/settings", ["admin"], "School-wide settings and the role matrix are the admin's."),
+    row("/staff/classic", ["admin", "office", "academic_coordinator", "exam_coordinator"], "The classic staff list, kept reachable beside Staff & roles; same readers as /staff."),
+    row("/timetable/classic", EVERYONE_BUT_THE_FEE_DESK, "The classic timetable screen, kept reachable beside the redesigned week grid; same readers as /timetable."),
     row("/teach/marks", ["admin", "exam_coordinator", "teacher"], "A teacher enters marks for her own class-subjects."),
     row("/teach/notes", ["admin", "teacher"], "A teacher writes notes on her own classes."),
     row("/teach/more", COORDINATORS_AND_TEACHERS, "The teacher's overflow menu."),

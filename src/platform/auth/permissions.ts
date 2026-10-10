@@ -323,26 +323,53 @@ export function resolveStaffRole(value: unknown): StaffRole {
   return isStaffRole(value) ? value : "view_only";
 }
 
+/**
+ * Who is asking, as `can()` needs it: a role, and — once the signed-in
+ * profile has been read — the permissions `vppsone.role_permissions` holds
+ * for that role *now* (Staff → Roles edits them). Without `permissions` the
+ * map above answers, which is also the seed the database started from.
+ */
+export type PermissionSubject = {
+  role: StaffRole;
+  permissions?: readonly string[] | null;
+};
+
+/**
+ * The permissions a role has in the matrix as the database holds it, narrowed
+ * to the ones this app knows. Admin is locked to everything (the matrix editor
+ * refuses to change it), so an edited row can never lock the school out.
+ */
+export function effectivePermissions(subject: PermissionSubject): readonly StaffPermission[] {
+  if (subject.role === "admin") return adminPermissions;
+  if (subject.permissions) {
+    const known = new Set<string>(subject.permissions);
+    // Teachers never see money (RULES F), whatever a row says.
+    return staffPermissions.filter(
+      (permission) =>
+        known.has(permission) && !(subject.role === "teacher" && permission.startsWith("fees:")),
+    );
+  }
+  return rolePermissions[subject.role] ?? [];
+}
+
 /** The one permission check. Everything that guards anything calls this. */
 export function can(
-  staff: { role: StaffRole } | null | undefined,
+  staff: PermissionSubject | null | undefined,
   permission: StaffPermission,
 ): boolean {
   if (!staff) {
     return false;
   }
 
-  const permissions = rolePermissions[staff.role];
-
-  if (!permissions) {
+  if (!rolePermissions[staff.role]) {
     return false;
   }
 
-  return permissions.includes(permission);
+  return effectivePermissions(staff).includes(permission);
 }
 
 export function canAny(
-  staff: { role: StaffRole } | null | undefined,
+  staff: PermissionSubject | null | undefined,
   permissions: readonly StaffPermission[],
 ): boolean {
   return permissions.some((permission) => can(staff, permission));

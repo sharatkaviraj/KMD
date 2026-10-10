@@ -74,7 +74,7 @@ vi.mock("@/modules/timetable/ui/timetable-views", () => ({
 
 import { listFeeClasses, listTimetableClasses } from "@/modules/academics/data/academics-repo";
 import { can } from "@/platform/auth/permissions";
-import TimetablePage from "@/app/(app)/timetable/page";
+import TimetablePage from "@/app/(app)/timetable/classic/page";
 
 beforeEach(() => {
   vi.clearAllMocks();
