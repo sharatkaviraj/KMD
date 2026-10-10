@@ -108,9 +108,15 @@ export async function logoutAction() {
 
 /**
  * Sign in as one of the QA test accounts without a password (UI-63): mints a
- * one-time magic-link token with the admin API and hands it to `/auth/confirm`,
- * the door every link already uses. Refuses unless this deployment is on the
- * dev database, and only knows QA-domain addresses.
+ * one-time magic-link token with the admin API and verifies it right here,
+ * with the same cookie client and the same admission check `/auth/confirm`
+ * runs. Refuses unless this deployment is on the dev database, and only knows
+ * QA-domain addresses.
+ *
+ * It used to `redirect()` to `/auth/confirm`. A server action's redirect to an
+ * internal path is rendered on the server in the same request, so the route
+ * handler spent the one-time token there and its session cookie never reached
+ * the browser: every tap landed back on /login (smoke test, 10 Oct 2026).
  */
 export async function testSignInAction(formData: FormData): Promise<void> {
   const { testSignInEnabled, TEST_ACCOUNTS } = await import("@/platform/auth/test-accounts");
@@ -124,5 +130,13 @@ export async function testSignInAction(formData: FormData): Promise<void> {
   const tokenHash = data?.properties?.hashed_token;
   if (error || !tokenHash) redirect("/login?error=link");
 
-  redirect(`/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=magiclink`);
+  const supabase = await createClient();
+  const verified = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: tokenHash });
+  if (verified.error || !verified.data.user) redirect("/login?error=link");
+
+  const admitted = await admitSignedInUser(supabase, verified.data.user.id);
+  if (!admitted.ok) redirect("/login?error=profile");
+
+  revalidatePath("/", "layout");
+  redirect(landingFor({ role: admitted.staff.role, preferredStart: admitted.staff.preferredStart, requested: undefined }));
 }
