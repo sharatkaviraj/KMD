@@ -1,0 +1,56 @@
+/* Fee setup: tabs, the class table, the edit panel, the due-date timeline and the pending-changes bar. */
+
+.vx .fs-f { display: flex; align-items: center; gap: 8px; }
+.vx .fs-c { display: flex; flex-direction: column; min-width: 0; }
+.vx .fs-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vx .fs-m { font-size: 12px; color: var(--mut); }
+.vx .fs-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--s2); overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+.vx .fs-tab { display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 18px; border-radius: 11px; border: 0; background: transparent; color: var(--mut); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.vx .fs-tab.on { background: var(--card); color: var(--fg); box-shadow: var(--shl); }
+.vx .fs-lay { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; min-height: 100%; }
+.vx .fs-lay.has { grid-template-columns: minmax(0, 1fr) 400px; }
+.vx .fs-aside { position: sticky; top: 64px; height: calc(100dvh - 64px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--card); display: flex; flex-direction: column; }
+.vx .fs-lock { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 12px; background: var(--warns); color: var(--warnfg); font-size: 13px; line-height: 1.45; }
+.vx .fs-info { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 12px; background: var(--infos); color: var(--info); font-size: 13px; line-height: 1.45; }
+
+.vx .fs-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.vx .fs-tbl th { text-align: right; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--mut); padding: 12px 16px; background: var(--s2); }
+.vx .fs-tbl th:first-child, .vx .fs-tbl td:first-child { text-align: left; }
+.vx .fs-tbl td { text-align: right; padding: 12px 16px; border-top: 1px solid var(--bd); font-variant-numeric: tabular-nums; }
+.vx .fs-tbl tr.fs-band td { background: var(--s2); font-size: 12px; font-weight: 700; color: var(--mut); padding: 8px 16px; }
+.vx .fs-tbl tr.fs-row { cursor: pointer; }
+.vx .fs-tbl tr.fs-row:hover td { background: var(--s2); }
+.vx .fs-tbl tr.fs-row.on td { background: var(--accs); }
+.vx .fs-was { font-size: 11px; color: var(--mut); text-decoration: line-through; display: block; }
+.vx .fs-new { color: var(--accfg); font-weight: 700; }
+
+.vx .fs-tl { position: relative; display: grid; gap: 0; }
+.vx .fs-tl > i { position: absolute; top: 20px; height: 3px; border-radius: 2px; background: var(--s3); }
+.vx .fs-tl > i > b { display: block; height: 3px; border-radius: 2px; background: var(--ok); }
+.vx .fs-tl > div { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.vx .fs-dot { width: 40px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bds); background: var(--card); color: var(--mut); }
+.vx .fs-dot.done { background: var(--ok); border-color: var(--ok); color: #fff; }
+.vx .fs-dot.next { border-color: var(--acc); color: var(--acc); border-width: 3px; }
+
+.vx .fs-split { height: 10px; border-radius: 5px; overflow: hidden; display: flex; background: var(--s3); }
+.vx .fs-rule { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+.vx .fs-ib { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--accs); color: var(--accfg); }
+.vx .fs-pct { font-family: var(--serif, Georgia, serif); font-size: 30px; line-height: 1; }
+
+.vx .fs-bar { position: sticky; bottom: 14px; z-index: 5; margin: 0 auto; width: min(620px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 18px; border-radius: 18px; background: var(--pri); color: var(--prifg); box-shadow: var(--shh); animation: xRise .32s var(--ease) both; }
+.vx .fs-bar .dot { width: 9px; height: 9px; border-radius: 5px; background: var(--acc); flex: none; }
+.vx .fs-bar .btn.ghost { color: inherit; }
+
+.vx .fs-wa { padding: 12px; border-radius: 14px; background: var(--wabg); }
+.vx .fs-wa > div { padding: 10px 12px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; white-space: pre-line; max-height: 220px; overflow: auto; }
+
+@container vx (max-width: 899px) {
+  .vx .fs-lay.has { grid-template-columns: minmax(0, 1fr); }
+  .vx .fs-aside { display: none; }
+  .vx .fs-tab { padding: 0 14px; }
+  .vx .fs-tbl th, .vx .fs-tbl td { padding: 11px 10px; }
+  .vx .fs-tbl .hide-p { display: none; }
+  .vx .fs-tl { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; row-gap: 18px; }
+  .vx .fs-tl > i { display: none; }
+  .vx .fs-bar { bottom: 82px; }
+}

@@ -1,0 +1,79 @@
+/* AccHome and AccBooks: the design's module classes (y*, z*, ct, ur, ul, tl, slip), renamed ac-*. */
+
+.vx .ac-f { display: flex; align-items: center; gap: 8px; }
+.vx .ac-c { display: flex; flex-direction: column; min-width: 0; }
+.vx .ac-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vx .ac-j { justify-content: space-between; }
+.vx .ac-w { flex-wrap: wrap; }
+.vx .ac-1 { flex: 1; }
+.vx .ac-m { font-size: 12px; color: var(--mut); }
+.vx .ac-b { font-size: 14px; font-weight: 600; }
+.vx .ac-v { font-size: 15px; font-weight: 700; }
+.vx .ac-an { animation: xIn .32s var(--ease) both; }
+.vx .ac-av { flex: none; width: 40px; height: 40px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+.vx .ac-o { position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; margin: 0; background: transparent; border-radius: inherit; cursor: pointer; }
+.vx .ac-cd { padding: 16px 18px; gap: 12px; }
+.vx .ac-q { position: relative; height: 62px; border-radius: 18px; border: 1.5px solid var(--bds); background: var(--card); padding: 0 16px; color: var(--mut); transition: border-color .2s ease, box-shadow .2s ease; }
+.vx .ac-q:focus-within { border-color: var(--acc); box-shadow: 0 0 0 4px var(--accs); }
+.vx .ac-q input { flex: 1; min-width: 0; height: 58px; border: 0; outline: none; background: transparent; font-size: 17px; color: var(--fg); }
+.vx .ac-rw { position: relative; display: flex; align-items: center; gap: 12px; padding: 11px 4px; border-radius: 12px; }
+.vx .ac-bar { height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; }
+.vx .ac-bar > span { display: block; height: 8px; border-radius: 4px; transform-origin: left; animation: xGrowX .7s var(--ease) both; }
+.vx .ac-tl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.vx .ac-t { position: relative; padding: 16px; gap: 6px; min-height: 150px; overflow: hidden; }
+.vx .ac-t.big { grid-column: span 2; grid-row: span 2; background: var(--pri); color: var(--prifg); border-color: var(--pri); }
+.vx .ac-t.big .ac-m { color: inherit; opacity: .8; }
+.vx .ac-t:hover { box-shadow: var(--shh); }
+.vx .ac-lay { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
+
+/* Books */
+.vx .ac-kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.vx .ac-kp > button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; color: var(--fg); animation: xRise .42s var(--ease) both; }
+.vx .ac-ib { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.vx .ac-ct { display: grid; grid-template-columns: 44px 84px minmax(0, 1.5fr) minmax(0, 1fr) 82px 110px 96px minmax(170px, auto); gap: 10px; align-items: center; min-height: 58px; padding: 8px 16px; border-top: 1px solid var(--bd); }
+.vx .ac-cth { display: grid; grid-template-columns: 44px 84px minmax(0, 1.5fr) minmax(0, 1fr) 82px 110px 96px minmax(170px, auto); gap: 10px; align-items: center; height: 40px; padding: 0 16px; background: var(--s2); }
+.vx .ac-cb { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; }
+.vx .ac-cb > span { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--bds); display: flex; align-items: center; justify-content: center; color: #fff; transition: background-color .2s ease; }
+.vx .ac-act { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.vx .ac-s { height: 34px; padding: 0 10px; font-size: 13px; }
+.vx .ac-ur { display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); gap: 0; align-items: stretch; animation: xIn .32s var(--ease) both; }
+.vx .ac-ur > .card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.vx .ac-ul { display: flex; align-items: center; justify-content: center; position: relative; }
+.vx .ac-ul::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed currentColor; opacity: .5; }
+.vx .ac-ul.ok::before { border-top-style: solid; opacity: 1; }
+.vx .ac-ul b { position: relative; width: 26px; height: 26px; border-radius: 13px; background: var(--card); border: 2px solid currentColor; display: flex; align-items: center; justify-content: center; }
+.vx .ac-in { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.45; }
+.vx .ac-tl2 { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.vx .ac-tl2 > i { position: absolute; left: 16.6%; right: 16.6%; top: 13px; height: 3px; border-radius: 2px; background: var(--s3); }
+.vx .ac-tl2 > i > b { display: block; height: 3px; border-radius: 2px; transform-origin: left; animation: xGrowX .8s var(--ease) both; }
+.vx .ac-tl2 > div { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+.vx .ac-tl2 > div > span:first-child { width: 28px; height: 28px; border-radius: 14px; border: 2px solid var(--bds); background: var(--card); display: flex; align-items: center; justify-content: center; }
+.vx .ac-slip { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; border: 1px solid var(--bds); background: var(--card); }
+.vx .ac-sr { display: grid; grid-template-columns: 28px minmax(0, 1.2fr) minmax(0, 1fr) 100px; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--bd); font-size: 13px; }
+.vx .ac-wa { padding: 12px; border-radius: 14px; background: var(--wabg); }
+.vx .ac-wa > div { max-width: 440px; padding: 10px 12px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+
+@media print {
+  .vx .ac-noprint { display: none !important; }
+}
+
+@container vx (max-width: 899px) {
+  .vx .ac-tl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vx .ac-t { min-height: 132px; }
+  .vx .ac-t.big { grid-row: auto; min-height: 120px; }
+  .vx .ac-b { font-size: 15px; }
+  .vx .ac-m { font-size: 13px; }
+  .vx .ac-lay { grid-template-columns: minmax(0, 1fr); }
+  .vx .ac-kp { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vx .ac-cth { display: none; }
+  .vx .ac-ct { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "cb fam amt" "act act act"; row-gap: 6px; }
+  .vx .ac-ct > .c-cb { grid-area: cb; }
+  .vx .ac-ct > .c-fam { grid-area: fam; }
+  .vx .ac-ct > .c-amt { grid-area: amt; text-align: right; }
+  .vx .ac-ct > .c-act { grid-area: act; justify-content: flex-start; }
+  .vx .ac-ct > .c-no, .vx .ac-ct > .c-bank, .vx .ac-ct > .c-dt, .vx .ac-ct > .c-rec { display: none; }
+  .vx .ac-ur { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .vx .ac-ul { display: none; }
+  .vx .ac-sr { grid-template-columns: 24px minmax(0, 1fr) 90px; }
+  .vx .ac-sr > .c3 { display: none; }
+}
