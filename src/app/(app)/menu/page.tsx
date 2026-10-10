@@ -1,5 +1,5 @@
 import { logoutAction } from "@/app/login/actions";
-import { can, rolePermissions, type StaffPermission } from "@/platform/auth/permissions";
+import { can } from "@/platform/auth/permissions";
 import { initials } from "@/vx/format";
 import { Ic } from "@/vx/icons";
 import { groupsFor, MENU_LABEL } from "@/vx/nav";
@@ -7,11 +7,9 @@ import { MenuPrefs } from "@/vx/shell/menu-prefs";
 import { lead, under } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { Avatar, avatarColor, Card, IconTile, ListRow } from "@/vx/ui/primitives";
-import { getViewer } from "@/vx/view-as";
+import { getViewer, previewPermissions } from "@/vx/view-as";
 
 export const runtime = "nodejs";
-
-const PREVIEW_ROLE = { admin: "admin", teacher: "teacher", accountant: "accountant", academic: "academic_coordinator", exam: "exam_coordinator" } as const;
 
 const ACCOUNT = {
   title: { en: "My account", hi: "मेरा खाता" },
@@ -26,7 +24,7 @@ const ACCOUNT = {
 export default async function MenuPage() {
   const { staff, menu, previewing } = await getViewer();
   const lang = staff.language;
-  const perms = previewing ? new Set<StaffPermission>(rolePermissions[PREVIEW_ROLE[previewing]]) : null;
+  const perms = previewing ? await previewPermissions(previewing) : null;
   const groups = groupsFor(menu, (p) => (perms ? perms.has(p) : can(staff, p)));
 
   return (

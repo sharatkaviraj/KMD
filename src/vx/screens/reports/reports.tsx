@@ -661,7 +661,7 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
   const instName = (n: number) => (n === 99 ? "Last year" : `Inst ${n}`);
   const heat = (amount: number): CSSProperties => {
     const k = amount / max;
-    return { background: `color-mix(in srgb, var(--acc) ${Math.round(12 + k * 60)}%, var(--card))`, color: k > 0.6 ? "#fff" : "var(--fg)" };
+    return { background: `color-mix(in srgb, var(--acc) ${Math.round(12 + k * 60)}%, var(--card))`, color: k > 0.6 ? "var(--onsolid)" : "var(--fg)" };
   };
 
   const detail = cell ? (

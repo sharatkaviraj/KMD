@@ -216,7 +216,7 @@ export function FeeSetup({
             <span style={{ fontSize: 12, opacity: 0.8 }}>Not live yet · parents see nothing till you publish</span>
           </span>
           <button type="button" className="tap btn ghost" onClick={() => setDraft(base)}>Discard</button>
-          <button type="button" className="tap btn" style={{ background: "var(--acc)", color: "#fff" }} onClick={() => open("review")}>
+          <button type="button" className="tap btn" style={{ background: "var(--acc)", color: "var(--onsolid)" }} onClick={() => open("review")}>
             {tx(T.review)} <Ic n="arrowRight" size={16} />
           </button>
         </div>

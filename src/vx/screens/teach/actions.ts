@@ -259,7 +259,7 @@ export async function setTextSizeVx(large: boolean): Promise<VxResult> {
     .from("staff_ui_preferences")
     .upsert({ staff_profile_id: staff.id, large_text: Boolean(large), updated_at: new Date().toISOString() }, { onConflict: "staff_profile_id" });
   if (error) return fail("Not saved. Try again.", "सहेजा नहीं गया।");
-  revalidatePath("/teach/more");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 

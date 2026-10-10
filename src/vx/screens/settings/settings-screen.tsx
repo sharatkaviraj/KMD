@@ -371,7 +371,7 @@ function Prefs({ largeText, alerts, pending, onSave, onLanguage }: { largeText: 
         </div>
       </Card>
       <Card>
-        <SwitchRow icon="type" title="Large text" sub="Bigger letters on this screen now; across the app once the shell reads it" on={largeText} onChange={(v) => onSave({ largeText: v, alerts: on })} />
+        <SwitchRow icon="type" title="Large text" sub="Bigger letters on every screen" on={largeText} onChange={(v) => onSave({ largeText: v, alerts: on })} />
       </Card>
       <Card>
         <CardHead title="Alerts" sub="What the app tells you about" />

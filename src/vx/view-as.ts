@@ -4,6 +4,8 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 
 import { requireStaff, type CurrentStaff } from "@/platform/auth/current-staff";
+import { effectivePermissions, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
+import { createAdminClient } from "@/platform/supabase/admin";
 import { designMenuFor, ROLE_PREVIEW_MENUS, type DesignMenu } from "@/vx/nav";
 
 export const VIEW_AS_COOKIE = "vx_view_as";
@@ -39,3 +41,27 @@ export async function assertNotPreviewing(): Promise<void> {
     throw new Error("You are seeing the app as another role. Switch back to make changes.");
   }
 }
+
+const PREVIEW_ROLE: Record<DesignMenu, StaffRole> = {
+  admin: "admin",
+  teacher: "teacher",
+  accountant: "accountant",
+  academic: "academic_coordinator",
+  exam: "exam_coordinator",
+};
+
+/**
+ * What "See the app as" shows: the previewed role's permissions as the
+ * editable matrix (`vppsone.role_permissions`) has them, so a change on the
+ * Staff screen shows up in the preview. Falls back to the built-in map.
+ */
+export const previewPermissions = cache(async (menu: DesignMenu): Promise<Set<StaffPermission>> => {
+  const role = PREVIEW_ROLE[menu];
+  const { data, error } = await createAdminClient()
+    .from("role_permissions")
+    .select("permission")
+    .eq("role", role)
+    .returns<{ permission: string }[]>();
+  const rows = !error && data && data.length > 0 ? data.map((row) => row.permission) : null;
+  return new Set(effectivePermissions({ role, permissions: rows }));
+});

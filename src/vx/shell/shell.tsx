@@ -3,17 +3,18 @@ import { Suspense, type ReactNode } from "react";
 import { getShellPulse } from "@/modules/dashboard/data/shell-metrics";
 import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
-import { can, rolePermissions, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
+import { can, type StaffPermission } from "@/platform/auth/permissions";
 import { OfficeSyncListener } from "@/ui/shell/office-sync-listener";
 import { RouteProgress } from "@/ui/shell/route-progress";
 import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { ShellSessionPill, ShellSessionPillSkeleton } from "@/ui/shell/shell-session-pill";
+import { createAdminClient } from "@/platform/supabase/admin";
 import { initials, schoolToday } from "@/vx/format";
 import { loadInbox } from "@/vx/screens/admin/data";
-import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS, type DesignMenu } from "@/vx/nav";
+import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
 import { avatarColor } from "@/vx/ui/primitives";
 import { ToastProvider } from "@/vx/ui/overlays";
-import type { Viewer } from "@/vx/view-as";
+import { previewPermissions, type Viewer } from "@/vx/view-as";
 import { OfflineBanner } from "@/vx/screens/system/offline-banner";
 import { SessionExpiredSheet } from "@/vx/screens/system/session-expired";
 import { UpdateBanner } from "@/vx/screens/system/update-banner";
@@ -23,15 +24,6 @@ import { LazySearchPalette } from "./lazy";
 import type { PaletteItem } from "./palette";
 import { PreviewBanner } from "./preview-banner";
 import { VxSidebar, type Badges } from "./sidebar";
-
-/** Which real role an admin's "See the app as" borrows permissions from. */
-const PREVIEW_ROLE: Record<DesignMenu, StaffRole> = {
-  admin: "admin",
-  teacher: "teacher",
-  accountant: "accountant",
-  academic: "academic_coordinator",
-  exam: "exam_coordinator",
-};
 
 const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", exam: "award" } as const;
 
@@ -49,12 +41,22 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
   return out;
 }
 
+/** "Large text" from Settings or the teacher's More tab, applied to every screen. */
+async function prefersLargeText(staffProfileId: string): Promise<boolean> {
+  const { data } = await createAdminClient()
+    .from("staff_ui_preferences")
+    .select("large_text")
+    .eq("staff_profile_id", staffProfileId)
+    .maybeSingle<{ large_text: boolean }>();
+  return data?.large_text === true;
+}
+
 /**
  * The one frame every signed-in screen sits in (PLAN A.5, docs/ui/DECISIONS.md
  * UI-8): sidebar from 900px, bottom bar below it, the search palette, toasts
  * and the overlay layer. Screens draw their own top bar inside `VxPage`.
  */
-export function VxShell({
+export async function VxShell({
   viewer,
   sessionLabel,
   sessionIsTest,
@@ -66,13 +68,14 @@ export function VxShell({
   children: ReactNode;
 }) {
   const { staff, menu, previewing } = viewer;
-  const previewPerms = previewing ? new Set<StaffPermission>(rolePermissions[PREVIEW_ROLE[previewing]]) : null;
+  const previewPerms = previewing ? await previewPermissions(previewing) : null;
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
 
   const groups = groupsFor(menu, allowed);
   const tabs = bottomFor(menu, allowed);
   const badges = loadBadges(viewer, sessionLabel);
   const fees = can(staff, "fees:view");
+  const large = await prefersLargeText(staff.id).catch(() => false);
 
   const roleLine = `${MENU_LABEL[menu].en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}` : ""}`;
   const me = {
@@ -111,7 +114,7 @@ export function VxShell({
           {fees ? <OfficeSyncListener sessionLabel={sessionLabel} /> : null}
         </Suspense>
         <a href="#vx-main" className="vx-skip">Skip to content</a>
-        <div className="vxt vx-shell">
+        <div className={`vxt vx-shell${large ? " vx-large" : ""}`}>
           <VxSidebar
             groups={groups}
             me={me}

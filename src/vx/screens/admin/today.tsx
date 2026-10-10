@@ -154,7 +154,7 @@ export function TodayScreen(props: TodayProps) {
       <div style={{ padding: "16px 18px 10px" }}>
         <CardHead
           title={tx(T.needsYou)}
-          badge={awaiting > 0 ? <span className="num" style={{ fontSize: 12, fontWeight: 700, minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, background: "var(--bad)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{awaiting}</span> : undefined}
+          badge={awaiting > 0 ? <span className="num" style={{ fontSize: 12, fontWeight: 700, minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, background: "var(--bad)", color: "var(--onsolid)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{awaiting}</span> : undefined}
           action={<Link href="/inbox" className="tap" style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(T.openInbox)}</Link>}
         />
       </div>

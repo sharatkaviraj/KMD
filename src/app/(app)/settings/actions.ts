@@ -54,7 +54,8 @@ export async function savePrefsAction(input: { largeText: boolean; alerts: Recor
     .from("staff_ui_preferences")
     .upsert({ staff_profile_id: actor.id, large_text: input.largeText === true, alerts, updated_at: new Date().toISOString() });
   if (error) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया।") };
-  revalidatePath("/settings");
+  // Large text is applied by the shell, so every screen re-renders with it.
+  revalidatePath("/", "layout");
   return { ok: true, message: p("Saved", "सहेजा गया") };
 }
 

@@ -522,7 +522,7 @@ function EveningView({ data }: { data: AccountsHomeData }) {
             const on = bag.has(c.receiptId);
             return (
               <button key={c.receiptId} type="button" role="checkbox" aria-checked={on} onClick={() => bag.toggle(c.receiptId)} className="tap ac-f ac-an" style={{ gap: 12, padding: "10px 0", border: 0, borderTop: bt(i), background: "transparent", color: "var(--fg)", textAlign: "left", width: "100%", animationDelay: delay(i) }}>
-                <span style={{ flex: "none", width: 24, height: 24, borderRadius: 7, border: `2px solid ${on ? "var(--ok)" : "var(--bds)"}`, background: on ? "var(--ok)" : "var(--card)", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF" }}>{on ? <Ic n="check" size={14} stroke={3} /> : null}</span>
+                <span style={{ flex: "none", width: 24, height: 24, borderRadius: 7, border: `2px solid ${on ? "var(--ok)" : "var(--bds)"}`, background: on ? "var(--ok)" : "var(--card)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--onsolid)" }}>{on ? <Ic n="check" size={14} stroke={3} /> : null}</span>
                 <span className="ac-c ac-1"><span className="ac-b ac-e">{c.studentName} · {c.classLabel}</span><span className="ac-m ac-e num">{c.chequeNo ? `Cheque ${c.chequeNo}` : "No cheque no. yet"} · {c.bank ?? "bank not written"} · {shortDay(c.paymentDate)}</span></span>
                 <span className="ac-c" style={{ alignItems: "flex-end" }}><span className="num ac-v">{rupees(c.amount)}</span><span className="ac-m" style={{ color: on ? "var(--ok)" : "var(--warnfg)" }}>{on ? "in the bag" : "put it in the bag"}</span></span>
               </button>

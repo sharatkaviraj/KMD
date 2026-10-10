@@ -49,7 +49,7 @@ export function LinkTabs({ tabs, current, label }: { tabs: { key: string; href: 
             {t.icon ? <Ic n={t.icon} size={17} /> : null}
             {t.label}
             {t.badge ? (
-              <span className="num" style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 10, background: "var(--bad)", color: "#fff", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{t.badge}</span>
+              <span className="num" style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 10, background: "var(--bad)", color: "var(--onsolid)", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{t.badge}</span>
             ) : null}
           </Link>
         );

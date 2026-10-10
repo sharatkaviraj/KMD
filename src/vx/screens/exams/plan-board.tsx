@@ -1044,7 +1044,7 @@ function Publish(props: PlanProps & { href: (v: PlanView, extra?: string) => str
       <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 420px", gap: 16, alignItems: "start" }}>
         <Card style={{ display: "flex", flexDirection: "column", gap: 12, overflowX: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "2px solid var(--fg)", paddingBottom: 10 }}>
-            <span style={{ width: 44, height: 44, borderRadius: 10, background: "var(--pri)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} className="serif">
+            <span style={{ width: 44, height: 44, borderRadius: 10, background: "var(--pri)", color: "var(--prifg)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} className="serif">
               VP
             </span>
             <span style={{ display: "flex", flexDirection: "column" }}>

@@ -303,7 +303,7 @@ export function StepToggle({ stepId, done, disabled, children }: { stepId: strin
       onClick={() => run(() => toggleStepAction(stepId, !done))}
       style={{ display: "flex", alignItems: "flex-start", gap: 12, width: "100%", textAlign: "left", background: "none", border: 0, padding: "10px 0", color: "var(--fg)" }}
     >
-      <span aria-hidden="true" style={{ flex: "none", width: 22, height: 22, borderRadius: 7, border: `2px solid ${done ? "var(--ok)" : "var(--bds)"}`, background: done ? "var(--ok)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
+      <span aria-hidden="true" style={{ flex: "none", width: 22, height: 22, borderRadius: 7, border: `2px solid ${done ? "var(--ok)" : "var(--bds)"}`, background: done ? "var(--ok)" : "transparent", color: "var(--onsolid)", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
         {done ? <Ic n="check" size={14} stroke={3} /> : null}
       </span>
       <span style={{ flex: 1, minWidth: 0, textDecoration: done ? "line-through" : undefined, color: done ? "var(--mut)" : undefined }}>{children}</span>
