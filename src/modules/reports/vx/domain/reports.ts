@@ -85,7 +85,7 @@ export function buildDefaulters(
   return [...byStudent.values()]
     .filter((r) => r.pending > 0)
     .map((r) => ({ ...r, installmentsDue: [...new Set(r.installmentsDue)].sort((a, b) => a - b) }))
-    .sort((a, b) => a.classLabel.localeCompare(b.classLabel, "en", { numeric: true }) || a.studentName.localeCompare(b.studentName));
+    .sort((a, b) => a.studentName.localeCompare(b.studentName));
 }
 
 export type DefaulterSection = { classId: string | null; classLabel: string; rows: DefaulterRow[]; pending: number; lateFee: number };
@@ -108,7 +108,7 @@ export function sectionDefaulters(rows: readonly DefaulterRow[], classOrder: rea
     const i = classOrder.indexOf(label);
     return i === -1 ? Number.MAX_SAFE_INTEGER : i;
   };
-  return [...map.values()].sort((a, b) => rank(a.classLabel) - rank(b.classLabel) || a.classLabel.localeCompare(b.classLabel, "en", { numeric: true }));
+  return [...map.values()].sort((a, b) => rank(a.classLabel) - rank(b.classLabel));
 }
 
 export type ClasswiseCell = { amount: number; students: number };

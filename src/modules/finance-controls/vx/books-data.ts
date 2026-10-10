@@ -14,7 +14,7 @@ import { getFinanceControlsPageData } from "@/modules/finance-controls/data/quer
 import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/data/reversals";
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
-import { createClient as createAppClient } from "@/platform/supabase/server";
+import { createVppsoneReader as createAppClient } from "@/modules/finance-controls/vx/app-db";
 
 import {
   canRemind,

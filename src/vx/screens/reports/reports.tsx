@@ -652,7 +652,7 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
   const due = cw.installmentNos.filter((n) => (cw.dueDates[n] ?? "9999") <= data.today);
   const notDue = cw.installmentNos.filter((n) => !due.includes(n));
   const order = new Map(data.classes.map((k, i) => [k.id, i]));
-  const rows = [...cw.rows].sort((a, b) => (order.get(a.classId ?? "") ?? 999) - (order.get(b.classId ?? "") ?? 999) || a.classLabel.localeCompare(b.classLabel, "en", { numeric: true }));
+  const rows = [...cw.rows].sort((a, b) => (order.get(a.classId ?? "") ?? 999) - (order.get(b.classId ?? "") ?? 999));
   const teacher = (cid: string | null) => data.classes.find((k) => k.id === cid)?.teacher ?? null;
   const pendingToday = rows.reduce((s, r) => s + r.pendingToday, 0);
   const notDueYet = rows.reduce((s, r) => s + r.notDueYet, 0);
