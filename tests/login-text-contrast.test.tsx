@@ -46,7 +46,9 @@ describe("login essential secondary text contrast", () => {
     const html = renderToStaticMarkup(<LoginForm language="both" />);
     expectBilingual(html, m.email);
     expectBilingual(html, m.password);
-    expect(html.match(/text-\[13px\] font-normal text-muted-foreground/g)).toHaveLength(2);
+    // Both labels are tied to their inputs (the vx form, P11).
+    expect(html).toContain('for="email"');
+    expect(html).toContain('for="password"');
     expect(html).toContain('autoComplete="email"');
     expect(html).toContain('autoComplete="current-password"');
     expect(html).toContain('name="next" value="/teach"');
@@ -58,7 +60,16 @@ describe("login essential secondary text contrast", () => {
     const html = renderToStaticMarkup(<LoginForm language="both" />);
     expectBilingual(html, reason === "no-profile" ? m.noProfile : m.accountInactive);
     expectBilingual(html, m.noSignup);
-    expect(html.match(/<p lang="en" class="mt-0\.5 text-\[13px\] leading-5">/g)).toHaveLength(2);
+    // The second language sits under the first at full strength, never faded.
+    expect(html).toContain('role="status"');
+    expectFullTextStrength(html);
+  });
+
+  it("explains a sign-out caused by an expired session", () => {
+    fixture.reason = "expired";
+    const html = renderToStaticMarkup(<LoginForm language="both" />);
+    expect(html).toContain("session ended");
+    expect(html).toContain('name="next" value="/teach"');
     expectFullTextStrength(html);
   });
 

@@ -4,41 +4,94 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
-import { m } from "@/messages";
-import {
-  primary,
-  type Language,
-  type Localized,
-} from "@/platform/i18n/language";
-import { Button } from "@/ui/primitives/button";
-import { Field, Input, Notice } from "@/ui/primitives";
+import type { Language } from "@/platform/i18n/language";
+import { Eye, EyeOff, Info, KeyRound, LoaderCircle, TriangleAlert } from "lucide-react";
+
+import { lead, p, under, type Pair } from "@/vx/text";
 
 // Defined here rather than in actions.ts: a "use server" module may only
 // export async functions.
 const initialLoginState: LoginActionState = { status: "idle", message: null };
 
+/*
+ * The sign-in form, redesigned onto the vx kit (P11 · states signin, error,
+ * signing, forgot, expired). Everything it did before it still does: the
+ * same `loginAction`, `next` carried through, the `?reason=` notices, the
+ * email kept across a failed attempt, the password cleared, focus moved to
+ * the error.
+ */
+
+const T = {
+  email: p("Email", "ईमेल"),
+  password: p("Password", "पासवर्ड"),
+  signIn: p("Sign in", "साइन इन करें"),
+  signingIn: p("Signing in…", "साइन इन हो रहा है…"),
+  noSignup: p("Accounts are created by the school admin — there is no sign-up here.", "खाता विद्यालय प्रशासक बनाते हैं। यहाँ नया खाता नहीं बनता।"),
+  show: p("Show password", "पासवर्ड दिखाएँ"),
+  hide: p("Hide password", "पासवर्ड छिपाएँ"),
+  forgot: p("Forgot password?", "पासवर्ड भूल गए?"),
+  forgotTitle: p("Forgot your password?", "पासवर्ड भूल गए?"),
+  forgotBody: p(
+    "Passwords are reset by the school administrator. Ask in the office; they will give you a new one, and you can change it after you sign in (Preferences → Password).",
+    "पासवर्ड विद्यालय प्रशासक बदलते हैं। ऑफ़िस में पूछें; वे नया पासवर्ड देंगे, जिसे आप साइन इन के बाद बदल सकते हैं (पसंद → पासवर्ड)।",
+  ),
+  ok: p("OK", "ठीक है"),
+} satisfies Record<string, Pair>;
+
 /**
  * Why a signed-out visitor is looking at this page, when it was not simply
- * "you are not signed in". `requireStaff()` sets `?reason=`.
+ * "you are not signed in". `requireStaff()` sets `?reason=`; `expired` is
+ * where the session-expired prompt sends people.
  */
-const REASONS: Record<string, Localized> = {
-  "no-profile": m.noProfile,
-  inactive: m.accountInactive,
+const REASONS: Record<string, Pair> = {
+  "no-profile": p("This account has no VPPS One staff profile yet.", "इस खाते का VPPS One में कोई स्टाफ़ प्रोफ़ाइल नहीं है।"),
+  inactive: p("This staff account is inactive.", "यह स्टाफ़ खाता निष्क्रिय है।"),
+  expired: p("You were signed out because the session ended. Sign in again — nothing you saved is lost.", "सत्र ख़त्म होने से आप साइन आउट हो गए। फिर से साइन इन करें — सहेजा हुआ कुछ नहीं खोया।"),
 };
+
+/** The lead line, and the other language underneath when the reader reads both. */
+function Two({ pair, language, small }: { pair: Pair; language: Language; small?: boolean }) {
+  const second = under(pair, language);
+  return (
+    <>
+      <span lang={language === "hi" ? "hi" : "en"}>{lead(pair, language)}</span>
+      {second ? (
+        <span lang={language === "hi" ? "en" : "hi"} style={{ display: "block", fontSize: small ? 12 : 13, color: "var(--mut)", fontWeight: 400 }}>
+          {second}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+function Note({ tone, pair, language, id, focusRef }: { tone: "warn" | "bad" | "mut"; pair: Pair; language: Language; id?: string; focusRef?: React.Ref<HTMLDivElement> }) {
+  const colors = tone === "bad" ? { bg: "var(--bads)", fg: "var(--bad)" } : tone === "warn" ? { bg: "var(--warns)", fg: "var(--warnfg)" } : { bg: "transparent", fg: "var(--mut)" };
+  return (
+    <div
+      id={id}
+      ref={focusRef}
+      tabIndex={focusRef ? -1 : undefined}
+      role={tone === "bad" ? "alert" : tone === "warn" ? "status" : undefined}
+      style={{ display: "flex", gap: 10, padding: tone === "mut" ? 0 : "12px 14px", borderRadius: 12, background: colors.bg, color: colors.fg, fontSize: 14, lineHeight: 1.45, textAlign: tone === "mut" ? "center" : undefined }}
+    >
+      {tone === "bad" ? <TriangleAlert size={18} aria-hidden /> : tone === "warn" ? <Info size={18} aria-hidden /> : null}
+      <span style={{ minWidth: 0 }}>
+        <Two pair={pair} language={language} />
+      </span>
+    </div>
+  );
+}
 
 export function LoginForm({ language }: { language: Language }) {
   const searchParams = useSearchParams();
-  const [state, formAction, isPending] = useActionState<LoginActionState, FormData>(
-    loginAction,
-    initialLoginState,
-  );
+  const [state, formAction, isPending] = useActionState<LoginActionState, FormData>(loginAction, initialLoginState);
 
   // React resets the form once the action returns, which on a wrong password
-  // clears the email as well — so the staff member retypes their address on a
-  // phone to fix a typo they made in the other field. Holding the email in
-  // component state survives that reset. The password is deliberately left
-  // uncontrolled: clearing it after a failure is the right behaviour.
+  // clears the email as well. Holding the email in state survives that reset;
+  // the password is deliberately left uncontrolled so a failure clears it.
   const [email, setEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   const next = searchParams.get("next") ?? "/dashboard";
   const reason = REASONS[searchParams.get("reason") ?? ""];
@@ -48,19 +101,21 @@ export function LoginForm({ language }: { language: Language }) {
     if (failed) errorRef.current?.focus();
   }, [failed, state.message]);
 
+  const describedBy = failed ? "login-error" : undefined;
+
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-busy={isPending || undefined}>
       <input type="hidden" name="next" value={next} />
 
-      {reason && !failed ? (
-        <Notice tone="warning" text={reason} language={language} />
-      ) : null}
+      {reason && !failed ? <Note tone="warn" pair={reason} language={language} /> : null}
 
-      <Field label={m.email} htmlFor="email" language={language}>
-        <Input
+      <label htmlFor="email" style={{ display: "flex", flexDirection: "column", gap: 6, fontWeight: 600, fontSize: 14 }}>
+        <span><Two pair={T.email} language={language} small /></span>
+        <input
           id="email"
           name="email"
           type="email"
+          className={`inp${failed ? " err" : ""}`}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           required
@@ -71,39 +126,64 @@ export function LoginForm({ language }: { language: Language }) {
           inputMode="email"
           placeholder="name@vpps.co.in"
           aria-invalid={failed || undefined}
-          aria-describedby={failed ? "login-error" : undefined}
+          aria-describedby={describedBy}
+          style={{ fontSize: 16 }}
         />
-      </Field>
+      </label>
 
-      <Field label={m.password} htmlFor="password" language={language}>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          aria-invalid={failed || undefined}
-          aria-describedby={failed ? "login-error" : undefined}
-        />
-      </Field>
+      <label htmlFor="password" style={{ display: "flex", flexDirection: "column", gap: 6, fontWeight: 600, fontSize: 14 }}>
+        <span><Two pair={T.password} language={language} small /></span>
+        <span style={{ position: "relative", display: "flex" }}>
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            className={`inp${failed ? " err" : ""}`}
+            required
+            autoComplete="current-password"
+            aria-invalid={failed || undefined}
+            aria-describedby={describedBy}
+            style={{ fontSize: 16, paddingRight: 52 }}
+          />
+          <button
+            type="button"
+            className="tap icon-btn"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={lead(showPassword ? T.hide : T.show, language)}
+            aria-pressed={showPassword}
+            style={{ position: "absolute", right: 2, top: 0, width: 44, height: 44, border: 0, background: "none", color: "var(--mut)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            {showPassword ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
+          </button>
+        </span>
+      </label>
 
-      {failed && state.message ? (
-        <div id="login-error" ref={errorRef} tabIndex={-1} className="focus-ring rounded-xl">
-          <Notice tone="danger" text={state.message} language={language} />
+      <button type="button" className="tap" onClick={() => setForgot((v) => !v)} aria-expanded={forgot} aria-controls="login-forgot" style={{ alignSelf: "flex-end", border: 0, background: "none", color: "var(--acc)", fontWeight: 600, fontSize: 14, padding: "4px 0", minHeight: 44 }}>
+        {lead(T.forgot, language)}
+      </button>
+
+      {/* State `forgot`: inline rather than a sheet, so the sign-in page does
+        not load the overlay kit (the /login bundle budget, check:bundles). */}
+      {forgot ? (
+        <div id="login-forgot" role="region" aria-label={lead(T.forgotTitle, language)} style={{ display: "flex", gap: 12, padding: "14px 16px", borderRadius: 14, background: "var(--s2)", border: "1px solid var(--bd)" }}>
+          <KeyRound size={20} aria-hidden style={{ flex: "none", color: "var(--acc)", marginTop: 2 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+            <strong><Two pair={T.forgotTitle} language={language} small /></strong>
+            <p style={{ margin: 0, lineHeight: 1.5, fontSize: 14 }}><Two pair={T.forgotBody} language={language} /></p>
+            <button type="button" className="tap btn sec" style={{ alignSelf: "flex-start" }} onClick={() => setForgot(false)}>{lead(T.ok, language)}</button>
+          </div>
         </div>
       ) : null}
 
-      <Button
-        type="submit"
-        size="lg"
-        fullWidth
-        loading={isPending}
-        loadingText={primary(m.signingIn, language)}
-      >
-        {primary(m.signIn, language)}
-      </Button>
+      {failed && state.message ? <Note tone="bad" pair={state.message} language={language} id="login-error" focusRef={errorRef} /> : null}
 
-      <Notice tone="neutral" text={m.noSignup} language={language} className="border-0 bg-transparent text-center" />
+      <button type="submit" className="tap btn pri big" disabled={isPending} style={{ width: "100%" }}>
+        {isPending ? <LoaderCircle size={18} className="spin" aria-hidden /> : null}
+        {lead(isPending ? T.signingIn : T.signIn, language)}
+      </button>
+
+      <Note tone="mut" pair={T.noSignup} language={language} />
+
     </form>
   );
 }

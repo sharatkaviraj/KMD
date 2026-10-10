@@ -1,78 +1,71 @@
-import Link from "next/link";
-import { ShieldAlert } from "lucide-react";
-
-import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
-import { pageTitle } from "@/platform/i18n/page-title";
 import { roleLabel } from "@/platform/auth/permissions";
-import { homeForRole as homeFor } from "@/vx/nav";
-import { flat, primary } from "@/platform/i18n/language";
-import { buttonClasses } from "@/ui/primitives/button";
-import { Card, DetailList } from "@/ui/primitives";
-import { StateCard } from "@/ui/states";
-import { PageHeader } from "@/ui/page-header-localized";
+import { pageTitle } from "@/platform/i18n/page-title";
+import { homeForRole } from "@/vx/nav";
+import { lead } from "@/vx/text";
+import { VxPage, TopBar, Section } from "@/vx/ui/page";
+import { Btn, Card } from "@/vx/ui/primitives";
+
+import { StatePanel } from "@/vx/screens/system/state";
 
 export const runtime = "nodejs";
 
+const TITLE = { en: "You can't open this page", hi: "यह पेज आपके लिए नहीं खुलता" };
+
 export async function generateMetadata() {
-  return { title: await pageTitle(m.accessDenied) };
+  return { title: await pageTitle(TITLE) };
 }
 
 /**
  * Where `requirePermission()` sends somebody who reached a screen their role
- * does not open.
+ * does not open (P11 state `denied`).
  *
  * It names the permission and the role rather than saying "denied", because
  * the useful next sentence is the one the staff member says to the admin —
  * "it wants marks:write and I am office" is a request that can be actioned;
- * "it says no" is not.
+ * "it says no" is not. The way back is this role's own Home.
  */
 export default async function AccessDeniedPage(props: PageProps<"/access-denied">) {
   const staff = await requireStaff();
   const language = staff.language;
   const { permission } = await props.searchParams;
   const wanted = typeof permission === "string" ? permission : null;
+  const home = homeForRole(staff.role);
 
   return (
-    <>
-      <PageHeader title={m.accessDenied} language={language} />
-
-      {/* The atlas's "Access unavailable": a symbol, what happened, and the
-          way back — which is this role's own Home, not everybody's. Sending a
-          teacher who mistyped a URL to a profile card is one more tap away
-          from the thing she came for (PLAN §3). */}
-      <StateCard
-        icon={ShieldAlert}
-        title={m.accessDeniedBody}
-        language={language}
-        tone="warning"
-        action={
-          <Link href={homeFor(staff.role)} className={buttonClasses({ variant: "outline" })}>
-            {primary(m.goHome, language)}
-          </Link>
-        }
-      />
-
-      {/* The two facts that turn "it says no" into a sentence an admin can
-          act on: "it wants marks:write and I am office". */}
-      <Card className="mt-4 p-5">
-        <DetailList
-          language={language}
-          items={[
-            { label: m.role, value: flat(roleLabel(staff.role), language) },
-            ...(wanted
-              ? [
-                  {
-                    label: m.permissionNeeded,
-                    value: (
-                      <span className="font-mono text-[13px]">{wanted}</span>
-                    ),
-                  },
-                ]
-              : []),
-          ]}
-        />
-      </Card>
-    </>
+    <VxPage>
+      <TopBar title={lead(TITLE, language)} mBack={home} />
+      <main>
+        <Section>
+          <StatePanel
+            icon="lock"
+            tone="warn"
+            code="403"
+            language={language}
+            title={TITLE}
+            body={{ en: "Your role does not include this screen. If you need it for your work, ask the administrator to give your account access.", hi: "आपकी भूमिका में यह स्क्रीन नहीं है। काम के लिए चाहिए तो प्रशासक से अनुमति माँगें।" }}
+            actions={
+              <>
+                <Btn variant="pri" icon="home" href={home}>{lead({ en: "Go to my Home", hi: "मेरे होम पर जाएँ" }, language)}</Btn>
+                <Btn variant="ghost" icon="arrowRight" href="/menu">{lead({ en: "All my screens", hi: "मेरी सब स्क्रीन" }, language)}</Btn>
+              </>
+            }
+          >
+            <Card style={{ width: "100%", textAlign: "left", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ color: "var(--mut)" }}>{lead({ en: "Your role", hi: "आपकी भूमिका" }, language)}</span>
+                <strong>{lead(roleLabel(staff.role), language)}</strong>
+              </div>
+              {wanted ? (
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, borderTop: "1px solid var(--bd)", paddingTop: 8 }}>
+                  <span style={{ color: "var(--mut)" }}>{lead({ en: "This page needs", hi: "इस पेज के लिए चाहिए" }, language)}</span>
+                  <code style={{ fontSize: 13, overflowWrap: "anywhere" }}>{wanted}</code>
+                </div>
+              ) : null}
+            </Card>
+          </StatePanel>
+        </Section>
+      </main>
+    </VxPage>
   );
 }
