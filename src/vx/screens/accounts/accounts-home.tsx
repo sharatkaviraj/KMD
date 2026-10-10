@@ -1,0 +1,551 @@
+"use client";
+
+import "./accounts.css";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useRef, useState, useSyncExternalStore, useTransition } from "react";
+
+import { addToQueueAction, searchFamiliesAction, setRemindersPausedAction, updateQueueAction } from "@/app/(app)/accounts/actions";
+import { remindAdminAction } from "@/app/(app)/accounts/books/actions";
+import { logoutAction } from "@/app/login/actions";
+import type { AccountsHomeData, FamilyHit } from "@/modules/finance-controls/vx/types";
+import { ago, clock, initials, longDay, rupees, shortDay } from "@/vx/format";
+import { useVx } from "@/vx/i18n";
+import { Ic, type IconName } from "@/vx/icons";
+import { p } from "@/vx/text";
+import { Switch } from "@/vx/ui/controls";
+import { HelpButton, useToast } from "@/vx/ui/overlays";
+import { Section, TopBar, VxPage } from "@/vx/ui/page";
+import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
+
+type View = "home" | "menu" | "evening";
+
+const TONES: [string, string][] = [
+  ["var(--accs)", "var(--accfg)"],
+  ["var(--infos)", "var(--info)"],
+  ["var(--oks)", "var(--ok)"],
+  ["var(--warns)", "var(--warnfg)"],
+  ["var(--s3)", "var(--fg)"],
+];
+const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "Cheque", bank_transfer: "Bank" };
+const MODE_COLOR: Record<string, string> = { upi: "var(--c1)", cash: "var(--c2)", cheque: "var(--c3)", bank_transfer: "var(--c4)" };
+
+const bt = (i: number) => (i ? "1px solid var(--bd)" : "0");
+const delay = (i: number) => `${Math.min(i, 12) * 40}ms`;
+
+function useBagChecklist(day: string) {
+  // The evening checklist is a note to self ("it is in the bag"), kept on this
+  // device for the day. Where the cheque really is gets recorded when the
+  // deposit slip is written in Books.
+  const key = `vx:acc-bag:${day}`;
+  const read = () => {
+    try {
+      return window.localStorage.getItem(key) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  const raw = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("storage", cb);
+      window.addEventListener("vx-bag", cb);
+      return () => {
+        window.removeEventListener("storage", cb);
+        window.removeEventListener("vx-bag", cb);
+      };
+    },
+    read,
+    () => "",
+  );
+  const set = new Set(raw ? raw.split(",") : []);
+  const toggle = (id: string) => {
+    const next = new Set(set);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    try {
+      window.localStorage.setItem(key, [...next].join(","));
+    } catch {
+      /* private window: the tick simply does not stick */
+    }
+    window.dispatchEvent(new Event("vx-bag"));
+  };
+  return { has: (id: string) => set.has(id), toggle, count: set.size };
+}
+
+export function AccountsHome({
+  data,
+  view,
+  staffName,
+  canCollect,
+  canManage,
+  readOnly,
+  greet,
+}: {
+  greet: string;
+  data: AccountsHomeData;
+  view: View;
+  staffName: string;
+  canCollect: boolean;
+  canManage: boolean;
+  readOnly: boolean;
+}) {
+  const { tx } = useVx();
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const first = staffName.split(" ")[0] ?? staffName;
+  const dayLabel = longDay(data.today);
+  const closed = data.closure?.status === "closed";
+  const canAct = canCollect && !readOnly;
+
+  const run = (fn: () => Promise<{ ok: boolean; message: string }>, undo?: () => Promise<unknown>) =>
+    startTransition(async () => {
+      const r = await fn();
+      toast.show({ text: r.message, tone: r.ok ? "ok" : "bad", undo: r.ok && undo ? async () => { await undo(); router.refresh(); } : undefined });
+      if (r.ok) router.refresh();
+    });
+
+  const help = [
+    { icon: "search" as IconName, title: tx(p("Find the family", "परिवार खोजें")), body: "Type a name, SR no. or the last 3 digits of the phone in the big search box." },
+    { icon: "rupee" as IconName, title: tx(p("Collect", "फीस जमा करें")), body: "Pending today is already worked out. Pick how they pay — the receipt is made at the Payment Desk." },
+    { icon: "lock" as IconName, title: tx(p("Close the day by 5:30 pm", "शाम 5:30 तक दिन बंद करें")), body: "Count the cash, match UPI, put the cheques in the bag, then close the day in Receipts." },
+  ];
+
+  const top =
+    view === "menu"
+      ? { crumb: "Accountant · everything in one place", title: tx(p("Menu", "मेन्यू")), mSub: `${staffName} · Accountant` }
+      : view === "evening"
+        ? { crumb: `Accountant · ${dayLabel}${data.closure?.closedAt ? ` · ${clock(data.closure.closedAt)}` : ""}`, title: tx(p(`Good evening, ${first}`, `शुभ संध्या, ${first} जी`)), mSub: closed ? `${shortDay(data.today)} · day closed` : `${shortDay(data.today)} · not closed yet` }
+        : { crumb: `Accountant · ${dayLabel} · ${closed ? "day closed" : "counter open"}`, title: tx(p(`${greet}, ${first}`, `${greet === "Good morning" ? "सुप्रभात" : greet === "Good evening" ? "शुभ संध्या" : "नमस्ते"}, ${first} जी`)), mSub: `${shortDay(data.today)} · ${data.queue.length} at the counter` };
+
+  return (
+    <VxPage>
+      <TopBar
+        crumb={top.crumb}
+        title={top.title}
+        mSub={top.mSub}
+        mBack={view === "home" ? undefined : "/accounts?view=home"}
+        actions={
+          <>
+            {view === "home" ? (
+              <Btn variant="ghost" icon="grid" href="/accounts?view=menu">{tx(p("All places", "सभी जगहें"))}</Btn>
+            ) : (
+              <Btn variant="ghost" icon="chevLeft" href="/accounts?view=home">{tx(p("Back to today", "आज पर वापस"))}</Btn>
+            )}
+            <HelpButton title={view === "evening" ? "Closing the day" : "How the counter works"} steps={help} />
+            {canCollect ? <Btn variant="pri" icon="rupee" href="/payments">{tx(p("Collect fee", "फीस जमा करें"))}</Btn> : null}
+          </>
+        }
+        mAction={<HelpButton title="How the counter works" steps={help} />}
+      />
+      {view === "home" ? <HomeView data={data} canAct={canAct} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
+      {view === "menu" ? <MenuView data={data} staffName={staffName} canCollect={canCollect} /> : null}
+      {view === "evening" ? <EveningView data={data} /> : null}
+    </VxPage>
+  );
+}
+
+type Run = (fn: () => Promise<{ ok: boolean; message: string }>, undo?: () => Promise<unknown>) => void;
+
+function HomeView({ data, canAct, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
+  const { tx } = useVx();
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<FamilyHit[] | null>(null);
+  const [searching, startSearch] = useTransition();
+  const timer = useRef<number | null>(null);
+  const seq = useRef(0);
+
+  const onQ = (value: string) => {
+    setQ(value);
+    if (timer.current) window.clearTimeout(timer.current);
+    if (value.trim().length < 2) {
+      setHits(null);
+      return;
+    }
+    timer.current = window.setTimeout(() => {
+      seq.current += 1;
+      const mine = seq.current;
+      startSearch(async () => {
+        const r = await searchFamiliesAction(value);
+        if (mine === seq.current) setHits(r);
+      });
+    }, 250);
+  };
+
+  const c = data.collected;
+  const modes = ["upi", "cash", "cheque", "bank_transfer"].map((m) => data.collected.modes.find((x) => x.mode === m) ?? { mode: m, total: 0, count: 0 });
+  const steps = [
+    { label: "Count the cash", sub: `expected ${rupees(data.cashExpected.total)} · ${data.cashExpected.count} receipts`, done: data.cashExpected.count === 0 || data.closure?.status === "closed" },
+    { label: "Match UPI with the bank", sub: data.upiOpen.count ? `${data.upiOpen.count} left · ${rupees(data.upiOpen.total)}` : "all matched", done: data.upiOpen.count === 0 },
+    { label: "Cheques to the bank", sub: data.chequesToDeposit.count ? `${data.chequesToDeposit.count} · ${rupees(data.chequesToDeposit.total)}` : "none waiting", done: data.chequesToDeposit.count === 0 },
+  ];
+  const doneN = steps.filter((s) => s.done).length;
+  const openRequests = data.requests.filter((r) => r.status === "waiting").length;
+  const approvedToday = data.requests.filter((r) => r.status === "approved" && r.decidedAt?.slice(0, 10) === data.today).length;
+
+  const jobs = [
+    { icon: "calCheck" as IconName, label: tx(p("Follow-ups due today", "आज के वादे")), sub: data.followUpsToday.count ? `next: ${data.followUpsToday.next ?? "—"}` : "No call-backs set for today", n: data.followUpsToday.count, tone: "info", href: "/dues" },
+    { icon: "file" as IconName, label: tx(p("Cheques to deposit", "जमा करने के चेक")), sub: data.chequesToDeposit.count ? `${data.chequesToDeposit.count} cheques · ${rupees(data.chequesToDeposit.total)}` : "Nothing waiting for the bank", n: data.chequesToDeposit.count, tone: "warn", href: "/accounts/books" },
+    { icon: "zap" as IconName, label: tx(p("UPI to match", "UPI मिलान")), sub: data.upiOpen.count ? `${data.upiOpen.count} payments · ${rupees(data.upiOpen.total)} not matched to a receipt` : "Every bank line is matched", n: data.upiOpen.count, tone: "acc", href: "/accounts/books?view=upi" },
+  ];
+
+  return (
+    <Section>
+      <div className="ac-lay stack">
+        <div className="ac-c" style={{ gap: 16 }}>
+          <Card className="ac-c ac-cd" style={{ padding: 18 }}>
+            <span className="ac-f ac-j">
+              <span className="ac-v">{tx(p("Find a student or family", "छात्र या परिवार खोजें"))}</span>
+              <span className="ac-m hide-m">Opens the Payment Desk</span>
+            </span>
+            <label className="ac-q ac-f">
+              <Ic n="search" />
+              <span className="sr">Find a student or family</span>
+              <input type="search" value={q} onChange={(e) => onQ(e.target.value)} placeholder={tx(p("Name, SR no., father, phone", "नाम, SR नं., पिता, फ़ोन"))} autoComplete="off" />
+              {searching ? <Ic n="refresh" size={16} className="spin" /> : null}
+            </label>
+            {hits === null ? <span className="ac-m">Type at least 2 letters, or the last 3 digits of the phone.</span> : null}
+            {hits && hits.length > 0 ? (
+              <div className="ac-c fadein">
+                {hits.map((h, i) => (
+                  <div key={h.studentId} className="row ac-rw ac-an" style={{ borderTop: bt(i), animationDelay: delay(i) }}>
+                    <span className="ac-av" style={{ background: TONES[i % 5][0], color: TONES[i % 5][1] }}>{initials(h.studentName)}</span>
+                    <span className="ac-c ac-1">
+                      <span className="ac-b ac-e">{h.studentName}{h.left ? <Pill tone="bad" style={{ marginLeft: 6 }}>Left</Pill> : null}</span>
+                      <span className="ac-m ac-e">{[h.classLabel, h.admissionNo ? `SR ${h.admissionNo}` : null, h.fatherName, h.phoneMasked].filter(Boolean).join(" · ")}</span>
+                    </span>
+                    <span className="ac-c" style={{ alignItems: "flex-end" }}>
+                      <span className="num ac-v" style={{ color: h.pendingToday ? "var(--warnfg)" : "var(--ok)" }}>{h.pendingToday ? rupees(h.pendingToday) : "All paid"}</span>
+                      <span className="ac-m">{h.pendingToday ? "pending today" : "up to today"}{h.lateFee ? ` · late fee ${rupees(h.lateFee)} separate` : ""}</span>
+                    </span>
+                    {canAct ? (
+                      <button type="button" className="tap btn ghost hide-m" style={{ position: "relative", zIndex: 2, height: 36, padding: "0 10px" }} disabled={busy} onClick={() => run(() => addToQueueAction(h.studentId))} aria-label={`Add ${h.studentName} to the counter queue`}>
+                        <Ic n="userPlus" size={16} /> Queue
+                      </button>
+                    ) : null}
+                    <Ic n="chevRight" size={18} style={{ color: "var(--mut)" }} />
+                    {canCollect ? <Link className="ac-o" href={`/payments?student=${h.studentId}`} aria-label={`Collect from ${h.studentName}`} /> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {hits && hits.length === 0 && !searching ? (
+              <div className="ac-f fadein ac-m" style={{ padding: "6px 4px", fontSize: 13 }}>
+                <Ic n="info" size={16} />
+                <span className="ac-1">No family found. Try the father’s name or the last 3 digits of the phone.</span>
+                <button type="button" className="tap btn ghost" style={{ height: 34 }} onClick={() => onQ("")}>Clear</button>
+              </div>
+            ) : null}
+          </Card>
+
+          <Card className="ac-c ac-cd" style={{ padding: "18px 20px" }}>
+            <div className="ac-f ac-j">
+              <span className="ac-f">
+                <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--ok)", animation: "xPulse 1.8s ease infinite" }} />
+                <span className="ac-v">{tx(p("Collected today", "आज जमा"))}</span>
+                <span className="ac-m">· live</span>
+              </span>
+              <Btn variant="ghost" href="/receipts" style={{ height: 34, padding: "0 10px" }}>See receipts<Ic n="chevRight" size={16} /></Btn>
+            </div>
+            <div className="ac-f ac-j ac-w" style={{ alignItems: "flex-end", gap: 12 }}>
+              <span className="ac-c">
+                <span className="num rise" style={{ fontSize: 38, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{rupees(c.total)}</span>
+                <span className="ac-m">{c.count} receipts{c.lastAt ? ` · last one at ${clock(c.lastAt)}` : " · none yet today"}{c.reversedCount ? ` · ${c.reversedCount} reversed, not counted` : ""}</span>
+                {c.vsUsual !== null ? (
+                  <span className="ac-f" style={{ marginTop: 6 }}>
+                    <Pill tone={c.vsUsual >= 0 ? "ok" : "warn"} icon={c.vsUsual >= 0 ? "trend" : "alert"}>{c.vsUsual >= 0 ? "+" : ""}{c.vsUsual}% vs usual day</Pill>
+                    <span className="ac-m">Usual {shortDay(data.today).split(" ")[0]} {rupees(c.usual)}</span>
+                  </span>
+                ) : null}
+              </span>
+              <svg viewBox="0 0 200 60" width="210" height="64" aria-hidden="true" style={{ flex: "none", overflow: "visible" }}>
+                <polygon points={c.spark.area} style={{ fill: "var(--accs)", opacity: 0.8 }} />
+                <polyline points={c.spark.line} style={{ fill: "none", stroke: "var(--acc)", strokeWidth: 2.5, strokeLinejoin: "round", strokeLinecap: "round" }} />
+              </svg>
+            </div>
+            <div className="ac-c" style={{ gap: 9, paddingTop: 12, borderTop: "1px solid var(--bd)" }}>
+              {modes.map((m, i) => (
+                <div key={m.mode} style={{ display: "grid", gridTemplateColumns: "62px minmax(0,1fr) 128px", gap: 10, alignItems: "center" }}>
+                  <span className="ac-b" style={{ fontSize: 13 }}>{MODE_LABEL[m.mode]}</span>
+                  <span className="ac-bar"><span style={{ width: c.total ? `${((m.total / c.total) * 100).toFixed(1)}%` : "0%", background: MODE_COLOR[m.mode], animationDelay: `${i * 90 + 200}ms` }} /></span>
+                  <span className="num" style={{ fontSize: 13, textAlign: "right" }}><b>{rupees(m.total)}</b> <span className="ac-m">· {m.count ? `${m.count} receipts` : "none yet"}</span></span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="ac-c ac-cd">
+            <div className="ac-f ac-j">
+              <span className="ac-f"><span className="ac-v">{tx(p("At the counter now", "काउंटर पर अभी"))}</span><Pill tone="acc">{data.queue.length} waiting</Pill></span>
+              <span className="ac-m hide-m">Oldest first · add from search</span>
+            </div>
+            {data.queue.map((r, i) => (
+              <div key={r.id} className="ac-f ac-an" style={{ gap: 12, paddingTop: 10, borderTop: bt(i), animationDelay: delay(i) }}>
+                <span className="ac-av" style={{ background: TONES[i % 5][0], color: TONES[i % 5][1] }}>{initials(r.familyLabel)}</span>
+                <span className="ac-c ac-1">
+                  <span className="ac-b ac-e">{r.familyLabel}</span>
+                  <span className="ac-m">{r.classLabel} · <b className="num" style={{ color: "var(--warnfg)" }}>{rupees(r.pendingToday)}</b> pending</span>
+                  <span className="ac-m">{r.note ? `${r.note} · ` : ""}waiting {ago(r.arrivedAt)}</span>
+                </span>
+                {canAct ? (
+                  <>
+                    <button type="button" className="tap btn ghost hide-m" style={{ height: 40, padding: "0 10px", color: "var(--mut)" }} disabled={busy} onClick={() => run(() => updateQueueAction(r.id, "left"), () => updateQueueAction(r.id, "back"))}>Left</button>
+                    <button
+                      type="button"
+                      className="tap btn pri"
+                      style={{ padding: "0 16px" }}
+                      disabled={busy}
+                      onClick={() => {
+                        void updateQueueAction(r.id, "served");
+                        router.push(`/payments?student=${r.studentId}`);
+                      }}
+                    >
+                      {tx(p("Collect", "जमा करें"))}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            ))}
+            {data.queue.length === 0 ? (
+              <div className="ac-c fadein" style={{ alignItems: "center", gap: 6, padding: "12px 0", textAlign: "center" }}>
+                <Ic n="smile" size={22} style={{ color: "var(--mut)" }} />
+                <span className="ac-b">No one waiting at the counter</span>
+                {canCollect ? <Btn href="/payments">Open the Payment Desk</Btn> : null}
+              </div>
+            ) : null}
+          </Card>
+        </div>
+
+        <div className="ac-c" style={{ gap: 16 }}>
+          <Card className="ac-c ac-cd" style={{ gap: 4 }}>
+            <span className="sech" style={{ marginBottom: 4 }}>{tx(p("Today’s jobs", "आज के काम"))}</span>
+            {jobs.map((j, i) => {
+              const bg = `var(--${j.tone}s)`;
+              const fg = j.tone === "warn" ? "var(--warnfg)" : j.tone === "acc" ? "var(--accfg)" : `var(--${j.tone})`;
+              return (
+                <div key={j.label} className="row ac-rw ac-an" style={{ borderTop: bt(i), borderRadius: 0, animationDelay: delay(i) }}>
+                  <span className="ac-av" style={{ background: bg, color: fg }}><Ic n={j.icon} size={20} /></span>
+                  <span className="ac-c ac-1" style={{ gap: 3 }}><span className="ac-b">{j.label}</span><span className="ac-m">{j.sub}</span></span>
+                  <span className="pill num" style={{ minWidth: 26, height: 26, justifyContent: "center", fontSize: 13, background: bg, color: fg }}>{j.n}</span>
+                  <Ic n="chevRight" size={18} style={{ color: "var(--mut)" }} />
+                  <Link className="ac-o" href={j.href} aria-label={j.label} />
+                </div>
+              );
+            })}
+          </Card>
+
+          <Card className="ac-c ac-cd" style={{ gap: 10 }}>
+            <div className="ac-f ac-j">
+              <span className="ac-v">{tx(p("Waiting for admin", "एडमिन के पास"))}</span>
+              <span className="ac-m">{openRequests} waiting{approvedToday ? ` · ${approvedToday} approved today` : ""}</span>
+            </div>
+            {data.requests.slice(0, 4).map((a, i) => {
+              const tone = a.status === "approved" ? ["var(--oks)", "var(--ok)"] : a.status === "declined" ? ["var(--bads)", "var(--bad)"] : a.status === "withdrawn" ? ["var(--s3)", "var(--mut)"] : ["var(--warns)", "var(--warnfg)"];
+              const st = a.status === "approved" ? `Approved${a.decidedByName ? ` by ${a.decidedByName}` : ""}` : a.status === "declined" ? "Declined" : a.status === "withdrawn" ? "Withdrawn" : a.remindedAt ? `Waiting · reminded ${ago(a.remindedAt)}` : "Waiting for the admin";
+              return (
+                <div key={a.id} className="ac-f ac-an" style={{ gap: 12, paddingTop: 10, borderTop: bt(i), alignItems: "flex-start", animationDelay: delay(i) }}>
+                  <span className="ac-av" style={{ width: 36, height: 36, borderRadius: 11, background: "var(--s2)", color: "var(--mut)" }}><Ic n={a.kind === "late_fee_waiver" ? "percent" : a.kind === "reversal" ? "undo" : a.kind === "refund" ? "swap" : "sliders"} size={18} /></span>
+                  <span className="ac-c ac-1" style={{ gap: 2 }}>
+                    <span className="ac-b">{a.title}{a.studentName ? ` · ${a.studentName}` : ""}</span>
+                    <span className="ac-m">Asked {ago(a.requestedAt)}{a.mine ? "" : ` by ${a.requestedByName}`} · {a.reason}</span>
+                    <span className="ac-f ac-w" style={{ gap: 6, marginTop: 4 }}>
+                      <span className="pill" style={{ height: 24, background: tone[0], color: tone[1] }}>{st}</span>
+                      {a.mine && a.canRemind && canAct ? (
+                        <button type="button" className="tap btn ghost" style={{ height: 30, padding: "0 8px", fontSize: 12, color: "var(--info)" }} disabled={busy} onClick={() => run(() => remindAdminAction(a.id))}>Remind admin</button>
+                      ) : null}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+            {data.requests.length === 0 ? <span className="ac-m">Nothing waiting. Late-fee waivers, reversals and refunds you ask for show here.</span> : null}
+            <Btn variant="ghost" href={`/accounts/books?view=requests`} style={{ alignSelf: "flex-start", height: 34, padding: "0 10px" }}>{canManage ? "All requests" : "My requests"}<Ic n="chevRight" size={16} /></Btn>
+          </Card>
+
+          <Card className="ac-c ac-cd">
+            <div className="ac-f" style={{ gap: 12, alignItems: "flex-start" }}>
+              <span className="ac-av" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="bell" size={20} /></span>
+              <span className="ac-c ac-1">
+                <span className="ac-v">{tx(p("Fee reminders at 4:00 pm", "शाम 4 बजे रिमाइंडर"))}</span>
+                <span className="ac-m">{data.reminders.paused ? "Paused for today · nothing will be sent" : `${data.reminders.familiesPendingToday} students with fees pending today · हिंदी first`}</span>
+              </span>
+              <Switch on={!data.reminders.paused} label="Send reminders at 4 pm" disabled={!canAct || busy} onChange={(on) => run(() => setRemindersPausedAction(!on), () => setRemindersPausedAction(on))} />
+            </div>
+            <div className="ac-f ac-j ac-w" style={{ gap: 8 }}>
+              <span className="pill" style={{ height: 26, padding: "0 10px", background: data.reminders.paused ? "var(--s2)" : "var(--infos)", color: data.reminders.paused ? "var(--mut)" : "var(--info)" }}>{data.reminders.paused ? "Paused · turn on to send at 4 pm" : "On for today"}</span>
+              <Btn variant="ghost" href="/reminders" style={{ height: 34, padding: "0 10px" }}>See the message<Ic n="chevRight" size={16} /></Btn>
+            </div>
+          </Card>
+
+          <Card className="ac-c ac-cd" style={{ borderColor: "var(--bds)" }}>
+            <div className="ac-f" style={{ gap: 12 }}>
+              <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true" style={{ flex: "none" }}>
+                <circle cx="26" cy="26" r="21" style={{ fill: "none", stroke: "var(--s3)", strokeWidth: 6 }} />
+                <circle cx="26" cy="26" r="21" transform="rotate(-90 26 26)" style={{ fill: "none", stroke: "var(--acc)", strokeWidth: 6, strokeLinecap: "round", strokeDasharray: `${((132 * doneN) / 3).toFixed(1)} 132` }} />
+                <text x="26" y="30" textAnchor="middle" style={{ fill: "var(--fg)", fontSize: 12, fontWeight: 700 }}>{doneN}/3</text>
+              </svg>
+              <span className="ac-c ac-1"><span className="ac-v">{tx(p("Close the day", "दिन बंद करें"))}</span><span className="ac-m">{data.closure?.status === "closed" ? "Closed · receipts locked" : "Count, match, bag — then close in Receipts"}</span></span>
+              <Pill tone="warn" icon="clock">Close by 5:30 pm</Pill>
+            </div>
+            <div className="ac-c" style={{ gap: 2 }}>
+              {steps.map((s, i) => (
+                <div key={s.label} className="ac-f" style={{ gap: 10, padding: "7px 0", borderTop: bt(i) }}>
+                  <span style={{ flex: "none", width: 22, height: 22, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: s.done ? "var(--oks)" : "var(--s2)", color: s.done ? "var(--ok)" : "var(--mut)" }}><Ic n={s.done ? "check" : "clock"} size={13} /></span>
+                  <span className="ac-1" style={{ fontSize: 13, fontWeight: 600 }}>{s.label}</span>
+                  <span className="ac-m num">{s.sub}</span>
+                </div>
+              ))}
+            </div>
+            <Btn variant="pri" icon="lock" href="/receipts" style={{ height: 46 }}>Count cash and close the day</Btn>
+            <Btn variant="ghost" href="/accounts?view=evening" style={{ height: 36, fontSize: 13, color: "var(--mut)" }}>After closing: see tonight’s summary<Ic n="chevRight" size={16} /></Btn>
+          </Card>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function MenuView({ data, staffName, canCollect }: { data: AccountsHomeData; staffName: string; canCollect: boolean }) {
+  const { tx } = useVx();
+  const tiles: { icon: IconName; en: string; hi: string; sub: string; href: string; badge?: number; big?: boolean }[] = [
+    ...(canCollect ? [{ icon: "rupee" as IconName, en: "Collect fee", hi: "फीस जमा करें", sub: "Find a family, tick what they pay, take the money", href: "/payments", big: true }] : []),
+    { icon: "receipt", en: "Receipts & day close", hi: "रसीदें व दिन बंद", sub: `${data.collected.count} today · close by 5:30 pm`, href: "/receipts" },
+    { icon: "phone", en: "Dues & calls", hi: "बकाया व कॉल", sub: `${data.followUpsToday.count} follow-ups due today`, href: "/dues", badge: data.followUpsToday.count },
+    { icon: "bell", en: "Fee reminders", hi: "फीस रिमाइंडर", sub: data.reminders.paused ? "Paused for today" : "Going at 4 pm", href: "/reminders" },
+    { icon: "swap", en: "Cheques, UPI & refunds", hi: "चेक, UPI व रिफंड", sub: `${data.chequesToDeposit.count} cheques · ${data.upiOpen.count} UPI to match`, href: "/accounts/books", badge: data.chequesToDeposit.count + data.upiOpen.count },
+    { icon: "chart", en: "Reports", hi: "रिपोर्ट", sub: "Day, month and class-wise", href: "/reports" },
+    { icon: "sliders", en: "Fee setup — view only", hi: "फीस ढांचा — केवल देखें", sub: "Ask admin to change", href: "/fee-setup" },
+  ];
+  return (
+    <Section style={{ maxWidth: 1120 }}>
+      <Card className="ac-f ac-cd" style={{ gap: 14, flexWrap: "wrap" }}>
+        <span className="ac-av" style={{ width: 54, height: 54, borderRadius: 27, fontSize: 18, background: "var(--oks)", color: "var(--ok)" }}>{initials(staffName)}</span>
+        <span className="ac-c ac-1" style={{ minWidth: 200 }}>
+          <span className="serif" style={{ fontSize: 21, fontWeight: 600 }}>{staffName}</span>
+          <span className="ac-m">Accountant · Office counter · Session {data.sessionLabel}</span>
+        </span>
+        <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: data.closure?.status === "closed" ? "var(--s3)" : "var(--oks)", color: data.closure?.status === "closed" ? "var(--mut)" : "var(--ok)" }}>
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: "currentColor" }} />
+          {data.closure?.status === "closed" ? "Day closed" : "Counter open"}
+        </span>
+      </Card>
+      <div className="ac-tl">
+        {tiles.map((t, i) => (
+          <div key={t.href} className={`card ac-c ac-t tap${t.big ? " big" : ""}`} style={{ animation: "xRise .42s var(--ease) both", animationDelay: delay(i) }}>
+            <div className="ac-f ac-j" style={{ alignItems: "flex-start" }}>
+              <span className="ac-av" style={{ width: t.big ? 56 : 46, height: t.big ? 56 : 46, borderRadius: 15, background: t.big ? "rgba(255,255,255,.14)" : TONES[i % 5][0], color: t.big ? "inherit" : TONES[i % 5][1] }}><Ic n={t.icon} size={t.big ? 28 : 22} /></span>
+              {t.badge ? <span className="pill num" style={{ height: 24, minWidth: 24, justifyContent: "center", fontSize: 12, background: "var(--bad)", color: "var(--onsolid)" }}>{t.badge}</span> : null}
+            </div>
+            <span className="ac-1" />
+            <span style={{ fontSize: t.big ? 24 : 16, fontWeight: 700, lineHeight: 1.2 }}>{tx(p(t.en, t.hi))}</span>
+            <span className="ac-m" style={{ fontWeight: 600 }}>{tx(p(t.hi, t.en))}</span>
+            <span className="ac-m">{t.sub}</span>
+            <Link className="ac-o" href={t.href} aria-label={t.en} />
+          </div>
+        ))}
+        <form action={logoutAction} className="card ac-c ac-t" style={{ animation: "xRise .42s var(--ease) both", animationDelay: delay(tiles.length) }}>
+          <span className="ac-av" style={{ width: 46, height: 46, borderRadius: 15, background: "var(--bads)", color: "var(--bad)" }}><Ic n="logout" size={22} /></span>
+          <span className="ac-1" />
+          <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p("Sign out", "लॉग आउट"))}</span>
+          <span className="ac-m">Ends this session on this device</span>
+          <button type="submit" className="ac-o" aria-label="Sign out" />
+        </form>
+      </div>
+      <span className="ac-m ac-f"><Ic n="info" size={16} />Fee setup is view only for the accountant. To change a fee, use “Ask admin to change” inside it.</span>
+    </Section>
+  );
+}
+
+function EveningView({ data }: { data: AccountsHomeData }) {
+  const { tx } = useVx();
+  const bag = useBagChecklist(data.today);
+  const closed = data.closure?.status === "closed";
+  const mode = (m: string) => data.collected.modes.find((x) => x.mode === m) ?? { total: 0, count: 0 };
+  const sum = [
+    { label: "Collected", v: rupees(data.collected.total), sub: `${data.collected.count} receipts · ${data.collected.reversedCount} reversed`, tone: "var(--mut)" },
+    { label: "Cash", v: rupees(mode("cash").total), sub: `${mode("cash").count} receipts`, tone: "var(--mut)" },
+    { label: "UPI", v: rupees(mode("upi").total), sub: data.upiOpen.count ? `${data.upiOpen.count} bank lines still to match` : "all matched in the bank ✓", tone: data.upiOpen.count ? "var(--warnfg)" : "var(--ok)" },
+    { label: "Cheques & bank", v: rupees(mode("cheque").total + mode("bank_transfer").total), sub: "cheques subject to clearing", tone: "var(--mut)" },
+  ];
+  const inBag = data.chequesForBank.filter((c) => bag.has(c.receiptId));
+  const bagIds = inBag.map((c) => c.receiptId).join(",");
+  return (
+    <Section style={{ maxWidth: 1120 }}>
+      <Card className="ac-f ac-cd" style={{ gap: 18, padding: "20px 22px", flexWrap: "wrap" }}>
+        <svg width="88" height="88" viewBox="0 0 96 96" aria-hidden="true" style={{ flex: "none", animation: "xPopIn .5s var(--spring) both" }}>
+          <circle cx="48" cy="48" r="44" style={{ fill: closed ? "var(--oks)" : "var(--warns)" }} />
+          <circle cx="48" cy="48" r="44" style={{ fill: "none", stroke: closed ? "var(--ok)" : "var(--warnfg)", strokeWidth: 4 }} />
+          {closed ? <path d="M30 49l12 12 24-26" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round" }} /> : <path d="M48 28v24M48 64v2" style={{ fill: "none", stroke: "var(--warnfg)", strokeWidth: 6, strokeLinecap: "round" }} />}
+        </svg>
+        <span className="ac-c ac-1" style={{ minWidth: 240 }}>
+          <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}>{closed ? tx(p(`Day closed · ${shortDay(data.today)}`, `दिन बंद · ${shortDay(data.today)}`)) : tx(p("The day is not closed yet", "आज का हिसाब अभी बंद नहीं हुआ"))}</span>
+          <span style={{ fontSize: 14, color: "var(--mut)" }}>
+            {closed ? `Closed${data.closure?.closedByName ? ` by ${data.closure.closedByName}` : ""}${data.closure?.closedAt ? ` at ${clock(data.closure.closedAt)}` : ""} · receipts locked. Anything taken now counts for ${shortDay(data.tomorrow)}.` : "Close it in Receipts & day close once the cash is counted."}
+          </span>
+          {closed ? <span style={{ fontSize: 13, color: "var(--sub)" }}>आज का हिसाब बंद हो गया। धन्यवाद!</span> : null}
+        </span>
+        {!closed ? <Btn variant="pri" icon="lock" href="/receipts">Close the day</Btn> : null}
+      </Card>
+      <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
+        {sum.map((k, i) => (
+          <div key={k.label} className="card ac-c rise" style={{ padding: "14px 16px", gap: 2, animationDelay: delay(i) }}>
+            <span className="ac-m" style={{ fontWeight: 600 }}>{k.label}</span>
+            <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{k.v}</span>
+            <span className="ac-m" style={{ color: k.tone }}>{k.sub}</span>
+          </div>
+        ))}
+      </div>
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+        <Card className="ac-c ac-cd" style={{ gap: 4 }}>
+          <div className="ac-f ac-j" style={{ marginBottom: 4 }}>
+            <span className="ac-v">{tx(p(`Tomorrow’s follow-ups · ${shortDay(data.tomorrow)}`, `कल के वादे · ${shortDay(data.tomorrow)}`))}</span>
+            <span className="ac-m num">{data.tomorrowFollowUps.length} families</span>
+          </div>
+          {data.tomorrowFollowUps.map((f, i) => (
+            <div key={f.studentId} className="ac-f ac-an" style={{ gap: 12, padding: "10px 0", borderTop: bt(i), animationDelay: delay(i) }}>
+              <span className="ac-av" style={{ background: TONES[(i + 1) % 5][0], color: TONES[(i + 1) % 5][1] }}>{initials(f.studentName)}</span>
+              <span className="ac-c ac-1"><span className="ac-b ac-e">{f.studentName}</span><span className="ac-m ac-e">{f.classLabel}{f.note ? ` · ${f.note}` : ""}</span></span>
+              <span className="num ac-v">{rupees(f.pendingToday)}</span>
+            </div>
+          ))}
+          {data.tomorrowFollowUps.length === 0 ? <EmptyState icon="calCheck" title="No call-backs set for tomorrow" body="Set one from Dues & calls when a parent promises a day." style={{ padding: "18px 10px" }} /> : null}
+          <Btn href="/dues" style={{ marginTop: 8 }}>Open dues &amp; calls</Btn>
+        </Card>
+        <Card className="ac-c ac-cd" style={{ gap: 4 }}>
+          <div className="ac-f ac-j" style={{ marginBottom: 4 }}>
+            <span className="ac-v">{tx(p("Cheques for the bank · morning", "सुबह बैंक ले जाएं"))}</span>
+            <span className="ac-m num">{inBag.length} of {data.chequesForBank.length} in the bag · {rupees(data.chequesForBank.reduce((s, c) => s + c.amount, 0))}</span>
+          </div>
+          {data.chequesForBank.map((c, i) => {
+            const on = bag.has(c.receiptId);
+            return (
+              <button key={c.receiptId} type="button" role="checkbox" aria-checked={on} onClick={() => bag.toggle(c.receiptId)} className="tap ac-f ac-an" style={{ gap: 12, padding: "10px 0", border: 0, borderTop: bt(i), background: "transparent", color: "var(--fg)", textAlign: "left", width: "100%", animationDelay: delay(i) }}>
+                <span style={{ flex: "none", width: 24, height: 24, borderRadius: 7, border: `2px solid ${on ? "var(--ok)" : "var(--bds)"}`, background: on ? "var(--ok)" : "var(--card)", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF" }}>{on ? <Ic n="check" size={14} stroke={3} /> : null}</span>
+                <span className="ac-c ac-1"><span className="ac-b ac-e">{c.studentName} · {c.classLabel}</span><span className="ac-m ac-e num">{c.chequeNo ? `Cheque ${c.chequeNo}` : "No cheque no. yet"} · {c.bank ?? "bank not written"} · {shortDay(c.paymentDate)}</span></span>
+                <span className="ac-c" style={{ alignItems: "flex-end" }}><span className="num ac-v">{rupees(c.amount)}</span><span className="ac-m" style={{ color: on ? "var(--ok)" : "var(--warnfg)" }}>{on ? "in the bag" : "put it in the bag"}</span></span>
+              </button>
+            );
+          })}
+          {data.chequesForBank.length === 0 ? <EmptyState icon="checkCircle" title="No cheques waiting for the bank" style={{ padding: "18px 10px" }} /> : null}
+          <div className="ac-f ac-w" style={{ gap: 8, marginTop: 8 }}>
+            <Btn variant="pri" icon="printer" href={`/accounts/books?view=cheques&sheet=deposit${bagIds ? `&pick=${bagIds}` : ""}`} disabled={data.chequesForBank.length === 0}>Deposit slip</Btn>
+            <Btn variant="ghost" href="/accounts/books">Cheques, UPI &amp; refunds</Btn>
+          </div>
+        </Card>
+      </div>
+      <Card className="ac-f ac-cd ac-w" style={{ gap: 12 }}>
+        <span className="ac-av" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="bell" size={20} /></span>
+        <span className="ac-c ac-1"><span className="ac-b">{data.reminders.paused ? "Reminders were paused today" : "Today’s 4:00 pm reminders"}</span><span className="ac-m">{data.reminders.familiesPendingToday} students had fees pending today{data.reminders.nextInstallment ? ` · next: ${data.reminders.nextInstallment}` : ""}</span></span>
+        <Btn variant="ghost" href="/reminders">See replies</Btn>
+      </Card>
+      <div className="ac-f ac-w ac-noprint" style={{ gap: 8 }}>
+        <Btn icon="printer" onClick={() => window.print()}>Day report PDF</Btn>
+        <Btn variant="ghost" href={`/reports?view=daybook&date=${data.today}`}>See today’s day book</Btn>
+        <span className="ac-1" />
+        <Btn variant="ghost" href="/accounts?view=home">Back to today</Btn>
+      </div>
+    </Section>
+  );
+}
