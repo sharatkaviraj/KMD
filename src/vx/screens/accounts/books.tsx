@@ -494,7 +494,7 @@ function RequestsPane({ data, canAct, busy, onWithdraw, onRemind, onDecide }: { 
               <div className="ac-f" style={{ gap: 12, alignItems: "flex-start" }}>
                 <span className="ac-ib" style={{ background: tone[0], color: tone[1] }}><Ic n={KIND_ICON[q.kind] ?? "inbox"} size={18} /></span>
                 <span className="ac-c ac-1" style={{ gap: 1 }}>
-                  <span className="ac-f ac-w" style={{ gap: 6 }}><span className="ac-b" style={{ fontWeight: 700 }}>{KIND_LABEL[q.kind] ?? "Request"}</span>{Date.parse(q.requestedAt) > Date.now() - 6 * 3600_000 && q.status === "waiting" ? <Pill tone="acc">New</Pill> : null}</span>
+                  <span className="ac-f ac-w" style={{ gap: 6 }}><span className="ac-b" style={{ fontWeight: 700 }}>{KIND_LABEL[q.kind] ?? "Request"}</span>{q.requestedAt.slice(0, 10) === data.today && q.status === "waiting" ? <Pill tone="acc">New</Pill> : null}</span>
                   <span className="ac-m">{q.title}{q.studentName ? ` · ${q.studentName}` : ""}{q.mine ? "" : ` · asked by ${q.requestedByName}`}</span>
                   <span className="ac-m" style={{ color: "var(--sub)" }}>{q.reason}</span>
                 </span>

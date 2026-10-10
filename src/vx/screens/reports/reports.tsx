@@ -15,7 +15,7 @@ import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Field, Input, RadioCard, Seg, Select, Switch } from "@/vx/ui/controls";
-import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
+import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { BarChart, Btn, Card, EmptyState, Kpi, Pill, Sparkline, StackedBar } from "@/vx/ui/primitives";
 

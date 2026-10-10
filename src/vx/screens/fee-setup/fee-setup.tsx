@@ -919,6 +919,7 @@ function ReviewSheet({ onClose, draft, changes, data, editable, onDone }: { onCl
         ) : null}
         {preview ? <span className="fs-m">{preview.installmentsToUpdate} installment rows repriced · {preview.installmentsToInsert} added · {preview.installmentsToCancel} cancelled</span> : null}
         <b className="fs-m" style={{ letterSpacing: ".06em", textTransform: "uppercase" }}>What changes</b>
+        {!changes.length ? <EmptyState icon="edit" title="No changes yet" body="Edit a class fee, an installment date, a discount, the late fee or a bus route; each one collects here." /> : null}
         {changes.map((c) => (
           <div key={c.key} className="fs-f" style={{ alignItems: "flex-start", gap: 12, paddingBottom: 10, borderBottom: "1px solid var(--bd)" }}>
             <span className="fs-ib" style={{ width: 36, height: 36 }}><Ic n={AREA_ICON[c.area]} size={17} /></span>
