@@ -596,6 +596,7 @@ function redesign(): RouteExpectation[] {
     row("/payments", ["admin", "accountant"], "Taking money is granted one person at a time through the accountant role, never by job title."),
     row("/payments/bulk", ["admin", "accountant"], "Bulk entry opens for whoever takes money; saving many at once stays admin-only (payments:bulk) inside the screen."),
     row("/receipts", FEE_READERS, "Receipts and the day close are fee screens, read by everyone who reads the fee app."),
+    row("/receipts/[receiptNumber]", FEE_READERS, "One receipt: print, share preview and reversal, read by everyone who reads receipts."),
     row("/dues", FEE_READERS, "Who owes what; the fee collector's follow-up list starts here."),
     row("/reminders", FEE_READERS, "Fee reminders are drafted from the dues list by the fee desk."),
     row("/fee-setup", FEE_READERS, "Fee setup is read by the fee desk; changing it stays admin-only inside the screen."),

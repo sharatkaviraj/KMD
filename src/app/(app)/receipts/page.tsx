@@ -1,8 +1,12 @@
-import { redirect } from "next/navigation";
+import { requirePermission } from "@/platform/auth/current-staff";
+import { ReceiptsDesk } from "@/vx/screens/receipts/desk";
+import { loadReceiptsDesk } from "@/vx/screens/receipts/load";
 
 export const runtime = "nodejs";
 
-/** Interim: the redesigned screen replaces this redirect (docs/ui/PROGRESS.md). */
-export default function Page() {
-  redirect("/fees/receipts");
+/** Receipts and the day close (design `Fees`): list, filters, count and close. */
+export default async function ReceiptsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const staff = await requirePermission("fees:view", "/receipts");
+  const props = await loadReceiptsDesk(staff, await searchParams);
+  return <ReceiptsDesk {...props} />;
 }

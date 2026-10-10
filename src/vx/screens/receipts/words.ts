@@ -1,0 +1,161 @@
+import { p } from "@/vx/text";
+
+/** The words on /receipts, English with Hindi (src/vx/text.ts). */
+export const W = {
+  crumb: p("Money · Receipts", "पैसा · रसीदें"),
+  title: p("Receipts", "रसीदें"),
+  closeDay: p("Close the day", "दिन बंद करें"),
+  today: p("Today", "आज"),
+  yesterday: p("Yesterday", "कल"),
+  last3: p("Last 3 days", "पिछले 3 दिन"),
+  collected: p("Collected", "जमा हुआ"),
+  collectedToday: p("Collected today", "आज जमा"),
+  cash: p("Cash", "नकद"),
+  upi: p("UPI", "UPI"),
+  cheque: p("Cheque", "चेक"),
+  bank: p("Bank", "बैंक"),
+  other: p("Other", "अन्य"),
+  reversed: p("Reversed", "रद्द"),
+  reversedSub: p("kept in history, not counted", "इतिहास में, गिनती में नहीं"),
+  toCount: p("to count", "गिनना है"),
+  howItCameIn: p("How it came in", "कैसे आया"),
+  allModes: p("All modes", "सभी तरीके"),
+  everyone: p("Everyone", "सभी"),
+  search: p("Search name, receipt or class", "नाम, रसीद या कक्षा खोजें"),
+  receipt: p("Receipt", "रसीद"),
+  time: p("Time", "समय"),
+  student: p("Student", "विद्यार्थी"),
+  mode: p("Mode", "तरीका"),
+  takenBy: p("Taken by", "लेने वाले"),
+  amount: p("Amount", "राशि"),
+  noMatch: p("No receipts match", "कोई रसीद नहीं मिली"),
+  noMatchBody: p("Try another mode or name, or clear the filters.", "दूसरा तरीका या नाम आज़माएँ, या फ़िल्टर हटाएँ।"),
+  clearFilters: p("Clear filters", "फ़िल्टर हटाएँ"),
+  emptyDay: p("No receipts on this day yet", "इस दिन अभी कोई रसीद नहीं"),
+  emptyDayBody: p("Receipts appear here as fees are taken at the desk.", "डेस्क पर फीस लेते ही रसीदें यहाँ दिखेंगी।"),
+  lastDay: p("Show the last day with receipts", "आख़िरी रसीद वाला दिन दिखाएँ"),
+  takeFee: p("Take a fee", "फीस लें"),
+  truncated: p("Showing the newest 500 receipts in this window.", "इस अवधि की नई 500 रसीदें दिख रही हैं।"),
+  dayClosed: p("Day closed", "दिन बंद"),
+  seeClose: p("See the close", "बंदी देखें"),
+  afterClose: p("posted after the day was closed", "दिन बंद होने के बाद बनीं"),
+  // detail
+  notSent: p("Not sent yet", "अभी नहीं भेजी"),
+  sentRead: p("Sent · read", "भेजी · पढ़ी"),
+  sent: p("Sent", "भेजी"),
+  delivered: p("Sent · delivered", "भेजी · पहुँची"),
+  failed: p("Not delivered", "नहीं पहुँची"),
+  feeReceipt: "रसीद · FEE RECEIPT",
+  school: p("Shri Veer Patta Senior Secondary School", "श्री वीर पत्ता सीनियर सेकेंडरी स्कूल"),
+  classSr: p("Class · SR", "कक्षा · SR"),
+  father: p("Father", "पिता"),
+  dateTime: p("Date · time", "तारीख · समय"),
+  totalReceived: p("Total received", "कुल प्राप्त"),
+  ref: p("Ref", "संदर्भ"),
+  send: p("Send", "भेजें"),
+  print: p("Print", "प्रिंट"),
+  pdf: p("PDF", "PDF"),
+  reverse: p("Reverse", "रद्द करें"),
+  history: p("History", "इतिहास"),
+  hPosted: p("Receipt made", "रसीद बनी"),
+  hReversed: p("Reversed", "रद्द हुई"),
+  hSent: p("Sent on WhatsApp", "WhatsApp पर भेजी"),
+  hRead: p("Read by the family", "परिवार ने पढ़ी"),
+  footnote: p(
+    "Receipts are never edited. A reversal writes a separate entry and this receipt stays in history.",
+    "रसीद कभी बदली नहीं जाती। रद्द करने पर अलग प्रविष्टि बनती है और यह रसीद इतिहास में रहती है।",
+  ),
+  pendingReversal: p("Reversal asked · waiting for an admin", "रद्द करने का अनुरोध · एडमिन की प्रतीक्षा"),
+  back: p("Back to receipts", "रसीदों पर वापस"),
+  // reverse sheet
+  why: p("Why?", "क्यों?"),
+  rWrongAmount: p("Wrong amount typed", "ग़लत राशि लिखी"),
+  rWrongStudent: p("Wrong student", "ग़लत विद्यार्थी"),
+  rBounced: p("Cheque bounced", "चेक बाउंस हुआ"),
+  rDuplicate: p("Entered twice", "दो बार दर्ज"),
+  noteOptional: p("Note (optional)", "टिप्पणी (वैकल्पिक)"),
+  keepReceipt: p("Keep receipt", "रसीद रखें"),
+  askAdmin: p("Ask an admin to reverse", "एडमिन से रद्द करवाएँ"),
+  impactAdmin: p(
+    "The amount comes off the day's total and the dues go back on the family. The receipt stays in history, marked reversed.",
+    "राशि दिन के कुल से हटेगी और बकाया परिवार पर लौटेगा। रसीद इतिहास में 'रद्द' के रूप में रहेगी।",
+  ),
+  impactRequest: p(
+    "Nothing changes yet. This goes to Needs you, and an admin reverses it.",
+    "अभी कुछ नहीं बदलेगा। यह 'आपके लिए' में जाएगा और एडमिन रद्द करेंगे।",
+  ),
+  doneReversed: p("Receipt reversed. It stays in history.", "रसीद रद्द हुई। यह इतिहास में रहेगी।"),
+  doneRequested: p("Sent to an admin under Needs you.", "एडमिन को 'आपके लिए' में भेजा।"),
+  doneExists: p("An admin has already been asked about this receipt.", "इस रसीद के लिए एडमिन से पहले ही पूछा गया है।"),
+  // share sheet
+  shareTitle: p("Send this receipt on WhatsApp", "यह रसीद WhatsApp पर भेजें"),
+  sharePreviewOnly: p(
+    "This is a preview. Sending happens from the classic receipt screen, which shows its own preview before anything goes to the family.",
+    "यह केवल झलक है। भेजना पुरानी रसीद स्क्रीन से होता है, जो भेजने से पहले अपनी झलक दिखाती है।",
+  ),
+  openClassic: p("Open the receipt to send", "भेजने के लिए रसीद खोलें"),
+  close: p("Close", "बंद करें"),
+  // close flow
+  closeTitle: p("Count and close", "गिनें और बंद करें"),
+  expects: p("What the app expects", "ऐप के हिसाब से"),
+  total: p("Total", "कुल"),
+  upiMatches: p("UPI matches the bank app", "UPI बैंक ऐप से मेल खाता है"),
+  matched: p("matched", "मेल खाया"),
+  notChecked: p("not checked yet", "अभी नहीं जाँचा"),
+  expected: p("Expected", "अपेक्षित"),
+  countCash: p("Count the cash", "नकद गिनें"),
+  coins: p("Coins", "सिक्के"),
+  counted: p("Counted", "गिना"),
+  matches: p("Matches", "मेल खाता है"),
+  shortBy: p("Short by", "कम"),
+  overBy: p("Over by", "ज़्यादा"),
+  noteRecord: p("Note for the record (needed if cash does not match)", "रिकॉर्ड के लिए टिप्पणी (नकद मेल न खाए तो ज़रूरी)"),
+  closeButton: p("Close the day", "दिन बंद करें"),
+  closeHintUpi: p("Check UPI against the bank app first.", "पहले UPI बैंक ऐप से मिलाएँ।"),
+  closeHintNote: p("The cash does not match. Write a short note for the record.", "नकद मेल नहीं खाता। रिकॉर्ड के लिए छोटी टिप्पणी लिखें।"),
+  closeNoLock: p(
+    "Receipts stay as they are. Any receipt dated this day that is made after the close is flagged here.",
+    "रसीदें जैसी हैं वैसी रहेंगी। बंद होने के बाद इस दिन की कोई रसीद बने तो यहाँ दिखेगी।",
+  ),
+  closedAt: p("Closed", "बंद किया"),
+  cashCounted: p("Cash counted", "गिना हुआ नकद"),
+  receipts: p("Receipts", "रसीदें"),
+  dayBook: p("Day book (CSV)", "दिन की बही (CSV)"),
+  reopen: p("Reopen day (admin)", "दिन फिर खोलें (एडमिन)"),
+  reopenTitle: p("Reopen this day?", "यह दिन फिर खोलें?"),
+  reopenWhy: p("Why is it being reopened?", "क्यों खोला जा रहा है?"),
+  reopenImpact: p("The close stays on record. The day can be counted and closed again.", "बंदी रिकॉर्ड में रहेगी। दिन फिर गिनकर बंद किया जा सकता है।"),
+  reopenDone: p("Day reopened.", "दिन फिर खुला।"),
+  closeDone: p("Day closed.", "दिन बंद हुआ।"),
+  reopenedBy: p("Reopened", "फिर खोला"),
+  cannotClose: p("Only staff who take fees can close the day.", "केवल फीस लेने वाले स्टाफ़ दिन बंद कर सकते हैं।"),
+};
+
+/**
+ * The receipt message as the family would read it: Hindi first, English under.
+ * It is the parent's message, so it does not follow the staff reader's language.
+ */
+export function shareLines(name: string, amount: string, receiptNumber: string, date: string): string[] {
+  return [
+    `नमस्ते, ${name} की फीस ${amount} प्राप्त हुई। रसीद नं. ${receiptNumber}, दिनांक ${date}।`,
+    "",
+    `Fee of ${amount} received for ${name}. Receipt ${receiptNumber}, ${date}.`,
+  ];
+}
+
+export const SHARE_FOOTER = "Shri Veer Patta School · PDF attached";
+
+export const MODE_WORD: Record<string, { en: string; hi?: string }> = {
+  cash: W.cash,
+  upi: W.upi,
+  cheque: W.cheque,
+  bank: W.bank,
+  other: W.other,
+};
+
+export const REASON_WORD: Record<string, { en: string; hi?: string }> = {
+  wrong_amount: W.rWrongAmount,
+  wrong_student: W.rWrongStudent,
+  cheque_bounced: W.rBounced,
+  duplicate: W.rDuplicate,
+};
