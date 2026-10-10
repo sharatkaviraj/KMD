@@ -179,7 +179,7 @@ export async function loadFamilyDetail(sessionLabel: string, studentIds: string[
       pending: Math.max(0, Number(r.pendingAmount) || 0),
       lateFee: Math.max(0, Number(r.lateFeePending) || 0),
       status: r.balanceStatus,
-      carry: r.isCarryForward,
+      carry: r.isCarryForward === true,
     }));
   });
   const contacts: FamilyContact[] = ids
