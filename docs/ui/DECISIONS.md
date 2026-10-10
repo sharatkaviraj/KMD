@@ -30,3 +30,11 @@ so they do not collide with `docs/DECISIONS.md` (D-n).
 | UI-22 | Attendance summaries count only marked classes, and the mark-on-behalf panel opens with everyone present for a new register | RULES C. |
 | UI-23 | "Pending today" = overdue or part-paid past due; everything else unpaid is "Not due yet"; the late fee is always its own number | RULES fee separation. |
 | UI-24 | The sidebar's Needs-you badge counts the same items as `/inbox` | One source for the queue. |
+| UI-25 | The academic coordinator holds `attendance:mark_on_behalf` and `attendance:correct` | The design's AcadAttendance marks a class for a teacher on leave and approves change requests ("attendance oversight"). Same rows as the office. |
+| UI-26 | Calendar is shown to holders of `academics:view` | Matches the page guard; view-only and the fee desk do not get it. |
+| UI-27 | The old academics hub moved to `/academics/setup` and the old calendar editor to `/calendar/days` | `/academics` and `/calendar` are the design's screens; nothing old is lost. |
+| UI-28 | A holiday added on the calendar writes `academic_calendar_days`; other events go to `vppsone.calendar_events` and are cancelled, never deleted | Registers and the timetable already read the days table. |
+| UI-29 | "Needs attention" is one SQL view (`vppsone.v_needs_attention`): attendance < 75%, < 33% in a subject, a drop of 15+ points, 2+ open notes | PLAN P8. |
+| UI-30 | The accountant's bookkeeping (cheques, deposit slips, UPI lines, requests, counter queue, reminder pauses, report schedules) lives in append-only `vppsone.acc_*` tables | Fee rows are never edited from these screens; refunds and reversals are requests the admin decides, and the money moves through the existing fee screens. |
+| UI-31 | Fee setup works on the real model: "copy last year + %" is "raise every class by %", installments are the academic-fee split plus due dates, the late fee is flat per installment, transport is each route's yearly fee | The fee engine has no per-installment percentages or stop-level transport; the review step counts the impact before publishing. |
+| UI-32 | Report schedules are saved but not sent, and "send to class teachers" is Copy + a wa.me link | No paid WhatsApp sends without approval (CLAUDE.md rule 8). |
