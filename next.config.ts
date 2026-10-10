@@ -34,7 +34,15 @@ const nextConfig: NextConfig = {
    * left out (the first fix still failed, on that chunk).
    */
   outputFileTracingIncludes: {
-    "/**": ["./node_modules/pdfkit/js/standard-fonts/**/*.cjs"],
+    "/**": [
+      "./node_modules/pdfkit/js/standard-fonts/**/*.cjs",
+      // document-kit.tsx reads these off disk with process.cwd(). On Vercel
+      // public/ is served by the CDN and is not in the function unless traced:
+      // the Devanagari faces for every PDF, the crest and the signature.
+      "./public/fonts/*.ttf",
+      "./public/branding/icon-192.png",
+      "./public/branding/authorised-signature.png",
+    ],
   },
 
   /*
