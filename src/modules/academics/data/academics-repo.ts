@@ -6,6 +6,8 @@ import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-s
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
+import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
+import { revalidateTag } from "next/cache";
 import type {
   ClassAlias,
   ClassAliasInput,
@@ -149,51 +151,69 @@ export async function classLabelMap(
   sessionLabel: string,
 ): Promise<Map<string, string>> {
   await assertStaff();
+  return new Map(await cachedClassLabels(sessionLabel));
+}
 
-  const [classes, aliases] = await Promise.all([
-    (async () => {
-      const { data, error } = await createAdminClient()
+/**
+ * The read behind `classLabelMap`, shared across requests for five minutes.
+ *
+ * Every signed-in list and card names classes, and the names change a few
+ * times a year, so this was two round trips on almost every navigation for an
+ * answer that had not moved. Aliases are read service-role here (the cookie
+ * client cannot run inside a shared cache); `classLabelMap` keeps the staff
+ * check, on every request. Alias writes bust the tag, so a renamed class shows
+ * at once rather than in five minutes.
+ *
+ * Entries, not a Map: the cache serialises to JSON.
+ */
+const cachedClassLabels = sharedCache(
+  async (sessionLabel: string): Promise<[string, string][]> => {
+    const admin = createAdminClient();
+    const [classes, aliases] = await Promise.all([
+      admin
         .schema(FEE_SCHEMA)
         .from("classes")
         .select("id, class_name, section, sort_order")
         .eq("session_label", sessionLabel)
-        .returns<
-          {
-            id: string;
-            class_name: string;
-            section: string | null;
-            sort_order: number | null;
-          }[]
-        >();
+        .returns<{ id: string; class_name: string; section: string | null; sort_order: number | null }[]>(),
+      admin
+        .from("class_aliases")
+        .select(ALIAS_COLUMNS)
+        .eq("session_label", sessionLabel)
+        .order("sort_order")
+        .returns<AliasRow[]>(),
+    ]);
 
-      if (error) {
-        throw new Error(`Could not read the classes: ${error.message}`);
-      }
-      return data;
-    })(),
-    listClassAliases(sessionLabel),
-  ]);
+    if (classes.error) {
+      throw new Error(`Could not read the classes: ${classes.error.message}`);
+    }
+    if (aliases.error) {
+      throw new Error(`Could not read the class aliases: ${aliases.error.message}`);
+    }
 
-  const aliasById = new Map(aliases.map((alias) => [alias.classId, alias]));
+    const aliasById = new Map(aliases.data.map(toAlias).map((alias) => [alias.classId, alias]));
 
-  const ordered = inSchoolOrder(
-    classes.map((row) => {
-      const alias = aliasById.get(row.id);
-      const preferred = alias?.displayName ?? alias?.timetableLabel;
+    const ordered = inSchoolOrder(
+      classes.data.map((row) => {
+        const alias = aliasById.get(row.id);
+        const preferred = alias?.displayName ?? alias?.timetableLabel;
 
-      return {
-        id: row.id,
-        label:
-          preferred ||
-          [row.class_name, row.section].filter(Boolean).join(" ") ||
-          "—",
-        sortOrder: alias?.sortOrder ?? row.sort_order ?? 0,
-      };
-    }),
-  );
+        return {
+          id: row.id,
+          label:
+            preferred ||
+            [row.class_name, row.section].filter(Boolean).join(" ") ||
+            "—",
+          sortOrder: alias?.sortOrder ?? row.sort_order ?? 0,
+        };
+      }),
+    );
 
-  return new Map(ordered.map((choice) => [choice.id, choice.label]));
-}
+    return ordered.map((choice) => [choice.id, choice.label]);
+  },
+  ["vx-class-labels"],
+  { tags: [CACHE_TAGS.classes], revalidate: 300 },
+);
 
 /**
  * Every class as a choice, in the order the school puts them in.
@@ -424,6 +444,7 @@ export async function upsertClassAlias(
     );
 
   if (error) throw error;
+  revalidateTag(CACHE_TAGS.classes, "max");
 }
 
 export async function deleteClassAlias(id: string): Promise<void> {
@@ -436,6 +457,7 @@ export async function deleteClassAlias(id: string): Promise<void> {
     .eq("id", id);
 
   if (error) throw error;
+  revalidateTag(CACHE_TAGS.classes, "max");
 }
 
 /* ---------------------------------------------------------------- session */
@@ -474,20 +496,44 @@ export async function deleteClassAlias(id: string): Promise<void> {
 export const resolveSessionLabel = cache(async (
   requested?: string | null,
 ): Promise<string | null> => {
-  const [labels, { data: setting }] = await Promise.all([
-    listSessionLabels(),
-    createAdminClient()
-      .schema(FEE_SCHEMA)
-      .from("app_settings")
-      .select("value")
-      .eq("key", ACTIVE_SESSION_KEY)
-      .maybeSingle<{ value: string | null }>(),
-  ]);
+  await assertStaff();
+  const { labels, active } = await cachedSessionFacts();
 
   return pickSessionLabel({
     requested,
     configured: process.env.VPPSONE_SESSION_LABEL,
-    active: setting?.value,
+    active,
     labels,
   });
 });
+
+/**
+ * The two reads behind `resolveSessionLabel`, shared across requests for a
+ * minute — the fee app's own `getActiveSessionLabel()` makes the same trade,
+ * on the same tag, so switching the school's session busts both at once.
+ */
+const cachedSessionFacts = sharedCache(
+  async (): Promise<{ labels: string[]; active: string | null }> => {
+    const admin = createAdminClient();
+    const [classes, setting] = await Promise.all([
+      admin.schema(FEE_SCHEMA).from("classes").select("session_label").returns<{ session_label: string }[]>(),
+      admin
+        .schema(FEE_SCHEMA)
+        .from("app_settings")
+        .select("value")
+        .eq("key", ACTIVE_SESSION_KEY)
+        .maybeSingle<{ value: string | null }>(),
+    ]);
+
+    if (classes.error) {
+      throw new Error(`Could not read the sessions: ${classes.error.message}`);
+    }
+
+    return {
+      labels: [...new Set(classes.data.map((row) => row.session_label))].sort().reverse(),
+      active: setting.data?.value ?? null,
+    };
+  },
+  ["vx-session-facts"],
+  { tags: [CACHE_TAGS.appSettings], revalidate: 60 },
+);

@@ -124,9 +124,15 @@ const nextConfig: NextConfig = {
      * colleague's posting reaches every open screen over realtime within a
      * couple of seconds. `static: 300` is Next's own default written out on
      * purpose, so a future change to that default is a visible edit here.
+     *
+     * `dynamic` went from 60 to 300 on 10 Oct 2026 (docs/ui/PERFORMANCE.md):
+     * a minute was shorter than a typical look at one child, so coming back
+     * to the list after reading a Student 360 refetched it every time. The
+     * two safety nets above are unchanged, and the realtime listener's
+     * `router.refresh()` empties this cache whenever money moves.
      */
     staleTimes: {
-      dynamic: 60,
+      dynamic: 300,
       static: 300,
     },
   },

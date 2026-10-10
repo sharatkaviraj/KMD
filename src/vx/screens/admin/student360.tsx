@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useState } from "react";
 
 import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
@@ -8,8 +9,8 @@ import { Ic } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
 import { ChipRow } from "@/vx/ui/controls";
 import { Grid, Section, TopBar } from "@/vx/ui/page";
-import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Stat, type Tone } from "@/vx/ui/primitives";
-import { mobileOf, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
+import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Stat, toneColors, type Tone } from "@/vx/ui/primitives";
+import { feeRibbon, mobileOf, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
 import { T } from "@/vx/screens/admin/text";
 
 /*
@@ -17,7 +18,43 @@ import { T } from "@/vx/screens/admin/text";
  * tabs in the URL (`?tab=`). The fee tab and the money tiles exist only for
  * `fees:view`; pending today, not due yet and the late fee are three numbers
  * and never one.
+ *
+ * Switching tabs never goes back to the server. The page already reads every
+ * tab's data in one pass, so a tab is client state, and the URL follows it
+ * with `replaceState` — a link to `?tab=fees` still opens on fees, and Back
+ * from a child returns to the list instead of walking back through tabs.
+ *
+ * The fees tab is the fee app's own student page in this app's clothes: its
+ * money band, its Dues table (Charged − Paid = Outstanding, with the late fee
+ * and any waiver under Charged), its fee breakup and its receipts, from the
+ * same rows and the same sums (`studentFees`).
  */
+
+/** The fee app's money band for one child (`studentFees().summary`). */
+type StudentFeeSummary = {
+  outstanding: number;
+  overdue: number;
+  lateFeePending: number;
+  lateFeeWaived: number;
+  paidThisSession: number;
+  discountClosed: number;
+  sessionFee: number;
+  creditBalance: number;
+  installmentsPaid: number;
+  installmentsTotal: number;
+  installmentsPending: number;
+  nextDue: { label: string; amount: number; dueDate: string } | null;
+};
+
+/** The fee app's fee breakup for one child (`studentFees().breakup`). */
+type StudentFeeBreakup = {
+  rows: { id: string; label: string; amount: number; kind: "charge" | "discount" }[];
+  annualTotal: number;
+  discountTotal: number;
+  discountLabels: string[];
+  tuitionOverride: number | null;
+  transportOverride: number | null;
+};
 
 type Cell = { day: string; label: string; state: MarkStatus | "today" | "future" | "closed" | "none" };
 
@@ -38,7 +75,31 @@ export type Student360Props = {
   tab: StudentTab;
   tabs: StudentTab[];
   money: StudentMoney | null;
-  installments: { label: string; dueDate: string; state: InstallmentState; pending: number; settled: number; base: number; carry: boolean }[] | null;
+  installments:
+    | {
+        id: string;
+        label: string;
+        dueDate: string;
+        state: InstallmentState;
+        /** The fee app's own status word for the Dues table. */
+        status: "paid" | "partial" | "overdue" | "pending" | "waived";
+        pending: number;
+        /** Fees settled on the row — the progress bar. */
+        settled: number;
+        /** Everything the pool settled here — the Dues table's Paid. */
+        paid: number;
+        receiptedHere: number;
+        adjusted: number;
+        base: number;
+        lateFee: number;
+        lateFeeWaived: number;
+        lateFeePending: number;
+        carry: boolean;
+      }[]
+    | null;
+  feeSummary: StudentFeeSummary | null;
+  feeBreakup: StudentFeeBreakup | null;
+  feeSession: string | null;
   receipts: { id: string; number: string; date: string; amount: number; mode: string; reversed: boolean }[] | null;
   family: { id: string; name: string; sr: string; classLabel: string; self: boolean }[] | null;
   attendance: { percent: number | null; counted: number; counts: Record<MarkStatus, number>; weeks: Cell[] };
@@ -48,6 +109,16 @@ export type Student360Props = {
   history: { id: number; label: Pair; from: string | null; to: string | null; blocked: boolean; at: string; by: string | null }[];
   canCollect: boolean;
   canManageDocuments: boolean;
+  canManageFees: boolean;
+};
+
+/** The fee app's status badge words, in the same tones. */
+const STATUS_LOOK: Record<"paid" | "partial" | "overdue" | "pending" | "waived", { tone: Tone; label: Pair }> = {
+  paid: { tone: "ok", label: T.stPaid },
+  overdue: { tone: "bad", label: T.stOverdue },
+  partial: { tone: "warn", label: T.stPartial },
+  pending: { tone: "mut", label: T.stNotDue },
+  waived: { tone: "mut", label: T.stWaived },
 };
 
 const TAB_LABEL: Record<StudentTab, Pair> = {
@@ -84,6 +155,18 @@ const CELL_LOOK: Record<Cell["state"], { bg: string; fg: string; border?: string
 
 export function Student360({ p }: { p: Student360Props }) {
   const { tx } = useVx();
+  const [tab, setTab] = useState<StudentTab>(p.tab);
+  const pick = useCallback(
+    (next: StudentTab) => (event: React.MouseEvent<HTMLAnchorElement>) => {
+      // A new tab or window still gets a real link.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      setTab(next);
+      const url = next === "overview" ? `/students/${p.id}` : `/students/${p.id}?tab=${next}`;
+      window.history.replaceState(window.history.state, "", url);
+    },
+    [p.id],
+  );
   const mobile = mobileOf(p.phone);
   const siblings = (p.family ?? []).filter((m) => !m.self).length;
   const latest = [...p.terms].reverse().find((t) => t.percent !== null) ?? null;
@@ -202,8 +285,31 @@ export function Student360({ p }: { p: Student360Props }) {
     [T.status, p.status],
   ];
 
+  const receiptsCard = (
+    <Card pad={false} style={{ overflow: "hidden" }}>
+      <div style={{ padding: "16px 18px 6px" }}>
+        <CardHead title={tx(T.receipts)} />
+      </div>
+      {(p.receipts ?? []).length === 0 ? (
+        <EmptyState icon="receipt" title={tx(T.noReceipts)} />
+      ) : (
+        (p.receipts ?? []).map((r) => (
+          <Link key={r.id} href={`/fees/receipts/${r.id}`} className="row tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderTop: "1px solid var(--bd)" }}>
+            <Ic n="receipt" size={18} style={{ color: "var(--mut)" }} />
+            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <strong className="num">{r.number}</strong>
+              <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{dateLabel(r.date)} · {MODE_LABEL[r.mode] ?? r.mode}</span>
+            </span>
+            {r.reversed ? <Pill tone="bad">{tx(T.reversed)}</Pill> : null}
+            <strong className="num" style={{ textDecoration: r.reversed ? "line-through" : undefined }}>{rupees(r.amount)}</strong>
+          </Link>
+        ))
+      )}
+    </Card>
+  );
+
   let body: React.ReactNode;
-  switch (p.tab) {
+  switch (tab) {
     case "overview":
       body = (
         <>
@@ -222,38 +328,8 @@ export function Student360({ p }: { p: Student360Props }) {
       );
       break;
     case "fees":
-      body = p.money ? (
-        <>
-          <Card>
-            <Grid cols={4}>
-              <Stat label={tx(T.pendingToday)} value={rupees(p.money.pendingToday)} tone={p.money.pendingToday > 0 ? "var(--bad)" : undefined} />
-              <Stat label={tx(T.notDueYet)} value={rupees(p.money.notDueYet)} />
-              <Stat label={tx(T.lateFee)} value={rupees(p.money.lateFee)} sub={tx(T.lateFeeApart)} />
-              <Stat label={tx(T.paidYear)} value={rupees(p.money.paid)} sub={tx(T.yearPaidPct(p.money.percent))} />
-            </Grid>
-          </Card>
-          {installmentsCard}
-          <Card pad={false} style={{ overflow: "hidden" }}>
-            <div style={{ padding: "16px 18px 6px" }}>
-              <CardHead title={tx(T.receipts)} />
-            </div>
-            {(p.receipts ?? []).length === 0 ? (
-              <EmptyState icon="receipt" title={tx(T.noReceipts)} />
-            ) : (
-              (p.receipts ?? []).map((r) => (
-                <Link key={r.id} href={`/fees/receipts/${r.id}`} className="row tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderTop: "1px solid var(--bd)" }}>
-                  <Ic n="receipt" size={18} style={{ color: "var(--mut)" }} />
-                  <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                    <strong className="num">{r.number}</strong>
-                    <span style={{ fontSize: 12.5, color: "var(--mut)", textTransform: "capitalize" }}>{dateLabel(r.date)} · {r.mode}</span>
-                  </span>
-                  {r.reversed ? <Pill tone="bad">{tx(T.reversed)}</Pill> : null}
-                  <strong className="num" style={{ textDecoration: r.reversed ? "line-through" : undefined }}>{rupees(r.amount)}</strong>
-                </Link>
-              ))
-            )}
-          </Card>
-        </>
+      body = p.money && p.feeSummary ? (
+        <FeesTab p={p} summary={p.feeSummary} receiptsCard={receiptsCard} />
       ) : (
         <Card><p style={{ margin: 0, color: "var(--mut)" }}>{tx(T.noFeeRecord)}</p></Card>
       );
@@ -397,15 +473,186 @@ export function Student360({ p }: { p: Student360Props }) {
             {p.money ? <Btn icon="send" href={`/fees/students/${p.id}/statement`}>{tx(T.statement)}</Btn> : null}
           </div>
           <ChipRow label={tx(T.tabOverview)}>
-            {p.tabs.map((tab) => (
-              <Link key={tab} href={tab === "overview" ? `/students/${p.id}` : `/students/${p.id}?tab=${tab}`} className={`tap chip${p.tab === tab ? " on" : ""}`} aria-current={p.tab === tab ? "page" : undefined}>
-                {tx(TAB_LABEL[tab])}
-              </Link>
+            {p.tabs.map((t) => (
+              <a key={t} href={t === "overview" ? `/students/${p.id}` : `/students/${p.id}?tab=${t}`} onClick={pick(t)} className={`tap chip${tab === t ? " on" : ""}`} aria-current={tab === t ? "page" : undefined}>
+                {tx(TAB_LABEL[t])}
+              </a>
             ))}
           </ChipRow>
           {body}
         </Section>
       </main>
+    </>
+  );
+}
+
+const MODE_LABEL: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque", discount: "Written off" };
+
+/**
+ * The fee app's student money, figure for figure: the ribbon sentence, the
+ * four strips, the Dues table and the fee breakup. Fees and the late fee stay
+ * two numbers everywhere; a waiver is shown, never folded into a total.
+ */
+function FeesTab({ p, summary, receiptsCard }: { p: Student360Props; summary: StudentFeeSummary; receiptsCard: React.ReactNode }) {
+  const { tx } = useVx();
+  const rows = p.installments ?? [];
+  const lastReceipt = (p.receipts ?? []).find((r) => !r.reversed) ?? null;
+  const breakup = p.feeBreakup;
+
+  const rb = feeRibbon(summary);
+  const ribbon: { tone: Tone; title: string; detail: string } =
+    rb.kind === "overdue"
+      ? { tone: "bad", title: tx(T.rbOverdue), detail: tx(T.rbOverdueDetail(rupees(rb.overdue), rb.lateFee > 0 ? rupees(rb.lateFee) : null)) }
+      : rb.kind === "credit"
+        ? { tone: "info", title: tx(T.rbCredit), detail: tx(T.rbCreditDetail(rupees(rb.credit))) }
+        : rb.kind === "clear"
+          ? { tone: "ok", title: tx(T.rbClear), detail: tx(T.rbClearDetail) }
+          : rb.kind === "next"
+            ? { tone: "mut", title: tx(T.rbNextDue(dateLabel(rb.dueDate))), detail: tx(T.rbNextDueDetail(rb.label, rupees(rb.amount))) }
+            : { tone: "mut", title: tx(T.outstanding), detail: "" };
+  const rc = toneColors(ribbon.tone);
+
+  return (
+    <>
+      <div role="status" style={{ padding: "10px 14px", borderRadius: 14, background: rc.bg, color: rc.fg, fontSize: 14 }}>
+        <strong>{ribbon.title}</strong>
+        {ribbon.detail ? <span style={{ opacity: 0.9 }}> · {ribbon.detail}</span> : null}
+      </div>
+
+      <Grid cols={4}>
+        <Card style={{ padding: "14px 16px" }}>
+          <Stat
+            label={tx(T.outstanding)}
+            value={rupees(summary.outstanding)}
+            tone={summary.outstanding > 0 ? "var(--bad)" : "var(--ok)"}
+            sub={
+              summary.lateFeePending > 0
+                ? `${tx(T.inclLateFee(rupees(summary.lateFeePending)))} · ${tx(T.installmentsPendingN(summary.installmentsPending))}`
+                : tx(T.installmentsPendingN(summary.installmentsPending))
+            }
+          />
+        </Card>
+        <Card style={{ padding: "14px 16px" }}>
+          <Stat
+            label={tx(T.paidThisSession)}
+            value={rupees(summary.paidThisSession)}
+            tone="var(--ok)"
+            sub={summary.discountClosed > 0 ? tx(T.closedAsDiscount(rupees(summary.discountClosed))) : tx(T.acrossReceipts((p.receipts ?? []).length))}
+          />
+        </Card>
+        <Card style={{ padding: "14px 16px" }}>
+          <Stat label={tx(T.sessionFee)} value={rupees(summary.sessionFee)} sub={tx(T.settledOf(summary.installmentsPaid, summary.installmentsTotal))} />
+        </Card>
+        {lastReceipt ? (
+          <Link href={`/fees/receipts/${lastReceipt.id}`} className="tap" style={{ display: "block" }}>
+            <Card style={{ padding: "14px 16px" }}>
+              <Stat label={tx(T.lastReceipt)} value={rupees(lastReceipt.amount)} sub={`${lastReceipt.number} · ${dateLabel(lastReceipt.date)}`} />
+            </Card>
+          </Link>
+        ) : (
+          <Card style={{ padding: "14px 16px" }}>
+            <Stat label={tx(T.lastReceipt)} value="—" sub={tx(T.noPaymentYet)} />
+          </Card>
+        )}
+      </Grid>
+
+      <Card pad={false} style={{ overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px 10px" }}>
+          <CardHead
+            title={tx(T.dues)}
+            sub={p.feeSession ?? undefined}
+            action={<Link href={`/fees/students/${p.id}?tab=dues`} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(T.fullFeeRecord)}</Link>}
+          />
+        </div>
+        {rows.length === 0 ? (
+          <p style={{ margin: 0, padding: "0 18px 16px", color: "var(--mut)" }}>{tx(T.noFeeRecord)}</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 14 }}>
+              <thead>
+                <tr style={{ background: "var(--s2)", color: "var(--mut)", fontSize: 12, textAlign: "left" }}>
+                  <th style={{ padding: "10px 18px", fontWeight: 600 }}>{tx(T.colInstallment)}</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>{tx(T.colDueDate)}</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600, textAlign: "right" }}>{tx(T.colCharged)}</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600, textAlign: "right" }}>{tx(T.colPaid)}</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600, textAlign: "right" }}>{tx(T.colOutstanding)}</th>
+                  <th style={{ padding: "10px 18px 10px 12px", fontWeight: 600 }}>{tx(T.colStatus)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const look = STATUS_LOOK[row.status] ?? STATUS_LOOK.pending;
+                  return (
+                    <tr key={row.id} style={{ borderTop: "1px solid var(--bd)", verticalAlign: "top" }}>
+                      <td style={{ padding: "12px 18px", fontWeight: 600 }}>
+                        {row.label}
+                        {row.carry ? <span style={{ display: "block", fontSize: 11.5, color: "var(--mut)", fontWeight: 500 }}>{tx(T.carryForward)}</span> : null}
+                      </td>
+                      <td className="num" style={{ padding: "12px", color: "var(--mut)" }}>{dateLabel(row.dueDate)}</td>
+                      <td className="num" style={{ padding: "12px", textAlign: "right" }}>
+                        {rupees(row.base + row.lateFee)}
+                        {row.lateFee > 0 ? <span style={{ display: "block", fontSize: 11.5, color: "var(--bad)" }}>{tx(T.rowLateFee(rupees(row.lateFee)))}</span> : null}
+                        {row.lateFeeWaived > 0 ? <span style={{ display: "block", fontSize: 11.5, color: "var(--ok)" }}>{tx(T.rowLateFeeWaived(rupees(row.lateFeeWaived)))}</span> : null}
+                      </td>
+                      <td className="num" style={{ padding: "12px", textAlign: "right", color: "var(--ok)" }}>
+                        {rupees(row.paid)}
+                        {row.adjusted !== 0 ? <span style={{ display: "block", fontSize: 11.5, color: "var(--mut)" }}>{tx(T.rowAdjusted(rupees(row.adjusted)))}</span> : null}
+                        {row.receiptedHere !== row.paid ? <span style={{ display: "block", fontSize: 11.5, color: "var(--mut)" }}>{tx(T.rowReceiptedHere(rupees(row.receiptedHere)))}</span> : null}
+                      </td>
+                      <td className="num" style={{ padding: "12px", textAlign: "right", fontWeight: 700 }}>
+                        {rupees(row.pending)}
+                        {row.lateFeePending > 0 ? <span style={{ display: "block", fontSize: 11.5, color: "var(--bad)", fontWeight: 500 }}>{tx(T.rowLateFeeOwed(rupees(row.lateFeePending)))}</span> : null}
+                      </td>
+                      <td style={{ padding: "12px 18px 12px 12px" }}><Pill tone={look.tone}>{tx(look.label)}</Pill></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {breakup ? (
+        <Card pad={false} style={{ overflow: "hidden" }}>
+          <div style={{ padding: "16px 18px 10px" }}>
+            <CardHead
+              title={tx(T.feeBreakup)}
+              action={p.canManageFees ? <Link href={`/fees/students/${p.id}?tab=fee-plan`} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(T.waiveOrEdit)}</Link> : undefined}
+            />
+          </div>
+          <div style={{ padding: "0 18px 14px" }}>
+            <Grid cols={4}>
+              <Stat label={tx(T.tuitionOverride)} value={breakup.tuitionOverride !== null ? rupees(breakup.tuitionOverride) : tx(T.classDefault)} />
+              <Stat label={tx(T.transportOverride)} value={breakup.transportOverride !== null ? rupees(breakup.transportOverride) : tx(T.routeDefault)} />
+              <Stat label={tx(T.discount)} value={rupees(breakup.discountTotal)} sub={breakup.discountLabels.length ? breakup.discountLabels.join(", ") : undefined} />
+              <Stat label={tx(T.lateFeeWaivedSoFar)} value={rupees(summary.lateFeeWaived)} />
+            </Grid>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr style={{ background: "var(--s2)", color: "var(--mut)", fontSize: 12, textAlign: "left" }}>
+                <th style={{ padding: "10px 18px", fontWeight: 600 }}>{tx(T.feeHead)}</th>
+                <th style={{ padding: "10px 18px", fontWeight: 600, textAlign: "right" }}>{tx(T.amount)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakup.rows.map((row) => (
+                <tr key={row.id} style={{ borderTop: "1px solid var(--bd)", background: row.kind === "discount" ? "var(--accs)" : undefined }}>
+                  <td style={{ padding: "10px 18px" }}>{row.label}</td>
+                  <td className="num" style={{ padding: "10px 18px", textAlign: "right", fontWeight: 600 }}>{row.amount < 0 ? `−${rupees(Math.abs(row.amount))}` : rupees(row.amount)}</td>
+                </tr>
+              ))}
+              <tr style={{ borderTop: "1px solid var(--bd)", background: "var(--s2)", fontWeight: 700 }}>
+                <td style={{ padding: "10px 18px" }}>{tx(T.annualTotal)}</td>
+                <td className="num" style={{ padding: "10px 18px", textAlign: "right" }}>{rupees(breakup.annualTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </Card>
+      ) : null}
+
+      {receiptsCard}
     </>
   );
 }

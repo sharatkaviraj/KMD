@@ -13,6 +13,7 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { initials, schoolToday } from "@/vx/format";
 import { loadInbox } from "@/vx/screens/admin/data";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
+import { NavTrail } from "@/vx/ui/back-link";
 import { avatarColor } from "@/vx/ui/primitives";
 import { ToastProvider } from "@/vx/ui/overlays";
 import { previewPermissions, type Viewer } from "@/vx/view-as";
@@ -71,14 +72,17 @@ export async function VxShell({
   children: ReactNode;
 }) {
   const { staff, menu, previewing } = viewer;
-  const previewPerms = previewing ? await previewPermissions(previewing) : null;
+  // Both reads at once: every full page load waits on this frame.
+  const [previewPerms, large] = await Promise.all([
+    previewing ? previewPermissions(previewing) : Promise.resolve(null),
+    prefersLargeText(staff.id).catch(() => false),
+  ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
 
   const groups = groupsFor(menu, allowed);
   const tabs = bottomFor(menu, allowed);
   const badges = loadBadges(viewer, sessionLabel);
   const fees = can(staff, "fees:view");
-  const large = await prefersLargeText(staff.id).catch(() => false);
 
   const roleLine = `${MENU_LABEL[menu].en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}` : ""}`;
   const me = {
@@ -114,6 +118,7 @@ export async function VxShell({
       <ToastProvider>
         <Suspense fallback={null}>
           <RouteProgress />
+          <NavTrail />
           {fees ? <OfficeSyncListener sessionLabel={sessionLabel} /> : null}
         </Suspense>
         <a href="#vx-main" className="vx-skip">Skip to content</a>

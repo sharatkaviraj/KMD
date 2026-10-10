@@ -8,6 +8,7 @@ import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { ChipRow, SearchBox, Select } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
+import { IntentLink } from "@/vx/ui/intent-link";
 import { DataList, Section, TopBar, type Column } from "@/vx/ui/page";
 import { Avatar, Btn, Card, EmptyState } from "@/vx/ui/primitives";
 import { mobileOf, studentsHref, toCsv, type StudentSegment } from "@/vx/screens/admin/logic";
@@ -119,12 +120,12 @@ export function StudentsScreen(props: StudentsProps) {
           style={{ width: 18, height: 18, flex: "none", accentColor: "var(--pri)" }}
         />
         <Avatar text={initials(row.name)} seed={row.name} size={36} />
-        <Link href={`/students/${row.id}`} className="tap" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <IntentLink href={`/students/${row.id}`} className="tap" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
           <span className="clip" style={{ fontWeight: 600 }}>{row.name}</span>
           <span className="clip only-d" style={{ fontSize: 12.5, color: "var(--mut)", fontWeight: 400 }}>
             {[row.sr ? `SR ${row.sr}` : null, row.parent].filter(Boolean).join(" · ") || "—"}
           </span>
-        </Link>
+        </IntentLink>
       </span>
     ),
   };

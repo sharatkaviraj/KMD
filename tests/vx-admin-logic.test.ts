@@ -6,6 +6,7 @@ import {
   classPercent,
   classState,
   dailySeries,
+  feeRibbon,
   feeStanding,
   filterBoard,
   inboxCounts,
@@ -254,5 +255,26 @@ describe("students", () => {
     expect(average([70, 81])).toBe(76);
     expect(average([])).toBeNull();
     expect(toCsv(["a", "b"], [["x\"y", 2], [null, "z"]])).toBe('"a","b"\r\n"x""y","2"\r\n"","z"');
+  });
+});
+
+describe("the fee ribbon picks one sentence, as the fee app does", () => {
+  const base = { overdue: 0, lateFeePending: 0, creditBalance: 0, outstanding: 0, nextDue: null };
+
+  it("overdue fees win, with the late fee alongside rather than inside", () => {
+    expect(feeRibbon({ ...base, overdue: 4000, lateFeePending: 1000, creditBalance: 500, outstanding: 9000 })).toEqual({ kind: "overdue", overdue: 4000, lateFee: 1000 });
+  });
+
+  it("a late fee alone never reads as overdue", () => {
+    expect(feeRibbon({ ...base, lateFeePending: 1000 }).kind).toBe("clear");
+  });
+
+  it("a credit comes before year clear", () => {
+    expect(feeRibbon({ ...base, creditBalance: 300 })).toEqual({ kind: "credit", credit: 300 });
+  });
+
+  it("names the next installment when nothing is overdue", () => {
+    const nextDue = { label: "Installment 3", amount: 5000, dueDate: "2026-10-20" };
+    expect(feeRibbon({ ...base, outstanding: 10000, nextDue })).toEqual({ kind: "next", ...nextDue });
   });
 });

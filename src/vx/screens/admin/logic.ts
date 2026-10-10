@@ -423,3 +423,32 @@ export function toCsv(header: readonly string[], rows: readonly (readonly (strin
   const cell = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   return [header, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
 }
+
+/* ---------------------------------------------------------- fee ribbon */
+
+export type FeeRibbon =
+  | { kind: "overdue"; overdue: number; lateFee: number }
+  | { kind: "credit"; credit: number }
+  | { kind: "clear" }
+  | { kind: "next"; label: string; amount: number; dueDate: string }
+  | { kind: "outstanding" };
+
+/**
+ * The one sentence above a child's fee figures, as the fee app's
+ * `StudentMoneyBand` picks it: what the office must act on first wins, and
+ * only one ever shows. Overdue fees outrank a credit; the late fee rides along
+ * with the overdue sentence and never makes a child overdue by itself.
+ */
+export function feeRibbon(summary: {
+  overdue: number;
+  lateFeePending: number;
+  creditBalance: number;
+  outstanding: number;
+  nextDue: { label: string; amount: number; dueDate: string } | null;
+}): FeeRibbon {
+  if (summary.overdue > 0) return { kind: "overdue", overdue: summary.overdue, lateFee: summary.lateFeePending };
+  if (summary.creditBalance > 0) return { kind: "credit", credit: summary.creditBalance };
+  if (summary.outstanding <= 0) return { kind: "clear" };
+  if (summary.nextDue) return { kind: "next", ...summary.nextDue };
+  return { kind: "outstanding" };
+}

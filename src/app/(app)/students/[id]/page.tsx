@@ -38,7 +38,16 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   const search = await props.searchParams;
   const sessionLabel = await resolveSessionLabel();
 
-  const school = UUID.test(id) && sessionLabel ? await loadStudentSchool(staff, id, sessionLabel) : null;
+  const valid = UUID.test(id) && Boolean(sessionLabel);
+  const seesMoney = can(staff, "fees:view");
+
+  // Everything this card shows is independent of everything else, so it all
+  // starts at once: the fee side (the fee app's own reads) and the notes no
+  // longer wait for the school side to finish first. On a phone that was the
+  // difference between one round of queries and three in a row.
+  const feesPromise = valid && seesMoney ? studentFees(id).catch((): StudentFees | null => null) : Promise.resolve(null);
+  const notesPromise = valid && sessionLabel ? notesForStudentTab(staff, id, sessionLabel).catch(() => []) : Promise.resolve([]);
+  const school = valid && sessionLabel ? await loadStudentSchool(staff, id, sessionLabel) : null;
   if (!school || !sessionLabel) {
     return (
       <VxPage>
@@ -52,7 +61,6 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
     );
   }
 
-  const seesMoney = can(staff, "fees:view");
   const tabs = tabsFor({
     fees: seesMoney,
     documents: can(staff, "documents:view"),
@@ -63,10 +71,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   const tab = parseTab(typeof search.tab === "string" ? search.tab : null, tabs);
   const today = schoolToday();
 
-  const [fees, notes] = await Promise.all([
-    seesMoney ? studentFees(id).catch((): StudentFees | null => null) : Promise.resolve(null),
-    notesForStudentTab(staff, id, sessionLabel).catch(() => []),
-  ]);
+  const [fees, notes] = await Promise.all([feesPromise, notesPromise]);
 
   const closed = new Set(school.closedDays);
   const counts: Record<MarkStatus, number> = { present: 0, absent: 0, half_day: 0, late: 0, leave: 0 };
@@ -74,7 +79,10 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
 
   return (
     <VxPage label={school.card.fullName}>
+      {/* Keyed by child: the tab is client state now, and a sibling opened
+          from the family tab must start on its own overview. */}
       <Student360
+        key={id}
         p={{
           id,
           name: school.card.fullName,
@@ -94,15 +102,26 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           money: fees ? moneyFromInstallments(fees.installments, today) : null,
           installments: fees
             ? fees.installments.map((row) => ({
-                label: row.isCarryForward ? `${row.installmentLabel} ↺` : row.installmentLabel,
+                id: row.installmentId,
+                label: row.installmentLabel,
                 dueDate: row.dueDate,
                 state: installmentState(row, today),
+                status: row.balanceStatus,
                 pending: row.pendingAmount,
                 settled: row.feeSettledAmount,
+                paid: row.settledAmount,
+                receiptedHere: row.appliedAmount + row.discountCloseoutAmount,
+                adjusted: row.adjustmentAmount,
                 base: row.baseCharge,
+                lateFee: row.finalLateFee,
+                lateFeeWaived: row.waiverApplied,
+                lateFeePending: row.lateFeePending,
                 carry: row.isCarryForward,
               }))
             : null,
+          feeSummary: fees?.summary ?? null,
+          feeBreakup: fees?.breakup ?? null,
+          feeSession: fees?.sessionLabel ?? null,
           receipts: fees?.receipts ?? null,
           family: fees ? fees.family.map((m) => ({ id: m.id, name: m.fullName, sr: m.admissionNo, classLabel: m.classLabel, self: m.isSelf })) : null,
           attendance: {
@@ -139,6 +158,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           })),
           canCollect: can(staff, "fees:collect"),
           canManageDocuments: can(staff, "documents:manage"),
+          canManageFees: can(staff, "fees:manage"),
         }}
       />
     </VxPage>

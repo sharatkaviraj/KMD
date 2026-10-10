@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { Ic } from "@/vx/icons";
+import { BackLink } from "@/vx/ui/back-link";
 
 /*
  * The page frame every vx screen sits in: one `.vx` container (the 900px
@@ -52,9 +53,9 @@ export function TopBar({
       </header>
       <header className="only-m glass vx-top" style={{ flex: "none", minHeight: 58, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid var(--bd)" }}>
         {mBack ? (
-          <Link href={mBack} className="tap icon-btn" aria-label="Back" style={{ width: 44, height: 44, borderRadius: 22 }}>
+          <BackLink href={mBack} className="tap icon-btn" style={{ width: 44, height: 44, borderRadius: 22 }}>
             <Ic n="chevLeft" size={24} />
-          </Link>
+          </BackLink>
         ) : (
           <span style={{ width: 8 }} />
         )}

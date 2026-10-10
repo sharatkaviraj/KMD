@@ -105,17 +105,23 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
   // Through the cookie client, so RLS applies: the SELECT policy on
   // staff_profiles is what permits this read. The service-role client is for
   // writes, after a permission check — not for reading your own row.
-  const { data } = await supabase
-    .from("staff_profiles")
-    .select(STAFF_PROFILE_COLUMNS)
-    .eq("user_id", userId)
-    .maybeSingle<StaffProfileRow>();
+  //
+  // The permission matrix is read beside the profile, not after it:
+  // `my_permissions()` keys on auth.uid(), not on the profile row, and every
+  // signed-in page waits on this function, so the second round trip was paid
+  // on every navigation in the app.
+  const [{ data }, permissions] = await Promise.all([
+    supabase
+      .from("staff_profiles")
+      .select(STAFF_PROFILE_COLUMNS)
+      .eq("user_id", userId)
+      .maybeSingle<StaffProfileRow>(),
+    readMatrixPermissions(supabase),
+  ]);
 
   if (!data) {
     return { staff: null, reason: NO_PROFILE };
   }
-
-  const permissions = await readMatrixPermissions(supabase);
 
   const staff: CurrentStaff = {
     id: data.id,

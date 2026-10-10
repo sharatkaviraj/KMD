@@ -51,7 +51,9 @@ export default async function StudentsPage(props: PageProps<"/students">) {
 
   const seesMoney = can(staff, "fees:view");
   const seg = seesMoney ? parseSegment(one(params.seg)) : "all";
-  const labels = await classLabelMap(sessionLabel);
+  // Started now, awaited last: the class names are only needed for the
+  // filter and the no-money list, and must not hold up the money read.
+  const labelsPromise = classLabelMap(sessionLabel);
 
   let rows: StudentListRow[] = [];
   let total = 0;
@@ -82,6 +84,8 @@ export default async function StudentsPage(props: PageProps<"/students">) {
       failed = true;
     }
   }
+
+  const labels = await labelsPromise;
 
   if (!moneyMode) {
     const results = await searchStudents({ text: q, classId, page }, sessionLabel);

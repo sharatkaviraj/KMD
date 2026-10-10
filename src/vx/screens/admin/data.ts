@@ -560,11 +560,12 @@ export type StudentSchool = {
 
 export async function loadStudentSchool(staff: CurrentStaff, studentId: string, sessionLabel: string): Promise<StudentSchool | null> {
   await assertPermission("students:view");
-  const card = await getStudentCard(studentId);
-  if (!card) return null;
-
+  // The card is read beside everything else rather than first: a child who
+  // does not exist costs a few wasted reads, and every child who does is shown
+  // one round trip sooner.
   const missing: string[] = [];
-  const [enrolment, labels, attendance, rules, calendar, terms, documents, history] = await Promise.all([
+  const [card, enrolment, labels, attendance, rules, calendar, terms, documents, history] = await Promise.all([
+    getStudentCard(studentId),
     enrolmentForStudent(studentId, sessionLabel),
     classLabelMap(sessionLabel),
     guard(missing, "attendance", () => studentAttendance(studentId, sessionLabel)),
@@ -574,6 +575,7 @@ export async function loadStudentSchool(staff: CurrentStaff, studentId: string, 
     can(staff, "documents:view") ? guard(missing, "documents", () => documentsForStudent(studentId)) : Promise.resolve(null),
     can(staff, "collection:view") ? guard(missing, "history", () => historyForStudent(studentId)) : Promise.resolve(null),
   ]);
+  if (!card) return null;
 
   const credit = rules?.halfDayCredit ?? 0.5;
   // As the register sheet counts: leave is left out, late counts as present.
