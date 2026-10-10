@@ -314,3 +314,40 @@ export function planRebuild(
 
   return { rows, skippedNoClass, skippedInactive };
 }
+
+/**
+ * What one change on the fee side (a withdrawal, an undo, a class move, a
+ * promotion) means for these children's enrolments.
+ *
+ * An active child with a class is enrolled in that class for the class's
+ * session, which moves them when their class changed and re-enrols them after
+ * an undone withdrawal. A child who left is marked left, never deleted: their
+ * attendance and marks stay. A graduate is left alone, since their last
+ * session's row is the record of the year they finished.
+ */
+export function planStudentSync(
+  students: (FeeStudent & { classSession: string | null })[],
+): {
+  enrol: { student_id: string; class_id: string; session_label: string; roll_no: string | null; status: "enrolled"; left_on: null }[];
+  left: string[];
+} {
+  const enrol = [];
+  const left: string[] = [];
+  for (const student of students) {
+    const status = (student.status ?? "").toLowerCase();
+    if (status === "left" || status === "inactive") {
+      left.push(student.id);
+      continue;
+    }
+    if (status === "graduated" || !student.classId || !student.classSession) continue;
+    enrol.push({
+      student_id: student.id,
+      class_id: student.classId,
+      session_label: student.classSession,
+      roll_no: student.rollNo,
+      status: "enrolled" as const,
+      left_on: null,
+    });
+  }
+  return { enrol, left };
+}

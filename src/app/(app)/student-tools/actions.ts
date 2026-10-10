@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { enrolMissingStudents, syncStudentEnrolments } from "@/modules/enrolments/data/enrolments-repo";
 import { editStudent, type EditPatch } from "@/modules/students-fees/vx/admissions";
 import { mergeFamily, splitFromFamily } from "@/modules/students-fees/vx/families";
 import { approveSafeRows, checkImportRows, commitImport, uploadImport } from "@/modules/imports/vx/flow";
@@ -65,6 +67,8 @@ export async function applyPromotionAction(input: { runId: string; classMap: Rec
     const current = new Map(entries.map((e) => [e.id, { decision: e.decision, newClassId: e.newClassId }]));
     await setEntryTargets(input.runId, groupPlanWrites(plan, current));
     await applyPromotion(input.runId);
+    // Promoted children onto their new class's register for the new session.
+    await syncStudentEnrolments(entries.map((e) => e.studentId), staff.userId);
     await logBulkChange({
       kind: "promote",
       title: `Promoted ${counts.promote} students to ${board.targetSessionLabel}`,
@@ -138,6 +142,10 @@ export async function commitImportAction(batchId: string, filename: string) {
   await assertNotPreviewing();
   try {
     const result = await commitImport(batchId);
+    if (result.importedCount > 0) {
+      const sessionLabel = await resolveSessionLabel();
+      if (sessionLabel) await enrolMissingStudents(sessionLabel, staff.userId);
+    }
     if (result.importedCount > 0 && result.remainingCount === 0) {
       await logBulkChange({ kind: "import", title: `Imported ${result.importedCount} students from ${filename}`, detail: { batchId, ...result }, staffId: staff.id });
     }

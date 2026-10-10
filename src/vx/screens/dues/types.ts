@@ -30,7 +30,7 @@ export type LeftView = {
   classLabel: string | null;
   owed: number;
   lastPaymentDate: string | null;
-  writeOff: { status: string; amount: number } | null;
+  writeOff: { status: string; amount: number; reasonCode: string; note: string | null; by: string | null } | null;
 };
 
 export type KidInstallment = { no: number; label: string; dueDate: string; pending: number; lateFee: number; status: string; carry: boolean };
@@ -61,5 +61,5 @@ export type DuesProps = {
   detail: { installments: Record<string, KidInstallment[]>; contacts: FamilyContact[] } | null;
   sheet: DuesSheet | null;
   writeOffFor: LeftView | null;
-  perms: { log: boolean; plan: boolean; planEnabled: boolean; collect: boolean };
+  perms: { log: boolean; plan: boolean; planEnabled: boolean; collect: boolean; writeOff: boolean };
 };

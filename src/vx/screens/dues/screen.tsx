@@ -234,9 +234,13 @@ export function DuesScreen(props: DuesProps) {
                       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                         <Money value={l.owed} style={{ fontWeight: 700 }} />
                         {l.writeOff?.status === "pending" ? (
-                          <Pill tone="warn">{tx(W.woPending)} · {rupees(l.writeOff.amount)}</Pill>
-                        ) : props.perms.log ? (
-                          <Btn variant="ghost" href={duesHref("left", { wo: l.studentId, sheet: "wo" })} style={{ height: 30, fontSize: 12 }}>{tx(W.requestWriteOff)}</Btn>
+                          props.perms.writeOff ? (
+                            <Btn variant="ghost" href={duesHref("left", { wo: l.studentId, sheet: "wo" })} style={{ height: 30, fontSize: 12 }}>{tx(W.woPending)} · {rupees(l.writeOff.amount)} · {tx(W.woDecideShort)}</Btn>
+                          ) : (
+                            <Pill tone="warn">{tx(W.woPending)} · {rupees(l.writeOff.amount)}</Pill>
+                          )
+                        ) : props.perms.log || props.perms.writeOff ? (
+                          <Btn variant="ghost" href={duesHref("left", { wo: l.studentId, sheet: "wo" })} style={{ height: 30, fontSize: 12 }}>{tx(props.perms.writeOff ? W.woApprove : W.requestWriteOff)}</Btn>
                         ) : null}
                       </span>
                     }
@@ -308,7 +312,7 @@ export function DuesScreen(props: DuesProps) {
       <main>
         <Split list={list} detail={selected ? <FamilyPanel {...props} family={selected} /> : undefined} detailWidth={440} />
       </main>
-      {props.writeOffFor ? <WriteOffSheet key={props.writeOffFor.studentId} row={props.writeOffFor} sessionLabel={props.sessionLabel} open={props.sheet === "wo"} /> : null}
+      {props.writeOffFor ? <WriteOffSheet key={props.writeOffFor.studentId} row={props.writeOffFor} sessionLabel={props.sessionLabel} open={props.sheet === "wo"} canDecide={props.perms.writeOff} /> : null}
     </VxPage>
   );
 }

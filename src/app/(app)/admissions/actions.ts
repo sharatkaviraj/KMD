@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { syncStudentEnrolments } from "@/modules/enrolments/data/enrolments-repo";
+
 import { assertPermission } from "@/platform/auth/current-staff";
 import {
   admitStudent,
@@ -138,7 +140,7 @@ export async function admitAction(request: AdmitRequest) {
 }
 
 export async function editStudentAction(studentId: string, sessionLabel: string, patch: EditPatch & { dob?: string; nameHi?: string; docs?: Partial<Record<DocKey, boolean>> }) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
   await assertNotPreviewing();
   const { dob, nameHi, docs, ...rest } = patch;
   const fee: EditPatch = { ...rest };
@@ -151,6 +153,8 @@ export async function editStudentAction(studentId: string, sessionLabel: string,
     if (Object.keys(fee).length > 0) {
       const saved = await editStudent(studentId, fee);
       if (!saved.ok) return { ok: false as const, message: saved.message, fieldErrors: saved.fieldErrors };
+      // A class move puts the child on the new class's register.
+      if (fee.classId) await syncStudentEnrolments([studentId], staff.userId);
     }
     if (nameHi !== undefined || docs !== undefined) {
       await updateAdmissionDetail(studentId, sessionLabel, { nameHi: nameHi === undefined ? undefined : nameHi.trim() || null, docs });
@@ -163,25 +167,31 @@ export async function editStudentAction(studentId: string, sessionLabel: string,
 }
 
 export async function withdrawAction(input: { studentId: string; sessionLabel: string; leftOn: string; reason: string }) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
   await assertNotPreviewing();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.leftOn)) return { ok: false as const, message: "Pick the last day in school." };
   try {
     const tc = tcNumber(input.sessionLabel, (await countTcsIssued(input.sessionLabel)) + 1);
     const result = await withdrawStudent({ studentId: input.studentId, leftOn: input.leftOn, reason: input.reason, tcNumber: tc });
+    // Off the teachers' registers too. The withdrawal has happened either way,
+    // so a failure here is reported in the message rather than as a failure.
+    const synced = result.ok ? await syncStudentEnrolments([input.studentId], staff.userId, input.leftOn).then(() => null, message) : null;
     revalidatePath(`/admissions/${input.studentId}`);
     revalidatePath("/admissions");
-    return result.ok ? { ok: true as const, tcNumber: tc, message: result.message } : { ok: false as const, message: result.message };
+    return result.ok
+      ? { ok: true as const, tcNumber: tc, message: synced ? `${result.message} The class list was not updated: ${synced}` : result.message }
+      : { ok: false as const, message: result.message };
   } catch (error) {
     return { ok: false as const, message: message(error) };
   }
 }
 
 export async function undoWithdrawAction(studentId: string) {
-  await assertPermission("fees:manage");
+  const staff = await assertPermission("fees:manage");
   await assertNotPreviewing();
   try {
     const result = await undoWithdraw(studentId);
+    if (result.ok) await syncStudentEnrolments([studentId], staff.userId).catch(() => undefined);
     revalidatePath(`/admissions/${studentId}`);
     return result;
   } catch (error) {

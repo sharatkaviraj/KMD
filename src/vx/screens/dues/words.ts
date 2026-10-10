@@ -118,10 +118,10 @@ export const W = {
   waFooter: p("Approved template · 1 family · 1 message · about ₹0.88", "स्वीकृत टेम्पलेट · 1 परिवार · 1 संदेश · लगभग ₹0.88"),
   waQueue: p("Queue reminder", "याद कतार में डालें"),
   waNote: p(
-    "Nothing is sent from here. The reminder is queued for the WhatsApp sender, which shows its own preview before anything goes out.",
-    "यहाँ से कुछ नहीं भेजा जाता। याद WhatsApp भेजने वाले की कतार में जाती है, जो भेजने से पहले अपनी झलक दिखाता है।",
+    "Nothing is sent from here. The reminder is saved, and WhatsApp sending from VPPS One is not switched on yet.",
+    "यहाँ से कुछ नहीं भेजा जाता। याद सहेजी जाती है; VPPS One से WhatsApp भेजना अभी चालू नहीं।",
   ),
-  waQueued: p("Reminder queued. Nothing has been sent yet.", "याद कतार में है। अभी कुछ नहीं भेजा गया।"),
+  waQueued: p("Reminder saved. Nothing has been sent.", "याद सहेजी। कुछ नहीं भेजा गया।"),
   // plan sheet
   planTitle: p("EMI plan", "EMI योजना"),
   child: p("Child", "बच्चा"),
@@ -157,6 +157,17 @@ export const W = {
   woSend: p("Send to Needs you", "'आपके लिए' में भेजें"),
   woSent: p("Sent to an admin under Needs you.", "एडमिन को 'आपके लिए' में भेजा।"),
   woExists: p("A write-off is already waiting for this child.", "इस बच्चे की माफ़ी पहले से प्रतीक्षा में है।"),
+  woDecideTitle: p("Write off what is owed?", "बकाया माफ़ करें?"),
+  woAskedBy: p("Asked by", "अनुरोध"),
+  woImpactAdmin: p(
+    "This posts a discount receipt for the amount, so the dues come off and the record stays. It cannot be edited later.",
+    "इस राशि की छूट रसीद बनेगी, बकाया घटेगा और रिकॉर्ड रहेगा। बाद में बदला नहीं जा सकता।",
+  ),
+  woApprove: p("Write off", "माफ़ करें"),
+  woDecline: p("Decline", "अस्वीकार करें"),
+  woDecideShort: p("Decide", "तय करें"),
+  woDone: p("Written off. A discount receipt keeps the record.", "माफ़ हुआ। छूट रसीद में रिकॉर्ड है।"),
+  woDeclinedToast: p("Request declined.", "अनुरोध अस्वीकार हुआ।"),
   owes: p("owes", "बकाया"),
 };
 

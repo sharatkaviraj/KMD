@@ -15,7 +15,7 @@ export const W = {
   remindersSent: p("Reminders sent", "भेजी गई याद"),
   funnel: p("Sent → delivered → read → paid within 7 days", "भेजे → पहुँचे → पढ़े → 7 दिन में जमा"),
   queued: p("Queued here", "यहाँ कतार में"),
-  queuedSub: p("waiting for the WhatsApp sender · nothing sent from here", "WhatsApp भेजने वाले की प्रतीक्षा · यहाँ से कुछ नहीं भेजा"),
+  queuedSub: p("saved, not sent · WhatsApp sending is not switched on yet", "सहेजे, भेजे नहीं · WhatsApp भेजना अभी चालू नहीं"),
   scheduled: p("Scheduled", "तय समय"),
   cancelled: p("Cancelled", "रद्द"),
   auto: p("Automatic reminders", "अपने-आप याद"),
@@ -76,8 +76,8 @@ export const W = {
   // sending
   sendingTitle: p("Queued", "कतार में"),
   sendingNote: p(
-    "This batch is queued. VPPS One does not send WhatsApp messages; the fee app's sender picks it up and shows its own preview before anything goes out.",
-    "यह बैच कतार में है। VPPS One WhatsApp नहीं भेजता; फीस ऐप का भेजने वाला इसे लेकर भेजने से पहले अपनी झलक दिखाता है।",
+    "This batch is saved, not sent. WhatsApp sending from VPPS One is not switched on yet, so no parent gets this until it is.",
+    "यह बैच सहेजा गया, भेजा नहीं गया। VPPS One से WhatsApp भेजना अभी चालू नहीं, तब तक किसी अभिभावक को यह नहीं जाएगा।",
   ),
   tQueued: p("Queued", "कतार में"),
   tSent: p("Sent", "भेजे"),

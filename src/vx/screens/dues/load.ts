@@ -106,8 +106,10 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
   const latestPromises = promises.filter((pv) => (seen.has(pv.familyKey) ? false : (seen.add(pv.familyKey), true)));
   const dueToday = latestPromises.filter((pv) => pv.promisedOn === today);
 
-  const pendingWriteOff = new Map<string, { status: string; amount: number }>();
-  for (const w of writeOffs) if (!pendingWriteOff.has(w.studentId)) pendingWriteOff.set(w.studentId, { status: w.status, amount: w.amount });
+  const pendingWriteOff = new Map<string, NonNullable<LeftView["writeOff"]>>();
+  for (const w of writeOffs)
+    if (!pendingWriteOff.has(w.studentId))
+      pendingWriteOff.set(w.studentId, { status: w.status, amount: w.amount, reasonCode: w.reasonCode, note: w.note, by: w.requestedByName });
   const left: LeftView[] = leftRows.map((r) => ({ ...r, writeOff: pendingWriteOff.get(r.studentId) ?? null }));
 
   const familyKey = one(search.family);
@@ -149,6 +151,7 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
       plan: fee.includes("fees:repayment_plan"),
       planEnabled: isRepaymentPlanCreationEnabled(),
       collect: can(staff, "fees:collect"),
+      writeOff: fee.includes("finance:write"),
     },
   };
 }

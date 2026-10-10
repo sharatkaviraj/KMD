@@ -9,6 +9,7 @@ import {
   groupDifferences,
   isActiveFeeStudent,
   planRebuild,
+  planStudentSync,
   reconcile,
   rollByClass,
   type Enrolment,
@@ -297,5 +298,19 @@ describe("rollByClass()", () => {
       [],
     );
     expect(roll.map((r) => r.feeClass.id)).toEqual(["c1", "c2"]);
+  });
+});
+
+describe("planStudentSync", () => {
+  it("enrols an active child in their class's session, marks leavers left, and leaves graduates alone", () => {
+    const plan = planStudentSync([
+      { ...student({ id: "a", classId: "c2" }), classSession: "2026-27" },
+      { ...student({ id: "b", status: "left" }), classSession: "2026-27" },
+      { ...student({ id: "c", status: "inactive" }), classSession: "2026-27" },
+      { ...student({ id: "d", status: "graduated" }), classSession: "2026-27" },
+      { ...student({ id: "e", classId: null }), classSession: null },
+    ]);
+    expect(plan.enrol).toEqual([{ student_id: "a", class_id: "c2", session_label: "2026-27", roll_no: "1", status: "enrolled", left_on: null }]);
+    expect(plan.left).toEqual(["b", "c"]);
   });
 });

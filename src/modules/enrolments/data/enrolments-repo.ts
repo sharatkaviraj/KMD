@@ -5,8 +5,12 @@ import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
+import { schoolToday } from "@/platform/dates";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import {
   planRebuild,
+  planStudentSync,
   type Enrolment,
   type EnrolmentStatus,
   type FeeStudent,
@@ -169,4 +173,83 @@ export async function rebuildEnrolments(
     skippedNoClass: plan.skippedNoClass,
     skippedInactive: plan.skippedInactive,
   };
+}
+
+/**
+ * Bring these children's enrolments in line with their fee row, after an
+ * action that changed it: a withdrawal or its undo, a class move, a promotion.
+ * Teachers' registers, marks and notes read enrolments, so without this a
+ * child who left stays on the register and a moved child stays in the old
+ * class. Callers have already checked their own permission.
+ */
+export async function syncStudentEnrolments(studentIds: string[], actorUserId: string | null, leftOn?: string): Promise<void> {
+  const ids = [...new Set(studentIds.filter(Boolean))];
+  if (ids.length === 0) return;
+  const admin = createAdminClient();
+  const students = await fetchInChunks<FeeStudentRow>(ids, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    admin.schema(FEE_SCHEMA).from("students").select("id, admission_no, full_name, class_id, roll_no, status").in("id", chunk).returns<FeeStudentRow[]>(),
+  );
+  if (students.error) throw new Error("Could not read the students to update the class lists.");
+  const classIds = [...new Set(students.data.map((row) => row.class_id).filter((id): id is string => !!id))];
+  const classes = await fetchInChunks<{ id: string; session_label: string }>(classIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    admin.schema(FEE_SCHEMA).from("classes").select("id, session_label").in("id", chunk).returns<{ id: string; session_label: string }[]>(),
+  );
+  if (classes.error) throw new Error("Could not read the classes to update the class lists.");
+  const sessionOf = new Map(classes.data.map((row) => [row.id, row.session_label]));
+
+  const plan = planStudentSync(
+    students.data.map((row) => ({
+      id: row.id,
+      admissionNo: row.admission_no,
+      fullName: row.full_name,
+      classId: row.class_id,
+      rollNo: row.roll_no,
+      status: row.status,
+      classSession: row.class_id ? (sessionOf.get(row.class_id) ?? null) : null,
+    })),
+  );
+
+  if (plan.enrol.length > 0) {
+    const { error } = await admin
+      .from("enrolments")
+      .upsert(plan.enrol.map((row) => ({ ...row, created_by: actorUserId })), { onConflict: "student_id,session_label" });
+    if (error) throw new Error(`Could not update the class lists: ${error.message}`);
+  }
+  for (let index = 0; index < plan.left.length; index += IN_FILTER_CHUNK_SIZE) {
+    const { error } = await admin
+      .from("enrolments")
+      .update({ status: "left", left_on: leftOn ?? schoolToday() })
+      .eq("status", "enrolled")
+      .in("student_id", plan.left.slice(index, index + IN_FILTER_CHUNK_SIZE));
+    if (error) throw new Error(`Could not update the class lists: ${error.message}`);
+  }
+}
+
+/**
+ * Enrol every active child of a session who has no enrolment yet: the
+ * children an import just added. Existing rows are left as they are, so a roll
+ * number edited here survives.
+ */
+export async function enrolMissingStudents(sessionLabel: string, actorUserId: string | null): Promise<number> {
+  const admin = createAdminClient();
+  const { data: classRows, error: classError } = await admin.schema(FEE_SCHEMA).from("classes").select("id").eq("session_label", sessionLabel).returns<{ id: string }[]>();
+  if (classError) throw new Error(`Could not read the fee app's classes: ${classError.message}`);
+  const classIds = classRows.map((row) => row.id);
+  if (classIds.length === 0) return 0;
+  const students = await fetchAllRows<FeeStudentRow>(
+    (from, to) =>
+      admin.schema(FEE_SCHEMA).from("students").select("id, admission_no, full_name, class_id, roll_no, status").in("class_id", classIds).order("id").range(from, to).returns<FeeStudentRow[]>(),
+    "the fee app's students",
+  );
+  const plan = planRebuild(
+    students.map((row) => ({ id: row.id, admissionNo: row.admission_no, fullName: row.full_name, classId: row.class_id, rollNo: row.roll_no, status: row.status })),
+    sessionLabel,
+  );
+  for (let index = 0; index < plan.rows.length; index += 500) {
+    const { error } = await admin
+      .from("enrolments")
+      .upsert(plan.rows.slice(index, index + 500).map((row) => ({ ...row, created_by: actorUserId })), { onConflict: "student_id,session_label", ignoreDuplicates: true });
+    if (error) throw new Error(`Could not enrol the new students: ${error.message}`);
+  }
+  return plan.rows.length;
 }

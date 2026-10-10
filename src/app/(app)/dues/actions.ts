@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { logContactAction } from "@/app/(app)/fees/defaulters/actions";
+import { closeDueAsDiscountAction } from "@/app/(app)/fees/students/close-due-actions";
 import { activateRepaymentPlanAction, cancelRepaymentPlanAction } from "@/app/(app)/fees/students/repayment-plan-actions";
 import { INITIAL_REPAYMENT_PLAN_ACTION_STATE } from "@/app/(app)/fees/students/repayment-plan-action-state";
 import { loadLeftOwing } from "@/modules/defaulters/vx/data";
@@ -17,8 +18,9 @@ import { isIsoDate } from "@/modules/receipts/vx/domain/day-close";
 import { previewRepaymentPlan } from "@/modules/repayment-plans/data/queries";
 import { audienceLine, DEFAULT_AUDIENCE, isTemplateId, messageCost } from "@/modules/whatsapp/vx/domain/reminders";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { schoolToday } from "@/vx/format";
-import { insertPromise, insertWriteOffRequest } from "@/vx/screens/dues/data";
+import { decideWriteOffRequests, insertPromise, insertWriteOffRequest } from "@/vx/screens/dues/data";
 import { insertBatch } from "@/vx/screens/reminders/data";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -271,6 +273,68 @@ export async function requestWriteOffAction(input: { studentId: string; sessionL
     });
     revalidatePath("/dues");
     return outcome === "exists" ? { ok: true, message: "exists" } : { ok: true };
+  } catch (caught) {
+    return failure(caught);
+  }
+}
+
+const WRITE_OFF_LABEL: Record<string, string> = {
+  moved: "Family moved away",
+  hardship: "Family in hardship",
+  too_small: "Too small to chase",
+  settled: "Settled by talk",
+};
+
+/**
+ * An admin writes off what a child who left owes, or declines a request to.
+ * The write-off goes through the fee app's own close-as-discount action (a
+ * discount receipt; nothing is deleted), and only then is the request marked
+ * approved, so a failed posting leaves it waiting under Needs you.
+ */
+export async function decideWriteOffAction(input: {
+  studentId: string;
+  sessionLabel: string;
+  decision: "approve" | "decline";
+  amount: number;
+  reasonCode: string;
+  note: string;
+}): Promise<DuesActionResult> {
+  try {
+    const staff = await assertPermission("fees:view");
+    await assertNotPreviewing();
+    if (!feePermissionsFor(staff.role).includes("finance:write")) return { ok: false, error: "Only an admin can decide a write-off." };
+    if (!UUID.test(input.studentId)) return { ok: false, error: "Pick a child." };
+    const note = input.note.trim().slice(0, 500);
+
+    if (input.decision === "decline") {
+      const closed = await decideWriteOffRequests(input.studentId, input.sessionLabel, "declined", staff.id, note || null);
+      if (closed === 0) return { ok: false, error: "There is no write-off waiting for this child." };
+      revalidatePath("/dues");
+      revalidatePath("/inbox");
+      revalidatePath("/");
+      return { ok: true, message: "declined" };
+    }
+
+    if (!isWriteOffReason(input.reasonCode)) return { ok: false, error: "Choose why." };
+    const left = (await loadLeftOwing()).find((l) => l.studentId === input.studentId);
+    if (!left) return { ok: false, error: "This child no longer owes anything." };
+    const amount = Number(input.amount);
+    if (!validWriteOffAmount(amount, left.owed)) return { ok: false, error: `Enter an amount from ₹1 to ₹${Math.round(left.owed)}.` };
+
+    const form = new FormData();
+    form.set("studentId", input.studentId);
+    form.set("sessionLabel", input.sessionLabel);
+    form.set("amount", String(Math.round(amount)));
+    form.set("reason", note ? `${WRITE_OFF_LABEL[input.reasonCode]}: ${note}` : WRITE_OFF_LABEL[input.reasonCode]);
+    form.set("writeOffReason", "left_school");
+    const result = await closeDueAsDiscountAction({ status: "idle", message: null, receiptNumber: null }, form);
+    if (result.status !== "success") return { ok: false, error: result.message ?? "Could not write this off." };
+    // The money has moved; a failure to close the request must not read as a failed write-off.
+    await decideWriteOffRequests(input.studentId, input.sessionLabel, "approved", staff.id, note || null).catch(() => 0);
+    revalidatePath("/dues");
+    revalidatePath("/inbox");
+    revalidatePath("/");
+    return { ok: true, message: result.receiptNumber ?? "approved" };
   } catch (caught) {
     return failure(caught);
   }

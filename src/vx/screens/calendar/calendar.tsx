@@ -43,7 +43,7 @@ function holidayTitle(h: { label: string | null; labelHi: string | null }, say: 
 function noticeStatus(n: Notice | undefined, say: Say): { text: string; tone: "ok" | "warn" | "mut" | "bad" } {
   if (!n) return { text: say("Parents not told", "अभिभावकों को सूचना नहीं"), tone: "mut" };
   if (n.status === "sent") return { text: say(`Told ${n.recipients}`, `${n.recipients} को बताया`), tone: "ok" };
-  if (n.status === "awaiting_approval") return { text: say(`Waiting for approval · ${n.recipients}`, `स्वीकृति की प्रतीक्षा · ${n.recipients}`), tone: "warn" };
+  if (n.status === "awaiting_approval") return { text: say(`Saved, not sent · ${n.recipients}`, `सहेजी, भेजी नहीं · ${n.recipients}`), tone: "warn" };
   if (n.status === "rejected") return { text: say("Notice turned down", "सूचना अस्वीकृत"), tone: "bad" };
   return { text: n.status, tone: "mut" };
 }
@@ -91,7 +91,7 @@ export async function SchoolCalendar(props: Props) {
       steps={[
         { icon: "calendar", title: say("One calendar", "एक कैलेंडर"), body: say("Holidays, exams, PTMs and events for the whole school, in one place.", "पूरे विद्यालय की छुट्टियाँ, परीक्षाएँ, अभिभावक बैठकें और कार्यक्रम एक जगह।") },
         { icon: "lock", title: say("Holidays close the register", "छुट्टी पर रजिस्टर बंद"), body: say("On a holiday nobody is asked to mark attendance and the timetable is off.", "छुट्टी के दिन हाज़िरी नहीं माँगी जाती और समय सारणी बंद रहती है।") },
-        { icon: "send", title: say("Telling parents", "अभिभावकों को सूचना"), body: say("A notice to parents waits for approval in Messages before anything is sent.", "अभिभावकों को सूचना भेजने से पहले Messages में स्वीकृति की प्रतीक्षा करती है।") },
+        { icon: "send", title: say("Telling parents", "अभिभावकों को सूचना"), body: say("A notice to parents is saved with the day. Nothing is sent to parents from here yet.", "अभिभावकों की सूचना दिन के साथ सहेजी जाती है। अभी यहाँ से अभिभावकों को कुछ नहीं भेजा जाता।") },
       ]}
     />
   );

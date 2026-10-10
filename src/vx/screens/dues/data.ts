@@ -69,23 +69,24 @@ export async function insertPromise(p: {
   if (error) throw new Error(error.message);
 }
 
-export type WriteOffRequest = { id: string; studentId: string; amount: number; reasonCode: string; status: string; createdAt: string; requestedByName: string | null };
+export type WriteOffRequest = { id: string; studentId: string; amount: number; reasonCode: string; note: string | null; status: string; createdAt: string; requestedByName: string | null };
 
 export async function listWriteOffRequests(sessionLabel: string): Promise<WriteOffRequest[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("fee_desk_requests")
-    .select("id, student_id, amount, reason_code, status, created_at, requested_by_name")
+    .select("id, student_id, amount, reason_code, note, status, created_at, requested_by_name")
     .eq("kind", "write_off")
     .eq("session_label", sessionLabel)
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) return [];
-  return ((data ?? []) as { id: string; student_id: string; amount: number | string; reason_code: string; status: string; created_at: string; requested_by_name: string | null }[]).map((r) => ({
+  return ((data ?? []) as { id: string; student_id: string; amount: number | string; reason_code: string; note: string | null; status: string; created_at: string; requested_by_name: string | null }[]).map((r) => ({
     id: r.id,
     studentId: r.student_id,
     amount: Number(r.amount) || 0,
     reasonCode: r.reason_code,
+    note: r.note,
     status: r.status,
     createdAt: r.created_at,
     requestedByName: r.requested_by_name,
@@ -118,4 +119,28 @@ export async function insertWriteOffRequest(r: {
     throw new Error(error.message);
   }
   return "created";
+}
+
+/**
+ * Close the pending write-off request for a child as approved or declined. An
+ * approval is recorded only after the money has moved; a missing request (a
+ * direct write-off by an admin) updates nothing.
+ */
+export async function decideWriteOffRequests(
+  studentId: string,
+  sessionLabel: string,
+  status: "approved" | "declined",
+  deciderId: string,
+  note: string | null,
+): Promise<number> {
+  const { data, error } = await createAdminClient()
+    .from("fee_desk_requests")
+    .update({ status, decided_by: deciderId, decided_at: new Date().toISOString(), decision_note: note })
+    .eq("kind", "write_off")
+    .eq("status", "pending")
+    .eq("student_id", studentId)
+    .eq("session_label", sessionLabel)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
 }
