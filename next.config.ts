@@ -24,6 +24,18 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
 
   /*
+   * pdfkit (under @react-pdf) loads its standard fonts through the
+   * `#standard-fonts/*` subpath import, which file tracing does not follow.
+   * Without this every PDF on Vercel failed with MODULE_NOT_FOUND for
+   * Helvetica.cjs: the receipt PDF, the WhatsApp receipt attachment, fee
+   * statements and collection lists. Every route, because server actions
+   * render them too; the folder is 190 KB.
+   */
+  outputFileTracingIncludes: {
+    "/**": ["./node_modules/pdfkit/js/standard-fonts/*.cjs"],
+  },
+
+  /*
    * Annotation mode, not global. The fee app compiles exactly two files —
    * the Payment Desk and its payment sheet — because a 3,500-line component
    * with ~96 hooks re-rendering on every keystroke of the amount field is
