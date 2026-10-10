@@ -39,8 +39,7 @@ const NOT_SAVED = (): NoteResult => fail("Not saved. Try again.", "सहेज�
 const UUID = z.uuid();
 
 /** notes:write, or a coordinator who reads every class (they hold notes:view only). */
-async function writer(): Promise<CurrentStaff> {
-  const staff = await assertPermission("notes:view");
+async function writer(staff: CurrentStaff): Promise<CurrentStaff> {
   if (!can(staff, "notes:write") && !readsEveryClass(staff)) {
     throw new Error("You do not have permission to write notes.");
   }
@@ -116,7 +115,7 @@ const createSchema = z.object({
 });
 
 export async function createNoteAction(input: z.input<typeof createSchema>): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) return fail("Write the note and pick a child.", "नोट लिखें और बच्चा चुनें।");
   const ctx = await context(staff);
@@ -182,7 +181,7 @@ export async function createNoteAction(input: z.input<typeof createSchema>): Pro
 
 /** Undo straight after saving: the author's own note, and any message to parents it queued. */
 export async function undoNoteAction(noteId: string): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   if (!UUID.safeParse(noteId).success) return NOT_SAVED();
   const admin = createAdminClient();
   await admin
@@ -260,7 +259,7 @@ export async function setFollowUpAction(noteId: string, owner: FollowOwner, when
 }
 
 export async function tellParentsAboutNoteAction(noteId: string): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   const found = await workable(staff, noteId);
   if (!found || !found.note.studentId) return fail("That note was not found.", "यह नोट नहीं मिला।");
   if (found.note.visibility === "private") return fail("An 'only me' note is not sent to parents.", "'सिर्फ़ मैं' नोट माता-पिता को नहीं भेजा जाता।");
@@ -297,7 +296,7 @@ const planSchema = z.object({
 });
 
 export async function createPlanAction(input: z.input<typeof planSchema>): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   const parsed = planSchema.safeParse(input);
   if (!parsed.success) return fail("Write a goal and at least one step.", "एक लक्ष्य और कम से कम एक कदम लिखें।");
   const ctx = await context(staff);
@@ -351,7 +350,7 @@ async function plannable(staff: CurrentStaff, planId: string) {
 }
 
 export async function addPlanStepAction(planId: string, body: string, ownerRole: string, whenLabel: string | null): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   const text = String(body ?? "").trim();
   if (!text || text.length > 160) return fail("Write the step first.", "पहले कदम लिखें।");
   const role = ["me", "class_teacher", "subject_teacher", "coordinator", "admin", "parents"].includes(ownerRole) ? ownerRole : "me";
@@ -387,7 +386,7 @@ export async function togglePlanStepAction(planId: string, stepId: string, done:
 }
 
 export async function removePlanStepAction(planId: string, stepId: string): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   const found = await plannable(staff, planId);
   if (!found || !found.plan.steps.some((s) => s.id === stepId)) return fail("That step was not found.", "यह कदम नहीं मिला।");
   // Removed, not deleted: the plan's history keeps it.
@@ -402,7 +401,7 @@ export async function removePlanStepAction(planId: string, stepId: string): Prom
 }
 
 export async function closePlanAction(planId: string): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   const found = await plannable(staff, planId);
   if (!found) return fail("That plan was not found.", "यह योजना नहीं मिली।");
   const { error } = await createAdminClient().from("support_plans").update({ status: "done", closed_at: new Date().toISOString() }).eq("id", planId);
@@ -412,7 +411,7 @@ export async function closePlanAction(planId: string): Promise<NoteResult> {
 }
 
 export async function tellParentsAboutPlanAction(planId: string): Promise<NoteResult> {
-  const staff = await writer();
+  const staff = await writer(await assertPermission("notes:view"));
   const found = await plannable(staff, planId);
   if (!found) return fail("That plan was not found.", "यह योजना नहीं मिली।");
   const { plan } = found;
