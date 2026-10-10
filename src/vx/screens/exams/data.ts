@@ -693,3 +693,10 @@ export function termStanding(papers: PaperRow[], marks: MarkRow[], studentId: st
     perSubject,
   };
 }
+
+/** How many rows an exam has in one of the exam-office tables. */
+export async function countFor(table: "exam_seats" | "exam_duties" | "exam_slots", assessmentId: string): Promise<number> {
+  const { count, error } = await admin().from(table).select("id", { count: "exact", head: true }).eq("assessment_id", assessmentId);
+  if (error) throw new Error(`Could not count ${table}: ${error.message}`);
+  return count ?? 0;
+}

@@ -36,6 +36,41 @@ export function reminderText(input: Parameters<typeof reminderLines>[0]): string
   return reminderLines(input).join("\n");
 }
 
+/** The same reminder in Hindi; the message that goes out is Hindi first, then English. */
+export function reminderLinesHi(input: {
+  teacherName: string;
+  examNameHi: string;
+  pending: string[];
+  dueLabel: string;
+  link: string | null;
+  from: string;
+}): string[] {
+  const lines = [
+    `नमस्ते ${input.teacherName} जी,`,
+    input.pending.length
+      ? `${input.examNameHi} के अंक अभी बाकी हैं: ${input.pending.join(", ")}।`
+      : `${input.examNameHi} के अंक एक बार जाँच लें।`,
+    `कृपया ${input.dueLabel} तक भरें${input.link ? " — इस लिंक से, लॉगिन की ज़रूरत नहीं:" : "।"}`,
+  ];
+  if (input.link) lines.push(input.link);
+  lines.push(`— ${input.from}`);
+  return lines;
+}
+
+/** Hindi first, a blank line, then English, as one WhatsApp message. */
+export function bilingualReminder(input: {
+  teacherName: string;
+  examName: string;
+  examNameHi: string;
+  pending: string[];
+  dueLabel: string;
+  link: string | null;
+  from: string;
+}): string {
+  const en = reminderLines({ ...input, link: null });
+  return [...reminderLinesHi(input), "", ...en.slice(0, -1)].join("\n");
+}
+
 export type RemarkSuggestion = { text: Pair; source: "marks" | "attendance" | "subjects"; basis: string };
 
 /**
