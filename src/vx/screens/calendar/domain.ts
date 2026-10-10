@@ -89,3 +89,38 @@ export function eventNotice(e: Pick<CalEvent, "title" | "titleHi" | "place">, wh
   const placeHi = e.place ? ` (${e.place})` : "";
   return p(`Dear parent, ${e.title} is on ${when}${place}. Please make sure your child attends.`, `प्रिय अभिभावक, ${e.titleHi || e.title} ${when}${placeHi} को है। कृपया ध्यान दें।`);
 }
+
+export type HolidayRun = { from: string; to: string; kind: string; label: string | null; labelHi: string | null; days: number };
+
+/** Consecutive closed days with the same name, folded into one run ("Diwali break, 20–24 Oct"). */
+export function holidayRuns(holidays: CalHoliday[]): HolidayRun[] {
+  const sorted = [...holidays].filter((h) => h.kind === "holiday" || h.kind === "vacation").sort((a, b) => a.day.localeCompare(b.day));
+  const runs: HolidayRun[] = [];
+  for (const h of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && last.label === h.label && addDays(last.to, 1) === h.day) {
+      last.to = h.day;
+      last.days += 1;
+      if (h.kind === "vacation") last.kind = "vacation";
+      continue;
+    }
+    runs.push({ from: h.day, to: h.day, kind: h.kind, label: h.label, labelHi: h.labelHi, days: 1 });
+  }
+  return runs;
+}
+
+/** The twelve months of a session, April to March, from its first year ("2026-27", "TEST-2026-27"). */
+export function sessionMonths(label: string, fallback: string): string[] {
+  const year = Number(/(\d{4})/.exec(label)?.[1] ?? fallback.slice(0, 4));
+  const out: string[] = [];
+  for (let i = 0; i < 12; i++) {
+    const m = 3 + i;
+    out.push(`${year + Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+/** Whether a reader scoped to some classes sees an event: whole-school events, or one of theirs. */
+export function visibleTo(e: Pick<CalEvent, "classIds">, everyClass: boolean, classIds: Set<string>): boolean {
+  return everyClass || e.classIds.length === 0 || e.classIds.some((id) => classIds.has(id));
+}
