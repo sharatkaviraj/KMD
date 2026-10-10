@@ -43,7 +43,14 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
   job: { icon: "alert", tone: "bad" },
 };
 
-type Held = { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string };
+/** What `/api/inbox` needs to send a held decision after the page has gone. */
+type Beacon =
+  | { kind: "correction"; correctionId: string; approve: boolean }
+  | { kind: "submissions"; submissionIds: string[]; accept: boolean }
+  | { kind: "remind"; classIds: string[] }
+  | { kind: "cover"; commandId: string; needKey: string; coveringStaffId: string; day: string; dayRevision: number };
+
+type Held = { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; beacon: Beacon };
 
 export function InboxScreen({ items, initial, previewing, unavailable }: { items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean }) {
   const { tx } = useVx();
@@ -64,11 +71,13 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
   // Send anything still held when the page goes away; the person decided it.
   useEffect(() => {
     const pending = held.current;
+    // A server action started here is cancelled with the page, so the held
+    // decision goes as a keepalive request that outlives it.
     const flush = () => {
       for (const [id, entry] of pending) {
         window.clearTimeout(entry.timer);
         pending.delete(id);
-        void entry.send();
+        void fetch("/api/inbox", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(entry.beacon) }).catch(() => undefined);
       }
     };
     window.addEventListener("pagehide", flush);
@@ -78,7 +87,7 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
     };
   }, []);
 
-  function hold(item: InboxItem, label: string, send: Held["send"]) {
+  function hold(item: InboxItem, label: string, send: Held["send"], beacon: Beacon) {
     if (previewing) {
       toast.show({ text: tx(T.previewing), tone: "info" });
       return;
@@ -101,7 +110,7 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
       }
       router.refresh();
     }, HOLD_MS);
-    held.current.set(item.id, { timer, send, label });
+    held.current.set(item.id, { timer, send, label, beacon });
 
     toast.show({
       text: label,
@@ -129,20 +138,19 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
 
   const assign = (item: InboxItem, who: CoverCandidate) => {
     const commandId = crypto.randomUUID();
-    hold(item, `${tx(T.assigned(who.name))}`, () =>
-      assignCoverVx({ commandId, needKey: item.needKey!, coveringStaffId: who.id, day: item.day!, dayRevision: item.dayRevision! }),
-    );
+    const input = { commandId, needKey: item.needKey!, coveringStaffId: who.id, day: item.day!, dayRevision: item.dayRevision! };
+    hold(item, `${tx(T.assigned(who.name))}`, () => assignCoverVx(input), { kind: "cover", ...input });
   };
 
   const on: DetailActions = {
     remind: (item) =>
-      hold(item, tx(T.reminded(item.remindable ?? 0)), () => remindTeachersVx(item.classIds ?? []).then((r) => ({ ok: r.ok, message: r.message }))),
+      hold(item, tx(T.reminded(item.remindable ?? 0)), () => remindTeachersVx(item.classIds ?? []).then((r) => ({ ok: r.ok, message: r.message })), { kind: "remind", classIds: item.classIds ?? [] }),
     assign,
     pick: (item) => setPicking(item),
     correction: (item, approve) =>
-      hold(item, `${tx(approve ? T.approved : T.declined)} · ${tx(item.title)}`, () => decideCorrectionVx(item.correctionId!, approve)),
+      hold(item, `${tx(approve ? T.approved : T.declined)} · ${tx(item.title)}`, () => decideCorrectionVx(item.correctionId!, approve), { kind: "correction", correctionId: item.correctionId!, approve }),
     submissions: (item, accept) =>
-      hold(item, `${tx(accept ? T.accepted : T.declined)} · ${tx(item.title)}`, () => decideSubmissionsVx(item.submissionIds ?? [], accept)),
+      hold(item, `${tx(accept ? T.accepted : T.declined)} · ${tx(item.title)}`, () => decideSubmissionsVx(item.submissionIds ?? [], accept), { kind: "submissions", submissionIds: item.submissionIds ?? [], accept }),
   };
 
   const detailPane = selected ? <Detail item={selected} on={on} /> : <EmptyState icon="inbox" title={tx(T.pickItem)} />;
