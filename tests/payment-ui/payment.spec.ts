@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-declare global { interface Window { recoveryFault: boolean } }
+declare global { interface Window { recoveryFault: boolean; primaryFault: boolean } }
 for (const width of [320, 390, 1180, 1440]) {
   test(`selection, edit, review, receipt and next collection at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 }); await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -103,7 +103,10 @@ for (const fault of ["missing", "denied", "private-quota"] as const) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.addInitScript(kind => {
       window.recoveryFault = true;
-      if (kind !== "private-quota") Object.defineProperty(window, "indexedDB", { configurable: true, value: undefined });
+      if (kind !== "private-quota") {
+        const primary = window.indexedDB; window.primaryFault = true;
+        Object.defineProperty(window, "indexedDB", { configurable: true, get: () => window.primaryFault ? undefined : primary });
+      }
       const storage = window.localStorage;
       if (kind === "missing") Object.defineProperty(window, "localStorage", { configurable: true, get: () => window.recoveryFault ? undefined : storage });
       else {
@@ -131,6 +134,13 @@ for (const fault of ["missing", "denied", "private-quota"] as const) {
     await page.evaluate(() => { window.recoveryFault = false; });
     await page.getByRole("button", { name: "Retry recovery" }).click();
     if (fault !== "private-quota") {
+      // An accessible but empty fallback cannot prove that the hidden primary
+      // has no older payment. Restoring only localStorage must keep saving paused.
+      await expect(page.getByText(/Payment saving is paused because recovery storage/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "Review payment" })).toBeDisabled();
+      expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ posted: null, receiptCount: 0 });
+      await page.evaluate(() => { window.primaryFault = false; });
+      await page.getByRole("button", { name: "Retry recovery" }).click();
       await expect(page.getByRole("button", { name: "Review payment" })).toBeEnabled();
       await page.locator("#pd-amount").fill("500");
       await page.getByRole("button", { name: "Review payment" }).click();
