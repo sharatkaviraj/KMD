@@ -91,7 +91,7 @@ export async function SchoolCalendar(props: Props) {
       steps={[
         { icon: "calendar", title: say("One calendar", "एक कैलेंडर"), body: say("Holidays, exams, PTMs and events for the whole school, in one place.", "पूरे विद्यालय की छुट्टियाँ, परीक्षाएँ, अभिभावक बैठकें और कार्यक्रम एक जगह।") },
         { icon: "lock", title: say("Holidays close the register", "छुट्टी पर रजिस्टर बंद"), body: say("On a holiday nobody is asked to mark attendance and the timetable is off.", "छुट्टी के दिन हाज़िरी नहीं माँगी जाती और समय सारणी बंद रहती है।") },
-        { icon: "send", title: say("Telling parents", "अभिभावकों को सूचना"), body: say("A notice to parents is saved with the day. Nothing is sent to parents from here yet.", "अभिभावकों की सूचना दिन के साथ सहेजी जाती है। अभी यहाँ से अभिभावकों को कुछ नहीं भेजा जाता।") },
+        { icon: "send", title: say("Telling parents", "अभिभावकों को सूचना"), body: say("A notice to parents is saved with the day and waits for approval in Messages → To send, where it is sent on WhatsApp by hand.", "अभिभावकों की सूचना दिन के साथ सहेजी जाती है और संदेश → भेजने को में मंज़ूरी के बाद व्हाट्सऐप से हाथ से भेजी जाती है।") },
       ]}
     />
   );

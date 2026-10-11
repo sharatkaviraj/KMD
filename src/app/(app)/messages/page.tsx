@@ -1,5 +1,6 @@
 import { requirePermission } from "@/platform/auth/current-staff";
 import { loadMessagesScreen } from "@/vx/screens/messages/data";
+import { countOutbox, loadOutbox } from "@/vx/screens/messages/outbox-data";
 import { MessagesScreen, type MessagesState } from "@/vx/screens/messages/messages-screen";
 
 export const runtime = "nodejs";
@@ -21,9 +22,13 @@ export default async function MessagesPage({
   await requirePermission("messages:send", "/messages");
   const params = await searchParams;
   const id = params.id && UUID.test(params.id) ? params.id : null;
-  const data = await loadMessagesScreen(id);
+  const view = params.view === "replies" || params.view === "templates" || params.view === "outbox" ? params.view : "sent";
+  const [data, outbox, outboxCount] = await Promise.all([
+    loadMessagesScreen(id),
+    view === "outbox" ? loadOutbox() : Promise.resolve(null),
+    countOutbox().catch(() => 0),
+  ]);
 
-  const view = params.view === "replies" || params.view === "templates" ? params.view : "sent";
   const state: MessagesState = {
     view: params.sheet === "template-new" ? "templates" : view,
     compose: params.compose === "1",
@@ -35,5 +40,5 @@ export default async function MessagesPage({
     replyId: params.reply && UUID.test(params.reply) ? params.reply : null,
   };
 
-  return <MessagesScreen data={data} state={state} />;
+  return <MessagesScreen data={data} state={state} outbox={outbox} outboxCount={outboxCount} />;
 }

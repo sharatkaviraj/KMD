@@ -132,7 +132,7 @@ export function RemindersScreen(props: RemindersProps) {
             <span className="num" style={{ fontWeight: 700 }}>0/{batch.familyCount}</span>
           </Ring>
           <span style={{ display: "flex", flexDirection: "column" }}>
-            <strong className="serif" style={{ fontSize: 20 }}>{batch.status === "cancelled" ? tx(W.cancelled) : batch.status === "scheduled" ? `${tx(W.scheduled)} · ${batch.scheduledFor ? `${shortDay(batch.scheduledFor)}` : ""}` : tx(W.sendingTitle)}</strong>
+            <strong className="serif" style={{ fontSize: 20 }}>{batch.status === "cancelled" ? tx(W.cancelled) : batch.status === "prepared" ? tx(W.prepared) : batch.status === "scheduled" ? `${tx(W.scheduled)} · ${batch.scheduledFor ? `${shortDay(batch.scheduledFor)}` : ""}` : tx(W.sendingTitle)}</strong>
             <span style={{ color: "var(--mut)" }}>{batch.audienceLine} · {tx(TEMPLATES[batch.template].label)}</span>
           </span>
         </div>
@@ -146,8 +146,8 @@ export function RemindersScreen(props: RemindersProps) {
         <span style={{ color: "var(--mut)", fontSize: 13 }}>{rupees(batch.moneyQuoted)} · {tx(W.cost)} {tx(W.about)} {rupees(batch.costEstimate)}</span>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Btn variant="sec" icon="chevLeft" href="/reminders">{tx(W.backToList)}</Btn>
-          <Btn variant="sec" icon="send" href="/fees/reminders">{tx(W.openSender)}</Btn>
-          {batch.status !== "cancelled" && perms.queue ? (
+          {batch.status !== "cancelled" ? <Btn variant="pri" icon="send" href="/messages?view=outbox">{tx(W.openToSend)}</Btn> : null}
+          {batch.status !== "cancelled" && batch.status !== "prepared" && perms.queue ? (
             <Btn
               variant="danger"
               icon="x"
@@ -269,7 +269,7 @@ export function RemindersScreen(props: RemindersProps) {
                   lead={<IconTile icon="inbox" tone={b.status === "cancelled" ? "mut" : "acc"} size={38} />}
                   title={b.name}
                   sub={`${b.familyCount} ${tx(W.families)} · ${rupees(b.costEstimate)} · ${b.createdByName ?? ""} · ${tx(agoP(b.createdAt))}`}
-                  trail={<Pill tone={b.status === "cancelled" ? "mut" : b.status === "scheduled" ? "info" : "warn"}>{tx(b.status === "cancelled" ? W.cancelled : b.status === "scheduled" ? W.scheduled : W.tQueued)}</Pill>}
+                  trail={<Pill tone={b.status === "cancelled" ? "mut" : b.status === "prepared" ? "ok" : b.status === "scheduled" ? "info" : "warn"}>{tx(b.status === "cancelled" ? W.cancelled : b.status === "prepared" ? W.prepared : b.status === "scheduled" ? W.scheduled : W.tQueued)}</Pill>}
                 />
               ))}
             </Card>

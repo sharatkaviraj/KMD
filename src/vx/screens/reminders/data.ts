@@ -22,7 +22,7 @@ export type BatchRow = {
   familyCount: number;
   moneyQuoted: number;
   costEstimate: number;
-  status: "queued" | "scheduled" | "cancelled";
+  status: "queued" | "scheduled" | "prepared" | "cancelled";
   scheduledFor: string | null;
   createdByName: string | null;
   createdAt: string;

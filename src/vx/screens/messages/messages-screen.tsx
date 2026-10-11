@@ -24,6 +24,8 @@ import { Banner, Grid, Section, Split, TopBar, VxPage } from "@/vx/ui/page";
 import { Avatar, Btn, Card, CardHead, EmptyState, IconTile, Kpi, Pill, Progress, Ring, SecHead, SuccessTick } from "@/vx/ui/primitives";
 
 import type { CampaignView, MessagesData, RecipientView, ReplyView, TemplateView } from "./data";
+import { Outbox } from "./outbox";
+import type { OutboxData } from "./outbox-data";
 import {
   COMPOSE_PROBLEMS,
   composeProblems,
@@ -50,7 +52,7 @@ import {
   type ReplyFilter,
 } from "./domain/messages";
 
-export type MessagesView = "sent" | "replies" | "templates";
+export type MessagesView = "sent" | "outbox" | "replies" | "templates";
 export type MessagesState = {
   view: MessagesView;
   compose: boolean;
@@ -80,7 +82,7 @@ function href(next: Partial<MessagesState>): string {
   return `/messages${qs.size ? `?${qs}` : ""}`;
 }
 
-export function MessagesScreen({ data, state }: { data: MessagesData; state: MessagesState }) {
+export function MessagesScreen({ data, state, outbox, outboxCount }: { data: MessagesData; state: MessagesState; outbox: OutboxData | null; outboxCount: number }) {
   const { tx } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -104,10 +106,11 @@ export function MessagesScreen({ data, state }: { data: MessagesData; state: Mes
       onChange={(v) => go({ view: v })}
       options={[
         { value: "sent", label: tx(p("Sent", "भेजे गए")) },
+        { value: "outbox", label: `${tx(p("To send", "भेजने को"))}${outboxCount ? ` · ${outboxCount}` : ""}` },
         { value: "replies", label: `${tx(p("Replies", "जवाब"))}${openReplies ? ` · ${openReplies}` : ""}` },
         { value: "templates", label: tx(p("Templates", "टेम्पलेट")) },
       ]}
-      style={{ minWidth: 320 }}
+      style={{ minWidth: 420 }}
     />
   );
 
@@ -137,7 +140,7 @@ export function MessagesScreen({ data, state }: { data: MessagesData; state: Mes
             title="Messages"
             steps={[
               { icon: "megaphone", title: "Write once", body: "Every family gets its own copy with their name and child filled in. Siblings share one message." },
-              { icon: "clock", title: "Queued, not sent", body: "Family messages wait in the queue until WhatsApp sending to parents is switched on. Nothing reaches a parent by accident." },
+              { icon: "send", title: "You press send", body: "Family messages wait in To send. Each one opens your WhatsApp with the text filled in, and is marked sent by you. Nothing reaches a parent by accident." },
               { icon: "rupee", title: "Cost", body: "AiSensy charges about ₹0.88 a message. The cost is shown before you queue." },
             ]}
           />
@@ -152,6 +155,7 @@ export function MessagesScreen({ data, state }: { data: MessagesData; state: Mes
       {header}
       <main>
         {state.view === "sent" ? <SentLog data={data} tabs={tabs} /> : null}
+        {state.view === "outbox" && outbox ? <Outbox data={outbox} tabs={tabs} /> : null}
         {state.view === "templates" ? (
           <Templates templates={data.templates} tabs={tabs} onNew={() => go({ view: "templates", sheet: "template-new" })} />
         ) : null}
@@ -195,7 +199,9 @@ function SentLog({ data, tabs }: { data: MessagesData; tabs: React.ReactNode }) 
       <div className="only-m">{tabs}</div>
       {!data.parentDispatchOn ? (
         <Banner tone="info">
-          {tx(p("Family messages are queued, not sent: WhatsApp sending to parents is off. They go out when the school switches it on.", "अभिभावकों को संदेश अभी कतार में रहते हैं — व्हाट्सऐप भेजना बंद है।"))}
+          {tx(p("Family messages are not sent by the app. Send them from To send: each one opens WhatsApp with the text filled in.", "अभिभावकों के संदेश ऐप खुद नहीं भेजता। ‘भेजने को’ से भेजें — हर संदेश व्हाट्सऐप में भरा हुआ खुलेगा।"))}
+          {" "}
+          <Link href={href({ view: "outbox" })}>{tx(p("Open To send", "भेजने को खोलें"))}</Link>
         </Banner>
       ) : null}
       <Grid cols={4}>
@@ -403,7 +409,7 @@ function Outcome({ campaign: c, done, parentDispatchOn, pending, onStop }: { cam
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
               <span style={{ width: 8, height: 8, borderRadius: 4, background: c.counts.queued ? "var(--warn)" : "var(--ok)" }} />
-              {c.status === "cancelled" ? "Stopped" : c.counts.queued ? (family && !parentDispatchOn ? "Waiting: parent sending is off" : "In the WhatsApp queue") : "Done"}
+              {c.status === "cancelled" ? "Stopped" : c.counts.queued ? (family && !parentDispatchOn ? "Waiting in To send" : "In the WhatsApp queue") : "Done"}
             </div>
             <Grid cols={3} style={{ width: "100%", borderTop: "1px solid var(--bd)", paddingTop: 14 }}>
               <Stat n={c.counts.queued} label="Queued" />

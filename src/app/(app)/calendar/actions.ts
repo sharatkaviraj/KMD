@@ -90,7 +90,7 @@ export async function addEventAction(input: AddEventInput): Promise<CalendarResu
     }
     revalidatePath("/calendar", "layout");
     revalidatePath("/academics");
-    return { ok: true, text: input.notify ? p(`Holiday added. The notice to ${told} is saved; nothing is sent yet.`, `छुट्टी जोड़ी। ${told} के लिए सूचना सहेजी; अभी कुछ नहीं भेजा गया।`) : p("Holiday added. Registers and the timetable are closed that day.", "छुट्टी जोड़ी। उस दिन रजिस्टर और समय सारणी बंद।") };
+    return { ok: true, text: input.notify ? p(`Holiday added. The notice to ${told} waits for approval in Messages → To send.`, `छुट्टी जोड़ी। ${told} के लिए सूचना संदेश → भेजने को में मंज़ूरी के लिए है।`) : p("Holiday added. Registers and the timetable are closed that day.", "छुट्टी जोड़ी। उस दिन रजिस्टर और समय सारणी बंद।") };
   }
 
   const { data, error } = await createAdminClient()
@@ -121,7 +121,7 @@ export async function addEventAction(input: AddEventInput): Promise<CalendarResu
   }
   revalidatePath("/calendar", "layout");
   revalidatePath("/academics");
-  return { ok: true, id: data.id, text: input.notify ? p(`Event added. The notice to ${told} is saved; nothing is sent yet.`, `कार्यक्रम जुड़ा। ${told} के लिए सूचना सहेजी; अभी कुछ नहीं भेजा गया।`) : p("Event added.", "कार्यक्रम जुड़ा।") };
+  return { ok: true, id: data.id, text: input.notify ? p(`Event added. The notice to ${told} waits for approval in Messages → To send.`, `कार्यक्रम जुड़ा। ${told} के लिए सूचना संदेश → भेजने को में मंज़ूरी के लिए है।`) : p("Event added.", "कार्यक्रम जुड़ा।") };
 }
 
 export async function cancelEventAction(id: string): Promise<CalendarResult> {
@@ -148,12 +148,12 @@ export async function requestNoticeAction(input: { holidayDay?: string; eventId?
     if (!e || e.cancelled) return fail("That event is gone.", "वह कार्यक्रम नहीं मिला।");
     const told = await recordNotice({ session, eventId: e.id, audience, classIds: e.classIds, text: eventNotice(e, whenLabel(e, shortDay)), actorId: actor.id });
     revalidatePath("/calendar", "layout");
-    return { ok: true, text: p(`The notice to ${told} is saved; nothing is sent yet.`, `${told} के लिए सूचना सहेजी; अभी कुछ नहीं भेजा गया।`) };
+    return { ok: true, text: p(`The notice to ${told} waits for approval in Messages → To send.`, `${told} के लिए सूचना संदेश → भेजने को में मंज़ूरी के लिए है।`) };
   }
   if (!isDay(input.holidayDay)) return fail("Choose a holiday.", "छुट्टी चुनें।");
   const { data: day } = await admin.from("academic_calendar_days").select("day, label_en, label_hi, kind").eq("session_label", session).eq("day", input.holidayDay).maybeSingle<{ day: string; label_en: string | null; label_hi: string | null; kind: string }>();
   if (!day || (day.kind !== "holiday" && day.kind !== "vacation")) return fail("That day is not a holiday.", "वह दिन छुट्टी नहीं है।");
   const told = await recordNotice({ session, holidayDay: day.day, audience, classIds: [], text: holidayNotice(day.label_en ?? "the holiday", day.label_hi, dateLabel(day.day)), actorId: actor.id });
   revalidatePath("/calendar", "layout");
-  return { ok: true, text: p(`The notice to ${told} is saved; nothing is sent yet.`, `${told} के लिए सूचना सहेजी; अभी कुछ नहीं भेजा गया।`) };
+  return { ok: true, text: p(`The notice to ${told} waits for approval in Messages → To send.`, `${told} के लिए सूचना संदेश → भेजने को में मंज़ूरी के लिए है।`) };
 }

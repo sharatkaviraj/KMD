@@ -170,7 +170,7 @@ export function NotifySheet({ closeHref, holidayDay, eventId, title, preview, pa
       closeHref={closeHref}
       icon="send"
       title={tx({ en: `Tell people about ${title}`, hi: `${title} की सूचना दें` })}
-      sub={tx({ en: "A notice is saved with the day. Nothing is sent to parents from here yet.", hi: "सूचना दिन के साथ सहेजी जाती है। अभी यहाँ से अभिभावकों को कुछ नहीं भेजा जाता।" })}
+      sub={tx({ en: "A notice is saved with the day and sent from Messages → To send once approved.", hi: "सूचना दिन के साथ सहेजी जाती है और मंज़ूरी के बाद संदेश → भेजने को से भेजी जाती है।" })}
       footer={
         <button type="button" className="tap btn pri" style={{ flex: 1 }} disabled={pending} onClick={() => run(() => requestNoticeAction({ holidayDay, eventId, audience }), (r) => r.ok && router.replace(closeHref, { scroll: false }))}>
           {pending ? <Ic n="refresh" size={16} className="spin" /> : <Ic n="send" size={18} />}

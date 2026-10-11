@@ -118,10 +118,10 @@ export const W = {
   waFooter: p("Approved template · 1 family · 1 message · about ₹0.88", "स्वीकृत टेम्पलेट · 1 परिवार · 1 संदेश · लगभग ₹0.88"),
   waQueue: p("Queue reminder", "याद कतार में डालें"),
   waNote: p(
-    "Nothing is sent from here. The reminder is saved, and WhatsApp sending from VPPS One is not switched on yet.",
-    "यहाँ से कुछ नहीं भेजा जाता। याद सहेजी जाती है; VPPS One से WhatsApp भेजना अभी चालू नहीं।",
+    "Nothing is sent from here. The reminder is saved; send it from Messages → To send.",
+    "यहाँ से कुछ नहीं भेजा जाता। याद सहेजी जाती है; संदेश → भेजने को से भेजें।",
   ),
-  waQueued: p("Reminder saved. Nothing has been sent.", "याद सहेजी। कुछ नहीं भेजा गया।"),
+  waQueued: p("Reminder saved. Send it from Messages → To send.", "याद सहेजी। संदेश → भेजने को से भेजें।"),
   // plan sheet
   planTitle: p("EMI plan", "EMI योजना"),
   child: p("Child", "बच्चा"),

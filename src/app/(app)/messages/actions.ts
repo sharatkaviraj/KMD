@@ -6,21 +6,15 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { contentHash } from "@/modules/collection/data/parent-messages-repo";
-import { listStaff } from "@/modules/staff/data/staff-repo";
-import { dayMonth } from "@/vx/format";
+import { generalPolicyVersion, NOTICE_TEMPLATE, queueNotice, templateId } from "@/vx/screens/messages/queue";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { p, type Pair } from "@/vx/text";
-import { loadFamilies } from "@/vx/screens/messages/data";
 import {
   COMPOSE_PROBLEMS,
   composeProblems,
-  composeText,
   costPaise,
-  familiesFor,
   isNoticeKind,
-  messageVariable,
   numberPlaceholders,
-  personalFor,
   templateSlug,
   tenDigits,
   type Audience,
@@ -41,21 +35,6 @@ export type MessageResult =
 
 const fail = (message: Pair): MessageResult => ({ ok: false, message });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const NOTICE_TEMPLATE = { parent: "vx_school_notice", staff: "vx_staff_notice" } as const;
-
-async function templateId(code: string): Promise<string | null> {
-  const { data } = await createAdminClient().from("message_templates").select("id").eq("code", code).maybeSingle<{ id: string }>();
-  return data?.id ?? null;
-}
-
-async function generalPolicyVersion(): Promise<number> {
-  const { data } = await createAdminClient()
-    .from("parent_message_policies")
-    .select("policy_version")
-    .eq("category", "general")
-    .maybeSingle<{ policy_version: number }>();
-  return data?.policy_version ?? 0;
-}
 
 /** Queue a notice to the whole school, some classes, or the staff. Idempotent on clientRequestId. */
 export async function queueNoticeAction(input: {
@@ -82,88 +61,18 @@ export async function queueNoticeAction(input: {
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return fail(p("No session is open.", "कोई सत्र खुला नहीं है।"));
-  const date = dayMonth(new Date());
 
-  type Row = Record<string, unknown>;
-  let rows: Row[] = [];
-  let audienceLabel = "";
-
-  if (audience === "staff") {
-    const id = await templateId(NOTICE_TEMPLATE.staff);
-    if (!id) return fail(p("The staff notice template is missing.", "स्टाफ़ टेम्पलेट नहीं मिला।"));
-    const staff = (await listStaff()).filter((s) => s.isActive);
-    for (const person of staff) {
-      const phone = tenDigits(person.whatsappPhone ?? person.phone);
-      if (!phone) continue;
-      const text = composeText(compose, { parent: person.displayName, student: "", className: "", date });
-      rows.push({ template_id: id, to_phone: phone, to_name: person.displayName, staff_profile_id: person.id, variables: [messageVariable(text)], rendered_hi: text.hi, rendered_en: text.en, category: "general" });
-    }
-    audienceLabel = `All staff · ${rows.length}`;
-  } else {
-    const id = await templateId(NOTICE_TEMPLATE.parent);
-    if (!id) return fail(p("The school notice template is missing.", "सूचना टेम्पलेट नहीं मिला।"));
-    const { families, labels } = await loadFamilies(sessionLabel);
-    const chosen = familiesFor(families, audience, classIds);
-    const policyVersion = await generalPolicyVersion();
-    rows = chosen.map((family) => {
-      const personal = personalFor(family, classIds, date);
-      const text = composeText(compose, personal);
-      const lead = family.children.find((c) => classIds.includes(c.classId)) ?? family.children[0];
-      return {
-        template_id: id,
-        to_phone: family.phone,
-        to_name: family.parentName,
-        student_id: lead?.id ?? null,
-        variables: [messageVariable(text)],
-        rendered_hi: text.hi,
-        rendered_en: text.en,
-        category: "general",
-        snapshot: {
-          destination: family.phone,
-          contact: family.phone,
-          record: lead ? { kind: "student", id: lead.id, version: null } : { kind: "none", id: null, version: null },
-          content: contentHash(text.hi, text.en),
-          policyVersion,
-        },
-      };
-    });
-    audienceLabel =
-      audience === "school"
-        ? `All parents · ${rows.length}`
-        : `${classIds.map((c) => labels.get(c) ?? "Class").slice(0, 4).join(", ")}${classIds.length > 4 ? ` +${classIds.length - 4}` : ""} parents · ${rows.length}`;
-  }
-
-  if (rows.length === 0) return fail(p("Nobody to send to: no usable WhatsApp numbers.", "कोई व्हाट्सऐप नंबर नहीं मिला।"));
-
-  const { data, error } = await createAdminClient().rpc("queue_message_campaign", {
-    p_campaign: {
-      client_request_id: input.clientRequestId,
-      session_label: sessionLabel,
-      kind,
-      title: compose.title.trim(),
-      body_hi: language === "en" ? null : compose.hi.trim(),
-      body_en: language === "hi" ? null : compose.en.trim(),
-      language,
-      audience,
-      class_ids: audience === "classes" ? classIds : [],
-      audience_label: audienceLabel,
-      created_by: actor.id,
-    },
-    p_rows: rows,
-  });
-  if (error) return fail(p("Not queued. Nothing was saved.", "कतार में नहीं गया।"));
-  const result = data as { ok: boolean; campaign_id?: string; duplicate?: boolean; reason?: string };
-  if (!result.ok || !result.campaign_id) return fail(p("Not queued. Nothing was saved.", "कतार में नहीं गया।"));
-
+  const result = await queueNotice({ clientRequestId: input.clientRequestId, sessionLabel, ...compose, createdBy: actor.id });
+  if (!result.ok) return fail(result.message);
   revalidatePath("/messages");
   return {
     ok: true,
-    campaignId: result.campaign_id,
-    count: rows.length,
-    costPaise: costPaise(rows.length),
+    campaignId: result.campaignId,
+    count: result.count,
+    costPaise: costPaise(result.count),
     message: result.duplicate
       ? p("Already queued — this is the same notice.", "यह सूचना पहले से कतार में है।")
-      : p(`Queued for ${rows.length} ${audience === "staff" ? "staff" : "families"}`, `${rows.length} के लिए कतार में`),
+      : p(`Queued for ${result.count} ${audience === "staff" ? "staff" : "families"}`, `${result.count} के लिए कतार में`),
   };
 }
 
