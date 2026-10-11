@@ -1,18 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page, type Response } from "@playwright/test";
 import { db, ownClassOf, signIn } from "./support/harness";
 import { interruptOneAdminResponse } from "./support/admin-response-interruption";
 
 const runUuid = randomUUID();
-const runTag = `phoneops-20261011-admin-followup-${runUuid.slice(0, 8)}`;
+let runTag = `phoneops-20261011-admin-followup-${runUuid.slice(0, 8)}`;
 const studentId = "0c9f719c-7c5e-4cf4-a621-bce758236697";
 const classId = "745643d0-aaca-470f-9372-d87397770a77";
 const fields: string[] = [];
 const requests: string[] = [];
 const ledger: Record<string, unknown>[] = [];
-const ledgerPath = path.resolve(`../evidence/admin-ledger-${runTag}.json`);
+let ledgerPath = path.resolve(`../evidence/admin-ledger-${runTag}.json`);
 let wroteLedger = false;
 function record(entry: Record<string, unknown>) {
   if (!wroteLedger && existsSync(ledgerPath)) throw new Error("Refusing to replace an existing admin ledger");
@@ -23,8 +23,17 @@ function record(entry: Record<string, unknown>) {
 }
 function checked(error: { message: string } | null) { if (error) throw new Error(error.message); }
 async function login(page: Page, actor: string) {
-  try { await signIn(page, actor, "/collection/review"); }
-  catch { throw new Error(`Existing QA ${actor} sign-in could not reach or authenticate the local DEV review page`); }
+  let authStatus = 0;
+  const onResponse = (response: Response) => { if (new URL(response.url()).pathname === "/auth/confirm") authStatus = response.status(); };
+  page.on("response", onResponse);
+  try {
+    await signIn(page, actor, "/collection/review");
+    if (authStatus < 200 || authStatus >= 400) throw new Error("Authentication did not succeed");
+    await page.waitForURL(url => url.pathname === "/collection/review" || (actor === "teacher" && url.pathname === "/access-denied" && url.searchParams.get("permission") === "collection:view"), { timeout: 90_000 });
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: 90_000 });
+    record({ action: "auth-route-settled", actor, authStatus, path: new URL(page.url()).pathname, headings: await page.locator("h1").count() });
+  } catch { throw new Error(`Existing QA ${actor} authentication/review route did not settle (HTTP ${authStatus || "unknown"}, path ${new URL(page.url()).pathname}); token URL withheld`); }
+  finally { page.off("response", onResponse); }
 }
 
 test("admin selected decisions, cached reviewer, conflict and interrupted response persist safely on phone", async ({ browser }, testInfo) => {
@@ -36,13 +45,28 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
   if (origin.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(origin.hostname)) throw new Error("Admin follow-up requires the coordinator-owned local DEV server");
   const contexts: BrowserContext[] = [];
   try {
+    const width = testInfo.project.use.viewport?.width ?? 390;
+    expect([360, 390]).toContain(width);
+    const resumePath = width === 360 && process.env.OPS_ADMIN_RESUME_LEDGER ? path.resolve(process.env.OPS_ADMIN_RESUME_LEDGER) : null;
+    if (resumePath) {
+      const evidenceRoot = path.resolve("../evidence") + path.sep;
+      if (!resumePath.startsWith(evidenceRoot) || !path.basename(resumePath).startsWith("admin-ledger-phoneops-20261011-admin-followup-")) throw new Error("Resume requires this lane's retained follow-up ledger");
+      const prior = JSON.parse(readFileSync(resumePath, "utf8")) as { runTag: string; target: string; studentId: string; classId: string; entries: { action: string; table: string; key: string }[] };
+      expect(prior.target).toBe("wtgxcptmucjerhufzjcf"); expect(prior.studentId).toBe(studentId); expect(prior.classId).toBe(classId);
+      expect(prior.runTag).toMatch(/^phoneops-20261011-admin-followup-[a-f0-9]{8}$/);
+      runTag = prior.runTag;
+      ledgerPath = path.resolve(`../evidence/admin-resume-ledger-${runTag}-${runUuid.slice(0, 8)}.json`);
+      fields.push(...prior.entries.filter(e => e.action === "fixture-create" && e.table === "collection_fields").map(e => e.key));
+      requests.push(...prior.entries.filter(e => e.action === "fixture-create" && e.table === "collection_requests").map(e => e.key));
+      expect(fields).toHaveLength(3); expect(requests).toHaveLength(2);
+    }
     const owned = await ownClassOf("teacher");
     expect(owned.classId).toBe(classId);
     expect(owned.sessionLabel).toBe("2026-27");
     const enrolment = await db().from("enrolments").select("student_id").eq("student_id", studentId).eq("class_id", classId).eq("session_label", owned.sessionLabel).eq("status", "enrolled").single();
     checked(enrolment.error);
     record({ action: "preflight", table: "enrolments", key: studentId, before: enrolment.data, after: "Existing QA assigned child confirmed; ordinary records untouched" });
-    for (const suffix of ["A", "B", "C"]) {
+    for (const suffix of resumePath ? [] : ["A", "B", "C"]) {
       // Database keys allow at most 41 characters; full audit tags stay in labels.
       const fieldKey = `qa_ops_${runUuid.replaceAll("-", "").slice(0, 16)}_${suffix.toLowerCase()}`;
       expect(fieldKey).toMatch(/^[a-z][a-z0-9_]{1,40}$/);
@@ -50,7 +74,7 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
       checked(created.error); fields.push(created.data!.id);
       record({ action: "fixture-create", table: "collection_fields", key: created.data!.id, before: null, after: created.data });
     }
-    for (const suffix of ["current", "older"]) {
+    for (const suffix of resumePath ? [] : ["current", "older"]) {
       const created = await db().from("collection_requests").insert({ session_label: owned.sessionLabel, title_hi: `${runTag} ${suffix}`, title_en: `${runTag} ${suffix}`, class_id: classId, class_label: "QA admin assigned class", audience_kind: "class", audience_label: "QA admin assigned class", token: `OPSADMIN${randomUUID().replaceAll("-", "")}`, status: "open", opened_at: new Date().toISOString(), assigned_staff_id: owned.staffProfileId }).select("id").single();
       checked(created.error); requests.push(created.data!.id);
       record({ action: "fixture-create", table: "collection_requests", key: created.data!.id, before: null, after: { title: `${runTag} ${suffix}`, classId, session: owned.sessionLabel } });
@@ -59,17 +83,38 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
     const incoming = ["new-a", "new-b", "new-c"].map(value => `${runTag}-${value}`);
     const corrected = `${runTag}-office-correction`;
     const seededRecords = fields.map((field_id, index) => ({ session_label: owned.sessionLabel, student_id: studentId, field_id, value: index === 2 ? corrected : old[index], source: "office" }));
-    checked((await db().from("student_records").insert(seededRecords)).error);
-    record({ action: "fixture-create", table: "student_records", key: fields, before: null, after: seededRecords });
-    const pending = await db().from("collection_submissions").insert(fields.map((field_id, index) => ({ request_id: requests[0], student_id: studentId, field_id, previous_value: old[index], value: incoming[index], status: "pending", submitted_at: new Date().toISOString() }))).select("id,field_id,status");
+    if (!resumePath) {
+      checked((await db().from("student_records").insert(seededRecords)).error);
+      record({ action: "fixture-create", table: "student_records", key: fields, before: null, after: seededRecords });
+    }
+    const pending = resumePath
+      ? await db().from("collection_submissions").select("id,field_id,status,previous_value,value,student_id").eq("request_id", requests[0])
+      : await db().from("collection_submissions").insert(fields.map((field_id, index) => ({ request_id: requests[0], student_id: studentId, field_id, previous_value: old[index], value: incoming[index], status: "pending", submitted_at: new Date().toISOString() }))).select("id,field_id,status");
     checked(pending.error);
     const olderValue = `${runTag}-older-c`;
-    const older = await db().from("collection_submissions").insert({ request_id: requests[1], student_id: studentId, field_id: fields[2], previous_value: old[2], value: olderValue, status: "pending", submitted_at: new Date(Date.now() - 86_400_000).toISOString() }).select("id").single();
+    const older = resumePath
+      ? await db().from("collection_submissions").select("id,field_id,status,previous_value,value,student_id").eq("request_id", requests[1]).single()
+      : await db().from("collection_submissions").insert({ request_id: requests[1], student_id: studentId, field_id: fields[2], previous_value: old[2], value: olderValue, status: "pending", submitted_at: new Date(Date.now() - 86_400_000).toISOString() }).select("id").single();
     checked(older.error);
-    record({ action: "fixture-create", table: "collection_submissions", key: pending.data!.map(row => row.id).concat(older.data!.id), before: null, after: "Four tagged pending answers; C is stale and its older answer superseded" });
-
-    const width = testInfo.project.use.viewport?.width ?? 390;
-    expect([360, 390]).toContain(width);
+    if (resumePath) {
+      const [fieldRows, requestRows, recordRows, historyRows] = await Promise.all([
+        db().from("collection_fields").select("id,label_en,is_active").in("id", fields),
+        db().from("collection_requests").select("id,class_id,session_label,title_en").in("id", requests),
+        db().from("student_records").select("field_id,value,source").eq("student_id", studentId).in("field_id", fields),
+        db().from("student_record_history").select("id").eq("student_id", studentId).in("field_id", fields),
+      ]);
+      for (const result of [fieldRows, requestRows, recordRows, historyRows]) checked(result.error);
+      expect(fieldRows.data).toHaveLength(3); expect(requestRows.data).toHaveLength(2); expect(recordRows.data).toHaveLength(3); expect(historyRows.data).toHaveLength(0);
+      for (const [i, field] of fields.entries()) {
+        expect(fieldRows.data!.find(row => row.id === field)).toMatchObject({ label_en: `${runTag} ${["A", "B", "C"][i]}`, is_active: false });
+        expect(recordRows.data!.find(row => row.field_id === field)).toMatchObject({ value: seededRecords[i].value, source: "office" });
+        expect(pending.data!.find(row => row.field_id === field)).toMatchObject({ status: "pending", previous_value: old[i], value: incoming[i], student_id: studentId });
+      }
+      expect(pending.data).toHaveLength(3);
+      expect(older.data).toMatchObject({ field_id: fields[2], status: "pending", previous_value: old[2], value: olderValue, student_id: studentId });
+      for (const [i, request] of requests.entries()) expect(requestRows.data!.find(row => row.id === request)).toMatchObject({ class_id: classId, session_label: owned.sessionLabel, title_en: `${runTag} ${["current", "older"][i]}` });
+      record({ action: "resume-preflight", before: { fields: fieldRows.data, requests: requestRows.data, records: recordRows.data, pending: pending.data, older: older.data, history: historyRows.data }, after: "No reseeding or terminal replay; only untouched exact fixture proceeds" });
+    } else record({ action: "fixture-create", table: "collection_submissions", key: pending.data!.map(row => row.id).concat(older.data!.id), before: null, after: "Four tagged pending answers; C is stale and its older answer superseded" });
     const mobile = { baseURL, viewport: { width, height: width === 360 ? 800 : 844 }, isMobile: true, hasTouch: true, serviceWorkers: "block" as const };
     const admin = await browser.newContext(mobile); contexts.push(admin);
     const reviewer = await browser.newContext({ ...mobile, viewport: { width: 360, height: 800 } }); contexts.push(reviewer);

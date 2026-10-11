@@ -32,6 +32,11 @@ jobs:
             export PHONEOPS_CLASS_STATIC_DIR="../evidence/class-followup-static"
           fi
           npx playwright test --config ${{ matrix.config }}
+      - name: Collect safe generated follow-up evidence
+        if: always()
+        run: |
+          mkdir -p .playwright/followup-evidence
+          find ../evidence -maxdepth 1 -type f -name '*followup*' ! -name '*admin*' ! -name '*server*' -exec cp {} .playwright/followup-evidence/ \; 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -43,4 +48,3 @@ jobs:
             .playwright/
             test-results/
             .test-artifacts/fee-followup/
-            ../evidence/*followup*
