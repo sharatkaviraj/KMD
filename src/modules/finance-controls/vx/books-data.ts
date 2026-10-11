@@ -202,7 +202,7 @@ async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip
   const { data: receiptRows } = await fetchAllPages<Row>((from, to) =>
     fee
       .from("receipts")
-      .select("id, receipt_number, payment_date, total_amount, reference_number, student_id, student_ref:students(full_name, class_ref:classes(session_label, class_name, section, stream_name))")
+      .select("id, receipt_number, payment_date, total_amount, reference_number, notes, student_id, student_ref:students(full_name, class_ref:classes(session_label, class_name, section, stream_name))")
       .eq("payment_mode", "cheque")
       .order("payment_date", { ascending: false })
       .range(from, to),
@@ -253,6 +253,7 @@ async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip
         bank: d ? str(d.bank_name) : null,
         chequeDate: d ? str(d.cheque_date) : null,
         reference: str(r.reference_number),
+        receiptNotes: str(r.notes),
         status: chequeStatus(evs),
         statusAt: latest?.createdAt ?? null,
         slipNo: depositEvent?.depositSlipId ? (slipBy.get(depositEvent.depositSlipId)?.slipNo ?? null) : null,

@@ -7,6 +7,7 @@ import {
   type Totals,
 } from "@/modules/assessments/domain/assessments";
 import { t, type Localized } from "@/platform/i18n/language";
+import { spreadsheetText } from "@/platform/helpers/spreadsheet-text";
 import {
   gradeWith,
   schemePercent,
@@ -284,7 +285,7 @@ export const CSV_BOM = "﻿";
 
 export function toCsv(rows: (string | number | null)[][]): string {
   const cell = (value: string | number | null) => {
-    const text = value === null || value === undefined ? "" : String(value);
+    const text = spreadsheetText(value);
     return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
 

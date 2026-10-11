@@ -194,6 +194,7 @@ export function AddNoteSheet({
   const [tellParents, setTellParents] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [error, setError] = useState<Pair | null>(null);
+  const [saveUncertain, setSaveUncertain] = useState(false);
   const [pending, start] = useTransition();
 
   const speech = useSpeech((text) => {
@@ -220,6 +221,7 @@ export function AddNoteSheet({
     setTellParents(false);
     setSavedId(null);
     setError(null);
+    setSaveUncertain(false);
   };
 
   const close = () => {
@@ -230,23 +232,35 @@ export function AddNoteSheet({
 
   const save = () =>
     start(async () => {
+      if (saveUncertain) return;
       setError(null);
-      const res = await createNoteAction({
-        studentId,
-        body,
-        tags,
-        source: voice ? "voice" : "typed",
-        needsFollowUp: follow,
-        followWhen: follow ? when : null,
-        followOwner: follow ? owner : null,
-        visibility,
-        tellParents: tellParents && visibility === "team",
-      });
-      if (res.ok) {
-        setSavedId(res.id ?? null);
-        setStep("saved");
-        router.refresh();
-      } else setError(res.error);
+      if (!navigator.onLine) {
+        setError(p("You are offline. This note has not been saved. Reconnect and tap Save note.", "आप ऑफलाइन हैं। यह नोट सेव नहीं हुआ है। इंटरनेट आने पर नोट सेव करें दबाएँ।"));
+        return;
+      }
+      try {
+        const res = await createNoteAction({
+          studentId,
+          body,
+          tags,
+          source: voice ? "voice" : "typed",
+          needsFollowUp: follow,
+          followWhen: follow ? when : null,
+          followOwner: follow ? owner : null,
+          visibility,
+          tellParents: tellParents && visibility === "team",
+        });
+        if (res.ok) {
+          setSavedId(res.id ?? null);
+          setStep("saved");
+          router.refresh();
+        } else setError(res.error);
+      } catch {
+        // A rejected response may follow a committed save. Keep the text and
+        // block another submission in this composer until the history is checked.
+        setSaveUncertain(true);
+        setError(p("The save could not be confirmed. Your note is still here. Check your connection and the notes list before starting another note.", "सेव की पुष्टि नहीं हो सकी। आपका नोट यहाँ है। नया नोट शुरू करने से पहले इंटरनेट और नोटों की सूची जाँचें।"));
+      }
     });
 
   const undo = () =>
@@ -300,7 +314,7 @@ export function AddNoteSheet({
         <button type="button" className="tap btn sec big" style={{ flex: 1 }} onClick={() => setStep("add")}>
           {tx(p("Back", "पीछे"))}
         </button>
-        <button type="button" className="tap btn pri big" style={{ flex: 2 }} disabled={pending || !canNext} onClick={save}>
+        <button type="button" className="tap btn pri big" style={{ flex: 2 }} disabled={pending || !canNext || saveUncertain} onClick={save}>
           {pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="check" size={18} />}
           {tx(p("Save note", "नोट सहेजें"))}
         </button>

@@ -60,6 +60,8 @@ export type ChequeRow = {
   bank: string | null;
   chequeDate: string | null;
   reference: string | null;
+  /** Original immutable receipt text; used only for reviewed draft suggestions. */
+  receiptNotes?: string | null;
   status: ChequeStatus;
   statusAt: string | null;
   slipNo: string | null;

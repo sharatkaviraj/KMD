@@ -1,0 +1,46 @@
+name: Phone follow-up UI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: phone-followup-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  targeted-phone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [export-followup.playwright.config.ts, cheque-followup.playwright.config.ts, module-followup.playwright.config.ts, fee-followup.playwright.config.ts, class-followup.playwright.config.ts, academic-followup.playwright.config.ts]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Targeted touch component checks
+        run: |
+          if [ "${{ matrix.config }}" = "class-followup.playwright.config.ts" ]; then
+            npx vite build --config tests/class-followup/vite.config.ts
+            export PHONEOPS_CLASS_STATIC_DIR="../evidence/class-followup-static"
+          fi
+          npx playwright test --config ${{ matrix.config }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: targeted-${{ matrix.config }}
+          retention-days: 14
+          include-hidden-files: true
+          if-no-files-found: ignore
+          path: |
+            .playwright/
+            test-results/
+            .test-artifacts/fee-followup/
+            ../evidence/*followup*

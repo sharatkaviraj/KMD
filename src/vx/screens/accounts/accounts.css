@@ -57,6 +57,8 @@
 /* Match the shell's viewport breakpoint and its 99px phone navigation footprint. */
 @media (max-width: 899px) {
   .vx.ac-books .ac-cheque-selection { bottom: calc(99px + 12px + env(safe-area-inset-bottom)); }
+  /* Books uses Section (.pad), so the shell's direct-main reserve does not apply. */
+  .vx.ac-books > .pad { padding-bottom: calc(99px + 12px + env(safe-area-inset-bottom)) !important; }
 }
 
 @media print {

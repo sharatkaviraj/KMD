@@ -20,6 +20,7 @@ import {
   withdrawRequestAction,
 } from "@/app/(app)/accounts/books/actions";
 import type { AccRequestRow, BooksData, ChequeRow, UpiLineRow } from "@/modules/finance-controls/vx/types";
+import { chequeDetailsDraft } from "@/modules/finance-controls/vx/domain/cheque-receipt";
 import { ago, amountInWords, clock, dateLabel, initials, rupees, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -753,9 +754,11 @@ function DetailsSheet({ cheque, onClose, canAct, busy, run }: { cheque: ChequeRo
 }
 
 function DetailsForm({ cheque, onClose, canAct, busy, run }: { cheque: ChequeRow; onClose: () => void; canAct: boolean; busy: boolean; run: (fn: () => Promise<Result>, after?: () => void) => void }) {
-  const [no, setNo] = useState(cheque.chequeNo ?? cheque.reference?.replace(/\D/g, "").slice(0, 12) ?? "");
-  const [bank, setBank] = useState(cheque.bank ?? "");
-  const [date, setDate] = useState(cheque.chequeDate ?? cheque.paymentDate);
+  const { tx } = useVx();
+  const draft = chequeDetailsDraft(cheque);
+  const [no, setNo] = useState(draft.chequeNo);
+  const [bank, setBank] = useState(draft.bank);
+  const [date, setDate] = useState(draft.chequeDate);
   return (
     <Sheet
       open
@@ -768,6 +771,13 @@ function DetailsForm({ cheque, onClose, canAct, busy, run }: { cheque: ChequeRow
         <Field label="Cheque number"><Input inputMode="numeric" value={no} onChange={(e) => setNo(e.target.value)} /></Field>
         <Field label="Bank and branch"><Input value={bank} onChange={(e) => setBank(e.target.value)} placeholder="For example: SBI Amet" /></Field>
         <Field label="Date on the cheque"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+        {cheque.receiptNotes?.trim() ? (
+          <Card className="ac-c" style={{ padding: 12, gap: 6 }}>
+            <span className="ac-b">{tx(p("Recorded on receipt", "रसीद पर दर्ज"))}</span>
+            <span className="ac-m" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{cheque.receiptNotes}</span>
+            <span className="ac-m">{tx(p(draft.suggested ? "Review the suggested details, then save them for the cheque register." : "Check the receipt details before saving them for the cheque register.", "चेक रजिस्टर में सहेजने से पहले रसीद के विवरण जाँचें।"))}</span>
+          </Card>
+        ) : null}
       </Stack>
     </Sheet>
   );

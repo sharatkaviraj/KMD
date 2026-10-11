@@ -1,18 +1,24 @@
 import { randomUUID } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { db, ownClassOf, signIn } from "./support/harness";
+import { interruptOneAdminResponse } from "./support/admin-response-interruption";
 
-const runTag = `phoneops-20261011-admin-${randomUUID().slice(0, 8)}`;
+const runTag = `phoneops-20261011-admin-followup-${randomUUID().slice(0, 8)}`;
 const studentId = "0c9f719c-7c5e-4cf4-a621-bce758236697";
 const classId = "745643d0-aaca-470f-9372-d87397770a77";
 const fields: string[] = [];
 const requests: string[] = [];
 const ledger: Record<string, unknown>[] = [];
-const ledgerPath = "../evidence/admin-ledger.json";
+const ledgerPath = path.resolve(`../evidence/admin-ledger-${runTag}.json`);
+let wroteLedger = false;
 function record(entry: Record<string, unknown>) {
+  if (!wroteLedger && existsSync(ledgerPath)) throw new Error("Refusing to replace an existing admin ledger");
+  mkdirSync(path.dirname(ledgerPath), { recursive: true });
   ledger.push({ at: new Date().toISOString(), ...entry });
   writeFileSync(ledgerPath, JSON.stringify({ runTag, target: "wtgxcptmucjerhufzjcf", studentId, classId, entries: ledger }, null, 2));
+  wroteLedger = true;
 }
 function checked(error: { message: string } | null) { if (error) throw new Error(error.message); }
 async function login(page: Page, actor: string) {
@@ -20,9 +26,13 @@ async function login(page: Page, actor: string) {
   catch { throw new Error(`Existing QA ${actor} sign-in could not reach or authenticate the local DEV review page`); }
 }
 
-test("admin selected decisions, cached reviewer, conflict and interrupted response persist safely on phone", async ({ browser }) => {
+test("admin selected decisions, cached reviewer, conflict and interrupted response persist safely on phone", async ({ browser }, testInfo) => {
   test.skip(process.env.OPS_ADMIN_RUN_MUTATIONS !== "1", "Explicit lane opt-in required; retained DEV fixture cleanup approval is pending");
   test.setTimeout(900_000);
+  if (process.env.OPS_ADMIN_PRESERVE_FIXTURES === "0") throw new Error("Admin follow-up cannot delete retained audit fixtures; pending cleanup approval is separate");
+  const baseURL = process.env.OPS_ADMIN_ORIGIN ?? "http://localhost:3100";
+  const origin = new URL(baseURL);
+  if (origin.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(origin.hostname)) throw new Error("Admin follow-up requires the coordinator-owned local DEV server");
   const contexts: BrowserContext[] = [];
   try {
     const owned = await ownClassOf("teacher");
@@ -54,7 +64,9 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
     checked(older.error);
     record({ action: "fixture-create", table: "collection_submissions", key: pending.data!.map(row => row.id).concat(older.data!.id), before: null, after: "Four tagged pending answers; C is stale and its older answer superseded" });
 
-    const mobile = { baseURL: "http://localhost:3100", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
+    const width = testInfo.project.use.viewport?.width ?? 390;
+    expect([360, 390]).toContain(width);
+    const mobile = { baseURL, viewport: { width, height: width === 360 ? 800 : 844 }, isMobile: true, hasTouch: true, serviceWorkers: "block" as const };
     const admin = await browser.newContext(mobile); contexts.push(admin);
     const reviewer = await browser.newContext({ ...mobile, viewport: { width: 360, height: 800 } }); contexts.push(reviewer);
     const teacher = await browser.newContext(mobile); contexts.push(teacher);
@@ -62,6 +74,7 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
     await login(page, "admin");
     await login(cached, "admin");
     await login(limited, "teacher");
+    record({ action: "phone-contexts", actual: { width, hasTouch: true, isMobile: true, physical: false }, ledgerPath });
     await expect(limited.locator("[data-bulk-decide] button[type=submit]")).toHaveCount(0);
     record({ action: "role-check", role: "teacher", actual: { path: new URL(limited.url()).pathname, decisionControls: 0 }, expected: "No administrative decision controls" });
 
@@ -103,56 +116,52 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
     await page.reload();
     const currentC = page.locator("li").filter({ hasText: incoming[2] }).filter({ has: page.locator("form") });
     await expect(currentC.getByRole("button", { name: /^(Accept|स्वीकार करें)$/ })).toHaveCount(0);
-    let interrupted = false;
-    let finishInterruption = () => {};
-    const interruptionFinished = new Promise<void>(resolve => { finishInterruption = resolve; });
-    await page.route("**/collection/review", async route => {
-      if (!interrupted && route.request().method() === "POST" && route.request().headers()["next-action"]) {
-        interrupted = true;
-        try { await route.fetch(); await route.abort("failed"); }
-        finally { finishInterruption(); }
-      } else await route.continue();
-    });
+    // Cache only this new fixture's C command for a supported stale-reviewer
+    // retry; no command from the retained original run is reused.
+    await cached.reload();
+    const cachedC = cached.locator("li").filter({ hasText: incoming[2] }).filter({ has: cached.locator("form") });
+    await expect(cachedC.getByRole("button", { name: /Accept and replace|नया मान/ })).toBeVisible();
+    const interruption = await interruptOneAdminResponse(page);
     await currentC.getByRole("button", { name: /Accept and replace|नया मान/ }).tap();
-    // Finish the fault injection before unroute/reload can dispose its request.
-    await interruptionFinished;
+    const interruptionEvidence = await interruption.finish();
+    expect(interruptionEvidence).toMatchObject({ forwarded: 1, aborted: 1 });
+    expect(interruptionEvidence.browserFailure).toMatch(/failed/i);
+    record({ action: "response-interruption-settled", actual: interruptionEvidence, expected: "One forward; its browser response genuinely failed before reload" });
     await expect.poll(async () => (await readRecords()).find(row => row.field_id === fields[2])?.value, { timeout: 45_000 }).toBe(incoming[2]);
-    await page.unroute("**/collection/review");
     await page.reload();
     await expect(page.locator("li").filter({ hasText: incoming[2] }).filter({ has: page.locator("form") })).toHaveCount(0);
     const writesC = await db().from("student_record_history").select("id,outcome,old_value,new_value,old_source").eq("field_id", fields[2]).eq("outcome", "written"); checked(writesC.error);
     expect(writesC.data).toHaveLength(1);
     expect(writesC.data![0]).toMatchObject({ old_value: corrected, new_value: incoming[2], old_source: "office" });
-    expect(interrupted).toBe(true);
+    const submissionC = await db().from("collection_submissions").select("id,status,value").eq("id", pending.data!.find(row => row.field_id === fields[2])!.id).single(); checked(submissionC.error);
+    expect(submissionC.data).toMatchObject({ status: "accepted", value: incoming[2] });
     record({ action: "explicit-replace-interrupted-response", table: "student_record_history", key: fields[2], before: corrected, after: writesC.data, expected: "Persisted once; reload removes decided row despite interrupted response" });
+    const retryResponse = cached.waitForResponse(response => response.request().method() === "POST" && Boolean(response.request().headers()["next-action"]));
+    await cachedC.getByRole("button", { name: /Accept and replace|नया मान/ }).tap();
+    await retryResponse;
+    await cached.reload();
+    await expect(cached.locator("li").filter({ hasText: incoming[2] }).filter({ has: cached.locator("form") })).toHaveCount(0);
+    const afterRetry = await db().from("student_record_history").select("id,outcome,old_value,new_value,old_source").eq("field_id", fields[2]).eq("outcome", "written"); checked(afterRetry.error);
+    expect(afterRetry.data).toEqual(writesC.data);
+    record({ action: "interrupted-command-stale-reviewer-retry", table: "student_record_history", key: fields[2], before: writesC.data, after: afterRetry.data, expected: "Same one audit ID/effect after supported stale form retry and reload" });
     const finalRecords = await readRecords();
     expect(finalRecords.find(row => row.field_id === fields[1])?.value).toBe(old[1]);
+    const finalSubmissions = await db().from("collection_submissions").select("field_id,status").eq("request_id", requests[0]); checked(finalSubmissions.error);
+    expect(Object.fromEntries(finalSubmissions.data!.map(row => [row.field_id, row.status]))).toEqual({ [fields[0]]: "accepted", [fields[1]]: "pending", [fields[2]]: "accepted" });
+    const untouchedHistory = await db().from("student_record_history").select("id").eq("field_id", fields[1]); checked(untouchedHistory.error);
+    expect(untouchedHistory.data).toHaveLength(0);
+    const allWritten = await db().from("student_record_history").select("id,field_id,outcome").in("field_id", fields).eq("outcome", "written"); checked(allWritten.error);
+    expect(allWritten.data!.map(row => row.id).sort()).toEqual([writesA.data![0].id, writesC.data![0].id].sort());
     record({ action: "final-invariants", table: "student_records", key: fields, after: finalRecords, expected: "A and C intentionally accepted once; B remains untouched" });
   } catch (error) {
     record({ action: "test-error", actual: (error instanceof Error ? error.message.slice(0, 1500) : String(error)).replace(/token_hash=[a-f0-9]+/gi, "token_hash=REDACTED") });
     throw error;
   } finally {
-    // Browser teardown errors must never prevent exact-ID fixture cleanup.
+    // Teardown cannot trigger destructive cleanup or replace retained evidence.
     const closed = await Promise.allSettled(contexts.map(context => context.close()));
     for (const result of closed) if (result.status === "rejected") {
-      record({ action: "browser-close-error", actual: "Browser context already disposed during failed test; exact-ID cleanup continues" });
+      record({ action: "browser-close-error", actual: "Browser context already disposed during failed test; exact tagged fixtures stay retained" });
     }
-    if (process.env.OPS_ADMIN_PRESERVE_FIXTURES !== "0") {
-      record({ action: "cleanup-preserved", after: "Exact tagged fixtures retained; destructive cleanup requires its pending approval to resolve before this option may be disabled" });
-    } else {
-    for (const table of ["student_record_history", "student_records"] as const) if (fields.length) {
-      const result = await db().from(table).delete().in("field_id", fields); checked(result.error);
-      record({ action: "cleanup", table, key: fields, after: "Tagged rows deleted" });
-    }
-    if (requests.length) { const result = await db().from("collection_requests").delete().in("id", requests); checked(result.error); record({ action: "cleanup", table: "collection_requests", key: requests, after: "Requests and cascading submissions deleted" }); }
-    if (fields.length) { const result = await db().from("collection_fields").delete().in("id", fields); checked(result.error); record({ action: "cleanup", table: "collection_fields", key: fields, after: "Inactive fields deleted" }); }
-    for (const table of ["collection_fields", "student_records", "student_record_history"] as const) if (fields.length) {
-      const result = await db().from(table).select("id", { count: "exact", head: true }).in(table === "collection_fields" ? "id" : "field_id", fields); checked(result.error); expect(result.count).toBe(0);
-    }
-    for (const table of ["collection_requests", "collection_submissions"] as const) if (requests.length) {
-      const result = await db().from(table).select("id", { count: "exact", head: true }).in(table === "collection_requests" ? "id" : "request_id", requests); checked(result.error); expect(result.count).toBe(0);
-    }
-    record({ action: "cleanup-verify", after: "Zero tagged fields, requests, submissions, student records and history remain" });
-    }
+    record({ action: "cleanup-preserved", after: "Exact newly tagged fixtures retained; original ledger and pending cleanup approval untouched" });
   }
 });
