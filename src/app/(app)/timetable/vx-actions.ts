@@ -317,19 +317,26 @@ export async function decideLeaveAction(input: { id: string; approve: boolean })
     .maybeSingle<{ id: string; session_label: string; staff_profile_id: string; from_day: string; to_day: string; span: LeaveSpan; status: string }>();
   if (!leave || leave.status !== "asked") return fail(p("That leave was already decided.", "यह पहले तय हो चुकी है।"));
 
-  const { error } = await admin
+  const { data: decided, error } = await admin
     .from("teacher_leave")
     .update({ status: input.approve ? "approved" : "declined", decided_by: actor.id, decided_at: new Date().toISOString() })
     .eq("id", leave.id)
-    .eq("status", "asked");
+    .eq("status", "asked")
+    .select("id")
+    .maybeSingle<{ id: string }>();
   if (error) return fail(notSaved);
+  if (!decided) {
+    revalidatePath("/timetable");
+    return fail(p("That leave was already decided.", "इस छुट्टी पर पहले ही निर्णय हो चुका है।"));
+  }
 
   let arranged = 0;
   let refused = 0;
   if (input.approve) {
     const today = schoolToday();
-    const days = schoolDays(leave.from_day > today ? leave.from_day : today, leave.to_day).filter((d) => DAY.test(d)).slice(0, 14);
-    for (const day of days) {
+    const days = schoolDays(leave.from_day > today ? leave.from_day : today, leave.to_day).filter((d) => DAY.test(d));
+    refused = Math.max(0, days.length - 14);
+    for (const day of days.slice(0, 14)) {
       const revision = await coverDayRevision(leave.session_label, day).catch(() => null);
       if (revision === null) {
         refused += 1;
@@ -354,7 +361,7 @@ export async function decideLeaveAction(input: { id: string; approve: boolean })
     ok: true,
     message: p(
       `Leave approved · cover arranged for ${arranged} ${arranged === 1 ? "day" : "days"}${refused ? ` · ${refused} to arrange by hand` : ""}`,
-      `छुट्टी स्वीकृत · ${arranged} दिन की व्यवस्था`,
+      `छुट्टी स्वीकृत · ${arranged} दिन की व्यवस्था${refused ? ` · ${refused} दिन की व्यवस्था हाथ से करें` : ""}`,
     ),
   };
 }

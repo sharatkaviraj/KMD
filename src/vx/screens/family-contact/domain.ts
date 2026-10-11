@@ -47,6 +47,12 @@ export function parseContact(input: { outcome?: unknown; note?: unknown; agreedO
   const note = typeof input.note === "string" ? input.note.trim().slice(0, 400) || null : null;
   if (input.outcome !== "follow_up_agreed") return { ok: true, value: { outcome: input.outcome, note, agreedOn: null } };
   const agreedOn = typeof input.agreedOn === "string" && ISO_DAY.test(input.agreedOn) ? input.agreedOn : null;
+  if (agreedOn) {
+    const date = new Date(`${agreedOn}T00:00:00Z`);
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== agreedOn) {
+      return { ok: false, error: p("Choose a valid agreed date.", "तय की गई सही तारीख चुनें।") };
+    }
+  }
   if (!agreedOn) return { ok: false, error: p("Choose the date that was agreed.", "तय हुई तारीख चुनें।") };
   if (agreedOn < today) return { ok: false, error: p("The agreed date cannot be in the past.", "तय तारीख बीती हुई नहीं हो सकती।") };
   return { ok: true, value: { outcome: input.outcome, note, agreedOn } };

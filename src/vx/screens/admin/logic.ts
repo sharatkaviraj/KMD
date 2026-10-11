@@ -8,6 +8,7 @@
  */
 
 import { p, type Pair } from "@/vx/text";
+import { spreadsheetText } from "@/platform/helpers/spreadsheet-text";
 
 /* ------------------------------------------------------------ attendance */
 
@@ -463,7 +464,7 @@ export function mobileOf(phone: string | null | undefined): string | null {
 
 /** CSV for the selected rows (Students → Export). Quotes every cell. */
 export function toCsv(header: readonly string[], rows: readonly (readonly (string | number | null)[])[]): string {
-  const cell = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const cell = (v: string | number | null) => `"${spreadsheetText(v).replace(/"/g, '""')}"`;
   return [header, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
 }
 
