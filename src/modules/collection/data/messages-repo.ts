@@ -1,9 +1,12 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import {
   mayDispatch,
+  isConfirmedProviderRejection,
+  needsProviderReconciliation,
   render,
   type MessageAudience,
   type MessageSend,
@@ -136,6 +139,7 @@ type SendRow = {
   error: string | null;
   requested_at: string;
   sent_at: string | null;
+  updated_at: string;
   approved_at: string | null;
   stale_reason: string | null;
   message_templates: {
@@ -150,7 +154,7 @@ type SendRow = {
 const SEND_COLUMNS =
   "id, template_id, to_phone, to_name, student_id, request_id, staff_profile_id, " +
   "variables, rendered_hi, rendered_en, status, provider_message_id, error, " +
-  "requested_at, sent_at, approved_at, stale_reason, " +
+  "requested_at, sent_at, updated_at, approved_at, stale_reason, " +
   "message_templates!inner(code, label_hi, label_en, audience), " +
   // **Named, because `message_sends` points at `staff_profiles` twice** —
   // `requested_by` is who asked for the message and `staff_profile_id` is who
@@ -181,6 +185,7 @@ const toSend = (row: SendRow): MessageSend => ({
   requestedByName: row.staff_profiles?.display_name ?? null,
   requestedAt: row.requested_at,
   sentAt: row.sent_at,
+  updatedAt: row.updated_at,
   approvedAt: row.approved_at,
   staleReason: row.stale_reason,
 });
@@ -271,14 +276,29 @@ export async function getSend(id: string): Promise<MessageSend | null> {
   return data ? toSend(data) : null;
 }
 
+async function manualCandidate(id: string) {
+  const { data, error } = await createAdminClient().from("message_sends")
+    .select("status, provider_message_id, error, updated_at").eq("id", id)
+    .maybeSingle<{ status: string; provider_message_id: string | null; error: string | null; updated_at: string }>();
+  if (error || !data || data.provider_message_id !== null
+    || (!(data.status === "draft" || data.status === "queued") && !(data.status === "failed" && isConfirmedProviderRejection(data.error)))) {
+    throw new Error("Check the provider result before changing this message.");
+  }
+  return data;
+}
 export async function cancelSend(id: string): Promise<void> {
-  const { error } = await createAdminClient()
+  const candidate = await manualCandidate(id);
+  const { data, error } = await createAdminClient()
     .from("message_sends")
     .update({ status: "cancelled" })
     .eq("id", id)
-    .neq("status", "sent");
+    .eq("status", candidate.status)
+    .eq("updated_at", candidate.updated_at)
+    .is("provider_message_id", null)
+    .select("id");
 
   if (error) throw error;
+  if (!data?.length) throw new Error("This message is sent, stopped or awaiting provider reconciliation.");
 }
 
 /**
@@ -293,7 +313,8 @@ export async function markSentByHand(
   id: string,
   staffProfileId: string,
 ): Promise<void> {
-  const { error } = await createAdminClient()
+  const candidate = await manualCandidate(id);
+  const { data, error } = await createAdminClient()
     .from("message_sends")
     .update({
       status: "sent",
@@ -301,12 +322,27 @@ export async function markSentByHand(
       requested_by: staffProfileId,
     })
     .eq("id", id)
-    .neq("status", "sent");
+    .eq("status", candidate.status)
+    .eq("updated_at", candidate.updated_at)
+    .is("provider_message_id", null)
+    .select("id");
 
   if (error) throw error;
+  if (!data?.length) throw new Error("Check the provider result before recording another send.");
 }
 
 /* ------------------------------------------------------- the provider */
+/** A human checked the provider log; keep the attempt and their evidence. No resend. */
+export async function confirmDispatchReceived(id: string, attempt: string | null, note: string, actorId: string): Promise<void> {
+  if ((attempt !== null && !/^attempt:[0-9a-f-]{36}$/i.test(attempt)) || note.trim().length < 5 || note.length > 500) throw new Error("Check and describe the provider result.");
+  let query = createAdminClient().from("message_sends")
+    .update({ status: "sent", sent_at: new Date().toISOString(),
+      provider_message_id: `confirmed:${attempt ?? `legacy:${randomUUID()}`}`, error: `Delivery verified by ${actorId}: ${note.trim()}` })
+    .eq("id", id).eq("status", "failed");
+  query = attempt === null ? query.is("provider_message_id", null) : query.eq("provider_message_id", attempt);
+  const { data, error } = await query.select("id");
+  if (error || data?.length !== 1) throw new Error("The provider result changed. Reload before confirming.");
+}
 
 /**
  * Hand one queued message to whichever provider this deployment has.
@@ -329,6 +365,7 @@ export async function markSentByHand(
  * would lose the sentence that says what to fix.
  */
 export async function dispatch(send: MessageSend): Promise<DispatchResult> {
+  if (needsProviderReconciliation(send)) return { ok: false, error: "Check the provider result before sending again." };
   if (send.audience === "parent") {
     // A parent message goes from the app only under the school's switch, a
     // named automatic exception for its category, and nothing stale (P9) —
@@ -366,16 +403,36 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
     };
   }
 
-  return provider.send(send);
+  // A single conditional UPDATE is the cross-request claim. It commits before
+  // transport, so a crashed worker/lost response leaves an explicit marker that
+  // refuses provider retry, manual overwrite and cancellation. Never sweep it.
+  const attempt = `attempt:${randomUUID()}`;
+  let claim = createAdminClient().from("message_sends")
+    .update({ status: "failed", provider_message_id: attempt,
+      error: "Provider result not confirmed. Check the provider delivery log; do not resend." })
+    .eq("id", send.id).in("status", ["draft", "queued", "failed"])
+    .is("provider_message_id", null)
+    .eq("template_id", send.templateId).eq("to_phone", send.toPhone)
+    .eq("rendered_hi", send.renderedHi).eq("rendered_en", send.renderedEn);
+  if (send.updatedAt) claim = claim.eq("updated_at", send.updatedAt);
+  const { data: claimed, error: claimError } = await claim.select("id");
+  if (claimError || claimed?.length !== 1) return { ok: false, error: "The message changed or another send is being checked. Reload before continuing." };
+  let result: DispatchResult;
+  try { result = await provider.send(send); }
+  catch { result = { ok: false, outcome: "unknown", error: "Provider result unknown. Check its delivery log; do not resend." }; }
+  try { await recordDispatch(send.id, result, attempt); }
+  catch { return { ok: false, outcome: "unknown", error: "The provider result could not be recorded. Check its delivery log; do not resend." }; }
+  return result;
 }
 
-export async function recordDispatch(
+async function recordDispatch(
   id: string,
   result: DispatchResult,
+  attempt: string,
 ): Promise<void> {
   const admin = createAdminClient();
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from("message_sends")
     .update(
       result.ok
@@ -385,10 +442,14 @@ export async function recordDispatch(
             provider_message_id: result.providerMessageId,
             error: null,
           }
-        : { status: "failed" as const, error: result.error },
+        : { status: "failed" as const, error: result.outcome === "rejected" ? `Provider rejected this request: ${result.error}` : result.error,
+            provider_message_id: result.outcome === "rejected" ? null : attempt },
     )
     .eq("id", id)
-    .neq("status", "sent");
+    .eq("status", "failed")
+    .eq("provider_message_id", attempt)
+    .select("id");
 
   if (error) throw error;
+  if (data?.length !== 1) throw new Error("The dispatch result needs reconciliation.");
 }

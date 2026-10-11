@@ -10,6 +10,11 @@ import { t } from "@/platform/i18n/language";
  * this is not (D-229).
  */
 export const ms = {
+  messagesProviderCheck: t("प्रदाता का परिणाम जाँचें", "Check provider result"),
+  messagesProviderCheckHint: t("संदेश पहुँच सकता है। प्रदाता का डिलीवरी लॉग जाँचे बिना दोबारा न भेजें।", "This message may have arrived. Check the provider delivery log before sending again."),
+  messagesProviderChecked: t("मैंने डिलीवरी लॉग जाँचा और संदेश पहुँचना सत्यापित किया।", "I checked the delivery log and verified that it arrived."),
+  messagesProviderEvidence: t("सत्यापन का विवरण", "Verification details"),
+  messagesProviderConfirm: t("पहुँचना सत्यापित दर्ज करें", "Record verified delivery"),
   attendanceRulesTitle: t("हाज़िरी के नियम", "Attendance rules"),
   attendanceRulesHalfDay: t("आधा दिन कितना गिना जाए", "How much a half day counts"),
   attendanceRulesHalfDayHint: t(

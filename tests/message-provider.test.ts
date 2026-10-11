@@ -102,14 +102,18 @@ describe("what the office is told, and what they can do about it", () => {
   );
 
   it("offers a retry only where there is work left to retry", () => {
-    expect(isRetryable("timeout")).toBe(true);
+    expect(isRetryable("timeout")).toBe(false);
     expect(isRetryable("rate_limited")).toBe(true);
-    expect(isRetryable("server_error")).toBe(true);
+    expect(isRetryable("server_error")).toBe(false);
 
     expect(isRetryable("sent")).toBe(false);
     expect(isRetryable("slow")).toBe(false);
     // The whole reason `duplicate` exists: the message went. Offering "try
     // again" on it is an invitation to send the same thing twice.
     expect(isRetryable("duplicate")).toBe(false);
+  });
+  it.each(["timeout", "server_error"] as const)("%s requires provider reconciliation before another send", outcome => {
+    expect(outcomeErrors[outcome].en).toMatch(/check.*provider.*before/i);
+    expect(outcomeErrors[outcome].en).not.toMatch(/try again|did not go/i);
   });
 });

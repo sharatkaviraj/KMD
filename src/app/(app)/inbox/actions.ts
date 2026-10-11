@@ -28,16 +28,16 @@ function done() {
   revalidatePath("/");
 }
 
-export async function decideSubmissionsVx(submissionIds: string[], accept: boolean): Promise<InboxActionResult> {
+export async function decideSubmissionsVx(submissionIds: string[], accept: boolean, commandId: string = randomUUID()): Promise<InboxActionResult> {
   await assertPermission("collection:manage");
   await assertNotPreviewing();
   const ids = submissionIds.filter((id) => UUID.test(id));
-  if (ids.length === 0) return { ok: false, message: FAILED };
+  if (ids.length === 0 || !UUID.test(commandId)) return { ok: false, message: FAILED };
 
   const form = new FormData();
   for (const id of ids) form.append("submissionIds", id);
   form.set("accept", accept ? "true" : "false");
-  form.set("commandId", randomUUID());
+  form.set("commandId", commandId);
   form.set("replaceNewer", "false");
   form.set("note", "");
   const state = await decideSubmissionsAction(idleCollectionState, form);

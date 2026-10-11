@@ -34,15 +34,16 @@ export async function saveRegisterVx(payload: string): Promise<AttendanceSaveSta
   return state;
 }
 
-export async function remindTeachersVx(classIds: string[]): Promise<{ ok: boolean; queued: number; message?: Pair }> {
+export async function remindTeachersVx(classIds: string[], scope?: { day: string; sessionLabel: string; commandId: string }): Promise<{ ok: boolean; queued: number; message?: Pair }> {
   await assertPermission("attendance:mark_on_behalf");
   await assertNotPreviewing();
   const sessionLabel = await resolveSessionLabel();
+  if (scope && (scope.sessionLabel !== sessionLabel || scope.day !== schoolToday())) return { ok: false, queued: 0, message: { en: "The reminder day or session changed. Reload.", hi: "याद दिलाने का दिन या सत्र बदला। फिर से खोलें।" } };
   if (!sessionLabel) return { ok: false, queued: 0, message: { en: "No academic session is set up yet.", hi: "अभी कोई सत्र नहीं बना है।" } };
 
   let queued = 0;
   try {
-    queued = await queueAttendanceReminders(sessionLabel, schoolToday(), classIds);
+    queued = await queueAttendanceReminders(sessionLabel, scope?.day ?? schoolToday(), classIds, scope?.commandId);
   } catch {
     return { ok: false, queued: 0, message: { en: "Could not queue the reminders.", hi: "याद दिलाने के संदेश नहीं भेजे जा सके।" } };
   }

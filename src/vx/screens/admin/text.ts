@@ -6,6 +6,12 @@ import { p, type Pair } from "@/vx/text";
  * a pair with a number in it is a function.
  */
 export const T = {
+  inboxStorageFailed: p("Could not preserve this decision on this device. Check pending decisions before continuing.", "इस उपकरण पर निर्णय सुरक्षित नहीं हुआ। आगे बढ़ने से पहले लंबित निर्णय जाँचें।"),
+  inboxPending: p("Some decisions are waiting for confirmation. Retry checks the same decisions.", "कुछ निर्णयों की पुष्टि बाकी है। दोबारा प्रयास उन्हीं निर्णयों को जाँचता है।"),
+  inboxEarlier: p("Earlier decisions", "पहले के निर्णय"),
+  inboxEarlierHint: p("Check their results before clearing these device copies. Clearing a copy does not undo a decision.", "उपकरण की प्रतियाँ हटाने से पहले परिणाम जाँचें। प्रति हटाने से निर्णय वापस नहीं होता।"),
+  inboxClearReviewed: p("Clear reviewed device copies", "जाँची गई उपकरण प्रतियाँ हटाएँ"),
+  inboxRetry: p("Check pending decisions", "बाकी निर्णय जाँचें"),
   /* ------------------------------------------------------------- shared */
   today: p("Today", "आज"),
   open: p("Open", "खोलें"),

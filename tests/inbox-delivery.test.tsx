@@ -4,11 +4,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { InboxItem } from "@/vx/screens/admin/types";
-
-const state = vi.hoisted(() => ({ decide: vi.fn(), toast: vi.fn(), refresh: vi.fn() }));
+const state = vi.hoisted(() => ({ toast: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: state.refresh }) }));
-vi.mock("@/app/(app)/inbox/actions", () => ({ decideSubmissionsVx: state.decide, assignCoverVx: vi.fn() }));
-vi.mock("@/app/(app)/attendance/actions", () => ({ remindTeachersVx: vi.fn() }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (v: string | { en: string }) => typeof v === "string" ? v : v.en }) }));
 vi.mock("@/vx/icons", () => ({ Ic: () => null }));
 vi.mock("@/vx/ui/overlays", () => ({ useToast: () => ({ show: state.toast }), Sheet: () => null }));
@@ -20,91 +17,120 @@ vi.mock("@/vx/ui/primitives", () => ({
   Pill: ({ children }: { children: React.ReactNode }) => <span>{children}</span>, IconTile: () => null, EmptyState: () => null,
 }));
 import { InboxScreen } from "@/vx/screens/admin/inbox";
-
-let root: Root;
-let host: HTMLDivElement;
-const item: InboxItem = { id: "qa-item", submissionIds: ["qa-submission"], type: "students", kind: "submission", at: null, urgent: false,
-  badge: { en: "QA submission" }, title: { en: "QA child" }, sub: { en: "Phone number" }, facts: [] };
+let root: Root; let host: HTMLDivElement;
+const scope = { accountId: "qa-account", sessionLabel: "QA-2026", day: "2026-10-11" };
+const item: InboxItem = { id: "qa-item", submissionIds: ["22222222-2222-4222-8222-222222222222"], type: "students", kind: "submission", at: null, urgent: false,
+  badge: { en: "QA submission" }, title: { en: "QA child" }, sub: { en: "Absent to present" }, facts: [] };
+const response = (ok = true) => ({ ok, json: async () => ({ ok }) }) as Response;
+const body = (index = 0) => JSON.parse(String(vi.mocked(fetch).mock.calls[index][1]!.body));
+async function render(next = scope, previewing = false) { await act(async () => root.render(<InboxScreen items={[item]} initial={item.id} previewing={previewing} unavailable={false} scope={next} />)); }
 beforeEach(async () => {
-  vi.useFakeTimers(); vi.clearAllMocks();
+  vi.useFakeTimers(); vi.clearAllMocks(); localStorage.clear();
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) }));
-  host = document.createElement("div"); document.body.append(host); root = createRoot(host);
-  await act(async () => root.render(<InboxScreen items={[item]} initial={item.id} previewing={false} unavailable={false} />));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response()));
+  host = document.createElement("div"); document.body.append(host); root = createRoot(host); await render();
 });
-afterEach(async () => {
-  await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.unstubAllGlobals();
+afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+const approveButton = () => [...host.querySelectorAll("button")].find(b => b.textContent === "Accept")!;
+async function approve() { expect(approveButton()).toBeDefined(); await act(async () => approveButton().click()); }
+it("departure and an outstanding normal request carry the same scoped command", async () => {
+  let resolve!: (v: Response) => void; vi.mocked(fetch).mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  await approve(); await act(async () => { vi.advanceTimersByTime(6000); }); expect(fetch).toHaveBeenCalledOnce();
+  await act(async () => { window.dispatchEvent(new Event("pagehide")); }); expect(fetch).toHaveBeenCalledTimes(2);
+  expect(body(0)).toEqual(body(1)); expect(body(0).scope).toEqual(scope);
+  expect(vi.mocked(fetch).mock.calls[1][1]!.keepalive).toBe(true);
+  await act(async () => resolve(response()));
 });
-async function approve() {
-  const button = [...host.querySelectorAll("button")].find(b => b.textContent === "Accept")!;
-  expect(button).toBeDefined(); await act(async () => button.click());
-}
-
-it("pagehide still flushes a decision after the undo timer while its server response is outstanding", async () => {
-  let resolve!: (value: { ok: boolean }) => void;
-  state.decide.mockReturnValue(new Promise(r => { resolve = r; }));
-  await approve();
-  await act(async () => { vi.advanceTimersByTime(6000); });
-  expect(state.decide).toHaveBeenCalledOnce();
-  window.dispatchEvent(new Event("pagehide"));
-  expect(fetch).toHaveBeenCalledWith("/api/inbox", expect.objectContaining({ keepalive: true,
-    body: JSON.stringify({ kind: "submissions", submissionIds: ["qa-submission"], accept: true }) }));
-  await act(async () => { resolve({ ok: true }); });
+it("undo before sending removes the durable intent and prevents departure", async () => {
+  await approve(); await act(async () => state.toast.mock.calls[0][0].undo());
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); window.dispatchEvent(new Event("pagehide")); });
+  expect(fetch).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0);
 });
-it("undo before sending prevents both the action and a departure flush", async () => {
-  await approve();
-  const toast = state.toast.mock.calls.at(-1)![0];
-  await act(async () => toast.undo());
-  await act(async () => { vi.advanceTimersByTime(6000); });
-  window.dispatchEvent(new Event("pagehide"));
-  expect(state.decide).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+it("an acknowledged command is not sent again on departure", async () => {
+  await approve(); await act(async () => { await vi.advanceTimersByTimeAsync(6000); window.dispatchEvent(new Event("pagehide")); });
+  expect(fetch).toHaveBeenCalledOnce(); expect(localStorage.length).toBe(0);
 });
-it("an acknowledged decision is not sent again when leaving", async () => {
-  state.decide.mockResolvedValue({ ok: true }); await approve();
-  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-  window.dispatchEvent(new Event("pagehide")); expect(fetch).not.toHaveBeenCalled();
-});
-
-it("a double-click holds only one decision and one send", async () => {
-  state.decide.mockResolvedValue({ ok: true });
-  const button = [...host.querySelectorAll("button")].find(b => b.textContent === "Accept")!;
-  await act(async () => { button.click(); button.click(); });
-  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-  expect(state.decide).toHaveBeenCalledOnce();
-  expect(state.toast).toHaveBeenCalledOnce();
-});
-it("undo is no longer offered as an effective reversal once sending starts", async () => {
-  let resolve!: (value: { ok: boolean }) => void;
-  state.decide.mockReturnValue(new Promise(r => { resolve = r; }));
-  await approve();
-  const toast = state.toast.mock.calls.at(-1)![0];
-  await act(async () => { vi.advanceTimersByTime(6000); toast.undo(); });
-  expect([...host.querySelectorAll("button")].some(b => b.textContent === "Accept")).toBe(false);
-  window.dispatchEvent(new Event("pagehide"));
+it("double-click creates one intent and sends one command", async () => {
+  const button = approveButton(); await act(async () => { button.click(); button.click(); });
+  expect(localStorage.length).toBe(1); await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
   expect(fetch).toHaveBeenCalledOnce();
-  await act(async () => { resolve({ ok: true }); });
 });
-it.each(["transport", "server refusal"])("retains an unacknowledged departure after %s for a subsequent flush", async (failure) => {
+it("undo cannot erase an intent after transport started", async () => {
+  let resolve!: (v: Response) => void; vi.mocked(fetch).mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  await approve(); const undo = state.toast.mock.calls[0][0].undo;
+  await act(async () => { vi.advanceTimersByTime(6000); undo(); });
+  expect(localStorage.length).toBe(1); expect(JSON.parse(localStorage.getItem(localStorage.key(0)!)!).attempted).toBe(true);
+  await act(async () => resolve(response()));
+});
+it.each(["transport", "server refusal"])("retains %s for another departure with the same identity", async (failure) => {
   if (failure === "transport") vi.mocked(fetch).mockRejectedValueOnce(new Error("QA disconnected"));
-  else vi.mocked(fetch).mockResolvedValueOnce({ ok: false, json: async () => ({ ok: false }) } as Response);
-  await approve();
+  else vi.mocked(fetch).mockResolvedValueOnce(response(false));
+  await approve(); await act(async () => { window.dispatchEvent(new Event("pagehide")); });
+  expect(localStorage.length).toBe(1);
   await act(async () => { window.dispatchEvent(new Event("pagehide")); });
-  await act(async () => { window.dispatchEvent(new Event("pagehide")); });
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(state.decide).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledTimes(2); expect(body(0).commandId).toBe(body(1).commandId);
 });
-it("does not duplicate an outstanding keepalive request on repeated departure events", async () => {
-  let resolve!: (value: Response) => void;
-  vi.mocked(fetch).mockReturnValue(new Promise(r => { resolve = r; }));
-  await approve();
-  await act(async () => { window.dispatchEvent(new Event("pagehide")); window.dispatchEvent(new Event("pagehide")); });
-  expect(fetch).toHaveBeenCalledOnce();
-  await act(async () => { resolve({ ok: true, json: async () => ({ ok: true }) } as Response); });
+it("repeated departure does not duplicate an outstanding keepalive", async () => {
+  let resolve!: (v: Response) => void; vi.mocked(fetch).mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  await approve(); await act(async () => { window.dispatchEvent(new Event("pagehide")); window.dispatchEvent(new Event("pagehide")); });
+  expect(fetch).toHaveBeenCalledOnce(); await act(async () => resolve(response()));
 });
-it("restores a failed normal decision and does not assert that a lost response changed nothing", async () => {
-  state.decide.mockRejectedValue(new Error("QA response lost"));
-  await approve();
+it("a lost normal response preserves the intent and offers a check without asserting no changes", async () => {
+  vi.mocked(fetch).mockRejectedValue(new Error("QA offline")); await approve();
   await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-  expect([...host.querySelectorAll("button")].some(b => b.textContent === "Accept")).toBe(true);
+  expect(approveButton()).toBeDefined(); expect(localStorage.length).toBe(1);
   expect(state.toast.mock.calls.at(-1)![0].text).not.toMatch(/Nothing was changed/i);
+});
+it("a different button cannot silently retry the original uncertain decision", async () => {
+  vi.mocked(fetch).mockRejectedValue(new Error("QA offline")); await approve();
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  const decline = [...host.querySelectorAll("button")].find(b => b.textContent === "Decline")!;
+  await act(async () => decline.click()); expect(fetch).toHaveBeenCalledOnce();
+  expect(JSON.parse(localStorage.getItem(localStorage.key(0)!)!).beacon.accept).toBe(true);
+});
+it("reload resumes an unacknowledged intent with its original command and no persisted names", async () => {
+  vi.mocked(fetch).mockRejectedValue(new Error("QA offline")); await approve(); await act(async () => root.unmount());
+  const pending = JSON.parse(localStorage.getItem(localStorage.key(0)!)!);
+  expect(pending.beacon.commandId).toMatch(/^[0-9a-f-]{36}$/i); expect(JSON.stringify(pending)).not.toContain("QA child");
+  root = createRoot(host); vi.mocked(fetch).mockResolvedValue(response()); await render();
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(body(vi.mocked(fetch).mock.calls.length - 1).commandId).toBe(pending.beacon.commandId); expect(localStorage.length).toBe(0);
+});
+it.each(["account", "session", "day"])("does not replay the prior %s scope", async (field) => {
+  vi.mocked(fetch).mockRejectedValue(new Error("QA offline")); await approve(); await act(async () => root.unmount());
+  vi.mocked(fetch).mockClear(); root = createRoot(host);
+  const next = { ...scope, ...(field === "account" ? { accountId: "qa-other" } : field === "session" ? { sessionLabel: "QA-other" } : { day: "2026-10-12" }) };
+  await render(next); await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(fetch).not.toHaveBeenCalled(); expect(localStorage.length).toBe(1);
+});
+it("storage refusal leaves the item visible and sends nothing", async () => {
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("QA quota"); });
+  await approve(); await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(fetch).not.toHaveBeenCalled(); expect(approveButton()).toBeDefined();
+});
+it("online recovery retries the same decision after a lost response", async () => {
+  vi.mocked(fetch).mockRejectedValueOnce(new Error("QA offline")); await approve();
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); window.dispatchEvent(new Event("online")); });
+  expect(fetch).toHaveBeenCalledTimes(2); expect(body(0).commandId).toBe(body(1).commandId);
+});
+it("preview never sends a persisted decision", async () => {
+  await render(scope, true); await approve(); await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(fetch).not.toHaveBeenCalled();
+});
+it("Undo from another tab restores the item and cancels the local timer", async () => {
+  await approve(); localStorage.clear();
+  await act(async () => { window.dispatchEvent(new Event("storage")); await vi.advanceTimersByTimeAsync(6000); });
+  expect(fetch).not.toHaveBeenCalled(); expect(approveButton()).toBeDefined();
+});
+it("a removed device copy cannot be resurrected by a timer without a storage event", async () => {
+  await approve(); localStorage.clear();
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); window.dispatchEvent(new Event("pagehide")); });
+  expect(fetch).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0); expect(approveButton()).toBeDefined();
+});
+it("older own decisions stay visible for review while another account's copies stay private", async () => {
+  vi.mocked(fetch).mockRejectedValue(new Error("QA offline")); await approve(); await act(async () => root.unmount());
+  root = createRoot(host); await render({ ...scope, day: "2026-10-12" });
+  expect(host.textContent).toContain("Earlier decisions");
+  const clear = [...host.querySelectorAll("button")].find(b => b.textContent === "Clear reviewed device copies");
+  expect(clear).toBeDefined(); await act(async () => clear!.click()); expect(localStorage.length).toBe(0);
 });

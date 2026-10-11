@@ -22,12 +22,12 @@ import {
 import { decideSubmissions } from "@/modules/collection/data/submissions-repo";
 import {
   cancelSend,
+  confirmDispatchReceived,
   dispatch,
   getSend,
   listTemplates,
   markSentByHand,
   queueSend,
-  recordDispatch,
   setTemplateActive,
   upsertTemplate,
 } from "@/modules/collection/data/messages-repo";
@@ -41,6 +41,8 @@ import {
   type RequestStatus,
 } from "@/modules/collection/domain/requests";
 import { decideSchema, decisionSentence } from "@/modules/collection/domain/review";
+import { assertNotPreviewing } from "@/vx/view-as";
+import { needsProviderReconciliation } from "@/modules/collection/domain/messages";
 import {
   checkDocument,
   documentKinds,
@@ -417,6 +419,7 @@ export async function sendMessageAction(
   formData: FormData,
 ): Promise<CollectionState> {
   await assertPermission("collection:manage");
+  await assertNotPreviewing();
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return failure(m.notSaved);
@@ -425,7 +428,6 @@ export async function sendMessageAction(
   if (!send) return failure(m.notSaved);
 
   const result = await dispatch(send);
-  await recordDispatch(id, result);
 
   revalidatePath("/collection/messages");
 
@@ -438,6 +440,7 @@ export async function sendMessageAction(
 
 export async function markSentAction(formData: FormData) {
   const actor = await assertPermission("collection:manage");
+  await assertNotPreviewing();
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return;
@@ -448,6 +451,7 @@ export async function markSentAction(formData: FormData) {
 
 export async function cancelSendAction(formData: FormData) {
   await assertPermission("collection:manage");
+  await assertNotPreviewing();
 
   const id = (formData.get("id") ?? "").toString();
   if (!id) return;
@@ -457,6 +461,18 @@ export async function cancelSendAction(formData: FormData) {
 }
 
 /* ------------------------------------------------------ parent messages */
+export async function confirmProviderResultAction(formData: FormData) {
+  const actor = await assertPermission("collection:manage");
+  await assertNotPreviewing();
+  const id = String(formData.get("id") ?? "");
+  const note = String(formData.get("note") ?? "");
+  if (formData.get("checked") !== "yes" || !/^[0-9a-f-]{36}$/i.test(id)) throw new Error("Confirm the provider log check.");
+  const send = await getSend(id);
+  if (!send || !needsProviderReconciliation(send)) throw new Error("No provider attempt is waiting for confirmation.");
+  await confirmDispatchReceived(id, send.providerMessageId, note, actor.id);
+  revalidatePath("/collection/messages");
+  revalidatePath("/messages");
+}
 
 /**
  * Approve one parent message and open it in WhatsApp (P9).

@@ -48,7 +48,7 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
 
   return (
     <VxPage label={lead(T.needsYou, staff.language)}>
-      <InboxScreen items={sortInbox(items)} initial={item} previewing={previewing !== null} unavailable={unavailable.length > 0} />
+      <InboxScreen items={sortInbox(items)} initial={item} previewing={previewing !== null} unavailable={unavailable.length > 0} scope={{ accountId: staff.userId, sessionLabel, day: schoolToday() }} />
     </VxPage>
   );
 }

@@ -104,16 +104,16 @@ export const outcomeErrors: Record<
   Localized
 > = {
   timeout: t(
-    "प्रदाता ने जवाब नहीं दिया। फिर कोशिश करें।",
-    "The provider did not answer. Try again.",
+    "प्रदाता का उत्तर नहीं मिला। दोबारा भेजने से पहले प्रदाता का परिणाम जाँचें।",
+    "No provider answer. Check the provider result before sending again.",
   ),
   rate_limited: t(
     "एक साथ बहुत सारे। एक मिनट रुककर फिर भेजें।",
     "Too many at once. Wait a minute and send again.",
   ),
   server_error: t(
-    "प्रदाता की ओर से गड़बड़ी। यह संदेश अभी नहीं गया।",
-    "Something broke at the provider. This message did not go.",
+    "प्रदाता में त्रुटि हुई। दोबारा भेजने से पहले प्रदाता का परिणाम जाँचें।",
+    "Provider error. Check the provider result before sending again.",
   ),
 };
 
@@ -126,7 +126,5 @@ export const outcomeErrors: Record<
  * thing twice.
  */
 export function isRetryable(outcome: ProviderOutcome): boolean {
-  return (
-    outcome === "timeout" || outcome === "rate_limited" || outcome === "server_error"
-  );
+  return outcome === "rate_limited";
 }

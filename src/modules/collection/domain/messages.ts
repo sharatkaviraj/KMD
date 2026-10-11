@@ -77,6 +77,7 @@ export type MessageSend = {
   approvedAt?: string | null;
   staleReason?: string | null;
   sentAt: string | null;
+  updatedAt?: string;
 };
 
 /**
@@ -156,7 +157,16 @@ export function checkPhone(raw: string): RenderCheck {
  * parent-facing row is never dispatched by the app, only opened in somebody's
  * own WhatsApp.
  */
-export function mayDispatch(send: Pick<MessageSend, "status" | "audience">): RenderCheck {
+export function isConfirmedProviderRejection(error: string | null | undefined): boolean {
+  return typeof error === "string" && (error.startsWith("Provider rejected this request: ")
+    || /^The provider refused it \((400|401|403|404|422|429)\)\.$/.test(error));
+}
+export function needsProviderReconciliation(send: Pick<MessageSend, "status"> & Partial<Pick<MessageSend, "providerMessageId" | "error">>): boolean {
+  if (send.status === "sent" || send.status === "cancelled") return false;
+  return send.providerMessageId != null || (send.status === "failed" && !isConfirmedProviderRejection(send.error));
+}
+export function mayDispatch(send: Pick<MessageSend, "status" | "audience"> & Partial<Pick<MessageSend, "providerMessageId" | "error">>): RenderCheck {
+  if (needsProviderReconciliation(send)) return { ok: false, reason: t("प्रदाता का परिणाम जाँचे बिना दोबारा न भेजें।", "Check the provider result before sending again.") };
   if (send.status === "sent") {
     return {
       ok: false,

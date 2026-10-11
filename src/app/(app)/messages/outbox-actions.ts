@@ -52,12 +52,13 @@ export async function sendByHandAction(input: { source: string; id: string; conf
   if (input.source === "send") {
     const { data: row } = await admin
       .from("message_sends")
-      .select("id, to_phone, rendered_hi, rendered_en, status, stale_at")
+      .select("id, to_phone, rendered_hi, rendered_en, status, stale_at, provider_message_id")
       .eq("id", input.id)
-      .maybeSingle<{ id: string; to_phone: string; rendered_hi: string; rendered_en: string; status: string; stale_at: string | null }>();
+      .maybeSingle<{ id: string; to_phone: string; rendered_hi: string; rendered_en: string; status: string; stale_at: string | null; provider_message_id: string | null }>();
     if (!row) return fail(p("That message is gone.", "संदेश नहीं मिला।"));
     if (row.status !== "queued" && row.status !== "draft") return fail(p("Already sent or stopped.", "पहले ही भेजा या रोका जा चुका है।"));
     if (row.stale_at) return fail(p("Something changed since this was queued. It was not sent.", "कतार के बाद कुछ बदल गया। नहीं भेजा।"));
+    if (row.provider_message_id != null) return fail(p("Check the provider result before opening another send.", "दोबारा भेजने से पहले प्रदाता का परिणाम जाँचें।"));
     const phone = tenDigits(row.to_phone);
     const link = waLink(phone, outboxText(row.rendered_hi, row.rendered_en));
     if (!phone || !link) return fail(p("This number is not a WhatsApp mobile number.", "यह व्हाट्सऐप मोबाइल नंबर नहीं है।"));
@@ -72,6 +73,7 @@ export async function sendByHandAction(input: { source: string; id: string; conf
       .update({ status: "sent", sent_at: now, requested_by: actor.id })
       .eq("id", row.id)
       .in("status", ["queued", "draft"])
+      .is("provider_message_id", null)
       .is("stale_at", null)
       .select("id");
     if (error || !done?.length) return fail(p("Not marked sent. Try again.", "भेजा दर्ज नहीं हुआ।"));

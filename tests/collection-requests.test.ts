@@ -492,7 +492,7 @@ describe("mayDispatch()", () => {
   });
 
   it("allows retrying one that failed", () => {
-    expect(mayDispatch(send({ status: "failed" })).ok).toBe(true);
+    expect(mayDispatch(send({ status: "failed", error: "Provider rejected this request: QA explicit refusal" })).ok).toBe(true);
   });
 });
 

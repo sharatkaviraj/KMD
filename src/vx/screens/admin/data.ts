@@ -206,7 +206,7 @@ const IST_OFFSET_MINUTES = 330;
  * marked, the same notice the 10 a.m. job sends (P6). The notice key makes a
  * second tap a no-op rather than a second message.
  */
-export async function queueAttendanceReminders(sessionLabel: string, day: string, classIds: readonly string[]): Promise<number> {
+export async function queueAttendanceReminders(sessionLabel: string, day: string, classIds: readonly string[], requestId?: string): Promise<number> {
   const board = await loadBoard(sessionLabel, day);
   const wanted = new Set(classIds);
   const targets = remindable(board.rows).filter((row) => wanted.size === 0 || wanted.has(row.classId));
@@ -221,7 +221,7 @@ export async function queueAttendanceReminders(sessionLabel: string, day: string
   );
   const [y, mo, d] = day.split("-").map(Number);
   const notAfter = new Date(Date.UTC(y, mo - 1, d) + (lastEnds - IST_OFFSET_MINUTES) * 60_000).toISOString();
-  const commandId = randomUUID();
+  const commandId = requestId ?? randomUUID();
 
   const rows = targets.map((row) => ({
     notice_key: `attendance:${row.classId}:${day}:${row.teacherId}`,

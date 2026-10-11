@@ -277,7 +277,10 @@ export async function flagRoute(input: {
     .from("message_sends")
     .update({ status: "cancelled", error: "Withdrawn: the number was reported as wrong", stale_reason: "route_flagged" })
     .eq("to_phone", phone)
-    .in("status", ["draft", "queued", "failed"])
+    // Unknown failed sends may already have reached the provider. Preserve
+    // their evidence for reconciliation; the route flag blocks future sends.
+    .in("status", ["draft", "queued"])
+    .is("provider_message_id", null)
     .select("id");
   if (withdrawError) throw new Error(`Could not withdraw the messages: ${withdrawError.message}`);
   return { withdrawn: (withdrawn ?? []).length };

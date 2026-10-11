@@ -31,7 +31,7 @@ import {
 
 export type DispatchResult =
   | { ok: true; providerMessageId: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; outcome?: "unknown" | "rejected" };
 
 export type MessageProvider = {
   /** Recorded in evidence so a run can say which provider produced it. */
@@ -50,11 +50,14 @@ const aisensyProvider: MessageProvider = {
     if (!apiKey) {
       return {
         ok: false,
+        outcome: "rejected",
         error:
           "No AISENSY_API_KEY is configured, so nothing was sent. Open it in WhatsApp and press send.",
       };
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
       const response = await fetch("https://backend.aisensy.com/campaign/t1/api/v2", {
         method: "POST",
@@ -66,10 +69,14 @@ const aisensyProvider: MessageProvider = {
           userName: send.toName ?? "",
           templateParams: send.variables,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
-        return { ok: false, error: `The provider refused it (${response.status}).` };
+        const rejected = [400, 401, 403, 404, 422, 429].includes(response.status);
+        return { ok: false, outcome: rejected ? "rejected" : "unknown", error: rejected
+          ? `The provider refused it (${response.status}).`
+          : "The provider result is unknown. Check its delivery log before doing anything else." };
       }
 
       const body: unknown = await response.json().catch(() => null);
@@ -85,9 +92,12 @@ const aisensyProvider: MessageProvider = {
     } catch (thrown) {
       return {
         ok: false,
+        outcome: "unknown",
         error:
-          thrown instanceof Error ? thrown.message : "The provider could not be reached.",
+          thrown instanceof Error ? `Provider result unknown: ${thrown.message}` : "The provider result is unknown. Check its delivery log.",
       };
+    } finally {
+      clearTimeout(timeout);
     }
   },
 };
@@ -121,14 +131,13 @@ const mockProvider: MessageProvider = {
         // `duplicate` succeeds, and succeeds *identically* every time — the id
         // is derived from the send, so a second dispatch is indistinguishable
         // from a replayed callback. What must not happen next is a second
-        // `sent_at`, and `recordDispatch()`'s `.neq("status", "sent")` is what
-        // stops it.
+        // `sent_at`: the durable claim and exact attempt check stop it.
         return { ok: true, providerMessageId: mockProviderMessageId(send.id) };
 
       case "timeout":
       case "rate_limited":
       case "server_error":
-        return { ok: false, error: outcomeErrors[outcome].en };
+        return { ok: false, outcome: outcome === "rate_limited" ? "rejected" : "unknown", error: outcomeErrors[outcome].en };
     }
   },
 };

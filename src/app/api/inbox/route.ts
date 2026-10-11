@@ -1,50 +1,38 @@
 import { NextResponse, type NextRequest } from "next/server";
-
 import { remindTeachersVx } from "@/app/(app)/attendance/actions";
 import { assignCoverVx, decideSubmissionsVx } from "@/app/(app)/inbox/actions";
 import { assertPermission } from "@/platform/auth/current-staff";
-
+import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { isInboxBeacon, type InboxScope } from "@/vx/screens/admin/inbox-outbox";
+import { schoolToday } from "@/vx/format";
 export const runtime = "nodejs";
 
-/**
- * Needs you holds a decision on the device for a few seconds so Undo can take
- * it back, and sends whatever is still held when the page goes away. A server
- * action fired from `pagehide` is cancelled with the page, so a decision made
- * just before a reload or a closed tab was silently lost. The page sends it
- * here instead with `fetch(…, { keepalive: true })`, which outlives the page.
- *
- * Each branch is the same action the page would have called, with its own
- * permission check; this only changes how the request travels.
- */
+/** Normal sends and departure/reload replay use the same scoped command. */
 export async function POST(request: NextRequest) {
-  const body = (await request.json().catch(() => null)) as
-    | { kind: "submissions"; submissionIds: string[]; accept: boolean }
-    | { kind: "remind"; classIds: string[] }
-    | { kind: "cover"; commandId: string; needKey: string; coveringStaffId: string; day: string; dayRevision: number }
-    | null;
-  if (!body) return NextResponse.json({ ok: false }, { status: 400 });
-
-  const permission = body.kind === "submissions" ? "collection:manage"
-      : body.kind === "remind" ? "attendance:mark_on_behalf"
-        : body.kind === "cover" ? "substitutions:manage" : null;
-  if (!permission) return NextResponse.json({ ok: false }, { status: 400 });
-  try {
-    await assertPermission(permission);
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 403 });
+  const raw: unknown = await request.json().catch(() => null);
+  if (!isInboxBeacon(raw)) return NextResponse.json({ ok: false }, { status: 400 });
+  const scope = (raw as { scope?: InboxScope }).scope;
+  if (!scope || typeof scope.accountId !== "string" || typeof scope.sessionLabel !== "string" || typeof scope.day !== "string") {
+    return NextResponse.json({ ok: false }, { status: 400 });
   }
-
+  const permission = raw.kind === "submissions" ? "collection:manage"
+      : raw.kind === "remind" ? "attendance:mark_on_behalf" : "substitutions:manage";
+  let actor;
+  try { actor = await assertPermission(permission); }
+  catch { return NextResponse.json({ ok: false }, { status: 403 }); }
+  // Cookies can change while an old tab is held. Never apply that account's
+  // saved intent under newly signed-in staff or a different session.
+  if (actor.userId !== scope.accountId) return NextResponse.json({ ok: false }, { status: 403 });
   try {
-    const result =
-    body.kind === "submissions"
-      ? await decideSubmissionsVx(Array.isArray(body.submissionIds) ? body.submissionIds.map(String) : [], body.accept === true)
-      : body.kind === "remind"
-        ? await remindTeachersVx(Array.isArray(body.classIds) ? body.classIds.map(String) : [])
-        : body.kind === "cover"
-          ? await assignCoverVx({ commandId: String(body.commandId), needKey: String(body.needKey), coveringStaffId: String(body.coveringStaffId), day: String(body.day), dayRevision: Number(body.dayRevision) })
-          : { ok: false };
+    const sessionLabel = await resolveSessionLabel();
+    if (scope.sessionLabel !== sessionLabel || scope.day !== schoolToday()) return NextResponse.json({ ok: false }, { status: 409 });
+    const result = raw.kind === "submissions"
+        ? await decideSubmissionsVx(raw.submissionIds, raw.accept, raw.commandId)
+        : raw.kind === "remind"
+          ? await remindTeachersVx(raw.classIds, { day: scope.day, sessionLabel: scope.sessionLabel, commandId: raw.commandId })
+          : await assignCoverVx(raw);
     return NextResponse.json({ ok: result.ok }, { status: result.ok ? 200 : 422 });
   } catch {
-    return NextResponse.json({ ok: false }, { status: 422 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 }

@@ -3,8 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { assignCoverVx, decideSubmissionsVx } from "@/app/(app)/inbox/actions";
-import { remindTeachersVx } from "@/app/(app)/attendance/actions";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
@@ -15,6 +13,7 @@ import { Btn, Card, EmptyState, IconTile, Pill, type Tone } from "@/vx/ui/primit
 import { INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
 import { T } from "@/vx/screens/admin/text";
 import type { CoverCandidate, InboxItem } from "@/vx/screens/admin/types";
+import { readEarlierInboxDecisions, readInboxDecisions, removeInboxDecision, storeInboxDecision, type InboxBeacon, type InboxScope, type PendingInboxDecision } from "@/vx/screens/admin/inbox-outbox";
 
 /*
  * Needs you (design F02/D03). A decision is held on this device for a few
@@ -43,14 +42,10 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
 };
 
 /** What `/api/inbox` needs to send a held decision after the page has gone. */
-type Beacon =
-  | { kind: "submissions"; submissionIds: string[]; accept: boolean }
-  | { kind: "remind"; classIds: string[] }
-  | { kind: "cover"; commandId: string; needKey: string; coveringStaffId: string; day: string; dayRevision: number };
+type Beacon = InboxBeacon;
+type Held = PendingInboxDecision & { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; sending: boolean; flushing: boolean };
 
-type Held = { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; beacon: Beacon; sending: boolean; flushing: boolean };
-
-export function InboxScreen({ items, initial, previewing, unavailable }: { items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean }) {
+export function InboxScreen({ items, initial, previewing, unavailable, scope }: { items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean; scope: InboxScope }) {
   const { tx } = useVx();
   const toast = useToast();
   const router = useRouter();
@@ -59,6 +54,8 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [picking, setPicking] = useState<InboxItem | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [earlier, setEarlier] = useState<PendingInboxDecision[]>([]);
   const held = useRef(new Map<string, Held>());
 
   const live = items.filter((item) => !hidden.has(item.id));
@@ -66,38 +63,107 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
   const shown = filter === "all" ? live : live.filter((item) => item.type === filter);
   const selected = live.find((item) => item.id === selectedId) ?? shown[0] ?? null;
 
+  function acknowledge(id: string, entry: Held) {
+    if (held.current.get(id) !== entry) return;
+    try { removeInboxDecision(entry); } catch { /* A replay remains safe with the same id. */ }
+    held.current.delete(id); setPendingCount(held.current.size);
+  }
+  function stillStored(id: string, entry: Held): boolean {
+    if (held.current.get(id) !== entry) return false;
+    const saved = readInboxDecisions(entry.scope).find(d => d.itemId === id && d.beacon.commandId === entry.beacon.commandId);
+    if (saved && JSON.stringify(saved.beacon) === JSON.stringify(entry.beacon)) return true;
+    window.clearTimeout(entry.timer); held.current.delete(id); setPendingCount(held.current.size);
+    setHidden(all => { const next = new Set(all); next.delete(id); return next; });
+    return false;
+  }
+  async function deliver(id: string, entry: Held) {
+    if (entry.sending || entry.flushing || previewing || (!entry.attempted && Date.now() < entry.readyAt)) return;
+    try { if (!stillStored(id, entry)) return; }
+    catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
+    entry.attempted = true;
+    try { storeInboxDecision(entry); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
+    entry.sending = true;
+    const result = await entry.send().catch(() => ({ ok: false, message: T.failed }));
+    entry.sending = false;
+    if (result.ok) acknowledge(id, entry);
+    else {
+      setHidden(all => { const next = new Set(all); next.delete(id); return next; });
+      toast.show({ text: tx(result.message ?? T.failed), tone: "bad" });
+    }
+    router.refresh();
+  }
+
   // Send anything still held when the page goes away; the person decided it.
   useEffect(() => {
     const pending = held.current;
+    pending.clear();
+    const post = async (entry: PendingInboxDecision, keepalive = false) => {
+      const response = await fetch("/api/inbox", { method: "POST", keepalive, headers: { "content-type": "application/json" }, body: JSON.stringify({ ...entry.beacon, scope: entry.scope }) });
+      return { ok: response.ok && (await response.json()).ok === true };
+    };
+    const restore = () => {
+      if (previewing) return;
+      try {
+        const saved = readInboxDecisions(scope);
+        setEarlier(readEarlierInboxDecisions(scope));
+        const ids = new Set(saved.map(d => d.itemId));
+        for (const [id, entry] of pending) if (!ids.has(id) && !entry.sending) {
+          window.clearTimeout(entry.timer); pending.delete(id);
+          setHidden(all => { const next = new Set(all); next.delete(id); return next; });
+        }
+        for (const d of saved) if (!pending.has(d.itemId)) {
+          const entry: Held = { ...d, timer: 0, label: "", send: () => post(d), sending: false, flushing: false };
+          pending.set(d.itemId, entry);
+          entry.timer = window.setTimeout(() => { void deliver(d.itemId, entry); }, Math.max(0, d.readyAt - Date.now()));
+        }
+        setPendingCount(pending.size);
+      } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); }
+    };
+    restore();
     // A server action started here is cancelled with the page, so the held
     // decision goes as a keepalive request that outlives it.
     const flush = () => {
       for (const [id, entry] of pending) {
         if (entry.flushing) continue;
+        try { if (!stillStored(id, entry)) continue; } catch { continue; }
+        entry.attempted = true;
+        try { storeInboxDecision(entry); } catch { continue; }
         window.clearTimeout(entry.timer);
         entry.sending = true;
         entry.flushing = true;
-        void fetch("/api/inbox", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(entry.beacon) })
-          .then(async (response) => {
-            if (response.ok && (await response.json()).ok === true && pending.get(id) === entry) pending.delete(id);
+        void post(entry, true)
+          .then((response) => {
+            if (response.ok) acknowledge(id, entry);
           })
           .catch(() => undefined)
-          .finally(() => { entry.flushing = false; });
+          .finally(() => { entry.flushing = false; entry.sending = false; });
       }
     };
     window.addEventListener("pagehide", flush);
+    const retry = () => { for (const [id, entry] of pending) void deliver(id, entry); };
+    window.addEventListener("online", retry);
+    window.addEventListener("storage", restore);
     return () => {
       window.removeEventListener("pagehide", flush);
+      window.removeEventListener("online", retry);
+      window.removeEventListener("storage", restore);
       flush();
     };
-  }, []);
+  // Scope comes from the authenticated server page; old-account work is never replayed here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope.accountId, scope.sessionLabel, scope.day, previewing]);
 
-  function hold(item: InboxItem, label: string, send: Held["send"], beacon: Beacon) {
+  function handleDecision(item: InboxItem, label: string, beacon: Beacon) {
     if (previewing) {
       toast.show({ text: tx(T.previewing), tone: "info" });
       return;
     }
-    if (held.current.has(item.id)) return;
+    if (held.current.has(item.id)) { toast.show({ text: tx(T.inboxPending), tone: "info" }); return; }
+    // Called only by Detail's click handlers; the forwarded actions object
+    // prevents the compiler from recognizing this as an event-time timestamp.
+    // eslint-disable-next-line react-hooks/purity
+    const decision: PendingInboxDecision = { itemId: item.id, beacon, scope, readyAt: Date.now() + HOLD_MS, attempted: false };
+    try { storeInboxDecision(decision); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
     setHidden((all) => new Set(all).add(item.id));
     setPhoneOpen(false);
     const next = live.find((other) => other.id !== item.id && (filter === "all" || other.type === filter));
@@ -106,22 +172,14 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
     const timer = window.setTimeout(async () => {
       const entry = held.current.get(item.id);
       if (!entry) return;
-      entry.sending = true;
-      const result = await send().catch(() => ({ ok: false as const, message: T.failed }));
-      // Keep the decision available to pagehide until it is acknowledged.
-      // The normal action can still be cancelled while its response is pending.
-      if (held.current.get(item.id) === entry) held.current.delete(item.id);
-      if (!result.ok) {
-        setHidden((all) => {
-          const copy = new Set(all);
-          copy.delete(item.id);
-          return copy;
-        });
-        toast.show({ text: tx(result.message ?? T.failed), tone: "bad" });
-      }
-      router.refresh();
+      await deliver(item.id, entry);
     }, HOLD_MS);
-    held.current.set(item.id, { timer, send, label, beacon, sending: false, flushing: false });
+    const send = async () => {
+      const response = await fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...beacon, scope }) });
+      return { ok: response.ok && (await response.json()).ok === true };
+    };
+    held.current.set(item.id, { ...decision, timer, send, label, sending: false, flushing: false });
+    setPendingCount(held.current.size);
 
     toast.show({
       text: label,
@@ -129,9 +187,11 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
       ms: HOLD_MS,
       undo: () => {
         const entry = held.current.get(item.id);
-        if (!entry || entry.sending) return;
+        if (!entry || entry.sending || entry.attempted) return;
+        try { removeInboxDecision(entry); } catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); return; }
         window.clearTimeout(entry.timer);
         held.current.delete(item.id);
+        setPendingCount(held.current.size);
         setHidden((all) => {
           const copy = new Set(all);
           copy.delete(item.id);
@@ -150,16 +210,18 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
   const assign = (item: InboxItem, who: CoverCandidate) => {
     const commandId = crypto.randomUUID();
     const input = { commandId, needKey: item.needKey!, coveringStaffId: who.id, day: item.day!, dayRevision: item.dayRevision! };
-    hold(item, `${tx(T.assigned(who.name))}`, () => assignCoverVx(input), { kind: "cover", ...input });
+    handleDecision(item, `${tx(T.assigned(who.name))}`, { kind: "cover", ...input });
   };
 
   const on: DetailActions = {
     remind: (item) =>
-      hold(item, tx(T.reminded(item.remindable ?? 0)), () => remindTeachersVx(item.classIds ?? []).then((r) => ({ ok: r.ok, message: r.message })), { kind: "remind", classIds: item.classIds ?? [] }),
+      handleDecision(item, tx(T.reminded(item.remindable ?? 0)), { kind: "remind", commandId: crypto.randomUUID(), classIds: item.classIds ?? [] }),
     assign,
     pick: (item) => setPicking(item),
-    submissions: (item, accept) =>
-      hold(item, `${tx(accept ? T.accepted : T.declined)} · ${tx(item.title)}`, () => decideSubmissionsVx(item.submissionIds ?? [], accept), { kind: "submissions", submissionIds: item.submissionIds ?? [], accept }),
+    submissions: (item, accept) => {
+      const commandId = crypto.randomUUID();
+      handleDecision(item, `${tx(accept ? T.accepted : T.declined)} · ${tx(item.title)}`, { kind: "submissions", commandId, submissionIds: item.submissionIds ?? [], accept });
+    },
   };
 
   const detailPane = selected ? <Detail item={selected} on={on} /> : <EmptyState icon="inbox" title={tx(T.pickItem)} />;
@@ -178,6 +240,11 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
         </ChipRow>
       </div>
       {unavailable ? <p style={{ margin: "0 16px 10px", fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
+      {!previewing && earlier.length > 0 ? <div style={{ margin: "0 16px 10px" }}><p>{tx(T.inboxEarlier)} ({earlier.length})</p><p>{tx(T.inboxEarlierHint)}</p><Btn variant="ghost" onClick={() => {
+        try { for (const entry of earlier) removeInboxDecision(entry); setEarlier(readEarlierInboxDecisions(scope)); }
+        catch { toast.show({ text: tx(T.inboxStorageFailed), tone: "bad" }); }
+      }}>{tx(T.inboxClearReviewed)}</Btn></div> : null}
+      {pendingCount > 0 ? <div style={{ margin: "0 16px 10px" }}><p>{tx(T.inboxPending)}</p><Btn variant="ghost" onClick={() => { for (const [id, entry] of held.current) void deliver(id, entry); }}>{tx(T.inboxRetry)}</Btn></div> : null}
       {live.length === 0 ? (
         <EmptyState icon="checkCircle" title={tx(T.emptyInbox)} body={tx(T.emptyInboxSub)} />
       ) : shown.length === 0 ? (

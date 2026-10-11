@@ -1083,3 +1083,8 @@ Released in PR 67, main `7aee58853173c03dd0f6402d718baf0a69b56da4`; review CI `3
 ### Receipt session fallback fix — 2026-10-11
 
 Branch `audit/receipt-session-recovery-20261011`, based on main `7aee588`. `lastReceiptDate` now follows the same payment/installment/class inner joins as the receipt list, because `public.receipts` has no `session_label`. The schema-aware test rejects that nonexistent column and reproduced two failures before the fix; all ten targeted cases then passed. Typecheck and port checks passed; the local execution transport disconnected before the full suite/lint/build could complete. The same tested source and regression are submitted through the supported GitHub API, with complete CI required before merge and matching production verification after merge. No migration or DB record writes. Immutable release identifiers are recorded at delivery.
+
+
+## Durable inbox and provider recovery — 2026-10-11
+
+In progress on `audit/durable-recovery-20261011`, reconciled with main `ccabab7` (PR 71). O02 now persists scoped intent and reuses command identity through normal/departure/reload delivery; PR 71's removal of attendance correction approval is preserved. O05 claims before provider transport and keeps unknown outcomes blocked until human evidence confirms receipt; no provider retry/overwrite/cancellation can erase an unknown attempt. Validation and release identifiers are tracked in `docs/evidence/durable-provider-recovery-2026-10-11.md`. O01/O03/O04 remain pending a valid separate PR 69 DDL approval: the fresh action expired, and metadata still showed no functions. Original promotion approval and LIVE School Fees remain untouched.

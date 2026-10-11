@@ -17,6 +17,7 @@ import {
   bySendOrder,
   messageAudienceLabels,
   sendStatusLabels,
+  needsProviderReconciliation,
 } from "@/modules/collection/domain/messages";
 import { waMeLink } from "@/modules/collection/domain/requests";
 import {
@@ -26,6 +27,7 @@ import {
 } from "@/modules/collection/ui/office-forms";
 import {
   cancelSendAction,
+  confirmProviderResultAction,
   markSentAction,
   setTemplateActiveAction,
 } from "@/app/(app)/collection/actions";
@@ -160,7 +162,7 @@ export default async function MessagesPage() {
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <Badge tone={STATUS_TONE[send.status]}>
-                        {primary(sendStatusLabels[send.status], language)}
+                        {primary(needsProviderReconciliation(send) ? ms.messagesProviderCheck : sendStatusLabels[send.status], language)}
                       </Badge>
                       {send.staleReason && send.status !== "cancelled" ? (
                         <Badge tone="warning">{primary(ms.messagesStaleBadge, language)}</Badge>
@@ -207,7 +209,20 @@ export default async function MessagesPage() {
                     </Notice>
                   ) : null}
 
-                  {send.audience === "parent" && send.status !== "sent" && send.status !== "cancelled" ? (
+                  {needsProviderReconciliation(send) ? (
+                    <div className="mt-3 space-y-2">
+                      <Notice tone="warning" text={ms.messagesProviderCheckHint} language={language} />
+                      <form action={confirmProviderResultAction} className="space-y-2">
+                        <input type="hidden" name="id" value={send.id} />
+                        <label className="flex items-start gap-2 text-[13px]">
+                          <input type="checkbox" name="checked" value="yes" required />
+                          {primary(ms.messagesProviderChecked, language)}
+                        </label>
+                        <Input name="note" required minLength={5} maxLength={500} aria-label={primary(ms.messagesProviderEvidence, language)} placeholder={primary(ms.messagesProviderEvidence, language)} />
+                        <Button type="submit" variant="outline" size="sm">{primary(ms.messagesProviderConfirm, language)}</Button>
+                      </form>
+                    </div>
+                  ) : send.audience === "parent" && send.status !== "sent" && send.status !== "cancelled" ? (
                     <div className="mt-3 space-y-2">
                       <ParentSendControls id={send.id} approved={Boolean(send.approvedAt) && !send.staleReason} />
                       <div className="flex flex-wrap items-center gap-2">
