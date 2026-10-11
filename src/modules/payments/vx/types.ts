@@ -6,6 +6,7 @@
 
 import type { DeskLedgerRow, DeskMode, RecentReceipt } from "@/modules/payments/vx/domain/desk";
 import type { GridStudent } from "@/modules/payments/vx/domain/bulk-grid";
+import type { RepaymentPlanCollectionContext } from "@/modules/repayment-plans/domain/types";
 
 export type DeskClass = { id: string; label: string; short: string };
 
@@ -33,7 +34,7 @@ export type DeskBoot = {
   students: DeskListStudent[];
   todayCollection: { count: number; amount: number };
   lateFeeFlat: number;
-  me: { name: string; isAdmin: boolean; canWaive: boolean; canRemove: boolean; canBulk: boolean };
+  me: { id?: string; name: string; isAdmin: boolean; canWaive: boolean; canRemove: boolean; canBulk: boolean };
 };
 
 export type DeskSibling = { id: string; name: string; classLabel: string };
@@ -48,6 +49,7 @@ export type DeskStudent = {
   route: string | null;
   isNew: boolean;
   onPlan: boolean;
+  repaymentPlan?: RepaymentPlanCollectionContext | null;
   rows: DeskLedgerRow[];
   receipts: RecentReceipt[];
   siblings: DeskSibling[];
@@ -76,6 +78,7 @@ export type DeskReceipt = {
   total: number;
   lines: { label: string; amount: number }[];
   lateFeePaid: number;
+  concession?: number;
   lateFeeWaived: number;
   isReversed: boolean;
   /** Everything still owed right after this receipt, frozen at posting. */

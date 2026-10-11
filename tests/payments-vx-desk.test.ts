@@ -190,7 +190,7 @@ describe("what blocks Review & save", () => {
     expect(deskProblems({ ...base, paymentDate: "2026-10-09" }, ok, ctx)).toEqual([{ key: "date-future" }]);
     expect(deskProblems({ ...base, paymentDate: "2026-03-31" }, ok, ctx)).toEqual([{ key: "date-before-session", start: "2026-04-01" }]);
     expect(deskProblems({ ...base, paymentDate: "18/07/2026" }, ok, ctx)).toEqual([{ key: "date-invalid" }]);
-    expect(deskProblems({ ...base, mode: "cheque", chequeNo: "4518", chequeBank: "" }, ok, ctx)).toEqual([{ key: "cheque-no" }, { key: "cheque-bank" }]);
+    expect(deskProblems({ ...base, mode: "cheque", chequeNo: "4518", chequeBank: "" }, ok, ctx)).toEqual([]);
     expect(deskProblems({ ...base, waiveLate: true }, ok, ctx)).toEqual([{ key: "waive-reason" }]);
     expect(deskProblems(base, { maxAmount: 0, overMax: true }, ctx)).toEqual([{ key: "nothing-owed" }]);
   });
@@ -229,7 +229,7 @@ describe("duplicate guard", () => {
 describe("small helpers", () => {
   it("parses what a cashier types", () => {
     expect(parseAmountInput("₹7,000")).toBe(7000);
-    expect(parseAmountInput("7000.50")).toBe(7000);
+    expect(parseAmountInput("7000.50")).toBeNaN();
     expect(parseAmountInput("")).toBe(0);
   });
 

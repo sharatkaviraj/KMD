@@ -60,6 +60,7 @@ export async function loadDeskBoot(payload: {
   isCollectable: boolean;
   feeRole: FeeStaffRole;
   myName: string;
+  myId?: string;
 }): Promise<DeskBoot> {
   const { sessionLabel, today, feeRole } = payload;
   const canWrite = hasRolePermission(feeRole, "payments:write");
@@ -126,6 +127,7 @@ export async function loadDeskBoot(payload: {
     todayCollection: { count: pageData.todayCollection.receiptCount, amount: pageData.todayCollection.totalAmount },
     lateFeeFlat: policy.lateFeeFlatAmount,
     me: {
+      id: payload.myId,
       name: payload.myName,
       isAdmin: feeRole === "admin",
       canWaive: hasRolePermission(feeRole, "payments:waive_late_fee"),
@@ -266,6 +268,7 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
     route: s.transportRouteLabel && !/^no\b/i.test(s.transportRouteLabel) ? s.transportRouteLabel : null,
     isNew: s.studentStatusLabel === "New",
     onPlan: Boolean(summary.repaymentPlan),
+    repaymentPlan: summary.repaymentPlan,
     rows,
     receipts,
     siblings,
@@ -273,6 +276,20 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
     readAt: new Date().toISOString(),
   };
   return { ok: true, student };
+}
+
+/** Use the same date-aware RPC as Fees; never infer a backdated late fee locally. */
+export async function loadDeskPreview(payload: { studentId: string; sessionLabel: string; paymentDate: string }) {
+  const summary = await getPaymentDeskStudentSummary({ ...payload, autoPrepareMissingDues: false, includeLatestReceipt: false });
+  if (!summary.student) return { ok: false as const, message: summary.issue?.detail ?? "This student's dues could not be loaded." };
+  const rows: DeskLedgerRow[] = summary.student.breakdown.map((b) => ({
+    id: b.installmentId, installmentNo: b.installmentNo, label: b.displayLabel ?? b.installmentLabel,
+    isCarryForward: Boolean(b.isCarryForward), dueDate: b.dueDate, charge: b.amountDue,
+    feesPaid: Math.max(0, b.amountDue - b.feesPending), feesPending: b.feesPending,
+    lateFeePending: b.lateFeePending, lateFeeRaw: b.rawLateFee, lateFeeWaived: b.waiverApplied,
+    lateFeeStatus: b.lateFeePending > 0 ? "pending" : "none", planPriority: b.planPriority ?? 1,
+  }));
+  return { ok: true as const, rows };
 }
 
 /** The three numbers a receipt freezes: fees pending today, not due yet, late fee. */
@@ -298,10 +315,11 @@ export async function loadDeskReceipt(receiptId: string): Promise<DeskReceipt | 
     mode: detail.paymentMode,
     reference: detail.referenceNumber,
     notes: detail.notes,
-    receivedBy: detail.createdByName ?? detail.receivedBy,
+    receivedBy: detail.receivedBy ?? detail.createdByName,
     total: detail.totalAmount,
     lines: detail.breakdown.filter((b) => b.amount !== 0).map((b) => ({ label: b.installmentLabel, amount: b.amount })),
-    lateFeePaid: 0,
+    lateFeePaid: Number(detail.lateFeeAmount ?? 0),
+    concession: Number(detail.discountAmount ?? 0),
     lateFeeWaived: Number(detail.lateFeeWaived ?? 0),
     isReversed: Boolean(detail.isVoided),
     outstandingAfter: Number(detail.outstandingAfterReceipt ?? 0),
