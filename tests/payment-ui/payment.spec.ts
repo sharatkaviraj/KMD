@@ -11,7 +11,7 @@ for (const width of [320, 390, 1180, 1440]) {
     await page.getByRole("button", { name: "Review payment" }).click(); await page.getByRole("button", { name: /Confirm and save payment/ }).click();
     await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
     await page.screenshot({ path: `test-results/payment-saved-${width}.png`, fullPage: true });
-    await page.getByRole("button", { name: /Collect another/ }).click(); await page.getByRole("button", { name: /TEST Child B/ }).click(); await expect(amount).toBeVisible();
+    await page.getByRole("button", { name: "Collect for another student" }).click(); await page.getByRole("button", { name: /TEST Child B/ }).click(); await expect(amount).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/payment-entry-${width}.png`, fullPage: true });
   });
