@@ -46,8 +46,10 @@ export async function lastReceiptDate(onOrBefore: string, sessionLabel: string):
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("receipts")
-    .select("payment_date")
-    .eq("session_label", sessionLabel)
+    // Receipts have no session column; allocations retain the paid session
+    // even when the student's current class has moved to another year.
+    .select("payment_date, payments!inner(installment_ref:installments!inner(class_ref:classes!inner(session_label)))")
+    .eq("payments.installment_ref.class_ref.session_label", sessionLabel)
     .lte("payment_date", onOrBefore)
     .order("payment_date", { ascending: false })
     .limit(1);

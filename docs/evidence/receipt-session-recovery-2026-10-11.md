@@ -1,0 +1,13 @@
+# Receipt previous-day fallback recovery
+
+Read-only metadata on verified schoolfees-dev (`wtgxcptmucjerhufzjcf`) confirmed that `public.receipts` has no `session_label`. The previous fallback incorrectly filtered that column and would reject with PostgreSQL 42703.
+
+The query now uses the existing receipt-list inner joins through payments, installments and classes, with `payments.installment_ref.class_ref.session_label`. Metadata confirmed those foreign keys. It retains the upper date bound, newest-first order, one-row limit and error propagation; historical receipts follow the paid installment session rather than the student's current class. No schema or record changes.
+
+The regression mock now rejects the nonexistent direct column. The strengthened session case and new empty-session case failed before the fix, then all ten targeted tests passed. Local typecheck and the 726-file port gate passed; theme comparison explicitly skipped because the reference checkout is absent. Local full units/lint were launched, but the execution transport disconnected before their final results or the build could be collected. Complete exact-head CI must pass before merge. The supported GitHub API continues the review path without relying on those unknown local results. This is schema-informed synthetic validation, not authenticated hosted receipt acceptance.
+
+Concrete acceptance barriers: this isolated checkout has no `.env.local` (existence checked only). Existing smoke/e2e requires secure service-role configuration to mint synthetic QA login links. No original environment files, keys or session files were probed. The broad E2E setup enumerates Auth users and binds/reset profiles, so existing QA sessions or a scoped authorized harness are needed. Read-only aggregate metadata confirms 11 synthetic QA-linked profiles: all eight staff roles represented, one inactive teacher and three active teachers. Physical camera/WhatsApp/printer checks require the devices. These barriers are independent of the pending promotion approval.
+
+Prior release: PR 67, main `7aee58853173c03dd0f6402d718baf0a69b56da4`; review CI https://github.com/veerpatta/vppsone/actions/runs/38113376477 and main CI https://github.com/veerpatta/vppsone/actions/runs/38113879033 passed. Matching READY production `dpl_xiezbcdnvwYfcZ4M1TgDgKPeLYvg` serves https://vppsone.vercel.app. Fourteen fix groups, 12,389 units and 84 browser cases passed; this receipt finding is an explicit subsequent correction.
+
+Application rollback is a reviewed code revert. It changes no records. The original unresolved promotion migration is excluded. No protected LIVE queries, provider messages, security changes or credential creation.

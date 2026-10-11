@@ -1,16 +1,20 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ errorAt: "", requests: [] as { table: string; filters: [string, unknown][]; ids: string[] }[], paymentCount: 1, page: vi.fn(), detail: vi.fn() }));
+const state = vi.hoisted(() => ({ errorAt: "", requests: [] as { table: string; columns: string; filters: [string, unknown][]; ids: string[] }[], paymentCount: 1, page: vi.fn(), detail: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/fees/platform/supabase/server", () => ({ createClient: async () => ({ from: (table: string) => {
-  const request = { table, filters: [] as [string, unknown][], ids: [] as string[] }; state.requests.push(request);
+  const request = { table, columns: "", filters: [] as [string, unknown][], ids: [] as string[] }; state.requests.push(request);
   const query = {
-    select: () => query, order: () => query, limit: () => query,
+    select: (columns: string) => { request.columns = columns; return query; }, order: () => query, limit: () => query,
     eq: (key: string, value: unknown) => { request.filters.push([key, value]); return query; },
     lte: (key: string, value: unknown) => { request.filters.push([key, value]); return query; },
     in: (_key: string, ids: string[]) => { request.ids = ids; return query; },
     then: (resolve: (value: unknown) => void) => {
-      const error = state.errorAt === table ? { message: `QA ${table} unavailable` } : null;
-      const data = table === "receipts" ? [{ id: "qa-receipt", payment_date: "2026-10-10" }] : table === "payments" ? Array.from({ length: state.paymentCount }, (_, i) => ({ id: `qa-payment-${i}` })) : [];
+      // Schema metadata from schoolfees-dev: receipts has no session_label.
+      // Reject the invalid query instead of letting a permissive mock pass it.
+      const invalidColumn = table === "receipts" && request.filters.some(([key]) => key === "session_label");
+      const error = invalidColumn ? { message: "column receipts.session_label does not exist", code: "42703" } : state.errorAt === table ? { message: `QA ${table} unavailable` } : null;
+      const session = request.filters.find(([key]) => key === "payments.installment_ref.class_ref.session_label")?.[1];
+      const data = table === "receipts" ? session === "QA-EMPTY" ? [] : [{ id: "qa-receipt", payment_date: "2026-10-10" }] : table === "payments" ? Array.from({ length: state.paymentCount }, (_, i) => ({ id: `qa-payment-${i}` })) : [];
       return Promise.resolve({ data, error }).then(resolve);
     },
   }; return query;
@@ -33,8 +37,13 @@ it("reads every payment line in bounded filters instead of truncating reversal h
   expect(new Set(reads.flatMap(r => r.ids)).size).toBe(401);
 });
 it("scopes the previous receipt day to the chosen session", async () => {
-  await lastReceiptDate("2026-10-10", "QA-2026-27");
-  expect(state.requests[0].filters).toContainEqual(["session_label", "QA-2026-27"]);
+  await expect(lastReceiptDate("2026-10-10", "QA-2026-27")).resolves.toBe("2026-10-10");
+  expect(state.requests[0].filters).toContainEqual(["payments.installment_ref.class_ref.session_label", "QA-2026-27"]);
+  expect(state.requests[0].filters).toContainEqual(["payment_date", "2026-10-10"]);
+  expect(state.requests[0].columns).toContain("payments!inner(installment_ref:installments!inner(class_ref:classes!inner(session_label)))");
+});
+it("does not fall back to another session when the chosen session has no receipts", async () => {
+  await expect(lastReceiptDate("2026-10-10", "QA-EMPTY")).resolves.toBeNull();
 });
 it("refuses a failed previous-day read", async () => {
   state.errorAt = "receipts";
