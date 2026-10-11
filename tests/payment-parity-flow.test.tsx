@@ -79,4 +79,3 @@ it("uses the EMI shortcuts and disables concession on an active plan", async () 
   await click("Monthly EMI"); expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).toBe("1000");
   await click("Review"); await click("Confirm and save"); expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 1000, quickDiscountAmount: 0, lateFeeWaiver: 0 });
 });
-

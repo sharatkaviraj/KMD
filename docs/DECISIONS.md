@@ -322,4 +322,3 @@ An agent that picks a default the plan left open records it here.
 ### Payment parity and interrupted attempts (11 October 2026)
 
 The active VX payment entry restores the original Fees controls and proven shortcut/receipt components. Review remains a genuine confirmation step despite the reference fast-Cash shortcut. Selected-date dues come from the existing RPC. Before sending a payment, its exact financial request and form are saved in the existing account/session-scoped draft store; unresolved attempts survive selection/reload and freeze until checked, with retries using the original request id. Recovery storage failure prevents sending. A permanent waiver that succeeded before a rejected payment keeps the same key on retry. Financial refresh is awaited before receipt readback, and WhatsApp remains an explicit action. No migration.
-

@@ -1094,4 +1094,3 @@ In progress on `audit/durable-recovery-20261011`, reconciled with main `ccabab7`
 ## Payment entry parity - 2026-10-11
 
 Approved bounded restoration on isolated branch fix/payment-entry-parity, based on PR 76 main fefd2a0. Missing collector/concession fields, original shortcuts and EMI context, authoritative selected-date preview, original paper receipt, and owner/session-scoped durable interrupted-save recovery are implemented. Genuine review and explicit-only messaging remain. See docs/plans/2026-10-11-payment-entry-parity-design.md and docs/evidence/payment-entry-parity-2026-10-11.md. Seven synthetic component scenarios and nine domain regressions passed; full gates and responsive acceptance are pending. No database/schema/provider writes.
-
