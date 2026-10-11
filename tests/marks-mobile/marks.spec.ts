@@ -1,5 +1,23 @@
 import { expect, test } from "@playwright/test";
 
+for (const noRoll of [false, true]) {
+  test(`same-name children have distinct accessible mark labels${noRoll ? " without roll numbers" : ""}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/?duplicateNames=1${noRoll ? "&noRoll=1" : ""}`);
+    const repeated = page.getByRole("textbox", { name: /^Synthetic repeated name/ });
+    await expect(repeated).toHaveCount(2);
+    const labels = await repeated.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")!));
+    expect(new Set(labels).size).toBe(2);
+    await page.getByRole("textbox", { name: labels[0], exact: true }).fill("7");
+    const second = page.getByRole("textbox", { name: labels[1], exact: true });
+    await expect(second).toBeEnabled(); await second.fill("8");
+    await expect.poll(async () => page.evaluate(() => {
+      const cells = JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).cells;
+      return [cells["00000000-0000-4000-8000-000000000001"]?.value, cells["00000000-0000-4000-8000-000000000002"]?.value];
+    })).toEqual([7, 8]);
+  });
+}
+
 for (const width of [360, 390, 412]) {
   test(`exemption can be entered and cleared by touch at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });

@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import {
   coverAction,
+  checkCoverAction,
   decideLeaveAction,
   discardChangeAction,
   publishChangesAction,
   requestLeaveAction,
   saveChangeAction,
   type CoverInput,
+  type CoverActionResult,
   type TimetableResult,
 } from "@/app/(app)/timetable/vx-actions";
 import { dayMonth, initials, rupees, shortDay } from "@/vx/format";
@@ -25,6 +27,7 @@ import { Banner, Grid, Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, SecHead, WhatsAppPreview } from "@/vx/ui/primitives";
 
 import type { CoverDutyView, LeaveView, TimetableData } from "./data";
+import { browserCoverStorage, clearCoverRecord, coverRecoveryKey, decodeCoverRecord, notifyCoverRecovery, persistCoverRecord, readCoverSnapshot, subscribeCoverRecovery, type CoverScope } from './cover-recovery';
 import {
   affectedTeachers,
   applyChanges,
@@ -98,11 +101,25 @@ function cellStyle(family: SubjectFamily, opts: { pending?: boolean; cover?: boo
   };
 }
 
-export function TimetableScreen({ data, state }: { data: TimetableData; state: TimetableState }) {
+export function TimetableScreen({ data, state, previewing }: { data: TimetableData; state: TimetableState; previewing: boolean }) {
   const { tx } = useVx();
   const router = useRouter();
   const toast = useToast();
   const [pending, start] = useTransition();
+  const coverInFlight = useRef(false);
+  const coverDay = data.cover?.day;
+  const scope = useMemo<CoverScope | null>(() => data.sessionLabel && coverDay ? { owner: data.me.id, session: data.sessionLabel, day: coverDay } : null, [data.me.id, data.sessionLabel, coverDay]);
+  const snapshot = useSyncExternalStore(subscribeCoverRecovery, () => readCoverSnapshot(scope), () => 'loading');
+  const recovery = useMemo(() => scope ? decodeCoverRecord(snapshot, scope) : null, [snapshot, scope]);
+  const storageReady = Boolean(scope && snapshot !== 'loading' && snapshot !== 'unavailable' && snapshot !== 'unsupported' && (!snapshot || recovery));
+  const scopeKey = scope ? coverRecoveryKey(scope) : '';
+  const currentScope = useRef(scopeKey);
+  const currentMayCover = useRef(!previewing && data.me.mayCover);
+  useLayoutEffect(() => { currentScope.current = scopeKey; currentMayCover.current = !previewing && data.me.mayCover; }, [scopeKey, previewing, data.me.mayCover]);
+  const stillOwnsCover = (commandScope: CoverScope) => currentScope.current === coverRecoveryKey(commandScope) && currentMayCover.current;
+  const [checkedMissing, setCheckedMissing] = useState<string | null>(null);
+  const [storageProblem, setStorageProblem] = useState<string | null>(null);
+  const coverBlocked = previewing || pending || !storageReady || Boolean(recovery);
   const href = (next: Partial<TimetableState>) => timetableHref(next, data.cover?.day);
 
   // Pending periods are an editor preview; teachers follow the published version.
@@ -126,10 +143,61 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
       router.refresh();
     }
   };
-  const cover = (input: Omit<CoverInput, "commandId" | "day" | "dayRevision">, after?: () => void) => {
-    if (!data.cover) return;
-    const c = data.cover;
-    start(async () => done(await coverAction({ ...input, commandId: uuid(), day: c.day, dayRevision: c.dayRevision }), after));
+  const uncertain = () => toast.show({ text: tx(p('The save result is uncertain. Check the saved result before trying another change.', 'बदलाव का परिणाम अनिश्चित है। दूसरा बदलाव करने से पहले जाँचें।')), tone: 'bad' });
+  const finishCover = async (result: CoverActionResult, command: CoverInput, commandScope: CoverScope, after?: () => void) => {
+    if (result.status === 'saved' || result.status === 'refused') {
+      const storage = browserCoverStorage();
+      const cleared = Boolean(storage && await clearCoverRecord(storage, commandScope, command.commandId, () => stillOwnsCover(commandScope)));
+      notifyCoverRecovery();
+      if (!stillOwnsCover(commandScope)) return;
+      if (!cleared) toast.show({ text: tx(p('The result was received, but its recovery record could not be cleared. Check it again before another save.', 'परिणाम मिला, लेकिन स्थानीय रिकॉर्ड नहीं मिटा। अगले बदलाव से पहले फिर जाँचें।')), tone: 'bad' });
+      else { setStorageProblem(null); done(result, currentScope.current === coverRecoveryKey(commandScope) ? after : undefined); }
+      if (!cleared || !result.ok) router.refresh();
+    } else if (result.status === 'not_found') {
+      setCheckedMissing(command.commandId);
+      toast.show({ text: tx(result.message), tone: 'bad' });
+    } else toast.show({ text: tx(result.message), tone: 'bad' });
+  };
+  const cover = (input: Omit<CoverInput, 'commandId' | 'sessionLabel' | 'day' | 'dayRevision'>, after?: () => void) => {
+    if (previewing || !data.cover?.canCommand || !data.me.mayCover || !scope || coverBlocked || coverInFlight.current) return;
+    const command: CoverInput = { ...input, commandId: uuid(), sessionLabel: scope.session, day: scope.day, dayRevision: data.cover.dayRevision };
+    coverInFlight.current = true;
+    start(async () => {
+      try {
+        const storage = browserCoverStorage();
+        if (!storage || !await persistCoverRecord(storage, scope, command)) {
+          setStorageProblem(coverRecoveryKey(scope));
+          toast.show({ text: tx(p('Cannot preserve this save on the phone. Nothing was submitted. Restore browser storage and try again.', 'फ़ोन पर बदलाव सुरक्षित नहीं हो सका। कुछ जमा नहीं हुआ। ब्राउज़र स्टोरेज ठीक करके फिर आज़माएँ।')), tone: 'bad' });
+          notifyCoverRecovery();
+          return;
+        }
+        setStorageProblem(null);
+        notifyCoverRecovery();
+        // A lock may have waited while the viewer changed role, session or day.
+        // Retain the original identity, but never dispatch in that new context.
+        if (!stillOwnsCover(scope)) return;
+        const result = await coverAction(command);
+        if (!stillOwnsCover(scope)) return;
+        await finishCover(result, command, scope, after);
+      }
+      catch { uncertain(); }
+      finally { coverInFlight.current = false; }
+    });
+  };
+  const recoverCover = (retry: boolean) => {
+    if (previewing || !scope || !recovery || !data.me.mayCover || pending || coverInFlight.current) return;
+    const command = recovery.payload;
+    coverInFlight.current = true;
+    start(async () => {
+      try {
+        let result = await checkCoverAction(command);
+        if (!stillOwnsCover(scope)) return;
+        if (retry && result.status === 'not_found') result = await coverAction(command);
+        if (!stillOwnsCover(scope)) return;
+        await finishCover(result, command, scope);
+      } catch { uncertain(); }
+      finally { coverInFlight.current = false; }
+    });
   };
 
   const classId = state.classId ?? data.classes[0]?.id ?? null;
@@ -318,7 +386,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
       </>
     );
   } else if (state.view === "subs") {
-    body = <Subs data={data} pending={pending} subjectName={subjectName} onCover={cover} onAssign={(needKey) => go({ view: "subs", duty: needKey })} />;
+    body = <Subs data={data} pending={coverBlocked} subjectName={subjectName} onCover={cover} onAssign={(needKey) => go({ view: "subs", duty: needKey })} />;
   } else if (state.view === "leave") {
     body = <Leave data={data} pending={pending} onAdd={() => go({ view: "leave", sheet: "leave" })} onDecide={(id, approve) => start(async () => done(await decideLeaveAction({ id, approve })))} />;
   } else {
@@ -336,6 +404,18 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
       <main>
         <Section>
           {tabs}
+          {!previewing && data.me.mayCover && recovery ? (
+            <Banner tone="warn">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <b>{tx(p(`Cover save for ${shortDay(recovery.payload.day)} needs checking`, `${shortDay(recovery.payload.day)} के कवर बदलाव को जाँचना है`))}</b>
+                <span>{tx(p('Its result may already be saved. Resolve this request before another cover change.', 'यह बदलाव पहले ही सुरक्षित हो सकता है। दूसरा कवर बदलाव करने से पहले इसे जाँचें।'))}</span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Btn variant="sec" disabled={pending} onClick={() => recoverCover(false)}>{tx(p('Check saved result', 'सुरक्षित परिणाम जाँचें'))}</Btn>
+                  {checkedMissing === recovery.payload.commandId ? <Btn variant="pri" disabled={pending} onClick={() => recoverCover(true)}>{tx(p('Retry same save', 'वही बदलाव फिर आज़माएँ'))}</Btn> : null}
+                </div>
+              </div>
+            </Banner>
+          ) : !previewing && data.me.mayCover && scope && ((!storageReady && snapshot !== 'loading') || storageProblem === scopeKey) ? <Banner tone="warn">{snapshot === 'unsupported' ? tx(p('This browser cannot safely preserve cover saves across tabs. Open this page in an up-to-date supported browser before saving.', 'यह ब्राउज़र अलग-अलग टैब में कवर बदलाव सुरक्षित नहीं रख सकता। बदलाव करने से पहले नया समर्थित ब्राउज़र इस्तेमाल करें।')) : tx(p('Cannot preserve the cover request on this phone. Nothing new was submitted. Restore browser storage before saving.', 'इस फ़ोन पर कवर अनुरोध सुरक्षित नहीं हो सका। कोई नया बदलाव जमा नहीं हुआ। पहले ब्राउज़र स्टोरेज ठीक करें।'))}</Banner> : null}
           {body}
         </Section>
       </main>
@@ -356,7 +436,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
       ) : null}
       <AssignSheet
         duty={duty}
-        pending={pending}
+        pending={coverBlocked}
         subjectName={subjectName}
         onClose={() => go({ view: "subs" }, true)}
         onAssign={(needKey, staffId) => cover({ intent: "assign", needKey, coveringStaffId: staffId }, () => go({ view: "subs" }, true))}
@@ -604,7 +684,7 @@ function Subs({
   data: TimetableData;
   pending: boolean;
   subjectName: (code: string) => string;
-  onCover: (input: Omit<CoverInput, "commandId" | "day" | "dayRevision">, after?: () => void) => void;
+  onCover: (input: Omit<CoverInput, "commandId" | "sessionLabel" | "day" | "dayRevision">, after?: () => void) => void;
   onAssign: (needKey: string) => void;
 }) {
   const c = data.cover;

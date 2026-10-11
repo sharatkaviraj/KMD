@@ -21,6 +21,7 @@ async function login(page: Page, actor: string) {
 }
 
 test("admin selected decisions, cached reviewer, conflict and interrupted response persist safely on phone", async ({ browser }) => {
+  test.skip(process.env.OPS_ADMIN_RUN_MUTATIONS !== "1", "Explicit lane opt-in required; retained DEV fixture cleanup approval is pending");
   test.setTimeout(900_000);
   const contexts: BrowserContext[] = [];
   try {
@@ -103,12 +104,18 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
     const currentC = page.locator("li").filter({ hasText: incoming[2] }).filter({ has: page.locator("form") });
     await expect(currentC.getByRole("button", { name: /^(Accept|स्वीकार करें)$/ })).toHaveCount(0);
     let interrupted = false;
+    let finishInterruption = () => {};
+    const interruptionFinished = new Promise<void>(resolve => { finishInterruption = resolve; });
     await page.route("**/collection/review", async route => {
       if (!interrupted && route.request().method() === "POST" && route.request().headers()["next-action"]) {
-        interrupted = true; await route.fetch(); await route.abort("failed");
+        interrupted = true;
+        try { await route.fetch(); await route.abort("failed"); }
+        finally { finishInterruption(); }
       } else await route.continue();
     });
     await currentC.getByRole("button", { name: /Accept and replace|नया मान/ }).tap();
+    // Finish the fault injection before unroute/reload can dispose its request.
+    await interruptionFinished;
     await expect.poll(async () => (await readRecords()).find(row => row.field_id === fields[2])?.value, { timeout: 45_000 }).toBe(incoming[2]);
     await page.unroute("**/collection/review");
     await page.reload();
@@ -125,7 +132,14 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
     record({ action: "test-error", actual: (error instanceof Error ? error.message.slice(0, 1500) : String(error)).replace(/token_hash=[a-f0-9]+/gi, "token_hash=REDACTED") });
     throw error;
   } finally {
-    for (const context of contexts) await context.close();
+    // Browser teardown errors must never prevent exact-ID fixture cleanup.
+    const closed = await Promise.allSettled(contexts.map(context => context.close()));
+    for (const result of closed) if (result.status === "rejected") {
+      record({ action: "browser-close-error", actual: "Browser context already disposed during failed test; exact-ID cleanup continues" });
+    }
+    if (process.env.OPS_ADMIN_PRESERVE_FIXTURES !== "0") {
+      record({ action: "cleanup-preserved", after: "Exact tagged fixtures retained; destructive cleanup requires its pending approval to resolve before this option may be disabled" });
+    } else {
     for (const table of ["student_record_history", "student_records"] as const) if (fields.length) {
       const result = await db().from(table).delete().in("field_id", fields); checked(result.error);
       record({ action: "cleanup", table, key: fields, after: "Tagged rows deleted" });
@@ -139,5 +153,6 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
       const result = await db().from(table).select("id", { count: "exact", head: true }).in(table === "collection_requests" ? "id" : "request_id", requests); checked(result.error); expect(result.count).toBe(0);
     }
     record({ action: "cleanup-verify", after: "Zero tagged fields, requests, submissions, student records and history remain" });
+    }
   }
 });

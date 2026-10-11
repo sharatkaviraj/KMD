@@ -23,7 +23,18 @@ under that directory and blocks external requests. Do not point it at a live
 application. Browser tests use `isMobile` and `hasTouch` at 360, 390, 412 pixels,
 and 844 by 390 landscape.
 
-The three cases cover reader versus editor previews, selected substitution date
-through dialog/tab/history/reload navigation, and future-day/current-day period
-markers. Loader access is separately checked by
-`tests/timetable-preview-access.test.ts`.
+The fifteen cases cover publication boundaries, selected substitution date
+through dialog/tab/history/reload, current-day period markers, uncertain saved
+and unsaved cover responses, original-ID recovery, owner/session/day isolation,
+storage failures before save and after receipt, two-tab reservation, unsupported
+Web Locks, read-only role preview, Hindi controls, delayed context switches and
+receipt recovery after the timetable is no longer arrangable and a late saved
+response after switching to read-only preview. Native touch taps
+and a scoped held Web Lock exercise two tabs in the same browser context. The
+per-tab action output independently verifies only one submitted command; a
+shared synthetic ledger is additional evidence, never a real database ledger.
+
+Focused units are `tests/timetable-preview-access.test.ts`,
+`tests/cover-recovery.test.ts` and `tests/timetable-cover-actions.test.ts`.
+Cover saves require secure-context Web Locks and working browser storage. If
+either is unavailable, the UI refuses submission with a persistent explanation.

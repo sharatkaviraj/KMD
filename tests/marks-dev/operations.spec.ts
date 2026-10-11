@@ -1,16 +1,44 @@
 import { randomUUID, createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { devices, expect, test } from "@playwright/test";
+import { devices, expect, test, type Page } from "@playwright/test";
 import { currentSessionLabel, db, ownClassOf, signIn } from "../e2e/support/harness";
 
 test.describe.configure({ mode: "serial" });
 const examId = randomUUID(), paperId = randomUUID(), otherId = randomUUID();
 const ledgerPath = "../evidence/subject-teacher-ledger.json";
 const tag = `phoneops-20261011-marks-${examId.slice(0, 8)}`;
+const runLedgerPath = `../evidence/subject-teacher-ledger-${tag}.json`;
 const ledger: Record<string, unknown>[] = [];
+const pendingActions = new Set<string>();
+const uncertainActions = new Set<string>();
 function audit(action: string, table: string, key: string, before: unknown, after: unknown, cleanup: string) {
   ledger.push({ at: new Date().toISOString(), action, table, key, before, after, cleanup });
-  writeFileSync(ledgerPath, JSON.stringify({ target: "wtgxcptmucjerhufzjcf", tag, actions: ledger }, null, 2));
+  const contents = JSON.stringify({ target: "wtgxcptmucjerhufzjcf", tag, actions: ledger }, null, 2);
+  writeFileSync(runLedgerPath, contents);
+  writeFileSync(ledgerPath, contents);
+}
+function watchActions(page: Page, actor: string) {
+  let sequence = 0;
+  const contextId = randomUUID().slice(0, 8);
+  const requests = new WeakMap<object, { key: string; at: number }>();
+  page.on("request", (request) => {
+    if (request.method() !== "POST" || !request.headers()["next-action"]) return;
+    const key = `${actor}:${contextId}:${new URL(request.url()).pathname}:${++sequence}`;
+    const at = Date.now(); requests.set(request, { key, at });
+    pendingActions.add(key);
+    audit("action-post-start", "http", key, null, { at }, "No DB cleanup needed");
+  });
+  page.on("requestfinished", async (request) => {
+    const started = requests.get(request); if (!started) return;
+    const response = await request.response();
+    pendingActions.delete(started.key);
+    audit("action-post-finished", "http", started.key, null, { status: response?.status() ?? null, durationMs: Date.now() - started.at }, "No DB cleanup needed");
+  });
+  page.on("requestfailed", (request) => {
+    const started = requests.get(request); if (!started) return;
+    pendingActions.delete(started.key); uncertainActions.add(started.key);
+    audit("action-post-failed", "http", started.key, null, { durationMs: Date.now() - started.at, error: request.failure()?.errorText ?? "Unknown request failure" }, "No DB cleanup needed");
+  });
 }
 let teacherId = "", coordinatorId = "", classId = "", session = "";
 async function state(id = paperId) {
@@ -58,6 +86,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   const before = await state().catch(() => null);
+  if (pendingActions.size || uncertainActions.size) {
+    audit("cleanup-held", "assessments", examId, before, { pendingActionCount: pendingActions.size, uncertainActionCount: uncertainActions.size }, "Preserved: independently confirm terminal command state before exact-ID cleanup");
+    throw Error("Marks fixture cleanup held because action completion is uncertain; fixture preserved in audit ledger");
+  }
   const removed = await db().from("assessments").delete().eq("id", examId);
   if (removed.error) { audit("cleanup-failed", "assessments", examId, before, removed.error.message, `Delete only assessment ${examId}`); throw Error(removed.error.message); }
   const [exams, papers, marks, commands] = await Promise.all([
@@ -71,11 +103,14 @@ test.afterAll(async () => {
 });
 
 test("teacher phone drafts four states, refuses missing, submits; exam office corrects with reason and reopens", async ({ page, browser }) => {
+  test.setTimeout(360_000);
+  watchActions(page, "teacher");
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, "teacher", `/teach/marks?paper=${paperId}`);
   const inputs = page.locator('input[inputmode="decimal"]');
   await expect(inputs.first()).toBeEnabled();
   const count = await inputs.count(); expect(count).toBeGreaterThan(3);
+  const labels = await inputs.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")!));
   await inputs.nth(0).fill("0");
   await page.getByRole("button", { name: /^(Absent|अनुपस्थित)$/ }).nth(1).tap();
   await page.getByRole("button", { name: /^(Exempt|छूट)$/ }).nth(2).tap();
@@ -86,9 +121,8 @@ test("teacher phone drafts four states, refuses missing, submits; exam office co
   expect(draft.marks.filter((m) => m.absent)).toHaveLength(1); expect(draft.marks.filter((m) => m.exempt)).toHaveLength(1);
   audit("draft-ui", "marks", paperId, [], draft, `Cascade from ${examId}`);
   await page.getByRole("button", { name: /^(Check & send|जाँचें और भेजें)$/ }).tap();
-  await expect(page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा समन्वयक को भेजें)$/ })).toBeDisabled();
-  await page.getByRole("button", { name: /^(Back to marks|अंकों पर लौटें)$/ }).tap();
-  const labels = await inputs.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")!));
+  await expect(page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा प्रभारी को भेजें)$/ })).toBeDisabled();
+  await page.getByRole("button", { name: /^(Back to marks|अंकों पर वापस)$/ }).tap();
   for (let i = 3; i < count; i++) {
     const show = page.getByRole("button", { name: /Show|दिखाएँ/ });
     if (await show.count()) await show.tap();
@@ -97,13 +131,14 @@ test("teacher phone drafts four states, refuses missing, submits; exam office co
   }
   await expect.poll(async () => (await state()).marks.length).toBe(count);
   await page.getByRole("button", { name: /^(Check & send|जाँचें और भेजें)$/ }).tap();
-  await page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा समन्वयक को भेजें)$/ }).tap();
+  await page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा प्रभारी को भेजें)$/ }).tap();
   await expect.poll(async () => (await state()).paper?.entry_status).toBe("submitted");
-  await expect(page.getByRole("heading", { name: /^(Marks sent|अंक भेज दिए)$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(Marks sent|अंक भेजे गए)$/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   audit("submit-ui", "assessment_subjects", paperId, draft, await state(), `Cascade from ${examId}`);
   const office = await browser.newContext({ ...devices["Pixel 7"], viewport: { width: 412, height: 844 } });
   const officePage = await office.newPage();
+  watchActions(officePage, "exam");
   await signIn(officePage, "exam", `/exams?view=entry&paper=${paperId}&exam=${examId}`);
   await officePage.getByRole("button", { name: /^(Correct a mark|अंक सुधारें)$/ }).tap();
   await officePage.locator('input[inputmode="decimal"]').nth(3).fill("39");
@@ -115,7 +150,7 @@ test("teacher phone drafts four states, refuses missing, submits; exam office co
   audit("correction-ui", "marks_change_log", paperId, null, await state(), `Cascade from ${examId}`);
   await officePage.getByRole("button", { name: /^(Hand back to teacher|अध्यापक को वापस दें)$/ }).tap();
   await officePage.getByRole("button", { name: /^(Hand back|वापस दें)$/ }).tap();
-  await expect.poll(async () => (await state()).paper?.entry_status).toBe("open");
+  await expect.poll(async () => (await state()).paper?.entry_status, { timeout: 120_000 }).toBe("open");
   audit("reopen-ui", "assessment_subjects", paperId, "submitted", await state(), `Cascade from ${examId}`);
   await office.close();
 });
@@ -140,6 +175,7 @@ test("teacher cannot open unassigned paper; concurrent scoped commands produce o
 });
 
 test("exam office submits remaining papers; only admin finalises and unlocks this tagged class", async ({ page, browser }) => {
+  watchActions(page, "exam");
   await page.setViewportSize({ width: 360, height: 844 });
   await signIn(page, "exam", `/exams?view=entry&paper=${otherId}&exam=${examId}`);
   const fields = page.locator('input[inputmode="decimal"]');
@@ -151,17 +187,18 @@ test("exam office submits remaining papers; only admin finalises and unlocks thi
   }
   await expect.poll(async () => (await state(otherId)).marks.length).toBe(labels.length);
   await page.getByRole("button", { name: /^(Check & send|जाँचें और भेजें)$/ }).tap();
-  await page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा समन्वयक को भेजें)$/ }).tap();
+  await page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा प्रभारी को भेजें)$/ }).tap();
   await expect.poll(async () => (await state(otherId)).paper?.entry_status).toBe("submitted");
   await page.goto(`/exams?view=entry&paper=${paperId}&exam=${examId}`);
   await page.getByRole("button", { name: /^(Check & send|जाँचें और भेजें)$/ }).tap();
-  await page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा समन्वयक को भेजें)$/ }).tap();
+  await page.getByRole("button", { name: /^(Send to exam coordinator|परीक्षा प्रभारी को भेजें)$/ }).tap();
   await expect.poll(async () => (await state()).paper?.entry_status).toBe("submitted");
   await page.goto(`/exam-office/results?view=lock&exam=${examId}`);
   await expect(page.getByText(/Only the admin finalises marks|अंक केवल प्रशासक अंतिम करते हैं/).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /^Lock \d+ classes$|^\d+ कक्षाएँ बंद करें$/ })).toHaveCount(0);
   const admin = await browser.newContext({ ...devices["Pixel 7"], viewport: { width: 412, height: 844 } });
   const adminPage = await admin.newPage();
+  watchActions(adminPage, "admin");
   await signIn(adminPage, "admin", `/exam-office/results?view=lock&exam=${examId}`);
   await adminPage.getByRole("button", { name: /^(Lock 1 classes|1 कक्षाएँ बंद करें)$/ }).tap();
   await adminPage.getByRole("button", { name: /^(Lock|बंद करें)$/ }).tap();

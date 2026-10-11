@@ -756,7 +756,7 @@ export function MarksSheet({
                           }}
                           className={`inp num${off ? " err" : ""}`}
                           inputMode="decimal"
-                          aria-label={`${s.name} — ${tx(p("mark out of", "अंक, पूर्णांक"))} ${paper.maxMarks}`}
+                          aria-label={`${s.name} — ${tx(p("Row", "पंक्ति"))} ${i + 1}${s.roll ? `, ${tx(p("Roll", "रोल"))} ${s.roll}` : ""} — ${tx(p("mark out of", "अंक, पूर्णांक"))} ${paper.maxMarks}`}
                           disabled={!editable || cell.state === "absent" || cell.state === "exempt"}
                           value={cell.state === "absent" ? "AB" : cell.state === "exempt" ? "EX" : (texts[s.id] ?? "")}
                           onFocus={() => setCurrent(i)}

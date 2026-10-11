@@ -1,5 +1,5 @@
 import { chromium } from "@playwright/test";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { collectorSummary } from "./legacy-data";
 
@@ -31,7 +31,9 @@ export default async function warmup() {
     }
     if (errors.length) throw new Error(`Synthetic fixture startup errors: ${errors.join("; ")}`);
   } finally {
-    writeFileSync("../evidence/fee-collector-warmup.json", JSON.stringify({ layer: "fixture startup, not operational acceptance", mobileEmulation: { width: 390, height: 844, isMobile: true, hasTouch: true }, results, errors }, null, 2));
+    const evidenceDir = process.env.OPS_FEE_EVIDENCE_DIR ?? ".test-artifacts/operations-fee-collector";
+    mkdirSync(evidenceDir, { recursive: true });
+    writeFileSync(`${evidenceDir}/warmup.json`, JSON.stringify({ layer: "fixture startup, not operational acceptance", mobileEmulation: { width: 390, height: 844, isMobile: true, hasTouch: true }, results, errors }, null, 2));
     await browser.close();
   }
 }

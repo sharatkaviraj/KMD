@@ -5,12 +5,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ online: true, save: vi.fn(), check: vi.fn(), toast: vi.fn(),
-  stored: new Map<string, unknown>(), storageFails: false, removals: [] as string[] }));
+  stored: new Map<string, unknown>(), storageFails: false, removals: [] as string[], restore: null as Promise<unknown> | null, restoreKey: "" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("next/link", () => ({ default: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
 vi.mock("@/platform/drafts/use-durable-draft", () => ({ useOnline: () => state.online }));
 vi.mock("@/platform/drafts/store", () => ({
-  loadDraft: async (key: string) => state.stored.get(key) ?? null,
+  loadDraft: async (key: string) => key===state.restoreKey && state.restore ? state.restore : state.stored.get(key) ?? null,
   saveDraft: async (key: string, value: unknown) => { if (state.storageFails) throw new Error("storage blocked"); state.stored.set(key, value); },
   removeDraft: async (key: string) => { state.removals.push(key); state.stored.delete(key); },
 }));
@@ -36,7 +36,7 @@ const data = { kind: "class", sessionLabel: "QA", classId, classLabel: "QA class
   saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], month: "2026-10", monthMarks: [], closedDays: [],
 } as AttendData;
 let root: Root; let host: HTMLDivElement;
-async function render() { await act(async () => root.render(<TeachAttend data={data} ownerId={ownerId} initialSheet="save" initialView={null} school="QA School" />)); }
+async function render(model: AttendData = data) { await act(async () => root.render(<TeachAttend data={model} ownerId={ownerId} initialSheet="save" initialView={null} school="QA School" />)); }
 async function clickSave() {
   const buttons = [...host.querySelectorAll<HTMLButtonElement>("button")].filter(b => b.textContent === "Save attendance");
   await act(async () => buttons.at(-1)!.click());
@@ -44,13 +44,36 @@ async function clickSave() {
 async function reconnect() { state.online = true; await render(); await act(async () => vi.advanceTimersByTimeAsync(450)); }
 beforeEach(() => {
   vi.useFakeTimers(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  state.online = true; state.storageFails = false; state.stored.clear(); state.removals = [];
+  state.online = true; state.storageFails = false; state.stored.clear(); state.removals = []; state.restore=null;
   state.save.mockReset().mockResolvedValue({ status: "refused", message: { en: "Window closed", hi: "" } });
   state.check.mockReset().mockResolvedValue({ status: "error", message: { en: "Not found", hi: "" } }); state.toast.mockReset();
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe("attendance offline outbox recovery", () => {
+  it("keeps a new child mark when a slower phone draft restore arrives", async () => {
+    let restore!: (value: unknown) => void;
+    state.restoreKey=draftKey(ownerId,"QA",`attendance-vx/${classId}/2026-10-10`);
+    state.restore=new Promise(resolve=>{restore=resolve;});
+    await render();
+    const child=host.querySelector<HTMLButtonElement>("button.t-kid")!;
+    await act(async()=>child.click());
+    expect(child.className).toMatch(/\ba\b/);
+    await act(async()=>restore({value:{marks:{[studentId]:"present"},revision:0}}));
+    expect(child.className).toMatch(/\ba\b/);
+  });
+  it("still restores untouched children alongside a new touch edit", async () => {
+    const secondId="00000000-0000-4000-8000-000000000003";
+    let restore!: (value: unknown) => void;
+    state.restoreKey=draftKey(ownerId,"QA",`attendance-vx/${classId}/2026-10-10`);
+    state.restore=new Promise(resolve=>{restore=resolve;});
+    await render({...data,roll:[...data.roll,{id:secondId,name:"QA Other Child",rollNo:"2",gender:null}]});
+    const children=host.querySelectorAll<HTMLButtonElement>("button.t-kid");
+    await act(async()=>children[0].click());
+    await act(async()=>restore({value:{marks:{[studentId]:"present",[secondId]:"half_day"},revision:0}}));
+    expect(children[0].className).toMatch(/\ba\b/);
+    expect(children[1].className).toMatch(/\bh\b/);
+  });
   it.each(["refused", "stale", "roster_changed"])("removes a restored outbox after terminal %s and retains editable marks", async status => {
     state.stored.set(key, { value: box });
     state.save.mockResolvedValue({ status, message: { en: "Review required", hi: "" }, joined: [], left: [], latest: null });

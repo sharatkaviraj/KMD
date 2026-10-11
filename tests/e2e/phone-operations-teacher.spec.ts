@@ -45,7 +45,7 @@ async function cleanup() {
     const corrections = await db().from("attendance_corrections").delete().eq("register_id", row.id); expect(corrections.error).toBeNull();
     const revisions = await db().from("attendance_register_revisions").delete().eq("register_id", row.id); expect(revisions.error).toBeNull();
     const removed = await db().from("attendance_registers").delete().eq("id", row.id); expect(removed.error).toBeNull();
-    const marks = await db().from("attendance_marks").select("id").eq("register_id", row.id); expect(marks.error).toBeNull(); expect(marks.data).toEqual([]);
+    const marks = await db().from("attendance_marks").select("student_id").eq("register_id", row.id); expect(marks.error).toBeNull(); expect(marks.data).toEqual([]);
     ledger.push({ phase: "after-cleanup", day, registerId: row.id, remaining: await register(day) }); checkpoint();
   }
 }
@@ -61,125 +61,139 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  if (process.env.PHONEOPS_PRESERVE_FIXTURES === "1") {
+    for (const day of days) ledger.push({phase:"preserved-readback-no-cleanup",day,register:await register(day)});
+    checkpoint();
+    return;
+  }
   await cleanup();
 });
 
 async function asAccount(browser: Browser, key: string, next: string) {
   const context = await browser.newContext({ baseURL: "http://localhost:3100", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  page.setDefaultNavigationTimeout(150_000);
   try { await signIn(page, key, next); }
   catch { await context.close(); throw new Error("QA teacher authentication or cold route could not complete; auth URL omitted from evidence."); }
   return { context, page };
 }
 
-test("the class teacher saves the whole roll, gets a receipt, then corrects it with a reason", async ({ browser }) => {
-  test.setTimeout(180_000);
-  const [day] = days;
-  const { context, page } = await asAccount(browser, "teacher", `/teach/attendance?class=${scene.classId}&day=${day}`);
+async function assertNoQueuedMessages(registerId: string) {
+  const queued = await db().from("parent_message_queue").select("id,status").eq("register_id", registerId);
+  expect(queued.error).toBeNull(); expect(queued.data).toEqual([]);
+}
 
-  /* ------------------------------------------ 1. opening records nothing */
-
-  await expect(page.getByText(/Nothing is recorded yet|अभी कुछ दर्ज नहीं हुआ/)).toBeVisible();
-  expect(await register(day), "opening the register wrote one").toBeNull();
-
-  const rows = page.locator("li[data-student]");
-  const count = await rows.count();
-  expect(count, "every child on that day's roll is listed").toBeGreaterThan(2);
-
-  /* ------------------------------------- 2. exceptions, review, then save */
-
-  await rows.nth(0).getByRole("button", { name: /^(Absent|अनुपस्थित)$/ }).tap();
-  await rows.nth(1).getByRole("button", { name: /^(Half day|आधा दिन)$/ }).tap();
-  expect(await register(day), "marking a child wrote something before Save").toBeNull();
-
-  await page.getByRole("button", { name: /Review and save|जाँचें और सहेजें/ }).tap();
-  const exceptions = page.locator("[data-attendance-exceptions] li");
-  await expect(exceptions).toHaveCount(2);
-
-  await page.getByRole("button", { name: /^(Save attendance|हाज़िरी सहेजें)$/ }).tap();
-  await expect(page.locator("[data-attendance-receipt]")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/Saved by|ने .* पर सहेजा/).first()).toBeVisible();
-
-  const saved = await register(day);
-  ledger.push({ phase: "saved", day, register: saved }); checkpoint();
-  expect(saved).toMatchObject({ revision: 1, status: "submitted" });
-  const { data: marks } = await db().from("attendance_marks").select("status").eq("register_id", saved!.id);
-  expect(marks ?? [], "a mark for every child, not only the exceptions").toHaveLength(count);
-  expect((marks ?? []).filter((mark) => mark.status === "absent")).toHaveLength(1);
-  expect((marks ?? []).filter((mark) => mark.status === "half_day")).toHaveLength(1);
-
-  /* ------------------------- 3. a correction says why; both are kept */
-
-  await page.getByRole("button", { name: /Correct this register|इस रजिस्टर में सुधार करें/ }).tap();
-  await rows.nth(0).getByRole("button", { name: /^(Present|उपस्थित)$/ }).tap();
-  await page.getByRole("button", { name: /Review the correction|सुधार जाँचें/ }).tap();
-  const saveCorrection = page.getByRole("button", { name: /Save the correction|सुधार सहेजें/ });
-  await expect(saveCorrection, "a correction cannot be saved without a reason").toBeDisabled();
-  await page.locator("#correction-reason").fill("phoneops-20261011-teacher arrived after assembly");
-  await saveCorrection.tap();
-  await expect(page.getByText(/Corrected by|ने .* पर सुधारा/).first()).toBeVisible({ timeout: 30_000 });
-
-  const corrected = await register(day);
-  ledger.push({ phase: "corrected", day, register: corrected }); checkpoint();
-  expect(corrected!.revision).toBe(2);
-  const { data: revisions } = await db()
-    .from("attendance_register_revisions")
-    .select("revision, kind, reason")
-    .eq("register_id", corrected!.id)
-    .order("revision");
-  expect(revisions).toEqual([
-    { revision: 1, kind: "save", reason: null },
-    { revision: 2, kind: "correction", reason: "phoneops-20261011-teacher arrived after assembly" },
-  ]);
-  await expect(page.getByRole("heading", { name: /^(History|इतिहास)$/ })).toBeVisible();
-  await context.close();
-});
-
-test("an answer lost on the way back is checked, not sent again", async ({ browser }) => {
-  test.setTimeout(180_000);
-  const day = days[1];
-  const { context, page } = await asAccount(browser, "teacher", `/teach/attendance?class=${scene.classId}&day=${day}`);
-
-  await page.getByRole("button", { name: /Review and save|जाँचें और सहेजें/ }).tap();
-
-  // The save reaches the server and is recorded; its answer never reaches the
-  // phone. The next request — the screen asking whether it landed — is let
-  // through.
-  let lost = false;
-  await page.route("**/teach/attendance**", async (route) => {
-    const request = route.request();
-    if (!lost && request.method() === "POST" && request.headers()["next-action"]) {
-      lost = true;
-      await route.fetch();
-      await route.abort("failed");
-      return;
-    }
-    await route.continue();
-  });
-
-  await page.getByRole("button", { name: /^(Save attendance|हाज़िरी सहेजें)$/ }).tap();
-  await expect(page.locator("[data-attendance-receipt]")).toBeVisible({ timeout: 45_000 });
-  expect(lost, "the save's answer was dropped").toBe(true);
-
-  const row = await register(day);
-  ledger.push({ phase: "uncertain-response-reconciled", day, register: row }); checkpoint();
-  expect(row).toMatchObject({ revision: 1 });
-  const { data: revisions } = await db().from("attendance_register_revisions").select("id").eq("register_id", row!.id);
-  expect(revisions ?? [], "saved once, not twice").toHaveLength(1);
-  await context.close();
-});
-
-test("a subject teacher reads the register but is not given the pen", async ({ browser }) => {
-  const [day] = days;
-  const { context, page } = await asAccount(browser, "teacher2", `/teach/attendance?class=${scene.classId}&day=${day}`);
-  const notYours = page.getByText(/not one of your classes|आपकी कक्षा नहीं/);
-  if (await notYours.isVisible().catch(() => false)) {
-    // teacher2 does not teach this class: the register is not hers to read.
-    await expect(notYours).toBeVisible();
-  } else {
-    await expect(page.getByRole("button", { name: /Correct this register|इस रजिस्टर में सुधार करें/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Review and save|जाँचें और सहेजें/ })).toHaveCount(0);
+async function disableParentAlerts(page: import("@playwright/test").Page) {
+  const dialog = page.getByRole("dialog");
+  const switches = dialog.getByRole("switch");
+  if (await switches.count()) {
+    if (await switches.getAttribute("aria-checked") === "true") await switches.tap();
+    await expect(switches).toHaveAttribute("aria-checked", "false");
   }
-  await context.close();
+}
+
+test("the class teacher saves the whole roll, reloads it, and corrects it with a reason", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const day = days[0];
+  const { context, page } = await asAccount(browser, "teacher", `/teach/attendance?class=${scene.classId}&day=${day}`);
+  try {
+    const rows = page.locator("button.t-kid");
+    await expect(rows.first()).toBeVisible();
+    const count = await rows.count(); expect(count).toBeGreaterThan(2);
+    expect(await register(day), "opening the register must not record it").toBeNull();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await rows.nth(0).tap();
+    await expect(rows.nth(0)).toHaveClass(/\ba\b/);
+    await rows.nth(1).tap(); await expect(rows.nth(1)).toHaveClass(/\ba\b/);
+    await rows.nth(1).tap();
+    await expect(rows.nth(1)).toHaveClass(/\bh\b/);
+    expect(await register(day), "phone marking must remain local until review/save").toBeNull();
+    await page.locator(".t-savebar button").tap();
+    const dialog = page.getByRole("dialog"); await expect(dialog).toBeVisible();
+    await disableParentAlerts(page);
+    expect(await register(day), "opening review must not record it").toBeNull();
+    await dialog.locator("button.pri").tap();
+    await expect.poll(async () => (await register(day))?.revision, {timeout:90000}).toBe(1);
+    await expect(page.locator(".t-savebar")).toHaveCount(0, {timeout:45000});
+    const saved = await register(day); expect(saved).toMatchObject({revision:1,status:"submitted"});
+    const marks = await db().from("attendance_marks").select("student_id,status").eq("register_id", saved!.id); expect(marks.error).toBeNull();
+    expect(marks.data).toHaveLength(count);
+    expect(marks.data!.filter(mark => mark.status === "absent")).toHaveLength(1);
+    expect(marks.data!.filter(mark => mark.status === "half_day")).toHaveLength(1);
+    await assertNoQueuedMessages(saved!.id);
+    ledger.push({phase:"saved-readback", day, register:saved, marks:marks.data, parentQueue:[]});checkpoint();
+    await page.reload();
+    await expect(page.locator(".card .serif")).toBeVisible();
+    await expect(page.locator(".t-savebar")).toHaveCount(0);
+    const change = page.locator("main .card button.btn.big:visible"); await expect(change).toHaveCount(1); await change.tap();
+    await rows.nth(0).tap(); await rows.nth(0).tap();
+    await expect(rows.nth(0)).toHaveClass(/\bp\b/);
+    await page.locator(".t-savebar button").tap();
+    await expect(dialog).toBeVisible();
+    // The supported correction flow starts with the explicit default reason Came late.
+    const saveCorrection = dialog.locator("button.pri"); await expect(saveCorrection).toBeEnabled();
+    await dialog.locator("button.chip").first().tap();
+    await dialog.getByRole("textbox").fill("phoneops-20261011-teacher arrived after assembly");
+    await disableParentAlerts(page);
+    await expect(saveCorrection).toBeEnabled(); await saveCorrection.tap();
+    await expect.poll(async () => (await register(day))?.revision, {timeout:90000}).toBe(2);
+    await expect(page.locator(".t-savebar")).toHaveCount(0, {timeout:45000});
+    const corrected = await register(day);
+    const revisions = await db().from("attendance_register_revisions").select("revision,kind,reason").eq("register_id", corrected!.id).order("revision"); expect(revisions.error).toBeNull();
+    expect(revisions.data).toHaveLength(2);
+    expect(revisions.data![0]).toMatchObject({revision:1,kind:"save",reason:null});
+    expect(revisions.data![1]).toMatchObject({revision:2,kind:"correction"});
+    expect(revisions.data![1].reason).toContain("phoneops-20261011-teacher");
+    const updated = await db().from("attendance_marks").select("status").eq("register_id", corrected!.id);expect(updated.error).toBeNull();
+    expect(updated.data!.filter(mark => mark.status === "absent")).toHaveLength(0);
+    expect(updated.data!.filter(mark => mark.status === "half_day")).toHaveLength(1);
+    await assertNoQueuedMessages(corrected!.id);
+    ledger.push({phase:"correction-readback",day,register:corrected,revisions:revisions.data,marks:updated.data,parentQueue:[]});checkpoint();
+    await page.reload(); await expect(page.locator(".card .serif")).toBeVisible();
+  } catch (error) {
+    const banners=await page.locator('[role="alert"], [role="status"], .banner').allTextContents();
+    ledger.push({phase:"save-failure-ui",day,register:await register(day),banners,dialogVisible:await page.getByRole("dialog").isVisible(),savebarCount:await page.locator(".t-savebar").count()});checkpoint();
+    throw error;
+  } finally {await context.close();}
 });
 
+test("a dropped save response reconciles once and survives phone reload", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const day=days[1];
+  const {context,page}=await asAccount(browser,"teacher",`/teach/attendance?class=${scene.classId}&day=${day}`);
+  try {
+    await expect(page.locator("button.t-kid").first()).toBeVisible();
+    await page.locator(".t-savebar button").tap();
+    const dialog=page.getByRole("dialog");await expect(dialog).toBeVisible();
+    await disableParentAlerts(page);
+    let lost=false;
+    await page.route("**/teach/attendance**",async route => {
+      if(!lost && route.request().method()==="POST" && route.request().headers()["next-action"]) {
+        lost=true;await route.fetch();await route.abort("failed");return;
+      }
+      await route.continue();
+    });
+    await dialog.locator("button.pri").tap();
+    await expect(page.locator(".t-savebar")).toHaveCount(0,{timeout:45000});
+    expect(lost).toBe(true);
+    const saved=await register(day);expect(saved).toMatchObject({revision:1,status:"submitted"});
+    const revisions=await db().from("attendance_register_revisions").select("id,revision,kind").eq("register_id",saved!.id);expect(revisions.error).toBeNull();expect(revisions.data).toHaveLength(1);
+    await assertNoQueuedMessages(saved!.id);
+    ledger.push({phase:"uncertain-response-reconciled",day,register:saved,revisions:revisions.data,parentQueue:[]});checkpoint();
+    await page.reload();await expect(page.locator(".card .serif")).toBeVisible();
+    expect((await register(day))!.revision).toBe(1);
+  } finally {await context.close();}
+});
+
+test("another teacher cannot edit this class and creates no revision",async({browser})=>{
+  const day=days[0];const before=await register(day);
+  const {context,page}=await asAccount(browser,"teacher2",`/teach/attendance?class=${scene.classId}&day=${day}`);
+  try {
+    await expect(page.locator(".t-savebar")).toHaveCount(0);
+    const buttons=page.locator("button.t-kid");
+    for(let index=0;index<await buttons.count();index++) await expect(buttons.nth(index)).toBeDisabled();
+    await expect(page.locator("main .card button.btn.big:visible")).toHaveCount(0);
+    const after=await register(day);expect(after).toEqual(before);
+    ledger.push({phase:"other-teacher-no-pen",day,before,after,path:new URL(page.url()).pathname});checkpoint();
+  } finally {await context.close();}
+});

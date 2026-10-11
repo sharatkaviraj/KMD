@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-const ledger = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem("ops-fee-vx-20261011-ledger") ?? "[]"));
+import { mkdirSync } from "node:fs";
+const evidenceDir = process.env.OPS_FEE_EVIDENCE_DIR ?? ".test-artifacts/operations-fee-collector";
+const ledger = (page: Page) => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith("ops-fee-vx-20261011-effect:")).map(key => JSON.parse(localStorage.getItem(key)!)));
 async function setup(page: Page, uncertain = false) {
   await page.route("**/*", route => {
     const url = new URL(route.request().url());
@@ -20,7 +22,8 @@ for (const viewport of [{ width: 360, height: 844 }, { width: 390, height: 844 }
     test("partial review edit and repeated touch save records one receipt without messaging", async ({ page }) => {
       await setup(page); await review(page); expect(await ledger(page)).toHaveLength(0);
       await page.getByRole("button", { name: /^Confirm and save payment/ }).scrollIntoViewIfNeeded();
-      await page.screenshot({ path: `../evidence/fee-review-${width}-${process.env.OPS_FEE_RUN_LABEL ?? "baseline"}.png` });
+      mkdirSync(evidenceDir, { recursive: true });
+      await page.screenshot({ path: `${evidenceDir}/fee-review-${width}-${process.env.OPS_FEE_RUN_LABEL ?? "acceptance"}.png` });
       await page.getByRole("button", { name: /^Back.*change something$/ }).tap();
       await expect(page.locator(".pd-amt input")).toHaveValue("111"); await review(page);
       const save = page.getByRole("button", { name: /^Confirm and save payment/ }); const box = await save.boundingBox();
@@ -45,6 +48,7 @@ for (const viewport of [{ width: 360, height: 844 }, { width: 390, height: 844 }
       const checks = await page.evaluate(() => JSON.parse(localStorage.getItem("ops-fee-vx-checks") ?? "[]"));
       expect(checks.at(-1)).toMatchObject({ studentId: "a", clientRequestId: originalId });
       expect(await ledger(page)).toHaveLength(1);
+      expect(await page.evaluate(() => Number(localStorage.getItem("ops-fee-vx-messaging-attempts") ?? "0"))).toBe(0);
     });
   });
 }

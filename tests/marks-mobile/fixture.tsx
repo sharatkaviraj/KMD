@@ -9,7 +9,7 @@ const params = new URLSearchParams(location.search);
 const ledgerKey = "qa:marks-mobile:ledger";
 type Ledger = { revision: number; status: "open" | "submitted"; cells: Record<string, Cell>; calls: SavePayload[]; receipts: Record<string, SaveOutcome>; lost: boolean };
 const read = (): Ledger => JSON.parse(localStorage.getItem(ledgerKey) ?? '{"revision":0,"status":"open","cells":{},"calls":[],"receipts":{},"lost":false}');
-const students = Array.from({ length: 5 }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000000${i + 1}`, name: `Synthetic student ${i + 1}`, roll: String(i + 1), prev: null, prevPct: null }));
+const students = Array.from({ length: 5 }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000000${i + 1}`, name: params.has("duplicateNames") && i < 2 ? "Synthetic repeated name" : `Synthetic student ${i + 1}`, roll: params.has("noRoll") ? null : String(i + 1), prev: null, prevPct: null }));
 async function save(payload: SavePayload): Promise<SaveOutcome> {
   const ledger = read();
   ledger.calls.push(payload);
