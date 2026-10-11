@@ -132,15 +132,24 @@ export function TeachAttend({
 
   const draftId = draftKey(ownerId, data.sessionLabel, `attendance-vx/${data.classId}/${data.day}`);
   const outboxId = draftKey(ownerId, data.sessionLabel, `attendance-outbox/${data.classId}/${data.day}`);
+  const markScope = `${draftId}:${data.revision}`;
+  const changedMarks = useRef({ scope: markScope, ids: new Set<string>() });
+  const rememberChanges = (changed: readonly string[]) => {
+    if (changedMarks.current.scope !== markScope) changedMarks.current = { scope: markScope, ids: new Set<string>() };
+    for (const id of changed) changedMarks.current.ids.add(id);
+  };
 
   // Restore an unsent register and a waiting save after a reload.
   useEffect(() => {
     let live = true;
+    if (changedMarks.current.scope !== markScope) changedMarks.current = { scope: markScope, ids: new Set<string>() };
+    const touched = changedMarks.current.ids;
     void loadDraft(draftId)
       .then((raw) => {
         const d = raw as { value?: { marks?: Record<string, Mark>; revision?: number } } | null;
         if (!live || !d?.value?.marks || d.value.revision !== data.revision) return;
-        setMarks((cur) => ({ ...cur, ...Object.fromEntries(Object.entries(d.value?.marks ?? {}).filter(([id]) => ids.includes(id))) }));
+        // A slow phone-storage read must not replace marks changed since opening.
+        setMarks((cur) => ({ ...cur, ...Object.fromEntries(Object.entries(d.value?.marks ?? {}).filter(([id]) => ids.includes(id) && !touched.has(id))) }));
       })
       .catch(() => undefined);
     void loadDraft(outboxId)
@@ -152,7 +161,7 @@ export function TeachAttend({
     return () => {
       live = false;
     };
-  }, [draftId, outboxId, data.revision, ids]);
+  }, [draftId, outboxId, data.revision, ids, markScope]);
 
   const counts = countMarks(ids, marks);
   const absentKids = data.roll.filter((r) => marks[r.id] === "absent");
@@ -164,6 +173,7 @@ export function TeachAttend({
 
   const tap = (id: string) => {
     if (!editing) return;
+    rememberChanges([id]);
     const next = { ...marks, [id]: nextTap(marks[id]) };
     setMarks(next);
     setFlash(id);
@@ -341,7 +351,7 @@ export function TeachAttend({
         </div>
       </div>
       {!editing ? (
-        <Btn big full icon="edit" onClick={() => { setMarks({ ...fresh, ...data.saved }); setEditing("change"); }}>{tx(p("Change attendance", "हाज़िरी बदलें"))}</Btn>
+        <Btn big full icon="edit" onClick={() => { rememberChanges(ids); setMarks({ ...fresh, ...data.saved }); setEditing("change"); }}>{tx(p("Change attendance", "हाज़िरी बदलें"))}</Btn>
       ) : null}
     </Card>
   ) : null;
@@ -492,9 +502,9 @@ export function TeachAttend({
                 {countsRow}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                   {editing === "mark" && yesterdayAbsent > 0 ? (
-                    <Btn icon="refresh" onClick={() => setMarks(copyYesterday(ids, data.yesterday))}>{tx(p(`Same as yesterday (${yesterdayAbsent})`, `कल जैसा (${yesterdayAbsent})`))}</Btn>
+                    <Btn icon="refresh" onClick={() => { rememberChanges(ids); setMarks(copyYesterday(ids, data.yesterday)); }}>{tx(p(`Same as yesterday (${yesterdayAbsent})`, `कल जैसा (${yesterdayAbsent})`))}</Btn>
                   ) : null}
-                  {editing === "change" ? <Btn icon="x" onClick={() => { setEditing(null); setMarks({ ...fresh, ...data.saved }); }}>{tx(p("Cancel change", "बदलाव रद्द"))}</Btn> : null}
+                  {editing === "change" ? <Btn icon="x" onClick={() => { rememberChanges(ids); setEditing(null); setMarks({ ...fresh, ...data.saved }); }}>{tx(p("Cancel change", "बदलाव रद्द"))}</Btn> : null}
                   <SearchBox value={query} onChange={setQuery} placeholder={tx(p("Find a child", "बच्चा खोजें"))} style={{ flex: 1, minWidth: 200 }} />
                 </div>
                 <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("Tap once for Absent, twice for Half-day, three times for Present again", "एक बार टैप = अनुपस्थित, दो बार = आधा दिन, तीन बार = उपस्थित"))}</span>

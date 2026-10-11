@@ -30,7 +30,7 @@ export async function saveTeacherMarksAction(payload: SavePayload): Promise<Save
   }
   const result = await commitMarks(staff.id, payload);
   if (result.ok) {
-    if (payload.kind === "submit") {
+    if (payload.kind === "submit" && !result.replayed) {
       await logActivity({
         assessmentId: paper.assessment_id,
         kind: "submitted",

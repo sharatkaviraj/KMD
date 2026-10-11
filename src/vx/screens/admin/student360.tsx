@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Suspense, use, useCallback, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useState } from "react";
 
 import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
@@ -11,9 +11,10 @@ import type { Pair } from "@/vx/text";
 import { ChipRow } from "@/vx/ui/controls";
 import { Grid, Section, TopBar } from "@/vx/ui/page";
 import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Skel, Stat, toneColors, type Tone } from "@/vx/ui/primitives";
-import { feeRibbon, mobileOf, provisionalLabel, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
+import { feeRibbon, mobileOf, parseTab, provisionalLabel, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
 import { SupportActions } from "@/vx/screens/admin/support-actions";
 import { T } from "@/vx/screens/admin/text";
+import { studentProfileHref, studentReturnHref } from "@/vx/screens/admin/students-logic";
 import {
   excerpt,
   latestStrength,
@@ -73,6 +74,7 @@ type Cell = { day: string; label: string; state: MarkStatus | "today" | "future"
 
 export type Student360Props = {
   id: string;
+  returnTo?: string;
   name: string;
   classLabel: string;
   sr: string | null;
@@ -191,7 +193,23 @@ export type Student360Fees = Partial<
  * stays picked when they land.
  */
 export function Student360({ p, fees }: { p: Student360Props; fees?: Promise<Student360Fees | null> }) {
-  const [tab, setTab] = useState<StudentTab>(p.tab);
+  const [pickedTab, setTab] = useState<StudentTab>(() => {
+    // Back can reuse an Overview server model after a client-only tab pick.
+    // The address is authoritative when this student's card mounts again.
+    if (typeof window !== "undefined" && window.location.pathname === `/students/${p.id}`) {
+      return parseTab(new URLSearchParams(window.location.search).get("tab"), p.tabs);
+    }
+    return p.tab;
+  });
+  const tab = parseTab(pickedTab, p.tabs);
+  useEffect(() => {
+    const restore = () => {
+      if (window.location.pathname !== `/students/${p.id}`) return;
+      setTab(parseTab(new URLSearchParams(window.location.search).get("tab"), p.tabs));
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [p.id, p.tabs]);
   if (!fees) return <Student360View p={p} tab={tab} setTab={setTab} feesLoading={false} />;
   return (
     <Suspense fallback={<Student360View p={p} tab={tab} setTab={setTab} feesLoading />}>
@@ -214,10 +232,10 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
       event.preventDefault();
       setTab(next);
-      const url = next === "overview" ? `/students/${p.id}` : `/students/${p.id}?tab=${next}`;
+      const url = studentProfileHref(p.id, p.returnTo, next);
       window.history.replaceState(window.history.state, "", url);
     },
-    [p.id, setTab],
+    [p.id, p.returnTo, setTab],
   );
   const loadingCard = (
     <Card>
@@ -241,7 +259,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   /** A link to another tab that switches in place, like the chips. */
   const tabLink = (t: StudentTab) =>
     p.tabs.includes(t) ? (
-      <a href={`/students/${p.id}?tab=${t}`} onClick={pick(t)} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}>
+      <a href={studentProfileHref(p.id, p.returnTo, t)} onClick={pick(t)} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}>
         {tx(T.seeAll)}
       </a>
     ) : undefined;
@@ -486,7 +504,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
   return (
     <>
-      <TopBar crumb={<Link href="/students">{tx(T.students)}</Link>} title={p.name} mTitle={p.name} mSub={p.classLabel} mBack="/students" />
+      <TopBar crumb={<Link href={studentReturnHref(p.returnTo)}>{tx(T.students)}</Link>} title={p.name} mTitle={p.name} mSub={p.classLabel} mBack={studentReturnHref(p.returnTo)} />
       <main>
         <Section gap={16}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -515,7 +533,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
           </div>
           <ChipRow label={tx(T.tabOverview)}>
             {p.tabs.map((t) => (
-              <a key={t} href={t === "overview" ? `/students/${p.id}` : `/students/${p.id}?tab=${t}`} onClick={pick(t)} className={`tap chip${tab === t ? " on" : ""}`} aria-current={tab === t ? "page" : undefined}>
+              <a key={t} href={studentProfileHref(p.id, p.returnTo, t)} onClick={pick(t)} className={`tap chip${tab === t ? " on" : ""}`} aria-current={tab === t ? "page" : undefined}>
                 {tx(TAB_LABEL[t])}
               </a>
             ))}

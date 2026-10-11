@@ -1,4 +1,35 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
+
+async function settleBackTarget(button: Locator) {
+  await button.evaluate(async element => {
+    // WebKit can keep smooth-scrolling after its click actionability check.
+    // Center the real target and wait for both scroll and geometry to settle.
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+    await new Promise<void>((resolve, reject) => {
+      let frame = 0;
+      const finish = (error?: Error) => {
+        window.clearTimeout(timer);
+        cancelAnimationFrame(frame);
+        if (error) reject(error); else resolve();
+      };
+      const timer = window.setTimeout(() => finish(new Error("Back target did not settle within 3 seconds")), 3000);
+      let last: number[] | null = null;
+      let stableSince = performance.now();
+      const sample = (now: number) => {
+        if (!element.isConnected) { finish(new Error("Back target detached before click")); return; }
+        const rect = element.getBoundingClientRect();
+        const next = [window.scrollX, window.scrollY, rect.x, rect.y, rect.width, rect.height];
+        const previous = last;
+        if (!previous || next.some((value, index) => Math.abs(value - previous[index]) > 0.5)) stableSince = now;
+        last = next;
+        if (now - stableSince >= 150) { finish(); return; }
+        frame = requestAnimationFrame(sample);
+      };
+      frame = requestAnimationFrame(sample);
+    });
+  });
+}
+
 
 declare global { interface Window { recoveryFault: boolean; primaryFault: boolean } }
 for (const width of [320, 390, 1180, 1440]) {
@@ -10,7 +41,9 @@ for (const width of [320, 390, 1180, 1440]) {
     await page.getByRole("button", { name: "Review payment" }).click();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(0);
     await expect(page.locator("#pd-review-title")).toBeVisible(); await expect(page.getByText("TEST Other Cashier", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: /Back —/ }).click(); await expect(amount).toHaveValue("500");
+    const back = page.getByRole("button", { name: /Back —/ });
+    await settleBackTarget(back);
+    await back.click(); await expect(amount).toHaveValue("500");
     await page.getByRole("button", { name: "Review payment" }).click(); await page.getByRole("button", { name: /Confirm and save payment/ }).click();
     await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ receiptCount: 1, posted: { amount: 500, quickDiscountAmount: 200, receivedBy: "TEST Other Cashier" } });

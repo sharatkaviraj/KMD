@@ -21,6 +21,10 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
     tabs
       .filter((t) => !t.center && (t.href === "/" ? pathname === "/" : pathname === t.href || pathname.startsWith(`${t.href}/`)))
       .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
+  // The classic receipt detail supplies its own fixed phone action bar and
+  // return link. A second bar covers its Print A4 control. Keep list routes
+  // and the redesigned /receipts desk on their normal tab navigation.
+  if (pathname.startsWith("/fees/receipts/")) return null;
   return (
     <>
       <nav className="vxt glass vx-bottom" aria-label="Primary navigation" style={{ height: 76, padding: "6px 6px 16px", borderTop: "1px solid var(--bd)", background: "var(--glass2)", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, boxSizing: "content-box" }}>

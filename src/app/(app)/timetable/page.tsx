@@ -2,6 +2,7 @@ import { requirePermission } from "@/platform/auth/current-staff";
 import { loadTimetableScreen } from "@/vx/screens/timetable/data";
 import { WEEK, type Weekday } from "@/vx/screens/timetable/domain/timetable";
 import { TimetableScreen, type TimetableState, type TimetableView } from "@/vx/screens/timetable/timetable-screen";
+import { getViewer } from "@/vx/view-as";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,7 @@ function parseCell(raw: string | undefined): TimetableState["cell"] {
  */
 export default async function TimetablePage({ searchParams }: { searchParams: Promise<Params> }) {
   await requirePermission("timetable:view", "/timetable");
+  const { previewing } = await getViewer();
   const q = await searchParams;
   const data = await loadTimetableScreen(q.day ?? null);
   const state: TimetableState = {
@@ -39,5 +41,5 @@ export default async function TimetablePage({ searchParams }: { searchParams: Pr
     duty: q.duty ?? null,
     sheet: q.sheet === "publish" || q.sheet === "leave" ? q.sheet : null,
   };
-  return <TimetableScreen data={data} state={state} />;
+  return <TimetableScreen data={data} state={state} previewing={Boolean(previewing)} />;
 }

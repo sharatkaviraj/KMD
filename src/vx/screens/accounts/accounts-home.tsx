@@ -394,7 +394,7 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
                 <circle cx="26" cy="26" r="21" transform="rotate(-90 26 26)" style={{ fill: "none", stroke: "var(--acc)", strokeWidth: 6, strokeLinecap: "round", strokeDasharray: `${((132 * doneN) / 3).toFixed(1)} 132` }} />
                 <text x="26" y="30" textAnchor="middle" style={{ fill: "var(--fg)", fontSize: 12, fontWeight: 700 }}>{doneN}/3</text>
               </svg>
-              <span className="ac-c ac-1"><span className="ac-v">{tx(p("Close the day", "दिन बंद करें"))}</span><span className="ac-m">{data.closure?.status === "closed" ? "Closed · receipts locked" : "Count, match, bag — then close in Receipts"}</span></span>
+              <span className="ac-c ac-1"><span className="ac-v">{tx(p("Close the day", "दिन बंद करें"))}</span><span className="ac-m">{data.closure?.status === "closed" ? tx(p("Closed · day summary saved", "बंद · दिन का सारांश सुरक्षित है")) : "Count, match, bag — then close in Receipts"}</span></span>
               <Pill tone="warn" icon="clock">Close by 5:30 pm</Pill>
             </div>
             <div className="ac-c" style={{ gap: 2 }}>
@@ -492,7 +492,7 @@ function EveningView({ data }: { data: AccountsHomeData }) {
         <span className="ac-c ac-1" style={{ minWidth: 240 }}>
           <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}>{closed ? tx(p(`Day closed · ${shortDay(data.today)}`, `दिन बंद · ${shortDay(data.today)}`)) : tx(p("The day is not closed yet", "आज का हिसाब अभी बंद नहीं हुआ"))}</span>
           <span style={{ fontSize: 14, color: "var(--mut)" }}>
-            {closed ? `Closed${data.closure?.closedByName ? ` by ${data.closure.closedByName}` : ""}${data.closure?.closedAt ? ` at ${clock(data.closure.closedAt)}` : ""} · receipts locked. Anything taken now counts for ${shortDay(data.tomorrow)}.` : "Close it in Receipts & day close once the cash is counted."}
+            {closed ? tx(p(`Closed${data.closure?.closedByName ? ` by ${data.closure.closedByName}` : ""}${data.closure?.closedAt ? ` at ${clock(data.closure.closedAt)}` : ""} · day summary saved. Review receipts posted afterward in Receipts & day close.`, `दिन का सारांश सुरक्षित है${data.closure?.closedByName ? ` · ${data.closure.closedByName}` : ""}${data.closure?.closedAt ? ` · ${clock(data.closure.closedAt)}` : ""}। इसके बाद जमा हुई रसीदें ‘रसीदें और दिन बंद करें’ में देखें।`)) : "Close it in Receipts & day close once the cash is counted."}
           </span>
           {closed ? <span style={{ fontSize: 13, color: "var(--sub)" }}>आज का हिसाब बंद हो गया। धन्यवाद!</span> : null}
         </span>

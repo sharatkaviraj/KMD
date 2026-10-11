@@ -27,6 +27,7 @@
 .vx .ac-lay { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
 
 /* Books */
+.vx.ac-books .ac-cheque-selection { bottom: 12px; }
 .vx .ac-kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .vx .ac-kp > button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; color: var(--fg); animation: xRise .42s var(--ease) both; }
 .vx .ac-ib { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
@@ -53,11 +54,21 @@
 .vx .ac-wa { padding: 12px; border-radius: 14px; background: var(--wabg); }
 .vx .ac-wa > div { max-width: 440px; padding: 10px 12px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
 
+/* Match the shell's viewport breakpoint and its 99px phone navigation footprint. */
+@media (max-width: 899px) {
+  .vx.ac-books .ac-cheque-selection { bottom: calc(99px + 12px + env(safe-area-inset-bottom)); }
+}
+
 @media print {
   .vx .ac-noprint { display: none !important; }
 }
 
 @container vx (max-width: 899px) {
+  /* Keep Books choices and row actions reachable by touch without changing other screens. */
+  .vx.ac-books .seg { height: 50px; }
+  .vx.ac-books .seg > button { min-height: 44px; }
+  .vx.ac-books .ac-cb { width: 44px; height: 44px; }
+  .vx.ac-books .btn { min-width: 44px; min-height: 44px; }
   .vx .ac-tl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .vx .ac-t { min-height: 132px; }
   .vx .ac-t.big { grid-row: auto; min-height: 120px; }

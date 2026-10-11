@@ -112,13 +112,13 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
     classLabelMap(sessionLabel),
     listStaff(),
     listSubjects(),
-    admin
+    mayEdit ? admin
       .from("timetable_changes")
       .select("id, day, period, class_id, class_label, from_subject_code, from_teacher_short_name, subject_id, subject_code, staff_profile_id, teacher_short_name, created_by, created_at")
       .eq("session_label", sessionLabel)
       .eq("status", "pending")
       .order("created_at")
-      .returns<{ id: string; day: string; period: number; class_id: string; class_label: string; from_subject_code: string | null; from_teacher_short_name: string | null; subject_id: string; subject_code: string; staff_profile_id: string; teacher_short_name: string; created_by: string; created_at: string }[]>(),
+      .returns<{ id: string; day: string; period: number; class_id: string; class_label: string; from_subject_code: string | null; from_teacher_short_name: string | null; subject_id: string; subject_code: string; staff_profile_id: string; teacher_short_name: string; created_by: string; created_at: string }[]>() : Promise.resolve({ data: [] }),
     admin
       .from("teacher_leave")
       .select("id, staff_profile_id, from_day, to_day, span, note, status, created_at")

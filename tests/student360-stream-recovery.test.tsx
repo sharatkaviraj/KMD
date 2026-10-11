@@ -31,7 +31,8 @@ function deferred() {
 const fees: Student360Fees = { family: [{ id: "qa-sibling", name: "QA Sibling", sr: "QA-2", classLabel: "QA Class", self: false }] };
 let root: Root; let host: HTMLDivElement;
 async function render(promise?: Promise<Student360Fees | null>, initial: Student360Props = p) {
-  await act(async () => root.render(<Student360 p={initial} fees={promise} />));
+  // Match the page's key: changing students remounts the card.
+  await act(async () => root.render(<Student360 key={initial.id} p={initial} fees={promise} />));
 }
 async function click(label: string) {
   const anchor = [...host.querySelectorAll<HTMLAnchorElement>("a")].find(a => a.textContent === label)!;
@@ -68,6 +69,7 @@ describe("Student 360 delayed fee streaming", () => {
     expect(selected()).toBe("Family"); expect(host.textContent).toContain("QA Sibling"); expect(host.textContent).not.toContain("Loading fees");
   });
   it("keeps a deep-linked fees tab loading until the read completes", async () => {
+    window.history.replaceState(null, "", `/students/${p.id}?tab=fees`);
     const read = deferred(); await render(read.promise, { ...p, tab: "fees" });
     expect(selected()).toBe("Fees"); expect(host.textContent).toContain("Loading fees");
     expect(host.textContent).not.toContain("No fee record");
@@ -145,5 +147,54 @@ describe("Student 360 overview", () => {
     await render(undefined, { ...school, tabs: ["overview", "attendance", "marks"] });
     expect(host.textContent).not.toContain("Strengths");
     expect(host.textContent).not.toContain("No open support action");
+  });
+});
+
+describe("Student 360 tab history", () => {
+  it("resets a reused card for another student's URL", async () => {
+    await render(); await click("Notes");
+    const other = { ...p, id: "00000000-0000-4000-8000-000000000002" };
+    window.history.replaceState(null, "", `/students/${other.id}`);
+    await render(undefined, other);
+    expect(selected()).toBe("Overview");
+  });
+
+  it("clamps the selected tab when refreshed role scopes remove it", async () => {
+    await render(); await click("Notes");
+    await render(undefined, { ...p, tabs: ["overview", "attendance"] });
+    expect(selected()).toBe("Overview");
+    expect(host.textContent).not.toContain("QA school note");
+  });
+
+  it("restores Notes from the URL when a cached Overview model remounts after All notes", async () => {
+    await render();
+    await click("Notes");
+    expect(selected()).toBe("Notes");
+    const returnUrl = window.location.href;
+    // Leaving for the notes board unmounts the card. Next can return its
+    // cached original props, while replaceState retained the selected tab.
+    await act(async () => root.render(null));
+    window.history.pushState(null, "", `/notes?student=${p.id}`);
+    window.history.replaceState(null, "", returnUrl);
+    await render();
+    expect(window.location.search).toBe("?tab=notes");
+    expect(selected()).toBe("Notes");
+    expect(host.textContent).toContain("QA school note");
+  });
+
+  it("follows Back and Forward tab URLs without exposing an unavailable tab", async () => {
+    await render(undefined, { ...p, tabs: ["overview", "attendance", "notes"] });
+    await click("Notes");
+    await act(async () => {
+      window.history.replaceState(null, "", `/students/${p.id}?tab=attendance`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(selected()).toBe("Attendance");
+    await act(async () => {
+      window.history.replaceState(null, "", `/students/${p.id}?tab=fees`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(selected()).toBe("Overview");
+    expect([...host.querySelectorAll("a")].some(a => a.textContent === "Fees")).toBe(false);
   });
 });

@@ -72,13 +72,13 @@ export type ParsedStatement = {
 function parseStatementDate(raw: string): string | null {
   const value = raw.trim();
   // 2026-10-08 or 2026-10-08 10:41 / 2026-10-08T10:41
-  let m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(value);
+  let m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?$/.exec(value);
   if (m) {
     const [, y, mo, d, h = "12", mi = "00"] = m;
     return toIstIso(Number(y), Number(mo), Number(d), Number(h), Number(mi));
   }
   // 08/10/2026 or 8-10-2026, optionally with 10:41
-  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?/.exec(value);
+  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/.exec(value);
   if (m) {
     const [, d, mo, y, h = "12", mi = "00"] = m;
     return toIstIso(Number(y), Number(mo), Number(d), Number(h), Number(mi));
@@ -88,7 +88,12 @@ function parseStatementDate(raw: string): string | null {
 
 function toIstIso(y: number, mo: number, d: number, h: number, mi: number): string | null {
   if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
-  const utc = Date.UTC(y, mo - 1, d, h, mi) - (5 * 60 + 30) * 60 * 1000;
+  // Date.UTC normalizes impossible dates (31 February becomes a March day).
+  // Check the bank's calendar date before converting school time to UTC.
+  const wallTime = Date.UTC(y, mo - 1, d, h, mi);
+  const calendar = new Date(wallTime);
+  if (calendar.getUTCFullYear() !== y || calendar.getUTCMonth() !== mo - 1 || calendar.getUTCDate() !== d) return null;
+  const utc = wallTime - (5 * 60 + 30) * 60 * 1000;
   const date = new Date(utc);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();

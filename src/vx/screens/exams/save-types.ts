@@ -21,6 +21,7 @@ export type SaveOutcome =
       actorName: string | null;
       changed: number;
       counts: { entered: number; absent: number; exempt: number; blank: number; total: number } | null;
+      replayed?: boolean;
     }
   | { ok: false; reason: string; message: Pair; who?: string[] };
 

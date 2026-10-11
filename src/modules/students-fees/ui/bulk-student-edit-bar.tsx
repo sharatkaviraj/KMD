@@ -106,8 +106,8 @@ export function BulkStudentEditBar({
       {/* Clears the fixed mobile bottom nav (z-40) — at bottom-0/z-30 this bar
           and its Bulk edit button were completely covered on phones. */}
       <div className="fixed inset-x-0 bottom-[calc(var(--mobile-bottom-nav-offset,0px)+0.5rem)] z-40 flex justify-center px-3 pb-2 sm:px-6 md:bottom-4 md:pb-0 print:hidden">
-        <div className="flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-card px-4 py-3 shadow-lg">
-          <div className="flex items-center gap-3">
+        <div className="flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-card px-4 py-3 shadow-lg">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground">
               {selectedIds.length}
             </span>
@@ -115,9 +115,10 @@ export function BulkStudentEditBar({
               {selectedIds.length === 1 ? "student selected" : "students selected"}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Button
               size="sm"
+              className="min-h-11 min-w-11"
               variant="ghost"
               onClick={onClearSelection}
               disabled={isPending}
@@ -127,6 +128,7 @@ export function BulkStudentEditBar({
             {reminders ? (
               <Button
                 size="sm"
+                className="min-h-11 min-w-11"
                 variant="outline"
                 onClick={() => setRemindOpen(true)}
                 disabled={isPending}
@@ -134,7 +136,7 @@ export function BulkStudentEditBar({
                 Send reminder…
               </Button>
             ) : null}
-            <Button size="sm" onClick={() => setSheetOpen(true)} disabled={isPending}>
+            <Button size="sm" className="min-h-11 min-w-11" onClick={() => setSheetOpen(true)} disabled={isPending}>
               Bulk edit…
             </Button>
           </div>

@@ -62,7 +62,7 @@ export async function commitMarks(actorStaffId: string, raw: SavePayload): Promi
 
   if (outcome.outcome === "saved") {
     const r = outcome.receipt;
-    return { ok: true, revision: r.revision, entryStatus: r.entryStatus, savedAt: r.savedAt, actorName: r.actorName, changed: r.changed, counts: r.counts };
+    return { ok: true, revision: r.revision, entryStatus: r.entryStatus, savedAt: r.savedAt, actorName: r.actorName, changed: r.changed, counts: r.counts, replayed: r.replayed };
   }
   if (outcome.outcome === "stale") return { ok: false, reason: "stale", message: refusal("stale") };
   if (outcome.outcome === "incomplete") {

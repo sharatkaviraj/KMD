@@ -1,0 +1,2 @@
+import type { AnchorHTMLAttributes } from "react";
+export default function Link({ href, children, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) { return <a {...rest} href={href} onClick={e => { rest.onClick?.(e); if (!e.defaultPrevented && href?.startsWith("/")) { e.preventDefault(); history.pushState(null, "", href); window.dispatchEvent(new PopStateEvent("popstate")); } }}>{children}</a>; }

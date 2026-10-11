@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 
-import { coverCommandAction } from "@/app/(app)/substitutions/actions";
+import { checkCoverCommandAction, coverCommandAction } from "@/app/(app)/substitutions/actions";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { schoolToday } from "@/platform/dates";
@@ -221,6 +221,7 @@ export async function publishChangesAction(input: { notify: boolean }): Promise<
 
 export type CoverInput = {
   commandId: string;
+  sessionLabel: string;
   day: string;
   dayRevision: number;
   intent: "absence" | "clear_absence" | "assign" | "release" | "refresh";
@@ -231,9 +232,12 @@ export type CoverInput = {
 };
 
 /** The cover command, from the Timetable screen. Same command, same notices. */
-export async function coverAction(input: CoverInput): Promise<TimetableResult> {
+export type CoverActionResult = TimetableResult & { status: 'saved' | 'refused' | 'uncertain' | 'not_found' };
+
+export async function coverAction(input: CoverInput): Promise<CoverActionResult> {
   await assertPermission("substitutions:manage");
   await assertNotPreviewing();
+  if (!input.sessionLabel || input.sessionLabel !== await resolveSessionLabel()) return { ok: false, status: 'uncertain', message: p('Select the original academic session to check this save. Its earlier result is still unresolved.', 'इस बदलाव को जाँचने के लिए मूल सत्र चुनें। पुराना परिणाम अभी अनिश्चित है।') };
   const fd = new FormData();
   fd.set("commandId", input.commandId);
   fd.set("day", input.day);
@@ -247,9 +251,26 @@ export async function coverAction(input: CoverInput): Promise<TimetableResult> {
   revalidatePath("/timetable");
   if (state.status === "saved" && state.receipt) {
     const sentence = receiptSentence(state.receipt);
-    return { ok: true, message: { en: sentence.en, hi: sentence.hi } };
+    return { ok: true, status: 'saved', message: { en: sentence.en, hi: sentence.hi } };
   }
-  return { ok: false, message: state.message ? { en: state.message.en, hi: state.message.hi } : notSaved };
+  return { ok: false, status: state.status === 'error' ? 'uncertain' : 'refused', message: state.status === 'error' ? p('The save result is uncertain. Check the saved result before trying another change.', 'बदलाव का परिणाम अनिश्चित है। दूसरा बदलाव करने से पहले जाँचें।') : state.message ? { en: state.message.en, hi: state.message.hi } : notSaved };
+}
+
+/** Read the original actor-scoped receipt before any uncertain retry. */
+export async function checkCoverAction(input: Pick<CoverInput, 'commandId' | 'sessionLabel' | 'day'>): Promise<CoverActionResult> {
+  const actor = await assertPermission('substitutions:manage');
+  await assertNotPreviewing();
+  if (!input.sessionLabel || input.sessionLabel !== await resolveSessionLabel() || !/^\d{4}-\d{2}-\d{2}$/.test(input.day)) return { ok: false, status: 'uncertain', message: p('Select the original academic session to check this save. Its earlier result is still unresolved.', 'इस बदलाव को जाँचने के लिए मूल सत्र चुनें। पुराना परिणाम अभी अनिश्चित है।') };
+  const { data: command, error } = await createAdminClient().from('cover_commands').select('id').eq('id', input.commandId).eq('actor_staff_id', actor.id).eq('session_label', input.sessionLabel).eq('day', input.day).maybeSingle();
+  if (error) throw new Error('Could not check the saved cover request.');
+  if (!command) return { ok: false, status: 'not_found', message: p('No saved receipt found yet. Retry the same save to finish.', 'रसीद अभी नहीं मिली। वही बदलाव फिर आज़माएँ।') };
+  const state = await checkCoverCommandAction(input.commandId);
+  if (state.status === 'saved' && state.receipt) {
+    const sentence = receiptSentence(state.receipt);
+    revalidatePath('/timetable');
+    return { ok: true, status: 'saved', message: { en: sentence.en, hi: sentence.hi } };
+  }
+  return { ok: false, status: state.status === 'idle' ? 'not_found' : state.status === 'error' ? 'uncertain' : 'refused', message: p('No saved receipt found yet. Retry the same save to finish.', 'रसीद अभी नहीं मिली। वही बदलाव फिर आज़माएँ।') };
 }
 
 /* ------------------------------------------------------------------- leave */
