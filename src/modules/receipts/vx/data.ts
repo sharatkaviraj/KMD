@@ -4,6 +4,7 @@ import { createClient } from "@/modules/fees/platform/supabase/server";
 import { getReceiptDetail, getReceiptsPage } from "@/modules/receipts/data/queries";
 import { EMPTY_RECEIPT_FILTERS } from "@/modules/receipts/domain/filters";
 import type { ReceiptDetail, ReceiptListItem } from "@/modules/receipts/domain/types";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 
 /*
  * Reads for the redesigned Receipts screen (/receipts). Every number comes from
@@ -41,21 +42,24 @@ export async function loadDeskReceipts(sessionLabel: string, from: string, to: s
 }
 
 /** The last day on or before `onOrBefore` that has any receipt, so an empty today can point somewhere. */
-export async function lastReceiptDate(onOrBefore: string): Promise<string | null> {
+export async function lastReceiptDate(onOrBefore: string, sessionLabel: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("receipts")
     .select("payment_date")
+    .eq("session_label", sessionLabel)
     .lte("payment_date", onOrBefore)
     .order("payment_date", { ascending: false })
     .limit(1);
+  if (error) throw new Error(error.message);
   const row = (data ?? [])[0] as { payment_date?: string } | undefined;
   return row?.payment_date ?? null;
 }
 
 export async function findReceiptIdByNumber(receiptNumber: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("receipts").select("id").eq("receipt_number", receiptNumber).limit(1);
+  const { data, error } = await supabase.from("receipts").select("id").eq("receipt_number", receiptNumber).limit(1);
+  if (error) throw new Error(error.message);
   const row = (data ?? [])[0] as { id?: string } | undefined;
   return row?.id ?? null;
 }
@@ -86,17 +90,19 @@ export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceipt
       .order("created_at", { ascending: false })
       .limit(5),
   ]);
+  if (paymentsRes.error) throw new Error(paymentsRes.error.message);
+  if (sendsRes.error) throw new Error(sendsRes.error.message);
   const paymentIds = ((paymentsRes.data ?? []) as { id: string }[]).map((p) => p.id);
-  let reversals: { amount_delta: number; reason: string | null; created_at: string }[] = [];
-  if (paymentIds.length > 0) {
-    // A receipt has a handful of payment lines, never near the URL limit.
-    const { data } = await supabase
+  const reversals: { amount_delta: number; reason: string | null; created_at: string }[] = [];
+  for (let offset = 0; offset < paymentIds.length; offset += IN_FILTER_CHUNK_SIZE) {
+    const { data, error } = await supabase
       .from("payment_adjustments")
       .select("amount_delta, reason, created_at")
       .eq("adjustment_type", "reversal")
-      .in("payment_id", paymentIds.slice(0, 50))
+      .in("payment_id", paymentIds.slice(offset, offset + IN_FILTER_CHUNK_SIZE))
       .order("created_at", { ascending: true });
-    reversals = (data ?? []) as typeof reversals;
+    if (error) throw new Error(error.message);
+    reversals.push(...((data ?? []) as typeof reversals));
   }
 
   const history: ReceiptHistoryEvent[] = [{ at: detail.createdAt, kind: "posted", amount: detail.totalAmount, note: detail.receivedBy ?? detail.createdByName }];

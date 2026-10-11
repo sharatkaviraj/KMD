@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import {
   approveCalendarNoticeAction,
@@ -24,7 +24,7 @@ import type { OutboxData, OutboxItem } from "./outbox-data";
 
 /*
  * Messages → To send. Each row opens the person's own WhatsApp with the text
- * filled in and is marked sent by them; nothing is sent by the app (D-10).
+ * filled in; an explicit confirmation records sent. The app sends nothing (D-10).
  * The number reaches the browser only inside the link, after the tap.
  */
 
@@ -38,6 +38,9 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [handoff, setHandoff] = useState<{ key: string; link: string } | null>(null);
+  const inFlight = useRef(false);
+  const failed = p("That action could not be confirmed. Reload before trying again.", "उस कार्य की पुष्टि नहीं हो सकी। फिर कोशिश से पहले पेज फिर खोलें।");
 
   const after = (result: OutboxResult) => {
     toast.show({ text: tx(result.message), tone: result.ok ? "ok" : "bad" });
@@ -45,27 +48,45 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
   };
 
   const send = (item: OutboxItem) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     // Open the tab inside the tap, so a phone does not block it as a pop-up;
-    // the link is filled in once the server has marked the row sent.
+    // Opening does not record a send: the person confirms after sending there.
     const win = typeof window !== "undefined" ? window.open("about:blank", "_blank") : null;
     setBusy(item.id);
     start(async () => {
-      const result = await sendByHandAction({ source: item.source, id: item.id });
-      setBusy(null);
-      if (result.ok && result.link) {
-        if (win) win.location.href = result.link;
-        else window.location.href = result.link;
-      } else win?.close();
-      after(result);
+      try {
+        const result = await sendByHandAction({ source: item.source, id: item.id });
+        if (result.ok && result.link) {
+          setHandoff({ key: `${item.source}:${item.id}`, link: result.link });
+          if (win && !win.closed) win.location.href = result.link;
+        } else win?.close();
+        toast.show({ text: tx(result.message), tone: result.ok ? "info" : "bad" });
+      } catch {
+        win?.close();
+        toast.show({ text: tx(failed), tone: "bad" });
+      } finally {
+        setBusy(null);
+        inFlight.current = false;
+      }
     });
   };
 
   const run = (key: string, action: () => Promise<OutboxResult>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(key);
     start(async () => {
-      const result = await action();
-      setBusy(null);
-      after(result);
+      try {
+        const result = await action();
+        if (result.ok && key.startsWith("confirm:")) setHandoff(null);
+        after(result);
+      } catch {
+        toast.show({ text: tx(failed), tone: "bad" });
+      } finally {
+        setBusy(null);
+        inFlight.current = false;
+      }
     });
   };
 
@@ -81,8 +102,8 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
       <Banner tone="info">
         {tx(
           p(
-            `Tap Send to open WhatsApp with the message filled in, then press send there. The row is marked sent by you; Undo works for ${UNDO_MINUTES} minutes. Nothing is sent by the app.`,
-            `भेजें दबाएँ — व्हाट्सऐप संदेश के साथ खुलेगा, वहाँ भेजें दबाएँ। यह आपके नाम से भेजा दर्ज होगा; ${UNDO_MINUTES} मिनट तक वापस कर सकते हैं। ऐप खुद कुछ नहीं भेजता।`,
+            `Open WhatsApp with the message filled in and press send there. Then return here and choose I sent it. Opening or closing WhatsApp keeps the message in To send until you confirm; Undo works for ${UNDO_MINUTES} minutes after confirmation. Nothing is sent by the app.`,
+            `WhatsApp में तैयार संदेश खोलें और वहाँ भेजें। फिर यहाँ लौटकर मैंने भेज दिया चुनें। पुष्टि होने तक संदेश भेजने की सूची में रहेगा। पुष्टि के बाद ${UNDO_MINUTES} मिनट तक वापस रख सकते हैं। ऐप कोई संदेश नहीं भेजता।`,
           ),
         )}
       </Banner>
@@ -154,7 +175,13 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
                     {item.phone} · {item.preview.split("\n").find((l) => l.trim()) ?? ""}
                   </div>
                 </div>
-                {item.status === "sent" ? (
+                {handoff?.key === `${item.source}:${item.id}` && item.status !== "sent" ? (
+                  <span style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 220 }}>
+                    <a href={handoff.link} target="_blank" rel="noopener noreferrer" style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}>{tx(p("Open WhatsApp", "WhatsApp खोलें"))}</a>
+                    <Btn variant="pri" icon="check" disabled={pending} onClick={() => run(`confirm:${item.id}`, () => sendByHandAction({ source: item.source, id: item.id, confirmed: true }))}>{tx(p("I sent it", "मैंने भेज दिया"))}</Btn>
+                    <Btn variant="ghost" disabled={pending} onClick={() => setHandoff(null)}>{tx(p("Keep in To send", "भेजने की सूची में रखें"))}</Btn>
+                  </span>
+                ) : item.status === "sent" ? (
                   <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
                     <Pill tone="ok" icon="check">{tx(p("Sent", "भेजा"))}</Pill>
                     {item.canUndo ? (
@@ -167,7 +194,7 @@ export function Outbox({ data, tabs }: { data: OutboxData; tabs: React.ReactNode
                   <Pill tone="warn" icon="alert">{tx(p("No usable number", "नंबर नहीं"))}</Pill>
                 ) : (
                   <Btn variant="pri" icon="send" disabled={pending} onClick={() => send(item)}>
-                    {busy === item.id ? "…" : tx(p("Send", "भेजें"))}
+                    {busy === item.id ? "…" : tx(p("Open WhatsApp", "WhatsApp खोलें"))}
                   </Btn>
                 )}
               </div>

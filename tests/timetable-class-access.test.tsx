@@ -27,6 +27,11 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/platform/supabase/server", () => ({
   createClient: async () => ({
+    // This suite models a successful matrix read. Failure and revoked grants
+    // are exercised separately in matrix-auth-failure.test.ts.
+    rpc: async () => ({ data: ["admin", "office", "academic_coordinator", "exam_coordinator"].includes(state.role)
+      ? ["timetable:view", "academics:view"]
+      : ["teacher", "view_only"].includes(state.role) ? ["timetable:view"] : [], error: null }),
     auth: {
       getClaims: async () => ({
         data: { claims: state.signedIn ? { sub: "test-user", email: "test@example.invalid" } : null },

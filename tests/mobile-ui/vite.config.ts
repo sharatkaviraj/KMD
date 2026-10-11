@@ -5,6 +5,7 @@ export default defineConfig({
   root: path.resolve(__dirname),
   publicDir: path.resolve(__dirname, "../../public"),
   resolve: { alias: {
+    "@/app/(app)/messages/outbox-actions": path.resolve(__dirname, "outbox-actions.ts"),
     "@": path.resolve(__dirname, "../../src"),
     "next/navigation": path.resolve(__dirname, "navigation.ts"),
     "next/link": path.resolve(__dirname, "link.tsx"),

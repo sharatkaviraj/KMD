@@ -43,6 +43,7 @@ export type OutboxData = {
 };
 
 const LIMIT = 500;
+const readFailure = (error: unknown) => error && typeof error === "object" && "message" in error ? String(error.message) : "Read unavailable";
 
 const mask = (phone: string | null) => {
   const d = tenDigits(phone) ?? "";
@@ -67,6 +68,8 @@ export async function countOutbox(): Promise<number> {
     admin.from("message_sends").select("id", { count: "exact", head: true }).in("status", ["queued", "draft"]).is("stale_at", null).is("request_id", null),
     admin.from("parent_message_queue").select("id", { count: "exact", head: true }).eq("status", "queued"),
   ]);
+  if (a.error) throw new Error(`Could not count messages: ${a.error.message}`);
+  if (b.error) throw new Error(`Could not count parent messages: ${b.error.message}`);
   return (a.count ?? 0) + (b.count ?? 0);
 }
 
@@ -116,6 +119,11 @@ export async function loadOutbox(): Promise<OutboxData> {
     listStaff(),
   ]);
 
+  for (const result of [sends, recentSends, queue, recentQueue, flags, noticeRows, batchRows]) {
+    if (result.error) throw new Error(`Could not read To send: ${result.error.message}`);
+    if (!Array.isArray(result.data)) throw new Error("Could not read To send. Reload and try again.");
+  }
+
   const sendRows = [...(sends.data ?? []), ...(recentSends.data ?? [])];
   const queueRows = [...(queue.data ?? []), ...(recentQueue.data ?? [])];
   const flagged = new Set((flags.data ?? []).map((f) => tenDigits(f.phone)).filter(Boolean));
@@ -129,6 +137,8 @@ export async function loadOutbox(): Promise<OutboxData> {
       admin.schema(FEE_SCHEMA).from("students").select("id, full_name, father_name, guardian_name, guardian_phone, primary_phone").in("id", chunk),
     ),
   ]);
+  if (campaigns.error) throw new Error(`Could not read message groups: ${readFailure(campaigns.error)}`);
+  if (students.error) throw new Error(`Could not read message recipients: ${readFailure(students.error)}`);
   const titleOf = new Map(campaigns.data.map((c) => [c.id, c.title]));
   const studentOf = new Map(students.data.map((s) => [s.id, s]));
   const now = new Date();

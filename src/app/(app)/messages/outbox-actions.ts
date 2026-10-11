@@ -20,8 +20,8 @@ import { generalPolicyVersion, NOTICE_TEMPLATE, parentSendRow, queueCampaign, qu
 /*
  * Messages → To send. Every action: `messages:send`, then
  * assertNotPreviewing(). Nothing here sends a message. Send hands back a wa.me
- * link that opens the person's own WhatsApp with the text filled in, and marks
- * the row sent by them (D-10: a parent message is pressed by a person). Undo
+ * link that opens the person's own WhatsApp with the text filled in. Only an
+ * explicit confirmation marks the row sent by them (D-10: a parent message is pressed by a person). Undo
  * puts it back for a few minutes, for a tap that did not end in a send.
  */
 
@@ -31,13 +31,18 @@ const fail = (message: Pair): OutboxResult => ({ ok: false, message });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isSource = (s: unknown): s is "send" | "queue" => s === "send" || s === "queue";
 
-async function routeFlagged(phone: string): Promise<boolean> {
-  const { data } = await createAdminClient().from("parent_route_flags").select("phone").is("cleared_at", null).returns<{ phone: string }[]>();
-  return (data ?? []).some((f) => tenDigits(f.phone) === phone);
+async function routeFlagged(phone: string): Promise<boolean | null> {
+  for (let offset = 0; ; offset += IN_FILTER_CHUNK_SIZE) {
+    const { data, error } = await createAdminClient().from("parent_route_flags").select("phone").is("cleared_at", null)
+      .order("id", { ascending: true }).range(offset, offset + IN_FILTER_CHUNK_SIZE - 1).returns<{ phone: string }[]>();
+    if (error || !Array.isArray(data)) return null;
+    if (data.some((f) => tenDigits(f.phone) === phone)) return true;
+    if (data.length < IN_FILTER_CHUNK_SIZE) return false;
+  }
 }
 
-/** Open WhatsApp for one queued message and mark it sent by this person. */
-export async function sendByHandAction(input: { source: string; id: string }): Promise<OutboxResult> {
+/** Prepare WhatsApp; explicit confirmation records the person's manual send. */
+export async function sendByHandAction(input: { source: string; id: string; confirmed?: boolean }): Promise<OutboxResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
   if (!isSource(input.source) || !UUID.test(input.id)) return fail(p("Pick a message.", "संदेश चुनें।"));
@@ -56,16 +61,22 @@ export async function sendByHandAction(input: { source: string; id: string }): P
     const phone = tenDigits(row.to_phone);
     const link = waLink(phone, outboxText(row.rendered_hi, row.rendered_en));
     if (!phone || !link) return fail(p("This number is not a WhatsApp mobile number.", "यह व्हाट्सऐप मोबाइल नंबर नहीं है।"));
-    if (await routeFlagged(phone)) return fail(p("Somebody reported this number as wrong. It was not sent.", "यह नंबर गलत बताया गया है। नहीं भेजा।"));
+    const flagged = await routeFlagged(phone);
+
+    if (flagged === null) return fail(p("Could not check reported wrong numbers. Try again.", "गलत नंबर की रिपोर्ट जाँच नहीं सके। फिर कोशिश करें।"));
+
+    if (flagged) return fail(p("Somebody reported this number as wrong. It was not sent.", "यह नंबर गलत बताया गया है। नहीं भेजा।"));
+    if (input.confirmed !== true) return { ok: true, link, message: p("Open WhatsApp, then confirm here after you send it.", "WhatsApp खोलें। वहाँ भेजने के बाद यहाँ पुष्टि करें।") };
     const { data: done, error } = await admin
       .from("message_sends")
       .update({ status: "sent", sent_at: now, requested_by: actor.id })
       .eq("id", row.id)
       .in("status", ["queued", "draft"])
+      .is("stale_at", null)
       .select("id");
     if (error || !done?.length) return fail(p("Not marked sent. Try again.", "भेजा दर्ज नहीं हुआ।"));
     revalidatePath("/messages");
-    return { ok: true, link, message: p("Opened in WhatsApp · marked sent", "व्हाट्सऐप में खुला · भेजा दर्ज") };
+    return { ok: true, message: p("Marked sent by you", "आपके भेजने की पुष्टि दर्ज हुई") };
   }
 
   const { data: row } = await admin
@@ -84,7 +95,12 @@ export async function sendByHandAction(input: { source: string; id: string }): P
   const phone = tenDigits(kid?.guardian_phone) ?? tenDigits(kid?.primary_phone);
   const link = waLink(phone, outboxText(row.body_hi, row.body_en));
   if (!phone || !link) return fail(p("This child has no WhatsApp number on record.", "इस बच्चे का व्हाट्सऐप नंबर दर्ज नहीं है।"));
-  if (await routeFlagged(phone)) return fail(p("Somebody reported this number as wrong. It was not sent.", "यह नंबर गलत बताया गया है। नहीं भेजा।"));
+  const flagged = await routeFlagged(phone);
+
+  if (flagged === null) return fail(p("Could not check reported wrong numbers. Try again.", "गलत नंबर की रिपोर्ट जाँच नहीं सके। फिर कोशिश करें।"));
+
+  if (flagged) return fail(p("Somebody reported this number as wrong. It was not sent.", "यह नंबर गलत बताया गया है। नहीं भेजा।"));
+  if (input.confirmed !== true) return { ok: true, link, message: p("Open WhatsApp, then confirm here after you send it.", "WhatsApp खोलें। वहाँ भेजने के बाद यहाँ पुष्टि करें।") };
   const { data: done, error } = await admin
     .from("parent_message_queue")
     .update({ status: "sent", sent_at: now, sent_by: actor.id })
@@ -93,7 +109,7 @@ export async function sendByHandAction(input: { source: string; id: string }): P
     .select("id");
   if (error || !done?.length) return fail(p("Not marked sent. Try again.", "भेजा दर्ज नहीं हुआ।"));
   revalidatePath("/messages");
-  return { ok: true, link, message: p("Opened in WhatsApp · marked sent", "व्हाट्सऐप में खुला · भेजा दर्ज") };
+  return { ok: true, message: p("Marked sent by you", "आपके भेजने की पुष्टि दर्ज हुई") };
 }
 
 /** Put a row marked sent by hand back in the list, within a few minutes. */
@@ -108,8 +124,8 @@ export async function undoSentAction(input: { source: string; id: string }): Pro
   const patch = input.source === "send" ? { status: "queued", sent_at: null } : { status: "queued", sent_at: null, sent_by: null };
   let q = admin.from(table).update(patch).eq("id", row.id).eq("status", "sent");
   if (input.source === "send") q = q.is("provider_message_id", null);
-  const { error } = await q;
-  if (error) return fail(p("Not undone. Try again.", "वापस नहीं हुआ।"));
+  const { data: changed, error } = await q.eq("sent_at", row.sent_at).select("id");
+  if (error || !changed?.length) return fail(p("Not undone. Try again.", "वापस नहीं हुआ।"));
   revalidatePath("/messages");
   return { ok: true, message: p("Back in To send", "फिर से भेजने की सूची में") };
 }
@@ -155,13 +171,15 @@ export async function approveCalendarNoticeAction(id: string): Promise<OutboxRes
     count += result.count;
     campaignId ??= result.campaignId;
   }
-  await admin
+  const { data: decided, error: decideError } = await admin
     .from("calendar_notices")
     .update({ status: "approved", campaign_id: campaignId, decided_by: actor.id, decided_at: new Date().toISOString() })
     .eq("id", notice.id)
-    .eq("status", "awaiting_approval");
+    .eq("status", "awaiting_approval")
+    .select("id");
   revalidatePath("/messages");
   revalidatePath("/calendar");
+  if (decideError || !decided?.length) return fail(p("Messages may already be queued, but the notice decision could not be confirmed. Reload before trying again.", "संदेश कतार में हो सकते हैं, पर सूचना के निर्णय की पुष्टि नहीं हुई। फिर कोशिश से पहले पेज फिर खोलें।"));
   return { ok: true, message: p(`${count} messages ready to send`, `${count} संदेश भेजने को तैयार`) };
 }
 
@@ -169,12 +187,13 @@ export async function declineCalendarNoticeAction(id: string): Promise<OutboxRes
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
   if (!UUID.test(id)) return fail(p("Pick a notice.", "सूचना चुनें।"));
-  const { error } = await createAdminClient()
+  const { data: decided, error } = await createAdminClient()
     .from("calendar_notices")
     .update({ status: "cancelled", decided_by: actor.id, decided_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("status", "awaiting_approval");
-  if (error) return fail(p("Not saved. Try again.", "सहेजा नहीं गया।"));
+    .eq("status", "awaiting_approval")
+    .select("id");
+  if (error || !decided?.length) return fail(p("The notice decision could not be confirmed. Reload before trying again.", "सूचना के निर्णय की पुष्टि नहीं हुई। फिर कोशिश से पहले पेज फिर खोलें।"));
   revalidatePath("/messages");
   revalidatePath("/calendar");
   return { ok: true, message: p("Notice not sent", "सूचना नहीं भेजी जाएगी") };
@@ -247,13 +266,15 @@ export async function prepareReminderBatchAction(id: string): Promise<OutboxResu
     messages.map((m) => parentSendRow({ phone: m.phone, name: m.parent, studentId: m.studentIds[0] ?? null, hi: m.hi, en: m.en }, parentTemplate, policyVersion)),
   );
   if (!result.ok) return fail(result.message);
-  await admin
+  const { data: prepared, error: prepareError } = await admin
     .from("fee_reminder_batches")
     .update({ status: "prepared", campaign_id: result.campaignId, prepared_by: actor.id, prepared_at: new Date().toISOString() })
     .eq("id", batch.id)
-    .in("status", ["queued", "scheduled"]);
+    .in("status", ["queued", "scheduled"])
+    .select("id");
   revalidatePath("/messages");
   revalidatePath("/reminders");
+  if (prepareError || !prepared?.length) return fail(p("Messages may already be queued, but the batch status could not be confirmed. Reload before trying again.", "संदेश कतार में हो सकते हैं, पर समूह की स्थिति की पुष्टि नहीं हुई। फिर कोशिश से पहले पेज फिर खोलें।"));
   const skipped = [nothingOwed ? `${nothingOwed} owe nothing now` : "", noPhone ? `${noPhone} without a number` : ""].filter(Boolean).join(", ");
   const skippedHi = [nothingOwed ? `${nothingOwed} पर अब बकाया नहीं` : "", noPhone ? `${noPhone} का नंबर नहीं` : ""].filter(Boolean).join(", ");
   return {

@@ -74,9 +74,12 @@ const aisensyProvider: MessageProvider = {
 
       const body: unknown = await response.json().catch(() => null);
       const id =
-        body && typeof body === "object" && "messageId" in body
-          ? String((body as { messageId: unknown }).messageId)
+        body && typeof body === "object" && "messageId" in body && typeof body.messageId === "string"
+          ? body.messageId.trim()
           : "";
+
+      // HTTP acceptance may carry no id. Preserve the existing empty marker:
+      // null is reserved for manual sends and would make Undo queue this again.
 
       return { ok: true, providerMessageId: id };
     } catch (thrown) {

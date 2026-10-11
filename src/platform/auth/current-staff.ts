@@ -39,8 +39,8 @@ export type CurrentStaff = {
   preferredStart: string | null;
   /**
    * The role's permissions as `vppsone.role_permissions` holds them now — the
-   * matrix an admin edits on Staff → Roles. `can()` reads these; null means
-   * the read failed and the built-in map in `permissions.ts` answers instead.
+   * matrix an admin edits on Staff → Roles. A failed read refuses the request;
+   * it must never restore a grant an admin removed from the matrix.
    */
   permissions?: readonly string[] | null;
 };
@@ -140,25 +140,29 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
   if (!staff.isActive) {
     return { staff: null, reason: "inactive" };
   }
+  if (permissions === null) {
+    throw new Error("Could not verify staff permissions. Reload and try again.");
+  }
 
   return { staff, reason: null };
 });
 
 /**
  * The signed-in person's permissions from the editable matrix, through
- * `vppsone.my_permissions()` (security definer, own row only). Any failure
- * falls back to the built-in map rather than to nothing: an unreachable
- * matrix must not lock the school out, and the role's seed is what it was
- * before the matrix became editable.
+ * `vppsone.my_permissions()` (security definer, own row only). A failure must
+ * stop authorization, including service-role-backed actions. The seed map
+ * cannot tell whether a permission has since been revoked.
  */
 async function readMatrixPermissions(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<readonly string[] | null> {
   try {
-    if (typeof supabase.rpc !== "function") return null;
+    if (typeof supabase.rpc !== "function") throw new Error("Permission service unavailable");
     const { data, error } = await supabase.rpc("my_permissions");
-    if (error || !Array.isArray(data)) return null;
-    return (data as unknown[]).filter((value): value is string => typeof value === "string");
+    if (error || !Array.isArray(data) || !data.every((value: unknown) => typeof value === "string")) {
+      throw new Error("Permission service unavailable");
+    }
+    return data as string[];
   } catch {
     return null;
   }

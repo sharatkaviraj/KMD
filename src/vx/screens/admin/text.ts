@@ -154,7 +154,7 @@ export const T = {
   emptyType: p("Nothing of this kind is waiting.", "इस तरह का कुछ बाकी नहीं।"),
   pickItem: p("Pick an item to see what it needs.", "देखने के लिए कोई आइटम चुनें।"),
   sending: p("Sending…", "भेज रहे हैं…"),
-  failed: p("That did not go through. Nothing was changed.", "यह नहीं हो पाया। कुछ नहीं बदला।"),
+  failed: p("That decision could not be confirmed. Reload before trying again.", "उस निर्णय की पुष्टि नहीं हो सकी। दोबारा कोशिश से पहले पेज फिर खोलें।"),
 
   /* ----------------------------------------------------------- students */
   studentsCrumb: (session: string): Pair => p(`People · Session ${session}`, `लोग · सत्र ${session}`),

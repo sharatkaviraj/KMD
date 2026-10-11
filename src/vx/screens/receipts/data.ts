@@ -58,21 +58,28 @@ function toEvent(r: CloseEventDb): CloseEventRow {
 }
 
 /** Close and reopen events for the days from `from` to `to`, oldest first. */
-export async function listCloseEvents(from: string, to: string, opts: { strict?: boolean } = {}): Promise<CloseEventRow[]> {
+export async function listCloseEvents(from: string, to: string, opts: { strict?: boolean; sessionLabel: string }): Promise<CloseEventRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("fee_day_close_events")
-    .select("id, payment_date, action, cash_expected, cash_counted, upi_checked, receipt_count, reversed_count, expected, note, actor_name, created_at")
-    .gte("payment_date", from)
-    .lte("payment_date", to)
-    .order("created_at", { ascending: true });
-  // Strict for the close and reopen actions: an unreadable history read as
-  // "never closed" would let the same day be closed twice.
-  if (error) {
-    if (opts.strict) throw new Error(`Could not read the day's close history: ${error.message}`);
-    return [];
+  const events: CloseEventRow[] = [];
+  const pageSize = 200;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("fee_day_close_events")
+      .select("id, payment_date, action, cash_expected, cash_counted, upi_checked, receipt_count, reversed_count, expected, note, actor_name, created_at")
+      .gte("payment_date", from)
+      .lte("payment_date", to)
+      .eq("session_label", opts.sessionLabel)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    // Never mistake a failed page for an open day or a complete history.
+    if (error || !Array.isArray(data)) {
+      if (opts.strict) throw new Error(`Could not read the day's close history: ${error?.message ?? "Invalid response"}`);
+      return [];
+    }
+    events.push(...(data as CloseEventDb[]).map(toEvent));
+    if (data.length < pageSize) return events;
   }
-  return ((data ?? []) as CloseEventDb[]).map(toEvent);
 }
 
 export type NewCloseEvent = {
@@ -116,13 +123,14 @@ export type PendingRequest = { id: string; createdAt: string; requestedByName: s
 
 export async function pendingReversalRequest(receiptId: string): Promise<PendingRequest | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("fee_desk_requests")
     .select("id, created_at, requested_by_name, reason_code")
     .eq("kind", "reversal")
     .eq("status", "pending")
     .eq("receipt_id", receiptId)
     .limit(1);
+  if (error) throw new Error(error.message);
   const r = (data ?? [])[0] as { id: string; created_at: string; requested_by_name: string | null; reason_code: string } | undefined;
   return r ? { id: r.id, createdAt: r.created_at, requestedByName: r.requested_by_name, reasonCode: r.reason_code } : null;
 }

@@ -17,7 +17,6 @@ export const runtime = "nodejs";
  * permission check; this only changes how the request travels.
  */
 export async function POST(request: NextRequest) {
-  await assertPermission("attendance:correct");
   const body = (await request.json().catch(() => null)) as
     | { kind: "correction"; correctionId: string; approve: boolean }
     | { kind: "submissions"; submissionIds: string[]; accept: boolean }
@@ -26,7 +25,19 @@ export async function POST(request: NextRequest) {
     | null;
   if (!body) return NextResponse.json({ ok: false }, { status: 400 });
 
-  const result =
+  const permission = body.kind === "correction" ? "attendance:correct"
+    : body.kind === "submissions" ? "collection:manage"
+      : body.kind === "remind" ? "attendance:mark_on_behalf"
+        : body.kind === "cover" ? "substitutions:manage" : null;
+  if (!permission) return NextResponse.json({ ok: false }, { status: 400 });
+  try {
+    await assertPermission(permission);
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 403 });
+  }
+
+  try {
+    const result =
     body.kind === "correction"
       ? await decideCorrectionVx(String(body.correctionId), body.approve === true)
       : body.kind === "submissions"
@@ -36,5 +47,8 @@ export async function POST(request: NextRequest) {
           : body.kind === "cover"
             ? await assignCoverVx({ commandId: String(body.commandId), needKey: String(body.needKey), coveringStaffId: String(body.coveringStaffId), day: String(body.day), dayRevision: Number(body.dayRevision) })
             : { ok: false };
-  return NextResponse.json({ ok: result.ok }, { status: result.ok ? 200 : 422 });
+    return NextResponse.json({ ok: result.ok }, { status: result.ok ? 200 : 422 });
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 422 });
+  }
 }

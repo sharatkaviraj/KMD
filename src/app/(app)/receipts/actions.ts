@@ -48,16 +48,19 @@ export async function closeDayAction(input: {
     const staff = await assertPermission("fees:collect");
     await assertNotPreviewing();
     if (!isIsoDate(input.date)) return { ok: false, error: "Pick a real day." };
+    if (typeof input.sessionLabel !== "string" || !input.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };
 
-    const events = await listCloseEvents(input.date, input.date, { strict: true });
+    const events = await listCloseEvents(input.date, input.date, { strict: true, sessionLabel: input.sessionLabel });
     if (latestCloseState(events).closed) return { ok: false, error: "This day is already closed." };
 
-    const { rows } = await loadDeskReceipts(input.sessionLabel, input.date, input.date);
+    const { rows, truncated } = await loadDeskReceipts(input.sessionLabel, input.date, input.date);
+    if (truncated) return { ok: false, error: "The receipt list is incomplete. The day has not been closed. Review the full day book before trying again." };
     const day = rows.filter((r) => r.paymentDate === input.date);
     const summary = summarizeReceipts(day);
     const denominations: Record<string, number> = {};
     for (const d of DENOMINATIONS) {
-      const n = Math.max(0, Math.floor(Number(input.denominations[d] ?? 0)));
+      const raw = Number(input.denominations[d] ?? 0);
+      const n = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
       if (n > 0) denominations[String(d)] = n;
     }
     const counted = countedCash(input.denominations);
@@ -101,9 +104,10 @@ export async function reopenDayAction(input: { date: string; sessionLabel: strin
     const staff = await assertPermission("fees:manage");
     await assertNotPreviewing();
     if (!isIsoDate(input.date)) return { ok: false, error: "Pick a real day." };
+    if (typeof input.sessionLabel !== "string" || !input.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };
     const note = input.note.trim().slice(0, 500);
     if (note.length < 5) return { ok: false, error: "Say why the day is being reopened." };
-    const events = await listCloseEvents(input.date, input.date, { strict: true });
+    const events = await listCloseEvents(input.date, input.date, { strict: true, sessionLabel: input.sessionLabel });
     if (!latestCloseState(events).closed) return { ok: false, error: "This day is not closed." };
     await insertCloseEvent({
       paymentDate: input.date,

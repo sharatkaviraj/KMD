@@ -31,10 +31,10 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
 
   const [{ rows, truncated }, events, selectedRaw] = await Promise.all([
     loadDeskReceipts(sessionLabel, from, to),
-    listCloseEvents(anchor, anchor),
+    listCloseEvents(anchor, anchor, { strict: true, sessionLabel }),
     receiptNumber ? getDeskReceipt(receiptNumber) : Promise.resolve(null),
   ]);
-  const lastDate = rows.length === 0 ? await lastReceiptDate(anchor) : null;
+  const lastDate = rows.length === 0 ? await lastReceiptDate(anchor, sessionLabel) : null;
 
   const slim: DeskRow[] = rows.map((r) => ({
     id: r.id,

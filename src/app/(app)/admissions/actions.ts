@@ -212,8 +212,10 @@ export async function saveSeatsAction(input: { seats: { classId: string; seats: 
     await assertNotPreviewing();
     const ctx = await loadAdmissionsFeeContext();
     const known = new Set(ctx.classes.map((c) => c.id));
+    if (!ctx.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };
+    if (!Array.isArray(input.seats) || input.seats.some((r) => !r || !known.has(r.classId))) return { ok: false, error: "Choose classes from the active session." };
+    if (new Set(input.seats.map((r) => r.classId)).size !== input.seats.length) return { ok: false, error: "Choose each class only once." };
     const rows = (Array.isArray(input.seats) ? input.seats : [])
-      .filter((r) => r && known.has(r.classId))
       .map((r) => ({ classId: r.classId, seats: r.seats === null ? null : Math.round(Number(r.seats)) }));
     if (rows.some((r) => r.seats !== null && !(Number.isFinite(r.seats) && r.seats >= 0 && r.seats <= 500))) return { ok: false, error: "Seats must be a number from 0 to 500." };
     if (rows.length === 0) return { ok: false, error: "Nothing to save." };

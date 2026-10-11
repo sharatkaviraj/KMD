@@ -50,7 +50,7 @@ type Beacon =
   | { kind: "remind"; classIds: string[] }
   | { kind: "cover"; commandId: string; needKey: string; coveringStaffId: string; day: string; dayRevision: number };
 
-type Held = { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; beacon: Beacon };
+type Held = { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; beacon: Beacon; sending: boolean; flushing: boolean };
 
 export function InboxScreen({ items, initial, previewing, unavailable }: { items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean }) {
   const { tx } = useVx();
@@ -75,9 +75,16 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
     // decision goes as a keepalive request that outlives it.
     const flush = () => {
       for (const [id, entry] of pending) {
+        if (entry.flushing) continue;
         window.clearTimeout(entry.timer);
-        pending.delete(id);
-        void fetch("/api/inbox", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(entry.beacon) }).catch(() => undefined);
+        entry.sending = true;
+        entry.flushing = true;
+        void fetch("/api/inbox", { method: "POST", keepalive: true, headers: { "content-type": "application/json" }, body: JSON.stringify(entry.beacon) })
+          .then(async (response) => {
+            if (response.ok && (await response.json()).ok === true && pending.get(id) === entry) pending.delete(id);
+          })
+          .catch(() => undefined)
+          .finally(() => { entry.flushing = false; });
       }
     };
     window.addEventListener("pagehide", flush);
@@ -92,14 +99,20 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
       toast.show({ text: tx(T.previewing), tone: "info" });
       return;
     }
+    if (held.current.has(item.id)) return;
     setHidden((all) => new Set(all).add(item.id));
     setPhoneOpen(false);
     const next = live.find((other) => other.id !== item.id && (filter === "all" || other.type === filter));
     setSelectedId(next?.id ?? null);
 
     const timer = window.setTimeout(async () => {
-      held.current.delete(item.id);
+      const entry = held.current.get(item.id);
+      if (!entry) return;
+      entry.sending = true;
       const result = await send().catch(() => ({ ok: false as const, message: T.failed }));
+      // Keep the decision available to pagehide until it is acknowledged.
+      // The normal action can still be cancelled while its response is pending.
+      if (held.current.get(item.id) === entry) held.current.delete(item.id);
       if (!result.ok) {
         setHidden((all) => {
           const copy = new Set(all);
@@ -110,7 +123,7 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
       }
       router.refresh();
     }, HOLD_MS);
-    held.current.set(item.id, { timer, send, label, beacon });
+    held.current.set(item.id, { timer, send, label, beacon, sending: false, flushing: false });
 
     toast.show({
       text: label,
@@ -118,7 +131,7 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
       ms: HOLD_MS,
       undo: () => {
         const entry = held.current.get(item.id);
-        if (!entry) return;
+        if (!entry || entry.sending) return;
         window.clearTimeout(entry.timer);
         held.current.delete(item.id);
         setHidden((all) => {
