@@ -169,7 +169,9 @@ describe("PostgREST embeds", () => {
         if (howMany < 2) continue;
 
         // An embed of `target` that does not name which foreign key it means.
-        const unqualified = new RegExp(`(^|[^!\\w])${target}\\s*\\(`);
+        // `target!inner(…)` and `target!left(…)` are join hints, not a
+        // relationship name — they are just as ambiguous as `target(…)`.
+        const unqualified = new RegExp(`(^|[^!\\w])${target}\\s*(!(inner|left))?\\s*\\(`);
         if (unqualified.test(select)) {
           problems.push(
             `${file}: .from("${table}") embeds ${target}(…) but ${table} ` +

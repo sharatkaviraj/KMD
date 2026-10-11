@@ -1,11 +1,17 @@
+import { cookies } from "next/headers";
+
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
+import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { searchStudents } from "@/modules/students/data/directory-repo";
 import { normaliseQuery, pageWindow, PAGE_SIZE, resolvePage } from "@/modules/students/domain/directory";
 import { studentMoneyList } from "@/modules/students-fees/vx/admin-students";
 import { listMoney, parseSegment } from "@/vx/screens/admin/logic";
 import { StudentsScreen, type StudentListRow, type StudentsProps } from "@/vx/screens/admin/students";
+import { attendanceForStudents } from "@/vx/screens/admin/students-data";
+import { readStudentViewCookie, resolveStudentView, STUDENT_VIEW_COOKIE, type AttendanceFacts, type StudentFacts } from "@/vx/screens/admin/students-logic";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -15,15 +21,24 @@ export const runtime = "nodejs";
 
 export const metadata = { title: "Students" };
 
+/** A row's facts before anything is known about it: no badge, attendance filled in later. */
+const noFacts = (): StudentFacts => ({ attendance: null, siblings: 0, isNew: false, route: null, yearClear: false, emi: null, concessions: [] });
+
 /**
  * Students (P5, design F05/D01).
  *
  * Still a GET form with every filter in the URL, as the directory was: Back,
- * bookmarks and a pasted link all open the same list. With `fees:view` the
- * list is the fee app's own student query — the chips are its saved views and
- * the money columns its figures, fees and late fee apart. Without it the list
- * is this app's directory from the session's enrolments, and no money is read
- * at all.
+ * bookmarks and a pasted link all open the same list. Two views over the same
+ * children: School (everyone's default — class, attendance, a few facts) and,
+ * for `fees:view`, Fees (the fee app's saved views as chips and its figures,
+ * fees and late fee apart). The last view a person chose is remembered in a
+ * cookie keyed to their profile, so the first render is already right.
+ *
+ * With `fees:view` the list is the fee app's own student query in the
+ * view-session every money screen uses, and the class filter and attendance
+ * are read for that same session, so the three never name different years.
+ * Without it the list is this app's directory from the session's enrolments,
+ * and no money is read at all.
  */
 export default async function StudentsPage(props: PageProps<"/students">) {
   const staff = await requirePermission("students:view", "/students");
@@ -34,9 +49,9 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const q = normaliseQuery(one(params.q) ?? "");
   const classId = one(params.class) || null;
   const page = resolvePage(one(params.page));
-  const sessionLabel = await resolveSessionLabel();
+  const directorySession = await resolveSessionLabel();
 
-  if (!sessionLabel) {
+  if (!directorySession) {
     return (
       <VxPage>
         <TopBar title={lead(T.students, language)} />
@@ -50,32 +65,47 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   }
 
   const seesMoney = can(staff, "fees:view");
-  const seg = seesMoney ? parseSegment(one(params.seg)) : "all";
-  // Started now, awaited last: the class names are only needed for the
-  // filter and the no-money list, and must not hold up the money read.
-  const labelsPromise = classLabelMap(sessionLabel);
+  const remembered = readStudentViewCookie((await cookies()).get(STUDENT_VIEW_COOKIE)?.value, staff.id);
+  const view = resolveStudentView({ param: one(params.view), seg: parseSegment(one(params.seg)), remembered, seesMoney });
+  const seg = view === "fees" ? parseSegment(one(params.seg)) : "all";
+
+  // One session for the money list, its class filter and the attendance
+  // beside it: the view-session, as on every other money screen.
+  const moneySession = seesMoney
+    ? await getViewSessionCookie()
+        .then((cookieSession) => resolveViewSession({ cookieSession }))
+        .then((resolved) => resolved.sessionLabel)
+        .catch(() => null)
+    : null;
 
   let rows: StudentListRow[] = [];
   let total = 0;
   let counts: StudentsProps["counts"] = null;
-  let failed = false;
+  let failed = seesMoney && !moneySession;
   let moneyMode = false;
-  let session = sessionLabel;
+  let session = directorySession;
 
-  if (seesMoney) {
+  // Started now, awaited last: the class names must not hold up the money read.
+  const moneyLabels = moneySession ? classLabelMap(moneySession).catch(() => null) : null;
+
+  if (moneySession) {
     try {
-      const list = await studentMoneyList({ query: q, classId: classId ?? "", segment: seg, page, pageSize: PAGE_SIZE });
-      rows = list.rows.map((row) => ({
-        id: row.id,
-        name: row.fullName,
-        sr: row.admissionNo || null,
-        classLabel: row.classLabel,
-        rollNo: null,
-        route: row.routeLabel && row.routeLabel !== "No Transport" ? row.routeLabel : null,
-        parent: row.parentName,
-        phone: row.phone,
-        money: listMoney(row),
-      }));
+      const list = await studentMoneyList({ query: q, classId: classId ?? "", segment: seg, page, pageSize: PAGE_SIZE, sessionLabel: moneySession });
+      rows = list.rows.map((row) => {
+        const route = row.routeLabel && row.routeLabel !== "No Transport" ? row.routeLabel : null;
+        return {
+          id: row.id,
+          name: row.fullName,
+          sr: row.admissionNo || null,
+          classLabel: row.classLabel,
+          rollNo: null,
+          route,
+          parent: row.parentName,
+          phone: row.phone,
+          money: listMoney(row),
+          facts: { ...noFacts(), siblings: row.siblingCount, isNew: row.isNew, route, yearClear: row.yearClear, emi: row.emi, concessions: row.concessions },
+        };
+      });
       total = list.total;
       counts = list.counts;
       session = list.sessionLabel;
@@ -85,10 +115,10 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     }
   }
 
-  const labels = await labelsPromise;
-
+  let directoryLabels: Map<string, string> | null = null;
   if (!moneyMode) {
-    const results = await searchStudents({ text: q, classId, page }, sessionLabel);
+    const [labels, results] = await Promise.all([classLabelMap(directorySession), searchStudents({ text: q, classId, page }, directorySession)]);
+    directoryLabels = labels;
     rows = results.rows.map((row) => ({
       id: row.studentId,
       name: row.fullName,
@@ -99,8 +129,21 @@ export default async function StudentsPage(props: PageProps<"/students">) {
       parent: row.fatherName,
       phone: row.guardianPhone,
       money: null,
+      facts: noFacts(),
     }));
     total = results.total;
+    session = directorySession;
+  }
+
+  const [labels, attendance] = await Promise.all([
+    (async () => directoryLabels ?? (moneyMode ? await moneyLabels : null) ?? (await classLabelMap(session)))(),
+    attendanceForStudents(
+      rows.map((row) => row.id),
+      session,
+    ).catch((): Map<string, AttendanceFacts> | null => null),
+  ]);
+  if (attendance) {
+    for (const row of rows) row.facts.attendance = attendance.get(row.id) ?? null;
   }
 
   const window = pageWindow(page, total);
@@ -114,10 +157,13 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         window={{ page: window.page, pages: window.pages, firstRow: window.firstRow, lastRow: window.lastRow }}
         q={q}
         classId={classId}
-        seg={seg}
+        view={moneyMode ? view : "school"}
+        seg={moneyMode ? seg : "all"}
         classes={[...labels.entries()].map(([id, label]) => ({ id, label }))}
         counts={counts}
         seesMoney={moneyMode}
+        attendanceRead={attendance !== null}
+        viewKey={staff.id}
         canCollect={can(staff, "fees:collect")}
         canAdmit={staff.role === "admin"}
         canRemind={seesMoney}

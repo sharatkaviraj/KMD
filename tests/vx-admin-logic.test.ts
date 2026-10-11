@@ -18,6 +18,7 @@ import {
   moneyFromInstallments,
   parseSegment,
   parseTab,
+  provisionalLabel,
   recentWeeks,
   remindable,
   runningPeriod,
@@ -223,6 +224,15 @@ describe("students", () => {
     expect(all).toEqual(["overview", "fees", "attendance", "marks", "family", "documents", "notes", "history", "info"]);
     expect(parseTab("fees", none)).toBe("overview");
     expect(parseTab("fees", all)).toBe("fees");
+  });
+
+  it("calls a term provisional while any paper is blank, in both languages", () => {
+    expect(provisionalLabel(0, 6)).toBeNull();
+    expect(provisionalLabel(1, 6)).toEqual({ en: "Provisional · 1 paper not entered", hi: "अस्थायी · 1 पेपर के अंक बाकी" });
+    expect(provisionalLabel(2, 6)?.en).toBe("Provisional · 2 papers not entered");
+    expect(provisionalLabel(6, 6)?.en).toBe("Provisional · no papers entered yet");
+    // No paper count known: still provisional, never final.
+    expect(provisionalLabel(3, 0)?.en).toBe("Provisional · 3 papers not entered");
   });
 
   it("reads the chip and builds the URL with empty values left out", () => {

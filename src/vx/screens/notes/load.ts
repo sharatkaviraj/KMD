@@ -1,12 +1,16 @@
 import "server-only";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
+import { can } from "@/platform/auth/permissions";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { schoolToday } from "@/vx/format";
+import { childBasics } from "@/vx/screens/teach/students";
 
 import { authorsOf, childChoices, noteViewer, repliesFor, visibleNotes, visiblePlans } from "./data";
 import type { AddStep } from "./ui/parts";
-import type { NotesFocus, NotesProps } from "./ui/workspace";
+import type { NotesFocus, NotesProps, NotesScope } from "./ui/workspace";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type NotesSearch = { note?: string; plan?: string; student?: string; view?: string; sheet?: string; step?: string; tab?: string };
 
@@ -33,6 +37,22 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
     viewer.canWrite ? childChoices(viewer, sessionLabel) : Promise.resolve([]),
     classLabelMap(sessionLabel),
   ]);
+
+  // `?student=` scopes the board to one child (from Student 360's "All
+  // notes"). It narrows what this reader already sees and never widens it.
+  // The child's name is read only for someone who may open the child's card
+  // anyway (`students:view`), so the scope can say whose notes these are.
+  const studentId = search.student && UUID.test(search.student) ? search.student : null;
+  let scope: NotesScope = null;
+  if (studentId) {
+    const kid = kids.find((k) => k.id === studentId);
+    const seen = notes.find((n) => n.studentId === studentId);
+    let name = kid?.name ?? seen?.studentName ?? null;
+    if (!name && can(staff, "students:view")) {
+      name = (await childBasics([studentId]).catch(() => null))?.get(studentId)?.fullName ?? null;
+    }
+    scope = { studentId, name, classLabel: kid?.classLabel ?? seen?.classLabel ?? null };
+  }
 
   let focus: NotesFocus = null;
   if (search.note) {
@@ -73,6 +93,7 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
     today: schoolToday(),
     school: "",
     focus,
+    scope,
     initialSheet: search.sheet === "add" && viewer.canWrite ? "add" : null,
     initialStep: STEPS.includes(search.step as AddStep) ? (search.step as AddStep) : "add",
     initialStudent: search.student ?? null,

@@ -8,9 +8,12 @@ import {
   filterBoard,
   followUpDate,
   followUpLabel,
+  followUpOwnerText,
   kindForTags,
+  latestStrength,
   myCounts,
   needsAction,
+  nextOpenAction,
   parentNoteMessage,
   planProgress,
   suggestedSteps,
@@ -141,6 +144,50 @@ describe("the board", () => {
 
   it("gives the teacher's header", () => {
     expect(myCounts(notes, TODAY)).toEqual({ dueSoon: 1, open: 4, done: 1 });
+  });
+
+  it("narrows to one child, on top of every other filter, without adding anyone", () => {
+    const mixed = [...notes, note({ id: "child2", studentId: "s2", needsFollowUp: true, followUpOn: "2026-10-09" }), note({ id: "class", studentId: null })];
+    expect(filterBoard(mixed, { tab: "all", studentId: "s2" }, TODAY).map((n) => n.id)).toEqual(["child2"]);
+    expect(filterBoard(mixed, { tab: "action", studentId: "s2" }, TODAY).map((n) => n.id)).toEqual(["child2"]);
+    expect(filterBoard(mixed, { tab: "all", studentId: "s2", classId: "c2" }, TODAY)).toEqual([]);
+    expect(filterBoard(mixed, { tab: "all", studentId: "nobody" }, TODAY)).toEqual([]);
+    // No student: the whole board, as before.
+    expect(filterBoard(mixed, { tab: "all", studentId: null }, TODAY)).toHaveLength(mixed.length);
+  });
+});
+
+describe("one child at a glance", () => {
+  it("picks the newest talent note as the strength", () => {
+    const picked = latestStrength([
+      note({ id: "old", tags: ["talent"], createdAt: "2026-09-01T05:00:00Z" }),
+      note({ id: "new", tags: ["studies", "talent"], createdAt: "2026-10-01T05:00:00Z" }),
+      note({ id: "other", tags: ["behaviour"], createdAt: "2026-10-05T05:00:00Z" }),
+    ]);
+    expect(picked?.id).toBe("new");
+  });
+
+  it("never shows a health or family note as a strength", () => {
+    expect(latestStrength([note({ tags: ["talent", "health"] }), note({ tags: ["talent", "family"] })])).toBeNull();
+    expect(latestStrength([])).toBeNull();
+  });
+
+  it("finds the open action with the earliest review date", () => {
+    const picked = nextOpenAction([
+      note({ id: "plain" }),
+      note({ id: "done", status: "done", needsFollowUp: true, followUpOn: "2026-10-01" }),
+      note({ id: "later", needsFollowUp: true, followUpOn: "2026-10-20" }),
+      note({ id: "overdue", status: "working", needsFollowUp: true, followUpOn: "2026-10-08" }),
+    ]);
+    expect(picked?.id).toBe("overdue");
+    expect(nextOpenAction([note({ id: "plain" }), note({ status: "done", needsFollowUp: true, followUpOn: "2026-10-01" })])).toBeNull();
+  });
+
+  it("names who follows a note up", () => {
+    expect(followUpOwnerText(note({ followUpOwner: "coordinator", followUpName: "QA Coordinator" }))?.en).toBe("QA Coordinator");
+    expect(followUpOwnerText(note({ followUpOwner: "me", writtenByName: "QA Teacher" }))?.en).toBe("QA Teacher");
+    expect(followUpOwnerText(note({ followUpOwner: "class_teacher" }))).toEqual({ en: "Class teacher", hi: "कक्षा अध्यापक" });
+    expect(followUpOwnerText(note({ followUpOwner: null }))).toBeNull();
   });
 });
 

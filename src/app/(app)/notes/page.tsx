@@ -12,7 +12,8 @@ export const metadata = { title: "Notes" };
 const TABS: BoardTab[] = ["action", "followups", "plans", "all"];
 
 /**
- * Notes board: board (`?tab=`), `?student=<id>` timeline, `?sheet=add`
+ * Notes board: board (`?tab=`), `?student=<id>` the board scoped to one child
+ * with her timeline, `?sheet=add`
  * (`&step=listening`), `?note=<id>` detail, `?plan=<id>` plan.
  */
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -20,6 +21,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const search = notesSearch(await searchParams);
   const data = await loadNotes(staff, search);
   if (!data) return <TeachEmpty kind="no-session" title={{ en: "Notes", hi: "नोट्स" }} back="/" />;
-  const tab = TABS.includes(search.tab as BoardTab) ? (search.tab as BoardTab) : "action";
+  // Scoped to one child, the board opens on all of her notes, not only the
+  // ones that need action today.
+  const tab = TABS.includes(search.tab as BoardTab) ? (search.tab as BoardTab) : data.scope ? "all" : "action";
   return <NotesBoard {...data} school={schoolProfile.shortName} tab={tab} />;
 }

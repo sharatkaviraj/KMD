@@ -62,7 +62,7 @@ type NoteRow = {
 const NOTE_COLUMNS =
   "id, session_label, student_id, class_id, kind_id, body, written_by, created_at, " +
   "note_kinds!inner(code, label_hi, label_en, tone), " +
-  "staff_profiles!inner(display_name)";
+  "staff_profiles!notes_written_by_fkey!inner(display_name)";
 
 function toNote(row: NoteRow): Note {
   return {

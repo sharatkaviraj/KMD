@@ -38,6 +38,14 @@ export type NoteViewer = {
   canWrite: boolean;
 };
 
+/**
+ * Who may add a note. Coordinators hold notes:view and no notes:write, and
+ * the board's "Add a note" is theirs too (docs/ui/DECISIONS.md).
+ */
+export function canWriteNotes(staff: CurrentStaff): boolean {
+  return can(staff, "notes:write") || (can(staff, "notes:view") && readsEveryClass(staff));
+}
+
 export async function noteViewer(staff: CurrentStaff, sessionLabel: string): Promise<NoteViewer> {
   const [own, held] = await Promise.all([ownClassIds(staff.id, sessionLabel), heldClassIds(staff.id, sessionLabel)]);
   return {
@@ -46,9 +54,7 @@ export async function noteViewer(staff: CurrentStaff, sessionLabel: string): Pro
     correctsAttendance: can(staff, "attendance:correct"),
     classIds: new Set(own),
     heldClassIds: new Set(held),
-    // Coordinators hold notes:view and no notes:write, and the board's "Add a
-    // note" is theirs too (docs/ui/DECISIONS.md).
-    canWrite: can(staff, "notes:write") || (can(staff, "notes:view") && readsEveryClass(staff)),
+    canWrite: canWriteNotes(staff),
   };
 }
 

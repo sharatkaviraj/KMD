@@ -15,6 +15,7 @@ import {
 import { segmentCount, type SegmentId } from "@/modules/students-fees/domain/student-segments";
 import { EMPTY_STUDENT_FILTERS } from "@/modules/students-fees/domain/types";
 import { buildFeeBreakupDisplayRows } from "@/modules/fees/domain/display-breakdown";
+import { isYearCleared } from "@/modules/fees/domain/year-clear";
 import { calculateOverdueBaseAmount, calculatePendingLateFeeAmount } from "@/modules/fees/domain/due-amounts";
 import { getStudentFinancialSnapshot } from "@/modules/fees/data/policy";
 import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules/prev-year-dues/domain/display";
@@ -52,6 +53,16 @@ export type MoneyListRow = {
   totalDue: number;
   lateFeeTotal: number;
   status: string;
+  /** Other children in the confirmed family, from the fee app's sibling pill. */
+  siblingCount: number;
+  /** The fee app's "New" tier — what the "New this year" chip reads. */
+  isNew: boolean;
+  /** The fee app's one Year Clear rule (`isYearCleared`), not recomputed here. */
+  yearClear: boolean;
+  /** An active monthly EMI plan, when there is one. */
+  emi: { status: "upcoming" | "on_track" | "due" | "behind" | "completed"; monthly: number; nextDue: string | null } | null;
+  /** RTE / Staff Child / 3rd Child Policy. Office context only. */
+  concessions: string[];
 };
 
 export type MoneyList = {
@@ -69,9 +80,15 @@ export async function studentMoneyList(input: {
   segment: "all" | keyof typeof SEGMENT_OF;
   page: number;
   pageSize: number;
+  /**
+   * The session the caller already resolved, so the list, its class filter
+   * and anything read beside it name one session. Omitted, the view-session
+   * cookie decides, as on every other money screen.
+   */
+  sessionLabel?: string;
 }): Promise<MoneyList> {
   await assertPermission("fees:view");
-  const view = await resolveViewSession({ cookieSession: await getViewSessionCookie() });
+  const view = input.sessionLabel ? { sessionLabel: input.sessionLabel } : await resolveViewSession({ cookieSession: await getViewSessionCookie() });
   const segments: SegmentId[] = input.segment === "all" ? [] : [SEGMENT_OF[input.segment]];
 
   const [page, counts] = await Promise.all([
@@ -102,6 +119,18 @@ export async function studentMoneyList(input: {
       totalDue: Number(row.totalDue || 0),
       lateFeeTotal: Number(row.lateFeeTotal || 0),
       status: row.status,
+      siblingCount: Math.max(0, Number(row.siblingPill?.siblingCount ?? 0)),
+      isNew: row.studentStatusLabel === "New",
+      yearClear: isYearCleared({
+        outstandingAmount: Number(row.outstandingAmount || 0),
+        totalPaid: Number(row.totalPaid || 0),
+        discountClosedAmount: Number(row.discountClosedAmount || 0),
+        hasPreparedDues: row.duesStatus === "generated",
+      }),
+      emi: row.emiPlan
+        ? { status: row.emiPlan.paymentStatus, monthly: Number(row.emiPlan.monthlyAmount || 0), nextDue: row.emiPlan.nextDueDate }
+        : null,
+      concessions: [...(row.conventionalDiscountLabels ?? [])],
     })),
     counts: {
       all: counts ? (segmentCount(counts, "active") ?? counts.scopeTotal) : null,

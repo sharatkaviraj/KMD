@@ -35,6 +35,8 @@ import {
   FOLLOW_WHEN,
   followUpDate,
   followUpLabel,
+  followUpOwnerText,
+  nextOpenAction,
   NOTE_TAGS,
   parentNoteMessage,
   parentPlanMessage,
@@ -153,6 +155,8 @@ export function AddNoteSheet({
   open,
   onClose,
   kids,
+  notes = [],
+  base,
   initialStudent,
   initialStep,
   today,
@@ -162,6 +166,10 @@ export function AddNoteSheet({
   open: boolean;
   onClose: () => void;
   kids: ChildChoice[];
+  /** The notes the reader already sees, to find the child's open action. */
+  notes?: readonly BoardNote[];
+  /** The notes screen the sheet sits on, for the link to that open action. */
+  base?: string;
   initialStudent: string | null;
   initialStep: AddStep;
   today: string;
@@ -252,6 +260,18 @@ export function AddNoteSheet({
       } else toast.show({ text: tx(res.error), tone: "bad" });
     });
 
+  // A child with an action already open is shown it first: an update on it
+  // beats a second note that says the same thing. Writing a new one is still
+  // allowed — it may be about something else.
+  const openAction = child ? nextOpenAction(notes.filter((n) => n.studentId === child.id)) : null;
+  const openOwner = openAction ? followUpOwnerText(openAction) : null;
+  const openDue = openAction ? followUpLabel(openAction.followUpOn, today, dayMonth) : null;
+  const toUpdate = () => {
+    if (!openAction || !child || !base) return;
+    close();
+    router.push(`${base}?student=${child.id}&note=${openAction.id}`, { scroll: false });
+  };
+
   const preview = child ? parentNoteMessage({ childName: child.name, teacher: author, body: body || "…", school }) : null;
   const canNext = Boolean(child) && body.trim().length > 0;
 
@@ -319,6 +339,22 @@ export function AddNoteSheet({
                 </Select>
               </div>
             </Field>
+            {openAction && child && base ? (
+              <div role="status" style={{ padding: "12px 14px", borderRadius: 14, background: "var(--s2)", display: "flex", flexDirection: "column", gap: 8 }}>
+                <strong style={{ fontSize: 14 }}>{tx(p(`${child.name} already has an open action`, `${child.name} की एक कार्रवाई पहले से खुली है`))}</strong>
+                <span style={{ fontSize: 14 }}>{excerpt(openAction.body, 140)}</span>
+                {openOwner || openDue ? (
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {openOwner ? <Pill tone="mut" icon="user">{tx(openOwner)}</Pill> : null}
+                    {openDue ? <Pill tone={openDue.tone} icon="flag">{tx(openDue.text)}</Pill> : null}
+                  </span>
+                ) : null}
+                <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <Btn variant="soft" icon="message" onClick={toUpdate}>{tx(p("Add update", "अपडेट जोड़ें"))}</Btn>
+                  <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{tx(p("Or write a new note below if it is about something else.", "अगर बात कुछ और है तो नीचे नया नोट लिखें।"))}</span>
+                </span>
+              </div>
+            ) : null}
             <Field label={<Bi en="What is it about?" hi="किस बारे में?" />}>
               <ChipRow label="Tags">
                 {NOTE_TAGS.map((t) => (
@@ -856,7 +892,7 @@ export function StudentTimeline({ name, classLabel, notes, plans, today, base }:
           {notes.map((n) => (
             <div key={n.id} className="n-tlItem">
               <span className="n-tlDot" />
-              <NoteCard note={n} today={today} href={`${base}?note=${n.id}`} showChild={false} />
+              <NoteCard note={n} today={today} href={n.studentId ? `${base}?student=${n.studentId}&note=${n.id}` : `${base}?note=${n.id}`} showChild={false} />
             </div>
           ))}
         </div>

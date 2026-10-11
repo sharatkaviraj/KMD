@@ -107,8 +107,18 @@ export default async function TodayPage() {
         cover={facts.cover}
         inbox={inbox ? sortInbox(inbox.items) : null}
         timeline={facts.timeline}
+        schedule={facts.schedule}
+        scheduleFailed={facts.scheduleFailed}
+        exceptions={facts.exceptions}
+        support={facts.support}
         actions={actions}
-        links={{ collect: can(staff, "fees:collect"), attendance: can(staff, "attendance:mark_on_behalf"), substitutions: can(staff, "substitutions:view") }}
+        links={{
+          collect: can(staff, "fees:collect"),
+          attendance: can(staff, "attendance:mark_on_behalf"),
+          substitutions: can(staff, "substitutions:view"),
+          review: can(staff, "collection:manage"),
+          timetable: can(staff, "timetable:view"),
+        }}
         unavailable={facts.unavailable.length > 0 || (inbox?.unavailable.length ?? 0) > 0}
       />
     </VxPage>

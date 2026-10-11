@@ -7,6 +7,8 @@
  * are separate numbers, and "pending today" and "not due yet" are never added.
  */
 
+import { p, type Pair } from "@/vx/text";
+
 /* ------------------------------------------------------------ attendance */
 
 export type MarkStatus = "present" | "absent" | "half_day" | "late" | "leave";
@@ -153,6 +155,29 @@ export function schoolMinutes(now: Date = new Date()): number {
     .split(":")
     .map(Number);
   return (h % 24) * 60 + m;
+}
+
+/* ----------------------------------------------------- student support */
+
+/**
+ * The Today card's two support figures, by the notes board's own rules
+ * (`needsAction` / `isDue` in `vx/screens/notes/domain/notes.ts`): a note
+ * needs action when its follow-up is due, or when it is an open health or
+ * family note nobody has picked up. `due` is the follow-ups alone.
+ */
+export function supportAttention(
+  notes: readonly { status: string; needsFollowUp: boolean; followUpOn: string | null; tags: readonly string[] }[],
+  today: string,
+): { needsAction: number; due: number } {
+  let needsAction = 0;
+  let due = 0;
+  for (const note of notes) {
+    if (note.status === "done") continue;
+    const isDue = note.needsFollowUp && note.followUpOn !== null && note.followUpOn <= today;
+    if (isDue) due += 1;
+    if (isDue || (note.status === "open" && !note.needsFollowUp && note.tags.some((t) => t === "health" || t === "family"))) needsAction += 1;
+  }
+  return { needsAction, due };
 }
 
 /* ----------------------------------------------------------------- money */
@@ -363,6 +388,19 @@ export function parseTab(value: string | undefined | null, allowed: readonly Stu
   return allowed.includes(value as StudentTab) ? (value as StudentTab) : "overview";
 }
 
+/**
+ * A term's percentage counts only the papers that have a mark (`totalsFor`
+ * leaves a blank paper out of both halves), so while any paper is blank the
+ * percentage and its grade are provisional and must say so beside them.
+ * `total` is the papers the child sat or still has to be marked on — exempt
+ * papers left out. Null once every paper is entered: the term is final.
+ */
+export function provisionalLabel(missing: number, total: number): Pair | null {
+  if (missing <= 0) return null;
+  if (total > 0 && missing >= total) return p("Provisional · no papers entered yet", "अस्थायी · अभी किसी पेपर के अंक नहीं");
+  return p(`Provisional · ${missing} paper${missing === 1 ? "" : "s"} not entered`, `अस्थायी · ${missing} पेपर के अंक बाकी`);
+}
+
 /** Last `weeks` school weeks of a child's attendance as calendar cells, Monday–Saturday. */
 export function recentWeeks(
   marks: readonly { day: string; status: MarkStatus }[],
@@ -399,12 +437,17 @@ export function average(values: readonly number[]): number | null {
   return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
 }
 
-/** The Students list as a URL: search, class, chip and page — empty values left out. */
-export function studentsHref(query: { q?: string; classId?: string | null; seg?: StudentSegment; page?: number }): string {
+/**
+ * The Students list as a URL: search, class, view, chip and page — empty
+ * values left out. The view is written whenever it is given, so a link opens
+ * the view it was made in whatever the reader last chose.
+ */
+export function studentsHref(query: { q?: string; classId?: string | null; view?: "school" | "fees"; seg?: StudentSegment; page?: number }): string {
   const params = new URLSearchParams();
   const q = (query.q ?? "").trim();
   if (q) params.set("q", q);
   if (query.classId) params.set("class", query.classId);
+  if (query.view) params.set("view", query.view);
   if (query.seg && query.seg !== "all") params.set("seg", query.seg);
   if (query.page && query.page > 1) params.set("page", String(query.page));
   const search = params.toString();

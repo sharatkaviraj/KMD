@@ -11,12 +11,23 @@ import type { Pair } from "@/vx/text";
 import { ChipRow } from "@/vx/ui/controls";
 import { Grid, Section, TopBar } from "@/vx/ui/page";
 import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Skel, Stat, toneColors, type Tone } from "@/vx/ui/primitives";
-import { feeRibbon, mobileOf, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
+import { feeRibbon, mobileOf, provisionalLabel, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
 import { T } from "@/vx/screens/admin/text";
+import {
+  excerpt,
+  followUpLabel,
+  followUpOwnerText,
+  latestStrength,
+  nextOpenAction,
+  TAG_TEXT,
+  type FollowOwner,
+  type NoteStatus,
+  type NoteTag,
+} from "@/vx/screens/notes/domain/notes";
 
 /*
  * Student 360 (design F06–F08/D02): one child, every side of them, behind
- * tabs in the URL (`?tab=`). The fee tab and the money tiles exist only for
+ * tabs in the URL (`?tab=`). The fee tab and the fee summary exist only for
  * `fees:view`; pending today, not due yet and the late fee are three numbers
  * and never one.
  *
@@ -104,13 +115,28 @@ export type Student360Props = {
   receipts: { id: string; number: string; date: string; amount: number; mode: string; reversed: boolean }[] | null;
   family: { id: string; name: string; sr: string; classLabel: string; self: boolean }[] | null;
   attendance: { percent: number | null; counted: number; counts: Record<MarkStatus, number>; weeks: Cell[] };
-  terms: { term: string; percent: number | null; grade: string | null; missing: number; scored: number; outOf: number }[];
+  /** `missing` blank papers out of `papers` (every paper but the excused ones). */
+  terms: { term: string; percent: number | null; grade: string | null; missing: number; papers: number; scored: number; outOf: number }[];
   documents: { id: string; kind: string; fileName: string; size: string; createdAt: string; by: string | null }[];
-  notes: { id: string; body: string; kindEn: string; kindHi: string; by: string; createdAt: string }[];
+  notes: {
+    id: string;
+    body: string;
+    tags: NoteTag[];
+    status: NoteStatus;
+    needsFollowUp: boolean;
+    followUpOn: string | null;
+    followUpOwner: FollowOwner | null;
+    followUpName: string | null;
+    by: string;
+    createdAt: string;
+  }[];
   history: { id: number; label: Pair; from: string | null; to: string | null; blocked: boolean; at: string; by: string | null }[];
+  /** The school day, for "2 days late" on a follow-up. */
+  today: string;
   canCollect: boolean;
   canManageDocuments: boolean;
   canManageFees: boolean;
+  canAddNote: boolean;
 };
 
 /** The fee app's status badge words, in the same tones. */
@@ -132,14 +158,6 @@ const TAB_LABEL: Record<StudentTab, Pair> = {
   notes: T.tabNotes,
   history: T.tabHistory,
   info: T.tabInfo,
-};
-
-const STATE_LOOK: Record<InstallmentState, { tone: Tone; label: Pair; bar: string }> = {
-  paid: { tone: "ok", label: T.stPaid, bar: "var(--ok)" },
-  overdue: { tone: "bad", label: T.stOverdue, bar: "var(--bad)" },
-  part: { tone: "warn", label: T.stPart, bar: "var(--warn)" },
-  upcoming: { tone: "mut", label: T.stUpcoming, bar: "var(--s3)" },
-  waived: { tone: "info", label: T.stWaived, bar: "var(--info)" },
 };
 
 const CELL_LOOK: Record<Cell["state"], { bg: string; fg: string; border?: string }> = {
@@ -208,44 +226,20 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   );
   const mobile = mobileOf(p.phone);
   const siblings = (p.family ?? []).filter((m) => !m.self).length;
-  const latest = [...p.terms].reverse().find((t) => t.percent !== null) ?? null;
+  // The newest term with anything to divide by; a term with no paper entered
+  // yet is shown only when there is no other.
+  const latest = [...p.terms].reverse().find((t) => t.percent !== null) ?? p.terms[p.terms.length - 1] ?? null;
+  const latestLabel = latest ? provisionalLabel(latest.missing, latest.papers) : null;
   const left = p.status === "left" || p.status === "inactive";
+  const notesHref = `/notes?student=${p.id}`;
 
-  const tile = (label: Pair, value: React.ReactNode, tone?: string, sub?: React.ReactNode) => (
-    <Card style={{ padding: "14px 16px" }}>
-      <Stat label={tx(label)} value={value} tone={tone} sub={sub} />
-    </Card>
-  );
-
-  const installmentsCard = p.installments ? (
-    <Card>
-      <CardHead title={tx(T.installments)} action={<Link href={`/fees/students/${p.id}`} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(T.ledger)}</Link>} />
-      {p.installments.length === 0 ? (
-        <p style={{ margin: "12px 0 0", color: "var(--mut)" }}>{tx(T.noFeeRecord)}</p>
-      ) : (
-        <ul style={{ listStyle: "none", margin: "12px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-          {p.installments.map((row) => {
-            const look = STATE_LOOK[row.state];
-            return (
-              <li key={`${row.label}-${row.dueDate}`} style={{ display: "grid", gridTemplateColumns: "minmax(64px,auto) minmax(0,1fr) auto", gap: 12, alignItems: "center" }}>
-                <span style={{ display: "flex", flexDirection: "column" }}>
-                  <strong style={{ fontSize: 14, color: row.state === "overdue" ? "var(--bad)" : undefined }}>{row.label}</strong>
-                  <span style={{ fontSize: 11.5, color: "var(--mut)" }}>{dayMonth(row.dueDate)}</span>
-                </span>
-                <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span style={{ height: 6, borderRadius: 3, background: "var(--s3)", overflow: "hidden" }}>
-                    <span style={{ display: "block", height: "100%", width: `${row.base > 0 ? Math.min(100, (row.settled / row.base) * 100) : 100}%`, background: look.bar }} />
-                  </span>
-                  {row.pending > 0 ? <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{rupees(row.pending)}</span> : null}
-                </span>
-                <Pill tone={look.tone}>{tx(look.label)}</Pill>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  ) : null;
+  /** A link to another tab that switches in place, like the chips. */
+  const tabLink = (t: StudentTab) =>
+    p.tabs.includes(t) ? (
+      <a href={`/students/${p.id}?tab=${t}`} onClick={pick(t)} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}>
+        {tx(T.seeAll)}
+      </a>
+    ) : undefined;
 
   const weeksCard = (
     <Card>
@@ -265,26 +259,44 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
   const termsCard = (
     <Card>
-      <CardHead title={tx(T.tabMarks)} action={latest?.percent != null ? <strong className="num">{latest.percent}%</strong> : undefined} />
+      <CardHead
+        title={tx(T.tabMarks)}
+        action={
+          latest?.percent != null ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {latestLabel ? <Pill tone="warn">{tx(T.provisional)}</Pill> : null}
+              <strong className="num">{latest.percent}%</strong>
+            </span>
+          ) : undefined
+        }
+      />
       {p.terms.length === 0 ? (
         <p style={{ margin: "12px 0 0", color: "var(--mut)" }}>{tx(T.noMarks)}</p>
       ) : (
         <ul style={{ listStyle: "none", margin: "12px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-          {p.terms.map((t) => (
-            <li key={t.term} style={{ display: "grid", gridTemplateColumns: "minmax(90px,1fr) minmax(0,2.4fr) 52px", gap: 12, alignItems: "center" }}>
-              <span style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: 14 }}>{t.term}</span>
-                {t.missing > 0 ? <span style={{ fontSize: 11.5, color: "var(--warnfg)" }}>{tx(T.marksMissing(t.missing))}</span> : null}
-              </span>
-              <span style={{ height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
-                <span style={{ display: "block", height: "100%", width: `${t.percent ?? 0}%`, background: (t.percent ?? 0) < 60 ? "var(--warn)" : "var(--pri)" }} />
-              </span>
-              <span className="num" style={{ textAlign: "right", fontWeight: 700 }}>
-                {t.percent !== null ? `${t.percent}%` : "—"}
-                {t.grade ? <span style={{ display: "block", fontSize: 11, color: "var(--mut)", fontWeight: 500 }}>{t.grade}</span> : null}
-              </span>
-            </li>
-          ))}
+          {p.terms.map((t) => {
+            // A blank paper is out of the sum, so the term is not final yet.
+            const label = provisionalLabel(t.missing, t.papers);
+            return (
+              <li key={t.term} style={{ display: "grid", gridTemplateColumns: "minmax(90px,1fr) minmax(0,2fr) minmax(52px,auto)", gap: 12, alignItems: "center" }}>
+                <span style={{ display: "flex", flexDirection: "column" }}>
+                  <span style={{ fontSize: 14 }}>{t.term}</span>
+                  {label ? <span style={{ fontSize: 11.5, color: "var(--warnfg)", fontWeight: 600 }}>{tx(label)}</span> : null}
+                </span>
+                <span style={{ height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
+                  <span style={{ display: "block", height: "100%", width: `${t.percent ?? 0}%`, background: (t.percent ?? 0) < 60 ? "var(--warn)" : "var(--pri)", opacity: label ? 0.55 : 1 }} />
+                </span>
+                <span className="num" style={{ textAlign: "right", fontWeight: 700 }}>
+                  {t.percent !== null ? `${t.percent}%` : "—"}
+                  {t.grade ? (
+                    <span style={{ display: "block", fontSize: 11, color: label ? "var(--warnfg)" : "var(--mut)", fontWeight: label ? 600 : 500 }}>
+                      {label ? `${t.grade} · ${tx(T.provisional)}` : t.grade}
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>
@@ -292,7 +304,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
   const notesCard = (limit?: number) => (
     <Card>
-      <CardHead title={tx(T.notes)} action={<Link href={`/notes?student=${p.id}`} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(T.allNotes)}</Link>} />
+      <CardHead title={tx(T.notes)} action={<Link href={notesHref} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(T.allNotes)}</Link>} />
       {p.notes.length === 0 ? (
         <p style={{ margin: "12px 0 0", color: "var(--mut)" }}>{tx(T.noNotes)}</p>
       ) : (
@@ -301,7 +313,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             <li key={n.id} style={{ padding: "12px 14px", borderRadius: 14, background: "var(--s2)" }}>
               <p style={{ margin: 0, fontSize: 15 }}>{n.body}</p>
               <span style={{ fontSize: 12.5, color: "var(--mut)" }}>
-                {n.by} · {dayMonth(n.createdAt)} · {tx({ en: n.kindEn, hi: n.kindHi })}
+                {[n.by, dayMonth(n.createdAt), ...n.tags.map((tag) => tx(TAG_TEXT[tag]))].join(" · ")}
               </span>
             </li>
           ))}
@@ -350,22 +362,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   let body: React.ReactNode;
   switch (tab) {
     case "overview":
-      body = (
-        <>
-          <Grid cols={3}>
-            {feesLoading ? tile(T.pendingToday, <span aria-busy="true" style={{ display: "block" }}><Skel w={90} h={26} /></span>) : null}
-            {p.money ? tile(T.pendingToday, rupees(p.money.pendingToday), p.money.pendingToday > 0 ? "var(--bad)" : undefined, p.money.lateFee > 0 ? `${tx(T.lateFee)} ${rupees(p.money.lateFee)} · ${tx(T.lateFeeApart)}` : undefined) : null}
-            {tile(T.attendancePct, p.attendance.percent !== null ? `${p.attendance.percent}%` : "—", undefined, p.attendance.counted ? tx(T.daysCounted(p.attendance.counted)) : tx(T.noAttendanceYet))}
-            {latest ? tile({ en: latest.term }, latest.percent !== null ? `${latest.percent}%` : "—", undefined, latest.grade ?? undefined) : p.money ? tile(T.notDueYet, rupees(p.money.notDueYet)) : null}
-          </Grid>
-          <div className="stack" style={{ display: "grid", gridTemplateColumns: installmentsCard ? "minmax(0,1fr) minmax(0,1fr)" : "minmax(0,1fr)", gap: 16 }}>
-            {installmentsCard}
-            {weeksCard}
-          </div>
-          {termsCard}
-          {p.tabs.includes("notes") ? notesCard(3) : null}
-        </>
-      );
+      body = <Overview p={p} latest={latest} latestLabel={latestLabel} tabLink={tabLink} notesHref={notesHref} feesLoading={feesLoading} feesUnavailable={feesUnavailable} />;
       break;
     case "fees":
       body = feesLoading ? loadingCard : feesUnavailable ? null : p.money && p.feeSummary ? (
@@ -477,25 +474,23 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       break;
   }
 
-  const sub = [p.classLabel, p.sr ? tx(T.srRoll(p.sr, p.rollNo)) : null, p.money ? tx(T.yearPaidPct(p.money.percent)) : null].filter(Boolean).join(" · ");
+  // Who the child is, in one line. The name is the page title (the desktop
+  // bar's h1, the phone bar's title) and is not repeated here; the fee share
+  // lives in the fee summary, not beside the child's identity.
+  const identity = [p.classLabel, p.sr ? tx(T.srRoll(p.sr, p.rollNo)) : p.rollNo ? `${tx(T.rollNo)} ${p.rollNo}` : null].filter(Boolean).join(" · ");
 
   return (
     <>
       <TopBar crumb={<Link href="/students">{tx(T.students)}</Link>} title={p.name} mTitle={p.name} mSub={p.classLabel} mBack="/students" />
       <main>
         <Section gap={16}>
-          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <Ring value={p.money?.percent ?? 0} size={80} stroke={5}>
-              <Avatar text={initials(p.name)} seed={p.name} size={64} />
-            </Ring>
-            <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 6 }}>
-              <h2 className="serif" style={{ margin: 0, fontSize: 30, fontWeight: 600 }}>{p.name}</h2>
-              <span style={{ color: "var(--mut)", fontSize: 14 }}>{sub}</span>
-              <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <Pill tone={left ? "mut" : "ok"}>{tx(left ? T.left : T.active)}</Pill>
-                {p.route ? <Pill tone="info">{tx(T.bus(p.route))}</Pill> : null}
-                {siblings > 0 ? <Pill tone="acc">{tx(T.siblings(siblings))}</Pill> : null}
-              </span>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <Avatar text={initials(p.name)} seed={p.name} size={44} />
+            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ color: "var(--mut)", fontSize: 14, marginRight: 4 }}>{identity}</span>
+              <Pill tone={left ? "mut" : "ok"}>{tx(left ? T.left : T.active)}</Pill>
+              {p.route ? <Pill tone="info">{tx(T.bus(p.route))}</Pill> : null}
+              {siblings > 0 ? <Pill tone="acc">{tx(T.siblings(siblings))}</Pill> : null}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -511,6 +506,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
               </>
             ) : null}
             {p.money ? <Btn icon="send" href={`/fees/students/${p.id}/statement`}>{tx(T.statement)}</Btn> : null}
+            {p.canAddNote ? <Btn icon="note" href={`${notesHref}&sheet=add`}>{tx(T.addNote)}</Btn> : null}
           </div>
           <ChipRow label={tx(T.tabOverview)}>
             {p.tabs.map((t) => (
@@ -523,6 +519,174 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
           {body}
         </Section>
       </main>
+    </>
+  );
+}
+
+/**
+ * The first screen: four balanced cards — attendance, learning, strengths and
+ * support — then the family's contact and, for `fees:view` only, a short fee
+ * summary. The ledgers and the mark sheet stay in their own tabs.
+ *
+ * Every card says plainly when there is nothing yet. A term with a blank
+ * paper is provisional and says so beside its percentage; a child with no
+ * strength written down has "no observation recorded", never "no talent".
+ */
+function Overview({
+  p,
+  latest,
+  latestLabel,
+  tabLink,
+  notesHref,
+  feesLoading,
+  feesUnavailable,
+}: {
+  p: Student360Props;
+  latest: Student360Props["terms"][number] | null;
+  latestLabel: Pair | null;
+  tabLink: (t: StudentTab) => React.ReactNode;
+  notesHref: string;
+  feesLoading: boolean;
+  feesUnavailable: boolean;
+}) {
+  const { tx } = useVx();
+  const muted = { margin: "12px 0 0", color: "var(--mut)" } as const;
+  const att = p.attendance;
+  const present = att.counts.present + att.counts.late;
+  const seesNotes = p.tabs.includes("notes");
+  // Picked from the notes the tab already holds — the same ones the reader
+  // may see on the notes board, and nothing when she may not read notes.
+  const strength = seesNotes ? latestStrength(p.notes) : null;
+  const action = seesNotes ? nextOpenAction(p.notes) : null;
+  const owner = action ? followUpOwnerText({ followUpOwner: action.followUpOwner, followUpName: action.followUpName, writtenByName: action.by }) : null;
+  const review = action ? followUpLabel(action.followUpOn, p.today, dayMonth) : null;
+  const mobile = mobileOf(p.phone);
+
+  const attendanceCard = (
+    <Card>
+      <CardHead title={tx(T.attendancePct)} sub={tx(T.thisSession)} action={tabLink("attendance")} />
+      {att.counted > 0 ? (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 2 }}>
+          <strong className="num" style={{ fontSize: 26 }}>{att.percent !== null ? `${att.percent}%` : "—"}</strong>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}>
+            {tx(T.presentOfDays(present, att.counted))}
+            {att.counts.half_day > 0 ? ` · ${tx(T.halfDays(att.counts.half_day))}` : ""}
+          </span>
+        </div>
+      ) : (
+        <p style={muted}>{tx(T.noAttendanceRecorded)}</p>
+      )}
+    </Card>
+  );
+
+  const learningCard = p.tabs.includes("marks") ? (
+    <Card>
+      <CardHead title={tx(T.learning)} action={tabLink("marks")} />
+      {latest ? (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <strong className="num" style={{ fontSize: 26 }}>{latest.percent !== null ? `${latest.percent}%` : "—"}</strong>
+            {latest.grade ? <strong style={{ fontSize: 17, color: latestLabel ? "var(--warnfg)" : undefined }}>{latest.grade}</strong> : null}
+          </span>
+          {/* Beside the figure, never a tab away: a blank paper makes it provisional. */}
+          <span style={{ fontSize: 13, color: latestLabel ? "var(--warnfg)" : "var(--mut)", fontWeight: latestLabel ? 600 : 400 }}>
+            {latestLabel ? `${latest.term} · ${tx(latestLabel)}` : latest.term}
+          </span>
+        </div>
+      ) : (
+        <p style={muted}>{tx(T.noMarks)}</p>
+      )}
+    </Card>
+  ) : null;
+
+  const strengthsCard = seesNotes ? (
+    <Card>
+      <CardHead title={tx(T.strengths)} />
+      {strength ? (
+        <Link href={`${notesHref}&note=${strength.id}`} className="tap" style={{ display: "block", marginTop: 10, padding: "12px 14px", borderRadius: 14, background: "var(--s2)", color: "var(--fg)" }}>
+          <span style={{ display: "block", fontSize: 15 }}>{excerpt(strength.body, 160)}</span>
+          <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{strength.by} · {dayMonth(strength.createdAt)}</span>
+        </Link>
+      ) : (
+        <p style={muted}>{tx(T.noObservation)}</p>
+      )}
+    </Card>
+  ) : null;
+
+  const supportCard = seesNotes ? (
+    <Card>
+      <CardHead title={tx(T.support)} />
+      {action ? (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <span style={{ fontSize: 15 }}>{excerpt(action.body, 160)}</span>
+          <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {owner ? <Pill tone="mut" icon="user">{tx(T.supportOwner(tx(owner)))}</Pill> : null}
+            {review ? <Pill tone={review.tone} icon="flag">{tx(T.supportReview(tx(review.text)))}</Pill> : null}
+          </span>
+          <span>
+            <Btn variant="soft" icon="message" href={`${notesHref}&note=${action.id}`}>{tx(p.canAddNote ? T.addUpdate : T.openNote)}</Btn>
+          </span>
+        </div>
+      ) : (
+        <p style={muted}>{tx(T.noOpenSupport)}</p>
+      )}
+    </Card>
+  ) : null;
+
+  const contact: [Pair, React.ReactNode][] = [
+    [T.father, p.father],
+    [T.mother, p.mother],
+    [T.phone, p.phone ? (mobile ? <a href={`tel:${mobile}`} className="num">{p.phone}</a> : p.phone) : null],
+  ];
+
+  const feeCard = !p.tabs.includes("fees") || feesUnavailable ? null : feesLoading ? (
+    <Card>
+      <div role="status" aria-busy="true" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <span className="sr">{tx(T.loadingFees)}</span>
+        <Skel w={120} h={16} />
+        <Skel w="70%" h={26} />
+      </div>
+    </Card>
+  ) : p.money ? (
+    <Card>
+      <CardHead title={tx(T.feeSummary)} action={tabLink("fees")} />
+      <div style={{ marginTop: 12 }}>
+        <Grid cols={3}>
+          <Stat
+            label={tx(T.pendingToday)}
+            value={rupees(p.money.pendingToday)}
+            tone={p.money.pendingToday > 0 ? "var(--bad)" : undefined}
+            sub={p.money.lateFee > 0 ? `${tx(T.lateFee)} ${rupees(p.money.lateFee)} · ${tx(T.lateFeeApart)}` : undefined}
+          />
+          <Stat label={tx(T.notDueYet)} value={rupees(p.money.notDueYet)} />
+          <Stat label={tx(T.paidYear)} value={rupees(p.money.paid)} tone="var(--ok)" sub={tx(T.yearPaidPct(p.money.percent))} />
+        </Grid>
+      </div>
+    </Card>
+  ) : (
+    <Card><p style={{ margin: 0, color: "var(--mut)" }}>{tx(T.noFeeRecord)}</p></Card>
+  );
+
+  return (
+    <>
+      <Grid cols={2}>
+        {attendanceCard}
+        {learningCard}
+        {strengthsCard}
+        {supportCard}
+      </Grid>
+      <Card>
+        <CardHead title={tx(T.familyContact)} action={tabLink("family")} />
+        <dl style={{ margin: "10px 0 0", display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
+          {contact.map(([label, value]) => (
+            <div key={label.en} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+              <dt style={{ fontSize: 12, color: "var(--mut)", fontWeight: 600 }}>{tx(label)}</dt>
+              <dd style={{ margin: 0, fontWeight: 600, overflowWrap: "anywhere" }}>{value || "—"}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+      {feeCard}
     </>
   );
 }

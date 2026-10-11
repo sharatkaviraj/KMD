@@ -13,7 +13,7 @@ import {
   type MarkStatus,
 } from "@/vx/screens/admin/logic";
 import { loadStudentSchool } from "@/vx/screens/admin/data";
-import { notesForStudentTab } from "@/vx/screens/admin/notes-tab";
+import { canWriteNotes, notesForStudentTab } from "@/vx/screens/admin/notes-tab";
 import { Student360, type Student360Fees } from "@/vx/screens/admin/student360";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
@@ -156,6 +156,8 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
             percent: t.totals.percent,
             grade: t.grade,
             missing: t.totals.missing,
+            // Every paper but the excused ones: what "provisional" is out of.
+            papers: t.totals.counted + t.totals.absent + t.totals.missing,
             scored: t.totals.scored,
             outOf: t.totals.outOf,
           })),
@@ -167,7 +169,19 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
             createdAt: d.createdAt,
             by: d.uploadedByName,
           })),
-          notes: notes.map((n) => ({ id: n.id, body: n.body, kindEn: n.kindLabelEn, kindHi: n.kindLabelHi, by: n.writtenByName, createdAt: n.createdAt })),
+          notes: notes.map((n) => ({
+            id: n.id,
+            body: n.body,
+            tags: n.tags,
+            status: n.status,
+            needsFollowUp: n.needsFollowUp,
+            followUpOn: n.followUpOn,
+            followUpOwner: n.followUpOwner,
+            followUpName: n.followUpName,
+            by: n.writtenByName,
+            createdAt: n.createdAt,
+          })),
+          today,
           history: school.history.map((h) => ({
             id: h.id,
             label: { en: h.labelEn, hi: h.labelHi },
@@ -180,6 +194,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           canCollect: can(staff, "fees:collect"),
           canManageDocuments: can(staff, "documents:manage"),
           canManageFees: can(staff, "fees:manage"),
+          canAddNote: tabs.includes("notes") && canWriteNotes(staff),
         }}
         fees={feesView}
       />

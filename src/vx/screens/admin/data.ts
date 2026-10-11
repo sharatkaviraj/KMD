@@ -3,13 +3,15 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
-import { can } from "@/platform/auth/permissions";
+import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { weekdayName } from "@/platform/dates";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
+import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
 import { classLabelMap } from "@/modules/academics/data/academics-repo";
-import { isSchoolOpen } from "@/modules/academics/domain/calendar";
+import { isSchoolOpen, timetableRuns } from "@/modules/academics/domain/calendar";
 import { rankOf } from "@/modules/academics/domain/class-order";
 import { termSummaries, type TermSummary } from "@/modules/assessments/data/reports-repo";
 import {
@@ -33,12 +35,16 @@ import { listStaff } from "@/modules/staff/data/staff-repo";
 import { absencesOn } from "@/modules/substitutions/data/absences-repo";
 import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitutions/data/arrange-day";
 import { currentBells, dutiesOn, liveOnly } from "@/modules/substitutions/data/cover-repo";
+import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
+import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 
 import { p } from "@/vx/text";
-import { boardSummary, remindable, sortBoard, type ClassBoardRow, type MarkStatus } from "@/vx/screens/admin/logic";
+import { boardSummary, remindable, sortBoard, supportAttention, type ClassBoardRow, type MarkStatus } from "@/vx/screens/admin/logic";
+import { scheduleNow, type CoverException, type ScheduleSlot, type ScheduleView } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import type { BoardData, InboxItem, SheetData, TimelineItem } from "@/vx/screens/admin/types";
+import { isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
 
 /**
  * Reads behind the admin core (P5). Every function here reads through the
@@ -98,7 +104,7 @@ async function remindersOn(day: string): Promise<Map<string, string>> {
 
 /* ------------------------------------------------------------ the board */
 
-export async function loadBoard(sessionLabel: string, day: string): Promise<BoardData & { unavailable: string[] }> {
+export async function loadBoard(sessionLabel: string, day: string): Promise<BoardData & { unavailable: string[]; timetableRuns: boolean }> {
   const missing: string[] = [];
   const [labels, registers, enrolments, responsible, staff, absences, reminders, calendar, rules, bells] = await Promise.all([
     classLabelMap(sessionLabel),
@@ -169,6 +175,8 @@ export async function loadBoard(sessionLabel: string, day: string): Promise<Boar
     rows: sortBoard(rows),
     halfDayCredit: rules?.halfDayCredit ?? 0.5,
     schoolOpen: calendar === null ? true : isSchoolOpen(day, calendar),
+    // Open is not the same as teaching: an exam or event day is open and runs no timetable.
+    timetableRuns: calendar === null ? true : timetableRuns(day, calendar),
     bells: (bells?.periods ?? []).map((period) => ({ index: period.index, starts: period.starts, ends: period.ends })),
     unavailable: missing,
   };
@@ -249,17 +257,152 @@ export type TodayFacts = {
   staffAway: number | null;
   cover: { needed: number; arranged: number } | null;
   timeline: TimelineItem[];
+  /** Who is scheduled to teach now and next; null when this reader has no `timetable:view` or it could not be read. */
+  schedule: ScheduleView | null;
+  scheduleFailed: boolean;
+  /** Today's teaching exceptions. `notMarked` is null when the school is closed or the board could not be read. */
+  exceptions: { notMarked: string[] | null; cover: CoverException[] | null };
+  /** Notes on children needing action; null for a reader without the school-wide notes board. */
+  support: { needsAction: number; due: number } | null;
   unavailable: string[];
 };
 
+type DaySlotRow = {
+  day: string;
+  period: number;
+  class_id: string;
+  class_label: string;
+  subject_code: string;
+  staff_profile_id: string;
+  teacher_short_name: string;
+  shared: boolean;
+  parallel: boolean;
+};
+
+/**
+ * Today's day block of the published timetable, every class: one read,
+ * bounded to the rows whose header could name this weekday (about a sixth of
+ * the version), then narrowed by `matchDayHeader()` — "Mon", "MONDAY" and
+ * "Monday " all count, "Monthly test" does not. Paged anyway: a sixth of a
+ * timetable is far under PostgREST's thousand-row cap, but "far under" is
+ * not a reason to read a truncated answer.
+ */
+async function slotsForDay(sessionLabel: string, day: string): Promise<ScheduleSlot[]> {
+  const version = await getPublishedVersion(sessionLabel);
+  if (!version) return [];
+  const stem = weekdayName(day).slice(0, 3).toLowerCase();
+  const supabase = await createClient();
+  const rows = await fetchAllRows<DaySlotRow>(
+    (from, to) =>
+      supabase
+        .from("timetable_slots")
+        .select("day, period, class_id, class_label, subject_code, staff_profile_id, teacher_short_name, shared, parallel")
+        .eq("version_id", version.id)
+        .ilike("day", `%${stem}%`)
+        .order("day")
+        .order("period")
+        .order("class_label")
+        .order("teacher_short_name")
+        .range(from, to)
+        .returns<DaySlotRow[]>(),
+    "the timetable",
+  );
+  const header = matchDayHeader([...new Set(rows.map((row) => row.day))], day);
+  if (!header) return [];
+  return rows
+    .filter((row) => row.day === header)
+    .map((row) => ({
+      period: row.period,
+      classId: row.class_id,
+      classLabel: row.class_label,
+      subjectCode: row.subject_code,
+      staffProfileId: row.staff_profile_id,
+      teacherShortName: row.teacher_short_name,
+      shared: row.shared,
+      parallel: row.parallel,
+    }));
+}
+
+type SupportRow = {
+  status: string;
+  needs_follow_up: boolean | null;
+  follow_up_on: string | null;
+  tags: string[] | null;
+  visibility: string | null;
+  written_by: string;
+  note_kinds: { code: string } | null;
+};
+
+/**
+ * The notes board's "Need action" figure for a school-wide reader: open and
+ * working notes this session, minus other people's private ones (the same
+ * rule as `canSeeNote()`). A count only — no child is named on Today.
+ */
+async function supportFor(staff: CurrentStaff, sessionLabel: string, today: string): Promise<{ needsAction: number; due: number }> {
+  const admin = createAdminClient();
+  const rows = await fetchAllRows<SupportRow>(
+    (from, to) =>
+      admin
+        .from("notes")
+        .select("status, needs_follow_up, follow_up_on, tags, visibility, written_by, note_kinds(code)")
+        .eq("session_label", sessionLabel)
+        .neq("status", "done")
+        .order("created_at")
+        .order("id")
+        .range(from, to)
+        .returns<SupportRow[]>(),
+    "the notes",
+  );
+  return supportAttention(
+    rows
+      .filter((row) => row.written_by === staff.id || row.visibility !== "private")
+      .map((row) => {
+        const tags = (row.tags ?? []).filter(isTag);
+        return {
+          status: row.status === "working" || row.status === "done" ? row.status : "open",
+          needsFollowUp: Boolean(row.needs_follow_up),
+          followUpOn: row.follow_up_on,
+          tags: tags.length ? tags : tagsFromKind(row.note_kinds?.code),
+        };
+      }),
+    today,
+  );
+}
+
 export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: string, nowMinutes: number): Promise<TodayFacts> {
   const missing: string[] = [];
-  const [board, absences, duties] = await Promise.all([
+  const seesTimetable = can(staff, "timetable:view");
+  // The support count is the school-wide board's; a narrower reader's board is her own classes.
+  const seesSupport = can(staff, "notes:view") && (readsEveryClass(staff) || can(staff, "attendance:correct"));
+  const seesCover = can(staff, "substitutions:view");
+  const [board, absences, duties, slots, support, people] = await Promise.all([
     guard(missing, "board", () => loadBoard(sessionLabel, day)),
     guard(missing, "absences", () => absencesOn(sessionLabel, day)),
-    can(staff, "substitutions:view") ? guard(missing, "cover", async () => liveOnly(await dutiesOn(sessionLabel, day))) : Promise.resolve(null),
+    seesCover ? guard(missing, "cover", async () => liveOnly(await dutiesOn(sessionLabel, day))) : Promise.resolve(null),
+    seesTimetable ? guard(missing, "timetable", () => slotsForDay(sessionLabel, day)) : Promise.resolve(null),
+    seesSupport ? guard(missing, "notes", () => supportFor(staff, sessionLabel, day)) : Promise.resolve(null),
+    // Names for the scheduled teachers and whoever covers, read beside the rest rather than after it.
+    seesTimetable || seesCover ? guard(missing, "staff", () => listStaff()) : Promise.resolve(null),
   ]);
   if (board) missing.push(...board.unavailable);
+
+  const nameOf = new Map((people ?? []).map((person) => [person.id, person.displayName]));
+  const awayName = new Map((absences ?? []).map((row) => [row.staffProfileId, row.staffName]));
+
+  const schedule =
+    seesTimetable && board && slots
+      ? scheduleNow({
+          bells: board.bells,
+          nowMinutes,
+          schoolOpen: board.schoolOpen,
+          timetableRuns: board.timetableRuns,
+          slots,
+          duties: duties ?? [],
+          absences: absences ?? [],
+          names: nameOf,
+          classRank: new Map(board.rows.map((row) => [row.classId, row.rank])),
+        })
+      : null;
 
   const toMin = (hhmm: string) => {
     const [h, m] = hhmm.split(":").map(Number);
@@ -279,10 +422,6 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
       sub: T.notMarkedYet(notMarked),
       state: notMarked > 0 && toMin(first.ends) <= nowMinutes ? "alert" : stateAt(toMin(first.ends)),
     });
-    const nameOf = new Map<string, string>();
-    if ((duties ?? []).some((duty) => duty.coveringStaffId)) {
-      for (const person of (await guard(missing, "staff", () => listStaff())) ?? []) nameOf.set(person.id, person.displayName);
-    }
     for (const duty of duties ?? []) {
       const bell = bells.find((b) => b.index === duty.period);
       if (!bell) continue;
@@ -302,11 +441,34 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
     if (nextIndex >= 0) timeline[nextIndex] = { ...timeline[nextIndex], state: "now" };
   }
 
+  const coverExceptions: CoverException[] | null =
+    duties === null
+      ? null
+      : [...duties]
+          .sort((a, b) => a.period - b.period || (a.status === b.status ? 0 : a.status === "needs_help" ? -1 : 1))
+          .map((duty) => ({
+            period: duty.period,
+            time: bells.find((b) => b.index === duty.period)?.starts ?? null,
+            classes: duty.classLabels.join(", "),
+            subject: duty.subjectCode,
+            away: duty.absentStaffIds.map((id) => awayName.get(id) ?? nameOf.get(id) ?? "—").join(", "),
+            state: duty.status === "needs_help" ? "needed" : "covered",
+            by: duty.coveringStaffId ? (nameOf.get(duty.coveringStaffId) ?? "—") : null,
+          }));
+
   return {
     board,
     staffAway: absences === null ? null : new Set(absences.map((row) => row.staffProfileId)).size,
     cover: duties === null ? null : { needed: duties.length, arranged: duties.filter((duty) => duty.status === "assigned").length },
     timeline,
+    schedule,
+    scheduleFailed: seesTimetable && schedule === null,
+    exceptions: {
+      // An unsaved register is "Not marked", never present (RULES C).
+      notMarked: board && board.schoolOpen ? board.rows.filter((row) => !row.recorded).map((row) => row.label) : null,
+      cover: coverExceptions,
+    },
+    support,
     unavailable: [...new Set(missing)],
   };
 }

@@ -28,6 +28,13 @@ export type NotesFocus =
   | { kind: "student"; studentId: string; name: string; classLabel: string; notes: BoardNote[]; plans: SupportPlan[] }
   | null;
 
+/**
+ * `?student=` on the board: the list shows that one child's notes until the
+ * reader deliberately asks for the whole school. `name` is null only when the
+ * reader may not read the child's name.
+ */
+export type NotesScope = { studentId: string; name: string | null; classLabel: string | null } | null;
+
 export type NotesProps = {
   notes: BoardNote[];
   plans: SupportPlan[];
@@ -36,14 +43,30 @@ export type NotesProps = {
   today: string;
   school: string;
   focus: NotesFocus;
+  scope?: NotesScope;
   initialSheet: "add" | null;
   initialStep: AddStep;
   initialStudent: string | null;
 };
 
-function Detail({ focus, viewer, today, school, base }: { focus: NonNullable<NotesFocus>; viewer: ClientViewer; today: string; school: string; base: string }) {
+/** The scope line on a board narrowed to one child, with the deliberate way out. */
+function ScopeBar({ scope, className }: { scope: NonNullable<NotesScope>; className?: string }) {
+  const { tx } = useVx();
+  const who = scope.name ? (scope.classLabel ? `${scope.name} · ${scope.classLabel}` : scope.name) : null;
+  return (
+    <div className={className} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderRadius: 14, background: "var(--accs)" }}>
+      <Ic n="user" size={16} />
+      <strong style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
+        {who ? tx(p(`Showing notes for ${who}`, `${who} के नोट्स दिखाए जा रहे हैं`)) : tx(p("Showing notes for one child", "एक बच्चे के नोट्स दिखाए जा रहे हैं"))}
+      </strong>
+      <Link href="/notes" style={{ fontSize: 14, fontWeight: 600, color: "var(--accfg)" }}>{tx(p("Show all school notes", "स्कूल के सभी नोट्स दिखाएँ"))}</Link>
+    </div>
+  );
+}
+
+function Detail({ focus, viewer, today, school, base, home }: { focus: NonNullable<NotesFocus>; viewer: ClientViewer; today: string; school: string; base: string; home: string }) {
   const router = useRouter();
-  const close = () => router.push(base, { scroll: false });
+  const close = () => router.push(home, { scroll: false });
   const body =
     focus.kind === "note" ? (
       <NoteDetail note={focus.note} replies={focus.replies} viewer={viewer} today={today} school={school} base={base} onClose={close} />
@@ -64,7 +87,29 @@ function focusTitle(focus: NonNullable<NotesFocus>) {
   return p("Child's notes", "बच्चे के नोट्स");
 }
 
-function Shell({ title, crumb, base, back, props, children, add }: { title: Pair; crumb: string; base: string; back: string | undefined; props: NotesProps; children: ReactNode; add: ReactNode }) {
+function Shell({
+  title,
+  crumb,
+  base,
+  home = base,
+  scope = null,
+  back,
+  props,
+  children,
+  add,
+}: {
+  title: Pair;
+  crumb: string;
+  base: string;
+  /** Where closing a note returns to: the board, or the board scoped to one child. */
+  home?: string;
+  /** The board's one-child scope; only the board has one. */
+  scope?: NotesScope;
+  back: string | undefined;
+  props: NotesProps;
+  children: ReactNode;
+  add: ReactNode;
+}) {
   const { tx } = useVx();
   const [sheet, setSheet] = useState<"add" | null>(props.initialSheet);
   const focus = props.focus;
@@ -83,9 +128,15 @@ function Shell({ title, crumb, base, back, props, children, add }: { title: Pair
         crumb={crumb}
         title={<Bi en={title.en} hi={title.hi} block={false} />}
         mTitle={ftitle ? tx(ftitle) : tx(title)}
-        mBack={focus ? base : back}
+        mBack={focus ? (focus.kind === "student" ? base : home) : back}
         actions={props.viewer.canWrite ? <Btn variant="pri" icon="plus" onClick={openAdd}>{tx(p("Add a note", "नोट जोड़ें"))}</Btn> : undefined}
       />
+      {/* On a phone the list is hidden behind an open note, so the scope says itself here too. */}
+      {focus && scope ? (
+        <div className="only-m" style={{ padding: "12px 16px 0" }}>
+          <ScopeBar scope={scope} />
+        </div>
+      ) : null}
       <Split
         detailWidth={460}
         list={
@@ -93,7 +144,7 @@ function Shell({ title, crumb, base, back, props, children, add }: { title: Pair
             <Section>{children}</Section>
           </div>
         }
-        detail={focus ? <Detail focus={focus} viewer={props.viewer} today={props.today} school={props.school} base={base} /> : undefined}
+        detail={focus ? <Detail focus={focus} viewer={props.viewer} today={props.today} school={props.school} base={base} home={home} /> : undefined}
       />
       {props.viewer.canWrite && !focus ? (
         <button type="button" className="tap n-fab only-m" onClick={openAdd}>
@@ -106,6 +157,8 @@ function Shell({ title, crumb, base, back, props, children, add }: { title: Pair
           open={sheet === "add"}
           onClose={closeAdd}
           kids={props.kids}
+          notes={props.notes}
+          base={base}
           initialStudent={props.initialStudent}
           initialStep={props.initialStep}
           today={props.today}
@@ -190,23 +243,33 @@ export function TeachNotes(props: NotesProps) {
 export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: string; label: string }[]; teachers: { id: string; name: string }[] }) {
   const { tx } = useVx();
   const base = "/notes";
+  // Scoped to one child (`?student=`), the board opens on all of her notes
+  // and every link keeps the scope; only "Show all school notes" drops it.
+  const scope = props.scope ?? null;
+  const studentId = scope?.studentId ?? null;
+  const home = studentId ? `${base}?student=${studentId}` : base;
+  const at = (param: string) => (studentId ? `${base}?student=${studentId}&${param}` : `${base}?${param}`);
+  const defaultTab: BoardTab = studentId ? "all" : "action";
   const [tab, setTabState] = useState<BoardTab>(props.tab);
   const [classId, setClassId] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [tag, setTag] = useState<NoteTag | null>(null);
   const setTab = (t: BoardTab) => {
     setTabState(t);
-    replaceParams({ tab: t === "action" ? null : t });
+    replaceParams({ tab: t === defaultTab ? null : t });
   };
-  const running = props.plans.filter((pl) => pl.status === "active" || pl.status === "draft");
-  const kpis = boardKpis(props.notes, running.length, props.today);
-  const mix = tagMix(props.notes);
+  const pool = studentId ? filterBoard(props.notes, { tab: "all", studentId }, props.today) : props.notes;
+  const plans = studentId ? props.plans.filter((pl) => pl.studentId === studentId) : props.plans;
+  const running = plans.filter((pl) => pl.status === "active" || pl.status === "draft");
+  const kpis = boardKpis(pool, running.length, props.today);
+  const mix = tagMix(pool);
   const mixTotal = mix.reduce((s, m) => s + m.count, 0);
-  const shown = filterBoard(props.notes, { tab, classId: classId || null, teacherId: teacherId || null, tag }, props.today);
+  const shown = filterBoard(props.notes, { tab, classId: classId || null, teacherId: teacherId || null, tag, studentId }, props.today);
   const selectedId = props.focus?.kind === "note" ? props.focus.note.id : null;
 
   return (
-    <Shell title={p("Notes", "नोट्स")} crumb={tx(p("Children", "बच्चे"))} base={base} back={undefined} props={props} add={null}>
+    <Shell title={p("Notes", "नोट्स")} crumb={tx(p("Children", "बच्चे"))} base={base} home={home} scope={scope} back={undefined} props={props} add={null}>
+      {scope ? <ScopeBar scope={scope} /> : null}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
         {[
           { k: "action" as BoardTab, n: kpis.needsAction, t: p("Need action", "कार्रवाई चाहिए"), c: "var(--bad)" },
@@ -239,10 +302,12 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
       ) : null}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Select aria-label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} style={{ width: 150 }}>
-          <option value="">{tx(p("Every class", "सब कक्षाएँ"))}</option>
-          {props.classes.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-        </Select>
+        {studentId ? null : (
+          <Select aria-label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} style={{ width: 150 }}>
+            <option value="">{tx(p("Every class", "सब कक्षाएँ"))}</option>
+            {props.classes.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </Select>
+        )}
         <Select aria-label="Teacher" value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={{ width: 190 }}>
           <option value="">{tx(p("Every teacher", "सब शिक्षक"))}</option>
           {props.teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -256,16 +321,16 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
       </div>
 
       {tab === "plans" ? (
-        running.length === 0 && props.plans.length === 0 ? (
+        running.length === 0 && plans.length === 0 ? (
           <Card><EmptyState icon="clipboard" title={tx(p("No support plans yet", "अभी कोई सहायता योजना नहीं"))} /></Card>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {props.plans
+            {plans
               .filter((pl) => (classId ? pl.classId === classId : true))
               .map((pl) => {
                 const done = pl.steps.filter((s) => s.done).length;
                 return (
-                  <Link key={pl.id} href={`${base}?plan=${pl.id}`} scroll={false} className="tap n-card">
+                  <Link key={pl.id} href={at(`plan=${pl.id}`)} scroll={false} className="tap n-card">
                     <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                       <strong>{pl.studentName} · {pl.classLabel}</strong>
                       <span style={{ fontSize: 13, color: "var(--mut)" }}>{done}/{pl.steps.length}</span>
@@ -279,12 +344,21 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
         )
       ) : shown.length === 0 ? (
         <Card>
-          <EmptyState icon="smile" title={tab === "action" ? tx(p("Nothing needs action", "कुछ भी बाकी नहीं")) : tx(p("No notes match", "कोई नोट नहीं मिला"))} />
+          <EmptyState
+            icon="smile"
+            title={
+              tab === "action"
+                ? tx(p("Nothing needs action", "कुछ भी बाकी नहीं"))
+                : studentId && pool.length === 0
+                  ? tx(p("No notes on this child yet", "इस बच्चे पर अभी कोई नोट नहीं"))
+                  : tx(p("No notes match", "कोई नोट नहीं मिला"))
+            }
+          />
         </Card>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {shown.map((n) => (
-            <NoteCard key={n.id} note={n} today={props.today} href={`${base}?note=${n.id}`} selected={n.id === selectedId} />
+            <NoteCard key={n.id} note={n} today={props.today} href={at(`note=${n.id}`)} selected={n.id === selectedId} />
           ))}
         </div>
       )}

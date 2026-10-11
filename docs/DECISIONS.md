@@ -1,5 +1,24 @@
 # Decisions
 
+## Whole-student improvement notes — 2026-10-11
+
+The 11 October notes ("VPPS One: practical improvements for the whole student") chose approach 2: rebalance the existing modules around roles and students, no new suite, no student score. PRs 73 and 74.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-249 | The payment form always gets its column's full width; "Where it goes" sits beside it only from a 700px column | Two nested grids (a 392px directory, a fixed 312px preview) left the form as the only flexible track: ~104px at a 900px container, ~228px at an 1100px window with the sidebar. Measured after: 541px at 1100px (preview below), 553px beside a 312px preview at 1440px |
+| D-250 | Review is a step in the right pane, not a sheet, and its button says "Confirm and save payment" | The notes asked for a genuine review screen where nothing is saved yet and Back keeps entries. Back was checked to keep ₹7,000 |
+| D-251 | A save with no answer is "could not confirm", never "nothing was posted"; the desk and the server both ask the database by `client_request_id` before another try | The desk caught every thrown save as "Not saved. Nothing was posted." although a lost response may follow a posted payment, and the classic action throws "Payment saved, but receipt details are missing" after posting. The same request id is kept until a save is confirmed, so a retry returns the earlier receipt instead of writing a second (`receipts_student_client_request_id_unique`) |
+| D-252 | Overdue (due before today), Due today and Upcoming are separate figures that add up to "Remaining this year"; Student 360 and the Students list say "Overdue" and "Due today & upcoming" | The desk counted an installment due today as "Not due yet". The fee app's "pending today" is installments whose status is overdue, so the honest word is Overdue. Year Clear keeps the fee app's `isYearCleared` rule |
+| D-253 | The Students list opens in a School view for everyone; Fees is a view for `fees:view`, remembered per person in a cookie tied to the staff id | The list was finance-led for every reader. A cookie lets the server render the right view first; tying it to the staff id stops a shared office computer handing one person's choice to the next. `staff_ui_preferences` had no column for it, and a migration was not worth one preference |
+| D-254 | A row shows at most three factual badges, then "+N details"; concessions never headline the School view, money badges never reach a reader without `fees:view` | The notes: facts with a period and source, never "weak" or a risk score; family concession reasons are office context, not a teacher-facing label |
+| D-255 | An incomplete term is labelled "Provisional · N paper(s) not entered" beside its percentage and grade | `totalsFor()` leaves unentered papers out of both halves, so the percentage is of the entered papers only. Showing it as a final aggregate overstated it; the label says what it is without hiding the figure |
+| D-256 | `/notes?student=` lists only that child's notes; all-school is a deliberate link | `student` only set the detail pane, so a profile's "All notes" opened the whole school's list. Scoping narrows what the reader could already see and widens nothing |
+| D-257 | The old notes reader names its author embed | Notes gained two more foreign keys to `staff_profiles` on 10 October, which made `author:staff_profiles(...)` ambiguous and emptied the profile's Notes tab. The embed test now also checks `!inner` embeds |
+| D-258 | The admin Today leads with "Scheduled now", then teaching exceptions, support, a compact approvals count and only then money | The notes: order Today around the school day. "Scheduled now" is from the published timetable with today's cover applied and says it is not a record of delivery. Shared, parallel and combined slots (ELGA) show once with every teacher |
+| D-259 | The fee collector is not given `fees:collect` | Posting needs the fee app's `payments:write`, which the fee database refuses to `fee_collector` (D-191). Granting `fees:collect` alone would show a Payment Desk where every save fails, and would open day close and the accounts book. A product decision for Janmejay |
+| D-260 | Not built from the notes, on purpose: a marks finalisation change, bulk student-data approval, family-contact outcome logging | Marks already distinguish blank, value, absent and exempt, and the exam office reopens; student-data review already shows previous → new value, sender and staleness (D-164). The notes list these as decisions to make before design (§10), so they wait for those answers |
+
 ## Attendance corrections without approval — 2026-10-11
 
 | Decision | Outcome | Evidence and reason |

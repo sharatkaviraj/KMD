@@ -2,42 +2,41 @@ import "server-only";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { ownClassIds } from "@/modules/attendance/data/teaching-repo";
-import { notesForStudent } from "@/modules/notes/data/notes-repo";
-import { canReadNote } from "@/modules/notes/domain/notes";
+import { noteViewer, visibleNotes } from "@/vx/screens/notes/data";
+import type { BoardNote } from "@/vx/screens/notes/domain/notes";
+
+export { canWriteNotes } from "@/vx/screens/notes/data";
 
 /**
- * The Student 360 notes tab's only data access, kept in one small function on
- * purpose: the full notes module is being built separately, and when it lands
- * this is the single place the tab is re-pointed at it.
+ * The Student 360 notes' only data access, kept in one small function on
+ * purpose: the tab, the overview's strengths and support cards, and the
+ * scoped notes board (`/notes?student=`) must show the same notes.
  *
- * It reads the existing `vppsone.notes` through the notes repository and
- * applies the same `canReadNote` rule the teacher's student page does.
+ * So it reads them the way the board does — `visibleNotes`, filtered by
+ * `canSeeNote()`, the same rule as the `notes_select_scoped` policy — narrowed
+ * to one child. It used to read through the older notes repository, whose
+ * staff embed went ambiguous when notes gained a second and third foreign key
+ * to `staff_profiles`; that read failed and the tab showed no notes at all.
  */
-export type NoteForTab = {
-  id: string;
-  body: string;
-  kindLabelEn: string;
-  kindLabelHi: string;
-  tone: string;
-  writtenByName: string;
-  createdAt: string;
-};
+export type NoteForTab = Pick<
+  BoardNote,
+  "id" | "body" | "tags" | "status" | "needsFollowUp" | "followUpOn" | "followUpOwner" | "followUpName" | "writtenByName" | "createdAt"
+>;
 
 export async function notesForStudentTab(staff: CurrentStaff, studentId: string, sessionLabel: string): Promise<NoteForTab[]> {
   if (!can(staff, "notes:view")) return [];
-  const [notes, own] = await Promise.all([notesForStudent(studentId, sessionLabel), ownClassIds(staff.id, sessionLabel)]);
-  return notes
-    .filter((note) =>
-      canReadNote({ hasNotesView: true, seesEverything: can(staff, "attendance:correct"), ownClassIds: own, note, staffId: staff.id }),
-    )
-    .map((note) => ({
-      id: note.id,
-      body: note.body,
-      kindLabelEn: note.kindLabelEn,
-      kindLabelHi: note.kindLabelHi,
-      tone: note.tone,
-      writtenByName: note.writtenByName,
-      createdAt: note.createdAt,
-    }));
+  const viewer = await noteViewer(staff, sessionLabel);
+  const notes = await visibleNotes(viewer, sessionLabel, { studentId, limit: 100 });
+  return notes.map((note) => ({
+    id: note.id,
+    body: note.body,
+    tags: note.tags,
+    status: note.status,
+    needsFollowUp: note.needsFollowUp,
+    followUpOn: note.followUpOn,
+    followUpOwner: note.followUpOwner,
+    followUpName: note.followUpName,
+    writtenByName: note.writtenByName,
+    createdAt: note.createdAt,
+  }));
 }

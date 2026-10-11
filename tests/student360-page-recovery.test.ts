@@ -6,7 +6,7 @@ vi.mock("@/platform/auth/current-staff", () => ({ requirePermission: async () =>
 vi.mock("@/platform/auth/permissions", () => ({ can: (_staff: unknown, permission: string) => permission === "fees:view" ? state.allowed : false }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "QA" }));
 vi.mock("@/modules/students-fees/vx/admin-students", () => ({ studentFees: state.fees }));
-vi.mock("@/vx/screens/admin/notes-tab", () => ({ notesForStudentTab: async () => [] }));
+vi.mock("@/vx/screens/admin/notes-tab", () => ({ notesForStudentTab: async () => [], canWriteNotes: () => false }));
 vi.mock("@/vx/screens/admin/data", () => ({ loadStudentSchool: async () => ({
   card: { fullName: "QA Child", admissionNo: "QA-1", status: "active", fatherName: null, motherName: null, guardianPhone: null, primaryPhone: null },
   classLabel: "QA Class", rollNo: "1", closedDays: [], attendance: [], attendancePercent: 90, attendanceCounted: 10, terms: [], documents: [], history: [],

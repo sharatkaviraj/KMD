@@ -228,10 +228,15 @@ export function needsAction(note: BoardNote, today: string): boolean {
 
 export type BoardTab = "action" | "followups" | "plans" | "all";
 
-export type BoardFilter = { tab: BoardTab; classId?: string | null; teacherId?: string | null; tag?: NoteTag | null };
+/**
+ * `studentId` narrows the board to one child (`/notes?student=`). It only
+ * narrows: the notes it filters are the ones this reader may already see.
+ */
+export type BoardFilter = { tab: BoardTab; classId?: string | null; teacherId?: string | null; tag?: NoteTag | null; studentId?: string | null };
 
 export function filterBoard(notes: readonly BoardNote[], filter: BoardFilter, today: string): BoardNote[] {
   return notes
+    .filter((n) => (filter.studentId ? n.studentId === filter.studentId : true))
     .filter((n) => (filter.classId ? n.classId === filter.classId : true))
     .filter((n) => (filter.teacherId ? n.writtenBy === filter.teacherId || n.followUpStaffId === filter.teacherId : true))
     .filter((n) => (filter.tag ? n.tags.includes(filter.tag) : true))
@@ -264,6 +269,46 @@ export function boardKpis(
 
 export function tagMix(notes: readonly BoardNote[]): { tag: NoteTag; count: number }[] {
   return NOTE_TAGS.map((tag) => ({ tag, count: notes.filter((n) => n.tags.includes(tag)).length })).filter((x) => x.count > 0);
+}
+
+/* ------------------------------------------------- one child, at a glance */
+
+type GlanceNote = Pick<BoardNote, "tags" | "createdAt">;
+
+/**
+ * The child's latest strength (Student 360 overview): the newest note tagged
+ * talent — an old "praise" note reads as talent through `tagsFromKind`. A note
+ * that is also about health or family is never shown there: it is not a
+ * strength to put on the first screen. Null means nobody has written one,
+ * which says nothing about the child.
+ */
+export function latestStrength<N extends GlanceNote>(notes: readonly N[]): N | null {
+  let best: N | null = null;
+  for (const n of notes) {
+    if (!n.tags.includes("talent")) continue;
+    if (n.tags.includes("health") || n.tags.includes("family")) continue;
+    if (!best || n.createdAt > best.createdAt) best = n;
+  }
+  return best;
+}
+
+/**
+ * The child's next open action: a note still open or being worked on that
+ * asks for a follow-up. The earliest review date comes first (the most
+ * overdue), and among equals the newest note.
+ */
+export function nextOpenAction<N extends GlanceNote & Pick<BoardNote, "status" | "needsFollowUp" | "followUpOn">>(notes: readonly N[]): N | null {
+  const open = notes.filter((n) => n.status !== "done" && n.needsFollowUp);
+  open.sort((a, b) => (a.followUpOn ?? "9999").localeCompare(b.followUpOn ?? "9999") || b.createdAt.localeCompare(a.createdAt));
+  return open[0] ?? null;
+}
+
+/** Who follows a note up, in words: the person named, else the role asked. */
+export function followUpOwnerText(note: Pick<BoardNote, "followUpOwner" | "followUpName" | "writtenByName">): Pair | null {
+  if (note.followUpName) return p(note.followUpName);
+  if (note.followUpOwner === "me") return p(note.writtenByName);
+  const owner = FOLLOW_OWNER.find((o) => o.key === note.followUpOwner);
+  return owner ? owner.text : null;
 }
 
 /** The teacher's header: due soon (within two days), open, done. */

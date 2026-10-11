@@ -1,24 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 
-import { initials, rupees } from "@/vx/format";
+import { dateLabel, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
-import { ChipRow, SearchBox, Select } from "@/vx/ui/controls";
+import { ChipRow, SearchBox, Seg, Select } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
 import { IntentLink } from "@/vx/ui/intent-link";
 import { DataList, Section, TopBar, type Column } from "@/vx/ui/page";
-import { Avatar, Btn, Card, EmptyState } from "@/vx/ui/primitives";
+import { Avatar, Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
 import { mobileOf, studentsHref, toCsv, type StudentSegment } from "@/vx/screens/admin/logic";
+import {
+  attendanceFigure,
+  savedScroll,
+  scrollToRestore,
+  studentBadges,
+  studentViewCookieValue,
+  STUDENT_VIEW_COOKIE,
+  STUDENTS_SCROLL_KEY,
+  type StudentBadge,
+  type StudentFacts,
+  type StudentView,
+} from "@/vx/screens/admin/students-logic";
+import { ST } from "@/vx/screens/admin/students-text";
 import { T } from "@/vx/screens/admin/text";
 
 /*
- * Students (design F05/D01). The URL is the state — search, class, chip and
- * page are all query parameters, as the directory always was, so Back and a
- * pasted link keep working. Money columns appear only for `fees:view`.
+ * Students (design F05/D01). The URL is the state — search, class, view, chip
+ * and page are all query parameters, as the directory always was, so Back and
+ * a pasted link keep working. Two views: School for everyone, Fees (the money
+ * columns and chips) only for `fees:view`.
+ *
+ * A whole row opens the child's profile; the checkbox, call, WhatsApp, Collect
+ * and "+N details" keep their own clicks. The name stays a real link, so the
+ * keyboard and a screen reader reach the profile the same way. Opening a
+ * profile remembers where the list was scrolled, and coming back to the same
+ * list puts it there again.
  */
+
+/** Clicks that land on one of these belong to that control, not to the row. */
+const OWN_CLICK = "a, button, input, select, textarea, label, summary, [role='button'], [data-row-stop]";
+
+const YEAR_SECONDS = 60 * 60 * 24 * 365;
+
+function currentUrl(): string {
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+function rememberScroll() {
+  try {
+    window.sessionStorage.setItem(STUDENTS_SCROLL_KEY, savedScroll(currentUrl(), window.scrollY, Date.now()));
+  } catch {
+    // Private mode or storage full: Back still works, it just starts at the top.
+  }
+}
 
 export type StudentListRow = {
   id: string;
@@ -30,6 +68,8 @@ export type StudentListRow = {
   parent: string | null;
   phone: string | null;
   money: { pendingToday: number; notDueYet: number; lateFee: number; percent: number } | null;
+  /** What the badges are made from. Money facts are empty without `fees:view`. */
+  facts: StudentFacts;
 };
 
 export type StudentsProps = {
@@ -39,10 +79,16 @@ export type StudentsProps = {
   window: { page: number; pages: number; firstRow: number; lastRow: number };
   q: string;
   classId: string | null;
+  /** Always "school" without `fees:view`. */
+  view: StudentView;
   seg: StudentSegment;
   classes: { id: string; label: string }[];
   counts: Partial<Record<StudentSegment, number | null>> | null;
   seesMoney: boolean;
+  /** False when the attendance read failed: the column says "—", not "No attendance yet". */
+  attendanceRead: boolean;
+  /** The reader's staff id, which keys the remembered view to them. */
+  viewKey: string;
   canCollect: boolean;
   canAdmit: boolean;
   canRemind: boolean;
@@ -57,13 +103,169 @@ const SEGS: { key: StudentSegment; label: keyof typeof T }[] = [
   { key: "paid", label: "segPaid" },
 ];
 
+type Tx = ReturnType<typeof useVx>["tx"];
+
+function badgeLabel(badge: StudentBadge, tx: Tx): string {
+  switch (badge.kind) {
+    case "attendance":
+      return tx(ST.bAttendance(badge.present, badge.counted));
+    case "siblings":
+      return tx(ST.bSiblings(badge.count));
+    case "new":
+      return tx(ST.bNew);
+    case "route":
+      return tx(ST.bRoute(badge.route));
+    case "yearClear":
+      return tx(ST.bYearClear);
+    case "emi":
+      return tx(badge.status === "behind" ? ST.bEmiBehind : badge.status === "due" ? ST.bEmiDue : badge.status === "completed" ? ST.bEmiDone : ST.bEmi);
+    case "concession":
+      return tx(ST.bConcession(badge.label));
+  }
+}
+
+/** The period, reason and source behind a badge. */
+function badgeDetail(badge: StudentBadge, session: string, tx: Tx): string {
+  switch (badge.kind) {
+    case "attendance":
+      return tx(ST.dAttendance(session, badge.pct));
+    case "siblings":
+      return tx(ST.dSiblings);
+    case "new":
+      return tx(ST.dNew(session));
+    case "route":
+      return tx(ST.dRoute);
+    case "yearClear":
+      return tx(ST.dYearClear(session));
+    case "emi": {
+      const line = tx(ST.dEmi(rupees(badge.monthly), badge.nextDue ? dateLabel(badge.nextDue) : null));
+      return badge.status === "behind" ? `${line} · ${tx(ST.dEmiBehind)}` : line;
+    }
+    case "concession":
+      return tx(ST.dConcession);
+  }
+}
+
+/** Up to three factual badges, then "+N details" that opens the rest in place. */
+function Badges({ shown, more, session, open, onToggle }: { shown: StudentBadge[]; more: StudentBadge[]; session: string; open: boolean; onToggle: () => void }) {
+  const { tx } = useVx();
+  if (shown.length === 0 && more.length === 0) return null;
+  return (
+    <span style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+      <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        {shown.map((badge, i) => (
+          <span key={`${badge.kind}-${i}`} title={badgeDetail(badge, session, tx)} style={{ display: "inline-flex" }}>
+            <Pill tone={badge.tone} style={{ fontSize: 11.5 }}>{badgeLabel(badge, tx)}</Pill>
+          </span>
+        ))}
+        {more.length > 0 ? (
+          <button
+            type="button"
+            className="tap"
+            aria-expanded={open}
+            onClick={onToggle}
+            style={{ border: 0, background: "none", padding: "2px 4px", fontSize: 12, fontWeight: 600, color: "var(--pri)", cursor: "pointer" }}
+          >
+            {open ? tx(ST.lessDetails) : tx(ST.moreDetails(more.length))}
+          </button>
+        ) : null}
+      </span>
+      {open && more.length > 0 ? (
+        <ul data-row-stop style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4, cursor: "auto" }}>
+          {more.map((badge, i) => (
+            <li key={`${badge.kind}-${i}`} style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 8px", fontSize: 12 }}>
+              <Pill tone={badge.tone} style={{ fontSize: 11.5 }}>{badgeLabel(badge, tx)}</Pill>
+              <span style={{ color: "var(--mut)" }}>{badgeDetail(badge, session, tx)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </span>
+  );
+}
+
 export function StudentsScreen(props: StudentsProps) {
   const { tx } = useVx();
   const toast = useToast();
+  const router = useRouter();
   const form = useRef<HTMLFormElement>(null);
   const [q, setQ] = useState(props.q);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [opened, setOpened] = useState<Set<string>>(new Set());
   const filtered = props.q !== "" || props.classId !== null || props.seg !== "all";
+  const fees = props.seesMoney && props.view === "fees";
+  // Written into every link only for a reader who has two views to choose from.
+  const viewParam = props.seesMoney ? props.view : undefined;
+
+  // Back from a profile: put the list where it was, once, and only for the same list.
+  useEffect(() => {
+    let raw: string | null = null;
+    try {
+      raw = window.sessionStorage.getItem(STUDENTS_SCROLL_KEY);
+    } catch {
+      return;
+    }
+    const y = scrollToRestore(raw, currentUrl(), Date.now());
+    if (y === null) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+      try {
+        window.sessionStorage.removeItem(STUDENTS_SCROLL_KEY);
+      } catch {
+        // Nothing to clean up if storage is unavailable.
+      }
+      // Late layout (fonts, the row fade-in) can pull a short page back up; one more try.
+      timer = setTimeout(() => {
+        if (window.scrollY < 4) window.scrollTo(0, y);
+      }, 150);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  const pickView = (next: StudentView) => {
+    if (next === props.view) return;
+    try {
+      document.cookie = `${STUDENT_VIEW_COOKIE}=${studentViewCookieValue(props.viewKey, next)}; path=/; max-age=${YEAR_SECONDS}; samesite=lax`;
+    } catch {
+      // Not remembered, but the URL still opens the view chosen.
+    }
+    router.push(studentsHref({ q: props.q, classId: props.classId, view: next }));
+  };
+
+  const toggleOpen = (id: string) =>
+    setOpened((all) => {
+      const copy = new Set(all);
+      if (copy.has(id)) copy.delete(id);
+      else copy.add(id);
+      return copy;
+    });
+
+  /**
+   * A click anywhere on a row opens the profile through the row's own name
+   * link — so prefetch, Ctrl/⌘-click and the back trail all behave exactly as
+   * if the name had been clicked. Clicks on a control, or the end of a text
+   * selection, are left alone.
+   */
+  const onListClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const target = event.target as Element | null;
+    if (!target) return;
+    if (target.closest("a[data-row-link]")) {
+      // A modified click opens a new tab; this list is not being left.
+      if (!event.ctrlKey && !event.metaKey && !event.shiftKey) rememberScroll();
+      return;
+    }
+    if (target.closest(OWN_CLICK)) return;
+    if ((window.getSelection()?.toString() ?? "") !== "") return;
+    const row = target.closest("[role='row']");
+    if (!row || !event.currentTarget.contains(row)) return;
+    const link = row.querySelector<HTMLAnchorElement>("a[data-row-link]");
+    if (!link) return;
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey, altKey: event.altKey }));
+  };
 
   const toggle = (id: string) =>
     setPicked((all) => {
@@ -95,6 +297,23 @@ export function StudentsScreen(props: StudentsProps) {
     toast.show({ text: tx(T.exported(rows.length)), tone: "ok" });
   };
 
+  const badgesFor = (row: StudentListRow) => {
+    const { shown, more } = studentBadges(row.facts, { view: props.view, seesMoney: props.seesMoney });
+    return <Badges shown={shown} more={more} session={props.session} open={opened.has(row.id)} onToggle={() => toggleOpen(row.id)} />;
+  };
+
+  const attendanceCell = (row: StudentListRow) => {
+    if (!props.attendanceRead) return <span style={{ color: "var(--mut)" }}>—</span>;
+    const figure = attendanceFigure(row.facts.attendance);
+    if (!figure) return <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{tx(ST.noAttendance)}</span>;
+    return (
+      <span style={{ display: "inline-flex", flexDirection: "column", minWidth: 0 }} title={tx(ST.dAttendance(props.session, figure.pct))}>
+        <span className="num" style={{ fontWeight: 600 }}>{tx(ST.attendanceDays(figure.present, figure.counted))}</span>
+        {figure.pct !== null ? <span className="num only-d" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(ST.attendancePct(figure.pct))}</span> : null}
+      </span>
+    );
+  };
+
   const name: Column<StudentListRow> = {
     key: "name",
     label: (
@@ -120,12 +339,16 @@ export function StudentsScreen(props: StudentsProps) {
           style={{ width: 18, height: 18, flex: "none", accentColor: "var(--pri)" }}
         />
         <Avatar text={initials(row.name)} seed={row.name} size={36} />
-        <IntentLink href={`/students/${row.id}`} className="tap" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <span className="clip" style={{ fontWeight: 600 }}>{row.name}</span>
-          <span className="clip only-d" style={{ fontSize: 12.5, color: "var(--mut)", fontWeight: 400 }}>
-            {[row.sr ? `SR ${row.sr}` : null, row.parent].filter(Boolean).join(" · ") || "—"}
-          </span>
-        </IntentLink>
+        <span style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+          <IntentLink href={`/students/${row.id}`} data-row-link="" className="tap" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <span className="clip" style={{ fontWeight: 600 }}>{row.name}</span>
+            <span className="clip only-d" style={{ fontSize: 12.5, color: "var(--mut)", fontWeight: 400 }}>
+              {[row.sr ? `SR ${row.sr}` : null, row.parent].filter(Boolean).join(" · ") || "—"}
+            </span>
+          </IntentLink>
+          {/* In the Fees view the facts ride under the name, so the money columns keep their width. */}
+          {fees ? badgesFor(row) : null}
+        </span>
       </span>
     ),
   };
@@ -133,7 +356,13 @@ export function StudentsScreen(props: StudentsProps) {
   const columns: Column<StudentListRow>[] = [
     name,
     { key: "class", label: tx(T.colClass), width: "minmax(110px,1fr)", cell: (row) => `${row.classLabel}${row.rollNo ? ` · ${tx(T.colRoll)} ${row.rollNo}` : ""}` },
-    ...(props.seesMoney
+    ...(!fees
+      ? ([
+          { key: "attendance", label: tx(ST.colAttendance), width: "minmax(110px,.9fr)", cell: attendanceCell },
+          { key: "details", label: tx(ST.colDetails), width: "minmax(180px,1.6fr)", cell: (row) => badgesFor(row) },
+        ] satisfies Column<StudentListRow>[])
+      : []),
+    ...(fees
       ? ([
           { key: "route", label: tx(T.colRoute), width: "minmax(90px,.8fr)", hideOnPhone: true, cell: (row) => row.route || "—" },
           {
@@ -169,16 +398,13 @@ export function StudentsScreen(props: StudentsProps) {
               ),
           },
         ] satisfies Column<StudentListRow>[])
-      : ([
-          { key: "parent", label: tx(T.colParent), width: "minmax(120px,1fr)", hideOnPhone: true, cell: (row) => row.parent ?? "—" },
-          { key: "phone", label: tx(T.colPhone), width: "minmax(110px,.8fr)", cell: (row) => row.phone ?? "—" },
-        ] satisfies Column<StudentListRow>[])),
+      : []),
     {
       key: "act",
       label: "",
       width: props.canCollect ? "124px" : "84px",
       align: "right",
-      hideOnPhone: props.seesMoney,
+      hideOnPhone: fees,
       cell: (row) => {
         const mobile = mobileOf(row.phone);
         return (
@@ -235,15 +461,28 @@ export function StudentsScreen(props: StudentsProps) {
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </Select>
+            {viewParam ? <input type="hidden" name="view" value={viewParam} /> : null}
             {props.seg !== "all" ? <input type="hidden" name="seg" value={props.seg} /> : null}
             <button type="submit" className="sr">{tx(T.searchStudents)}</button>
-            {filtered ? <Btn variant="ghost" href="/students">{tx(T.clear)}</Btn> : null}
+            {filtered ? <Btn variant="ghost" href={studentsHref({ view: viewParam })}>{tx(T.clear)}</Btn> : null}
+            {props.seesMoney ? (
+              <Seg<StudentView>
+                label={tx(ST.views)}
+                value={props.view}
+                onChange={pickView}
+                options={[
+                  { value: "school", label: tx(ST.viewSchool) },
+                  { value: "fees", label: tx(ST.viewFees) },
+                ]}
+                style={{ width: 200, marginLeft: "auto" }}
+              />
+            ) : null}
           </form>
 
-          {props.seesMoney ? (
+          {fees ? (
             <ChipRow label={tx(T.students)}>
               {SEGS.map((s) => (
-                <Link key={s.key} href={studentsHref({ q: props.q, classId: props.classId, seg: s.key })} className={`tap chip${props.seg === s.key ? " on" : ""}`} aria-current={props.seg === s.key ? "true" : undefined}>
+                <Link key={s.key} href={studentsHref({ q: props.q, classId: props.classId, view: "fees", seg: s.key })} className={`tap chip${props.seg === s.key ? " on" : ""}`} aria-current={props.seg === s.key ? "true" : undefined}>
                   {tx(T[s.label] as { en: string; hi?: string })}
                   {props.counts?.[s.key] != null ? (
                     <span className="num" style={{ fontSize: 11, fontWeight: 700, padding: "1px 7px", borderRadius: 9, background: props.seg === s.key ? "rgba(255,255,255,.2)" : "var(--s3)" }}>{props.counts[s.key]}</span>
@@ -256,6 +495,8 @@ export function StudentsScreen(props: StudentsProps) {
           {props.failed ? <p style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
 
           <Card pad={false} style={{ overflow: "hidden" }}>
+            {/* Row clicks are delegated here; the keyboard path is each row's name link. */}
+            <div className="row-links" onClick={onListClick}>
             <DataList
               rows={props.rows}
               columns={columns}
@@ -267,20 +508,21 @@ export function StudentsScreen(props: StudentsProps) {
                   icon="users"
                   title={tx(filtered ? T.noMatch : T.noStudents)}
                   body={filtered ? tx(T.noMatchSub) : undefined}
-                  action={filtered ? <Btn href="/students">{tx(T.clear)}</Btn> : undefined}
+                  action={filtered ? <Btn href={studentsHref({ view: viewParam })}>{tx(T.clear)}</Btn> : undefined}
                 />
               }
             />
+            </div>
             {props.total > 0 ? (
               <nav aria-label={tx(T.students)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", borderTop: "1px solid var(--bd)" }}>
                 {props.window.page > 1 ? (
-                  <Btn icon="chevLeft" href={studentsHref({ q: props.q, classId: props.classId, seg: props.seg, page: props.window.page - 1 })}>{tx(T.previous)}</Btn>
+                  <Btn icon="chevLeft" href={studentsHref({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg, page: props.window.page - 1 })}>{tx(T.previous)}</Btn>
                 ) : (
                   <span />
                 )}
                 <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(T.rangeOf(props.window.firstRow, props.window.lastRow, props.total))}</span>
                 {props.window.page < props.window.pages ? (
-                  <Btn href={studentsHref({ q: props.q, classId: props.classId, seg: props.seg, page: props.window.page + 1 })}>
+                  <Btn href={studentsHref({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg, page: props.window.page + 1 })}>
                     {tx(T.next)} <Ic n="chevRight" size={18} />
                   </Btn>
                 ) : (

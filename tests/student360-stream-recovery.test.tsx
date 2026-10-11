@@ -16,8 +16,9 @@ const p: Student360Props = {
   tab: "overview", tabs: ["overview", "fees", "family", "attendance", "marks", "notes", "documents", "history", "info"],
   money: null, installments: null, feeSummary: null, feeBreakup: null, feeSession: null, receipts: null, family: null,
   attendance: { percent: 90, counted: 10, counts: { present: 9, absent: 1, half_day: 0, late: 0, leave: 0 }, weeks: [] },
-  terms: [], documents: [], notes: [{ id: "qa-note", body: "QA school note", kindEn: "General", kindHi: "", by: "QA Staff", createdAt: "2026-10-10" }],
-  history: [], canCollect: false, canManageDocuments: false, canManageFees: false,
+  terms: [], documents: [],
+  notes: [{ id: "qa-note", body: "QA school note", tags: ["talent"], status: "open", needsFollowUp: false, followUpOn: null, followUpOwner: null, followUpName: null, by: "QA Staff", createdAt: "2026-10-10" }],
+  history: [], today: "2026-10-10", canCollect: false, canManageDocuments: false, canManageFees: false, canAddNote: false,
 };
 function deferred() {
   let resolve!: (value: Student360Fees | null) => void;
@@ -94,5 +95,53 @@ describe("Student 360 delayed fee streaming", () => {
     expect(host.textContent).toContain("QA Child"); expect(host.textContent).toContain("90%");
     expect([...host.querySelectorAll("a")].some(a => a.textContent === "Fees")).toBe(false);
     expect(host.querySelector('[aria-busy="true"]')).toBeNull();
+  });
+});
+
+describe("Student 360 overview", () => {
+  const school: Student360Props = { ...p, tabs: ["overview", "attendance", "marks", "notes"] };
+
+  it("shows the name once, with no fee share beside the child's identity", async () => {
+    await render(undefined, school);
+    // The bar carries it (a desktop h1 and the phone title, one shown at a time); the page body does not repeat it.
+    expect(host.querySelector("h1")?.textContent).toBe("QA Child");
+    expect(host.querySelector("main")!.textContent).not.toContain("QA Child");
+    expect(host.textContent).not.toContain("of the year paid");
+  });
+  it("says a term with a blank paper is provisional, beside its percentage", async () => {
+    await render(undefined, { ...school, terms: [{ term: "QA Term", percent: 72, grade: "B", missing: 1, papers: 6, scored: 360, outOf: 500 }] });
+    expect(host.textContent).toContain("72%");
+    expect(host.textContent).toContain("QA Term · Provisional · 1 paper not entered");
+    await click("Marks");
+    expect(host.textContent).toContain("B · Provisional");
+  });
+  it("does not call a complete term provisional", async () => {
+    await render(undefined, { ...school, terms: [{ term: "QA Term", percent: 72, grade: "B", missing: 0, papers: 6, scored: 432, outOf: 600 }] });
+    expect(host.textContent).not.toContain("Provisional");
+  });
+  it("says plainly when there is nothing yet, and never hints at a lack of talent", async () => {
+    await render(undefined, { ...school, notes: [], attendance: { ...p.attendance, percent: null, counted: 0 } });
+    expect(host.textContent).toContain("No attendance recorded yet");
+    expect(host.textContent).toContain("No observation recorded");
+    expect(host.textContent).toContain("No open support action");
+  });
+  it("keeps a health note out of strengths and shows the open action with owner and review date", async () => {
+    await render(undefined, {
+      ...school,
+      notes: [
+        { ...p.notes[0], id: "qa-health", body: "QA health talent note", tags: ["talent", "health"] },
+        { ...p.notes[0], id: "qa-action", body: "QA reading support", tags: ["studies"], needsFollowUp: true, followUpOn: "2026-10-08", followUpOwner: "class_teacher" },
+      ],
+    });
+    expect(host.textContent).not.toContain("QA health talent note");
+    expect(host.textContent).toContain("No observation recorded");
+    expect(host.textContent).toContain("QA reading support");
+    expect(host.textContent).toContain("Owner: Class teacher");
+    expect(host.textContent).toContain("Review: 2 days late");
+  });
+  it("leaves the strengths and support cards out for a reader without notes", async () => {
+    await render(undefined, { ...school, tabs: ["overview", "attendance", "marks"] });
+    expect(host.textContent).not.toContain("Strengths");
+    expect(host.textContent).not.toContain("No open support action");
   });
 });
