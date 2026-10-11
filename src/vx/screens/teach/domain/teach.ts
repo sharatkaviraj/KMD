@@ -254,3 +254,42 @@ export function average(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
 }
+
+/* ------------------------------------------------------ roster badges */
+
+export type RosterBadge = { key: "attendance" | "papers" | "support"; tone: "ok" | "warn" | "bad" | "mut"; text: Pair };
+
+/**
+ * At most three factual badges for a child on the class teacher's roster
+ * (notes §4, D-267), always in this order: attendance as days, papers not
+ * entered, the next support review. Each says what is known — "18/20 days",
+ * "1 paper not entered", "Support · review 14 Oct" — and none ranks the
+ * child: no "lowest", no "weak". Green only for complete and clear; amber
+ * for missing or due; red only for a review that is past its date.
+ */
+export function rosterBadges(
+  child: { presentDays: number; daysCounted: number; papersMissing: number; nextReview: string | null },
+  today: string,
+  dayLabel: (iso: string) => string,
+): RosterBadge[] {
+  const out: RosterBadge[] = [];
+  const days = Math.round(child.presentDays * 10) / 10;
+  out.push(
+    child.daysCounted === 0
+      ? { key: "attendance", tone: "mut", text: p("No attendance yet", "अभी उपस्थिति नहीं") }
+      : { key: "attendance", tone: "mut", text: p(`Attendance ${days}/${child.daysCounted} days`, `उपस्थिति ${days}/${child.daysCounted} दिन`) },
+  );
+  if (child.papersMissing > 0) {
+    const n = child.papersMissing;
+    out.push({ key: "papers", tone: "warn", text: p(`${n} ${n === 1 ? "paper" : "papers"} not entered`, `${n} पेपर के अंक दर्ज नहीं`) });
+  }
+  if (child.nextReview) {
+    const late = child.nextReview < today;
+    out.push({
+      key: "support",
+      tone: late ? "bad" : child.nextReview === today ? "warn" : "mut",
+      text: p(`Support · review ${dayLabel(child.nextReview)}`, `सहायता · समीक्षा ${dayLabel(child.nextReview)}`),
+    });
+  }
+  return out.slice(0, 3);
+}

@@ -84,14 +84,14 @@ describe("the fee role bridge", () => {
   });
 
   describe("who may move money", () => {
-    it("is admin and accountant, and nobody else", () => {
+    it("is admin, accountant and fee collector, and nobody else", () => {
       const canMoveMoney = staffRoles.filter((role) =>
         feePermissionsFor(role).some((permission) =>
           (MONEY_MOVING as readonly string[]).includes(permission),
         ),
       );
 
-      expect([...canMoveMoney].sort()).toEqual(["accountant", "admin"]);
+      expect([...canMoveMoney].sort()).toEqual(["accountant", "admin", "fee_collector"]);
     });
 
     it("does not include office", () => {
@@ -101,12 +101,14 @@ describe("the fee role bridge", () => {
       expect(feePermissionsFor("office")).not.toContain("payments:write");
     });
 
-    it("does not include fee_collector", () => {
-      // It reads every fee screen. That is the whole distinction between this
-      // role and the accountant, and it is invisible in the navigation — both
-      // see the same tabs.
-      expect(feePermissionsFor("fee_collector")).not.toContain("payments:write");
-      expect(feePermissionsFor("fee_collector")).toContain("defaulters:view");
+    it("gives fee_collector the counter and none of the corrections (D-261)", () => {
+      // Posting and printing the receipt, granted on 11 Oct 2026. Undo,
+      // reversal, waiver and bulk entry stay with the accountant and admin.
+      const fee = feePermissionsFor("fee_collector");
+      expect(fee).toContain("payments:write");
+      expect(fee).toContain("receipts:print");
+      expect(fee).toContain("defaulters:view");
+      for (const never of ["payments:adjust", "payments:reverse_any", "payments:bulk", "payments:waive_late_fee"]) expect(fee).not.toContain(never);
     });
   });
 

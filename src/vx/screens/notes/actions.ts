@@ -98,6 +98,10 @@ function revalidateNotes() {
   revalidatePath("/teach/notes");
   revalidatePath("/teach");
   revalidatePath("/teach/class");
+  // The same action shows on Student 360's support card and the home page,
+  // so finishing it once updates every place it appears.
+  revalidatePath("/students/[id]", "page");
+  revalidatePath("/");
 }
 
 /* ---------------------------------------------------------------- a note */

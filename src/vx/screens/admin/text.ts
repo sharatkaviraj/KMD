@@ -316,6 +316,7 @@ export const T = {
   supportOwner: (who: string): Pair => p(`Owner: ${who}`, `ज़िम्मेदार: ${who}`),
   supportReview: (when: string): Pair => p(`Review: ${when}`, `समीक्षा: ${when}`),
   addUpdate: p("Add update", "अपडेट जोड़ें"),
+  addSupportAction: p("Add support action", "सहायता कार्रवाई जोड़ें"),
   openNote: p("Open note", "नोट खोलें"),
   familyContact: p("Family & contact", "परिवार और संपर्क"),
   feeSummary: p("Fees", "फ़ीस"),

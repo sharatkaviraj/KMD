@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -34,7 +35,8 @@ import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { schoolToday } from "@/vx/format";
 import { noteViewer, notesForStudent, visibleNotes } from "@/vx/screens/notes/data";
-import type { BoardNote } from "@/vx/screens/notes/domain/notes";
+import { excerpt, type BoardNote } from "@/vx/screens/notes/domain/notes";
+import { addDays } from "@/vx/screens/academics/domain";
 
 import { attentionReasons, average, dayBefore, upcomingBirthdays, type AttentionReason, type Mark } from "./domain/teach";
 import { childBasics, staffNames } from "./students";
@@ -116,6 +118,12 @@ export type ChildRow = {
   lowestSubject: { code: string; pct: number } | null;
   openNotes: number;
   reasons: AttentionReason[];
+  /** Present days, half days at the session's credit — the "18" of "18/20 days". */
+  presentDays: number;
+  /** Latest papers whose marking has started in this class but not for this child. */
+  papersMissing: number;
+  /** The soonest review date among this child's open support actions the reader may see. */
+  nextReview: string | null;
 };
 
 export type SubjectAverage = { subjectId: string; code: string; average: number | null; paperId: string; paperLabel: string; below33: number; marked: number };
@@ -162,13 +170,25 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
   }
   const openNotes = new Map<string, number>();
   for (const n of notes) if (n.status !== "done" && n.studentId) openNotes.set(n.studentId, (openNotes.get(n.studentId) ?? 0) + 1);
+  const nextReview = new Map<string, string>();
+  for (const n of notes) {
+    if (n.status === "done" || !n.needsFollowUp || !n.followUpOn || !n.studentId) continue;
+    const cur = nextReview.get(n.studentId);
+    if (!cur || n.followUpOn < cur) nextReview.set(n.studentId, n.followUpOn);
+  }
+  // A paper counts as "not entered" for a child only once its marking has
+  // begun in this class; a paper nobody has marked yet is not missing anyone.
+  const started = new Set<string>();
+  for (const key of papers.marks.keys()) started.add(String(key).split("|")[0]);
 
   const subjectPct = new Map<string, number[]>();
   const children: ChildRow[] = [...roll].sort(compareRoll).map((r) => {
     const att = attendancePercent(statuses.get(r.studentId) ?? [], rules);
     let lowest: { code: string; pct: number } | null = null;
+    let missing = 0;
     for (const paper of papers.latest) {
       const mark = papers.marks.get(`${paper.id}|${r.studentId}`) as { value: number | null; absent: boolean; exempt: boolean } | undefined;
+      if (started.has(paper.id) && (!mark || (mark.value === null && !mark.absent && !mark.exempt))) missing += 1;
       if (!mark || mark.value === null || mark.absent || mark.exempt || !paper.maxMarks) continue;
       const pct = Math.round((mark.value / paper.maxMarks) * 100);
       const list = subjectPct.get(paper.id) ?? [];
@@ -189,6 +209,9 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
       lowestSubject: lowest,
       openNotes: open,
       reasons: attentionReasons({ attendancePct: att.percent, daysCounted: att.counted, lowestSubjectPct: lowest?.pct ?? null, openNotes: open }),
+      presentDays: att.present,
+      papersMissing: missing,
+      nextReview: nextReview.get(r.studentId) ?? null,
     };
   });
 
@@ -217,7 +240,7 @@ export type TodayPeriod = { period: number; number: number; starts: string; ends
 
 export async function loadHome(staff: CurrentStaff) {
   const sessionLabel = await resolveSessionLabel();
-  const now = new Date();
+  const now = await schoolNow(staff);
   const today = schoolToday(now);
   const nowMinutes = schoolClock(now).minutes;
   if (!sessionLabel) return { sessionLabel: null as string | null, today, nowMinutes };
@@ -321,7 +344,17 @@ export async function loadHome(staff: CurrentStaff) {
 
   const [viewer, linkSet] = await Promise.all([noteViewer(staff, sessionLabel), marksLinks(staff.id, sessionLabel, labels).catch(() => ({ links: [] as MarksLink[], assigned: [] }))]);
   const myNotes = can(staff, "notes:view") ? await visibleNotes(viewer, sessionLabel).catch(() => [] as BoardNote[]) : [];
-  const followUpsDue = myNotes.filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= today && (n.followUpStaffId === staff.id || (n.followUpStaffId === null && n.writtenBy === staff.id))).length;
+  const mine = (n: BoardNote) => n.followUpStaffId === staff.id || (n.followUpStaffId === null && n.writtenBy === staff.id);
+  const followUpsDue = myNotes.filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= today && mine(n)).length;
+  // The support reviews this teacher owns, due within two days or late, by
+  // name — the same notes Student 360 lists, so finishing one there clears it
+  // here (notes §3).
+  const soon = addDays(today, 2);
+  const reviews = myNotes
+    .filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= soon && mine(n))
+    .sort((a, b) => (a.followUpOn ?? "").localeCompare(b.followUpOn ?? ""))
+    .slice(0, 6)
+    .map((n) => ({ id: n.id, studentId: n.studentId, studentName: n.studentName, body: excerpt(n.body, 90), followUpOn: n.followUpOn as string }));
 
   return {
     sessionLabel,
@@ -338,6 +371,7 @@ export async function loadHome(staff: CurrentStaff) {
     kids,
     birthdays,
     followUpsDue,
+    reviews,
     links: linkSet.links.filter((l) => !l.submitted).slice(0, 6),
     canMark: can(staff, "attendance:mark"),
   };

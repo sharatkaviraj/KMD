@@ -45,7 +45,7 @@ export async function closeDayAction(input: {
   note: string;
 }): Promise<DeskActionResult> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     if (!isIsoDate(input.date)) return { ok: false, error: "Pick a real day." };
     if (typeof input.sessionLabel !== "string" || !input.sessionLabel.trim()) return { ok: false, error: "Choose an academic session." };
@@ -138,7 +138,7 @@ export async function reopenDayAction(input: { date: string; sessionLabel: strin
  */
 export async function reverseReceiptAction(input: { receiptNumber: string; reasonCode: string; note: string }): Promise<DeskActionResult> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     if (!isReversalReason(input.reasonCode)) return { ok: false, error: "Choose why this receipt is being reversed." };
 

@@ -13,7 +13,7 @@ const p: Student360Props = {
   attendance: { percent: 90, counted: 10, counts: { present: 9, absent: 1, half_day: 0, late: 0, leave: 0 }, weeks: [] },
   terms: [], documents: [],
   notes: [{ id: "qa-note", body: "QA school note", tags: ["talent"], status: "open", needsFollowUp: false, followUpOn: null, followUpOwner: null, followUpName: null, by: "QA Staff", createdAt: "2026-10-10" }],
-  history: [], today: "2026-10-10", canCollect: false, canManageDocuments: false, canManageFees: false, canAddNote: false,
+  history: [], today: "2026-10-10", canCollect: false, canManageDocuments: false, canManageFees: false, canAddNote: false, contacts: null,
 };
 function read() {
   let resolve!: (value: Student360Fees | null) => void;

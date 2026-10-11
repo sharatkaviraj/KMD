@@ -370,3 +370,30 @@ export function recordChangeNote(change: { outcome: "written" | "blocked"; reaso
   }
   return null;
 }
+
+/* ------------------------------------------------------- bulk decisions */
+
+/**
+ * Whether one pending change may go into a bulk decision (D-263).
+ *
+ * The notes (§7) asked for useful bulk approval "with selected records,
+ * fields and conflicts visible", and no unexplained Approve all. So a bulk
+ * decision covers only rows the reviewer ticked, and two kinds of row are
+ * never in one:
+ *
+ *  - **conflict**: the record moved after the answer was given and the answer
+ *    differs from what is held now. Accepting it would revert somebody, so it
+ *    is decided on its own, where "Accept and replace the newer value" is.
+ *  - **superseded**: a newer answer for the same child and field waits, so
+ *    this one can only be rejected on its own.
+ */
+export type BulkEligibility = "ok" | "conflict" | "superseded";
+
+export function bulkEligibility(entry: Pick<Submission, "isSuperseded" | "previousValue" | "heldNow" | "value">): BulkEligibility {
+  if (entry.isSuperseded) return "superseded";
+  const shown = entry.previousValue?.trim() || null;
+  const held = entry.heldNow?.trim() || null;
+  const value = entry.value?.trim() || null;
+  if (held !== null && shown !== held && held !== value) return "conflict";
+  return "ok";
+}

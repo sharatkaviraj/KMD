@@ -44,7 +44,7 @@ import { boardSummary, remindable, sortBoard, supportAttention, type ClassBoardR
 import { scheduleNow, type CoverException, type ScheduleSlot, type ScheduleView } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import type { BoardData, InboxItem, SheetData, TimelineItem } from "@/vx/screens/admin/types";
-import { isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
+import { isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
 
 /**
  * Reads behind the admin core (P5). Every function here reads through the
@@ -330,6 +330,7 @@ type SupportRow = {
   tags: string[] | null;
   visibility: string | null;
   written_by: string;
+  follow_up_staff_id: string | null;
   note_kinds: { code: string } | null;
 };
 
@@ -344,7 +345,7 @@ async function supportFor(staff: CurrentStaff, sessionLabel: string, today: stri
     (from, to) =>
       admin
         .from("notes")
-        .select("status, needs_follow_up, follow_up_on, tags, visibility, written_by, note_kinds(code)")
+        .select("status, needs_follow_up, follow_up_on, tags, visibility, written_by, follow_up_staff_id, note_kinds(code)")
         .eq("session_label", sessionLabel)
         .neq("status", "done")
         .order("created_at")
@@ -355,14 +356,24 @@ async function supportFor(staff: CurrentStaff, sessionLabel: string, today: stri
   );
   return supportAttention(
     rows
-      .filter((row) => row.written_by === staff.id || row.visibility !== "private")
       .map((row) => {
-        const tags = (row.tags ?? []).filter(isTag);
+        const own = (row.tags ?? []).filter(isTag);
+        return { row, tags: own.length ? own : tagsFromKind(row.note_kinds?.code) };
+      })
+      // `canSeeNote()` for a school-wide reader: other people's private notes
+      // never, and health or family notes only for the admin (D-264).
+      .filter(({ row, tags }) => {
+        if (row.written_by === staff.id) return true;
+        if (row.visibility === "private") return false;
+        if (row.follow_up_staff_id === staff.id) return true;
+        return staff.role === "admin" || !isSensitiveNote({ tags });
+      })
+      .map(({ row, tags }) => {
         return {
           status: row.status === "working" || row.status === "done" ? row.status : "open",
           needsFollowUp: Boolean(row.needs_follow_up),
           followUpOn: row.follow_up_on,
-          tags: tags.length ? tags : tagsFromKind(row.note_kinds?.code),
+          tags,
         };
       }),
     today,

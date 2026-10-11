@@ -70,7 +70,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
     });
   }
 
-  const canAskReverse = perms.collect && !r.isReversed && !r.pendingRequest;
+  const canAskReverse = perms.accounts && !r.isReversed && !r.pendingRequest;
   const firstName = r.studentFullName.split(" ")[0] ?? r.studentFullName;
 
   return (

@@ -42,6 +42,9 @@ type ClassRowView = {
 export type ResultsProps = {
   view: ResultsView;
   isAdmin: boolean;
+  /** `MARKS_FINALISERS` / `MARKS_REOPENERS` (D-262). */
+  canFinalise: boolean;
+  canReopen: boolean;
   fromName: string;
   exam: {
     id: string;
@@ -682,7 +685,7 @@ function Lock(props: ResultsProps & { pending: boolean; run: Run }) {
                   <Pill tone="ok" icon="lock">
                     {c.label}
                   </Pill>
-                  {props.isAdmin ? (
+                  {props.canReopen ? (
                     <Btn variant="ghost" disabled={pending} onClick={() => run(() => actions.unlock({ examId: exam.id, classId: c.id }))}>
                       {tx(p("Unlock", "खोलें"))}
                     </Btn>
@@ -699,9 +702,13 @@ function Lock(props: ResultsProps & { pending: boolean; run: Run }) {
         </div>
         <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("A class can be locked once every paper is submitted.", "हर पेपर जमा होने पर ही कक्षा बंद हो सकती है।"))}</span>
       </Card>
-      <Btn variant="pri" big icon="lock" disabled={pending || chosen.length === 0} onClick={() => setConfirm(true)}>
-        {tx(p(`Lock ${chosen.length} classes`, `${chosen.length} कक्षाएँ बंद करें`))}
-      </Btn>
+      {props.canFinalise ? (
+        <Btn variant="pri" big icon="lock" disabled={pending || chosen.length === 0} onClick={() => setConfirm(true)}>
+          {tx(p(`Lock ${chosen.length} classes`, `${chosen.length} कक्षाएँ बंद करें`))}
+        </Btn>
+      ) : (
+        <Banner tone="info">{tx(p("Only the admin finalises marks. Classes with every paper submitted are ready for the admin to lock.", "अंक केवल प्रशासक अंतिम करते हैं। जिन कक्षाओं के सभी पेपर जमा हैं, वे प्रशासक के बंद करने को तैयार हैं।"))}</Banner>
+      )}
       <Confirm
         open={confirm}
         onClose={() => setConfirm(false)}

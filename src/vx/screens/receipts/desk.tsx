@@ -213,11 +213,11 @@ export function ReceiptsDesk(props: DeskProps) {
         mSub={selected ? selected.studentFullName : spanLabel}
         mBack={selected || view === "close" ? deskHref(base, {}) : undefined}
         actions={
-          perms.collect && view !== "close" ? (
+          perms.accounts && view !== "close" ? (
             <Btn variant="pri" icon="lock" href={closeHref}>{closeEvent ? tx(W.dayClosed) : tx(W.closeDay)}</Btn>
           ) : null
         }
-        mAction={perms.collect && !selected && view !== "close" ? <Btn variant="ghost" icon="lock" href={closeHref} ariaLabel={tx(W.closeDay)} /> : null}
+        mAction={perms.accounts && !selected && view !== "close" ? <Btn variant="ghost" icon="lock" href={closeHref} ariaLabel={tx(W.closeDay)} /> : null}
       />
       <main>
         <Split list={list} detail={detail} detailWidth={460} />

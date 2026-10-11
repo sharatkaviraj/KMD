@@ -189,15 +189,51 @@ export type BoardNote = {
   planId: string | null;
 };
 
-/** The same rule as the `notes_select_scoped` policy, for reads made with the service role. */
+/**
+ * Health and family notes (D-264). The 11 October notes' §9: keep "sensitive
+ * health/family notes out of general badges and unrestricted timelines".
+ * A note before tags existed reads its old kind through `tagsFromKind`.
+ */
+export const SENSITIVE_TAGS: readonly NoteTag[] = ["health", "family"];
+
+export function isSensitiveNote(note: { tags: readonly NoteTag[] }): boolean {
+  return note.tags.some((t) => SENSITIVE_TAGS.includes(t));
+}
+
+export type NoteReader = {
+  id: string;
+  /** `role === "admin"`: the only school-wide role that reads health and family notes. */
+  isAdmin: boolean;
+  readsEveryClass: boolean;
+  correctsAttendance: boolean;
+  /** Every class she holds or teaches. */
+  classIds: ReadonlySet<string>;
+  /** The classes she is the class teacher of. */
+  heldClassIds: ReadonlySet<string>;
+};
+
+/**
+ * Who reads a note. The same rule as the `notes_select_scoped` policy, for
+ * reads made with the service role.
+ *
+ *  - "Only me" is only the author.
+ *  - A support note (anything not health or family) is read by the child's
+ *    teachers, the person asked to follow it up, and the school-wide roles.
+ *  - A health or family note is read by its author, the person asked to
+ *    follow it up, the administrator and the child's class teacher — not by
+ *    every subject teacher, the office or the coordinators (D-264).
+ */
 export function canSeeNote(
-  note: { visibility: Visibility; writtenBy: string; followUpStaffId: string | null; classId: string | null },
-  viewer: { id: string; readsEveryClass: boolean; correctsAttendance: boolean; classIds: ReadonlySet<string> },
+  note: { visibility: Visibility; writtenBy: string; followUpStaffId: string | null; classId: string | null; tags?: readonly NoteTag[] },
+  viewer: NoteReader,
 ): boolean {
   if (note.writtenBy === viewer.id) return true;
   if (note.visibility !== "team") return false;
-  if (viewer.correctsAttendance || viewer.readsEveryClass) return true;
   if (note.followUpStaffId === viewer.id) return true;
+  if (isSensitiveNote({ tags: note.tags ?? [] })) {
+    return viewer.isAdmin || (note.classId !== null && viewer.heldClassIds.has(note.classId));
+  }
+  if (viewer.correctsAttendance || viewer.readsEveryClass) return true;
   return note.classId !== null && viewer.classIds.has(note.classId);
 }
 
@@ -301,6 +337,16 @@ export function nextOpenAction<N extends GlanceNote & Pick<BoardNote, "status" |
   const open = notes.filter((n) => n.status !== "done" && n.needsFollowUp);
   open.sort((a, b) => (a.followUpOn ?? "9999").localeCompare(b.followUpOn ?? "9999") || b.createdAt.localeCompare(a.createdAt));
   return open[0] ?? null;
+}
+
+/**
+ * Every open support action for one child, in the order `nextOpenAction`
+ * picks from: soonest review first, undated last. Student 360 lists them all
+ * so a second action for the same child is seen before anyone adds a third.
+ */
+export function openSupportActions<N extends GlanceNote & Pick<BoardNote, "status" | "needsFollowUp" | "followUpOn">>(notes: readonly N[]): N[] {
+  const open = notes.filter((n) => n.status !== "done" && n.needsFollowUp);
+  return open.sort((a, b) => (a.followUpOn ?? "9999").localeCompare(b.followUpOn ?? "9999") || b.createdAt.localeCompare(a.createdAt));
 }
 
 /** Who follows a note up, in words: the person named, else the role asked. */

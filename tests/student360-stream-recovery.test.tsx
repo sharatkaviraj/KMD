@@ -8,6 +8,8 @@ vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.Anch
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn(), push: vi.fn(), refresh: navigation.refresh }) }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en, sub: () => null }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
+vi.mock("@/vx/screens/family-contact/actions", () => ({ logFamilyContactAction: vi.fn() }));
+vi.mock("@/vx/screens/notes/actions", () => ({ setNoteStatusAction: vi.fn(), replyToNoteAction: vi.fn() }));
 import { Student360, type Student360Fees, type Student360Props } from "@/vx/screens/admin/student360";
 
 const p: Student360Props = {
@@ -18,7 +20,7 @@ const p: Student360Props = {
   attendance: { percent: 90, counted: 10, counts: { present: 9, absent: 1, half_day: 0, late: 0, leave: 0 }, weeks: [] },
   terms: [], documents: [],
   notes: [{ id: "qa-note", body: "QA school note", tags: ["talent"], status: "open", needsFollowUp: false, followUpOn: null, followUpOwner: null, followUpName: null, by: "QA Staff", createdAt: "2026-10-10" }],
-  history: [], today: "2026-10-10", canCollect: false, canManageDocuments: false, canManageFees: false, canAddNote: false,
+  history: [], today: "2026-10-10", canCollect: false, canManageDocuments: false, canManageFees: false, canAddNote: false, contacts: null,
 };
 function deferred() {
   let resolve!: (value: Student360Fees | null) => void;

@@ -11,6 +11,7 @@ import { enrolmentForStudent } from "@/modules/students/data/student-repo";
 import { childBasics, enrolledIn, staffNames } from "@/vx/screens/teach/students";
 import {
   canSeeNote,
+  isSensitiveNote,
   isTag,
   tagsFromKind,
   type BoardNote,
@@ -31,6 +32,7 @@ import {
 
 export type NoteViewer = {
   id: string;
+  isAdmin: boolean;
   readsEveryClass: boolean;
   correctsAttendance: boolean;
   classIds: Set<string>;
@@ -50,6 +52,7 @@ export async function noteViewer(staff: CurrentStaff, sessionLabel: string): Pro
   const [own, held] = await Promise.all([ownClassIds(staff.id, sessionLabel), heldClassIds(staff.id, sessionLabel)]);
   return {
     id: staff.id,
+    isAdmin: staff.role === "admin",
     readsEveryClass: readsEveryClass(staff),
     correctsAttendance: can(staff, "attendance:correct"),
     classIds: new Set(own),
@@ -83,6 +86,12 @@ type NoteRow = {
 const COLUMNS =
   "id, session_label, student_id, class_id, body, tags, source, status, visibility, needs_follow_up, follow_up_on, " +
   "follow_up_owner, follow_up_staff_id, tell_parents, written_by, author_relation, subject_code, created_at, note_kinds(code)";
+
+/** A row's tags, or its old kind's for a note written before tags existed. */
+function tagsOf(r: Pick<NoteRow, "tags" | "note_kinds">) {
+  const tags = (r.tags ?? []).filter(isTag);
+  return tags.length ? tags : tagsFromKind(r.note_kinds?.code);
+}
 
 async function enrich(rows: NoteRow[], sessionLabel: string): Promise<BoardNote[]> {
   if (rows.length === 0) return [];
@@ -176,6 +185,7 @@ export async function visibleNotes(viewer: NoteViewer, sessionLabel: string, opt
         writtenBy: r.written_by,
         followUpStaffId: r.follow_up_staff_id,
         classId: r.class_id,
+        tags: tagsOf(r),
       },
       viewer,
     ),
@@ -300,6 +310,29 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
       const cls = r.class_id ?? placed.get(r.student_id) ?? null;
       return r.created_by === viewer.id || (cls !== null && viewer.classIds.has(cls));
     });
+  }
+  // A plan made from a health or family note is read only by who reads that
+  // note (D-264): its goal and steps are about the same thing.
+  const fromNotes = [...new Set(rows.map((r) => r.note_id).filter((id): id is string => Boolean(id)))];
+  if (fromNotes.length) {
+    const { data: sources, error: sourceError } = await fetchInChunks<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds">>(fromNotes, IN_FILTER_CHUNK_SIZE, (chunk) =>
+      createAdminClient()
+        .from("notes")
+        .select("id, tags, visibility, written_by, follow_up_staff_id, class_id, note_kinds(code)")
+        .in("id", chunk)
+        .returns<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds">[]>(),
+    );
+    if (sourceError) throw new Error("Could not read the support plans.");
+    const hidden = new Set(
+      sources
+        .filter((n) => {
+          const tags = tagsOf(n);
+          if (!isSensitiveNote({ tags })) return false;
+          return !canSeeNote({ visibility: "team", writtenBy: n.written_by, followUpStaffId: n.follow_up_staff_id, classId: n.class_id, tags }, viewer);
+        })
+        .map((n) => n.id),
+    );
+    rows = rows.filter((r) => r.created_by === viewer.id || !r.note_id || !hidden.has(r.note_id));
   }
   if (rows.length === 0) return [];
 

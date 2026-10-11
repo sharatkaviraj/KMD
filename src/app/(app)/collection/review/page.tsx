@@ -12,12 +12,14 @@ import {
   phoneOwners,
 } from "@/modules/collection/data/submissions-repo";
 import {
+  bulkEligibility,
   byReviewOrder,
   sharedPhoneCount,
   splitByChange,
 } from "@/modules/collection/domain/review";
 import { stalenessOf } from "@/modules/collection/domain/precedence";
 import { cn } from "@/platform/utils";
+import { BulkDecide } from "@/modules/collection/ui/bulk-decide";
 import { DecideForm } from "@/modules/collection/ui/office-forms";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { EmptyState } from "@/ui/states";
@@ -118,6 +120,21 @@ export default async function ReviewPage() {
 
       {changes.length > 0 ? (
         <Section className="mt-8" title={m.reviewChanges} language={language}>
+          {/* Several changes decided together, only the ticked ones (D-263). */}
+          {mayDecide && changes.length > 1 ? (
+            <BulkDecide
+              rows={changes.map((entry) => ({
+                id: entry.id,
+                studentName: entry.studentName,
+                classLabel: entry.classLabel,
+                fieldLabelHi: entry.fieldLabelHi,
+                fieldLabelEn: entry.fieldLabelEn,
+                previousValue: entry.previousValue,
+                value: entry.value,
+                eligibility: bulkEligibility(entry),
+              }))}
+            />
+          ) : null}
           <ul className="space-y-3">
             {changes.map((entry) => {
               const field = byId.get(entry.fieldId);

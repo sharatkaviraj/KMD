@@ -80,7 +80,7 @@ describe("follow-up dates", () => {
 });
 
 describe("who sees a note", () => {
-  const teacher = { id: "t2", readsEveryClass: false, correctsAttendance: false, classIds: new Set(["c1"]) };
+  const teacher = { id: "t2", isAdmin: false, readsEveryClass: false, correctsAttendance: false, classIds: new Set(["c1"]), heldClassIds: new Set<string>() };
 
   it("shows 'only me' to its author alone", () => {
     const n = note({ visibility: "private" });
@@ -97,6 +97,24 @@ describe("who sees a note", () => {
   it("shows a team note to the person asked to follow up, and to the office", () => {
     expect(canSeeNote(note({ classId: "c9", followUpStaffId: "t2" }), teacher)).toBe(true);
     expect(canSeeNote(note({ classId: "c9" }), { ...teacher, correctsAttendance: true })).toBe(true);
+  });
+
+  it("keeps health and family notes to the admin, the class teacher, the author and the follow-up owner (D-264)", () => {
+    for (const tag of ["health", "family"] as const) {
+      const n = note({ tags: [tag] });
+      // A subject teacher of the class does not read it; the class teacher does.
+      expect(canSeeNote(n, teacher)).toBe(false);
+      expect(canSeeNote(n, { ...teacher, heldClassIds: new Set(["c1"]) })).toBe(true);
+      // The office and the coordinators read every class, but not these.
+      expect(canSeeNote(n, { ...teacher, classIds: new Set(), readsEveryClass: true, correctsAttendance: true })).toBe(false);
+      expect(canSeeNote(n, { ...teacher, classIds: new Set(), readsEveryClass: true, isAdmin: true })).toBe(true);
+      expect(canSeeNote(n, { ...teacher, id: "t1" })).toBe(true);
+      expect(canSeeNote(note({ tags: [tag], classId: "c9", followUpStaffId: "t2" }), teacher)).toBe(true);
+      // Only me is still only the author, admin or not.
+      expect(canSeeNote(note({ tags: [tag], visibility: "private" }), { ...teacher, isAdmin: true })).toBe(false);
+    }
+    // A support note still reaches every teacher of the class.
+    expect(canSeeNote(note({ tags: ["studies", "talent"] }), teacher)).toBe(true);
   });
 
   it("lets the class teacher and the follow-up owner work on it, not any reader", () => {

@@ -98,6 +98,8 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
     initial: { mode: one(search.mode), staff: one(search.staff), query: one(search.q) },
     perms: {
       collect: can(staff, "fees:collect"),
+      // Closing the day and asking for a reversal are the back office (D-261).
+      accounts: can(staff, "fees:accounts"),
       reverse: fee.includes("payments:reverse_any"),
       reopen: can(staff, "fees:manage"),
       print: fee.includes("receipts:print"),

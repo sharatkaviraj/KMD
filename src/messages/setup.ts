@@ -138,6 +138,23 @@ export const ms = {
     "This number has been reported as wrong. Nothing goes to it until an administrator has checked it.",
   ),
   reviewReplaceNewer: t("नया मान बदलकर स्वीकारें", "Accept and replace the newer value"),
+  reviewBulkTitle: t("कई बदलाव एक साथ तय करें", "Decide several changes together"),
+  reviewBulkHint: t(
+    "जिन बदलावों को चुनेंगे, केवल वही तय होंगे। चुनने से पहले हर पंक्ति में पुराना → नया मान देखें।",
+    "Only the changes you tick are decided. Check the old → new value on each row before ticking it.",
+  ),
+  reviewBulkSelectAll: t("सभी साफ़ बदलाव चुनें", "Tick every change with no conflict"),
+  reviewBulkClear: t("चुनाव हटाएँ", "Clear"),
+  reviewBulkSelected: t("चुने गए", "Selected"),
+  reviewBulkAccept: t("चुने हुए स्वीकारें", "Accept selected"),
+  reviewBulkReject: t("चुने हुए अस्वीकारें", "Reject selected"),
+  reviewBulkConflict: t("टकराव — अलग से तय करें", "Conflict — decide on its own"),
+  reviewBulkConflictHint: t(
+    "जवाब के बाद रिकॉर्ड बदल चुका है। इसे नीचे अलग से देखें।",
+    "The record changed after this answer. Decide it on its own below.",
+  ),
+  reviewBulkSuperseded: t("नया जवाब आ चुका है", "A newer answer is waiting"),
+  reviewBulkLeftOut: t("एक साथ तय नहीं होंगे", "Left out of a bulk decision"),
   recordsHistoryTitle: t("ये मान कैसे बदले", "How these values changed"),
   importTitle: t("सम्पर्क से रिकॉर्ड लाएँ", "Bring in SamPark records"),
   importIntro: t(

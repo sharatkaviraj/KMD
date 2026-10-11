@@ -35,6 +35,10 @@ Have ready:
   fee app's — see `docs/SETUP.md`)
 - the live project's URL, publishable key and service-role key
 - the school's real timetable file, the one §2 imports
+- `docs/cutover/fee-collector-posts-payments.sql` (D-261): the fee-side grant
+  that lets fee collectors post. It is applied on dev only. Diff it against
+  live's `public.has_permission` first, then run it on live with the owner's
+  go-ahead, or every fee collector's payment will be refused
 
 ---
 

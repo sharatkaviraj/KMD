@@ -18,7 +18,7 @@ export const maxDuration = 60;
  * once is the admin's (payments:bulk), checked again in every action.
  */
 export default async function BulkPaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePermission("fees:collect", "/payments/bulk");
+  await requirePermission("fees:accounts", "/payments/bulk");
   const { staff, previewing } = await getViewer();
   const params = await searchParams;
   const view = await resolveViewSession({ searchParamSession: params.session, cookieSession: await getViewSessionCookie() });

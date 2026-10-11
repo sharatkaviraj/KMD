@@ -3,7 +3,7 @@ import "server-only";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { noteViewer, visibleNotes } from "@/vx/screens/notes/data";
-import type { BoardNote } from "@/vx/screens/notes/domain/notes";
+import { canWorkOnNote, type BoardNote } from "@/vx/screens/notes/domain/notes";
 
 export { canWriteNotes } from "@/vx/screens/notes/data";
 
@@ -21,7 +21,10 @@ export { canWriteNotes } from "@/vx/screens/notes/data";
 export type NoteForTab = Pick<
   BoardNote,
   "id" | "body" | "tags" | "status" | "needsFollowUp" | "followUpOn" | "followUpOwner" | "followUpName" | "writtenByName" | "createdAt"
->;
+> & {
+  /** May this reader mark it working or done — the same rule `setNoteStatusAction` checks. */
+  canWork: boolean;
+};
 
 export async function notesForStudentTab(staff: CurrentStaff, studentId: string, sessionLabel: string): Promise<NoteForTab[]> {
   if (!can(staff, "notes:view")) return [];
@@ -38,5 +41,6 @@ export async function notesForStudentTab(staff: CurrentStaff, studentId: string,
     followUpName: note.followUpName,
     writtenByName: note.writtenByName,
     createdAt: note.createdAt,
+    canWork: canWorkOnNote(note, viewer),
   }));
 }

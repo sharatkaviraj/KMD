@@ -14,6 +14,7 @@ import {
 } from "@/vx/screens/admin/logic";
 import { loadStudentSchool } from "@/vx/screens/admin/data";
 import { canWriteNotes, notesForStudentTab } from "@/vx/screens/admin/notes-tab";
+import { familyContactAccess, familyContacts } from "@/vx/screens/family-contact/data";
 import { Student360, type Student360Fees } from "@/vx/screens/admin/student360";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
@@ -71,7 +72,10 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   const tab = parseTab(typeof search.tab === "string" ? search.tab : null, tabs);
   const today = schoolToday();
 
-  const notes = await notesPromise;
+  // Family contact (D-265): the class teacher and the school-wide readers
+  // see and record it; nobody else is shown the strip at all.
+  const [notes, contactAccess] = await Promise.all([notesPromise, familyContactAccess(staff, sessionLabel, school.classId).catch(() => false)]);
+  const contacts = contactAccess ? await familyContacts(id, sessionLabel).catch(() => []) : null;
 
   // Not awaited: the card goes out with the school side, and the fee side
   // streams into it when the fee app's reads finish (Student360's Suspense).
@@ -180,6 +184,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
             followUpName: n.followUpName,
             by: n.writtenByName,
             createdAt: n.createdAt,
+            canWork: n.canWork,
           })),
           today,
           history: school.history.map((h) => ({
@@ -195,6 +200,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           canManageDocuments: can(staff, "documents:manage"),
           canManageFees: can(staff, "fees:manage"),
           canAddNote: tabs.includes("notes") && canWriteNotes(staff),
+          contacts,
         }}
         fees={feesView}
       />

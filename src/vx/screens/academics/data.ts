@@ -13,6 +13,7 @@ import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/aca
 import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes, type ClassScope } from "@/modules/attendance/domain/class-scope";
 import { schoolToday } from "@/vx/format";
+import { isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
 
 import {
   addDays,
@@ -777,18 +778,31 @@ async function planStatus(ctx: Ctx, ids: string[]): Promise<Map<string, string>>
 
 /* ---------------------------------------------------------------- notes */
 
+/**
+ * The coordinators read every class but not health or family notes; the
+ * admin does (D-264, `canSeeNote()`). Their author and the person asked to
+ * follow one up still read it.
+ */
+function readsSensitive(staff: CurrentStaff, row: { tags: string[] | null; written_by: string; follow_up_staff_id: string | null; note_kinds: { code: string } | null }): boolean {
+  if (staff.role === "admin" || row.written_by === staff.id || row.follow_up_staff_id === staff.id) return true;
+  const own = (row.tags ?? []).filter(isTag);
+  return !isSensitiveNote({ tags: own.length ? own : tagsFromKind(row.note_kinds?.code) });
+}
+
 export async function notesNeedingAction(ctx: Ctx): Promise<{ open: number; due: number; dueOn: string | null; recent: { id: string; studentId: string | null; body: string; at: string; by: string }[] }> {
   const { data } = await createAdminClient()
     .from("notes")
-    .select("id, student_id, class_id, body, created_at, written_by, needs_follow_up, follow_up_on, status, visibility")
+    .select("id, student_id, class_id, body, created_at, written_by, needs_follow_up, follow_up_on, status, visibility, tags, follow_up_staff_id, note_kinds(code)")
     .eq("session_label", ctx.session)
     .in("status", ["open", "working"])
     .eq("needs_follow_up", true)
     .neq("visibility", "private")
     .order("follow_up_on", { ascending: true })
     .limit(200)
-    .returns<{ id: string; student_id: string | null; class_id: string | null; body: string; created_at: string; written_by: string; needs_follow_up: boolean; follow_up_on: string | null; status: string; visibility: string }[]>();
-  const rows = (data ?? []).filter((row) => !row.class_id || scopeIncludes(ctx.scope, row.class_id));
+    .returns<{ id: string; student_id: string | null; class_id: string | null; body: string; created_at: string; written_by: string; needs_follow_up: boolean; follow_up_on: string | null; status: string; visibility: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }[]>();
+  const rows = (data ?? [])
+    .filter((row) => !row.class_id || scopeIncludes(ctx.scope, row.class_id))
+    .filter((row) => readsSensitive(ctx.staff, row));
   const nextWeek = addDays(ctx.today, 7);
   const due = rows.filter((row) => row.follow_up_on && row.follow_up_on <= nextWeek);
   const staff = await staffDirectory();
@@ -838,12 +852,12 @@ export async function studentDetail(ctx: Ctx, studentId: string): Promise<Studen
     can(ctx.staff, "notes:view")
       ? admin
           .from("notes")
-          .select("id, body, created_at, written_by, status, visibility, note_kinds!inner(label_en, tone)")
+          .select("id, body, created_at, written_by, status, visibility, tags, follow_up_staff_id, class_id, note_kinds!inner(code, label_en, tone)")
           .eq("student_id", studentId)
           .neq("visibility", "private")
           .order("created_at", { ascending: false })
           .limit(20)
-          .returns<{ id: string; body: string; created_at: string; written_by: string; status: string; visibility: string; note_kinds: { label_en: string; tone: string } }[]>()
+          .returns<{ id: string; body: string; created_at: string; written_by: string; status: string; visibility: string; tags: string[] | null; follow_up_staff_id: string | null; class_id: string | null; note_kinds: { code: string; label_en: string; tone: string } }[]>()
       : Promise.resolve({ data: [] }),
     planFor(ctx, studentId),
     admin
@@ -886,7 +900,7 @@ export async function studentDetail(ctx: Ctx, studentId: string): Promise<Studen
     months: attendance,
     subjects: [...subjects.entries()].map(([subject, byExam]) => ({ subject, byExam })),
     exams,
-    notes: (notes.data ?? []).map((n) => ({ id: n.id, body: n.body, kind: n.note_kinds.label_en, tone: n.note_kinds.tone, at: n.created_at, by: staff.get(n.written_by)?.display_name ?? "—", status: n.status })),
+    notes: (notes.data ?? []).filter((n) => readsSensitive(ctx.staff, n)).map((n) => ({ id: n.id, body: n.body, kind: n.note_kinds.label_en, tone: n.note_kinds.tone, at: n.created_at, by: staff.get(n.written_by)?.display_name ?? "—", status: n.status })),
     plan,
     followups: (follow.data ?? []).map((f) => ({ kind: f.kind, outcome: f.outcome, note: f.note, at: f.created_at, by: staff.get(f.created_by)?.display_name ?? "—" })),
     facts: a

@@ -76,7 +76,7 @@ export const roleDescriptions: Record<StaffRole, string> = {
   teacher:
     "Reads every workspace tab. Can edit basic student data (not the SR number). No financial writes.",
   fee_collector:
-    "Defaults to the Defaulters list. Logs parent contact attempts and follow-ups. Reads every other tab; no financial writes.",
+    "Defaults to the Defaulters list. Logs parent contact attempts and follow-ups, and posts payments at the Payment Desk with a receipt. No corrections, reversals or day close.",
   view_only:
     "Read-only access for oversight: Dashboard, Students, Defaulters, and Receipts. Cannot post payments or edit any record.",
 };
@@ -155,9 +155,12 @@ const feeCollectorPermissions: readonly StaffPermission[] = [
   "students:view",
   "fees:view",
   "payments:view",
+  // Posts at the Payment Desk and prints the receipt (VPPS One D-261).
+  "payments:write",
   "finance:view",
   "ledger:view",
   "receipts:view",
+  "receipts:print",
   "defaulters:view",
   "contacts:write",
   "imports:view",

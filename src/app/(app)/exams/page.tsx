@@ -22,6 +22,7 @@ import {
 } from "@/vx/screens/exams/data";
 import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
+import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
 import { cellCounts, cellState, neighbours } from "@/vx/screens/exams/domain/board";
 import { GROUP_KEYS, GROUP_LABELS, groupOf, subjectPair } from "@/vx/screens/exams/domain/groups";
 import { isLate, subjectColumns } from "@/vx/screens/exams/domain/tracker";
@@ -334,6 +335,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
   const data: ExamsProps = {
     view,
     manage,
+    canFinalise: canFinaliseMarks(staff),
     reports,
     scoped,
     fromName: staff.displayName,

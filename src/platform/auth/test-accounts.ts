@@ -21,15 +21,31 @@ import { currentTargetContext, DEV_PROJECT_REFS, supabaseTargetOf } from "@/plat
  * admin can reach Staff, and the owner's own account is on dev too).
  */
 export function testSignInEnabled(key: unknown): boolean {
-  if (currentTargetContext().environment === "live") return false;
-  const expected = process.env.QA_LOGIN_KEY?.trim();
-  if (!expected || expected.length < 24 || typeof key !== "string") return false;
+  if (!qaToolsEnabled()) return false;
+  const expected = process.env.QA_LOGIN_KEY?.trim() ?? "";
+  if (typeof key !== "string") return false;
   const given = Buffer.from(key);
   const want = Buffer.from(expected);
-  if (given.length !== want.length || !timingSafeEqual(given, want)) return false;
+  return given.length === want.length && timingSafeEqual(given, want);
+}
+
+/**
+ * The deployment-level half of the gate, without a key: not live, pointed at
+ * dev (or a local stack), and `QA_LOGIN_KEY` configured. The QA clock reads
+ * it for every request from a QA account (`qa-clock.ts`).
+ */
+export function qaToolsEnabled(): boolean {
+  if (currentTargetContext().environment === "live") return false;
+  const expected = process.env.QA_LOGIN_KEY?.trim();
+  if (!expected || expected.length < 24) return false;
   const target = supabaseTargetOf(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
   if (target.kind === "local") return true;
   return target.kind === "project" && (DEV_PROJECT_REFS as readonly string[]).includes(target.ref);
+}
+
+/** Is this one of the `@qa.vpps.local` test accounts? */
+export function isQaEmail(email: string | null | undefined): boolean {
+  return typeof email === "string" && email.toLowerCase().endsWith(QA_EMAIL_DOMAIN);
 }
 
 export type TestAccount = { key: string; email: string; role: string };

@@ -12,18 +12,19 @@ import { ChipRow } from "@/vx/ui/controls";
 import { Grid, Section, TopBar } from "@/vx/ui/page";
 import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Skel, Stat, toneColors, type Tone } from "@/vx/ui/primitives";
 import { feeRibbon, mobileOf, provisionalLabel, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
+import { SupportActions } from "@/vx/screens/admin/support-actions";
 import { T } from "@/vx/screens/admin/text";
 import {
   excerpt,
-  followUpLabel,
-  followUpOwnerText,
   latestStrength,
-  nextOpenAction,
+  openSupportActions,
   TAG_TEXT,
   type FollowOwner,
   type NoteStatus,
   type NoteTag,
 } from "@/vx/screens/notes/domain/notes";
+import type { ContactEntry } from "@/vx/screens/family-contact/domain";
+import { FamilyContactLog } from "@/vx/screens/family-contact/ui";
 
 /*
  * Student 360 (design F06–F08/D02): one child, every side of them, behind
@@ -129,6 +130,8 @@ export type Student360Props = {
     followUpName: string | null;
     by: string;
     createdAt: string;
+    /** May this reader mark it working or done (`canWorkOnNote`). */
+    canWork?: boolean;
   }[];
   history: { id: number; label: Pair; from: string | null; to: string | null; blocked: boolean; at: string; by: string | null }[];
   /** The school day, for "2 days late" on a follow-up. */
@@ -137,6 +140,8 @@ export type Student360Props = {
   canManageDocuments: boolean;
   canManageFees: boolean;
   canAddNote: boolean;
+  /** Family contacts this session, newest first; null when the reader may not see them (D-265). */
+  contacts: ContactEntry[] | null;
 };
 
 /** The fee app's status badge words, in the same tones. */
@@ -557,9 +562,7 @@ function Overview({
   // Picked from the notes the tab already holds — the same ones the reader
   // may see on the notes board, and nothing when she may not read notes.
   const strength = seesNotes ? latestStrength(p.notes) : null;
-  const action = seesNotes ? nextOpenAction(p.notes) : null;
-  const owner = action ? followUpOwnerText({ followUpOwner: action.followUpOwner, followUpName: action.followUpName, writtenByName: action.by }) : null;
-  const review = action ? followUpLabel(action.followUpOn, p.today, dayMonth) : null;
+  const openActions = seesNotes ? openSupportActions(p.notes) : [];
   const mobile = mobileOf(p.phone);
 
   const attendanceCard = (
@@ -615,21 +618,12 @@ function Overview({
 
   const supportCard = seesNotes ? (
     <Card>
-      <CardHead title={tx(T.support)} />
-      {action ? (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-          <span style={{ fontSize: 15 }}>{excerpt(action.body, 160)}</span>
-          <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {owner ? <Pill tone="mut" icon="user">{tx(T.supportOwner(tx(owner)))}</Pill> : null}
-            {review ? <Pill tone={review.tone} icon="flag">{tx(T.supportReview(tx(review.text)))}</Pill> : null}
-          </span>
-          <span>
-            <Btn variant="soft" icon="message" href={`${notesHref}&note=${action.id}`}>{tx(p.canAddNote ? T.addUpdate : T.openNote)}</Btn>
-          </span>
-        </div>
-      ) : (
-        <p style={muted}>{tx(T.noOpenSupport)}</p>
-      )}
+      <CardHead
+        title={tx(T.support)}
+        action={p.canAddNote ? <Btn variant="ghost" icon="plus" href={`${notesHref}&sheet=add`}>{tx(T.addSupportAction)}</Btn> : null}
+      />
+      {/* Every open action, worked here: the same notes the board and Today read. */}
+      {openActions.length > 0 ? <SupportActions actions={openActions} today={p.today} notesHref={notesHref} /> : <p style={muted}>{tx(T.noOpenSupport)}</p>}
     </Card>
   ) : null;
 
@@ -685,6 +679,7 @@ function Overview({
             </div>
           ))}
         </dl>
+        {p.contacts ? <FamilyContactLog studentId={p.id} contacts={p.contacts} canLog today={p.today} /> : null}
       </Card>
       {feeCard}
     </>

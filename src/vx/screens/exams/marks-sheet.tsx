@@ -349,7 +349,7 @@ export function MarksSheet({
   );
 
   const banner = paper.locked ? (
-    <Banner tone="info">{tx(p("Results for this class are locked. Marks cannot change until the exam office unlocks it.", "इस कक्षा का परिणाम बंद है। परीक्षा विभाग के खोलने तक अंक नहीं बदलेंगे।"))}</Banner>
+    <Banner tone="info">{tx(p("Marks for this class are final. They cannot change until the admin reopens them.", "इस कक्षा के अंक अंतिम हैं। प्रशासक के खोलने तक अंक नहीं बदलेंगे।"))}</Banner>
   ) : !paper.examOpen ? (
     <Banner tone="warn">{tx(p("This exam is not open for marks.", "यह परीक्षा अंकों के लिए खुली नहीं है।"))}</Banner>
   ) : message ? (

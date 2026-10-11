@@ -101,6 +101,10 @@ export const staffPermissions = [
   // get, and may they take money.
   "fees:view",
   "fees:collect",
+  // The accounts side of taking money (D-261): closing and reopening the
+  // day, reversing a receipt, the bank books, refunds, bulk entry and pausing
+  // reminders. `fees:collect` is the counter; this is the back office.
+  "fees:accounts",
   "fees:manage",
 
   // Platform (Phase 7).
@@ -285,15 +289,20 @@ const accountantPermissions: readonly StaffPermission[] = [
   "dashboard:view",
   "fees:view",
   "fees:collect",
+  "fees:accounts",
 ];
 
 /**
- * Fee collector: the follow-up list. Reads the fee screens, logs contact,
- * takes no money.
+ * Fee collector: the follow-up list and the counter. Reads the fee screens,
+ * logs contact, and takes money at the Payment Desk with a receipt — granted
+ * by Janmejay on 11 Oct 2026 (D-261). The back office (`fees:accounts`:
+ * closing the day, reversals, bank books, refunds) stays with the accountant
+ * and the admin.
  */
 const feeCollectorPermissions: readonly StaffPermission[] = [
   "dashboard:view",
   "fees:view",
+  "fees:collect",
 ];
 
 export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {

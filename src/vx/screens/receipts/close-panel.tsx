@@ -184,7 +184,7 @@ export function ClosePanel(props: DeskProps) {
       </Field>
 
       {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
-      {perms.collect ? (
+      {perms.accounts ? (
         <>
           <Btn variant="pri" big full icon="lock" disabled={busy || blocker !== null} onClick={close}>{tx(W.closeButton)}</Btn>
           {blocker ? <span style={{ fontSize: 13, color: "var(--mut)", textAlign: "center" }}>{tx(blocker === "upi" ? W.closeHintUpi : W.closeHintNote)}</span> : null}

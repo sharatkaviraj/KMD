@@ -36,6 +36,7 @@ import {
   followUpDate,
   followUpLabel,
   followUpOwnerText,
+  isSensitiveNote,
   nextOpenAction,
   NOTE_TAGS,
   parentNoteMessage,
@@ -443,7 +444,8 @@ export function AddNoteSheet({
                 value={visibility}
                 onChange={setVisibility}
                 options={[
-                  { value: "team", label: tx(p("Teachers of this child", "इस बच्चे के शिक्षक")) },
+                  // Health and family notes reach only the admin and the class teacher (D-264).
+                  { value: "team", label: tx(isSensitiveNote({ tags }) ? p("Admin and class teacher", "प्रशासक और कक्षा अध्यापक") : p("Teachers of this child", "इस बच्चे के शिक्षक")) },
                   { value: "private", label: tx(p("Only me", "सिर्फ़ मैं")) },
                 ]}
               />

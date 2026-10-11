@@ -76,5 +76,5 @@ export type DeskProps = {
   selected: SelectedReceipt | null;
   sheet: "reverse" | "send" | null;
   initial: { mode: string; staff: string; query: string };
-  perms: { collect: boolean; reverse: boolean; reopen: boolean; print: boolean; dayBook: boolean };
+  perms: { collect: boolean; accounts: boolean; reverse: boolean; reopen: boolean; print: boolean; dayBook: boolean };
 };

@@ -68,6 +68,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_build_only
           NEXT_PUBLIC_SCHOOL_NAME: Shri Veer Patta Senior Secondary School
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          # next build type-checks the whole tree again inside one process, and
+          # on 11 Oct 2026 that crossed Node's default ~2 GB heap and died with
+          # "heap out of memory". The runner has 16 GB; Typecheck above is the
+          # real gate, this only lets the build's copy finish.
+          NODE_OPTIONS: --max-old-space-size=6144
           VPPSONE_ENV: dev
 
       - name: Route bundle budgets

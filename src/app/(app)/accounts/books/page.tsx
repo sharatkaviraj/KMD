@@ -32,7 +32,7 @@ export default async function AccountsBooksPage({ searchParams }: { searchParams
     today: schoolToday(),
     sessionLabel: session.sessionLabel,
     canDecide: can(staff, "fees:manage"),
-    canWrite: can(staff, "fees:collect"),
+    canWrite: can(staff, "fees:accounts"),
   });
 
   const askedView = one(sp.view);

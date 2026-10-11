@@ -76,12 +76,16 @@ const expectedPermissions: Record<StaffRole, readonly StaffPermission[]> = {
     // children through the fee app's own student screen instead.
     "fees:view",
     "fees:collect",
+    // The back office: day close, reversals, bank books, refunds (D-261).
+    "fees:accounts",
   ],
 
-  // The follow-up list. Reads the fee screens, takes no money.
+  // The follow-up list and the counter: takes money at the Payment Desk
+  // (D-261, Janmejay 11 Oct 2026), but not the back office.
   fee_collector: [
     "dashboard:view",
     "fees:view",
+    "fees:collect",
   ],
 
   academic_coordinator: [

@@ -8,6 +8,7 @@ import { getViewer } from "@/vx/view-as";
 import { currentExam, graceFor, issuedStudents, locksFor, marksOf, moderationFor, papersOf, previousExam, rechecksFor, studentsByIds } from "@/vx/screens/exams/data";
 import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { histogram } from "@/vx/screens/exams/domain/analysis";
+import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
 import { averagePct, graceVerdict, pipelineStates, unusualAverages, type PaperAverage } from "@/vx/screens/exams/domain/results";
 import { paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
@@ -252,6 +253,8 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
   const data: ResultsProps = {
     view,
     isAdmin: staff.role === "admin",
+    canFinalise: canFinaliseMarks(staff),
+    canReopen: canReopenMarks(staff),
     fromName: staff.displayName,
     exam: {
       id: exam.id,

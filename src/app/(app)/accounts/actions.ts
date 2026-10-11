@@ -63,7 +63,7 @@ export async function updateQueueAction(id: string, change: "left" | "served" | 
 /** Pause or resume today's 4 pm fee reminders. Each change is a new row. */
 export async function setRemindersPausedAction(paused: boolean): Promise<HomeActionResult> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     const db = createAdminClient();
     const { error } = await db.from("acc_reminder_pauses").insert({ day: schoolToday(), paused, created_by: staff.id });

@@ -247,7 +247,7 @@ function toBatch(summary: PaymentImportBatchSummary): BulkBatch {
  */
 export async function createBulkBatchAction(formData: FormData): Promise<{ ok: true; batch: BulkBatch } | { ok: false; message: string }> {
   try {
-    await assertPermission("fees:collect");
+    await assertPermission("fees:accounts");
     await assertNotPreviewing();
     await requireStaffPermission("payments:bulk");
     const sessionLabel = sessionOf(String(formData.get("sessionLabel") ?? ""));
@@ -279,7 +279,7 @@ export async function commitBulkRowsAction(input: {
   receivedBy: string;
 }): Promise<{ ok: true; posted: number; failed: number; batch: BulkBatch } | { ok: false; message: string }> {
   try {
-    await assertPermission("fees:collect");
+    await assertPermission("fees:accounts");
     await assertNotPreviewing();
     const staff = await requireStaffPermission("payments:bulk");
     if (!UUID.test(input.batchId)) return { ok: false, message: "That batch was not found." };

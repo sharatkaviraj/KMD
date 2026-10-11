@@ -43,7 +43,7 @@ async function latestChequeStatus(receiptIds: string[]) {
 
 export async function saveChequeDetailsAction(input: { receiptId: string; chequeNo: string; bank: string; chequeDate: string }): Promise<ActionResult> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     const chequeNo = input.chequeNo.replace(/\s+/g, "");
     const bank = input.bank.trim();
@@ -68,7 +68,7 @@ export async function saveChequeDetailsAction(input: { receiptId: string; cheque
 
 export async function createDepositSlipAction(input: { receiptIds: string[]; bankLabel: string; depositedOn: string; note?: string }): Promise<ActionResult & { slipNo?: string }> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     const ids = [...new Set(input.receiptIds)].filter(isUuid);
     if (ids.length === 0) throw new Error("Pick at least one cheque.");
@@ -103,7 +103,7 @@ export async function createDepositSlipAction(input: { receiptIds: string[]; ban
 
 export async function markClearedAction(receiptIds: string[]): Promise<ActionResult> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     const ids = [...new Set(receiptIds)].filter(isUuid);
     if (ids.length === 0) throw new Error("Pick a cheque.");
@@ -129,7 +129,7 @@ const BOUNCE_REASONS = ["Not enough money", "Signature does not match", "Date or
  */
 export async function bounceChequeAction(input: { receiptId: string; reason: string; note?: string }): Promise<ActionResult> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     if (!isUuid(input.receiptId)) throw new Error("Pick a cheque.");
     if (!(BOUNCE_REASONS as readonly string[]).includes(input.reason)) throw new Error("Say what the bank said.");
@@ -160,7 +160,7 @@ export async function bounceChequeAction(input: { receiptId: string; reason: str
 
 export async function uploadStatementAction(input: { text: string; bankLabel?: string }): Promise<ActionResult & { added?: number; skipped?: number; errors?: string[] }> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     if (input.text.length > 200_000) throw new Error("The statement is too long. Upload a week at a time.");
     const parsed = parseUpiStatement(input.text);
@@ -190,7 +190,7 @@ export async function uploadStatementAction(input: { text: string; bankLabel?: s
 }
 
 async function upiEvent(lineId: string, action: "match" | "unmatch" | "not_fee", receiptId: string | null): Promise<ActionResult> {
-  const staff = await assertPermission("fees:collect");
+  const staff = await assertPermission("fees:accounts");
   await assertNotPreviewing();
   if (!isUuid(lineId)) throw new Error("Pick a bank line.");
   const db = createAdminClient();
@@ -217,7 +217,7 @@ async function upiEvent(lineId: string, action: "match" | "unmatch" | "not_fee",
 
 export async function matchUpiAction(lineId: string, receiptId: string): Promise<ActionResult> {
   try {
-    await assertPermission("fees:collect");
+    await assertPermission("fees:accounts");
     return await upiEvent(lineId, "match", receiptId);
   } catch (error) {
     return fail(error);
@@ -226,7 +226,7 @@ export async function matchUpiAction(lineId: string, receiptId: string): Promise
 
 export async function unmatchUpiAction(lineId: string): Promise<ActionResult> {
   try {
-    await assertPermission("fees:collect");
+    await assertPermission("fees:accounts");
     return await upiEvent(lineId, "unmatch", null);
   } catch (error) {
     return fail(error);
@@ -235,7 +235,7 @@ export async function unmatchUpiAction(lineId: string): Promise<ActionResult> {
 
 export async function notFeeUpiAction(lineId: string): Promise<ActionResult> {
   try {
-    await assertPermission("fees:collect");
+    await assertPermission("fees:accounts");
     return await upiEvent(lineId, "not_fee", null);
   } catch (error) {
     return fail(error);
@@ -248,7 +248,7 @@ const REFUND_METHODS = ["cash", "upi", "bank_transfer", "cheque"] as const;
 /** Ask the admin to approve a refund from a family's advance. No money moves here. */
 export async function requestRefundAction(input: { studentId: string; amount: number; reason: string; method: string; note?: string }): Promise<ActionResult> {
   try {
-    const staff = await assertPermission("fees:collect");
+    const staff = await assertPermission("fees:accounts");
     await assertNotPreviewing();
     if (!isUuid(input.studentId)) throw new Error("Pick the family.");
     const amount = Math.trunc(Number(input.amount));

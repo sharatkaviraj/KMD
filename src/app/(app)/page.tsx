@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { resolveStart } from "@/platform/config/start";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { pendingMoneyRequests, todayMoney } from "@/modules/dashboard/vx/admin-today";
@@ -39,7 +40,10 @@ export default async function TodayPage() {
 
   await requirePermission("dashboard:view", "/");
   const language = staff.language;
-  const today = schoolToday();
+  // Real time for everyone; a QA account may be shown a set time (D-269).
+  const now = await schoolNow(staff);
+  const today = schoolToday(now);
+  const minutes = schoolMinutes(now);
   const sessionLabel = await resolveSessionLabel();
 
   if (!sessionLabel) {
@@ -57,7 +61,7 @@ export default async function TodayPage() {
 
   const seesMoney = can(staff, "fees:view");
   const [facts, money, inbox] = await Promise.all([
-    loadToday(staff, sessionLabel, today, schoolMinutes()),
+    loadToday(staff, sessionLabel, today, minutes),
     seesMoney ? todayMoney(today).catch(() => null) : Promise.resolve(null),
     can(staff, "attendance:correct")
       ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingMoneyRequests : undefined })
@@ -66,7 +70,7 @@ export default async function TodayPage() {
 
   const board = facts.board;
   const summary = board ? boardSummary(board.rows, board.halfDayCredit) : null;
-  const running = board ? runningPeriod(board.bells, schoolMinutes()) : null;
+  const running = board ? runningPeriod(board.bells, minutes) : null;
   const firstStart = board?.bells.length ? [...board.bells].sort((a, b) => a.starts.localeCompare(b.starts))[0].starts : null;
   const status = !board
     ? null

@@ -12,7 +12,7 @@ import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Avatar, Btn, Card, EmptyState, Pill, Progress, Ring } from "@/vx/ui/primitives";
 
 import type { ClassData, StudentData, SubjectData } from "../data";
-import { phoneLinks, type AttentionReason, type Mark } from "../domain/teach";
+import { phoneLinks, rosterBadges, type AttentionReason, type Mark } from "../domain/teach";
 import { Head } from "./shared";
 import "./teach.css";
 
@@ -206,12 +206,13 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
                     <Avatar text={initials(c.name)} seed={c.id} size={40} />
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                       <strong className="clip">{c.name}</strong>
-                      <span style={{ fontSize: 13, color: "var(--mut)" }}>
-                        {c.lowestSubject ? tx(p(`Lowest: ${c.lowestSubject.code} ${c.lowestSubject.pct}%`, `सबसे कम: ${c.lowestSubject.code} ${c.lowestSubject.pct}%`)) : tx(p("No marks yet", "अभी अंक नहीं"))}
-                        {c.openNotes ? ` · ${tx(p(`${c.openNotes} notes`, `${c.openNotes} नोट्स`))}` : ""}
+                      {/* Three factual badges, never a ranking (D-267). */}
+                      <span data-roster-badges style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                        {rosterBadges(c, data.today, dayMonth).map((b) => (
+                          <Pill key={b.key} tone={b.tone} style={{ fontSize: 12 }}>{tx(b.text)}</Pill>
+                        ))}
                       </span>
                     </span>
-                    <Pill tone={pctTone(c.attendancePct, 75)}>{c.attendancePct === null ? "—" : `${c.attendancePct}%`}</Pill>
                   </Link>
                 </li>
               ))}

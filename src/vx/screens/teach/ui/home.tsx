@@ -310,6 +310,30 @@ export function TeachHome({
     </Card>
   );
 
+  /* ------------------------------------------------- support reviews */
+  // Named, and the same notes as Student 360's support card: done in one
+  // place is done in both. Late is amber workflow information about the
+  // review, never about the child.
+  const reviews = data.reviews.length ? (
+    <Card style={{ display: "flex", flexDirection: "column", gap: 4 }} data-support-reviews>
+      <Head t={p("Support reviews", "सहायता समीक्षाएँ")} action={<Link href="/teach/notes" className="tap btn ghost" style={{ color: "var(--accfg)" }}>{tx(p("All notes", "सभी नोट्स"))}</Link>} />
+      {data.reviews.map((r) => {
+        const late = r.followUpOn < data.today;
+        return (
+          <Link key={r.id} href={`/teach/notes?note=${r.id}`} className="row tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: "1px solid var(--bd)" }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <strong className="clip" style={{ display: "block" }}>{r.studentName}</strong>
+              <span className="clip" style={{ display: "block", fontSize: 12, color: "var(--mut)" }}>{r.body}</span>
+            </span>
+            <Pill tone={late || r.followUpOn === data.today ? "warn" : "mut"} icon="flag">
+              {r.followUpOn === data.today ? tx(p("Review today", "आज समीक्षा")) : late ? tx(p(`Review was ${dayMonth(r.followUpOn)}`, `समीक्षा ${dayMonth(r.followUpOn)} थी`)) : tx(p(`Review ${dayMonth(r.followUpOn)}`, `समीक्षा ${dayMonth(r.followUpOn)}`))}
+            </Pill>
+          </Link>
+        );
+      })}
+    </Card>
+  ) : null;
+
   /* ------------------------------------------------------- marks links */
   const links = data.links.length ? (
     <Card style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -357,6 +381,7 @@ export function TeachHome({
             <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
               {hero}
               {periods}
+              {reviews}
               {kids}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>

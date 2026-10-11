@@ -37,6 +37,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       greet={greeting()}
       staffName={staff.displayName}
       canCollect={can(staff, "fees:collect")}
+      canAccounts={can(staff, "fees:accounts")}
       canManage={can(staff, "fees:manage")}
       readOnly={Boolean(previewing)}
     />

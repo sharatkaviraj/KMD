@@ -29,6 +29,8 @@ type CellView = { paperId: string; state: CellState; entered: number; total: num
 export type ExamsProps = {
   view: ExamsView;
   manage: boolean;
+  /** `MARKS_FINALISERS` (D-262): who may lock a class's marks. */
+  canFinalise: boolean;
   reports: boolean;
   scoped: boolean;
   fromName: string;
@@ -592,12 +594,15 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
           </Btn>
         ) : null}
       </div>
-      {props.manage ? (
+      {props.manage && props.canFinalise ? (
         <Btn variant="ghost" full icon="lock" disabled={cell.classLocked || !cell.classReady || pending} onClick={() => setLockOpen(true)}>
           {cell.classLocked ? tx(p(`${cell.classLabel} is locked`, `${cell.classLabel} बंद है`)) : tx(p(`Lock ${cell.classLabel} marks`, `${cell.classLabel} के अंक बंद करें`))}
         </Btn>
       ) : null}
-      {props.manage && !cell.classLocked && !cell.classReady ? (
+      {props.manage && !props.canFinalise && !cell.classLocked ? (
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Only the admin finalises marks.", "अंक केवल प्रशासक अंतिम करते हैं।"))}</span>
+      ) : null}
+      {props.manage && props.canFinalise && !cell.classLocked && !cell.classReady ? (
         <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("A class can be locked once every subject teacher has sent marks.", "सभी विषय-अध्यापकों के अंक भेजने के बाद ही कक्षा बंद होती है।"))}</span>
       ) : null}
       <Card style={{ display: "flex", flexDirection: "column", gap: 8 }}>

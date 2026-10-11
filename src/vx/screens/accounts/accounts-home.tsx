@@ -78,6 +78,7 @@ export function AccountsHome({
   view,
   staffName,
   canCollect,
+  canAccounts = false,
   canManage,
   readOnly,
   greet,
@@ -87,6 +88,8 @@ export function AccountsHome({
   view: View;
   staffName: string;
   canCollect: boolean;
+  /** Back office (`fees:accounts`): pausing reminders. A fee collector counts but does not pause (D-261). */
+  canAccounts?: boolean;
   canManage: boolean;
   readOnly: boolean;
 }) {
@@ -139,7 +142,7 @@ export function AccountsHome({
         }
         mAction={<HelpButton title="How the counter works" steps={help} />}
       />
-      {view === "home" ? <HomeView data={data} canAct={canAct} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
+      {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
       {view === "menu" ? <MenuView data={data} staffName={staffName} canCollect={canCollect} /> : null}
       {view === "evening" ? <EveningView data={data} /> : null}
     </VxPage>
@@ -148,7 +151,7 @@ export function AccountsHome({
 
 type Run = (fn: () => Promise<{ ok: boolean; message: string }>, undo?: () => Promise<unknown>) => void;
 
-function HomeView({ data, canAct, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
+function HomeView({ data, canAct, canPause, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
   const { tx } = useVx();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -371,7 +374,7 @@ function HomeView({ data, canAct, canCollect, canManage, run, busy }: { data: Ac
                 <span className="ac-v">{tx(p("Fee reminders at 4:00 pm", "शाम 4 बजे रिमाइंडर"))}</span>
                 <span className="ac-m">{data.reminders.paused ? "Paused for today · nothing will be sent" : `${data.reminders.familiesPendingToday} students with fees pending today · हिंदी first`}</span>
               </span>
-              <Switch on={!data.reminders.paused} label="Send reminders at 4 pm" disabled={!canAct || busy} onChange={(on) => run(() => setRemindersPausedAction(!on), () => setRemindersPausedAction(on))} />
+              <Switch on={!data.reminders.paused} label="Send reminders at 4 pm" disabled={!canPause || busy} onChange={(on) => run(() => setRemindersPausedAction(!on), () => setRemindersPausedAction(on))} />
             </div>
             <div className="ac-f ac-j ac-w" style={{ gap: 8 }}>
               <span className="pill" style={{ height: 26, padding: "0 10px", background: data.reminders.paused ? "var(--s2)" : "var(--infos)", color: data.reminders.paused ? "var(--mut)" : "var(--info)" }}>{data.reminders.paused ? "Paused · turn on to send at 4 pm" : "On for today"}</span>

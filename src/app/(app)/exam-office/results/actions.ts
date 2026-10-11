@@ -11,6 +11,7 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { p, type Pair } from "@/vx/text";
 import { enrolmentsFor, graceFor, issuedStudents, listExams, locksFor, logActivity, marksOf, paperById, papersOf } from "@/vx/screens/exams/data";
 import { issueOne } from "@/vx/screens/exams/cards-data";
+import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
 import { graceVerdict } from "@/vx/screens/exams/domain/results";
 import { onRoll } from "@/vx/screens/exams/domain/tracker";
 import { previewRefusal } from "@/vx/screens/exams/guards";
@@ -151,11 +152,15 @@ export async function removeGraceAction(input: { paperId: string; studentId: str
   return { ok: true, message: p("Grace taken back", "ग्रेस वापस लिए") };
 }
 
-/** Lock classes: after this no mark on their papers changes, in either app, until the admin unlocks. */
+/**
+ * Lock (finalise) classes: after this no mark on their papers changes, in
+ * either app, until the admin reopens. Who may is `MARKS_FINALISERS` (D-262).
+ */
 export async function lockClassesAction(input: { examId: string; classIds: string[] }): Promise<ActionResult> {
   const staff = await assertPermission("assessments:manage");
   const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
+  if (!canFinaliseMarks(staff)) return { ok: false, message: p("Only the admin finalises marks. Ask the admin to lock this class.", "अंक केवल प्रशासक अंतिम करते हैं। कक्षा बंद करने के लिए प्रशासक से कहें।") };
   const ids = [...new Set(input.classIds)].filter((id) => UUID.test(id));
   if (!UUID.test(input.examId) || ids.length === 0) return { ok: false, message: RELOAD };
   const papers = (await papersOf([input.examId])).filter((x) => ids.includes(x.class_id));
@@ -174,12 +179,12 @@ export async function lockClassesAction(input: { examId: string; classIds: strin
   return { ok: true, message: p(`${ids.length} classes locked`, `${ids.length} कक्षाएँ बंद`) };
 }
 
-/** Only the administrator opens a locked class again. */
+/** Only `MARKS_REOPENERS` (the administrator) open a locked class again (D-262). */
 export async function unlockClassAction(input: { examId: string; classId: string }): Promise<ActionResult> {
   const staff = await assertPermission("assessments:manage");
   const preview = await previewRefusal();
   if (preview) return { ok: false, message: preview };
-  if (staff.role !== "admin") return { ok: false, message: p("Only the admin can unlock a class.", "कक्षा केवल प्रशासक खोल सकते हैं।") };
+  if (!canReopenMarks(staff)) return { ok: false, message: p("Only the admin can unlock a class.", "कक्षा केवल प्रशासक खोल सकते हैं।") };
   if (!UUID.test(input.examId) || !UUID.test(input.classId)) return { ok: false, message: RELOAD };
   const { error } = await db().from("exam_class_locks").delete().eq("assessment_id", input.examId).eq("class_id", input.classId);
   if (error) return { ok: false, message: NOT_SAVED };
