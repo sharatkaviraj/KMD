@@ -28,6 +28,7 @@ import {
 } from "@/modules/payments/data/bulk/data";
 import { PAYMENT_IMPORT_COMMIT_CHUNK_SIZE, type PaymentImportBatchSummary } from "@/modules/payments/domain/bulk/types";
 import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/types";
+import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent } from "@/modules/payments/vx/data";
 import type { DeskMode } from "@/modules/payments/vx/domain/desk";
 import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
@@ -150,6 +151,12 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
  * come back null and the desk says the receipt could not be shown yet.
  */
 async function savedResult(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }): Promise<Extract<DeskSaveResult, { status: "saved" }>> {
+  // The post only queues the balance views' refresh; the fee action drains it
+  // in after(), once this answer has gone. Read before that and the receipt
+  // prints the balance from before the payment (₹1,000 owed where ₹900 is
+  // right). So drain first: the receipt in the parent's hand is the one place
+  // a stale figure cannot be corrected by a reload (D-271).
+  await drainFinancialViewRefresh();
   const [receipt, after] = await Promise.all([
     loadDeskReceipt(input.receiptId).catch(() => null),
     loadDeskStudent({ studentId: input.studentId, sessionLabel: input.sessionLabel, today: schoolToday() }).catch(() => null),

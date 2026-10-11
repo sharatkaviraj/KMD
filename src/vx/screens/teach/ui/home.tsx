@@ -374,7 +374,7 @@ export function TeachHome({
       <main>
         <Section>
           <div>
-            <h1 className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600 }}>{greeting()}, {firstName}</h1>
+            <h1 className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600 }}>{greeting(data.nowMinutes)}, {firstName}</h1>
             <span style={{ color: "var(--mut)" }}>{context}</span>
           </div>
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>

@@ -160,8 +160,11 @@ export async function sendReceiptNotice(
 ): Promise<ReceiptNoticeResult> {
   const { supabase, receiptId, receiptNumber, studentId, sessionLabel, staffId } = args;
 
-  if (args.trigger !== "manual" && !(await isReceiptNoticeEnabled(supabase))) {
-    return { sent: false, reason: "Receipt notices are switched off." };
+  // VPPS One never messages a parent on its own (D-270). The fee app's toggle
+  // came across in the replica as 'true', so on save this sent without anyone
+  // pressing Send. Only a person pressing Send on a receipt reaches a parent.
+  if (args.trigger !== "manual") {
+    return { sent: false, reason: "Receipt notices are only sent when staff press Send." };
   }
 
   // One read for everything about this family: the number to use, the language

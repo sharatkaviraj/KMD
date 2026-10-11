@@ -122,9 +122,13 @@ export function clock(value: string | Date): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(asDate(value));
 }
 
-/** "Good morning" / "Good afternoon" / "Good evening" in the school's day. */
-export function greeting(now: Date = new Date()): string {
-  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hour12: false }).format(now));
+/**
+ * "Good morning" / "Good afternoon" / "Good evening" in the school's day.
+ * Pass the school clock's minutes past midnight where a page already has
+ * them, so a QA test time (D-269) moves the greeting with the timetable.
+ */
+export function greeting(now: Date | number = new Date()): string {
+  const hour = typeof now === "number" ? Math.floor(now / 60) : Number(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hour12: false }).format(now));
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
   return "Good evening";

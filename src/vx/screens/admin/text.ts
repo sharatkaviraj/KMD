@@ -62,6 +62,7 @@ export const T = {
   allClearSub: p("Nothing is waiting for you.", "आपके लिए कुछ बाकी नहीं।"),
   todayAtSchool: p("Today at school", "आज स्कूल में"),
   firstBell: p("First bell", "पहली घंटी"),
+  periodStarts: (n: number): Pair => p(`Period ${n} starts`, `पीरियड ${n} शुरू`),
   attendanceCloses: p("Attendance closes", "हाज़िरी का समय पूरा"),
   notMarkedYet: (n: number): Pair => (n === 0 ? p("Every class marked", "सभी कक्षाएँ दर्ज") : p(`${n} class${n === 1 ? "" : "es"} not marked yet`, `${n} कक्षाएँ अभी दर्ज नहीं`)),
   needsSubstitute: p("Needs a substitute", "स्थानापन्न चाहिए"),

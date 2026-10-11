@@ -112,15 +112,20 @@ export function AccountsHome({
   const help = [
     { icon: "search" as IconName, title: tx(p("Find the family", "परिवार खोजें")), body: "Type a name, SR no. or the last 3 digits of the phone in the big search box." },
     { icon: "rupee" as IconName, title: tx(p("Collect", "फीस जमा करें")), body: "Pending today is already worked out. Pick how they pay — the receipt is made at the Payment Desk." },
-    { icon: "lock" as IconName, title: tx(p("Close the day by 5:30 pm", "शाम 5:30 तक दिन बंद करें")), body: "Count the cash, match UPI, put the cheques in the bag, then close the day in Receipts." },
+    ...(canAccounts
+      ? [{ icon: "lock" as IconName, title: tx(p("Close the day by 5:30 pm", "शाम 5:30 तक दिन बंद करें")), body: "Count the cash, match UPI, put the cheques in the bag, then close the day in Receipts." }]
+      : []),
   ];
+  // A fee collector takes money at the counter; closing the day, the books and
+  // pausing reminders are the accountant's (D-261), so the page says which.
+  const role = canAccounts ? "Accountant" : "Fee collector";
 
   const top =
     view === "menu"
-      ? { crumb: "Accountant · everything in one place", title: tx(p("Menu", "मेन्यू")), mSub: `${staffName} · Accountant` }
+      ? { crumb: `${role} · everything in one place`, title: tx(p("Menu", "मेन्यू")), mSub: `${staffName} · ${role}` }
       : view === "evening"
-        ? { crumb: `Accountant · ${dayLabel}${data.closure?.closedAt ? ` · ${clock(data.closure.closedAt)}` : ""}`, title: tx(p(`Good evening, ${first}`, `शुभ संध्या, ${first} जी`)), mSub: closed ? `${shortDay(data.today)} · day closed` : `${shortDay(data.today)} · not closed yet` }
-        : { crumb: `Accountant · ${dayLabel} · ${closed ? "day closed" : "counter open"}`, title: tx(p(`${greet}, ${first}`, `${greet === "Good morning" ? "सुप्रभात" : greet === "Good evening" ? "शुभ संध्या" : "नमस्ते"}, ${first} जी`)), mSub: `${shortDay(data.today)} · ${data.queue.length} at the counter` };
+        ? { crumb: `${role} · ${dayLabel}${data.closure?.closedAt ? ` · ${clock(data.closure.closedAt)}` : ""}`, title: tx(p(`Good evening, ${first}`, `शुभ संध्या, ${first} जी`)), mSub: closed ? `${shortDay(data.today)} · day closed` : `${shortDay(data.today)} · not closed yet` }
+        : { crumb: `${role} · ${dayLabel} · ${closed ? "day closed" : "counter open"}`, title: tx(p(`${greet}, ${first}`, `${greet === "Good morning" ? "सुप्रभात" : greet === "Good evening" ? "शुभ संध्या" : "नमस्ते"}, ${first} जी`)), mSub: `${shortDay(data.today)} · ${data.queue.length} at the counter` };
 
   return (
     <VxPage>
@@ -142,8 +147,8 @@ export function AccountsHome({
         }
         mAction={<HelpButton title="How the counter works" steps={help} />}
       />
-      {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
-      {view === "menu" ? <MenuView data={data} staffName={staffName} canCollect={canCollect} /> : null}
+      {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
+      {view === "menu" ? <MenuView data={data} staffName={staffName} canCollect={canCollect} canAccounts={canAccounts} /> : null}
       {view === "evening" ? <EveningView data={data} /> : null}
     </VxPage>
   );
@@ -151,7 +156,7 @@ export function AccountsHome({
 
 type Run = (fn: () => Promise<{ ok: boolean; message: string }>, undo?: () => Promise<unknown>) => void;
 
-function HomeView({ data, canAct, canPause, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
+function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canClose: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
   const { tx } = useVx();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -382,7 +387,7 @@ function HomeView({ data, canAct, canPause, canCollect, canManage, run, busy }: 
             </div>
           </Card>
 
-          <Card className="ac-c ac-cd" style={{ borderColor: "var(--bds)" }}>
+          {canClose ? <Card className="ac-c ac-cd" style={{ borderColor: "var(--bds)" }}>
             <div className="ac-f" style={{ gap: 12 }}>
               <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true" style={{ flex: "none" }}>
                 <circle cx="26" cy="26" r="21" style={{ fill: "none", stroke: "var(--s3)", strokeWidth: 6 }} />
@@ -403,18 +408,20 @@ function HomeView({ data, canAct, canPause, canCollect, canManage, run, busy }: 
             </div>
             <Btn variant="pri" icon="lock" href="/receipts" style={{ height: 46 }}>Count cash and close the day</Btn>
             <Btn variant="ghost" href="/accounts?view=evening" style={{ height: 36, fontSize: 13, color: "var(--mut)" }}>After closing: see tonight’s summary<Ic n="chevRight" size={16} /></Btn>
-          </Card>
+          </Card> : null}
         </div>
       </div>
     </Section>
   );
 }
 
-function MenuView({ data, staffName, canCollect }: { data: AccountsHomeData; staffName: string; canCollect: boolean }) {
+function MenuView({ data, staffName, canCollect, canAccounts }: { data: AccountsHomeData; staffName: string; canCollect: boolean; canAccounts: boolean }) {
   const { tx } = useVx();
   const tiles: { icon: IconName; en: string; hi: string; sub: string; href: string; badge?: number; big?: boolean }[] = [
     ...(canCollect ? [{ icon: "rupee" as IconName, en: "Collect fee", hi: "फीस जमा करें", sub: "Find a family, tick what they pay, take the money", href: "/payments", big: true }] : []),
-    { icon: "receipt", en: "Receipts & day close", hi: "रसीदें व दिन बंद", sub: `${data.collected.count} today · close by 5:30 pm`, href: "/receipts" },
+    canAccounts
+      ? { icon: "receipt", en: "Receipts & day close", hi: "रसीदें व दिन बंद", sub: `${data.collected.count} today · close by 5:30 pm`, href: "/receipts" }
+      : { icon: "receipt", en: "Receipts", hi: "रसीदें", sub: `${data.collected.count} today`, href: "/receipts" },
     { icon: "phone", en: "Dues & calls", hi: "बकाया व कॉल", sub: `${data.followUpsToday.count} follow-ups due today`, href: "/dues", badge: data.followUpsToday.count },
     { icon: "bell", en: "Fee reminders", hi: "फीस रिमाइंडर", sub: data.reminders.paused ? "Paused for today" : "Going at 4 pm", href: "/reminders" },
     { icon: "swap", en: "Cheques, UPI & refunds", hi: "चेक, UPI व रिफंड", sub: `${data.chequesToDeposit.count} cheques · ${data.upiOpen.count} UPI to match`, href: "/accounts/books", badge: data.chequesToDeposit.count + data.upiOpen.count },
@@ -427,7 +434,7 @@ function MenuView({ data, staffName, canCollect }: { data: AccountsHomeData; sta
         <span className="ac-av" style={{ width: 54, height: 54, borderRadius: 27, fontSize: 18, background: "var(--oks)", color: "var(--ok)" }}>{initials(staffName)}</span>
         <span className="ac-c ac-1" style={{ minWidth: 200 }}>
           <span className="serif" style={{ fontSize: 21, fontWeight: 600 }}>{staffName}</span>
-          <span className="ac-m">Accountant · Office counter · Session {data.sessionLabel}</span>
+          <span className="ac-m">{canAccounts ? "Accountant" : "Fee collector"} · Office counter · Session {data.sessionLabel}</span>
         </span>
         <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: data.closure?.status === "closed" ? "var(--s3)" : "var(--oks)", color: data.closure?.status === "closed" ? "var(--mut)" : "var(--ok)" }}>
           <span style={{ width: 8, height: 8, borderRadius: 4, background: "currentColor" }} />

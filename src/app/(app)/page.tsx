@@ -80,11 +80,11 @@ export default async function TodayPage() {
         ? running.state === "running"
           ? T.periodRunning(running.number)
           : T.periodBreak(running.number)
-        : firstStart && new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false }) < firstStart
+        : firstStart && now.toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false }) < firstStart
           ? T.beforeSchool
           : T.dayOver;
 
-  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hour12: false }).format(new Date()));
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hour12: false }).format(now));
   const greeting = hour < 12 ? T.greetMorning : hour < 17 ? T.greetAfternoon : T.greetEvening;
 
   const actions: TodayProps["actions"] = [

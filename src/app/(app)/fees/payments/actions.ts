@@ -392,8 +392,9 @@ export async function submitPaymentEntryAction(
        * drawer and the receipt is printed, and a WhatsApp hiccup must never
        * turn that into a failed posting at the counter.
        *
-       * Off by default: `app_settings.whatsapp_receipt_notice_enabled` must be
-       * 'true' AND the template must be approved. It also honours `no_call` and
+       * In VPPS One this never sends: only a staff member pressing Send on a
+       * receipt messages a parent (D-270). The call stays so the fee app's
+       * code reads the same; `sendReceiptNotice` refuses the automatic trigger. It also honours `no_call` and
        * a `never` cadence, because a family who asked not to be contacted did
        * not ask only about reminders.
        */

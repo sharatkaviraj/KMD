@@ -425,7 +425,7 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
   const bells = [...(board?.bells ?? [])].sort((a, b) => toMin(a.starts) - toMin(b.starts));
   if (board?.schoolOpen && bells.length > 0) {
     const first = bells[0];
-    timeline.push({ time: first.starts, title: T.firstBell, sub: T.periodRunning(1), state: stateAt(toMin(first.starts)) });
+    timeline.push({ time: first.starts, title: T.firstBell, sub: T.periodStarts(1), state: stateAt(toMin(first.starts)) });
     const notMarked = board.rows.filter((row) => !row.recorded).length;
     timeline.push({
       time: first.ends,
