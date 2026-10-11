@@ -12,7 +12,7 @@ for (const viewport of phones) {
       // Chromium can report 43.999969 for a 44px target during translated row animation.
       const small = await page.locator('button:not([disabled]),a[href],input:not([type=hidden]),select,textarea').evaluateAll(elements => elements.filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden").map(element => { const r = element.getBoundingClientRect(); return { label: element.getAttribute("aria-label") ?? element.textContent?.trim(), width: Math.round(r.width * 100) / 100, height: Math.round(r.height * 100) / 100 }; }).filter(r => r.width < 44 || r.height < 44));
       expect(small).toEqual([]);
-      await page.screenshot({ path: `../evidence/accountant-${view}-${viewport.width}x${viewport.height}.png`, fullPage: true });
+      await page.screenshot({ path: `.playwright/phone-evidence/accountant-${view}-${viewport.width}x${viewport.height}.png`, fullPage: true });
     });
   }
   test(`statement error retains input on phone ${viewport.width}x${viewport.height}`, async ({ page }) => {

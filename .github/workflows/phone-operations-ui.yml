@@ -32,6 +32,6 @@ jobs:
           path: |
             .playwright/
             test-results/
-            ../evidence/admin-browser/
           if-no-files-found: ignore
+          include-hidden-files: true
           retention-days: 7
