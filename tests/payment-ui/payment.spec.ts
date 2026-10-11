@@ -18,6 +18,13 @@ for (const width of [320, 390, 1180, 1440]) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `test-results/payment-saved-${testInfo.project.name}-${width}.png`, fullPage: true });
     await page.getByRole("button", { name: "Collect for another student" }).click(); await page.getByRole("button", { name: /TEST Child B/ }).click(); await expect(amount).toBeVisible();
+    // Visibility does not imply opacity animation has completed (WebKit can
+    // otherwise capture an empty entry pane during its first frame).
+    await page.evaluate(async () => {
+      const finite = document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity);
+      await Promise.all(finite.map(animation => animation.finished.catch(() => undefined)));
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `test-results/payment-entry-${testInfo.project.name}-${width}.png`, fullPage: true });
