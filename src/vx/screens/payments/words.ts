@@ -6,6 +6,9 @@ import { p } from "@/vx/text";
  * line reads in English for now.
  */
 export const W = {
+  collectionUnavailable: p("Collection total could not be refreshed", "वसूली का कुल योग ताज़ा नहीं हो सका"),
+  otherTabAttempt: p("Another tab has an unfinished payment. Resolve that payment before collecting again.", "दूसरे टैब में अधूरा भुगतान है। नया भुगतान लेने से पहले उसे पूरा करें।"),
+  waiverAttemptPending: p("The late-fee waiver may already be applied. Check or complete the original payment; an earlier receipt does not resolve it.", "लेट फीस माफी पहले ही लागू हो सकती है। मूल भुगतान की जाँच करें या उसे पूरा करें; पुरानी रसीद से यह पूरा नहीं होता।"),
   concession: p("Concession", "रियायत"),
   receiptDetails: p("Receipt details and remaining dues", "रसीद विवरण और शेष बकाया"),
   concessionHint: p("Applied to the oldest dues before the money received. Unavailable on an EMI plan.", "प्राप्त राशि से पहले सबसे पुराने बकाये पर लागू। EMI योजना में उपलब्ध नहीं।"),

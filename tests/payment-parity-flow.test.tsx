@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn() }) }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string } | string) => typeof p === "string" ? p : p.en }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 import { PaymentDesk } from "@/vx/screens/payments/desk";
 import { ToastProvider } from "@/vx/ui/overlays";
+import { writePaymentAttempt, readPaymentAttempt, paymentAttemptKey } from "@/modules/payments/vx/attempt";
 
 let root: Root; let host: HTMLDivElement;
 async function render(props: Partial<React.ComponentProps<typeof PaymentDesk>> = {}) { await act(async () => root.render(<ToastProvider><PaymentDesk boot={{ ...boot, me: { ...boot.me, id: "qa-owner" } }} previewing={false} initialStudentId={STUDENT_ID} initialStudent={{ ok: true, student }} initialReceipt={null} {...props} /></ToastProvider>)); }
@@ -19,6 +20,7 @@ async function click(text: string) { const b = [...document.querySelectorAll<HTM
 async function input(selector: string, value: string) { const el = host.querySelector<HTMLInputElement>(selector); expect(el, selector).not.toBeNull(); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(el, value); el!.dispatchEvent(new Event("input", { bubbles: true })); }); }
 beforeEach(() => {
   vi.resetAllMocks(); localStorage.clear(); window.history.replaceState({}, "", "/payments");
+  Object.defineProperty(navigator, "locks", { configurable: true, value: { request: async (_key: string, work: () => Promise<unknown>) => work() } });
   window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   actions.loadStudentDeskAction.mockImplementation(async ({ studentId }) => ({ ok: true, student: { ...student, id: studentId, name: studentId === OTHER_ID ? "TEST Child B" : student.name } }));
@@ -78,4 +80,25 @@ it("uses the EMI shortcuts and disables concession on an active plan", async () 
   expect(host.querySelector<HTMLInputElement>("#pd-concession")!.disabled).toBe(true);
   await click("Monthly EMI"); expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).toBe("1000");
   await click("Review"); await click("Confirm and save"); expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 1000, quickDiscountAmount: 0, lateFeeWaiver: 0 });
+});
+
+it("uses authoritative collection totals after a restored request is retried", async () => {
+  actions.postDeskPaymentAction.mockRejectedValueOnce(new Error("TEST request never reached server"));
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await act(async () => root.unmount()); root = createRoot(host); await render();
+  actions.checkDeskPaymentAction.mockResolvedValue({ status: "not_saved" }); await click("Check whether");
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, todayCollection: { count: 1, amount: 500 } });
+  await click("Confirm and save"); expect(host.textContent).toContain("1 receipt");
+});
+
+it("retains a waiver-bearing attempt when opening an unrelated duplicate receipt", async () => {
+  const key = paymentAttemptKey("qa-owner", boot.sessionLabel);
+  const pending = { input: { clientRequestId: "TEST-original-request", studentId: STUDENT_ID, sessionLabel: boot.sessionLabel, paymentDate: boot.today, mode: "cash" as const, amount: 500, quickDiscountAmount: 0, lateFeeWaiver: 1000, reference: "", remarks: "TEST waiver", receivedBy: boot.me.name, acknowledgeDuplicate: false }, form: { amount: "500", late: "waive", waiveReason: "TEST authorized reason" } };
+  await writePaymentAttempt(key, pending); await render();
+  actions.checkDeskPaymentAction.mockResolvedValue({ status: "not_saved" }); await click("Check whether");
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "duplicate", kind: "daily-amount", receiptId: receipt.id, receiptNumber: receipt.receiptNumber, createdAt: receipt.createdAt, amount: 500, mode: "cash", message: "TEST unrelated duplicate" });
+  actions.loadReceiptAction.mockResolvedValue(receipt);
+  await click("Confirm and save"); await click("Open that receipt");
+  expect(await readPaymentAttempt(key, boot.sessionLabel)).toEqual(pending);
+  expect(host.textContent).toContain("could not confirm whether this payment was saved");
 });

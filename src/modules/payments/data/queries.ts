@@ -909,9 +909,8 @@ async function getTodayPaymentDeskCollection(sessionLabel?: string) {
   )();
 }
 
-async function getTodayPaymentDeskCollectionUncached(sessionLabel: string) {
+export async function getTodayPaymentDeskCollectionUncached(sessionLabel: string, today = new Date().toISOString().slice(0, 10)) {
   const supabase = await getCacheSafeClient();
-  const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("receipts")
     // payment_mode is selected, not filtered on, so a write-off can be reported

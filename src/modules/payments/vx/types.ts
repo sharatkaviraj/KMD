@@ -86,7 +86,7 @@ export type DeskReceipt = {
 };
 
 export type DeskSaveResult =
-  | { status: "saved"; receipt: DeskReceipt | null; receiptId: string; receiptNumber: string; student: DeskStudent | null; balanceAfter: { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number } | null }
+  | { status: "saved"; receipt: DeskReceipt | null; receiptId: string; receiptNumber: string; student: DeskStudent | null; balanceAfter: { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number } | null; todayCollection?: { count: number; amount: number } | null }
   | {
       status: "duplicate";
       kind: "near-duplicate" | "daily-amount";

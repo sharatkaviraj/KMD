@@ -19,6 +19,7 @@ import {
   getPaymentDeskReadiness,
   getPaymentDeskStudentSummary,
   getPaymentEntryPageData,
+  getTodayPaymentDeskCollectionUncached,
 } from "@/modules/payments/data/queries";
 import { getReceiptDetail } from "@/modules/receipts/data/queries";
 import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/data/reversals";
@@ -43,6 +44,11 @@ import type {
 } from "@/modules/payments/vx/types";
 
 const DESK_MODES: readonly DeskMode[] = ["cash", "upi", "bank_transfer", "cheque"];
+
+export async function loadDeskTodayCollection(sessionLabel: string, today: string) {
+  const totals = await getTodayPaymentDeskCollectionUncached(sessionLabel, today);
+  return { count: totals.receiptCount, amount: totals.totalAmount };
+}
 
 function single<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);

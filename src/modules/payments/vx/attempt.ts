@@ -3,6 +3,9 @@ import { draftKey, readDraft, isStringRecord } from "@/platform/drafts/policy";
 import { loadDraft, saveDraft, removeDraft } from "@/platform/drafts/store";
 
 export type PaymentAttempt = { input: DeskPostInput; form: Record<string, string> };
+export class PaymentAttemptConflict extends Error {
+  constructor(readonly attempt: PaymentAttempt) { super("Another payment is still unresolved in this browser."); }
+}
 export function paymentAttemptKey(owner: string, session: string) { return draftKey(owner, session, "payment-attempt"); }
 function valid(value: unknown): value is PaymentAttempt {
   if (!value || typeof value !== "object") return false;
@@ -21,6 +24,22 @@ export async function readPaymentAttempt(key: string, session: string) {
 }
 /** Confirm storage before calling the posting action, even on the first attempt. */
 export async function writePaymentAttempt(key: string, attempt: PaymentAttempt) {
-  await saveDraft(key, { version: 1, baseline: attempt.input.sessionLabel, value: attempt, updatedAt: Date.now() });
+  return withAttemptLock(key, async () => {
+    const current = readDraft(await loadDraft(key), valid)?.value;
+    if (current) {
+      const fields: Array<keyof DeskPostInput> = ["clientRequestId", "studentId", "sessionLabel", "paymentDate", "mode", "amount", "quickDiscountAmount", "lateFeeWaiver", "reference", "remarks", "receivedBy"];
+      if (fields.some(field => current.input[field] !== attempt.input[field]) || (current.input.acknowledgeDuplicate && !attempt.input.acknowledgeDuplicate)) throw new PaymentAttemptConflict(current);
+    }
+    await saveDraft(key, { version: 1, baseline: attempt.input.sessionLabel, value: attempt, updatedAt: Date.now() });
+  });
 }
-export const clearPaymentAttempt = removeDraft;
+export async function clearPaymentAttempt(key: string, requestId: string) {
+  return withAttemptLock(key, async () => {
+    const current = readDraft(await loadDraft(key), valid)?.value;
+    if (current?.input.clientRequestId === requestId) await removeDraft(key);
+  });
+}
+function withAttemptLock<T>(key: string, work: () => Promise<T>) {
+  if (!navigator.locks) throw new Error("This browser cannot protect payment recovery across tabs.");
+  return navigator.locks.request(`payment-recovery:${key}`, work);
+}

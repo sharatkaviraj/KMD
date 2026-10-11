@@ -34,7 +34,7 @@ import {
 import type { DeskBoot, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudent, DeskStudentResult } from "@/modules/payments/vx/types";
 import { buildPaymentQuickAmounts } from "@/modules/payments/domain/workflow";
 import { MobilePrintedReceipt } from "@/modules/payments/ui/mobile-printed-receipt";
-import { clearPaymentAttempt, paymentAttemptKey, readPaymentAttempt, writePaymentAttempt, type PaymentAttempt } from "@/modules/payments/vx/attempt";
+import { clearPaymentAttempt, paymentAttemptKey, readPaymentAttempt, writePaymentAttempt, PaymentAttemptConflict, type PaymentAttempt } from "@/modules/payments/vx/attempt";
 import type { DeskLedgerRow } from "@/modules/payments/vx/domain/desk";
 import { amountInWords, clock, dateLabel, dayMonth, initials, rupees, shortDay } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
@@ -187,7 +187,7 @@ export function PaymentDesk({
       : null,
   );
   const [expiredAt, setExpiredAt] = useState<number | null>(null);
-  const [todayTotals, setTodayTotals] = useState(boot.todayCollection);
+  const [todayTotals, setTodayTotals] = useState<DeskBoot["todayCollection"] | null>(boot.todayCollection);
   const [rmReason, setRmReason] = useState("");
   const [rmNote, setRmNote] = useState("");
   const [waLang, setWaLang] = useState<"hi" | "en" | "both">("both");
@@ -292,7 +292,7 @@ export function PaymentDesk({
   }
 
   async function selectStudent(id: string) {
-    if (posting.current) return;
+    if (posting.current || !recoveryReady) return;
     const seq = ++loadSeq.current;
     setSelId(id);
     setSaved(null);
@@ -367,7 +367,7 @@ export function PaymentDesk({
     const studentId = attemptRef.current?.input.studentId ?? res.student?.id;
     if (studentId && res.balanceAfter) setListBalances(b => ({ ...b, [studentId]: { pendingToday: res.balanceAfter!.pendingToday, lateFee: res.balanceAfter!.lateFee } }));
     setDatePreview(null);
-    if (attemptKey) void clearPaymentAttempt(attemptKey).catch(() => undefined);
+    if (attemptKey && attemptRef.current) void clearPaymentAttempt(attemptKey, attemptRef.current.input.clientRequestId).catch(() => undefined);
     attemptRef.current = null; setAttempt(null);
     requestId.current = null;
     const now = wallClock();
@@ -390,9 +390,10 @@ export function PaymentDesk({
     setReviewing(false);
     setUncertain(null);
     setAck(false);
-    if (postedDate === today && !restoredAttempt.current && !counted.current.has(res.receiptId)) {
+    if (res.todayCollection !== undefined) setTodayTotals(res.todayCollection);
+    else if (postedDate === today && !restoredAttempt.current && !counted.current.has(res.receiptId)) {
       counted.current.add(res.receiptId);
-      setTodayTotals((t) => ({ count: t.count + 1, amount: t.amount + total }));
+      setTodayTotals((t) => t ? ({ count: t.count + 1, amount: t.amount + total }) : null);
     }
     restoredAttempt.current = false;
     toast.show({ text: tx(W.savedToast(res.receiptNumber, rupees(total))) });
@@ -458,7 +459,16 @@ export function PaymentDesk({
     };
     const pending: PaymentAttempt = { input, form: attemptRef.current?.form ?? form };
     try { await writePaymentAttempt(attemptKey, pending); }
-    catch { posting.current = false; setSaving(false); toast.show({ text: tx(W.storageBlocked), tone: "bad", ms: 8000 }); return; }
+    catch (error) {
+      posting.current = false; setSaving(false);
+      if (error instanceof PaymentAttemptConflict) {
+        attemptRef.current = error.attempt; setAttempt(error.attempt); requestId.current = error.attempt.input.clientRequestId;
+        setReviewing(false);
+        if (error.attempt.input.studentId === student.id) { setForm(recoveredForm(boot, error.attempt)); setReviewing(true); setUncertain({ checking: false }); }
+        toast.show({ text: tx(W.otherTabAttempt), tone: "bad", ms: 8000 });
+      } else toast.show({ text: tx(W.storageBlocked), tone: "bad", ms: 8000 });
+      return;
+    }
     attemptRef.current = pending; setAttempt(pending);
     const postedAmount = input.amount;
     const res = await postDeskPaymentAction(input).catch((): DeskSaveResult => ({ status: "uncertain", message: tx(W.uncertainTitle) }));
@@ -482,7 +492,7 @@ export function PaymentDesk({
     // A permanent waiver can have completed before the payment was rejected.
     // Keep its request id and financial payload so retry cannot waive twice.
     if (input.lateFeeWaiver === 0) {
-      await clearPaymentAttempt(attemptKey).catch(() => undefined);
+      await clearPaymentAttempt(attemptKey, input.clientRequestId).catch(() => undefined);
       attemptRef.current = null; setAttempt(null); requestId.current = null;
     }
     toast.show({ text: res.message || tx(W.notSaved), tone: "bad", ms: 8000 });
@@ -498,7 +508,13 @@ export function PaymentDesk({
       toast.show({ text: tx(W.couldNotLoad), tone: "bad" });
       return;
     }
-    if (attemptKey) await clearPaymentAttempt(attemptKey).catch(() => undefined);
+    if (attemptRef.current?.input.lateFeeWaiver) {
+      await reloadStudent();
+      setUncertain({ checking: false }); setReviewing(true);
+      toast.show({ text: tx(W.waiverAttemptPending), tone: "bad", ms: 8000 });
+      return;
+    }
+    if (attemptKey && attemptRef.current) await clearPaymentAttempt(attemptKey, attemptRef.current.input.clientRequestId).catch(() => undefined);
     attemptRef.current = null; setAttempt(null); requestId.current = null; setUncertain(null);
     setSaved({ receiptId: receipt.id, receiptNumber: receipt.receiptNumber, receipt, balance: null, amount: receipt.total, fresh: false, savedAtMs: 0, removed: receipt.isReversed, sent: false, log: [] });
   }
@@ -541,7 +557,7 @@ export function PaymentDesk({
     const at = new Date().toISOString();
     const total = saved.receipt?.total ?? 0;
     setSaved((s) => (s ? { ...s, removed: true, log: [...s.log, { text: tx(W.removedBy(boot.me.name)), time: clock(at), tone: "var(--bad)" }] } : s));
-    setTodayTotals((t) => ({ count: Math.max(0, t.count - 1), amount: Math.max(0, t.amount - total) }));
+    if (saved.receipt?.paymentDate === today) setTodayTotals((t) => t ? ({ count: Math.max(0, t.count - 1), amount: Math.max(0, t.amount - total) }) : null);
     setSheet("");
     setRmReason("");
     setRmNote("");
@@ -569,8 +585,8 @@ export function PaymentDesk({
   const todayPill = (
     <Link href="/receipts" className="tap" style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 40, padding: "0 14px", borderRadius: 12, background: "var(--oks)", color: "var(--ok)", fontWeight: 700, fontSize: 14 }}>
       <span className="live-dot" style={{ background: "var(--ok)" }} />
-      {tx(W.todayPill)}: <span className="num">{rupees(todayTotals.amount)}</span>
-      <span style={{ fontWeight: 500 }}>· {tx(W.receiptsN(todayTotals.count))}</span>
+      {tx(W.todayPill)}: <span className="num">{todayTotals ? rupees(todayTotals.amount) : tx(W.collectionUnavailable)}</span>
+      {todayTotals ? <span style={{ fontWeight: 500 }}>· {tx(W.receiptsN(todayTotals.count))}</span> : null}
       <Ic n="chevRight" size={16} />
     </Link>
   );
@@ -631,6 +647,7 @@ export function PaymentDesk({
                   key={s.id}
                   type="button"
                   className={`pd-srow tap${s.id === selId ? " sel" : ""}`}
+                  disabled={!recoveryReady || saving || Boolean(uncertain?.checking)}
                   aria-current={s.id === selId ? "true" : undefined}
                   onClick={() => selectStudent(s.id)}
                   style={{ animation: `xIn .3s var(--ease) ${Math.min(i * 18, 300)}ms both` }}
@@ -891,14 +908,15 @@ export function PaymentDesk({
           </span>
         }
         mTitle={student ? student.name : tx(W.title)}
-        mSub={student ? `${student.classLabel} · SR ${student.sr}` : `${tx(W.todayPill)}: ${rupees(todayTotals.amount)} · ${tx(W.receiptsN(todayTotals.count))}`}
-        mAction={
+          mSub={student ? `${student.classLabel} · SR ${student.sr}` : todayTotals ? `${tx(W.todayPill)}: ${rupees(todayTotals.amount)} · ${tx(W.receiptsN(todayTotals.count))}` : tx(W.collectionUnavailable)}
+        mAction={boot.me.canBulk ? (
           <Link href="/payments/bulk" className="tap icon-btn" aria-label={tx(W.many)} style={{ width: 44, height: 44 }}>
             <Ic n="table" size={20} />
           </Link>
-        }
+        ) : null}
       />
       <main>
+        {attempt?.input.lateFeeWaiver ? <div className="pad"><Banner tone="warn">{tx(W.waiverAttemptPending)} <b>{rupees(attempt.input.lateFeeWaiver)}</b></Banner></div> : null}
         {attempt && attempt.input.studentId !== student?.id ? <div className="pad"><Banner tone="warn" action={<Btn onClick={() => void selectStudent(attempt.input.studentId)}>{tx(W.resumePayment)}</Btn>}>{tx(W.unfinished)}</Banner></div> : null}
         {recoveryError || (canAct && !attemptKey) ? <div className="pad"><Banner tone="bad">{tx(W.storageBlocked)}</Banner></div> : null}
         {previewing || boot.blocking ? (

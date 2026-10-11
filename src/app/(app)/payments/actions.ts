@@ -29,7 +29,7 @@ import {
 import { PAYMENT_IMPORT_COMMIT_CHUNK_SIZE, type PaymentImportBatchSummary } from "@/modules/payments/domain/bulk/types";
 import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/types";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
-import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent, loadDeskPreview } from "@/modules/payments/vx/data";
+import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent, loadDeskPreview, loadDeskTodayCollection } from "@/modules/payments/vx/data";
 import type { DeskMode } from "@/modules/payments/vx/domain/desk";
 import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
 import { revalidateAfterPaymentPosting } from "@/modules/system-sync/data/finance-revalidation";
@@ -169,9 +169,10 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
   // right). So drain first: the receipt in the parent's hand is the one place
   // a stale figure cannot be corrected by a reload (D-271).
   await drainFinancialViewRefresh();
-  const [receipt, after] = await Promise.all([
+  const [receipt, after, todayCollection] = await Promise.all([
     loadDeskReceipt(input.receiptId).catch(() => null),
     loadDeskStudent({ studentId: input.studentId, sessionLabel: input.sessionLabel, today: schoolToday() }).catch(() => null),
+    loadDeskTodayCollection(input.sessionLabel, schoolToday()).catch(() => null),
   ]);
   const student = after && after.ok ? after.student : null;
   return {
@@ -181,6 +182,7 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
     receiptNumber: input.receiptNumber,
     student,
     balanceAfter: student ? balanceAfter(student, schoolToday()) : null,
+    todayCollection,
   };
 }
 
