@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { Suspense, use, useCallback, useState } from "react";
 
 import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
@@ -9,7 +9,7 @@ import { Ic } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
 import { ChipRow } from "@/vx/ui/controls";
 import { Grid, Section, TopBar } from "@/vx/ui/page";
-import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Stat, toneColors, type Tone } from "@/vx/ui/primitives";
+import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Skel, Stat, toneColors, type Tone } from "@/vx/ui/primitives";
 import { feeRibbon, mobileOf, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
 import { T } from "@/vx/screens/admin/text";
 
@@ -153,9 +153,36 @@ const CELL_LOOK: Record<Cell["state"], { bg: string; fg: string; border?: string
   none: { bg: "var(--s3)", fg: "var(--mut)" },
 };
 
-export function Student360({ p }: { p: Student360Props }) {
-  const { tx } = useVx();
+/** Everything on the card that comes from the fee app's reads. */
+export type Student360Fees = Partial<
+  Pick<Student360Props, "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family">
+>;
+
+/**
+ * Student 360, with the fee side streamed in. The school side (name, class,
+ * attendance, marks, notes, documents) is on screen as soon as it is read;
+ * the fee side is a promise the server keeps resolving after the first bytes
+ * have left, so the card no longer waits for its slowest half. The tab is held
+ * here, above both renders, so a tab picked while the fees are still loading
+ * stays picked when they land.
+ */
+export function Student360({ p, fees }: { p: Student360Props; fees?: Promise<Student360Fees | null> }) {
   const [tab, setTab] = useState<StudentTab>(p.tab);
+  if (!fees) return <Student360View p={p} tab={tab} setTab={setTab} feesLoading={false} />;
+  return (
+    <Suspense fallback={<Student360View p={p} tab={tab} setTab={setTab} feesLoading />}>
+      <WithFees p={p} fees={fees} tab={tab} setTab={setTab} />
+    </Suspense>
+  );
+}
+
+function WithFees({ p, fees, tab, setTab }: { p: Student360Props; fees: Promise<Student360Fees | null>; tab: StudentTab; setTab: (t: StudentTab) => void }) {
+  const loaded = use(fees);
+  return <Student360View p={loaded ? { ...p, ...loaded } : p} tab={tab} setTab={setTab} feesLoading={false} />;
+}
+
+function Student360View({ p, tab, setTab, feesLoading }: { p: Student360Props; tab: StudentTab; setTab: (t: StudentTab) => void; feesLoading: boolean }) {
+  const { tx } = useVx();
   const pick = useCallback(
     (next: StudentTab) => (event: React.MouseEvent<HTMLAnchorElement>) => {
       // A new tab or window still gets a real link.
@@ -165,7 +192,17 @@ export function Student360({ p }: { p: Student360Props }) {
       const url = next === "overview" ? `/students/${p.id}` : `/students/${p.id}?tab=${next}`;
       window.history.replaceState(window.history.state, "", url);
     },
-    [p.id],
+    [p.id, setTab],
+  );
+  const loadingCard = (
+    <Card>
+      <div role="status" aria-busy="true" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <span className="sr">{tx(T.loadingFees)}</span>
+        <Skel w="min(240px, 60%)" h={18} />
+        <Skel w="100%" h={14} />
+        <Skel w="80%" h={14} />
+      </div>
+    </Card>
   );
   const mobile = mobileOf(p.phone);
   const siblings = (p.family ?? []).filter((m) => !m.self).length;
@@ -314,6 +351,7 @@ export function Student360({ p }: { p: Student360Props }) {
       body = (
         <>
           <Grid cols={3}>
+            {feesLoading ? tile(T.pendingToday, <span aria-busy="true" style={{ display: "block" }}><Skel w={90} h={26} /></span>) : null}
             {p.money ? tile(T.pendingToday, rupees(p.money.pendingToday), p.money.pendingToday > 0 ? "var(--bad)" : undefined, p.money.lateFee > 0 ? `${tx(T.lateFee)} ${rupees(p.money.lateFee)} · ${tx(T.lateFeeApart)}` : undefined) : null}
             {tile(T.attendancePct, p.attendance.percent !== null ? `${p.attendance.percent}%` : "—", undefined, p.attendance.counted ? tx(T.daysCounted(p.attendance.counted)) : tx(T.noAttendanceYet))}
             {latest ? tile({ en: latest.term }, latest.percent !== null ? `${latest.percent}%` : "—", undefined, latest.grade ?? undefined) : p.money ? tile(T.notDueYet, rupees(p.money.notDueYet)) : null}
@@ -328,7 +366,7 @@ export function Student360({ p }: { p: Student360Props }) {
       );
       break;
     case "fees":
-      body = p.money && p.feeSummary ? (
+      body = feesLoading ? loadingCard : p.money && p.feeSummary ? (
         <FeesTab p={p} summary={p.feeSummary} receiptsCard={receiptsCard} />
       ) : (
         <Card><p style={{ margin: 0, color: "var(--mut)" }}>{tx(T.noFeeRecord)}</p></Card>
@@ -358,7 +396,7 @@ export function Student360({ p }: { p: Student360Props }) {
       body = termsCard;
       break;
     case "family":
-      body = (
+      body = feesLoading ? loadingCard : (
         <Card pad={false} style={{ overflow: "hidden" }}>
           {(p.family ?? []).filter((m) => !m.self).length === 0 ? (
             <EmptyState icon="users" title={tx(T.noFamily)} />

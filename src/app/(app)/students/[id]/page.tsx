@@ -14,7 +14,7 @@ import {
 } from "@/vx/screens/admin/logic";
 import { loadStudentSchool } from "@/vx/screens/admin/data";
 import { notesForStudentTab } from "@/vx/screens/admin/notes-tab";
-import { Student360 } from "@/vx/screens/admin/student360";
+import { Student360, type Student360Fees } from "@/vx/screens/admin/student360";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -71,7 +71,46 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   const tab = parseTab(typeof search.tab === "string" ? search.tab : null, tabs);
   const today = schoolToday();
 
-  const [fees, notes] = await Promise.all([feesPromise, notesPromise]);
+  const notes = await notesPromise;
+
+  // Not awaited: the card goes out with the school side, and the fee side
+  // streams into it when the fee app's reads finish (Student360's Suspense).
+  const feesView: Promise<Student360Fees | null> | undefined = seesMoney
+    ? feesPromise.then((fees): Student360Fees | null =>
+        fees
+          ? {
+              status: fees.status ?? school.card.status,
+              address: fees.address,
+              dob: fees.dateOfBirth,
+              joined: fees.joinedOn,
+              route: fees.routeLabel,
+              money: moneyFromInstallments(fees.installments, today),
+              installments: fees.installments.map((row) => ({
+                id: row.installmentId,
+                label: row.installmentLabel,
+                dueDate: row.dueDate,
+                state: installmentState(row, today),
+                status: row.balanceStatus,
+                pending: row.pendingAmount,
+                settled: row.feeSettledAmount,
+                paid: row.settledAmount,
+                receiptedHere: row.appliedAmount + row.discountCloseoutAmount,
+                adjusted: row.adjustmentAmount,
+                base: row.baseCharge,
+                lateFee: row.finalLateFee,
+                lateFeeWaived: row.waiverApplied,
+                lateFeePending: row.lateFeePending,
+                carry: row.isCarryForward,
+              })),
+              feeSummary: fees.summary,
+              feeBreakup: fees.breakup,
+              feeSession: fees.sessionLabel,
+              receipts: fees.receipts,
+              family: fees.family.map((m) => ({ id: m.id, name: m.fullName, sr: m.admissionNo, classLabel: m.classLabel, self: m.isSelf })),
+            }
+          : null,
+      )
+    : undefined;
 
   const closed = new Set(school.closedDays);
   const counts: Record<MarkStatus, number> = { present: 0, absent: 0, half_day: 0, late: 0, leave: 0 };
@@ -89,41 +128,23 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           classLabel: school.classLabel,
           sr: school.card.admissionNo,
           rollNo: school.rollNo,
-          status: fees?.status ?? school.card.status,
+          status: school.card.status,
           father: school.card.fatherName,
           mother: school.card.motherName,
           phone: school.card.guardianPhone ?? school.card.primaryPhone,
-          address: fees?.address ?? null,
-          dob: fees?.dateOfBirth ?? null,
-          joined: fees?.joinedOn ?? null,
-          route: fees?.routeLabel ?? null,
+          address: null,
+          dob: null,
+          joined: null,
+          route: null,
           tab,
           tabs,
-          money: fees ? moneyFromInstallments(fees.installments, today) : null,
-          installments: fees
-            ? fees.installments.map((row) => ({
-                id: row.installmentId,
-                label: row.installmentLabel,
-                dueDate: row.dueDate,
-                state: installmentState(row, today),
-                status: row.balanceStatus,
-                pending: row.pendingAmount,
-                settled: row.feeSettledAmount,
-                paid: row.settledAmount,
-                receiptedHere: row.appliedAmount + row.discountCloseoutAmount,
-                adjusted: row.adjustmentAmount,
-                base: row.baseCharge,
-                lateFee: row.finalLateFee,
-                lateFeeWaived: row.waiverApplied,
-                lateFeePending: row.lateFeePending,
-                carry: row.isCarryForward,
-              }))
-            : null,
-          feeSummary: fees?.summary ?? null,
-          feeBreakup: fees?.breakup ?? null,
-          feeSession: fees?.sessionLabel ?? null,
-          receipts: fees?.receipts ?? null,
-          family: fees ? fees.family.map((m) => ({ id: m.id, name: m.fullName, sr: m.admissionNo, classLabel: m.classLabel, self: m.isSelf })) : null,
+          money: null,
+          installments: null,
+          feeSummary: null,
+          feeBreakup: null,
+          feeSession: null,
+          receipts: null,
+          family: null,
           attendance: {
             percent: school.attendancePercent,
             counted: school.attendanceCounted,
@@ -160,6 +181,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           canManageDocuments: can(staff, "documents:manage"),
           canManageFees: can(staff, "fees:manage"),
         }}
+        fees={feesView}
       />
     </VxPage>
   );

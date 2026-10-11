@@ -50,14 +50,16 @@ queries, no figure recomputed.
    same rows and sums as `/fees/students/[id]`; the fee plan and waivers link
    through to it. ✅
 
+10. **Stream the fee side.** (11 Oct) The card goes out with the school side;
+    the fee app's reads are a promise the page does not await, and Student 360
+    shows skeletons in the money tile, Fees and Family until it lands. ✅
+
 ### Not done, and why
 
 - **Persisting lists in the browser between visits** (IndexedDB/service
   worker). Office PCs are shared, and the list carries phone numbers and
   money; a copy that outlives the sign-in is a privacy cost. The service worker
   keeps caching build assets only.
-- **Streaming Student 360 tab by tab with Suspense.** Worth it if the fee side
-  is still the slow half after idea 2; measure first.
 - **`.in(id…)` with a directory segment on the students list** (ported fee
   query) can carry several hundred ids in the URL, which rule 3b says hangs at
   about 400. Watch the "Pending" chip on live; chunking it is a fee-module
@@ -86,5 +88,4 @@ only opens pages.
 Tabs are the win: no server trip after the first switch (the first still pays
 600–700 ms while the page settles). Back is one press from any tab now, since
 tabs replace the history entry. Opening Student 360 did not get faster; it is
-still about one second, and it is the next thing to attack (streaming the fee
-side with Suspense, above).
+still about one second; idea 10 streams the fee side to attack it.

@@ -231,6 +231,7 @@ export const T = {
   receipts: p("Receipts", "रसीदें"),
   noReceipts: p("No receipts this session", "इस सत्र कोई रसीद नहीं"),
   reversed: p("Reversed", "रद्द"),
+  loadingFees: p("Loading fees…", "फ़ीस लोड हो रही है…"),
   noFeeRecord: p("No fee record for this student in this session.", "इस सत्र में इस विद्यार्थी का फ़ीस रिकॉर्ड नहीं।"),
   /* Fees tab, in the fee app's own words (`/fees/students/[id]`). */
   outstanding: p("Outstanding", "बकाया"),
