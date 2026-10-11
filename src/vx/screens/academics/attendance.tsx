@@ -2,17 +2,14 @@ import Link from "next/link";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { listCorrections } from "@/modules/attendance/data/corrections-repo";
-import { withinScope } from "@/modules/attendance/domain/class-scope";
-import { canDecide, type Correction } from "@/modules/attendance/domain/corrections";
 import { agoP, clock, dateLabel, dayMonth, shortDay } from "@/vx/format";
 import { Ic } from "@/vx/icons";
 import { HelpButton } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { ATT_COLORS, Btn, Card, CardHead, EmptyState, Kpi, Pill, Progress, Ring, SecHead } from "@/vx/ui/primitives";
 
-import { CallSheet, DecideButtons, PrintButton, RemindRegistersButton, RemindSheet } from "./client";
-import { academicContext, attendanceMonth, attendanceOn, chronicAbsentees, markSheet, pendingCorrections, registerSheet } from "./data";
+import { CallSheet, PrintButton, RemindRegistersButton, RemindSheet } from "./client";
+import { academicContext, attendanceMonth, attendanceOn, chronicAbsentees, markSheet, registerSheet } from "./data";
 import { attendanceBand, BAND_STYLE, isMonth, shiftMonth, telHref, type AttStatus } from "./domain";
 import { MarkSheet } from "./mark-sheet";
 import { followLabel } from "./progress-labels";
@@ -20,9 +17,10 @@ import { LinkCard, LinkTabs, qs, sayer, type Say } from "./ui";
 
 /*
  * AcadAttendance (SCREENS "Academic coordinator · Attendance"): today, the
- * month, children below 75% with call outcomes, change requests from
- * teachers and a class register. States: `?view=` today | month | chronic |
- * corrections | register, and `?sheet=` remind | mark | call.
+ * month, children below 75% with call outcomes and a class register. A
+ * saved register is changed by its class teacher or the office directly; there
+ * is no request to approve (D-248). States: `?view=` today | month | chronic |
+ * register, and `?sheet=` remind | mark | call.
  */
 
 type Props = { staff: CurrentStaff; view?: string; sheet?: string; classId?: string; month?: string; studentId?: string; filter?: string };
@@ -44,9 +42,9 @@ export async function AcadAttendance(props: Props) {
       </VxPage>
     );
   }
-  const view = ["month", "chronic", "corrections", "register"].includes(props.view ?? "") ? props.view! : "today";
+  const view = ["month", "chronic", "register"].includes(props.view ?? "") ? props.view! : "today";
   const month = isMonth(props.month) ? props.month : ctx.today.slice(0, 7);
-  const [today, chronic, pending] = await Promise.all([attendanceOn(ctx, ctx.today), chronicAbsentees(ctx), pendingCorrections(ctx)]);
+  const [today, chronic] = await Promise.all([attendanceOn(ctx, ctx.today), chronicAbsentees(ctx)]);
   const mayRemind = can(staff, "messages:send");
   const help = (
     <HelpButton
@@ -54,7 +52,7 @@ export async function AcadAttendance(props: Props) {
       steps={[
         { icon: "calCheck", title: say("Marked means saved", "दर्ज यानी सहेजा"), body: say("A class counts only after its teacher presses Save. Not marked is never counted as present.", "कक्षा तभी गिनी जाती है जब शिक्षक सहेजें। दर्ज न होना कभी उपस्थित नहीं गिना जाता।") },
         { icon: "alert", title: say("Below 75%", "75% से कम"), body: say("Children under 75% this session, with the last call to their parents.", "इस सत्र 75% से कम वाले बच्चे, अभिभावक को पिछली कॉल के साथ।") },
-        { icon: "edit", title: say("Change requests", "बदलाव अनुरोध"), body: say("Teachers ask to change a saved register; somebody else approves it.", "शिक्षक सहेजे रजिस्टर में बदलाव माँगते हैं; कोई दूसरा स्वीकार करता है।") },
+        { icon: "edit", title: say("Changing a saved register", "सहेजा रजिस्टर बदलना"), body: say("The class teacher or the office changes it directly, with a reason. Nobody has to approve it.", "कक्षा-अध्यापक या ऑफ़िस कारण के साथ सीधे बदलते हैं। किसी की मंज़ूरी नहीं चाहिए।") },
       ]}
     />
   );
@@ -67,7 +65,6 @@ export async function AcadAttendance(props: Props) {
         { key: "today", href: BASE, label: say("Today", "आज"), icon: "calCheck" },
         { key: "month", href: qs(BASE, { view: "month" }), label: say("Month", "महीना"), icon: "chart" },
         { key: "chronic", href: qs(BASE, { view: "chronic" }), label: "< 75%", icon: "alert", badge: chronic.length || undefined },
-        { key: "corrections", href: qs(BASE, { view: "corrections" }), label: say("Changes", "बदलाव"), icon: "edit", badge: pending || undefined },
         { key: "register", href: qs(BASE, { view: "register", class: firstRegisterClass }), label: say("Register", "रजिस्टर"), icon: "table" },
       ]}
     />
@@ -218,73 +215,6 @@ export async function AcadAttendance(props: Props) {
               </div>
             ))}
           </Card>
-        </Section>
-        {sheet}
-      </VxPage>
-    );
-  }
-
-  /* ------------------------------------------------------ corrections */
-  if (view === "corrections") {
-    const labels = new Map(ctx.classes.map((c) => [c.id, c.label]));
-    const all: Correction[] = withinScope(ctx.scope, await listCorrections(ctx.session, labels), (c) => c.classId);
-    const waiting = all.filter((c) => c.status === "pending");
-    const decided = all.filter((c) => c.status !== "pending").slice(0, 10);
-    const statusName = (s: string | null) => (s ? say(ATT_COLORS[DOT[s as AttStatus] ?? "N"].label, ATT_COLORS[DOT[s as AttStatus] ?? "N"].hi) : "—");
-    const mayDecide = can(staff, "attendance:correct");
-    return (
-      <VxPage>
-        {top}
-        <Section>
-          {tabs}
-          {!mayDecide ? (
-            <Card style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "var(--warns)", color: "var(--warnfg)" }}>
-              <Ic n="lock" size={18} />
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{say("You can see these requests. Approving them is the office's — the person who approves must hold attendance correction rights.", "आप ये अनुरोध देख सकते हैं। स्वीकार करना कार्यालय का काम है।")}</span>
-            </Card>
-          ) : null}
-          <SecHead>{say(`Waiting · ${waiting.length}`, `प्रतीक्षा में · ${waiting.length}`)}</SecHead>
-          {waiting.length === 0 ? <Card><EmptyState icon="checkCircle" title={say("No requests waiting", "कोई अनुरोध नहीं")} style={{ padding: 20 }} /></Card> : null}
-          <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 12 }}>
-            {waiting.map((c) => {
-              const verdict = canDecide({ hasCorrectPermission: mayDecide, requestedByStaffId: c.requestedById, deciderStaffId: staff.id, status: c.status });
-              const from = ATT_COLORS[DOT[(c.fromStatus ?? "present") as AttStatus] ?? "N"];
-              const to = ATT_COLORS[DOT[c.toStatus] ?? "N"];
-              return (
-                <Card key={c.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ display: "flex", flexDirection: "column" }}>
-                      <strong>{c.studentName}</strong>
-                      <span style={{ fontSize: 13, color: "var(--mut)" }}>{c.classLabel} · {shortDay(c.day)}</span>
-                    </span>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{say(agoP(c.requestedAt).en, agoP(c.requestedAt).hi)}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="pill" style={{ background: from.bg, color: from.fg }}>{statusName(c.fromStatus)}</span>
-                    <Ic n="arrowRight" size={16} style={{ color: "var(--mut)" }} />
-                    <span className="pill" style={{ background: to.bg, color: to.fg }}>{statusName(c.toStatus)}</span>
-                  </div>
-                  <blockquote style={{ margin: 0, padding: "8px 12px", borderLeft: "3px solid var(--bd)", background: "var(--s2)", borderRadius: 8, fontSize: 14 }}>
-                    “{c.reason}”
-                    <span style={{ display: "block", fontSize: 12, color: "var(--mut)", marginTop: 4 }}>— {c.requestedByName}</span>
-                  </blockquote>
-                  <DecideButtons correctionId={c.id} canDecide={verdict.allowed} reason={verdict.reason ? { en: verdict.reason.en, hi: verdict.reason.hi } : undefined} />
-                </Card>
-              );
-            })}
-          </div>
-          {decided.length ? (
-            <Card pad={false}>
-              <div style={{ padding: "16px 16px 8px" }}><CardHead title={say("Decided recently", "हाल में तय")} /></div>
-              {decided.map((c) => (
-                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderTop: "1px solid var(--bd)", fontSize: 14 }}>
-                  <Pill tone={c.status === "approved" ? "ok" : "bad"}>{c.status === "approved" ? say("Approved", "स्वीकृत") : say("Declined", "अस्वीकृत")}</Pill>
-                  <span style={{ flex: 1, minWidth: 0 }} className="clip">{c.studentName} · {c.classLabel} · {shortDay(c.day)} · {statusName(c.toStatus)}</span>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{c.decidedByName ?? ""}</span>
-                </div>
-              ))}
-            </Card>
-          ) : null}
         </Section>
         {sheet}
       </VxPage>
@@ -465,7 +395,6 @@ export async function AcadAttendance(props: Props) {
               <div style={{ padding: "14px 16px 6px" }}><SecHead>{say("Look closer", "और देखें")}</SecHead></div>
               <LinkCard href={qs(BASE, { view: "month" })} icon="chart" tone="info" title={say("This month", "यह महीना")} sub={say("Every class, every day", "हर कक्षा, हर दिन")} />
               <LinkCard href={qs(BASE, { view: "chronic" })} icon="alert" tone="bad" title={say("Below 75%", "75% से कम")} sub={say(`${chronic.length} children · ${chronic.filter((c) => c.absentLastWeek >= 2).length} absent 2+ days this week`, `${chronic.length} बच्चे`)} />
-              <LinkCard href={qs(BASE, { view: "corrections" })} icon="edit" tone="warn" title={say("Change requests", "बदलाव अनुरोध")} sub={say(`${pending} waiting`, `${pending} प्रतीक्षा में`)} />
               {firstRegisterClass ? <LinkCard href={qs(BASE, { view: "register", class: firstRegisterClass })} icon="table" title={say(`${ctx.label(firstRegisterClass)} register`, `${ctx.label(firstRegisterClass)} रजिस्टर`)} sub={say("A dot for every child, every day", "हर बच्चा, हर दिन")} /> : null}
             </Card>
             <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>

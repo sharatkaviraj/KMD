@@ -206,7 +206,7 @@ export type WeekFacts = {
   attention: number;
   attentionNew: number;
   notesOpen: number;
-  correctionsDecided: number;
+  correctionsMade: number;
 };
 
 /** The weekly summary for the principal, one line per fact, in the reader's language. */
@@ -220,7 +220,7 @@ export function weeklySummary(f: WeekFacts): Pair[] {
     p(`Attendance ${att}${diff}. ${f.classesAlwaysMarked} of ${f.classes} classes marked every day.`, `उपस्थिति ${att}${diff}। ${f.classes} में से ${f.classesAlwaysMarked} कक्षाओं ने रोज़ हाज़िरी ली।`),
     p(`Half-yearly marks ${f.marksPct}% entered; ${f.lateTeachers} teachers behind.`, `अर्धवार्षिक अंक ${f.marksPct}% दर्ज; ${f.lateTeachers} शिक्षक पीछे।`),
     p(`${f.attention} children need attention (${f.attentionNew} new this week).`, `${f.attention} बच्चों पर ध्यान चाहिए (इस सप्ताह ${f.attentionNew} नए)।`),
-    p(`${f.notesOpen} notes waiting for action; ${f.correctionsDecided} attendance changes decided.`, `${f.notesOpen} नोट कार्रवाई के लिए; ${f.correctionsDecided} हाज़िरी बदलाव तय।`),
+    p(`${f.notesOpen} notes waiting for action; ${f.correctionsMade} attendance corrections made.`, `${f.notesOpen} नोट कार्रवाई के लिए; ${f.correctionsMade} हाज़िरी सुधार किए गए।`),
   ];
 }
 

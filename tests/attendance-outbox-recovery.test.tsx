@@ -14,7 +14,7 @@ vi.mock("@/platform/drafts/store", () => ({
   saveDraft: async (key: string, value: unknown) => { if (state.storageFails) throw new Error("storage blocked"); state.stored.set(key, value); },
   removeDraft: async (key: string) => { state.removals.push(key); state.stored.delete(key); },
 }));
-vi.mock("@/vx/screens/teach/actions", () => ({ saveRegisterVx: state.save, checkRegisterVx: state.check, askChangeVx: vi.fn() }));
+vi.mock("@/vx/screens/teach/actions", () => ({ saveRegisterVx: state.save, checkRegisterVx: state.check }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en, sub: () => null }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 vi.mock("@/vx/shell/sidebar", () => ({ LangButton: () => null }));
 vi.mock("@/vx/ui/overlays", () => ({ useToast: () => ({ show: state.toast }), Sheet: ({ open, children, footer }: { open: boolean; children: React.ReactNode; footer: React.ReactNode }) => open ? <section>{children}{footer}</section> : null }));
@@ -33,10 +33,10 @@ const box = { payload: "qa-payload", alerts: false, commandId: "qa-command", at:
 const data = { kind: "class", sessionLabel: "QA", classId, classLabel: "QA class", day: "2026-10-10", prevDay: "2026-10-09",
   choices: [], closed: false, canSave: true, canCorrect: true, isOwner: true, correctsAny: false, onBehalf: false, reason: null,
   roll: [{ id: studentId, name: "QA Child", rollNo: "1", gender: null }], registerId: null, revision: 0,
-  saved: {}, yesterday: {}, firstSavedAt: null, receipt: null, queuedAlerts: [], pending: [], month: "2026-10", monthMarks: [], closedDays: [],
+  saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], month: "2026-10", monthMarks: [], closedDays: [],
 } as AttendData;
 let root: Root; let host: HTMLDivElement;
-async function render() { await act(async () => root.render(<TeachAttend data={data} ownerId={ownerId} initialSheet="save" initialView={null} serverNow={Date.parse("2026-10-10T05:00:00Z")} school="QA School" />)); }
+async function render() { await act(async () => root.render(<TeachAttend data={data} ownerId={ownerId} initialSheet="save" initialView={null} school="QA School" />)); }
 async function clickSave() {
   const buttons = [...host.querySelectorAll<HTMLButtonElement>("button")].filter(b => b.textContent === "Save attendance");
   await act(async () => buttons.at(-1)!.click());

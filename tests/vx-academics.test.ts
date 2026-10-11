@@ -82,7 +82,7 @@ describe("marks entry", () => {
 });
 
 describe("weekly summary", () => {
-  const facts = { coordinator: "Test Coordinator", weekLabel: "5–10 Oct", attendancePct: 91.2, attendanceBefore: 90, classesAlwaysMarked: 17, classes: 19, marksPct: 64, lateTeachers: 3, attention: 54, attentionNew: 6, notesOpen: 4, correctionsDecided: 2 };
+  const facts = { coordinator: "Test Coordinator", weekLabel: "5–10 Oct", attendancePct: 91.2, attendanceBefore: 90, classesAlwaysMarked: 17, classes: 19, marksPct: 64, lateTeachers: 3, attention: 54, attentionNew: 6, notesOpen: 4, correctionsMade: 2 };
 
   it("gives four lines in both languages", () => {
     const lines = weeklySummary(facts);

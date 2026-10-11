@@ -22,7 +22,6 @@ import {
   rosterOn,
   studentAttendance,
 } from "@/modules/attendance/data/attendance-repo";
-import { listCorrections } from "@/modules/attendance/data/corrections-repo";
 import { compareRoll, type AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { documentsForStudent, historyForStudent, type RecordChange } from "@/modules/collection/data/documents-repo";
 import { listSubmissions } from "@/modules/collection/data/submissions-repo";
@@ -46,14 +45,6 @@ import type { BoardData, InboxItem, SheetData, TimelineItem } from "@/vx/screens
  * existing repositories, which keep their own permission checks; the few
  * direct reads are of this app's own tables (`vppsone`), never of fee data.
  */
-
-const STATUS_WORD: Record<AttendanceStatus, { en: string; hi: string }> = {
-  present: { en: "present", hi: "उपस्थित" },
-  absent: { en: "absent", hi: "अनुपस्थित" },
-  half_day: { en: "half day", hi: "आधा दिन" },
-  late: { en: "late", hi: "देर से" },
-  leave: { en: "leave", hi: "छुट्टी" },
-};
 
 /** Run a read; a failure becomes null and is recorded rather than shown as nought (D-93). */
 async function guard<T>(missing: string[], key: string, read: () => Promise<T>): Promise<T | null> {
@@ -334,10 +325,7 @@ export async function loadInbox(
   const items: InboxItem[] = [];
   const nowIso = new Date().toISOString();
 
-  const [board, labels] = await Promise.all([
-    can(staff, "attendance:mark_on_behalf") ? guard(missing, "board", () => loadBoard(sessionLabel, day)) : Promise.resolve(null),
-    guard(missing, "classes", () => classLabelMap(sessionLabel)),
-  ]);
+  const board = can(staff, "attendance:mark_on_behalf") ? await guard(missing, "board", () => loadBoard(sessionLabel, day)) : null;
 
   /* attendance not marked */
   if (board && board.schoolOpen) {
@@ -416,36 +404,6 @@ export async function loadInbox(
       });
     });
     items.push(...(cover ?? []));
-  }
-
-  /* attendance corrections */
-  if (can(staff, "attendance:correct") && labels) {
-    const corrections = await guard(missing, "corrections", () => listCorrections(sessionLabel, labels));
-    for (const c of (corrections ?? []).filter((entry) => entry.status === "pending")) {
-      const from = c.fromStatus ? STATUS_WORD[c.fromStatus] : { en: "not marked", hi: "दर्ज नहीं" };
-      const to = STATUS_WORD[c.toStatus];
-      items.push({
-        id: `correction:${c.id}`,
-        type: "attendance",
-        kind: "correction",
-        at: c.requestedAt,
-        urgent: false,
-        badge: T.bCorrection,
-        title: T.correctionTitle(c.studentName, c.classLabel, c.day),
-        sub: p(`${c.classLabel} · ${from.en} → ${to.en} on ${c.day}`, `${c.classLabel} · ${c.day} को ${from.hi} → ${to.hi}`),
-        body: p(c.reason),
-        facts: [
-          { label: T.change, value: `${from.en} → ${to.en}` },
-          { label: T.day, value: c.day },
-          { label: T.askedBy, value: c.requestedByName },
-          { label: T.reason, value: c.reason },
-        ],
-        footnote: T.correctionFootnote,
-        href: "/teach/corrections",
-        correctionId: c.id,
-        ownRequest: c.requestedById === staff.id,
-      });
-    }
   }
 
   /* answers waiting to be checked */

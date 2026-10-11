@@ -155,7 +155,7 @@ test("an answer lost on the way back is checked, not sent again", async ({ brows
   await context.close();
 });
 
-test("a subject teacher reads the register and is offered a correction request, not the pen", async ({ browser }) => {
+test("a subject teacher reads the register but is not given the pen", async ({ browser }) => {
   const [day] = days;
   const { context, page } = await asAccount(browser, "teacher2", `/teach/attendance?class=${scene.classId}&day=${day}`);
   const notYours = page.getByText(/not one of your classes|आपकी कक्षा नहीं/);

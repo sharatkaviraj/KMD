@@ -20,7 +20,6 @@ export type AttentionKey =
   | "registers"
   | "absences"
   | "review"
-  | "corrections"
   | "jobs";
 
 export type AttentionFacts = {
@@ -40,8 +39,6 @@ export type AttentionFacts = {
   absencesToday: number;
   /** Collection answers waiting for a decision. */
   pendingSubmissions: number;
-  /** Attendance corrections waiting for a second person. */
-  pendingCorrections: number;
   /** Scheduled jobs whose most recent attempt failed. */
   failedJobs: number;
   /**
@@ -70,9 +67,9 @@ export type AttentionItem = {
 /** Which items each role is shown, in the order PLAN §3 puts them. */
 const FOR_ROLE: Record<StaffRole, readonly AttentionKey[]> = {
   // "Attendance gaps, uncovered periods, review/marks backlog, failed jobs."
-  admin: ["registers", "absences", "review", "corrections", "jobs"],
+  admin: ["registers", "absences", "review", "jobs"],
   // "Changes to review, request batches, attendance on behalf."
-  office: ["review", "corrections", "registers", "absences"],
+  office: ["review", "registers", "absences"],
   // The fee desk's exceptions are dues and defaulters, and those live on the
   // fee screens where the figures actually are. A register backlog is not
   // this person's work and putting it here would only be noise they cannot
@@ -136,15 +133,6 @@ export function attentionFor(
       owner: m.homeOwnerOffice,
       href: "/collection/review",
       tone: facts.pendingSubmissions > 0 ? "warning" : "neutral",
-    },
-    corrections: {
-      key: "corrections",
-      label: m.correctionsQueue,
-      count: count("corrections", facts.pendingCorrections),
-      detail: null,
-      owner: m.homeOwnerApprover,
-      href: "/teach/corrections",
-      tone: facts.pendingCorrections > 0 ? "warning" : "neutral",
     },
     jobs: {
       key: "jobs",

@@ -245,10 +245,11 @@ export type SaveRegisterInput = z.infer<typeof saveRegisterSchema>;
  * What this person may do with a class's daily register (P6).
  *
  * The register belongs to the class teacher, or the assistant, as of today —
- * a former one does not keep it. The office may record it on the class
- * teacher's behalf and may correct any register; a subject teacher may read
- * the classes she teaches and ask for a correction, but not take or change
- * the register. The database applies the same rule again when it saves.
+ * a former one does not keep it, and corrects it directly with a reason; no
+ * admin approves it (D-248). The office may record it on the class teacher's
+ * behalf and may correct any register; a subject teacher may read the classes
+ * she teaches, but not take or change the register. The database applies the
+ * same rule again when it saves.
  */
 export function registerAuthority(input: {
   /** Class teacher or assistant of this class today. */
@@ -271,8 +272,8 @@ export function registerAuthority(input: {
     onBehalf: false,
     reason: input.hasMarkPermission
       ? t(
-          "दैनिक उपस्थिति कक्षा-अध्यापक लेते हैं। गलती दिखे तो सुधार का अनुरोध भेजें।",
-          "The class teacher takes this register. If something is wrong, ask for a correction.",
+          "दैनिक उपस्थिति कक्षा-अध्यापक लेते हैं। गलती दिखे तो कक्षा-अध्यापक को बताएँ — वे खुद सुधार सकते हैं।",
+          "The class teacher takes this register. If something is wrong, tell the class teacher — they can correct it themselves.",
         )
       : t(
           "आपको उपस्थिति दर्ज करने की अनुमति नहीं है।",

@@ -4,7 +4,7 @@ import { allowedFor, workspacesFor } from "@/platform/config/navigation";
 
 export const attentionFacts: AttentionFacts = {
   registersOutstanding: 7, schoolOpenToday: true, classesTotal: 19,
-  absencesToday: 2, pendingSubmissions: 12, pendingCorrections: 3, failedJobs: 1,
+  absencesToday: 2, pendingSubmissions: 12, failedJobs: 1,
 };
 export const overviewFacts: OverviewFacts = {
   registersIn: 12, classesTotal: 19, staffPresent: 28, staffTotal: 30,

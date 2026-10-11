@@ -17,7 +17,6 @@ import {
   findRegister,
   latestReceipt,
   listMarks,
-  registerRevisions,
   registersForDay,
   rosterOn,
   studentAttendance,
@@ -385,14 +384,11 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     findRegister(classId, sessionLabel, prev, null),
   ]);
   const recorded = register !== null && register.revision >= 1;
-  const [marks, receipt, history, prevMarks] = await Promise.all([
+  const [marks, receipt, prevMarks] = await Promise.all([
     recorded ? listMarks(register.id) : Promise.resolve(new Map<string, { status: AttendanceStatus; note: string | null }>()),
     recorded ? latestReceipt(register.id) : Promise.resolve(null),
-    recorded ? registerRevisions(register.id) : Promise.resolve([]),
     prevRegister && prevRegister.revision >= 1 ? listMarks(prevRegister.id) : Promise.resolve(new Map<string, { status: AttendanceStatus; note: string | null }>()),
   ]);
-  const saves = history.filter((h) => h.kind === "save").map((h) => h.savedAt).sort();
-  const firstSavedAt = saves.length ? saves[0] : register?.submittedAt ?? null;
 
   // The queued 10 am alerts for this register, so the save sheet says so.
   let queuedAlerts: string[] = [];
@@ -405,18 +401,6 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
       .eq("status", "queued")
       .returns<{ student_id: string }[]>();
     queuedAlerts = (data ?? []).map((r) => r.student_id);
-  }
-
-  // Pending correction requests on this register, by child.
-  let pending: { studentId: string; toStatus: string }[] = [];
-  if (recorded) {
-    const { data } = await createAdminClient()
-      .from("attendance_corrections")
-      .select("student_id, to_status, status")
-      .eq("register_id", register.id)
-      .eq("status", "pending")
-      .returns<{ student_id: string; to_status: string }[]>();
-    pending = (data ?? []).map((r) => ({ studentId: r.student_id, toStatus: r.to_status }));
   }
 
   // The month view.
@@ -447,7 +431,6 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     revision: register?.revision ?? 0,
     saved: Object.fromEntries([...marks.entries()].map(([id, m]) => [id, m.status])) as Record<string, Mark>,
     yesterday: Object.fromEntries([...prevMarks.entries()].map(([id, m]) => [id, m.status])) as Record<string, Mark>,
-    firstSavedAt,
     // A register with no stored revision (one written before revisions were
     // kept) still has its own save time; "Saved at —" told the teacher nothing.
     receipt: receipt
@@ -456,7 +439,6 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
         ? { savedAt: register.submittedAt, actorName: null, revision: register.revision }
         : null,
     queuedAlerts,
-    pending,
     month,
     monthMarks: range.map((r) => ({ studentId: r.studentId, day: r.day, status: r.status as Mark })),
     closedDays,

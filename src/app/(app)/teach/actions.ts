@@ -1,6 +1,6 @@
 "use server";
 
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
@@ -17,37 +17,21 @@ import {
   attendanceRefusals,
   type AttendanceSaveState,
 } from "@/modules/attendance/domain/attendance-receipt";
-import {
-  canDecide,
-  canRequestCorrection,
-  decideCorrectionSchema,
-  requestCorrectionSchema,
-} from "@/modules/attendance/domain/corrections";
 import { writeNoteSchema } from "@/modules/notes/domain/notes";
 import {
   findAttendanceCommand,
-  findRegister,
-  listMarks,
-  registerById,
   saveRegisterCommand,
   studentNames,
 } from "@/modules/attendance/data/attendance-repo";
 import { classScopeFor, heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
-import {
-  getCorrection,
-  hasPendingCorrection,
-  rejectCorrection,
-  requestCorrection,
-} from "@/modules/attendance/data/corrections-repo";
 import { deleteOwnNote, writeNote } from "@/modules/notes/data/notes-repo";
 import {
   idleTeachState,
   type TeachState,
 } from "@/modules/attendance/domain/teach-state";
 import { assertNotPreviewing } from "@/vx/view-as";
-import { changeWindow } from "@/vx/screens/teach/domain/teach";
 
 function failure(message: Localized): TeachState {
   return { status: "error", message };
@@ -118,16 +102,8 @@ export async function saveAttendanceAction(
   const allowed = parsed.data.kind === "save" ? authority.save : authority.correct;
   if (!allowed) return { status: "refused", message: authority.reason ?? attendanceRefusals.not_permitted };
 
-  // Every caller shares the owner window, including direct/legacy actions.
-  if (parsed.data.kind === "correction" && !can(actor, "attendance:correct")) {
-    const register = await findRegister(parsed.data.classId, sessionLabel, parsed.data.day, null);
-    if (!changeWindow(register?.submittedAt ?? null, new Date()).open) {
-      return { status: "refused", message: {
-        en: "The 30 minutes to change it yourself are over. Ask the office to change it.",
-        hi: "खुद बदलने के 30 मिनट पूरे हो गए। बदलाव के लिए ऑफ़िस से कहें।",
-      } };
-    }
-  }
+  // No time limit and no approval: the class teacher corrects her own
+  // register whenever she needs to, with a reason (D-248).
 
   let outcome;
   try {
@@ -175,153 +151,6 @@ export async function checkAttendanceSaveAction(commandId: string): Promise<Atte
   if (!/^[0-9a-f-]{36}$/i.test(commandId)) return { status: "error", message: attendanceRefusals.failed };
   const receipt = await findAttendanceCommand(commandId, actor.id);
   return receipt ? { status: "saved", receipt } : { status: "error", message: attendanceRefusals.failed };
-}
-
-/* ------------------------------------------------------ corrections */
-
-export async function requestCorrectionAction(
-  _previous: TeachState,
-  formData: FormData,
-): Promise<TeachState> {
-  const actor = await assertPermission("attendance:view");
-  await assertNotPreviewing();
-
-  const parsed = requestCorrectionSchema.safeParse({
-    registerId: (formData.get("registerId") ?? "").toString(),
-    studentId: (formData.get("studentId") ?? "").toString(),
-    toStatus: (formData.get("toStatus") ?? "").toString(),
-    reason: (formData.get("reason") ?? "").toString(),
-  });
-
-  if (!parsed.success) return failure(fieldErrorsFrom(parsed.error));
-
-  // The register as it is, read under the actor's own scope: one outside
-  // their classes is null, and its status is the real one rather than the
-  // "submitted" this action used to assume (P1).
-  const register = await registerById(parsed.data.registerId);
-  const sessionLabel = await resolveSessionLabel();
-  if (!register || !sessionLabel) return failure(m.notSaved);
-  const scope = await classScopeFor(actor, sessionLabel);
-  if (!scopeIncludes(scope, register.classId)) return failure(m.notYourClassTitle);
-
-  const marks = await listMarks(parsed.data.registerId);
-  if (!marks.has(parsed.data.studentId)) return failure(m.notSaved);
-  const current = marks.get(parsed.data.studentId)?.status ?? null;
-  const pending = await hasPendingCorrection(
-    parsed.data.registerId,
-    parsed.data.studentId,
-  );
-
-  // The register has to be submitted for a correction to make sense — an open
-  // one is edited directly.
-  const verdict = canRequestCorrection({
-    registerStatus: register.status,
-    currentStatus: current,
-    toStatus: parsed.data.toStatus,
-    hasPendingRequest: pending,
-  });
-
-  if (!verdict.allowed) return failure(verdict.reason ?? m.notSaved);
-
-  try {
-    await requestCorrection({
-      registerId: parsed.data.registerId,
-      studentId: parsed.data.studentId,
-      fromStatus: current,
-      toStatus: parsed.data.toStatus,
-      reason: parsed.data.reason,
-      requestedByStaffId: actor.id,
-    });
-  } catch {
-    return failure(m.notSaved);
-  }
-
-  revalidatePath("/teach/corrections");
-  return { ...idleTeachState, status: "saved", message: m.correctionSent };
-}
-
-export async function decideCorrectionAction(formData: FormData) {
-  const actor = await assertPermission("attendance:correct");
-  await assertNotPreviewing();
-
-  const parsed = decideCorrectionSchema.safeParse({
-    correctionId: (formData.get("correctionId") ?? "").toString(),
-    approve: formData.get("approve") === "true",
-    decisionNote: (formData.get("decisionNote") ?? "").toString(),
-  });
-
-  // Thrown rather than returned: the inbox reports success when this returns.
-  if (!parsed.success) throw new Error("Choose a correction request.");
-
-  const correction = await getCorrection(parsed.data.correctionId);
-  if (!correction) throw new Error("That request is no longer waiting. Someone may have decided it already.");
-
-  // Nobody approves their own — the point of the queue is a second person.
-  const verdict = canDecide({
-    hasCorrectPermission: can(actor, "attendance:correct"),
-    requestedByStaffId: correction.requestedBy,
-    deciderStaffId: actor.id,
-    status: correction.status,
-  });
-
-  if (!verdict.allowed) {
-    throw new Error(verdict.reason?.en ?? "Cannot decide this request.");
-  }
-
-  if (!parsed.data.approve) {
-    await rejectCorrection({
-      correctionId: correction.id,
-      decisionNote: parsed.data.decisionNote,
-      deciderStaffId: actor.id,
-    });
-    revalidatePath("/teach/corrections");
-    return;
-  }
-
-  // Approving is a correction of the whole register, with the request's own
-  // reason, made by the person approving — so the register's history says
-  // who changed it and why, and the request closes in the same transaction
-  // (P6). The rest of the register is carried over exactly as it stands.
-  const register = await registerById(correction.registerId);
-  const sessionLabel = await resolveSessionLabel();
-  if (!register || !sessionLabel || register.sessionLabel !== sessionLabel) {
-    throw new Error("That register is not in the current session.");
-  }
-  const marks = await listMarks(register.id);
-  // The requester asked to replace one particular mark, not an intervening
-  // correction. A later race is still refused by expectedRevision in the RPC.
-  if (!marks.has(correction.studentId) || marks.get(correction.studentId)?.status !== correction.fromStatus) {
-    throw new Error("The requested mark has changed. Review the latest register before deciding.");
-  }
-  const input: SaveRegisterInput = {
-    commandId: randomUUID(),
-    classId: register.classId,
-    day: register.day,
-    kind: "correction",
-    expectedRevision: register.revision,
-    reason: correction.reason,
-    marks: [...marks.entries()].map(([studentId, mark]) => ({
-      studentId,
-      status: studentId === correction.studentId ? correction.toStatus : mark.status,
-    })),
-  };
-
-  const outcome = await saveRegisterCommand({
-    ...input,
-    sessionLabel,
-    actorStaffId: actor.id,
-    payloadHash: payloadHash(input),
-    correctionRequestId: correction.id,
-    decisionNote: parsed.data.decisionNote,
-  });
-
-  if (outcome.outcome !== "saved") {
-    const reason = outcome.outcome === "refused" ? outcome.reason : outcome.outcome;
-    throw new Error((attendanceRefusals[reason] ?? attendanceRefusals.failed).en);
-  }
-
-  revalidatePath("/teach/corrections");
-  revalidatePath("/teach/attendance");
 }
 
 /* ------------------------------------------------------------ notes */

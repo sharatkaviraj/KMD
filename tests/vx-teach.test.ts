@@ -5,7 +5,6 @@ import {
   absentOften,
   attentionReasons,
   average,
-  changeWindow,
   copyYesterday,
   countMarks,
   dayBefore,
@@ -38,26 +37,6 @@ describe("the register taps", () => {
 
   it("copies yesterday for today's roll only, late becoming present", () => {
     expect(copyYesterday(["a", "b", "c"], { a: "absent", b: "late", z: "absent" })).toEqual({ a: "absent", b: "present", c: "present" });
-  });
-});
-
-describe("the 30-minute change window", () => {
-  const saved = "2026-10-10T03:30:00.000Z";
-
-  it("is open with minutes left just after saving", () => {
-    const w = changeWindow(saved, new Date("2026-10-10T03:40:00.000Z"));
-    expect(w.open).toBe(true);
-    expect(w.minutesLeft).toBe(20);
-    expect(w.fraction).toBeCloseTo(2 / 3, 2);
-  });
-
-  it("closes at thirty minutes", () => {
-    expect(changeWindow(saved, new Date("2026-10-10T04:00:00.000Z")).open).toBe(false);
-    expect(changeWindow(saved, new Date("2026-10-10T05:00:00.000Z")).minutesLeft).toBe(0);
-  });
-
-  it("is shut for a register never saved", () => {
-    expect(changeWindow(null, new Date()).open).toBe(false);
   });
 });
 

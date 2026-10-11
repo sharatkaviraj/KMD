@@ -5,7 +5,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: vi.fn() }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: async () => ({ id: "qa", role: "admin", permissions: ["attendance:view", "attendance:correct"] }) }));
 vi.mock("@/vx/view-as", () => ({ assertNotPreviewing: async () => undefined }));
-vi.mock("@/app/(app)/teach/actions", () => ({ saveAttendanceAction: state.save, checkAttendanceSaveAction: vi.fn(), requestCorrectionAction: vi.fn() }));
+vi.mock("@/app/(app)/teach/actions", () => ({ saveAttendanceAction: state.save, checkAttendanceSaveAction: vi.fn() }));
 vi.mock("@/app/(app)/duty/[id]/actions", () => ({ acknowledgeDutyAction: vi.fn(), cannotCoverAction: vi.fn() }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "QA", classLabelMap: async () => new Map([["class", "QA class"]]) }));
 vi.mock("@/modules/attendance/data/attendance-repo", () => ({ findRegister: vi.fn(), listMarks: async () => new Map([["qa-child", { status: "absent" }]]) }));

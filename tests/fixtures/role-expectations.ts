@@ -157,11 +157,6 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "A class's children by name. A viewer gets no per-child records.",
   },
   {
-    route: "/teach/corrections",
-    allow: STAFF_AT_WORK,
-    because: "Per-child correction requests, with an approval on them.",
-  },
-  {
     route: "/teach/register",
     allow: STAFF_AT_WORK,
     because:

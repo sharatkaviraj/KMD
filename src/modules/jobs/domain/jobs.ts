@@ -196,6 +196,7 @@ export const summaryLabels: Record<string, Localized> = {
   children: t("बच्चे", "children"),
   classes: t("कक्षाएँ", "classes"),
   classes_merged: t("साथ बैठीं", "classes merged"),
+  // No longer written (D-248), but runs from before it still carry the key.
   corrections_waiting: t("सुधार बाकी", "corrections waiting"),
   cover_plan: t("व्यवस्था", "cover plan"),
   covers_arranged: t("व्यवस्था हुई", "covers arranged"),

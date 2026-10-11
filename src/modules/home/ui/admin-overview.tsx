@@ -54,7 +54,7 @@ export function AdminOverview({ attention, overview, workspaces, destinations, d
   const clear = attention.filter(item => item.count === 0);
   const actions = {
     registers: m.overviewOpenRegisters, absences: m.overviewOpenCover,
-    review: m.overviewReviewChanges, corrections: m.overviewReviewCorrections,
+    review: m.overviewReviewChanges,
     jobs: m.overviewOpenJobs,
   };
   const attentionLink = (item: AttentionItem, index: number, compact: boolean) => <li key={item.key} className={!compact && index === 0 ? "col-span-2" : "min-w-0"}>

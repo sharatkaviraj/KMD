@@ -6,35 +6,31 @@ import { z } from "zod";
 
 import {
   checkAttendanceSaveAction,
-  requestCorrectionAction,
   saveAttendanceAction,
 } from "@/app/(app)/teach/actions";
 import { acknowledgeDutyAction, cannotCoverAction } from "@/app/(app)/duty/[id]/actions";
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
-import { can } from "@/platform/auth/permissions";
 import { schoolProfile } from "@/platform/config/school";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { findRegister, listMarks } from "@/modules/attendance/data/attendance-repo";
+import { listMarks } from "@/modules/attendance/data/attendance-repo";
 import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attendance/domain/attendance-receipt";
-import { idleTeachState } from "@/modules/attendance/domain/teach-state";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
 import { dayMonth, schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 
-import { absentAlert, birthdayWish, changeWindow, leaveRuns } from "./domain/teach";
+import { absentAlert, birthdayWish, leaveRuns } from "./domain/teach";
 import { childBasics } from "./students";
 
 /*
  * The teacher screens' writes. Each asks a permission, then refuses while an
  * administrator is previewing another role, then hands over to the action
- * that already does the work (the register save, a correction request, a
- * cover answer) so the business rules stay in one place. Messages to parents
+ * that already does the work (the register save, a cover answer) so the business rules stay in one place. Messages to parents
  * are queued only; nothing here sends one.
  */
 
@@ -48,10 +44,9 @@ export type VxSaveState = AttendanceSaveState & { queued?: number; queueWarning?
 /**
  * Save or change a register from the teacher's screen.
  *
- * A class teacher may change her own register for 30 minutes after first
- * saving it; after that she asks the office (a correction request). The
- * office and admin, who hold `attendance:correct`, are not held to the
- * window. With `alerts`, the absent children's parents get a 10 am message
+ * A class teacher may change her own register whenever she needs to, with a
+ * reason; nobody approves it (D-248). The office and admin, who hold
+ * `attendance:correct`, may change any register. With `alerts`, the absent children's parents get a 10 am message
  * queued — never sent from here.
  */
 /**
@@ -83,20 +78,6 @@ async function saveRegisterVxUnsafe(actor: CurrentStaff, payloadJson: string, al
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel || !payload.classId || !payload.day) {
     return { status: "refused", message: { en: "Choose a class and a day.", hi: "कक्षा और दिन चुनें।" } };
-  }
-
-  if (payload.kind === "correction" && !can(actor, "attendance:correct")) {
-    const register = await findRegister(payload.classId, sessionLabel, payload.day, null);
-    const window = changeWindow(register?.submittedAt ?? null, new Date());
-    if (!window.open) {
-      return {
-        status: "refused",
-        message: {
-          en: "The 30 minutes to change it yourself are over. Ask the office to change it.",
-          hi: "ख़ुद बदलने के 30 मिनट पूरे हो गए। ऑफ़िस से बदलने को कहें।",
-        },
-      };
-    }
   }
 
   const form = new FormData();
@@ -181,23 +162,6 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
 export async function checkRegisterVx(commandId: string): Promise<AttendanceSaveState> {
   await assertPermission("attendance:view");
   return checkAttendanceSaveAction(commandId);
-}
-
-/** "Ask the office to change it": a correction request for one child. */
-export async function askChangeVx(input: { registerId: string; studentId: string; toStatus: string; reason: string }): Promise<VxResult> {
-  await assertPermission("attendance:view");
-  await assertNotPreviewing();
-  const form = new FormData();
-  form.set("registerId", input.registerId);
-  form.set("studentId", input.studentId);
-  form.set("toStatus", input.toStatus);
-  form.set("reason", input.reason);
-  const result = await requestCorrectionAction(idleTeachState, form);
-  if (result.status === "saved") {
-    revalidatePath("/teach/attendance");
-    return { ok: true };
-  }
-  return { ok: false, error: result.message ?? p("Not sent. Try again.", "नहीं भेजा गया। फिर कोशिश करें।") };
 }
 
 /* ------------------------------------------------------------ cover duty */

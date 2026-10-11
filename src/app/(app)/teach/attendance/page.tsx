@@ -33,7 +33,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   if (data.kind === "no-session") return <TeachEmpty kind="no-session" title={title} back="/teach" />;
   if (data.kind === "not-yours") return <TeachEmpty kind="not-yours" title={title} back="/teach/attendance" />;
   if (data.kind === "choose") return <AttendChoose data={data} />;
-  // eslint-disable-next-line react-hooks/purity -- the server's clock, read once per request and handed to the client to tick.
-  const serverNow = Date.now();
-  return <TeachAttend data={data} ownerId={staff.id} initialSheet={one(sp.sheet) ?? null} initialView={one(sp.view) ?? null} serverNow={serverNow} school={schoolProfile.shortName} />;
+  return <TeachAttend data={data} ownerId={staff.id} initialSheet={one(sp.sheet) ?? null} initialView={one(sp.view) ?? null} school={schoolProfile.shortName} />;
 }

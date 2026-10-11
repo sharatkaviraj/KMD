@@ -57,26 +57,6 @@ export function copyYesterday(ids: readonly string[], yesterday: Readonly<Record
   return out;
 }
 
-/** How long after saving the class teacher may still change it herself. */
-export const CHANGE_WINDOW_MINUTES = 30;
-
-export type ChangeWindow = { open: boolean; minutesLeft: number; fraction: number; closesAt: string | null };
-
-/**
- * The change window after a save. Measured from the register's first save
- * (`submitted_at`), so saving again does not keep the window open forever.
- */
-export function changeWindow(firstSavedAt: string | null, now: Date, minutes = CHANGE_WINDOW_MINUTES): ChangeWindow {
-  if (!firstSavedAt) return { open: false, minutesLeft: 0, fraction: 0, closesAt: null };
-  const start = new Date(firstSavedAt).getTime();
-  if (!Number.isFinite(start)) return { open: false, minutesLeft: 0, fraction: 0, closesAt: null };
-  const end = start + minutes * 60_000;
-  const left = end - now.getTime();
-  const closesAt = new Date(end).toISOString();
-  if (left <= 0) return { open: false, minutesLeft: 0, fraction: 0, closesAt };
-  return { open: true, minutesLeft: Math.ceil(left / 60_000), fraction: Math.min(1, left / (minutes * 60_000)), closesAt };
-}
-
 /** Children absent on at least `threshold` of the registers given (the month view). */
 export function absentOften(
   marks: readonly { studentId: string; status: Mark }[],

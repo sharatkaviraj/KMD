@@ -7,7 +7,7 @@ import type { InboxItem } from "@/vx/screens/admin/types";
 
 const state = vi.hoisted(() => ({ decide: vi.fn(), toast: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: state.refresh }) }));
-vi.mock("@/app/(app)/inbox/actions", () => ({ decideCorrectionVx: state.decide, assignCoverVx: vi.fn(), decideSubmissionsVx: vi.fn() }));
+vi.mock("@/app/(app)/inbox/actions", () => ({ decideSubmissionsVx: state.decide, assignCoverVx: vi.fn() }));
 vi.mock("@/app/(app)/attendance/actions", () => ({ remindTeachersVx: vi.fn() }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (v: string | { en: string }) => typeof v === "string" ? v : v.en }) }));
 vi.mock("@/vx/icons", () => ({ Ic: () => null }));
@@ -23,8 +23,8 @@ import { InboxScreen } from "@/vx/screens/admin/inbox";
 
 let root: Root;
 let host: HTMLDivElement;
-const item: InboxItem = { id: "qa-item", correctionId: "qa-correction", type: "attendance", kind: "correction", at: null, urgent: false,
-  badge: { en: "QA correction" }, title: { en: "QA child" }, sub: { en: "Absent to present" }, facts: [] };
+const item: InboxItem = { id: "qa-item", submissionIds: ["qa-submission"], type: "students", kind: "submission", at: null, urgent: false,
+  badge: { en: "QA submission" }, title: { en: "QA child" }, sub: { en: "Phone number" }, facts: [] };
 beforeEach(async () => {
   vi.useFakeTimers(); vi.clearAllMocks();
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
@@ -36,7 +36,7 @@ afterEach(async () => {
   await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.unstubAllGlobals();
 });
 async function approve() {
-  const button = [...host.querySelectorAll("button")].find(b => b.textContent === "Approve")!;
+  const button = [...host.querySelectorAll("button")].find(b => b.textContent === "Accept")!;
   expect(button).toBeDefined(); await act(async () => button.click());
 }
 
@@ -48,7 +48,7 @@ it("pagehide still flushes a decision after the undo timer while its server resp
   expect(state.decide).toHaveBeenCalledOnce();
   window.dispatchEvent(new Event("pagehide"));
   expect(fetch).toHaveBeenCalledWith("/api/inbox", expect.objectContaining({ keepalive: true,
-    body: JSON.stringify({ kind: "correction", correctionId: "qa-correction", approve: true }) }));
+    body: JSON.stringify({ kind: "submissions", submissionIds: ["qa-submission"], accept: true }) }));
   await act(async () => { resolve({ ok: true }); });
 });
 it("undo before sending prevents both the action and a departure flush", async () => {
@@ -67,7 +67,7 @@ it("an acknowledged decision is not sent again when leaving", async () => {
 
 it("a double-click holds only one decision and one send", async () => {
   state.decide.mockResolvedValue({ ok: true });
-  const button = [...host.querySelectorAll("button")].find(b => b.textContent === "Approve")!;
+  const button = [...host.querySelectorAll("button")].find(b => b.textContent === "Accept")!;
   await act(async () => { button.click(); button.click(); });
   await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
   expect(state.decide).toHaveBeenCalledOnce();
@@ -79,7 +79,7 @@ it("undo is no longer offered as an effective reversal once sending starts", asy
   await approve();
   const toast = state.toast.mock.calls.at(-1)![0];
   await act(async () => { vi.advanceTimersByTime(6000); toast.undo(); });
-  expect([...host.querySelectorAll("button")].some(b => b.textContent === "Approve")).toBe(false);
+  expect([...host.querySelectorAll("button")].some(b => b.textContent === "Accept")).toBe(false);
   window.dispatchEvent(new Event("pagehide"));
   expect(fetch).toHaveBeenCalledOnce();
   await act(async () => { resolve({ ok: true }); });
@@ -105,6 +105,6 @@ it("restores a failed normal decision and does not assert that a lost response c
   state.decide.mockRejectedValue(new Error("QA response lost"));
   await approve();
   await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
-  expect([...host.querySelectorAll("button")].some(b => b.textContent === "Approve")).toBe(true);
+  expect([...host.querySelectorAll("button")].some(b => b.textContent === "Accept")).toBe(true);
   expect(state.toast.mock.calls.at(-1)![0].text).not.toMatch(/Nothing was changed/i);
 });

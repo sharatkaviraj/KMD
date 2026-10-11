@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { assignCoverVx, decideCorrectionVx, decideSubmissionsVx } from "@/app/(app)/inbox/actions";
+import { assignCoverVx, decideSubmissionsVx } from "@/app/(app)/inbox/actions";
 import { remindTeachersVx } from "@/app/(app)/attendance/actions";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -36,7 +36,6 @@ const TYPE_LABEL: Record<"all" | InboxType, Pair> = {
 const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
   not_marked: { icon: "calCheck", tone: "warn" },
   cover: { icon: "swap", tone: "info" },
-  correction: { icon: "edit", tone: "warn" },
   submission: { icon: "clipboard", tone: "acc" },
   confirmations: { icon: "ticks", tone: "ok" },
   refund: { icon: "rupee", tone: "acc" },
@@ -45,7 +44,6 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
 
 /** What `/api/inbox` needs to send a held decision after the page has gone. */
 type Beacon =
-  | { kind: "correction"; correctionId: string; approve: boolean }
   | { kind: "submissions"; submissionIds: string[]; accept: boolean }
   | { kind: "remind"; classIds: string[] }
   | { kind: "cover"; commandId: string; needKey: string; coveringStaffId: string; day: string; dayRevision: number };
@@ -160,8 +158,6 @@ export function InboxScreen({ items, initial, previewing, unavailable }: { items
       hold(item, tx(T.reminded(item.remindable ?? 0)), () => remindTeachersVx(item.classIds ?? []).then((r) => ({ ok: r.ok, message: r.message })), { kind: "remind", classIds: item.classIds ?? [] }),
     assign,
     pick: (item) => setPicking(item),
-    correction: (item, approve) =>
-      hold(item, `${tx(approve ? T.approved : T.declined)} · ${tx(item.title)}`, () => decideCorrectionVx(item.correctionId!, approve), { kind: "correction", correctionId: item.correctionId!, approve }),
     submissions: (item, accept) =>
       hold(item, `${tx(accept ? T.accepted : T.declined)} · ${tx(item.title)}`, () => decideSubmissionsVx(item.submissionIds ?? [], accept), { kind: "submissions", submissionIds: item.submissionIds ?? [], accept }),
   };
@@ -264,7 +260,6 @@ type DetailActions = {
   remind: (item: InboxItem) => void;
   assign: (item: InboxItem, who: CoverCandidate) => void;
   pick: (item: InboxItem) => void;
-  correction: (item: InboxItem, approve: boolean) => void;
   submissions: (item: InboxItem, accept: boolean) => void;
 };
 
@@ -272,7 +267,6 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
   const onRemind = () => on.remind(item);
   const onAssign = (who: CoverCandidate) => on.assign(item, who);
   const onPick = () => on.pick(item);
-  const onCorrection = (approve: boolean) => on.correction(item, approve);
   const onSubmissions = (accept: boolean) => on.submissions(item, accept);
   const { tx } = useVx();
   const look = LOOK[item.kind];
@@ -298,16 +292,6 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
           {best ? <Btn variant="pri" onClick={() => onAssign(best)}>{tx(T.assignName(best.name))}</Btn> : <span style={{ color: "var(--mut)" }}>{tx(T.nobodyFree)}</span>}
           <Btn onClick={onPick}>{tx(T.pickAnother)}</Btn>
           <Btn variant="ghost" icon="clock" href={item.href}>{tx(T.openCover)}</Btn>
-        </>
-      );
-      break;
-    case "correction":
-      actions = item.ownRequest ? (
-        <span style={{ fontSize: 14, color: "var(--mut)" }}>{tx(T.ownRequest)}</span>
-      ) : (
-        <>
-          <Btn variant="pri" icon="check" onClick={() => onCorrection(true)}>{tx(T.approve)}</Btn>
-          <Btn icon="x" onClick={() => onCorrection(false)}>{tx(T.decline)}</Btn>
         </>
       );
       break;

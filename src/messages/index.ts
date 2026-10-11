@@ -498,8 +498,8 @@ export const m = {
     "You are recording this on the teacher's behalf — it will be marked as such.",
   ),
   attendanceLocked: t(
-    "यह रजिस्टर दर्ज हो चुका है। बदलने के लिए कारण के साथ सुधार करें, या सुधार का अनुरोध भेजें।",
-    "This register is recorded. To change it, correct it with a reason — or ask for a correction.",
+    "यह रजिस्टर दर्ज हो चुका है। बदलने के लिए कारण के साथ सुधार करें।",
+    "This register is recorded. To change it, correct it with a reason.",
   ),
   attendanceMarked: t("दर्ज", "marked"),
   attendanceNoClassChosen: t(
@@ -552,39 +552,6 @@ export const m = {
   attendanceDue: t(
     "रजिस्टर बाकी है — सहेजने पर ही दर्ज होगा।",
     "This register is outstanding — it is recorded only when saved.",
-  ),
-  attendanceAskInstead: t(
-    "गलती दिखे तो कक्षा-अध्यापक या कार्यालय से सुधार का अनुरोध करें।",
-    "If something is wrong, ask the class teacher or the office for a correction.",
-  ),
-
-  /* ----------------------------------------------------- corrections */
-  correctionsTitle: t("सुधार के निवेदन", "Corrections"),
-  correctionsNone: t("कोई निवेदन नहीं है।", "No correction requests."),
-  correctionRequest: t("सुधार का निवेदन", "Request a correction"),
-  correctionReason: t("कारण", "Reason"),
-  correctionReasonHint: t(
-    "बिना कारण के निवेदन पर कोई फ़ैसला नहीं हो सकता।",
-    "A request without a reason cannot be judged.",
-  ),
-  correctionApprove: t("स्वीकार करें", "Approve"),
-  correctionReject: t("अस्वीकार करें", "Reject"),
-  correctionWaiting: t("प्रतीक्षा में", "Waiting"),
-  correctionChangeTo: t("बदलकर", "Change to"),
-  correctionSent: t("निवेदन भेज दिया गया।", "Your request has been sent."),
-  correctionsPending: t("प्रतीक्षा में", "waiting"),
-  correctionsQueue: t("सुधार", "Corrections"),
-  correctionAsk: t("निवेदन भेजें", "Send the request"),
-  correctionChoose: t("बच्चा चुनें", "Choose a child"),
-  correctionDecisionNote: t("टिप्पणी", "Note"),
-  correctionOwnRequest: t(
-    "यह आपका अपना निवेदन है।",
-    "This is your own request — somebody else has to decide it.",
-  ),
-  correctionDecidedBy: t("फ़ैसला", "Decided by"),
-  correctionNoneToDecide: t(
-    "अभी किसी निवेदन पर फ़ैसला बाकी नहीं है।",
-    "Nothing is waiting for a decision.",
   ),
 
   /* ---------------------------------------------------------- notes */
@@ -1493,7 +1460,6 @@ export const m = {
   homeOwnerTeachers: t("अध्यापक", "Teachers"),
   homeOwnerOffice: t("कार्यालय", "Office"),
   homeOwnerCoordinator: t("शैक्षणिक संयोजक", "Academic coordinator"),
-  homeOwnerApprover: t("कोई दूसरा स्टाफ़", "Another member of staff"),
   homeOwnerAdmin: t("प्रशासक", "Admin"),
   homeSchoolToday: t("आज स्कूल में", "The school today"),
   homeChildrenOnRoll: t("रजिस्टर पर बच्चे", "Children on the roll"),
@@ -1581,7 +1547,6 @@ export const m = {
   overviewAllScreens: t("सभी स्क्रीन", "All screens"),
   overviewOpenRegisters: t("रजिस्टर खोलें", "Open registers"),
   overviewReviewChanges: t("बदलाव देखें", "Review changes"),
-  overviewReviewCorrections: t("सुधार देखें", "Review corrections"),
   overviewOpenCover: t("प्रतिस्थापन खोलें", "Open cover plan"),
   overviewOpenJobs: t("कार्य स्थिति देखें", "Open job status"),
   overviewOpenLive: t("लाइव कार्यस्थान खोलें", "Open live workspace"),

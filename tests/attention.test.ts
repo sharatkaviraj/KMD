@@ -18,7 +18,6 @@ const BUSY: AttentionFacts = {
   classesTotal: 19,
   absencesToday: 2,
   pendingSubmissions: 8,
-  pendingCorrections: 1,
   failedJobs: 1,
   schoolOpenToday: true,
 };
@@ -28,7 +27,6 @@ const CLEAR: AttentionFacts = {
   classesTotal: 19,
   absencesToday: 0,
   pendingSubmissions: 0,
-  pendingCorrections: 0,
   failedJobs: 0,
   schoolOpenToday: true,
 };
@@ -42,7 +40,6 @@ describe("who is shown what", () => {
       "registers",
       "absences",
       "review",
-      "corrections",
       "jobs",
     ]);
   });
@@ -50,7 +47,6 @@ describe("who is shown what", () => {
   it("leads the office with its own work, not with the timetable's", () => {
     expect(attentionFor("office", BUSY, onBehalf).map((item) => item.key)).toEqual([
       "review",
-      "corrections",
       "registers",
       "absences",
     ]);
@@ -129,7 +125,7 @@ describe("a queue of noughts is good news, said once", () => {
   it("is not fooled by one non-zero among noughts", () => {
     const items = attentionFor(
       "office",
-      { ...CLEAR, pendingCorrections: 1 },
+      { ...CLEAR, pendingSubmissions: 1 },
       onBehalf,
     );
 
@@ -199,7 +195,6 @@ describe("a closed day has no registers outstanding", () => {
     classesTotal: 19,
     absencesToday: 0,
     pendingSubmissions: 4,
-    pendingCorrections: 0,
     failedJobs: 0,
     schoolOpenToday: false,
   };

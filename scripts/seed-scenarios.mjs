@@ -6,9 +6,9 @@
  *
  * Screens are judged on their states, not on their happy path, and most of
  * this app's states need data somebody has to go and create: a half-day
- * absence, a correction waiting on a second person, a class nobody could be
- * found for, a child with no attendance at all. This seeds one of each so a
- * screen can be looked at rather than imagined.
+ * absence, a class nobody could be found for, a child with no attendance at
+ * all. This seeds one of each so a screen can be looked at rather than
+ * imagined.
  *
  * The cover plan is produced by **the engine itself**, loaded straight from
  * source — `engine.ts` and `plan.ts` import nothing but each other, so Node 24
@@ -639,78 +639,6 @@ for (const [index, day] of registerDays.entries()) {
 console.log(
   `attendance: ${registerDays.length} registers (1 left open), ${marksWritten} marks`,
 );
-
-/* ---------------------------------------------------------- corrections */
-//
-// One of each status. The pending one is requested by somebody other than the
-// admin, because nobody may approve their own.
-
-const { data: submittedRegister } = await db
-  .from("attendance_registers")
-  .select("id")
-  .eq("class_id", targetClass.classId)
-  .eq("status", "submitted")
-  .limit(1)
-  .maybeSingle();
-
-if (submittedRegister && qaTeacher) {
-  const subjects = targetClass.roll.slice(0, 3);
-
-  die(
-    "Could not clear the old corrections",
-    (
-      await db
-        .from("attendance_corrections")
-        .delete()
-        .eq("register_id", submittedRegister.id)
-    ).error,
-  );
-
-  const now = new Date().toISOString();
-
-  die(
-    "Could not write the corrections",
-    (
-      await db.from("attendance_corrections").insert([
-        {
-          register_id: submittedRegister.id,
-          student_id: subjects[0].student_id,
-          from_status: "absent",
-          to_status: "present",
-          reason: "Was at the sports ground with me during the register.",
-          requested_by: qaTeacher.id,
-          status: "pending",
-        },
-        {
-          register_id: submittedRegister.id,
-          student_id: subjects[1].student_id,
-          from_status: "absent",
-          to_status: "late",
-          reason: "Came in at 9:20 after the bus broke down.",
-          requested_by: qaTeacher.id,
-          status: "approved",
-          decided_by: raj?.id ?? null,
-          decided_at: now,
-          decision_note: "Confirmed with the office.",
-        },
-        {
-          register_id: submittedRegister.id,
-          student_id: subjects[2].student_id,
-          from_status: "present",
-          to_status: "absent",
-          reason: "Thought this was the wrong child.",
-          requested_by: qaTeacher.id,
-          status: "rejected",
-          decided_by: raj?.id ?? null,
-          decided_at: now,
-          decision_note: "The register was right.",
-        },
-      ])
-    ).error,
-  );
-
-  console.log("corrections: 1 waiting, 1 approved, 1 rejected");
-}
 
 /* ---------------------------------------------------------------- notes */
 //

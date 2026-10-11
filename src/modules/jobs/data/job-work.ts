@@ -749,17 +749,6 @@ export async function dailySummary(day: string): Promise<Summary> {
     throw new Error(`Could not count the answers to review: ${pendingError.message}`);
   }
 
-  const { count: correctionsCount, error: correctionsError } = await admin
-    .from("attendance_corrections")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
-
-  if (correctionsError) {
-    throw new Error(
-      `Could not count the corrections waiting: ${correctionsError.message}`,
-    );
-  }
-
   return {
     school_open: open ? "yes" : "no",
     classes: byClass.size,
@@ -776,7 +765,6 @@ export async function dailySummary(day: string): Promise<Summary> {
     covers_arranged: duties.filter((row) => row.status === "assigned").length,
     cover_needs_help: duties.filter((row) => row.status === "needs_help").length,
     answers_to_review: pendingCount ?? 0,
-    corrections_waiting: correctionsCount ?? 0,
   };
 }
 

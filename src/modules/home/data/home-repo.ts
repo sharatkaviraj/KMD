@@ -1,7 +1,7 @@
 import "server-only";
 
 import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
-import { can, type StaffRole } from "@/platform/auth/permissions";
+import type { StaffRole } from "@/platform/auth/permissions";
 import {
   classLabelMap,
 } from "@/modules/academics/data/academics-repo";
@@ -10,7 +10,6 @@ import {
   registersForDay,
 } from "@/modules/attendance/data/attendance-repo";
 import { isSchoolOpen } from "@/modules/academics/domain/calendar";
-import { countPendingCorrections } from "@/modules/attendance/data/corrections-repo";
 import { pendingSubmissionCount } from "@/modules/collection/data/submissions-repo";
 import { listEnrolments } from "@/modules/enrolments/data/enrolments-repo";
 import { jobsBoard } from "@/modules/jobs/data/jobs-repo";
@@ -75,9 +74,9 @@ export type OverviewRound = {
 function wanted(role: StaffRole): Set<AttentionKey | "school"> {
   switch (role) {
     case "admin":
-      return new Set(["registers", "absences", "review", "corrections", "jobs", "school"]);
+      return new Set(["registers", "absences", "review", "jobs", "school"]);
     case "office":
-      return new Set(["registers", "absences", "review", "corrections"]);
+      return new Set(["registers", "absences", "review"]);
     case "academic_coordinator":
       return new Set(["registers", "absences"]);
     case "view_only":
@@ -116,7 +115,6 @@ export async function homeSummary(
     labels,
     absences,
     submissions,
-    corrections,
     jobs,
     enrolments,
     calendar,
@@ -133,9 +131,6 @@ export async function homeSummary(
         : null,
       wants("review")
         ? attempt("review", missing, () => pendingSubmissionCount())
-        : null,
-      wants("corrections") && can(staff, "attendance:correct")
-        ? attempt("corrections", missing, () => countPendingCorrections(sessionLabel))
         : null,
       wants("jobs") ? attempt("jobs", missing, () => jobsBoard()) : null,
       wants("school")
@@ -200,7 +195,6 @@ export async function homeSummary(
       classesTotal,
       absencesToday: absences ?? 0,
       pendingSubmissions: submissions ?? 0,
-      pendingCorrections: corrections ?? 0,
       failedJobs,
       unavailable: [...new Set(missing)].filter(
         (key): key is AttentionKey => key !== "school",

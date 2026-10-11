@@ -11,18 +11,17 @@ import { Ic } from "@/vx/icons";
 import { Bi, useVx } from "@/vx/i18n";
 import { clock, dayMonth, initials, longDay, shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
-import { Chip, ChipRow, Field, SearchBox, Select, Switch, Textarea } from "@/vx/ui/controls";
+import { Chip, ChipRow, Field, SearchBox, Switch, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner, Section, TopBar, VxPage } from "@/vx/ui/page";
-import { Avatar, Btn, Card, EmptyState, Pill, Ring, SuccessTick, WhatsAppPreview } from "@/vx/ui/primitives";
+import { Avatar, Btn, Card, EmptyState, Pill, SuccessTick, WhatsAppPreview } from "@/vx/ui/primitives";
 import { LangButton } from "@/vx/shell/sidebar";
 
-import { askChangeVx, checkRegisterVx, saveRegisterVx, type VxSaveState } from "../actions";
+import { checkRegisterVx, saveRegisterVx, type VxSaveState } from "../actions";
 import type { AttendChoices, AttendData } from "../data";
 import {
   absentAlert,
   absentOften,
-  changeWindow,
   copyYesterday,
   countMarks,
   monthGrid,
@@ -32,13 +31,13 @@ import {
 } from "../domain/teach";
 import { HelpIcon, HelpSheet, useUrlState, type HelpStep } from "./shared";
 
-type SheetKey = "save" | "change" | "help";
+type SheetKey = "save" | "help";
 type ViewKey = "history";
 
 const HELP: HelpStep[] = [
   { icon: "users", title: p("Everyone starts Present", "सब उपस्थित से शुरू"), body: p("Tap a child once for Absent, twice for Half-day, three times for Present again.", "एक बार टैप = अनुपस्थित, दो बार = आधा दिन, तीन बार = फिर उपस्थित।") },
   { icon: "check", title: p("Save when you are done", "हो जाए तो सहेजें"), body: p("Until you save, the office sees your class as Not marked.", "सहेजने तक ऑफ़िस को कक्षा 'दर्ज नहीं' दिखती है।") },
-  { icon: "clock", title: p("30 minutes to change it", "बदलने के लिए 30 मिनट"), body: p("After saving you can change it for 30 minutes. After that, ask the office.", "सहेजने के बाद 30 मिनट तक बदल सकते हैं। फिर ऑफ़िस से कहें।") },
+  { icon: "edit", title: p("Change it any time", "कभी भी बदलें"), body: p("A class teacher can change a saved register whenever needed. Choose a reason; it is kept in the history.", "कक्षा अध्यापक सहेजी हुई हाज़िरी कभी भी बदल सकते हैं। कारण चुनें; वह इतिहास में रहेगा।") },
 ];
 
 const MARK_TEXT: Record<Mark, Pair> = {
@@ -51,6 +50,7 @@ const MARK_TEXT: Record<Mark, Pair> = {
 const MARK_LETTER: Record<Mark, string> = { present: "P", absent: "A", half_day: "H", late: "L", leave: "Lv" };
 const MARK_CLASS: Record<Mark, string> = { present: "p", absent: "a", half_day: "h", late: "p", leave: "h" };
 
+// Why a saved register is being changed. A correction needs a reason (D-219).
 const WHY: Pair[] = [p("Came late", "देर से आया"), p("Went home sick", "बीमार होकर घर गया"), p("Marked by mistake", "गलती से दर्ज"), p("Was on a school trip", "स्कूल ट्रिप पर था")];
 
 function newId(): string {
@@ -100,14 +100,12 @@ export function TeachAttend({
   ownerId,
   initialSheet,
   initialView,
-  serverNow,
   school,
 }: {
   data: AttendData;
   ownerId: string;
   initialSheet: string | null;
   initialView: string | null;
-  serverNow: number;
   school: string;
 }) {
   const { tx, sub } = useVx();
@@ -129,18 +127,11 @@ export function TeachAttend({
   const [state, setState] = useState<VxSaveState | null>(null);
   const [outbox, setOutbox] = useState<Outbox | null>(null);
   const [outboxDurable, setOutboxDurable] = useState(true);
-  const [now, setNow] = useState(serverNow);
   const [pending, start] = useTransition();
   const sending = useRef(false);
 
   const draftId = draftKey(ownerId, data.sessionLabel, `attendance-vx/${data.classId}/${data.day}`);
   const outboxId = draftKey(ownerId, data.sessionLabel, `attendance-outbox/${data.classId}/${data.day}`);
-
-  // A minute clock for the change window.
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(t);
-  }, []);
 
   // Restore an unsent register and a waiting save after a reload.
   useEffect(() => {
@@ -167,8 +158,9 @@ export function TeachAttend({
   const absentKids = data.roll.filter((r) => marks[r.id] === "absent");
   const often = useMemo(() => new Map(absentOften(data.monthMarks, 3).map((o) => [o.studentId, o.absent])), [data.monthMarks]);
   const yesterdayAbsent = Object.values(data.yesterday).filter((m) => m === "absent").length;
-  const window_ = changeWindow(data.firstSavedAt, new Date(now));
-  const mayChangeHere = data.correctsAny || (data.isOwner && window_.open);
+  // The class teacher changes her own register whenever she needs to, and the
+  // office any register; nobody approves it (D-248).
+  const mayChangeHere = data.canCorrect && !data.closed;
 
   const tap = (id: string) => {
     if (!editing) return;
@@ -266,21 +258,10 @@ export function TeachAttend({
     deliver(box);
   };
 
-  /* -------------------------------------------------------- change sheet */
-  const [askKid, setAskKid] = useState<string>(data.roll.find((r) => data.saved[r.id] === "absent")?.id ?? data.roll[0]?.id ?? "");
-  const [askTo, setAskTo] = useState<Mark>("present");
-  const [askWhy, setAskWhy] = useState<string>(WHY[0].en);
-  const [askNote, setAskNote] = useState("");
-  const sendAsk = () =>
-    start(async () => {
-      if (!data.registerId || !askKid) return;
-      const res = await askChangeVx({ registerId: data.registerId, studentId: askKid, toStatus: askTo, reason: [askWhy, askNote].filter(Boolean).join(" — ") });
-      if (res.ok) {
-        toast.show({ text: tx(p("Request sent to the office", "अनुरोध ऑफ़िस को भेजा गया")) });
-        setSheet(null);
-        router.refresh();
-      } else toast.show({ text: tx(res.error), tone: "bad" });
-    });
+  /* ----------------------------------------------------- why it changed */
+  const [why, setWhy] = useState<string>(WHY[0].en);
+  const [whyNote, setWhyNote] = useState("");
+  const changeReason = [why, whyNote.trim()].filter(Boolean).join(" — ");
 
   const shown = data.roll.filter((r) => !query || r.name.toLowerCase().includes(query.toLowerCase()) || (r.rollNo ?? "") === query);
   const preview = absentKids[0] ? absentAlert({ childName: absentKids[0].name, classLabel: data.classLabel, dayLabel: dayMonth(data.day), school }) : null;
@@ -351,30 +332,17 @@ export function TeachAttend({
     </Card>
   ) : null;
 
-  const windowCard = recorded && (data.isOwner || data.correctsAny) ? (
+  const changeCard = recorded && mayChangeHere ? (
     <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-        <Ring value={window_.open ? window_.fraction * 100 : 0} size={64} stroke={7}>{window_.closesAt ? clock(window_.closesAt) : "—"}</Ring>
-        <div style={{ flex: 1 }}>
-          <strong>{window_.open ? tx(p("You can still change it", "आप अभी भी बदल सकते हैं")) : data.correctsAny ? tx(p("You can correct this register", "आप यह हाज़िरी सुधार सकते हैं")) : tx(p("The change window has closed", "बदलने का समय पूरा"))}</strong>
-          <div style={{ fontSize: 13, color: "var(--mut)" }}>
-            {window_.open
-              ? tx(p(`About ${window_.minutesLeft} minutes left · until ${clock(window_.closesAt ?? "")}. After that, the office changes it for you.`, `लगभग ${window_.minutesLeft} मिनट बाकी। उसके बाद ऑफ़िस बदलेगा।`))
-              : data.correctsAny
-                ? tx(p("A correction needs a reason and is kept in the history.", "सुधार का कारण लिखना होगा और वह इतिहास में रहेगा।"))
-                : tx(p("Ask the office to change a child's mark.", "किसी बच्चे की हाज़िरी बदलवाने के लिए ऑफ़िस से कहें।"))}
-          </div>
+      <div>
+        <strong>{tx(p("You can change this register", "आप यह हाज़िरी बदल सकते हैं"))}</strong>
+        <div style={{ fontSize: 13, color: "var(--mut)" }}>
+          {tx(p("Any time, with a reason. The change is kept in the history.", "कभी भी, कारण के साथ। बदलाव इतिहास में रहेगा।"))}
         </div>
       </div>
-      {mayChangeHere && !editing ? (
+      {!editing ? (
         <Btn big full icon="edit" onClick={() => { setMarks({ ...fresh, ...data.saved }); setEditing("change"); }}>{tx(p("Change attendance", "हाज़िरी बदलें"))}</Btn>
       ) : null}
-      {!data.correctsAny ? (
-        <button type="button" className="tap btn ghost" style={{ color: "var(--accfg)", alignSelf: "flex-start" }} onClick={() => setSheet("change")}>
-          <Ic n="send" size={16} /> {window_.open ? tx(p(`After ${clock(window_.closesAt ?? "")}? Ask the office to change it`, "बाद में? ऑफ़िस से बदलवाएँ")) : tx(p("Ask the office to change it", "ऑफ़िस से बदलवाएँ"))}
-        </button>
-      ) : null}
-      {data.pending.length ? <Banner tone="info">{tx(p(`${data.pending.length} change request waiting for the office`, `${data.pending.length} बदलाव अनुरोध ऑफ़िस के पास`))}</Banner> : null}
     </Card>
   ) : null;
 
@@ -549,7 +517,7 @@ export function TeachAttend({
             </div>
           ) : (
             <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>{savedCard}{windowCard}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>{savedCard}{changeCard}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {nextStep}
                 <Card pad={false}>
@@ -590,7 +558,7 @@ export function TeachAttend({
         footer={
           <>
             <button type="button" className="tap btn sec big" style={{ flex: 1 }} onClick={() => setSheet(null)}>{tx(p("Check again", "फिर देखें"))}</button>
-            <button type="button" className="tap btn pri big" style={{ flex: 2 }} disabled={pending || (!editing)} onClick={() => submit(editing === "change" ? "correction" : "save", editing === "change" ? "Changed by the class teacher within 30 minutes" : null)}>
+            <button type="button" className="tap btn pri big" style={{ flex: 2 }} disabled={pending || !editing || (editing === "change" && changeReason.length < 3)} onClick={() => submit(editing === "change" ? "correction" : "save", editing === "change" ? changeReason : null)}>
               {pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="check" size={18} />}
               {editing === "change" ? tx(p("Save the change", "बदलाव सहेजें")) : tx(p("Save attendance", "हाज़िरी सहेजें"))}
             </button>
@@ -628,50 +596,23 @@ export function TeachAttend({
               ) : null}
             </>
           ) : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("After saving you can still change it for 30 minutes.", "सहेजने के बाद 30 मिनट तक बदल सकते हैं।"))}</span>
+          {editing === "change" ? (
+            <>
+              <Field label={<Bi en="Why are you changing it?" hi="क्यों बदल रहे हैं?" />}>
+                <ChipRow label="Why">
+                  {WHY.map((w) => (
+                    <Chip key={w.en} on={why === w.en} onClick={() => setWhy(w.en)}>{tx(w)}</Chip>
+                  ))}
+                </ChipRow>
+              </Field>
+              <Field label={<Bi en="Note (optional)" hi="नोट (वैकल्पिक)" />}>
+                <Textarea rows={2} maxLength={150} value={whyNote} onChange={(e) => setWhyNote(e.target.value)} />
+              </Field>
+            </>
+          ) : (
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("After saving you can still change it whenever needed.", "सहेजने के बाद भी ज़रूरत हो तो कभी भी बदल सकते हैं।"))}</span>
+          )}
         </div>
-      </Sheet>
-
-      {/* ------------------------------------------------ ask the office */}
-      <Sheet
-        open={sheet === "change"}
-        onClose={() => setSheet(null)}
-        icon="send"
-        title={tx(p("Ask the office to change it", "ऑफ़िस से बदलवाएँ"))}
-        sub={tx(p("The office or the coordinator approves it. It is kept in the history.", "ऑफ़िस या समन्वयक मंज़ूर करेंगे। यह इतिहास में रहेगा।"))}
-        footer={<Btn variant="pri" big full icon="send" disabled={pending || !recorded} onClick={sendAsk}>{tx(p("Send request", "अनुरोध भेजें"))}</Btn>}
-      >
-        {!recorded ? (
-          <EmptyState icon="calCheck" title={tx(p("Save the register first", "पहले हाज़िरी सहेजें"))} />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Field label={<Bi en="Which child?" hi="कौन सा बच्चा?" />}>
-              <Select value={askKid} onChange={(e) => setAskKid(e.target.value)}>
-                {data.roll.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} — {tx(MARK_TEXT[data.saved[r.id] ?? "present"])}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label={<Bi en="Change to" hi="इसमें बदलें" />}>
-              <ChipRow label="Change to">
-                {(["present", "absent", "half_day"] as Mark[]).map((m) => (
-                  <Chip key={m} on={askTo === m} onClick={() => setAskTo(m)}>{tx(MARK_TEXT[m])}</Chip>
-                ))}
-              </ChipRow>
-            </Field>
-            <Field label={<Bi en="Why?" hi="क्यों?" />}>
-              <ChipRow label="Why">
-                {WHY.map((w) => (
-                  <Chip key={w.en} on={askWhy === w.en} onClick={() => setAskWhy(w.en)}>{tx(w)}</Chip>
-                ))}
-              </ChipRow>
-            </Field>
-            <Field label={<Bi en="Note (optional)" hi="नोट (वैकल्पिक)" />}>
-              <Textarea rows={2} maxLength={150} value={askNote} onChange={(e) => setAskNote(e.target.value)} />
-            </Field>
-            {data.pending.some((x) => x.studentId === askKid) ? <Banner tone="info">{tx(p("A request for this child is already waiting.", "इस बच्चे का अनुरोध पहले से है।"))}</Banner> : null}
-          </div>
-        )}
       </Sheet>
 
       <HelpSheet open={sheet === "help"} onClose={() => setSheet(null)} title={p("How to mark attendance", "हाज़िरी कैसे लगाएँ")} steps={HELP} />

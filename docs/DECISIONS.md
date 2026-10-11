@@ -1,5 +1,11 @@
 # Decisions
 
+## Attendance corrections without approval — 2026-10-11
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-248 | No attendance correction waits for an admin, and a class teacher's own correction has no time limit. The 30-minute change window, the "Ask the office" request sheet, the approval queues (`/teach/corrections`, the coordinator's Changes tab, Needs-you correction items) and their counts are removed | Raj: class teachers fix their own register and need nobody's approval. The new teacher screen let a class teacher change a saved register for only 30 minutes after first saving it; after that she had to send a request for the office or coordinator to approve. That window was enforced in both server actions, not in the database, so no migration was needed. A class teacher now corrects whenever she needs to, choosing a reason in the save sheet. Raj chose removing the request flow over sending requests to the class teacher. The coordinator's weekly summary now counts corrections made rather than requests decided. A subject teacher's screen now says to tell the class teacher. The office still corrects any register. A correction still needs a reason and still makes a new revision (D-219), so the history says who changed what and why. Supersedes D-218's "anybody else in scope asks". `vppsone.attendance_corrections` and the `correction_request_id` path in `save_attendance_register` stay: migrations are additive, and the table keeps the old requests. Nothing writes to it any more. On dev, five requests were still pending when this shipped. They are left as history |
+
 ## Test-data smoke and responsiveness — 2026-10-05
 
 | Decision | Outcome | Evidence and reason |

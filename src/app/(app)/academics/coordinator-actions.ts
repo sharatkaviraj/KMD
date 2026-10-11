@@ -7,13 +7,11 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { listMarks, registerById, saveRegisterCommand, studentNames } from "@/modules/attendance/data/attendance-repo";
-import { getCorrection, rejectCorrection } from "@/modules/attendance/data/corrections-repo";
+import { saveRegisterCommand, studentNames } from "@/modules/attendance/data/attendance-repo";
 import { classScopeFor, heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { registerAuthority, saveRegisterSchema, type SaveRegisterInput } from "@/modules/attendance/domain/attendance";
 import { attendanceRefusals } from "@/modules/attendance/domain/attendance-receipt";
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
-import { canDecide } from "@/modules/attendance/domain/corrections";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
 import { schoolToday } from "@/vx/format";
 import { academicContext, attendanceOn, marksEntry, staffDirectory, weekFacts } from "@/vx/screens/academics/data";
@@ -371,49 +369,3 @@ export async function markRegisterAction(payload: unknown): Promise<ActionResult
   return { ok: false, text: { en: r.en, hi: r.hi } };
 }
 
-/* ------------------------------------------------------ change requests */
-
-/**
- * Approve or decline a teacher's change request — the teacher screen's own
- * rule: `attendance:correct`, never your own request, and approving is a
- * correction of the whole register in one transaction.
- */
-export async function decideChangeAction(input: { correctionId: string; approve: boolean; note?: string }): Promise<ActionResult> {
-  const actor = await assertPermission("attendance:correct");
-  await assertNotPreviewing();
-  if (!isUuid(input.correctionId)) return fail("Choose a request.", "अनुरोध चुनें।");
-  const correction = await getCorrection(input.correctionId);
-  if (!correction) return fail("That request is gone.", "वह अनुरोध नहीं मिला।");
-  const verdict = canDecide({ hasCorrectPermission: can(actor, "attendance:correct"), requestedByStaffId: correction.requestedBy, deciderStaffId: actor.id, status: correction.status });
-  if (!verdict.allowed) return { ok: false, text: verdict.reason ? { en: verdict.reason.en, hi: verdict.reason.hi } : p("You cannot decide this one.", "आप यह तय नहीं कर सकते।") };
-  const note = (input.note ?? "").trim().slice(0, 200);
-  if (!input.approve) {
-    await rejectCorrection({ correctionId: correction.id, decisionNote: note, deciderStaffId: actor.id });
-    revalidateAcademics();
-    return { ok: true, text: p("Request declined. The teacher will see why.", "अनुरोध अस्वीकार। शिक्षक को कारण दिखेगा।") };
-  }
-  const register = await registerById(correction.registerId);
-  const session = await resolveSessionLabel();
-  if (!register || !session || register.sessionLabel !== session) return fail("That register is not in this session.", "वह रजिस्टर इस सत्र का नहीं है।");
-  const scope = await classScopeFor(actor, session);
-  if (!scopeIncludes(scope, register.classId)) return fail("That class is not yours.", "वह कक्षा आपकी नहीं है।");
-  const marks = await listMarks(register.id);
-  const input2: SaveRegisterInput = {
-    commandId: randomUUID(),
-    classId: register.classId,
-    day: register.day,
-    kind: "correction",
-    expectedRevision: register.revision,
-    reason: correction.reason,
-    marks: [...marks.entries()].map(([studentId, mark]) => ({ studentId, status: studentId === correction.studentId ? correction.toStatus : mark.status })),
-  };
-  const outcome = await saveRegisterCommand({ ...input2, sessionLabel: session, actorStaffId: actor.id, payloadHash: payloadHash(input2), correctionRequestId: correction.id, decisionNote: note || null });
-  if (outcome.outcome !== "saved") {
-    const reason = outcome.outcome === "refused" ? outcome.reason : outcome.outcome;
-    const r = attendanceRefusals[reason] ?? attendanceRefusals.failed;
-    return { ok: false, text: { en: r.en, hi: r.hi } };
-  }
-  revalidateAcademics();
-  revalidatePath("/teach/corrections");
-  return { ok: true, text: p("Approved. The register is corrected and the teacher is told.", "स्वीकृत। रजिस्टर सुधरा और शिक्षक को सूचना गई।") };
-}

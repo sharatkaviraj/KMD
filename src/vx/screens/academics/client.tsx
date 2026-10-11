@@ -12,7 +12,6 @@ import { WhatsAppPreview } from "@/vx/ui/primitives";
 
 import {
   cancelRemindersAction,
-  decideChangeAction,
   remindMarksAction,
   remindRegistersAction,
   saveFollowupAction,
@@ -308,55 +307,6 @@ export function StepToggle({ stepId, done, disabled, children }: { stepId: strin
       </span>
       <span style={{ flex: 1, minWidth: 0, textDecoration: done ? "line-through" : undefined, color: done ? "var(--mut)" : undefined }}>{children}</span>
     </button>
-  );
-}
-
-/* ------------------------------------------------ change requests */
-
-export function DecideButtons({ correctionId, canDecide, reason }: { correctionId: string; canDecide: boolean; reason?: Pair }) {
-  const { tx } = useVx();
-  const { run, pending } = useAct();
-  const [declining, setDeclining] = useState(false);
-  const [note, setNote] = useState("");
-  if (!canDecide) {
-    return (
-      <span style={{ fontSize: 13, color: "var(--mut)", display: "inline-flex", gap: 6, alignItems: "center" }}>
-        <Ic n="lock" size={14} />
-        {tx(reason ?? { en: "The office decides change requests.", hi: "बदलाव के अनुरोध कार्यालय तय करता है।" })}
-      </span>
-    );
-  }
-  return (
-    <>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" className="tap btn pri" disabled={pending} onClick={() => run(() => decideChangeAction({ correctionId, approve: true }))}>
-          {pending ? <Spin /> : <Ic n="check" size={18} />}
-          {tx({ en: "Approve", hi: "स्वीकार" })}
-        </button>
-        <button type="button" className="tap btn sec" disabled={pending} onClick={() => setDeclining(true)}>
-          <Ic n="x" size={18} />
-          {tx({ en: "Decline", hi: "अस्वीकार" })}
-        </button>
-      </div>
-      <Sheet
-        open={declining}
-        onClose={() => setDeclining(false)}
-        title={tx({ en: "Decline this change?", hi: "यह बदलाव अस्वीकार करें?" })}
-        icon="x"
-        footer={
-          <>
-            <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={() => setDeclining(false)}>{tx({ en: "Cancel", hi: "रद्द" })}</button>
-            <button type="button" className="tap btn danger" style={{ flex: 1 }} disabled={pending || note.trim().length < 3} onClick={() => run(() => decideChangeAction({ correctionId, approve: false, note }), (r) => r.ok && setDeclining(false))}>
-              {tx({ en: "Decline", hi: "अस्वीकार" })}
-            </button>
-          </>
-        }
-      >
-        <Field label={tx({ en: "Tell the teacher why", hi: "शिक्षक को कारण बताएँ" })}>
-          <Textarea rows={3} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
-        </Field>
-      </Sheet>
-    </>
   );
 }
 

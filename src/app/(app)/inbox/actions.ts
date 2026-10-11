@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { decideSubmissionsAction } from "@/app/(app)/collection/actions";
 import { coverCommandAction } from "@/app/(app)/substitutions/actions";
-import { decideCorrectionAction } from "@/app/(app)/teach/actions";
 import { idleCollectionState } from "@/modules/collection/domain/form-state";
 import { idleCoverState } from "@/modules/substitutions/domain/cover-state";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -14,9 +13,8 @@ import type { Pair } from "@/vx/text";
 
 /*
  * Needs you (P5). Each action is a thin door onto the decision the app
- * already makes elsewhere — the correction queue, the cover command, the
- * review queue — so the rules (who may decide, second-person approval,
- * stale revisions, idempotent command ids) stay exactly where they were.
+ * already makes elsewhere — the cover command, the review queue — so the
+ * rules (who may decide, stale revisions, idempotent command ids) stay exactly where they were.
  * Permission first, then the preview guard, then the existing action.
  */
 
@@ -28,29 +26,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function done() {
   revalidatePath("/inbox");
   revalidatePath("/");
-}
-
-function messageOf(error: unknown): Pair {
-  return error instanceof Error && error.message ? { en: error.message } : FAILED;
-}
-
-export async function decideCorrectionVx(correctionId: string, approve: boolean, note = ""): Promise<InboxActionResult> {
-  await assertPermission("attendance:correct");
-  await assertNotPreviewing();
-  if (!UUID.test(correctionId)) return { ok: false, message: FAILED };
-
-  const form = new FormData();
-  form.set("correctionId", correctionId);
-  form.set("approve", approve ? "true" : "false");
-  form.set("decisionNote", note);
-  try {
-    await decideCorrectionAction(form);
-  } catch (error) {
-    return { ok: false, message: messageOf(error) };
-  }
-  done();
-  revalidatePath("/attendance");
-  return { ok: true };
 }
 
 export async function decideSubmissionsVx(submissionIds: string[], accept: boolean): Promise<InboxActionResult> {

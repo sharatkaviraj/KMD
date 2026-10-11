@@ -1014,10 +1014,12 @@ export async function weekFacts(ctx: Ctx) {
     marksEntry(ctx),
     needsAttention(ctx),
     notesNeedingAction(ctx),
+    // Corrections made to saved registers this week, by whoever made them.
     createAdminClient()
-      .from("attendance_corrections")
+      .from("attendance_register_revisions")
       .select("id", { count: "exact", head: true })
-      .gte("decided_at", `${monday}T00:00:00+05:30`),
+      .eq("kind", "correction")
+      .gte("created_at", `${monday}T00:00:00+05:30`),
   ]);
   const sum = (from: string, to: string) =>
     rows.filter((r) => r.status === "submitted" && r.day >= from && r.day <= to).reduce<Tally>((s, r) => {
@@ -1048,7 +1050,7 @@ export async function weekFacts(ctx: Ctx) {
       attention: attention.length,
       attentionNew: Math.min(fresh, attention.length),
       notesOpen: notes.open,
-      correctionsDecided: corrections.count ?? 0,
+      correctionsMade: corrections.count ?? 0,
     },
     entry,
     attention,
@@ -1093,13 +1095,3 @@ export async function upcomingEvents(session: string, from: string, days: number
   return list.filter((e) => !over(e)).sort((a, b) => a.startsOn.localeCompare(b.startsOn) || (a.startsAt ?? "").localeCompare(b.startsAt ?? ""));
 }
 
-/** Pending attendance change requests for the badge. */
-export async function pendingCorrections(ctx: Ctx): Promise<number> {
-  const { data } = await createAdminClient()
-    .from("attendance_corrections")
-    .select("id, attendance_registers!inner(session_label, class_id)")
-    .eq("status", "pending")
-    .eq("attendance_registers.session_label", ctx.session)
-    .returns<{ id: string; attendance_registers: { class_id: string } }[]>();
-  return (data ?? []).filter((row) => scopeIncludes(ctx.scope, row.attendance_registers.class_id)).length;
-}

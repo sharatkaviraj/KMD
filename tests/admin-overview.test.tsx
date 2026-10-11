@@ -60,9 +60,9 @@ describe("native admin overview contracts", () => {
     const facts = { ...attentionFacts, schoolOpenToday: false, registersOutstanding: 0 };
     const host = render({ attention: attentionFor("admin", facts, { canMarkOnBehalf: true }) });
     expect(host.querySelector('[data-attention-key="registers"]')!.textContent).toContain(m.homeSchoolClosedToday.en);
-    const clear = render({ attention: attentionFor("admin", { ...facts, absencesToday: 0, pendingSubmissions: 0, pendingCorrections: 0, failedJobs: 0 }, { canMarkOnBehalf: true }) });
+    const clear = render({ attention: attentionFor("admin", { ...facts, absencesToday: 0, pendingSubmissions: 0, failedJobs: 0 }, { canMarkOnBehalf: true }) });
     expect(clear.textContent).toContain(m.homeAllClear.en);
-    expect(clear.querySelectorAll('[data-attention-state="clear"]')).toHaveLength(5);
+    expect(clear.querySelectorAll('[data-attention-state="clear"]')).toHaveLength(4);
   });
   it("does not fabricate overview content when there is no resolved session", () => {
     const host = render({ overview: null, attention: [] });
@@ -73,7 +73,7 @@ describe("native admin overview contracts", () => {
   it("prioritizes unavailable and unfinished work while retaining zero owners and navigation", () => {
     const attention = attentionFor("admin", { ...attentionFacts, registersOutstanding: 0, absencesToday: 0, failedJobs: 0, unavailable: ["jobs"] }, { canMarkOnBehalf: true });
     const host = render({ attention });
-    expect([...host.querySelectorAll('[data-attention-state="pending"]')].map(e => e.getAttribute("data-attention-key"))).toEqual(["review", "corrections", "jobs"]);
+    expect([...host.querySelectorAll('[data-attention-state="pending"]')].map(e => e.getAttribute("data-attention-key"))).toEqual(["review", "jobs"]);
     expect(host.querySelector('[data-attention-key="review"]')!.textContent).toContain(m.overviewReviewChanges.en);
     expect(host.querySelector('[data-attention-key="registers"]')!.textContent).toContain(m.overviewOpenRegisters.en);
     expect(host.querySelector('[data-attention-key="registers"]')!.textContent).toContain(m.homeOwnerTeachers.en);

@@ -63,7 +63,6 @@ const MODE_COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--
 const KIND_ICON: Record<InboxItem["kind"], { icon: IconName; tone: "warn" | "info" | "acc" | "ok" | "bad" }> = {
   not_marked: { icon: "calCheck", tone: "warn" },
   cover: { icon: "swap", tone: "info" },
-  correction: { icon: "edit", tone: "warn" },
   submission: { icon: "clipboard", tone: "acc" },
   confirmations: { icon: "ticks", tone: "ok" },
   refund: { icon: "rupee", tone: "acc" },
@@ -73,7 +72,6 @@ const KIND_ICON: Record<InboxItem["kind"], { icon: IconName; tone: "warn" | "inf
 const ACTION_OF: Partial<Record<InboxItem["kind"], Pair>> = {
   not_marked: T.remind,
   cover: { en: "Assign", hi: "दें" },
-  correction: T.approve,
   submission: T.review,
   confirmations: T.accept,
   refund: T.review,
