@@ -29,7 +29,7 @@ import {
 import { PAYMENT_IMPORT_COMMIT_CHUNK_SIZE, type PaymentImportBatchSummary } from "@/modules/payments/domain/bulk/types";
 import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/types";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
-import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent } from "@/modules/payments/vx/data";
+import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent, loadDeskPreview, loadDeskTodayCollection } from "@/modules/payments/vx/data";
 import type { DeskMode } from "@/modules/payments/vx/domain/desk";
 import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
 import { revalidateAfterPaymentPosting } from "@/modules/system-sync/data/finance-revalidation";
@@ -61,6 +61,14 @@ export async function loadStudentDeskAction(input: { studentId: string; sessionL
 }
 
 /** A posted receipt, for the saved state and the duplicate sheet. Read-only. */
+export async function loadDeskPreviewAction(input: { studentId: string; sessionLabel: string; paymentDate: string }) {
+  await assertPermission("fees:view");
+  await requireStaffPermission("payments:view");
+  const sessionLabel = sessionOf(input.sessionLabel);
+  if (!UUID.test(input.studentId) || !/^\d{4}-\d{2}-\d{2}$/.test(input.paymentDate) || !Number.isFinite(Date.parse(`${input.paymentDate}T00:00:00Z`))) return { ok: false as const, message: "Choose a valid student and date." };
+  return loadDeskPreview({ studentId: input.studentId, sessionLabel, paymentDate: input.paymentDate });
+}
+
 export async function loadReceiptAction(receiptId: string): Promise<DeskReceipt | null> {
   await assertPermission("fees:view");
   if (!UUID.test(receiptId)) return null;
@@ -74,6 +82,7 @@ export type DeskPostInput = {
   paymentDate: string;
   mode: DeskMode;
   amount: number;
+  quickDiscountAmount?: number;
   /** The whole pending late fee, when the cashier is waiving it; else 0. */
   lateFeeWaiver: number;
   reference: string;
@@ -101,9 +110,12 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
   fd.set("sessionLabel", input.sessionLabel);
   fd.set("paymentDate", input.paymentDate);
   fd.set("paymentMode", input.mode);
-  fd.set("paymentAmount", String(Math.trunc(input.amount)));
-  fd.set("quickDiscountAmount", "0");
-  fd.set("quickLateFeeWaiverAmount", String(Math.max(0, Math.trunc(input.lateFeeWaiver))));
+  if (!Number.isSafeInteger(input.amount) || input.amount <= 0 || !Number.isSafeInteger(input.quickDiscountAmount ?? 0) || (input.quickDiscountAmount ?? 0) < 0 || !Number.isSafeInteger(input.lateFeeWaiver) || input.lateFeeWaiver < 0) {
+    return { status: "error", message: "Enter whole rupee amounts." };
+  }
+  fd.set("paymentAmount", String(input.amount));
+  fd.set("quickDiscountAmount", String(input.quickDiscountAmount ?? 0));
+  fd.set("quickLateFeeWaiverAmount", String(input.lateFeeWaiver));
   fd.set("referenceNumber", input.reference);
   fd.set("receivedBy", input.receivedBy);
   fd.set("collectionContext", "regular");
@@ -157,9 +169,10 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
   // right). So drain first: the receipt in the parent's hand is the one place
   // a stale figure cannot be corrected by a reload (D-271).
   await drainFinancialViewRefresh();
-  const [receipt, after] = await Promise.all([
+  const [receipt, after, todayCollection] = await Promise.all([
     loadDeskReceipt(input.receiptId).catch(() => null),
     loadDeskStudent({ studentId: input.studentId, sessionLabel: input.sessionLabel, today: schoolToday() }).catch(() => null),
+    loadDeskTodayCollection(input.sessionLabel, schoolToday()).catch(() => null),
   ]);
   const student = after && after.ok ? after.student : null;
   return {
@@ -169,6 +182,7 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
     receiptNumber: input.receiptNumber,
     student,
     balanceAfter: student ? balanceAfter(student, schoolToday()) : null,
+    todayCollection,
   };
 }
 

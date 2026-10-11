@@ -1,0 +1,13 @@
+import { createRoot } from "react-dom/client";
+import { LanguageProvider } from "@/platform/i18n/use-language";
+import { ToastProvider } from "@/vx/ui/overlays";
+import { PaymentDesk } from "@/vx/screens/payments/desk";
+import { boot, student, STUDENT_ID } from "../payment-parity.fixture";
+import "../../src/app/globals.css";
+import "../../src/vx/vx.css";
+const params = new URLSearchParams(location.search);
+const select = params.has("selected");
+const role = params.get("role") ?? "admin";
+const previewing = role === "teacher" || role === "viewer" || role === "coordinator";
+const canWaive = role === "admin" || role === "accountant";
+createRoot(document.getElementById("root")!).render(<LanguageProvider language={params.get("lang") === "hi" ? "hi" : "en"}><ToastProvider><PaymentDesk boot={{ ...boot, sessionLabel: params.get("session") ?? boot.sessionLabel, me: { ...boot.me, id: params.has("missing-owner") ? undefined : params.get("owner") ?? `synthetic-${role}`, isAdmin: role === "admin", canWaive, canRemove: role === "admin", canBulk: role === "admin" } }} previewing={previewing} initialStudentId={select ? STUDENT_ID : null} initialStudent={select ? { ok: true, student } : null} initialReceipt={null} /></ToastProvider></LanguageProvider>);

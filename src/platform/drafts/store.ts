@@ -28,21 +28,27 @@ async function transaction(key: string, action: 'read' | 'write' | 'remove', val
   });
 }
 
-async function access(key: string, action: 'read' | 'write' | 'remove', value?: DraftEnvelope): Promise<unknown> {
+async function access(key: string, action: 'read' | 'write' | 'remove', value?: DraftEnvelope, financial = false): Promise<unknown> {
   let primary: unknown = null;
   let primarySucceeded = false;
+  let primaryError: unknown = null;
+  // A financial request must retain a confirmed fallback even when IDB works.
+  // Write the mirror first: no caller may post until this durable copy exists.
+  if (financial && action === 'write') localStorage.setItem(key, JSON.stringify(value));
   try {
     if (typeof indexedDB !== 'undefined') {
       primary = await transaction(key, action, value);
       primarySucceeded = true;
     }
-  } catch { /* Browser storage below is the fallback. */ }
+  } catch (error) { primaryError = error; /* Browser storage below is the fallback. */ }
   if (action === 'read') {
     let fallback: { updatedAt?: number; deleted?: boolean } | null = null;
     try {
       const raw = localStorage.getItem(key);
       fallback = raw ? JSON.parse(raw) : null;
-    } catch (error) { if (!primarySucceeded) throw error; }
+      if (financial && raw !== null && (!fallback || typeof fallback !== 'object' || !Number.isFinite(fallback.updatedAt))) throw new Error('Payment recovery mirror could not be read safely');
+    } catch (error) { if (financial || !primarySucceeded) throw error; }
+    if (financial && !primarySucceeded && !fallback) throw primaryError ?? new Error('Primary payment recovery storage is unavailable');
     const time = (primary as { updatedAt?: number } | null)?.updatedAt ?? -1;
     if (fallback && (fallback.updatedAt ?? 0) >= time) return fallback.deleted ? null : fallback;
     return primary;
@@ -53,6 +59,7 @@ async function access(key: string, action: 'read' | 'write' | 'remove', value?: 
     catch (error) { if (!primarySucceeded) throw error; }
     return null;
   }
+  if (financial) return null;
   if (primarySucceeded) {
     try { localStorage.removeItem(key); } catch { /* Primary copy is confirmed. */ }
   } else localStorage.setItem(key, JSON.stringify(value));
@@ -68,5 +75,8 @@ function serial<T>(key: string, work: () => Promise<T>): Promise<T> {
 
 export const loadDraft = (key: string) => serial(key, () => access(key, 'read'));
 export const saveDraft = (key: string, value: DraftEnvelope) => serial(key, () => access(key, 'write', value));
+// Financial callers opt into a durable mirror and fail closed on a hidden primary.
+export const loadFinancialDraft = (key: string) => serial(key, () => access(key, 'read', undefined, true));
+export const saveFinancialDraft = (key: string, value: DraftEnvelope) => serial(key, () => access(key, 'write', value, true));
 export const removeDraft = (key: string) => serial(key, () => access(key, 'remove'));
 export const flushDraftWrites = async () => { await Promise.all([...operations.values()]); };

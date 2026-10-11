@@ -77,6 +77,7 @@ export function ReceiptCard({
       </div>
       <em style={{ fontSize: 13, color: "var(--mut)" }}>{amountInWords(receipt.total)}</em>
       {receipt.lateFeeWaived > 0 ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.rLateWaived(rupees(receipt.lateFeeWaived)))}</span> : null}
+      {receipt.concession ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.concession)}: {rupees(receipt.concession)}</span> : null}
       {balance ? (
         <div className="pd-after" style={{ fontSize: 13 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{tx(W.rAfterHead(frozenAt ?? ""))}</span>

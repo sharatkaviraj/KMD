@@ -1090,3 +1090,7 @@ Branch `audit/receipt-session-recovery-20261011`, based on main `7aee588`. `last
 ## Durable inbox and provider recovery — 2026-10-11
 
 In progress on `audit/durable-recovery-20261011`, reconciled with main `ccabab7` (PR 71). O02 now persists scoped intent and reuses command identity through normal/departure/reload delivery; PR 71's removal of attendance correction approval is preserved. O05 claims before provider transport and keeps unknown outcomes blocked until human evidence confirms receipt; no provider retry/overwrite/cancellation can erase an unknown attempt. Validation and release identifiers are tracked in `docs/evidence/durable-provider-recovery-2026-10-11.md`. O01/O03/O04 remain pending a valid separate PR 69 DDL approval: the fresh action expired, and metadata still showed no functions. Original promotion approval and LIVE School Fees remain untouched.
+
+## Payment entry parity - 2026-10-11
+
+Approved bounded restoration on isolated branch fix/payment-entry-parity, based on PR 76 main fefd2a0. Missing collector/concession fields, original shortcuts and EMI context, authoritative selected-date preview, original paper receipt, and owner/session-scoped durable interrupted-save recovery are implemented. Genuine review and explicit-only messaging remain. See docs/plans/2026-10-11-payment-entry-parity-design.md and docs/evidence/payment-entry-parity-2026-10-11.md. Seven synthetic component scenarios and nine domain regressions passed; full gates and responsive acceptance are pending. No database/schema/provider writes.
