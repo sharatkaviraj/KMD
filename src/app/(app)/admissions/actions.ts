@@ -7,6 +7,7 @@ import { syncStudentEnrolments } from "@/modules/enrolments/data/enrolments-repo
 import { assertPermission } from "@/platform/auth/current-staff";
 import {
   admitStudent,
+  loadAdmissionsFeeContext,
   countTcsIssued,
   editStudent,
   findNameMatches,
@@ -19,6 +20,7 @@ import {
 import {
   enrolStudent,
   insertEnquiry,
+  saveSeats,
   saveAdmissionDetail,
   setEnquiryStage,
   updateAdmissionDetail,
@@ -196,5 +198,30 @@ export async function undoWithdrawAction(studentId: string) {
     return result;
   } catch (error) {
     return { ok: false, message: message(error) };
+  }
+}
+
+/**
+ * Seats per class for this session (admin only: `settings:manage`). The
+ * session and the classes are worked out again here, never trusted from the
+ * browser; a blank clears the limit.
+ */
+export async function saveSeatsAction(input: { seats: { classId: string; seats: number | null }[] }): Promise<{ ok: true; saved: number } | { ok: false; error: string }> {
+  try {
+    const actor = await assertPermission("settings:manage");
+    await assertNotPreviewing();
+    const ctx = await loadAdmissionsFeeContext();
+    const known = new Set(ctx.classes.map((c) => c.id));
+    const rows = (Array.isArray(input.seats) ? input.seats : [])
+      .filter((r) => r && known.has(r.classId))
+      .map((r) => ({ classId: r.classId, seats: r.seats === null ? null : Math.round(Number(r.seats)) }));
+    if (rows.some((r) => r.seats !== null && !(Number.isFinite(r.seats) && r.seats >= 0 && r.seats <= 500))) return { ok: false, error: "Seats must be a number from 0 to 500." };
+    if (rows.length === 0) return { ok: false, error: "Nothing to save." };
+    await saveSeats(ctx.sessionLabel, rows, actor.id);
+    revalidatePath("/admissions");
+    revalidatePath("/admissions/seats");
+    return { ok: true, saved: rows.length };
+  } catch (error) {
+    return { ok: false, error: message(error) };
   }
 }

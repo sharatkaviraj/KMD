@@ -605,6 +605,7 @@ function redesign(): RouteExpectation[] {
     row("/accounts/books", FEE_READERS, "The books: ledger and day closes, read-only for the fee desk."),
     row("/admissions", ["admin"], "Admitting a child creates a fee record; the fee app keeps that to the admin."),
     row("/admissions/new", ["admin"], "The admission wizard creates the fee record, so it sits behind the same door as Admissions."),
+    row("/admissions/seats", ["admin"], "Seats per class are school policy, set by the admin; Admissions reads seats left from them."),
     row("/admissions/[studentId]", ["admin"], "Editing or withdrawing a student changes the fee record; admin only, as in the fee app."),
     row("/student-tools", ["admin"], "Promotion and bulk changes are the admin's alone in the fee app."),
     row("/preferences/password", EVERYONE, "Changing your own password is your own business; every account can do it."),

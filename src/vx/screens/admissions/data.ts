@@ -108,6 +108,24 @@ export async function loadSeats(sessionLabel: string): Promise<Map<string, numbe
   return new Map(((data ?? []) as Array<{ class_id: string; seats: number }>).map((r) => [r.class_id, r.seats]));
 }
 
+/** Set or clear the seats of some classes. A null clears the row: no limit shown. Admin only. */
+export async function saveSeats(sessionLabel: string, rows: { classId: string; seats: number | null }[], actorId: string) {
+  await assertPermission("settings:manage");
+  const admin = createAdminClient();
+  const set = rows.filter((r) => r.seats !== null);
+  const clear = rows.filter((r) => r.seats === null).map((r) => r.classId);
+  if (set.length) {
+    const { error } = await admin
+      .from("class_seats")
+      .upsert(set.map((r) => ({ session_label: sessionLabel, class_id: r.classId, seats: r.seats, updated_by: actorId, updated_at: new Date().toISOString() })), { onConflict: "session_label,class_id" });
+    if (error) throw new Error(`Could not save seats: ${error.message}`);
+  }
+  if (clear.length) {
+    const { error } = await admin.from("class_seats").delete().eq("session_label", sessionLabel).in("class_id", clear);
+    if (error) throw new Error(`Could not clear seats: ${error.message}`);
+  }
+}
+
 export type DocKey = "birth" | "tc" | "photo" | "aadhaar" | "address";
 export type AdmissionDetail = { studentId: string; nameHi: string | null; docs: Partial<Record<DocKey, boolean>>; admittedAt: string };
 

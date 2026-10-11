@@ -5,6 +5,7 @@ import { lead } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
 import { getViewer } from "@/vx/view-as";
+import { can } from "@/platform/auth/permissions";
 
 import { AdmissionsBoard, type AdmittedCard, type BoardCard, type Kpis, type RecentRow } from "@/vx/screens/admissions/board";
 import { listEnquiries, loadAdmissionDetails, loadSeats } from "@/vx/screens/admissions/data";
@@ -69,6 +70,7 @@ export default async function AdmissionsPage() {
     waitingWeek: cards.filter((c) => c.days >= 7).length,
     docsPending: recentRows.reduce((n, r) => n + r.missing.length, 0),
     seatsLeft,
+    seatsEditable: can(staff, "settings:manage"),
     bands: ["Pre", "1–5", "6–8", "9–10", "11–12"].filter((b) => bands.has(b)).map((b) => ({ short: b, left: bands.get(b) ?? 0 })),
   };
 

@@ -25,6 +25,8 @@ export type Kpis = {
   waitingWeek: number;
   docsPending: number;
   seatsLeft: number | null;
+  /** Admins get a link to set the number of seats per class. */
+  seatsEditable: boolean;
   bands: { short: string; left: number }[];
 };
 
@@ -184,6 +186,11 @@ export function AdmissionsBoard({
               </span>
             ))}
           </span>
+          {kpis.seatsEditable ? (
+            <Link href="/admissions/seats" style={{ fontSize: 12, fontWeight: 600, color: "var(--accfg)" }}>
+              {kpis.seatsLeft === null ? tx(p("Set seats per class", "हर कक्षा की सीटें तय करें")) : tx(p("Edit seats", "सीटें बदलें"))}
+            </Link>
+          ) : null}
         </div>
       </div>
 
