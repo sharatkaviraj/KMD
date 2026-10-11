@@ -5,7 +5,8 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { db, ownClassOf, signIn } from "./support/harness";
 import { interruptOneAdminResponse } from "./support/admin-response-interruption";
 
-const runTag = `phoneops-20261011-admin-followup-${randomUUID().slice(0, 8)}`;
+const runUuid = randomUUID();
+const runTag = `phoneops-20261011-admin-followup-${runUuid.slice(0, 8)}`;
 const studentId = "0c9f719c-7c5e-4cf4-a621-bce758236697";
 const classId = "745643d0-aaca-470f-9372-d87397770a77";
 const fields: string[] = [];
@@ -42,7 +43,10 @@ test("admin selected decisions, cached reviewer, conflict and interrupted respon
     checked(enrolment.error);
     record({ action: "preflight", table: "enrolments", key: studentId, before: enrolment.data, after: "Existing QA assigned child confirmed; ordinary records untouched" });
     for (const suffix of ["A", "B", "C"]) {
-      const created = await db().from("collection_fields").insert({ key: `qa_${runTag.replaceAll("-", "_")}_${suffix.toLowerCase()}`, label_hi: `${runTag} ${suffix}`, label_en: `${runTag} ${suffix}`, input_type: "text", is_active: false }).select("id,key,is_active").single();
+      // Database keys allow at most 41 characters; full audit tags stay in labels.
+      const fieldKey = `qa_ops_${runUuid.replaceAll("-", "").slice(0, 16)}_${suffix.toLowerCase()}`;
+      expect(fieldKey).toMatch(/^[a-z][a-z0-9_]{1,40}$/);
+      const created = await db().from("collection_fields").insert({ key: fieldKey, label_hi: `${runTag} ${suffix}`, label_en: `${runTag} ${suffix}`, input_type: "text", is_active: false }).select("id,key,is_active").single();
       checked(created.error); fields.push(created.data!.id);
       record({ action: "fixture-create", table: "collection_fields", key: created.data!.id, before: null, after: created.data });
     }
