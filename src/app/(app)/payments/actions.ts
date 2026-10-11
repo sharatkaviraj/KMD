@@ -28,9 +28,9 @@ import {
 } from "@/modules/payments/data/bulk/data";
 import { PAYMENT_IMPORT_COMMIT_CHUNK_SIZE, type PaymentImportBatchSummary } from "@/modules/payments/domain/bulk/types";
 import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/types";
-import { balanceAfter, loadDeskReceipt, loadDeskStudent } from "@/modules/payments/vx/data";
+import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent } from "@/modules/payments/vx/data";
 import type { DeskMode } from "@/modules/payments/vx/domain/desk";
-import type { BulkBatch, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
+import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
 import { revalidateAfterPaymentPosting } from "@/modules/system-sync/data/finance-revalidation";
 import { revalidateSessionFinance } from "@/modules/system-sync/domain/finance-sync";
 import { assertPermission } from "@/platform/auth/current-staff";
@@ -130,24 +130,60 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
     };
   }
   if (state.status !== "success" || !state.receiptId || !state.receiptNumber) {
+    // A failure after the post (the classic action throws "Payment saved, but
+    // receipt details are missing" when the receipt read fails) must not read
+    // as "nothing was posted". The request id says whether it was.
+    const posted = await findDeskReceiptByRequest({ studentId: input.studentId, clientRequestId: input.clientRequestId }).catch(() => undefined);
+    if (posted) return savedResult({ ...posted, studentId: input.studentId, sessionLabel: input.sessionLabel });
+    if (posted === undefined) {
+      return { status: "uncertain", message: state.message || "The payment could not be confirmed." };
+    }
     return { status: "error", message: state.message || "The payment was not saved. Nothing was posted." };
   }
 
-  // The money is posted. What follows only dresses the saved state, so a
-  // failure here must not read as a failed payment.
+  return savedResult({ receiptId: state.receiptId, receiptNumber: state.receiptNumber, studentId: input.studentId, sessionLabel: input.sessionLabel });
+}
+
+/**
+ * The money is posted. What follows only dresses the saved state, so a
+ * failure here must not read as a failed payment: the receipt and the balance
+ * come back null and the desk says the receipt could not be shown yet.
+ */
+async function savedResult(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }): Promise<Extract<DeskSaveResult, { status: "saved" }>> {
   const [receipt, after] = await Promise.all([
-    loadDeskReceipt(state.receiptId).catch(() => null),
+    loadDeskReceipt(input.receiptId).catch(() => null),
     loadDeskStudent({ studentId: input.studentId, sessionLabel: input.sessionLabel, today: schoolToday() }).catch(() => null),
   ]);
   const student = after && after.ok ? after.student : null;
   return {
     status: "saved",
     receipt,
-    receiptId: state.receiptId,
-    receiptNumber: state.receiptNumber,
+    receiptId: input.receiptId,
+    receiptNumber: input.receiptNumber,
     student,
     balanceAfter: student ? balanceAfter(student, schoolToday()) : null,
   };
+}
+
+/**
+ * Did the save with this request id post? Asked by the desk when a save's
+ * answer never arrived, before it lets the cashier try again. "Could not
+ * check" is its own answer, never "not saved".
+ */
+export async function checkDeskPaymentAction(input: { studentId: string; clientRequestId: string; sessionLabel: string }): Promise<DeskCheckResult> {
+  try {
+    await assertPermission("fees:collect");
+  } catch (error) {
+    return { status: "unknown", message: message(error, "You cannot take payments here.") };
+  }
+  if (!UUID.test(input.studentId) || !UUID.test(input.clientRequestId)) return { status: "unknown", message: "That payment could not be checked." };
+  try {
+    const posted = await findDeskReceiptByRequest({ studentId: input.studentId, clientRequestId: input.clientRequestId });
+    if (!posted) return { status: "not_saved" };
+    return await savedResult({ ...posted, studentId: input.studentId, sessionLabel: sessionOf(input.sessionLabel) });
+  } catch (error) {
+    return { status: "unknown", message: message(error, "The payment could not be checked.") };
+  }
 }
 
 /**

@@ -278,7 +278,7 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
 /** The three numbers a receipt freezes: fees pending today, not due yet, late fee. */
 export function balanceAfter(student: DeskStudent, today: string) {
   const t = deskTotals(student.rows, today);
-  return { pendingToday: t.pendingToday, notDueYet: t.notDueYet, lateFee: t.lateFee };
+  return { pendingToday: t.pendingToday, dueToday: t.dueToday, notDueYet: t.notDueYet, lateFee: t.lateFee };
 }
 
 export async function loadDeskReceipt(receiptId: string): Promise<DeskReceipt | null> {
@@ -341,4 +341,25 @@ export async function loadReceiptsByNumber(numbers: string[]) {
   });
   if (error) throw new Error(error instanceof Error ? error.message : "Unable to load the posted receipts.");
   return rows.map((r) => ({ receiptNumber: r.receipt_number, amount: Number(r.total_amount ?? 0), mode: r.payment_mode, name: single(r.student_ref)?.full_name ?? "" }));
+}
+
+/**
+ * The receipt a desk save wrote, found by the request id the desk sent with it.
+ *
+ * `receipts_student_client_request_id_unique` makes this at most one row. The
+ * desk asks this when a save's answer never arrived, so "did it post?" is a
+ * question the database answers rather than one the cashier guesses at. An
+ * error throws: "could not check" must not read as "not saved".
+ */
+export async function findDeskReceiptByRequest(payload: { studentId: string; clientRequestId: string }): Promise<{ receiptId: string; receiptNumber: string } | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("receipts")
+    .select("id, receipt_number")
+    .eq("student_id", payload.studentId)
+    .eq("client_request_id", payload.clientRequestId)
+    .maybeSingle<{ id: string; receipt_number: string | null }>();
+  if (error) throw new Error(`Could not check for the receipt: ${error.message}`);
+  if (!data?.id || !data.receipt_number) return null;
+  return { receiptId: data.id, receiptNumber: data.receipt_number };
 }

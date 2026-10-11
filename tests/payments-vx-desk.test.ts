@@ -13,6 +13,8 @@ import {
   composeRemarks,
   deskProblems,
   deskTotals,
+  isDueOn,
+  isOverdueOn,
   findRecentDuplicate,
   helperChips,
   lateFeesOn,
@@ -59,11 +61,29 @@ describe("desk totals keep fees and late fees apart", () => {
   it("splits pending today, not due yet and the late fee", () => {
     expect(deskTotals(LEDGER, TODAY)).toEqual({
       pendingToday: 6450,
+      dueToday: 0,
       notDueYet: 14500,
       lateFee: 1000,
       canTakeToday: 7450,
       wholeYear: 21950,
     });
+  });
+
+  // An installment due today is neither overdue nor upcoming. It used to be
+  // counted as "not due yet", which told the cashier nothing was due that day.
+  it("keeps an installment due today apart from overdue and upcoming, and the three add up", () => {
+    const totals = deskTotals(LEDGER, "2026-10-20");
+    expect(totals).toMatchObject({ pendingToday: 6450, dueToday: 7250, notDueYet: 7250, lateFee: 1000 });
+    expect(totals.canTakeToday).toBe(6450 + 7250 + 1000);
+    expect(totals.wholeYear).toBe(totals.pendingToday + totals.dueToday + totals.notDueYet + totals.lateFee);
+    expect(isDueOn(LEDGER[0], "2026-10-20")).toBe(true);
+    expect(isOverdueOn(LEDGER[0], "2026-10-20")).toBe(false);
+    expect(isDueOn(LEDGER[1], "2026-04-01")).toBe(false);
+  });
+
+  it("splits what is left after a payment the same way", () => {
+    const walk = walkPayment(LEDGER, 7450, { paymentDate: "2026-10-20", today: "2026-10-20", waiveLate: false });
+    expect(walk.after).toEqual({ pendingToday: 0, dueToday: 7250, notDueYet: 7250, lateFee: 0 });
   });
 });
 
@@ -95,7 +115,7 @@ describe("allocation preview mapping", () => {
       ["i4", 0, 0, "untouched"],
     ]);
     expect(walk.alreadyPaid).toEqual(["Installment 1"]);
-    expect(walk.after).toEqual({ pendingToday: 0, notDueYet: 14500, lateFee: 450 });
+    expect(walk.after).toEqual({ pendingToday: 0, dueToday: 0, notDueYet: 14500, lateFee: 450 });
     expect(walk.overMax).toBe(false);
     expect(walk.credit).toBe(0);
   });
@@ -104,7 +124,7 @@ describe("allocation preview mapping", () => {
     const walk = walkPayment(LEDGER, 10000, { paymentDate: TODAY, today: TODAY, waiveLate: false });
     const i3 = walk.lines.find((l) => l.row.id === "i3");
     expect(i3).toMatchObject({ feesPaid: 2550, feesAfter: 4700, state: "ahead" });
-    expect(walk.after).toEqual({ pendingToday: 0, notDueYet: 11950, lateFee: 0 });
+    expect(walk.after).toEqual({ pendingToday: 0, dueToday: 0, notDueYet: 11950, lateFee: 0 });
   });
 
   it("refuses more than everything owed, because the ledger holds no credit", () => {
@@ -119,7 +139,7 @@ describe("allocation preview mapping", () => {
     expect(walk.waiverAmount).toBe(1000);
     expect(walk.maxAmount).toBe(20950);
     expect(walk.lines.find((l) => l.row.id === "i2")).toMatchObject({ lateFeeWaived: true, lateFeePaid: 0, state: "cleared" });
-    expect(walk.after).toEqual({ pendingToday: 0, notDueYet: 14500, lateFee: 0 });
+    expect(walk.after).toEqual({ pendingToday: 0, dueToday: 0, notDueYet: 14500, lateFee: 0 });
   });
 
   it("follows an EMI plan's rows first, as the posting RPC does", () => {

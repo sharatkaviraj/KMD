@@ -60,14 +60,21 @@ export function isOverdueOn(row: Pick<DeskLedgerRow, "isCarryForward" | "dueDate
   return row.isCarryForward || row.dueDate < onDate;
 }
 
+/** Due on `onDate` itself: not overdue yet, but not "upcoming" either. */
+export function isDueOn(row: Pick<DeskLedgerRow, "isCarryForward" | "dueDate">, onDate: string): boolean {
+  return !row.isCarryForward && row.dueDate === onDate;
+}
+
 export type DeskTotals = {
-  /** Overdue fees only. Never contains a late fee. */
+  /** Overdue fees only: due before today. Never contains a late fee. */
   pendingToday: number;
-  /** Fees on installments not due yet. Never added to `pendingToday`. */
+  /** Fees on an installment due today. Neither overdue nor upcoming. */
+  dueToday: number;
+  /** Fees on installments due after today ("upcoming"). Never added to `pendingToday`. */
   notDueYet: number;
   /** Late fee, kept apart. */
   lateFee: number;
-  /** Fees pending today + late fee — labelled that way wherever it shows. */
+  /** Overdue + due today + late fee — labelled that way wherever it shows. */
   canTakeToday: number;
   /** Every fee and late fee still owed this session. */
   wholeYear: number;
@@ -75,14 +82,23 @@ export type DeskTotals = {
 
 export function deskTotals(rows: readonly DeskLedgerRow[], today: string): DeskTotals {
   let pendingToday = 0;
+  let dueToday = 0;
   let notDueYet = 0;
   let lateFee = 0;
   for (const row of rows) {
     if (isOverdueOn(row, today)) pendingToday += TIGHT(row.feesPending);
+    else if (isDueOn(row, today)) dueToday += TIGHT(row.feesPending);
     else notDueYet += TIGHT(row.feesPending);
     lateFee += TIGHT(row.lateFeePending);
   }
-  return { pendingToday, notDueYet, lateFee, canTakeToday: pendingToday + lateFee, wholeYear: pendingToday + notDueYet + lateFee };
+  return {
+    pendingToday,
+    dueToday,
+    notDueYet,
+    lateFee,
+    canTakeToday: pendingToday + dueToday + lateFee,
+    wholeYear: pendingToday + dueToday + notDueYet + lateFee,
+  };
 }
 
 export type HelperChip =
@@ -149,7 +165,7 @@ export type PaymentWalk = {
   waiverAmount: number;
   /** Money left once every row is clear: becomes the student's credit. */
   credit: number;
-  after: { pendingToday: number; notDueYet: number; lateFee: number };
+  after: { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number };
 };
 
 /**
@@ -199,9 +215,10 @@ export function walkPayment(
     return { row, before: fees + lateAsked, feesPaid, lateFeePaid, feesAfter, lateFeeAfter, lateFeeDropped, lateFeeWaived, state };
   });
 
-  const after = { pendingToday: 0, notDueYet: 0, lateFee: 0 };
+  const after = { pendingToday: 0, dueToday: 0, notDueYet: 0, lateFee: 0 };
   for (const line of lines) {
     if (isOverdueOn(line.row, opts.today)) after.pendingToday += line.feesAfter;
+    else if (isDueOn(line.row, opts.today)) after.dueToday += line.feesAfter;
     else after.notDueYet += line.feesAfter;
     after.lateFee += line.lateFeeAfter;
   }

@@ -83,7 +83,7 @@ export type DeskReceipt = {
 };
 
 export type DeskSaveResult =
-  | { status: "saved"; receipt: DeskReceipt | null; receiptId: string; receiptNumber: string; student: DeskStudent | null; balanceAfter: { pendingToday: number; notDueYet: number; lateFee: number } | null }
+  | { status: "saved"; receipt: DeskReceipt | null; receiptId: string; receiptNumber: string; student: DeskStudent | null; balanceAfter: { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number } | null }
   | {
       status: "duplicate";
       kind: "near-duplicate" | "daily-amount";
@@ -94,7 +94,15 @@ export type DeskSaveResult =
       mode: string | null;
       message: string;
     }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  /** The post failed in a way that may have happened after the money was written, and the check could not run. */
+  | { status: "uncertain"; message: string };
+
+/** The desk's "did it post?" check after a save's answer never arrived. */
+export type DeskCheckResult =
+  | Extract<DeskSaveResult, { status: "saved" }>
+  | { status: "not_saved" }
+  | { status: "unknown"; message: string };
 
 export type BulkBoot = {
   sessionLabel: string;

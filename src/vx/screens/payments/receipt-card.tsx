@@ -2,7 +2,7 @@
 
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { amountInWords, clock, dateLabel, rupees } from "@/vx/format";
+import { amountInWords, clock, dateLabel, rupees, schoolToday } from "@/vx/format";
 import type { DeskReceipt } from "@/modules/payments/vx/types";
 
 import { W } from "./words";
@@ -22,12 +22,14 @@ export function ReceiptCard({
 }: {
   receipt: DeskReceipt;
   /** The three numbers frozen at posting, when this desk posted it. */
-  balance: { pendingToday: number; notDueYet: number; lateFee: number } | null;
+  balance: { pendingToday: number; dueToday?: number; notDueYet: number; lateFee: number } | null;
   frozenAt: string | null;
   removed: boolean;
 }) {
   const { tx } = useVx();
-  const back = receipt.createdAt ? receipt.paymentDate < receipt.createdAt.slice(0, 10) : false;
+  // The day it was entered, in the school's timezone: slicing the UTC timestamp
+  // called an entry made before 5:30 am IST a day earlier than it was.
+  const back = receipt.createdAt ? receipt.paymentDate < schoolToday(new Date(receipt.createdAt)) : false;
   const both = (pair: { en: string; hi?: string }) => (pair.hi ? `${pair.hi} · ${pair.en}` : pair.en);
   const kv: [string, string][] = [
     [both(W.rStudent), receipt.studentName],
@@ -79,6 +81,7 @@ export function ReceiptCard({
         <div className="pd-after" style={{ fontSize: 13 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{tx(W.rAfterHead(frozenAt ?? ""))}</span>
           <div><span>{tx(W.feesPendingToday)}</span><b className="num">{rupees(balance.pendingToday)}</b></div>
+          {balance.dueToday ? <div><span>{tx(W.dueToday)}</span><b className="num">{rupees(balance.dueToday)}</b></div> : null}
           <div><span>{tx(W.notDueYet)}</span><b className="num">{rupees(balance.notDueYet)}</b></div>
           <div><span>{tx(W.lateFeeSep)}</span><b className="num">{rupees(balance.lateFee)}</b></div>
         </div>
