@@ -14,6 +14,8 @@ import { assertPermission, type CurrentStaff } from "@/platform/auth/current-sta
 import { can } from "@/platform/auth/permissions";
 import { schoolProfile } from "@/platform/config/school";
 import { createAdminClient } from "@/platform/supabase/admin";
+import { chunkArray } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { findRegister, listMarks } from "@/modules/attendance/data/attendance-repo";
 import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
@@ -41,7 +43,7 @@ const fail = (en: string, hi: string): VxResult => ({ ok: false, error: p(en, hi
 
 /* ------------------------------------------------------------ the register */
 
-export type VxSaveState = AttendanceSaveState & { queued?: number };
+export type VxSaveState = AttendanceSaveState & { queued?: number; queueWarning?: Pair };
 
 /**
  * Save or change a register from the teacher's screen.
@@ -59,8 +61,8 @@ export type VxSaveState = AttendanceSaveState & { queued?: number };
  * as "waiting to send" and the teacher never saw why.
  */
 export async function saveRegisterVx(payloadJson: string, alerts: boolean): Promise<VxSaveState> {
-  const actor = await assertPermission("attendance:view");
   try {
+    const actor = await assertPermission("attendance:view");
     await assertNotPreviewing();
     return await saveRegisterVxUnsafe(actor, payloadJson, alerts);
   } catch (error) {
@@ -104,18 +106,24 @@ async function saveRegisterVxUnsafe(actor: CurrentStaff, payloadJson: string, al
 
   // Absent alerts follow the register as saved: queue the absent children,
   // cancel any queued for a child who is no longer absent.
-  const queued = await syncAbsentAlerts({
-    registerId: result.receipt.registerId,
-    classId: payload.classId,
-    day: payload.day,
-    sessionLabel,
-    actorId: actor.id,
-    wanted: alerts,
-  }).catch(() => 0);
+  let queued: number | undefined;
+  let queueWarning: Pair | undefined;
+  try {
+    queued = await syncAbsentAlerts({
+      registerId: result.receipt.registerId,
+      classId: payload.classId,
+      day: payload.day,
+      sessionLabel,
+      actorId: actor.id,
+      wanted: alerts,
+    });
+  } catch {
+    queueWarning = p("Attendance saved. The parent message queue could not be updated. Ask the office to review it.", "उपस्थिति सहेजी गई। अभिभावक संदेशों की कतार अपडेट नहीं हुई। ऑफ़िस से जाँच करने को कहें।");
+  }
 
   revalidatePath("/teach");
   revalidatePath("/teach/class");
-  return { ...result, queued };
+  return { ...result, queued, queueWarning };
 }
 
 async function syncAbsentAlerts(input: { registerId: string; classId: string; day: string; sessionLabel: string; actorId: string; wanted: boolean }): Promise<number> {
@@ -130,23 +138,25 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
       .eq("status", "queued")
       .returns<{ id: string; student_id: string }[]>(),
   ]);
+  if (existing.error) throw existing.error;
   const absent = [...marks.entries()].filter(([, m]) => m.status === "absent").map(([id]) => id);
   const have = new Map((existing.data ?? []).map((r) => [r.student_id, r.id]));
   const keep = new Set(input.wanted ? absent : []);
 
   const drop = [...have.entries()].filter(([id]) => !keep.has(id)).map(([, rowId]) => rowId);
-  if (drop.length) {
-    await admin
+  for (const ids of chunkArray(drop, IN_FILTER_CHUNK_SIZE)) {
+    const { error } = await admin
       .from("parent_message_queue")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancelled_by: input.actorId })
-      .in("id", drop);
+      .in("id", ids).eq("status", "queued");
+    if (error) throw error;
   }
 
   const add = [...keep].filter((id) => !have.has(id));
   if (add.length) {
     const [names, labels] = await Promise.all([childBasics(add), classLabelMap(input.sessionLabel)]);
     const classLabel = labels.get(input.classId) ?? "";
-    await admin.from("parent_message_queue").insert(
+    const { error } = await admin.from("parent_message_queue").insert(
       add.map((studentId) => {
         const text = absentAlert({ childName: names.get(studentId)?.fullName ?? "", classLabel, dayLabel: dayMonth(input.day), school: schoolProfile.shortName });
         return {
@@ -162,6 +172,7 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
         };
       }),
     );
+    if (error) throw error;
   }
   return keep.size;
 }

@@ -1957,10 +1957,12 @@ export async function getStudentFamilyMembersDetail(
   // avoid `.maybeSingle()` here: a student can have membership rows in more than
   // one session, and `.maybeSingle()` throws on multiple rows — which the
   // caller swallows, making siblings silently disappear.
-  const { data: ownMembershipRows } = await supabase
+  const { data: ownMembershipRows, error: membershipError } = await supabase
     .from("student_family_members")
     .select("family_group_id")
     .eq("student_id", studentId);
+
+  if (membershipError) throw new Error(`Unable to load student family membership: ${membershipError.message}`);
 
   const familyGroupId = (ownMembershipRows ?? [])[0]?.family_group_id ?? null;
 
@@ -1970,10 +1972,12 @@ export async function getStudentFamilyMembersDetail(
 
   let targetStudentIds: string[] = [studentId];
 
-  const { data: allConfirmedMembers } = await supabase
+  const { data: allConfirmedMembers, error: membersError } = await supabase
     .from("student_family_members")
     .select("student_id")
     .eq("family_group_id", familyGroupId);
+
+  if (membersError) throw new Error(`Unable to load student family members: ${membersError.message}`);
 
   if (allConfirmedMembers && allConfirmedMembers.length > 0) {
     targetStudentIds = [...new Set(allConfirmedMembers.map((m) => m.student_id))];

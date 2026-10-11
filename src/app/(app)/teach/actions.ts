@@ -26,6 +26,7 @@ import {
 import { writeNoteSchema } from "@/modules/notes/domain/notes";
 import {
   findAttendanceCommand,
+  findRegister,
   listMarks,
   registerById,
   saveRegisterCommand,
@@ -45,6 +46,8 @@ import {
   idleTeachState,
   type TeachState,
 } from "@/modules/attendance/domain/teach-state";
+import { assertNotPreviewing } from "@/vx/view-as";
+import { changeWindow } from "@/vx/screens/teach/domain/teach";
 
 function failure(message: Localized): TeachState {
   return { status: "error", message };
@@ -90,6 +93,7 @@ export async function saveAttendanceAction(
   formData: FormData,
 ): Promise<AttendanceSaveState> {
   const actor = await assertPermission("attendance:view");
+  await assertNotPreviewing();
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { status: "refused", message: m.noSessionFound };
@@ -113,6 +117,17 @@ export async function saveAttendanceAction(
   });
   const allowed = parsed.data.kind === "save" ? authority.save : authority.correct;
   if (!allowed) return { status: "refused", message: authority.reason ?? attendanceRefusals.not_permitted };
+
+  // Every caller shares the owner window, including direct/legacy actions.
+  if (parsed.data.kind === "correction" && !can(actor, "attendance:correct")) {
+    const register = await findRegister(parsed.data.classId, sessionLabel, parsed.data.day, null);
+    if (!changeWindow(register?.submittedAt ?? null, new Date()).open) {
+      return { status: "refused", message: {
+        en: "The 30 minutes to change it yourself are over. Ask the office to change it.",
+        hi: "खुद बदलने के 30 मिनट पूरे हो गए। बदलाव के लिए ऑफ़िस से कहें।",
+      } };
+    }
+  }
 
   let outcome;
   try {
@@ -169,6 +184,7 @@ export async function requestCorrectionAction(
   formData: FormData,
 ): Promise<TeachState> {
   const actor = await assertPermission("attendance:view");
+  await assertNotPreviewing();
 
   const parsed = requestCorrectionSchema.safeParse({
     registerId: (formData.get("registerId") ?? "").toString(),
@@ -226,6 +242,7 @@ export async function requestCorrectionAction(
 
 export async function decideCorrectionAction(formData: FormData) {
   const actor = await assertPermission("attendance:correct");
+  await assertNotPreviewing();
 
   const parsed = decideCorrectionSchema.safeParse({
     correctionId: (formData.get("correctionId") ?? "").toString(),
@@ -271,6 +288,11 @@ export async function decideCorrectionAction(formData: FormData) {
     throw new Error("That register is not in the current session.");
   }
   const marks = await listMarks(register.id);
+  // The requester asked to replace one particular mark, not an intervening
+  // correction. A later race is still refused by expectedRevision in the RPC.
+  if (!marks.has(correction.studentId) || marks.get(correction.studentId)?.status !== correction.fromStatus) {
+    throw new Error("The requested mark has changed. Review the latest register before deciding.");
+  }
   const input: SaveRegisterInput = {
     commandId: randomUUID(),
     classId: register.classId,

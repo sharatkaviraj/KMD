@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Suspense, use, useCallback, useState } from "react";
 
 import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
@@ -156,7 +157,7 @@ const CELL_LOOK: Record<Cell["state"], { bg: string; fg: string; border?: string
 /** Everything on the card that comes from the fee app's reads. */
 export type Student360Fees = Partial<
   Pick<Student360Props, "status" | "address" | "dob" | "joined" | "route" | "money" | "installments" | "feeSummary" | "feeBreakup" | "feeSession" | "receipts" | "family">
->;
+> & { unavailable?: boolean };
 
 /**
  * Student 360, with the fee side streamed in. The school side (name, class,
@@ -178,11 +179,12 @@ export function Student360({ p, fees }: { p: Student360Props; fees?: Promise<Stu
 
 function WithFees({ p, fees, tab, setTab }: { p: Student360Props; fees: Promise<Student360Fees | null>; tab: StudentTab; setTab: (t: StudentTab) => void }) {
   const loaded = use(fees);
-  return <Student360View p={loaded ? { ...p, ...loaded } : p} tab={tab} setTab={setTab} feesLoading={false} />;
+  return <Student360View p={loaded ? { ...p, ...loaded } : p} tab={tab} setTab={setTab} feesLoading={false} feesUnavailable={loaded?.unavailable === true} />;
 }
 
-function Student360View({ p, tab, setTab, feesLoading }: { p: Student360Props; tab: StudentTab; setTab: (t: StudentTab) => void; feesLoading: boolean }) {
+function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }: { p: Student360Props; tab: StudentTab; setTab: (t: StudentTab) => void; feesLoading: boolean; feesUnavailable?: boolean }) {
   const { tx } = useVx();
+  const router = useRouter();
   const pick = useCallback(
     (next: StudentTab) => (event: React.MouseEvent<HTMLAnchorElement>) => {
       // A new tab or window still gets a real link.
@@ -366,7 +368,7 @@ function Student360View({ p, tab, setTab, feesLoading }: { p: Student360Props; t
       );
       break;
     case "fees":
-      body = feesLoading ? loadingCard : p.money && p.feeSummary ? (
+      body = feesLoading ? loadingCard : feesUnavailable ? null : p.money && p.feeSummary ? (
         <FeesTab p={p} summary={p.feeSummary} receiptsCard={receiptsCard} />
       ) : (
         <Card><p style={{ margin: 0, color: "var(--mut)" }}>{tx(T.noFeeRecord)}</p></Card>
@@ -396,7 +398,7 @@ function Student360View({ p, tab, setTab, feesLoading }: { p: Student360Props; t
       body = termsCard;
       break;
     case "family":
-      body = feesLoading ? loadingCard : (
+      body = feesLoading ? loadingCard : feesUnavailable ? null : (
         <Card pad={false} style={{ overflow: "hidden" }}>
           {(p.family ?? []).filter((m) => !m.self).length === 0 ? (
             <EmptyState icon="users" title={tx(T.noFamily)} />
@@ -517,6 +519,7 @@ function Student360View({ p, tab, setTab, feesLoading }: { p: Student360Props; t
               </a>
             ))}
           </ChipRow>
+          {feesUnavailable ? <Card><div role="alert"><p style={{ margin: "0 0 12px" }}>{tx(T.feesUnavailable)}</p><Btn variant="sec" onClick={() => router.refresh()}>{tx(T.retryFees)}</Btn></div></Card> : null}
           {body}
         </Section>
       </main>

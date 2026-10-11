@@ -2,7 +2,7 @@ import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { documentKindLabels, humanSize } from "@/modules/collection/domain/review";
-import { studentFees, type StudentFees } from "@/modules/students-fees/vx/admin-students";
+import { studentFees } from "@/modules/students-fees/vx/admin-students";
 import { schoolToday } from "@/vx/format";
 import {
   installmentState,
@@ -45,7 +45,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   // starts at once: the fee side (the fee app's own reads) and the notes no
   // longer wait for the school side to finish first. On a phone that was the
   // difference between one round of queries and three in a row.
-  const feesPromise = valid && seesMoney ? studentFees(id).catch((): StudentFees | null => null) : Promise.resolve(null);
+  const feesPromise = valid && seesMoney ? studentFees(id).catch(() => "unavailable" as const) : Promise.resolve(null);
   const notesPromise = valid && sessionLabel ? notesForStudentTab(staff, id, sessionLabel).catch(() => []) : Promise.resolve([]);
   const school = valid && sessionLabel ? await loadStudentSchool(staff, id, sessionLabel) : null;
   if (!school || !sessionLabel) {
@@ -77,7 +77,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   // streams into it when the fee app's reads finish (Student360's Suspense).
   const feesView: Promise<Student360Fees | null> | undefined = seesMoney
     ? feesPromise.then((fees): Student360Fees | null =>
-        fees
+        fees === "unavailable" ? { unavailable: true } : fees
           ? {
               status: fees.status ?? school.card.status,
               address: fees.address,

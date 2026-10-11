@@ -206,9 +206,9 @@ export async function studentFees(studentId: string): Promise<StudentFees> {
         const reversals = await getReceiptReversalTotals(result.data.map((row) => row.id));
         return { rows: result.data, reversals };
       }),
-    getStudentFamilyMembersDetail(studentId).catch(() => ({ familyGroupId: null, members: [] })),
-    getStudentDetail(studentId).catch(() => null),
-    getStudentFinancialSnapshot(studentId).catch(() => null),
+    getStudentFamilyMembersDetail(studentId),
+    getStudentDetail(studentId),
+    getStudentFinancialSnapshot(studentId),
   ]);
 
   const inSession = balances

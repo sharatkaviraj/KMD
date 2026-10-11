@@ -392,7 +392,7 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     prevRegister && prevRegister.revision >= 1 ? listMarks(prevRegister.id) : Promise.resolve(new Map<string, { status: AttendanceStatus; note: string | null }>()),
   ]);
   const saves = history.filter((h) => h.kind === "save").map((h) => h.savedAt).sort();
-  const firstSavedAt = saves[0] ?? register?.submittedAt ?? null;
+  const firstSavedAt = saves.length ? saves[0] : register?.submittedAt ?? null;
 
   // The queued 10 am alerts for this register, so the save sheet says so.
   let queuedAlerts: string[] = [];

@@ -10,7 +10,7 @@ export function useSearchParams() { return new URLSearchParams(location.search);
 export function useRouter() { return {
   push: (href: string) => { history.pushState(null, "", href); window.dispatchEvent(new PopStateEvent("popstate")); },
   back: () => history.back(),
-  refresh: () => {},
+  refresh: () => { window.dispatchEvent(new Event("qa:refresh")); },
   prefetch: () => {},
 }; }
 export function useLinkStatus() { return { pending: false }; }

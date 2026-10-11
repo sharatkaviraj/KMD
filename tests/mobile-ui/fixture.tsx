@@ -22,6 +22,7 @@ import { adminFixture, longWorkspaces } from "../home-overview.fixture";
 import { attentionFor } from "@/modules/home/domain/attention";
 import { attentionFacts } from "../home-overview.fixture";
 import "../../src/app/globals.css";
+import { Student360Fixture } from "./student360.fixture";
 
 const params = new URLSearchParams(location.search);
 const locale = params.get("locale") === "hi" ? "hi" : params.get("locale") === "hi-en" ? "hi-en" : "en";
@@ -35,6 +36,7 @@ if (params.get("theme") === "dark") document.documentElement.classList.add("dark
 function Fixture() {
   const [open, setOpen] = useState(false);
   const [nestedOpen, setNestedOpen] = useState(false);
+  if (params.get("view") === "student360") return <Student360Fixture language={language} />;
   if (params.get("view") === "admin") return <main className="min-h-screen bg-background p-4 md:p-6">
     <AdminOverview {...adminFixture} language={language} workspaces={params.has("long") ? longWorkspaces : adminFixture.workspaces}
       attention={params.get("state") === "empty" ? attentionFor("admin", { ...attentionFacts, registersOutstanding: 0, absencesToday: 0, pendingSubmissions: 0, pendingCorrections: 0, failedJobs: 0 }, { canMarkOnBehalf: true }) : params.get("state") === "error" ? attentionFor("admin", { ...attentionFacts, unavailable: ["registers", "jobs"] }, { canMarkOnBehalf: true }) : adminFixture.attention}

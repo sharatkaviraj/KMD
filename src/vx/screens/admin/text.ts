@@ -232,6 +232,8 @@ export const T = {
   noReceipts: p("No receipts this session", "इस सत्र कोई रसीद नहीं"),
   reversed: p("Reversed", "रद्द"),
   loadingFees: p("Loading fees…", "फ़ीस लोड हो रही है…"),
+  feesUnavailable: p("Fees and family could not be loaded. School records are still available.", "फ़ीस और परिवार की जानकारी लोड नहीं हुई। स्कूल के रिकॉर्ड उपलब्ध हैं।"),
+  retryFees: p("Try again", "फिर कोशिश करें"),
   noFeeRecord: p("No fee record for this student in this session.", "इस सत्र में इस विद्यार्थी का फ़ीस रिकॉर्ड नहीं।"),
   /* Fees tab, in the fee app's own words (`/fees/students/[id]`). */
   outstanding: p("Outstanding", "बकाया"),

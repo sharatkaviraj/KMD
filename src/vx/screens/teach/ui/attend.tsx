@@ -128,6 +128,7 @@ export function TeachAttend({
   const [alerts, setAlerts] = useState(true);
   const [state, setState] = useState<VxSaveState | null>(null);
   const [outbox, setOutbox] = useState<Outbox | null>(null);
+  const [outboxDurable, setOutboxDurable] = useState(true);
   const [now, setNow] = useState(serverNow);
   const [pending, start] = useTransition();
   const sending = useRef(false);
@@ -186,17 +187,27 @@ export function TeachAttend({
       setEditing(null);
       setSheet(null);
       toast.show({ text: tx(p(`Saved at ${clock(res.receipt.savedAt)}. The office can see it now.`, `${clock(res.receipt.savedAt)} बजे सहेजा। ऑफ़िस अब देख सकता है।`)) });
+      if (res.queueWarning) toast.show({ text: tx(res.queueWarning), tone: "bad" });
       router.refresh();
     } else if (res.status !== "idle") {
+      if (res.status !== "error") {
+        // Terminal refusals require another review, never automatic delivery.
+        setOutbox(null);
+        void removeDraft(outboxId).catch(() => undefined);
+      }
       toast.show({ text: tx(res.message), tone: "bad" });
     }
   };
 
-  const deliver = (box: Outbox) =>
+  const deliver = (box: Outbox, recover = false) =>
     start(async () => {
       if (sending.current) return;
       sending.current = true;
       try {
+        if (recover) {
+          const check = await checkRegisterVx(box.commandId).catch(() => null);
+          if (check?.status === "saved") return settle(check);
+        }
         const res = await saveRegisterVx(box.payload, box.alerts);
         if (res.status === "error") {
           const check = await checkRegisterVx(box.commandId).catch(() => null);
@@ -206,7 +217,13 @@ export function TeachAttend({
       } catch {
         // No answer: keep it in the outbox and try again when the phone is back online.
         setOutbox(box);
-        await saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() }).catch(() => undefined);
+        try {
+          await saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() });
+          setOutboxDurable(true);
+        } catch {
+          setOutboxDurable(false);
+          toast.show({ text: tx(p("The save could not be confirmed or stored on this phone. Keep this page open and check again when online.", "सहेजने की पुष्टि नहीं हुई और फ़ोन पर कॉपी नहीं बनी। यह पेज खुला रखें और इंटरनेट आने पर फिर जाँचें।")), tone: "bad" });
+        }
       } finally {
         sending.current = false;
       }
@@ -215,7 +232,7 @@ export function TeachAttend({
   // Back online with a save waiting: send it again, with the same id.
   useEffect(() => {
     if (!online || !outbox || sending.current) return;
-    const t = window.setTimeout(() => deliver(outbox), 400);
+    const t = window.setTimeout(() => deliver(outbox, true), 400);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, outbox]);
@@ -233,10 +250,17 @@ export function TeachAttend({
     });
     const box: Outbox = { payload, alerts, commandId, at: Date.now() };
     if (!online) {
-      setOutbox(box);
-      setSheet(null);
-      void saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() }).catch(() => undefined);
-      toast.show({ text: tx(p("No internet. Saved on this phone — it will be sent when you are back online.", "इंटरनेट नहीं। फ़ोन पर रखा है — इंटरनेट आते ही भेज देंगे।")), tone: "info" });
+      start(async () => {
+        try {
+          await saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() });
+          setOutboxDurable(true);
+          setOutbox(box);
+          setSheet(null);
+          toast.show({ text: tx(p("No internet. Saved on this phone — it will be sent when you are back online.", "इंटरनेट नहीं। फ़ोन पर रखा है — इंटरनेट आते ही भेज देंगे।")), tone: "info" });
+        } catch {
+          toast.show({ text: tx(p("Not saved on this phone. Keep this page open and save when the internet returns.", "फ़ोन पर नहीं सहेजा गया। यह पेज खुला रखें और इंटरनेट आने पर सहेजें।")), tone: "bad" });
+        }
+      });
       return;
     }
     deliver(box);
@@ -474,8 +498,8 @@ export function TeachAttend({
         <Section>
           {!online ? <Banner tone="warn">{tx(p("No internet. You can still mark — saving will wait for the connection.", "इंटरनेट नहीं। हाज़िरी लगा सकते हैं — सहेजना कनेक्शन का इंतज़ार करेगा।"))}</Banner> : null}
           {outbox ? (
-            <Banner tone="warn" action={online ? <Btn variant="sec" disabled={pending} onClick={() => deliver(outbox)}>{tx(p("Send now", "अभी भेजें"))}</Btn> : undefined}>
-              {tx(p("Waiting to sync — this register is saved on this phone and will be sent when you are online.", "भेजना बाकी — यह हाज़िरी फ़ोन पर रखी है, इंटरनेट आते ही भेजी जाएगी।"))}
+            <Banner tone="warn" action={online ? <Btn variant="sec" disabled={pending} onClick={() => deliver(outbox, true)}>{tx(p("Send now", "अभी भेजें"))}</Btn> : undefined}>
+              {outboxDurable ? tx(p("Waiting to sync — this register is saved on this phone and will be sent when you are online.", "भेजना बाकी — यह हाज़िरी फ़ोन पर रखी है, इंटरनेट आते ही भेजी जाएगी।")) : tx(p("The save is waiting only on this open page. Keep it open and check again when online.", "सहेजना केवल इस खुले पेज पर बाकी है। इसे खुला रखें और इंटरनेट आने पर फिर जाँचें।"))}
             </Banner>
           ) : null}
           {data.closed ? <Banner tone="info">{tx(p("School is closed on this day, or it has not come yet. There is no register to take.", "इस दिन स्कूल बंद है या दिन अभी नहीं आया।"))}</Banner> : null}

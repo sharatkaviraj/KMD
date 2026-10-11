@@ -3,6 +3,8 @@ import "server-only";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
+import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import type { AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import type {
   Correction,
@@ -45,24 +47,38 @@ export async function listCorrections(
   classLabels: Map<string, string>,
 ): Promise<Correction[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("attendance_corrections")
-    .select(COLUMNS)
-    .eq("attendance_registers.session_label", sessionLabel)
-    .order("requested_at", { ascending: false })
-    .limit(200)
-    .returns<CorrectionRow[]>();
+  // Never let recent decisions push an older waiting request out of the queue.
+  const [waiting, history] = await Promise.all([
+    fetchAllPages<CorrectionRow>((from, to) => supabase
+      .from("attendance_corrections").select(COLUMNS)
+      .eq("attendance_registers.session_label", sessionLabel).eq("status", "pending")
+      .order("requested_at", { ascending: false }).order("id")
+      .range(from, to).returns<CorrectionRow[]>(), 200),
+    supabase
+      .from("attendance_corrections")
+      .select(COLUMNS)
+      .eq("attendance_registers.session_label", sessionLabel)
+      .neq("status", "pending")
+      .order("requested_at", { ascending: false })
+      .order("id")
+      .limit(200)
+      .returns<CorrectionRow[]>(),
+  ]);
+  const error = waiting.error ?? history.error;
+  const data = [...waiting.data, ...(history.data ?? [])];
 
-  if (error) throw new Error(`Could not read the corrections: ${error.message}`);
+  if (error) throw new Error(`Could not read the corrections: ${(error as { message?: string }).message ?? "unavailable"}`);
   if (data.length === 0) return [];
 
   const studentIds = [...new Set(data.map((row) => row.student_id))];
-  const { data: students } = await createAdminClient()
+  const admin = createAdminClient();
+  const { data: students, error: namesError } = await fetchInChunks<{ id: string; full_name: string }>(studentIds, IN_FILTER_CHUNK_SIZE, ids => admin
     .schema(FEE_SCHEMA)
     .from("students")
     .select("id, full_name")
-    .in("id", studentIds)
-    .returns<{ id: string; full_name: string }[]>();
+    .in("id", ids)
+    .returns<{ id: string; full_name: string }[]>());
+  if (namesError) throw new Error(`Could not read correction student names: ${namesError instanceof Error ? namesError.message : (namesError as { message?: string }).message ?? "unavailable"}`);
 
   const names = new Map((students ?? []).map((s) => [s.id, s.full_name]));
 
@@ -110,6 +126,7 @@ export async function getCorrection(id: string): Promise<{
   id: string;
   registerId: string;
   studentId: string;
+  fromStatus: AttendanceStatus | null;
   toStatus: AttendanceStatus;
   reason: string;
   requestedBy: string;
@@ -118,12 +135,13 @@ export async function getCorrection(id: string): Promise<{
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("attendance_corrections")
-    .select("id, register_id, student_id, to_status, reason, requested_by, status")
+    .select("id, register_id, student_id, from_status, to_status, reason, requested_by, status")
     .eq("id", id)
     .maybeSingle<{
       id: string;
       register_id: string;
       student_id: string;
+      from_status: AttendanceStatus | null;
       to_status: AttendanceStatus;
       reason: string;
       requested_by: string;
@@ -137,6 +155,7 @@ export async function getCorrection(id: string): Promise<{
     id: data.id,
     registerId: data.register_id,
     studentId: data.student_id,
+    fromStatus: data.from_status,
     toStatus: data.to_status,
     reason: data.reason,
     requestedBy: data.requested_by,
@@ -195,7 +214,7 @@ export async function rejectCorrection(input: {
   decisionNote: string | null;
   deciderStaffId: string;
 }): Promise<void> {
-  const { error } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from("attendance_corrections")
     .update({
       status: "rejected",
@@ -205,7 +224,10 @@ export async function rejectCorrection(input: {
     })
     .eq("id", input.correctionId)
     // Only a pending one: two people pressing at once must not both decide.
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle<{ id: string }>();
 
   if (error) throw error;
+  if (!data) throw new Error("This request has already been decided. Reload the waiting list.");
 }
