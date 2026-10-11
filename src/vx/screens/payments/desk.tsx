@@ -3,21 +3,22 @@
 import "./paydesk.css";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   checkDeskPaymentAction,
   loadReceiptAction,
   loadStudentDeskAction,
+  loadDeskPreviewAction,
   postDeskPaymentAction,
   removePaymentAction,
   sendReceiptWhatsappAction,
+  type DeskPostInput,
 } from "@/app/(app)/payments/actions";
 import {
   deskProblems,
   deskTotals,
   findRecentDuplicate,
-  helperChips,
   isOverdueOn,
   lateFeesOn,
   maskPhone,
@@ -28,10 +29,13 @@ import {
   composeReference,
   composeRemarks,
   type DeskMode,
-  type HelperChip,
   type WalkLine,
 } from "@/modules/payments/vx/domain/desk";
 import type { DeskBoot, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudent, DeskStudentResult } from "@/modules/payments/vx/types";
+import { buildPaymentQuickAmounts } from "@/modules/payments/domain/workflow";
+import { MobilePrintedReceipt } from "@/modules/payments/ui/mobile-printed-receipt";
+import { clearPaymentAttempt, paymentAttemptKey, restorePaymentAttempt, writePaymentAttempt, PaymentAttemptConflict, PaymentRecoveryUnavailable, type PaymentAttempt } from "@/modules/payments/vx/attempt";
+import type { DeskLedgerRow } from "@/modules/payments/vx/domain/desk";
 import { amountInWords, clock, dateLabel, dayMonth, initials, rupees, shortDay } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -59,6 +63,8 @@ type Form = {
   waiveReason: string;
   waiveNote: string;
   notes: string;
+  receivedBy: string;
+  concession: string;
 };
 
 type Saved = {
@@ -118,7 +124,26 @@ function freshForm(boot: DeskBoot): Form {
     waiveReason: "",
     waiveNote: "",
     notes: "",
+    receivedBy: boot.me.name,
+    concession: "",
   };
+}
+
+function suggestedForm(boot: DeskBoot, student: DeskStudent | null): Form {
+  const form = freshForm(boot);
+  if (!student) return form;
+  const t = deskTotals(student.rows, boot.today);
+  const plan = student.repaymentPlan;
+  const suggestion = plan ? Math.min(t.wholeYear, plan.remainingBalance, plan.catchUpAmount || plan.monthlyAmount) : t.canTakeToday;
+  return { ...form, amount: suggestion > 0 ? String(suggestion) : "" };
+}
+
+function recoveredForm(boot: DeskBoot, pending: PaymentAttempt): Form {
+  return { ...freshForm(boot), ...pending.form, dateMode: pending.input.paymentDate === boot.today ? "today" : "other", otherDate: pending.input.paymentDate } as Form;
+}
+
+function earlierReceipt(receipt: DeskReceipt | null): Saved | null {
+  return receipt ? { receiptId: receipt.id, receiptNumber: receipt.receiptNumber, receipt, balance: null, amount: receipt.total, fresh: false, savedAtMs: 0, removed: receipt.isReversed, sent: false, log: [] } : null;
 }
 
 function rowLabel(row: { isCarryForward: boolean; label: string }, tx: (p: Pair | string) => string) {
@@ -148,7 +173,7 @@ export function PaymentDesk({
   const [selId, setSelId] = useState<string | null>(initialStudentId);
   const [result, setResult] = useState<DeskStudentResult | null>(initialStudent);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<Form>(() => freshForm(boot));
+  const [form, setForm] = useState<Form>(() => suggestedForm(boot, initialStudent?.ok ? initialStudent.student : null));
   const [tried, setTried] = useState(false);
   const [sheet, setSheet] = useState<"" | "dup" | "wa" | "rm">("");
   // Review is its own step in the right-hand pane, not a sheet over the form:
@@ -160,23 +185,74 @@ export function PaymentDesk({
   const [saving, setSaving] = useState(false);
   const [ack, setAck] = useState(false);
   const [dup, setDup] = useState<Dup | null>(null);
-  const [saved, setSaved] = useState<Saved | null>(() =>
-    initialReceipt
-      ? { receiptId: initialReceipt.id, receiptNumber: initialReceipt.receiptNumber, receipt: initialReceipt, balance: null, amount: initialReceipt.total, fresh: false, savedAtMs: 0, removed: initialReceipt.isReversed, sent: false, log: [] }
-      : null,
-  );
+  const [saved, setSaved] = useState<Saved | null>(() => earlierReceipt(initialReceipt));
   const [expiredAt, setExpiredAt] = useState<number | null>(null);
-  const [todayTotals, setTodayTotals] = useState(boot.todayCollection);
+  const [todayTotals, setTodayTotals] = useState<DeskBoot["todayCollection"] | null>(boot.todayCollection);
   const [rmReason, setRmReason] = useState("");
   const [rmNote, setRmNote] = useState("");
   const [waLang, setWaLang] = useState<"hi" | "en" | "both">("both");
   const [busy, setBusy] = useState(false);
   const requestId = useRef<string | null>(null);
+  const attemptRef = useRef<PaymentAttempt | null>(null);
+  const posting = useRef(false);
+  const [attempt, setAttempt] = useState<PaymentAttempt | null>(null);
+  const [recoveryScope, setRecoveryScope] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState<"locks" | "storage" | null>(null);
+  const [recoveryRetry, setRecoveryRetry] = useState(0);
+  const attemptKey = boot.me.id ? paymentAttemptKey(boot.me.id, boot.sessionLabel) : null;
+  const loadedRecoveryKey = useRef<string | null>(attemptKey);
+  const currentRecoveryScope = useRef<string | null>(previewing ? null : attemptKey);
+  const recoveryReady = !attemptKey || previewing || recoveryScope === attemptKey;
+  const [datePreview, setDatePreview] = useState<{ studentId: string; date: string; rows: DeskLedgerRow[] } | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [listBalances, setListBalances] = useState<Record<string, { pendingToday: number; lateFee: number }>>({});
+  const counted = useRef(new Set<string>());
+  const restoredAttempt = useRef(false);
   const loadSeq = useRef(0);
 
   const student: DeskStudent | null = result && result.ok ? result.student : null;
   const today = boot.today;
-  const canAct = boot.canPost && !previewing;
+  const canAct = boot.canPost && !previewing && recoveryReady && !recoveryError;
+
+  useLayoutEffect(() => { currentRecoveryScope.current = previewing ? null : attemptKey; }, [attemptKey, previewing]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const a = attemptKey && !previewing ? await restorePaymentAttempt(attemptKey, boot.sessionLabel) : null;
+      if (!active) return;
+      if (loadedRecoveryKey.current !== attemptKey) {
+        loadSeq.current += 1;
+        setSelId(initialStudentId); setResult(initialStudent);
+        setLoading(false); setSaved(earlierReceipt(initialReceipt)); setReviewing(false); setUncertain(null); setAck(false); setSheet("");
+        setTodayTotals(boot.todayCollection); setListBalances({}); counted.current.clear();
+        setDatePreview(null); setDateError(null); setForm(suggestedForm(boot, initialStudent?.ok ? initialStudent.student : null));
+      }
+      loadedRecoveryKey.current = attemptKey;
+      attemptRef.current = a; setAttempt(a); requestId.current = a?.input.clientRequestId ?? null; restoredAttempt.current = Boolean(a);
+      if (a && a.input.studentId === initialStudentId) {
+        setForm(recoveredForm(boot, a)); setReviewing(true); setUncertain({ checking: false });
+      }
+      setRecoveryError(null); setRecoveryScope(attemptKey);
+    })().catch(error => {
+      if (active) {
+        if (loadedRecoveryKey.current !== attemptKey) {
+          loadSeq.current += 1; setLoading(false); setSelId(initialStudentId); setResult(initialStudent);
+          attemptRef.current = null; setAttempt(null); requestId.current = null;
+          setReviewing(false); setUncertain(null); setSaved(earlierReceipt(initialReceipt)); setForm(freshForm(boot));
+          setTodayTotals(boot.todayCollection); setListBalances({}); counted.current.clear();
+        }
+        loadedRecoveryKey.current = attemptKey;
+        setRecoveryError(error instanceof PaymentRecoveryUnavailable ? "locks" : "storage"); setRecoveryScope(attemptKey);
+      }
+    });
+    return () => { active = false; };
+  }, [attemptKey, boot, initialStudentId, initialStudent, initialReceipt, previewing, recoveryRetry]);
+
+  function retryRecovery() {
+    if (posting.current) return;
+    setRecoveryScope(null); setRecoveryError(null); setRecoveryRetry(n => n + 1);
+  }
 
   // The ten-minute removal window closes on its own.
   const savedAtMs = saved?.fresh ? saved.savedAtMs : 0;
@@ -190,12 +266,26 @@ export function PaymentDesk({
   /* ---------- derived ---------- */
   const paymentDate = form.dateMode === "today" ? today : form.dateMode === "yesterday" ? shiftDay(today, -1) : form.otherDate;
   const amount = parseAmountInput(form.amount);
-  const rows = useMemo(() => (student ? orderForSettlement(student.rows) : []), [student]);
+  const concession = student?.onPlan ? 0 : parseAmountInput(form.concession);
+  const dateReady = paymentDate === today || (datePreview?.studentId === student?.id && datePreview?.date === paymentDate);
+  const dateFailed = dateError === `${student?.id}|${paymentDate}`;
+  const rows = useMemo(() => orderForSettlement(datePreview?.studentId === student?.id && datePreview?.date === paymentDate ? datePreview.rows : student?.rows ?? []), [student, datePreview, paymentDate]);
+  useEffect(() => {
+    if (!student || paymentDate === today || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) return;
+    let active = true;
+    void loadDeskPreviewAction({ studentId: student.id, sessionLabel: boot.sessionLabel, paymentDate }).then(res => {
+      if (!active) return;
+      if (res.ok) { setDatePreview({ studentId: student.id, date: paymentDate, rows: res.rows }); setDateError(null); }
+      else setDateError(`${student.id}|${paymentDate}`);
+    }).catch(() => { if (active) setDateError(`${student.id}|${paymentDate}`); });
+    return () => { active = false; };
+  }, [student, paymentDate, today, boot.sessionLabel]);
   const totals = deskTotals(rows, today);
   const waiveAllowed = boot.me.canWaive && Boolean(student) && !student?.onPlan;
   const waiveLate = waiveAllowed && form.late === "waive" && totals.lateFee > 0;
-  const walk = walkPayment(rows, amount, { paymentDate, today, waiveLate });
-  const chips = helperChips(rows, today, { waiveLate });
+  const walk = walkPayment(rows, Number.isFinite(amount) ? amount : 0, { paymentDate, today, waiveLate, concession: Number.isFinite(concession) ? concession : 0, authoritative: true });
+  const firstOwed = rows.find(r => r.feesPending + (waiveLate ? 0 : r.lateFeePending) > 0);
+  const chips = buildPaymentQuickAmounts({ totalPending: walk.maxAmount, nextDueAmount: firstOwed ? Math.min(walk.maxAmount, Math.max(0, firstOwed.feesPending + (waiveLate ? 0 : firstOwed.lateFeePending) - concession)) : null, overdueAmount: Math.min(walk.maxAmount, Math.max(0, totals.pendingToday + totals.dueToday + (waiveLate ? 0 : totals.lateFee) - concession)), lateFeeAmount: waiveLate ? 0 : Math.min(walk.maxAmount, totals.lateFee), lastPaidAmount: student?.receipts.find(r => !r.isReversed)?.amount, plan: student?.repaymentPlan });
   const lateOn = lateFeesOn(rows, paymentDate);
   const lateNowAmt = lateOn.due.reduce((s, r) => s + r.lateFeePending, 0);
   const problems = deskProblems(
@@ -209,13 +299,14 @@ export function PaymentDesk({
 
   const searching = query.trim().length > 0;
   const listRows = useMemo(() => {
-    if (searching) return boot.students.filter((s) => matchesDeskSearch(s, query)).slice(0, 80);
-    return boot.students.filter((s) => s.classId === classId);
-  }, [boot.students, classId, query, searching]);
+    const fresh = boot.students.map(s => ({ ...s, ...listBalances[s.id] }));
+    if (searching) return fresh.filter((s) => matchesDeskSearch(s, query));
+    return fresh.filter((s) => s.classId === classId);
+  }, [boot.students, classId, query, searching, listBalances]);
   const className = boot.classes.find((c) => c.id === classId)?.label ?? "";
 
   /* ---------- handlers ---------- */
-  const set = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));
+  const set = (patch: Partial<Form>) => { if (!attemptRef.current && !posting.current) setForm((f) => ({ ...f, ...patch })); };
 
   function syncUrl(id: string | null) {
     try {
@@ -230,6 +321,8 @@ export function PaymentDesk({
   }
 
   async function selectStudent(id: string) {
+    if (posting.current || !recoveryReady) return;
+    const scope = previewing ? null : attemptKey;
     const seq = ++loadSeq.current;
     setSelId(id);
     setSaved(null);
@@ -238,8 +331,11 @@ export function PaymentDesk({
     setAck(false);
     setSheet("");
     setReviewing(false);
-    setUncertain(null);
-    requestId.current = null;
+    setDatePreview(null);
+    const pending = attemptRef.current;
+    setUncertain(pending?.input.studentId === id ? { checking: false } : null);
+    if (pending?.input.studentId === id) { setForm(recoveredForm(boot, pending)); setReviewing(true); }
+    if (!pending) requestId.current = null;
     setLoading(true);
     syncUrl(id);
     const hit = boot.students.find((s) => s.id === id);
@@ -248,11 +344,14 @@ export function PaymentDesk({
       (): DeskStudentResult => ({ ok: false, message: tx(W.couldNotLoad), repairable: false }),
     );
     if (seq !== loadSeq.current) return;
+    if (currentRecoveryScope.current !== scope) return;
     setResult(res);
+    if (res.ok && !pending) setForm(suggestedForm(boot, res.student));
     setLoading(false);
   }
 
   function clearStudent() {
+    if (posting.current) return;
     loadSeq.current += 1;
     setSelId(null);
     setResult(null);
@@ -260,7 +359,7 @@ export function PaymentDesk({
     setLoading(false);
     setReviewing(false);
     setUncertain(null);
-    requestId.current = null;
+    if (!attemptRef.current) requestId.current = null;
     syncUrl(null);
   }
 
@@ -274,14 +373,16 @@ export function PaymentDesk({
   }
 
   async function reloadStudent() {
-    if (!student) return;
+    if (!student || !recoveryReady) return;
+    const scope = previewing ? null : attemptKey;
     const res = await loadStudentDeskAction({ studentId: student.id, sessionLabel: boot.sessionLabel }).catch(() => null);
+    if (currentRecoveryScope.current !== scope) return;
     if (res && res.ok) setResult(res);
   }
 
   function review() {
     setTried(true);
-    if (!student || !canAct || problems.length) {
+    if (!student || !canAct || problems.length || !dateReady || !recoveryReady || recoveryError || attempt || !Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0) || !form.receivedBy.trim()) {
       if (problems.length) toast.show({ text: tx(W.fix), tone: "bad" });
       return;
     }
@@ -295,6 +396,12 @@ export function PaymentDesk({
   }
 
   function applySaved(res: Extract<DeskSaveResult, { status: "saved" }>, postedAmount: number) {
+    const postedDate = attemptRef.current?.input.paymentDate;
+    const studentId = attemptRef.current?.input.studentId ?? res.student?.id;
+    if (studentId && res.balanceAfter) setListBalances(b => ({ ...b, [studentId]: { pendingToday: res.balanceAfter!.pendingToday, lateFee: res.balanceAfter!.lateFee } }));
+    setDatePreview(null);
+    if (attemptKey && attemptRef.current) void clearPaymentAttempt(attemptKey, attemptRef.current.input.clientRequestId).catch(() => undefined);
+    attemptRef.current = null; setAttempt(null);
     requestId.current = null;
     const now = wallClock();
     const at = new Date(now).toISOString();
@@ -316,19 +423,31 @@ export function PaymentDesk({
     setReviewing(false);
     setUncertain(null);
     setAck(false);
-    setTodayTotals((t) => ({ count: t.count + 1, amount: t.amount + total }));
+    if (res.todayCollection !== undefined) setTodayTotals(res.todayCollection);
+    else if (postedDate === today && !restoredAttempt.current && !counted.current.has(res.receiptId)) {
+      counted.current.add(res.receiptId);
+      setTodayTotals((t) => t ? ({ count: t.count + 1, amount: t.amount + total }) : null);
+    }
+    restoredAttempt.current = false;
     toast.show({ text: tx(W.savedToast(res.receiptNumber, rupees(total))) });
   }
 
   /** Ask the database whether the save with this request id posted. */
   async function checkSaved() {
-    if (!student || !requestId.current) return;
-    const postedAmount = amount;
+    const pending = attemptRef.current;
+    if (!pending || !canAct || posting.current || !recoveryReady || recoveryError || !attemptKey) return;
+    const scope = attemptKey;
+    posting.current = true;
+    const postedAmount = pending.input.amount;
     setUncertain({ checking: true });
-    const res: DeskCheckResult = await checkDeskPaymentAction({ studentId: student.id, clientRequestId: requestId.current, sessionLabel: boot.sessionLabel }).catch(
+    const res: DeskCheckResult = await checkDeskPaymentAction({ studentId: pending.input.studentId, clientRequestId: pending.input.clientRequestId, sessionLabel: pending.input.sessionLabel }).catch(
       (error: unknown): DeskCheckResult => ({ status: "unknown", message: error instanceof Error ? error.message : tx(W.uncertainTitle) }),
     );
+    posting.current = false;
+    if (currentRecoveryScope.current !== scope) return;
     if (res.status === "saved") {
+      if (selId !== pending.input.studentId) await selectStudent(pending.input.studentId);
+      if (currentRecoveryScope.current !== scope) return;
       toast.show({ text: tx(W.checkedSaved(res.receiptNumber)) });
       applySaved(res, postedAmount);
       return;
@@ -345,17 +464,20 @@ export function PaymentDesk({
   }
 
   async function save() {
-    if (!student || saving || !canAct || uncertain) return;
+    if (!student || posting.current || saving || !canAct || uncertain || !recoveryReady || recoveryError || !attemptKey || (attemptRef.current && attemptRef.current.input.studentId !== student.id)) return;
+    const scope = attemptKey;
+    if (!attemptRef.current && (!dateReady || problems.length || !Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0) || !form.receivedBy.trim())) return;
+    posting.current = true;
     if (!requestId.current) requestId.current = crypto.randomUUID();
     setSaving(true);
-    const postedAmount = amount;
-    const res = await postDeskPaymentAction({
+    const input: DeskPostInput = attemptRef.current ? { ...attemptRef.current.input, acknowledgeDuplicate: ack || attemptRef.current.input.acknowledgeDuplicate } : {
       clientRequestId: requestId.current,
       studentId: student.id,
       sessionLabel: boot.sessionLabel,
       paymentDate,
       mode: form.mode,
-      amount: postedAmount,
+      amount,
+      quickDiscountAmount: concession,
       lateFeeWaiver: walk.waiverAmount,
       reference: composeReference({ mode: form.mode, reference: form.reference, chequeNo: form.chequeNo }),
       remarks: composeRemarks({
@@ -367,12 +489,34 @@ export function PaymentDesk({
         waiveNote: form.waiveNote,
         notes: form.notes,
       }),
-      receivedBy: boot.me.name,
+      receivedBy: form.receivedBy.trim(),
       acknowledgeDuplicate: ack,
       // No answer at all (dropped connection, timeout) is not "not saved": it
       // may have posted. Say so, and check before anything else is allowed.
-    }).catch((): DeskSaveResult => ({ status: "uncertain", message: tx(W.uncertainTitle) }));
+    };
+    const pending: PaymentAttempt = { input, form: attemptRef.current?.form ?? form };
+    try { await writePaymentAttempt(attemptKey, pending); }
+    catch (error) {
+      posting.current = false; setSaving(false);
+      if (currentRecoveryScope.current !== scope) return;
+      if (error instanceof PaymentAttemptConflict) {
+        attemptRef.current = error.attempt; setAttempt(error.attempt); requestId.current = error.attempt.input.clientRequestId;
+        setReviewing(false);
+        if (error.attempt.input.studentId === student.id) { setForm(recoveredForm(boot, error.attempt)); setReviewing(true); setUncertain({ checking: false }); }
+        toast.show({ text: tx(W.otherTabAttempt), tone: "bad", ms: 8000 });
+      } else {
+        setRecoveryError(error instanceof PaymentRecoveryUnavailable ? "locks" : "storage");
+        toast.show({ text: tx(W.storageBlocked), tone: "bad", ms: 8000 });
+      }
+      return;
+    }
+    if (currentRecoveryScope.current !== scope) { posting.current = false; setSaving(false); return; }
+    attemptRef.current = pending; setAttempt(pending);
+    const postedAmount = input.amount;
+    const res = await postDeskPaymentAction(input).catch((): DeskSaveResult => ({ status: "uncertain", message: tx(W.uncertainTitle) }));
+    posting.current = false;
     setSaving(false);
+    if (currentRecoveryScope.current !== scope) return;
 
     if (res.status === "saved") {
       applySaved(res, postedAmount);
@@ -388,23 +532,43 @@ export function PaymentDesk({
       setSheet("dup");
       return;
     }
+    // A permanent waiver can have completed before the payment was rejected.
+    // Keep its request id and financial payload so retry cannot waive twice.
+    if (input.lateFeeWaiver === 0) {
+      await clearPaymentAttempt(attemptKey, input.clientRequestId).catch(() => undefined);
+      if (currentRecoveryScope.current !== scope) return;
+      attemptRef.current = null; setAttempt(null); requestId.current = null;
+    }
     toast.show({ text: res.message || tx(W.notSaved), tone: "bad", ms: 8000 });
   }
 
   async function openEarlier() {
-    if (!dup?.receiptId) return;
+    if (!dup?.receiptId || !canAct) return;
+    const scope = attemptKey;
     setBusy(true);
     const receipt = await loadReceiptAction(dup.receiptId).catch(() => null);
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     setSheet("");
     if (!receipt) {
       toast.show({ text: tx(W.couldNotLoad), tone: "bad" });
       return;
     }
+    if (attemptRef.current?.input.lateFeeWaiver) {
+      await reloadStudent();
+      if (currentRecoveryScope.current !== scope) return;
+      setUncertain({ checking: false }); setReviewing(true);
+      toast.show({ text: tx(W.waiverAttemptPending), tone: "bad", ms: 8000 });
+      return;
+    }
+    if (attemptKey && attemptRef.current) await clearPaymentAttempt(attemptKey, attemptRef.current.input.clientRequestId).catch(() => undefined);
+    if (currentRecoveryScope.current !== scope) return;
+    attemptRef.current = null; setAttempt(null); requestId.current = null; setUncertain(null);
     setSaved({ receiptId: receipt.id, receiptNumber: receipt.receiptNumber, receipt, balance: null, amount: receipt.total, fresh: false, savedAtMs: 0, removed: receipt.isReversed, sent: false, log: [] });
   }
 
   function newPayment() {
+    if (attemptRef.current || posting.current) return;
     setSaved(null);
     setForm(freshForm(boot));
     setTried(false);
@@ -415,10 +579,12 @@ export function PaymentDesk({
   }
 
   async function retryReceipt() {
-    if (!saved || busy) return;
+    if (!saved || busy || !recoveryReady) return;
+    const scope = previewing ? null : attemptKey;
     setBusy(true);
     const receipt = await loadReceiptAction(saved.receiptId).catch(() => null);
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     if (!receipt) {
       toast.show({ text: tx(W.couldNotLoad), tone: "bad" });
       return;
@@ -427,13 +593,15 @@ export function PaymentDesk({
   }
 
   async function remove() {
-    if (!saved || !student || busy) return;
+    if (!saved || !student || busy || !canAct || !boot.me.canRemove) return;
+    const scope = attemptKey;
     setBusy(true);
     const reason = [rmReason, rmNote.trim()].filter(Boolean).join(" — ");
     const res = await removePaymentAction({ receiptId: saved.receiptId, studentId: student.id, sessionLabel: boot.sessionLabel, reason }).catch(
       (error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : "Not removed." }),
     );
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     if (!res.ok) {
       toast.show({ text: res.message, tone: "bad", ms: 8000 });
       return;
@@ -441,7 +609,7 @@ export function PaymentDesk({
     const at = new Date().toISOString();
     const total = saved.receipt?.total ?? 0;
     setSaved((s) => (s ? { ...s, removed: true, log: [...s.log, { text: tx(W.removedBy(boot.me.name)), time: clock(at), tone: "var(--bad)" }] } : s));
-    setTodayTotals((t) => ({ count: Math.max(0, t.count - 1), amount: Math.max(0, t.amount - total) }));
+    if (saved.receipt?.paymentDate === today) setTodayTotals((t) => t ? ({ count: Math.max(0, t.count - 1), amount: Math.max(0, t.amount - total) }) : null);
     setSheet("");
     setRmReason("");
     setRmNote("");
@@ -450,10 +618,12 @@ export function PaymentDesk({
   }
 
   async function sendWa() {
-    if (!saved || busy) return;
+    if (!saved || busy || !canAct) return;
+    const scope = attemptKey;
     setBusy(true);
     const res = await sendReceiptWhatsappAction(saved.receiptId).catch((error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : "Not sent." }));
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     if (!res.ok) {
       toast.show({ text: res.message, tone: "bad", ms: 8000 });
       return;
@@ -469,8 +639,8 @@ export function PaymentDesk({
   const todayPill = (
     <Link href="/receipts" className="tap" style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 40, padding: "0 14px", borderRadius: 12, background: "var(--oks)", color: "var(--ok)", fontWeight: 700, fontSize: 14 }}>
       <span className="live-dot" style={{ background: "var(--ok)" }} />
-      {tx(W.todayPill)}: <span className="num">{rupees(todayTotals.amount)}</span>
-      <span style={{ fontWeight: 500 }}>· {tx(W.receiptsN(todayTotals.count))}</span>
+      {tx(W.todayPill)}: <span className="num">{todayTotals ? rupees(todayTotals.amount) : tx(W.collectionUnavailable)}</span>
+      {todayTotals ? <span style={{ fontWeight: 500 }}>· {tx(W.receiptsN(todayTotals.count))}</span> : null}
       <Ic n="chevRight" size={16} />
     </Link>
   );
@@ -531,6 +701,7 @@ export function PaymentDesk({
                   key={s.id}
                   type="button"
                   className={`pd-srow tap${s.id === selId ? " sel" : ""}`}
+                  disabled={!recoveryReady || saving || Boolean(uncertain?.checking)}
                   aria-current={s.id === selId ? "true" : undefined}
                   onClick={() => selectStudent(s.id)}
                   style={{ animation: `xIn .3s var(--ease) ${Math.min(i * 18, 300)}ms both` }}
@@ -631,7 +802,6 @@ export function PaymentDesk({
         <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.anyAmount)}</span>
       </div>
       {walk.maxAmount <= 0 ? <Banner tone="ok">{tx(W.nothingOwed)}</Banner> : null}
-      {lateBlock}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <label htmlFor="pd-amount" className="lbl"><Bi {...W.amountReceived} block={false} /></label>
         <div className={`pd-amt${show("amount") || show("over") ? " err" : ""}`}>
@@ -640,7 +810,7 @@ export function PaymentDesk({
             id="pd-amount"
             inputMode="numeric"
             autoComplete="off"
-            value={amount ? amount.toLocaleString("en-IN") : form.amount}
+            value={form.amount}
             onChange={(e) => set({ amount: e.target.value })}
             placeholder="0"
             aria-invalid={Boolean(show("amount") || show("over")) || undefined}
@@ -653,16 +823,23 @@ export function PaymentDesk({
         {chips.length ? (
           <div className="pd-chips" role="group" aria-label={tx(W.chipNote)}>
             {chips.map((c) => (
-              <Chip key={`${c.kind}-${c.amount}`} on={amount === c.amount} onClick={() => set({ amount: String(c.amount) })}>
-                {chipLabel(c, tx)} <b>{rupees(c.amount)}</b>
-              </Chip>
+              <button type="button" className={`tap chip${amount === c.amount ? " on" : ""}`} key={c.key} aria-pressed={amount === c.amount} disabled={c.disabled || Boolean(attempt)} onClick={() => set({ amount: c.amount === null ? "" : String(c.amount) })}>
+                {tx(({ full: student?.onPlan ? W.everythingOwed : W.fullDue, next: W.nextInstallment, overdue: W.pendingToday, lateFee: W.lateFee, lastAmount: W.lastAmount, clear: W.clearAmount, emiCatchUp: W.planCatchUp, emiMonthly: W.planMonthly, emiFullPlan: W.planBalance })[c.key])} {c.amount !== null ? <b>{rupees(c.amount)}</b> : null}
+              </button>
             ))}
           </div>
         ) : null}
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.chipNote)}</span>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.suggested)} · {tx(W.chipNote)}</span>
+        {student.repaymentPlan ? <Banner tone="info">
+          {tx(W.planMonthly)}: {rupees(student.repaymentPlan.monthlyAmount)} · {tx(W.planCatchUp)}: {rupees(student.repaymentPlan.catchUpAmount)} · {tx(W.planBalance)}: {rupees(student.repaymentPlan.remainingBalance)}
+          {student.repaymentPlan.nextDueDate ? ` · ${dateLabel(student.repaymentPlan.nextDueDate)}` : ""}
+          {student.repaymentPlan.duesOutsidePlanAmount > 0 ? <div>{tx(W.planOutside)}: {rupees(student.repaymentPlan.duesOutsidePlanAmount)}</div> : null}
+          {student.repaymentPlan.planReviewNeeded ? <div>{tx(W.planReview)}</div> : null}
+        </Banner> : null}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {lateBlock}
         <span className="lbl"><Bi {...W.paymentDate} block={false} /></span>
         <Seg
           label={tx(W.paymentDate)}
@@ -710,6 +887,17 @@ export function PaymentDesk({
         ) : null}
       </div>
 
+      <Field label={tx(W.concession)}>
+        <Input id="pd-concession" inputMode="numeric" value={form.concession} disabled={student.onPlan || !canAct} onChange={(e) => set({ concession: e.target.value })} placeholder="0" />
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.concessionHint)}</span>
+        {!Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0) ? <span role="alert">{tx(W.concessionInvalid)}</span> : null}
+      </Field>
+
+      <Field label={tx(W.collector)}>
+        <Input id="pd-received-by" value={form.receivedBy} onChange={(e) => set({ receivedBy: e.target.value })} />
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.collectorHint)}</span>
+      </Field>
+
       <Field label={tx(W.notes)}>
         <Textarea rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} style={{ minHeight: 64 }} />
       </Field>
@@ -724,7 +912,7 @@ export function PaymentDesk({
     </Card>
   ) : null;
 
-  const preview = student ? <WherePreview walk={walk} amount={amount} paymentDate={paymentDate} today={today} /> : null;
+  const preview = student && dateReady ? <WherePreview walk={walk} amount={Number.isFinite(amount) ? amount : 0} paymentDate={paymentDate} today={today} /> : null;
 
   const bar =
     student && !saved && !reviewing ? (
@@ -733,17 +921,17 @@ export function PaymentDesk({
           <span style={{ fontSize: 12, color: "var(--mut)" }}>
             {tx(MODE_PAIR[form.mode])} · {form.dateMode === "today" ? tx(W.today).toLowerCase() : dayMonth(paymentDate)}
           </span>
-          <strong className="num" style={{ fontSize: 22 }}>{rupees(amount)}</strong>
+          <strong className="num" style={{ fontSize: 22 }}>{rupees(Number.isFinite(amount) ? amount : 0)}</strong>
         </span>
         <span className="hide-m" style={{ fontSize: 13, color: "var(--mut)" }}>{previewing ? tx(W.previewing) : tx(W.checkThenSave)}</span>
-        <Btn variant="pri" big icon="checkCircle" onClick={review} disabled={!canAct}>
+        <Btn variant="pri" big icon="checkCircle" onClick={review} disabled={!canAct || !attemptKey || !dateReady || !recoveryReady || Boolean(recoveryError) || Boolean(attempt)}>
           {tx(W.review)}
         </Btn>
       </div>
     ) : null;
 
   /* ---------- saved ---------- */
-  const removable = Boolean(saved && saved.fresh && !saved.removed && boot.me.canRemove && expiredAt !== saved.savedAtMs);
+  const removable = Boolean(saved && saved.fresh && !saved.removed && canAct && boot.me.canRemove && expiredAt !== saved.savedAtMs);
   const savedView = saved && student ? (
     <SavedPanel
       saved={saved}
@@ -774,14 +962,18 @@ export function PaymentDesk({
           </span>
         }
         mTitle={student ? student.name : tx(W.title)}
-        mSub={student ? `${student.classLabel} · SR ${student.sr}` : `${tx(W.todayPill)}: ${rupees(todayTotals.amount)} · ${tx(W.receiptsN(todayTotals.count))}`}
-        mAction={
+          mSub={student ? `${student.classLabel} · SR ${student.sr}` : todayTotals ? `${tx(W.todayPill)}: ${rupees(todayTotals.amount)} · ${tx(W.receiptsN(todayTotals.count))}` : tx(W.collectionUnavailable)}
+        mAction={boot.me.canBulk ? (
           <Link href="/payments/bulk" className="tap icon-btn" aria-label={tx(W.many)} style={{ width: 44, height: 44 }}>
             <Ic n="table" size={20} />
           </Link>
-        }
+        ) : null}
       />
       <main>
+        {!recoveryReady ? <div className="pad"><Banner tone="info">{tx(W.recoveryChecking)}</Banner></div> : null}
+        {attempt?.input.lateFeeWaiver ? <div className="pad"><Banner tone="warn">{tx(W.waiverAttemptPending)} <b>{rupees(attempt.input.lateFeeWaiver)}</b></Banner></div> : null}
+        {attempt && attempt.input.studentId !== student?.id ? <div className="pad"><Banner tone="warn" action={<Btn onClick={() => void selectStudent(attempt.input.studentId)}>{tx(W.resumePayment)}</Btn>}>{tx(W.unfinished)}</Banner></div> : null}
+        {recoveryError || (canAct && !attemptKey) ? <div className="pad"><Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(!attemptKey ? W.recoveryIdentity : recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner></div> : null}
         {previewing || boot.blocking ? (
           <div className="pad" style={{ padding: "16px 28px 0", display: "flex", flexDirection: "column", gap: 8 }}>
             {previewing ? <Banner tone="info">{tx(W.previewing)}</Banner> : null}
@@ -811,7 +1003,7 @@ export function PaymentDesk({
                 {selId ? <Btn href={`/fees/payments?studentId=${selId}`} variant="soft">{tx(W.openClassic)}</Btn> : null}
               </Card>
             ) : null}
-            {!loading ? studentCard : null}
+            {!loading && student ? <details className="pd-student-details" open><summary>{tx(W.installmentSummary)}</summary>{studentCard}</details> : null}
           </div>
           <div className={`pd-right${selId ? "" : " pd-hide-m"}`}>
             {!selId ? (
@@ -839,7 +1031,7 @@ export function PaymentDesk({
                   <Banner
                     tone="warn"
                     action={
-                      <Btn variant="sec" disabled={uncertain.checking} onClick={() => void checkSaved()}>
+                      <Btn variant="sec" disabled={uncertain.checking || !recoveryReady || Boolean(recoveryError)} onClick={() => void checkSaved()}>
                         {uncertain.checking ? tx(W.checking) : tx(W.checkAgain)}
                       </Btn>
                     }
@@ -854,12 +1046,15 @@ export function PaymentDesk({
                   reference={composeReference({ mode: form.mode, reference: form.reference, chequeNo: form.chequeNo })}
                   paymentDate={paymentDate}
                   walk={walk}
+                  receivedBy={form.receivedBy}
+                  concession={concession}
+                  notes={form.notes}
                 />
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button type="button" className="tap btn sec" style={{ flex: "1 1 160px" }} disabled={saving} onClick={() => setReviewing(false)}>
+                  <button type="button" className="tap btn sec" style={{ flex: "1 1 160px" }} disabled={saving || Boolean(attempt)} onClick={() => setReviewing(false)}>
                     <Ic n="chevLeft" size={18} /> {tx(W.backToForm)}
                   </button>
-                  <button type="button" className="tap btn pri big" style={{ flex: "2 1 240px" }} disabled={saving || !canAct || Boolean(uncertain)} onClick={save}>
+                  <button type="button" className="tap btn pri big" style={{ flex: "2 1 240px" }} disabled={saving || !canAct || !recoveryReady || Boolean(recoveryError) || Boolean(uncertain)} onClick={save}>
                     {saving ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="lock" size={18} />}
                     {saving ? tx(W.saving) : `${tx(W.confirmSave)} · ${rupees(amount)}`}
                   </button>
@@ -871,6 +1066,7 @@ export function PaymentDesk({
                   {formCard}
                   <aside>{preview}</aside>
                 </div>
+                {!dateReady ? <Banner tone={dateFailed ? "warn" : "info"}>{tx(dateFailed ? W.dateFailed : W.dateLoading)}</Banner> : null}
                 {bar}
               </>
             ) : null}
@@ -994,11 +1190,6 @@ export function PaymentDesk({
 
     </VxPage>
   );
-}
-
-function chipLabel(c: HelperChip, tx: (p: Pair | string) => string): string {
-  const base = c.kind === "overdue" ? tx(W.chipOverdue) : c.kind === "upto" ? tx(W.chipUpto(c.installmentNo)) : tx(W.chipYear);
-  return c.withLate && c.kind === "overdue" ? `${base}${tx(W.plusLate)}` : base;
 }
 
 function waLines(saved: Saved, student: DeskStudent, lang: "hi" | "en" | "both"): string[] {
@@ -1230,6 +1421,9 @@ function ConfirmBody({
   reference,
   paymentDate,
   walk,
+  receivedBy,
+  concession,
+  notes,
 }: {
   student: DeskStudent;
   amount: number;
@@ -1237,15 +1431,21 @@ function ConfirmBody({
   reference: string;
   paymentDate: string;
   walk: ReturnType<typeof walkPayment>;
+  receivedBy: string;
+  concession: number;
+  notes: string;
 }) {
   const { tx } = useVx();
   const kv: [Pair, string][] = [
     [W.student, `${student.name} · ${student.classLabel} · SR ${student.sr}`],
     [W.mode, `${modeText}${reference ? ` · ${reference}` : ""}`],
     [W.paidOn, dateLabel(paymentDate)],
+    [W.collector, receivedBy],
+    ...(concession > 0 ? ([[W.concession, rupees(concession)]] as [Pair, string][]) : []),
+    ...(notes.trim() ? ([[W.notes, notes]] as [Pair, string][]) : []),
     ...(walk.waiverAmount > 0 ? ([[W.lateWaiverLine, rupees(walk.waiverAmount)]] as [Pair, string][]) : []),
   ];
-  const lines = walk.lines.filter((l) => l.feesPaid + l.lateFeePaid > 0 || l.lateFeeWaived || l.lateFeeDropped);
+  const lines = walk.lines.filter((l) => l.feesPaid + l.lateFeePaid > 0 || l.discountApplied || l.lateFeeWaived || l.lateFeeDropped);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 0" }}>
@@ -1270,6 +1470,7 @@ function ConfirmBody({
               <span style={{ fontSize: 12, color: "var(--mut)" }}>
                 {tx(walkPill(l)[1])}
                 {l.lateFeePaid ? ` · ${tx(W.lateFee)} ${rupees(l.lateFeePaid)}` : ""}
+                {l.discountApplied ? ` · ${tx(W.concession)} ${rupees(l.discountApplied)}` : ""}
                 {l.lateFeeWaived ? ` · ${tx(W.lateWaivedLine)}` : ""}
                 {l.lateFeeDropped ? ` · ${tx(W.lateDropped)}` : ""}
               </span>
@@ -1348,7 +1549,10 @@ function SavedPanel({
       </Card>
       <div className="pd-saved">
         {r ? (
-          <ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} />
+          saved.fresh ? <div style={{ minWidth: 0 }}>
+            <MobilePrintedReceipt receiptNumber={r.receiptNumber} studentFullName={r.studentName} fatherName={r.father} admissionNo={r.sr} classLabel={r.classLabel} amountReceived={r.total} lines={r.lines} paymentDate={dateLabel(r.paymentDate)} paymentModeLabel={MODE_TEXT[r.mode] ?? r.mode} referenceNumber={r.reference ?? undefined} receivedBy={r.receivedBy ?? "—"} remainingBalance={r.outstandingAfter} isVoided={gone} countUpTotal />
+            <details><summary className="tap" style={{ padding: 12 }}>{tx(W.receiptDetails)}</summary><ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} /></details>
+          </div> : <ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} />
         ) : (
           <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Banner tone="info">{tx(W.receiptPending(saved.receiptNumber))}</Banner>
@@ -1358,7 +1562,7 @@ function SavedPanel({
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {!gone ? (
             <>
-              <Btn variant="pri" big icon="send" full onClick={onWa} disabled={!canAct}>
+              <Btn variant="sec" icon="send" full onClick={onWa} disabled={!canAct}>
                 {tx(saved.sent ? W.sendWaAgain : W.sendWa)}
               </Btn>
               <span style={{ fontSize: 12, color: "var(--mut)", textAlign: "center" }}>
@@ -1367,7 +1571,7 @@ function SavedPanel({
             </>
           ) : null}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Btn variant="sec" icon="printer" href={`/receipts/${encodeURIComponent(saved.receiptNumber)}`}>{tx(W.print)}</Btn>
+            <Btn variant="pri" icon="printer" href={`/receipts/${encodeURIComponent(saved.receiptNumber)}`}>{tx(W.print)}</Btn>
             <Btn variant="sec" icon="download" href={`/fees/receipts/${saved.receiptId}/pdf`} target="_blank" prefetch={false}>{tx(W.pdf)}</Btn>
           </div>
           <Btn variant="pri" icon="search" full onClick={onAnother}>{tx(W.collectAnother)}</Btn>

@@ -140,6 +140,8 @@ export type WalkLineState = "cleared" | "part" | "ahead" | "untouched";
 
 export type WalkLine = {
   row: DeskLedgerRow;
+  /** Counter concession, separate from money received. */
+  discountApplied: number;
   /** Fees + the late fee this payment is asked for, before it. */
   before: number;
   feesPaid: number;
@@ -176,7 +178,7 @@ export type PaymentWalk = {
 export function walkPayment(
   rows: readonly DeskLedgerRow[],
   amount: number,
-  opts: { paymentDate: string; today: string; waiveLate: boolean },
+  opts: { paymentDate: string; today: string; waiveLate: boolean; concession?: number; authoritative?: boolean },
 ): PaymentWalk {
   const total = TIGHT(amount);
   const ordered = orderForSettlement(rows);
@@ -184,12 +186,16 @@ export function walkPayment(
   const alreadyPaid = ordered.filter((r) => r.feesPending + r.lateFeePending <= 0).map((r) => r.label);
   const lateTotal = owing.reduce((s, r) => s + TIGHT(r.lateFeePending), 0);
   const feesTotal = owing.reduce((s, r) => s + TIGHT(r.feesPending), 0);
-  const maxAmount = feesTotal + (opts.waiveLate ? 0 : lateTotal);
+  const concession = TIGHT(opts.concession ?? 0);
+  const maxAmount = Math.max(0, feesTotal + (opts.waiveLate ? 0 : lateTotal) - concession);
 
   let rem = total;
+  let discountRemaining = concession;
   let clearSoFar = true;
   const lines: WalkLine[] = owing.map((row) => {
-    const fees = TIGHT(row.feesPending);
+    const feeDiscount = Math.min(discountRemaining, TIGHT(row.feesPending));
+    discountRemaining -= feeDiscount;
+    const fees = TIGHT(row.feesPending) - feeDiscount;
     const late = TIGHT(row.lateFeePending);
     const feesPaid = Math.min(rem, fees);
     rem -= feesPaid;
@@ -200,10 +206,13 @@ export function walkPayment(
     if (late > 0 && opts.waiveLate) {
       lateAsked = 0;
       lateFeeWaived = true;
-    } else if (late > 0 && opts.paymentDate <= row.dueDate && clearSoFar && feesCleared) {
+    } else if (!opts.authoritative && late > 0 && opts.paymentDate <= row.dueDate && clearSoFar && feesCleared) {
       lateAsked = 0;
       lateFeeDropped = true;
     }
+    const lateDiscount = Math.min(discountRemaining, lateAsked);
+    discountRemaining -= lateDiscount;
+    lateAsked -= lateDiscount;
     const lateFeePaid = Math.min(rem, lateAsked);
     rem -= lateFeePaid;
     clearSoFar = clearSoFar && feesCleared && lateFeePaid === lateAsked;
@@ -212,7 +221,7 @@ export function walkPayment(
     const paid = feesPaid + lateFeePaid;
     const left = feesAfter + lateFeeAfter;
     const state: WalkLineState = paid === 0 ? (left === 0 ? "cleared" : "untouched") : left === 0 ? "cleared" : isOverdueOn(row, opts.paymentDate) ? "part" : "ahead";
-    return { row, before: fees + lateAsked, feesPaid, lateFeePaid, feesAfter, lateFeeAfter, lateFeeDropped, lateFeeWaived, state };
+    return { row, discountApplied: feeDiscount + lateDiscount, before: TIGHT(row.feesPending) + late, feesPaid, lateFeePaid, feesAfter, lateFeeAfter, lateFeeDropped, lateFeeWaived, state };
   });
 
   const after = { pendingToday: 0, dueToday: 0, notDueYet: 0, lateFee: 0 };
@@ -247,13 +256,13 @@ export function lateFeesOn(rows: readonly DeskLedgerRow[], paymentDate: string) 
   };
 }
 
-/** "₹7,000", "7000", "7,000.00" → 7000. Anything after a decimal point is ignored. */
+/** Whole rupees only. Invalid text remains visible and cannot be collected. */
 export function parseAmountInput(text: string): number {
-  const whole = String(text ?? "").split(".")[0];
-  const digits = whole.replace(/[^0-9]/g, "");
-  if (!digits) return 0;
-  const n = Number(digits.slice(0, 9));
-  return Number.isFinite(n) ? n : 0;
+  const value = String(text ?? "").trim().replace(/^₹\s*/, "").replace(/,/g, "");
+  if (!value) return 0;
+  if (!/^\d+(?:\.0+)?$/.test(value)) return NaN;
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n <= 999_999_999 ? n : NaN;
 }
 
 /** The first day of the session a payment may be dated: 1 April of the session's first year. */
@@ -293,13 +302,11 @@ export function deskProblems(
 ): DeskProblem[] {
   const problems: DeskProblem[] = [];
   if (walk.maxAmount <= 0) problems.push({ key: "nothing-owed" });
-  if (!draft.amount) problems.push({ key: "amount" });
+  if (!Number.isSafeInteger(draft.amount) || draft.amount <= 0) problems.push({ key: "amount" });
   else if (walk.overMax && walk.maxAmount > 0) problems.push({ key: "over", max: walk.maxAmount });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.paymentDate) || Number.isNaN(Date.parse(`${draft.paymentDate}T00:00:00Z`))) problems.push({ key: "date-invalid" });
   else if (draft.paymentDate > ctx.today) problems.push({ key: "date-future" });
   else if (draft.paymentDate < ctx.sessionStart) problems.push({ key: "date-before-session", start: ctx.sessionStart });
-  if (draft.mode === "cheque" && !/^\d{6}$/.test(draft.chequeNo.trim())) problems.push({ key: "cheque-no" });
-  if (draft.mode === "cheque" && !draft.chequeBank.trim()) problems.push({ key: "cheque-bank" });
   if (draft.waiveLate && ctx.lateFeeOwed > 0 && !draft.waiveReason.trim()) problems.push({ key: "waive-reason" });
   return problems;
 }

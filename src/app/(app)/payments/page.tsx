@@ -49,6 +49,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
       isCollectable: view.isCollectable,
       feeRole: feeRoleFor(staff.role),
       myName: staff.displayName,
+      myId: staff.id,
     }),
     receiptId ? loadDeskReceipt(receiptId).catch((): DeskReceipt | null => null) : Promise.resolve(null),
   ]);
