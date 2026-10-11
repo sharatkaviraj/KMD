@@ -73,8 +73,9 @@ const uuid = () =>
     ? crypto.randomUUID()
     : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16));
 
-function href(s: Partial<TimetableState>): string {
+function timetableHref(s: Partial<TimetableState>, day: string | undefined): string {
   const qs = new URLSearchParams();
+  if (day) qs.set("day", day);
   if (s.view && s.view !== "class") qs.set("view", s.view);
   if (s.classId) qs.set("class", s.classId);
   if (s.teacherId) qs.set("teacher", s.teacherId);
@@ -102,8 +103,10 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
   const router = useRouter();
   const toast = useToast();
   const [pending, start] = useTransition();
+  const href = (next: Partial<TimetableState>) => timetableHref(next, data.cover?.day);
 
-  const planned = useMemo(() => applyChanges(data.slots, data.changes), [data.slots, data.changes]);
+  // Pending periods are an editor preview; teachers follow the published version.
+  const planned = useMemo(() => data.me.mayEdit ? applyChanges(data.slots, data.changes) : data.slots, [data.me.mayEdit, data.slots, data.changes]);
   const subjectName = useMemo(() => {
     const m = new Map(data.subjects.map((s) => [s.code, s.name]));
     return (code: string) => m.get(code) ?? code;
@@ -160,7 +163,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
       crumb={state.view === "subs" ? `Timetable · today ${shortDay(data.today)}` : `Academics · Session ${data.sessionLabel ?? "—"}`}
       title={titles[state.view]}
       mSub={state.view === "subs" ? `${covered.length} of ${covered.length + needCover.length} periods covered` : data.version ? data.version.label : "No timetable published"}
-      mBack={state.view === "class" ? "/menu" : "/timetable"}
+      mBack={state.view === "class" ? "/menu" : href({ view: "class" })}
       actions={
         <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {state.view === "subs" || state.view === "leave" ? <Btn variant="sec" icon="calendar" href={href({ view: "leave", sheet: "leave" })}>Teacher leave</Btn> : null}
@@ -196,7 +199,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
   } else if (state.view === "class" && classId) {
     const cls = data.classes.find((c) => c.id === classId);
     const grid = classGrid(planned, classId);
-    const changedHere = new Set(data.changes.filter((c) => c.classId === classId).map((c) => cellKey(c.day, c.period)));
+    const changedHere = new Set((data.me.mayEdit ? data.changes : []).filter((c) => c.classId === classId).map((c) => cellKey(c.day, c.period)));
     const coverHere = new Map<number, CoverDutyView>();
     for (const d of data.cover?.duties ?? []) if (cls && d.classLabels.includes(cls.label)) coverHere.set(d.period, d);
     body = (
@@ -211,7 +214,7 @@ export function TimetableScreen({ data, state }: { data: TimetableData; state: T
             Today {needCover.map((d) => `P${periodNumber(d.period)}`).join(", ")} need cover · {awayToday.map((a) => a.name).join(", ") || "a teacher"} away · {covered.length} of {covered.length + needCover.length} covered
           </Banner>
         ) : null}
-        {data.changes.length ? (
+        {data.me.mayEdit && data.changes.length ? (
           <Banner tone="info" action={data.me.mayEdit ? <Btn variant="ghost" href={href({ view: "class", classId, sheet: "publish" })}>Review</Btn> : undefined}>
             {data.changes.length} {data.changes.length === 1 ? "change is" : "changes are"} not published yet · teachers still see the old timetable
           </Banner>
@@ -612,6 +615,7 @@ function Subs({
   const live = c.duties;
   const assigned = live.filter((d) => d.status === "assigned").length;
   const nowPeriod = (() => {
+    if (c.day !== data.today) return -1;
     const t = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
     return data.bells.find((b) => b.starts <= t && t < b.ends)?.index ?? -1;
   })();

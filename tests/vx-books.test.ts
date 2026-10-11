@@ -52,6 +52,51 @@ describe("UPI statement", () => {
     expect(parsed.errors.map((e) => e.line)).toEqual([3, 4]);
   });
 
+  it.each(["2026-02-31", "29/02/2026", "31/04/2026", "2026-02-30 23:59"])("rejects impossible statement date %s instead of moving the bank line to another day", (date) => {
+    const parsed = parseUpiStatement(`${date},100,OPS TEST PAYER,OPS123456`);
+    expect(parsed.rows).toEqual([]);
+    expect(parsed.errors).toEqual([{ line: 1, text: `${date},100,OPS TEST PAYER,OPS123456`, reason: "Date not understood" }]);
+  });
+
+  it.each([
+    "2026-10-08garbage",
+    "08/10/2026 trailing",
+    "2026-10-08 10:41junk",
+    "2026-10-080",
+    "2026-10-08T25:01",
+    "08/10/2026 10:99",
+  ])("rejects incomplete or trailing statement date text %s", (date) => {
+    const text = `${date},100,OPS TEST PAYER,OPS123456`;
+    const parsed = parseUpiStatement(text);
+    expect(parsed.rows).toEqual([]);
+    expect(parsed.errors).toEqual([{ line: 1, text, reason: "Date not understood" }]);
+  });
+
+  it.each([
+    ["2026-10-08T10:41", "2026-10-08T05:11:00.000Z"],
+    ["2026-10-08 1:01", "2026-10-07T19:31:00.000Z"],
+    ["8-10-2026 10:41", "2026-10-08T05:11:00.000Z"],
+    ["8.10.2026", "2026-10-08T06:30:00.000Z"],
+    [" 08/10/2026 10:41 ", "2026-10-08T05:11:00.000Z"],
+  ])("preserves supported complete statement date %s", (date, expected) => {
+    const parsed = parseUpiStatement(`${date},100,OPS TEST PAYER,OPS123456`);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].txnAt).toBe(expected);
+  });
+
+  it.each([
+    ["2024-02-29 00:15", "2024-02-28T18:45:00.000Z"],
+    ["29/02/2024 23:59", "2024-02-29T18:29:00.000Z"],
+    ["2026-04-30", "2026-04-30T06:30:00.000Z"],
+    ["31/12/2025", "2025-12-31T06:30:00.000Z"],
+  ])("preserves valid leap and historical date %s in school time", (date, expected) => {
+    const parsed = parseUpiStatement(`${date},100,OPS TEST PAYER,OPS123456`);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].txnAt).toBe(expected);
+  });
+
   it("matches only equal amounts, the UTR first, and never a receipt already matched", () => {
     const receipts = [
       { id: "a", receiptNumber: "1", paymentDate: "2026-10-08", amount: 4500, referenceNumber: null, studentName: "A", classLabel: null },

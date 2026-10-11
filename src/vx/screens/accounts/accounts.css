@@ -58,6 +58,11 @@
 }
 
 @container vx (max-width: 899px) {
+  /* Keep Books choices and row actions reachable by touch without changing other screens. */
+  .vx.ac-books .seg { height: 50px; }
+  .vx.ac-books .seg > button { min-height: 44px; }
+  .vx.ac-books .ac-cb { width: 44px; height: 44px; }
+  .vx.ac-books .btn { min-width: 44px; min-height: 44px; }
   .vx .ac-tl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .vx .ac-t { min-height: 132px; }
   .vx .ac-t.big { grid-row: auto; min-height: 120px; }

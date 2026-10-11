@@ -1,0 +1,37 @@
+name: Phone operations UI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: phone-operations-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  phone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [student360-mobile.playwright.config.ts, academic-ui.playwright.config.ts, operations-admin.playwright.config.ts, accountant-mobile.playwright.config.ts, marks-mobile.playwright.config.ts]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Synthetic phone acceptance (no DB credentials)
+        run: npx playwright test --config ${{ matrix.config }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phone-${{ matrix.config }}
+          path: |
+            .playwright/
+            test-results/
+            ../evidence/admin-browser/
+          if-no-files-found: ignore
+          retention-days: 7

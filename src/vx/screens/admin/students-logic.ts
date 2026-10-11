@@ -68,6 +68,28 @@ export function resolveStudentView(input: {
 /** sessionStorage key for the list's scroll position when a profile is opened. */
 export const STUDENTS_SCROLL_KEY = "vx:students:scroll";
 
+/** Only the directory can be a profile's return destination. Never an external URL. */
+export function studentReturnHref(raw: string | null | undefined): string {
+  if (!raw || !/^\/students(?:[?#]|$)/.test(raw)) return "/students";
+  try {
+    const url = new URL(raw, "https://students.invalid");
+    if (url.origin !== "https://students.invalid" || url.pathname !== "/students") return "/students";
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return "/students";
+  }
+}
+
+/** Keep the directory's filters on real links and on in-place profile tab switches. */
+export function studentProfileHref(id: string, returnTo?: string | null, tab?: string): string {
+  const params = new URLSearchParams();
+  if (tab && tab !== "overview") params.set("tab", tab);
+  const back = studentReturnHref(returnTo);
+  if (back !== "/students") params.set("returnTo", back);
+  const query = params.toString();
+  return `/students/${id}${query ? `?${query}` : ""}`;
+}
+
 /** Older than this, a saved position is a stale visit, not a return. */
 export const SCROLL_TTL_MS = 30 * 60 * 1000;
 

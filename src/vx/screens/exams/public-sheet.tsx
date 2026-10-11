@@ -31,6 +31,8 @@ async function post(token: string, body: unknown): Promise<SaveOutcome> {
 }
 
 export function PublicMarksSheet({
+  ownerId,
+  sessionLabel,
   token,
   paper,
   students,
@@ -39,6 +41,8 @@ export function PublicMarksSheet({
   crumb,
   view,
 }: {
+  ownerId: string;
+  sessionLabel: string;
   token: string;
   paper: SheetPaper;
   students: SheetStudent[];
@@ -49,6 +53,9 @@ export function PublicMarksSheet({
 }) {
   return (
     <MarksSheet
+      key={`${ownerId}/${sessionLabel}/${paper.id}`}
+      ownerId={ownerId}
+      sessionLabel={sessionLabel}
       paper={paper}
       students={students}
       saved={saved}

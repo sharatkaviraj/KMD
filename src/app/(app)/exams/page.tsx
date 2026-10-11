@@ -94,6 +94,9 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
     const owner = exams.find((e) => e.id === paper.assessment_id);
     return (
       <MarksSheet
+        key={`${staff.id}/${sessionLabel}/${sheet.paper.id}`}
+        ownerId={staff.id}
+        sessionLabel={sessionLabel}
         paper={sheet.paper}
         students={sheet.students}
         saved={sheet.saved}

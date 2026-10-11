@@ -129,7 +129,7 @@ export function Books({
   ];
 
   return (
-    <VxPage>
+    <VxPage className="ac-books">
       <TopBar
         crumb={`Money · ${shortDay(data.today)} · ${view === "cheques" ? "Cheques" : view === "upi" ? "UPI matching" : view === "refunds" ? "Refunds & advances" : "Requests"}`}
         title={tx(p("Cheques, UPI & refunds", "चेक, UPI व रिफंड"))}
@@ -142,7 +142,7 @@ export function Books({
             {topAction && canAct ? <Btn variant={topAction.on ? "pri" : "sec"} icon={topAction.icon} onClick={topAction.act} disabled={!topAction.on}>{topAction.label}</Btn> : null}
           </>
         }
-        mAction={topAction && canAct ? <Btn variant="soft" icon={topAction.icon} onClick={topAction.act} disabled={!topAction.on} style={{ height: 40, padding: "0 12px", fontSize: 13 }}>{topAction.label.split(" ")[0]}</Btn> : undefined}
+        mAction={topAction && canAct ? <Btn variant="soft" icon={topAction.icon} onClick={topAction.act} disabled={!topAction.on} style={{ height: 44, padding: "0 12px", fontSize: 13 }}>{topAction.label.split(" ")[0]}</Btn> : undefined}
       />
       <Section>
         {readOnly ? <Pill tone="info" icon="eye">Preview · read only</Pill> : null}
@@ -363,9 +363,9 @@ function UpiPane({ data, canAct, busy, onUpload, onMatch, onUndo, onNotFee }: { 
         {canAct ? <Btn icon="upload" onClick={onUpload}>New statement</Btn> : null}
       </Card>
       {total > 0 && done === total ? (
-        <Card className="ac-f" style={{ padding: "16px 18px", gap: 14, background: "var(--oks)", borderColor: "var(--okm)" }}>
-          <Ic n="checkCircle" size={32} style={{ color: "var(--ok)" }} />
-          <span className="ac-c"><span className="ac-v" style={{ color: "var(--ok)" }}>Every UPI payment is sorted</span><span style={{ fontSize: 13, color: "var(--ok)" }}>The bank and the app agree. Day close can use this.</span></span>
+        <Card className="ac-f" style={{ padding: "16px 18px", gap: 14, background: data.upiReceiptsUnmatched > 0 ? "var(--warns)" : "var(--oks)", borderColor: data.upiReceiptsUnmatched > 0 ? "var(--warnm)" : "var(--okm)" }}>
+          <Ic n={data.upiReceiptsUnmatched > 0 ? "alert" : "checkCircle"} size={32} style={{ color: data.upiReceiptsUnmatched > 0 ? "var(--warn)" : "var(--ok)" }} />
+          <span className="ac-c"><span className="ac-v" style={{ color: data.upiReceiptsUnmatched > 0 ? "var(--warn)" : "var(--ok)" }}>Imported bank payments are sorted</span><span style={{ fontSize: 13, color: "var(--fg)" }}>{data.upiReceiptsUnmatched > 0 ? `${data.upiReceiptsUnmatched} UPI ${data.upiReceiptsUnmatched === 1 ? "receipt still needs a bank match. Review it" : "receipts still need a bank match. Review them"} before confirming UPI at day close.` : "Review the statement coverage before confirming UPI at day close."}</span></span>
         </Card>
       ) : null}
       <Seg value={filter} onChange={setFilter} label="Show" style={{ width: 420, maxWidth: "100%" }} options={[{ value: "open", label: "Needs a look" }, { value: "matched", label: "Matched" }, { value: "all", label: "All" }]} />

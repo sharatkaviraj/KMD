@@ -18,6 +18,7 @@ import {
   savedScroll,
   scrollToRestore,
   studentBadges,
+  studentProfileHref,
   studentViewCookieValue,
   STUDENT_VIEW_COOKIE,
   STUDENTS_SCROLL_KEY,
@@ -196,6 +197,7 @@ export function StudentsScreen(props: StudentsProps) {
   const fees = props.seesMoney && props.view === "fees";
   // Written into every link only for a reader who has two views to choose from.
   const viewParam = props.seesMoney ? props.view : undefined;
+  const returnTo = studentsHref({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg, page: props.window.page });
 
   // Back from a profile: put the list where it was, once, and only for the same list.
   useEffect(() => {
@@ -340,7 +342,7 @@ export function StudentsScreen(props: StudentsProps) {
         />
         <Avatar text={initials(row.name)} seed={row.name} size={36} />
         <span style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-          <IntentLink href={`/students/${row.id}`} data-row-link="" className="tap" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" className="tap" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <span className="clip" style={{ fontWeight: 600 }}>{row.name}</span>
             <span className="clip only-d" style={{ fontSize: 12.5, color: "var(--mut)", fontWeight: 400 }}>
               {[row.sr ? `SR ${row.sr}` : null, row.parent].filter(Boolean).join(" · ") || "—"}
@@ -536,17 +538,17 @@ export function StudentsScreen(props: StudentsProps) {
       </main>
 
       {selectedRows.length > 0 ? (
-        <div className="fadein" role="region" aria-label={tx(T.selected(selectedRows.length))} style={{ position: "fixed", left: "50%", bottom: 88, transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, padding: "8px 10px 8px 16px", borderRadius: 16, background: "var(--tbg, #151923)", color: "var(--tfg, #fff)", boxShadow: "var(--shl)", maxWidth: "calc(100% - 32px)" }}>
+        <div role="region" aria-label={tx(T.selected(selectedRows.length))} style={{ position: "fixed", left: "50%", bottom: "calc(88px + env(safe-area-inset-bottom, 0px))", transform: "translateX(-50%)", zIndex: 30, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 8, padding: "8px 10px 8px 16px", borderRadius: 16, background: "var(--tbg, #151923)", color: "var(--tfg, #fff)", boxShadow: "var(--shl)", width: "max-content", maxWidth: "calc(100% - 32px)" }}>
           <strong style={{ fontSize: 14, whiteSpace: "nowrap" }}>{tx(T.selected(selectedRows.length))}</strong>
           {props.canRemind ? (
-            <Link href={`/reminders?students=${selectedRows.map((row) => row.id).join(",")}`} className="tap btn soft" style={{ height: 38 }}>
+            <Link href={`/reminders?students=${selectedRows.map((row) => row.id).join(",")}`} className="tap btn soft" aria-label={tx(T.sendReminder)} style={{ minWidth: 44, height: 44, flexShrink: 0, color: "var(--accfg)" }}>
               <Ic n="message" size={16} /> <span className="hide-m">{tx(T.sendReminder)}</span>
             </Link>
           ) : null}
-          <button type="button" className="tap btn ghost" style={{ height: 38, color: "inherit" }} onClick={() => exportRows(selectedRows)}>
+          <button type="button" className="tap btn ghost" style={{ minWidth: 44, height: 44, flexShrink: 0, color: "inherit" }} onClick={() => exportRows(selectedRows)}>
             <Ic n="download" size={16} /> {tx(T.export)}
           </button>
-          <button type="button" className="tap icon-btn" aria-label={tx(T.clearSelection)} style={{ width: 36, height: 36, color: "inherit" }} onClick={() => setPicked(new Set())}>
+          <button type="button" className="tap icon-btn" aria-label={tx(T.clearSelection)} style={{ width: 44, height: 44, flexShrink: 0, color: "inherit" }} onClick={() => setPicked(new Set())}>
             <Ic n="x" size={18} />
           </button>
         </div>

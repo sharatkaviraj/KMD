@@ -16,6 +16,7 @@ import { loadStudentSchool } from "@/vx/screens/admin/data";
 import { canWriteNotes, notesForStudentTab } from "@/vx/screens/admin/notes-tab";
 import { familyContactAccess, familyContacts } from "@/vx/screens/family-contact/data";
 import { Student360, type Student360Fees } from "@/vx/screens/admin/student360";
+import { studentReturnHref } from "@/vx/screens/admin/students-logic";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -37,6 +38,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   const language = staff.language;
   const { id } = await props.params;
   const search = await props.searchParams;
+  const returnTo = studentReturnHref(typeof search.returnTo === "string" ? search.returnTo : null);
   const sessionLabel = await resolveSessionLabel();
 
   const valid = UUID.test(id) && Boolean(sessionLabel);
@@ -52,10 +54,10 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   if (!school || !sessionLabel) {
     return (
       <VxPage>
-        <TopBar title={lead(T.students, language)} mBack="/students" />
+        <TopBar title={lead(T.students, language)} mBack={returnTo} />
         <main>
           <Section>
-            <EmptyState icon="user" title={lead(sessionLabel ? T.notFound : T.noSession, language)} action={<Btn href="/students">{lead(T.backToStudents, language)}</Btn>} />
+            <EmptyState icon="user" title={lead(sessionLabel ? T.notFound : T.noSession, language)} action={<Btn href={returnTo}>{lead(T.backToStudents, language)}</Btn>} />
           </Section>
         </main>
       </VxPage>
@@ -128,6 +130,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
         key={id}
         p={{
           id,
+          returnTo,
           name: school.card.fullName,
           classLabel: school.classLabel,
           sr: school.card.admissionNo,

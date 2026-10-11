@@ -94,7 +94,7 @@ export const QA_ACCOUNTS: readonly QaAccount[] = [
     },
     canSignIn: true,
     purpose:
-      "The fee desk. This is the only account that may take money, and the only one the ported School Fees screens are built for — every 'can this person post a payment' case runs as this one, and the office account is the other half of that pair.",
+      "The fee desk: posts payments, waives late fees and prints receipts. Paired with office to prove that office cannot post, and with feeCollector to prove that collection alone does not grant waiver, correction, reversal or bulk-entry permissions.",
   },
   {
     key: "feeCollector",
@@ -109,7 +109,7 @@ export const QA_ACCOUNTS: readonly QaAccount[] = [
     },
     canSignIn: true,
     purpose:
-      "Reads every fee screen and cannot collect on any of them. The boundary that matters is the one between this account and `accountant`: they see the same tabs, and only one of them gets a Collect button.",
+      "Reads fee screens, logs parent contact attempts and posts payments with printed receipts. Paired with accountant to prove that collection does not grant late-fee waiver; corrections, reversals, bulk entry and day close remain unavailable.",
   },
   {
     key: "academic",

@@ -86,6 +86,9 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     const phase: SheetPhase = view === "check" ? "check" : view === "submitted" ? "sent" : "entry";
     return (
       <MarksSheet
+        key={`${staff.id}/${sessionLabel}/${sheet.paper.id}`}
+        ownerId={staff.id}
+        sessionLabel={sessionLabel}
         paper={sheet.paper}
         students={sheet.students}
         saved={sheet.saved}

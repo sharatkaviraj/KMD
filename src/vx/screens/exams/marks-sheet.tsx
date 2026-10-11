@@ -1,7 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+
+import { draftKey, readDraft } from "@/platform/drafts/policy";
+import { loadDraft, removeDraft, saveDraft } from "@/platform/drafts/store";
 
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -28,6 +31,7 @@ import {
 } from "./domain/entry";
 import type { SaveOutcome, SavePayload } from "./save-types";
 import type { SheetPaper, SheetStudent } from "./sheet-data";
+import { commandCells, isMarksRecovery, type MarksRecovery } from "./sheet-recovery";
 
 /*
  * One paper's marks, typed in a list on a computer or on a number pad on a
@@ -41,6 +45,8 @@ export type SheetPhase = "entry" | "check" | "sent";
 type Status = "idle" | "saving" | "saved" | "error" | "stale";
 
 export function MarksSheet({
+  ownerId,
+  sessionLabel,
   paper,
   students,
   saved: initialSaved,
@@ -58,6 +64,8 @@ export function MarksSheet({
   doneHref,
   noteHref,
 }: {
+  ownerId: string;
+  sessionLabel: string;
   paper: SheetPaper;
   students: SheetStudent[];
   saved: Record<string, Cell>;
@@ -101,53 +109,144 @@ export function MarksSheet({
   const [correcting, setCorrecting] = useState(false);
   const [reason, setReason] = useState("");
   const [askReopen, setAskReopen] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [recovered, setRecovered] = useState<MarksRecovery | null>(null);
+  const [pendingCommand, setPendingCommand] = useState(false);
+  const recoveryKey = draftKey(ownerId, sessionLabel, `vx-marks/${paper.id}`);
+  const baseline = JSON.stringify({ revision: paper.entryRevision, ids: order, max: paper.maxMarks, step: paper.markStep });
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inflight = useRef<Promise<void> | null>(null);
+  const inflight = useRef<Promise<SaveOutcome | null> | null>(null);
+  const command = useRef<SavePayload | null>(null);
+  const storage = useRef<Promise<unknown>>(Promise.resolve());
   const latest = useRef({ cells: initialSaved, saved: initialSaved, revision: paper.entryRevision });
   const inputs = useRef(new Map<string, HTMLInputElement>());
 
-  const editable = paper.examOpen && !paper.locked && (entryStatus === "open" || correcting);
+  const editable = ready && !recovered && !pendingCommand && !busy && status !== "stale" && paper.examOpen && !paper.locked && (entryStatus === "open" || correcting);
   const c = counts(order, cells);
   const summary = checkSummary(order, cells, paper.passMarks);
 
   /* ------------------------------------------------------------ saving */
 
-  async function flush(): Promise<void> {
-    if (inflight.current) await inflight.current;
-    const snapshot = latest.current.cells;
-    const changed = changedIds(order, snapshot, latest.current.saved);
-    if (changed.length === 0 || entryStatus === "submitted") return;
+  useEffect(() => {
+    let active = true;
+    void loadDraft(recoveryKey).then((raw) => {
+      if (!active) return;
+      const draft = readDraft(raw, isMarksRecovery);
+      if (draft && (!draft.value.command || draft.value.command.paperId === paper.id)) setRecovered(draft.value);
+      setReady(true);
+    }).catch(() => {
+      if (!active) return;
+      setReady(true);
+      setStatus("error");
+      setMessage(p("This phone could not read saved work. Keep this page open until the school confirms your save.", "इस फ़ोन पर सहेजा काम नहीं पढ़ा जा सका। स्कूल से सेव की पुष्टि होने तक पेज खुला रखें।"));
+    });
+    return () => {
+      active = false;
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [recoveryKey, paper.id]);
+
+  async function keepRecovery(payload: SavePayload | null, correctionReason: string | null = correcting ? reason : null): Promise<boolean> {
+    const value = { cells: latest.current.cells, command: payload, revision: latest.current.revision, correctionReason };
+    try {
+      const write = storage.current.catch(() => undefined).then(() => saveDraft(recoveryKey, { version: 1, baseline, value, updatedAt: Date.now() }));
+      storage.current = write;
+      await write;
+      return true;
+    } catch {
+      setStatus("error");
+      setMessage(p("This phone could not keep your draft. Keep this page open and try again before leaving.", "इस फ़ोन पर ड्राफ्ट नहीं सहेजा जा सका। पेज खुला रखें और जाने से पहले फिर कोशिश करें।"));
+      return false;
+    }
+  }
+
+  async function runCommand(payload: SavePayload): Promise<SaveOutcome | null> {
+    if (inflight.current) return inflight.current;
+    if (command.current && command.current.commandId !== payload.commandId) return null;
+    command.current = payload;
+    setPendingCommand(true);
     const run = (async () => {
       setStatus("saving");
-      const result = await onSave({
-        commandId: crypto.randomUUID(),
-        paperId: paper.id,
-        kind: "draft",
-        expectedRevision: latest.current.revision,
-        reason: null,
-        entries: toEntries(order, snapshot),
-      }).catch(() => null);
+      if (!(await keepRecovery(payload))) return null;
+      const result = await onSave(payload).catch(() => null);
+      const definite = result?.ok || (result && !result.ok && result.reason !== "failed");
+      if (definite) {
+        command.current = null;
+        setPendingCommand(false);
+      }
       if (result?.ok) {
+        const snapshot = payload.kind === "reopen" ? latest.current.saved : commandCells(payload);
         latest.current = { ...latest.current, saved: snapshot, revision: result.revision };
         setSaved(snapshot);
         setRevision(result.revision);
+        setEntryStatus(result.entryStatus);
         setStatus("saved");
         setLastSaved(result.savedAt);
         setMessage(null);
-      } else if (result && result.reason === "no_change") {
+        setWho([]);
+        if (payload.kind === "submit" || payload.kind === "correction") {
+          setSubmittedAt(result.savedAt);
+          setCorrecting(false);
+          setReason("");
+          setPhase("sent");
+          router.refresh();
+        } else if (payload.kind === "reopen") {
+          setSubmittedAt(null);
+          setPhase("entry");
+        }
+        if (changedIds(order, latest.current.cells, snapshot).length === 0) {
+          if (!(await clearRecovery())) { command.current = payload; setPendingCommand(true); }
+        }
+        else await keepRecovery(null);
+      } else if (result && !result.ok && result.reason === "no_change") {
+        const snapshot = commandCells(payload);
         latest.current = { ...latest.current, saved: snapshot };
         setSaved(snapshot);
         setStatus("saved");
+        setMessage(null);
+        if (!(await clearRecovery())) { command.current = payload; setPendingCommand(true); }
       } else {
-        setStatus(result?.reason === "stale" ? "stale" : "error");
-        setMessage(result?.message ?? p("Not saved. Check your connection — what you typed is kept here.", "सहेजा नहीं गया। इंटरनेट देखें — आपका भरा यहीं रखा है।"));
+        if (definite) await keepRecovery(null);
+        setStatus(result && !result.ok && result.reason === "stale" ? "stale" : "error");
+        setMessage(result && !result.ok ? result.message : p("The save has not been confirmed. Try again to check the same save; your entries are kept on this phone.", "सेव की पुष्टि नहीं हुई है। उसी सेव को जाँचने के लिए फिर कोशिश करें; प्रविष्टियाँ इस फ़ोन पर रखी हैं।"));
         setWho(result && !result.ok ? (result.who ?? []) : []);
       }
+      return result;
     })();
     inflight.current = run;
-    await run;
-    inflight.current = null;
+    try { return await run; }
+    finally { inflight.current = null; }
+  }
+
+  async function flush(): Promise<boolean> {
+    if (inflight.current) await inflight.current;
+    if (command.current) return Boolean((await runCommand(command.current))?.ok);
+    if (!ready || recovered || status === "stale" || !paper.examOpen || paper.locked) return false;
+    const snapshot = latest.current.cells;
+    const changed = changedIds(order, snapshot, latest.current.saved);
+    if (changed.length === 0) return true;
+    if (entryStatus === "submitted") return false;
+    const result = await runCommand({
+      commandId: crypto.randomUUID(),
+      paperId: paper.id,
+      kind: "draft",
+      expectedRevision: latest.current.revision,
+      reason: null,
+      entries: toEntries(order, snapshot),
+    });
+    return Boolean(result?.ok || (result && !result.ok && result.reason === "no_change"));
+  }
+
+  async function clearRecovery(): Promise<boolean> {
+    const clear = storage.current.catch(() => undefined).then(() => removeDraft(recoveryKey));
+    storage.current = clear;
+    try { await clear; return true; }
+    catch {
+      setStatus("error");
+      setMessage(p("This phone could not clear saved recovery. Keep this page open and retry before leaving.", "इस फोन पर सहेजी गई पुनर्प्राप्ति नहीं हट सकी। पृष्ठ खुला रखें और छोड़ने से पहले फिर प्रयास करें।"));
+      return false;
+    }
   }
 
   function schedule() {
@@ -159,10 +258,12 @@ export function MarksSheet({
   }
 
   function update(id: string, cell: Cell, text?: string) {
+    if (!editable || command.current || inflight.current) return;
     const next = { ...latest.current.cells, [id]: cell };
     latest.current = { ...latest.current, cells: next };
     setCells(next);
     setTexts((t) => ({ ...t, [id]: text ?? (cell.state === "value" ? String(cell.value) : "") }));
+    void keepRecovery(null);
     if (!correcting) schedule();
   }
 
@@ -212,6 +313,36 @@ export function MarksSheet({
     update(id, cell.state === "absent" ? BLANK : { state: "absent", value: null });
   }
 
+  function toggleExempt(id: string) {
+    if (!paper.allowExempt) return;
+    const cell = latest.current.cells[id] ?? BLANK;
+    update(id, cell.state === "exempt" ? BLANK : { state: "exempt", value: null });
+  }
+
+  async function restoreRecovery() {
+    if (!recovered || !paper.examOpen || paper.locked || inflight.current) return;
+    const value = recovered;
+    const restored = Object.fromEntries(Object.entries(value.cells).filter(([id]) => byId.has(id)));
+    latest.current = { ...latest.current, cells: restored, revision: value.revision };
+    setCells(restored);
+    setTexts(textsOf(restored));
+    setRecovered(null);
+    if (value.command) {
+      command.current = value.command;
+      await runCommand(value.command);
+    } else {
+      setPhase("entry");
+      if (canCorrect && value.correctionReason !== null && value.correctionReason !== undefined) {
+        setCorrecting(true);
+        setReason(value.correctionReason);
+      }
+      await keepRecovery(null, value.correctionReason ?? null);
+      if (entryStatus === "open" && changedIds(order, restored, latest.current.saved).length) {
+        await runCommand({ commandId: crypto.randomUUID(), paperId: paper.id, kind: "draft", expectedRevision: value.revision, reason: null, entries: toEntries(order, restored) });
+      }
+    }
+  }
+
   /* ------------------------------------------------------- number pad */
 
   function padKey(key: string) {
@@ -249,41 +380,26 @@ export function MarksSheet({
   /* ------------------------------------------------------ sending */
 
   async function send(kind: "submit" | "correction") {
+    if (inflight.current || busy || !ready || recovered) return;
     if (timer.current) clearTimeout(timer.current);
     setBusy(true);
-    if (kind === "submit") await flush();
-    const result = await onSave({
-      commandId: crypto.randomUUID(),
-      paperId: paper.id,
-      kind,
-      expectedRevision: latest.current.revision,
-      reason: kind === "correction" ? reason.trim() || null : null,
-      entries: toEntries(order, latest.current.cells),
-    }).catch(() => null);
-    setBusy(false);
-    if (result?.ok) {
-      latest.current = { cells: latest.current.cells, saved: latest.current.cells, revision: result.revision };
-      setSaved(latest.current.cells);
-      setRevision(result.revision);
-      setEntryStatus(result.entryStatus);
-      setSubmittedAt(result.savedAt);
-      setLastSaved(result.savedAt);
-      setStatus("saved");
-      setMessage(null);
-      setCorrecting(false);
-      setReason("");
-      if (kind === "submit") setPhase("sent");
-      else toast.show({ text: tx(p("Correction saved", "सुधार सहेजा गया")) });
-      router.refresh();
-      return;
-    }
-    setStatus(result?.reason === "stale" ? "stale" : "error");
-    setMessage(result && !result.ok ? result.message : p("Not sent. Trying again is safe.", "नहीं भेजा गया। फिर से भेजना सुरक्षित है।"));
-    setWho(result && !result.ok ? (result.who ?? []) : []);
+    try {
+      if (command.current) { await runCommand(command.current); return; }
+      if (kind === "submit" && !(await flush())) return;
+      const result = await runCommand({
+        commandId: crypto.randomUUID(),
+        paperId: paper.id,
+        kind,
+        expectedRevision: latest.current.revision,
+        reason: kind === "correction" ? reason.trim() || null : null,
+        entries: toEntries(order, latest.current.cells),
+      });
+      if (result?.ok && kind === "correction") toast.show({ text: tx(p("Correction saved", "सुधार सहेजा गया")) });
+    } finally { setBusy(false); }
   }
 
   async function withdraw() {
-    if (!onWithdraw) return;
+    if (!onWithdraw || busy || !ready || recovered || pendingCommand || inflight.current || command.current) return;
     setBusy(true);
     const result = await onWithdraw(paper.id, latest.current.revision).catch(() => null);
     setBusy(false);
@@ -301,15 +417,16 @@ export function MarksSheet({
   }
 
   async function reopen() {
+    if (inflight.current || busy || !ready || recovered || command.current) return;
     setBusy(true);
-    const result = await onSave({
+    const result = await runCommand({
       commandId: crypto.randomUUID(),
       paperId: paper.id,
       kind: "reopen",
       expectedRevision: latest.current.revision,
       reason: null,
       entries: [],
-    }).catch(() => null);
+    });
     setBusy(false);
     setAskReopen(false);
     if (result?.ok) {
@@ -335,7 +452,7 @@ export function MarksSheet({
         ? `${tx(p("Saved", "सहेजा"))} ${clock(lastSaved)}`
         : status === "error" || status === "stale"
           ? tx(p("Not saved yet", "अभी सहेजा नहीं"))
-          : tx(p("Saved as you type · nothing is lost", "लिखते ही सहेजा जाता है"));
+          : tx(p("Changes save as you type", "लिखते समय बदलाव सहेजे जाते हैं"));
 
   const help = (
     <HelpButton
@@ -352,10 +469,15 @@ export function MarksSheet({
     <Banner tone="info">{tx(p("Marks for this class are final. They cannot change until the admin reopens them.", "इस कक्षा के अंक अंतिम हैं। प्रशासक के खोलने तक अंक नहीं बदलेंगे।"))}</Banner>
   ) : !paper.examOpen ? (
     <Banner tone="warn">{tx(p("This exam is not open for marks.", "यह परीक्षा अंकों के लिए खुली नहीं है।"))}</Banner>
+  ) : recovered ? (
+    <Banner tone="warn" action={<Btn variant="sec" disabled={busy} onClick={() => void restoreRecovery()}>{tx(recovered.command ? p("Restore and check save", "वापस लाएँ और सहेजना जाँचें") : p("Restore draft", "ड्राफ्ट वापस लाएँ"))}</Btn>}>
+      {tx(recovered.command ? p("A previous save has not been confirmed. Check that same save before changing these marks.", "पिछले सहेजने की पुष्टि नहीं हुई है। अंक बदलने से पहले उसी सहेजने को जाँचें।") : p("This phone has a draft from your previous visit.", "इस फोन पर आपकी पिछली बार का ड्राफ्ट है।"))}
+      {!recovered.command ? <Btn variant="ghost" disabled={busy} onClick={() => { void clearRecovery().then((cleared) => { if (cleared) setRecovered(null); }); }}>{tx(p("Discard draft", "ड्राफ्ट हटाएँ"))}</Btn> : null}
+    </Banner>
   ) : message ? (
     <Banner
       tone={status === "stale" ? "warn" : "bad"}
-      action={status === "stale" ? <Btn variant="sec" onClick={() => router.refresh()}>{tx(p("Reload", "फिर खोलें"))}</Btn> : <Btn variant="sec" onClick={() => void flush()}>{tx(p("Try again", "फिर से"))}</Btn>}
+      action={status === "stale" ? <Btn variant="sec" onClick={() => window.location.reload()}>{tx(p("Reload", "फिर खोलें"))}</Btn> : <Btn variant="sec" onClick={() => void flush()}>{tx(p("Try again", "फिर से"))}</Btn>}
     >
       {tx(message)}
       {who.length ? ` (${who.slice(0, 6).join(", ")}${who.length > 6 ? "…" : ""})` : ""}
@@ -370,6 +492,7 @@ export function MarksSheet({
       <VxPage>
         <TopBar crumb={crumb} title={tx(p("Marks sent", "अंक भेजे गए"))} mTitle={tx(p("Marks sent", "अंक भेजे गए"))} mSub={title} mBack={backHref} actions={help} mAction={help} />
         <main>
+          {banner ? <section className="pad" style={{ padding: "16px 28px 0" }}>{banner}</section> : null}
           <section className="pad" style={{ padding: "28px 28px 40px", display: "flex", justifyContent: "center" }}>
             <Card style={{ maxWidth: 520, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, padding: "28px 22px" }}>
               <SuccessTick />
@@ -388,16 +511,16 @@ export function MarksSheet({
                     {tx(p("Made a mistake? You can undo for 10 minutes", "गलती हुई? 10 मिनट तक वापस ले सकते हैं"))}
                     {until ? ` (${tx(p("till", "तक"))} ${until}).` : "."}
                   </span>
-                  <Btn variant="sec" icon="undo" disabled={busy} onClick={() => void withdraw()}>{tx(p("Undo", "वापस लें"))}</Btn>
+                  <Btn variant="sec" icon="undo" disabled={busy || !ready || Boolean(recovered) || pendingCommand} onClick={() => void withdraw()}>{tx(p("Undo", "वापस लें"))}</Btn>
                 </div>
               ) : null}
               {canCorrect || canReopen ? (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                   {canCorrect && !paper.locked ? (
-                    <Btn variant="soft" icon="edit" onClick={() => { setCorrecting(true); setPhase("entry"); }}>{tx(p("Correct a mark", "अंक सुधारें"))}</Btn>
+                    <Btn variant="soft" icon="edit" disabled={!ready || Boolean(recovered) || pendingCommand || busy} onClick={() => { setCorrecting(true); setPhase("entry"); }}>{tx(p("Correct a mark", "अंक सुधारें"))}</Btn>
                   ) : null}
                   {canReopen && !paper.locked ? (
-                    <Btn variant="sec" icon="undo" onClick={() => setAskReopen(true)}>{tx(p("Hand back to teacher", "अध्यापक को वापस दें"))}</Btn>
+                    <Btn variant="sec" icon="undo" disabled={!ready || Boolean(recovered) || pendingCommand || busy} onClick={() => setAskReopen(true)}>{tx(p("Hand back to teacher", "अध्यापक को वापस दें"))}</Btn>
                   ) : null}
                 </div>
               ) : null}
@@ -584,10 +707,10 @@ export function MarksSheet({
               <Card style={{ borderColor: "var(--warn)" }}>
                 <strong>{tx(p("Correcting a sent paper", "भेजे पेपर में सुधार"))}</strong>
                 <p style={{ margin: "4px 0 8px", color: "var(--mut)", fontSize: 13 }}>{tx(p("Change the marks, say why, then save. Every change is kept with its reason.", "अंक बदलें, कारण लिखें, फिर सहेजें। हर बदलाव कारण सहित रखा जाता है।"))}</p>
-                <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tx(p("Why are these marks changing?", "अंक क्यों बदल रहे हैं?"))} rows={2} />
+                <Textarea value={reason} disabled={!editable} onChange={(e) => { const next = e.target.value; setReason(next); void keepRecovery(null, next); }} placeholder={tx(p("Why are these marks changing?", "अंक क्यों बदल रहे हैं?"))} rows={2} />
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <Btn variant="pri" icon="check" disabled={busy || reason.trim().length < 3} onClick={() => void send("correction")}>{tx(p("Save correction", "सुधार सहेजें"))}</Btn>
-                  <Btn variant="ghost" onClick={() => { setCorrecting(false); setCells(saved); latest.current = { ...latest.current, cells: saved }; setTexts(textsOf(saved)); setPhase("sent"); }}>{tx(p("Cancel", "रद्द करें"))}</Btn>
+                  <Btn variant="pri" icon="check" disabled={!editable || reason.trim().length < 3} onClick={() => void send("correction")}>{tx(p("Save correction", "सुधार सहेजें"))}</Btn>
+                  <Btn variant="ghost" disabled={pendingCommand || busy} onClick={() => { setCorrecting(false); setCells(saved); latest.current = { ...latest.current, cells: saved }; setTexts(textsOf(saved)); setPhase("sent"); void clearRecovery(); }}>{tx(p("Cancel", "रद्द करें"))}</Btn>
                 </div>
               </Card>
             ) : null}
@@ -620,7 +743,7 @@ export function MarksSheet({
                     const active = i === current;
                     const off = cell.state === "value" && looksOff(cell.value, s.prevPct, paper.maxMarks);
                     return (
-                      <div key={s.id} className="row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderTop: "1px solid var(--bd)", background: active ? "var(--accs)" : undefined, boxShadow: active ? "inset 3px 0 0 var(--pri)" : undefined }}>
+                      <div key={s.id} className="row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "10px 18px", borderTop: "1px solid var(--bd)", background: active ? "var(--accs)" : undefined, boxShadow: active ? "inset 3px 0 0 var(--pri)" : undefined }}>
                         <span className="num" style={{ width: 44, flex: "none", color: "var(--mut)", fontWeight: 600 }}>{s.roll ?? "—"}</span>
                         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                           <strong className="clip">{s.name}</strong>
@@ -651,6 +774,7 @@ export function MarksSheet({
                         >
                           {tx(p("Absent", "अनुपस्थित"))}
                         </button>
+                        {paper.allowExempt ? <button type="button" className={`tap btn ${cell.state === "exempt" ? "soft" : "sec"}`} aria-pressed={cell.state === "exempt"} disabled={!editable} onClick={() => toggleExempt(s.id)} style={{ width: 104, flex: "none" }}>{tx(p("Exempt", "छूट"))}</button> : null}
                         <span className="hide-m" style={{ width: 100, flex: "none", fontSize: 13 }}>
                           {active && !isFilled(cell) ? (
                             <span style={{ color: "var(--accfg)", fontWeight: 600 }}>{tx(p("Typing here", "यहाँ लिखें"))}</span>
@@ -679,7 +803,7 @@ export function MarksSheet({
                     <strong style={{ fontSize: 20, textAlign: "center" }}>{padStudent.name}</strong>
                     {padStudent.prev ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{padStudent.prev}</span> : null}
                     <span className="num" style={{ fontSize: 56, fontWeight: 700, lineHeight: 1.1, color: padCell?.state === "absent" ? "var(--bad)" : padText || padCell?.state === "value" ? "var(--fg)" : "var(--s3)" }}>
-                      {padCell?.state === "absent" ? "AB" : padText || (padCell?.state === "value" ? padCell.value : "00")}
+                      {padCell?.state === "absent" ? "AB" : padCell?.state === "exempt" ? "EX" : padText || (padCell?.state === "value" ? padCell.value : "00")}
                       <span style={{ fontSize: 18, color: "var(--mut)" }}>/{paper.maxMarks}</span>
                     </span>
                     <span style={{ fontSize: 13, color: "var(--mut)" }}>
@@ -694,6 +818,7 @@ export function MarksSheet({
                   <>
                     <NumberPad onKey={padKey} extra={{ key: paper.markStep < 1 ? "." : "AB", label: paper.markStep < 1 ? "." : <span style={{ color: "var(--bad)", fontSize: 17 }}>{tx(p("Absent", "अनुपस्थित"))}</span> }} />
                     {paper.markStep < 1 ? <Btn variant="danger" full onClick={() => padKey("AB")}>{tx(p("Absent", "अनुपस्थित"))}</Btn> : null}
+                    {paper.allowExempt ? <Btn variant="sec" full onClick={() => { toggleExempt(padStudent.id); advancePad(); }}>{tx(p("Exempt", "छूट"))}</Btn> : null}
                     <Btn variant="pri" big full onClick={advancePad}>
                       {tx(p("Next child", "अगला बच्चा"))} <Ic n="arrowRight" size={18} />
                     </Btn>

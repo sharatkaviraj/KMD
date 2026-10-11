@@ -76,6 +76,8 @@ export default async function MarksLinkPage(props: PageProps<"/t/marks/[token]">
     const view = v === "keypad" || v === "check" || v === "submitted" ? v : "entry";
     return wrap(
       <PublicMarksSheet
+        ownerId={`marks-link/${link.id}/${link.staffId}`}
+        sessionLabel={link.sessionLabel}
         token={token}
         paper={sheet.paper}
         students={sheet.students}
