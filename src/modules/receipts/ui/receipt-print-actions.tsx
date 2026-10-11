@@ -33,24 +33,42 @@ export function ReceiptPrintActions({
       return;
     }
 
+    let cancelled = false;
+    const printLocation = window.location.href;
+    const stillCurrent = () => !cancelled && window.location.href === printLocation;
+    let readinessTimer: number | undefined;
+    let frame: number | undefined;
     const printWhenReady = async () => {
       const images = Array.from(document.images);
-      await Promise.allSettled(
-        images.map((image) => {
-          if (image.complete) {
-            return Promise.resolve();
-          }
-
-          return image.decode().catch(() => undefined);
+      // The A4 document is hidden on phones until printing. Its lazy assets
+      // will otherwise never start, and decode() can wait indefinitely.
+      const decoded = Promise.allSettled(images.map((image) => {
+        image.loading = "eager";
+        return image.complete ? Promise.resolve() : image.decode();
+      }));
+      await Promise.race([
+        decoded,
+        new Promise<void>((resolve) => {
+          readinessTimer = window.setTimeout(resolve, 3000);
         }),
-      );
+      ]);
+      if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
+      if (!stillCurrent()) return;
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => window.print());
+      frame = requestAnimationFrame(() => {
+        if (!stillCurrent()) return;
+        frame = requestAnimationFrame(() => {
+          if (stillCurrent()) window.print();
+        });
       });
     };
 
     void printWhenReady();
+    return () => {
+      cancelled = true;
+      if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
   }, [autoPrint]);
 
   // Auto-close the print tab on mobile after the user dismisses the print

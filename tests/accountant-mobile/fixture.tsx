@@ -5,6 +5,8 @@ import { Books, type BooksView } from "@/vx/screens/accounts/books";
 import type { BooksData, AccountsHomeData } from "@/modules/finance-controls/vx/types";
 import { AccountsHome } from "@/vx/screens/accounts/accounts-home";
 import { ToastProvider } from "@/vx/ui/overlays";
+import { VxBottomBar } from "@/vx/shell/bottom-bar";
+import { bottomFor } from "@/vx/nav";
 import "../../src/app/globals.css";
 import "../../src/vx/vx.css";
 
@@ -28,4 +30,4 @@ const home: AccountsHomeData = {
   closure: { status: "closed", closedAt: "2026-10-11T10:00:00Z", closedByName: "OPS Accountant" },
   queue: [], followUpsToday: { count: 0, next: null }, chequesToDeposit: { count: 0, total: 0 }, upiOpen: { count: 0, total: 0 }, requests: [], reminders: { paused: true, familiesPendingToday: 0, nextInstallment: null }, cashExpected: { total: 100, count: 1 }, tomorrowFollowUps: [], chequesForBank: [],
 };
-createRoot(document.getElementById("root")!).render(<LanguageProvider language={language}><ToastProvider>{params.get("screen") === "home" ? <AccountsHome data={home} view={params.get("evening") === "true" ? "evening" : "home"} greet="Good evening" staffName="OPS Accountant" canCollect canAccounts canManage={false} readOnly={params.has("readonly")} /> : <Books data={data} initialView={view as BooksView} initialSheet="" initialPick={[]} initialReceipt={null} staffName="OPS Accountant" readOnly={params.has("readonly")} />}</ToastProvider></LanguageProvider>);
+createRoot(document.getElementById("root")!).render(<LanguageProvider language={language}><ToastProvider>{params.get("screen") === "home" ? <AccountsHome data={home} view={params.get("evening") === "true" ? "evening" : "home"} greet="Good evening" staffName="OPS Accountant" canCollect canAccounts canManage={false} readOnly={params.has("readonly")} /> : <Books data={data} initialView={view as BooksView} initialSheet="" initialPick={[]} initialReceipt={null} staffName="OPS Accountant" readOnly={params.has("readonly")} />}{params.has("realnav") ? <VxBottomBar tabs={bottomFor("accountant", () => true)} badges={Promise.resolve({})} /> : null}</ToastProvider></LanguageProvider>);

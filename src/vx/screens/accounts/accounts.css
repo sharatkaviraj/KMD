@@ -27,6 +27,7 @@
 .vx .ac-lay { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
 
 /* Books */
+.vx.ac-books .ac-cheque-selection { bottom: 12px; }
 .vx .ac-kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .vx .ac-kp > button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; color: var(--fg); animation: xRise .42s var(--ease) both; }
 .vx .ac-ib { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
@@ -52,6 +53,11 @@
 .vx .ac-sr { display: grid; grid-template-columns: 28px minmax(0, 1.2fr) minmax(0, 1fr) 100px; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--bd); font-size: 13px; }
 .vx .ac-wa { padding: 12px; border-radius: 14px; background: var(--wabg); }
 .vx .ac-wa > div { max-width: 440px; padding: 10px 12px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+
+/* Match the shell's viewport breakpoint and its 99px phone navigation footprint. */
+@media (max-width: 899px) {
+  .vx.ac-books .ac-cheque-selection { bottom: calc(99px + 12px + env(safe-area-inset-bottom)); }
+}
 
 @media print {
   .vx .ac-noprint { display: none !important; }

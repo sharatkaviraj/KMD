@@ -1,4 +1,7 @@
 import { defineConfig } from '@playwright/test';
+const baseURL = process.env.PHONEOPS_BASE_URL ?? 'http://localhost:3100';
+const production = new URL(baseURL).hostname === 'vppsone.vercel.app';
+const evidenceStem = production ? 'deployed-phone-routes' : 'dev-phone-routes';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -7,8 +10,8 @@ export default defineConfig({
   workers: 1,
   timeout: 180000,
   expect: { timeout: 15000 },
-  reporter: [['list'], ['json', { outputFile: '../evidence/dev-phone-routes.json' }]],
-  outputDir: '../evidence/dev-phone-routes',
+  reporter: [['list'], ['json', { outputFile: `../evidence/${evidenceStem}.json` }]],
+  outputDir: `../evidence/${evidenceStem}`,
   // QA auth confirmation contains a one-time token; keep it out of traces.
-  use: { baseURL: process.env.PHONEOPS_BASE_URL ?? 'http://localhost:3100', trace: 'off', screenshot: 'only-on-failure' },
+  use: { baseURL, trace: 'off', screenshot: production ? 'off' : 'only-on-failure' },
 });

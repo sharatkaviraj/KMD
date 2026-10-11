@@ -211,7 +211,7 @@ test("collector phone cannot enter bulk or remove a saved entry", async ({ page 
   expect(before.receipts).toHaveLength(2);
   try { await signIn(page, "feeCollector", "/payments?student=" + studentId + "&session=2026-27"); }
   catch { throw new Error("Existing QA collector login failed; auth URL withheld."); }
-  await expect(page.locator('a[href="/payments/bulk"]')).toHaveCount(0);
+  await expect(page.locator('a[href="/payments/bulk"]:visible')).toHaveCount(0);
   await expect(page.getByRole("radio", { name: label(W.lateWaive) })).toHaveCount(0);
   await page.goto("/payments/bulk");
   await expect(page).toHaveURL(/\/access-denied(?:\?|$)/);

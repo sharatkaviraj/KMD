@@ -328,7 +328,7 @@ function ChequesPane({
         </Card>
       )}
       {pickedRows.length > 0 && tab === "to_deposit" ? (
-        <div className="glass ac-f" style={{ position: "sticky", bottom: 12, zIndex: 4, flexWrap: "wrap", padding: "10px 12px", borderRadius: 18, border: "1px solid var(--bds)", boxShadow: "var(--shh)", animation: "xToast .32s var(--spring) both" }}>
+        <div className="glass ac-f ac-cheque-selection" style={{ position: "sticky", zIndex: 4, flexWrap: "wrap", padding: "10px 12px", borderRadius: 18, border: "1px solid var(--bds)", boxShadow: "var(--shh)", animation: "xToast .32s var(--spring) both" }}>
           <span className="ac-c" style={{ paddingLeft: 4, marginRight: "auto" }}>
             <span className="ac-b" style={{ fontWeight: 700 }}>{pickedRows.length} cheques · {rupees(pickedRows.reduce((s, c) => s + c.amount, 0))}</span>
             <span className="ac-m">Ready for one deposit slip</span>

@@ -20,6 +20,7 @@ import {
 import { hasStaffPermission, requireStaffPermission } from "@/modules/fees/platform/session";
 import { isUuid } from "@/platform/helpers/uuid";
 import { safeReturnTo } from "@/platform/navigation/return-to";
+import { BackLink } from "@/vx/ui/back-link";
 
 type ReceiptDetailPageProps = {
   params: Promise<{
@@ -77,7 +78,18 @@ export default async function ReceiptDetailPage({ params, searchParams }: Receip
 
   return (
     <div className="space-y-6">
+      <div className="md:hidden print:hidden">
+        <BackLink
+          href={returnTo}
+          label={t("backToTransactions")}
+          className="focus-ring inline-flex min-h-11 items-center rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground"
+        >
+          <span aria-hidden="true" className="mr-2">←</span>
+          {t("backToTransactions")}
+        </BackLink>
+      </div>
       <PageHeader
+        hideActionsOnMobile
         eyebrow={t("detailEyebrow")}
         title={t("detailTitle", { number: receipt.receiptNumber })}
         description={t("detailDescription")}
