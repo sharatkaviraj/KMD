@@ -6,6 +6,11 @@ import { p } from "@/vx/text";
  * line reads in English for now.
  */
 export const W = {
+  recoveryChecking: p("Checking payment recovery for this collector and session before enabling collection.", "भुगतान लेने से पहले इस संग्रहकर्ता और सत्र की रिकवरी जाँची जा रही है।"),
+  retryRecovery: p("Retry recovery", "रिकवरी फिर से जाँचें"),
+  recoveryBrowser: p("Payment saving is paused because this browser cannot safely coordinate recovery across tabs. Use an updated browser over HTTPS. For an unfinished payment, keep its original browser and restore support there before retrying.", "इस ब्राउज़र में टैब के बीच सुरक्षित रिकवरी नहीं हो सकती, इसलिए भुगतान सहेजना रुका है। HTTPS पर नया ब्राउज़र उपयोग करें। अधूरे भुगतान के लिए उसी मूल ब्राउज़र में सुविधा बहाल करके फिर जाँचें।"),
+  recoveryStorage: p("Payment saving is paused because recovery storage is blocked or full. Allow site storage or free space, then retry recovery. Keep the original browser for unfinished payments; do not re-enter them in another browser.", "रिकवरी स्टोरेज बंद या भरा है, इसलिए भुगतान सहेजना रुका है। साइट स्टोरेज की अनुमति दें या जगह खाली करके रिकवरी फिर जाँचें। अधूरा भुगतान मूल ब्राउज़र में रखें; दूसरे ब्राउज़र में दोबारा दर्ज न करें।"),
+  recoveryIdentity: p("Payment recovery could not identify the signed-in collector. Reload after signing in again before collecting.", "रिकवरी में लॉग इन संग्रहकर्ता की पहचान नहीं मिली। फिर लॉग इन करके पेज खोलें, उसके बाद भुगतान लें।"),
   collectionUnavailable: p("Collection total could not be refreshed", "वसूली का कुल योग ताज़ा नहीं हो सका"),
   otherTabAttempt: p("Another tab has an unfinished payment. Resolve that payment before collecting again.", "दूसरे टैब में अधूरा भुगतान है। नया भुगतान लेने से पहले उसे पूरा करें।"),
   waiverAttemptPending: p("The late-fee waiver may already be applied. Check or complete the original payment; an earlier receipt does not resolve it.", "लेट फीस माफी पहले ही लागू हो सकती है। मूल भुगतान की जाँच करें या उसे पूरा करें; पुरानी रसीद से यह पूरा नहीं होता।"),

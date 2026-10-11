@@ -3,7 +3,7 @@
 import "./paydesk.css";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   checkDeskPaymentAction,
@@ -34,7 +34,7 @@ import {
 import type { DeskBoot, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudent, DeskStudentResult } from "@/modules/payments/vx/types";
 import { buildPaymentQuickAmounts } from "@/modules/payments/domain/workflow";
 import { MobilePrintedReceipt } from "@/modules/payments/ui/mobile-printed-receipt";
-import { clearPaymentAttempt, paymentAttemptKey, readPaymentAttempt, writePaymentAttempt, PaymentAttemptConflict, type PaymentAttempt } from "@/modules/payments/vx/attempt";
+import { clearPaymentAttempt, paymentAttemptKey, restorePaymentAttempt, writePaymentAttempt, PaymentAttemptConflict, PaymentRecoveryUnavailable, type PaymentAttempt } from "@/modules/payments/vx/attempt";
 import type { DeskLedgerRow } from "@/modules/payments/vx/domain/desk";
 import { amountInWords, clock, dateLabel, dayMonth, initials, rupees, shortDay } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
@@ -142,6 +142,10 @@ function recoveredForm(boot: DeskBoot, pending: PaymentAttempt): Form {
   return { ...freshForm(boot), ...pending.form, dateMode: pending.input.paymentDate === boot.today ? "today" : "other", otherDate: pending.input.paymentDate } as Form;
 }
 
+function earlierReceipt(receipt: DeskReceipt | null): Saved | null {
+  return receipt ? { receiptId: receipt.id, receiptNumber: receipt.receiptNumber, receipt, balance: null, amount: receipt.total, fresh: false, savedAtMs: 0, removed: receipt.isReversed, sent: false, log: [] } : null;
+}
+
 function rowLabel(row: { isCarryForward: boolean; label: string }, tx: (p: Pair | string) => string) {
   return row.isCarryForward ? tx(W.oldBalance) : row.label;
 }
@@ -181,11 +185,7 @@ export function PaymentDesk({
   const [saving, setSaving] = useState(false);
   const [ack, setAck] = useState(false);
   const [dup, setDup] = useState<Dup | null>(null);
-  const [saved, setSaved] = useState<Saved | null>(() =>
-    initialReceipt
-      ? { receiptId: initialReceipt.id, receiptNumber: initialReceipt.receiptNumber, receipt: initialReceipt, balance: null, amount: initialReceipt.total, fresh: false, savedAtMs: 0, removed: initialReceipt.isReversed, sent: false, log: [] }
-      : null,
-  );
+  const [saved, setSaved] = useState<Saved | null>(() => earlierReceipt(initialReceipt));
   const [expiredAt, setExpiredAt] = useState<number | null>(null);
   const [todayTotals, setTodayTotals] = useState<DeskBoot["todayCollection"] | null>(boot.todayCollection);
   const [rmReason, setRmReason] = useState("");
@@ -197,8 +197,11 @@ export function PaymentDesk({
   const posting = useRef(false);
   const [attempt, setAttempt] = useState<PaymentAttempt | null>(null);
   const [recoveryScope, setRecoveryScope] = useState<string | null>(null);
-  const [recoveryError, setRecoveryError] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<"locks" | "storage" | null>(null);
+  const [recoveryRetry, setRecoveryRetry] = useState(0);
   const attemptKey = boot.me.id ? paymentAttemptKey(boot.me.id, boot.sessionLabel) : null;
+  const loadedRecoveryKey = useRef<string | null>(attemptKey);
+  const currentRecoveryScope = useRef<string | null>(previewing ? null : attemptKey);
   const recoveryReady = !attemptKey || previewing || recoveryScope === attemptKey;
   const [datePreview, setDatePreview] = useState<{ studentId: string; date: string; rows: DeskLedgerRow[] } | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
@@ -209,21 +212,47 @@ export function PaymentDesk({
 
   const student: DeskStudent | null = result && result.ok ? result.student : null;
   const today = boot.today;
-  const canAct = boot.canPost && !previewing;
+  const canAct = boot.canPost && !previewing && recoveryReady && !recoveryError;
+
+  useLayoutEffect(() => { currentRecoveryScope.current = previewing ? null : attemptKey; }, [attemptKey, previewing]);
 
   useEffect(() => {
     let active = true;
-    if (!attemptKey || previewing) return;
-    void readPaymentAttempt(attemptKey, boot.sessionLabel).then(a => {
+    void (async () => {
+      const a = attemptKey && !previewing ? await restorePaymentAttempt(attemptKey, boot.sessionLabel) : null;
       if (!active) return;
+      if (loadedRecoveryKey.current !== attemptKey) {
+        loadSeq.current += 1;
+        setSelId(initialStudentId); setResult(initialStudent);
+        setLoading(false); setSaved(earlierReceipt(initialReceipt)); setReviewing(false); setUncertain(null); setAck(false); setSheet("");
+        setTodayTotals(boot.todayCollection); setListBalances({}); counted.current.clear();
+        setDatePreview(null); setDateError(null); setForm(suggestedForm(boot, initialStudent?.ok ? initialStudent.student : null));
+      }
+      loadedRecoveryKey.current = attemptKey;
       attemptRef.current = a; setAttempt(a); requestId.current = a?.input.clientRequestId ?? null; restoredAttempt.current = Boolean(a);
       if (a && a.input.studentId === initialStudentId) {
         setForm(recoveredForm(boot, a)); setReviewing(true); setUncertain({ checking: false });
       }
-      setRecoveryError(false); setRecoveryScope(attemptKey);
-    }).catch(() => { if (active) { setRecoveryError(true); setRecoveryScope(attemptKey); } });
+      setRecoveryError(null); setRecoveryScope(attemptKey);
+    })().catch(error => {
+      if (active) {
+        if (loadedRecoveryKey.current !== attemptKey) {
+          loadSeq.current += 1; setLoading(false); setSelId(initialStudentId); setResult(initialStudent);
+          attemptRef.current = null; setAttempt(null); requestId.current = null;
+          setReviewing(false); setUncertain(null); setSaved(earlierReceipt(initialReceipt)); setForm(freshForm(boot));
+          setTodayTotals(boot.todayCollection); setListBalances({}); counted.current.clear();
+        }
+        loadedRecoveryKey.current = attemptKey;
+        setRecoveryError(error instanceof PaymentRecoveryUnavailable ? "locks" : "storage"); setRecoveryScope(attemptKey);
+      }
+    });
     return () => { active = false; };
-  }, [attemptKey, boot, initialStudentId, previewing]);
+  }, [attemptKey, boot, initialStudentId, initialStudent, initialReceipt, previewing, recoveryRetry]);
+
+  function retryRecovery() {
+    if (posting.current) return;
+    setRecoveryScope(null); setRecoveryError(null); setRecoveryRetry(n => n + 1);
+  }
 
   // The ten-minute removal window closes on its own.
   const savedAtMs = saved?.fresh ? saved.savedAtMs : 0;
@@ -293,6 +322,7 @@ export function PaymentDesk({
 
   async function selectStudent(id: string) {
     if (posting.current || !recoveryReady) return;
+    const scope = previewing ? null : attemptKey;
     const seq = ++loadSeq.current;
     setSelId(id);
     setSaved(null);
@@ -314,6 +344,7 @@ export function PaymentDesk({
       (): DeskStudentResult => ({ ok: false, message: tx(W.couldNotLoad), repairable: false }),
     );
     if (seq !== loadSeq.current) return;
+    if (currentRecoveryScope.current !== scope) return;
     setResult(res);
     if (res.ok && !pending) setForm(suggestedForm(boot, res.student));
     setLoading(false);
@@ -342,8 +373,10 @@ export function PaymentDesk({
   }
 
   async function reloadStudent() {
-    if (!student) return;
+    if (!student || !recoveryReady) return;
+    const scope = previewing ? null : attemptKey;
     const res = await loadStudentDeskAction({ studentId: student.id, sessionLabel: boot.sessionLabel }).catch(() => null);
+    if (currentRecoveryScope.current !== scope) return;
     if (res && res.ok) setResult(res);
   }
 
@@ -402,7 +435,8 @@ export function PaymentDesk({
   /** Ask the database whether the save with this request id posted. */
   async function checkSaved() {
     const pending = attemptRef.current;
-    if (!pending || !canAct || posting.current) return;
+    if (!pending || !canAct || posting.current || !recoveryReady || recoveryError || !attemptKey) return;
+    const scope = attemptKey;
     posting.current = true;
     const postedAmount = pending.input.amount;
     setUncertain({ checking: true });
@@ -410,8 +444,10 @@ export function PaymentDesk({
       (error: unknown): DeskCheckResult => ({ status: "unknown", message: error instanceof Error ? error.message : tx(W.uncertainTitle) }),
     );
     posting.current = false;
+    if (currentRecoveryScope.current !== scope) return;
     if (res.status === "saved") {
       if (selId !== pending.input.studentId) await selectStudent(pending.input.studentId);
+      if (currentRecoveryScope.current !== scope) return;
       toast.show({ text: tx(W.checkedSaved(res.receiptNumber)) });
       applySaved(res, postedAmount);
       return;
@@ -429,6 +465,7 @@ export function PaymentDesk({
 
   async function save() {
     if (!student || posting.current || saving || !canAct || uncertain || !recoveryReady || recoveryError || !attemptKey || (attemptRef.current && attemptRef.current.input.studentId !== student.id)) return;
+    const scope = attemptKey;
     if (!attemptRef.current && (!dateReady || problems.length || !Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0) || !form.receivedBy.trim())) return;
     posting.current = true;
     if (!requestId.current) requestId.current = crypto.randomUUID();
@@ -461,19 +498,25 @@ export function PaymentDesk({
     try { await writePaymentAttempt(attemptKey, pending); }
     catch (error) {
       posting.current = false; setSaving(false);
+      if (currentRecoveryScope.current !== scope) return;
       if (error instanceof PaymentAttemptConflict) {
         attemptRef.current = error.attempt; setAttempt(error.attempt); requestId.current = error.attempt.input.clientRequestId;
         setReviewing(false);
         if (error.attempt.input.studentId === student.id) { setForm(recoveredForm(boot, error.attempt)); setReviewing(true); setUncertain({ checking: false }); }
         toast.show({ text: tx(W.otherTabAttempt), tone: "bad", ms: 8000 });
-      } else toast.show({ text: tx(W.storageBlocked), tone: "bad", ms: 8000 });
+      } else {
+        setRecoveryError(error instanceof PaymentRecoveryUnavailable ? "locks" : "storage");
+        toast.show({ text: tx(W.storageBlocked), tone: "bad", ms: 8000 });
+      }
       return;
     }
+    if (currentRecoveryScope.current !== scope) { posting.current = false; setSaving(false); return; }
     attemptRef.current = pending; setAttempt(pending);
     const postedAmount = input.amount;
     const res = await postDeskPaymentAction(input).catch((): DeskSaveResult => ({ status: "uncertain", message: tx(W.uncertainTitle) }));
     posting.current = false;
     setSaving(false);
+    if (currentRecoveryScope.current !== scope) return;
 
     if (res.status === "saved") {
       applySaved(res, postedAmount);
@@ -493,16 +536,19 @@ export function PaymentDesk({
     // Keep its request id and financial payload so retry cannot waive twice.
     if (input.lateFeeWaiver === 0) {
       await clearPaymentAttempt(attemptKey, input.clientRequestId).catch(() => undefined);
+      if (currentRecoveryScope.current !== scope) return;
       attemptRef.current = null; setAttempt(null); requestId.current = null;
     }
     toast.show({ text: res.message || tx(W.notSaved), tone: "bad", ms: 8000 });
   }
 
   async function openEarlier() {
-    if (!dup?.receiptId) return;
+    if (!dup?.receiptId || !canAct) return;
+    const scope = attemptKey;
     setBusy(true);
     const receipt = await loadReceiptAction(dup.receiptId).catch(() => null);
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     setSheet("");
     if (!receipt) {
       toast.show({ text: tx(W.couldNotLoad), tone: "bad" });
@@ -510,11 +556,13 @@ export function PaymentDesk({
     }
     if (attemptRef.current?.input.lateFeeWaiver) {
       await reloadStudent();
+      if (currentRecoveryScope.current !== scope) return;
       setUncertain({ checking: false }); setReviewing(true);
       toast.show({ text: tx(W.waiverAttemptPending), tone: "bad", ms: 8000 });
       return;
     }
     if (attemptKey && attemptRef.current) await clearPaymentAttempt(attemptKey, attemptRef.current.input.clientRequestId).catch(() => undefined);
+    if (currentRecoveryScope.current !== scope) return;
     attemptRef.current = null; setAttempt(null); requestId.current = null; setUncertain(null);
     setSaved({ receiptId: receipt.id, receiptNumber: receipt.receiptNumber, receipt, balance: null, amount: receipt.total, fresh: false, savedAtMs: 0, removed: receipt.isReversed, sent: false, log: [] });
   }
@@ -531,10 +579,12 @@ export function PaymentDesk({
   }
 
   async function retryReceipt() {
-    if (!saved || busy) return;
+    if (!saved || busy || !recoveryReady) return;
+    const scope = previewing ? null : attemptKey;
     setBusy(true);
     const receipt = await loadReceiptAction(saved.receiptId).catch(() => null);
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     if (!receipt) {
       toast.show({ text: tx(W.couldNotLoad), tone: "bad" });
       return;
@@ -543,13 +593,15 @@ export function PaymentDesk({
   }
 
   async function remove() {
-    if (!saved || !student || busy) return;
+    if (!saved || !student || busy || !canAct || !boot.me.canRemove) return;
+    const scope = attemptKey;
     setBusy(true);
     const reason = [rmReason, rmNote.trim()].filter(Boolean).join(" — ");
     const res = await removePaymentAction({ receiptId: saved.receiptId, studentId: student.id, sessionLabel: boot.sessionLabel, reason }).catch(
       (error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : "Not removed." }),
     );
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     if (!res.ok) {
       toast.show({ text: res.message, tone: "bad", ms: 8000 });
       return;
@@ -566,10 +618,12 @@ export function PaymentDesk({
   }
 
   async function sendWa() {
-    if (!saved || busy) return;
+    if (!saved || busy || !canAct) return;
+    const scope = attemptKey;
     setBusy(true);
     const res = await sendReceiptWhatsappAction(saved.receiptId).catch((error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : "Not sent." }));
     setBusy(false);
+    if (currentRecoveryScope.current !== scope) return;
     if (!res.ok) {
       toast.show({ text: res.message, tone: "bad", ms: 8000 });
       return;
@@ -870,14 +924,14 @@ export function PaymentDesk({
           <strong className="num" style={{ fontSize: 22 }}>{rupees(Number.isFinite(amount) ? amount : 0)}</strong>
         </span>
         <span className="hide-m" style={{ fontSize: 13, color: "var(--mut)" }}>{previewing ? tx(W.previewing) : tx(W.checkThenSave)}</span>
-        <Btn variant="pri" big icon="checkCircle" onClick={review} disabled={!canAct || !attemptKey || !dateReady || !recoveryReady || recoveryError || Boolean(attempt)}>
+        <Btn variant="pri" big icon="checkCircle" onClick={review} disabled={!canAct || !attemptKey || !dateReady || !recoveryReady || Boolean(recoveryError) || Boolean(attempt)}>
           {tx(W.review)}
         </Btn>
       </div>
     ) : null;
 
   /* ---------- saved ---------- */
-  const removable = Boolean(saved && saved.fresh && !saved.removed && boot.me.canRemove && expiredAt !== saved.savedAtMs);
+  const removable = Boolean(saved && saved.fresh && !saved.removed && canAct && boot.me.canRemove && expiredAt !== saved.savedAtMs);
   const savedView = saved && student ? (
     <SavedPanel
       saved={saved}
@@ -916,9 +970,10 @@ export function PaymentDesk({
         ) : null}
       />
       <main>
+        {!recoveryReady ? <div className="pad"><Banner tone="info">{tx(W.recoveryChecking)}</Banner></div> : null}
         {attempt?.input.lateFeeWaiver ? <div className="pad"><Banner tone="warn">{tx(W.waiverAttemptPending)} <b>{rupees(attempt.input.lateFeeWaiver)}</b></Banner></div> : null}
         {attempt && attempt.input.studentId !== student?.id ? <div className="pad"><Banner tone="warn" action={<Btn onClick={() => void selectStudent(attempt.input.studentId)}>{tx(W.resumePayment)}</Btn>}>{tx(W.unfinished)}</Banner></div> : null}
-        {recoveryError || (canAct && !attemptKey) ? <div className="pad"><Banner tone="bad">{tx(W.storageBlocked)}</Banner></div> : null}
+        {recoveryError || (canAct && !attemptKey) ? <div className="pad"><Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(!attemptKey ? W.recoveryIdentity : recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner></div> : null}
         {previewing || boot.blocking ? (
           <div className="pad" style={{ padding: "16px 28px 0", display: "flex", flexDirection: "column", gap: 8 }}>
             {previewing ? <Banner tone="info">{tx(W.previewing)}</Banner> : null}
@@ -976,7 +1031,7 @@ export function PaymentDesk({
                   <Banner
                     tone="warn"
                     action={
-                      <Btn variant="sec" disabled={uncertain.checking} onClick={() => void checkSaved()}>
+                      <Btn variant="sec" disabled={uncertain.checking || !recoveryReady || Boolean(recoveryError)} onClick={() => void checkSaved()}>
                         {uncertain.checking ? tx(W.checking) : tx(W.checkAgain)}
                       </Btn>
                     }
@@ -999,7 +1054,7 @@ export function PaymentDesk({
                   <button type="button" className="tap btn sec" style={{ flex: "1 1 160px" }} disabled={saving || Boolean(attempt)} onClick={() => setReviewing(false)}>
                     <Ic n="chevLeft" size={18} /> {tx(W.backToForm)}
                   </button>
-                  <button type="button" className="tap btn pri big" style={{ flex: "2 1 240px" }} disabled={saving || !canAct || Boolean(uncertain)} onClick={save}>
+                  <button type="button" className="tap btn pri big" style={{ flex: "2 1 240px" }} disabled={saving || !canAct || !recoveryReady || Boolean(recoveryError) || Boolean(uncertain)} onClick={save}>
                     {saving ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="lock" size={18} />}
                     {saving ? tx(W.saving) : `${tx(W.confirmSave)} · ${rupees(amount)}`}
                   </button>

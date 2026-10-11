@@ -20,6 +20,9 @@ async function click(text: string) { const b = [...document.querySelectorAll<HTM
 async function input(selector: string, value: string) { const el = host.querySelector<HTMLInputElement>(selector); expect(el, selector).not.toBeNull(); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(el, value); el!.dispatchEvent(new Event("input", { bubbles: true })); }); }
 beforeEach(() => {
   vi.resetAllMocks(); localStorage.clear(); window.history.replaceState({}, "", "/payments");
+  // jsdom has no IDB. These confirmed-empty mirrors model successful earlier
+  // recovery checks; a browser without either primary access or a mirror blocks.
+  for (const owner of ["qa-owner", "qa-other-owner"]) for (const session of [boot.sessionLabel, "TEST-2025-26"]) localStorage.setItem(paymentAttemptKey(owner, session), JSON.stringify({ deleted: true, updatedAt: 0 }));
   Object.defineProperty(navigator, "locks", { configurable: true, value: { request: async (_key: string, work: () => Promise<unknown>) => work() } });
   window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -68,7 +71,80 @@ it("blocks collection until the selected date's authoritative dues arrive", asyn
 it("does not send money when recovery storage cannot be confirmed", async () => {
   await render(); await input("#pd-amount", "500"); await click("Review");
   const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Synthetic blocked storage"); });
-  await click("Confirm and save"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled(); spy.mockRestore();
+  await click("Confirm and save"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
+  expect(host.textContent).toContain("Payment saving is paused because recovery storage");
+  spy.mockRestore(); await click("Retry recovery"); await click("Confirm and save");
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+});
+
+it("blocks an unsupported browser persistently, then retries when support is restored", async () => {
+  Object.defineProperty(navigator, "locks", { configurable: true, value: undefined });
+  await render(); expect(host.textContent).toContain("Payment saving is paused because this browser");
+  await click("Review"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
+  Object.defineProperty(navigator, "locks", { configurable: true, value: { request: async (_key: string, work: () => Promise<unknown>) => work() } });
+  await click("Retry recovery"); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+});
+
+it("does not keep a previous collector's attempt on an in-place identity change", async () => {
+  actions.postDeskPaymentAction.mockRejectedValue(new Error("TEST dropped response"));
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  const original = actions.postDeskPaymentAction.mock.calls[0][0];
+  await render({ boot: { ...boot, me: { ...boot.me, id: "qa-other-owner" } } });
+  expect(host.textContent).not.toContain("could not confirm whether this payment was saved");
+  expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).not.toBe("500");
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+  await render(); expect(host.textContent).toContain("could not confirm whether this payment was saved");
+  expect((await readPaymentAttempt(paymentAttemptKey("qa-owner", boot.sessionLabel), boot.sessionLabel))?.input).toEqual(original);
+});
+
+it("preserves an existing receipt when initial recovery support is unavailable", async () => {
+  Object.defineProperty(navigator, "locks", { configurable: true, value: undefined });
+  await render({ initialReceipt: receipt });
+  expect(host.textContent).toContain(receipt.receiptNumber);
+  expect(host.textContent).toContain("Payment saving is paused because this browser");
+  expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
+});
+
+it("invalidates an in-flight write before posting when the collector changes and restoration is blocked", async () => {
+  await render(); await input("#pd-amount", "500"); await click("Review");
+  let release!: () => Promise<unknown>;
+  Object.defineProperty(navigator, "locks", { configurable: true, value: { request: (key: string, work: () => Promise<unknown>) => key.includes("qa-owner") ? new Promise(resolve => { release = async () => resolve(await work()); }) : new Promise(() => undefined) } });
+  await click("Confirm and save");
+  await render({ boot: { ...boot, me: { ...boot.me, id: "qa-other-owner" } } });
+  await act(async () => { await release(); });
+  expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
+  expect((await readPaymentAttempt(paymentAttemptKey("qa-owner", boot.sessionLabel), boot.sessionLabel))?.input.amount).toBe(500);
+});
+
+it("does not apply an old collector's save response while the new scope restoration is blocked", async () => {
+  let release!: (value: unknown) => void;
+  actions.postDeskPaymentAction.mockReturnValue(new Promise(resolve => { release = resolve; }));
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  Object.defineProperty(navigator, "locks", { configurable: true, value: { request: () => new Promise(() => undefined) } });
+  await render({ boot: { ...boot, me: { ...boot.me, id: "qa-other-owner" } } });
+  await act(async () => release({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null }));
+  expect(host.textContent).not.toContain(receipt.receiptNumber);
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+});
+
+it("does not apply an old collector's check response while the new scope restoration is blocked", async () => {
+  actions.postDeskPaymentAction.mockRejectedValue(new Error("TEST dropped response"));
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  let release!: (value: unknown) => void;
+  actions.checkDeskPaymentAction.mockReturnValue(new Promise(resolve => { release = resolve; }));
+  await click("Check whether");
+  Object.defineProperty(navigator, "locks", { configurable: true, value: { request: () => new Promise(() => undefined) } });
+  await render({ boot: { ...boot, me: { ...boot.me, id: "qa-other-owner" } } });
+  await act(async () => release({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null }));
+  expect(host.textContent).not.toContain(receipt.receiptNumber);
+  expect(host.textContent).toContain("Checking payment recovery for this collector");
+});
+
+it("refreshes daily collection totals when the session changes in place", async () => {
+  await render();
+  await render({ boot: { ...boot, sessionLabel: "TEST-2025-26", todayCollection: { count: 3, amount: 1700 }, me: { ...boot.me, id: "qa-owner" } } });
+  expect(host.querySelector<HTMLAnchorElement>('a[href="/receipts"]')!.textContent).toContain("3 receipts");
 });
 it("keeps preview and closed-session collection read-only", async () => {
   await render({ previewing: true }); await input("#pd-amount", "500"); await click("Review");

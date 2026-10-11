@@ -5,6 +5,7 @@ on:
     paths:
       - "src/vx/screens/payments/**"
       - "src/modules/payments/**"
+      - "src/platform/drafts/**"
       - "src/app/(app)/payments/**"
       - "tests/payment-ui/**"
       - "tests/payment-parity*"
@@ -26,7 +27,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: npx playwright test --config payment-ui.playwright.config.ts
       - uses: actions/upload-artifact@v4
         if: always()
