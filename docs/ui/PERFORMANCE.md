@@ -54,6 +54,12 @@ queries, no figure recomputed.
     the fee app's reads are a promise the page does not await, and Student 360
     shows skeletons in the money tile, Fees and Family until it lands. ✅
 
+Measured on live after idea 10 (11 Oct, median of 3): open Student 360
+1247 ms desktop, 1242 ms phone; fees showing 1249 / 1244 ms. The fee side
+arrived with the card in 5 of 6 opens, so streaming it changed little: the
+second is spent before the card, in the sign-in checks, the session and the
+school-side reads. That is where the next pass should look.
+
 ### Not done, and why
 
 - **Persisting lists in the browser between visits** (IndexedDB/service
