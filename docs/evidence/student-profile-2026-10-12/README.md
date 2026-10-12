@@ -2,6 +2,8 @@
 
 Base: `62a513ae5e2fe937f2b2d09e70b8cb618a8c6839` (main, #82). Isolated branch: `codex/student-profile-redesign`.
 
+Implementation commit: `73493b314257b33094a6f426c5bbe3f80bf3d81c`. [PR #83](https://github.com/veerpatta/vppsone/pull/83) records the final merge SHA, CI checks and deployment checkpoint; its description is updated after verification.
+
 ## Behavior
 
 - 96px private portrait, readable student identity and initials fallback for missing/failed/unauthorized photos.
