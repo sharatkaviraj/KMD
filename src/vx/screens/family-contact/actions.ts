@@ -17,9 +17,7 @@ const columns = "id, created_by, session_label, student_id, kind, outcome, note,
 const matches = (row: Row, c: ContactRequest) => row.id === c.attemptId && row.created_by === c.owner && row.session_label === c.sessionLabel && row.student_id === c.studentId && row.kind === "contact" && row.outcome === c.outcome && row.note === c.note && (row.agreed_on === c.agreedOn || !!c.dateCorrections?.includes(row.agreed_on ?? "")) && row.note_id === c.noteId;
 const mismatch = () => refused(p("This contact ID belongs to a different entry. Keep the original and refresh this page.", "यह संपर्क पहचान किसी दूसरी प्रविष्टि की है। मूल प्रविष्टि रखें और पेज फिर से खोलें।"));
 const saved = (c: ContactCommand, row: Row): ContactResult => { revalidatePath(`/students/${c.studentId}`); revalidatePath("/academics/progress"); return { ok: true, status: "saved", attemptId: c.attemptId, agreedOn: row.agreed_on }; };
-async function prepare(input: unknown) {
-  const actor = await assertPermission("students:view");
-  await assertNotPreviewing();
+async function prepare(input: unknown, actor: Awaited<ReturnType<typeof assertPermission>>) {
   const command = contactRequest(input);
   if (!command) {
     const validation = input && typeof input === "object" ? parseContact(input as ContactCommand, "") : null;
@@ -34,7 +32,9 @@ async function prepare(input: unknown) {
   return { command, admin };
 }
 export async function checkFamilyContactAction(input: ContactRequest): Promise<ContactResult> {
-  const prepared = await prepare(input);
+  const actor = await assertPermission("students:view");
+  await assertNotPreviewing();
+  const prepared = await prepare(input, actor);
   if (prepared.result) return prepared.result;
   const { command, admin } = prepared;
   try {
@@ -46,7 +46,9 @@ export async function checkFamilyContactAction(input: ContactRequest): Promise<C
 }
 /** Existing UUID PK supplies once-per-attempt append, never text deduplication. */
 export async function logFamilyContactAction(input: ContactRequest): Promise<ContactResult> {
-  const prepared = await prepare(input);
+  const actor = await assertPermission("students:view");
+  await assertNotPreviewing();
+  const prepared = await prepare(input, actor);
   if (prepared.result) return prepared.result;
   const { command, admin } = prepared;
   try {

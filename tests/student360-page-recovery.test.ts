@@ -1,8 +1,9 @@
 import { Children, isValidElement, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ fees: vi.fn(), allowed: true }));
+const state = vi.hoisted(() => ({ fees: vi.fn(), allowed: true, previewing: null as "teacher" | null }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/platform/auth/current-staff", () => ({ requirePermission: async () => ({ id: "qa-staff", language: "en" }) }));
+vi.mock("@/vx/view-as", () => ({ getViewer: async () => ({ previewing: state.previewing }) }));
 vi.mock("@/platform/auth/permissions", () => ({ can: (_staff: unknown, permission: string) => permission === "fees:view" ? state.allowed : false }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "QA" }));
 vi.mock("@/modules/students-fees/vx/admin-students", () => ({ studentFees: state.fees }));
@@ -18,7 +19,7 @@ async function card() {
   const child = Children.toArray(result.props.children).find(node => isValidElement(node) && node.type === Student360) as ReactElement<{ p: Student360Props; fees?: Promise<Student360Fees | null> }>;
   return child.props;
 }
-beforeEach(() => { state.allowed = true; state.fees.mockReset(); });
+beforeEach(() => { state.allowed = true; state.previewing = null; state.fees.mockReset(); });
 describe("Student page fee failure mapping", () => {
   it("streams the school model without waiting for a fee result", async () => {
     let finish!: (value: null) => void;
@@ -34,5 +35,15 @@ describe("Student page fee failure mapping", () => {
   it("does not start a fee read for a reader without fees:view", async () => {
     state.allowed = false; const props = await card();
     expect(props.fees).toBeUndefined(); expect(props.p.tabs).not.toContain("fees"); expect(state.fees).not.toHaveBeenCalled();
+  });
+  it("binds contact recovery to the authenticated staff and active session", async () => {
+    state.fees.mockResolvedValue(null);
+    const props = await card();
+    expect(props.p.contactRecoveryScope).toEqual({ owner: "qa-staff", sessionLabel: "QA", previewing: false });
+  });
+  it("marks preview contact recovery as non-posting", async () => {
+    state.fees.mockResolvedValue(null); state.previewing = "teacher";
+    const props = await card();
+    expect(props.p.contactRecoveryScope).toEqual({ owner: "qa-staff", sessionLabel: "QA", previewing: true });
   });
 });
