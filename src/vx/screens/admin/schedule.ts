@@ -261,6 +261,21 @@ export function scheduledPeriod(bell: ScheduleBell, input: Omit<ScheduleInput, "
 }
 
 /**
+ * The lessons a phone shows before "Show all": every one with a cover change,
+ * then the first others in school order, up to `limit`. Folding away a single
+ * row saves nothing, so a list at most one longer than the limit shows whole.
+ */
+export function foldedKeys(activities: readonly ScheduledActivity[], limit: number): ReadonlySet<string> {
+  if (activities.length <= limit + 1) return new Set(activities.map((a) => a.key));
+  const shown = new Set(activities.filter((a) => a.teachers.some((t) => t.cover !== null)).map((a) => a.key));
+  for (const activity of activities) {
+    if (shown.size >= limit) break;
+    shown.add(activity.key);
+  }
+  return shown;
+}
+
+/**
  * The card's state at `nowMinutes`. A closed day, a day the timetable does
  * not run and a day with nothing published each say so plainly rather than
  * showing an empty list that reads as "nobody is teaching".

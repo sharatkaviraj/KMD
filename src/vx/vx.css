@@ -112,6 +112,8 @@
 :where(.vx,.vxt) .toastwrap{position:fixed;z-index:90;bottom:calc(92px + env(safe-area-inset-bottom))}
 @media (min-width:900px){:where(.vx,.vxt) .toastwrap{bottom:28px}}
 @container vx (min-width:900px){.vx .sheet{position:fixed;max-height:86dvh;padding-bottom:0}}
+/* Today's "Scheduled now" list scrolls inside its card on a desktop; a phone folds it instead of nesting a scroll. */
+@container vx (min-width:900px){.vx .sched-scroll{max-height:340px;overflow-y:auto}}
 .vx{min-height:100%;background:var(--bg);font-size:14px;line-height:1.45}
 @container vx (max-width:899px){.vx{font-size:15px}}
 :where(.vx,.vxt) .lbl{font-size:12px;font-weight:700;color:var(--mut)}

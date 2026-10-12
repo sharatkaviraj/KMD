@@ -25,6 +25,7 @@ import "../../src/app/globals.css";
 import { Student360Fixture } from "./student360.fixture";
 import { OutboxFixture } from "./outbox.fixture";
 import { InboxFixture } from "./inbox.fixture";
+import { TodayFixture } from "./today.fixture";
 
 const params = new URLSearchParams(location.search);
 const locale = params.get("locale") === "hi" ? "hi" : params.get("locale") === "hi-en" ? "hi-en" : "en";
@@ -41,6 +42,7 @@ function Fixture() {
   if (params.get("view") === "student360") return <Student360Fixture language={language} />;
   if (params.get("view") === "outbox") return <OutboxFixture language={language} />;
   if (params.get("view") === "inbox") return <InboxFixture language={language} />;
+  if (params.get("view") === "today") return <TodayFixture language={language} />;
   if (params.get("view") === "admin") return <main className="min-h-screen bg-background p-4 md:p-6">
     <AdminOverview {...adminFixture} language={language} workspaces={params.has("long") ? longWorkspaces : adminFixture.workspaces}
       attention={params.get("state") === "empty" ? attentionFor("admin", { ...attentionFacts, registersOutstanding: 0, absencesToday: 0, pendingSubmissions: 0, failedJobs: 0 }, { canMarkOnBehalf: true }) : params.get("state") === "error" ? attentionFor("admin", { ...attentionFacts, unavailable: ["registers", "jobs"] }, { canMarkOnBehalf: true }) : adminFixture.attention}
