@@ -31,7 +31,7 @@ export async function familyContactAccess(staff: CurrentStaff, sessionLabel: str
 
 /** The latest family contacts for one child this session, newest first. */
 export async function familyContacts(studentId: string, sessionLabel: string, limit = 5): Promise<ContactEntry[]> {
-  const { data } = await createAdminClient()
+  const { data, error } = await createAdminClient()
     .from("student_followups")
     .select("id, outcome, note, agreed_on, created_at, staff_profiles!student_followups_created_by_fkey(display_name)")
     .eq("session_label", sessionLabel)
@@ -40,6 +40,7 @@ export async function familyContacts(studentId: string, sessionLabel: string, li
     .order("created_at", { ascending: false })
     .limit(limit)
     .returns<Row[]>();
+  if (error) throw new Error("Could not read the family's contact history.");
   return (data ?? []).flatMap((r) =>
     isContactOutcome(r.outcome)
       ? [{ id: r.id, outcome: r.outcome, note: r.note, agreedOn: r.agreed_on, at: r.created_at, by: r.staff_profiles?.display_name ?? "—" }]

@@ -534,13 +534,14 @@ export async function termSummaries(
 
   const admin = createAdminClient();
 
-  const { data: enrolment } = await admin
+  const { data: enrolment, error: enrolmentError } = await admin
     .from("enrolments")
     .select("class_id")
     .eq("student_id", studentId)
     .eq("session_label", sessionLabel)
     .maybeSingle<{ class_id: string }>();
 
+  if (enrolmentError) throw new Error("Could not read the student's assessment placement.");
   if (!enrolment) return [];
 
   const [assessments, papers] = await Promise.all([

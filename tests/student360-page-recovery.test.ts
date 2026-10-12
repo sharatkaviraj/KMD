@@ -1,10 +1,12 @@
 import { Children, isValidElement, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ fees: vi.fn(), allowed: true, previewing: null as "teacher" | null }));
+const state = vi.hoisted(() => ({ fees: vi.fn(), photo: vi.fn(), contacts: vi.fn(), allowed: true, photosAllowed: false, contactAllowed: false, previewing: null as "teacher" | null }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/platform/auth/current-staff", () => ({ requirePermission: async () => ({ id: "qa-staff", language: "en" }) }));
 vi.mock("@/vx/view-as", () => ({ getViewer: async () => ({ previewing: state.previewing }) }));
-vi.mock("@/platform/auth/permissions", () => ({ can: (_staff: unknown, permission: string) => permission === "fees:view" ? state.allowed : false }));
+vi.mock("@/platform/auth/permissions", () => ({ can: (_staff: unknown, permission: string) => permission === "fees:view" ? state.allowed : permission === "collection:manage" ? state.photosAllowed : false }));
+vi.mock("@/modules/collection/data/photos-repo", () => ({ studentProfilePhoto: state.photo }));
+vi.mock("@/vx/screens/family-contact/data", () => ({ familyContactAccess: async () => state.contactAllowed, familyContacts: state.contacts }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "QA" }));
 vi.mock("@/modules/students-fees/vx/admin-students", () => ({ studentFees: state.fees }));
 vi.mock("@/vx/screens/admin/notes-tab", () => ({ notesForStudentTab: async () => [], canWriteNotes: () => false }));
@@ -19,8 +21,21 @@ async function card() {
   const child = Children.toArray(result.props.children).find(node => isValidElement(node) && node.type === Student360) as ReactElement<{ p: Student360Props; fees?: Promise<Student360Fees | null> }>;
   return child.props;
 }
-beforeEach(() => { state.allowed = true; state.previewing = null; state.fees.mockReset(); });
+beforeEach(() => { state.allowed = true; state.photosAllowed = false; state.contactAllowed = false; state.previewing = null; state.fees.mockReset(); state.photo.mockReset(); state.contacts.mockReset(); });
 describe("Student page fee failure mapping", () => {
+  it("keeps a failed contact history unavailable rather than an empty contact log", async () => {
+    state.fees.mockResolvedValue(null); state.contactAllowed = true; state.contacts.mockRejectedValue(new Error("Synthetic read failure"));
+    const props = await card(); expect(props.p.contacts).toBeNull(); expect(props.p.unavailable).toContain("contacts");
+  });
+  it("does not request private photos without the existing collection permission", async () => {
+    state.fees.mockResolvedValue(null); const props = await card();
+    expect(props.p.photoUrl).toBeNull(); expect(state.photo).not.toHaveBeenCalled();
+  });
+  it("uses only the permitted private portrait and falls back on photo errors", async () => {
+    state.fees.mockResolvedValue(null); state.photosAllowed = true; state.photo.mockResolvedValue("https://synthetic.invalid/private-signed");
+    expect((await card()).p.photoUrl).toBe("https://synthetic.invalid/private-signed");
+    state.photo.mockRejectedValue(new Error("Synthetic expired photo")); expect((await card()).p.photoUrl).toBeNull();
+  });
   it("streams the school model without waiting for a fee result", async () => {
     let finish!: (value: null) => void;
     state.fees.mockReturnValue(new Promise<null>(resolve => { finish = resolve; }));

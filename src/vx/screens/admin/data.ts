@@ -25,6 +25,8 @@ import {
   studentAttendance,
 } from "@/modules/attendance/data/attendance-repo";
 import { compareRoll, type AttendanceStatus } from "@/modules/attendance/domain/attendance";
+import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
+import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { documentsForStudent, historyForStudent, type RecordChange } from "@/modules/collection/data/documents-repo";
 import { listSubmissions } from "@/modules/collection/data/submissions-repo";
 import { splitByChange, type StudentDocument } from "@/modules/collection/domain/review";
@@ -675,6 +677,7 @@ export async function loadInbox(
 /* --------------------------------------------------------- Student 360 */
 
 export type StudentSchool = {
+  unavailable: string[];
   card: StudentCard;
   classId: string | null;
   classLabel: string;
@@ -691,13 +694,15 @@ export type StudentSchool = {
 
 export async function loadStudentSchool(staff: CurrentStaff, studentId: string, sessionLabel: string): Promise<StudentSchool | null> {
   await assertPermission("students:view");
-  // The card is read beside everything else rather than first: a child who
-  // does not exist costs a few wasted reads, and every child who does is shown
-  // one round trip sooner.
+  // A configurable students:view grant does not widen a teacher's class scope.
+  const [card, enrolment, scope] = await Promise.all([
+    getStudentCard(studentId), enrolmentForStudent(studentId, sessionLabel), classScopeFor(staff, sessionLabel),
+  ]);
+  // Scoped readers need an accessible placement in this session. The legacy
+  // public class_id cannot override a moved or RLS-hidden current enrolment.
+  if (!card || (!scope.everyClass && !scopeIncludes(scope, enrolment?.classId))) return null;
   const missing: string[] = [];
-  const [card, enrolment, labels, attendance, rules, calendar, terms, documents, history] = await Promise.all([
-    getStudentCard(studentId),
-    enrolmentForStudent(studentId, sessionLabel),
+  const [labels, attendance, rules, calendar, terms, documents, history] = await Promise.all([
     classLabelMap(sessionLabel),
     guard(missing, "attendance", () => studentAttendance(studentId, sessionLabel)),
     guard(missing, "rules", () => attendanceRules(sessionLabel)),
@@ -706,7 +711,6 @@ export async function loadStudentSchool(staff: CurrentStaff, studentId: string, 
     can(staff, "documents:view") ? guard(missing, "documents", () => documentsForStudent(studentId)) : Promise.resolve(null),
     can(staff, "collection:view") ? guard(missing, "history", () => historyForStudent(studentId)) : Promise.resolve(null),
   ]);
-  if (!card) return null;
 
   const credit = rules?.halfDayCredit ?? 0.5;
   // As the register sheet counts: leave is left out, late counts as present.
@@ -716,6 +720,7 @@ export async function loadStudentSchool(staff: CurrentStaff, studentId: string, 
 
   return {
     card,
+    unavailable: missing,
     classId,
     classLabel: classId ? (labels.get(classId) ?? "—") : "—",
     rollNo: enrolment?.rollNo ?? card.rollNo,

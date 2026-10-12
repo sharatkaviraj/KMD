@@ -35,10 +35,12 @@ async function render(promise?: Promise<Student360Fees | null>, initial: Student
   await act(async () => root.render(<Student360 key={initial.id} p={initial} fees={promise} />));
 }
 async function click(label: string) {
+  if (["Attendance", "Marks"].includes(label) && ![...host.querySelectorAll('.student-profile-subnav a')].some(a => a.textContent === label)) await click("Learning");
+  if (["Family", "Notes", "Documents", "History", "Info"].includes(label) && ![...host.querySelectorAll('.student-profile-subnav a')].some(a => a.textContent === label)) await click("More");
   const anchor = [...host.querySelectorAll<HTMLAnchorElement>("a")].find(a => a.textContent === label)!;
   await act(async () => anchor.click());
 }
-const selected = () => host.querySelector('[aria-current="page"]')?.textContent;
+const selected = () => host.querySelector('[aria-current="location"]')?.textContent ?? host.querySelector('[aria-current="page"]')?.textContent;
 beforeEach(() => {
   navigation.refresh.mockReset();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -105,11 +107,44 @@ describe("Student 360 delayed fee streaming", () => {
 describe("Student 360 overview", () => {
   const school: Student360Props = { ...p, tabs: ["overview", "attendance", "marks", "notes"] };
 
-  it("shows the name once, with no fee share beside the child's identity", async () => {
+  it("shows exactly four primary sections, three for a school-only reader", async () => {
+    await render();
+    expect([...host.querySelectorAll('.student-profile-nav a')].map(a => a.textContent)).toEqual(["Overview", "Learning", "Fees", "More"]);
     await render(undefined, school);
-    // The bar carries it (a desktop h1 and the phone title, one shown at a time); the page body does not repeat it.
-    expect(host.querySelector("h1")?.textContent).toBe("QA Child");
-    expect(host.querySelector("main")!.textContent).not.toContain("QA Child");
+    expect([...host.querySelectorAll('.student-profile-nav a')].map(a => a.textContent)).toEqual(["Overview", "Learning", "More"]);
+  });
+
+  it("uses initials for missing or failed private portraits and retries a changed URL", async () => {
+    await render(); expect(host.querySelector('.student-profile-portrait span')?.textContent).toBe("QC");
+    await render(undefined, { ...p, photoUrl: "/synthetic-portrait.png" });
+    expect(host.querySelector('.student-profile-portrait img')?.getAttribute("width")).toBe("96");
+    await act(async () => host.querySelector('img')!.dispatchEvent(new Event("error")));
+    expect(host.querySelector('.student-profile-portrait img')).toBeNull();
+    expect(host.querySelector('.student-profile-portrait span')?.textContent).toBe("QC");
+    await render(undefined, { ...p, photoUrl: "/synthetic-portrait-new.png" });
+    expect(host.querySelector('.student-profile-portrait img')).not.toBeNull();
+  });
+
+  it("does not invent active status or empty academic records when a read failed", async () => {
+    await render(undefined, { ...school, status: null, notes: [], terms: [], unavailable: ["notes", "marks", "attendance"] });
+    expect(host.textContent).toContain("Status not recorded");
+    expect(host.textContent).not.toContain("No observation recorded");
+    expect(host.textContent).not.toContain("No open support action");
+    expect(host.textContent).not.toContain("No marks entered yet");
+    expect(host.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it("does not infer calendar cells when school closure data is unavailable", async () => {
+    await render(undefined, { ...school, unavailable: ["calendar"], attendance: { ...school.attendance, weeks: [{ day: "2026-10-10", label: "Synthetic day cell", state: "none" }] } });
+    await click("Attendance"); expect(host.textContent).not.toContain("Synthetic day cell");
+    expect(host.textContent).toContain("90%"); expect(host.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it("shows a readable name in the portrait card, with no fee share beside identity", async () => {
+    await render(undefined, school);
+    expect(host.querySelector("h1")?.textContent).toBe("Student profile");
+    expect(host.querySelector(".student-profile-name")?.textContent).toBe("QA Child");
+    expect(host.querySelectorAll(".student-profile-name")).toHaveLength(1);
     expect(host.textContent).not.toContain("of the year paid");
   });
   it("says a term with a blank paper is provisional, beside its percentage", async () => {
