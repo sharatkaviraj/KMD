@@ -21,7 +21,7 @@ test("360px read-only family contact has no write affordance or action", async (
   await page.goto("/?readonly");
   await expect(page.getByText("None recorded this year")).toBeVisible();
   await expect(page.getByRole("button", { name: "Log family contact", exact: true })).toHaveCount(0);
-  expect(await snapshot(page)).toEqual({ calls: [], records: [], sends: 0, refreshes: 0 });
+  expect(await snapshot(page)).toEqual({ calls: [], checks: [], records: [], sends: 0, refreshes: 0 });
 });
 
 test("390px missing follow-up date keeps note and has no append or send", async ({ page }) => {

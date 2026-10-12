@@ -1,4 +1,5 @@
 import { requirePermission } from "@/platform/auth/current-staff";
+import { getViewer } from "@/vx/view-as";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { documentKindLabels, humanSize } from "@/modules/collection/domain/review";
@@ -35,6 +36,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export default async function StudentPage(props: PageProps<"/students/[id]">) {
   const staff = await requirePermission("students:view", "/students");
+  const { previewing } = await getViewer();
   const language = staff.language;
   const { id } = await props.params;
   const search = await props.searchParams;
@@ -127,7 +129,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
       {/* Keyed by child: the tab is client state now, and a sibling opened
           from the family tab must start on its own overview. */}
       <Student360
-        key={id}
+        key={`${staff.id}:${sessionLabel}:${id}`}
         p={{
           id,
           returnTo,
@@ -204,6 +206,7 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           canManageFees: can(staff, "fees:manage"),
           canAddNote: tabs.includes("notes") && canWriteNotes(staff),
           contacts,
+          contactRecoveryScope: { owner: staff.id, sessionLabel, previewing: !!previewing },
         }}
         fees={feesView}
       />

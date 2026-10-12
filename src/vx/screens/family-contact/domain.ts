@@ -35,6 +35,36 @@ export function canLogFamilyContact(viewer: { readsEveryClass: boolean; heldClas
 
 export type ContactInput = { outcome: ContactOutcome; note: string | null; agreedOn: string | null };
 
+export type ContactScope = { owner: string; sessionLabel: string; studentId: string };
+export type ContactCommand = ContactScope & ContactInput & { attemptId: string; noteId: string | null };
+/** Date-only amendments retain every possible in-flight candidate and UUID. */
+export type ContactRequest = ContactCommand & { dateCorrections?: string[] };
+export const CONTACT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Canonical comparison/recovery shape; a past date remains valid on replay. */
+export function contactCommand(input: unknown): ContactCommand | null {
+  if (!input || typeof input !== "object") return null;
+  const value = input as Record<string, unknown>;
+  if (![value.owner, value.studentId, value.attemptId].every(id => typeof id === "string" && CONTACT_UUID.test(id))) return null;
+  if (typeof value.sessionLabel !== "string" || !value.sessionLabel || value.sessionLabel.length > 128) return null;
+  if (value.noteId != null && (typeof value.noteId !== "string" || !CONTACT_UUID.test(value.noteId))) return null;
+  const parsed = parseContact(value, "");
+  if (!parsed.ok) return null;
+  return { owner: value.owner as string, sessionLabel: value.sessionLabel, studentId: value.studentId as string, attemptId: value.attemptId as string, ...parsed.value, noteId: typeof value.noteId === "string" ? value.noteId : null };
+}
+
+export function contactRequest(input: unknown): ContactRequest | null {
+  const original = contactCommand(input);
+  if (!original) return null;
+  const corrections = (input as Record<string, unknown>).dateCorrections;
+  if (corrections === undefined) return original;
+  if (original.outcome !== "follow_up_agreed" || !Array.isArray(corrections) || corrections.length < 1 || corrections.length > 32 || new Set(corrections).size !== corrections.length) return null;
+  if (corrections.some(date => typeof date !== "string" || date === original.agreedOn || !parseContact({ ...original, agreedOn: date }, "").ok)) return null;
+  return { ...original, dateCorrections: [...corrections] as string[] };
+}
+export function latestContactCandidate(request: ContactRequest): ContactCommand {
+  return { ...contactCommand(request)!, agreedOn: request.dateCorrections?.at(-1) ?? request.agreedOn };
+}
+
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
