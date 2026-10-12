@@ -3,6 +3,7 @@ import { getViewer } from "@/vx/view-as";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { documentKindLabels, humanSize } from "@/modules/collection/domain/review";
+import { studentProfilePhoto } from "@/modules/collection/data/photos-repo";
 import { studentFees } from "@/modules/students-fees/vx/admin-students";
 import { schoolToday } from "@/vx/format";
 import {
@@ -51,7 +52,8 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
   // longer wait for the school side to finish first. On a phone that was the
   // difference between one round of queries and three in a row.
   const feesPromise = valid && seesMoney ? studentFees(id).catch(() => "unavailable" as const) : Promise.resolve(null);
-  const notesPromise = valid && sessionLabel ? notesForStudentTab(staff, id, sessionLabel).catch(() => []) : Promise.resolve([]);
+  const unavailable: string[] = [];
+  const notesPromise = valid && sessionLabel ? notesForStudentTab(staff, id, sessionLabel).catch(() => { unavailable.push("notes"); return []; }) : Promise.resolve([]);
   const school = valid && sessionLabel ? await loadStudentSchool(staff, id, sessionLabel) : null;
   if (!school || !sessionLabel) {
     return (
@@ -78,8 +80,12 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
 
   // Family contact (D-265): the class teacher and the school-wide readers
   // see and record it; nobody else is shown the strip at all.
-  const [notes, contactAccess] = await Promise.all([notesPromise, familyContactAccess(staff, sessionLabel, school.classId).catch(() => false)]);
-  const contacts = contactAccess ? await familyContacts(id, sessionLabel).catch(() => []) : null;
+  const [notes, contactAccess, photoUrl] = await Promise.all([
+    notesPromise,
+    familyContactAccess(staff, sessionLabel, school.classId).catch(() => { unavailable.push("contacts"); return false; }),
+    can(staff, "collection:manage") ? studentProfilePhoto(id).catch(() => null) : Promise.resolve(null),
+  ]);
+  const contacts = contactAccess ? await familyContacts(id, sessionLabel).catch(() => { unavailable.push("contacts"); return null; }) : null;
 
   // Not awaited: the card goes out with the school side, and the fee side
   // streams into it when the fee app's reads finish (Student360's Suspense).
@@ -134,6 +140,8 @@ export default async function StudentPage(props: PageProps<"/students/[id]">) {
           id,
           returnTo,
           name: school.card.fullName,
+          photoUrl,
+          unavailable: [...(school.unavailable ?? []), ...unavailable],
           classLabel: school.classLabel,
           sr: school.card.admissionNo,
           rollNo: school.rollNo,

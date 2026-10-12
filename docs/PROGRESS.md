@@ -1,5 +1,11 @@
 # VPPS One — progress
 
+## Student profile redesign — 12 October 2026
+
+User-approved portrait profile implemented on `codex/student-profile-redesign`, based on main `62a513ae5e2fe937f2b2d09e70b8cb618a8c6839` (#82). Four primary sections retain the existing tab URLs, directory return context, browser history and Payment Desk flow. Private collection portraits retain `collection:manage`; no public photo fallback, permission expansion or fee-calculation change. Independent review findings on class scope and unavailable records were fixed. Tests and synthetic screenshots are documented in `docs/evidence/student-profile-2026-10-12/README.md`.
+
+Status: implementation and independent review complete; release verification in progress. The user subsequently authorized commit, push, a draft PR, green-check merge and production deployment. No school database writes or migrations are authorized for this task. Record the PR and merged commit in the release evidence before completion.
+
 **The 4 October plan pack is done: P0–P12 merged and deployed (last: `b16eee0`, #49).**
 Its Gate H report is `docs/RELEASE-REPORT-2026-10-04.md`: ready for the bounded
 in-app cover pilot in `docs/PILOT-RUNBOOK.md`, and **not** for real WhatsApp,

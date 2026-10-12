@@ -6,6 +6,19 @@ import { p, type Pair } from "@/vx/text";
  * a pair with a number in it is a function.
  */
 export const T = {
+  studentProfile: p("Student profile", "विद्यार्थी परिचय"),
+  profileMore: p("More", "अन्य"),
+  callFamily: p("Call Family", "परिवार को कॉल"),
+  profileStatusUnknown: p("Status not recorded", "स्थिति दर्ज नहीं है"),
+  profileInactive: p("Inactive", "निष्क्रिय"),
+  profileSettled: p("Settled", "समायोजित"),
+  profileCashReceived: p("Cash received this session", "इस सत्र प्राप्त भुगतान"),
+  studentPortrait: (name: string): Pair => p(`Portrait of ${name}`, `${name} का फोटो`),
+  studentInitials: (name: string): Pair => p(`Initials for ${name}`, `${name} के नाम के अक्षर`),
+  profileDueNow: p("Due now", "अभी देय"),
+  profileUpcoming: p("Upcoming dues", "आगामी बकाया"),
+  profileConcessions: p("Concessions reduce fees; they are not cash received.", "रियायतों से फीस घटती है; यह प्राप्त नकद नहीं है।"),
+  profileFeeScroll: p("Installment details — scroll sideways for all columns", "किस्त विवरण — सभी कॉलम देखने के लिए बगल में स्क्रॉल करें"),
   inboxStorageFailed: p("Could not preserve this decision on this device. Check pending decisions before continuing.", "इस उपकरण पर निर्णय सुरक्षित नहीं हुआ। आगे बढ़ने से पहले लंबित निर्णय जाँचें।"),
   inboxPending: p("Some decisions are waiting for confirmation. Retry checks the same decisions.", "कुछ निर्णयों की पुष्टि बाकी है। दोबारा प्रयास उन्हीं निर्णयों को जाँचता है।"),
   inboxEarlier: p("Earlier decisions", "पहले के निर्णय"),

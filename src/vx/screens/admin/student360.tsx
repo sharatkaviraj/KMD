@@ -8,9 +8,10 @@ import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
-import { ChipRow } from "@/vx/ui/controls";
 import { Grid, Section, TopBar } from "@/vx/ui/page";
 import { ATT_COLORS, Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, Skel, Stat, toneColors, type Tone } from "@/vx/ui/primitives";
+import { profileSection, profileSections, type ProfileSection } from "./profile-sections";
+import "./student-profile.css";
 import { feeRibbon, mobileOf, parseTab, provisionalLabel, type InstallmentState, type MarkStatus, type StudentMoney, type StudentTab } from "@/vx/screens/admin/logic";
 import { SupportActions } from "@/vx/screens/admin/support-actions";
 import { T } from "@/vx/screens/admin/text";
@@ -76,6 +77,9 @@ export type Student360Props = {
   id: string;
   returnTo?: string;
   name: string;
+  /** Only a signed URL from the private collection photo store, after its permission check. */
+  photoUrl?: string | null;
+  unavailable?: string[];
   classLabel: string;
   sr: string | null;
   rollNo: string | null;
@@ -168,6 +172,22 @@ const TAB_LABEL: Record<StudentTab, Pair> = {
   info: T.tabInfo,
 };
 
+const SECTION_LABEL: Record<ProfileSection, Pair> = {
+  overview: T.tabOverview, learning: T.learning, fees: T.tabFees, more: T.profileMore,
+};
+
+function StudentPortrait({ name, url }: { name: string; url?: string | null }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const { tx } = useVx();
+  return <div className="student-profile-portrait">
+    {url && failedUrl !== url ? (
+      // Signed private URLs are short-lived; do not cache them in an image proxy.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={url} alt={tx(T.studentPortrait(name))} width={96} height={96} onError={() => setFailedUrl(url)} />
+    ) : <span role="img" aria-label={tx(T.studentInitials(name))} style={{ fontSize: 30, fontWeight: 700 }}>{initials(name)}</span>}
+  </div>;
+}
+
 const CELL_LOOK: Record<Cell["state"], { bg: string; fg: string; border?: string }> = {
   present: { bg: ATT_COLORS.P.bg, fg: ATT_COLORS.P.fg },
   absent: { bg: ATT_COLORS.A.fg, fg: "#fff" },
@@ -221,7 +241,8 @@ export function Student360({ p, fees }: { p: Student360Props; fees?: Promise<Stu
 
 function WithFees({ p, fees, tab, setTab }: { p: Student360Props; fees: Promise<Student360Fees | null>; tab: StudentTab; setTab: (t: StudentTab) => void }) {
   const loaded = use(fees);
-  return <Student360View p={loaded ? { ...p, ...loaded } : p} tab={tab} setTab={setTab} feesLoading={false} feesUnavailable={loaded?.unavailable === true} />;
+  const { unavailable: feesUnavailable, ...details } = loaded ?? {};
+  return <Student360View p={loaded ? { ...p, ...details } : p} tab={tab} setTab={setTab} feesLoading={false} feesUnavailable={feesUnavailable === true} />;
 }
 
 function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }: { p: Student360Props; tab: StudentTab; setTab: (t: StudentTab) => void; feesLoading: boolean; feesUnavailable?: boolean }) {
@@ -254,7 +275,11 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   // yet is shown only when there is no other.
   const latest = [...p.terms].reverse().find((t) => t.percent !== null) ?? p.terms[p.terms.length - 1] ?? null;
   const latestLabel = latest ? provisionalLabel(latest.missing, latest.papers) : null;
-  const left = p.status === "left" || p.status === "inactive";
+  const left = p.status === "left";
+  const active = p.status === "active" || p.status === "enrolled";
+  const section = profileSection(tab);
+  const sections = profileSections(p.tabs);
+  const identityRows: [Pair, string | null][] = [[T.colClass, p.classLabel], [T.admissionNo, p.sr], [T.rollNo, p.rollNo]];
   const notesHref = `/notes?student=${p.id}`;
 
   /** A link to another tab that switches in place, like the chips. */
@@ -268,7 +293,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   const weeksCard = (
     <Card>
       <CardHead title={tx(T.lastWeeks)} action={p.attendance.percent !== null ? <strong className="num">{p.attendance.percent}%</strong> : undefined} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0,1fr))", gap: 6, marginTop: 12 }}>
+      {p.unavailable?.some(k => k === "attendance" || k === "calendar") ? <p>{tx(T.couldNotRead)}</p> : <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0,1fr))", gap: 6, marginTop: 12 }}>
         {p.attendance.weeks.map((cell) => {
           const look = CELL_LOOK[cell.state];
           return (
@@ -277,7 +302,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             </span>
           );
         })}
-      </div>
+      </div>}
     </Card>
   );
 
@@ -294,7 +319,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
           ) : undefined
         }
       />
-      {p.terms.length === 0 ? (
+      {p.unavailable?.includes("marks") ? <p>{tx(T.couldNotRead)}</p> : p.terms.length === 0 ? (
         <p style={{ margin: "12px 0 0", color: "var(--mut)" }}>{tx(T.noMarks)}</p>
       ) : (
         <ul style={{ listStyle: "none", margin: "12px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -329,7 +354,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   const notesCard = (limit?: number) => (
     <Card>
       <CardHead title={tx(T.notes)} action={<Link href={notesHref} style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14 }}>{tx(T.allNotes)}</Link>} />
-      {p.notes.length === 0 ? (
+      {p.unavailable?.includes("notes") ? <p>{tx(T.couldNotRead)}</p> : p.notes.length === 0 ? (
         <p style={{ margin: "12px 0 0", color: "var(--mut)" }}>{tx(T.noNotes)}</p>
       ) : (
         <ul style={{ listStyle: "none", margin: "12px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -396,7 +421,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       );
       break;
     case "attendance":
-      body = (
+      body = p.unavailable?.some(k => k === "attendance" || k === "rules") ? <Card><p>{tx(T.couldNotRead)}</p></Card> : (
         <>
           <Card style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
             <Ring value={p.attendance.percent ?? 0} size={84} stroke={9}>
@@ -441,7 +466,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
     case "documents":
       body = (
         <Card pad={false} style={{ overflow: "hidden" }}>
-          {p.documents.length === 0 ? (
+          {p.unavailable?.includes("documents") ? <p style={{ padding: 18 }}>{tx(T.couldNotRead)}</p> : p.documents.length === 0 ? (
             <EmptyState icon="file" title={tx(T.noDocuments)} action={p.canManageDocuments ? <Btn href={`/teach/student/${p.id}`}>{tx(T.manageDocuments)}</Btn> : undefined} />
           ) : (
             p.documents.map((d) => (
@@ -463,7 +488,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
     case "history":
       body = (
         <Card pad={false} style={{ overflow: "hidden" }}>
-          {p.history.length === 0 ? (
+          {p.unavailable?.includes("history") ? <p style={{ padding: 18 }}>{tx(T.couldNotRead)}</p> : p.history.length === 0 ? (
             <EmptyState icon="history" title={tx(T.noHistory)} />
           ) : (
             p.history.map((h) => (
@@ -493,54 +518,54 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
               </div>
             ))}
           </dl>
+          {p.contacts ? <div style={{ padding: "0 18px 18px" }}><FamilyContactLog studentId={p.id} contacts={p.contacts} canLog today={p.today} recoveryScope={p.contactRecoveryScope} /></div> : null}
         </Card>
       );
       break;
   }
 
-  // Who the child is, in one line. The name is the page title (the desktop
-  // bar's h1, the phone bar's title) and is not repeated here; the fee share
-  // lives in the fee summary, not beside the child's identity.
-  const identity = [p.classLabel, p.sr ? tx(T.srRoll(p.sr, p.rollNo)) : p.rollNo ? `${tx(T.rollNo)} ${p.rollNo}` : null].filter(Boolean).join(" · ");
-
   return (
     <>
-      <TopBar crumb={<Link href={studentReturnHref(p.returnTo)}>{tx(T.students)}</Link>} title={p.name} mTitle={p.name} mSub={p.classLabel} mBack={studentReturnHref(p.returnTo)} />
+      <TopBar crumb={<Link href={studentReturnHref(p.returnTo)}>{tx(T.students)}</Link>} title={tx(T.studentProfile)} mBack={studentReturnHref(p.returnTo)} />
       <main>
         <Section gap={16}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <Avatar text={initials(p.name)} seed={p.name} size={44} />
-            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ color: "var(--mut)", fontSize: 14, marginRight: 4 }}>{identity}</span>
-              <Pill tone={left ? "mut" : "ok"}>{tx(left ? T.left : T.active)}</Pill>
+          <div className="student-profile-hero">
+            <StudentPortrait name={p.name} url={p.photoUrl} />
+            <div className="student-profile-identity">
+              <h2 className="student-profile-name">{p.name}</h2>
+              <dl className="student-profile-facts">
+                {identityRows.map(([label, value]) => (
+                  <div key={label.en}><dt>{tx(label)}</dt><dd>{value || "—"}</dd></div>
+                ))}
+              </dl>
+              <div className="student-profile-badges">
+              <Pill tone={active ? "ok" : "mut"}>{tx(left ? T.left : p.status === "inactive" ? T.profileInactive : active ? T.active : T.profileStatusUnknown)}</Pill>
               {p.route ? <Pill tone="info">{tx(T.bus(p.route))}</Pill> : null}
               {siblings > 0 ? <Pill tone="acc">{tx(T.siblings(siblings))}</Pill> : null}
+              </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="student-profile-actions">
+            {p.canAddNote ? <Btn icon="note" href={`${notesHref}&sheet=add`}>{tx(T.addNote)}</Btn> : null}
+            {mobile ? <Btn icon="phone" href={`tel:${mobile}`}>{tx(T.callFamily)}</Btn> : null}
             {p.canCollect ? (
               <Btn variant="pri" icon="rupee" href={`/payments?student=${p.id}`}>
-                {p.money && p.money.pendingToday > 0 ? tx(T.collectAmount(rupees(p.money.pendingToday))) : tx(T.collect)}
+                {tx(T.paymentDesk)}
               </Btn>
             ) : null}
-            {mobile ? (
-              <>
-                <Btn icon="phone" href={`tel:${mobile}`}>{tx(T.call)}</Btn>
-                <Btn icon="message" href={`https://wa.me/91${mobile}`} target="_blank">{tx(T.whatsapp)}</Btn>
-              </>
-            ) : null}
-            {p.money ? <Btn icon="send" href={`/fees/students/${p.id}/statement`}>{tx(T.statement)}</Btn> : null}
-            {p.canAddNote ? <Btn icon="note" href={`${notesHref}&sheet=add`}>{tx(T.addNote)}</Btn> : null}
           </div>
-          <ChipRow label={tx(T.tabOverview)}>
-            {p.tabs.map((t) => (
-              <a key={t} href={studentProfileHref(p.id, p.returnTo, t)} onClick={pick(t)} className={`tap chip${tab === t ? " on" : ""}`} aria-current={tab === t ? "page" : undefined}>
-                {tx(TAB_LABEL[t])}
+          <nav className="student-profile-nav" aria-label={tx(T.studentProfile)} style={{ "--profile-sections": sections.length } as React.CSSProperties}>
+            {sections.map(({ section: s, tab: target }) => (
+              <a key={s} href={studentProfileHref(p.id, p.returnTo, target)} onClick={pick(target)} aria-current={section === s ? "page" : undefined}>
+                {tx(SECTION_LABEL[s])}
               </a>
             ))}
-          </ChipRow>
-          {feesUnavailable ? <Card><div role="alert"><p style={{ margin: "0 0 12px" }}>{tx(T.feesUnavailable)}</p><Btn variant="sec" onClick={() => router.refresh()}>{tx(T.retryFees)}</Btn></div></Card> : null}
-          {body}
+          </nav>
+          {section === "learning" || section === "more" ? <nav className="student-profile-subnav" aria-label={tx(SECTION_LABEL[section])}>
+            {p.tabs.filter(t => profileSection(t) === section).map(t => <a key={t} href={studentProfileHref(p.id, p.returnTo, t)} onClick={pick(t)} className={`tap chip${tab === t ? " on" : ""}`} aria-current={tab === t ? "location" : undefined}>{tx(TAB_LABEL[t])}</a>)}
+          </nav> : null}
+          {feesUnavailable || (p.unavailable?.length ?? 0) > 0 ? <Card><div role="alert"><p style={{ margin: "0 0 12px" }}>{tx(feesUnavailable ? T.feesUnavailable : T.couldNotRead)}</p><Btn variant="sec" onClick={() => router.refresh()}>{tx(T.retryFees)}</Btn></div></Card> : null}
+          <div key={tab} className="student-profile-body">{body}</div>
         </Section>
       </main>
     </>
@@ -582,12 +607,11 @@ function Overview({
   // may see on the notes board, and nothing when she may not read notes.
   const strength = seesNotes ? latestStrength(p.notes) : null;
   const openActions = seesNotes ? openSupportActions(p.notes) : [];
-  const mobile = mobileOf(p.phone);
 
   const attendanceCard = (
     <Card>
       <CardHead title={tx(T.attendancePct)} sub={tx(T.thisSession)} action={tabLink("attendance")} />
-      {att.counted > 0 ? (
+      {p.unavailable?.includes("attendance") || p.unavailable?.includes("rules") ? <p style={muted}>{tx(T.couldNotRead)}</p> : att.counted > 0 ? (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 2 }}>
           <strong className="num" style={{ fontSize: 26 }}>{att.percent !== null ? `${att.percent}%` : "—"}</strong>
           <span style={{ fontSize: 13, color: "var(--mut)" }}>
@@ -604,7 +628,7 @@ function Overview({
   const learningCard = p.tabs.includes("marks") ? (
     <Card>
       <CardHead title={tx(T.learning)} action={tabLink("marks")} />
-      {latest ? (
+      {p.unavailable?.includes("marks") ? <p style={muted}>{tx(T.couldNotRead)}</p> : latest ? (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             <strong className="num" style={{ fontSize: 26 }}>{latest.percent !== null ? `${latest.percent}%` : "—"}</strong>
@@ -624,7 +648,7 @@ function Overview({
   const strengthsCard = seesNotes ? (
     <Card>
       <CardHead title={tx(T.strengths)} />
-      {strength ? (
+      {p.unavailable?.includes("notes") ? <p style={muted}>{tx(T.couldNotRead)}</p> : strength ? (
         <Link href={`${notesHref}&note=${strength.id}`} className="tap" style={{ display: "block", marginTop: 10, padding: "12px 14px", borderRadius: 14, background: "var(--s2)", color: "var(--fg)" }}>
           <span style={{ display: "block", fontSize: 15 }}>{excerpt(strength.body, 160)}</span>
           <span style={{ fontSize: 12.5, color: "var(--mut)" }}>{strength.by} · {dayMonth(strength.createdAt)}</span>
@@ -637,20 +661,11 @@ function Overview({
 
   const supportCard = seesNotes ? (
     <Card>
-      <CardHead
-        title={tx(T.support)}
-        action={p.canAddNote ? <Btn variant="ghost" icon="plus" href={`${notesHref}&sheet=add`}>{tx(T.addSupportAction)}</Btn> : null}
-      />
+      <CardHead title={tx(T.support)} />
       {/* Every open action, worked here: the same notes the board and Today read. */}
-      {openActions.length > 0 ? <SupportActions actions={openActions} today={p.today} notesHref={notesHref} /> : <p style={muted}>{tx(T.noOpenSupport)}</p>}
+      {p.unavailable?.includes("notes") ? <p style={muted}>{tx(T.couldNotRead)}</p> : openActions.length > 0 ? <SupportActions actions={openActions} today={p.today} notesHref={notesHref} /> : <p style={muted}>{tx(T.noOpenSupport)}</p>}
     </Card>
   ) : null;
-
-  const contact: [Pair, React.ReactNode][] = [
-    [T.father, p.father],
-    [T.mother, p.mother],
-    [T.phone, p.phone ? (mobile ? <a href={`tel:${mobile}`} className="num">{p.phone}</a> : p.phone) : null],
-  ];
 
   const feeCard = !p.tabs.includes("fees") || feesUnavailable ? null : feesLoading ? (
     <Card>
@@ -666,13 +681,12 @@ function Overview({
       <div style={{ marginTop: 12 }}>
         <Grid cols={3}>
           <Stat
-            label={tx(T.pendingToday)}
+            label={tx(T.profileDueNow)}
             value={rupees(p.money.pendingToday)}
             tone={p.money.pendingToday > 0 ? "var(--bad)" : undefined}
-            sub={p.money.lateFee > 0 ? `${tx(T.lateFee)} ${rupees(p.money.lateFee)} · ${tx(T.lateFeeApart)}` : undefined}
           />
-          <Stat label={tx(T.notDueYet)} value={rupees(p.money.notDueYet)} />
-          <Stat label={tx(T.paidYear)} value={rupees(p.money.paid)} tone="var(--ok)" sub={tx(T.yearPaidPct(p.money.percent))} />
+          <Stat label={tx(T.profileUpcoming)} value={rupees(p.money.notDueYet)} />
+          <Stat label={tx(T.lateFee)} value={rupees(p.money.lateFee)} sub={tx(T.lateFeeApart)} />
         </Grid>
       </div>
     </Card>
@@ -682,24 +696,12 @@ function Overview({
 
   return (
     <>
-      <Grid cols={2}>
+      <div className="student-overview-grid g2" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 }}>
         {attendanceCard}
         {learningCard}
         {strengthsCard}
         {supportCard}
-      </Grid>
-      <Card>
-        <CardHead title={tx(T.familyContact)} action={tabLink("family")} />
-        <dl style={{ margin: "10px 0 0", display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
-          {contact.map(([label, value]) => (
-            <div key={label.en} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <dt style={{ fontSize: 12, color: "var(--mut)", fontWeight: 600 }}>{tx(label)}</dt>
-              <dd style={{ margin: 0, fontWeight: 600, overflowWrap: "anywhere" }}>{value || "—"}</dd>
-            </div>
-          ))}
-        </dl>
-        {p.contacts ? <FamilyContactLog studentId={p.id} contacts={p.contacts} canLog today={p.today} recoveryScope={p.contactRecoveryScope} /> : null}
-      </Card>
+      </div>
       {feeCard}
     </>
   );
@@ -738,6 +740,12 @@ function FeesTab({ p, summary, receiptsCard }: { p: Student360Props; summary: St
         {ribbon.detail ? <span style={{ opacity: 0.9 }}> · {ribbon.detail}</span> : null}
       </div>
 
+      {p.money ? <Card><Grid cols={3}>
+        <Stat label={tx(T.profileDueNow)} value={rupees(p.money.pendingToday)} tone={p.money.pendingToday > 0 ? "var(--bad)" : undefined} />
+        <Stat label={tx(T.profileUpcoming)} value={rupees(p.money.notDueYet)} />
+        <Stat label={tx(T.lateFee)} value={rupees(p.money.lateFee)} sub={tx(T.lateFeeApart)} />
+      </Grid></Card> : null}
+
       <Grid cols={4}>
         <Card style={{ padding: "14px 16px" }}>
           <Stat
@@ -746,14 +754,14 @@ function FeesTab({ p, summary, receiptsCard }: { p: Student360Props; summary: St
             tone={summary.outstanding > 0 ? "var(--bad)" : "var(--ok)"}
             sub={
               summary.lateFeePending > 0
-                ? `${tx(T.inclLateFee(rupees(summary.lateFeePending)))} · ${tx(T.installmentsPendingN(summary.installmentsPending))}`
+                ? `${tx(T.lateFee)} ${rupees(summary.lateFeePending)} · ${tx(T.lateFeeApart)} · ${tx(T.installmentsPendingN(summary.installmentsPending))}`
                 : tx(T.installmentsPendingN(summary.installmentsPending))
             }
           />
         </Card>
         <Card style={{ padding: "14px 16px" }}>
           <Stat
-            label={tx(T.paidThisSession)}
+            label={tx(T.profileCashReceived)}
             value={rupees(summary.paidThisSession)}
             tone="var(--ok)"
             sub={summary.discountClosed > 0 ? tx(T.closedAsDiscount(rupees(summary.discountClosed))) : tx(T.acrossReceipts((p.receipts ?? []).length))}
@@ -775,6 +783,8 @@ function FeesTab({ p, summary, receiptsCard }: { p: Student360Props; summary: St
         )}
       </Grid>
 
+      <div><Btn icon="send" href={`/fees/students/${p.id}/statement`}>{tx(T.statement)}</Btn></div>
+
       <Card pad={false} style={{ overflow: "hidden" }}>
         <div style={{ padding: "16px 18px 10px" }}>
           <CardHead
@@ -786,14 +796,14 @@ function FeesTab({ p, summary, receiptsCard }: { p: Student360Props; summary: St
         {rows.length === 0 ? (
           <p style={{ margin: 0, padding: "0 18px 16px", color: "var(--mut)" }}>{tx(T.noFeeRecord)}</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="student-profile-fee-table" role="region" tabIndex={0} aria-label={tx(T.profileFeeScroll)}>
             <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
                 <tr style={{ background: "var(--s2)", color: "var(--mut)", fontSize: 12, textAlign: "left" }}>
                   <th style={{ padding: "10px 18px", fontWeight: 600 }}>{tx(T.colInstallment)}</th>
                   <th style={{ padding: "10px 12px", fontWeight: 600 }}>{tx(T.colDueDate)}</th>
                   <th style={{ padding: "10px 12px", fontWeight: 600, textAlign: "right" }}>{tx(T.colCharged)}</th>
-                  <th style={{ padding: "10px 12px", fontWeight: 600, textAlign: "right" }}>{tx(T.colPaid)}</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600, textAlign: "right" }}>{tx(T.profileSettled)}</th>
                   <th style={{ padding: "10px 12px", fontWeight: 600, textAlign: "right" }}>{tx(T.colOutstanding)}</th>
                   <th style={{ padding: "10px 18px 10px 12px", fontWeight: 600 }}>{tx(T.colStatus)}</th>
                 </tr>
@@ -841,6 +851,7 @@ function FeesTab({ p, summary, receiptsCard }: { p: Student360Props; summary: St
             />
           </div>
           <div style={{ padding: "0 18px 14px" }}>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--mut)" }}>{tx(T.profileConcessions)}</p>
             <Grid cols={4}>
               <Stat label={tx(T.tuitionOverride)} value={breakup.tuitionOverride !== null ? rupees(breakup.tuitionOverride) : tx(T.classDefault)} />
               <Stat label={tx(T.transportOverride)} value={breakup.transportOverride !== null ? rupees(breakup.transportOverride) : tx(T.routeDefault)} />

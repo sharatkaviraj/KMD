@@ -294,8 +294,9 @@ export async function historyForStudent(studentId: string, limit = 40): Promise<
     actorIds.length > 0
       ? admin.from("staff_profiles").select("id, display_name").in("id", actorIds)
           .returns<{ id: string; display_name: string }[]>()
-      : Promise.resolve({ data: [] as { id: string; display_name: string }[] }),
+      : Promise.resolve({ data: [] as { id: string; display_name: string }[], error: null }),
   ]);
+  if (fields.error || actors.error) throw new Error("Could not read the record history's labels and staff names.");
   const fieldOf = new Map((fields.data ?? []).map((row) => [row.id, row]));
   const nameOf = new Map((actors.data ?? []).map((row) => [row.id, row.display_name]));
 

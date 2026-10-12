@@ -31,6 +31,20 @@ export type RosterChild = {
   uploadedAt: string | null;
 };
 
+/** Read one current private portrait; the collection permission is unchanged. */
+export async function studentProfilePhoto(studentId: string): Promise<string | null> {
+  await assertPermission("collection:manage");
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("student_photos")
+    .select("storage_path").eq("student_id", studentId).is("replaced_at", null)
+    .maybeSingle<{ storage_path: string }>();
+  if (error) throw new Error("Could not read the student's photograph.");
+  if (!data) return null;
+  const signed = await admin.storage.from(PHOTOS_BUCKET).createSignedUrl(data.storage_path, SIGNED_SECONDS);
+  if (signed.error) throw new Error("Could not open the student's photograph.");
+  return signed.data.signedUrl;
+}
+
 /** A class's children, with their current photograph — the missing-photo view's source. */
 export async function classPhotoRoster(classId: string, sessionLabel: string): Promise<RosterChild[]> {
   await assertPermission("collection:manage");

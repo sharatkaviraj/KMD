@@ -4,7 +4,7 @@ const subscribe = (callback: () => void) => {
   return () => window.removeEventListener("popstate", callback);
 };
 export function usePathname() {
-  return useSyncExternalStore(subscribe, () => new URLSearchParams(location.search).get("path") ?? "/teach");
+  return useSyncExternalStore(subscribe, () => new URLSearchParams(location.search).get("path") ?? (location.pathname === "/" ? "/teach" : location.pathname));
 }
 export function useSearchParams() { return new URLSearchParams(location.search); }
 export function useRouter() { return {
