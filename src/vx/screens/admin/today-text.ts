@@ -26,6 +26,9 @@ export const TD = {
   shared: p("Shared", "साझा"),
   parallel: p("Parallel", "समानांतर"),
   needSubstitute: (n: number): Pair => p(`${n} need${n === 1 ? "s" : ""} a substitute`, `${n} के लिए स्थानापन्न चाहिए`),
+  showAllClasses: (n: number): Pair => p(`Show all ${n} classes`, `सभी ${n} कक्षाएँ दिखाएँ`),
+  showFewer: p("Show fewer", "कम दिखाएँ"),
+  whichPeriod: p("Which period", "कौन-सा पीरियड"),
 
   /* ------------------------------------------------- teaching exceptions */
   exceptions: p("Teaching exceptions", "पढ़ाई में बदलाव"),

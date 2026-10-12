@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import { rupees, rupeesShort, dayMonth } from "@/vx/format";
 import { Bi, useVx } from "@/vx/i18n";
-import { type IconName } from "@/vx/icons";
+import { Ic, type IconName } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
 import { Seg } from "@/vx/ui/controls";
 import { TopBar, Section, Grid } from "@/vx/ui/page";
@@ -25,7 +25,7 @@ import {
   Ring,
 } from "@/vx/ui/primitives";
 import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
-import type { CoverException, ScheduledActivity, ScheduledPeriod, ScheduleView, ScheduledTeacher } from "@/vx/screens/admin/schedule";
+import { foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { TD } from "@/vx/screens/admin/today-text";
 import type { InboxItem, TimelineItem } from "@/vx/screens/admin/types";
@@ -110,7 +110,7 @@ export function TodayScreen(props: TodayProps) {
       <Card>
         <CardHead
           title={tx(TD.scheduledNow)}
-          sub={tx(TD.scheduledSub)}
+          sub={<span className="only-d">{tx(TD.scheduledSub)}</span>}
           action={
             props.links.timetable ? (
               <Link href="/timetable" className="tap" style={{ color: "var(--accfg)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}>
@@ -120,6 +120,8 @@ export function TodayScreen(props: TodayProps) {
           }
         />
         <div style={{ marginTop: 12 }}>{props.schedule ? <ScheduleBody view={props.schedule} /> : <Quiet>{tx(T.couldNotRead)}</Quiet>}</div>
+        {/* On a phone the "not a record of teaching" line moves under the list, small. */}
+        {props.schedule ? <p className="only-m" style={{ margin: "10px 0 0", fontSize: 12, color: "var(--mut)" }}>{tx(TD.scheduledSub)}</p> : null}
       </Card>
     ) : null;
 
@@ -509,8 +511,16 @@ export function TodayScreen(props: TodayProps) {
 
 /* ------------------------------------------------------- Scheduled now */
 
+/**
+ * A phone shows one period at a time, and only its first few classes until
+ * asked for the rest; a desktop shows Now and Next side by side in full.
+ * Rows a phone hides carry `only-d`, so the desktop layout is unchanged.
+ */
+const PHONE_ROWS = 5;
+
 function ScheduleBody({ view }: { view: ScheduleView }) {
   const { tx } = useVx();
+  const [tab, setTab] = useState<"now" | "next">("now");
   switch (view.state) {
     case "closed":
       return <Quiet>{tx(T.schoolClosed)}</Quiet>;
@@ -540,37 +550,88 @@ function ScheduleBody({ view }: { view: ScheduleView }) {
       );
     case "during":
       return (
-        <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 18 }}>
-          <PeriodList label={TD.now} period={view.now} now />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {view.next ? (
-            <PeriodList label={TD.next} period={view.next} />
-          ) : (
-            <Quiet>
-              {tx(TD.lastPeriod)}
-            </Quiet>
-          )}
+            <div className="only-m">
+              <Seg
+                options={[
+                  { value: "now", label: `${tx(TD.now)} · ${view.now.starts}` },
+                  { value: "next", label: `${tx(TD.next)} · ${view.next.starts}` },
+                ]}
+                value={tab}
+                onChange={setTab}
+                label={tx(TD.whichPeriod)}
+                style={{ width: "100%" }}
+              />
+            </div>
+          ) : null}
+          <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 18 }}>
+            <PeriodList label={TD.now} period={view.now} now tabbed={view.next !== null} phoneHidden={view.next !== null && tab !== "now"} />
+            {view.next ? (
+              <PeriodList label={TD.next} period={view.next} tabbed phoneHidden={tab !== "next"} />
+            ) : (
+              <Quiet>
+                {tx(TD.lastPeriod)}
+              </Quiet>
+            )}
+          </div>
         </div>
       );
   }
 }
 
-function PeriodList({ label, period, now = false }: { label: Pair; period: ScheduledPeriod; now?: boolean }) {
+function PeriodList({
+  label,
+  period,
+  now = false,
+  tabbed = false,
+  phoneHidden = false,
+}: {
+  label: Pair;
+  period: ScheduledPeriod;
+  now?: boolean;
+  /** A phone picks this period with the Now/Next switch, which already says which it is. */
+  tabbed?: boolean;
+  phoneHidden?: boolean;
+}) {
   const { tx } = useVx();
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const visible = foldedKeys(period.activities, PHONE_ROWS);
+  const folds = visible.size < period.activities.length;
+  const classCount = period.activities.reduce((n, a) => n + a.classes.length, 0);
   return (
-    <section style={{ display: "flex", flexDirection: "column", minWidth: 0 }} aria-label={`${tx(label)} · ${tx(TD.periodAt(period.number, period.starts, period.ends))}`}>
+    <section className={phoneHidden ? "only-d" : undefined} style={{ display: "flex", flexDirection: "column", minWidth: 0 }} aria-label={`${tx(label)} · ${tx(TD.periodAt(period.number, period.starts, period.ends))}`}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingBottom: 8 }}>
-        <Pill tone={now ? "acc" : "mut"}>{tx(label)}</Pill>
+        <span className={tabbed ? "only-d" : undefined} style={{ display: "inline-flex" }}>
+          <Pill tone={now ? "acc" : "mut"}>{tx(label)}</Pill>
+        </span>
         <span className="num" style={{ fontSize: 13, fontWeight: 600 }}>{tx(TD.periodAt(period.number, period.starts, period.ends))}</span>
         {period.uncovered > 0 ? <Pill tone="warn" icon="alert">{tx(TD.needSubstitute(period.uncovered))}</Pill> : null}
       </div>
       {period.activities.length === 0 ? (
         <Quiet>{tx(TD.nothingThisPeriod)}</Quiet>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, maxHeight: 340, overflowY: "auto", borderTop: "1px solid var(--bd)" }}>
-          {period.activities.map((activity) => (
-            <ActivityRow key={activity.key} activity={activity} />
-          ))}
-        </ul>
+        <>
+          <ul id={listId} className="sched-scroll" style={{ listStyle: "none", margin: 0, padding: 0, borderTop: "1px solid var(--bd)" }}>
+            {period.activities.map((activity) => (
+              <ActivityRow key={activity.key} activity={activity} phoneHidden={!open && !visible.has(activity.key)} />
+            ))}
+          </ul>
+          {folds ? (
+            <button
+              type="button"
+              className="only-m tap"
+              aria-expanded={open}
+              aria-controls={listId}
+              onClick={() => setOpen((value) => !value)}
+              style={{ marginTop: 8, minHeight: 44, border: 0, borderRadius: 12, background: "var(--s2)", color: "var(--accfg)", fontWeight: 600, fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            >
+              {open ? tx(TD.showFewer) : tx(TD.showAllClasses(classCount))}
+              <Ic n={open ? "chevUp" : "chevDown"} size={16} />
+            </button>
+          ) : null}
+        </>
       )}
     </section>
   );
@@ -582,21 +643,36 @@ const KIND_LABEL: Record<Exclude<ScheduledActivity["kind"], "single">, Pair> = {
   parallel: TD.parallel,
 };
 
-function ActivityRow({ activity }: { activity: ScheduledActivity }) {
+/**
+ * One class's lesson. Without a cover change it is one line — class, subject,
+ * teacher — wrapping only when the names are long; a teacher who is away gets
+ * a line of their own with who covers.
+ */
+function ActivityRow({ activity, phoneHidden }: { activity: ScheduledActivity; phoneHidden: boolean }) {
   const { tx } = useVx();
+  const changed = activity.teachers.some((teacher) => teacher.cover !== null);
+  const parallel = activity.kind === "parallel";
   return (
-    <li style={{ display: "grid", gridTemplateColumns: "minmax(0,96px) minmax(0,1fr)", gap: 10, padding: "8px 2px", borderBottom: "1px solid var(--bd)" }}>
+    <li className={phoneHidden ? "only-d" : undefined} style={{ display: "grid", gridTemplateColumns: "minmax(0,72px) minmax(0,1fr)", gap: 10, padding: "7px 2px", borderBottom: "1px solid var(--bd)", alignItems: "baseline" }}>
       <strong style={{ fontSize: 13.5, overflowWrap: "anywhere" }}>{activity.classes.map((c) => c.label).join(", ")}</strong>
       <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 13.5, fontWeight: 600 }}>
-          {activity.subjects.join(" / ")}
-          {activity.kind !== "single" ? <Pill tone="info" style={{ fontSize: 11 }}>{tx(KIND_LABEL[activity.kind])}</Pill> : null}
+        <span style={{ fontSize: 13.5, lineHeight: 1.45 }}>
+          <span style={{ fontWeight: 600 }}>{activity.subjects.join(" / ")}</span>
+          {activity.kind !== "single" ? <Pill tone="info" style={{ fontSize: 11, marginLeft: 6, verticalAlign: "1px" }}>{tx(KIND_LABEL[activity.kind])}</Pill> : null}
+          {changed ? null : (
+            <span style={{ color: "var(--mut)" }}>
+              {" · "}
+              {activity.teachers.map((teacher) => (parallel ? `${teacher.name} (${teacher.subjectCode})` : teacher.name)).join(", ")}
+            </span>
+          )}
         </span>
-        <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {activity.teachers.map((teacher) => (
-            <TeacherLine key={teacher.id} teacher={teacher} showSubject={activity.kind === "parallel"} />
-          ))}
-        </span>
+        {changed ? (
+          <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {activity.teachers.map((teacher) => (
+              <TeacherLine key={teacher.id} teacher={teacher} showSubject={parallel} />
+            ))}
+          </span>
+        ) : null}
       </span>
     </li>
   );

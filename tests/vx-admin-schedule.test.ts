@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { supportAttention } from "@/vx/screens/admin/logic";
-import { groupActivities, scheduleNow, type ScheduleInput, type ScheduleSlot } from "@/vx/screens/admin/schedule";
+import { foldedKeys, groupActivities, scheduleNow, type ScheduledActivity, type ScheduleInput, type ScheduleSlot } from "@/vx/screens/admin/schedule";
 
 /* Test data only: classes, subjects and teachers are invented. */
 
@@ -230,6 +230,40 @@ describe("cover laid over the timetable", () => {
       ["Teacher Four", "in"],
       ["Teacher Five", "away"],
     ]);
+  });
+});
+
+describe("foldedKeys — what a phone shows before Show all", () => {
+  const lesson = (key: string, cover: "needed" | null = null): ScheduledActivity => ({
+    key,
+    kind: "single",
+    classes: [{ id: key, label: key.toUpperCase() }],
+    subjects: ["MATH"],
+    teachers: [{ id: `t-${key}`, name: `Teacher ${key}`, subjectCode: "MATH", cover: cover ? { state: cover } : null }],
+  });
+  const day = (n: number) => Array.from({ length: n }, (_, i) => lesson(`c${i + 1}`));
+
+  it("shows the first lessons in school order up to the limit", () => {
+    expect([...foldedKeys(day(20), 5)]).toEqual(["c1", "c2", "c3", "c4", "c5"]);
+  });
+
+  it("always shows a lesson with a cover change, however far down it is", () => {
+    const lessons = day(20);
+    lessons[16] = lesson("c17", "needed");
+    const shown = foldedKeys(lessons, 5);
+    expect(shown.has("c17")).toBe(true);
+    expect(shown.size).toBe(5);
+    expect([...shown]).toEqual(["c17", "c1", "c2", "c3", "c4"]);
+  });
+
+  it("shows every cover change even when there are more than the limit", () => {
+    const lessons = day(20).map((l, i) => (i % 2 === 0 ? lesson(l.key, "needed") : l));
+    expect(foldedKeys(lessons, 5).size).toBe(10);
+  });
+
+  it("does not fold away a single row", () => {
+    expect(foldedKeys(day(6), 5).size).toBe(6);
+    expect(foldedKeys(day(7), 5).size).toBe(5);
   });
 });
 
