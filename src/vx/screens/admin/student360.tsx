@@ -25,7 +25,7 @@ import {
   type NoteTag,
 } from "@/vx/screens/notes/domain/notes";
 import type { ContactEntry } from "@/vx/screens/family-contact/domain";
-import { FamilyContactLog } from "@/vx/screens/family-contact/ui";
+import { FamilyContactLog, type ContactRecoveryScope } from "@/vx/screens/family-contact/ui";
 
 /*
  * Student 360 (design F06–F08/D02): one child, every side of them, behind
@@ -144,6 +144,7 @@ export type Student360Props = {
   canAddNote: boolean;
   /** Family contacts this session, newest first; null when the reader may not see them (D-265). */
   contacts: ContactEntry[] | null;
+  contactRecoveryScope?: ContactRecoveryScope;
 };
 
 /** The fee app's status badge words, in the same tones. */
@@ -424,7 +425,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             <EmptyState icon="users" title={tx(T.noFamily)} />
           ) : (
             (p.family ?? []).map((m) => (
-              <Link key={m.id} href={`/students/${m.id}`} className="row tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderTop: "1px solid var(--bd)" }}>
+              <Link key={m.id} href={studentProfileHref(m.id, p.returnTo)} className="row tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderTop: "1px solid var(--bd)" }}>
                 <Avatar text={initials(m.name)} seed={m.name} size={38} />
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <strong className="clip">{m.name}</strong>
@@ -697,7 +698,7 @@ function Overview({
             </div>
           ))}
         </dl>
-        {p.contacts ? <FamilyContactLog studentId={p.id} contacts={p.contacts} canLog today={p.today} /> : null}
+        {p.contacts ? <FamilyContactLog studentId={p.id} contacts={p.contacts} canLog today={p.today} recoveryScope={p.contactRecoveryScope} /> : null}
       </Card>
       {feeCard}
     </>
