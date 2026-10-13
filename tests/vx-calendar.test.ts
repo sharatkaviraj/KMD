@@ -87,9 +87,14 @@ describe("holidays", () => {
   });
 
   it("writes notices in both languages", () => {
-    expect(holidayNotice("Diwali", "दीपावली", "20 Oct").hi).toContain("दीपावली");
-    const n = eventNotice({ title: "PTM", titleHi: null, place: "Hall" }, "Sat 17 Oct");
-    expect(n.en).toContain("PTM is on Sat 17 Oct at Hall");
-    expect(n.hi).toContain("(Hall)");
+    const h = holidayNotice("Diwali", "दीपावली", "2026-10-20", "2026-10-24");
+    expect(h.hi).toContain("दीपावली");
+    expect(h.en).toContain("from Tue 20 Oct to Sat 24 Oct");
+    // A break ending on Saturday reopens on Monday, never on a Sunday.
+    expect(h.en).toContain("opens as usual on Mon 26 Oct");
+    const n = eventNotice({ kind: "ptm", title: "PTM", titleHi: null, startsOn: "2026-10-17", endsOn: "2026-10-17", allDay: false, startsAt: "11:00", place: "Hall" });
+    expect(n.en).toContain("PTM is on Sat 17 Oct at 11:00 am, Hall");
+    expect(n.hi).toContain("Hall में");
+    expect(eventNotice({ kind: "meeting", title: "Staff meeting", titleHi: null, startsOn: "2026-10-10", endsOn: "2026-10-10", allDay: true, startsAt: null, place: null }, "staff").en).toMatch(/^Dear colleagues,/);
   });
 });

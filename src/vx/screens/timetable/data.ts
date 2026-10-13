@@ -10,7 +10,7 @@ import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitution
 import { coverCountsBetween, noticesOn, type DutyNotice } from "@/modules/substitutions/data/cover-repo";
 import { blockLabels, tierLabels } from "@/modules/substitutions/domain/labels";
 import { needsHelpReasons } from "@/modules/substitutions/domain/cover-state";
-import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
+import { getPublishedVersion, listSlots, listVersions, type TimetableVersion } from "@/modules/timetable/data/timetable-repo";
 import { DEFAULT_BELLS } from "@/modules/timetable/domain/bells";
 import type { Pair } from "@/vx/text";
 
@@ -34,9 +34,13 @@ export type CoverDutyView = {
   coveringName: string | null;
   suggestedStaffId: string | null;
   absentNames: string[];
+  /** The staff ids behind `absentNames`, so a teacher's own week can mark the periods they leave. */
+  absentIds?: string[];
   reason: Pair | null;
+  /** Why the duty needs a person (`needsHelpReasons` key); the default one is not repeated on screen. */
+  reasonKey?: string | null;
   notice: DutyNotice["status"] | null;
-  candidates: { id: string; name: string; detail: string; blocked: boolean; subsThisWeek: number }[];
+  candidates: { id: string; name: string; detail: string; detailHi?: string | null; blocked: boolean; subsThisWeek: number }[];
 };
 
 export type CoverView = {
@@ -59,6 +63,9 @@ export type LeaveView = {
   note: string | null;
   status: "asked" | "approved" | "declined" | "cancelled";
   createdAt: string;
+  /** Who approved it, and when (approved leave only). */
+  decidedBy?: string | null;
+  decidedAt?: string | null;
 };
 
 export type TimetableData = {
@@ -66,11 +73,18 @@ export type TimetableData = {
   today: string;
   week: string[];
   version: { id: string; label: string } | null;
+  /** Published versions, newest first (editors only): the publish screen's history. */
+  versions?: { id: string; label: string; publishedAt: string | null }[];
   slots: Slot[];
   classes: { id: string; label: string; classTeacher: string | null }[];
   teachers: { id: string; name: string; shortName: string }[];
-  subjects: { id: string; code: string; name: string }[];
+  subjects: { id: string; code: string; name: string; nameHi?: string | null }[];
   bells: { index: number; starts: string; ends: string }[];
+  /**
+   * School-clock "HH:MM" that marks the running period. Absent, the browser's
+   * clock is read (the screen's normal case); a fixture pins it.
+   */
+  clock?: string | null;
   changes: PendingChange[];
   leave: LeaveView[];
   cover: CoverView | null;
@@ -107,7 +121,7 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
   const admin = createAdminClient();
   const coverDay = coverDayParam && /^\d{4}-\d{2}-\d{2}$/.test(coverDayParam) ? coverDayParam : today;
 
-  const [published, labels, staff, subjects, changeRows, leaveRows, classTeacherRows, subsWeek] = await Promise.all([
+  const [published, labels, staff, subjects, changeRows, leaveRows, classTeacherRows, subsWeek, versionRows] = await Promise.all([
     getPublishedVersion(sessionLabel),
     classLabelMap(sessionLabel),
     listStaff(),
@@ -121,13 +135,13 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
       .returns<{ id: string; day: string; period: number; class_id: string; class_label: string; from_subject_code: string | null; from_teacher_short_name: string | null; subject_id: string; subject_code: string; staff_profile_id: string; teacher_short_name: string; created_by: string; created_at: string }[]>() : Promise.resolve({ data: [] }),
     admin
       .from("teacher_leave")
-      .select("id, staff_profile_id, from_day, to_day, span, note, status, created_at")
+      .select("id, staff_profile_id, from_day, to_day, span, note, status, created_at, decided_by, decided_at")
       .eq("session_label", sessionLabel)
       .gte("to_day", addDays(today, -7))
       .in("status", ["asked", "approved"])
       .order("from_day")
       .limit(200)
-      .returns<{ id: string; staff_profile_id: string; from_day: string; to_day: string; span: LeaveSpan; note: string | null; status: LeaveView["status"]; created_at: string }[]>(),
+      .returns<{ id: string; staff_profile_id: string; from_day: string; to_day: string; span: LeaveSpan; note: string | null; status: LeaveView["status"]; created_at: string; decided_by: string | null; decided_at: string | null }[]>(),
     admin
       .from("class_teachers")
       .select("class_id, staff_profile_id, effective_to")
@@ -135,6 +149,8 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
       .is("effective_to", null)
       .returns<{ class_id: string; staff_profile_id: string }[]>(),
     mayViewCover ? coverCountsBetween(sessionLabel, week[0], week[5]).catch(() => ({}) as Record<string, number>) : Promise.resolve({} as Record<string, number>),
+    // The publish screen's history; a failure leaves it out rather than the screen.
+    mayEdit ? Promise.resolve().then(() => listVersions(sessionLabel)).catch(() => [] as TimetableVersion[]) : Promise.resolve([] as TimetableVersion[]),
   ]);
 
   const slots: Slot[] = published
@@ -155,6 +171,7 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
   const nameOf = new Map(staff.map((s) => [s.id, s.displayName]));
   const classTeacher = new Map((classTeacherRows.data ?? []).map((r) => [r.class_id, nameOf.get(r.staff_profile_id) ?? null]));
   const inTimetable = new Set(slots.map((s) => s.classId));
+  // `classLabelMap` is built in school order (Nursery before Class 1), and a Map keeps it.
   const classes = [...labels.entries()].filter(([id]) => inTimetable.has(id) || slots.length === 0).map(([id, label]) => ({ id, label, classTeacher: classTeacher.get(id) ?? null }));
   const teaching = new Set(slots.map((s) => s.staffProfileId));
   const teachers = staff
@@ -196,18 +213,24 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
             coveringName: duty.coveringStaffId ? (names.get(duty.coveringStaffId) ?? null) : null,
             suggestedStaffId: duty.suggestedStaffId,
             absentNames: duty.absentStaffIds.map((id) => names.get(id) ?? "—"),
+            absentIds: duty.absentStaffIds,
             reason: reason ? { en: reason.en, hi: reason.hi } : null,
+            reasonKey,
             notice: latest.get(duty.id)?.status ?? null,
             candidates: profiles
               ? candidatesFor(day, profiles.everyone, profiles.history, duty)
                   .slice(0, 25)
-                  .map((c) => ({
-                    id: c.teacher,
-                    name: names.get(c.teacher) ?? "—",
-                    detail: c.blocked.length ? (blockLabels[c.blocked[0]]?.en ?? c.blocked[0]) : (tierLabels[c.matchTier]?.en ?? c.matchTier),
-                    blocked: c.blocked.length > 0,
-                    subsThisWeek: subsWeek[c.teacher] ?? 0,
-                  }))
+                  .map((c) => {
+                    const label = c.blocked.length ? blockLabels[c.blocked[0]] : tierLabels[c.matchTier];
+                    return {
+                      id: c.teacher,
+                      name: names.get(c.teacher) ?? "—",
+                      detail: label?.en ?? (c.blocked.length ? c.blocked[0] : c.matchTier),
+                      detailHi: label?.hi ?? null,
+                      blocked: c.blocked.length > 0,
+                      subsThisWeek: subsWeek[c.teacher] ?? 0,
+                    };
+                  })
               : [],
           };
         })
@@ -218,10 +241,14 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
   return {
     ...empty,
     version: published ? { id: published.id, label: published.label } : null,
+    versions: versionRows
+      .filter((v) => v.status !== "draft")
+      .slice(0, 4)
+      .map((v) => ({ id: v.id, label: v.label, publishedAt: v.publishedAt })),
     slots,
     classes,
     teachers,
-    subjects: subjects.filter((s) => s.isActive).map((s) => ({ id: s.id, code: s.code, name: s.nameEn || s.code })),
+    subjects: subjects.filter((s) => s.isActive).map((s) => ({ id: s.id, code: s.code, name: s.nameEn || s.code, nameHi: s.nameHi || null })),
     changes: (changeRows.data ?? []).map((c) => ({
       id: c.id,
       day: c.day,
@@ -237,7 +264,19 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
       createdBy: nameOf.get(c.created_by) ?? null,
       createdAt: c.created_at,
     })),
-    leave: (leaveRows.data ?? []).map((l) => ({ id: l.id, staffId: l.staff_profile_id, name: nameOf.get(l.staff_profile_id) ?? "—", from: l.from_day, to: l.to_day, span: l.span, note: mayCover ? l.note : null, status: l.status, createdAt: l.created_at })),
+    leave: (leaveRows.data ?? []).map((l) => ({
+      id: l.id,
+      staffId: l.staff_profile_id,
+      name: nameOf.get(l.staff_profile_id) ?? "—",
+      from: l.from_day,
+      to: l.to_day,
+      span: l.span,
+      note: mayCover ? l.note : null,
+      status: l.status,
+      createdAt: l.created_at,
+      decidedBy: l.status === "approved" && l.decided_by ? (nameOf.get(l.decided_by) ?? null) : null,
+      decidedAt: l.status === "approved" ? l.decided_at : null,
+    })),
     cover,
     subsThisWeek: subsWeek,
   };

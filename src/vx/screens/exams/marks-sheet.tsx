@@ -29,6 +29,7 @@ import {
   toEntries,
   type Cell,
 } from "./domain/entry";
+import { ExamsTop, Note, XBar } from "./bits";
 import type { SaveOutcome, SavePayload } from "./save-types";
 import type { SheetPaper, SheetStudent } from "./sheet-data";
 import { commandCells, isMarksRecovery, type MarksRecovery } from "./sheet-recovery";
@@ -63,6 +64,8 @@ export function MarksSheet({
   nextLabel,
   doneHref,
   noteHref,
+  variant = "teacher",
+  forTeacher = null,
 }: {
   ownerId: string;
   sessionLabel: string;
@@ -83,6 +86,10 @@ export function MarksSheet({
   doneHref?: string;
   /** Where "Add a note" goes; the child's id is appended. */
   noteHref?: string;
+  /** "office": the exam office entering a paper for its teacher (design Exams · entry). */
+  variant?: "teacher" | "office";
+  /** Whose paper the office is entering, for the override note. */
+  forTeacher?: string | null;
 }) {
   const { tx } = useVx();
   const toast = useToast();
@@ -643,6 +650,159 @@ export function MarksSheet({
             </div>
           </section>
           {sendBar}
+        </main>
+      </VxPage>
+    );
+  }
+
+  /* ------------------------------------- phase: entry, the exam office */
+
+  if (variant === "office") {
+    const line = paper.passMarks ?? Math.ceil(paper.maxMarks * 0.33);
+    const linePct = Math.floor((line / Math.max(1, paper.maxMarks)) * 100);
+    const values = order.map((id) => cells[id]).filter((x): x is Cell => Boolean(x && x.state === "value" && x.value !== null));
+    const lowCount = values.filter((x) => (x.value as number) < line).length;
+    const highest = summary.highest === null ? null : (students.find((s) => cells[s.id]?.state === "value" && cells[s.id]?.value === summary.highest)?.name ?? null);
+    const stats = [
+      { label: tx(p("Average", "औसत")), value: summary.average === null ? "—" : summary.average.toFixed(1), tone: "var(--fg)" },
+      { label: tx(p("Highest", "सर्वाधिक")), value: summary.highest === null ? "—" : String(summary.highest), tone: "var(--ok)", title: highest ?? undefined },
+      { label: tx(p(`Below ${linePct}%`, `${linePct}% से कम`)), value: String(lowCount), tone: lowCount ? "var(--bad)" : "var(--fg)" },
+    ];
+    const cols = `36px minmax(0,1fr) 92px ${paper.allowExempt ? "110px" : "52px"}`;
+    const colsM = `22px minmax(0,1fr) 70px ${paper.allowExempt ? "100px" : "48px"}`;
+    const title2 = `${paper.classLabel} ${paper.subjectCode} · ${tx(p("enter marks", "अंक भरें"))}`;
+    return (
+      <VxPage>
+        <style href="vx-marks-office" precedence="default">{`.xer{display:grid;grid-template-columns:${cols};gap:10px;align-items:center;min-height:58px;padding:6px 16px}.xer.xd+.xer.xd{border-top:1px solid var(--bd)}.xsave{bottom:12px}@container vx (max-width:899px){.xer{grid-template-columns:${colsM};padding:6px 12px}.xsave{bottom:calc(88px + env(safe-area-inset-bottom,0px))}}`}</style>
+        <ExamsTop crumb={crumb} title={title2} back={backHref} mSub={`${tx(p("Out of", "पूर्णांक"))} ${paper.maxMarks} · ${tx(p("admin entry", "प्रशासक प्रविष्टि"))}`} mBack={backHref} />
+        <main>
+          <div className="pad" style={{ padding: "16px 28px 20px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 880, margin: "0 auto" }}>
+              <Note icon="shield" tone="warn">
+                <b>{tx(p("Admin override.", "प्रशासक द्वारा।"))}</b>{" "}
+                {forTeacher
+                  ? tx(p(`You are entering ${paper.classLabel} ${paper.subjectCode} marks for ${forTeacher}. Each change is logged with your name.`, `आप ${forTeacher} की जगह ${paper.classLabel} ${paper.subjectCode} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))
+                  : tx(p(`You are entering ${paper.classLabel} ${paper.subjectCode} marks. Each change is logged with your name.`, `आप ${paper.classLabel} ${paper.subjectCode} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))}
+              </Note>
+              {banner}
+              {correcting ? (
+                <Card style={{ borderColor: "var(--warn)" }}>
+                  <strong>{tx(p("Correcting a sent paper", "भेजे पेपर में सुधार"))}</strong>
+                  <p style={{ margin: "4px 0 8px", color: "var(--mut)", fontSize: 13 }}>{tx(p("Change the marks, say why, then save. Every change is kept with its reason.", "अंक बदलें, कारण लिखें, फिर सहेजें। हर बदलाव कारण सहित रखा जाता है।"))}</p>
+                  <Textarea value={reason} disabled={!editable} onChange={(e) => { const next = e.target.value; setReason(next); void keepRecovery(null, next); }} placeholder={tx(p("Why are these marks changing?", "अंक क्यों बदल रहे हैं?"))} rows={2} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <Btn variant="pri" icon="check" disabled={!editable || reason.trim().length < 3} onClick={() => void send("correction")}>{tx(p("Save correction", "सुधार सहेजें"))}</Btn>
+                    <Btn variant="ghost" disabled={pendingCommand || busy} onClick={() => { setCorrecting(false); setCells(saved); latest.current = { ...latest.current, cells: saved }; setTexts(textsOf(saved)); setPhase("sent"); void clearRecovery(); }}>{tx(p("Cancel", "रद्द करें"))}</Btn>
+                  </div>
+                </Card>
+              ) : null}
+              <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px 22px", padding: "14px 16px" }}>
+                {stats.map((k) => (
+                  <span key={k.label} title={k.title} style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{k.label}</span>
+                    <span className="num" style={{ fontSize: 20, fontWeight: 700, color: k.tone }}>{k.value}</span>
+                  </span>
+                ))}
+                <span style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 150 }}>
+                  <span style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "var(--mut)" }}>{tx(p("Entered", "भरे"))}</span>
+                    <b className="num">{tx(p(`${c.filled} of ${c.total}`, `${c.total} में से ${c.filled}`))}</b>
+                  </span>
+                  <XBar parts={[{ w: c.total ? (c.filled / c.total) * 100 : 0, color: "var(--acc)" }]} />
+                </span>
+              </div>
+              <div className="card" style={{ overflow: "hidden" }}>
+                <div className="only-d xer" style={{ minHeight: 42, background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
+                  <span className="sech">{tx(p("Roll", "रोल"))}</span>
+                  <span className="sech">{tx(p("Student", "विद्यार्थी"))}</span>
+                  <span className="sech" style={{ textAlign: "center" }}>{tx(p("Marks", "अंक"))} / {paper.maxMarks}</span>
+                  <span className="sech">{tx(p("Absent", "अनुपस्थित"))}</span>
+                </div>
+                <div>
+                  {students.map((s, i) => {
+                    const cell = cells[s.id] ?? BLANK;
+                    const off = cell.state === "value" && looksOff(cell.value, s.prevPct, paper.maxMarks);
+                    const pct = cell.state === "value" && cell.value !== null ? (cell.value / Math.max(1, paper.maxMarks)) * 100 : null;
+                    const res =
+                      cell.state === "absent"
+                        ? { t: tx(p("Absent", "अनुपस्थित")), c: "var(--mut)" }
+                        : cell.state === "exempt"
+                          ? { t: tx(p("Exempt", "छूट")), c: "var(--mut)" }
+                          : pct === null
+                            ? { t: tx(p("Not entered", "नहीं भरा")), c: "var(--mut)" }
+                            : off
+                              ? { t: `${Math.round(pct)}% · ${tx(p("far from last test", "पिछले टेस्ट से बहुत अलग"))}`, c: "var(--warnfg)" }
+                              : { t: `${Math.round(pct)}%`, c: (cell.value as number) < line ? "var(--bad)" : "var(--mut)" };
+                    const away = cell.state === "absent" || cell.state === "exempt";
+                    return (
+                      <div key={s.id} className="row xer xd">
+                        <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{s.roll ?? "—"}</span>
+                        <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                          <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: res.c }}>{res.t}</span>
+                        </span>
+                        {away ? (
+                          <span className="pill" style={{ height: 42, borderRadius: 12, justifyContent: "center", fontSize: 12, color: "var(--mut)", background: "var(--s3)", animation: "xPopIn .3s var(--spring) both" }}>
+                            {cell.state === "absent" ? tx(p("Absent", "अनुपस्थित")) : tx(p("Exempt", "छूट"))}
+                          </span>
+                        ) : (
+                          <input
+                            ref={(el) => {
+                              if (el) inputs.current.set(s.id, el);
+                              else inputs.current.delete(s.id);
+                            }}
+                            className={`inp num${off ? " err" : ""}`}
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="—"
+                            aria-label={`${s.name} — ${tx(p("Row", "पंक्ति"))} ${i + 1}${s.roll ? `, ${tx(p("Roll", "रोल"))} ${s.roll}` : ""} — ${tx(p("mark out of", "अंक, पूर्णांक"))} ${paper.maxMarks}`}
+                            disabled={!editable}
+                            value={texts[s.id] ?? ""}
+                            onFocus={() => setCurrent(i)}
+                            onChange={(e) => typed(s.id, i, e.target.value)}
+                            onKeyDown={(e) => keyDown(e, s.id, i)}
+                            style={{ height: 42, padding: "0 6px", textAlign: "center", fontWeight: 700 }}
+                          />
+                        )}
+                        <span style={{ display: "flex", gap: 6 }}>
+                          <button type="button" className={`tap chip${cell.state === "absent" ? " on" : ""}`} aria-pressed={cell.state === "absent"} aria-label={tx(p(`Mark ${s.name} absent`, `${s.name} को अनुपस्थित करें`))} disabled={!editable} onClick={() => toggleAbsent(s.id)} style={{ flex: 1, padding: 0, justifyContent: "center" }}>
+                            AB
+                          </button>
+                          {paper.allowExempt ? (
+                            <button type="button" className={`tap chip${cell.state === "exempt" ? " on" : ""}`} aria-pressed={cell.state === "exempt"} aria-label={tx(p(`Mark ${s.name} exempt`, `${s.name} को छूट दें`))} disabled={!editable} onClick={() => toggleExempt(s.id)} style={{ flex: 1, padding: 0, justifyContent: "center" }}>
+                              EX
+                            </button>
+                          ) : null}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="glass xsave" style={{ position: "sticky", zIndex: 4, marginTop: 4, display: "flex", alignItems: "center", gap: 12, padding: "8px 8px 8px 16px", borderRadius: 18, border: "1px solid var(--bd)", boxShadow: "var(--shh)" }}>
+                <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: status === "error" || status === "stale" ? "var(--bad)" : "var(--mut)" }}>
+                  {status === "saving" ? (
+                    <span aria-hidden="true" style={{ flex: "none", width: 16, height: 16, borderRadius: 8, border: "2px solid var(--bds)", borderTopColor: "var(--acc)", animation: "xLoop .7s linear infinite" }} />
+                  ) : status === "saved" ? (
+                    <Ic n="checkCircle" style={{ flex: "none", color: "var(--ok)", animation: "xPopIn .35s var(--spring) both" }} />
+                  ) : null}
+                  <span className="clip">{statusLine}</span>
+                  <span className="hide-m" style={{ display: "flex", alignItems: "center", gap: 4, flex: "none" }}>
+                    · <span className="k">Enter</span>
+                    {tx(p("next student", "अगला विद्यार्थी"))}
+                  </span>
+                </span>
+                {entryStatus === "submitted" && !correcting ? (
+                  <Btn variant="sec" onClick={() => setPhase("sent")}>{tx(p("Sent", "भेजा"))} ✓</Btn>
+                ) : !correcting ? (
+                  <button type="button" className="tap btn pri" style={{ height: 46 }} disabled={!editable || busy} onClick={() => { void flush(); setPhase("check"); }}>
+                    <Ic n="checkCircle" />
+                    {tx(p("Check and submit", "जाँचें और जमा करें"))}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </main>
       </VxPage>
     );

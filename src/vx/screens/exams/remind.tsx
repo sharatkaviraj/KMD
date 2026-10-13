@@ -7,8 +7,8 @@ import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { Avatar, avatarColor, Btn, Pill, Progress, WhatsAppPreview } from "@/vx/ui/primitives";
-import { agoP, initials } from "@/vx/format";
+import { Avatar, avatarColor, Btn, Pill, Progress } from "@/vx/ui/primitives";
+import { agoP, clock, initials } from "@/vx/format";
 
 import { bilingualReminder, waLink } from "./domain/messages";
 import type { ActionResult } from "./save-types";
@@ -95,23 +95,22 @@ export function RemindSheet({
     <Sheet
       open={open}
       onClose={close}
-      icon="send"
-      title={sent ? tx(p("Open each chat to send", "भेजने के लिए हर चैट खोलें")) : teachers.length === 1 ? `${tx(p("Remind", "याद दिलाएँ"))} ${first.name}?` : `${tx(p("Remind", "याद दिलाएँ"))} ${teachers.length} ${tx(p("teachers?", "शिक्षकों को?"))}`}
-      sub={`${tx({ en: exam.en, hi: exam.hi })} · ${tx(p("due", "अंतिम तिथि"))} ${dueLabel}`}
+      title={sent ? tx(p("Open each chat to send", "भेजने के लिए हर चैट खोलें")) : teachers.length === 1 ? tx(p(`Remind ${first.name}?`, `${first.name} को याद दिलाएँ?`)) : tx(p(`Remind ${teachers.length} late teachers?`, `${teachers.length} देर वाले शिक्षकों को याद दिलाएँ?`))}
+      sub={`${tx({ en: `${exam.en} marks`, hi: `${exam.hi} के अंक` })} · ${tx(p("due", "अंतिम तिथि"))} ${dueLabel}`}
       footer={
         sent ? (
           <Btn variant="pri" full onClick={close}>
             {tx(p("Done", "हो गया"))}
           </Btn>
         ) : (
-          <div style={{ display: "flex", gap: 10, width: "100%" }}>
+          <>
             <Btn variant="sec" onClick={close} style={{ flex: 1 }}>
               {tx(p("Cancel", "रद्द करें"))}
             </Btn>
-            <Btn variant="pri" icon="send" disabled={pending} onClick={send} style={{ flex: 2 }}>
-              {teachers.length === 1 ? tx(p("Send reminder", "रिमाइंडर भेजें")) : `${tx(p("Send", "भेजें"))} ${teachers.length} ${tx(p("reminders", "रिमाइंडर"))}`}
+            <Btn variant="pri" icon="send" disabled={pending} onClick={send} style={{ flex: 1.6 }}>
+              {teachers.length === 1 ? tx(p("Send reminder", "रिमाइंडर भेजें")) : tx(p(`Send ${teachers.length} reminders`, `${teachers.length} रिमाइंडर भेजें`))}
             </Btn>
-          </div>
+          </>
         )
       }
     >
@@ -141,34 +140,63 @@ export function RemindSheet({
           })}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>
-            {tx(p("Preview · to", "झलक ·"))} {first.name}
-            {teachers.length > 1 ? tx(p(" (each teacher gets their own link)", " (हर शिक्षक को अपना लिंक)")) : ""}
-          </span>
-          <WhatsAppPreview title={first.name} lines={text.split("\n")} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }}>
+          <div aria-label={tx(p("WhatsApp preview", "WhatsApp झलक"))} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 12, borderRadius: 16, background: "var(--wabg)" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--wafg)", opacity: 0.7 }}>
+              {tx(p("Preview · to", "झलक ·"))} {first.name}
+              {teachers.length > 1 ? tx(p(" (each one gets their own link)", " (हर शिक्षक को अपना लिंक)")) : ""}
+            </span>
+            <Bubble text={text} />
+          </div>
           {teachers.length > 1 ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {teachers.map((t) => (
-                <Pill key={t.id}>{t.name}</Pill>
+                <span key={t.id} className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s2)", color: "var(--fg)", border: "1px solid var(--bd)" }}>{t.name}</span>
               ))}
             </div>
           ) : null}
-          <div className="card" style={{ padding: "4px 14px" }}>
+          <div className="card" style={{ padding: "0 14px", boxShadow: "none" }}>
             {[
               [p("To", "किसे"), `${teachers.length} ${tx(teachers.length === 1 ? p("teacher", "शिक्षक") : p("teachers", "शिक्षक"))}`],
               [p("New links", "नए लिंक"), newLinks ? `${newLinks} · ${tx(p("made when you send", "भेजते समय बनेंगे"))}` : tx(p("None needed", "ज़रूरत नहीं"))],
               [p("Sent through", "भेजा जाएगा"), tx(p("Your WhatsApp · no cost", "आपका WhatsApp · कोई खर्च नहीं"))],
-            ].map(([k, v]) => (
-              <div key={tx(k as Pair)} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 0", borderTop: "1px solid var(--bd)" }}>
+            ].map(([k, v], i) => (
+              <div key={tx(k as Pair)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 0", fontSize: 13, borderTop: i ? "1px solid var(--bd)" : undefined }}>
                 <span style={{ color: "var(--mut)" }}>{tx(k as Pair)}</span>
-                <strong style={{ textAlign: "right" }}>{v as string}</strong>
+                <span className="num" style={{ fontWeight: 700, textAlign: "right" }}>{v as string}</span>
               </div>
             ))}
+          </div>
+          <div style={{ padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, display: "flex", gap: 10, background: "var(--infos)", color: "var(--info)" }}>
+            <Ic n="info" size={18} style={{ flex: "none", marginTop: 2 }} />
+            <span>{tx(p("Each message opens in your own WhatsApp, with that teacher's own link; nothing goes until you press send there.", "हर संदेश आपके अपने WhatsApp में, उस शिक्षक के अपने लिंक के साथ खुलता है; वहाँ भेजें दबाने तक कुछ नहीं जाता।"))}</span>
           </div>
         </div>
       )}
     </Sheet>
+  );
+}
+
+/**
+ * The message as the design draws it: a WhatsApp bubble with the Hindi first,
+ * the link as a link, then the English, and the time. The text is the very
+ * string that goes out (`reminderFor`), only laid out.
+ */
+function Bubble({ text }: { text: string }) {
+  const [time] = useState(() => clock(new Date()));
+  const [hi, en = ""] = text.split("\n\n");
+  const line = (l: string, i: number) =>
+    /^https?:\/\//.test(l.trim()) ? (
+      <div key={i} style={{ color: "var(--info)", textDecoration: "underline", wordBreak: "break-all" }}>{l}</div>
+    ) : (
+      <div key={i}>{l}</div>
+    );
+  return (
+    <div style={{ alignSelf: "flex-start", maxWidth: "94%", padding: "9px 12px 5px", borderRadius: "4px 14px 14px 14px", background: "var(--wab)", color: "var(--wafg)", lineHeight: 1.5, boxShadow: "0 1px 1px rgba(0,0,0,.08)", animation: "xPopIn .4s var(--spring) both" }}>
+      <div lang="hi">{hi.split("\n").map(line)}</div>
+      {en ? <div style={{ marginTop: 6, opacity: 0.78 }}>{en.split("\n").map(line)}</div> : null}
+      <div style={{ textAlign: "right", fontSize: 11, opacity: 0.6 }}>{time}</div>
+    </div>
   );
 }
 
