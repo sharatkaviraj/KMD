@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Language } from "@/platform/i18n/language";
 import { Ic, type IconName } from "@/vx/icons";
 import { lead, under, type Pair } from "@/vx/text";
+import { LangButton } from "@/vx/shell/sidebar";
 import { BackLink } from "@/vx/ui/back-link";
 import { Pill } from "@/vx/ui/primitives";
 import { shortDay } from "@/vx/format";
@@ -270,8 +271,8 @@ export function CoordKpi({
 
 /**
  * The page's top bar, as the design draws it: TopBar's desktop bar with an
- * optional back arrow, and a phone bar that can open with the reader's
- * avatar on a role's home.
+ * optional back arrow and the EN | हि switch (the shell's own LangButton),
+ * and a phone bar that can open with the reader's avatar on a role's home.
  */
 export function CoordTop({
   crumb,
@@ -306,6 +307,7 @@ export function CoordTop({
           {crumb ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{crumb}</span> : null}
           <h1 className="serif clip" style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.15 }}>{title}</h1>
         </div>
+        <LangButton tone="page" />
         {actions}
       </header>
       <header className="only-m glass vx-top" style={{ flex: "none", minHeight: 58, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid var(--bd)" }}>
@@ -322,6 +324,7 @@ export function CoordTop({
           <span className="clip" style={{ fontSize: 17, fontWeight: 700 }}>{mTitle ?? title}</span>
           {mSub ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{mSub}</span> : null}
         </span>
+        <LangButton tone="page" />
         {mAction}
       </header>
     </>

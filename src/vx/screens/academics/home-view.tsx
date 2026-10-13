@@ -6,7 +6,7 @@ import { renderReminder } from "@/modules/staff-notices/domain/notices";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
 import { daysBetween, dayMonth } from "@/vx/format";
 import { Ic, type IconName } from "@/vx/icons";
-import type { Pair } from "@/vx/text";
+import { lead as leadText, under, type Pair } from "@/vx/text";
 import { HelpButton } from "@/vx/ui/overlays";
 import { Banner, VxPage } from "@/vx/ui/page";
 import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
@@ -185,8 +185,9 @@ export function AcadHomeView(props: AcadHomeProps) {
       ...(mayRemind ? [{ href: "/academics?view=menu&sheet=remind", icon: "send" as IconName, tone: ["var(--warns)", "var(--warnfg)"] as [string, string], title: { en: "Remind late teachers", hi: "शिक्षकों को याद दिलाएँ" }, sub: late.length ? say(`${late.length} still behind`, `${late.length} अभी पीछे`) : say("Nobody is behind", "कोई पीछे नहीं"), subTone: "var(--warnfg)" }] : []),
       { href: "/academics/setup", icon: "settings", tone: ["var(--s3)", "var(--fg)"], title: { en: "Academic set-up", hi: "शैक्षणिक सेटअप" }, sub: say("Subjects, classes, class teachers", "विषय, कक्षाएँ, कक्षा-अध्यापक"), subTone: "var(--mut)" },
     ];
-    const lead = (pair: Pair) => (language === "hi" ? pair.hi ?? pair.en : pair.en);
-    const second = (pair: Pair) => (language === "hi" ? pair.en : pair.hi ?? "");
+    // UI-6: English alone for EN, Hindi under the key labels for "both", Hindi first for हि.
+    const lead = (pair: Pair) => leadText(pair, language);
+    const second = (pair: Pair) => under(pair, language) ?? "";
     return (
       <VxPage>
         <CoordTop crumb={say(`Academics · ${props.me.name}`, `शैक्षणिक · ${props.me.name}`)} title={say("Menu", "मेनू")} mSub={say("Academic coordinator", "शैक्षणिक संयोजक")} actions={help} mAction={help} />
