@@ -33,8 +33,11 @@ function stubServerModules(): Plugin {
   };
 }
 
+// FIXTURE_PORT lets several checkouts (git worktrees sharing one node_modules
+// through a junction) run the fixture at once, each with its own dep cache.
 export default mergeConfig(base, defineConfig({
   plugins: [stubServerModules()],
+  cacheDir: path.resolve(__dirname, "../../.vite-design"),
   resolve: { alias: { "@": path.resolve(__dirname, "../../src") } },
-  server: { port: 3202 },
+  server: { port: Number(process.env.FIXTURE_PORT ?? 3202), fs: { strict: false } },
 }));

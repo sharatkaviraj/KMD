@@ -50,3 +50,6 @@ next-env.d.ts
 /blob-report/
 /.playwright/
 .claude/worktrees/
+
+# design fidelity fixture dep cache
+.vite-design/
