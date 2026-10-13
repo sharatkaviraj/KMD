@@ -252,7 +252,7 @@ async function qualityBody() {
       <QualityList
         total={children.length}
         score={qualityScore(children.length, hits)}
-        items={hits.map((h) => ({ studentId: h.child.id, name: h.child.fullName, classLabel: h.child.classLabel, issue: h.issue, detail: h.issue === "father_phone" ? null : h.detail, otherId: h.otherId ?? null }))}
+        items={hits.map((h) => ({ studentId: h.child.id, name: h.child.fullName, classLabel: h.child.classLabel, issue: h.issue, detail: h.issue === "father_phone" ? null : h.detail, otherId: h.otherId ?? null, father: h.child.fatherName }))}
       />
     ),
   };

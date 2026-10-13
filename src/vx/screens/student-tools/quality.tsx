@@ -13,7 +13,7 @@ import { Btn } from "@/vx/ui/primitives";
 import { PeopleStyles } from "@/vx/screens/admissions/ui";
 import { QUALITY_ISSUES, type QualityIssue } from "@/vx/screens/student-tools/logic";
 
-export type QualityItem = { studentId: string; name: string; classLabel: string; issue: QualityIssue; detail: string | null; otherId: string | null };
+export type QualityItem = { studentId: string; name: string; classLabel: string; issue: QualityIssue; detail: string | null; otherId: string | null; father?: string | null };
 
 const GROUP: Record<QualityIssue, { icon: IconName; bg: string; fg: string; title: Pair; sub: Pair }> = {
   father_phone: { icon: "phone", bg: "var(--bads)", fg: "var(--bad)", title: p("Father’s phone missing", "पिता का फ़ोन नहीं"), sub: p("Needed for receipts and reminders", "रसीद और रिमाइंडर के लिए ज़रूरी") },
@@ -150,6 +150,7 @@ export function QualityList({ items, total, score }: { items: QualityItem[]; tot
                         <a href={`/admissions/${item.studentId}`} className="clip" style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)" }}>{item.name}</a>
                         <span style={{ fontSize: 12, color: "var(--mut)" }}>
                           {item.classLabel}
+                          {item.father ? ` · ${tx(p("father", "पिता"))} ${item.father}` : ""}
                           {item.issue === "duplicate" && item.detail ? ` · ${tx(p("also in", "यह भी"))} ${item.detail}` : item.issue === "age" && item.detail ? ` · ${item.detail}` : ""}
                         </span>
                       </span>

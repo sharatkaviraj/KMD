@@ -11,7 +11,13 @@ import { AdmissionDone } from "@/vx/screens/admissions/done";
 import type { FamilyCard, Stage } from "@/vx/screens/admissions/logic";
 import { StudentRecord, type RecordProps } from "@/vx/screens/admissions/record";
 import { AdmissionWizard, DuplicateSheet, SiblingSheet, type WizardContext, type WizardPrefill } from "@/vx/screens/admissions/wizard";
-import { VxPage } from "@/vx/ui/page";
+import { TopBar, VxPage } from "@/vx/ui/page";
+import { Btn } from "@/vx/ui/primitives";
+import { FamiliesView, type LinkedFamilyView, type SuggestedFamilyView } from "@/vx/screens/student-tools/families";
+import { ToolsHub, type HubTool } from "@/vx/screens/student-tools/hub";
+import { ImportFlow, type ImportProps } from "@/vx/screens/student-tools/import";
+import { PromoteFlow, type PromoteEntry, type PromoteProps } from "@/vx/screens/student-tools/promote";
+import { QualityList, type QualityItem } from "@/vx/screens/student-tools/quality";
 
 import type { DesignView } from "../design.fixture";
 
@@ -350,7 +356,161 @@ const admissionViews: Record<string, DesignView> = {
   "DX-Admissions-Withdraw": { path: "/admissions", render: () => <VxPage><StudentRecord {...yuvraj} /></VxPage> },
 };
 
+/* ======================================================== StudentTools */
+
+const toolsTop = (crumb: string, title: string, mSub: string, back?: { href: string; label: string }) => (
+  <TopBar crumb={crumb} title={title} mSub={mSub} mBack={back?.href ?? "/menu"} actions={back ? <Btn variant="ghost" icon="chevLeft" href={back.href}>{back.label}</Btn> : undefined} />
+);
+const BACK_TOOLS = { href: "/student-tools", label: "Back to tools" };
+
+const hubTools: HubTool[] = [
+  { key: "promote", href: "/student-tools?view=promote", icon: "grad", tone: "acc", title: { en: "Year-end promotion" }, desc: { en: "Move every class up for 2027–28" }, status: { en: "Opens after annual results — prepare now" }, pill: { en: "2027–28" } },
+  { key: "import", href: "/student-tools?view=import", icon: "upload", tone: "info", title: { en: "Import from Excel" }, desc: { en: "Add many students from one sheet" }, status: { en: "Last import 3 Jul · 184 rows" }, pill: { en: "3 Jul" } },
+  { key: "quality", href: "/student-tools?view=quality", icon: "shield", tone: "warn", title: { en: "Data quality" }, desc: { en: "Fill gaps and fix mistakes, row by row" }, status: { en: "23 things to fix · 96% complete" }, ring: 0 },
+  { key: "families", href: "/student-tools?view=families", icon: "users", tone: "ok", title: { en: "Families" }, desc: { en: "Brothers and sisters, merge and split" }, status: { en: "212 families · 41 with siblings" }, pill: { en: "Discounts" } },
+];
+const hub = () => (
+  <VxPage>
+    {toolsTop("Students · Session 2026–27", "Promote & import", "4 tools · 23 things to fix")}
+    <main>
+      <ToolsHub
+        tools={hubTools}
+        emptyHistory={{ en: "No bulk changes yet" }}
+        history={[
+          { id: "h1", text: "Imported 184 rows from Admissions_June.xlsx", who: "Janmejay", when: "3 Jul" },
+          { id: "h2", text: "Merged two Sharma families", who: "Office desk", when: "22 Sept" },
+          { id: "h3", text: "Fixed 12 phone numbers", who: "Office desk", when: "18 Sept" },
+          { id: "h4", text: "Promoted 2025–26 to 2026–27 · 401 students", who: "Janmejay", when: "1 Apr" },
+        ]}
+      />
+    </main>
+  </VxPage>
+);
+
+const NURSERY_KIDS = ["Vivaan Sharma", "Arjun Mehta", "Krish Kumawat", "Rohan Choudhary", "Mohit Purohit", "Veer Bhati", "Avni Jain", "Kavya Kothari", "Ishita Meena", "Khushi Joshi", "Navya Sen", "Ira Gurjar", "Riddhi Jain", "Aarav Paliwal", "Kabir Rathore", "Ayaan Vyas", "Yash Solanki", "Dev Dave"];
+const SRC: [string, number][] = [["Nursery", 18], ["LKG", 20], ["UKG", 22], ["Class 1", 23], ["Class 2", 25], ["Class 3", 24], ["Class 4", 29], ["Class 5", 26], ["Class 6", 31], ["Class 7", 27], ["Class 8", 28], ["Class 9", 28], ["Class 10", 30], ["11 Science", 22], ["12 Science", 20]];
+const NEXT: Record<string, string> = { Nursery: "LKG", LKG: "UKG", UKG: "Class 1", "Class 1": "Class 2", "Class 2": "Class 3", "Class 3": "Class 4", "Class 4": "Class 5", "Class 5": "Class 6", "Class 6": "Class 7", "Class 7": "Class 8", "Class 8": "Class 9", "Class 9": "Class 10", "Class 10": "11 Science", "11 Science": "12 Science", "12 Science": "graduate" };
+const promoEntries: PromoteEntry[] = SRC.flatMap(([label, n], ci) =>
+  Array.from({ length: n }, (_, i) => ({ id: `pe-${ci}-${i}`, studentId: `ps-${ci}-${i}`, name: ci === 0 ? NURSERY_KIDS[i] : `Test Child ${ci}-${i + 1}`, sr: String(1000 + ci * 40 + i), fromClassId: `src-${ci}`, fromLabel: label, decision: "promote", newClassId: null })),
+);
+const promoteProps = (stage: PromoteProps["stage"]): PromoteProps => ({
+  source: "2026–27",
+  target: "2027–28",
+  run: { id: "run-1", status: "preview", appliedAt: null, appliedCount: 0, graduatedCount: 0 },
+  sourceClasses: SRC.map(([label], ci) => ({ id: `src-${ci}`, label })),
+  targetClasses: [...new Set(Object.values(NEXT).filter((v) => v !== "graduate"))].map((label) => ({ id: `tgt-${label}`, label })),
+  entries: promoEntries,
+  marks: { "ps-0-6": "leaving", "ps-5-3": "leaving", "ps-4-2": "held", "ps-7-1": "held", "ps-9-5": "held", "ps-8-4": "leaving" },
+  initialMap: Object.fromEntries(SRC.map(([label], ci) => [`src-${ci}`, NEXT[label] === "graduate" ? "graduate" : `tgt-${NEXT[label]}`])),
+  stage,
+  initialOpen: ["src-0"],
+});
+
+const IMPORT_FIELDS_FX = [
+  { key: "fullName", label: "Student name", required: true, description: "" },
+  { key: "nameHi", label: "Name in Hindi", required: false, description: "" },
+  { key: "dateOfBirth", label: "Date of birth", required: false, description: "" },
+  { key: "classLabel", label: "Class", required: true, description: "" },
+  { key: "fatherName", label: "Father", required: false, description: "" },
+  { key: "motherName", label: "Mother", required: false, description: "" },
+  { key: "fatherPhone", label: "Phone", required: false, description: "" },
+  { key: "address", label: "Address", required: false, description: "" },
+];
+const importBatch = (stage: ImportProps["stage"]): ImportProps => ({
+  stage,
+  sessionLabel: "2026-27",
+  recent: [],
+  fields: IMPORT_FIELDS_FX,
+  batch: {
+    id: "batch-1",
+    filename: "Admissions_July.xlsx",
+    status: stage === "validate" ? "validated" : "uploaded",
+    headers: ["Student Name", "नाम (हिंदी)", "DOB", "Class", "Father", "Mother", "Mobile", "Village", "Bus", "Remarks"],
+    mapping: { fullName: "Student Name", nameHi: "नाम (हिंदी)", dateOfBirth: "DOB", classLabel: "Class", fatherName: "Father", motherName: "Mother", fatherPhone: "Mobile" },
+    samples: { "Student Name": ["Ishita Kumawat", "Rohan Sen", "Mahi Choudhary"], "नाम (हिंदी)": ["इशिता कुमावत", "रोहन सेन"], DOB: ["03-07-2018", "21-11-2016"], Class: ["6th", "Class 2", "UKG"], Father: ["Mahesh Kumawat", "Pankaj Sen"], Mother: ["Sunita", "Rekha"], Mobile: ["98290 41733", "98290 47730"], Village: ["Amet", "Kelwa"], Bus: ["Route 1", "—"], Remarks: ["", "TC later"] },
+    totalRows: 186,
+    validRows: 183,
+    invalidRows: 2,
+    duplicateRows: 1,
+    importedRows: 0,
+    ready: 174,
+    pendingSafe: 0,
+    warningRows: 9,
+    rows: [
+      { id: "r64", rowIndex: 64, name: "", classLabel: "Class 4", status: "invalid", errors: ["Student name is empty — the row cannot be saved"], warnings: [] },
+      { id: "r91", rowIndex: 91, name: "Aditya Kumawat", classLabel: "", status: "invalid", errors: ["Class is missing"], warnings: [] },
+      { id: "r155", rowIndex: 155, name: "Kavya Sen", classLabel: "Class 2", status: "duplicate", errors: ["Already in school as SR 1429, Class 2 — same father and birth date"], warnings: [] },
+      ...Array.from({ length: 9 }, (_, i) => ({ id: `w${i}`, rowIndex: 20 + i, name: `Test Child W${i + 1}`, classLabel: "Class 3", status: "valid", errors: [], warnings: ["Phone has 9 digits"] })),
+    ],
+  },
+});
+
+const Q = (id: string, name: string, cls: string, issue: QualityItem["issue"], detail: string | null = null, otherId: string | null = null): QualityItem => ({ studentId: id, name, classLabel: cls, issue, detail, otherId });
+const qualityItems: QualityItem[] = [
+  Q("q1", "Aditya Kumawat", "Class 4", "father_phone"), Q("q2", "Payal Regar", "Class 6", "father_phone"), Q("q3", "Tushar Sen", "Class 2", "father_phone"), Q("q4", "Kritika Jain", "Class 9", "father_phone"),
+  Q("q5", "Hemant Rawal", "Class 7", "father_phone"), Q("q6", "Simran Bhati", "UKG", "father_phone"), Q("q7", "Rahul Meena", "11 Arts", "father_phone"), Q("q8", "Jiya Solanki", "LKG", "father_phone"),
+  Q("q9", "Kavya Sen", "Class 2", "duplicate", "Class 2", "q90"), Q("q10", "Rohan Sen", "Class 3", "duplicate", "Class 3", "q91"), Q("q11", "Om Kumawat", "Class 5", "duplicate", "Class 5", "q92"),
+  Q("q12", "Riya Singh", "Class 6", "dob"), Q("q13", "Aarav Sharma", "Class 7", "dob"), Q("q14", "Diya Sharma", "Class 3", "dob"),
+  Q("q15", "Neha Joshi", "Class 8", "mother_name"), Q("q16", "Rohit Joshi", "Class 5", "mother_name"), Q("q17", "Tanay Sharma", "Class 9", "mother_name"), Q("q18", "Ira Sharma", "LKG", "mother_name"), Q("q19", "Mohit Agarwal", "Class 9", "mother_name"),
+  Q("q20", "Prisha Agarwal", "Class 8", "address"), Q("q21", "Rudra Singh", "Class 3", "address"), Q("q22", "Vivaan Trivedi", "12 Science", "age", "14y 2m"), Q("q23", "Ishaan Kothari", "Class 1", "address"),
+];
+
+const famLinked: LinkedFamilyView[] = [
+  { groupId: "g1", father: "Rakesh Sharma", phone: "9829041512", village: "Amet", kids: [{ id: "k1", name: "Aarav Sharma", classLabel: "Class 7" }, { id: "k2", name: "Diya Sharma", classLabel: "Class 3" }] },
+  { groupId: "g2", father: "Prakash Joshi", phone: "9829041277", village: "Amet", kids: [{ id: "k3", name: "Neha Joshi", classLabel: "Class 8" }, { id: "k4", name: "Rohit Joshi", classLabel: "Class 5" }] },
+  { groupId: "g3", father: "Alok Trivedi", phone: "9829040861", village: "Kelwa", kids: [{ id: "k5", name: "Vivaan Trivedi", classLabel: "12 Science" }, { id: "k6", name: "Devansh Trivedi", classLabel: "11 Science" }] },
+  { groupId: "g4", father: "Vivek Kothari", phone: "9829041385", village: "Amet", kids: [{ id: "k7", name: "Ishaan Kothari", classLabel: "Class 1" }, { id: "k8", name: "Anvi Kothari", classLabel: "UKG" }] },
+];
+const famSuggested: SuggestedFamilyView[] = [
+  { key: "mahesh kumawat|9829041301", father: "Mahesh Kumawat", phone: "9829041301", village: "Amet", kids: [{ id: "k9", name: "Naina Kumawat", classLabel: "Class 3" }, { id: "k10", name: "Om Kumawat", classLabel: "Class 5" }] },
+];
+const families = (mergeKey: string | null) => (
+  <VxPage>
+    {toolsTop("Promote & import", "Families", "212 families · 41 with siblings", BACK_TOOLS)}
+    <main>
+      <FamiliesView sessionLabel="2026-27" linked={famLinked} suggested={famSuggested} mergeKey={mergeKey} />
+    </main>
+  </VxPage>
+);
+
+const toolViews: Record<string, DesignView> = {
+  StudentTools: { path: "/student-tools", render: hub },
+  "M-StudentTools": { path: "/student-tools", render: hub },
+  "DX-StudentTools-Promote": { path: "/student-tools", render: () => <VxPage><PromoteFlow {...promoteProps("promote")} /></VxPage> },
+  "M-StudentTools-Review": { path: "/student-tools", render: () => <VxPage><PromoteFlow {...promoteProps("promote-review")} /></VxPage> },
+  "M-StudentTools-Mapping": {
+    path: "/student-tools",
+    render: () => (
+      <VxPage>
+        {toolsTop("Promote & import · Import", "Match the columns", "Step 2 of 3 · Admissions_July.xlsx", BACK_TOOLS)}
+        <main><ImportFlow {...importBatch("mapping")} /></main>
+      </VxPage>
+    ),
+  },
+  "DX-StudentTools-Validate": {
+    path: "/student-tools",
+    render: () => (
+      <VxPage>
+        {toolsTop("Promote & import · Import", "Check the rows", "Step 3 of 3 · Admissions_July.xlsx", { href: "/student-tools?view=mapping&batch=batch-1", label: "Back to columns" })}
+        <main><ImportFlow {...importBatch("validate")} /></main>
+      </VxPage>
+    ),
+  },
+  "DX-StudentTools-Quality": {
+    path: "/student-tools",
+    render: () => (
+      <VxPage>
+        {toolsTop("Promote & import", "Data quality", "23 things to fix", BACK_TOOLS)}
+        <main><QualityList items={qualityItems} total={583} score={96} /></main>
+      </VxPage>
+    ),
+  },
+  "M-StudentTools-Families": { path: "/student-tools", render: () => families(null) },
+  "M-StudentTools-Merge": { path: "/student-tools", render: () => families("mahesh kumawat|9829041301") },
+};
+
 export const views: Record<string, DesignView> = {
   ...staffViews,
   ...admissionViews,
+  ...toolViews,
 };

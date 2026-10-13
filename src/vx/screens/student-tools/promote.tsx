@@ -239,7 +239,8 @@ export function PromoteFlow(props: PromoteProps) {
                               aria-label={tx(p(`Next class for ${c.label}`, `${c.label} की अगली कक्षा`))}
                               value={map[c.id] ?? ""}
                               onChange={(ev) => setMap((m) => ({ ...m, [c.id]: ev.target.value }))}
-                              style={{ minWidth: 0, maxWidth: "100%", border: 0, background: "transparent", color: to ? "var(--fg)" : "var(--bad)", fontSize: 14, fontWeight: to ? 400 : 600, padding: 0, cursor: "pointer" }}
+                              title={tx(p("Change where this class goes", "यह कक्षा कहाँ जाएगी, बदलें"))}
+                              style={{ minWidth: 0, maxWidth: "100%", border: 0, background: "transparent", color: to ? "var(--fg)" : "var(--bad)", fontSize: 14, fontWeight: to ? 400 : 600, padding: 0, cursor: "pointer", appearance: "none", textOverflow: "ellipsis" }}
                             >
                               <option value="">{tx(p("Pick a class", "कक्षा चुनें"))}</option>
                               {props.targetClasses.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
