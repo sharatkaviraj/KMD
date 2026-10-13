@@ -1,0 +1,164 @@
+/* The teacher app (design TchHome, TchAttend, TchClass, TchMarks, TchMore):
+   the modules' own classes, ported from each module's <style> (h-*, a-*, c-*,
+   m-*, k-*) under one `tc-` prefix. Tokens are the kit's. Overlays render in
+   #vx-layer (`.vxt`, sized by the window), so their rules are not container
+   queries. */
+
+/* The design draws these screens at a 14px base; key text says 16px itself. */
+.vx.tc{font-size:14px;line-height:1.45}
+
+/* ---- shared ---------------------------------------------------------------- */
+:where(.vx,.vxt) .tc-s{font-size:12.5px;color:var(--mut);line-height:1.4}
+:where(.vx,.vxt) .tc-p{font-size:15px}
+:where(.vx,.vxt) .tc-t{font-size:17px;font-weight:700;line-height:1.25}
+:where(.vx,.vxt) .tc-hi{font-size:13px;color:var(--mut)}
+:where(.vx,.vxt) .tc-el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:where(.vx,.vxt) .tc-ib{flex:none;display:flex;align-items:center;justify-content:center}
+:where(.vx,.vxt) .tc-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
+:where(.vx,.vxt) .tc-col{display:flex;flex-direction:column;gap:18px;min-width:0}
+:where(.vx,.vxt) .tc-card{padding:18px 20px;display:flex;flex-direction:column;gap:12px;animation:xRise .42s var(--ease) both}
+.vx .tc-lnk,.vxt .tc-lnk{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 4px;font-size:14px;font-weight:600;color:var(--acc);border:0;background:transparent}
+:where(.vx,.vxt) .tc-x{width:44px;height:44px;padding:0;border-radius:22px}
+:where(.vx,.vxt) .tc-lang{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:84px;flex:none}
+:where(.vx,.vxt) .tc-lang>button{height:30px;font-size:13px}
+:where(.vx,.vxt) .tc-bb{height:52px;font-size:16px;border-radius:14px}
+:where(.vx,.vxt) .tc-sb{display:flex;flex-direction:column;gap:14px;padding-top:4px}
+:where(.vx,.vxt) .tc-opt{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+:where(.vx,.vxt) .tc-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.45}
+:where(.vx,.vxt) .tc-pop{animation:xPopIn .45s var(--spring) both}
+:where(.vx,.vxt) .tc-in{animation:xIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-bar{display:flex;height:8px;border-radius:4px;background:var(--s3);overflow:hidden}
+:where(.vx,.vxt) .tc-bar>span{height:100%;border-radius:4px;transition:width .5s var(--ease)}
+:where(.vx,.vxt) .tc-pic{height:92px;border-radius:14px;background:var(--s2);display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;overflow:hidden}
+:where(.vx,.vxt) .tc-sk{height:8px;border-radius:4px;background:var(--s3);display:block}
+:where(.vx,.vxt) .tc-wa{display:flex;flex-direction:column;align-items:flex-end;padding:14px 12px;border-radius:14px;background:var(--wabg)}
+:where(.vx,.vxt) .tc-wa>div{max-width:92%;padding:8px 10px 6px;border-radius:12px 12px 2px 12px;background:var(--wab);color:var(--wafg);font-size:14px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12);animation:xIn .3s var(--ease) both}
+
+/* ---- Today (TchHome) --------------------------------------------------------- */
+.vx .tc-hero,.vxt .tc-hero{position:relative;overflow:hidden;padding:24px;gap:10px;display:flex;flex-direction:column;background:var(--pri);color:var(--prifg);border-color:transparent}
+.vx .tc-big,.vxt .tc-big{height:60px;padding:0 26px;border-radius:18px;font-size:18px;font-weight:700;gap:10px;background:var(--prifg);color:var(--pri);animation:xPulse 2.4s ease infinite}
+:where(.vx,.vxt) .tc-tl{display:grid;grid-template-columns:50px 18px minmax(0,1fr);gap:10px;animation:xIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-tlc{margin:4px 0;padding:10px 14px;border-radius:14px;display:flex;flex-direction:column;gap:8px;transition:background-color .3s ease,opacity .3s ease}
+:where(.vx,.vxt) .tc-kid{display:flex;gap:12px;padding:14px 0 4px;border-top:1px solid var(--bd);animation:xIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+:where(.vx,.vxt) .tc-q{display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;min-height:118px;padding:14px;border-radius:16px;border:1px solid var(--bd);background:var(--s2);color:var(--fg);text-align:left}
+:where(.vx,.vxt) .tc-qi{width:48px;height:48px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+:where(.vx,.vxt) .tc-lk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+:where(.vx,.vxt) .tc-lt{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:14px 6px 12px;border-radius:16px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:center}
+:where(.vx,.vxt) .tc-sjw{display:flex;flex-direction:column;gap:10px}
+:where(.vx,.vxt) .tc-sj{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
+
+@container vx (max-width:899px){
+  .vx .tc-p{font-size:16px}
+  .vx .tc-t{font-size:18px}
+  .vx .tc-col{display:contents}
+  .vx .tc-card{padding:16px}
+  .vx .tc-big{width:100%;height:62px}
+  .vx .tc-tl{grid-template-columns:42px 14px minmax(0,1fr);gap:8px}
+  .vx .tc-tlc{padding:10px 12px}
+  .vx .tc-sjw{flex-direction:row;overflow-x:auto;scrollbar-width:none}
+  .vx .tc-sjw>a{flex:0 0 200px}
+  .vx .tc-gr{font-size:25px!important}
+  .vx .tc-hero{padding:20px}
+  .vx .tc-lt{padding:12px 4px 10px}
+}
+@media (max-width:899px){
+  .vx-layer .tc-p{font-size:16px}
+  .vx-layer .tc-g1m{grid-template-columns:minmax(0,1fr)!important}
+}
+
+/* ---- My class & subjects (TchClass) ----------------------------------------- */
+:where(.vx,.vxt) .tc-langp{flex:none;height:36px;padding:3px;border-radius:18px;border:1px solid var(--bd);background:var(--s2);display:inline-flex;gap:2px}
+:where(.vx,.vxt) .tc-langp>span{min-width:32px;height:28px;padding:0 6px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mut);transition:background-color .2s ease,color .2s ease}
+:where(.vx,.vxt) .tc-langp>span.y{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
+:where(.vx,.vxt) .tc-sg>button{height:46px}
+:where(.vx,.vxt) .tc-hn{font-size:11px;font-weight:500;color:var(--mut)}
+:where(.vx,.vxt) .tc-cc{display:flex;flex-direction:column;gap:16px;min-width:0}
+:where(.vx,.vxt) .tc-ic{flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px}
+:where(.vx,.vxt) .tc-cbar{display:flex;height:8px;border-radius:5px;background:var(--s3);overflow:hidden}
+:where(.vx,.vxt) .tc-cbar>*{height:100%;border-radius:inherit;transition:width .5s var(--ease);transform-origin:left;animation:xGrowX .8s var(--ease) both}
+.vx .tc-cbig,.vxt .tc-cbig{height:52px;font-size:15px;padding:0 20px}
+:where(.vx,.vxt) .tc-srch{position:relative;display:flex;align-items:center;gap:8px;height:50px;padding:0 16px;border-radius:25px;border:1px solid var(--bds);background:var(--card);color:var(--mut)}
+:where(.vx,.vxt) .tc-srch input{flex:1;min-width:0;height:40px;border:0;outline:none;background:transparent;font-size:15px;color:var(--fg)}
+:where(.vx,.vxt) .tc-ring{position:relative;flex:none;width:56px;height:56px}
+:where(.vx,.vxt) .tc-ring svg{position:absolute;top:0;left:0;transform:rotate(-90deg)}
+:where(.vx,.vxt) .tc-ring .tc-av{position:absolute;top:7px;left:7px;width:42px;height:42px;font-size:13px}
+:where(.vx,.vxt) .tc-hdr{flex-direction:column;align-items:center;text-align:center}
+:where(.vx,.vxt) .tc-hdr>.tc-hdc{align-items:center}
+:where(.vx,.vxt) .tc-srow{display:grid;grid-template-columns:40px minmax(0,1fr) 120px 96px;gap:8px;align-items:center;min-height:52px;padding:6px 16px}
+:where(.vx,.vxt) .tc-bt{border:0;background:transparent;color:var(--fg);text-align:left;width:100%}
+@container vx (max-width:899px){
+  .vx .tc-cbig{height:56px;font-size:16px}
+  .vx .tc-cc{display:contents}
+  .vx .tc-srow{grid-template-columns:30px minmax(0,1fr);min-height:62px}
+  .vx .tc-srch input{font-size:16px}
+  .vx .tc-hdr{flex-direction:row;text-align:left}
+  .vx .tc-hdr>.tc-hdc{align-items:flex-start}
+}
+
+/* ---- Notices, links & more (TchMore) ---------------------------------------- */
+:where(.vx,.vxt) .tc-scr{padding:22px 28px 40px;display:flex;flex-direction:column;gap:16px;min-width:0}
+:where(.vx,.vxt) .tc-h1{font-family:var(--font-display),'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600;line-height:1.15}
+:where(.vx,.vxt) .tc-h2{font-size:18px;font-weight:700;line-height:1.25}
+:where(.vx,.vxt) .tc-tb{font-size:14px}
+:where(.vx,.vxt) .tc-ts{font-size:13px}
+:where(.vx,.vxt) .tc-mi{font-size:12px;color:var(--mut);font-weight:500}
+:where(.vx,.vxt) .tc-ibx{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:14px}
+:where(.vx,.vxt) .tc-tls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row dense;gap:12px}
+:where(.vx,.vxt) .tc-tile{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px;min-height:136px;text-align:left;color:var(--fg);width:100%}
+:where(.vx,.vxt) .tc-bdg{position:absolute;top:12px;right:12px;min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:var(--bad);color:var(--onsolid);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+:where(.vx,.vxt) .tc-dot{flex:none;width:10px;height:10px;border-radius:5px}
+:where(.vx,.vxt) .tc-tt{display:grid;grid-template-columns:92px repeat(var(--days,6),minmax(0,1fr))}
+:where(.vx,.vxt) .tc-tt>*{border-top:1px solid var(--bd)}
+:where(.vx,.vxt) .tc-cel{height:62px;margin:4px;padding:6px 10px;border-radius:12px;display:flex;flex-direction:column;justify-content:center;position:relative}
+:where(.vx,.vxt) .tc-ill{flex:none;width:100%;height:124px;padding:10px;border-radius:16px;background:var(--s2);border:1px solid var(--bd);display:flex;flex-direction:column;gap:6px;justify-content:center}
+.vx .tc-mbg,.vxt .tc-mbg{height:52px;font-size:16px;border-radius:14px;padding:0 22px}
+@container vx (max-width:899px){
+  .vx .tc-scr{padding:16px 16px 28px;gap:14px}
+  .vx .tc-tb{font-size:16px}
+  .vx .tc-ts{font-size:14px}
+  .vx .tc-h1{font-size:24px}
+  .vx .tc-mw{width:100%!important}
+  .vx .tc-tg{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .vx .tc-tg .tc-ibx{width:36px;height:36px}
+  .vx .tc-tls{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .vx .tc-tile{min-height:122px;padding:14px}
+}
+
+/* ---- Marks (TchMarks) ------------------------------------------------------- */
+:where(.vx,.vxt) .tc-sbar{position:sticky;bottom:0;z-index:15;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 28px;border-top:1px solid var(--bd)}
+:where(.vx,.vxt) .tc-mbar{height:10px;border-radius:5px;background:var(--s3);overflow:hidden;display:flex}
+:where(.vx,.vxt) .tc-mbar>span{height:100%;border-radius:inherit;transition:width .5s var(--ease)}
+@container vx (max-width:899px){
+  .vx .tc-sbar{padding:12px 16px;bottom:calc(98px + env(safe-area-inset-bottom))}
+}
+
+/* ---- Attendance (TchAttend) -------------------------------------------------- */
+:where(.vx,.vxt) .tc-cnt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+:where(.vx,.vxt) .tc-n{font-size:30px;font-weight:700;line-height:1.1;display:block;animation:xIn .35s var(--ease) both}
+:where(.vx,.vxt) .tc-agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:10px}
+:where(.vx,.vxt) .tc-akid{display:flex;align-items:center;gap:10px;width:100%;min-height:68px;padding:10px 12px;border-radius:16px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:background-color .3s ease,border-color .3s ease,transform .14s var(--ease);animation:xIn .32s var(--ease) both;user-select:none;-webkit-tap-highlight-color:transparent}
+:where(.vx,.vxt) .tc-akid[disabled]{cursor:default}
+:where(.vx,.vxt) .tc-st{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;min-width:34px;padding:0 9px;border-radius:17px;font-size:13px;font-weight:700;transition:background-color .3s ease,color .3s ease}
+:where(.vx,.vxt) .tc-abar{position:sticky;bottom:0;z-index:15;display:flex;align-items:center;gap:16px;padding:12px 28px 14px;border-top:1px solid var(--bd)}
+.vx .tc-save,.vxt .tc-save{height:60px;min-width:320px;padding:0 28px;border-radius:18px;font-size:17px;font-weight:700}
+:where(.vx,.vxt) .tc-stk{display:flex;height:10px;border-radius:5px;background:var(--s3);overflow:hidden}
+:where(.vx,.vxt) .tc-stk>span{height:100%;transition:width .5s var(--ease)}
+:where(.vx,.vxt) .tc-abb{height:54px;font-size:16px;border-radius:14px}
+:where(.vx,.vxt) .tc-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+:where(.vx,.vxt) .tc-day{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px;min-height:66px;padding:7px 2px 8px;border-radius:12px;border:1px solid var(--bd);color:var(--fg);animation:xPopIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-ctile{display:flex;flex-direction:column;align-items:center;padding:12px 6px;border-radius:14px}
+:where(.vx,.vxt) .tc-mini{display:flex;align-items:center;gap:5px;height:18px;padding:0 6px;border-radius:6px;background:var(--card)}
+:where(.vx,.vxt) .tc-msk{height:6px;border-radius:3px;background:var(--s3);flex:1}
+@container vx (min-width:900px){.vx .tc-stw{display:none}}
+@container vx (max-width:899px){
+  .vx .tc-agrid{grid-template-columns:minmax(0,1fr);gap:8px}
+  .vx .tc-akid{min-height:70px;padding:10px 12px 10px 10px}
+  .vx .tc-abar{flex-direction:column;align-items:stretch;gap:6px;padding:10px 16px 12px;bottom:calc(98px + env(safe-area-inset-bottom))}
+  .vx .tc-save{width:100%;min-width:0;padding:0 16px;height:60px}
+  .vx .tc-n{font-size:26px}
+  .vx .tc-cnt{gap:8px}
+  .vx .tc-day{min-height:54px;padding:5px 1px 6px}
+  .vx .tc-cal{gap:4px}
+  .vx .tc-agr{font-size:24px!important}
+}

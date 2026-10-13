@@ -21,9 +21,9 @@ test.afterEach(async ({ page }, info) => {
 
 test('attendance queued offline survives reload and records exactly once after reconnect', async ({ page, context }, info) => {
   await page.goto('/class-followup.html?mode=attendance&path=/teach/attendance');
-  const child = page.locator('button.t-kid').first(); await expect(child).toBeVisible();
+  const child = page.locator('button.tc-akid').first(); await expect(child).toBeVisible();
   await context.setOffline(true); await child.tap();
-  await page.locator('.t-savebar button').tap();
+  await page.locator('.tc-abar button').tap();
   const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
   const alerts = dialog.getByRole('switch'); if (await alerts.getAttribute('aria-checked') === 'true') await alerts.tap();
   await expect(alerts).toHaveAttribute('aria-checked', 'false');
@@ -33,10 +33,10 @@ test('attendance queued offline survives reload and records exactly once after r
   expect(await page.evaluate(() => window.classFollowup.snapshot().attendanceAttempts)).toBe(0);
   await expect(page.getByText('The office can see it now.', { exact: true })).toHaveCount(0);
   await page.reload(); await expect(page.getByText(/this register is saved on this phone and will be sent when you are online/)).toBeVisible();
-  await expect(page.locator('button.t-kid').first()).toHaveClass(/\ba\b/);
+  await expect(page.locator('button.tc-akid').first()).toHaveClass(/\ba\b/);
   await context.setOffline(false);
   await expect.poll(() => page.evaluate(() => window.classFollowup.snapshot().attendance.length)).toBe(1);
-  await expect(page.locator('.t-savebar')).toHaveCount(0);
+  await expect(page.locator('.tc-abar')).toHaveCount(0);
   for (let turn = 0; turn < 3; turn += 1) { await context.setOffline(true); await context.setOffline(false); }
   const ledger = await page.evaluate(() => window.classFollowup.snapshot());
   expect(ledger.attendance).toHaveLength(1); expect(ledger.attendanceAttempts).toBe(1);
@@ -48,10 +48,10 @@ test('attendance queued offline survives reload and records exactly once after r
 test('attendance last child and full save target stay above native phone navigation', async ({ page }, info) => {
   await page.goto('/class-followup.html?mode=attendance&path=/teach/attendance');
   const search = page.getByPlaceholder('Find a child'); await search.tap(); await expect(search).toBeFocused();
-  await search.fill('24'); const last = page.locator('button.t-kid').last(); await last.scrollIntoViewIfNeeded();
+  await search.fill('24'); const last = page.locator('button.tc-akid').last(); await last.scrollIntoViewIfNeeded();
   await expect(last).toBeVisible(); await last.tap();
-  await search.fill(''); await page.locator('button.t-kid').last().scrollIntoViewIfNeeded();
-  const button = page.locator('.t-savebar button'); await button.scrollIntoViewIfNeeded();
+  await search.fill(''); await page.locator('button.tc-akid').last().scrollIntoViewIfNeeded();
+  const button = page.locator('.tc-abar button'); await button.scrollIntoViewIfNeeded();
   const measure = await button.evaluate(element => {
     const rect = element.getBoundingClientRect(); const nav = document.querySelector('nav.vx-bottom')!.getBoundingClientRect();
     return { viewport: innerWidth, document: document.documentElement.scrollWidth, width: rect.width, height: rect.height, top: rect.top, bottom: rect.bottom, navTop: nav.top, navHeight: nav.height, ownsCenter: document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('button') === element, coarse: matchMedia('(pointer: coarse)').matches };

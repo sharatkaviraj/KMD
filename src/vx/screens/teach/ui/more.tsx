@@ -2,91 +2,592 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useSyncExternalStore, useState, useTransition, type ReactNode } from "react";
+import { useTheme } from "next-themes";
 
 import { logoutAction } from "@/app/login/actions";
+import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic, type IconName } from "@/vx/icons";
-import { Bi, useVx } from "@/vx/i18n";
-import { agoP, initials, shortDay } from "@/vx/format";
+import { useVx } from "@/vx/i18n";
+import { agoP, initials } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
-import { SwitchRow } from "@/vx/ui/controls";
-import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { useToast } from "@/vx/ui/overlays";
-import { Avatar, Btn, Card, EmptyState, Pill, Progress } from "@/vx/ui/primitives";
-import { LangButton, ThemeButton } from "@/vx/shell/sidebar";
+import { VxPage } from "@/vx/ui/page";
 
 import { cancelLeaveVx, noticeSeenVx, setAlertVx, setTextSizeVx } from "../actions";
 import type { MoreData } from "../data";
-import { Head, HelpSheet, LeaveSheet, useUrlState, type HelpStep } from "./shared";
+import type { LeaveSpan } from "../domain/teach";
+import { dShort, greetingPair, greetName, hm12, shortClass, andList } from "./fmt";
+import { LangSeg, LeaveChipsSheet, TchTop, useUrlState } from "./shared";
 
-export type MoreView = "menu" | "news" | "links" | "timetable" | "profile";
-type SheetKey = "leave" | "help";
+/*
+ * Teacher · Notices, links & more (design TchMore): the phone's More menu as
+ * tiles, the office's notices with Got it, her marks links (open, share,
+ * copy, or make one), her week, her leave, picture help and her profile
+ * (language, text size, dark mode, alerts, sign out). `?view=` picks one;
+ * `?sheet=leave` opens the leave form over My leave.
+ */
 
-const HELP: HelpStep[] = [
-  { icon: "megaphone", title: p("Office notices", "ऑफ़िस की सूचनाएँ"), body: p("Everything the office sends to staff. Tap Got it when you have read one.", "ऑफ़िस से आई सब सूचनाएँ। पढ़कर ठीक है दबाएँ।") },
-  { icon: "link", title: p("Marks links", "अंक लिंक"), body: p("Each paper you teach. Open it to enter marks, or copy the link.", "आपके हर विषय की परीक्षा। अंक भरने के लिए खोलें।") },
-  { icon: "calMinus", title: p("Leave", "छुट्टी"), body: p("Ask for leave here. The admin answers, and you see it in Profile.", "यहाँ छुट्टी माँगें। जवाब प्रोफ़ाइल में दिखेगा।") },
-];
+export type MoreView = "menu" | "news" | "links" | "timetable" | "leave" | "help" | "profile";
 
-const LEAVE_STATUS: Record<string, { text: Pair; tone: "warn" | "ok" | "bad" | "mut" }> = {
-  asked: { text: p("Waiting", "प्रतीक्षा में"), tone: "warn" },
-  approved: { text: p("Approved", "स्वीकृत"), tone: "ok" },
-  declined: { text: p("Declined", "अस्वीकृत"), tone: "bad" },
-  cancelled: { text: p("Cancelled", "रद्द"), tone: "mut" },
+const V = (x: string) => `var(--${x})`;
+type Tone = [string, string];
+const TA: Tone = [V("accs"), V("accfg")];
+const TI: Tone = [V("infos"), V("info")];
+const TO: Tone = [V("oks"), V("ok")];
+const TW: Tone = [V("warns"), V("warnfg")];
+const TS: Tone = [V("s3"), V("fg")];
+
+const LEAVE_STATUS: Record<string, { text: Pair; tone: Tone; icon: IconName }> = {
+  asked: { text: p("Pending", "बाकी"), tone: TW, icon: "clock" },
+  approved: { text: p("Approved", "मंज़ूर"), tone: TO, icon: "check" },
+  declined: { text: p("Declined", "नामंज़ूर"), tone: [V("bads"), V("bad")], icon: "x" },
+  cancelled: { text: p("Cancelled", "रद्द"), tone: TS, icon: "x" },
 };
 
-const ALERTS: { key: string; icon: IconName; text: Pair; sub: Pair }[] = [
-  { key: "notices", icon: "megaphone", text: p("Office notices", "ऑफ़िस की सूचनाएँ"), sub: p("When the office sends something to staff", "जब ऑफ़िस स्टाफ़ को कुछ भेजे") },
-  { key: "cover", icon: "swap", text: p("Cover requests", "सब्स्टिट्यूशन"), sub: p("When you are asked to take a class", "जब आपको कक्षा लेने को कहा जाए") },
-  { key: "followups", icon: "flag", text: p("Follow-ups due", "फ़ॉलो-अप"), sub: p("Notes you said you would follow up", "जिन नोट्स पर फ़ॉलो-अप करना है") },
-  { key: "marks", icon: "edit", text: p("Marks deadlines", "अंक की अंतिम तिथि"), sub: p("Before marks entry closes", "अंक भरना बंद होने से पहले") },
+const SPAN: Record<string, Pair> = { full: p("Full day", "पूरा दिन"), first_half: p("First half", "पहली पाली"), second_half: p("Second half", "दूसरी पाली") };
+
+const ALERTS: { key: string; icon: IconName; text: Pair; sub: Pair; tone: Tone }[] = [
+  { key: "notices", icon: "bell", text: p("WhatsApp alerts for notices", "सूचनाओं के व्हाट्सऐप अलर्ट"), sub: p("WhatsApp when a notice comes", "सूचना आने पर व्हाट्सऐप"), tone: TO },
+  { key: "cover", icon: "swap", text: p("Cover requests", "सब्स्टिट्यूशन"), sub: p("When you are asked to take a class", "जब आपको कक्षा लेने को कहा जाए"), tone: TW },
+  { key: "followups", icon: "flag", text: p("Follow-ups due", "फ़ॉलो-अप"), sub: p("Notes you said you would follow up", "जिन नोट्स पर फ़ॉलो-अप करना है"), tone: TI },
+  { key: "marks", icon: "clipboard", text: p("Marks deadlines", "अंक की अंतिम तिथि"), sub: p("Before marks entry closes", "अंक भरना बंद होने से पहले"), tone: TA },
 ];
 
-function weekdayName(day: string): string {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" }).toLowerCase();
-}
+const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const DAY_HI: Record<string, string> = { mon: "सोम", tue: "मंगल", wed: "बुध", thu: "गुरु", fri: "शुक्र", sat: "शनि", sun: "रवि" };
+const dayKey = (d: string) => d.trim().toLowerCase().slice(0, 3);
+const mins = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+};
+const CLASS_TONES: [string, string, string][] = [[V("accs"), V("accfg"), V("c2")], [V("infos"), V("info"), V("c1")], [V("oks"), V("ok"), V("ok")], [V("warns"), V("warnfg"), V("warn")], [V("s3"), V("fg"), V("c4")]];
 
-export function TeachMore({ data, initialView, initialSheet }: { data: MoreData; initialView: MoreView; initialSheet: string | null }) {
-  const { tx, sub } = useVx();
+const noSubscribe = () => () => {};
+
+export function TeachMore({
+  data,
+  initialView,
+  initialSheet,
+  makeLink,
+  officePhone,
+}: {
+  data: MoreData;
+  initialView: MoreView;
+  initialSheet: string | null;
+  /** Make her own no-login marks link for an exam (UI-56), when she may enter marks. */
+  makeLink?: (examId: string) => Promise<{ ok: boolean; message?: Pair }>;
+  officePhone?: string;
+}) {
+  const { tx, sub, language } = useVx();
   const router = useRouter();
   const toast = useToast();
   const [view, setView] = useUrlState<MoreView>("view", initialView === "menu" ? null : initialView);
-  const [sheet, setSheet] = useUrlState<SheetKey>("sheet", (initialSheet as SheetKey) ?? null);
+  const [sheet, setSheet] = useUrlState<"leave">("sheet", initialSheet === "leave" ? "leave" : null);
   const [seen, setSeen] = useState<Set<string>>(() => new Set(data.notices.filter((n) => n.seen).map((n) => n.id)));
+  const [nf, setNf] = useState<"all" | "unread">("all");
   const [large, setLarge] = useState(data.profile.largeText);
   const [alerts, setAlerts] = useState<Record<string, boolean>>(data.profile.alerts);
+  const [topic, setTopic] = useState<HelpTopic>("att");
   const [pending, start] = useTransition();
   const current: MoreView = view ?? "menu";
-  const unseen = data.notices.filter((n) => !seen.has(n.id)).length;
+  const unread = data.notices.filter((n) => !seen.has(n.id));
+
+  const go = (v: MoreView) => setView(v === "menu" ? null : v);
 
   const gotIt = (ids: string[]) =>
     start(async () => {
       const res = await noticeSeenVx(ids);
-      if (res.ok) setSeen((cur) => new Set([...cur, ...ids]));
-      else toast.show({ text: tx(res.error), tone: "bad" });
+      if (res.ok) {
+        setSeen((cur) => new Set([...cur, ...ids]));
+        if (ids.length > 1) toast.show({ text: tx(p(`${ids.length} notices marked as seen`, `${ids.length} सूचनाएँ देख लीं`)) });
+      } else toast.show({ text: tx(res.error), tone: "bad" });
     });
 
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.show({ text: tx(p("Link copied", "लिंक कॉपी हुआ")) });
+      toast.show({ text: tx(p("Copied", "कॉपी हो गया")) });
     } catch {
       toast.show({ text: tx(p("Could not copy", "कॉपी नहीं हुआ")), tone: "bad" });
     }
   };
 
-  const share = async (title: string, url: string) => {
-    if (typeof navigator !== "undefined" && "share" in navigator) {
-      try {
-        await navigator.share({ title, url });
-        return;
-      } catch {
-        /* dismissed: fall through to copy */
+  /* ---------------------------------------------------- the week */
+  const todayKey = dayKey(new Date(`${data.today}T12:00:00+05:30`).toLocaleDateString("en-GB", { weekday: "short", timeZone: "Asia/Kolkata" }));
+  const days = [...new Set(data.week.map((w) => w.day))].sort((a, b) => DAY_ORDER.indexOf(dayKey(a)) - DAY_ORDER.indexOf(dayKey(b)));
+  const numbers = [...new Set([...data.periodTimes.map((t) => t.number), ...data.week.map((w) => w.number)])].sort((a, b) => a - b);
+  const timeOf = (n: number) => data.periodTimes.find((t) => t.number === n);
+  const classOrder = [...new Set(data.week.map((w) => w.classLabel))];
+  const toneOf = (label: string) => CLASS_TONES[Math.max(0, classOrder.indexOf(label)) % CLASS_TONES.length];
+  const nowSlot = data.week.find((w) => dayKey(w.day) === todayKey && w.starts && w.ends && data.nowMinutes >= mins(w.starts) && data.nowMinutes < mins(w.ends)) ?? null;
+  const subjectsLine = (() => {
+    const bySubject = new Map<string, string[]>();
+    for (const w of data.week) bySubject.set(w.subjectCode, [...new Set([...(bySubject.get(w.subjectCode) ?? []), shortClass(w.classLabel)])]);
+    return [...bySubject.entries()].map(([s, cls]) => tx(p(`${s} for Classes ${andList(cls)}`, `कक्षा ${andList(cls, "और")} ${s}`))).join(" · ");
+  })();
+  const held = data.profile.classes.filter((c) => c.held);
+  const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => c.classLabel).join(", ")} की कक्षा अध्यापिका`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
+  const coverFor = (picked: string[], span: LeaveSpan) => {
+    const out: string[] = [];
+    for (const d of picked) {
+      const key = dayKey(new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-GB", { weekday: "short", timeZone: "Asia/Kolkata" }));
+      const half = Math.ceil(numbers.length / 2);
+      for (const w of data.week.filter((x) => dayKey(x.day) === key).sort((a, b) => a.number - b.number)) {
+        if (span === "first_half" && w.number > half) continue;
+        if (span === "second_half" && w.number <= half) continue;
+        out.push(`${dShort(d).split(" ")[0]} P${w.number} ${w.classLabel}`);
       }
     }
-    await copy(url);
+    return out;
   };
 
+  /* ---------------------------------------------------- top bar */
+  const helpFor: Partial<Record<MoreView, HelpTopic>> = { news: "news", links: "link", leave: "leave", timetable: "leave" };
+  const T: Record<MoreView, [string, Pair, string]> = {
+    menu: [tx(p(`Teacher · ${data.sessionLabel.replace("-", "–")}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${held[0].classLabel}` : ""}`],
+    news: [tx(p("More · Notices", "और · सूचनाएँ")), p("Notices", "सूचनाएँ"), unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं"))],
+    links: [tx(p("More · Marks links", "और · अंक लिंक")), p("Marks links", "अंक लिंक"), tx(p("Sampark · no login needed", "संपर्क · लॉगिन नहीं चाहिए"))],
+    timetable: [tx(p("More · Timetable", "और · समय-सारणी")), p("My timetable", "मेरी समय-सारणी"), tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`))],
+    leave: [tx(p("More · Leave", "और · छुट्टी")), p("My leave", "मेरी छुट्टियाँ"), tx(p(`${data.leave.filter((l) => l.status === "asked").length} waiting for approval`, `${data.leave.filter((l) => l.status === "asked").length} मंज़ूरी बाकी`))],
+    help: [tx(p("More · Help", "और · मदद")), p("Help", "मदद"), tx(p("How do I…", "कैसे करें…"))],
+    profile: [tx(p("More · My profile", "और · मेरी प्रोफ़ाइल")), p("My profile", "मेरी प्रोफ़ाइल"), tx(p("Language, text size, dark mode", "भाषा, आकार, डार्क मोड"))],
+  };
+  const [crumb, titleP, mSub] = T[current];
+  const helpBtn = (size: number) => (
+    <button type="button" className="tap btn ghost" aria-label={tx(p("Help for this screen", "इस स्क्रीन की मदद"))} onClick={() => { setTopic(helpFor[current] ?? topic); go("help"); }} style={{ width: size, height: size === 44 ? 44 : undefined, padding: 0, borderRadius: size === 44 ? 22 : undefined, color: "var(--fg)" }}>
+      <Ic n="help" size={22} />
+    </button>
+  );
+  const back = (
+    <button type="button" className="tap btn ghost tc-x" aria-label={tx(p("Back", "पीछे"))} onClick={() => go("menu")} style={{ color: "var(--fg)" }}>
+      <Ic n="chevLeft" size={22} />
+    </button>
+  );
+  const me = (size: number, font: number, extra?: React.CSSProperties) => (
+    <span className="tc-av serif" style={{ width: size, height: size, fontSize: font, background: "#F6D9A8", color: "#082F49", ...extra }}>{initials(data.profile.name)}</span>
+  );
+
+  /* ---------------------------------------------------- menu */
+  const firstOpen = data.links.find((l) => !l.submitted && l.entered < l.total) ?? null;
+  const asked = data.leave.filter((l) => l.status === "asked").length;
+  type Tile = { k: string; icon: IconName; t: Pair; info: string; tone: Tone; href?: string; onClick?: () => void; badge?: number; wide?: boolean; news?: string };
+  const tiles: Tile[] = [
+    { k: "home", icon: "home", t: p("Today", "आज"), info: nowSlot ? tx(p(`P${nowSlot.number} ${nowSlot.classLabel} ${nowSlot.subjectCode} now`, `अभी P${nowSlot.number} ${nowSlot.classLabel}`)) : tx(p("Your day at a glance", "आपका दिन एक नज़र में")), tone: TA, href: "/teach" },
+    { k: "att", icon: "calCheck", t: p("Attendance", "हाज़िरी"), info: held[0] ? tx(p(`${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} children` : ""}`, `${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} बच्चे` : ""}`)) : tx(p("Class registers", "कक्षा हाज़िरी")), tone: TO, href: "/teach/attendance" },
+    { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${held[0].classLabel} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },
+    { k: "marks", icon: "clipboard", t: p("Marks", "अंक"), info: firstOpen ? tx(p(`${firstOpen.classLabel} · ${firstOpen.entered} of ${firstOpen.total} entered`, `${firstOpen.classLabel} · ${firstOpen.total} में से ${firstOpen.entered}`)) : tx(p("Nothing waiting", "कुछ बाकी नहीं")), tone: TW, href: "/teach/marks" },
+    { k: "notes", icon: "note", t: p("Notes", "नोट्स"), info: tx(p("Notes on children", "बच्चों के नोट्स")), tone: TS, href: "/teach/notes" },
+    { k: "news", icon: "megaphone", t: p("Notices", "सूचनाएँ"), info: unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं")), tone: TA, onClick: () => go("news"), badge: unread.length, wide: true, news: data.notices[0]?.title },
+    { k: "links", icon: "link", t: p("Marks links", "अंक लिंक"), info: tx(p(`${data.links.length} ${data.links.length === 1 ? "link" : "links"}`, `${data.links.length} लिंक`)), tone: TI, onClick: () => go("links") },
+    { k: "tt", icon: "clock", t: p("Timetable", "समय-सारणी"), info: tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`)), tone: TS, onClick: () => go("timetable") },
+    { k: "leave", icon: "calendar", t: p("Apply leave", "छुट्टी"), info: asked ? tx(p(`${asked} waiting for approval`, `${asked} मंज़ूरी बाकी`)) : tx(p("Ask in two taps", "दो टैप में माँगें")), tone: TW, onClick: () => { go("leave"); setSheet("leave"); } },
+    { k: "help", icon: "help", t: p("Help", "मदद"), info: tx(p("How do I…", "कैसे करें…")), tone: TO, onClick: () => go("help") },
+    { k: "me", icon: "user", t: p("My profile", "मेरी प्रोफ़ाइल"), info: tx(p("Language, text size", "भाषा, अक्षर का आकार")), tone: TS, onClick: () => go("profile") },
+  ];
+  const tileBody = (t: Tile) => (
+    <>
+      <span className="tc-ibx" style={{ background: t.tone[0], color: t.tone[1] }}><Ic n={t.icon} size={22} /></span>
+      <span style={{ display: "flex", flexDirection: "column" }}>
+        <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(t.t)}</span>
+        {sub(t.t) ? <span className="tc-mi">{sub(t.t)}</span> : null}
+      </span>
+      <span style={{ fontSize: 12, color: "var(--mut)" }}>{t.info}</span>
+      {t.news ? <span className="tc-tb" style={{ fontWeight: 600, paddingTop: 8, borderTop: "1px solid var(--bd)" }}>{t.news}</span> : null}
+      {t.badge ? <span className="tc-bdg tc-pop num">{t.badge}</span> : null}
+    </>
+  );
+  const greet = greetingPair(data.nowMinutes);
+  const menu = (
+    <div className="tc-scr" style={{ maxWidth: 1120 }}>
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, padding: "18px 20px", background: "var(--nav)", color: "var(--navfg)", borderColor: "transparent" }}>
+        {me(56, 16)}
+        <span style={{ flex: 1, minWidth: 190, display: "flex", flexDirection: "column" }}>
+          <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{tx(greet)}, {greetName(data.profile.name)}</span>
+          <span className="tc-ts" style={{ color: "var(--navm)" }}>{roleLine}</span>
+        </span>
+        {nowSlot ? (
+          <span className="tc-ts" style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, padding: "8px 12px", borderRadius: 12, background: "var(--navs)" }}>
+            <span className="tc-dot" style={{ background: "#81DAE4", animation: "xPulse 2s ease infinite" }} />
+            {tx(p(`Now · P${nowSlot.number} ${nowSlot.classLabel} ${nowSlot.subjectCode} till ${hm12(nowSlot.ends)}`, `अभी · P${nowSlot.number} ${nowSlot.classLabel}, ${hm12(nowSlot.ends)} तक`))}
+          </span>
+        ) : null}
+      </div>
+      <div className="tc-tls">
+        {tiles.map((t, i) =>
+          t.href ? (
+            <Link key={t.k} href={t.href} className="tap lift card tc-tile tc-in" style={{ gridColumn: t.wide ? "span 2" : "auto", animationDelay: `${Math.min(i, 14) * 30}ms` }}>{tileBody(t)}</Link>
+          ) : (
+            <button key={t.k} type="button" className="tap lift card tc-tile tc-in" onClick={t.onClick} style={{ gridColumn: t.wide ? "span 2" : "auto", animationDelay: `${Math.min(i, 14) * 30}ms` }}>{tileBody(t)}</button>
+          ),
+        )}
+      </div>
+    </div>
+  );
+
+  /* ---------------------------------------------------- notices */
+  const shownN = data.notices.filter((n) => nf === "all" || !seen.has(n.id));
+  const newsView = (
+    <div className="stack tc-scr" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 300px", alignItems: "start", maxWidth: 1120 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ display: "flex", flexDirection: "column" }}>
+            <span className="tc-h1">{tx(p("Notices", "सूचनाएँ"))}</span>
+            <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p("From the school office · tap Got it after reading", "स्कूल ऑफ़िस से · पढ़कर “समझ गए” दबाएँ"))}</span>
+          </span>
+          <div className="seg tc-mw" role="radiogroup" aria-label="Show" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", width: 240 }}>
+            <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 2)", transform: `translateX(${nf === "unread" ? "100%" : "0%"})` }} />
+            <button type="button" role="radio" aria-checked={nf === "all"} className={`tap${nf === "all" ? " on" : ""}`} onClick={() => setNf("all")}>{tx(p("All", "सभी"))} · {data.notices.length}</button>
+            <button type="button" role="radio" aria-checked={nf === "unread"} className={`tap${nf === "unread" ? " on" : ""}`} onClick={() => setNf("unread")}>{tx(p("Unread", "नहीं पढ़ीं"))} · {unread.length}</button>
+          </div>
+        </div>
+        {shownN.map((n, i) => {
+          const u = !seen.has(n.id);
+          const pin = n.id === data.notices[0]?.id;
+          const lead = tx({ en: n.bodyEn ?? n.bodyHi ?? "", hi: n.bodyHi ?? undefined });
+          const other = sub({ en: n.bodyEn ?? "", hi: n.bodyHi ?? undefined });
+          return (
+            <article key={n.id} className="card tc-in" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10, border: pin && u ? "2px solid var(--warnm)" : "1px solid var(--bd)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {pin ? <span className="pill" style={{ background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="pin" size={12} />{tx(p("Pinned", "ज़रूरी"))}</span> : null}
+                {u ? <span className="tc-dot" style={{ background: "var(--acc)" }} aria-label={tx(p("Not read yet", "अभी नहीं पढ़ी"))} /> : null}
+                <span className="tc-el" style={{ flex: 1, fontSize: 12, color: "var(--mut)" }}>{n.fromName} · {tx(agoP(n.createdAt))}</span>
+              </div>
+              <span className="tc-h2">{n.title}</span>
+              {lead ? <span className="tc-tb" style={{ lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{lead}</span> : null}
+              {other ? <span className="tc-ts" style={{ color: "var(--mut)", whiteSpace: "pre-wrap" }}>{other}</span> : null}
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <span style={{ flex: 1 }} />
+                {u ? (
+                  <button type="button" className="tap btn pri tc-mw" disabled={pending} onClick={() => gotIt([n.id])} style={{ height: 46, fontSize: 15 }}><Ic n="check" />{tx(p("Got it", "समझ गए"))}</button>
+                ) : (
+                  <span className="pill" style={{ height: 34, padding: "0 12px", fontSize: 13, background: "var(--oks)", color: "var(--ok)" }}><Ic n="check" size={16} stroke={3} className="tc-pop" />{tx(p("Seen", "देख लिया"))}</span>
+                )}
+              </div>
+            </article>
+          );
+        })}
+        {shownN.length === 0 ? (
+          <div className="card fadein" style={{ padding: "40px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+            <span className="tc-av tc-pop" style={{ width: 64, height: 64, background: "var(--oks)", color: "var(--ok)" }}><Ic n="check" size={30} /></span>
+            <span className="tc-h2">{data.notices.length ? tx(p("All caught up!", "सब पढ़ लिया!")) : tx(p("No notices yet", "अभी कोई सूचना नहीं"))}</span>
+            <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("No unread notices. New ones show up here.", "कोई नई सूचना नहीं। नई सूचनाएँ यहाँ आएँगी।"))}</span>
+            {data.notices.length ? <button type="button" className="tap btn sec tc-mbg" onClick={() => setNf("all")}>{tx(p("Show all notices", "सभी सूचनाएँ दिखाएँ"))}</button> : null}
+          </div>
+        ) : null}
+      </div>
+      <aside className="hide-m" style={{ position: "sticky", top: 84, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+          <span className="sech">{tx(p("To read", "पढ़ना बाकी"))}</span>
+          <span className="num" style={{ fontSize: 34, fontWeight: 700, lineHeight: 1, color: unread.length ? V("acc") : V("ok") }}>{unread.length}</span>
+          <span className="tc-ts" style={{ color: "var(--mut)" }}>{unread.length ? tx(p("notices are waiting for you", "सूचनाएँ बाकी हैं")) : tx(p("You are up to date ✓", "सब पढ़ लिया ✓"))}</span>
+          {unread.length ? <button type="button" className="tap btn soft" disabled={pending} onClick={() => gotIt(unread.map((n) => n.id))}><Ic n="checkCircle" />{tx(p("Mark all as seen", "सब देख लिया"))}</button> : null}
+        </div>
+        <div className="tc-note" style={{ background: "var(--infos)", color: "var(--info)" }}>
+          <Ic n="eye" style={{ marginTop: 2 }} />
+          <span>{tx(p("When you tap Got it, the office can see that you have read the notice.", "“समझ गए” दबाने पर ऑफ़िस को पता चलता है कि आपने सूचना पढ़ ली।"))}</span>
+        </div>
+      </aside>
+    </div>
+  );
+
+  /* ---------------------------------------------------- marks links */
+  const linksView = (
+    <div className="tc-scr" style={{ maxWidth: 1120 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span className="tc-h1">{tx(p("Your marks links (Sampark)", "आपके अंक लिंक (संपर्क)"))}</span>
+        <span className="tc-tb" style={{ color: "var(--mut)" }}>{[...new Set(data.links.map((l) => l.exam))].join(" · ") || tx(p("No exam is open for marks", "कोई परीक्षा खुली नहीं"))}</span>
+      </div>
+      <div className="tc-note" style={{ background: "var(--accs)", color: "var(--accfg)", alignItems: "center" }}>
+        <span className="tc-ibx" style={{ background: "var(--card)", color: "var(--acc)" }}><Ic n="link" size={22} /></span>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <span className="tc-tb" style={{ fontWeight: 700 }}>{tx(p("Opens a simple page where you type marks. No password needed.", "एक आसान पेज खुलता है जहाँ आप अंक लिखते हैं। पासवर्ड नहीं चाहिए।"))}</span>
+          <span className="tc-ts">{tx(p("The marks land in the same place as the app. Keep the link to yourself.", "अंक ऐप वाली जगह ही पहुँचते हैं। लिंक किसी और को न दें।"))}</span>
+        </span>
+      </div>
+      {data.links.length === 0 ? (
+        <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+          <span className="tc-av" style={{ width: 64, height: 64, background: "var(--s2)", color: "var(--mut)" }}><Ic n="link" size={28} /></span>
+          <span className="tc-h2">{tx(p("No papers for your subjects yet", "आपके विषयों का कोई पेपर नहीं"))}</span>
+          <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("Links appear when an exam is set up.", "परीक्षा बनने पर लिंक दिखेंगे।"))}</span>
+        </div>
+      ) : null}
+      <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+        {data.links.map((l, i) => {
+          const st: [Pair, string, string, string] = l.submitted ? [p("Done ✓", "पूरा ✓"), V("oks"), V("ok"), V("ok")] : l.entered ? [p("In progress", "चल रहा है"), V("accs"), V("accfg"), V("acc")] : [p("Not started", "शुरू नहीं"), V("s3"), V("mut"), V("acc")];
+          const frac = l.total ? Math.min(1, l.entered / l.total) : 0;
+          return (
+            <div key={l.paperId} className="card tc-in" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ position: "relative", flex: "none", width: 84, height: 84 }}>
+                  <svg viewBox="0 0 100 100" width="84" height="84" aria-hidden="true">
+                    <circle cx="50" cy="50" r="42" style={{ fill: "none", strokeWidth: 9, stroke: "var(--s3)" }} />
+                    <circle cx="50" cy="50" r="42" style={{ fill: "none", strokeWidth: 9, strokeLinecap: "round", stroke: st[3], strokeDasharray: `${(frac * 263.9).toFixed(1)} 263.9`, ["--len" as string]: "263.9", opacity: l.entered ? 1 : 0, transform: "rotate(-90deg)", transformOrigin: "50% 50%", animation: "xDraw .9s var(--ease) both" }} />
+                  </svg>
+                  <span style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <span className="num" style={{ fontSize: 16, fontWeight: 700 }}>{l.entered}</span>
+                    <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx(p(`of ${l.total}`, `/ ${l.total}`))}</span>
+                  </span>
+                </div>
+                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{l.exam}{l.maxMarks ? ` · ${tx(p(`out of ${l.maxMarks}`, `${l.maxMarks} में से`))}` : ""}</span>
+                  <span className="tc-h2">{l.classLabel} {l.subjectCode}</span>
+                  <span className="pill" style={{ alignSelf: "flex-start", background: st[1], color: st[2] }}>{tx(st[0])}</span>
+                </span>
+              </div>
+              <span className="tc-ts" style={{ color: "var(--mut)" }}>{l.submitted ? tx(p("Sent to the exam office", "परीक्षा विभाग को भेजे गए")) : tx(p(`${l.entered} of ${l.total} entered`, `${l.total} में से ${l.entered} भरे`))}</span>
+              {l.url ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <a href={l.url} className="tap btn pri tc-mbg"><Ic n="globe" />{tx(p("Open link", "लिंक खोलें"))}</a>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <a href={`https://wa.me/?text=${encodeURIComponent(l.url)}`} target="_blank" rel="noreferrer" className="tap btn soft" style={{ flex: 1, height: 46 }}><Ic n="message" />{tx(p("Share on WhatsApp", "व्हाट्सऐप पर भेजें"))}</a>
+                    <button type="button" className="tap btn sec" onClick={() => void copy(l.url ?? "")} style={{ height: 46 }}><Ic n="copy" />{tx(p("Copy", "कॉपी करें"))}</button>
+                  </div>
+                </div>
+              ) : makeLink ? (
+                <button
+                  type="button"
+                  className="tap btn pri tc-mbg"
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      const r = await makeLink(l.examId).catch(() => null);
+                      if (r?.ok) {
+                        toast.show({ text: tx(p("Your link is ready", "आपका लिंक तैयार है")) });
+                        router.refresh();
+                      } else toast.show({ text: tx(r?.message ?? p("Could not make the link", "लिंक नहीं बना")), tone: "bad" });
+                    })
+                  }
+                >
+                  <Ic n="refresh" />
+                  {tx(p("Make my link", "मेरा लिंक बनाएँ"))}
+                </button>
+              ) : (
+                <Link href={`/teach/marks?paper=${l.paperId}`} className="tap btn sec tc-mbg"><Ic n="clipboard" />{tx(p("Enter marks in the app", "ऐप में अंक भरें"))}</Link>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("Links stop working when the exam office locks the marks. Lost a link? Make a new one on the Marks page.", "अंक लॉक होने पर लिंक बंद हो जाते हैं। लिंक खो गया? अंक पेज पर नया बनाएँ।"))}</span>
+    </div>
+  );
+
+  /* ---------------------------------------------------- timetable */
+  const [pickDay, setPickDay] = useState<string>(() => days.find((d) => dayKey(d) === todayKey) ?? days[0] ?? "");
+  const rowsFor = (n: number, i: number): ReactNode[] => {
+    const out: ReactNode[] = [];
+    const prev = timeOf(numbers[i - 1]);
+    const cur = timeOf(n);
+    if (prev && cur && prev.ends && cur.starts && prev.ends < cur.starts) out.push(<span key={`brk${n}`} className="tc-ib" style={{ gridColumn: "1 / -1", height: 30, background: "var(--s2)", fontSize: 12, fontWeight: 700, color: "var(--mut)", letterSpacing: ".06em" }}>{tx(p(`BREAK · ${hm12(prev.ends)} – ${hm12(cur.starts)}`, `मध्यांतर · ${hm12(prev.ends)} – ${hm12(cur.starts)}`))}</span>);
+    return out;
+  };
+  const cellOf = (d: string, n: number) => {
+    const slot = data.week.find((w) => w.day === d && w.number === n) ?? null;
+    const isToday = dayKey(d) === todayKey;
+    const t = timeOf(n);
+    const now = Boolean(isToday && t && data.nowMinutes >= mins(t.starts) && data.nowMinutes < mins(t.ends));
+    const past = Boolean(isToday && t && data.nowMinutes >= mins(t.ends));
+    return { slot, isToday, now, past };
+  };
+  const ttView = (
+    <div className="tc-scr">
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <span style={{ display: "flex", flexDirection: "column" }}>
+          <span className="tc-h1">{tx(p("My timetable", "मेरी समय-सारणी"))}</span>
+          <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p(`${data.week.length} periods a week · today is ${new Date(`${data.today}T12:00:00+05:30`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "Asia/Kolkata" })}`, `हफ़्ते में ${data.week.length} पीरियड`))}</span>
+        </span>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 12 }}>
+          {classOrder.map((c) => <span key={c} style={{ display: "flex", alignItems: "center", gap: 6 }}><span className="tc-dot" style={{ background: toneOf(c)[2] }} />{c}</span>)}
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span className="tc-dot" style={{ border: "1.5px dashed var(--bds)" }} />{tx(p("Free", "खाली"))}</span>
+        </div>
+      </div>
+      {data.week.length === 0 ? (
+        <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+          <span className="tc-av" style={{ width: 64, height: 64, background: "var(--s2)", color: "var(--mut)" }}><Ic n="calendar" size={28} /></span>
+          <span className="tc-h2">{tx(p("No timetable published yet", "अभी समय-सारणी प्रकाशित नहीं"))}</span>
+        </div>
+      ) : (
+        <>
+          <div className="card only-d tc-tt" style={{ overflow: "hidden", ["--days" as string]: String(days.length) }}>
+            <span style={{ background: "var(--s2)", borderTop: 0 }} />
+            {days.map((d) => {
+              const isToday = dayKey(d) === todayKey;
+              return (
+                <span key={d} className="tc-ib tc-ts" style={{ gap: 6, height: 46, fontWeight: 700, background: isToday ? V("accs") : V("s2"), color: isToday ? V("accfg") : V("fg"), borderTop: 0 }}>
+                  {language === "hi" ? DAY_HI[dayKey(d)] ?? d : d.slice(0, 3)}
+                  {isToday ? <span className="pill" style={{ background: "var(--acc)", color: "var(--onsolid)" }}>{tx(p("Today", "आज"))}</span> : null}
+                </span>
+              );
+            })}
+            {numbers.map((n, i) => (
+              <span key={n} style={{ display: "contents" }}>
+                {rowsFor(n, i)}
+                <span className="num" style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 14px" }}>
+                  <span className="tc-ts" style={{ fontWeight: 700 }}>P{n}</span>
+                  <span style={{ fontSize: 11, color: "var(--mut)" }}>{timeOf(n) ? hm12(timeOf(n)!.starts) : ""}</span>
+                </span>
+                {days.map((d, j) => {
+                  const c = cellOf(d, n);
+                  const tone = c.slot ? toneOf(c.slot.classLabel) : null;
+                  return (
+                    <div key={d} style={{ background: c.isToday ? V("s2") : "transparent" }}>
+                      <div className="tc-cel tc-in" style={{ background: tone ? tone[0] : "transparent", color: tone ? tone[1] : V("sub"), border: tone ? "1px solid transparent" : "1px dashed var(--bd)", opacity: c.past ? 0.55 : 1, boxShadow: c.now ? "0 0 0 2px var(--acc)" : "none", animationDelay: `${Math.min(i * 6 + j, 40) * 8}ms` }}>
+                        <span className="tc-ts tc-el" style={{ fontWeight: 700 }}>{c.slot ? `${c.slot.classLabel} · ${c.slot.subjectCode}` : tx(p("Free", "खाली"))}</span>
+                        <span className="tc-el" style={{ fontSize: 11, opacity: 0.85 }}>{c.slot ? (held.some((h) => h.classLabel === c.slot!.classLabel) ? tx(p("my class", "मेरी कक्षा")) : c.slot.subjectCode) : tx(p("Staff room", "स्टाफ़ रूम"))}</span>
+                        {c.now ? <span className="tc-dot" style={{ position: "absolute", top: 8, right: 8, background: "var(--acc)", animation: "xPulse 2s ease infinite" }} /> : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </span>
+            ))}
+          </div>
+          <div className="only-m" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="seg" role="radiogroup" aria-label="Day" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+              <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${days.length})`, transform: `translateX(${Math.max(0, days.indexOf(pickDay)) * 100}%)` }} />
+              {days.map((d) => <button key={d} type="button" role="radio" aria-checked={pickDay === d} className={`tap${pickDay === d ? " on" : ""}`} onClick={() => setPickDay(d)}>{language === "hi" ? DAY_HI[dayKey(d)] ?? d : d.slice(0, 3)}</button>)}
+            </div>
+            <div className="card" style={{ overflow: "hidden" }}>
+              {numbers.map((n, i) => {
+                const c = cellOf(pickDay, n);
+                const tone = c.slot ? toneOf(c.slot.classLabel) : null;
+                const prev = timeOf(numbers[i - 1]);
+                const cur = timeOf(n);
+                const brk = prev && cur && prev.ends < cur.starts;
+                const tag = c.now ? [tx(p("Now", "अभी")), V("acc"), V("onsolid")] : c.past ? [tx(p("Done", "हो गया")), V("s3"), V("mut")] : null;
+                return (
+                  <span key={n} style={{ display: "contents" }}>
+                    {brk ? <div className="tc-ib" style={{ height: 34, background: "var(--s2)", borderTop: "1px solid var(--bd)", fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(p(`BREAK · ${hm12(prev.ends)} – ${hm12(cur.starts)}`, `मध्यांतर · ${hm12(prev.ends)} – ${hm12(cur.starts)}`))}</div> : null}
+                    <div className="tc-in" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 68, padding: "10px 14px", borderTop: i ? "1px solid var(--bd)" : 0, background: c.now ? V("accs") : "transparent", opacity: c.past ? 0.55 : 1, animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+                      <span className="num" style={{ width: 46, display: "flex", flexDirection: "column" }}><span className="tc-tb" style={{ fontWeight: 700 }}>P{n}</span><span style={{ fontSize: 11, color: "var(--mut)" }}>{cur ? hm12(cur.starts) : ""}</span></span>
+                      <span className="tc-dot" style={{ background: tone ? tone[2] : V("bds"), animation: c.now ? "xPulse 2s ease infinite" : "none" }} />
+                      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                        <span className="tc-tb tc-el" style={{ fontWeight: 600 }}>{c.slot ? `${c.slot.classLabel} · ${c.slot.subjectCode}` : tx(p("Free", "खाली"))}</span>
+                        <span className="tc-el" style={{ fontSize: 12, color: "var(--mut)" }}>{c.slot ? (held.some((h) => h.classLabel === c.slot!.classLabel) ? tx(p("my class", "मेरी कक्षा")) : c.slot.subjectCode) : tx(p("Staff room", "स्टाफ़ रूम"))}</span>
+                      </span>
+                      {tag ? <span className="pill" style={{ background: tag[1], color: tag[2] }}>{tag[0]}</span> : null}
+                    </div>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  /* ---------------------------------------------------- leave */
+  const cancelLeave = (id: string) =>
+    start(async () => {
+      const res = await cancelLeaveVx(id);
+      if (res.ok) {
+        toast.show({ text: tx(p("Leave request cancelled", "छुट्टी का अनुरोध रद्द")) });
+        router.refresh();
+      } else toast.show({ text: tx(res.error), tone: "bad" });
+    });
+  const leaveView = (
+    <div className="tc-scr" style={{ maxWidth: 860 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <span style={{ display: "flex", flexDirection: "column" }}>
+          <span className="tc-h1">{tx(p("My leave", "मेरी छुट्टियाँ"))}</span>
+          <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p("Ask for leave in two taps. The office sees it at once.", "दो टैप में छुट्टी माँगें। ऑफ़िस तुरंत देखता है।"))}</span>
+        </span>
+        <button type="button" className="tap btn pri tc-mbg tc-mw" onClick={() => setSheet("leave")}><Ic n="calendar" />{tx(p("Apply leave", "छुट्टी माँगें"))}</button>
+      </div>
+      <span className="sech">{tx(p("My requests", "मेरे अनुरोध"))}</span>
+      {data.leave.length === 0 ? <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("No leave asked for yet.", "अभी कोई छुट्टी नहीं माँगी।"))}</span> : null}
+      {data.leave.map((l) => {
+        const st = LEAVE_STATUS[l.status] ?? LEAVE_STATUS.asked;
+        return (
+          <div key={l.id} className="card" style={{ padding: "14px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+            <span className="tc-ibx" style={{ background: st.tone[0], color: st.tone[1] }}><Ic n={st.icon} /></span>
+            <span style={{ flex: 1, minWidth: 170, display: "flex", flexDirection: "column" }}>
+              <span className="tc-tb" style={{ fontWeight: 700 }}>{l.from_day === l.to_day ? dShort(l.from_day) : `${dShort(l.from_day)} – ${dShort(l.to_day)}`}</span>
+              <span className="tc-ts" style={{ color: "var(--mut)" }}>{[tx(SPAN[l.span] ?? SPAN.full), l.note].filter(Boolean).join(" · ")}</span>
+              <span style={{ fontSize: 12, color: "var(--sub)" }}>{tx(p(`Sent ${dShort(l.created_at)}`, `${dShort(l.created_at)} को भेजा`))}</span>
+            </span>
+            <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: st.tone[0], color: st.tone[1] }}>{tx(st.text)}</span>
+            {l.status === "asked" && l.from_day >= data.today ? <button type="button" className="tap btn ghost" disabled={pending} onClick={() => cancelLeave(l.id)}><Ic n="x" />{tx(p("Cancel", "रद्द करें"))}</button> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  /* ---------------------------------------------------- help */
+  const tp = HELP[topic];
+  const helpView = (
+    <div className="tc-scr" style={{ maxWidth: 1120 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span className="tc-h1">{tx(p("How do I…", "कैसे करें…"))}</span>
+        <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p("Pick a task. Each one is 3 easy steps.", "कोई काम चुनें। हर काम 3 आसान कदम।"))}</span>
+      </div>
+      <div className="tc-tg" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+        {(Object.keys(HELP) as HelpTopic[]).map((k) => {
+          const h = HELP[k];
+          const on = k === topic;
+          return (
+            <button key={k} type="button" role="radio" aria-checked={on} className="tap card" onClick={() => setTopic(k)} style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, textAlign: "left", color: "var(--fg)", border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? V("accs") : V("card") }}>
+              <span className="tc-ibx" style={{ width: 40, height: 40, background: h.tone[0], color: h.tone[1] }}><Ic n={h.icon} /></span>
+              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(h.t)}</span>
+                {sub(h.t) ? <span className="tc-mi">{sub(h.t)}</span> : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <span className="tc-h2">{tx(tp.t)}</span>
+        <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+          {tp.steps.map((s, i) => (
+            <div key={s.t.en} className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 10, animationDelay: `${i * 90}ms` }}>
+              <div className="tc-ill">{s.pic}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className="tc-av" style={{ width: 30, height: 30, fontSize: 13, background: "var(--pri)", color: "var(--prifg)" }}>{i + 1}</span>
+                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(s.t)}</span>
+                  {sub(s.t) ? <span className="tc-mi">{sub(s.t)}</span> : null}
+                </span>
+              </div>
+              <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(s.d)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {tp.href ? (
+            <Link href={tp.href} className="tap btn pri tc-mbg tc-mw">{tx(p("Try it now", "अभी करके देखें"))}<Ic n="arrowRight" /></Link>
+          ) : (
+            <button type="button" className="tap btn pri tc-mbg tc-mw" onClick={() => { if (topic === "leave") { go("leave"); setSheet("leave"); } else go(topic === "link" ? "links" : "news"); }}>{tx(p("Try it now", "अभी करके देखें"))}<Ic n="arrowRight" /></button>
+          )}
+        </div>
+      </div>
+      {officePhone ? (
+        <div className="card" style={{ padding: "16px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
+          <span className="tc-ibx" style={{ background: "var(--oks)", color: "var(--ok)" }}><Ic n="phone" size={22} /></span>
+          <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
+            <span className="tc-tb" style={{ fontWeight: 700 }}>{tx(p("Still stuck? Call the office", "फिर भी दिक्कत? ऑफ़िस को फ़ोन करें"))}</span>
+            <span className="tc-ts" style={{ color: "var(--mut)" }}>{officePhone}</span>
+          </span>
+          <a href={`tel:${officePhone.replace(/[^\d+]/g, "")}`} className="tap btn sec tc-mbg tc-mw"><Ic n="phone" />{tx(p("Call the office", "ऑफ़िस को फ़ोन"))}</a>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  /* ---------------------------------------------------- profile */
+  const { resolvedTheme, setTheme } = useTheme();
+  const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const dark = ready && resolvedTheme === "dark";
+  const setLanguage = (lang: "both" | "hi") =>
+    start(async () => {
+      const fd = new FormData();
+      fd.set("language", lang);
+      await saveLanguageAction({ status: "idle", message: null }, fd);
+      router.refresh();
+    });
   const toggleLarge = (on: boolean) =>
     start(async () => {
       setLarge(on);
@@ -96,7 +597,6 @@ export function TeachMore({ data, initialView, initialSheet }: { data: MoreData;
         toast.show({ text: tx(res.error), tone: "bad" });
       } else router.refresh();
     });
-
   const toggleAlert = (key: string, on: boolean) =>
     start(async () => {
       setAlerts((cur) => ({ ...cur, [key]: on }));
@@ -106,254 +606,177 @@ export function TeachMore({ data, initialView, initialSheet }: { data: MoreData;
         toast.show({ text: tx(res.error), tone: "bad" });
       }
     });
+  const seg2 = (value: number, opts: [string, () => void][]) => (
+    <div className="seg tc-mw" role="radiogroup" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", width: 220 }}>
+      <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 2)", transform: `translateX(${value * 100}%)` }} />
+      {opts.map(([l, f], i) => <button key={l} type="button" role="radio" aria-checked={value === i} className={`tap${value === i ? " on" : ""}`} onClick={f}>{l}</button>)}
+    </div>
+  );
+  const switchRow = (key: string, icon: IconName, tone: Tone, t: Pair, s: Pair, on: boolean, flip: () => void) => (
+    <button key={key} type="button" role="switch" aria-checked={on} className="tap" onClick={flip} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 0", border: 0, borderTop: "1px solid var(--bd)", background: "transparent", color: "var(--fg)", textAlign: "left" }}>
+      <span className="tc-ibx" style={{ width: 40, height: 40, background: tone[0], color: tone[1] }}><Ic n={icon} /></span>
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(t)}</span>
+        <span className="tc-mi">{sub(s) || tx(s)}</span>
+      </span>
+      <span className={`sw${on ? " on" : ""}`}><span /></span>
+    </button>
+  );
+  const profileView = (
+    <div className="tc-scr" style={{ maxWidth: 760 }}>
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, padding: 20 }}>
+        {me(72, 24, { animation: "xPopIn .45s var(--spring) both" })}
+        <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className="tc-h1" style={{ fontSize: 26 }}>{data.profile.name}</span>
+          <span className="tc-ts" style={{ color: "var(--mut)" }}>{roleLine}</span>
+          {data.profile.email ? <span className="tc-ts num" style={{ color: "var(--mut)" }}>{data.profile.email}</span> : null}
+        </span>
+      </div>
+      <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <span className="sech">{tx(p("My classes", "मेरी कक्षाएँ"))}</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {data.profile.classes.map((c) => <span key={c.classId} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: c.held ? V("accs") : V("s3"), color: c.held ? V("accfg") : V("fg") }}>{c.held ? tx(p(`${c.classLabel} · class teacher`, `${c.classLabel} · कक्षा अध्यापिका`)) : c.classLabel}</span>)}
+          {data.profile.subjects.map((s) => <span key={s} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: V("s3"), color: V("fg") }}>{s}</span>)}
+        </div>
+      </div>
+      <div className="card" style={{ padding: "6px 18px", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "14px 0" }}>
+          <span className="tc-ibx" style={{ width: 40, height: 40, background: "var(--accs)", color: "var(--accfg)" }}><Ic n="globe" /></span>
+          <span style={{ flex: 1, minWidth: 140, display: "flex", flexDirection: "column" }}>
+            <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p("Language", "भाषा"))}</span>
+            <span className="tc-mi">{tx(p("भाषा · Hindi or English", "Language · हिंदी या English"))}</span>
+          </span>
+          {seg2(language === "hi" ? 1 : 0, [["English", () => setLanguage("both")], ["हिंदी", () => setLanguage("hi")]])}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 0", borderTop: "1px solid var(--bd)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+            <span className="tc-ibx" style={{ width: 40, height: 40, background: "var(--infos)", color: "var(--info)" }}><Ic n="type" /></span>
+            <span style={{ flex: 1, minWidth: 140, display: "flex", flexDirection: "column" }}>
+              <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p("Text size", "अक्षर का आकार"))}</span>
+              <span className="tc-mi">{tx(p("अक्षर का आकार · bigger is easier to read", "Text size · बड़ा पढ़ने में आसान"))}</span>
+            </span>
+            {seg2(large ? 1 : 0, [[tx(p("Normal", "सामान्य")), () => toggleLarge(false)], [tx(p("Large", "बड़ा")), () => toggleLarge(true)]])}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRadius: 14, background: "var(--s2)", border: "1px dashed var(--bds)" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)", letterSpacing: ".06em", textTransform: "uppercase" }}>{tx(p("Preview", "झलक"))}</span>
+            <span style={{ fontWeight: 700, fontSize: large ? 19 : 16, transition: "font-size .3s var(--ease)" }}>{firstOpen ? tx(p(`${firstOpen.classLabel} · ${firstOpen.subjectCode} — ${firstOpen.entered} of ${firstOpen.total} entered`, `${firstOpen.classLabel} · ${firstOpen.subjectCode} — ${firstOpen.total} में से ${firstOpen.entered} भरे`)) : tx(p("Your marks and registers", "आपके अंक और हाज़िरी"))}</span>
+            <span style={{ fontSize: large ? 16 : 13, color: "var(--mut)", transition: "font-size .3s var(--ease)" }}>{tx(p("This is how text looks in the app.", "ऐप में अक्षर ऐसे दिखेंगे।"))}</span>
+          </div>
+        </div>
+        {switchRow("dark", "moon", TS, p("Dark mode", "डार्क मोड"), p("डार्क मोड · easier on the eyes at night", "Dark mode · रात में आँखों को आराम"), dark, () => setTheme(dark ? "light" : "dark"))}
+        {ALERTS.map((a) => switchRow(a.key, a.icon, a.tone, a.text, a.sub, alerts[a.key] !== false, () => toggleAlert(a.key, alerts[a.key] === false)))}
+      </div>
+      <form action={logoutAction} style={{ display: "flex" }}>
+        <button type="submit" className="tap btn sec tc-mbg tc-mw" style={{ color: "var(--bad)" }}><Ic n="logout" />{tx(p("Sign out", "साइन आउट"))}</button>
+      </form>
+      <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("VPPS One · Teacher app", "VPPS One · शिक्षक ऐप"))}</span>
+    </div>
+  );
 
-  const cancelLeave = (id: string) =>
-    start(async () => {
-      const res = await cancelLeaveVx(id);
-      if (res.ok) {
-        toast.show({ text: tx(p("Leave request cancelled", "छुट्टी का अनुरोध रद्द")) });
-        router.refresh();
-      } else toast.show({ text: tx(res.error), tone: "bad" });
-    });
-
-  const titles: Record<MoreView, Pair> = {
-    menu: p("More", "और"),
-    news: p("Office notices", "ऑफ़िस की सूचनाएँ"),
-    links: p("Marks links", "अंक लिंक"),
-    timetable: p("My timetable", "मेरी समय-सारणी"),
-    profile: p("My profile", "मेरी प्रोफ़ाइल"),
-  };
-
-  const tiles: { key: MoreView | SheetKey; icon: IconName; text: Pair; sub: Pair; badge?: number }[] = [
-    { key: "news", icon: "megaphone", text: titles.news, sub: p(`${data.notices.length} notices`, `${data.notices.length} सूचनाएँ`), badge: unseen },
-    { key: "links", icon: "link", text: titles.links, sub: p(`${data.links.length} papers`, `${data.links.length} परीक्षाएँ`) },
-    { key: "timetable", icon: "calendar", text: titles.timetable, sub: p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`) },
-    { key: "leave", icon: "calMinus", text: p("Apply for leave", "छुट्टी के लिए आवेदन"), sub: p("Goes to the admin", "एडमिन को जाएगा") },
-    { key: "help", icon: "help", text: p("Help", "मदद"), sub: p("How this app works", "यह ऐप कैसे चलता है") },
-    { key: "profile", icon: "user", text: titles.profile, sub: p("Language, text size, alerts", "भाषा, अक्षर का आकार, सूचनाएँ") },
-  ];
-
-  const open = (key: MoreView | SheetKey) => {
-    if (key === "leave" || key === "help") setSheet(key);
-    else setView(key === "menu" ? null : key);
-  };
-
-  /* --------------------------------------------------------- timetable */
-  const days = [...new Set(data.week.map((w) => w.day))];
-  const numbers = [...new Set([...data.periodTimes.map((t) => t.number), ...data.week.map((w) => w.number)])].sort((a, b) => a - b);
-  const todayName = weekdayName(data.today);
-  const isToday = (d: string) => d.trim().length >= 3 && todayName.startsWith(d.trim().toLowerCase().slice(0, 3));
+  const action = current === "timetable" ? <button type="button" className="tap btn sec" onClick={() => { go("leave"); setSheet("leave"); }}><Ic n="calendar" />{tx(p("Apply leave", "छुट्टी माँगें"))}</button> : null;
 
   return (
-    <VxPage label="More" className={large ? "t-large" : undefined}>
-      <TopBar
-        crumb={current === "menu" ? undefined : tx(p("More", "और"))}
-        title={<Bi en={titles[current].en} hi={titles[current].hi} block={false} />}
-        mTitle={tx(titles[current])}
-        mBack={current === "menu" ? undefined : "/teach/more"}
-        actions={current !== "menu" ? <Btn icon="chevLeft" onClick={() => setView(null)}>{tx(p("More", "और"))}</Btn> : undefined}
+    <VxPage label="More" className={`tc${large ? " t-large" : ""}`}>
+      <TchTop
+        crumb={crumb}
+        title={tx(titleP)}
+        actions={
+          <>
+            <LangSeg />
+            {helpBtn(42)}
+            {action}
+          </>
+        }
+        mLead={current === "menu" ? <button type="button" className="tap" aria-label={tx(p("My profile", "मेरी प्रोफ़ाइल"))} onClick={() => go("profile")} style={{ border: 0, padding: 0, margin: "0 4px", background: "transparent" }}>{me(40, 13)}</button> : back}
+        mTitle={tx(titleP)}
+        mSub={mSub}
+        mAction={
+          <>
+            <LangSeg />
+            {helpBtn(44)}
+          </>
+        }
       />
-      <Section>
-        {current === "menu" ? (
-          <>
-            <Card>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <Avatar text={initials(data.profile.name)} seed={data.profile.email ?? data.profile.name} size={56} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <strong style={{ fontSize: 18 }}>{data.profile.name}</strong>
-                  <div style={{ color: "var(--mut)", fontSize: 13 }}>{data.profile.classes.filter((c) => c.held).map((c) => c.classLabel).join(", ") || data.profile.subjects.join(", ")}</div>
-                </div>
-              </div>
-            </Card>
-            <div className="t-menu">
-              {tiles.map((t, i) => (
-                <button key={t.key} type="button" className="tap t-menuTile rise" style={{ animationDelay: `${i * 40}ms` }} onClick={() => open(t.key)}>
-                  {t.badge ? <span className="t-badge num">{t.badge}</span> : null}
-                  <span style={{ width: 44, height: 44, borderRadius: 13, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Ic n={t.icon} size={22} />
-                  </span>
-                  <strong><Bi en={t.text.en} hi={t.text.hi} /></strong>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(t.sub)}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {current === "news" ? (
-          data.notices.length === 0 ? (
-            <Card><EmptyState icon="megaphone" title={tx(p("No notices yet", "अभी कोई सूचना नहीं"))} /></Card>
-          ) : (
-            <>
-              {unseen > 1 ? (
-                <Btn variant="sec" icon="ticks" disabled={pending} onClick={() => gotIt(data.notices.filter((n) => !seen.has(n.id)).map((n) => n.id))} style={{ alignSelf: "flex-start" }}>
-                  {tx(p("Mark all as seen", "सब देखा गया"))}
-                </Btn>
-              ) : null}
-              {data.notices.map((n) => (
-                <Card key={n.id} style={seen.has(n.id) ? undefined : { borderColor: "var(--acc)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-                    <strong style={{ fontSize: 16 }}>{n.title}</strong>
-                    {seen.has(n.id) ? <Pill tone="ok" icon="check">{tx(p("Seen", "देखा"))}</Pill> : <Pill tone="info">{tx(p("New", "नया"))}</Pill>}
-                  </div>
-                  {n.bodyHi ? <p lang="hi" style={{ margin: "8px 0 0", whiteSpace: "pre-wrap" }}>{n.bodyHi}</p> : null}
-                  {n.bodyEn ? <p style={{ margin: "6px 0 0", whiteSpace: "pre-wrap", color: n.bodyHi ? "var(--mut)" : undefined }}>{n.bodyEn}</p> : null}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 8 }}>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{n.fromName} · {tx(agoP(n.createdAt))}</span>
-                    {!seen.has(n.id) ? <Btn variant="pri" icon="check" disabled={pending} onClick={() => gotIt([n.id])}>{tx(p("Got it", "ठीक है"))}</Btn> : null}
-                  </div>
-                </Card>
-              ))}
-            </>
-          )
-        ) : null}
-
-        {current === "links" ? (
-          data.links.length === 0 ? (
-            <Card><EmptyState icon="link" title={tx(p("No papers for your subjects yet", "आपके विषयों की कोई परीक्षा नहीं"))} body={tx(p("Links appear when an exam is set up.", "परीक्षा बनने पर लिंक दिखेंगे।"))} /></Card>
-          ) : (
-            data.links.map((l) => {
-              const href = `/teach/marks?paper=${l.paperId}`;
-              const full = typeof window === "undefined" ? href : `${window.location.origin}${href}`;
-              return (
-                <Card key={l.paperId}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span>
-                      <strong>{l.subjectCode} · {l.classLabel}</strong>
-                      <div style={{ fontSize: 13, color: "var(--mut)" }}>{l.exam}</div>
-                    </span>
-                    {l.submitted ? <Pill tone="ok" icon="check">{tx(p("Submitted", "जमा"))}</Pill> : <Pill tone="warn">{tx(p(`${l.entered}/${l.total} entered`, `${l.entered}/${l.total} भरे`))}</Pill>}
-                  </div>
-                  <Progress value={l.entered} max={Math.max(1, l.total)} style={{ marginTop: 10 }} />
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                    <Btn variant="pri" icon="edit" href={href}>{tx(p("Open", "खोलें"))}</Btn>
-                    <Btn variant="sec" icon="send" onClick={() => void share(`${l.subjectCode} ${l.classLabel}`, full)}>{tx(p("Share", "भेजें"))}</Btn>
-                    <Btn variant="sec" icon="copy" onClick={() => void copy(full)}>{tx(p("Copy", "कॉपी"))}</Btn>
-                  </div>
-                </Card>
-              );
-            })
-          )
-        ) : null}
-
-        {current === "timetable" ? (
-          data.week.length === 0 ? (
-            <Card><EmptyState icon="calendar" title={tx(p("No timetable published yet", "अभी समय-सारणी प्रकाशित नहीं"))} /></Card>
-          ) : (
-            <Card>
-              <div className="t-wk" style={{ gridTemplateColumns: `64px repeat(${days.length}, minmax(84px,1fr))` }}>
-                <span />
-                {days.map((d) => (
-                  <strong key={d} style={{ fontSize: 13, textAlign: "center", color: isToday(d) ? "var(--acc)" : undefined }}>{d.slice(0, 3)}</strong>
-                ))}
-                {numbers.map((n) => {
-                  const t = data.periodTimes.find((x) => x.number === n);
-                  return (
-                    <div key={n} style={{ display: "contents" }}>
-                      <span style={{ fontSize: 12, color: "var(--mut)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                        <b style={{ color: "var(--fg)" }}>P{n}</b>
-                        {t?.starts ?? ""}
-                      </span>
-                      {days.map((d) => {
-                        const slot = data.week.find((w) => w.day === d && w.number === n);
-                        return (
-                          <span key={d} className={`t-wkCell${slot ? " has" : ""}${slot && isToday(d) ? " today" : ""}`}>
-                            {slot ? (
-                              <>
-                                <b>{slot.subjectCode}</b>
-                                <span>{slot.classLabel}</span>
-                              </>
-                            ) : (
-                              <span style={{ color: "var(--sub)" }}>{tx(p("Free", "खाली"))}</span>
-                            )}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          )
-        ) : null}
-
-        {current === "profile" ? (
-          <>
-            <Card>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <Avatar text={initials(data.profile.name)} seed={data.profile.email ?? data.profile.name} size={64} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <strong style={{ fontSize: 20 }}>{data.profile.name}</strong>
-                  <div style={{ color: "var(--mut)", fontSize: 13 }}>{data.profile.email}</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
-                {data.profile.classes.map((c) => (
-                  <Pill key={c.classId} tone={c.held ? "acc" : "mut"}>{c.held ? tx(p(`Class teacher ${c.classLabel}`, `कक्षा अध्यापक ${c.classLabel}`)) : c.classLabel}</Pill>
-                ))}
-                {data.profile.subjects.map((s) => <Pill key={s} tone="info">{s}</Pill>)}
-              </div>
-            </Card>
-            <Card>
-              <Head t={p("How the app looks", "ऐप कैसा दिखे")} icon="sliders" />
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                  <Bi en="Language" hi="भाषा" />
-                  <LangButton tone="page" />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                  <Bi en="Light or dark" hi="हल्का या गहरा" />
-                  <ThemeButton tone="page" />
-                </div>
-                <SwitchRow icon="text" title={<Bi en="Large text" hi="बड़े अक्षर" />} sub={tx(p("Bigger letters on every screen", "हर स्क्रीन पर बड़े अक्षर"))} on={large} onChange={toggleLarge} />
-              </div>
-            </Card>
-            <Card>
-              <Head t={p("Alerts", "सूचनाएँ")} icon="bell" />
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
-                {ALERTS.map((a) => (
-                  <SwitchRow key={a.key} icon={a.icon} title={<Bi en={a.text.en} hi={a.text.hi} />} sub={tx(a.sub)} on={alerts[a.key] !== false} onChange={(on) => toggleAlert(a.key, on)} />
-                ))}
-              </div>
-            </Card>
-            <Card>
-              <Head t={p("My leave", "मेरी छुट्टियाँ")} icon="calMinus" action={<Btn variant="sec" icon="plus" onClick={() => setSheet("leave")}>{tx(p("Apply", "आवेदन"))}</Btn>} />
-              {data.leave.length === 0 ? (
-                <EmptyState icon="calendar" title={tx(p("No leave asked for", "कोई छुट्टी नहीं माँगी"))} />
-              ) : (
-                <ul style={{ listStyle: "none", margin: "12px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {data.leave.map((l) => {
-                    const st = LEAVE_STATUS[l.status] ?? LEAVE_STATUS.asked!;
-                    return (
-                      <li key={l.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--bd)", flexWrap: "wrap" }}>
-                        <span style={{ flex: 1, minWidth: 160 }}>
-                          <strong>{l.from_day === l.to_day ? shortDay(l.from_day) : `${shortDay(l.from_day)} – ${shortDay(l.to_day)}`}</strong>
-                          {l.note ? <div style={{ fontSize: 13, color: "var(--mut)" }}>{l.note}</div> : null}
-                        </span>
-                        <Pill tone={st.tone}>{tx(st.text)}</Pill>
-                        {l.status === "asked" && l.from_day >= data.today ? (
-                          <Btn variant="ghost" icon="x" disabled={pending} onClick={() => cancelLeave(l.id)}>{tx(p("Cancel", "रद्द करें"))}</Btn>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Card>
-            <form action={logoutAction}>
-              <Btn type="submit" variant="sec" big full icon="logout">
-                <Bi en="Sign out" hi="साइन आउट" />
-              </Btn>
-            </form>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--mut)", textAlign: "center" }}>
-              {tx(p("Questions? Ask the office.", "कोई सवाल? ऑफ़िस से पूछें।"))} <Link href="/teach">{sub(p("Home", "होम")) || tx(p("Home", "होम"))}</Link>
-            </p>
-          </>
-        ) : null}
-      </Section>
-
-      <LeaveSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} />
-      <HelpSheet open={sheet === "help"} onClose={() => setSheet(null)} title={p("Help", "मदद")} steps={HELP} />
+      <main>
+        {current === "menu" ? menu : current === "news" ? newsView : current === "links" ? linksView : current === "timetable" ? ttView : current === "leave" ? leaveView : current === "help" ? helpView : profileView}
+      </main>
+      <LeaveChipsSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} coverFor={coverFor} />
     </VxPage>
   );
 }
+
+/* ------------------------------------------------------------------ help */
+
+type HelpTopic = "att" | "marks" | "note" | "link" | "news" | "leave";
+
+function Mini({ rows }: { rows: { t: string; tone?: "row" | "soft" | "btn" | "ok" | "bad" | "good" | "mic" | "wa"; r?: string; hl?: boolean }[] }) {
+  const K = { row: [24, "card", "fg"], soft: [24, "accs", "accfg"], btn: [30, "pri", "prifg"], ok: [44, "oks", "ok"], bad: [24, "bads", "bad"], good: [24, "oks", "ok"], mic: [56, "pri", "prifg"], wa: [40, "wab", "wafg"] } as const;
+  return (
+    <>
+      {rows.map((x, i) => {
+        const k = x.tone ?? "row";
+        const [h, bg, fg] = K[k];
+        const center = k === "btn" || k === "ok" || k === "mic";
+        return (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, height: h, padding: "0 9px", borderRadius: k === "mic" ? 28 : k === "wa" ? "10px 10px 2px 10px" : 8, background: V(bg), color: V(fg), border: x.hl ? "2px solid var(--acc)" : k === "row" ? "1px solid var(--bd)" : "1px solid transparent", justifyContent: center ? "center" : "flex-start", fontSize: 11, fontWeight: k === "row" || k === "good" ? 600 : k === "wa" ? 500 : 700, animation: x.hl ? "xPulse 1.8s ease infinite" : k === "mic" ? "xPulse 2s ease infinite" : "none", alignSelf: k === "mic" ? "center" : k === "wa" ? "flex-end" : "stretch", width: k === "mic" ? 56 : k === "wa" ? "84%" : "auto" }}>
+            {k === "ok" ? <Ic n="check" size={22} stroke={2.6} /> : k === "mic" ? <Ic n="mic" size={26} stroke={2.6} /> : null}
+            {x.t ? <span className="tc-el" style={{ flex: center ? "0 1 auto" : 1 }}>{x.t}</span> : null}
+            {x.r ? <span className="num" style={{ fontWeight: 700, padding: "1px 7px", borderRadius: 6, background: "var(--s3)", color: "var(--fg)" }}>{x.r}</span> : null}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+const step = (t: Pair, d: Pair, pic: ReactNode) => ({ t, d, pic });
+const HELP: Record<HelpTopic, { icon: IconName; t: Pair; tone: Tone; href?: string; steps: { t: Pair; d: Pair; pic: ReactNode }[] }> = {
+  att: {
+    icon: "calCheck", t: p("Mark attendance", "हाज़िरी लगाएँ"), tone: TO, href: "/teach/attendance",
+    steps: [
+      step(p("Open Attendance", "हाज़िरी खोलें"), p("Tap the big round button at the bottom.", "नीचे बड़ा गोल बटन दबाएँ।"), <Mini rows={[{ t: "Attendance", tone: "soft", hl: true }, { t: "My class" }, { t: "Marks" }]} />),
+      step(p("Tap who is absent", "अनुपस्थित पर टैप करें"), p("Everyone starts Present. Tap once for Absent, again for Half-day.", "सब उपस्थित से शुरू। एक बार अनुपस्थित, दोबारा आधा दिन।"), <Mini rows={[{ t: "Aadhya · Present", tone: "good" }, { t: "Om · Absent", tone: "bad", hl: true }, { t: "Pari · Present", tone: "good" }]} />),
+      step(p("Save attendance", "हाज़िरी सेव करें"), p("Until you save, the office sees “Not marked”.", "सेव करने तक ऑफ़िस को “नहीं लगी” दिखती है।"), <Mini rows={[{ t: "Save attendance", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+    ],
+  },
+  marks: {
+    icon: "clipboard", t: p("Enter marks", "अंक भरें"), tone: TW, href: "/teach/marks",
+    steps: [
+      step(p("Pick the class", "कक्षा चुनें"), p("Tap Continue on the class you want.", "जिस कक्षा के अंक भरने हैं उस पर “जारी रखें” दबाएँ।"), <Mini rows={[{ t: "Class 7 Science", r: "12/27" }, { t: "Continue", tone: "btn", hl: true }, { t: "Class 8 Science", r: "0/28" }]} />),
+      step(p("Type the mark", "अंक लिखें"), p("After two numbers it jumps to the next child by itself.", "दो अंक लिखते ही अगला बच्चा अपने आप आ जाता है।"), <Mini rows={[{ t: "Lokesh", r: "38" }, { t: "Muskan", tone: "soft", r: "5_", hl: true }, { t: "Nidhi" }]} />),
+      step(p("Check and send", "जाँचें और भेजें"), p("See the summary, then send it to the exam office.", "सारांश देखें, फिर परीक्षा विभाग को भेजें।"), <Mini rows={[{ t: "Average", r: "56" }, { t: "Send", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+    ],
+  },
+  note: {
+    icon: "mic", t: p("Speak a note", "बोलकर नोट लिखें"), tone: TI, href: "/teach/notes?sheet=add",
+    steps: [
+      step(p("Tap the mic", "माइक दबाएँ"), p("In Notes, tap the big round mic button.", "नोट्स में बड़ा गोल माइक बटन दबाएँ।"), <Mini rows={[{ t: "", tone: "mic" }]} />),
+      step(p("Speak in Hindi or English", "हिंदी या अंग्रेज़ी में बोलें"), p("Your words appear as you speak. Fix any word by typing.", "बोलते ही शब्द दिखते हैं। कोई शब्द टाइप करके ठीक करें।"), <Mini rows={[{ t: "Riya finds fractions…" }, { t: "started practice sheets|", tone: "soft", hl: true }]} />),
+      step(p("Save the note", "नोट सेव करें"), p("It reaches the class teacher by itself.", "यह अपने आप कक्षा अध्यापक तक पहुँचता है।"), <Mini rows={[{ t: "Save note", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+    ],
+  },
+  link: {
+    icon: "link", t: p("Share a marks link", "अंक लिंक भेजें"), tone: TA,
+    steps: [
+      step(p("Open Marks links", "अंक लिंक खोलें"), p("More → Marks links. One card for each class.", "और → अंक लिंक। हर कक्षा का एक कार्ड।"), <Mini rows={[{ t: "Class 7 Science", tone: "soft", r: "12/27", hl: true }, { t: "Class 8 Science", r: "0/28" }]} />),
+      step(p("Tap Share on WhatsApp", "व्हाट्सऐप पर भेजें दबाएँ"), p("Send it to yourself to open it on any phone.", "किसी भी फ़ोन पर खोलने के लिए इसे खुद को भेजें।"), <Mini rows={[{ t: "Share on WhatsApp", tone: "btn", hl: true }, { t: "Copy" }]} />),
+      step(p("Open it and type marks", "खोलें और अंक लिखें"), p("No password. Marks land in the same place.", "पासवर्ड नहीं। अंक उसी जगह पहुँचते हैं।"), <Mini rows={[{ t: "Your marks link · Class 7", tone: "wa" }, { t: "", tone: "ok" }]} />),
+    ],
+  },
+  news: {
+    icon: "megaphone", t: p("Read notices", "सूचनाएँ पढ़ें"), tone: TS,
+    steps: [
+      step(p("Open Notices", "सूचनाएँ खोलें"), p("The red number shows how many are new.", "लाल अंक बताता है कितनी नई हैं।"), <Mini rows={[{ t: "Notices", tone: "soft", r: "2", hl: true }, { t: "Marks links" }]} />),
+      step(p("Read the notice", "सूचना पढ़ें"), p("The newest one is pinned on top.", "सबसे नई सूचना सबसे ऊपर रहती है।"), <Mini rows={[{ t: "PTM Sat 17 Oct", hl: true }, { t: "Marks by Wed 14" }]} />),
+      step(p("Tap Got it", "“समझ गए” दबाएँ"), p("The office can see you have read it.", "ऑफ़िस देख सकता है कि आपने पढ़ ली।"), <Mini rows={[{ t: "Got it", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+    ],
+  },
+  leave: {
+    icon: "calendar", t: p("Apply leave", "छुट्टी माँगें"), tone: TW,
+    steps: [
+      step(p("Pick the day", "दिन चुनें"), p("Today · full day is already picked.", "आज · पूरा दिन पहले से चुना है।"), <Mini rows={[{ t: "Today", tone: "soft", hl: true }, { t: "Tomorrow" }]} />),
+      step(p("Pick a reason", "कारण चुनें"), p("Unwell, Family function, Personal work or Other.", "बीमार, पारिवारिक कार्यक्रम, निजी काम या अन्य।"), <Mini rows={[{ t: "Unwell", hl: true }, { t: "Family function" }]} />),
+      step(p("Send", "भेजें"), p("The office arranges your classes.", "आपकी कक्षाएँ ऑफ़िस संभालता है।"), <Mini rows={[{ t: "Send", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+    ],
+  },
+};

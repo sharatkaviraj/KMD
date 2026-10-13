@@ -22,6 +22,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       name={staff.displayName}
       initialSheet={sheet}
       school={schoolProfile.shortName}
+      officePhone={schoolProfile.phone}
       allowed={{ attendance: can(staff, "attendance:mark"), marks: can(staff, "marks:write"), notes: can(staff, "notes:write") }}
     />
   );

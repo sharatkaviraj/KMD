@@ -1,5 +1,13 @@
 "use client";
 
+import Link from "next/link";
+
+import { Ic } from "@/vx/icons";
+import { useVx } from "@/vx/i18n";
+import { p, type Pair } from "@/vx/text";
+import { VxPage } from "@/vx/ui/page";
+import { TchTop } from "@/vx/screens/teach/ui/shared";
+
 import type { Cell } from "./domain/entry";
 import { MarksSheet } from "./marks-sheet";
 import type { SaveOutcome, SavePayload } from "./save-types";
@@ -28,6 +36,71 @@ async function post(token: string, body: unknown): Promise<SaveOutcome> {
   } catch {
     return OFFLINE;
   }
+}
+
+export type LinkPaper = { paperId: string; classLabel: string; subjectCode: string; maxMarks: number; entered: number; total: number; status: "done" | "in_progress" | "not_started" | "empty" };
+
+const V = (x: string) => `var(--${x})`;
+
+/**
+ * The marks link's first page: her papers in this exam as the Marks screen's
+ * cards (design TchMarks `pick`), with no navigation past them.
+ */
+export function PublicPaperList({ token, school, staffName, examLabel, papers }: { token: string; school: string; staffName: string; examLabel: Pair; papers: LinkPaper[] }) {
+  const { tx, sub } = useVx();
+  const title = tx(p("Your marks", "आपके अंक"));
+  return (
+    <VxPage className="tc">
+      <TchTop crumb={school} title={title} mTitle={title} mSub={`${staffName} · ${tx(examLabel)}`} />
+      <main>
+        <div className="tc-scr" style={{ maxWidth: 1040 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className="tc-h1">{tx(examLabel)}</span>
+            <span className="tc-tb" style={{ color: "var(--mut)" }}>{staffName} · {tx(p("Tap a paper. Everything saves by itself.", "पेपर दबाएँ। सब अपने आप सेव होता है।"))}</span>
+          </div>
+          {papers.length === 0 ? (
+            <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+              <span className="tc-av" style={{ width: 64, height: 64, background: "var(--s2)", color: "var(--mut)" }}><Ic n="clipboard" size={28} /></span>
+              <span className="tc-h2">{tx(p("No papers for you in this exam", "इस परीक्षा में आपका कोई पेपर नहीं"))}</span>
+            </div>
+          ) : null}
+          <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+            {papers.map((c, i) => {
+              const k: [Pair, string, Pair, string, string, string] =
+                c.status === "done"
+                  ? [p("View", "देखें"), "sec", p("Sent ✓", "भेजे ✓"), V("oks"), V("ok"), V("ok")]
+                  : c.status === "in_progress"
+                    ? [p("Continue", "जारी रखें"), "pri", p("In progress", "चल रहा है"), V("accs"), V("accfg"), V("acc")]
+                    : [p("Start", "शुरू करें"), "sec", p("Not started", "शुरू नहीं"), V("s3"), V("mut"), V("acc")];
+              const t = p(`${c.classLabel} ${c.subjectCode}`, `${c.classLabel.replace(/^Class/, "कक्षा")} ${c.subjectCode}`);
+              return (
+                <div key={c.paperId} className="card tc-in" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, border: c.status === "in_progress" ? "2px solid var(--acc)" : "1px solid var(--bd)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span className="tc-ibx" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="clipboard" size={22} /></span>
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{tx(examLabel)} · {tx(p(`out of ${c.maxMarks}`, `${c.maxMarks} में से`))}</span>
+                      <span className="tc-h2">{tx(t)}</span>
+                      {sub(t) ? <span className="tc-mi">{sub(t)}</span> : null}
+                    </span>
+                    <span className="pill" style={{ background: k[3], color: k[4] }}>{tx(k[2])}</span>
+                  </div>
+                  <div className="tc-mbar"><span style={{ width: `${c.total ? Math.round((c.entered / c.total) * 100) : 0}%`, background: k[5] }} /></div>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+                    <span className="tc-tb num" style={{ flex: 1, minWidth: 140, fontWeight: 600 }}>{tx(p(`${c.entered} of ${c.total} entered`, `${c.total} में से ${c.entered} भरे`))}</span>
+                    <Link href={`/t/marks/${token}?paper=${c.paperId}`} className={`tap btn ${k[1]} tc-mbg tc-mw`}>{tx(k[0])}<Ic n="arrowRight" /></Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="tc-note" style={{ background: "var(--infos)", color: "var(--info)" }}>
+            <Ic n="info" style={{ marginTop: 2 }} />
+            <span>{tx(p("This link is only for you. It opens straight to your marks sheet — no password needed.", "यह लिंक सिर्फ़ आपके लिए है। यह सीधे आपकी अंक शीट खोलता है — पासवर्ड नहीं चाहिए।"))}</span>
+          </div>
+        </div>
+      </main>
+    </VxPage>
+  );
 }
 
 export function PublicMarksSheet({
