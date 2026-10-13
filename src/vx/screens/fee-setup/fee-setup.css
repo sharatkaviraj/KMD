@@ -1,56 +1,65 @@
-/* Fee setup: tabs, the class table, the edit panel, the due-date timeline and the pending-changes bar. */
+/* Fee setup (design `FeeSetup`): tab bar, class table, edit panel, due-date timeline, cards and the pending-changes bar. */
 
-.vx .fs-f { display: flex; align-items: center; gap: 8px; }
-.vx .fs-c { display: flex; flex-direction: column; min-width: 0; }
-.vx .fs-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.vx .fs-m { font-size: 12px; color: var(--mut); }
-.vx .fs-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--s2); overflow-x: auto; max-width: 100%; scrollbar-width: none; }
-.vx .fs-tab { display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 18px; border-radius: 11px; border: 0; background: transparent; color: var(--mut); font-weight: 600; font-size: 14px; white-space: nowrap; }
-.vx .fs-tab.on { background: var(--card); color: var(--fg); box-shadow: var(--shl); }
-.vx .fs-lay { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; min-height: 100%; }
-.vx .fs-lay.has { grid-template-columns: minmax(0, 1fr) 400px; }
-.vx .fs-aside { position: sticky; top: 64px; height: calc(100dvh - 64px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--card); display: flex; flex-direction: column; }
-.vx .fs-lock { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 12px; background: var(--warns); color: var(--warnfg); font-size: 13px; line-height: 1.45; }
-.vx .fs-info { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 12px; background: var(--infos); color: var(--info); font-size: 13px; line-height: 1.45; }
+:where(.vx, .vxt) .fs-f { display: flex; align-items: center; gap: 8px; min-width: 0; }
+:where(.vx, .vxt) .fs-c { display: flex; flex-direction: column; min-width: 0; }
+:where(.vx, .vxt) .fs-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+:where(.vx, .vxt) .fs-m { font-size: 12px; color: var(--mut); }
+:where(.vx, .vxt) .fs-tt { font-size: 15px; font-weight: 700; }
+:where(.vx, .vxt) .fs-h2 { font-family: "Source Serif 4", Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.2; }
+:where(.vx, .vxt) .fs-ib { display: flex; align-items: center; justify-content: center; flex: none; }
+:where(.vx, .vxt) .fs-sq { flex: none; width: 38px; height: 38px; padding: 0; }
+:where(.vx, .vxt) .fs-sq4 { flex: none; width: 44px; height: 44px; padding: 0; }
+:where(.vx, .vxt) .fs-t36 { width: 36px; height: 36px; border-radius: 11px; }
+:where(.vx, .vxt) .fs-dt { width: 10px; height: 10px; border-radius: 5px; flex: none; }
+:where(.vx, .vxt) .fs-big { min-width: 56px; font-size: 16px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+:where(.vx, .vxt) .fs-nt { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+:where(.vx, .vxt) .fs-rb { display: flex; align-items: center; gap: 12px; border: 0; background: transparent; color: var(--fg); text-align: left; width: 100%; }
+:where(.vx, .vxt) .fs-rp { position: relative; flex: 1; min-width: 0; }
+:where(.vx, .vxt) .fs-rp > span { position: absolute; left: 14px; top: 12px; color: var(--mut); }
+:where(.vx, .vxt) .fs-rp > input { padding-left: 30px; font-weight: 700; }
+:where(.vx, .vxt) .fs-ls > * + * { border-top: 1px solid var(--bd); }
+:where(.vx, .vxt) .fs-xi { animation: xIn .32s var(--ease) both; }
+:where(.vx, .vxt) .fs-ac { background: var(--accs); color: var(--accfg); }
+:where(.vx, .vxt) .fs-wa { background: var(--warns); color: var(--warnfg); }
+:where(.vx, .vxt) .fs-ok { background: var(--oks); color: var(--ok); }
+:where(.vx, .vxt) .fs-in { background: var(--infos); color: var(--info); }
+:where(.vx, .vxt) .fs-er { background: var(--bads); color: var(--bad); }
+:where(.vx, .vxt) .fs-nu { background: var(--s3); color: var(--mut); }
+:where(.vx, .vxt) .fs-pl { height: 28px; padding: 0 10px; font-size: 13px; }
+:where(.vx, .vxt) .fs-g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+/* The design's buttons keep the browser's own line height. */
+:where(.vx, .vxt) .fs-lh button { line-height: normal; }
 
-.vx .fs-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
-.vx .fs-tbl th { text-align: right; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--mut); padding: 12px 16px; background: var(--s2); }
-.vx .fs-tbl th:first-child, .vx .fs-tbl td:first-child { text-align: left; }
-.vx .fs-tbl td { text-align: right; padding: 12px 16px; border-top: 1px solid var(--bd); font-variant-numeric: tabular-nums; }
-.vx .fs-tbl tr.fs-band td { background: var(--s2); font-size: 12px; font-weight: 700; color: var(--mut); padding: 8px 16px; }
-.vx .fs-tbl tr.fs-row { cursor: pointer; }
-.vx .fs-tbl tr.fs-row:hover td { background: var(--s2); }
-.vx .fs-tbl tr.fs-row.on td { background: var(--accs); }
-.vx .fs-was { font-size: 11px; color: var(--mut); text-decoration: line-through; display: block; }
-.vx .fs-new { color: var(--accfg); font-weight: 700; }
+.vx .fs-tabbar { position: sticky; top: 64px; z-index: 15; padding: 12px 28px; border-bottom: 1px solid var(--bd); background: var(--bg); }
+.vx .fs-seg { grid-template-columns: repeat(5, minmax(0, 1fr)); width: 660px; min-width: 600px; }
+.vx .fs-seg > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.vx .fs-scr { padding: 20px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
 
-.vx .fs-tl { position: relative; display: grid; gap: 0; }
-.vx .fs-tl > i { position: absolute; top: 20px; height: 3px; border-radius: 2px; background: var(--s3); }
-.vx .fs-tl > i > b { display: block; height: 3px; border-radius: 2px; background: var(--ok); }
-.vx .fs-tl > div { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-.vx .fs-dot { width: 40px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bds); background: var(--card); color: var(--mut); }
-.vx .fs-dot.done { background: var(--ok); border-color: var(--ok); color: #fff; }
-.vx .fs-dot.next { border-color: var(--acc); color: var(--acc); border-width: 3px; }
+.vx .fs-lay { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.vx .fs-lay.has { grid-template-columns: minmax(0, 1fr) 420px; }
+.vx .fs-aside { position: sticky; top: 129px; height: calc(100dvh - 129px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--bg); display: flex; flex-direction: column; animation: xPush .36s var(--ease) both; }
+.vx .fs-foot { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 22px 16px; border-top: 1px solid var(--bd); }
+.vx .fs-foot > button { flex: 1; }
+.vx .fs-foot > button + button { flex: 1.6; }
 
-.vx .fs-split { height: 10px; border-radius: 5px; overflow: hidden; display: flex; background: var(--s3); }
-.vx .fs-rule { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
-.vx .fs-ib { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--accs); color: var(--accfg); }
-.vx .fs-pct { font-family: var(--serif, Georgia, serif); font-size: 30px; line-height: 1; }
+.vx .fs-thead { display: grid; gap: 8px; align-items: center; height: 42px; padding: 0 16px; background: var(--s2); border-bottom: 1px solid var(--bd); }
+.vx .fs-row { width: 100%; display: grid; gap: 8px; align-items: center; min-height: 60px; padding: 8px 16px; border: 0; border-top: 1px solid var(--bd); background: transparent; color: var(--fg); text-align: left; }
+.vx .fs-thead + .fs-row, .vx .fs-thead + .fs-band { border-top: 0; }
+.vx .fs-cell { padding: 0 6px; border-radius: 6px; }
 
-.vx .fs-bar { position: sticky; bottom: 14px; z-index: 5; margin: 0 auto; width: min(620px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 18px; border-radius: 18px; background: var(--pri); color: var(--prifg); box-shadow: var(--shh); animation: xRise .32s var(--ease) both; }
-.vx .fs-bar .dot { width: 9px; height: 9px; border-radius: 5px; background: var(--acc); flex: none; }
-.vx .fs-bar .btn.ghost { color: inherit; }
+/* The pending-changes bar floats over the page's foot without taking room. */
+.vx .fs-pbar { position: sticky; bottom: 22px; z-index: 30; height: 0; display: flex; justify-content: center; align-items: flex-end; pointer-events: none; padding: 0 24px; }
+.vx .fs-pbar > div { min-width: 0; pointer-events: auto; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; min-height: 56px; border-radius: 18px; background: var(--tbg); color: var(--tfg); box-shadow: var(--shl); animation: xUp .42s var(--ease) both; }
 
-.vx .fs-wa { padding: 12px; border-radius: 14px; background: var(--wabg); }
-.vx .fs-wa > div { padding: 10px 12px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; white-space: pre-line; max-height: 220px; overflow: auto; }
+/* While a class is being edited on a phone, the page's own header stands in for the top bar. */
+.vx.fs-editing > header.vx-top.only-m:not(.fs-mtop) { display: none !important; }
 
 @container vx (max-width: 899px) {
+  .vx .fs-tabbar { top: 58px; padding: 12px 16px; }
+  .vx .fs-scr { gap: 14px; }
   .vx .fs-lay.has { grid-template-columns: minmax(0, 1fr); }
-  .vx .fs-aside { display: none; }
-  .vx .fs-tab { padding: 0 14px; }
-  .vx .fs-tbl th, .vx .fs-tbl td { padding: 11px 10px; }
-  .vx .fs-tbl .hide-p { display: none; }
-  .vx .fs-tl { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; row-gap: 18px; }
-  .vx .fs-tl > i { display: none; }
-  .vx .fs-bar { bottom: 82px; }
+  .vx .fs-aside { position: static; height: auto; overflow: visible; border-left: 0; animation: none; }
+  .vx .fs-foot { bottom: calc(76px + env(safe-area-inset-bottom)); padding: 12px 16px; }
+  .vx .fs-pbar { bottom: 88px; padding: 0 12px; }
+  .vx .fs-pbar > div { flex: 1; }
 }
