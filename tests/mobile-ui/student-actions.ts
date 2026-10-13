@@ -6,3 +6,14 @@ export const logFamilyContactAction = refuse;
 export const checkFamilyContactAction = refuse;
 export const setNoteStatusAction = refuse;
 export const replyToNoteAction = refuse;
+// The rest of the notes actions, for the notes screens in the design fixture.
+export const createNoteAction = refuse;
+export const undoNoteAction = refuse;
+export const setFollowUpAction = refuse;
+export const tellParentsAboutNoteAction = refuse;
+export const createPlanAction = refuse;
+export const addPlanStepAction = refuse;
+export const togglePlanStepAction = refuse;
+export const removePlanStepAction = refuse;
+export const closePlanAction = refuse;
+export const tellParentsAboutPlanAction = refuse;

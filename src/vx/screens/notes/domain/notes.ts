@@ -91,6 +91,26 @@ export const QUICK_PHRASES: Pair[] = [
   p("Needs help with reading", "पढ़ने में मदद चाहिए"),
 ];
 
+/**
+ * Tags a note's words suggest (design TchNotes `KW`): the composer marks them
+ * "✦ Suggested", and words that came from the voice pick them. Hindi and
+ * English. Only a suggestion: the writer still chooses.
+ */
+const TAG_WORDS: Record<NoteTag, RegExp> = {
+  studies: /भिन्न|सवाल|गणित|पढ़|गृहकार्य|अभ्यास|fraction|math|homework|practice|marks|read|lab/i,
+  behaviour: /झगड़|चुप|शरारत|quiet|fight|rude|alone|talks/i,
+  health: /तबीयत|बुखार|सिर|दर्द|unwell|fever|headache|sick/i,
+  family: /घर|पिता|माता|दादी|परिवार|father|mother|family|grand/i,
+  talent: /चित्र|गाना|खेल|drawing|sing|sport|quiz|talent|excellent|very good/i,
+  attendance: /अनुपस्थित|छुट्टी|नहीं आ|absent|late|leave/i,
+};
+
+export function suggestTags(text: string): NoteTag[] {
+  const t = text.trim();
+  if (!t) return [];
+  return NOTE_TAGS.filter((tag) => TAG_WORDS[tag].test(t));
+}
+
 /* -------------------------------------------------------------- follow-up */
 
 export type FollowWhen = "tomorrow" | "next_monday" | "one_week";
@@ -293,7 +313,7 @@ export function boardKpis(
   plansRunning: number,
   today: string,
 ): { needsAction: number; dueThisWeek: number; plansRunning: number; thisMonth: number } {
-  const weekEnd = addDays(today, 6 - ((weekday(today) + 6) % 7));
+  const weekEnd = weekEndOf(today);
   const month = today.slice(0, 7);
   return {
     needsAction: notes.filter((n) => needsAction(n, today)).length,
@@ -301,6 +321,68 @@ export function boardKpis(
     plansRunning,
     thisMonth: notes.filter((n) => n.createdAt.slice(0, 7) === month).length,
   };
+}
+
+/** The Sunday that ends this school week: "follow-ups due this week" run from today to it. */
+export function weekEndOf(today: string): string {
+  return addDays(today, 6 - ((weekday(today) + 6) % 7));
+}
+
+/** The Monday that starts this school week. */
+export function weekStartOf(today: string): string {
+  return addDays(today, -((weekday(today) + 6) % 7));
+}
+
+/**
+ * Where a note stands, as the cards say it: done, being worked on, open
+ * (someone must act: a follow-up was asked, or it is an unclaimed health or
+ * family note), or "just noting" — kept on the record with nothing asked.
+ */
+export type NoteStage = NoteStatus | "noting";
+
+export function noteStage(note: Pick<BoardNote, "status" | "needsFollowUp" | "tags">): NoteStage {
+  if (note.status !== "open") return note.status;
+  return note.needsFollowUp || isSensitiveNote(note) ? "open" : "noting";
+}
+
+/** The board's "Notes this month" line: how many this week, and by how many teachers this month. */
+export function monthStats(notes: readonly Pick<BoardNote, "createdAt" | "writtenBy">[], today: string): { thisWeek: number; teachers: number } {
+  const month = today.slice(0, 7);
+  const monday = weekStartOf(today);
+  const mine = notes.filter((n) => n.createdAt.slice(0, 7) === month);
+  return {
+    thisWeek: notes.filter((n) => n.createdAt.slice(0, 10) >= monday && n.createdAt.slice(0, 10) <= today).length,
+    teachers: new Set(mine.map((n) => n.writtenBy)).size,
+  };
+}
+
+/**
+ * The board's insight line: the tag most notes this month carry, and the
+ * class with the most notes this month. Null when nothing was written.
+ */
+export function monthInsight(notes: readonly Pick<BoardNote, "createdAt" | "tags" | "classId" | "classLabel">[], today: string): { tag: NoteTag | null; classId: string | null; classLabel: string | null; classCount: number } | null {
+  const month = today.slice(0, 7);
+  const mine = notes.filter((n) => n.createdAt.slice(0, 7) === month);
+  if (mine.length === 0) return null;
+  let tag: NoteTag | null = null;
+  let tagCount = 0;
+  for (const t of NOTE_TAGS) {
+    const c = mine.filter((n) => n.tags.includes(t)).length;
+    if (c > tagCount) {
+      tag = t;
+      tagCount = c;
+    }
+  }
+  const byClass = new Map<string, { label: string; count: number }>();
+  for (const n of mine) {
+    if (!n.classId) continue;
+    const cur = byClass.get(n.classId) ?? { label: n.classLabel, count: 0 };
+    cur.count += 1;
+    byClass.set(n.classId, cur);
+  }
+  let best: [string, { label: string; count: number }] | null = null;
+  for (const entry of byClass) if (!best || entry[1].count > best[1].count) best = entry;
+  return { tag, classId: best?.[0] ?? null, classLabel: best?.[1].label ?? null, classCount: best?.[1].count ?? 0 };
 }
 
 export function tagMix(notes: readonly BoardNote[]): { tag: NoteTag; count: number }[] {
