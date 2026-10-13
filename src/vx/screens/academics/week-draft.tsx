@@ -58,6 +58,7 @@ export function WeekDraft({
   const to = principals.length ? principals.join(", ") : tx({ en: "the principal", hi: "प्रधानाचार्य" });
   const masked = (r: Row) => (names ? r.name : tx({ en: `A child · ${r.sub.split(" · ")[0]}`, hi: `एक बच्चा · ${r.sub.split(" · ")[0]}` }));
 
+  // On a phone the bar sits on the shell's bottom navigation (76px + 22px padding + 1px rule).
   /* the trend line: eight weekly averages, oldest first */
   const values = trend.map((t) => t.pct).filter((v): v is number => v !== null);
   const lo = values.length ? Math.floor(Math.min(...values) - 1) : 85;
@@ -92,7 +93,7 @@ export function WeekDraft({
 
   return (
     <div className="pad acad-week" style={{ padding: "20px 28px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-      <style>{`.acad-week .acad-bot{position:sticky;bottom:0;margin:16px -28px 0;padding:12px 28px}@container vx (max-width:899px){.acad-week .acad-bot{bottom:calc(76px + env(safe-area-inset-bottom));margin:16px -16px 0;padding:10px 16px 12px}.acad-week .acad-bot .btn{height:52px;width:100%}}@media print{.acad-week .acad-bot{display:none}}`}</style>
+      <style>{`.acad-week .acad-bot{position:sticky;bottom:0;margin:16px -28px 0;padding:12px 28px}@container vx (max-width:899px){.acad-week .acad-bot{bottom:calc(99px + env(safe-area-inset-bottom));margin:16px -16px 0;padding:10px 16px 12px}.acad-week .acad-bot .btn{height:52px;width:100%}}@media print{.acad-week .acad-bot{display:none}}`}</style>
       <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           <article className="card" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
