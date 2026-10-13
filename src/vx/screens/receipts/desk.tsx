@@ -187,7 +187,7 @@ export function ReceiptsDesk(props: DeskProps) {
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
               {props.lastDate ? <Btn variant="sec" icon="history" href={deskHref({ ...base, anchor: props.lastDate, span: "today" }, {})}>{tx(W.lastDay)} · {deskDay(props.lastDate)}</Btn> : null}
-              {perms.collect ? <Btn variant="pri" icon="rupee" href="/payments" style={{ color: "var(--prifg)" }}>{tx(W.takeFee)}</Btn> : null}
+              {perms.collect ? <Btn variant="pri" icon="rupee" href="/payments">{tx(W.takeFee)}</Btn> : null}
             </div>
           }
         />
@@ -257,13 +257,13 @@ export function ReceiptsDesk(props: DeskProps) {
             <>
               <DeskSearch value={query} onChange={setQuery} placeholder={tx(W.search)} label={tx(W.searchLabel)} />
               {perms.dayBook ? <Btn variant="sec" icon="download" href={dayBookHref} target="_blank">{tx(W.export)}</Btn> : null}
-              {perms.accounts ? <Btn variant="pri" icon="lock" href={closeHref} style={{ color: "var(--prifg)" }}>{closeButton}</Btn> : null}
+              {perms.accounts ? <Btn variant="pri" icon="lock" href={closeHref}>{closeButton}</Btn> : null}
             </>
           )
         }
         mAction={
           !isClose && perms.accounts ? (
-            <Btn variant="soft" href={closeHref} style={{ height: 40, padding: "0 12px", fontSize: 13, color: "var(--accfg)" }}>
+            <Btn variant="soft" href={closeHref} style={{ height: 40, padding: "0 12px", fontSize: 13 }}>
               <Ic n="lock" size={16} />
               {closeEvent ? tx(W.dayClosed) : tx(W.closeDayShort)}
             </Btn>

@@ -234,7 +234,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         footer={
           <>
             <Btn variant="sec" full onClick={() => setSheet(null)}>{tx(W.close)}</Btn>
-            <Btn variant="pri" full icon="arrowRight" href={`/fees/receipts/${r.id}`} style={{ color: "var(--prifg)" }}>{tx(W.openClassic)}</Btn>
+            <Btn variant="pri" full icon="arrowRight" href={`/fees/receipts/${r.id}`}>{tx(W.openClassic)}</Btn>
           </>
         }
       >

@@ -138,7 +138,7 @@ export function ClosePanel(props: DeskProps) {
             ))}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 6 }}>
-            {perms.dayBook ? <Btn variant="pri" icon="download" href={dayBookHref} target="_blank" style={{ color: "var(--prifg)" }}>{tx(W.dayBook)}</Btn> : null}
+            {perms.dayBook ? <Btn variant="pri" icon="download" href={dayBookHref} target="_blank">{tx(W.dayBook)}</Btn> : null}
             <Btn variant="sec" href={back}>{tx(W.back)}</Btn>
             {perms.reopen ? <Btn variant="ghost" onClick={() => setReopenOpen(true)} style={{ color: "var(--bad)" }}>{tx(W.reopen)}</Btn> : null}
           </div>
