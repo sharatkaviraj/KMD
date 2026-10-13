@@ -607,7 +607,7 @@ function Tracker(props: ExamsProps & { href: Href; cellOpen: boolean; onRemind: 
               const look = LOOK[cell.state];
               const label = cell.state === "in_progress" ? tx(p(`${cell.entered} of ${cell.total}`, `${cell.total} में से ${cell.entered}`)) : tx(look.label);
               return (
-                <Link key={s.code} href={href("cell", `&paper=${cell.paperId}`)} className="tap row" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", color: "var(--fg)", borderTop: i ? "1px solid var(--bd)" : undefined, opacity: shows(filter, cell.state) ? 1 : 0.35 }}>
+                <Link key={s.code} href={href("cell", `&paper=${cell.paperId}`)} className="tap row" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", lineHeight: 1.25, color: "var(--fg)", borderTop: i ? "1px solid var(--bd)" : undefined, opacity: shows(filter, cell.state) ? 1 : 0.35 }}>
                   <span style={{ flex: "none", width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: look.bg, color: look.fg }}>
                     <Ic n={look.icon} />
                   </span>
@@ -799,6 +799,11 @@ function hashOf(text: string): number {
     h ^= text.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
+  h ^= h >>> 15;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
 
@@ -848,8 +853,8 @@ function Sampark(props: ExamsProps) {
           <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p("Teachers enter marks from this link — no login needed", "शिक्षक इस लिंक से अंक भरते हैं — लॉगिन की ज़रूरत नहीं"))}</span>
           <span style={{ fontSize: 12, color: "var(--mut)", lineHeight: 1.5 }}>
             {tx(p(
-              "Each teacher gets one private link for this exam that opens only her own classes. It stops working once it is renewed or revoked, and locked classes cannot be changed from it.",
-              "हर शिक्षक को इस परीक्षा का एक निजी लिंक मिलता है जिसमें केवल उनकी अपनी कक्षाएँ खुलती हैं। नया बनाने या बंद करने पर यह काम करना बंद कर देता है, और बंद कक्षाएँ इससे नहीं बदलतीं।",
+              "Each teacher gets one private link for her own classes. It stops working once it is renewed or revoked.",
+              "हर शिक्षक को अपनी कक्षाओं का एक निजी लिंक मिलता है। नया बनाने या बंद करने पर यह काम करना बंद कर देता है।",
             ))}
           </span>
         </span>

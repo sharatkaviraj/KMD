@@ -659,7 +659,7 @@ export function MarksSheet({
 
   if (variant === "office") {
     const line = paper.passMarks ?? Math.ceil(paper.maxMarks * 0.33);
-    const linePct = Math.round((line / Math.max(1, paper.maxMarks)) * 100);
+    const linePct = Math.floor((line / Math.max(1, paper.maxMarks)) * 100);
     const values = order.map((id) => cells[id]).filter((x): x is Cell => Boolean(x && x.state === "value" && x.value !== null));
     const lowCount = values.filter((x) => (x.value as number) < line).length;
     const highest = summary.highest === null ? null : (students.find((s) => cells[s.id]?.state === "value" && cells[s.id]?.value === summary.highest)?.name ?? null);
@@ -673,7 +673,7 @@ export function MarksSheet({
     const title2 = `${paper.classLabel} ${paper.subjectCode} · ${tx(p("enter marks", "अंक भरें"))}`;
     return (
       <VxPage>
-        <style href="vx-marks-office" precedence="default">{`.xer{display:grid;grid-template-columns:${cols};gap:10px;align-items:center;min-height:58px;padding:6px 16px}.xer.xd+.xer.xd{border-top:1px solid var(--bd)}@container vx (max-width:899px){.xer{grid-template-columns:${colsM};padding:6px 12px}}`}</style>
+        <style href="vx-marks-office" precedence="default">{`.xer{display:grid;grid-template-columns:${cols};gap:10px;align-items:center;min-height:58px;padding:6px 16px}.xer.xd+.xer.xd{border-top:1px solid var(--bd)}.xsave{bottom:12px}@container vx (max-width:899px){.xer{grid-template-columns:${colsM};padding:6px 12px}.xsave{bottom:calc(88px + env(safe-area-inset-bottom,0px))}}`}</style>
         <ExamsTop crumb={crumb} title={title2} back={backHref} mSub={`${tx(p("Out of", "पूर्णांक"))} ${paper.maxMarks} · ${tx(p("admin entry", "प्रशासक प्रविष्टि"))}`} mBack={backHref} />
         <main>
           <div className="pad" style={{ padding: "16px 28px 20px" }}>
@@ -779,7 +779,7 @@ export function MarksSheet({
                   })}
                 </div>
               </div>
-              <div className="glass" style={{ position: "sticky", bottom: 12, zIndex: 4, marginTop: 4, display: "flex", alignItems: "center", gap: 12, padding: "8px 8px 8px 16px", borderRadius: 18, border: "1px solid var(--bd)", boxShadow: "var(--shh)" }}>
+              <div className="glass xsave" style={{ position: "sticky", zIndex: 4, marginTop: 4, display: "flex", alignItems: "center", gap: 12, padding: "8px 8px 8px 16px", borderRadius: 18, border: "1px solid var(--bd)", boxShadow: "var(--shh)" }}>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: status === "error" || status === "stale" ? "var(--bad)" : "var(--mut)" }}>
                   {status === "saving" ? (
                     <span aria-hidden="true" style={{ flex: "none", width: 16, height: 16, borderRadius: 8, border: "2px solid var(--bds)", borderTopColor: "var(--acc)", animation: "xLoop .7s linear infinite" }} />
