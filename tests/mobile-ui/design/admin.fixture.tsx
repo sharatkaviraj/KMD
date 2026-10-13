@@ -122,3 +122,88 @@ export const views: Record<string, DesignView> = {
   "s360-marks": { render: s360("marks"), path: `/students/${aarav.id}` },
   "s360-info": { render: s360("info"), path: `/students/${aarav.id}` },
 };
+
+/* ---------------------------------------------------------------- Today */
+
+import { TodayScreen, type TodayProps } from "@/vx/screens/admin/today";
+import type { InboxItem } from "@/vx/screens/admin/types";
+import { VxPage } from "@/vx/ui/page";
+
+const pair = (en: string, hi?: string) => (hi ? { en, hi } : { en });
+
+/** The design's day (F01, Desktop): ₹38,400 from 14 receipts, 14 of 19 classes marked. */
+const days = Array.from({ length: 30 }, (_, i) => {
+  const d = new Date(Date.UTC(2026, 8, 9 + i));
+  const day = d.toISOString().slice(0, 10);
+  const sunday = d.getUTCDay() === 0;
+  return { date: day, amount: sunday ? 0 : day === TODAY ? 38400 : 18000 + ((i * 7919) % 26000) };
+});
+
+const inbox: InboxItem[] = [
+  { id: "nm", type: "attendance", kind: "not_marked", at: "2026-10-08T03:50:00Z", urgent: true, badge: pair("Attendance", "हाज़िरी"), title: pair("5 classes haven't marked attendance"), sub: pair("Period 1 ended 9:20 · 3, 5, 7, 9, 11 Com"), facts: [], classIds: ["c3", "c5", "c7", "c9", "c11"], remindable: 5 },
+  { id: "cv", type: "timetable", kind: "cover", at: "2026-10-08T02:35:00Z", urgent: true, badge: pair("Timetable", "समय सारणी"), title: pair("Cover Period 3 · Class 9 Physics"), sub: pair("Mr. Meena on leave · 2 teachers free"), facts: [], candidates: [] },
+  { id: "sb", type: "students", kind: "submission", at: "2026-10-06T05:00:00Z", urgent: false, badge: pair("Attendance correction"), title: pair("Attendance correction · Class 6"), sub: pair("Riya S. absent → present, 6 Oct"), facts: [], submissionIds: ["s1"] },
+  { id: "rf", type: "money", kind: "refund", at: "2026-10-07T05:00:00Z", urgent: false, badge: pair("Money · refund"), title: pair("Refund ₹2,500 · Transport"), sub: pair("Requested by the accountant"), facts: [] },
+];
+
+const todayProps: TodayProps = {
+  firstName: "Janmejay",
+  greeting: pair("Good morning", "सुप्रभात"),
+  dayLine: "Thursday, 8 October",
+  status: pair("Period 3 running", "पीरियड 3 चल रहा है"),
+  today: TODAY,
+  money: {
+    today: 38400,
+    receiptsToday: 14,
+    days,
+    modes: [
+      { mode: "upi", amount: 18200, receipts: 7 },
+      { mode: "cash", amount: 12600, receipts: 5 },
+      { mode: "cheque", amount: 6000, receipts: 1 },
+      { mode: "bank_transfer", amount: 1600, receipts: 1 },
+    ],
+    matrix: ["Class 1", "Class 3", "Class 5", "Class 7", "Class 9", "Class 10", "Class 11 Science", "Class 12 Commerce"].map((classLabel, i) => ({
+      classLabel,
+      cells: { "Installment 1": 4000 + i * 900, "Installment 2": 12000 + ((i * 3571) % 9000), "Installment 3": 0, "Installment 4": 0 },
+      total: 16000 + i * 900 + ((i * 3571) % 9000),
+    })),
+    installments: ["Installment 1", "Installment 2", "Installment 3", "Installment 4"],
+    expected: 3120000,
+    collected: 1860000,
+    dueSoFar: 1950000,
+    followUps: 18,
+  },
+  moneyFailed: false,
+  attendance: { marked: 14, total: 19, percent: 94, schoolOpen: true },
+  staffAway: 2,
+  cover: { needed: 5, arranged: 3 },
+  inbox,
+  timeline: [
+    { time: "07:45", title: pair("First bell"), sub: pair("Period 1 starts"), state: "done" },
+    { time: "09:20", title: pair("Attendance closes"), sub: pair("5 not marked yet"), state: "alert" },
+    { time: "10:05", title: pair("Period 3 · Class 9 Physics"), sub: pair("Needs a substitute"), state: "now" },
+    { time: "13:45", title: pair("Last bell"), state: "next" },
+  ],
+  schedule: null,
+  scheduleFailed: false,
+  exceptions: { notMarked: ["3", "5", "7", "9", "11 Com"], cover: [] },
+  support: { needsAction: 2, due: 1 },
+  actions: [],
+  links: { collect: true, attendance: true, substitutions: true, review: true, timetable: true },
+  unavailable: false,
+};
+
+function TodayFrame() {
+  return (
+    <VxPage label="Today">
+      <TodayScreen {...todayProps} />
+    </VxPage>
+  );
+}
+
+Object.assign(views, {
+  "F01-Today": { render: TodayFrame, path: "/" },
+  "F14-TodayDark": { render: TodayFrame, path: "/" },
+  Desktop: { render: TodayFrame, path: "/" },
+  "D08-TodayDark": { render: TodayFrame, path: "/" },
+} satisfies Record<string, DesignView>);

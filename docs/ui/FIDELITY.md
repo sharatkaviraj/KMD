@@ -47,6 +47,16 @@ module (`<dc-import name="Fees" start="receipt">`). The module's
 
 ## Log
 
-| Area | Modules | Status | Notes |
-|---|---|---|---|
-| Older screens | 85 classic routes | done (#84) | Design top bar and kit geometry; content keeps its old layout |
+| Area | Modules | Frames | Status | What remains different, and why |
+|---|---|---|---|---|
+| Older screens | 85 classic routes | — | done (#84) | Design top bar and kit geometry; content keeps its old layout (UI-73) |
+| Admin core | Student 360 (F06–F08, D02), shell, kit | 4 + kit | done | Marks card titles the term ("Half-yearly"), not "Half-yearly · September"; note lines carry no subject role; sibling money is "left this year" (UI-77) |
+| Payment Desk | PayDesk, F09/F10, D05/D06 | 18 | done | Late fee is take-or-waive (UI-15), so a ₹7,000 payment settles Installment 2's late fee first; accountant has no waiver or bulk request flow; no receipt verify URL |
+| Receipts & Dues | Fees, Dues | 20 | done | Receipt keeps the school's real name (UI-9); Close keeps "receipts not locked" (UI-38); no daily call target, week-on-week %, letter channel or plan message queue |
+| Reminders, Fee setup, Reports | Reminders, FeeSetup, Reports | 33 | done | Nothing sends (UI-42/67/71); no AiSensy balance, rule next-run or per-class read/paid; fee model has no extra heads, per-installment split, per-day late fee or route stops (UI-31); some Reports inner strings still English-only |
+| Accountant | AccHome, AccBooks | 19 | done | Follow-ups are call-back dates, not promises; no admin name on waiting requests; cheques are not pre-ticked; no seen step, auto-match actor, slip account number |
+| People | Admissions, StudentTools, Staff | 28 | done | Logins are email + one-time password (UI-43); one role per person; no photo capture at admission, per-installment admission fee, per-row import fix |
+| Notes | Notes, TchNotes | 24 | done | "Needs action" is the app's rule; "Just noting" has no status of its own; nothing is sent to parents (queued, UI-33); three follow-up dates, not four |
+| Exams, Timetable, Calendar | Exams, Timetable, Calendar | 38 | done | Marks lock a whole class (UI-54); bands follow the papers classes sit; no rooms; no read receipts or staff birthdays; Hindi date lines in "both" only (UI-6) |
+| Messages, Settings, Sign-in | Messages, Settings, Auth | 29 | done | Real school name and logo (RULES I); email sign-in (UI-51); To send and Queue (UI-71); no session dates, read %, attachments or scheduling |
+| Teacher app | TchHome, TchAttend, TchClass, TchMarks, TchMore | 50 | done | No rooms, leave balances or syllabus tracker; Leave shown as half day (RULES C); no 30-minute change window (D-248) |
