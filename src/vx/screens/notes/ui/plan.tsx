@@ -381,7 +381,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
     });
 
   return (
-    <div className="nx-c" style={{ minHeight: "calc(100dvh - 64px)", animation: "xPush .36s var(--ease) both" }}>
+    <div className="nx-c nt-full" style={{ animation: "xPush .36s var(--ease) both" }}>
       <div className="pad stack" style={{ flex: 1, padding: "18px 28px 24px", display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <div className="nx-c" style={{ gap: 16 }}>
           <div className="card rise nx-f" style={{ padding: "16px 18px", gap: 14 }}>

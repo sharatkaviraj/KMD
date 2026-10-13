@@ -179,7 +179,9 @@ export function TeachNotes(props: NotesProps) {
     router.refresh();
   };
 
-  const mine = props.notes.filter((n) => n.writtenBy === props.viewer.id || n.followUpStaffId === props.viewer.id);
+  // Hers: what she wrote, what she must follow up, and — as the class teacher — what other
+  // teachers wrote about her class, which reaches her by itself (RULES E).
+  const mine = props.notes.filter((n) => n.writtenBy === props.viewer.id || n.followUpStaffId === props.viewer.id || (n.classId !== null && props.viewer.heldClassIds.includes(n.classId)));
   const counts = myCounts(mine, props.today);
   const isDue = (n: BoardNote) => n.status !== "done" && n.needsFollowUp && (n.followUpStaffId === props.viewer.id || (n.followUpOwner === "me" && n.writtenBy === props.viewer.id));
   const shownN = mine.filter((n) => (ftag === "all" || n.tags.includes(ftag)) && (fcls === "all" || n.classId === fcls));

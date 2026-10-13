@@ -31,7 +31,7 @@ import {
   type NoteTag,
   type Visibility,
 } from "../domain/notes";
-import { BOARD_TAG, day, ini, nameTone, replaceParams, Seg, StagePill, TEACH_TAG, toneAt, useBoth, WaBubble } from "./look";
+import { BOARD_TAG, day, ini, nameTone, ownerRoleText, replaceParams, Seg, StagePill, TEACH_TAG, toneAt, useBoth, WaBubble } from "./look";
 import type { AddStep, ClientViewer } from "./parts";
 
 /*
@@ -808,7 +808,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
   };
 
   return (
-    <div className="nx-c" style={{ minHeight: "calc(100dvh - 64px)", animation: "xPush .36s var(--ease) both" }}>
+    <div className="nx-c nt-full" style={{ animation: "xPush .36s var(--ease) both" }}>
       <div className="pad stack" style={{ flex: 1, padding: "18px 28px 24px", display: "grid", gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <div className="nx-c" style={{ gap: 16 }}>
           <StepCard n={1} title={p("Which child?", "कौन सा बच्चा?")} style={{ borderColor: c.errField === "kid" ? "var(--bad)" : undefined }}>
@@ -1039,7 +1039,7 @@ export function TeachListening({ c }: { c: Composer }) {
   const kid = c.child?.name ?? "";
   const got = !c.speech.listening && Boolean(c.live);
   return (
-    <div className="nx-c" style={{ minHeight: "calc(100dvh - 64px)", alignItems: "center", justifyContent: "center", padding: "24px 20px 32px", gap: 18, textAlign: "center", animation: "xPush .36s var(--ease) both" }}>
+    <div className="nx-c nt-full" style={{ alignItems: "center", justifyContent: "center", padding: "24px 20px 32px", gap: 18, textAlign: "center", animation: "xPush .36s var(--ease) both" }}>
       <span className="pill" style={{ height: 32, padding: "0 12px 0 4px", fontSize: 13, background: "var(--card)", color: "var(--fg)", border: "1px solid var(--bd)" }}>
         <span className="nt-av" style={{ width: 24, height: 24, fontSize: 10, background: "var(--accs)", color: "var(--accfg)" }}>{ini(kid)}</span>
         {tx(p(`Note about ${kid}`, `${kid} के बारे में नोट`))}
@@ -1162,7 +1162,7 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
                 <span style={{ fontSize: 15 }}>{n.body}</span>
                 <span className="nx-m" style={{ fontSize: 12 }}>
                   {n.writtenBy === viewer.id ? `${viewer.name} (${tx(p("you", "आप"))})` : n.writtenByName}
-                  {n.needsFollowUp && n.followUpOn ? ` · ${tx(p("follow up", "फ़ॉलो-अप"))} ${day(n.followUpOn)}` : ""}
+                  {n.needsFollowUp && n.followUpOn ? ` · ${tx(p("follow up", "फ़ॉलो-अप"))} ${day(n.followUpOn)}${ownerRoleText(n.followUpOwner) ? ` · ${tx(ownerRoleText(n.followUpOwner)!)}` : ""}` : ""}
                 </span>
               </div>
             </div>

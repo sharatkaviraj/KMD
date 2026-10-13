@@ -14,7 +14,7 @@ import { replyToNoteAction, setFollowUpAction, setNoteStatusAction, tellParentsA
 import type { NoteReply, NotesPeople, SupportPlan } from "../data";
 import { followUpDate, noteStage, parentNoteMessage, planProgress, STATUS_ORDER, TAG_TEXT, type BoardNote, type FollowOwner, type NoteStatus } from "../domain/notes";
 import { COST } from "./compose";
-import { BOARD_TAG, day, ini, nameTone, noteWhen, ownerRoleText, relationText, TEACH_TAG, useBoth, WaBubble } from "./look";
+import { BOARD_TAG, day, ini, nameTone, noteWhen, time, ownerRoleText, relationText, TEACH_TAG, useBoth, WaBubble } from "./look";
 import { canWork, type ClientViewer } from "./parts";
 
 /*
@@ -117,9 +117,12 @@ function Bubble({ who, when, text, mine, teacher }: { who: string; when: string;
   );
 }
 
-function replyWhen(createdAt: string, today: string): string {
-  return noteWhen(createdAt, today);
+/** A reply's time, always with the clock: "Tue 6 Oct · 4:10 pm". */
+function replyWhen(createdAt: string): string {
+  return `${day(createdAt)} · ${time(createdAt)}`;
 }
+
+const STEP_OWNER: Record<string, string> = { me: "Me", class_teacher: "Class teacher", subject_teacher: "Subject teacher", coordinator: "Coordinator", admin: "Admin", parents: "Parents" };
 
 /** The note's history (design `dt.hist`): written, reached the class teacher, parents, plan, every status change. */
 function historyOf(note: BoardNote, replies: NoteReply[], plan: SupportPlan | null, people: NotesPeople, today: string): { text: Pair; when: string; dot: string }[] {
@@ -378,7 +381,7 @@ export function BoardNoteAside({
       <div className="card nx-c" style={{ padding: "14px 16px", gap: 10 }}>
         <span className="sech">{tx(p("Replies", "जवाब"))} · {conversation.length}</span>
         {conversation.map((r) => (
-          <Bubble key={r.id} who={r.writtenByName} when={replyWhen(r.createdAt, today)} text={r.body} mine={r.writtenBy === viewer.id} />
+          <Bubble key={r.id} who={r.writtenByName} when={replyWhen(r.createdAt)} text={r.body} mine={r.writtenBy === viewer.id} />
         ))}
         {conversation.length === 0 ? <span className="nx-m">{tx(p("No replies yet. Ask the teacher a question or say what you did.", "अभी कोई जवाब नहीं। अध्यापक से पूछें या बताएँ कि आपने क्या किया।"))}</span> : null}
         {reply.listening ? (
@@ -565,7 +568,7 @@ export function TeachNoteDetail({
             <>
               <div className="nt-bar"><span style={{ width: `${prog.total ? (prog.done / prog.total) * 100 : 0}%`, background: "var(--ok)" }} /></div>
               <span style={{ fontSize: 13, color: "var(--mut)" }}>
-                {next ? tx(p(`Next: ${next.body}${next.ownerName ? ` · ${next.ownerName}` : ""}${next.whenLabel ? ` · ${next.whenLabel}` : ""}`, `अगला: ${next.body}`)) : tx(p("All steps done. Well done!", "सारे कदम पूरे। शाबाश!"))}
+                {next ? tx(p(`Next: ${next.body}${(next.ownerName ?? STEP_OWNER[next.ownerRole ?? ""]) ? ` · ${next.ownerName ?? STEP_OWNER[next.ownerRole ?? ""]}` : ""}${next.whenLabel ? ` · ${next.whenLabel}` : ""}`, `अगला: ${next.body}`)) : tx(p("All steps done. Well done!", "सारे कदम पूरे। शाबाश!"))}
               </span>
             </>
           ) : (
@@ -591,7 +594,7 @@ export function TeachNoteDetail({
             {tx(p("Replies", "जवाब"))} {sub(p("Replies", "जवाब")) ? <span className="nt-hn">· {sub(p("Replies", "जवाब"))}</span> : null}
           </span>
           {conversation.map((r) => (
-            <Bubble key={r.id} teacher who={r.writtenBy === viewer.id ? `${r.writtenByName} (${tx(p("you", "आप"))})` : r.writtenByName} when={replyWhen(r.createdAt, today)} text={r.body} mine={r.writtenBy === viewer.id} />
+            <Bubble key={r.id} teacher who={r.writtenBy === viewer.id ? `${r.writtenByName} (${tx(p("you", "आप"))})` : r.writtenByName} when={replyWhen(r.createdAt)} text={r.body} mine={r.writtenBy === viewer.id} />
           ))}
           {conversation.length === 0 ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("No replies yet. The coordinator and class teacher can reply here.", "अभी कोई जवाब नहीं। समन्वयक और कक्षा अध्यापक यहाँ जवाब दे सकते हैं।"))}</span> : null}
           {reply.listening ? (

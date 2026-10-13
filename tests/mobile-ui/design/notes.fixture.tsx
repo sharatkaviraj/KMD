@@ -188,12 +188,10 @@ const TEACH_NOTES: BoardNote[] = [
   tnote({ id: "t3", kid: "Aarav Sharma", cls: C.c7, by: KB, rel: "subject_teacher", at: "2026-10-06T05:00:00Z", body: "Not submitting lab notebook", tags: ["studies"], follow: ["2026-10-12", "class_teacher"], replies: 1 }),
   tnote({ id: "t4", kid: "Kabir Solanki", cls: C.c6, by: KB, at: "2026-09-30T06:00:00Z", body: "Excellent at drawing — suggest for district art competition", tags: ["talent"], follow: ["2026-10-16", "coordinator"] }),
   tnote({ id: "t5", kid: "Pari Sen", cls: C.c6, by: KB, at: "2026-10-07T06:00:00Z", body: "Quiet lately, sits alone at lunch — will talk to her", tags: ["behaviour"], vis: "private" }),
-  tnote({ id: "t8", kid: "Pari Sen", cls: C.c6, by: "Mr. Verma", rel: "subject_teacher", at: "2026-10-05T05:00:00Z", body: "Homework not done three days this week", tags: ["studies"], follow: ["2026-10-12", "class_teacher"] }),
+  tnote({ id: "t8", kid: "Pari Sen", cls: C.c6, by: "Mr. Verma", rel: "subject_teacher", at: "2026-10-05T05:00:00Z", body: "Homework not done three days this week", tags: ["studies"] }),
   tnote({ id: "t6", kid: "Khushi Sharma", cls: C.c6, by: KB, at: "2026-09-25T06:00:00Z", body: "Headache after morning assembly twice; parents informed", tags: ["health"], status: "done" }),
   tnote({ id: "t7", kid: "Neha Joshi", cls: C.c8, by: KB, rel: "subject_teacher", at: "2026-10-01T06:00:00Z", body: "Asks very good questions in Science — give her the science quiz", tags: ["talent"] }),
 ];
-// Mr. Verma's note reaches the class teacher (her) because it is about her class.
-TEACH_NOTES.find((n) => n.id === "t8")!.followUpStaffId = TEACHER.id;
 const SAVED: BoardNote = { ...TEACH_NOTES[0]!, id: "x1", body: RIYA_HI, status: "open", replies: 0, planId: null, source: "voice", createdAt: "2026-10-08T04:12:00Z" };
 
 const TEACH_PLANS: SupportPlan[] = [

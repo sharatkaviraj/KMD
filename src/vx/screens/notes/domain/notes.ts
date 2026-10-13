@@ -15,7 +15,7 @@ export const TAG_TEXT: Record<NoteTag, Pair> = {
   health: p("Health", "स्वास्थ्य"),
   family: p("Family", "परिवार"),
   talent: p("Talent", "प्रतिभा"),
-  attendance: p("Attendance", "उपस्थिति"),
+  attendance: p("Attendance", "हाज़िरी"),
 };
 
 export const TAG_TONE: Record<NoteTag, "info" | "warn" | "bad" | "acc" | "ok" | "mut"> = {
