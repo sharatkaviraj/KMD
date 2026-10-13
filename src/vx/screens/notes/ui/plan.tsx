@@ -310,7 +310,6 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
   const [own, setOwn] = useState("");
   const [tell, setTell] = useState(false);
   const studentName = plan?.studentName ?? note?.studentName ?? "";
-  const first = studentName.split(" ")[0];
   const steps = plan ? stepsOf(plan, viewer, tx) : draft;
   const done = steps.filter((s) => s.done).length;
   const mayEdit = plan ? mayEditPlan(plan, viewer) : viewer.canWrite;

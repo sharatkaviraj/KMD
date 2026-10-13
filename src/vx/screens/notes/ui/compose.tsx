@@ -118,22 +118,27 @@ export function useComposer(init: ComposerInit) {
   // A draft from this reader's last visit comes back, so a dropped connection
   // or a closed tab does not lose what was written (RULES G).
   const restored = useRef(false);
-  useEffect(() => {
-    if (restored.current) return;
-    restored.current = true;
+  /** Put this reader's stored draft back into the composer; false when there is none for this child. */
+  const restoreDraft = (onlyFor: string | null): boolean => {
     const d = readDraft(init.viewer.id);
-    if (!d || !d.body) return;
-    if (init.initialStudent && d.studentId !== init.initialStudent) return;
-    if (!init.kids.some((k) => k.id === d.studentId)) return;
-    /* eslint-disable react-hooks/set-state-in-effect -- restoring a stored draft once, after mount (localStorage is not readable during render). */
+    if (!d || !d.body) return false;
+    if (onlyFor && d.studentId !== onlyFor) return false;
+    if (!init.kids.some((k) => k.id === d.studentId)) return false;
     setStudentId(d.studentId);
     setBody(d.body);
     setTags(d.tags.filter((t) => (NOTE_TAGS as readonly string[]).includes(t)));
     setVoice(d.voice);
     setMode("type");
     setDraftAt(d.at);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [init.viewer.id, init.initialStudent, init.kids]);
+    return true;
+  };
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    // Restoring a stored draft once, after mount: localStorage is not readable during render.
+    restoreDraft(init.initialStudent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
+  }, []);
 
   useEffect(() => {
     if (!restored.current || step === "saved") return undefined;
@@ -186,10 +191,8 @@ export function useComposer(init: ComposerInit) {
     if (autoStarted.current || init.initialStep !== "listening" || !child) return;
     autoStarted.current = true;
     const t = Date.now();
-    /* eslint-disable react-hooks/set-state-in-effect -- the listening clock starts with the mic, once. */
     setStartedAt(t);
     setNow(t);
-    /* eslint-enable react-hooks/set-state-in-effect */
     speech.start(lang);
   }, [child, init.initialStep, lang, speech]);
 
@@ -325,7 +328,7 @@ export function useComposer(init: ComposerInit) {
     step, setStep, child, studentId, pickChild, tags, toggleTag, setTags, body, setBody, voice, mode, setMode, lang, switchLang,
     follow, setFollow, when, setWhen, owner: ownerKey, setOwner, visibility, pickVisibility, tellParents, toggleTell,
     errField, setErrField, error, saveUncertain, pending, draftAt, listen, doneListening, cancelListening, live, timer,
-    speech, addPhrase, reset, save, openAction, setError,
+    speech, addPhrase, reset, save, openAction, setError, restoreDraft,
   };
 }
 
@@ -457,11 +460,11 @@ export function KidPicker({ kids, notes, viewerId, onPick, teacher }: { kids: Ch
 }
 
 /** The voice bars (design `.bars` / `.wv`). */
-function Bars({ heights, delays, width = 5, gap = 4, height = 34, className = "nx-bars", opacity }: { heights: number[]; delays: number[]; width?: number; gap?: number; height?: number; className?: string; opacity?: number }) {
+function Bars({ heights, delays }: { heights: number[]; delays: number[] }) {
   return (
-    <div className={className === "nx-bars" ? "nx-bars" : undefined} aria-hidden="true" style={{ display: "flex", alignItems: "center", gap, height }}>
+    <div className="nx-bars" aria-hidden="true">
       {heights.map((h, i) => (
-        <i key={i} className={className === "nx-bars" ? undefined : className} style={{ display: "block", width, height: h, borderRadius: 3, animationDelay: `${delays[i]}s`, opacity }} />
+        <i key={i} style={{ height: h, animationDelay: `${delays[i]}s` }} />
       ))}
     </div>
   );
@@ -787,7 +790,6 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
   const mine = child ? viewer.heldClassIds.includes(child.classId) : false;
   const ct = child ? (people.classTeachers[child.classId] ?? null) : null;
   const dates = followDates(today);
-  const followOn = c.follow ? (dates.find((d) => d.key === c.when)?.date ?? null) : null;
   const sugg = suggestTags(c.body);
   const fromVoice = c.voice && c.body.trim().length > 0;
   const voiceIdle = !c.body && c.mode === "voice";

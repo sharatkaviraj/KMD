@@ -201,8 +201,10 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   });
 
   const openAdd = () => {
-    if (scope && props.kids.some((k) => k.id === scope.studentId)) composer.pickChild(scope.studentId);
-    else if (open?.note.studentId && props.kids.some((k) => k.id === open.note.studentId)) composer.pickChild(open.note.studentId);
+    const kid = scope && props.kids.some((k) => k.id === scope.studentId) ? scope.studentId : open?.note.studentId && props.kids.some((k) => k.id === open.note.studentId) ? open.note.studentId : null;
+    if (kid) composer.pickChild(kid);
+    // A note left unsaved for this child comes back (RULES G: forms keep their drafts).
+    composer.restoreDraft(kid);
     setAdding(true);
     replaceParams({ sheet: "add" });
   };

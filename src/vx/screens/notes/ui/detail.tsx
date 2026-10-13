@@ -226,7 +226,7 @@ export function BoardNoteAside({
   const { tx } = useVx();
   const [run, pending] = useRun();
   const [tell, setTell] = useState(false);
-  const [lang] = useState<"hi-IN" | "en-IN">("hi-IN");
+  const lang = "hi-IN" as const;
   const reply = useReply(note);
   const work = canWork(note, viewer);
   const look = BOARD_TAG[note.tags[0] ?? "studies"];
@@ -448,7 +448,6 @@ export function TeachNoteDetail({
   plan,
   viewer,
   people,
-  today,
   base,
   childHref,
 }: {
@@ -457,7 +456,6 @@ export function TeachNoteDetail({
   plan: SupportPlan | null;
   viewer: ClientViewer;
   people: NotesPeople;
-  today: string;
   base: string;
   childHref: string | null;
 }) {

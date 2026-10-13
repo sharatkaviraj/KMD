@@ -65,12 +65,14 @@ test('attendance last child and full save target stay above native phone navigat
 
 async function openNote(page: import('@playwright/test').Page) {
   await page.goto('/class-followup.html?mode=notes&path=/teach/notes');
-  await page.locator('button.n-fab').tap();
-  const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
-  await dialog.locator('textarea').fill('phoneops-followup synthetic private observation');
-  await dialog.locator('button.pri').tap();
-  await dialog.getByRole('radio', { name: 'Only me', exact: true }).tap();
-  return dialog;
+  // The design's "New note" is a page of its own (TchNotes `add`), not a sheet.
+  await page.locator('button.nt-fab').tap();
+  const composer = page.locator('.nx'); await expect(composer.getByRole('button', { name: 'Type instead', exact: true })).toBeVisible();
+  await composer.getByRole('button', { name: 'Type instead', exact: true }).tap();
+  await composer.getByRole('textbox', { name: 'Note', exact: true }).fill('phoneops-followup synthetic private observation');
+  await composer.getByRole('button', { name: 'Just noting', exact: true }).tap();
+  await composer.getByRole('button', { name: 'Only me', exact: true }).tap();
+  return composer;
 }
 test('note offline before Save retains review and reconnect creates one private record', async ({ page, context }, info) => {
   const dialog = await openNote(page); await context.setOffline(true);
@@ -81,7 +83,7 @@ test('note offline before Save retains review and reconnect creates one private 
   expect(await page.evaluate(() => window.classFollowup.snapshot().noteAttempts)).toBe(0);
   await expect(page.getByText('Note saved', { exact: true })).toHaveCount(0);
   await context.setOffline(false); await dialog.getByRole('button', { name: 'Save note', exact: true }).tap();
-  await expect(dialog.getByText('Note saved', { exact: true })).toBeVisible();
+  await expect(page.getByText('Note saved', { exact: true }).filter({ visible: true })).toBeVisible();
   const ledger = await page.evaluate(() => window.classFollowup.snapshot()); expect(ledger.notes).toHaveLength(1);
   expect(ledger.notes[0]).toMatchObject({ visibility: 'private', tellParents: false, needsFollowUp: false });
   expect(ledger.noteAttempts).toBe(1);
@@ -112,6 +114,9 @@ test('note focus and footer remain reachable after a simulated keyboard viewport
   await info.attach('simulated-keyboard-viewport', { body: JSON.stringify({ physicalKeyboard: false, ...measure }), contentType: 'application/json' });
   expect(measure.height).toBeGreaterThanOrEqual(44); expect(measure.bottom).toBeLessThanOrEqual(measure.viewportHeight);
   expect(measure.ownsCenter).toBe(true); expect(measure.document).toBeLessThanOrEqual(measure.viewportWidth);
+  // Leaving the page keeps the words: the draft comes back when the note is opened again (RULES G).
+  await expect(dialog.getByText(/Saved as draft/)).toBeVisible();
   await page.setViewportSize(before); await dialog.getByRole('button', { name: 'Back', exact: true }).tap();
+  await page.locator('button.nt-fab').tap();
   await expect(dialog.locator('textarea')).toHaveValue('phoneops-followup synthetic private observation');
 });

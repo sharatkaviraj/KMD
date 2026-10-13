@@ -162,6 +162,10 @@ export function TeachNotes(props: NotesProps) {
 
   const openAdd = () => {
     composer.reset(false);
+    // Opened for one child (`?student=`), the note is about that child.
+    if (props.initialStudent && props.kids.some((k) => k.id === props.initialStudent)) composer.pickChild(props.initialStudent);
+    // A note left unsaved comes back (RULES G: forms keep their drafts).
+    composer.restoreDraft(props.initialStudent && props.kids.some((k) => k.id === props.initialStudent) ? props.initialStudent : null);
     setSavedId(null);
     setAdding(true);
     replaceParams({ sheet: "add", step: null, saved: null });
@@ -175,7 +179,9 @@ export function TeachNotes(props: NotesProps) {
   };
   const onSaved = (id: string) => {
     setSavedId(id);
-    replaceParams({ step: "saved", saved: id });
+    // "saved" also stops the composer keeping a draft of a note that is now saved.
+    composer.setStep("saved");
+    replaceParams({ saved: id });
     router.refresh();
   };
 
@@ -281,7 +287,7 @@ export function TeachNotes(props: NotesProps) {
   } else if (screen === "detail" && focus?.kind === "note") {
     const n = focus.note;
     const kid = n.studentId ? props.kids.find((k) => k.id === n.studentId) : null;
-    body = <TeachNoteDetail note={n} replies={focus.replies} plan={n.planId ? (props.plans.find((pl) => pl.id === n.planId) ?? null) : null} viewer={props.viewer} people={people} today={props.today} base={base} childHref={kid ? `/teach/class?student=${kid.id}` : null} />;
+    body = <TeachNoteDetail note={n} replies={focus.replies} plan={n.planId ? (props.plans.find((pl) => pl.id === n.planId) ?? null) : null} viewer={props.viewer} people={people} base={base} childHref={kid ? `/teach/class?student=${kid.id}` : null} />;
   } else if (screen === "plan" && focus && (focus.kind === "plan" || focus.kind === "new-plan")) {
     const plan = focus.kind === "plan" ? focus.plan : null;
     const note = focus.kind === "new-plan" ? focus.note : plan?.noteId ? (props.notes.find((n) => n.id === plan.noteId) ?? null) : null;

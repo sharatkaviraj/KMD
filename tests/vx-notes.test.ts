@@ -19,6 +19,12 @@ import {
   suggestedSteps,
   tagMix,
   tagsFromKind,
+  monthInsight,
+  monthStats,
+  noteStage,
+  suggestTags,
+  weekEndOf,
+  weekStartOf,
   type BoardNote,
 } from "@/vx/screens/notes/domain/notes";
 
@@ -235,5 +241,49 @@ describe("kinds, plans and parents", () => {
     const msg = parentNoteMessage({ childName: "Test Child", teacher: "Ms Test", body: "Reads well now.", school: "VPPS" });
     expect(msg.hi.indexOf("Test Child")).toBeGreaterThan(-1);
     expect(msg.en).toContain("Reads well now.");
+  });
+});
+
+describe("the redesigned board's words", () => {
+  it("says where a note stands, and an unasked note is just noting", () => {
+    expect(noteStage(note({ status: "done" }))).toBe("done");
+    expect(noteStage(note({ status: "working" }))).toBe("working");
+    expect(noteStage(note({ needsFollowUp: true, followUpOn: "2026-10-12" }))).toBe("open");
+    expect(noteStage(note({ needsFollowUp: false }))).toBe("noting");
+    // An unclaimed health or family note is open: it is on the board's "Needs action".
+    expect(noteStage(note({ needsFollowUp: false, tags: ["family"] }))).toBe("open");
+  });
+
+  it("runs the week from Monday to Sunday", () => {
+    expect(weekStartOf(TODAY)).toBe("2026-10-05");
+    expect(weekEndOf(TODAY)).toBe("2026-10-11");
+    expect(weekEndOf("2026-10-11")).toBe("2026-10-11");
+  });
+
+  it("counts this week's notes and this month's teachers", () => {
+    const notes = [
+      note({ id: "a", writtenBy: "t1", createdAt: "2026-10-06T05:00:00Z" }),
+      note({ id: "b", writtenBy: "t2", createdAt: "2026-10-02T05:00:00Z" }),
+      note({ id: "c", writtenBy: "t1", createdAt: "2026-09-30T05:00:00Z" }),
+    ];
+    expect(monthStats(notes, TODAY)).toEqual({ thisWeek: 1, teachers: 2 });
+  });
+
+  it("finds this month's commonest tag and busiest class, and nothing in an empty month", () => {
+    const notes = [
+      note({ id: "a", tags: ["studies"], classId: "c1", classLabel: "Class 1" }),
+      note({ id: "b", tags: ["studies", "health"], classId: "c2", classLabel: "Class 2" }),
+      note({ id: "c", tags: ["talent"], classId: "c2", classLabel: "Class 2" }),
+      note({ id: "d", tags: ["talent"], classId: "c1", createdAt: "2026-09-01T05:00:00Z" }),
+    ];
+    expect(monthInsight(notes, TODAY)).toEqual({ tag: "studies", classId: "c2", classLabel: "Class 2", classCount: 2 });
+    expect(monthInsight(notes, "2026-11-02")).toBeNull();
+  });
+
+  it("suggests tags from the words, in Hindi or English, only as suggestions", () => {
+    expect(suggestTags("Finds fractions hard; needs practice")).toEqual(["studies"]);
+    expect(suggestTags("रिया को भिन्न वाले सवालों में दिक्कत")).toEqual(["studies"]);
+    expect(suggestTags("Absent, grandmother unwell")).toEqual(expect.arrayContaining(["health", "family", "attendance"]));
+    expect(suggestTags("   ")).toEqual([]);
   });
 });
