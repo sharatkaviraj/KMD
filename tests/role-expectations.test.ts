@@ -24,6 +24,9 @@ function screens(): string[] {
   const walk = (dir: string, route: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
+      // A parallel slot (`@drawer`) draws inside a URL it does not own; the
+      // page it intercepts is walked where it lives (`students/[id]`).
+      if (entry.isDirectory() && entry.name.startsWith("@")) continue;
       if (entry.isDirectory()) walk(full, `${route}/${entry.name}`);
       else if (entry.name === "page.tsx") found.push(route === "" ? "/" : route);
     }

@@ -17,17 +17,20 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
   const { tx } = useVx();
   const [quick, setQuick] = useState(false);
   // Longest matching tab wins; "/" only matches itself.
-  const active =
+  const matched =
     tabs
       .filter((t) => !t.center && (t.href === "/" ? pathname === "/" : pathname === t.href || pathname.startsWith(`${t.href}/`)))
       .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
+  // A screen with no tab of its own was reached from the Menu, and the design
+  // lights Menu there (AC-*, MAD-*, M-Fees …), not nothing.
+  const active = matched ?? tabs.find((t) => t.key === "menu")?.href ?? null;
   // The classic receipt detail supplies its own fixed phone action bar and
   // return link. A second bar covers its Print A4 control. Keep list routes
   // and the redesigned /receipts desk on their normal tab navigation.
   if (pathname.startsWith("/fees/receipts/")) return null;
   return (
     <>
-      <nav className="vxt glass vx-bottom" aria-label="Primary navigation" style={{ height: 76, padding: "6px 6px 16px", borderTop: "1px solid var(--bd)", background: "var(--glass2)", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, boxSizing: "content-box" }}>
+      <nav className="vxt glass vx-bottom" aria-label="Primary navigation" style={{ height: "var(--vx-bottom-h)", padding: "6px 6px calc(16px + env(safe-area-inset-bottom))", borderTop: "1px solid var(--bd)", background: "var(--glass2)", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, boxSizing: "border-box" }}>
         {tabs.map((n) =>
           n.center ? (
             n.href === "#quick" ? (

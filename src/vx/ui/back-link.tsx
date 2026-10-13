@@ -109,3 +109,36 @@ export function TrailBack({ className, style, children, label = "Back" }: { clas
     </Link>
   );
 }
+
+/**
+ * Close a layer (Student 360's drawer) the way `BackLink` goes back: when the
+ * screen before this one is `fallback` itself — the list it was opened from —
+ * the browser's own Back, which keeps the list's filters and scroll; otherwise
+ * straight to `fallback`, so a sibling opened from a sibling still closes to
+ * the list the reader started from.
+ */
+export function useCloseTo(fallback: string): () => void {
+  const router = useRouter();
+  const pathname = usePathname();
+  return () => {
+    const current = read(CURRENT);
+    const previous = current && current !== pathname ? current : read(PREVIOUS);
+    if (previous && previous === pathOf(fallback) && window.history.length > 1) router.back();
+    else router.push(fallback);
+  };
+}
+
+/** A link that closes a layer (`useCloseTo`); a new tab still gets the fallback. */
+export function CloseLink({ fallback, className, style, children, label }: { fallback: string; className?: string; style?: CSSProperties; children: ReactNode; label: string }) {
+  const close = useCloseTo(fallback);
+  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    close();
+  };
+  return (
+    <Link href={fallback} onClick={onClick} className={className} aria-label={label} style={style}>
+      {children}
+    </Link>
+  );
+}

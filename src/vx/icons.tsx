@@ -1,5 +1,5 @@
 import {
-  Activity, Archive, ArrowLeftRight, ArrowRight, ArrowUp, Award, Bell, BookOpen, Briefcase,
+  Activity, Archive, ArrowRight, ArrowUp, Award, Bell, BookOpen, Briefcase,
   Building2, Bus, Cake, Calendar, CalendarCheck, CalendarMinus, Camera, ChartColumn, ChartPie,
   Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsLeft,
   ChevronsRight, CircleCheck, CircleHelp, ClipboardList, Clock, Cloud, Coffee, Copy, Database,
@@ -7,7 +7,7 @@ import {
   Gift, Globe, GraduationCap, Hash, Heart, History, House, Image, Inbox, IndianRupee, Info, Key,
   Keyboard, Landmark, Layers, LayoutGrid, Link, List, Lock, LogOut, Mail, MapPin, Megaphone,
   MessageCircle, Mic, Minus, Moon, NotebookPen, PenLine, Percent, Phone, Pin, Plus, Printer,
-  Receipt, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Star, Sun, Table,
+  Repeat, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Star, Sun, Table,
   Tag, Trash2, TrendingUp, TriangleAlert, Type, Undo2, Upload, User, UserPlus, Users, WifiOff, X,
   Zap, type LucideIcon,
 } from "lucide-react";
@@ -23,8 +23,9 @@ export const ICONS = {
   chevUp: ChevronUp, chevsLeft: ChevronsLeft, chevsRight: ChevronsRight, arrowUp: ArrowUp,
   arrowRight: ArrowRight, x: X, plus: Plus, minus: Minus, check: Check, checkCircle: CircleCheck,
   home: House, users: Users, user: User, userPlus: UserPlus, inbox: Inbox, grid: LayoutGrid,
-  rupee: IndianRupee, receipt: Receipt, file: File, fileText: FileText, calCheck: CalendarCheck,
-  calendar: Calendar, clock: Clock, swap: ArrowLeftRight, phone: Phone, message: MessageCircle,
+  // The design draws a receipt as a document and a swap as two looped arrows.
+  rupee: IndianRupee, receipt: FileText, file: File, fileText: FileText, calCheck: CalendarCheck,
+  calendar: Calendar, clock: Clock, swap: Repeat, phone: Phone, message: MessageCircle,
   megaphone: Megaphone, send: Send, bell: Bell, edit: PenLine, trash: Trash2, more: Ellipsis,
   alert: TriangleAlert, info: Info, help: CircleHelp, shield: Shield, lock: Lock, key: Key,
   eye: Eye, eyeOff: EyeOff, mail: Mail, printer: Printer, download: Download, upload: Upload,

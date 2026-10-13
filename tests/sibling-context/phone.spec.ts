@@ -24,14 +24,13 @@ test('Family sibling localized Back preserves the original filtered directory', 
   const primaryLink = page.getByRole('link', { name: 'QA Sibling Context Primary', exact: true });
   await expect(primaryLink).toBeVisible(); await primaryLink.tap();
   expect(new URL(page.url()).searchParams.get('returnTo')).toBe(directory);
-  await page.getByRole('link', { name: 'More', exact: true }).tap();
   const family = page.getByRole('link', { name: 'Family', exact: true });
-  await family.tap(); await expect(family).toHaveAttribute('aria-current', 'location');
-  const siblingLink = page.locator(`a.row[href^="/students/${sibling}"]`);
+  await family.tap(); await expect(family).toHaveAttribute('aria-current', 'page');
+  const siblingLink = page.locator(`a[href^="/students/${sibling}"]`);
   await expect(siblingLink).toBeVisible(); const siblingHref = await siblingLink.getAttribute('href');
   await siblingLink.tap(); await expect(page).toHaveURL(new RegExp(`/students/${sibling}(?:\\?|$)`));
   await page.goBack(); await expect(page).toHaveURL(new RegExp(`/students/${primary}\\?`));
-  await expect(page.getByRole('link', { name: 'Family', exact: true })).toHaveAttribute('aria-current', 'location');
+  await expect(page.getByRole('link', { name: 'Family', exact: true })).toHaveAttribute('aria-current', 'page');
   await page.goForward(); await expect(page).toHaveURL(new RegExp(`/students/${sibling}(?:\\?|$)`));
   const back = page.getByRole('link', { name: 'Back', exact: true });
   const before = { viewport: page.viewportSize(), touch: await page.evaluate(() => matchMedia('(pointer: coarse)').matches),

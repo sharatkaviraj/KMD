@@ -204,7 +204,9 @@ export type StudentFees = {
   summary: StudentFeeSummary;
   breakup: StudentFeeBreakup | null;
   receipts: { id: string; number: string; date: string; amount: number; mode: string; reversed: boolean }[];
-  family: { id: string; fullName: string; admissionNo: string; classLabel: string; isSelf: boolean; outstanding: number | null }[];
+  family: { id: string; fullName: string; admissionNo: string; classLabel: string; isSelf: boolean; outstanding: number | null; totalDue: number | null; totalPaid: number | null }[];
+  /** The confirmed family group, for the family statement; null for a child with none. */
+  familyGroupId: string | null;
   routeLabel: string | null;
   dateOfBirth: string | null;
   joinedOn: string | null;
@@ -313,7 +315,10 @@ export async function studentFees(studentId: string): Promise<StudentFees> {
       classLabel: member.classLabel,
       isSelf: member.isSelf,
       outstanding: member.financials ? Number(member.financials.outstanding || 0) : null,
+      totalDue: member.financials ? Number(member.financials.totalDue || 0) : null,
+      totalPaid: member.financials ? Number(member.financials.totalPaid || 0) : null,
     })),
+    familyGroupId: family.familyGroupId ?? null,
     routeLabel: detail?.transportRouteId ? detail.transportRouteLabel : null,
     dateOfBirth: detail?.dateOfBirth ?? null,
     joinedOn: detail?.joinedOn ?? null,
