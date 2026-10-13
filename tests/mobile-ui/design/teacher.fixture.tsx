@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
-import type { HomeData } from "@/vx/screens/teach/data";
+import type { AttendData, HomeData } from "@/vx/screens/teach/data";
+import type { Mark } from "@/vx/screens/teach/domain/teach";
+import { TeachAttend } from "@/vx/screens/teach/ui/attend";
 import { TeachHome } from "@/vx/screens/teach/ui/home";
 
 import type { DesignView } from "../design.fixture";
@@ -93,7 +95,85 @@ const homeView = (state: "home" | "later", sheet: string | null, linkFirst?: str
   },
 });
 
+/* ------------------------------------------------------------- Attendance */
+
+const KIDS = ("Aadhya Jain,Aarav Kumawat,Ananya Vyas,Arjun Gurjar,Bhavya Paliwal,Chirag Mehta,Divya Rathore,Gaurav Choudhary,Harshita Dave,Ishaan Purohit," +
+  "Jiya Kothari,Kabir Solanki,Khushi Sharma,Om Regar,Manav Joshi,Naina Chouhan,Nikhil Meena,Palak Agarwal,Pari Sen,Pranav Rawal,Riya Singh,Rohan Sharma," +
+  "Saanvi Kumawat,Sahil Gurjar,Sneha Vyas,Tanish Jain,Tanya Paliwal,Utkarsh Mehta,Vani Rathore,Yash Dave,Zoya Khan").split(",");
+const kidId = (roll: number) => id(100 + roll);
+const ROLL = KIDS.map((name, i) => ({ id: kidId(i + 1), name, rollNo: String(i + 1), gender: null, birthday: i + 1 === 11 }));
+// October's school days so far: absent and half-day rolls (the design's sample month).
+const OCT: Record<number, { a: number[]; h?: number[] }> = { 1: { a: [17, 24] }, 3: { a: [17, 31, 26], h: [7] }, 5: { a: [14] }, 6: { a: [14, 17, 18] }, 7: { a: [14, 19] } };
+
+function attend(saved: boolean): AttendData {
+  const days: Record<number, { a: number[]; h?: number[] }> = saved ? { ...OCT, 8: { a: [14, 19] } } : { ...OCT };
+  const monthMarks = Object.entries(days).flatMap(([d, v]) =>
+    ROLL.map((r, i) => ({ studentId: r.id, day: `2026-10-${String(d).padStart(2, "0")}`, status: (v.a.includes(i + 1) ? "absent" : v.h?.includes(i + 1) ? "half_day" : "present") as Mark })),
+  );
+  return {
+    kind: "class",
+    sessionLabel: "2026-27",
+    classId: C6,
+    classLabel: "Class 6",
+    choices: [{ classId: C6, classLabel: "Class 6" }],
+    day: TODAY,
+    prevDay: "2026-10-07",
+    closed: false,
+    canSave: true,
+    canCorrect: true,
+    isOwner: true,
+    correctsAny: false,
+    onBehalf: false,
+    reason: null,
+    roll: ROLL,
+    registerId: saved ? id(990) : null,
+    revision: saved ? 1 : 0,
+    saved: saved ? { [kidId(14)]: "absent", [kidId(19)]: "absent" } : {},
+    yesterday: { [kidId(14)]: "absent", [kidId(19)]: "absent" },
+    receipt: saved ? { savedAt: at("08:52"), actorName: NAME, revision: 1 } : null,
+    queuedAlerts: saved ? [kidId(14), kidId(19)] : [],
+    month: "2026-10",
+    monthMarks,
+    closedDays: ["2026-10-02", "2026-10-20"],
+  };
+}
+
+/** Taps the screen's own controls after it draws, as a teacher would (marking two children absent, pressing Change). */
+function Taps({ labels, buttons }: { labels?: string[]; buttons?: string[] }) {
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      for (const label of labels ?? []) document.querySelector<HTMLButtonElement>(`button[aria-label^="${label},"]`)?.click();
+      for (const text of buttons ?? []) [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === text)?.click();
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [labels, buttons]);
+  return null;
+}
+
+const TWO = ["Om Regar", "Pari Sen"];
+const attendView = (saved: boolean, opts: { sheet?: string; view?: string; taps?: string[]; buttons?: string[] } = {}): DesignView => ({
+  menu: "teacher",
+  path: "/teach/attendance",
+  render: () =>
+    layer(
+      <>
+        <TeachAttend data={attend(saved)} ownerId="fixture-teacher" initialSheet={opts.sheet ?? null} initialView={opts.view ?? null} school="Shri Veer Patta School" officePhone="0000000000" />
+        <Taps labels={opts.taps} buttons={opts.buttons} />
+      </>,
+    ),
+});
+
 export const views: Record<string, DesignView> = {
+  TchAttend: attendView(false),
+  "DX-TchAttend-Save": attendView(false, { sheet: "save", taps: TWO }),
+  "DX-TchAttend-Saved": attendView(true),
+  "DX-TchAttend-History": attendView(true, { view: "history" }),
+  "M-TchAttend": attendView(false),
+  "M-TchAttend-Marked2": attendView(false, { taps: TWO }),
+  "M-TchAttend-Save": attendView(false, { sheet: "save", taps: TWO }),
+  "M-TchAttend-Saved": attendView(true),
+  "M-TchAttend-Change": attendView(true, { sheet: "save", buttons: ["Change attendance"] }),
+  "M-TchAttend-History": attendView(true, { view: "history" }),
   TchHome: homeView("home", null),
   "DX-TchHome-Later": homeView("later", null),
   "DX-TchHome-Subs": homeView("home", "subs"),

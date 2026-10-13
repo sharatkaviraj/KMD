@@ -66,3 +66,33 @@
   .vx-layer .tc-p{font-size:16px}
   .vx-layer .tc-g1m{grid-template-columns:minmax(0,1fr)!important}
 }
+
+/* ---- Attendance (TchAttend) -------------------------------------------------- */
+:where(.vx,.vxt) .tc-cnt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+:where(.vx,.vxt) .tc-n{font-size:30px;font-weight:700;line-height:1.1;display:block;animation:xIn .35s var(--ease) both}
+:where(.vx,.vxt) .tc-agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:10px}
+:where(.vx,.vxt) .tc-akid{display:flex;align-items:center;gap:10px;width:100%;min-height:68px;padding:10px 12px;border-radius:16px;border:1.5px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;transition:background-color .3s ease,border-color .3s ease,transform .14s var(--ease);animation:xIn .32s var(--ease) both;user-select:none;-webkit-tap-highlight-color:transparent}
+:where(.vx,.vxt) .tc-akid[disabled]{cursor:default}
+:where(.vx,.vxt) .tc-st{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;min-width:34px;padding:0 9px;border-radius:17px;font-size:13px;font-weight:700;transition:background-color .3s ease,color .3s ease}
+:where(.vx,.vxt) .tc-abar{position:sticky;bottom:0;z-index:15;display:flex;align-items:center;gap:16px;padding:12px 28px 14px;border-top:1px solid var(--bd)}
+.vx .tc-save,.vxt .tc-save{height:60px;min-width:320px;padding:0 28px;border-radius:18px;font-size:17px;font-weight:700}
+:where(.vx,.vxt) .tc-stk{display:flex;height:10px;border-radius:5px;background:var(--s3);overflow:hidden}
+:where(.vx,.vxt) .tc-stk>span{height:100%;transition:width .5s var(--ease)}
+:where(.vx,.vxt) .tc-abb{height:54px;font-size:16px;border-radius:14px}
+:where(.vx,.vxt) .tc-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+:where(.vx,.vxt) .tc-day{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px;min-height:66px;padding:7px 2px 8px;border-radius:12px;border:1px solid var(--bd);color:var(--fg);animation:xPopIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-tile{display:flex;flex-direction:column;align-items:center;padding:12px 6px;border-radius:14px}
+:where(.vx,.vxt) .tc-mini{display:flex;align-items:center;gap:5px;height:18px;padding:0 6px;border-radius:6px;background:var(--card)}
+:where(.vx,.vxt) .tc-msk{height:6px;border-radius:3px;background:var(--s3);flex:1}
+@container vx (min-width:900px){.vx .tc-stw{display:none}}
+@container vx (max-width:899px){
+  .vx .tc-agrid{grid-template-columns:minmax(0,1fr);gap:8px}
+  .vx .tc-akid{min-height:70px;padding:10px 12px 10px 10px}
+  .vx .tc-abar{flex-direction:column;align-items:stretch;gap:6px;padding:10px 16px 12px;bottom:calc(98px + env(safe-area-inset-bottom))}
+  .vx .tc-save{width:100%;min-width:0;padding:0 16px;height:60px}
+  .vx .tc-n{font-size:26px}
+  .vx .tc-cnt{gap:8px}
+  .vx .tc-day{min-height:54px;padding:5px 1px 6px}
+  .vx .tc-cal{gap:4px}
+  .vx .tc-agr{font-size:24px!important}
+}

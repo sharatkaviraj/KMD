@@ -63,7 +63,10 @@ export function TchTop({
   mBack,
   mLead,
   mAction,
+  dLead,
 }: {
+  /** Desktop: a control before the title (Back on a sub-view). */
+  dLead?: ReactNode;
   crumb?: ReactNode;
   title: ReactNode;
   actions?: ReactNode;
@@ -76,6 +79,7 @@ export function TchTop({
   return (
     <>
       <header className="only-d glass vx-top" style={{ flex: "none", height: 64, display: "flex", alignItems: "center", gap: 10, padding: "0 28px", borderBottom: "1px solid var(--bd)" }}>
+        {dLead}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           {crumb ? <span className="tc-s tc-el">{crumb}</span> : null}
           <h1 className="serif tc-el" style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.15 }}>{title}</h1>

@@ -526,7 +526,10 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     correctsAny: can(staff, "attendance:correct"),
     onBehalf: authority.onBehalf,
     reason: authority.reason ?? null,
-    roll: sorted.map((r) => ({ id: r.studentId, name: r.fullName, rollNo: r.rollNo, gender: basics.get(r.studentId)?.gender ?? null })),
+    roll: sorted.map((r) => {
+      const dob = basics.get(r.studentId)?.dateOfBirth ?? null;
+      return { id: r.studentId, name: r.fullName, rollNo: r.rollNo, gender: basics.get(r.studentId)?.gender ?? null, birthday: Boolean(dob && dob.slice(5, 10) === day.slice(5, 10)) };
+    }),
     registerId: register?.id ?? null,
     revision: register?.revision ?? 0,
     saved: Object.fromEntries([...marks.entries()].map(([id, m]) => [id, m.status])) as Record<string, Mark>,
