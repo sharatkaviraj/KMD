@@ -1,8 +1,10 @@
 import { useEffect, type ReactNode } from "react";
 
-import type { AttendData, HomeData } from "@/vx/screens/teach/data";
+import type { BoardNote } from "@/vx/screens/notes/domain/notes";
+import type { AttendData, ClassData, HomeData, StudentData, SubjectData } from "@/vx/screens/teach/data";
 import type { Mark } from "@/vx/screens/teach/domain/teach";
 import { TeachAttend } from "@/vx/screens/teach/ui/attend";
+import { TeachClass, TeachStudent, TeachSubject } from "@/vx/screens/teach/ui/class";
 import { TeachHome } from "@/vx/screens/teach/ui/home";
 
 import type { DesignView } from "../design.fixture";
@@ -163,7 +165,126 @@ const attendView = (saved: boolean, opts: { sheet?: string; view?: string; taps?
     ),
 });
 
+/* ------------------------------------------------------- My class & subjects */
+
+const GIRLS = new Set("Aadhya Ananya Bhavya Divya Harshita Jiya Khushi Naina Palak Pari Riya Saanvi Sneha Tanya Vani Zoya".split(" "));
+const rnd = (a: number, b: number) => {
+  const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+const ATT: Record<number, number> = { 14: 68, 17: 72 };
+const LOWEST: Record<number, { code: string; pct: number }> = { 21: { code: "Maths", pct: 30 }, 20: { code: "Maths", pct: 31 } };
+const NOTES_OPEN: Record<number, number> = { 21: 1, 14: 2, 12: 1, 19: 2 };
+
+function classData(): ClassData {
+  const children = KIDS.map((name, i) => {
+    const roll = i + 1;
+    const pct = ATT[roll] ?? Math.round(84 + rnd(roll, 1) * 15);
+    const reasons: ("attendance" | "marks" | "notes")[] = [];
+    if (pct < 75) reasons.push("attendance");
+    if (LOWEST[roll]) reasons.push("marks");
+    if ((NOTES_OPEN[roll] ?? 0) >= 2) reasons.push("notes");
+    return {
+      id: kidId(roll),
+      name,
+      rollNo: String(roll),
+      dateOfBirth: roll === 11 ? "2015-10-08" : roll === 12 ? "2015-10-10" : "2015-03-14",
+      gender: GIRLS.has(name.split(" ")[0]) ? "female" : "male",
+      attendancePct: pct,
+      daysCounted: 30,
+      lowestSubject: LOWEST[roll] ?? null,
+      openNotes: NOTES_OPEN[roll] ?? 0,
+      reasons,
+      presentDays: Math.round((pct / 100) * 30),
+      papersMissing: roll > 18 ? 1 : 0,
+      nextReview: roll === 21 ? "2026-10-12" : null,
+    };
+  });
+  const subj = (code: string, average: number, marked: number, n: number) => ({ subjectId: id(500 + n), code, average, paperId: id(400 + n), paperLabel: "Half-yearly", below33: 1, marked });
+  return {
+    kind: "class",
+    sessionLabel: "2026-27",
+    today: TODAY,
+    classId: C6,
+    classLabel: "Class 6",
+    isHeld: true,
+    heldClasses: [{ classId: C6, classLabel: "Class 6" }],
+    children,
+    subjects: [subj("English", 71, 31, 1), subj("Hindi", 74, 31, 2), subj("Maths", 62, 31, 3), subj("Science", 68, 31, 4), subj("Social Science", 70, 31, 5), subj("Sanskrit", 52, 18, 6)],
+    classAttendance: 93,
+    todayRegister: null,
+    birthdays: [
+      { id: kidId(11), name: "Jiya Kothari", inDays: 0, turning: 11, rollNo: "11" },
+      { id: kidId(12), name: "Kabir Solanki", inDays: 2, turning: 11, rollNo: "12" },
+      { id: kidId(29), name: "Vani Rathore", inDays: 6, turning: 11, rollNo: "29" },
+    ],
+    mySubjects: [
+      { classId: C6, classLabel: "Class 6", subjectId: SCI, code: "Science", name: "Science", periods: 10, children: 31, held: true },
+      { classId: C7, classLabel: "Class 7", subjectId: SCI, code: "Science", name: "Science", periods: 10, children: 27, held: false },
+      { classId: C8, classLabel: "Class 8", subjectId: SCI, code: "Science", name: "Science", periods: 10, children: 28, held: false },
+    ],
+    links: home("home").links.map((l, i) => (i === 0 ? { ...l, submitted: true } : l)),
+    timetable: [
+      ["Science", "You", true], ["Maths", "Mr. Verma", false], ["English", "Ms. Dave", false], ["Hindi", "Ms. Paliwal", false],
+      ["Social Science", "Mr. Solanki", false], ["Science lab", "You", true], ["Sanskrit", "Mr. Purohit", false], ["Games", "Mr. Gurjar", false],
+    ].map(([subjectName, teacher, mine], i) => ({ period: i, number: i + 1, starts: BELLS[i].starts, ends: BELLS[i].ends, subjectName: String(subjectName), teacher: String(teacher), mine: Boolean(mine) })),
+    nowMinutes: 9 * 60 + 48,
+    published: true,
+  };
+}
+
+const note = (n: number, body: string, tags: string[], status: "open" | "working" | "done", by: string, createdAt: string, followUpOn: string | null): BoardNote =>
+  ({ id: id(700 + n), studentId: kidId(21), studentName: "Riya Singh", classId: C6, classLabel: "Class 6", body, tags, source: "typed", status, visibility: "staff", needsFollowUp: Boolean(followUpOn), followUpOn, followUpOwner: null, followUpStaffId: null, followUpName: null, tellParents: false, writtenBy: id(1), writtenByName: by, authorRelation: null, subjectCode: null, createdAt, replies: 0, planId: null }) as unknown as BoardNote;
+
+function studentData(): StudentData {
+  const days = Object.entries(OCT).map(([d]) => ({ day: `2026-10-${String(d).padStart(2, "0")}`, status: "present" as Mark }));
+  const sep = Array.from({ length: 30 }, (_, i) => i + 1).filter((d) => new Date(Date.UTC(2026, 8, d)).getUTCDay() !== 0).map((d) => ({ day: `2026-09-${String(d).padStart(2, "0")}`, status: (d === 15 ? "absent" : d === 22 ? "half_day" : "present") as Mark }));
+  return {
+    id: kidId(21),
+    name: "Riya Singh",
+    admissionNo: "TEST-0621",
+    rollNo: "21",
+    classId: C6,
+    classLabel: "Class 6",
+    fatherName: "Vikram Singh",
+    motherName: "Meena Kanwar",
+    phone: "9000000327",
+    dateOfBirth: "2015-03-14",
+    attendance: { percent: 91, counted: 33, present: 30, days: [...sep, ...days] },
+    marks: [
+      { code: "English", label: "Half-yearly", value: 58, max: 80, absent: false, pct: 73 },
+      { code: "Hindi", label: "Half-yearly", value: 61, max: 80, absent: false, pct: 76 },
+      { code: "Maths", label: "Half-yearly", value: 24, max: 80, absent: false, pct: 30 },
+      { code: "Science", label: "Half-yearly", value: 52, max: 80, absent: false, pct: 65 },
+      { code: "Social Science", label: "Half-yearly", value: 49, max: 80, absent: false, pct: 61 },
+      { code: "Sanskrit", label: "Half-yearly", value: null, max: 80, absent: false, pct: null },
+    ],
+    notes: [note(1, "Finds fractions hard; started practice sheets", ["studies"], "working", "Ms. Kavita Bhati", at("10:00", "2026-10-05"), "2026-10-12")],
+  };
+}
+
+const C7KIDS = "Aarav Sharma,Aditya Mehta,Bhumika Jain,Chetan Kumawat,Deepika Rathore,Dhruv Paliwal,Gunjan Vyas,Hardik Choudhary,Isha Purohit,Jatin Solanki,Kavya Jain,Kritika Dave,Lokesh Gurjar,Muskan Trivedi,Nidhi Chouhan,Nikita Regar,Parth Kothari,Rahul Rawal,Ritika Meena,Sakshi Agarwal,Tushar Joshi,Urvashi Singh,Vansh Kanwar,Vikas Sen,Yamini Bhati,Yuvraj Sharma,Zara Khan".split(",");
+function subjectData(): SubjectData {
+  const rows = C7KIDS.map((name, i) => {
+    const has = i < 12;
+    const value = has ? Math.round(30 + rnd(i + 1, 63) * 46) : null;
+    return { id: id(300 + i), name, rollNo: String(i + 1), value, absent: false, exempt: false, pct: value === null ? null : Math.round((value / 80) * 100) };
+  });
+  return { classId: C7, classLabel: "Class 7", subjectCode: "Science", paper: { id: id(307), maxMarks: 80, label: "Half-yearly", entryStatus: "open" }, rows, average: 66 };
+}
+
+const classView = (view: "class" | "roster" | "subjects"): DesignView => ({ menu: "teacher", path: "/teach/class", render: () => layer(<TeachClass data={classData()} initialView={view} />) });
+
 export const views: Record<string, DesignView> = {
+  TchClass: classView("class"),
+  "DX-TchClass-Roster": classView("roster"),
+  "DX-TchClass-Student": { menu: "teacher", path: "/teach/class", render: () => layer(<TeachStudent data={studentData()} initialTab="about" back="/teach/class?view=roster" />) },
+  "DX-TchClass-Subject": { menu: "teacher", path: "/teach/class", render: () => layer(<TeachSubject data={subjectData()} />) },
+  "M-TchClass": classView("class"),
+  "M-TchClass-Roster": classView("roster"),
+  "M-TchClass-Student": { menu: "teacher", path: "/teach/class", render: () => layer(<TeachStudent data={studentData()} initialTab="about" back="/teach/class?view=roster" />) },
+  "M-TchClass-Subjects": classView("subjects"),
+  "M-TchClass-Subject": { menu: "teacher", path: "/teach/class", render: () => layer(<TeachSubject data={subjectData()} />) },
   TchAttend: attendView(false),
   "DX-TchAttend-Save": attendView(false, { sheet: "save", taps: TWO }),
   "DX-TchAttend-Saved": attendView(true),

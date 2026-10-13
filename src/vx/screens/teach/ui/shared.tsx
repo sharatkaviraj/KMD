@@ -105,8 +105,11 @@ export function TchTop({
   );
 }
 
-/** EN | हि as the design's 84px switch; writes the reader's stored language like the sidebar's (UI-6). */
-export function LangSeg() {
+/**
+ * EN | हि as the design's 84px switch (or, on My class, its round pill);
+ * writes the reader's stored language like the sidebar's (UI-6).
+ */
+export function LangSeg({ pill }: { pill?: boolean } = {}) {
   const { language } = useVx();
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -118,6 +121,14 @@ export function LangSeg() {
       await saveLanguageAction({ status: "idle", message: null }, fd);
       router.refresh();
     });
+  if (pill) {
+    return (
+      <button type="button" className="tap tc-langp" role="switch" aria-checked={hi} aria-label="Show labels in Hindi" onClick={() => set(hi ? "both" : "hi")} style={{ opacity: pending ? 0.6 : 1 }}>
+        <span className={hi ? "" : "y"}>EN</span>
+        <span className={hi ? "y" : ""} lang="hi">हि</span>
+      </button>
+    );
+  }
   return (
     <div className="seg tc-lang" role="group" aria-label="Language" style={{ opacity: pending ? 0.6 : 1 }}>
       <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 2)", transform: `translateX(${hi ? "100%" : "0%"})` }} />

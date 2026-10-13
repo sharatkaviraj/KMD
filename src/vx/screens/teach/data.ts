@@ -579,8 +579,12 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
     .map((a) => ({ classId: a.class_id, classLabel: labels.get(a.class_id) ?? "—", subjectId: a.subject_id, code: codeOf.get(a.subject_id) ?? "—", name: nameOf.get(a.subject_id) ?? "—", periods: a.periods_per_week ?? 0 }))
     .sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || a.code.localeCompare(b.code));
 
+  // Her marks links, for each subject card's "Half-yearly marks" and the links list.
+  const linkSet = await marksLinks(staff.id, sessionLabel, labels).catch(() => ({ links: [] as MarksLink[], assigned: [], sizes: new Map<string, number>() }));
+  const subjectCards = mySubjects.map((s) => ({ ...s, children: linkSet.sizes.get(s.classId) ?? 0, held: held.includes(s.classId) }));
+
   if (!classId) {
-    return { kind: "subjects-only" as const, sessionLabel, today, mySubjects, heldClasses: [] as { classId: string; classLabel: string }[], published: Boolean(published) };
+    return { kind: "subjects-only" as const, sessionLabel, today, mySubjects: subjectCards, links: linkSet.links, heldClasses: [] as { classId: string; classLabel: string }[], published: Boolean(published) };
   }
 
   const reg = registers.find((r) => r.classId === classId && r.period === null) ?? null;
@@ -589,6 +593,21 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
     reg && reg.revision >= 1 ? latestReceipt(reg.id).catch(() => null) : Promise.resolve(null),
   ]);
   const totals = reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
+
+  // The class's own timetable today (every teacher's periods in it), when one is published and runs today.
+  const [calendar, bells, now] = await Promise.all([attendanceCalendar(sessionLabel).catch(() => null), currentBells(sessionLabel).catch(() => null), schoolNow(staff)]);
+  let timetable: { period: number; number: number; starts: string; ends: string; subjectName: string; teacher: string; mine: boolean }[] = [];
+  if (published && calendar && isSchoolOpen(today, calendar) && timetableRuns(today, calendar)) {
+    const header = matchDayHeader(await dayHeaders(published.id).catch(() => []), today);
+    if (header) {
+      const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
+      const byCode = new Map(subjects.map((s) => [s.code, s.nameEn || s.code]));
+      const slots = (await listSlots(published.id).catch(() => [])).filter((x) => x.classId === classId && x.day === header);
+      timetable = slots
+        .map((x) => ({ period: x.period, number: periodNumber(x.period), ...timeOf(schedule, x.period), subjectName: byCode.get(x.subjectCode) ?? x.subjectCode, teacher: x.teacherShortName ?? "", mine: x.staffProfileId === staff.id }))
+        .sort((a, b) => a.period - b.period);
+    }
+  }
   return {
     kind: "class" as const,
     sessionLabel,
@@ -604,8 +623,11 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
       reg && reg.revision >= 1
         ? { present: Number(totals?.present ?? 0) + Number(totals?.late ?? 0), absent: Number(totals?.absent ?? 0), halfDay: Number(totals?.half_day ?? 0), total: Number(totals?.total ?? insight.children.length), savedAt: reg.submittedAt }
         : null,
-    birthdays: upcomingBirthdays(insight.children, today, 7).map((c) => ({ id: c.id, name: c.name, inDays: c.inDays, turning: c.turning })),
-    mySubjects,
+    birthdays: upcomingBirthdays(insight.children, today, 7).map((c) => ({ id: c.id, name: c.name, inDays: c.inDays, turning: c.turning, rollNo: c.rollNo })),
+    mySubjects: subjectCards,
+    links: linkSet.links,
+    timetable,
+    nowMinutes: schoolClock(now).minutes,
     published: Boolean(published),
   };
 }
