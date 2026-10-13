@@ -14,7 +14,7 @@ import {
   setReplyDoneAction,
   type MessageResult,
 } from "@/app/(app)/messages/actions";
-import { agoP, dayMonth, initials, rupees, shortDay } from "@/vx/format";
+import { dayMonth, initials, rupees, schoolToday, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
@@ -120,7 +120,11 @@ const CSS = `
 .vx .mx-in{margin-left:0;margin-right:auto;background:var(--card);color:var(--fg);border-radius:4px 14px 14px 14px}
 .vx .mx-tm{display:flex;justify-content:flex-end;align-items:center;gap:3px;font-size:11px;opacity:.75;margin-top:2px!important}
 .vx .mx-ph{width:320px;margin:0 auto;border-radius:34px;border:8px solid var(--fg);overflow:hidden;background:var(--wabg);box-shadow:var(--shh)}
-.vx .mx-sw{display:flex;align-items:center;gap:12px;min-height:54px;width:100%;padding:8px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+:where(.vx,.vxt) .mx-sw{display:flex;align-items:center;gap:12px;min-height:54px;width:100%;padding:8px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+.vx .mx-row.sel{background:var(--accs)}
+.vx-layer .mx-tsheet{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:16px;align-items:start}
+.vx-layer .mx-cat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:899px){.vx-layer .mx-tsheet,.vx-layer .mx-cat{grid-template-columns:minmax(0,1fr)}.vx-layer .mx-tips{order:2}}
 .vx .mx-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--s3);max-width:240px}
 .vx .mx-bar>span{height:6px;transform-origin:left;animation:xGrowX .6s var(--ease) both}
 .vx .mx-sb{position:sticky;bottom:0;z-index:3;padding:10px 16px;border-top:1px solid var(--bd)}
@@ -714,7 +718,8 @@ function Compose({
   const audienceName = audience === "staff" ? tx(p("Staff", "स्टाफ़")) : audience === "school" ? tx(p("Whole school", "पूरा विद्यालय")) : tx(p(`${classIds.length} ${classIds.length === 1 ? "class" : "classes"}`, `${classIds.length} कक्षाएँ`));
   const who = `${count} ${audience === "staff" ? tx(p("staff", "स्टाफ़")) : tx(p("parents", "अभिभावक"))} · ${audienceName}`;
   const costLine = tx(p(`about ${rupees(cost)}`, `लगभग ${rupees(cost)}`));
-  const lines = [rendered.hi, rendered.en].filter(Boolean);
+  // The title is drawn in bold above the text, so its WhatsApp *bold* line is not repeated.
+  const lines = [rendered.hi, rendered.en].filter(Boolean).map((l) => l.replace(/^\*[^*]+\*\n/, ""));
 
   const insert = (token: string) => {
     if (focus === "hi") setHi((t) => `${t}${t && !t.endsWith(" ") ? " " : ""}${token}`);
@@ -850,7 +855,7 @@ function Compose({
                 <span className="num" style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700 }}>{who}</span>
                 <span className="num" style={{ fontSize: 13, fontWeight: 600 }}>{costLine}</span>
               </div>
-              <div className="field">
+              <div className="field mx-tabs">
                 <span>{tx(p("Language", "भाषा"))}</span>
                 <Seg<NoticeLanguage>
                   label={tx(p("Language", "भाषा"))}
@@ -1018,7 +1023,7 @@ function TemplateSheet({ open, onClose, pending, onSave }: { open: boolean; onCl
         </>
       }
     >
-      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 250px", gap: 16, alignItems: "start", paddingTop: 4 }}>
+      <div className="mx-tsheet" style={{ paddingTop: 4 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
           <label className="field">
             <span>{tx(p("Name", "नाम"))} · {slug || "template_name"}</span>
@@ -1026,7 +1031,7 @@ function TemplateSheet({ open, onClose, pending, onSave }: { open: boolean; onCl
           </label>
           <div className="field">
             <span>{tx(p("Category", "श्रेणी"))}</span>
-            <div className="g2" role="radiogroup" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 }}>
+            <div className="mx-cat" role="radiogroup">
               {cats.map((c) => {
                 const on = category === c.key;
                 return (
@@ -1053,7 +1058,7 @@ function TemplateSheet({ open, onClose, pending, onSave }: { open: boolean; onCl
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 14, background: "var(--s2)", fontSize: 13, lineHeight: 1.45 }}>
+        <div className="mx-tips" style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 14, background: "var(--s2)", fontSize: 13, lineHeight: 1.45 }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
             <Ic n="help" size={15} style={{ color: "var(--acc)" }} />
             {tx(p("Tips for a quick yes", "जल्दी मंज़ूरी के लिए"))}
@@ -1102,6 +1107,15 @@ function Replies({
   const selected = chosen ?? shown[0] ?? null;
   const nameOf = useMemo(() => new Map(staff.map((s) => [s.id, s.name])), [staff]);
   const labels: Record<ReplyFilter, Pair> = { open: p("Open", "खुले"), unassigned: p("Not assigned", "किसी को नहीं दिया"), done: p("Done", "पूरे") };
+  // "10:42 am" today, "Yesterday", then the day — as the design lists replies.
+  const replyWhen = (iso: string) => {
+    const day = schoolToday(new Date(iso));
+    const today = schoolToday();
+    if (day === today) return ampm(iso);
+    const yesterday = new Date(`${today}T12:00:00+05:30`);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return day === schoolToday(yesterday) ? tx(p("Yesterday", "कल")) : day3(iso);
+  };
   const assigned = (r: ReplyView) => (r.assignedStaffId ? { text: nameOf.get(r.assignedStaffId) ?? tx(p("Assigned", "दिया गया")), ...TONE.acc } : { text: tx(p("Not assigned", "किसी को नहीं दिया")), ...TONE.warn });
 
   const list = (
@@ -1131,7 +1145,7 @@ function Replies({
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span className="clip" style={{ ...t14, flex: 1, minWidth: 0 }}>{r.fromName}</span>
-                    <span style={{ ...m12, flex: "none" }}>{tx(agoP(r.receivedAt))}</span>
+                    <span style={{ ...m12, flex: "none" }}>{replyWhen(r.receivedAt)}</span>
                   </span>
                   {r.studentLabel ? <span className="clip" style={m12}>{r.studentLabel}</span> : null}
                   <span className="clip" style={{ fontSize: 13 }}>{r.body}</span>
