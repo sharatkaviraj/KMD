@@ -1,5 +1,5 @@
 import {
-  Activity, Archive, ArrowRight, ArrowUp, Award, Bell, BookOpen, Briefcase,
+  Activity, Archive, ArrowDown, ArrowRight, ArrowUp, Award, Bell, BookOpen, Briefcase,
   Building2, Bus, Cake, Calendar, CalendarCheck, CalendarMinus, Camera, ChartColumn, ChartPie,
   Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsLeft,
   ChevronsRight, CircleCheck, CircleHelp, ClipboardList, Clock, Cloud, Coffee, Copy, Database,
@@ -39,7 +39,7 @@ export const ICONS = {
   note: NotebookPen, cake: Cake, bank: Landmark, ticks: CheckCheck, door: DoorOpen,
   camera: Camera, history: History, gift: Gift, building: Building2, text: Type, type: Type,
   flask: FlaskConical, coffee: Coffee, heart: Heart, smile: Smile, keyboard: Keyboard,
-  calMinus: CalendarMinus, eyeRole: Eye,
+  calMinus: CalendarMinus, eyeRole: Eye, arrowDown: ArrowDown,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

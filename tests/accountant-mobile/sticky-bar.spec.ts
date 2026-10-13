@@ -5,7 +5,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.setViewportSize(viewport);
     await page.goto("/?view=cheques&realnav&path=/accounts/books");
     await page.getByRole("checkbox", { name: "Select cheque 123450", exact: true }).tap();
-    const action = page.getByRole("button", { name: "Make deposit slip", exact: true });
+    const action = page.getByRole("button", { name: /^Make a deposit slip \(/ });
     await action.scrollIntoViewIfNeeded();
     const geometry = await action.evaluate(button => {
       const rect = button.getBoundingClientRect();
@@ -19,9 +19,9 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     expect(geometry.centerOwned).toBe(true);
     await action.evaluate(button => button.addEventListener("click", event => { document.documentElement.dataset.qaDepositTrusted = String(event.isTrusted); }, { once: true }));
     await action.tap();
-    await expect(page.getByRole("dialog", { name: "Deposit slip", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^Deposit slip DS-\d+$/ })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.dataset.qaDepositTrusted)).toBe("true");
-    await page.getByRole("dialog", { name: "Deposit slip", exact: true }).getByRole("button", { name: "Close", exact: true }).tap();
-    await expect(page.getByRole("dialog", { name: "Deposit slip", exact: true })).not.toBeVisible();
+    await page.getByRole("dialog", { name: /^Deposit slip DS-\d+$/ }).getByRole("button", { name: "Close", exact: true }).tap();
+    await expect(page.getByRole("dialog", { name: /^Deposit slip DS-\d+$/ })).not.toBeVisible();
   });
 }
