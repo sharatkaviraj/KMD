@@ -204,7 +204,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
   const ttRows: { key: string; no: string; time: string; subj: string; who: string; kind: "done" | "now" | "me" | "break" | "" }[] = [];
   tt.forEach((x, i) => {
     const prev = tt[i - 1];
-    if (prev && prev.ends && x.starts && prev.ends < x.starts && x.period === prev.period + 1) {
+    if (prev && prev.ends && x.starts && prev.ends < x.starts && x.number - prev.number === 1) {
       const gap = (Number(x.starts.slice(0, 2)) * 60 + Number(x.starts.slice(3))) - (Number(prev.ends.slice(0, 2)) * 60 + Number(prev.ends.slice(3)));
       ttRows.push({ key: `b${i}`, no: "", time: hm12(prev.ends), subj: tx(p("Break", "छुट्टी")), who: tx(p(`${gap} minutes`, `${gap} मिनट`)), kind: "break" });
     }
