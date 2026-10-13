@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 
 import type { Language } from "@/platform/i18n/language";
 import { Ic } from "@/vx/icons";
@@ -9,7 +9,7 @@ import { EmptyState } from "@/vx/ui/primitives";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { WHATSAPP_MESSAGE_COST_RUPEES } from "@/modules/whatsapp/domain/run-measurement";
 
-import { AddEventForm, CancelEventButton, NotifySheet } from "./client";
+import { AddEventForm, Bubble, CancelEventButton, NotifySheet, type AddInitial } from "./client";
 import { kindStyle } from "./domain";
 import type { AgendaModel, Badge, CalendarModel, Chip, Common, DayModel, DayPanelModel, EventModel, HolidaysModel, MonthModel, Row, ToldCard } from "./model";
 
@@ -39,7 +39,7 @@ const TONE: Record<Badge["tone"], [string, string]> = {
 
 const delay = (i: number) => `${Math.min(i, 14) * 30}ms`;
 
-export function CalendarView({ model }: { model: CalendarModel }) {
+export function CalendarView({ model, addInitial }: { model: CalendarModel; addInitial?: AddInitial }) {
   if (model.screen === "closed") {
     const w = words(model.language);
     return (
@@ -67,7 +67,7 @@ export function CalendarView({ model }: { model: CalendarModel }) {
         {model.screen === "holidays" ? <HolidaysScreen h={model.holidays} w={w} /> : null}
         {model.screen === "day" ? <DayScreen d={model.day} w={w} /> : null}
         {model.screen === "event" ? <EventScreen e={model.event} back={c.head.back?.href ?? "/calendar"} w={w} /> : null}
-        {model.screen === "add" ? <AddEventForm model={model.add} rate={WHATSAPP_MESSAGE_COST_RUPEES} /> : null}
+        {model.screen === "add" ? <AddEventForm model={model.add} rate={WHATSAPP_MESSAGE_COST_RUPEES} initial={addInitial} /> : null}
       </main>
       {model.screen !== "add" && model.notify ? <NotifySheet model={model.notify} rate={WHATSAPP_MESSAGE_COST_RUPEES} /> : null}
     </VxPage>
@@ -664,21 +664,6 @@ function Told({ c, w }: { c: ToldCard; w: T }) {
           {w.t(c.tell.label)}
         </Link>
       ) : null}
-    </div>
-  );
-}
-
-export function Bubble({ text, time, ticks }: { text: Pair; time: ReactNode; ticks?: boolean }) {
-  return (
-    <div className="cal-wa">
-      <div className="cal-bu">
-        {text.hi && text.hi !== text.en ? <div lang="hi">{text.hi}</div> : null}
-        <div lang="en">{text.en}</div>
-        <div className="cal-tm">
-          {time}
-          {ticks ? <Ic n="ticks" size={15} style={{ color: "var(--info)" }} /> : null}
-        </div>
-      </div>
     </div>
   );
 }

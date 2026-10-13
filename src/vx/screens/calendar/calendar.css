@@ -59,7 +59,7 @@
 :is(.vx,.vxt) .cal-ct { display: flex; align-items: center; justify-content: space-between; }
 :is(.vx,.vxt) .cal-num { width: 26px; height: 26px; border-radius: 13px; font-size: 13px; background: var(--knb); color: var(--knf); box-shadow: var(--knr); }
 :is(.vx,.vxt) .cal-bar { height: 20px; padding: 0 6px; font-size: 11.5px; font-weight: 600; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-:is(.vx,.vxt) .cal-bar > span { overflow: hidden; text-overflow: ellipsis; }
+:is(.vx,.vxt) .cal-bar > span { overflow: hidden; text-overflow: clip; }
 :is(.vx,.vxt) .cal-dots { display: none; gap: 3px; height: 5px; }
 :is(.vx,.vxt) .cal-dots > span { width: 5px; height: 5px; border-radius: 3px; }
 
@@ -69,6 +69,9 @@
 
 /* Sheet foot (Calendar `.k-sf`): the count and cost over the two buttons. */
 :is(.vx,.vxt) .cal-sf { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+
+/* The notice sheet: who gets it beside what they see (Calendar `sh.cols`); one column on a phone. */
+:is(.vx,.vxt) .cal-n2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 
 /* A day's heading in the agenda sticks under the top bar. */
 :is(.vx,.vxt) .cal-gh { position: sticky; top: 64px; z-index: 2; border: 0; border-bottom: 1px solid var(--bd); color: var(--fg); text-align: left; }
@@ -89,7 +92,8 @@
   .vx .cal-2 { grid-template-columns: minmax(0, 1fr); }
   .vx .cal-gh { top: 58px; }
   .vx .cal-sb { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .vx .cal-seg > button { padding: 0 2px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 }
 @media (max-width: 899px) {
-  .vxt .cal-2 { grid-template-columns: minmax(0, 1fr); }
+  .vxt .cal-2, .vxt .cal-n2 { grid-template-columns: minmax(0, 1fr); }
 }
