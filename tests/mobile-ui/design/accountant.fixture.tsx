@@ -30,6 +30,13 @@ function shiftClock(iso: string) {
   globalThis.Date = Shifted as DateConstructor;
 }
 if (MINE) shiftClock(VIEW.includes("Evening") ? "2026-10-08T17:30:00+05:30" : "2026-10-08T10:42:00+05:30");
+// The app shell gives sheets a layer beside the page (`#vx-layer`, shell.tsx); the design fixture's shell does not.
+if (MINE && !document.getElementById("vx-layer")) {
+  const layer = document.createElement("div");
+  layer.id = "vx-layer";
+  layer.className = "vxt vx-layer";
+  document.body.appendChild(layer);
+}
 // Next inlines NEXT_PUBLIC_* at build time; the fixture has no `process`, so give the slip its school name.
 if (MINE && typeof (globalThis as { process?: unknown }).process === "undefined") {
   (globalThis as unknown as { process: { env: Record<string, string> } }).process = { env: { NEXT_PUBLIC_SCHOOL_NAME: "Shri Veer Patta Sr. Sec. School" } };
@@ -169,7 +176,7 @@ const books: BooksData = {
     cheque({ receiptId: "c9", receiptNumber: "R-0341", paymentDate: "2026-09-28", amount: 7800, studentName: "Reyansh Kothari", fatherName: "Mukesh Kothari", classLabel: "Class 10", chequeNo: "219004", bank: "Axis · Rajsamand", status: "cleared", statusAt: at("12:00", "2026-10-01") }),
     cheque({ receiptId: "c10", receiptNumber: "R-0336", paymentDate: "2026-09-26", amount: 12150, studentName: "Priya Chouhan", fatherName: "Sanjay Chouhan", classLabel: "Class 7", chequeNo: "730055", bank: "SBI · Amet", status: "cleared", statusAt: at("12:00", "2026-09-30") }),
     cheque({ receiptId: "c11", receiptNumber: "R-0329", paymentDate: "2026-09-24", amount: 4350, studentName: "Kiara Rawal", fatherName: "Hitesh Rawal", classLabel: "LKG", chequeNo: "560782", bank: "PNB · Amet", status: "cleared", statusAt: at("12:00", "2026-09-29") }),
-    cheque({ receiptId: "c12", receiptNumber: "R-0352", paymentDate: "2026-09-25", amount: 5100, studentName: "Tanu Bhati", fatherName: "Kishore Bhati", classLabel: "Class 5", chequeNo: "412207", bank: "Axis · Rajsamand", status: "bounced", bounceReason: "Not enough money in the account", reversed: true }),
+    cheque({ receiptId: "c12", receiptNumber: "R-0352", paymentDate: "2026-09-25", amount: 5100, studentName: "Tanu Bhati", fatherName: "Kishore Bhati", classLabel: "Class 5", chequeNo: "412207", bank: "Axis · Rajsamand", status: "bounced", bounceReason: "Not enough money", reversed: true }),
   ],
   slips: [{ id: "slip21", slipNo: "DS-0021", bankLabel: "State Bank of India · Amet branch", depositedOn: "2026-10-06", total: 17250, count: 3 }],
   upiLines: [
@@ -204,8 +211,10 @@ const books: BooksData = {
   ],
 };
 
-const booksView = (initialView: BooksView, initialSheet: BooksSheet = "", initialReceipt: string | null = null) => () => (
-  <Books data={books} initialView={initialView} initialSheet={initialSheet} initialPick={[]} initialReceipt={initialReceipt} staffName="Neelam Sharma" readOnly={false} />
+/** The cheques frames open with the three ready cheques ticked (the design's `sel: { c1, c2, c3 }`). */
+const TICKED = ["c1", "c2", "c3"];
+const booksView = (initialView: BooksView, initialSheet: BooksSheet = "", initialReceipt: string | null = null, initialPick: string[] = []) => () => (
+  <Books data={books} initialView={initialView} initialSheet={initialSheet} initialPick={initialPick} initialReceipt={initialReceipt} staffName="Neelam Sharma" readOnly={false} />
 );
 
 const acc = (render: () => React.ReactNode, path: string): DesignView => ({ render, path, menu: "accountant" });
@@ -219,13 +228,13 @@ export const views: Record<string, DesignView> = {
   "M-AccHome-Menu": acc(homeView("menu"), "/accounts"),
   "M-AccHome-Evening": acc(homeView("evening", evening), "/accounts"),
   "M-AccHome-Dark": acc(homeView("home"), "/accounts"),
-  AccBooks: acc(booksView("cheques"), "/accounts/books"),
-  "DX-AccBooks-Deposit": acc(booksView("cheques", "deposit"), "/accounts/books"),
+  AccBooks: acc(booksView("cheques", "", null, TICKED), "/accounts/books"),
+  "DX-AccBooks-Deposit": acc(booksView("cheques", "deposit", null, TICKED), "/accounts/books"),
   "DX-AccBooks-Upi": acc(booksView("upi"), "/accounts/books"),
   "DX-AccBooks-Bounce": acc(booksView("cheques", "bounce", "c7"), "/accounts/books"),
   "DX-AccBooks-Requests": acc(booksView("requests"), "/accounts/books"),
-  "M-AccBooks": acc(booksView("cheques"), "/accounts/books"),
-  "M-AccBooks-Deposit": acc(booksView("cheques", "deposit"), "/accounts/books"),
+  "M-AccBooks": acc(booksView("cheques", "", null, TICKED), "/accounts/books"),
+  "M-AccBooks-Deposit": acc(booksView("cheques", "deposit", null, TICKED), "/accounts/books"),
   "M-AccBooks-Bounce": acc(booksView("cheques", "bounce", "c7"), "/accounts/books"),
   "M-AccBooks-Upi": acc(booksView("upi"), "/accounts/books"),
   "M-AccBooks-Refunds": acc(booksView("refunds"), "/accounts/books"),

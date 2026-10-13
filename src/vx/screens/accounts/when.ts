@@ -20,6 +20,16 @@ export function day(value: string | Date): string {
   return shortDay(value).replace(",", "");
 }
 
+/** "Wed 7 – Thu 8 Oct", "Wed 30 Sep – Thu 1 Oct", "Thu 8 Oct"; empty without days. */
+export function dayRange(from: string | undefined, to: string | undefined): string {
+  if (!from || !to) return "";
+  if (from === to) return day(from);
+  const a = day(from);
+  const b = day(to);
+  const month = (s: string) => s.split(" ").at(-1);
+  return `${month(a) === month(b) ? a.split(" ").slice(0, -1).join(" ") : a} – ${b}`;
+}
+
 /** The school day (YYYY-MM-DD) an instant falls on. */
 export function schoolDay(value: string | Date): string {
   return YMD.format(new Date(value));

@@ -1,16 +1,16 @@
 /* AccHome and AccBooks: the design's module classes (y*, z*, ct, ur, ul, tl, slip), renamed ac-*. */
 
-.vx .ac-f { display: flex; align-items: center; gap: 8px; }
-.vx .ac-c { display: flex; flex-direction: column; min-width: 0; }
-.vx .ac-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.vx .ac-j { justify-content: space-between; }
-.vx .ac-w { flex-wrap: wrap; }
-.vx .ac-1 { flex: 1; }
-.vx .ac-m { font-size: 12px; color: var(--mut); }
-.vx .ac-b { font-size: 14px; font-weight: 600; }
-.vx .ac-v { font-size: 15px; font-weight: 700; }
-.vx .ac-an { animation: xIn .32s var(--ease) both; }
-.vx .ac-av { flex: none; width: 40px; height: 40px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+:where(.vx, .vxt) .ac-f { display: flex; align-items: center; gap: 8px; }
+:where(.vx, .vxt) .ac-c { display: flex; flex-direction: column; min-width: 0; }
+:where(.vx, .vxt) .ac-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+:where(.vx, .vxt) .ac-j { justify-content: space-between; }
+:where(.vx, .vxt) .ac-w { flex-wrap: wrap; }
+:where(.vx, .vxt) .ac-1 { flex: 1; }
+:where(.vx, .vxt) .ac-m { font-size: 12px; color: var(--mut); }
+:where(.vx, .vxt) .ac-b { font-size: 14px; font-weight: 600; }
+:where(.vx, .vxt) .ac-v { font-size: 15px; font-weight: 700; }
+:where(.vx, .vxt) .ac-an { animation: xIn .32s var(--ease) both; }
+:where(.vx, .vxt) .ac-av { flex: none; width: 40px; height: 40px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
 .vx .ac-o { position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; margin: 0; background: transparent; border-radius: inherit; cursor: pointer; }
 .vx .ac-cd { padding: 16px 18px; gap: 12px; }
 .vx .ac-q { position: relative; height: 62px; border-radius: 18px; border: 1.5px solid var(--bds); background: var(--card); padding: 0 16px; color: var(--mut); transition: border-color .2s ease, box-shadow .2s ease; }
@@ -31,8 +31,8 @@
 /* Books (AccBooks: kp, cth/ct, zcb, zs, ur/ul, tl, slip, sr, zwa/zwb) */
 .vx.ac-books .ac-cheque-selection { bottom: 12px; }
 .vx .ac-kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.vx .ac-kp > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; text-align: left; color: var(--fg); animation: xRise .42s var(--ease) both; }
-.vx .ac-ib { flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+.vx .ac-kp > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; text-align: left; color: var(--fg); line-height: normal; animation: xRise .42s var(--ease) both; }
+:where(.vx, .vxt) .ac-ib { flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
 /* Receipt column 120px, not the picture's 64px: real numbers are SVP20261008-0015, not R-0401. */
 .vx .ac-cth, .vx .ac-ct { display: grid; grid-template-columns: 44px 74px minmax(0, 1.5fr) minmax(0, 1fr) 86px 120px 92px var(--aw, 190px); gap: 10px; align-items: center; padding: 0 16px 0 6px; }
 .vx .ac-cth { height: 42px; background: var(--s2); border-bottom: 1px solid var(--bd); }
@@ -42,7 +42,7 @@
 .vx .ac-cb { flex: none; width: 40px; height: 40px; border: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; }
 .vx .ac-cb > span { width: 22px; height: 22px; border-radius: 7px; border: 2px solid; display: flex; align-items: center; justify-content: center; color: var(--prifg); transition: background-color .2s ease, border-color .2s ease; }
 .vx .ac-cb svg { transition: transform .25s var(--spring), opacity .2s ease; }
-.vx .ac-s { height: 34px; padding: 0 12px; font-size: 13px; }
+:where(.vx, .vxt) .ac-s { height: 34px; padding: 0 12px; font-size: 13px; }
 .vx .ac-seg-tight .seg > button { padding: 0 2px !important; }
 .vx .ac-ur { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr); align-items: center; animation: xIn .32s var(--ease) both; }
 .vx .ac-ur > .card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 14px; }
@@ -50,27 +50,30 @@
 .vx .ac-ul::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid; transform-origin: left; animation: xGrowX .5s var(--ease) both; }
 .vx .ac-ul.dash::before { border-top-style: dashed; }
 .vx .ac-ul > b { position: relative; width: 28px; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--card); border: 2px solid; animation: xPopIn .4s .25s var(--spring) both; }
-.vx .ac-in { display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+:where(.vx, .vxt) .ac-in { display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
 .vx .ac-tline { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .vx .ac-tline > i { position: absolute; left: 12px; right: 12px; top: 11px; height: 3px; border-radius: 2px; background: var(--s3); }
 .vx .ac-tline > i > b { display: block; height: 3px; border-radius: 2px; transform-origin: left; transition: width .6s var(--ease); animation: xGrowX .7s .1s var(--ease) both; }
 .vx .ac-tline > div { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .vx .ac-tline > div > span:first-child { width: 24px; height: 24px; border-radius: 12px; border: 2px solid; display: flex; align-items: center; justify-content: center; background: var(--card); }
-.vx .ac-slip { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1.5px dashed var(--bds); background: var(--card); }
-.vx .ac-sr { display: grid; grid-template-columns: 28px 150px minmax(0, 1fr) 92px; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--bd); font-size: 13px; }
+:where(.vx, .vxt) .ac-slip { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1.5px dashed var(--bds); background: var(--card); }
+:where(.vx, .vxt) .ac-sr { display: grid; grid-template-columns: 28px 150px minmax(0, 1fr) 92px; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--bd); font-size: 13px; }
 /* The slip's bank and date read as print but stay editable: they are what the deposit is saved with. */
-.vx .ac-inline { width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; border-bottom: 1px dashed transparent; border-radius: 0; background: transparent; color: var(--fg); font: inherit; }
-.vx .ac-inline:hover, .vx .ac-inline:focus-visible { border-bottom-color: var(--bds); outline: none; }
-.vx .ac-wa { display: flex; flex-direction: column; align-items: flex-start; padding: 14px 12px; border-radius: 16px; background: var(--wabg); }
-.vx .ac-wab { max-width: 94%; display: flex; flex-direction: column; gap: 8px; padding: 9px 11px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13.5px; line-height: 1.5; box-shadow: 0 1px 1px rgba(0,0,0,.12); animation: xIn .35s var(--ease) both; }
-.vx .ac-wab > p { margin: 0; white-space: pre-line; }
-.vx .ac-wab > hr { width: 100%; margin: 0; border: 0; border-top: 1px solid currentColor; opacity: .15; }
+:where(.vx, .vxt) .ac-inline { width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; border-bottom: 1px dashed transparent; border-radius: 0; background: transparent; color: var(--fg); font: inherit; resize: none; overflow: hidden; field-sizing: content; }
+:where(.vx, .vxt) .ac-inline:hover, :where(.vx, .vxt) .ac-inline:focus-visible { border-bottom-color: var(--bds); outline: none; }
+:where(.vx, .vxt) .ac-wa { display: flex; flex-direction: column; align-items: flex-start; padding: 14px 12px; border-radius: 16px; background: var(--wabg); }
+:where(.vx, .vxt) .ac-wab { max-width: 94%; display: flex; flex-direction: column; gap: 8px; padding: 9px 11px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13.5px; line-height: 1.5; box-shadow: 0 1px 1px rgba(0,0,0,.12); animation: xIn .35s var(--ease) both; }
+:where(.vx, .vxt) .ac-wab > p { margin: 0; white-space: pre-line; }
+:where(.vx, .vxt) .ac-wab > hr { width: 100%; margin: 0; border: 0; border-top: 1px solid currentColor; opacity: .15; }
 
 /* Match the shell's viewport breakpoint and its 99px phone navigation footprint. */
 @media (max-width: 899px) {
   .vx.ac-books .ac-cheque-selection { bottom: calc(99px + 12px + env(safe-area-inset-bottom)); }
   /* Books uses Section (.pad), so the shell's direct-main reserve does not apply. */
   .vx.ac-books > .pad { padding-bottom: calc(99px + 12px + env(safe-area-inset-bottom)) !important; }
+  /* Sheets render in #vx-layer, outside the page's container, so the slip folds on the window width. */
+  .vx-layer .ac-sr { grid-template-columns: 22px minmax(0, 1fr) 84px; }
+  .vx-layer .ac-sr > .c3 { display: none; }
 }
 
 @media print {
@@ -86,8 +89,9 @@
   .vx .ac-tl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .vx .ac-t { min-height: 132px; }
   .vx .ac-t.big { grid-row: auto; min-height: 120px; }
-  .vx .ac-b { font-size: 15px; }
-  .vx .ac-m { font-size: 13px; }
+  /* Today's phone type steps up (AccHome); the books keep 14/12 (AccBooks has no such rule). */
+  .vx.ac-home .ac-b { font-size: 15px; }
+  .vx.ac-home .ac-m { font-size: 13px; }
   .vx .ac-lay { grid-template-columns: minmax(0, 1fr); }
   .vx .ac-take { height: 48px; }
   /* 16px, not the picture's 14px: a phone zooms the page into any smaller input it focuses. */

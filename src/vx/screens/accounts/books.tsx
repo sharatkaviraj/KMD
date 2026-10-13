@@ -32,7 +32,7 @@ import { Chip, Field, Input, RadioCard, Seg, Select, Textarea } from "@/vx/ui/co
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 
-import { day, schoolDay, time12 } from "./when";
+import { day, dayRange, schoolDay, time12 } from "./when";
 
 export type BooksView = "cheques" | "upi" | "refunds" | "requests";
 export type BooksSheet = "" | "deposit" | "bounce" | "upload" | "refund";
@@ -450,7 +450,7 @@ function UpiPane({ data, canAct, busy, onUpload, onMatch, onUndo, onNotFee }: { 
   const sorted = [...open, ...data.upiLines.filter((l) => l.state !== "open")];
   const rows = sorted.filter((l) => (filter === "all" ? true : filter === "open" ? l.state === "open" : l.state !== "open"));
   const days = data.upiLines.map((l) => schoolDay(l.txnAt)).sort();
-  const range = days.length ? (days[0] === days.at(-1) ? day(days[0]) : `${day(days[0])} – ${day(days.at(-1) as string)}`) : "";
+  const range = dayRange(days[0], days.at(-1));
   const allSorted = total > 0 && done === total;
   const why = (w: "ref" | "amount_day" | "amount") => (w === "ref" ? "same UPI ref" : w === "amount_day" ? "same amount, near the day" : "same amount");
   return (
@@ -733,7 +733,7 @@ function DepositSheet({ open, onClose, data, chosen, total, clearPicked, staffNa
           <div className="ac-f" style={{ gap: 12, paddingBottom: 10, borderBottom: "1px solid var(--bd)" }}>
             <span className="ac-ib" style={{ background: "#082F49", color: "#F7F6F3" }}><Ic n="bank" /></span>
             <span className="ac-c ac-1">
-              <input className="ac-inline serif" aria-label="Bank and account" value={bank} onChange={(e) => setBank(e.target.value)} style={{ fontSize: 16, fontWeight: 600 }} />
+              <textarea className="ac-inline serif" rows={1} aria-label="Bank and account" value={bank} onChange={(e) => setBank(e.target.value.replace(/\n/g, " "))} style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.35 }} />
               <span className="ac-m">Pay-in slip · cheques · {slipNo}</span>
             </span>
             <span className="num ac-m ac-c" style={{ alignItems: "flex-end", position: "relative" }}>
@@ -774,7 +774,7 @@ function DepositSheet({ open, onClose, data, chosen, total, clearPicked, staffNa
             ))}
             {chosen.length === 0 ? <span className="ac-m" style={{ padding: "10px 0" }}>Tick the cheques you are taking to the bank, then make the slip.</span> : null}
             <div className="ac-f ac-j" style={{ padding: "10px 0 2px", borderTop: "2px solid var(--bd)" }}><span className="ac-b" style={{ fontWeight: 700 }}>Total · {count}</span><span className="num" style={{ fontSize: 20, fontWeight: 700 }}>{rupees(total)}</span></div>
-            <span style={{ fontSize: 12, color: "var(--mut)", fontStyle: "italic" }}>{amountInWords(total)}</span>
+            <span style={{ fontSize: 12, color: "var(--mut)", fontStyle: "italic" }}>{amountInWords(total).replace(/^(Rupees )(.*)( only)$/, (_, a: string, words: string, b: string) => `${a}${words.toLowerCase()}${b}`)}</span>
           </div>
           <div className="ac-f ac-j" style={{ paddingTop: 10, borderTop: "1.5px dashed var(--bds)", fontSize: 12, color: "var(--mut)" }}><span>Deposited by {staffName}</span><span>Signature ____________</span></div>
         </div>

@@ -18,6 +18,7 @@ export const updateQueueAction = blocked;
 export const setRemindersPausedAction = blocked;
 export const searchFamiliesAction = async (..._input: unknown[]) => [];
 export const logoutAction = blocked;
+export const saveLanguageAction = async (..._input: unknown[]) => ({ status: "error" as const, message: "Synthetic language save unavailable" });
 export async function uploadStatementAction(input: { text: string; bankLabel?: string }) {
   const parsed = parseUpiStatement(input.text);
   return { ok: false, message: parsed.errors.length ? `Line ${parsed.errors[0].line}: ${parsed.errors[0].reason}` : "Synthetic upload unavailable — no database mutation" };

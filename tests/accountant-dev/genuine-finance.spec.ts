@@ -260,8 +260,8 @@ test("genuine UI accountant tagged bookkeeping receipts, reconciliation and sing
       await page.goto("/accounts/books?view=cheques");
       const cheque = page.locator(".row.ac-ct").filter({ hasText: chequeReceipt.receipt_number });
       await cheque.getByRole("checkbox", { name: `Select cheque ${chequeNo}`, exact: true }).tap();
-      await page.getByRole("button", { name: "Make deposit slip", exact: true }).tap();
-      const deposit = page.getByRole("dialog", { name: "Deposit slip", exact: true });
+      await page.getByRole("button", { name: /^Make a deposit slip \(/ }).tap();
+      const deposit = page.getByRole("dialog", { name: /^Deposit slip DS-\d+$/ });
       await deposit.getByLabel("Bank and account", { exact: true }).fill(`${tag} synthetic bank`);
       await deposit.getByLabel("Deposited on", { exact: true }).fill(date);
       await page.evaluate(() => { document.documentElement.dataset.qaPrintCalls = "0"; });

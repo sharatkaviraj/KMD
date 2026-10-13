@@ -150,7 +150,7 @@ export function AccountsHome({
           };
 
   return (
-    <VxPage className="ac-page">
+    <VxPage className="ac-page ac-home">
       <TopBar
         crumb={top.crumb}
         title={top.title}
