@@ -8,7 +8,7 @@ import { Ic } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Avatar, avatarColor, Btn, Pill, Progress, WhatsAppPreview } from "@/vx/ui/primitives";
-import { agoP, initials } from "@/vx/format";
+import { agoP, clock, initials } from "@/vx/format";
 
 import { bilingualReminder, waLink } from "./domain/messages";
 import type { ActionResult } from "./save-types";
@@ -51,6 +51,7 @@ export function RemindSheet({
   dueLabel,
   from,
   remind,
+  look = "plain",
 }: {
   open: boolean;
   onClose: () => void;
@@ -59,6 +60,8 @@ export function RemindSheet({
   dueLabel: string;
   from: string;
   remind: (input: { examId: string; staffIds: string[] }) => Promise<ActionResult>;
+  /** "office" draws the exam office's sheet (ExamHome's remind frame). */
+  look?: "plain" | "office";
 }) {
   const { tx } = useVx();
   const toast = useToast();
@@ -90,6 +93,79 @@ export function RemindSheet({
         window.open(waLink(first.phone, reminderFor(first, exam, dueLabel, from, url)), "_blank", "noopener");
       }
     });
+
+  if (look === "office" && !sent) {
+    const lines = text.split("\n");
+    const cut = lines.indexOf("");
+    const hiLines = cut >= 0 ? lines.slice(0, cut) : lines;
+    const enLines = cut >= 0 ? lines.slice(cut + 1) : [];
+    const linkUrl = first.link?.url ?? "(link)";
+    const facts: [Pair, string][] = [
+      [p("To", "किसे"), `${teachers.length} ${tx(teachers.length === 1 ? p("teacher", "शिक्षक") : p("teachers", "शिक्षक"))}`],
+      [p("New links", "नए लिंक"), newLinks ? `${newLinks} · ${tx(p("made when you send", "भेजते समय बनेंगे"))}` : tx(p("None needed", "ज़रूरत नहीं"))],
+      [p("Cost", "खर्च"), tx(p("No cost", "कोई खर्च नहीं"))],
+      [p("Sent through", "भेजा जाएगा"), tx(p("Your own WhatsApp", "आपका अपना WhatsApp"))],
+    ];
+    return (
+      <Sheet
+        open={open}
+        onClose={close}
+        title={teachers.length === 1 ? `${tx(p("Remind", "याद दिलाएँ"))} ${first.name}?` : tx(p(`Remind ${teachers.length} teachers?`, `${teachers.length} शिक्षकों को याद दिलाएँ?`))}
+        sub={tx(p(`${exam.en} marks · due ${dueLabel}`, `${exam.hi} अंक · अंतिम ${dueLabel}`))}
+        footer={
+          <div style={{ display: "flex", gap: 8, width: "100%" }}>
+            <button type="button" className="tap btn sec" onClick={close} style={{ flex: 1, height: 52, fontSize: 15 }}>
+              {tx(p("Cancel", "रद्द करें"))}
+            </button>
+            <button type="button" className="tap btn pri" disabled={pending} onClick={send} style={{ flex: 1.6, height: 52, fontSize: 15 }}>
+              <Ic n="send" size={18} />
+              {teachers.length === 1 ? tx(p("Send reminder", "रिमाइंडर भेजें")) : tx(p(`Send ${teachers.length} reminders`, `${teachers.length} रिमाइंडर भेजें`))}
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 12, borderRadius: 16, background: "var(--wabg)" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--wafg)", opacity: 0.7 }}>
+              {tx(p("Preview · to", "झलक ·"))} {first.name}
+              {teachers.length > 1 ? tx(p(" (each teacher gets their own link)", " (हर शिक्षक को अपना लिंक)")) : ""}
+            </span>
+            <div style={{ alignSelf: "flex-start", maxWidth: "94%", padding: "9px 12px 5px", borderRadius: "4px 14px 14px 14px", background: "var(--wab)", color: "var(--wafg)", lineHeight: 1.5, fontSize: 14, boxShadow: "0 1px 1px rgba(0,0,0,.08)", animation: "xPopIn .4s var(--spring) both" }}>
+              {hiLines.map((l, i) =>
+                l === linkUrl ? (
+                  <div key={i} style={{ color: "var(--info)", textDecoration: "underline", overflowWrap: "anywhere" }}>{l}</div>
+                ) : (
+                  <div key={i}>{l}</div>
+                ),
+              )}
+              {enLines.length ? <div style={{ whiteSpace: "pre-line", marginTop: 6, opacity: 0.78 }}>{enLines.join("\n")}</div> : null}
+              <div style={{ textAlign: "right", fontSize: 11, opacity: 0.6 }}>{clock(new Date()).replace(/^0/, "")}</div>
+            </div>
+          </div>
+          {teachers.length > 1 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {teachers.map((t) => (
+                <span key={t.id} className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s2)", color: "var(--fg)", border: "1px solid var(--bd)" }}>
+                  {t.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div className="card" style={{ padding: "0 14px", boxShadow: "none" }}>
+            {facts.map(([k, v], i) => (
+              <div key={k.en} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 0", fontSize: 13, borderTop: i ? "1px solid var(--bd)" : 0 }}>
+                <span style={{ color: "var(--mut)" }}>{tx(k)}</span>
+                <span className="num" style={{ fontWeight: 700, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <span style={{ fontSize: 12, color: "var(--mut)" }}>
+            {tx(p("Each teacher gets their own link with only their classes. The app records the reminder; you send it from your own WhatsApp.", "हर शिक्षक को केवल अपनी कक्षाओं वाला लिंक मिलता है। ऐप रिमाइंडर दर्ज करता है; भेजते आप अपने WhatsApp से हैं।"))}
+          </span>
+        </div>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet

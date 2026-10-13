@@ -1,0 +1,255 @@
+/*
+ * The exam office's screens (ExamHome · .eoh, ExamPlan · .eop, ExamResults ·
+ * .eor) as the design draws them: the design modules' own classes, scoped to
+ * each screen's page root so they reach nothing else. Copied from
+ * docs/design-handoff/design/src/Exam*.dc.html.
+ */
+
+.vx.eoh,.vx.eop,.vx.eor{font-size:14px;line-height:1.45}
+/* `.vx a{color:inherit}` outranks the kit's button colours on links. */
+.vx.eoh a.btn.pri,.vx.eop a.btn.pri,.vx.eor a.btn.pri{color:var(--prifg)}
+.vx.eoh a.btn.soft,.vx.eop a.btn.soft,.vx.eor a.btn.soft{color:var(--accfg)}
+
+/* ------------------------------------------------------------ ExamHome */
+.vx.eoh .xr{display:flex;align-items:center}
+.vx.eoh .xc{display:flex;flex-direction:column}
+.vx.eoh .xf{flex:1;min-width:0}
+.vx.eoh .xf1{flex:1}
+.vx.eoh .xfn{flex:none}
+.vx.eoh .xw{flex-wrap:wrap}
+.vx.eoh .xj{justify-content:space-between}
+.vx.eoh .xrl{position:relative}
+.vx.eoh .xn0{min-width:0}
+.vx.eoh .xw1{width:100%}
+.vx.eoh .xoh{overflow:hidden}
+.vx.eoh .xgd{display:grid}
+.vx.eoh .x4{gap:4px}
+.vx.eoh .x6{gap:6px}
+.vx.eoh .x8{gap:8px}
+.vx.eoh .x10{gap:10px}
+.vx.eoh .x12{gap:12px}
+.vx.eoh .x14{gap:14px}
+.vx.eoh .x16{gap:16px}
+.vx.eoh .xm{font-size:12px;color:var(--mut)}
+.vx.eoh .xs{font-size:13px}
+.vx.eoh .x11{font-size:11px}
+.vx.eoh .xb{font-weight:700}
+.vx.eoh .x6w{font-weight:600}
+.vx.eoh .xmu{color:var(--mut)}
+.vx.eoh .xtr{text-align:right}
+.vx.eoh .xt{font-size:15px;font-weight:700}
+.vx.eoh .xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx.eoh .xh{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}
+.vx.eoh .xi{flex:none;display:flex;align-items:center;justify-content:center}
+.vx.eoh .xp{padding:14px 16px}
+.vx.eoh .xp2{padding:18px 20px}
+.vx.eoh .xbb{border-bottom:1px solid var(--bd)}
+.vx.eoh .xd+.xd{border-top:1px solid var(--bd)}
+.vx.eoh .xdt{flex:none;width:9px;height:9px;border-radius:5px;display:inline-block}
+.vx.eoh .xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}
+.vx.eoh .xbar>span{height:100%;transition:width .5s var(--ease)}
+.vx.eoh .xa{flex:none;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.vx.eoh .xst>*{animation:xIn .3s var(--ease) both}
+.vx.eoh .xst>:nth-child(2){animation-delay:.04s}
+.vx.eoh .xst>:nth-child(3){animation-delay:.08s}
+.vx.eoh .xst>:nth-child(4){animation-delay:.12s}
+.vx.eoh .xst>:nth-child(5){animation-delay:.16s}
+.vx.eoh .xst>:nth-child(n+6){animation-delay:.2s}
+.vx.eoh .xsc{padding:18px 28px 40px;display:flex;flex-direction:column;gap:16px}
+.vx.eoh .xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.vx.eoh .xlg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 0;font-size:13px}
+.vx.eoh .xlg>i{width:10px;height:10px;margin-top:4px;border-radius:5px}
+.vx.eoh .xln{line-height:normal}
+.vx.eoh .xob{height:36px;font-size:13px}
+.vx.eoh .xov{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:1}
+.vx.eoh .xhero{padding:20px;gap:14px;animation:xRise .45s var(--ease) both}
+.vx.eoh .xstep{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.vx.eoh .xstep>span{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:var(--mut);line-height:1.25}
+.vx.eoh .xstep>span>i{height:5px;border-radius:3px}
+.vx.eoh .xtline{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.vx.eoh .xtrack{position:absolute;left:12.5%;right:12.5%;top:23px;height:4px;border-radius:2px;background:var(--s3)}
+.vx.eoh .xtrack>span{display:block;height:100%;border-radius:2px;background:var(--acc);transform-origin:left;animation:xGrowX 1s .2s var(--ease) both}
+.vx.eoh .xnode{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;border:0;background:transparent;color:var(--fg);padding:0 2px;position:relative;z-index:1;line-height:normal}
+.vx.eoh .xqa{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.vx.eoh .xtile{position:relative;padding:16px;gap:10px;min-height:118px}
+.vx.eoh .xmenu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.vx.eoh .xsr{display:grid;grid-template-columns:44px minmax(0,1fr) 150px 190px;gap:14px;align-items:center}
+.vx.eoh .xpl{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:10px;font-size:12px;font-weight:600;background:var(--s2);white-space:nowrap}
+@container vx (max-width:899px){
+.vx.eoh .xsc{padding:14px 16px 32px}
+.vx.eoh .xqa{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vx.eoh .xmenu{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.vx.eoh .xsr{grid-template-columns:36px minmax(0,1fr);gap:10px;align-items:start}
+.vx.eoh .xsr>:nth-child(3),.vx.eoh .xsr>:nth-child(4){grid-column:1/-1}
+.vx.eoh .xsr>:nth-child(4){justify-content:flex-start!important}
+.vx.eoh .xsr>:nth-child(4)>.btn{flex:1}
+.vx.eoh .xnode .xm{font-size:11px}
+.vx.eoh .xhero{padding:16px}
+.vx.eoh .xob{height:40px}
+}
+
+/* ------------------------------------------------------------ ExamPlan */
+.vx.eop .xr{display:flex;align-items:center}
+.vx.eop .xc{display:flex;flex-direction:column}
+.vx.eop .xw{flex-wrap:wrap}
+.vx.eop .xf{flex:1;min-width:0}
+.vx.eop .xj{justify-content:space-between}
+.vx.eop .xjc{justify-content:center}
+.vx.eop .xac{align-items:center}
+.vx.eop .xi{flex:none;display:flex;align-items:center;justify-content:center}
+.vx.eop .xrl{position:relative}
+.vx.eop .xgd{display:grid}
+.vx.eop .xoh{overflow:hidden}
+.vx.eop .xn0{min-width:0}
+.vx.eop .x4{gap:4px}
+.vx.eop .x6{gap:6px}
+.vx.eop .x8{gap:8px}
+.vx.eop .x10{gap:10px}
+.vx.eop .x12{gap:12px}
+.vx.eop .x14{gap:14px}
+.vx.eop .xm{font-size:12px;color:var(--mut)}
+.vx.eop .xmu{color:var(--mut)}
+.vx.eop .xt{font-size:15px;font-weight:700}
+.vx.eop .xb{font-weight:700}
+.vx.eop .x6w{font-weight:600}
+.vx.eop .xs{font-size:13px}
+.vx.eop .x11{font-size:11px}
+.vx.eop .xtc{text-align:center}
+.vx.eop .xtr{text-align:right}
+.vx.eop .xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx.eop .xh{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}
+.vx.eop .xp{padding:14px 16px}
+.vx.eop .xp2{padding:16px 18px}
+.vx.eop .xbt{border-top:1px solid var(--bd)}
+.vx.eop .xq{width:40px;padding:0!important}
+.vx.eop .xl{width:100%;display:flex;align-items:center;gap:12px;border:0;background:transparent;color:var(--fg);text-align:left}
+.vx.eop .xd+.xd{border-top:1px solid var(--bd)}
+.vx.eop .xst>*{animation:xIn .3s var(--ease) both}
+.vx.eop .xst>:nth-child(2){animation-delay:.03s}
+.vx.eop .xst>:nth-child(3){animation-delay:.06s}
+.vx.eop .xst>:nth-child(4){animation-delay:.09s}
+.vx.eop .xst>:nth-child(5){animation-delay:.12s}
+.vx.eop .xst>:nth-child(n+6){animation-delay:.15s}
+.vx.eop .xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}
+.vx.eop .xbar>span{height:100%;transition:width .5s var(--ease)}
+.vx.eop .xdt{flex:none;width:8px;height:8px;border-radius:4px}
+.vx.eop .xa{flex:none;width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.vx.eop .xlg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 0;font-size:13px}
+.vx.eop .xlg>i{width:10px;height:10px;margin-top:4px;border-radius:5px}
+.vx.eop .xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.vx.eop .xfa{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;font-size:13px}
+.vx.eop .xsp{flex:none;width:16px;height:16px;border-radius:8px;border:2px solid var(--bds);border-top-color:var(--acc);animation:xLoop .7s linear infinite}
+.vx.eop .xsc{padding:16px 28px 40px;display:flex;flex-direction:column;gap:14px}
+.vx.eop .xtab{height:50px!important;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}
+.vx.eop .xwa{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:16px;background:var(--wabg)}
+.vx.eop .xwb{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;white-space:pre-line;font-size:13px;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}
+.vx.eop .xrd{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid var(--bds);display:flex;align-items:center;justify-content:center}
+.vx.eop .xrd>span{width:10px;height:10px;border-radius:5px;background:var(--acc);transition:transform .25s var(--spring)}
+.vx.eop .xside{position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto;border-left:1px solid var(--bd);background:var(--bg)}
+.vx.eop .xmbar{position:sticky;bottom:0;z-index:4;padding:10px 16px 12px;border-top:1px solid var(--bd)}
+.vx.eop .xbig{height:48px;font-size:15px}
+.vx.eop .xtk{flex:none;animation:xPopIn .5s var(--spring) both}
+.vx.eop .xtk .a{fill:var(--oks)}
+.vx.eop .xtk .b{fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both}
+.vx.eop .xtk path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.vx.eop .xtk path{stroke:var(--ok);stroke-width:6;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both}
+.vx.eop .xdg{display:grid;gap:8px;align-items:stretch}
+.vx.eop .xpc{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 9px;border-radius:10px;border:1.5px solid transparent;text-align:left;line-height:1.25}
+.vx.eop .xpe{width:100%;min-height:46px;flex:1;border-radius:10px;border:1.5px dashed var(--bd);background:transparent;color:var(--sub);font-size:12px;font-weight:600}
+.vx.eop .xblk{position:absolute;height:26px;border-radius:7px;padding:0 8px;display:flex;align-items:center;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;transform-origin:left;animation:xGrowX .5s var(--ease) both}
+.vx.eop .xseat{border:1.5px solid;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;padding:0;min-width:0;animation:xPopIn .35s var(--spring) both}
+.vx.eop .xseat>span{font-size:9px;font-weight:600;opacity:.75}
+.vx.eop .xboard{height:30px;border-radius:8px;background:var(--nav);color:var(--navfg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;letter-spacing:.04em}
+.vx.eop .xdm{display:grid;grid-template-columns:230px repeat(6,minmax(0,1fr)) 96px;gap:8px;align-items:center;padding:6px 16px;min-height:50px}
+.vx.eop .xdc{height:34px;border-radius:9px;border:1.5px solid;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0;min-width:0}
+.vx.eop .xpt{display:grid;grid-template-columns:96px repeat(5,minmax(0,1fr));gap:6px;padding:8px 10px}
+.vx.eop .xpcl{display:flex;flex-direction:column}
+.vx.eop .xpm{display:grid;grid-template-columns:130px repeat(6,minmax(0,1fr));gap:6px;align-items:center;padding:6px 14px;min-height:50px}
+.vx.eop .xpq{height:38px;border-radius:10px;border:0;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:700;padding:0 6px;min-width:0}
+@container vx (max-width:899px){.vx.eop .xsc{gap:12px}
+.vx.eop .xbig{height:52px;width:100%}
+.vx.eop .xmain{font-size:15px}
+.vx.eop .xdm{grid-template-columns:minmax(0,1fr) repeat(6,30px) 22px;gap:4px;padding:6px 10px}
+.vx.eop .xdc{height:32px}
+.vx.eop .xpm{grid-template-columns:66px repeat(6,minmax(0,1fr));gap:4px;padding:6px 10px}
+.vx.eop .xpq{height:36px;padding:0 2px;font-size:11px}
+.vx.eop .xpt{grid-template-columns:minmax(0,1fr);gap:4px}
+.vx.eop .xpcl{flex-direction:row;justify-content:space-between;gap:8px;text-align:right}
+}
+
+/* --------------------------------------------------------- ExamResults */
+.vx.eor .xr{display:flex;align-items:center}
+.vx.eor .xc{display:flex;flex-direction:column}
+.vx.eor .xw{flex-wrap:wrap}
+.vx.eor .xf{flex:1;min-width:0}
+.vx.eor .xj{justify-content:space-between}
+.vx.eor .xjc{justify-content:center}
+.vx.eor .xac{align-items:center}
+.vx.eor .xi{flex:none;display:flex;align-items:center;justify-content:center}
+.vx.eor .xrl{position:relative}
+.vx.eor .xgd{display:grid}
+.vx.eor .xoh{overflow:hidden}
+.vx.eor .xn0{min-width:0}
+.vx.eor .x4{gap:4px}
+.vx.eor .x6{gap:6px}
+.vx.eor .x8{gap:8px}
+.vx.eor .x10{gap:10px}
+.vx.eor .x12{gap:12px}
+.vx.eor .x14{gap:14px}
+.vx.eor .xm{font-size:12px;color:var(--mut)}
+.vx.eor .xmu{color:var(--mut)}
+.vx.eor .xt{font-size:15px;font-weight:700}
+.vx.eor .xb{font-weight:700}
+.vx.eor .x6w{font-weight:600}
+.vx.eor .xs{font-size:13px}
+.vx.eor .x11{font-size:11px}
+.vx.eor .xtc{text-align:center}
+.vx.eor .xtr{text-align:right}
+.vx.eor .xe{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx.eor .xh{margin:0;font-family:'Source Serif 4',Georgia,serif;font-size:22px;font-weight:600;line-height:1.15}
+.vx.eor .xp{padding:14px 16px}
+.vx.eor .xp2{padding:16px 18px}
+.vx.eor .xq{width:40px;padding:0!important}
+.vx.eor .xl{width:100%;display:flex;align-items:center;gap:12px;border:0;background:transparent;color:var(--fg);text-align:left}
+.vx.eor .xd+.xd{border-top:1px solid var(--bd)}
+.vx.eor .xst>*{animation:xIn .3s var(--ease) both}
+.vx.eor .xst>:nth-child(2){animation-delay:.03s}
+.vx.eor .xst>:nth-child(3){animation-delay:.06s}
+.vx.eor .xst>:nth-child(4){animation-delay:.09s}
+.vx.eor .xst>:nth-child(5){animation-delay:.12s}
+.vx.eor .xst>:nth-child(n+6){animation-delay:.15s}
+.vx.eor .xbar{height:8px;border-radius:4px;background:var(--s3);overflow:hidden;display:flex}
+.vx.eor .xbar>span{height:100%;transition:width .5s var(--ease)}
+.vx.eor .xdt{flex:none;width:8px;height:8px;border-radius:4px}
+.vx.eor .xa{flex:none;width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.vx.eor .xlg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:start;padding:6px 0;font-size:13px}
+.vx.eor .xlg>i{width:10px;height:10px;margin-top:4px;border-radius:5px}
+.vx.eor .xno{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.vx.eor .xfa{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;font-size:13px}
+.vx.eor .xsp{flex:none;width:16px;height:16px;border-radius:8px;border:2px solid var(--bds);border-top-color:var(--acc);animation:xLoop .7s linear infinite}
+.vx.eor .xsc{padding:16px 28px 40px;display:flex;flex-direction:column;gap:14px}
+.vx.eor .xwa{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:16px;background:var(--wabg)}
+.vx.eor .xwb{align-self:flex-start;max-width:94%;padding:9px 12px 5px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);line-height:1.5;white-space:pre-line;font-size:13px;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:xPopIn .4s var(--spring) both}
+.vx.eor .xside{position:sticky;top:0;height:calc(100vh - 64px);overflow-y:auto;border-left:1px solid var(--bd);background:var(--bg)}
+.vx.eor .xmbar{position:sticky;bottom:0;z-index:4;padding:10px 16px 12px;border-top:1px solid var(--bd)}
+.vx.eor .xbig{height:48px;font-size:15px}
+.vx.eor .xtk{flex:none;animation:xPopIn .5s var(--spring) both}
+.vx.eor .xtk .a{fill:var(--oks)}
+.vx.eor .xtk .b{fill:none;stroke:var(--ok);stroke-width:4;--len:276.5;stroke-dasharray:276.5;animation:xDraw .7s .1s var(--ease) both}
+.vx.eor .xtk path{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke:var(--ok);stroke-width:6;--len:60;stroke-dasharray:60;animation:xDraw .45s .5s var(--ease) both}
+.vx.eor .xstp{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.vx.eor .xrr{display:grid;grid-template-columns:130px minmax(100px,1.2fr) 70px 96px 104px 100px 96px;gap:10px;align-items:center;padding:8px 16px;min-height:52px}
+.vx.eor .xmod{display:grid;grid-template-columns:minmax(0,1.3fr) 64px 64px 70px minmax(110px,1.2fr);gap:10px;align-items:center;padding:8px 16px;min-height:52px;width:100%;border:0;background:transparent;color:var(--fg);text-align:left}
+.vx.eor .xdb{position:absolute;top:3px;width:10px;height:10px;border-radius:5px;margin-left:-5px;transition:left .5s var(--ease)}
+.vx.eor .xg circle{fill:none;stroke-linecap:round}
+.vx.eor .xg .q1{transform:rotate(-90deg);transform-origin:50% 50%;animation:xDraw .9s var(--ease) both;transition:stroke-dasharray .3s var(--ease)}
+@container vx (max-width:899px){.vx.eor .xsc{gap:12px}
+.vx.eor .xbig{height:52px;width:100%}
+.vx.eor .xmain{font-size:15px}
+.vx.eor .xstp{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vx.eor .xrr{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px}
+.vx.eor .xrr>:nth-child(1),.vx.eor .xrr>:nth-child(2){flex:1 1 100%}
+.vx.eor .xmod{grid-template-columns:minmax(0,1fr) 46px 50px 60px;gap:6px;padding:10px 12px}
+.vx.eor .xmod>:nth-child(5){display:none}
+.vx.eor .xfirst{order:-1}
+}
