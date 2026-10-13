@@ -1,11 +1,12 @@
 import { useEffect, type ReactNode } from "react";
 
 import type { BoardNote } from "@/vx/screens/notes/domain/notes";
-import type { AttendData, ClassData, HomeData, StudentData, SubjectData } from "@/vx/screens/teach/data";
+import type { AttendData, ClassData, HomeData, MoreData, StudentData, SubjectData } from "@/vx/screens/teach/data";
 import type { Mark } from "@/vx/screens/teach/domain/teach";
 import { TeachAttend } from "@/vx/screens/teach/ui/attend";
 import { TeachClass, TeachStudent, TeachSubject } from "@/vx/screens/teach/ui/class";
 import { TeachHome } from "@/vx/screens/teach/ui/home";
+import { TeachMore, type MoreView } from "@/vx/screens/teach/ui/more";
 
 import type { DesignView } from "../design.fixture";
 
@@ -275,7 +276,61 @@ function subjectData(): SubjectData {
 
 const classView = (view: "class" | "roster" | "subjects"): DesignView => ({ menu: "teacher", path: "/teach/class", render: () => layer(<TeachClass data={classData()} initialView={view} />) });
 
+/* ------------------------------------------------- Notices, links & more */
+
+const WEEK: Record<string, string> = { Monday: "6-78-687", Tuesday: "76-8-6-7", Wednesday: "8-67-6-6", Thursday: "687--6--", Friday: "67-86-78", Saturday: "8-76-6--" };
+function moreData(): MoreData {
+  const h = home("home");
+  const week = Object.entries(WEEK).flatMap(([day, row]) =>
+    row.split("").flatMap((ch, i) => (ch === "-" ? [] : [{ day, period: i, number: i + 1, classLabel: `Class ${ch}`, subjectCode: "Science", starts: BELLS[i].starts, ends: BELLS[i].ends }])),
+  );
+  return {
+    sessionLabel: "2026-27",
+    today: TODAY,
+    notices: h.notices.map((n, i) => ({ ...n, seen: i === 1 || i === 2 })),
+    links: [
+      { ...h.links[1] },
+      { ...h.links[2] },
+      { ...h.links[0], submitted: true },
+    ],
+    week,
+    periodTimes: BELLS.map((b) => ({ number: b.number, starts: b.starts, ends: b.ends })),
+    profile: {
+      name: NAME,
+      email: "kavita.bhati@example.test",
+      role: "teacher",
+      classes: [{ classId: C6, classLabel: "Class 6", held: true }, { classId: C7, classLabel: "Class 7", held: false }, { classId: C8, classLabel: "Class 8", held: false }],
+      subjects: ["Science"],
+      largeText: false,
+      alerts: { notices: true },
+    },
+    leave: [
+      { id: id(801), from_day: "2026-10-26", to_day: "2026-10-26", span: "first_half", note: "Personal work", status: "asked", created_at: at("10:00", "2026-10-06") },
+      { id: id(802), from_day: "2026-09-25", to_day: "2026-09-25", span: "full", note: "Unwell", status: "approved", created_at: at("09:00", "2026-09-24") },
+      { id: id(803), from_day: "2026-08-31", to_day: "2026-09-01", span: "full", note: "Family function", status: "approved", created_at: at("09:00", "2026-08-28") },
+    ],
+    nowMinutes: 9 * 60 + 48,
+    classSizes: { [C6]: 31, [C7]: 27, [C8]: 28 },
+  };
+}
+const moreView = (view: MoreView, sheet: string | null = null): DesignView => ({
+  menu: "teacher",
+  path: "/teach/more",
+  render: () => layer(<TeachMore data={moreData()} initialView={view} initialSheet={sheet} makeLink={async () => ({ ok: true })} officePhone="0000000000" />),
+});
+
 export const views: Record<string, DesignView> = {
+  TchMore: moreView("menu"),
+  "DX-TchMore-News": moreView("news"),
+  "DX-TchMore-Links": moreView("links"),
+  "DX-TchMore-Timetable": moreView("timetable"),
+  "DX-TchMore-Profile": moreView("profile"),
+  "M-TchMore": moreView("menu"),
+  "M-TchMore-News": moreView("news"),
+  "M-TchMore-Links": moreView("links"),
+  "M-TchMore-Timetable": moreView("timetable"),
+  "M-TchMore-Leave": moreView("leave", "leave"),
+  "M-TchMore-Help": moreView("help"),
   TchClass: classView("class"),
   "DX-TchClass-Roster": classView("roster"),
   "DX-TchClass-Student": { menu: "teacher", path: "/teach/class", render: () => layer(<TeachStudent data={studentData()} initialTab="about" back="/teach/class?view=roster" />) },

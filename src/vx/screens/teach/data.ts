@@ -807,7 +807,7 @@ export async function loadMore(staff: CurrentStaff) {
   // The weekly timetable: this teacher's slots in the published version.
   const slots = published ? (await listSlots(published.id)).filter((s) => s.staffProfileId === staff.id) : [];
 
-  const { links, assigned } = await marksLinks(staff.id, sessionLabel, labels);
+  const [{ links, assigned, sizes }, now] = await Promise.all([marksLinks(staff.id, sessionLabel, labels), schoolNow(staff)]);
 
   const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
   return {
@@ -827,6 +827,9 @@ export async function loadMore(staff: CurrentStaff) {
       alerts: prefs.data?.alerts ?? {},
     },
     leave: leave.data ?? [],
+    nowMinutes: schoolClock(now).minutes,
+    /** Children on each of her classes' rolls, for the menu's lines. */
+    classSizes: Object.fromEntries(sizes) as Record<string, number>,
   };
 }
 

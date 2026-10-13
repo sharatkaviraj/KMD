@@ -322,7 +322,7 @@ export function TeachAttend({
   const tiles = (size: number) => (
     <div style={{ width: "100%", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
       {([["P", nP, V("oks"), V("ok")], ["A", nA, V("bads"), V("bad")], ["H", nH, V("warns"), V("warnfg")]] as const).map(([k, n, bg, fg], i) => (
-        <div key={k} className="tc-tile tc-pop" style={{ background: bg, color: fg, animationDelay: `${200 + i * 90}ms` }}>
+        <div key={k} className="tc-ctile tc-pop" style={{ background: bg, color: fg, animationDelay: `${200 + i * 90}ms` }}>
           <span className="num" style={{ fontSize: size, fontWeight: 700, lineHeight: 1.1 }}>{n}</span>
           <span style={{ fontSize: 13, fontWeight: 700 }}>{tx(LOOK[k].t)}</span>
         </div>

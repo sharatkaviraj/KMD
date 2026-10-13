@@ -96,6 +96,35 @@
   .vx .tc-hdr>.tc-hdc{align-items:flex-start}
 }
 
+/* ---- Notices, links & more (TchMore) ---------------------------------------- */
+:where(.vx,.vxt) .tc-scr{padding:22px 28px 40px;display:flex;flex-direction:column;gap:16px;min-width:0}
+:where(.vx,.vxt) .tc-h1{font-family:var(--font-display),'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600;line-height:1.15}
+:where(.vx,.vxt) .tc-h2{font-size:18px;font-weight:700;line-height:1.25}
+:where(.vx,.vxt) .tc-tb{font-size:14px}
+:where(.vx,.vxt) .tc-ts{font-size:13px}
+:where(.vx,.vxt) .tc-mi{font-size:12px;color:var(--mut);font-weight:500}
+:where(.vx,.vxt) .tc-ibx{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:14px}
+:where(.vx,.vxt) .tc-tls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row dense;gap:12px}
+:where(.vx,.vxt) .tc-tile{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px;min-height:136px;text-align:left;color:var(--fg);width:100%}
+:where(.vx,.vxt) .tc-bdg{position:absolute;top:12px;right:12px;min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:var(--bad);color:var(--onsolid);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+:where(.vx,.vxt) .tc-dot{flex:none;width:10px;height:10px;border-radius:5px}
+:where(.vx,.vxt) .tc-tt{display:grid;grid-template-columns:92px repeat(var(--days,6),minmax(0,1fr))}
+:where(.vx,.vxt) .tc-tt>*{border-top:1px solid var(--bd)}
+:where(.vx,.vxt) .tc-cel{height:62px;margin:4px;padding:6px 10px;border-radius:12px;display:flex;flex-direction:column;justify-content:center;position:relative}
+:where(.vx,.vxt) .tc-ill{flex:none;width:100%;height:124px;padding:10px;border-radius:16px;background:var(--s2);border:1px solid var(--bd);display:flex;flex-direction:column;gap:6px;justify-content:center}
+.vx .tc-mbg,.vxt .tc-mbg{height:52px;font-size:16px;border-radius:14px;padding:0 22px}
+@container vx (max-width:899px){
+  .vx .tc-scr{padding:16px 16px 28px;gap:14px}
+  .vx .tc-tb{font-size:16px}
+  .vx .tc-ts{font-size:14px}
+  .vx .tc-h1{font-size:24px}
+  .vx .tc-mw{width:100%!important}
+  .vx .tc-tg{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .vx .tc-tg .tc-ibx{width:36px;height:36px}
+  .vx .tc-tls{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .vx .tc-tile{min-height:122px;padding:14px}
+}
+
 /* ---- Attendance (TchAttend) -------------------------------------------------- */
 :where(.vx,.vxt) .tc-cnt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 :where(.vx,.vxt) .tc-n{font-size:30px;font-weight:700;line-height:1.1;display:block;animation:xIn .35s var(--ease) both}
@@ -110,7 +139,7 @@
 :where(.vx,.vxt) .tc-abb{height:54px;font-size:16px;border-radius:14px}
 :where(.vx,.vxt) .tc-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 :where(.vx,.vxt) .tc-day{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px;min-height:66px;padding:7px 2px 8px;border-radius:12px;border:1px solid var(--bd);color:var(--fg);animation:xPopIn .32s var(--ease) both}
-:where(.vx,.vxt) .tc-tile{display:flex;flex-direction:column;align-items:center;padding:12px 6px;border-radius:14px}
+:where(.vx,.vxt) .tc-ctile{display:flex;flex-direction:column;align-items:center;padding:12px 6px;border-radius:14px}
 :where(.vx,.vxt) .tc-mini{display:flex;align-items:center;gap:5px;height:18px;padding:0 6px;border-radius:6px;background:var(--card)}
 :where(.vx,.vxt) .tc-msk{height:6px;border-radius:3px;background:var(--s3);flex:1}
 @container vx (min-width:900px){.vx .tc-stw{display:none}}

@@ -372,6 +372,128 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
   );
 }
 
+/**
+ * Apply leave as More draws it (design TchMore `leave`): the next school days
+ * as chips (today picked), the part of the day, a reason to pick, and the
+ * periods the office will have to cover. Same request as the other sheet.
+ */
+export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: boolean; onClose: () => void; today: string; coverFor?: (days: string[], span: LeaveSpan) => string[] }) {
+  const { tx, sub } = useVx();
+  const toast = useToast();
+  const [days, setDays] = useState<string[]>([today]);
+  const [span, setSpan] = useState<LeaveSpan>("full");
+  const [reason, setReason] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<Pair | null>(null);
+  const [pending, start] = useTransition();
+
+  const choices = [today, ...Array.from({ length: 9 }, (_, i) => addDays(today, i + 1)).filter((d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0)].slice(0, 6);
+  const label = (d: string) => (d === today ? tx(p(`Today · ${dShort(d).replace(/ \w+$/, "")}`, `आज · ${dShort(d).replace(/ \w+$/, "")}`)) : dShort(d).replace(/ \w+$/, ""));
+  const sorted = [...days].sort();
+  const spanText: Pair = span === "first_half" ? p("First half", "पहली पाली") : span === "second_half" ? p("Second half", "दूसरी पाली") : p("Full day", "पूरा दिन");
+  const summary = sorted.length === 0 ? tx(p("Pick a day", "दिन चुनें")) : `${sorted.length === 1 ? dShort(sorted[0]) : sorted.map((d) => dShort(d).replace(/ \w+$/, "")).join(", ")} · ${sorted.length > 1 && span === "full" ? tx(p(`${sorted.length} days`, `${sorted.length} दिन`)) : tx(spanText)}`;
+  const periods = coverFor ? coverFor(sorted, span) : [];
+  const ready = sorted.length > 0 && reason !== null;
+  const reasonPair = LEAVE_REASONS.find((r) => r.key === reason)?.text ?? null;
+
+  const send = () => {
+    if (sorted.length === 0) return toast.show({ text: tx(p("Pick at least one day", "कम से कम एक दिन चुनें")), tone: "bad" });
+    if (!reasonPair) return setTries((n) => n + 1);
+    start(async () => {
+      setError(null);
+      const res = await requestLeaveVx({ days: sorted, span: sorted.length === 1 ? span : "full", reason: reasonPair.en, note });
+      if (res.ok) {
+        setSent(true);
+        toast.show({ text: tx(p("Leave request sent to the office", "छुट्टी का अनुरोध ऑफ़िस को भेजा")) });
+      } else setError(res.error);
+    });
+  };
+  const close = () => {
+    onClose();
+    setSent(false);
+  };
+  const idx = ["full", "first_half", "second_half"].indexOf(span);
+
+  return (
+    <Sheet
+      open={open}
+      onClose={close}
+      title={tx(p("Apply leave", "छुट्टी के लिए आवेदन"))}
+      sub={tx(p("The office sees it at once", "ऑफ़िस तुरंत देखता है"))}
+      footer={
+        sent ? (
+          <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} onClick={close}>{tx(p("Done", "ठीक है"))}</button>
+        ) : (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("You are asking for", "आप माँग रहे हैं"))}</span>
+              <span className="tc-el" style={{ fontSize: 14, fontWeight: 700 }}>{summary}</span>
+            </span>
+            <button type="button" className="tap btn pri tc-bb" style={{ padding: "0 22px", opacity: ready ? 1 : 0.6 }} disabled={pending} onClick={send}>
+              {pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="send" size={18} />}
+              {tx(p("Send", "भेजें"))}
+            </button>
+          </div>
+        )
+      }
+    >
+      {sent ? (
+        <div className="tc-sb" style={{ alignItems: "center", textAlign: "center", paddingTop: 12 }}>
+          <DrawnTick size={96} />
+          <span className="serif" style={{ fontSize: 24, fontWeight: 600 }}>{tx(p("Sent to the office", "ऑफ़िस को भेज दिया"))}</span>
+          <span style={{ fontSize: 14 }}>{summary}</span>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("The office will answer it. You will see the answer in My leave.", "ऑफ़िस जवाब देगा। जवाब “मेरी छुट्टियाँ” में दिखेगा।"))}</span>
+        </div>
+      ) : (
+        <div className="tc-sb">
+          <span className="sech">{tx(p("Which day?", "कौन-सा दिन?"))}</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {choices.map((d) => {
+              const on = days.includes(d);
+              return (
+                <button key={d} type="button" className={`tap chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => setDays((cur) => (on ? cur.filter((x) => x !== d) : [...cur, d]))} style={{ height: 46, padding: "0 14px", fontSize: 14 }}>
+                  {on ? <Ic n="check" size={15} stroke={3} className="tc-pop" /> : null}
+                  {label(d)}
+                </button>
+              );
+            })}
+          </div>
+          <div className="seg" role="radiogroup" aria-label="Part of the day" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+            <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 3)", transform: `translateX(${idx * 100}%)` }} />
+            {([["full", p("Full day", "पूरा दिन")], ["first_half", p("First half", "पहली पाली")], ["second_half", p("Second half", "दूसरी पाली")]] as const).map(([v, t]) => (
+              <button key={v} type="button" role="radio" aria-checked={span === v} className={`tap${span === v ? " on" : ""}`} onClick={() => setSpan(v)} style={{ height: 42 }}>{tx(t)}</button>
+            ))}
+          </div>
+          <span className="sech">{tx(p("Why?", "कारण?"))}</span>
+          <div key={tries} style={{ display: "flex", flexWrap: "wrap", gap: 8, animation: tries && !reason ? "xShake .4s ease" : "none" }}>
+            {LEAVE_REASONS.map((r) => (
+              <button key={r.key} type="button" className={`tap chip${reason === r.key ? " on" : ""}`} aria-pressed={reason === r.key} onClick={() => setReason(r.key)} style={{ height: 52, padding: "0 16px", fontSize: 14, flexDirection: "column", justifyContent: "center", gap: 0, lineHeight: 1.2 }}>
+                <span>{tx(r.text)}</span>
+                {sub(r.text) ? <span style={{ fontSize: 11, opacity: 0.75, fontWeight: 500 }}>{sub(r.text)}</span> : null}
+              </button>
+            ))}
+          </div>
+          {tries && !reason ? <span className="fadein" style={{ fontSize: 13, fontWeight: 700, color: "var(--bad)", marginTop: -6 }}>{tx(p("Please pick a reason", "कृपया कारण चुनें"))}</span> : null}
+          <label className="field">
+            <span>{tx(p("Anything the office should know (optional)", "ऑफ़िस के लिए कुछ (ज़रूरी नहीं)"))}</span>
+            <Textarea value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder={tx(p("For example: fever since last night", "जैसे: कल रात से बुखार"))} style={{ minHeight: 64 }} />
+          </label>
+          <div className="tc-note" style={{ background: "var(--infos)", color: "var(--info)" }}>
+            <Ic n="users" style={{ marginTop: 2 }} />
+            <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <b>{tx(p("The office will arrange your classes", "आपकी कक्षाएँ ऑफ़िस संभालेगा"))}</b>
+              <span style={{ fontSize: 13 }}>{periods.length ? tx(p(`Your ${periods.length} periods: ${periods.slice(0, 6).join(", ")}${periods.length > 6 ? "…" : ""}`, `आपके ${periods.length} पीरियड: ${periods.slice(0, 6).join(", ")}${periods.length > 6 ? "…" : ""}`)) : tx(p("No periods to cover.", "कोई पीरियड नहीं।"))}</span>
+            </span>
+          </div>
+          {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{tx(error)}</span> : null}
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
 /* ---------------------------------------------------------------- help */
 
 export type HelpStep = { title: Pair; body: Pair } & ({ pic: ReactNode; icon?: never } | { icon: IconName; pic?: never });
