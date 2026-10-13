@@ -2,7 +2,9 @@ import type { FeeSetupDraft } from "@/modules/fees/vx/domain/fee-setup";
 import type { FeeSetupVxData } from "@/modules/fees/vx/fee-setup-data";
 import type { AudienceFamily } from "@/modules/whatsapp/vx/domain/reminders";
 import { FeeSetup, type FeeSetupView } from "@/vx/screens/fee-setup/fee-setup";
+import type { ReportsPageData, ReportsSheet, ReportsView } from "@/modules/reports/vx/types";
 import { RemindersScreen } from "@/vx/screens/reminders/screen";
+import { Reports } from "@/vx/screens/reports/reports";
 import type { BatchRow, RemindersProps, RuleRow, RunView } from "@/vx/screens/reminders/types";
 
 import type { DesignView } from "../design.fixture";
@@ -167,9 +169,102 @@ const feeSetup = (initialView: FeeSetupView, extra: { initialClass?: string; ini
     return <FeeSetup data={FEE_DATA} today={TODAY} initialView={initialView} initialClass={extra.initialClass ?? null} initialRoute={extra.initialRoute ?? null} canEdit={extra.canEdit ?? true} readOnly={false} draftStart={extra.draftStart} />;
   };
 
+/* ---------------------------------------------------------------- Reports */
+
+const CLS: [string, string, string][] = [
+  ["nur", "Nursery", "Ms. Kanwar"], ["lkg", "LKG", "Ms. Rathore"], ["ukg", "UKG", "Ms. Mehta"], ["c1", "Class 1", "Ms. Jain"], ["c2", "Class 2", "Ms. Vyas"], ["c3", "Class 3", "Ms. Sharma"],
+  ["c4", "Class 4", "Mr. Verma"], ["c5", "Class 5", "Ms. Paliwal"], ["c6", "Class 6", "Ms. Bhati"], ["c7", "Class 7", "Mr. Choudhary"], ["c8", "Class 8", "Mr. Solanki"], ["c9", "Class 9", "Ms. Dave"], ["c10", "Class 10", "Mr. Purohit"], ["c11", "Class 11–12", "Ms. Joshi"],
+];
+// Daily collection, 1–8 October: [day, upi, cash, cheque, receipts]
+const DAYS: [number, number, number, number, number][] = [[1, 28050, 8700, 4500, 14], [3, 15200, 9500, 0, 9], [5, 22400, 9500, 0, 11], [6, 18100, 7500, 0, 4], [7, 16300, 6500, 0, 4], [8, 30200, 8200, 0, 14]];
+type Receipt = { date: string; mode: string; amount: number; classId: string | null; reversed: boolean };
+const RECEIPTS: Receipt[] = DAYS.flatMap(([d, upi, cash, cheque, n]) => {
+  const date = `2026-10-${String(d).padStart(2, "0")}`;
+  const parts = ([["upi", upi], ["cash", cash], ["cheque", cheque]] as [string, number][]).filter((x) => x[1] > 0);
+  const rows: Receipt[] = Array.from({ length: n }, (_, i) => ({ date, mode: parts[i % parts.length][0], amount: 0, classId: CLS[i % CLS.length][0], reversed: false }));
+  // Each day's modes add up exactly to the design's figures.
+  for (const [mode, total] of parts) {
+    const mine = rows.filter((r) => r.mode === mode);
+    const each = Math.floor(total / mine.length / 50) * 50;
+    mine.forEach((r, i) => (r.amount = i === mine.length - 1 ? total - each * (mine.length - 1) : each));
+  }
+  return rows;
+});
+const DEFAULTERS: ReportsPageData["defaulters"] = (
+  [
+    ["c3", "Class 3", "Diya Sharma", "Rakesh Sharma", 5250, 230], ["c3", "Class 3", "Arjun Rawal", "Bharat Rawal", 4550, 230],
+    ["c6", "Class 6", "Riya Singh", "Mahendra Singh", 6650, 230], ["c6", "Class 6", "Karan Regar", "Mukesh Regar", 13300, 530],
+    ["c7", "Class 7", "Aarav Sharma", "Rakesh Sharma", 6650, 230], ["c7", "Class 7", "Ishaan Trivedi", "Suresh Trivedi", 3250, 230],
+    ["c8", "Class 8", "Neha Joshi", "Prakash Joshi", 6650, 230], ["c9", "Class 9", "Mohit Agarwal", "Anil Agarwal", 9375, 230], ["c10", "Class 10", "Aarti Kumawat", "Mohan Kumawat", 8050, 230],
+  ] as [string, string, string, string, number, number][]
+).map(([classId, classLabel, studentName, fatherName, pending, lateFee], i) => ({
+  studentId: `d${i}`, studentName, admissionNo: null, fatherName, classId, classLabel, pending, lateFee, installmentsDue: [1, 2], left: false, phone: `98290 ••${String(512 + i * 37).slice(-3)}`,
+}));
+// class, inst 1 amount and students, inst 2, inst 3, inst 4
+const HEAT: [string, number, number, number, number, number, number, number, number][] = [
+  ["nur", 2300, 1, 8650, 4, 8350, 8, 7700, 7], ["lkg", 4600, 2, 10850, 5, 9300, 8, 8600, 8], ["ukg", 4600, 2, 13000, 6, 10250, 9, 9450, 9], ["c1", 5400, 2, 12750, 5, 12600, 10, 11650, 9],
+  ["c2", 5400, 2, 17900, 7, 13700, 11, 12650, 10], ["c3", 8100, 3, 20450, 8, 13150, 10, 12150, 10], ["c4", 8100, 3, 23000, 9, 15900, 12, 14700, 12], ["c5", 5400, 2, 17900, 7, 14250, 11, 13150, 10],
+  ["c6", 13700, 4, 32350, 10, 21550, 13, 19900, 12], ["c7", 10300, 3, 29150, 9, 18750, 11, 17300, 11], ["c8", 10300, 3, 25900, 8, 19450, 12, 17950, 11],
+];
+const CLASSWISE: NonNullable<ReportsPageData["classwise"]> = {
+  installmentNos: [1, 2, 3, 4],
+  dueDates: { 1: "2026-07-15", 2: "2026-09-15", 3: "2026-11-15", 4: "2027-01-15" },
+  rows: HEAT.map(([id, a1, n1, a2, n2, a3, n3, a4, n4]) => ({
+    classId: id,
+    classLabel: CLS.find((c) => c[0] === id)![1],
+    cells: { 1: { due: { amount: a1, students: n1 }, notDue: null }, 2: { due: { amount: a2, students: n2 }, notDue: null }, 3: { due: null, notDue: { amount: a3, students: n3 } }, 4: { due: null, notDue: { amount: a4, students: n4 } } },
+    pendingToday: a1 + a2,
+    notDueYet: a3 + a4,
+    lateFee: 230 * n2,
+  })),
+};
+const CELL: NonNullable<ReportsPageData["cell"]> = {
+  classLabel: "Class 7",
+  installmentNo: 2,
+  dueDate: "2026-09-15",
+  students: (
+    [["Aarav Sharma", "Rakesh Sharma", 6650], ["Ishaan Trivedi", "Suresh Trivedi", 3250], ["Saanvi Singh", "Mahesh Singh", 3250], ["Om Choudhary", "Dinesh Choudhary", 3250], ["Tanvi Chouhan", "Prakash Chouhan", 3250], ["Mohit Sharma", "Naresh Sharma", 3250], ["Diya Vyas", "Lokesh Vyas", 3250], ["Riya Kothari", "Ramesh Kothari", 3250]] as [string, string, number][]
+  ).map(([studentName, fatherName, pending], i) => ({ studentId: `cs${i}`, studentName, fatherName, phone: `98290 ••${String(751 + i * 13).slice(-3)}`, pending, lateFee: 230, due: true, left: false })),
+};
+const REPORTS_BASE: ReportsPageData = {
+  today: TODAY,
+  sessionLabel: "2026-27",
+  schoolName: "Shri Veer Patta Senior Secondary School",
+  view: "hub",
+  sheet: "",
+  classes: CLS.map(([id, label, teacher], i) => ({ id, label, sortOrder: i, teacher, teacherPhone: "9999999999" })),
+  hub: { todayTotal: 38400, todayReceipts: 14, todayReversed: 0, spark: [21000, 26000, 18000, 31000, 24000, 35000, 29000, 41250, 24700, 38400], monthTotal: 184650, monthUpi: 130250, modeShare: { upi: 130250, cash: 49900, cheque: 4500, bank_transfer: 0 }, pendingToday: 640000, defaulters: 138, notDueYet: 590000, lateFeePending: 18240, leftOwing: 7, leftOwingAmount: 41000, schedules: 2 },
+  collection: { preset: "month", from: "2026-10-01", to: "2026-10-31", receipts: RECEIPTS },
+  defaulters: DEFAULTERS,
+  classwise: CLASSWISE,
+  cell: null,
+  daybook: null,
+  schedules: [
+    { id: "s1", reportKey: "collection", title: "Daily collection", recipients: ["Principal"], frequency: "daily", weekday: null, sendTime: "18:00", format: "pdf", active: true, lastSentAt: null },
+    { id: "s2", reportKey: "defaulters", title: "Defaulter list (हिंदी)", recipients: ["Class teachers"], frequency: "weekly", weekday: 1, sendTime: "08:00", format: "pdf", active: true, lastSentAt: null },
+  ],
+  sessionFrom: "2026-04-01",
+};
+const reports = (view: ReportsView, sheet: ReportsSheet = "", patch: Partial<ReportsPageData> = {}) =>
+  function ReportsFixture() {
+    return <Reports data={{ ...REPORTS_BASE, view, sheet, ...patch }} initialSheet={sheet} initialLeft={false} readOnly={false} />;
+  };
+
 const R = "/reminders";
 const FS = "/fee-setup";
+const RP = "/reports";
 export const views: Record<string, DesignView> = {
+  Reports: { render: reports("hub"), path: RP },
+  "DX-Reports-Collection": { render: reports("collection"), path: RP },
+  "DX-Reports-Defaulters": { render: reports("defaulters"), path: RP },
+  "DX-Reports-Cell": { render: reports("classwise", "", { cell: CELL }), path: RP },
+  "M-Reports": { render: reports("hub"), path: RP },
+  "M-Reports-Collection": { render: reports("collection"), path: RP },
+  "M-Reports-Send": { render: reports("defaulters", "send"), path: RP },
+  "M-Reports-Export": { render: reports("collection", "export"), path: RP },
+  "M-Reports-Schedule": { render: reports("schedule"), path: RP },
+  "AC-Reports": { render: reports("hub"), path: RP, menu: "accountant" },
+  "MAC-Reports": { render: reports("hub"), path: RP, menu: "accountant" },
   FeeSetup: { render: feeSetup("structure"), path: FS },
   "DX-FeeSetup-Edit": { render: feeSetup("edit", { initialClass: "Class 7" }), path: FS },
   "DX-FeeSetup-Installments": { render: feeSetup("installments"), path: FS },
