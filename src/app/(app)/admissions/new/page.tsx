@@ -89,26 +89,15 @@ export default async function NewAdmissionPage(props: PageProps<"/admissions/new
 
   return (
     <VxPage>
-      <TopBar
-        crumb={lead({ en: "Students · Admissions", hi: "विद्यार्थी · दाख़िले" }, lang)}
-        title={lead({ en: "Add a student", hi: "विद्यार्थी जोड़ें" }, lang)}
-        mSub={`${lead({ en: "Session", hi: "सत्र" }, lang)} ${ctx.sessionLabel}`}
-        mBack="/admissions"
-        actions={<Btn variant="ghost" icon="x" href="/admissions">{lead({ en: "Cancel", hi: "रद्द करें" }, lang)}</Btn>}
+      <AdmissionWizard
+        ctx={{
+          ...ctx,
+          classes: ctx.classes.map((c) => ({ id: c.id, label: c.label, onRoll: c.onRoll, seats: seats.get(c.id) ?? null, tuition: c.tuition })),
+          nextSr: nextSrNumber(srList),
+        }}
+        prefill={prefill}
+        initialStep={step}
       />
-      <main>
-        <Section>
-          <AdmissionWizard
-            ctx={{
-              ...ctx,
-              classes: ctx.classes.map((c) => ({ id: c.id, label: c.label, onRoll: c.onRoll, seats: seats.get(c.id) ?? null, tuition: c.tuition })),
-              nextSr: nextSrNumber(srList),
-            }}
-            prefill={prefill}
-            initialStep={step}
-          />
-        </Section>
-      </main>
     </VxPage>
   );
 }
