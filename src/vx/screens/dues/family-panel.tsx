@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useTransition, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -10,12 +10,13 @@ import { addDays } from "@/modules/receipts/vx/domain/day-close";
 import { renderMessage } from "@/modules/whatsapp/vx/domain/reminders";
 import { dateLabel, dayMonth, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
-import { Ic, type IconName } from "@/vx/icons";
+import { Ic } from "@/vx/icons";
 import { Chip, Field, Seg, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
 
+import { Choice, Inset } from "./bits";
 import { duesHref } from "./href";
 import { contactTone, day, dayTone, firstName, ini, kidsShort, maskPhone, telHref, TONES } from "./look";
 import type { DuesProps, DuesSheet, KidInstallment } from "./types";
@@ -25,31 +26,6 @@ type Props = DuesProps & { family: DuesFamily };
 
 function newRequestId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-/** The design's radio card (`.zrc`): 20px ring, label and a sub-line. */
-function Choice({ on, onPick, label, sub }: { on: boolean; onPick: () => void; label: string; sub?: string }) {
-  return (
-    <button type="button" role="radio" aria-checked={on} className="tap" onClick={onPick} style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 56, padding: "10px 14px", borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)", color: "var(--fg)", textAlign: "left", width: "100%" }}>
-      <span aria-hidden="true" style={{ flex: "none", width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
-      </span>
-      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
-        {sub ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{sub}</span> : null}
-      </span>
-    </button>
-  );
-}
-
-/** An inset note (`.zin`): icon and a sentence on a soft fill. */
-function Inset({ icon, bg, fg, children, style }: { icon: IconName; bg: string; fg: string; children: ReactNode; style?: CSSProperties }) {
-  return (
-    <div style={{ padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, display: "flex", gap: 10, background: bg, color: fg, ...style }}>
-      <Ic n={icon} style={{ marginTop: 2 }} />
-      <span>{children}</span>
-    </div>
-  );
 }
 
 /** The WhatsApp chat as the design draws it: Hindi, a rule, English, and the pay link. */
@@ -326,7 +302,7 @@ export function FamilyPanel(props: Props) {
           <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.noHistory)}</span>
         ) : (
           contacts.map((c, i) => {
-            const words = [c.channel ? tx(CHANNEL_WORD[c.channel] ?? CHANNEL_WORD.call) : null, c.outcome ? tx(LOG_OUTCOME_WORD[c.outcome] ?? LOG_OUTCOME_WORD.other) : null, c.note ? `“${c.note}”` : null].filter(Boolean);
+            const words = [c.channel ? tx(CHANNEL_WORD[c.channel] ?? CHANNEL_WORD.call) : null, c.outcome && c.outcome !== "other" ? tx(LOG_OUTCOME_WORD[c.outcome] ?? LOG_OUTCOME_WORD.other) : null, c.note ? `“${c.note}”` : null].filter(Boolean);
             return (
               <div key={`${c.at}-${c.studentId}-${i}`} style={{ display: "grid", gridTemplateColumns: "14px minmax(0, 1fr)", gap: 10, padding: "6px 0", animation: `xIn .3s var(--ease) ${i * 60}ms both` }}>
                 <span style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: contactTone(c.outcome, c.channel) }} />
@@ -514,7 +490,7 @@ export function FamilyPanel(props: Props) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
               <h3 className="sech">{tx(W.schedule)}</h3>
-              {preview === null ? (
+              {!preview ? (
                 <span style={{ color: "var(--mut)" }}>{tx(W.loading)}</span>
               ) : !preview.ok ? (
                 <Banner tone="warn">{preview.error}</Banner>

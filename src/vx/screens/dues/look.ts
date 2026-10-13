@@ -43,7 +43,7 @@ export const TONES: [string, string][] = [
 
 /** "Thu 8 Oct" without the comma Intl puts in. */
 export function day(iso: string): string {
-  return shortDay(iso).replace(",", "");
+  return shortDay(iso).replace(",", "").replace("Sept", "Sep");
 }
 
 /** "Mon 5 – Thu 8 Oct": the office's week, Monday to today (the receipts' `week` preset). */

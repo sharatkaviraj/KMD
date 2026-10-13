@@ -39,7 +39,7 @@ export const AVATAR_TONES: [string, string][] = [
 
 /** "Thu 8 Oct" — the design's day, without the comma Intl puts in. */
 export function deskDay(iso: string): string {
-  return shortDay(iso).replace(",", "");
+  return shortDay(iso).replace(",", "").replace("Sept", "Sep");
 }
 
 const TIME = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true });
