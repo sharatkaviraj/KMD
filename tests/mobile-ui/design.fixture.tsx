@@ -142,7 +142,8 @@ export type DesignView = {
   bare?: boolean;
 };
 
-const MODULES = import.meta.glob<{ views: Record<string, DesignView> }>("./design/*.fixture.tsx", { eager: true });
+// Typed by hand: the repo's tsconfig does not load Vite's client types.
+const MODULES = import.meta.glob("./design/*.fixture.tsx", { eager: true }) as unknown as Record<string, { views: Record<string, DesignView> }>;
 
 const VIEWS: Record<string, DesignView> = {
   classic: { render: () => <Classic />, path: "/timetable" },
