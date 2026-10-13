@@ -14,6 +14,8 @@ import { UpdateToast } from "@/vx/screens/system/update-banner";
 import type { SettingsData } from "@/vx/screens/settings/data";
 import type { SettingsState } from "@/vx/screens/settings/domain/settings";
 import { SettingsScreen } from "@/vx/screens/settings/settings-screen";
+import type { MessagesData } from "@/vx/screens/messages/data";
+import { MessagesScreen, type MessagesState } from "@/vx/screens/messages/messages-screen";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 
 import type { DesignView } from "../design.fixture";
@@ -267,7 +269,91 @@ const settingsViews: Record<string, DesignView> = {
   "settings-session": settings("session"),
 };
 
+/* ------------------------------------------------------------ Messages */
+
+type Kind = "notice" | "holiday" | "ptm" | "fee" | "result" | "staff";
+const campaign = (id: string, kind: Kind, title: string, audienceLabel: string, n: number, daysAgo: number, hhmm: string, sent: number, failed: number, hi = "", en = "", status = "queued"): MessagesData["campaigns"][number] => ({
+  id, kind, title, bodyHi: hi, bodyEn: en, language: hi ? "both" : "en", audience: kind === "staff" ? "staff" : "school", audienceLabel, recipientCount: n,
+  costPaise: n * 88, status, createdAt: at(daysAgo, hhmm), createdBy: "Janmejay Singh",
+  counts: { total: n, sent, failed, queued: n - sent - failed, cancelled: 0 },
+});
+const M1 = "00000000-0000-4000-8000-0000000000b1";
+const campaigns = [
+  campaign(M1, "ptm", "Half-yearly results and PTM on Sat 17 Oct", "All parents", 434, 2, "10:00", 421, 13, "प्रिय अभिभावक, अर्धवार्षिक परिणाम शनिवार, 17 अक्टूबर की PTM में मिलेगा। नर्सरी–कक्षा 9: सुबह 9 बजे, कक्षा 10–12: दोपहर 12 बजे। कृपया अवश्य पधारें।", "Dear parent, half-yearly results will be given at the PTM on Sat 17 Oct: 9 am for Nursery to Class 9, 12 pm for Classes 10 to 12. Please do come."),
+  campaign("c2", "staff", "Staff meeting · Sat 10 Oct, 2 pm", "All staff", 38, 1, "17:10", 38, 0),
+  campaign("c3", "ptm", "PTM · Class 10 · Sat 17 Oct, 12 pm", "Class 10 parents", 30, 2, "10:05", 29, 1),
+  campaign("c4", "fee", "Installment 2 pending · gentle reminder", "Parents with Installment 2 pending", 138, 3, "18:30", 136, 2),
+  campaign("c5", "staff", "Marks entry · your Sampark link", "Subject teachers", 31, 9, "18:00", 31, 0),
+  campaign("c6", "notice", "Sports day volunteers needed", "Classes 9–12 parents", 161, 11, "11:20", 158, 3),
+  campaign("c7", "holiday", "Gandhi Jayanti holiday · Fri 2 Oct", "All parents", 434, 13, "16:00", 425, 9),
+  campaign("c8", "result", "Class 12 practical marks published", "Class 12 parents", 49, 15, "15:00", 49, 0),
+  campaign("c9", "notice", "Half-yearly datesheet", "Classes 6–12 parents", 247, 25, "17:00", 244, 3),
+];
+const PEOPLE: [string, string, string, string][] = [["Rakesh Sharma", "Aarav", "Class 7", "512"], ["Prakash Joshi", "Neha", "Class 8", "208"], ["Sunita Kumawat", "Aarti", "Class 10", "771"], ["Hemraj Regar", "Lakshya", "Class 5", "093"], ["Dinesh Mehta", "Pooja", "11 Commerce", "445"], ["Gopal Paliwal", "Tanvi", "LKG", "630"], ["Sanjay Verma", "Kunal", "Class 4", "317"], ["Bhawani Gurjar", "Ritu", "Class 2", "859"], ["Ajay Rathore", "Ishita", "12 Science", "902"], ["Kamal Mehta", "Yash", "Class 9", "266"]];
+
+const messagesData: MessagesData = {
+  sessionLabel: "2026-27",
+  campaigns,
+  classes: CLASS_ROWS.map(([label, , students], i) => ({ id: `c${i}`, label, families: students })),
+  classSets: Array.from({ length: 434 }, (_, i) => [`c${i % 19}`]),
+  staffCount: 38,
+  noPhone: 0,
+  sample: { parent: "Rakesh Sharma", student: "Aarav", className: "Class 7" },
+  templates: [
+    { id: "t1", code: "ptm_invite", label: "PTM invitation", bodyHi: "प्रिय {parent}, {student} ({class}) की अभिभावक-शिक्षक बैठक {date} को है।", bodyEn: "Dear {parent}, the PTM for {student} ({class}) is on {date}.", audience: "parent", isActive: true, waCategory: "utility" },
+    { id: "t2", code: "fee_gentle", label: "Fee reminder · gentle", bodyHi: "प्रिय {parent}, {student} की किस्त ({amount}) देय है।", bodyEn: "Dear {parent}, an installment for {student} ({amount}) is due.", audience: "parent", isActive: true, waCategory: "utility" },
+    { id: "t3", code: "holiday_notice", label: "Holiday notice", bodyHi: "प्रिय अभिभावक, {date} को विद्यालय बंद रहेगा।", bodyEn: "Dear parent, school is closed on {date}.", audience: "parent", isActive: false, waCategory: "utility" },
+    { id: "t4", code: "diwali_greeting", label: "Diwali greeting", bodyHi: "दीपावली की शुभकामनाएँ।", bodyEn: "Happy Diwali from the school.", audience: "parent", isActive: false, waCategory: "marketing" },
+  ],
+  replies: [
+    { id: "r1", fromName: "Rakesh Sharma", phone: "98290 ••512", studentLabel: "Aarav Sharma · Class 7", studentId: "s1", regarding: campaigns[0].title, campaignTitle: campaigns[0].title, campaignBody: campaigns[0].bodyHi, body: "सर, PTM में 11 बजे के बाद आ सकते हैं क्या? सुबह खेत पर काम है।", receivedAt: at(0, "10:42"), assignedStaffId: null, status: "open", answers: [] },
+    { id: "r2", fromName: "Prakash Joshi", phone: "98290 ••208", studentLabel: "Neha · Class 8 and Rohit · Class 5", studentId: "s2", regarding: campaigns[0].title, campaignTitle: null, campaignBody: null, body: "दोनों बच्चों का रिज़ल्ट कार्ड एक साथ ले सकते हैं क्या?", receivedAt: at(0, "09:58"), assignedStaffId: "st1", status: "open", answers: [] },
+    { id: "r3", fromName: "Sunita Kumawat", phone: "98290 ••771", studentLabel: "Aarti Kumawat · Class 10", studentId: "s3", regarding: "PTM · Class 10 · Sat 17 Oct, 12 pm", campaignTitle: null, campaignBody: null, body: "क्या PTM में बोर्ड परीक्षा की तैयारी पर बात होगी? मैं ज़रूर आऊँगी।", receivedAt: at(0, "09:30"), assignedStaffId: "st2", status: "open", answers: [] },
+    { id: "r4", fromName: "Ajay Rathore", phone: "98290 ••902", studentLabel: "Ishita Rathore · 12 Science", studentId: "s4", regarding: campaigns[0].title, campaignTitle: null, campaignBody: null, body: "Ishita will be away on the 17th for a family wedding. Can I meet the teacher on Friday instead?", receivedAt: at(1, "18:00"), assignedStaffId: null, status: "open", answers: [] },
+    { id: "r5", fromName: "Mahesh Meena", phone: "98290 ••118", studentLabel: "Kavita Meena · Class 6", studentId: "s5", regarding: "Installment 2 pending · gentle reminder", campaignTitle: null, campaignBody: null, body: "Fees UPI se bhar di hai, receipt bhej dijiye.", receivedAt: at(1, "16:00"), assignedStaffId: "st3", status: "open", answers: [] },
+    { id: "r6", fromName: "Dinesh Mehta", phone: "98290 ••445", studentLabel: "Pooja Mehta · 11 Commerce", studentId: "s6", regarding: "Half-yearly datesheet", campaignTitle: null, campaignBody: null, body: "The datesheet PDF does not open on my phone. Please send it again.", receivedAt: at(3, "12:00"), assignedStaffId: null, status: "open", answers: [] },
+  ],
+  staffChoices: [{ id: "st1", name: "Mr. Solanki" }, { id: "st2", name: "Ms. Dave" }, { id: "st3", name: "Office desk" }],
+  parentDispatchOn: false,
+  month: { count: 1284, costPaise: 113000, queued: 13, sent: 1250 },
+  detail: {
+    campaign: campaigns[0],
+    recipients: PEOPLE.map(([name, child, cls, last], i) => ({ id: `rc${i}`, name, about: `${child} · ${cls}`, phone: `98290 ••${last}`, status: i === 0 ? "failed" : "sent", error: i === 0 ? "Not on WhatsApp" : null, at: at(2, `10:${String(12 + i * 4).padStart(2, "0")}`) })),
+  },
+};
+
+const draft = {
+  title: "Unit Test 2 datesheet",
+  hi: "प्रिय {parent}, {student} ({class}) की इकाई परीक्षा-2 सोमवार, 7 दिसंबर से शुरू होगी। समय-सारणी साथ में भेजी गई है।",
+  en: "Dear {parent}, Unit Test 2 for {student} ({class}) starts on Mon 7 Dec. The datesheet is attached.",
+};
+const base: MessagesState = { view: "sent", compose: false, step: "write", id: null, progress: false, done: false, sheet: null, replyId: null };
+const messages = (state: Partial<MessagesState>, menu?: DesignView["menu"]): DesignView => ({
+  render: () => (
+    <Layer>
+      <MessagesScreen data={messagesData} state={{ ...base, ...state }} outbox={null} outboxCount={4} draft={draft} />
+    </Layer>
+  ),
+  path: "/messages",
+  menu,
+});
+
+const messageViews: Record<string, DesignView> = {
+  Messages: messages({}),
+  "M-Messages": messages({}),
+  "EX-Messages": messages({}, "exam"),
+  "MEX-Messages": messages({}, "exam"),
+  "DX-Messages-Detail": messages({ id: M1 }),
+  "DX-Messages-Compose": messages({ compose: true }),
+  "M-Messages-Compose": messages({ compose: true }),
+  "M-Messages-Preview": messages({ compose: true, step: "preview" }),
+  "M-Messages-Sending": messages({ id: M1, progress: true }),
+  "M-Messages-Templates": messages({ view: "templates", sheet: "template-new" }),
+  "DX-Messages-Replies": messages({ view: "replies" }),
+};
+
 export const views: Record<string, DesignView> = {
   ...authViews,
   ...settingsViews,
+  ...messageViews,
 };

@@ -96,7 +96,7 @@ export type MessagesData = {
   replies: ReplyView[];
   staffChoices: { id: string; name: string }[];
   parentDispatchOn: boolean;
-  month: { count: number; costPaise: number; queued: number };
+  month: { count: number; costPaise: number; queued: number; sent: number };
   detail: { campaign: CampaignView; recipients: RecipientView[] } | null;
 };
 
@@ -338,6 +338,7 @@ export async function loadMessagesScreen(detailId: string | null): Promise<Messa
       count: thisMonth.reduce((n, v) => n + v.recipientCount, 0),
       costPaise: thisMonth.reduce((n, v) => n + v.costPaise, 0),
       queued: thisMonth.reduce((n, v) => n + v.counts.queued, 0),
+      sent: thisMonth.reduce((n, v) => n + v.counts.sent, 0),
     },
     detail,
   };
