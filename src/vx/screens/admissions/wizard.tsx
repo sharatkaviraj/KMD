@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { admitAction, checkDuplicateAction, searchFamiliesAction, type DuplicateHit } from "@/app/(app)/admissions/actions";
-import { rupees, dateLabel, dayMonth } from "@/vx/format";
+import { rupees, dateLabel, dayMonth, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
@@ -290,7 +290,7 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
                   <Field label={tx(p("Child’s name (English)", "बच्चे का नाम (अंग्रेज़ी)"))} error={err(1, step1Errors.fullName, tx(p("Write the child’s name", "बच्चे का नाम लिखें")))}>
                     <Input value={f.fullName} invalid={Boolean(err(1, step1Errors.fullName, "x"))} onChange={(e) => setF({ ...f, fullName: e.target.value })} autoComplete="off" placeholder={tx(p("For example: Ishaan Regar", "जैसे: Ishaan Regar"))} />
                   </Field>
-                  <Field label={nameHiLabel} hint={tx(p("Printed on the TC and report card", "टीसी और रिपोर्ट कार्ड पर छपता है"))}>
+                  <Field label={nameHiLabel}>
                     <Input value={f.nameHi} lang="hi" onChange={(e) => setF({ ...f, nameHi: e.target.value })} />
                   </Field>
                   <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12 }}>
@@ -669,7 +669,7 @@ export function DuplicateSheet({
     [tx(p("Born", "जन्म")), dobForInput(adding.dob), dobForInput(ex.dateOfBirth)],
     [tx(p("Class", "कक्षा")), adding.cls, ex.classLabel],
     [tx(p("Phone", "फ़ोन")), maskPhone(adding.phone), maskPhone(ex.phone)],
-    [tx(p("Added", "जोड़ा गया")), tx(p("Now", "अभी")), dateLabel(ex.createdAt)],
+    [tx(p("Added", "जोड़ा गया")), tx(p("Now", "अभी")), shortDay(ex.createdAt)],
   ];
   const cell = { padding: "9px 10px", borderTop: "1px solid var(--bd)", fontWeight: 600 } as const;
   return (

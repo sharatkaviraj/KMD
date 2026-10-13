@@ -375,6 +375,7 @@ function EditPanel(props: RecordProps & { left: boolean; onWithdraw: () => void 
 
           {count > 0 ? (
             <ActionBar
+              keepHint
               hint={
                 <span style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--fg)" }}>
                   <span style={{ flex: "none", width: 9, height: 9, borderRadius: 5, background: "var(--warn)", animation: "xPulse 1.8s infinite" }} />
@@ -447,7 +448,7 @@ function WithdrawPanel(props: RecordProps & { onCancel: () => void }) {
     { k: TC_LINES.father, v: props.initial.fatherName || "—" },
     { k: TC_LINES.cls, v: props.classLabel },
     { k: TC_LINES.dob, v: props.initial.dob ? dateLabel(parseDob(props.initial.dob)) : "—" },
-    { k: TC_LINES.admitted, v: `SR ${props.sr}${props.admittedOn ? ` · ${shortDay(props.admittedOn)}` : ""}` },
+    { k: TC_LINES.admitted, v: `SR ${props.sr}${props.admittedOn ? ` · ${dateLabel(props.admittedOn)}` : ""}` },
     { k: TC_LINES.lastDay, v: dateLabel(leftOn) },
     { k: TC_LINES.reason, v: reason === "other" && !note.trim() ? "—" : `${reasonText.hi} · ${reasonText.en}` },
   ];
