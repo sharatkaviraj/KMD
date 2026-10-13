@@ -7,7 +7,8 @@
 .vx input,.vx textarea,.vx select{font-family:inherit;font-size:inherit;color:var(--fg)}
 .vx input::placeholder,.vx textarea::placeholder{color:var(--sub)}
 .vx :focus-visible,.vxt :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-.vx a,.vxt a{color:inherit;text-decoration:none}
+/* Zero specificity: a link takes its colour from its class (`.pri`, `.chip`, `.sidei`) when it has one (UI-75). */
+:where(.vx,.vxt) a{color:inherit;text-decoration:none}
 :where(.vx,.vxt) .scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--bds) transparent}
 :where(.vx,.vxt) .hs{overflow-x:auto;scrollbar-width:none}
 :where(.vx,.vxt) .hs::-webkit-scrollbar{display:none}
