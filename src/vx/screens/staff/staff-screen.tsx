@@ -898,7 +898,7 @@ function RolesView({
       {changeCount > 0 ? (
         <>
           <SaveBar className="only-d" bottom="0px" pad="12px 28px" count={changeCount} summary={changes.slice(0, 3).map((c) => tx(c)).join(" · ")} pending={pending} onDiscard={onDiscard} onSave={onSave} />
-          <SaveBar className="only-m" bottom="calc(99px + env(safe-area-inset-bottom))" pad="12px 16px" count={changeCount} summary={changes.slice(0, 3).map((c) => tx(c)).join(" · ")} pending={pending} onDiscard={onDiscard} onSave={onSave} />
+          <SaveBar className="only-m" bottom="var(--vx-bottom-h)" pad="12px 16px" count={changeCount} summary={changes.slice(0, 3).map((c) => tx(c)).join(" · ")} pending={pending} onDiscard={onDiscard} onSave={onSave} />
         </>
       ) : null}
     </div>

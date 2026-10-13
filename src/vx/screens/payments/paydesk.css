@@ -108,7 +108,7 @@
   .vx .pd-desk{padding:20px 16px 0}
   .vx .pd-grid,.vx .pd-p2{grid-template-columns:minmax(0,1fr)}
   .vx .pd-first{order:-1}
-  .vx .pd-pbar{bottom:calc(98px + env(safe-area-inset-bottom));margin:14px -16px 0;border-radius:0;border-width:1px 0 0;flex-wrap:wrap;gap:8px;padding:10px 16px 12px}
+  .vx .pd-pbar{bottom:var(--vx-bottom-h);margin:14px -16px 0;border-radius:0;border-width:1px 0 0;flex-wrap:wrap;gap:8px;padding:10px 16px 12px}
   .vx .pd-pbar .pd-big{width:100%}
   .vx .pd-m{font-size:13px}
   .vx .pd-b{font-size:15px}

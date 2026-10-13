@@ -14,7 +14,7 @@ import { initials } from "@/vx/format";
 const BAR_CSS = `
 .pp-bar{position:sticky;bottom:0;z-index:15;margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 28px;border-top:1px solid var(--bd);background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
 .pp-bar .pp-hint{flex:1;min-width:0;font-size:12px;color:var(--mut)}
-@container vx (max-width:899px){.pp-bar{bottom:calc(99px + env(safe-area-inset-bottom));padding:10px 16px}.pp-bar:not(.pp-keep) .pp-hint{display:none}.pp-bar:not(.pp-keep) .btn{flex:1;min-width:0!important}}
+@container vx (max-width:899px){.pp-bar{bottom:var(--vx-bottom-h);padding:10px 16px}.pp-bar:not(.pp-keep) .pp-hint{display:none}.pp-bar:not(.pp-keep) .btn{flex:1;min-width:0!important}}
 .pp-wrap{max-width:860px;width:100%;margin:0 auto}
 .pp-page{display:flex;flex-direction:column;min-height:calc(100dvh - 64px)}
 @container vx (max-width:899px){.pp-page{min-height:calc(100dvh - 58px - 96px)}}

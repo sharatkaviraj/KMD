@@ -57,7 +57,7 @@
   .nx .seg>button{font-size:12px;padding:0 2px}
   .nx .nx-sg>*{grid-column:auto!important;grid-row:auto!important}
   .nx .nx-nt{font-size:15px}
-  .nx .nx-msave{margin:0 -16px -40px;padding:12px 16px 16px;bottom:calc(98px + env(safe-area-inset-bottom))}
+  .nx .nx-msave{margin:0 -16px -40px;padding:12px 16px 16px;bottom:var(--vx-bottom-h)}
   .nx .nx-fabrow{bottom:calc(112px + env(safe-area-inset-bottom))}
   .nx .nx-aside{position:static;height:auto;border-left:0;animation:none}
 }
@@ -99,7 +99,7 @@
   .nx .nt-f14{font-size:15px}
   .nx .nt-f15{font-size:16px}
   .nx .nt-big{height:56px;font-size:16px}
-  .nx .nt-sbar{padding:10px 16px;gap:6px;bottom:calc(98px + env(safe-area-inset-bottom))}
+  .nx .nt-sbar{padding:10px 16px;gap:6px;bottom:var(--vx-bottom-h)}
   .nx .nt-sbar .nt-rt{order:2;min-width:0;width:100%;text-align:center}
   .nx .nt-sbar .nt-rt>.nt-f14{display:none}
   .nx .nt-fabrow{bottom:calc(114px + env(safe-area-inset-bottom));padding-right:16px}

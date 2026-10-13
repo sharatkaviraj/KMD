@@ -68,9 +68,9 @@
 
 /* Match the shell's viewport breakpoint and its 99px phone navigation footprint. */
 @media (max-width: 899px) {
-  .vx.ac-books .ac-cheque-selection { bottom: calc(99px + 12px + env(safe-area-inset-bottom)); }
+  .vx.ac-books .ac-cheque-selection { bottom: calc(var(--vx-bottom-h) + 12px); }
   /* Books uses Section (.pad), so the shell's direct-main reserve does not apply. */
-  .vx.ac-books > .pad { padding-bottom: calc(99px + 12px + env(safe-area-inset-bottom)) !important; }
+  .vx.ac-books > .pad { padding-bottom: calc(var(--vx-bottom-h) + 12px) !important; }
   /* Sheets render in #vx-layer, outside the page's container, so the slip folds on the window width. */
   .vx-layer .ac-sr { grid-template-columns: 22px minmax(0, 1fr) 84px; }
   .vx-layer .ac-sr > .c3 { display: none; }

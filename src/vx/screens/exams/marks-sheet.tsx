@@ -560,7 +560,7 @@ export function MarksSheet({
     const bins = histogram(order.map((id) => cells[id]).filter((x): x is Cell => Boolean(x && x.state === "value")).map((x) => x.value as number), paper.maxMarks, pass);
     const highestName = summary.highest === null ? "" : (students.find((s) => cells[s.id]?.state === "value" && cells[s.id]?.value === summary.highest)?.name ?? "");
     const sendBar = (
-      <div className="glass" style={{ position: "sticky", bottom: 0, zIndex: 10, borderTop: "1px solid var(--bd)", padding: "12px 28px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="glass" style={{ position: "sticky", bottom: "var(--vx-bottom-h)", zIndex: 10, borderTop: "1px solid var(--bd)", padding: "12px 28px", display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <strong>{summary.blanks.length ? `${summary.blanks.length} ${tx(p("still missing", "बाकी"))}` : tx(p("Every child has a mark", "हर बच्चे के अंक भरे"))}</strong>
           <span style={{ fontSize: 12, color: "var(--mut)" }}>{coordinatorName ? `${tx(p("To", "को"))} ${coordinatorName} · ${tx(p("exam coordinator", "परीक्षा प्रभारी"))}` : tx(p("To the exam office", "परीक्षा विभाग को"))}</span>
@@ -593,7 +593,7 @@ export function MarksSheet({
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <Card>
                   <h3 style={{ margin: "0 0 10px", fontSize: 15 }}>{tx(p("How the class did", "कक्षा का प्रदर्शन"))}</h3>
-                  <BarChart data={bins} height={170} format={(v) => String(v)} />
+                  <BarChart data={bins} height={170} format={(v) => String(Math.round(v))} />
                 </Card>
                 {pass !== null ? (
                   <Card>
@@ -673,7 +673,7 @@ export function MarksSheet({
     const title2 = `${paper.classLabel} ${paper.subjectCode} · ${tx(p("enter marks", "अंक भरें"))}`;
     return (
       <VxPage>
-        <style href="vx-marks-office" precedence="default">{`.xer{display:grid;grid-template-columns:${cols};gap:10px;align-items:center;min-height:58px;padding:6px 16px}.xer.xd+.xer.xd{border-top:1px solid var(--bd)}.xsave{bottom:12px}@container vx (max-width:899px){.xer{grid-template-columns:${colsM};padding:6px 12px}.xsave{bottom:calc(88px + env(safe-area-inset-bottom,0px))}}`}</style>
+        <style href="vx-marks-office" precedence="default">{`.xer{display:grid;grid-template-columns:${cols};gap:10px;align-items:center;min-height:58px;padding:6px 16px}.xer.xd+.xer.xd{border-top:1px solid var(--bd)}.xsave{bottom:12px}@container vx (max-width:899px){.xer{grid-template-columns:${colsM};padding:6px 12px}.xsave{bottom:calc(var(--vx-bottom-h) + 12px)}}`}</style>
         <ExamsTop crumb={crumb} title={title2} back={backHref} mSub={`${tx(p("Out of", "पूर्णांक"))} ${paper.maxMarks} · ${tx(p("admin entry", "प्रशासक प्रविष्टि"))}`} mBack={backHref} />
         <main>
           <div className="pad" style={{ padding: "16px 28px 20px" }}>
@@ -1006,7 +1006,7 @@ export function MarksSheet({
             </Card>
           </aside>
         </section>
-        <div className="glass" style={{ position: "sticky", bottom: 0, zIndex: 10, borderTop: "1px solid var(--bd)", padding: "12px 28px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="glass" style={{ position: "sticky", bottom: "var(--vx-bottom-h)", zIndex: 10, borderTop: "1px solid var(--bd)", padding: "12px 28px", display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
             <strong>{tx(p(`${c.filled} of ${c.total} done`, `${c.total} में से ${c.filled} भरे`))} · {c.blank} {tx(p("left", "बाकी"))}</strong>
             <span style={{ fontSize: 12, color: status === "error" || status === "stale" ? "var(--bad)" : "var(--mut)" }}>{statusLine}</span>
