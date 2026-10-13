@@ -7,13 +7,13 @@ import { useState } from "react";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
-import { Chip, ChipRow, RadioCard, Select, Seg, Stepper } from "@/vx/ui/controls";
+import { Chip, ChipRow, RadioCard, Select, Seg } from "@/vx/ui/controls";
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner, TopBar, VxPage } from "@/vx/ui/page";
-import { Avatar, avatarColor, Btn, Card, EmptyState, IconTile, Pill, Progress, Ring, SecHead, WhatsAppPreview, type Tone } from "@/vx/ui/primitives";
+import { Avatar, avatarColor, Btn, Card, EmptyState, Pill, SecHead, type Tone } from "@/vx/ui/primitives";
 import { initials } from "@/vx/format";
 
-import { endOf, fixesFor, lengthLabel, minutesOf, slotTimeLabel, timeOf, type Clash, type Slot } from "./domain/datesheet";
+import { clockShort, endOf, fixesFor, lengthLabel, minutesOf, slotTimeLabel, type Clash, type Slot } from "./domain/datesheet";
 import { GROUP_LABELS, subjectPair, type GroupKey } from "./domain/groups";
 import { waLink } from "./domain/messages";
 import { chartRows } from "./domain/rooms";
@@ -65,15 +65,6 @@ export type PlanProps = {
   };
 };
 
-const TONES: Tone[] = ["info", "warn", "ok", "acc", "mut"];
-function subjectTone(subject: string): Tone {
-  let h = 0;
-  for (let i = 0; i < subject.length; i += 1) h = (h * 31 + subject.charCodeAt(i)) >>> 0;
-  return TONES[h % TONES.length];
-}
-const toneBg = (t: Tone) => (t === "mut" ? "var(--s2)" : `var(--${t}s)`);
-const toneFg = (t: Tone) => (t === "mut" ? "var(--fg)" : t === "warn" ? "var(--warnfg)" : t === "acc" ? "var(--accfg)" : `var(--${t})`);
-
 const QP_WORDS: Record<QpStatus, { label: Pair; tone: Tone }> = {
   waiting: { label: p("Being set", "बन रहा है"), tone: "mut" },
   received: { label: p("Received", "आ गया"), tone: "info" },
@@ -81,11 +72,11 @@ const QP_WORDS: Record<QpStatus, { label: Pair; tone: Tone }> = {
   printed: { label: p("Printed", "छपा"), tone: "ok" },
 };
 
-const START_TIMES = ["08:00", "08:30", "09:00", "09:30", "11:00", "12:00"];
+const START_TIMES = ["08:00", "08:30", "09:00", "11:00"];
 
 export function PlanBoard(props: PlanProps) {
   const { view, exam, slots, clashes, actions } = props;
-  const { tx } = useVx();
+  const { tx, sub } = useVx();
   const router = useRouter();
   const { pending, run } = useAct();
   const base = `/exam-office/plan?exam=${exam.id}`;
@@ -131,6 +122,10 @@ export function PlanBoard(props: PlanProps) {
       <Btn variant="pri" icon="upload" href={href("publish")}>
         {tx(p("Publish date sheet", "डेट शीट प्रकाशित करें"))}
       </Btn>
+    ) : view === "room" && props.rooms.some((r) => r.id === props.roomId) ? (
+      <Btn variant="pri" icon="printer" full onClick={() => window.print()}>
+        {tx(p("Print room chart", "कक्ष चार्ट छापें"))}
+      </Btn>
     ) : view === "duties" && props.duties.length ? (
       <Btn variant="pri" icon="send" onClick={() => setDutySheet(true)}>
         {tx(p("Send duties on WhatsApp", "ड्यूटी WhatsApp पर भेजें"))}
@@ -145,19 +140,21 @@ export function PlanBoard(props: PlanProps) {
   } as const;
   const tabs: { key: PlanView; label: Pair; icon: IconName }[] = [
     { key: "datesheet", label: p("Date sheet", "डेट शीट"), icon: "calendar" },
-    { key: "seating", label: p("Seating", "बैठक"), icon: "grid" },
+    { key: "seating", label: p("Seating", "बैठक व्यवस्था"), icon: "grid" },
     { key: "duties", label: p("Duties", "ड्यूटी"), icon: "users" },
     { key: "papers", label: p("Papers", "प्रश्न पत्र"), icon: "file" },
   ];
   const activeTab = view === "slot" || view === "clash" || view === "publish" ? "datesheet" : view === "room" ? "seating" : view;
+  const dot = (k: keyof typeof tabState) => (tabState[k] === "mut" ? "var(--bds)" : `var(--${tabState[k]})`);
+  const tabIndex = Math.max(0, tabs.findIndex((t) => t.key === activeTab));
 
   /* ---------------------------------------------------------- views */
   let body: React.ReactNode = null;
   let detail: React.ReactNode = null;
 
   if (view === "datesheet" || view === "slot" || view === "clash") {
-    body = <DateSheet {...props} onEdit={(slot, groupKey, day) => setEditing({ slot, groupKey, day })} href={href} pending={pending} run={run} />;
-    if (view === "clash" && clashes.length) detail = <ClashPanel {...props} href={href} pending={pending} run={run} />;
+    body = <DateSheet {...props} onEdit={(slot, groupKey, day) => setEditing({ slot, groupKey, day })} href={href} pending={pending} run={run} narrow={view === "clash" && clashes.length > 0} />;
+    if (view === "clash") detail = <ClashPanel {...props} href={href} pending={pending} run={run} />;
   } else if (view === "seating") {
     body = <Seating {...props} href={href} pending={pending} run={run} />;
   } else if (view === "room") {
@@ -173,6 +170,44 @@ export function PlanBoard(props: PlanProps) {
   const editingPaper = props.papers.find((x) => x.slotId === paperSheet) ?? null;
   const editingSlot = slots.find((s) => s.id === paperSheet) ?? null;
   const waitingSetters = props.teachers.filter((t) => props.papers.some((x) => x.setterId === t.id && x.status === "waiting"));
+  const mSub: Record<PlanView, string> = {
+    datesheet: clashes.length ? tx(p(`${clashes.length} clash${clashes.length === 1 ? "" : "es"} to fix`, `${clashes.length} टकराव ठीक करना है`)) : `${tx(exam.name)} · ${exam.dates}`,
+    slot: clashes.length ? tx(p(`${clashes.length} clash${clashes.length === 1 ? "" : "es"} to fix`, `${clashes.length} टकराव ठीक करना है`)) : `${tx(exam.name)} · ${exam.dates}`,
+    clash: tx(p(`${clashes.length} clash${clashes.length === 1 ? "" : "es"} to fix`, `${clashes.length} टकराव ठीक करना है`)),
+    seating: props.seated ? tx(p(`${props.seated} of ${props.totalChildren} seated`, `${props.totalChildren} में ${props.seated} बैठे`)) : tx(p("Not seated yet", "अभी बैठक नहीं")),
+    room: (() => {
+      const r = props.rooms.find((x) => x.id === props.roomId);
+      return r ? tx(p(`${r.used} of ${r.seats} seats`, `${r.seats} में ${r.used} सीटें`)) : "";
+    })(),
+    duties: (() => {
+      const need = props.rooms.filter((r) => r.used > 0).length * props.dutyDays.length;
+      return props.duties.length ? tx(p(`${props.teachers.length} teachers · ${props.duties.length}/${need} duties`, `${props.teachers.length} शिक्षक · ${props.duties.length}/${need} ड्यूटी`)) : tx(p("Not shared yet", "अभी नहीं बँटी"));
+    })(),
+    papers: tx(p(`${props.papers.filter((x) => x.status !== "waiting").length} of ${slots.length} received`, `${slots.length} में ${props.papers.filter((x) => x.status !== "waiting").length} आए`)),
+    publish: `${tx(exam.name)} · ${exam.dates}`,
+  };
+  const stickyPhone =
+    view === "datesheet" ? (
+      <Btn variant="pri" icon="upload" href={href("publish")} full>
+        {tx(p("Publish date sheet", "डेट शीट प्रकाशित करें"))}
+      </Btn>
+    ) : view === "seating" ? (
+      <Btn variant="pri" icon="zap" full disabled={pending} onClick={() => run(() => actions.fillSeating({ examId: exam.id }))}>
+        {props.seated ? tx(p("Seat everyone again", "फिर से सबको बैठाएँ")) : tx(p("Seat everyone", "सबको बैठाएँ"))}
+      </Btn>
+    ) : view === "room" && props.rooms.some((r) => r.id === props.roomId) ? (
+      <Btn variant="pri" icon="printer" full onClick={() => window.print()}>
+        {tx(p("Print room chart", "कक्ष चार्ट छापें"))}
+      </Btn>
+    ) : view === "duties" && props.duties.length ? (
+      <Btn variant="pri" icon="send" full onClick={() => setDutySheet(true)}>
+        {tx(p("Send duties on WhatsApp", "ड्यूटी WhatsApp पर भेजें"))}
+      </Btn>
+    ) : view === "papers" && waitingSetters.length ? (
+      <Btn variant="pri" icon="send" full onClick={() => setSetterSheet(true)}>
+        {tx(p(`Remind ${waitingSetters.length} teachers`, `${waitingSetters.length} शिक्षकों को याद दिलाएँ`))}
+      </Btn>
+    ) : null;
 
   return (
     <VxPage>
@@ -184,7 +219,7 @@ export function PlanBoard(props: PlanProps) {
           </span>
         }
         mTitle={tx(titles[view])}
-        mSub={clashes.length ? `${clashes.length} ${tx(p("clash to fix", "टकराव ठीक करना है"))}` : `${tx(exam.name)} · ${exam.dates}`}
+        mSub={mSub[view]}
         mBack={view === "room" ? href("seating") : view === "clash" || view === "publish" ? href("datesheet") : "/exam-office"}
         actions={
           <>
@@ -195,36 +230,58 @@ export function PlanBoard(props: PlanProps) {
         mAction={help}
       />
       <main>
-        <div className="stack" style={{ display: "grid", gridTemplateColumns: detail ? "minmax(0,1fr) 400px" : "minmax(0,1fr)", alignItems: "start" }}>
-          <section className="pad" style={{ padding: "22px 28px 40px", display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-            {props.exams.length > 1 ? (
-              <ChipRow label={tx(p("Exam", "परीक्षा"))}>
-                {props.exams.map((e) => (
-                  <Chip key={e.id} on={e.id === exam.id} onClick={() => router.push(`/exam-office/plan?exam=${e.id}&view=${activeTab}`)}>
-                    {tx(e.name)}
-                  </Chip>
-                ))}
-              </ChipRow>
-            ) : null}
-            {view !== "publish" && view !== "room" ? (
-              <nav aria-label={tx(p("Planning steps", "योजना के चरण"))} className="seg" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", maxWidth: 720 }}>
-                {tabs.map((t) => (
-                  <Link key={t.key} href={href(t.key)} className={activeTab === t.key ? "on" : ""} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 6px", borderRadius: 10, textDecoration: "none", color: "inherit", fontWeight: 600, fontSize: 14, background: activeTab === t.key ? "var(--card)" : undefined, boxShadow: activeTab === t.key ? "var(--sh1)" : undefined }}>
-                    <Ic n={t.icon} size={16} />
+        {props.exams.length > 1 ? (
+          <div className="pad" style={{ padding: "16px 28px 0" }}>
+            <ChipRow label={tx(p("Exam", "परीक्षा"))}>
+              {props.exams.map((e) => (
+                <Chip key={e.id} on={e.id === exam.id} onClick={() => router.push(`/exam-office/plan?exam=${e.id}&view=${activeTab}`)}>
+                  {tx(e.name)}
+                </Chip>
+              ))}
+            </ChipRow>
+          </div>
+        ) : null}
+        {view !== "publish" && view !== "room" ? (
+          <div className={`pad${detail ? " hide-m" : ""}`} style={{ padding: "16px 28px 0" }}>
+            <nav aria-label={tx(p("Planning steps", "योजना के चरण"))} className="seg only-d" style={{ gridTemplateColumns: "repeat(4,minmax(0,1fr))", width: 720, maxWidth: "100%" }}>
+              <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 4)", transform: `translateX(${tabIndex * 100}%)` }} />
+              {tabs.map((t) => (
+                <Link key={t.key} href={href(t.key)} className="tap" aria-current={activeTab === t.key ? "page" : undefined} style={{ position: "relative", height: 50, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.2, fontSize: 13, fontWeight: 700, color: activeTab === t.key ? "var(--fg)" : "var(--mut)" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Ic n={t.icon} size={15} />
                     {tx(t.label)}
-                    <span style={{ width: 7, height: 7, borderRadius: 4, background: `var(--${tabState[t.key as keyof typeof tabState] === "mut" ? "bds" : tabState[t.key as keyof typeof tabState]})` }} />
-                  </Link>
-                ))}
-              </nav>
-            ) : null}
+                    <span style={{ width: 8, height: 8, borderRadius: 4, background: dot(t.key as keyof typeof tabState) }} />
+                  </span>
+                  {sub(t.label) ? <span style={{ fontSize: 11, fontWeight: 500 }}>{sub(t.label)}</span> : null}
+                </Link>
+              ))}
+            </nav>
+            <div className="hs only-m" style={{ display: "flex", gap: 6 }}>
+              {tabs.map((t) => (
+                <Link key={t.key} href={href(t.key)} className={`tap chip${activeTab === t.key ? " on" : ""}`} aria-current={activeTab === t.key ? "page" : undefined}>
+                  <Ic n={t.icon} size={16} />
+                  {tx(t.label)}
+                  <span style={{ width: 8, height: 8, borderRadius: 4, background: dot(t.key as keyof typeof tabState) }} />
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <div className="stack" style={{ display: "grid", gridTemplateColumns: detail ? "minmax(0,1fr) 400px" : "minmax(0,1fr)", alignItems: "start" }}>
+          <section className={`pad${detail ? " hide-m" : ""}`} style={{ padding: "16px 28px 40px", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
             {body}
           </section>
           {detail ? (
-            <aside className="unstick" style={{ position: "sticky", top: 64, maxHeight: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+            <aside className="unstick" style={{ position: "sticky", top: 64, maxHeight: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--bg)", padding: "18px 22px 28px", display: "flex", flexDirection: "column", gap: 14, animation: "xPush .36s var(--ease) both" }}>
               {detail}
             </aside>
           ) : null}
         </div>
+        {stickyPhone ? (
+          <div className="only-m glass" style={{ position: "sticky", bottom: "calc(99px + env(safe-area-inset-bottom))", zIndex: 4, padding: "10px 16px 12px", borderTop: "1px solid var(--bd)" }}>
+            {stickyPhone}
+          </div>
+        ) : null}
       </main>
 
       {editing ? <SlotSheet {...props} editing={editing} onClose={() => setEditing(null)} pending={pending} run={run} /> : null}
@@ -335,10 +392,52 @@ type Run = ReturnType<typeof useAct>["run"];
 
 /* ------------------------------------------------------- date sheet */
 
-function DateSheet(props: PlanProps & { onEdit: (slot: Slot | null, groupKey: GroupKey, day: string) => void; href: (v: PlanView, extra?: string) => string; pending: boolean; run: Run }) {
+/** The design's subject colours: English blue, Hindi amber, Maths teal, sciences green, the rest grey. */
+const SUBJECT_TONE: Record<string, Tone> = {
+  English: "info",
+  Hindi: "warn",
+  "Hindi Lit.": "warn",
+  Maths: "acc",
+  "Maths / Bio": "acc",
+  "Maths/Bio": "acc",
+  Accountancy: "acc",
+  Accounts: "acc",
+  EVS: "ok",
+  Science: "ok",
+  Physics: "ok",
+  Chemistry: "ok",
+};
+function subjectTone(subject: string): Tone {
+  return SUBJECT_TONE[subject.split(" · ")[0].trim()] ?? "mut";
+}
+const toneBg = (t: Tone) => (t === "mut" ? "var(--s3)" : `var(--${t}s)`);
+const toneFg = (t: Tone) => (t === "mut" ? "var(--fg)" : t === "warn" ? "var(--warnfg)" : t === "acc" ? "var(--accfg)" : `var(--${t})`);
+
+/** "Thu 10 Dec" and "गुरु 10" for a date-sheet day. */
+function dayLong(day: string): string {
+  return new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(new Date(`${day}T12:00:00Z`)).replace(",", "");
+}
+function dayHi(day: string): string {
+  return `${new Intl.DateTimeFormat("hi-IN", { timeZone: "UTC", weekday: "short" }).format(new Date(`${day}T12:00:00Z`))} ${Number(day.slice(8))}`;
+}
+
+function dayHiLong(day: string): string {
+  return `${dayHi(day)} ${new Intl.DateTimeFormat("hi-IN", { timeZone: "UTC", month: "short" }).format(new Date(`${day}T12:00:00Z`))}`;
+}
+/** A combined sitting ("Physics · Accountancy · History") in Hindi, one subject at a time. */
+function subjectHi(subject: string): string {
+  return subject
+    .split(" · ")
+    .map((x) => subjectPair(x).hi ?? x)
+    .join(" / ");
+}
+
+function DateSheet(props: PlanProps & { onEdit: (slot: Slot | null, groupKey: GroupKey, day: string) => void; href: (v: PlanView, extra?: string) => string; pending: boolean; run: Run; narrow: boolean }) {
   const { exam, slots, clashes, days, bands, actions, run, pending } = props;
   const { tx } = useVx();
   const clashIds = new Set(clashes.flatMap((c) => c.slotIds));
+  const firstClashDay = days.findIndex((d) => clashes.some((c) => c.day === d.day));
+  const [mDay, setMDay] = useState(Math.max(0, firstClashDay));
 
   if (slots.length === 0) {
     return (
@@ -363,6 +462,32 @@ function DateSheet(props: PlanProps & { onEdit: (slot: Slot | null, groupKey: Gr
   }
 
   const first = clashes[0];
+  const cols = `${props.narrow ? 104 : 150}px repeat(${days.length},minmax(0,1fr))`;
+  const bad = (g: GroupKey, d: string) => clashes.some((c) => c.groupKey === g && c.day === d);
+  const paper = (s: Slot, big = false) => {
+    const tone = subjectTone(s.subject);
+    const isBad = clashIds.has(s.id);
+    return (
+      <button
+        key={s.id}
+        type="button"
+        className="tap"
+        aria-label={`${tx(GROUP_LABELS[s.groupKey])} ${s.subject} · ${dayLong(s.day)}${isBad ? ` · ${tx(p("clash", "टकराव"))}` : ""}`}
+        onClick={() => props.onEdit(s, s.groupKey, s.day)}
+        style={{ width: "100%", minHeight: big ? 48 : undefined, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, padding: "7px 9px", borderRadius: 10, border: `1.5px solid ${isBad ? "var(--bad)" : "transparent"}`, background: isBad ? "var(--bads)" : toneBg(tone), color: isBad ? "var(--bad)" : toneFg(tone), textAlign: "left", lineHeight: 1.25, cursor: "pointer" }}
+      >
+        <b style={{ fontSize: big ? 15 : 13 }}>{s.subject}</b>
+        <span className="num" style={{ fontSize: big ? 13 : 11, opacity: 0.8 }}>{slotTimeLabel(s)}</span>
+      </button>
+    );
+  };
+  const empty = (b: GroupKey, d: string, big = false) => (
+    <button type="button" className="tap" aria-label={tx(p("Add a paper", "पेपर जोड़ें"))} onClick={() => props.onEdit(null, b, d)} style={{ width: "100%", minHeight: big ? 48 : 46, flex: 1, borderRadius: 10, border: "1.5px dashed var(--bd)", background: "transparent", color: "var(--sub)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+      {big ? tx(p("No paper · tap to add", "पेपर नहीं · जोड़ने को टैप करें")) : tx(p("No paper", "पेपर नहीं"))}
+    </button>
+  );
+  const mday = days[mDay] ?? days[0];
+
   return (
     <>
       {exam.publishedAt ? (
@@ -372,95 +497,101 @@ function DateSheet(props: PlanProps & { onEdit: (slot: Slot | null, groupKey: Gr
           {tx(p("Checked and final — publish it when you are ready.", "जाँची और पक्की — तैयार हों तो प्रकाशित करें।"))}
         </Banner>
       ) : (
-        <Card style={{ display: "flex", alignItems: "center", gap: 14, border: "1px solid var(--info)", background: "var(--infos)" }}>
-          <IconTile icon="copy" tone="info" size={40} />
-          <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <strong>{exam.copiedFrom ? tx(p(`Copied from ${exam.copiedFrom} — check and adjust`, `${exam.copiedFrom} से कॉपी — जाँचें और बदलें`)) : tx(p("Draft — check the dates", "ड्राफ़्ट — तिथियाँ जाँचें"))}</strong>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p(`Same order, moved onto ${exam.dates}. Sundays and holidays are left out.`, `वही क्रम, ${exam.dates} पर। रविवार और छुट्टियाँ छोड़ी गईं।`))}</span>
+        <div className="card" style={{ padding: "14px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, borderColor: "var(--acc)", background: "var(--accs)", color: "var(--accfg)", animation: "xIn .3s var(--ease) both" }}>
+          <span style={{ flex: "none", width: 42, height: 42, borderRadius: 13, background: "var(--card)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Ic n="copy" size={18} />
           </span>
-          <Btn variant="sec" icon="check" disabled={pending || clashes.length > 0} onClick={() => run(() => actions.check({ examId: exam.id, checked: true }))}>
+          <span style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column" }}>
+            <b style={{ fontSize: 15 }}>{exam.copiedFrom ? tx(p(`Copied from ${exam.copiedFrom} — check and adjust`, `${exam.copiedFrom} से कॉपी — जाँचें और बदलें`)) : tx(p("Draft — check the dates", "ड्राफ़्ट — तिथियाँ जाँचें"))}</b>
+            <span style={{ fontSize: 13 }}>{tx(p(`Same order${exam.copiedFrom ? ` as ${exam.copiedFrom}` : ""}, moved to ${exam.dates}. Sundays and holidays are left out.`, `वही क्रम, ${exam.dates} पर। रविवार और छुट्टियाँ छोड़ी गईं।`))}</span>
+          </span>
+          <button type="button" className="tap btn sec mfull" disabled={pending || clashes.length > 0} onClick={() => run(() => actions.check({ examId: exam.id, checked: true }))} style={{ flex: "none" }}>
+            <Ic n="check" size={18} />
             {tx(p("Looks good", "ठीक है"))}
-          </Btn>
-        </Card>
+          </button>
+        </div>
       )}
       {first ? (
-        <Link href={props.href("clash")} className="tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 14, background: "var(--bads)", color: "var(--bad)", textDecoration: "none" }}>
-          <Ic n="alert" size={20} />
-          <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <strong>{clashTitle(first, slots, tx)}</strong>
+        <Link href={props.href("clash")} className="tap" style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: "var(--bads)", color: "var(--bad)", textDecoration: "none", animation: "xIn .3s var(--ease) both" }}>
+          <Ic n="alert" size={18} />
+          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <b>{clashTitle(first, slots, tx)}</b>
             <span style={{ fontSize: 13 }}>
-              {props.bands.find((b) => b.key === first.groupKey)?.children ?? 0} {tx(p("children", "बच्चे"))} · {props.days.find((d) => d.day === first.day)?.label ?? first.day}
+              {props.bands.find((b) => b.key === first.groupKey)?.children ?? 0} {tx(p("children", "बच्चे"))} · {dayLong(first.day)} · {first.slotIds.map((id) => slots.find((s) => s.id === id)).filter(Boolean).map((s) => clockShort((s as Slot).start)).join(tx(p(" and ", " और ")))}
               {clashes.length > 1 ? ` · +${clashes.length - 1} ${tx(p("more", "और"))}` : ""}
             </span>
           </span>
-          <strong>{tx(p("See fixes", "सुधार देखें"))}</strong>
-          <Ic n="chevRight" size={16} />
+          <b style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+            {tx(p("See fixes", "सुधार देखें"))}
+            <Ic n="chevRight" size={16} />
+          </b>
         </Link>
       ) : null}
-      <Card pad={false} style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-          <thead>
-            <tr style={{ background: "var(--s2)" }}>
-              <th style={{ textAlign: "left", padding: "12px 14px", fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--mut)", width: 150 }}>{tx(p("Classes", "कक्षाएँ"))}</th>
-              {days.map((d) => (
-                <th key={d.day} style={{ padding: "10px 6px", fontSize: 13, color: d.outside ? "var(--bad)" : undefined }}>
-                  {d.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {bands.map((b) => (
-              <tr key={b.key} style={{ borderTop: "1px solid var(--bd)" }}>
-                <td style={{ padding: "10px 14px", verticalAlign: "top" }}>
-                  <strong style={{ display: "block" }}>{tx(b.label)}</strong>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                    {b.children} {tx(p("children", "बच्चे"))}
-                    <br />
-                    {b.start} · {lengthLabel(b.minutes)}
+
+      <div className="only-d card" style={{ overflow: "hidden", padding: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, alignItems: "stretch", padding: "10px 12px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
+          <span className="sech" style={{ alignSelf: "center" }}>{tx(p("Classes", "कक्षाएँ"))}</span>
+          {days.map((d) => (
+            <span key={d.day} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <b style={{ fontSize: 13, color: d.outside ? "var(--bad)" : undefined }}>{d.label}</b>
+              <span style={{ fontSize: 11, color: "var(--mut)" }}>{dayHi(d.day)}</span>
+            </span>
+          ))}
+        </div>
+        {bands.map((b, i) => (
+          <div key={b.key} style={{ display: "grid", gridTemplateColumns: cols, gap: 8, alignItems: "stretch", padding: "8px 12px", borderTop: i ? "1px solid var(--bd)" : undefined, animation: `xIn .3s var(--ease) ${Math.min(i * 30, 150)}ms both` }}>
+            <span style={{ display: "flex", flexDirection: "column", alignSelf: "center", minWidth: 0 }}>
+              <b className="clip">{tx(b.label)}</b>
+              <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{b.children} {tx(p("children", "बच्चे"))}</span>
+              <span className="clip num" style={{ fontSize: 12, color: "var(--mut)" }}>{clockShort(b.start)} · {lengthLabel(b.minutes)}</span>
+            </span>
+            {days.map((d) => {
+              const here = slots.filter((s) => s.groupKey === b.key && s.day === d.day).sort((x, y) => minutesOf(x.start) - minutesOf(y.start));
+              return (
+                <div key={d.day} style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, padding: 3, borderRadius: 12, background: bad(b.key, d.day) ? "var(--bads)" : "transparent" }}>
+                  {here.map((s) => paper(s))}
+                  {here.length === 0 ? empty(b.key, d.day) : null}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <div className="only-m" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="seg" role="group" aria-label={tx(p("Day", "दिन"))} style={{ gridTemplateColumns: `repeat(${days.length},minmax(0,1fr))` }}>
+          <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${days.length})`, transform: `translateX(${mDay * 100}%)` }} />
+          {days.map((d, i) => (
+            <button key={d.day} type="button" className={i === mDay ? "tap on" : "tap"} aria-pressed={i === mDay} onClick={() => setMDay(i)} style={{ height: 50, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.2 }}>
+              <span>{d.label.split(" ")[0]}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 500 }}>
+                {d.label.split(" ")[1] ?? ""}
+                <span style={{ width: 6, height: 6, borderRadius: 3, background: clashes.some((c) => c.day === d.day) ? "var(--bad)" : "transparent" }} />
+              </span>
+            </button>
+          ))}
+        </div>
+        {mday ? (
+          <div className="card" style={{ overflow: "hidden", padding: 0 }}>
+            {bands.map((b, i) => {
+              const here = slots.filter((s) => s.groupKey === b.key && s.day === mday.day).sort((x, y) => minutesOf(x.start) - minutesOf(y.start));
+              return (
+                <div key={b.key} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", borderTop: i ? "1px solid var(--bd)" : undefined, background: bad(b.key, mday.day) ? "var(--bads)" : "transparent" }}>
+                  <span style={{ flex: "none", width: 96, display: "flex", flexDirection: "column" }}>
+                    <b>{tx(b.label).replace(/^Classes\s+/, "").replace(/^कक्षा\s+/, "")}</b>
+                    <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{clockShort(b.start)} · {lengthLabel(b.minutes)}</span>
                   </span>
-                </td>
-                {days.map((d) => {
-                  const here = slots.filter((s) => s.groupKey === b.key && s.day === d.day).sort((x, y) => minutesOf(x.start) - minutesOf(y.start));
-                  return (
-                    <td key={d.day} style={{ padding: 5, verticalAlign: "top" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                        {here.map((s) => {
-                          const tone = subjectTone(s.subject);
-                          const bad = clashIds.has(s.id);
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              className="tap"
-                              onClick={() => props.onEdit(s, s.groupKey, s.day)}
-                              style={{ textAlign: "left", padding: "7px 9px", borderRadius: 10, border: bad ? "1.5px solid var(--bad)" : "1px solid transparent", background: bad ? "var(--bads)" : toneBg(tone), color: bad ? "var(--bad)" : toneFg(tone), cursor: "pointer" }}
-                            >
-                              <strong style={{ display: "block", fontSize: 13 }}>{s.subject}</strong>
-                              <span style={{ fontSize: 11, opacity: 0.85 }}>{slotTimeLabel(s)}</span>
-                            </button>
-                          );
-                        })}
-                        {here.length === 0 ? (
-                          <button
-                            type="button"
-                            className="tap"
-                            onClick={() => props.onEdit(null, b.key, d.day)}
-                            style={{ padding: "12px 6px", borderRadius: 10, border: "1.5px dashed var(--bds)", background: "transparent", color: "var(--mut)", fontSize: 12, cursor: "pointer" }}
-                          >
-                            {tx(p("No paper", "पेपर नहीं"))}
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-      <span style={{ fontSize: 13, color: "var(--mut)" }}>
+                  <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                    {here.map((s) => paper(s, true))}
+                    {here.length === 0 ? empty(b.key, mday.day, true) : null}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+      <span style={{ fontSize: 12, color: "var(--mut)" }}>
         {tx(p(`Tap any paper to change its day, time or length. Reporting time is ${exam.reportingTime} every day.`, `दिन, समय या अवधि बदलने के लिए पेपर पर टैप करें। रोज़ पहुँचने का समय ${exam.reportingTime}।`))}
       </span>
     </>
@@ -480,16 +611,29 @@ function ClashPanel(props: PlanProps & { href: (v: PlanView, extra?: string) => 
   const { tx } = useVx();
   const router = useRouter();
   const clash = clashes[0];
+  const [pick, setPick] = useState(0);
+  if (!clash) {
+    return (
+      <div className="card fadein" style={{ padding: "28px 22px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+        <span style={{ width: 80, height: 80, borderRadius: 40, background: "var(--oks)", color: "var(--ok)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Ic n="check" size={36} />
+        </span>
+        <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{tx(p("No clashes left", "कोई टकराव नहीं बचा"))}</span>
+        <span style={{ color: "var(--mut)" }}>{tx(p("Every class has one paper a day.", "हर कक्षा का दिन में एक पेपर।"))}</span>
+        <Btn variant="pri" icon="upload" href={props.href("publish")} full>{tx(p("Publish date sheet", "डेट शीट प्रकाशित करें"))}</Btn>
+        <Btn variant="ghost" href={props.href("datesheet")} full>{tx(p("Back to the date sheet", "डेट शीट पर वापस"))}</Btn>
+      </div>
+    );
+  }
   const fixes = fixesFor(
     clash,
     slots,
     props.days.filter((d) => !d.outside).map((d) => d.day),
   );
-  const [pick, setPick] = useState(0);
-  const daySlots = slots.filter((s) => s.groupKey === clash.groupKey && s.day === clash.day);
+  const daySlots = slots.filter((s) => s.groupKey === clash.groupKey && s.day === clash.day).sort((a, b) => minutesOf(a.start) - minutesOf(b.start));
   const from = 8 * 60;
-  const to = 14 * 60;
-  const dayLabel = (d: string) => props.days.find((x) => x.day === d)?.label ?? d;
+  const to = 13 * 60;
+  const band = props.bands.find((b) => b.key === clash.groupKey);
 
   const apply = () => {
     const fix = fixes[pick];
@@ -504,67 +648,79 @@ function ClashPanel(props: PlanProps & { href: (v: PlanView, extra?: string) => 
       () => router.push(props.href(clashes.length > 1 ? "clash" : "datesheet")),
     );
   };
+  const options = [
+    ...fixes.map((f, i) => {
+      const s = slots.find((x) => x.id === f.slotId);
+      const other = daySlots.find((x) => x.id !== f.slotId);
+      return {
+        key: `${f.slotId}${f.toDay}`,
+        title: tx(p(`Move ${s?.subject ?? ""} to ${dayLong(f.toDay)}`, `${s?.subject ?? ""} को ${dayLong(f.toDay)} पर ले जाएँ`)),
+        sub: tx(p(`${dayLong(f.toDay)} is free for ${tx(GROUP_LABELS[clash.groupKey])}.${other ? ` ${other.subject} stays on ${dayLong(clash.day)}.` : ""}`, `${dayLong(f.toDay)} इस समूह के लिए खाली।${other ? ` ${other.subject} ${dayLong(clash.day)} को रहेगा।` : ""}`)),
+        best: i === 0,
+      };
+    }),
+    { key: "keep", title: tx(p(`Keep both on ${dayLong(clash.day)}`, `दोनों ${dayLong(clash.day)} को रखें`)), sub: tx(p("Allowed, but children sit two papers that day.", "चल सकता है, पर बच्चे उस दिन दो पेपर देंगे।")), best: false },
+  ];
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <Pill tone="bad">{tx(p(`${clashes.length} clash${clashes.length === 1 ? "" : "es"} found`, `${clashes.length} टकराव`))}</Pill>
-        <span style={{ flex: 1 }} />
-        <Btn variant="ghost" icon="x" href={props.href("datesheet")} ariaLabel={tx(p("Close", "बंद करें"))} />
+      <div className="only-d" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--bads)", color: "var(--bad)" }}>{tx(p(`${clashes.length} clash${clashes.length === 1 ? "" : "es"} found`, `${clashes.length} टकराव`))}</span>
+        <Btn variant="ghost" icon="x" href={props.href("datesheet")} ariaLabel={tx(p("Close the clash panel", "टकराव पैनल बंद करें"))} style={{ width: 40, height: 36, padding: 0 }} />
       </div>
-      <Card style={{ border: "1.5px solid var(--bad)", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <IconTile icon="alert" tone="bad" size={36} />
-          <strong className="serif" style={{ fontSize: 20 }}>{clashTitle(clash, slots, tx)}</strong>
-        </div>
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>
+      <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12, borderColor: "var(--bad)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--bads)", color: "var(--bad)", display: "flex", alignItems: "center", justifyContent: "center", animation: "xShake .5s ease" }}>
+            <Ic n="alert" size={18} />
+          </span>
+          <span className="serif" style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.15 }}>{clashTitle(clash, slots, tx)}</span>
+        </span>
+        <span style={{ fontSize: 13, lineHeight: 1.5, color: "var(--mut)" }}>
           {clash.kind === "same_day"
             ? tx(p("Children should write one big paper a day. Two papers tire them out and leave no time to revise the evening before.", "बच्चों को दिन में एक ही बड़ा पेपर लिखना चाहिए। दो पेपर थका देते हैं और पिछली शाम दोहराने का समय नहीं बचता।"))
             : tx(p("The school is closed that day.", "उस दिन स्कूल बंद है।"))}
         </span>
-        <SecHead>
-          {dayLabel(clash.day)} · {props.bands.find((b) => b.key === clash.groupKey)?.children ?? 0} {tx(p("children", "बच्चे"))}
-        </SecHead>
-        <div style={{ position: "relative", height: 26 * Math.max(1, daySlots.length) + 8, background: "var(--s2)", borderRadius: 10 }}>
+        <span className="sech">
+          {dayLong(clash.day)} · {band?.children ?? 0} {tx(p("children", "बच्चे"))}
+        </span>
+        <div style={{ position: "relative", height: 74, borderRadius: 12, background: "var(--s2)" }}>
           {daySlots.map((s, i) => {
             const left = ((minutesOf(s.start) - from) / (to - from)) * 100;
             const width = (s.minutes / (to - from)) * 100;
+            const tone = subjectTone(s.subject);
             return (
-              <span key={s.id} style={{ position: "absolute", top: 4 + i * 26, left: `${Math.max(0, left)}%`, width: `${width}%`, height: 22, borderRadius: 6, background: "var(--oks)", color: "var(--ok)", fontSize: 12, fontWeight: 600, padding: "2px 8px", overflow: "hidden", whiteSpace: "nowrap" }}>
-                {s.subject} {s.start}–{endOf(s)}
+              <span key={s.id} style={{ position: "absolute", top: 8 + i * 32, left: `${Math.max(0, left)}%`, width: `${Math.min(100 - Math.max(0, left), width)}%`, height: 26, borderRadius: 7, padding: "0 8px", display: "flex", alignItems: "center", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", background: toneBg(tone), color: toneFg(tone), transformOrigin: "left", animation: "xGrowX .5s var(--ease) both" }}>
+                {s.subject}
               </span>
             );
           })}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--mut)" }}>
-          {[8, 9, 10, 11, 12, 13, 14].map((h) => (
-            <span key={h}>{timeOf(h * 60)}</span>
+        <div className="num" style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--mut)" }}>
+          {[8, 9, 10, 11, 12, 13].map((h) => (
+            <span key={h}>{h > 12 ? h - 12 : h}:00</span>
           ))}
         </div>
-      </Card>
-      <SecHead>{tx(p("Ways to fix it", "सुधार के तरीके"))}</SecHead>
-      {fixes.map((f, i) => {
-        const s = slots.find((x) => x.id === f.slotId);
+      </div>
+      <span className="sech">{tx(p("Ways to fix it", "सुधार के तरीके"))}</span>
+      {options.map((o, i) => {
+        const on = pick === i;
         return (
-          <RadioCard
-            key={`${f.slotId}${f.toDay}`}
-            checked={pick === i}
-            onSelect={() => setPick(i)}
-            title={tx(p(`Move ${s?.subject ?? ""} to ${dayLabel(f.toDay)}`, `${s?.subject ?? ""} को ${dayLabel(f.toDay)} पर ले जाएँ`))}
-            sub={tx(p(`${dayLabel(f.toDay)} is free for this band · starts ${f.start}`, `${dayLabel(f.toDay)} इस समूह के लिए खाली · ${f.start} से`))}
-            trail={i === 0 ? <Pill tone="ok">{tx(p("Best fix", "सबसे अच्छा"))}</Pill> : undefined}
-          />
+          <button key={o.key} type="button" role="radio" aria-checked={on} className="tap" onClick={() => setPick(i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, minHeight: 58, padding: "10px 14px", borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)", color: "var(--fg)", textAlign: "left" }}>
+            <span style={{ flex: "none", width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontWeight: 600 }}>{o.title}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{o.sub}</span>
+            </span>
+            {o.best ? <span className="pill" style={{ background: "var(--oks)", color: "var(--ok)" }}>{tx(p("Best fix", "सबसे अच्छा"))}</span> : null}
+          </button>
         );
       })}
-      <RadioCard
-        checked={pick === fixes.length}
-        onSelect={() => setPick(fixes.length)}
-        title={tx(p(`Keep both on ${dayLabel(clash.day)}`, `दोनों ${dayLabel(clash.day)} को रखें`))}
-        sub={tx(p("Allowed, but children sit two papers that day.", "चल सकता है, पर बच्चे उस दिन दो पेपर देंगे।"))}
-      />
-      <Btn variant="pri" icon="check" full disabled={pending} onClick={apply}>
+      <Btn variant="pri" icon="check" full disabled={pending} onClick={apply} style={{ height: 48, fontSize: 15 }}>
         {pick < fixes.length ? tx(p("Fix it", "ठीक करें")) : tx(p("Keep as it is", "जैसा है रखें"))}
       </Btn>
+      <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("You can change it again any time from the date sheet.", "डेट शीट से कभी भी फिर बदल सकते हैं।"))}</span>
     </>
   );
 }
@@ -572,103 +728,117 @@ function ClashPanel(props: PlanProps & { href: (v: PlanView, extra?: string) => 
 function SlotSheet(props: PlanProps & { editing: { slot: Slot | null; groupKey: GroupKey; day: string }; onClose: () => void; pending: boolean; run: Run }) {
   const { editing, exam, slots, actions, run, pending } = props;
   const { tx } = useVx();
+  const X = editing.slot;
   const band = props.bands.find((b) => b.key === editing.groupKey);
-  const [subject, setSubject] = useState(editing.slot?.subject ?? props.subjects[editing.groupKey]?.find((s) => !slots.some((x) => x.groupKey === editing.groupKey && x.subject === s)) ?? "");
+  const bandName = tx(GROUP_LABELS[editing.groupKey]);
+  const inBand = slots.filter((s) => s.groupKey === editing.groupKey).sort((a, b) => a.day.localeCompare(b.day) || a.start.localeCompare(b.start));
+  const firstFree = props.subjects[editing.groupKey]?.find((s) => !inBand.some((x) => x.subject === s));
+  const [subject, setSubject] = useState(X?.subject ?? inBand[0]?.subject ?? firstFree ?? "");
   const [day, setDay] = useState(editing.day || props.days[0]?.day || "");
-  const [start, setStart] = useState(editing.slot?.start ?? band?.start ?? "08:30");
-  const [minutes, setMinutes] = useState(editing.slot?.minutes ?? band?.minutes ?? 90);
-  const busyDays = new Set(slots.filter((s) => s.groupKey === editing.groupKey && s.id !== editing.slot?.id).map((s) => s.day));
-  const sameDay = slots.filter((s) => s.groupKey === editing.groupKey && s.day === day && s.id !== editing.slot?.id);
-  const others = slots.filter((s) => s.groupKey === editing.groupKey && s.id !== editing.slot?.id);
+  const [start, setStart] = useState(X?.start ?? band?.start ?? "08:30");
+  const [minutes, setMinutes] = useState(X?.minutes ?? band?.minutes ?? 90);
+  /** The paper the chip picks. Another paper of this band means a swap (or a move to an empty day). */
+  const Y = inBand.find((s) => s.subject === subject && s.id !== X?.id) ?? null;
+  const busyDays = new Set(inBand.filter((s) => s.id !== X?.id && s.id !== Y?.id).map((s) => s.day));
+  const sameDay = inBand.filter((s) => s.day === day && s.id !== X?.id && s.id !== Y?.id);
+  const subjectChoices = [...new Set([...inBand.map((s) => s.subject), ...(props.subjects[editing.groupKey] ?? []), ...(subject ? [subject] : [])])];
   const times = [...new Set([...START_TIMES, start])].sort();
+  const label = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return `${h > 12 ? h - 12 : h}:${String(m).padStart(2, "0")} ${h >= 12 ? "pm" : "am"}`;
+  };
+  const subNote = X
+    ? Y
+      ? tx(p(`Swap: ${Y.subject} comes here and ${X.subject} moves to ${dayLong(Y.day)}.`, `अदला-बदली: ${Y.subject} यहाँ आएगा और ${X.subject} ${dayLong(Y.day)} को जाएगा।`))
+      : tx(p("Pick another paper to swap the two days.", "दोनों दिन बदलने के लिए दूसरा पेपर चुनें।"))
+    : Y
+      ? tx(p(`${Y.subject} moves here from ${dayLong(Y.day)}.`, `${Y.subject} ${dayLong(Y.day)} से यहाँ आएगा।`))
+      : tx(p("A new paper on this day.", "इस दिन नया पेपर।"));
+  const save = () => {
+    if (X && Y) return run(() => actions.swapSlots({ examId: exam.id, a: X.id, b: Y.id }), props.onClose);
+    const slotId = X?.id ?? Y?.id ?? null;
+    return run(() => actions.saveSlot({ examId: exam.id, slotId, groupKey: editing.groupKey, subject: subject.trim(), day, start, minutes }), props.onClose);
+  };
 
   return (
     <Sheet
       open
       onClose={props.onClose}
-      icon="calendar"
-      title={`${tx(GROUP_LABELS[editing.groupKey])} · ${subject || tx(p("New paper", "नया पेपर"))}`}
-      sub={`${props.days.find((d) => d.day === day)?.label ?? day} · ${start}–${endOf({ start, minutes })} · ${lengthLabel(minutes)}`}
+      title={X ? `${bandName} · ${X.subject}` : `${bandName} · ${day ? dayLong(day) : ""}`}
+      sub={X ? `${dayLong(X.day)} · ${clockShort(X.start)}–${clockShort(endOf(X))} · ${lengthLabel(X.minutes)}` : tx(p("No paper on this day yet · pick one to move here", "इस दिन अभी कोई पेपर नहीं · यहाँ लाने के लिए एक चुनें"))}
       footer={
         <div style={{ display: "flex", gap: 10, width: "100%" }}>
-          {editing.slot ? (
-            <Btn variant="danger" icon="trash" disabled={pending} onClick={() => run(() => actions.deleteSlot({ examId: exam.id, slotId: editing.slot!.id }), props.onClose)}>
-              <span className="hide-m">{tx(p("Remove", "हटाएँ"))}</span>
-            </Btn>
-          ) : null}
-          <Btn variant="sec" onClick={props.onClose} style={{ flex: 1 }}>
+          <button type="button" className="tap btn sec" onClick={props.onClose} style={{ flex: 1 }}>
             {tx(p("Cancel", "रद्द करें"))}
-          </Btn>
-          <Btn
-            variant="pri"
-            icon="check"
-            disabled={pending || !subject.trim() || !day}
-            style={{ flex: 2 }}
-            onClick={() => run(() => actions.saveSlot({ examId: exam.id, slotId: editing.slot?.id ?? null, groupKey: editing.groupKey, subject: subject.trim(), day, start, minutes }), props.onClose)}
-          >
-            {editing.slot ? tx(p("Save change", "बदलाव सहेजें")) : tx(p("Add paper", "पेपर जोड़ें"))}
-          </Btn>
+          </button>
+          <button type="button" className="tap btn pri" disabled={pending || !subject.trim() || !day} onClick={save} style={{ flex: 1.6 }}>
+            <Ic n="check" size={18} />
+            {X || Y ? tx(p("Save change", "बदलाव सहेजें")) : tx(p("Add paper", "पेपर जोड़ें"))}
+          </button>
         </div>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
-          <SecHead>{tx(p("Paper", "पेपर"))}</SecHead>
-          <ChipRow label={tx(p("Paper", "पेपर"))} style={{ flexWrap: "wrap" }}>
-            {[...new Set([...(props.subjects[editing.groupKey] ?? []), ...(subject ? [subject] : [])])].map((s) => (
-              <Chip key={s} on={s === subject} onClick={() => setSubject(s)}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="field">
+          <span>{tx(p("Paper", "पेपर"))}</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {subjectChoices.map((s) => (
+              <button key={s} type="button" className={`tap chip${s === subject ? " on" : ""}`} aria-pressed={s === subject} onClick={() => setSubject(s)}>
                 {s}
-              </Chip>
+              </button>
             ))}
-          </ChipRow>
-        </div>
-        {editing.slot && others.length ? (
-          <div>
-            <SecHead>{tx(p("Or swap days with", "या दिन बदलें"))}</SecHead>
-            <ChipRow label={tx(p("Swap with", "से बदलें"))} style={{ flexWrap: "wrap" }}>
-              {others.map((o) => (
-                <Chip key={o.id} icon="swap" onClick={() => run(() => actions.swapSlots({ examId: exam.id, a: editing.slot!.id, b: o.id }), props.onClose)}>
-                  {o.subject} · {props.days.find((d) => d.day === o.day)?.label ?? o.day}
-                </Chip>
-              ))}
-            </ChipRow>
           </div>
-        ) : null}
-        <div>
-          <SecHead>{tx(p("Day", "दिन"))}</SecHead>
-          <ChipRow label={tx(p("Day", "दिन"))} style={{ flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--mut)" }}>{subNote}</span>
+        </div>
+        <div className="field">
+          <span>{tx(p("Day", "दिन"))}</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {props.days.map((d) => (
-              <Chip key={d.day} on={d.day === day} onClick={() => setDay(d.day)}>
+              <button key={d.day} type="button" className={`tap chip${d.day === day ? " on" : ""}`} aria-pressed={d.day === day} onClick={() => setDay(d.day)}>
                 {d.label}
-                {busyDays.has(d.day) ? <span style={{ width: 6, height: 6, borderRadius: 3, background: "var(--warn)", display: "inline-block" }} /> : null}
-              </Chip>
+                <span style={{ width: 7, height: 7, borderRadius: 4, background: busyDays.has(d.day) ? (d.day === day ? "var(--prifg)" : "var(--warn)") : "transparent" }} />
+              </button>
             ))}
-          </ChipRow>
+          </div>
         </div>
-        <div>
-          <SecHead>{tx(p("Starts at", "शुरू"))}</SecHead>
-          <ChipRow label={tx(p("Starts at", "शुरू"))} style={{ flexWrap: "wrap" }}>
+        <div className="field">
+          <span>{tx(p("Starts at", "शुरू"))}</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {times.map((t) => (
-              <Chip key={t} on={t === start} onClick={() => setStart(t)}>
-                {t}
-              </Chip>
+              <button key={t} type="button" className={`tap chip${t === start ? " on" : ""}`} aria-pressed={t === start} onClick={() => setStart(t)}>
+                {label(t)}
+              </button>
             ))}
-          </ChipRow>
+          </div>
         </div>
-        <div>
-          <SecHead>{tx(p("How long", "कितनी देर"))}</SecHead>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Stepper value={minutes / 15} min={1} max={16} onChange={(v) => setMinutes(v * 15)} label={tx(p("quarter hours", "पंद्रह मिनट"))} />
-            <strong>{lengthLabel(minutes)}</strong>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>
-              {tx(p("Ends at", "समाप्त"))} {endOf({ start, minutes })}
+        <div className="field">
+          <span>{tx(p("How long", "कितनी देर"))}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button type="button" className="tap btn sec" aria-label={tx(p("Shorter by 15 minutes", "15 मिनट कम"))} disabled={minutes <= 30} onClick={() => setMinutes(Math.max(30, minutes - 15))} style={{ width: 44, padding: 0 }}>
+              <Ic n="minus" size={18} />
+            </button>
+            <b className="num" style={{ minWidth: 104, textAlign: "center", fontSize: 17 }}>{lengthLabel(minutes)}</b>
+            <button type="button" className="tap btn sec" aria-label={tx(p("Longer by 15 minutes", "15 मिनट ज़्यादा"))} disabled={minutes >= 240} onClick={() => setMinutes(Math.min(240, minutes + 15))} style={{ width: 44, padding: 0 }}>
+              <Ic n="plus" size={18} />
+            </button>
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>
+              {tx(p("Ends at", "समाप्त"))} {clockShort(endOf({ start, minutes }))}
             </span>
           </div>
         </div>
-        {sameDay.length ? (
-          <Banner tone="bad">
-            {tx(p(`${GROUP_LABELS[editing.groupKey].en} will have ${sameDay.length + 1} papers that day (${sameDay.map((s) => s.subject).join(", ")} is already there).`, `${GROUP_LABELS[editing.groupKey].hi} के उस दिन ${sameDay.length + 1} पेपर होंगे (${sameDay.map((s) => s.subject).join(", ")} पहले से है)।`))}
-          </Banner>
+        <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: sameDay.length ? "var(--bads)" : "var(--oks)", color: sameDay.length ? "var(--bad)" : "var(--ok)", animation: sameDay.length ? "xShake .4s ease" : undefined }}>
+          <Ic n={sameDay.length ? "alert" : "checkCircle"} size={18} style={{ flex: "none", marginTop: 1 }} />
+          <span>
+            {sameDay.length
+              ? tx(p(`${GROUP_LABELS[editing.groupKey].en} will have ${sameDay.length + 1} papers on ${dayLong(day)} (${sameDay.map((s) => s.subject).join(", ")} is already there).`, `${GROUP_LABELS[editing.groupKey].hi} के ${dayLong(day)} को ${sameDay.length + 1} पेपर होंगे (${sameDay.map((s) => s.subject).join(", ")} पहले से है)।`))
+              : tx(p(`No clash · one paper that day for ${GROUP_LABELS[editing.groupKey].en}.`, `कोई टकराव नहीं · ${GROUP_LABELS[editing.groupKey].hi} का उस दिन एक पेपर।`))}
+          </span>
+        </div>
+        {X ? (
+          <button type="button" className="tap btn ghost" disabled={pending} onClick={() => run(() => actions.deleteSlot({ examId: exam.id, slotId: X.id }), props.onClose)} style={{ alignSelf: "flex-start", color: "var(--bad)" }}>
+            <Ic n="trash" size={17} />
+            {tx(p("Remove this paper", "यह पेपर हटाएँ"))}
+          </button>
         ) : null}
       </div>
     </Sheet>
@@ -677,51 +847,63 @@ function SlotSheet(props: PlanProps & { editing: { slot: Slot | null; groupKey: 
 
 /* ---------------------------------------------------------- seating */
 
+/** Seat colours (the design's PC): first class teal, second amber. */
+const SEAT_TONE = [
+  { bg: "var(--accs)", fg: "var(--accfg)", bd: "var(--acc)" },
+  { bg: "var(--warns)", fg: "var(--warnfg)", bd: "var(--warn)" },
+];
+
 function Seating(props: PlanProps & { href: (v: PlanView, extra?: string) => string; pending: boolean; run: Run }) {
   const { tx } = useVx();
   const { rooms, seated, totalChildren, exam, actions, run, pending } = props;
   const capacity = rooms.reduce((a, r) => a + r.seats, 0);
+  const done = seated > 0 && seated >= totalChildren;
   return (
     <>
-      <Card style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-        <Ring value={seated} max={Math.max(1, totalChildren)} size={88} stroke={9} tone="var(--ok)">
-          <span style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <strong className="num" style={{ fontSize: 18 }}>{seated}</strong>
-            <span style={{ fontSize: 11, color: "var(--mut)" }}>
-              {tx(p(`of ${totalChildren}`, `${totalChildren} में से`))}
-            </span>
-          </span>
-        </Ring>
-        <span style={{ flex: "1 1 260px", display: "flex", flexDirection: "column", gap: 4 }}>
-          <strong className="serif" style={{ fontSize: 22 }}>{seated ? tx(p(`${seated} children have a seat`, `${seated} बच्चों की सीट तय`)) : tx(p("Seating not made yet", "बैठक अभी नहीं बनी"))}</strong>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>
-            {tx(p(`${rooms.length} rooms · ${capacity} seats · two classes per room in alternate seats, by roll number.`, `${rooms.length} कमरे · ${capacity} सीटें · एक कमरे में दो कक्षाएँ, बारी-बारी, रोल नंबर से।`))}
+      <div className="card" style={{ padding: "18px 20px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
+        <span style={{ flex: "none", width: 52, height: 52, borderRadius: 15, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Ic n="grid" size={24} />
+        </span>
+        <span style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(p("Seat by roll numbers · two classes per room", "रोल नंबर से बैठक · एक कमरे में दो कक्षाएँ"))}</span>
+          <span style={{ fontSize: 12, lineHeight: 1.5, color: "var(--mut)" }}>{tx(p("Two classes sit in alternate columns, so no child sits next to a classmate.", "दो कक्षाएँ बारी-बारी कॉलम में, ताकि कोई बच्चा अपने सहपाठी के पास न बैठे।"))}</span>
+          <span className="num" style={{ fontSize: 13, fontWeight: 700, color: done ? "var(--ok)" : "var(--fg)" }}>
+            {tx(p(`${seated} of ${totalChildren} seated · ${capacity} seats in ${rooms.length} rooms`, `${totalChildren} में ${seated} बैठे · ${rooms.length} कमरों में ${capacity} सीटें`))}
           </span>
           {capacity < totalChildren ? <span style={{ fontSize: 13, color: "var(--bad)" }}>{tx(p(`${totalChildren - capacity} more seats are needed — add a room.`, `${totalChildren - capacity} सीटें और चाहिए — कमरा जोड़ें।`))}</span> : null}
         </span>
-        <Btn variant="pri" icon="zap" disabled={pending} onClick={() => run(() => actions.fillSeating({ examId: exam.id }))}>
-          {seated ? tx(p("Fill again", "फिर से भरें")) : tx(p("Fill seating", "बैठक भरें"))}
-        </Btn>
-      </Card>
-      <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12 }}>
-        {rooms.map((r) => (
-          <Link key={r.id} href={props.href("room", `&room=${r.id}`)} className="card tap lift" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8, color: "inherit", textDecoration: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <IconTile icon="door" tone={r.used ? "info" : "mut"} size={34} />
-              <strong style={{ flex: 1 }}>{r.name}</strong>
-              <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>
-                {r.used}/{r.seats}
+        {done ? (
+          <span className="mfull" style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: "var(--ok)" }}>
+            <Ic n="checkCircle" size={18} />
+            {tx(p("Everyone has a seat", "सबकी सीट तय"))}
+            <Btn variant="ghost" icon="refresh" disabled={pending} onClick={() => run(() => actions.fillSeating({ examId: exam.id }))} style={{ height: 36, marginLeft: "auto" }}>
+              {tx(p("Redo", "फिर से"))}
+            </Btn>
+          </span>
+        ) : (
+          <button type="button" className="tap btn pri mfull" disabled={pending} onClick={() => run(() => actions.fillSeating({ examId: exam.id }))} style={{ height: 48, fontSize: 15 }}>
+            <Ic n="zap" size={18} />
+            {seated ? tx(p("Seat everyone again", "फिर से सबको बैठाएँ")) : tx(p("Seat everyone", "सबको बैठाएँ"))}
+          </button>
+        )}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 12 }}>
+        {rooms.map((r, i) => (
+          <Link key={r.id} href={props.href("room", `&room=${r.id}`)} className="card tap lift" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, color: "var(--fg)", textDecoration: "none", animation: `xIn .3s var(--ease) ${Math.min(i * 25, 300)}ms both` }}>
+            <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <b style={{ fontSize: 15 }}>{r.name}</b>
+              <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{r.used}/{r.seats}</span>
+            </span>
+            <span style={{ display: "flex", height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
+              <span style={{ width: `${(r.used / Math.max(1, r.seats)) * 100}%`, height: "100%", background: r.used / Math.max(1, r.seats) > 0.9 ? "var(--c1)" : "var(--c2)", transition: "width .5s var(--ease)" }} />
+            </span>
+            {r.classes.map((c, ci) => (
+              <span key={c.classId} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 4, background: SEAT_TONE[ci % 2].bd }} />
+                {tx(p(`${c.label} · rolls ${c.from}–${c.to}`, `${c.label} · रोल ${c.from}–${c.to}`))}
               </span>
-            </div>
-            <Progress value={r.used} max={r.seats} tone="var(--info)" height={5} />
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {r.classes.length === 0 ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Empty", "खाली"))}</span> : null}
-              {r.classes.map((c, i) => (
-                <Pill key={c.classId} tone={i % 2 ? "warn" : "info"}>
-                  {c.label} · {c.from}–{c.to}
-                </Pill>
-              ))}
-            </div>
+            ))}
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>{r.classes.length === 0 ? tx(p("Not seated yet", "अभी बैठक नहीं")) : r.classes.length > 1 ? tx(p("Two classes · alternate columns", "दो कक्षाएँ · बारी-बारी कॉलम")) : tx(p("One class", "एक कक्षा"))}</span>
           </Link>
         ))}
       </div>
@@ -736,85 +918,91 @@ function RoomChart(props: PlanProps & { href: (v: PlanView, extra?: string) => s
   if (!room) return <EmptyState icon="door" title={tx(p("No rooms yet", "अभी कोई कमरा नहीं"))} />;
   const classOrder = room.classes.map((c) => c.classId);
   const rows = chartRows(props.chart, room.seats, room.cols);
-  const seat = props.chart.find((s) => s.seatNo === picked) ?? null;
+  const fallback = props.chart.find((s) => s.seatNo === room.cols * 1 + Math.min(3, room.cols)) ?? props.chart[0] ?? null;
+  const seat = props.chart.find((s) => s.seatNo === picked) ?? fallback;
+  const where = (n: number) => ({ col: ((n - 1) % room.cols) + 1, row: Math.floor((n - 1) / room.cols) + 1 });
+  const hall = room.seats > 60;
+  const hiName = room.name.replace(/^Room/, "कक्ष").replace(/^Hall$/, "हॉल");
   return (
     <>
-      <ChipRow label={tx(p("Rooms", "कमरे"))}>
-        {props.rooms.map((r) => (
-          <Link key={r.id} href={props.href("room", `&room=${r.id}`)} className={`tap chip${r.id === room.id ? " on" : ""}`}>
+      <div className="hs" style={{ display: "flex", gap: 6 }}>
+        {props.rooms.filter((r) => r.used > 0 || r.id === room.id).map((r) => (
+          <Link key={r.id} href={props.href("room", `&room=${r.id}`)} scroll={false} replace className={`tap chip${r.id === room.id ? " on" : ""}`}>
             {r.name}
           </Link>
         ))}
-      </ChipRow>
-      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 340px", gap: 16, alignItems: "start" }}>
-        <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div>
-            <strong className="serif" style={{ fontSize: 22 }}>{room.name}</strong>
-            <span style={{ display: "block", fontSize: 13, color: "var(--mut)" }}>
-              {tx(p(`${room.used} of ${room.seats} seats`, `${room.seats} में से ${room.used} सीटें`))} · {tx(p("two classes in alternate seats", "दो कक्षाएँ बारी-बारी"))}
+      </div>
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+        <div className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+          <span style={{ display: "flex", flexDirection: "column" }}>
+            <span className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.15 }}>{room.name}</span>
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>
+              {room.used ? tx(p(`${room.used} of ${room.seats} seats · ${room.classes.length > 1 ? "two classes in alternate columns" : "one class"}`, `${room.seats} में ${room.used} सीटें · ${room.classes.length > 1 ? "दो कक्षाएँ बारी-बारी" : "एक कक्षा"}`)) : tx(p("Spare room · nobody seated", "खाली कमरा · कोई नहीं"))}
             </span>
-          </div>
-          <div style={{ background: "var(--pri)", color: "var(--onsolid, #fff)", borderRadius: 8, textAlign: "center", padding: 6, fontSize: 13, fontWeight: 600 }}>
-            {tx(p("Blackboard", "ब्लैकबोर्ड"))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${room.cols}, minmax(0,1fr))`, gap: 8 }}>
+          </span>
+          <div style={{ height: 30, borderRadius: 8, background: "var(--nav)", color: "var(--navfg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, letterSpacing: ".04em" }}>Blackboard · ब्लैकबोर्ड</div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${room.cols}, minmax(0,1fr))`, gap: hall ? 4 : 8 }}>
             {rows.flat().map((s, i) => {
-              if (!s) return <span key={`e${i}`} style={{ height: 50, borderRadius: 10, border: "1px dashed var(--bd)" }} />;
-              const tone: Tone = classOrder.indexOf(s.classId) % 2 ? "warn" : "info";
+              if (!s) return <span key={`e${i}`} style={{ height: hall ? 30 : 50, borderRadius: 9, border: "1.5px dashed var(--bd)" }} />;
+              const tone = SEAT_TONE[classOrder.indexOf(s.classId) % 2 === 1 ? 1 : 0];
+              const on = seat?.seatNo === s.seatNo;
               return (
                 <button
                   key={s.seatNo}
                   type="button"
                   className="tap"
+                  aria-label={tx(p(`Seat ${s.seatNo} · ${s.classLabel} · roll ${s.roll ?? "—"}`, `सीट ${s.seatNo} · ${s.classLabel} · रोल ${s.roll ?? "—"}`))}
                   onClick={() => setPicked(s.seatNo)}
-                  style={{ height: 50, borderRadius: 10, border: `1.5px solid ${picked === s.seatNo ? "var(--fg)" : `var(--${tone})`}`, background: `var(--${tone}s)`, color: toneFg(tone), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                  style={{ height: hall ? 30 : 50, minWidth: 0, padding: 0, borderRadius: 9, border: `${on ? 2 : 1.5}px solid ${on ? "var(--fg)" : tone.bd}`, background: tone.bg, color: tone.fg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05, cursor: "pointer", animation: `xPopIn .35s var(--spring) ${Math.min(i * 8, 300)}ms both` }}
                 >
-                  <strong className="num" style={{ fontSize: 16 }}>{s.roll ?? "—"}</strong>
-                  <span style={{ fontSize: 10 }}>{s.classLabel.replace("Class ", "")}</span>
+                  <b className="num" style={{ fontSize: hall ? 11 : 16 }}>{s.roll ?? "—"}</b>
+                  {hall ? null : <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.75 }}>{s.classLabel.replace(/^Class\s+/, "")}</span>}
                 </button>
               );
             })}
           </div>
-          <div style={{ display: "flex", fontSize: 12, color: "var(--mut)" }}>
-            <span style={{ flex: 1 }}>
-              <Ic n="door" size={14} /> {tx(p("Door", "दरवाज़ा"))}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--mut)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Ic n="door" size={15} /> {tx(p("Door", "दरवाज़ा"))}
             </span>
-            <span>
-              {room.seats} {tx(p("seats", "सीटें"))} · {room.cols} {tx(p("across", "पंक्ति में"))}
-            </span>
+            <span className="num">{tx(p(`${room.seats} seats · ${room.cols} columns × ${Math.ceil(room.seats / room.cols)} rows`, `${room.seats} सीटें · ${room.cols} कॉलम × ${Math.ceil(room.seats / room.cols)} पंक्तियाँ`))}</span>
           </div>
           {seat ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "var(--s2)" }}>
-              <Ic n="user" size={16} />
-              {tx(p(`Seat ${seat.seatNo} · ${seat.classLabel} · Roll ${seat.roll ?? "—"}`, `सीट ${seat.seatNo} · ${seat.classLabel} · रोल ${seat.roll ?? "—"}`))}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, background: "var(--s2)" }}>
+              <Ic n="user" size={18} />
+              <span style={{ flex: 1 }}>{tx(p(`Column ${where(seat.seatNo).col}, row ${where(seat.seatNo).row} · ${seat.classLabel} · Roll ${seat.roll ?? "—"}`, `कॉलम ${where(seat.seatNo).col}, पंक्ति ${where(seat.seatNo).row} · ${seat.classLabel} · रोल ${seat.roll ?? "—"}`))}</span>
             </div>
           ) : null}
-        </Card>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <SecHead>{tx(p("Door list", "दरवाज़े पर सूची"))}</SecHead>
-            <strong className="serif" style={{ fontSize: 22 }}>
-              {room.name.replace("Room", "कक्ष")} · {room.name}
-            </strong>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 8, borderStyle: "dashed", borderWidth: 1.5 }}>
+            <span className="sech">Door list · दरवाज़े पर</span>
+            <span className="serif" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.1 }}>
+              {hiName} · {room.name}
+            </span>
             {room.classes.map((c, i) => (
-              <div key={c.classId} style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 8, borderTop: i ? "1px solid var(--bd)" : undefined }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: `var(--${i % 2 ? "warn" : "info"})` }} />
+              <div key={c.classId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i ? "1px solid var(--bd)" : undefined }}>
+                <span style={{ width: 12, height: 12, borderRadius: 4, background: SEAT_TONE[i % 2].bd }} />
                 <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                  <strong>
-                    {c.label} · {tx(p("rolls", "रोल"))} {c.from}–{c.to}
-                  </strong>
+                  <b>{`${c.label.replace(/^Class\s+/, "कक्षा ")} · रोल ${c.from}–${c.to}`}</b>
+                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{`${c.label} · rolls ${c.from} to ${c.to}`}</span>
                 </span>
-                <strong className="num">{c.count}</strong>
+                <b className="num">{c.count}</b>
               </div>
             ))}
             {room.classes.length === 0 ? <span style={{ color: "var(--mut)", fontSize: 13 }}>{tx(p("Nobody sits here yet.", "यहाँ अभी कोई नहीं बैठता।"))}</span> : null}
             <span style={{ fontSize: 12, color: "var(--mut)" }}>
               {tx(props.exam.name)} · {props.exam.dates} · {tx(p("reach by", "पहुँचें"))} {props.exam.reportingTime}
             </span>
-          </Card>
-          <Btn variant="pri" icon="printer" onClick={() => window.print()}>
-            {tx(p("Print room chart", "कक्ष चार्ट छापें"))}
-          </Btn>
+          </div>
+          <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 }}>
+            <Btn variant="pri" icon="printer" onClick={() => window.print()}>
+              {tx(p("Print room chart", "कक्ष चार्ट छापें"))}
+            </Btn>
+            <Btn variant="sec" icon="door" onClick={() => window.print()}>
+              {tx(p("Print door list", "दरवाज़े की सूची छापें"))}
+            </Btn>
+          </div>
         </div>
       </div>
     </>
@@ -826,112 +1014,160 @@ function RoomChart(props: PlanProps & { href: (v: PlanView, extra?: string) => s
 function Duties(props: PlanProps & { pending: boolean; run: Run }) {
   const { tx } = useVx();
   const { teachers, duties, dutyDays, rooms, spread, exam, actions, run, pending } = props;
-  const short = (id: string) => {
+  const short = (id: string, m = false) => {
     const name = rooms.find((r) => r.id === id)?.name ?? "—";
-    return name.replace(/^Room\s*/i, "R");
+    if (/^hall$/i.test(name)) return m ? "H" : "Hall";
+    return name.replace(/^Room\s*/i, m ? "" : "R");
   };
   const count = new Map<string, number>();
   for (const d of duties) count.set(d.staffId, (count.get(d.staffId) ?? 0) + 1);
   const max = Math.max(1, ...count.values());
   const roomsUsed = new Set(duties.map((d) => d.roomId)).size;
+  const perDay = dutyDays.map((d) => duties.filter((x) => x.day === d.day).length);
+  const need = rooms.filter((r) => r.used > 0).length;
+  const span = Math.max(1, spread.max);
+  const cols = `230px repeat(${dutyDays.length},minmax(0,1fr)) 96px`;
   return (
     <>
-      <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 14 }}>
-        <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "flex-start" }}>
-            <span style={{ flex: 1 }}>
-              <strong style={{ fontSize: 16 }}>{tx(p("Is it fair?", "क्या बराबर है?"))}</strong>
-              <span style={{ display: "block", fontSize: 13, color: "var(--mut)" }}>{tx(p("How many duties each teacher has", "हर शिक्षक की कितनी ड्यूटी"))}</span>
-            </span>
-            {duties.length ? <Pill tone={spread.fair ? "ok" : "warn"}>{spread.fair ? tx(p("Fair", "बराबर")) : tx(p("Not fair yet", "अभी बराबर नहीं"))}</Pill> : null}
-          </div>
-          <div style={{ display: "flex", fontSize: 13 }}>
-            <span style={{ flex: 1 }}>
-              {tx(p("Fewest", "सबसे कम"))} <strong>{spread.min}</strong>
-            </span>
-            <span>
-              {tx(p("Most", "सबसे ज़्यादा"))} <strong>{spread.max}</strong>
-            </span>
-          </div>
-          <Progress value={spread.min} max={Math.max(1, spread.max)} tone={spread.fair ? "var(--ok)" : "var(--warn)"} />
-          <Btn variant="pri" icon="zap" disabled={pending} onClick={() => run(() => actions.shareDuties({ examId: exam.id }))}>
-            {tx(p("Share duties fairly", "ड्यूटी बराबर बाँटें"))}
-          </Btn>
-        </Card>
-        <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <strong style={{ fontSize: 16 }}>{tx(p("Rules the app follows", "ऐप के नियम"))}</strong>
-          <div style={{ display: "flex", gap: 10 }}>
-            <IconTile icon="users" tone="ok" size={34} />
+      <style>{`@container vx (max-width:899px){.acad-dm{grid-template-columns:minmax(0,1fr) repeat(${dutyDays.length},30px) 22px!important;gap:4px!important;padding:6px 10px!important}.acad-dm .acad-dc{height:32px!important}}`}</style>
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(0,1fr)", gap: 14 }}>
+        <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
             <span style={{ display: "flex", flexDirection: "column" }}>
-              <strong style={{ fontSize: 14 }}>{tx(p("Every room in use has a guard each day · one per 40 children", "हर उपयोग वाले कमरे में रोज़ निरीक्षक · हर 40 बच्चों पर एक"))}</strong>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                {duties.length} {tx(p("duties", "ड्यूटी"))} · {roomsUsed} {tx(p("rooms", "कमरे"))} · {dutyDays.length} {tx(p("days", "दिन"))}
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(p("Is it fair?", "क्या बराबर है?"))}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("How many duties each teacher has", "हर शिक्षक की कितनी ड्यूटी"))}</span>
+            </span>
+            {duties.length ? <span className="pill" style={{ height: 28, padding: "0 11px", fontSize: 12, background: spread.fair ? "var(--oks)" : "var(--warns)", color: spread.fair ? "var(--ok)" : "var(--warnfg)" }}>{spread.fair ? tx(p("Fair", "बराबर")) : tx(p("Not fair yet", "अभी बराबर नहीं"))}</span> : null}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--mut)" }}>
+              <span>{tx(p("Fewest", "सबसे कम"))} <b className="num" style={{ color: "var(--fg)" }}>{spread.min}</b></span>
+              <span>{tx(p("Most", "सबसे ज़्यादा"))} <b className="num" style={{ color: "var(--fg)" }}>{spread.max}</b></span>
+            </div>
+            <div style={{ display: "flex", height: 12, borderRadius: 6, background: "var(--s3)", overflow: "hidden" }}>
+              <span style={{ width: `${((Math.max(1, spread.min) - 1) / span) * 100}%` }} />
+              <span style={{ width: `${(Math.max(0.6, spread.max - spread.min) / span) * 100}%`, background: spread.max - spread.min <= 1 ? "var(--ok)" : "var(--warn)", borderRadius: 6 }} />
+            </div>
+          </div>
+          <button type="button" className={`tap btn ${spread.fair && duties.length ? "soft" : "pri"}`} disabled={pending} onClick={() => run(() => actions.shareDuties({ examId: exam.id }))} style={{ height: 48, fontSize: 15 }}>
+            <Ic n={spread.fair && duties.length ? "checkCircle" : "zap"} size={18} />
+            {spread.fair && duties.length ? tx(p(`Shared fairly · ${spread.min}${spread.max > spread.min ? ` or ${spread.max}` : ""} each`, `बराबर बँटी · ${spread.min}${spread.max > spread.min ? `–${spread.max}` : ""} हर एक`)) : tx(p("Share duties fairly", "ड्यूटी बराबर बाँटें"))}
+          </button>
+        </div>
+        <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(p("Rules the app follows", "ऐप के नियम"))}</span>
+          {[
+            ["shield", tx(p("No one has two rooms on one day; fewest duties go first", "एक दिन एक ही कमरा; कम ड्यूटी वाले पहले")), tx(p(`${teachers.length} teachers share the duties`, `${teachers.length} शिक्षकों में बँटी`)), "ok"],
+            ["users", tx(p("Every room in use has a guard each day · one per 40 children", "हर उपयोग वाले कमरे में रोज़ निरीक्षक · हर 40 बच्चों पर एक")), tx(p(`${duties.length} duties · ${roomsUsed} rooms · ${dutyDays.length} days`, `${duties.length} ड्यूटी · ${roomsUsed} कमरे · ${dutyDays.length} दिन`)), duties.length ? "ok" : "warn"],
+          ].map(([icon, t, s, tone]) => (
+            <div key={t} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <span style={{ flex: "none", width: 34, height: 34, borderRadius: 11, background: `var(--${tone}s)`, color: tone === "warn" ? "var(--warnfg)" : `var(--${tone})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic n={icon as IconName} size={17} />
               </span>
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <IconTile icon="clock" tone="info" size={34} />
-            <span style={{ display: "flex", flexDirection: "column" }}>
-              <strong style={{ fontSize: 14 }}>{tx(p("No one has two rooms on one day; fewest duties go first", "एक दिन एक ही कमरा; कम ड्यूटी वाले पहले"))}</strong>
-            </span>
-          </div>
-        </Card>
+              <span style={{ display: "flex", flexDirection: "column" }}>
+                <b style={{ fontSize: 13 }}>{t}</b>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{s}</span>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
       {duties.length === 0 ? (
         <Card>
           <EmptyState icon="users" title={tx(p("No duties yet", "अभी कोई ड्यूटी नहीं"))} body={tx(p("Fill the seating, then share duties — it takes a second.", "बैठक भरें, फिर ड्यूटी बाँटें — एक पल लगता है।"))} />
         </Card>
       ) : (
-        <Card pad={false} style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
-            <thead>
-              <tr style={{ background: "var(--s2)" }}>
-                <th style={{ textAlign: "left", padding: "12px 16px", fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--mut)" }}>{tx(p("Teacher", "शिक्षक"))}</th>
-                {dutyDays.map((d) => (
-                  <th key={d.day} style={{ padding: 8, fontSize: 13 }}>
-                    {d.label}
-                  </th>
-                ))}
-                <th style={{ padding: "8px 16px", fontSize: 12, textTransform: "uppercase", color: "var(--mut)", textAlign: "right" }}>{tx(p("Duties", "ड्यूटी"))}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teachers.map((t) => (
-                <tr key={t.id} style={{ borderTop: "1px solid var(--bd)" }}>
-                  <td style={{ padding: "8px 16px" }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <Avatar text={initials(t.name)} bg={avatarColor(t.id)} size={30} />
-                      <span style={{ display: "flex", flexDirection: "column" }}>
-                        <strong style={{ fontSize: 14 }}>{t.name}</strong>
-                        {t.sub ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Class teacher", "कक्षा अध्यापक"))} · {t.sub}</span> : null}
-                      </span>
+        <div className="card" style={{ overflow: "hidden", padding: 0 }}>
+          <div className="acad-dm" style={{ display: "grid", gridTemplateColumns: cols, gap: 8, alignItems: "center", padding: "6px 16px", minHeight: 44, background: "var(--s2)" }}>
+            <span className="sech">{tx(p("Teacher", "शिक्षक"))}</span>
+            {dutyDays.map((d) => (
+              <span key={d.day} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <b style={{ fontSize: 13 }}>{d.label.split(" ")[0]}</b>
+                <span className="num" style={{ fontSize: 11, color: "var(--mut)" }}>{d.label.split(" ")[1] ?? ""}</span>
+              </span>
+            ))}
+            <span className="sech" style={{ textAlign: "right" }}>
+              <span className="hide-m">{tx(p("Duties", "ड्यूटी"))}</span>
+              <span className="only-m">#</span>
+            </span>
+          </div>
+          {teachers.map((t, ti) => {
+            const n = count.get(t.id) ?? 0;
+            const tc = spread.fair ? "var(--ok)" : n > spread.min + 1 || n < spread.max - 1 ? "var(--warn)" : "var(--acc)";
+            const tone = avatarTone(t.name);
+            return (
+              <div key={t.id} className="acad-dm" style={{ display: "grid", gridTemplateColumns: cols, gap: 8, alignItems: "center", padding: "6px 16px", minHeight: 50, borderTop: "1px solid var(--bd)", animation: `xIn .3s var(--ease) ${Math.min(ti * 25, 200)}ms both` }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                  <span className="hide-m" style={{ flex: "none", width: 34, height: 34, borderRadius: 17, background: tone.bg, color: tone.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
+                    {t.name.split(" ").slice(-1)[0].slice(0, 2)}
+                  </span>
+                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <span className="clip" style={{ fontWeight: 600 }}>{t.name}</span>
+                    {t.sub ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p(`Class teacher · ${t.sub}`, `कक्षा अध्यापक · ${t.sub}`))}</span> : null}
+                  </span>
+                </span>
+                {dutyDays.map((d) => {
+                  const duty = duties.find((x) => x.staffId === t.id && x.day === d.day);
+                  return (
+                    <span key={d.day} className="acad-dc" style={{ height: 34, minWidth: 0, borderRadius: 9, border: `1.5px solid ${duty ? "transparent" : "var(--bd)"}`, background: duty ? "var(--accs)" : "var(--card)", color: duty ? "var(--accfg)" : "var(--sub)", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span className="only-d">{duty ? short(duty.roomId) : "·"}</span>
+                      <span className="only-m">{duty ? short(duty.roomId, true) : "·"}</span>
                     </span>
-                  </td>
-                  {dutyDays.map((d) => {
-                    const duty = duties.find((x) => x.staffId === t.id && x.day === d.day);
-                    return (
-                      <td key={d.day} style={{ padding: 4 }}>
-                        <span style={{ display: "block", textAlign: "center", padding: "8px 4px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: duty ? "var(--infos)" : "transparent", color: duty ? "var(--info)" : "var(--mut)", border: duty ? "none" : "1px solid var(--bd)" }}>
-                          {duty ? short(duty.roomId) : "·"}
-                        </span>
-                      </td>
-                    );
-                  })}
-                  <td style={{ padding: "8px 16px", width: 110 }}>
-                    <strong className="num" style={{ display: "block", textAlign: "right" }}>{count.get(t.id) ?? 0}</strong>
-                    <Progress value={count.get(t.id) ?? 0} max={max} tone="var(--warn)" height={4} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+                  );
+                })}
+                <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  <b className="num" style={{ color: tc }}>{n}</b>
+                  <span className="hide-m" style={{ display: "flex", width: "100%", height: 5, borderRadius: 3, background: "var(--s3)", overflow: "hidden" }}>
+                    <span style={{ width: `${(n / max) * 100}%`, background: tc }} />
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+          <div className="acad-dm" style={{ display: "grid", gridTemplateColumns: cols, gap: 8, alignItems: "center", padding: "6px 16px", minHeight: 42, background: "var(--s2)", borderTop: "1px solid var(--bd)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{tx(p(`Guards given · ${need} a day`, `निरीक्षक · रोज़ ${need}`))}</span>
+            {perDay.map((n, i) => (
+              <span key={i} className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "center", color: n >= need ? "var(--ok)" : "var(--warnfg)" }}>
+                {n}/{need}
+              </span>
+            ))}
+            <span className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right" }}>{duties.length}/{need * dutyDays.length}</span>
+          </div>
+        </div>
       )}
+      <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("The box shows the room (H = Hall). Share again to rebalance after a change.", "खाने में कमरा है (H = हॉल)। बदलाव के बाद फिर से बाँटें।"))}</span>
     </>
   );
 }
 
+function avatarTone(name: string): { bg: string; fg: string } {
+  const tones = [
+    ["var(--infos)", "var(--info)"],
+    ["var(--warns)", "var(--warnfg)"],
+    ["var(--accs)", "var(--accfg)"],
+    ["var(--oks)", "var(--ok)"],
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  const [bg, fg] = tones[h % tones.length];
+  return { bg, fg };
+}
+
 /* ----------------------------------------------------------- papers */
+
+const QP_LOOK: Record<QpStatus, { bg: string; fg: string; icon: IconName }> = {
+  waiting: { bg: "var(--s3)", fg: "var(--mut)", icon: "edit" },
+  received: { bg: "var(--infos)", fg: "var(--info)", icon: "inbox" },
+  checked: { bg: "var(--accs)", fg: "var(--accfg)", icon: "check" },
+  printed: { bg: "var(--warns)", fg: "var(--warnfg)", icon: "printer" },
+};
+
+/** Three letters a phone tile can hold, as the paper tracker shows them. */
+function subjectCode(subject: string): string {
+  const name = subject.split(" · ")[0].trim();
+  const known: Record<string, string> = { Computer: "Cmp", "Social Sci.": "SSc", "Social Science": "SSc", Science: "Sci", Drawing: "Drw", Accountancy: "Acc", Economics: "Eco" };
+  return known[name] ?? name.replace(/[^A-Za-z]/g, "").slice(0, 3);
+}
 
 function Papers(props: PlanProps & { onOpen: (slotId: string) => void; onRemind: () => void }) {
   const { tx } = useVx();
@@ -940,190 +1176,212 @@ function Papers(props: PlanProps & { onOpen: (slotId: string) => void; onRemind:
   const statusOf = (slotId: string): QpStatus => papers.find((x) => x.slotId === slotId)?.status ?? "waiting";
   const received = slots.filter((s) => statusOf(s.id) !== "waiting").length;
   const waitingSetters = new Set(papers.filter((x) => x.status === "waiting" && x.setterId).map((x) => x.setterId)).size;
+  const L = Math.max(0.5, (263.9 * received) / Math.max(1, slots.length));
   return (
     <>
-      <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 14 }}>
-        <Card style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Ring value={received} max={Math.max(1, slots.length)} size={86} stroke={9} tone="var(--acc)">
-            <span style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <strong className="num" style={{ fontSize: 20 }}>{received}</strong>
-              <span style={{ fontSize: 11, color: "var(--mut)" }}>
-                {tx(p(`of ${slots.length}`, `${slots.length} में से`))}
-              </span>
+      <style>{`.acad-pm{grid-template-columns:130px repeat(6,minmax(0,1fr))}@container vx (max-width:899px){.acad-pm{grid-template-columns:66px repeat(6,minmax(0,1fr))!important;gap:4px!important;padding:6px 10px!important}.acad-pm .acad-pq{height:36px!important;font-size:11px!important;padding:0 2px!important}}`}</style>
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)", gap: 14 }}>
+        <div className="card" style={{ padding: "16px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
+          <div style={{ position: "relative", flex: "none", width: 84, height: 84 }}>
+            <svg width={84} height={84} viewBox="0 0 100 100" aria-hidden="true">
+              <circle cx={50} cy={50} r={42} fill="none" stroke="var(--s3)" strokeWidth={11} />
+              <circle cx={50} cy={50} r={42} fill="none" stroke="var(--acc)" strokeWidth={11} strokeLinecap="round" strokeDasharray={`${L.toFixed(1)} 263.9`} style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", ["--len" as string]: L.toFixed(1), animation: "xDraw .9s var(--ease) both" }} />
+            </svg>
+            <span style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <b className="num" style={{ fontSize: 20, lineHeight: 1 }}>{received}</b>
+              <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx(p(`of ${slots.length}`, `${slots.length} में`))}</span>
             </span>
-          </Ring>
-          <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-            <strong>{tx(p(`${received} of ${slots.length} papers received`, `${slots.length} में से ${received} पेपर आए`))}</strong>
-            <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          </div>
+          <span style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
+            <span style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{tx(p(`${received} of ${slots.length} papers received`, `${slots.length} में से ${received} पेपर आए`))}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Each paper on the date sheet needs a question paper.", "डेट शीट के हर पेपर का प्रश्न पत्र चाहिए।"))}</span>
+            </span>
+            <span style={{ display: "flex", gap: 4 }}>
               {(Object.keys(QP_WORDS) as QpStatus[]).map((s) => (
-                <Pill key={s} tone={QP_WORDS[s].tone}>
-                  {slots.filter((x) => statusOf(x.id) === s).length} {tx(QP_WORDS[s].label)}
-                </Pill>
+                <span key={s} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 2px", borderRadius: 10, background: QP_LOOK[s].bg }}>
+                  <b className="num" style={{ fontSize: 17, color: QP_LOOK[s].fg }}>{slots.filter((x) => statusOf(x.id) === s).length}</b>
+                  <span className="clip" style={{ maxWidth: "100%", fontSize: 11, textAlign: "center", color: QP_LOOK[s].fg }}>{tx(QP_WORDS[s].label)}</span>
+                </span>
               ))}
             </span>
           </span>
-        </Card>
-        <Card style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <IconTile icon="bell" tone="warn" size={40} />
-          <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <strong>{tx(p(`${waitingSetters} teachers still setting papers`, `${waitingSetters} शिक्षक पेपर बना रहे हैं`))}</strong>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("One gentle reminder each, with their list", "हर किसी को उसकी सूची के साथ एक याद"))}</span>
+        </div>
+        <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--warns)", color: "var(--warnfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Ic n="bell" size={18} />
+            </span>
+            <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <b>{tx(p(`${waitingSetters} ${waitingSetters === 1 ? "teacher" : "teachers"} still setting papers`, `${waitingSetters} शिक्षक पेपर बना रहे हैं`))}</b>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("One gentle reminder each, with their list", "हर किसी को उसकी सूची के साथ एक याद"))}</span>
+            </span>
           </span>
-          <Btn variant="pri" icon="send" disabled={waitingSetters === 0} onClick={props.onRemind}>
-            {tx(p("Remind", "याद दिलाएँ"))}
-          </Btn>
-        </Card>
+          <button type="button" className="tap btn pri" disabled={waitingSetters === 0} onClick={props.onRemind} style={{ height: 48, fontSize: 15 }}>
+            <Ic n="send" size={18} />
+            {tx(p(`Remind ${waitingSetters} ${waitingSetters === 1 ? "teacher" : "teachers"}`, `${waitingSetters} शिक्षकों को याद दिलाएँ`))}
+          </button>
+        </div>
       </div>
-      <ChipRow label={tx(p("Filter", "छाँटें"))}>
-        <Chip on={filter === "all"} onClick={() => setFilter("all")} count={slots.length}>
-          {tx(p("All", "सभी"))}
-        </Chip>
-        {(Object.keys(QP_WORDS) as QpStatus[]).map((s) => (
-          <Chip key={s} on={filter === s} onClick={() => setFilter(s)} count={slots.filter((x) => statusOf(x.id) === s).length}>
-            {tx(QP_WORDS[s].label)}
-          </Chip>
+      <div className="hs" style={{ display: "flex", gap: 6 }}>
+        {[["all", tx(p("All", "सभी")), slots.length, "var(--bds)"] as const, ...(Object.keys(QP_WORDS) as QpStatus[]).map((s) => [s, tx(QP_WORDS[s].label), slots.filter((x) => statusOf(x.id) === s).length, s === "waiting" ? "var(--bds)" : QP_LOOK[s].fg] as const)].map(([key, label, n, dot]) => (
+          <button key={key} type="button" className={`tap chip${filter === key ? " on" : ""}`} aria-pressed={filter === key} onClick={() => setFilter(key as QpStatus | "all")}>
+            <span style={{ width: 8, height: 8, borderRadius: 4, background: filter === key ? "var(--prifg)" : dot }} />
+            {label}
+            <span className="num" style={{ opacity: 0.7 }}>{n}</span>
+          </button>
         ))}
-      </ChipRow>
-      <Card pad={false}>
-        {bands.map((b) => {
-          const list = slots.filter((s) => s.groupKey === b.key && (filter === "all" || statusOf(s.id) === filter));
-          if (!list.length) return null;
-          return (
-            <div key={b.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderTop: "1px solid var(--bd)", flexWrap: "wrap" }}>
-              <strong style={{ width: 120 }}>{tx(b.label)}</strong>
-              <span style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {list.map((s) => {
-                  const st = statusOf(s.id);
-                  const setter = papers.find((x) => x.slotId === s.id)?.setterName;
-                  return (
-                    <button key={s.id} type="button" className="tap" onClick={() => props.onOpen(s.id)} title={setter ?? undefined} style={{ padding: "6px 10px", borderRadius: 9, border: "none", background: toneBg(QP_WORDS[st].tone), color: toneFg(QP_WORDS[st].tone), fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                      {s.subject}
-                      {st === "printed" ? " ✓" : ""}
-                    </button>
-                  );
-                })}
-              </span>
+      </div>
+      <div className="card" style={{ overflow: "hidden", padding: 0 }}>
+        {bands.flatMap((b) => {
+          const list = slots.filter((s) => s.groupKey === b.key);
+          const rows: Slot[][] = [];
+          for (let i = 0; i < list.length; i += 6) rows.push(list.slice(i, i + 6));
+          return rows.map((row, ri) => (
+            <div key={`${b.key}${ri}`} className="acad-pm" style={{ display: "grid", gap: 6, alignItems: "center", padding: "6px 14px", minHeight: 50, borderTop: "1px solid var(--bd)" }}>
+              <b className="clip">
+                <span className="only-d">{ri === 0 ? tx(b.label) : ""}</span>
+                <span className="only-m">{ri === 0 ? (b.key === "pre" ? tx(p("Pre-pri.", "पूर्व-प्रा.")) : b.key.slice(1).replace("_", "–")) : ""}</span>
+              </b>
+              {row.map((s) => {
+                const st = statusOf(s.id);
+                const look = QP_LOOK[st];
+                const shown = filter === "all" || filter === st;
+                const setter = papers.find((x) => x.slotId === s.id)?.setterName;
+                return (
+                  <button key={s.id} type="button" className="tap acad-pq" aria-label={`${tx(b.label)} ${s.subject} · ${tx(QP_WORDS[st].label)}${setter ? ` · ${setter}` : ""}`} onClick={() => props.onOpen(s.id)} style={{ height: 38, minWidth: 0, borderRadius: 10, border: 0, background: look.bg, color: look.fg, opacity: shown ? 1 : 0.25, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 12, fontWeight: 700, padding: "0 6px", cursor: "pointer" }}>
+                    <span className="hide-m" style={{ display: "flex" }}>
+                      <Ic n={look.icon} size={14} />
+                    </span>
+                    <span className="clip only-d">{s.subject.split(" · ")[0]}</span>
+                    <span className="only-m">{subjectCode(s.subject)}</span>
+                  </button>
+                );
+              })}
             </div>
-          );
+          ));
         })}
         {slots.length === 0 ? <EmptyState icon="file" title={tx(p("Make the date sheet first — each paper on it needs a question paper.", "पहले डेट शीट बनाएँ — उसके हर पेपर का प्रश्न पत्र चाहिए।"))} /> : null}
-      </Card>
+      </div>
     </>
   );
 }
 
 /* ---------------------------------------------------------- publish */
 
+/** The printed date sheet carries both names, as the design and the notice board do. */
+const SCHOOL = p("Shri Veer Patta Sr. Sec. School, Amet", "श्री वीर पत्ता सीनियर सेकेंडरी स्कूल, आमेट");
+
 function Publish(props: PlanProps & { href: (v: PlanView, extra?: string) => string; pending: boolean; run: Run }) {
   const { tx } = useVx();
   const toast = useToast();
   const { exam, slots, bands, days, clashes, actions, run, pending } = props;
   const [format, setFormat] = useState<"image" | "pdf">("image");
-  const parentText = [
-    "प्रिय अभिभावक,",
-    `${exam.name.hi ?? exam.name.en} (${exam.dates}) का परीक्षा कार्यक्रम संलग्न है। बच्चे सुबह ${exam.reportingTime} बजे तक स्कूल पहुँचें।`,
-    "",
-    `Dear parent, the ${exam.name.en} date sheet (${exam.dates}) is attached. Children should reach school by ${exam.reportingTime}.`,
-  ];
-  const teacherText = [
-    "नमस्ते,",
-    `${exam.name.hi ?? exam.name.en} का परीक्षा कार्यक्रम संलग्न है। अपने प्रश्न पत्र समय पर जमा करें।`,
-    "",
-    `The ${exam.name.en} date sheet is attached. Please hand in your question papers on time.`,
-    `— ${props.fromName}`,
-  ];
+  const parentHi = `प्रिय अभिभावक,\n${exam.name.hi ?? exam.name.en} (${exam.dates}) का परीक्षा कार्यक्रम संलग्न है। बच्चे सुबह ${exam.reportingTime} तक स्कूल पहुँचें।`;
+  const parentEn = `Dear parent, the ${exam.name.en} date sheet (${exam.dates}) is attached. Children should reach school by ${exam.reportingTime}.`;
+  const teacherHi = `नमस्ते,\n${exam.name.hi ?? exam.name.en} का परीक्षा कार्यक्रम संलग्न है। अपने प्रश्न पत्र समय पर जमा करें।\n— ${props.fromName}`;
+  const teacherEn = `The ${exam.name.en} date sheet is attached. Please hand in your question papers on time. — ${props.fromName}`;
   const usedDays = days.filter((d) => slots.some((s) => s.day === d.day) || !d.outside);
+  const bubble = (to: string, att: string, attIcon: IconName, hi: string, en: string) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 12, borderRadius: 16, background: "var(--wabg)" }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--wafg)", opacity: 0.7 }}>{to}</span>
+      <div style={{ alignSelf: "flex-start", maxWidth: "94%", padding: "9px 12px 5px", borderRadius: "4px 14px 14px 14px", background: "var(--wab)", color: "var(--wafg)", lineHeight: 1.5, whiteSpace: "pre-line", fontSize: 13, boxShadow: "0 1px 1px rgba(0,0,0,.08)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 6, borderRadius: 8, background: "rgba(0,0,0,.06)", fontSize: 13, fontWeight: 600 }}>
+          <Ic n={attIcon} size={18} />
+          {att}
+        </div>
+        {hi}
+        <div style={{ marginTop: 6, opacity: 0.78 }}>{en}</div>
+      </div>
+    </div>
+  );
   return (
     <>
       {clashes.length ? (
-        <Banner tone="warn" action={<Btn variant="sec" href={props.href("clash")}>{tx(p("Fix the clash", "टकराव ठीक करें"))}</Btn>}>
-          {tx(p(`${clashes.length} clash still in the date sheet. Parents will see two papers on one day.`, `डेट शीट में ${clashes.length} टकराव बाकी। अभिभावकों को एक दिन दो पेपर दिखेंगे।`))}
-        </Banner>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: "var(--warns)", color: "var(--warnfg)" }}>
+          <Ic n="alert" size={18} />
+          <span style={{ flex: 1, minWidth: 200 }}>{tx(p(`${clashes.length} clash still in the date sheet. Parents will see two papers on one day.`, `डेट शीट में ${clashes.length} टकराव बाकी। अभिभावकों को एक दिन दो पेपर दिखेंगे।`))}</span>
+          <Btn variant="sec" href={props.href("clash")} style={{ height: 36 }}>{tx(p("Fix the clash", "टकराव ठीक करें"))}</Btn>
+        </div>
       ) : null}
       {exam.publishedAt ? <Banner tone="ok">{tx(p("Published. Teachers see it on their timetable.", "प्रकाशित। शिक्षकों को उनकी समय-सारणी में दिखती है।"))}</Banner> : null}
-      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 420px", gap: 16, alignItems: "start" }}>
-        <Card style={{ display: "flex", flexDirection: "column", gap: 12, overflowX: "auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, borderBottom: "2px solid var(--fg)", paddingBottom: 10 }}>
-            <span style={{ width: 44, height: 44, borderRadius: 10, background: "var(--pri)", color: "var(--prifg)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} className="serif">
-              VP
-            </span>
-            <span style={{ display: "flex", flexDirection: "column" }}>
-              <strong className="serif" style={{ fontSize: 18 }}>श्री वीर पत्ता सीनियर सेकेंडरी स्कूल</strong>
-              <span className="serif">{process.env.NEXT_PUBLIC_SCHOOL_NAME ?? "Shri Veer Patta Senior Secondary School"}</span>
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.35fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+        <article className="card" style={{ padding: "24px 26px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 12, borderBottom: "2px solid var(--fg)" }}>
+            <span className="serif" style={{ flex: "none", width: 50, height: 50, borderRadius: 14, background: "#082F49", color: "#F7F6F3", fontSize: 17, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>VP</span>
+            <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>{SCHOOL.hi}</span>
+              <span className="serif" style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25 }}>{SCHOOL.en}</span>
             </span>
           </div>
-          <div style={{ textAlign: "center", padding: 10, borderRadius: 10, background: "var(--s2)" }}>
-            <strong style={{ display: "block" }}>{exam.name.hi ?? exam.name.en} · परीक्षा कार्यक्रम</strong>
-            <span style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--mut)" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: 8, borderRadius: 8, background: "var(--s2)" }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{exam.name.hi ?? exam.name.en} · परीक्षा कार्यक्रम</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--mut)" }}>
               {exam.name.en} · Date sheet · {exam.dates}
             </span>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560, fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "var(--s2)" }}>
-                <th style={{ textAlign: "left", padding: 8 }}>दिनांक / Date</th>
-                {bands.map((b) => (
-                  <th key={b.key} style={{ textAlign: "left", padding: 8 }}>
-                    {b.label.hi}
-                    <br />
-                    <span style={{ fontWeight: 400, color: "var(--mut)" }}>{b.label.en}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {usedDays.map((d) => (
-                <tr key={d.day} style={{ borderTop: "1px solid var(--bd)" }}>
-                  <td style={{ padding: 8, verticalAlign: "top" }}>
-                    <strong>{d.label}</strong>
-                  </td>
-                  {bands.map((b) => {
-                    const here = slots.filter((s) => s.groupKey === b.key && s.day === d.day);
-                    const bad = here.length > 1;
-                    return (
-                      <td key={b.key} style={{ padding: 8, verticalAlign: "top", color: bad ? "var(--bad)" : undefined }}>
-                        {here.length === 0 ? (
-                          <span style={{ color: "var(--mut)" }}>— No paper</span>
-                        ) : (
-                          <>
-                            <strong>{here.map((s) => subjectPair(s.subject).hi ?? s.subject).join(" + ")}</strong>
-                            <br />
-                            <span style={{ color: "var(--mut)" }}>{here.map((s) => s.subject).join(" + ")}</span>
-                          </>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
+          <div style={{ overflow: "hidden", border: "1px solid var(--bds)", borderRadius: 8 }}>
+            <div className="hide-m" style={{ display: "grid", gridTemplateColumns: `96px repeat(${bands.length},minmax(0,1fr))`, gap: 6, padding: "8px 10px", background: "var(--s2)", fontSize: 11, fontWeight: 700, color: "var(--mut)", lineHeight: 1.3 }}>
+              <span style={{ display: "flex", flexDirection: "column" }}>
+                <span>दिनांक</span>
+                <span>Date</span>
+              </span>
+              {bands.map((b) => (
+                <span key={b.key} style={{ display: "flex", flexDirection: "column" }}>
+                  <span>{b.label.hi}</span>
+                  <span>{b.label.en}</span>
+                </span>
               ))}
-            </tbody>
-          </table>
-          <Btn variant="sec" icon="printer" onClick={() => window.print()}>
-            {tx(p("Print the date sheet", "डेट शीट छापें"))}
-          </Btn>
-        </Card>
+            </div>
+            {usedDays.map((d) => (
+              <div key={d.day} style={{ display: "grid", gridTemplateColumns: `96px repeat(${bands.length},minmax(0,1fr))`, gap: 6, padding: "8px 10px", borderTop: "1px solid var(--bd)" }}>
+                <span style={{ display: "flex", flexDirection: "column" }}>
+                  <b style={{ fontSize: 13 }}>{dayHiLong(d.day)}</b>
+                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{dayLong(d.day)}</span>
+                </span>
+                {bands.map((b) => {
+                  const here = slots.filter((s) => s.groupKey === b.key && s.day === d.day);
+                  const bad = here.length > 1;
+                  return (
+                    <span key={b.key} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                      {here.length === 0 ? (
+                        <>
+                          <b style={{ fontSize: 13 }}>—</b>
+                          <span style={{ fontSize: 11, color: "var(--mut)" }}>No paper</span>
+                        </>
+                      ) : (
+                        <>
+                          <b style={{ fontSize: 13, color: bad ? "var(--bad)" : undefined }}>{here.map((s) => subjectHi(s.subject)).join(" + ")}</b>
+                          <span style={{ fontSize: 11, color: "var(--mut)" }}>{here.map((s) => s.subject).join(" + ")}</span>
+                        </>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <span style={{ fontSize: 12, lineHeight: 1.6, color: "var(--mut)" }}>
+            बच्चे {exam.reportingTime} तक पहुँचें।
+            <br />
+            Children reach by {exam.reportingTime}.
+          </span>
+          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 18, fontSize: 12, color: "var(--mut)" }}>
+            <span>{props.fromName} · परीक्षा प्रभारी</span>
+            <span>प्रधानाचार्य</span>
+          </div>
+        </article>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <IconTile icon="grad" tone="info" size={38} />
-              <span style={{ display: "flex", flexDirection: "column" }}>
-                <strong>{tx(p("Send to teachers", "शिक्षकों को भेजें"))}</strong>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Publishing puts it on every teacher's screen · duties go separately", "प्रकाशित करने पर हर शिक्षक की स्क्रीन पर · ड्यूटी अलग से"))}</span>
+          <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic n="users" size={18} />
               </span>
-            </div>
-            <WhatsAppPreview title={tx(p("To teachers", "शिक्षकों को"))} lines={teacherText} />
-            <Btn variant="soft" icon="copy" onClick={() => void navigator.clipboard?.writeText(teacherText.join("\n")).then(() => toast.show({ text: tx(p("Message copied", "संदेश कॉपी हुआ")) }))}>
-              {tx(p("Copy for the staff group", "स्टाफ़ ग्रुप के लिए कॉपी करें"))}
-            </Btn>
-          </Card>
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <IconTile icon="users" tone="acc" size={38} />
-              <span style={{ display: "flex", flexDirection: "column" }}>
-                <strong>{tx(p("Send to parents", "अभिभावकों को भेजें"))}</strong>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Hindi first, English below", "पहले हिंदी, नीचे अंग्रेज़ी"))}</span>
+              <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <b style={{ fontSize: 15 }}>{tx(p("Send to parents", "अभिभावकों को भेजें"))}</b>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Hindi first, English below · approved in Notices before it goes", "पहले हिंदी, नीचे अंग्रेज़ी · सूचनाएँ में मंज़ूरी के बाद"))}</span>
               </span>
-            </div>
+            </span>
             <Seg
               label={tx(p("Format", "रूप"))}
               value={format}
@@ -1133,16 +1391,36 @@ function Publish(props: PlanProps & { href: (v: PlanView, extra?: string) => str
                 { value: "pdf", label: tx(p("PDF · for printing", "PDF · छापने के लिए")) },
               ]}
             />
-            <WhatsAppPreview title={tx(p("To parents", "अभिभावकों को"))} lines={parentText} footer={`📎 Date sheet · ${exam.name.en}.${format === "image" ? "jpg" : "pdf"}`} />
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>
-              {tx(p("Messages to families go from Notices, where each send to parents is approved before it leaves.", "परिवारों को संदेश 'सूचनाएँ' से जाते हैं, जहाँ हर भेजने से पहले मंज़ूरी होती है।"))}
+            {bubble(tx(p("Preview · to parents", "नमूना · अभिभावकों को")), `Date sheet · ${exam.name.en}.${format === "image" ? "jpg" : "pdf"}`, format === "image" ? "image" : "file", parentHi, parentEn)}
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>
+              {tx(p("Messages to families go from Notices, where the count and cost are shown and each send is approved before it leaves.", "परिवारों को संदेश 'सूचनाएँ' से जाते हैं, जहाँ गिनती और खर्च दिखता है और हर भेजने से पहले मंज़ूरी होती है।"))}
             </span>
-            <Btn variant="sec" icon="megaphone" href="/messages">
-              {tx(p("Open Notices", "सूचनाएँ खोलें"))}
+            <Link href="/messages" className="tap btn pri" style={{ height: 48, fontSize: 15 }}>
+              <Ic n="megaphone" size={18} />
+              {tx(p("Open Notices to send", "भेजने के लिए सूचनाएँ खोलें"))}
+            </Link>
+          </div>
+          <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic n="grad" size={18} />
+              </span>
+              <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <b style={{ fontSize: 15 }}>{tx(p("Send to teachers", "शिक्षकों को भेजें"))}</b>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Publishing puts it on every teacher's screen · duties go separately", "प्रकाशित करने पर हर शिक्षक की स्क्रीन पर · ड्यूटी अलग से"))}</span>
+              </span>
+            </span>
+            {bubble(tx(p("Preview · to the staff group", "नमूना · स्टाफ़ ग्रुप को")), `Date sheet · ${exam.name.en}.pdf`, "file", teacherHi, teacherEn)}
+            <Btn variant="soft" icon="copy" onClick={() => void navigator.clipboard?.writeText(`${teacherHi}\n\n${teacherEn}`).then(() => toast.show({ text: tx(p("Message copied", "संदेश कॉपी हुआ")) }))}>
+              {tx(p("Copy for the staff group", "स्टाफ़ ग्रुप के लिए कॉपी करें"))}
             </Btn>
-          </Card>
-          <Btn variant="pri" big icon="upload" disabled={pending || slots.length === 0} onClick={() => run(() => actions.publish({ examId: exam.id }))}>
+          </div>
+          <button type="button" className="tap btn pri" disabled={pending || slots.length === 0} onClick={() => run(() => actions.publish({ examId: exam.id }))} style={{ height: 48, fontSize: 15 }}>
+            <Ic n="upload" size={18} />
             {exam.publishedAt ? tx(p("Publish again", "फिर प्रकाशित करें")) : tx(p("Publish date sheet", "डेट शीट प्रकाशित करें"))}
+          </button>
+          <Btn variant="sec" icon="printer" onClick={() => window.print()}>
+            {tx(p("Print for the notice board", "नोटिस बोर्ड के लिए छापें"))}
           </Btn>
         </div>
       </div>
