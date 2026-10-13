@@ -1,12 +1,13 @@
 import { requireStaff } from "@/platform/auth/current-staff";
-import { roleLabel } from "@/platform/auth/permissions";
+import { permissionsFor, roleLabel, staffPermissions, staffRoles, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
 import { pageTitle } from "@/platform/i18n/page-title";
+import { listStaff } from "@/modules/staff/data/staff-repo";
 import { homeForRole } from "@/vx/nav";
 import { lead } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
-import { Btn, Card } from "@/vx/ui/primitives";
 
-import { StatePanel } from "@/vx/screens/system/state";
+import { DeniedScreen, type DeniedPerson } from "@/vx/screens/system/denied";
+import { deniedPeople, requestAccessHref } from "@/vx/screens/system/logic";
 
 export const runtime = "nodejs";
 
@@ -20,10 +21,9 @@ export async function generateMetadata() {
  * Where `requirePermission()` sends somebody who reached a screen their role
  * does not open (P11 state `denied`).
  *
- * It names the permission and the role rather than saying "denied", because
- * the useful next sentence is the one the staff member says to the admin —
- * "it wants marks:write and I am office" is a request that can be actioned;
- * "it says no" is not. The way back is this role's own Home.
+ * It names the roles that do open it and the people who hold them, rather
+ * than saying "denied", because the useful next sentence is the one the staff
+ * member says to one of them. The way back is this role's own Home.
  */
 export default async function AccessDeniedPage(props: PageProps<"/access-denied">) {
   const staff = await requireStaff();
@@ -32,38 +32,28 @@ export default async function AccessDeniedPage(props: PageProps<"/access-denied"
   const wanted = typeof permission === "string" ? permission : null;
   const home = homeForRole(staff.role);
 
+  // Which roles hold it, by the built-in map (the matrix may differ; the
+  // admin is always among them).
+  const known = wanted && (staffPermissions as readonly string[]).includes(wanted) ? (wanted as StaffPermission) : null;
+  const roles: StaffRole[] = known ? staffRoles.filter((r) => r !== "view_only" && permissionsFor(r).includes(known)) : ["admin"];
+  const staffList = await listStaff().catch(() => []);
+  const people: DeniedPerson[] = deniedPeople(staffList, roles, staff.id).map(({ roleKey, ...person }) => ({ ...person, role: roleLabel(roleKey) }));
+  const requestHref = requestAccessHref(staffList, staff.displayName, wanted, staff.id);
+
   return (
     <VxPage>
-      <TopBar title={lead(TITLE, language)} mBack={home} />
+      <TopBar crumb={lead({ en: "No access", hi: "अनुमति नहीं" }, language)} title={lead(TITLE, language)} mSub={lead({ en: "No access for this role", hi: "इस भूमिका को अनुमति नहीं" }, language)} mBack={home} />
       <main>
         <Section>
-          <StatePanel
-            icon="lock"
-            tone="warn"
-            code="403"
+          <DeniedScreen
             language={language}
-            title={TITLE}
-            body={{ en: "Your role does not include this screen. If you need it for your work, ask the administrator to give your account access.", hi: "आपकी भूमिका में यह स्क्रीन नहीं है। काम के लिए चाहिए तो प्रशासक से अनुमति माँगें।" }}
-            actions={
-              <>
-                <Btn variant="pri" icon="home" href={home}>{lead({ en: "Go to my Home", hi: "मेरे होम पर जाएँ" }, language)}</Btn>
-                <Btn variant="ghost" icon="arrowRight" href="/menu">{lead({ en: "All my screens", hi: "मेरी सब स्क्रीन" }, language)}</Btn>
-              </>
-            }
-          >
-            <Card style={{ width: "100%", textAlign: "left", display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ color: "var(--mut)" }}>{lead({ en: "Your role", hi: "आपकी भूमिका" }, language)}</span>
-                <strong>{lead(roleLabel(staff.role), language)}</strong>
-              </div>
-              {wanted ? (
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, borderTop: "1px solid var(--bd)", paddingTop: 8 }}>
-                  <span style={{ color: "var(--mut)" }}>{lead({ en: "This page needs", hi: "इस पेज के लिए चाहिए" }, language)}</span>
-                  <code style={{ fontSize: 13, overflowWrap: "anywhere" }}>{wanted}</code>
-                </div>
-              ) : null}
-            </Card>
-          </StatePanel>
+            me={{ name: staff.displayName, role: roleLabel(staff.role) }}
+            roles={roles.map(roleLabel)}
+            people={people}
+            permission={wanted}
+            home={home}
+            requestHref={requestHref}
+          />
         </Section>
       </main>
     </VxPage>

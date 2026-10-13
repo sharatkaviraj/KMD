@@ -94,14 +94,15 @@ export const AREA_LABELS: Record<ActivityArea, Pair> = {
   staff: p("Staff", "स्टाफ़"),
 };
 
+/** The design's colour for each area's tag (`Settings` · activity). */
 export const AREA_TONES: Record<ActivityArea, "ok" | "info" | "acc" | "warn" | "mut"> = {
-  money: "ok",
+  money: "acc",
   students: "info",
   marks: "warn",
-  attendance: "acc",
+  attendance: "ok",
   settings: "mut",
   signin: "ok",
-  staff: "acc",
+  staff: "info",
 };
 
 const MONEY_TABLES = /^(payments|receipts|installments|payment_adjustments|receipt_adjustments|collection_closures|student_fee_overrides|student_carry_forward|student_repayment|student_conventional_discount|fee_|school_fee|conventional_discount|prev_year|defaulter)/;
@@ -204,25 +205,45 @@ export function backupHealth(days: BackupDay[], today: string): "ok" | "late" | 
 
 /* ---------------------------------------------------------------- glossary */
 
-export type GlossaryEntry = { term: Pair; meaning: Pair };
+/** The tag on each word: which part of the school it belongs to. */
+export type GlossaryTag = "money" | "students" | "marks" | "attendance" | "settings";
 
+export type GlossaryEntry = { term: Pair; meaning: Pair; tag: GlossaryTag };
+
+/*
+ * Words the app uses, in plain language (design `Settings` · glossary). The
+ * design's sample figures (a ₹10-a-day late fee, fixed due dates) are not
+ * this school's rules, so those meanings say where the real rule lives.
+ */
 export const GLOSSARY: GlossaryEntry[] = [
-  { term: p("Pending", "बकाया"), meaning: p("Fees due today or earlier that are not paid yet.", "आज तक देय फीस जो अभी नहीं भरी गई।") },
-  { term: p("Not due yet", "अभी देय नहीं"), meaning: p("Instalments whose date has not come. Never added to pending.", "जिन किस्तों की तारीख़ अभी नहीं आई।") },
-  { term: p("Late fee", "विलंब शुल्क"), meaning: p("A separate charge for paying late. Never added to fees.", "देर से भरने का अलग शुल्क।") },
-  { term: p("Instalment", "किस्त"), meaning: p("One part of the year's fee with its own due date.", "साल की फीस का एक हिस्सा, अपनी तारीख़ के साथ।") },
-  { term: p("Receipt", "रसीद"), meaning: p("Proof of one payment, numbered in order. Never edited — a mistake is reversed.", "एक भुगतान का प्रमाण।") },
-  { term: p("Day close", "दिन बंद"), meaning: p("Counting the cash and closing the day's book.", "नकद गिनकर दिन की बही बंद करना।") },
-  { term: p("Defaulter", "बकायादार"), meaning: p("A family with fees pending past the due date. A late fee alone does not count.", "देय तारीख़ के बाद बकाया वाला परिवार।") },
-  { term: p("Session", "सत्र"), meaning: p("The school year, e.g. 2026–27.", "स्कूल का वर्ष।") },
-  { term: p("Register", "हाज़िरी रजिस्टर"), meaning: p("One class's attendance for one day.", "एक कक्षा की एक दिन की हाज़िरी।") },
-  { term: p("Substitution", "व्यवस्था"), meaning: p("A colleague covering a period for an absent teacher.", "अनुपस्थित शिक्षक की जगह पढ़ाना।") },
-  { term: p("Sampark link", "संपर्क लिंक"), meaning: p("A link a teacher opens to enter marks without signing in.", "लॉगिन के बिना अंक भरने का लिंक।") },
-  { term: p("Template", "टेम्पलेट"), meaning: p("A WhatsApp message WhatsApp has approved once, reused for every family.", "व्हाट्सऐप द्वारा स्वीकृत संदेश।") },
-  { term: p("Queued", "कतार में"), meaning: p("Saved and waiting to be sent. Family messages stay queued until parent sending is on.", "भेजने के लिए प्रतीक्षा में।") },
-  { term: p("Archive", "संग्रह"), meaning: p("A sealed copy of every record and document, proved by a restore drill.", "सभी रिकॉर्ड की सुरक्षित प्रति।") },
-  { term: p("Role", "भूमिका"), meaning: p("What a person may see and do. Admin always has everything; teachers never see money.", "व्यक्ति क्या देख और कर सकता है।") },
+  { tag: "money", term: p("Pending today", "आज बकाया"), meaning: p("Installments past their due date and still unpaid. The money to follow up.", "जिन किस्तों की तारीख निकल चुकी है और जो अभी तक जमा नहीं हुईं।") },
+  { tag: "money", term: p("Not due yet", "अभी देय नहीं"), meaning: p("Installments whose due date is still ahead. Never added to pending today.", "जिन किस्तों की तारीख अभी आनी है। इन्हें आज के बकाया में नहीं जोड़ा जाता।") },
+  { tag: "money", term: p("Late fee (separate)", "विलंब शुल्क (अलग)"), meaning: p("A charge for paying after a due date, as set in Fee setup. Always shown on its own line, never added into the fee.", "देय तिथि के बाद भरने का शुल्क, जैसा फीस सेटअप में तय है। यह हमेशा अलग दिखता है, फीस में नहीं जुड़ता।") },
+  { tag: "money", term: p("Reversal", "रसीद रद्द (रिवर्सल)"), meaning: p("Receipts are never edited. A mistake is fixed with a reversal entry and a new receipt.", "रसीद कभी बदली नहीं जाती। गलती सुधारने के लिए रिवर्सल एंट्री और नई रसीद बनती है।") },
+  { tag: "money", term: p("Day close", "दिन बंद"), meaning: p("At day end the cash is counted and the day's book is closed.", "दिन के अंत में नकद गिनकर उस दिन की बही बंद की जाती है।") },
+  { tag: "money", term: p("Installment", "किस्त"), meaning: p("One part of the year's fee with its own due date, from Fee setup.", "साल की फीस का एक हिस्सा, अपनी तारीख के साथ, फीस सेटअप से।") },
+  { tag: "money", term: p("Receipt", "रसीद"), meaning: p("Proof of one payment, numbered in order and never reused.", "एक भुगतान का प्रमाण, क्रम से क्रमांकित, कभी दोबारा नहीं।") },
+  { tag: "money", term: p("Promise", "भुगतान का वादा"), meaning: p("A date a parent gave to pay by. It comes back on that day's call list.", "अभिभावक द्वारा बताई गई भुगतान की तारीख। उस दिन यह कॉल सूची में आता है।") },
+  { tag: "students", term: p("Left owing", "बकाया छोड़कर गए"), meaning: p("A student who left the school but still owes fees. They stay in Dues marked “Left”, but are not counted in headcount.", "जो विद्यार्थी स्कूल छोड़ गए पर फीस बाकी है। वे बकाया सूची में “Left” के साथ रहते हैं, गिनती में नहीं।") },
+  { tag: "marks", term: p("Sampark link", "संपर्क लिंक"), meaning: p("A personal link a teacher opens to enter marks. No password needed.", "शिक्षक का निजी लिंक, जिससे बिना पासवर्ड अंक भरे जा सकें।") },
+  { tag: "attendance", term: p("Not marked (attendance)", "उपस्थिति दर्ज नहीं"), meaning: p("Attendance not taken yet for a student or class. It is never counted as present.", "जिसकी उपस्थिति अभी दर्ज नहीं हुई। उसे कभी उपस्थित नहीं माना जाता।") },
+  { tag: "money", term: p("Defaulter", "बकायादार"), meaning: p("A family with fees pending past the due date. A late fee alone does not make a defaulter.", "जिस परिवार की देय तिथि निकल चुकी फीस बाकी है। केवल विलंब शुल्क से कोई बकायादार नहीं बनता।") },
+  { tag: "attendance", term: p("Register", "हाज़िरी रजिस्टर"), meaning: p("One class's attendance for one day.", "एक कक्षा की एक दिन की हाज़िरी।") },
+  { tag: "attendance", term: p("Substitution", "व्यवस्था"), meaning: p("A colleague covering a period for an absent teacher.", "अनुपस्थित शिक्षक की जगह कोई और पीरियड लेता है।") },
+  { tag: "settings", term: p("Session", "सत्र"), meaning: p("The school year, e.g. 2026–27.", "स्कूल का वर्ष, जैसे 2026–27।") },
+  { tag: "settings", term: p("Template", "टेम्पलेट"), meaning: p("A WhatsApp message WhatsApp has approved once, reused for every family.", "व्हाट्सऐप द्वारा एक बार स्वीकृत संदेश, हर परिवार के लिए।") },
+  { tag: "settings", term: p("Queued", "कतार में"), meaning: p("Saved and waiting. Family messages wait in To send until a person sends each one.", "सहेजा गया और प्रतीक्षा में। परिवारों के संदेश ‘भेजने को’ में रहते हैं, जब तक कोई व्यक्ति हर एक न भेजे।") },
+  { tag: "settings", term: p("Archive", "संग्रह"), meaning: p("A sealed copy of every record and document, proved by a restore check.", "सभी रिकॉर्ड और दस्तावेज़ों की मुहरबंद प्रति, जाँच से परखी हुई।") },
+  { tag: "settings", term: p("Role", "भूमिका"), meaning: p("What a person may see and do. Admin always has everything; teachers never see money.", "व्यक्ति क्या देख और कर सकता है। प्रशासक सब कुछ; शिक्षक पैसा कभी नहीं।") },
 ];
+
+export const GLOSSARY_TAGS: Record<GlossaryTag, { label: Pair; tone: "acc" | "info" | "warn" | "ok" | "mut" }> = {
+  money: { label: p("Money", "पैसा"), tone: "acc" },
+  students: { label: p("Students", "विद्यार्थी"), tone: "info" },
+  marks: { label: p("Marks", "अंक"), tone: "warn" },
+  attendance: { label: p("Attendance", "हाज़िरी"), tone: "ok" },
+  settings: { label: p("Settings", "सेटिंग्स"), tone: "mut" },
+};
 
 export function matchesGlossary(entry: GlossaryEntry, query: string): boolean {
   const q = query.trim().toLowerCase();

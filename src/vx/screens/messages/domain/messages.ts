@@ -29,21 +29,22 @@ export const KIND_LABELS: Record<NoticeKind, Pair> = {
   staff: p("Staff", "स्टाफ़"),
 };
 
-export const KIND_ICONS: Record<NoticeKind, "megaphone" | "calendar" | "users" | "rupee" | "award" | "briefcase"> = {
+/** Each kind's icon and colours, as the design's sent log draws them. */
+export const KIND_ICONS: Record<NoticeKind, "megaphone" | "flag" | "users" | "rupee" | "award" | "briefcase"> = {
   notice: "megaphone",
-  holiday: "calendar",
+  holiday: "flag",
   ptm: "users",
   fee: "rupee",
   result: "award",
   staff: "briefcase",
 };
 
-export const KIND_TONES: Record<NoticeKind, "acc" | "info" | "warn" | "mut" | "ok"> = {
+export const KIND_TONES: Record<NoticeKind, "acc" | "info" | "warn" | "mut" | "ok" | "bad"> = {
   notice: "acc",
-  holiday: "info",
+  holiday: "bad",
   ptm: "warn",
   fee: "mut",
-  result: "ok",
+  result: "info",
   staff: "mut",
 };
 
