@@ -2,7 +2,8 @@ import { p } from "@/vx/text";
 
 /** The words on /receipts, English with Hindi (src/vx/text.ts). */
 export const W = {
-  crumb: p("Money · Receipts", "पैसा · रसीदें"),
+  crumb: p("Money · Session", "पैसा · सत्र"),
+  money: p("Money", "पैसा"),
   title: p("Receipts", "रसीदें"),
   closeDay: p("Close the day", "दिन बंद करें"),
   today: p("Today", "आज"),
@@ -21,7 +22,13 @@ export const W = {
   howItCameIn: p("How it came in", "कैसे आया"),
   allModes: p("All modes", "सभी तरीके"),
   everyone: p("Everyone", "सभी"),
-  search: p("Search name, receipt or class", "नाम, रसीद या कक्षा खोजें"),
+  search: p("Receipt no., name or class", "रसीद नं., नाम या कक्षा"),
+  searchLabel: p("Search receipts", "रसीदें खोजें"),
+  export: p("Export", "निर्यात"),
+  closeDayShort: p("Close day", "दिन बंद"),
+  collectedYesterday: p("Collected yesterday", "कल जमा"),
+  net: p("net", "शुद्ध"),
+  backToMenu: p("Back to menu", "मेनू पर वापस"),
   receipt: p("Receipt", "रसीद"),
   time: p("Time", "समय"),
   student: p("Student", "विद्यार्थी"),
@@ -53,14 +60,21 @@ export const W = {
   totalReceived: p("Total received", "कुल प्राप्त"),
   ref: p("Ref", "संदर्भ"),
   send: p("Send", "भेजें"),
+  sendTo: p("Send to {name} on WhatsApp", "{name} को WhatsApp पर भेजें"),
+  sendWa: p("Send on WhatsApp", "WhatsApp पर भेजें"),
+  sendAgain: p("Send again on WhatsApp", "WhatsApp पर फिर भेजें"),
+  closeReceipt: p("Close receipt", "रसीद बंद करें"),
+  student2: p("Student", "विद्यार्थी"),
   print: p("Print", "प्रिंट"),
   pdf: p("PDF", "PDF"),
   reverse: p("Reverse", "रद्द करें"),
   history: p("History", "इतिहास"),
-  hPosted: p("Receipt made", "रसीद बनी"),
+  hPosted: p("Receipt created by {name}", "{name} ने रसीद बनाई"),
+  hPostedBare: p("Receipt created", "रसीद बनी"),
   hReversed: p("Reversed", "रद्द हुई"),
-  hSent: p("Sent on WhatsApp", "WhatsApp पर भेजी"),
-  hRead: p("Read by the family", "परिवार ने पढ़ी"),
+  hSent: p("Sent to {name} on WhatsApp", "{name} को WhatsApp पर भेजी"),
+  hSentBare: p("Sent on WhatsApp", "WhatsApp पर भेजी"),
+  hRead: p("Read by parent", "अभिभावक ने पढ़ी"),
   footnote: p(
     "Receipts are never edited. A reversal writes a separate entry and this receipt stays in history.",
     "रसीद कभी बदली नहीं जाती। रद्द करने पर अलग प्रविष्टि बनती है और यह रसीद इतिहास में रहती है।",
@@ -73,12 +87,17 @@ export const W = {
   rWrongStudent: p("Wrong student", "ग़लत विद्यार्थी"),
   rBounced: p("Cheque bounced", "चेक बाउंस हुआ"),
   rDuplicate: p("Entered twice", "दो बार दर्ज"),
+  rWrongAmountSub: p("A new receipt can be made with the right amount", "सही राशि की नई रसीद बनाई जा सकती है"),
+  rWrongStudentSub: p("Then take the fee again for the right child", "फिर सही बच्चे के लिए फीस दोबारा लें"),
+  rBouncedSub: p("The dues come back on the family", "बकाया परिवार पर लौट आता है"),
+  rDuplicateSub: p("The second copy is cancelled", "दूसरी प्रति रद्द होती है"),
+  notePlaceholder: p("Anything the accountant should know", "अकाउंटेंट को जो जानना चाहिए"),
   noteOptional: p("Note (optional)", "टिप्पणी (वैकल्पिक)"),
   keepReceipt: p("Keep receipt", "रसीद रखें"),
   askAdmin: p("Ask an admin to reverse", "एडमिन से रद्द करवाएँ"),
   impactAdmin: p(
-    "The amount comes off the day's total and the dues go back on the family. The receipt stays in history, marked reversed.",
-    "राशि दिन के कुल से हटेगी और बकाया परिवार पर लौटेगा। रसीद इतिहास में 'रद्द' के रूप में रहेगी।",
+    "A reversal entry of {amount} is written today. {no} stays in history marked REVERSED, {name}’s dues go back up by {back}, and the day total drops.",
+    "आज {amount} की रद्द प्रविष्टि लिखी जाएगी। {no} इतिहास में 'रद्द' के निशान के साथ रहेगी, {name} का बकाया {back} बढ़ेगा और दिन का कुल घटेगा।",
   ),
   impactRequest: p(
     "Nothing changes yet. This goes to Needs you, and an admin reverses it.",
@@ -96,7 +115,13 @@ export const W = {
   openClassic: p("Open the receipt to send", "भेजने के लिए रसीद खोलें"),
   close: p("Close", "बंद करें"),
   // close flow
-  closeTitle: p("Count and close", "गिनें और बंद करें"),
+  closeTitle: p("Close the day", "दिन बंद करें"),
+  closeSub: p("Count cash · check UPI · close", "नकद गिनें · UPI जाँचें · बंद करें"),
+  noneToday: p("none today", "आज कोई नहीं"),
+  notePlaceholderClose: p("For example: ₹100 given back as change to a parent, to be collected tomorrow", "जैसे: ₹100 एक अभिभावक को छुट्टे लौटाए, कल लेने हैं"),
+  closeHintReady: p("Everything matches — you can close the day.", "सब मेल खाता है — दिन बंद कर सकते हैं।"),
+  oneLess: p("One less", "एक कम"),
+  oneMore: p("One more", "एक और"),
   expects: p("What the app expects", "ऐप के हिसाब से"),
   total: p("Total", "कुल"),
   upiMatches: p("UPI matches the bank app", "UPI बैंक ऐप से मेल खाता है"),
@@ -111,13 +136,18 @@ export const W = {
   overBy: p("Over by", "ज़्यादा"),
   noteRecord: p("Note for the record (needed if cash does not match)", "रिकॉर्ड के लिए टिप्पणी (नकद मेल न खाए तो ज़रूरी)"),
   closeButton: p("Close the day", "दिन बंद करें"),
-  closeHintUpi: p("Check UPI against the bank app first.", "पहले UPI बैंक ऐप से मिलाएँ।"),
-  closeHintNote: p("The cash does not match. Write a short note for the record.", "नकद मेल नहीं खाता। रिकॉर्ड के लिए छोटी टिप्पणी लिखें।"),
+  closeHintUpi: p("Tick the UPI check first.", "पहले UPI जाँच पर टिक करें।"),
+  closeHintNote: p("Cash does not match. Recount, or write a note to close anyway.", "नकद मेल नहीं खाता। फिर गिनें, या टिप्पणी लिखकर बंद करें।"),
   closeNoLock: p(
     "Receipts stay as they are. Any receipt dated this day that is made after the close is flagged here.",
     "रसीदें जैसी हैं वैसी रहेंगी। बंद होने के बाद इस दिन की कोई रसीद बने तो यहाँ दिखेगी।",
   ),
   closedAt: p("Closed", "बंद किया"),
+  closedBy: p("Closed by {name} at {time}.", "{name} ने {time} बजे बंद किया।"),
+  closedAtOnly: p("Closed at {time}.", "{time} बजे बंद किया।"),
+  short: p("short", "कम"),
+  over: p("over", "ज़्यादा"),
+  note: p("Note", "टिप्पणी"),
   cashCounted: p("Cash counted", "गिना हुआ नकद"),
   receipts: p("Receipts", "रसीदें"),
   dayBook: p("Day book (CSV)", "दिन की बही (CSV)"),
@@ -159,3 +189,21 @@ export const REASON_WORD: Record<string, { en: string; hi?: string }> = {
   cheque_bounced: W.rBounced,
   duplicate: W.rDuplicate,
 };
+
+export const REASON_SUB: Record<string, { en: string; hi?: string }> = {
+  wrong_amount: W.rWrongAmountSub,
+  wrong_student: W.rWrongStudentSub,
+  cheque_bounced: W.rBouncedSub,
+  duplicate: W.rDuplicateSub,
+};
+
+/** "1 receipt" / "14 receipts". */
+export function receiptCount(n: number): { en: string; hi: string } {
+  return { en: `${n} ${n === 1 ? "receipt" : "receipts"}`, hi: `${n} रसीद${n === 1 ? "" : "ें"}` };
+}
+
+/** Fill `{name}`-style holes in both halves of a pair. */
+export function fill(pair: { en: string; hi?: string }, values: Record<string, string>): { en: string; hi?: string } {
+  const put = (s: string) => s.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? "");
+  return pair.hi ? { en: put(pair.en), hi: put(pair.hi) } : { en: put(pair.en) };
+}

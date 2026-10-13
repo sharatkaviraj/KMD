@@ -88,7 +88,7 @@ export const W = {
   installments: p("Installments", "किस्तें"),
   paid: p("Paid", "जमा"),
   notDue: p("Not due", "अभी नहीं"),
-  history: p("Calls and messages", "कॉल और संदेश"),
+  history: p("Contact history", "संपर्क इतिहास"),
   historyNote: p("Every call, message and promise stays here with who did it and when.", "हर कॉल, संदेश और वादा यहाँ रहता है, किसने और कब किया।"),
   noHistory: p("No calls or messages yet.", "अभी कोई कॉल या संदेश नहीं।"),
   close: p("Close", "बंद करें"),
@@ -148,10 +148,10 @@ export const W = {
   woHardship: p("Family in hardship", "परिवार मुश्किल में"),
   woSmall: p("Too small to chase", "पीछा करने लायक़ नहीं"),
   woSettled: p("Settled by talk", "बातचीत से तय"),
-  woAmount: p("Amount to write off", "माफ़ की जाने वाली राशि"),
+  woAmount: p("Amount to write off (₹)", "माफ़ की जाने वाली राशि (₹)"),
   woImpact: p(
-    "Nothing is written off yet. This goes to Needs you, and an admin decides.",
-    "अभी कुछ माफ़ नहीं हुआ। यह 'आपके लिए' में जाएगा और एडमिन तय करेंगे।",
+    "Nothing is written off yet. This goes to Needs you for the admin to approve. Until then {amt} stays pending for {name}, and it stays in the history either way.",
+    "अभी कुछ माफ़ नहीं हुआ। यह 'आपके लिए' में एडमिन की मंज़ूरी के लिए जाएगा। तब तक {name} का {amt} बकाया रहेगा, और यह इतिहास में हर हाल में रहेगा।",
   ),
   woKeep: p("Keep chasing", "पीछा जारी रखें"),
   woSend: p("Send to Needs you", "'आपके लिए' में भेजें"),
@@ -169,6 +169,127 @@ export const W = {
   woDone: p("Written off. A discount receipt keeps the record.", "माफ़ हुआ। छूट रसीद में रिकॉर्ड है।"),
   woDeclinedToast: p("Request declined.", "अनुरोध अस्वीकार हुआ।"),
   owes: p("owes", "बकाया"),
+  // design copy (Dues.dc.html)
+  money: p("Money", "पैसा"),
+  callSheet: p("Call sheet", "कॉल शीट"),
+  callNextFamily: p("Call next family", "अगले परिवार को कॉल"),
+  callNext: p("Call next", "अगली कॉल"),
+  backToMenu: p("Back to menu", "मेनू पर वापस"),
+  mSub: p("Pending today {amt} · {n} students", "आज तक बकाया {amt} · {n} विद्यार्थी"),
+  kpiPendingSub: p("{n} students · {amt} not due yet", "{n} विद्यार्थी · {amt} अभी देय नहीं"),
+  kpiPromSub: p("{amt} · {n} kept so far", "{amt} · {n} अब तक निभाए"),
+  of: p("of", "में से"),
+  leftToMake: p("{n} left to make", "{n} बाकी"),
+  findFamily: p("Find parent, child or class", "अभिभावक, बच्चा या कक्षा खोजें"),
+  findLabel: p("Find a family", "परिवार खोजें"),
+  familiesToCall: p("families to call", "परिवारों को कॉल करनी है"),
+  familyToCall: p("family to call", "परिवार को कॉल करनी है"),
+  sortNote: p("Oldest and biggest first · late fee shown apart", "सबसे पुराने और बड़े पहले · विलंब शुल्क अलग"),
+  lateApartAmt: p("late fee {amt} apart", "विलंब शुल्क {amt} अलग"),
+  noLateFee: p("no late fee", "विलंब शुल्क नहीं"),
+  daysN: p("{n} days", "{n} दिन"),
+  notCalled: p("Not called yet", "अभी कॉल नहीं"),
+  dueSince: p("due since {date}", "{date} से बकाया"),
+  promiseBroken: p("Promise broken", "वादा टूटा"),
+  selectAll: p("Select all families", "सभी परिवार चुनें"),
+  selectOne: p("Select {name}", "{name} चुनें"),
+  callOne: p("Call {name}", "{name} को कॉल"),
+  waOne: p("WhatsApp {name}", "{name} को WhatsApp"),
+  logOne: p("Log a call with {name}", "{name} की कॉल दर्ज करें"),
+  logShort: p("Log", "दर्ज"),
+  allDone: p("Everyone on today’s list is done", "आज की सूची के सभी पूरे"),
+  allDoneSub: p("Promises and follow-ups for tomorrow are under Promises.", "कल के वादे और फ़ॉलो-अप 'वादे' में हैं।"),
+  seePromises: p("See promises", "वादे देखें"),
+  lateOnlyLine: p("{n} families owe only a late fee. They are not on this list.", "{n} परिवारों पर केवल विलंब शुल्क बाकी है। वे इस सूची में नहीं हैं।"),
+  lateOnlyOne: p("1 family owes only a late fee. It is not on this list.", "1 परिवार पर केवल विलंब शुल्क बाकी है। वह इस सूची में नहीं है।"),
+  selectedN: p("{n} selected", "{n} चुने"),
+  bulkCost: p("{n} messages · about {cost} on WhatsApp", "{n} संदेश · WhatsApp पर लगभग {cost}"),
+  clear: p("Clear", "हटाएँ"),
+  queueFor: p("Queue reminder for {n}", "{n} के लिए याद कतार में डालें"),
+  bulkDone: p("{n} reminders saved. Send them from Messages → To send.", "{n} याद सहेजी गईं। संदेश → भेजने को से भेजें।"),
+  // promises and left owing
+  comingToday: p("Coming today", "आज आएँगे"),
+  daysLate: p("{n} days late", "{n} दिन देर"),
+  dayLate: p("1 day late", "1 दिन देर"),
+  visitOn: p("Visit {date}", "{date} को आएँगे"),
+  made: p("made {date}", "{date} को लिया"),
+  wasDue: p("Was due {date}", "{date} को देय था"),
+  visitWord: p("Visit", "आएँगे"),
+  callAgain: p("Call again", "फिर कॉल करें"),
+  markPaid: p("Mark paid", "जमा करें"),
+  keptDot: p("kept recently", "हाल में निभाए"),
+  lastClass: p("Last class {cls}", "अंतिम कक्षा {cls}"),
+  waitingAdmin: p("Waiting for admin", "एडमिन की प्रतीक्षा"),
+  // aging
+  amtPendingToday: p("{amt} pending today", "{amt} आज तक बकाया"),
+  byPending: p("by pending today", "आज के बकाये से"),
+  agingTipNew: p("Most of the money is less than a month late. Calling these families this week works best.", "ज़्यादातर पैसा एक महीने से कम पुराना है। इन परिवारों को इसी हफ़्ते कॉल करना सबसे अच्छा है।"),
+  agingTipOld: p("Most of the money is more than a month late. Call the oldest families first.", "ज़्यादातर पैसा एक महीने से ज़्यादा पुराना है। सबसे पुराने परिवारों को पहले कॉल करें।"),
+  less: p("Less", "कम"),
+  more: p("More", "ज़्यादा"),
+  allClasses: p("All classes", "सभी कक्षाएँ"),
+  nStudents: p("{n} students", "{n} विद्यार्थी"),
+  // family panel
+  oneChild: p("1 child", "1 बच्चा"),
+  nChildren: p("{n} children", "{n} बच्चे"),
+  oldestDue: p("Oldest due {n} days ago", "सबसे पुराना बकाया {n} दिन पहले"),
+  promisedPill: p("Promised {amt} · {date}", "{amt} का वादा · {date}"),
+  openStudent: p("Open student", "विद्यार्थी खोलें"),
+  open: p("Open", "खोलें"),
+  instPaid: p("{label} · paid", "{label} · जमा"),
+  instPending: p("{label} · pending", "{label} · बकाया"),
+  instNotDue: p("{label} · not due yet", "{label} · अभी देय नहीं"),
+  lastSession: p("Last session", "पिछला सत्र"),
+  amtPending: p("{amt} pending", "{amt} बकाया"),
+  route: p("Route {r}", "रूट {r}"),
+  // call sheet
+  logCallTitle: p("Log call · {name}", "कॉल दर्ज · {name}"),
+  calling: p("Calling {ph}…", "{ph} पर कॉल हो रही है…"),
+  hangUp: p("Log it when you hang up", "फ़ोन रखने के बाद दर्ज करें"),
+  whatHappened: p("What happened?", "क्या हुआ?"),
+  oVisitSub: p("Pick the day they will come", "आने का दिन चुनें"),
+  oNoReachSub: p("Switched off or no answer", "फ़ोन बंद या जवाब नहीं"),
+  oWrongSub: p("We need a new number", "नया नंबर चाहिए"),
+  oTimeSub: p("Logged for a follow-up in a week", "एक हफ़्ते में फ़ॉलो-अप के लिए दर्ज"),
+  whenPay: p("When will they pay?", "कब जमा करेंगे?"),
+  whenCome: p("When will they come?", "कब आएँगे?"),
+  tomorrowDay: p("Tomorrow · {d}", "कल · {d}"),
+  howMuch: p("How much?", "कितना?"),
+  amtHint: p("Pending today is {p}. Late fee {l} is separate and not part of this promise.", "आज तक बकाया {p} है। विलंब शुल्क {l} अलग है और इस वादे में नहीं।"),
+  less500: p("₹500 less", "₹500 कम"),
+  more500: p("₹500 more", "₹500 ज़्यादा"),
+  notePh: p("What did they say?", "उन्होंने क्या कहा?"),
+  nextLabel: p("Next follow-up:", "अगला फ़ॉलो-अप:"),
+  nextPromised: p("check on {d}. If it is not paid by then, it moves to Broken.", "{d} को जाँचें। तब तक जमा न हो तो यह 'टूटे' में जाएगा।"),
+  nextVisit: p("it shows under Promises on {d}.", "{d} को यह 'वादे' में दिखेगा।"),
+  nextNoReach: p("the family stays on the call list. Try again tomorrow.", "परिवार कॉल सूची में रहेगा। कल फिर कोशिश करें।"),
+  nextWrong: p("ask the class teacher of {c} for the right number.", "{c} के कक्षा शिक्षक से सही नंबर लें।"),
+  nextTime: p("call again on {d}.", "{d} को फिर कॉल करें।"),
+  nextNone: p("pick what happened to see the next step.", "अगला कदम देखने के लिए चुनें कि क्या हुआ।"),
+  cancel: p("Cancel", "रद्द करें"),
+  saveCall: p("Save call", "कॉल सहेजें"),
+  // WhatsApp sheet
+  waTo: p("To {name} · {ph}", "{name} को · {ph}"),
+  // plan sheet
+  planTitleName: p("EMI plan · {name}", "EMI योजना · {name}"),
+  lateShown: p("Late fee {amt}", "विलंब शुल्क {amt}"),
+  shownApart: p("shown separately", "अलग दिखाया"),
+  splitInto: p("Split into", "कितने हिस्से"),
+  nParts: p("{n} parts", "{n} हिस्से"),
+  partN: p("Part {n}", "हिस्सा {n}"),
+  firstPartNote: p("first part", "पहला हिस्सा"),
+  sameDate: p("same date next month", "अगले महीने उसी तारीख़"),
+  savePlan2: p("Save plan", "योजना सहेजें"),
+  planDoneLine: p("{name} pays {total} in {n} parts of {per}, first on {first}.", "{name} {total} को {n} हिस्सों में {per} देंगे, पहला {first} को।"),
+  // write-off sheet
+  woMovedSub: p("Cannot be reached any more", "अब संपर्क नहीं हो सकता"),
+  woHardshipSub: p("Loss of job, illness or similar", "नौकरी छूटना, बीमारी या ऐसा कुछ"),
+  woSmallSub: p("Costs more to chase than it is worth", "पीछा करने में ज़्यादा ख़र्च"),
+  woSettledSub: p("Agreed with the family to close it", "परिवार से बात कर बंद करना तय हुआ"),
+  woNoteLabel: p("Note for the admin", "एडमिन के लिए टिप्पणी"),
+  woNotePh: p("For example: family moved to Gujarat, phone off since August", "जैसे: परिवार गुजरात चला गया, अगस्त से फ़ोन बंद"),
+  woSubLine: p("{name} · last class {cls} · {amt} pending", "{name} · अंतिम कक्षा {cls} · {amt} बकाया"),
+  woAmountErr: p("Enter an amount from ₹1 to {amt}.", "₹1 से {amt} तक की राशि लिखें।"),
 };
 
 export const OUTCOME_WORD: Record<string, Pair> = {
@@ -195,6 +316,36 @@ export const CHANNEL_WORD: Record<string, Pair> = {
   in_person: p("In person", "मिलकर"),
   email: p("Email", "ईमेल"),
 };
+
+export const WRITE_OFF_SUB: Record<string, Pair> = {
+  moved: W.woMovedSub,
+  hardship: W.woHardshipSub,
+  too_small: W.woSmallSub,
+  settled: W.woSettledSub,
+};
+
+export const OUTCOME_SUB: Record<string, Pair> = {
+  promised: W.oPromisedSub,
+  visit: W.oVisitSub,
+  noreach: W.oNoReachSub,
+  wrong: W.oWrongSub,
+  time: W.oTimeSub,
+};
+
+/** Fill `{name}`-style holes in both halves of a pair. */
+export function fill(pair: Pair, values: Record<string, string | number>): Pair {
+  const put = (t: string) => t.replace(/\{(\w+)\}/g, (_, k: string) => String(values[k] ?? ""));
+  return pair.hi ? { en: put(pair.en), hi: put(pair.hi) } : { en: put(pair.en) };
+}
+
+/** "Inst 1 and 2", "Last session and Inst 1": the installments a sum is made of. */
+export function instList(nums: readonly number[]): Pair {
+  const parts = [...nums].sort((a, b) => a - b);
+  const en = parts.map((n, i) => (n === 0 ? "Last session" : i === 0 || parts[i - 1] === 0 ? `Inst ${n}` : String(n)));
+  const hi = parts.map((n, i) => (n === 0 ? "पिछला सत्र" : i === 0 || parts[i - 1] === 0 ? `किस्त ${n}` : String(n)));
+  const join = (xs: string[], and: string) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${and} ${xs[xs.length - 1]}`);
+  return { en: join(en, "and"), hi: join(hi, "और") };
+}
 
 export const WRITE_OFF_WORD: Record<string, Pair> = {
   moved: W.woMoved,
