@@ -66,12 +66,13 @@ export function attendanceBand(pct: number | null): Band {
   return "low";
 }
 
+/** The design's heat ramp (`--heat`), amber below 85, and a dashed empty tile for "not marked". */
 export const BAND_STYLE: Record<Band, { bg: string; fg: string; border?: string }> = {
-  top: { bg: "var(--pri)", fg: "var(--prifg)" },
-  good: { bg: "color-mix(in srgb, var(--pri) 55%, var(--card))", fg: "var(--prifg)" },
-  fair: { bg: "color-mix(in srgb, var(--pri) 22%, var(--card))", fg: "var(--fg)" },
+  top: { bg: "rgb(var(--heat))", fg: "var(--onsolid)" },
+  good: { bg: "rgba(var(--heat),.5)", fg: "var(--fg)" },
+  fair: { bg: "rgba(var(--heat),.22)", fg: "var(--fg)" },
   low: { bg: "var(--warns)", fg: "var(--warnfg)" },
-  none: { bg: "transparent", fg: "var(--mut)", border: "1.5px dashed var(--bd)" },
+  none: { bg: "var(--s2)", fg: "var(--mut)", border: "1.5px dashed var(--bds)" },
 };
 
 /** The four needs-attention rules, as the view names them. */
@@ -97,8 +98,10 @@ export function attentionChips(row: AttentionFacts): Chip[] {
   }
   if (row.reasons.includes("below_33")) {
     const [first, ...rest] = row.below33Subjects;
-    const more = rest.length ? ` +${rest.length}` : "";
-    chips.push({ tone: "bad", text: p(`Below 33% in ${subjectName(first)}${more}`, `${subjectName(first)} में 33% से कम${more}`) });
+    // Two subjects read as "Maths & Science" (the design); three or more as "Maths +2".
+    const en = rest.length === 1 ? `${subjectName(first)} & ${subjectName(rest[0])}` : `${subjectName(first)}${rest.length ? ` +${rest.length}` : ""}`;
+    const hi = rest.length === 1 ? `${subjectName(first)} व ${subjectName(rest[0])}` : `${subjectName(first)}${rest.length ? ` +${rest.length}` : ""}`;
+    chips.push({ tone: "bad", text: p(`Below 33% in ${en}`, `${hi} में 33% से कम`) });
   }
   if (row.reasons.includes("dropped") && row.dropPoints !== null) {
     const v = Math.round(row.dropPoints);
@@ -224,9 +227,26 @@ export function weeklySummary(f: WeekFacts): Pair[] {
   ];
 }
 
+/** An approved template's body with its `{{1}}`, `{{2}}` … filled, as the send actions fill it. */
+export function fillTemplate(body: string, variables: string[]): string {
+  return body.replace(/\{\{(\d+)\}\}/g, (_, n: string) => variables[Number(n) - 1] ?? "");
+}
+
+/**
+ * The lines the principal gets: "short" is attendance, marks and attention;
+ * "detailed" adds notes and corrections; the coordinator's own line, if any,
+ * goes last as "From me: …".
+ */
+export function weeklySummaryLines(f: WeekFacts, opts: { long?: boolean; extra?: string | null } = {}): Pair[] {
+  const lines = weeklySummary(f);
+  const chosen = opts.long === false ? lines.slice(0, 3) : lines;
+  const extra = (opts.extra ?? "").trim().slice(0, 300);
+  return extra ? [...chosen, p(`From me: ${extra}`, `मेरी ओर से: ${extra}`)] : chosen;
+}
+
 /** The summary as one line for the WhatsApp template's {{2}}. */
-export function weeklySummaryLine(f: WeekFacts): string {
-  return weeklySummary(f)
+export function weeklySummaryLine(f: WeekFacts, opts: { long?: boolean; extra?: string | null } = {}): string {
+  return weeklySummaryLines(f, opts)
     .map((pair) => pair.en)
     .join(" ");
 }

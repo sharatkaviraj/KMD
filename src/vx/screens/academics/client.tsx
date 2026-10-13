@@ -79,12 +79,18 @@ function Spin() {
 
 /* ------------------------------------------------------------ reminders */
 
-export function RemindRegistersButton({ classIds, label, variant = "pri", icon = "send", full }: { classIds: string[]; label: Pair; variant?: "pri" | "sec" | "soft"; icon?: IconName; full?: boolean }) {
+export function RemindRegistersButton({ classIds, label, variant = "pri", icon = "send", full, compact }: { classIds: string[]; label: Pair; variant?: "pri" | "sec" | "soft"; icon?: IconName | null; full?: boolean; compact?: boolean }) {
   const { tx } = useVx();
   const { run, pending } = useAct();
   return (
-    <button type="button" className={`tap btn ${variant}`} style={{ width: full ? "100%" : undefined }} disabled={pending || classIds.length === 0} onClick={() => run(() => remindRegistersAction(classIds))}>
-      {pending ? <Spin /> : <Ic n={icon} size={18} />}
+    <button
+      type="button"
+      className={`tap btn ${variant}`}
+      style={{ width: full ? "100%" : undefined, ...(compact ? { flex: "none", height: 38, padding: "0 14px", fontSize: 13 } : null) }}
+      disabled={pending || classIds.length === 0}
+      onClick={() => run(() => remindRegistersAction(classIds))}
+    >
+      {pending ? <Spin /> : icon && !compact ? <Ic n={icon} size={18} /> : null}
       {tx(label)}
     </button>
   );
@@ -101,20 +107,41 @@ export function RemindMarksButton({ teacherIds, label, variant = "pri", icon = "
   );
 }
 
+export type SendPreview = { hi: string; en: string; link?: string | null };
+
 /**
- * The "remind all late" sheet (AcadHome `remind`, AcadAttendance `remind`):
- * who is being asked, a preview of the message, then one tap.
+ * The send sheet (AcadHome `remind`, AcadAttendance `remind`), as the design
+ * draws it: who gets it as chips to leave someone out, the message as a
+ * WhatsApp bubble (Hindi first), who/cost/how, a note, then Cancel or Send.
+ * Nothing goes until Send; the count and the cost are shown first (RULES H).
  */
 export function RemindSheet({
   closeHref,
   mode,
+  title,
+  sub,
   people,
-  preview,
+  whoNote,
+  previews,
+  unit,
+  costEach,
+  channel,
+  note,
 }: {
   closeHref: string;
   mode: "registers" | "marks";
-  people: { id: string; name: string; sub: string; on: boolean }[];
-  preview: string[];
+  title: Pair;
+  sub?: Pair;
+  people: { id: string; name: string; tag?: Pair; on: boolean }[];
+  whoNote?: Pair | null;
+  /** The message each person would get, by id. */
+  previews: Record<string, SendPreview>;
+  /** "teacher"/"teachers" or "class"/"classes" for the To line. */
+  unit: { one: Pair; many: Pair };
+  /** Rupees per message, when the channel charges. */
+  costEach?: number | null;
+  channel: Pair;
+  note: Pair;
 }) {
   const { tx } = useVx();
   const { run, pending } = useAct();
@@ -134,45 +161,86 @@ export function RemindSheet({
         if (r.ok) router.replace(closeHref, { scroll: false });
       },
     );
-  const title = mode === "registers" ? tx({ en: "Ask to mark attendance", hi: "हाज़िरी लेने को कहें" }) : tx({ en: "Remind late teachers", hi: "देर वाले शिक्षकों को याद दिलाएँ" });
+  const n = chosen.size;
+  const first = people.find((p) => chosen.has(p.id)) ?? people[0];
+  const preview = first ? previews[first.id] : undefined;
+  const count = `${n} ${tx(n === 1 ? unit.one : unit.many)}`;
+  const facts: [Pair, string][] = [
+    [{ en: "To", hi: "किसे" }, count],
+    ...(costEach ? [[{ en: "Cost", hi: "खर्च" }, `₹${(n * costEach).toFixed(2)} · ${n} × ₹${costEach.toFixed(2)}`] as [Pair, string]] : []),
+    [{ en: "Sent through", hi: "कैसे" }, tx(channel)],
+  ];
   return (
     <UrlSheet
       closeHref={closeHref}
-      title={title}
-      sub={tx({ en: `${chosen.size} of ${people.length} chosen · WhatsApp to staff`, hi: `${people.length} में से ${chosen.size} चुने · स्टाफ़ को WhatsApp` })}
-      icon="send"
+      title={tx(title)}
+      sub={sub ? tx(sub) : undefined}
       footer={
-        <button type="button" className="tap btn pri" style={{ flex: 1 }} disabled={pending || chosen.size === 0} onClick={send}>
-          {pending ? <Spin /> : <Ic n="send" size={18} />}
-          {tx({ en: `Send to ${chosen.size}`, hi: `${chosen.size} को भेजें` })}
-        </button>
+        <>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={() => router.replace(closeHref, { scroll: false })}>
+            {tx({ en: "Cancel", hi: "रद्द करें" })}
+          </button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6, opacity: n ? 1 : 0.5 }} disabled={pending || n === 0} onClick={send}>
+            {pending ? <Spin /> : <Ic n="send" size={18} />}
+            {n ? tx(mode === "marks" ? { en: `Send ${n} ${n === 1 ? "reminder" : "reminders"}`, hi: `${n} रिमाइंडर भेजें` } : { en: `Ask ${n} to mark`, hi: `${n} से कहें` }) : tx({ en: "Pick someone first", hi: "पहले किसी को चुनें" })}
+          </button>
+        </>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {people.length === 0 ? (
           <p style={{ margin: 0, color: "var(--mut)" }}>{tx({ en: "Nobody is late. Nothing to send.", hi: "कोई पीछे नहीं। भेजने को कुछ नहीं।" })}</p>
-        ) : (
-          <div role="group" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {people.map((person) => (
-              <label key={person.id} className="tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 14, border: `1.5px solid ${chosen.has(person.id) ? "var(--acc)" : "var(--bd)"}`, background: chosen.has(person.id) ? "var(--accs)" : "var(--card)" }}>
-                <input type="checkbox" checked={chosen.has(person.id)} onChange={() => toggle(person.id)} style={{ width: 20, height: 20, accentColor: "var(--acc)" }} />
-                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                  <strong className="clip">{person.name}</strong>
-                  <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{person.sub}</span>
-                </span>
-              </label>
-            ))}
+        ) : null}
+        {people.length > 1 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span className="sech">{tx({ en: "Who gets it · tap a name to leave them out", hi: "किसे जाएगा · हटाने के लिए नाम पर टैप करें" })}</span>
+            <div role="group" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {people.map((person) => {
+                const on = chosen.has(person.id);
+                return (
+                  <button key={person.id} type="button" className={`tap chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggle(person.id)}>
+                    {on ? <Ic n="check" size={14} /> : null}
+                    {person.name}
+                    {person.tag ? ` · ${tx(person.tag)}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+            {whoNote ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(whoNote)}</span> : null}
           </div>
-        )}
-        {preview.length ? <WhatsAppPreview lines={preview} title={tx({ en: "Message preview", hi: "संदेश का नमूना" })} /> : null}
-        <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>
-          {tx({
-            en: mode === "registers" ? "Sent once per class per day. If the register is saved before it goes, it is not sent." : "One message per teacher, naming every paper still open. You can undo for a few seconds.",
-            hi: mode === "registers" ? "हर कक्षा के लिए दिन में एक बार। रजिस्टर पहले सहेजा गया तो नहीं जाएगा।" : "हर शिक्षक को एक संदेश, सभी बाकी पेपरों के नाम के साथ। कुछ सेकंड तक वापस ले सकते हैं।",
-          })}
-        </p>
+        ) : null}
+        {preview && first ? <WaBubble to={first.name} many={n > 1} preview={preview} /> : null}
+        <div className="card" style={{ padding: "0 14px", boxShadow: "none", display: "flex", flexDirection: "column" }}>
+          {facts.map(([k, v], i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 0", fontSize: 13, borderTop: i ? "1px solid var(--bd)" : undefined }}>
+              <span style={{ color: "var(--mut)" }}>{tx(k)}</span>
+              <span className="num" style={{ fontWeight: 700, textAlign: "right" }}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: "var(--infos)", color: "var(--info)" }}>
+          <Ic n="info" size={18} style={{ flex: "none", marginTop: 1 }} />
+          <span>{tx(note)}</span>
+        </div>
       </div>
     </UrlSheet>
+  );
+}
+
+/** The design's WhatsApp bubble: who it is to, the Hindi, the link, the English under it. */
+export function WaBubble({ to, many, preview }: { to: string; many: boolean; preview: SendPreview }) {
+  const { tx } = useVx();
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 12, borderRadius: 16, background: "var(--wabg)" }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--wafg)", opacity: 0.7 }}>
+        {tx({ en: `Preview · to ${to}${many ? " (each one gets their own)" : ""}`, hi: `नमूना · ${to} को${many ? " (हर एक को अपना)" : ""}` })}
+      </span>
+      <div style={{ alignSelf: "flex-start", maxWidth: "94%", padding: "9px 12px 5px", borderRadius: "4px 14px 14px 14px", background: "var(--wab)", color: "var(--wafg)", lineHeight: 1.5, boxShadow: "0 1px 1px rgba(0,0,0,.08)", fontSize: 14 }}>
+        <div style={{ whiteSpace: "pre-line" }}>{preview.hi}</div>
+        {preview.link ? <div style={{ color: "var(--info)", textDecoration: "underline", overflowWrap: "anywhere" }}>{preview.link}</div> : null}
+        <div style={{ whiteSpace: "pre-line", marginTop: 6, opacity: 0.78 }}>{preview.en}</div>
+      </div>
+    </div>
   );
 }
 
@@ -311,11 +379,11 @@ export function StepToggle({ stepId, done, disabled, children }: { stepId: strin
 }
 
 /** Prints the page (the register's "Print" button). */
-export function PrintButton({ label }: { label: Pair }) {
+export function PrintButton({ label, icon = "printer" }: { label: Pair; icon?: IconName }) {
   const { tx } = useVx();
   return (
     <button type="button" className="tap btn sec" onClick={() => window.print()}>
-      <Ic n="printer" size={18} />
+      <Ic n={icon} size={18} />
       {tx(label)}
     </button>
   );

@@ -9,7 +9,7 @@ import {
   MessageCircle, Mic, Minus, Moon, NotebookPen, PenLine, Percent, Phone, Pin, Plus, Printer,
   Receipt, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Star, Sun, Table,
   Tag, Trash2, TrendingUp, TriangleAlert, Type, Undo2, Upload, User, UserPlus, Users, WifiOff, X,
-  Zap, type LucideIcon,
+  Zap, createLucideIcon, type LucideIcon,
 } from "lucide-react";
 
 /**
@@ -39,6 +39,8 @@ export const ICONS = {
   camera: Camera, history: History, gift: Gift, building: Building2, text: Type, type: Type,
   flask: FlaskConical, coffee: Coffee, heart: Heart, smile: Smile, keyboard: Keyboard,
   calMinus: CalendarMinus, eyeRole: Eye,
+  // The design's own note mark (AcadHome's "Notes needing action"): a pen and two short lines.
+  notePen: createLucideIcon("note-pen", [["path", { d: "M12 20h9", key: "a" }], ["path", { d: "M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z", key: "b" }], ["path", { d: "M4 4h8M4 8h5", key: "c" }]]),
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

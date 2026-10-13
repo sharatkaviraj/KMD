@@ -287,7 +287,7 @@ export async function attendanceOn(ctx: Ctx, day: string): Promise<DayAttendance
   };
 }
 
-async function teachersAway(session: string, day: string): Promise<Set<string>> {
+export async function teachersAway(session: string, day: string): Promise<Set<string>> {
   const { data } = await createAdminClient()
     .from("teacher_absences")
     .select("staff_profile_id")
@@ -609,6 +609,8 @@ export function currentExam(exams: Exam[], today: string): { current: Exam | nul
 
 export type MarksEntry = {
   exam: Exam | null;
+  /** The exam office's "marks due" day for this exam, if set (`exam_plans.marks_due_on`). */
+  dueOn: string | null;
   pct: number;
   papers: PaperProgress[];
   late: (LateTeacher & { name: string })[];
@@ -619,8 +621,8 @@ export type MarksEntry = {
 export async function marksEntry(ctx: Ctx, examId?: string): Promise<MarksEntry> {
   const exams = await examsOf(ctx.session);
   const exam = (examId && exams.find((e) => e.id === examId)) || currentExam(exams, ctx.today).current;
-  if (!exam) return { exam: null, pct: 0, papers: [], late: [], byClass: [] };
-  const [stats, assignments, staff, teachers] = await Promise.all([
+  if (!exam) return { exam: null, dueOn: null, pct: 0, papers: [], late: [], byClass: [] };
+  const [stats, assignments, staff, teachers, plan] = await Promise.all([
     paperStats(ctx, [exam.id]),
     createAdminClient()
       .from("teaching_assignments")
@@ -629,6 +631,7 @@ export async function marksEntry(ctx: Ctx, examId?: string): Promise<MarksEntry>
       .returns<{ class_id: string; subject_id: string; staff_profile_id: string }[]>(),
     staffDirectory(),
     classTeachersOn(ctx.session, ctx.today),
+    createAdminClient().from("exam_plans").select("marks_due_on").eq("assessment_id", exam.id).maybeSingle<{ marks_due_on: string | null }>(),
   ]);
   const subjectTeacher = new Map((assignments.data ?? []).map((row) => [`${row.class_id}|${row.subject_id}`, row.staff_profile_id]));
   const rollOf = new Map(ctx.classes.map((c) => [c.id, c.roll]));
@@ -649,7 +652,7 @@ export async function marksEntry(ctx: Ctx, examId?: string): Promise<MarksEntry>
       return { classId: c.id, label: c.label, pct: enteredPct(mine), done: mine.filter((p) => p.submitted).length, total: mine.length };
     })
     .filter((c) => c.total > 0);
-  return { exam, pct: enteredPct(papers), papers, late, byClass };
+  return { exam, dueOn: plan.data?.marks_due_on ?? null, pct: enteredPct(papers), papers, late, byClass };
 }
 
 export type ClassResult = { classId: string; label: string; avg: number | null; before: number | null; pass: number | null; attendance: number | null };
@@ -1022,8 +1025,10 @@ export async function classDetail(ctx: Ctx, classId: string, exam: Exam, previou
 export async function weekFacts(ctx: Ctx) {
   const monday = mondayOf(ctx.today);
   const prevMonday = addDays(monday, -7);
+  // Eight weeks back for the trend line; the facts below still read only this week and last.
+  const trendFrom = addDays(monday, -49);
   const [rows, credit, entry, attention, notes, corrections] = await Promise.all([
-    tallies(ctx, prevMonday, ctx.today),
+    tallies(ctx, trendFrom, ctx.today),
     halfDayCredit(ctx.session),
     marksEntry(ctx),
     needsAttention(ctx),
@@ -1049,8 +1054,57 @@ export async function weekFacts(ctx: Ctx) {
     .map((d) => ({ day: d, pct: presentPct(sum(d, d)) }));
   const weekStart = `${monday}T00:00:00+05:30`;
   const fresh = attention.filter((a) => a.followup === null || a.followup.at >= weekStart).length;
+  // Weekly averages, oldest first: the eight weeks that end with this one.
+  const trend = Array.from({ length: 8 }, (_, i) => {
+    const from = addDays(monday, (i - 7) * 7);
+    const to = i === 7 ? ctx.today : addDays(from, 6);
+    return { monday: from, pct: presentPct(sum(from, to)) };
+  });
+  // Children someone marked "improving" this week (student_followups, kind improving).
+  const { data: improving } = await createAdminClient()
+    .from("student_followups")
+    .select("student_id, created_at, created_by")
+    .eq("session_label", ctx.session)
+    .eq("kind", "improving")
+    .gte("created_at", weekStart)
+    .order("created_at", { ascending: false })
+    .limit(50)
+    .returns<{ student_id: string; created_at: string; created_by: string }[]>();
+  const enrolled = new Map((await enrolledRows(ctx.session)).map((row) => [row.student_id, row.class_id]));
+  const improvedRows = [...new Map((improving ?? []).filter((r) => scopeIncludes(ctx.scope, enrolled.get(r.student_id))).map((r) => [r.student_id, r])).values()].slice(0, 5);
+  const [improvedInfo, staff] = await Promise.all([studentInfo(improvedRows.map((r) => r.student_id)), staffDirectory()]);
+  const improved = improvedRows.map((r) => ({
+    studentId: r.student_id,
+    name: improvedInfo.get(r.student_id)?.name ?? "—",
+    classLabel: ctx.label(enrolled.get(r.student_id)),
+    by: staff.get(r.created_by)?.display_name ?? "—",
+    at: r.created_at,
+  }));
+  // Classes whose results the exam office has locked (exam_class_locks): their submitted papers count as "Locked".
+  const { data: locks } = entry.exam
+    ? await createAdminClient().from("exam_class_locks").select("class_id").eq("assessment_id", entry.exam.id).returns<{ class_id: string }[]>()
+    : { data: [] as { class_id: string }[] };
+  const locked = new Set((locks ?? []).map((l) => l.class_id));
+  const papers = {
+    locked: entry.papers.filter((p) => p.submitted && locked.has(p.classId)).length,
+    done: entry.papers.filter((p) => p.submitted && !locked.has(p.classId)).length,
+    inProgress: entry.papers.filter((p) => !p.submitted && p.entered > 0).length,
+    notStarted: entry.papers.filter((p) => !p.submitted && p.entered === 0).length,
+  };
+  const principals = [...staff.values()].filter((s) => s.role === "admin" && s.is_active && (s.whatsapp_phone ?? s.phone)).map((s) => s.display_name);
+  // When the summary last went (message_sends on the weekly-summary template), for the bar's "last sent".
+  const { data: template } = await createAdminClient().from("message_templates").select("id").eq("code", "vppsone_weekly_summary").maybeSingle<{ id: string }>();
+  const { data: lastSend } = template
+    ? await createAdminClient().from("message_sends").select("created_at").eq("template_id", template.id).eq("session_label", ctx.session).neq("status", "cancelled").order("created_at", { ascending: false }).limit(1).maybeSingle<{ created_at: string }>()
+    : { data: null };
+  const lastSent = lastSend?.created_at ?? null;
   return {
     monday,
+    trend,
+    improved,
+    papers,
+    principals,
+    lastSent,
     daily,
     facts: {
       coordinator: ctx.staff.displayName,
@@ -1069,6 +1123,17 @@ export async function weekFacts(ctx: Ctx) {
     entry,
     attention,
   };
+}
+
+/** A staff template's two bodies, for the preview a send sheet shows before anything goes. */
+export async function staffTemplateBodies(code: string): Promise<{ hi: string; en: string } | null> {
+  const { data } = await createAdminClient()
+    .from("message_templates")
+    .select("body_hi, body_en, audience, is_active")
+    .eq("code", code)
+    .maybeSingle<{ body_hi: string; body_en: string; audience: string; is_active: boolean }>();
+  if (!data || data.audience !== "staff" || data.is_active === false) return null;
+  return { hi: data.body_hi, en: data.body_en };
 }
 
 /* ------------------------------------------------------- coming up */
