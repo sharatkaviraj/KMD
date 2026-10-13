@@ -76,7 +76,7 @@ export function PlanEditor({
 
   return (
     <div className="pad acad-plan" style={{ padding: "20px 28px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-      <style>{`.acad-plan .acad-bot{position:sticky;bottom:0;margin:16px -28px 0;padding:12px 28px}@container vx (max-width:899px){.acad-plan .acad-bot{bottom:calc(99px + env(safe-area-inset-bottom));margin:16px -16px 0;padding:10px 16px 12px}.acad-plan .acad-bot .btn{height:52px;flex:1}}.acad-plan .acad-chip{height:30px;padding:0 10px;font-size:12px}.acad-plan .acad-chip select,.acad-plan .acad-chip input{border:0;background:transparent;color:inherit;font:inherit;font-weight:600;outline:none;padding:0;max-width:150px;-webkit-appearance:none;appearance:none;cursor:pointer}`}</style>
+      <style>{`.acad-plan .acad-bot{position:sticky;bottom:0;margin:16px -28px 0;padding:12px 28px}@container vx (max-width:899px){.acad-plan .acad-bot{bottom:calc(99px + env(safe-area-inset-bottom));margin:16px -16px 0;padding:10px 16px 12px}.acad-plan .acad-bot .btn{height:52px;flex:1}}.acad-plan .acad-chip{height:30px;padding:0 10px;font-size:12px}.acad-plan .acad-chip select,.acad-plan .acad-chip input{border:0;background:transparent;color:inherit;font:inherit;font-weight:600;outline:none;padding:0;max-width:150px;-webkit-appearance:none;appearance:none;cursor:pointer;field-sizing:content}.acad-plan .acad-step{field-sizing:content;resize:none;overflow:hidden}`}</style>
       <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
           <section className="card" style={{ padding: "16px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16 }}>
@@ -131,14 +131,16 @@ export function PlanEditor({
                   ) : null}
                 </button>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                  <input
+                  <textarea
+                    className="acad-step"
+                    rows={1}
                     value={s.text}
                     maxLength={160}
                     disabled={!editable}
                     onChange={(e) => update(s.key, { text: e.target.value })}
                     placeholder={tx({ en: "What will happen", hi: "क्या होगा" })}
                     aria-label={tx({ en: `Step ${i + 1}`, hi: `कदम ${i + 1}` })}
-                    style={{ border: 0, background: "transparent", color: "var(--fg)", font: "inherit", fontWeight: 600, padding: 0, outline: "none", textDecoration: s.done ? "line-through" : "none", opacity: s.done ? 0.6 : 1, width: "100%" }}
+                    style={{ border: 0, background: "transparent", color: "var(--fg)", font: "inherit", fontWeight: 600, lineHeight: 1.45, padding: 0, outline: "none", textDecoration: s.done ? "line-through" : "none", opacity: s.done ? 0.6 : 1, width: "100%" }}
                   />
                   <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     <label className="tap chip acad-chip" title={tx({ en: "Who does it", hi: "कौन करेगा" })}>
@@ -152,7 +154,7 @@ export function PlanEditor({
                     </label>
                     <label className="tap chip acad-chip" title={tx({ en: "When", hi: "कब" })}>
                       <Ic n="calendar" size={14} />
-                      <input value={s.due} maxLength={40} disabled={!editable} onChange={(e) => update(s.key, { due: e.target.value })} placeholder={tx({ en: "When?", hi: "कब?" })} aria-label={tx({ en: "When", hi: "कब" })} size={Math.max(6, s.due.length + 1)} />
+                      <input value={s.due} maxLength={40} disabled={!editable} onChange={(e) => update(s.key, { due: e.target.value })} placeholder={tx({ en: "When?", hi: "कब?" })} aria-label={tx({ en: "When", hi: "कब" })} />
                     </label>
                   </span>
                 </span>

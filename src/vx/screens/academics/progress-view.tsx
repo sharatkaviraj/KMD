@@ -82,10 +82,10 @@ function Title({ children, sub, right }: { children: ReactNode; sub?: ReactNode;
   );
 }
 
-function SegLinks({ tabs, current, width, label, style }: { tabs: { key: string; href: string; label: string }[]; current: string; width: number; label: string; style?: CSSProperties }) {
+function SegLinks({ tabs, current, width, label, style, full }: { tabs: { key: string; href: string; label: string }[]; current: string; width: number; label: string; style?: CSSProperties; full?: boolean }) {
   const at = Math.max(0, tabs.findIndex((t) => t.key === current));
   return (
-    <nav aria-label={label} className="seg mfull" style={{ gridTemplateColumns: `repeat(${tabs.length},minmax(0,1fr))`, width, maxWidth: "100%", ...style }}>
+    <nav aria-label={label} className={full ? "seg mfull" : "seg"} style={{ gridTemplateColumns: `repeat(${tabs.length},minmax(0,1fr))`, width, maxWidth: "100%", ...style }}>
       <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${tabs.length})`, transform: `translateX(${at * 100}%)` }} />
       {tabs.map((t) => {
         const on = t.key === current;
@@ -150,6 +150,7 @@ export function AcadProgressView(p: AcadProgressProps) {
         label={say("Views", "दृश्य")}
         current={current}
         width={520}
+        full
         tabs={[
           { key: "overview", href: qs(BASE, { exam: q }), label: say("Classes", "कक्षाएँ") },
           { key: "attention", href: qs(BASE, { view: "attention", exam: q }), label: say(`Attention · ${p.attentionCount}`, `ध्यान दें · ${p.attentionCount}`) },
@@ -549,9 +550,10 @@ export function AcadProgressView(p: AcadProgressProps) {
                   {chips.length ? chips.map((c, i) => <span key={i} className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: `var(--${c.tone}s)`, color: c.tone === "warn" ? "var(--warnfg)" : c.tone === "acc" ? "var(--accfg)" : `var(--${c.tone})` }}>{say(c.text.en, c.text.hi)}</span>) : <span className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--oks)", color: "var(--ok)" }}>{say("Not on the attention list", "ध्यान सूची में नहीं")}</span>}
                 </div>
               </div>
-              <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
+              <div className="g4 acad-ab" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
+                <style>{`.acad-ab .btn{height:46px}@container vx (max-width:899px){.acad-ab .btn{height:auto;min-height:52px;white-space:normal;line-height:1.2;text-align:center}}`}</style>
                 {phone ? <a className="tap btn sec" href={phone}><Ic n="phone" size={18} />{say("Call parents", "अभिभावक को कॉल")}</a> : <span className="tap btn sec" aria-disabled="true" style={{ opacity: 0.5 }}><Ic n="phone" size={18} />{say("No phone on file", "फ़ोन नहीं")}</span>}
-                {teacherWa ? <a className="tap btn sec" href={teacherWa} target="_blank" rel="noreferrer"><Ic n="message" size={18} /><span className="clip">{say(`Talk to ${ct?.name}`, `${ct?.name} से बात करें`)}</span></a> : <span className="tap btn sec" aria-disabled="true" style={{ opacity: 0.5 }}><Ic n="message" size={18} />{say("Talk to class teacher", "कक्षा अध्यापक से बात")}</span>}
+                {teacherWa ? <a className="tap btn sec" href={teacherWa} target="_blank" rel="noreferrer"><Ic n="message" size={18} /><span>{say(`Talk to ${ct?.name}`, `${ct?.name} से बात करें`)}</span></a> : <span className="tap btn sec" aria-disabled="true" style={{ opacity: 0.5 }}><Ic n="message" size={18} />{say("Talk to class teacher", "कक्षा अध्यापक से बात")}</span>}
                 <Btn variant="pri" icon="clipboard" href={planHref}>{child.plan?.status === "active" ? say("Open support plan", "सहायता योजना खोलें") : say("Start a support plan", "सहायता योजना शुरू करें")}</Btn>
                 {p.notesHref ? <Btn variant="soft" icon="notePen" href={`${p.notesHref}?add=1&student=${child.studentId}`}>{say("Add a note", "नोट जोड़ें")}</Btn> : null}
               </div>
@@ -819,6 +821,7 @@ export function AcadProgressView(p: AcadProgressProps) {
               })}
             </nav>
             <div className="card" style={{ padding: "4px 16px", display: "flex", flexDirection: "column" }}>
+              <style>{`@container vx (max-width:899px){.acad-act .btn{height:52px;padding:0 8px;min-width:0}}`}</style>
               {list.length === 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center", padding: "34px 10px" }}>
                   <span style={{ fontSize: 15, fontWeight: 700 }}>{say("No children in this group", "इस समूह में कोई बच्चा नहीं")}</span>
@@ -853,7 +856,11 @@ export function AcadProgressView(p: AcadProgressProps) {
                         ) : null}
                       </span>
                     </Link>
-                    {p.mayFollow ? <FollowupButtons studentId={c.studentId} staff={p.staff} compact /> : null}
+                    {p.mayFollow ? (
+                      <div className="acad-act mfull">
+                        <FollowupButtons studentId={c.studentId} staff={p.staff} compact />
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -925,7 +932,7 @@ function HeatRow({ label, cells, senior, href, row, say }: { label: string; cell
   );
 }
 
-function SubjectLines({ child, before, now, hl, q, say }: { child: StudentDetail; before: { id: string; label: string } | null; now: { id: string; label: string } | null; hl: string | null; q: string | undefined; say: Say }) {
+function SubjectLines({ child, before, now, hl, q, say }: { child: StudentDetail; before: { id: string; label: string; code?: string } | null; now: { id: string; label: string } | null; hl: string | null; q: string | undefined; say: Say }) {
   const y = (v: number) => 176 - v * 1.56;
   const both = child.subjects.filter((s) => now && s.byExam.get(now.id) != null && (!before || s.byExam.get(before.id) != null));
   const colour = (s: StudentDetail["subjects"][number]) => {
@@ -986,7 +993,7 @@ function SubjectLines({ child, before, now, hl, q, say }: { child: StudentDetail
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 50px 84px 62px", gap: 6, padding: "6px 0", borderBottom: "1px solid var(--bd)", fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>
           <span>{say("Subject", "विषय")}</span>
-          <span className="clip" style={{ textAlign: "right" }}>{before?.label ?? ""}</span>
+          <span className="clip" style={{ textAlign: "right" }}>{before ? (before.label.length > 7 && before.code ? before.code.replace(/^([A-Z]+)(\d)/, "$1 $2") : before.label) : ""}</span>
           <span className="clip" style={{ textAlign: "right" }}>{now?.label ?? ""}</span>
           <span style={{ textAlign: "right" }}>{say("Change", "बदलाव")}</span>
         </div>
