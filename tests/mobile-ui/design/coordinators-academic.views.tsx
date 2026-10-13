@@ -1,8 +1,9 @@
 import type { DesignView } from "../design.fixture";
 
 import type { Language } from "@/platform/i18n/language";
-import type { AttentionChild, ClassToday, DayAttendance, MarksEntry, UpcomingEvent } from "@/vx/screens/academics/data";
-import { tally, type AttentionReason, type PaperProgress, type WeekFacts } from "@/vx/screens/academics/domain";
+import type { AttentionChild, ChronicChild, ClassToday, DayAttendance, MarksEntry, MonthAttendance, RegisterSheet, UpcomingEvent } from "@/vx/screens/academics/data";
+import { AcadAttendanceView, type AcadAttendanceProps } from "@/vx/screens/academics/attendance-view";
+import { tally, type AttentionReason, type AttStatus, type PaperProgress, type WeekFacts } from "@/vx/screens/academics/domain";
 import { AcadHomeView, type AcadHomeProps } from "@/vx/screens/academics/home-view";
 import type { ClassDetail, ClassResult, StudentDetail } from "@/vx/screens/academics/data";
 import { AcadProgressView, type AcadProgressProps, type HeatStat } from "@/vx/screens/academics/progress-view";
@@ -229,6 +230,7 @@ const base: AcadHomeProps = {
   },
   mayRemind: true,
   notesHref: "/notes",
+  origin: "https://vpps.one",
 };
 
 const home = (patch: Partial<AcadHomeProps>, path = "/academics"): DesignView => ({
@@ -341,7 +343,113 @@ const attentionView = { view: "attention" as const, list: attention, filter: nul
 const planView = { view: "plan" as const, child: mohit, staff: staffChoices, suggestions: ["Saturday remedial class · Maths", "Extra practice sheets twice a week", "Parent meeting at PTM", "Peer buddy for daily homework", "Check homework diary every day"], father: "Sunil Agarwal", parentPhone: "9000000019" };
 const compareView = { view: "compare" as const, classes: classRefs, a: classRefs[11], b: classRefs[12], results, stats: heat.filter((s) => s.classId === classRefs[11].id || s.classId === classRefs[12].id), attentionBy: { [classRefs[11].id]: 4, [classRefs[12].id]: 2 } };
 
+/* --------------------------------------------------------- AcadAttendance */
+
+// class · teacher · roll · present,absent,leave (null = not marked) · saved at · came late
+const ACL: [string, string, number, [number, number, number] | null, string, number][] = [
+  ["Nursery", "Ms. Kanwar", 18, [16, 1, 1], "08:41", 0], ["LKG", "Ms. Rathore", 20, [18, 2, 0], "08:44", 1], ["UKG", "Ms. Mehta", 22, [21, 1, 0], "08:47", 0],
+  ["Class 1", "Ms. Jain", 23, [22, 1, 0], "08:38", 1], ["Class 2", "Ms. Vyas", 25, [23, 1, 1], "08:50", 0], ["Class 3", "Ms. Sharma", 24, [22, 2, 0], "08:46", 1],
+  ["Class 4", "Mr. Verma", 29, null, "", 0], ["Class 5", "Ms. Paliwal", 26, [25, 1, 0], "08:55", 2], ["Class 6", "Ms. Bhati", 31, [29, 2, 0], "08:52", 0],
+  ["Class 7", "Mr. Choudhary", 27, [25, 1, 1], "08:49", 1], ["Class 8", "Mr. Solanki", 28, [26, 2, 0], "08:58", 2], ["Class 9", "Mr. Meena", 28, null, "", 0],
+  ["Class 10", "Ms. Dave", 30, [28, 1, 1], "08:43", 1], ["11 Science", "Mr. Trivedi", 22, [20, 2, 0], "09:02", 1], ["11 Commerce", "Mr. Purohit", 18, [17, 1, 0], "09:05", 0],
+  ["11 Arts", "Ms. Chouhan", 14, [12, 1, 1], "09:00", 0], ["12 Science", "Mr. Bhatt", 20, [19, 1, 0], "08:57", 1], ["12 Commerce", "Ms. Kothari", 17, [16, 0, 1], "09:04", 0], ["12 Arts", "Mr. Rawal", 12, [11, 1, 0], "09:08", 0],
+];
+const attClasses: ClassToday[] = ACL.map(([label, teacher, roll, r, at, late]) => {
+  const t = r ? tally([...Array(r[0] - late).fill("present"), ...Array(late).fill("late"), ...Array(r[1]).fill("absent"), ...Array(r[2]).fill("leave")]) : tally([]);
+  return { classId: classId(label), label, roll, teacherId: staffId(teacher), teacherName: teacher, teacherAway: teacher === "Mr. Meena", registerId: r ? uuid(950 + roll) : null, saved: !!r, savedAt: r ? `${TODAY}T${at}:00+05:30` : null, savedBy: r ? teacher : null, onBehalf: false, tally: t, pct: r ? Math.round((t.credit / Math.max(1, t.counted)) * 1000) / 10 : null };
+});
+const attSaved = attClasses.filter((c) => c.saved);
+const attTotal = attSaved.reduce((s, c) => ({ present: s.present + c.tally.present, absent: s.absent + c.tally.absent, late: s.late + c.tally.late, leave: s.leave + c.tally.leave, halfDay: 0, counted: s.counted + c.tally.counted, credit: s.credit + c.tally.credit }), tally([]));
+const attToday: DayAttendance = {
+  day: TODAY,
+  classes: attClasses,
+  marked: attSaved.length,
+  total: attTotal,
+  pct: Math.round((attTotal.credit / attTotal.counted) * 1000) / 10,
+  notMarked: attClasses.filter((c) => !c.saved),
+  unmarkedChildren: attClasses.filter((c) => !c.saved).reduce((s, c) => s + c.roll, 0),
+  activity: [
+    { at: `${TODAY}T09:08:00+05:30`, tone: "ok", text: { en: "Mr. Rawal saved 12 Arts · 11 of 12 present", hi: "मि. रावल ने 12 कला सहेजा · 12 में 11 उपस्थित" } },
+    { at: `${TODAY}T09:05:00+05:30`, tone: "ok", text: { en: "Mr. Purohit saved 11 Commerce · 17 of 18 present", hi: "मि. पुरोहित ने 11 वाणिज्य सहेजा · 18 में 17 उपस्थित" } },
+    { at: `${TODAY}T08:52:00+05:30`, tone: "ok", text: { en: "Ms. Bhati saved Class 6 · 29 of 31 present", hi: "सुश्री भाटी ने कक्षा 6 सहेजा · 31 में 29 उपस्थित" } },
+  ],
+  closed: null,
+};
+// name | class | session % | absent in a row | last note | note by | parent | phone tail | last 10 days
+const CHR = "Vikas Meena|12 Arts|62|0|Works at his uncle’s shop in the mornings. Father promised he will come every day.|Mr. Rawal · Mon 28 Sep|Ramprasad Meena|274|PAAPAPPAPP;Sunita Gurjar|Class 3|66|4|||Kamla Gurjar|163|APPAPPAAAA;Om Regar|Class 6|68|3|Absent 3 days, father says grandmother is unwell — call again Friday.|Ms. Bhati · Tue 6 Oct|Mangilal Regar|437|PAPPAPPAAA;Heena Chouhan|UKG|69|1|Often unwell — mother says it is asthma. Doctor visit fixed for Saturday.|Ms. Mehta · Thu 1 Oct|Sushila Chouhan|518|PPAPLAPPPA;Kartik Gurjar|Class 8|70|2|Helps the family in the fields during harvest.|Mr. Solanki · Mon 5 Oct|Bhagwan Gurjar|390|PPAPPAPPAA;Lakshya Bhati|Class 5|71|0|||Narendra Bhati|652|APPAPAPLPP;Nikhil Meena|Class 6|72|1|Comes late on Mondays — lives far and misses the Route 2 bus.|Ms. Bhati · Mon 5 Oct|Ramesh Meena|781|PAPPPAPPPA;Raju Sen|Class 9|73|0|||Kishan Sen|905|PPAPAPPPAP;Payal Kumawat|11 Arts|74|0|||Geeta Kumawat|146|PPAPPPAPPP"
+  .split(";")
+  .map((r) => r.split("|"));
+const LAST10 = ["2026-09-24", "2026-09-25", "2026-09-26", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-05", "2026-10-06", "2026-10-07"];
+const SMAP: Record<string, AttStatus> = { P: "present", A: "absent", L: "leave" };
+const chronic: ChronicChild[] = CHR.map(([name, cls, pct, , , , father, tail], i) => ({ studentId: uuid(7600 + i), name, classId: classId(cls), classLabel: cls, pct: Number(pct), absentDays: Math.round((100 - Number(pct)) / 2), absentLastWeek: 0, phone: `98290000${tail}`.slice(-10), father, lastCall: null }));
+const chronicRecent = Object.fromEntries(CHR.map((r, i) => [uuid(7600 + i), r[8].split("").map((s, j) => ({ day: LAST10[j], status: SMAP[s] }))]));
+const chronicNotes = Object.fromEntries(CHR.filter((r) => r[4]).map((r) => [uuid(7600 + CHR.indexOf(r)), { body: r[4], by: r[5] }]));
+const C6 = "Aadhya Jain,Aarav Kumawat,Ananya Vyas,Arjun Gurjar,Bhavya Paliwal,Chirag Mehta,Divya Rathore,Gaurav Choudhary,Harshita Dave,Ishaan Purohit,Jiya Kothari,Kabir Solanki,Khushi Sharma,Om Regar,Manav Joshi,Naina Chouhan,Nikhil Meena,Palak Agarwal,Pari Sen,Pranav Rawal,Riya Singh,Rohan Sharma,Saanvi Kumawat,Sahil Gurjar,Sneha Vyas,Tanish Jain,Tanya Paliwal,Utkarsh Mehta,Vani Rathore,Yash Dave,Zoya Khan".split(",");
+const OCT_SAVED = ["2026-10-01", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"];
+const OVR: Record<string, Record<string, AttStatus>> = { "Om Regar": { "2026-10-06": "absent", "2026-10-07": "absent", "2026-10-08": "absent" }, "Jiya Kothari": { "2026-10-05": "leave" }, "Pari Sen": { "2026-10-07": "absent" }, "Nikhil Meena": { "2026-10-08": "absent" } };
+const register: RegisterSheet = {
+  classId: classId("Class 6"),
+  label: "Class 6",
+  month: "2026-10",
+  days: ["2026-10-01", "2026-10-03", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"],
+  students: C6.map((name, i) => {
+    const marks = new Map<string, AttStatus>(OCT_SAVED.map((d) => [d, OVR[name]?.[d] ?? "present"]));
+    const vals = [...marks.values()];
+    return { studentId: uuid(7700 + i), name, rollNo: String(i + 1), marks, pct: Math.round((vals.filter((v) => v === "present").length / vals.length) * 100) };
+  }),
+  savedDays: 5,
+  closed: ["2026-10-02", "2026-10-20"],
+};
+const octDays = ["2026-10-01", "2026-10-03", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"];
+const octPct: Record<string, number | null> = { "2026-10-01": 95.8, "2026-10-03": 89.6, "2026-10-05": 93.0, "2026-10-06": 92.4, "2026-10-07": 93.6, "2026-10-08": 92.8 };
+const monthData: MonthAttendance = {
+  month: "2026-10",
+  days: octDays,
+  grid: new Map(),
+  byDay: octDays.map((day) => ({ day, pct: octPct[day] })),
+  byClass: ACL.map(([label], i) => ({ classId: classId(label), label, pct: label === "Class 8" ? 96.8 : label === "11 Commerce" ? 95.9 : label === "Class 9" ? 86.9 : 89 + ((i * 37) % 70) / 10, daysSaved: 6, daysOpen: label === "Class 6" || label === "11 Arts" ? 1 : label === "Class 4" || label === "Class 9" ? 1 : 0 })),
+  average: 92.9,
+  closedDays: new Set(["2026-10-02", "2026-10-20"]),
+};
+const attCommon = {
+  language,
+  today: TODAY,
+  nowLabel: "9:41 am",
+  origin: "https://vpps.one",
+  attendance: attToday,
+  chronicCount: 9,
+  registerClass: { id: classId("Class 6"), label: "Class 6", roll: 31 },
+  mayRemind: true,
+  everyClass: true,
+  notesHref: "/notes",
+  sheet: null,
+};
+const C9KIDS = ["Aditi Rathore", "Arjun Trivedi", "Bhavna Kumawat", "Bhavna Paliwal", "Deepak Purohit", "Deepak Regar", "Hemant Dave", "Hemant Kumawat", "Hemant Sharma", "Isha Purohit", "Kabir Choudhary", "Kabir Joshi", "Kavya Sharma", "Kavya Solanki", "Krish Gurjar", "Meera Gurjar", "Mohit Agarwal", "Muskan Regar", "Nidhi Chouhan", "Parth Rawal", "Priya Jain", "Raju Sen", "Ritika Mehta", "Rudra Singh", "Sonal Vyas", "Tanya Joshi", "Yash Meena", "Zoya Khan"];
+const markSheetData = { kind: "mark" as const, roll: { classId: classId("Class 9"), label: "Class 9", day: TODAY, revision: 0, students: C9KIDS.map((name, i) => ({ studentId: uuid(7800 + i), name, rollNo: String(i + 1), status: null })) }, teacher: "Mr. Meena", allowed: true };
+const attendanceView = (patch: Partial<AcadAttendanceProps> & Pick<AcadAttendanceProps, "view">): DesignView => ({
+  menu: "academic",
+  path: "/academics/attendance",
+  render: () => <AcadAttendanceView {...({ ...attCommon, ...patch } as AcadAttendanceProps)} />,
+});
+const attTodayView = { view: "today" as const, filter: "all" as const, chronicAway: 3, monthAvg: 92.9 };
+const months = [{ key: "2026-09", label: "September" }, { key: "2026-10", label: "October" }];
+const attMonthView = { view: "month" as const, month: monthData, months, holidays: [{ day: "2026-10-02", label: "Gandhi Jayanti" }, { day: "2026-10-20", label: "Dussehra" }], teachers: Object.fromEntries(ACL.map(([label, t]) => [classId(label), t])), day: null };
+const attChronicView = { view: "chronic" as const, list: chronic, recent: chronicRecent, notes: chronicNotes, filter: "all" as const, teachers: Object.fromEntries(ACL.map(([label, t]) => [classId(label), t])) };
+const attRegisterView = { view: "register" as const, sheetData: register, classes: classRefs, teacher: "Ms. Kavita Bhati", filter: "all" as const, months };
+
 export const academicViews: Record<string, DesignView> = {
+  AcadAttendance: attendanceView(attTodayView),
+  "DX-AcadAttendance-Month": attendanceView(attMonthView),
+  "DX-AcadAttendance-Register": attendanceView(attRegisterView),
+  "DX-AcadAttendance-Corrections": attendanceView(attTodayView),
+  "DX-AcadAttendance-Mark": attendanceView({ ...attTodayView, sheet: markSheetData }),
+  "M-AcadAttendance": attendanceView(attTodayView),
+  "M-AcadAttendance-Remind": attendanceView({ ...attTodayView, sheet: { kind: "remind", who: null } }),
+  "M-AcadAttendance-Chronic": attendanceView(attChronicView),
+  "M-AcadAttendance-Corrections": attendanceView(attTodayView),
+  "M-AcadAttendance-Register": attendanceView(attRegisterView),
+  "M-AcadAttendance-Month": attendanceView(attMonthView),
+
   AcadProgress: progress(overview),
   "DX-AcadProgress-Student": progress(studentView),
   "DX-AcadProgress-Class": progress(classView),

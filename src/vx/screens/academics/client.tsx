@@ -6,9 +6,8 @@ import { useState, useTransition, type ReactNode } from "react";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import type { Pair } from "@/vx/text";
-import { Field, RadioCard, Select, Textarea } from "@/vx/ui/controls";
+import { Field, Select, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { WhatsAppPreview } from "@/vx/ui/primitives";
 
 import {
   cancelRemindersAction,
@@ -19,6 +18,8 @@ import {
   toggleStepAction,
   type ActionResult,
 } from "@/app/(app)/academics/coordinator-actions";
+
+import { nameInitials, toneOf } from "./ui";
 
 /*
  * The interactive parts of the coordinator's screens. Pages are Server
@@ -127,12 +128,15 @@ export function RemindSheet({
   costEach,
   channel,
   note,
+  pick = "chips",
 }: {
   closeHref: string;
   mode: "registers" | "marks";
   title: Pair;
   sub?: Pair;
-  people: { id: string; name: string; tag?: Pair; on: boolean }[];
+  people: { id: string; name: string; tag?: Pair; sub?: string; initials?: string; on: boolean }[];
+  /** "chips" (AcadHome) or a checkbox list with avatars (AcadAttendance). */
+  pick?: "chips" | "list";
   whoNote?: Pair | null;
   /** The message each person would get, by id. */
   previews: Record<string, SendPreview>;
@@ -182,7 +186,7 @@ export function RemindSheet({
           </button>
           <button type="button" className="tap btn pri" style={{ flex: 1.6, opacity: n ? 1 : 0.5 }} disabled={pending || n === 0} onClick={send}>
             {pending ? <Spin /> : <Ic n="send" size={18} />}
-            {n ? tx(mode === "marks" ? { en: `Send ${n} ${n === 1 ? "reminder" : "reminders"}`, hi: `${n} रिमाइंडर भेजें` } : { en: `Ask ${n} to mark`, hi: `${n} से कहें` }) : tx({ en: "Pick someone first", hi: "पहले किसी को चुनें" })}
+            {n ? tx({ en: `Send ${n} ${n === 1 ? "reminder" : "reminders"}`, hi: `${n} रिमाइंडर भेजें` }) : tx({ en: "Pick someone first", hi: "पहले किसी को चुनें" })}
           </button>
         </>
       }
@@ -191,7 +195,26 @@ export function RemindSheet({
         {people.length === 0 ? (
           <p style={{ margin: 0, color: "var(--mut)" }}>{tx({ en: "Nobody is late. Nothing to send.", hi: "कोई पीछे नहीं। भेजने को कुछ नहीं।" })}</p>
         ) : null}
-        {people.length > 1 ? (
+        {pick === "list" && people.length ? (
+          <div role="group" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {people.map((person) => {
+              const on = chosen.has(person.id);
+              return (
+                <button key={person.id} type="button" role="checkbox" aria-checked={on} className="tap" onClick={() => toggle(person.id)} style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 56, padding: "10px 14px", borderRadius: 14, width: "100%", textAlign: "left", color: "var(--fg)", border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)" }}>
+                  <span aria-hidden="true" style={{ flex: "none", width: 22, height: 22, borderRadius: 7, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}`, background: on ? "var(--acc)" : "transparent", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {on ? <Ic n="check" size={14} stroke={3} /> : null}
+                  </span>
+                  <span aria-hidden="true" style={{ flex: "none", width: 38, height: 38, borderRadius: 19, background: toneOf(person.name).bg, color: toneOf(person.name).fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>{person.initials ?? nameInitials(person.name)}</span>
+                  <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontWeight: 600 }}>{person.name}{person.tag ? ` · ${tx(person.tag)}` : ""}</span>
+                    {person.sub ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{person.sub}</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        {pick === "chips" && people.length > 1 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <span className="sech">{tx({ en: "Who gets it · tap a name to leave them out", hi: "किसे जाएगा · हटाने के लिए नाम पर टैप करें" })}</span>
             <div role="group" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -259,51 +282,76 @@ export function SendSummaryButton({ label }: { label: Pair }) {
 
 /* --------------------------------------------------------- follow-ups */
 
-const OUTCOMES: { value: string; label: Pair; icon: IconName }[] = [
-  { value: "reached", label: { en: "Spoke to the parent", hi: "अभिभावक से बात हुई" }, icon: "checkCircle" },
-  { value: "will_come", label: { en: "Child will come from tomorrow", hi: "कल से बच्चा आएगा" }, icon: "calCheck" },
-  { value: "visit_school", label: { en: "Parent will visit school", hi: "अभिभावक स्कूल आएँगे" }, icon: "building" },
-  { value: "no_answer", label: { en: "No answer", hi: "जवाब नहीं मिला" }, icon: "phone" },
-  { value: "wrong_number", label: { en: "Wrong number", hi: "गलत नंबर" }, icon: "alert" },
+const OUTCOMES: { value: string; label: Pair; icon: IconName; hint: Pair }[] = [
+  { value: "will_come", label: { en: "Will come tomorrow", hi: "कल आएगा" }, icon: "calCheck", hint: { en: "Check tomorrow's register for this child.", hi: "कल का रजिस्टर इस बच्चे के लिए देखें।" } },
+  { value: "reached", label: { en: "Spoke to the parent", hi: "अभिभावक से बात हुई" }, icon: "checkCircle", hint: { en: "Write what was agreed in the note, so the class teacher sees it.", hi: "जो तय हुआ उसे नोट में लिखें, ताकि कक्षा-अध्यापक देखें।" } },
+  { value: "no_answer", label: { en: "No answer", hi: "जवाब नहीं मिला" }, icon: "phone", hint: { en: "Try again after 4 pm. The class teacher can also try.", hi: "शाम 4 बजे के बाद फिर कोशिश करें। कक्षा-अध्यापक भी कर सकते हैं।" } },
+  { value: "visit_school", label: { en: "Will come to meet us", hi: "मिलने आएँगे" }, icon: "user", hint: { en: "Add the meeting to the calendar so the class teacher can join.", hi: "बैठक कैलेंडर में जोड़ें ताकि कक्षा-अध्यापक भी आ सकें।" } },
+  { value: "wrong_number", label: { en: "Wrong number", hi: "गलत नंबर" }, icon: "alert", hint: { en: "Ask the office to correct the number in the student's record.", hi: "कार्यालय से विद्यार्थी के रिकॉर्ड में नंबर ठीक करवाएँ।" } },
 ];
 
-/** The call-outcome sheet (AcadAttendance `call`). */
-export function CallSheet({ closeHref, studentId, name, sub, phoneHref, father }: { closeHref: string; studentId: string; name: string; sub: string; phoneHref: string | null; father: string | null }) {
+/** The call sheet (AcadAttendance `call`), as the design draws it: dial, the last note, how it went, a note, save. */
+export function CallSheet({ closeHref, studentId, name, sub, phoneHref, phoneLabel, lastNote }: { closeHref: string; studentId: string; name: string; sub: string; phoneHref: string | null; phoneLabel: string | null; lastNote?: { body: string; by: string } | null }) {
   const { tx } = useVx();
   const { run, pending } = useAct();
   const router = useRouter();
-  const [outcome, setOutcome] = useState<string>("reached");
+  const [outcome, setOutcome] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const first = name.split(" ")[0];
+  const picked = OUTCOMES.find((o) => o.value === outcome);
   return (
     <UrlSheet
       closeHref={closeHref}
-      title={tx({ en: `Call about ${name}`, hi: `${name} के बारे में कॉल` })}
+      title={tx({ en: `Call ${first}’s family`, hi: `${first} के परिवार को कॉल` })}
       sub={sub}
-      icon="phone"
       footer={
-        <button type="button" className="tap btn pri" style={{ flex: 1 }} disabled={pending} onClick={() => run(() => saveFollowupAction({ studentId, kind: "call", outcome, note }), (r) => r.ok && router.replace(closeHref, { scroll: false }))}>
-          {pending ? <Spin /> : <Ic n="check" size={18} />}
-          {tx({ en: "Save outcome", hi: "नतीजा सहेजें" })}
-        </button>
+        <>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={() => router.replace(closeHref, { scroll: false })}>
+            {tx({ en: "Cancel", hi: "रद्द करें" })}
+          </button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6, opacity: outcome ? 1 : 0.5 }} disabled={pending || !outcome} onClick={() => outcome && run(() => saveFollowupAction({ studentId, kind: "call", outcome, note }), (r) => r.ok && router.replace(closeHref, { scroll: false }))}>
+            {pending ? <Spin /> : <Ic n="check" size={18} />}
+            {tx({ en: "Save call", hi: "कॉल सहेजें" })}
+          </button>
+        </>
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {phoneHref ? (
-          <a className="tap btn soft" href={phoneHref} style={{ justifyContent: "center" }}>
+          <a className="tap btn pri" href={phoneHref} style={{ height: 54, fontSize: 16 }}>
             <Ic n="phone" size={18} />
-            {tx({ en: `Call ${father ? `${father} (father)` : "the parent"}`, hi: `${father ? `${father} (पिता)` : "अभिभावक"} को कॉल करें` })}
+            {tx({ en: `Call ${phoneLabel ?? "the parent"}`, hi: `${phoneLabel ?? "अभिभावक"} को कॉल करें` })}
           </a>
         ) : (
           <p style={{ margin: 0, color: "var(--mut)", fontSize: 14 }}>{tx({ en: "No phone number on file. Record what you did.", hi: "फ़ोन नंबर नहीं है। जो किया, दर्ज करें।" })}</p>
         )}
-        <div role="radiogroup" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {lastNote ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: "var(--s2)" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx({ en: "Last note", hi: "पिछला नोट" })}</span>
+            <span>“{lastNote.body}”</span>
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>{lastNote.by}</span>
+          </div>
+        ) : null}
+        <span className="sech">{tx({ en: "How did it go?", hi: "क्या हुआ?" })}</span>
+        <div role="radiogroup" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {OUTCOMES.map((o) => (
-            <RadioCard key={o.value} checked={outcome === o.value} onSelect={() => setOutcome(o.value)} title={tx(o.label)} icon={o.icon} />
+            <button key={o.value} type="button" role="radio" aria-checked={outcome === o.value} className={`tap chip${outcome === o.value ? " on" : ""}`} onClick={() => setOutcome(o.value)} style={{ height: 42 }}>
+              <Ic n={o.icon} size={15} />
+              {tx(o.label)}
+            </button>
           ))}
         </div>
-        <Field label={tx({ en: "Note (optional)", hi: "नोट (वैकल्पिक)" })}>
-          <Textarea rows={2} maxLength={400} value={note} onChange={(e) => setNote(e.target.value)} placeholder={tx({ en: "What was said", hi: "क्या बात हुई" })} />
-        </Field>
+        {picked ? (
+          <div className="fadein" style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: "var(--infos)", color: "var(--info)" }}>
+            <Ic n="info" size={18} style={{ flex: "none", marginTop: 1 }} />
+            <span>{tx(picked.hint)}</span>
+          </div>
+        ) : null}
+        <label className="field">
+          <span>{tx({ en: "Note (optional)", hi: "नोट (वैकल्पिक)" })}</span>
+          <textarea className="inp" rows={3} maxLength={400} value={note} onChange={(e) => setNote(e.target.value)} placeholder={tx({ en: "For example: mother says he will come from Monday", hi: "जैसे: माँ ने कहा सोमवार से आएगा" })} style={{ minHeight: 72, height: "auto", padding: "12px 14px" }} />
+        </label>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx({ en: `The call is saved on ${first}’s record so the class teacher sees it too.`, hi: `कॉल ${first} के रिकॉर्ड में सहेजी जाती है ताकि कक्षा-अध्यापक भी देखें।` })}</span>
       </div>
     </UrlSheet>
   );

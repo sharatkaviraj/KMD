@@ -365,6 +365,67 @@ export async function closedDays(session: string, from: string, to: string): Pro
   return new Set((data ?? []).map((row) => row.day));
 }
 
+/** Holidays and vacation days in a range, with their names, for the month chart and the register. */
+export async function holidaysIn(session: string, from: string, to: string): Promise<{ day: string; label: string | null }[]> {
+  const { data } = await createAdminClient()
+    .from("academic_calendar_days")
+    .select("day, kind, label_en")
+    .eq("session_label", session)
+    .gte("day", from)
+    .lte("day", to)
+    .in("kind", ["holiday", "vacation"])
+    .order("day")
+    .returns<{ day: string; kind: string; label_en: string | null }[]>();
+  return (data ?? []).map((row) => ({ day: row.day, label: row.label_en }));
+}
+
+/** Each child's saved statuses on the last `n` days their class saved, oldest first (the "last 10 days" dots). */
+export async function recentStatuses(ctx: Ctx, studentIds: string[], n = 10): Promise<Map<string, { day: string; status: AttStatus }[]>> {
+  if (studentIds.length === 0) return new Map();
+  const from = addDays(ctx.today, -28);
+  const { data } = await fetchInChunks<{ student_id: string; status: AttStatus; attendance_registers: { day: string } }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    createAdminClient()
+      .from("attendance_marks")
+      .select("student_id, status, attendance_registers!inner(day, session_label, status, period)")
+      .in("student_id", chunk)
+      .eq("attendance_registers.session_label", ctx.session)
+      .eq("attendance_registers.status", "submitted")
+      .is("attendance_registers.period", null)
+      .gte("attendance_registers.day", from)
+      .returns<{ student_id: string; status: AttStatus; attendance_registers: { day: string } }[]>(),
+  );
+  const out = new Map<string, { day: string; status: AttStatus }[]>();
+  for (const row of data) {
+    const list = out.get(row.student_id) ?? [];
+    list.push({ day: row.attendance_registers.day, status: row.status });
+    out.set(row.student_id, list);
+  }
+  for (const [id, list] of out) out.set(id, list.sort((a, b) => a.day.localeCompare(b.day)).slice(-n));
+  return out;
+}
+
+/** The latest note a reader may see on each child (body and who wrote it). */
+export async function lastNotes(ctx: Ctx, studentIds: string[]): Promise<Map<string, { body: string; by: string; at: string }>> {
+  if (studentIds.length === 0 || !can(ctx.staff, "notes:view")) return new Map();
+  const { data } = await fetchInChunks<{ student_id: string; body: string; created_at: string; written_by: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    createAdminClient()
+      .from("notes")
+      .select("student_id, body, created_at, written_by, tags, follow_up_staff_id, note_kinds(code)")
+      .eq("session_label", ctx.session)
+      .neq("visibility", "private")
+      .in("student_id", chunk)
+      .order("created_at", { ascending: false })
+      .returns<{ student_id: string; body: string; created_at: string; written_by: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }[]>(),
+  );
+  const staff = await staffDirectory();
+  const out = new Map<string, { body: string; by: string; at: string }>();
+  for (const row of data) {
+    if (out.has(row.student_id) || !readsSensitive(ctx.staff, row)) continue;
+    out.set(row.student_id, { body: row.body, by: staff.get(row.written_by)?.display_name ?? "—", at: row.created_at });
+  }
+  return out;
+}
+
 export type ChronicChild = {
   studentId: string;
   name: string;
@@ -444,6 +505,8 @@ export type RegisterSheet = {
   days: string[];
   students: { studentId: string; name: string; rollNo: string | null; marks: Map<string, AttStatus>; pct: number | null }[];
   savedDays: number;
+  /** Holidays and vacation days in the month (school closed). */
+  closed: string[];
 };
 
 /** One class's month: a dot for every child, every day. */
@@ -500,7 +563,7 @@ export async function registerSheet(ctx: Ctx, classId: string, month: string): P
       };
     })
     .sort((a, b) => (Number(a.rollNo) || 999) - (Number(b.rollNo) || 999) || a.name.localeCompare(b.name));
-  return { classId, label: ctx.label(classId), month, days, students, savedDays: regs.length };
+  return { classId, label: ctx.label(classId), month, days, students, savedDays: regs.length, closed: [...closed] };
 }
 
 /** The roll a register is marked against, with today's marks if any. */

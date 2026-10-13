@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { logoutAction } from "@/app/login/actions";
 import type { Language } from "@/platform/i18n/language";
+import { renderReminder } from "@/modules/staff-notices/domain/notices";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
 import { daysBetween, dayMonth } from "@/vx/format";
 import { Ic, type IconName } from "@/vx/icons";
@@ -65,6 +66,8 @@ export type AcadHomeProps = {
   summaryTemplate: { hi: string; en: string } | null;
   mayRemind: boolean;
   notesHref: string | null;
+  /** This deployment's origin, for the attendance reminder's link. */
+  origin: string;
 };
 
 const EVENT_TONE: Record<string, [string, string]> = {
@@ -126,9 +129,16 @@ export function AcadHomeView(props: AcadHomeProps) {
           title={{ en: `Ask ${people.length} ${people.length === 1 ? "class" : "classes"} to mark?`, hi: `${people.length} कक्षाओं से हाज़िरी लेने को कहें?` }}
           sub={{ en: `Today's register · ${dayName(props.today)}`, hi: `आज का रजिस्टर · ${dayName(props.today)}` }}
           people={people.map((c) => ({ id: c.classId, name: `${c.label} · ${c.teacherName}`, tag: c.teacherAway ? { en: "on leave", hi: "छुट्टी पर" } : undefined, on: true }))}
-          previews={Object.fromEntries(people.map((c) => [c.classId, { hi: `${c.teacherName} जी, आज की ${c.label} की हाज़िरी अभी दर्ज नहीं हुई है। कृपया VPPS One में लें।`, en: `${c.teacherName}, ${c.label}'s register for today has not been saved yet. Please take it in VPPS One.` }]))}
+          previews={Object.fromEntries(
+            people.map((c) => {
+              // The words the staff-notice dispatcher sends for this reminder.
+              const r = renderReminder({ staffName: c.teacherName, language: "both", day: props.today, classLabel: c.label, link: `${props.origin}/teach/attendance?class=${c.classId}&day=${props.today}` });
+              return [c.classId, { hi: r.text.hi, en: r.text.en }];
+            }),
+          )}
           unit={{ one: { en: "class", hi: "कक्षा" }, many: { en: "classes", hi: "कक्षाएँ" } }}
-          channel={{ en: "Staff notice", hi: "स्टाफ़ सूचना" }}
+          costEach={COST_PER_MESSAGE}
+          channel={{ en: "AiSensy · WhatsApp", hi: "AiSensy · WhatsApp" }}
           note={{ en: "Sent once per class per day. If the register is saved before it goes, it is not sent.", hi: "हर कक्षा के लिए दिन में एक बार। रजिस्टर पहले सहेजा गया तो नहीं जाएगा।" }}
         />
       );

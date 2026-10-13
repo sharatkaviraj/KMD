@@ -1,5 +1,6 @@
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
+import { getSiteUrl } from "@/platform/env";
 import { greeting } from "@/vx/format";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
@@ -76,6 +77,7 @@ export async function AcadHome({ staff, view, sheet, marks, what, who }: Props) 
       mayRemind={mayRemind}
       // The exam coordinator opens this page too and has no notes screen.
       notesHref={can(staff, "notes:view") ? "/notes" : null}
+      origin={getSiteUrl().replace(/\/$/, "")}
     />
   );
 }
