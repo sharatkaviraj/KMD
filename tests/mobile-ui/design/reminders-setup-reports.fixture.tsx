@@ -1,4 +1,7 @@
+import type { FeeSetupDraft } from "@/modules/fees/vx/domain/fee-setup";
+import type { FeeSetupVxData } from "@/modules/fees/vx/fee-setup-data";
 import type { AudienceFamily } from "@/modules/whatsapp/vx/domain/reminders";
+import { FeeSetup, type FeeSetupView } from "@/vx/screens/fee-setup/fee-setup";
 import { RemindersScreen } from "@/vx/screens/reminders/screen";
 import type { BatchRow, RemindersProps, RuleRow, RunView } from "@/vx/screens/reminders/types";
 
@@ -114,8 +117,70 @@ const results = reminders({
   },
 });
 
+/* ---------------------------------------------------------------- Fee setup */
+
+// The design's bands as this app's classes: tuition per class, one academic fee for every class.
+const CLASSES: [string, number, number][] = [
+  ["Nursery", 16800, 20], ["LKG", 16800, 20], ["UKG", 16800, 20],
+  ["Class 1", 20000, 26], ["Class 2", 20000, 25], ["Class 3", 20000, 25], ["Class 4", 20000, 26], ["Class 5", 20000, 25],
+  ["Class 6", 25600, 29], ["Class 7", 25600, 28], ["Class 8", 25600, 29],
+  ["Class 9", 31200, 30], ["Class 10", 31200, 28],
+  ["11 Science", 38600, 22], ["12 Science", 38600, 20], ["11 Commerce", 35000, 18], ["12 Commerce", 35000, 17], ["11 Arts", 35000, 13], ["12 Arts", 35000, 13],
+];
+const ROUTES: [string, number, number][] = [["Amet town", 5400, 64], ["Kelwa", 6300, 41], ["Railmagra", 7200, 38], ["Kunwariya", 8100, 22]];
+const DRAFT: FeeSetupDraft = {
+  academicSessionLabel: "2026-27",
+  installmentDates: ["2026-07-15", "2026-09-15", "2026-11-15", "2027-01-15"],
+  lateFeeFlatAmount: 100,
+  newStudentAcademicFeeAmount: 1200,
+  oldStudentAcademicFeeAmount: 1000,
+  academicFeeDistribution: "equal",
+  customFeeHeads: [],
+  discounts: [
+    { key: "d1", id: "d1", code: "sibling", displayName: "Sibling discount", calculationType: "tuition_percentage", percentage: 10, fixedTuitionAmount: null, isActive: true, isBuiltin: false },
+    { key: "d2", id: "d2", code: "staff_child", displayName: "Staff child", calculationType: "tuition_percentage", percentage: 50, fixedTuitionAmount: null, isActive: true, isBuiltin: true },
+    { key: "d3", id: "d3", code: "rte", displayName: "RTE seat", calculationType: "tuition_zero", percentage: null, fixedTuitionAmount: null, isActive: true, isBuiltin: true },
+  ],
+  classRows: CLASSES.map(([label, annualTuition]) => ({ label, annualTuition })),
+  routeRows: ROUTES.map(([routeName, annualFee]) => ({ routeName, annualFee })),
+};
+const FEE_DATA: FeeSetupVxData = {
+  sessionLabel: "2026-27",
+  draft: DRAFT,
+  studentsByClass: Object.fromEntries(CLASSES.map(([l, , n]) => [l, n])),
+  studentsByRoute: Object.fromEntries(ROUTES.map(([r, , n]) => [r, n])),
+  activeStudents: 434,
+  paidInstallments: [1, 2],
+  ruleStudents: { d1: 46, d2: 9, d3: 12 },
+  ruleStudentNames: { d1: ["Diya Sharma · Class 3", "Rohit Joshi · Class 5"], d2: [], d3: [] },
+  history: [],
+  updatedAt: "2026-10-06T16:20:00+05:30",
+};
+const REVIEW_DRAFT: FeeSetupDraft = {
+  ...DRAFT,
+  lateFeeFlatAmount: 150,
+  classRows: DRAFT.classRows.map((c) => (["Class 6", "Class 7", "Class 8"].includes(c.label) ? { ...c, annualTuition: 26800 } : c)),
+  routeRows: DRAFT.routeRows.map((r) => (r.routeName === "Amet town" ? { ...r, annualFee: 5850 } : r)),
+};
+const feeSetup = (initialView: FeeSetupView, extra: { initialClass?: string; initialRoute?: string; canEdit?: boolean; draftStart?: FeeSetupDraft } = {}) =>
+  function FeeSetupView() {
+    return <FeeSetup data={FEE_DATA} today={TODAY} initialView={initialView} initialClass={extra.initialClass ?? null} initialRoute={extra.initialRoute ?? null} canEdit={extra.canEdit ?? true} readOnly={false} draftStart={extra.draftStart} />;
+  };
+
 const R = "/reminders";
+const FS = "/fee-setup";
 export const views: Record<string, DesignView> = {
+  FeeSetup: { render: feeSetup("structure"), path: FS },
+  "DX-FeeSetup-Edit": { render: feeSetup("edit", { initialClass: "Class 7" }), path: FS },
+  "DX-FeeSetup-Installments": { render: feeSetup("installments"), path: FS },
+  "DX-FeeSetup-Review": { render: feeSetup("review", { draftStart: REVIEW_DRAFT }), path: FS },
+  "M-FeeSetup": { render: feeSetup("structure", { initialClass: "Class 7" }), path: FS },
+  "M-FeeSetup-Edit": { render: feeSetup("edit", { initialClass: "Class 7" }), path: FS },
+  "M-FeeSetup-LateFee": { render: feeSetup("latefee"), path: FS },
+  "M-FeeSetup-Route": { render: feeSetup("route", { initialRoute: "Amet town" }), path: FS },
+  "M-FeeSetup-Discounts": { render: feeSetup("discounts"), path: FS },
+  "AC-FeeSetup": { render: feeSetup("structure", { canEdit: false }), path: FS, menu: "accountant" },
+  "MAC-FeeSetup": { render: feeSetup("structure", { canEdit: false, initialClass: "Class 7" }), path: FS, menu: "accountant" },
   Reminders: { render: reminders({}), path: R },
   "AC-Reminders": { render: reminders({ perms: { queue: true, rules: false } }), path: R, menu: "accountant" },
   "MAC-Reminders": { render: reminders({ perms: { queue: true, rules: false } }), path: R, menu: "accountant" },

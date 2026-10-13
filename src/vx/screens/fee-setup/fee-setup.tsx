@@ -29,7 +29,7 @@ import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, EmptyState } from "@/vx/ui/primitives";
 
-import { BAND_WORD, F } from "./words";
+import { BAND_WORD, F, ROW_WORD } from "./words";
 
 export type FeeSetupView = "structure" | "edit" | "copy" | "installments" | "discounts" | "rule" | "latefee" | "transport" | "route" | "review" | "history";
 type Tab = "structure" | "installments" | "discounts" | "latefee" | "transport";
@@ -70,6 +70,49 @@ const dm = (iso: string) => {
 const ddm = (iso: string) => `${DOW[new Date(`${iso.slice(0, 10)}T12:00:00Z`).getUTCDay()]} ${dm(iso)}`;
 const daysFrom = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 const streamOf = (label: string) => (/science/i.test(label) ? "science" : /commerce/i.test(label) ? "commerce" : /arts|humanities/i.test(label) ? "arts" : "");
+
+/**
+ * The table's rows, as the design draws them: one row per class band (one per
+ * stream in 11–12) when every class in it pays the same tuition today, so
+ * editing the row sets the fee for each of those classes; a band whose classes
+ * pay different fees shows one row per class.
+ */
+type FeeRow = { key: string; band: string; name: string; sub: string; labels: string[] };
+
+function classRange(labels: string[]): string {
+  const nums = labels.map((l) => /^class\s+(\d{1,2})$/i.exec(l)?.[1]);
+  if (labels.length > 1 && nums.every(Boolean)) return `Class ${nums[0]}–${nums[nums.length - 1]}`;
+  const streams = labels.map((l) => /^(\d{1,2})\s+(.+)$/.exec(l));
+  if (labels.length > 1 && streams.every((m) => m && m[2] === streams[0]?.[2])) return `${streams.map((m) => m![1]).join(" and ")} ${streams[0]![2]}`;
+  return labels.join(" · ");
+}
+
+function feeRows(base: FeeSetupDraft, tx: Tx): FeeRow[] {
+  const groups = new Map<string, string[]>();
+  for (const c of base.classRows) {
+    const band = bandOf(c.label);
+    const key = band === "other" ? `class:${c.label}` : band === "senior" ? `senior:${streamOf(c.label) || c.label}` : band;
+    groups.set(key, [...(groups.get(key) ?? []), c.label]);
+  }
+  const fee = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
+  const rows: FeeRow[] = [];
+  for (const band of BAND_ORDER) {
+    for (const [key, labels] of groups) {
+      if ((key.startsWith("class:") ? "other" : key.split(":")[0]) !== band) continue;
+      const word = ROW_WORD[key];
+      const same = labels.every((l) => fee.get(l) === fee.get(labels[0]));
+      if (word && same && labels.length > 1) rows.push({ key: `band:${key}`, band, name: tx(word), sub: classRange(labels), labels });
+      else for (const l of labels) rows.push({ key: `class:${l}`, band, name: l, sub: "", labels: [l] });
+    }
+  }
+  return rows;
+}
+
+/** The row a link names: its own key, or the row a class label sits in. */
+function rowFor(rows: FeeRow[], key: string | null): FeeRow | null {
+  if (!key) return null;
+  return rows.find((r) => r.key === key) ?? rows.find((r) => r.labels.includes(key)) ?? null;
+}
 
 function SwitchKnob({ on }: { on: boolean }) {
   return (
@@ -124,6 +167,7 @@ export function FeeSetup({
   initialRoute,
   canEdit,
   readOnly,
+  draftStart,
 }: {
   data: FeeSetupVxData;
   today: string;
@@ -132,13 +176,16 @@ export function FeeSetup({
   initialRoute: string | null;
   canEdit: boolean;
   readOnly: boolean;
+  /** Unsaved edits to open with (the design fixture's review state); the page always starts from the live setup. */
+  draftStart?: FeeSetupDraft;
 }) {
   const { tx } = useVx();
   const base = data.draft;
-  const [draft, setDraft] = useState<FeeSetupDraft>(base);
+  const [draft, setDraft] = useState<FeeSetupDraft>(draftStart ?? base);
   const [tab, setTab] = useState<Tab>(tabOf(initialView));
   const [sheet, setSheet] = useState<SheetName>(sheetOf(initialView));
-  const [editClass, setEditClass] = useState<string | null>(initialView === "edit" ? (initialClass ?? base.classRows.find((c) => bandOf(c.label) === "middle")?.label ?? base.classRows[0]?.label ?? null) : null);
+  const rows = feeRows(base, tx);
+  const [editClass, setEditClass] = useState<string | null>(initialView === "edit" ? (rowFor(rows, initialClass)?.key ?? rows.find((r) => r.band === "middle")?.key ?? rows[0]?.key ?? null) : null);
   const [editRoute, setEditRoute] = useState<string | null>(initialView === "route" ? (initialRoute ?? base.routeRows.find((r) => r.annualFee > 0)?.routeName ?? null) : null);
   const editable = canEdit && !readOnly;
   const changes = diffDrafts(base, draft);
@@ -183,11 +230,12 @@ export function FeeSetup({
     { icon: "clock" as IconName, title: tx(F.help3), body: tx(F.help3b) },
   ];
   const tabIdx = Math.max(0, TABS.findIndex((t) => t.key === tab));
-  const editStudents = editClass ? (data.studentsByClass[editClass] ?? 0) : 0;
+  const editRow = rowFor(rows, editClass);
+  const editStudents = editRow ? editRow.labels.reduce((n, l) => n + (data.studentsByClass[l] ?? 0), 0) : 0;
   const askNote = !canEdit ? (
-    <div className="fs-nt fs-in">
+    <div className="fs-nt fs-in" style={{ flexWrap: "wrap", alignItems: "center" }}>
       <Ic n="eye" />
-      <span style={{ flex: 1 }}>{tx(F.viewOnly)}</span>
+      <span style={{ flex: "1 1 220px" }}>{tx(F.viewOnly)}</span>
       <Btn variant="soft" icon="message" onClick={() => open("ask")} disabled={readOnly} style={{ height: 34 }}>{tx(F.ask)}</Btn>
     </div>
   ) : null;
@@ -217,7 +265,7 @@ export function FeeSetup({
             <Ic n="chevLeft" size={24} />
           </button>
           <span className="fs-c" style={{ flex: 1, paddingLeft: 2 }}>
-            <span className="fs-e" style={{ fontSize: 17, fontWeight: 700 }}>{editClass}</span>
+            <span className="fs-e" style={{ fontSize: 17, fontWeight: 700 }}>{editRow?.name}</span>
             <span className="fs-m fs-e">{tx(F.editFees)} · {editStudents} {tx(F.students)}</span>
           </span>
         </header>
@@ -239,14 +287,13 @@ export function FeeSetup({
         {tab === "structure" ? (
           <div className={`stack fs-lay${editing ? " has" : ""}`}>
             <section className={`pad fs-scr${editing ? " hide-m" : ""}`} style={{ gap: 14 }}>
-              {askNote}
-              <StructureTab data={data} draft={draft} base={base} paidNos={paidNos} selected={editClass} onPick={pickClass} onCopy={() => open("copy")} editable={editable} setDraft={setDraft} initialOpen={initialView === "structure" ? initialClass : null} />
+              <StructureTab onAsk={canEdit ? undefined : () => open("ask")} askDisabled={readOnly} data={data} rows={rows} draft={draft} base={base} paidNos={paidNos} selected={editClass} onPick={pickClass} onCopy={() => open("copy")} editable={editable} setDraft={setDraft} initialOpen={initialView === "structure" ? (rowFor(rows, initialClass)?.key ?? null) : null} />
             </section>
-            {editClass ? (
+            {editRow ? (
               <aside className="fs-aside">
                 <EditClassPanel
-                  key={editClass}
-                  label={editClass}
+                  key={editRow.key}
+                  row={editRow}
                   draft={draft}
                   base={base}
                   students={editStudents}
@@ -254,7 +301,7 @@ export function FeeSetup({
                   editable={editable}
                   onCancel={() => pickClass(null)}
                   onSave={(tuition) => {
-                    setDraft((d) => ({ ...d, classRows: d.classRows.map((c) => (c.label === editClass ? { ...c, annualTuition: tuition } : c)) }));
+                    setDraft((d) => ({ ...d, classRows: d.classRows.map((c) => (editRow.labels.includes(c.label) ? { ...c, annualTuition: tuition } : c)) }));
                     pickClass(null);
                   }}
                 />
@@ -264,7 +311,7 @@ export function FeeSetup({
         ) : (
           <div className="pad fs-scr">
             {askNote}
-            {tab === "installments" ? <InstallmentsTab data={data} draft={draft} base={base} today={today} editable={editable} setDraft={setDraft} /> : null}
+            {tab === "installments" ? <InstallmentsTab data={data} rows={rows} draft={draft} base={base} today={today} editable={editable} setDraft={setDraft} /> : null}
             {tab === "discounts" ? <DiscountsTab data={data} draft={draft} editable={editable} setDraft={setDraft} onAdd={() => open("rule")} /> : null}
             {tab === "latefee" ? <LateFeeTab draft={draft} base={base} today={today} editable={editable} setDraft={setDraft} /> : null}
             {tab === "transport" ? <TransportTab data={data} draft={draft} base={base} editable={editable} onPick={pickRoute} /> : null}
@@ -332,8 +379,7 @@ function LockNote({ paidNos, count, tx }: { paidNos: number[]; count: number; tx
       <Ic n="lock" />
       <span>
         {tx(F.lockStart)} {range(paidNos)}. <b>{tx(F.lockBold)}</b>
-        {tx(F.lockTail)}
-        {unpaid.length ? ` (${unpaid.join(", ")})` : ""}.
+        {unpaid.length ? ` (${unpaid.length > 1 ? `${unpaid.slice(0, -1).join(", ")} and ${unpaid[unpaid.length - 1]}` : unpaid[0]})` : ""}.
       </span>
     </div>
   );
@@ -342,7 +388,10 @@ function LockNote({ paidNos, count, tx }: { paidNos: number[]; count: number; tx
 /* ---------- structure ---------- */
 
 function StructureTab({
+  onAsk,
+  askDisabled,
   data,
+  rows,
   draft,
   base,
   paidNos,
@@ -353,12 +402,15 @@ function StructureTab({
   setDraft,
   initialOpen,
 }: {
+  onAsk?: () => void;
+  askDisabled: boolean;
   data: FeeSetupVxData;
+  rows: FeeRow[];
   draft: FeeSetupDraft;
   base: FeeSetupDraft;
   paidNos: number[];
   selected: string | null;
-  onPick: (l: string) => void;
+  onPick: (key: string) => void;
   onCopy: () => void;
   editable: boolean;
   setDraft: SetDraft;
@@ -368,8 +420,10 @@ function StructureTab({
   const [exp, setExp] = useState<string | null>(initialOpen);
   const n = draft.installmentDates.length;
   const next = firstUnpaid(n, paidNos);
-  const baseBy = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
-  const groups = BAND_ORDER.map((key) => ({ key, rows: draft.classRows.filter((c) => bandOf(c.label) === key) })).filter((g) => g.rows.length);
+  const now = new Map(draft.classRows.map((c) => [c.label, c.annualTuition]));
+  const live = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
+  const studentsOf = (r: FeeRow) => r.labels.reduce((s, l) => s + (data.studentsByClass[l] ?? 0), 0);
+  const groups = BAND_ORDER.map((key) => ({ key, rows: rows.filter((r) => r.band === key) })).filter((g) => g.rows.length);
   const students = Object.values(data.studentsByClass).reduce((s, v) => s + v, 0);
   const narrow = Boolean(selected);
   const X = narrow ? "hide-d" : "";
@@ -383,90 +437,99 @@ function StructureTab({
     [F.colPer, ""],
     [F.colNew, X],
   ];
-  const cell = (now: number, was: number, x: string, bold = false) => {
-    const changed = now !== was;
+  const cell = (v: number, was: number, x: string, bold = false) => {
+    const changed = v !== was;
     return (
       <span className={`fs-c num ${x}`} style={{ alignItems: "flex-end" }}>
         {changed ? <span style={{ fontSize: 11, color: "var(--sub)", textDecoration: "line-through" }}>{rupees(was)}</span> : null}
-        <span className={`fs-cell${changed ? " fs-ac" : ""}`} style={{ fontSize: 14, fontWeight: bold ? 700 : 500 }}>{rupees(now)}</span>
+        <span className={`fs-cell${changed ? " fs-ac" : ""}`} style={{ fontSize: 14, fontWeight: bold ? 700 : 500 }}>{rupees(v)}</span>
       </span>
     );
   };
-  let r = 0;
+  let k = 0;
   return (
     <>
       <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <span className="fs-c">
           <span className="fs-tt">{tx(F.byClass)}</span>
           <span className="fs-m">
-            {draft.classRows.length} {tx(F.classes)} · {students} {tx(F.students)} · {n} {tx(F.instWord)}
+            {rows.length} {tx(F.bands)} · {students} {tx(F.students)} · {n} {tx(F.instWord)}
           </span>
         </span>
-        {editable ? <Btn variant="sec" icon="copy" onClick={onCopy} style={{ maxWidth: "100%" }}>{tx(F.raise)}</Btn> : null}
+        {editable ? (
+          <button type="button" className="tap btn sec mfull" onClick={onCopy}>
+            <Ic n="copy" />
+            {tx(F.raise)}
+          </button>
+        ) : onAsk ? (
+          <button type="button" className="tap btn sec mfull" onClick={onAsk} disabled={askDisabled}>
+            <Ic n="message" />
+            {tx(F.ask)}
+          </button>
+        ) : null}
       </div>
       <LockNote paidNos={paidNos} count={n} tx={tx} />
       <div className="only-d card" style={{ overflow: "hidden" }}>
         <div className="fs-thead" style={{ gridTemplateColumns: gc }}>
-          <span className="sech">{tx(F.colClass)}</span>
+          <span className="sech">{tx(F.band)}</span>
           <span className="sech" style={{ textAlign: "right" }}>{tx(F.colStudents)}</span>
           {heads.map(([label, x]) => (
             <span key={label.en} className={`sech ${x}`} style={{ textAlign: "right" }}>{tx(label)}</span>
           ))}
           <span />
         </div>
-        {groups.map((g) => (
-          <Fragment key={g.key}>
-            <div className="fs-band" style={{ padding: "10px 16px 4px", borderTop: "1px solid var(--bd)", fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(BAND_WORD[g.key] ?? BAND_WORD.other)}</div>
-            {g.rows.map((c) => {
-              const was = baseBy.get(c.label) ?? c.annualTuition;
-              const per = perInstallment(draft, c.annualTuition);
-              const perWas = perInstallment(base, was);
-              const i = r++;
-              return (
-                <button
-                  key={c.label}
-                  type="button"
-                  className={`tap row fs-row fs-xi${selected === c.label ? " sel" : ""}`}
-                  onClick={() => onPick(c.label)}
-                  style={{ gridTemplateColumns: gc, animationDelay: delay(i) }}
-                >
-                  <span className="fs-c" style={{ paddingLeft: 12 }}>
-                    <span className="fs-e" style={{ fontSize: 14, fontWeight: 700 }}>{c.label}</span>
-                    <span className="fs-m fs-e">{data.studentsByClass[c.label] ?? 0} {tx(F.students)}</span>
-                  </span>
-                  <span className="num" style={{ fontSize: 13, color: "var(--mut)", textAlign: "right" }}>{data.studentsByClass[c.label] ?? 0}</span>
-                  {cell(c.annualTuition, was, X)}
-                  {cell(draft.oldStudentAcademicFeeAmount, base.oldStudentAcademicFeeAmount, X)}
-                  {cell(c.annualTuition + draft.oldStudentAcademicFeeAmount, was + base.oldStudentAcademicFeeAmount, "", true)}
-                  {cell(per[next - 1] ?? per[0] ?? 0, perWas[next - 1] ?? perWas[0] ?? 0, "")}
-                  {cell(draft.newStudentAcademicFeeAmount, base.newStudentAcademicFeeAmount, X)}
-                  {paidNos.length ? <Ic n="lock" size={14} style={{ color: "var(--sub)" }} /> : <span />}
-                </button>
-              );
-            })}
-          </Fragment>
-        ))}
+        {groups.map((g) => {
+          const head = g.key === "senior" || g.rows.length > 1;
+          return (
+            <Fragment key={g.key}>
+              {head ? <div style={{ padding: "10px 16px 4px", borderTop: "1px solid var(--bd)", fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(BAND_WORD[g.key] ?? BAND_WORD.other)}</div> : null}
+              {g.rows.map((r) => {
+                const t = now.get(r.labels[0]) ?? 0;
+                const was = live.get(r.labels[0]) ?? t;
+                const per = perInstallment(draft, t);
+                const perWas = perInstallment(base, was);
+                const i = k++;
+                return (
+                  <button key={r.key} type="button" className={`tap row fs-row fs-xi${selected === r.key ? " sel" : ""}`} onClick={() => onPick(r.key)} style={{ gridTemplateColumns: gc, animationDelay: delay(i) }}>
+                    <span className="fs-c" style={{ paddingLeft: head ? 12 : 0 }}>
+                      <span className="fs-e" style={{ fontSize: 14, fontWeight: 700 }}>{r.name}</span>
+                      <span className="fs-m fs-e">{r.sub || `${studentsOf(r)} ${tx(F.students)}`}</span>
+                    </span>
+                    <span className="num" style={{ fontSize: 13, color: "var(--mut)", textAlign: "right" }}>{studentsOf(r)}</span>
+                    {cell(t, was, X)}
+                    {cell(draft.oldStudentAcademicFeeAmount, base.oldStudentAcademicFeeAmount, X)}
+                    {cell(t + draft.oldStudentAcademicFeeAmount, was + base.oldStudentAcademicFeeAmount, "", true)}
+                    {cell(per[next - 1] ?? per[0] ?? 0, perWas[next - 1] ?? perWas[0] ?? 0, "")}
+                    {cell(draft.newStudentAcademicFeeAmount, base.newStudentAcademicFeeAmount, X)}
+                    {paidNos.length ? <Ic n="lock" size={14} style={{ color: "var(--sub)" }} /> : <span />}
+                  </button>
+                );
+              })}
+            </Fragment>
+          );
+        })}
       </div>
       <div className="only-m fs-c" style={{ gap: 14 }}>
         {groups.map((g) => (
           <div key={g.key} className="fs-c" style={{ gap: 8 }}>
             <span className="sech" style={{ padding: "0 4px" }}>{tx(BAND_WORD[g.key] ?? BAND_WORD.other)}</span>
-            {g.rows.map((c, i) => {
-              const was = baseBy.get(c.label) ?? c.annualTuition;
-              const per = perInstallment(draft, c.annualTuition);
+            {g.rows.map((r, i) => {
+              const t = now.get(r.labels[0]) ?? 0;
+              const was = live.get(r.labels[0]) ?? t;
+              const per = perInstallment(draft, t);
               const equal = per.every((v) => v === per[0]);
-              const open = exp === c.label;
+              const open = exp === r.key;
               const list: [Pair, Pair, number, number][] = [
-                [F.colTuition, F.tuitionSub, c.annualTuition, was],
+                [F.colTuition, F.tuitionSub, t, was],
                 [F.acadOld, F.acadOldSub, draft.oldStudentAcademicFeeAmount, base.oldStudentAcademicFeeAmount],
                 [F.acadNew, F.acadNewSub, draft.newStudentAcademicFeeAmount, base.newStudentAcademicFeeAmount],
               ];
               return (
-                <div key={c.label} className="card fs-xi" style={{ overflow: "hidden", animationDelay: delay(i) }}>
-                  <button type="button" className="tap fs-rb" aria-expanded={open} onClick={() => setExp(open ? null : c.label)} style={{ padding: 14 }}>
+                <div key={r.key} className="card fs-xi" style={{ overflow: "hidden", animationDelay: delay(i) }}>
+                  <button type="button" className="tap fs-rb" aria-expanded={open} onClick={() => setExp(open ? null : r.key)} style={{ padding: 14 }}>
                     <span className="fs-c" style={{ flex: 1, gap: 2 }}>
-                      <span className="fs-tt fs-e">{c.label}</span>
-                      <span className="fs-m">{data.studentsByClass[c.label] ?? 0} {tx(F.students)}</span>
+                      <span className="fs-tt fs-e">{r.name}</span>
+                      <span className="fs-m">{r.sub || `${studentsOf(r)} ${tx(F.students)}`}</span>
                       {paidNos.length ? (
                         <span className="fs-f" style={{ gap: 4, fontSize: 12, color: "var(--warnfg)" }}>
                           <Ic n="lock" size={12} />
@@ -475,7 +538,7 @@ function StructureTab({
                       ) : null}
                     </span>
                     <span className="fs-c" style={{ alignItems: "flex-end" }}>
-                      <span className="num fs-tt" style={{ color: c.annualTuition !== was ? "var(--accfg)" : "var(--fg)" }}>{rupees(c.annualTuition + draft.oldStudentAcademicFeeAmount)}</span>
+                      <span className="num fs-tt" style={{ color: t !== was ? "var(--accfg)" : "var(--fg)" }}>{rupees(t + draft.oldStudentAcademicFeeAmount)}</span>
                       <span className="num fs-m">{equal ? `${per.length} × ${rupees(per[0] ?? 0)}` : `${tx(F.inst)} ${next}–${per.length}: ${rupees(per[next - 1] ?? 0)}`}</span>
                     </span>
                     <Ic n="chevDown" style={{ color: "var(--sub)", transform: `rotate(${open ? 180 : 0}deg)`, transition: "transform .3s var(--spring)" }} />
@@ -491,9 +554,9 @@ function StructureTab({
                           <span className="num" style={{ fontSize: 14, fontWeight: 700, color: v !== w ? "var(--accfg)" : "var(--fg)" }}>{rupees(v)}</span>
                         </div>
                       ))}
-                      <button type="button" className="tap btn soft" onClick={() => onPick(c.label)} style={{ width: "100%", marginTop: 12 }}>
+                      <button type="button" className="tap btn soft" onClick={() => onPick(r.key)} style={{ width: "100%", marginTop: 12 }}>
                         <Ic n="edit" />
-                        {tx(F.editFor)} {c.label}
+                        {tx(F.editFor)} {r.name}
                       </button>
                     </div>
                   ) : null}
@@ -557,8 +620,9 @@ function AcademicCard({ draft, base, editable, setDraft }: { draft: FeeSetupDraf
   );
 }
 
-function EditClassPanel({ label, draft, base, students, paidNos, editable, onCancel, onSave }: { label: string; draft: FeeSetupDraft; base: FeeSetupDraft; students: number; paidNos: number[]; editable: boolean; onCancel: () => void; onSave: (tuition: number) => void }) {
+function EditClassPanel({ row: feeRow, draft, base, students, paidNos, editable, onCancel, onSave }: { row: FeeRow; draft: FeeSetupDraft; base: FeeSetupDraft; students: number; paidNos: number[]; editable: boolean; onCancel: () => void; onSave: (tuition: number) => void }) {
   const { tx } = useVx();
+  const label = feeRow.labels[0];
   const row = draft.classRows.find((c) => c.label === label);
   const live = base.classRows.find((c) => c.label === label)?.annualTuition ?? 0;
   const [value, setValue] = useState(String(row?.annualTuition ?? 0));
@@ -573,8 +637,8 @@ function EditClassPanel({ label, draft, base, students, paidNos, editable, onCan
     <>
       <div className="fs-c" style={{ flex: 1, padding: "18px 22px", gap: 14 }}>
         <span className="fs-c hide-m">
-          <span className="fs-h2">{label}</span>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(BAND_WORD[bandOf(label)] ?? BAND_WORD.other)} · {students} {tx(F.students)}</span>
+          <span className="fs-h2">{feeRow.name}</span>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}>{feeRow.sub || tx(BAND_WORD[feeRow.band] ?? BAND_WORD.other)} · {students} {tx(F.students)}</span>
         </span>
         {paidNos.length ? (
           <div className="fs-nt fs-wa" style={{ padding: "10px 12px", fontSize: 12 }}>
@@ -732,7 +796,7 @@ function DateChip({ date, locked, moved, editable, min, onPick, label }: { date:
   );
 }
 
-function InstallmentsTab({ data, draft, base, today, editable, setDraft }: { data: FeeSetupVxData; draft: FeeSetupDraft; base: FeeSetupDraft; today: string; editable: boolean; setDraft: SetDraft }) {
+function InstallmentsTab({ data, rows, draft, base, today, editable, setDraft }: { data: FeeSetupVxData; rows: FeeRow[]; draft: FeeSetupDraft; base: FeeSetupDraft; today: string; editable: boolean; setDraft: SetDraft }) {
   const { tx } = useVx();
   const dates = draft.installmentDates;
   const cols = Math.max(1, dates.length);
@@ -747,14 +811,7 @@ function InstallmentsTab({ data, draft, base, today, editable, setDraft }: { dat
   const shares = sampleRow ? perInstallment(draft, sampleRow.annualTuition) : dates.map(() => 0);
   const shareSum = shares.reduce((s, v) => s + v, 0) || 1;
   const pcts = shares.map((v) => Math.round((v / shareSum) * 100));
-  // Rows to show: a class from each band, and each stream of 11–12.
-  const seen = new Set<string>();
-  const sample = draft.classRows.filter((c) => {
-    const k = `${bandOf(c.label)}:${bandOf(c.label) === "senior" ? streamOf(c.label) : ""}`;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+  const nowBy = new Map(draft.classRows.map((c) => [c.label, c.annualTuition]));
   const baseBy = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
   const tcols = `minmax(0, 1.4fr) repeat(${cols + 1}, minmax(0, 1fr))`;
   return (
@@ -852,20 +909,21 @@ function InstallmentsTab({ data, draft, base, today, editable, setDraft }: { dat
           </div>
           <div className="fs-ls">
             <div style={{ display: "grid", gridTemplateColumns: tcols, gap: 6, padding: "8px 16px", background: "var(--s2)" }}>
-              <span className="sech" style={{ fontSize: 11 }}>{tx(F.colClass)}</span>
+              <span className="sech" style={{ fontSize: 11 }}>{tx(F.band)}</span>
               {dates.map((_, i) => (
                 <span key={i} className="sech" style={{ fontSize: 11, textAlign: "right" }}>{tx(F.inst)} {i + 1}</span>
               ))}
               <span className="sech" style={{ fontSize: 11, textAlign: "right" }}>{tx(F.year)}</span>
             </div>
-            {sample.map((c) => {
-              const per = perInstallment(draft, c.annualTuition);
-              const was = perInstallment(base, baseBy.get(c.label) ?? c.annualTuition);
+            {rows.map((r) => {
+              const t = nowBy.get(r.labels[0]) ?? 0;
+              const per = perInstallment(draft, t);
+              const was = perInstallment(base, baseBy.get(r.labels[0]) ?? t);
               const all = [...per, per.reduce((s, v) => s + v, 0)];
               const old = [...was, was.reduce((s, v) => s + v, 0)];
               return (
-                <div key={c.label} style={{ display: "grid", gridTemplateColumns: tcols, gap: 6, alignItems: "center", minHeight: 42, padding: "0 16px" }}>
-                  <span className="fs-e" style={{ fontSize: 13, fontWeight: 600 }}>{c.label}</span>
+                <div key={r.key} style={{ display: "grid", gridTemplateColumns: tcols, gap: 6, alignItems: "center", minHeight: 42, padding: "0 16px" }}>
+                  <span className="fs-e" style={{ fontSize: 13, fontWeight: 600 }}>{r.band === "senior" && r.labels.length > 1 ? `11–12 ${r.name}` : r.name}</span>
                   {all.map((v, i) => {
                     const ch = v !== old[i];
                     const paid = i < per.length && i < done;
@@ -902,7 +960,12 @@ function DiscountsTab({ data, draft, editable, setDraft, onAdd }: { data: FeeSet
             {total} {tx(F.students)} · {draft.discounts.length} {tx(F.rules)} · {tx(F.onTuition)}
           </span>
         </span>
-        {editable ? <Btn variant="pri" icon="plus" onClick={onAdd} style={{ maxWidth: "100%" }}>{tx(F.addRule)}</Btn> : null}
+        {editable ? (
+          <button type="button" className="tap btn pri mfull" onClick={onAdd}>
+            <Ic n="plus" />
+            {tx(F.addRule)}
+          </button>
+        ) : null}
       </div>
       <div className="g2 fs-g2">
         {draft.discounts.map((d, i) => {
@@ -925,7 +988,7 @@ function DiscountsTab({ data, draft, editable, setDraft, onAdd }: { data: FeeSet
               </div>
               <div className="fs-f" style={{ justifyContent: "space-between", alignItems: "flex-end", opacity: d.isActive ? 1 : 0.5, transition: "opacity .3s ease" }}>
                 {editable && d.calculationType !== "tuition_zero" ? (
-                  <button type="button" className="tap num serif" onClick={() => setEditKey(editKey === d.key ? null : d.key)} style={{ border: 0, background: "transparent", padding: 0, color: "var(--fg)", fontSize: 28, fontWeight: 600, lineHeight: 1 }}>{big(d)}</button>
+                  <button type="button" className="tap num serif" onClick={() => setEditKey(editKey === d.key ? null : d.key)} style={{ border: 0, background: "transparent", padding: 0, color: "var(--fg)", fontFamily: "\"Source Serif 4\", Georgia, serif", fontSize: 28, fontWeight: 600, lineHeight: 1 }}>{big(d)}</button>
                 ) : (
                   <span className="num serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1 }}>{big(d)}</span>
                 )}

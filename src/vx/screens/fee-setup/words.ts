@@ -23,14 +23,14 @@ export const F = {
   help3: p("Late fee is separate", "विलंब शुल्क अलग है"),
   help3b: p("It is charged on its own line and never added to the fee.", "यह अपनी अलग लाइन में लगता है, फीस में कभी नहीं जुड़ता।"),
   // structure
-  byClass: p("Yearly fee by class", "कक्षा अनुसार सालाना फीस"),
+  byClass: p("Yearly fee by class band", "कक्षा समूह अनुसार सालाना फीस"),
+  bands: p("bands", "समूह"),
   classes: p("classes", "कक्षाएं"),
   students: p("students", "विद्यार्थी"),
   instWord: p("installments", "किस्तें"),
   raise: p("Raise every class by %", "हर कक्षा की फीस % से बढ़ाएं"),
   lockStart: p("Receipts exist for Installments", "रसीदें बनी हैं किस्त"),
-  lockBold: p("Money already paid stays paid", "जमा पैसा जमा ही रहता है"),
-  lockTail: p("; a change lands on unpaid installments", "; बदलाव बाकी किस्तों पर लगता है"),
+  lockBold: p("Changes apply to unpaid installments only", "बदलाव केवल बाकी किस्तों पर लगते हैं"),
   colClass: p("Class", "कक्षा"),
   colStudents: p("Students", "विद्यार्थी"),
   colTuition: p("Tuition", "शिक्षण शुल्क"),
@@ -59,7 +59,7 @@ export const F = {
   off: p("off", "बंद"),
   // edit panel
   editLock: p("Receipts exist for Inst", "रसीदें बनी हैं किस्त"),
-  editLockTail: p("· paid money stays paid; the new fee lands on unpaid installments", "· जमा पैसा जमा रहता है; नई फीस बाकी किस्तों पर लगती है"),
+  editLockTail: p("· changes apply to unpaid installments only", "· बदलाव केवल बाकी किस्तों पर लगते हैं"),
   tuitionYear: p("Tuition · per year", "शिक्षण शुल्क · प्रति वर्ष"),
   everyStudent: p("Every student", "हर विद्यार्थी"),
   acadNote: (oldAmt: string, newAmt: string): Pair =>
@@ -102,7 +102,7 @@ export const F = {
   spread: p("Academic fee spread over every installment", "शैक्षणिक शुल्क हर किस्त में"),
   spreadSub: p("Every bill is the same", "हर बिल बराबर"),
   changedNotLive: p("Changed · not live yet", "बदला · अभी लागू नहीं"),
-  eachPays: p("What each class pays", "हर कक्षा कितना देती है"),
+  eachPays: p("What each band pays", "हर समूह कितना देता है"),
   eachPaysSub: p("Per installment, old student, with your split and any edited fees", "प्रति किस्त, पुराना विद्यार्थी, आपके बँटवारे और बदली फीस के साथ"),
   band: p("Band", "समूह"),
   year: p("Year", "साल"),
@@ -234,12 +234,23 @@ export const F = {
   sendRequest: p("Send request", "अनुरोध भेजें"),
 };
 
-/** The design's band names (the domain's `BANDS` keeps its own labels). */
-export const BAND_WORD: Record<string, Pair> = {
+/** A row that stands for every class of a band (or a stream of 11–12) paying one fee. */
+export const ROW_WORD: Record<string, Pair> = {
   pre: p("Pre-primary", "पूर्व-प्राथमिक"),
   primary: p("Primary 1–5", "प्राथमिक 1–5"),
   middle: p("Middle 6–8", "माध्यमिक 6–8"),
   secondary: p("Secondary 9–10", "सेकेंडरी 9–10"),
+  "senior:science": p("Science", "विज्ञान"),
+  "senior:commerce": p("Commerce", "वाणिज्य"),
+  "senior:arts": p("Arts", "कला"),
+};
+
+/** The design's band names (the domain's `BANDS` keeps its own labels). */
+export const BAND_WORD: Record<string, Pair> = {
+  pre: p("Pre-primary", "पूर्व-प्राथमिक"),
+  primary: p("Primary", "प्राथमिक"),
+  middle: p("Middle", "माध्यमिक"),
+  secondary: p("Secondary", "सेकेंडरी"),
   senior: p("Senior 11–12 · by stream", "सीनियर 11–12 · संकाय अनुसार"),
   other: p("Other classes", "अन्य कक्षाएं"),
 };

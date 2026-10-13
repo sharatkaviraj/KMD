@@ -58,7 +58,7 @@
   .vx .fs-tabbar { top: 58px; padding: 12px 16px; }
   .vx .fs-scr { gap: 14px; }
   .vx .fs-lay.has { grid-template-columns: minmax(0, 1fr); }
-  .vx .fs-aside { position: static; height: auto; overflow: visible; border-left: 0; animation: none; }
+  .vx .fs-aside { position: static; height: auto; min-height: calc(100dvh - 58px - 96px - env(safe-area-inset-bottom)); overflow: visible; border-left: 0; animation: none; }
   .vx .fs-foot { bottom: calc(76px + env(safe-area-inset-bottom)); padding: 12px 16px; }
   .vx .fs-pbar { bottom: 88px; padding: 0 12px; }
   .vx .fs-pbar > div { flex: 1; }
