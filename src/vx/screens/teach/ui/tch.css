@@ -125,6 +125,14 @@
   .vx .tc-tile{min-height:122px;padding:14px}
 }
 
+/* ---- Marks (TchMarks) ------------------------------------------------------- */
+:where(.vx,.vxt) .tc-sbar{position:sticky;bottom:0;z-index:15;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 28px;border-top:1px solid var(--bd)}
+:where(.vx,.vxt) .tc-mbar{height:10px;border-radius:5px;background:var(--s3);overflow:hidden;display:flex}
+:where(.vx,.vxt) .tc-mbar>span{height:100%;border-radius:inherit;transition:width .5s var(--ease)}
+@container vx (max-width:899px){
+  .vx .tc-sbar{padding:12px 16px;bottom:calc(98px + env(safe-area-inset-bottom))}
+}
+
 /* ---- Attendance (TchAttend) -------------------------------------------------- */
 :where(.vx,.vxt) .tc-cnt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 :where(.vx,.vxt) .tc-n{font-size:30px;font-weight:700;line-height:1.1;display:block;animation:xIn .35s var(--ease) both}

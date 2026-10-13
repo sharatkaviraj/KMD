@@ -1,5 +1,11 @@
 import { useEffect, type ReactNode } from "react";
 
+import type { Cell } from "@/vx/screens/exams/domain/entry";
+import { MarksSheet, type SheetPhase } from "@/vx/screens/exams/marks-sheet";
+import { PublicMarksSheet, PublicPaperList } from "@/vx/screens/exams/public-sheet";
+import type { SaveOutcome } from "@/vx/screens/exams/save-types";
+import type { SheetPaper } from "@/vx/screens/exams/sheet-data";
+import { TeacherPick, TeacherRemarks, type PickCard, type RemarkChild } from "@/vx/screens/exams/teacher-marks";
 import type { BoardNote } from "@/vx/screens/notes/domain/notes";
 import type { AttendData, ClassData, HomeData, MoreData, StudentData, SubjectData } from "@/vx/screens/teach/data";
 import type { Mark } from "@/vx/screens/teach/domain/teach";
@@ -319,7 +325,95 @@ const moreView = (view: MoreView, sheet: string | null = null): DesignView => ({
   render: () => layer(<TeachMore data={moreData()} initialView={view} initialSheet={sheet} makeLink={async () => ({ ok: true })} officePhone="0000000000" />),
 });
 
+/* ------------------------------------------------------------------ Marks */
+
+const HY = { en: "Half-yearly", hi: "अर्धवार्षिक" };
+const pickCards: PickCard[] = [
+  { paperId: id(307), examLabel: HY, classLabel: "Class 7", subjectCode: "Science", maxMarks: 80, entered: 12, total: 27, status: "in_progress", submittedToName: "Mr. Hemant Trivedi" },
+  { paperId: id(308), examLabel: HY, classLabel: "Class 8", subjectCode: "Science", maxMarks: 80, entered: 0, total: 28, status: "not_started", submittedToName: "Mr. Hemant Trivedi" },
+  { paperId: id(306), examLabel: HY, classLabel: "Class 6", subjectCode: "Science", maxMarks: 80, entered: 31, total: 31, status: "done", submittedToName: "Mr. Hemant Trivedi" },
+];
+const remarkKids = (): RemarkChild[] =>
+  KIDS.map((name, i) => ({
+    id: kidId(i + 1),
+    name,
+    roll: String(i + 1),
+    remark: i < 9 ? "Works steadily and is improving in every subject." : null,
+    percent: Math.round(55 + rnd(i + 1, 3) * 35),
+    attendance: ATT[i + 1] ?? Math.round(84 + rnd(i + 1, 1) * 15),
+    suggestions: [
+      { text: { en: "Good progress this term. Keep reading every day.", hi: "इस सत्र अच्छी प्रगति। रोज़ पढ़ते रहें।" }, source: "marks", basis: "62%" },
+      { text: { en: "Sincere and regular. Needs more practice in Maths.", hi: "नियमित और ईमानदार। गणित में और अभ्यास चाहिए।" }, source: "subjects", basis: "Maths 48%" },
+      { text: { en: "Must come to school every day to keep up.", hi: "पढ़ाई में साथ रहने के लिए रोज़ स्कूल आना ज़रूरी है।" }, source: "attendance", basis: "91%" },
+    ] as RemarkChild["suggestions"],
+  }));
+
+const sheetPaper = (status: "open" | "submitted"): SheetPaper => ({ id: id(307), examId: id(300), examLabel: HY, classId: C7, classLabel: "Class 7", subjectCode: "Science", subjectId: SCI, maxMarks: 80, passMarks: 27, markStep: 0.5, allowExempt: true, entryStatus: status, entryRevision: status === "submitted" ? 3 : 1, submittedAt: status === "submitted" ? at("10:14") : null, submittedBy: status === "submitted" ? NAME : null, examOpen: true, locked: false, dueLabel: "Wed 14 Oct" });
+const sheetKids = C7KIDS.map((name, i) => ({ id: id(300 + i), name, roll: String(i + 1), prev: `${Math.round(8 + rnd(i + 1, 21) * 11)}/20`, prevPct: Math.round(40 + rnd(i + 1, 21) * 55) }));
+const sheetSaved = (all: boolean): Record<string, Cell> =>
+  Object.fromEntries(sheetKids.slice(0, all ? sheetKids.length : 12).map((k, i) => [k.id, i === 5 && !all ? { state: "absent", value: null } : { state: "value", value: Math.round(30 + rnd(i + 1, 63) * 46) }]));
+const savedOk = async (): Promise<SaveOutcome> => ({ ok: true, revision: 2, entryStatus: "open", savedAt: at("10:12"), actorName: NAME, changed: 1, counts: null });
+const sheetView = (phase: SheetPhase, mode: "list" | "pad", all: boolean): DesignView => ({
+  menu: "teacher",
+  path: "/teach/marks",
+  render: () =>
+    layer(
+      <MarksSheet
+        ownerId="fixture-teacher"
+        sessionLabel="2026-27"
+        paper={sheetPaper(phase === "sent" ? "submitted" : "open")}
+        students={sheetKids}
+        saved={sheetSaved(all)}
+        coordinatorName="Mr. Hemant Trivedi"
+        onSave={savedOk}
+        onWithdraw={savedOk}
+        initialPhase={phase}
+        initialMode={mode}
+        crumb="Marks · Half-yearly 2026–27"
+        backHref="/teach/marks"
+        nextHref={`/teach/marks?paper=${id(308)}`}
+        nextLabel="Class 8 Science"
+        doneHref="/teach/marks"
+        noteHref="/teach/notes?student="
+      />,
+    ),
+});
+const pickView: DesignView = { menu: "teacher", path: "/teach/marks", render: () => layer(<TeacherPick cards={pickCards} remarks={[{ classId: C6, classLabel: "Class 6", done: 9, total: 31, examLabel: HY }]} due={{ label: "Wed 14 Oct", daysLeft: 6, results: "Sat 17 Oct (PTM)" }} crumb="Marks · Half-yearly 2026–27" />) };
+const remarksView: DesignView = { menu: "teacher", path: "/teach/marks", render: () => layer(<TeacherRemarks classLabel="Class 6" term="T1" examLabel={HY} kids={remarkKids()} save={async () => ({ ok: true })} crumb="Class 6 · report cards · Half-yearly" />) };
+const linkView = (view: "entry" | "keypad"): DesignView => ({
+  bare: true,
+  path: "/t/marks/synthetic-token",
+  render: () =>
+    layer(
+      <div className="vxt" style={{ minHeight: "100dvh", background: "var(--bg)" }}>
+        <PublicMarksSheet ownerId="marks-link/fixture" sessionLabel="2026-27" token="synthetic-token" paper={sheetPaper("open")} students={sheetKids} saved={sheetSaved(false)} coordinatorName="Mr. Hemant Trivedi" crumb={`${NAME} · Half-yearly`} view={view} />
+      </div>,
+    ),
+});
+
 export const views: Record<string, DesignView> = {
+  TchMarks: pickView,
+  "DX-TchMarks-Entry": sheetView("entry", "list", false),
+  "DX-TchMarks-Check": sheetView("check", "list", true),
+  "DX-TchMarks-Remarks": remarksView,
+  "M-TchMarks": pickView,
+  "M-TchMarks-Keypad": sheetView("entry", "pad", false),
+  "M-TchMarks-Entry": sheetView("entry", "list", false),
+  "M-TchMarks-Check": sheetView("check", "list", true),
+  "M-TchMarks-Submitted": sheetView("sent", "list", true),
+  "M-TchMarks-Remarks": remarksView,
+  "MarksLink-Papers": {
+    bare: true,
+    path: "/t/marks/synthetic-token",
+    render: () =>
+      layer(
+        <div className="vxt" style={{ minHeight: "100dvh", background: "var(--bg)" }}>
+          <PublicPaperList token="synthetic-token" school="Shri Veer Patta Senior Secondary School" staffName={NAME} examLabel={HY} papers={pickCards.map((c) => ({ paperId: c.paperId, classLabel: c.classLabel, subjectCode: c.subjectCode, maxMarks: c.maxMarks, entered: c.entered, total: c.total, status: c.status }))} />
+        </div>,
+      ),
+  },
+  "MarksLink-Entry": linkView("entry"),
+  "MarksLink-Keypad": linkView("keypad"),
   TchMore: moreView("menu"),
   "DX-TchMore-News": moreView("news"),
   "DX-TchMore-Links": moreView("links"),
