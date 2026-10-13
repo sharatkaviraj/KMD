@@ -17,7 +17,7 @@ import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Field, Input, RadioCard, Seg, Select, Switch } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
-import { BarChart, Btn, Card, EmptyState, Kpi, Pill, Sparkline, StackedBar } from "@/vx/ui/primitives";
+import { Btn, Card, EmptyState, Kpi, Pill } from "@/vx/ui/primitives";
 
 type Lang = "hi" | "en" | "both";
 
@@ -143,6 +143,27 @@ function BackBtn() {
     <Btn variant="ghost" icon="chevLeft" href="/reports" style={{ fontWeight: 600 }}>
       {tx(T.allReports)}
     </Btn>
+  );
+}
+
+/** The phone's row of actions under the top bar (the desktop has them in the top bar). */
+function MActs({ items }: { items: { icon: IconName; label: string; onClick?: () => void; href?: string; pri?: boolean }[] }) {
+  return (
+    <div className="only-m hs rp-noprint" style={{ display: "flex", gap: 8, padding: "12px 16px 0" }}>
+      {items.map((a) =>
+        a.href ? (
+          <Link key={a.label} href={a.href} className={`tap btn ${a.pri ? "pri" : "sec"}`} style={{ flex: "none", height: 40, fontSize: 13 }}>
+            <Ic n={a.icon} size={14} />
+            {a.label}
+          </Link>
+        ) : (
+          <button key={a.label} type="button" className={`tap btn ${a.pri ? "pri" : "sec"}`} onClick={a.onClick} style={{ flex: "none", height: 40, fontSize: 13 }}>
+            <Ic n={a.icon} size={14} />
+            {a.label}
+          </button>
+        ),
+      )}
+    </div>
   );
 }
 
@@ -351,7 +372,7 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
   const pi = Math.max(0, presets.findIndex((x) => x.value === c.preset));
   const modes = ["upi", "cash", "cheque", "bank_transfer"] as const;
   const rows = past.filter((b) => b.total > 0 || (!monthly && isSunday(b.key)));
-  const span = monthly ? "" : new Intl.DateTimeFormat("en-IN", { month: "long" }).format(new Date(`${c.from}T00:00:00Z`));
+  const span = monthly ? "" : new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(`${c.from}T00:00:00Z`));
   const kpis: { label: string; v: string; sub: string; fg?: string }[] = [
     { label: "Collected", v: rupees(total.total), sub: `${total.receipts} receipts` },
     { label: monthly ? "Average per month" : "Average per working day", v: rupees(working.length ? Math.round(total.total / working.length) : 0), sub: `${working.length} ${monthly ? "months" : "working days"}` },
@@ -364,9 +385,8 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
       <TopBar
         crumb="Reports"
         title={tx(T.collection)}
-        mSub={`${dayMonth(c.from)} – ${dayMonth(c.to)} · ${rupees(total.total)}`}
+        mSub={`${c.preset === "month" || c.preset === "last" ? span : `${dayMonth(c.from)} – ${dayMonth(c.to)}`} · ${rupees(total.total)}`}
         mBack="/reports"
-        mAction={<Btn variant="ghost" icon="download" onClick={() => setSheet("export")} ariaLabel={tx(T.export)} />}
         actions={
           <>
             <BackBtn />
@@ -375,6 +395,13 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
             <ExportBtn onClick={() => setSheet("export")} />
           </>
         }
+      />
+      <MActs
+        items={[
+          { icon: "printer", label: tx(T.print), onClick: () => window.print() },
+          { icon: "clock", label: "Schedule", href: "/reports?view=schedule&sheet=newsch" },
+          { icon: "download", label: tx(T.export), onClick: () => setSheet("export"), pri: true },
+        ]}
       />
       <div className="pad rp-scr">
         <div className="rp-f rp-noprint" style={{ flexWrap: "wrap", gap: 10 }}>
@@ -596,16 +623,23 @@ function DefaultersView({ data, sheet, setSheet, close, initialLeft }: ViewProps
           </>
         }
       />
+      <MActs
+        items={[
+          { icon: "printer", label: tx(T.print), onClick: () => window.print() },
+          { icon: "download", label: "PDF", onClick: () => setSheet("export") },
+          { icon: "send", label: tx(T.send), onClick: () => setSheet("send"), pri: true },
+        ]}
+      />
       <Section>
-        <div className="only-m rp-f rp-noprint" style={{ gap: 8 }}>
-          <Btn icon="printer" onClick={() => window.print()}>{tx(T.print)}</Btn>
-          <Btn icon="download" onClick={() => setSheet("export")}>PDF</Btn>
-          <Btn variant="pri" icon="send" onClick={() => setSheet("send")} style={{ flex: 1 }}>Send</Btn>
-        </div>
-        <Card className="rp-noprint" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="rp-f" style={{ flexWrap: "wrap", gap: 16 }}>
+        <Card className="rp-noprint rp-lh" style={{ display: "flex", flexDirection: "column", gap: 12, padding: "14px 16px" }}>
+          <div className="rp-f" style={{ flexWrap: "wrap", gap: "10px 18px" }}>
             <Seg<Lang> options={[{ value: "hi", label: "हिंदी" }, { value: "en", label: "English" }, { value: "both", label: "दोनों · Both" }]} value={lang} onChange={setLang} label="Language of the list" />
-            <Switch on={includeLeft} onChange={setIncludeLeft} label="Include students who left" />
+            <button type="button" className="tap rp-rb" role="switch" aria-checked={includeLeft} onClick={() => setIncludeLeft(!includeLeft)} style={{ width: "auto", gap: 10 }}>
+              <span className={`sw${includeLeft ? " on" : ""}`}>
+                <span />
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Include students who left</span>
+            </button>
           </div>
           <ChipRow label="Class">
             <Chip on={!classId} onClick={() => setClassId("")}>All classes</Chip>
@@ -646,7 +680,7 @@ function DefaultersView({ data, sheet, setSheet, close, initialLeft }: ViewProps
               return (
                 <div key={s.classLabel} style={{ breakInside: "avoid-page" }}>
                   <div className="rp-pc">
-                    <span>{say(lang, PAPER.klass)} {s.classLabel}</span>
+                    <span>{say(lang, PAPER.klass)} {s.classLabel.replace(/^class\s+/i, "")}</span>
                     {t ? <span style={{ fontSize: 11, fontWeight: 400, color: "#555" }}>{say(lang, PAPER.teacher)} {t}</span> : null}
                   </div>
                   <table>
@@ -734,11 +768,11 @@ function SendSheet({ open, onClose, data, sections }: { open: boolean; onClose: 
         </>
       }
     >
-      <div className="rp-c" style={{ gap: 14 }}>
-        <div className="rp-f" style={{ padding: 12, borderRadius: 14, background: "var(--s2)", gap: 12 }}>
-          <span className="rp-ib" style={{ background: "var(--accs)", color: "var(--accfg)" }}><Ic n="users" size={18} /></span>
-          <span className="rp-c">
-            <b>{withTeacher.length} class teachers · {items.length} lists</b>
+      <div className="rp-c rp-lh" style={{ gap: 14 }}>
+        <div className="rp-f" style={{ padding: "12px 14px", borderRadius: 14, background: "var(--s2)", gap: 12 }}>
+          <span className="rp-ib rp-t36" style={{ background: "var(--oks)", color: "var(--ok)" }}><Ic n="users" /></span>
+          <span className="rp-c" style={{ flex: 1 }}>
+            <span className="rp-tt num">{withTeacher.length} class teachers · {items.length} lists</span>
             <span className="rp-m">Opens WhatsApp on this phone and you press send · nothing is sent by the app, no cost</span>
           </span>
         </div>
@@ -779,6 +813,9 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
   const instTotal = (n: number, key: "due" | "notDue") => rows.reduce((s, r) => s + (r.cells[n]?.[key]?.amount ?? 0), 0);
   const max = Math.max(1, ...rows.flatMap((r) => due.map((n) => r.cells[n]?.due?.amount ?? 0)));
   const instName = (n: number) => (n === 99 ? "Last year" : `Inst ${n}`);
+  const instLong = (n: number) => (n === 99 ? "Last year" : `Installment ${n}`);
+  const dm = (iso: string | undefined) => (iso ? dayName(iso).split(" ").slice(1).join(" ") : "");
+  const pendingStudents = rows.reduce((s, r) => s + due.reduce((t, n) => t + (r.cells[n]?.due?.students ?? 0), 0), 0);
   const heat = (amount: number): CSSProperties => {
     const k = amount / max;
     return { background: `color-mix(in srgb, var(--acc) ${Math.round(12 + k * 60)}%, var(--card))`, color: k > 0.6 ? "var(--onsolid)" : "var(--fg)" };
@@ -788,9 +825,10 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
     <div className="rp-c" style={{ gap: 12, padding: 18 }}>
       <div className="rp-f" style={{ alignItems: "flex-start" }}>
         <span className="rp-c" style={{ flex: 1 }}>
-          <b className="serif" style={{ fontSize: 20 }}>{cell.classLabel} · {instName(cell.installmentNo)}</b>
-          <span className="rp-m">
-            {cell.dueDate ? `Due ${shortDay(cell.dueDate)} · ` : ""}{cell.students.length} students · {rupees(cell.students.reduce((s, x) => s + x.pending, 0))}
+          <span className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.2 }}>{cell.classLabel} · {instLong(cell.installmentNo)}</span>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}>
+            {cell.dueDate ? `Due ${dayName(cell.dueDate)} · ` : ""}
+            {cell.students.length} students · {rupees(cell.students.reduce((s, x) => s + x.pending, 0))}
           </span>
         </span>
         <Btn variant="ghost" icon="x" href="/reports?view=classwise" ariaLabel="Close" />
@@ -829,7 +867,6 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
         title={tx(T.classwise)}
         mSub={`${rupeesShort(pendingToday)} pending today`}
         mBack="/reports"
-        mAction={<Btn variant="ghost" icon="download" onClick={() => setSheet("export")} ariaLabel={tx(T.export)} />}
         actions={
           <>
             <BackBtn />
@@ -838,15 +875,30 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
           </>
         }
       />
+      <MActs
+        items={[
+          { icon: "printer", label: tx(T.print), onClick: () => window.print() },
+          { icon: "download", label: tx(T.export), onClick: () => setSheet("export"), pri: true },
+        ]}
+      />
       <div style={{ display: "grid", gridTemplateColumns: detail ? "minmax(0,1fr) 400px" : "minmax(0,1fr)", alignItems: "start" }} className="stack">
         <Section>
           {detail ? <div className="only-m"><Card pad={false}>{detail}</Card></div> : null}
-          <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
-            <Kpi label="Pending today" value={rupeesShort(pendingToday)} tone="var(--bad)" sub={due.length ? `installments ${due.filter((n) => n !== 99).join("–") || "—"}` : "nothing due yet"} />
-            {due.filter((n) => n !== 99).slice(-2).map((n, i) => (
-              <Kpi key={n} label={`${instName(n)} · ${dayMonth(cw.dueDates[n])}`} value={rupeesShort(instTotal(n, "due"))} sub="still unpaid" delay={40 * (i + 1)} />
+          <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
+            {[
+              { label: "Pending today", v: rupeesShort(pendingToday), sub: due.length ? `${pendingStudents} students · installments ${due.filter((n) => n !== 99).join("–") || "—"}` : "nothing due yet", fg: "var(--warnfg)" },
+              ...due
+                .filter((n) => n !== 99)
+                .slice(-2)
+                .map((n) => ({ label: `${instLong(n)} · ${dm(cw.dueDates[n])}`, v: rupeesShort(instTotal(n, "due")), sub: "still unpaid", fg: undefined as string | undefined })),
+              { label: "Not due yet", v: rupeesShort(notDueYet), sub: `installments ${notDue.join("–") || "—"} · kept apart`, fg: undefined as string | undefined },
+            ].map((k, i) => (
+              <div key={k.label} className="card rise rp-c" style={{ padding: "14px 16px", gap: 2, animationDelay: `${i * 40}ms` }}>
+                <span className="rp-m" style={{ fontWeight: 600 }}>{k.label}</span>
+                <span className="num" style={{ fontSize: 21, fontWeight: 700, color: k.fg }}>{k.v}</span>
+                <span className="rp-m">{k.sub}</span>
+              </div>
             ))}
-            <Kpi label="Not due yet" value={rupeesShort(notDueYet)} sub="kept apart · never added" delay={120} />
           </div>
           <div className="rp-f" style={{ justifyContent: "space-between" }}>
             <span className="rp-m">Tap any cell to see those students. Darker = more pending.</span>
@@ -859,15 +911,15 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
               <table className="rp-heat">
                 <thead>
                   <tr>
-                    <th>Class</th>
-                    <th colSpan={due.length + 1} style={{ textAlign: "center", color: "var(--bad)" }}>Pending today</th>
-                    <th colSpan={notDue.length + 1} style={{ textAlign: "center" }}>Not due yet</th>
+                    <th style={{ textTransform: "uppercase" }}>Class</th>
+                    <th colSpan={due.length + 1} style={{ textAlign: "right", color: "var(--warnfg)", textTransform: "uppercase", fontWeight: 700 }}>Pending today</th>
+                    <th colSpan={notDue.length + 1} style={{ textAlign: "right", textTransform: "uppercase", fontWeight: 700 }}>Not due yet</th>
                   </tr>
                   <tr>
                     <th />
-                    {due.map((n) => <th key={n}>{instName(n)}{cw.dueDates[n] && n !== 99 ? ` · ${dayMonth(cw.dueDates[n])}` : ""}</th>)}
+                    {due.map((n) => <th key={n}>{instName(n)}{cw.dueDates[n] && n !== 99 ? ` · ${dm(cw.dueDates[n])}` : ""}</th>)}
                     <th>Total</th>
-                    {notDue.map((n) => <th key={n}>{instName(n)} · {dayMonth(cw.dueDates[n])}</th>)}
+                    {notDue.map((n) => <th key={n}>{instName(n)} · {dm(cw.dueDates[n])}</th>)}
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -894,7 +946,7 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
                           </td>
                         );
                       })}
-                      <td className="rp-nd" style={{ color: "var(--bad)", fontWeight: 700 }}>{rupees(r.pendingToday)}</td>
+                      <td className="rp-nd" style={{ color: "var(--warnfg)", fontWeight: 700 }}>{rupees(r.pendingToday)}</td>
                       {notDue.map((n) => {
                         const c = r.cells[n]?.notDue;
                         return (
@@ -913,13 +965,24 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
                       <td className="rp-nd">{rupees(r.notDueYet)}</td>
                     </tr>
                   ))}
+                  <tr className="rp-ctot">
+                    <td>All classes</td>
+                    {due.map((n) => (
+                      <td key={n} className="rp-nd" style={{ color: "var(--fg)" }}>{rupees(instTotal(n, "due"))}</td>
+                    ))}
+                    <td className="rp-nd" style={{ color: "var(--warnfg)" }}>{rupees(pendingToday)}</td>
+                    {notDue.map((n) => (
+                      <td key={n} className="rp-nd">{rupees(instTotal(n, "notDue"))}</td>
+                    ))}
+                    <td className="rp-nd">{rupees(notDueYet)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </Card>
           <span className="rp-m">Students who left are counted: they still owe. Late fee is never in these cells; it is on the defaulter list on its own line.</span>
         </Section>
-        {detail ? <aside className="only-d unstick" style={{ position: "sticky", top: 64, height: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--card)" }}>{detail}</aside> : null}
+        {detail ? <aside className="only-d unstick" style={{ position: "sticky", top: 64, height: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--bg)" }}>{detail}</aside> : null}
       </div>
       <ExportSheet data={data} open={sheet === "export"} onClose={close} />
     </VxPage>
@@ -1180,7 +1243,7 @@ function ExportSheet({ data, open, onClose, filters = {} }: { data: ReportsPageD
       open={open}
       onClose={onClose}
       title={`Export · ${title}`}
-      sub="Pick a format"
+      sub="Pick a format and what to include"
       footer={
         <>
           <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>Cancel</button>
@@ -1193,13 +1256,32 @@ function ExportSheet({ data, open, onClose, filters = {} }: { data: ReportsPageD
       }
     >
       <div className="rp-c" style={{ gap: 14 }}>
-        <Field label="Format">
-          <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
-            <RadioCard checked={format === "xlsx"} onSelect={() => setFormat("xlsx")} icon="table" title="Excel" sub=".xlsx · for sums" />
-            <RadioCard checked={format === "pdf"} onSelect={() => setFormat("pdf")} icon="fileText" title="PDF" sub="Ready to print" />
-            <RadioCard checked={format === "csv"} onSelect={() => setFormat("csv")} icon="list" title="CSV" sub="For other software" />
+        <div className="rp-c" style={{ gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>Format</span>
+          <div role="radiogroup" aria-label="Format" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+            {(
+              [
+                ["xlsx", "Excel", ".xlsx · for sums", "table", "var(--oks)", "var(--ok)"],
+                ["pdf", "PDF", "Ready to print", "fileText", "var(--bads)", "var(--bad)"],
+                ["csv", "CSV", "For other software", "list", "var(--s3)", "var(--mut)"],
+              ] as const
+            ).map(([k, label, sub, icon, bg, fg]) => {
+              const on = format === k;
+              return (
+                <button key={k} type="button" className="tap" role="radio" aria-checked={on} onClick={() => setFormat(k)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6, padding: 12, borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)", color: "var(--fg)", textAlign: "left", lineHeight: "normal" }}>
+                  <span className="rp-f" style={{ width: "100%", justifyContent: "space-between" }}>
+                    <span className="rp-ib" style={{ width: 32, height: 32, borderRadius: 11, background: bg, color: fg }}><Ic n={icon} /></span>
+                    <span className="rp-ib" style={{ width: 18, height: 18, borderRadius: 9, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}` }}>
+                      <span className="rp-dt" style={{ width: 8, height: 8, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
+                    </span>
+                  </span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{label}</span>
+                  <span style={{ fontSize: 11, color: "var(--mut)" }}>{sub}</span>
+                </button>
+              );
+            })}
           </div>
-        </Field>
+        </div>
         {view === "collection" && format === "csv" && c ? (
           <Field label="Dates">
             <div className="rp-f" style={{ gap: 6, flexWrap: "wrap" }}>
