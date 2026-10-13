@@ -161,19 +161,38 @@ export async function studentBriefs(studentIds: string[]): Promise<StudentBrief[
   return data.map((s) => ({ studentId: s.id, fullName: s.full_name, fatherName: s.father_name, phone: s.primary_phone }));
 }
 
-export type KidInstallment = { no: number; label: string; dueDate: string; pending: number; lateFee: number; status: string; carry: boolean };
+export type KidInstallment = {
+  no: number;
+  label: string;
+  dueDate: string;
+  pending: number;
+  lateFee: number;
+  status: string;
+  carry: boolean;
+  /** The installment's charge, so a paid one can say what was paid. */
+  amount?: number;
+};
+
+/** What the family panel says under a child's name: SR number and bus route. */
+export type KidMeta = { admissionNo: string | null; route: string | null };
 
 export type FamilyContact = { at: string; channel: string | null; outcome: string | null; note: string | null; studentId: string };
 
 /** Installments and the contact log for the children of one family. */
-export async function loadFamilyDetail(sessionLabel: string, studentIds: string[]): Promise<{ installments: Record<string, KidInstallment[]>; contacts: FamilyContact[] }> {
+export async function loadFamilyDetail(
+  sessionLabel: string,
+  studentIds: string[],
+): Promise<{ installments: Record<string, KidInstallment[]>; contacts: FamilyContact[]; meta: Record<string, KidMeta> }> {
   const ids = studentIds.slice(0, 8);
   const [inst, logs] = await Promise.all([
     Promise.all(ids.map((id) => getWorkbookInstallmentRows({ sessionLabel, studentId: id }))),
     Promise.all(ids.map((id) => getStudentContactLog(id, sessionLabel, { limit: 15 }))),
   ]);
   const installments: Record<string, KidInstallment[]> = {};
+  const meta: Record<string, KidMeta> = {};
   ids.forEach((id, i) => {
+    const first = inst[i][0];
+    meta[id] = { admissionNo: first?.admissionNo ?? null, route: first?.transportRouteName ?? first?.transportRouteCode ?? null };
     installments[id] = inst[i].map((r) => ({
       no: r.isCarryForward ? 0 : r.installmentNo,
       label: r.installmentLabel,
@@ -182,11 +201,12 @@ export async function loadFamilyDetail(sessionLabel: string, studentIds: string[
       lateFee: Math.max(0, Number(r.lateFeePending) || 0),
       status: r.balanceStatus,
       carry: r.isCarryForward === true,
+      amount: Math.max(0, Number(r.baseCharge) || 0),
     }));
   });
   const contacts: FamilyContact[] = ids
     .flatMap((id, i) => logs[i].map((c) => ({ at: c.contactedAt, channel: c.channel, outcome: c.outcome, note: c.note, studentId: id })))
     .sort((a, b) => (a.at < b.at ? 1 : -1))
     .slice(0, 20);
-  return { installments, contacts };
+  return { installments, contacts, meta };
 }
