@@ -14,9 +14,8 @@
  * Writes `<out-dir>/<name>.png`: the design frame on the left, the app on the
  * right, both at the same size. Synthetic data only; nothing signs in.
  */
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { chromium } from "playwright";
 
@@ -49,8 +48,9 @@ try {
     const out = path.join(outDir, `${name}.png`);
     if (frame && frame !== "-") {
       const compose = await browser.newPage({ viewport: { width: width * 2 + 24, height: height + 28 }, deviceScaleFactor: 1 });
-      const left = pathToFileURL(path.join(shots, frame)).href;
-      const right = pathToFileURL(path.resolve(appShot)).href;
+      // Inlined: a page made with setContent may not load file:// images.
+      const left = `data:image/webp;base64,${readFileSync(path.join(shots, frame)).toString("base64")}`;
+      const right = `data:image/png;base64,${readFileSync(appShot).toString("base64")}`;
       await compose.setContent(`<body style="margin:0;background:#888;font:12px system-ui;color:#fff">
         <div style="display:flex;gap:24px"><div><div style="height:28px;line-height:28px">design · ${frame}</div><img src="${left}" style="width:${width}px;height:${height}px;object-fit:cover;object-position:top;display:block;background:#fff"></div>
         <div><div style="height:28px;line-height:28px">app · ${query}</div><img src="${right}" style="width:${width}px;height:${height}px;display:block"></div></div></body>`);
