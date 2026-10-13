@@ -24,7 +24,6 @@ import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { childPercent, classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
 import { cellCounts, cellState, neighbours } from "@/vx/screens/exams/domain/board";
-import { gradeFor } from "@/modules/assessments/domain/assessments";
 import { GROUP_KEYS, GROUP_LABELS, groupOf, subjectPair } from "@/vx/screens/exams/domain/groups";
 import { splitByStream } from "@/vx/screens/exams/domain/streams";
 import { isLate, subjectColumns } from "@/vx/screens/exams/domain/tracker";

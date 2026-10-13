@@ -382,7 +382,10 @@ function Entry() {
 }
 
 /* ---------------------------------------------------------------- views */
-const board = (view: ExamsView, patch: Partial<ExamsProps> = {}) => () => <ExamsBoard {...base} view={view} {...patch} />;
+const board = (view: ExamsView, patch: Partial<ExamsProps> = {}) =>
+  function Board() {
+    return <ExamsBoard {...base} view={view} {...patch} />;
+  };
 const academic: Partial<ExamsProps> = { manage: false, canFinalise: false, teachers: [] };
 
 export const views: Record<string, DesignView> = {

@@ -117,6 +117,12 @@ const NOW_DOT: CSSProperties = { flex: "none", width: 8, height: 8, borderRadius
 const rise = (i: number): CSSProperties => ({ animation: `xIn .3s var(--ease) ${Math.min(i, 5) * 0.04}s both` });
 const MUTED: CSSProperties = { fontSize: 12, color: "var(--mut)" };
 
+/** The design's avatar letters: "Mr. Meena" → "Me", "Asha Purohit" → "AP". */
+function ini(name: string): string {
+  const words = name.replace(/^(mr|mrs|ms|dr|shri|smt)\.?\s+/i, "").split(/\s+/).filter(Boolean);
+  return words.length === 1 ? words[0].slice(0, 2) : initials(name);
+}
+
 /** The design's avatar: a 34px circle in one of five token tones, picked by the name. */
 const TONES: [string, string][] = [["accs", "accfg"], ["infos", "info"], ["oks", "ok"], ["warns", "warnfg"], ["s3", "fg"]];
 function toneOf(name: string): [string, string] {
@@ -129,7 +135,7 @@ function Ava({ name, size = 34, style }: { name: string; size?: number; style?: 
   const [bg, fg] = toneOf(name);
   return (
     <span aria-hidden="true" style={{ flex: "none", width: size, height: size, borderRadius: size / 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size >= 30 ? 12 : 9, fontWeight: 700, background: V(bg), color: V(fg), ...style }}>
-      {initials(name)}
+      {ini(name)}
     </span>
   );
 }
@@ -1442,7 +1448,7 @@ function Leave({ data, pending, onDecide }: { data: TimetableData; pending: bool
                     const ok = l.status === "approved";
                     return (
                       <span key={l.id} title={`${l.name} · ${ok ? say("approved", "स्वीकृत") : say("asked", "माँगी गई")}`} style={{ width: 24, height: 24, borderRadius: 12, marginLeft: -4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, border: ok ? "2px solid var(--card)" : "1.5px dashed var(--warn)", background: ok ? V(bg) : "var(--card)", color: V(fg), animation: "xPopIn .35s var(--spring) both" }}>
-                        {initials(l.name)}
+                        {ini(l.name)}
                       </span>
                     );
                   })}
