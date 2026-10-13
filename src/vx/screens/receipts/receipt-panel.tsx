@@ -5,27 +5,34 @@ import { useRouter } from "next/navigation";
 
 import { reverseReceiptAction } from "@/app/(app)/receipts/actions";
 import { deskModeOf, REVERSAL_REASONS, type ReversalReason } from "@/modules/receipts/vx/domain/day-close";
-import { amountInWords, clock, dateLabel, rupees, shortDay } from "@/vx/format";
-import { Bi, useVx } from "@/vx/i18n";
-import { Ic, type IconName } from "@/vx/icons";
-import { Field, RadioCard, Textarea } from "@/vx/ui/controls";
+import { amountInWords, dateLabel, rupees } from "@/vx/format";
+import { useVx } from "@/vx/i18n";
+import { Ic } from "@/vx/icons";
+import { Field, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { Btn, Card, Pill, SecHead, WhatsAppPreview, type Tone } from "@/vx/ui/primitives";
+import { Btn, Pill, WhatsAppPreview, type Tone } from "@/vx/ui/primitives";
 
 import { deskHref } from "./href";
+import { deskDay, deskTime } from "./look";
 import type { DeskProps, HistoryEvent, SelectedReceipt } from "./types";
-import { MODE_WORD, REASON_WORD, SHARE_FOOTER, shareLines, W } from "./words";
+import { fill, MODE_WORD, REASON_SUB, REASON_WORD, SHARE_FOOTER, shareLines, W } from "./words";
 
-function Line({ k, v }: { k: string; v: React.ReactNode }) {
+/** One labelled fact on the receipt: 11px label over a 600 value. */
+function Fact({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, padding: "3px 0" }}>
-      <span style={{ color: "var(--mut)" }}>{k}</span>
-      <span style={{ textAlign: "right", fontWeight: 600, minWidth: 0 }}>{v}</span>
-    </div>
+    <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <span style={{ color: "var(--mut)", fontSize: 11 }}>{k}</span>
+      <span className="num" style={{ fontWeight: 600 }}>{v}</span>
+    </span>
   );
 }
 
-const HISTORY_ICON: Record<HistoryEvent["kind"], IconName> = { posted: "receipt", reversed: "undo", sent: "send", read: "ticks" };
+/** "Rupees four thousand three hundred fifty only", lower-case as the design writes it. */
+function inWords(n: number): string {
+  return amountInWords(n).replace(/^Rupees (.*) only$/, (_, body: string) => `Rupees ${body.toLowerCase()} only`);
+}
+
+const HISTORY_DOT: Record<HistoryEvent["kind"], string> = { posted: "var(--acc)", sent: "var(--ok)", read: "var(--ok)", reversed: "var(--bad)" };
 
 export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
   const { receipt: r, perms, anchor, today, span } = props;
@@ -40,6 +47,8 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
   const base = { anchor, today, span };
   const pdf = `/fees/receipts/${r.id}/pdf`;
   const remaining = Math.max(0, r.totalAmount - r.reversedAmount);
+  const mode = deskModeOf(r.paymentMode);
+  const sent = r.share.status === "sent" || r.share.status === "delivered" || r.share.status === "read";
 
   const status: { tone: Tone; text: string } = r.isReversed
     ? { tone: "bad", text: tx(W.reversed) }
@@ -51,9 +60,14 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
           ? { tone: "info", text: tx(W.sent) }
           : r.share.status === "failed"
             ? { tone: "warn", text: tx(W.failed) }
-            : { tone: "mut", text: tx(W.notSent) };
+            : { tone: "warn", text: tx(W.notSent) };
 
-  const historyWord: Record<HistoryEvent["kind"], { en: string; hi?: string }> = { posted: W.hPosted, reversed: W.hReversed, sent: W.hSent, read: W.hRead };
+  function historyText(h: HistoryEvent): string {
+    if (h.kind === "posted") return r.receivedBy ? tx(fill(W.hPosted, { name: r.receivedBy })) : tx(W.hPostedBare);
+    if (h.kind === "sent") return r.fatherName ? tx(fill(W.hSent, { name: r.fatherName })) : tx(W.hSentBare);
+    if (h.kind === "read") return tx(W.hRead);
+    return `${tx(W.hReversed)}${h.note ? ` · ${h.note}` : ""}${h.amount ? ` · ${rupees(h.amount)}` : ""}`;
+  }
 
   function submitReverse() {
     if (!reason) return;
@@ -72,101 +86,141 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
 
   const canAskReverse = perms.accounts && !r.isReversed && !r.pendingRequest;
   const firstName = r.studentFullName.split(" ")[0] ?? r.studentFullName;
+  const fatherFirst = r.fatherName?.split(" ")[0] ?? null;
+  const sendLabel = sent ? tx(W.sendAgain) : fatherFirst ? tx(fill(W.sendTo, { name: fatherFirst })) : tx(W.sendWa);
+  const modeLine = `${tx(MODE_WORD[mode])}${r.referenceNumber ? ` · ${mode === "upi" ? `${tx(W.ref).toLowerCase()} ` : ""}${r.referenceNumber}` : ""}`;
+  const tools = [perms.print, perms.print, canAskReverse].filter(Boolean).length;
 
   return (
-    <div style={{ padding: "18px 20px 32px", display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Pill tone={status.tone} icon={r.isReversed ? "undo" : r.share.status === "not_sent" ? "clock" : "ticks"}>{status.text}</Pill>
-        <span style={{ flex: 1 }} />
-        <Btn variant="ghost" icon="x" href={deskHref(base, {})} ariaLabel={tx(W.close)} style={{ width: 40, padding: 0 }} />
+    <div style={{ padding: "18px 22px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="only-d" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Pill tone={status.tone} style={{ height: 26, padding: "0 10px", fontSize: 12 }}>{status.text}</Pill>
+        <Btn variant="ghost" icon="x" href={deskHref(base, {})} ariaLabel={tx(W.closeReceipt)} style={{ width: 36, height: 36, padding: 0 }} />
       </div>
 
-      <Card style={{ position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 2 }}>
-          <strong className="serif" style={{ fontSize: 15 }}>{W.school.en}</strong>
-          <span lang="hi" style={{ fontSize: 13, color: "var(--mut)" }}>{W.school.hi}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", color: "var(--accfg)", marginTop: 4 }}>{W.feeReceipt}</span>
-          <span className="num" style={{ fontWeight: 700, fontSize: 16 }}>{r.receiptNumber}</span>
+      <div className="card" style={{ position: "relative", padding: "20px 20px 16px", display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 12, borderBottom: "1.5px dashed var(--bds)" }}>
+          <span className="serif" aria-hidden="true" style={{ flex: "none", width: 42, height: 42, borderRadius: 12, background: "#082F49", color: "#F7F6F3", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>VP</span>
+          <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <span className="serif" style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>{W.school.en}</span>
+            <span lang="hi" style={{ fontSize: 12, color: "var(--mut)" }}>{W.school.hi}</span>
+          </span>
         </div>
-        <div style={{ borderTop: "1px dashed var(--bd)", margin: "6px 0" }} />
-        <Line k={tx(W.student)} v={r.studentFullName} />
-        <Line k={tx(W.classSr)} v={`${r.classLabel} · ${r.admissionNo}`} />
-        {r.fatherName ? <Line k={tx(W.father)} v={r.fatherName} /> : null}
-        <Line k={tx(W.dateTime)} v={`${dateLabel(r.paymentDate)} · ${clock(r.createdAt)}`} />
-        <div style={{ borderTop: "1px dashed var(--bd)", margin: "6px 0" }} />
-        {r.heads.map((h, i) => (
-          <Line key={`${h.label}-${i}`} k={h.label} v={rupees(h.amount)} />
-        ))}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
-          <span style={{ fontWeight: 700 }}>{tx(W.totalReceived)}</span>
-          <span className="num" style={{ fontWeight: 800, fontSize: 22, textDecoration: r.isReversed ? "line-through" : undefined }}>{rupees(r.totalAmount)}</span>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mut)" }}>{W.feeReceipt}</span>
+          <span className="num" style={{ fontSize: 15, fontWeight: 700 }}>{r.receiptNumber}</span>
         </div>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{amountInWords(r.totalAmount)}</span>
-        <Line k={tx(W.mode)} v={`${tx(MODE_WORD[deskModeOf(r.paymentMode)])}${r.referenceNumber ? ` · ${tx(W.ref)} ${r.referenceNumber}` : ""}`} />
-        <Line k={tx(W.takenBy)} v={r.receivedBy ?? "—"} />
+        <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px 16px", fontSize: 13 }}>
+          <Fact k={tx(W.student)} v={r.studentFullName} />
+          <Fact k={tx(W.classSr)} v={`${r.classLabel} · ${r.admissionNo}`} />
+          <Fact k={tx(W.father)} v={r.fatherName ?? "—"} />
+          <Fact k={tx(W.dateTime)} v={`${deskDay(r.paymentDate)} · ${deskTime(r.createdAt)}`} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--bd)" }}>
+          {r.heads.map((h, i) => (
+            <div key={`${h.label}-${i}`} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--bd)", fontSize: 13 }}>
+              <span>{h.label}</span>
+              <span className="num" style={{ fontWeight: 600 }}>{rupees(h.amount)}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 2px" }}>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{tx(W.totalReceived)}</span>
+            <span className="num" style={{ fontSize: 18, fontWeight: 700 }}>{rupees(r.totalAmount)}</span>
+          </div>
+          <span style={{ fontSize: 12, color: "var(--mut)", fontStyle: "italic" }}>{inWords(r.totalAmount)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12, color: "var(--mut)", paddingTop: 4, borderTop: "1.5px dashed var(--bds)" }}>
+          <span className="num" style={{ minWidth: 0 }}>{modeLine}</span>
+          <span style={{ textAlign: "right" }}>{tx(W.takenBy)} {r.receivedBy ?? "—"}</span>
+        </div>
         {r.isReversed ? (
-          <span
-            aria-label={tx(W.reversed)}
-            style={{ position: "absolute", top: "42%", left: "50%", transform: "translate(-50%,-50%) rotate(-14deg)", border: "3px solid var(--bad)", color: "var(--bad)", borderRadius: 10, padding: "4px 16px", fontWeight: 800, fontSize: 22, letterSpacing: ".12em", opacity: 0.85, pointerEvents: "none" }}
-          >
-            REVERSED
+          // Two layers: xPopIn animates `transform`, so the tilt and centring sit on the outer one.
+          <span aria-label={tx(W.reversed)} style={{ position: "absolute", top: "46%", left: "50%", transform: "translate(-50%, -50%) rotate(-14deg)", pointerEvents: "none" }}>
+            <span style={{ display: "block", padding: "6px 18px", border: "3px solid var(--bad)", borderRadius: 10, color: "var(--bad)", fontSize: 26, fontWeight: 800, letterSpacing: ".12em", background: "var(--card)", opacity: 0.92, animation: "xPopIn .5s var(--spring) both" }}>
+              REVERSED
+            </span>
           </span>
         ) : null}
-      </Card>
+      </div>
 
       {r.pendingRequest ? <Pill tone="warn" icon="clock">{tx(W.pendingReversal)}{r.pendingRequest.by ? ` · ${r.pendingRequest.by}` : ""}</Pill> : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 }}>
-        <Btn variant="pri" icon="message" onClick={() => setSheet("send")} disabled={r.isReversed}>{tx(W.send)}</Btn>
-        {perms.print ? <Btn variant="sec" icon="printer" href={pdf} target="_blank">{tx(W.print)}</Btn> : null}
-        {perms.print ? <Btn variant="sec" icon="download" href={pdf} target="_blank">{tx(W.pdf)}</Btn> : null}
-        {canAskReverse ? <Btn variant="danger" icon="undo" onClick={() => setSheet("reverse")}>{tx(W.reverse)}</Btn> : null}
-      </div>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <SecHead>{tx(W.history)}</SecHead>
-        <Card pad={false}>
-          {r.history.map((h, i) => (
-            <div key={`${h.kind}-${h.at}-${i}`} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 14px", borderTop: i ? "1px solid var(--bd)" : 0 }}>
-              <Ic n={HISTORY_ICON[h.kind]} size={16} style={{ color: h.kind === "reversed" ? "var(--bad)" : "var(--mut)" }} />
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <span style={{ fontWeight: 600 }}>
-                  {tx(historyWord[h.kind])}
-                  {h.amount ? ` · ${rupees(h.amount)}` : ""}
-                </span>
-                {h.note ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{h.note}</span> : null}
-              </span>
-              <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{shortDay(h.at)} · {clock(h.at)}</span>
+      {!r.isReversed ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Btn variant="pri" icon="send" onClick={() => setSheet("send")} style={{ height: 46 }}>{sendLabel}</Btn>
+          {tools ? (
+            <div className="g3" style={{ display: "grid", gridTemplateColumns: `repeat(${tools}, minmax(0, 1fr))`, gap: 8 }}>
+              {perms.print ? <Btn variant="sec" icon="printer" href={pdf} target="_blank">{tx(W.print)}</Btn> : null}
+              {perms.print ? <Btn variant="sec" icon="download" href={pdf} target="_blank">{tx(W.pdf)}</Btn> : null}
+              {canAskReverse ? <Btn variant="sec" icon="undo" onClick={() => setSheet("reverse")} style={{ color: "var(--bad)" }}>{tx(W.reverse)}</Btn> : null}
             </div>
-          ))}
-        </Card>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.footnote)}</span>
-      </section>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column" }}>
+        <h2 className="sech" style={{ marginBottom: 8 }}>{tx(W.history)}</h2>
+        {r.history.map((h, i) => (
+          <div key={`${h.kind}-${h.at}-${i}`} style={{ display: "grid", gridTemplateColumns: "14px minmax(0, 1fr) auto", gap: 10, alignItems: "start", padding: "6px 0", animation: `xIn .3s var(--ease) ${i * 60}ms both` }}>
+            <span aria-hidden="true" style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: HISTORY_DOT[h.kind] }} />
+            <span style={{ fontSize: 13 }}>{historyText(h)}</span>
+            <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{h.at.slice(0, 10) === r.paymentDate ? deskTime(h.at) : `${deskDay(h.at)} · ${deskTime(h.at)}`}</span>
+          </div>
+        ))}
+      </div>
+      <span style={{ fontSize: 12, color: "var(--mut)", lineHeight: 1.5 }}>{tx(W.footnote)}</span>
 
       <Sheet
         open={sheet === "reverse"}
         onClose={() => setSheet(null)}
-        icon="undo"
         title={`${tx(W.reverse)} ${r.receiptNumber}?`}
-        sub={`${r.studentFullName} · ${r.classLabel} · ${rupees(remaining)} · ${tx(MODE_WORD[deskModeOf(r.paymentMode)])}`}
+        sub={`${r.studentFullName} · ${r.classLabel} · ${rupees(remaining)} · ${tx(MODE_WORD[mode])}`}
         footer={
           <>
-            <Btn variant="sec" full onClick={() => setSheet(null)}>{tx(W.keepReceipt)}</Btn>
-            <Btn variant="danger" full disabled={!reason || busy} onClick={submitReverse}>
+            <Btn variant="sec" onClick={() => setSheet(null)} style={{ flex: 1 }}>{tx(W.keepReceipt)}</Btn>
+            <Btn variant="danger" icon="undo" disabled={!reason || busy} onClick={submitReverse} style={{ flex: 1.4 }}>
               {perms.reverse ? `${tx(W.reverse)} ${rupees(remaining)}` : tx(W.askAdmin)}
             </Btn>
           </>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <SecHead>{tx(W.why)}</SecHead>
-          {REVERSAL_REASONS.map((code) => (
-            <RadioCard key={code} name="reverse-reason" checked={reason === code} onSelect={() => setReason(code)} title={<Bi {...REASON_WORD[code]} />} />
-          ))}
-          <Field label={tx(W.noteOptional)}>
-            <Textarea value={note} maxLength={400} rows={2} onChange={(e) => setNote(e.target.value)} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 }}>
+          <h3 className="sech">{tx(W.why)}</h3>
+          <div role="radiogroup" aria-label={tx(W.why)} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {REVERSAL_REASONS.map((code) => {
+              const on = reason === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className="tap"
+                  onClick={() => setReason(code)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 52, padding: "10px 14px", borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)", color: "var(--fg)", textAlign: "left" }}
+                >
+                  <span aria-hidden="true" style={{ flex: "none", width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
+                  </span>
+                  <span style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(REASON_WORD[code])}</span>
+                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(REASON_SUB[code])}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <Field label={tx(W.noteOptional)} style={{ marginTop: 4 }}>
+            <Textarea value={note} maxLength={400} onChange={(e) => setNote(e.target.value)} placeholder={tx(W.notePlaceholder)} style={{ minHeight: 72 }} />
           </Field>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(perms.reverse ? W.impactAdmin : W.impactRequest)}</span>
+          <div style={{ padding: "12px 14px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)", fontSize: 13, lineHeight: 1.5, display: "flex", gap: 10 }}>
+            <Ic n="info" style={{ marginTop: 2 }} />
+            <span>
+              {perms.reverse
+                ? tx(fill(W.impactAdmin, { amount: rupees(-remaining), no: r.receiptNumber, name: firstName, back: rupees(remaining) }))
+                : tx(W.impactRequest)}
+            </span>
+          </div>
           {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
         </div>
       </Sheet>
@@ -180,7 +234,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         footer={
           <>
             <Btn variant="sec" full onClick={() => setSheet(null)}>{tx(W.close)}</Btn>
-            <Btn variant="pri" full icon="arrowRight" href={`/fees/receipts/${r.id}`}>{tx(W.openClassic)}</Btn>
+            <Btn variant="pri" full icon="arrowRight" href={`/fees/receipts/${r.id}`} style={{ color: "var(--prifg)" }}>{tx(W.openClassic)}</Btn>
           </>
         }
       >

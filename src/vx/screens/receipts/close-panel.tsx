@@ -14,21 +14,51 @@ import {
   type DenominationCounts,
 } from "@/modules/receipts/vx/domain/day-close";
 import { clock, longDay, rupees } from "@/vx/format";
-import { Bi, useVx } from "@/vx/i18n";
-import { Field, Stepper, SwitchRow, Textarea } from "@/vx/ui/controls";
+import { useVx } from "@/vx/i18n";
+import { Ic } from "@/vx/icons";
+import { Field, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { Btn, Card, Pill, SecHead, SuccessTick } from "@/vx/ui/primitives";
+import { Btn, Pill } from "@/vx/ui/primitives";
 
 import { deskHref } from "./href";
+import { deskDay, MODE_LOOK } from "./look";
 import type { DeskProps } from "./types";
-import { MODE_WORD, W } from "./words";
+import { fill, MODE_WORD, receiptCount, W } from "./words";
 
-function Row({ k, v, strong }: { k: React.ReactNode; v: React.ReactNode; strong?: boolean }) {
+/** The drawn tick on "Day closed": a soft disc, a ring and a check that draw in. */
+function ClosedTick() {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--bd)", fontWeight: strong ? 700 : 500 }}>
-      <span>{k}</span>
-      <span className="num">{v}</span>
-    </div>
+    <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style={{ animation: "xPopIn .5s var(--spring) both" }}>
+      <circle cx="48" cy="48" r="44" style={{ fill: "var(--oks)" }} />
+      <circle cx="48" cy="48" r="44" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 4, ["--len" as string]: "276.5", strokeDasharray: 276.5, animation: "xDraw .7s .1s var(--ease) both" }} />
+      <path d="M30 49l12 12 24-26" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: "60", strokeDasharray: 60, animation: "xDraw .45s .5s var(--ease) both" }} />
+    </svg>
+  );
+}
+
+/** − count + for one note: 40px buttons around a number that can also be typed. */
+function Count({ label, value, onChange, max }: { label: string; value: number; onChange: (v: number) => void; max: number }) {
+  const { tx } = useVx();
+  return (
+    <span role="group" aria-label={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneLess)} ${label}`} onClick={() => onChange(Math.max(0, value - 1))} style={{ width: 40, height: 40, padding: 0 }}>
+        <Ic n="minus" />
+      </button>
+      <input
+        className="num"
+        inputMode="numeric"
+        aria-label={label}
+        value={value}
+        onChange={(e) => {
+          const n = Number(e.target.value.replace(/\D/g, ""));
+          onChange(Math.min(max, Math.max(0, Number.isFinite(n) ? n : 0)));
+        }}
+        style={{ width: 44, minWidth: 44, textAlign: "center", border: 0, background: "transparent", outline: "none", fontSize: 17, fontWeight: 700, color: "var(--fg)" }}
+      />
+      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneMore)} ${label}`} onClick={() => onChange(Math.min(max, value + 1))} style={{ width: 40, height: 40, padding: 0 }}>
+        <Ic n="plus" />
+      </button>
+    </span>
   );
 }
 
@@ -45,12 +75,14 @@ export function ClosePanel(props: DeskProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
 
-  const day = useMemo(() => summarizeReceipts(rows.filter((r) => r.paymentDate === anchor)), [rows, anchor]);
+  const dayRows = useMemo(() => rows.filter((r) => r.paymentDate === anchor), [rows, anchor]);
+  const day = useMemo(() => summarizeReceipts(dayRows), [dayRows]);
   const expectedCash = day.byMode.cash.amount;
   const counted = countedCash(counts);
   const diff = cashDiff(counted, expectedCash);
   const blocker = closeBlocker({ counted, expected: expectedCash, note, upiChecked: upi });
   const back = deskHref({ anchor, today, span }, {});
+  const dayBookHref = `/fees/finance-controls/export?date=${anchor}&session=${encodeURIComponent(sessionLabel)}`;
 
   function close() {
     setError(null);
@@ -81,31 +113,35 @@ export function ClosePanel(props: DeskProps) {
 
   if (closeEvent) {
     const e = closeEvent;
+    const d = cashDiff(e.cashCounted, e.cashExpected);
+    const summary: [string, string][] = [
+      [tx(W.collected), rupees(Number(e.expected.total ?? e.cashExpected))],
+      [tx(W.cashCounted), `${rupees(e.cashCounted)}${d.kind === "match" ? "" : ` (${tx(d.kind === "short" ? W.short : W.over)} ${rupees(d.amount)})`}`],
+      [tx(W.upi), `${rupees(Number(e.expected.upi ?? 0))} · ${e.upiChecked ? tx(W.matched) : tx(W.notChecked)}`],
+      [tx(W.receipts), `${e.receiptCount} · ${e.reversedCount} ${tx(W.reversed).toLowerCase()}`],
+    ];
+    if (e.note) summary.push([tx(W.note), e.note]);
     return (
-      <div style={{ padding: "24px 20px 32px", display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
-          <SuccessTick />
-          <strong className="serif" style={{ fontSize: 20 }}>{tx(W.dayClosed)} · {longDay(e.paymentDate)}</strong>
-          <span style={{ color: "var(--mut)", fontSize: 13 }}>
-            {tx(W.closedAt)} {clock(e.createdAt)}
-            {e.actorName ? ` · ${e.actorName}` : ""}
+      <div className="pad" style={{ padding: "22px 28px 40px" }}>
+        <div className="card fadein" style={{ maxWidth: 620, margin: "10px auto 0", padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+          <ClosedTick />
+          <h2 className="serif" style={{ margin: 0, fontSize: 28, fontWeight: 600 }}>{tx(W.dayClosed)} · {deskDay(e.paymentDate)}</h2>
+          <span style={{ fontSize: 14, color: "var(--mut)" }}>
+            {e.actorName ? tx(fill(W.closedBy, { name: e.actorName, time: clock(e.createdAt) })) : tx(fill(W.closedAtOnly, { time: clock(e.createdAt) }))} {tx(W.closeNoLock)}
           </span>
-        </div>
-        <Card>
-          <Row k={tx(W.collected)} v={rupees(Number(e.expected.total ?? e.cashExpected))} strong />
-          <Row k={tx(W.cashCounted)} v={`${rupees(e.cashCounted)} / ${rupees(e.cashExpected)}`} />
-          <Row k={tx(W.upi)} v={`${rupees(Number(e.expected.upi ?? 0))} · ${e.upiChecked ? tx(W.matched) : tx(W.notChecked)}`} />
-          <Row k={tx(W.receipts)} v={`${e.receiptCount}${e.reversedCount ? ` · ${e.reversedCount} ${tx(W.reversed).toLowerCase()}` : ""}`} />
-          {e.note ? <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--mut)" }}>{e.note}</p> : null}
-        </Card>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {perms.dayBook ? (
-            <Btn variant="sec" icon="download" href={`/fees/finance-controls/export?date=${anchor}&session=${encodeURIComponent(sessionLabel)}`} target="_blank" full>
-              {tx(W.dayBook)}
-            </Btn>
-          ) : null}
-          <Btn variant="pri" icon="chevLeft" href={back} full>{tx(W.back)}</Btn>
-          {perms.reopen ? <Btn variant="ghost" icon="refresh" onClick={() => setReopenOpen(true)} full>{tx(W.reopen)}</Btn> : null}
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", borderTop: "1px solid var(--bd)", marginTop: 6 }}>
+            {summary.map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 2px", borderBottom: "1px solid var(--bd)", fontSize: 14 }}>
+                <span style={{ color: "var(--mut)" }}>{k}</span>
+                <span className="num" style={{ fontWeight: 700, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 6 }}>
+            {perms.dayBook ? <Btn variant="pri" icon="download" href={dayBookHref} target="_blank" style={{ color: "var(--prifg)" }}>{tx(W.dayBook)}</Btn> : null}
+            <Btn variant="sec" href={back}>{tx(W.back)}</Btn>
+            {perms.reopen ? <Btn variant="ghost" onClick={() => setReopenOpen(true)} style={{ color: "var(--bad)" }}>{tx(W.reopen)}</Btn> : null}
+          </div>
         </div>
         <Sheet
           open={reopenOpen}
@@ -132,68 +168,102 @@ export function ClosePanel(props: DeskProps) {
     );
   }
 
+  const diffLook =
+    diff.kind === "match"
+      ? { bg: "var(--oks)", fg: "var(--ok)", text: tx(W.matches), icon: "check" as const }
+      : diff.kind === "short"
+        ? { bg: "var(--warns)", fg: "var(--warnfg)", text: `${tx(W.shortBy)} ${rupees(diff.amount)}`, icon: "alert" as const }
+        : { bg: "var(--infos)", fg: "var(--info)", text: `${tx(W.overBy)} ${rupees(diff.amount)}`, icon: "alert" as const };
+  const ready = blocker === null;
+
   return (
-    <div style={{ padding: "18px 20px 32px", display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <strong className="serif" style={{ fontSize: 20 }}><Bi {...W.closeTitle} /></strong>
-        <span style={{ color: "var(--mut)", fontSize: 13 }}>{longDay(anchor)}</span>
-      </div>
-      {props.lastReopen ? (
-        <Pill tone="warn" icon="refresh">
-          {tx(W.reopenedBy)} {clock(props.lastReopen.createdAt)}
-          {props.lastReopen.actorName ? ` · ${props.lastReopen.actorName}` : ""}
-        </Pill>
-      ) : null}
-
-      <Card>
-        <SecHead>{tx(W.expects)}</SecHead>
-        {DESK_MODES.map((m) => (
-          <Row key={m} k={`${tx(MODE_WORD[m])} · ${day.byMode[m].count}`} v={rupees(day.byMode[m].amount)} />
-        ))}
-        <Row k={tx(W.total)} v={rupees(day.net)} strong />
-      </Card>
-
-      <Card pad={false}>
-        <SwitchRow
-          icon="bank"
-          title={tx(W.upiMatches)}
-          sub={`${tx(W.expected)} ${rupees(day.byMode.upi.amount)} · ${upi ? tx(W.matched) : tx(W.notChecked)}`}
-          on={upi}
-          onChange={setUpi}
-        />
-      </Card>
-
-      <Card>
-        <SecHead action={<Pill tone={diff.kind === "match" ? "ok" : "warn"}>{diff.kind === "match" ? tx(W.matches) : `${tx(diff.kind === "short" ? W.shortBy : W.overBy)} ${rupees(diff.amount)}`}</Pill>}>
-          {tx(W.countCash)}
-        </SecHead>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {DENOMINATIONS.map((d) => (
-            <div key={d} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid var(--bd)" }}>
-              <span className="num" style={{ width: 72, fontWeight: 700 }}>{d === 1 ? tx(W.coins) : `₹${d}`}</span>
-              <Stepper label={d === 1 ? tx(W.coins) : `₹${d}`} value={counts[d] ?? 0} min={0} max={d === 1 ? 99999 : 9999} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
-              <span className="num" style={{ marginLeft: "auto", color: "var(--mut)" }}>{rupees((counts[d] ?? 0) * d)}</span>
+    <div className="pad" style={{ padding: "22px 28px 40px" }}>
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.15fr)", gap: 20, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          {props.lastReopen ? (
+            <Pill tone="warn" icon="refresh" style={{ alignSelf: "flex-start" }}>
+              {tx(W.reopenedBy)} {clock(props.lastReopen.createdAt)}
+              {props.lastReopen.actorName ? ` · ${props.lastReopen.actorName}` : ""}
+            </Pill>
+          ) : null}
+          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(W.expects)}</h2>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{deskDay(anchor)} · {tx(receiptCount(day.count))}</span>
             </div>
-          ))}
-          <Row k={tx(W.counted)} v={`${rupees(counted)} / ${rupees(expectedCash)}`} strong />
+            {DESK_MODES.map((m, i) => {
+                const look = MODE_LOOK[m];
+                const n = day.byMode[m].count;
+                return (
+                  <div key={m} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: i === 0 ? 0 : "1px solid var(--bd)" }}>
+                    <span aria-hidden="true" style={{ flex: "none", width: 36, height: 36, borderRadius: 11, background: look.bg, color: look.fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Ic n={look.icon} />
+                    </span>
+                    <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(MODE_WORD[m])}</span>
+                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{n ? tx(receiptCount(n)) : tx(W.noneToday)}</span>
+                    </span>
+                    <span className="num" style={{ fontSize: 16, fontWeight: 700 }}>{rupees(day.byMode[m].amount)}</span>
+                  </div>
+                );
+              })}
+            <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 10, borderTop: "2px solid var(--bd)" }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{tx(W.total)}</span>
+              <span className="num" style={{ fontSize: 18, fontWeight: 700 }}>{rupees(day.net)}</span>
+            </div>
+          </div>
+          <button type="button" className="tap card" role="switch" aria-checked={upi} onClick={() => setUpi((v) => !v)} style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, textAlign: "left", color: "var(--fg)", width: "100%" }}>
+            <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(W.upiMatches)}</span>
+              <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.expected)} {rupees(day.byMode.upi.amount)} · {upi ? tx(W.matched) : tx(W.notChecked)}</span>
+            </span>
+            <span className={`sw${upi ? " on" : ""}`} aria-hidden="true"><span /></span>
+          </button>
+          <Field label={tx(W.noteRecord)}>
+            <Textarea value={note} maxLength={500} onChange={(ev) => setNote(ev.target.value)} placeholder={tx(W.notePlaceholderClose)} />
+          </Field>
         </div>
-      </Card>
 
-      <Field label={tx(W.noteRecord)}>
-        <Textarea value={note} rows={2} maxLength={500} onChange={(ev) => setNote(ev.target.value)} />
-      </Field>
-
-      {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
-      {perms.accounts ? (
-        <>
-          <Btn variant="pri" big full icon="lock" disabled={busy || blocker !== null} onClick={close}>{tx(W.closeButton)}</Btn>
-          {blocker ? <span style={{ fontSize: 13, color: "var(--mut)", textAlign: "center" }}>{tx(blocker === "upi" ? W.closeHintUpi : W.closeHintNote)}</span> : null}
-        </>
-      ) : (
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.cannotClose)}</span>
-      )}
-      <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.closeNoLock)}</span>
-      <Btn variant="ghost" icon="chevLeft" href={back}>{tx(W.back)}</Btn>
+        <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(W.countCash)}</h2>
+            <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.expected)} {rupees(expectedCash)}</span>
+          </div>
+          {DENOMINATIONS.map((d) => {
+            const label = d === 1 ? tx(W.coins) : `₹${d}`;
+            return (
+              <div key={d} style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 96px", gap: 10, alignItems: "center", padding: "4px 0" }}>
+                <span className="num" style={{ fontSize: 15, fontWeight: 700 }}>{label}</span>
+                <Count label={label} value={counts[d] ?? 0} max={d === 1 ? 99999 : 9999} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
+                <span className="num" style={{ textAlign: "right", fontSize: 14, fontWeight: 600, color: "var(--mut)" }}>{rupees((counts[d] ?? 0) * d)}</span>
+              </div>
+            );
+          })}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, paddingTop: 12, borderTop: "2px solid var(--bd)" }}>
+            <span style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.counted)}</span>
+              <span className="num" aria-live="polite" style={{ fontSize: 26, fontWeight: 700 }}>{rupees(counted)}</span>
+            </span>
+            <span className="pill" style={{ height: 32, padding: "0 12px", fontSize: 13, background: diffLook.bg, color: diffLook.fg, animation: diff.kind === "match" ? "xPopIn .45s var(--spring) both" : "none" }}>
+              <Ic n={diffLook.icon} size={15} />
+              {diffLook.text}
+            </span>
+          </div>
+          {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
+          {perms.accounts ? (
+            <>
+              <button type="button" className="tap btn pri" disabled={busy || !ready} onClick={close} style={{ height: 48, fontSize: 15, marginTop: 6 }}>
+                <Ic n="lock" />
+                {tx(W.closeButton)}
+              </button>
+              <span style={{ fontSize: 12, color: "var(--mut)", textAlign: "center" }}>{tx(blocker === "upi" ? W.closeHintUpi : blocker === "note" ? W.closeHintNote : W.closeHintReady)}</span>
+            </>
+          ) : (
+            <span style={{ fontSize: 12, color: "var(--mut)", textAlign: "center" }}>{tx(W.cannotClose)}</span>
+          )}
+          <span style={{ fontSize: 12, color: "var(--mut)", textAlign: "center" }}>{tx(W.closeNoLock)}</span>
+        </div>
+      </div>
     </div>
   );
 }
