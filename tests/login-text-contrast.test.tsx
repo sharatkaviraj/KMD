@@ -59,7 +59,7 @@ describe("login essential secondary text contrast", () => {
     fixture.reason = reason;
     const html = renderToStaticMarkup(<LoginForm language="both" />);
     expectBilingual(html, reason === "no-profile" ? m.noProfile : m.accountInactive);
-    expectBilingual(html, LOGIN_TEXT.newHere);
+    expectBilingual(html, { en: LOGIN_TEXT.newHere.en, hi: LOGIN_TEXT.newHere.hi ?? "(no Hindi)" });
     // The second language sits under the first at full strength, never faded.
     expect(html).toContain('role="status"');
     expectFullTextStrength(html);
@@ -77,7 +77,7 @@ describe("login essential secondary text contrast", () => {
     fixture.state = { status: "error", message: { hi: "फिर प्रयास करें", en: "Try again" } };
     const html = renderToStaticMarkup(<LoginForm language="both" />);
     expectBilingual(html, fixture.state.message!);
-    expectBilingual(html, LOGIN_TEXT.newHere);
+    expectBilingual(html, { en: LOGIN_TEXT.newHere.en, hi: LOGIN_TEXT.newHere.hi ?? "(no Hindi)" });
     expect(html).toContain('id="login-error"');
     expect(html).toContain('role="alert"');
     expect(html.match(/aria-describedby="login-error"/g)).toHaveLength(2);

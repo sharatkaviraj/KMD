@@ -11,6 +11,9 @@ import { PasswordScreen } from "@/vx/screens/system/password-screen";
 import { ExpiredSheet } from "@/vx/screens/system/expired-sheet";
 import { SessionScreen } from "@/vx/screens/system/session-screen";
 import { UpdateToast } from "@/vx/screens/system/update-banner";
+import type { SettingsData } from "@/vx/screens/settings/data";
+import type { SettingsState } from "@/vx/screens/settings/domain/settings";
+import { SettingsScreen } from "@/vx/screens/settings/settings-screen";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 
 import type { DesignView } from "../design.fixture";
@@ -180,6 +183,91 @@ const authViews: Record<string, DesignView> = {
   },
 };
 
+/* ------------------------------------------------------------ Settings */
+
+/** An instant `days` ago at `hh:mm` school time. */
+function at(days: number, hhmm: string): string {
+  const d = new Date(Date.now() - days * 86_400_000);
+  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
+  return new Date(`${ymd}T${hhmm}:00+05:30`).toISOString();
+}
+const dayOf = (days: number) => at(days, "12:00").slice(0, 10);
+const MB = 1024 * 1024;
+
+const CLASS_ROWS: [string, string, number][] = [
+  ["Nursery", "Ms. Kanwar", 18], ["LKG", "Ms. Rathore", 20], ["UKG", "Ms. Mehta", 22], ["Class 1", "Ms. Jain", 23], ["Class 2", "Ms. Vyas", 25],
+  ["Class 3", "Ms. Sharma", 24], ["Class 4", "Mr. Verma", 29], ["Class 5", "Ms. Paliwal", 26], ["Class 6", "Ms. Bhati", 31], ["Class 7", "Mr. Choudhary", 27],
+  ["Class 8", "Mr. Solanki", 28], ["Class 9", "Mr. Meena", 28], ["Class 10", "Ms. Dave", 30], ["11 Science", "Mr. Trivedi", 22], ["11 Commerce", "Mr. Purohit", 18],
+  ["11 Arts", "Ms. Chouhan", 14], ["12 Science", "Mr. Bhatt", 20], ["12 Commerce", "Ms. Kothari", 17], ["12 Arts", "Mr. Rawal", 12],
+];
+
+const settingsData: SettingsData = {
+  profile: {
+    nameEn: "Shri Veer Patta Sr. Sec. School",
+    nameHi: "श्री वीर पत्ता सीनियर सेकेंडरी स्कूल",
+    address: "Near Bus Stand, Amet\nDistrict Rajsamand, Rajasthan 313332",
+    affiliation: "RBSE-0457",
+    phone: "98290 00512",
+    footer: "जमा की गई फीस वापस नहीं होगी। रसीद संभाल कर रखें।\nFees once paid are not refunded. Please keep this receipt safe.",
+    logo: null,
+    signature: null,
+  },
+  profileChangedAt: at(6, "10:00"),
+  profileChangedBy: "Janmejay",
+  prefs: { largeText: false, alerts: { day_not_closed: true, big_payment: true, absent_teacher: true, parent_reply: false } },
+  sessionLabel: "2026-27",
+  sessions: ["2026-27", "2025-26", "2024-25", "2023-24"],
+  staffCount: 14,
+  roleCount: 7,
+  activity: [
+    { id: "a1", at: at(0, "15:12"), who: "Janmejay Singh", area: "settings", text: "turned on the “Day not closed by 6 pm” alert", changes: [{ field: "Alert", before: "Off", after: "On" }] },
+    { id: "a2", at: at(0, "13:05"), who: "Ms. Neelam Sharma", area: "money", text: "reversed receipt R-0399 · wrong student", changes: [{ field: "R-0399 · Rudra Singh", before: "₹3,000 paid", after: "Reversed" }, { field: "Money moved to", before: "—", after: "R-0400 · Manvi Joshi" }] },
+    { id: "a3", at: at(0, "12:20"), who: "Mr. Meena", area: "marks", text: "entered Half-yearly marks · Class 9 Science", changes: [{ field: "Marks entered", before: "0 of 28", after: "28 of 28" }] },
+    { id: "a4", at: at(0, "11:02"), who: "Janmejay Singh", area: "students", text: "changed Aarav Sharma’s bus route", changes: [{ field: "Route", before: "Route 2 · Kelwa", after: "Route 3 · Railmagra" }] },
+    { id: "a5", at: at(0, "10:38"), who: "Office desk", area: "money", text: "made receipt R-0417 · Pooja Mehta", changes: [{ field: "Amount", before: "—", after: "₹4,350" }] },
+    { id: "a6", at: at(0, "08:01"), who: "Office desk", area: "signin", text: "signed in", changes: [] },
+    { id: "a7", at: at(1, "17:06"), who: "Janmejay Singh", area: "money", text: "closed the day", changes: [{ field: "Cash counted", before: "—", after: "₹7,600 · matched" }] },
+    { id: "a8", at: at(1, "16:15"), who: "Ms. Dave", area: "students", text: "updated Aarti Kumawat’s mother’s phone", changes: [] },
+  ],
+  backups: [212, 211, 210, 210, 208, 208, 207, 206, 205, 204, 204, 203, 201, 200].map((size, i) => ({ day: dayOf(i), files: 9, bytes: size * MB })),
+  archives: [
+    { id: "00000000-0000-4000-8000-0000000000a1", label: "Backup today", sessionLabel: "2026-27", status: "ready", tableCount: 42, rowCount: 18230, objectCount: 210, totalBytes: 212 * MB, schemaVersion: null, appCommit: null, error: null, createdAt: at(0, "02:00"), createdByName: "Janmejay Singh", lastDrill: null },
+    { id: "00000000-0000-4000-8000-0000000000a2", label: "Backup yesterday", sessionLabel: "2026-27", status: "ready", tableCount: 42, rowCount: 18110, objectCount: 208, totalBytes: 211 * MB, schemaVersion: null, appCommit: null, error: null, createdAt: at(1, "02:00"), createdByName: "Janmejay Singh", lastDrill: null },
+    { id: "00000000-0000-4000-8000-0000000000a3", label: "2024-25 year end", sessionLabel: "2024-25", status: "ready", tableCount: 40, rowCount: 16000, objectCount: 190, totalBytes: 1100 * MB, schemaVersion: null, appCommit: null, error: null, createdAt: at(190, "02:00"), createdByName: "Janmejay Singh", lastDrill: null },
+  ],
+  jobs: [],
+  master: {
+    classes: CLASS_ROWS.map(([label, teacher, students], i) => ({ id: `c${i}`, label, students, classTeacher: teacher })),
+    subjects: ["English", "Hindi", "Maths", "Science", "Social Science", "Sanskrit", "Physics", "Chemistry", "Biology", "Accountancy", "Economics", "Geography"].map((name, i) => ({ id: `s${i}`, code: name.slice(0, 3).toUpperCase(), name, active: true })),
+    houses: [{ name: "Bhamashah", students: 109 }, { name: "Meera", students: 109 }, { name: "Panna", students: 108 }, { name: "Pratap", students: 108 }],
+    paymentModes: [{ mode: "cash", receipts: 812 }, { mode: "upi", receipts: 640 }, { mode: "cheque", receipts: 41 }, { mode: "bank_transfer", receipts: 22 }],
+    holidays: [{ day: "2026-10-20", label: "Dussehra" }, { day: "2026-11-07", label: "Diwali break" }],
+  },
+  integrations: [
+    { key: "aisensy", name: "AiSensy WhatsApp", sub: "Messages and receipts to parents", status: "on", facts: [["API key", "Set"], ["Parent sending", "By hand from To send"], ["Templates", "14 ready · 2 waiting"], ["Cost", "about ₹0.88 a message"]], href: "/messages?view=templates" },
+    { key: "sampark", name: "Sampark links", sub: "Collection and marks without a login", status: "on", facts: [["Links made", "23"]], href: "/collection" },
+    { key: "backups", name: "Nightly backup", sub: "Fee records copied every night", status: "on", facts: [["Schedule", "Every night"], ["Last copy", dayOf(0)]], href: "/settings?s=backups" },
+    { key: "jobs", name: "Scheduled jobs", sub: "Registers, reminders and summaries", status: "on", facts: [["open registers", "ok · today"], ["daily summary", "ok · yesterday"]], href: "/jobs" },
+  ],
+  me: { name: "Janmejay Singh", role: { en: "Admin", hi: "प्रशासक" } },
+};
+
+const settings = (state: SettingsState): DesignView => ({ render: () => <Layer><SettingsScreen data={settingsData} state={state} /></Layer>, path: "/settings" });
+
+const settingsViews: Record<string, DesignView> = {
+  Settings: settings("home"),
+  "M-Settings": settings("home"),
+  "DX-Settings-Activity": settings("activity"),
+  "DX-Settings-Backups": settings("backups"),
+  "DX-Settings-Master": settings("master"),
+  "M-Settings-Prefs": settings("prefs"),
+  "M-Settings-Restore": settings("restore"),
+  "M-Settings-Integrations": settings("integrations"),
+  "M-Settings-Glossary": settings("glossary"),
+  "settings-session": settings("session"),
+};
+
 export const views: Record<string, DesignView> = {
   ...authViews,
+  ...settingsViews,
 };
