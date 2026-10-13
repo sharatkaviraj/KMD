@@ -437,7 +437,7 @@ export function DuesScreen(props: DuesProps) {
         actions={
           pv.state === "kept" ? (
             pv.receiptNumber ? (
-              <Btn variant="ghost" icon="receipt" href={`/receipts/${encodeURIComponent(pv.receiptNumber)}`} style={{ ...small, color: "var(--ok)" }}>{pv.receiptNumber}</Btn>
+              <Btn variant="ghost" icon="fileText" href={`/receipts/${encodeURIComponent(pv.receiptNumber)}`} style={{ ...small, color: "var(--ok)" }}>{pv.receiptNumber}</Btn>
             ) : null
           ) : (
             <>

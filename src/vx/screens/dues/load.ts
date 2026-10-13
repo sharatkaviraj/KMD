@@ -40,7 +40,7 @@ const TABS: DuesTab[] = ["call", "prom", "left", "aging"];
 const SHEETS: DuesSheet[] = ["call", "promise", "wa", "plan", "wo"];
 
 function kidsLine(f: Pick<DuesFamily, "kids">): string {
-  return f.kids.map((k) => `${k.fullName} · ${k.classLabel}`).join(", ");
+  return f.kids.map((k) => `${k.fullName.split(" ")[0]} · ${k.classLabel}`).join(", ");
 }
 
 /** Everything /dues draws, from the URL. */

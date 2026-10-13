@@ -335,11 +335,11 @@ export function FamilyPanel(props: Props) {
             <div className="fadein" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 14, background: "var(--oks)", color: "var(--ok)", fontSize: 13, fontWeight: 600 }}>
               <span style={{ flex: "none", width: 10, height: 10, borderRadius: 5, background: "var(--ok)", animation: "xPulse 1.6s ease infinite" }} />
               <span className="num" style={{ flex: 1 }}>{tx(fill(W.calling, { ph: phone }))}</span>
-              <span className="hide-m" style={{ fontWeight: 500 }}>{tx(W.hangUp)}</span>
+              <span className="only-d" style={{ fontWeight: 500 }}>{tx(W.hangUp)}</span>
             </div>
           ) : null}
           <h3 className="sech">{tx(W.whatHappened)}</h3>
-          <div className="g2" role="radiogroup" aria-label={tx(W.whatHappened)} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+          <div role="radiogroup" aria-label={tx(W.whatHappened)} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
             {CALL_OUTCOMES.map((o) => (
               <Choice key={o} on={outcome === o} onPick={() => setOutcome(o)} label={tx(OUTCOME_WORD[o])} sub={tx(OUTCOME_SUB[o])} />
             ))}
@@ -448,7 +448,7 @@ export function FamilyPanel(props: Props) {
             {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
           </div>
         ) : (
-          <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)", gap: 18, alignItems: "start", paddingTop: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18, alignItems: "start", paddingTop: 4 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 14px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)" }}>
                 <span style={{ display: "flex", flexDirection: "column" }}>
