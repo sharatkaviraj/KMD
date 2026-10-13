@@ -7,11 +7,12 @@ import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/aca
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { schoolToday } from "@/vx/format";
+import { p, type Pair } from "@/vx/text";
 
 import { matrixFromRows, type Matrix } from "./domain/matrix";
 import type { StaffRow } from "./domain/people";
 
-export type StaffEvent = { id: string; staffId: string; at: string; text: string; actor: string | null };
+export type StaffEvent = { id: string; staffId: string; at: string; text: Pair; kind: "disabled" | "enabled" | "role"; actor: string | null };
 
 export type StaffScreenData = {
   sessionLabel: string | null;
@@ -83,10 +84,15 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
   const subjectName = new Map((subjects.data ?? []).map((s) => [s.id, s.name_en || s.code]));
 
   const classTeacherOf = new Map<string, string[]>();
+  const classRank = new Map<string, number>();
+  // classLabelMap iterates in the school's class order.
+  const order = new Map([...labels.keys()].map((id, i) => [id, i]));
   for (const row of classTeacherRows.data ?? []) {
     if (row.effective_from > today || (row.effective_to && row.effective_to < today)) continue;
     const label = labels.get(row.class_id) ?? "Class";
     classTeacherOf.set(row.staff_profile_id, [...(classTeacherOf.get(row.staff_profile_id) ?? []), label]);
+    const rank = order.get(row.class_id);
+    if (rank !== undefined) classRank.set(row.staff_profile_id, Math.min(rank, classRank.get(row.staff_profile_id) ?? rank));
   }
 
   // What each person teaches and how many periods a weekday, from the live timetable.
@@ -124,6 +130,7 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
       classTeacherOf: classTeacherOf.get(person.id) ?? [],
       teaches: byClass ? [...byClass.entries()].map(([cls, subs]) => `${cls} · ${[...subs].join(", ")}`) : [],
       periodsPerWeek: (load[person.id] ?? []).reduce((a, b) => a + b, 0),
+      classRank: classRank.get(person.id) ?? null,
     };
   });
 
@@ -136,12 +143,16 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
     staffId: row.staff_profile_id,
     at: row.changed_at,
     actor: row.actor_staff_id ? (nameOf.get(row.actor_staff_id) ?? null) : null,
+    kind: row.from_active !== row.to_active ? (row.to_active ? "enabled" : "disabled") : "role",
     text:
       row.from_active !== row.to_active
         ? row.to_active
-          ? "Login turned back on"
-          : `Login disabled${row.reason ? ` · ${row.reason}` : ""}`
-        : `Role changed: ${row.from_role.replace(/_/g, " ")} → ${row.to_role.replace(/_/g, " ")}`,
+          ? p("Login turned back on", "लॉगिन फिर चालू")
+          : p(`Login disabled${row.reason ? ` · ${row.reason}` : ""}`, `लॉगिन बंद${row.reason ? ` · ${row.reason}` : ""}`)
+        : p(
+            `Role changed: ${row.from_role.replace(/_/g, " ")} → ${row.to_role.replace(/_/g, " ")}`,
+            `भूमिका बदली: ${row.from_role.replace(/_/g, " ")} → ${row.to_role.replace(/_/g, " ")}`,
+          ),
   }));
 
   return {
