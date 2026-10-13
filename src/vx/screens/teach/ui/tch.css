@@ -1,0 +1,68 @@
+/* The teacher app (design TchHome, TchAttend, TchClass, TchMarks, TchMore):
+   the modules' own classes, ported from each module's <style> (h-*, a-*, c-*,
+   m-*, k-*) under one `tc-` prefix. Tokens are the kit's. Overlays render in
+   #vx-layer (`.vxt`, sized by the window), so their rules are not container
+   queries. */
+
+/* The design draws these screens at a 14px base; key text says 16px itself. */
+.vx.tc{font-size:14px;line-height:1.45}
+
+/* ---- shared ---------------------------------------------------------------- */
+:where(.vx,.vxt) .tc-s{font-size:12.5px;color:var(--mut);line-height:1.4}
+:where(.vx,.vxt) .tc-p{font-size:15px}
+:where(.vx,.vxt) .tc-t{font-size:17px;font-weight:700;line-height:1.25}
+:where(.vx,.vxt) .tc-hi{font-size:13px;color:var(--mut)}
+:where(.vx,.vxt) .tc-el{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:where(.vx,.vxt) .tc-ib{flex:none;display:flex;align-items:center;justify-content:center}
+:where(.vx,.vxt) .tc-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
+:where(.vx,.vxt) .tc-col{display:flex;flex-direction:column;gap:18px;min-width:0}
+:where(.vx,.vxt) .tc-card{padding:18px 20px;display:flex;flex-direction:column;gap:12px;animation:xRise .42s var(--ease) both}
+.vx .tc-lnk,.vxt .tc-lnk{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 4px;font-size:14px;font-weight:600;color:var(--acc);border:0;background:transparent}
+:where(.vx,.vxt) .tc-x{width:44px;height:44px;padding:0;border-radius:22px}
+:where(.vx,.vxt) .tc-lang{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:84px;flex:none}
+:where(.vx,.vxt) .tc-lang>button{height:30px;font-size:13px}
+:where(.vx,.vxt) .tc-bb{height:52px;font-size:16px;border-radius:14px}
+:where(.vx,.vxt) .tc-sb{display:flex;flex-direction:column;gap:14px;padding-top:4px}
+:where(.vx,.vxt) .tc-opt{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
+:where(.vx,.vxt) .tc-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.45}
+:where(.vx,.vxt) .tc-pop{animation:xPopIn .45s var(--spring) both}
+:where(.vx,.vxt) .tc-in{animation:xIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-bar{display:flex;height:8px;border-radius:4px;background:var(--s3);overflow:hidden}
+:where(.vx,.vxt) .tc-bar>span{height:100%;border-radius:4px;transition:width .5s var(--ease)}
+:where(.vx,.vxt) .tc-pic{height:92px;border-radius:14px;background:var(--s2);display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;overflow:hidden}
+:where(.vx,.vxt) .tc-sk{height:8px;border-radius:4px;background:var(--s3);display:block}
+:where(.vx,.vxt) .tc-wa{display:flex;flex-direction:column;align-items:flex-end;padding:14px 12px;border-radius:14px;background:var(--wabg)}
+:where(.vx,.vxt) .tc-wa>div{max-width:92%;padding:8px 10px 6px;border-radius:12px 12px 2px 12px;background:var(--wab);color:var(--wafg);font-size:14px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12);animation:xIn .3s var(--ease) both}
+
+/* ---- Today (TchHome) --------------------------------------------------------- */
+.vx .tc-hero,.vxt .tc-hero{position:relative;overflow:hidden;padding:24px;gap:10px;display:flex;flex-direction:column;background:var(--pri);color:var(--prifg);border-color:transparent}
+.vx .tc-big,.vxt .tc-big{height:60px;padding:0 26px;border-radius:18px;font-size:18px;font-weight:700;gap:10px;background:var(--prifg);color:var(--pri);animation:xPulse 2.4s ease infinite}
+:where(.vx,.vxt) .tc-tl{display:grid;grid-template-columns:50px 18px minmax(0,1fr);gap:10px;animation:xIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-tlc{margin:4px 0;padding:10px 14px;border-radius:14px;display:flex;flex-direction:column;gap:8px;transition:background-color .3s ease,opacity .3s ease}
+:where(.vx,.vxt) .tc-kid{display:flex;gap:12px;padding:14px 0 4px;border-top:1px solid var(--bd);animation:xIn .32s var(--ease) both}
+:where(.vx,.vxt) .tc-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+:where(.vx,.vxt) .tc-q{display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;min-height:118px;padding:14px;border-radius:16px;border:1px solid var(--bd);background:var(--s2);color:var(--fg);text-align:left}
+:where(.vx,.vxt) .tc-qi{width:48px;height:48px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+:where(.vx,.vxt) .tc-lk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+:where(.vx,.vxt) .tc-lt{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:14px 6px 12px;border-radius:16px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:center}
+:where(.vx,.vxt) .tc-sjw{display:flex;flex-direction:column;gap:10px}
+:where(.vx,.vxt) .tc-sj{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg)}
+
+@container vx (max-width:899px){
+  .vx .tc-p{font-size:16px}
+  .vx .tc-t{font-size:18px}
+  .vx .tc-col{display:contents}
+  .vx .tc-card{padding:16px}
+  .vx .tc-big{width:100%;height:62px}
+  .vx .tc-tl{grid-template-columns:42px 14px minmax(0,1fr);gap:8px}
+  .vx .tc-tlc{padding:10px 12px}
+  .vx .tc-sjw{flex-direction:row;overflow-x:auto;scrollbar-width:none}
+  .vx .tc-sjw>a{flex:0 0 200px}
+  .vx .tc-gr{font-size:25px!important}
+  .vx .tc-hero{padding:20px}
+  .vx .tc-lt{padding:12px 4px 10px}
+}
+@media (max-width:899px){
+  .vx-layer .tc-p{font-size:16px}
+  .vx-layer .tc-g1m{grid-template-columns:minmax(0,1fr)!important}
+}

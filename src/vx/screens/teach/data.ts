@@ -34,6 +34,7 @@ import { periodNumber } from "@/modules/timetable/domain/periods";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { schoolToday } from "@/vx/format";
+import { marksLinkUrl } from "@/vx/screens/exams/data";
 import { noteViewer, notesForStudent, visibleNotes } from "@/vx/screens/notes/data";
 import { excerpt, type BoardNote } from "@/vx/screens/notes/domain/notes";
 import { addDays } from "@/vx/screens/academics/domain";
@@ -236,7 +237,7 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
 
 /* ------------------------------------------------------------------ Today */
 
-export type TodayPeriod = { period: number; number: number; starts: string; ends: string; subjectCode: string; classLabel: string; classId: string | null; combined: boolean };
+export type TodayPeriod = { period: number; number: number; starts: string; ends: string; subjectCode: string; subjectName: string; classLabel: string; classId: string | null; combined: boolean };
 
 export async function loadHome(staff: CurrentStaff) {
   const sessionLabel = await resolveSessionLabel();
@@ -245,7 +246,7 @@ export async function loadHome(staff: CurrentStaff) {
   const nowMinutes = schoolClock(now).minutes;
   if (!sessionLabel) return { sessionLabel: null as string | null, today, nowMinutes };
 
-  const [calendar, labels, held, published, registers, covers, bells, notices] = await Promise.all([
+  const [calendar, labels, held, published, registers, covers, bells, notices, subjectList] = await Promise.all([
     attendanceCalendar(sessionLabel),
     classLabelMap(sessionLabel),
     heldClassIds(staff.id, sessionLabel),
@@ -254,7 +255,10 @@ export async function loadHome(staff: CurrentStaff) {
     myDutiesOn(staff.id, sessionLabel, today).catch(() => []),
     currentBells(sessionLabel).catch(() => null),
     staffNotices(staff.id, sessionLabel, 10),
+    listSubjects().catch(() => []),
   ]);
+  // Subject names for the day's rows ("Class 6 · Science"); the code when a subject has no name.
+  const subjectName = new Map(subjectList.map((s) => [s.code, s.nameEn || s.code]));
   const schoolOpen = isSchoolOpen(today, calendar);
   const rank = rankOf(labels);
   const heldSorted = [...held].sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
@@ -274,31 +278,61 @@ export async function loadHome(staff: CurrentStaff) {
     number: periodNumber(l.period),
     ...timeOf(schedule, l.period),
     subjectCode: l.subjectCode,
+    subjectName: subjectName.get(l.subjectCode) ?? l.subjectCode,
     classLabel: l.classes.map((c) => c.classLabel).join(" · "),
     classId: l.classId,
     combined: l.classes.length > 1,
   }));
+  // The whole bell day, so the timeline can draw the free periods between lessons.
+  const bellDay = slots.length || covers.length ? schedule.periods.map((b) => ({ period: b.index, number: periodNumber(b.index), starts: b.starts, ends: b.ends })) : [];
 
   const absentIds = [...new Set(covers.flatMap((c) => c.absentStaffIds))];
   const names = await staffNames(absentIds);
   const coverRows = covers.map((c) => ({
     id: c.id,
+    period: c.period,
     number: periodNumber(c.period),
     ...timeOf(schedule, c.period),
     classLabels: c.classLabels.join(", "),
     subjectCode: c.subjectCode,
+    subjectName: subjectName.get(c.subjectCode) ?? c.subjectCode,
     forName: c.absentStaffIds.map((id) => names.get(id) ?? "—").join(", "),
     acknowledged: c.acknowledgedAt !== null,
+    askedAt: c.createdAt,
+    reason: c.reason,
   }));
+
+  // Tomorrow's first lesson, for the "all set" card: the next open school day's timetable.
+  let tomorrow: { day: string; first: { number: number; starts: string; classLabel: string; subjectName: string } | null } | null = null;
+  if (published) {
+    let next = addDays(today, 1);
+    for (let i = 0; i < 10 && !isSchoolOpen(next, calendar); i += 1) next = addDays(next, 1);
+    if (isSchoolOpen(next, calendar) && timetableRuns(next, calendar)) {
+      const nextSlots = await dayHeaders(published.id)
+        .then((headers) => {
+          const header = matchDayHeader(headers, next);
+          return header ? periodsOn(staff.id, published.id, header) : [];
+        })
+        .catch(() => []);
+      const first = lessonsToday(nextSlots)[0];
+      tomorrow = {
+        day: next,
+        first: first
+          ? { number: periodNumber(first.period), starts: timeOf(schedule, first.period).starts, classLabel: first.classes.map((c) => c.classLabel).join(" · "), subjectName: subjectName.get(first.subjectCode) ?? first.subjectCode }
+          : null,
+      };
+    }
+  }
 
   let myClass: null | {
     classId: string;
     classLabel: string;
     total: number;
-    register: { revision: number; submittedAt: string | null; present: number; absent: number; halfDay: number; total: number } | null;
+    register: { revision: number; submittedAt: string | null; present: number; absent: number; halfDay: number; total: number; alerts: number } | null;
   } = null;
-  let kids: { id: string; name: string; reasons: AttentionReason[]; detail: string }[] = [];
-  let birthdays: { id: string; name: string; inDays: number; turning: number }[] = [];
+  let wished = new Set<string>();
+  let kids: { id: string; name: string; reasons: AttentionReason[]; detail: string; attendancePct: number | null }[] = [];
+  let birthdays: { id: string; name: string; inDays: number; turning: number; rollNo: string | null; wished: boolean }[] = [];
   if (myClassId) {
     const reg = registers.find((r) => r.classId === myClassId && r.period === null) ?? null;
     const [insight, receipt] = await Promise.all([
@@ -306,6 +340,18 @@ export async function loadHome(staff: CurrentStaff) {
       reg && reg.revision >= 1 ? latestReceipt(reg.id).catch(() => null) : Promise.resolve(null),
     ]);
     const totals = reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
+    // The 10 am absent alerts queued with today's register, and the birthday
+    // wishes already queued today — so "all set" can say what was done.
+    const queue = await createAdminClient()
+      .from("parent_message_queue")
+      .select("student_id, kind")
+      .eq("class_id", myClassId)
+      .eq("day", today)
+      .in("kind", ["absent_alert", "birthday"])
+      .neq("status", "cancelled")
+      .returns<{ student_id: string; kind: string }[]>()
+      .then((r) => r.data ?? [], () => [] as { student_id: string; kind: string }[]);
+    wished = new Set(queue.filter((q) => q.kind === "birthday").map((q) => q.student_id));
     myClass = {
       classId: myClassId,
       classLabel: labels.get(myClassId) ?? "—",
@@ -319,6 +365,7 @@ export async function loadHome(staff: CurrentStaff) {
               absent: Number(totals?.absent ?? 0),
               halfDay: Number(totals?.half_day ?? 0),
               total: Number(totals?.total ?? insight?.children.length ?? 0),
+              alerts: queue.filter((q) => q.kind === "absent_alert").length,
             }
           : null,
     };
@@ -330,6 +377,7 @@ export async function loadHome(staff: CurrentStaff) {
           id: c.id,
           name: c.name,
           reasons: c.reasons,
+          attendancePct: c.attendancePct === null ? null : Math.round(c.attendancePct),
           detail: [
             c.reasons.includes("attendance") && c.attendancePct !== null ? `${Math.round(c.attendancePct)}% attendance` : null,
             c.reasons.includes("marks") && c.lowestSubject ? `${c.lowestSubject.code} ${c.lowestSubject.pct}%` : null,
@@ -338,11 +386,26 @@ export async function loadHome(staff: CurrentStaff) {
             .filter(Boolean)
             .join(" · "),
         }));
-      birthdays = upcomingBirthdays(insight.children, today, 7).map((c) => ({ id: c.id, name: c.name, inDays: c.inDays, turning: c.turning }));
+      birthdays = upcomingBirthdays(insight.children, today, 7).map((c) => ({ id: c.id, name: c.name, inDays: c.inDays, turning: c.turning, rollNo: c.rollNo, wished: wished.has(c.id) }));
     }
   }
 
-  const [viewer, linkSet] = await Promise.all([noteViewer(staff, sessionLabel), marksLinks(staff.id, sessionLabel, labels).catch(() => ({ links: [] as MarksLink[], assigned: [] }))]);
+  const [viewer, linkSet] = await Promise.all([
+    noteViewer(staff, sessionLabel),
+    marksLinks(staff.id, sessionLabel, labels).catch(() => ({ links: [] as MarksLink[], assigned: [] as { class_id: string; subject_id: string }[], sizes: new Map<string, number>() })),
+  ]);
+  // "My subjects": each class-subject this teacher teaches, with its roll size.
+  const subjectById = new Map(subjectList.map((s) => [s.id, s]));
+  const subjects = linkSet.assigned
+    .map((a) => ({
+      classId: a.class_id,
+      classLabel: labels.get(a.class_id) ?? "—",
+      subjectId: a.subject_id,
+      name: subjectById.get(a.subject_id)?.nameEn || subjectById.get(a.subject_id)?.code || "—",
+      children: linkSet.sizes.get(a.class_id) ?? 0,
+      mine: held.includes(a.class_id),
+    }))
+    .sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || a.name.localeCompare(b.name));
   const myNotes = can(staff, "notes:view") ? await visibleNotes(viewer, sessionLabel).catch(() => [] as BoardNote[]) : [];
   const mine = (n: BoardNote) => n.followUpStaffId === staff.id || (n.followUpStaffId === null && n.writtenBy === staff.id);
   const followUpsDue = myNotes.filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= today && mine(n)).length;
@@ -366,12 +429,15 @@ export async function loadHome(staff: CurrentStaff) {
     heldCount: held.length,
     otherHeld: heldSorted.slice(1).map((id) => ({ classId: id, classLabel: labels.get(id) ?? "—" })),
     periods,
+    bells: bellDay,
     covers: coverRows,
+    tomorrow,
     notices,
     kids,
     birthdays,
     followUpsDue,
     reviews,
+    subjects,
     links: linkSet.links.filter((l) => !l.submitted).slice(0, 6),
     canMark: can(staff, "attendance:mark"),
   };
@@ -610,15 +676,31 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
 }
 
 
-export type MarksLink = { paperId: string; classLabel: string; subjectCode: string; exam: string; entered: number; total: number; submitted: boolean };
+export type MarksLink = {
+  paperId: string;
+  classLabel: string;
+  subjectCode: string;
+  exam: string;
+  entered: number;
+  total: number;
+  submitted: boolean;
+  examId: string;
+  maxMarks: number | null;
+  /** The teacher's own no-login marks link for this paper's exam (UI-56), when the exam office or she has made one. */
+  url: string | null;
+};
 
 /**
  * "Your marks links" (RULES D): the papers for the class-subjects this
- * teacher teaches, with how many children have a mark. There is no Sampark
- * link table in this repo, so a link here is the in-app marks page for the
- * paper (docs/ui/DECISIONS.md).
+ * teacher teaches, with how many children have a mark, and her no-login link
+ * for the exam (`/t/marks/<token>`, UI-56) when one is live. Opening a paper
+ * here falls back to the in-app marks page.
  */
-export async function marksLinks(staffId: string, sessionLabel: string, labels: Map<string, string>): Promise<{ links: MarksLink[]; assigned: { class_id: string; subject_id: string }[] }> {
+export async function marksLinks(
+  staffId: string,
+  sessionLabel: string,
+  labels: Map<string, string>,
+): Promise<{ links: MarksLink[]; assigned: { class_id: string; subject_id: string }[]; sizes: Map<string, number> }> {
   const admin = createAdminClient();
   const { data: assigned } = await admin
     .from("teaching_assignments")
@@ -646,9 +728,18 @@ export async function marksLinks(staffId: string, sessionLabel: string, labels: 
       )
     : { data: [] as { class_id: string }[] };
   const size = enrolled.data.reduce((m, r) => m.set(r.class_id, (m.get(r.class_id) ?? 0) + 1), new Map<string, number>());
-  const links = papers
-    .filter((p) => (aLabel.get(p.assessmentId)?.status ?? "open") !== "archived")
-    .map((p) => ({
+  const live = papers.filter((p) => (aLabel.get(p.assessmentId)?.status ?? "open") !== "archived");
+  const examIds = [...new Set(live.map((p) => p.assessmentId))];
+  const tokens = new Map<string, string>();
+  if (examIds.length) {
+    const { data } = await fetchInChunks<{ assessment_id: string; token: string }>(examIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+      admin.from("exam_marks_links").select("assessment_id, token").eq("staff_profile_id", staffId).is("revoked_at", null).in("assessment_id", chunk),
+    );
+    for (const row of data) tokens.set(row.assessment_id, row.token);
+  }
+  const links = live.map((p) => {
+    const token = tokens.get(p.assessmentId);
+    return {
       paperId: p.id,
       classLabel: p.classLabel || (labels.get(p.classId) ?? "—"),
       subjectCode: p.subjectCode,
@@ -656,8 +747,12 @@ export async function marksLinks(staffId: string, sessionLabel: string, labels: 
       entered: counts.get(p.id) ?? 0,
       total: size.get(p.classId) ?? 0,
       submitted: p.entryStatus === "submitted",
-    }));
-  return { links, assigned: assigned ?? [] };
+      examId: p.assessmentId,
+      maxMarks: p.maxMarks ?? null,
+      url: token ? marksLinkUrl(token) : null,
+    };
+  });
+  return { links, assigned: assigned ?? [], sizes: size };
 }
 
 /* ------------------------------------------------------------------ More */
