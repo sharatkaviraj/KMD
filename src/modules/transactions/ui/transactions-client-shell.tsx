@@ -1084,7 +1084,7 @@ export function TransactionsClientShell({
           More-filters panel — is a reconciliation tool. On a phone the job is
           "show me a day", so the header is two chip rows: which day, which
           view. Same state, same handlers; only the shape differs. */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-border bg-background/95 px-4 pb-2.5 pt-4 backdrop-blur md:hidden">
+      <div className="sticky top-[var(--vx-ctop-h,0px)] z-20 -mx-4 -mt-4 border-b border-border bg-background/95 px-4 pb-2.5 pt-4 backdrop-blur md:hidden">
         <div className="flex items-center justify-between gap-2.5">
           <h1 className="text-xl font-extrabold leading-tight tracking-tight text-foreground">
             {t("title")}

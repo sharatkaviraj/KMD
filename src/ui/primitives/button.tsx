@@ -7,37 +7,37 @@ import { cn } from "@/platform/utils";
 
 const buttonVariants = cva(
   [
-    "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
+    "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[12px] text-sm font-semibold",
     "transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     "disabled:pointer-events-none disabled:opacity-60",
     "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-    "active:translate-y-[0.5px]",
+    "active:scale-[.97]",
   ].join(" "),
   {
     variants: {
       variant: {
         // Solid ink — default for confirm/save actions
         primary:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-foreground/92 active:bg-foreground/95",
+          "bg-primary text-primary-foreground hover:brightness-110",
         // Tonal neutral — quieter than primary; for medium-emphasis actions
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-surface-3",
         // Reserved for the SINGLE hero CTA per screen (saffron)
         accent:
-          "bg-accent text-accent-foreground shadow-xs hover:bg-accent/92 active:bg-accent/95",
+          "bg-accent text-accent-foreground hover:brightness-110",
         // Quiet bordered button — most secondary actions
         outline:
-          "border border-border bg-surface text-foreground shadow-xs hover:bg-surface-2 hover:border-border-strong",
+          "border border-border-strong bg-surface text-foreground hover:bg-surface-2",
         // Tonal — implies importance without solid color (uses accent-soft)
         soft:
-          "bg-accent-soft text-accent-soft-foreground hover:bg-accent-soft/80",
+          "bg-accent-soft text-accent-soft-foreground hover:brightness-[.96]",
         // Borderless — toolbars, compact actions
         ghost:
           "text-foreground hover:bg-surface-2",
         // Destructive
         destructive:
-          "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/92",
+          "bg-destructive text-destructive-foreground hover:brightness-110",
         "destructive-outline":
           "border border-destructive/40 bg-surface text-destructive-soft-foreground hover:bg-destructive-soft hover:border-destructive/60",
         // Inline link
@@ -45,14 +45,14 @@ const buttonVariants = cva(
           "text-accent underline-offset-4 hover:underline px-0 h-auto",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
-        default: "h-9 px-3.5 md:h-9",
-        lg: "h-10 px-5",
+        sm: "h-9 px-3 text-[13px]",
+        default: "h-10 px-4",
+        lg: "h-11 px-5 text-[15px]",
         // Mobile-default — bigger tap target
         mobile: "h-11 px-4 text-sm",
-        icon: "h-9 w-9",
-        "icon-sm": "h-8 w-8",
-        "icon-lg": "h-10 w-10",
+        icon: "h-10 w-10",
+        "icon-sm": "h-9 w-9",
+        "icon-lg": "h-11 w-11",
       },
     },
     /*

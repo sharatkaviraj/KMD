@@ -63,7 +63,7 @@ export function Panel({
     <section
       aria-labelledby={headingId}
       className={cn(
-        "overflow-hidden rounded-2xl border border-border bg-surface shadow-xs",
+        "overflow-hidden rounded-[18px] border border-border bg-surface shadow-[var(--sh,0_1px_2px_rgba(21,25,35,.04),0_12px_28px_-18px_rgba(21,25,35,.28))]",
         className,
       )}
     >

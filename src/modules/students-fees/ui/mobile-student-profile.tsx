@@ -96,7 +96,7 @@ export function MobileStudentProfile({
       {/* No app bar and no back arrow here: /fees/students/[id] is a
           takeover route, so MobileTakeoverBar already pins the ← at the top of
           the scroll region. */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 border-b border-border bg-background/95 px-4 pb-0 pt-3 backdrop-blur">
+      <div className="sticky top-[var(--vx-ctop-h,0px)] z-20 -mx-4 -mt-4 border-b border-border bg-background/95 px-4 pb-0 pt-3 backdrop-blur">
         <div className="flex items-center gap-2.5 pb-2.5">
           {/* Leading, not trailing: the cluster on the right already carries
               Pencil and Phone, and the bottom bar belongs to Collect. An avatar

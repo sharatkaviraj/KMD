@@ -290,7 +290,7 @@ export function RegisterForm({
 
       {!reviewing ? (
         <>
-          <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background px-4 py-2">
+          <div className="sticky top-[var(--vx-ctop-h,3.5rem)] z-30 -mx-4 border-b border-border bg-background px-4 py-2">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[14px] font-medium text-foreground">{primary(totals, language)}</p>
               {/* Keep the badge's space while the draft is first being saved,

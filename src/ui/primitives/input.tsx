@@ -12,9 +12,9 @@ type InputProps = React.ComponentProps<"input"> & {
 };
 
 const sizeClasses: Record<NonNullable<InputProps["inputSize"]>, string> = {
-  sm: "h-8 px-3 text-sm max-md:h-11 max-md:text-base",
-  default: "h-9 px-3 text-sm max-md:h-12 max-md:text-base",
-  lg: "h-11 px-4 text-base",
+  sm: "h-9 px-3 text-sm max-md:h-11 max-md:text-base",
+  default: "h-11 px-3.5 text-[15px] max-md:text-base",
+  lg: "h-12 px-4 text-base",
 };
 
 /**
@@ -57,10 +57,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         inputMode={inputMode ?? (type ? inputModeByType[type] : undefined)}
         enterKeyHint={enterKeyHint ?? (type ? enterKeyHintByType[type] : undefined)}
         className={cn(
-          "flex w-full rounded-md border border-input bg-surface text-foreground",
-          "shadow-xs transition-[border-color,box-shadow,background-color] duration-150",
+          "flex w-full rounded-[12px] border border-border-strong bg-surface text-foreground",
+          "transition-[border-color,box-shadow,background-color] duration-200",
           "placeholder:text-subtle-foreground",
-          "focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40",
+          "focus-visible:outline-none focus-visible:border-accent focus-visible:ring-[3px] focus-visible:ring-accent-soft",
           "disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-surface-2",
           "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive/30",
           "file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",

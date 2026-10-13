@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 
-import { cn } from "@/platform/utils";
+import { ClassicTopBar } from "@/vx/ui/classic-top-bar";
 
 type PageHeaderProps = {
   title: ReactNode;
@@ -24,6 +24,17 @@ type PageHeaderProps = {
   className?: string;
 };
 
+/**
+ * The fee screens' title block, drawn as VPPS One's design top bar (UI-73).
+ *
+ * In the fee app this was two headers, one per breakpoint, each with its own
+ * `<h1>` and its own copy of the actions. Inside VPPS One's shell it is the
+ * same bar every redesigned screen opens with: a glass desk bar with the
+ * eyebrow as the crumb over a serif title, and a phone bar with Back, the
+ * title and `mobileEyebrow` under it. The props keep their meaning, so none
+ * of the 37 screens that call it changed. The description stays under the
+ * bar on a desk and off a phone, as before.
+ */
 export function PageHeader({
   title,
   description,
@@ -38,57 +49,16 @@ export function PageHeader({
 
   return (
     <>
-      {/* ── Phone (mobile app v2) ──────────────────────────────────────
-          Every screen in the phone app opens with its own name. The sticky app
-          bar above is 56px of chrome carrying the brand and the account — not
-          the screen. Without this block a phone lands on a wall of cards with
-          nothing saying where you are. */}
-      {hideOnMobile ? null : (
-        <header className={cn("flex flex-col gap-2.5 md:hidden print:hidden", className)}>
-          <div className="min-w-0">
-            <h1 className="text-xl font-extrabold leading-tight tracking-tight text-foreground">
-              {title}
-            </h1>
-            {phoneEyebrow ? (
-              <p className="mt-0.5 text-[11.5px] font-medium text-muted-foreground">
-                {phoneEyebrow}
-              </p>
-            ) : null}
-          </div>
-          {actions && !hideActionsOnMobile ? (
-            <div className="flex flex-wrap items-center gap-2">{actions}</div>
-          ) : null}
-        </header>
-      )}
-
-      {/* ── Tablet, desktop and print ─────────────────────────────────── */}
-      <header
-        className={cn(
-          "hidden flex-col gap-3 pb-1 md:flex md:flex-row md:items-end md:justify-between md:gap-6 print:flex",
-          className,
-        )}
-      >
-        <div className="min-w-0 max-w-3xl">
-          {eyebrow ? (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              {eyebrow}
-            </p>
-          ) : null}
-          <h1 className="mt-1 text-[22px] font-semibold leading-tight tracking-tight text-foreground md:text-[26px]">
-            {title}
-          </h1>
-          {description ? (
-            <p className="mt-1.5 hidden text-sm leading-6 text-muted-foreground md:block">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
-            {actions}
-          </div>
-        ) : null}
-      </header>
+      <ClassicTopBar
+        title={title}
+        crumb={eyebrow}
+        sub={phoneEyebrow}
+        actions={actions}
+        hideOnPhone={hideOnMobile}
+        hideActionsOnPhone={hideActionsOnMobile}
+        className={className}
+      />
+      {description ? <p className="vx-cdesc phone-hide">{description}</p> : null}
     </>
   );
 }

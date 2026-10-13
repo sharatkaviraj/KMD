@@ -1,7 +1,8 @@
 import * as React from "react";
-import Link from "next/link";
 
+import { m } from "@/messages";
 import { roleLabel } from "@/platform/auth/permissions";
+import { ClassicTopBar } from "@/vx/ui/classic-top-bar";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import {
   flat,
@@ -28,11 +29,14 @@ import {
 /**
  * The title block at the top of a screen, in the reader's language.
  *
- * `eyebrow` is the small line above the title — the day, or what part of the
- * school this screen belongs to. DESIGN-SYSTEM §2 asks for a bigger title on a
- * desk than on a phone (32 / 27 px there; 30 / 24 here, because this app's
- * titles are often bilingual pairs and a 32px Hindi heading with English under
- * it pushes the first task off a short laptop screen).
+ * It is the design's top bar now (`ClassicTopBar`, UI-73): on a desk the
+ * eyebrow is the crumb over a serif title with the action on the right; on a
+ * phone it is a 58px bar with Back and the title, the other-language title
+ * under it. The description stays in the page, under the bar, because a bar
+ * that grows with a paragraph is not a bar.
+ *
+ * `eyebrow` is one language: it is a date or a section name, and two of them
+ * stacked above the title is noise above the point.
  */
 export function PageHeader({
   eyebrow,
@@ -51,49 +55,26 @@ export function PageHeader({
 }) {
   const titleUnder = secondary(title, language);
   const descriptionUnder = description ? secondary(description, language) : null;
+  const crumb = eyebrow ? primary(eyebrow, language) : null;
 
   return (
-    <div className="mb-5">
-      {back ? (
-        // 44px tall, with the text still at 13px. It was a 20px inline link —
-        // the smallest target in the app, on the screen a teacher opens most,
-        // and the one she reaches for with a thumb while holding a register.
-        // The negative margin keeps the extra height from pushing the title
-        // down, so nothing below it moved.
-        <Link
-          href={back.href}
-          className="focus-ring -ml-2 mb-0.5 inline-flex min-h-11 items-center rounded-lg px-2 text-[13px] font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground"
-        >
-          ← {primary(back.label, language)}
-        </Link>
+    <>
+      <ClassicTopBar
+        crumb={crumb}
+        title={primary(title, language)}
+        titleUnder={titleUnder}
+        sub={titleUnder ? null : crumb}
+        actions={action}
+        back={back ? { href: back.href, label: primary(back.label, language) } : undefined}
+        backLabel={flat(m.back, language)}
+      />
+      {description ? (
+        <p className="vx-cdesc">
+          {primary(description, language)}
+          {descriptionUnder ? <span className="ml-1.5">{descriptionUnder}</span> : null}
+        </p>
       ) : null}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          {eyebrow ? (
-            <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {/* One language: this is a date or a section name, and two of
-                  them stacked above the title is noise above the point. */}
-              {primary(eyebrow, language)}
-            </p>
-          ) : null}
-          <h1 className="text-[24px] font-semibold tracking-tight text-foreground md:text-[30px]">
-            {primary(title, language)}
-          </h1>
-          {titleUnder ? (
-            <p className="text-[13px] text-muted-foreground">{titleUnder}</p>
-          ) : null}
-          {description ? (
-            <p className="mt-1.5 text-[14px] leading-6 text-muted-foreground">
-              {primary(description, language)}
-              {descriptionUnder ? (
-                <span className="ml-1.5">{descriptionUnder}</span>
-              ) : null}
-            </p>
-          ) : null}
-        </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
-      </div>
-    </div>
+    </>
   );
 }
 

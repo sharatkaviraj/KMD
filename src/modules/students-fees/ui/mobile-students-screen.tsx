@@ -97,7 +97,7 @@ export function MobileStudentsScreen({
       {/* The shell insets phone content by px-4 py-4, so the header bleeds back
           out to the screen edges. `main` is the scroll region, so `sticky`
           pins here without any position:fixed. */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-2.5 border-b border-border bg-background/95 px-4 pb-2.5 pt-4 backdrop-blur">
+      <div className="sticky top-[var(--vx-ctop-h,0px)] z-20 -mx-4 -mt-4 mb-2.5 border-b border-border bg-background/95 px-4 pb-2.5 pt-4 backdrop-blur">
         <div className="flex items-center justify-between gap-2.5">
           <h1 className="text-xl font-extrabold leading-tight tracking-tight text-foreground">
             {t("title")}
