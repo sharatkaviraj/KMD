@@ -18,7 +18,7 @@ export type RunView = {
 
 export type RunDetail = {
   run: RunView;
-  notDelivered: { studentId: string; studentName: string; error: string | null }[];
+  notDelivered: { studentId: string; studentName: string; classLabel: string | null; error: string | null }[];
   byClass: { classLabel: string; messaged: number; quoted: number }[];
 };
 
