@@ -49,6 +49,12 @@ type Row = Record<string, unknown>;
 const str = (v: unknown) => (v == null ? null : String(v));
 const num = (v: unknown) => Number(v ?? 0) || 0;
 
+/** Minutes past midnight on the school's clock (IST). */
+function schoolMinuteNow(now = Date.now()) {
+  const ist = new Date(now + (5 * 60 + 30) * 60 * 1000);
+  return ist.getUTCHours() * 60 + ist.getUTCMinutes();
+}
+
 function addDays(date: string, days: number) {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
@@ -202,7 +208,7 @@ async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip
   const { data: receiptRows } = await fetchAllPages<Row>((from, to) =>
     fee
       .from("receipts")
-      .select("id, receipt_number, payment_date, total_amount, reference_number, notes, student_id, student_ref:students(full_name, class_ref:classes(session_label, class_name, section, stream_name))")
+      .select("id, receipt_number, payment_date, total_amount, reference_number, notes, student_id, student_ref:students(full_name, father_name, class_ref:classes(session_label, class_name, section, stream_name))")
       .eq("payment_mode", "cheque")
       .order("payment_date", { ascending: false })
       .range(from, to),
@@ -248,6 +254,7 @@ async function readCheques(): Promise<{ cheques: ChequeRow[]; slips: DepositSlip
         amount: num(r.total_amount),
         studentId: String(r.student_id),
         studentName: String(st.full_name ?? ""),
+        fatherName: str(st.father_name),
         classLabel: cls ? [cls.class_name, cls.stream_name, cls.section].filter(Boolean).join(" ") : "",
         chequeNo: d ? str(d.cheque_no) : null,
         bank: d ? str(d.bank_name) : null,
@@ -466,6 +473,10 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
   const latestFollow = new Map<string, Row>();
   for (const r of followRows) if (!latestFollow.has(String(r.student_id))) latestFollow.set(String(r.student_id), r);
   const todays = [...latestFollow.values()].filter((r) => r.snooze_until === today);
+  // A follow-up is kept once the family has paid something today; the next one to call is the first not yet kept.
+  const paidToday = new Set(collections.map((r) => r.studentId).filter((v): v is string => Boolean(v)));
+  const keptToday = todays.filter((r) => paidToday.has(String(r.student_id)));
+  const nextFollow = todays.find((r) => !paidToday.has(String(r.student_id)));
   const tomorrows = [...latestFollow.values()].filter((r) => r.snooze_until === tomorrow);
 
   const waiting = chequeData.cheques.filter((c) => isWaitingForBank(c.status) && !c.reversed);
@@ -495,14 +506,20 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
       count: finance.summary.receiptCount,
       lastAt,
       modes,
-      spark: cumulativeSpark(collections.map((r) => ({ postedAt: r.postedAt, amount: r.cashIn }))),
+      // The day so far: 8:00 am to now (at least an hour), so the line ends where the day is.
+      spark: cumulativeSpark(collections.map((r) => ({ postedAt: r.postedAt, amount: r.cashIn })), { closeMinute: Math.max(9 * 60, schoolMinuteNow()) }),
       usual,
       vsUsual: versusUsual(finance.summary.receiptTotal, usual),
       reversedCount: finance.summary.reversedReceiptCount,
     },
     closure,
     queue,
-    followUpsToday: { count: todays.length, next: todays[0] ? (labels.get(String(todays[0].student_id))?.name ?? null) : null },
+    followUpsToday: {
+      count: todays.length,
+      next: nextFollow ? (labels.get(String(nextFollow.student_id))?.name ?? null) : null,
+      kept: keptToday.length,
+      pending: todays.reduce((s, r) => s + (pending.get(String(r.student_id))?.pending ?? 0), 0),
+    },
     chequesToDeposit: { count: waiting.length, total: waiting.reduce((s, c) => s + c.amount, 0) },
     upiOpen: { count: openLines.length, total: openLines.reduce((s, l) => s + l.amount, 0) },
     requests,

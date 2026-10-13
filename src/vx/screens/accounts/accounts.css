@@ -15,7 +15,7 @@
 .vx .ac-cd { padding: 16px 18px; gap: 12px; }
 .vx .ac-q { position: relative; height: 62px; border-radius: 18px; border: 1.5px solid var(--bds); background: var(--card); padding: 0 16px; color: var(--mut); transition: border-color .2s ease, box-shadow .2s ease; }
 .vx .ac-q:focus-within { border-color: var(--acc); box-shadow: 0 0 0 4px var(--accs); }
-.vx .ac-q input { flex: 1; min-width: 0; height: 58px; border: 0; outline: none; background: transparent; font-size: 17px; color: var(--fg); }
+.vx .ac-q input { flex: 1; min-width: 0; height: 58px; border: 0; outline: none; background: transparent; font-size: 14px; color: var(--fg); }
 .vx .ac-rw { position: relative; display: flex; align-items: center; gap: 12px; padding: 11px 4px; border-radius: 12px; }
 .vx .ac-bar { height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; }
 .vx .ac-bar > span { display: block; height: 8px; border-radius: 4px; transform-origin: left; animation: xGrowX .7s var(--ease) both; }
@@ -25,34 +25,46 @@
 .vx .ac-t.big .ac-m { color: inherit; opacity: .8; }
 .vx .ac-t:hover { box-shadow: var(--shh); }
 .vx .ac-lay { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
+.vx .ac-close { height: 46px; }
 
-/* Books */
+
+/* Books (AccBooks: kp, cth/ct, zcb, zs, ur/ul, tl, slip, sr, zwa/zwb) */
 .vx.ac-books .ac-cheque-selection { bottom: 12px; }
 .vx .ac-kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.vx .ac-kp > button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left; color: var(--fg); animation: xRise .42s var(--ease) both; }
-.vx .ac-ib { flex: none; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-.vx .ac-ct { display: grid; grid-template-columns: 44px 84px minmax(0, 1.5fr) minmax(0, 1fr) 82px 110px 96px minmax(170px, auto); gap: 10px; align-items: center; min-height: 58px; padding: 8px 16px; border-top: 1px solid var(--bd); }
-.vx .ac-cth { display: grid; grid-template-columns: 44px 84px minmax(0, 1.5fr) minmax(0, 1fr) 82px 110px 96px minmax(170px, auto); gap: 10px; align-items: center; height: 40px; padding: 0 16px; background: var(--s2); }
-.vx .ac-cb { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; }
-.vx .ac-cb > span { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--bds); display: flex; align-items: center; justify-content: center; color: #fff; transition: background-color .2s ease; }
-.vx .ac-act { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
-.vx .ac-s { height: 34px; padding: 0 10px; font-size: 13px; }
-.vx .ac-ur { display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); gap: 0; align-items: stretch; animation: xIn .32s var(--ease) both; }
-.vx .ac-ur > .card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
-.vx .ac-ul { display: flex; align-items: center; justify-content: center; position: relative; }
-.vx .ac-ul::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed currentColor; opacity: .5; }
-.vx .ac-ul.ok::before { border-top-style: solid; opacity: 1; }
-.vx .ac-ul b { position: relative; width: 26px; height: 26px; border-radius: 13px; background: var(--card); border: 2px solid currentColor; display: flex; align-items: center; justify-content: center; }
-.vx .ac-in { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.45; }
-.vx .ac-tl2 { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.vx .ac-tl2 > i { position: absolute; left: 16.6%; right: 16.6%; top: 13px; height: 3px; border-radius: 2px; background: var(--s3); }
-.vx .ac-tl2 > i > b { display: block; height: 3px; border-radius: 2px; transform-origin: left; animation: xGrowX .8s var(--ease) both; }
-.vx .ac-tl2 > div { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
-.vx .ac-tl2 > div > span:first-child { width: 28px; height: 28px; border-radius: 14px; border: 2px solid var(--bds); background: var(--card); display: flex; align-items: center; justify-content: center; }
-.vx .ac-slip { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; border: 1px solid var(--bds); background: var(--card); }
-.vx .ac-sr { display: grid; grid-template-columns: 28px minmax(0, 1.2fr) minmax(0, 1fr) 100px; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--bd); font-size: 13px; }
-.vx .ac-wa { padding: 12px; border-radius: 14px; background: var(--wabg); }
-.vx .ac-wa > div { max-width: 440px; padding: 10px 12px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13px; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+.vx .ac-kp > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; text-align: left; color: var(--fg); animation: xRise .42s var(--ease) both; }
+.vx .ac-ib { flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+/* Receipt column 120px, not the picture's 64px: real numbers are SVP20261008-0015, not R-0401. */
+.vx .ac-cth, .vx .ac-ct { display: grid; grid-template-columns: 44px 74px minmax(0, 1.5fr) minmax(0, 1fr) 86px 120px 92px var(--aw, 190px); gap: 10px; align-items: center; padding: 0 16px 0 6px; }
+.vx .ac-cth { height: 42px; background: var(--s2); border-bottom: 1px solid var(--bd); }
+.vx .ac-ct { min-height: 62px; border-top: 1px solid var(--bd); overflow: hidden; animation: xIn .32s var(--ease) both; }
+.vx .ac-ct > .c-amt { display: flex; flex-direction: column; align-items: flex-end; }
+.vx .ac-ct > .c-act { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.vx .ac-cb { flex: none; width: 40px; height: 40px; border: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; }
+.vx .ac-cb > span { width: 22px; height: 22px; border-radius: 7px; border: 2px solid; display: flex; align-items: center; justify-content: center; color: var(--prifg); transition: background-color .2s ease, border-color .2s ease; }
+.vx .ac-cb svg { transition: transform .25s var(--spring), opacity .2s ease; }
+.vx .ac-s { height: 34px; padding: 0 12px; font-size: 13px; }
+.vx .ac-seg-tight .seg > button { padding: 0 2px !important; }
+.vx .ac-ur { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr); align-items: center; animation: xIn .32s var(--ease) both; }
+.vx .ac-ur > .card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 14px; }
+.vx .ac-ul { position: relative; display: flex; align-items: center; justify-content: center; }
+.vx .ac-ul::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid; transform-origin: left; animation: xGrowX .5s var(--ease) both; }
+.vx .ac-ul.dash::before { border-top-style: dashed; }
+.vx .ac-ul > b { position: relative; width: 28px; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--card); border: 2px solid; animation: xPopIn .4s .25s var(--spring) both; }
+.vx .ac-in { display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+.vx .ac-tline { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.vx .ac-tline > i { position: absolute; left: 12px; right: 12px; top: 11px; height: 3px; border-radius: 2px; background: var(--s3); }
+.vx .ac-tline > i > b { display: block; height: 3px; border-radius: 2px; transform-origin: left; transition: width .6s var(--ease); animation: xGrowX .7s .1s var(--ease) both; }
+.vx .ac-tline > div { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vx .ac-tline > div > span:first-child { width: 24px; height: 24px; border-radius: 12px; border: 2px solid; display: flex; align-items: center; justify-content: center; background: var(--card); }
+.vx .ac-slip { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 14px; border: 1.5px dashed var(--bds); background: var(--card); }
+.vx .ac-sr { display: grid; grid-template-columns: 28px 150px minmax(0, 1fr) 92px; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--bd); font-size: 13px; }
+/* The slip's bank and date read as print but stay editable: they are what the deposit is saved with. */
+.vx .ac-inline { width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; border-bottom: 1px dashed transparent; border-radius: 0; background: transparent; color: var(--fg); font: inherit; }
+.vx .ac-inline:hover, .vx .ac-inline:focus-visible { border-bottom-color: var(--bds); outline: none; }
+.vx .ac-wa { display: flex; flex-direction: column; align-items: flex-start; padding: 14px 12px; border-radius: 16px; background: var(--wabg); }
+.vx .ac-wab { max-width: 94%; display: flex; flex-direction: column; gap: 8px; padding: 9px 11px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); font-size: 13.5px; line-height: 1.5; box-shadow: 0 1px 1px rgba(0,0,0,.12); animation: xIn .35s var(--ease) both; }
+.vx .ac-wab > p { margin: 0; white-space: pre-line; }
+.vx .ac-wab > hr { width: 100%; margin: 0; border: 0; border-top: 1px solid currentColor; opacity: .15; }
 
 /* Match the shell's viewport breakpoint and its 99px phone navigation footprint. */
 @media (max-width: 899px) {
@@ -66,9 +78,9 @@
 }
 
 @container vx (max-width: 899px) {
-  /* Keep Books choices and row actions reachable by touch without changing other screens. */
+  /* Keep Books choices and row actions reachable by touch (44px), a step taller than the picture's 40px. */
   .vx.ac-books .seg { height: 50px; }
-  .vx.ac-books .seg > button { min-height: 44px; }
+  .vx.ac-books .seg > button { min-height: 44px; font-size: 12px; }
   .vx.ac-books .ac-cb { width: 44px; height: 44px; }
   .vx.ac-books .btn { min-width: 44px; min-height: 44px; }
   .vx .ac-tl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -77,16 +89,24 @@
   .vx .ac-b { font-size: 15px; }
   .vx .ac-m { font-size: 13px; }
   .vx .ac-lay { grid-template-columns: minmax(0, 1fr); }
-  .vx .ac-kp { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .vx .ac-cth { display: none; }
-  .vx .ac-ct { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "cb fam amt" "act act act"; row-gap: 6px; }
+  .vx .ac-take { height: 48px; }
+  /* 16px, not the picture's 14px: a phone zooms the page into any smaller input it focuses. */
+  .vx .ac-q input { font-size: 16px; }
+  .vx .ac-close { height: 52px; font-size: 15px; }
+  .vx .ac-kp { display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px 4px; }
+  .vx .ac-kp::-webkit-scrollbar { display: none; }
+  .vx .ac-kp > button { flex: none; width: 208px; }
+  .vx .ac-ctb { display: flex; flex-direction: column; gap: 10px; background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
+  .vx .ac-cth, .vx .ac-ct > .c-no, .vx .ac-ct > .c-bank, .vx .ac-ct > .c-dt, .vx .ac-ct > .c-rec { display: none; }
+  .vx .ac-ct { grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "cb fam amt" ". act act"; gap: 6px 8px; align-items: start; padding: 10px 12px 12px 4px; border: 1px solid var(--bd); border-radius: 18px; background: var(--card); box-shadow: var(--sh); }
   .vx .ac-ct > .c-cb { grid-area: cb; }
-  .vx .ac-ct > .c-fam { grid-area: fam; }
-  .vx .ac-ct > .c-amt { grid-area: amt; text-align: right; }
-  .vx .ac-ct > .c-act { grid-area: act; justify-content: flex-start; }
-  .vx .ac-ct > .c-no, .vx .ac-ct > .c-bank, .vx .ac-ct > .c-dt, .vx .ac-ct > .c-rec { display: none; }
-  .vx .ac-ur { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-  .vx .ac-ul { display: none; }
-  .vx .ac-sr { grid-template-columns: 24px minmax(0, 1fr) 90px; }
+  .vx .ac-ct > .c-fam { grid-area: fam; padding-top: 6px; }
+  .vx .ac-ct > .c-amt { grid-area: amt; padding-top: 6px; }
+  .vx .ac-ct > .c-act { grid-area: act; justify-content: flex-start; flex-wrap: wrap; }
+  .vx .ac-ur { grid-template-columns: minmax(0, 1fr); }
+  .vx .ac-ul { height: 34px; }
+  .vx .ac-ul::before { left: 50%; right: auto; top: 0; bottom: 0; border-top: 0; border-left: 2px solid; transform-origin: top; animation-name: xGrowY; }
+  .vx .ac-ul.dash::before { border-left-style: dashed; }
+  .vx .ac-sr { grid-template-columns: 22px minmax(0, 1fr) 84px; }
   .vx .ac-sr > .c3 { display: none; }
 }
