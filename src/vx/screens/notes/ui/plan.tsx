@@ -6,7 +6,6 @@ import { useState, useTransition } from "react";
 
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { useToast } from "@/vx/ui/overlays";
 
@@ -21,7 +20,7 @@ import {
 import type { NotesPeople, SupportPlan } from "../data";
 import { excerpt, followUpDate, parentPlanMessage, planProgress, suggestedSteps, type BoardNote } from "../domain/notes";
 import { COST } from "./compose";
-import { useBoth, WaBubble } from "./look";
+import { day, useBoth, WaBubble } from "./look";
 import { mayEditPlan, type ClientViewer } from "./parts";
 
 /*
@@ -45,7 +44,7 @@ const OWNER_TEXT: Record<OwnerRole, Pair> = {
 const CYCLE_OWNERS: OwnerRole[] = ["me", "class_teacher", "coordinator", "parents"];
 
 function whenLabels(today: string): string[] {
-  return [`From ${shortDay(followUpDate("tomorrow", today))}`, shortDay(followUpDate("next_monday", today)), "Every Friday", "Every day", "This week"];
+  return [`From ${day(followUpDate("tomorrow", today))}`, day(followUpDate("next_monday", today)), "Every Friday", "Every day", "This week"];
 }
 
 type Step = { id: string | null; body: string; owner: string; when: string | null; done: boolean; role: OwnerRole };
@@ -111,7 +110,7 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
   const classId = plan?.classId ?? draft?.classId ?? null;
   const ct = classId ? (people.classTeachers[classId] ?? null) : null;
   const first = studentName.split(" ")[0];
-  const nextWeek = shortDay(followUpDate("one_week", today));
+  const nextWeek = day(followUpDate("one_week", today));
   const [goal, setGoal] = useState(() => (draft ? excerpt(draft.body, 120) : ""));
   const [draftSteps, setDraftSteps] = useState<Step[]>(() => (draft ? suggestedSteps(draft.tags).map((s) => ({ id: null, body: tx(s), owner: tx(OWNER_TEXT.class_teacher), when: nextWeek, done: false, role: "class_teacher" as OwnerRole })) : []));
   const [newStep, setNewStep] = useState("");
@@ -147,10 +146,10 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
 
   const history: { text: Pair; when: string; dot: string }[] = plan
     ? [
-        { text: p(`Plan started by ${plan.createdByName}`, `${plan.createdByName} ने योजना शुरू की`), when: shortDay(plan.createdAt), dot: "var(--acc)" },
+        { text: p(`Plan started by ${plan.createdByName}`, `${plan.createdByName} ने योजना शुरू की`), when: day(plan.createdAt), dot: "var(--acc)" },
         ...plan.steps.filter((s) => s.done).map((s) => ({ text: p(`Done: ${s.body}`, `पूरा: ${s.body}`), when: s.ownerName ?? "", dot: "var(--ok)" })),
         ...(plan.tellParents ? [{ text: p("Plan queued for the parents on WhatsApp", "योजना माता-पिता के व्हाट्सऐप की कतार में"), when: "", dot: "var(--ok)" }] : []),
-        ...(plan.status === "done" || plan.status === "closed" ? [{ text: p("Plan closed", "योजना बंद"), when: shortDay(plan.updatedAt), dot: "var(--mut)" }] : []),
+        ...(plan.status === "done" || plan.status === "closed" ? [{ text: p("Plan closed", "योजना बंद"), when: day(plan.updatedAt), dot: "var(--mut)" }] : []),
       ]
     : [];
 
@@ -170,7 +169,7 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
           )}
           <span className="nx-m">
             {plan
-              ? tx(p(`Started by ${plan.createdByName} · ${shortDay(plan.createdAt)}${people.coordinator ? ` · coordinator ${people.coordinator}` : ""}`, `${plan.createdByName} ने शुरू की · ${shortDay(plan.createdAt)}`))
+              ? tx(p(`Started by ${plan.createdByName} · ${day(plan.createdAt)}${people.coordinator ? ` · coordinator ${people.coordinator}` : ""}`, `${plan.createdByName} ने शुरू की · ${day(plan.createdAt)}`))
               : tx(p(`Suggested steps for ${first}. Change any of them, then start the plan.`, `${first} के लिए सुझाए गए कदम। कोई भी बदलें, फिर योजना शुरू करें।`))}
           </span>
         </span>

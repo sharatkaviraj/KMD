@@ -6,7 +6,6 @@ import { useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
@@ -31,7 +30,7 @@ import {
 } from "../domain/notes";
 import { BoardCompose, useComposer } from "./compose";
 import { BoardNoteAside } from "./detail";
-import { BOARD_TAG, followSoon, HelpSteps, ini, MIX_COLOR, NotesTop, noteWhen, ownerRoleText, relationText, replaceParams, Seg, StagePill, useBoth, type HelpStep } from "./look";
+import { BOARD_TAG, day, followSoon, HelpSteps, ini, MIX_COLOR, NotesTop, noteWhen, ownerRoleText, relationText, replaceParams, Seg, StagePill, useBoth, type HelpStep } from "./look";
 import { BoardPlan } from "./plan";
 import type { NotesProps } from "./workspace";
 
@@ -67,9 +66,9 @@ const HELP: Record<"board" | "student" | "add" | "plan", HelpStep[]> = {
 
 /** "Thu 8 – Sun 11 Oct". */
 function rangeLabel(from: string, to: string): string {
-  const a = shortDay(from).replace(/,/g, "").split(" ");
-  const b = shortDay(to).replace(/,/g, "");
-  return from.slice(0, 7) === to.slice(0, 7) && a.length === 3 ? `${a[0]} ${a[1]} – ${b}` : `${shortDay(from)} – ${b}`;
+  const a = day(from).replace(/,/g, "").split(" ");
+  const b = day(to).replace(/,/g, "");
+  return from.slice(0, 7) === to.slice(0, 7) && a.length === 3 ? `${a[0]} ${a[1]} – ${b}` : `${day(from)} – ${b}`;
 }
 
 function KpiTile({ label, value, sub, icon, bg, fg, tone, on, onPick, delay }: { label: string; value: number; sub: string; icon: IconName; bg: string; fg: string; tone: string; on: boolean; onPick: () => void; delay: number }) {
@@ -117,7 +116,7 @@ function BoardCard({ note, plan, today, href, selected, delay }: { note: BoardNo
         {hasFollow ? (
           <span className="pill" style={{ background: "var(--s2)", color: followSoon(note, today) ? "var(--bad)" : "var(--mut)" }}>
             <Ic n="calendar" size={12} />
-            {shortDay(note.followUpOn!)}
+            {day(note.followUpOn!)}
             {role ? ` · ${tx(role)}` : ""}
           </span>
         ) : null}
@@ -197,6 +196,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     initialStudent: props.initialStudent,
     initialStep: props.initialStep,
     lang: "en-IN",
+    tags: ["studies"],
     ownerFor: (child) => (child && props.viewer.heldClassIds.includes(child.classId) ? "me" : "class_teacher"),
   });
 
@@ -269,7 +269,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   } else if (screen === "student") {
     top = { crumb: `${boardTitle} · ${tx(p("one child", "एक बच्चा"))}`, title: kidName, mTitle: kidName, mSub: `${scope?.classLabel ?? ""} · ${tx(p(`${kidNotes.length} notes`, `${kidNotes.length} नोट्स`))}`, dBack: { href: base }, mBack: { href: base }, add: props.viewer.canWrite };
   } else {
-    top = { crumb: `${tx(p("Academics", "शैक्षणिक"))} · ${me ?? shortDay(props.today)}`, title: boardTitle, mTitle: boardTitle, mSub: tx(p(`${kpis.needsAction} need action · ${kpis.dueThisWeek} follow-ups this week`, `${kpis.needsAction} पर कार्रवाई · इस हफ़्ते ${kpis.dueThisWeek} फ़ॉलो-अप`)), dBack: null, mBack: { href: "/menu" }, add: props.viewer.canWrite };
+    top = { crumb: `${tx(p("Academics", "शैक्षणिक"))} · ${me ?? day(props.today)}`, title: boardTitle, mTitle: boardTitle, mSub: tx(p(`${kpis.needsAction} need action · ${kpis.dueThisWeek} follow-ups this week`, `${kpis.needsAction} पर कार्रवाई · इस हफ़्ते ${kpis.dueThisWeek} फ़ॉलो-अप`)), dBack: null, mBack: { href: "/menu" }, add: props.viewer.canWrite };
   }
   if (open && screen !== "add") {
     top = { ...top, mTitle: open.note.studentName, mSub: `${open.note.classLabel} · ${tx(p(`note from ${open.note.writtenByName}`, `${open.note.writtenByName} का नोट`))}`, mBack: { href: home } };
@@ -279,7 +279,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   const board = (
     <div className="nx-c" style={{ gap: 16, animation: "xIn .32s var(--ease) both" }}>
       <div className="g4" style={{ display: "grid", gridTemplateColumns: `repeat(${open ? 2 : 4},minmax(0,1fr))`, gap: 12 }}>
-        <KpiTile label={tx(p("Needs action", "कार्रवाई ज़रूरी"))} value={kpis.needsAction} sub={tx(p("Open, nobody has picked them up", "खुले, किसी ने नहीं उठाए"))} icon="flag" bg="var(--warns)" fg="var(--warnfg)" tone={kpis.needsAction ? "var(--warnfg)" : "var(--fg)"} on={tab === "action"} onPick={() => setTab("action")} delay={0} />
+        <KpiTile label={tx(p("Needs action", "कार्रवाई ज़रूरी"))} value={kpis.needsAction} sub={tx(p("Due now, or nobody has picked them up", "समय हो गया, या किसी ने नहीं उठाए"))} icon="flag" bg="var(--warns)" fg="var(--warnfg)" tone={kpis.needsAction ? "var(--warnfg)" : "var(--fg)"} on={tab === "action"} onPick={() => setTab("action")} delay={0} />
         <KpiTile label={tx(p("Follow-ups due this week", "इस हफ़्ते फ़ॉलो-अप"))} value={kpis.dueThisWeek} sub={rangeLabel(props.today, weekEndOf(props.today))} icon="calendar" bg="var(--infos)" fg="var(--info)" tone="var(--fg)" on={tab === "followups"} onPick={() => setTab("followups")} delay={28} />
         <KpiTile label={tx(p("Support plans running", "चल रही सहायता योजनाएँ"))} value={kpis.plansRunning} sub={tx(p("Steps with owners and dates", "कदम, व्यक्ति और तारीख़ के साथ"))} icon="layers" bg="var(--oks)" fg="var(--ok)" tone="var(--fg)" on={tab === "plans"} onPick={() => setTab("plans")} delay={56} />
         <KpiTile label={tx(p("Notes this month", "इस महीने के नोट्स"))} value={kpis.thisMonth} sub={tx(p(`${stats.thisWeek} this week · by ${stats.teachers} teachers`, `इस हफ़्ते ${stats.thisWeek} · ${stats.teachers} अध्यापकों से`))} icon="notePen" bg="var(--s3)" fg="var(--pri)" tone="var(--fg)" on={tab === "all"} onPick={() => setTab("all")} delay={84} />
@@ -660,7 +660,7 @@ function StudentPage({
                         ))}
                         {n.needsFollowUp && n.followUpOn && stage !== "done" && stage !== "noting" ? (
                           <span className="pill" style={{ background: "var(--s2)", color: followSoon(n, today) ? "var(--bad)" : "var(--mut)" }}>
-                            {shortDay(n.followUpOn)}
+                            {day(n.followUpOn)}
                             {role ? ` · ${tx(role)}` : ""}
                           </span>
                         ) : null}

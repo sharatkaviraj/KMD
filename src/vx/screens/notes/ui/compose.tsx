@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useTransition, type CSSProperties } from "
 
 import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { agoP, dayMonth, shortDay } from "@/vx/format";
+import { agoP, dayMonth } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { useSpeech } from "@/vx/ui/voice";
@@ -31,7 +31,7 @@ import {
   type NoteTag,
   type Visibility,
 } from "../domain/notes";
-import { BOARD_TAG, ini, nameTone, replaceParams, Seg, StagePill, TEACH_TAG, toneAt, useBoth, WaBubble } from "./look";
+import { BOARD_TAG, day, ini, nameTone, replaceParams, Seg, StagePill, TEACH_TAG, toneAt, useBoth, WaBubble } from "./look";
 import type { AddStep, ClientViewer } from "./parts";
 
 /*
@@ -79,6 +79,8 @@ export type ComposerInit = {
   lang: Lang;
   /** Who a new follow-up goes to when the reader holds the child's class, and when she does not. */
   ownerFor: (child: ChildChoice | null) => FollowOwner;
+  /** Tags already picked when the composer opens (the board starts on Studies, as its design does). */
+  tags?: NoteTag[];
 };
 
 /** The composer's state and its two writes (save, undo). */
@@ -88,7 +90,7 @@ export function useComposer(init: ComposerInit) {
   const first = init.initialStep === "saved" ? "add" : init.initialStep;
   const [step, setStepState] = useState<AddStep>(first);
   const [studentId, setStudentId] = useState<string>(init.initialStudent && init.kids.some((k) => k.id === init.initialStudent) ? init.initialStudent : "");
-  const [tags, setTags] = useState<NoteTag[]>([]);
+  const [tags, setTags] = useState<NoteTag[]>(init.tags ?? []);
   const [body, setBody] = useState("");
   const [voice, setVoice] = useState(false);
   const [mode, setMode] = useState<"voice" | "type">("voice");
@@ -256,7 +258,7 @@ export function useComposer(init: ComposerInit) {
     setStepState("add");
     replaceParams({ step: null, saved: null });
     if (!keepChild) setStudentId("");
-    setTags([]);
+    setTags(init.tags ?? []);
     setBody("");
     setVoice(false);
     setMode("voice");
@@ -331,41 +333,52 @@ export type Composer = ReturnType<typeof useComposer>;
 
 /* --------------------------------------------------------- shared pieces */
 
-/** The follow-up dates the server can set (FOLLOW_WHEN), with their real days. */
-export function followDates(today: string): { key: FollowWhen; label: Pair; date: string }[] {
+export const BOARD_DATES = "board";
+
+/**
+ * The follow-up dates the server can set (FOLLOW_WHEN), with their real days:
+ * "Tomorrow · Fri 9 Oct" on the teacher's screen, "Mon 12 Oct · next Monday"
+ * on the board's (each as its design writes it).
+ */
+export function followDates(today: string, style?: typeof BOARD_DATES): { key: FollowWhen; label: Pair; date: string }[] {
   const t = followUpDate("tomorrow", today);
   const m = followUpDate("next_monday", today);
   const w = followUpDate("one_week", today);
+  if (style === BOARD_DATES) {
+    return [
+      { key: "tomorrow", label: p(day(t)), date: t },
+      { key: "next_monday", label: p(`${day(m)} · next Monday`, `${day(m)} · अगला सोमवार`), date: m },
+      { key: "one_week", label: p(day(w)), date: w },
+    ];
+  }
   return [
-    { key: "tomorrow", label: p(`Tomorrow · ${shortDay(t)}`, `कल · ${shortDay(t)}`), date: t },
+    { key: "tomorrow", label: p(`Tomorrow · ${day(t)}`, `कल · ${day(t)}`), date: t },
     { key: "next_monday", label: p(`Next Monday · ${dayMonth(m)}`, `अगला सोमवार · ${dayMonth(m)}`), date: m },
-    { key: "one_week", label: p(shortDay(w)), date: w },
+    { key: "one_week", label: p(day(w)), date: w },
   ];
 }
 
-/** The child's open action, offered before a second note (D-266). */
+/** The child's open action, offered before a second note (D-266): one line, and "Add update". */
 export function OpenActionNotice({ c, base, today, onUpdate }: { c: Composer; base: string; today: string; onUpdate: (href: string) => void }) {
   const { tx } = useVx();
   const a = c.openAction;
   if (!a || !c.child) return null;
   const who = followUpOwnerText(a);
   const due = followUpLabel(a.followUpOn, today, dayMonth);
+  const meta = [who ? tx(who) : null, due ? tx(due.text) : null].filter(Boolean).join(" · ");
   return (
-    <div role="status" className="nx-in" style={{ flexDirection: "column", gap: 8, background: "var(--s2)" }}>
-      <strong style={{ fontSize: 14 }}>{tx(p(`${c.child.name} already has an open action`, `${c.child.name} की एक कार्रवाई पहले से खुली है`))}</strong>
-      <span style={{ fontSize: 14 }}>{excerpt(a.body, 140)}</span>
-      {who || due ? (
-        <span className="nx-m">
-          {[who ? tx(who) : null, due ? tx(due.text) : null].filter(Boolean).join(" · ")}
+    <div role="status" className="nx-in" style={{ alignItems: "center", padding: "8px 8px 8px 12px", background: "var(--warns)", color: "var(--warnfg)" }}>
+      <Ic n="flag" size={16} />
+      <span className="nx-c" style={{ flex: 1, gap: 1 }}>
+        <span style={{ fontWeight: 700 }}>{tx(p(`${c.child.name.split(" ")[0]} already has an open action`, `${c.child.name.split(" ")[0]} की एक कार्रवाई पहले से खुली है`))}</span>
+        <span className="nx-e" style={{ fontSize: 12 }}>
+          {excerpt(a.body, 80)}
+          {meta ? ` · ${meta}` : ""}
         </span>
-      ) : null}
-      <span className="nx-f" style={{ flexWrap: "wrap" }}>
-        <button type="button" className="tap btn soft nx-s" onClick={() => onUpdate(`${base}?student=${c.child!.id}&note=${a.id}`)}>
-          <Ic n="message" size={16} />
-          {tx(p("Add update", "अपडेट जोड़ें"))}
-        </button>
-        <span className="nx-m">{tx(p("Or write a new note if it is about something else.", "अगर बात कुछ और है तो नया नोट लिखें।"))}</span>
       </span>
+      <button type="button" className="tap btn sec nx-s" onClick={() => onUpdate(`${base}?student=${c.child!.id}&note=${a.id}`)} style={{ flex: "none" }}>
+        {tx(p("Add update", "अपडेट जोड़ें"))}
+      </button>
     </div>
   );
 }
@@ -479,8 +492,8 @@ export function readersLine(input: { child: ChildChoice | null; visibility: Visi
   if (visibility === "private") return p("Only you can see this note.", "यह नोट सिर्फ़ आप देख सकते हैं।");
   const ct = people.classTeachers[child.classId] ?? null;
   const mine = viewer.heldClassIds.includes(child.classId);
-  const follow = followOn ? ` · follow-up ${shortDay(followOn)}` : "";
-  const followHi = followOn ? ` · फ़ॉलो-अप ${shortDay(followOn)}` : "";
+  const follow = followOn ? ` · follow-up ${day(followOn)}` : "";
+  const followHi = followOn ? ` · फ़ॉलो-अप ${day(followOn)}` : "";
   if (isSensitiveNote({ tags })) {
     return mine
       ? p(`You are the class teacher. Only you and the admin can see a health or family note${follow}.`, `आप कक्षा अध्यापक हैं। स्वास्थ्य या परिवार का नोट सिर्फ़ आप और प्रशासक देख सकते हैं${followHi}।`)
@@ -518,7 +531,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
   const child = c.child;
   const ct = child ? (people.classTeachers[child.classId] ?? null) : null;
   const on = c.step === "listening";
-  const dates = followDates(today);
+  const dates = followDates(today, BOARD_DATES);
   const followOn = c.follow ? (dates.find((d) => d.key === c.when)?.date ?? null) : null;
   const me = viewer.isCoordinator ? "coordinator" : viewer.isAdmin ? "admin" : null;
   const whos: { key: FollowOwner; label: string }[] = (
@@ -1104,7 +1117,7 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
   else if (mine) line.push(tx(p(`${people.coordinator ? `${people.coordinator} (coordinator)` : "The coordinator"} and the office can see it now.`, "समन्वयक और कार्यालय अब इसे देख सकते हैं।")));
   else line.push(tx(p(`${ct ?? "The class teacher"} (class teacher) and the coordinator can see this.`, `${ct ?? "कक्षा अध्यापक"} (कक्षा अध्यापक) और समन्वयक इसे देख सकते हैं।`)));
   if (note.tellParents) line.push(tx(p("A WhatsApp to the parents is queued for the office.", "माता-पिता के लिए व्हाट्सऐप कार्यालय की कतार में है।")));
-  if (note.needsFollowUp && note.followUpOn) line.push(tx(p(`Reminder on ${shortDay(note.followUpOn)}.`, `${shortDay(note.followUpOn)} को याद दिलाया जाएगा।`)));
+  if (note.needsFollowUp && note.followUpOn) line.push(tx(p(`Reminder on ${day(note.followUpOn)}.`, `${day(note.followUpOn)} को याद दिलाया जाएगा।`)));
   const timeline = notes.filter((n) => n.studentId === note.studentId);
   const who = savedReaders(note, viewer, people, tx);
   return (
@@ -1139,7 +1152,7 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
               </span>
               <div className="card nx-c" style={{ padding: "14px 16px", gap: 8, border: me ? "2px solid var(--acc)" : "1px solid var(--bd)", opacity: me ? 1 : 0.75, animation: me ? "xRise .6s .35s var(--ease) both" : "xIn .3s var(--ease) both" }}>
                 <div className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: me ? "var(--acc)" : "var(--mut)" }}>{me ? tx(p("Just now", "अभी")) : shortDay(n.createdAt)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: me ? "var(--acc)" : "var(--mut)" }}>{me ? tx(p("Just now", "अभी")) : day(n.createdAt)}</span>
                   <span style={{ flex: 1 }} />
                   {n.tags.map((t) => (
                     <span key={t} className="pill" style={{ background: TEACH_TAG[t].bg, color: TEACH_TAG[t].fg }}>{tx(TAG_TEXT[t])}</span>
@@ -1149,7 +1162,7 @@ export function TeachSaved({ note, notes, viewer, people, onUndo, onPlan, onDone
                 <span style={{ fontSize: 15 }}>{n.body}</span>
                 <span className="nx-m" style={{ fontSize: 12 }}>
                   {n.writtenBy === viewer.id ? `${viewer.name} (${tx(p("you", "आप"))})` : n.writtenByName}
-                  {n.needsFollowUp && n.followUpOn ? ` · ${tx(p("follow up", "फ़ॉलो-अप"))} ${shortDay(n.followUpOn)}` : ""}
+                  {n.needsFollowUp && n.followUpOn ? ` · ${tx(p("follow up", "फ़ॉलो-अप"))} ${day(n.followUpOn)}` : ""}
                 </span>
               </div>
             </div>

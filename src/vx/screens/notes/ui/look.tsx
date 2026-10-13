@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { clock, initials, shortDay } from "@/vx/format";
+import { initials, shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { BackLink } from "@/vx/ui/back-link";
 
@@ -102,11 +102,21 @@ export function ownerRoleText(owner: FollowOwner | null): Pair | null {
   return FOLLOW_OWNER.find((o) => o.key === owner)?.text ?? null;
 }
 
-/** "Thu 8 Oct · 09:52" for a note written in the last two days, else "Tue 6 Oct". */
+/** "Thu 8 Oct", as the design writes a day (no comma). */
+export function day(value: string | Date): string {
+  return shortDay(value).replace(/,/g, "").replace(/\bSept\b/, "Sep");
+}
+
+/** "9:52 am". */
+export function time(value: string | Date): string {
+  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true }).format(typeof value === "string" ? new Date(value) : value).toLowerCase();
+}
+
+/** "Thu 8 Oct · 9:52 am" for a note written in the last two days, else "Tue 6 Oct". */
 export function noteWhen(createdAt: string, today: string): string {
-  const day = createdAt.slice(0, 10);
-  const diff = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86_400_000);
-  return diff <= 1 ? `${shortDay(createdAt)} · ${clock(createdAt)}` : shortDay(createdAt);
+  const d = createdAt.slice(0, 10);
+  const diff = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) / 86_400_000);
+  return diff <= 1 ? `${day(createdAt)} · ${time(createdAt)}` : day(createdAt);
 }
 
 /** A follow-up date is close when it is today, tomorrow or late. */

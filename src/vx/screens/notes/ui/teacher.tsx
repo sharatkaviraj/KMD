@@ -6,7 +6,6 @@ import { useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
@@ -15,7 +14,7 @@ import type { ChildChoice } from "../data";
 import { followUpDate, myCounts, noteStage, NOTE_TAGS, planProgress, TAG_TEXT, type BoardNote, type NoteTag } from "../domain/notes";
 import { followDates, TeachCompose, TeachListening, TeachSaved, useComposer, useUndo } from "./compose";
 import { TeachNoteDetail } from "./detail";
-import { HelpSteps, ini, nameTone, NotesTop, ownerRoleText, replaceParams, Seg, StagePill, TEACH_TAG, useBoth, type HelpStep } from "./look";
+import { day, HelpSteps, ini, nameTone, NotesTop, ownerRoleText, replaceParams, Seg, StagePill, TEACH_TAG, useBoth, type HelpStep } from "./look";
 import { TeachPlan } from "./plan";
 import type { NotesProps } from "./workspace";
 
@@ -63,11 +62,11 @@ const HELP: Record<Screen, HelpStep[]> = {
 /** "Due tomorrow · Fri 9 Oct", "Due Monday · Mon 12 Oct", "2 days late". */
 function dueBig(on: string, today: string): Pair {
   const diff = Math.round((Date.parse(`${on}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
-  if (diff < 0) return p(`${-diff} ${diff === -1 ? "day" : "days"} late · ${shortDay(on)}`, `${-diff} दिन देर · ${shortDay(on)}`);
-  if (diff === 0) return p(`Due today · ${shortDay(on)}`, `आज · ${shortDay(on)}`);
-  if (diff === 1) return p(`Due tomorrow · ${shortDay(on)}`, `कल · ${shortDay(on)}`);
-  if (on === followUpDate("next_monday", today)) return p(`Due Monday · ${shortDay(on)}`, `सोमवार · ${shortDay(on)}`);
-  return p(`Due ${shortDay(on)}`, shortDay(on));
+  if (diff < 0) return p(`${-diff} ${diff === -1 ? "day" : "days"} late · ${day(on)}`, `${-diff} दिन देर · ${day(on)}`);
+  if (diff === 0) return p(`Due today · ${day(on)}`, `आज · ${day(on)}`);
+  if (diff === 1) return p(`Due tomorrow · ${day(on)}`, `कल · ${day(on)}`);
+  if (on === followUpDate("next_monday", today)) return p(`Due Monday · ${day(on)}`, `सोमवार · ${day(on)}`);
+  return p(`Due ${day(on)}`, day(on));
 }
 
 function TeachCard({ note, viewerId, today, href, due, ct, delay }: { note: BoardNote; viewerId: string; today: string; href: string; due: boolean; ct: string | null; delay: number }) {
@@ -81,7 +80,7 @@ function TeachCard({ note, viewerId, today, href, due, ct, delay }: { note: Boar
   const sub = [
     note.classLabel,
     mine ? tx(p("you", "आप")) : `${note.writtenByName}${note.authorRelation === "subject_teacher" ? `, ${tx(p("subject teacher", "विषय अध्यापक"))}` : note.authorRelation === "class_teacher" ? `, ${tx(p("class teacher", "कक्षा अध्यापक"))}` : ""}`,
-    shortDay(note.createdAt),
+    day(note.createdAt),
     mine && note.authorRelation === "subject_teacher" && ct && note.visibility === "team" ? tx(p(`sent to ${ct}`, `${ct} को भेजा`)) : null,
   ]
     .filter(Boolean)
@@ -113,7 +112,7 @@ function TeachCard({ note, viewerId, today, href, due, ct, delay }: { note: Boar
         {note.needsFollowUp && note.followUpOn && open && !due ? (
           <span className="pill" style={{ background: "var(--s2)", color: "var(--mut)" }}>
             <Ic n="calendar" size={12} />
-            {tx(p(`Follow up ${shortDay(note.followUpOn)}`, `फ़ॉलो-अप ${shortDay(note.followUpOn)}`))}
+            {tx(p(`Follow up ${day(note.followUpOn)}`, `फ़ॉलो-अप ${day(note.followUpOn)}`))}
             {role ? ` · ${tx(role)}` : ""}
           </span>
         ) : null}

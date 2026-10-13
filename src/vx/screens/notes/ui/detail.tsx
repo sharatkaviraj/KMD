@@ -6,7 +6,6 @@ import { useState, useTransition } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { useSpeech } from "@/vx/ui/voice";
@@ -15,7 +14,7 @@ import { replyToNoteAction, setFollowUpAction, setNoteStatusAction, tellParentsA
 import type { NoteReply, NotesPeople, SupportPlan } from "../data";
 import { followUpDate, noteStage, parentNoteMessage, planProgress, STATUS_ORDER, TAG_TEXT, type BoardNote, type FollowOwner, type NoteStatus } from "../domain/notes";
 import { COST } from "./compose";
-import { BOARD_TAG, ini, nameTone, noteWhen, ownerRoleText, relationText, TEACH_TAG, useBoth, WaBubble } from "./look";
+import { BOARD_TAG, day, ini, nameTone, noteWhen, ownerRoleText, relationText, TEACH_TAG, useBoth, WaBubble } from "./look";
 import { canWork, type ClientViewer } from "./parts";
 
 /*
@@ -238,7 +237,7 @@ export function BoardNoteAside({
   const mayPlan = Boolean(plan) || (work && viewer.canWrite && Boolean(note.studentId));
   const mayTell = work && note.visibility === "team" && Boolean(note.studentId);
   const conversation = replies.filter((r) => r.source !== "system");
-  const nextMonday = shortDay(followUpDate("next_monday", today));
+  const nextMonday = day(followUpDate("next_monday", today));
   const ownerName = (o: FollowOwner | null) => (o === "class_teacher" ? ct : o === "coordinator" ? people.coordinator : o === "admin" ? people.admin : o === "me" ? note.writtenByName : null);
   const assign: { key: FollowOwner; label: Pair; sub: string | null; you: boolean }[] = [
     { key: "class_teacher", label: p("Class teacher", "कक्षा अध्यापक"), sub: ct, you: note.classId !== null && viewer.heldClassIds.includes(note.classId) },
@@ -347,7 +346,7 @@ export function BoardNoteAside({
         <span className="nx-m nx-f" style={{ gap: 6 }}>
           <Ic n="calendar" size={16} />
           {note.needsFollowUp && note.followUpOn
-            ? tx(p(`Follow up on ${shortDay(note.followUpOn)}${ownerRoleText(note.followUpOwner) ? ` · ${ownerRoleText(note.followUpOwner)!.en}` : ""}${ownerName(note.followUpOwner) ? ` · ${note.followUpName ?? ownerName(note.followUpOwner)}` : ""}`, `${shortDay(note.followUpOn)} को फ़ॉलो-अप${ownerName(note.followUpOwner) ? ` · ${note.followUpName ?? ownerName(note.followUpOwner)}` : ""}`))
+            ? tx(p(`Follow up on ${day(note.followUpOn)}${ownerRoleText(note.followUpOwner) ? ` · ${ownerRoleText(note.followUpOwner)!.en}` : ""}${ownerName(note.followUpOwner) ? ` · ${note.followUpName ?? ownerName(note.followUpOwner)}` : ""}`, `${day(note.followUpOn)} को फ़ॉलो-अप${ownerName(note.followUpOwner) ? ` · ${note.followUpName ?? ownerName(note.followUpOwner)}` : ""}`))
             : tx(p(`No follow-up date yet. Picking a person sets ${nextMonday}.`, `अभी फ़ॉलो-अप की तारीख़ नहीं। किसी को चुनने पर ${nextMonday} तय होगी।`))}
         </span>
       </div>
@@ -477,7 +476,7 @@ export function TeachNoteDetail({
   const conversation = replies.filter((r) => r.source !== "system");
   const facts: { icon: IconName; t: Pair }[] = [
     note.needsFollowUp && note.followUpOn
-      ? { icon: "calendar", t: p(`Follow up ${shortDay(note.followUpOn)}${ownerRoleText(note.followUpOwner) ? ` · ${ownerRoleText(note.followUpOwner)!.en}` : ""}`, `फ़ॉलो-अप ${shortDay(note.followUpOn)}${ownerRoleText(note.followUpOwner)?.hi ? ` · ${ownerRoleText(note.followUpOwner)!.hi}` : ""}`) }
+      ? { icon: "calendar", t: p(`Follow up ${day(note.followUpOn)}${ownerRoleText(note.followUpOwner) ? ` · ${ownerRoleText(note.followUpOwner)!.en}` : ""}`, `फ़ॉलो-अप ${day(note.followUpOn)}${ownerRoleText(note.followUpOwner)?.hi ? ` · ${ownerRoleText(note.followUpOwner)!.hi}` : ""}`) }
       : { icon: "notePen", t: p("Just noting · no reminder", "सिर्फ़ नोट · कोई याद नहीं") },
     note.visibility === "private" ? { icon: "eyeOff", t: p("Only you can see this", "सिर्फ़ आप देख सकते हैं") } : { icon: "eye", t: p("Teachers & office can see this", "शिक्षक व कार्यालय देख सकते हैं") },
   ];
@@ -500,7 +499,7 @@ export function TeachNoteDetail({
             <span className="nx-c" style={{ flex: 1 }}>
               <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{note.studentName}</span>
               <span className="nx-m" style={{ fontSize: 12 }}>
-                {note.classLabel} · {mine ? tx(p(`written by you${rel ? ` (${rel.en.toLowerCase()})` : ""}`, "आपने लिखा")) : `${tx(p("from", "से"))} ${note.writtenByName}${rel ? ` (${tx(rel).toLowerCase()})` : ""}`} · {shortDay(note.createdAt)}
+                {note.classLabel} · {mine ? tx(p(`written by you${rel ? ` (${rel.en.toLowerCase()})` : ""}`, "आपने लिखा")) : `${tx(p("from", "से"))} ${note.writtenByName}${rel ? ` (${tx(rel).toLowerCase()})` : ""}`} · {day(note.createdAt)}
               </span>
             </span>
             {childHref ? (
