@@ -136,6 +136,39 @@ export function helperChips(rows: readonly DeskLedgerRow[], today: string, opts:
   return chips;
 }
 
+export type DeskChip =
+  | { kind: "overdue"; amount: number; withLate: boolean }
+  | { kind: "installment"; installmentNo: number; amount: number; withLate: boolean }
+  | { kind: "upto"; installmentNo: number; amount: number; withLate: boolean }
+  | { kind: "year"; amount: number; withLate: boolean };
+
+/**
+ * The approved design's helper chips (PayDesk `fm.chips`): overdue fees, the
+ * first unpaid installment's balance, everything up to the installment after
+ * it, and the whole year. A fee figure already offered is not offered twice.
+ * Each adds the late fee still being taken, because the ledger takes it with
+ * the fees; waiving drops it. They only fill the amount box — whatever is
+ * typed is still split oldest first.
+ */
+export function deskChips(rows: readonly DeskLedgerRow[], today: string, opts: { waiveLate: boolean }): DeskChip[] {
+  const ordered = orderForSettlement(rows);
+  const late = opts.waiveLate ? 0 : ordered.reduce((s, r) => s + TIGHT(r.lateFeePending), 0);
+  const withLate = late > 0;
+  const feesUpTo = (last: number) => ordered.slice(0, last + 1).reduce((s, r) => s + TIGHT(r.feesPending), 0);
+  const fees: DeskChip[] = [{ kind: "overdue", amount: ordered.reduce((s, r) => s + (isOverdueOn(r, today) ? TIGHT(r.feesPending) : 0), 0), withLate }];
+  const first = ordered.findIndex((r) => !r.isCarryForward && TIGHT(r.feesPending) > 0);
+  if (first >= 0) {
+    fees.push({ kind: "installment", installmentNo: ordered[first].installmentNo, amount: TIGHT(ordered[first].feesPending), withLate });
+    const next = ordered.findIndex((r, i) => i > first && !r.isCarryForward);
+    if (next >= 0) fees.push({ kind: "upto", installmentNo: ordered[next].installmentNo, amount: feesUpTo(next), withLate });
+  }
+  fees.push({ kind: "year", amount: feesUpTo(ordered.length - 1), withLate });
+  const seen = new Set<number>();
+  return fees
+    .filter((c) => c.amount > 0 && !seen.has(c.amount) && Boolean(seen.add(c.amount)))
+    .map((c) => ({ ...c, amount: c.amount + late }));
+}
+
 export type WalkLineState = "cleared" | "part" | "ahead" | "untouched";
 
 export type WalkLine = {

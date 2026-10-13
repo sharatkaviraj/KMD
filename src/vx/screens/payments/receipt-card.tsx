@@ -1,18 +1,31 @@
 "use client";
 
-import { Ic } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import { amountInWords, clock, dateLabel, rupees, schoolToday } from "@/vx/format";
+import { rupees, schoolToday } from "@/vx/format";
 import type { DeskReceipt } from "@/modules/payments/vx/types";
+import type { Pair } from "@/vx/text";
 
+import { ampm, shortDate, timeAndDay, wordsOf } from "./look";
 import { W } from "./words";
 
 const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
 
+/** The receipt is a bilingual paper: Hindi first, then English, whatever the reader's language. */
+const both = (pair: Pair) => (pair.hi ? `${pair.hi} · ${pair.en}` : pair.en);
+
+/** "Installment 2" → "किस्त 2 · Installment 2"; a late-fee line likewise; anything else as written. */
+function lineLabel(label: string): string {
+  const inst = /^Installment\s+(\d+)(.*)$/i.exec(label.trim());
+  if (inst) return `${both(W.rInstallment(inst[1]))}${inst[2]}`;
+  if (/^late\s*fee/i.test(label.trim())) return `${W.rLateFee.hi} · ${label.trim()}`;
+  if (/^old\s+balance/i.test(label.trim())) return `${W.oldBalance.hi} · ${label.trim()}`;
+  return label;
+}
+
 /**
- * The bilingual fee receipt as the desk shows it right after saving. The
- * printable receipt is the Receipts module's (`/receipts/<no>`); this is the
- * same record, drawn small.
+ * The bilingual fee receipt as the desk shows it right after saving
+ * (PayDesk `rv`). The printable receipt is the Receipts module's
+ * (`/receipts/<no>`); this is the same record, drawn small.
  */
 export function ReceiptCard({
   receipt,
@@ -30,80 +43,76 @@ export function ReceiptCard({
   // The day it was entered, in the school's timezone: slicing the UTC timestamp
   // called an entry made before 5:30 am IST a day earlier than it was.
   const back = receipt.createdAt ? receipt.paymentDate < schoolToday(new Date(receipt.createdAt)) : false;
-  const both = (pair: { en: string; hi?: string }) => (pair.hi ? `${pair.hi} · ${pair.en}` : pair.en);
   const kv: [string, string][] = [
     [both(W.rStudent), receipt.studentName],
     [both(W.rClass), `${receipt.classLabel} · SR ${receipt.sr}`],
     [both(W.rFather), receipt.father ?? "—"],
-    [both(W.rPaidOn), `${dateLabel(receipt.paymentDate)}${!back && receipt.createdAt ? ` · ${clock(receipt.createdAt)}` : ""}`],
+    [both(W.rPaidOn), `${shortDate(receipt.paymentDate)}${!back && receipt.createdAt ? ` · ${ampm(receipt.createdAt)}` : ""}`],
   ];
-  if (back && receipt.createdAt) kv.push([both(W.rEntered), `${dateLabel(receipt.createdAt)} · ${clock(receipt.createdAt)}`]);
+  if (back && receipt.createdAt) kv.push([both(W.rEntered), `${shortDate(receipt.createdAt)} · ${ampm(receipt.createdAt)}`]);
   const mode = MODE_TEXT[receipt.mode] ?? receipt.mode;
   const modeLine = `${tx(W.rMode)}: ${mode}${receipt.reference ? ` · ${receipt.mode === "cheque" ? tx(W.rChequeNo) : tx(W.rRef)} ${receipt.reference}` : ""}`;
+  const frozen = receipt.createdAt ? timeAndDay(receipt.createdAt) : (frozenAt ?? "");
 
   return (
-    <article className="pd-receipt rise" aria-label={`${tx(W.feeReceipt)} ${receipt.receiptNumber}`}>
-      {removed || receipt.isReversed ? <span className="pd-stamp" aria-hidden="true">{tx(W.removed)}</span> : null}
-      <header style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 10, borderBottom: "1px dashed var(--bds)" }}>
-        <span className="serif" style={{ width: 40, height: 40, borderRadius: 10, background: "var(--nav)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flex: "none" }}>VP</span>
-        <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <strong className="serif clip" lang="hi" style={{ fontSize: 15 }}>{W.school.hi}</strong>
-          <span className="serif clip" style={{ fontSize: 13, color: "var(--mut)" }}>{W.school.en}</span>
+    <article className="card pd-rc" aria-label={`${tx(W.feeReceipt)} ${receipt.receiptNumber}`}>
+      <header className="pd-f" style={{ gap: 10, paddingBottom: 10, borderBottom: "1.5px dashed var(--bds)" }}>
+        <span className="serif pd-av" style={{ borderRadius: 11, background: "#082F49", color: "#F7F6F3", fontSize: 14 }}>VP</span>
+        <span className="pd-c">
+          <span className="pd-b" lang="hi">{W.school.hi}</span>
+          <span className="serif" style={{ fontSize: 13, color: "var(--mut)" }}>{W.school.en}</span>
         </span>
       </header>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{both(W.feeReceipt)}</span>
-        <strong className="num" style={{ fontSize: 15 }}>{receipt.receiptNumber}</strong>
+      <div className="pd-f pd-j">
+        <span className="pd-m" style={{ fontWeight: 700 }}>{both(W.feeReceipt)}</span>
+        <span className="num pd-v">{receipt.receiptNumber}</span>
       </div>
-      <div className="kv">
+      <div className="pd-tiles" style={{ gap: "6px 14px", fontSize: 13 }}>
         {kv.map(([k, v]) => (
-          <div key={k} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <span key={k} className="pd-c">
             <span style={{ fontSize: 11, color: "var(--mut)" }}>{k}</span>
-            <span className="clip" style={{ fontWeight: 600 }}>{v}</span>
-          </div>
+            <span style={{ fontWeight: 600 }}>{v}</span>
+          </span>
         ))}
       </div>
-      <div style={{ borderTop: "1px solid var(--bd)", paddingTop: 6 }}>
+      <div className="pd-c">
         {receipt.lines.map((l, i) => (
-          <div key={`${l.label}-${i}`} className="ln">
-            <span>{l.label}</span>
-            <span className="num">{rupees(l.amount)}</span>
+          <div key={`${l.label}-${i}`} className="pd-ln">
+            <span>{lineLabel(l.label)}</span>
+            <span className="num" style={{ fontWeight: 600 }}>{rupees(l.amount)}</span>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid var(--bd)", paddingTop: 8 }}>
-        <strong>{both(W.rTotal)}</strong>
-        <strong className="num" style={{ fontSize: 22 }}>{rupees(receipt.total)}</strong>
+      <div className="pd-f pd-j">
+        <span style={{ fontWeight: 700 }}>{both(W.rTotal)}</span>
+        <span className="num" style={{ fontWeight: 700, fontSize: 20 }}>{rupees(receipt.total)}</span>
       </div>
-      <em style={{ fontSize: 13, color: "var(--mut)" }}>{amountInWords(receipt.total)}</em>
-      {receipt.lateFeeWaived > 0 ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.rLateWaived(rupees(receipt.lateFeeWaived)))}</span> : null}
-      {receipt.concession ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.concession)}: {rupees(receipt.concession)}</span> : null}
-      {balance ? (
-        <div className="pd-after" style={{ fontSize: 13 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{tx(W.rAfterHead(frozenAt ?? ""))}</span>
-          <div><span>{tx(W.feesPendingToday)}</span><b className="num">{rupees(balance.pendingToday)}</b></div>
-          {balance.dueToday ? <div><span>{tx(W.dueToday)}</span><b className="num">{rupees(balance.dueToday)}</b></div> : null}
-          <div><span>{tx(W.notDueYet)}</span><b className="num">{rupees(balance.notDueYet)}</b></div>
-          <div><span>{tx(W.lateFeeSep)}</span><b className="num">{rupees(balance.lateFee)}</b></div>
-        </div>
-      ) : (
-        <div className="pd-after" style={{ fontSize: 13 }}>
-          <div><span>{tx(W.rOutstanding)}</span><b className="num">{rupees(receipt.outstandingAfter)}</b></div>
-        </div>
-      )}
-      <footer style={{ borderTop: "1px dashed var(--bds)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--mut)" }}>
-        {receipt.notes ? <span>{tx(W.rNote)}: {receipt.notes}</span> : null}
+      <span className="pd-m" style={{ fontStyle: "italic" }}>{wordsOf(receipt.total)}</span>
+      {receipt.lateFeeWaived > 0 ? <span className="pd-m">{tx(W.rLateWaived(rupees(receipt.lateFeeWaived)))}</span> : null}
+      {receipt.concession ? <span className="pd-m">{tx(W.concession)}: {rupees(receipt.concession)}</span> : null}
+      <div className="pd-bx">
+        {balance ? (
+          <>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{tx(W.rAfterHead(frozen))}</span>
+            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.feesPendingToday)}</span><b>{rupees(balance.pendingToday)}</b></div>
+            {balance.dueToday ? <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.dueToday)}</span><b>{rupees(balance.dueToday)}</b></div> : null}
+            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.notDueYet)}</span><b>{rupees(balance.notDueYet)}</b></div>
+            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.lateFeeSep)}</span><b>{rupees(balance.lateFee)}</b></div>
+          </>
+        ) : (
+          <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.rOutstanding)}</span><b>{rupees(receipt.outstandingAfter)}</b></div>
+        )}
+      </div>
+      {receipt.notes ? <span style={{ fontSize: 12 }}>{tx(W.rNote)}: {receipt.notes}</span> : null}
+      <footer className="pd-c pd-m" style={{ gap: 3, paddingTop: 8, borderTop: "1.5px dashed var(--bds)" }}>
         <span>{modeLine}</span>
         <span>
           {tx(W.rReceivedBy)} {receipt.receivedBy ?? "—"}
-          {receipt.createdAt ? ` · ${dateLabel(receipt.createdAt)}, ${clock(receipt.createdAt)}` : ""}
+          {receipt.createdAt ? ` · ${shortDate(receipt.createdAt).replace(/^\S+\s/, "")}, ${ampm(receipt.createdAt)}` : ""}
         </span>
-        {receipt.mode === "cheque" ? (
-          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--warnfg)", fontWeight: 600 }}>
-            <Ic n="info" size={14} /> {both(W.rClearing)}
-          </span>
-        ) : null}
       </footer>
+      {receipt.mode === "cheque" ? <span className="pill" style={{ alignSelf: "flex-start", background: "var(--warns)", color: "var(--warnfg)" }}>{both(W.rClearing)}</span> : null}
+      {removed || receipt.isReversed ? <span className="pd-stamp" aria-hidden="true">{tx(W.removed)}</span> : null}
     </article>
   );
 }
