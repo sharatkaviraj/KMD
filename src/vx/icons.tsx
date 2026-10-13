@@ -9,8 +9,15 @@ import {
   MessageCircle, Mic, Minus, Moon, NotebookPen, PenLine, Percent, Phone, Pin, Plus, Printer,
   Repeat, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Star, Sun, Table,
   Tag, Trash2, TrendingUp, TriangleAlert, Type, Undo2, Upload, User, UserPlus, Users, WifiOff, X,
-  Zap, type LucideIcon,
+  Zap, createLucideIcon, type LucideIcon,
 } from "lucide-react";
+
+/** The design's own `IC.note` (Notes, TchNotes): a pen over two short lines. */
+const NotePen = createLucideIcon("NotePen", [
+  ["path", { d: "M12 20h9", key: "np1" }],
+  ["path", { d: "M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z", key: "np2" }],
+  ["path", { d: "M4 4h8M4 8h5", key: "np3" }],
+]);
 
 /**
  * The design's icon names (`design/shared/icons.js`, `IC.<name>`) mapped to
@@ -40,6 +47,7 @@ export const ICONS = {
   camera: Camera, history: History, gift: Gift, building: Building2, text: Type, type: Type,
   flask: FlaskConical, coffee: Coffee, heart: Heart, smile: Smile, keyboard: Keyboard,
   calMinus: CalendarMinus, eyeRole: Eye, arrowDown: ArrowDown,
+  notePen: NotePen,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

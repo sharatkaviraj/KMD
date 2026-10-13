@@ -6,20 +6,22 @@ import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/aca
 import { schoolToday } from "@/vx/format";
 import { childBasics } from "@/vx/screens/teach/students";
 
-import { authorsOf, childChoices, noteViewer, repliesFor, visibleNotes, visiblePlans } from "./data";
+import { authorsOf, childChoices, childFacts, notesPeople, noteViewer, repliesFor, visibleNotes, visiblePlans } from "./data";
 import type { AddStep } from "./ui/parts";
 import type { NotesFocus, NotesProps, NotesScope } from "./ui/workspace";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type NotesSearch = { note?: string; plan?: string; student?: string; view?: string; sheet?: string; step?: string; tab?: string };
+export type NotesSearch = { note?: string; plan?: string; student?: string; view?: string; sheet?: string; step?: string; tab?: string; saved?: string };
 
 const STEPS: AddStep[] = ["add", "listening", "review", "saved"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 /** Read the notes screens' URL into what they show; every design state is a link. */
 export function notesSearch(raw: Record<string, string | string[] | undefined>): NotesSearch {
-  return { note: one(raw.note), plan: one(raw.plan), student: one(raw.student), view: one(raw.view), sheet: one(raw.sheet), step: one(raw.step), tab: one(raw.tab) };
+  // `?add=1` is the quick-actions menu's link to "Add a note" (nav.ts).
+  const sheet = one(raw.sheet) ?? (one(raw.add) ? "add" : undefined);
+  return { note: one(raw.note), plan: one(raw.plan), student: one(raw.student), view: one(raw.view), sheet, step: one(raw.step), tab: one(raw.tab), saved: one(raw.saved) };
 }
 
 /**
@@ -30,28 +32,33 @@ export function notesSearch(raw: Record<string, string | string[] | undefined>):
 export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promise<(NotesProps & { classes: { id: string; label: string }[]; teachers: { id: string; name: string }[] }) | null> {
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return null;
+  const today = schoolToday();
   const viewer = await noteViewer(staff, sessionLabel);
-  const [notes, plans, kids, labels] = await Promise.all([
+  const [notes, plans, kids, labels, people] = await Promise.all([
     visibleNotes(viewer, sessionLabel),
     visiblePlans(viewer, sessionLabel),
     viewer.canWrite ? childChoices(viewer, sessionLabel) : Promise.resolve([]),
     classLabelMap(sessionLabel),
+    notesPeople(sessionLabel, today).catch(() => ({ classTeachers: {}, coordinator: null, admin: null })),
   ]);
 
-  // `?student=` scopes the board to one child (from Student 360's "All
-  // notes"). It narrows what this reader already sees and never widens it.
-  // The child's name is read only for someone who may open the child's card
-  // anyway (`students:view`), so the scope can say whose notes these are.
+  // `?student=` opens one child's notes (from Student 360's "All notes"). It
+  // narrows what this reader already sees and never widens it. The child's
+  // name, admission number and father are read only for someone who may open
+  // the child's card anyway (`students:view`).
   const studentId = search.student && UUID.test(search.student) ? search.student : null;
   let scope: NotesScope = null;
   if (studentId) {
     const kid = kids.find((k) => k.id === studentId);
     const seen = notes.find((n) => n.studentId === studentId);
     let name = kid?.name ?? seen?.studentName ?? null;
-    if (!name && can(staff, "students:view")) {
+    const mayRead = can(staff, "students:view");
+    if (!name && mayRead) {
       name = (await childBasics([studentId]).catch(() => null))?.get(studentId)?.fullName ?? null;
     }
-    scope = { studentId, name, classLabel: kid?.classLabel ?? seen?.classLabel ?? null };
+    const facts = mayRead ? await childFacts(studentId).catch(() => null) : null;
+    const classId = kid?.classId ?? seen?.classId ?? null;
+    scope = { studentId, name, classLabel: kid?.classLabel ?? seen?.classLabel ?? null, classId, sr: facts?.sr ?? null, father: facts?.father ?? null, profile: mayRead };
   }
 
   let focus: NotesFocus = null;
@@ -61,20 +68,6 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
   } else if (search.plan) {
     const plan = plans.find((pl) => pl.id === search.plan);
     if (plan) focus = { kind: "plan", plan };
-  } else if (search.student) {
-    const mine = notes.filter((n) => n.studentId === search.student);
-    const kid = kids.find((k) => k.id === search.student);
-    const first = mine[0];
-    if (kid || first) {
-      focus = {
-        kind: "student",
-        studentId: search.student,
-        name: kid?.name ?? first?.studentName ?? "—",
-        classLabel: kid?.classLabel ?? first?.classLabel ?? "—",
-        notes: mine,
-        plans: plans.filter((pl) => pl.studentId === search.student),
-      };
-    }
   }
 
   const classIds = viewer.readsEveryClass || viewer.correctsAttendance ? [...labels.keys()] : [...viewer.classIds];
@@ -89,14 +82,18 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
       correctsAttendance: viewer.correctsAttendance,
       heldClassIds: [...viewer.heldClassIds],
       canWrite: viewer.canWrite,
+      isAdmin: viewer.isAdmin,
+      isCoordinator: staff.role === "academic_coordinator",
     },
-    today: schoolToday(),
+    today,
     school: "",
     focus,
     scope,
+    people,
     initialSheet: search.sheet === "add" && viewer.canWrite ? "add" : null,
     initialStep: STEPS.includes(search.step as AddStep) ? (search.step as AddStep) : "add",
     initialStudent: search.student ?? null,
+    savedId: search.saved && UUID.test(search.saved) ? search.saved : null,
     classes: classIds.map((id) => ({ id, label: labels.get(id) ?? "—" })),
     teachers: authorsOf(notes),
   };

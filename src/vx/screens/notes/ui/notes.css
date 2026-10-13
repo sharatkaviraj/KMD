@@ -1,0 +1,108 @@
+/*
+ * Notes on children (design modules `Notes` and `TchNotes`). The design's own
+ * helper classes, copied with their values and prefixed `nx-` so they cannot
+ * collide with another module's. Scoped to `.nx`, the notes page root.
+ */
+.nx .nx-f{display:flex;align-items:center;gap:8px}
+.nx .nx-c{display:flex;flex-direction:column;min-width:0}
+.nx .nx-e{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.nx .nx-m{font-size:12px;color:var(--mut)}
+.nx .nx-b{font-size:14px;font-weight:600}
+.nx .nx-v{font-size:15px;font-weight:700}
+.nx .nx-s{height:34px;padding:0 12px;font-size:13px}
+.nx .nx-t{font-size:22px;font-weight:600}
+.nx .nx-ib{flex:none;width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.nx .nx-in{padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5;display:flex;gap:10px}
+.nx .nx-rc{display:flex;align-items:center;gap:12px;min-height:50px;padding:8px 14px;border-radius:14px;color:var(--fg);text-align:left;width:100%;font:inherit}
+.nx .nx-rc>i{flex:none;width:20px;height:20px;border-radius:10px;border:2px solid;display:flex;align-items:center;justify-content:center}
+.nx .nx-rc>i>b{width:10px;height:10px;border-radius:5px;background:var(--acc);transition:transform .25s var(--spring)}
+.nx .nx-wa{border-radius:16px;background:var(--wabg);padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start}
+.nx .nx-wb{max-width:94%;padding:9px 11px 6px;border-radius:4px 14px 14px 14px;background:var(--wab);color:var(--wafg);box-shadow:0 1px 1px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.5;animation:xIn .35s var(--ease) both}
+.nx .nx-wb>p{margin:0;white-space:pre-line}
+.nx .nx-wb>hr{width:100%;margin:0;border:0;border-top:1px solid currentColor;opacity:.15}
+.nx .nx-wb>small{align-self:flex-end;font-size:11px;opacity:.6}
+.nx .nx-sw{padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;color:var(--fg);width:100%;font:inherit}
+.nx .nx-cb{flex:none;width:44px;height:44px;border:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center}
+.nx .nx-cb>span{width:24px;height:24px;border-radius:8px;border:2px solid;display:flex;align-items:center;justify-content:center;color:var(--prifg);transition:background-color .2s ease,border-color .2s ease}
+.nx .nx-nc{padding:14px 16px;display:flex;flex-direction:column;gap:10px;text-align:left;color:var(--fg);width:100%;animation:xIn .32s var(--ease) both}
+.nx .nx-nt{font-size:14px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.nx .nx-tl{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.nx .nx-tl>i{position:absolute;left:14px;right:14px;top:13px;height:3px;border-radius:2px;background:var(--s3)}
+.nx .nx-tl>i>b{display:block;height:3px;border-radius:2px;background:var(--ok);transition:width .6s var(--ease)}
+.nx .nx-tl>button{position:relative;border:0;padding:0;background:transparent;color:var(--fg);display:flex;flex-direction:column;gap:4px;min-height:48px;font:inherit}
+.nx .nx-tl>button>span:first-child{width:28px;height:28px;border-radius:14px;border:2px solid;display:flex;align-items:center;justify-content:center;transition:background-color .25s ease,border-color .25s ease}
+.nx .nx-mic{position:relative;width:64px;height:64px;border-radius:32px;border:0;background:var(--pri);color:var(--prifg);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 24px -12px rgba(11,79,121,.8)}
+.nx .nx-micw{position:relative;width:64px;height:64px;flex:none}
+.nx .nx-micw>i{position:absolute;top:0;left:0;width:64px;height:64px;border-radius:32px;background:var(--pri);animation:xRipple 1.6s ease-out infinite}
+.nx .nx-micw>i+i{animation-delay:.8s}
+.nx .nx-bars{display:flex;align-items:center;gap:4px;height:34px}
+.nx .nx-bars>i{width:5px;border-radius:3px;background:var(--acc);transform-origin:center;animation:xWave .9s ease-in-out infinite}
+.nx .nx-tr{width:100%;min-height:76px;padding:12px 14px;border-radius:14px;background:var(--s2);text-align:left;font-size:16px;line-height:1.55}
+.nx .nx-caret{display:inline-block;width:2px;height:1.1em;margin-left:2px;vertical-align:-3px;background:var(--acc);animation:xCaret 1s steps(1) infinite}
+.nx .nx-tlw{position:relative;display:flex;flex-direction:column;gap:12px}
+.nx .nx-tlw:before{content:"";position:absolute;left:17px;top:10px;bottom:10px;width:2px;background:var(--bd)}
+.nx .nx-tli{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;align-items:start}
+.nx .nx-bub{max-width:88%;padding:9px 12px;border-radius:14px;font-size:13.5px;line-height:1.5;animation:xIn .3s var(--ease) both;white-space:pre-wrap}
+.nx .nx-hr{display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px;padding:5px 0;animation:xIn .3s var(--ease) both}
+.nx .nx-hd{width:10px;height:10px;margin-top:4px;border-radius:5px}
+.nx .nx-msave{position:sticky;bottom:0;z-index:4;flex-wrap:wrap;margin:0 -28px -40px;padding:12px 28px 16px;border-top:1px solid var(--bd)}
+.nx .nx-fabrow{position:sticky;bottom:14px;display:flex;justify-content:flex-end;pointer-events:none;z-index:4}
+.nx .nx-fab{height:56px;border-radius:28px;padding:0 22px;box-shadow:var(--shh);pointer-events:auto;font-size:15px}
+.nx .nx-aside{position:sticky;top:64px;height:calc(100dvh - 64px);overflow-y:auto;border-left:1px solid var(--bd);background:var(--bg);animation:xPush .36s var(--ease) both}
+.nx .nx-insight{transform-origin:left;animation:xGrowX .6s var(--ease) both}
+.nx .nx-bigseg>button{height:40px}
+@container vx (max-width:899px){
+  .nx .nx-b{font-size:15px}
+  .nx .nx-m{font-size:13px}
+  .nx .seg>button{font-size:12px;padding:0 2px}
+  .nx .nx-sg>*{grid-column:auto!important;grid-row:auto!important}
+  .nx .nx-nt{font-size:15px}
+  .nx .nx-msave{margin:0 -16px -40px;padding:12px 16px 16px;bottom:calc(98px + env(safe-area-inset-bottom))}
+  .nx .nx-fabrow{bottom:calc(112px + env(safe-area-inset-bottom))}
+  .nx .nx-aside{position:static;height:auto;border-left:0;animation:none}
+}
+
+/* ---- TchNotes ------------------------------------------------------------------------ */
+.nx .nt-av{flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
+.nx .nt-ic{flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px}
+.nx .nt-ani{animation:xIn .32s var(--ease) both}
+.nx .nt-bar{display:flex;height:10px;border-radius:5px;background:var(--s3);overflow:hidden}
+.nx .nt-bar>*{height:100%;border-radius:inherit;transition:width .5s var(--ease)}
+.nx .nt-nt{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5}
+.nx .nt-hn{font-size:11px;font-weight:500;color:var(--mut)}
+.nx .nt-big{height:52px;font-size:15px;padding:0 20px}
+.nx .nt-srch{position:relative;display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--bds);background:var(--card);color:var(--mut)}
+.nx .nt-srch input{flex:1;min-width:0;height:40px;border:0;outline:none;background:transparent;font-size:15px}
+.nx .nt-lang{flex:none;height:36px;padding:3px;border-radius:18px;border:1px solid var(--bd);background:var(--s2);display:inline-flex;gap:2px}
+.nx .nt-lang>span{min-width:32px;height:28px;padding:0 6px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mut);transition:background-color .2s ease,color .2s ease}
+.nx .nt-lang>span.y{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
+.nx .nt-sg>button{height:46px}
+.nx .nt-cd{padding:16px 18px;gap:12px}
+.nx .nt-hd{display:flex;align-items:center;gap:12px}
+.nx .nt-st{flex:none;width:28px;height:28px;border-radius:14px;background:var(--pri);color:var(--prifg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.nx .nt-sbar{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 28px;border-top:1px solid var(--bd)}
+.nx .nt-sbar .nt-rt{min-width:200px}
+.nx .nt-fabrow{position:sticky;bottom:28px;height:0;display:flex;justify-content:flex-end;padding-right:28px;z-index:6;pointer-events:none}
+.nx .nt-fab{transform:translateY(-100%);height:60px;padding:0 24px 0 18px;border-radius:30px;font-size:16px;box-shadow:0 16px 30px -12px rgba(11,79,121,.7);pointer-events:auto}
+/* A teacher page that fills the screen above the bars, so its save bar sits at the bottom. */
+.nx .nt-full{min-height:calc(100dvh - 64px)}
+.nx .nt-micbig{width:64px;height:64px;border-radius:32px;background:var(--pri);color:var(--prifg);display:flex;align-items:center;justify-content:center;box-shadow:0 14px 26px -12px rgba(11,79,121,.8)}
+.nx .nt-wv{width:6px;border-radius:3px;background:var(--acc);transform-origin:center;animation:xWave .9s ease-in-out infinite}
+.nx .nt-wd{animation:xFade .3s ease both}
+.nx .nt-caret{display:inline-block;width:2px;height:1.05em;margin-left:2px;background:var(--acc);vertical-align:-3px;animation:xCaret 1s steps(1) infinite}
+.nx .nt-rip{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:50%;background:var(--pri);animation:xRipple 1.6s ease-out infinite}
+.nx .nt-wa{display:flex;flex-direction:column;align-items:flex-end;padding:12px;border-radius:14px;background:var(--wabg)}
+.nx .nt-wa>div{max-width:92%;padding:8px 10px 6px;border-radius:10px 10px 2px 10px;background:var(--wab);color:var(--wafg);font-size:13px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12)}
+.nx .nt-wa span{display:block;white-space:pre-line}
+.nx .nt-qp{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:0;padding:6px 12px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:600;line-height:1.3;text-align:left;font-family:inherit}
+@container vx (max-width:899px){
+  .nx .nt-f14{font-size:15px}
+  .nx .nt-f15{font-size:16px}
+  .nx .nt-big{height:56px;font-size:16px}
+  .nx .nt-sbar{padding:10px 16px;gap:6px;bottom:calc(98px + env(safe-area-inset-bottom))}
+  .nx .nt-sbar .nt-rt{order:2;min-width:0;width:100%;text-align:center}
+  .nx .nt-sbar .nt-rt>.nt-f14{display:none}
+  .nx .nt-fabrow{bottom:calc(114px + env(safe-area-inset-bottom));padding-right:16px}
+  .nx .nt-srch input{font-size:16px}
+  .nx .nt-full{min-height:calc(100dvh - 58px - 98px - env(safe-area-inset-bottom))}
+}
