@@ -153,9 +153,10 @@ if (MINE && VIEW.includes("Evening")) {
   }
 }
 
-const homeView = (view: "home" | "menu" | "evening", data = home) => () => (
-  <AccountsHome data={data} view={view} greet={view === "evening" ? "Good evening" : "Good morning"} staffName="Ms. Neelam Sharma" canCollect canAccounts canManage={false} readOnly={false} />
-);
+const homeView = (view: "home" | "menu" | "evening", data = home) =>
+  function AccHomeView() {
+    return <AccountsHome data={data} view={view} greet={view === "evening" ? "Good evening" : "Good morning"} staffName="Ms. Neelam Sharma" canCollect canAccounts canManage={false} readOnly={false} />;
+  };
 
 // ---------------------------------------------------------------- AccBooks
 
@@ -213,9 +214,10 @@ const books: BooksData = {
 
 /** The cheques frames open with the three ready cheques ticked (the design's `sel: { c1, c2, c3 }`). */
 const TICKED = ["c1", "c2", "c3"];
-const booksView = (initialView: BooksView, initialSheet: BooksSheet = "", initialReceipt: string | null = null, initialPick: string[] = []) => () => (
-  <Books data={books} initialView={initialView} initialSheet={initialSheet} initialPick={initialPick} initialReceipt={initialReceipt} staffName="Neelam Sharma" readOnly={false} />
-);
+const booksView = (initialView: BooksView, initialSheet: BooksSheet = "", initialReceipt: string | null = null, initialPick: string[] = []) =>
+  function AccBooksView() {
+    return <Books data={books} initialView={initialView} initialSheet={initialSheet} initialPick={initialPick} initialReceipt={initialReceipt} staffName="Neelam Sharma" readOnly={false} />;
+  };
 
 const acc = (render: () => React.ReactNode, path: string): DesignView => ({ render, path, menu: "accountant" });
 

@@ -261,7 +261,6 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
               <Ic n="search" size={22} />
               <span className="sr">Find a student or family</span>
               {/* The counter's first job is finding a family, so the box takes the cursor (Alt F brings it back). */}
-              {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
               <input type="search" autoFocus accessKey="f" value={q} onChange={(e) => onQ(e.target.value)} placeholder={tx(p("Name, SR no., father, phone", "नाम, SR नं., पिता, फ़ोन"))} autoComplete="off" />
               {searching ? <Ic n="refresh" size={16} className="spin" /> : <span className="k only-d">Alt F</span>}
             </label>
