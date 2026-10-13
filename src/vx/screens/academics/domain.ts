@@ -195,6 +195,28 @@ export function marksTone(pct: number | null): { bg: string; fg: string } {
   return { bg: `rgba(var(--heat),${a.toFixed(2)})`, fg: a > 0.5 ? "var(--onsolid)" : "var(--fg)" };
 }
 
+/**
+ * The progress heat map's six bands (AcadProgress): red below 33, amber below
+ * 50, then the teal ramp at 65, 75 and 85; nothing entered is a grey tile.
+ */
+export function heatBand(pct: number | null): { bg: string; fg: string } {
+  if (pct === null) return { bg: "var(--s2)", fg: "var(--sub)" };
+  if (pct < 33) return { bg: "var(--bads)", fg: "var(--bad)" };
+  if (pct < 50) return { bg: "var(--warns)", fg: "var(--warnfg)" };
+  if (pct < 65) return { bg: "rgba(var(--heat),.12)", fg: "var(--fg)" };
+  if (pct < 75) return { bg: "rgba(var(--heat),.3)", fg: "var(--fg)" };
+  if (pct < 85) return { bg: "rgba(var(--heat),.6)", fg: "var(--fg)" };
+  return { bg: "rgb(var(--heat))", fg: "var(--onsolid)" };
+}
+
+export const HEAT_LEGEND: [string, number][] = [["Below 33", 20], ["33–50", 40], ["50–65", 60], ["65–75", 70], ["75–85", 80], ["85+", 90]];
+
+/** Marks spread bands: how many papers (one child, one subject) fall in each. */
+export function spreadBands(pcts: number[]): { label: string; n: number; tone: string }[] {
+  const bands: [string, number, number, string][] = [["0–33", 0, 33, "var(--bad)"], ["33–50", 33, 50, "var(--c3)"], ["50–75", 50, 75, "var(--c4)"], ["75–90", 75, 90, "var(--c2)"], ["90+", 90, 1000, "var(--c1)"]];
+  return bands.map(([label, lo, hi, tone]) => ({ label, n: pcts.filter((v) => v >= lo && v < hi).length, tone }));
+}
+
 /* ------------------------------------------------------ weekly summary */
 
 export type WeekFacts = {

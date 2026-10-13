@@ -1005,7 +1005,7 @@ export async function classDetail(ctx: Ctx, classId: string, exam: Exam, previou
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((s) => {
       const prev = stats.find((p) => p.classId === classId && p.examId === previous?.id && p.subjectId === s.subjectId);
-      return { subject: s.subject, avg: s.avgPct === null ? null : Math.round(s.avgPct), before: prev?.avgPct == null ? null : Math.round(prev.avgPct), pass: s.scored ? Math.round((s.passed / s.scored) * 100) : null, entered: s.entered, submitted: s.submitted };
+      return { subjectId: s.subjectId, subject: s.subject, avg: s.avgPct === null ? null : Math.round(s.avgPct), before: prev?.avgPct == null ? null : Math.round(prev.avgPct), pass: s.scored ? Math.round((s.passed / s.scored) * 100) : null, entered: s.entered, submitted: s.submitted };
     });
   const avgs = students.map((s) => s.avg).filter((v): v is number => v !== null);
   return {
@@ -1018,6 +1018,59 @@ export async function classDetail(ctx: Ctx, classId: string, exam: Exam, previou
     students,
     subjects,
   };
+}
+
+export type ClassDetail = NonNullable<Awaited<ReturnType<typeof classDetail>>>;
+
+/** One class's marks in one exam as percentages: a row per child per subject (absent, exempt and blank left out). */
+export async function classMarks(ctx: Ctx, classId: string, examId: string): Promise<{ studentId: string; subject: string; pct: number }[]> {
+  if (!scopeIncludes(ctx.scope, classId)) return [];
+  const { data } = await createAdminClient()
+    .from("marks")
+    .select("student_id, value, absent, exempt, assessment_subjects!inner(assessment_id, class_id, subject_code, max_marks)")
+    .eq("assessment_subjects.assessment_id", examId)
+    .eq("assessment_subjects.class_id", classId)
+    .limit(5000)
+    .returns<{ student_id: string; value: number | null; absent: boolean; exempt: boolean; assessment_subjects: { assessment_id: string; class_id: string; subject_code: string; max_marks: number } }[]>();
+  return (data ?? [])
+    .filter((m) => m.value !== null && !m.absent && !m.exempt && Number(m.assessment_subjects.max_marks) > 0)
+    .map((m) => ({ studentId: m.student_id, subject: m.assessment_subjects.subject_code, pct: Math.round((Number(m.value) / Number(m.assessment_subjects.max_marks)) * 1000) / 10 }));
+}
+
+/** Who teaches one class (class teacher, each subject's teacher), whether its results are locked, and its notes this session. */
+export async function classPeople(ctx: Ctx, classId: string, examId: string): Promise<{ classTeacher: string | null; bySubject: Map<string, string>; locked: boolean; notes: { total: number; followUp: number } }> {
+  if (!scopeIncludes(ctx.scope, classId)) return { classTeacher: null, bySubject: new Map(), locked: false, notes: { total: 0, followUp: 0 } };
+  const admin = createAdminClient();
+  const [teachers, staff, assignments, lock, notes] = await Promise.all([
+    classTeachersOn(ctx.session, ctx.today),
+    staffDirectory(),
+    admin.from("teaching_assignments").select("subject_id, staff_profile_id").eq("session_label", ctx.session).eq("class_id", classId).returns<{ subject_id: string; staff_profile_id: string }[]>(),
+    admin.from("exam_class_locks").select("class_id").eq("assessment_id", examId).eq("class_id", classId).maybeSingle<{ class_id: string }>(),
+    admin
+      .from("notes")
+      .select("id, status, needs_follow_up, written_by, tags, follow_up_staff_id, note_kinds(code)")
+      .eq("session_label", ctx.session)
+      .eq("class_id", classId)
+      .neq("visibility", "private")
+      .limit(500)
+      .returns<{ id: string; status: string; needs_follow_up: boolean; written_by: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }[]>(),
+  ]);
+  const ct = teachers.get(classId);
+  const visible = (notes.data ?? []).filter((n) => readsSensitive(ctx.staff, n));
+  return {
+    classTeacher: ct ? staff.get(ct)?.display_name ?? null : null,
+    bySubject: new Map((assignments.data ?? []).map((a) => [a.subject_id, staff.get(a.staff_profile_id)?.display_name ?? "—"])),
+    locked: !!lock.data,
+    notes: { total: visible.length, followUp: visible.filter((n) => n.needs_follow_up && (n.status === "open" || n.status === "working")).length },
+  };
+}
+
+/** A child's class teacher, for "Talk to …" (name and the phone their WhatsApp is on). */
+export async function classTeacherOf(ctx: Ctx, classId: string): Promise<{ name: string; phone: string | null } | null> {
+  const [teachers, staff] = await Promise.all([classTeachersOn(ctx.session, ctx.today), staffDirectory()]);
+  const id = teachers.get(classId);
+  const person = id ? staff.get(id) : undefined;
+  return person ? { name: person.display_name, phone: person.whatsapp_phone ?? person.phone ?? null } : null;
 }
 
 /* ------------------------------------------------------- the week */

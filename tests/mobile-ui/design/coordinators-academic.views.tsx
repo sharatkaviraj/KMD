@@ -4,6 +4,8 @@ import type { Language } from "@/platform/i18n/language";
 import type { AttentionChild, ClassToday, DayAttendance, MarksEntry, UpcomingEvent } from "@/vx/screens/academics/data";
 import { tally, type AttentionReason, type PaperProgress, type WeekFacts } from "@/vx/screens/academics/domain";
 import { AcadHomeView, type AcadHomeProps } from "@/vx/screens/academics/home-view";
+import type { ClassDetail, ClassResult, StudentDetail } from "@/vx/screens/academics/data";
+import { AcadProgressView, type AcadProgressProps, type HeatStat } from "@/vx/screens/academics/progress-view";
 
 /*
  * The academic coordinator's screens (AcadHome, AcadProgress,
@@ -235,7 +237,123 @@ const home = (patch: Partial<AcadHomeProps>, path = "/academics"): DesignView =>
   render: () => <AcadHomeView {...base} {...patch} />,
 });
 
+/* ---------------------------------------------------------- AcadProgress */
+
+// class · average · change since UT 1 · pass % · attendance (the design's cards)
+const CARDS: [string, number, number, number, number][] = [
+  ["Nursery", 83, 2, 100, 90], ["LKG", 78, 1, 100, 90], ["UKG", 82, 0, 100, 90], ["Class 1", 81, 2, 100, 93], ["Class 2", 78, 0, 100, 92], ["Class 3", 68, -2, 100, 90],
+  ["Class 4", 71, 0, 97, 89], ["Class 5", 70, -2, 100, 91], ["Class 6", 63, 0, 97, 88], ["Class 7", 71, 1, 96, 89], ["Class 8", 66, -3, 96, 89], ["Class 9", 56, -6, 89, 87],
+  ["Class 10", 66, 2, 97, 93], ["11 Science", 59, -2, 95, 88], ["11 Commerce", 65, 3, 100, 91], ["11 Arts", 59, 0, 100, 86], ["12 Science", 67, 2, 95, 95], ["12 Commerce", 71, 0, 94, 92], ["12 Arts", 64, -2, 100, 87],
+];
+const results: ClassResult[] = CARDS.map(([label, avg, d, pass, att]) => ({ classId: classId(label), label, avg, before: avg - d, pass, attendance: att }));
+const SUBJECTS: Record<string, string[]> = {
+  pre: ["English", "Hindi", "MATHS", "EVS", "Drawing"],
+  p15: ["English", "Hindi", "MATHS", "EVS", "SST", "Sanskrit"],
+  p68: ["English", "Hindi", "MATHS", "Science", "SST", "Sanskrit"],
+  sci: ["Physics", "Chemistry", "Maths / Bio", "English", "Hindi"],
+  com: ["Accountancy", "Business St.", "Economics", "English", "Hindi"],
+  art: ["History", "Geography", "Political Sci.", "English", "Hindi"],
+};
+const groupOf = (label: string) => (/^(Nursery|LKG|UKG)$/.test(label) ? "pre" : /^Class [1-5]$/.test(label) ? "p15" : /^Class/.test(label) ? "p68" : label.endsWith("Science") ? "sci" : label.endsWith("Commerce") ? "com" : "art");
+const OFFS = [-4, 3, -9, 1, 5, -2];
+const heat: HeatStat[] = CARDS.flatMap(([label, avg]) =>
+  SUBJECTS[groupOf(label)].map((subject, i) => {
+    const waiting = label === "Class 9" && subject === "SST";
+    return { classId: classId(label), subject, sortOrder: i, avg: waiting ? null : Math.max(20, Math.min(96, avg + OFFS[i % 6])), entered: waiting ? 0 : 20 };
+  }),
+);
+const UT1 = { id: uuid(3000), code: "UT1", label: "Unit Test 1", labelHi: "यूनिट टेस्ट 1", startsOn: "2026-07-14", endsOn: "2026-07-18", status: "locked" };
+const HY = entry.exam!;
+const exams = [{ code: "UT1", label: "Unit Test 1" }, { code: "HY", label: "Half-yearly" }];
+const progressCommon = { language, today: TODAY, session: "2026–27", exams, exam: exams[1], previous: exams[0], entered: 68, attentionCount: 23, mayManage: true, mayFollow: true, notesHref: "/notes" };
+
+const C9 = ["English", "Hindi", "MATHS", "Science", "SST", "Sanskrit"];
+const c9Avg = [56, 62, 49, 55, null, 60];
+const c9Kids = ["Tanish Meena", "Kavya Chouhan", "Harsh Trivedi", "Saanvi Sharma", "Yash Mehta", "Mohit Agarwal", "Kabir Rawal", "Aditya Kumawat", "Sneha Bhati", "Riya Kothari", "Arjun Sen", "Diya Purohit"];
+const c9Avgs = [76.8, 72.8, 71.2, 71.2, 69.4, 49, 31, 47, 58, 61, 55, 63];
+const detail: ClassDetail = {
+  classId: classId("Class 9"),
+  label: "Class 9",
+  roll: 28,
+  average: 56,
+  pass: 89,
+  attendance: 87,
+  students: c9Kids.map((name, i) => ({ studentId: uuid(9100 + i), name, rollNo: String(i + 1), avg: Math.round(c9Avgs[i]), before: Math.round(c9Avgs[i]) + 4, failed: i === 6 ? 2 : i === 5 ? 1 : 0, attendance: 87, attention: attention.find((a) => a.name === name) ?? null })),
+  subjects: C9.map((subject, i) => ({ subjectId: uuid(9300 + i), subject, avg: c9Avg[i], before: c9Avg[i] === null ? 62 : (c9Avg[i] as number) + 5, pass: 90, entered: subject === "SST" ? 0 : subject === "Science" ? 12 : 28, submitted: subject !== "SST" && subject !== "Science" })),
+};
+// 140 papers spread 4 / 43 / 81 / 12 / 0, with the design's below-33 names.
+const spreadMarks = [
+  { studentId: uuid(9106), subject: "MATHS", pct: 23 },
+  { studentId: uuid(9105), subject: "MATHS", pct: 28 },
+  { studentId: uuid(9106), subject: "Science", pct: 29 },
+  { studentId: uuid(9107), subject: "Sanskrit", pct: 31 },
+  ...Array.from({ length: 43 }, (_, i) => ({ studentId: uuid(9100 + (i % 12)), subject: "English", pct: 34 + (i % 15) })),
+  ...Array.from({ length: 81 }, (_, i) => ({ studentId: uuid(9100 + (i % 12)), subject: "Hindi", pct: 51 + (i % 23) })),
+  ...Array.from({ length: 12 }, (_, i) => ({ studentId: uuid(9100 + (i % 12)), subject: "Hindi", pct: 76 + (i % 13) })),
+];
+const people = { classTeacher: "Mr. Meena", bySubject: Object.fromEntries(C9.map((s, i) => [uuid(9300 + i), ["Ms. Dadhich", "Mr. Saini", "Ms. Dave", "Mr. Meena", "Mr. Lohar", "Mr. Tak"][i]])), locked: false, notes: { total: 9, followUp: 4 } };
+
+const MOHIT: [string, number, number | null][] = [["English", 64, 60], ["Hindi", 72, 70], ["MATHS", 46, 28], ["Science", 58, 49], ["SST", 61, null], ["Sanskrit", 66, 68]];
+const mohit: StudentDetail = {
+  studentId: uuid(7000),
+  name: "Mohit Agarwal",
+  father: "Sunil Agarwal",
+  phone: "9000000019",
+  classId: classId("Class 9"),
+  classLabel: "Class 9",
+  rollNo: "19",
+  attendance: { pct: 83, absent: 13, counted: 78 },
+  months: [{ month: "2026-07", pct: 94 }, { month: "2026-08", pct: 88 }, { month: "2026-09", pct: 77 }, { month: "2026-10", pct: 71 }],
+  subjects: MOHIT.map(([subject, u, h]) => ({ subject, byExam: new Map<string, number | null>(h === null ? [[UT1.id, u]] : [[UT1.id, u], [HY.id, h]]) })),
+  exams: [UT1, HY],
+  notes: [
+    { id: uuid(9501), body: "Got 22 of 80 in Half-yearly Maths. No homework since September; says algebra is confusing. Follow-up Mon 12 Oct.", kind: "Studies", tone: "info", at: "2026-10-01T10:00:00+05:30", by: "Ms. Dave · Maths teacher", status: "open" },
+    { id: uuid(9502), body: "Absent on 4 Mondays in a row. Father says Mohit helps at the shop on market day — called him on Tue 6 Oct.", kind: "Attendance", tone: "concern", at: "2026-09-28T10:00:00+05:30", by: "Mr. Meena · class teacher", status: "working" },
+    { id: uuid(9503), body: "Very good in Science practicals — keen in the lab.", kind: "Studies", tone: "good", at: "2026-09-18T10:00:00+05:30", by: "Mr. Meena · Science teacher", status: "done" },
+  ],
+  plan: {
+    id: uuid(9600),
+    goal: "Maths above 40% in Unit Test 2 (Mon 7 Dec)",
+    status: "draft",
+    startedAt: null,
+    steps: [
+      { id: uuid(9601), text: "Call father about Monday absences", owner: "Mr. Meena", ownerId: staffId("Mr. Meena"), due: "Tue 6 Oct", done: true },
+      { id: uuid(9602), text: "Saturday remedial class · Maths", owner: "Ms. Dave", ownerId: staffId("Ms. Dave"), due: "from Sat 10 Oct", done: false },
+      { id: uuid(9603), text: "Extra practice sheets twice a week", owner: "Ms. Dave", ownerId: staffId("Ms. Dave"), due: "Mon & Thu", done: false },
+      { id: uuid(9604), text: "Parent meeting at PTM", owner: "Mr. Meena", ownerId: staffId("Mr. Meena"), due: "Sat 17 Oct", done: false },
+    ],
+  },
+  followups: [{ kind: "call", outcome: "reached", note: "Mondays", at: "2026-10-06T11:00:00+05:30", by: "Mr. Meena" }],
+  facts: { reasons: ["below_33", "dropped", "notes"], attendancePct: 83, below33Subjects: ["MATHS"], dropPoints: 18, dropSubject: "MATHS", openNotes: 2 },
+};
+const staffChoices = ["Mr. Meena", "Ms. Dave", "Ms. Asha Purohit", "Janmejay Singh"].map((name) => ({ id: staffId(name), name }));
+const classRefs = ATT.map(([label, , roll]) => ({ id: classId(label), label, roll }));
+
+const progress = (patch: Partial<AcadProgressProps> & Pick<AcadProgressProps, "view">, path = "/academics/progress"): DesignView => ({
+  menu: "academic",
+  path,
+  render: () => <AcadProgressView {...({ ...progressCommon, ...patch } as AcadProgressProps)} />,
+});
+const overview = { view: "overview" as const, classes: results, school: { avg: 69, before: 69.5, pass: 97, lowest: { label: "Class 9", pass: 89 }, att: 90 }, stats: heat, group: "junior" as const, attention };
+const classView = { view: "class" as const, detail, result: results[11], nav: { prev: classRefs[10], next: classRefs[12], pos: 12, total: 19 }, marks: spreadMarks, people };
+const studentView = { view: "student" as const, child: mohit, classTeacher: { name: "Mr. Meena", phone: "9000000512" }, hl: null };
+const attentionView = { view: "attention" as const, list: attention, filter: null, staff: staffChoices };
+const planView = { view: "plan" as const, child: mohit, staff: staffChoices, suggestions: ["Saturday remedial class · Maths", "Extra practice sheets twice a week", "Parent meeting at PTM", "Peer buddy for daily homework", "Check homework diary every day"], father: "Sunil Agarwal", parentPhone: "9000000019" };
+const compareView = { view: "compare" as const, classes: classRefs, a: classRefs[11], b: classRefs[12], results, stats: heat.filter((s) => s.classId === classRefs[11].id || s.classId === classRefs[12].id), attentionBy: { [classRefs[11].id]: 4, [classRefs[12].id]: 2 } };
+
 export const academicViews: Record<string, DesignView> = {
+  AcadProgress: progress(overview),
+  "DX-AcadProgress-Student": progress(studentView),
+  "DX-AcadProgress-Class": progress(classView),
+  "DX-AcadProgress-Attention": progress(attentionView),
+  "DX-AcadProgress-Plan": progress(planView),
+  "M-AcadProgress": progress(overview),
+  "M-AcadProgress-Student": progress(studentView),
+  "M-AcadProgress-Class": progress(classView),
+  "M-AcadProgress-Attention": progress(attentionView),
+  "M-AcadProgress-Plan": progress(planView),
+  "M-AcadProgress-Compare": progress(compareView),
+
   AcadHome: home({}),
   "DX-AcadHome-Week": home({ mode: "week" }),
   "DX-AcadHome-Remind": home({ sheet: "remind" }),

@@ -317,13 +317,13 @@ export function FollowupButtons({ studentId, staff, compact }: { studentId: stri
   const [note, setNote] = useState("");
   return (
     <>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" className={`tap btn ${compact ? "ghost" : "sec"}`} disabled={pending} onClick={() => run(() => saveFollowupAction({ studentId, kind: "improving" }))}>
-          <Ic n="trend" size={18} />
-          {tx({ en: "Mark improving", hi: "सुधार हो रहा है" })}
+      <div className={compact ? "mfull" : undefined} style={{ display: "flex", gap: 6, flexWrap: compact ? "nowrap" : "wrap" }}>
+        <button type="button" className="tap btn sec" style={compact ? { fontSize: 13, flex: 1 } : undefined} disabled={pending} onClick={() => run(() => saveFollowupAction({ studentId, kind: "improving" }))}>
+          <Ic n="trend" size={compact ? 16 : 18} />
+          {tx({ en: "Mark as improving", hi: "सुधार हो रहा है" })}
         </button>
-        <button type="button" className={`tap btn ${compact ? "ghost" : "soft"}`} disabled={pending} onClick={() => setOpen(true)}>
-          <Ic n="userPlus" size={18} />
+        <button type="button" className="tap btn soft" style={compact ? { fontSize: 13, flex: 1 } : undefined} disabled={pending} onClick={() => setOpen(true)}>
+          <Ic n="userPlus" size={compact ? 16 : 18} />
           {tx({ en: "Assign follow-up", hi: "फ़ॉलो-अप सौंपें" })}
         </button>
       </div>
@@ -373,7 +373,7 @@ export function StepToggle({ stepId, done, disabled, children }: { stepId: strin
       <span aria-hidden="true" style={{ flex: "none", width: 22, height: 22, borderRadius: 7, border: `2px solid ${done ? "var(--ok)" : "var(--bds)"}`, background: done ? "var(--ok)" : "transparent", color: "var(--onsolid)", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>
         {done ? <Ic n="check" size={14} stroke={3} /> : null}
       </span>
-      <span style={{ flex: 1, minWidth: 0, textDecoration: done ? "line-through" : undefined, color: done ? "var(--mut)" : undefined }}>{children}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>{children}</span>
     </button>
   );
 }
