@@ -17,6 +17,16 @@ import type { DesignView } from "../design.fixture";
  * presses, and the server actions answer with synthetic results.
  */
 
+// The production shell mounts `#vx-layer` beside the page for sheets and
+// toasts (src/vx/shell/shell.tsx); the fixture's shell does not, so the
+// desk's review, duplicate and remove sheets would have nowhere to open.
+if (typeof document !== "undefined" && !document.getElementById("vx-layer")) {
+  const layer = document.createElement("div");
+  layer.id = "vx-layer";
+  layer.className = "vxt vx-layer";
+  document.body.append(layer);
+}
+
 const TODAY = "2026-10-08";
 const SESSION = "2026-27";
 const LABELS = ["Nursery", "JKG", "SKG", ...Array.from({ length: 10 }, (_, i) => `Class ${i + 1}`), "11 Arts", "11 Commerce", "11 Science", "12 Arts", "12 Commerce", "12 Science"];

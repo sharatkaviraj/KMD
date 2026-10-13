@@ -48,7 +48,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill, Skel, WhatsAppPreview } from "@/vx/ui/primitives";
 
-import { ampm, oldBalanceLabel, sessionDash, shortDate, wordsOf } from "./look";
+import { ampm, dueDay, oldBalanceLabel, sessionDash, shortDate, wordsOf } from "./look";
 import { ReceiptCard } from "./receipt-card";
 import { W } from "./words";
 
@@ -1101,7 +1101,7 @@ export function PaymentDesk({
                       today={today}
                       totals={totals}
                       sessionLabel={boot.sessionLabel}
-                      nextDue={nextDue ? { no: nextDue.installmentNo, date: dayMonth(nextDue.dueDate) } : null}
+                      nextDue={nextDue ? { no: nextDue.installmentNo, date: dueDay(nextDue.dueDate, today) } : null}
                       onSibling={(id) => selectStudent(id)}
                     />
                   ) : null}
@@ -1430,7 +1430,7 @@ function StudentCard({
               <span className="pd-c" style={{ flex: 1 }}>
                 <span className="pd-b">{r.isCarryForward ? oldBalanceLabel(tx(W.oldBalance), sessionLabel) : r.label}</span>
                 <span className="pd-m">
-                  {r.isCarryForward ? tx(W.unpaidLastSession) : tx(W.due(dayMonth(r.dueDate)))} · {tx(W.charge(rupees(r.charge), rupees(r.feesPaid)))}{days > 0 ? tx(W.dueIn(days)) : ""}
+                  {r.isCarryForward ? tx(W.unpaidLastSession) : tx(W.due(dueDay(r.dueDate, today)))} · {tx(W.charge(rupees(r.charge), rupees(r.feesPaid)))}{days > 0 ? tx(W.dueIn(days)) : ""}
                 </span>
               </span>
               <span className="pd-end">
@@ -1450,7 +1450,7 @@ function StudentCard({
               <Ic n="clock" style={{ color: "var(--warn)", flex: "none" }} />
               <span className="pd-c" style={{ flex: 1 }}>
                 <span className="pd-b">{tx(W.lateLine(r.installmentNo))}</span>
-                <span className="pd-m">{tx(waived ? W.lateFlatWaived(flat) : paid ? W.lateFlatPaid(flat) : W.lateFlat(flat, dayMonth(r.dueDate)))}</span>
+                <span className="pd-m">{tx(waived ? W.lateFlatWaived(flat) : paid ? W.lateFlatPaid(flat) : W.lateFlat(flat, dueDay(r.dueDate, today)))}</span>
               </span>
               <span className="pd-end">
                 <span className="num pd-v" style={{ textDecoration: waived ? "line-through" : "none" }}>{flat}</span>
@@ -1526,7 +1526,7 @@ function WherePreview({ walk, amount, paymentDate, today, sessionLabel }: { walk
                 <span className="pd-c" style={{ flex: 1 }}>
                   <span className="pd-b pd-e">{l.row.isCarryForward ? oldBalanceLabel(tx(W.oldBalance), sessionLabel) : l.row.label}</span>
                   <span className="pd-m">
-                    {l.row.isCarryForward ? tx(W.lastSessionFees) : isOverdueOn(l.row, paymentDate) ? tx(W.overdueSince(dayMonth(l.row.dueDate))) : tx(W.due(dayMonth(l.row.dueDate)))}
+                    {l.row.isCarryForward ? tx(W.lastSessionFees) : isOverdueOn(l.row, paymentDate) ? tx(W.overdueSince(dueDay(l.row.dueDate, today))) : tx(W.due(dueDay(l.row.dueDate, today)))}
                   </span>
                 </span>
                 <span className="pill" style={{ background: look.bg, color: look.fg }}>{tx(look.pair)}</span>

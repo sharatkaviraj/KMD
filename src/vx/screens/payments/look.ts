@@ -23,6 +23,11 @@ export function shortDate(value: string | Date): string {
   return new Intl.DateTimeFormat("en-IN", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(asDate(value)).replace(",", "");
 }
 
+/** "20 Oct", or "20 Jan 2027" when the date falls in another year than `today`. */
+export function dueDay(date: string, today: string): string {
+  return date.slice(0, 4) === today.slice(0, 4) ? dayMonth(date) : `${dayMonth(date)} ${date.slice(0, 4)}`;
+}
+
 /** "frozen at 10:44 am, 8 Oct". */
 export function timeAndDay(value: string | Date): string {
   return `${ampm(value)}, ${dayMonth(value)}`;
