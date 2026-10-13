@@ -18,20 +18,26 @@ import {
 } from "@/modules/payments/vx/domain/bulk-grid";
 import type { DeskMode } from "@/modules/payments/vx/domain/desk";
 import type { BulkBatch, BulkBoot, BulkServerRow } from "@/modules/payments/vx/types";
-import { rupees, shortDay } from "@/vx/format";
+import { rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
 import { Seg, SwitchRow } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
 import { Banner, TopBar, VxPage } from "@/vx/ui/page";
-import { Btn, Card, Pill, Progress, SuccessTick } from "@/vx/ui/primitives";
+import { Btn, Pill } from "@/vx/ui/primitives";
 
+import { sessionDash, shortDate } from "./look";
 import { W } from "./words";
 
 const CHUNK = 25;
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
 const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
+const LOOK = {
+  ok: { icon: "checkCircle" as const, fg: "var(--ok)", bg: "transparent", pair: W.gReady },
+  warn: { icon: "alert" as const, fg: "var(--warn)", bg: "var(--warns)", pair: W.gCheck },
+  err: { icon: "x" as const, fg: "var(--bad)", bg: "var(--bads)", pair: W.gProblem },
+};
 
 type Stage = "edit" | "review" | "saving" | "done";
 
@@ -39,12 +45,17 @@ function blankRow(n: number, today: string): GridRow {
   return { key: `r${n}`, sr: "", amount: "", date: today, mode: "cash", reference: "" };
 }
 
-export function BulkEntry({ boot, previewing, collectable }: { boot: BulkBoot; previewing: boolean; collectable: boolean }) {
+/**
+ * Enter many payments (PayDesk `bulk`): a grid for old paper receipts, or an
+ * Excel upload. Rows are checked here as they are typed, then on the server,
+ * and only then saved — each row its own receipt.
+ */
+export function BulkEntry({ boot, previewing, collectable, initialRows }: { boot: BulkBoot; previewing: boolean; collectable: boolean; initialRows?: GridRow[] }) {
   const { tx } = useVx();
   const toast = useToast();
   const index = useMemo(() => indexStudentsBySr(boot.students), [boot.students]);
   const [tab, setTab] = useState<"grid" | "upload">("grid");
-  const [rows, setRows] = useState<GridRow[]>(() => Array.from({ length: 5 }, (_, i) => blankRow(i, boot.today)));
+  const [rows, setRows] = useState<GridRow[]>(() => initialRows ?? Array.from({ length: 5 }, (_, i) => blankRow(i, boot.today)));
   const [stage, setStage] = useState<Stage>("edit");
   const [batch, setBatch] = useState<BulkBatch | null>(null);
   const [ackWarn, setAckWarn] = useState(false);
@@ -53,7 +64,7 @@ export function BulkEntry({ boot, previewing, collectable }: { boot: BulkBoot; p
   const [summary, setSummary] = useState<{ posted: number; failed: number } | null>(null);
   const [over, setOver] = useState(false);
   const [fileName, setFileName] = useState("");
-  const seq = useRef(5);
+  const seq = useRef(initialRows?.length ?? 5);
 
   const canSave = boot.canBulk && !previewing && collectable;
   const checks = checkGridRows(rows, index, { today: boot.today, sessionStart: boot.sessionStart });
@@ -151,106 +162,131 @@ export function BulkEntry({ boot, previewing, collectable }: { boot: BulkBoot; p
     setStage("edit");
   }
 
-  const crumb = `${tx(W.money)} · ${tx(W.session)} ${boot.sessionLabel} · ${shortDay(boot.today)}`;
+  const crumb = `${tx(W.money)} · ${tx(W.session)} ${sessionDash(boot.sessionLabel)} · ${shortDate(boot.today)}`;
+  const today = boot.todayCollection;
+  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <VxPage label={tx(W.many)}>
       <TopBar
         crumb={crumb}
         title={tx(W.many)}
-        actions={<Btn variant="ghost" icon="chevLeft" href="/payments">{tx(W.backToDesk)}</Btn>}
-        mTitle={tx(W.many)}
-        mSub={boot.sessionLabel}
+        actions={
+          <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            {today ? (
+              <Link href="/receipts" className="tap pd-today">
+                <span className="pd-dot" />
+                <span>{tx(W.todayPill)}: <b className="num">{rupees(today.amount)}</b> · {tx(W.receiptsN(today.count))}</span>
+                <Ic n="chevRight" size={16} />
+              </Link>
+            ) : null}
+            <Btn variant="ghost" icon="chevLeft" href="/payments">{tx(W.backToDesk)}</Btn>
+          </span>
+        }
+        mTitle={tx(W.manyShort)}
+        mSub={tx(W.manyMobileSub(boot.canBulk))}
         mBack="/payments"
       />
       <main>
-        <div className="pad" style={{ padding: "22px 28px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <h2 className="serif" style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>{tx(W.many)}</h2>
-                <Pill tone="warn">{tx(W.adminOnly)}</Pill>
+        <div className="pad pd-c" style={{ padding: "22px 28px 0", gap: 14 }}>
+          <div className="pd-f pd-j" style={{ gap: 12, flexWrap: "wrap" }}>
+            <span className="pd-c">
+              <span className="pd-f">
+                <span className="serif" style={{ fontSize: 24, fontWeight: 600 }}>{tx(W.many)}</span>
+                {!boot.canBulk ? <span className="pill" style={{ height: 24, padding: "0 10px", background: "var(--warns)", color: "var(--warnfg)" }}>{tx(W.adminOnly)}</span> : null}
               </span>
-              <span style={{ color: "var(--mut)" }}>{tx(W.bulkSub)}</span>
-            </div>
+              <span className="pd-m" style={{ fontSize: 13 }}>{tx(W.bulkSub)}</span>
+            </span>
             {stage === "edit" ? (
-              <Seg
-                label={tx(W.many)}
-                value={tab}
-                onChange={setTab}
-                style={{ minWidth: 300 }}
-                options={[
-                  { value: "grid", label: tx(W.typeGrid) },
-                  { value: "upload", label: tx(W.uploadExcel) },
-                ]}
-              />
+              <div className="mfull" style={{ width: 300 }}>
+                <Seg
+                  label={tx(W.howToEnter)}
+                  value={tab}
+                  onChange={setTab}
+                  options={[
+                    { value: "grid", label: tx(W.typeGrid) },
+                    { value: "upload", label: tx(W.uploadExcel) },
+                  ]}
+                />
+              </div>
             ) : null}
           </div>
           {previewing ? <Banner tone="info">{tx(W.previewing)}</Banner> : null}
-          {!boot.canBulk ? <Banner tone="warn">{tx(W.onlyAdminBulk)}</Banner> : null}
           {!collectable ? <Banner tone="warn">{tx(W.readOnly)}</Banner> : null}
 
           {stage === "edit" && tab === "grid" ? (
-            <Card pad={false} style={{ overflow: "hidden" }}>
-              <div className="pd-bk head" style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--mut)", borderBottom: "1px solid var(--bd)" }}>
-                <span>#</span>
-                <span>{tx(W.colSr)}</span>
-                <span>{tx(W.colStudent)}</span>
-                <span>{tx(W.colAmount)}</span>
-                <span>{tx(W.colDate)}</span>
-                <span>{tx(W.colMode)}</span>
-                <span>{tx(W.colRef)}</span>
-                <span style={{ textAlign: "right" }}>{tx(W.colCheck)}</span>
+            <div className="card" style={{ overflow: "hidden" }}>
+              <div className="only-d pd-bk pd-bkhead">
+                <span className="sech">#</span>
+                <span className="sech">{tx(W.colSr)}</span>
+                <span className="sech">{tx(W.colStudent)}</span>
+                <span className="sech">{tx(W.colAmount)}</span>
+                <span className="sech">{tx(W.colDate)}</span>
+                <span className="sech">{tx(W.colMode)}</span>
+                <span className="sech">{tx(W.colRef)}</span>
+                <span className="sech">{tx(W.colCheck)}</span>
               </div>
               {rows.map((r, i) => {
                 const c = filled[i] ? checks[i] : null;
                 const who = lookupSr(index, r.sr);
                 const msg = c ? checkText(c, tx) : "";
-                const cls = c?.status === "err" ? " err" : c?.status === "warn" ? " warn" : "";
+                const look = c ? LOOK[c.status] : null;
                 return (
-                  <div key={r.key} className={`pd-bkrow${cls}`} style={{ borderTop: i ? undefined : 0 }}>
-                    <div className="pd-bk">
-                      <span className="a-n num" style={{ color: "var(--mut)", fontSize: 13 }}>{i + 1}</span>
-                      <input className="inp num a-sr" aria-label={`${tx(W.colSr)} ${i + 1}`} value={r.sr} onChange={(e) => setRow(r.key, { sr: e.target.value })} placeholder={tx(W.colSr)} />
-                      <span className="a-who" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                        <strong className="clip">{who ? who.name : "—"}</strong>
-                        <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{who ? `${who.classLabel}${who.father ? ` · ${who.father}` : ""}` : tx(W.nameFills)}</span>
-                      </span>
-                      <input className="inp num a-amt" inputMode="numeric" aria-label={`${tx(W.colAmount)} ${i + 1}`} value={r.amount} onChange={(e) => setRow(r.key, { amount: e.target.value })} placeholder="0" />
-                      <input className="inp a-date" type="date" aria-label={`${tx(W.colDate)} ${i + 1}`} value={r.date} min={boot.sessionStart} max={boot.today} onChange={(e) => setRow(r.key, { date: e.target.value })} />
-                      <select className="inp a-mode" aria-label={`${tx(W.colMode)} ${i + 1}`} value={r.mode} onChange={(e) => setRow(r.key, { mode: e.target.value as DeskMode })}>
+                  <div key={r.key} className="pd-bk pd-bkrow" style={{ background: look?.bg, animationDelay: `${Math.min(i, 12) * 32}ms` }}>
+                    <span className="num pd-m hide-m">{i + 1}</span>
+                    <label className="field">
+                      <span className="only-m">{tx(W.colSr)}</span>
+                      <input className="inp num" inputMode="numeric" aria-label={`${tx(W.colSr)} ${i + 1}`} value={r.sr} onChange={(e) => setRow(r.key, { sr: e.target.value })} />
+                    </label>
+                    <span className="pd-c pd-w2">
+                      <span className="pd-b pd-e">{who ? who.name : "—"}</span>
+                      <span className="pd-m pd-e">{who ? `${who.classLabel}${who.father ? ` · ${who.father}` : ""}` : tx(W.nameFills)}</span>
+                    </span>
+                    <label className="field">
+                      <span className="only-m">{tx(W.colAmount)}</span>
+                      <input className="inp num" inputMode="numeric" aria-label={`${tx(W.colAmount)} ${i + 1}`} value={r.amount} onChange={(e) => setRow(r.key, { amount: e.target.value })} />
+                    </label>
+                    <label className="field">
+                      <span className="only-m">{tx(W.colDate)}</span>
+                      <input className="inp" type="date" aria-label={`${tx(W.colDate)} ${i + 1}`} value={r.date} min={boot.sessionStart} max={boot.today} onChange={(e) => setRow(r.key, { date: e.target.value })} />
+                    </label>
+                    <label className="field">
+                      <span className="only-m">{tx(W.colMode)}</span>
+                      <select className="inp" aria-label={`${tx(W.colMode)} ${i + 1}`} value={r.mode} onChange={(e) => setRow(r.key, { mode: e.target.value as DeskMode })}>
                         {boot.modes.map((m) => (
                           <option key={m} value={m}>{tx(MODE_PAIR[m])}</option>
                         ))}
                       </select>
-                      <input className="inp a-ref" aria-label={`${tx(W.colRef)} ${i + 1}`} value={r.reference} onChange={(e) => setRow(r.key, { reference: e.target.value })} placeholder={tx(W.refPh)} />
-                      <span className="a-c" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
-                        {c ? (
-                          <Ic n={c.status === "ok" ? "checkCircle" : c.status === "warn" ? "alert" : "x"} size={20} style={{ color: c.status === "ok" ? "var(--acc)" : c.status === "warn" ? "var(--warn)" : "var(--bad)" }} />
-                        ) : null}
-                        <button type="button" className="tap icon-btn" style={{ width: 32, height: 32 }} aria-label={`${tx(W.removeRow)} ${i + 1}`} onClick={() => dropRow(r.key)}>
-                          <Ic n="trash" size={16} />
-                        </button>
-                      </span>
-                    </div>
-                    {msg ? <div className="pd-bkmsg" role="alert" style={{ color: c?.status === "err" ? "var(--bad)" : "var(--warnfg)" }}>{msg}</div> : null}
+                    </label>
+                    <label className="field">
+                      <span className="only-m">{tx(W.colRef)}</span>
+                      <input className="inp num" aria-label={`${tx(W.colRef)} ${i + 1}`} value={r.reference} onChange={(e) => setRow(r.key, { reference: e.target.value })} placeholder={tx(W.refPh)} />
+                    </label>
+                    <span className="pd-f" style={{ justifyContent: "flex-end", gap: 2 }}>
+                      {look ? <span role="img" aria-label={tx(look.pair)} style={{ display: "inline-flex", color: look.fg }}><Ic n={look.icon} size={22} /></span> : null}
+                      <button type="button" className="tap btn ghost" style={{ width: 34, height: 34, padding: 0 }} aria-label={`${tx(W.removeRow)} ${i + 1}`} onClick={() => dropRow(r.key)}>
+                        <Ic n="trash" size={16} />
+                      </button>
+                    </span>
+                    {msg && look ? <span className="pd-bkmsg" role="alert" style={{ color: look.fg }}>{msg}</span> : null}
                   </div>
                 );
               })}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderTop: "1px solid var(--bd)", flexWrap: "wrap" }}>
+              <div className="pd-f pd-j" style={{ flexWrap: "wrap", padding: "10px 14px", borderTop: "1px solid var(--bd)" }}>
                 <Btn variant="ghost" icon="plus" onClick={addRow}>{tx(W.addRow)}</Btn>
-                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <Pill tone="ok">{tx(W.nReady(totals.ready))}</Pill>
+                <span className="pd-f" style={{ gap: 6, flexWrap: "wrap" }}>
+                  {totals.ready ? <Pill tone="ok">{tx(W.nReady(totals.ready))}</Pill> : null}
                   {totals.toCheck ? <Pill tone="warn">{tx(W.nToCheck(totals.toCheck))}</Pill> : null}
                   {totals.problems ? <Pill tone="bad">{tx(W.nProblems(totals.problems))}</Pill> : null}
                 </span>
               </div>
-            </Card>
+            </div>
           ) : null}
 
           {stage === "edit" && tab === "upload" ? (
             <label
-              className={`pd-drop${over ? " over" : ""}`}
+              className="card pd-cd fadein"
+              style={{ alignItems: "center", textAlign: "center", padding: "32px 22px", border: `2px dashed ${over ? "var(--acc)" : "var(--bds)"}`, boxShadow: "none", background: over ? "var(--accs)" : undefined }}
               onDragOver={(e) => {
                 e.preventDefault();
                 setOver(true);
@@ -262,18 +298,18 @@ export function BulkEntry({ boot, previewing, collectable }: { boot: BulkBoot; p
                 upload(e.dataTransfer.files?.[0]);
               }}
             >
-              <span style={{ width: 56, height: 56, borderRadius: 16, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Ic n="upload" size={26} />
+              <span className="pd-av" style={{ width: 60, height: 60, borderRadius: 20, background: "var(--accs)", color: "var(--accfg)" }}>
+                <Ic n="upload" size={28} />
               </span>
-              <strong>{busy ? tx(W.reading) : tx(W.dropFile)}</strong>
-              <span style={{ color: "var(--mut)", fontSize: 13 }}>{tx(W.fileCols)}</span>
+              <span className="pd-v" style={{ fontSize: 17 }}>{busy ? tx(W.reading) : tx(W.dropFile)}</span>
+              <span className="pd-m" style={{ maxWidth: 460 }}>{tx(W.fileCols)}</span>
               {fileName ? <span className="num" style={{ fontSize: 13 }}>{fileName}</span> : null}
-              <span style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                <span className="tap btn pri" aria-disabled={!canSave || busy}>
-                  <Ic n="file" /> {tx(W.chooseFile)}
-                </span>
-                <Link className="tap btn sec" href="/fees/payments/bulk/template" prefetch={false}>
-                  <Ic n="download" /> {tx(W.template)}
+              <span className="tap btn pri" aria-disabled={!canSave || busy}>
+                <Ic n="upload" /> {tx(W.chooseFile)}
+              </span>
+              <span className="pd-f" style={{ flexWrap: "wrap", justifyContent: "center" }}>
+                <Link className="tap chip" href="/fees/payments/bulk/template" prefetch={false}>
+                  <Ic n="download" size={16} /> {tx(W.template)}
                 </Link>
               </span>
               <input
@@ -286,60 +322,67 @@ export function BulkEntry({ boot, previewing, collectable }: { boot: BulkBoot; p
             </label>
           ) : null}
 
-          {stage === "review" && batch ? (
-            <ServerRows rows={batch.rows} tx={tx} />
-          ) : null}
+          {stage === "review" && batch ? <ServerRows rows={batch.rows} tx={tx} /> : null}
 
           {stage === "saving" ? (
-            <Card style={{ display: "flex", flexDirection: "column", gap: 12 }} aria-live="polite">
-              <strong>{tx(W.saveProgress(progress.done, progress.total))}</strong>
-              <Progress value={progress.done} max={Math.max(1, progress.total)} />
-            </Card>
+            <div className="card pd-cd fadein" aria-live="polite">
+              <div className="pd-f pd-j">
+                <span className="pd-v">{tx(W.saveProgress(Math.min(progress.done + 1, progress.total), progress.total))}</span>
+                <span className="num pd-m">{pct}%</span>
+              </div>
+              <div className="pd-tr" style={{ height: 10 }}><span style={{ width: `${pct}%`, background: "var(--acc)" }} /></div>
+            </div>
           ) : null}
 
           {stage === "done" && batch && summary ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <Card className="rise" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <SuccessTick size={64} />
-                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <strong className="serif" style={{ fontSize: 24, fontWeight: 600 }}>{tx(W.doneTitle(summary.posted))}</strong>
-                  <span style={{ color: "var(--mut)" }}>{tx(W.doneSub(summary.posted))}</span>
-                </span>
-              </Card>
+            <div className="card pd-cd fadein" style={{ alignItems: "center", textAlign: "center", padding: "26px 22px" }}>
+              <svg width="72" height="72" viewBox="0 0 96 96" aria-hidden="true" style={{ animation: "xPopIn .5s var(--spring) both" }}>
+                <circle cx="48" cy="48" r="44" className="pd-tk0" />
+                <circle cx="48" cy="48" r="44" className="pd-tk1" />
+                <path d="M30 49l12 12 24-26" className="pd-tk2" />
+              </svg>
+              <span className="serif" style={{ fontSize: 26, fontWeight: 600 }}>{tx(W.doneTitle(summary.posted))}</span>
+              <span className="pd-m" style={{ fontSize: 13 }}>{tx(W.doneSub(summary.posted))}</span>
               {summary.failed ? <Banner tone="bad">{tx(W.bulkFailed(summary.failed))}</Banner> : null}
-              <ServerRows rows={batch.rows.filter((r) => r.receiptNumber || r.postError)} tx={tx} />
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Btn variant="pri" icon="receipt" href="/receipts">{tx(W.openReceipts)}</Btn>
-                <Btn variant="sec" icon="plus" onClick={reset}>{tx(W.enterMore)}</Btn>
-                <Btn variant="ghost" icon="chevLeft" href="/payments">{tx(W.backToDesk)}</Btn>
+              <div className="pd-c" style={{ width: "100%", maxWidth: 640, textAlign: "left" }}>
+                {batch.rows.filter((r) => r.receiptNumber || r.postError).map((r) => (
+                  <div key={r.id} className="pd-f" style={{ gap: 10, padding: "10px 0", borderTop: "1px solid var(--bd)" }}>
+                    <Ic n={r.receiptNumber ? "check" : "x"} style={{ color: r.receiptNumber ? "var(--ok)" : "var(--bad)", flex: "none" }} />
+                    <span className="num pd-b">{r.receiptNumber ?? "—"}</span>
+                    <span className="pd-e" style={{ flex: 1 }}>{r.studentName ?? "—"}{r.postError ? ` · ${r.postError}` : ""}</span>
+                    <span className="pd-m hide-m">{r.mode ? (MODE_TEXT[r.mode] ?? r.mode) : ""}</span>
+                    <b className="num">{rupees(r.amount ?? 0)}</b>
+                  </div>
+                ))}
+              </div>
+              <div className="pd-f" style={{ flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+                <Btn variant="pri" href="/receipts">{tx(W.openReceipts)}</Btn>
+                <Btn variant="sec" onClick={reset}>{tx(W.enterMore)}</Btn>
+                <Btn variant="ghost" href="/payments">{tx(W.backToDesk)}</Btn>
               </div>
             </div>
           ) : null}
-        </div>
 
-        {stage === "edit" && tab === "grid" ? (
-          <div className="pad" style={{ padding: "16px 28px 0" }}>
-            <div className="pd-pbar glass" style={{ margin: 0 }}>
-              <span style={{ display: "flex", flexDirection: "column", flex: "1 1 auto" }}>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>
+          {stage === "edit" && tab === "grid" ? (
+            <div className="glass pd-pbar full">
+              <span className="pd-c" style={{ flex: 1 }}>
+                <span className="pd-m" style={{ fontWeight: 600 }}>
                   {tx(W.nPayments(totals.saving))}{totals.problems ? ` · ${tx(W.nSkipped(totals.problems))}` : ""}
                 </span>
-                <strong className="num" style={{ fontSize: 22 }}>{rupees(totals.amount)}</strong>
+                <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{rupees(totals.amount)}</span>
               </span>
-              <span className="hide-m" style={{ fontSize: 13, color: "var(--mut)" }}>{canSave ? tx(W.serverChecked) : tx(W.onlyAdminBulk)}</span>
-              <Btn variant="pri" big icon="shield" disabled={!canSave || busy || totals.saving === 0} onClick={checkGrid}>
-                {busy ? tx(W.reading) : tx(W.checkRows(totals.saving))}
-              </Btn>
+              <span className="pd-m hide-m" style={{ maxWidth: 300, textAlign: "right" }}>{canSave ? tx(W.serverChecked) : tx(W.onlyAdminBulk)}</span>
+              <button type="button" className="tap btn pri pd-big" disabled={!canSave || busy || totals.saving === 0} onClick={checkGrid}>
+                <Ic n="shield" size={20} /> {busy ? tx(W.reading) : tx(W.checkRows(totals.saving))}
+              </button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {stage === "review" && batch ? (
-          <div className="pad" style={{ padding: "16px 28px 0" }}>
-            <div className="pd-pbar glass" style={{ margin: 0 }}>
-              <span style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", gap: 4 }}>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.nPayments(toPost.length))}</span>
-                <strong className="num" style={{ fontSize: 22 }}>{rupees(toPost.reduce((s, r) => s + Number(r.amount ?? 0), 0))}</strong>
+          {stage === "review" && batch ? (
+            <div className="glass pd-pbar full">
+              <span className="pd-c" style={{ flex: 1, gap: 4 }}>
+                <span className="pd-m" style={{ fontWeight: 600 }}>{tx(W.nPayments(toPost.length))}</span>
+                <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{rupees(toPost.reduce((s, r) => s + Number(r.amount ?? 0), 0))}</span>
               </span>
               {batch.rows.some((r) => r.status === "warning") ? (
                 <span style={{ minWidth: 240 }}>
@@ -347,12 +390,12 @@ export function BulkEntry({ boot, previewing, collectable }: { boot: BulkBoot; p
                 </span>
               ) : null}
               <Btn variant="sec" icon="edit" onClick={editRows}>{tx(W.editRows)}</Btn>
-              <Btn variant="pri" big icon="check" disabled={!canSave || toPost.length === 0} onClick={commit}>
-                {tx(W.saveN(toPost.length))}
-              </Btn>
+              <button type="button" className="tap btn pri pd-big" disabled={!canSave || toPost.length === 0} onClick={commit}>
+                <Ic n="upload" size={20} /> {tx(W.saveN(toPost.length))}
+              </button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
         <div style={{ height: 28 }} />
       </main>
     </VxPage>
@@ -378,26 +421,27 @@ function checkText(c: GridCheck, tx: (p: Pair | string) => string): string {
 
 function ServerRows({ rows, tx }: { rows: BulkServerRow[]; tx: (p: Pair | string) => string }) {
   return (
-    <Card pad={false} style={{ overflow: "hidden" }}>
+    <div className="card" style={{ overflow: "hidden" }}>
       {rows.map((r, i) => {
-        const tone = r.receiptNumber ? "ok" : r.postError || r.status === "error" ? "bad" : r.status === "warning" ? "warn" : "ok";
+        const tone = r.receiptNumber ? "ok" : r.postError || r.status === "error" ? "err" : r.status === "warning" ? "warn" : "ok";
+        const look = LOOK[tone];
         return (
-          <div key={r.id} className={`pd-bkrow${tone === "bad" ? " err" : tone === "warn" && !r.receiptNumber ? " warn" : ""}`} style={{ borderTop: i ? undefined : 0, padding: "10px 14px", display: "flex", gap: 12, alignItems: "center" }}>
-            <span className="num" style={{ color: "var(--mut)", fontSize: 13, width: 28 }}>{r.rowNumber}</span>
-            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <strong className="clip">{r.studentName ?? "—"} <span style={{ fontWeight: 500, color: "var(--mut)" }}>· SR {r.sr ?? "—"}</span></strong>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>
+          <div key={r.id} className="pd-f" style={{ gap: 12, padding: "10px 14px", borderTop: i ? "1px solid var(--bd)" : 0, background: look.bg }}>
+            <span className="num pd-m" style={{ width: 26 }}>{r.rowNumber}</span>
+            <span className="pd-c" style={{ flex: 1 }}>
+              <span className="pd-b pd-e">{r.studentName ?? "—"} <span className="pd-m">· SR {r.sr ?? "—"}</span></span>
+              <span className="pd-m">
                 {r.paymentDate ?? "—"} · {r.mode ? (MODE_TEXT[r.mode] ?? r.mode) : "—"}{r.remarks ? ` · ${r.remarks}` : ""}
               </span>
               {r.postError || r.messages.length ? (
-                <span style={{ fontSize: 12, fontWeight: 700, color: tone === "bad" ? "var(--bad)" : "var(--warnfg)" }}>{r.postError ?? r.messages.join(" · ")}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: look.fg }}>{r.postError ?? r.messages.join(" · ")}</span>
               ) : null}
             </span>
-            {r.receiptNumber ? <Pill tone="ok" icon="check">{r.receiptNumber}</Pill> : <Pill tone={tone}>{tx(tone === "bad" ? W.gProblem : tone === "warn" ? W.gCheck : W.gReady)}</Pill>}
+            {r.receiptNumber ? <Pill tone="ok" icon="check">{r.receiptNumber}</Pill> : <Pill tone={tone === "err" ? "bad" : tone}>{tx(look.pair)}</Pill>}
             <b className="num">{rupees(r.amount ?? 0)}</b>
           </div>
         );
       })}
-    </Card>
+    </div>
   );
 }

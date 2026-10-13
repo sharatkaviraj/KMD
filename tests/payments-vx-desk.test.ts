@@ -11,6 +11,7 @@ import {
 import {
   composeReference,
   composeRemarks,
+  deskChips,
   deskProblems,
   deskTotals,
   isDueOn,
@@ -102,6 +103,26 @@ describe("helper chips only fill the amount", () => {
     const chips = helperChips(LEDGER, TODAY, { waiveLate: true });
     expect(chips.map((c) => c.amount)).toEqual([6450, 13700, 20950]);
     expect(chips.some((c) => c.withLate)).toBe(false);
+  });
+
+  // The approved design's set (PayDesk `fm.chips`): overdue fees, the first
+  // unpaid installment's balance, up to the installment after it, whole year.
+  it("offers the design's four chips, each with the late fee the ledger will take", () => {
+    const chips = deskChips(LEDGER, TODAY, { waiveLate: false });
+    expect(chips.map((c) => [c.kind, "installmentNo" in c ? c.installmentNo : null, c.amount])).toEqual([
+      ["overdue", null, 7450],
+      ["installment", 2, 6250],
+      ["upto", 3, 14700],
+      ["year", null, 21950],
+    ]);
+    expect(chips.every((c) => c.withLate)).toBe(true);
+  });
+
+  it("drops the late fee from the design chips while waiving, and never offers a figure twice", () => {
+    expect(deskChips(LEDGER, TODAY, { waiveLate: true }).map((c) => c.amount)).toEqual([6450, 5250, 13700, 20950]);
+    const onlyOld = [row({ id: "old", installmentNo: 0, isCarryForward: true, dueDate: "2026-04-01", feesPending: 1200 })];
+    expect(deskChips(onlyOld, TODAY, { waiveLate: false }).map((c) => [c.kind, c.amount])).toEqual([["overdue", 1200]]);
+    expect(deskChips([], TODAY, { waiveLate: false })).toEqual([]);
   });
 });
 

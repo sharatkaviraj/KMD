@@ -151,8 +151,8 @@ test("collector phone reviews partial/full, posts exactly once, and opens the pe
   await enter(page, 1000, "cash");
   await page.getByRole("button", { name: label(W.review) }).tap();
   expect((await state()).receipts).toHaveLength(0);
-  await page.getByRole("button", { name: label(W.backToForm) }).tap();
-  await expect(page.locator(".pd-amt input")).toHaveValue("1000");
+  await page.getByRole("button", { name: label(W.change) }).tap();
+  await expect(page.locator(".pd-amt input")).toHaveValue("1,000");
   await page.getByRole("button", { name: label(W.review) }).tap();
   await confirmTwice(page, false);
   await expect.poll(() => transport.intercepted || transport.failure !== null, { timeout: 30_000 }).toBe(true);

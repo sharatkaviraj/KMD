@@ -115,6 +115,8 @@ export type BulkBoot = {
   modes: DeskMode[];
   canBulk: boolean;
   me: string;
+  /** Today's receipts for the top bar's pill; null when the total could not be read. */
+  todayCollection?: { count: number; amount: number } | null;
 };
 
 export type BulkServerRow = {

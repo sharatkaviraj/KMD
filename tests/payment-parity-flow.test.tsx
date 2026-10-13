@@ -36,44 +36,46 @@ afterEach(async () => { await act(async () => root.unmount()); document.body.rep
 it("allows received-by and concession edits and keeps them on Back without posting on Review", async () => {
   await render(); await input("#pd-amount", "500"); await input("#pd-received-by", "TEST Other Cashier"); await input("#pd-concession", "200");
   await click("Review"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
-  expect(host.textContent).toContain("TEST Other Cashier"); expect(host.textContent).toContain("Concession");
-  await click("Back —"); expect(host.querySelector<HTMLInputElement>("#pd-received-by")!.value).toBe("TEST Other Cashier");
-  await click("Review"); await click("Confirm and save");
+  // The review is the design's confirm sheet, drawn in #vx-layer beside the page.
+  const review = document.querySelector("[role=dialog]")!.textContent;
+  expect(review).toContain("TEST Other Cashier"); expect(review).toContain("Concession");
+  await click("Change"); expect(host.querySelector<HTMLInputElement>("#pd-received-by")!.value).toBe("TEST Other Cashier");
+  await click("Review"); await click("Save payment");
   expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 500, quickDiscountAmount: 200, receivedBy: "TEST Other Cashier" });
   expect(actions.sendReceiptWhatsappAction).not.toHaveBeenCalled();
 });
 it("recovers the original unresolved request after student switch and reload", async () => {
   actions.postDeskPaymentAction.mockRejectedValue(new Error("TEST dropped response"));
-  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   const original = actions.postDeskPaymentAction.mock.calls[0][0];
   await click("TEST Child B"); expect(host.textContent).toContain("unfinished payment");
   await act(async () => root.unmount()); root = createRoot(host); await render();
-  expect(host.textContent).toContain("could not confirm whether this payment was saved");
+  expect(document.body.textContent).toContain("could not confirm whether this payment was saved");
   actions.checkDeskPaymentAction.mockResolvedValue({ status: "not_saved" }); await click("Check whether");
-  await click("Confirm and save"); expect(actions.postDeskPaymentAction.mock.calls[1][0]).toEqual(original);
+  await click("Save payment"); expect(actions.postDeskPaymentAction.mock.calls[1][0]).toEqual(original);
 });
 it("does not permit fractional cash or a reference-only review to post", async () => {
   await render(); await input("#pd-amount", "123.50"); await click("Review");
-  expect(actions.postDeskPaymentAction).not.toHaveBeenCalled(); expect(host.querySelector("#pd-review-title")).toBeNull();
+  expect(actions.postDeskPaymentAction).not.toHaveBeenCalled(); expect(document.querySelector("[role=dialog]")).toBeNull();
   expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).toBe("123.50");
 });
 it("blocks collection until the selected date's authoritative dues arrive", async () => {
   let resolve!: (value: { ok: true; rows: typeof student.rows }) => void;
   actions.loadDeskPreviewAction.mockReturnValue(new Promise(yes => { resolve = yes; }));
   await render(); await click("Yesterday");
-  expect([...host.querySelectorAll<HTMLButtonElement>("button")].find(b => b.textContent === "Review payment")!.disabled).toBe(true);
+  expect([...host.querySelectorAll<HTMLButtonElement>("button")].find(b => b.textContent?.trim() === "Review & save")!.disabled).toBe(true);
   expect(actions.loadDeskPreviewAction).toHaveBeenCalledWith({ studentId: STUDENT_ID, sessionLabel: boot.sessionLabel, paymentDate: "2026-10-10" });
   await act(async () => resolve({ ok: true, rows: student.rows.map(r => ({ ...r, lateFeePending: 0 })) }));
-  await input("#pd-amount", "4100"); await click("Review"); expect(host.querySelector("#pd-review-title")).toBeNull();
-  await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await input("#pd-amount", "4100"); await click("Review"); expect(document.querySelector("[role=dialog]")).toBeNull();
+  await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ paymentDate: "2026-10-10", lateFeeWaiver: 0 });
 });
 it("does not send money when recovery storage cannot be confirmed", async () => {
   await render(); await input("#pd-amount", "500"); await click("Review");
   const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Synthetic blocked storage"); });
-  await click("Confirm and save"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
+  await click("Save payment"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
   expect(host.textContent).toContain("Payment saving is paused because recovery storage");
-  spy.mockRestore(); await click("Retry recovery"); await click("Confirm and save");
+  spy.mockRestore(); await click("Retry recovery"); await click("Save payment");
   expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
 });
 
@@ -82,19 +84,19 @@ it("blocks an unsupported browser persistently, then retries when support is res
   await render(); expect(host.textContent).toContain("Payment saving is paused because this browser");
   await click("Review"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
   Object.defineProperty(navigator, "locks", { configurable: true, value: { request: async (_key: string, work: () => Promise<unknown>) => work() } });
-  await click("Retry recovery"); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await click("Retry recovery"); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
 });
 
 it("does not keep a previous collector's attempt on an in-place identity change", async () => {
   actions.postDeskPaymentAction.mockRejectedValue(new Error("TEST dropped response"));
-  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   const original = actions.postDeskPaymentAction.mock.calls[0][0];
   await render({ boot: { ...boot, me: { ...boot.me, id: "qa-other-owner" } } });
   expect(host.textContent).not.toContain("could not confirm whether this payment was saved");
   expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).not.toBe("500");
   expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
-  await render(); expect(host.textContent).toContain("could not confirm whether this payment was saved");
+  await render(); expect(document.body.textContent).toContain("could not confirm whether this payment was saved");
   expect((await readPaymentAttempt(paymentAttemptKey("qa-owner", boot.sessionLabel), boot.sessionLabel))?.input).toEqual(original);
 });
 
@@ -110,7 +112,7 @@ it("invalidates an in-flight write before posting when the collector changes and
   await render(); await input("#pd-amount", "500"); await click("Review");
   let release!: () => Promise<unknown>;
   Object.defineProperty(navigator, "locks", { configurable: true, value: { request: (key: string, work: () => Promise<unknown>) => key.includes("qa-owner") ? new Promise(resolve => { release = async () => resolve(await work()); }) : new Promise(() => undefined) } });
-  await click("Confirm and save");
+  await click("Save payment");
   await render({ boot: { ...boot, me: { ...boot.me, id: "qa-other-owner" } } });
   await act(async () => { await release(); });
   expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
@@ -120,7 +122,7 @@ it("invalidates an in-flight write before posting when the collector changes and
 it("does not apply an old collector's save response while the new scope restoration is blocked", async () => {
   let release!: (value: unknown) => void;
   actions.postDeskPaymentAction.mockReturnValue(new Promise(resolve => { release = resolve; }));
-  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   Object.defineProperty(navigator, "locks", { configurable: true, value: { request: () => new Promise(() => undefined) } });
   await render({ boot: { ...boot, me: { ...boot.me, id: "qa-other-owner" } } });
   await act(async () => release({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null }));
@@ -130,7 +132,7 @@ it("does not apply an old collector's save response while the new scope restorat
 
 it("does not apply an old collector's check response while the new scope restoration is blocked", async () => {
   actions.postDeskPaymentAction.mockRejectedValue(new Error("TEST dropped response"));
-  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   let release!: (value: unknown) => void;
   actions.checkDeskPaymentAction.mockReturnValue(new Promise(resolve => { release = resolve; }));
   await click("Check whether");
@@ -148,23 +150,23 @@ it("refreshes daily collection totals when the session changes in place", async 
 });
 it("keeps preview and closed-session collection read-only", async () => {
   await render({ previewing: true }); await input("#pd-amount", "500"); await click("Review");
-  expect(host.querySelector("#pd-review-title")).toBeNull(); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
+  expect(document.querySelector("[role=dialog]")).toBeNull(); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
   await render({ boot: { ...boot, canPost: false } }); await click("Review"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
 });
 it("uses the EMI shortcuts and disables concession on an active plan", async () => {
   await render({ initialStudent: { ok: true, student: { ...student, onPlan: true, repaymentPlan: { planId: STUDENT_ID, scope: "old_and_current", paymentStatus: "on_track", monthlyAmount: 1000, remainingBalance: 3000, catchUpAmount: 2000, nextDueDate: "2026-11-01", nextDueAmount: 1000, missedInstallmentCount: 0, planReviewNeeded: false, coveredInstallmentIds: student.rows.map(r => r.id), duesOutsidePlan: null, duesOutsidePlanAmount: 0 } } } });
   expect(host.querySelector<HTMLInputElement>("#pd-concession")!.disabled).toBe(true);
-  await click("Monthly EMI"); expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).toBe("1000");
-  await click("Review"); await click("Confirm and save"); expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 1000, quickDiscountAmount: 0, lateFeeWaiver: 0 });
+  await click("Monthly EMI"); expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).toBe("1,000");
+  await click("Review"); await click("Save payment"); expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 1000, quickDiscountAmount: 0, lateFeeWaiver: 0 });
 });
 
 it("uses authoritative collection totals after a restored request is retried", async () => {
   actions.postDeskPaymentAction.mockRejectedValueOnce(new Error("TEST request never reached server"));
-  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Confirm and save");
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   await act(async () => root.unmount()); root = createRoot(host); await render();
   actions.checkDeskPaymentAction.mockResolvedValue({ status: "not_saved" }); await click("Check whether");
   actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, todayCollection: { count: 1, amount: 500 } });
-  await click("Confirm and save"); expect(host.textContent).toContain("1 receipt");
+  await click("Save payment"); expect(host.textContent).toContain("1 receipt");
 });
 
 it("retains a waiver-bearing attempt when opening an unrelated duplicate receipt", async () => {
@@ -174,7 +176,7 @@ it("retains a waiver-bearing attempt when opening an unrelated duplicate receipt
   actions.checkDeskPaymentAction.mockResolvedValue({ status: "not_saved" }); await click("Check whether");
   actions.postDeskPaymentAction.mockResolvedValue({ status: "duplicate", kind: "daily-amount", receiptId: receipt.id, receiptNumber: receipt.receiptNumber, createdAt: receipt.createdAt, amount: 500, mode: "cash", message: "TEST unrelated duplicate" });
   actions.loadReceiptAction.mockResolvedValue(receipt);
-  await click("Confirm and save"); await click("Open that receipt");
+  await click("Save payment"); await click("Open that receipt");
   expect(await readPaymentAttempt(key, boot.sessionLabel)).toEqual(pending);
-  expect(host.textContent).toContain("could not confirm whether this payment was saved");
+  expect(document.body.textContent).toContain("could not confirm whether this payment was saved");
 });
