@@ -1,0 +1,95 @@
+/*
+ * School calendar: the design module's own classes (design/src/Calendar.dc.html,
+ * `.k-*`), renamed `.cal-*`. `:is(.vx,.vxt)` so the sheets in #vx-layer get them
+ * too, at a specificity that beats the kit's `.btn` sizes.
+ */
+
+:is(.vx,.vxt) .cal-r { display: flex; align-items: center; }
+:is(.vx,.vxt) .cal-c { display: flex; flex-direction: column; }
+:is(.vx,.vxt) .cal-f { flex: 1; min-width: 0; }
+:is(.vx,.vxt) .cal-w { flex-wrap: wrap; }
+:is(.vx,.vxt) .cal-sp { justify-content: space-between; }
+:is(.vx,.vxt) .cal-st { align-items: flex-start; }
+:is(.vx,.vxt) .cal-m { font-size: 12px; color: var(--mut); }
+:is(.vx,.vxt) .cal-m3 { font-size: 13px; color: var(--mut); }
+:is(.vx,.vxt) .cal-t { font-size: 14px; font-weight: 600; }
+:is(.vx,.vxt) .cal-h { font-size: 15px; font-weight: 700; }
+:is(.vx,.vxt) .cal-tt { font-family: var(--font-display), 'Source Serif 4', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.2; margin: 0; }
+:is(.vx,.vxt) .cal-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(.vx,.vxt) .cal-i { display: flex; align-items: center; justify-content: center; flex: none; }
+:is(.vx,.vxt) .cal-b { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+:is(.vx,.vxt) .cal-x { padding: 10px 12px; border-radius: 14px; background: var(--s2); }
+:is(.vx,.vxt) .cal-pg { padding: 22px 28px 32px; }
+:is(.vx,.vxt) .cal-2 { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; max-width: 1180px; }
+:is(.vx,.vxt) .cal-wa { background: var(--wabg); border-radius: 16px; padding: 14px 12px; }
+:is(.vx,.vxt) .cal-bu { max-width: 94%; margin-left: auto; background: var(--wab); color: var(--wafg); border-radius: 14px 4px 14px 14px; padding: 10px 12px 6px; font-size: 13.5px; line-height: 1.5; box-shadow: 0 1px 1px rgba(0,0,0,.1); animation: xIn .3s var(--ease) both; white-space: pre-wrap; }
+:is(.vx,.vxt) .cal-bu > div + div { margin-top: 8px; }
+:is(.vx,.vxt) .cal-bu > .cal-tm { margin-top: 0; text-align: right; font-size: 11px; opacity: .7; display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
+:is(.vx,.vxt) .cal-in { animation: xIn .32s var(--ease) both; }
+:is(.vx,.vxt) .cal-ib { width: 40px; height: 40px; padding: 0; }
+:is(.vx,.vxt) .cal-sq { width: 38px; height: 38px; padding: 0; }
+:is(.vx,.vxt) .cal-sm { height: 36px; padding: 0 11px; font-size: 13px; }
+:is(.vx,.vxt) .cal-sb { position: sticky; bottom: 0; z-index: 3; padding: 10px 16px; border-top: 1px solid var(--bd); }
+:is(.vx,.vxt) .cal-sw { display: flex; align-items: center; gap: 12px; min-height: 54px; width: 100%; padding: 8px 14px; border-radius: 14px; border: 1px solid var(--bd); background: var(--card); color: var(--fg); text-align: left; font: inherit; }
+:is(.vx,.vxt) .cal-d { padding: 14px; border-radius: 14px; border: 1.5px dashed var(--bds); font-size: 13px; color: var(--mut); text-align: center; }
+:is(.vx,.vxt) .cal-a { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; font-weight: 700; font-size: 12px; }
+:is(.vx,.vxt) .cal-ic { width: 36px; height: 36px; border-radius: 11px; }
+:is(.vx,.vxt) .cal-ev { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 14px; text-align: left; color: var(--fg); }
+:is(.vx,.vxt) .cal-rw { border: 0; border-top: 1px solid var(--bd); border-radius: 0; background: transparent; padding: 10px 8px; }
+:is(.vx,.vxt) .cal-tc { flex: none; width: 68px; display: flex; flex-direction: column; font-size: 12px; color: var(--mut); }
+:is(.vx,.vxt) .cal-tc > b { font-size: 13px; color: var(--fg); }
+:is(.vx,.vxt) .cal-b4 { flex: none; width: 4px; align-self: stretch; border-radius: 2px; }
+:is(.vx,.vxt) .cal-dot { flex: none; width: 10px; height: 10px; border-radius: 5px; }
+:is(.vx,.vxt) .cal-kv { font-size: 24px; font-weight: 700; }
+:is(.vx,.vxt) .cal-cap { font-size: 11px; font-weight: 700; color: var(--mut); text-transform: uppercase; letter-spacing: .05em; }
+:is(.vx,.vxt) .cal-pl { height: 26px; padding: 0 10px; font-size: 12px; }
+:is(.vx,.vxt) .cal-i15 { width: 15px; height: 15px; }
+
+/* The view switch: the kit's `.seg`, with links for buttons (every state is a URL). */
+:is(.vx,.vxt) .cal-seg > a { position: relative; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--mut); transition: color .2s ease; }
+:is(.vx,.vxt) .cal-seg > a.on { color: var(--fg); }
+:is(.vx,.vxt) .cal-seg > button { padding: 0 6px; white-space: nowrap; }
+
+/* Month grid */
+:is(.vx,.vxt) .cal-g7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+:is(.vx,.vxt) .cal-mg { overflow: hidden; }
+:is(.vx,.vxt) .cal-gl { gap: 1px; background: var(--bd); }
+:is(.vx,.vxt) .cal-wd { padding: 8px 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; background: var(--s2); }
+:is(.vx,.vxt) .cal-cell { min-height: 98px; padding: 6px 6px 8px; display: flex; flex-direction: column; gap: 3px; border: 0; border-radius: 0; background: var(--kb); box-shadow: var(--kr); color: var(--fg); text-align: left; min-width: 0; }
+:is(.vx,.vxt) .cal-ct { display: flex; align-items: center; justify-content: space-between; }
+:is(.vx,.vxt) .cal-num { width: 26px; height: 26px; border-radius: 13px; font-size: 13px; background: var(--knb); color: var(--knf); box-shadow: var(--knr); }
+:is(.vx,.vxt) .cal-bar { height: 20px; padding: 0 6px; font-size: 11.5px; font-weight: 600; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:is(.vx,.vxt) .cal-bar > span { overflow: hidden; text-overflow: ellipsis; }
+:is(.vx,.vxt) .cal-dots { display: none; gap: 3px; height: 5px; }
+:is(.vx,.vxt) .cal-dots > span { width: 5px; height: 5px; border-radius: 3px; }
+
+/* The month's two panes: the grid, and the day beside it (under it on a phone). */
+:is(.vx,.vxt) .cal-month { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; align-content: start; }
+:is(.vx,.vxt) .cal-aside { position: sticky; top: 64px; height: calc(100dvh - 64px); overflow-y: auto; border-left: 1px solid var(--bd); background: var(--bg); }
+
+/* Sheet foot (Calendar `.k-sf`): the count and cost over the two buttons. */
+:is(.vx,.vxt) .cal-sf { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+
+/* A day's heading in the agenda sticks under the top bar. */
+:is(.vx,.vxt) .cal-gh { position: sticky; top: 64px; z-index: 2; border: 0; border-bottom: 1px solid var(--bd); color: var(--fg); text-align: left; }
+
+@container vx (max-width: 899px) {
+  .vx .cal-mg { padding: 4px 2px 8px; }
+  .vx .cal-wd { padding: 6px 0; text-align: center; background: none; }
+  .vx .cal-gl { gap: 0; background: none; }
+  .vx .cal-cell { min-height: 0; height: 50px; padding: 0; align-items: center; justify-content: center; background: var(--card); box-shadow: none; }
+  .vx .cal-ct { justify-content: center; }
+  .vx .cal-num { width: 34px; height: 34px; border-radius: 17px; font-size: 15px; background: var(--kmb); color: var(--kmf); box-shadow: var(--kmr); }
+  .vx .cal-bar, .vx .cal-cb { display: none; }
+  .vx .cal-dots { display: flex; }
+  .vx .cal-pg { padding-top: 16px; }
+  .vx .cal-kv { font-size: 20px; }
+  .vx .cal-month { grid-template-columns: minmax(0, 1fr); }
+  .vx .cal-aside { position: static; height: auto; border-left: 0; border-top: 1px solid var(--bd); overflow: visible; }
+  .vx .cal-2 { grid-template-columns: minmax(0, 1fr); }
+  .vx .cal-gh { top: 58px; }
+  .vx .cal-sb { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 899px) {
+  .vxt .cal-2 { grid-template-columns: minmax(0, 1fr); }
+}
