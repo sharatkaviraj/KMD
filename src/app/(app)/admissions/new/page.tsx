@@ -49,26 +49,21 @@ export default async function NewAdmissionPage(props: PageProps<"/admissions/new
     const missingDocs = (["birth", "photo", "aadhaar"] as const).filter((k) => docs[k] !== true).map((k) => DOC_SHORT[k]);
     return (
       <VxPage>
-        <TopBar crumb={lead({ en: "Students · Admissions", hi: "विद्यार्थी · दाख़िले" }, lang)} title={lead({ en: "Student added", hi: "विद्यार्थी जुड़ गया" }, lang)} mBack="/admissions" />
-        <main>
-          <Section>
-            <AdmissionDone
-              info={{
-                studentId: student.id,
-                name: student.fullName,
-                classLabel: student.classLabel,
-                sr: student.admissionNo,
-                fatherName: student.fatherName,
-                phone: student.fatherPhone ?? student.motherPhone,
-                savedBy: staff.displayName,
-                pendingToday: dues.pendingToday,
-                notDueYet: dues.notDueYet,
-                missingDocs,
-                schoolName: schoolProfile.name,
-              }}
-            />
-          </Section>
-        </main>
+        <AdmissionDone
+          info={{
+            studentId: student.id,
+            name: student.fullName,
+            classLabel: student.classLabel,
+            sr: student.admissionNo,
+            fatherName: student.fatherName,
+            phone: student.fatherPhone ?? student.motherPhone,
+            savedBy: staff.displayName,
+            pendingToday: dues.pendingToday,
+            notDueYet: dues.notDueYet,
+            missingDocs,
+            schoolName: schoolProfile.name,
+          }}
+        />
       </VxPage>
     );
   }

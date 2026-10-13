@@ -5,6 +5,13 @@ import { CreatedSheet, StaffScreen } from "@/vx/screens/staff/staff-screen";
 import { matrixFromRows, type Matrix } from "@/vx/screens/staff/domain/matrix";
 import type { StaffRow } from "@/vx/screens/staff/domain/people";
 import type { StaffEvent } from "@/vx/screens/staff/data";
+import type { DuplicateHit } from "@/app/(app)/admissions/actions";
+import { AdmissionsListScreen, type AdmittedCard, type BoardCard, type Kpis, type RecentRow } from "@/vx/screens/admissions/board";
+import { AdmissionDone } from "@/vx/screens/admissions/done";
+import type { FamilyCard, Stage } from "@/vx/screens/admissions/logic";
+import { StudentRecord, type RecordProps } from "@/vx/screens/admissions/record";
+import { AdmissionWizard, DuplicateSheet, SiblingSheet, type WizardContext, type WizardPrefill } from "@/vx/screens/admissions/wizard";
+import { VxPage } from "@/vx/ui/page";
 
 import type { DesignView } from "../design.fixture";
 
@@ -34,7 +41,10 @@ function Steps({ children, clicks }: { children: ReactNode; clicks: string[] }) 
         window.clearInterval(timer);
         return;
       }
-      const el = document.querySelector<HTMLElement>(selector);
+      // "text=Change class" finds the first button whose text is exactly that.
+      const el = selector.startsWith("text=")
+        ? [...document.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.trim() === selector.slice(5))
+        : document.querySelector<HTMLElement>(selector);
       if (el) {
         el.click();
         i += 1;
@@ -173,6 +183,174 @@ const staffViews: Record<string, DesignView> = {
   "M-Staff-Reset": { path: "/staff", render: () => staff({ initialId: staffId("solanki"), initialSheet: "reset" }) },
 };
 
+/* =========================================================== Admissions */
+
+const CL: [string, number, number, number][] = [
+  ["Nursery", 18, 25, 17400], ["LKG", 20, 25, 17400], ["UKG", 22, 25, 17400], ["Class 1", 23, 30, 20400], ["Class 2", 25, 30, 20400],
+  ["Class 3", 24, 30, 20400], ["Class 4", 29, 30, 20400], ["Class 5", 26, 30, 20400], ["Class 6", 31, 31, 25800], ["Class 7", 27, 35, 25800],
+  ["Class 8", 28, 35, 25800], ["Class 9", 28, 35, 31200], ["Class 10", 30, 35, 31200], ["11 Science", 22, 30, 38400], ["11 Commerce", 18, 25, 34800],
+  ["11 Arts", 14, 20, 34800], ["12 Science", 20, 25, 38400], ["12 Commerce", 17, 20, 34800], ["12 Arts", 12, 15, 34800],
+];
+const classId = (label: string) => `cls-${label.toLowerCase().replace(/\s+/g, "-")}`;
+const wizardCtx: WizardContext = {
+  sessionLabel: "2026-27",
+  classes: CL.map(([label, onRoll, seats, tuition]) => ({ id: classId(label), label, onRoll, seats, tuition })),
+  routes: [["r1", "Route 1", 7200], ["r2", "Route 2", 8400], ["r3", "Route 3", 9600], ["r4", "Route 4", 10800]].map(([id, label, annual]) => ({ id: id as string, label: label as string, annual: annual as number })),
+  policies: [
+    { id: "pol-staff", code: "staff_child", label: "Staff child", calculationType: "tuition_percentage", percentage: 50, fixedTuitionAmount: null },
+    { id: "pol-rte", code: "rte", label: "RTE seat", calculationType: "tuition_zero", percentage: null, fixedTuitionAmount: null },
+    { id: "pol-third", code: "third_child", label: "Third child", calculationType: "tuition_percentage", percentage: 50, fixedTuitionAmount: null },
+  ],
+  schedule: [["Installment 1", "2026-07-15"], ["Installment 2", "2026-09-15"], ["Installment 3", "2026-11-15"], ["Installment 4", "2027-01-15"]].map(([label, dueDate]) => ({ label, dueDate })),
+  distribution: "equal",
+  newAcademicFee: 1200,
+  oldAcademicFee: 600,
+  lateFee: 1000,
+  today: "2026-10-08",
+  nextSr: "1433",
+};
+
+const regar: FamilyCard = { key: "regar", father: "Mukesh Regar", mother: "Sunita Regar", phone: "9829041733", village: "Amet", address: "Near bus stand, Ward 4", kids: [{ id: "kid-priya", name: "Priya Regar", classLabel: "Class 5" }] };
+const regar2: FamilyCard = { key: "regar2", father: "Kailash Regar", mother: "Geeta Regar", phone: "9829046120", village: "Kelwa", address: "Regar Mohalla", kids: [{ id: "kid-mohit", name: "Mohit Regar", classLabel: "Class 8" }] };
+
+const ishaan: WizardPrefill = {
+  enquiryId: "enq-ishaan",
+  fullName: "Ishaan Regar",
+  classId: classId("Class 2"),
+  fatherName: "Mukesh Regar",
+  phone: "9829041733",
+  nameHi: "ईशान रेगर",
+  dob: "21-08-2019",
+  gender: "Male",
+  previousSchool: "Bal Vidya Mandir, Rajsamand",
+  motherName: "Sunita Regar",
+  address: "Near bus stand, Ward 4",
+  village: "Amet",
+};
+const kavya: WizardPrefill = { enquiryId: "enq-kavya", fullName: "Kavya Sen", classId: classId("Class 2"), fatherName: "Manish Sen", phone: "9829047730", dob: "14-03-2019", gender: "Female", motherName: "Rekha Sen", address: "Sen Mohalla", village: "Amet" };
+
+const wizard = (prefill: WizardPrefill, step: number) => (
+  <VxPage>
+    <AdmissionWizard ctx={wizardCtx} prefill={prefill} initialStep={step} />
+  </VxPage>
+);
+
+const P = (id: string, stage: Stage, name: string, cls: string, parent: string, days: number): BoardCard => ({ id, stage, name, classLabel: cls, parent, phone: "9829040000", days });
+const boardCards: BoardCard[] = [
+  P("advik", "enquiry", "Advik Sen", "UKG", "Pankaj Sen", 2), P("myra", "enquiry", "Myra Kumawat", "Class 1", "Suresh Kumawat", 5), P("reyansh", "enquiry", "Reyansh Chouhan", "Class 7", "Dilip Chouhan", 1),
+  P("kiara", "enquiry", "Kiara Rawal", "LKG", "Naveen Rawal", 9), P("laksh", "enquiry", "Laksh Gurjar", "Class 9", "Bhagwan Gurjar", 3),
+  P("aadhya", "visited", "Aadhya Bhati", "Nursery", "Mahendra Bhati", 4), P("vihaan", "visited", "Vihaan Jain", "Class 3", "Sandeep Jain", 2), P("prisha", "visited", "Prisha Dave", "11 Commerce", "Hitesh Dave", 6),
+  P("rudransh", "visited", "Rudransh Solanki", "Class 7", "Gajendra Solanki", 1),
+  P("ishaan", "form", "Ishaan Regar", "Class 2", "Mukesh Regar", 3), P("kavya2", "form", "Kavya Sen", "Class 2", "Manish Sen", 8), P("tanishka", "form", "Tanishka Meena", "Class 8", "Ramesh Meena", 2),
+];
+const recentRows: RecentRow[] = (
+  [
+    ["dhruv", "Dhruv Meena", "Class 9", "1432", "Wed, 7 Oct", "ok", "pending", "pending"],
+    ["anvi", "Anvi Kothari", "UKG", "1431", "Mon, 5 Oct", "ok", "na", "ok"],
+    ["kartik", "Kartik Purohit", "Class 6", "1430", "Sat, 3 Oct", "ok", "pending", "ok"],
+    ["kavya", "Kavya Sen", "Class 2", "1429", "Fri, 2 Oct", "ok", "ok", "pending"],
+    ["siya", "Siya Chouhan", "Class 4", "1427", "Tue, 29 Sept", "pending", "ok", "pending"],
+    ["devansh", "Devansh Trivedi", "11 Science", "1424", "Sat, 12 Sept", "ok", "pending", "ok"],
+  ] as const
+).map(([id, name, cls, sr, date, birth, tc, photo]) => ({ id, name, classLabel: cls, sr, date, isNew: false, docs: { birth, tc, photo } }));
+const admissionKpis: Kpis = {
+  newCount: 64,
+  openEnquiries: 12,
+  waitingWeek: 2,
+  docsPending: 7,
+  seatsLeft: 97,
+  seatsEditable: true,
+  bands: [{ short: "Pre", left: 15, cap: 75 }, { short: "1–5", left: 23, cap: 150 }, { short: "6–8", left: 15, cap: 101 }, { short: "9–10", left: 12, cap: 70 }, { short: "11–12", left: 32, cap: 135 }],
+};
+const admittedCards: AdmittedCard[] = [
+  { id: "dhruv", name: "Dhruv Meena", classLabel: "Class 9", parent: "Ramesh Meena", sr: "1432" },
+  { id: "anvi", name: "Anvi Kothari", classLabel: "UKG", parent: "Vivek Kothari", sr: "1431" },
+  { id: "kartik", name: "Kartik Purohit", classLabel: "Class 6", parent: "Hemant Purohit", sr: "1430" },
+];
+const admissionsList = () => <AdmissionsListScreen sessionLabel="2026–27" kpis={admissionKpis} cards={boardCards} admitted={admittedCards} recent={recentRows} classLabels={CL.map((c) => c[0])} />;
+
+const kavyaHit: DuplicateHit = { id: "stu-kavya", fullName: "Kavya Sen", fatherName: "Manish Sen", dateOfBirth: "2019-03-14", phone: "9829047730", admissionNo: "1429", classLabel: "Class 2", createdAt: "2026-10-02T10:00:00+05:30" };
+
+const recordBase: RecordProps = {
+  studentId: "stu-devansh",
+  sessionLabel: "2026-27",
+  sr: "1424",
+  classLabel: "11 Science",
+  status: "active",
+  leftOn: null,
+  tcNumber: null,
+  admittedOn: "2026-09-12",
+  initial: { fullName: "Devansh Trivedi", nameHi: "देवांश त्रिवेदी", dob: "05-02-2011", gender: "Male", fatherName: "Alok Trivedi", motherName: "Meenakshi Trivedi", fatherPhone: "9829040861", motherPhone: "", address: "Station Road", villageCity: "Kelwa", previousSchool: "", classId: classId("11 Science"), transportRouteId: "r2" },
+  docs: { birth: true, photo: true },
+  classes: CL.map(([label]) => ({ id: classId(label), label })),
+  routes: wizardCtx.routes.map((r) => ({ id: r.id, label: r.label })),
+  history: [
+    { at: "2026-10-06T11:20:00+05:30", action: "update", changed: ["Phone"] },
+    { at: "2026-09-14T09:05:00+05:30", action: "update", changed: ["Bus"] },
+    { at: "2026-09-12T12:40:00+05:30", action: "insert", changed: [] },
+  ],
+  dues: { pendingToday: 0, notDueYet: 19200, lateFeePending: 0 },
+  today: "2026-10-08",
+  schoolName: "Shri Veer Patta Senior Secondary School",
+  mode: "edit",
+};
+const yuvraj: RecordProps = {
+  ...recordBase,
+  studentId: "stu-yuvraj",
+  sr: "1258",
+  classLabel: "Class 6",
+  admittedOn: "2023-04-03",
+  initial: { ...recordBase.initial, fullName: "Yuvraj Gurjar", nameHi: "युवराज गुर्जर", dob: "11-12-2014", fatherName: "Bhanwar Gurjar", motherName: "Santosh Gurjar", fatherPhone: "9829044617", villageCity: "Kunwariya", classId: classId("Class 6"), transportRouteId: "r4" },
+  dues: { pendingToday: 4200, notDueYet: 17400, lateFeePending: 0 },
+  mode: "withdraw",
+};
+
+const admissionViews: Record<string, DesignView> = {
+  Admissions: { path: "/admissions", render: admissionsList },
+  "M-Admissions": { path: "/admissions", render: admissionsList },
+  "DX-Admissions-Add": { path: "/admissions/new", render: () => wizard(ishaan, 1) },
+  "M-Admissions-Student": { path: "/admissions/new", render: () => wizard(ishaan, 1) },
+  "DX-Admissions-Fees": { path: "/admissions/new", render: () => wizard({ ...ishaan, routeId: "r1", linked: regar }, 3) },
+  "DX-Admissions-Duplicate": {
+    path: "/admissions/new",
+    render: () => (
+      <>
+        {wizard(kavya, 2)}
+        <DuplicateSheet open hits={[kavyaHit]} adding={{ name: "Kavya Sen", father: "Manish Sen", dob: "2019-03-14", cls: "Class 2", phone: "9829047730" }} onClose={() => undefined} onDifferent={() => undefined} onOpen={() => undefined} />
+      </>
+    ),
+  },
+  "M-Admissions-Sibling": {
+    path: "/admissions/new",
+    render: () => (
+      <>
+        {wizard(ishaan, 2)}
+        <SiblingSheet open childName="Ishaan Regar" initialQuery="Regar" initialHits={[regar, regar2]} initialSel="regar" onClose={() => undefined} onLink={() => undefined} />
+      </>
+    ),
+  },
+  "M-Admissions-Done": {
+    path: "/admissions/new",
+    render: () => (
+      <VxPage>
+        <AdmissionDone info={{ studentId: "stu-ishaan", name: "Ishaan Regar", classLabel: "Class 2", sr: "1433", fatherName: "Mukesh Regar", phone: "9829041733", savedBy: "Janmejay Singh", pendingToday: 10980, notDueYet: 11580, missingDocs: [], schoolName: "Shri Veer Patta Senior Secondary School", savedAt: "2026-10-08T11:40:00+05:30" }} />
+      </VxPage>
+    ),
+  },
+  "M-Admissions-Edit": {
+    path: "/admissions",
+    render: () => (
+      <Steps clicks={["text=Change class", "text=11 Commerce"]}>
+        <VxPage>
+          <StudentRecord {...recordBase} />
+        </VxPage>
+      </Steps>
+    ),
+  },
+  "DX-Admissions-Withdraw": { path: "/admissions", render: () => <VxPage><StudentRecord {...yuvraj} /></VxPage> },
+};
+
 export const views: Record<string, DesignView> = {
   ...staffViews,
+  ...admissionViews,
 };
