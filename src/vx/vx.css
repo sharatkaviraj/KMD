@@ -221,3 +221,6 @@
    no bar — none at all, or a phone that hides it for its own hero — they go back to the top. */
 .vx-main:not(:has(.vx-ctop)){--vx-ctop-h:0px}
 @media (max-width:899px){.vx-main:has(.vx-ctop.phone-hide),.vx-main:has(.vx-ctop .vx-ctop-act:not(.phone-hide)){--vx-ctop-h:0px}}
+/* The phone bottom bar's height, for anything that sits on it (phone action bars). */
+:root{--vx-bottom-h:calc(76px + env(safe-area-inset-bottom))}
+@media (min-width:900px){:root{--vx-bottom-h:0px}}

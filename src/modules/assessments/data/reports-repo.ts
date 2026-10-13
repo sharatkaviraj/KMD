@@ -516,6 +516,12 @@ export type TermSummary = {
   term: string;
   totals: ReturnType<typeof totalsFor>;
   grade: string | null;
+  /**
+   * The same papers by subject, for the student card's bars. Plain sums of
+   * what was written (no weighting), so a bar can be checked against the
+   * report card by hand; `percent` is null when nothing is written yet.
+   */
+  subjects: { subjectId: string; en: string; hi: string; scored: number; outOf: number; percent: number | null; state: "value" | "absent" | "exempt" | "blank" }[];
 };
 
 /**
@@ -551,7 +557,14 @@ export async function termSummaries(
 
   if (papers.length === 0) return [];
 
-  const marks = await marksForPapers(papers.map((paper) => paper.id));
+  const [marks, subjectRows] = await Promise.all([
+    marksForPapers(papers.map((paper) => paper.id)),
+    admin
+      .from("subjects")
+      .select("id, name_en, name_hi, sort_order")
+      .returns<{ id: string; name_en: string | null; name_hi: string | null; sort_order: number | null }[]>(),
+  ]);
+  const subjectOf = new Map((subjectRows.data ?? []).map((row) => [row.id, row]));
   const termOf = new Map(assessments.map((entry) => [entry.id, entry.term]));
   const weightOf = new Map(assessments.map((entry) => [entry.id, entry.weight]));
 
@@ -573,6 +586,44 @@ export async function termSummaries(
         })),
       );
 
-      return { term, totals, grade: gradeFor(totals.percent)?.label ?? null };
+      const bySubject = new Map<string, TermSummary["subjects"][number] & { order: number }>();
+      for (const paper of termPapers) {
+        const mark = marks.get(`${paper.id}|${studentId}`);
+        const named = subjectOf.get(paper.subjectId);
+        const entry = bySubject.get(paper.subjectId) ?? {
+          subjectId: paper.subjectId,
+          en: named?.name_en ?? paper.subjectCode,
+          hi: named?.name_hi ?? named?.name_en ?? paper.subjectCode,
+          scored: 0,
+          outOf: 0,
+          percent: null,
+          state: "blank" as TermSummary["subjects"][number]["state"],
+          order: named?.sort_order ?? paper.sortOrder,
+        };
+        if (mark?.exempt) {
+          if (entry.state === "blank") entry.state = "exempt";
+        } else if (mark?.absent) {
+          entry.outOf += paper.maxMarks;
+          if (entry.state !== "value") entry.state = "absent";
+        } else if (mark && mark.value !== null) {
+          entry.scored += mark.value;
+          entry.outOf += paper.maxMarks;
+          entry.state = "value";
+        }
+        bySubject.set(paper.subjectId, entry);
+      }
+      const subjects = [...bySubject.values()]
+        .sort((a, b) => a.order - b.order)
+        .map((entry) => ({
+          subjectId: entry.subjectId,
+          en: entry.en,
+          hi: entry.hi,
+          scored: entry.scored,
+          outOf: entry.outOf,
+          state: entry.state,
+          percent: entry.state === "value" && entry.outOf > 0 ? Math.round((entry.scored / entry.outOf) * 100) : null,
+        }));
+
+      return { term, totals, grade: gradeFor(totals.percent)?.label ?? null, subjects };
     });
 }

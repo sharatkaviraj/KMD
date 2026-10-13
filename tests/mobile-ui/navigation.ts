@@ -9,6 +9,7 @@ export function usePathname() {
 export function useSearchParams() { return new URLSearchParams(location.search); }
 export function useRouter() { return {
   push: (href: string) => { history.pushState(null, "", href); window.dispatchEvent(new PopStateEvent("popstate")); },
+  replace: (href: string) => { history.replaceState(null, "", href); window.dispatchEvent(new PopStateEvent("popstate")); },
   back: () => history.back(),
   refresh: () => { window.dispatchEvent(new Event("qa:refresh")); },
   prefetch: () => {},

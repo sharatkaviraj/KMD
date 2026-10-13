@@ -142,6 +142,8 @@ function guards() {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
 
+      // A parallel slot (`@drawer`) is not a URL; what it intercepts is walked where it lives.
+      if (entry.isDirectory() && entry.name.startsWith("@")) continue;
       if (entry.isDirectory()) {
         walk(full, `${route}/${entry.name}`, vpps);
       } else if (entry.name === "page.tsx") {

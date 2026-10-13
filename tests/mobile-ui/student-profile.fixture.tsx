@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { LanguageProvider } from "@/platform/i18n/use-language";
-import { Student360, type Student360Props } from "@/vx/screens/admin/student360";
+import { Student360, Student360Backdrop, type Student360Props } from "@/vx/screens/admin/student360";
 import { StudentsScreen, type StudentsProps } from "@/vx/screens/admin/students";
 import { NavTrail } from "@/vx/ui/back-link";
 import { VxPage } from "@/vx/ui/page";
@@ -45,7 +45,7 @@ function Fixture() {
   const path = useSyncExternalStore(subscribe, () => location.pathname);
   return <LanguageProvider language={language}><ToastProvider><NavTrail />
     {path === "/payments" ? <main><h1>Synthetic payment entry</h1><p>No payment is posted in this fixture.</p><label>Amount<input aria-label="Synthetic amount" /></label></main>
-      : <VxPage label="Synthetic student acceptance">{path === "/students" ? <StudentsScreen {...directory} /> : <Student360 p={p} />}</VxPage>}
+      : path === "/students" ? <VxPage label="Synthetic student acceptance"><StudentsScreen {...directory} /></VxPage> : <><Student360Backdrop /><Student360 p={p} /></>}
   </ToastProvider></LanguageProvider>;
 }
 document.addEventListener("click", event => {

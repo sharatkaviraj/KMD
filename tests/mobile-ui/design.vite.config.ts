@@ -38,6 +38,8 @@ function stubServerModules(): Plugin {
 export default mergeConfig(base, defineConfig({
   plugins: [stubServerModules()],
   cacheDir: path.resolve(__dirname, "../../.vite-design"),
+  // Config modules read process.env at import; in the browser it is empty.
+  define: { "process.env": "{}" },
   resolve: { alias: { "@": path.resolve(__dirname, "../../src") } },
   server: { port: Number(process.env.FIXTURE_PORT ?? 3202), fs: { strict: false } },
 }));

@@ -38,7 +38,14 @@ if (params.get("theme") === "dark") document.documentElement.classList.add("dark
 
 const allowAll = () => true;
 const badges = Promise.resolve({ inbox: 6, notes: 3, dues: 18, books: 2, marks: 4, news: 1 });
-const me = { initials: "JS", name: "Janmejay Singh", sub: "Admin · every workspace", href: "/settings", color: "#0B4F79" };
+/** Who the design's frames show signed in, per menu. */
+const ME: Record<DesignMenu, { initials: string; name: string; sub: string; href: string; color: string }> = {
+  admin: { initials: "JS", name: "Janmejay Singh", sub: "Admin · every workspace", href: "/settings", color: "#0B4F79" },
+  teacher: { initials: "PS", name: "Ms. Priya Sharma", sub: "Class teacher · 7", href: "/preferences", color: "#81DAE4" },
+  accountant: { initials: "NS", name: "Ms. Neelam Sharma", sub: "Accountant", href: "/preferences", color: "#F6D9A8" },
+  academic: { initials: "RV", name: "Mr. Rajesh Vyas", sub: "Academic coordinator", href: "/preferences", color: "#CDEFDD" },
+  exam: { initials: "KJ", name: "Ms. Kavita Joshi", sub: "Exam coordinator", href: "/preferences", color: "#C9D7F8" },
+};
 
 function Shell({ menu, children }: { menu: DesignMenu; children: ReactNode }) {
   const groups = groupsFor(menu, allowAll);
@@ -47,7 +54,7 @@ function Shell({ menu, children }: { menu: DesignMenu; children: ReactNode }) {
     <div className="vxt vx-shell">
       <VxSidebar
         groups={groups}
-        me={me}
+        me={ME[menu]}
         roleLine={`${MENU_LABEL[menu].en} · 2026–27`}
         home={MENU_HOME[menu]}
         badges={badges}
@@ -59,6 +66,8 @@ function Shell({ menu, children }: { menu: DesignMenu; children: ReactNode }) {
         <main id="vx-main" className="vx-main vx-reset">{children}</main>
       </div>
       <VxBottomBar tabs={tabs} badges={badges} />
+      {/* Sheets, dialogs and toasts portal here, as in the app's shell. */}
+      <div id="vx-layer" className="vxt vx-layer" />
     </div>
   );
 }

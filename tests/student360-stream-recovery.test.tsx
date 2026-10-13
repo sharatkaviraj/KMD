@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn(), push: vi.fn(), refresh: navigation.refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn(), push: vi.fn(), refresh: navigation.refresh }), usePathname: () => window.location.pathname }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en, sub: () => null }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 vi.mock("@/vx/screens/family-contact/actions", () => ({ logFamilyContactAction: vi.fn() }));
 vi.mock("@/vx/screens/notes/actions", () => ({ setNoteStatusAction: vi.fn(), replyToNoteAction: vi.fn() }));
@@ -35,12 +35,11 @@ async function render(promise?: Promise<Student360Fees | null>, initial: Student
   await act(async () => root.render(<Student360 key={initial.id} p={initial} fees={promise} />));
 }
 async function click(label: string) {
-  if (["Attendance", "Marks"].includes(label) && ![...host.querySelectorAll('.student-profile-subnav a')].some(a => a.textContent === label)) await click("Learning");
-  if (["Family", "Notes", "Documents", "History", "Info"].includes(label) && ![...host.querySelectorAll('.student-profile-subnav a')].some(a => a.textContent === label)) await click("More");
-  const anchor = [...host.querySelectorAll<HTMLAnchorElement>("a")].find(a => a.textContent === label)!;
+  // The design draws every tab as a chip in one row (F06–F08).
+  const anchor = [...host.querySelectorAll<HTMLAnchorElement>(".s360-tabs a")].find(a => a.textContent === label)!;
   await act(async () => anchor.click());
 }
-const selected = () => host.querySelector('[aria-current="location"]')?.textContent ?? host.querySelector('[aria-current="page"]')?.textContent;
+const selected = () => host.querySelector('.s360-tabs [aria-current="page"]')?.textContent;
 beforeEach(() => {
   navigation.refresh.mockReset();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -107,29 +106,29 @@ describe("Student 360 delayed fee streaming", () => {
 describe("Student 360 overview", () => {
   const school: Student360Props = { ...p, tabs: ["overview", "attendance", "marks", "notes"] };
 
-  it("shows exactly four primary sections, three for a school-only reader", async () => {
+  it("shows the design's chips in order, and no Fees for a school-only reader", async () => {
     await render();
-    expect([...host.querySelectorAll('.student-profile-nav a')].map(a => a.textContent)).toEqual(["Overview", "Learning", "Fees", "More"]);
+    expect([...host.querySelectorAll('.s360-tabs a')].map(a => a.textContent)).toEqual(["Overview", "Fees", "Attendance", "Marks", "Family", "Info", "Notes", "Documents", "History"]);
     await render(undefined, school);
-    expect([...host.querySelectorAll('.student-profile-nav a')].map(a => a.textContent)).toEqual(["Overview", "Learning", "More"]);
+    expect([...host.querySelectorAll('.s360-tabs a')].map(a => a.textContent)).toEqual(["Overview", "Attendance", "Marks", "Notes"]);
   });
 
   it("uses initials for missing or failed private portraits and retries a changed URL", async () => {
-    await render(); expect(host.querySelector('.student-profile-portrait span')?.textContent).toBe("QC");
+    await render(); expect(host.querySelector('.s360-ava [role="img"]')?.textContent).toBe("QC");
     await render(undefined, { ...p, photoUrl: "/synthetic-portrait.png" });
-    expect(host.querySelector('.student-profile-portrait img')?.getAttribute("width")).toBe("96");
-    await act(async () => host.querySelector('img')!.dispatchEvent(new Event("error")));
-    expect(host.querySelector('.student-profile-portrait img')).toBeNull();
-    expect(host.querySelector('.student-profile-portrait span')?.textContent).toBe("QC");
+    expect(host.querySelector('.s360-ava img')).not.toBeNull();
+    await act(async () => host.querySelector('.s360-ava img')!.dispatchEvent(new Event("error")));
+    expect(host.querySelector('.s360-ava img')).toBeNull();
+    expect(host.querySelector('.s360-ava [role="img"]')?.textContent).toBe("QC");
     await render(undefined, { ...p, photoUrl: "/synthetic-portrait-new.png" });
-    expect(host.querySelector('.student-profile-portrait img')).not.toBeNull();
+    expect(host.querySelector('.s360-ava img')).not.toBeNull();
   });
 
   it("does not invent active status or empty academic records when a read failed", async () => {
     await render(undefined, { ...school, status: null, notes: [], terms: [], unavailable: ["notes", "marks", "attendance"] });
     expect(host.textContent).toContain("Status not recorded");
-    expect(host.textContent).not.toContain("No observation recorded");
-    expect(host.textContent).not.toContain("No open support action");
+    expect(host.textContent).not.toContain("Active");
+    expect(host.textContent).not.toContain("No notes yet");
     expect(host.textContent).not.toContain("No marks entered yet");
     expect(host.querySelector('[role="alert"]')).not.toBeNull();
   });
@@ -140,31 +139,30 @@ describe("Student 360 overview", () => {
     expect(host.textContent).toContain("90%"); expect(host.querySelector('[role="alert"]')).not.toBeNull();
   });
 
-  it("shows a readable name in the portrait card, with no fee share beside identity", async () => {
+  it("puts the child's name in the one heading, with no fee share for a school-only reader", async () => {
     await render(undefined, school);
-    expect(host.querySelector("h1")?.textContent).toBe("Student profile");
-    expect(host.querySelector(".student-profile-name")?.textContent).toBe("QA Child");
-    expect(host.querySelectorAll(".student-profile-name")).toHaveLength(1);
-    expect(host.textContent).not.toContain("of the year paid");
+    expect(host.querySelectorAll("h1")).toHaveLength(1);
+    expect(host.querySelector("h1")?.textContent).toBe("QA Child");
+    expect(host.textContent).not.toContain("fees paid");
   });
   it("says a term with a blank paper is provisional, beside its percentage", async () => {
     await render(undefined, { ...school, terms: [{ term: "QA Term", percent: 72, grade: "B", missing: 1, papers: 6, scored: 360, outOf: 500 }] });
     expect(host.textContent).toContain("72%");
-    expect(host.textContent).toContain("QA Term · Provisional · 1 paper not entered");
+    expect(host.textContent).toContain("Provisional · 1 paper not entered");
     await click("Marks");
-    expect(host.textContent).toContain("B · Provisional");
+    expect(host.textContent).toContain("Provisional · 1 paper not entered");
+    expect(host.textContent).toContain("B");
   });
   it("does not call a complete term provisional", async () => {
     await render(undefined, { ...school, terms: [{ term: "QA Term", percent: 72, grade: "B", missing: 0, papers: 6, scored: 432, outOf: 600 }] });
     expect(host.textContent).not.toContain("Provisional");
   });
-  it("says plainly when there is nothing yet, and never hints at a lack of talent", async () => {
+  it("says plainly when there is nothing yet", async () => {
     await render(undefined, { ...school, notes: [], attendance: { ...p.attendance, percent: null, counted: 0 } });
     expect(host.textContent).toContain("No attendance recorded yet");
-    expect(host.textContent).toContain("No observation recorded");
-    expect(host.textContent).toContain("No open support action");
+    expect(host.textContent).toContain("No notes yet");
   });
-  it("keeps a health note out of strengths and shows the open action with owner and review date", async () => {
+  it("shows the open support action with owner and review date", async () => {
     await render(undefined, {
       ...school,
       notes: [
@@ -172,16 +170,14 @@ describe("Student 360 overview", () => {
         { ...p.notes[0], id: "qa-action", body: "QA reading support", tags: ["studies"], needsFollowUp: true, followUpOn: "2026-10-08", followUpOwner: "class_teacher" },
       ],
     });
-    expect(host.textContent).not.toContain("QA health talent note");
-    expect(host.textContent).toContain("No observation recorded");
     expect(host.textContent).toContain("QA reading support");
     expect(host.textContent).toContain("Owner: Class teacher");
     expect(host.textContent).toContain("Review: 2 days late");
   });
-  it("leaves the strengths and support cards out for a reader without notes", async () => {
+  it("leaves the notes and support cards out for a reader without notes", async () => {
     await render(undefined, { ...school, tabs: ["overview", "attendance", "marks"] });
-    expect(host.textContent).not.toContain("Strengths");
-    expect(host.textContent).not.toContain("No open support action");
+    expect(host.textContent).not.toContain("Notes from teachers");
+    expect(host.textContent).not.toContain("Owner:");
   });
 });
 
