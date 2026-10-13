@@ -75,7 +75,7 @@ export function StudentWorkspaceTabs(props: StudentWorkspaceTabsProps) {
 
   return (
     <Tabs defaultValue={props.defaultTab} onValueChange={handleChange} className="w-full">
-      <div className="no-scrollbar sticky top-0 z-10 -mx-4 overflow-x-auto bg-background/95 px-4 backdrop-blur-sm md:static md:z-auto md:mx-0 md:bg-transparent md:px-0 md:backdrop-blur-none">
+      <div className="no-scrollbar sticky top-[var(--vx-ctop-h,0px)] z-10 -mx-4 overflow-x-auto bg-background/95 px-4 backdrop-blur-sm md:static md:z-auto md:mx-0 md:bg-transparent md:px-0 md:backdrop-blur-none">
         <TabsList className="flex h-auto w-full min-w-max justify-start gap-1 rounded-none border-b border-border bg-transparent p-0 md:min-w-0">
           {tabs.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>

@@ -87,7 +87,7 @@ export function StudentDetailHeader({
   ].filter(Boolean);
 
   return (
-    <header className="sticky top-14 z-20 -mx-1 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-[var(--vx-ctop-h,3.5rem)] z-20 -mx-1 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex min-w-0 items-center gap-3">
           {/* Tappable when the staff member can edit, so a photo can be added

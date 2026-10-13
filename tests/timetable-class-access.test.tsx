@@ -24,6 +24,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/platform/env", () => ({ hasRequiredEnvVars: true, FEE_SCHEMA: "public" }));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => { throw new Error(`Redirect: ${url}`); },
+  // The page title is the design's top bar, whose phone Back reads the route.
+  usePathname: () => "/timetable",
+  useRouter: () => ({ back() {}, push() {}, refresh() {}, prefetch() {} }),
 }));
 vi.mock("@/platform/supabase/server", () => ({
   createClient: async () => ({

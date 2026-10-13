@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 
 /*
  * Back that behaves like Back.
@@ -66,6 +66,45 @@ export function BackLink({ href, className, style, children, label = "Back" }: {
   };
   return (
     <Link href={href} onClick={onClick} className={className} aria-label={label} style={style}>
+      {children}
+    </Link>
+  );
+}
+
+const NO_PREVIOUS = () => null;
+const NO_SUBSCRIPTION = () => () => {};
+
+/**
+ * Back for a screen that does not know its parent: an older screen opened from
+ * inside a redesigned module, whose title block is now the design's phone top
+ * bar. It goes back to the screen this tab came from, and draws nothing when
+ * there is none (a bookmark, a fresh tab), so it never offers a Back that
+ * leads somewhere unexpected.
+ *
+ * Read at render rather than in an effect: before `NavTrail` has run for this
+ * page, `CURRENT` still names the screen we came from; after, `PREVIOUS` does.
+ * Either way the answer is the same, which is what lets the snapshot be stable.
+ */
+export function TrailBack({ className, style, children, label = "Back" }: { className?: string; style?: CSSProperties; children: ReactNode; label?: string }) {
+  const pathname = usePathname();
+  const previous = useSyncExternalStore(
+    NO_SUBSCRIPTION,
+    () => {
+      const current = read(CURRENT);
+      return current && current !== pathname ? current : read(PREVIOUS);
+    },
+    NO_PREVIOUS,
+  );
+  if (!previous || previous === pathname) return null;
+  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    if (window.history.length > 1) {
+      event.preventDefault();
+      window.history.back();
+    }
+  };
+  return (
+    <Link href={previous} onClick={onClick} className={className} aria-label={label} style={style}>
       {children}
     </Link>
   );

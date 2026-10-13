@@ -603,7 +603,7 @@ export function FeeSetupClient({
 
   return (
     <div className="space-y-0">
-      <div className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-border bg-card/95 px-4 py-2.5 backdrop-blur md:px-6">
+      <div className="sticky top-[var(--vx-ctop-h,0px)] z-30 flex flex-wrap items-center gap-3 border-b border-border bg-card/95 px-4 py-2.5 backdrop-blur md:px-6">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">{t("topbarSessionLabel")}</span>
           <select

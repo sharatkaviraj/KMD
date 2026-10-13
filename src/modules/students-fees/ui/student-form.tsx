@@ -326,7 +326,7 @@ export function StudentForm({
       ) : null}
 
       {showAllGroups ? null : (
-        <div className="sticky top-0 z-30 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
+        <div className="sticky top-[var(--vx-ctop-h,0px)] z-30 -mx-4 border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
           <MobileTabs
             ariaLabel="Student form sections"
             activeId={activeGroup}

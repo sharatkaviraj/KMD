@@ -45,6 +45,17 @@
         "3300"
       ],
       "port": 3300
+    },
+    {
+      "name": "design-harness",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--config",
+        "tests/mobile-ui/design.vite.config.ts"
+      ],
+      "port": 3202,
+      "url": "http://127.0.0.1:3202"
     }
   ]
 }

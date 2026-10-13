@@ -62,7 +62,7 @@ export function PayeeSummaryStrip({
     latestReceiptToday !== null;
 
   return (
-    <div className={cn("sticky top-0 z-10 bg-background pt-1 pb-2", className)}>
+    <div className={cn("sticky top-[var(--vx-ctop-h,0px)] z-10 bg-background pt-1 pb-2", className)}>
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">

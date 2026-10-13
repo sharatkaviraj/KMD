@@ -43,7 +43,7 @@ export function Section({
     <section
       id={id}
       className={cn(
-        variant === "card" && "rounded-lg border border-border bg-card",
+        variant === "card" && "rounded-[18px] border border-border bg-card shadow-[var(--sh,0_1px_2px_rgba(21,25,35,.04),0_12px_28px_-18px_rgba(21,25,35,.28))]",
         paddingClasses[padding],
         className,
       )}
@@ -52,7 +52,7 @@ export function Section({
         <div className="min-w-0">
           {/* Extrabold on phones — the design's dominant weight (800 appears
               175× in the spec). Desktop keeps semibold. */}
-          <h2 className="text-[13.5px] font-extrabold tracking-tight text-foreground md:text-lg md:font-semibold">
+          <h2 className="text-[15px] font-bold text-foreground md:text-[16px]">
             {title}
           </h2>
           {description ? (

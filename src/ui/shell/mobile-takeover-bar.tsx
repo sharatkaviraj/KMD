@@ -34,7 +34,7 @@ export function MobileTakeoverBar() {
 
   return (
     <div
-      className="sticky top-0 z-30 border-b border-border bg-background/95 px-3 pb-2 backdrop-blur md:hidden print:hidden"
+      className="sticky top-[var(--vx-ctop-h,0px)] z-30 border-b border-border bg-background/95 px-3 pb-2 backdrop-blur md:hidden print:hidden"
       style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.5rem)" }}
     >
       <button

@@ -331,7 +331,7 @@ export function MarksGrid({
 
       <Outcome state={state} checking={checking} language={language} />
 
-      <div className="sticky top-14 z-30 -mx-4 border-b border-border bg-background px-4 py-2">
+      <div className="sticky top-[var(--vx-ctop-h,3.5rem)] z-30 -mx-4 border-b border-border bg-background px-4 py-2">
         <p className="text-[14px] text-muted-foreground">
           <span className="font-semibold text-foreground">{countOf(entered, roll.length, language)}</span>{" "}
           {primary(m.marksEntered, language)} · {primary(m.paperMax, language)} {paper.maxMarks}

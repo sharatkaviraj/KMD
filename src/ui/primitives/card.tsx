@@ -14,12 +14,12 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     <div
       ref={ref}
       className={cn(
-        "rounded-lg bg-card text-card-foreground",
-        variant === "flat" && "border border-border",
-        variant === "raised" && "border border-border shadow-sm",
+        "rounded-[18px] bg-card text-card-foreground",
+        variant === "flat" && "border border-border shadow-[var(--sh,0_1px_2px_rgba(21,25,35,.04),0_12px_28px_-18px_rgba(21,25,35,.28))]",
+        variant === "raised" && "border border-border shadow-[var(--sh,0_1px_2px_rgba(21,25,35,.04),0_12px_28px_-18px_rgba(21,25,35,.28))]",
         variant === "ghost" && "bg-transparent",
         interactive &&
-          "transition-[background-color,border-color,box-shadow] duration-150 hover:border-border-strong hover:bg-surface-2/50",
+          "transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[var(--shh,0_2px_4px_rgba(21,25,35,.05),0_20px_40px_-18px_rgba(21,25,35,.36))]",
         className,
       )}
       {...props}
