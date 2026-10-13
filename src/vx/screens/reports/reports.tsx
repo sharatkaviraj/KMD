@@ -17,7 +17,7 @@ import { p, type Pair } from "@/vx/text";
 import { Chip, ChipRow, Field, Input, RadioCard, Seg, Select, Switch } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
-import { BarChart, Btn, Card, EmptyState, Kpi, Pill, Sparkline, StackedBar } from "@/vx/ui/primitives";
+import { Btn, Card, EmptyState, Kpi, Pill } from "@/vx/ui/primitives";
 
 type Lang = "hi" | "en" | "both";
 
@@ -146,6 +146,27 @@ function BackBtn() {
   );
 }
 
+/** The phone's row of actions under the top bar (the desktop has them in the top bar). */
+function MActs({ items }: { items: { icon: IconName; label: string; onClick?: () => void; href?: string; pri?: boolean }[] }) {
+  return (
+    <div className="only-m hs rp-noprint" style={{ display: "flex", gap: 8, padding: "12px 16px 0" }}>
+      {items.map((a) =>
+        a.href ? (
+          <Link key={a.label} href={a.href} className={`tap btn ${a.pri ? "pri" : "sec"}`} style={{ flex: "none", height: 40, fontSize: 13 }}>
+            <Ic n={a.icon} size={14} />
+            {a.label}
+          </Link>
+        ) : (
+          <button key={a.label} type="button" className={`tap btn ${a.pri ? "pri" : "sec"}`} onClick={a.onClick} style={{ flex: "none", height: 40, fontSize: 13 }}>
+            <Ic n={a.icon} size={14} />
+            {a.label}
+          </button>
+        ),
+      )}
+    </div>
+  );
+}
+
 function ExportBtn({ onClick }: { onClick: () => void }) {
   const { tx } = useVx();
   return (
@@ -155,7 +176,31 @@ function ExportBtn({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** "Thu 8 Oct", as the design writes days (the shared `shortDay` says "Thu, 8 Oct"). */
+function dayName(iso: string) {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  return `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()]} ${d.getUTCDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]}`;
+}
+
 /* ---------- hub ---------- */
+
+/** The design's 96×32 sparkline: a drawn line, no dot. */
+function Spark({ values }: { values: number[] }) {
+  const max = Math.max(1, ...values);
+  const min = Math.min(...values, max);
+  const pts = values.map((v, i) => `${((i / Math.max(1, values.length - 1)) * 94 + 1).toFixed(1)},${(30 - ((v - min) / Math.max(1, max - min)) * 28).toFixed(1)}`);
+  let len = 0;
+  for (let i = 1; i < pts.length; i += 1) {
+    const [x1, y1] = pts[i - 1].split(",").map(Number);
+    const [x2, y2] = pts[i].split(",").map(Number);
+    len += Math.hypot(x2 - x1, y2 - y1);
+  }
+  return (
+    <svg width="96" height="32" viewBox="0 0 96 32" aria-hidden="true" style={{ flex: "none" }}>
+      <polyline points={pts.join(" ")} style={{ fill: "none", stroke: "var(--acc)", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: len.toFixed(1), strokeDasharray: len.toFixed(1), animation: "xDraw 1.1s .2s var(--ease) both" }} />
+    </svg>
+  );
+}
 
 type HubCard = { key: string; group: "money" | "more"; icon: IconName; tone: [string, string]; title: Pair; sub: string; value: string; caption: string; href: string; extra?: ReactNode };
 
@@ -168,7 +213,7 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
   const monthSum = share.upi + share.cash + share.cheque + share.bank_transfer;
   const cards: HubCard[] = h
     ? [
-        { key: "collection", group: "money", icon: "chart", tone: ["var(--accs)", "var(--accfg)"], title: T.collection, sub: "Receipts by day, mode and class", value: rupees(h.todayTotal), caption: `today · ${h.todayReceipts} receipts`, href: "/reports?view=collection", extra: <Sparkline values={h.spark} width={100} height={34} /> },
+        { key: "collection", group: "money", icon: "chart", tone: ["var(--accs)", "var(--accfg)"], title: T.collection, sub: "Receipts by day, mode and class", value: rupees(h.todayTotal), caption: `today · ${h.todayReceipts} receipts`, href: "/reports?view=collection", extra: <Spark values={h.spark} /> },
         { key: "daybook", group: "money", icon: "book", tone: ["var(--infos)", "var(--info)"], title: T.daybook, sub: "Every receipt and reversal in time order", value: String(h.todayReceipts), caption: `receipts today · ${h.todayReversed} reversed`, href: "/reports?view=daybook" },
         {
           key: "bymode",
@@ -181,8 +226,10 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
           caption: `${rupeesShort(monthSum)} this month so far`,
           href: "/reports?view=collection&range=month",
           extra: monthSum ? (
-            <span style={{ width: 100 }}>
-              <StackedBar showLegend={false} height={8} parts={(["upi", "cash", "cheque", "bank_transfer"] as const).map((m) => ({ label: MODE_LABEL[m], value: share[m], color: MODE_COLOR[m] }))} />
+            <span style={{ display: "flex", flex: "none", width: 96, height: 10, borderRadius: 5, overflow: "hidden", background: "var(--s3)", transformOrigin: "left", animation: "xGrowX .8s .2s var(--ease) both" }}>
+              {(["upi", "cash", "cheque", "bank_transfer"] as const).map((m) => (
+                <span key={m} style={{ width: `${(share[m] / monthSum) * 100}%`, background: MODE_COLOR[m] }} />
+              ))}
             </span>
           ) : null,
         },
@@ -197,31 +244,34 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
   const detailed = use(DetailedReports);
   const needle = q.trim().toLowerCase();
   const shown = cards.filter((c) => detailed || c.key !== "all").filter((c) => !needle || `${c.title.en} ${c.title.hi} ${c.sub}`.toLowerCase().includes(needle));
-  const pinned = cards.filter((c) => (detailed || c.key !== "all") && pins.includes(c.key));
+  const pinned = pins.map((k) => cards.find((c) => c.key === k)).filter((c): c is HubCard => Boolean(c) && (detailed || c!.key !== "all"));
 
   const card = (c: HubCard, i: number) => {
     const on = pins.includes(c.key);
     return (
-      <Card key={c.key} className="rp-card lift" pad={false} style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-        <Link href={c.href} className="rp-o" aria-label={tx(c.title)} />
-        <div className="rp-f" style={{ alignItems: "flex-start", gap: 12 }}>
-          <span className="rp-ib" style={{ background: c.tone[0], color: c.tone[1] }}><Ic n={c.icon} size={18} /></span>
-          <span className="rp-c" style={{ flex: 1 }}>
-            <b style={{ fontSize: 15 }}>{tx(c.title)}</b>
-            <span className="rp-m">{c.sub}</span>
+      <div key={c.key} className="card lift rp-xi" style={{ position: "relative", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+        <Link href={c.href} className="tap rp-rb" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, padding: "14px 16px", borderRadius: 18 }}>
+          <span className="rp-f" style={{ gap: 12, paddingRight: 34 }}>
+            <span className="rp-ib rp-t36" style={{ background: c.tone[0], color: c.tone[1] }}>
+              <Ic n={c.icon} />
+            </span>
+            <span className="rp-c" style={{ flex: 1 }}>
+              <span className="rp-tt">{tx(c.title)}</span>
+              <span className="rp-m">{c.sub}</span>
+            </span>
           </span>
-          <button type="button" className={`tap rp-pinbtn${on ? " on" : ""}`} aria-pressed={on} aria-label={on ? "Unpin" : "Pin"} onClick={() => togglePin(c.key)}>
-            <Ic n="pin" size={17} />
-          </button>
-        </div>
-        <div className="rp-f" style={{ justifyContent: "space-between", alignItems: "flex-end", marginTop: "auto" }}>
-          <span className="rp-c">
-            <span className="rp-big num">{c.value}</span>
-            <span className="rp-m">{c.caption}</span>
+          <span className="rp-f" style={{ justifyContent: "space-between", alignItems: "flex-end", minHeight: 36 }}>
+            <span className="rp-c">
+              <span className="num" style={{ fontSize: 19, fontWeight: 700 }}>{c.value}</span>
+              <span className="rp-m">{c.caption}</span>
+            </span>
+            {c.extra}
           </span>
-          {c.extra}
-        </div>
-      </Card>
+        </Link>
+        <button type="button" className={`tap btn ghost rp-sq${on ? " on" : ""}`} aria-pressed={on} aria-label={`${on ? "Unpin" : "Pin"} ${tx(c.title)}`} onClick={() => togglePin(c.key)} style={{ position: "absolute", top: 10, right: 10, color: on ? "var(--acc)" : undefined }}>
+          <Ic n="pin" />
+        </button>
+      </div>
     );
   };
 
@@ -235,9 +285,9 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
         mAction={<Btn variant="ghost" icon="clock" href="/reports?view=schedule" ariaLabel={tx(T.schedule)} />}
         actions={
           <>
-            <label className="rp-f" style={{ width: 280, height: 42, borderRadius: 12, border: "1px solid var(--bds)", background: "var(--card)", padding: "0 12px", color: "var(--mut)" }}>
-              <Ic n="search" size={18} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(T.find)} aria-label={tx(T.find)} style={{ flex: 1, border: 0, outline: "none", background: "transparent", color: "var(--fg)", fontSize: 15 }} />
+            <label className="rp-f" style={{ width: 280, height: 40, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--card)", padding: "0 12px", color: "var(--mut)" }}>
+              <Ic n="search" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(T.find)} aria-label={tx(T.find)} style={{ flex: 1, minWidth: 0, height: 36, border: 0, outline: "none", background: "transparent", color: "var(--fg)", fontSize: 14 }} />
             </label>
             <Btn icon="clock" href="/reports?view=schedule">
               {tx(T.schedule)} <Pill tone="acc">{h?.schedules ?? 0}</Pill>
@@ -246,32 +296,36 @@ function HubView({ data, sheet, close, readOnly }: ViewProps & { readOnly: boole
         }
       />
       <Section>
-        <label className="only-m rp-f" style={{ height: 48, borderRadius: 14, border: "1px solid var(--bds)", background: "var(--card)", padding: "0 14px", color: "var(--mut)" }}>
-          <Ic n="search" size={18} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(T.find)} aria-label={tx(T.find)} style={{ flex: 1, border: 0, outline: "none", background: "transparent", color: "var(--fg)", fontSize: 16 }} />
+        <label className="only-m rp-f" style={{ height: 46, borderRadius: 23, border: "1px solid var(--bds)", background: "var(--card)", padding: "0 14px", color: "var(--mut)" }}>
+          <Ic n="search" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(T.find)} aria-label={tx(T.find)} style={{ flex: 1, minWidth: 0, height: 40, border: 0, outline: "none", background: "transparent", color: "var(--fg)", fontSize: 16 }} />
         </label>
         {pinned.length && !needle ? (
-          <>
-            <div className="rp-sec">{tx(T.pinned)}</div>
-            <div className="rp-pins">
-              {pinned.map((c) => (
-                <Link key={c.key} href={c.href} className="card tap lift rp-pin">
-                  <span className="rp-ib" style={{ background: c.tone[0], color: c.tone[1] }}><Ic n={c.icon} size={18} /></span>
+          <div className="rp-c" style={{ gap: 8 }}>
+            <span className="sech">{tx(T.pinned)}</span>
+            <div className="hs" style={{ display: "flex", gap: 10, padding: "2px 2px 6px" }}>
+              {pinned.map((c, i) => (
+                <Link key={c.key} href={c.href} className="tap card lift rp-f rp-xi" style={{ flex: "none", minWidth: 230, padding: "12px 14px", gap: 12, color: "var(--fg)", animationDelay: `${i * 30}ms` }}>
+                  <span className="rp-ib rp-t36" style={{ background: c.tone[0], color: c.tone[1] }}>
+                    <Ic n={c.icon} />
+                  </span>
                   <span className="rp-c">
-                    <b className="rp-e" style={{ fontSize: 14 }}>{tx(c.title)}</b>
-                    <span className="rp-m rp-e"><b style={{ color: "var(--fg)" }}>{c.value}</b> {c.caption}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{tx(c.title)}</span>
+                    <span className="num" style={{ fontSize: 13 }}>
+                      <b>{c.value}</b> <span style={{ color: "var(--mut)" }}>{c.caption}</span>
+                    </span>
                   </span>
                 </Link>
               ))}
             </div>
-          </>
+          </div>
         ) : null}
         {(["money", "more"] as const).map((g) => {
           const list = shown.filter((c) => c.group === g);
           if (!list.length) return null;
           return (
-            <div key={g} className="rp-c" style={{ gap: 14 }}>
-              <div className="rp-sec">{tx(g === "money" ? T.money : T.more)}</div>
+            <div key={g} className="rp-c" style={{ gap: 8 }}>
+              <span className="sech">{tx(g === "money" ? T.money : T.more)}</span>
               <div className="rp-cards">{list.map(card)}</div>
             </div>
           );
@@ -294,14 +348,16 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
   const [classId, setClassId] = useState("");
   const [from, setFrom] = useState(c.from);
   const [to, setTo] = useState(c.to);
+  const [bar, setBar] = useState<string | null>(null);
   const receipts = c.receipts.map((r) => ({ paymentDate: r.date, paymentMode: r.mode, amount: r.amount, classId: r.classId, reversed: r.reversed }));
   const buckets = bucketCollection(receipts, c.from, c.to, { mode, classId });
   const monthly = buckets.length > 0 && buckets[0].key.length === 7;
-  const total = sumBuckets(buckets);
-  const working = buckets.filter((b) => b.total > 0);
+  const past = buckets.filter((b) => b.key <= (monthly ? data.today.slice(0, 7) : data.today));
+  const total = sumBuckets(past);
+  const working = past.filter((b) => b.total > 0);
   const best = working.reduce<(typeof buckets)[number] | null>((m, b) => (!m || b.total > m.total ? b : m), null);
   const reversed = c.receipts.filter((r) => r.reversed && (!mode || r.mode === mode) && (!classId || r.classId === classId)).length;
-  const label = (key: string) => (monthly ? new Intl.DateTimeFormat("en-IN", { month: "short", year: "2-digit" }).format(new Date(`${key}-01T00:00:00Z`)) : shortDay(key));
+  const label = (key: string) => (monthly ? new Intl.DateTimeFormat("en-IN", { month: "short", year: "2-digit" }).format(new Date(`${key}-01T00:00:00Z`)) : dayName(key));
   const go = (preset: CollectionPreset, extra = "") => router.push(`/reports?view=collection&range=${preset}${extra}`);
   const presets: { value: CollectionPreset; label: string }[] = [
     { value: "month", label: "This month" },
@@ -310,15 +366,27 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
     { value: "custom", label: "Custom" },
   ];
   const isSunday = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay() === 0;
+  const todayKey = monthly ? data.today.slice(0, 7) : data.today;
+  const maxV = Math.max(1, ...past.map((b) => b.total));
+  const sel = bar ?? (buckets.some((b) => b.key === todayKey) ? todayKey : (past[past.length - 1]?.key ?? null));
+  const pi = Math.max(0, presets.findIndex((x) => x.value === c.preset));
+  const modes = ["upi", "cash", "cheque", "bank_transfer"] as const;
+  const rows = past.filter((b) => b.total > 0 || (!monthly && isSunday(b.key)));
+  const span = monthly ? "" : new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(`${c.from}T00:00:00Z`));
+  const kpis: { label: string; v: string; sub: string; fg?: string }[] = [
+    { label: "Collected", v: rupees(total.total), sub: `${total.receipts} receipts` },
+    { label: monthly ? "Average per month" : "Average per working day", v: rupees(working.length ? Math.round(total.total / working.length) : 0), sub: `${working.length} ${monthly ? "months" : "working days"}` },
+    { label: monthly ? "Best month" : "Best day", v: best ? rupees(best.total) : "—", sub: best ? label(best.key) : "no collection" },
+    { label: "Reversed receipts", v: String(reversed), sub: "shown · not in the total", fg: reversed ? "var(--bad)" : undefined },
+  ];
 
   return (
-    <VxPage>
+    <VxPage className="rp-lh">
       <TopBar
         crumb="Reports"
         title={tx(T.collection)}
-        mSub={`${dayMonth(c.from)} – ${dayMonth(c.to)} · ${rupees(total.total)}`}
+        mSub={`${c.preset === "month" || c.preset === "last" ? span : `${dayMonth(c.from)} – ${dayMonth(c.to)}`} · ${rupees(total.total)}`}
         mBack="/reports"
-        mAction={<Btn variant="ghost" icon="download" onClick={() => setSheet("export")} ariaLabel={tx(T.export)} />}
         actions={
           <>
             <BackBtn />
@@ -328,99 +396,164 @@ function CollectionView({ data, sheet, setSheet, close }: ViewProps) {
           </>
         }
       />
-      <Section>
+      <MActs
+        items={[
+          { icon: "printer", label: tx(T.print), onClick: () => window.print() },
+          { icon: "clock", label: "Schedule", href: "/reports?view=schedule&sheet=newsch" },
+          { icon: "download", label: tx(T.export), onClick: () => setSheet("export"), pri: true },
+        ]}
+      />
+      <div className="pad rp-scr">
         <div className="rp-f rp-noprint" style={{ flexWrap: "wrap", gap: 10 }}>
-          <Seg options={presets} value={c.preset} onChange={(v) => (v === "custom" ? go("custom", `&from=${from}&to=${to}`) : go(v))} label="Dates" style={{ minWidth: 0 }} />
-          {c.preset === "custom" ? (
-            <span className="rp-f">
-              <Input type="date" value={from} max={data.today} onChange={(e) => setFrom(e.target.value)} aria-label="From" style={{ width: 160 }} />
-              <span className="rp-m">to</span>
-              <Input type="date" value={to} max={data.today} onChange={(e) => setTo(e.target.value)} aria-label="To" style={{ width: 160 }} />
-              <Btn variant="pri" onClick={() => go("custom", `&from=${from}&to=${to}`)}>Show</Btn>
-            </span>
-          ) : null}
+          <div className="seg" role="radiogroup" aria-label="Dates" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))", width: 440, maxWidth: "100%" }}>
+            <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 4)", transform: `translateX(${pi * 100}%)` }} />
+            {presets.map((o) => (
+              <button key={o.value} type="button" role="radio" aria-checked={c.preset === o.value} className={`tap${c.preset === o.value ? " on" : ""}`} onClick={() => (o.value === "custom" ? go("custom", `&from=${from}&to=${to}`) : go(o.value))}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <div className="hs" style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }} role="group" aria-label="Class">
+            <button type="button" className={`tap chip${!classId ? " on" : ""}`} aria-pressed={!classId} onClick={() => setClassId("")}>All classes</button>
+            {data.classes.map((k) => (
+              <button key={k.id} type="button" className={`tap chip${classId === k.id ? " on" : ""}`} aria-pressed={classId === k.id} onClick={() => setClassId(k.id)}>{k.label}</button>
+            ))}
+          </div>
         </div>
-        <ChipRow label="Class" style={{ marginTop: -4 }}>
-          <Chip on={!classId} onClick={() => setClassId("")}>All classes</Chip>
-          {data.classes.map((k) => (
-            <Chip key={k.id} on={classId === k.id} onClick={() => setClassId(k.id)}>{k.label}</Chip>
-          ))}
-        </ChipRow>
-        <ChipRow label="Mode" style={{ marginTop: -6 }}>
-          <Chip on={!mode} onClick={() => setMode("")}>All modes</Chip>
-          {Object.keys(MODE_LABEL).map((m) => (
-            <Chip key={m} on={mode === m} onClick={() => setMode(m)}>
-              <span style={{ width: 8, height: 8, borderRadius: 4, background: MODE_COLOR[m] }} />
+        <div className="hs rp-noprint" style={{ display: "flex", gap: 6 }} role="group" aria-label="Mode">
+          <button type="button" className={`tap chip${!mode ? " on" : ""}`} aria-pressed={!mode} onClick={() => setMode("")}>
+            <span className="rp-dt" style={{ width: 8, height: 8, background: "var(--sub)" }} />
+            All modes
+          </button>
+          {modes.map((m) => (
+            <button key={m} type="button" className={`tap chip${mode === m ? " on" : ""}`} aria-pressed={mode === m} onClick={() => setMode(m)}>
+              <span className="rp-dt" style={{ width: 8, height: 8, background: MODE_COLOR[m] }} />
               {MODE_LABEL[m]}
-            </Chip>
+            </button>
           ))}
-        </ChipRow>
-        <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
-          <Kpi label="Collected" value={rupees(total.total)} sub={`${total.receipts} receipts`} />
-          <Kpi label={monthly ? "Average per month" : "Average per working day"} value={rupees(working.length ? Math.round(total.total / working.length) : 0)} sub={`${working.length} ${monthly ? "months" : "working days"}`} delay={40} />
-          <Kpi label={monthly ? "Best month" : "Best day"} value={best ? rupees(best.total) : "—"} sub={best ? label(best.key) : "no collection"} delay={80} />
-          <Kpi label="Reversed receipts" value={String(reversed)} sub="shown · not in the total" tone={reversed ? "var(--bad)" : undefined} delay={120} />
         </div>
-        <Card>
-          <div className="rp-f" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+        {c.preset === "custom" ? (
+          <div className="rp-f rp-noprint fadein" style={{ flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+            <label className="field"><span>From</span><Input type="date" value={from} max={data.today} onChange={(e) => setFrom(e.target.value)} /></label>
+            <label className="field"><span>To</span><Input type="date" value={to} max={data.today} onChange={(e) => setTo(e.target.value)} /></label>
+            <Btn variant="pri" onClick={() => go("custom", `&from=${from}&to=${to}`)}>Show</Btn>
+          </div>
+        ) : null}
+        <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
+          {kpis.map((k, i) => (
+            <div key={k.label} className="card rise rp-c" style={{ padding: "14px 16px", gap: 2, animationDelay: `${i * 40}ms` }}>
+              <span className="rp-m" style={{ fontWeight: 600 }}>{k.label}</span>
+              <span className="num" style={{ fontSize: 21, fontWeight: 700, color: k.fg }}>{k.v}</span>
+              <span className="rp-m">{k.sub}</span>
+            </div>
+          ))}
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div className="rp-f" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
             <span className="rp-c">
-              <b>Collected by {monthly ? "month" : "day"}</b>
+              <span className="rp-tt">Collected by {monthly ? "month" : "day"}{span ? ` · ${span}` : ""}</span>
               <span className="rp-m">Hover or tap a bar to see the amount</span>
             </span>
-            {mode ? <Pill tone="acc">{MODE_LABEL[mode]} only</Pill> : null}
+            <span className="rp-f rp-m">
+              <span className="rp-dt" style={{ background: "var(--c1)" }} />
+              Collected
+              <span className="rp-dt" style={{ background: "var(--acc)", marginLeft: 8 }} />
+              {monthly ? "This month" : "Today"}
+            </span>
           </div>
-          {total.total ? (
-            <BarChart
-              height={180}
-              labelEvery={buckets.length > 16 ? 2 : 1}
-              data={buckets.map((b) => ({ label: monthly ? label(b.key) : String(Number(b.key.slice(8))), value: b.total, highlight: b.key === data.today, title: `${label(b.key)} · ${rupees(b.total)}` }))}
-            />
-          ) : (
-            <EmptyState icon="chart" title="No collection in these dates" body="Pick another range or class." />
-          )}
-        </Card>
-        <Card pad={false} style={{ overflow: "hidden" }}>
-          <div className="rp-scroll">
-            <table className="rp-tbl">
-              <thead>
-                <tr>
-                  <th>{monthly ? "Month" : "Day"}</th>
-                  <th>Receipts</th>
-                  <th className="hide-p">UPI</th>
-                  <th className="hide-p">Cash</th>
-                  <th className="hide-p">Cheque</th>
-                  <th className="hide-p">Bank</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...buckets].reverse().map((b) => (
-                  <tr key={b.key}>
-                    <td>
-                      <b>{label(b.key)}</b>
-                      {!monthly && isSunday(b.key) ? <Pill style={{ marginLeft: 8 }}>Sunday</Pill> : null}
-                    </td>
-                    <td>{b.receipts || "—"}</td>
-                    {(["upi", "cash", "cheque", "bank_transfer"] as const).map((m) => (
-                      <td key={m} className="hide-p">{b.byMode[m] ? rupees(b.byMode[m]) : "—"}</td>
-                    ))}
-                    <td><b>{b.total ? rupees(b.total) : "—"}</b></td>
-                  </tr>
-                ))}
-                <tr className="rp-tot">
-                  <td>Total</td>
-                  <td>{total.receipts}</td>
-                  {(["upi", "cash", "cheque", "bank_transfer"] as const).map((m) => (
-                    <td key={m} className="hide-p">{rupees(total.byMode[m])}</td>
+          <div className="hs" style={{ marginTop: 8 }}>
+            <div style={{ minWidth: monthly ? "100%" : Math.max(560, buckets.length * 22), height: 210, display: "flex", alignItems: "flex-end", gap: 4, paddingTop: 40, borderBottom: "1px solid var(--bd)" }}>
+              {buckets.map((b, i) => {
+                const fut = b.key > todayKey;
+                const on = b.key === sel && !fut;
+                const h = fut ? "6%" : b.total ? `${Math.max(3, (b.total / maxV) * 100).toFixed(1)}%` : "2%";
+                const n = buckets.length;
+                return (
+                  <button key={b.key} type="button" className="tap" aria-label={fut ? `${label(b.key)} not yet` : `${label(b.key)} ${rupees(b.total)}`} onClick={() => !fut && setBar(b.key)} onMouseEnter={() => !fut && setBar(b.key)} style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", border: 0, background: "transparent", padding: 0, position: "relative" }}>
+                    {on ? (
+                      <span style={{ position: "absolute", bottom: `calc(${h} + 6px)`, left: i < 3 ? "0" : i > n - 4 ? "100%" : "50%", transform: `translateX(${i < 3 ? "0" : i > n - 4 ? "-100%" : "-50%"})`, zIndex: 2 }}>
+                        <span className="pill num" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--tbg)", color: "var(--tfg)", animation: "xPopIn .25s var(--spring) both" }}>{label(b.key)} · {rupees(b.total)}</span>
+                      </span>
+                    ) : null}
+                    <span style={{ width: "100%", maxWidth: 28, height: h, borderRadius: "6px 6px 2px 2px", background: fut ? "transparent" : on || b.key === todayKey ? "var(--acc)" : b.total ? "var(--c1)" : "var(--s3)", border: fut ? "1.5px dashed var(--bds)" : 0, transformOrigin: "bottom", animation: "xGrowY .6s var(--ease) both", animationDelay: `${Math.min(i, 14) * 30}ms` }} />
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ minWidth: monthly ? "100%" : Math.max(560, buckets.length * 22), display: "flex", gap: 4, paddingTop: 6 }}>
+              {buckets.map((b) => (
+                <span key={b.key} className="num" style={{ flex: 1, minWidth: 0, textAlign: "center", fontSize: 11, color: b.key === todayKey || b.key === sel ? "var(--accfg)" : "var(--sub)", fontWeight: b.key === todayKey || b.key === sel ? 700 : 500 }}>
+                  {monthly ? label(b.key).split(" ")[0] : String(Number(b.key.slice(8)))}
+                </span>
+              ))}
+            </div>
+          </div>
+          {!total.total ? <EmptyState icon="chart" title="No collection in these dates" body="Pick another range or class." /> : null}
+        </div>
+        <div className="only-d card" style={{ overflow: "clip" }}>
+          <div className="rp-cg" style={{ position: "sticky", top: 64, zIndex: 2, background: "var(--s2)", borderBottom: "1px solid var(--bd)", fontSize: 12, fontWeight: 700, color: "var(--mut)", textTransform: "uppercase", letterSpacing: ".05em" }}>
+            <span>{monthly ? "Month" : "Day"}</span>
+            <span style={{ textAlign: "right" }}>Receipts</span>
+            <span style={{ textAlign: "right" }}>UPI</span>
+            <span style={{ textAlign: "right" }}>Cash</span>
+            <span style={{ textAlign: "right" }}>Cheque</span>
+            <span style={{ textAlign: "right" }}>Bank</span>
+            <span style={{ textAlign: "right" }}>Total</span>
+          </div>
+          <div className="rp-ls">
+            {rows.map((b, i) => {
+              const note = !b.total && isSunday(b.key) ? "Sunday" : "";
+              return (
+                <div key={b.key} className="rp-cg row num rp-xi" style={{ fontSize: 13, opacity: note ? 0.55 : 1, animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+                  <span className="rp-f" style={{ fontWeight: 600, color: "var(--fg)" }}>
+                    {label(b.key)}
+                    {note ? <span className="pill" style={{ background: "var(--s3)", color: "var(--mut)" }}>{note}</span> : null}
+                  </span>
+                  <span style={{ textAlign: "right", color: "var(--mut)" }}>{b.receipts || "—"}</span>
+                  {modes.map((m) => (
+                    <span key={m} style={{ textAlign: "right" }}>{b.byMode[m] ? rupees(b.byMode[m]) : "—"}</span>
                   ))}
-                  <td>{rupees(total.total)}</td>
-                </tr>
-              </tbody>
-            </table>
+                  <span style={{ textAlign: "right", fontWeight: 700 }}>{b.total ? rupees(b.total) : "—"}</span>
+                </div>
+              );
+            })}
           </div>
-        </Card>
+          <div className="rp-cg num" style={{ fontSize: 14, fontWeight: 700, background: "var(--s2)", borderTop: "2px solid var(--bd)" }}>
+            <span>Total</span>
+            <span style={{ textAlign: "right" }}>{total.receipts}</span>
+            {modes.map((m) => (
+              <span key={m} style={{ textAlign: "right" }}>{rupees(total.byMode[m])}</span>
+            ))}
+            <span style={{ textAlign: "right" }}>{rupees(total.total)}</span>
+          </div>
+        </div>
+        <div className="only-m card rp-ls" style={{ overflow: "hidden" }}>
+          {rows.map((b) => {
+            const note = !b.total && isSunday(b.key) ? "Sunday" : "";
+            return (
+              <div key={b.key} className="rp-c" style={{ gap: 6, padding: "12px 14px", opacity: note ? 0.55 : 1 }}>
+                <div className="rp-f" style={{ justifyContent: "space-between" }}>
+                  <span className="rp-c">
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{label(b.key)}</span>
+                    <span className="rp-m">{note || `${b.receipts} receipts`}</span>
+                  </span>
+                  <span className="num rp-tt">{b.total ? rupees(b.total) : "—"}</span>
+                </div>
+                <span style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: "var(--s3)" }}>
+                  {modes.map((m) => (
+                    <span key={m} style={{ width: `${b.total ? (b.byMode[m] / b.total) * 100 : 0}%`, background: MODE_COLOR[m] }} />
+                  ))}
+                </span>
+              </div>
+            );
+          })}
+          <div className="rp-f" style={{ justifyContent: "space-between", padding: "12px 14px", background: "var(--s2)" }}>
+            <b>Total · {total.receipts} receipts</b>
+            <span className="num rp-tt">{rupees(total.total)}</span>
+          </div>
+        </div>
         <span className="rp-m">Reversed receipts and discount close-outs are not collection. Late fee is collected inside the receipt and is reported on its own in the defaulter list.</span>
-      </Section>
+      </div>
       <ExportSheet data={data} open={sheet === "export"} onClose={close} filters={{ classId, mode }} />
     </VxPage>
   );
@@ -490,16 +623,23 @@ function DefaultersView({ data, sheet, setSheet, close, initialLeft }: ViewProps
           </>
         }
       />
+      <MActs
+        items={[
+          { icon: "printer", label: tx(T.print), onClick: () => window.print() },
+          { icon: "download", label: "PDF", onClick: () => setSheet("export") },
+          { icon: "send", label: tx(T.send), onClick: () => setSheet("send"), pri: true },
+        ]}
+      />
       <Section>
-        <div className="only-m rp-f rp-noprint" style={{ gap: 8 }}>
-          <Btn icon="printer" onClick={() => window.print()}>{tx(T.print)}</Btn>
-          <Btn icon="download" onClick={() => setSheet("export")}>PDF</Btn>
-          <Btn variant="pri" icon="send" onClick={() => setSheet("send")} style={{ flex: 1 }}>Send</Btn>
-        </div>
-        <Card className="rp-noprint" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="rp-f" style={{ flexWrap: "wrap", gap: 16 }}>
+        <Card className="rp-noprint rp-lh" style={{ display: "flex", flexDirection: "column", gap: 12, padding: "14px 16px" }}>
+          <div className="rp-f" style={{ flexWrap: "wrap", gap: "10px 18px" }}>
             <Seg<Lang> options={[{ value: "hi", label: "हिंदी" }, { value: "en", label: "English" }, { value: "both", label: "दोनों · Both" }]} value={lang} onChange={setLang} label="Language of the list" />
-            <Switch on={includeLeft} onChange={setIncludeLeft} label="Include students who left" />
+            <button type="button" className="tap rp-rb" role="switch" aria-checked={includeLeft} onClick={() => setIncludeLeft(!includeLeft)} style={{ width: "auto", gap: 10 }}>
+              <span className={`sw${includeLeft ? " on" : ""}`}>
+                <span />
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Include students who left</span>
+            </button>
           </div>
           <ChipRow label="Class">
             <Chip on={!classId} onClick={() => setClassId("")}>All classes</Chip>
@@ -540,7 +680,7 @@ function DefaultersView({ data, sheet, setSheet, close, initialLeft }: ViewProps
               return (
                 <div key={s.classLabel} style={{ breakInside: "avoid-page" }}>
                   <div className="rp-pc">
-                    <span>{say(lang, PAPER.klass)} {s.classLabel}</span>
+                    <span>{say(lang, PAPER.klass)} {s.classLabel.replace(/^class\s+/i, "")}</span>
                     {t ? <span style={{ fontSize: 11, fontWeight: 400, color: "#555" }}>{say(lang, PAPER.teacher)} {t}</span> : null}
                   </div>
                   <table>
@@ -628,11 +768,11 @@ function SendSheet({ open, onClose, data, sections }: { open: boolean; onClose: 
         </>
       }
     >
-      <div className="rp-c" style={{ gap: 14 }}>
-        <div className="rp-f" style={{ padding: 12, borderRadius: 14, background: "var(--s2)", gap: 12 }}>
-          <span className="rp-ib" style={{ background: "var(--accs)", color: "var(--accfg)" }}><Ic n="users" size={18} /></span>
-          <span className="rp-c">
-            <b>{withTeacher.length} class teachers · {items.length} lists</b>
+      <div className="rp-c rp-lh" style={{ gap: 14 }}>
+        <div className="rp-f" style={{ padding: "12px 14px", borderRadius: 14, background: "var(--s2)", gap: 12 }}>
+          <span className="rp-ib rp-t36" style={{ background: "var(--oks)", color: "var(--ok)" }}><Ic n="users" /></span>
+          <span className="rp-c" style={{ flex: 1 }}>
+            <span className="rp-tt num">{withTeacher.length} class teachers · {items.length} lists</span>
             <span className="rp-m">Opens WhatsApp on this phone and you press send · nothing is sent by the app, no cost</span>
           </span>
         </div>
@@ -673,6 +813,9 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
   const instTotal = (n: number, key: "due" | "notDue") => rows.reduce((s, r) => s + (r.cells[n]?.[key]?.amount ?? 0), 0);
   const max = Math.max(1, ...rows.flatMap((r) => due.map((n) => r.cells[n]?.due?.amount ?? 0)));
   const instName = (n: number) => (n === 99 ? "Last year" : `Inst ${n}`);
+  const instLong = (n: number) => (n === 99 ? "Last year" : `Installment ${n}`);
+  const dm = (iso: string | undefined) => (iso ? dayName(iso).split(" ").slice(1).join(" ") : "");
+  const pendingStudents = rows.reduce((s, r) => s + due.reduce((t, n) => t + (r.cells[n]?.due?.students ?? 0), 0), 0);
   const heat = (amount: number): CSSProperties => {
     const k = amount / max;
     return { background: `color-mix(in srgb, var(--acc) ${Math.round(12 + k * 60)}%, var(--card))`, color: k > 0.6 ? "var(--onsolid)" : "var(--fg)" };
@@ -682,9 +825,10 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
     <div className="rp-c" style={{ gap: 12, padding: 18 }}>
       <div className="rp-f" style={{ alignItems: "flex-start" }}>
         <span className="rp-c" style={{ flex: 1 }}>
-          <b className="serif" style={{ fontSize: 20 }}>{cell.classLabel} · {instName(cell.installmentNo)}</b>
-          <span className="rp-m">
-            {cell.dueDate ? `Due ${shortDay(cell.dueDate)} · ` : ""}{cell.students.length} students · {rupees(cell.students.reduce((s, x) => s + x.pending, 0))}
+          <span className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.2 }}>{cell.classLabel} · {instLong(cell.installmentNo)}</span>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}>
+            {cell.dueDate ? `Due ${dayName(cell.dueDate)} · ` : ""}
+            {cell.students.length} students · {rupees(cell.students.reduce((s, x) => s + x.pending, 0))}
           </span>
         </span>
         <Btn variant="ghost" icon="x" href="/reports?view=classwise" ariaLabel="Close" />
@@ -723,7 +867,6 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
         title={tx(T.classwise)}
         mSub={`${rupeesShort(pendingToday)} pending today`}
         mBack="/reports"
-        mAction={<Btn variant="ghost" icon="download" onClick={() => setSheet("export")} ariaLabel={tx(T.export)} />}
         actions={
           <>
             <BackBtn />
@@ -732,15 +875,30 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
           </>
         }
       />
+      <MActs
+        items={[
+          { icon: "printer", label: tx(T.print), onClick: () => window.print() },
+          { icon: "download", label: tx(T.export), onClick: () => setSheet("export"), pri: true },
+        ]}
+      />
       <div style={{ display: "grid", gridTemplateColumns: detail ? "minmax(0,1fr) 400px" : "minmax(0,1fr)", alignItems: "start" }} className="stack">
         <Section>
           {detail ? <div className="only-m"><Card pad={false}>{detail}</Card></div> : null}
-          <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
-            <Kpi label="Pending today" value={rupeesShort(pendingToday)} tone="var(--bad)" sub={due.length ? `installments ${due.filter((n) => n !== 99).join("–") || "—"}` : "nothing due yet"} />
-            {due.filter((n) => n !== 99).slice(-2).map((n, i) => (
-              <Kpi key={n} label={`${instName(n)} · ${dayMonth(cw.dueDates[n])}`} value={rupeesShort(instTotal(n, "due"))} sub="still unpaid" delay={40 * (i + 1)} />
+          <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
+            {[
+              { label: "Pending today", v: rupeesShort(pendingToday), sub: due.length ? `${pendingStudents} students · installments ${due.filter((n) => n !== 99).join("–") || "—"}` : "nothing due yet", fg: "var(--warnfg)" },
+              ...due
+                .filter((n) => n !== 99)
+                .slice(-2)
+                .map((n) => ({ label: `${instLong(n)} · ${dm(cw.dueDates[n])}`, v: rupeesShort(instTotal(n, "due")), sub: "still unpaid", fg: undefined as string | undefined })),
+              { label: "Not due yet", v: rupeesShort(notDueYet), sub: `installments ${notDue.join("–") || "—"} · kept apart`, fg: undefined as string | undefined },
+            ].map((k, i) => (
+              <div key={k.label} className="card rise rp-c" style={{ padding: "14px 16px", gap: 2, animationDelay: `${i * 40}ms` }}>
+                <span className="rp-m" style={{ fontWeight: 600 }}>{k.label}</span>
+                <span className="num" style={{ fontSize: 21, fontWeight: 700, color: k.fg }}>{k.v}</span>
+                <span className="rp-m">{k.sub}</span>
+              </div>
             ))}
-            <Kpi label="Not due yet" value={rupeesShort(notDueYet)} sub="kept apart · never added" delay={120} />
           </div>
           <div className="rp-f" style={{ justifyContent: "space-between" }}>
             <span className="rp-m">Tap any cell to see those students. Darker = more pending.</span>
@@ -753,15 +911,15 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
               <table className="rp-heat">
                 <thead>
                   <tr>
-                    <th>Class</th>
-                    <th colSpan={due.length + 1} style={{ textAlign: "center", color: "var(--bad)" }}>Pending today</th>
-                    <th colSpan={notDue.length + 1} style={{ textAlign: "center" }}>Not due yet</th>
+                    <th style={{ textTransform: "uppercase" }}>Class</th>
+                    <th colSpan={due.length + 1} style={{ textAlign: "right", color: "var(--warnfg)", textTransform: "uppercase", fontWeight: 700 }}>Pending today</th>
+                    <th colSpan={notDue.length + 1} style={{ textAlign: "right", textTransform: "uppercase", fontWeight: 700 }}>Not due yet</th>
                   </tr>
                   <tr>
                     <th />
-                    {due.map((n) => <th key={n}>{instName(n)}{cw.dueDates[n] && n !== 99 ? ` · ${dayMonth(cw.dueDates[n])}` : ""}</th>)}
+                    {due.map((n) => <th key={n}>{instName(n)}{cw.dueDates[n] && n !== 99 ? ` · ${dm(cw.dueDates[n])}` : ""}</th>)}
                     <th>Total</th>
-                    {notDue.map((n) => <th key={n}>{instName(n)} · {dayMonth(cw.dueDates[n])}</th>)}
+                    {notDue.map((n) => <th key={n}>{instName(n)} · {dm(cw.dueDates[n])}</th>)}
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -788,7 +946,7 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
                           </td>
                         );
                       })}
-                      <td className="rp-nd" style={{ color: "var(--bad)", fontWeight: 700 }}>{rupees(r.pendingToday)}</td>
+                      <td className="rp-nd" style={{ color: "var(--warnfg)", fontWeight: 700 }}>{rupees(r.pendingToday)}</td>
                       {notDue.map((n) => {
                         const c = r.cells[n]?.notDue;
                         return (
@@ -807,13 +965,24 @@ function ClasswiseView({ data, sheet, setSheet, close }: ViewProps) {
                       <td className="rp-nd">{rupees(r.notDueYet)}</td>
                     </tr>
                   ))}
+                  <tr className="rp-ctot">
+                    <td>All classes</td>
+                    {due.map((n) => (
+                      <td key={n} className="rp-nd" style={{ color: "var(--fg)" }}>{rupees(instTotal(n, "due"))}</td>
+                    ))}
+                    <td className="rp-nd" style={{ color: "var(--warnfg)" }}>{rupees(pendingToday)}</td>
+                    {notDue.map((n) => (
+                      <td key={n} className="rp-nd">{rupees(instTotal(n, "notDue"))}</td>
+                    ))}
+                    <td className="rp-nd">{rupees(notDueYet)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </Card>
           <span className="rp-m">Students who left are counted: they still owe. Late fee is never in these cells; it is on the defaulter list on its own line.</span>
         </Section>
-        {detail ? <aside className="only-d unstick" style={{ position: "sticky", top: 64, height: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--card)" }}>{detail}</aside> : null}
+        {detail ? <aside className="only-d unstick" style={{ position: "sticky", top: 64, height: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--bg)" }}>{detail}</aside> : null}
       </div>
       <ExportSheet data={data} open={sheet === "export"} onClose={close} />
     </VxPage>
@@ -1074,7 +1243,7 @@ function ExportSheet({ data, open, onClose, filters = {} }: { data: ReportsPageD
       open={open}
       onClose={onClose}
       title={`Export · ${title}`}
-      sub="Pick a format"
+      sub="Pick a format and what to include"
       footer={
         <>
           <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>Cancel</button>
@@ -1087,13 +1256,32 @@ function ExportSheet({ data, open, onClose, filters = {} }: { data: ReportsPageD
       }
     >
       <div className="rp-c" style={{ gap: 14 }}>
-        <Field label="Format">
-          <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
-            <RadioCard checked={format === "xlsx"} onSelect={() => setFormat("xlsx")} icon="table" title="Excel" sub=".xlsx · for sums" />
-            <RadioCard checked={format === "pdf"} onSelect={() => setFormat("pdf")} icon="fileText" title="PDF" sub="Ready to print" />
-            <RadioCard checked={format === "csv"} onSelect={() => setFormat("csv")} icon="list" title="CSV" sub="For other software" />
+        <div className="rp-c" style={{ gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>Format</span>
+          <div role="radiogroup" aria-label="Format" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+            {(
+              [
+                ["xlsx", "Excel", ".xlsx · for sums", "table", "var(--oks)", "var(--ok)"],
+                ["pdf", "PDF", "Ready to print", "fileText", "var(--bads)", "var(--bad)"],
+                ["csv", "CSV", "For other software", "list", "var(--s3)", "var(--mut)"],
+              ] as const
+            ).map(([k, label, sub, icon, bg, fg]) => {
+              const on = format === k;
+              return (
+                <button key={k} type="button" className="tap" role="radio" aria-checked={on} onClick={() => setFormat(k)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6, padding: 12, borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)", color: "var(--fg)", textAlign: "left", lineHeight: "normal" }}>
+                  <span className="rp-f" style={{ width: "100%", justifyContent: "space-between" }}>
+                    <span className="rp-ib" style={{ width: 32, height: 32, borderRadius: 11, background: bg, color: fg }}><Ic n={icon} /></span>
+                    <span className="rp-ib" style={{ width: 18, height: 18, borderRadius: 9, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}` }}>
+                      <span className="rp-dt" style={{ width: 8, height: 8, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
+                    </span>
+                  </span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{label}</span>
+                  <span style={{ fontSize: 11, color: "var(--mut)" }}>{sub}</span>
+                </button>
+              );
+            })}
           </div>
-        </Field>
+        </div>
         {view === "collection" && format === "csv" && c ? (
           <Field label="Dates">
             <div className="rp-f" style={{ gap: 6, flexWrap: "wrap" }}>
