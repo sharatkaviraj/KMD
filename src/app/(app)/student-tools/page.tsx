@@ -4,17 +4,16 @@ import { loadLinkedFamilies } from "@/modules/students-fees/vx/families";
 import { IMPORT_FIELDS, loadImportBatch, suggestedMapping } from "@/modules/imports/vx/flow";
 import { loadPromotionBoard } from "@/modules/promotion/vx/promote";
 import { getActiveSessionLabel } from "@/modules/fees/platform/session-context/active";
-import { ago, schoolToday } from "@/vx/format";
-import { lead, type Pair } from "@/vx/text";
-import type { IconName } from "@/vx/icons";
-import { VxPage, TopBar, Section } from "@/vx/ui/page";
-import { Card, IconTile, ListRow, Pill, SecHead, EmptyState } from "@/vx/ui/primitives";
+import { dayMonth, schoolToday } from "@/vx/format";
+import { lead, p, type Pair } from "@/vx/text";
+import { VxPage, TopBar } from "@/vx/ui/page";
+import { Btn } from "@/vx/ui/primitives";
 import { getViewer } from "@/vx/view-as";
 
 import { groupFamilies } from "@/vx/screens/admissions/logic";
-import { PeopleStyles } from "@/vx/screens/admissions/ui";
 import { listBulkChanges, loadPromotionMarks, loadQualitySkips } from "@/vx/screens/student-tools/data";
 import { FamiliesView, type FamKid } from "@/vx/screens/student-tools/families";
+import { ToolsHub, type HubTool } from "@/vx/screens/student-tools/hub";
 import { ImportFlow, type ImportProps } from "@/vx/screens/student-tools/import";
 import { findQualityIssues, qualityScore, suggestFamilies, suggestNextClass } from "@/vx/screens/student-tools/logic";
 import { PromoteFlow } from "@/vx/screens/student-tools/promote";
@@ -25,25 +24,14 @@ export const runtime = "nodejs";
 const VIEWS = ["hub", "promote", "promote-review", "promoted", "import", "mapping", "validate", "imported", "quality", "families", "merge"] as const;
 type View = (typeof VIEWS)[number];
 
-const TITLES: Record<View, Pair> = {
-  hub: { en: "Student tools", hi: "स्टूडेंट टूल्स" },
-  promote: { en: "Promote to next session", hi: "अगले सत्र में भेजें" },
-  "promote-review": { en: "Check the promotion", hi: "प्रमोशन जाँचें" },
-  promoted: { en: "Promotion done", hi: "प्रमोशन हो गया" },
-  import: { en: "Import students", hi: "विद्यार्थी इम्पोर्ट करें" },
-  mapping: { en: "Match the columns", hi: "कॉलम मिलाएँ" },
-  validate: { en: "Check the rows", hi: "पंक्तियाँ जाँचें" },
-  imported: { en: "Import done", hi: "इम्पोर्ट हो गया" },
-  quality: { en: "Data quality", hi: "डेटा की जाँच" },
-  families: { en: "Families", hi: "परिवार" },
-  merge: { en: "Link a family", hi: "परिवार जोड़ें" },
-};
-
 function one(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
-/** Student tools: promote, import, data quality and families (SCREENS.md "Student tools"). */
+type Lang = Parameters<typeof lead>[1];
+const TOOLS = p("Promote & import", "प्रमोशन व इम्पोर्ट");
+
+/** Promote & import (design `StudentTools`): promote, import, data quality and families. */
 export default async function StudentToolsPage(props: PageProps<"/student-tools">) {
   await requirePermission("fees:manage", "/student-tools");
   const params = await props.searchParams;
@@ -52,67 +40,120 @@ export default async function StudentToolsPage(props: PageProps<"/student-tools"
   const { staff } = await getViewer();
   const lang = staff.language;
 
+  if (view === "promote" || view === "promote-review" || view === "promoted") return <VxPage>{await promoteBody(view)}</VxPage>;
+
+  let top: { crumb: string; title: string; mSub?: string; back?: { href: string; label: Pair } };
   let body: React.ReactNode;
-  if (view === "promote" || view === "promote-review" || view === "promoted") body = await promoteBody(view);
-  else if (view === "import" || view === "mapping" || view === "validate" || view === "imported") body = await importBody(view, one(params.batch) || null);
-  else if (view === "quality") body = await qualityBody();
-  else if (view === "families" || view === "merge") body = await familiesBody(one(params.merge) || null);
-  else body = await hubBody(lang);
+  if (view === "import" || view === "mapping" || view === "validate" || view === "imported") {
+    const r = await importBody(view, one(params.batch) || null);
+    body = r.body;
+    const step = { import: 1, mapping: 2, validate: 3, imported: 3 }[r.stage];
+    const titles: Record<typeof r.stage, Pair> = { import: p("Import from Excel", "Excel से इम्पोर्ट"), mapping: p("Match the columns", "कॉलम मिलाएँ"), validate: p("Check the rows", "पंक्तियाँ जाँचें"), imported: p("Import done", "इम्पोर्ट हो गया") };
+    top = {
+      crumb: `${lead(TOOLS, lang)} · ${lead(p("Import", "इम्पोर्ट"), lang)}`,
+      title: lead(titles[r.stage], lang),
+      mSub: `${lead(p("Step", "चरण"), lang)} ${step} ${lead(p("of", "/"), lang)} 3${r.filename ? ` · ${r.filename}` : ""}`,
+      back: r.stage === "validate" && r.batchId ? { href: `/student-tools?view=mapping&batch=${r.batchId}`, label: p("Back to columns", "कॉलम पर लौटें") } : { href: "/student-tools", label: p("Back to tools", "टूल्स पर लौटें") },
+    };
+  } else if (view === "quality") {
+    const r = await qualityBody();
+    body = r.body;
+    top = { crumb: lead(TOOLS, lang), title: lead(p("Data quality", "डेटा की जाँच"), lang), mSub: lead(p(`${r.count} things to fix`, `${r.count} चीज़ें सुधारनी हैं`), lang), back: { href: "/student-tools", label: p("Back to tools", "टूल्स पर लौटें") } };
+  } else if (view === "families" || view === "merge") {
+    const r = await familiesBody(one(params.merge) || null);
+    body = r.body;
+    top = { crumb: lead(TOOLS, lang), title: lead(p("Families", "परिवार"), lang), mSub: lead(p(`${r.families} families · ${r.withSiblings} with siblings`, `${r.families} परिवार · ${r.withSiblings} में भाई-बहन`), lang), back: { href: "/student-tools", label: p("Back to tools", "टूल्स पर लौटें") } };
+  } else {
+    const r = await hubBody(lang);
+    body = r.body;
+    top = { crumb: `${lead(p("Students", "विद्यार्थी"), lang)} · ${lead(p("Session", "सत्र"), lang)} ${r.sessionLabel}`, title: lead(TOOLS, lang), mSub: lead(p(`4 tools · ${r.toFix} things to fix`, `4 टूल · ${r.toFix} चीज़ें सुधारनी हैं`), lang) };
+  }
 
   return (
     <VxPage>
       <TopBar
-        crumb={view === "hub" ? lead({ en: "Students", hi: "विद्यार्थी" }, lang) : lead(TITLES.hub, lang)}
-        title={lead(TITLES[view], lang)}
-        mBack={view === "hub" ? "/menu" : "/student-tools"}
+        crumb={top.crumb}
+        title={top.title}
+        mSub={top.mSub}
+        mBack={view === "hub" ? "/menu" : (top.back?.href ?? "/student-tools")}
+        actions={top.back ? <Btn variant="ghost" icon="chevLeft" href={top.back.href}>{lead(top.back.label, lang)}</Btn> : undefined}
       />
-      <main>
-        <Section gap={16}>{body}</Section>
-      </main>
+      <main>{body}</main>
     </VxPage>
   );
 }
 
-async function hubBody(lang: Parameters<typeof lead>[1]) {
-  const [changes, board] = await Promise.all([listBulkChanges(8), loadPromotionBoard().catch(() => null)]);
-  const tiles: { href: string; icon: IconName; title: Pair; sub: Pair; badge?: string }[] = [
+async function hubBody(lang: Lang) {
+  const sessionLabel = await getActiveSessionLabel();
+  const [changes, board, imports, children, skipped] = await Promise.all([
+    listBulkChanges(8),
+    loadPromotionBoard().catch(() => null),
+    loadImportBatch(null).catch(() => ({ batch: null, recent: [] })),
+    loadRollChildren(sessionLabel),
+    loadQualitySkips(schoolToday()),
+  ]);
+  const hits = findQualityIssues(children, sessionLabel, skipped);
+  const score = qualityScore(children.length, hits);
+  const families = groupFamilies(children);
+  const withSiblings = families.filter((f) => f.kids.length >= 2).length;
+  const last = imports.recent[0];
+  const applied = board?.run?.status === "applied";
+
+  const tools: HubTool[] = [
     {
+      key: "promote",
       href: "/student-tools?view=promote",
       icon: "grad",
-      title: { en: "Promote to next session", hi: "अगले सत्र में भेजें" },
-      sub: board ? { en: `${board.sourceSessionLabel} → ${board.targetSessionLabel}`, hi: `${board.sourceSessionLabel} → ${board.targetSessionLabel}` } : { en: "Once a year", hi: "साल में एक बार" },
-      badge: board?.run?.status === "applied" ? lead({ en: "Done", hi: "हो गया" }, lang) : undefined,
+      tone: "acc",
+      title: p("Year-end promotion", "वर्ष-अंत प्रमोशन"),
+      desc: board ? p(`Move every class up for ${board.targetSessionLabel}`, `हर कक्षा को ${board.targetSessionLabel} में आगे बढ़ाएँ`) : p("Move every class up for next session", "हर कक्षा को अगले सत्र में आगे बढ़ाएँ"),
+      status: applied ? p(`Done · ${board?.run?.appliedCount ?? 0} moved up`, `हो गया · ${board?.run?.appliedCount ?? 0} आगे बढ़े`) : p("Opens after annual results — prepare now", "वार्षिक परिणाम के बाद — अभी तैयारी करें"),
+      pill: applied ? p("Done", "हो गया") : board ? p(board.targetSessionLabel, board.targetSessionLabel) : undefined,
     },
-    { href: "/student-tools?view=import", icon: "upload", title: { en: "Import students", hi: "विद्यार्थी इम्पोर्ट करें" }, sub: { en: "From an Excel or CSV file", hi: "Excel या CSV फ़ाइल से" } },
-    { href: "/student-tools?view=quality", icon: "clipboard", title: { en: "Data quality", hi: "डेटा की जाँच" }, sub: { en: "Missing phones, birth dates, twins", hi: "फ़ोन, जन्म तिथि, दोहराव" } },
-    { href: "/student-tools?view=families", icon: "users", title: { en: "Families", hi: "परिवार" }, sub: { en: "Link and split brothers and sisters", hi: "भाई-बहन जोड़ें और अलग करें" } },
+    {
+      key: "import",
+      href: "/student-tools?view=import",
+      icon: "upload",
+      tone: "info",
+      title: p("Import from Excel", "Excel से इम्पोर्ट"),
+      desc: p("Add many students from one sheet", "एक शीट से कई विद्यार्थी जोड़ें"),
+      status: last ? p(`Last import ${dayMonth(last.createdAt)} · ${last.totalRows} rows`, `पिछला इम्पोर्ट ${dayMonth(last.createdAt)} · ${last.totalRows} पंक्तियाँ`) : p("No imports yet", "अभी कोई इम्पोर्ट नहीं"),
+      pill: last ? p(dayMonth(last.createdAt), dayMonth(last.createdAt)) : p("Excel or CSV", "Excel या CSV"),
+    },
+    {
+      key: "quality",
+      href: "/student-tools?view=quality",
+      icon: "shield",
+      tone: "warn",
+      title: p("Data quality", "डेटा की जाँच"),
+      desc: p("Fill gaps and fix mistakes, row by row", "कमियाँ भरें और ग़लतियाँ सुधारें, एक-एक करके"),
+      status: p(`${hits.length} things to fix · ${score}% complete`, `${hits.length} सुधार · ${score}% पूरा`),
+      ring: score,
+    },
+    {
+      key: "families",
+      href: "/student-tools?view=families",
+      icon: "users",
+      tone: "ok",
+      title: p("Families", "परिवार"),
+      desc: p("Brothers and sisters, merge and split", "भाई-बहन, जोड़ें और अलग करें"),
+      status: p(`${families.length} families · ${withSiblings} with siblings`, `${families.length} परिवार · ${withSiblings} में भाई-बहन`),
+      pill: p("Discounts", "छूट"),
+    },
   ];
-  const kindIcon: Record<string, IconName> = { promote: "grad", promote_undo: "undo", import: "upload", merge: "link", split: "users", quality: "check" };
-  return (
-    <div className="pp-wrap" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <PeopleStyles />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-        {tiles.map((t) => (
-          <a key={t.href} href={t.href} className="card tap" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "16px 18px", color: "inherit", textDecoration: "none" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <IconTile icon={t.icon} />
-              {t.badge ? <Pill tone="ok">{t.badge}</Pill> : null}
-            </span>
-            <strong style={{ fontSize: 16 }}>{lead(t.title, lang)}</strong>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{lead(t.sub, lang)}</span>
-          </a>
-        ))}
-      </div>
-      <SecHead>{lead({ en: "Recent bulk changes", hi: "हाल के बड़े बदलाव" }, lang)}</SecHead>
-      <Card pad={false}>
-        {changes.length === 0 ? (
-          <EmptyState icon="history" title={lead({ en: "No bulk changes yet", hi: "अभी कोई बड़ा बदलाव नहीं" }, lang)} />
-        ) : (
-          changes.map((c) => <ListRow key={c.id} lead={<IconTile icon={kindIcon[c.kind] ?? "history"} size={36} />} title={c.title} sub={ago(c.doneAt)} />)
-        )}
-      </Card>
-    </div>
-  );
+
+  return {
+    sessionLabel,
+    toFix: hits.length,
+    body: (
+      <ToolsHub
+        tools={tools}
+        history={changes.map((c) => ({ id: c.id, text: c.title, who: c.doneBy, when: dayMonth(c.doneAt) }))}
+        emptyHistory={p("No bulk changes yet", "अभी कोई बड़ा बदलाव नहीं")}
+      />
+    ),
+    lang,
+  };
 }
 
 async function promoteBody(view: "promote" | "promote-review" | "promoted") {
@@ -152,6 +193,19 @@ async function importBody(view: "import" | "mapping" | "validate" | "imported", 
   const sessionLabel = await getActiveSessionLabel();
   const { batch, recent } = await loadImportBatch(batchId);
   const stage = batch ? view : "import";
+  // A few values per column from the first rows, so a column can be recognised by what is in it.
+  const samples: Record<string, string[]> = {};
+  if (batch) {
+    for (const h of batch.detectedHeaders) {
+      const seen: string[] = [];
+      for (const r of batch.rows) {
+        const v = String((r.rawPayload as Record<string, unknown>)?.[h] ?? "").trim();
+        if (v && !seen.includes(v)) seen.push(v);
+        if (seen.length >= 3) break;
+      }
+      samples[h] = seen;
+    }
+  }
   const props: ImportProps = {
     stage,
     sessionLabel,
@@ -164,6 +218,7 @@ async function importBody(view: "import" | "mapping" | "validate" | "imported", 
           status: batch.status,
           headers: batch.detectedHeaders,
           mapping: Object.fromEntries(Object.entries(suggestedMapping(batch)).filter((e): e is [string, string] => typeof e[1] === "string")),
+          samples,
           totalRows: batch.totalRows,
           validRows: batch.validRows,
           invalidRows: batch.invalidRows,
@@ -184,20 +239,23 @@ async function importBody(view: "import" | "mapping" | "validate" | "imported", 
         }
       : null,
   };
-  return <ImportFlow {...props} />;
+  return { body: <ImportFlow {...props} />, stage, filename: batch?.filename ?? null, batchId: batch?.id ?? null };
 }
 
 async function qualityBody() {
   const sessionLabel = await getActiveSessionLabel();
   const [children, skipped] = await Promise.all([loadRollChildren(sessionLabel), loadQualitySkips(schoolToday())]);
   const hits = findQualityIssues(children, sessionLabel, skipped);
-  return (
-    <QualityList
-      total={children.length}
-      score={qualityScore(children.length, hits)}
-      items={hits.map((h) => ({ studentId: h.child.id, name: h.child.fullName, classLabel: h.child.classLabel, issue: h.issue, detail: h.issue === "father_phone" ? null : h.detail, otherId: h.otherId ?? null }))}
-    />
-  );
+  return {
+    count: hits.length,
+    body: (
+      <QualityList
+        total={children.length}
+        score={qualityScore(children.length, hits)}
+        items={hits.map((h) => ({ studentId: h.child.id, name: h.child.fullName, classLabel: h.child.classLabel, issue: h.issue, detail: h.issue === "father_phone" ? null : h.detail, otherId: h.otherId ?? null }))}
+      />
+    ),
+  };
 }
 
 async function familiesBody(mergeKey: string | null) {
@@ -207,17 +265,22 @@ async function familiesBody(mergeKey: string | null) {
   const groupOf = new Map<string, string>();
   for (const g of linked) for (const id of g.memberIds) groupOf.set(id, g.groupId);
   const families = groupFamilies(children);
+  const villageOf = new Map(families.map((f) => [f.key, f.village]));
   const kid = (id: string): FamKid | null => {
     const c = byId.get(id);
     return c ? { id: c.id, name: c.fullName, classLabel: c.classLabel } : null;
   };
-  const suggested = suggestFamilies(families, groupOf).map((s) => ({ key: s.key, father: s.father, phone: s.phone, kids: s.childIds.map(kid).filter((k): k is FamKid => k !== null) }));
+  const suggested = suggestFamilies(families, groupOf).map((s) => ({ key: s.key, father: s.father, phone: s.phone, village: villageOf.get(s.key) ?? null, kids: s.childIds.map(kid).filter((k): k is FamKid => k !== null) }));
   const linkedView = linked
     .map((g) => {
       const kids = g.memberIds.map(kid).filter((k): k is FamKid => k !== null);
       const first = byId.get(g.memberIds.find((id) => byId.has(id)) ?? "");
-      return { groupId: g.groupId, father: g.label?.trim() || first?.fatherName || "—", phone: first?.phone ?? null, kids };
+      return { groupId: g.groupId, father: g.label?.trim() || first?.fatherName || "—", phone: first?.phone ?? null, village: first?.villageCity ?? null, kids };
     })
     .filter((g) => g.kids.length > 0);
-  return <FamiliesView sessionLabel={sessionLabel} linked={linkedView} suggested={suggested} mergeKey={mergeKey} />;
+  return {
+    families: families.length,
+    withSiblings: families.filter((f) => f.kids.length >= 2).length,
+    body: <FamiliesView sessionLabel={sessionLabel} linked={linkedView} suggested={suggested} mergeKey={mergeKey} />,
+  };
 }

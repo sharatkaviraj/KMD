@@ -12,13 +12,22 @@ import type { PromoMark, QualityIssue } from "@/vx/screens/student-tools/logic";
  * src/vx/screens/admissions/data.ts.
  */
 
-export type BulkChange = { id: string; kind: string; title: string; detail: Record<string, unknown>; doneAt: string };
+export type BulkChange = { id: string; kind: string; title: string; detail: Record<string, unknown>; doneAt: string; doneBy: string | null };
 
 export async function listBulkChanges(limit = 8): Promise<BulkChange[]> {
   await assertPermission("fees:manage");
-  const { data, error } = await createAdminClient().from("bulk_changes").select("id, kind, title, detail, done_at").order("done_at", { ascending: false }).limit(limit);
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("bulk_changes").select("id, kind, title, detail, done_at, done_by").order("done_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`Could not read recent changes: ${error.message}`);
-  return ((data ?? []) as Array<{ id: string; kind: string; title: string; detail: Record<string, unknown>; done_at: string }>).map((r) => ({ id: r.id, kind: r.kind, title: r.title, detail: r.detail, doneAt: r.done_at }));
+  const rows = (data ?? []) as Array<{ id: string; kind: string; title: string; detail: Record<string, unknown>; done_at: string; done_by: string | null }>;
+  // Who did it, for the hub's second line. A short list, so one small read.
+  const ids = [...new Set(rows.map((r) => r.done_by).filter((x): x is string => Boolean(x)))];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const { data: staff } = await admin.from("staff_profiles").select("id, display_name").in("id", ids);
+    for (const s of (staff ?? []) as Array<{ id: string; display_name: string }>) names.set(s.id, s.display_name);
+  }
+  return rows.map((r) => ({ id: r.id, kind: r.kind, title: r.title, detail: r.detail, doneAt: r.done_at, doneBy: r.done_by ? (names.get(r.done_by) ?? null) : null }));
 }
 
 export async function logBulkChange(input: { kind: "promote" | "promote_undo" | "import" | "merge" | "split" | "quality"; title: string; detail?: Record<string, unknown>; staffId: string }) {

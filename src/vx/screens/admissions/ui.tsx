@@ -32,6 +32,11 @@ const BAR_CSS = `
 .pp-side{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
 .pp-half{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 @container vx (max-width:899px){.pp-side,.pp-half{grid-template-columns:minmax(0,1fr)}.pp-sticky{position:static!important}}
+.st-prow{display:grid;grid-template-columns:minmax(110px,1fr) minmax(150px,1.3fr) 70px 80px 80px 80px 20px;gap:8px;align-items:center;min-height:52px;padding:0 16px}
+.st-mrow{display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,1.4fr) 18px minmax(180px,1fr) 92px;gap:10px;align-items:center;padding:10px 16px}
+.st-frow{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(0,1.5fr) 180px;gap:12px;align-items:center;padding:12px 16px}
+@container vx (max-width:899px){.st-prow{grid-template-columns:auto minmax(0,1fr) auto 20px;padding:12px 14px}.st-prow>.st-d{display:none}.st-mrow{grid-template-columns:minmax(0,1fr) auto;padding:12px 14px}.st-mrow>:nth-child(5){order:1}.st-mrow>:nth-child(2){order:2;grid-column:1/-1}.st-mrow>:nth-child(3){display:none}.st-mrow>:nth-child(4){order:3;grid-column:1/-1}.st-frow{grid-template-columns:minmax(0,1fr);gap:8px;padding:12px 14px}}
+@container vx (min-width:900px){.st-prow>.st-m{display:none}}
 @media print{.pp-bar{display:none!important}}
 `;
 
