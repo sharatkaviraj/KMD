@@ -3,9 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { schoolProfile } from "@/platform/config/school";
 import { getStudentDetail, loadAdmissionsFeeContext, loadDuesSplit, loadStudentHistory } from "@/modules/students-fees/vx/admissions";
-import { lead } from "@/vx/text";
-import { VxPage, TopBar, Section } from "@/vx/ui/page";
-import { getViewer } from "@/vx/view-as";
+import { VxPage } from "@/vx/ui/page";
 
 import { loadAdmissionDetails } from "@/vx/screens/admissions/data";
 import { dobForInput } from "@/vx/screens/admissions/logic";
@@ -21,8 +19,6 @@ export default async function AdmissionRecordPage(props: PageProps<"/admissions/
   await requirePermission("fees:manage", `/admissions/${studentId}`);
   if (!UUID.test(studentId)) notFound();
   const search = await props.searchParams;
-  const { staff } = await getViewer();
-  const lang = staff.language;
 
   const student = await getStudentDetail(studentId);
   if (!student) notFound();
@@ -37,48 +33,39 @@ export default async function AdmissionRecordPage(props: PageProps<"/admissions/
 
   return (
     <VxPage>
-      <TopBar
-        crumb={lead({ en: "Students · Admissions", hi: "विद्यार्थी · दाख़िले" }, lang)}
-        title={view === "withdraw" ? lead({ en: "Withdraw a student", hi: "नाम काटें" }, lang) : lead({ en: "Edit student", hi: "विद्यार्थी का विवरण" }, lang)}
-        mSub={`${student.fullName} · SR ${student.admissionNo}`}
-        mBack="/admissions"
+      <StudentRecord
+        studentId={student.id}
+        sessionLabel={student.classSessionLabel}
+        sr={student.admissionNo}
+        classLabel={student.classLabel}
+        status={student.status}
+        leftOn={student.leftOn}
+        tcNumber={student.tcNumber}
+        admittedOn={student.joinedOn ?? detail?.admittedAt ?? null}
+        initial={{
+          fullName: student.fullName,
+          nameHi: detail?.nameHi ?? "",
+          dob: dobForInput(student.dateOfBirth),
+          gender: student.gender ?? "",
+          fatherName: student.fatherName ?? "",
+          motherName: student.motherName ?? "",
+          fatherPhone: student.fatherPhone ?? "",
+          motherPhone: student.motherPhone ?? "",
+          address: student.address ?? "",
+          villageCity: student.villageCity ?? "",
+          previousSchool: student.previousSchool ?? "",
+          classId: student.classId,
+          transportRouteId: student.transportRouteId ?? "",
+        }}
+        docs={detail?.docs ?? {}}
+        classes={classes}
+        routes={routes}
+        history={history}
+        dues={dues}
+        today={ctx.today}
+        schoolName={schoolProfile.name}
+        mode={view}
       />
-      <main>
-        <Section>
-          <StudentRecord
-            studentId={student.id}
-            sessionLabel={student.classSessionLabel}
-            sr={student.admissionNo}
-            classLabel={student.classLabel}
-            status={student.status}
-            leftOn={student.leftOn}
-            tcNumber={student.tcNumber}
-            initial={{
-              fullName: student.fullName,
-              nameHi: detail?.nameHi ?? "",
-              dob: dobForInput(student.dateOfBirth),
-              gender: student.gender ?? "",
-              fatherName: student.fatherName ?? "",
-              motherName: student.motherName ?? "",
-              fatherPhone: student.fatherPhone ?? "",
-              motherPhone: student.motherPhone ?? "",
-              address: student.address ?? "",
-              villageCity: student.villageCity ?? "",
-              previousSchool: student.previousSchool ?? "",
-              classId: student.classId,
-              transportRouteId: student.transportRouteId ?? "",
-            }}
-            docs={detail?.docs ?? {}}
-            classes={classes}
-            routes={routes}
-            history={history}
-            dues={dues}
-            today={ctx.today}
-            schoolName={schoolProfile.name}
-            mode={view}
-          />
-        </Section>
-      </main>
     </VxPage>
   );
 }

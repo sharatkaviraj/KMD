@@ -32,6 +32,7 @@ export default async function StaffPage({
       mayManage={data.mayManage}
       isAdmin={data.isAdmin}
       mayEditMatrix={data.mayEditMatrix}
+      meId={data.meId}
       initialView={params.view === "roles" ? "roles" : "people"}
       initialId={id}
       initialSheet={sheet}
