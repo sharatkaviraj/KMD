@@ -104,7 +104,7 @@ export function AttendanceScreen({
   /* ---------------------------------------------------------------- desk */
   const deskFilter = filter ?? "all";
   const desk = (
-    <div className="only-d" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(340px, 420px)", gap: 24, padding: "22px 28px 40px", alignItems: "start", lineHeight: "normal" }}>
+    <div className="only-d" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(340px, 420px)", gap: 24, padding: "22px 28px 40px", alignItems: "start" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
         {closed}
         <div className="card" style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
@@ -186,7 +186,7 @@ export function AttendanceScreen({
     [tx(TO.halfDay), "var(--warns)", "var(--warnfg)", summary.halfDay],
   ];
   const phoneView = (
-    <div className="only-m" style={{ lineHeight: "normal" }}>
+    <div className="only-m">
       <div className="glass" style={{ position: "sticky", top: 0, zIndex: 5, height: 56, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <BackLink href="/" className="tap icon-btn" style={{ width: 44, height: 44, borderRadius: 22 }}>
           <Ic n="chevLeft" size={24} />
@@ -345,12 +345,13 @@ function ClassCard({ row, href, selected, credit, delay }: { row: ClassBoardRow;
         : state === "reminded"
           ? { dot: "var(--warn)", bg: "var(--warns)", fg: "var(--warnfg)", text: T.remindedAt(clock(row.remindedAt!)) }
           : { dot: "var(--warn)", bg: "var(--warns)", fg: "var(--warnfg)", text: T.notMarked };
+  // The design draws a class card as a <button>, so its text keeps the browser's normal line height.
   return (
     <Link
       href={href}
       className="card tap lift"
       aria-current={selected ? "true" : undefined}
-      style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, minWidth: 0, color: "var(--fg)", borderColor: selected ? "var(--acc)" : "var(--bd)", boxShadow: selected ? "0 0 0 3px var(--accs), var(--sh)" : "var(--sh)", animation: `xRise .4s var(--ease) ${delay}ms both` }}
+      style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, minWidth: 0, lineHeight: "normal", color: "var(--fg)", borderColor: selected ? "var(--acc)" : "var(--bd)", boxShadow: selected ? "0 0 0 3px var(--accs), var(--sh)" : "var(--sh)", animation: `xRise .4s var(--ease) ${delay}ms both` }}
     >
       <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <span className="clip" style={{ fontSize: 15, fontWeight: 700 }}>{row.label}</span>
@@ -587,7 +588,7 @@ function Register({
     <>
       {desk}
       <Sheet open={phoneOpen} onClose={onClose} title={tx(T.classToday(sheet.label))} sub={who} footer={footer(true) ?? undefined}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 10, lineHeight: "normal" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
             <span className="num" style={{ fontWeight: 700 }}>{tx(T.markedOf(counts.marked, total))}</span>
             <span className="num" style={{ color: "var(--mut)" }}>P {counts.present} · A {counts.absent} · H {counts.halfDay}</span>

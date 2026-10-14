@@ -263,7 +263,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope }: 
 
   /* ---- desk (D03): the list and the selected item side by side ---- */
   const desk = (
-    <div className="only-d" style={{ display: "grid", gridTemplateColumns: "400px minmax(0, 1fr)", minHeight: "calc(100dvh - 64px)", lineHeight: "normal" }}>
+    <div className="only-d" style={{ display: "grid", gridTemplateColumns: "400px minmax(0, 1fr)", minHeight: "calc(100dvh - 64px)" }}>
       <div style={{ minWidth: 0, borderRight: "1px solid var(--bd)", display: "flex", flexDirection: "column" }}>
         <div className="glass" role="group" aria-label={tx(TO.filterByType)} style={{ position: "sticky", top: 64, zIndex: 2, padding: "16px 16px 12px", display: "flex", flexWrap: "wrap", gap: 6, borderBottom: "1px solid var(--bd)" }}>
           {chips}
@@ -305,7 +305,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope }: 
 
   /* ---- phone (F02): the title over the chips, each item a card with its actions ---- */
   const phone = (
-    <div className="only-m" style={{ lineHeight: "normal" }}>
+    <div className="only-m">
       <div className="glass" style={{ position: "sticky", top: 0, zIndex: 5, padding: "14px 18px 10px", display: "flex", flexDirection: "column", gap: 10, borderBottom: "1px solid var(--bd)" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
           <h1 className="serif" style={{ margin: 0, fontSize: 30, fontWeight: 600 }}>{tx(T.needsYou)}</h1>
