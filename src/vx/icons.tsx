@@ -5,8 +5,8 @@ import {
   ChevronsRight, CircleCheck, CircleHelp, ClipboardList, Clock, Cloud, Coffee, Copy, Database,
   Delete, DoorOpen, Download, Ellipsis, Eye, EyeOff, File, FileText, Filter, Flag, FlaskConical,
   Gift, Globe, GraduationCap, Hash, Heart, History, House, Image, Inbox, IndianRupee, Info, Key,
-  Keyboard, Landmark, Layers, LayoutGrid, Link, List, Lock, LogOut, Mail, MapPin, Megaphone,
-  MessageCircle, Mic, Minus, Moon, NotebookPen, PenLine, Percent, Phone, Pin, Plus, Printer,
+  Keyboard, Landmark, Layers, LayoutGrid, Link, List, Lock, LogOut, Mail, MapPin,
+  MessageCircle, Mic, Minus, Moon, PenLine, Percent, Phone, Pin, Plus, Printer,
   Repeat, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Star, Sun, Table,
   Tag, Trash2, TrendingUp, TriangleAlert, Type, Undo2, Upload, User, UserPlus, Users, WifiOff, X,
   Zap, createLucideIcon, type LucideIcon,
@@ -19,11 +19,20 @@ const NotePen = createLucideIcon("NotePen", [
   ["path", { d: "M4 4h8M4 8h5", key: "np3" }],
 ]);
 
+/** The design's own `IC.megaphone` (design/shared/icons.js): a flared horn and its handle. */
+const DesignMegaphone = createLucideIcon("DesignMegaphone", [
+  ["path", { d: "M3 11l18-5v12L3 14v-3z", key: "dm1" }],
+  ["path", { d: "M11.6 16.8a3 3 0 1 1-5.8-1.6", key: "dm2" }],
+]);
+
 /**
  * The design's icon names (`design/shared/icons.js`, `IC.<name>`) mapped to
  * lucide-react, exactly as DESIGN-SYSTEM.md §6 lists them. Screens name icons
  * by these strings, which — unlike a component reference — can cross from a
  * Server Component into a Client Component.
+ *
+ * `note` and `megaphone` draw the frames' own paths (`IC.note` in XSide/XNav,
+ * `IC.megaphone` in shared/icons.js), not lucide's later redraws of them.
  */
 export const ICONS = {
   search: Search, chevRight: ChevronRight, chevLeft: ChevronLeft, chevDown: ChevronDown,
@@ -33,7 +42,7 @@ export const ICONS = {
   // The design draws a receipt as a document and a swap as two looped arrows.
   rupee: IndianRupee, receipt: FileText, file: File, fileText: FileText, calCheck: CalendarCheck,
   calendar: Calendar, clock: Clock, swap: Repeat, phone: Phone, message: MessageCircle,
-  megaphone: Megaphone, send: Send, bell: Bell, edit: PenLine, trash: Trash2, more: Ellipsis,
+  megaphone: DesignMegaphone, send: Send, bell: Bell, edit: PenLine, trash: Trash2, more: Ellipsis,
   alert: TriangleAlert, info: Info, help: CircleHelp, shield: Shield, lock: Lock, key: Key,
   eye: Eye, eyeOff: EyeOff, mail: Mail, printer: Printer, download: Download, upload: Upload,
   copy: Copy, link: Link, image: Image, filter: Filter, sliders: SlidersVertical,
@@ -43,7 +52,7 @@ export const ICONS = {
   undo: Undo2, refresh: RefreshCw, cloud: Cloud, wifiOff: WifiOff, layers: Layers, list: List,
   table: Table, zap: Zap, award: Award, percent: Percent, tag: Tag, mapPin: MapPin,
   briefcase: Briefcase, star: Star, flag: Flag, hash: Hash, pin: Pin, del: Delete, mic: Mic,
-  note: NotebookPen, cake: Cake, bank: Landmark, ticks: CheckCheck, door: DoorOpen,
+  note: NotePen, cake: Cake, bank: Landmark, ticks: CheckCheck, door: DoorOpen,
   camera: Camera, history: History, gift: Gift, building: Building2, text: Type, type: Type,
   flask: FlaskConical, coffee: Coffee, heart: Heart, smile: Smile, keyboard: Keyboard,
   calMinus: CalendarMinus, eyeRole: Eye, arrowDown: ArrowDown,

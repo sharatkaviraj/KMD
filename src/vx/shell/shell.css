@@ -1,0 +1,14 @@
+/*
+ * The shell's own pieces that inline styles cannot say: the sidebar's sliding
+ * highlight and its hover-only collapse button. Scoped to `.vx-side`.
+ */
+
+/* The highlight that slides to the current item (the active item draws its own until this has been placed). */
+.vx-side .vx-side-pill{position:absolute;left:12px;right:12px;top:0;border-radius:11px;background:var(--navs);box-shadow:inset 0 0 0 1px var(--navb);opacity:0;pointer-events:none;transition:transform .42s var(--spring),height .3s var(--ease),opacity .2s ease}
+.vx-side nav[data-pill] .sidei.on{background:transparent;box-shadow:none;animation:none}
+
+/* Collapse/expand: shown on hover or keyboard focus, so the frames read the same without it. */
+.vx-side .vx-collapse{position:absolute;top:11px;right:-13px;z-index:30;width:26px;height:26px;padding:0;border-radius:13px;border:1px solid var(--navb);background:var(--navs);color:var(--navfg);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s ease,transform .14s var(--ease)}
+.vx-side:hover .vx-collapse,.vx-side .vx-collapse:focus-visible{opacity:1}
+
+@media (prefers-reduced-motion:reduce){.vx-side .vx-side-pill{transition:none}}

@@ -183,6 +183,19 @@ const SHORT: Partial<Record<string, Pair>> = {
   "exam:results": L("Results", "परिणाम"),
 };
 
+/** Icons the bottom bar draws differently from the sidebar (XNav: the teacher's More is a grid). */
+const SHORT_ICON: Partial<Record<string, IconName>> = {
+  "teacher:more": "grid",
+};
+
+/** "See the app as" names, as the design's sidebar lists them (XSide). */
+export const PREVIEW_LABEL: Record<Exclude<DesignMenu, "admin">, Pair> = {
+  teacher: L("Teacher", "अध्यापक"),
+  accountant: L("Accountant", "लेखाकार"),
+  academic: L("Academic coordinator", "शैक्षणिक समन्वयक"),
+  exam: L("Exam coordinator", "परीक्षा प्रभारी"),
+};
+
 export const MENU_HOME: Record<DesignMenu, string> = {
   admin: "/",
   teacher: "/teach",
@@ -214,7 +227,7 @@ export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
     if (key === "menu") return { key: "menu", label: L("Menu", "मेनू"), icon: "grid", href: "/menu" };
     const item = all.find((i) => i.key === key);
     if (!item || !allowed(item.permission)) return null;
-    return { key, label: SHORT[`${menu}:${key}`] ?? item.label, icon: item.icon, href: item.href, badge: item.badge };
+    return { key, label: SHORT[`${menu}:${key}`] ?? item.label, icon: SHORT_ICON[`${menu}:${key}`] ?? item.icon, href: item.href, badge: item.badge };
   };
   const [a, b, c, d] = spec.tabs.map(tab);
   const quick = spec.center.href === "#quick" ? QUICK_ACTIONS.filter((q) => allowed(q.permission)).map((q) => q.key) : undefined;

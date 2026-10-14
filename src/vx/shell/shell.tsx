@@ -2,17 +2,16 @@ import { Suspense, type ReactNode } from "react";
 
 import { getShellPulse } from "@/modules/dashboard/data/shell-metrics";
 import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
-import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
-import { can, type StaffPermission } from "@/platform/auth/permissions";
+import { can, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
 import { OfficeSyncListener } from "@/ui/shell/office-sync-listener";
 import { RouteProgress } from "@/ui/shell/route-progress";
 import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
-import { ShellSessionPill, ShellSessionPillSkeleton } from "@/ui/shell/shell-session-pill";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { initials, schoolToday } from "@/vx/format";
 import { loadInbox } from "@/vx/screens/admin/data";
-import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
+import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
+import { lead, type Pair } from "@/vx/text";
 import { NavTrail } from "@/vx/ui/back-link";
 import { avatarColor } from "@/vx/ui/primitives";
 import { ToastProvider } from "@/vx/ui/overlays";
@@ -28,6 +27,29 @@ import { PreviewBanner } from "./preview-banner";
 import { VxSidebar, type Badges } from "./sidebar";
 
 const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", exam: "award" } as const;
+
+/** The line under the signed-in person's name, as the design's sidebar writes it ("Admin · settings", "Accountant"). */
+const ROLE_SUB: Record<StaffRole, Pair> = {
+  admin: { en: "Admin · settings", hi: "प्रशासक · सेटिंग्स" },
+  office: { en: "Office", hi: "कार्यालय" },
+  accountant: { en: "Accountant", hi: "लेखाकार" },
+  fee_collector: { en: "Fee desk", hi: "फ़ीस काउंटर" },
+  academic_coordinator: { en: "Academic coordinator", hi: "शैक्षणिक समन्वयक" },
+  exam_coordinator: { en: "Exam coordinator", hi: "परीक्षा प्रभारी" },
+  teacher: { en: "Teacher", hi: "अध्यापक" },
+  view_only: { en: "View only", hi: "केवल देखना" },
+};
+
+/**
+ * Where the person at the foot of the sidebar leads: their own settings, as
+ * the design links it (admin → Settings, teacher → More, the others → their
+ * Menu, which holds dark mode, Hindi labels, session, password and sign out).
+ */
+function meHref(role: StaffRole, settings: boolean): string {
+  if (settings) return "/settings";
+  if (role === "teacher") return "/teach/more";
+  return "/menu";
+}
 
 async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges> {
   const out: Badges = {};
@@ -84,34 +106,25 @@ export async function VxShell({
   const badges = loadBadges(viewer, sessionLabel);
   const fees = can(staff, "fees:view");
 
-  const roleLine = `${MENU_LABEL[menu].en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}` : ""}`;
+  // A rehearsal session says so on the role line, which is where the session is named now.
+  const testMark = sessionIsTest && !/test/i.test(sessionLabel) ? " · test" : "";
+  const roleLine = `${MENU_LABEL[menu].en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}${testMark}` : ""}`;
+  const settings = can(staff, "settings:manage");
   const me = {
     initials: initials(staff.displayName),
     name: staff.displayName,
-    sub: staff.email ?? MENU_LABEL[menu].en,
-    href: can(staff, "settings:manage") ? "/settings" : "/preferences",
+    sub: lead(ROLE_SUB[staff.role], staff.language),
+    href: meHref(staff.role, settings),
     color: avatarColor(staff.displayName),
   };
   const previewMenus =
     staff.role === "admin"
-      ? ROLE_PREVIEW_MENUS.map((m) => ({ key: m, label: MENU_LABEL[m], icon: PREVIEW_ICON[m as keyof typeof PREVIEW_ICON] }))
+      ? ROLE_PREVIEW_MENUS.filter((m): m is Exclude<typeof m, "admin"> => m !== "admin").map((m) => ({ key: m, label: PREVIEW_LABEL[m], icon: PREVIEW_ICON[m] }))
       : [];
 
   const palette: PaletteItem[] = groups.flatMap((g) =>
     g.items.map((i) => ({ label: i.label, icon: i.icon, href: i.href, group: g.title?.en ?? "" })),
   );
-
-  const sessionPill = fees ? (
-    <span className="vx-reset">
-      <Suspense fallback={<ShellSessionPillSkeleton currentLabel={sessionLabel} isTest={sessionIsTest} />}>
-        <ShellSessionPill
-          currentLabel={sessionLabel}
-          isTest={sessionIsTest}
-          sessions={getSessionSwitcherData().catch(() => ({ activeSessionLabel: sessionLabel, availableSessions: [] }))}
-        />
-      </Suspense>
-    </span>
-  ) : null;
 
   return (
     <SessionSwitchingProvider>
@@ -127,12 +140,12 @@ export async function VxShell({
             groups={groups}
             me={me}
             roleLine={roleLine}
+            sessionHref={fees ? "/preferences/session" : undefined}
             home={MENU_HOME[menu]}
             badges={badges}
             teacherSized={menu === "teacher"}
             previewMenus={previewMenus}
             previewing={previewing}
-            sessionPill={sessionPill}
           />
           <div className="vx-content">
             <OfflineBanner />
