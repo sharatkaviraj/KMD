@@ -40,7 +40,7 @@ const TABS: DuesTab[] = ["call", "prom", "left", "aging"];
 const SHEETS: DuesSheet[] = ["call", "promise", "wa", "plan", "wo"];
 
 function kidsLine(f: Pick<DuesFamily, "kids">): string {
-  return f.kids.map((k) => `${k.fullName} · ${k.classLabel}`).join(", ");
+  return f.kids.map((k) => `${k.fullName.split(" ")[0]} · ${k.classLabel}`).join(", ");
 }
 
 /** Everything /dues draws, from the URL. */
@@ -86,6 +86,7 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
     const b = briefs.get(r.studentId);
     return {
       id: r.id,
+      studentId: r.studentId,
       familyKey: fam?.key ?? familyKeyOf({ studentId: r.studentId, familyGroupId: null, fatherPhone: b?.phone ?? null }),
       fatherName: fam?.fatherName ?? b?.fatherName ?? b?.fullName ?? "—",
       kidsLine: fam ? kidsLine(fam) : (b?.fullName ?? ""),
@@ -145,6 +146,7 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
     selected,
     detail,
     sheet: selected || writeOffFor ? sheet : null,
+    dialing: Boolean(selected) && sheet === "call" && one(search.dial) === "1",
     writeOffFor,
     perms: {
       log: fee.includes("defaulters:view"),
@@ -152,6 +154,8 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
       planEnabled: isRepaymentPlanCreationEnabled(),
       collect: can(staff, "fees:collect"),
       writeOff: fee.includes("finance:write"),
+      // The call sheet is the fee app's defaulters export, which asks for reports:view.
+      callSheet: fee.includes("reports:view"),
     },
   };
 }

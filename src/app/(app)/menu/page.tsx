@@ -1,86 +1,54 @@
-import { logoutAction } from "@/app/login/actions";
-import { can } from "@/platform/auth/permissions";
+import { can, type StaffRole } from "@/platform/auth/permissions";
 import { initials } from "@/vx/format";
-import { Ic } from "@/vx/icons";
-import { groupsFor, MENU_LABEL } from "@/vx/nav";
-import { MenuPrefs } from "@/vx/shell/menu-prefs";
-import { lead, under } from "@/vx/text";
-import { VxPage, TopBar, Section } from "@/vx/ui/page";
-import { Avatar, avatarColor, Card, IconTile, ListRow } from "@/vx/ui/primitives";
+import { PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
+import { lead, type Pair } from "@/vx/text";
+import { VxPage } from "@/vx/ui/page";
 import { getViewer, previewPermissions } from "@/vx/view-as";
+
+import { menuGroups } from "./menu-items";
+import { MenuScreen } from "./menu-screen";
 
 export const runtime = "nodejs";
 
-const ACCOUNT = {
-  title: { en: "My account", hi: "मेरा खाता" },
-  rows: [
-    { href: "/preferences", icon: "settings", label: { en: "Language and start screen", hi: "भाषा और पहली स्क्रीन" } },
-    { href: "/preferences/password", icon: "key", label: { en: "Change password", hi: "पासवर्ड बदलें" } },
-    { href: "/preferences/session", icon: "calendar", label: { en: "Session", hi: "सत्र" } },
-  ],
-} as const;
+const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "chart", exam: "clipboard" } as const;
 
-/** The phone Menu tab (F02-Menu): everything the bottom bar has no room for. */
+/** The line under the person's name on the Menu (F13: "Admin · every workspace"). */
+const ROLE_LINE: Record<StaffRole, Pair> = {
+  admin: { en: "Admin · every workspace", hi: "प्रशासक · हर कार्यक्षेत्र" },
+  office: { en: "Office", hi: "कार्यालय" },
+  accountant: { en: "Accountant", hi: "लेखाकार" },
+  fee_collector: { en: "Fee desk", hi: "फ़ीस काउंटर" },
+  academic_coordinator: { en: "Academic coordinator", hi: "शैक्षणिक समन्वयक" },
+  exam_coordinator: { en: "Exam coordinator", hi: "परीक्षा प्रभारी" },
+  teacher: { en: "Teacher", hi: "अध्यापक" },
+  view_only: { en: "View only", hi: "केवल देखना" },
+};
+
+/**
+ * The phone Menu tab (F13-Menu): everything the bottom bar has no room for,
+ * filtered by the same permissions as the nav — or, while the admin sees the
+ * app as another role, by that role's (UI-12).
+ */
 export default async function MenuPage() {
   const { staff, menu, previewing } = await getViewer();
-  const lang = staff.language;
   const perms = previewing ? await previewPermissions(previewing) : null;
-  const groups = groupsFor(menu, (p) => (perms ? perms.has(p) : can(staff, p)));
+  const groups = menuGroups(menu, (p) => (perms ? perms.has(p) : can(staff, p)));
+  const previews =
+    staff.role === "admin"
+      ? ROLE_PREVIEW_MENUS.filter((m): m is Exclude<typeof m, "admin"> => m !== "admin").map((m) => ({ key: m, label: PREVIEW_LABEL[m], icon: PREVIEW_ICON[m] }))
+      : [];
 
   return (
     <VxPage>
-      <TopBar title="Menu" crumb={lead(MENU_LABEL[menu], lang)} />
-      <main>
-        <Section gap={18}>
-          <Card style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <Avatar text={initials(staff.displayName)} bg={avatarColor(staff.displayName)} size={48} />
-            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span className="clip" style={{ fontWeight: 700, fontSize: 17 }}>{staff.displayName}</span>
-              <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{staff.email ?? lead(MENU_LABEL[menu], lang)}</span>
-            </span>
-          </Card>
-          {groups.map((g, gi) => (
-            <section key={g.title?.en ?? `g${gi}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {g.title ? <h2 className="sech">{lead(g.title, lang)}{under(g.title, lang) ? ` · ${under(g.title, lang)}` : ""}</h2> : null}
-              <Card pad={false} style={{ overflow: "hidden" }}>
-                {g.items.map((i, ii) => (
-                  <ListRow
-                    key={i.key}
-                    href={i.href}
-                    lead={<IconTile icon={i.icon} tone="pri" size={38} />}
-                    title={lead(i.label, lang)}
-                    sub={under(i.label, lang) ?? undefined}
-                    trail={<Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />}
-                    style={ii === 0 ? { borderTop: 0 } : undefined}
-                  />
-                ))}
-              </Card>
-            </section>
-          ))}
-          <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <h2 className="sech">{lead(ACCOUNT.title, lang)}</h2>
-            <Card pad={false} style={{ overflow: "hidden" }}>
-              {ACCOUNT.rows.map((r, ri) => (
-                <ListRow
-                  key={r.href}
-                  href={r.href}
-                  lead={<IconTile icon={r.icon} tone="pri" size={38} />}
-                  title={lead(r.label, lang)}
-                  sub={under(r.label, lang) ?? undefined}
-                  trail={<Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />}
-                  style={ri === 0 ? { borderTop: 0 } : undefined}
-                />
-              ))}
-            </Card>
-          </section>
-          <MenuPrefs />
-          <form action={logoutAction}>
-            <button type="submit" className="btn sec tap" style={{ width: "100%", height: 48, color: "var(--bad)" }}>
-              <Ic n="logout" size={18} /> Sign out
-            </button>
-          </form>
-        </Section>
-      </main>
+      <MenuScreen
+        menu={menu}
+        name={staff.displayName}
+        initials={initials(staff.displayName)}
+        sub={lead(ROLE_LINE[staff.role], staff.language)}
+        groups={groups}
+        previews={previews}
+        previewing={previewing}
+      />
     </VxPage>
   );
 }

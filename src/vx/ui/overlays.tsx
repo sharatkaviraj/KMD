@@ -140,26 +140,26 @@ export function Sheet({
       >
         <div className="grab" aria-hidden="true" />
         {title ? (
-          <div style={{ flex: "none", display: "flex", alignItems: "flex-start", gap: 12, padding: "16px 20px 12px" }}>
+          <div style={{ flex: "none", display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 20px 10px" }}>
             {icon ? (
               <span style={{ flex: "none", width: 40, height: 40, borderRadius: 12, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Ic n={icon} size={20} />
               </span>
             ) : null}
             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-              <h2 id={titleId} className="serif" style={{ margin: 0, fontSize: 21, fontWeight: 600, lineHeight: 1.2 }}>{title}</h2>
+              <h2 id={titleId} className="serif" style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.2 }}>{title}</h2>
               {sub ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{sub}</span> : null}
             </div>
             {dismissable ? (
-              <button type="button" data-close className="tap icon-btn" aria-label="Close" onClick={onClose} style={{ marginRight: -8, marginTop: -4 }}>
+              <button type="button" data-close className="tap btn ghost" aria-label="Close" onClick={onClose} style={{ width: 40, height: 40, padding: 0, flex: "none" }}>
                 <Ic n="x" size={20} />
               </button>
             ) : null}
           </div>
         ) : null}
-        <div className="scroll" style={{ flex: 1, minHeight: 0, padding: title ? "0 20px 16px" : "20px" }}>{children}</div>
+        <div className="scroll" style={{ flex: 1, minHeight: 0, padding: title ? "4px 20px 12px" : "20px" }}>{children}</div>
         {footer ? (
-          <div style={{ flex: "none", display: "flex", gap: 10, padding: "12px 20px 16px", borderTop: "1px solid var(--bd)", background: "var(--card)" }}>{footer}</div>
+          <div style={{ flex: "none", display: "flex", gap: 8, padding: "12px 20px 20px", borderTop: "1px solid var(--bd)", background: "var(--card)" }}>{footer}</div>
         ) : null}
       </div>
     </>,

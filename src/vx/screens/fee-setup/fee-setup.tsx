@@ -3,12 +3,11 @@
 import "./fee-setup.css";
 
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { Fragment, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { askAdminFeeChangeAction, publishFeeSetupAction } from "@/app/(app)/fee-setup/actions";
 import { INITIAL_FEE_SETUP_ACTION_STATE, type FeeSetupActionState } from "@/modules/fees/domain/types";
 import {
-  BANDS,
   bandOf,
   describeDiscount,
   diffDrafts,
@@ -23,37 +22,29 @@ import {
   type FeeSetupDraft,
 } from "@/modules/fees/vx/domain/fee-setup";
 import type { FeeSetupVxData } from "@/modules/fees/vx/fee-setup-data";
-import { ago, agoP, dayMonth, rupees, rupeesShort, shortDay } from "@/vx/format";
-import { useVx } from "@/vx/i18n";
+import { agoP, rupees, rupeesShort } from "@/vx/format";
+import { useVx, type Pair } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
-import { p } from "@/vx/text";
-import { Chip, Field, Input, RadioCard, Seg, Stepper, Switch, Textarea } from "@/vx/ui/controls";
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
-import { Section, TopBar, VxPage } from "@/vx/ui/page";
-import { Btn, Card, EmptyState, Kpi, Pill } from "@/vx/ui/primitives";
+import { TopBar, VxPage } from "@/vx/ui/page";
+import { Btn, EmptyState } from "@/vx/ui/primitives";
+
+import { BAND_WORD, F, ROW_WORD } from "./words";
 
 export type FeeSetupView = "structure" | "edit" | "copy" | "installments" | "discounts" | "rule" | "latefee" | "transport" | "route" | "review" | "history";
 type Tab = "structure" | "installments" | "discounts" | "latefee" | "transport";
 type SheetName = "" | "copy" | "rule" | "route" | "review" | "history" | "ask";
+type Tx = (p: Pair | string) => string;
 
-const T = {
-  title: p("Fee setup", "फीस व्यवस्था"),
-  structure: p("Structure", "ढांचा"),
-  installments: p("Installments", "किस्तें"),
-  discounts: p("Discounts", "छूट"),
-  latefee: p("Late fee", "विलंब शुल्क"),
-  transport: p("Transport", "बस"),
-  history: p("History", "इतिहास"),
-  review: p("Review & publish", "जांचें और लागू करें"),
-  ask: p("Ask admin to change", "एडमिन से बदलवाएं"),
-};
-const TABS: { key: Tab; icon: IconName; label: typeof T.structure }[] = [
-  { key: "structure", icon: "layers", label: T.structure },
-  { key: "installments", icon: "calendar", label: T.installments },
-  { key: "discounts", icon: "percent", label: T.discounts },
-  { key: "latefee", icon: "clock", label: T.latefee },
-  { key: "transport", icon: "bus", label: T.transport },
+const TABS: { key: Tab; icon: IconName; label: Pair }[] = [
+  { key: "structure", icon: "layers", label: F.structure },
+  { key: "installments", icon: "calendar", label: F.installments },
+  { key: "discounts", icon: "percent", label: F.discounts },
+  { key: "latefee", icon: "clock", label: F.latefee },
+  { key: "transport", icon: "bus", label: F.transport },
 ];
+const BAND_ORDER = ["pre", "primary", "middle", "secondary", "senior", "other"];
+const C4 = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--acc)", "var(--warn)"];
 
 function tabOf(view: FeeSetupView): Tab {
   if (view === "edit" || view === "copy" || view === "review" || view === "history") return "structure";
@@ -65,20 +56,108 @@ function sheetOf(view: FeeSetupView): SheetName {
   return view === "copy" || view === "rule" || view === "route" || view === "review" || view === "history" ? view : "";
 }
 
-/** Phone or desktop, for the one panel that is a side column on desktop and a sheet on a phone. */
-function usePhone() {
-  return useSyncExternalStore(
-    (cb) => {
-      const m = window.matchMedia("(max-width: 899px)");
-      m.addEventListener("change", cb);
-      return () => m.removeEventListener("change", cb);
-    },
-    () => window.matchMedia("(max-width: 899px)").matches,
-    () => false,
+const range = (nos: number[]) => (nos.length === 0 ? "" : nos.length === 1 ? String(nos[0]) : `${nos[0]}–${nos[nos.length - 1]}`);
+const delay = (i: number) => `${Math.min(i, 14) * 30}ms`;
+const signed = (d: number) => `${d > 0 ? "+" : d < 0 ? "−" : ""}${rupees(Math.abs(d))}`;
+const digits = (v: string) => Math.max(0, Math.round(Number(v.replace(/\D/g, "")) || 0));
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** "15 Sep" and "Tue 15 Sep", as the design writes dates. */
+const dm = (iso: string) => {
+  const [, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return `${d} ${MON[m - 1] ?? ""}`;
+};
+const ddm = (iso: string) => `${DOW[new Date(`${iso.slice(0, 10)}T12:00:00Z`).getUTCDay()]} ${dm(iso)}`;
+const daysFrom = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+const streamOf = (label: string) => (/science/i.test(label) ? "science" : /commerce/i.test(label) ? "commerce" : /arts|humanities/i.test(label) ? "arts" : "");
+
+/**
+ * The table's rows, as the design draws them: one row per class band (one per
+ * stream in 11–12) when every class in it pays the same tuition today, so
+ * editing the row sets the fee for each of those classes; a band whose classes
+ * pay different fees shows one row per class.
+ */
+type FeeRow = { key: string; band: string; name: string; sub: string; labels: string[] };
+
+function classRange(labels: string[]): string {
+  const nums = labels.map((l) => /^class\s+(\d{1,2})$/i.exec(l)?.[1]);
+  if (labels.length > 1 && nums.every(Boolean)) return `Class ${nums[0]}–${nums[nums.length - 1]}`;
+  const streams = labels.map((l) => /^(\d{1,2})\s+(.+)$/.exec(l));
+  if (labels.length > 1 && streams.every((m) => m && m[2] === streams[0]?.[2])) return `${streams.map((m) => m![1]).join(" and ")} ${streams[0]![2]}`;
+  return labels.join(" · ");
+}
+
+function feeRows(base: FeeSetupDraft, tx: Tx): FeeRow[] {
+  const groups = new Map<string, string[]>();
+  for (const c of base.classRows) {
+    const band = bandOf(c.label);
+    const key = band === "other" ? `class:${c.label}` : band === "senior" ? `senior:${streamOf(c.label) || c.label}` : band;
+    groups.set(key, [...(groups.get(key) ?? []), c.label]);
+  }
+  const fee = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
+  const rows: FeeRow[] = [];
+  for (const band of BAND_ORDER) {
+    for (const [key, labels] of groups) {
+      if ((key.startsWith("class:") ? "other" : key.split(":")[0]) !== band) continue;
+      const word = ROW_WORD[key];
+      const same = labels.every((l) => fee.get(l) === fee.get(labels[0]));
+      if (word && same && labels.length > 1) rows.push({ key: `band:${key}`, band, name: tx(word), sub: classRange(labels), labels });
+      else for (const l of labels) rows.push({ key: `class:${l}`, band, name: l, sub: "", labels: [l] });
+    }
+  }
+  return rows;
+}
+
+/** The row a link names: its own key, or the row a class label sits in. */
+function rowFor(rows: FeeRow[], key: string | null): FeeRow | null {
+  if (!key) return null;
+  return rows.find((r) => r.key === key) ?? rows.find((r) => r.labels.includes(key)) ?? null;
+}
+
+function SwitchKnob({ on }: { on: boolean }) {
+  return (
+    <span className={`sw${on ? " on" : ""}`}>
+      <span />
+    </span>
   );
 }
 
-const range = (nos: number[]) => (nos.length === 0 ? "" : nos.length === 1 ? String(nos[0]) : `${nos[0]}–${nos[nos.length - 1]}`);
+function RadioRow({ on, onPick, label, sub, disabled }: { on: boolean; onPick: () => void; label: ReactNode; sub?: ReactNode; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      disabled={disabled}
+      className="tap fs-rb"
+      onClick={onPick}
+      style={{ minHeight: 56, padding: "10px 14px", borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)" }}
+    >
+      <span style={{ flex: "none", width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
+      </span>
+      <span className="fs-c" style={{ flex: 1 }}>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
+        {sub ? <span className="fs-m">{sub}</span> : null}
+      </span>
+    </button>
+  );
+}
+
+/** −, the value, + (design `.sq` buttons around `.big`). */
+function Step({ value, onDec, onInc, label, disabled, tone, width = 56 }: { value: ReactNode; onDec: () => void; onInc: () => void; label: string; disabled?: boolean; tone?: string; width?: number }) {
+  return (
+    <span className="fs-f" style={{ gap: 4 }}>
+      <button type="button" className="tap btn sec fs-sq" aria-label={`− ${label}`} onClick={onDec} disabled={disabled}>
+        <Ic n="minus" />
+      </button>
+      <span className="fs-big" style={{ minWidth: width, color: tone }}>{value}</span>
+      <button type="button" className="tap btn sec fs-sq" aria-label={`+ ${label}`} onClick={onInc} disabled={disabled}>
+        <Ic n="plus" />
+      </button>
+    </span>
+  );
+}
 
 export function FeeSetup({
   data,
@@ -88,6 +167,7 @@ export function FeeSetup({
   initialRoute,
   canEdit,
   readOnly,
+  draftStart,
 }: {
   data: FeeSetupVxData;
   today: string;
@@ -96,18 +176,21 @@ export function FeeSetup({
   initialRoute: string | null;
   canEdit: boolean;
   readOnly: boolean;
+  /** Unsaved edits to open with (the design fixture's review state); the page always starts from the live setup. */
+  draftStart?: FeeSetupDraft;
 }) {
   const { tx } = useVx();
-  const phone = usePhone();
   const base = data.draft;
-  const [draft, setDraft] = useState<FeeSetupDraft>(base);
+  const [draft, setDraft] = useState<FeeSetupDraft>(draftStart ?? base);
   const [tab, setTab] = useState<Tab>(tabOf(initialView));
   const [sheet, setSheet] = useState<SheetName>(sheetOf(initialView));
-  const [editClass, setEditClass] = useState<string | null>(initialView === "edit" ? (initialClass ?? base.classRows.find((c) => bandOf(c.label) === "middle")?.label ?? base.classRows[0]?.label ?? null) : null);
+  const rows = feeRows(base, tx);
+  const [editClass, setEditClass] = useState<string | null>(initialView === "edit" ? (rowFor(rows, initialClass)?.key ?? rows.find((r) => r.band === "middle")?.key ?? rows[0]?.key ?? null) : null);
   const [editRoute, setEditRoute] = useState<string | null>(initialView === "route" ? (initialRoute ?? base.routeRows.find((r) => r.annualFee > 0)?.routeName ?? null) : null);
   const editable = canEdit && !readOnly;
   const changes = diffDrafts(base, draft);
   const paidNos = data.paidInstallments;
+  const editing = tab === "structure" && Boolean(editClass);
 
   const sync = (view: FeeSetupView, extra: Record<string, string | null> = {}) => {
     const url = new URL(window.location.href);
@@ -142,90 +225,121 @@ export function FeeSetup({
   };
 
   const help = [
-    { icon: "layers" as IconName, title: "Nothing is live until you publish", body: "Edits collect in the bar at the bottom. Review shows every change and how many students it touches before anything changes." },
-    { icon: "lock" as IconName, title: "Paid money stays paid", body: "A new fee reprices the year. Receipts already written are never edited; a family that has paid more than the new total gets credit." },
-    { icon: "clock" as IconName, title: "Late fee is separate", body: "It is charged on its own line and never added to the fee." },
+    { icon: "layers" as IconName, title: tx(F.help1), body: tx(F.help1b) },
+    { icon: "lock" as IconName, title: tx(F.help2), body: tx(F.help2b) },
+    { icon: "clock" as IconName, title: tx(F.help3), body: tx(F.help3b) },
   ];
-
-  const editPanel = editClass ? (
-    <EditClassPanel
-      key={editClass}
-      label={editClass}
-      draft={draft}
-      base={base}
-      students={data.studentsByClass[editClass] ?? 0}
-      paidNos={paidNos}
-      editable={editable}
-      onCancel={() => pickClass(null)}
-      onSave={(tuition) => {
-        setDraft((d) => ({ ...d, classRows: d.classRows.map((c) => (c.label === editClass ? { ...c, annualTuition: tuition } : c)) }));
-        pickClass(null);
-      }}
-    />
+  const tabIdx = Math.max(0, TABS.findIndex((t) => t.key === tab));
+  const editRow = rowFor(rows, editClass);
+  const editStudents = editRow ? editRow.labels.reduce((n, l) => n + (data.studentsByClass[l] ?? 0), 0) : 0;
+  const askNote = !canEdit ? (
+    <div className="fs-nt fs-in" style={{ flexWrap: "wrap", alignItems: "center" }}>
+      <Ic n="eye" />
+      <span style={{ flex: "1 1 220px" }}>{tx(F.viewOnly)}</span>
+      <Btn variant="soft" icon="message" onClick={() => open("ask")} disabled={readOnly} style={{ height: 34 }}>{tx(F.ask)}</Btn>
+    </div>
   ) : null;
 
   return (
-    <VxPage>
+    <VxPage className={`fs-lh${editing ? " fs-editing" : ""}`}>
       <TopBar
-        crumb={`Money · Session ${data.sessionLabel}${data.updatedAt ? ` · saved ${tx(agoP(data.updatedAt))}` : ""}`}
-        title={tx(T.title)}
-        mSub={`${tx(TABS.find((t) => t.key === tab)!.label)} · ${data.sessionLabel}`}
+        crumb={editing ? `${tx(F.money)} · ${tx(F.title)}` : `${tx(F.money)} · ${tx(F.session)} ${data.sessionLabel}${data.updatedAt ? ` · ${tx(F.saved)} ${tx(agoP(data.updatedAt))}` : ""}`}
+        title={tx(F.title)}
+        mSub={`${tx(TABS[tabIdx].label)} · ${data.sessionLabel}`}
         mBack="/menu"
-        mAction={<Btn variant="ghost" icon="history" onClick={() => open("history")} ariaLabel={tx(T.history)} />}
+        mAction={
+          <button type="button" className="tap btn ghost fs-sq4" aria-label={tx(F.history)} onClick={() => open("history")} style={{ borderRadius: 22 }}>
+            <Ic n="history" size={22} />
+          </button>
+        }
         actions={
           <>
-            <HelpButton title="Fee setup" steps={help} />
-            {!canEdit ? <Btn icon="message" onClick={() => open("ask")} disabled={readOnly}>{tx(T.ask)}</Btn> : null}
-            <Btn icon="history" onClick={() => open("history")}>{tx(T.history)}</Btn>
+            <HelpButton title={tx(F.title)} steps={help} />
+            <Btn variant="sec" icon="history" onClick={() => open("history")}>{tx(F.history)}</Btn>
           </>
         }
       />
-      <div style={{ padding: "14px 28px", borderBottom: "1px solid var(--bd)" }} className="pad">
-        <div className="fs-tabs" role="tablist">
-          {TABS.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={`tap fs-tab${tab === t.key ? " on" : ""}`} onClick={() => goTab(t.key)}>
-              <Ic n={t.icon} size={16} />
-              {tx(t.label)}
-            </button>
-          ))}
+      {editing ? (
+        <header className="only-m glass vx-top fs-mtop" style={{ flex: "none", minHeight: 58, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid var(--bd)" }}>
+          <button type="button" className="tap btn ghost fs-sq4" aria-label={tx(F.close)} onClick={() => pickClass(null)} style={{ borderRadius: 22 }}>
+            <Ic n="chevLeft" size={24} />
+          </button>
+          <span className="fs-c" style={{ flex: 1, paddingLeft: 2 }}>
+            <span className="fs-e" style={{ fontSize: 17, fontWeight: 700 }}>{editRow?.name}</span>
+            <span className="fs-m fs-e">{tx(F.editFees)} · {editStudents} {tx(F.students)}</span>
+          </span>
+        </header>
+      ) : null}
+      <div className={`pad fs-tabbar${editing ? " hide-m" : ""}`}>
+        <div className="hs">
+          <div className="seg fs-seg" role="tablist">
+            <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 5)", transform: `translateX(${tabIdx * 100}%)` }} />
+            {TABS.map((t) => (
+              <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={`tap${tab === t.key ? " on" : ""}`} onClick={() => goTab(t.key)}>
+                <Ic n={t.icon} size={14} />
+                {tx(t.label)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-      <div className={`fs-lay${editPanel && !phone ? " has" : ""}`}>
-        <Section>
-          {!canEdit ? (
-            <div className="fs-info">
-              <Ic n="eye" size={18} />
-              <span style={{ flex: 1 }}>View only. Fees are changed by the admin; ask and it shows in your requests.</span>
-              <Btn variant="soft" icon="message" onClick={() => open("ask")} disabled={readOnly} style={{ height: 34 }}>{tx(T.ask)}</Btn>
-            </div>
-          ) : null}
-          {tab === "structure" ? <StructureTab data={data} draft={draft} base={base} paidNos={paidNos} selected={editClass} onPick={pickClass} onCopy={() => open("copy")} editable={editable} setDraft={setDraft} /> : null}
-          {tab === "installments" ? <InstallmentsTab data={data} draft={draft} base={base} today={today} editable={editable} setDraft={setDraft} /> : null}
-          {tab === "discounts" ? <DiscountsTab data={data} draft={draft} editable={editable} setDraft={setDraft} onAdd={() => open("rule")} /> : null}
-          {tab === "latefee" ? <LateFeeTab draft={draft} base={base} today={today} editable={editable} setDraft={setDraft} /> : null}
-          {tab === "transport" ? <TransportTab data={data} draft={draft} base={base} editable={editable} onPick={pickRoute} /> : null}
-          <div style={{ height: changes.length ? 70 : 0 }} />
-        </Section>
-        {editPanel && !phone ? <aside className="fs-aside">{editPanel}</aside> : null}
-      </div>
+      <main>
+        {tab === "structure" ? (
+          <div className={`stack fs-lay${editing ? " has" : ""}`}>
+            <section className={`pad fs-scr${editing ? " hide-m" : ""}`} style={{ gap: 14 }}>
+              <StructureTab onAsk={canEdit ? undefined : () => open("ask")} askDisabled={readOnly} data={data} rows={rows} draft={draft} base={base} paidNos={paidNos} selected={editClass} onPick={pickClass} onCopy={() => open("copy")} editable={editable} setDraft={setDraft} initialOpen={initialView === "structure" ? (rowFor(rows, initialClass)?.key ?? null) : null} />
+            </section>
+            {editRow ? (
+              <aside className="fs-aside">
+                <EditClassPanel
+                  key={editRow.key}
+                  row={editRow}
+                  draft={draft}
+                  base={base}
+                  students={editStudents}
+                  paidNos={paidNos}
+                  editable={editable}
+                  onCancel={() => pickClass(null)}
+                  onSave={(tuition) => {
+                    setDraft((d) => ({ ...d, classRows: d.classRows.map((c) => (editRow.labels.includes(c.label) ? { ...c, annualTuition: tuition } : c)) }));
+                    pickClass(null);
+                  }}
+                />
+              </aside>
+            ) : null}
+          </div>
+        ) : (
+          <div className="pad fs-scr">
+            {askNote}
+            {tab === "installments" ? <InstallmentsTab data={data} rows={rows} draft={draft} base={base} today={today} editable={editable} setDraft={setDraft} /> : null}
+            {tab === "discounts" ? <DiscountsTab data={data} draft={draft} editable={editable} setDraft={setDraft} onAdd={() => open("rule")} /> : null}
+            {tab === "latefee" ? <LateFeeTab draft={draft} base={base} today={today} editable={editable} setDraft={setDraft} /> : null}
+            {tab === "transport" ? <TransportTab data={data} draft={draft} base={base} editable={editable} onPick={pickRoute} /> : null}
+          </div>
+        )}
+        <div style={{ height: changes.length && editable ? 90 : 0 }} />
+      </main>
       {changes.length && editable ? (
-        <div className="fs-bar" role="status">
-          <span className="dot" />
-          <span className="fs-c" style={{ flex: 1 }}>
-            <b>{changes.length} unsaved {changes.length === 1 ? "change" : "changes"}</b>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>Not live yet · parents see nothing till you publish</span>
-          </span>
-          <button type="button" className="tap btn ghost" onClick={() => setDraft(base)}>Discard</button>
-          <button type="button" className="tap btn" style={{ background: "var(--acc)", color: "var(--onsolid)" }} onClick={() => open("review")}>
-            {tx(T.review)} <Ic n="arrowRight" size={16} />
-          </button>
+        <div className="fs-pbar">
+          <div role="status">
+            <span className="fs-dt" style={{ background: "var(--tacc)", animation: "xPulse 1.8s ease infinite" }} />
+            <span className="fs-c" style={{ flex: 1 }}>
+              <span className="num" style={{ fontSize: 14, fontWeight: 700 }}>
+                {changes.length} {tx(F.unsaved)} {tx(changes.length === 1 ? F.change1 : F.changesN)}
+              </span>
+              <span className="fs-e" style={{ fontSize: 12, opacity: 0.75 }}>{tx(F.barSub)}</span>
+            </span>
+            <button type="button" className="tap btn hide-m" onClick={() => setDraft(base)} style={{ background: "transparent", color: "var(--tfg)", opacity: 0.8 }}>{tx(F.discard)}</button>
+            <button type="button" className="tap btn" onClick={() => open("review")} style={{ background: "var(--tacc)", color: "var(--tbg)" }}>
+              <span className="only-m">{tx(F.reviewShort)}</span>
+              <span className="hide-m">{tx(F.review)}</span>
+              <Ic n="arrowRight" />
+            </button>
+          </div>
         </div>
       ) : null}
 
-      <Sheet open={Boolean(editPanel) && phone} onClose={() => pickClass(null)} title={editClass ?? ""}>
-        {editPanel ?? <span />}
-      </Sheet>
-      <CopySheet open={sheet === "copy"} onClose={close} draft={draft} base={base} editable={editable} onApply={(rows) => setDraft((d) => ({ ...d, classRows: rows }))} />
+      <CopySheet open={sheet === "copy"} onClose={close} base={base} editable={editable} onApply={(rows) => setDraft((d) => ({ ...d, classRows: rows }))} />
       <RuleSheet open={sheet === "rule"} onClose={close} draft={draft} editable={editable} onAdd={(rule) => setDraft((d) => ({ ...d, discounts: [...d.discounts, rule] }))} />
       {sheet === "route" && editRoute !== null ? (
         <RouteSheet
@@ -242,7 +356,7 @@ export function FeeSetup({
           }}
         />
       ) : null}
-      {sheet === "review" ? <ReviewSheet onClose={close} draft={draft} changes={changes} data={data} editable={editable} onDone={() => setDraft(base)} /> : null}
+      {sheet === "review" ? <ReviewSheet onClose={close} draft={draft} changes={changes} data={data} today={today} editable={editable} onDone={() => setDraft(base)} /> : null}
       <HistorySheet open={sheet === "history"} onClose={close} data={data} />
       <AskSheet open={sheet === "ask"} onClose={close} />
     </VxPage>
@@ -251,14 +365,21 @@ export function FeeSetup({
 
 type SetDraft = (fn: (d: FeeSetupDraft) => FeeSetupDraft) => void;
 
-function LockNote({ paidNos, count }: { paidNos: number[]; count: number }) {
+/** The installment a change lands on first: the earliest one with no receipt. */
+function firstUnpaid(count: number, paidNos: number[]) {
+  for (let i = 1; i <= count; i += 1) if (!paidNos.includes(i)) return i;
+  return count;
+}
+
+function LockNote({ paidNos, count, tx }: { paidNos: number[]; count: number; tx: Tx }) {
   if (!paidNos.length) return null;
   const unpaid = Array.from({ length: count }, (_, i) => i + 1).filter((n) => !paidNos.includes(n));
   return (
-    <div className="fs-lock">
-      <Ic n="lock" size={18} />
+    <div className="fs-nt fs-wa">
+      <Ic n="lock" />
       <span>
-        Receipts exist for Installments {range(paidNos)}. <b>Money already paid stays paid</b>; a change reprices the year{unpaid.length ? ` and lands on what is unpaid (${unpaid.join(" and ")})` : ""}. A family that has paid more than the new total gets credit, counted for you before you publish.
+        {tx(F.lockStart)} {range(paidNos)}. <b>{tx(F.lockBold)}</b>
+        {unpaid.length ? ` (${unpaid.length > 1 ? `${unpaid.slice(0, -1).join(", ")} and ${unpaid[unpaid.length - 1]}` : unpaid[0]})` : ""}.
       </span>
     </div>
   );
@@ -266,218 +387,378 @@ function LockNote({ paidNos, count }: { paidNos: number[]; count: number }) {
 
 /* ---------- structure ---------- */
 
-function StructureTab({ data, draft, base, paidNos, selected, onPick, onCopy, editable, setDraft }: { data: FeeSetupVxData; draft: FeeSetupDraft; base: FeeSetupDraft; paidNos: number[]; selected: string | null; onPick: (l: string) => void; onCopy: () => void; editable: boolean; setDraft: SetDraft }) {
+function StructureTab({
+  onAsk,
+  askDisabled,
+  data,
+  rows,
+  draft,
+  base,
+  paidNos,
+  selected,
+  onPick,
+  onCopy,
+  editable,
+  setDraft,
+  initialOpen,
+}: {
+  onAsk?: () => void;
+  askDisabled: boolean;
+  data: FeeSetupVxData;
+  rows: FeeRow[];
+  draft: FeeSetupDraft;
+  base: FeeSetupDraft;
+  paidNos: number[];
+  selected: string | null;
+  onPick: (key: string) => void;
+  onCopy: () => void;
+  editable: boolean;
+  setDraft: SetDraft;
+  initialOpen: string | null;
+}) {
+  const { tx } = useVx();
+  const [exp, setExp] = useState<string | null>(initialOpen);
   const n = draft.installmentDates.length;
-  const baseBy = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
-  const groups = BANDS.map((b) => ({ band: b, rows: draft.classRows.filter((c) => bandOf(c.label) === b.key) })).filter((g) => g.rows.length);
+  const next = firstUnpaid(n, paidNos);
+  const now = new Map(draft.classRows.map((c) => [c.label, c.annualTuition]));
+  const live = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
+  const studentsOf = (r: FeeRow) => r.labels.reduce((s, l) => s + (data.studentsByClass[l] ?? 0), 0);
+  const groups = BAND_ORDER.map((key) => ({ key, rows: rows.filter((r) => r.band === key) })).filter((g) => g.rows.length);
   const students = Object.values(data.studentsByClass).reduce((s, v) => s + v, 0);
   const narrow = Boolean(selected);
+  const X = narrow ? "hide-d" : "";
+  const gc = narrow
+    ? "minmax(0, 1.6fr) 64px minmax(84px, 1fr) minmax(84px, 1fr) 16px"
+    : "minmax(170px, 1.7fr) 64px minmax(84px, 1fr) minmax(84px, 1fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(84px, 1fr) 16px";
+  const heads: [Pair, string][] = [
+    [F.colTuition, X],
+    [F.colAcademic, X],
+    [F.colTotal, ""],
+    [F.colPer, ""],
+    [F.colNew, X],
+  ];
+  const cell = (v: number, was: number, x: string, bold = false) => {
+    const changed = v !== was;
+    return (
+      <span className={`fs-c num ${x}`} style={{ alignItems: "flex-end" }}>
+        {changed ? <span style={{ fontSize: 11, color: "var(--sub)", textDecoration: "line-through" }}>{rupees(was)}</span> : null}
+        <span className={`fs-cell${changed ? " fs-ac" : ""}`} style={{ fontSize: 14, fontWeight: bold ? 700 : 500 }}>{rupees(v)}</span>
+      </span>
+    );
+  };
+  let k = 0;
   return (
     <>
-      <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <span className="fs-c">
-          <b style={{ fontSize: 16 }}>Yearly fee by class</b>
-          <span className="fs-m">{draft.classRows.length} classes · {students} students · {n} installments</span>
+          <span className="fs-tt">{tx(F.byClass)}</span>
+          <span className="fs-m">
+            {rows.length} {tx(F.bands)} · {students} {tx(F.students)} · {n} {tx(F.instWord)}
+          </span>
         </span>
-        {editable ? <Btn icon="copy" onClick={onCopy}>Raise every class by %</Btn> : null}
+        {editable ? (
+          <button type="button" className="tap btn sec mfull" onClick={onCopy}>
+            <Ic n="copy" />
+            {tx(F.raise)}
+          </button>
+        ) : onAsk ? (
+          <button type="button" className="tap btn sec mfull" onClick={onAsk} disabled={askDisabled}>
+            <Ic n="message" />
+            {tx(F.ask)}
+          </button>
+        ) : null}
       </div>
-      <LockNote paidNos={paidNos} count={n} />
-      <Card pad={false} style={{ overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="fs-tbl">
-            <thead>
-              <tr>
-                <th>Class</th>
-                <th className="hide-p">Students</th>
-                <th>Tuition</th>
-                {!narrow ? <th className="hide-p">Academic</th> : null}
-                <th className="hide-p">Yearly total</th>
-                <th>Per installment</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => (
-                <BandRows key={g.band.key} label={g.band.label} narrow={narrow}>
-                  {g.rows.map((c) => {
-                    const was = baseBy.get(c.label);
-                    const changed = was !== undefined && was !== c.annualTuition;
-                    const per = perInstallment(draft, c.annualTuition);
-                    const equal = per.every((v) => v === per[0]);
-                    return (
-                      <tr key={c.label} className={`fs-row${selected === c.label ? " on" : ""}`} onClick={() => onPick(c.label)}>
-                        <td>
-                          <b>{c.label}</b>
-                          <span className="fs-m" style={{ display: "block" }}>{data.studentsByClass[c.label] ?? 0} students</span>
-                        </td>
-                        <td className="hide-p">{data.studentsByClass[c.label] ?? 0}</td>
-                        <td>
-                          {changed ? <span className="fs-was">{rupees(was)}</span> : null}
-                          <span className={changed ? "fs-new" : undefined}>{rupees(c.annualTuition)}</span>
-                        </td>
-                        {!narrow ? <td className="hide-p">{rupees(draft.oldStudentAcademicFeeAmount)}</td> : null}
-                        <td className="hide-p"><b>{rupees(c.annualTuition + draft.oldStudentAcademicFeeAmount)}</b></td>
-                        <td>
-                          <span className="fs-f" style={{ justifyContent: "flex-end", gap: 6 }}>
-                            {equal ? `${per.length} × ${rupees(per[0])}` : `${rupees(per[0])} + ${per.length - 1} × ${rupees(per[1] ?? 0)}`}
-                            {paidNos.length ? <Ic n="lock" size={14} style={{ color: "var(--mut)" }} /> : null}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </BandRows>
-              ))}
-            </tbody>
-          </table>
+      <LockNote paidNos={paidNos} count={n} tx={tx} />
+      <div className="only-d card" style={{ overflow: "hidden" }}>
+        <div className="fs-thead" style={{ gridTemplateColumns: gc }}>
+          <span className="sech">{tx(F.band)}</span>
+          <span className="sech" style={{ textAlign: "right" }}>{tx(F.colStudents)}</span>
+          {heads.map(([label, x]) => (
+            <span key={label.en} className={`sech ${x}`} style={{ textAlign: "right" }}>{tx(label)}</span>
+          ))}
+          <span />
         </div>
-      </Card>
+        {groups.map((g) => {
+          const head = g.key === "senior" || g.rows.length > 1;
+          return (
+            <Fragment key={g.key}>
+              {head ? <div style={{ padding: "10px 16px 4px", borderTop: "1px solid var(--bd)", fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(BAND_WORD[g.key] ?? BAND_WORD.other)}</div> : null}
+              {g.rows.map((r) => {
+                const t = now.get(r.labels[0]) ?? 0;
+                const was = live.get(r.labels[0]) ?? t;
+                const per = perInstallment(draft, t);
+                const perWas = perInstallment(base, was);
+                const i = k++;
+                return (
+                  <button key={r.key} type="button" className={`tap row fs-row fs-xi${selected === r.key ? " sel" : ""}`} onClick={() => onPick(r.key)} style={{ gridTemplateColumns: gc, animationDelay: delay(i) }}>
+                    <span className="fs-c" style={{ paddingLeft: head ? 12 : 0 }}>
+                      <span className="fs-e" style={{ fontSize: 14, fontWeight: 700 }}>{r.name}</span>
+                      <span className="fs-m fs-e">{r.sub || `${studentsOf(r)} ${tx(F.students)}`}</span>
+                    </span>
+                    <span className="num" style={{ fontSize: 13, color: "var(--mut)", textAlign: "right" }}>{studentsOf(r)}</span>
+                    {cell(t, was, X)}
+                    {cell(draft.oldStudentAcademicFeeAmount, base.oldStudentAcademicFeeAmount, X)}
+                    {cell(t + draft.oldStudentAcademicFeeAmount, was + base.oldStudentAcademicFeeAmount, "", true)}
+                    {cell(per[next - 1] ?? per[0] ?? 0, perWas[next - 1] ?? perWas[0] ?? 0, "")}
+                    {cell(draft.newStudentAcademicFeeAmount, base.newStudentAcademicFeeAmount, X)}
+                    {paidNos.length ? <Ic n="lock" size={14} style={{ color: "var(--sub)" }} /> : <span />}
+                  </button>
+                );
+              })}
+            </Fragment>
+          );
+        })}
+      </div>
+      <div className="only-m fs-c" style={{ gap: 14 }}>
+        {groups.map((g) => (
+          <div key={g.key} className="fs-c" style={{ gap: 8 }}>
+            <span className="sech" style={{ padding: "0 4px" }}>{tx(BAND_WORD[g.key] ?? BAND_WORD.other)}</span>
+            {g.rows.map((r, i) => {
+              const t = now.get(r.labels[0]) ?? 0;
+              const was = live.get(r.labels[0]) ?? t;
+              const per = perInstallment(draft, t);
+              const equal = per.every((v) => v === per[0]);
+              const open = exp === r.key;
+              const list: [Pair, Pair, number, number][] = [
+                [F.colTuition, F.tuitionSub, t, was],
+                [F.acadOld, F.acadOldSub, draft.oldStudentAcademicFeeAmount, base.oldStudentAcademicFeeAmount],
+                [F.acadNew, F.acadNewSub, draft.newStudentAcademicFeeAmount, base.newStudentAcademicFeeAmount],
+              ];
+              return (
+                <div key={r.key} className="card fs-xi" style={{ overflow: "hidden", animationDelay: delay(i) }}>
+                  <button type="button" className="tap fs-rb" aria-expanded={open} onClick={() => setExp(open ? null : r.key)} style={{ padding: 14 }}>
+                    <span className="fs-c" style={{ flex: 1, gap: 2 }}>
+                      <span className="fs-tt fs-e">{r.name}</span>
+                      <span className="fs-m">{r.sub || `${studentsOf(r)} ${tx(F.students)}`}</span>
+                      {paidNos.length ? (
+                        <span className="fs-f" style={{ gap: 4, fontSize: 12, color: "var(--warnfg)" }}>
+                          <Ic n="lock" size={12} />
+                          {tx(F.unpaidOnly)}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="fs-c" style={{ alignItems: "flex-end" }}>
+                      <span className="num fs-tt" style={{ color: t !== was ? "var(--accfg)" : "var(--fg)" }}>{rupees(t + draft.oldStudentAcademicFeeAmount)}</span>
+                      <span className="num fs-m">{equal ? `${per.length} × ${rupees(per[0] ?? 0)}` : `${tx(F.inst)} ${next}–${per.length}: ${rupees(per[next - 1] ?? 0)}`}</span>
+                    </span>
+                    <Ic n="chevDown" style={{ color: "var(--sub)", transform: `rotate(${open ? 180 : 0}deg)`, transition: "transform .3s var(--spring)" }} />
+                  </button>
+                  {open ? (
+                    <div style={{ padding: "0 14px 14px", borderTop: "1px solid var(--bd)" }}>
+                      {list.map(([label, sub, v, w], j) => (
+                        <div key={label.en} className="fs-f fs-xi" style={{ justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--bd)", animationDelay: delay(j) }}>
+                          <span className="fs-c">
+                            <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(label)}</span>
+                            <span className="fs-m">{tx(sub)}</span>
+                          </span>
+                          <span className="num" style={{ fontSize: 14, fontWeight: 700, color: v !== w ? "var(--accfg)" : "var(--fg)" }}>{rupees(v)}</span>
+                        </div>
+                      ))}
+                      <button type="button" className="tap btn soft" onClick={() => onPick(r.key)} style={{ width: "100%", marginTop: 12 }}>
+                        <Ic n="edit" />
+                        {tx(F.editFor)} {r.name}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
       <AcademicCard draft={draft} base={base} editable={editable} setDraft={setDraft} />
       {draft.customFeeHeads.length ? (
-        <Card>
-          <b>Other fee heads</b>
-          <span className="fs-m" style={{ display: "block", marginBottom: 8 }}>Charged per student as set in the detailed fee setup</span>
+        <div className="card fs-c" style={{ padding: "16px 18px" }}>
+          <span className="fs-tt">{tx(F.otherHeads)}</span>
+          <span className="fs-m" style={{ marginBottom: 8 }}>{tx(F.otherHeadsSub)}</span>
           {draft.customFeeHeads.map((h) => (
             <div key={h.id} className="fs-f" style={{ justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid var(--bd)" }}>
               <span className="fs-c">
                 <span>{h.label}</span>
-                <span className="fs-m">{h.chargeFrequency === "one_time" ? "One time" : "Every year"} · {h.isActive ? "on" : "off"}</span>
+                <span className="fs-m">
+                  {tx(h.chargeFrequency === "one_time" ? F.oneTime : F.everyYear)} · {tx(h.isActive ? F.on : F.off)}
+                </span>
               </span>
               <b className="num">{rupees(h.amount)}</b>
             </div>
           ))}
-        </Card>
+        </div>
       ) : null}
-    </>
-  );
-}
-
-function BandRows({ label, children, narrow }: { label: string; children: ReactNode; narrow: boolean }) {
-  return (
-    <>
-      <tr className="fs-band">
-        <td colSpan={narrow ? 5 : 6}>{label}</td>
-      </tr>
-      {children}
     </>
   );
 }
 
 function AcademicCard({ draft, base, editable, setDraft }: { draft: FeeSetupDraft; base: FeeSetupDraft; editable: boolean; setDraft: SetDraft }) {
-  const set = (k: "newStudentAcademicFeeAmount" | "oldStudentAcademicFeeAmount", v: string) => setDraft((d) => ({ ...d, [k]: Math.max(0, Math.round(Number(v.replace(/\D/g, "")) || 0)) }));
+  const { tx } = useVx();
+  const set = (k: "newStudentAcademicFeeAmount" | "oldStudentAcademicFeeAmount", v: string) => setDraft((d) => ({ ...d, [k]: digits(v) }));
+  const fields: [Pair, "newStudentAcademicFeeAmount" | "oldStudentAcademicFeeAmount"][] = [
+    [F.newPerYear, "newStudentAcademicFeeAmount"],
+    [F.oldPerYear, "oldStudentAcademicFeeAmount"],
+  ];
   return (
-    <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="card fs-c" style={{ padding: "16px 18px", gap: 12 }}>
       <span className="fs-c">
-        <b>Academic fee · every class</b>
-        <span className="fs-m">A new student pays the new-student amount once; everyone else the old-student amount</span>
+        <span className="fs-tt">{tx(F.academicCard)}</span>
+        <span className="fs-m">{tx(F.academicCardSub)}</span>
       </span>
-      <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 12 }}>
-        <Field label="New students · per year" hint={draft.newStudentAcademicFeeAmount !== base.newStudentAcademicFeeAmount ? `Live now ${rupees(base.newStudentAcademicFeeAmount)}` : "Same as live"}>
-          <Input inputMode="numeric" lead="₹" value={String(draft.newStudentAcademicFeeAmount)} onChange={(e) => set("newStudentAcademicFeeAmount", e.target.value)} disabled={!editable} />
-        </Field>
-        <Field label="Old students · per year" hint={draft.oldStudentAcademicFeeAmount !== base.oldStudentAcademicFeeAmount ? `Live now ${rupees(base.oldStudentAcademicFeeAmount)}` : "Same as live"}>
-          <Input inputMode="numeric" lead="₹" value={String(draft.oldStudentAcademicFeeAmount)} onChange={(e) => set("oldStudentAcademicFeeAmount", e.target.value)} disabled={!editable} />
-        </Field>
-      </div>
-    </Card>
-  );
-}
-
-function EditClassPanel({ label, draft, base, students, paidNos, editable, onCancel, onSave }: { label: string; draft: FeeSetupDraft; base: FeeSetupDraft; students: number; paidNos: number[]; editable: boolean; onCancel: () => void; onSave: (tuition: number) => void }) {
-  const row = draft.classRows.find((c) => c.label === label);
-  const live = base.classRows.find((c) => c.label === label)?.annualTuition ?? 0;
-  const [value, setValue] = useState(String(row?.annualTuition ?? 0));
-  const tuition = Math.max(0, Math.round(Number(value.replace(/\D/g, "")) || 0));
-  const now = perInstallment(base, live);
-  const next = perInstallment(draft, tuition);
-  const delta = tuition - live;
-  return (
-    <div className="fs-c" style={{ gap: 14, padding: 20, flex: 1 }}>
-      <span className="fs-c">
-        <b className="serif" style={{ fontSize: 22 }}>{label}</b>
-        <span className="fs-m">{students} students · band {BANDS.find((b) => b.key === bandOf(label))?.label}</span>
-      </span>
-      {paidNos.length ? (
-        <div className="fs-lock">
-          <Ic n="lock" size={16} />
-          <span>Receipts exist for Inst {range(paidNos)} · paid money stays paid; the new fee lands on what is unpaid</span>
-        </div>
-      ) : null}
-      <Field label="Tuition · per year" hint={delta ? <span style={{ color: "var(--accfg)" }}>Every student · live now {rupees(live)}</span> : "Same as live"}>
-        <Input inputMode="numeric" lead="₹" value={value} onChange={(e) => setValue(e.target.value)} disabled={!editable} autoFocus={editable} />
-      </Field>
-      <span className="fs-m">Academic fee {rupees(draft.oldStudentAcademicFeeAmount)} (old) or {rupees(draft.newStudentAcademicFeeAmount)} (new) is set once for every class, below the table.</span>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div className="fs-f" style={{ justifyContent: "space-between" }}>
-          <span className="fs-c">
-            <span className="fs-m">Yearly total · old student</span>
-            <b className="num" style={{ fontSize: 26 }}>{rupees(tuition + draft.oldStudentAcademicFeeAmount)}</b>
-          </span>
-          {delta ? <Pill tone={delta > 0 ? "acc" : "warn"}>{delta > 0 ? "+" : "−"}{rupees(Math.abs(delta))} a year</Pill> : null}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${next.length}, minmax(0,1fr))`, gap: 6 }}>
-          {next.map((v, i) => {
-            const paid = paidNos.includes(i + 1);
-            const moved = v !== now[i];
-            return (
-              <span key={i} className="fs-c" style={{ padding: "8px 10px", borderRadius: 10, background: moved ? "var(--accs)" : "var(--s2)", color: moved ? "var(--accfg)" : "var(--fg)" }}>
-                <span style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }}>{paid ? <Ic n="lock" size={11} /> : moved ? <Ic n="arrowUp" size={11} /> : null}Inst {i + 1}</span>
-                <b className="num" style={{ fontSize: 14 }}>{rupees(v)}</b>
+      <div className="g2 fs-g2">
+        {fields.map(([label, k]) => {
+          const changed = draft[k] !== base[k];
+          return (
+            <label key={k} className="field">
+              <span>{tx(label)}</span>
+              <span className="fs-rp">
+                <span>₹</span>
+                <input className="inp num" inputMode="numeric" value={String(draft[k])} onChange={(e) => set(k, e.target.value)} disabled={!editable} />
               </span>
-            );
-          })}
-        </div>
-        {delta ? (
-          <span className="fs-f" style={{ color: "var(--info)", fontSize: 13, fontWeight: 600 }}>
-            <Ic n="users" size={15} /> Affects {students} students · {delta > 0 ? "+" : "−"}{rupees(Math.abs(delta))} each this year
-          </span>
-        ) : null}
-      </Card>
-      <span style={{ flex: 1 }} />
-      <div className="fs-f" style={{ gap: 10 }}>
-        <button type="button" className="tap btn sec" style={{ flex: 1, height: 46 }} onClick={onCancel}>{editable ? "Cancel" : "Close"}</button>
-        {editable ? (
-          <button type="button" className="tap btn pri" style={{ flex: 1.6, height: 46 }} onClick={() => onSave(tuition)} disabled={tuition === row?.annualTuition}>
-            <Ic n="check" size={18} />Save to changes
-          </button>
-        ) : null}
+              <span style={{ fontSize: 12, fontWeight: 500, color: changed ? "var(--accfg)" : "var(--mut)" }}>{changed ? `${tx(F.liveNow)} ${rupees(base[k])}` : tx(F.sameAsLive)}</span>
+            </label>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function CopySheet({ open, onClose, draft, base, editable, onApply }: { open: boolean; onClose: () => void; draft: FeeSetupDraft; base: FeeSetupDraft; editable: boolean; onApply: (rows: FeeSetupDraft["classRows"]) => void }) {
+function EditClassPanel({ row: feeRow, draft, base, students, paidNos, editable, onCancel, onSave }: { row: FeeRow; draft: FeeSetupDraft; base: FeeSetupDraft; students: number; paidNos: number[]; editable: boolean; onCancel: () => void; onSave: (tuition: number) => void }) {
+  const { tx } = useVx();
+  const label = feeRow.labels[0];
+  const row = draft.classRows.find((c) => c.label === label);
+  const live = base.classRows.find((c) => c.label === label)?.annualTuition ?? 0;
+  const [value, setValue] = useState(String(row?.annualTuition ?? 0));
+  const tuition = digits(value);
+  const now = perInstallment(base, live);
+  const next = perInstallment(draft, tuition);
+  const delta = tuition - live;
+  const n = next.length;
+  const unpaidFrom = firstUnpaid(n, paidNos);
+  const changed = tuition !== row?.annualTuition;
+  return (
+    <>
+      <div className="fs-c" style={{ flex: 1, padding: "18px 22px", gap: 14 }}>
+        <span className="fs-c hide-m">
+          <span className="fs-h2">{feeRow.name}</span>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}>{feeRow.sub || tx(BAND_WORD[feeRow.band] ?? BAND_WORD.other)} · {students} {tx(F.students)}</span>
+        </span>
+        {paidNos.length ? (
+          <div className="fs-nt fs-wa" style={{ padding: "10px 12px", fontSize: 12 }}>
+            <Ic n="lock" size={14} style={{ marginTop: 2 }} />
+            <span>{tx(F.editLock)} {range(paidNos)} {tx(F.editLockTail)}</span>
+          </div>
+        ) : null}
+        <label className="field fs-xi">
+          <span>{tx(F.tuitionYear)}</span>
+          <span className="fs-rp">
+            <span>₹</span>
+            <input className={`inp num${tuition <= 0 ? " err" : ""}`} inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} disabled={!editable} />
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: delta ? "var(--accfg)" : "var(--mut)" }}>
+            {tx(F.everyStudent)} · {delta ? `${tx(F.liveNow)} ${rupees(live)}` : tx(F.sameAsLive)}
+          </span>
+        </label>
+        <span className="fs-m">{tx(F.acadNote(rupees(draft.oldStudentAcademicFeeAmount), rupees(draft.newStudentAcademicFeeAmount)))}</span>
+        <div className="card fs-c" style={{ padding: "14px 16px", gap: 10 }}>
+          <div className="fs-f" style={{ justifyContent: "space-between" }}>
+            <span className="fs-c">
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(F.yearlyTotal)}</span>
+              <span className="num" style={{ fontSize: 26, fontWeight: 700 }}>{rupees(tuition + draft.oldStudentAcademicFeeAmount)}</span>
+            </span>
+            {delta ? (
+              <span className="pill fs-in fs-pl" style={{ animation: "xPopIn .4s var(--spring) both" }}>
+                {signed(delta)} {tx(F.aYear)}
+              </span>
+            ) : null}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, gap: 6 }}>
+            {next.map((v, i) => {
+              const paid = paidNos.includes(i + 1);
+              const moved = v !== now[i];
+              return (
+                <span key={i} className={`fs-c ${moved && !paid ? "fs-ac" : "fs-nu"}`} style={{ padding: 8, borderRadius: 10, gap: 2, color: moved && !paid ? undefined : "var(--mut)" }}>
+                  <span className="fs-f" style={{ gap: 3, fontSize: 11, fontWeight: 700, opacity: 0.75 }}>
+                    <Ic n={paid ? "lock" : moved ? "arrowUp" : "calendar"} size={11} />
+                    {tx(F.inst)} {i + 1}
+                  </span>
+                  <span className="num" style={{ fontSize: 13, fontWeight: 700, color: moved && !paid ? undefined : "var(--fg)", opacity: moved && !paid ? 1 : 0.85 }}>{rupees(v)}</span>
+                </span>
+              );
+            })}
+          </div>
+          <div className="fs-f" style={{ alignItems: "flex-start", fontSize: 13, fontWeight: 600, color: delta ? "var(--info)" : "var(--mut)" }}>
+            <Ic n="users" size={14} style={{ marginTop: 2 }} />
+            <span>
+              {delta
+                ? `${tx(F.affects)} ${students} ${tx(F.students)} · ${signed(delta)} ${tx(F.eachThisYear)}${paidNos.length ? ` · ${tx(F.inst)} ${unpaidFrom}–${n}` : ""}`
+                : tx(F.noChangeYet)}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="glass fs-foot">
+        <button type="button" className="tap btn sec" onClick={onCancel}>{tx(editable ? F.cancel : F.close)}</button>
+        {editable ? (
+          <button type="button" className="tap btn pri" onClick={() => onSave(tuition)} disabled={!changed || tuition <= 0} style={{ opacity: changed && tuition > 0 ? 1 : 0.5 }}>
+            <Ic n="check" />
+            {tx(F.saveToChanges)}
+          </button>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function CopySheet({ open, onClose, base, editable, onApply }: { open: boolean; onClose: () => void; base: FeeSetupDraft; editable: boolean; onApply: (rows: FeeSetupDraft["classRows"]) => void }) {
+  const { tx } = useVx();
   const [pct, setPct] = useState(5);
   const raised = raiseTuition(base.classRows, pct);
+  const changed = raised.filter((r, i) => r.annualTuition !== base.classRows[i]?.annualTuition).length;
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Raise every class by %"
-      sub="Starts from the live fees, rounded to ₹100"
+      title={tx(F.raise)}
+      sub={tx(F.sheetCopySub)}
       footer={
         <>
-          <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>Cancel</button>
-          <button type="button" className="tap btn pri" style={{ flex: 1.6, height: 48 }} disabled={!editable} onClick={() => { onApply(raised); onClose(); }}><Ic n="check" size={18} />Put in changes</button>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{tx(F.cancel)}</button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={!editable || !changed} onClick={() => { onApply(raised); onClose(); }}>
+            <Ic n="check" />
+            {tx(F.putInChanges)}
+          </button>
         </>
       }
     >
-      <div className="fs-c" style={{ gap: 14 }}>
-        <Stepper value={pct} onChange={setPct} min={-20} max={40} label="Raise by percent" />
-        <div className="fs-f" style={{ flexWrap: "wrap", gap: 6 }}>
-          {[3, 5, 8, 10].map((v) => <Chip key={v} on={pct === v} onClick={() => setPct(v)}>{v}%</Chip>)}
+      <div className="fs-c fs-lh" style={{ gap: 12 }}>
+        <div className="fs-f" style={{ justifyContent: "space-between", padding: "12px 14px", borderRadius: 14, background: "var(--s2)" }}>
+          <span className="fs-c">
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{tx(F.raiseBy)}</span>
+            <span className="fs-m">{tx(F.raiseSub)}</span>
+          </span>
+          <span className="fs-f">
+            <button type="button" className="tap btn sec fs-sq4" aria-label="− 1%" onClick={() => setPct((v) => Math.max(-20, v - 1))}><Ic n="minus" /></button>
+            <span className="num serif" style={{ minWidth: 60, textAlign: "center", fontSize: 28, fontWeight: 600 }}>{pct}%</span>
+            <button type="button" className="tap btn sec fs-sq4" aria-label="+ 1%" onClick={() => setPct((v) => Math.min(40, v + 1))}><Ic n="plus" /></button>
+          </span>
         </div>
-        <Card pad={false} style={{ overflow: "hidden" }}>
+        <div className="card fs-ls" style={{ overflow: "hidden" }}>
           {raised.map((r) => {
             const was = base.classRows.find((c) => c.label === r.label)?.annualTuition ?? 0;
+            const d = r.annualTuition - was;
             return (
-              <div key={r.label} className="fs-f" style={{ justifyContent: "space-between", padding: "9px 14px", borderTop: "1px solid var(--bd)" }}>
-                <span>{r.label}</span>
-                <span className="num"><span className="fs-m" style={{ textDecoration: "line-through", marginRight: 8 }}>{rupees(was)}</span><b>{rupees(r.annualTuition)}</b></span>
+              <div key={r.label} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) repeat(2, minmax(0, 1fr))", gap: 8, alignItems: "center", minHeight: 46, padding: "0 14px" }}>
+                <span className="fs-c">
+                  <span className="fs-e" style={{ fontSize: 13, fontWeight: 600 }}>{r.label}</span>
+                  <span className="num fs-m">{rupees(was)}</span>
+                </span>
+                <span className="num" style={{ fontSize: 14, fontWeight: 700, textAlign: "right" }}>{rupees(r.annualTuition)}</span>
+                <span style={{ textAlign: "right" }}>
+                  <span className={`pill num ${d === 0 ? "fs-nu" : d > 0 ? "fs-in" : "fs-wa"}`}>{d === 0 ? tx(F.same) : signed(d)}</span>
+                </span>
               </div>
             );
           })}
-        </Card>
-        <span className="fs-m">Replaces any class fee you already edited in this draft ({draft.classRows.filter((c, i) => c.annualTuition !== base.classRows[i]?.annualTuition).length} now). Nothing is live until you publish.</span>
+        </div>
+        <span className="fs-m">{tx(F.copyNote)}</span>
       </div>
     </Sheet>
   );
@@ -485,87 +766,176 @@ function CopySheet({ open, onClose, draft, base, editable, onApply }: { open: bo
 
 /* ---------- installments ---------- */
 
-function InstallmentsTab({ data, draft, base, today, editable, setDraft }: { data: FeeSetupVxData; draft: FeeSetupDraft; base: FeeSetupDraft; today: string; editable: boolean; setDraft: SetDraft }) {
+function DateChip({ date, locked, moved, editable, min, onPick, label }: { date: string; locked: boolean; moved: boolean; editable: boolean; min: string; onPick: (v: string) => void; label: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const can = editable && !locked;
+  return (
+    <span style={{ position: "relative" }}>
+      <button
+        type="button"
+        className={`tap chip${moved ? " on" : ""}`}
+        aria-pressed={moved}
+        aria-label={`${label} ${dm(date)}`}
+        disabled={!can}
+        onClick={() => {
+          const el = ref.current;
+          if (!el) return;
+          try {
+            el.showPicker();
+          } catch {
+            el.focus();
+          }
+        }}
+        style={{ height: 30, padding: "0 9px", fontSize: 12, opacity: 1, cursor: can ? "pointer" : "default" }}
+      >
+        <Ic n={locked ? "lock" : "calendar"} size={13} />
+        {dm(date)}
+      </button>
+      {can ? <input ref={ref} type="date" value={date} min={min} tabIndex={-1} aria-hidden="true" onChange={(e) => e.target.value && onPick(e.target.value)} style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none" }} /> : null}
+    </span>
+  );
+}
+
+function InstallmentsTab({ data, rows, draft, base, today, editable, setDraft }: { data: FeeSetupVxData; rows: FeeRow[]; draft: FeeSetupDraft; base: FeeSetupDraft; today: string; editable: boolean; setDraft: SetDraft }) {
+  const { tx } = useVx();
   const dates = draft.installmentDates;
+  const cols = Math.max(1, dates.length);
   const nextIdx = dates.findIndex((d) => d > today);
   const done = nextIdx === -1 ? dates.length : nextIdx;
-  const days = (d: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
   const setDate = (i: number, v: string) => setDraft((d) => ({ ...d, installmentDates: d.installmentDates.map((x, j) => (j === i ? v : x)) }));
-  const cols = dates.length;
-  const sample = BANDS.map((b) => draft.classRows.find((c) => bandOf(c.label) === b.key)).filter(Boolean) as FeeSetupDraft["classRows"];
+  // How far along the line today is: whole steps for passed dates, a part of the step to the next one.
+  const part = done > 0 && done < dates.length ? Math.min(1, Math.max(0, daysFrom(dates[done - 1], today) / Math.max(1, daysFrom(dates[done - 1], dates[done])))) : 0;
+  const along = cols > 1 ? Math.min(1, Math.max(0, (done - 1 + part) / (cols - 1))) : 0;
+  const span = 100 - 100 / cols;
+  const sampleRow = draft.classRows.find((c) => c.annualTuition > 0) ?? draft.classRows[0];
+  const shares = sampleRow ? perInstallment(draft, sampleRow.annualTuition) : dates.map(() => 0);
+  const shareSum = shares.reduce((s, v) => s + v, 0) || 1;
+  const pcts = shares.map((v) => Math.round((v / shareSum) * 100));
+  const nowBy = new Map(draft.classRows.map((c) => [c.label, c.annualTuition]));
+  const baseBy = new Map(base.classRows.map((c) => [c.label, c.annualTuition]));
+  const tcols = `minmax(0, 1.4fr) repeat(${cols + 1}, minmax(0, 1fr))`;
   return (
     <>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div className="fs-f" style={{ justifyContent: "space-between" }}>
-          <b>When fees fall due</b>
-          <span className="fs-m">Today · {shortDay(today)}</span>
+      <div className="card" style={{ padding: "18px 16px 16px" }}>
+        <div className="fs-f" style={{ justifyContent: "space-between", marginBottom: 16 }}>
+          <span className="fs-tt">{tx(F.whenDue)}</span>
+          <span className="fs-m">{tx(F.today)} · {ddm(today)}</span>
         </div>
-        <div className="fs-tl" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
-          <i style={{ left: `${50 / cols}%`, right: `${50 / cols}%` }}>
-            <b style={{ width: `${cols > 1 ? (Math.max(0, done - 1) / (cols - 1)) * 100 : 0}%` }} />
-          </i>
+        <div style={{ position: "relative", display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          <span style={{ position: "absolute", top: 17, left: `${50 / cols}%`, right: `${50 / cols}%`, height: 4, borderRadius: 2, background: "var(--s3)" }} />
+          <span style={{ position: "absolute", top: 17, left: `${50 / cols}%`, width: `${(span * along).toFixed(1)}%`, height: 4, borderRadius: 2, background: "var(--ok)", transformOrigin: "left", animation: "xGrowX .9s .15s var(--ease) both" }} />
           {dates.map((d, i) => {
             const locked = isDateLocked(base.installmentDates[i] ?? d, today);
             const moved = d !== base.installmentDates[i];
+            const isDone = i < done;
+            const isNext = i === done;
+            const left = daysFrom(today, d);
             return (
-              <div key={i}>
-                <span className={`fs-dot${i < done ? " done" : i === done ? " next" : ""}`}>
-                  <Ic n={i < done ? "check" : i === done ? "clock" : "calendar"} size={18} />
+              <div key={i} className="fs-c fs-xi" style={{ alignItems: "center", gap: 6, textAlign: "center", position: "relative", animationDelay: delay(i) }}>
+                <span
+                  className="fs-ib"
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    background: isDone ? "var(--ok)" : "var(--card)",
+                    color: isDone ? "var(--onsolid)" : isNext ? "var(--acc)" : "var(--sub)",
+                    border: isDone ? 0 : isNext ? "3px solid var(--acc)" : "2px solid var(--bds)",
+                    animation: isNext ? "xPulse 1.8s ease infinite" : "none",
+                  }}
+                >
+                  <Ic n={isDone ? "check" : isNext ? "clock" : "calendar"} />
                 </span>
-                <b>Inst {i + 1}</b>
-                {locked || !editable ? (
-                  <Pill icon={locked ? "lock" : "calendar"}>{dayMonth(d)}</Pill>
-                ) : (
-                  <Input type="date" value={d} min={today} onChange={(e) => e.target.value && setDate(i, e.target.value)} aria-label={`Installment ${i + 1} due date`} style={{ width: 150, height: 36, borderColor: moved ? "var(--acc)" : undefined }} />
-                )}
-                <span className="fs-m" style={{ color: i < done ? "var(--ok)" : i === done ? "var(--accfg)" : undefined }}>
-                  {i < done ? `Due passed${data.paidInstallments.includes(i + 1) ? " · receipts written" : ""}` : i === done ? `Next · in ${days(d)} days` : `In ${days(d)} days`}
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{tx(F.inst)} {i + 1}</span>
+                <DateChip date={d} locked={locked} moved={moved} editable={editable} min={today} onPick={(v) => setDate(i, v)} label={`${tx(F.dueDate)} · ${tx(F.inst)} ${i + 1}`} />
+                <span style={{ fontSize: 12, lineHeight: 1.3, color: isDone ? "var(--ok)" : isNext ? "var(--accfg)" : "var(--mut)" }}>
+                  {isDone
+                    ? `${tx(F.duePassed)}${data.paidInstallments.includes(i + 1) ? ` · ${tx(F.receiptsWritten)}` : ""}`
+                    : isNext
+                      ? `${tx(F.nextIn)} ${left} ${tx(F.days)}`
+                      : `${tx(F.inDays)} ${left} ${tx(F.days)}`.trim()}
                 </span>
               </div>
             );
           })}
         </div>
-        <span className="fs-m" style={{ textAlign: "center" }}>{editable ? "Pick a new date for an installment still ahead. Passed dates are locked." : "Passed dates are locked."}</span>
-      </Card>
-      <div className="g2 stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,0.9fr) minmax(0,1.1fr)", gap: 14, alignItems: "start" }}>
-        <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <span className="fs-c">
-            <b>How the year is split</b>
-            <span className="fs-m">Tuition and bus fee are always split equally over the {cols} installments. Choose where the academic fee goes.</span>
-          </span>
-          <RadioCard checked={draft.academicFeeDistribution === "first_only"} onSelect={() => editable && setDraft((d) => ({ ...d, academicFeeDistribution: "first_only" }))} title="All academic fee in Installment 1" sub="The first bill is bigger" />
-          <RadioCard checked={draft.academicFeeDistribution === "equal"} onSelect={() => editable && setDraft((d) => ({ ...d, academicFeeDistribution: "equal" }))} title="Academic fee spread over every installment" sub="Every bill is the same" />
-          {draft.academicFeeDistribution !== base.academicFeeDistribution ? <Pill tone="acc" icon="edit">Changed · not live yet</Pill> : null}
-        </Card>
-        <Card pad={false} style={{ overflow: "hidden" }}>
-          <div style={{ padding: "14px 16px" }} className="fs-c">
-            <b>What each class pays</b>
-            <span className="fs-m">Per installment, old student, with your edits · one class from each band</span>
+        <span className="fs-m" style={{ display: "block", marginTop: 12, textAlign: "center" }}>{tx(editable ? F.datesHint : F.datesLocked)}</span>
+      </div>
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.25fr)", gap: 16, alignItems: "start" }}>
+        <div className="card fs-c" style={{ padding: "16px 18px", gap: 4 }}>
+          <div className="fs-f" style={{ justifyContent: "space-between" }}>
+            <span className="fs-tt">{tx(F.split)}</span>
+            <span className="pill num fs-ok fs-pl">{tx(F.total100)}</span>
           </div>
-          <div style={{ overflowX: "auto" }}>
-            <table className="fs-tbl">
-              <thead>
-                <tr>
-                  <th>Class</th>
-                  {dates.map((_, i) => <th key={i} className={i > 1 ? "hide-p" : undefined}>Inst {i + 1}</th>)}
-                  <th>Year</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sample.map((c) => {
-                  const per = perInstallment(draft, c.annualTuition);
-                  return (
-                    <tr key={c.label}>
-                      <td><b>{c.label}</b></td>
-                      {per.map((v, i) => <td key={i} className={i > 1 ? "hide-p" : undefined}>{rupees(v)}</td>)}
-                      <td><b>{rupees(per.reduce((s, v) => s + v, 0))}</b></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <span className="fs-m">{tx(F.splitSub(cols))}</span>
+          <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", background: "var(--s3)", margin: "12px 0 6px" }}>
+            {pcts.map((v, i) => (
+              <span key={i} style={{ width: `${(shares[i] / shareSum) * 100}%`, background: C4[i % C4.length], transition: "width .5s var(--ease)" }} />
+            ))}
           </div>
-        </Card>
+          <div className="fs-c fs-ls">
+            {dates.map((d, i) => {
+              const locked = isDateLocked(base.installmentDates[i] ?? d, today);
+              return (
+                <div key={i} className="fs-f" style={{ gap: 12, padding: "9px 0" }}>
+                  <span className="fs-dt" style={{ borderRadius: 3, background: C4[i % C4.length] }} />
+                  <span className="fs-c" style={{ flex: 1 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(F.installment)} {i + 1}</span>
+                    <span className="fs-m fs-f" style={{ gap: 4 }}>
+                      {locked ? <Ic n="lock" size={12} /> : null}
+                      {locked ? tx(F.lockedShort) : `${tx(F.due)} ${dm(d)}`}
+                    </span>
+                  </span>
+                  <span className="fs-big" style={{ opacity: locked ? 0.45 : 1 }}>{pcts[i]}%</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="fs-c" style={{ gap: 8, marginTop: 8 }} role="radiogroup" aria-label={tx(F.split)}>
+            <RadioRow on={draft.academicFeeDistribution === "first_only"} onPick={() => editable && setDraft((d) => ({ ...d, academicFeeDistribution: "first_only" }))} label={tx(F.firstOnly)} sub={tx(F.firstOnlySub)} disabled={!editable} />
+            <RadioRow on={draft.academicFeeDistribution === "equal"} onPick={() => editable && setDraft((d) => ({ ...d, academicFeeDistribution: "equal" }))} label={tx(F.spread)} sub={tx(F.spreadSub)} disabled={!editable} />
+            {draft.academicFeeDistribution !== base.academicFeeDistribution ? (
+              <span className="pill fs-ac" style={{ alignSelf: "flex-start" }}>
+                <Ic n="edit" size={12} />
+                {tx(F.changedNotLive)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="card" style={{ overflow: "hidden" }}>
+          <div className="fs-c" style={{ padding: "14px 16px 10px" }}>
+            <span className="fs-tt">{tx(F.eachPays)}</span>
+            <span className="fs-m">{tx(F.eachPaysSub)}</span>
+          </div>
+          <div className="fs-ls">
+            <div style={{ display: "grid", gridTemplateColumns: tcols, gap: 6, padding: "8px 16px", background: "var(--s2)" }}>
+              <span className="sech" style={{ fontSize: 11 }}>{tx(F.band)}</span>
+              {dates.map((_, i) => (
+                <span key={i} className="sech" style={{ fontSize: 11, textAlign: "right" }}>{tx(F.inst)} {i + 1}</span>
+              ))}
+              <span className="sech" style={{ fontSize: 11, textAlign: "right" }}>{tx(F.year)}</span>
+            </div>
+            {rows.map((r) => {
+              const t = nowBy.get(r.labels[0]) ?? 0;
+              const per = perInstallment(draft, t);
+              const was = perInstallment(base, baseBy.get(r.labels[0]) ?? t);
+              const all = [...per, per.reduce((s, v) => s + v, 0)];
+              const old = [...was, was.reduce((s, v) => s + v, 0)];
+              return (
+                <div key={r.key} style={{ display: "grid", gridTemplateColumns: tcols, gap: 6, alignItems: "center", minHeight: 42, padding: "0 16px" }}>
+                  <span className="fs-e" style={{ fontSize: 13, fontWeight: 600 }}>{r.band === "senior" && r.labels.length > 1 ? `11–12 ${r.name}` : r.name}</span>
+                  {all.map((v, i) => {
+                    const ch = v !== old[i];
+                    const paid = i < per.length && i < done;
+                    return (
+                      <span key={i} className="num" style={{ fontSize: 13, textAlign: "right", fontWeight: ch || i === per.length ? 700 : 500, color: ch ? "var(--accfg)" : paid ? "var(--mut)" : "var(--fg)" }}>{rupees(v)}</span>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </>
   );
@@ -574,82 +944,108 @@ function InstallmentsTab({ data, draft, base, today, editable, setDraft }: { dat
 /* ---------- discounts ---------- */
 
 function DiscountsTab({ data, draft, editable, setDraft, onAdd }: { data: FeeSetupVxData; draft: FeeSetupDraft; editable: boolean; setDraft: SetDraft; onAdd: () => void }) {
+  const { tx } = useVx();
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [editKey, setEditKey] = useState<string | null>(null);
   const total = Object.values(data.ruleStudents).reduce((s, v) => s + v, 0);
   const setRule = (key: string, patch: Partial<DiscountDraft>) => setDraft((d) => ({ ...d, discounts: d.discounts.map((x) => (x.key === key ? { ...x, ...patch } : x)) }));
   const icon = (d: DiscountDraft): IconName => (d.code === "rte" ? "shield" : d.code.includes("staff") ? "briefcase" : d.code.includes("child") || d.code.includes("sibling") ? "users" : "percent");
   const big = (d: DiscountDraft) => (d.calculationType === "tuition_zero" ? "100%" : d.calculationType === "tuition_percentage" ? `${d.percentage ?? 0}%` : rupees(d.fixedTuitionAmount ?? 0));
   return (
     <>
-      <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <span className="fs-c">
-          <b style={{ fontSize: 16 }}>Discounts and concessions</b>
-          <span className="fs-m">{total} students this session · {draft.discounts.length} rules · on tuition only</span>
+          <span className="fs-tt">{tx(F.discTitle)}</span>
+          <span className="fs-m">
+            {total} {tx(F.students)} · {draft.discounts.length} {tx(F.rules)} · {tx(F.onTuition)}
+          </span>
         </span>
-        {editable ? <Btn variant="soft" icon="plus" onClick={onAdd}>Add a rule</Btn> : null}
+        {editable ? (
+          <button type="button" className="tap btn pri mfull" onClick={onAdd}>
+            <Ic n="plus" />
+            {tx(F.addRule)}
+          </button>
+        ) : null}
       </div>
-      <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 12 }}>
+      <div className="g2 fs-g2">
         {draft.discounts.map((d, i) => {
           const count = d.id ? (data.ruleStudents[d.id] ?? 0) : 0;
           const names = d.id ? (data.ruleStudentNames[d.id] ?? []) : [];
+          const isNew = !d.id;
           return (
-            <Card key={d.key} pad={false} className="rise" style={{ animationDelay: `${i * 30}ms` }}>
-              <div className="fs-rule">
-                <div className="fs-f" style={{ alignItems: "flex-start", gap: 12 }}>
-                  <span className="fs-ib"><Ic n={icon(d)} size={20} /></span>
-                  <span className="fs-c" style={{ flex: 1 }}>
-                    <b style={{ fontSize: 15 }}>{d.displayName}</b>
-                    <span className="fs-m">{describeDiscount(d)}</span>
-                  </span>
-                  <Switch on={d.isActive} onChange={(on) => setRule(d.key, { isActive: on })} label={d.isActive ? "On" : "Off"} disabled={!editable} />
-                </div>
-                <div className="fs-f" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
-                  <span className="fs-pct">{big(d)}</span>
-                  <span className="fs-c" style={{ alignItems: "flex-end" }}>
-                    <b>{d.id ? `${count} students` : "New · not live"}</b>
-                    <span className="fs-m">{d.calculationType === "tuition_fixed_amount" ? "pays this tuition" : "off tuition"}</span>
-                  </span>
-                </div>
-                <div className="fs-f" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <span className="fs-m">Tuition only ·</span>
-                  <Pill tone="mut">Given per student by the admin</Pill>
-                  {names.length ? <button type="button" className="tap btn ghost" style={{ height: 30, marginLeft: "auto", fontSize: 13 }} onClick={() => setOpenKey(openKey === d.key ? null : d.key)}>{openKey === d.key ? "Hide" : "Who"}</button> : null}
-                </div>
+            <div key={d.key} className="card rise fs-c" style={{ padding: 16, gap: 10, animationDelay: delay(i) }}>
+              <div className="fs-f" style={{ gap: 12, alignItems: "flex-start", opacity: d.isActive ? 1 : 0.5, transition: "opacity .3s ease" }}>
+                <span className={`fs-ib ${isNew ? "fs-in" : "fs-ac"}`} style={{ width: 42, height: 42, borderRadius: 13 }}>
+                  <Ic n={isNew ? "tag" : icon(d)} />
+                </span>
+                <span className="fs-c" style={{ flex: 1 }}>
+                  <span className="fs-tt">{d.displayName}</span>
+                  <span className="fs-m">{describeDiscount(d)}</span>
+                </span>
+                <button type="button" className="tap" role="switch" aria-checked={d.isActive} aria-label={d.displayName} disabled={!editable} onClick={() => setRule(d.key, { isActive: !d.isActive })} style={{ border: 0, background: "transparent", padding: 4 }}>
+                  <SwitchKnob on={d.isActive} />
+                </button>
+              </div>
+              <div className="fs-f" style={{ justifyContent: "space-between", alignItems: "flex-end", opacity: d.isActive ? 1 : 0.5, transition: "opacity .3s ease" }}>
                 {editable && d.calculationType !== "tuition_zero" ? (
-                  <Field label={d.calculationType === "tuition_percentage" ? "Percent off tuition" : "Tuition they pay · per year"}>
-                    <Input
+                  <button type="button" className="tap num serif" onClick={() => setEditKey(editKey === d.key ? null : d.key)} style={{ border: 0, background: "transparent", padding: 0, color: "var(--fg)", fontFamily: "\"Source Serif 4\", Georgia, serif", fontSize: 28, fontWeight: 600, lineHeight: 1 }}>{big(d)}</button>
+                ) : (
+                  <span className="num serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1 }}>{big(d)}</span>
+                )}
+                <span className="fs-c" style={{ alignItems: "flex-end" }}>
+                  <span className="num" style={{ fontSize: 13, fontWeight: 700 }}>{isNew ? tx(F.newNotLive) : `${count} ${tx(F.students)}`}</span>
+                  <span className="fs-m">{tx(d.calculationType === "tuition_fixed_amount" ? F.paysThis : F.offTuition)}</span>
+                </span>
+              </div>
+              <div className="fs-f" style={{ flexWrap: "wrap", gap: 6, fontSize: 12, color: "var(--mut)" }}>
+                {tx(F.tuitionOnly)} ·<span className="pill fs-wa">{tx(F.givenPerStudent)}</span>
+                {names.length ? (
+                  <button type="button" className="tap btn ghost" style={{ height: 30, marginLeft: "auto", fontSize: 13, padding: "0 10px" }} onClick={() => setOpenKey(openKey === d.key ? null : d.key)}>
+                    {tx(openKey === d.key ? F.hide : F.who)}
+                  </button>
+                ) : null}
+              </div>
+              {editKey === d.key && editable && d.calculationType !== "tuition_zero" ? (
+                <label className="field fadein">
+                  <span>{tx(d.calculationType === "tuition_percentage" ? F.pctOff : F.tuitionPays)}</span>
+                  <span className="fs-rp">
+                    <span>{d.calculationType === "tuition_percentage" ? "%" : "₹"}</span>
+                    <input
+                      className="inp num"
                       inputMode="numeric"
-                      lead={d.calculationType === "tuition_percentage" ? "%" : "₹"}
                       value={String(d.calculationType === "tuition_percentage" ? (d.percentage ?? 0) : (d.fixedTuitionAmount ?? 0))}
                       onChange={(e) => {
-                        const v = Math.max(0, Math.round(Number(e.target.value.replace(/\D/g, "")) || 0));
+                        const v = digits(e.target.value);
                         setRule(d.key, d.calculationType === "tuition_percentage" ? { percentage: Math.min(100, v) } : { fixedTuitionAmount: v });
                       }}
                     />
-                  </Field>
-                ) : null}
-                {openKey === d.key ? (
-                  <div className="fs-c" style={{ gap: 4, padding: 10, borderRadius: 10, background: "var(--s2)" }}>
-                    {names.map((n, j) => <span key={j} style={{ fontSize: 13 }}>{n}</span>)}
-                    {count > names.length ? <span className="fs-m">+ {count - names.length} more</span> : null}
-                  </div>
-                ) : null}
-              </div>
-            </Card>
+                  </span>
+                </label>
+              ) : null}
+              {!d.isActive && d.id ? <div className="fadein fs-wa" style={{ padding: "8px 10px", borderRadius: 10, fontSize: 12, fontWeight: 600 }}>{tx(F.ruleOffNote)}</div> : null}
+              {openKey === d.key ? (
+                <div className="fs-c" style={{ gap: 4, padding: 10, borderRadius: 10, background: "var(--s2)" }}>
+                  {names.map((n, j) => (
+                    <span key={j} style={{ fontSize: 13 }}>{n}</span>
+                  ))}
+                  {count > names.length ? <span className="fs-m">+ {count - names.length} {tx(F.more)}</span> : null}
+                </div>
+              ) : null}
+            </div>
           );
         })}
       </div>
-      {!draft.discounts.length ? <EmptyState icon="percent" title="No discount rules" body="Add a rule such as a sibling or staff-child discount." /> : null}
-      <span className="fs-m">Which student gets which rule is set on the student. Turning a rule off reprices the students on it when you publish.</span>
+      {!draft.discounts.length ? <EmptyState icon="percent" title={tx(F.noRules)} body={tx(F.noRulesBody)} /> : null}
+      <span className="fs-m">{tx(F.discNote)}</span>
     </>
   );
 }
 
 function RuleSheet({ open, onClose, draft, editable, onAdd }: { open: boolean; onClose: () => void; draft: FeeSetupDraft; editable: boolean; onAdd: (d: DiscountDraft) => void }) {
+  const { tx } = useVx();
   const [name, setName] = useState("");
   const [kind, setKind] = useState<DiscountDraft["calculationType"]>("tuition_percentage");
-  const [value, setValue] = useState("10");
-  const v = Math.max(0, Math.round(Number(value.replace(/\D/g, "")) || 0));
+  const [v, setV] = useState(25);
   const ok = name.trim().length >= 3 && (kind === "tuition_zero" || (kind === "tuition_percentage" ? v > 0 && v <= 100 : v >= 0));
   const add = () => {
     const code = ruleCode(name, draft.discounts.map((d) => d.code));
@@ -657,34 +1053,51 @@ function RuleSheet({ open, onClose, draft, editable, onAdd }: { open: boolean; o
     setName("");
     onClose();
   };
+  const types: [DiscountDraft["calculationType"], Pair, number][] = [
+    ["tuition_percentage", F.pctOffChip, 25],
+    ["tuition_fixed_amount", F.fixedChip, 5000],
+    ["tuition_zero", F.freeChip, 0],
+  ];
+  const pct = kind === "tuition_percentage";
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Add a rule"
-      sub="A discount on tuition, given to students one by one"
+      title={tx(F.addRule)}
+      sub={tx(F.addRuleSub)}
       footer={
         <>
-          <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>Cancel</button>
-          <button type="button" className="tap btn pri" style={{ flex: 1.6, height: 48 }} disabled={!ok || !editable} onClick={add}><Ic n="plus" size={18} />Add to changes</button>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{tx(F.cancel)}</button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={!ok || !editable} onClick={add}>
+            <Ic n="plus" />
+            {tx(F.addRuleCta)}
+          </button>
         </>
       }
     >
-      <div className="fs-c" style={{ gap: 14 }}>
-        <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="For example: Sibling discount" /></Field>
-        <Field label="What they get">
-          <div className="fs-c" style={{ gap: 8 }}>
-            <RadioCard checked={kind === "tuition_percentage"} onSelect={() => setKind("tuition_percentage")} title="A percent off tuition" icon="percent" />
-            <RadioCard checked={kind === "tuition_fixed_amount"} onSelect={() => setKind("tuition_fixed_amount")} title="A fixed yearly tuition" icon="rupee" />
-            <RadioCard checked={kind === "tuition_zero"} onSelect={() => setKind("tuition_zero")} title="Free tuition" icon="gift" />
+      <div className="fs-c fs-lh" style={{ gap: 14 }}>
+        <label className="field">
+          <span>{tx(F.ruleName)}</span>
+          <input className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder={tx(F.ruleNamePh)} />
+        </label>
+        <div className="fs-c" style={{ gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(F.typeAmount)}</span>
+          <div className="fs-f" style={{ flexWrap: "wrap", gap: 10 }}>
+            {types.map(([k, label, start]) => (
+              <button key={k} type="button" className={`tap chip${kind === k ? " on" : ""}`} aria-pressed={kind === k} onClick={() => { setKind(k); setV(start); }}>{tx(label)}</button>
+            ))}
+            {kind !== "tuition_zero" ? (
+              <Step
+                value={pct ? `${v}%` : rupees(v)}
+                width={76}
+                label={tx(F.typeAmount)}
+                onDec={() => setV((x) => (pct ? Math.max(5, x - 5) : Math.max(0, x - 500)))}
+                onInc={() => setV((x) => (pct ? Math.min(100, x + 5) : Math.min(500000, x + 500)))}
+              />
+            ) : null}
           </div>
-        </Field>
-        {kind !== "tuition_zero" ? (
-          <Field label={kind === "tuition_percentage" ? "Percent" : "Tuition per year"} error={kind === "tuition_percentage" && v > 100 ? "At most 100%" : undefined}>
-            <Input inputMode="numeric" lead={kind === "tuition_percentage" ? "%" : "₹"} value={value} onChange={(e) => setValue(e.target.value)} />
-          </Field>
-        ) : null}
-        <span className="fs-m">Discounts apply to tuition only; academic fee, bus fee and late fee are not reduced.</span>
+        </div>
+        <span className="fs-m">{tx(F.discountNote)}</span>
       </div>
     </Sheet>
   );
@@ -693,7 +1106,8 @@ function RuleSheet({ open, onClose, draft, editable, onAdd }: { open: boolean; o
 /* ---------- late fee ---------- */
 
 function LateFeeTab({ draft, base, today, editable, setDraft }: { draft: FeeSetupDraft; base: FeeSetupDraft; today: string; editable: boolean; setDraft: SetDraft }) {
-  const [inst, setInst] = useState(() => Math.max(0, draft.installmentDates.filter((d) => d <= today).length - 1));
+  const { tx } = useVx();
+  const inst = Math.max(0, draft.installmentDates.filter((d) => d <= today).length - 1);
   const due = draft.installmentDates[inst] ?? today;
   const plus = (n: number) => new Date(Date.parse(`${due}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
   const options = [0, 3, 10, 20, 35].map(plus);
@@ -701,51 +1115,75 @@ function LateFeeTab({ draft, base, today, editable, setDraft }: { draft: FeeSetu
   const on = paidOn ?? options[2];
   const fee = lateFeeFor({ dueDate: due, paidOn: on, flat: draft.lateFeeFlatAmount });
   const charging = draft.lateFeeFlatAmount > 0;
+  const late = daysFrom(due, on);
+  const setFlat = (v: number) => setDraft((d) => ({ ...d, lateFeeFlatAmount: Math.max(0, Math.min(5000, v)) }));
   return (
-    <div className="g2 stack" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 14, alignItems: "start" }}>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div className="fs-f" style={{ justifyContent: "space-between" }}>
-          <span className="fs-c">
-            <b>Charge a late fee</b>
-            <span className="fs-m">{charging ? "On · once for each installment paid after its due date" : "Off"}</span>
+    <div className="stack fs-g2" style={{ gap: 16, alignItems: "start" }}>
+      <div className="card fs-c" style={{ padding: "6px 18px 16px" }}>
+        <button type="button" className="tap fs-rb" role="switch" aria-checked={charging} disabled={!editable} onClick={() => setFlat(charging ? 0 : base.lateFeeFlatAmount || 100)} style={{ padding: "12px 0" }}>
+          <span className="fs-c" style={{ flex: 1 }}>
+            <span className="fs-tt">{tx(F.charge)}</span>
+            <span className="fs-m">{tx(charging ? F.chargeOn : F.chargeOff)}</span>
           </span>
-          <Switch on={charging} onChange={(v) => setDraft((d) => ({ ...d, lateFeeFlatAmount: v ? base.lateFeeFlatAmount || 100 : 0 }))} label="Charge a late fee" disabled={!editable} />
-        </div>
-        <div className="fs-f" style={{ justifyContent: "space-between", borderTop: "1px solid var(--bd)", paddingTop: 12 }}>
-          <span className="fs-c">
-            <b>Per installment</b>
-            <span className="fs-m">{draft.lateFeeFlatAmount !== base.lateFeeFlatAmount ? `Live now ${rupees(base.lateFeeFlatAmount)}` : "Same as live"}</span>
+          <SwitchKnob on={charging} />
+        </button>
+        <div className="fs-f" style={{ gap: 10, padding: "11px 0", borderTop: "1px solid var(--bd)", opacity: charging ? 1 : 0.45, transition: "opacity .3s ease" }}>
+          <span className="fs-c" style={{ flex: 1 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(F.perInst)}</span>
+            <span className="fs-m">{draft.lateFeeFlatAmount !== base.lateFeeFlatAmount ? `${tx(F.liveNow)} ${rupees(base.lateFeeFlatAmount)}` : tx(F.perInstSub)}</span>
           </span>
-          {editable ? <Stepper value={draft.lateFeeFlatAmount} onChange={(v) => setDraft((d) => ({ ...d, lateFeeFlatAmount: v }))} min={0} max={5000} label="Late fee per installment" /> : <b className="num">{rupees(draft.lateFeeFlatAmount)}</b>}
+          {editable ? (
+            <Step value={rupees(draft.lateFeeFlatAmount)} width={62} tone={draft.lateFeeFlatAmount !== base.lateFeeFlatAmount ? "var(--accfg)" : undefined} label={tx(F.perInst)} onDec={() => setFlat(draft.lateFeeFlatAmount - 50)} onInc={() => setFlat(draft.lateFeeFlatAmount + 50)} />
+          ) : (
+            <span className="fs-big" style={{ minWidth: 62 }}>{rupees(draft.lateFeeFlatAmount)}</span>
+          )}
         </div>
-        <div className="fs-f" style={{ gap: 6, flexWrap: "wrap" }}>
-          {editable ? [50, 100, 200, 300].map((v) => <Chip key={v} on={draft.lateFeeFlatAmount === v} onClick={() => setDraft((d) => ({ ...d, lateFeeFlatAmount: v }))}>{rupees(v)}</Chip>) : null}
-        </div>
-        <div className="fs-c" style={{ gap: 6, borderTop: "1px solid var(--bd)", paddingTop: 12 }}>
-          <b>Who can waive a late fee</b>
-          <span className="fs-m">Admin and accountant, at the Payment Desk. Each waiver needs a reason and is logged.</span>
-        </div>
-        <div className="fs-info"><Ic n="info" size={16} /><span>A late fee is always its own line. It is never added to the fee, and a family whose only debt is a late fee is not a defaulter.</span></div>
-      </Card>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <span className="fs-c">
-          <b>Try it</b>
-          <span className="fs-m">Installment {inst + 1} · due {shortDay(due)}</span>
-        </span>
-        <Seg options={draft.installmentDates.map((_, i) => ({ value: String(i), label: `Inst ${i + 1}` }))} value={String(inst)} onChange={(v) => { setInst(Number(v)); setPaidOn(null); }} label="Installment" />
-        <span className="fs-m">Paid on</span>
-        <div className="fs-f" style={{ gap: 6, flexWrap: "wrap" }}>
-          {options.map((d) => <Chip key={d} on={on === d} onClick={() => setPaidOn(d)}>{dayMonth(d)}</Chip>)}
-        </div>
-        <div className="fs-f" style={{ justifyContent: "space-between", padding: 14, borderRadius: 14, background: fee ? "var(--warns)" : "var(--oks)" }}>
+        <div className="fs-c" style={{ gap: 8, paddingTop: 12, borderTop: "1px solid var(--bd)" }}>
           <span className="fs-c">
-            <b>Late fee</b>
-            <span className="fs-m">{fee ? `Paid ${Math.round((Date.parse(`${on}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86_400_000)} days after the due date` : "Paid by the due date"}</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(F.whoWaives)}</span>
+            <span className="fs-m">{tx(F.whoWaivesSub)}</span>
           </span>
-          <b className="serif" style={{ fontSize: 30, color: fee ? "var(--warnfg)" : "var(--ok)" }}>{rupees(fee)}</b>
+          <span style={{ fontSize: 13 }}>{tx(F.whoWaivesBody)}</span>
         </div>
-        <span className="fs-m">Charged on its own receipt line. The installment itself does not change.</span>
-      </Card>
+      </div>
+      <div className="fs-c" style={{ gap: 16 }}>
+        <div className="card fs-c" style={{ padding: "16px 18px", gap: 12 }}>
+          <span className="fs-c">
+            <span className="fs-tt">{tx(F.tryIt)}</span>
+            <span className="fs-m">
+              {tx(F.installment)} {inst + 1} · {tx(F.due)} {ddm(due)}
+            </span>
+          </span>
+          <div className="fs-c" style={{ gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(F.paidOn)}</span>
+            <div className="hs" style={{ display: "flex", gap: 6 }}>
+              {options.map((d) => (
+                <button key={d} type="button" className={`tap chip${on === d ? " on" : ""}`} aria-pressed={on === d} onClick={() => setPaidOn(d)}>{dm(d)}</button>
+              ))}
+            </div>
+          </div>
+          <div className="fs-c" style={{ gap: 8, padding: 14, borderRadius: 14, background: "var(--s2)" }}>
+            <div className="fs-f" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{tx(F.lateFee)}</span>
+              <span className="num serif" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1, color: fee ? "var(--warnfg)" : "var(--ok)" }}>{rupees(fee)}</span>
+            </div>
+            <div className="fs-f fs-m" style={{ justifyContent: "space-between" }}>
+              <span>{!charging ? tx(F.lateIsOff) : late > 0 ? tx(F.paidLate(late)) : tx(F.paidByDue)}</span>
+              <span className="num">{tx(F.flatNote)}</span>
+            </div>
+          </div>
+          <div className="fs-f" style={{ alignItems: "flex-start", fontSize: 13, fontWeight: 600, color: "var(--accfg)" }}>
+            <Ic n="info" />
+            <span>{fee ? tx(F.verdictYes(rupees(fee))) : tx(F.verdictNo)}</span>
+          </div>
+        </div>
+        <div className="fs-nt fs-ok" style={{ borderRadius: 16, padding: "14px 16px" }}>
+          <Ic n="shield" />
+          <span>
+            <b>{tx(F.notDefaulterB)}</b> {tx(F.notDefaulter)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -753,49 +1191,61 @@ function LateFeeTab({ draft, base, today, editable, setDraft }: { draft: FeeSetu
 /* ---------- transport ---------- */
 
 function TransportTab({ data, draft, base, editable, onPick }: { data: FeeSetupVxData; draft: FeeSetupDraft; base: FeeSetupDraft; editable: boolean; onPick: (name: string) => void }) {
+  const { tx } = useVx();
   const n = Math.max(1, draft.installmentDates.length);
   const riders = Object.values(data.studentsByRoute).reduce((s, v) => s + v, 0);
   const baseBy = new Map(base.routeRows.map((r) => [r.routeName, r.annualFee]));
   return (
     <>
-      <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <span className="fs-c">
-          <b style={{ fontSize: 16 }}>Bus routes</b>
-          <span className="fs-m">{draft.routeRows.filter((r) => r.annualFee > 0).length} routes · {riders} students on a bus · split over {n} installments</span>
+          <span className="fs-tt">{tx(F.busRoutes)}</span>
+          <span className="fs-m">
+            {draft.routeRows.filter((r) => r.annualFee > 0).length} {tx(F.routes)} · {riders} {tx(F.onBus)} · {tx(F.splitOver)} {n} {tx(F.instWord)}
+          </span>
         </span>
-        {editable ? <Btn variant="soft" icon="plus" onClick={() => onPick("")}>Add a route</Btn> : null}
+        {editable ? <Btn variant="soft" icon="plus" onClick={() => onPick("")}>{tx(F.addRoute)}</Btn> : null}
       </div>
-      <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 12 }}>
+      <div className="g2 fs-g2">
         {draft.routeRows.map((r, i) => {
           const was = baseBy.get(r.routeName);
           const changed = was !== undefined && was !== r.annualFee;
           return (
-            <button key={r.routeName} type="button" className="card tap lift rise" style={{ textAlign: "left", padding: 16, display: "flex", flexDirection: "column", gap: 8, color: "var(--fg)", animationDelay: `${Math.min(i, 12) * 25}ms` }} onClick={() => onPick(r.routeName)}>
-              <span className="fs-f" style={{ gap: 10 }}>
-                <span className="fs-ib" style={{ width: 34, height: 34 }}><Ic n="bus" size={17} /></span>
+            <div key={r.routeName} className="card rise fs-c" style={{ padding: 16, gap: 12, animationDelay: delay(i) }}>
+              <div className="fs-f" style={{ gap: 12, alignItems: "flex-start" }}>
+                <span className="fs-ib serif" style={{ width: 44, height: 44, borderRadius: 13, background: "var(--pri)", color: "var(--prifg)", fontSize: 20, fontWeight: 700 }}>{i + 1}</span>
                 <span className="fs-c" style={{ flex: 1 }}>
-                  <b className="fs-e">{r.routeName}</b>
-                  <span className="fs-m">{data.studentsByRoute[r.routeName] ?? 0} students</span>
+                  <span className="fs-tt fs-e">{r.routeName}</span>
+                  <span className="fs-m">
+                    {data.studentsByRoute[r.routeName] ?? 0} {tx(F.students)}
+                    {was === undefined ? ` · ${tx(F.newPill)}` : changed ? ` · ${tx(F.editedPill)}` : ""}
+                  </span>
                 </span>
-                {was === undefined ? <Pill tone="acc">New</Pill> : changed ? <Pill tone="acc">Edited</Pill> : null}
-              </span>
-              <span className="fs-f" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-                <span>
-                  {changed ? <span className="fs-was">{rupees(was)}</span> : null}
-                  <b className="num" style={{ fontSize: 20 }}>{rupees(r.annualFee)}</b> <span className="fs-m">a year</span>
+                <span className="fs-c" style={{ alignItems: "flex-end" }}>
+                  {changed ? <span className="num" style={{ fontSize: 11, color: "var(--sub)", textDecoration: "line-through" }}>{rupees(was)}</span> : null}
+                  <span className="num fs-tt" style={{ color: changed ? "var(--accfg)" : undefined }}>
+                    {rupees(r.annualFee)} {tx(F.aYear)}
+                  </span>
+                  <span className="num fs-m">
+                    {rupees(Math.round(r.annualFee / n))} × {n}
+                  </span>
                 </span>
-                <span className="fs-m">{rupees(Math.round(r.annualFee / n))} × {n}</span>
-              </span>
-            </button>
+              </div>
+              <button type="button" className="tap btn sec" onClick={() => onPick(r.routeName)}>
+                <Ic n="edit" />
+                {tx(F.editRoute)}
+              </button>
+            </div>
           );
         })}
       </div>
-      <span className="fs-m">Stops, bus numbers and drivers are not kept in the fee system yet; only each route&apos;s yearly fee is.</span>
+      <span className="fs-m">{tx(F.stopsNote)}</span>
     </>
   );
 }
 
 function RouteSheet({ name, draft, base, students, editable, onClose, onSave }: { name: string; draft: FeeSetupDraft; base: FeeSetupDraft; students: number; editable: boolean; onClose: () => void; onSave: (name: string, fee: number) => void }) {
+  const { tx } = useVx();
   const isNew = !name;
   const row = draft.routeRows.find((r) => r.routeName === name);
   const live = base.routeRows.find((r) => r.routeName === name)?.annualFee;
@@ -803,40 +1253,48 @@ function RouteSheet({ name, draft, base, students, editable, onClose, onSave }: 
   const [fee, setFee] = useState(row?.annualFee ?? 6000);
   const n = Math.max(1, draft.installmentDates.length);
   const clash = isNew && draft.routeRows.some((r) => r.routeName.toLowerCase() === title.trim().toLowerCase());
+  const d = live !== undefined ? fee - live : 0;
   return (
     <Sheet
       open
       onClose={onClose}
-      title={isNew ? "Add a route" : name}
-      sub={isNew ? "A new bus route and its yearly fee" : `${students} students · bus fee split over ${n} installments`}
+      title={isNew ? tx(F.addRoute) : name}
+      sub={isNew ? tx(F.addRouteSub) : tx(F.routeSub(students, n))}
       footer={
         <>
-          <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>{editable ? "Cancel" : "Close"}</button>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{tx(editable ? F.cancel : F.close)}</button>
           {editable ? (
-            <button type="button" className="tap btn pri" style={{ flex: 1.6, height: 48 }} disabled={(isNew && (title.trim().length < 2 || clash)) || fee === row?.annualFee} onClick={() => onSave(isNew ? title.trim() : name, fee)}>
-              <Ic n="check" size={18} />Save to changes
+            <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={(isNew && (title.trim().length < 2 || clash)) || fee === row?.annualFee} onClick={() => onSave(isNew ? title.trim() : name, fee)}>
+              <Ic n="check" />
+              {tx(F.saveToChanges)}
             </button>
           ) : null}
         </>
       }
     >
-      <div className="fs-c" style={{ gap: 14 }}>
+      <div className="fs-c fs-lh" style={{ gap: 14 }}>
         {isNew ? (
-          <Field label="Route name" error={clash ? "A route with this name exists" : undefined}>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="For example: Station road" disabled={!editable} />
-          </Field>
+          <label className="field">
+            <span>{tx(F.routeName)}</span>
+            <input className={`inp${clash ? " err" : ""}`} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tx(F.routeNamePh)} disabled={!editable} />
+            {clash ? <span style={{ fontSize: 12, fontWeight: 600, color: "var(--bad)" }}>{tx(F.routeClash)}</span> : null}
+          </label>
         ) : null}
-        <Field label="Fee per year" hint={`${rupees(Math.round(fee / n))} each installment${live !== undefined ? (live === fee ? " · same as live" : ` · live now ${rupees(live)}`) : ""}`}>
+        <div className="fs-c" style={{ gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(F.feeYear)}</span>
           <div className="fs-f">
-            <Btn icon="minus" onClick={() => setFee((v) => Math.max(0, v - 500))} disabled={!editable} ariaLabel="Less" />
-            <Input inputMode="numeric" lead="₹" value={String(fee)} onChange={(e) => setFee(Math.max(0, Math.round(Number(e.target.value.replace(/\D/g, "")) || 0)))} disabled={!editable} style={{ flex: 1 }} />
-            <Btn icon="plus" onClick={() => setFee((v) => v + 500)} disabled={!editable} ariaLabel="More" />
+            <button type="button" className="tap btn sec fs-sq4" aria-label={`− ₹500`} onClick={() => setFee((v) => Math.max(0, v - 500))} disabled={!editable}><Ic n="minus" /></button>
+            <span className="fs-rp">
+              <span>₹</span>
+              <input className={`inp num${fee <= 0 ? " err" : ""}`} inputMode="numeric" aria-label={tx(F.feeYear)} value={String(fee)} onChange={(e) => setFee(digits(e.target.value))} disabled={!editable} />
+            </span>
+            <button type="button" className="tap btn sec fs-sq4" aria-label={`+ ₹500`} onClick={() => setFee((v) => v + 500)} disabled={!editable}><Ic n="plus" /></button>
           </div>
-        </Field>
-        {!isNew && live !== undefined && fee !== live ? (
-          <div className="fs-info"><Ic n="users" size={16} /><span>{students} students · {fee > live ? "+" : "−"}{rupees(Math.abs(fee - live))} each a year</span></div>
-        ) : null}
-        <span className="fs-m">Stops, bus number and driver are not kept in the fee system yet.</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: d ? "var(--info)" : "var(--mut)" }}>
+            {rupees(Math.round(fee / n))} {tx(F.eachInst)} · {live === undefined ? tx(F.newPill) : d ? `${students} ${tx(F.students)} · ${signed(d)} ${tx(F.eachAYear)}` : tx(F.sameAsLive)}
+          </span>
+        </div>
+        <span className="fs-m">{tx(F.stopsNote)}</span>
       </div>
     </Sheet>
   );
@@ -844,115 +1302,163 @@ function RouteSheet({ name, draft, base, students, editable, onClose, onSave }: 
 
 /* ---------- review & publish ---------- */
 
-function parentMessage(changes: DraftChange[], session: string): string {
-  const hi = changes.map((c) => `• ${c.title}: ${c.before} → ${c.after}`).join("\n");
-  return `प्रिय अभिभावक, सत्र ${session} की शुल्क व्यवस्था में बदलाव:\n${hi}\nये बदलाव बाकी किस्तों पर लागू होंगे। — श्री वीर पत्ता सी. सै. स्कूल, आमेट\n\nDear parent, fee changes for ${session}:\n${hi}\nThey apply to the installments still to pay. — VPPS`;
+function parentMessage(changes: DraftChange[], session: string): { hi: string; en: string } {
+  const lines = changes.map((c) => `• ${c.title}: ${c.before} → ${c.after}`).join("\n");
+  return {
+    hi: `प्रिय अभिभावक, सत्र ${session} की शुल्क व्यवस्था में बदलाव:\n${lines}\nये बदलाव बाकी किस्तों पर लागू होंगे। — श्री वीर पत्ता सी. सै. स्कूल, आमेट`,
+    en: `Dear parent, fee changes for ${session}:\n${lines}\nThey apply to the installments still to pay. — VPPS`,
+  };
 }
 
 const AREA_ICON: Record<DraftChange["area"], IconName> = { class: "layers", route: "bus", installment: "calendar", latefee: "clock", academic: "book", discount: "percent", head: "tag" };
 
-function ReviewSheet({ onClose, draft, changes, data, editable, onDone }: { onClose: () => void; draft: FeeSetupDraft; changes: DraftChange[]; data: FeeSetupVxData; editable: boolean; onDone: () => void }) {
+function ReviewSheet({ onClose, draft, changes, data, today, editable, onDone }: { onClose: () => void; draft: FeeSetupDraft; changes: DraftChange[]; data: FeeSetupVxData; today: string; editable: boolean; onDone: () => void }) {
+  const { tx } = useVx();
   const router = useRouter();
   const toast = useToast();
   const [busy, start] = useTransition();
   const [state, setState] = useState<FeeSetupActionState>(INITIAL_FEE_SETUP_ACTION_STATE);
-  const [tell, setTell] = useState(false);
+  const [tell, setTell] = useState(true);
   const preview = state.status === "preview" ? state.preview : null;
   const msg = parentMessage(changes, data.sessionLabel);
+  const nextIdx = draft.installmentDates.findIndex((d) => d > today);
+  const n = changes.length;
+  const nWord = `${n} ${tx(n === 1 ? F.change1 : F.changesN)}`;
   const check = () =>
     start(async () => {
       const r = await publishFeeSetupAction(state, draftToFormData(draft, "preview", null));
       setState(r);
-      if (r.status === "error") toast.show({ text: r.message ?? "Could not check the changes", tone: "bad" });
+      if (r.status === "error") toast.show({ text: r.message ?? tx(F.checkFail), tone: "bad" });
     });
   const publish = () =>
     start(async () => {
       const r = await publishFeeSetupAction(state, draftToFormData(draft, "apply", state.changeBatchId));
       setState(r);
       if (r.status === "success") {
-        toast.show({ text: r.message ?? "Published", tone: "ok" });
+        toast.show({ text: r.message ?? tx(F.published), tone: "ok" });
         onDone();
         onClose();
         router.refresh();
       } else {
-        toast.show({ text: r.message ?? "Could not publish", tone: "bad" });
+        toast.show({ text: r.message ?? tx(F.publishFail), tone: "bad" });
       }
     });
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(msg);
-      toast.show({ text: "Copied · send it from Fee reminders or WhatsApp", tone: "ok" });
+      await navigator.clipboard.writeText(`${msg.hi}\n\n${msg.en}`);
+      toast.show({ text: tx(F.copied), tone: "ok" });
     } catch {
-      toast.show({ text: "Could not copy on this device", tone: "bad" });
+      toast.show({ text: tx(F.copyFail), tone: "bad" });
     }
   };
+  const delta = preview?.feeDeltaTotal ?? 0;
+  const kpis: [Pair, string, string, string][] = [
+    [F.affected, preview ? String(preview.studentsAffected) : "—", preview ? `${tx(F.of)} ${preview.studentsInScope} ${tx(F.inScope)}` : tx(F.countFirst), "var(--fg)"],
+    [F.changeSession, preview ? `${delta >= 0 ? "+" : "−"}${rupeesShort(Math.abs(delta))}` : "—", preview ? tx(delta >= 0 ? F.moreToCollect : F.lessToCollect) : tx(F.countFirst), delta > 0 ? "var(--info)" : "var(--fg)"],
+    [F.startsFrom, nextIdx >= 0 ? `${tx(F.inst)} ${nextIdx + 1}` : "—", nextIdx >= 0 ? `${ddm(draft.installmentDates[nextIdx])} · ${tx(F.nextUnpaid)}` : "", "var(--fg)"],
+  ];
   return (
     <Sheet
       open
       wide
       onClose={onClose}
-      title="Review and publish"
-      sub={`${changes.length} ${changes.length === 1 ? "change" : "changes"} · not live until you publish`}
+      title={tx(F.reviewTitle)}
+      sub={`${nWord} · ${tx(F.notLive)}`}
       footer={
         <>
-          <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>Keep editing</button>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{tx(F.keepEditing)}</button>
           {preview ? (
-            <button type="button" className="tap btn pri" style={{ flex: 2, height: 48 }} disabled={busy || !editable} onClick={publish}><Ic n="send" size={18} />{busy ? "Publishing…" : `Publish ${changes.length} ${changes.length === 1 ? "change" : "changes"}`}</button>
+            <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={busy || !editable} onClick={publish}>
+              <Ic n="send" />
+              {busy ? tx(F.publishing) : `${tx(F.publish)} ${nWord}`}
+            </button>
           ) : (
-            <button type="button" className="tap btn pri" style={{ flex: 2, height: 48 }} disabled={busy || !editable || !changes.length} onClick={check}><Ic n="search" size={18} />{busy ? "Counting…" : "Check who is affected"}</button>
+            <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={busy || !editable || !n} onClick={check}>
+              <Ic n="search" />
+              {busy ? tx(F.counting) : tx(F.check)}
+            </button>
           )}
         </>
       }
     >
-      <div className="fs-c" style={{ gap: 14 }}>
-        {preview ? (
-          <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 10 }}>
-            <Kpi label="Students affected" value={String(preview.studentsAffected)} sub={`of ${preview.studentsInScope} in scope`} />
-            <Kpi label="Change this session" value={`${preview.feeDeltaTotal >= 0 ? "+" : "−"}${rupeesShort(Math.abs(preview.feeDeltaTotal))}`} sub={preview.feeDeltaTotal >= 0 ? "more to collect" : "less to collect"} tone="var(--accfg)" />
-            <Kpi label="Ending in credit" value={String(preview.studentsEndingInCredit)} sub={preview.creditTotal ? `${rupees(preview.creditTotal)} becomes refundable credit` : "nobody overpaid"} tone={preview.studentsEndingInCredit ? "var(--warnfg)" : undefined} />
+      <div className="fs-c fs-lh" style={{ gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+          {kpis.map(([label, v, sub, fg], i) => (
+            <span key={label.en} className="fs-c rise" style={{ padding: "10px 12px", borderRadius: 14, background: "var(--s2)", animationDelay: delay(i) }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{tx(label)}</span>
+              <span className="num" style={{ fontSize: 18, fontWeight: 700, color: fg }}>{v}</span>
+              <span className="fs-m">{sub}</span>
+            </span>
+          ))}
+        </div>
+        {!preview ? (
+          <div className="fs-nt fs-in">
+            <Ic n="info" />
+            <span>{tx(F.countInfo)}</span>
           </div>
-        ) : (
-          <div className="fs-info"><Ic n="info" size={16} /><span>First the change is counted against every student — nothing changes yet. Then you publish.</span></div>
-        )}
-        {preview && (preview.blockedInstallments > 0 || preview.rowsMarkedForReview > 0) ? (
-          <div className="fs-lock"><Ic n="alert" size={16} /><span>{preview.blockedInstallments} installment rows are held (an EMI plan, or a moved date on a paid row) and stay as they are.{preview.rowsMarkedForReview ? ` ${preview.rowsMarkedForReview} rows are marked for review.` : ""}</span></div>
         ) : null}
-        {preview ? <span className="fs-m">{preview.installmentsToUpdate} installment rows repriced · {preview.installmentsToInsert} added · {preview.installmentsToCancel} cancelled</span> : null}
-        <b className="fs-m" style={{ letterSpacing: ".06em", textTransform: "uppercase" }}>What changes</b>
-        {!changes.length ? <EmptyState icon="edit" title="No changes yet" body="Edit a class fee, an installment date, a discount, the late fee or a bus route; each one collects here." /> : null}
-        {changes.map((c) => (
-          <div key={c.key} className="fs-f" style={{ alignItems: "flex-start", gap: 12, paddingBottom: 10, borderBottom: "1px solid var(--bd)" }}>
-            <span className="fs-ib" style={{ width: 36, height: 36 }}><Ic n={AREA_ICON[c.area]} size={17} /></span>
-            <span className="fs-c" style={{ gap: 4 }}>
-              <b>{c.title}</b>
-              <span className="fs-f" style={{ gap: 8 }}>
-                <span className="fs-m" style={{ textDecoration: "line-through" }}>{c.before}</span>
-                <Ic n="arrowRight" size={14} style={{ color: "var(--mut)" }} />
-                <Pill tone="acc">{c.after}</Pill>
-              </span>
-              {c.area === "latefee" ? <span className="fs-m">Charged apart from fees</span> : null}
-              {c.area === "class" ? <span className="fs-m">{data.studentsByClass[c.title.split(" · ")[0]] ?? 0} students</span> : null}
+        {preview && preview.studentsEndingInCredit ? (
+          <div className="fs-nt fs-wa">
+            <Ic n="alert" />
+            <span>{tx(F.creditNote(preview.studentsEndingInCredit, rupees(preview.creditTotal)))}</span>
+          </div>
+        ) : null}
+        {preview && (preview.blockedInstallments > 0 || preview.rowsMarkedForReview > 0) ? (
+          <div className="fs-nt fs-wa">
+            <Ic n="alert" />
+            <span>
+              {tx(F.heldNote(preview.blockedInstallments))}
+              {preview.rowsMarkedForReview ? ` ${preview.rowsMarkedForReview} ${tx(F.reviewRows)}` : ""}
             </span>
           </div>
-        ))}
-        <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="fs-f" style={{ justifyContent: "space-between" }}>
-            <span className="fs-f" style={{ gap: 10 }}>
-              <span className="fs-ib" style={{ width: 34, height: 34 }}><Ic n="message" size={17} /></span>
-              <span className="fs-c">
-                <b>Tell parents</b>
-                <span className="fs-m">A message to copy · nothing is sent from here</span>
-              </span>
-            </span>
-            <Switch on={tell} onChange={setTell} label="Show the parent message" />
+        ) : null}
+        {preview ? <span className="fs-m">{tx(F.rowsLine(preview.installmentsToUpdate, preview.installmentsToInsert, preview.installmentsToCancel))}</span> : null}
+        <div className="fs-c">
+          <span className="sech">{tx(F.whatChanges)}</span>
+          {!n ? <EmptyState icon="edit" title={tx(F.noChanges)} body={tx(F.noChangesBody)} /> : null}
+          <div className="fs-c fs-ls">
+            {changes.map((c, i) => (
+              <div key={c.key} className="fs-f fs-xi" style={{ alignItems: "flex-start", gap: 12, padding: "12px 0", animationDelay: delay(i) }}>
+                <span className="fs-ib fs-t36 fs-ac">
+                  <Ic n={AREA_ICON[c.area]} />
+                </span>
+                <span className="fs-c" style={{ flex: 1, gap: 3 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{c.title}</span>
+                  <span className="fs-f" style={{ flexWrap: "wrap", gap: 6 }}>
+                    <span className="num" style={{ fontSize: 13, color: "var(--sub)", textDecoration: "line-through" }}>{c.before}</span>
+                    <Ic n="arrowRight" size={14} style={{ color: "var(--sub)" }} />
+                    <span className="num fs-ac" style={{ fontSize: 13, fontWeight: 700, padding: "1px 8px", borderRadius: 7 }}>{c.after}</span>
+                  </span>
+                  {c.area === "latefee" ? <span className="fs-m">{tx(F.apart)}</span> : null}
+                  {c.area === "class" ? <span className="fs-m">{data.studentsByClass[c.title.split(" · ")[0]] ?? 0} {tx(F.students)}</span> : null}
+                </span>
+              </div>
+            ))}
           </div>
-          {tell ? (
-            <>
-              <div className="fs-wa"><div>{msg}</div></div>
-              <Btn icon="copy" onClick={copy}>Copy message</Btn>
-            </>
+        </div>
+        <div className="card" style={{ padding: "4px 14px 12px" }}>
+          <button type="button" className="tap fs-rb" role="switch" aria-checked={tell} onClick={() => setTell(!tell)} style={{ padding: "10px 0" }}>
+            <span className="fs-ib fs-t36 fs-ok">
+              <Ic n="message" />
+            </span>
+            <span className="fs-c" style={{ flex: 1 }}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(F.tellParents)}</span>
+              <span className="fs-m">{tx(F.tellSub)}</span>
+            </span>
+            <SwitchKnob on={tell} />
+          </button>
+          {tell && n ? (
+            <div className="fadein fs-c" style={{ gap: 10 }}>
+              <div style={{ padding: 12, borderRadius: 14, background: "var(--wabg)" }}>
+                <div style={{ maxWidth: 440, padding: "10px 12px 6px", borderRadius: "4px 14px 14px 14px", background: "var(--wab)", color: "var(--wafg)", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-line", boxShadow: "0 1px 1px rgba(0,0,0,.12)" }}>
+                  {msg.hi}
+                  <span style={{ display: "block", marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(0,0,0,.08)", opacity: 0.85 }}>{msg.en}</span>
+                </div>
+              </div>
+              <Btn variant="sec" icon="copy" onClick={copy} style={{ alignSelf: "flex-start" }}>{tx(F.copyMsg)}</Btn>
+            </div>
           ) : null}
-        </Card>
+        </div>
       </div>
     </Sheet>
   );
@@ -961,29 +1467,46 @@ function ReviewSheet({ onClose, draft, changes, data, editable, onDone }: { onCl
 /* ---------- history & ask ---------- */
 
 function HistorySheet({ open, onClose, data }: { open: boolean; onClose: () => void; data: FeeSetupVxData }) {
-  const tone = (s: string) => (s === "applied" ? "ok" : s === "failed" || s === "rejected" ? "bad" : "mut") as "ok" | "bad" | "mut";
+  const { tx } = useVx();
+  const tone = (s: string) => (s === "applied" ? "fs-ok" : s === "failed" || s === "rejected" ? "fs-er" : "fs-nu");
   return (
-    <Sheet open={open} onClose={onClose} title="Version history" sub="Every publish, newest first · each one is kept">
+    <Sheet open={open} onClose={onClose} title={tx(F.versions)} sub={tx(F.versionsSub)}>
       <div className="fs-c" style={{ gap: 10 }}>
         {data.history.map((h, i) => (
-          <Card key={h.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div className="fs-f" style={{ justifyContent: "space-between" }}>
-              <b>{i === 0 && h.status === "applied" ? "Live · " : ""}{h.targetLabel || h.scopeLabel}</b>
-              <Pill tone={tone(h.status)}>{h.statusLabel}</Pill>
+          <div key={h.id} className="card fs-c" style={{ padding: "14px 16px", gap: 6 }}>
+            <div className="fs-f" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <span className="fs-tt" style={{ flex: 1, minWidth: 160 }}>
+                {i === 0 && h.status === "applied" ? `${tx(F.live)} · ` : ""}
+                {h.targetLabel || h.scopeLabel}
+              </span>
+              <span className={`pill ${tone(h.status)}`}>{h.statusLabel}</span>
             </div>
-            <span className="fs-m">{shortDay(h.appliedAt ?? h.createdAt)} · {h.createdByName ?? "Someone"} · {ago(h.appliedAt ?? h.createdAt)}</span>
-            {h.changedFieldLabels.length ? <span style={{ fontSize: 13 }}>{h.changedFieldLabels.slice(0, 6).join(", ")}{h.changedFieldLabels.length > 6 ? ` +${h.changedFieldLabels.length - 6}` : ""}</span> : null}
-            {h.summary ? <span className="fs-m">{h.summary.studentsAffected} students · {h.summary.installmentsToUpdate} rows repriced{h.summary.blockedInstallments ? ` · ${h.summary.blockedInstallments} held` : ""}</span> : null}
-          </Card>
+            <span className="fs-m">
+              {h.createdByName ?? tx(F.someone)} · {ddm(h.appliedAt ?? h.createdAt)} · {tx(agoP(h.appliedAt ?? h.createdAt))}
+            </span>
+            {h.changedFieldLabels.length ? (
+              <span style={{ fontSize: 13 }}>
+                {h.changedFieldLabels.slice(0, 6).join(", ")}
+                {h.changedFieldLabels.length > 6 ? ` +${h.changedFieldLabels.length - 6}` : ""}
+              </span>
+            ) : null}
+            {h.summary ? (
+              <span className="fs-m">
+                {h.summary.studentsAffected} {tx(F.students)} · {h.summary.installmentsToUpdate} {tx(F.rowsRepriced)}
+                {h.summary.blockedInstallments ? ` · ${h.summary.blockedInstallments} ${tx(F.held)}` : ""}
+              </span>
+            ) : null}
+          </div>
         ))}
-        {!data.history.length ? <EmptyState icon="history" title="No published changes yet" /> : null}
-        <span className="fs-m">To go back to an earlier version, set those values again and publish; the history keeps both.</span>
+        {!data.history.length ? <EmptyState icon="history" title={tx(F.noHistory)} /> : null}
+        <span className="fs-m">{tx(F.historyNote)}</span>
       </div>
     </Sheet>
   );
 }
 
 function AskSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { tx } = useVx();
   const toast = useToast();
   const [busy, start] = useTransition();
   const [what, setWhat] = useState("");
@@ -998,22 +1521,32 @@ function AskSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         onClose();
       }
     });
+  const field: CSSProperties = { minHeight: 90 };
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Ask admin to change"
-      sub="The admin sees it in Requests"
+      title={tx(F.ask)}
+      sub={tx(F.askSub)}
       footer={
         <>
-          <button type="button" className="tap btn sec" style={{ flex: 1, height: 48 }} onClick={onClose}>Cancel</button>
-          <button type="button" className="tap btn pri" style={{ flex: 1.6, height: 48 }} disabled={busy || what.trim().length < 3 || why.trim().length < 3} onClick={send}><Ic n="send" size={18} />Send request</button>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{tx(F.cancel)}</button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={busy || what.trim().length < 3 || why.trim().length < 3} onClick={send}>
+            <Ic n="send" />
+            {tx(F.sendRequest)}
+          </button>
         </>
       }
     >
       <div className="fs-c" style={{ gap: 14 }}>
-        <Field label="Which fee"><Input value={what} onChange={(e) => setWhat(e.target.value)} placeholder="For example: Class 7 tuition, or a route fee" /></Field>
-        <Field label="What and why"><Textarea value={why} onChange={(e) => setWhy(e.target.value)} placeholder="For example: parents of the new route were told ₹5,500" style={{ minHeight: 90 }} /></Field>
+        <label className="field">
+          <span>{tx(F.whichFee)}</span>
+          <input className="inp" value={what} onChange={(e) => setWhat(e.target.value)} placeholder={tx(F.whichFeePh)} />
+        </label>
+        <label className="field">
+          <span>{tx(F.whatWhy)}</span>
+          <textarea className="inp" value={why} onChange={(e) => setWhy(e.target.value)} placeholder={tx(F.whatWhyPh)} style={field} />
+        </label>
       </div>
     </Sheet>
   );

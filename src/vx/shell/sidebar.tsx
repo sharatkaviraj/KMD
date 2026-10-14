@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, use, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransition } from "react";
 import { useTheme } from "next-themes";
 
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
@@ -13,6 +13,7 @@ import type { Pair } from "@/vx/text";
 import { Avatar } from "@/vx/ui/primitives";
 
 import { setViewAsAction } from "./view-as-actions";
+import "./shell.css";
 
 export type Me = { initials: string; name: string; sub: string; href: string; color: string };
 
@@ -20,9 +21,11 @@ export type Badges = Partial<Record<BadgeKey, number>>;
 
 const COLLAPSE_KEY = "vx.sidebar.collapsed";
 const COLLAPSE_EVENT = "vx:sidebar";
+/** The design collapses the sidebar to icons at and below this window width (D09-Laptop, 1180px). */
+const NARROW = "(max-width: 1200px)";
 let memo: boolean | null = null;
 
-/** Stored choice, else collapsed to icons on narrow desktops (≤1150px). */
+/** Stored choice, else collapsed to icons on narrow desktops (≤1200px). */
 function readCollapsed(): boolean {
   try {
     const stored = window.localStorage.getItem(COLLAPSE_KEY);
@@ -30,11 +33,11 @@ function readCollapsed(): boolean {
   } catch {
     if (memo !== null) return memo;
   }
-  return window.matchMedia("(max-width: 1150px)").matches;
+  return window.matchMedia(NARROW).matches;
 }
 
 function subscribeCollapse(cb: () => void) {
-  const mq = window.matchMedia("(max-width: 1150px)");
+  const mq = window.matchMedia(NARROW);
   window.addEventListener(COLLAPSE_EVENT, cb);
   window.addEventListener("storage", cb);
   mq.addEventListener("change", cb);
@@ -47,37 +50,71 @@ function subscribeCollapse(cb: () => void) {
 
 const noSubscribe = () => () => {};
 
+export type PreviewMenu = { key: string; label: Pair; icon: "grad" | "rupee" | "trend" | "award" };
+
 /**
- * The desktop sidebar (`XSide.dc.html`): brand, grouped nav with Hindi group
- * labels, red badges, "See the app as" for the admin, and the footer with
- * theme, language, collapse and the signed-in person.
+ * The desktop sidebar, as the design's shared `XSide.dc.html` draws it for
+ * every role: brand, grouped nav (Hindi beside a group's name when the reader
+ * reads both), red badges, "See the app as" for the admin, and the signed-in
+ * person at the foot. Nothing else sits in the footer: theme and language are
+ * on Settings, the teacher's More and the Menu page, where the design puts them.
+ *
+ * Collapsing to icons follows the window (≤1200px, D09-Laptop). The manual
+ * collapse is a small edge button that shows on hover or keyboard focus, so it
+ * stays reachable without drawing anything the frames do not have.
  */
 export function VxSidebar({
   groups,
   me,
   roleLine,
+  sessionHref,
   home,
   badges,
   teacherSized,
   previewMenus,
   previewing,
-  sessionPill,
 }: {
   groups: NavGroup[];
   me: Me;
+  /** "Admin · 2026–27". */
   roleLine: string;
+  /** Where the role line leads: the session picker, for readers who switch the fee session. */
+  sessionHref?: string;
   home: string;
   badges: Promise<Badges>;
   teacherSized: boolean;
-  previewMenus: { key: string; label: Pair; icon: "grad" | "rupee" | "trend" | "award" }[];
+  previewMenus: PreviewMenu[];
   previewing: string | null;
-  /** The fee session switcher, for people who see money. */
-  sessionPill?: ReactNode;
 }) {
   const pathname = usePathname() ?? "/";
-  const { tx, sub, language } = useVx();
+  const { tx, sub } = useVx();
   const collapsed = useSyncExternalStore(subscribeCollapse, readCollapsed, () => false);
   const active = activeKey(groups, pathname);
+  const nav = useRef<HTMLElement>(null);
+  const pill = useRef<HTMLSpanElement>(null);
+
+  // The highlight slides from the last page's item to this one. Until it has
+  // been placed once, the active item draws its own highlight (`.sidei.on`).
+  useLayoutEffect(() => {
+    const host = nav.current;
+    const mark = pill.current;
+    if (!host || !mark) return;
+    const on = host.querySelector<HTMLElement>(".sidei.on");
+    if (!on) {
+      mark.style.opacity = "0";
+      return;
+    }
+    const first = !host.dataset.pill;
+    if (first) mark.style.transition = "none";
+    mark.style.transform = `translateY(${on.offsetTop}px)`;
+    mark.style.height = `${on.offsetHeight}px`;
+    mark.style.opacity = "1";
+    host.dataset.pill = "1";
+    if (first) {
+      void mark.offsetHeight;
+      mark.style.transition = "";
+    }
+  }, [active, collapsed, previewing, groups, teacherSized]);
 
   const toggle = () => {
     try {
@@ -90,38 +127,52 @@ export function VxSidebar({
   };
 
   const width = collapsed ? 76 : 248;
+  const itemH = teacherSized ? 48 : 38;
+
 
   return (
     <aside
-      className="vxt vx-side"
+      className={`vxt vx-side${collapsed ? " mini" : ""}`}
       aria-label="Main navigation"
-      style={{ width, display: "flex", flexDirection: "column", background: "var(--nav)", color: "var(--navfg)", padding: "14px 0 12px", fontSize: 14, lineHeight: 1.4, transition: "width .3s var(--ease)" }}
+      style={{ width, display: "flex", flexDirection: "column", background: "var(--nav)", color: "var(--navfg)", padding: "14px 0 12px", fontSize: 14, lineHeight: 1.4, transition: "width .34s var(--ease)" }}
     >
-      <Link href={home} style={{ flex: "none", display: "flex", alignItems: "center", gap: 10, height: 48, padding: collapsed ? "0 20px" : "0 20px", marginBottom: 6, color: "var(--navfg)" }}>
-        <span className="serif" style={{ flex: "none", width: 36, height: 36, borderRadius: 11, background: "#F7F6F3", color: "#082F49", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>VP</span>
+      <div style={{ position: "relative", flex: "none", display: "flex", alignItems: "center", gap: 10, height: 48, padding: "0 20px", marginBottom: 6 }}>
+        <Link href={home} tabIndex={collapsed ? undefined : -1} aria-label={collapsed ? "VPPS One" : undefined} aria-hidden={collapsed ? undefined : true} className="serif" style={{ flex: "none", width: 36, height: 36, borderRadius: 11, background: "#F7F6F3", color: "#082F49", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>
+          VP
+        </Link>
         {collapsed ? null : (
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>VPPS One</span>
-            <span className="clip" style={{ fontSize: 12, color: "var(--navm)" }}>{roleLine}</span>
+            <Link href={home} style={{ fontWeight: 700, fontSize: 15, color: "var(--navfg)" }}>VPPS One</Link>
+            {/* For fee readers the role line opens the session picker; it reads exactly as the design's line. */}
+            {sessionHref ? (
+              <Link href={sessionHref} className="clip" title="Change session" style={{ fontSize: 12, color: "var(--navm)" }}>{roleLine}</Link>
+            ) : (
+              <span className="clip" style={{ fontSize: 12, color: "var(--navm)" }}>{roleLine}</span>
+            )}
           </span>
         )}
-      </Link>
+        <button type="button" className="tap vx-collapse" aria-label={collapsed ? "Expand menu" : "Collapse menu"} aria-expanded={!collapsed} onClick={toggle}>
+          <Ic n={collapsed ? "chevsRight" : "chevsLeft"} size={14} />
+        </button>
+      </div>
 
-      <nav className="scroll" style={{ flex: 1, minHeight: 0, padding: "2px 12px 8px", scrollbarWidth: "none" }}>
+      <nav ref={nav} className="scroll" style={{ position: "relative", flex: 1, minHeight: 0, padding: "2px 12px 8px", scrollbarWidth: "none" }}>
+        <span ref={pill} aria-hidden="true" className="vx-side-pill" style={{ height: itemH }} />
         {groups.map((g, gi) => (
           <div key={g.title?.en ?? `g${gi}`}>
             {g.title ? (
               collapsed ? (
-                <div aria-hidden="true" style={{ height: 1, margin: "10px 8px", background: "var(--navb)" }} />
+                // The icon-only sidebar keeps a group's room and drops its name (D09-Laptop).
+                <div aria-hidden="true" style={{ height: 28 }} />
               ) : (
                 <div style={{ height: 28, padding: "10px 12px 0", fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--navm)" }}>
                   {tx(g.title)}
-                  {sub(g.title) ? ` · ${sub(g.title)}` : language === "en" ? "" : ""}
+                  {sub(g.title) ? ` · ${sub(g.title)}` : ""}
                 </div>
               )
             ) : null}
             {g.items.map((n) => {
-              const on = n.key === active;
+              const on = n.key === active && !previewing;
               const hi = teacherSized ? sub(n.label) : null;
               return (
                 <Link
@@ -130,7 +181,7 @@ export function VxSidebar({
                   className={`tap sidei${on ? " on" : ""}`}
                   aria-current={on ? "page" : undefined}
                   title={collapsed ? tx(n.label) : undefined}
-                  style={{ position: "relative", height: teacherSized ? 48 : 38, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, fontSize: teacherSized ? 15 : 14, justifyContent: collapsed ? "center" : undefined }}
+                  style={{ position: "relative", height: itemH, marginBottom: 2, display: "flex", alignItems: "center", gap: 12, padding: "0 12px", borderRadius: 11, fontSize: teacherSized ? 15 : 14, justifyContent: collapsed ? "center" : undefined }}
                 >
                   <Ic n={n.icon} size={19} />
                   {collapsed ? null : (
@@ -152,10 +203,10 @@ export function VxSidebar({
         {previewMenus.length ? (
           <div>
             {collapsed ? (
-              <div aria-hidden="true" style={{ height: 1, margin: "10px 8px", background: "var(--navb)" }} />
+              <div aria-hidden="true" style={{ height: 28 }} />
             ) : (
               <div style={{ height: 28, padding: "10px 12px 0", fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--navm)" }}>
-                See the app as
+                {tx({ en: "See the app as", hi: "दूसरे रूप में देखें" })}
               </div>
             )}
             {previewMenus.map((m) => (
@@ -165,16 +216,8 @@ export function VxSidebar({
         ) : null}
       </nav>
 
-      <div style={{ flex: "none", padding: "10px 12px 0", borderTop: "1px solid var(--navb)", display: "flex", flexDirection: "column", gap: 8 }}>
-        {sessionPill && !collapsed ? <div style={{ display: "flex" }}>{sessionPill}</div> : null}
-        <div style={{ display: "flex", gap: 6, justifyContent: collapsed ? "center" : "flex-start", flexWrap: "wrap" }}>
-          <ThemeButton />
-          {collapsed ? null : <LangButton />}
-          <button type="button" className="tap sidei" aria-label={collapsed ? "Expand menu" : "Collapse menu"} onClick={toggle} style={{ width: 40, height: 40, borderRadius: 12, border: 0, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: collapsed ? 0 : "auto" }}>
-            <Ic n={collapsed ? "chevsRight" : "chevsLeft"} size={18} />
-          </button>
-        </div>
-        <Link href={me.href} className="tap sidei" style={{ display: "flex", alignItems: "center", gap: 10, height: 52, padding: "0 6px", borderRadius: 12, justifyContent: collapsed ? "center" : undefined }}>
+      <div style={{ flex: "none", padding: "10px 12px 0", borderTop: "1px solid var(--navb)" }}>
+        <Link href={me.href} className="tap sidei" title={collapsed ? me.name : undefined} style={{ display: "flex", alignItems: "center", gap: 10, height: 52, padding: "0 6px", borderRadius: 12, justifyContent: collapsed ? "center" : undefined }}>
           <Avatar text={me.initials} bg={me.color} size={38} />
           {collapsed ? null : (
             <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -193,7 +236,11 @@ function NavBadge({ badges, k, dot }: { badges: Promise<Badges>; k: BadgeKey; do
   const n = all[k] ?? 0;
   if (!n) return null;
   if (dot) {
-    return <span aria-label={`${n} waiting`} style={{ position: "absolute", top: 6, right: 10, width: 9, height: 9, borderRadius: 5, background: "#E05252" }} />;
+    return (
+      <span className="pill num" aria-label={`${n} waiting`} style={{ position: "absolute", top: 1, left: 30, minWidth: 22, justifyContent: "center", background: "#E05252", color: "#FFFFFF", animation: "xPopIn .45s var(--spring) both" }}>
+        {n > 99 ? "99+" : n}
+      </span>
+    );
   }
   return (
     <span className="pill num" aria-label={`${n} waiting`} style={{ minWidth: 22, justifyContent: "center", background: "#E05252", color: "#FFFFFF", animation: "xPopIn .45s var(--spring) both" }}>
@@ -202,13 +249,14 @@ function NavBadge({ badges, k, dot }: { badges: Promise<Badges>; k: BadgeKey; do
   );
 }
 
-function PreviewLink({ menu, label, icon, collapsed, on }: { menu: string; label: string; icon: "grad" | "rupee" | "trend" | "award"; collapsed: boolean; on: boolean }) {
+function PreviewLink({ menu, label, icon, collapsed, on }: { menu: string; label: string; icon: PreviewMenu["icon"]; collapsed: boolean; on: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
     <button
       type="button"
       className={`tap sidei${on ? " on" : ""}`}
+      aria-current={on ? "page" : undefined}
       title={collapsed ? label : undefined}
       disabled={pending}
       onClick={() =>
@@ -222,7 +270,6 @@ function PreviewLink({ menu, label, icon, collapsed, on }: { menu: string; label
     >
       <Ic n={pending ? "refresh" : icon} size={19} className={pending ? "spin" : undefined} />
       {collapsed ? null : <span className="clip" style={{ flex: 1 }}>{label}</span>}
-      {collapsed ? null : <Ic n="eye" size={15} style={{ opacity: 0.6 }} />}
     </button>
   );
 }

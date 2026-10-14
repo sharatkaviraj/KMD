@@ -113,7 +113,9 @@ export async function loadReminders(staff: CurrentStaff, search: Search): Promis
       }
       result = {
         run,
-        notDelivered: recipients.filter((r) => r.status === "failed").map((r) => ({ studentId: r.studentId, studentName: r.studentName, error: r.error })),
+        notDelivered: recipients
+          .filter((r) => r.status === "failed")
+          .map((r) => ({ studentId: r.studentId, studentName: r.studentName, classLabel: audience?.classOf.get(r.studentId) ?? null, error: r.error })),
         byClass: [...byClass.values()].sort((a, b) => byClassLabel(a.classLabel, b.classLabel)),
       };
     } else {

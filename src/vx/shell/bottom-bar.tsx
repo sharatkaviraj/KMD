@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, use, useState } from "react";
+import { Suspense, use, useState, useSyncExternalStore } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -10,24 +10,39 @@ import { QUICK_ACTIONS, type BottomTab } from "@/vx/nav";
 import { Sheet } from "@/vx/ui/overlays";
 
 import type { Badges } from "./sidebar";
+import { TONE } from "./top-actions";
+
+const under = (path: string, href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
+
+/**
+ * Which tab is lit for a path (XNav and every role's frames). The longest
+ * matching tab wins, and "/" only matches itself. The centre action's own
+ * screen lights nothing — the big button is its mark (M-AcadAttendance,
+ * M-TchAttend) — even though a shorter tab such as Today is its prefix. A
+ * screen with no tab of its own was reached from the Menu, and the design
+ * lights Menu there (AC-*, MAD-*, M-Fees …, UI-78).
+ */
+export function activeTab(tabs: readonly BottomTab[], pathname: string): string | null {
+  const best = tabs.filter((t) => !t.center && under(pathname, t.href)).sort((a, b) => b.href.length - a.href.length)[0] ?? null;
+  const center = tabs.find((t) => t.center && t.href.startsWith("/") && under(pathname, t.href.split("?")[0]));
+  if (center && (!best || center.href.length > best.href.length)) return null;
+  if (best) return best.href;
+  return tabs.find((t) => t.key === "menu")?.href ?? null;
+}
 
 /** The phone bottom bar (`XNav.dc.html`): four tabs and a centre action. */
 export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promise<Badges> }) {
-  const pathname = usePathname() ?? "/";
+  const pathname = (usePathname() ?? "/").split(/[?#]/)[0] || "/";
   const { tx } = useVx();
   const [quick, setQuick] = useState(false);
-  // Longest matching tab wins; "/" only matches itself.
-  const active =
-    tabs
-      .filter((t) => !t.center && (t.href === "/" ? pathname === "/" : pathname === t.href || pathname.startsWith(`${t.href}/`)))
-      .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
+  const active = activeTab(tabs, pathname);
   // The classic receipt detail supplies its own fixed phone action bar and
   // return link. A second bar covers its Print A4 control. Keep list routes
   // and the redesigned /receipts desk on their normal tab navigation.
   if (pathname.startsWith("/fees/receipts/")) return null;
   return (
     <>
-      <nav className="vxt glass vx-bottom" aria-label="Primary navigation" style={{ height: 76, padding: "6px 6px 16px", borderTop: "1px solid var(--bd)", background: "var(--glass2)", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, boxSizing: "content-box" }}>
+      <nav className="vxt glass vx-bottom" aria-label="Primary navigation" style={{ height: "var(--vx-bottom-h)", padding: "6px 6px calc(16px + env(safe-area-inset-bottom))", borderTop: "1px solid var(--bd)", background: "var(--glass2)", display: "grid", gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, boxSizing: "border-box" }}>
         {tabs.map((n) =>
           n.center ? (
             n.href === "#quick" ? (
@@ -83,35 +98,97 @@ function TabBadge({ badges, k }: { badges: Promise<Badges>; k: keyof Badges }) {
   );
 }
 
-const TONE: Record<(typeof QUICK_ACTIONS)[number]["tone"], { bg: string; fg: string }> = {
-  pri: { bg: "var(--pri)", fg: "var(--prifg)" },
-  acc: { bg: "var(--accs)", fg: "var(--accfg)" },
-  info: { bg: "var(--infos)", fg: "var(--info)" },
-  ok: { bg: "var(--oks)", fg: "var(--ok)" },
-  warn: { bg: "var(--warns)", fg: "var(--warnfg)" },
-  plain: { bg: "var(--s3)", fg: "var(--fg)" },
+/** The last quick action tapped on this phone, for "Repeat last" (a per-device convenience, like the sidebar's collapse). */
+const LAST_KEY = "vx.quick.last";
+const LAST_EVENT = "vx:quick-last";
+
+function readLast(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function subscribeLast(cb: () => void) {
+  window.addEventListener(LAST_EVENT, cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener(LAST_EVENT, cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+
+function rememberLast(key: string) {
+  try {
+    window.localStorage.setItem(LAST_KEY, key);
+    window.dispatchEvent(new Event(LAST_EVENT));
+  } catch {
+    // Private mode: nothing to repeat next time.
+  }
+}
+
+const QW = {
+  title: { en: "Quick actions", hi: "जल्दी के काम" },
+  six: { en: "The six things you do most", hi: "छह काम जो आप सबसे ज़्यादा करते हैं" },
+  some: { en: "The things you do most", hi: "काम जो आप सबसे ज़्यादा करते हैं" },
+  close: { en: "Close", hi: "बंद करें" },
+  repeat: { en: "Repeat last", hi: "पिछला दोहराएँ" },
 };
 
-/** The admin's centre "+" sheet: the six things done most (F03). */
+/**
+ * The admin's centre "+" sheet (F03): the six things done most, each shown
+ * only to a reader whose permission opens its screen, and "Repeat last" for
+ * the action last tapped on this phone. The design's line also names the
+ * child; the app does not keep that, so the row names the action alone.
+ */
 export function QuickActions({ open, onClose, keys }: { open: boolean; onClose: () => void; keys: readonly string[] }) {
   const { tx } = useVx();
+  const actions = QUICK_ACTIONS.filter((a) => keys.includes(a.key));
+  const lastKey = useSyncExternalStore(subscribeLast, readLast, () => null);
+  const last = actions.find((a) => a.key === lastKey) ?? null;
+  const pick = (key: string) => {
+    rememberLast(key);
+    onClose();
+  };
   return (
-    <Sheet open={open} onClose={onClose} title="Quick actions" sub="The things you do most">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, paddingBottom: 8 }}>
-        {QUICK_ACTIONS.filter((a) => keys.includes(a.key)).map((a, i) => (
-          <Link
-            key={a.key}
-            href={a.href}
-            onClick={onClose}
-            className="tap"
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "14px 6px", borderRadius: 20, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 13, fontWeight: 600, textAlign: "center", animation: `xRise .42s var(--ease) ${60 + i * 40}ms both` }}
-          >
-            <span style={{ width: 50, height: 50, borderRadius: 17, background: TONE[a.tone].bg, color: TONE[a.tone].fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Ic n={a.icon} size={23} />
+    <Sheet open={open} onClose={onClose} label={tx(QW.title)}>
+      <div className="vx-quick">
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <h2 className="serif" style={{ margin: 0, fontSize: 25, fontWeight: 600, lineHeight: 1.2 }}>{tx(QW.title)}</h2>
+            <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(actions.length === 6 ? QW.six : QW.some)}</span>
+          </div>
+          <button type="button" data-close className="tap" aria-label={tx(QW.close)} onClick={onClose} style={{ flex: "none", width: 44, height: 44, borderRadius: 22, border: 0, background: "var(--s2)", color: "var(--fg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Ic n="x" />
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          {actions.map((a, i) => (
+            <Link
+              key={a.key}
+              href={a.href}
+              onClick={() => pick(a.key)}
+              className="tap"
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "14px 6px", borderRadius: 20, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 13, fontWeight: 600, textAlign: "center", lineHeight: 1.25, animation: `xRise .42s var(--ease) ${i * 40}ms both` }}
+            >
+              <span style={{ width: 50, height: 50, borderRadius: 17, background: TONE[a.tone].bg, color: TONE[a.tone].fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic n={a.icon} size={23} />
+              </span>
+              {tx(a.label)}
+            </Link>
+          ))}
+        </div>
+        {last ? (
+          <Link href={last.href} onClick={() => pick(last.key)} className="tap" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 56, padding: "8px 14px", borderRadius: 18, background: "var(--s2)", color: "var(--fg)", textAlign: "left", animation: "xRise .42s .22s var(--ease) both" }}>
+            <Ic n="clock" style={{ color: "var(--mut)" }} />
+            <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(QW.repeat)}</span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{`${tx(last.label)} · ${tx(last.sub)}`}</span>
             </span>
-            {tx(a.label)}
+            <Ic n="chevRight" style={{ color: "var(--mut)" }} />
           </Link>
-        ))}
+        ) : null}
       </div>
     </Sheet>
   );

@@ -55,6 +55,8 @@ export type ChequeRow = {
   amount: number;
   studentId: string;
   studentName: string;
+  /** The family's name on the cheque register (the father, from the student record). */
+  fatherName?: string | null;
   classLabel: string;
   chequeNo: string | null;
   bank: string | null;
@@ -116,7 +118,8 @@ export type AccountsHomeData = {
   };
   closure: { status: string; closedAt: string | null; closedByName: string | null } | null;
   queue: QueueEntry[];
-  followUpsToday: { count: number; next: string | null };
+  /** Call-backs set for today; `kept` paid something today, `pending` is their fees pending today (never the late fee). */
+  followUpsToday: { count: number; next: string | null; kept: number; pending: number };
   chequesToDeposit: { count: number; total: number };
   upiOpen: { count: number; total: number };
   requests: AccRequestRow[];

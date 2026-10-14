@@ -3,7 +3,7 @@
 import "./paydesk.css";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   checkDeskPaymentAction,
@@ -16,9 +16,11 @@ import {
   type DeskPostInput,
 } from "@/app/(app)/payments/actions";
 import {
+  deskChips,
   deskProblems,
   deskTotals,
   findRecentDuplicate,
+  isDueOn,
   isOverdueOn,
   lateFeesOn,
   maskPhone,
@@ -29,22 +31,24 @@ import {
   composeReference,
   composeRemarks,
   type DeskMode,
+  type DeskProblem,
   type WalkLine,
 } from "@/modules/payments/vx/domain/desk";
 import type { DeskBoot, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudent, DeskStudentResult } from "@/modules/payments/vx/types";
 import { buildPaymentQuickAmounts } from "@/modules/payments/domain/workflow";
-import { MobilePrintedReceipt } from "@/modules/payments/ui/mobile-printed-receipt";
 import { clearPaymentAttempt, paymentAttemptKey, restorePaymentAttempt, writePaymentAttempt, PaymentAttemptConflict, PaymentRecoveryUnavailable, type PaymentAttempt } from "@/modules/payments/vx/attempt";
 import type { DeskLedgerRow } from "@/modules/payments/vx/domain/desk";
-import { amountInWords, clock, dateLabel, dayMonth, initials, rupees, shortDay } from "@/vx/format";
-import { Bi, useVx } from "@/vx/i18n";
-import { Ic } from "@/vx/icons";
+import { daysBetween, dayMonth, initials, rupees } from "@/vx/format";
+import { useVx } from "@/vx/i18n";
+import { Ic, type IconName } from "@/vx/icons";
 import type { Pair } from "@/vx/text";
-import { Field, Input, SearchBox, Seg, Chip, Textarea } from "@/vx/ui/controls";
+import { Chip, Input, Seg } from "@/vx/ui/controls";
+import { BackLink } from "@/vx/ui/back-link";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner, TopBar, VxPage } from "@/vx/ui/page";
-import { Avatar, Btn, Card, EmptyState, Pill, Skel, SuccessTick, WhatsAppPreview } from "@/vx/ui/primitives";
+import { Btn, Pill, Skel, WhatsAppPreview } from "@/vx/ui/primitives";
 
+import { ampm, dueDay, oldBalanceLabel, sessionDash, shortDate, wordsOf } from "./look";
 import { ReceiptCard } from "./receipt-card";
 import { W } from "./words";
 
@@ -91,9 +95,28 @@ type Dup = {
   mode: string | null;
 };
 
+/**
+ * The server actions the desk calls. The page never passes this; the design
+ * fidelity fixture passes synthetic answers so every state of the approved
+ * design can be drawn without a database.
+ */
+const SERVER = {
+  checkDeskPaymentAction,
+  loadReceiptAction,
+  loadStudentDeskAction,
+  loadDeskPreviewAction,
+  postDeskPaymentAction,
+  removePaymentAction,
+  sendReceiptWhatsappAction,
+};
+export type DeskActions = typeof SERVER;
+
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
+const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
 const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
 const REMOVE_WINDOW_MS = 10 * 60_000;
+/** The design's avatar tones, cycled down the class list. */
+const TONES: [string, string][] = [["var(--accs)", "var(--accfg)"], ["var(--infos)", "var(--info)"], ["var(--oks)", "var(--ok)"], ["var(--warns)", "var(--warnfg)"], ["var(--s3)", "var(--fg)"]];
 
 /** The time now, for event handlers (never called while rendering). */
 function wallClock(): number {
@@ -129,15 +152,6 @@ function freshForm(boot: DeskBoot): Form {
   };
 }
 
-function suggestedForm(boot: DeskBoot, student: DeskStudent | null): Form {
-  const form = freshForm(boot);
-  if (!student) return form;
-  const t = deskTotals(student.rows, boot.today);
-  const plan = student.repaymentPlan;
-  const suggestion = plan ? Math.min(t.wholeYear, plan.remainingBalance, plan.catchUpAmount || plan.monthlyAmount) : t.canTakeToday;
-  return { ...form, amount: suggestion > 0 ? String(suggestion) : "" };
-}
-
 function recoveredForm(boot: DeskBoot, pending: PaymentAttempt): Form {
   return { ...freshForm(boot), ...pending.form, dateMode: pending.input.paymentDate === boot.today ? "today" : "other", otherDate: pending.input.paymentDate } as Form;
 }
@@ -146,8 +160,26 @@ function earlierReceipt(receipt: DeskReceipt | null): Saved | null {
   return receipt ? { receiptId: receipt.id, receiptNumber: receipt.receiptNumber, receipt, balance: null, amount: receipt.total, fresh: false, savedAtMs: 0, removed: receipt.isReversed, sent: false, log: [] } : null;
 }
 
-function rowLabel(row: { isCarryForward: boolean; label: string }, tx: (p: Pair | string) => string) {
-  return row.isCarryForward ? tx(W.oldBalance) : row.label;
+function problemText(problem: DeskProblem | undefined, tx: (p: Pair | string) => string, sessionStart: string): string | null {
+  if (!problem) return null;
+  switch (problem.key) {
+    case "nothing-owed":
+      return tx(W.nothingOwed);
+    case "amount":
+      return tx(W.errAmount);
+    case "over":
+      return tx(W.overMax(rupees(problem.max)));
+    case "date-invalid":
+      return tx(W.errDateInvalid);
+    case "date-future":
+      return tx(W.errDateFuture);
+    case "date-before-session":
+      return tx(W.errDateBefore(shortDate(sessionStart)));
+    case "waive-reason":
+      return tx(W.pickReason);
+    default:
+      return tx(W.fix);
+  }
 }
 
 export function PaymentDesk({
@@ -156,15 +188,19 @@ export function PaymentDesk({
   initialStudentId,
   initialStudent,
   initialReceipt,
+  actions,
 }: {
   boot: DeskBoot;
   previewing: boolean;
   initialStudentId: string | null;
   initialStudent: DeskStudentResult | null;
   initialReceipt: DeskReceipt | null;
+  /** Synthetic answers for the design fixture; production omits it. */
+  actions?: Partial<DeskActions>;
 }) {
   const { tx } = useVx();
   const toast = useToast();
+  const api = useMemo(() => ({ ...SERVER, ...actions }), [actions]);
   const listed = boot.students.find((s) => s.id === initialStudentId);
   const firstClass = boot.classes.find((c) => boot.students.some((s) => s.classId === c.id))?.id ?? boot.classes[0]?.id ?? "";
 
@@ -173,11 +209,13 @@ export function PaymentDesk({
   const [selId, setSelId] = useState<string | null>(initialStudentId);
   const [result, setResult] = useState<DeskStudentResult | null>(initialStudent);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<Form>(() => suggestedForm(boot, initialStudent?.ok ? initialStudent.student : null));
+  // The amount box starts empty: the cashier types what the parent paid
+  // (RULES B; the design's student state shows ₹0 and "Type what the parent gave").
+  const [form, setForm] = useState<Form>(() => freshForm(boot));
   const [tried, setTried] = useState(false);
   const [sheet, setSheet] = useState<"" | "dup" | "wa" | "rm">("");
-  // Review is its own step in the right-hand pane, not a sheet over the form:
-  // nothing is saved until "Confirm and save payment", and Back keeps every entry.
+  // Review is its own step (the design's confirm sheet): nothing is saved
+  // until "Save payment", and Change keeps every entry.
   const [reviewing, setReviewing] = useState(false);
   // A save whose answer never arrived. Until the desk has asked the database
   // whether it posted, it will not offer to save again.
@@ -188,7 +226,7 @@ export function PaymentDesk({
   const [saved, setSaved] = useState<Saved | null>(() => earlierReceipt(initialReceipt));
   const [expiredAt, setExpiredAt] = useState<number | null>(null);
   const [todayTotals, setTodayTotals] = useState<DeskBoot["todayCollection"] | null>(boot.todayCollection);
-  const [rmReason, setRmReason] = useState("");
+  const [rmReason, setRmReason] = useState<string>(W.rmReasons[0].label.en);
   const [rmNote, setRmNote] = useState("");
   const [waLang, setWaLang] = useState<"hi" | "en" | "both">("both");
   const [busy, setBusy] = useState(false);
@@ -226,7 +264,7 @@ export function PaymentDesk({
         setSelId(initialStudentId); setResult(initialStudent);
         setLoading(false); setSaved(earlierReceipt(initialReceipt)); setReviewing(false); setUncertain(null); setAck(false); setSheet("");
         setTodayTotals(boot.todayCollection); setListBalances({}); counted.current.clear();
-        setDatePreview(null); setDateError(null); setForm(suggestedForm(boot, initialStudent?.ok ? initialStudent.student : null));
+        setDatePreview(null); setDateError(null); setForm(freshForm(boot));
       }
       loadedRecoveryKey.current = attemptKey;
       attemptRef.current = a; setAttempt(a); requestId.current = a?.input.clientRequestId ?? null; restoredAttempt.current = Boolean(a);
@@ -270,22 +308,39 @@ export function PaymentDesk({
   const dateReady = paymentDate === today || (datePreview?.studentId === student?.id && datePreview?.date === paymentDate);
   const dateFailed = dateError === `${student?.id}|${paymentDate}`;
   const rows = useMemo(() => orderForSettlement(datePreview?.studentId === student?.id && datePreview?.date === paymentDate ? datePreview.rows : student?.rows ?? []), [student, datePreview, paymentDate]);
+  const loadPreview = api.loadDeskPreviewAction;
   useEffect(() => {
     if (!student || paymentDate === today || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) return;
     let active = true;
-    void loadDeskPreviewAction({ studentId: student.id, sessionLabel: boot.sessionLabel, paymentDate }).then(res => {
+    void loadPreview({ studentId: student.id, sessionLabel: boot.sessionLabel, paymentDate }).then(res => {
       if (!active) return;
       if (res.ok) { setDatePreview({ studentId: student.id, date: paymentDate, rows: res.rows }); setDateError(null); }
       else setDateError(`${student.id}|${paymentDate}`);
     }).catch(() => { if (active) setDateError(`${student.id}|${paymentDate}`); });
     return () => { active = false; };
-  }, [student, paymentDate, today, boot.sessionLabel]);
+  }, [student, paymentDate, today, boot.sessionLabel, loadPreview]);
   const totals = deskTotals(rows, today);
   const waiveAllowed = boot.me.canWaive && Boolean(student) && !student?.onPlan;
   const waiveLate = waiveAllowed && form.late === "waive" && totals.lateFee > 0;
   const walk = walkPayment(rows, Number.isFinite(amount) ? amount : 0, { paymentDate, today, waiveLate, concession: Number.isFinite(concession) ? concession : 0, authoritative: true });
-  const firstOwed = rows.find(r => r.feesPending + (waiveLate ? 0 : r.lateFeePending) > 0);
-  const chips = buildPaymentQuickAmounts({ totalPending: walk.maxAmount, nextDueAmount: firstOwed ? Math.min(walk.maxAmount, Math.max(0, firstOwed.feesPending + (waiveLate ? 0 : firstOwed.lateFeePending) - concession)) : null, overdueAmount: Math.min(walk.maxAmount, Math.max(0, totals.pendingToday + totals.dueToday + (waiveLate ? 0 : totals.lateFee) - concession)), lateFeeAmount: waiveLate ? 0 : Math.min(walk.maxAmount, totals.lateFee), lastPaidAmount: student?.receipts.find(r => !r.isReversed)?.amount, plan: student?.repaymentPlan });
+  const cut = Number.isFinite(concession) ? concession : 0;
+  const chips: { key: string; label: string; amount: number | null; disabled?: boolean }[] = student?.repaymentPlan
+    ? buildPaymentQuickAmounts({ totalPending: walk.maxAmount, nextDueAmount: null, overdueAmount: 0, plan: student.repaymentPlan }).map((c) => ({
+        key: c.key,
+        label: tx(({ emiCatchUp: W.planCatchUp, emiMonthly: W.planMonthly, emiFullPlan: W.planBalance, full: W.everythingOwed, clear: W.clearAmount } as Record<string, Pair>)[c.key] ?? c.label),
+        amount: c.amount,
+        disabled: c.disabled,
+      }))
+    : (() => {
+        const seen = new Set<number>();
+        return deskChips(rows, today, { waiveLate })
+          .map((c) => ({
+            key: `${c.kind}-${"installmentNo" in c ? c.installmentNo : ""}`,
+            label: `${tx(c.kind === "overdue" ? W.chipOverdue : c.kind === "installment" ? W.chipInstallment(c.installmentNo) : c.kind === "upto" ? W.chipUpto(c.installmentNo) : W.chipYear)}${c.withLate ? tx(W.plusLate) : ""}`,
+            amount: Math.max(0, Math.min(walk.maxAmount, c.amount - cut)),
+          }))
+          .filter((c) => c.amount > 0 && !seen.has(c.amount) && Boolean(seen.add(c.amount)));
+      })();
   const lateOn = lateFeesOn(rows, paymentDate);
   const lateNowAmt = lateOn.due.reduce((s, r) => s + r.lateFeePending, 0);
   const problems = deskProblems(
@@ -295,7 +350,8 @@ export function PaymentDesk({
   );
   const has = (key: string) => problems.find((p) => p.key === key);
   const show = (key: string) => (tried ? has(key) : undefined);
-  const nextDue = rows.find((r) => !isOverdueOn(r, today) && r.feesPending > 0);
+  const nextDue = rows.find((r) => !isOverdueOn(r, today) && !isDueOn(r, today) && r.feesPending > 0);
+  const lateTaken = walk.lines.some((l) => l.lateFeePaid > 0);
 
   const searching = query.trim().length > 0;
   const listRows = useMemo(() => {
@@ -340,16 +396,16 @@ export function PaymentDesk({
     syncUrl(id);
     const hit = boot.students.find((s) => s.id === id);
     if (hit) setClassId(hit.classId);
-    const res = await loadStudentDeskAction({ studentId: id, sessionLabel: boot.sessionLabel }).catch(
+    const res = await api.loadStudentDeskAction({ studentId: id, sessionLabel: boot.sessionLabel }).catch(
       (): DeskStudentResult => ({ ok: false, message: tx(W.couldNotLoad), repairable: false }),
     );
     if (seq !== loadSeq.current) return;
     if (currentRecoveryScope.current !== scope) return;
     setResult(res);
-    if (res.ok && !pending) setForm(suggestedForm(boot, res.student));
     setLoading(false);
   }
 
+  /** Back to the class list for the next family (the phone's back arrow). */
   function clearStudent() {
     if (posting.current) return;
     loadSeq.current += 1;
@@ -363,19 +419,10 @@ export function PaymentDesk({
     syncUrl(null);
   }
 
-  /** After a receipt: back to the list for the next family, with a fresh form. */
-  function collectAnother() {
-    setForm(freshForm(boot));
-    setTried(false);
-    setAck(false);
-    clearStudent();
-    window.setTimeout(() => document.querySelector<HTMLInputElement>(".pd-left input")?.focus(), 0);
-  }
-
   async function reloadStudent() {
     if (!student || !recoveryReady) return;
     const scope = previewing ? null : attemptKey;
-    const res = await loadStudentDeskAction({ studentId: student.id, sessionLabel: boot.sessionLabel }).catch(() => null);
+    const res = await api.loadStudentDeskAction({ studentId: student.id, sessionLabel: boot.sessionLabel }).catch(() => null);
     if (currentRecoveryScope.current !== scope) return;
     if (res && res.ok) setResult(res);
   }
@@ -383,7 +430,7 @@ export function PaymentDesk({
   function review() {
     setTried(true);
     if (!student || !canAct || problems.length || !dateReady || !recoveryReady || recoveryError || attempt || !Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0) || !form.receivedBy.trim()) {
-      if (problems.length) toast.show({ text: tx(W.fix), tone: "bad" });
+      if (problems.length) toast.show({ text: problemText(problems[0], tx, boot.sessionStart) ?? tx(W.fix), tone: "bad" });
       return;
     }
     const hit = findRecentDuplicate(student.receipts, { amount, mode: form.mode }, wallClock());
@@ -416,7 +463,7 @@ export function PaymentDesk({
       savedAtMs: now,
       removed: false,
       sent: false,
-      log: [{ text: tx(W.savedBy(boot.me.name)), time: clock(at), tone: "var(--acc)" }],
+      log: [{ text: tx(W.savedBy(boot.me.name)), time: ampm(res.receipt?.createdAt ?? at), tone: "var(--acc)" }],
     });
     if (res.student) setResult({ ok: true, student: res.student });
     setSheet("");
@@ -440,7 +487,7 @@ export function PaymentDesk({
     posting.current = true;
     const postedAmount = pending.input.amount;
     setUncertain({ checking: true });
-    const res: DeskCheckResult = await checkDeskPaymentAction({ studentId: pending.input.studentId, clientRequestId: pending.input.clientRequestId, sessionLabel: pending.input.sessionLabel }).catch(
+    const res: DeskCheckResult = await api.checkDeskPaymentAction({ studentId: pending.input.studentId, clientRequestId: pending.input.clientRequestId, sessionLabel: pending.input.sessionLabel }).catch(
       (error: unknown): DeskCheckResult => ({ status: "unknown", message: error instanceof Error ? error.message : tx(W.uncertainTitle) }),
     );
     posting.current = false;
@@ -513,7 +560,7 @@ export function PaymentDesk({
     if (currentRecoveryScope.current !== scope) { posting.current = false; setSaving(false); return; }
     attemptRef.current = pending; setAttempt(pending);
     const postedAmount = input.amount;
-    const res = await postDeskPaymentAction(input).catch((): DeskSaveResult => ({ status: "uncertain", message: tx(W.uncertainTitle) }));
+    const res = await api.postDeskPaymentAction(input).catch((): DeskSaveResult => ({ status: "uncertain", message: tx(W.uncertainTitle) }));
     posting.current = false;
     setSaving(false);
     if (currentRecoveryScope.current !== scope) return;
@@ -546,7 +593,7 @@ export function PaymentDesk({
     if (!dup?.receiptId || !canAct) return;
     const scope = attemptKey;
     setBusy(true);
-    const receipt = await loadReceiptAction(dup.receiptId).catch(() => null);
+    const receipt = await api.loadReceiptAction(dup.receiptId).catch(() => null);
     setBusy(false);
     if (currentRecoveryScope.current !== scope) return;
     setSheet("");
@@ -563,7 +610,7 @@ export function PaymentDesk({
     }
     if (attemptKey && attemptRef.current) await clearPaymentAttempt(attemptKey, attemptRef.current.input.clientRequestId).catch(() => undefined);
     if (currentRecoveryScope.current !== scope) return;
-    attemptRef.current = null; setAttempt(null); requestId.current = null; setUncertain(null);
+    attemptRef.current = null; setAttempt(null); requestId.current = null; setUncertain(null); setReviewing(false);
     setSaved({ receiptId: receipt.id, receiptNumber: receipt.receiptNumber, receipt, balance: null, amount: receipt.total, fresh: false, savedAtMs: 0, removed: receipt.isReversed, sent: false, log: [] });
   }
 
@@ -582,7 +629,7 @@ export function PaymentDesk({
     if (!saved || busy || !recoveryReady) return;
     const scope = previewing ? null : attemptKey;
     setBusy(true);
-    const receipt = await loadReceiptAction(saved.receiptId).catch(() => null);
+    const receipt = await api.loadReceiptAction(saved.receiptId).catch(() => null);
     setBusy(false);
     if (currentRecoveryScope.current !== scope) return;
     if (!receipt) {
@@ -597,7 +644,7 @@ export function PaymentDesk({
     const scope = attemptKey;
     setBusy(true);
     const reason = [rmReason, rmNote.trim()].filter(Boolean).join(" — ");
-    const res = await removePaymentAction({ receiptId: saved.receiptId, studentId: student.id, sessionLabel: boot.sessionLabel, reason }).catch(
+    const res = await api.removePaymentAction({ receiptId: saved.receiptId, studentId: student.id, sessionLabel: boot.sessionLabel, reason }).catch(
       (error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : "Not removed." }),
     );
     setBusy(false);
@@ -608,10 +655,9 @@ export function PaymentDesk({
     }
     const at = new Date().toISOString();
     const total = saved.receipt?.total ?? 0;
-    setSaved((s) => (s ? { ...s, removed: true, log: [...s.log, { text: tx(W.removedBy(boot.me.name)), time: clock(at), tone: "var(--bad)" }] } : s));
+    setSaved((s) => (s ? { ...s, removed: true, log: [...s.log, { text: tx(W.removedBy(boot.me.name)), time: ampm(at), tone: "var(--bad)" }] } : s));
     if (saved.receipt?.paymentDate === today) setTodayTotals((t) => t ? ({ count: Math.max(0, t.count - 1), amount: Math.max(0, t.amount - total) }) : null);
     setSheet("");
-    setRmReason("");
     setRmNote("");
     toast.show({ text: tx(W.rmDone(saved.receiptNumber)) });
     await reloadStudent();
@@ -621,7 +667,7 @@ export function PaymentDesk({
     if (!saved || busy || !canAct) return;
     const scope = attemptKey;
     setBusy(true);
-    const res = await sendReceiptWhatsappAction(saved.receiptId).catch((error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : "Not sent." }));
+    const res = await api.sendReceiptWhatsappAction(saved.receiptId).catch((error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : "Not sent." }));
     setBusy(false);
     if (currentRecoveryScope.current !== scope) return;
     if (!res.ok) {
@@ -629,144 +675,147 @@ export function PaymentDesk({
       return;
     }
     const at = new Date().toISOString();
-    setSaved((s) => (s ? { ...s, sent: true, log: [...s.log, { text: tx(W.waSentLog), time: clock(at), tone: "var(--ok)" }] } : s));
+    setSaved((s) => (s ? { ...s, sent: true, log: [...s.log, { text: tx(W.waSentLog), time: ampm(at), tone: "var(--ok)" }] } : s));
     setSheet("");
     toast.show({ text: tx(W.waSent) });
   }
 
   /* ---------- pieces ---------- */
-  const crumb = `${tx(W.money)} · ${tx(W.session)} ${boot.sessionLabel} · ${shortDay(today)}`;
+  const crumb = `${tx(W.money)} · ${tx(W.session)} ${sessionDash(boot.sessionLabel)} · ${shortDate(today)}`;
+  const todayLine = todayTotals ? (
+    <>
+      {tx(W.todayPill)}: <b className="num">{rupees(todayTotals.amount)}</b> · {tx(W.receiptsN(todayTotals.count))}
+    </>
+  ) : (
+    tx(W.collectionUnavailable)
+  );
   const todayPill = (
-    <Link href="/receipts" className="tap" style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 40, padding: "0 14px", borderRadius: 12, background: "var(--oks)", color: "var(--ok)", fontWeight: 700, fontSize: 14 }}>
-      <span className="live-dot" style={{ background: "var(--ok)" }} />
-      {tx(W.todayPill)}: <span className="num">{todayTotals ? rupees(todayTotals.amount) : tx(W.collectionUnavailable)}</span>
-      {todayTotals ? <span style={{ fontWeight: 500 }}>· {tx(W.receiptsN(todayTotals.count))}</span> : null}
+    <Link href="/receipts" className="tap pd-today">
+      <span className="pd-dot" />
+      <span>{todayLine}</span>
       <Ic n="chevRight" size={16} />
     </Link>
   );
   const manyBtn = (
     <Link href="/payments/bulk" className="tap btn sec">
       <Ic n="table" /> {tx(W.many)}
-      <Pill tone="mut">{tx(W.adminOnly)}</Pill>
+      {!boot.me.canBulk ? <span className="pill" style={{ background: "var(--s3)", color: "var(--mut)" }}>{tx(W.adminOnly)}</span> : null}
     </Link>
   );
 
+  const listMaxH = selId ? 292 : undefined;
   const findPane = (
-    <section className={`pd-left${selId ? " pd-hide-m" : ""}`} aria-label={tx(W.search)}>
-      <SearchBox value={query} onChange={setQuery} placeholder={tx(W.search)} />
+    <div className={`pd-find${selId ? " hide-m" : ""}`}>
+      <Link href="/receipts" className="only-m tap card pd-f" style={{ padding: "12px 14px", gap: 10 }}>
+        <span className="pd-dot" />
+        <span className="pd-b" style={{ flex: 1, minWidth: 0 }}>{todayLine}</span>
+        <span className="pd-m">{tx(W.receiptsLink)}</span>
+        <Ic n="chevRight" size={16} />
+      </Link>
+      <label className="pd-sr">
+        <Ic n="search" />
+        <span className="sr">{tx(W.searchLabel)}</span>
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tx(W.search)} autoComplete="off" />
+        {query ? (
+          <button type="button" className="tap btn ghost" aria-label={tx(W.clearSearch)} onClick={() => setQuery("")} style={{ width: 36, height: 36, padding: 0 }}>
+            <Ic n="x" />
+          </button>
+        ) : null}
+      </label>
       {!searching ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 className="sech">{tx(W.pickClass)}</h2>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.nClasses(boot.classes.length))}</span>
-          </div>
-          <div className="pd-cls" role="radiogroup" aria-label={tx(W.pickClass)}>
+        <div className="pd-c" style={{ gap: 8 }}>
+          <span className="pd-f pd-j">
+            <span className="sech">{tx(W.pickClass)}</span>
+            <span className="pd-m">{tx(W.nClasses(boot.classes.length))}</span>
+          </span>
+          <div className="pd-cls" role="group" aria-label={tx(W.pickClass)}>
             {boot.classes.map((c) => (
-              <button key={c.id} type="button" role="radio" aria-checked={c.id === classId} className={`tap${c.id === classId ? " on" : ""}`} title={c.label} onClick={() => setClassId(c.id)}>
+              <button key={c.id} type="button" aria-pressed={c.id === classId} aria-label={c.label} className={`tap${c.id === classId ? " on" : ""}`} title={c.label} onClick={() => setClassId(c.id)}>
                 {c.short}
               </button>
             ))}
           </div>
         </div>
       ) : null}
-      <Card pad={false} style={{ overflow: "hidden" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px" }}>
-          <strong>{searching ? `“${query.trim()}”` : className}</strong>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{searching ? tx(W.results(listRows.length)) : tx(W.nStudents(listRows.length))}</span>
+      <div className="card" style={{ overflow: "hidden" }}>
+        <div className="pd-f pd-j" style={{ padding: "12px 14px 10px" }}>
+          <span className="pd-v">{searching ? tx(W.matches) : className}</span>
+          <span className="pd-m">{searching ? tx(W.results(listRows.length)) : tx(W.nStudents(listRows.length))}</span>
         </div>
         {listRows.length === 0 ? (
-          <EmptyState
-            icon="search"
-            title={tx(W.noneFound)}
-            body={tx(W.noneFoundBody)}
-            action={searching ? <Btn variant="soft" onClick={() => setQuery("")}>{tx(W.clearSearch)}</Btn> : undefined}
-          />
+          <div className="pd-c fadein" style={{ alignItems: "center", textAlign: "center", gap: 6, padding: "24px 16px" }}>
+            <span className="pd-b">{tx(W.noneFound)}</span>
+            <span className="pd-m">{tx(W.noneFoundBody)}</span>
+            {searching ? <button type="button" className="tap btn sec" onClick={() => setQuery("")}>{tx(W.clearSearch)}</button> : null}
+          </div>
         ) : (
-          <div className="pd-list scroll">
+          <div className="pd-list scroll" style={{ maxHeight: listMaxH }}>
             {listRows.map((s, i) => {
-              const amountCell =
-                s.pendingToday > 0 ? (
-                  <>
-                    <b className="num" style={{ color: "var(--bad)" }}>{rupees(s.pendingToday)}</b>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{s.lateFee > 0 ? tx(W.pendingPlusLate(rupees(s.lateFee))) : tx(W.pendingToday)}</span>
-                  </>
-                ) : (
-                  <>
-                    <b style={{ color: "var(--ok)" }}>{tx(W.paidUp)}</b>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>{s.lateFee > 0 ? tx(W.lateOnly(rupees(s.lateFee))) : tx(W.upToToday)}</span>
-                  </>
-                );
+              const tone = TONES[i % TONES.length];
               return (
                 <button
                   key={s.id}
                   type="button"
-                  className={`pd-srow tap${s.id === selId ? " sel" : ""}`}
+                  className={`pd-row row tap${s.id === selId ? " sel" : ""}`}
                   disabled={!recoveryReady || saving || Boolean(uncertain?.checking)}
                   aria-current={s.id === selId ? "true" : undefined}
                   onClick={() => selectStudent(s.id)}
-                  style={{ animation: `xIn .3s var(--ease) ${Math.min(i * 18, 300)}ms both` }}
+                  style={{ animationDelay: `${Math.min(i, 12) * 32}ms` }}
                 >
-                  <Avatar text={initials(s.name)} seed={s.name} size={38} />
-                  <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                    <span className="clip" style={{ fontWeight: 600 }}>{s.name}</span>
-                    <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>
-                      {searching ? `${s.classLabel} · ` : ""}SR {s.sr}{s.father ? ` · ${s.father}` : ""}
+                  <span className="pd-av" style={{ borderRadius: 20, background: tone[0], color: tone[1] }}>{initials(s.name)}</span>
+                  <span className="pd-c" style={{ flex: 1 }}>
+                    <span className="pd-b pd-e">{s.name}</span>
+                    <span className="pd-m pd-e">{searching ? `${s.classLabel} · ` : ""}SR {s.sr}{s.father ? ` · ${s.father}` : ""}</span>
+                  </span>
+                  <span className="pd-end" style={{ gap: 0 }}>
+                    <span className="num pd-v" style={{ color: s.pendingToday > 0 ? "var(--warnfg)" : "var(--ok)" }}>{s.pendingToday > 0 ? rupees(s.pendingToday) : tx(W.paidUp)}</span>
+                    <span className="pd-m">
+                      {s.pendingToday > 0 ? (s.lateFee > 0 ? tx(W.pendingPlusLate(rupees(s.lateFee))) : tx(W.pendingToday)) : s.lateFee > 0 ? tx(W.lateOnly(rupees(s.lateFee))) : tx(W.upToToday)}
                     </span>
                   </span>
-                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flex: "none", textAlign: "right" }}>{amountCell}</span>
                 </button>
               );
             })}
           </div>
         )}
-      </Card>
-    </section>
+      </div>
+    </div>
   );
 
-  const studentCard = student ? (
-    <StudentCard
-      student={student}
-      today={today}
-      totals={totals}
-      nextDue={nextDue ? { no: nextDue.installmentNo, date: dayMonth(nextDue.dueDate) } : null}
-      onSibling={(id) => selectStudent(id)}
-      hideOnPhone={Boolean(saved)}
-    />
-  ) : null;
-
   /* ---------- the form ---------- */
-  const modeOptions = boot.modes.map((m) => ({ value: m, label: tx(MODE_PAIR[m]) }));
   const lateBlock =
     student && totals.lateFee > 0 ? (
       lateOn.due.length === 0 && lateOn.avoidable.length > 0 && !waiveLate ? (
-        <div className="pd-late" style={{ background: "var(--infos)", borderColor: "transparent", color: "var(--info)" }}>
-          <span style={{ display: "flex", gap: 8, fontSize: 13, fontWeight: 600 }}>
-            <Ic n="info" size={16} />
-            {tx(W.lateNoneOn(dateLabel(paymentDate), lateOn.avoidable.map((r) => r.label).join(", ")))}
-          </span>
+        <div className="pd-dg" style={{ padding: "10px 12px", background: "var(--oks)", color: "var(--ok)" }}>
+          <Ic n="checkCircle" size={16} style={{ marginTop: 2, flex: "none" }} />
+          <span>{tx(W.lateNoneOn(shortDate(paymentDate), lateOn.avoidable.map((r) => r.label).join(", ")))}</span>
         </div>
       ) : (
         <div className="pd-late">
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <Ic n="clock" size={20} />
-            <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <strong>{tx(W.lateTitle(rupees(lateNowAmt || totals.lateFee), (lateOn.due.length ? lateOn.due : rows.filter((r) => r.lateFeePending > 0)).map((r) => r.label).join(" + ")))}</strong>
+          <div className="pd-f" style={{ gap: 10, alignItems: "flex-start", color: "var(--warnfg)" }}>
+            <Ic n="clock" style={{ marginTop: 2, flex: "none" }} />
+            <span className="pd-c" style={{ flex: 1 }}>
+              <span className="pd-b">{tx(W.lateTitle(rupees(lateNowAmt || totals.lateFee), (lateOn.due.length ? lateOn.due : rows.filter((r) => r.lateFeePending > 0)).map((r) => r.label).join(" + ")))}</span>
               <span style={{ fontSize: 12 }}>{tx(W.lateKeptApart)}</span>
             </span>
           </div>
           {waiveAllowed ? (
-            <Seg
-              label={tx(W.lateFee)}
-              value={form.late}
-              onChange={(v) => set({ late: v })}
-              options={[
-                { value: "take", label: tx(W.lateTake) },
-                { value: "waive", label: tx(W.lateWaive) },
-              ]}
-            />
-          ) : null}
+            <div className="pd-seg40">
+              <Seg
+                label={tx(W.lateFee)}
+                value={form.late}
+                onChange={(v) => set({ late: v })}
+                options={[
+                  { value: "take", label: tx(W.lateTake) },
+                  { value: "waive", label: tx(W.lateWaive) },
+                ]}
+              />
+            </div>
+          ) : (
+            <span style={{ fontSize: 12, color: "var(--warnfg)" }}>{student.onPlan && boot.me.canWaive ? tx(W.lateNoWaivePlan) : tx(W.lateTakeNote)}</span>
+          )}
           {waiveLate ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="pd-c fadein" style={{ gap: 8, color: "var(--warnfg)" }}>
               <span style={{ fontSize: 12, fontWeight: 700 }}>{tx(W.whyWaive)}</span>
               <div className="pd-chips">
                 {W.waiveReasons.map((r) => (
@@ -775,158 +824,179 @@ export function PaymentDesk({
                   </Chip>
                 ))}
               </div>
-              {show("waive-reason") ? <span role="alert" style={{ color: "var(--bad)", fontSize: 12, fontWeight: 700 }}>{tx(W.pickReason)}</span> : null}
-              <Input value={form.waiveNote} onChange={(e) => set({ waiveNote: e.target.value })} placeholder={tx(W.waiveNote)} aria-label={tx(W.waiveNote)} />
+              {show("waive-reason") ? <span role="alert" style={{ color: "var(--bad)", fontSize: 13, fontWeight: 600 }}>{tx(W.pickReason)}</span> : null}
+              <input className="inp" value={form.waiveNote} onChange={(e) => set({ waiveNote: e.target.value })} placeholder={tx(W.waiveNote)} aria-label={tx(W.waiveNote)} />
               <span style={{ fontSize: 12 }}>{tx(W.waiveFoot)}</span>
             </div>
-          ) : (
-            <span style={{ fontSize: 12 }}>{student.onPlan && boot.me.canWaive ? tx(W.lateNoWaivePlan) : tx(W.lateTakeNote)}</span>
-          )}
+          ) : null}
         </div>
       )
     ) : null;
 
-  const dateLine = has("date-invalid")
-    ? tx(W.errDateInvalid)
-    : has("date-future")
-      ? tx(W.errDateFuture)
-      : has("date-before-session")
-        ? tx(W.errDateBefore(dateLabel(boot.sessionStart)))
-        : `${form.dateMode === "today" ? `${tx(W.today)} · ` : form.dateMode === "yesterday" ? `${tx(W.yesterday)} · ` : ""}${shortDay(paymentDate)}${paymentDate !== today ? tx(W.lateWorkedOut) : ""}`;
   const dateBad = Boolean(has("date-invalid") || has("date-future") || has("date-before-session"));
+  const dateLine = dateBad
+    ? problemText(has("date-invalid") ?? has("date-future") ?? has("date-before-session"), tx, boot.sessionStart)
+    : `${form.dateMode === "today" ? `${tx(W.today)} · ${shortDate(paymentDate)}` : `${shortDate(paymentDate)}${tx(form.dateMode === "yesterday" ? W.yesterdayTag : W.backDated)}`}${paymentDate !== today ? tx(W.lateWorkedOut) : ""}`;
+  const amountShown = Number.isSafeInteger(amount) && amount > 0 && /^[\d,\s]+$/.test(form.amount.trim()) ? amount.toLocaleString("en-IN") : form.amount;
+  const amountBad = Boolean(show("amount") || show("over"));
+  const concessionBad = !Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0);
 
-  const formCard = student ? (
-    <Card className="fadein" style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-label={tx(W.paymentFor(firstName(student.name)))}>
-      <div>
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{tx(W.paymentFor(firstName(student.name)))}</h2>
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.anyAmount)}</span>
-      </div>
-      {walk.maxAmount <= 0 ? <Banner tone="ok">{tx(W.nothingOwed)}</Banner> : null}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <label htmlFor="pd-amount" className="lbl"><Bi {...W.amountReceived} block={false} /></label>
-        <div className={`pd-amt${show("amount") || show("over") ? " err" : ""}`}>
-          <span aria-hidden="true">₹</span>
-          <input
-            id="pd-amount"
-            inputMode="numeric"
-            autoComplete="off"
-            value={form.amount}
-            onChange={(e) => set({ amount: e.target.value })}
-            placeholder="0"
-            aria-invalid={Boolean(show("amount") || show("over")) || undefined}
-            aria-describedby="pd-amount-words"
-          />
-        </div>
-        <span id="pd-amount-words" style={{ fontSize: 13, color: show("amount") || show("over") ? "var(--bad)" : "var(--mut)", fontWeight: show("amount") ? 600 : 400 }}>
-          {has("over") ? tx(W.overMax(rupees(walk.maxAmount))) : amount ? amountInWords(amount) : tried ? tx(W.typeAmountErr) : tx(W.typeAmount)}
+  const formCards = student ? (
+    <div className="pd-col">
+      <div className="card pd-cd fadein" aria-label={tx(W.paymentFor(firstName(student.name)))}>
+        <span className="pd-c">
+          <span className="pd-v">{tx(W.paymentFor(firstName(student.name)))}</span>
+          <span className="pd-m">{tx(W.anyAmount)}</span>
+        </span>
+        {walk.maxAmount <= 0 ? <Banner tone="ok">{tx(W.nothingOwed)}</Banner> : null}
+        {lateBlock}
+        <label className="field" htmlFor="pd-amount">
+          <span>{W.amountReceived.en} · {W.amountReceived.hi}</span>
+          <span className={`pd-amt${amountBad ? " err" : ""}`}>
+            <span className="num" aria-hidden="true" style={{ fontSize: 30, fontWeight: 700, color: "var(--sub)" }}>₹</span>
+            <input
+              id="pd-amount"
+              inputMode="numeric"
+              autoComplete="off"
+              value={amountShown}
+              onChange={(e) => set({ amount: e.target.value })}
+              placeholder="0"
+              aria-invalid={amountBad || undefined}
+              aria-describedby="pd-amount-words"
+            />
+          </span>
+        </label>
+        <span id="pd-amount-words" style={{ fontSize: 13, fontWeight: 600, color: amountBad ? "var(--bad)" : "var(--mut)" }}>
+          {has("over") ? tx(W.overMax(rupees(walk.maxAmount))) : amount ? wordsOf(amount) : tried ? tx(W.typeAmountErr) : tx(W.typeAmount)}
         </span>
         {chips.length ? (
           <div className="pd-chips" role="group" aria-label={tx(W.chipNote)}>
             {chips.map((c) => (
-              <button type="button" className={`tap chip${amount === c.amount ? " on" : ""}`} key={c.key} aria-pressed={amount === c.amount} disabled={c.disabled || Boolean(attempt)} onClick={() => set({ amount: c.amount === null ? "" : String(c.amount) })}>
-                {tx(({ full: student?.onPlan ? W.everythingOwed : W.fullDue, next: W.nextInstallment, overdue: W.pendingToday, lateFee: W.lateFee, lastAmount: W.lastAmount, clear: W.clearAmount, emiCatchUp: W.planCatchUp, emiMonthly: W.planMonthly, emiFullPlan: W.planBalance })[c.key])} {c.amount !== null ? <b>{rupees(c.amount)}</b> : null}
+              <button type="button" className={`tap chip${c.amount !== null && amount === c.amount ? " on" : ""}`} key={c.key} aria-pressed={c.amount !== null && amount === c.amount} disabled={c.disabled || Boolean(attempt)} onClick={() => set({ amount: c.amount === null ? "" : String(c.amount) })}>
+                {c.label}
+                {c.amount !== null ? <span className="num" style={{ opacity: 0.8 }}>{rupees(c.amount)}</span> : null}
               </button>
             ))}
           </div>
         ) : null}
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.suggested)} · {tx(W.chipNote)}</span>
-        {student.repaymentPlan ? <Banner tone="info">
-          {tx(W.planMonthly)}: {rupees(student.repaymentPlan.monthlyAmount)} · {tx(W.planCatchUp)}: {rupees(student.repaymentPlan.catchUpAmount)} · {tx(W.planBalance)}: {rupees(student.repaymentPlan.remainingBalance)}
-          {student.repaymentPlan.nextDueDate ? ` · ${dateLabel(student.repaymentPlan.nextDueDate)}` : ""}
-          {student.repaymentPlan.duesOutsidePlanAmount > 0 ? <div>{tx(W.planOutside)}: {rupees(student.repaymentPlan.duesOutsidePlanAmount)}</div> : null}
-          {student.repaymentPlan.planReviewNeeded ? <div>{tx(W.planReview)}</div> : null}
-        </Banner> : null}
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {lateBlock}
-        <span className="lbl"><Bi {...W.paymentDate} block={false} /></span>
-        <Seg
-          label={tx(W.paymentDate)}
-          value={form.dateMode}
-          onChange={(v) => set({ dateMode: v })}
-          options={[
-            { value: "today", label: tx(W.today) },
-            { value: "yesterday", label: tx(W.yesterday) },
-            { value: "other", label: tx(W.otherDate) },
-          ]}
-        />
-        {form.dateMode === "other" ? (
-          <Field label={tx(W.dateParentPaid)}>
-            <Input type="date" value={form.otherDate} min={boot.sessionStart} max={today} onChange={(e) => set({ otherDate: e.target.value })} invalid={dateBad} />
-          </Field>
-        ) : null}
-        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: dateBad ? "var(--bad)" : "var(--mut)" }}>
-          <Ic n="calendar" size={15} /> {dateLine}
-        </span>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <span className="lbl"><Bi {...W.mode} block={false} /></span>
-        <Seg label={tx(W.mode)} value={form.mode} onChange={(v) => set({ mode: v })} options={modeOptions} />
-        {form.mode === "upi" || form.mode === "bank_transfer" ? (
-          <Field label={tx(form.mode === "upi" ? W.upiRef : W.utr)}>
-            <Input value={form.reference} onChange={(e) => set({ reference: e.target.value })} placeholder={tx(form.mode === "upi" ? W.upiRefPh : W.utrPh)} inputMode={form.mode === "upi" ? "numeric" : "text"} />
-          </Field>
-        ) : null}
-        {form.mode === "cheque" ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
-              <Field label={tx(W.chequeNo)} error={show("cheque-no") ? tx(W.errChequeNo) : undefined}>
-                <Input className="num" inputMode="numeric" maxLength={6} value={form.chequeNo} onChange={(e) => set({ chequeNo: e.target.value.replace(/\D/g, "") })} invalid={Boolean(show("cheque-no"))} />
-              </Field>
-              <Field label={tx(W.bank)} error={show("cheque-bank") ? tx(W.errChequeBank) : undefined}>
-                <Input value={form.chequeBank} onChange={(e) => set({ chequeBank: e.target.value })} invalid={Boolean(show("cheque-bank"))} />
-              </Field>
-              <Field label={tx(W.chequeDate)}>
-                <Input type="date" value={form.chequeDate} onChange={(e) => set({ chequeDate: e.target.value })} />
-              </Field>
-            </div>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.chequeNote)}</span>
+        <span className="pd-m">{tx(W.chipNote)}</span>
+        {student.repaymentPlan ? (
+          <div className="pd-bx" style={{ background: "var(--infos)", color: "var(--info)", fontSize: 13, fontWeight: 600 }}>
+            <span>
+              {tx(W.planMonthly)}: {rupees(student.repaymentPlan.monthlyAmount)} · {tx(W.planCatchUp)}: {rupees(student.repaymentPlan.catchUpAmount)} · {tx(W.planBalance)}: {rupees(student.repaymentPlan.remainingBalance)}
+              {student.repaymentPlan.nextDueDate ? ` · ${shortDate(student.repaymentPlan.nextDueDate)}` : ""}
+            </span>
+            {student.repaymentPlan.duesOutsidePlanAmount > 0 ? <span>{tx(W.planOutside)}: {rupees(student.repaymentPlan.duesOutsidePlanAmount)}</span> : null}
+            {student.repaymentPlan.planReviewNeeded ? <span>{tx(W.planReview)}</span> : null}
           </div>
         ) : null}
       </div>
 
-      <Field label={tx(W.concession)}>
-        <Input id="pd-concession" inputMode="numeric" value={form.concession} disabled={student.onPlan || !canAct} onChange={(e) => set({ concession: e.target.value })} placeholder="0" />
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.concessionHint)}</span>
-        {!Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0) ? <span role="alert">{tx(W.concessionInvalid)}</span> : null}
-      </Field>
-
-      <Field label={tx(W.collector)}>
-        <Input id="pd-received-by" value={form.receivedBy} onChange={(e) => set({ receivedBy: e.target.value })} />
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.collectorHint)}</span>
-      </Field>
-
-      <Field label={tx(W.notes)}>
-        <Textarea rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} style={{ minHeight: 64 }} />
-      </Field>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Avatar text={initials(boot.me.name)} seed={boot.me.name} size={34} />
-        <span style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.receivedBy)}</span>
-          <span style={{ fontWeight: 600 }}>{boot.me.name} · {tx(W.signedIn)}</span>
+      <div className="card pd-cd fadein">
+        <div className="field">
+          <span>{tx(W.paymentDate)}</span>
+          <div className="pd-seg40">
+            <Seg
+              label={tx(W.paymentDate)}
+              value={form.dateMode}
+              onChange={(v) => set({ dateMode: v })}
+              options={[
+                { value: "today", label: tx(W.today) },
+                { value: "yesterday", label: tx(W.yesterday) },
+                { value: "other", label: tx(W.otherDate) },
+              ]}
+            />
+          </div>
+        </div>
+        {form.dateMode === "other" ? (
+          <label className="field fadein">
+            <span>{tx(W.dateParentPaid)}</span>
+            <Input type="date" value={form.otherDate} min={boot.sessionStart} max={today} onChange={(e) => set({ otherDate: e.target.value })} invalid={dateBad} />
+          </label>
+        ) : null}
+        <span className="pd-f" style={{ fontSize: 13, color: dateBad ? "var(--bad)" : "var(--mut)" }}>
+          <Ic n="calendar" size={16} /> {dateLine}
         </span>
+        <div className="field">
+          <span>{tx(W.mode)}</span>
+          <div className="pd-mo">
+            <Seg
+              label={tx(W.mode)}
+              value={form.mode}
+              onChange={(v) => set({ mode: v })}
+              options={boot.modes.map((m) => ({ value: m, label: <><Ic n={MODE_ICON[m]} /><span>{tx(MODE_PAIR[m])}</span></> }))}
+            />
+          </div>
+        </div>
+        {form.mode === "upi" || form.mode === "bank_transfer" ? (
+          <label className="field fadein">
+            <span>{tx(form.mode === "upi" ? W.upiRef : W.utr)}</span>
+            <input className="inp num" value={form.reference} onChange={(e) => set({ reference: e.target.value })} placeholder={tx(form.mode === "upi" ? W.upiRefPh : W.utrPh)} inputMode={form.mode === "upi" ? "numeric" : "text"} />
+          </label>
+        ) : null}
+        {form.mode === "cheque" ? (
+          <div className="pd-c fadein" style={{ gap: 10 }}>
+            <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
+              <label className="field">
+                <span>{tx(W.chequeNo)}</span>
+                <input className="inp num" inputMode="numeric" maxLength={6} value={form.chequeNo} onChange={(e) => set({ chequeNo: e.target.value.replace(/\D/g, "") })} placeholder={tx(W.chequeNoPh)} />
+              </label>
+              <label className="field">
+                <span>{tx(W.bank)}</span>
+                <input className="inp" value={form.chequeBank} onChange={(e) => set({ chequeBank: e.target.value })} placeholder={tx(W.bankPh)} />
+              </label>
+              <label className="field">
+                <span>{tx(W.chequeDate)}</span>
+                <input className="inp" type="date" value={form.chequeDate} onChange={(e) => set({ chequeDate: e.target.value })} />
+              </label>
+            </div>
+            <span className="pd-m">{tx(W.chequeNote)}</span>
+          </div>
+        ) : null}
+        <label className="field">
+          <span>{tx(W.notes)}</span>
+          <textarea className="inp" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder={tx(W.notesPh)} style={{ minHeight: 64 }} />
+        </label>
+        <label className="field">
+          <span>{tx(W.concession)}</span>
+          <input id="pd-concession" className={`inp num${concessionBad ? " err" : ""}`} inputMode="numeric" value={form.concession} disabled={student.onPlan || !canAct} onChange={(e) => set({ concession: e.target.value })} placeholder="0" />
+          <span className="pd-m">{tx(W.concessionHint)}</span>
+          {concessionBad ? <span role="alert" style={{ color: "var(--bad)", fontSize: 13, fontWeight: 600 }}>{tx(W.concessionInvalid)}</span> : null}
+        </label>
+        <div className="pd-bx pd-by" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <span className="pd-av" style={{ width: 32, height: 32, borderRadius: 16, fontSize: 11, background: "var(--okm)", color: "var(--ok)" }}>{initials(form.receivedBy || boot.me.name)}</span>
+          <span className="pd-c" style={{ flex: 1 }}>
+            <label htmlFor="pd-received-by" className="pd-m" style={{ fontWeight: 600 }}>{tx(W.receivedBy)}</label>
+            <input id="pd-received-by" value={form.receivedBy} onChange={(e) => set({ receivedBy: e.target.value })} title={tx(W.editCollector)} autoComplete="off" />
+          </span>
+          <Ic n="edit" style={{ color: "var(--sub)", flex: "none" }} />
+        </div>
       </div>
-    </Card>
+    </div>
   ) : null;
 
-  const preview = student && dateReady ? <WherePreview walk={walk} amount={Number.isFinite(amount) ? amount : 0} paymentDate={paymentDate} today={today} /> : null;
+  const preview = student && dateReady ? <WherePreview walk={walk} amount={Number.isFinite(amount) ? amount : 0} paymentDate={paymentDate} today={today} sessionLabel={boot.sessionLabel} /> : null;
 
+  const firstProblem = problemText(problems[0], tx, boot.sessionStart);
   const bar =
-    student && !saved && !reviewing ? (
+    student && !saved ? (
       <div className="pd-pbar glass">
-        <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: "1 1 auto" }}>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>
-            {tx(MODE_PAIR[form.mode])} · {form.dateMode === "today" ? tx(W.today).toLowerCase() : dayMonth(paymentDate)}
+        <span className="pd-c" style={{ flex: 1 }}>
+          <span className="pd-m" style={{ fontWeight: 600 }}>
+            {Number.isFinite(amount) && amount > 0 ? `${tx(MODE_PAIR[form.mode])} · ${form.dateMode === "today" ? tx(W.today).toLowerCase() : dayMonth(paymentDate)}${lateTaken ? tx(W.inclLate) : ""}` : tx(W.amountReceived)}
           </span>
-          <strong className="num" style={{ fontSize: 22 }}>{rupees(Number.isFinite(amount) ? amount : 0)}</strong>
+          <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{rupees(Number.isFinite(amount) ? amount : 0)}</span>
         </span>
-        <span className="hide-m" style={{ fontSize: 13, color: "var(--mut)" }}>{previewing ? tx(W.previewing) : tx(W.checkThenSave)}</span>
-        <Btn variant="pri" big icon="checkCircle" onClick={review} disabled={!canAct || !attemptKey || !dateReady || !recoveryReady || Boolean(recoveryError) || Boolean(attempt)}>
-          {tx(W.review)}
-        </Btn>
+        <span className="pd-m hide-m" style={{ maxWidth: 260, textAlign: "right" }}>{previewing ? tx(W.previewing) : firstProblem ?? tx(W.checkThenSave)}</span>
+        <button
+          type="button"
+          className="tap btn pri pd-big"
+          onClick={review}
+          style={{ opacity: problems.length ? 0.55 : undefined }}
+          disabled={!canAct || !attemptKey || !dateReady || !recoveryReady || Boolean(recoveryError) || Boolean(attempt)}
+        >
+          <Ic n="checkCircle" size={20} /> {tx(W.review)}
+        </button>
       </div>
     ) : null;
 
@@ -941,7 +1011,6 @@ export function PaymentDesk({
       canAct={canAct}
       onWa={() => setSheet("wa")}
       onNew={newPayment}
-      onAnother={collectAnother}
       onRetryReceipt={retryReceipt}
       busy={busy}
       onRemove={() => setSheet("rm")}
@@ -950,32 +1019,55 @@ export function PaymentDesk({
   ) : null;
 
   /* ---------- page ---------- */
+  const shownName = student?.name ?? boot.students.find((s) => s.id === selId)?.name ?? tx(W.title);
+  const mTitle = saved ? tx(saved.removed ? W.removedTitle : W.saved) : selId ? shownName : tx(W.title);
+  const mSub = saved ? saved.receiptNumber : selId ? (student ? `${student.classLabel} · SR ${student.sr}` : "") : `${shortDate(today)} · ${boot.me.name}`;
+  const reviewOpen = Boolean(student) && reviewing && sheet === "" && !saved;
+  const locked = saving || Boolean(attempt);
+
   return (
     <VxPage label={tx(W.title)}>
-      <TopBar
-        crumb={crumb}
-        title={tx(W.title)}
-        actions={
-          <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {todayPill}
-            {manyBtn}
-          </span>
-        }
-        mTitle={student ? student.name : tx(W.title)}
-          mSub={student ? `${student.classLabel} · SR ${student.sr}` : todayTotals ? `${tx(W.todayPill)}: ${rupees(todayTotals.amount)} · ${tx(W.receiptsN(todayTotals.count))}` : tx(W.collectionUnavailable)}
-        mAction={boot.me.canBulk ? (
-          <Link href="/payments/bulk" className="tap icon-btn" aria-label={tx(W.many)} style={{ width: 44, height: 44 }}>
-            <Ic n="table" size={20} />
+      <div className="pd-top" style={{ display: "contents" }}>
+        <TopBar
+          crumb={crumb}
+          title={tx(W.title)}
+          actions={
+            <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              {todayPill}
+              {manyBtn}
+            </span>
+          }
+        />
+      </div>
+      <header className="only-m glass vx-top" style={{ flex: "none", minHeight: 58, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid var(--bd)" }}>
+        {selId ? (
+          <button type="button" className="tap pd-phb" aria-label={tx(W.back)} onClick={clearStudent}>
+            <Ic n="chevLeft" size={24} />
+          </button>
+        ) : (
+          <BackLink href="/menu" className="tap pd-phb" label={tx(W.menu)}>
+            <Ic n="chevLeft" size={24} />
+          </BackLink>
+        )}
+        <span className="pd-c" style={{ flex: 1, paddingLeft: 4 }}>
+          <span className="pd-e" style={{ fontSize: 17, fontWeight: 700 }}>{mTitle}</span>
+          {mSub ? <span className="pd-m pd-e">{mSub}</span> : null}
+        </span>
+        {/* Bulk entry is for those who may post it (main's rule); the short label keeps the design's header. */}
+        {!selId && boot.me.canBulk ? (
+          <Link href="/payments/bulk" className="tap btn soft" aria-label={tx(W.many)} style={{ height: 40, padding: "0 12px", fontSize: 13 }}>
+            <Ic n="table" size={16} /> {tx(W.manyShort)}
           </Link>
         ) : null}
-      />
+      </header>
       <main>
-        {!recoveryReady ? <div className="pad"><Banner tone="info">{tx(W.recoveryChecking)}</Banner></div> : null}
-        {attempt?.input.lateFeeWaiver ? <div className="pad"><Banner tone="warn">{tx(W.waiverAttemptPending)} <b>{rupees(attempt.input.lateFeeWaiver)}</b></Banner></div> : null}
-        {attempt && attempt.input.studentId !== student?.id ? <div className="pad"><Banner tone="warn" action={<Btn onClick={() => void selectStudent(attempt.input.studentId)}>{tx(W.resumePayment)}</Btn>}>{tx(W.unfinished)}</Banner></div> : null}
-        {recoveryError || (canAct && !attemptKey) ? <div className="pad"><Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(!attemptKey ? W.recoveryIdentity : recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner></div> : null}
-        {previewing || boot.blocking ? (
-          <div className="pad" style={{ padding: "16px 28px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+        {!recoveryReady || attempt || recoveryError || (canAct && !attemptKey) || previewing || boot.blocking ? (
+          <div className="pad" style={{ padding: "16px 24px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+            {!recoveryReady ? <Banner tone="info">{tx(W.recoveryChecking)}</Banner> : null}
+            {attempt?.input.lateFeeWaiver ? <Banner tone="warn">{tx(W.waiverAttemptPending)} <b>{rupees(attempt.input.lateFeeWaiver)}</b></Banner> : null}
+            {/* An unresolved payment never blocks the counter: close its sheet, help the next parent, and come back here. */}
+            {attempt && (attempt.input.studentId !== student?.id || !reviewing) ? <Banner tone="warn" action={<Btn onClick={() => { if (attempt.input.studentId === student?.id) setReviewing(true); else void selectStudent(attempt.input.studentId); }}>{tx(W.resumePayment)}</Btn>}>{tx(W.unfinished)}</Banner> : null}
+            {recoveryError || (canAct && !attemptKey) ? <Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(!attemptKey ? W.recoveryIdentity : recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner> : null}
             {previewing ? <Banner tone="info">{tx(W.previewing)}</Banner> : null}
             {boot.blocking ? (
               <Banner
@@ -987,109 +1079,139 @@ export function PaymentDesk({
             ) : null}
           </div>
         ) : null}
-        <div className="pd-grid">
-          <div className="pd-left">
-            {findPane}
-            {selId ? (
-              <button type="button" className="tap only-m" onClick={clearStudent} style={{ display: "flex", alignItems: "center", gap: 10, height: 52, padding: "0 16px", borderRadius: 14, border: "1px solid var(--bds)", background: "var(--card)", color: "var(--mut)", fontSize: 15 }}>
-                <Ic n="search" /> {tx(W.searchAnother)}
-              </button>
-            ) : null}
-            {loading ? <StudentSkeleton /> : null}
-            {!loading && result && !result.ok ? (
-              <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <strong>{tx(W.couldNotLoad)}</strong>
-                <span style={{ color: "var(--mut)" }}>{result.message}</span>
-                {selId ? <Btn href={`/fees/payments?studentId=${selId}`} variant="soft">{tx(W.openClassic)}</Btn> : null}
-              </Card>
-            ) : null}
-            {!loading && student ? <details className="pd-student-details" open><summary>{tx(W.installmentSummary)}</summary>{studentCard}</details> : null}
-          </div>
-          <div className={`pd-right${selId ? "" : " pd-hide-m"}`}>
-            {!selId ? (
-              <Card style={{ minHeight: 420, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <EmptyState icon="rupee" title={<span className="serif" style={{ fontSize: 22 }}>{tx(W.pickTitle)}</span>} body={tx(W.pickBody)} />
-              </Card>
-            ) : loading ? (
-              <Card style={{ display: "flex", flexDirection: "column", gap: 12 }} aria-busy="true" aria-label={tx(W.loading)}>
-                <Skel w="40%" h={18} />
-                <Skel h={68} r={16} />
-                <Skel w="70%" h={12} />
-                <Skel h={40} r={12} />
-                <Skel h={40} r={12} />
-              </Card>
-            ) : savedView ? (
-              savedView
-            ) : student && reviewing ? (
-              <Card className="fadein" style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-labelledby="pd-review-title">
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span className="sech">{tx(W.reviewStep)}</span>
-                  <h2 id="pd-review-title" style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{tx(W.confirmTitle)}</h2>
-                  <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.confirmSub)}</span>
-                </div>
-                {uncertain ? (
-                  <Banner
-                    tone="warn"
-                    action={
-                      <Btn variant="sec" disabled={uncertain.checking || !recoveryReady || Boolean(recoveryError)} onClick={() => void checkSaved()}>
-                        {uncertain.checking ? tx(W.checking) : tx(W.checkAgain)}
-                      </Btn>
-                    }
-                  >
-                    <strong>{tx(W.uncertainTitle)}</strong> — <span style={{ fontWeight: 500 }}>{tx(W.uncertainBody)}</span>
-                  </Banner>
-                ) : null}
-                <ConfirmBody
-                  student={student}
-                  amount={amount}
-                  modeText={tx(MODE_PAIR[form.mode])}
-                  reference={composeReference({ mode: form.mode, reference: form.reference, chequeNo: form.chequeNo })}
-                  paymentDate={paymentDate}
-                  walk={walk}
-                  receivedBy={form.receivedBy}
-                  concession={concession}
-                  notes={form.notes}
-                />
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button type="button" className="tap btn sec" style={{ flex: "1 1 160px" }} disabled={saving || Boolean(attempt)} onClick={() => setReviewing(false)}>
-                    <Ic n="chevLeft" size={18} /> {tx(W.backToForm)}
+        <div className="pd-desk pad">
+          <div className="pd-grid">
+            <section className="pd-left" aria-label={tx(W.searchLabel)}>
+              {findPane}
+              {selId ? (
+                <>
+                  <button type="button" className="only-m tap pd-sr" onClick={clearStudent} style={{ width: "100%", textAlign: "left" }}>
+                    <Ic n="search" />
+                    <span style={{ flex: 1, fontSize: 15 }}>{tx(W.searchAnother)}</span>
                   </button>
-                  <button type="button" className="tap btn pri big" style={{ flex: "2 1 240px" }} disabled={saving || !canAct || !recoveryReady || Boolean(recoveryError) || Boolean(uncertain)} onClick={save}>
-                    {saving ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="lock" size={18} />}
-                    {saving ? tx(W.saving) : `${tx(W.confirmSave)} · ${rupees(amount)}`}
-                  </button>
+                  {loading ? <StudentSkeleton /> : null}
+                  {!loading && result && !result.ok ? (
+                    <div className="card pd-cd">
+                      <strong>{tx(W.couldNotLoad)}</strong>
+                      <span style={{ color: "var(--mut)" }}>{result.message}</span>
+                      <Btn href={`/fees/payments?studentId=${selId}`} variant="soft">{tx(W.openClassic)}</Btn>
+                    </div>
+                  ) : null}
+                  {!loading && student ? (
+                    <StudentCard
+                      student={student}
+                      today={today}
+                      totals={totals}
+                      sessionLabel={boot.sessionLabel}
+                      nextDue={nextDue ? { no: nextDue.installmentNo, date: dueDay(nextDue.dueDate, today) } : null}
+                      onSibling={(id) => selectStudent(id)}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+            </section>
+            <section className={`pd-right${!selId ? " hide-m" : saved ? " pd-first" : ""}`}>
+              {!selId ? (
+                <div className="card pd-c fadein" style={{ alignItems: "center", justifyContent: "center", textAlign: "center", gap: 10, minHeight: 440, padding: 32 }}>
+                  <span className="pd-av" style={{ width: 64, height: 64, borderRadius: 22, background: "var(--accs)", color: "var(--accfg)" }}>
+                    <Ic n="rupee" size={30} />
+                  </span>
+                  <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{tx(W.pickTitle)}</span>
+                  <span className="pd-m" style={{ fontSize: 14, maxWidth: 440, lineHeight: 1.5 }}>{tx(W.pickBody)}</span>
                 </div>
-              </Card>
-            ) : student ? (
-              <>
-                <div className="pd-pin">
-                  {formCard}
-                  <aside>{preview}</aside>
+              ) : loading ? (
+                <div className="card pd-cd" aria-busy="true" aria-label={tx(W.loading)}>
+                  <Skel w="40%" h={18} />
+                  <Skel h={72} r={18} />
+                  <Skel w="70%" h={12} />
+                  <Skel h={40} r={12} />
+                  <Skel h={40} r={12} />
                 </div>
-                {!dateReady ? <Banner tone={dateFailed ? "warn" : "info"}>{tx(dateFailed ? W.dateFailed : W.dateLoading)}</Banner> : null}
-                {bar}
-              </>
-            ) : null}
+              ) : savedView ? (
+                savedView
+              ) : student ? (
+                <>
+                  <div className="pd-pin">
+                    {formCards}
+                    {preview}
+                  </div>
+                  {!dateReady ? <div style={{ marginTop: 14 }}><Banner tone={dateFailed ? "warn" : "info"}>{tx(dateFailed ? W.dateFailed : W.dateLoading)}</Banner></div> : null}
+                </>
+              ) : null}
+            </section>
           </div>
+          {bar}
         </div>
-        <div style={{ height: 28 }} />
       </main>
+
+      {/* Review — nothing is saved until "Save payment"; Change keeps every entry. */}
+      <Sheet
+        open={reviewOpen}
+        // While a save is on the wire the sheet stays; an unresolved one can be
+        // closed and resumed from the banner, as on the fee app's desk (PR77).
+        onClose={() => { if (!saving) setReviewing(false); }}
+        dismissable={!saving}
+        title={student ? tx(W.confirmTitle(rupees(amount))) : undefined}
+        sub={student ? `${student.name} · ${student.classLabel} · SR ${student.sr}` : undefined}
+        footer={
+          <>
+            <button type="button" className="tap btn sec" style={{ flex: 1, height: 52 }} disabled={locked} onClick={() => setReviewing(false)}>
+              {tx(W.change)}
+            </button>
+            <button type="button" className="tap btn pri pd-big" style={{ flex: 1.8 }} disabled={saving || !canAct || !recoveryReady || Boolean(recoveryError) || Boolean(uncertain)} onClick={save}>
+              {saving ? <span className="pd-spin" /> : <Ic n="check" size={20} />}
+              {saving ? tx(W.saving) : tx(W.confirmSave)}
+            </button>
+          </>
+        }
+      >
+        {student ? (
+          <div className="pd-c" style={{ gap: 10 }}>
+            {uncertain ? (
+              <Banner
+                tone="warn"
+                action={
+                  <Btn variant="sec" disabled={uncertain.checking || !recoveryReady || Boolean(recoveryError)} onClick={() => void checkSaved()}>
+                    {uncertain.checking ? tx(W.checking) : tx(W.checkAgain)}
+                  </Btn>
+                }
+              >
+                <strong>{tx(W.uncertainTitle)}</strong> — <span style={{ fontWeight: 500 }}>{tx(W.uncertainBody)}</span>
+              </Banner>
+            ) : null}
+            {recoveryError ? <Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner> : null}
+            <ConfirmBody
+              student={student}
+              amount={amount}
+              modeText={tx(MODE_PAIR[form.mode])}
+              reference={form.mode === "cheque" ? [form.chequeNo.trim(), form.chequeBank.trim(), /^\d{4}-\d{2}-\d{2}$/.test(form.chequeDate) ? shortDate(form.chequeDate) : ""].filter(Boolean).join(" · ") : composeReference({ mode: form.mode, reference: form.reference, chequeNo: form.chequeNo })}
+              dateLine={dateLine ?? ""}
+              walk={walk}
+              receivedBy={form.receivedBy}
+              concession={concession}
+              notes={form.notes}
+              waiveReason={form.waiveReason}
+              sessionLabel={boot.sessionLabel}
+            />
+          </div>
+        ) : null}
+      </Sheet>
 
       {/* Duplicate */}
       <Sheet
         open={sheet === "dup"}
         onClose={() => setSheet("")}
         title={tx(W.dupTitle)}
-        sub={tx(W.dupSub)}
-        icon="alert"
+        sub={dup?.receiptNumber ? (dup.createdAt ? tx(W.dupSub(ampm(dup.createdAt), dup.receiptNumber)) : dup.receiptNumber) : tx(W.dupSubNoTime)}
         footer={
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
-            <button type="button" className="tap btn pri" disabled={!dup?.receiptId || busy} onClick={openEarlier}>
-              <Ic n="receipt" size={18} /> {tx(W.dupOpen)}
+          <div className="pd-c" style={{ gap: 8, flex: 1 }}>
+            <button type="button" className="tap btn pri pd-big" disabled={!dup?.receiptId || busy} onClick={openEarlier}>
+              <Ic n="receipt" size={20} /> {tx(W.dupOpen)}
             </button>
             <button
               type="button"
-              className="tap btn sec"
+              className="tap btn ghost"
+              style={{ color: "var(--bad)", height: 44 }}
               disabled={dup?.kind === "near-duplicate" && !boot.me.isAdmin}
               onClick={() => {
                 setAck(true);
@@ -1099,25 +1221,28 @@ export function PaymentDesk({
             >
               {tx(W.dupAgain)}
             </button>
-            <button type="button" className="tap btn ghost" onClick={() => setSheet("")}>{tx(W.cancel)}</button>
           </div>
         }
       >
         {dup ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Card style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--warns)", borderColor: "var(--warnm)" }}>
-              <Ic n="receipt" size={22} style={{ color: "var(--warnfg)" }} />
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <strong className="num">{dup.receiptNumber ?? "—"}</strong>
-                <span style={{ fontSize: 13, color: "var(--mut)" }}>
-                  {tx(W.saved)}{dup.createdAt ? ` · ${clock(dup.createdAt)}` : ""} · {student?.name ?? ""}
-                </span>
-                <span style={{ fontSize: 13, color: "var(--mut)" }}>{dup.mode ? MODE_TEXT[dup.mode] ?? dup.mode : ""}</span>
-              </span>
-              <strong className="num" style={{ fontSize: 18 }}>{rupees(dup.amount ?? amount)}</strong>
-            </Card>
+          <div className="pd-c" style={{ gap: 10 }}>
+            <div className="pd-dg" style={{ background: "var(--warns)", color: "var(--warnfg)", fontSize: 14 }}>
+              <Ic n="alert" style={{ marginTop: 2, flex: "none" }} />
+              <span>{dup.receiptNumber && dup.createdAt ? tx(W.dupText(ampm(dup.createdAt), dup.receiptNumber)) : tx(W.dupSubNoTime)}</span>
+            </div>
+            <div className="card pd-c" style={{ gap: 6, padding: "14px 16px" }}>
+              <div className="pd-f pd-j">
+                <span className="num pd-v">{dup.receiptNumber ?? "—"}</span>
+                {dup.createdAt ? <span className="pill" style={{ background: "var(--oks)", color: "var(--ok)" }}>{tx(W.savedAt(ampm(dup.createdAt)))}</span> : null}
+              </div>
+              <span className="pd-b">{student ? `${student.name} · ${student.classLabel}` : ""}</span>
+              <div className="pd-f pd-j">
+                <span className="pd-m">{dup.mode ? (MODE_TEXT[dup.mode] ?? dup.mode) : ""}</span>
+                <span className="num" style={{ fontSize: 20, fontWeight: 700 }}>{rupees(dup.amount ?? amount)}</span>
+              </div>
+            </div>
             {dup.kind === "near-duplicate" && !boot.me.isAdmin ? <Banner tone="warn">{tx(W.dupHard)}</Banner> : null}
-            <p style={{ margin: 0, color: "var(--mut)" }}>{tx(W.dupBody)}</p>
+            <span className="pd-m">{tx(W.dupBody)}</span>
           </div>
         ) : null}
       </Sheet>
@@ -1128,66 +1253,77 @@ export function PaymentDesk({
         onClose={() => setSheet("")}
         title={tx(W.waTitle)}
         sub={tx(W.waSub)}
-        icon="send"
         footer={
           <>
-            <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={() => setSheet("")}>{tx(W.cancel)}</button>
-            <button type="button" className="tap btn pri" style={{ flex: 2 }} disabled={busy || !canAct || !student?.phone} onClick={sendWa}>
-              {busy ? <Ic n="refresh" size={16} className="spin" /> : <Ic n="send" size={16} />} {tx(W.waSend)}
+            <button type="button" className="tap btn sec" style={{ flex: 1, height: 52 }} onClick={() => setSheet("")}>{tx(W.cancel)}</button>
+            <button type="button" className="tap btn pri pd-big" style={{ flex: 1.8 }} disabled={busy || !canAct || !student?.phone} onClick={sendWa}>
+              {busy ? <span className="pd-spin" /> : <Ic n="send" size={20} />} {tx(W.waSend)}
             </button>
           </>
         }
       >
         {saved && student ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="pd-c" style={{ gap: 10 }}>
             <Seg
-              label="Language"
+              label={tx(W.waTitle)}
               value={waLang}
               onChange={setWaLang}
               options={[
+                { value: "both", label: tx(W.langBoth) },
                 { value: "hi", label: "हिंदी" },
                 { value: "en", label: "English" },
-                { value: "both", label: tx(W.langBoth) },
               ]}
             />
             <WhatsAppPreview lines={waLines(saved, student, waLang)} footer={`${saved.receiptNumber}.pdf`} />
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>
-              {student.phone ? tx(W.waTo(student.father ?? student.name, maskPhone(student.phone))) : tx(W.noPhone)}
-            </span>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.waPreviewNote)}</span>
+            <span className="pd-m">{student.phone ? tx(W.waTo(student.father ?? student.name, maskPhone(student.phone))) : tx(W.noPhone)}</span>
+            <span className="pd-m">{tx(W.waPreviewNote)}</span>
           </div>
         ) : null}
       </Sheet>
 
-      {/* Remove */}
+      {/* Remove (admin, first ten minutes) */}
       <Sheet
         open={sheet === "rm"}
         onClose={() => setSheet("")}
-        title={tx(W.rmTitle)}
-        sub={tx(W.rmSub)}
-        icon="trash"
+        title={saved ? tx(W.rmTitle(saved.receiptNumber)) : undefined}
+        sub={saved && student ? `${rupees(saved.receipt?.total ?? saved.amount)} · ${student.name}${saved.receipt?.createdAt ? ` · ${ampm(saved.receipt.createdAt)}` : ""}` : undefined}
         footer={
           <>
-            <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={() => setSheet("")}>{tx(W.rmKeep)}</button>
-            <button type="button" className="tap btn danger" style={{ flex: 2 }} disabled={busy || !rmReason || !removable} onClick={remove}>
-              {busy ? <Ic n="refresh" size={16} className="spin" /> : <Ic n="trash" size={16} />} {tx(W.rmGo(rupees(saved?.receipt?.total ?? 0)))}
+            <button type="button" className="tap btn sec" style={{ flex: 1, height: 52 }} onClick={() => setSheet("")}>{tx(W.rmKeep)}</button>
+            <button type="button" className="tap btn danger pd-big" style={{ flex: 1.5 }} disabled={busy || !rmReason || !removable} onClick={remove}>
+              {busy ? <span className="pd-spin" /> : null} {tx(W.rmGo)}
             </button>
           </>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <span className="lbl">{tx(W.rmWhy)}</span>
-          <div className="pd-chips" role="radiogroup" aria-label={tx(W.rmWhy)}>
-            {W.rmReasons.map((r) => (
-              <Chip key={r.en} on={rmReason === r.en} onClick={() => setRmReason(r.en)}>{tx(r)}</Chip>
-            ))}
+        <div className="pd-c" style={{ gap: 10 }}>
+          <span className="sech">{tx(W.rmWhy)}</span>
+          <div className="pd-c" role="radiogroup" aria-label={tx(W.rmWhy)} style={{ gap: 8 }}>
+            {W.rmReasons.map((r) => {
+              const on = rmReason === r.label.en;
+              return (
+                <button key={r.label.en} type="button" role="radio" aria-checked={on} className="tap pd-rad" onClick={() => setRmReason(r.label.en)} style={{ border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)" }}>
+                  <i style={{ borderColor: on ? "var(--acc)" : "var(--bds)" }}><b style={{ transform: `scale(${on ? 1 : 0})` }} /></i>
+                  <span className="pd-c">
+                    <span className="pd-b">{tx(r.label)}</span>
+                    <span className="pd-m">{tx(r.sub)}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <Field label={tx(W.waiveNote)}>
-            <Input value={rmNote} onChange={(e) => setRmNote(e.target.value)} />
-          </Field>
+          <label className="field" style={{ marginTop: 4 }}>
+            <span>{tx(W.waiveNote)}</span>
+            <textarea className="inp" value={rmNote} onChange={(e) => setRmNote(e.target.value)} placeholder={tx(W.rmNotePh)} style={{ minHeight: 64 }} />
+          </label>
+          {saved && student ? (
+            <div className="pd-dg" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>
+              <Ic n="info" style={{ marginTop: 2, flex: "none" }} />
+              <span>{tx(W.rmImpact(saved.receiptNumber, rupees(saved.receipt?.total ?? saved.amount), firstName(student.name)))}</span>
+            </div>
+          ) : null}
         </div>
       </Sheet>
-
     </VxPage>
   );
 }
@@ -1211,9 +1347,9 @@ function waLines(saved: Saved, student: DeskStudent, lang: "hi" | "en" | "both")
 
 function StudentSkeleton() {
   return (
-    <Card style={{ display: "flex", flexDirection: "column", gap: 12 }} aria-busy="true">
+    <div className="card pd-cd" aria-busy="true">
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <Skel w={52} h={52} r={16} />
+        <Skel w={50} h={50} r={17} />
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
           <Skel w="60%" h={20} />
           <Skel w="80%" h={12} />
@@ -1227,7 +1363,7 @@ function StudentSkeleton() {
       </div>
       <Skel h={14} />
       <Skel h={14} />
-    </Card>
+    </div>
   );
 }
 
@@ -1235,76 +1371,75 @@ function StudentCard({
   student,
   today,
   totals,
+  sessionLabel,
   nextDue,
   onSibling,
-  hideOnPhone,
 }: {
   student: DeskStudent;
   today: string;
   totals: ReturnType<typeof deskTotals>;
+  sessionLabel: string;
   nextDue: { no: number; date: string } | null;
   onSibling: (id: string) => void;
-  hideOnPhone: boolean;
 }) {
   const { tx } = useVx();
   const rows = orderForSettlement(student.rows);
   const lateRows = rows.filter((r) => r.lateFeeRaw > 0 || r.lateFeePending > 0);
   const phone = maskPhone(student.phone);
-  const tiles = [
-    { k: W.feesPendingToday, v: totals.pendingToday, sub: totals.dueToday ? W.plusDueToday(rupees(totals.dueToday)) : W.overdueOnly, color: totals.pendingToday ? "var(--bad)" : "var(--ok)", hl: false },
-    { k: W.notDueYet, v: totals.notDueYet, sub: nextDue ? W.nextInst(nextDue.no, nextDue.date) : W.nothingAhead, color: "var(--fg)", hl: false },
-    { k: W.lateFee, v: totals.lateFee, sub: W.lateSeparate, color: totals.lateFee ? "var(--warnfg)" : "var(--ok)", hl: false },
-    { k: W.canTakeToday, v: totals.canTakeToday, sub: W.canTakeSub, color: "var(--pri)", hl: true },
+  const tiles: { k: Pair; v: number; sub: Pair; color: string; ring?: boolean }[] = [
+    { k: W.feesPendingToday, v: totals.pendingToday, sub: totals.dueToday ? W.plusDueToday(rupees(totals.dueToday)) : W.overdueOnly, color: totals.pendingToday ? "var(--bad)" : "var(--ok)" },
+    { k: W.notDueYet, v: totals.notDueYet, sub: nextDue ? W.nextInst(nextDue.no, nextDue.date) : W.nothingAhead, color: "var(--fg)" },
+    { k: W.lateFee, v: totals.lateFee, sub: W.lateSeparate, color: totals.lateFee ? "var(--warnfg)" : "var(--fg)" },
+    { k: W.canTakeToday, v: totals.canTakeToday, sub: totals.dueToday ? W.canTakeSubDue : W.canTakeSub, color: "var(--pri)", ring: true },
   ];
+  const paidSoFar = student.receipts.filter((h) => !h.isReversed).reduce((s, h) => s + h.amount, 0);
   return (
-    <Card className={`fadein${hideOnPhone ? " pd-hide-m" : ""}`} style={{ display: "flex", flexDirection: "column", gap: 14 }} aria-label={student.name}>
-      <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-        <span style={{ width: 52, height: 52, borderRadius: 16, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 18, flex: "none" }}>{initials(student.name)}</span>
-        <span style={{ display: "flex", flexDirection: "column", minWidth: 0, gap: 2 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <strong className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{student.name}</strong>
-            <Pill tone="mut">{tx(student.isNew ? W.newStudent : W.oldStudent)}</Pill>
+    <div className="card pd-cd fadein" aria-label={student.name}>
+      <div className="pd-f" style={{ gap: 12, alignItems: "flex-start" }}>
+        <span className="pd-av" style={{ width: 50, height: 50, borderRadius: 17, fontSize: 17, background: "var(--accs)", color: "var(--accfg)" }}>{initials(student.name)}</span>
+        <span className="pd-c" style={{ flex: 1 }}>
+          <span className="pd-f" style={{ gap: 6, flexWrap: "wrap" }}>
+            <span className="serif" style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.2 }}>{student.name}</span>
+            <span className="pill" style={{ background: "var(--s3)", color: "var(--mut)" }}>{tx(student.isNew ? W.newStudent : W.oldStudent)}</span>
             {student.onPlan ? <Pill tone="info" icon="layers">{tx(W.onPlan)}</Pill> : null}
           </span>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>{student.classLabel} · SR {student.sr}{phone ? ` · ${phone}` : ""}</span>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>
+          <span className="pd-m num">{student.classLabel} · SR {student.sr}{phone ? ` · ${phone}` : ""}</span>
+          <span className="pd-m">
             {student.father ? `${tx(W.father)} ${student.father} · ` : ""}{student.route ? `${tx(W.bus)}: ${student.route}` : tx(W.noBus)}
           </span>
         </span>
       </div>
-      {student.siblings.length ? (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {student.siblings.map((s) => (
-            <button key={s.id} type="button" className="tap chip" onClick={() => onSibling(s.id)}>
-              <Ic n="users" size={15} /> {s.name} · {s.classLabel} <Ic n="arrowRight" size={15} />
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {student.siblings.map((s) => (
+        <button key={s.id} type="button" className="tap chip" onClick={() => onSibling(s.id)} style={{ alignSelf: "flex-start" }}>
+          <Ic n="users" size={16} /> {s.name} · {s.classLabel} <Ic n="arrowRight" size={16} />
+        </button>
+      ))}
       <div className="pd-tiles">
-        {tiles.map((t) => (
-          <div key={t.k.en} className={`pd-tile${t.hl ? " hl" : ""}`}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{tx(t.k)}</span>
-            <b className="num" style={{ color: t.color }}>{rupees(t.v)}</b>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(t.sub)}</span>
+        {tiles.map((t, i) => (
+          <div key={t.k.en} className="pd-tile" style={{ animationDelay: `${i * 32}ms`, boxShadow: t.ring ? "inset 0 0 0 1.5px var(--acc)" : "none" }}>
+            <span className="pd-m" style={{ fontWeight: 600 }}>{tx(t.k)}</span>
+            <span className="num" style={{ fontSize: 20, fontWeight: 700, color: t.color }}>{rupees(t.v)}</span>
+            <span className="pd-m">{tx(t.sub)}</span>
           </div>
         ))}
       </div>
-      <div className="pd-ledger">
+      <div className="pd-c">
         {rows.map((r) => {
           const overdue = isOverdueOn(r, today);
-          const st = r.feesPending <= 0 ? (["ok", W.stPaid] as const) : overdue ? (r.feesPaid > 0 ? (["warn", W.stPart] as const) : (["bad", W.stOverdue] as const)) : (["mut", W.stNotDue] as const);
+          const left = Math.max(0, r.feesPending);
+          const st = left <= 0 ? (["var(--oks)", "var(--ok)", W.stPaid] as const) : overdue ? (["var(--bads)", "var(--bad)", W.stOverdue] as const) : r.feesPaid > 0 ? (["var(--infos)", "var(--info)", W.stPart] as const) : (["var(--s3)", "var(--mut)", W.stNotDue] as const);
+          const days = !overdue && left > 0 ? daysBetween(today, r.dueDate) : 0;
           return (
-            <div key={r.id}>
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <strong>{rowLabel(r, tx)}</strong>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                  {r.isCarryForward ? tx(W.unpaidLastSession) : tx(W.due(dayMonth(r.dueDate)))} · {tx(W.charge(rupees(r.charge), rupees(r.feesPaid)))}
+            <div key={r.id} className="pd-lrow">
+              <span className="pd-c" style={{ flex: 1 }}>
+                <span className="pd-b">{r.isCarryForward ? oldBalanceLabel(tx(W.oldBalance), sessionLabel) : r.label}</span>
+                <span className="pd-m">
+                  {r.isCarryForward ? tx(W.unpaidLastSession) : tx(W.due(dueDay(r.dueDate, today)))} · {tx(W.charge(rupees(r.charge), rupees(r.feesPaid)))}{days > 0 ? tx(W.dueIn(days)) : ""}
                 </span>
               </span>
-              <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                <b className="num" style={{ color: r.feesPending <= 0 ? "var(--ok)" : overdue ? "var(--bad)" : "var(--fg)" }}>{rupees(r.feesPending)}</b>
-                <Pill tone={st[0]}>{tx(st[1])}</Pill>
+              <span className="pd-end">
+                <span className="num pd-v" style={{ color: left > 0 && overdue ? "var(--bad)" : left > 0 ? "var(--fg)" : "var(--ok)" }}>{rupees(left)}</span>
+                <span className="pill" style={{ background: st[0], color: st[1] }}>{tx(st[2])}</span>
               </span>
             </div>
           );
@@ -1312,87 +1447,104 @@ function StudentCard({
         {lateRows.map((r) => {
           const waived = r.lateFeeStatus === "waived" || (r.lateFeeWaived > 0 && r.lateFeePending <= 0);
           const paid = !waived && r.lateFeePending <= 0;
+          const flat = rupees(r.lateFeeRaw || r.lateFeePending);
+          const st = waived ? (["var(--s3)", "var(--mut)", W.lateWaived] as const) : paid ? (["var(--oks)", "var(--ok)", W.latePaid] as const) : (["var(--warns)", "var(--warnfg)", W.latePending] as const);
           return (
-            <div key={`late-${r.id}`}>
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <strong style={{ color: "var(--warnfg)" }}>{tx(W.lateLine(r.installmentNo))}</strong>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.lateSeparate)}</span>
+            <div key={`late-${r.id}`} className="pd-lrow late">
+              <Ic n="clock" style={{ color: "var(--warn)", flex: "none" }} />
+              <span className="pd-c" style={{ flex: 1 }}>
+                <span className="pd-b">{tx(W.lateLine(r.installmentNo))}</span>
+                <span className="pd-m">{tx(waived ? W.lateFlatWaived(flat) : paid ? W.lateFlatPaid(flat) : W.lateFlat(flat, dueDay(r.dueDate, today)))}</span>
               </span>
-              <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                <b className="num" style={{ textDecoration: waived ? "line-through" : "none", color: "var(--warnfg)" }}>{rupees(r.lateFeeRaw || r.lateFeePending)}</b>
-                <Pill tone={waived ? "mut" : paid ? "ok" : "warn"}>{tx(waived ? W.lateWaived : paid ? W.latePaid : W.latePending)}</Pill>
+              <span className="pd-end">
+                <span className="num pd-v" style={{ textDecoration: waived ? "line-through" : "none" }}>{flat}</span>
+                <span className="pill" style={{ background: st[0], color: st[1] }}>{tx(st[2])}</span>
               </span>
             </div>
           );
         })}
       </div>
       {student.plan ? (
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>
-          <b>{tx(W.feePlan)}:</b>{" "}
+        <span className="pd-m" style={{ lineHeight: 1.5 }}>
           {tx(W.planLine(rupees(student.plan.tuition), student.plan.transport ? rupees(student.plan.transport) : null, rupees(student.plan.academic), student.plan.installments))}
         </span>
       ) : null}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <h3 className="sech">{tx(W.paidThisSession)}</h3>
+      <div className="pd-c" style={{ gap: 4, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
+        <span className="sech">{tx(W.paidThisSession)}</span>
         {student.receipts.length === 0 ? (
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.noPayment)}</span>
+          <span className="pd-m">{tx(W.noPayment)}</span>
         ) : (
           student.receipts.slice(0, 8).map((h) => (
-            <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <span className="num clip" style={{ fontWeight: 600, textDecoration: h.isReversed ? "line-through" : "none" }}>{h.receiptNumber} · {dayMonth(h.paymentDate)}</span>
-                <span style={{ color: "var(--mut)" }}>{MODE_TEXT[h.mode] ?? h.mode}</span>
+            <div key={h.id} className="pd-f pd-j num" style={{ fontSize: 13, padding: "3px 0" }}>
+              <span className="pd-e">{h.receiptNumber} · {dayMonth(h.paymentDate)}{h.isReversed ? tx(W.histRemoved) : ""}</span>
+              <span className="pd-f">
+                <span className="pd-m">{MODE_TEXT[h.mode] ?? h.mode}</span>
+                <b style={{ textDecoration: h.isReversed ? "line-through" : "none" }}>{rupees(h.amount)}</b>
               </span>
-              {h.isReversed ? <Pill tone="bad">{tx(W.removed)}</Pill> : null}
-              <b className="num">{rupees(h.amount)}</b>
             </div>
           ))
         )}
+        {paidSoFar > 0 && student.receipts.length > 8 ? <span className="pd-m">{rupees(paidSoFar)}</span> : null}
       </div>
-    </Card>
+    </div>
   );
 }
 
-function walkPill(line: WalkLine): ["ok" | "info" | "acc" | "mut", Pair] {
-  if (line.state === "cleared") return ["ok", W.wCleared];
-  if (line.state === "part") return ["info", W.wPart];
-  if (line.state === "ahead") return ["acc", W.wAhead];
-  return ["mut", W.wUntouched];
-}
+const WALK_LOOK: Record<WalkLine["state"], { bg: string; fg: string; pair: Pair }> = {
+  cleared: { bg: "var(--oks)", fg: "var(--ok)", pair: W.wCleared },
+  part: { bg: "var(--warns)", fg: "var(--warnfg)", pair: W.wPart },
+  ahead: { bg: "var(--infos)", fg: "var(--info)", pair: W.wAhead },
+  untouched: { bg: "var(--s3)", fg: "var(--mut)", pair: W.wUntouched },
+};
 
-function WherePreview({ walk, amount, paymentDate, today }: { walk: ReturnType<typeof walkPayment>; amount: number; paymentDate: string; today: string }) {
+function WherePreview({ walk, amount, paymentDate, today, sessionLabel }: { walk: ReturnType<typeof walkPayment>; amount: number; paymentDate: string; today: string; sessionLabel: string }) {
   const { tx } = useVx();
+  const after: [Pair | string, number, string][] = [
+    [W.feesPendingToday, walk.after.pendingToday, walk.after.pendingToday ? "var(--bad)" : "var(--ok)"],
+    ...(walk.after.dueToday ? ([[W.dueToday, walk.after.dueToday, "var(--warnfg)"]] as [Pair, number, string][]) : []),
+    [W.notDueYet, walk.after.notDueYet, "var(--fg)"],
+    [`${tx(W.lateFee)}${walk.waiverAmount > 0 ? tx(W.lateWaivedTag) : ""}`, walk.after.lateFee, walk.after.lateFee ? "var(--warnfg)" : "var(--ok)"],
+  ];
   return (
-    <Card style={{ display: "flex", flexDirection: "column", gap: 10 }} aria-live="polite">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tx(W.whereGoes)}</h2>
-        <strong className="num" style={{ color: "var(--acc)", fontSize: 17 }}>{rupees(amount)}</strong>
+    <div className="card pd-cd pd-stk" aria-live="polite">
+      <div className="pd-f pd-j">
+        <span className="pd-v">{tx(W.whereGoes)}</span>
+        <span className="num pd-v" style={{ color: "var(--acc)" }}>{rupees(amount)}</span>
       </div>
-      <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.oldestFirst)}</span>
-      {!amount ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(W.typeToSee)}</span> : null}
-      <div className="pd-walk">
+      <span className="pd-m">{tx(W.oldestFirst)}</span>
+      {!amount ? (
+        <div className="pd-bx" style={{ alignItems: "center", textAlign: "center", padding: "16px 8px" }}>
+          <Ic n="layers" size={24} style={{ color: "var(--sub)" }} />
+          <span className="pd-m">{tx(W.typeToSee)}</span>
+        </div>
+      ) : null}
+      <div className="pd-c">
         {walk.lines.map((l, i) => {
-          const pill = walkPill(l);
+          const look = WALK_LOOK[l.state];
           const paid = l.feesPaid + l.lateFeePaid;
           const left = l.feesAfter + l.lateFeeAfter;
-          const pct = l.before ? Math.round((paid / l.before) * 100) : 100;
+          const pct = l.before ? Math.round((paid / l.before) * 100) : 0;
           return (
-            <div key={l.row.id} style={{ opacity: paid || !amount ? 1 : 0.6, animation: `xIn .3s var(--ease) ${i * 40}ms both` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-                <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                  <strong>{rowLabel(l.row, tx)}</strong>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                    {l.row.isCarryForward ? tx(W.unpaidLastSession) : isOverdueOn(l.row, paymentDate) ? tx(W.overdueSince(dayMonth(l.row.dueDate))) : tx(W.due(dayMonth(l.row.dueDate)))}
+            <div key={l.row.id} className="pd-c" style={{ gap: 6, padding: "10px 0", borderTop: i ? "1px solid var(--bd)" : 0, opacity: paid || !amount ? 1 : 0.6, animation: `xIn .3s var(--ease) ${Math.min(i, 12) * 32}ms both` }}>
+              <div className="pd-f pd-j">
+                <span className="pd-c" style={{ flex: 1 }}>
+                  <span className="pd-b pd-e">{l.row.isCarryForward ? oldBalanceLabel(tx(W.oldBalance), sessionLabel) : l.row.label}</span>
+                  <span className="pd-m">
+                    {l.row.isCarryForward ? tx(W.lastSessionFees) : isOverdueOn(l.row, paymentDate) ? tx(W.overdueSince(dueDay(l.row.dueDate, today))) : tx(W.due(dueDay(l.row.dueDate, today)))}
                   </span>
                 </span>
-                {amount ? <Pill tone={pill[0]}>{tx(pill[1])}</Pill> : null}
+                <span className="pill" style={{ background: look.bg, color: look.fg }}>{tx(look.pair)}</span>
               </div>
-              <div className="pd-bar" aria-hidden="true">
-                <i key={`${amount}`} style={{ width: `${pct}%`, background: l.state === "ahead" ? "var(--acc)" : "var(--ok)" }} />
+              <div className="pd-tr" aria-hidden="true">
+                <span style={{ width: `${pct}%`, background: paid ? (left > 0 ? "var(--acc)" : "var(--ok)") : "transparent" }} />
               </div>
-              <span className="num" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, flexWrap: "wrap" }}>
-                {rupees(l.before)} <Ic n="arrowRight" size={13} /> <b>{tx(W.pay(rupees(paid)))}</b> <Ic n="arrowRight" size={13} /> {tx(W.left(rupees(left)))}
-              </span>
+              <div className="pd-f num" style={{ gap: 6, fontSize: 13 }}>
+                <span style={{ color: "var(--mut)" }}>{rupees(l.before)}</span>
+                <Ic n="arrowRight" size={13} style={{ color: "var(--sub)" }} />
+                <b style={{ color: paid ? "var(--fg)" : "var(--sub)" }}>{tx(W.pay(rupees(paid)))}</b>
+                <Ic n="arrowRight" size={13} style={{ color: "var(--sub)" }} />
+                <span>{tx(W.left(rupees(left)))}</span>
+              </div>
               {l.lateFeeDropped ? <span style={{ fontSize: 12, color: "var(--ok)", fontWeight: 600 }}>{tx(W.lateDropped)}</span> : null}
               {l.lateFeeWaived ? <span style={{ fontSize: 12, color: "var(--mut)", fontWeight: 600 }}>{tx(W.lateWaivedLine)}</span> : null}
               {l.lateFeePaid > 0 ? <span style={{ fontSize: 12, color: "var(--warnfg)" }}>{tx(W.lateFee)} {rupees(l.lateFeePaid)}</span> : null}
@@ -1400,17 +1552,23 @@ function WherePreview({ walk, amount, paymentDate, today }: { walk: ReturnType<t
           );
         })}
       </div>
-      {walk.credit > 0 ? <Banner tone="info">{tx(W.credit(rupees(walk.credit)))}</Banner> : null}
-      {walk.alreadyPaid.length ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(W.alreadyPaid(walk.alreadyPaid.join(", ")))}</span> : null}
-      <div className="pd-after">
+      {walk.credit > 0 ? (
+        <div className="pd-bx" style={{ flexDirection: "row", alignItems: "center", gap: 8, background: "var(--infos)", color: "var(--info)", fontSize: 13, fontWeight: 600 }}>
+          <Ic n="star" size={16} /> {tx(W.credit(rupees(walk.credit)))}
+        </div>
+      ) : null}
+      {walk.alreadyPaid.length ? <span className="pd-m">{tx(W.alreadyPaid(walk.alreadyPaid.join(", "), walk.alreadyPaid.length > 1))}</span> : null}
+      <div className="pd-bx" style={{ gap: 6, padding: 12, borderRadius: 14 }}>
         <span className="sech">{tx(W.afterThis)}</span>
-        <div><span>{tx(W.feesPendingToday)}</span><b className="num" style={{ color: walk.after.pendingToday ? "var(--bad)" : "var(--ok)" }}>{rupees(walk.after.pendingToday)}</b></div>
-        {walk.after.dueToday ? <div><span>{tx(W.dueToday)}</span><b className="num" style={{ color: "var(--warnfg)" }}>{rupees(walk.after.dueToday)}</b></div> : null}
-        <div><span>{tx(W.notDueYet)}</span><b className="num">{rupees(walk.after.notDueYet)}</b></div>
-        <div><span>{tx(W.lateFee)}</span><b className="num" style={{ color: walk.after.lateFee ? "var(--warnfg)" : "var(--ok)" }}>{rupees(walk.after.lateFee)}</b></div>
+        {after.map(([k, v, c]) => (
+          <div key={typeof k === "string" ? k : k.en} className="pd-f pd-j" style={{ fontSize: 13 }}>
+            <span>{tx(k)}</span>
+            <b className="num" style={{ color: c }}>{rupees(v)}</b>
+          </div>
+        ))}
       </div>
-      {paymentDate !== today ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{shortDay(paymentDate)}{tx(W.lateWorkedOut)}</span> : null}
-    </Card>
+      {paymentDate !== today ? <span className="pd-m">{shortDate(paymentDate)}{tx(W.lateWorkedOut)}</span> : null}
+    </div>
   );
 }
 
@@ -1419,76 +1577,86 @@ function ConfirmBody({
   amount,
   modeText,
   reference,
-  paymentDate,
+  dateLine,
   walk,
   receivedBy,
   concession,
   notes,
+  waiveReason,
+  sessionLabel,
 }: {
   student: DeskStudent;
   amount: number;
   modeText: string;
   reference: string;
-  paymentDate: string;
+  dateLine: string;
   walk: ReturnType<typeof walkPayment>;
   receivedBy: string;
   concession: number;
   notes: string;
+  waiveReason: string;
+  sessionLabel: string;
 }) {
   const { tx } = useVx();
   const kv: [Pair, string][] = [
-    [W.student, `${student.name} · ${student.classLabel} · SR ${student.sr}`],
-    [W.mode, `${modeText}${reference ? ` · ${reference}` : ""}`],
-    [W.paidOn, dateLabel(paymentDate)],
+    [W.student, `${student.name} · ${student.classLabel}`],
+    [W.amount, rupees(amount)],
+    [W.mode, modeText],
+    [W.dateK, dateLine],
+    [W.reference, reference || tx(W.none)],
+    ...(notes.trim() ? ([[W.notesK, notes.trim()]] as [Pair, string][]) : []),
     [W.collector, receivedBy],
     ...(concession > 0 ? ([[W.concession, rupees(concession)]] as [Pair, string][]) : []),
-    ...(notes.trim() ? ([[W.notes, notes]] as [Pair, string][]) : []),
-    ...(walk.waiverAmount > 0 ? ([[W.lateWaiverLine, rupees(walk.waiverAmount)]] as [Pair, string][]) : []),
   ];
-  const lines = walk.lines.filter((l) => l.feesPaid + l.lateFeePaid > 0 || l.discountApplied || l.lateFeeWaived || l.lateFeeDropped);
+  const lines: { key: string; k: string; sub: string; v: string }[] = walk.lines
+    .filter((l) => l.feesPaid + l.lateFeePaid > 0 || l.discountApplied || l.lateFeeDropped)
+    .map((l) => {
+      const left = l.feesAfter + l.lateFeeAfter;
+      const state = tx(l.state === "ahead" ? W.wAhead : W.wPart);
+      const extra = [
+        l.lateFeePaid ? `${tx(W.lateFee)} ${rupees(l.lateFeePaid)}` : "",
+        l.discountApplied ? `${tx(W.concession)} ${rupees(l.discountApplied)}` : "",
+        l.lateFeeDropped ? tx(W.lateDropped) : "",
+      ].filter(Boolean);
+      return {
+        key: l.row.id,
+        k: l.row.isCarryForward ? oldBalanceLabel(tx(W.oldBalance), sessionLabel) : l.row.label,
+        sub: [left > 0 ? tx(W.cfLeft(state, rupees(left))) : tx(W.wCleared), ...extra].join(" · "),
+        v: rupees(l.feesPaid + l.lateFeePaid),
+      };
+    });
+  if (walk.waiverAmount > 0) lines.push({ key: "waiver", k: `${tx(W.lateFee)} ${rupees(walk.waiverAmount)}`, sub: `${tx(W.lateWaived)}${waiveReason ? ` · ${waiveReason}` : ""}`, v: rupees(0) });
+  if (walk.credit > 0) lines.push({ key: "credit", k: tx(W.creditK), sub: tx(W.creditSub), v: rupees(walk.credit) });
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 0" }}>
-        <span style={{ fontSize: 12, color: "var(--mut)", fontWeight: 700 }}>{tx(W.amount)}</span>
-        <strong className="num" style={{ fontSize: 36 }}>{rupees(amount)}</strong>
-        <em style={{ fontSize: 13, color: "var(--mut)" }}>{amountInWords(amount)}</em>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <>
+      <div className="pd-c">
         {kv.map(([k, v]) => (
-          <div key={k.en} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-            <span style={{ color: "var(--mut)" }}>{tx(k)}</span>
-            <strong style={{ textAlign: "right" }}>{v}</strong>
+          <div key={k.en} className="pd-kv">
+            <span className="pd-m" style={{ fontSize: 13 }}>{tx(k)}</span>
+            <span className="pd-b num" style={{ textAlign: "right" }}>{v}</span>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--bd)", paddingTop: 10 }}>
-        <span className="sech">{tx(W.whereItGoes)}</span>
+      <span className="sech" style={{ marginTop: 4 }}>{tx(W.whereItGoes)}</span>
+      <div className="pd-c">
         {lines.map((l) => (
-          <div key={l.row.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-            <span style={{ display: "flex", flexDirection: "column" }}>
-              <span>{rowLabel(l.row, tx)}</span>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                {tx(walkPill(l)[1])}
-                {l.lateFeePaid ? ` · ${tx(W.lateFee)} ${rupees(l.lateFeePaid)}` : ""}
-                {l.discountApplied ? ` · ${tx(W.concession)} ${rupees(l.discountApplied)}` : ""}
-                {l.lateFeeWaived ? ` · ${tx(W.lateWaivedLine)}` : ""}
-                {l.lateFeeDropped ? ` · ${tx(W.lateDropped)}` : ""}
-              </span>
+          <div key={l.key} className="pd-ln" style={{ fontSize: 14 }}>
+            <span className="pd-c">
+              <span>{l.k}</span>
+              <span className="pd-m">{l.sub}</span>
             </span>
-            <b className="num">{rupees(l.feesPaid + l.lateFeePaid)}</b>
+            <b className="num">{l.v}</b>
           </div>
         ))}
-        {walk.credit > 0 ? <span style={{ fontSize: 13, color: "var(--info)" }}>{tx(W.credit(rupees(walk.credit)))}</span> : null}
       </div>
-      <div className="pd-after">
+      <div className="pd-bx">
         <span className="sech">{tx(W.balanceAfter)}</span>
-        <div><span>{tx(W.feesPendingToday)}</span><b className="num">{rupees(walk.after.pendingToday)}</b></div>
-        {walk.after.dueToday ? <div><span>{tx(W.dueToday)}</span><b className="num">{rupees(walk.after.dueToday)}</b></div> : null}
-        <div><span>{tx(W.notDueYet)}</span><b className="num">{rupees(walk.after.notDueYet)}</b></div>
-        <div><span>{tx(W.lateFeeSep)}</span><b className="num">{rupees(walk.after.lateFee)}</b></div>
-        <div style={{ borderTop: "1px solid var(--bd)", paddingTop: 6 }}><span>{tx(W.remainingYear)}</span><b className="num">{rupees(walk.after.pendingToday + walk.after.dueToday + walk.after.notDueYet + walk.after.lateFee)}</b></div>
+        <div className="pd-f pd-j" style={{ fontSize: 13 }}><span>{tx(W.feesPendingToday)}</span><b className="num">{rupees(walk.after.pendingToday)}</b></div>
+        {walk.after.dueToday ? <div className="pd-f pd-j" style={{ fontSize: 13 }}><span>{tx(W.dueToday)}</span><b className="num">{rupees(walk.after.dueToday)}</b></div> : null}
+        <div className="pd-f pd-j" style={{ fontSize: 13 }}><span>{tx(W.notDueYet)}</span><b className="num">{rupees(walk.after.notDueYet)}</b></div>
+        <div className="pd-f pd-j" style={{ fontSize: 13 }}><span>{tx(W.lateFee)}</span><b className="num">{rupees(walk.after.lateFee)}</b></div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1500,7 +1668,6 @@ function SavedPanel({
   canAct,
   onWa,
   onNew,
-  onAnother,
   onRetryReceipt,
   busy,
   onRemove,
@@ -1513,7 +1680,6 @@ function SavedPanel({
   canAct: boolean;
   onWa: () => void;
   onNew: () => void;
-  onAnother: () => void;
   onRetryReceipt: () => void;
   busy: boolean;
   onRemove: () => void;
@@ -1521,92 +1687,97 @@ function SavedPanel({
 }) {
   const { tx } = useVx();
   const r = saved.receipt;
-  const time = r?.createdAt ? clock(r.createdAt) : saved.savedAtMs ? clock(new Date(saved.savedAtMs)) : "";
-  const until = saved.savedAtMs ? clock(new Date(saved.savedAtMs + REMOVE_WINDOW_MS)) : "";
+  const time = r?.createdAt ? ampm(r.createdAt) : saved.savedAtMs ? ampm(new Date(saved.savedAtMs)) : "";
+  const until = saved.savedAtMs ? ampm(new Date(saved.savedAtMs + REMOVE_WINDOW_MS)) : "";
   const gone = saved.removed;
   const title = gone ? tx(W.entryRemoved) : saved.fresh ? tx(W.saved) : tx(W.savedEarlier(time));
   const lock = gone ? tx(W.lockedGone) : saved.fresh ? tx(W.lockedFresh) : tx(W.lockedOld(time));
   const sib = student.siblings[0];
+  const receiptHref = `/receipts/${encodeURIComponent(saved.receiptNumber)}`;
+  const log: ReactNode[] = saved.log.map((l, i) => <LogLine key={`${l.text}-${i}`} dot={l.tone} text={l.text} time={l.time} delay={i} />);
+  if (saved.fresh && !gone) {
+    log.push(<LogLine key="window" dot="var(--sub)" text={canRemove ? (removable ? tx(W.youCanRemove(until)) : "") : tx(W.onlyAdminRemoves)} time="" delay={log.length} />);
+  }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Card className="rise" style={{ display: "flex", alignItems: "center", gap: 16, borderColor: gone ? "var(--bad)" : saved.fresh ? "var(--okm)" : "var(--bd)" }}>
-        {gone ? (
-          <span style={{ width: 64, height: 64, borderRadius: 32, background: "var(--bads)", color: "var(--bad)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Ic n="trash" size={28} /></span>
-        ) : saved.fresh ? (
-          <SuccessTick size={64} />
+    <div className="pd-c" style={{ gap: 14, paddingBottom: 24, animation: "xPush .36s var(--ease) both" }}>
+      <div className="card pd-f" style={{ gap: 16, padding: "16px 18px", borderColor: gone ? "var(--bad)" : saved.fresh ? "var(--okm)" : "var(--bd)" }}>
+        {saved.fresh && !gone ? (
+          <svg width="72" height="72" viewBox="0 0 96 96" aria-hidden="true" style={{ flex: "none", animation: "xPopIn .5s var(--spring) both" }}>
+            <circle cx="48" cy="48" r="44" className="pd-tk0" />
+            <circle cx="48" cy="48" r="44" className="pd-tk1" />
+            <path d="M30 49l12 12 24-26" className="pd-tk2" />
+          </svg>
         ) : (
-          <span style={{ width: 64, height: 64, borderRadius: 32, background: "var(--infos)", color: "var(--info)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Ic n="info" size={28} /></span>
-        )}
-        <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-          <strong className="serif" style={{ fontSize: 26, fontWeight: 600 }}>{title}</strong>
-          <span className="num" style={{ color: "var(--mut)" }}>
-            {rupees(r?.total ?? saved.amount)} · {student.name} · {saved.receiptNumber}{time ? ` · ${time}` : ""}
+          <span className="pd-av" style={{ width: 56, height: 56, borderRadius: 28, background: gone ? "var(--bads)" : "var(--infos)", color: gone ? "var(--bad)" : "var(--info)" }}>
+            <Ic n={gone ? "trash" : "info"} size={26} />
           </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--mut)" }}>
-            <Ic n="lock" size={14} /> {lock}
+        )}
+        <span className="pd-c" style={{ flex: 1 }}>
+          <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{title}</span>
+          <span className="num" style={{ fontSize: 14, color: "var(--mut)" }}>{tx(W.savedFor(rupees(r?.total ?? saved.amount), student.name, saved.receiptNumber, time))}</span>
+          <span className="pd-f pd-m" style={{ gap: 6, marginTop: 4, alignItems: "flex-start" }}>
+            <Ic n="lock" size={16} style={{ marginTop: 1, flex: "none" }} /> {lock}
           </span>
         </span>
-      </Card>
-      <div className="pd-saved">
+      </div>
+      <div className="pd-p2">
         {r ? (
-          saved.fresh ? <div style={{ minWidth: 0 }}>
-            <MobilePrintedReceipt receiptNumber={r.receiptNumber} studentFullName={r.studentName} fatherName={r.father} admissionNo={r.sr} classLabel={r.classLabel} amountReceived={r.total} lines={r.lines} paymentDate={dateLabel(r.paymentDate)} paymentModeLabel={MODE_TEXT[r.mode] ?? r.mode} referenceNumber={r.reference ?? undefined} receivedBy={r.receivedBy ?? "—"} remainingBalance={r.outstandingAfter} isVoided={gone} countUpTotal />
-            <details><summary className="tap" style={{ padding: 12 }}>{tx(W.receiptDetails)}</summary><ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} /></details>
-          </div> : <ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} />
+          <ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} />
         ) : (
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="card pd-cd">
             <Banner tone="info">{tx(W.receiptPending(saved.receiptNumber))}</Banner>
             <Btn variant="sec" icon="refresh" disabled={busy} onClick={onRetryReceipt}>{tx(W.showReceipt)}</Btn>
-          </Card>
+          </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="pd-c" style={{ gap: 10 }}>
           {!gone ? (
             <>
-              <Btn variant="sec" icon="send" full onClick={onWa} disabled={!canAct}>
-                {tx(saved.sent ? W.sendWaAgain : W.sendWa)}
-              </Btn>
-              <span style={{ fontSize: 12, color: "var(--mut)", textAlign: "center" }}>
+              <button type="button" className="tap btn pri pd-big" onClick={onWa} disabled={!canAct}>
+                <Ic n="send" size={20} /> {tx(saved.sent ? W.sendWaAgain : W.sendWa)}
+              </button>
+              <span className="pd-m" style={{ textAlign: "center" }}>
                 {student.phone ? tx(W.waTo(student.father ?? student.name, maskPhone(student.phone))) : tx(W.noPhone)}
               </span>
             </>
           ) : null}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Btn variant="pri" icon="printer" href={`/receipts/${encodeURIComponent(saved.receiptNumber)}`}>{tx(W.print)}</Btn>
+          <div className="pd-tiles">
+            <Btn variant="sec" icon="printer" href={receiptHref}>{tx(W.print)}</Btn>
             <Btn variant="sec" icon="download" href={`/fees/receipts/${saved.receiptId}/pdf`} target="_blank" prefetch={false}>{tx(W.pdf)}</Btn>
           </div>
-          <Btn variant="pri" icon="search" full onClick={onAnother}>{tx(W.collectAnother)}</Btn>
-          <Btn variant="sec" icon="plus" full onClick={onNew}>{tx(W.newPayment)}</Btn>
+          <Btn variant="sec" icon="plus" full onClick={onNew} style={{ height: 48 }}>{tx(W.newPayment)}</Btn>
           {sib ? (
-            <Btn variant="soft" full onClick={() => onSibling(sib.id)}>
-              {sib.name} <Ic n="arrowRight" size={16} />
+            <Btn variant="soft" full onClick={() => onSibling(sib.id)} style={{ height: 48 }}>
+              {sib.name} <Ic n="arrowRight" size={18} />
             </Btn>
           ) : null}
           {removable ? (
-            <Btn variant="ghost" icon="undo" full onClick={onRemove} style={{ color: "var(--bad)" }} disabled={!canAct}>
+            <Btn variant="ghost" icon="trash" full onClick={onRemove} style={{ color: "var(--bad)" }} disabled={!canAct}>
               {tx(W.removeTill(until))}
             </Btn>
           ) : null}
-          {!saved.fresh || gone ? (
-            <Btn variant="ghost" icon="receipt" full href={`/receipts/${encodeURIComponent(saved.receiptNumber)}`}>{tx(W.openInReceipts)}</Btn>
+          {saved.fresh && !gone && !canRemove ? (
+            <Btn variant="ghost" icon="undo" full href={receiptHref} style={{ color: "var(--bad)" }}>{tx(W.askRemove)}</Btn>
           ) : null}
-          <Card style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <h3 className="sech">{tx(W.whoDidWhat)}</h3>
-            {saved.log.map((l, i) => (
-              <div key={`${l.text}-${i}`} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 13 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 4, background: l.tone, flex: "none" }} />
-                <span style={{ flex: 1 }}>{l.text}</span>
-                <span className="num" style={{ color: "var(--mut)" }}>{l.time}</span>
-              </div>
-            ))}
-            {saved.fresh && !gone && !canRemove ? (
-              <div style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 13 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 4, background: "var(--sub)", flex: "none" }} />
-                <span style={{ flex: 1 }}>{tx(W.onlyAdminRemoves)}</span>
-              </div>
-            ) : null}
-          </Card>
+          {!saved.fresh || gone ? (
+            <Btn variant="ghost" full href={receiptHref}>{tx(W.openInReceipts)}</Btn>
+          ) : null}
+          <div className="card pd-c" style={{ gap: 6, padding: "12px 14px" }}>
+            <span className="sech">{tx(W.whoDidWhat)}</span>
+            {log}
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LogLine({ dot, text, time, delay }: { dot: string; text: string; time: string; delay: number }) {
+  if (!text) return null;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "12px minmax(0,1fr) auto", gap: 10, alignItems: "start", animation: `xIn .3s var(--ease) ${delay * 60}ms both` }}>
+      <span style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: dot }} />
+      <span style={{ fontSize: 13 }}>{text}</span>
+      <span className="num pd-m">{time}</span>
     </div>
   );
 }

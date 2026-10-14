@@ -21,6 +21,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
       month={param(sp.month)}
       studentId={param(sp.student)}
       filter={param(sp.filter)}
+      who={param(sp.who)}
+      day={param(sp.day)}
     />
   );
 }

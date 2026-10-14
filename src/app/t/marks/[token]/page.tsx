@@ -1,19 +1,15 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { clientIp, limitByIp, limitByToken, limitUnknownToken } from "@/modules/collection/data/rate-limit";
 import { getSchoolName } from "@/platform/env";
 import { schoolToday } from "@/platform/dates";
 import { LanguageProvider } from "@/platform/i18n/use-language";
-import { Ic } from "@/vx/icons";
-import { lead, p, under } from "@/vx/text";
+import { lead } from "@/vx/text";
 import { ToastProvider } from "@/vx/ui/overlays";
-import { Section, TopBar, VxPage } from "@/vx/ui/page";
-import { Card, EmptyState, Pill, Progress } from "@/vx/ui/primitives";
 import { assignmentsFor, classesFor, listExams, staffList, trackerFor } from "@/vx/screens/exams/data";
 import { paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { resolveMarksLink, touchMarksLink } from "@/vx/screens/exams/link-data";
-import { PublicMarksSheet } from "@/vx/screens/exams/public-sheet";
+import { PublicMarksSheet, PublicPaperList } from "@/vx/screens/exams/public-sheet";
 import { loadSheet } from "@/vx/screens/exams/sheet-data";
 
 export const runtime = "nodejs";
@@ -89,46 +85,15 @@ export default async function MarksLinkPage(props: PageProps<"/t/marks/[token]">
     );
   }
 
-  const title = lead(p("Your marks", "आपके अंक"), lang);
   return wrap(
-    <VxPage>
-      <TopBar crumb={getSchoolName()} title={title} mTitle={title} mSub={`${link.staffName} · ${lead(link.examLabel, lang)}`} />
-      <main>
-        <Section style={{ maxWidth: 720 }}>
-          <div>
-            <h2 className="serif" style={{ margin: 0, fontSize: 26 }}>{lead(link.examLabel, lang)}</h2>
-            <span style={{ color: "var(--mut)" }}>
-              {link.staffName} · {lead(p("Tap a paper. Everything saves by itself.", "पेपर दबाएँ। सब अपने आप सहेजा जाता है।"), lang)}
-            </span>
-          </div>
-          {papers.length === 0 ? (
-            <Card>
-              <EmptyState icon="clipboard" title={lead(p("No papers for you in this exam", "इस परीक्षा में आपका कोई पेपर नहीं"), lang)} />
-            </Card>
-          ) : null}
-          {papers
-            .sort((a, b) => a.classSort - b.classSort || a.subjectCode.localeCompare(b.subjectCode))
-            .map((paper) => {
-              const status = paperStatus(paper);
-              const label =
-                status === "done" ? p("Sent", "भेजे गए") : status === "in_progress" ? p("In progress", "जारी") : p("Not started", "शुरू नहीं");
-              return (
-                <Link key={paper.paperId} href={`/t/marks/${token}?paper=${paper.paperId}`} className="card tap lift" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "16px 18px", color: "var(--fg)" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <strong style={{ flex: 1, fontSize: 17 }}>{paper.classLabel} · {paper.subjectCode}</strong>
-                    <Pill tone={status === "done" ? "ok" : status === "in_progress" ? "info" : "mut"}>{lead(label, lang)}</Pill>
-                    <Ic n="chevRight" size={18} />
-                  </span>
-                  <Progress value={paper.entered} max={Math.max(1, paper.total)} tone={status === "done" ? "var(--ok)" : "var(--pri)"} />
-                  <span style={{ fontSize: 13, color: "var(--mut)" }}>
-                    {paper.entered} / {paper.total} · {lead(p("out of", "पूर्णांक"), lang)} {paper.maxMarks}
-                    {under(label, lang) ? ` · ${under(label, lang)}` : ""}
-                  </span>
-                </Link>
-              );
-            })}
-        </Section>
-      </main>
-    </VxPage>,
+    <PublicPaperList
+      token={token}
+      school={getSchoolName()}
+      staffName={link.staffName}
+      examLabel={link.examLabel}
+      papers={papers
+        .sort((a, b) => a.classSort - b.classSort || a.subjectCode.localeCompare(b.subjectCode))
+        .map((paper) => ({ paperId: paper.paperId, classLabel: paper.classLabel, subjectCode: paper.subjectCode, maxMarks: paper.maxMarks, entered: paper.entered, total: paper.total, status: paperStatus(paper) }))}
+    />,
   );
 }

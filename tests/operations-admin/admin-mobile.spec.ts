@@ -18,30 +18,31 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.getByRole("link", { name: "Back", exact: true }).tap();
     await expect(page).toHaveURL(new RegExp(`${list.replace(/[?]/g, "\\?")}$`));
   });
+  // The phone list is the design's cards (F05): no ticks; each card swipes left for Call · WhatsApp · Collect.
   test(`Fees list controls fit touch phone at ${viewport.width}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto(list);
-    await expect(page.getByRole("link", { name: "QA Admin Child", exact: true })).toBeVisible();
+    const child = page.getByRole("link", { name: "QA Admin Child", exact: true }).filter({ visible: true });
+    await expect(child).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
-    await page.getByRole("checkbox", { name: "Select QA Admin Child", exact: true }).tap();
-    const selected = page.getByRole("region", { name: /selected/ });
-    await expect(selected).toBeVisible();
-    const controls = await selected.locator("a,button").evaluateAll(elements => elements.map(element => {
-      const r = element.getBoundingClientRect(); return { label: element.getAttribute("aria-label") ?? element.textContent,
-        left: r.left, right: r.right, width: r.width, height: r.height };
+    await expect(page.getByRole("checkbox", { name: "Select QA Admin Child", exact: true }).filter({ visible: true })).toHaveCount(0);
+    // The cards, the search box and the list's buttons (export, pages); chips and the view switch are the kit's own sizes.
+    const inView = await page.locator("main").locator(".stu-mcard, input[type=search], .btn").evaluateAll(elements => elements.filter(element => {
+      const r = element.getBoundingClientRect();
+      return element.getClientRects().length > 0 && r.right > 0 && r.left < innerWidth && !element.closest(".stu-acts");
+    }).map(element => {
+      const r = element.getBoundingClientRect(); return { label: element.getAttribute("aria-label") ?? element.textContent, left: r.left, right: r.right, width: r.width, height: r.height };
     }));
-    expect(controls.filter(control => control.left < 0 || control.right > viewport.width || control.width < 44 || control.height < 44)).toEqual([]);
-    const reminderContrast = await selected.locator("a").first().evaluate(element => {
-      const style = getComputedStyle(element);
-      const luminance = (color: string) => (color.match(/[\d.]+/g) ?? []).slice(0, 3)
-        .map(Number).map(value => value / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
-        .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-      const foreground = luminance(style.color); const background = luminance(style.backgroundColor);
-      return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
-    });
-    expect(reminderContrast).toBeGreaterThanOrEqual(3);
-    await page.getByRole("button", { name: "Clear selection" }).tap();
-    await expect(selected).toHaveCount(0);
+    expect(inView.filter(control => control.left < -1 || control.right > viewport.width + 1 || control.width < 44 || control.height < 44)).toEqual([]);
+    // Swiped open, the first card's actions are on screen and thumb-sized.
+    const swipe = page.locator(".stu-swipe").first();
+    await swipe.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+    const collect = swipe.getByRole("link", { name: "Collect fee from QA Admin Child" });
+    const box = (await collect.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
   });
   test(`classic Fees list bulk actions fit touch phone at ${viewport.width}`, async ({ page }) => {
     await page.setViewportSize(viewport);
@@ -55,6 +56,35 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await expect(page.getByRole("button", { name: "Bulk edit.", exact: true })).toHaveCount(0);
   });
 }
+// On a desk the rows are ticked and the design's floating bulk bar acts on them (D01).
+test("desk bulk bar: ticked rows, readable reminder, clear", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await page.goto(list);
+  await page.getByRole("checkbox", { name: "Select QA Admin Child", exact: true }).tap();
+  const selected = page.getByRole("toolbar", { name: /selected/ });
+  await expect(selected).toBeVisible();
+  // The design's desk bar: 36px buttons, all on screen. Layout pixels, so a touch emulator's zoom does not count.
+  const controls = await selected.locator("a,button").evaluateAll(elements => elements.map(element => {
+    const r = element.getBoundingClientRect(); const e = element as HTMLElement;
+    return { left: r.left, right: r.right, width: e.offsetWidth, height: e.offsetHeight, inView: r.left >= 0 && r.right <= document.documentElement.clientWidth };
+  }));
+  expect(controls.filter(control => !control.inView || control.width < 36 || control.height < 36)).toEqual([]);
+  // The reminder's tint is translucent: composite it over the bar before measuring.
+  const reminderContrast = await selected.locator("a").first().evaluate(element => {
+    const rgba = (color: string) => { const v = (color.match(/[\d.]+/g) ?? []).map(Number); return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 }; };
+    const bar = rgba(getComputedStyle(element.parentElement!).backgroundColor);
+    const tint = rgba(getComputedStyle(element).backgroundColor);
+    const bg = { r: tint.r * tint.a + bar.r * (1 - tint.a), g: tint.g * tint.a + bar.g * (1 - tint.a), b: tint.b * tint.a + bar.b * (1 - tint.a) };
+    const lum = (c: { r: number; g: number; b: number }) => [c.r, c.g, c.b].map(value => value / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+      .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+    const foreground = lum(rgba(getComputedStyle(element).color)); const background = lum(bg);
+    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+  });
+  expect(reminderContrast).toBeGreaterThanOrEqual(3);
+  await page.getByRole("button", { name: "Clear selection" }).tap();
+  await expect(selected).toHaveCount(0);
+});
+
 test("profile rejects an external return URL", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto(`/students/${id}?returnTo=${encodeURIComponent("https://example.invalid/students?q=QA")}`);

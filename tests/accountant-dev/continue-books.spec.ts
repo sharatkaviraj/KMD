@@ -129,7 +129,7 @@ test("five immutable existing receipts and matched UPI: finish owned cheque book
     }
     await expect(cheque).toContainText("OPS Synthetic Bank");
     await cheque.getByRole("checkbox", { name: "Select cheque 261011", exact: true }).tap();
-    const makeDeposit = page.getByRole("button", { name: "Make deposit slip", exact: true });
+    const makeDeposit = page.getByRole("button", { name: /^Make a deposit slip \(/ });
     await makeDeposit.scrollIntoViewIfNeeded();
     const depositGeometry = await makeDeposit.evaluate(button => {
       const rect = button.getBoundingClientRect(); const nav = document.querySelector("nav.vx-bottom")!.getBoundingClientRect();
@@ -140,7 +140,7 @@ test("five immutable existing receipts and matched UPI: finish owned cheque book
     await makeDeposit.tap();
     expect(await page.evaluate(() => document.documentElement.dataset.qaDepositTrusted)).toBe("true");
     audit("own-native-deposit-dialog-open", { depositGeometry, depositTrustedClick: true });
-    const deposit = page.getByRole("dialog", { name: "Deposit slip", exact: true });
+    const deposit = page.getByRole("dialog", { name: /^Deposit slip DS-\d+$/ });
     await deposit.getByLabel("Bank and account", { exact: true }).fill(`${tag} synthetic bank`);
     await deposit.getByLabel("Deposited on", { exact: true }).fill(date);
     await page.evaluate(() => { document.documentElement.dataset.qaPrintCalls = "0"; });

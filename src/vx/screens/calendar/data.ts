@@ -6,8 +6,10 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { WHATSAPP_MESSAGE_COST_RUPEES } from "@/modules/whatsapp/domain/run-measurement";
 import { studentInfo, staffDirectory } from "@/vx/screens/academics/data";
 import { fetchAllRows } from "@/platform/supabase/paginate";
+import { chunkArray } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 
-import type { CalEvent, CalHoliday } from "./domain";
+import type { CalEvent, CalHoliday, NoticeCounts } from "./domain";
 
 /*
  * Server reads for the school calendar. Events live in
@@ -88,19 +90,19 @@ export async function holidaysBetween(session: string, from: string, to: string)
   return data.map((row) => ({ id: row.id, day: row.day, kind: row.kind, label: row.label_en, labelHi: row.label_hi }));
 }
 
-export type Notice = { id: string; eventId: string | null; holidayDay: string | null; audience: string; recipients: number; costPaise: number; status: string; requestedAt: string; by: string; textHi: string; textEn: string };
+export type Notice = { id: string; eventId: string | null; holidayDay: string | null; audience: string; recipients: number; costPaise: number; status: string; requestedAt: string; by: string; textHi: string; textEn: string; campaignId: string | null; decidedAt: string | null };
 
 export async function noticesFor(session: string, filter: { eventId?: string; holidayDays?: string[] }): Promise<Notice[]> {
   let q = createAdminClient()
     .from("calendar_notices")
-    .select("id, event_id, holiday_day, audience, recipients, cost_paise, status, requested_at, requested_by, rendered_hi, rendered_en")
+    .select("id, event_id, holiday_day, audience, recipients, cost_paise, status, requested_at, requested_by, rendered_hi, rendered_en, campaign_id, decided_at")
     .eq("session_label", session)
     .order("requested_at", { ascending: false });
   if (filter.eventId) q = q.eq("event_id", filter.eventId);
   if (filter.holidayDays) q = q.in("holiday_day", filter.holidayDays.length ? filter.holidayDays : ["1900-01-01"]);
-  const { data } = await q.returns<{ id: string; event_id: string | null; holiday_day: string | null; audience: string; recipients: number; cost_paise: number; status: string; requested_at: string; requested_by: string; rendered_hi: string; rendered_en: string }[]>();
+  const { data } = await q.returns<{ id: string; event_id: string | null; holiday_day: string | null; audience: string; recipients: number; cost_paise: number; status: string; requested_at: string; requested_by: string; rendered_hi: string; rendered_en: string; campaign_id: string | null; decided_at: string | null }[]>();
   const staff = await staffDirectory();
-  return (data ?? []).map((n) => ({ id: n.id, eventId: n.event_id, holidayDay: n.holiday_day, audience: n.audience, recipients: n.recipients, costPaise: n.cost_paise, status: n.status, requestedAt: n.requested_at, by: staff.get(n.requested_by)?.display_name ?? "—", textHi: n.rendered_hi, textEn: n.rendered_en }));
+  return (data ?? []).map((n) => ({ id: n.id, eventId: n.event_id, holidayDay: n.holiday_day, audience: n.audience, recipients: n.recipients, costPaise: n.cost_paise, status: n.status, requestedAt: n.requested_at, by: staff.get(n.requested_by)?.display_name ?? "—", textHi: n.rendered_hi, textEn: n.rendered_en, campaignId: n.campaign_id, decidedAt: n.decided_at }));
 }
 
 const enrolledFor = cache(async (session: string) =>
@@ -154,6 +156,66 @@ export async function staffAway(session: string, from: string, to: string): Prom
     const list = out.get(row.day) ?? [];
     list.push(staff.get(row.staff_profile_id)?.display_name ?? "—");
     out.set(row.day, list);
+  }
+  return out;
+}
+
+/** Children on the roll, by class. */
+export async function rollByClass(session: string): Promise<Map<string, number>> {
+  const roll = await enrolledFor(session);
+  const out = new Map<string, number>();
+  for (const r of roll) out.set(r.class_id, (out.get(r.class_id) ?? 0) + 1);
+  return out;
+}
+
+/** Staff away by day, with the periods and the reason the cover day recorded. */
+export async function staffAwayDetail(session: string, from: string, to: string): Promise<Map<string, { name: string; reason: string | null; periods: number[] }[]>> {
+  const { data } = await createAdminClient()
+    .from("teacher_absences")
+    .select("day, staff_profile_id, periods, reason")
+    .eq("session_label", session)
+    .gte("day", from)
+    .lte("day", to)
+    .returns<{ day: string; staff_profile_id: string; periods: number[] | null; reason: string | null }[]>();
+  const staff = await staffDirectory();
+  const out = new Map<string, { name: string; reason: string | null; periods: number[] }[]>();
+  for (const row of data ?? []) {
+    const list = out.get(row.day) ?? [];
+    list.push({ name: staff.get(row.staff_profile_id)?.display_name ?? "—", reason: row.reason, periods: row.periods ?? [] });
+    out.set(row.day, list);
+  }
+  return out;
+}
+
+/**
+ * What became of an approved notice's messages, by campaign: the per-family
+ * rows in `message_sends` that a person sends by hand from Messages → To
+ * send (UI-71). Sent, still waiting, or not sent (failed or cancelled).
+ */
+export async function noticeCounts(campaignIds: string[]): Promise<Record<string, NoticeCounts>> {
+  const ids = [...new Set(campaignIds)];
+  if (ids.length === 0) return {};
+  const data: { campaign_id: string; status: string }[] = [];
+  try {
+    // A notice to the whole school is one row per family, so every chunk is paged.
+    for (const chunk of chunkArray(ids, IN_FILTER_CHUNK_SIZE)) {
+      data.push(
+        ...(await fetchAllRows<{ campaign_id: string; status: string }>(
+          (from, to) => createAdminClient().from("message_sends").select("campaign_id, status").in("campaign_id", chunk).order("id").range(from, to),
+          "the notice messages",
+        )),
+      );
+    }
+  } catch {
+    return {};
+  }
+  const out: Record<string, NoticeCounts> = {};
+  for (const row of data) {
+    const c = (out[row.campaign_id] ??= { total: 0, sent: 0, waiting: 0, notSent: 0 });
+    c.total += 1;
+    if (row.status === "sent") c.sent += 1;
+    else if (row.status === "queued" || row.status === "draft") c.waiting += 1;
+    else c.notSent += 1;
   }
   return out;
 }

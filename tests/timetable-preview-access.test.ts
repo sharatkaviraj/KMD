@@ -6,7 +6,7 @@ vi.mock("@/platform/auth/permissions", () => ({ can: (_: unknown, permission: st
 vi.mock("@/platform/dates", () => ({ addDays: () => "2026-10-05", schoolToday: () => "2026-10-12" }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ classLabelMap: async () => new Map([["qa-class", "QA Class"]]), listSubjects: async () => [], resolveSessionLabel: async () => "TEST-2026-27" }));
 vi.mock("@/modules/staff/data/staff-repo", () => ({ listStaff: async () => [] }));
-vi.mock("@/modules/timetable/data/timetable-repo", () => ({ getPublishedVersion: async () => ({ id: "qa-version", label: "Published QA" }), listSlots: async () => [] }));
+vi.mock("@/modules/timetable/data/timetable-repo", () => ({ getPublishedVersion: async () => ({ id: "qa-version", label: "Published QA" }), listSlots: async () => [], listVersions: async () => [] }));
 vi.mock("@/modules/substitutions/data/arrange-day", () => ({ candidatesFor: vi.fn(), profilesFor: vi.fn(), readCoverDay: vi.fn() }));
 vi.mock("@/modules/substitutions/data/cover-repo", () => ({ coverCountsBetween: vi.fn(), noticesOn: vi.fn() }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({ from: (table: string) => {

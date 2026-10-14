@@ -6,10 +6,9 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { upsertCalendarDays } from "@/modules/academics/data/class-teachers-repo";
-import { dateLabel, shortDay } from "@/vx/format";
-import { audienceSize, costPaise, eventById } from "@/vx/screens/calendar/data";
-import { EVENT_KINDS, eventNotice, holidayNotice, whenLabel } from "@/vx/screens/calendar/domain";
-import { isDay, isUuid } from "@/vx/screens/academics/domain";
+import { audienceSize, costPaise, eventById, holidaysBetween } from "@/vx/screens/calendar/data";
+import { EVENT_KINDS, eventNotice, holidayNotice, holidayRuns } from "@/vx/screens/calendar/domain";
+import { addDays, isDay, isUuid } from "@/vx/screens/academics/domain";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -86,7 +85,7 @@ export async function addEventAction(input: AddEventInput): Promise<CalendarResu
     await upsertCalendarDays({ day: startsOn, until: endsOn === startsOn ? null : endsOn, kind: endsOn === startsOn ? "holiday" : "vacation", labelEn: title, labelHi: titleHi } as Parameters<typeof upsertCalendarDays>[0], session, actor.userId);
     let told = 0;
     if (input.notify) {
-      told = await recordNotice({ session, holidayDay: startsOn, audience, classIds: [], text: holidayNotice(title, titleHi, endsOn === startsOn ? dateLabel(startsOn) : `${dateLabel(startsOn)} – ${dateLabel(endsOn)}`), actorId: actor.id });
+      told = await recordNotice({ session, holidayDay: startsOn, audience, classIds: [], text: holidayNotice(title, titleHi, startsOn, endsOn, audience), actorId: actor.id });
     }
     revalidatePath("/calendar", "layout");
     revalidatePath("/academics");
@@ -116,8 +115,8 @@ export async function addEventAction(input: AddEventInput): Promise<CalendarResu
   if (error) return fail("Could not add the event.", "कार्यक्रम नहीं जुड़ा।");
   let told = 0;
   if (input.notify) {
-    const when = whenLabel({ startsOn, endsOn, allDay: input.allDay, startsAt: input.startsAt ?? null, endsAt: input.endsAt ?? null }, shortDay);
-    told = await recordNotice({ session, eventId: data.id, audience, classIds, text: eventNotice({ title, titleHi, place: input.place ?? null }, when), actorId: actor.id });
+    const notice = eventNotice({ kind, title, titleHi, startsOn, endsOn, allDay: input.allDay, startsAt: input.allDay ? null : (input.startsAt ?? null), place: (input.place ?? "").trim() || null }, audience);
+    told = await recordNotice({ session, eventId: data.id, audience, classIds, text: notice, actorId: actor.id });
   }
   revalidatePath("/calendar", "layout");
   revalidatePath("/academics");
@@ -146,14 +145,16 @@ export async function requestNoticeAction(input: { holidayDay?: string; eventId?
   if (input.eventId && isUuid(input.eventId)) {
     const e = await eventById(session, input.eventId);
     if (!e || e.cancelled) return fail("That event is gone.", "वह कार्यक्रम नहीं मिला।");
-    const told = await recordNotice({ session, eventId: e.id, audience, classIds: e.classIds, text: eventNotice(e, whenLabel(e, shortDay)), actorId: actor.id });
+    const told = await recordNotice({ session, eventId: e.id, audience, classIds: e.classIds, text: eventNotice(e, audience), actorId: actor.id });
     revalidatePath("/calendar", "layout");
     return { ok: true, text: p(`The notice to ${told} waits for approval in Messages → To send.`, `${told} के लिए सूचना संदेश → भेजने को में मंज़ूरी के लिए है।`) };
   }
   if (!isDay(input.holidayDay)) return fail("Choose a holiday.", "छुट्टी चुनें।");
   const { data: day } = await admin.from("academic_calendar_days").select("day, label_en, label_hi, kind").eq("session_label", session).eq("day", input.holidayDay).maybeSingle<{ day: string; label_en: string | null; label_hi: string | null; kind: string }>();
   if (!day || (day.kind !== "holiday" && day.kind !== "vacation")) return fail("That day is not a holiday.", "वह दिन छुट्टी नहीं है।");
-  const told = await recordNotice({ session, holidayDay: day.day, audience, classIds: [], text: holidayNotice(day.label_en ?? "the holiday", day.label_hi, dateLabel(day.day)), actorId: actor.id });
+  // The notice names the whole break, as the calendar draws it: consecutive closed days with the same name.
+  const run = holidayRuns(await holidaysBetween(session, day.day, addDays(day.day, 40))).find((r) => r.from === day.day);
+  const told = await recordNotice({ session, holidayDay: day.day, audience, classIds: [], text: holidayNotice(day.label_en ?? "the holiday", day.label_hi, day.day, run?.to ?? day.day, audience), actorId: actor.id });
   revalidatePath("/calendar", "layout");
   return { ok: true, text: p(`The notice to ${told} waits for approval in Messages → To send.`, `${told} के लिए सूचना संदेश → भेजने को में मंज़ूरी के लिए है।`) };
 }

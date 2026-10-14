@@ -6,12 +6,14 @@ import { schoolNow } from "@/platform/auth/qa-clock";
 import { resolveStart } from "@/platform/config/start";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { pendingMoneyRequests, todayMoney } from "@/modules/dashboard/vx/admin-today";
-import { longDay, schoolToday } from "@/vx/format";
-import { MENU_HOME } from "@/vx/nav";
+import { initials, longDay, schoolToday } from "@/vx/format";
+import { MENU_HOME, MENU_LABEL, QUICK_ACTIONS } from "@/vx/nav";
 import { boardSummary, runningPeriod, schoolMinutes, sortInbox } from "@/vx/screens/admin/logic";
-import { loadInbox, loadToday } from "@/vx/screens/admin/data";
+import { loadInbox, loadToday, promisedToday, weekAttendance } from "@/vx/screens/admin/data";
 import { T } from "@/vx/screens/admin/text";
 import { TodayScreen, type TodayProps } from "@/vx/screens/admin/today";
+import { dayPercent } from "@/vx/screens/admin/today-logic";
+import { TD } from "@/vx/screens/admin/today-text";
 import { lead } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
@@ -60,13 +62,21 @@ export default async function TodayPage() {
   }
 
   const seesMoney = can(staff, "fees:view");
-  const [facts, money, inbox] = await Promise.all([
+  const [facts, fees, inbox, week] = await Promise.all([
     loadToday(staff, sessionLabel, today, minutes),
-    seesMoney ? todayMoney(today).catch(() => null) : Promise.resolve(null),
+    seesMoney
+      ? todayMoney(today)
+          // Promises are counted in the fee session the money figures come from.
+          .then(async (figures) => ({ figures, promised: await promisedToday(figures.sessionLabel, today).catch(() => null) }))
+          .catch(() => null)
+      : Promise.resolve(null),
     can(staff, "attendance:correct")
       ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingMoneyRequests : undefined })
       : Promise.resolve(null),
+    can(staff, "attendance:view") ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
   ]);
+  const money = fees?.figures ?? null;
+  const promised = fees?.promised ?? null;
 
   const board = facts.board;
   const summary = board ? boardSummary(board.rows, board.halfDayCredit) : null;
@@ -87,14 +97,17 @@ export default async function TodayPage() {
   const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hour12: false }).format(now));
   const greeting = hour < 12 ? T.greetMorning : hour < 17 ? T.greetAfternoon : T.greetEvening;
 
-  const actions: TodayProps["actions"] = [
-    can(staff, "fees:collect") ? { key: "collect", label: T.qaCollect, icon: "rupee" as const, href: "/payments" } : null,
-    can(staff, "attendance:mark_on_behalf") ? { key: "mark", label: T.qaMark, icon: "calCheck" as const, href: "/attendance" } : null,
-    can(staff, "students:view") ? { key: "find", label: T.qaFind, icon: "search" as const, href: "/students" } : null,
-    can(staff, "attendance:correct") ? { key: "inbox", label: T.qaInbox, icon: "inbox" as const, href: "/inbox" } : null,
-    can(staff, "messages:send") ? { key: "notice", label: T.qaNotice, icon: "megaphone" as const, href: "/messages" } : null,
-    can(staff, "substitutions:manage") ? { key: "cover", label: T.qaCover, icon: "swap" as const, href: "/substitutions" } : null,
-  ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  // The design's "+ New" menu and the phone's quick actions: the shell's own
+  // list (the bottom bar's centre button opens the same), each behind its permission.
+  const actions: TodayProps["actions"] = QUICK_ACTIONS.filter((q) => can(staff, q.permission)).map((q) => ({
+    key: q.key,
+    label: q.label,
+    icon: q.icon,
+    href: q.href,
+    tone: q.tone,
+  }));
+  const credit = board?.halfDayCredit ?? 0.5;
+  const session = sessionLabel.replace("-", "–");
 
   return (
     <VxPage label={lead(T.today, language)}>
@@ -124,6 +137,10 @@ export default async function TodayPage() {
           timetable: can(staff, "timetable:view"),
         }}
         unavailable={facts.unavailable.length > 0 || (inbox?.unavailable.length ?? 0) > 0}
+        roleLine={TD.sessionLine(MENU_LABEL[menu], session)}
+        me={{ initials: initials(staff.displayName), href: can(staff, "settings:manage") ? "/settings" : "/preferences" }}
+        week={week ? week.map((row) => ({ day: row.day, percent: row.tally ? dayPercent(row.tally, credit) : null })) : null}
+        promisedToday={promised}
       />
     </VxPage>
   );

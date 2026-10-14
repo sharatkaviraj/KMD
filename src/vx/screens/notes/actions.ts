@@ -249,17 +249,24 @@ export async function replyToNoteAction(noteId: string, body: string, source: "t
   return { ok: true };
 }
 
-export async function setFollowUpAction(noteId: string, owner: FollowOwner, when: "tomorrow" | "next_monday" | "one_week"): Promise<NoteResult> {
+/**
+ * Give a note's follow-up to someone. `when` sets a new date; null keeps the
+ * date the note already has (handing it to another person does not move it),
+ * or next Monday when it had none.
+ */
+export async function setFollowUpAction(noteId: string, owner: FollowOwner, when: "tomorrow" | "next_monday" | "one_week" | null): Promise<NoteResult> {
   const staff = await assertPermission("notes:view");
   await assertNotPreviewing();
   if (!["me", "class_teacher", "coordinator", "admin"].includes(owner)) return NOT_SAVED();
+  if (when !== null && !["tomorrow", "next_monday", "one_week"].includes(when)) return NOT_SAVED();
   const found = await workable(staff, noteId);
   if (!found) return fail("That note was not found.", "यह नोट नहीं मिला।");
   if (!canWorkOnNote(found.note, found.viewer)) return fail("You cannot change who follows this up.", "आप फ़ॉलो-अप करने वाले को नहीं बदल सकते।");
   const ownerId = await followUpStaff(owner, staff.id, found.note.classId, found.sessionLabel);
+  const on = when ? followUpDate(when, schoolToday()) : (found.note.followUpOn ?? followUpDate("next_monday", schoolToday()));
   const { error } = await createAdminClient()
     .from("notes")
-    .update({ needs_follow_up: true, follow_up_owner: owner, follow_up_staff_id: ownerId, follow_up_on: followUpDate(when, schoolToday()) })
+    .update({ needs_follow_up: true, follow_up_owner: owner, follow_up_staff_id: ownerId, follow_up_on: on })
     .eq("id", noteId);
   if (error) return NOT_SAVED();
   revalidateNotes();

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
-import type { StaffRole } from "@/platform/auth/permissions";
+import type { StaffPermission, StaffRole } from "@/platform/auth/permissions";
 import {
   addStaffAction,
   changeRoleAction,
@@ -14,14 +14,14 @@ import {
   setLoginActiveAction,
   type StaffActionResult,
 } from "@/app/(app)/staff/vx-actions";
-import { agoP, dateLabel, initials, shortDay } from "@/vx/format";
-import { Bi, useVx } from "@/vx/i18n";
-import { Ic } from "@/vx/icons";
+import { agoP, initials, shortDay } from "@/vx/format";
+import { useVx } from "@/vx/i18n";
+import { Ic, type IconName } from "@/vx/icons";
 import { p, type Pair } from "@/vx/text";
-import { Chip, ChipRow, Field, Input, RadioCard, Seg, SearchBox, Select, Switch } from "@/vx/ui/controls";
+import { Chip, ChipRow, Field, Input, Seg, Switch } from "@/vx/ui/controls";
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
-import { DataList, Grid, Section, Split, TopBar, VxPage, type Column } from "@/vx/ui/page";
-import { Avatar, Btn, Card, CardHead, EmptyState, Kpi, Pill, SecHead, SuccessTick } from "@/vx/ui/primitives";
+import { TopBar, VxPage } from "@/vx/ui/page";
+import { Btn } from "@/vx/ui/primitives";
 
 import {
   cellLock,
@@ -37,23 +37,143 @@ import {
 import {
   countStaff,
   DISABLE_REASONS,
-  FILTER_LABELS,
+  LOGIN_FILTER_LABELS,
   LOGIN_LABELS,
   loginState,
   maskPhone,
-  matchesFilter,
+  matchesLogin,
   matchesQuery,
+  matchesRole,
+  pronouns,
+  ROLE_FILTER_LABELS,
+  rolePills,
+  shortName,
   sortRows,
+  titleLine,
   worksOn,
-  type StaffFilter,
+  type LoginFilter,
+  type LoginState,
+  type RoleFilter,
   type StaffRow,
 } from "./domain/people";
 import type { StaffEvent } from "./data";
 
+/*
+ * Staff & roles (design `Staff`): the staff list with its profile panel, the
+ * roles × permissions matrix, and the login sheets. Every write is a server
+ * action in `app/(app)/staff/vx-actions.ts`, which checks the permission, the
+ * admin rule and the last-admin guard again; the screen only offers what the
+ * reader may do.
+ */
+
 type SheetKind = "invite" | "created" | "reset" | "deactivate" | "add" | "role" | null;
 
-const FILTERS: StaffFilter[] = ["all", "office", "class_teachers", "subject_teachers", "coordinators", "fee_desk", "never", "no_login", "disabled"];
+const ROLE_FILTERS: RoleFilter[] = ["all", "office", "class_teachers", "subject_teachers", "coordinators"];
+const LOGIN_FILTERS: LoginFilter[] = ["all", "never", "disabled", "no_login"];
 const DAYS = ["M", "T", "W", "T", "F", "S"];
+
+const AVATAR_TONES: [string, string][] = [
+  ["var(--accs)", "var(--accfg)"],
+  ["var(--infos)", "var(--info)"],
+  ["var(--oks)", "var(--ok)"],
+  ["var(--warns)", "var(--warnfg)"],
+  ["var(--s3)", "var(--fg)"],
+];
+
+function avatarTone(seed: string): [string, string] {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_TONES[h % AVATAR_TONES.length];
+}
+
+const LOGIN_TONE: Record<LoginState, [string, string]> = {
+  active: ["var(--oks)", "var(--ok)"],
+  never: ["var(--warns)", "var(--warnfg)"],
+  disabled: ["var(--bads)", "var(--bad)"],
+  none: ["var(--s3)", "var(--mut)"],
+};
+
+export const ROLE_HELP: Record<StaffRole, Pair> = {
+  admin: p("Everything, always", "सब कुछ, हमेशा"),
+  accountant: p("Money and reports", "फीस और रिपोर्ट"),
+  teacher: p("Their class: attendance, marks, notes", "अपनी कक्षा: हाज़िरी, अंक, नोट्स"),
+  exam_coordinator: p("Opens marks entry and publishes results", "अंक प्रविष्टि खोलें, परिणाम जारी करें"),
+  academic_coordinator: p("Marks, progress and attendance across classes", "सभी कक्षाओं के अंक, प्रगति व हाज़िरी"),
+  office: p("Front office: students, attendance, staff", "कार्यालय: विद्यार्थी, हाज़िरी, स्टाफ़"),
+  fee_collector: p("Takes fees at the counter", "काउंटर पर फीस लेते हैं"),
+  view_only: p("Can look, can’t change anything", "देख सकते हैं, बदल नहीं सकते"),
+};
+
+const people = (n: number) => p(`${n} ${n === 1 ? "person" : "people"}`, `${n} ${n === 1 ? "व्यक्ति" : "लोग"}`);
+
+const S = {
+  col: { display: "flex", flexDirection: "column" } as CSSProperties,
+  row: { display: "flex", alignItems: "center" } as CSSProperties,
+  sub: { fontSize: 12, color: "var(--mut)" } as CSSProperties,
+  note: { display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, textAlign: "left", lineHeight: 1.45 } as CSSProperties,
+};
+
+function Av({ name, seed, size = 38, font = 12, serif }: { name: string; seed: string; size?: number; font?: number; serif?: boolean }) {
+  const [bg, fg] = avatarTone(seed);
+  return (
+    <span aria-hidden="true" className={serif ? "serif" : undefined} style={{ flex: "none", width: size, height: size, borderRadius: size / 2, background: bg, color: fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: font, fontWeight: 700, animation: serif ? "xPopIn .4s var(--spring) both" : undefined }}>
+      {initials(name)}
+    </span>
+  );
+}
+
+function Pill({ bg, fg, children, dot }: { bg: string; fg: string; children: ReactNode; dot?: boolean }) {
+  return (
+    <span className="pill" style={{ background: bg, color: fg, transition: "background-color .3s ease" }}>
+      {dot ? <span style={{ width: 6, height: 6, borderRadius: 3, background: "currentColor" }} /> : null}
+      {children}
+    </span>
+  );
+}
+
+/** A sheet's footer, as the design draws it: the way out, then the main action a little wider. */
+function Foot({ sec, onSec, label, icon, variant = "pri", onGo, disabled }: { sec: string; onSec: () => void; label: string; icon: IconName; variant?: "pri" | "danger"; onGo: () => void; disabled?: boolean }) {
+  return (
+    <>
+      <Btn style={{ flex: 1 }} onClick={onSec}>{sec}</Btn>
+      <Btn variant={variant} icon={icon} style={{ flex: 1.4 }} disabled={disabled} onClick={onGo}>{label}</Btn>
+    </>
+  );
+}
+
+function Opt({ on, onPick, children, role = "radio" }: { on: boolean; onPick: () => void; children: ReactNode; role?: "radio" | "checkbox" }) {
+  return (
+    <button
+      type="button"
+      role={role}
+      aria-checked={on}
+      onClick={onPick}
+      className="tap"
+      style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "10px 14px", borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)", color: "var(--fg)", textAlign: "left" }}
+    >
+      <span aria-hidden="true" style={{ flex: "none", width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
+      </span>
+      {children}
+    </button>
+  );
+}
+
+function SearchField({ value, onChange, placeholder, phone }: { value: string; onChange: (v: string) => void; placeholder: string; phone?: boolean }) {
+  return (
+    <label style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, height: phone ? 46 : 40, padding: "0 12px", borderRadius: phone ? 23 : 12, border: `1px solid ${phone ? "var(--bds)" : "var(--bd)"}`, background: "var(--card)", color: "var(--mut)", width: phone ? undefined : 280 }}>
+      <Ic n="search" />
+      <span className="sr">{placeholder}</span>
+      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete="off" style={{ flex: 1, minWidth: 0, height: 36, border: 0, outline: "none", background: "transparent", fontSize: phone ? 16 : 14, color: "var(--fg)" }} />
+    </label>
+  );
+}
+
+function monthYear(value: string): string {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00+05:30`) : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" }).format(d);
+}
 
 export function StaffScreen({
   rows,
@@ -65,6 +185,7 @@ export function StaffScreen({
   mayManage,
   isAdmin,
   mayEditMatrix,
+  meId = null,
   initialView,
   initialId,
   initialSheet,
@@ -78,6 +199,7 @@ export function StaffScreen({
   mayManage: boolean;
   isAdmin: boolean;
   mayEditMatrix: boolean;
+  meId?: string | null;
   initialView: "people" | "roles";
   initialId: string | null;
   initialSheet: SheetKind;
@@ -86,13 +208,15 @@ export function StaffScreen({
   const router = useRouter();
   const toast = useToast();
   const [view, setView] = useState<"people" | "roles">(initialView);
-  const [filter, setFilter] = useState<StaffFilter>("all");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [loginFilter, setLoginFilter] = useState<LoginFilter>("all");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(initialId);
+  const [targetId, setTargetId] = useState<string | null>(initialId);
   const [sheet, setSheet] = useState<SheetKind>(initialSheet);
   const [edited, setEdited] = useState<Matrix>(savedMatrix);
   const [baseline, setBaseline] = useState<Matrix>(savedMatrix);
-  const [created, setCreated] = useState<{ name: string; username?: string; password?: string; role: StaffRole; staffId?: string } | null>(null);
+  const [created, setCreated] = useState<Created | null>(null);
   const [pending, start] = useTransition();
 
   // A row link (`/staff?id=`) re-renders the page with a new id: follow it.
@@ -100,6 +224,7 @@ export function StaffScreen({
   if (initialId !== seenId) {
     setSeenId(initialId);
     setSelectedId(initialId);
+    if (initialId) setTargetId(initialId);
   }
 
   // A new matrix from the server (after save) becomes the baseline.
@@ -109,15 +234,19 @@ export function StaffScreen({
   }
 
   const counts = useMemo(() => countStaff(rows), [rows]);
-  const visible = useMemo(() => sortRows(rows.filter((r) => matchesFilter(r, filter) && matchesQuery(r, query))), [rows, filter, query]);
+  const visible = useMemo(() => sortRows(rows.filter((r) => matchesRole(r, roleFilter) && matchesLogin(r, loginFilter) && matchesQuery(r, query))), [rows, roleFilter, loginFilter, query]);
   const selected = rows.find((r) => r.id === selectedId) ?? null;
+  const target = rows.find((r) => r.id === targetId) ?? selected;
   const changes = useMemo(() => diffMatrix(savedMatrix, edited), [savedMatrix, edited]);
 
   const go = (next: { view?: "people" | "roles"; id?: string | null }) => {
     const v = next.view ?? view;
     const id = next.id === undefined ? selectedId : next.id;
     if (next.view) setView(next.view);
-    if (next.id !== undefined) setSelectedId(next.id);
+    if (next.id !== undefined) {
+      setSelectedId(next.id);
+      if (next.id) setTargetId(next.id);
+    }
     const qs = new URLSearchParams();
     if (v === "roles") qs.set("view", "roles");
     if (id && v === "people") qs.set("id", id);
@@ -132,162 +261,233 @@ export function StaffScreen({
     }
   };
 
-  const columns: Column<StaffRow>[] = [
-    {
-      key: "person",
-      label: "Person",
-      width: "minmax(0,1.6fr)",
-      cell: (r) => (
-        <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-          <Avatar text={initials(r.name)} seed={r.name} size={36} />
-          <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <span className="clip" style={{ fontWeight: 600 }}>{r.name}</span>
-            <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{maskPhone(r.phone)}</span>
-          </span>
-        </span>
-      ),
-    },
-    {
-      key: "roles",
-      label: "Roles",
-      width: "minmax(0,1.2fr)",
-      cell: (r) => (
-        <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          <Pill tone={r.role === "admin" ? "info" : r.role === "accountant" || r.role === "fee_collector" ? "info" : "acc"}>{tx(ROLE_LABELS[r.role])}</Pill>
-          {r.classTeacherOf.length ? <Pill tone="ok">{tx(p("Class teacher", "कक्षा अध्यापक"))}</Pill> : null}
-        </span>
-      ),
-    },
-    { key: "works", label: "Classes · subjects", width: "minmax(0,1.4fr)", cell: (r) => <span className="clip" style={{ display: "block" }}>{tx(worksOn(r))}</span> },
-    {
-      key: "login",
-      label: "Login",
-      width: "180px",
-      cell: (r) => {
-        const state = loginState(r);
-        const tone = state === "active" ? "ok" : state === "never" ? "warn" : state === "disabled" ? "bad" : "mut";
-        return (
-          <span style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-start" }}>
-            <Pill tone={tone}>{tx(LOGIN_LABELS[state])}</Pill>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>
-              {state === "active" && r.lastSignInAt ? `Last seen ${tx(agoP(r.lastSignInAt))}` : state === "never" ? "Sent, not used yet" : state === "none" ? "Create one when needed" : "Records are kept"}
-            </span>
-          </span>
-        );
-      },
-    },
-  ];
+  const openFor = (kind: SheetKind, id: string) => {
+    setTargetId(id);
+    setSheet(kind);
+  };
+
+  const enable = (row: StaffRow) => start(async () => done(await setLoginActiveAction({ staffId: row.id, active: true })));
+
+  const isList = view === "people";
+  const narrow = Boolean(selected);
 
   const header = (
     <TopBar
-      crumb={`People · ${sessionLabel ? `Session ${sessionLabel}` : "Staff"}`}
-      title={view === "roles" ? tx(p("Roles & permissions", "भूमिकाएँ व अनुमतियाँ")) : tx(p("Staff & roles", "स्टाफ़ व भूमिकाएँ"))}
-      mSub={`${counts.total} staff · ${counts.withLogin} with login`}
-      mBack="/menu"
+      crumb={isList ? `${tx(p("People", "लोग"))} · ${sessionLabel ? `${tx(p("Session", "सत्र"))} ${sessionLabel}` : tx(p("Staff", "स्टाफ़"))}` : `${tx(p("People", "लोग"))} · ${tx(p("Staff & roles", "स्टाफ़ व भूमिकाएँ"))}`}
+      title={isList ? tx(p("Staff & roles", "स्टाफ़ व भूमिकाएँ")) : tx(p("Roles & permissions", "भूमिकाएँ व अनुमतियाँ"))}
+      mTitle={isList && selected ? selected.name : undefined}
+      mSub={
+        isList
+          ? selected
+            ? tx(titleLine(selected))
+            : `${counts.total} ${tx(p("staff", "स्टाफ़"))} · ${counts.withLogin} ${tx(p("with login", "लॉगिन वाले"))}`
+          : `${MATRIX_ROLES.length} ${tx(p("roles", "भूमिकाएँ"))} · ${matrixGroups().reduce((n, g) => n + g.items.length, 0)} ${tx(p("permissions", "अनुमतियाँ"))}`
+      }
+      mBack={isList && selected ? "/staff" : "/menu"}
       actions={
         <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {view === "people" ? <SearchBox value={query} onChange={setQuery} placeholder="Name, class or subject" style={{ width: 280 }} /> : null}
-          {mayManage ? <Btn icon="plus" variant="sec" onClick={() => setSheet("add")}>Add staff</Btn> : null}
-          {isAdmin ? <Btn icon="userPlus" variant="pri" onClick={() => setSheet("invite")}>Create login</Btn> : null}
-          <HelpButton title="Staff & roles" steps={[
-            { icon: "users", title: "Find a person", body: "Search by name, class or subject. Tap a row to see their profile, timetable load and login." },
-            { icon: "key", title: "Logins", body: "Create a login, reset a password or turn a login off. Records always stay." },
-            { icon: "shield", title: "Roles", body: "Roles & permissions decides who can do what. Admin always has everything; teachers never see money." },
+          {isList ? <SearchField value={query} onChange={setQuery} placeholder={tx(p("Name, class or subject", "नाम, कक्षा या विषय"))} /> : null}
+          {mayManage ? <Btn icon="plus" variant="sec" onClick={() => setSheet("add")}>{tx(p("Add staff", "स्टाफ़ जोड़ें"))}</Btn> : null}
+          {isAdmin ? <Btn icon="userPlus" variant="pri" onClick={() => openFor("invite", rows.find((r) => r.isActive && !r.hasLogin)?.id ?? "")}>{tx(p("Create login", "लॉगिन बनाएँ"))}</Btn> : null}
+          <HelpButton title={tx(p("Staff & roles", "स्टाफ़ व भूमिकाएँ"))} steps={[
+            { icon: "users", title: tx(p("Find a person", "व्यक्ति खोजें")), body: tx(p("Search by name, class or subject. Tap a row to see their profile, timetable load and login.", "नाम, कक्षा या विषय से खोजें। प्रोफ़ाइल, पीरियड और लॉगिन देखने के लिए पंक्ति दबाएँ।")) },
+            { icon: "key", title: tx(p("Logins", "लॉगिन")), body: tx(p("Create a login, reset a password or turn a login off. Records always stay.", "लॉगिन बनाएँ, पासवर्ड बदलें या लॉगिन बंद करें। रिकॉर्ड हमेशा रहते हैं।")) },
+            { icon: "shield", title: tx(p("Roles", "भूमिकाएँ")), body: tx(p("Roles & permissions decides who can do what. Admin always has everything; teachers never see money.", "भूमिकाएँ तय करती हैं कि कौन क्या कर सकता है। प्रशासक के पास सब कुछ; अध्यापक फीस नहीं देखते।")) },
           ]} />
         </span>
       }
-      mAction={isAdmin ? <Btn variant="soft" icon="userPlus" onClick={() => setSheet("invite")}>Add login</Btn> : undefined}
+      mAction={
+        isAdmin && !(isList && selected) ? (
+          <Btn variant="soft" icon="userPlus" style={{ height: 40, padding: "0 12px", fontSize: 13 }} onClick={() => openFor("invite", rows.find((r) => r.isActive && !r.hasLogin)?.id ?? "")}>
+            {tx(p("Add login", "लॉगिन जोड़ें"))}
+          </Btn>
+        ) : undefined
+      }
     />
   );
 
   const tabs = (
     <Seg
-      label="Staff view"
+      label={tx(p("Staff view", "स्टाफ़ दृश्य"))}
       value={view}
       onChange={(v) => go({ view: v, id: null })}
       options={[
         { value: "people", label: tx(p("People", "लोग")) },
-        { value: "roles", label: tx(p("Roles & permissions", "भूमिकाएँ")) },
+        { value: "roles", label: tx(p("Roles & permissions", "भूमिकाएँ व अनुमतियाँ")) },
       ]}
-      style={{ maxWidth: 380 }}
+      style={{ width: 380, maxWidth: "100%" }}
     />
   );
+
+  const kpis: { key: LoginFilter; label: Pair; value: number; sub: string; tone: string }[] = [
+    { key: "all", label: p("Staff", "स्टाफ़"), value: counts.total, sub: `${counts.teachers} ${tx(p("teachers", "अध्यापक"))} · ${counts.office} ${tx(p("office", "कार्यालय"))}`, tone: "var(--fg)" },
+    { key: "with_login", label: p("With login", "लॉगिन वाले"), value: counts.withLogin, sub: `${counts.active} ${tx(p("active", "सक्रिय"))}`, tone: "var(--fg)" },
+    { key: "never", label: p("Never signed in", "कभी लॉगिन नहीं"), value: counts.never, sub: tx(p("Send the login again", "लॉगिन फिर दें")), tone: "var(--warnfg)" },
+    { key: "disabled", label: p("Disabled", "बंद"), value: counts.disabled, sub: tx(p("Records are kept", "रिकॉर्ड रहते हैं")), tone: "var(--bad)" },
+  ];
+
+  const loginSub = (r: StaffRow): string => {
+    const state = loginState(r);
+    if (state === "active") return r.lastSignInAt ? `${tx(p("Last seen", "आख़िरी बार"))} ${tx(agoP(r.lastSignInAt))}` : tx(p("Active", "चालू"));
+    if (state === "never") return tx(p("Made, not used yet", "बना, अभी उपयोग नहीं"));
+    if (state === "disabled") {
+      const off = events.find((e) => e.staffId === r.id && e.kind === "disabled");
+      return off ? `${tx(p("Since", "से"))} ${shortDay(off.at)}` : tx(p("Records are kept", "रिकॉर्ड रहते हैं"));
+    }
+    return tx(p("Not set up", "नहीं बना"));
+  };
+
+  const rowActions = (r: StaffRow) => {
+    if (!isAdmin) return null;
+    const state = loginState(r);
+    if (state === "disabled")
+      return <Btn variant="soft" icon="refresh" style={{ height: 34, padding: "0 12px", fontSize: 13 }} onClick={() => enable(r)} disabled={pending} ariaLabel={`${tx(p("Turn the login back on for", "लॉगिन फिर चालू करें:"))} ${r.name}`}>{tx(p("Enable", "चालू"))}</Btn>;
+    if (state === "none")
+      return <Btn variant="soft" icon="userPlus" style={{ height: 34, padding: "0 12px", fontSize: 13 }} onClick={() => openFor("invite", r.id)} ariaLabel={`${tx(p("Create a login for", "लॉगिन बनाएँ:"))} ${r.name}`}>{tx(p("Create login", "लॉगिन बनाएँ"))}</Btn>;
+    return <Btn variant="ghost" icon="key" style={{ height: 34, padding: "0 10px", fontSize: 13 }} onClick={() => openFor("reset", r.id)} ariaLabel={`${tx(p("Reset password for", "पासवर्ड बदलें:"))} ${r.name}`} />;
+  };
+
+  const tracks = narrow ? "minmax(0,1fr) 156px" : "minmax(200px,1.5fr) minmax(150px,1.1fr) minmax(140px,1.1fr) 168px 104px";
+
+  const personCell = (r: StaffRow, phone: boolean) => (
+    <Link href={`/staff?id=${r.id}`} scroll={false} onClick={(e) => { e.preventDefault(); go({ id: r.id }); }} className="tap" style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, minHeight: 44, color: "var(--fg)" }} aria-current={r.id === selectedId ? "true" : undefined}>
+      <Av name={r.name} seed={r.id} />
+      <span style={{ ...S.col, minWidth: 0 }}>
+        <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</span>
+        <span className="clip num" style={S.sub}>{phone ? rolePills(r).map((x) => tx(x.label)).join(" · ") : maskPhone(r.phone)}</span>
+      </span>
+    </Link>
+  );
+
+  const loginPill = (r: StaffRow) => {
+    const state = loginState(r);
+    const [bg, fg] = LOGIN_TONE[state];
+    return <Pill bg={bg} fg={fg} dot>{tx(LOGIN_LABELS[state])}</Pill>;
+  };
 
   const peopleList = (
-    <Section>
+    <section className={`pad${narrow ? " hide-m" : ""}`} style={{ padding: "20px 28px 40px", ...S.col, gap: 14, minWidth: 0 }}>
       {tabs}
-      <div className="only-m">
-        <SearchBox value={query} onChange={setQuery} placeholder="Name, class or subject" />
+      <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
+        {kpis.map((k, i) => {
+          const on = loginFilter === k.key;
+          return (
+            <button key={k.key} type="button" aria-pressed={on} onClick={() => setLoginFilter(k.key)} className="tap card rise" style={{ ...S.col, padding: "14px 16px", gap: 2, textAlign: "left", color: "var(--fg)", borderColor: on && k.key !== "all" ? "var(--acc)" : "var(--bd)", animationDelay: `${i * 26}ms` }}>
+              <span style={{ ...S.sub, fontWeight: 600 }}>{tx(k.label)}</span>
+              <span className="num" style={{ fontSize: 24, fontWeight: 700, color: k.tone }}>{k.value}</span>
+              <span style={S.sub}>{k.sub}</span>
+            </button>
+          );
+        })}
       </div>
-      <Grid cols={4}>
-        <Kpi label="Staff" value={counts.total} sub={`${counts.teachers} teaching`} />
-        <Kpi label="With login" value={counts.withLogin} sub={`${counts.active} active`} />
-        <Kpi label="Never signed in" value={counts.never} tone="var(--warn)" sub="Send the login again" />
-        <Kpi label="Disabled" value={counts.disabled} tone="var(--bad)" sub="Records are kept" />
-      </Grid>
-      <ChipRow label="Filter staff">
-        {FILTERS.map((f) => (
-          <Chip key={f} on={filter === f} onClick={() => setFilter(f)} count={rows.filter((r) => matchesFilter(r, f)).length}>
-            {tx(FILTER_LABELS[f])}
-          </Chip>
+      <div className="only-m">
+        <SearchField value={query} onChange={setQuery} placeholder={tx(p("Name, class or subject", "नाम, कक्षा या विषय"))} phone />
+      </div>
+      <div className="hs" role="group" aria-label={tx(p("Filter staff", "स्टाफ़ छाँटें"))} style={{ display: "flex", gap: 6 }}>
+        {ROLE_FILTERS.map((f) => (
+          <button key={f} type="button" className={`tap chip${roleFilter === f ? " on" : ""}`} aria-pressed={roleFilter === f} onClick={() => setRoleFilter(f)}>
+            {tx(ROLE_FILTER_LABELS[f])}
+            <span className="num" style={{ opacity: 0.65 }}>{rows.filter((r) => matchesRole(r, f)).length}</span>
+          </button>
         ))}
-      </ChipRow>
-      <Card pad={false} style={{ overflow: "hidden" }}>
-        <DataList
-          rows={visible}
-          columns={columns}
-          rowKey={(r) => r.id}
-          href={(r) => `/staff?id=${r.id}`}
-          selected={(r) => r.id === selectedId}
-          caption="Staff"
-          empty={<EmptyState icon="users" title="Nobody matches" body="Try another name or filter." />}
-        />
-      </Card>
-    </Section>
+        <span aria-hidden="true" style={{ flex: "none", width: 1, background: "var(--bd)", margin: "4px 2px" }} />
+        {LOGIN_FILTERS.map((f) => (
+          <button key={f} type="button" className={`tap chip${loginFilter === f ? " on" : ""}`} aria-pressed={loginFilter === f} onClick={() => setLoginFilter(f)}>
+            {tx(LOGIN_FILTER_LABELS[f])}
+            <span className="num" style={{ opacity: 0.65 }}>{rows.filter((r) => matchesLogin(r, f)).length}</span>
+          </button>
+        ))}
+      </div>
+      {visible.length ? (
+        <div className="card" style={{ overflow: "hidden" }} role="table" aria-label={tx(p("Staff", "स्टाफ़"))}>
+          <div role="row" className="only-d" style={{ display: "grid", gridTemplateColumns: tracks, gap: 10, alignItems: "center", minHeight: 42, padding: "8px 16px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
+            <span role="columnheader" className="sech">{tx(p("Person", "व्यक्ति"))}</span>
+            {narrow ? null : <span role="columnheader" className="sech">{tx(p("Roles", "भूमिकाएँ"))}</span>}
+            {narrow ? null : <span role="columnheader" className="sech">{tx(p("Classes · subjects", "कक्षाएँ · विषय"))}</span>}
+            <span role="columnheader" className="sech">{tx(p("Login", "लॉगिन"))}</span>
+            {narrow ? null : <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(p("Actions", "काम"))}</span>}
+          </div>
+          {visible.map((r, i) => (
+            <div key={r.id} role="row" className={`row${r.id === selectedId ? " sel" : ""}`} style={{ borderTop: i ? "1px solid var(--bd)" : 0, animation: `xIn .32s var(--ease) ${Math.min(i, 14) * 26}ms both` }}>
+              <div className="only-d" style={{ display: "grid", gridTemplateColumns: tracks, gap: 10, alignItems: "center", minHeight: 62, padding: "8px 16px" }}>
+                <span role="cell" style={{ minWidth: 0 }}>{personCell(r, false)}</span>
+                {narrow ? null : (
+                  <span role="cell" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {rolePills(r).map((x) => <Pill key={x.key} bg={x.bg} fg={x.fg}>{tx(x.label)}</Pill>)}
+                  </span>
+                )}
+                {narrow ? null : <span role="cell" className="clip" style={{ fontSize: 13 }}>{tx(worksOn(r))}</span>}
+                <span role="cell" style={{ ...S.col, gap: 2, alignItems: "flex-start" }}>
+                  {loginPill(r)}
+                  <span style={S.sub}>{loginSub(r)}</span>
+                </span>
+                {narrow ? null : <span role="cell" style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>{rowActions(r)}</span>}
+              </div>
+              <div className="only-m" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center", padding: "10px 14px" }}>
+                {personCell(r, true)}
+                {loginPill(r)}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="card fadein" style={{ ...S.col, padding: "40px 24px", alignItems: "center", gap: 10, textAlign: "center" }}>
+          <span style={{ width: 56, height: 56, borderRadius: 28, background: "var(--s2)", color: "var(--mut)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Ic n="users" size={26} />
+          </span>
+          <strong style={{ fontSize: 16 }}>{tx(p("No one matches", "कोई नहीं मिला"))}</strong>
+          <span style={{ color: "var(--mut)", fontSize: 13 }}>{tx(p("Try another name, or clear the filters.", "दूसरा नाम आज़माएँ, या छँटाई हटाएँ।"))}</span>
+          <Btn onClick={() => { setQuery(""); setRoleFilter("all"); setLoginFilter("all"); }}>{tx(p("Show all staff", "सारा स्टाफ़ दिखाएँ"))}</Btn>
+        </div>
+      )}
+    </section>
   );
-
-  const profile = selected ? (
-    <ProfilePanel
-      row={selected}
-      load={load[selected.id] ?? [0, 0, 0, 0, 0, 0]}
-      events={events.filter((e) => e.staffId === selected.id)}
-      isAdmin={isAdmin}
-      onClose={() => go({ id: null })}
-      onReset={() => setSheet("reset")}
-      onDisable={() => setSheet("deactivate")}
-      onRole={() => setSheet("role")}
-      onInvite={() => setSheet("invite")}
-      onEnable={() =>
-        start(async () => done(await setLoginActiveAction({ staffId: selected.id, active: true })))
-      }
-      pending={pending}
-    />
-  ) : null;
 
   return (
     <VxPage>
       {header}
       <main>
-        {view === "people" ? (
-          <Split list={peopleList} detail={profile} />
+        {isList ? (
+          <div className="stack" style={{ display: "grid", gridTemplateColumns: selected ? "minmax(0,1fr) 440px" : "minmax(0,1fr)", alignItems: "start", minHeight: "100%" }}>
+            {peopleList}
+            {selected ? (
+              <aside className="unstick" style={{ position: "sticky", top: 64, height: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--bg)", animation: "xPush .36s var(--ease) both" }}>
+                <ProfilePanel
+                  row={selected}
+                  load={load[selected.id] ?? [0, 0, 0, 0, 0, 0]}
+                  events={events.filter((e) => e.staffId === selected.id)}
+                  isAdmin={isAdmin}
+                  isMe={selected.id === meId}
+                  onClose={() => go({ id: null })}
+                  onReset={() => openFor("reset", selected.id)}
+                  onDisable={() => openFor("deactivate", selected.id)}
+                  onRole={() => openFor("role", selected.id)}
+                  onInvite={() => openFor("invite", selected.id)}
+                  onEnable={() => enable(selected)}
+                  onSelf={() => toast.show({ text: tx(p("You can’t disable your own login", "अपना लॉगिन बंद नहीं कर सकते")), tone: "info" })}
+                  pending={pending}
+                />
+              </aside>
+            ) : null}
+          </div>
         ) : (
           <RolesView
             tabs={tabs}
             saved={savedMatrix}
             edited={edited}
             roleCounts={roleCounts}
+            events={events}
             editable={mayEditMatrix}
             onToggle={(role, perm) => setEdited((m) => toggle(m, role, perm))}
+            onLocked={(text) => toast.show({ text, tone: "info" })}
             changes={changes.map(describeChange)}
             changeCount={changes.length}
             pending={pending}
-            onDiscard={() => setEdited(savedMatrix)}
-            onSave={() =>
-              start(async () => {
-                const result = await saveMatrixAction(changes);
-                done(result);
-              })
-            }
+            onDiscard={() => {
+              setEdited(savedMatrix);
+              toast.show({ text: tx(p("Changes discarded", "बदलाव हटाए")), tone: "info" });
+            }}
+            onSave={() => start(async () => done(await saveMatrixAction(changes)))}
           />
         )}
       </main>
@@ -296,14 +496,14 @@ export function StaffScreen({
         open={sheet === "invite"}
         onClose={() => setSheet(null)}
         rows={rows}
-        preselect={selected && !selected.hasLogin ? selected.id : null}
+        preselect={target && !target.hasLogin ? target.id : null}
         pending={pending}
         onSubmit={(input) =>
           start(async () => {
             const result = await createLoginAction(input);
             if (result.ok) {
               const person = rows.find((r) => r.id === input.staffId);
-              setCreated({ name: person?.name ?? "", username: result.username, password: result.password, role: input.role as StaffRole, staffId: result.staffId });
+              setCreated({ kind: "login", name: person?.name ?? "", username: result.username, password: result.password, role: input.role as StaffRole, staffId: result.staffId });
               setSheet("created");
               router.refresh();
             } else done(result);
@@ -319,18 +519,18 @@ export function StaffScreen({
           if (created?.staffId) go({ view: "people", id: created.staffId });
         }}
       />
-      {selected ? (
+      {target ? (
         <>
           <ResetSheet
             open={sheet === "reset"}
             onClose={() => setSheet(null)}
-            row={selected}
+            row={target}
             pending={pending}
             onConfirm={() =>
               start(async () => {
-                const result = await resetPasswordAction(selected.id);
+                const result = await resetPasswordAction(target.id);
                 if (result.ok) {
-                  setCreated({ name: selected.name, username: result.username, password: result.password, role: selected.role, staffId: selected.id });
+                  setCreated({ kind: "reset", name: target.name, username: result.username, password: result.password, role: target.role, staffId: target.id });
                   setSheet("created");
                 } else done(result);
               })
@@ -339,16 +539,17 @@ export function StaffScreen({
           <DisableSheet
             open={sheet === "deactivate"}
             onClose={() => setSheet(null)}
-            row={selected}
+            row={target}
             pending={pending}
-            onConfirm={(reason) => start(async () => done(await setLoginActiveAction({ staffId: selected.id, active: false, reason }), () => setSheet(null)))}
+            onConfirm={(reason) => start(async () => done(await setLoginActiveAction({ staffId: target.id, active: false, reason }), () => setSheet(null)))}
           />
           <RoleSheet
             open={sheet === "role"}
             onClose={() => setSheet(null)}
-            row={selected}
+            row={target}
+            matrix={savedMatrix}
             pending={pending}
-            onConfirm={(role) => start(async () => done(await changeRoleAction({ staffId: selected.id, role }), () => setSheet(null)))}
+            onConfirm={(role) => start(async () => done(await changeRoleAction({ staffId: target.id, role }), () => setSheet(null)))}
           />
         </>
       ) : null}
@@ -378,127 +579,162 @@ function ProfilePanel({
   load,
   events,
   isAdmin,
+  isMe,
   onClose,
   onReset,
   onDisable,
   onRole,
   onInvite,
   onEnable,
+  onSelf,
   pending,
 }: {
   row: StaffRow;
   load: number[];
   events: StaffEvent[];
   isAdmin: boolean;
+  isMe: boolean;
   onClose: () => void;
   onReset: () => void;
   onDisable: () => void;
   onRole: () => void;
   onInvite: () => void;
   onEnable: () => void;
+  onSelf: () => void;
   pending: boolean;
 }) {
   const { tx } = useVx();
   const state = loginState(row);
-  const max = Math.max(...load, 1);
+  const [lbg, lfg] = LOGIN_TONE[state];
   const total = load.reduce((a, b) => a + b, 0);
+  const top = Math.max(8, ...load);
+  const who = shortName(row.name);
+  const pr = pronouns(row.name);
+  const off = events.find((e) => e.kind === "disabled");
+  const notes: Partial<Record<LoginState, [Pair, string, string]>> = {
+    never: [p(`${who} has never signed in. Reset the password to make a fresh one to hand over.`, `${who} ने कभी लॉगिन नहीं किया। नया पासवर्ड बनाकर दें।`), "var(--warns)", "var(--warnfg)"],
+    disabled: [
+      p(
+        `Disabled${off?.actor ? ` by ${off.actor}` : ""}${off ? ` · ${tx(off.text).replace(/^Login disabled( · )?/, "") || "no reason given"}` : ""}. ${pr.they} can’t sign in; ${pr.their} records stay.`,
+        `लॉगिन बंद${off?.actor ? ` · ${off.actor}` : ""}। लॉगिन नहीं कर सकते; रिकॉर्ड रहते हैं।`,
+      ),
+      "var(--bads)",
+      "var(--bad)",
+    ],
+    none: [p(`No login yet, so ${who} can’t open VPPS One.`, `अभी लॉगिन नहीं है, इसलिए ${who} VPPS One नहीं खोल सकते।`), "var(--infos)", "var(--info)"],
+  };
+  const note = notes[state];
+  const facts: { icon: IconName; k: Pair; v: string }[] = [
+    { icon: "phone", k: p("Phone", "फ़ोन"), v: maskPhone(row.phone) },
+    { icon: "book", k: p("Works on", "काम"), v: tx(worksOn(row)) },
+    { icon: "calendar", k: p("Joined", "जुड़े"), v: monthYear(row.joinedAt) },
+  ];
+  const log: { key: string; text: string; time: string; dot: string }[] = [
+    ...events.slice(0, 6).map((e) => ({
+      key: e.id,
+      text: `${tx(e.text)}${e.actor ? ` · ${tx(p("by", "द्वारा"))} ${e.actor.split(" ")[0]}` : ""}`,
+      time: shortDay(e.at),
+      dot: e.kind === "disabled" ? "var(--bad)" : e.kind === "enabled" ? "var(--ok)" : "var(--warn)",
+    })),
+    { key: "joined", text: tx(p("Added to the staff list", "स्टाफ़ सूची में जोड़े गए")), time: shortDay(row.joinedAt), dot: "var(--acc)" },
+  ];
+
   return (
-    <div style={{ padding: "18px 20px 28px", display: "flex", flexDirection: "column", gap: 16 }} className="fadein">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span className="sech">Staff profile</span>
-        <button type="button" className="tap icon-btn" aria-label="Close profile" onClick={onClose}>
-          <Ic n="x" size={18} />
+    <div style={{ padding: "18px 22px 28px", ...S.col, gap: 14 }}>
+      <div className="only-d" style={{ ...S.row, justifyContent: "space-between" }}>
+        <span className="sech">{tx(p("Staff profile", "स्टाफ़ प्रोफ़ाइल"))}</span>
+        <button type="button" className="tap btn ghost" aria-label={tx(p("Close profile", "प्रोफ़ाइल बंद करें"))} onClick={onClose} style={{ width: 40, height: 40, padding: 0 }}>
+          <Ic n="x" />
         </button>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <Avatar text={initials(row.name)} seed={row.name} size={56} />
-        <span style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-          <span className="serif clip" style={{ fontSize: 24, fontWeight: 600 }}>{row.name}</span>
-          <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <Pill tone="acc">{tx(ROLE_LABELS[row.role])}</Pill>
-            {row.classTeacherOf.length ? <Pill tone="ok">Class teacher · {row.classTeacherOf.join(", ")}</Pill> : null}
+      <div style={{ ...S.row, gap: 14 }}>
+        <Av name={row.name} seed={row.id} size={60} font={20} serif />
+        <span style={{ ...S.col, flex: 1, minWidth: 0, gap: 4 }}>
+          <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{row.name}</span>
+          <span style={S.sub}>{tx(titleLine(row))}</span>
+          <span style={{ ...S.row, flexWrap: "wrap", gap: 4 }}>
+            {rolePills(row).map((x) => <Pill key={x.key} bg={x.bg} fg={x.fg}>{tx(x.label)}</Pill>)}
           </span>
         </span>
       </div>
-      <Card pad={false}>
-        {[
-          { icon: "phone" as const, k: "Phone", v: maskPhone(row.phone) },
-          { icon: "book" as const, k: "Works on", v: tx(worksOn(row)) },
-          { icon: "calendar" as const, k: "Joined", v: dateLabel(row.joinedAt) },
-        ].map((line, i) => (
-          <div key={line.k} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : 0 }}>
-            <Ic n={line.icon} size={18} style={{ color: "var(--mut)" }} />
-            <span style={{ width: 90, color: "var(--mut)", fontSize: 13 }}>{line.k}</span>
-            <span style={{ flex: 1, fontWeight: 600, minWidth: 0 }} className="clip">{line.v}</span>
+      <div className="card" style={{ ...S.col, padding: "2px 16px" }}>
+        {facts.map((f, i) => (
+          <div key={f.icon} style={{ ...S.row, gap: 10, padding: "10px 0", borderTop: i ? "1px solid var(--bd)" : 0 }}>
+            <Ic n={f.icon} style={{ color: "var(--mut)" }} />
+            <span style={{ ...S.sub, width: 92, flex: "none" }}>{tx(f.k)}</span>
+            <span className="num clip" style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600 }}>{f.v}</span>
           </div>
         ))}
-      </Card>
+      </div>
       {row.isTeaching ? (
-        <Card>
-          <CardHead title="Timetable load" action={<span className="num" style={{ fontWeight: 700 }}>{total} of 48 periods</span>} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 10, alignItems: "end", height: 70, marginTop: 12 }}>
+        <div className="card" style={{ ...S.col, padding: "14px 16px", gap: 10 }}>
+          <div style={{ ...S.row, justifyContent: "space-between" }}>
+            <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p("Timetable load", "पीरियड भार"))}</span>
+            <span className="num" style={{ fontSize: 13, fontWeight: 600 }}>{total} {tx(p("of 48 periods", "/ 48 पीरियड"))}</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0,1fr))", gap: 8, alignItems: "end", height: 64 }}>
             {load.map((n, i) => (
-              <span key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                <span title={`${n} periods`} style={{ width: 28, height: Math.max(4, (n / max) * 44), background: "var(--acc)", borderRadius: 6, transformOrigin: "bottom", animation: `xGrowY .5s var(--ease) ${i * 40}ms both` }} />
+              <div key={i} title={`${n}`} style={{ ...S.col, height: "100%", justifyContent: "flex-end", alignItems: "center", gap: 4 }}>
+                <span style={{ width: "100%", maxWidth: 28, height: `${Math.round((n / top) * 100)}%`, minHeight: n ? 4 : 0, borderRadius: "6px 6px 2px 2px", background: "var(--c2)", transformOrigin: "bottom", animation: `xGrowY .5s var(--ease) ${i * 50}ms both` }} />
                 <span style={{ fontSize: 11, color: "var(--mut)" }}>{DAYS[i]}</span>
-              </span>
+              </div>
             ))}
           </div>
-          <Link href={`/timetable?view=teacher&teacher=${row.id}`} style={{ display: "inline-flex", gap: 6, marginTop: 10, color: "var(--acc)", fontWeight: 600, fontSize: 13 }}>
-            Open their timetable <Ic n="chevRight" size={14} />
+          <Link href={`/timetable?view=teacher&teacher=${row.id}`} style={{ ...S.row, gap: 6, paddingTop: 10, borderTop: "1px solid var(--bd)", color: "var(--acc)", fontWeight: 600, fontSize: 13 }}>
+            {tx(p("Open their timetable", "उनकी समय सारणी खोलें"))} <Ic n="chevRight" size={14} />
           </Link>
-        </Card>
-      ) : null}
-      <Card>
-        <CardHead
-          title={<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Ic n="key" size={18} /> Login</span>}
-          action={<Pill tone={state === "active" ? "ok" : state === "never" ? "warn" : state === "disabled" ? "bad" : "mut"}>{tx(LOGIN_LABELS[state])}</Pill>}
-        />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, fontSize: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ color: "var(--mut)" }}>Username</span>
-            <span className="clip" style={{ fontWeight: 600 }}>{row.email ?? (row.hasLogin ? "—" : "No login yet")}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "var(--mut)" }}>Last sign-in</span>
-            <span style={{ fontWeight: 600 }}>{row.lastSignInAt ? tx(agoP(row.lastSignInAt)) : "Never"}</span>
-          </div>
         </div>
-        {isAdmin ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
-            {row.hasLogin && row.isActive ? (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <Btn icon="key" onClick={onReset}>Reset password</Btn>
-                <Btn icon="shield" onClick={onRole}>Change role</Btn>
-              </div>
-            ) : null}
-            {!row.hasLogin && row.isActive ? <Btn icon="userPlus" variant="pri" onClick={onInvite}>Create login</Btn> : null}
-            {!row.hasLogin && row.isActive ? <Btn icon="shield" onClick={onRole}>Change role</Btn> : null}
-            {row.isActive ? (
-              <Btn icon="lock" variant="ghost" onClick={onDisable} style={{ color: "var(--bad)" }}>Disable login</Btn>
-            ) : (
-              <Btn icon="refresh" variant="soft" onClick={onEnable} disabled={pending}>Turn login back on</Btn>
-            )}
+      ) : null}
+      <div className="card" style={{ ...S.col, padding: "14px 16px", gap: 10 }}>
+        <div style={{ ...S.row, gap: 10 }}>
+          <span style={{ flex: "none", width: 38, height: 38, borderRadius: 12, background: "var(--accs)", color: "var(--accfg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Ic n="key" />
+          </span>
+          <span style={{ flex: 1, fontSize: 16, fontWeight: 700 }}>{tx(p("Login", "लॉगिन"))}</span>
+          <Pill bg={lbg} fg={lfg}>{tx(LOGIN_LABELS[state])}</Pill>
+        </div>
+        {row.hasLogin ? (
+          <>
+            <div style={{ ...S.row, justifyContent: "space-between", gap: 10, fontSize: 13 }}>
+              <span style={{ color: "var(--mut)" }}>{tx(p("Username", "यूज़रनेम"))}</span>
+              <span className="num clip" style={{ fontWeight: 600, textAlign: "right" }}>{row.email ?? "—"}</span>
+            </div>
+            <div style={{ ...S.row, justifyContent: "space-between", gap: 10, fontSize: 13 }}>
+              <span style={{ color: "var(--mut)" }}>{tx(p("Last sign-in", "आख़िरी लॉगिन"))}</span>
+              <span className="num" style={{ fontWeight: 600, textAlign: "right" }}>{row.lastSignInAt ? tx(agoP(row.lastSignInAt)) : tx(p("Never", "कभी नहीं"))}</span>
+            </div>
+          </>
+        ) : null}
+        {note ? (
+          <div style={{ ...S.note, background: note[1], color: note[2] }}>
+            <Ic n="info" style={{ marginTop: 1 }} />
+            <span>{tx(note[0])}</span>
           </div>
         ) : null}
-      </Card>
-      <Card>
-        <SecHead>Activity</SecHead>
-        {events.length === 0 ? (
-          <p style={{ margin: "8px 0 0", color: "var(--mut)", fontSize: 13 }}>No role or login changes yet.</p>
-        ) : (
-          <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-            {events.slice(0, 6).map((e) => (
-              <li key={e.id} style={{ fontSize: 13 }}>
-                <strong>{e.text}</strong>
-                <span style={{ color: "var(--mut)" }}> · {shortDay(e.at)}{e.actor ? ` · by ${e.actor}` : ""}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+        {isAdmin ? (
+          <div style={{ ...S.row, flexWrap: "wrap", gap: 8 }}>
+            {state === "none" ? <Btn icon="userPlus" variant="pri" style={{ flex: "1 1 auto" }} onClick={onInvite}>{tx(p("Create login", "लॉगिन बनाएँ"))}</Btn> : null}
+            {state === "disabled" ? <Btn icon="refresh" variant="pri" style={{ flex: "1 1 auto" }} onClick={onEnable} disabled={pending}>{tx(p("Enable login", "लॉगिन चालू करें"))}</Btn> : null}
+            {state === "active" || state === "never" ? <Btn icon="key" style={{ flex: "1 1 auto" }} onClick={onReset}>{tx(p("Reset password", "पासवर्ड बदलें"))}</Btn> : null}
+            <Btn icon="shield" style={{ flex: "1 1 auto" }} onClick={onRole}>{tx(p("Change role", "भूमिका बदलें"))}</Btn>
+            {state === "active" || state === "never" ? (
+              <Btn icon="lock" variant="ghost" style={{ flex: "1 1 auto" }} onClick={isMe ? onSelf : onDisable}>{tx(p("Disable login", "लॉगिन बंद करें"))}</Btn>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="card" style={{ ...S.col, padding: "14px 16px" }}>
+        <span className="sech" style={{ marginBottom: 6 }}>{tx(p("Activity", "गतिविधि"))}</span>
+        {log.map((l, i) => (
+          <div key={l.key} className="fadein" style={{ display: "grid", gridTemplateColumns: "12px minmax(0,1fr) auto", gap: 10, padding: "7px 0", animationDelay: `${i * 50}ms` }}>
+            <span style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: l.dot }} />
+            <span style={{ fontSize: 13 }}>{l.text}</span>
+            <span className="num" style={S.sub}>{l.time}</span>
+          </div>
+        ))}
+      </div>
       <Link href={`/staff/${row.id}`} style={{ color: "var(--acc)", fontWeight: 600, fontSize: 13, display: "inline-flex", gap: 6, alignItems: "center" }}>
-        Full profile, cover policy & edit <Ic n="chevRight" size={14} />
+        {tx(p("Full profile, cover policy & edit", "पूरी प्रोफ़ाइल, सब्स्टिट्यूट नियम व सुधार"))} <Ic n="chevRight" size={14} />
       </Link>
     </div>
   );
@@ -511,20 +747,24 @@ function RolesView({
   saved,
   edited,
   roleCounts,
+  events,
   editable,
   onToggle,
+  onLocked,
   changes,
   changeCount,
   pending,
   onDiscard,
   onSave,
 }: {
-  tabs: React.ReactNode;
+  tabs: ReactNode;
   saved: Matrix;
   edited: Matrix;
   roleCounts: Record<StaffRole, number>;
+  events: StaffEvent[];
   editable: boolean;
-  onToggle: (role: StaffRole, permission: Parameters<typeof toggle>[2]) => void;
+  onToggle: (role: StaffRole, permission: StaffPermission) => void;
+  onLocked: (text: string) => void;
   changes: Pair[];
   changeCount: number;
   pending: boolean;
@@ -533,77 +773,182 @@ function RolesView({
 }) {
   const { tx } = useVx();
   const [open, setOpen] = useState<string | null>(null);
+  const [mrole, setMrole] = useState<StaffRole>("teacher");
   const groups = matrixGroups();
-  const cols = `minmax(220px,1.6fr) repeat(${MATRIX_ROLES.length}, minmax(84px,1fr))`;
+  const cols = `minmax(210px,1.8fr) repeat(${MATRIX_ROLES.length}, minmax(64px,1fr))`;
+
+  const cell = (role: StaffRole, permission: StaffPermission, label: Pair) => {
+    const lock = cellLock(role, permission);
+    const on = lock === "admin" ? true : has(edited, role, permission);
+    const changed = on !== (lock === "admin" ? true : has(saved, role, permission));
+    const why = lock === "admin" ? p("Admin always has every permission", "प्रशासक के पास हर अनुमति रहती है") : lock === "teacher_money" ? p("Teachers never see fee amounts", "अध्यापक फीस की रक़म नहीं देखते") : null;
+    const flip = () => {
+      if (why) return onLocked(tx(why));
+      if (!editable) return onLocked(tx(p("Only an administrator can change this.", "इसे केवल प्रशासक बदल सकते हैं।")));
+      onToggle(role, permission);
+    };
+    return { on, changed, lock: Boolean(why), tip: why ? tx(why) : `${tx(label)} · ${tx(ROLE_LABELS[role])}`, aria: `${tx(label)} for ${tx(ROLE_LABELS[role])}`, flip };
+  };
+
+  const recent = events.slice(0, 4);
+
   return (
-    <Section style={{ paddingBottom: changeCount ? 120 : 40 }}>
-      {tabs}
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 16px", borderRadius: 14, background: "var(--infos)", color: "var(--info)", fontSize: 14 }}>
-        <Ic n="shield" size={18} />
-        <span>
-          <strong>Who can do what.</strong> Admin always has everything. Teachers never see fee amounts, so the Money rows stay off for them. Tap a permission name to see what it means.
-          {editable ? "" : " Only an administrator can change this."}
-        </span>
-      </div>
-      <Card pad={false} style={{ overflowX: "auto" }} className="hs">
-        <div style={{ minWidth: 980 }}>
-          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 0, padding: "12px 16px", borderBottom: "1px solid var(--bd)", position: "sticky", top: 0, background: "var(--card)", zIndex: 1 }}>
-            <span className="sech" style={{ alignSelf: "center" }}>Permission</span>
+    <div style={{ ...S.col, minHeight: "100%" }}>
+      <div className="pad" style={{ flex: 1, padding: "20px 28px 28px", ...S.col, gap: 14 }}>
+        {tabs}
+        <div style={{ ...S.note, background: "var(--infos)", color: "var(--info)" }}>
+          <Ic n="shield" style={{ marginTop: 1 }} />
+          <span>
+            <b>{tx(p("Who can do what.", "कौन क्या कर सकता है।"))}</b>{" "}
+            {tx(p("Admin always has everything. Teachers never see fee amounts, so the Money rows stay off for them. Tap a permission name to see what it means.", "प्रशासक के पास सब कुछ रहता है। अध्यापक फीस की रक़म नहीं देखते, इसलिए फीस की पंक्तियाँ उनके लिए बंद रहती हैं। मतलब देखने के लिए अनुमति का नाम दबाएँ।"))}
+            {editable ? "" : ` ${tx(p("Only an administrator can change this.", "इसे केवल प्रशासक बदल सकते हैं।"))}`}
+          </span>
+        </div>
+
+        <div className="only-d card" style={{ overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 4, alignItems: "center", padding: "4px 12px 4px 16px", minHeight: 58, background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
+            <span className="sech">{tx(p("Permission", "अनुमति"))}</span>
             {MATRIX_ROLES.map((role) => (
-              <span key={role} style={{ textAlign: "center", fontSize: 13, fontWeight: 700, display: "flex", flexDirection: "column" }}>
-                <Bi en={ROLE_LABELS[role].en} hi={ROLE_LABELS[role].hi} />
-                <span style={{ fontWeight: 500, fontSize: 11, color: "var(--mut)" }}>{roleCounts[role]} {roleCounts[role] === 1 ? "person" : "people"}</span>
+              <span key={role} style={{ ...S.col, alignItems: "center", textAlign: "center", lineHeight: 1.2 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>{tx(ROLE_LABELS[role])}</span>
+                <span className="num" style={{ fontSize: 11, color: "var(--mut)" }}>{tx(people(roleCounts[role] ?? 0))}</span>
               </span>
             ))}
           </div>
-          {groups.map((group) => (
-            <div key={group.key} style={{ borderBottom: "1px solid var(--bd)" }}>
-              <div style={{ padding: "12px 16px 4px", display: "flex", gap: 10, alignItems: "baseline" }}>
-                <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>{tx(group.title)}</span>
-                {group.note ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(group.note)}</span> : null}
+          {groups.map((group, gi) => (
+            <div key={group.key}>
+              <div style={{ ...S.row, gap: 8, padding: "12px 16px 6px", borderTop: gi ? "1px solid var(--bd)" : 0 }}>
+                <span className="sech" style={{ color: "var(--fg)" }}>{tx(group.title)}</span>
+                {group.note ? <span style={S.sub}>{tx(group.note)}</span> : null}
               </div>
               {group.items.map((item) => (
-                <div key={item.key}>
-                  <div style={{ display: "grid", gridTemplateColumns: cols, alignItems: "center", padding: "6px 16px", minHeight: 50 }}>
-                    <button type="button" className="tap" onClick={() => setOpen(open === item.key ? null : item.key)} style={{ textAlign: "left", background: "none", border: 0, padding: 0, color: "var(--fg)", fontWeight: 600, fontSize: 14, display: "inline-flex", gap: 6, alignItems: "center" }} aria-expanded={open === item.key}>
-                      {tx(item.label)} <Ic n="help" size={14} style={{ color: "var(--sub)" }} />
-                    </button>
-                    {MATRIX_ROLES.map((role) => {
-                      const lock = cellLock(role, item.key);
-                      const on = has(edited, role, item.key);
-                      const changed = on !== has(saved, role, item.key);
-                      return (
-                        <span key={role} style={{ display: "flex", justifyContent: "center" }}>
-                          <span style={{ padding: 6, borderRadius: 12, border: changed ? "1.5px solid var(--warn)" : "1.5px solid transparent", background: changed ? "var(--warns)" : undefined, opacity: lock ? 0.45 : 1 }} title={lock === "admin" ? "Admin always has everything" : lock === "teacher_money" ? "Teachers never see fee amounts" : undefined}>
-                            <Switch on={on} onChange={() => onToggle(role, item.key)} label={`${tx(item.label)} for ${tx(ROLE_LABELS[role])}`} disabled={!editable || Boolean(lock)} />
-                          </span>
+                <div key={item.key} className="row" style={{ display: "grid", gridTemplateColumns: cols, gap: 4, alignItems: "center", padding: "4px 12px 4px 16px" }}>
+                  <button type="button" className="tap" aria-expanded={open === item.key} title={tx(item.help)} onClick={() => setOpen(open === item.key ? null : item.key)} style={{ ...S.col, border: 0, background: "transparent", color: "var(--fg)", textAlign: "left", padding: "6px 0" }}>
+                    <span style={{ ...S.row, gap: 6, fontSize: 14, fontWeight: 600 }}>
+                      {tx(item.label)}
+                      <Ic n="help" size={14} style={{ color: "var(--sub)" }} />
+                    </span>
+                    {open === item.key ? <span className="fadein" style={S.sub}>{tx(item.help)}</span> : null}
+                  </button>
+                  {MATRIX_ROLES.map((role) => {
+                    const c = cell(role, item.key, item.label);
+                    return (
+                      <button key={role} type="button" role="switch" aria-checked={c.on} aria-disabled={c.lock || !editable} aria-label={c.aria} title={c.tip} onClick={c.flip} className="tap" style={{ height: 42, border: 0, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: c.changed ? "var(--warns)" : "transparent", boxShadow: c.changed ? "inset 0 0 0 2px var(--warn)" : "none", transition: "background-color .25s ease, box-shadow .25s ease" }}>
+                        <span className={`sw${c.on ? " on" : ""}`} style={{ opacity: c.lock ? 0.4 : 1 }}>
+                          <span />
                         </span>
-                      );
-                    })}
-                  </div>
-                  {open === item.key ? <p style={{ margin: "0 16px 10px", fontSize: 13, color: "var(--mut)" }}>{tx(item.help)}</p> : null}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>
           ))}
         </div>
-      </Card>
-      {changeCount > 0 ? (
-        <div className="glass" style={{ position: "sticky", bottom: 12, display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 18, border: "1px solid var(--bd)", boxShadow: "var(--shl)", animation: "xUp .35s var(--ease) both" }} role="status">
-          <span className="num" style={{ width: 32, height: 32, borderRadius: 16, background: "var(--warn)", color: "var(--onsolid)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{changeCount}</span>
-          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <strong>{changeCount} {changeCount === 1 ? "change" : "changes"}</strong>
-            <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>Not saved yet · {changes.map((c) => tx(c)).join(" · ")}</span>
+
+        <div className="only-m" style={{ ...S.col, gap: 12 }}>
+          <div className="hs" style={{ display: "flex", gap: 6 }}>
+            {MATRIX_ROLES.map((role) => (
+              <button key={role} type="button" className={`tap chip${mrole === role ? " on" : ""}`} aria-pressed={mrole === role} onClick={() => setMrole(role)}>
+                {tx(ROLE_LABELS[role])}
+              </button>
+            ))}
+          </div>
+          <span style={S.sub}>
+            {tx(ROLE_LABELS[mrole])} · {tx(people(roleCounts[mrole] ?? 0))} · {tx(ROLE_HELP[mrole])}
           </span>
-          <Btn variant="ghost" onClick={onDiscard}>Discard</Btn>
-          <Btn variant="pri" icon="check" onClick={onSave} disabled={pending}>Save</Btn>
+          {groups.map((group) => (
+            <div key={group.key} style={{ ...S.col, gap: 12 }}>
+              <span className="sech" style={{ marginTop: 4 }}>{tx(group.title)}</span>
+              <div className="card" style={{ overflow: "hidden" }}>
+                {group.items.map((item, i) => {
+                  const c = cell(mrole, item.key, item.label);
+                  return (
+                    <button key={item.key} type="button" role="switch" aria-checked={c.on} aria-disabled={c.lock || !editable} aria-label={c.aria} onClick={c.flip} className="tap" style={{ ...S.row, width: "100%", gap: 12, padding: "12px 14px", border: 0, borderTop: i ? "1px solid var(--bd)" : 0, background: c.changed ? "var(--warns)" : "transparent", color: "var(--fg)", textAlign: "left", transition: "background-color .25s ease" }}>
+                      <span style={{ ...S.col, flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(item.label)}</span>
+                        <span style={S.sub}>{tx(item.help)}</span>
+                      </span>
+                      <span className={`sw${c.on ? " on" : ""}`} style={{ opacity: c.lock ? 0.4 : 1 }}>
+                        <span />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+
+        <div className="card" style={{ ...S.col, padding: "14px 16px" }}>
+          <div style={{ ...S.row, gap: 8, marginBottom: 6 }}>
+            <span className="sech" style={{ flex: 1 }}>{tx(p("Recent changes", "हाल के बदलाव"))}</span>
+            <span style={S.sub}>{tx(p("Only Admin can change permissions", "अनुमतियाँ केवल प्रशासक बदलते हैं"))}</span>
+          </div>
+          {recent.length === 0 ? <span style={{ ...S.sub, padding: "7px 0" }}>{tx(p("No role or login changes yet.", "अभी कोई बदलाव नहीं।"))}</span> : null}
+          {recent.map((e, i) => (
+            <div key={e.id} className="fadein" style={{ display: "grid", gridTemplateColumns: "12px minmax(0,1fr) auto", gap: 10, padding: "7px 0", animationDelay: `${i * 50}ms` }}>
+              <span style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: e.kind === "disabled" ? "var(--bad)" : e.kind === "enabled" ? "var(--ok)" : "var(--acc)" }} />
+              <span style={{ fontSize: 13 }}>{e.actor ? `${e.actor.split(" ")[0]} · ` : ""}{tx(e.text)}</span>
+              <span className="num" style={S.sub}>{shortDay(e.at)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {changeCount > 0 ? (
+        <>
+          <SaveBar className="only-d" bottom="0px" pad="12px 28px" count={changeCount} summary={changes.slice(0, 3).map((c) => tx(c)).join(" · ")} pending={pending} onDiscard={onDiscard} onSave={onSave} />
+          <SaveBar className="only-m" bottom="var(--vx-bottom-h)" pad="12px 16px" count={changeCount} summary={changes.slice(0, 3).map((c) => tx(c)).join(" · ")} pending={pending} onDiscard={onDiscard} onSave={onSave} />
+        </>
       ) : null}
-    </Section>
+    </div>
+  );
+}
+
+function SaveBar({ className, bottom, pad, count, summary, pending, onDiscard, onSave }: { className: string; bottom: string; pad: string; count: number; summary: string; pending: boolean; onDiscard: () => void; onSave: () => void }) {
+  const { tx } = useVx();
+  return (
+    <div className={`glass fadein ${className}`} role="status" style={{ position: "sticky", bottom, zIndex: 4, display: "flex", alignItems: "center", gap: 10, padding: pad, borderTop: "1px solid var(--bd)" }}>
+      <span className="num" style={{ flex: "none", width: 32, height: 32, borderRadius: 16, background: "var(--warn)", color: "var(--onsolid)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, animation: "xPopIn .4s var(--spring) both" }}>{count}</span>
+      <span style={{ ...S.col, flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>{count} {count === 1 ? tx(p("change", "बदलाव")) : tx(p("changes", "बदलाव"))}</span>
+        <span className="clip" style={S.sub}>{tx(p("Not saved yet", "अभी सहेजा नहीं"))} · {summary}</span>
+      </span>
+      <Btn variant="ghost" onClick={onDiscard}>{tx(p("Discard", "हटाएँ"))}</Btn>
+      <Btn variant="pri" icon="check" style={{ padding: "0 20px" }} onClick={onSave} disabled={pending}>{tx(p("Save", "सहेजें"))}</Btn>
+    </div>
   );
 }
 
 /* -------------------------------------------------------------- sheets */
+
+function TargetCard({ row }: { row: StaffRow }) {
+  const { tx } = useVx();
+  return (
+    <div style={{ ...S.row, gap: 12, padding: "10px 14px", borderRadius: 14, background: "var(--s2)" }}>
+      <Av name={row.name} seed={row.id} />
+      <span style={{ ...S.col, flex: 1, minWidth: 0 }}>
+        <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{row.name}</span>
+        <span className="clip num" style={S.sub}>{tx(titleLine(row))} · {maskPhone(row.phone)}</span>
+      </span>
+    </div>
+  );
+}
+
+/** The one-time password, before it exists: it is made on the server when the button is pressed. */
+function PasswordSlot({ note }: { note: string }) {
+  const { tx } = useVx();
+  return (
+    <>
+      <span className="sech">{tx(p("Temporary password", "अस्थायी पासवर्ड"))}</span>
+      <div style={{ ...S.row, gap: 4, minHeight: 56, padding: "8px 8px 8px 16px", borderRadius: 14, border: "1.5px dashed var(--bds)", background: "var(--card)" }}>
+        <span className="num" style={{ flex: 1, fontSize: 20, fontWeight: 700, letterSpacing: ".06em" }}>••••-••••</span>
+        <Ic n="lock" style={{ color: "var(--sub)", marginRight: 10 }} />
+      </div>
+      <span style={S.sub}>{note}</span>
+    </>
+  );
+}
 
 function InviteSheet({
   open,
@@ -621,11 +966,11 @@ function InviteSheet({
   onSubmit: (input: { staffId: string; email: string; role: string }) => void;
 }) {
   const { tx } = useVx();
-  const candidates = rows.filter((r) => r.isActive && !r.hasLogin);
+  const candidates = sortRows(rows.filter((r) => r.isActive && !r.hasLogin));
   const [staffId, setStaffId] = useState<string>("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("");
-  const [wasOpen, setWasOpen] = useState(open);
+  const [wasOpen, setWasOpen] = useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
@@ -636,45 +981,52 @@ function InviteSheet({
     }
   }
   const person = rows.find((r) => r.id === staffId);
+  const pr = pronouns(person?.name ?? "");
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Create a login"
-      sub="For staff who don’t have one yet"
-      icon="userPlus"
-      footer={
-        <>
-          <Btn style={{ flex: 1 }} onClick={onClose}>Cancel</Btn>
-          <Btn variant="pri" icon="userPlus" style={{ flex: 1 }} disabled={pending || !staffId || !email} onClick={() => onSubmit({ staffId, email, role })}>Create login</Btn>
-        </>
-      }
+      title={tx(p("Create a login", "लॉगिन बनाएँ"))}
+      sub={tx(p("For staff who don’t have one yet", "जिनका अभी लॉगिन नहीं है"))}
+      footer={<Foot sec={tx(p("Cancel", "रद्द करें"))} onSec={onClose} label={tx(p("Create login", "लॉगिन बनाएँ"))} icon="userPlus" disabled={pending || !staffId || !email} onGo={() => onSubmit({ staffId, email, role })} />}
     >
       {candidates.length === 0 ? (
-        <EmptyState icon="checkCircle" title="Everyone has a login" body="Add a staff member first, then create their login." />
+        <div style={{ ...S.col, alignItems: "center", gap: 10, textAlign: "center", padding: "24px 0" }}>
+          <Ic n="checkCircle" size={30} style={{ color: "var(--ok)" }} />
+          <strong>{tx(p("Everyone has a login", "सबका लॉगिन है"))}</strong>
+          <span style={{ color: "var(--mut)" }}>{tx(p("Add a staff member first, then create their login.", "पहले स्टाफ़ जोड़ें, फिर लॉगिन बनाएँ।"))}</span>
+        </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <Field label="Who gets the login">
-            <Select value={staffId} onChange={(e) => { setStaffId(e.target.value); setRole(rows.find((r) => r.id === e.target.value)?.role ?? "teacher"); }}>
-              {candidates.map((r) => (
-                <option key={r.id} value={r.id}>{r.name} · {tx(ROLE_LABELS[r.role])}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Username · their email" hint="They sign in with this email and the one-time password below.">
-            <Input type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" lead={<Ic n="mail" size={16} />} />
-          </Field>
-          <div className="field">
-            <span>Role</span>
-            <ChipRow label="Role">
-              {MATRIX_ROLES.map((r) => (
-                <Chip key={r} on={role === r} onClick={() => setRole(r)}>{tx(ROLE_LABELS[r])}</Chip>
-              ))}
-            </ChipRow>
+        <div style={{ ...S.col, gap: 12, paddingTop: 4 }}>
+          <span className="sech">{tx(p("Who gets the login", "लॉगिन किसे"))}</span>
+          <div role="radiogroup" aria-label={tx(p("Who gets the login", "लॉगिन किसे"))} style={{ ...S.col, gap: 8 }}>
+            {candidates.map((r) => (
+              <Opt key={r.id} on={r.id === staffId} onPick={() => { setStaffId(r.id); setRole(r.role); }}>
+                <span aria-hidden="true" style={{ flex: "none", width: 34, height: 34, borderRadius: 17, background: "var(--s3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>{initials(r.name)}</span>
+                <span style={{ ...S.col, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</span>
+                  <span style={S.sub}>{tx(titleLine(r))}</span>
+                </span>
+              </Opt>
+            ))}
           </div>
-          <div style={{ padding: 14, borderRadius: 14, border: "1.5px dashed var(--bds)", fontSize: 13, color: "var(--mut)", display: "flex", gap: 10 }}>
-            <Ic n="lock" size={18} />
-            <span>A one-time password is made when you press Create. You will see it once, to hand to {person?.name ?? "them"} in person. It is never sent on WhatsApp or stored.</span>
+          <label style={{ ...S.row, gap: 12, padding: "10px 14px", borderRadius: 14, background: "var(--s2)" }}>
+            <Ic n="mail" style={{ color: "var(--mut)" }} />
+            <span style={{ ...S.col, flex: 1, minWidth: 0 }}>
+              <span style={S.sub}>{tx(p("Username · their email", "यूज़रनेम · उनका ईमेल"))}</span>
+              <input type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" style={{ height: 26, border: 0, outline: "none", background: "transparent", fontSize: 15, fontWeight: 700, color: "var(--fg)", padding: 0 }} />
+            </span>
+          </label>
+          <span className="sech">{tx(p("Role", "भूमिका"))}</span>
+          <div role="radiogroup" aria-label={tx(p("Role", "भूमिका"))} style={{ ...S.row, flexWrap: "wrap", gap: 6 }}>
+            {MATRIX_ROLES.map((r) => (
+              <button key={r} type="button" role="radio" aria-checked={role === r} className={`tap chip${role === r ? " on" : ""}`} onClick={() => setRole(r)}>{tx(ROLE_LABELS[r])}</button>
+            ))}
+          </div>
+          <PasswordSlot note={tx(p(`Made when you press Create login, and shown once. ${pr.they} must set a new password at first sign-in.`, "लॉगिन बनाएँ दबाने पर बनेगा और एक बार दिखेगा। पहले लॉगिन पर नया पासवर्ड बनाना होगा।"))} />
+          <div style={{ ...S.note, background: "var(--s2)", color: "var(--fg)" }}>
+            <Ic n="lock" style={{ marginTop: 1, color: "var(--mut)" }} />
+            <span>{tx(p(`Hand it to ${person ? shortName(person.name) : "them"} in person. It is never sent on WhatsApp or stored.`, "पासवर्ड ख़ुद हाथ में दें। यह WhatsApp पर नहीं भेजा जाता और सहेजा नहीं जाता।"))}</span>
           </div>
         </div>
       )}
@@ -682,45 +1034,51 @@ function InviteSheet({
   );
 }
 
-function CreatedSheet({ open, onClose, created, onOpen }: { open: boolean; onClose: () => void; created: { name: string; username?: string; password?: string; role: StaffRole } | null; onOpen: () => void }) {
+type Created = { kind: "login" | "reset"; name: string; username?: string; password?: string; role: StaffRole; staffId?: string };
+
+export function CreatedSheet({ open, onClose, created, onOpen }: { open: boolean; onClose: () => void; created: Created | null; onOpen: () => void }) {
   const { tx } = useVx();
   const [copied, setCopied] = useState(false);
+  const who = created ? shortName(created.name) : "";
+  const pr = pronouns(created?.name ?? "");
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Login ready"
+      title={created?.kind === "reset" ? tx(p("Password reset", "पासवर्ड बदला")) : tx(p("Login created", "लॉगिन बना"))}
       sub={shortDay(new Date())}
-      footer={
-        <>
-          <Btn style={{ flex: 1 }} onClick={onOpen}>Open profile</Btn>
-          <Btn variant="pri" icon="check" style={{ flex: 1 }} onClick={onClose}>Done</Btn>
-        </>
-      }
+      footer={<Foot sec={tx(p("Open profile", "प्रोफ़ाइल खोलें"))} onSec={onOpen} label={tx(p("Done", "हो गया"))} icon="check" onGo={onClose} />}
     >
       {created ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
-          <SuccessTick />
-          <h3 className="serif" style={{ margin: 0, fontSize: 24 }}>{created.name} can sign in now</h3>
-          <p style={{ margin: 0, color: "var(--mut)" }}>Hand over this one-time password. It will not be shown again.</p>
-          <Card pad={false} style={{ width: "100%", textAlign: "left" }}>
+        <div style={{ ...S.col, gap: 12, paddingTop: 4 }}>
+          <div style={{ ...S.col, alignItems: "center", gap: 10, textAlign: "center", padding: "8px 0 4px" }}>
+            <svg width="88" height="88" viewBox="0 0 96 96" aria-hidden="true" style={{ animation: "xPopIn .5s var(--spring) both" }}>
+              <circle cx="48" cy="48" r="44" style={{ fill: "var(--oks)" }} />
+              <circle cx="48" cy="48" r="44" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 4, ["--len" as string]: "276.5", strokeDasharray: 276.5, animation: "xDraw .7s .1s var(--ease) both" }} />
+              <path d="M30 49l12 12 24-26" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: "60", strokeDasharray: 60, animation: "xDraw .45s .5s var(--ease) both" }} />
+            </svg>
+            <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.2 }}>{tx(p(`${who} can sign in now`, `${who} अब लॉगिन कर सकते हैं`))}</span>
+            <span style={{ color: "var(--mut)", fontSize: 14 }}>{tx(p(`${pr.they}’ll set ${pr.their} own password on first sign-in.`, "पहले लॉगिन पर अपना पासवर्ड बनाएँगे।"))}</span>
+          </div>
+          <div className="card" style={{ ...S.col, padding: "2px 16px", boxShadow: "none" }}>
             {[
-              ["Username", created.username ?? "—"],
-              ["Role", tx(ROLE_LABELS[created.role])],
+              [tx(p("Username", "यूज़रनेम")), created.username ?? "—"],
+              [tx(p("Role", "भूमिका")), tx(ROLE_LABELS[created.role])],
             ].map(([k, v], i) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : 0 }}>
+              <div key={k} style={{ ...S.row, justifyContent: "space-between", gap: 10, padding: "10px 0", borderTop: i ? "1px solid var(--bd)" : 0, fontSize: 13 }}>
                 <span style={{ color: "var(--mut)" }}>{k}</span>
-                <strong className="clip">{v}</strong>
+                <span className="num clip" style={{ fontWeight: 600, textAlign: "right" }}>{v}</span>
               </div>
             ))}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: "1px solid var(--bd)" }}>
-              <span style={{ color: "var(--mut)" }}>Password</span>
-              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <strong className="num" style={{ letterSpacing: ".08em" }}>{created.password}</strong>
+            <div style={{ ...S.row, justifyContent: "space-between", gap: 10, padding: "6px 0", borderTop: "1px solid var(--bd)", fontSize: 13 }}>
+              <span style={{ color: "var(--mut)" }}>{tx(p("Password", "पासवर्ड"))}</span>
+              <span style={{ ...S.row, gap: 4 }}>
+                <span className="num" style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", whiteSpace: "nowrap" }}>{created.password}</span>
                 <button
                   type="button"
-                  className="tap icon-btn"
-                  aria-label="Copy password"
+                  className="tap btn ghost"
+                  style={{ width: 36, height: 36, padding: 0 }}
+                  aria-label={tx(p("Copy password", "पासवर्ड कॉपी करें"))}
                   onClick={() => {
                     void navigator.clipboard?.writeText(created.password ?? "");
                     setCopied(true);
@@ -730,7 +1088,8 @@ function CreatedSheet({ open, onClose, created, onOpen }: { open: boolean; onClo
                 </button>
               </span>
             </div>
-          </Card>
+          </div>
+          <span style={{ ...S.sub, textAlign: "center" }}>{tx(p("Shown once. Hand it over in person; it is never sent on WhatsApp.", "यह एक बार दिखेगा। ख़ुद हाथ में दें; WhatsApp पर नहीं जाता।"))}</span>
         </div>
       ) : null}
     </Sheet>
@@ -738,23 +1097,23 @@ function CreatedSheet({ open, onClose, created, onOpen }: { open: boolean; onClo
 }
 
 function ResetSheet({ open, onClose, row, pending, onConfirm }: { open: boolean; onClose: () => void; row: StaffRow; pending: boolean; onConfirm: () => void }) {
+  const { tx } = useVx();
+  const pr = pronouns(row.name);
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={`Reset ${row.name}’s password?`}
-      sub="Their old password stops working at once"
-      icon="key"
-      footer={
-        <>
-          <Btn style={{ flex: 1 }} onClick={onClose}>Cancel</Btn>
-          <Btn variant="pri" icon="key" style={{ flex: 1 }} disabled={pending} onClick={onConfirm}>Make a new password</Btn>
-        </>
-      }
+      title={tx(p("Reset password", "पासवर्ड बदलें"))}
+      sub={tx(p("The old password stops working right away", "पुराना पासवर्ड तुरंत बंद हो जाएगा"))}
+      footer={<Foot sec={tx(p("Cancel", "रद्द करें"))} onSec={onClose} label={tx(p("Reset password", "पासवर्ड बदलें"))} icon="key" disabled={pending} onGo={onConfirm} />}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <PersonCard row={row} />
-        <p style={{ margin: 0, color: "var(--mut)" }}>You will see a new one-time password to hand to them. Their records, marks and attendance are not touched.</p>
+      <div style={{ ...S.col, gap: 12, paddingTop: 4 }}>
+        <TargetCard row={row} />
+        <PasswordSlot note={tx(p(`Made when you press Reset password, and shown once. Works once — ${pr.they.toLowerCase()} must set a new password at first sign-in.`, "बदलें दबाने पर बनेगा और एक बार दिखेगा। पहले लॉगिन पर नया पासवर्ड बनाना होगा।"))} />
+        <div style={{ ...S.note, background: "var(--s2)", color: "var(--fg)" }}>
+          <Ic n="shield" style={{ marginTop: 1, color: "var(--mut)" }} />
+          <span>{tx(p(`${pr.their.charAt(0).toUpperCase()}${pr.their.slice(1)} records, marks and attendance are not touched. Hand the new password over in person; it is never sent on WhatsApp.`, "रिकॉर्ड, अंक और हाज़िरी नहीं बदलते। नया पासवर्ड ख़ुद हाथ में दें; यह WhatsApp पर नहीं जाता।"))}</span>
+        </div>
       </div>
     </Sheet>
   );
@@ -763,29 +1122,31 @@ function ResetSheet({ open, onClose, row, pending, onConfirm }: { open: boolean;
 function DisableSheet({ open, onClose, row, pending, onConfirm }: { open: boolean; onClose: () => void; row: StaffRow; pending: boolean; onConfirm: (reason: string) => void }) {
   const { tx } = useVx();
   const [reason, setReason] = useState("long_leave");
+  const pr = pronouns(row.name);
+  const who = shortName(row.name);
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={`Disable ${row.name}’s login?`}
-      sub="You can turn it back on any time"
-      footer={
-        <>
-          <Btn style={{ flex: 1 }} onClick={onClose}>Keep login</Btn>
-          <Btn variant="danger" icon="lock" style={{ flex: 1 }} disabled={pending} onClick={() => onConfirm(reason)}>Disable login</Btn>
-        </>
-      }
+      title={tx(p(`Disable ${who}’s login?`, `${who} का लॉगिन बंद करें?`))}
+      sub={tx(p("You can turn it back on any time", "इसे कभी भी फिर चालू कर सकते हैं"))}
+      footer={<Foot sec={tx(p("Keep login", "लॉगिन रहने दें"))} onSec={onClose} label={tx(p("Disable login", "लॉगिन बंद करें"))} icon="lock" variant="danger" disabled={pending} onGo={() => onConfirm(reason)} />}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <PersonCard row={row} />
-        <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)", fontSize: 14 }}>
-          <Ic n="alert" size={18} />
-          <span><strong>They can’t sign in.</strong> Their marks and attendance records stay. You can turn the login back on any time.</span>
+      <div style={{ ...S.col, gap: 12, paddingTop: 4 }}>
+        <TargetCard row={row} />
+        <div style={{ ...S.note, background: "var(--warns)", color: "var(--warnfg)" }}>
+          <Ic n="alert" style={{ marginTop: 1 }} />
+          <span>
+            <b>{tx(p(`${pr.they} can’t sign in.`, "लॉगिन नहीं कर पाएँगे।"))}</b>{" "}
+            {tx(p(`${pr.their.charAt(0).toUpperCase()}${pr.their.slice(1)} marks and attendance records stay. You can turn the login back on any time.`, "अंक और हाज़िरी के रिकॉर्ड रहते हैं। लॉगिन कभी भी फिर चालू कर सकते हैं।"))}
+          </span>
         </div>
-        <span className="sech">Why?</span>
-        <div role="radiogroup" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <span className="sech">{tx(p("Why?", "क्यों?"))}</span>
+        <div role="radiogroup" aria-label={tx(p("Why?", "क्यों?"))} style={{ ...S.col, gap: 8 }}>
           {DISABLE_REASONS.map((r) => (
-            <RadioCard key={r.key} checked={reason === r.key} onSelect={() => setReason(r.key)} title={tx(r.label)} />
+            <Opt key={r.key} on={reason === r.key} onPick={() => setReason(r.key)}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(r.label)}</span>
+            </Opt>
           ))}
         </div>
       </div>
@@ -793,32 +1154,40 @@ function DisableSheet({ open, onClose, row, pending, onConfirm }: { open: boolea
   );
 }
 
-function RoleSheet({ open, onClose, row, pending, onConfirm }: { open: boolean; onClose: () => void; row: StaffRow; pending: boolean; onConfirm: (role: string) => void }) {
+function RoleSheet({ open, onClose, row, matrix, pending, onConfirm }: { open: boolean; onClose: () => void; row: StaffRow; matrix: Matrix; pending: boolean; onConfirm: (role: string) => void }) {
   const { tx } = useVx();
-  const [role, setRole] = useState<string>(row.role);
+  const [role, setRole] = useState<StaffRole>(row.role);
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) setRole(row.role);
   }
+  const who = shortName(row.name);
+  const can = matrixGroups().flatMap((g) => g.items.filter((i) => role === "admin" || has(matrix, role, i.key)).map((i) => tx(i.label)));
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={`Change ${row.name}’s role`}
-      sub="What they can do changes at their next tap"
-      icon="shield"
-      footer={
-        <>
-          <Btn style={{ flex: 1 }} onClick={onClose}>Cancel</Btn>
-          <Btn variant="pri" icon="check" style={{ flex: 1 }} disabled={pending || role === row.role} onClick={() => onConfirm(role)}>Save role</Btn>
-        </>
-      }
+      title={tx(p("Change role", "भूमिका बदलें"))}
+      sub={tx(p(`Roles decide what ${who} can see and do`, `भूमिका तय करती है कि ${who} क्या देख और कर सकते हैं`))}
+      footer={<Foot sec={tx(p("Cancel", "रद्द करें"))} onSec={onClose} label={tx(p("Save role", "भूमिका सहेजें"))} icon="check" disabled={pending || role === row.role} onGo={() => onConfirm(role)} />}
     >
-      <div role="radiogroup" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {MATRIX_ROLES.map((r) => (
-          <RadioCard key={r} checked={role === r} onSelect={() => setRole(r)} title={tx(ROLE_LABELS[r])} />
-        ))}
+      <div style={{ ...S.col, gap: 12, paddingTop: 4 }}>
+        <TargetCard row={row} />
+        <div role="radiogroup" aria-label={tx(p("Role", "भूमिका"))} style={{ ...S.col, gap: 8 }}>
+          {MATRIX_ROLES.map((r) => (
+            <Opt key={r} on={role === r} onPick={() => setRole(r)}>
+              <span style={{ ...S.col, flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{tx(ROLE_LABELS[r])}</span>
+                <span style={S.sub}>{tx(ROLE_HELP[r])}</span>
+              </span>
+            </Opt>
+          ))}
+        </div>
+        <div style={{ ...S.note, background: "var(--s2)", color: "var(--fg)" }}>
+          <Ic n="shield" style={{ marginTop: 1 }} />
+          <span>{tx(p(`${who} will be able to: ${can.join(", ") || "nothing yet"}.`, `${who} कर सकेंगे: ${can.join(", ") || "अभी कुछ नहीं"}।`))}</span>
+        </div>
       </div>
     </Sheet>
   );
@@ -836,48 +1205,29 @@ function AddStaffSheet({ open, onClose, isAdmin, pending, onSubmit }: { open: bo
     <Sheet
       open={open}
       onClose={onClose}
-      title="Add staff"
-      sub="A profile first; a login only if they need one"
-      icon="userPlus"
-      footer={
-        <>
-          <Btn style={{ flex: 1 }} onClick={onClose}>Cancel</Btn>
-          <Btn variant="pri" icon="check" style={{ flex: 1 }} disabled={pending || name.trim().length < 2 || short.trim().length < 2} onClick={() => onSubmit({ displayName: name, shortName: short, role, phone, isTeaching: teaching })}>Add</Btn>
-        </>
-      }
+      title={tx(p("Add staff", "स्टाफ़ जोड़ें"))}
+      sub={tx(p("A profile first; a login only if they need one", "पहले प्रोफ़ाइल; लॉगिन सिर्फ़ ज़रूरत पर"))}
+      footer={<Foot sec={tx(p("Cancel", "रद्द करें"))} onSec={onClose} label={tx(p("Add", "जोड़ें"))} icon="check" disabled={pending || name.trim().length < 2 || short.trim().length < 2} onGo={() => onSubmit({ displayName: name, shortName: short, role, phone, isTeaching: teaching })} />}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Field label="Full name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="For example: Ms. Kiran Regar" /></Field>
-        <Field label="Short name" hint="2–8 letters, as the timetable writes it. It can't be changed later.">
+      <div style={{ ...S.col, gap: 14, paddingTop: 4 }}>
+        <Field label={tx(p("Full name", "पूरा नाम"))}><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tx(p("For example: Ms. Kiran Regar", "जैसे: Ms. Kiran Regar"))} /></Field>
+        <Field label={tx(p("Short name", "संक्षिप्त नाम"))} hint={tx(p("2–8 letters, as the timetable writes it. It can't be changed later.", "2–8 अक्षर, जैसे समय सारणी में। बाद में नहीं बदलेगा।"))}>
           <Input value={short} onChange={(e) => setShort(e.target.value.toUpperCase())} placeholder="KIRAN" maxLength={8} />
         </Field>
-        <Field label="Phone (WhatsApp)"><Input inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit number" /></Field>
+        <Field label={tx(p("Phone (WhatsApp)", "फ़ोन (WhatsApp)"))}><Input inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tx(p("10-digit number", "10 अंकों का नंबर"))} /></Field>
         <div className="field">
-          <span>Role</span>
-          <ChipRow label="Role">
+          <span>{tx(p("Role", "भूमिका"))}</span>
+          <ChipRow label={tx(p("Role", "भूमिका"))}>
             {roles.map((r) => (
               <Chip key={r} on={role === r} onClick={() => setRole(r)}>{tx(ROLE_LABELS[r])}</Chip>
             ))}
           </ChipRow>
         </div>
         <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <span style={{ fontWeight: 600 }}>Teaches classes</span>
-          <Switch on={teaching} onChange={setTeaching} label="Teaches classes" />
+          <span style={{ fontWeight: 600 }}>{tx(p("Teaches classes", "कक्षाएँ पढ़ाते हैं"))}</span>
+          <Switch on={teaching} onChange={setTeaching} label={tx(p("Teaches classes", "कक्षाएँ पढ़ाते हैं"))} />
         </label>
       </div>
     </Sheet>
-  );
-}
-
-function PersonCard({ row }: { row: StaffRow }) {
-  const { tx } = useVx();
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, background: "var(--s2)" }}>
-      <Avatar text={initials(row.name)} seed={row.name} size={40} />
-      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <strong className="clip">{row.name}</strong>
-        <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(ROLE_LABELS[row.role])} · {maskPhone(row.phone)}</span>
-      </span>
-    </div>
   );
 }

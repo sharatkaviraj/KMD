@@ -1,12 +1,10 @@
 import { requireStaff } from "@/platform/auth/current-staff";
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { getSessionSwitcherData } from "@/modules/fees/platform/session-context/switcher";
-import { MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
-import { lead } from "@/vx/text";
-import { VxPage, TopBar, Section } from "@/vx/ui/page";
+import { homeForRole, MENU_HOME, MENU_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
 import { getViewer } from "@/vx/view-as";
 
-import { SessionPicker } from "@/vx/screens/system/session-picker";
+import { SessionScreen } from "@/vx/screens/system/session-screen";
 
 export const runtime = "nodejs";
 
@@ -16,7 +14,6 @@ export const runtime = "nodejs";
  */
 export default async function SessionPage() {
   const staff = await requireStaff("/preferences/session");
-  const lang = staff.language;
   const [{ previewing }, switcher, cookie] = await Promise.all([
     getViewer(),
     getSessionSwitcherData().catch(() => ({ activeSessionLabel: "", availableSessions: [] })),
@@ -27,13 +24,14 @@ export default async function SessionPage() {
   const roles = staff.role === "admin" ? ROLE_PREVIEW_MENUS.map((m) => ({ menu: m, label: MENU_LABEL[m], home: MENU_HOME[m] })) : null;
 
   return (
-    <VxPage>
-      <TopBar crumb={lead({ en: "Preferences", hi: "पसंद" }, lang)} title={lead({ en: "Session and view", hi: "सत्र और दृश्य" }, lang)} mBack="/preferences" />
-      <main>
-        <Section>
-          <SessionPicker sessions={sessions} viewing={viewing} roles={roles} previewing={previewing} />
-        </Section>
-      </main>
-    </VxPage>
+    <SessionScreen
+      language={staff.language}
+      name={staff.shortName || staff.displayName}
+      sessions={sessions}
+      viewing={viewing}
+      roles={roles}
+      previewing={previewing}
+      home={homeForRole(staff.role)}
+    />
   );
 }

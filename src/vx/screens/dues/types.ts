@@ -6,6 +6,8 @@ export type DuesSheet = "call" | "promise" | "wa" | "plan" | "wo";
 
 export type PromiseView = {
   id: string;
+  /** The child the promise was taken for: "Mark paid" opens the desk on them. */
+  studentId: string;
   familyKey: string;
   fatherName: string;
   kidsLine: string;
@@ -33,7 +35,9 @@ export type LeftView = {
   writeOff: { status: string; amount: number; reasonCode: string; note: string | null; by: string | null } | null;
 };
 
-export type KidInstallment = { no: number; label: string; dueDate: string; pending: number; lateFee: number; status: string; carry: boolean };
+export type KidInstallment = { no: number; label: string; dueDate: string; pending: number; lateFee: number; status: string; carry: boolean; amount?: number };
+
+export type KidMeta = { admissionNo: string | null; route: string | null };
 
 export type FamilyContact = { at: string; channel: string | null; outcome: string | null; note: string | null; studentId: string };
 
@@ -58,8 +62,10 @@ export type DuesProps = {
   left: LeftView[];
   aging: { buckets: AgingBucket[]; top: DuesFamily[]; classByInst: ClassInstRow[] };
   selected: DuesFamily | null;
-  detail: { installments: Record<string, KidInstallment[]>; contacts: FamilyContact[] } | null;
+  detail: { installments: Record<string, KidInstallment[]>; contacts: FamilyContact[]; meta?: Record<string, KidMeta> } | null;
   sheet: DuesSheet | null;
+  /** The log sheet was opened by a Call button: the phone is dialling. */
+  dialing?: boolean;
   writeOffFor: LeftView | null;
-  perms: { log: boolean; plan: boolean; planEnabled: boolean; collect: boolean; writeOff: boolean };
+  perms: { log: boolean; plan: boolean; planEnabled: boolean; collect: boolean; writeOff: boolean; callSheet?: boolean };
 };

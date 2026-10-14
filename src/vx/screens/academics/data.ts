@@ -287,7 +287,7 @@ export async function attendanceOn(ctx: Ctx, day: string): Promise<DayAttendance
   };
 }
 
-async function teachersAway(session: string, day: string): Promise<Set<string>> {
+export async function teachersAway(session: string, day: string): Promise<Set<string>> {
   const { data } = await createAdminClient()
     .from("teacher_absences")
     .select("staff_profile_id")
@@ -363,6 +363,67 @@ export async function closedDays(session: string, from: string, to: string): Pro
     .in("kind", ["holiday", "vacation"])
     .returns<{ day: string; kind: string }[]>();
   return new Set((data ?? []).map((row) => row.day));
+}
+
+/** Holidays and vacation days in a range, with their names, for the month chart and the register. */
+export async function holidaysIn(session: string, from: string, to: string): Promise<{ day: string; label: string | null }[]> {
+  const { data } = await createAdminClient()
+    .from("academic_calendar_days")
+    .select("day, kind, label_en")
+    .eq("session_label", session)
+    .gte("day", from)
+    .lte("day", to)
+    .in("kind", ["holiday", "vacation"])
+    .order("day")
+    .returns<{ day: string; kind: string; label_en: string | null }[]>();
+  return (data ?? []).map((row) => ({ day: row.day, label: row.label_en }));
+}
+
+/** Each child's saved statuses on the last `n` days their class saved, oldest first (the "last 10 days" dots). */
+export async function recentStatuses(ctx: Ctx, studentIds: string[], n = 10): Promise<Map<string, { day: string; status: AttStatus }[]>> {
+  if (studentIds.length === 0) return new Map();
+  const from = addDays(ctx.today, -28);
+  const { data } = await fetchInChunks<{ student_id: string; status: AttStatus; attendance_registers: { day: string } }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    createAdminClient()
+      .from("attendance_marks")
+      .select("student_id, status, attendance_registers!inner(day, session_label, status, period)")
+      .in("student_id", chunk)
+      .eq("attendance_registers.session_label", ctx.session)
+      .eq("attendance_registers.status", "submitted")
+      .is("attendance_registers.period", null)
+      .gte("attendance_registers.day", from)
+      .returns<{ student_id: string; status: AttStatus; attendance_registers: { day: string } }[]>(),
+  );
+  const out = new Map<string, { day: string; status: AttStatus }[]>();
+  for (const row of data) {
+    const list = out.get(row.student_id) ?? [];
+    list.push({ day: row.attendance_registers.day, status: row.status });
+    out.set(row.student_id, list);
+  }
+  for (const [id, list] of out) out.set(id, list.sort((a, b) => a.day.localeCompare(b.day)).slice(-n));
+  return out;
+}
+
+/** The latest note a reader may see on each child (body and who wrote it). */
+export async function lastNotes(ctx: Ctx, studentIds: string[]): Promise<Map<string, { body: string; by: string; at: string }>> {
+  if (studentIds.length === 0 || !can(ctx.staff, "notes:view")) return new Map();
+  const { data } = await fetchInChunks<{ student_id: string; body: string; created_at: string; written_by: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    createAdminClient()
+      .from("notes")
+      .select("student_id, body, created_at, written_by, tags, follow_up_staff_id, note_kinds(code)")
+      .eq("session_label", ctx.session)
+      .neq("visibility", "private")
+      .in("student_id", chunk)
+      .order("created_at", { ascending: false })
+      .returns<{ student_id: string; body: string; created_at: string; written_by: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }[]>(),
+  );
+  const staff = await staffDirectory();
+  const out = new Map<string, { body: string; by: string; at: string }>();
+  for (const row of data) {
+    if (out.has(row.student_id) || !readsSensitive(ctx.staff, row)) continue;
+    out.set(row.student_id, { body: row.body, by: staff.get(row.written_by)?.display_name ?? "—", at: row.created_at });
+  }
+  return out;
 }
 
 export type ChronicChild = {
@@ -444,6 +505,8 @@ export type RegisterSheet = {
   days: string[];
   students: { studentId: string; name: string; rollNo: string | null; marks: Map<string, AttStatus>; pct: number | null }[];
   savedDays: number;
+  /** Holidays and vacation days in the month (school closed). */
+  closed: string[];
 };
 
 /** One class's month: a dot for every child, every day. */
@@ -500,7 +563,7 @@ export async function registerSheet(ctx: Ctx, classId: string, month: string): P
       };
     })
     .sort((a, b) => (Number(a.rollNo) || 999) - (Number(b.rollNo) || 999) || a.name.localeCompare(b.name));
-  return { classId, label: ctx.label(classId), month, days, students, savedDays: regs.length };
+  return { classId, label: ctx.label(classId), month, days, students, savedDays: regs.length, closed: [...closed] };
 }
 
 /** The roll a register is marked against, with today's marks if any. */
@@ -609,6 +672,8 @@ export function currentExam(exams: Exam[], today: string): { current: Exam | nul
 
 export type MarksEntry = {
   exam: Exam | null;
+  /** The exam office's "marks due" day for this exam, if set (`exam_plans.marks_due_on`). */
+  dueOn: string | null;
   pct: number;
   papers: PaperProgress[];
   late: (LateTeacher & { name: string })[];
@@ -619,8 +684,8 @@ export type MarksEntry = {
 export async function marksEntry(ctx: Ctx, examId?: string): Promise<MarksEntry> {
   const exams = await examsOf(ctx.session);
   const exam = (examId && exams.find((e) => e.id === examId)) || currentExam(exams, ctx.today).current;
-  if (!exam) return { exam: null, pct: 0, papers: [], late: [], byClass: [] };
-  const [stats, assignments, staff, teachers] = await Promise.all([
+  if (!exam) return { exam: null, dueOn: null, pct: 0, papers: [], late: [], byClass: [] };
+  const [stats, assignments, staff, teachers, plan] = await Promise.all([
     paperStats(ctx, [exam.id]),
     createAdminClient()
       .from("teaching_assignments")
@@ -629,6 +694,7 @@ export async function marksEntry(ctx: Ctx, examId?: string): Promise<MarksEntry>
       .returns<{ class_id: string; subject_id: string; staff_profile_id: string }[]>(),
     staffDirectory(),
     classTeachersOn(ctx.session, ctx.today),
+    createAdminClient().from("exam_plans").select("marks_due_on").eq("assessment_id", exam.id).maybeSingle<{ marks_due_on: string | null }>(),
   ]);
   const subjectTeacher = new Map((assignments.data ?? []).map((row) => [`${row.class_id}|${row.subject_id}`, row.staff_profile_id]));
   const rollOf = new Map(ctx.classes.map((c) => [c.id, c.roll]));
@@ -649,7 +715,7 @@ export async function marksEntry(ctx: Ctx, examId?: string): Promise<MarksEntry>
       return { classId: c.id, label: c.label, pct: enteredPct(mine), done: mine.filter((p) => p.submitted).length, total: mine.length };
     })
     .filter((c) => c.total > 0);
-  return { exam, pct: enteredPct(papers), papers, late, byClass };
+  return { exam, dueOn: plan.data?.marks_due_on ?? null, pct: enteredPct(papers), papers, late, byClass };
 }
 
 export type ClassResult = { classId: string; label: string; avg: number | null; before: number | null; pass: number | null; attendance: number | null };
@@ -1002,7 +1068,7 @@ export async function classDetail(ctx: Ctx, classId: string, exam: Exam, previou
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((s) => {
       const prev = stats.find((p) => p.classId === classId && p.examId === previous?.id && p.subjectId === s.subjectId);
-      return { subject: s.subject, avg: s.avgPct === null ? null : Math.round(s.avgPct), before: prev?.avgPct == null ? null : Math.round(prev.avgPct), pass: s.scored ? Math.round((s.passed / s.scored) * 100) : null, entered: s.entered, submitted: s.submitted };
+      return { subjectId: s.subjectId, subject: s.subject, avg: s.avgPct === null ? null : Math.round(s.avgPct), before: prev?.avgPct == null ? null : Math.round(prev.avgPct), pass: s.scored ? Math.round((s.passed / s.scored) * 100) : null, entered: s.entered, submitted: s.submitted };
     });
   const avgs = students.map((s) => s.avg).filter((v): v is number => v !== null);
   return {
@@ -1017,13 +1083,68 @@ export async function classDetail(ctx: Ctx, classId: string, exam: Exam, previou
   };
 }
 
+export type ClassDetail = NonNullable<Awaited<ReturnType<typeof classDetail>>>;
+
+/** One class's marks in one exam as percentages: a row per child per subject (absent, exempt and blank left out). */
+export async function classMarks(ctx: Ctx, classId: string, examId: string): Promise<{ studentId: string; subject: string; pct: number }[]> {
+  if (!scopeIncludes(ctx.scope, classId)) return [];
+  const { data } = await createAdminClient()
+    .from("marks")
+    .select("student_id, value, absent, exempt, assessment_subjects!inner(assessment_id, class_id, subject_code, max_marks)")
+    .eq("assessment_subjects.assessment_id", examId)
+    .eq("assessment_subjects.class_id", classId)
+    .limit(5000)
+    .returns<{ student_id: string; value: number | null; absent: boolean; exempt: boolean; assessment_subjects: { assessment_id: string; class_id: string; subject_code: string; max_marks: number } }[]>();
+  return (data ?? [])
+    .filter((m) => m.value !== null && !m.absent && !m.exempt && Number(m.assessment_subjects.max_marks) > 0)
+    .map((m) => ({ studentId: m.student_id, subject: m.assessment_subjects.subject_code, pct: Math.round((Number(m.value) / Number(m.assessment_subjects.max_marks)) * 1000) / 10 }));
+}
+
+/** Who teaches one class (class teacher, each subject's teacher), whether its results are locked, and its notes this session. */
+export async function classPeople(ctx: Ctx, classId: string, examId: string): Promise<{ classTeacher: string | null; bySubject: Map<string, string>; locked: boolean; notes: { total: number; followUp: number } }> {
+  if (!scopeIncludes(ctx.scope, classId)) return { classTeacher: null, bySubject: new Map(), locked: false, notes: { total: 0, followUp: 0 } };
+  const admin = createAdminClient();
+  const [teachers, staff, assignments, lock, notes] = await Promise.all([
+    classTeachersOn(ctx.session, ctx.today),
+    staffDirectory(),
+    admin.from("teaching_assignments").select("subject_id, staff_profile_id").eq("session_label", ctx.session).eq("class_id", classId).returns<{ subject_id: string; staff_profile_id: string }[]>(),
+    admin.from("exam_class_locks").select("class_id").eq("assessment_id", examId).eq("class_id", classId).maybeSingle<{ class_id: string }>(),
+    admin
+      .from("notes")
+      .select("id, status, needs_follow_up, written_by, tags, follow_up_staff_id, note_kinds(code)")
+      .eq("session_label", ctx.session)
+      .eq("class_id", classId)
+      .neq("visibility", "private")
+      .limit(500)
+      .returns<{ id: string; status: string; needs_follow_up: boolean; written_by: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }[]>(),
+  ]);
+  const ct = teachers.get(classId);
+  const visible = (notes.data ?? []).filter((n) => readsSensitive(ctx.staff, n));
+  return {
+    classTeacher: ct ? staff.get(ct)?.display_name ?? null : null,
+    bySubject: new Map((assignments.data ?? []).map((a) => [a.subject_id, staff.get(a.staff_profile_id)?.display_name ?? "—"])),
+    locked: !!lock.data,
+    notes: { total: visible.length, followUp: visible.filter((n) => n.needs_follow_up && (n.status === "open" || n.status === "working")).length },
+  };
+}
+
+/** A child's class teacher, for "Talk to …" (name and the phone their WhatsApp is on). */
+export async function classTeacherOf(ctx: Ctx, classId: string): Promise<{ name: string; phone: string | null } | null> {
+  const [teachers, staff] = await Promise.all([classTeachersOn(ctx.session, ctx.today), staffDirectory()]);
+  const id = teachers.get(classId);
+  const person = id ? staff.get(id) : undefined;
+  return person ? { name: person.display_name, phone: person.whatsapp_phone ?? person.phone ?? null } : null;
+}
+
 /* ------------------------------------------------------- the week */
 
 export async function weekFacts(ctx: Ctx) {
   const monday = mondayOf(ctx.today);
   const prevMonday = addDays(monday, -7);
+  // Eight weeks back for the trend line; the facts below still read only this week and last.
+  const trendFrom = addDays(monday, -49);
   const [rows, credit, entry, attention, notes, corrections] = await Promise.all([
-    tallies(ctx, prevMonday, ctx.today),
+    tallies(ctx, trendFrom, ctx.today),
     halfDayCredit(ctx.session),
     marksEntry(ctx),
     needsAttention(ctx),
@@ -1049,8 +1170,57 @@ export async function weekFacts(ctx: Ctx) {
     .map((d) => ({ day: d, pct: presentPct(sum(d, d)) }));
   const weekStart = `${monday}T00:00:00+05:30`;
   const fresh = attention.filter((a) => a.followup === null || a.followup.at >= weekStart).length;
+  // Weekly averages, oldest first: the eight weeks that end with this one.
+  const trend = Array.from({ length: 8 }, (_, i) => {
+    const from = addDays(monday, (i - 7) * 7);
+    const to = i === 7 ? ctx.today : addDays(from, 6);
+    return { monday: from, pct: presentPct(sum(from, to)) };
+  });
+  // Children someone marked "improving" this week (student_followups, kind improving).
+  const { data: improving } = await createAdminClient()
+    .from("student_followups")
+    .select("student_id, created_at, created_by")
+    .eq("session_label", ctx.session)
+    .eq("kind", "improving")
+    .gte("created_at", weekStart)
+    .order("created_at", { ascending: false })
+    .limit(50)
+    .returns<{ student_id: string; created_at: string; created_by: string }[]>();
+  const enrolled = new Map((await enrolledRows(ctx.session)).map((row) => [row.student_id, row.class_id]));
+  const improvedRows = [...new Map((improving ?? []).filter((r) => scopeIncludes(ctx.scope, enrolled.get(r.student_id))).map((r) => [r.student_id, r])).values()].slice(0, 5);
+  const [improvedInfo, staff] = await Promise.all([studentInfo(improvedRows.map((r) => r.student_id)), staffDirectory()]);
+  const improved = improvedRows.map((r) => ({
+    studentId: r.student_id,
+    name: improvedInfo.get(r.student_id)?.name ?? "—",
+    classLabel: ctx.label(enrolled.get(r.student_id)),
+    by: staff.get(r.created_by)?.display_name ?? "—",
+    at: r.created_at,
+  }));
+  // Classes whose results the exam office has locked (exam_class_locks): their submitted papers count as "Locked".
+  const { data: locks } = entry.exam
+    ? await createAdminClient().from("exam_class_locks").select("class_id").eq("assessment_id", entry.exam.id).returns<{ class_id: string }[]>()
+    : { data: [] as { class_id: string }[] };
+  const locked = new Set((locks ?? []).map((l) => l.class_id));
+  const papers = {
+    locked: entry.papers.filter((p) => p.submitted && locked.has(p.classId)).length,
+    done: entry.papers.filter((p) => p.submitted && !locked.has(p.classId)).length,
+    inProgress: entry.papers.filter((p) => !p.submitted && p.entered > 0).length,
+    notStarted: entry.papers.filter((p) => !p.submitted && p.entered === 0).length,
+  };
+  const principals = [...staff.values()].filter((s) => s.role === "admin" && s.is_active && (s.whatsapp_phone ?? s.phone)).map((s) => s.display_name);
+  // When the summary last went (message_sends on the weekly-summary template), for the bar's "last sent".
+  const { data: template } = await createAdminClient().from("message_templates").select("id").eq("code", "vppsone_weekly_summary").maybeSingle<{ id: string }>();
+  const { data: lastSend } = template
+    ? await createAdminClient().from("message_sends").select("created_at").eq("template_id", template.id).eq("session_label", ctx.session).neq("status", "cancelled").order("created_at", { ascending: false }).limit(1).maybeSingle<{ created_at: string }>()
+    : { data: null };
+  const lastSent = lastSend?.created_at ?? null;
   return {
     monday,
+    trend,
+    improved,
+    papers,
+    principals,
+    lastSent,
     daily,
     facts: {
       coordinator: ctx.staff.displayName,
@@ -1069,6 +1239,17 @@ export async function weekFacts(ctx: Ctx) {
     entry,
     attention,
   };
+}
+
+/** A staff template's two bodies, for the preview a send sheet shows before anything goes. */
+export async function staffTemplateBodies(code: string): Promise<{ hi: string; en: string } | null> {
+  const { data } = await createAdminClient()
+    .from("message_templates")
+    .select("body_hi, body_en, audience, is_active")
+    .eq("code", code)
+    .maybeSingle<{ body_hi: string; body_en: string; audience: string; is_active: boolean }>();
+  if (!data || data.audience !== "staff" || data.is_active === false) return null;
+  return { hi: data.body_hi, en: data.body_en };
 }
 
 /* ------------------------------------------------------- coming up */

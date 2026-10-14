@@ -29,17 +29,16 @@ test.beforeEach(async ({ page }) => {
 test("Notes → All notes → Back restores the selected phone tab", async ({ page }, testInfo) => {
   if (!process.env.PHONEOPS_STATIC_DIR) await page.route(`**/students/${id}*`, route => route.fulfill({ path: "tests/mobile-ui/student360-navigation.html", contentType: "text/html" }));
   await page.goto("/student360-navigation.html", { waitUntil: "domcontentloaded" });
-  await page.getByRole("link", { name: "More", exact: true }).tap();
   const notes = page.getByRole("link", { name: "Notes", exact: true });
   const target = await notes.boundingBox();
   await notes.tap();
-  await expect(notes).toHaveAttribute("aria-current", "location");
+  await expect(notes).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveURL(new RegExp(`/students/${id}\\?tab=notes$`));
   await page.getByRole("link", { name: "All notes", exact: true }).tap();
   await expect(page.getByRole("heading", { name: "Synthetic notes board" })).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`/students/${id}\\?tab=notes$`));
-  await expect(notes).toHaveAttribute("aria-current", "location");
+  await expect(notes).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("QA navigation observation", { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("notes-restored-phone.png"), fullPage: true });
   await testInfo.attach("phone-layout", { body: JSON.stringify({ viewport: page.viewportSize(), touch: await page.evaluate(() => matchMedia("(pointer: coarse)").matches), notesTarget: target, documentOverflow: await page.evaluate(() => document.documentElement.scrollWidth - innerWidth) }), contentType: "application/json" });
@@ -47,15 +46,14 @@ test("Notes → All notes → Back restores the selected phone tab", async ({ pa
   await page.goForward();
   await expect(page.getByRole("heading", { name: "Synthetic notes board" })).toBeVisible();
   await page.goBack();
-  await expect(notes).toHaveAttribute("aria-current", "location");
+  await expect(notes).toHaveAttribute("aria-current", "page");
   await page.reload();
-  await expect(notes).toHaveAttribute("aria-current", "location");
+  await expect(notes).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("QA navigation observation", { exact: true })).toBeVisible();
 });
 
 test("history updates restore allowed tabs and reject unavailable tabs", async ({ page }) => {
   await page.goto("/student360-navigation.html", { waitUntil: "domcontentloaded" });
-  await page.getByRole("link", { name: "More", exact: true }).tap();
   const notes = page.getByRole("link", { name: "Notes", exact: true });
   const overview = page.getByRole("link", { name: "Overview", exact: true });
   await notes.tap();
@@ -63,9 +61,9 @@ test("history updates restore allowed tabs and reject unavailable tabs", async (
     history.pushState(null, "", `/students/${studentId}?tab=attendance`);
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, id);
-  await expect(page.getByRole("link", { name: "Attendance", exact: true })).toHaveAttribute("aria-current", "location");
+  await expect(page.getByRole("link", { name: "Attendance", exact: true })).toHaveAttribute("aria-current", "page");
   await page.goBack();
-  await expect(notes).toHaveAttribute("aria-current", "location");
+  await expect(notes).toHaveAttribute("aria-current", "page");
   await page.evaluate((studentId) => {
     history.pushState(null, "", `/students/${studentId}?tab=fees`);
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -79,16 +77,13 @@ test("repeated offline tab taps keep one history entry and recover after reconne
   const entries = await page.evaluate(() => history.length);
   await context.setOffline(true);
   for (let repeat = 0; repeat < 3; repeat += 1) {
-    await page.getByRole("link", { name: "More", exact: true }).tap();
     await page.getByRole("link", { name: "Notes", exact: true }).tap();
-    await expect(page.getByRole("link", { name: "Notes", exact: true })).toHaveAttribute("aria-current", "location");
-    await page.getByRole("link", { name: "Learning", exact: true }).tap();
+    await expect(page.getByRole("link", { name: "Notes", exact: true })).toHaveAttribute("aria-current", "page");
     await page.getByRole("link", { name: "Attendance", exact: true }).tap();
-    await expect(page.getByRole("link", { name: "Attendance", exact: true })).toHaveAttribute("aria-current", "location");
+    await expect(page.getByRole("link", { name: "Attendance", exact: true })).toHaveAttribute("aria-current", "page");
   }
   expect(await page.evaluate(() => history.length)).toBe(entries);
   await context.setOffline(false);
-  await page.getByRole("link", { name: "More", exact: true }).tap();
   await page.getByRole("link", { name: "Notes", exact: true }).tap();
   await expect(page.getByText("QA navigation observation", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);

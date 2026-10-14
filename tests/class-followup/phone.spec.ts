@@ -21,9 +21,9 @@ test.afterEach(async ({ page }, info) => {
 
 test('attendance queued offline survives reload and records exactly once after reconnect', async ({ page, context }, info) => {
   await page.goto('/class-followup.html?mode=attendance&path=/teach/attendance');
-  const child = page.locator('button.t-kid').first(); await expect(child).toBeVisible();
+  const child = page.locator('button.tc-akid').first(); await expect(child).toBeVisible();
   await context.setOffline(true); await child.tap();
-  await page.locator('.t-savebar button').tap();
+  await page.locator('.tc-abar button').tap();
   const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
   const alerts = dialog.getByRole('switch'); if (await alerts.getAttribute('aria-checked') === 'true') await alerts.tap();
   await expect(alerts).toHaveAttribute('aria-checked', 'false');
@@ -33,10 +33,10 @@ test('attendance queued offline survives reload and records exactly once after r
   expect(await page.evaluate(() => window.classFollowup.snapshot().attendanceAttempts)).toBe(0);
   await expect(page.getByText('The office can see it now.', { exact: true })).toHaveCount(0);
   await page.reload(); await expect(page.getByText(/this register is saved on this phone and will be sent when you are online/)).toBeVisible();
-  await expect(page.locator('button.t-kid').first()).toHaveClass(/\ba\b/);
+  await expect(page.locator('button.tc-akid').first()).toHaveClass(/\ba\b/);
   await context.setOffline(false);
   await expect.poll(() => page.evaluate(() => window.classFollowup.snapshot().attendance.length)).toBe(1);
-  await expect(page.locator('.t-savebar')).toHaveCount(0);
+  await expect(page.locator('.tc-abar')).toHaveCount(0);
   for (let turn = 0; turn < 3; turn += 1) { await context.setOffline(true); await context.setOffline(false); }
   const ledger = await page.evaluate(() => window.classFollowup.snapshot());
   expect(ledger.attendance).toHaveLength(1); expect(ledger.attendanceAttempts).toBe(1);
@@ -48,10 +48,10 @@ test('attendance queued offline survives reload and records exactly once after r
 test('attendance last child and full save target stay above native phone navigation', async ({ page }, info) => {
   await page.goto('/class-followup.html?mode=attendance&path=/teach/attendance');
   const search = page.getByPlaceholder('Find a child'); await search.tap(); await expect(search).toBeFocused();
-  await search.fill('24'); const last = page.locator('button.t-kid').last(); await last.scrollIntoViewIfNeeded();
+  await search.fill('24'); const last = page.locator('button.tc-akid').last(); await last.scrollIntoViewIfNeeded();
   await expect(last).toBeVisible(); await last.tap();
-  await search.fill(''); await page.locator('button.t-kid').last().scrollIntoViewIfNeeded();
-  const button = page.locator('.t-savebar button'); await button.scrollIntoViewIfNeeded();
+  await search.fill(''); await page.locator('button.tc-akid').last().scrollIntoViewIfNeeded();
+  const button = page.locator('.tc-abar button'); await button.scrollIntoViewIfNeeded();
   const measure = await button.evaluate(element => {
     const rect = element.getBoundingClientRect(); const nav = document.querySelector('nav.vx-bottom')!.getBoundingClientRect();
     return { viewport: innerWidth, document: document.documentElement.scrollWidth, width: rect.width, height: rect.height, top: rect.top, bottom: rect.bottom, navTop: nav.top, navHeight: nav.height, ownsCenter: document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('button') === element, coarse: matchMedia('(pointer: coarse)').matches };
@@ -65,12 +65,14 @@ test('attendance last child and full save target stay above native phone navigat
 
 async function openNote(page: import('@playwright/test').Page) {
   await page.goto('/class-followup.html?mode=notes&path=/teach/notes');
-  await page.locator('button.n-fab').tap();
-  const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
-  await dialog.locator('textarea').fill('phoneops-followup synthetic private observation');
-  await dialog.locator('button.pri').tap();
-  await dialog.getByRole('radio', { name: 'Only me', exact: true }).tap();
-  return dialog;
+  // The design's "New note" is a page of its own (TchNotes `add`), not a sheet.
+  await page.locator('button.nt-fab').tap();
+  const composer = page.locator('.nx'); await expect(composer.getByRole('button', { name: 'Type instead', exact: true })).toBeVisible();
+  await composer.getByRole('button', { name: 'Type instead', exact: true }).tap();
+  await composer.getByRole('textbox', { name: 'Note', exact: true }).fill('phoneops-followup synthetic private observation');
+  await composer.getByRole('button', { name: 'Just noting', exact: true }).tap();
+  await composer.getByRole('button', { name: 'Only me', exact: true }).tap();
+  return composer;
 }
 test('note offline before Save retains review and reconnect creates one private record', async ({ page, context }, info) => {
   const dialog = await openNote(page); await context.setOffline(true);
@@ -81,7 +83,7 @@ test('note offline before Save retains review and reconnect creates one private 
   expect(await page.evaluate(() => window.classFollowup.snapshot().noteAttempts)).toBe(0);
   await expect(page.getByText('Note saved', { exact: true })).toHaveCount(0);
   await context.setOffline(false); await dialog.getByRole('button', { name: 'Save note', exact: true }).tap();
-  await expect(dialog.getByText('Note saved', { exact: true })).toBeVisible();
+  await expect(page.getByText('Note saved', { exact: true }).filter({ visible: true })).toBeVisible();
   const ledger = await page.evaluate(() => window.classFollowup.snapshot()); expect(ledger.notes).toHaveLength(1);
   expect(ledger.notes[0]).toMatchObject({ visibility: 'private', tellParents: false, needsFollowUp: false });
   expect(ledger.noteAttempts).toBe(1);
@@ -112,6 +114,9 @@ test('note focus and footer remain reachable after a simulated keyboard viewport
   await info.attach('simulated-keyboard-viewport', { body: JSON.stringify({ physicalKeyboard: false, ...measure }), contentType: 'application/json' });
   expect(measure.height).toBeGreaterThanOrEqual(44); expect(measure.bottom).toBeLessThanOrEqual(measure.viewportHeight);
   expect(measure.ownsCenter).toBe(true); expect(measure.document).toBeLessThanOrEqual(measure.viewportWidth);
+  // Leaving the page keeps the words: the draft comes back when the note is opened again (RULES G).
+  await expect(dialog.getByText(/Saved as draft/)).toBeVisible();
   await page.setViewportSize(before); await dialog.getByRole('button', { name: 'Back', exact: true }).tap();
+  await page.locator('button.nt-fab').tap();
   await expect(dialog.locator('textarea')).toHaveValue('phoneops-followup synthetic private observation');
 });

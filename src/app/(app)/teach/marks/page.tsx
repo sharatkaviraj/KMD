@@ -16,8 +16,6 @@ import {
   currentExam,
   enrolmentsFor,
   listExams,
-  liveLinks,
-  marksLinkUrl,
   marksOf,
   paperById,
   papersOf,
@@ -34,7 +32,7 @@ import { MarksSheet, type SheetPhase } from "@/vx/screens/exams/marks-sheet";
 import { daysLeft, loadSheet } from "@/vx/screens/exams/sheet-data";
 import { TeacherPick, TeacherRemarks, type PickCard, type RemarkChild, type RemarksCard } from "@/vx/screens/exams/teacher-marks";
 
-import { makeMyMarksLinkAction, saveRemarkAction, saveTeacherMarksAction, withdrawTeacherMarksAction } from "./actions";
+import { saveRemarkAction, saveTeacherMarksAction, withdrawTeacherMarksAction } from "./actions";
 
 export const runtime = "nodejs";
 
@@ -201,18 +199,12 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     }
   }
 
-  const links = await Promise.all(
-    openExams.map(async (e) => {
-      const live = (await liveLinks(e.id)).find((l) => l.staff_profile_id === staff.id);
-      return { examId: e.id, examLabel: { en: e.labelEn, hi: e.labelHi }, url: live ? marksLinkUrl(live.token) : null };
-    }),
-  );
-
   const due = exam?.plan?.marksDueOn
     ? { label: shortDay(exam.plan.marksDueOn), daysLeft: daysLeft(exam.plan.marksDueOn, today), results: exam.plan.resultsOn ? `${shortDay(exam.plan.resultsOn)}${exam.plan.ptmAt ? " (PTM)" : ""}` : null }
     : null;
 
-  return <TeacherPick cards={cards} remarks={remarksCards} due={due} links={links} makeLink={makeMyMarksLinkAction} crumb={crumb} />;
+  // Her no-login links live on More · Marks links, where she can open, share or make them.
+  return <TeacherPick cards={cards} remarks={remarksCards} due={due} crumb={crumb} />;
 }
 
 /** "classId|subjectId" for each paper the timetable gives this person in an exam's session. */

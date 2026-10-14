@@ -6,19 +6,22 @@ import { useRouter } from "next/navigation";
 import { decideWriteOffAction, requestWriteOffAction } from "@/app/(app)/dues/actions";
 import { isWriteOffReason, validWriteOffAmount, WRITE_OFF_REASONS, type WriteOffReason } from "@/modules/defaulters/vx/domain/families";
 import { rupees } from "@/vx/format";
-import { Bi, useVx } from "@/vx/i18n";
-import { Field, Input, RadioCard, Textarea } from "@/vx/ui/controls";
+import { useVx } from "@/vx/i18n";
+import { Field, Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { Btn, SecHead } from "@/vx/ui/primitives";
+import { Btn } from "@/vx/ui/primitives";
 
+import { Choice, Inset } from "./bits";
 import { duesHref } from "./href";
 import type { LeftView } from "./types";
-import { W, WRITE_OFF_WORD } from "./words";
+import { fill, W, WRITE_OFF_SUB, WRITE_OFF_WORD } from "./words";
 
 /**
  * Staff who cannot write off send a request to Needs you. An admin opening the
  * same sheet (from Needs you or the Left list) decides instead: the request's
  * reason and amount are filled in, and they write it off or decline it.
+ * Nothing is written off from a request; money moves only on the admin's
+ * decision, through the fee app's action (UI-65).
  */
 export function WriteOffSheet({ row, sessionLabel, open, canDecide }: { row: LeftView; sessionLabel: string; open: boolean; canDecide: boolean }) {
   const { tx } = useVx();
@@ -69,46 +72,52 @@ export function WriteOffSheet({ row, sessionLabel, open, canDecide }: { row: Lef
     <Sheet
       open={open}
       onClose={close}
-      icon="flag"
       title={tx(canDecide ? W.woDecideTitle : W.woTitle)}
-      sub={`${row.fullName} · ${row.classLabel ?? "—"} · ${tx(W.owes)} ${rupees(owed)}`}
+      sub={tx(fill(W.woSubLine, { name: row.fullName, cls: row.classLabel ?? "—", amt: rupees(owed) }))}
       footer={
         canDecide ? (
           <>
             {asked ? (
-              <Btn variant="sec" full disabled={busy} onClick={() => decide("decline")}>{tx(W.woDecline)}</Btn>
+              <Btn variant="sec" disabled={busy} onClick={() => decide("decline")} style={{ flex: 1 }}>{tx(W.woDecline)}</Btn>
             ) : (
-              <Btn variant="sec" full onClick={close}>{tx(W.woKeep)}</Btn>
+              <Btn variant="sec" onClick={close} style={{ flex: 1 }}>{tx(W.woKeep)}</Btn>
             )}
-            <Btn variant="danger" full disabled={!reason || !amountOk || busy} onClick={() => decide("approve")}>
+            <Btn variant="danger" icon="check" disabled={!reason || !amountOk || busy} onClick={() => decide("approve")} style={{ flex: 1.6 }}>
               {tx(W.woApprove)} {amountOk ? rupees(value) : ""}
             </Btn>
           </>
         ) : (
           <>
-            <Btn variant="sec" full onClick={close}>{tx(W.woKeep)}</Btn>
-            <Btn variant="pri" full disabled={!reason || !amountOk || busy} onClick={send}>{tx(W.woSend)}</Btn>
+            <Btn variant="sec" onClick={close} style={{ flex: 1 }}>{tx(W.woKeep)}</Btn>
+            <Btn variant="danger" icon="inbox" disabled={!reason || !amountOk || busy} onClick={send} style={{ flex: 1.6 }}>{tx(W.woSend)}</Btn>
           </>
         )
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 }}>
         {canDecide && asked ? (
           <span style={{ fontSize: 13 }}>
             {tx(W.woAskedBy)}: <strong>{asked.by ?? "—"}</strong> · {rupees(asked.amount)}
           </span>
         ) : null}
-        <SecHead>{tx(W.woWhy)}</SecHead>
-        {WRITE_OFF_REASONS.map((code) => (
-          <RadioCard key={code} name="wo-reason" checked={reason === code} onSelect={() => setReason(code)} title={<Bi {...WRITE_OFF_WORD[code]} />} />
-        ))}
-        <Field label={tx(W.woAmount)} error={amountOk ? undefined : `Enter an amount from ₹1 to ${rupees(owed)}.`}>
-          <Input inputMode="numeric" value={amount} invalid={!amountOk} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))} />
+        <h3 className="sech">{tx(W.woWhy)}</h3>
+        <div role="radiogroup" aria-label={tx(W.woWhy)} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {WRITE_OFF_REASONS.map((code) => (
+            <Choice key={code} on={reason === code} onPick={() => setReason(code)} label={tx(WRITE_OFF_WORD[code])} sub={tx(WRITE_OFF_SUB[code])} />
+          ))}
+        </div>
+        <Field label={tx(W.woAmount)} style={{ marginTop: 4 }}>
+          <input className={`inp${amountOk ? "" : " err"}`} inputMode="numeric" aria-invalid={amountOk ? undefined : true} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))} />
         </Field>
-        <Field label={tx(W.note)}>
-          <Textarea value={note} rows={2} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+        {amountOk ? null : (
+          <span role="alert" className="fadein" style={{ fontSize: 12, fontWeight: 600, color: "var(--bad)", marginTop: -4 }}>{tx(fill(W.woAmountErr, { amt: rupees(owed) }))}</span>
+        )}
+        <Field label={tx(W.woNoteLabel)}>
+          <Textarea value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder={tx(W.woNotePh)} style={{ minHeight: 64 }} />
         </Field>
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(canDecide ? W.woImpactAdmin : W.woImpact)}</span>
+        <Inset icon="info" bg="var(--warns)" fg="var(--warnfg)">
+          {canDecide ? tx(W.woImpactAdmin) : tx(fill(W.woImpact, { amt: rupees(owed), name: row.fullName }))}
+        </Inset>
         {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
       </div>
     </Sheet>

@@ -10,6 +10,7 @@ import { getStudentSegmentCounts } from "@/modules/students-fees/data/directory"
 import {
   getStudentDetail,
   getStudentFamilyMembersDetail,
+  getStudentMasterFieldsByIds,
   getStudentsPage,
 } from "@/modules/students-fees/data/queries";
 import { segmentCount, type SegmentId } from "@/modules/students-fees/domain/student-segments";
@@ -86,6 +87,8 @@ export async function studentMoneyList(input: {
    * cookie decides, as on every other money screen.
    */
   sessionLabel?: string;
+  /** The fee app's own orders: by name, or by class then name. */
+  sort?: "name" | "class";
 }): Promise<MoneyList> {
   await assertPermission("fees:view");
   const view = input.sessionLabel ? { sessionLabel: input.sessionLabel } : await resolveViewSession({ cookieSession: await getViewSessionCookie() });
@@ -93,7 +96,7 @@ export async function studentMoneyList(input: {
 
   const [page, counts] = await Promise.all([
     getStudentsPage(
-      { ...EMPTY_STUDENT_FILTERS, query: input.query, classId: input.classId, sessionLabel: view.sessionLabel, segments },
+      { ...EMPTY_STUDENT_FILTERS, query: input.query, classId: input.classId, sessionLabel: view.sessionLabel, segments, sort: input.sort ?? "name" },
       { page: input.page, pageSize: input.pageSize },
     ),
     getStudentSegmentCounts({ sessionLabel: view.sessionLabel, classId: input.classId || undefined, query: input.query || undefined }).catch(() => null),
@@ -140,6 +143,51 @@ export async function studentMoneyList(input: {
       paid: segmentCount(counts, "yearClear"),
     },
   };
+}
+
+/**
+ * The father's name (else the mother's) for the rows on one page of the list,
+ * which the design shows under each child ("SR 1234 · Rakesh Sharma"). The
+ * list query does not carry it; this reads only the page's ids, beside the
+ * attendance read, so it adds no wave.
+ */
+export async function parentNamesFor(studentIds: readonly string[]): Promise<Map<string, string>> {
+  await assertPermission("fees:view");
+  const fields = await getStudentMasterFieldsByIds(studentIds);
+  const out = new Map<string, string>();
+  for (const [id, row] of fields) {
+    const name = (row.fatherName ?? "").trim() || (row.motherName ?? "").trim();
+    if (name) out.set(id, name);
+  }
+  return out;
+}
+
+/**
+ * A child's latest receipts, for the search palette's Receipts section when a
+ * name is typed (F04). Newest first; a reversed receipt says so (RULES A).
+ */
+export async function recentReceiptsFor(
+  studentId: string,
+  limit = 2,
+): Promise<{ id: string; number: string; amount: number; date: string; mode: string; reversed: boolean }[]> {
+  await assertPermission("fees:view");
+  const result = await createAdminClient()
+    .from("receipts")
+    .select("id, receipt_number, payment_date, total_amount, payment_mode, created_at")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .returns<{ id: string; receipt_number: string; payment_date: string; total_amount: number | string; payment_mode: string; created_at: string }[]>();
+  if (result.error) throw new Error(`Could not read the receipts: ${result.error.message}`);
+  const reversals = await getReceiptReversalTotals(result.data.map((row) => row.id));
+  return result.data.map((row) => ({
+    id: row.id,
+    number: row.receipt_number,
+    amount: Number(row.total_amount || 0),
+    date: row.payment_date,
+    mode: row.payment_mode,
+    reversed: isReceiptReversed(reversals, row.id, Number(row.total_amount || 0)),
+  }));
 }
 
 export type StudentFeeInstallment = {
@@ -204,7 +252,9 @@ export type StudentFees = {
   summary: StudentFeeSummary;
   breakup: StudentFeeBreakup | null;
   receipts: { id: string; number: string; date: string; amount: number; mode: string; reversed: boolean }[];
-  family: { id: string; fullName: string; admissionNo: string; classLabel: string; isSelf: boolean; outstanding: number | null }[];
+  family: { id: string; fullName: string; admissionNo: string; classLabel: string; isSelf: boolean; outstanding: number | null; totalDue: number | null; totalPaid: number | null }[];
+  /** The confirmed family group, for the family statement; null for a child with none. */
+  familyGroupId: string | null;
   routeLabel: string | null;
   dateOfBirth: string | null;
   joinedOn: string | null;
@@ -313,7 +363,10 @@ export async function studentFees(studentId: string): Promise<StudentFees> {
       classLabel: member.classLabel,
       isSelf: member.isSelf,
       outstanding: member.financials ? Number(member.financials.outstanding || 0) : null,
+      totalDue: member.financials ? Number(member.financials.totalDue || 0) : null,
+      totalPaid: member.financials ? Number(member.financials.totalPaid || 0) : null,
     })),
+    familyGroupId: family.familyGroupId ?? null,
     routeLabel: detail?.transportRouteId ? detail.transportRouteLabel : null,
     dateOfBirth: detail?.dateOfBirth ?? null,
     joinedOn: detail?.joinedOn ?? null,

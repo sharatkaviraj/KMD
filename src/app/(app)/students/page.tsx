@@ -7,11 +7,20 @@ import { getViewSessionCookie } from "@/modules/fees/platform/session-context/co
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
 import { searchStudents } from "@/modules/students/data/directory-repo";
 import { normaliseQuery, pageWindow, PAGE_SIZE, resolvePage } from "@/modules/students/domain/directory";
-import { studentMoneyList } from "@/modules/students-fees/vx/admin-students";
+import { parentNamesFor, studentMoneyList } from "@/modules/students-fees/vx/admin-students";
+import { quickActionsFor } from "@/vx/nav";
 import { listMoney, parseSegment } from "@/vx/screens/admin/logic";
 import { StudentsScreen, type StudentListRow, type StudentsProps } from "@/vx/screens/admin/students";
 import { attendanceForStudents } from "@/vx/screens/admin/students-data";
-import { readStudentViewCookie, resolveStudentView, STUDENT_VIEW_COOKIE, type AttendanceFacts, type StudentFacts } from "@/vx/screens/admin/students-logic";
+import {
+  classFromQuery,
+  parseStudentSort,
+  readStudentViewCookie,
+  resolveStudentView,
+  STUDENT_VIEW_COOKIE,
+  type AttendanceFacts,
+  type StudentFacts,
+} from "@/vx/screens/admin/students-logic";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
@@ -29,10 +38,12 @@ const noFacts = (): StudentFacts => ({ attendance: null, siblings: 0, isNew: fal
  *
  * Still a GET form with every filter in the URL, as the directory was: Back,
  * bookmarks and a pasted link all open the same list. Two views over the same
- * children: School (everyone's default — class, attendance, a few facts) and,
- * for `fees:view`, Fees (the fee app's saved views as chips and its figures,
- * fees and late fee apart). The last view a person chose is remembered in a
- * cookie keyed to their profile, so the first render is already right.
+ * children: Fees, for `fees:view` and where such a reader starts — the
+ * design's list (D01/F05): the fee app's saved views as chips and its figures,
+ * fees and late fee apart (UI-89) — and School (class, attendance, a few
+ * facts), everyone else's list. The last view a person chose is remembered in
+ * a cookie keyed to their profile, so the first render is already right. A
+ * search that is exactly a class's name filters to that class.
  *
  * With `fees:view` the list is the fee app's own student query in the
  * view-session every money screen uses, and the class filter and attendance
@@ -47,8 +58,9 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
   const q = normaliseQuery(one(params.q) ?? "");
-  const classId = one(params.class) || null;
+  const classParam = one(params.class) || null;
   const page = resolvePage(one(params.page));
+  const sort = parseStudentSort(one(params.sort), one(params.dir));
   const directorySession = await resolveSessionLabel();
 
   if (!directorySession) {
@@ -85,12 +97,20 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   let moneyMode = false;
   let session = directorySession;
 
-  // Started now, awaited last: the class names must not hold up the money read.
-  const moneyLabels = moneySession ? classLabelMap(moneySession).catch(() => null) : null;
+  // Started now, awaited last unless the search names a class: the class names
+  // (cached across requests) must not hold up the list read.
+  const labelsRead = classLabelMap(moneySession ?? directorySession).catch((): Map<string, string> | null => null);
+
+  // The search box finds a class too (the design's "Name, SR no., class or
+  // parent"): a query that is exactly one class's name filters to that class.
+  const typedClass =
+    !classParam && q ? classFromQuery(q, [...((await labelsRead) ?? new Map<string, string>()).entries()].map(([id, label]) => ({ id, label }))) : null;
+  const classId = classParam ?? typedClass?.id ?? null;
+  const text = typedClass ? "" : q;
 
   if (moneySession) {
     try {
-      const list = await studentMoneyList({ query: q, classId: classId ?? "", segment: seg, page, pageSize: PAGE_SIZE, sessionLabel: moneySession });
+      const list = await studentMoneyList({ query: text, classId: classId ?? "", segment: seg, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: sort.key === "class" ? "class" : "name" });
       rows = list.rows.map((row) => {
         const route = row.routeLabel && row.routeLabel !== "No Transport" ? row.routeLabel : null;
         return {
@@ -117,7 +137,10 @@ export default async function StudentsPage(props: PageProps<"/students">) {
 
   let directoryLabels: Map<string, string> | null = null;
   if (!moneyMode) {
-    const [labels, results] = await Promise.all([classLabelMap(directorySession), searchStudents({ text: q, classId, page }, directorySession)]);
+    const [labels, results] = await Promise.all([
+      moneySession ? classLabelMap(directorySession) : labelsRead.then((l) => l ?? classLabelMap(directorySession)),
+      searchStudents({ text, classId, page }, directorySession),
+    ]);
     directoryLabels = labels;
     rows = results.rows.map((row) => ({
       id: row.studentId,
@@ -135,15 +158,18 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     session = directorySession;
   }
 
-  const [labels, attendance] = await Promise.all([
-    (async () => directoryLabels ?? (moneyMode ? await moneyLabels : null) ?? (await classLabelMap(session)))(),
-    attendanceForStudents(
-      rows.map((row) => row.id),
-      session,
-    ).catch((): Map<string, AttendanceFacts> | null => null),
+  const ids = rows.map((row) => row.id);
+  const [labels, attendance, parents] = await Promise.all([
+    (async () => directoryLabels ?? (moneyMode ? await labelsRead : null) ?? (await classLabelMap(session)))(),
+    attendanceForStudents(ids, session).catch((): Map<string, AttendanceFacts> | null => null),
+    // The fee list carries no parent name; the design shows it under each child.
+    moneyMode && ids.length ? parentNamesFor(ids).catch((): Map<string, string> | null => null) : Promise.resolve(null),
   ]);
-  if (attendance) {
-    for (const row of rows) row.facts.attendance = attendance.get(row.id) ?? null;
+  const classOrder = new Map([...labels.values()].map((label, i) => [label, i]));
+  for (const row of rows) {
+    if (attendance) row.facts.attendance = attendance.get(row.id) ?? null;
+    if (parents && !row.parent) row.parent = parents.get(row.id) ?? null;
+    row.classOrder = classOrder.get(row.classLabel);
   }
 
   const window = pageWindow(page, total);
@@ -156,9 +182,11 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         total={total}
         window={{ page: window.page, pages: window.pages, firstRow: window.firstRow, lastRow: window.lastRow }}
         q={q}
-        classId={classId}
+        classId={classParam}
+        classLabel={classParam ? (labels.get(classParam) ?? null) : null}
         view={moneyMode ? view : "school"}
         seg={moneyMode ? seg : "all"}
+        sort={sort}
         classes={[...labels.entries()].map(([id, label]) => ({ id, label }))}
         counts={counts}
         seesMoney={moneyMode}
@@ -167,6 +195,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         canCollect={can(staff, "fees:collect")}
         canAdmit={staff.role === "admin"}
         canRemind={seesMoney}
+        quick={quickActionsFor((p) => can(staff, p))}
         failed={failed}
       />
     </VxPage>

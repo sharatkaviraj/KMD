@@ -14,10 +14,11 @@ vi.mock("@/vx/screens/admin/data", () => ({ loadStudentSchool: async () => ({
   card: { fullName: "QA Child", admissionNo: "QA-1", status: "active", fatherName: null, motherName: null, guardianPhone: null, primaryPhone: null },
   classLabel: "QA Class", rollNo: "1", closedDays: [], attendance: [], attendancePercent: 90, attendanceCounted: 10, terms: [], documents: [], history: [],
 }) }));
-import StudentPage from "@/app/(app)/students/[id]/page";
+import { Student360Content } from "@/vx/screens/admin/student360-page";
 import { Student360, type Student360Fees, type Student360Props } from "@/vx/screens/admin/student360";
 async function card() {
-  const result = await StudentPage({ params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }), searchParams: Promise.resolve({}) });
+  // The page and the list's drawer both render this reader (students/@drawer/(.)[id]).
+  const result = await Student360Content({ id: "00000000-0000-4000-8000-000000000001", search: {} });
   const child = Children.toArray(result.props.children).find(node => isValidElement(node) && node.type === Student360) as ReactElement<{ p: Student360Props; fees?: Promise<Student360Fees | null> }>;
   return child.props;
 }

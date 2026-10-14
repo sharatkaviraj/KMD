@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/app/login/actions", () => ({ loginAction: vi.fn() }));
 
-import { LoginForm } from "@/app/login/login-form";
+import { LOGIN_TEXT, LoginForm } from "@/app/login/login-form";
 import { m } from "@/messages";
 
 function expectFullTextStrength(html: string) {
@@ -55,11 +55,11 @@ describe("login essential secondary text contrast", () => {
     expectFullTextStrength(html);
   });
 
-  it.each(["no-profile", "inactive"])("keeps both %s and no-signup notice lines without opacity", (reason) => {
+  it.each(["no-profile", "inactive"])("keeps both %s and ask-the-admin lines without opacity", (reason) => {
     fixture.reason = reason;
     const html = renderToStaticMarkup(<LoginForm language="both" />);
     expectBilingual(html, reason === "no-profile" ? m.noProfile : m.accountInactive);
-    expectBilingual(html, m.noSignup);
+    expectBilingual(html, { en: LOGIN_TEXT.newHere.en, hi: LOGIN_TEXT.newHere.hi ?? "(no Hindi)" });
     // The second language sits under the first at full strength, never faded.
     expect(html).toContain('role="status"');
     expectFullTextStrength(html);
@@ -73,11 +73,11 @@ describe("login essential secondary text contrast", () => {
     expectFullTextStrength(html);
   });
 
-  it("keeps failed sign-in and no-signup copy readable with error associations intact", () => {
+  it("keeps failed sign-in and ask-the-admin copy readable with error associations intact", () => {
     fixture.state = { status: "error", message: { hi: "फिर प्रयास करें", en: "Try again" } };
     const html = renderToStaticMarkup(<LoginForm language="both" />);
     expectBilingual(html, fixture.state.message!);
-    expectBilingual(html, m.noSignup);
+    expectBilingual(html, { en: LOGIN_TEXT.newHere.en, hi: LOGIN_TEXT.newHere.hi ?? "(no Hindi)" });
     expect(html).toContain('id="login-error"');
     expect(html).toContain('role="alert"');
     expect(html.match(/aria-describedby="login-error"/g)).toHaveLength(2);

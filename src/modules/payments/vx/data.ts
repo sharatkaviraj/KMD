@@ -334,9 +334,11 @@ export async function loadDeskReceipt(receiptId: string): Promise<DeskReceipt | 
 
 /** The roster the bulk grid looks SR numbers up in: this session's active students. */
 export async function loadBulkBoot(payload: { sessionLabel: string; today: string; feeRole: FeeStaffRole; myName: string }): Promise<BulkBoot> {
-  const [policy, financials] = await Promise.all([
+  const [policy, financials, todayCollection] = await Promise.all([
     getFeePolicyForSession(payload.sessionLabel),
     getWorkbookStudentFinancials({ sessionLabel: payload.sessionLabel }),
+    // The design's top bar shows today's receipts here too; a failed read hides the pill.
+    loadDeskTodayCollection(payload.sessionLabel, payload.today).catch(() => null),
   ]);
   return {
     sessionLabel: payload.sessionLabel,
@@ -348,6 +350,7 @@ export async function loadBulkBoot(payload: { sessionLabel: string; today: strin
     modes: modesFrom(policy.acceptedPaymentModes),
     canBulk: hasRolePermission(payload.feeRole, "payments:bulk"),
     me: payload.myName,
+    todayCollection,
   };
 }
 

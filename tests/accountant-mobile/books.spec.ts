@@ -7,7 +7,7 @@ for (const viewport of phones) {
       await page.setViewportSize(viewport);
       await page.goto(`/?view=${view}`);
       await expect(page.getByRole("tablist", { name: "Sections" })).toBeVisible();
-      if (view === "upi") await page.getByRole("radio", { name: "Matched", exact: true }).tap();
+      if (view === "upi") await page.getByRole("radio", { name: /^Matched · / }).tap();
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
       // Chromium can report 43.999969 for a 44px target during translated row animation.
       const small = await page.locator('button:not([disabled]),a[href],input:not([type=hidden]),select,textarea').evaluateAll(elements => elements.filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden").map(element => { const r = element.getBoundingClientRect(); return { label: element.getAttribute("aria-label") ?? element.textContent?.trim(), width: Math.round(r.width * 100) / 100, height: Math.round(r.height * 100) / 100 }; }).filter(r => r.width < 44 || r.height < 44));
@@ -45,7 +45,7 @@ test("role preview cannot offer statement or refund saves", async ({ page }) => 
   await page.goto("/?view=upi&readonly");
   await expect(page.getByRole("button", { name: "New statement", exact: true })).toHaveCount(0);
   await page.goto("/?view=refunds&readonly");
-  await expect(page.getByRole("button", { name: "Request a refund", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Request refund", exact: true })).toHaveCount(0);
 });
 
 for (const viewport of phones) test(`UPI unseen receipt prevents an all-agree day-close claim ${viewport.width}x${viewport.height}`, async ({ page }) => {

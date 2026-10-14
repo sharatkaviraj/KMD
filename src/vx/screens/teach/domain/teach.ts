@@ -217,11 +217,12 @@ export function leaveRuns(days: readonly string[]): { from: string; to: string }
   return runs;
 }
 
+/** The four reasons the leave sheet offers (design TchHome `leave`); the English goes into the request's note. */
 export const LEAVE_REASONS: { key: string; text: Pair }[] = [
-  { key: "unwell", text: p("Unwell", "तबीयत ठीक नहीं") },
-  { key: "family", text: p("Family work", "पारिवारिक काम") },
+  { key: "unwell", text: p("Unwell", "बीमार") },
+  { key: "family", text: p("Family function", "पारिवारिक कार्यक्रम") },
   { key: "personal", text: p("Personal work", "निजी काम") },
-  { key: "training", text: p("Training / exam duty", "प्रशिक्षण / परीक्षा ड्यूटी") },
+  { key: "other", text: p("Other", "अन्य") },
 ];
 
 /* --------------------------------------------------- messages to parents */

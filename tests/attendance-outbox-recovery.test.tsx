@@ -18,7 +18,8 @@ vi.mock("@/vx/screens/teach/actions", () => ({ saveRegisterVx: state.save, check
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en, sub: () => null }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 vi.mock("@/vx/shell/sidebar", () => ({ LangButton: () => null }));
 vi.mock("@/vx/ui/overlays", () => ({ useToast: () => ({ show: state.toast }), Sheet: ({ open, children, footer }: { open: boolean; children: React.ReactNode; footer: React.ReactNode }) => open ? <section>{children}{footer}</section> : null }));
-vi.mock("@/vx/screens/teach/ui/shared", () => ({ HelpIcon: () => null, HelpSheet: () => null,
+vi.mock("@/vx/screens/teach/ui/shared", () => ({ HelpIcon: () => null, HelpSheet: () => null, LangSeg: () => null, DrawnTick: () => null,
+  TchTop: ({ actions }: { actions?: React.ReactNode }) => <header>{actions}</header>,
   useUrlState: (_key: string, initial: string | null) => React.useState(initial),
 }));
 import { TeachAttend } from "@/vx/screens/teach/ui/attend";
@@ -32,7 +33,7 @@ const key = draftKey(ownerId, "QA", `attendance-outbox/${classId}/2026-10-10`);
 const box = { payload: "qa-payload", alerts: false, commandId: "qa-command", at: 1 };
 const data = { kind: "class", sessionLabel: "QA", classId, classLabel: "QA class", day: "2026-10-10", prevDay: "2026-10-09",
   choices: [], closed: false, canSave: true, canCorrect: true, isOwner: true, correctsAny: false, onBehalf: false, reason: null,
-  roll: [{ id: studentId, name: "QA Child", rollNo: "1", gender: null }], registerId: null, revision: 0,
+  roll: [{ id: studentId, name: "QA Child", rollNo: "1", gender: null, birthday: false }], registerId: null, revision: 0,
   saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], month: "2026-10", monthMarks: [], closedDays: [],
 } as AttendData;
 let root: Root; let host: HTMLDivElement;
@@ -56,7 +57,7 @@ describe("attendance offline outbox recovery", () => {
     state.restoreKey=draftKey(ownerId,"QA",`attendance-vx/${classId}/2026-10-10`);
     state.restore=new Promise(resolve=>{restore=resolve;});
     await render();
-    const child=host.querySelector<HTMLButtonElement>("button.t-kid")!;
+    const child=host.querySelector<HTMLButtonElement>("button.tc-akid")!;
     await act(async()=>child.click());
     expect(child.className).toMatch(/\ba\b/);
     await act(async()=>restore({value:{marks:{[studentId]:"present"},revision:0}}));
@@ -67,8 +68,8 @@ describe("attendance offline outbox recovery", () => {
     let restore!: (value: unknown) => void;
     state.restoreKey=draftKey(ownerId,"QA",`attendance-vx/${classId}/2026-10-10`);
     state.restore=new Promise(resolve=>{restore=resolve;});
-    await render({...data,roll:[...data.roll,{id:secondId,name:"QA Other Child",rollNo:"2",gender:null}]});
-    const children=host.querySelectorAll<HTMLButtonElement>("button.t-kid");
+    await render({...data,roll:[...data.roll,{id:secondId,name:"QA Other Child",rollNo:"2",gender:null,birthday:false}]});
+    const children=host.querySelectorAll<HTMLButtonElement>("button.tc-akid");
     await act(async()=>children[0].click());
     await act(async()=>restore({value:{marks:{[studentId]:"present",[secondId]:"half_day"},revision:0}}));
     expect(children[0].className).toMatch(/\ba\b/);

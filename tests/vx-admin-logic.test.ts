@@ -6,6 +6,7 @@ import {
   classPercent,
   classState,
   dailySeries,
+  defaultBoardFocus,
   feeRibbon,
   feeStanding,
   filterBoard,
@@ -94,6 +95,14 @@ describe("attendance board", () => {
     expect(filterBoard(rows, "pending").map((r) => r.classId)).toEqual(["c", "d"]);
     expect(filterBoard(rows, "marked").map((r) => r.classId)).toEqual(["a", "b"]);
     expect(filterBoard(rows, "all")).toHaveLength(4);
+  });
+
+  it("opens the desk's panel on the first unmarked class whose teacher is away, else none", () => {
+    expect(defaultBoardFocus(rows)).toBe("d");
+    expect(defaultBoardFocus([row({ classId: "x", rank: 5, teacherAway: true }), row({ classId: "y", rank: 1, teacherAway: true })])).toBe("y");
+    // Saved already: nothing for the office to mark.
+    expect(defaultBoardFocus([row({ classId: "z", teacherAway: true, recorded: true })])).toBeNull();
+    expect(defaultBoardFocus([row({ classId: "c" })])).toBeNull();
   });
 });
 

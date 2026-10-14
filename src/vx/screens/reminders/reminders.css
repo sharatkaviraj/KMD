@@ -1,0 +1,49 @@
+/* Fee reminders (design `Reminders`): the campaign rows, funnel bars, wizard chrome. */
+
+:where(.vx, .vxt) .rm-f { display: flex; align-items: center; gap: 8px; }
+:where(.vx, .vxt) .rm-c { display: flex; flex-direction: column; min-width: 0; }
+:where(.vx, .vxt) .rm-e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+:where(.vx, .vxt) .rm-m { font-size: 12px; color: var(--mut); }
+:where(.vx, .vxt) .rm-b { font-size: 14px; font-weight: 600; }
+:where(.vx, .vxt) .rm-v { font-size: 15px; font-weight: 700; }
+:where(.vx, .vxt) .rm-d { flex: none; width: 8px; height: 8px; border-radius: 4px; }
+:where(.vx, .vxt) .rm-s { padding: 0 12px; font-size: 13px; }
+:where(.vx, .vxt) .rm-in { padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; display: flex; gap: 10px; }
+:where(.vx, .vxt) .rm-nb { border: 0; background: transparent; color: var(--fg); text-align: left; padding: 0; min-width: 0; text-decoration: none; }
+:where(.vx, .vxt) .rm-rc { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 14px; border-radius: 14px; color: var(--fg); text-align: left; width: 100%; }
+:where(.vx, .vxt) .rm-rc > i { flex: none; width: 20px; height: 20px; border-radius: 10px; border: 2px solid; display: flex; align-items: center; justify-content: center; }
+:where(.vx, .vxt) .rm-rc > i > b { width: 10px; height: 10px; border-radius: 5px; background: var(--acc); transition: transform .25s var(--spring); }
+:where(.vx, .vxt) .rm-sw { padding: 12px 14px; display: flex; align-items: center; gap: 12px; text-align: left; color: var(--fg); width: 100%; border: 0; background: transparent; }
+:where(.vx, .vxt) .rm-tile { padding: 12px 14px; border-radius: 14px; background: var(--s2); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+:where(.vx, .vxt) .rm-st { flex: none; width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; transition: background-color .3s ease, color .3s ease; }
+
+/* The design's buttons keep the browser's own line height. */
+:where(.vx, .vxt) .rm-lh button { line-height: normal; }
+
+/* WhatsApp preview */
+.vx .rm-wa { border-radius: 16px; background: var(--wabg); padding: 14px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.vx .rm-wb { max-width: 94%; padding: 9px 11px 6px; border-radius: 4px 14px 14px 14px; background: var(--wab); color: var(--wafg); box-shadow: 0 1px 1px rgba(0, 0, 0, .12); display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; line-height: 1.5; animation: xIn .35s var(--ease) both; }
+.vx .rm-wb > p { margin: 0; white-space: pre-line; }
+.vx .rm-wb > p > span { border-radius: 4px; transition: background-color .25s ease; }
+.vx .rm-wb > hr { width: 100%; margin: 0; border: 0; border-top: 1px solid currentColor; opacity: .15; }
+.vx .rm-wb > small { align-self: flex-end; font-size: 11px; opacity: .6; }
+
+/* Campaign rows: four columns on desktop, two rows on phone. */
+.vx .rm-cr { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 110px 18px; gap: 8px 16px; align-items: center; padding: 14px 18px; width: 100%; border: 0; border-top: 1px solid var(--bd); background: transparent; color: var(--fg); text-align: left; text-decoration: none; line-height: normal; animation: xIn .32s var(--ease) both; }
+.vx .rm-fb { position: relative; height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; }
+.vx .rm-fb > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; transform-origin: left; animation: xGrowX .7s var(--ease) both; }
+@container vx (max-width: 899px) {
+  .vx .rm-cr { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "a c" "b b"; padding: 14px 16px; }
+  .vx .rm-cr > .rm-ga { grid-area: a; }
+  .vx .rm-cr > .rm-gb { grid-area: b; }
+  .vx .rm-cr > .rm-gc { grid-area: c; }
+  .vx .rm-cr > .rm-dx { display: none; }
+}
+
+/* The wizard fills the page so its footer sits at the bottom, above the phone's bottom bar. */
+.vx .rm-wiz { display: flex; flex-direction: column; min-height: calc(100dvh - 64px); }
+.vx .rm-foot { position: sticky; bottom: 0; z-index: 4; padding: 12px 28px; border-top: 1px solid var(--bd); }
+@container vx (max-width: 899px) {
+  .vx .rm-wiz { min-height: calc(100dvh - 58px - 96px - env(safe-area-inset-bottom)); }
+  .vx .rm-foot { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}

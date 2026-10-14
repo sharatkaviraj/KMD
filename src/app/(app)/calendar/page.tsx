@@ -21,6 +21,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       eventId={param(sp.event)}
       sheet={param(sp.sheet)}
       holiday={param(sp.holiday)}
+      hide={param(sp.hide)}
+      kind={param(sp.kind)}
     />
   );
 }

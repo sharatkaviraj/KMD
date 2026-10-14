@@ -1,12 +1,12 @@
 import { requirePermission } from "@/platform/auth/current-staff";
-import { daysBetween, greeting, shortDay } from "@/vx/format";
+import { dayMonth, daysBetween, greeting, shortDay } from "@/vx/format";
 import { lead, p } from "@/vx/text";
 import { EmptyState } from "@/vx/ui/primitives";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { getViewer } from "@/vx/view-as";
 import { activityFor, countFor, currentExam, questionPapersFor, slotsFor, type Exam } from "@/vx/screens/exams/data";
 import { GROUP_KEYS, GROUP_LABELS, groupOf } from "@/vx/screens/exams/domain/groups";
-import { readiness, setupSteps } from "@/vx/screens/exams/domain/office";
+import { maskPhone, readiness, setupSteps } from "@/vx/screens/exams/domain/office";
 import { paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { ExamHome, type HomeView, type NextExamView, type ResultsExamView, type TimelineItem } from "@/vx/screens/exams/office-home";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
@@ -73,9 +73,9 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
       teachersDone: [...byTeacher.values()].filter(Boolean).length,
       teachersTotal: byTeacher.size,
       lateCount: progress.lateCount,
-      dueLabel: plan?.marksDueOn ? shortDay(plan.marksDueOn) : null,
+      dueLabel: plan?.marksDueOn ? day(plan.marksDueOn) : null,
       daysToDue: plan?.marksDueOn ? daysBetween(today, plan.marksDueOn) : null,
-      resultsLabel: plan?.resultsOn ? shortDay(plan.resultsOn) : null,
+      resultsLabel: plan?.resultsOn ? day(plan.resultsOn) : null,
       daysToResults: plan?.resultsOn ? daysBetween(today, plan.resultsOn) : null,
       ptmAt: plan?.ptmAt ?? null,
       bands,
@@ -106,7 +106,7 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
       copiedFrom: next.plan?.copiedFrom ? (exams.find((e) => e.id === next.plan?.copiedFrom)?.labelEn ?? null) : null,
       slots: slots.length,
       papersReceived: qps.filter((q) => q.status !== "waiting").length,
-      steps: steps.map((s) => ({ ...s, dueLabel: s.dueOn ? shortDay(s.dueOn) : null, daysLeft: s.dueOn ? daysBetween(today, s.dueOn) : null })),
+      steps: steps.map((s) => ({ ...s, dueLabel: s.dueOn ? day(s.dueOn) : null, daysLeft: s.dueOn ? daysBetween(today, s.dueOn) : null })),
       readiness: readiness(steps),
     };
   }
@@ -115,7 +115,14 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
   const timeline: TimelineItem[] = exams.map((e) => {
     const state: TimelineItem["state"] =
       e.id === current?.id ? "now" : e.id === next?.id ? "next" : e.plan?.resultsPublishedAt || e.status === "locked" || (e.endsOn && e.endsOn < (current?.startsOn ?? today)) ? "done" : "later";
-    return { id: e.id, name: { en: e.labelEn, hi: e.labelHi }, when: span(e), state };
+    return {
+      id: e.id,
+      name: { en: e.labelEn, hi: e.labelHi },
+      when: state === "later" && e.startsOn ? monthYear(e.startsOn) : compactSpan(e),
+      state,
+      doneOn: e.plan?.resultsPublishedAt ? dm(e.plan.resultsPublishedAt) : null,
+      resultsOn: e.plan?.resultsOn ? dm(e.plan.resultsOn) : null,
+    };
   });
 
   const activity = (await activityFor([current?.id, next?.id].filter(Boolean) as string[], 8)).map((a) => ({
@@ -130,8 +137,9 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
       view={view}
       hello={greeting()}
       staffName={staff.displayName}
+      staffPhone={maskPhone(ctx.staff.find((s) => s.id === staff.id)?.phone) || null}
       sessionLabel={ctx.sessionLabel}
-      todayLabel={shortDay(today)}
+      todayLabel={day(today)}
       results={results}
       next={nextView}
       teachers={teachers}
@@ -144,10 +152,37 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
   );
 }
 
+/** "Thu 8 Oct", as the design writes a day (no comma, "Sep" not "Sept"). */
+function day(d: string): string {
+  return shortDay(d).replace(",", "").replace("Sept", "Sep");
+}
+
+/** "8 Oct". */
+function dm(d: string): string {
+  return dayMonth(d).replace("Sept", "Sep");
+}
+
+/** "Mar 2027", for an exam not set up yet. */
+function monthYear(d: string): string {
+  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "short", year: "numeric" }).format(new Date(`${d.slice(0, 10)}T12:00:00+05:30`)).replace("Sept", "Sep");
+}
+
+/** "Mon 7 – Sat 12 Dec": the month written once when both days share it. */
 function span(e: Exam): string {
   if (!e.startsOn) return "";
-  if (!e.endsOn || e.endsOn === e.startsOn) return shortDay(e.startsOn);
-  return `${shortDay(e.startsOn)} – ${shortDay(e.endsOn)}`;
+  if (!e.endsOn || e.endsOn === e.startsOn) return day(e.startsOn);
+  const from = day(e.startsOn);
+  const to = day(e.endsOn);
+  return e.startsOn.slice(0, 7) === e.endsOn.slice(0, 7) ? `${from.split(" ").slice(0, 2).join(" ")} – ${to}` : `${from} – ${to}`;
+}
+
+/** "14–18 Jul", "23 Sep – 3 Oct": the year line's short dates. */
+function compactSpan(e: Exam): string {
+  if (!e.startsOn) return "";
+  const from = dm(e.startsOn);
+  if (!e.endsOn || e.endsOn === e.startsOn) return from;
+  const to = dm(e.endsOn);
+  return e.startsOn.slice(0, 7) === e.endsOn.slice(0, 7) ? `${from.split(" ")[0]}–${to}` : `${from} – ${to}`;
 }
 
 /** The exam to set up next: the first after the one being marked that has not begun. */

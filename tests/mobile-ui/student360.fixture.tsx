@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { LanguageProvider } from "@/platform/i18n/use-language";
 import type { Language } from "@/platform/i18n/language";
 import { Student360, type Student360Fees, type Student360Props } from "@/vx/screens/admin/student360";
-import { VxPage } from "@/vx/ui/page";
 import "../../src/vx/vx.css";
 
 const p: Student360Props = {
@@ -28,8 +27,9 @@ export function Student360Fixture({ language }: { language: Language }) {
     window.addEventListener("qa:refresh", refresh); return () => window.removeEventListener("qa:refresh", refresh);
   }, []);
   return <LanguageProvider language={language}>
-    <VxPage label="Synthetic Student 360"><Student360 p={p} fees={request.promise} /></VxPage>
-    <aside aria-label="Synthetic read controls" style={{ padding: 16 }}>
+    <Student360 p={p} fees={request.promise} />
+    {/* Above Student 360's full-screen layer, which is where the test reaches for them. */}
+    <aside aria-label="Synthetic read controls" style={{ position: "fixed", top: 0, left: 0, zIndex: 100, padding: 4, display: "flex", gap: 4, opacity: 0.85 }}>
       <button onClick={() => request.resolve({ family: [{ id: "qa-sibling", name: "QA Sibling", sr: "QA-2", classLabel: "QA Class", self: false }] })}>Resolve fee read</button>
       <button onClick={() => request.reject(new Error("QA unavailable"))}>Fail fee read</button>
       <button onClick={() => request.resolve(null)}>Resolve empty fee read</button>

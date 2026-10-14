@@ -166,7 +166,7 @@ export function teachersOf(slots: readonly Slot[], subjectId: string): Set<strin
 
 /* -------------------------------------------------------------- colours */
 
-export type SubjectFamily = "science" | "maths" | "english" | "languages" | "social" | "computer" | "activity" | "other";
+export type SubjectFamily = "science" | "maths" | "english" | "languages" | "social" | "computer" | "commerce" | "activity" | "other";
 
 export const FAMILY_LABELS: Record<SubjectFamily, Pair> = {
   science: p("Science", "विज्ञान"),
@@ -175,21 +175,33 @@ export const FAMILY_LABELS: Record<SubjectFamily, Pair> = {
   languages: p("Languages", "भाषाएँ"),
   social: p("Social sci.", "सामाजिक"),
   computer: p("Computer", "कंप्यूटर"),
+  commerce: p("Commerce", "वाणिज्य"),
   activity: p("Activity", "गतिविधि"),
   other: p("Other", "अन्य"),
 };
 
-/** Hue per family; the screen draws a tinted cell with a solid left edge. */
-export const FAMILY_HUES: Record<SubjectFamily, number> = {
-  science: 150,
-  maths: 221,
-  english: 200,
-  languages: 28,
-  social: 40,
-  computer: 180,
-  activity: 350,
-  other: 260,
+/**
+ * The design's colour token per family (`TINT` in the Timetable design): a
+ * cell is that token at 15% over the card with a solid left edge, so the
+ * colours follow the theme, light and dark.
+ */
+export const FAMILY_TONES: Record<SubjectFamily, string> = {
+  science: "ok",
+  maths: "info",
+  english: "c1",
+  languages: "warn",
+  social: "c3",
+  computer: "c2",
+  commerce: "acc",
+  activity: "bad",
+  other: "s3",
 };
+
+/** @deprecated The screen draws FAMILY_TONES; kept until the redraw lands. */
+export const FAMILY_HUES: Record<SubjectFamily, number> = { science: 150, maths: 221, english: 200, languages: 28, social: 40, computer: 180, commerce: 190, activity: 350, other: 260 };
+
+/** The key the class week shows, in the design's order. */
+export const LEGEND_FAMILIES: readonly SubjectFamily[] = ["science", "maths", "english", "languages", "social", "computer"];
 
 export function subjectFamily(codeOrName: string): SubjectFamily {
   const s = codeOrName.toLowerCase();
@@ -197,10 +209,82 @@ export function subjectFamily(codeOrName: string): SubjectFamily {
   if (/math/.test(s)) return "maths";
   if (/eng/.test(s)) return "english";
   if (/hin|san|skt|urdu|rajas|lang/.test(s)) return "languages";
-  if (/sst|soc|hist|geo|civ|eco|pol/.test(s)) return "social";
+  if (/acc|bst|busi|commerce|eco/.test(s)) return "commerce";
+  if (/sst|soc|hist|geo|civ|pol/.test(s)) return "social";
   if (/comp|it\b|cs\b|ict/.test(s)) return "computer";
   if (/pe\b|phys.*edu|sport|game|art|draw|music|dance|act|yoga|lib/.test(s)) return "activity";
   return "other";
+}
+
+/* ---------------------------------------------------------------- words */
+
+export const WEEK_SHORT_HI: Record<Weekday, string> = { Monday: "सोम", Tuesday: "मंगल", Wednesday: "बुध", Thursday: "गुरु", Friday: "शुक्र", Saturday: "शनि" };
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** "2026-10-08" → "Thu 8 Oct" (the design's form, no comma). */
+export function dayShort(isoDay: string): string {
+  const d = new Date(`${isoDay.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return isoDay;
+  return `${DAYS_SHORT[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/** The calendar day `n` days from `isoDay`. */
+export function addDay(isoDay: string, n: number): string {
+  const d = new Date(`${isoDay.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** "2026-10-08" → "8 Oct". */
+export function dateShort(isoDay: string): string {
+  const d = new Date(`${isoDay.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return isoDay;
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/** "Thu 8 Oct", "Thu 8 – Fri 9 Oct", "Wed 30 Sep – Fri 2 Oct". */
+export function dayRange(from: string, to: string): string {
+  if (from === to) return dayShort(from);
+  const a = dayShort(from);
+  const b = dayShort(to);
+  return from.slice(0, 7) === to.slice(0, 7) ? `${a.slice(0, a.lastIndexOf(" "))} – ${b}` : `${a} – ${b}`;
+}
+
+/** "5–18 Oct", or "28 Sep – 11 Oct" across a month. */
+export function dateSpan(from: string, to: string): string {
+  const a = dateShort(from);
+  const b = dateShort(to);
+  return from.slice(0, 7) === to.slice(0, 7) ? `${a.split(" ")[0]}–${b}` : `${a} – ${b}`;
+}
+
+/** A bell time as the timetable prints it: "13:20" → "1:20", "08:00" → "8:00". */
+export function bellTime(hhmm: string | null | undefined): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm ?? "");
+  if (!m) return hhmm ?? "";
+  const h = Number(m[1]) % 12 || 12;
+  return `${h}:${m[2]}`;
+}
+
+/** Which period is running at a school-clock "HH:MM", or -1. */
+export function periodAt(bells: readonly { index: number; starts: string; ends: string }[], hhmm: string | null | undefined): number {
+  if (!hhmm) return -1;
+  return bells.find((b) => b.starts <= hhmm && hhmm < b.ends)?.index ?? -1;
+}
+
+/**
+ * How much of the day an absence takes, as the design words it: the whole day,
+ * "after P5" when it runs from a later period to the end (`after` is the
+ * number of the last period they teach), else the period numbers.
+ */
+export function awaySpan(periods: readonly number[]): { kind: "full" } | { kind: "after"; after: number } | { kind: "periods"; list: number[] } {
+  const list = [...new Set(periods)].sort((a, b) => a - b);
+  if (list.length >= PERIODS.length) return { kind: "full" };
+  const last = PERIODS[PERIODS.length - 1];
+  const contiguousToEnd = list.length > 0 && list[list.length - 1] === last && list.every((x, i) => i === 0 || x === list[i - 1] + 1);
+  if (contiguousToEnd && list[0] > 0) return { kind: "after", after: list[0] };
+  return { kind: "periods", list: list.map(periodNumber) };
 }
 
 /* ---------------------------------------------------------------- leave */

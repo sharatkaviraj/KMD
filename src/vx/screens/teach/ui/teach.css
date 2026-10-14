@@ -66,7 +66,7 @@
 :where(.vx,.vxt) .n-card{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:18px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left;font:inherit;width:100%}
 :where(.vx,.vxt) .n-card.sel{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
 :where(.vx,.vxt) .n-card.due{border-left:4px solid var(--bad)}
-:where(.vx,.vxt) .n-fab{position:fixed;right:20px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:30;height:56px;border-radius:28px;padding:0 22px;border:0;background:var(--pri);color:var(--prifg);font-size:16px;font-weight:700;display:inline-flex;align-items:center;gap:10px;box-shadow:var(--shl)}
+:where(.vx,.vxt) .n-fab{position:fixed;right:20px;bottom:calc(var(--vx-bottom-h) + 16px);z-index:30;height:56px;border-radius:28px;padding:0 22px;border:0;background:var(--pri);color:var(--prifg);font-size:16px;font-weight:700;display:inline-flex;align-items:center;gap:10px;box-shadow:var(--shl)}
 @container vx (min-width:900px){.vx .n-fab{bottom:28px;right:32px}}
 :where(.vx,.vxt) .n-steps{display:flex;align-items:center;gap:6px}
 :where(.vx,.vxt) .n-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--mut)}

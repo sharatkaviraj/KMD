@@ -150,8 +150,12 @@ export async function cancelRemindersAction(ids: string[]): Promise<ActionResult
 
 /* ------------------------------------------------------- weekly summary */
 
-/** Send the week's summary to the principal (every active admin with a phone). */
-export async function sendWeeklySummaryAction(): Promise<ActionResult> {
+/**
+ * Send the week's summary to the principal (every active admin with a phone):
+ * short or detailed, with the coordinator's own line if she added one — the
+ * same lines the screen shows.
+ */
+export async function sendWeeklySummaryAction(input: { long?: boolean; extra?: string | null } = {}): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
   const ctx = await academicContext(actor);
@@ -160,7 +164,7 @@ export async function sendWeeklySummaryAction(): Promise<ActionResult> {
   if (!template) return fail("The weekly summary template is not set up.", "साप्ताहिक सारांश का टेम्पलेट नहीं है।");
   const admins = [...staff.values()].filter((s) => s.role === "admin" && s.is_active && (s.whatsapp_phone ?? s.phone));
   if (admins.length === 0) return fail("No principal has a phone on file.", "प्रधानाचार्य का फ़ोन नंबर नहीं है।");
-  const summary = weeklySummaryLine(week.facts);
+  const summary = weeklySummaryLine(week.facts, { long: input?.long !== false, extra: typeof input?.extra === "string" ? input.extra : null });
   const rows = admins.map((a) => {
     const variables = [a.display_name, summary, actor.displayName];
     return {

@@ -2,6 +2,7 @@ import "server-only";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -383,7 +384,7 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
 
 /* ----------------------------------------------------- choosing a child */
 
-export type ChildChoice = { id: string; name: string; classId: string; classLabel: string };
+export type ChildChoice = { id: string; name: string; classId: string; classLabel: string; rollNo?: string | null };
 
 /** The children a note may be about: the viewer's classes, or every class for the school-wide roles. */
 export async function childChoices(viewer: NoteViewer, sessionLabel: string): Promise<ChildChoice[]> {
@@ -393,8 +394,58 @@ export async function childChoices(viewer: NoteViewer, sessionLabel: string): Pr
   const kids = await childBasics(enrolled.map((e) => e.studentId));
   const order = new Map([...labels.keys()].map((id, i) => [id, i]));
   return enrolled
-    .map((e) => ({ id: e.studentId, name: kids.get(e.studentId)?.fullName ?? "—", classId: e.classId, classLabel: labels.get(e.classId) ?? "—" }))
+    .map((e) => ({ id: e.studentId, name: kids.get(e.studentId)?.fullName ?? "—", classId: e.classId, classLabel: labels.get(e.classId) ?? "—", rollNo: e.rollNo }))
     .sort((a, b) => (order.get(a.classId) ?? 0) - (order.get(b.classId) ?? 0) || a.name.localeCompare(b.name));
+}
+
+/* ------------------------------------------------- who follows a note up */
+
+/**
+ * The people a follow-up can go to, by name, so the screens can say "Class
+ * teacher · Mr. Choudhary" rather than a role: each class's current class
+ * teacher, and the coordinator and admin `followUpStaff()` in actions.ts
+ * would pick (the first active one by created_at). Names only.
+ */
+export type NotesPeople = { classTeachers: Record<string, string>; coordinator: string | null; admin: string | null };
+
+export async function notesPeople(sessionLabel: string, day: string): Promise<NotesPeople> {
+  const admin = createAdminClient();
+  const [held, coord, head] = await Promise.all([
+    admin
+      .from("class_teachers")
+      .select("class_id, staff_profile_id, role, effective_from, effective_to")
+      .eq("session_label", sessionLabel)
+      .returns<{ class_id: string; staff_profile_id: string; role: string; effective_from: string | null; effective_to: string | null }[]>(),
+    admin.from("staff_profiles").select("id").eq("role", "academic_coordinator").eq("is_active", true).order("created_at").limit(1).returns<{ id: string }[]>(),
+    admin.from("staff_profiles").select("id").eq("role", "admin").eq("is_active", true).order("created_at").limit(1).returns<{ id: string }[]>(),
+  ]);
+  const byClass = new Map<string, { staff: string; role: string }>();
+  for (const row of held.data ?? []) {
+    if (row.effective_from && row.effective_from > day) continue;
+    if (row.effective_to && row.effective_to < day) continue;
+    const cur = byClass.get(row.class_id);
+    if (!cur || (cur.role !== "class_teacher" && row.role === "class_teacher")) byClass.set(row.class_id, { staff: row.staff_profile_id, role: row.role });
+  }
+  const coordId = coord.data?.[0]?.id ?? null;
+  const adminId = head.data?.[0]?.id ?? null;
+  const names = await staffNames([...[...byClass.values()].map((v) => v.staff), coordId ?? "", adminId ?? ""]);
+  return {
+    classTeachers: Object.fromEntries([...byClass].map(([classId, v]) => [classId, names.get(v.staff) ?? "—"])),
+    coordinator: coordId ? (names.get(coordId) ?? null) : null,
+    admin: adminId ? (names.get(adminId) ?? null) : null,
+  };
+}
+
+/** A child's admission number and father's name, for the one-child notes page. Read only for a reader who may open the child's card. */
+export async function childFacts(studentId: string): Promise<{ sr: string | null; father: string | null } | null> {
+  const { data, error } = await createAdminClient()
+    .schema(FEE_SCHEMA)
+    .from("students")
+    .select("admission_no, father_name")
+    .eq("id", studentId)
+    .maybeSingle<{ admission_no: string | null; father_name: string | null }>();
+  if (error || !data) return null;
+  return { sr: data.admission_no, father: data.father_name };
 }
 
 /** Teachers who wrote notes, for the board's teacher filter. */

@@ -105,6 +105,16 @@ export function filterBoard(rows: readonly ClassBoardRow[], filter: BoardFilter)
 }
 
 /**
+ * The class the board's desk panel opens on when nobody has picked one: the
+ * first class still not marked whose teacher is away, since only the office
+ * can mark it (design D04 opens on Class 9, "teacher on leave"). None when
+ * every such class is marked; the panel then asks for a class.
+ */
+export function defaultBoardFocus(rows: readonly ClassBoardRow[]): string | null {
+  return sortBoard(rows).find((row) => !row.recorded && row.teacherAway)?.classId ?? null;
+}
+
+/**
  * The marks a sheet opens with. A saved register opens as it was saved; a new
  * one opens with **everyone present** and the person taps the exceptions
  * (RULES C).
@@ -430,6 +440,54 @@ export function recentWeeks(
     }
   }
   return out;
+}
+
+export type MonthCell = { day: string | null; label: string; state: MarkStatus | "today" | "future" | "closed" | "none" | "blank" };
+
+/**
+ * This month's register for one child, Monday first, as the design's
+ * attendance tab draws it (F06 attendance, D02): leading blanks, then every
+ * day with what was saved. "Not marked" stays `none` and is never counted as
+ * present; the percentage is over the days that were marked, with leave left
+ * out and a half day worth `halfDayCredit`, as the register sheet counts.
+ */
+export function monthGrid(
+  marks: readonly { day: string; status: MarkStatus }[],
+  today: string,
+  closed: (day: string) => boolean = () => false,
+  halfDayCredit = 0.5,
+): { month: string; cells: MonthCell[]; present: number; marked: number; percent: number | null; lastAbsent: string | null } {
+  const month = today.slice(0, 7);
+  const byDay = new Map(marks.filter((m) => m.day.startsWith(month)).map((m) => [m.day, m.status]));
+  const first = new Date(`${month}-01T12:00:00Z`);
+  const lead = (first.getUTCDay() + 6) % 7; // Monday = 0
+  const days = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const cells: MonthCell[] = Array.from({ length: lead }, () => ({ day: null, label: "", state: "blank" as const }));
+  let present = 0;
+  let marked = 0;
+  let credit = 0;
+  let lastAbsent: string | null = null;
+  for (let d = 1; d <= days; d += 1) {
+    const day = `${month}-${String(d).padStart(2, "0")}`;
+    const saved = byDay.get(day);
+    let state: MonthCell["state"];
+    // A Sunday or holiday is shown as one ahead of time too, as the design does.
+    if (saved && day <= today) state = saved;
+    else if (closed(day)) state = "closed";
+    else if (day > today) state = "future";
+    else if (day === today) state = "today";
+    else state = "none";
+    if (saved && saved !== "leave") {
+      marked += 1;
+      if (saved === "present" || saved === "late") {
+        present += 1;
+        credit += 1;
+      } else if (saved === "half_day") credit += halfDayCredit;
+      else if (saved === "absent") lastAbsent = day;
+    }
+    cells.push({ day, label: String(d), state });
+  }
+  return { month, cells, present, marked, percent: marked ? Math.round((credit / marked) * 100) : null, lastAbsent };
 }
 
 /** Average of a set of percentages, rounded; null for none. */

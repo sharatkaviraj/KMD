@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
+import { rupees, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
+import { Ic } from "@/vx/icons";
 import { p } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
-import { Banner } from "@/vx/ui/page";
-import { Btn, Card, Money, Pill, Stat, SuccessTick, WhatsAppPreview } from "@/vx/ui/primitives";
+import { TopBar } from "@/vx/ui/page";
+import { Btn, WhatsAppPreview } from "@/vx/ui/primitives";
 
 import { firstName, maskPhone } from "@/vx/screens/admissions/logic";
 import { PeopleStyles } from "@/vx/screens/admissions/ui";
@@ -23,6 +26,8 @@ export type DoneInfo = {
   notDueYet: number;
   missingDocs: string[];
   schoolName: string;
+  /** When it was saved; defaults to now. */
+  savedAt?: string;
 };
 
 /** Admissions state `done`: the child is on the roll; what to do next. */
@@ -31,6 +36,7 @@ export function AdmissionDone({ info }: { info: DoneInfo }) {
   const toast = useToast();
   const [welcome, setWelcome] = useState(false);
 
+  // Copy-only (UI-50): nothing is sent from here.
   const lines = [
     `Namaste ${info.fatherName ?? ""}`.trim() + ",",
     `${firstName(info.name)} is now a student of ${info.schoolName}, ${info.classLabel}.`,
@@ -48,50 +54,59 @@ export function AdmissionDone({ info }: { info: DoneInfo }) {
     }
   }
 
+  const sub = [
+    tx(p(`Saved by ${firstName(info.savedBy)}`, `${firstName(info.savedBy)} ने सहेजा`)),
+    shortDay(info.savedAt ?? new Date()),
+    `${rupees(info.pendingToday)} ${tx(p("pending today", "आज बकाया"))}`,
+    `${rupees(info.notDueYet)} ${tx(p("not due yet", "अभी देय नहीं"))}`,
+  ].join(" · ") + (info.missingDocs.length ? ` · ${tx(p("still to collect", "अभी लेने हैं"))}: ${info.missingDocs.join(", ")}` : "");
+
   return (
-    <div className="pp-wrap" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <>
       <PeopleStyles />
-      <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10 }}>
-        <SuccessTick />
-        <h2 className="serif" style={{ margin: 0, fontSize: 24 }}>
-          {tx(p(`${info.name} admitted to ${info.classLabel}`, `${info.name} का ${info.classLabel} में दाख़िला हुआ`))}
-        </h2>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-          <Pill tone="acc" icon="hash">SR {info.sr}</Pill>
-          {info.phone ? <Pill tone="mut" icon="phone">{maskPhone(info.phone)}</Pill> : null}
+      <TopBar crumb={tx(p("Admissions", "दाख़िले"))} title={tx(p("Admission saved", "प्रवेश सहेजा"))} mSub={`${info.name} · SR ${info.sr}`} mBack="/admissions" />
+      <main>
+        <div className="pad" style={{ padding: "22px 28px 40px", animation: "xIn .4s var(--ease) both" }}>
+          <div className="card" style={{ maxWidth: 640, margin: "0 auto", padding: "30px 26px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+            <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" style={{ animation: "xPopIn .5s var(--spring) both" }}>
+              <circle cx="48" cy="48" r="44" style={{ fill: "var(--oks)" }} />
+              <circle cx="48" cy="48" r="44" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 4, ["--len" as string]: "276.5", strokeDasharray: 276.5, animation: "xDraw .7s .1s var(--ease) both" }} />
+              <path d="M30 49l12 12 24-26" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: "60", strokeDasharray: 60, animation: "xDraw .45s .5s var(--ease) both" }} />
+            </svg>
+            <h2 className="serif" style={{ margin: 0, fontSize: 26, fontWeight: 600, lineHeight: 1.25 }}>
+              {tx(p(`${info.name} admitted to ${info.classLabel}`, `${info.name} का ${info.classLabel} में दाख़िला हुआ`))}
+            </h2>
+            <span className="pill num" style={{ height: 30, padding: "0 14px", fontSize: 14, background: "var(--infos)", color: "var(--info)", animation: "xPopIn .45s .7s var(--spring) both" }}>SR {info.sr}</span>
+            <span style={{ fontSize: 14, color: "var(--mut)" }}>{sub}</span>
+            <div className="pp-g2" style={{ width: "100%", marginTop: 10, gap: 10 }}>
+              <Btn variant="pri" icon="rupee" href={`/payments?studentId=${info.studentId}`} style={{ height: 48 }}>
+                {info.pendingToday > 0 ? tx(p(`Collect ${rupees(info.pendingToday)} now`, `अभी ${rupees(info.pendingToday)} लें`)) : tx(p("Collect fees", "फीस लें"))}
+              </Btn>
+              <Btn variant="sec" icon="message" onClick={() => setWelcome(true)} style={{ height: 48 }}>{tx(p("Welcome message", "स्वागत संदेश"))}</Btn>
+              <Btn variant="sec" icon="printer" onClick={() => window.print()} style={{ height: 48 }}>{tx(p("Print admission form", "प्रवेश फ़ॉर्म छापें"))}</Btn>
+              <Btn variant="soft" icon="userPlus" href="/admissions/new" style={{ height: 48 }}>{tx(p("Add another", "एक और जोड़ें"))}</Btn>
+            </div>
+            <Link href={`/admissions/${info.studentId}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: 13, fontWeight: 600, color: "var(--acc)" }}>
+              {tx(p("Open the record", "रिकॉर्ड खोलें"))} <Ic n="chevRight" size={14} />
+            </Link>
+          </div>
         </div>
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>
-          {tx(p(`Saved by ${info.savedBy}. The fee record is ready.`, `${info.savedBy} ने सहेजा। फीस का रिकॉर्ड तैयार है।`))}
-        </span>
-      </Card>
-
-      <Card style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 }}>
-        <Stat label={tx(p("Pending today", "आज तक बाकी"))} value={<Money value={info.pendingToday} />} tone={info.pendingToday > 0 ? "var(--warn)" : undefined} />
-        <Stat label={tx(p("Not due yet", "अभी देय नहीं"))} value={<Money value={info.notDueYet} />} sub={tx(p("Shown apart, never added", "अलग दिखाया, जोड़ा नहीं"))} />
-      </Card>
-
-      {info.missingDocs.length > 0 ? (
-        <Banner tone="warn">{tx(p(`Documents still to collect: ${info.missingDocs.join(", ")}`, `अभी लेने बाकी काग़ज़: ${info.missingDocs.join(", ")}`))}</Banner>
-      ) : null}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-        <Btn variant="pri" big icon="rupee" href={`/payments?studentId=${info.studentId}`}>{tx(p("Collect fees now", "अभी फीस लें"))}</Btn>
-        <Btn variant="sec" big icon="message" onClick={() => setWelcome(true)}>{tx(p("Welcome message", "स्वागत संदेश"))}</Btn>
-        <Btn variant="sec" big icon="printer" onClick={() => window.print()}>{tx(p("Print admission slip", "दाख़िला पर्ची छापें"))}</Btn>
-        <Btn variant="ghost" big icon="userPlus" href="/admissions/new">{tx(p("Add another student", "एक और विद्यार्थी जोड़ें"))}</Btn>
-      </div>
-      <Btn variant="ghost" icon="edit" href={`/admissions/${info.studentId}`}>{tx(p("Open the record", "रिकॉर्ड खोलें"))}</Btn>
+      </main>
 
       <Sheet
         open={welcome}
         onClose={() => setWelcome(false)}
         title={tx(p("Welcome message", "स्वागत संदेश"))}
-        sub={tx(p("Copy it and send it from the school phone. Nothing is sent from here.", "कॉपी करके स्कूल के फ़ोन से भेजें। यहाँ से कुछ नहीं जाता।"))}
-        icon="message"
-        footer={<Btn variant="pri" full icon="copy" onClick={copy}>{tx(p("Copy message", "संदेश कॉपी करें"))}</Btn>}
+        sub={`${info.fatherName ?? tx(p("Parent", "अभिभावक"))}${info.phone ? ` · ${maskPhone(info.phone)}` : ""} · ${tx(p("copy it and send it from the school phone", "कॉपी करके स्कूल के फ़ोन से भेजें"))}`}
+        footer={
+          <>
+            <Btn variant="sec" style={{ flex: 1 }} onClick={() => setWelcome(false)}>{tx(p("Not now", "अभी नहीं"))}</Btn>
+            <Btn variant="pri" icon="copy" style={{ flex: 1.4 }} onClick={copy}>{tx(p("Copy message", "संदेश कॉपी करें"))}</Btn>
+          </>
+        }
       >
         <WhatsAppPreview lines={lines} title={info.phone ? maskPhone(info.phone) : tx(p("Parent", "अभिभावक"))} />
       </Sheet>
-    </div>
+    </>
   );
 }

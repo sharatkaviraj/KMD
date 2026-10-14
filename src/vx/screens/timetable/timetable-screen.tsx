@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 
+import { renderNotice } from "@/modules/staff-notices/domain/notices";
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import {
   coverAction,
@@ -17,34 +18,43 @@ import {
   type CoverActionResult,
   type TimetableResult,
 } from "@/app/(app)/timetable/vx-actions";
-import { dayMonth, initials, rupees, shortDay } from "@/vx/format";
+import { clock, initials, rupees, schoolToday } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
-import { Ic } from "@/vx/icons";
-import { p } from "@/vx/text";
-import { Chip, ChipRow, DateChips, Field, Input, RadioCard, Seg, Select, Switch } from "@/vx/ui/controls";
+import { Ic, type IconName } from "@/vx/icons";
+import { p, type Pair } from "@/vx/text";
+import { BackLink } from "@/vx/ui/back-link";
+import { Chip, ChipRow, Field, Input, Seg, Select, Switch, Textarea } from "@/vx/ui/controls";
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
-import { Banner, Grid, Section, TopBar, VxPage } from "@/vx/ui/page";
-import { Avatar, Btn, Card, CardHead, EmptyState, Pill, Ring, SecHead, WhatsAppPreview } from "@/vx/ui/primitives";
+import { Banner, VxPage } from "@/vx/ui/page";
+import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
 
 import type { CoverDutyView, LeaveView, TimetableData } from "./data";
 import { browserCoverStorage, clearCoverRecord, coverRecoveryKey, decodeCoverRecord, notifyCoverRecovery, persistCoverRecord, readCoverSnapshot, subscribeCoverRecovery, type CoverScope } from './cover-recovery';
 import {
+  addDay,
   affectedTeachers,
   applyChanges,
+  awaySpan,
+  bellTime,
   BREAK_AFTER,
   cellKey,
   changeNotice,
   classGrid,
   clashFor,
-  FAMILY_HUES,
+  dateShort,
+  dateSpan,
+  dayRange,
+  dayShort,
   FAMILY_LABELS,
+  FAMILY_TONES,
   freeAt,
   LEAVE_PROBLEMS,
   leaveProblems,
+  LEGEND_FAMILIES,
+  periodAt,
   periodsNeedingCover,
   PERIODS,
   schoolDays,
-  SPAN_LABELS,
   spanPeriods,
   subjectFamily,
   teacherGrid,
@@ -52,13 +62,20 @@ import {
   teachersOf,
   WEEK,
   WEEK_SHORT,
+  WEEK_SHORT_HI,
   weekdayOf,
   type LeaveSpan,
   type PendingChange,
   type Slot,
-  type SubjectFamily,
   type Weekday,
 } from "./domain/timetable";
+
+/*
+ * Timetable & substitutions, drawn as the design's `Timetable` module: the
+ * class and teacher weeks, today's cover, teacher leave, and Publish changes.
+ * Pending edits wait in `vppsone.timetable_changes` until Publish (UI-44); the
+ * cover command and its recovery record are unchanged by the drawing.
+ */
 
 export type TimetableView = "class" | "teacher" | "subs" | "leave";
 export type TimetableState = {
@@ -68,6 +85,7 @@ export type TimetableState = {
   cell: { day: Weekday; period: number } | null;
   pick: string | null;
   duty: string | null;
+  /** `publish` opens the Publish changes screen; `leave` the Add leave sheet. */
   sheet: "publish" | "leave" | null;
 };
 
@@ -89,20 +107,121 @@ function timetableHref(s: Partial<TimetableState>, day: string | undefined): str
   return `/timetable${qs.size ? `?${qs}` : ""}`;
 }
 
-function cellStyle(family: SubjectFamily, opts: { pending?: boolean; cover?: boolean; free?: boolean } = {}): React.CSSProperties {
-  const hue = FAMILY_HUES[family];
-  if (opts.free) return { border: "1.5px dashed var(--bd)", background: "transparent", borderRadius: 10 };
-  return {
-    background: `hsl(${hue} 45% 50% / .13)`,
-    borderLeft: `4px solid hsl(${hue} 45% 42%)`,
-    borderRadius: 10,
-    outline: opts.pending ? "2px dashed var(--acc)" : opts.cover ? "2px dashed var(--warn)" : undefined,
-    outlineOffset: -2,
-  };
+/* ------------------------------------------------------------- the look */
+
+const V = (token: string) => `var(--${token})`;
+/** A subject's cell: its family colour at 15% over the card (the design's `tintBg`). */
+const tint = (code: string) => `color-mix(in srgb, ${V(FAMILY_TONES[subjectFamily(code)])} 15%, var(--card))`;
+const bar = (code: string) => V(FAMILY_TONES[subjectFamily(code)]);
+const NOW_DOT: CSSProperties = { flex: "none", width: 8, height: 8, borderRadius: 4, background: "var(--acc)", animation: "xPulse 1.8s ease infinite" };
+const rise = (i: number): CSSProperties => ({ animation: `xIn .3s var(--ease) ${Math.min(i, 5) * 0.04}s both` });
+const MUTED: CSSProperties = { fontSize: 12, color: "var(--mut)" };
+
+/** The design's avatar letters: "Mr. Meena" → "Me", "Asha Purohit" → "AP". */
+function ini(name: string): string {
+  const words = name.replace(/^(mr|mrs|ms|dr|shri|smt)\.?\s+/i, "").split(/\s+/).filter(Boolean);
+  return words.length === 1 ? words[0].slice(0, 2) : initials(name);
 }
+
+/** The design's avatar: a 34px circle in one of five token tones, picked by the name. */
+const TONES: [string, string][] = [["accs", "accfg"], ["infos", "info"], ["oks", "ok"], ["warns", "warnfg"], ["s3", "fg"]];
+function toneOf(name: string): [string, string] {
+  let h = 2166136261;
+  for (let i = 0; i < name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
+  h ^= h >>> 15; h = Math.imul(h, 2246822507); h ^= h >>> 13;
+  return TONES[Math.floor(((h >>> 0) / 4294967296) * TONES.length)];
+}
+function Ava({ name, size = 34, style }: { name: string; size?: number; style?: CSSProperties }) {
+  const [bg, fg] = toneOf(name);
+  return (
+    <span aria-hidden="true" style={{ flex: "none", width: size, height: size, borderRadius: size / 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size >= 30 ? 12 : 9, fontWeight: 700, background: V(bg), color: V(fg), ...style }}>
+      {ini(name)}
+    </span>
+  );
+}
+
+function Dot({ color, style }: { color: string; style?: CSSProperties }) {
+  return <span aria-hidden="true" style={{ flex: "none", width: 8, height: 8, borderRadius: 4, background: color, ...style }} />;
+}
+
+function RadioDot({ on }: { on: boolean }) {
+  return (
+    <span aria-hidden="true" style={{ flex: "none", width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "var(--acc)" : "var(--bds)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--acc)", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
+    </span>
+  );
+}
+
+/** The design's 76px ring (viewBox 100, r 42, stroke 11) with a number in the middle. */
+function RingNum({ value, max, tone, big, bigSize = 20, small }: { value: number; max: number; tone: string; big: ReactNode; bigSize?: number; small: ReactNode }) {
+  const frac = max > 0 ? Math.min(1, Math.max(0, value / max)) : 1;
+  const len = Math.max(0.5, 263.9 * frac).toFixed(1);
+  return (
+    <span style={{ position: "relative", flex: "none", width: 76, height: 76 }}>
+      <svg width={76} height={76} viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx={50} cy={50} r={42} fill="none" stroke="var(--s3)" strokeWidth={11} />
+        <circle cx={50} cy={50} r={42} fill="none" stroke={tone} strokeWidth={11} strokeLinecap="round" strokeDasharray={`${len} 263.9`} style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", ["--len" as string]: len, animation: "xDraw .9s var(--ease) both" }} />
+      </svg>
+      <span style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <b className="num" style={{ fontSize: bigSize, lineHeight: 1 }}>{big}</b>
+        <span style={{ fontSize: 11, color: "var(--mut)" }}>{small}</span>
+      </span>
+    </span>
+  );
+}
+
+/** A coloured note across the page that leads somewhere (the design's `.xno` button). */
+function Note({ tone, icon, children, cta, href }: { tone: "warn" | "info"; icon: IconName; children: ReactNode; cta?: string; href?: string }) {
+  const [bg, fg] = tone === "warn" ? ["var(--warns)", "var(--warnfg)"] : ["var(--infos)", "var(--info)"];
+  const st: CSSProperties = { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, background: bg, color: fg, textAlign: "left", animation: "xIn .3s var(--ease) both" };
+  const inner = (
+    <>
+      <Ic n={icon} />
+      <span style={{ flex: 1, minWidth: 0 }}>{children}</span>
+      {cta && href ? (
+        <b style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+          {cta}
+          <Ic n="chevRight" size={16} />
+        </b>
+      ) : null}
+    </>
+  );
+  return href ? <Link href={href} className="tap" style={st}>{inner}</Link> : <div role="status" style={st}>{inner}</div>;
+}
+
+/** The WhatsApp chat the design draws: who it goes to, then the bubble, Hindi first. */
+function WaPreview({ to, hi, en, time }: { to: string; hi: string; en: string; time?: string }) {
+  return (
+    <div style={{ padding: 12, borderRadius: 16, background: "var(--wabg)", display: "flex", flexDirection: "column", gap: 6 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--wafg)", opacity: 0.7 }}>{to}</span>
+      <div style={{ alignSelf: "flex-start", maxWidth: "94%", padding: "9px 12px 5px", borderRadius: "4px 14px 14px 14px", background: "var(--wab)", color: "var(--wafg)", lineHeight: 1.5, whiteSpace: "pre-line", boxShadow: "0 1px 1px rgba(0,0,0,.08)", animation: "xPopIn .4s var(--spring) both", overflowWrap: "anywhere" }}>
+        {hi}
+        <div style={{ marginTop: 6, opacity: 0.78 }}>{en}</div>
+        {time ? <div style={{ fontSize: 11, textAlign: "right", opacity: 0.6 }}>{time}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------- the clock */
+
+const subscribeClock = (fn: () => void) => {
+  const t = window.setInterval(fn, 30_000);
+  return () => window.clearInterval(t);
+};
+const readClock = () => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+
+/** School-clock "HH:MM" (null while rendering on the server), or the one the data pins. */
+function useSchoolClock(pinned: string | null | undefined): string | null {
+  const live = useSyncExternalStore(subscribeClock, readClock, () => null);
+  return pinned ?? live;
+}
+
+/* ------------------------------------------------------------------ screen */
 
 export function TimetableScreen({ data, state, previewing }: { data: TimetableData; state: TimetableState; previewing: boolean }) {
   const { tx } = useVx();
+  const say = (en: string, hi: string) => tx({ en, hi });
   const router = useRouter();
   const toast = useToast();
   const [pending, start] = useTransition();
@@ -121,15 +240,22 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
   const [storageProblem, setStorageProblem] = useState<string | null>(null);
   const coverBlocked = previewing || pending || !storageReady || Boolean(recovery);
   const href = (next: Partial<TimetableState>) => timetableHref(next, data.cover?.day);
+  const hhmm = useSchoolClock(data.clock);
 
   // Pending periods are an editor preview; teachers follow the published version.
   const planned = useMemo(() => data.me.mayEdit ? applyChanges(data.slots, data.changes) : data.slots, [data.me.mayEdit, data.slots, data.changes]);
-  const subjectName = useMemo(() => {
-    const m = new Map(data.subjects.map((s) => [s.code, s.name]));
-    return (code: string) => m.get(code) ?? code;
+  const subjectPair = useMemo(() => {
+    const m = new Map(data.subjects.map((s) => [s.code, s]));
+    return (code: string): Pair => {
+      const s = m.get(code);
+      return s ? { en: s.name, hi: s.nameHi ?? undefined } : { en: code };
+    };
   }, [data.subjects]);
+  const subjectName = (code: string) => tx(subjectPair(code));
   const teacherName = useMemo(() => new Map(data.teachers.map((t) => [t.id, t.name])), [data.teachers]);
   const todayName = weekdayOf(data.today);
+  const nowP = todayName ? periodAt(data.bells, hhmm) : -1;
+  const dayName = (d: Weekday) => tx({ en: WEEK_SHORT[d], hi: WEEK_SHORT_HI[d] });
 
   const go = (next: Partial<TimetableState>, replace = false) => {
     const url = href({ ...next });
@@ -202,212 +328,351 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
 
   const classId = state.classId ?? data.classes[0]?.id ?? null;
   const teacherId = state.teacherId ?? data.teachers[0]?.id ?? null;
-  const awayToday = data.cover?.absences ?? [];
-  const needCover = (data.cover?.duties ?? []).filter((d) => d.status === "needs_help");
-  const covered = (data.cover?.duties ?? []).filter((d) => d.status === "assigned");
+  const duties = data.cover?.duties ?? [];
+  const coverIsToday = data.cover?.day === data.today;
+  const coveredN = duties.filter((d) => d.status === "assigned").length;
+  const publishing = state.sheet === "publish" && data.me.mayEdit;
+  const pendingN = data.me.mayEdit ? data.changes.length : 0;
+  const publishHref = href({ view: state.view, classId: state.classId, teacherId: state.teacherId, sheet: "publish" });
+  const classHref = href({ view: "class", classId: state.classId });
+  const session = (data.sessionLabel ?? "—").replace(/^(\d{4})-(\d{2})$/, "$1–$2");
+  const todayLine = dayShort(data.today);
 
-  const tabs = (
-    <Seg<TimetableView>
-      label="Timetable view"
-      value={state.view}
-      onChange={(v) => go({ view: v, classId: v === "class" ? classId : null, teacherId: v === "teacher" ? teacherId : null })}
-      options={[
-        { value: "class", label: tx(p("Class", "कक्षा")) },
-        { value: "teacher", label: tx(p("Teacher", "शिक्षक")) },
-        ...(data.me.mayViewCover
-          ? [
-              { value: "subs" as const, label: tx(p("Substitutions", "व्यवस्था")) },
-              { value: "leave" as const, label: tx(p("Leave", "छुट्टी")) },
-            ]
-          : []),
+  /* ----------------------------------------------------------- top bar */
+
+  const publishAct = pendingN ? (
+    <Btn variant="pri" icon="upload" href={publishHref}>{say(`Publish changes (${pendingN})`, `बदलाव प्रकाशित करें (${pendingN})`)}</Btn>
+  ) : null;
+  const help = (
+    <HelpButton
+      title={say("Timetable", "समय सारणी")}
+      steps={[
+        { icon: "calendar", title: say("The week", "सप्ताह"), body: say("Pick a class or a teacher to see their week. Today's row is highlighted.", "कक्षा या शिक्षक चुनें, उनका सप्ताह दिखेगा। आज की पंक्ति अलग दिखती है।") },
+        { icon: "edit", title: say("Change a period", "पीरियड बदलें"), body: say("Tap a period to change it. Changes wait until you publish; teachers still see the old timetable.", "पीरियड पर टैप करके बदलें। बदलाव प्रकाशित करने तक रुके रहते हैं; शिक्षक पुरानी समय सारणी देखते हैं।") },
+        { icon: "swap", title: say("Cover", "व्यवस्था"), body: say("Substitutions shows who is away today and who covers. Assigning a teacher queues their WhatsApp notice.", "व्यवस्था में आज कौन अनुपस्थित है और कौन लेगा, दिखता है। शिक्षक देने पर उनका WhatsApp संदेश कतार में जाता है।") },
       ]}
-      style={{ maxWidth: 560 }}
     />
   );
+  const mAct = (label: string, icon: IconName, to: string) => (
+    <Link href={to} className="tap btn soft" style={{ height: 40, padding: "0 12px", fontSize: 13 }}>
+      <Ic n={icon} size={16} />
+      {label}
+    </Link>
+  );
 
-  const titles: Record<TimetableView, string> = { class: "Timetable", teacher: "Teacher timetable", subs: "Substitutions", leave: "Teacher leave" };
-  const header = (
-    <TopBar
-      crumb={state.view === "subs" ? `Timetable · today ${shortDay(data.today)}` : `Academics · Session ${data.sessionLabel ?? "—"}`}
-      title={titles[state.view]}
-      mSub={state.view === "subs" ? `${covered.length} of ${covered.length + needCover.length} periods covered` : data.version ? data.version.label : "No timetable published"}
-      mBack={state.view === "class" ? "/menu" : href({ view: "class" })}
-      actions={
-        <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {state.view === "subs" || state.view === "leave" ? <Btn variant="sec" icon="calendar" href={href({ view: "leave", sheet: "leave" })}>Teacher leave</Btn> : null}
-          {data.me.mayEdit && data.changes.length ? (
-            <Btn variant="pri" icon="upload" href={href({ view: state.view, classId: state.classId, teacherId: state.teacherId, sheet: "publish" })}>Publish changes ({data.changes.length})</Btn>
-          ) : null}
-          {data.me.mayEdit ? <Btn variant="ghost" icon="upload" href="/timetable/import">Import</Btn> : null}
-          <Btn variant="ghost" icon="layers" href="/timetable/classic">Versions</Btn>
-          <HelpButton
-            title="Timetable"
-            steps={[
-              { icon: "calendar", title: "The week", body: "Pick a class or a teacher to see their week. Today's row is highlighted." },
-              { icon: "edit", title: "Change a period", body: "Tap a period to change it. Changes wait until you publish; teachers still see the old timetable." },
-              { icon: "swap", title: "Cover", body: "Substitutions shows who is away today and who covers. Assigning a teacher queues their WhatsApp notice." },
-            ]}
-          />
-        </span>
+  const waitingN = data.leave.filter((l) => l.status === "asked").length;
+  const approvedN = data.leave.filter((l) => l.status === "approved" && l.to >= data.today).length;
+  const classNow = data.classes.find((c) => c.id === classId);
+  const loadNow = teacherId ? teacherLoad(planned, teacherId) : null;
+  const top = publishing
+    ? {
+        crumb: say("Timetable · changes", "समय सारणी · बदलाव"),
+        title: say("Publish changes", "बदलाव प्रकाशित करें"),
+        back: href({ view: state.view, classId: state.classId, teacherId: state.teacherId }),
+        actions: help,
+        mSub: say(`${pendingN} waiting · ${data.version ? `${data.version.label} is live` : "no live version"}`, `${pendingN} बाकी · ${data.version ? `${data.version.label} लागू है` : "कोई लागू संस्करण नहीं"}`),
+        mAction: undefined,
       }
-      mAction={data.me.mayEdit && data.changes.length ? <Btn variant="soft" icon="upload" href={href({ view: state.view, classId: state.classId, teacherId: state.teacherId, sheet: "publish" })}>{data.changes.length}</Btn> : undefined}
-    />
+    : state.view === "teacher"
+      ? {
+          crumb: say("Timetable", "समय सारणी"),
+          title: say("Teacher timetable", "शिक्षक समय सारणी"),
+          back: classHref,
+          actions: <>{publishAct}{help}</>,
+          mSub: teacherId && loadNow ? say(`${teacherName.get(teacherId) ?? ""} · ${loadNow.total} periods a week`, `${teacherName.get(teacherId) ?? ""} · सप्ताह में ${loadNow.total} पीरियड`) : undefined,
+          mAction: undefined,
+        }
+      : state.view === "subs"
+        ? {
+            crumb: coverDay && !coverIsToday ? say(`Timetable · ${dayShort(coverDay)}`, `समय सारणी · ${dayShort(coverDay)}`) : say(`Timetable · today ${todayLine}`, `समय सारणी · आज ${todayLine}`),
+            title: say("Substitutions", "व्यवस्था"),
+            back: classHref,
+            actions: <>{data.me.mayViewCover ? <Btn variant="sec" icon="calendar" href={href({ view: "leave" })}>{say("Teacher leave", "शिक्षक छुट्टी")}</Btn> : null}{help}</>,
+            mSub: say(`${coveredN} of ${duties.length} periods covered`, `${duties.length} में से ${coveredN} पीरियड की व्यवस्था हुई`),
+            mAction: undefined,
+          }
+        : state.view === "leave"
+          ? {
+              crumb: say("Timetable", "समय सारणी"),
+              title: say("Teacher leave", "शिक्षक छुट्टी"),
+              back: classHref,
+              actions: <>{data.me.mayViewCover ? <Btn variant="pri" icon="plus" href={href({ view: "leave", sheet: "leave" })}>{say("Add leave", "छुट्टी जोड़ें")}</Btn> : null}{help}</>,
+              mSub: say(`${waitingN} waiting · ${approvedN} approved`, `${waitingN} बाकी · ${approvedN} स्वीकृत`),
+              mAction: data.me.mayViewCover ? mAct(say("Add", "जोड़ें"), "plus", href({ view: "leave", sheet: "leave" })) : undefined,
+            }
+          : {
+              crumb: say(`Academics · Session ${session}`, `अकादमिक · सत्र ${session}`),
+              title: say("Timetable", "समय सारणी"),
+              back: undefined,
+              actions: <>{publishAct}{help}</>,
+              mSub: classNow
+                ? say(`${classNow.label} · today ${todayLine}${nowP >= 0 ? ` · P${periodNumber(nowP)} now` : ""}`, `${classNow.label} · आज ${todayLine}${nowP >= 0 ? ` · अभी P${periodNumber(nowP)}` : ""}`)
+                : data.version?.label,
+              mAction: pendingN ? mAct(say(`Publish ${pendingN}`, `प्रकाशित ${pendingN}`), "upload", publishHref) : undefined,
+            };
+
+  const header = (
+    <>
+      <header className="only-d glass vx-top" style={{ flex: "none", height: 64, display: "flex", alignItems: "center", gap: 10, padding: "0 28px", borderBottom: "1px solid var(--bd)" }}>
+        {top.back ? (
+          <Link href={top.back} className="tap btn ghost" aria-label={say("Back", "वापस")} style={{ width: 40, padding: 0 }}>
+            <Ic n="chevLeft" />
+          </Link>
+        ) : null}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <span style={{ fontSize: 12, color: "var(--mut)" }}>{top.crumb}</span>
+          <h1 className="serif clip" style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.15 }}>{top.title}</h1>
+        </div>
+        {top.actions}
+      </header>
+      <header className="only-m glass vx-top" style={{ flex: "none", minHeight: 58, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid var(--bd)" }}>
+        <BackLink href={top.back ?? "/menu"} className="tap icon-btn" style={{ width: 44, height: 44, borderRadius: 22 }} label={top.back ? say("Back", "वापस") : say("Back to menu", "मेन्यू पर वापस")}>
+          <Ic n="chevLeft" size={24} />
+        </BackLink>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", paddingLeft: 2 }}>
+          <span className="clip" style={{ fontSize: 17, fontWeight: 700 }}>{top.title}</span>
+          {top.mSub ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{top.mSub}</span> : null}
+        </span>
+        {top.mAction}
+      </header>
+    </>
   );
 
-  let body: React.ReactNode;
-  if (!data.version && (state.view === "class" || state.view === "teacher")) {
+  /* -------------------------------------------------------------- tabs */
+
+  const tabs = publishing ? null : (
+    <div className="pad" style={{ padding: "16px 28px 0" }}>
+      <Seg<TimetableView>
+        label={say("Timetable view", "समय सारणी का दृश्य")}
+        value={state.view}
+        onChange={(v) => go({ view: v, classId: v === "class" ? classId : null, teacherId: v === "teacher" ? teacherId : null })}
+        options={[
+          { value: "class", label: say("Class", "कक्षा") },
+          { value: "teacher", label: say("Teacher", "शिक्षक") },
+          ...(data.me.mayViewCover
+            ? [
+                { value: "subs" as const, label: <><span className="only-d">{say("Substitutions", "व्यवस्था")}</span><span className="only-m">{say("Cover", "व्यवस्था")}</span></> },
+                { value: "leave" as const, label: say("Leave", "छुट्टी") },
+              ]
+            : []),
+        ]}
+        style={{ width: data.me.mayViewCover ? 560 : 280, maxWidth: "100%" }}
+      />
+    </div>
+  );
+
+  /* -------------------------------------------------------------- body */
+
+  let body: ReactNode;
+  if (publishing) {
+    body = (
+      <PublishScreen
+        data={data}
+        subjectName={subjectName}
+        subjectPair={subjectPair}
+        teacherName={teacherName}
+        pending={pending}
+        previewing={previewing}
+        classHref={href({ view: "class", classId: state.classId })}
+        onRemove={(id) => start(async () => done(await discardChangeAction(id)))}
+        onPublish={(notify, after) => start(async () => done(await publishChangesAction({ notify }), after))}
+      />
+    );
+  } else if (!data.version && (state.view === "class" || state.view === "teacher")) {
     body = (
       <EmptyState
         icon="calendar"
-        title="No timetable is published"
-        body="Import the timetable sheet and publish it. The week grids, cover and teacher loads all come from it."
-        action={data.me.mayEdit ? <Btn variant="pri" icon="upload" href="/timetable/import">Import timetable</Btn> : undefined}
+        title={say("No timetable is published", "कोई समय सारणी प्रकाशित नहीं")}
+        body={say("Import the timetable sheet and publish it. The week grids, cover and teacher loads all come from it.", "समय सारणी की शीट आयात करके प्रकाशित करें। सप्ताह, व्यवस्था और शिक्षकों का भार उसी से बनते हैं।")}
+        action={data.me.mayEdit ? <Btn variant="pri" icon="upload" href="/timetable/import">{say("Import timetable", "समय सारणी आयात करें")}</Btn> : undefined}
       />
     );
   } else if (state.view === "class" && classId) {
     const cls = data.classes.find((c) => c.id === classId);
     const grid = classGrid(planned, classId);
     const changedHere = new Set((data.me.mayEdit ? data.changes : []).filter((c) => c.classId === classId).map((c) => cellKey(c.day, c.period)));
-    const coverHere = new Map<number, CoverDutyView>();
-    for (const d of data.cover?.duties ?? []) if (cls && d.classLabels.includes(cls.label)) coverHere.set(d.period, d);
+    const classDuties = coverIsToday && cls ? duties.filter((d) => d.classLabels.includes(cls.label)) : [];
+    const coverHere = new Map(classDuties.map((d) => [d.period, d]));
+    const needsOf = (label: string) => coverIsToday && duties.some((d) => d.status !== "assigned" && d.classLabels.includes(label));
+    const changedOf = (id: string) => data.me.mayEdit && data.changes.some((c) => c.classId === id);
+    const away = [...new Set(classDuties.flatMap((d) => d.absentNames))];
+    const periodsList = classDuties.map((d) => `P${periodNumber(d.period)}`);
+    const joined = (list: string[], and: string) => (list.length > 1 ? `${list.slice(0, -1).join(", ")} ${and} ${list[list.length - 1]}` : list[0] ?? "");
+    const coveredHere = classDuties.filter((d) => d.status === "assigned").length;
     body = (
       <>
-        <ChipRow label="Classes">
+        <ChipRow label={say("Classes", "कक्षाएँ")} style={{ gap: 6, paddingBottom: 0 }}>
           {data.classes.map((c) => (
-            <Chip key={c.id} on={c.id === classId} onClick={() => go({ view: "class", classId: c.id }, true)}>{c.label}</Chip>
+            <Chip key={c.id} on={c.id === classId} onClick={() => go({ view: "class", classId: c.id }, true)}>
+              <Dot color={needsOf(c.label) ? V("warn") : changedOf(c.id) ? V("info") : V("ok")} />
+              {c.label.replace(/Science$/, "Sci").replace(/Commerce$/, "Com")}
+            </Chip>
           ))}
         </ChipRow>
-        {needCover.length && data.me.mayViewCover ? (
-          <Banner tone="warn" action={<Btn variant="ghost" href={href({ view: "subs" })}>Substitutions</Btn>}>
-            Today {needCover.map((d) => `P${periodNumber(d.period)}`).join(", ")} need cover · {awayToday.map((a) => a.name).join(", ") || "a teacher"} away · {covered.length} of {covered.length + needCover.length} covered
-          </Banner>
+        {classDuties.length && data.me.mayViewCover ? (
+          <Note tone="warn" icon="swap" cta={say("Substitutions", "व्यवस्था")} href={href({ view: "subs" })}>
+            {say(
+              `Today ${joined(periodsList, "and")} ${classDuties.length > 1 ? "need" : "needs"} cover · ${joined(away, "and")} ${away.length > 1 ? "are" : "is"} away · ${coveredHere} of ${classDuties.length} covered`,
+              `आज ${joined(periodsList, "और")} में व्यवस्था चाहिए · ${joined(away, "और")} अनुपस्थित · ${classDuties.length} में से ${coveredHere} की व्यवस्था हुई`,
+            )}
+          </Note>
         ) : null}
-        {data.me.mayEdit && data.changes.length ? (
-          <Banner tone="info" action={data.me.mayEdit ? <Btn variant="ghost" href={href({ view: "class", classId, sheet: "publish" })}>Review</Btn> : undefined}>
-            {data.changes.length} {data.changes.length === 1 ? "change is" : "changes are"} not published yet · teachers still see the old timetable
-          </Banner>
+        {pendingN ? (
+          <Note tone="info" icon="edit" cta={say("Review", "देखें")} href={href({ view: "class", classId, sheet: "publish" })}>
+            {say(`${pendingN} ${pendingN === 1 ? "change is" : "changes are"} not published yet · teachers still see the old timetable`, `${pendingN} बदलाव अभी प्रकाशित नहीं · शिक्षक अभी पुरानी समय सारणी देखते हैं`)}
+          </Note>
         ) : null}
-        <WeekGrid
+        <WeekCard
           data={data}
-          title={<><b>{cls?.label}</b>{cls?.classTeacher ? ` · Class teacher ${cls.classTeacher}` : ""}{data.me.mayEdit ? " · tap a period to change it" : ""}</>}
+          title={cls?.label ?? ""}
+          info={[cls?.classTeacher ? say(`Class teacher ${cls.classTeacher}`, `कक्षा अध्यापक ${cls.classTeacher}`) : null, data.me.mayEdit ? say("tap a period to change it", "बदलने के लिए पीरियड पर टैप करें") : null].filter(Boolean).join(" · ")}
+          legend
           todayName={todayName}
+          nowP={nowP}
+          dayName={dayName}
           cell={(day, period) => {
             const list = grid.get(cellKey(day, period)) ?? [];
             const key = cellKey(day, period);
             const duty = day === todayName ? coverHere.get(period) : undefined;
-            if (list.length === 0) return { body: <span style={{ color: "var(--mut)" }}>—</span>, style: cellStyle("other", { free: true }), onClick: data.me.mayEdit ? () => go({ view: "class", classId, cell: { day, period } }) : undefined };
+            const open = data.me.mayEdit ? () => go({ view: "class", classId, cell: { day, period } }) : undefined;
+            const now = day === todayName && period === nowP;
+            if (list.length === 0) return { ...FREE, t1: say("Free", "खाली"), t2: "", t2m: say("Free period", "खाली पीरियड"), dot: now ? "now" : null, onClick: open, aria: `${dayName(day)} P${periodNumber(period)}` };
             const first = list[0];
-            return {
-              body: (
-                <>
-                  <b className="clip" style={{ display: "block" }}>{list.length > 1 ? list.map((s) => subjectName(s.subjectCode)).join(" / ") : subjectName(first.subjectCode)}</b>
-                  <span className="clip" style={{ display: "block", fontSize: 12, color: "var(--mut)" }}>
-                    {duty ? (duty.status === "assigned" ? `Sub: ${duty.coveringName ?? "—"}` : "Needs cover") : list.map((s) => teacherName.get(s.staffProfileId) ?? s.teacherShortName).join(", ")}
-                  </span>
-                </>
-              ),
-              style: cellStyle(subjectFamily(first.subjectCode), { pending: changedHere.has(key), cover: Boolean(duty) }),
-              dot: changedHere.has(key),
-              onClick: data.me.mayEdit ? () => go({ view: "class", classId, cell: { day, period } }) : undefined,
-            };
+            const t1 = list.map((s) => subjectName(s.subjectCode)).join(" / ");
+            const who = list.map((s) => teacherName.get(s.staffProfileId) ?? s.teacherShortName).join(", ");
+            const view: CellView = { t1, t2: who, t2m: who, bg: tint(first.subjectCode), line: { style: "solid", width: 1, color: "transparent" }, bar: bar(first.subjectCode), dot: now ? "now" : changedHere.has(key) ? "edit" : null, onClick: open, aria: `${dayName(day)} P${periodNumber(period)}: ${t1} · ${who}` };
+            if (duty) {
+              const by = duty.status === "assigned";
+              const tone = by ? "ok" : "warn";
+              view.t2 = by ? say(`Sub: ${duty.coveringName ?? "—"}`, `व्यवस्था: ${duty.coveringName ?? "—"}`) : say("Needs cover", "व्यवस्था चाहिए");
+              view.t2m = by ? say(`Covered by ${duty.coveringName ?? "—"}`, `${duty.coveringName ?? "—"} ले रहे हैं`) : say(`${duty.absentNames.join(", ")} away · needs cover`, `${duty.absentNames.join(", ")} अनुपस्थित · व्यवस्था चाहिए`);
+              view.line = { style: "dashed", width: 1.5, color: V(tone) };
+              view.bar = V(tone);
+            }
+            return view;
           }}
-          legend
-          subjectsUsed={[...new Set([...grid.values()].flat().map((s) => subjectFamily(s.subjectCode)))]}
         />
       </>
     );
   } else if (state.view === "teacher" && teacherId) {
     const grid = teacherGrid(planned, teacherId);
     const load = teacherLoad(planned, teacherId);
-    const t = data.teachers.find((x) => x.id === teacherId);
+    const name = teacherName.get(teacherId) ?? "";
+    const tomorrow = addDay(data.today, 1);
+    const onLeaveSoon = (id: string) => data.leave.some((l) => l.staffId === id && l.status === "approved" && l.to >= data.today && l.from <= tomorrow);
     const onLeave = data.leave.find((l) => l.staffId === teacherId && l.status === "approved" && l.to >= data.today);
     const subjects = [...new Set([...grid.values()].flat().map((s) => subjectName(s.subjectCode)))];
-    const coverToday = new Map((data.cover?.duties ?? []).filter((d) => d.coveringStaffId === teacherId).map((d) => [d.period, d]));
+    const covering = coverIsToday ? duties.filter((d) => d.status === "assigned" && d.coveringStaffId === teacherId) : [];
+    const coveringAt = new Map(covering.map((d) => [d.period, d]));
+    const ownAt = new Map((coverIsToday ? duties : []).filter((d) => d.absentIds?.includes(teacherId)).map((d) => [d.period, d]));
+    const takenN = Math.max(data.subsThisWeek[teacherId] ?? 0, covering.length);
     body = (
       <>
-        <ChipRow label="Teachers">
+        <ChipRow label={say("Teachers", "शिक्षक")} style={{ gap: 6, paddingBottom: 0 }}>
           {data.teachers.map((x) => (
-            <Chip key={x.id} on={x.id === teacherId} onClick={() => go({ view: "teacher", teacherId: x.id }, true)}>{x.name}</Chip>
+            <Chip key={x.id} on={x.id === teacherId} onClick={() => go({ view: "teacher", teacherId: x.id }, true)}>
+              <Dot color={onLeaveSoon(x.id) ? V("warn") : V("ok")} />
+              {x.name}
+            </Chip>
           ))}
         </ChipRow>
         {onLeave ? (
-          <Banner tone="warn" action={data.me.mayViewCover ? <Btn variant="ghost" href={href({ view: "subs" })}>Cover today</Btn> : undefined}>
-            {onLeave.name} is on leave {dayMonth(onLeave.from)} – {dayMonth(onLeave.to)}{onLeave.note ? ` · ${onLeave.note}` : ""}
-          </Banner>
+          <Note tone="warn" icon="calendar" cta={data.me.mayViewCover ? say("Cover today", "आज की व्यवस्था") : undefined} href={data.me.mayViewCover ? href({ view: "subs" }) : undefined}>
+            {say(
+              `${onLeave.name} is on leave ${dayRange(onLeave.from, onLeave.to)}${onLeave.span === "full" ? "" : ` (${spanLabel(onLeave.span).en})`}${onLeave.note ? ` · ${onLeave.note}` : ""}`,
+              `${onLeave.name} छुट्टी पर हैं ${dayRange(onLeave.from, onLeave.to)}${onLeave.span === "full" ? "" : ` (${spanLabel(onLeave.span).hi})`}${onLeave.note ? ` · ${onLeave.note}` : ""}`,
+            )}
+          </Note>
         ) : null}
-        <Grid cols={2}>
-          <Card style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <Ring value={load.total} max={48} size={72} stroke={8}>
-              <span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
-                <span style={{ fontSize: 20 }}>{load.total}</span>
-                <span style={{ fontSize: 10, color: "var(--mut)" }}>of 48</span>
-              </span>
-            </Ring>
-            <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-              <b>{load.total} periods a week · {load.free} free</b>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>Free periods are dashed below. Most in a day: {load.most}.</span>
-              <span style={{ display: "flex", gap: 10, alignItems: "flex-end", height: 44 }}>
+        <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", gap: 14 }}>
+          <Card style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
+            <RingNum value={load.total} max={WEEK.length * PERIODS.length} tone="var(--acc)" big={load.total} small={say(`of ${WEEK.length * PERIODS.length}`, `${WEEK.length * PERIODS.length} में से`)} />
+            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{say(`${load.total} periods a week · ${load.free} free`, `सप्ताह में ${load.total} पीरियड · ${load.free} खाली`)}</span>
+              <span style={MUTED}>{say(`Free periods are dashed below. Most in a day: ${load.most}.`, `खाली पीरियड नीचे धारीदार हैं। एक दिन में सबसे ज़्यादा: ${load.most}।`)}</span>
+              <span style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 46, marginTop: 6 }}>
                 {WEEK.map((d, i) => (
-                  <span key={d} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flex: 1 }}>
-                    <span style={{ width: "100%", maxWidth: 28, height: `${Math.max(4, (load.perDay[i] / 8) * 32)}px`, borderRadius: 4, background: d === todayName ? "var(--acc)" : "hsl(180 40% 45% / .7)" }} title={`${load.perDay[i]} periods`} />
-                    <span style={{ fontSize: 11, color: "var(--mut)" }}>{WEEK_SHORT[d].slice(0, 2)}</span>
+                  <span key={d} title={say(`${load.perDay[i]} periods`, `${load.perDay[i]} पीरियड`)} style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                    <span style={{ width: "100%", maxWidth: 26, height: `${Math.round((load.perDay[i] / PERIODS.length) * 100)}%`, borderRadius: "5px 5px 2px 2px", background: d === todayName ? "var(--acc)" : "var(--c2)", transformOrigin: "bottom", animation: "xGrowY .6s var(--ease) both" }} />
+                    <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx({ en: WEEK_SHORT[d].slice(0, 2), hi: WEEK_SHORT_HI[d] })}</span>
                   </span>
                 ))}
               </span>
             </span>
           </Card>
-          <Card>
-            <CardHead title={`Subs taken this week · ${data.subsThisWeek[teacherId] ?? 0}`} sub={(data.subsThisWeek[teacherId] ?? 0) ? "Cover periods assigned to them since Monday." : "No cover periods taken this week."} />
+          <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column" }}>
+            <span className="sech" style={{ marginBottom: 6 }}>{say(`Subs taken this week · ${takenN}`, `इस सप्ताह ली गई व्यवस्था · ${takenN}`)}</span>
+            {covering.map((d, i) => (
+              <div key={d.id} style={{ display: "grid", gridTemplateColumns: "10px minmax(0,1fr) auto", gap: 10, alignItems: "start", padding: "6px 0", fontSize: 13, ...rise(i) }}>
+                <i style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: "var(--acc)" }} />
+                <span>{say(`${d.classLabels.join(", ")} · for ${d.absentNames.join(", ")}`, `${d.classLabels.join(", ")} · ${d.absentNames.join(", ")} के स्थान पर`)}</span>
+                <span className="num" style={MUTED}>{todayName ? `${dayName(todayName)} P${periodNumber(d.period)}` : `P${periodNumber(d.period)}`}</span>
+              </div>
+            ))}
+            {takenN > covering.length ? <span style={MUTED}>{say(`${takenN - covering.length} earlier this week`, `इस सप्ताह पहले ${takenN - covering.length}`)}</span> : null}
+            {takenN === 0 ? <span style={MUTED}>{say("No cover periods taken this week.", "इस सप्ताह कोई व्यवस्था पीरियड नहीं लिया।")}</span> : null}
           </Card>
-        </Grid>
-        <WeekGrid
+        </div>
+        <WeekCard
           data={data}
-          title={<><b>{t?.name}</b>{subjects.length ? ` · Teaches ${subjects.slice(0, 3).join(", ")}` : ""} · {load.total} periods a week</>}
+          title={name}
+          info={[subjects.length ? say(`Teaches ${subjects.slice(0, 3).join(", ")}`, `पढ़ाते हैं: ${subjects.slice(0, 3).join(", ")}`) : null, say(`${load.total} periods a week`, `सप्ताह में ${load.total} पीरियड`)].filter(Boolean).join(" · ")}
           todayName={todayName}
+          nowP={nowP}
+          dayName={dayName}
           cell={(day, period) => {
             const list = grid.get(cellKey(day, period)) ?? [];
-            const duty = day === todayName ? coverToday.get(period) : undefined;
-            if (duty) {
-              return { body: <><b className="clip" style={{ display: "block" }}>{duty.classLabels.join(", ")}</b><span style={{ fontSize: 12, color: "var(--mut)" }}>Covering · {subjectName(duty.subjectCode)}</span></>, style: cellStyle(subjectFamily(duty.subjectCode), { cover: true }) };
+            const today = day === todayName;
+            const now = today && period === nowP ? "now" : null;
+            const taking = today ? coveringAt.get(period) : undefined;
+            if (taking) {
+              const t1 = taking.classLabels.join(", ");
+              const t2 = say(`Covering · ${subjectName(taking.subjectCode)}`, `व्यवस्था · ${subjectName(taking.subjectCode)}`);
+              return { t1, t2, t2m: t2, bg: tint(taking.subjectCode), line: { style: "dashed", width: 1.5, color: V("acc") }, bar: V("acc"), dot: now, aria: `${dayName(day)} P${periodNumber(period)}: ${t1} · ${t2}` };
             }
-            if (list.length === 0) return { body: <><b style={{ display: "block" }}>Free</b><span style={{ fontSize: 12, color: "var(--mut)" }}>{WEEK_SHORT[day]} P{periodNumber(period)}</span></>, style: cellStyle("other", { free: true }) };
-            return {
-              body: (
-                <>
-                  <b className="clip" style={{ display: "block" }}>{[...new Set(list.map((s) => s.classLabel))].join(", ")}</b>
-                  <span className="clip" style={{ display: "block", fontSize: 12, color: "var(--mut)" }}>{subjectName(list[0].subjectCode)}</span>
-                </>
-              ),
-              style: cellStyle(subjectFamily(list[0].subjectCode)),
-              onClick: data.me.mayEdit ? () => go({ view: "class", classId: list[0].classId, cell: { day, period } }) : undefined,
-            };
+            if (list.length === 0) {
+              const t2 = `${dayName(day)} P${periodNumber(period)}`;
+              return { ...FREE, t1: say("Free", "खाली"), t2, t2m: say("Free period", "खाली पीरियड"), dot: now, aria: `${t2}: ${say("Free", "खाली")}` };
+            }
+            const t1 = [...new Set(list.map((s) => s.classLabel))].join(", ");
+            const sub = subjectName(list[0].subjectCode);
+            const view: CellView = { t1, t2: sub, t2m: sub, bg: tint(list[0].subjectCode), line: { style: "solid", width: 1, color: "transparent" }, bar: bar(list[0].subjectCode), dot: now, onClick: data.me.mayEdit ? () => go({ view: "class", classId: list[0].classId, cell: { day, period } }) : undefined, aria: `${dayName(day)} P${periodNumber(period)}: ${t1} · ${sub}` };
+            const own = today ? ownAt.get(period) : undefined;
+            if (own) {
+              const by = own.status === "assigned";
+              view.t2 = by ? say(`Sub: ${own.coveringName ?? "—"}`, `व्यवस्था: ${own.coveringName ?? "—"}`) : say("Needs cover", "व्यवस्था चाहिए");
+              view.t2m = by ? say(`Covered by ${own.coveringName ?? "—"}`, `${own.coveringName ?? "—"} ले रहे हैं`) : say("Away · needs cover", "अनुपस्थित · व्यवस्था चाहिए");
+              view.line = { style: "dashed", width: 1.5, color: V(by ? "ok" : "warn") };
+              view.bar = V(by ? "ok" : "warn");
+            }
+            return view;
           }}
         />
       </>
     );
   } else if (state.view === "subs") {
-    body = <Subs data={data} pending={coverBlocked} subjectName={subjectName} onCover={cover} onAssign={(needKey) => go({ view: "subs", duty: needKey })} />;
+    body = <Subs data={data} pending={coverBlocked} subjectName={subjectName} clock={hhmm} onCover={cover} onAssign={(needKey) => go({ view: "subs", duty: needKey })} />;
   } else if (state.view === "leave") {
-    body = <Leave data={data} pending={pending} onAdd={() => go({ view: "leave", sheet: "leave" })} onDecide={(id, approve) => start(async () => done(await decideLeaveAction({ id, approve })))} />;
+    body = <Leave data={data} pending={pending || previewing} onDecide={(id, approve) => start(async () => done(await decideLeaveAction({ id, approve })))} />;
   } else {
-    body = <EmptyState icon="calendar" title="Nothing to show" body="No classes or teachers in this session's timetable yet." />;
+    body = <EmptyState icon="calendar" title={say("Nothing to show", "दिखाने को कुछ नहीं")} body={say("No classes or teachers in this session's timetable yet.", "इस सत्र की समय सारणी में अभी कोई कक्षा या शिक्षक नहीं।")} />;
   }
 
-  // Sheets: edit (with clash), assign, leave, publish.
-  const editCell = state.cell && classId && state.view === "class" ? state.cell : null;
-  const duty = state.duty ? (data.cover?.duties ?? []).find((d) => d.needKey === state.duty) ?? null : null;
+  // Sheets: edit (with clash), assign, leave.
+  const editCell = !publishing && state.cell && classId && state.view === "class" ? state.cell : null;
+  const duty = state.duty ? duties.find((d) => d.needKey === state.duty) ?? null : null;
   const close = () => go({ view: state.view, classId: state.classId, teacherId: state.teacherId }, true);
 
   return (
     <VxPage>
       {header}
       <main>
-        <Section>
-          {tabs}
+        {tabs}
+        <div className="pad" style={{ padding: "16px 28px 40px", display: "flex", flexDirection: "column", gap: 14, minWidth: 0, ...(publishing ? { width: "100%", maxWidth: 880, margin: "0 auto" } : null) }}>
           {!previewing && data.me.mayCover && recovery ? (
             <Banner tone="warn">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <b>{tx(p(`Cover save for ${shortDay(recovery.payload.day)} needs checking`, `${shortDay(recovery.payload.day)} के कवर बदलाव को जाँचना है`))}</b>
+                <b>{tx(p(`Cover save for ${dayShort(recovery.payload.day)} needs checking`, `${dayShort(recovery.payload.day)} के कवर बदलाव को जाँचना है`))}</b>
                 <span>{tx(p('Its result may already be saved. Resolve this request before another cover change.', 'यह बदलाव पहले ही सुरक्षित हो सकता है। दूसरा कवर बदलाव करने से पहले इसे जाँचें।'))}</span>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Btn variant="sec" disabled={pending} onClick={() => recoverCover(false)}>{tx(p('Check saved result', 'सुरक्षित परिणाम जाँचें'))}</Btn>
@@ -417,7 +682,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
             </Banner>
           ) : !previewing && data.me.mayCover && scope && ((!storageReady && snapshot !== 'loading') || storageProblem === scopeKey) ? <Banner tone="warn">{snapshot === 'unsupported' ? tx(p('This browser cannot safely preserve cover saves across tabs. Open this page in an up-to-date supported browser before saving.', 'यह ब्राउज़र अलग-अलग टैब में कवर बदलाव सुरक्षित नहीं रख सकता। बदलाव करने से पहले नया समर्थित ब्राउज़र इस्तेमाल करें।')) : tx(p('Cannot preserve the cover request on this phone. Nothing new was submitted. Restore browser storage before saving.', 'इस फ़ोन पर कवर अनुरोध सुरक्षित नहीं हो सका। कोई नया बदलाव जमा नहीं हुआ। पहले ब्राउज़र स्टोरेज ठीक करें।'))}</Banner> : null}
           {body}
-        </Section>
+        </div>
       </main>
       {editCell && classId ? (
         <EditSheet
@@ -429,13 +694,15 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
           period={editCell.period}
           initialPick={state.pick}
           subjectName={subjectName}
-          pending={pending}
+          dayName={dayName}
+          pending={pending || previewing}
           onClose={close}
           onSave={(subjectId, staffProfileId) => start(async () => done(await saveChangeAction({ day: editCell.day, period: editCell.period, classId, subjectId, staffProfileId }), close))}
         />
       ) : null}
       <AssignSheet
         duty={duty}
+        data={data}
         pending={coverBlocked}
         subjectName={subjectName}
         onClose={() => go({ view: "subs" }, true)}
@@ -445,120 +712,208 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
         <LeaveSheet
           open={state.sheet === "leave"}
           data={data}
-          pending={pending}
+          pending={pending || previewing}
           onClose={() => go({ view: "leave" }, true)}
           onSave={(input) => start(async () => done(await requestLeaveAction(input), () => go({ view: "leave" }, true)))}
-        />
-      ) : null}
-      {data.me.mayEdit ? (
-        <PublishSheet
-          open={state.sheet === "publish"}
-          changes={data.changes}
-          slots={data.slots}
-          teacherName={teacherName}
-          subjectName={subjectName}
-          version={data.version}
-          pending={pending}
-          onClose={close}
-          onRemove={(id) => start(async () => done(await discardChangeAction(id)))}
-          onPublish={(notify) => start(async () => done(await publishChangesAction({ notify }), close))}
         />
       ) : null}
     </VxPage>
   );
 }
 
+function spanLabel(span: LeaveSpan): { en: string; hi: string } {
+  if (span === "first_half") return { en: `P1–P${BREAK_AFTER + 1}`, hi: `P1–P${BREAK_AFTER + 1}` };
+  if (span === "second_half") return { en: `after P${BREAK_AFTER + 1}`, hi: `P${BREAK_AFTER + 1} के बाद` };
+  return { en: "full day", hi: "पूरा दिन" };
+}
+
 /* ---------------------------------------------------------------- week grid */
 
-type CellView = { body: React.ReactNode; style: React.CSSProperties; dot?: boolean; onClick?: () => void };
+type CellView = {
+  t1: string;
+  t2: string;
+  /** The phone's longer second line. */
+  t2m: string;
+  bg: string;
+  line: { style: "solid" | "dashed"; width: number; color: string };
+  bar: string;
+  dot: "now" | "edit" | null;
+  onClick?: () => void;
+  aria: string;
+};
 
-function WeekGrid({
+const FREE = { bg: "transparent", line: { style: "dashed" as const, width: 1.5, color: V("bds") }, bar: V("bds") };
+
+function cellBox(c: CellView): CSSProperties {
+  const w = c.line.width;
+  return {
+    position: "relative",
+    minWidth: 0,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    gap: 1,
+    borderRadius: 10,
+    textAlign: "left",
+    color: "var(--fg)",
+    background: c.bg,
+    borderStyle: c.line.style,
+    borderWidth: `${w}px ${w}px ${w}px 3px`,
+    borderColor: `${c.line.color} ${c.line.color} ${c.line.color} ${c.bar}`,
+  };
+}
+
+function CellDot({ dot }: { dot: CellView["dot"] }) {
+  if (!dot) return null;
+  return <span aria-hidden="true" style={{ position: "absolute", top: 7, right: 7, width: 8, height: 8, borderRadius: 4, background: dot === "now" ? "var(--acc)" : "var(--warn)", animation: dot === "now" ? "xPulse 1.8s ease infinite" : undefined }} />;
+}
+
+function WeekCard({
   data,
   title,
+  info,
   todayName,
+  nowP,
+  dayName,
   cell,
   legend,
-  subjectsUsed = [],
 }: {
   data: TimetableData;
-  title: React.ReactNode;
+  title: string;
+  info: string;
   todayName: Weekday | null;
+  nowP: number;
+  dayName: (d: Weekday) => string;
   cell: (day: Weekday, period: number) => CellView;
   legend?: boolean;
-  subjectsUsed?: SubjectFamily[];
 }) {
   const { tx } = useVx();
   const [phoneDay, setPhoneDay] = useState<Weekday>(todayName ?? "Monday");
   const bell = (i: number) => data.bells.find((b) => b.index === i);
+  const cols = `62px repeat(${BREAK_AFTER + 1}, minmax(0,1fr)) 22px repeat(${PERIODS.length - BREAK_AFTER - 1}, minmax(0,1fr))`;
+  const lunchFrom = bellTime(bell(BREAK_AFTER)?.ends);
+  const lunchTo = bellTime(bell(BREAK_AFTER + 1)?.starts);
+  const dayIdx = Math.max(0, WEEK.indexOf(phoneDay));
+
   const tile = (c: CellView, key: string) => {
+    const st: CSSProperties = { ...cellBox(c), minHeight: 58, padding: "7px 8px 6px 10px" };
     const inner = (
       <>
-        {c.body}
-        {c.dot ? <span style={{ position: "absolute", top: 6, right: 6, width: 7, height: 7, borderRadius: 4, background: "var(--acc)" }} /> : null}
+        <b className="clip" style={{ fontSize: 13 }}>{c.t1}</b>
+        <span className="clip" style={{ fontSize: 11, color: "var(--mut)" }}>{c.t2}</span>
+        <CellDot dot={c.dot} />
       </>
     );
-    const st: React.CSSProperties = { ...c.style, position: "relative", minHeight: 56, padding: "8px 10px", textAlign: "left", minWidth: 0, color: "var(--fg)", fontSize: 13 };
     return c.onClick ? (
-      <button key={key} type="button" className="tap" onClick={c.onClick} style={{ ...st, border: c.style.border ?? 0, cursor: "pointer" }}>{inner}</button>
+      <button key={key} type="button" className="tap" aria-label={c.aria} onClick={c.onClick} style={st}>{inner}</button>
     ) : (
-      <div key={key} style={st}>{inner}</div>
+      <div key={key} aria-label={c.aria} style={st}>{inner}</div>
+    );
+  };
+
+  const phoneRow = (period: number) => {
+    const c = cell(phoneDay, period);
+    const b = bell(period);
+    const inner = (
+      <>
+        <span style={{ flex: "none", width: 46, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <b style={{ fontSize: 13 }}>P{periodNumber(period)}</b>
+          <span className="num" style={{ fontSize: 11, color: "var(--mut)" }}>{bellTime(b?.starts)}</span>
+        </span>
+        <span style={{ ...cellBox(c), flex: 1, minHeight: 54, padding: "7px 8px 6px 10px" }}>
+          <b className="clip">{c.t1}</b>
+          <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{c.t2m}</span>
+          <CellDot dot={c.dot} />
+        </span>
+      </>
+    );
+    const st: CSSProperties = { width: "100%", display: "flex", alignItems: "center", gap: 10, border: 0, padding: 0, background: "transparent", color: "var(--fg)", textAlign: "left" };
+    return c.onClick ? (
+      <button key={period} type="button" className="tap" aria-label={c.aria} onClick={c.onClick} style={st}>{inner}</button>
+    ) : (
+      <div key={period} aria-label={c.aria} style={st}>{inner}</div>
     );
   };
 
   return (
-    <Card pad={false} style={{ overflow: "hidden" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "14px 16px", flexWrap: "wrap", fontSize: 13 }}>
-        <span>{title}</span>
+    <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontSize: 13 }}>
+          <b>{title}</b>
+          {info ? <> · <span style={{ color: "var(--mut)" }}>{info}</span></> : null}
+        </span>
         {legend ? (
-          <span style={{ display: "flex", gap: 10, flexWrap: "wrap", color: "var(--mut)" }} className="hide-m">
-            {subjectsUsed.map((f) => (
-              <span key={f} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 4, background: `hsl(${FAMILY_HUES[f]} 45% 42%)` }} />
+          <span className="hide-m" style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 12, color: "var(--mut)" }}>
+            {LEGEND_FAMILIES.map((f) => (
+              <span key={f} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <Dot color={V(FAMILY_TONES[f])} />
                 {tx(FAMILY_LABELS[f])}
               </span>
             ))}
           </span>
         ) : null}
       </div>
-      <div className="only-d" style={{ overflowX: "auto", padding: "0 12px 14px" }}>
-        <div role="grid" style={{ display: "grid", gridTemplateColumns: `64px repeat(${BREAK_AFTER + 1}, minmax(96px,1fr)) 18px repeat(${PERIODS.length - BREAK_AFTER - 1}, minmax(96px,1fr))`, gap: 6, minWidth: 900 }}>
+
+      <div className="only-d" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: cols, gap: 6, alignItems: "stretch" }}>
           <span />
           {PERIODS.map((i) => (
-            <span key={`h${i}`} style={{ display: "contents" }}>
-              <span role="columnheader" style={{ textAlign: "center", fontSize: 12 }}>
-                <b>P{i + 1}</b>
-                <span style={{ display: "block", color: "var(--mut)" }}>{bell(i)?.starts ?? ""}</span>
-              </span>
-              {i === BREAK_AFTER ? <span style={{ writingMode: "vertical-rl", fontSize: 10, color: "var(--mut)", alignSelf: "center" }}>Lunch</span> : null}
-            </span>
-          ))}
-          {WEEK.map((day, di) => (
-            <span key={day} style={{ display: "contents" }}>
-              <span role="rowheader" style={{ display: "flex", flexDirection: "column", justifyContent: "center", fontSize: 13, color: day === todayName ? "var(--accfg)" : undefined, fontWeight: day === todayName ? 700 : 500 }}>
-                {WEEK_SHORT[day]}
-                <span style={{ fontSize: 11, color: "var(--mut)", fontWeight: 400 }}>{dayMonth(data.week[di])}</span>
-              </span>
-              {PERIODS.map((period) => (
-                <span key={period} style={{ display: "contents" }}>
-                  {tile(cell(day, period), `${day}${period}`)}
-                  {period === BREAK_AFTER ? <span aria-hidden="true" style={{ borderRadius: 6, background: "repeating-linear-gradient(135deg, var(--s3) 0 4px, transparent 4px 8px)" }} /> : null}
+            <Fragment key={i}>
+              <span style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "2px 0 4px" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 700, fontSize: 13 }}>
+                  P{periodNumber(i)}
+                  {i === nowP ? <span style={NOW_DOT} /> : null}
                 </span>
-              ))}
-            </span>
+                <span className="num" style={{ fontSize: 11, color: "var(--mut)" }}>{bellTime(bell(i)?.starts)}</span>
+              </span>
+              {i === BREAK_AFTER ? <span style={{ fontSize: 11, color: "var(--mut)", textAlign: "center", writingMode: "vertical-rl", alignSelf: "center" }}>{tx(p("Lunch", "भोजन"))}</span> : null}
+            </Fragment>
           ))}
         </div>
+        {WEEK.map((day, di) => {
+          const today = day === todayName;
+          return (
+            <div key={day} style={{ display: "grid", gridTemplateColumns: cols, gap: 6, alignItems: "stretch", padding: 4, margin: "0 -4px", borderRadius: 14, background: today ? "var(--accs)" : "transparent" }}>
+              <span style={{ display: "flex", flexDirection: "column", justifyContent: "center", paddingLeft: 6 }}>
+                <b style={{ fontSize: 13, color: today ? "var(--accfg)" : "var(--fg)" }}>{dayName(day)}</b>
+                <span style={{ fontSize: 11, color: "var(--mut)" }}>{dateShort(data.week[di] ?? "")}</span>
+              </span>
+              {PERIODS.map((period) => (
+                <Fragment key={period}>
+                  {tile(cell(day, period), `${day}${period}`)}
+                  {period === BREAK_AFTER ? <span aria-hidden="true" style={{ borderRadius: 8, background: "repeating-linear-gradient(135deg,var(--s3) 0 5px,transparent 5px 10px)", opacity: 0.6 }} /> : null}
+                </Fragment>
+              ))}
+            </div>
+          );
+        })}
       </div>
-      <div className="only-m" style={{ padding: "0 12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-        <DateChips days={WEEK.map((d, i) => ({ value: d, label: WEEK_SHORT[d], sub: dayMonth(data.week[i]) }))} value={phoneDay} onChange={(v) => setPhoneDay(v as Weekday)} />
-        {PERIODS.map((period) => (
-          <div key={period} style={{ display: "grid", gridTemplateColumns: "52px minmax(0,1fr)", gap: 8, alignItems: "stretch" }}>
-            <span style={{ display: "flex", flexDirection: "column", justifyContent: "center", fontSize: 12 }}>
-              <b>P{periodNumber(period)}</b>
-              <span style={{ color: "var(--mut)" }}>{bell(period)?.starts}</span>
-            </span>
-            {tile(cell(phoneDay, period), `m${period}`)}
-          </div>
-        ))}
+
+      <div className="only-m" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="seg" role="radiogroup" aria-label={tx(p("Day", "दिन"))} style={{ gridTemplateColumns: `repeat(${WEEK.length}, minmax(0,1fr))` }}>
+          <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${WEEK.length})`, transform: `translateX(${dayIdx * 100}%)` }} />
+          {WEEK.map((d, i) => (
+            <button key={d} type="button" role="radio" aria-checked={d === phoneDay} className={d === phoneDay ? "on" : ""} onClick={() => setPhoneDay(d)} style={{ height: 46, lineHeight: 1.15, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 0 }}>
+              <span>{d === todayName ? tx(p("Today", "आज")) : dayName(d)}</span>
+              <span style={{ fontSize: 11, fontWeight: 500 }}>{Number((data.week[i] ?? "").slice(8)) || ""}</span>
+            </button>
+          ))}
+        </div>
+        <div key={phoneDay} style={{ display: "flex", flexDirection: "column", gap: 8, animation: "xIn .3s var(--ease) both" }}>
+          {PERIODS.map((period) => (
+            <Fragment key={period}>
+              {phoneRow(period)}
+              {period === BREAK_AFTER ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", fontSize: 12, color: "var(--mut)" }}>
+                  <span style={{ flex: 1, height: 1, background: "var(--bd)" }} />
+                  {tx(p(`Lunch · ${lunchFrom}–${lunchTo}`, `भोजन · ${lunchFrom}–${lunchTo}`))}
+                  <span style={{ flex: 1, height: 1, background: "var(--bd)" }} />
+                </div>
+              ) : null}
+            </Fragment>
+          ))}
+        </div>
       </div>
     </Card>
   );
@@ -574,6 +929,7 @@ function EditSheet({
   period,
   initialPick,
   subjectName,
+  dayName,
   pending,
   onClose,
   onSave,
@@ -585,17 +941,29 @@ function EditSheet({
   period: number;
   initialPick: string | null;
   subjectName: (code: string) => string;
+  dayName: (d: Weekday) => string;
   pending: boolean;
   onClose: () => void;
   onSave: (subjectId: string, staffId: string) => void;
 }) {
+  const { tx } = useVx();
+  const say = (en: string, hi: string) => tx({ en, hi });
   const cls = data.classes.find((c) => c.id === classId);
   const now = planned.filter((s) => s.classId === classId && s.day === day && s.period === period);
+  const classSlots = useMemo(() => planned.filter((s) => s.classId === classId), [planned, classId]);
   const classSubjects = useMemo(() => {
-    const ids = new Set(planned.filter((s) => s.classId === classId).map((s) => s.subjectId));
+    const ids = new Set(classSlots.map((s) => s.subjectId));
     return data.subjects.filter((s) => ids.has(s.id));
-  }, [planned, classId, data.subjects]);
-  const [subjectId, setSubjectId] = useState<string>(now[0]?.subjectId ?? classSubjects[0]?.id ?? data.subjects[0]?.id ?? "");
+  }, [classSlots, data.subjects]);
+  // The class's own teacher for a subject: who teaches it here most often.
+  const ownTeacher = (subjectId: string): string | null => {
+    const count = new Map<string, number>();
+    for (const s of classSlots) if (s.subjectId === subjectId) count.set(s.staffProfileId, (count.get(s.staffProfileId) ?? 0) + 1);
+    return [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  };
+  // Picking a teacher picks what they teach this class, as the design's clash check does.
+  const pickedSubject = initialPick ? classSlots.find((s) => s.staffProfileId === initialPick)?.subjectId ?? null : null;
+  const [subjectId, setSubjectId] = useState<string>(pickedSubject ?? now[0]?.subjectId ?? classSubjects[0]?.id ?? data.subjects[0]?.id ?? "");
   const [staffId, setStaffId] = useState<string>(initialPick ?? now[0]?.staffProfileId ?? "");
   const [showAll, setShowAll] = useState(false);
   const subjectTeachers = teachersOf(planned, subjectId);
@@ -608,65 +976,103 @@ function EditSheet({
   const nameOf = (id: string) => data.teachers.find((t) => t.id === id)?.name ?? "—";
   const bell = data.bells.find((b) => b.index === period);
   const unchanged = now.length === 1 && now[0].subjectId === subjectId && now[0].staffProfileId === staffId;
+  const subjectNow = data.subjects.find((s) => s.id === subjectId);
+  const nowLine = now.length ? now.map((s) => `${subjectName(s.subjectCode)} · ${nameOf(s.staffProfileId) === "—" ? s.teacherShortName : nameOf(s.staffProfileId)}`).join(", ") : say("free", "खाली");
+  const pn = `P${periodNumber(period)}`;
 
   return (
     <Sheet
       open
       onClose={onClose}
       wide
-      title={`${cls?.label ?? "Class"} · ${WEEK_SHORT[day]} · P${periodNumber(period)}`}
-      sub={`${bell ? `${bell.starts}–${bell.ends}` : ""} · now: ${now.length ? now.map((s) => `${subjectName(s.subjectCode)} · ${s.teacherShortName}`).join(", ") : "free"}`}
+      title={`${cls?.label ?? say("Class", "कक्षा")} · ${dayName(day)} · ${pn}`}
+      sub={`${bell ? `${bellTime(bell.starts)}–${bellTime(bell.ends)} · ` : ""}${say("now", "अभी")}: ${nowLine}`}
       footer={
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn variant="sec" full onClick={onClose}>Cancel</Btn>
-          <Btn variant="pri" full icon="check" disabled={pending || !subjectId || !staffId || Boolean(clash) || unchanged} onClick={() => onSave(subjectId, staffId)}>Save change</Btn>
-        </div>
+        <>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{say("Cancel", "रद्द करें")}</button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={pending || !subjectId || !staffId || Boolean(clash) || unchanged} onClick={() => onSave(subjectId, staffId)}>
+            <Ic n="check" />
+            {say("Save change", "बदलाव सहेजें")}
+          </button>
+        </>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Field label="Subject">
-          <ChipRow label="Subject" style={{ flexWrap: "wrap" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 4 }}>
+        <div className="field">
+          <span>{say("Subject", "विषय")}</span>
+          <div role="group" aria-label={say("Subject", "विषय")} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {(classSubjects.length ? classSubjects : data.subjects).map((s) => (
-              <Chip key={s.id} on={s.id === subjectId} onClick={() => setSubjectId(s.id)}>
-                <span style={{ width: 8, height: 8, borderRadius: 4, background: `hsl(${FAMILY_HUES[subjectFamily(s.code)]} 45% 42%)` }} />
-                {s.name}
+              <Chip
+                key={s.id}
+                on={s.id === subjectId}
+                onClick={() => {
+                  setSubjectId(s.id);
+                  const own = ownTeacher(s.id);
+                  if (own) setStaffId(own);
+                }}
+              >
+                <Dot color={bar(s.code)} />
+                {tx({ en: s.name, hi: s.nameHi ?? undefined })}
               </Chip>
             ))}
-          </ChipRow>
-        </Field>
-        <Field label="Teacher">
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }} role="radiogroup">
-            {shown.map((t) => {
+          </div>
+        </div>
+        <div className="field">
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            {say("Teacher", "शिक्षक")}
+            {!showAll ? (
+              <button type="button" className="tap" onClick={() => setShowAll(true)} style={{ border: 0, padding: 0, background: "transparent", color: "var(--acc)", fontSize: 12, fontWeight: 700 }}>
+                {say("Show every teacher", "सभी शिक्षक दिखाएँ")}
+              </button>
+            ) : null}
+          </span>
+          <div className="card" role="radiogroup" aria-label={say("Teacher", "शिक्षक")} style={{ display: "flex", flexDirection: "column", padding: "0 14px", boxShadow: "none" }}>
+            {shown.map((t, i) => {
               const busy = clashFor(others, { day, period, classId, staffProfileId: t.id });
+              const on = staffId === t.id;
               return (
-                <RadioCard
-                  key={t.id}
-                  checked={staffId === t.id}
-                  onSelect={() => setStaffId(t.id)}
-                  title={t.name}
-                  sub={subjectTeachers.has(t.id) ? `Teaches ${subjectName(data.subjects.find((s) => s.id === subjectId)?.code ?? "")}` : "Another subject"}
-                  trail={busy ? <Pill tone="warn">Busy · {busy.classLabel}</Pill> : <Pill tone="ok">Free</Pill>}
-                />
+                <button key={t.id} type="button" role="radio" aria-checked={on} className="tap" onClick={() => setStaffId(t.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, minHeight: 50, padding: "6px 0", border: 0, borderTop: i ? "1px solid var(--bd)" : 0, background: "transparent", color: "var(--fg)", textAlign: "left" }}>
+                  <RadioDot on={on} />
+                  <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontWeight: 600 }}>{t.name}</span>
+                    <span style={MUTED}>{subjectTeachers.has(t.id) ? say(`Teaches ${subjectNow ? subjectName(subjectNow.code) : ""}`, `पढ़ाते हैं: ${subjectNow ? subjectName(subjectNow.code) : ""}`) : say("Another subject", "दूसरा विषय")}</span>
+                  </span>
+                  {busy ? <Pill tone="warn">{say(`Busy · ${busy.classLabel}`, `व्यस्त · ${busy.classLabel}`)}</Pill> : <Pill tone="ok">{say("Free", "खाली")}</Pill>}
+                </button>
               );
             })}
-            {!showAll ? <Btn variant="ghost" onClick={() => setShowAll(true)}>Show every teacher</Btn> : null}
           </div>
-        </Field>
+        </div>
         {clash ? (
-          <div style={{ background: "var(--warns)", color: "var(--warnfg)", borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            <b><Ic n="alert" size={16} /> {nameOf(staffId)} already teaches {clash.classLabel} in P{periodNumber(period)} on {WEEK_SHORT[day]}</b>
-            <span>Pick a free teacher, or keep the period as it was.</span>
-            <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {firstFree ? <Btn variant="sec" onClick={() => setStaffId(firstFree.id)}>Use {firstFree.name} · free</Btn> : null}
+          <div role="alert" style={{ padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, display: "flex", flexDirection: "column", gap: 10, background: "var(--warns)", color: "var(--warnfg)", animation: "xShake .4s ease" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
+              <Ic n="alert" />
+              {say(`${nameOf(staffId)} already teaches ${clash.classLabel} in ${pn} on ${WEEK_SHORT[day]}`, `${nameOf(staffId)} ${dayName(day)} को ${pn} में पहले से ${clash.classLabel} में हैं`)}
+            </span>
+            <span>{say("Pick a free teacher, or keep the period as it was.", "खाली शिक्षक चुनें, या पीरियड पहले जैसा रखें।")}</span>
+            <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {firstFree ? (
+                <button type="button" className="tap btn sec" style={{ height: 36, fontSize: 13 }} onClick={() => setStaffId(firstFree.id)}>
+                  {say(`Use ${firstFree.name} · free`, `${firstFree.name} को लें · खाली`)}
+                </button>
+              ) : null}
               {now[0] ? (
-                <Btn variant="sec" onClick={() => { setSubjectId(now[0].subjectId); setStaffId(now[0].staffProfileId); }}>
-                  Keep {subjectName(now[0].subjectCode)} · {nameOf(now[0].staffProfileId)}
-                </Btn>
+                <button type="button" className="tap btn sec" style={{ height: 36, fontSize: 13 }} onClick={() => { setSubjectId(now[0].subjectId); setStaffId(now[0].staffProfileId); }}>
+                  {say(`Keep ${nowLine}`, `रखें: ${nowLine}`)}
+                </button>
               ) : null}
             </span>
           </div>
+        ) : !unchanged && staffId ? (
+          <div className="fadein" style={{ padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, display: "flex", gap: 10, background: "var(--oks)", color: "var(--ok)" }}>
+            <Ic n="checkCircle" />
+            <span>{say(`No clash · ${nameOf(staffId)} is free then. Saved changes wait for you to publish.`, `कोई टकराव नहीं · ${nameOf(staffId)} तब खाली हैं। सहेजे बदलाव प्रकाशित करने तक रुकते हैं।`)}</span>
+          </div>
         ) : null}
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>Rooms are not kept in the timetable yet, so a period keeps its class&apos;s room.</span>
+        <div className="field">
+          <span>{say("Room", "कमरा")}</span>
+          <span style={{ fontSize: 13, color: "var(--mut)" }}>{say("Rooms are not kept in the timetable yet; the period keeps its class's room.", "समय सारणी में अभी कमरे नहीं रखे जाते; पीरियड कक्षा के अपने कमरे में रहता है।")}</span>
+        </div>
       </div>
     </Sheet>
   );
@@ -674,145 +1080,245 @@ function EditSheet({
 
 /* ---------------------------------------------------------------- substitutions */
 
+function noticeLine(d: CoverDutyView): Pair {
+  const n = d.coveringName ?? "—";
+  if (d.notice === "read") return p(`${n} was told on WhatsApp · read`, `${n} को WhatsApp पर बताया · पढ़ लिया`);
+  if (d.notice === "delivered" || d.notice === "accepted") return p(`${n} was told on WhatsApp · delivered`, `${n} को WhatsApp पर बताया · पहुँच गया`);
+  if (d.notice === "failed") return p(`The WhatsApp notice to ${n} failed · call them`, `${n} को WhatsApp संदेश नहीं गया · फ़ोन करें`);
+  if (d.notice) return p(`${n} · WhatsApp notice queued`, `${n} · WhatsApp संदेश कतार में`);
+  return p(`${n} · no notice yet`, `${n} · अभी कोई संदेश नहीं`);
+}
+
 function Subs({
   data,
   pending,
   subjectName,
+  clock: hhmm,
   onCover,
   onAssign,
 }: {
   data: TimetableData;
   pending: boolean;
   subjectName: (code: string) => string;
+  clock: string | null;
   onCover: (input: Omit<CoverInput, "commandId" | "sessionLabel" | "day" | "dayRevision">, after?: () => void) => void;
   onAssign: (needKey: string) => void;
 }) {
+  const { tx } = useVx();
+  const say = (en: string, hi: string) => tx({ en, hi });
   const c = data.cover;
   const [awayId, setAwayId] = useState("");
-  const [awaySpan, setAwaySpan] = useState<LeaveSpan>("full");
+  const [awaySpanChoice, setAwaySpanChoice] = useState<LeaveSpan>("full");
   const [choice, setChoice] = useState<Record<string, string>>({});
-  if (!c) return <EmptyState icon="swap" title="Cover is not open to you" body="Ask the office who is covering." />;
+  const [editing, setEditing] = useState(false);
+  if (!c) return <EmptyState icon="swap" title={say("Cover is not open to you", "व्यवस्था आपके लिए खुली नहीं")} body={say("Ask the office who is covering.", "कौन ले रहा है, कार्यालय से पूछें।")} />;
   const live = c.duties;
   const assigned = live.filter((d) => d.status === "assigned").length;
-  const nowPeriod = (() => {
-    if (c.day !== data.today) return -1;
-    const t = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
-    return data.bells.find((b) => b.starts <= t && t < b.ends)?.index ?? -1;
-  })();
+  const nowPeriod = c.day === data.today ? periodAt(data.bells, hhmm) : -1;
+  const isToday = c.day === data.today;
+  const onLeave = (staffId: string) => data.leave.find((l) => l.staffId === staffId && l.status === "approved" && l.from <= c.day && c.day <= l.to);
+  const absenceOf = (staffId: string) => c.absences.find((a) => a.staffId === staffId);
+  const awayWhy = (a: CoverView["absences"][number]): string => {
+    const span = awaySpan(a.periods);
+    const l = onLeave(a.staffId);
+    const head =
+      span.kind === "after"
+        ? say(`Half day · away after P${span.after}`, `आधा दिन · P${span.after} के बाद अनुपस्थित`)
+        : span.kind === "periods"
+          ? say(`Away P${span.list.join(", P")}`, `अनुपस्थित P${span.list.join(", P")}`)
+          : l && l.to > c.day
+            ? say(`On leave till ${dayShort(l.to)}`, `${dayShort(l.to)} तक छुट्टी पर`)
+            : l
+              ? say("On leave", "छुट्टी पर")
+              : say("Away all day", "पूरे दिन अनुपस्थित");
+    return a.reason ? `${head} · ${a.reason}` : head;
+  };
+  const dutyWhy = (d: CoverDutyView): string => {
+    const ids = d.absentIds ?? [];
+    if (ids.length === 1) {
+      const a = absenceOf(ids[0]);
+      const span = a ? awaySpan(a.periods) : null;
+      const n = d.absentNames[0] ?? "—";
+      if (span?.kind === "after") return say(`${n} leaves after P${span.after}`, `${n} P${span.after} के बाद चले जाते हैं`);
+      if (onLeave(ids[0])) return say(`${n} is on leave`, `${n} छुट्टी पर हैं`);
+      return say(`${n} is away`, `${n} अनुपस्थित हैं`);
+    }
+    return say(`${d.absentNames.join(", ")} ${d.absentNames.length > 1 ? "are" : "is"} away`, `${d.absentNames.join(", ")} अनुपस्थित`);
+  };
+  const open = live.length - assigned;
+  const away = [...c.absences];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {!c.hasTimetable ? <Banner tone="warn">No published timetable covers {shortDay(c.day)}, so there is nothing to arrange.</Banner> : null}
-      <Grid cols={2}>
-        <Card>
-          <SecHead>Away today · {shortDay(c.day)}</SecHead>
-          {c.absences.length === 0 ? <p style={{ color: "var(--mut)", margin: "8px 0 0" }}>Nobody is marked away.</p> : null}
-          {c.absences.map((a) => (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: "1px solid var(--bd)" }}>
-              <Avatar text={initials(a.name)} seed={a.name} size={36} />
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <b>{a.name}</b>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{a.periods.length >= 8 ? "Whole day" : `P${a.periods.map((x) => x + 1).join(", P")}`}{a.reason ? ` · ${a.reason}` : ""}</span>
-              </span>
-              <Pill tone="warn">{live.filter((d) => d.absentNames.includes(a.name)).length} periods</Pill>
-              {c.canCommand ? <Btn variant="ghost" disabled={pending} onClick={() => onCover({ intent: "clear_absence", staffProfileId: a.staffId })}>Back</Btn> : null}
-            </div>
-          ))}
-          {c.canCommand ? (
+    <>
+      {!c.hasTimetable ? <Banner tone="warn">{say(`No published timetable covers ${dayShort(c.day)}, so there is nothing to arrange.`, `${dayShort(c.day)} के लिए कोई प्रकाशित समय सारणी नहीं, इसलिए व्यवस्था नहीं।`)}</Banner> : null}
+      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)", gap: 14 }}>
+        <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+            <span className="sech">{isToday ? say(`Away today · ${dayShort(c.day)}`, `आज अनुपस्थित · ${dayShort(c.day)}`) : say(`Away · ${dayShort(c.day)}`, `अनुपस्थित · ${dayShort(c.day)}`)}</span>
+            {c.canCommand ? (
+              <button type="button" className="tap" aria-expanded={editing} onClick={() => setEditing((v) => !v)} style={{ border: 0, padding: 0, background: "transparent", color: "var(--acc)", fontSize: 12, fontWeight: 700 }}>
+                {editing ? say("Done", "हो गया") : say("Mark away", "अनुपस्थित दर्ज करें")}
+              </button>
+            ) : null}
+          </div>
+          {away.length === 0 ? <span style={{ ...MUTED, padding: "8px 0" }}>{say("Nobody is marked away.", "कोई अनुपस्थित दर्ज नहीं।")}</span> : null}
+          {away.map((a, i) => {
+            const n = live.filter((d) => (d.absentIds ? d.absentIds.includes(a.staffId) : d.absentNames.includes(a.name))).length;
+            return (
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: i ? "1px solid var(--bd)" : 0, ...rise(i) }}>
+                <Ava name={a.name} />
+                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                  <span style={{ fontWeight: 600 }}>{a.name}</span>
+                  <span style={MUTED}>{awayWhy(a)}</span>
+                </span>
+                <Pill tone="warn">{say(`${n} ${n === 1 ? "period" : "periods"}`, `${n} पीरियड`)}</Pill>
+                {editing && c.canCommand ? <Btn variant="ghost" disabled={pending} style={{ height: 36 }} onClick={() => onCover({ intent: "clear_absence", staffProfileId: a.staffId })}>{say("Back", "लौट आए")}</Btn> : null}
+              </div>
+            );
+          })}
+          {editing && c.canCommand ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--bd)", paddingTop: 10, marginTop: 4 }}>
-              <Select value={awayId} onChange={(e) => setAwayId(e.target.value)} style={{ flex: 1, minWidth: 160 }} aria-label="Teacher away">
-                <option value="">Mark a teacher away…</option>
+              <Select value={awayId} onChange={(e) => setAwayId(e.target.value)} style={{ flex: 1, minWidth: 160 }} aria-label={say("Teacher away", "अनुपस्थित शिक्षक")}>
+                <option value="">{say("Mark a teacher away…", "शिक्षक चुनें…")}</option>
                 {c.staff.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </Select>
-              <Select value={awaySpan} onChange={(e) => setAwaySpan(e.target.value as LeaveSpan)} aria-label="Which periods">
-                <option value="full">Whole day</option>
-                <option value="first_half">P1–P4</option>
-                <option value="second_half">P5–P8</option>
+              <Select value={awaySpanChoice} onChange={(e) => setAwaySpanChoice(e.target.value as LeaveSpan)} aria-label={say("Which periods", "कौन से पीरियड")} style={{ width: "auto" }}>
+                <option value="full">{say("Whole day", "पूरा दिन")}</option>
+                <option value="first_half">P1–P{BREAK_AFTER + 1}</option>
+                <option value="second_half">P{BREAK_AFTER + 2}–P{PERIODS.length}</option>
               </Select>
-              <Btn variant="pri" icon="check" disabled={pending || !awayId} onClick={() => onCover({ intent: "absence", staffProfileId: awayId, periods: spanPeriods(awaySpan) }, () => setAwayId(""))}>Save & arrange</Btn>
+              <Btn variant="pri" icon="check" disabled={pending || !awayId} onClick={() => onCover({ intent: "absence", staffProfileId: awayId, periods: spanPeriods(awaySpanChoice) }, () => setAwayId(""))}>{say("Save & arrange", "सहेजें और व्यवस्था करें")}</Btn>
             </div>
           ) : null}
         </Card>
-        <Card style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Ring value={assigned} max={Math.max(1, live.length)} size={80} stroke={9} tone="var(--ok)">
-            <span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 }}>
-              <span style={{ fontSize: 18 }}>{assigned}/{live.length}</span>
-              <span style={{ fontSize: 10, color: "var(--mut)" }}>covered</span>
+        <Card style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
+          <RingNum value={assigned} max={live.length} tone="var(--ok)" big={`${assigned}/${live.length}`} bigSize={18} small={say("covered", "व्यवस्था")} />
+          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{say(`${assigned} of ${live.length} periods covered`, `${live.length} में से ${assigned} पीरियड की व्यवस्था हुई`)}</span>
+            <span style={MUTED}>
+              {open
+                ? say(`${open} still need a teacher · best matches are picked for you`, `${open} को अभी शिक्षक चाहिए · सबसे उपयुक्त पहले चुने गए हैं`)
+                : live.length
+                  ? say("Everyone knows where to be today", "आज सबको पता है कहाँ जाना है")
+                  : say("No period needs cover", "किसी पीरियड में व्यवस्था नहीं चाहिए")}
             </span>
-          </Ring>
-          <span style={{ display: "flex", flexDirection: "column" }}>
-            <b>{assigned} of {live.length} periods covered</b>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{live.length - assigned ? `${live.length - assigned} still need a teacher · best matches are first` : live.length ? "Everyone has a teacher" : "No period needs cover"}</span>
           </span>
         </Card>
-      </Grid>
+      </div>
+      {live.length > 0 && open === 0 ? (
+        <Card className="fadein" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, background: "var(--oks)", color: "var(--ok)", borderColor: "var(--okm)" }}>
+          <svg width={28} height={28} viewBox="0 0 24 24" aria-hidden="true" style={{ flex: "none", animation: "xPopIn .5s var(--spring) both" }}>
+            <path d="M5 12.5l4.5 4.5L19 7.5" style={{ fill: "none", stroke: "currentColor", strokeWidth: 2.6, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: 22, strokeDasharray: 22, animation: "xDraw .45s .15s var(--ease) both" }} />
+          </svg>
+          <span style={{ display: "flex", flexDirection: "column" }}>
+            <b>{say("Every period today is covered", "आज हर पीरियड की व्यवस्था हो गई")}</b>
+            <span style={{ fontSize: 13 }}>{say("Each substitute's WhatsApp notice goes from the staff outbox.", "हर शिक्षक का WhatsApp संदेश स्टाफ़ आउटबॉक्स से जाता है।")}</span>
+          </span>
+        </Card>
+      ) : null}
       {live.map((d) => {
         const bell = data.bells.find((b) => b.index === d.period);
-        const best = d.candidates.find((x) => !x.blocked);
+        const free = d.candidates.filter((x) => !x.blocked);
+        const best = free[0];
         const picked = choice[d.needKey] ?? (d.status === "assigned" ? d.coveringStaffId : best?.id) ?? "";
         const pickedName = d.candidates.find((x) => x.id === picked)?.name;
+        const done = d.status === "assigned";
+        const now = d.period === nowPeriod;
+        const pn = `P${periodNumber(d.period)}`;
+        const [tileBg, tileFg] = done ? ["var(--oks)", "var(--ok)"] : now ? ["var(--accs)", "var(--accfg)"] : ["var(--warns)", "var(--warnfg)"];
         return (
-          <Card key={d.id} pad={false} style={{ overflow: "hidden" }}>
-            <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "14px 16px" }}>
-              <span style={{ width: 52, height: 52, borderRadius: 12, background: d.status === "assigned" ? "var(--oks)" : "var(--warns)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: "none" }}>
-                <b>P{periodNumber(d.period)}</b>
-                <span style={{ fontSize: 11 }}>{bell?.starts}</span>
+          <Card key={d.id} pad={false} style={{ display: "flex", flexDirection: "column", overflow: "hidden", animation: "xIn .3s var(--ease) both" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
+              <span style={{ flex: "none", width: 54, height: 54, borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: tileBg, color: tileFg, transition: "background-color .3s ease" }}>
+                <b>{pn}</b>
+                <span className="num" style={{ fontSize: 11 }}>{bellTime(bell?.starts)}</span>
               </span>
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <b className="clip">{d.classLabels.join(", ")} · {subjectName(d.subjectCode)}</b>
-                <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{d.absentNames.join(", ")} away</span>
+                <span style={{ fontSize: 15, fontWeight: 700 }}>{d.classLabels.join(", ")} · {subjectName(d.subjectCode)}</span>
+                <span style={MUTED}>{dutyWhy(d)}</span>
               </span>
-              {d.period === nowPeriod ? <Pill tone="ok">Now</Pill> : null}
-              {d.status === "assigned" ? <span style={{ color: "var(--ok)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}><Ic n="check" size={16} /> Covered by {d.coveringName}</span> : null}
+              {now ? (
+                <span className="pill" style={{ background: "var(--accs)", color: "var(--accfg)" }}>
+                  <span style={NOW_DOT} />
+                  {say("Now", "अभी")}
+                </span>
+              ) : null}
+              {done ? (
+                <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: "var(--ok)", animation: "xPopIn .45s var(--spring) both" }}>
+                  <Ic n="check" size={20} stroke={2.8} />
+                  <span className="hide-m">{say(`Covered by ${d.coveringName ?? "—"}`, `${d.coveringName ?? "—"} ले रहे हैं`)}</span>
+                </span>
+              ) : null}
             </div>
-            {d.status === "assigned" ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderTop: "1px solid var(--bd)", fontSize: 13, color: "var(--mut)", flexWrap: "wrap" }}>
-                <span style={{ flex: 1 }}>{d.coveringName} — {d.notice === "read" ? "read the WhatsApp notice" : d.notice === "delivered" || d.notice === "accepted" ? "told on WhatsApp" : d.notice === "failed" ? "the notice failed — call them" : d.notice ? "notice queued" : "no notice yet"}</span>
+            {done ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, padding: "8px 16px", borderTop: "1px solid var(--bd)", animation: "xIn .3s var(--ease) both" }}>
+                <span style={{ ...MUTED, flex: 1, minWidth: 0 }}>{tx(noticeLine(d))}</span>
                 {c.canCommand ? (
-                  <>
-                    <Btn variant="ghost" onClick={() => onAssign(d.needKey)}>Change</Btn>
-                    <Btn variant="ghost" disabled={pending} onClick={() => onCover({ intent: "release", needKey: d.needKey })}>Release</Btn>
-                  </>
+                  <span style={{ display: "flex", gap: 4 }}>
+                    <button type="button" className="tap btn ghost" style={{ height: 36 }} onClick={() => onAssign(d.needKey)}>{say("Change", "बदलें")}</button>
+                    <button type="button" className="tap btn ghost" style={{ height: 36 }} disabled={pending} onClick={() => onCover({ intent: "release", needKey: d.needKey })}>{say("Release", "छोड़ें")}</button>
+                  </span>
                 ) : null}
               </div>
             ) : (
-              <div style={{ borderTop: "1px solid var(--bd)", padding: "8px 16px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
-                {d.reason ? <span style={{ fontSize: 13, color: "var(--warnfg)", padding: "4px 0" }}>{d.reason.en}</span> : null}
+              <div style={{ display: "flex", flexDirection: "column", padding: "4px 16px 14px", borderTop: "1px solid var(--bd)" }}>
+                {d.reason && d.reasonKey !== "no_candidate" ? <span style={{ fontSize: 13, color: "var(--warnfg)", padding: "8px 0 2px" }}>{tx(d.reason)}</span> : null}
                 {c.canCommand ? (
                   <>
-                    <div role="radiogroup" style={{ display: "flex", flexDirection: "column" }}>
-                      {d.candidates.filter((x) => !x.blocked).slice(0, 3).map((x, i) => (
-                        <label key={x.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: i ? "1px solid var(--bd)" : 0, cursor: "pointer" }}>
-                          <input type="radio" name={`c-${d.id}`} checked={picked === x.id} onChange={() => setChoice((m) => ({ ...m, [d.needKey]: x.id }))} />
-                          <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                            <b>{x.name}</b>
-                            <span style={{ fontSize: 12, color: "var(--mut)" }}>Free in P{periodNumber(d.period)} · {x.detail} · {x.subsThisWeek} subs this week</span>
-                          </span>
-                          {i === 0 ? <Pill tone="ok">Best match</Pill> : null}
-                        </label>
-                      ))}
+                    <div role="radiogroup" aria-label={say(`Who covers ${pn}`, `${pn} कौन लेगा`)} style={{ display: "flex", flexDirection: "column" }}>
+                      {free.slice(0, 3).map((x, i) => {
+                        const on = picked === x.id;
+                        return (
+                          <button key={x.id} type="button" role="radio" aria-checked={on} className="tap" onClick={() => setChoice((m) => ({ ...m, [d.needKey]: x.id }))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, minHeight: 52, padding: "8px 0", border: 0, borderTop: i ? "1px solid var(--bd)" : 0, background: "transparent", color: "var(--fg)", textAlign: "left" }}>
+                            <RadioDot on={on} />
+                            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 600 }}>{x.name}</span>
+                              <span style={MUTED}>{candidateWhy(tx, pn, x)}</span>
+                            </span>
+                            {i === 0 ? <Pill tone="ok">{say("Best match", "सबसे उपयुक्त")}</Pill> : null}
+                          </button>
+                        );
+                      })}
+                      {free.length === 0 ? <span style={{ ...MUTED, padding: "10px 0" }}>{say(`Nobody is free in ${pn}. Merge with another section or take it yourself.`, `${pn} में कोई खाली नहीं। दूसरे सेक्शन के साथ मिलाएँ या स्वयं लें।`)}</span> : null}
                     </div>
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
-                      <Btn variant="pri" icon="send" disabled={pending || !picked} onClick={() => onCover({ intent: "assign", needKey: d.needKey, coveringStaffId: picked })}>Assign {pickedName ?? ""}</Btn>
-                      <Btn variant="ghost" onClick={() => onAssign(d.needKey)}>See all {d.candidates.filter((x) => !x.blocked).length} free teachers</Btn>
-                      <span style={{ fontSize: 12, color: "var(--mut)" }}>1 WhatsApp · {rupees(0.88)}</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 }}>
+                      <button type="button" className="tap btn pri mfull" disabled={pending || !picked} onClick={() => onCover({ intent: "assign", needKey: d.needKey, coveringStaffId: picked })}>
+                        <Ic n="send" />
+                        {pickedName ? say(`Assign ${pickedName}`, `${pickedName} को दें`) : say("Nobody is free", "कोई खाली नहीं")}
+                      </button>
+                      <button type="button" className="tap btn ghost mfull" onClick={() => onAssign(d.needKey)}>{say(`See all ${free.length} free teachers`, `सभी ${free.length} खाली शिक्षक देखें`)}</button>
+                      <span style={MUTED}>1 WhatsApp · {rupees(0.88)}</span>
                     </div>
                   </>
-                ) : null}
+                ) : (
+                  <span style={{ ...MUTED, padding: "10px 0 0" }}>{say("Cover is arranged by the coordinator.", "व्यवस्था समन्वयक करते हैं।")}</span>
+                )}
               </div>
             )}
           </Card>
         );
       })}
-      {live.length === 0 && c.hasTimetable ? <EmptyState icon="checkCircle" title="No cover needed today" body="Mark a teacher away above and the periods they leave appear here with the best teachers to cover." /> : null}
-      <Link href={`/substitutions?day=${c.day}`} style={{ fontSize: 13, color: "var(--mut)" }}>Open the classic cover screen →</Link>
-    </div>
+      {live.length === 0 && c.hasTimetable ? <EmptyState icon="checkCircle" title={say("No cover needed today", "आज कोई व्यवस्था नहीं चाहिए")} body={say("Mark a teacher away above and the periods they leave appear here with the best teachers to cover.", "ऊपर शिक्षक को अनुपस्थित दर्ज करें; उनके पीरियड यहाँ सबसे उपयुक्त शिक्षकों के साथ दिखेंगे।")} /> : null}
+      <Link href={`/substitutions?day=${c.day}`} style={{ fontSize: 13, color: "var(--mut)" }}>{say("Open the classic cover screen →", "पुरानी व्यवस्था स्क्रीन खोलें →")}</Link>
+    </>
   );
 }
 
-function AssignSheet({ duty, pending, subjectName, onClose, onAssign }: { duty: CoverDutyView | null; pending: boolean; subjectName: (code: string) => string; onClose: () => void; onAssign: (needKey: string, staffId: string) => void }) {
+type CoverView = NonNullable<TimetableData["cover"]>;
+
+function candidateWhy(tx: (pair: Pair) => string, pn: string, x: CoverDutyView["candidates"][number]): string {
+  const n = x.subsThisWeek;
+  return tx({
+    en: `${x.blocked ? "Not available" : `Free in ${pn}`} · ${x.detail} · ${n} ${n === 1 ? "sub" : "subs"} this week`,
+    hi: `${x.blocked ? "उपलब्ध नहीं" : `${pn} में खाली`} · ${x.detailHi ?? x.detail} · इस सप्ताह ${n} व्यवस्था`,
+  });
+}
+
+function AssignSheet({ duty, data, pending, subjectName, onClose, onAssign }: { duty: CoverDutyView | null; data: TimetableData; pending: boolean; subjectName: (code: string) => string; onClose: () => void; onAssign: (needKey: string, staffId: string) => void }) {
+  const { tx } = useVx();
+  const say = (en: string, hi: string) => tx({ en, hi });
   const [pick, setPick] = useState<string | null>(null);
   const [seen, setSeen] = useState<string | null>(null);
   if ((duty?.needKey ?? null) !== seen) {
@@ -820,33 +1326,68 @@ function AssignSheet({ duty, pending, subjectName, onClose, onAssign }: { duty: 
     setPick(duty?.coveringStaffId ?? duty?.candidates.find((c) => !c.blocked)?.id ?? null);
   }
   const name = duty?.candidates.find((c) => c.id === pick)?.name;
+  const bell = duty ? data.bells.find((b) => b.index === duty.period) : undefined;
+  const pn = duty ? `P${periodNumber(duty.period)}` : "";
+  const firstFree = duty?.candidates.find((c) => !c.blocked)?.id;
+  // What the cover command will queue for them (staff-notices `renderNotice`).
+  const notice = duty && name && data.cover
+    ? renderNotice({
+        kind: duty.status === "assigned" ? "cover_changed" : "cover_assigned",
+        staffName: name,
+        language: "both",
+        day: data.cover.day,
+        period: duty.period,
+        periodTime: bell ? `${bell.starts}–${bell.ends}` : null,
+        classLabels: duty.classLabels,
+        subjectCode: duty.subjectCode,
+        link: `${typeof window === "undefined" ? "" : window.location.origin}/duty/${duty.id}`,
+      }).text
+    : null;
   return (
     <Sheet
       open={Boolean(duty)}
       onClose={onClose}
-      title={duty ? `Cover P${periodNumber(duty.period)} · ${duty.classLabels.join(", ")}` : "Cover"}
-      sub={duty ? `${subjectName(duty.subjectCode)} · ${duty.absentNames.join(", ")} is away` : undefined}
+      title={duty ? say(`Cover ${pn} · ${duty.classLabels.join(", ")}`, `व्यवस्था ${pn} · ${duty.classLabels.join(", ")}`) : say("Cover", "व्यवस्था")}
+      sub={duty ? `${bell ? `${bellTime(bell.starts)}–${bellTime(bell.ends)} · ` : ""}${subjectName(duty.subjectCode)} · ${say(`${duty.absentNames.join(", ")} is away`, `${duty.absentNames.join(", ")} अनुपस्थित`)}` : undefined}
       footer={
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn variant="sec" full onClick={onClose}>Cancel</Btn>
-          <Btn variant="pri" full icon="check" disabled={pending || !pick || !duty} onClick={() => duty && pick && onAssign(duty.needKey, pick)}>Assign {name ?? ""}</Btn>
-        </div>
+        <>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{say("Cancel", "रद्द करें")}</button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={pending || !pick || !duty} onClick={() => duty && pick && onAssign(duty.needKey, pick)}>
+            <Ic n="check" />
+            {name ? say(`Assign ${name}`, `${name} को दें`) : say("Assign", "दें")}
+          </button>
+        </>
       }
     >
       {duty ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }} role="radiogroup">
-          <SecHead>Free in P{periodNumber(duty.period)} · best first</SecHead>
-          {duty.candidates.length === 0 ? <EmptyState icon="users" title="Nobody to offer" body="Cover is managed by the coordinator." /> : null}
-          {duty.candidates.map((c, i) => (
-            <RadioCard
-              key={c.id}
-              checked={pick === c.id}
-              onSelect={() => !c.blocked && setPick(c.id)}
-              title={c.name}
-              sub={`${c.blocked ? "Not available" : `Free in P${periodNumber(duty.period)}`} · ${c.detail} · ${c.subsThisWeek} subs this week`}
-              trail={i === 0 && !c.blocked ? <Pill tone="ok">Best match</Pill> : c.blocked ? <Pill tone="mut">Busy</Pill> : undefined}
-            />
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 4 }}>
+          <span className="sech">{say(`Free in ${pn} · best first`, `${pn} में खाली · सबसे उपयुक्त पहले`)}</span>
+          {duty.candidates.length === 0 ? <EmptyState icon="users" title={say("Nobody to offer", "देने को कोई नहीं")} body={say("Cover is managed by the coordinator.", "व्यवस्था समन्वयक करते हैं।")} /> : null}
+          <div role="radiogroup" aria-label={say(`Who covers ${pn}`, `${pn} कौन लेगा`)} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {duty.candidates.map((c) => {
+              const on = pick === c.id;
+              return (
+                <button key={c.id} type="button" role="radio" aria-checked={on} aria-disabled={c.blocked || undefined} className="tap" onClick={() => !c.blocked && setPick(c.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, minHeight: 58, padding: "10px 14px", borderRadius: 14, border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? "var(--accs)" : "var(--card)", color: "var(--fg)", textAlign: "left", opacity: c.blocked ? 0.55 : 1 }}>
+                  <RadioDot on={on} />
+                  <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontWeight: 600 }}>{c.name}</span>
+                    <span style={MUTED}>{candidateWhy(tx, pn, c)}</span>
+                  </span>
+                  {c.id === firstFree ? <Pill tone="ok">{say("Best match", "सबसे उपयुक्त")}</Pill> : c.blocked ? <Pill tone="mut">{say("Busy", "व्यस्त")}</Pill> : null}
+                </button>
+              );
+            })}
+          </div>
+          {name ? (
+            <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", boxShadow: "none" }}>
+              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <span style={{ fontWeight: 600 }}>{say(`Tell ${name} on WhatsApp`, `${name} को WhatsApp पर बताएँ`)}</span>
+                <span style={MUTED}>{say(`Sent with every cover · 1 message · ${rupees(0.88)}`, `हर व्यवस्था के साथ जाता है · 1 संदेश · ${rupees(0.88)}`)}</span>
+              </span>
+              <Switch on onChange={() => undefined} disabled label={say("Always sent", "हमेशा भेजा जाता है")} />
+            </div>
+          ) : null}
+          {notice ? <WaPreview to={say(`Preview · to ${name}`, `पूर्वावलोकन · ${name} को`)} hi={notice.hi} en={notice.en} /> : null}
         </div>
       ) : null}
     </Sheet>
@@ -855,119 +1396,200 @@ function AssignSheet({ duty, pending, subjectName, onClose, onAssign }: { duty: 
 
 /* ---------------------------------------------------------------- leave */
 
-function Leave({ data, pending, onAdd, onDecide }: { data: TimetableData; pending: boolean; onAdd: () => void; onDecide: (id: string, approve: boolean) => void }) {
+function askedLine(l: LeaveView, today: string): Pair {
+  const day = schoolToday(new Date(l.createdAt));
+  if (day === today) {
+    const at = bellTime(clock(l.createdAt));
+    return p(`asked today ${at}`, `आज ${at} माँगी`);
+  }
+  if (day === addDay(today, -1)) return p("asked yesterday", "कल माँगी");
+  return p(`asked ${dayShort(day)}`, `${dayShort(day)} को माँगी`);
+}
+
+function leaveType(l: LeaveView): Pair {
+  if (l.span === "first_half") return p(`Half day · P1–P${BREAK_AFTER + 1}`, `आधा दिन · P1–P${BREAK_AFTER + 1}`);
+  if (l.span === "second_half") return p(`Half day · after P${BREAK_AFTER + 1}`, `आधा दिन · P${BREAK_AFTER + 1} के बाद`);
+  const days = schoolDays(l.from, l.to).length;
+  return days > 1 ? p(`${days} full days`, `${days} पूरे दिन`) : p("Full day", "पूरा दिन");
+}
+
+function Leave({ data, pending, onDecide }: { data: TimetableData; pending: boolean; onDecide: (id: string, approve: boolean) => void }) {
+  const { tx } = useVx();
+  const say = (en: string, hi: string) => tx({ en, hi });
   const waiting = data.leave.filter((l) => l.status === "asked");
-  const approved = data.leave.filter((l) => l.status === "approved");
+  const approved = data.leave.filter((l) => l.status === "approved" && l.to >= data.today);
+  const first = data.week[0] ?? data.today;
+  const strip = Array.from({ length: 14 }, (_, i) => addDay(first, i));
   const awayOn = (day: string) => data.leave.filter((l) => l.from <= day && day <= l.to);
-  const row = (l: LeaveView, actions: boolean) => {
-    const periods = periodsNeedingCover(data.slots, l.staffId, l.from, l.to, l.span);
-    const days = schoolDays(l.from, l.to).length;
-    return (
-      <Card key={l.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <Avatar text={initials(l.name)} seed={l.name} size={40} />
-          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-            <b>{l.name} · {l.from === l.to ? shortDay(l.from) : `${shortDay(l.from)} – ${shortDay(l.to)}`}</b>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{days} {l.span === "full" ? `full ${days === 1 ? "day" : "days"}` : SPAN_LABELS[l.span].en.toLowerCase()}{l.note ? ` · ${l.note}` : ""} · asked {dayMonth(l.createdAt)}</span>
-            <span style={{ fontSize: 13, color: "var(--warnfg)" }}>{periods} {periods === 1 ? "period" : "periods"} will need cover</span>
-          </span>
-          {!actions ? <Pill tone="ok">Approved</Pill> : null}
-        </div>
-        {actions && data.me.mayCover ? (
-          <div style={{ display: "flex", gap: 10 }}>
-            <Btn variant="ghost" full disabled={pending} onClick={() => onDecide(l.id, false)}>Decline</Btn>
-            <Btn variant="pri" full icon="check" disabled={pending} onClick={() => onDecide(l.id, true)}>Approve</Btn>
-          </div>
-        ) : null}
-      </Card>
-    );
-  };
+  const sub = (l: LeaveView, extra?: Pair) => [tx(leaveType(l)), l.note, extra ? tx(extra) : null].filter(Boolean).join(" · ");
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <Card>
-        <CardHead title={`Who is away · ${dayMonth(data.week[0])}–${dayMonth(data.week[5])}`} action={<Btn variant="soft" icon="plus" onClick={onAdd}>Add</Btn>} />
-        <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0,1fr))", gap: 8, marginTop: 10 }}>
-          {data.week.map((day) => {
-            const list = awayOn(day);
-            const isToday = day === data.today;
+    <>
+      <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>{say(`Who is away · ${dateSpan(strip[0], strip[strip.length - 1])}`, `कौन अनुपस्थित है · ${dateSpan(strip[0], strip[strip.length - 1])}`)}</span>
+          <span style={{ display: "flex", gap: 10, fontSize: 12, color: "var(--mut)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Dot color="var(--acc)" />{say("Approved", "स्वीकृत")}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Dot color="transparent" style={{ border: "1.5px dashed var(--warn)" }} />{say("Asked", "माँगी गई")}</span>
+          </span>
+        </div>
+        <div className="hs" style={{ display: "flex", gap: 6 }}>
+          {strip.map((day) => {
+            const sunday = weekdayOf(day) === null;
+            const today = day === data.today;
+            const who = sunday ? [] : awayOn(day).slice(0, 3);
             return (
-              <div key={day} style={{ border: `1.5px solid ${isToday ? "var(--acc)" : "var(--bd)"}`, background: isToday ? "var(--accs)" : "transparent", borderRadius: 12, padding: 8, minHeight: 84, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{WEEK_SHORT[weekdayOf(day) ?? "Monday"]}</span>
-                <b style={{ fontSize: 18 }}>{Number(day.slice(8))}</b>
-                <span style={{ display: "flex", flexWrap: "wrap", gap: 2, justifyContent: "center" }}>
-                  {list.map((l) => (
-                    <span key={l.id} title={`${l.name} · ${l.status}`} style={{ opacity: l.status === "asked" ? 0.6 : 1, outline: l.status === "asked" ? "1.5px dashed var(--warn)" : undefined, borderRadius: 12 }}>
-                      <Avatar text={initials(l.name)} seed={l.name} size={24} />
-                    </span>
-                  ))}
+              <div key={day} style={{ flex: "none", width: 60, padding: "8px 4px", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: today ? "var(--accs)" : sunday ? "var(--s2)" : "var(--card)", border: `1px solid ${today ? "var(--acc)" : "var(--bd)"}`, opacity: sunday ? 0.55 : 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{dayShort(day).split(" ")[0]}</span>
+                <b className="num">{Number(day.slice(8))}</b>
+                <span style={{ display: "flex", minHeight: 24, paddingLeft: 4 }}>
+                  {who.map((l) => {
+                    const [bg, fg] = toneOf(l.name);
+                    const ok = l.status === "approved";
+                    return (
+                      <span key={l.id} title={`${l.name} · ${ok ? say("approved", "स्वीकृत") : say("asked", "माँगी गई")}`} style={{ width: 24, height: 24, borderRadius: 12, marginLeft: -4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, border: ok ? "2px solid var(--card)" : "1.5px dashed var(--warn)", background: ok ? V(bg) : "var(--card)", color: V(fg), animation: "xPopIn .35s var(--spring) both" }}>
+                        {ini(l.name)}
+                      </span>
+                    );
+                  })}
                 </span>
               </div>
             );
           })}
         </div>
-        <span style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--mut)", marginTop: 8 }}>
-          <span>● Approved</span>
-          <span>◌ Asked</span>
-        </span>
       </Card>
-      <SecHead>{data.me.mayCover ? `Waiting for you · ${waiting.length}` : `Asked · ${waiting.length}`}</SecHead>
-      {waiting.length === 0 ? <EmptyState icon="calendar" title="Nothing waiting" body="Leave a teacher asks for shows up here to approve." /> : null}
-      {waiting.map((l) => row(l, true))}
-      {approved.length ? <SecHead>Approved</SecHead> : null}
-      {approved.map((l) => row(l, false))}
-    </div>
+      <span className="sech">{data.me.mayCover ? say(`Waiting for you · ${waiting.length}`, `आपके निर्णय के लिए · ${waiting.length}`) : say(`Asked · ${waiting.length}`, `माँगी गई · ${waiting.length}`)}</span>
+      {waiting.map((l) => {
+        const periods = periodsNeedingCover(data.slots, l.staffId, l.from, l.to, l.span);
+        return (
+          <Card key={l.id} style={{ padding: "14px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, animation: "xIn .3s var(--ease) both" }}>
+            <Ava name={l.name} />
+            <span style={{ flex: 1, minWidth: 210, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontWeight: 600 }}>{l.name} · {dayRange(l.from, l.to)}</span>
+              <span style={MUTED}>{sub(l, askedLine(l, data.today))}</span>
+              <span style={{ fontSize: 13, color: "var(--warnfg)" }}>{say(`${periods} ${periods === 1 ? "period" : "periods"} will need cover`, `${periods} पीरियड में व्यवस्था चाहिए होगी`)}</span>
+            </span>
+            {data.me.mayCover ? (
+              <span className="mfull" style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="tap btn ghost" style={{ flex: 1 }} disabled={pending} onClick={() => onDecide(l.id, false)}>{say("Decline", "अस्वीकार करें")}</button>
+                <button type="button" className="tap btn pri" style={{ flex: 1 }} disabled={pending} onClick={() => onDecide(l.id, true)}>
+                  <Ic n="check" />
+                  {say("Approve", "स्वीकार करें")}
+                </button>
+              </span>
+            ) : null}
+          </Card>
+        );
+      })}
+      {waiting.length === 0 ? (
+        <Card className="fadein" style={{ padding: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center" }}>
+          <Ic n="checkCircle" size={26} style={{ color: "var(--ok)" }} />
+          <b>{say("No leave requests waiting", "कोई छुट्टी अनुरोध बाकी नहीं")}</b>
+          <span style={MUTED}>{say("New requests from teachers show up here.", "शिक्षकों के नए अनुरोध यहाँ दिखेंगे।")}</span>
+        </Card>
+      ) : null}
+      {approved.length ? <span className="sech">{say("Approved · coming up", "स्वीकृत · आगे")}</span> : null}
+      {approved.length ? (
+        <Card pad={false}>
+          {approved.map((l, i) => (
+            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : 0, ...rise(i) }}>
+              <Ava name={l.name} />
+              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <span style={{ fontWeight: 600 }}>{l.name} · {dayRange(l.from, l.to)}</span>
+                <span style={MUTED}>{sub(l)}</span>
+              </span>
+              <span className="hide-m" style={MUTED}>
+                {l.decidedBy && l.decidedAt
+                  ? say(`Approved by ${l.decidedBy} · ${dayShort(schoolToday(new Date(l.decidedAt)))}`, `${l.decidedBy} ने स्वीकृत की · ${dayShort(schoolToday(new Date(l.decidedAt)))}`)
+                  : say("Approved", "स्वीकृत")}
+              </span>
+            </div>
+          ))}
+        </Card>
+      ) : null}
+    </>
   );
 }
 
+const REASONS: Pair[] = [p("Sick", "बीमार"), p("Family", "परिवार"), p("Personal", "निजी"), p("School duty", "विद्यालय कार्य")];
+
 function LeaveSheet({ open, data, pending, onClose, onSave }: { open: boolean; data: TimetableData; pending: boolean; onClose: () => void; onSave: (input: { staffId: string; from: string; to: string; span: string; note?: string }) => void }) {
   const { tx } = useVx();
+  const say = (en: string, hi: string) => tx({ en, hi });
   const [staffId, setStaffId] = useState(data.me.mayCover ? "" : data.me.id);
   const [from, setFrom] = useState(data.today);
   const [to, setTo] = useState(data.today);
   const [span, setSpan] = useState<LeaveSpan>("full");
+  const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const problems = leaveProblems({ staffId, from, to });
   const periods = staffId && !problems.length ? periodsNeedingCover(data.slots, staffId, from, to, span) : 0;
+  const who = data.teachers.find((t) => t.id === staffId)?.name ?? say("This teacher", "यह शिक्षक");
+  // The reason chip leads the note, as the design keeps them: "Sick · …". Stored in English.
+  const fullNote = [reason, note.trim()].filter(Boolean).join(" · ").slice(0, 200);
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Teacher leave"
-      sub="Approved leave marks the teacher away and arranges cover for each day."
-      icon="calendar"
+      title={data.me.mayCover ? say("Add leave", "छुट्टी जोड़ें") : say("Ask for leave", "छुट्टी माँगें")}
+      sub={data.me.mayCover ? say("Saved as asked · approve it to arrange cover", "माँगी गई के रूप में सहेजी जाती है · स्वीकार करने पर व्यवस्था होती है") : say("Your coordinator approves it", "समन्वयक इसे स्वीकार करेंगे")}
       footer={
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn variant="sec" full onClick={onClose}>Cancel</Btn>
-          <Btn variant="pri" full icon="check" disabled={pending || problems.length > 0} onClick={() => onSave({ staffId, from, to, span, note })}>Ask for leave</Btn>
-        </div>
+        <>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{say("Cancel", "रद्द करें")}</button>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={pending || problems.length > 0} onClick={() => onSave({ staffId, from, to, span, note: fullNote })}>
+            <Ic n="check" />
+            {data.me.mayCover ? say("Save leave", "छुट्टी सहेजें") : say("Ask for leave", "छुट्टी माँगें")}
+          </button>
+        </>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 4 }}>
         {data.me.mayCover ? (
-          <Field label="Teacher">
+          <Field label={say("Teacher", "शिक्षक")}>
             <Select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
-              <option value="">Pick a teacher…</option>
+              <option value="">{say("Pick a teacher…", "शिक्षक चुनें…")}</option>
               {data.teachers.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </Select>
           </Field>
         ) : null}
-        <Grid cols={2}>
-          <Field label="From"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-          <Field label="To"><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-        </Grid>
-        <Field label="Which periods">
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }} role="radiogroup">
-            {(["full", "first_half", "second_half"] as LeaveSpan[]).map((s) => (
-              <RadioCard key={s} checked={span === s} onSelect={() => setSpan(s)} title={tx(SPAN_LABELS[s])} />
+        <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 12 }}>
+          <Field label={say("From", "से")}><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+          <Field label={say("To", "तक")}><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        </div>
+        <div className="field">
+          <span>{say("How long", "कितना")}</span>
+          <Seg<LeaveSpan>
+            label={say("How long", "कितना")}
+            value={span}
+            onChange={setSpan}
+            options={[
+              { value: "full", label: say("Full day", "पूरा दिन") },
+              { value: "first_half", label: `P1–P${BREAK_AFTER + 1}` },
+              { value: "second_half", label: `P${BREAK_AFTER + 2}–P${PERIODS.length}` },
+            ]}
+          />
+        </div>
+        <div className="field">
+          <span>{say("Reason", "कारण")}</span>
+          <div role="group" aria-label={say("Reason", "कारण")} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {REASONS.map((r) => (
+              <Chip key={r.en} on={reason === r.en} onClick={() => setReason(reason === r.en ? null : r.en)}>{tx(r)}</Chip>
             ))}
           </div>
+        </div>
+        <Field label={say("Note (optional)", "टिप्पणी (वैकल्पिक)")} hint={say("Kept for the office. Never sent in a notice.", "केवल कार्यालय के लिए। किसी संदेश में नहीं जाती।")}>
+          <Textarea value={note} maxLength={180} onChange={(e) => setNote(e.target.value)} placeholder={say("Anything the office should know", "कार्यालय को कुछ बताना हो")} style={{ minHeight: 64 }} />
         </Field>
-        <Field label="Note (optional)" hint="Kept for the office. Never sent in a notice.">
-          <Input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="Family wedding" />
-        </Field>
-        {problems.length ? <span style={{ fontSize: 13, color: "var(--warnfg)" }}>{tx(LEAVE_PROBLEMS[problems[0]])}</span> : <span style={{ fontSize: 13, color: "var(--mut)" }}>{periods} {periods === 1 ? "period" : "periods"} will need cover.</span>}
+        <div style={{ padding: "12px 14px", borderRadius: 14, fontSize: 13, lineHeight: 1.5, display: "flex", gap: 10, background: problems.length ? "var(--warns)" : "var(--infos)", color: problems.length ? "var(--warnfg)" : "var(--info)" }}>
+          <Ic n={problems.length ? "alert" : "info"} style={{ marginTop: 2 }} />
+          <span>
+            {problems.length
+              ? tx(LEAVE_PROBLEMS[problems[0]])
+              : say(`${who} has ${periods} ${periods === 1 ? "period" : "periods"} in these days. Once approved they show up in Substitutions for cover.`, `इन दिनों ${who} के ${periods} पीरियड हैं। स्वीकार होने पर वे व्यवस्था में दिखेंगे।`)}
+          </span>
+        </div>
       </div>
     </Sheet>
   );
@@ -975,90 +1597,163 @@ function LeaveSheet({ open, data, pending, onClose, onSave }: { open: boolean; d
 
 /* ---------------------------------------------------------------- publish */
 
-function PublishSheet({
-  open,
-  changes,
-  slots,
-  teacherName,
+function PublishScreen({
+  data,
   subjectName,
-  version,
+  subjectPair,
+  teacherName,
   pending,
-  onClose,
+  previewing,
+  classHref,
   onRemove,
   onPublish,
 }: {
-  open: boolean;
-  changes: PendingChange[];
-  slots: Slot[];
-  teacherName: Map<string, string>;
+  data: TimetableData;
   subjectName: (code: string) => string;
-  version: { id: string; label: string } | null;
+  subjectPair: (code: string) => Pair;
+  teacherName: Map<string, string>;
   pending: boolean;
-  onClose: () => void;
+  previewing: boolean;
+  classHref: string;
   onRemove: (id: string) => void;
-  onPublish: (notify: boolean) => void;
+  onPublish: (notify: boolean, after: () => void) => void;
 }) {
+  const { tx } = useVx();
+  const say = (en: string, hi: string) => tx({ en, hi });
   const [notify, setNotify] = useState(true);
-  const affected = affectedTeachers(changes, slots);
+  const [published, setPublished] = useState(false);
+  const changes: PendingChange[] = data.changes;
+  const affected = affectedTeachers(changes, data.slots);
   const [firstId, firstList] = [...affected.entries()][0] ?? [null, []];
-  const preview = firstId ? changeNotice(teacherName.get(firstId) ?? "teacher", firstList, subjectName) : null;
+  const preview = firstId ? changeNotice(teacherName.get(firstId) ?? "teacher", firstList, (code) => subjectPair(code).en) : null;
+  const n = changes.length;
+  const told = notify ? affected.size : 0;
+  const when = (iso: string) => {
+    const day = schoolToday(new Date(iso));
+    return day === data.today ? say(`Today ${bellTime(clock(iso))}`, `आज ${bellTime(clock(iso))}`) : dayShort(day);
+  };
+  const versions = data.versions ?? [];
+
+  if (published && n === 0) {
+    return (
+      <>
+        <Card className="fadein" style={{ padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+          <svg width={96} height={96} viewBox="0 0 96 96" aria-hidden="true" style={{ animation: "xPopIn .5s var(--spring) both" }}>
+            <circle cx={48} cy={48} r={44} style={{ fill: "var(--oks)" }} />
+            <circle cx={48} cy={48} r={44} style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 4, ["--len" as string]: 276.5, strokeDasharray: 276.5, animation: "xDraw .7s .1s var(--ease) both" }} />
+            <path d="M30 49l12 12 24-26" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round", ["--len" as string]: 60, strokeDasharray: 60, animation: "xDraw .45s .5s var(--ease) both" }} />
+          </svg>
+          <span className="serif" style={{ fontSize: 26, fontWeight: 600 }}>{data.version ? say(`${data.version.label} is live`, `${data.version.label} लागू है`) : say("Published", "प्रकाशित")}</span>
+          <span style={{ color: "var(--mut)" }}>{say("Teachers see it in their app.", "शिक्षक इसे अपने ऐप में देखते हैं।")}</span>
+          <Btn variant="pri" href={classHref}>{say("Back to timetable", "समय सारणी पर वापस")}</Btn>
+        </Card>
+        <Versions versions={versions} />
+      </>
+    );
+  }
+
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      wide
-      title="Publish changes"
-      sub={`${changes.length} waiting · ${version ? `${version.label} is live` : "no live version"}`}
-      icon="upload"
-      footer={
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn variant="sec" full onClick={onClose}>Not yet</Btn>
-          <Btn variant="pri" full icon="upload" disabled={pending || changes.length === 0} onClick={() => onPublish(notify)}>{pending ? "Publishing…" : `Publish ${changes.length} ${changes.length === 1 ? "change" : "changes"}`}</Btn>
+    <>
+      <Card pad={false} style={{ overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "12px 16px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
+          <span className="sech">{say(`Changes not published · ${n}`, `अप्रकाशित बदलाव · ${n}`)}</span>
+          <span style={MUTED}>{say("Teachers still see the old timetable", "शिक्षक अभी पुरानी समय सारणी देखते हैं")}</span>
         </div>
-      }
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Card pad={false} style={{ overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <SecHead>Changes not published · {changes.length}</SecHead>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>Teachers still see the old timetable</span>
-          </div>
-          {changes.length === 0 ? <EmptyState icon="checkCircle" title="Nothing waiting" /> : null}
-          {changes.map((c) => (
-            <div key={c.id} style={{ padding: "12px 16px", borderTop: "1px solid var(--bd)", display: "flex", flexDirection: "column", gap: 6 }}>
-              <b>{c.classLabel} · {WEEK_SHORT[c.day as Weekday] ?? c.day} P{periodNumber(c.period)}</b>
-              <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
-                <span style={{ textDecoration: "line-through", color: "var(--mut)", padding: "2px 8px", borderRadius: 8, background: "var(--s2)" }}>{c.fromSubjectCode ? `${subjectName(c.fromSubjectCode)} · ${c.fromTeacher}` : "Free"}</span>
-                <Ic n="arrowRight" size={14} />
-                <span style={{ fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "var(--accs)" }}>{subjectName(c.subjectCode)} · {teacherName.get(c.staffProfileId) ?? c.teacherShortName}</span>
+        {changes.map((c, i) => {
+          const bell = data.bells.find((b) => b.index === c.period);
+          const day = (WEEK as readonly string[]).includes(c.day) ? WEEK_SHORT[c.day as Weekday] : c.day;
+          return (
+            <div key={c.id} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: i ? "1px solid var(--bd)" : 0, ...rise(i) }}>
+              <span style={{ minWidth: 130, display: "flex", flexDirection: "column" }}>
+                <b>{c.classLabel} · {day} P{periodNumber(c.period)}</b>
+                <span className="num" style={MUTED}>{bell ? `${bellTime(bell.starts)}–${bellTime(bell.ends)}` : ""}</span>
               </span>
-              <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--mut)" }}>
-                <span>{c.createdBy ?? ""} · {shortDay(c.createdAt)}</span>
-                <button type="button" className="tap icon-btn" aria-label="Remove this change" disabled={pending} onClick={() => onRemove(c.id)} style={{ width: 32, height: 32, borderRadius: 16 }}>
-                  <Ic n="x" size={16} />
-                </button>
+              <span style={{ flex: 1, minWidth: 230, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <span className="pill" style={{ height: 28, padding: "0 10px", fontSize: 12, textDecoration: "line-through", background: "var(--s2)", color: "var(--mut)" }}>
+                  {c.fromSubjectCode ? `${subjectName(c.fromSubjectCode)}${c.fromTeacher ? ` · ${c.fromTeacher}` : ""}` : say("Free", "खाली")}
+                </span>
+                <Ic n="arrowRight" style={{ color: "var(--sub)" }} />
+                <span className="pill" style={{ height: 28, padding: "0 10px", fontSize: 12, background: tint(c.subjectCode), color: "var(--fg)" }}>
+                  {subjectName(c.subjectCode)} · {teacherName.get(c.staffProfileId) ?? c.teacherShortName}
+                </span>
               </span>
+              <span style={MUTED}>{[c.createdBy, when(c.createdAt)].filter(Boolean).join(" · ")}</span>
+              <button type="button" className="tap btn ghost" aria-label={say("Drop this change", "यह बदलाव हटाएँ")} disabled={pending || previewing} onClick={() => onRemove(c.id)} style={{ width: 40, padding: 0 }}>
+                <Ic n="x" />
+              </button>
             </div>
-          ))}
-        </Card>
-        <Card>
-          <SecHead>Starts from</SecHead>
-          <p style={{ margin: "6px 0 0", fontSize: 14 }}>As soon as you publish. The new version replaces the live one and today&apos;s cover is worked out against it.</p>
-        </Card>
-        <Card style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <b>Tell affected teachers on WhatsApp</b>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{affected.size} teachers · {affected.size} messages · {rupees(affected.size * 0.88)} · queued in the staff outbox</span>
-          </span>
-          <Switch on={notify} onChange={setNotify} label="Tell teachers" />
-        </Card>
-        {notify && preview ? (
-          <div>
-            <SecHead>Preview · to {teacherName.get(firstId as string) ?? "teacher"}</SecHead>
-            <WhatsAppPreview lines={[preview.hi, "", preview.en]} />
+          );
+        })}
+        {n === 0 ? (
+          <div style={{ padding: 26, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
+            <b>{say("Nothing waiting to publish", "प्रकाशित करने को कुछ नहीं")}</b>
+            <span style={MUTED}>{say("Tap any period in the class timetable to change it.", "बदलने के लिए कक्षा समय सारणी में किसी पीरियड पर टैप करें।")}</span>
+            <Btn variant="sec" href={classHref}>{say("Open class timetable", "कक्षा समय सारणी खोलें")}</Btn>
           </div>
         ) : null}
+      </Card>
+      <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <span className="sech">{say("Starts from", "कब से")}</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <Chip on>{say("As soon as you publish", "प्रकाशित करते ही")}</Chip>
+        </div>
+      </Card>
+      <button type="button" role="switch" aria-checked={notify} className="tap card" onClick={() => setNotify((v) => !v)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", textAlign: "left", color: "var(--fg)" }}>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <span style={{ fontWeight: 600 }}>{say("Tell affected teachers on WhatsApp", "प्रभावित शिक्षकों को WhatsApp पर बताएँ")}</span>
+          <span style={MUTED}>
+            {notify
+              ? say(`${affected.size} ${affected.size === 1 ? "teacher" : "teachers"} · ${affected.size} ${affected.size === 1 ? "message" : "messages"} · ${rupees(affected.size * 0.88)}`, `${affected.size} शिक्षक · ${affected.size} संदेश · ${rupees(affected.size * 0.88)}`)
+              : say("Nobody is told · they will see it next time they open the app", "किसी को नहीं बताया जाएगा · ऐप खोलने पर दिखेगा")}
+          </span>
+        </span>
+        <span className={`sw${notify ? " on" : ""}`} aria-hidden="true"><span /></span>
+      </button>
+      {notify && preview && firstId ? (
+        <>
+          <WaPreview
+            to={affected.size > 1 ? say(`Preview · to ${teacherName.get(firstId) ?? ""} (each one gets their own changes)`, `पूर्वावलोकन · ${teacherName.get(firstId) ?? ""} को (हर शिक्षक को उनके अपने बदलाव)`) : say(`Preview · to ${teacherName.get(firstId) ?? ""}`, `पूर्वावलोकन · ${teacherName.get(firstId) ?? ""} को`)}
+            hi={preview.hi}
+            en={preview.en}
+          />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {[...affected.keys()].map((id) => (
+              <span key={id} className="pill" style={{ height: 26, padding: "0 10px", fontSize: 12, background: "var(--s2)", color: "var(--fg)", border: "1px solid var(--bd)" }}>{teacherName.get(id) ?? "—"}</span>
+            ))}
+          </div>
+        </>
+      ) : null}
+      <button type="button" className="tap btn pri" style={{ height: 50, fontSize: 15 }} disabled={pending || previewing || n === 0} onClick={() => onPublish(notify, () => setPublished(true))}>
+        <Ic n="upload" />
+        {pending
+          ? say("Publishing…", "प्रकाशित हो रहा है…")
+          : n === 0
+            ? say("Nothing to publish", "प्रकाशित करने को कुछ नहीं")
+            : told
+              ? say(`Publish ${n} ${n === 1 ? "change" : "changes"} and tell ${told} ${told === 1 ? "teacher" : "teachers"}`, `${n} बदलाव प्रकाशित करें और ${told} शिक्षकों को बताएँ`)
+              : say(`Publish ${n} ${n === 1 ? "change" : "changes"}`, `${n} बदलाव प्रकाशित करें`)}
+      </button>
+      <Versions versions={versions} />
+    </>
+  );
+}
+
+function Versions({ versions }: { versions: NonNullable<TimetableData["versions"]> }) {
+  const { tx } = useVx();
+  if (versions.length === 0) return null;
+  return (
+    <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <span className="sech">{tx(p("Versions · newest first", "संस्करण · नए पहले"))}</span>
+        <Link href="/timetable/classic" style={{ fontSize: 12, fontWeight: 700, color: "var(--acc)" }}>{tx(p("All versions & import", "सभी संस्करण और आयात"))}</Link>
       </div>
-    </Sheet>
+      {versions.map((v, i) => (
+        <div key={v.id} style={{ display: "grid", gridTemplateColumns: "10px minmax(0,1fr) auto", gap: 10, alignItems: "start", padding: "6px 0", fontSize: 13, ...rise(i) }}>
+          <i style={{ width: 10, height: 10, marginTop: 4, borderRadius: 5, background: i ? "var(--sub)" : "var(--acc)" }} />
+          <span>{v.label}</span>
+          <span className="num" style={MUTED}>{v.publishedAt ? dayShort(schoolToday(new Date(v.publishedAt))) : "—"}</span>
+        </div>
+      ))}
+    </Card>
   );
 }

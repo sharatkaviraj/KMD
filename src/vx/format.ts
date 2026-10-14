@@ -102,19 +102,35 @@ export function longDay(value: string | Date): string {
 
 /** "Thu 8 Oct". */
 export function shortDay(value: string | Date): string {
-  return new Intl.DateTimeFormat("en-IN", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(asDate(value));
+  const d = schoolParts(value);
+  return `${d.weekday} ${d.day} ${d.month}`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS: Record<string, string> = { Mon: "Mon", Tue: "Tue", Wed: "Wed", Thu: "Thu", Fri: "Fri", Sat: "Sat", Sun: "Sun" };
+
+/**
+ * The day in the school's time zone, in the design's own words: "Sep", never
+ * the "Sept" newer ICU gives en-IN, and no comma after the weekday.
+ */
+function schoolParts(value: string | Date): { weekday: string; day: number; month: string; year: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "numeric", year: "numeric" }).formatToParts(asDate(value));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return { weekday: WEEKDAYS[get("weekday")] ?? get("weekday"), day: Number(get("day")), month: MONTHS[Number(get("month")) - 1] ?? "", year: Number(get("year")) };
 }
 
 /** "8 Oct 2026". */
 export function dateLabel(value: string | Date | null | undefined): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-IN", { timeZone: TZ, day: "numeric", month: "short", year: "numeric" }).format(asDate(value));
+  const d = schoolParts(value);
+  return `${d.day} ${d.month} ${d.year}`;
 }
 
 /** "8 Oct". */
 export function dayMonth(value: string | Date | null | undefined): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-IN", { timeZone: TZ, day: "numeric", month: "short" }).format(asDate(value));
+  const d = schoolParts(value);
+  return `${d.day} ${d.month}`;
 }
 
 /** "09:20". */

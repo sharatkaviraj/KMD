@@ -1,7 +1,7 @@
 import { requirePermission } from "@/platform/auth/current-staff";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { longDay, schoolToday } from "@/vx/format";
-import { runningPeriod, schoolMinutes, type BoardFilter } from "@/vx/screens/admin/logic";
+import { defaultBoardFocus, runningPeriod, schoolMinutes, type BoardFilter } from "@/vx/screens/admin/logic";
 import { AttendanceScreen } from "@/vx/screens/admin/attendance";
 import { loadBoard, loadSheet } from "@/vx/screens/admin/data";
 import { T } from "@/vx/screens/admin/text";
@@ -25,9 +25,10 @@ export default async function AttendanceBoardPage(props: PageProps<"/attendance"
   const staff = await requirePermission("attendance:mark_on_behalf", "/attendance");
   const { previewing } = await getViewer();
   const params = await props.searchParams;
-  const classId = typeof params.class === "string" && UUID.test(params.class) ? params.class : null;
-  const f = typeof params.f === "string" ? params.f : "all";
-  const filter: BoardFilter = f === "pending" || f === "marked" ? f : "all";
+  const picked = typeof params.class === "string" && UUID.test(params.class) ? params.class : null;
+  const f = typeof params.f === "string" ? params.f : null;
+  // No filter until one is picked: the desk then shows every class, the phone the ones not marked (F11/D04).
+  const filter: BoardFilter | null = f === "pending" || f === "marked" || f === "all" ? f : null;
   const today = schoolToday();
   const sessionLabel = await resolveSessionLabel();
 
@@ -45,6 +46,8 @@ export default async function AttendanceBoardPage(props: PageProps<"/attendance"
   }
 
   const board = await loadBoard(sessionLabel, today);
+  // The desk's panel opens on a class whose teacher is away when none is picked; the phone opens a sheet only for a picked one.
+  const classId = picked ?? (board.schoolOpen ? defaultBoardFocus(board.rows) : null);
   const sheet = classId ? await loadSheet(sessionLabel, today, classId, board) : null;
   const running = runningPeriod(board.bells, schoolMinutes());
   const first = [...board.bells].sort((a, b) => a.starts.localeCompare(b.starts))[0];
@@ -61,6 +64,7 @@ export default async function AttendanceBoardPage(props: PageProps<"/attendance"
       <AttendanceScreen
         board={board}
         sheet={sheet}
+        focus={sheet ? (picked ? "explicit" : "default") : null}
         filter={filter}
         dayLine={`${longDay(today)}${status ? ` · ${status}` : ""}`}
         previewing={previewing !== null}

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requirePermission } from "@/platform/auth/current-staff";
-import { staffRoles } from "@/platform/auth/permissions";
+import { roleLabel, staffRoles } from "@/platform/auth/permissions";
 import { FEE_SCHEMA, getOptionalEnvVar, getSchoolName } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { classLabelMap, listSessionLabels, listSubjects, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
@@ -52,6 +52,8 @@ export type SettingsData = {
   jobs: { job: string; status: string; at: string | null }[];
   master: MasterData;
   integrations: Integration[];
+  /** The reader, for the phone top bar ("Name · Admin"). */
+  me: { name: string; role: { en: string; hi: string } };
 };
 
 const BACKUP_BUCKET = "nightly-backups";
@@ -288,5 +290,6 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
     jobs: [...jobs.values()].map((r) => ({ job: r.job, status: r.status, at: r.startedAt })),
     master,
     integrations,
+    me: { name: me.displayName, role: roleLabel(me.role) },
   };
 }
