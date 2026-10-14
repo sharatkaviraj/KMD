@@ -168,6 +168,12 @@ export type ResultsProps = {
 };
 
 type Run = ReturnType<typeof useAct>["run"];
+
+/** "Mohit Agarwal" -> "Ag", "Mr. Meena" -> "Me": the design's mark, from the last name. */
+function ini(name: string): string {
+  const t = name.replace(/^(Mr|Ms|Mrs|Dr)\.?\s+/i, "").trim().split(/\s+/).pop() ?? "";
+  return t.slice(0, 1).toUpperCase() + t.slice(1, 2).toLowerCase();
+}
 type ToneKey = "s3" | "info" | "warn" | "ok" | "bad" | "acc";
 
 /** The design's tones: a soft background and its ink. */
@@ -187,11 +193,11 @@ function Tag({ tone, children, style }: { tone: ToneKey; children: ReactNode; st
 }
 
 /** "10:00" → "10 am", "09:30" → "9:30 am". */
-function ampm(t: string | null): string {
+function ampm(t: string | null, full = false): string {
   if (!t) return "";
   const [h, m] = t.split(":").map(Number);
   if (!Number.isFinite(h)) return t;
-  return `${h % 12 === 0 ? 12 : h % 12}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h >= 12 ? "pm" : "am"}`;
+  return `${h % 12 === 0 ? 12 : h % 12}${m || full ? `:${String(m || 0).padStart(2, "0")}` : ""} ${h >= 12 ? "pm" : "am"}`;
 }
 
 const STEP_ORDER: PipelineStep[] = ["entered", "checked", "grace", "locked", "cards", "published"];
@@ -237,7 +243,8 @@ export function ResultsBoard(props: ResultsProps) {
       {exam.daysToResults !== null && exam.daysToResults >= 0 ? ` · ${exam.daysToResults} ${tx(p("days", "दिन"))}` : ""}
     </Tag>
   ) : null;
-  const nextStep = STEP_ORDER.find((s) => props.states[s] !== "done") ?? "published";
+  /* The next step the office can act on; marks entry is the teachers' and has no tab here. */
+  const nextStep = STEP_ORDER.find((s) => s !== "entered" && props.states[s] !== "done") ?? null;
   const locked = props.classes.filter((c) => c.locked).length;
   const passing = props.grace.rows.filter((g) => g.canPass).length;
   const openRechecks = props.rechecks.filter((r) => r.status === "new" || r.status === "with_teacher").length;
@@ -267,7 +274,7 @@ export function ResultsBoard(props: ResultsProps) {
   const [at, setAt] = useState(exam.publishAt ? exam.publishAt.slice(0, 16) : exam.resultsOn ? `${exam.resultsOn}T09:00` : "");
   const [ptm, setPtm] = useState(exam.ptm);
   const publishNow = () => run(() => actions.publish({ examId: exam.id, when, at: when === "scheduled" ? new Date(at).toISOString() : null, ptm }));
-  const atLabel = at ? new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(new Date(at)).replace(",", "") + ` · ${ampm(at.slice(11, 16))}` : "";
+  const atLabel = at ? new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(new Date(at)).replace(",", "") + ` · ${ampm(at.slice(11, 16), true)}` : "";
 
   let body: ReactNode;
   switch (view) {
@@ -320,7 +327,7 @@ export function ResultsBoard(props: ResultsProps) {
         mBack={view === "pipeline" ? "/exam-office" : undefined}
         help={help}
         actions={
-          view === "pipeline" && nextStep !== "entered" ? (
+          view === "pipeline" && nextStep ? (
             <Link href={href(TAB_FOR[nextStep])} className="tap btn pri">
               <Ic n="arrowRight" size={18} />
               {tx(p("Next:", "अगला:"))} {tx(titles[TAB_FOR[nextStep]])}
@@ -511,12 +518,12 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
             </div>
             <div className="xst">
               {late.map((t) => {
-                const av = toneAvatar(t.name);
+                const av = { ...toneAvatar(t.name), name: t.name };
                 const left = t.papers.filter((x) => x.status !== "done" && x.status !== "empty");
                 return (
                   <div key={t.id} className="xr x10 xd" style={{ padding: "8px 0" }}>
                     <span className="xa" style={{ background: av.bg, color: av.fg }}>
-                      {av.ini}
+                      {ini(av.name)}
                     </span>
                     <span className="xc xf">
                       <span className="x6w xe">{t.name}</span>
@@ -619,7 +626,7 @@ function Moderation(props: ResultsProps & { pending: boolean; run: Run }) {
               const last = x.prevPct ?? x.avgPct ?? 0;
               const now = x.avgPct ?? 0;
               return (
-                <button key={x.paperId} type="button" className={`tap row xmod xd${x.paperId === picked ? " sel" : ""}`} onClick={() => setPicked(x.paperId)}>
+                <button key={x.paperId} type="button" className={`tap row xmod xd${x.paperId === picked ? " sel" : ""}`} aria-pressed={x.paperId === picked} onClick={() => setPicked(x.paperId)} style={x.paperId === picked ? { background: "var(--accs)" } : undefined}>
                   <span className="xc xn0">
                     <b className="xe">{x.subjectCode}</b>
                     <span className="xm xe">
@@ -1067,6 +1074,7 @@ const SCHOOL = p("Shri Veer Patta Sr. Sec. School", "श्री वीर प�
 function Publish(props: ResultsProps & { pending: boolean; when: "now" | "scheduled"; setWhen: (w: "now" | "scheduled") => void; at: string; setAt: (v: string) => void; atLabel: string; ptm: boolean; setPtm: (v: boolean) => void; onPublish: () => void }) {
   const { tx } = useVx();
   const { exam, classes, pending, when, setWhen, at, setAt, atLabel, ptm, setPtm } = props;
+  const [editAt, setEditAt] = useState(false);
   const unlocked = classes.filter((c) => !c.locked).length;
   const lockedKids = classes.filter((c) => c.locked).reduce((a, c) => a + c.children, 0);
   const sample = props.cards.sample;
@@ -1104,12 +1112,22 @@ function Publish(props: ResultsProps & { pending: boolean; when: "now" | "schedu
               {atLabel || tx(p("At a set time", "तय समय पर"))}
             </button>
           </div>
-          {when === "scheduled" ? (
+          {when === "scheduled" && (editAt || !at) ? (
             <Field label={tx(p("Date and time", "तिथि और समय"))}>
               <Input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} />
             </Field>
           ) : null}
-          <span className="xm" style={{ lineHeight: 1.5 }}>{whenS}</span>
+          <span className="xm" style={{ lineHeight: 1.5 }}>
+            {whenS}
+            {when === "scheduled" && at && !editAt ? (
+              <>
+                {" "}
+                <button type="button" className="tap" onClick={() => setEditAt(true)} style={{ border: 0, padding: 0, background: "transparent", color: "var(--acc)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                  {tx(p("Change the time", "समय बदलें"))}
+                </button>
+              </>
+            ) : null}
+          </span>
         </div>
         <button type="button" className="tap card xr x12 xp" role="switch" aria-checked={ptm} onClick={() => setPtm(!ptm)} style={{ width: "100%", textAlign: "left", color: "var(--fg)" }}>
           <span className="xc xf">
@@ -1214,12 +1232,12 @@ function Rechecks(props: ResultsProps & { pending: boolean; run: Run; open: Resu
         <div className="card xoh xst">
           {rechecks.length === 0 ? <EmptyState icon="inbox" title={tx(p("No re-check requests", "कोई दोबारा जाँच अनुरोध नहीं"))} /> : null}
           {rechecks.map((x) => {
-            const av = toneAvatar(x.name);
+            const av = { ...toneAvatar(x.name), name: x.name };
             const tone: ToneKey = x.status === "changed" ? "ok" : RECHECK_WORDS[x.status].tone;
             return (
-              <button key={x.id} type="button" className={`tap row xl xd${x.id === r?.id ? " sel" : ""}`} onClick={() => pick(x.id)} style={{ padding: "12px 16px" }}>
+              <button key={x.id} type="button" className={`tap row xl xd${x.id === r?.id ? " sel" : ""}`} aria-current={x.id === r?.id ? "true" : undefined} onClick={() => pick(x.id)} style={{ padding: "12px 16px", background: x.id === r?.id ? "var(--accs)" : undefined }}>
                 <span className="xa" style={{ background: av.bg, color: av.fg }}>
-                  {av.ini}
+                  {ini(av.name)}
                 </span>
                 <span className="xc xf">
                   <span className="x6w xe">{x.name}</span>
@@ -1273,7 +1291,7 @@ function Rechecks(props: ResultsProps & { pending: boolean; run: Run; open: Resu
               <span className="sech">{tx(p("1 · Ask the subject teacher", "1 · विषय-अध्यापक से कहें"))}</span>
               <span className="xr x10">
                 <span className="xa" style={{ background: "var(--accs)", color: "var(--accfg)" }}>
-                  {toneAvatar(r.teacherName ?? "?").ini}
+                  {ini(r.teacherName ?? "?")}
                 </span>
                 <span className="xc xf">
                   <b>{r.teacherName ?? tx(p("No teacher on the timetable", "समय-सारणी में शिक्षक नहीं"))}</b>

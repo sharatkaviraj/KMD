@@ -3,6 +3,7 @@ import type { DesignView } from "../design.fixture";
 import { ExamHome, type HomeView, type NextExamView, type ResultsExamView, type TimelineItem } from "@/vx/screens/exams/office-home";
 import { PlanBoard, type PlanProps } from "@/vx/screens/exams/plan-board";
 import type { TeacherRowView } from "@/vx/screens/exams/remind";
+import { ResultsBoard, type ResultsProps } from "@/vx/screens/exams/results-board";
 import type { ActionResult } from "@/vx/screens/exams/save-types";
 
 /*
@@ -219,7 +220,250 @@ const planProps: PlanProps = {
 const plan = (patch: Partial<PlanProps>): DesignView => ({ menu: "exam", path: "/exam-office/plan", render: () => <PlanBoard {...planProps} {...patch} /> });
 const seatedRoom = { rooms: roomsSeated, roomId: roomsSeated[3].id, chart: room4Chart, seated: 434 };
 
+/* --------------------------------------------------------- ExamResults */
+
+const lateTeachers: TeacherRowView[] = [
+  teacher("r-meena", "Mr. Meena", "98290 ••512", [paper("r1", "Class 9", "Science", 12, 28)], 840),
+  teacher("r-lohar", "Mr. Lohar", "98290 ••726", [paper("r2", "Class 9", "Social Sci.", 0, 28)], null),
+  teacher("r-sukhwal", "Ms. Sukhwal", "98290 ••118", [paper("r3", "Class 6", "Hindi", 20, 31), paper("r4", "Class 7", "Hindi", 0, 27)], 300),
+  teacher("r-sisodia", "Mr. Sisodia", "98290 ••901", [paper("r5", "11 Science", "English", 22, 22), paper("r6", "12 Science", "English", 9, 20), paper("r7", "12 Arts", "English", 0, 12)], 200),
+  teacher("r-shek", "Ms. Shekhawat", "98290 ••455", [paper("r8", "11 Science", "Maths", 0, 22), paper("r9", "12 Science", "Biology", 0, 20)], -1),
+  teacher("r-gurjar", "Mr. Gurjar", "98290 ••377", [paper("r10", "Class 3", "Sanskrit", 9, 24), paper("r11", "Class 4", "Sanskrit", 0, 29), paper("r12", "Class 5", "Sanskrit", 0, 26)], 1000),
+  teacher("r-rawal", "Mr. Rawal", "98290 ••644", [paper("r13", "12 Arts", "Geography", 0, 12)], null),
+];
+
+type ResultsClass = ResultsProps["classes"][number];
+const rclass = (id: string, label: string, teacherName: string, children: number, percent: number, extra: Partial<ResultsClass> = {}): ResultsClass => ({
+  id,
+  label,
+  sort: 0,
+  teacher: teacherName,
+  children,
+  percent,
+  allSubmitted: percent === 100,
+  late: 0,
+  unusual: 0,
+  unusualOpen: 0,
+  graceNeeded: 0,
+  locked: false,
+  issued: 0,
+  ...extra,
+});
+
+const resultsClasses: ResultsClass[] = [
+  rclass("k-nur", "Nursery", "Ms. Kanwar", 18, 100),
+  rclass("k-lkg", "LKG", "Ms. Rathore", 20, 86),
+  rclass("k-ukg", "UKG", "Ms. Mehta", 22, 74),
+  rclass("k-1", "Class 1", "Ms. Jain", 23, 100),
+  rclass("k-2", "Class 2", "Ms. Vyas", 25, 70),
+  rclass("k-3", "Class 3", "Ms. Sharma", 24, 58, { late: 1, graceNeeded: 1 }),
+  rclass("k-4", "Class 4", "Mr. Verma", 29, 52, { late: 1, graceNeeded: 2 }),
+  rclass("k-5", "Class 5", "Ms. Paliwal", 26, 57, { late: 1 }),
+  rclass("k-6", "Class 6", "Ms. Bhati", 31, 66, { late: 1, graceNeeded: 1 }),
+  rclass("k-7", "Class 7", "Mr. Sen", 27, 52, { late: 1 }),
+  rclass("k-8", "Class 8", "Ms. Kumawat", 28, 100, { unusual: 1, unusualOpen: 1, graceNeeded: 3 }),
+  rclass("k-9", "Class 9", "Ms. Singh", 28, 61, { late: 2, graceNeeded: 2 }),
+  rclass("k-10", "Class 10", "Mr. Joshi", 30, 100, { unusual: 1, unusualOpen: 1, graceNeeded: 1 }),
+  rclass("k-11s", "11 Science", "Ms. Bhati", 22, 64, { late: 2, graceNeeded: 1 }),
+  rclass("k-11c", "11 Commerce", "Mr. Purohit", 18, 58),
+  rclass("k-11a", "11 Arts", "Ms. Mewara", 14, 48),
+  rclass("k-12s", "12 Science", "Mr. Dadhich", 20, 45, { late: 2 }),
+  rclass("k-12c", "12 Commerce", "Mr. Sanadhya", 17, 41),
+  rclass("k-12a", "12 Arts", "Mr. Rawal", 12, 38, { late: 2 }),
+];
+
+const modPaper = (id: string, subjectCode: string, teacherName: string, now: number, last: number, extra: Partial<ResultsProps["moderation"]["papers"][number]> = {}): ResultsProps["moderation"]["papers"][number] => ({
+  paperId: id,
+  subjectCode,
+  teacherId: `t-${id}`,
+  teacherName,
+  teacherPhone: "9000000000",
+  maxMarks: 80,
+  passMarks: 26,
+  avgPct: now,
+  prevPct: last,
+  baseline: last,
+  basis: "previous",
+  delta: now - last,
+  unusual: false,
+  decision: null,
+  sat: 28,
+  below: 0,
+  highest: 76,
+  spread: [0, 0, 0, 2, 5, 7, 8, 4, 2, 0],
+  ...extra,
+});
+
+const graceRow = (id: string, name: string, classLabel: string, max: number, needs: [string, number][], canPass: boolean): ResultsProps["grace"]["rows"][number] => {
+  const pass = Math.ceil(max * 0.33);
+  const list = needs.map(([subjectCode, value], i) => ({ paperId: `${id}-${i}`, subjectCode, value, passMarks: pass, grace: pass - value, maxMarks: max }));
+  return { studentId: id, name, classId: classLabel, classLabel, canPass, total: list.reduce((a, n) => a + n.grace, 0), given: false, locked: false, needs: list };
+};
+
+const recheck = (id: string, name: string, classLabel: string, subjectCode: string, teacherName: string, mark: number, note: string, askedBy: string, day: string, status: ResultsProps["rechecks"][number]["status"], newValue: number | null = null): ResultsProps["rechecks"][number] => ({
+  id,
+  studentId: `s-${id}`,
+  name,
+  paperId: `p-${id}`,
+  classLabel,
+  subjectCode,
+  maxMarks: 80,
+  mark: newValue ?? mark,
+  askedBy,
+  note,
+  status,
+  oldValue: status === "changed" || status === "no_change" ? mark : null,
+  newValue: status === "changed" ? newValue : status === "no_change" ? mark : null,
+  createdAt: `${day}T09:00:00+05:30`,
+  teacherName,
+  teacherPhone: "9000000000",
+  locked: false,
+});
+
+const resultsProps: ResultsProps = {
+  view: "pipeline",
+  isAdmin: false,
+  canFinalise: true,
+  canReopen: false,
+  fromName: "Mr. Hemant Trivedi",
+  exam: {
+    id: "exam-hy",
+    term: "half_yearly",
+    name: { en: "Half-yearly", hi: "अर्धवार्षिक" },
+    dates: "23 Sep – 3 Oct",
+    sessionLabel: "2026–27",
+    prevName: { en: "Unit Test 1", hi: "यूनिट टेस्ट 1" },
+    marksDue: "Wed 14 Oct",
+    daysToDue: 6,
+    resultsOn: "2026-10-17",
+    resultsLabel: "Sat 17 Oct",
+    daysToResults: 9,
+    ptmAt: "10:00",
+    publishAt: null,
+    publishedAt: null,
+    ptm: true,
+  },
+  overall: { entered: 1802, total: 2654, percent: 68, done: 41, papers: 96 },
+  teachers: lateTeachers,
+  states: { entered: "active", checked: "can_start", grace: "can_start", locked: "can_start", cards: "waiting", published: "waiting" },
+  classes: resultsClasses,
+  childrenTotal: 434,
+  unusualCount: 2,
+  unusualOpen: 2,
+  moderation: {
+    classId: "k-8",
+    completeClasses: [
+      { id: "k-8", label: "Class 8", unusual: 1 },
+      { id: "k-10", label: "Class 10", unusual: 1 },
+      { id: "k-1", label: "Class 1", unusual: 0 },
+      { id: "k-nur", label: "Nursery", unusual: 0 },
+    ],
+    still: 15,
+    flagged: [
+      { paperId: "m-maths", classId: "k-8", classLabel: "Class 8", subjectCode: "Maths", avgPct: 53, baseline: 71, delta: -18, basis: "previous", teacherName: "Mr. Joshi" },
+      { paperId: "m-sci10", classId: "k-10", classLabel: "Class 10", subjectCode: "Science", avgPct: 69, baseline: 48, delta: 21, basis: "previous", teacherName: "Mr. Meena" },
+    ],
+    papers: [
+      modPaper("m-maths", "Maths", "Mr. Joshi", 53, 71, { unusual: true, below: 1, highest: 78, spread: [0, 0, 0, 4, 6, 5, 7, 2, 2, 2] }),
+      modPaper("m-eng", "English", "Ms. Singh", 64, 66),
+      modPaper("m-hin", "Hindi", "Ms. Sukhwal", 70, 68),
+      modPaper("m-sci", "Science", "Ms. Bhati", 61, 63),
+      modPaper("m-sst", "Social Sci.", "Mr. Choudhary", 58, 60),
+      modPaper("m-san", "Sanskrit", "Mr. Solanki", 72, 70),
+      modPaper("m-cmp", "Computer", "Ms. Agarwal", 81, 78),
+    ],
+  },
+  grace: {
+    max: 3,
+    subjects: 1,
+    open: 11,
+    rows: [
+      graceRow("g1", "Harsh Vyas", "Class 8", 80, [["Maths", 26]], true),
+      graceRow("g2", "Manvi Joshi", "Class 4", 100, [["English", 32]], true),
+      graceRow("g3", "Yash Mehta", "Class 9", 80, [["Science", 26]], true),
+      graceRow("g4", "Kunal Verma", "Class 4", 100, [["Maths", 31]], true),
+      graceRow("g5", "Neha Joshi", "Class 8", 80, [["Maths", 25]], true),
+      graceRow("g6", "Sneha Bhati", "Class 9", 80, [["Maths", 25]], true),
+      graceRow("g7", "Dev Rathore", "11 Science", 80, [["Chemistry", 25]], true),
+      graceRow("g8", "Om Regar", "Class 6", 80, [["Science", 24]], true),
+      graceRow("g9", "Prisha Agarwal", "Class 8", 80, [["Sanskrit", 24]], true),
+      graceRow("g10", "Rudra Singh", "Class 3", 100, [["EVS", 30]], true),
+      graceRow("g11", "Aditi Jain", "Class 10", 80, [["Social Sci.", 24]], true),
+      graceRow("g12", "Ritika Purohit", "Class 5", 100, [["Maths", 31], ["Hindi", 32]], false),
+      graceRow("g13", "Nidhi Chouhan", "Class 7", 80, [["Hindi", 23]], false),
+      graceRow("g14", "Arjun Rawal", "Class 3", 100, [["Maths", 28]], false),
+      graceRow("g15", "Vivaan Trivedi", "12 Science", 80, [["Physics", 22]], false),
+    ],
+  },
+  cards: {
+    issuedTotal: 0,
+    sample: {
+      studentId: "s-aarti",
+      name: "Aarti Kumawat",
+      classLabel: "Class 10",
+      issued: true,
+      rows: [
+        { subject: "English", scored: 62, outOf: 80, grade: "B1", grace: 0 },
+        { subject: "Hindi", scored: 68, outOf: 80, grade: "A2", grace: 0 },
+        { subject: "Maths", scored: 59, outOf: 80, grade: "B1", grace: 0 },
+        { subject: "Science", scored: 71, outOf: 80, grade: "A2", grace: 0 },
+        { subject: "Social Sci.", scored: 58, outOf: 80, grade: "B1", grace: 0 },
+        { subject: "Sanskrit", scored: 74, outOf: 80, grade: "A2", grace: 0 },
+      ],
+      total: 392,
+      outOf: 480,
+      percent: 81.7,
+      grade: "A2",
+      passed: true,
+    },
+  },
+  rechecks: [
+    recheck("rq1", "Mohit Agarwal", "Class 9", "Science", "Mr. Meena", 31, "Q4 answer matches the book but got 0", "Father, Mahesh Agarwal · WhatsApp", "2026-10-06", "new"),
+    recheck("rq2", "Neha Joshi", "Class 8", "Maths", "Mr. Joshi", 25, "Total looks short by 2 marks", "Father, Prakash Joshi · at the office", "2026-10-07", "with_teacher"),
+    recheck("rq3", "Aarti Kumawat", "Class 10", "English", "Ms. Dadhich", 58, "Page 3 was not checked", "Mother, Sunita Kumawat · WhatsApp", "2026-10-05", "changed", 60),
+    recheck("rq4", "Riya Singh", "Class 6", "Social Sci.", "Mr. Choudhary", 40, "Map question marked 0", "Through class teacher Ms. Bhati", "2026-10-08", "new"),
+    recheck("rq5", "Pooja Mehta", "11 Commerce", "Accountancy", "Mr. Purohit", 61, "Wants to see the answer sheet", "Father, Dinesh Mehta · WhatsApp", "2026-10-03", "no_change"),
+  ],
+  paperChoices: [{ id: "p-rq1", classId: "k-9", label: "Class 9 · Science" }],
+  rollChoices: { "k-9": [{ id: "s-rq1", name: "Mohit Agarwal", roll: "14" }] },
+  recheckId: null,
+  actions: {
+    moderate: ok,
+    saveGraceRule: ok,
+    giveGrace: ok,
+    removeGrace: ok,
+    lock: ok,
+    unlock: ok,
+    issueClass: ok,
+    publish: ok,
+    addRecheck: ok,
+    recheckWithTeacher: ok,
+    resolveRecheck: ok,
+    remind: ok,
+  },
+};
+
+/** Report cards: three classes locked and issued, the rest drafts. */
+const cardsPatch: Partial<ResultsProps> = {
+  classes: resultsClasses.map((c) => (["k-nur", "k-1", "k-8"].includes(c.id) ? { ...c, locked: true, issued: c.children, unusualOpen: 0 } : c)),
+  cards: { ...resultsProps.cards, issuedTotal: 69 },
+  states: { ...resultsProps.states, locked: "active" },
+};
+
+const resultsView = (patch: Partial<ResultsProps>): DesignView => ({ menu: "exam", path: "/exam-office/results", render: () => <ResultsBoard {...resultsProps} {...patch} /> });
+
 export const examViews: Record<string, DesignView> = {
+  ExamResults: resultsView({}),
+  "DX-ExamResults-Moderation": resultsView({ view: "moderation" }),
+  "DX-ExamResults-Grace": resultsView({ view: "grace" }),
+  "DX-ExamResults-Cards": resultsView({ view: "cards", ...cardsPatch }),
+  "DX-ExamResults-Recheck": resultsView({ view: "recheck", recheckId: "rq1" }),
+  "M-ExamResults": resultsView({}),
+  "M-ExamResults-Moderation": resultsView({ view: "moderation" }),
+  "M-ExamResults-Lock": resultsView({ view: "lock" }),
+  "M-ExamResults-Publish": resultsView({ view: "publish" }),
+  "M-ExamResults-Recheck": resultsView({ view: "recheck", recheckId: "rq1" }),
+
   ExamPlan: plan({}),
   "DX-ExamPlan-Clash": plan({ view: "clash" }),
   "DX-ExamPlan-Room": plan({ view: "room", ...seatedRoom }),
