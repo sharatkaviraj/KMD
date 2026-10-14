@@ -127,6 +127,8 @@ const CSS = `
 .vx .td-bar:hover .fill{filter:brightness(1.3)}
 .vx .td-bar .tip{position:absolute;left:50%;transform:translate(-50%,6px);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;background:var(--tbg);color:var(--tfg);font-size:12px;font-weight:600;padding:6px 9px;border-radius:9px;white-space:nowrap;z-index:3;box-shadow:var(--sh)}
 .vx .td-bar:hover .tip{opacity:1;transform:translate(-50%,0)}
+.vx .td-bar.end .tip{left:auto;right:0;transform:translate(0,6px)}
+.vx .td-bar.end:hover .tip{transform:none}
 .vx .td-donut .seg{transition:stroke-width .2s var(--ease),opacity .2s ease}
 .vx .td-donut:hover .seg{opacity:.4}
 .vx .td-donut .seg:hover{opacity:1;stroke-width:24}
@@ -909,7 +911,8 @@ function MoneyTaken({ money, today }: { money: TodayMoneyView; today: string }) 
           {chart.bars.map((b, i) => {
             const tip = `${b.day} · ${b.amount > 0 ? rupees(b.amount) : b.sunday ? tx(TD.sunday) : tx(TD.nothingTaken)}`;
             return (
-              <div key={b.date} role="listitem" aria-label={tip} className="td-bar">
+              // The last bars' tips open leftwards, so none runs past the card's edge.
+              <div key={b.date} role="listitem" aria-label={tip} className={i >= chart.bars.length - 3 ? "td-bar end" : "td-bar"}>
                 <span className="tip" style={{ bottom: `calc(${b.height}% + 8px)` }}>{tip}</span>
                 <span className="fill" style={{ height: `${b.height}%`, background: b.isToday ? "var(--acc)" : b.amount > 0 ? "var(--pri)" : "var(--s3)", animationDelay: `${i * 18}ms` }} />
               </div>
