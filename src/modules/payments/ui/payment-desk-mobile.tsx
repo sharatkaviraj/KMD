@@ -97,6 +97,7 @@ import { PaymentDraftStatus } from "@/ui/payment-draft-status";
 import { buildPaymentDraftKey, clearDraft, loadDraft, saveDraft, type PaymentDraftValue } from "@/modules/payments/domain/draft-store";
 import { normalizeAmountInputShorthand, sanitizeDecimalInput } from "@/modules/payments/domain/payment-desk-client-helpers";
 import { getOfficeMetricSessionKind, recordOfficeMetric } from "@/platform/telemetry/office-telemetry";
+import { COUNTER_CONCESSION } from "@/modules/payments/vx/domain/desk";
 import {
   markPaymentDeskStudentTiming,
   recordPaymentPostResult,
@@ -494,7 +495,9 @@ export function PaymentDeskClient({
   // decision, not a counter decision. Zero them here so the desk cannot offer
   // what the server will reject.
   const concessionsLocked = Boolean(activeRepaymentPlan);
-  const quickDiscountAmount = concessionsLocked ? 0 : Number(quickDiscountInput) || 0;
+  // The counter concession is off on both desks (school-day run, accountant
+  // B1): it never reached the balance. The server refuses one as well.
+  const quickDiscountAmount = COUNTER_CONCESSION;
   const pendingLateFeeAmount = calculatePendingLateFeeAmount(previewBreakdown);
   const quickLateFeeWaiverAmount = concessionsLocked || !waiveFullLateFee ? 0 : pendingLateFeeAmount;
   const quickLateFeeWaiverInput = quickLateFeeWaiverAmount > 0 ? String(quickLateFeeWaiverAmount) : "";
@@ -2672,7 +2675,7 @@ export function PaymentDeskClient({
 
 
 
-                <div className={cn("border-b border-border px-3 py-2", concessionsLocked && "hidden")}>
+                <div className={cn("border-b border-border px-3 py-2", (concessionsLocked || COUNTER_CONCESSION === 0) && "hidden")}>
                   <details className="group">
                     <summary className="cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground">
                       <span className="group-open:hidden">+ Additional discount / concession</span>
@@ -3095,7 +3098,7 @@ export function PaymentDeskClient({
                       </p>
                     )}
                   </div>
-                  <div className={cn(concessionsLocked && "hidden")}>
+                  <div className={cn((concessionsLocked || COUNTER_CONCESSION === 0) && "hidden")}>
                     <Label htmlFor="quick-discount-amount">Additional discount / concession</Label>
                     <Input
                       id="quick-discount-amount"

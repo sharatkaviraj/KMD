@@ -16,6 +16,7 @@ import {
   type DeskPostInput,
 } from "@/app/(app)/payments/actions";
 import {
+  COUNTER_CONCESSION,
   deskChips,
   deskProblems,
   deskTotals,
@@ -304,7 +305,9 @@ export function PaymentDesk({
   /* ---------- derived ---------- */
   const paymentDate = form.dateMode === "today" ? today : form.dateMode === "yesterday" ? shiftDay(today, -1) : form.otherDate;
   const amount = parseAmountInput(form.amount);
-  const concession = student?.onPlan ? 0 : parseAmountInput(form.concession);
+  // The counter concession is off (accountant B1, see COUNTER_CONCESSION). It
+  // stays a value so the walk and the review sheet read exactly as before.
+  const concession = COUNTER_CONCESSION;
   const dateReady = paymentDate === today || (datePreview?.studentId === student?.id && datePreview?.date === paymentDate);
   const dateFailed = dateError === `${student?.id}|${paymentDate}`;
   const rows = useMemo(() => orderForSettlement(datePreview?.studentId === student?.id && datePreview?.date === paymentDate ? datePreview.rows : student?.rows ?? []), [student, datePreview, paymentDate]);
@@ -839,7 +842,6 @@ export function PaymentDesk({
     : `${form.dateMode === "today" ? `${tx(W.today)} · ${shortDate(paymentDate)}` : `${shortDate(paymentDate)}${tx(form.dateMode === "yesterday" ? W.yesterdayTag : W.backDated)}`}${paymentDate !== today ? tx(W.lateWorkedOut) : ""}`;
   const amountShown = Number.isSafeInteger(amount) && amount > 0 && /^[\d,\s]+$/.test(form.amount.trim()) ? amount.toLocaleString("en-IN") : form.amount;
   const amountBad = Boolean(show("amount") || show("over"));
-  const concessionBad = !Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0);
 
   const formCards = student ? (
     <div className="pd-col">
@@ -957,12 +959,10 @@ export function PaymentDesk({
           <span>{tx(W.notes)}</span>
           <textarea className="inp" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder={tx(W.notesPh)} style={{ minHeight: 64 }} />
         </label>
-        <label className="field">
+        <div className="field" id="pd-concession-off">
           <span>{tx(W.concession)}</span>
-          <input id="pd-concession" className={`inp num${concessionBad ? " err" : ""}`} inputMode="numeric" value={form.concession} disabled={student.onPlan || !canAct} onChange={(e) => set({ concession: e.target.value })} placeholder="0" />
-          <span className="pd-m">{tx(W.concessionHint)}</span>
-          {concessionBad ? <span role="alert" style={{ color: "var(--bad)", fontSize: 13, fontWeight: 600 }}>{tx(W.concessionInvalid)}</span> : null}
-        </label>
+          <span className="pd-m">{tx(W.concessionOff)}</span>
+        </div>
         <div className="pd-bx pd-by" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <span className="pd-av" style={{ width: 32, height: 32, borderRadius: 16, fontSize: 11, background: "var(--okm)", color: "var(--ok)" }}>{initials(form.receivedBy || boot.me.name)}</span>
           <span className="pd-c" style={{ flex: 1 }}>

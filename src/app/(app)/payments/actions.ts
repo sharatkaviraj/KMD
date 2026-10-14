@@ -30,7 +30,7 @@ import { PAYMENT_IMPORT_COMMIT_CHUNK_SIZE, type PaymentImportBatchSummary } from
 import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/types";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent, loadDeskPreview, loadDeskTodayCollection } from "@/modules/payments/vx/data";
-import type { DeskMode } from "@/modules/payments/vx/domain/desk";
+import { counterConcessionRefusal, type DeskMode } from "@/modules/payments/vx/domain/desk";
 import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
 import { revalidateAfterPaymentPosting } from "@/modules/system-sync/data/finance-revalidation";
 import { revalidateSessionFinance } from "@/modules/system-sync/domain/finance-sync";
@@ -113,8 +113,12 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
   if (!Number.isSafeInteger(input.amount) || input.amount <= 0 || !Number.isSafeInteger(input.quickDiscountAmount ?? 0) || (input.quickDiscountAmount ?? 0) < 0 || !Number.isSafeInteger(input.lateFeeWaiver) || input.lateFeeWaiver < 0) {
     return { status: "error", message: "Enter whole rupee amounts." };
   }
+  // The counter concession is refused, never silently dropped: a cashier who
+  // somehow sent one must not post a receipt the parent thinks was discounted.
+  const concessionRefusal = counterConcessionRefusal(input.quickDiscountAmount);
+  if (concessionRefusal) return { status: "error", message: concessionRefusal };
   fd.set("paymentAmount", String(input.amount));
-  fd.set("quickDiscountAmount", String(input.quickDiscountAmount ?? 0));
+  fd.set("quickDiscountAmount", "0");
   fd.set("quickLateFeeWaiverAmount", String(input.lateFeeWaiver));
   fd.set("referenceNumber", input.reference);
   fd.set("receivedBy", input.receivedBy);

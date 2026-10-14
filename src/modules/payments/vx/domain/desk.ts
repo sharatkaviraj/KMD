@@ -204,6 +204,29 @@ export type PaymentWalk = {
 };
 
 /**
+ * The counter concession is switched off at the desk (school-day run,
+ * accountant B1). `post_student_payment_with_adjustments` writes it to
+ * `receipt_adjustments` (type `discount`), but the balance view
+ * `v_workbook_installment_balances` reads `payment_adjustments` and never
+ * `receipt_adjustments`: the concession printed on the receipt and the family
+ * was asked for the same money again. The fee views may not be altered from
+ * here, so the desk takes no concession; a student's discount is set by the
+ * admin on the student's fee record, which the balance does read.
+ *
+ * The late-fee waiver is a different path (`waive_late_fee` →
+ * `student_late_fee_waivers` → `v_effective_late_fee_waivers`), which the
+ * balance view does read, so it stays.
+ */
+export const COUNTER_CONCESSION: number = 0;
+
+/** The server's refusal of a concession, or null when none was asked for. */
+export function counterConcessionRefusal(amount: number | null | undefined): string | null {
+  const asked = Number(amount ?? 0);
+  if (asked === 0) return null;
+  return "A concession cannot be given at the Payment Desk: it printed on the receipt but did not lower the dues. Nothing was posted. Ask the admin to set the student's discount on the student's fee record.";
+}
+
+/**
  * Where `amount` goes, oldest first, the way the pooled settlement will read
  * it once posted. `paymentDate` is the date the parent paid (back-dating is
  * allowed); `today` decides what counts as pending today afterwards.
@@ -454,15 +477,42 @@ export function maskPhone(phone: string | null | undefined): string {
   return `${digits.slice(0, 5)} ••${digits.slice(-3)}`;
 }
 
-/** Search the class list by name, SR no., father's name, or the phone's last digits (3+). */
+/**
+ * A spelling-tolerant key for a Latin-script name: no "h", no vowels, no
+ * doubled letters, w→v and z→j. Parikhya and Parikya, Namoona and Namuna,
+ * Tanmay and Tanmy all come out the same (accountant B9).
+ */
+export function nameSkeleton(word: string): string {
+  return word.toLowerCase().replace(/h/g, "").replace(/w/g, "v").replace(/z/g, "j").replace(/[aeiou]/g, "").replace(/(.)\1+/g, "$1");
+}
+
+/**
+ * Search the class list by name, SR no., father's name, class, or the phone's
+ * last digits (3+). Repeated spaces count as one. When the query is not found
+ * as typed, every word must be found somewhere — "tanmay hukam" is the child
+ * and the father — and a name word of four letters or more also matches by
+ * its spelling-tolerant skeleton (accountant B9).
+ */
 export function matchesDeskSearch(
   student: { name: string; sr: string; father: string | null; classLabel: string; phone: string | null },
   query: string,
 ): boolean {
-  const q = query.trim().toLowerCase();
+  const q = query.trim().toLowerCase().replace(/\s+/g, " ");
   if (!q) return true;
-  const hay = `${student.name} ${student.father ?? ""} ${student.classLabel} sr ${student.sr}`.toLowerCase();
+  const hay = `${student.name} ${student.father ?? ""} ${student.classLabel} sr ${student.sr}`.toLowerCase().replace(/\s+/g, " ");
   if (hay.includes(q)) return true;
-  const digits = q.replace(/\D/g, "");
-  return digits.length >= 3 && digits.length === q.replace(/\s/g, "").length && String(student.phone ?? "").replace(/\D/g, "").includes(digits);
+  const phone = String(student.phone ?? "").replace(/\D/g, "");
+  // A phone typed with spaces ("99999 60767") is one number, not two words.
+  if (/^[\d\s+-]+$/.test(q)) {
+    const digits = q.replace(/\D/g, "");
+    return digits.length >= 3 && phone.includes(digits);
+  }
+  const skeletons = hay.split(" ").filter(Boolean).map(nameSkeleton);
+  return q.split(" ").every((word) => {
+    if (hay.includes(word)) return true;
+    if (/^\d+$/.test(word)) return word.length >= 3 && phone.includes(word);
+    if (word.length < 4 || !/^[a-z]+$/.test(word)) return false;
+    const key = nameSkeleton(word);
+    return key.length >= 3 && skeletons.some((t) => t.startsWith(key));
+  });
 }
