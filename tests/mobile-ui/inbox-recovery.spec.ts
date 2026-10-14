@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { T } from "../../src/vx/screens/admin/text";
 test.setTimeout(60_000);
 
-async function decide(page: Page, width: number, locale: string) {
-  if (width < 899) await page.getByRole("button", { name: /Synthetic submission/ }).click();
+// A phone draws each item as a card with its actions on it (F02); a desk shows the selected item beside the list (D03).
+async function decide(page: Page, locale: string) {
   await page.getByRole("button", { name: locale === "hi" ? T.accept.hi! : T.accept.en, exact: true }).click();
 }
 const keys = (page: Page) => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("vppsone:inbox:")));
@@ -15,7 +15,7 @@ for (const width of [390, 1440]) for (const locale of ["en", "hi", "hi-en"]) {
       await route.fulfill({ status: acknowledge ? 200 : 503, contentType: "application/json", body: JSON.stringify({ ok: acknowledge }) });
     });
     await page.setViewportSize({ width, height: 900 });
-    await page.goto(`/?view=inbox&locale=${locale}`); await decide(page, width, locale);
+    await page.goto(`/?view=inbox&locale=${locale}`); await decide(page, locale);
     await expect.poll(() => keys(page)).toHaveLength(1);
     const saved = await page.evaluate(() => localStorage.getItem(Object.keys(localStorage).find(k => k.startsWith("vppsone:inbox:"))!)!);
     expect(saved).not.toContain("Synthetic child");
@@ -39,7 +39,7 @@ test("Undo in another tab restores the visible item and prevents sending", async
   await other.clock.install({ time: new Date("2026-10-11T00:00:00Z") });
   await other.clock.pauseAt(new Date("2026-10-11T00:00:01Z"));
   await other.goto("/?view=inbox");
-  await decide(page, 1440, "en"); await expect.poll(() => keys(page)).toHaveLength(1);
+  await decide(page, "en"); await expect.poll(() => keys(page)).toHaveLength(1);
   await other.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("vppsone:inbox:")) localStorage.removeItem(k); });
   await expect(page.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
   await page.clock.runFor(6200); await other.clock.runFor(6200); expect(sends).toBe(0);

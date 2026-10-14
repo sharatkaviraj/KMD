@@ -105,6 +105,16 @@ export function filterBoard(rows: readonly ClassBoardRow[], filter: BoardFilter)
 }
 
 /**
+ * The class the board's desk panel opens on when nobody has picked one: the
+ * first class still not marked whose teacher is away, since only the office
+ * can mark it (design D04 opens on Class 9, "teacher on leave"). None when
+ * every such class is marked; the panel then asks for a class.
+ */
+export function defaultBoardFocus(rows: readonly ClassBoardRow[]): string | null {
+  return sortBoard(rows).find((row) => !row.recorded && row.teacherAway)?.classId ?? null;
+}
+
+/**
  * The marks a sheet opens with. A saved register opens as it was saved; a new
  * one opens with **everyone present** and the person taps the exceptions
  * (RULES C).
