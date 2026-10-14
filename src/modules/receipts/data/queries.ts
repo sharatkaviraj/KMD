@@ -466,6 +466,13 @@ export async function getReceiptsPage(
   pagination: { page: number; pageSize: number },
   sessionLabel: string,
   filters?: ReceiptPageFilters,
+  /**
+   * The client to read with. The cookie client by default; the VPPS One
+   * Receipts screen passes the service-role client after its own permission
+   * check, because fee RLS keys on `public.users.role` and an office account
+   * without that row read ₹0 with no error (school-day run, accountant B4).
+   */
+  client?: ReceiptDataClient,
 ): Promise<{
   receipts: ReceiptListItem[];
   totalCount: number;
@@ -474,7 +481,7 @@ export async function getReceiptsPage(
   aggregate: ReceiptPageAggregate;
   facets?: ReceiptPageFacets;
 }> {
-  const supabase = await createClient();
+  const supabase = (client ?? (await createClient())) as Awaited<ReturnType<typeof createClient>>;
   const page = Math.max(1, Math.floor(pagination.page));
   const pageSize = Math.min(100, Math.max(1, Math.floor(pagination.pageSize)));
   const from = (page - 1) * pageSize;
