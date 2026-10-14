@@ -55,4 +55,57 @@ export const TD = {
 
   /* -------------------------------------------------------------- money */
   financeToday: p("Fees today", "आज की फ़ीस"),
+
+  /* ------------------------------------------- the design's frames (F01, Desktop) */
+  searchEverything: p("Search everything", "सब कुछ खोजें"),
+  searchPlaceholder: p("Search students, receipts, pages…", "विद्यार्थी, रसीदें, पेज खोजें…"),
+  account: p("Your account and settings", "आपका खाता और सेटिंग्स"),
+  newMenu: p("New", "नया"),
+  sessionLine: (role: Pair, session: string): Pair => p(`${role.en} · Session ${session}`, `${role.hi ?? role.en} · सत्र ${session}`),
+  feesCollectedToday: p("Fees collected today", "आज जमा फ़ीस"),
+  otherModes: p("Other", "अन्य"),
+  receiptsLine: (n: number): Pair => p(`${n} receipt${n === 1 ? "" : "s"}`, `${n} रसीद`),
+  callsSub: (promised: number | null): Pair =>
+    promised === null ? p("Pending fees, oldest first", "बकाया फ़ीस, सबसे पुरानी पहले") : p(`Pending fees, oldest first · ${promised} promised today`, `बकाया फ़ीस, सबसे पुरानी पहले · आज ${promised} का वादा`),
+  promisedToPay: (n: number): Pair => p(`${n} promised to pay today`, `आज ${n} ने देने का वादा किया`),
+  classesNotMarked: (n: number): Pair => p(`${n} class${n === 1 ? "" : "es"} not marked`, `${n} कक्षाएँ दर्ज नहीं`),
+  feesCollected: p("Fees collected", "जमा फ़ीस"),
+  shouldBeByToday: (n: number): Pair => p(`Should be ${n}% by today`, `आज तक ${n}% होना चाहिए`),
+  catchUp: (perDay: string, days: number, month: Pair): Pair =>
+    p(`Clearing ${perDay} a day for the remaining ${days} days of ${month.en} closes this gap.`, `${month.hi ?? month.en} के बाकी ${days} दिनों में रोज़ ${perDay} आने से यह अंतर पूरा होगा।`),
+  attendanceThisWeek: p("Attendance this week", "इस हफ़्ते की हाज़िरी"),
+  presentShare: p("present %", "उपस्थित %"),
+  avgPill: (v: string): Pair => p(`avg ${v}`, `औसत ${v}`),
+  nothingTaken: p("nothing taken", "कुछ जमा नहीं"),
+  sunday: p("Sunday", "रविवार"),
+  howTheyPaySub: p("Today · hover a slice", "आज · हिस्से पर रुकें"),
+  oldBalance: p("Old", "पुराना"),
+  total: p("Total", "कुल"),
+  nothingPastDue: p("No installment is past its due date yet.", "अभी कोई किस्त अपनी तारीख़ से आगे नहीं गई।"),
+  allClearRail: p("All clear — nothing is waiting on you.", "सब ठीक है — आपके लिए कुछ बाकी नहीं।"),
+  allClearSub: p("Nothing is waiting on you right now.", "अभी आपके लिए कुछ बाकी नहीं।"),
+  feesUnavailable: p("Fee figures could not be read. Refresh to try again.", "फ़ीस के आँकड़े पढ़े नहीं जा सके। दोबारा कोशिश करें।"),
+  weekday: [p("Sun", "रवि"), p("Mon", "सोम"), p("Tue", "मंगल"), p("Wed", "बुध"), p("Thu", "गुरु"), p("Fri", "शुक्र"), p("Sat", "शनि")] as readonly Pair[],
+  month: [
+    p("January", "जनवरी"), p("February", "फ़रवरी"), p("March", "मार्च"), p("April", "अप्रैल"), p("May", "मई"), p("June", "जून"),
+    p("July", "जुलाई"), p("August", "अगस्त"), p("September", "सितंबर"), p("October", "अक्टूबर"), p("November", "नवंबर"), p("December", "दिसंबर"),
+  ] as readonly Pair[],
+  /** The design's names for the quick actions on a phone (the "+ New" menu keeps the full names). */
+  quickShort: { mark: p("Attendance", "हाज़िरी") } as Partial<Record<string, Pair>>,
+  /** What each "+ New" item opens, under its name (Desktop.dc.html `newItems`). */
+  quickSub: {
+    collect: p("Opens the Payment Desk", "फ़ीस काउंटर खुलता है"),
+    mark: p("Any class, today", "कोई भी कक्षा, आज"),
+    notice: p("WhatsApp to parents or staff", "अभिभावकों या स्टाफ़ को WhatsApp"),
+    admit: p("New admission", "नया प्रवेश"),
+    cover: p("Cover an absent teacher", "अनुपस्थित शिक्षक की व्यवस्था"),
+    note: p("A note on a child", "किसी बच्चे पर नोट"),
+  } as Partial<Record<string, Pair>>,
+  modeName: {
+    upi: p("UPI", "UPI"),
+    cash: p("Cash", "नकद"),
+    cheque: p("Cheque", "चेक"),
+    bank_transfer: p("Bank transfer", "बैंक ट्रांसफ़र"),
+    card: p("Card", "कार्ड"),
+  },
 };

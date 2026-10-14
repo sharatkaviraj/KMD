@@ -171,7 +171,8 @@ test('read-only role preview cannot reserve or retry a cover command', async ({ 
 
 test('Hindi cover recovery displays translated controls', async ({ page }) => {
   await page.goto('/?role=academic&view=subs&day=2026-11-03&uncertain=landed&lang=hi');
-  await page.getByRole('button', { name: 'Release', exact: true }).tap();
+  // Release is a pair now (rule 9): in Hindi it reads छोड़ें.
+  await page.getByRole('button', { name: 'छोड़ें', exact: true }).tap();
   await expect(page.getByRole('button', { name: '\u0938\u0941\u0930\u0915\u094d\u0937\u093f\u0924 \u092a\u0930\u093f\u0923\u093e\u092e \u091c\u093e\u0901\u091a\u0947\u0902', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Check saved result', exact: true })).toHaveCount(0);
 });

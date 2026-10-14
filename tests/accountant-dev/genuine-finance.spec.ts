@@ -115,14 +115,14 @@ test("genuine UI accountant tagged bookkeeping receipts, reconciliation and sing
       }
       await page.getByLabel("Notes (optional)", { exact: true }).fill(`${payment.marker}; synthetic bookkeeping only; no transfer or send`);
       expect(await receipts()).toHaveLength(index);
-      await page.getByRole("button", { name: "Review payment", exact: true }).tap();
+      await page.getByRole("button", { name: "Review & save", exact: true }).tap();
       await expect(page.getByRole("heading", { name: "Review this payment", exact: true })).toBeVisible();
       expect(await receipts()).toHaveLength(index);
       await page.getByRole("button", { name: /^Back\s*[\u2014\u2013-]\s*change something$/ }).tap();
       await expect(page.locator("#pd-amount")).toHaveValue(String(payment.amount));
-      await page.getByRole("button", { name: "Review payment", exact: true }).tap();
+      await page.getByRole("button", { name: "Review & save", exact: true }).tap();
       audit(`before-ui-save-${index + 1}`, { receipts: await receipts(), nextPayment: payment });
-      await page.getByRole("button", { name: /Confirm and save payment/ }).tap();
+      await page.getByRole("button", { name: /^Save payment/ }).tap();
       await expect.poll(async () => (await receipts()).filter(r => r.notes?.includes(payment.marker)).length, { timeout: 60_000 }).toBe(1);
       const written = await receipts(); expect(written).toHaveLength(index + 1);
       row = written.find(r => r.notes?.includes(payment.marker))!;

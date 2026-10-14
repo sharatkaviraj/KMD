@@ -25,16 +25,26 @@ async function open(page: Page, width: number, query = "") {
   await page.setViewportSize({ width, height: 844 });
   await page.goto(`/${query}`, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#pd-amount")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Review payment" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
   expect((await snapshot(page)).effects).toHaveLength(0);
 }
+type Balance = { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number };
+/** The design's receipt freezes the balance after it, part by part (RULES B keeps the late fee apart). */
+async function expectBalanceAfter(page: Page, balance: Balance) {
+  const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+  const card = page.getByRole("article", { name: /^FEE RECEIPT / });
+  await expect(card.getByText(/^Balance after this receipt/)).toBeVisible();
+  await expect(card).toContainText(`Fees pending today${inr(balance.pendingToday)}`);
+  await expect(card).toContainText(`Not due yet${inr(balance.notDueYet)}`);
+  await expect(card).toContainText(`Late fee (separate)${inr(balance.lateFee)}`);
+}
 async function review(page: Page) {
-  await page.getByRole("button", { name: "Review payment" }).tap();
-  await expect(page.locator("#pd-review-title")).toBeVisible();
+  await page.getByRole("button", { name: "Review & save", exact: true }).tap();
+  await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toBeVisible();
   expect((await snapshot(page)).effects).toHaveLength(0);
 }
 async function save(page: Page) {
-  await page.getByRole("button", { name: /Confirm and save payment/ }).tap();
+  await page.getByRole("button", { name: /^Save payment/ }).tap();
   await expect(page.getByText(/^FOLLOWUP-/).first()).toBeVisible();
   const state = await snapshot(page);
   expect(state.effects).toHaveLength(1);
@@ -64,7 +74,7 @@ for (const width of [360, 390, 412]) {
       await open(page, width);
       await expect(page.getByRole("radio", { name: "Waive", exact: true })).toHaveCount(0);
       await page.locator("#pd-amount").fill("500");
-      await page.getByRole("radio", { name: mode === "Bank transfer" ? "Bank" : mode, exact: true }).tap();
+      await page.getByRole("radio", { name: mode, exact: true }).tap();
       const reference = mode === "UPI" ? "202610119901" : mode === "Bank transfer" ? "UTR OPS 20261011" : mode === "Cheque" ? "123456" : "";
       if (mode === "UPI") await page.getByLabel("UPI ref no. (optional)", { exact: true }).fill(reference);
       if (mode === "Bank transfer") await page.getByLabel("UTR no. (optional)", { exact: true }).fill("  UTR   OPS 20261011  ");
@@ -79,7 +89,7 @@ for (const width of [360, 390, 412]) {
       if (reference) await expect(page.getByText(reference, { exact: false }).filter({ visible: true }).first()).toBeVisible();
       if (mode === "Cheque") {
         expect(effect.input.remarks).toContain("Synthetic bank, dated 2026-10-10; subject to clearing.");
-        await settledTap(page.locator("summary").filter({ hasText: "Receipt details and remaining dues" }));
+        // The design's receipt is drawn in full; nothing is folded away.
         await expect(page.getByText(/Subject to clearing/).filter({ visible: true }).first()).toBeVisible();
       }
       await expect(page.getByRole("button", { name: /Remove this entry/ })).toHaveCount(0);
@@ -92,9 +102,9 @@ for (const width of [360, 390, 412]) {
     await page.locator("#pd-amount").fill("3500");
     await page.locator("#pd-concession").fill("200");
     await page.getByRole("radio", { name: "Waive", exact: true }).tap();
-    await page.getByRole("button", { name: "Review payment" }).tap();
-    await expect(page.getByText("Pick a reason for the waiver", { exact: true })).toBeVisible();
-    await expect(page.locator("#pd-review-title")).toHaveCount(0);
+    await page.getByRole("button", { name: "Review & save", exact: true }).tap();
+    await expect(page.getByText("Pick a reason for the waiver", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toHaveCount(0);
     expect((await snapshot(page)).effects).toHaveLength(0);
     await page.getByRole("button", { name: "Family hardship", exact: true }).tap();
     await page.getByPlaceholder("Note (optional)", { exact: true }).fill("Synthetic follow-up waiver");
@@ -105,14 +115,17 @@ for (const width of [360, 390, 412]) {
     expect(effect.input.remarks).toContain("Family hardship (Synthetic follow-up waiver)");
     expect(effect.receipt.lines).toEqual([{ label: "Installment 1", amount: 1800 }, { label: "Installment 2", amount: 1700 }]);
     expect(effect.receipt.outstandingAfter).toBe(300);
-    await expect(page.getByText("Balance now ₹300", { exact: true })).toBeVisible();
+    await expectBalanceAfter(page, effect.balance);
   });
   test(`${width}px EMI suggestions preserve custom collection and restricted adjustments`, async ({ page }) => {
     await open(page, width, "?role=admin&emi");
-    await expect(page.locator("#pd-amount")).toHaveValue("1400");
+    // The amount box starts empty (RULES B, UI-79): the plan's chips fill it,
+    // grouped as the design draws it (₹1,400).
+    await expect(page.locator("#pd-amount")).toHaveValue("");
+    await page.getByRole("button", { name: /^Catch up/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("1,400");
     await page.getByRole("button", { name: /^Monthly EMI/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("700");
-    await page.getByRole("button", { name: /^Full plan balance/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("4000");
-    await page.getByRole("button", { name: /^Catch up/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("1400");
+    await page.getByRole("button", { name: /^Full plan balance/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("4,000");
+    await page.getByRole("button", { name: /^Catch up/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("1,400");
     await expect(page.locator("#pd-concession")).toBeDisabled();
     await expect(page.getByRole("radio", { name: "Waive", exact: true })).toHaveCount(0);
     await page.locator("#pd-amount").fill("850");
@@ -127,36 +140,37 @@ for (const width of [360, 390, 412]) {
     const date = page.getByLabel("Date the parent paid", { exact: true });
     for (const invalid of ["2026-03-31", "2026-10-12"]) {
       await date.fill(invalid);
-      await expect(page.getByRole("button", { name: "Review payment" })).toBeEnabled();
-      await page.getByRole("button", { name: "Review payment" }).tap();
-      await expect(page.locator("#pd-review-title")).toHaveCount(0); expect((await snapshot(page)).effects).toHaveLength(0);
+      await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
+      await page.getByRole("button", { name: "Review & save", exact: true }).tap();
+      await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toHaveCount(0); expect((await snapshot(page)).effects).toHaveLength(0);
     }
     await date.fill("2026-04-19");
     await expect.poll(async () => (await snapshot(page)).previews.at(-1)?.paymentDate).toBe("2026-04-19");
     await review(page); const effect = await save(page);
     expect(effect.input).toMatchObject({ amount: 3500, paymentDate: "2026-04-19", lateFeeWaiver: 0 });
     expect(effect.receipt.lateFeePaid).toBe(0); expect(effect.receipt.outstandingAfter).toBe(500);
-    await expect(page.getByText("Balance now ₹500", { exact: true })).toBeVisible();
+    await expectBalanceAfter(page, effect.balance);
   });
   test(`${width}px admin reversal retains the single receipt effect`, async ({ page }) => {
     await open(page, width, "?role=admin"); await page.locator("#pd-amount").fill("500"); await review(page); const effect = await save(page);
     await settledTap(page.getByRole("button", { name: /Remove this entry/ }));
-    await expect(page.getByRole("button", { name: "Remove ₹500", exact: true })).toBeDisabled();
-    await page.getByRole("button", { name: "Wrong amount", exact: true }).tap();
-    await page.getByRole("button", { name: "Remove ₹500", exact: true }).tap();
-    await expect(page.getByText("Entry removed", { exact: true })).toBeVisible();
-    const state = await snapshot(page); expect(state.effects).toHaveLength(1); expect(state.reversals).toEqual([{ receiptId: effect.receipt.id, studentId: effect.input.studentId, sessionLabel: effect.input.sessionLabel, reason: "Wrong amount" }]);
+    // The design's sheet opens on "Entered twice"; the admin picks the real reason.
+    await expect(page.getByRole("radio", { name: /^Entered twice/ })).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("radio", { name: /^Wrong amount typed/ }).tap();
+    await page.getByRole("button", { name: "Remove entry", exact: true }).tap();
+    await expect(page.getByText("Entry removed", { exact: true }).first()).toBeVisible();
+    const state = await snapshot(page); expect(state.effects).toHaveLength(1); expect(state.reversals).toEqual([{ receiptId: effect.receipt.id, studentId: effect.input.studentId, sessionLabel: effect.input.sessionLabel, reason: "Wrong amount typed" }]);
     await expect(page.getByRole("button", { name: /Remove this entry/ })).toHaveCount(0);
   });
   test(`${width}px offline before post then reconnect and lost-answer reload recovery`, async ({ page, context }) => {
     await open(page, width, "?lost"); await page.locator("#pd-amount").fill("625"); await review(page);
-    await context.setOffline(true); await page.getByRole("button", { name: /Confirm and save payment/ }).tap();
+    await context.setOffline(true); await page.getByRole("button", { name: /^Save payment/ }).tap();
     await expect(page.getByRole("button", { name: "Check whether it was saved", exact: true })).toBeVisible();
     const before = await snapshot(page); expect(before.effects).toHaveLength(0); expect(before.attempts).toHaveLength(1); const original = before.attempts[0].clientRequestId;
     await context.setOffline(false); await page.getByRole("button", { name: "Check whether it was saved", exact: true }).tap();
-    await expect(page.getByRole("button", { name: /Confirm and save payment/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Save payment/ })).toBeVisible();
     expect((await snapshot(page)).effects).toHaveLength(0);
-    await page.getByRole("button", { name: /Confirm and save payment/ }).tap();
+    await page.getByRole("button", { name: /^Save payment/ }).tap();
     await expect(page.getByRole("button", { name: "Check whether it was saved", exact: true })).toBeVisible();
     expect((await snapshot(page)).effects).toHaveLength(1);
     await page.reload({ waitUntil: "domcontentloaded" });

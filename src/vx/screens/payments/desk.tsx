@@ -1053,8 +1053,9 @@ export function PaymentDesk({
           <span className="pd-e" style={{ fontSize: 17, fontWeight: 700 }}>{mTitle}</span>
           {mSub ? <span className="pd-m pd-e">{mSub}</span> : null}
         </span>
-        {!selId ? (
-          <Link href="/payments/bulk" className="tap btn soft" style={{ height: 40, padding: "0 12px", fontSize: 13 }}>
+        {/* Bulk entry is for those who may post it (main's rule); the short label keeps the design's header. */}
+        {!selId && boot.me.canBulk ? (
+          <Link href="/payments/bulk" className="tap btn soft" aria-label={tx(W.many)} style={{ height: 40, padding: "0 12px", fontSize: 13 }}>
             <Ic n="table" size={16} /> {tx(W.manyShort)}
           </Link>
         ) : null}
@@ -1064,7 +1065,8 @@ export function PaymentDesk({
           <div className="pad" style={{ padding: "16px 24px 0", display: "flex", flexDirection: "column", gap: 8 }}>
             {!recoveryReady ? <Banner tone="info">{tx(W.recoveryChecking)}</Banner> : null}
             {attempt?.input.lateFeeWaiver ? <Banner tone="warn">{tx(W.waiverAttemptPending)} <b>{rupees(attempt.input.lateFeeWaiver)}</b></Banner> : null}
-            {attempt && attempt.input.studentId !== student?.id ? <Banner tone="warn" action={<Btn onClick={() => void selectStudent(attempt.input.studentId)}>{tx(W.resumePayment)}</Btn>}>{tx(W.unfinished)}</Banner> : null}
+            {/* An unresolved payment never blocks the counter: close its sheet, help the next parent, and come back here. */}
+            {attempt && (attempt.input.studentId !== student?.id || !reviewing) ? <Banner tone="warn" action={<Btn onClick={() => { if (attempt.input.studentId === student?.id) setReviewing(true); else void selectStudent(attempt.input.studentId); }}>{tx(W.resumePayment)}</Btn>}>{tx(W.unfinished)}</Banner> : null}
             {recoveryError || (canAct && !attemptKey) ? <Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(!attemptKey ? W.recoveryIdentity : recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner> : null}
             {previewing ? <Banner tone="info">{tx(W.previewing)}</Banner> : null}
             {boot.blocking ? (
@@ -1145,8 +1147,10 @@ export function PaymentDesk({
       {/* Review — nothing is saved until "Save payment"; Change keeps every entry. */}
       <Sheet
         open={reviewOpen}
-        onClose={() => { if (!locked) setReviewing(false); }}
-        dismissable={!locked}
+        // While a save is on the wire the sheet stays; an unresolved one can be
+        // closed and resumed from the banner, as on the fee app's desk (PR77).
+        onClose={() => { if (!saving) setReviewing(false); }}
+        dismissable={!saving}
         title={student ? tx(W.confirmTitle(rupees(amount))) : undefined}
         sub={student ? `${student.name} · ${student.classLabel} · SR ${student.sr}` : undefined}
         footer={
@@ -1175,7 +1179,7 @@ export function PaymentDesk({
                 <strong>{tx(W.uncertainTitle)}</strong> — <span style={{ fontWeight: 500 }}>{tx(W.uncertainBody)}</span>
               </Banner>
             ) : null}
-            {recoveryError ? <Banner tone="bad">{tx(recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner> : null}
+            {recoveryError ? <Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner> : null}
             <ConfirmBody
               student={student}
               amount={amount}

@@ -32,6 +32,10 @@ export type TodayMoney = {
   dueSoFar: number;
   lateFeePending: number;
   followUps: number;
+  /** Each installment's due date, by the label the matrix uses; null when the setup has none. */
+  dueDates: Record<string, string | null>;
+  /** Labels that are a previous session's balance, always past due. */
+  carryForward: string[];
 };
 
 export async function todayMoney(today: string): Promise<TodayMoney> {
@@ -68,6 +72,8 @@ export async function todayMoney(today: string): Promise<TodayMoney> {
     dueSoFar,
     lateFeePending: Number(data.kpis.lateFeePending ?? 0),
     followUps: data.followUpQueue.length,
+    dueDates: Object.fromEntries(data.installmentSummary.map((row) => [row.installmentLabel, row.dueDate ? row.dueDate.slice(0, 10) : null])),
+    carryForward: [...new Set(data.installmentSummary.filter((row) => row.isCarryForward).map((row) => row.installmentLabel))],
   };
 }
 

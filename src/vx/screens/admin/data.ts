@@ -41,10 +41,11 @@ import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 
-import { p } from "@/vx/text";
+import { p, type Pair } from "@/vx/text";
 import { boardSummary, remindable, sortBoard, supportAttention, type ClassBoardRow, type MarkStatus } from "@/vx/screens/admin/logic";
 import { scheduleNow, type CoverException, type ScheduleSlot, type ScheduleView } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
+import { schoolWeek } from "@/vx/screens/admin/today-logic";
 import type { BoardData, InboxItem, SheetData, TimelineItem } from "@/vx/screens/admin/types";
 import { isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
 
@@ -382,13 +383,36 @@ async function supportFor(staff: CurrentStaff, sessionLabel: string, today: stri
   );
 }
 
+/**
+ * The school calendar's timed events today (an assembly, a PTM), for Today's
+ * timeline beside the bells. Cancelled events are left out; all-day ones have
+ * no place on a timeline and stay on the calendar.
+ */
+async function timedEventsOn(sessionLabel: string, day: string): Promise<{ time: string; title: Pair; sub: Pair | null }[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("calendar_events")
+    .select("title, title_hi, starts_at, place, all_day, cancelled_at")
+    .eq("session_label", sessionLabel)
+    .lte("starts_on", day)
+    .gte("ends_on", day)
+    .is("cancelled_at", null)
+    .eq("all_day", false)
+    .order("starts_at")
+    .returns<{ title: string; title_hi: string | null; starts_at: string | null; place: string | null }[]>();
+  if (error) throw new Error(`Could not read the calendar events: ${error.message}`);
+  return data
+    .filter((row) => row.starts_at)
+    .map((row) => ({ time: row.starts_at!.slice(0, 5), title: p(row.title, row.title_hi ?? row.title), sub: row.place ? p(row.place) : null }));
+}
+
 export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: string, nowMinutes: number): Promise<TodayFacts> {
   const missing: string[] = [];
   const seesTimetable = can(staff, "timetable:view");
   // The support count is the school-wide board's; a narrower reader's board is her own classes.
   const seesSupport = can(staff, "notes:view") && (readsEveryClass(staff) || can(staff, "attendance:correct"));
   const seesCover = can(staff, "substitutions:view");
-  const [board, absences, duties, slots, support, people] = await Promise.all([
+  const [board, absences, duties, slots, support, people, events] = await Promise.all([
     guard(missing, "board", () => loadBoard(sessionLabel, day)),
     guard(missing, "absences", () => absencesOn(sessionLabel, day)),
     seesCover ? guard(missing, "cover", async () => liveOnly(await dutiesOn(sessionLabel, day))) : Promise.resolve(null),
@@ -396,6 +420,7 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
     seesSupport ? guard(missing, "notes", () => supportFor(staff, sessionLabel, day)) : Promise.resolve(null),
     // Names for the scheduled teachers and whoever covers, read beside the rest rather than after it.
     seesTimetable || seesCover ? guard(missing, "staff", () => listStaff()) : Promise.resolve(null),
+    can(staff, "academics:view") ? guard(missing, "events", () => timedEventsOn(sessionLabel, day)) : Promise.resolve(null),
   ]);
   if (board) missing.push(...board.unavailable);
 
@@ -446,6 +471,9 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
         state: duty.status === "needs_help" ? "alert" : toMin(bell.starts) <= nowMinutes ? "done" : "next",
       });
     }
+    for (const event of events ?? []) {
+      timeline.push({ time: event.time, title: event.title, sub: event.sub ?? undefined, state: stateAt(toMin(event.time)) });
+    }
     const last = bells[bells.length - 1];
     timeline.push({ time: last.ends, title: T.lastBell, state: stateAt(toMin(last.ends)) });
     timeline.sort((a, b) => toMin(a.time) - toMin(b.time));
@@ -484,6 +512,74 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
     support,
     unavailable: [...new Set(missing)],
   };
+}
+
+/**
+ * "Attendance this week" (F01): each school day before today with its
+ * whole-school tally, counted as the board counts today — saved daily
+ * registers only, late as present. A day with nothing saved has no tally
+ * (null), never a nought (RULES C). Read beside the board, so the half-day
+ * credit is applied by the caller with `dayPercent()`.
+ */
+export async function weekAttendance(sessionLabel: string, today: string): Promise<{ day: string; tally: { present: number; absent: number; halfDay: number } | null }[]> {
+  const days = schoolWeek(today).filter((day) => day < today);
+  if (days.length === 0) return [];
+  const supabase = await createClient();
+  const { data: registers, error } = await supabase
+    .from("attendance_registers")
+    .select("id, day")
+    .eq("session_label", sessionLabel)
+    .gte("day", days[0])
+    .lte("day", days[days.length - 1])
+    .is("period", null)
+    .gte("revision", 1)
+    .returns<{ id: string; day: string }[]>();
+  if (error) throw new Error(`Could not read this week's registers: ${error.message}`);
+  // A day at a time: a day's ids fit the URL, and its marks are paged in full.
+  return Promise.all(
+    days.map(async (day) => {
+      const ids = registers.filter((row) => row.day === day).map((row) => row.id);
+      if (ids.length === 0) return { day, tally: null };
+      const marks = await fetchAllRows<{ status: AttendanceStatus }>(
+        (from, to) =>
+          supabase
+            .from("attendance_marks")
+            .select("status, register_id, student_id")
+            .in("register_id", ids)
+            .order("register_id")
+            .order("student_id")
+            .range(from, to)
+            .returns<{ status: AttendanceStatus }[]>(),
+        "this week's marks",
+      );
+      const t = { present: 0, absent: 0, halfDay: 0 };
+      for (const mark of marks) {
+        if (mark.status === "present" || mark.status === "late") t.present += 1;
+        else if (mark.status === "absent") t.absent += 1;
+        else if (mark.status === "half_day") t.halfDay += 1;
+      }
+      return { day, tally: t };
+    }),
+  );
+}
+
+/**
+ * Families who promised on a call to pay today (`vppsone.fee_call_promises`,
+ * kind "pay"), counted once per child. For `fees:view` only; RLS holds the
+ * same line. Kept or broken is the Dues screen's business, not Today's.
+ */
+export async function promisedToday(sessionLabel: string, today: string): Promise<number> {
+  await assertPermission("fees:view");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fee_call_promises")
+    .select("student_id")
+    .eq("session_label", sessionLabel)
+    .eq("kind", "pay")
+    .eq("promised_on", today)
+    .returns<{ student_id: string }[]>();
+  if (error) throw new Error(`Could not read the promises: ${error.message}`);
+  return new Set(data.map((row) => row.student_id)).size;
 }
 
 /* ------------------------------------------------------------ Needs you */

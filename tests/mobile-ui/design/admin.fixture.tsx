@@ -128,69 +128,84 @@ export const views: Record<string, DesignView> = {
 import { TodayScreen, type TodayProps } from "@/vx/screens/admin/today";
 import type { InboxItem } from "@/vx/screens/admin/types";
 import { VxPage } from "@/vx/ui/page";
+import { QUICK_ACTIONS } from "@/vx/nav";
 
 const pair = (en: string, hi?: string) => (hi ? { en, hi } : { en });
 
-/** The design's day (F01, Desktop): ₹38,400 from 14 receipts, 14 of 19 classes marked. */
-const days = Array.from({ length: 30 }, (_, i) => {
-  const d = new Date(Date.UTC(2026, 8, 9 + i));
-  const day = d.toISOString().slice(0, 10);
-  const sunday = d.getUTCDay() === 0;
-  return { date: day, amount: sunday ? 0 : day === TODAY ? 38400 : 18000 + ((i * 7919) % 26000) };
-});
+/** The design's day (F01, Desktop): its own day totals (Desktop.dc.html DAILY), 9 Sep – 8 Oct. */
+const DAILY = [24600, 31200, 27800, 41500, 0, 64200, 58900, 33400, 29700, 22100, 36800, 0, 38600, 26300, 19800, 24500, 21900, 33700, 0, 35200, 27600, 18400, 29300, 0, 31900, 0, 40700, 25800, 22600, 38400];
+const days = DAILY.map((amount, i) => ({ date: new Date(Date.UTC(2026, 8, 9 + i)).toISOString().slice(0, 10), amount }));
+
+/** The design's heat table (MATRIX): old balance, July and September, by class band. */
+const MATRIX: [string, number, number, number][] = [
+  ["Pre-primary", 0, 2400, 18600], ["Class 1–2", 4200, 3100, 22400], ["Class 3–5", 9800, 6300, 38500], ["Class 6–8", 12300, 8150, 46200],
+  ["Class 9–10", 7400, 6900, 52800], ["Class 11", 3000, 2900, 21600], ["Class 12", 6200, 0, 31500],
+];
 
 const inbox: InboxItem[] = [
-  { id: "nm", type: "attendance", kind: "not_marked", at: "2026-10-08T03:50:00Z", urgent: true, badge: pair("Attendance", "हाज़िरी"), title: pair("5 classes haven't marked attendance"), sub: pair("Period 1 ended 9:20 · 3, 5, 7, 9, 11 Com"), facts: [], classIds: ["c3", "c5", "c7", "c9", "c11"], remindable: 5 },
-  { id: "cv", type: "timetable", kind: "cover", at: "2026-10-08T02:35:00Z", urgent: true, badge: pair("Timetable", "समय सारणी"), title: pair("Cover Period 3 · Class 9 Physics"), sub: pair("Mr. Meena on leave · 2 teachers free"), facts: [], candidates: [] },
-  { id: "sb", type: "students", kind: "submission", at: "2026-10-06T05:00:00Z", urgent: false, badge: pair("Attendance correction"), title: pair("Attendance correction · Class 6"), sub: pair("Riya S. absent → present, 6 Oct"), facts: [], submissionIds: ["s1"] },
-  { id: "rf", type: "money", kind: "refund", at: "2026-10-07T05:00:00Z", urgent: false, badge: pair("Money · refund"), title: pair("Refund ₹2,500 · Transport"), sub: pair("Requested by the accountant"), facts: [] },
+  { id: "nm", type: "attendance", kind: "not_marked", at: "2026-10-08T03:50:00Z", urgent: true, badge: pair("Attendance", "हाज़िरी"), title: pair("5 classes haven't marked attendance"), sub: pair("Period 1 ended 9:20", "पीरियड 1 9:20 पर ख़त्म"), facts: [], classIds: ["c3", "c5", "c7", "c9", "c11"], remindable: 5 },
+  { id: "cv", type: "timetable", kind: "cover", at: "2026-10-08T02:35:00Z", urgent: true, badge: pair("Timetable", "समय सारणी"), title: pair("Cover Period 3 · Class 9"), sub: pair("Mr. Meena on leave · 2 teachers free"), facts: [], candidates: [] },
+  { id: "sb", type: "students", kind: "submission", at: "2026-10-06T05:00:00Z", urgent: false, badge: pair("Correction"), title: pair("Correction · Riya Singh"), sub: pair("Class 6 · absent → present on 6 Oct"), facts: [], submissionIds: ["s1"] },
+  { id: "rf", type: "money", kind: "refund", at: "2026-10-07T05:00:00Z", urgent: false, badge: pair("Refund"), title: pair("Refund ₹2,500"), sub: pair("Transport fee · by the accountant"), facts: [] },
+  { id: "wo", type: "money", kind: "refund", at: "2026-10-07T04:00:00Z", urgent: false, badge: pair("Write-off"), title: pair("Write off ₹1,200 · Joshi family"), sub: pair("Old balance · hardship"), facts: [] },
+  { id: "jb", type: "system", kind: "job", at: "2026-10-08T01:00:00Z", urgent: false, badge: pair("System"), title: pair("Daily summary did not finish"), sub: pair("Timed out"), facts: [] },
 ];
 
 const todayProps: TodayProps = {
   firstName: "Janmejay",
   greeting: pair("Good morning", "सुप्रभात"),
   dayLine: "Thursday, 8 October",
-  status: pair("Period 3 running", "पीरियड 3 चल रहा है"),
+  status: pair("Period 2 running", "पीरियड 2 चल रहा है"),
   today: TODAY,
   money: {
     today: 38400,
     receiptsToday: 14,
     days,
     modes: [
-      { mode: "upi", amount: 18200, receipts: 7 },
-      { mode: "cash", amount: 12600, receipts: 5 },
-      { mode: "cheque", amount: 6000, receipts: 1 },
-      { mode: "bank_transfer", amount: 1600, receipts: 1 },
+      { mode: "upi", amount: 24600, receipts: 9 },
+      { mode: "cash", amount: 13800, receipts: 5 },
     ],
-    matrix: ["Class 1", "Class 3", "Class 5", "Class 7", "Class 9", "Class 10", "Class 11 Science", "Class 12 Commerce"].map((classLabel, i) => ({
+    matrix: MATRIX.map(([classLabel, old, jul, sep]) => ({
       classLabel,
-      cells: { "Installment 1": 4000 + i * 900, "Installment 2": 12000 + ((i * 3571) % 9000), "Installment 3": 0, "Installment 4": 0 },
-      total: 16000 + i * 900 + ((i * 3571) % 9000),
+      cells: { "Previous year": old, "Installment 1": jul, "Installment 2": sep, "Installment 3": 24000, "Installment 4": 24000 },
+      total: old + jul + sep + 48000,
     })),
-    installments: ["Installment 1", "Installment 2", "Installment 3", "Installment 4"],
+    installments: ["Previous year", "Installment 1", "Installment 2", "Installment 3", "Installment 4"],
+    dueDates: { "Previous year": null, "Installment 1": "2026-07-20", "Installment 2": "2026-09-20", "Installment 3": "2026-10-20", "Installment 4": "2027-01-20" },
+    carryForward: ["Previous year"],
     expected: 3120000,
     collected: 1860000,
-    dueSoFar: 1950000,
+    dueSoFar: 1934000,
     followUps: 18,
   },
   moneyFailed: false,
-  attendance: { marked: 14, total: 19, percent: 94, schoolOpen: true },
+  attendance: { marked: 14, total: 19, percent: 96, schoolOpen: true },
   staffAway: 2,
   cover: { needed: 5, arranged: 3 },
   inbox,
+  // What the app can put on the timeline: bells, cover, and the calendar's timed events.
   timeline: [
-    { time: "07:45", title: pair("First bell"), sub: pair("Period 1 starts"), state: "done" },
-    { time: "09:20", title: pair("Attendance closes"), sub: pair("5 not marked yet"), state: "alert" },
-    { time: "10:05", title: pair("Period 3 · Class 9 Physics"), sub: pair("Needs a substitute"), state: "now" },
+    { time: "08:00", title: pair("Assembly"), sub: pair("Done", "हो गया"), state: "done" },
+    { time: "09:20", title: pair("Attendance closes"), sub: pair("5 classes not marked yet"), state: "alert" },
+    { time: "10:40", title: pair("Period 3 · Class 9 Physics"), sub: pair("Needs a substitute"), state: "now" },
+    { time: "13:30", title: pair("PTM · Class 10"), sub: pair("Parents meet subject teachers in the hall"), state: "next" },
     { time: "13:45", title: pair("Last bell"), state: "next" },
   ],
   schedule: null,
   scheduleFailed: false,
   exceptions: { notMarked: ["3", "5", "7", "9", "11 Com"], cover: [] },
   support: { needsAction: 2, due: 1 },
-  actions: [],
+  actions: QUICK_ACTIONS.map((q) => ({ key: q.key, label: q.label, icon: q.icon, href: q.href, tone: q.tone })),
   links: { collect: true, attendance: true, substitutions: true, review: true, timetable: true },
   unavailable: false,
+  roleLine: pair("Admin · Session 2026–27", "प्रशासक · सत्र 2026–27"),
+  me: { initials: "JS", href: "/settings" },
+  week: [
+    { day: "2026-10-05", percent: 92 },
+    { day: "2026-10-06", percent: 95 },
+    { day: "2026-10-07", percent: 91 },
+  ],
+  promisedToday: 6,
 };
 
 function TodayFrame() {
@@ -201,9 +216,20 @@ function TodayFrame() {
   );
 }
 
+// D09 is drawn with the icon sidebar: the person's own collapsed choice, set before the shell reads it.
+if (new URLSearchParams(location.search).get("view") === "D09-Laptop") {
+  try {
+    localStorage.setItem("vx.sidebar.collapsed", "1");
+  } catch {
+    // A fixture without storage draws the full sidebar.
+  }
+}
+
 Object.assign(views, {
   "F01-Today": { render: TodayFrame, path: "/" },
   "F14-TodayDark": { render: TodayFrame, path: "/" },
   Desktop: { render: TodayFrame, path: "/" },
   "D08-TodayDark": { render: TodayFrame, path: "/" },
+  "D09-Laptop": { render: TodayFrame, path: "/" },
+  "D10-Tablet": { render: TodayFrame, path: "/" },
 } satisfies Record<string, DesignView>);

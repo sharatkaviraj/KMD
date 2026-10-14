@@ -12,5 +12,5 @@ export const metadata: Metadata = { title: "Academics · Today" };
 export default async function AcademicsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const staff = await requirePermission("academics:view", "/academics");
   const sp = await searchParams;
-  return <AcadHome staff={staff} view={param(sp.view)} sheet={param(sp.sheet)} marks={param(sp.marks)} what={param(sp.what)} />;
+  return <AcadHome staff={staff} view={param(sp.view)} sheet={param(sp.sheet)} marks={param(sp.marks)} what={param(sp.what)} who={param(sp.who)} />;
 }

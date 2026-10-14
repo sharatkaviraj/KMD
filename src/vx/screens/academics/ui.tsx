@@ -4,8 +4,10 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Language } from "@/platform/i18n/language";
 import { Ic, type IconName } from "@/vx/icons";
 import { lead, under, type Pair } from "@/vx/text";
-import { Avatar, Pill } from "@/vx/ui/primitives";
-import { initials } from "@/vx/format";
+import { LangButton } from "@/vx/shell/sidebar";
+import { BackLink } from "@/vx/ui/back-link";
+import { Pill } from "@/vx/ui/primitives";
+import { shortDay } from "@/vx/format";
 
 import { attendanceBand, attentionChips, BAND_STYLE, type AttentionFacts } from "./domain";
 
@@ -58,25 +60,274 @@ export function LinkTabs({ tabs, current, label }: { tabs: { key: string; href: 
   );
 }
 
-/** One class's attendance tile in the heat strip. */
+/** One class's attendance tile in the heat strip: a full-width tile in its grid cell. */
 export function HeatCell({ label, pct, href, title }: { label: string; pct: number | null; href?: string; title?: string }) {
   const band = attendanceBand(pct);
   const s = BAND_STYLE[band];
   const body = (
     <>
-      <span className="num" style={{ width: 40, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, background: s.bg, color: s.fg, border: s.border }}>
+      <span className="num" style={{ width: "100%", height: 46, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, background: s.bg, color: s.fg, border: s.border ?? 0 }}>
         {pct === null ? "—" : Math.round(pct)}
       </span>
-      <span style={{ fontSize: 11, color: "var(--mut)", fontWeight: 600, whiteSpace: "nowrap" }}>{shortClass(label)}</span>
+      <span className="clip" style={{ width: "100%", textAlign: "center", fontSize: 11, color: "var(--mut)", fontWeight: 600 }}>{shortClass(label)}</span>
     </>
   );
-  const st: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 };
+  const st: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 0, color: "var(--fg)" };
   return href ? (
     <Link href={href} className="tap" style={st} title={title} aria-label={title}>
       {body}
     </Link>
   ) : (
     <span style={st} title={title}>{body}</span>
+  );
+}
+
+/** The heat strip's grid: one column per class on desktop (`--n`), seven to a row on a phone. */
+export function HeatStrip({ count, children }: { count: number; children: ReactNode }) {
+  return (
+    <div className="acad-heat" style={{ display: "grid", gap: 6, ["--n" as string]: String(Math.max(1, count)) }}>
+      <style>{`.acad-heat{grid-template-columns:repeat(var(--n),minmax(0,1fr))}@container vx (max-width:899px){.acad-heat{grid-template-columns:repeat(7,minmax(0,1fr))}}`}</style>
+      {children}
+    </div>
+  );
+}
+
+/* ------------------------------------------------- the design's small parts */
+
+const AV_TONES = [
+  ["var(--accs)", "var(--accfg)"],
+  ["var(--infos)", "var(--info)"],
+  ["var(--oks)", "var(--ok)"],
+  ["var(--warns)", "var(--warnfg)"],
+  ["var(--s3)", "var(--fg)"],
+] as const;
+
+/** The design's avatar tone: a hash of the name picks one of five soft tones. */
+export function toneOf(seed: string): { bg: string; fg: string } {
+  let h = 7;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const [bg, fg] = AV_TONES[h % AV_TONES.length];
+  return { bg, fg };
+}
+
+/** "Ms. Kavita Bhati" → "KB", "Mr. Choudhary" → "C" (the design's initials). */
+export function nameInitials(name: string): string {
+  return name
+    .replace(/^(mr|mrs|ms|dr|shri|smt)\.?\s+/i, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+/** A round initials avatar in the design's soft tones. */
+export function ToneAvatar({ name, size = 36, tone }: { name: string; size?: number; tone?: { bg: string; fg: string } }) {
+  const t = tone ?? toneOf(name);
+  return (
+    <span aria-hidden="true" style={{ flex: "none", width: size, height: size, borderRadius: size / 2, background: t.bg, color: t.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size >= 48 ? 18 : 12, fontWeight: 700 }}>
+      {nameInitials(name) || "?"}
+    </span>
+  );
+}
+
+/** How the greeting addresses someone: "Ms. Asha Purohit" → "Ms. Purohit" / "Asha जी". */
+export function formalName(name: string): Pair {
+  const m = /^(mr|mrs|ms|dr)\.?\s+(.+)$/i.exec(name.trim());
+  const words = (m ? m[2] : name).split(/\s+/).filter(Boolean);
+  if (!m || words.length < 2) return { en: name, hi: `${words[0] ?? name} जी` };
+  return { en: `${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()}. ${words[words.length - 1]}`, hi: `${words[0]} जी` };
+}
+
+/** "Thu, 8 Oct" → "Thu 8 Oct", as the design writes days. */
+export function dayName(day: string): string {
+  return shortDay(day).replace(/,/g, "");
+}
+
+/** "Thu 8 Oct 2026". */
+export function dayNameYear(day: string): string {
+  return `${dayName(day)} ${day.slice(0, 4)}`;
+}
+
+/** "A", "A and B", "A, B and C". */
+export function joinAnd(items: string[], and = "and"): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]}`;
+}
+
+/** The design's card heading: 15px bold title, 12px sub-line, an action on the right. */
+export function CardTitle({ title, sub, action, style }: { title: ReactNode; sub?: ReactNode; action?: ReactNode; style?: CSSProperties }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, ...style }}>
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <span style={{ fontSize: 15, fontWeight: 700 }}>{title}</span>
+        {sub ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{sub}</span> : null}
+      </span>
+      {action}
+    </div>
+  );
+}
+
+/** A small ghost link with a chevron ("Open ›", "Calendar ›"). */
+export function GhostLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="tap btn ghost" style={{ fontSize: 13, flex: "none" }}>
+      {children}
+      <Ic n="chevRight" size={18} />
+    </Link>
+  );
+}
+
+/**
+ * The design's segmented control (`.seg` with a sliding thumb) whose options
+ * are links, so each state stays a URL.
+ */
+export function LinkSeg({ tabs, current, label, style }: { tabs: { key: string; href: string; label: ReactNode }[]; current: string; label: string; style?: CSSProperties }) {
+  const n = Math.max(1, tabs.length);
+  const at = Math.max(0, tabs.findIndex((t) => t.key === current));
+  return (
+    <nav aria-label={label} className="seg" style={{ gridTemplateColumns: `repeat(${n}, minmax(0,1fr))`, ...style }}>
+      <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${n})`, transform: `translateX(${at * 100}%)` }} />
+      {tabs.map((t) => {
+        const on = t.key === current;
+        return (
+          <Link
+            key={t.key}
+            href={t.href}
+            scroll={false}
+            replace
+            className="tap"
+            aria-current={on ? "page" : undefined}
+            style={{ position: "relative", height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 10px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: on ? "var(--fg)" : "var(--mut)", transition: "color .2s ease" }}
+          >
+            {t.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** The design's KPI card: label and an icon tile (or a ring), the figure, a pill and a sub-line. */
+export function CoordKpi({
+  label,
+  value,
+  href,
+  icon,
+  tone = "acc",
+  ring,
+  pill,
+  sub,
+  delay = 0,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  href?: string;
+  icon?: IconName;
+  tone?: "ok" | "info" | "acc" | "warn" | "bad" | "mut";
+  /** Draw a progress ring (0–100) in place of the icon. */
+  ring?: number;
+  pill?: { text: ReactNode; tone: "ok" | "info" | "acc" | "warn" | "bad" | "mut" } | null;
+  sub?: ReactNode;
+  delay?: number;
+}) {
+  const tones = { ok: ["var(--oks)", "var(--ok)"], info: ["var(--infos)", "var(--info)"], acc: ["var(--accs)", "var(--accfg)"], warn: ["var(--warns)", "var(--warnfg)"], bad: ["var(--bads)", "var(--bad)"], mut: ["var(--s2)", "var(--fg)"] } as const;
+  const [bg, fg] = tones[tone];
+  const L = ring === undefined ? 0 : Math.max(0.5, (263.9 * Math.min(100, Math.max(0, ring))) / 100);
+  const body = (
+    <>
+      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: "var(--mut)", lineHeight: 1.3 }}>{label}</span>
+        {ring !== undefined ? (
+          <svg width={40} height={40} viewBox="0 0 100 100" aria-hidden="true" style={{ flex: "none" }}>
+            <circle cx={50} cy={50} r={42} fill="none" stroke="var(--s3)" strokeWidth={13} />
+            <circle cx={50} cy={50} r={42} fill="none" stroke="var(--acc)" strokeWidth={13} strokeLinecap="round" strokeDasharray={`${L.toFixed(1)} 263.9`} style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", ["--len" as string]: L.toFixed(1), animation: "xDraw .9s var(--ease) both" }} />
+          </svg>
+        ) : icon ? (
+          <span aria-hidden="true" style={{ flex: "none", width: 34, height: 34, borderRadius: 11, background: bg, color: fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Ic n={icon} size={17} />
+          </span>
+        ) : null}
+      </span>
+      <span className="num" style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-.02em" }}>{value}</span>
+      <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        {pill ? <Pill tone={pill.tone === "mut" ? "mut" : pill.tone}>{pill.text}</Pill> : null}
+        {sub ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{sub}</span> : null}
+      </span>
+    </>
+  );
+  const style: CSSProperties = { padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6, minWidth: 0, animationDelay: `${delay}ms`, color: "var(--fg)" };
+  return href ? (
+    <Link href={href} className="card lift rise tap" style={style}>
+      {body}
+    </Link>
+  ) : (
+    <div className="card lift rise" style={style}>
+      {body}
+    </div>
+  );
+}
+
+/**
+ * The page's top bar, as the design draws it: TopBar's desktop bar with an
+ * optional back arrow and the EN | हि switch (the shell's own LangButton),
+ * and a phone bar that can open with the reader's avatar on a role's home.
+ */
+export function CoordTop({
+  crumb,
+  title,
+  actions,
+  dBack,
+  mTitle,
+  mSub,
+  mBack,
+  mAvatar,
+  mAction,
+}: {
+  crumb?: ReactNode;
+  title: ReactNode;
+  actions?: ReactNode;
+  dBack?: string;
+  mTitle?: ReactNode;
+  mSub?: ReactNode;
+  mBack?: string;
+  mAvatar?: string;
+  mAction?: ReactNode;
+}) {
+  return (
+    <>
+      <header className="only-d glass vx-top" style={{ flex: "none", height: 64, display: "flex", alignItems: "center", gap: 10, padding: "0 28px", borderBottom: "1px solid var(--bd)" }}>
+        {dBack ? (
+          <BackLink href={dBack} className="tap btn ghost" style={{ width: 40, padding: 0 }}>
+            <Ic n="chevLeft" size={20} />
+          </BackLink>
+        ) : null}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          {crumb ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{crumb}</span> : null}
+          <h1 className="serif clip" style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.15 }}>{title}</h1>
+        </div>
+        <LangButton tone="page" />
+        {actions}
+      </header>
+      <header className="only-m glass vx-top" style={{ flex: "none", minHeight: 58, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid var(--bd)" }}>
+        {mBack ? (
+          <BackLink href={mBack} className="tap icon-btn" style={{ width: 44, height: 44, borderRadius: 22 }}>
+            <Ic n="chevLeft" size={24} />
+          </BackLink>
+        ) : mAvatar ? (
+          <span aria-hidden="true" style={{ flex: "none", width: 40, height: 40, borderRadius: 20, margin: "0 4px", background: "#C9D7F8", color: "#082F49", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>{mAvatar}</span>
+        ) : (
+          <span style={{ width: 8 }} />
+        )}
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", paddingLeft: 2 }}>
+          <span className="clip" style={{ fontSize: 17, fontWeight: 700 }}>{mTitle ?? title}</span>
+          {mSub ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{mSub}</span> : null}
+        </span>
+        <LangButton tone="page" />
+        {mAction}
+      </header>
+    </>
   );
 }
 
@@ -97,10 +348,10 @@ export function HeatLegend({ say }: { say: Say }) {
     ["none", say("Not marked", "दर्ज नहीं")],
   ];
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", fontSize: 12, color: "var(--mut)" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", fontSize: 12, color: "var(--mut)" }}>
       {items.map(([band, text]) => (
         <span key={band} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 12, height: 12, borderRadius: 4, background: BAND_STYLE[band].bg, border: BAND_STYLE[band].border ?? undefined }} />
+          <span style={{ width: 12, height: 12, borderRadius: 4, background: BAND_STYLE[band].bg, border: BAND_STYLE[band].border ?? 0, boxSizing: "border-box" }} />
           {text}
         </span>
       ))}
@@ -108,22 +359,30 @@ export function HeatLegend({ say }: { say: Say }) {
   );
 }
 
-/** A child on the needs-attention list: avatar, name, class, the chips. */
-export function AttentionRow({ child, href, language, trail, delay }: { child: AttentionFacts & { studentId: string; name: string; classLabel: string }; href: string; language: Language; trail?: ReactNode; delay?: number }) {
+/**
+ * A child on the needs-attention list, as the design draws it: avatar, name
+ * and class with a chevron, and the reasons as chips under the name. Rows are
+ * separated by a rule (`first` has none).
+ */
+export function AttentionRow({ child, href, language, trail, delay, first }: { child: AttentionFacts & { studentId: string; name: string; classLabel: string }; href: string; language: Language; trail?: ReactNode; delay?: number; first?: boolean }) {
   const chips = attentionChips(child);
   return (
-    <Link href={href} className="row tap" style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", borderTop: "1px solid var(--bd)", animation: delay !== undefined ? `xIn .32s var(--ease) ${Math.min(delay, 400)}ms both` : undefined }}>
-      <Avatar text={initials(child.name)} seed={child.studentId} size={40} />
-      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-        <span className="clip" style={{ fontWeight: 700 }}>{child.name}</span>
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>{child.classLabel}</span>
-        <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <Link href={href} className="row tap" style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 6px", borderTop: first ? undefined : "1px solid var(--bd)", color: "var(--fg)", animation: delay !== undefined ? `xIn .3s var(--ease) ${Math.min(delay, 200)}ms both` : undefined }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <ToneAvatar name={child.name} />
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <span className="clip" style={{ fontWeight: 600 }}>{child.name}</span>
+          <span style={{ fontSize: 12, color: "var(--mut)" }}>{child.classLabel}</span>
+        </span>
+        {trail ?? <Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />}
+      </span>
+      {chips.length ? (
+        <span style={{ display: "flex", flexWrap: "wrap", gap: 4, paddingLeft: 46 }}>
           {chips.map((c, i) => (
             <Pill key={i} tone={c.tone}>{lead(c.text, language)}</Pill>
           ))}
         </span>
-      </span>
-      {trail ?? <Ic n="chevRight" size={18} style={{ color: "var(--mut)", marginTop: 10 }} />}
+      ) : null}
     </Link>
   );
 }
