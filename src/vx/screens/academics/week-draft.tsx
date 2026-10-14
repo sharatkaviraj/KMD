@@ -93,7 +93,7 @@ export function WeekDraft({
 
   return (
     <div className="pad acad-week" style={{ padding: "20px 28px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-      <style>{`.acad-week .acad-bot{position:sticky;bottom:0;margin:16px -28px 0;padding:12px 28px}@container vx (max-width:899px){.acad-week .acad-bot{bottom:calc(99px + env(safe-area-inset-bottom));margin:16px -16px 0;padding:10px 16px 12px}.acad-week .acad-bot .btn{height:52px;width:100%}}@media print{.acad-week .acad-bot{display:none}}`}</style>
+      <style>{`.acad-week .acad-bot{position:sticky;bottom:0;margin:16px -28px 0;padding:12px 28px}@container vx (max-width:899px){.acad-week .acad-bot{bottom:var(--vx-bottom-h, calc(76px + env(safe-area-inset-bottom)));margin:16px -16px 0;padding:10px 16px 12px}.acad-week .acad-bot .btn{height:52px;width:100%}}@media print{.acad-week .acad-bot{display:none}}`}</style>
       <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           <article className="card" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 12 }}>

@@ -210,7 +210,7 @@ const STEP_CHIPS: { view: ResultsView; label: Pair; n: number | null }[] = [
   { view: "publish", label: p("Publish", "जारी करें"), n: 6 },
   { view: "recheck", label: p("Re-checks", "दोबारा जाँच"), n: null },
 ];
-const STICKY_BOTTOM = "calc(99px + env(safe-area-inset-bottom))";
+const STICKY_BOTTOM = "var(--vx-bottom-h, calc(76px + env(safe-area-inset-bottom)))";
 
 export function ResultsBoard(props: ResultsProps) {
   const { view, exam, actions } = props;

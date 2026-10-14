@@ -278,7 +278,7 @@ export function PlanBoard(props: PlanProps) {
           ) : null}
         </div>
         {stickyPhone ? (
-          <div className="only-m glass" style={{ position: "sticky", bottom: "calc(99px + env(safe-area-inset-bottom))", zIndex: 4, padding: "10px 16px 12px", borderTop: "1px solid var(--bd)" }}>
+          <div className="only-m glass" style={{ position: "sticky", bottom: "var(--vx-bottom-h, calc(76px + env(safe-area-inset-bottom)))", zIndex: 4, padding: "10px 16px 12px", borderTop: "1px solid var(--bd)" }}>
             {stickyPhone}
           </div>
         ) : null}
