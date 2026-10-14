@@ -22,6 +22,8 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
       a={param(sp.a)}
       b={param(sp.b)}
       reason={param(sp.reason)}
+      grp={param(sp.grp)}
+      hl={param(sp.hl)}
     />
   );
 }

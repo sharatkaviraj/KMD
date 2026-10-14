@@ -49,7 +49,9 @@ describe("needs attention", () => {
 
   it("writes one chip per rule", () => {
     const chips = attentionChips({ ...base, reasons: ["attendance", "below_33", "dropped", "notes"], attendancePct: 71.6, below33Subjects: ["MATHS", "SST"], dropPoints: 18.2, openNotes: 2 });
-    expect(chips.map((c) => c.text.en)).toEqual(["Attendance 72%", "Below 33% in Maths +1", "Marks dropped 18%", "2 open notes"]);
+    expect(chips.map((c) => c.text.en)).toEqual(["Attendance 72%", "Below 33% in Maths & Social Sci.", "Marks dropped 18%", "2 open notes"]);
+    const three = attentionChips({ ...base, reasons: ["below_33"], below33Subjects: ["MATHS", "SST", "EVS"] });
+    expect(three.map((c) => c.text.en)).toEqual(["Below 33% in Maths +2"]);
   });
 
   it("weighs more rules above a worse single rule", () => {
