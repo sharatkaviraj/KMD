@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
-import { agoP, initials } from "@/vx/format";
+import { agoP } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
-import { Chip, ChipRow, Field, Input, Seg, Select, Stepper, SwitchRow, Textarea } from "@/vx/ui/controls";
-import { Confirm, HelpButton, Sheet } from "@/vx/ui/overlays";
-import { Banner, TopBar, VxPage } from "@/vx/ui/page";
-import { Avatar, avatarColor, BarChart, Btn, Card, EmptyState, IconTile, Pill, Progress, Ring, SecHead, WhatsAppPreview, type Tone } from "@/vx/ui/primitives";
+import { Field, Input, Seg, Select, Textarea } from "@/vx/ui/controls";
+import { Confirm, Sheet } from "@/vx/ui/overlays";
+import { VxPage } from "@/vx/ui/page";
+import { EmptyState } from "@/vx/ui/primitives";
 
+import { subjectPair } from "./domain/groups";
 import { waLink } from "./domain/messages";
 import type { PipelineStep, StepState } from "./domain/results";
+import { OfficeTop, toneAvatar, type HelpContent } from "./office-ui";
 import { RemindSheet, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
 import { useAct } from "./use-act";
@@ -165,27 +167,59 @@ export type ResultsProps = {
   };
 };
 
+type Run = ReturnType<typeof useAct>["run"];
+type ToneKey = "s3" | "info" | "warn" | "ok" | "bad" | "acc";
+
+/** The design's tones: a soft background and its ink. */
+function tn(t: ToneKey): { background: string; color: string } {
+  if (t === "s3") return { background: "var(--s3)", color: "var(--mut)" };
+  if (t === "warn") return { background: "var(--warns)", color: "var(--warnfg)" };
+  if (t === "acc") return { background: "var(--accs)", color: "var(--accfg)" };
+  return { background: `var(--${t}s)`, color: `var(--${t})` };
+}
+
+function Tag({ tone, children, style }: { tone: ToneKey; children: ReactNode; style?: CSSProperties }) {
+  return (
+    <span className="pill" style={{ ...tn(tone), ...style }}>
+      {children}
+    </span>
+  );
+}
+
+/** "10:00" → "10 am", "09:30" → "9:30 am". */
+function ampm(t: string | null): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  if (!Number.isFinite(h)) return t;
+  return `${h % 12 === 0 ? 12 : h % 12}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h >= 12 ? "pm" : "am"}`;
+}
+
 const STEP_ORDER: PipelineStep[] = ["entered", "checked", "grace", "locked", "cards", "published"];
-const STATE_WORDS: Record<StepState, { label: Pair; tone: Tone }> = {
-  done: { label: p("Done", "पूरा"), tone: "ok" },
-  active: { label: p("In progress", "जारी"), tone: "ok" },
-  can_start: { label: p("Can start", "शुरू कर सकते"), tone: "info" },
-  waiting: { label: p("Waiting", "रुका"), tone: "mut" },
-};
 const TAB_FOR: Record<PipelineStep, ResultsView> = { entered: "pipeline", checked: "moderation", grace: "grace", locked: "lock", cards: "cards", published: "publish" };
-const RECHECK_WORDS: Record<ResultsProps["rechecks"][number]["status"], { label: Pair; tone: Tone }> = {
+const RECHECK_WORDS: Record<ResultsProps["rechecks"][number]["status"], { label: Pair; tone: ToneKey }> = {
   new: { label: p("New", "नया"), tone: "warn" },
   with_teacher: { label: p("With teacher", "शिक्षक के पास"), tone: "info" },
   changed: { label: p("Changed", "बदला"), tone: "ok" },
-  no_change: { label: p("No change", "कोई बदलाव नहीं"), tone: "mut" },
+  no_change: { label: p("No change", "कोई बदलाव नहीं"), tone: "s3" },
 };
+const STEP_CHIPS: { view: ResultsView; label: Pair; n: number | null }[] = [
+  { view: "moderation", label: p("Check marks", "अंक जाँचें"), n: 2 },
+  { view: "grace", label: p("Grace", "ग्रेस"), n: 3 },
+  { view: "lock", label: p("Lock", "बंद करें"), n: 4 },
+  { view: "cards", label: p("Report cards", "प्रगति पत्र"), n: 5 },
+  { view: "publish", label: p("Publish", "जारी करें"), n: 6 },
+  { view: "recheck", label: p("Re-checks", "दोबारा जाँच"), n: null },
+];
+const STICKY_BOTTOM = "calc(99px + env(safe-area-inset-bottom))";
 
 export function ResultsBoard(props: ResultsProps) {
   const { view, exam, actions } = props;
   const { tx } = useVx();
   const { pending, run } = useAct();
   const [remindOpen, setRemindOpen] = useState(false);
+  const [lockConfirm, setLockConfirm] = useState(false);
   const href = (v: ResultsView, extra = "") => `/exam-office/results?view=${v}${extra}`;
+  const openRecheck = view === "recheck" ? (props.rechecks.find((r) => r.id === props.recheckId) ?? null) : null;
 
   const titles: Record<ResultsView, Pair> = {
     pipeline: p("Results pipeline", "परिणाम की राह"),
@@ -194,46 +228,48 @@ export function ResultsBoard(props: ResultsProps) {
     lock: p("Lock marks", "अंक बंद करें"),
     cards: p("Report cards", "प्रगति पत्र"),
     publish: p("Publish results", "परिणाम जारी करें"),
-    recheck: p("Re-checks", "दोबारा जाँच"),
+    recheck: p("Re-check requests", "दोबारा जाँच के अनुरोध"),
   };
   const crumb = `${tx(p("Results", "परिणाम"))} · ${tx(exam.name)} ${exam.sessionLabel} · ${props.classes.length} ${tx(props.classes.length === 1 ? p("class", "कक्षा") : p("classes", "कक्षाएँ"))} · ${props.childrenTotal} ${tx(props.childrenTotal === 1 ? p("child", "बच्चा") : p("children", "बच्चे"))}`;
   const badge = exam.resultsLabel ? (
-    <Pill tone="ok">
+    <Tag tone="acc">
       {tx(p("Results day", "परिणाम दिवस"))} {exam.resultsLabel}
       {exam.daysToResults !== null && exam.daysToResults >= 0 ? ` · ${exam.daysToResults} ${tx(p("days", "दिन"))}` : ""}
-    </Pill>
+    </Tag>
   ) : null;
   const nextStep = STEP_ORDER.find((s) => props.states[s] !== "done") ?? "published";
-  const help = (
-    <HelpButton
-      title={tx(titles[view])}
-      steps={[
-        { icon: "list", title: tx(p("Six steps", "छह कदम")), body: tx(p("Entered, checked, grace, locked, report cards, published — in that order.", "भरे, जाँचे, ग्रेस, बंद, प्रगति पत्र, जारी — इसी क्रम में।")) },
-        { icon: "alert", title: tx(p("Look at what moved", "जो बदला उसे देखें")), body: tx(p("A class average that moved a lot since the last exam is flagged.", "पिछली परीक्षा से बहुत बदला औसत दिखाया जाता है।")) },
-        { icon: "lock", title: tx(p("Lock, then cards", "बंद करें, फिर कार्ड")), body: tx(p("Locked marks cannot change; cards are made from them.", "बंद अंक बदलते नहीं; कार्ड उन्हीं से बनते हैं।")) },
-      ]}
-    />
-  );
+  const locked = props.classes.filter((c) => c.locked).length;
+  const passing = props.grace.rows.filter((g) => g.canPass).length;
+  const openRechecks = props.rechecks.filter((r) => r.status === "new" || r.status === "with_teacher").length;
+  const mSub: Record<ResultsView, string> = {
+    pipeline: tx(p(`${props.overall.percent}% marks in${exam.resultsLabel ? ` · results ${exam.resultsLabel}` : ""}`, `${props.overall.percent}% अंक आए${exam.resultsLabel ? ` · परिणाम ${exam.resultsLabel}` : ""}`)),
+    moderation: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual ${props.unusualOpen === 1 ? "average" : "averages"}`, `${props.unusualOpen} असामान्य औसत`)) : tx(p("All averages look normal", "सब औसत सामान्य")),
+    grace: tx(p(`${passing} children pass with grace`, `${passing} बच्चे ग्रेस से पास`)),
+    lock: tx(p(`${locked} of ${props.classes.length} classes locked`, `${props.classes.length} में से ${locked} कक्षाएँ बंद`)),
+    cards: tx(p(`${props.cards.issuedTotal} of ${props.childrenTotal} issued`, `${props.childrenTotal} में से ${props.cards.issuedTotal} जारी`)),
+    publish: exam.publishedAt ? tx(p("Released", "जारी")) : exam.publishAt ? tx(p("Scheduled", "समय तय")) : tx(p("Not scheduled yet", "अभी समय तय नहीं")),
+    recheck: openRecheck ? `${openRecheck.classLabel} · ${openRecheck.subjectCode}` : tx(p(`${openRechecks} open`, `${openRechecks} खुले`)),
+  };
+  const help: HelpContent = {
+    title: tx(titles[view]),
+    steps: [
+      { icon: "list", title: tx(p("Six steps", "छह कदम")), body: tx(p("Entered, checked, grace, locked, report cards, published — in that order.", "भरे, जाँचे, ग्रेस, बंद, प्रगति पत्र, जारी — इसी क्रम में।")) },
+      { icon: "alert", title: tx(p("Look at what moved", "जो बदला उसे देखें")), body: tx(p("A class average that moved a lot since the last exam is flagged.", "पिछली परीक्षा से बहुत बदला औसत दिखाया जाता है।")) },
+      { icon: "lock", title: tx(p("Lock, then cards", "बंद करें, फिर कार्ड")), body: tx(p("Locked marks cannot change; cards are made from them.", "बंद अंक बदलते नहीं; कार्ड उन्हीं से बनते हैं।")) },
+    ],
+  };
 
-  const tabs = (
-    <ChipRow label={tx(p("Steps", "कदम"))}>
-      {(["moderation", "grace", "lock", "cards", "publish", "recheck"] as ResultsView[]).map((v, i) => {
-        const step = STEP_ORDER[i + 1];
-        const n = v === "recheck" ? props.rechecks.filter((r) => !["changed", "no_change"].includes(r.status)).length : i + 2;
-        const done = step && props.states[step] === "done";
-        return (
-          <Link key={v} href={href(v)} className={`tap chip${view === v ? " on" : ""}`}>
-            <span className="num" style={{ width: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: view === v ? "rgba(255,255,255,.25)" : "var(--s3)" }}>
-              {done ? <Ic n="check" size={12} /> : n}
-            </span>
-            {tx(titles[v])}
-          </Link>
-        );
-      })}
-    </ChipRow>
-  );
+  /* The lock screen's choice lives here so the phone bar can act on it. */
+  const [lockPicked, setLockPicked] = useState<string[]>(() => props.classes.filter((c) => c.allSubmitted && !c.locked).map((c) => c.id));
+  const lockChosen = props.classes.filter((c) => lockPicked.includes(c.id) && !c.locked);
+  /* Publishing's choice, for the same reason. */
+  const [when, setWhen] = useState<"now" | "scheduled">(exam.resultsOn ? "scheduled" : "now");
+  const [at, setAt] = useState(exam.publishAt ? exam.publishAt.slice(0, 16) : exam.resultsOn ? `${exam.resultsOn}T09:00` : "");
+  const [ptm, setPtm] = useState(exam.ptm);
+  const publishNow = () => run(() => actions.publish({ examId: exam.id, when, at: when === "scheduled" ? new Date(at).toISOString() : null, ptm }));
+  const atLabel = at ? new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(new Date(at)).replace(",", "") + ` · ${ampm(at.slice(11, 16))}` : "";
 
-  let body: React.ReactNode;
+  let body: ReactNode;
   switch (view) {
     case "moderation":
       body = <Moderation {...props} pending={pending} run={run} />;
@@ -242,55 +278,83 @@ export function ResultsBoard(props: ResultsProps) {
       body = <Grace {...props} pending={pending} run={run} />;
       break;
     case "lock":
-      body = <Lock {...props} pending={pending} run={run} />;
+      body = <Lock {...props} pending={pending} run={run} picked={lockPicked} setPicked={setLockPicked} chosen={lockChosen} onLock={() => setLockConfirm(true)} />;
       break;
     case "cards":
       body = <Cards {...props} pending={pending} run={run} />;
       break;
     case "publish":
-      body = <Publish {...props} pending={pending} run={run} />;
+      body = <Publish {...props} pending={pending} when={when} setWhen={setWhen} at={at} setAt={setAt} atLabel={atLabel} ptm={ptm} setPtm={setPtm} onPublish={publishNow} />;
       break;
     case "recheck":
-      body = <Rechecks {...props} pending={pending} run={run} />;
+      body = null;
       break;
     default:
       body = <Pipeline {...props} href={href} onRemind={() => setRemindOpen(true)} />;
   }
 
+  const phoneBar: ReactNode =
+    view === "grace" && props.grace.open > 0 ? (
+      <button type="button" className="tap btn pri xbig" disabled={pending} onClick={() => run(() => actions.giveGrace({ examId: exam.id }))}>
+        {tx(p(`Give grace to ${props.grace.open} children`, `${props.grace.open} बच्चों को ग्रेस दें`))}
+      </button>
+    ) : view === "lock" && props.canFinalise && lockChosen.length ? (
+      <button type="button" className="tap btn pri xbig" disabled={pending} onClick={() => setLockConfirm(true)}>
+        {tx(p(`Lock ${lockChosen.length} ${lockChosen.length === 1 ? "class" : "classes"}`, `${lockChosen.length} कक्षाएँ बंद करें`))}
+      </button>
+    ) : view === "publish" && !exam.publishedAt ? (
+      <button type="button" className="tap btn pri xbig" disabled={pending || (when === "scheduled" && !at)} onClick={publishNow}>
+        {when === "now" ? tx(p("Send results now", "परिणाम अभी भेजें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
+      </button>
+    ) : null;
+
   return (
-    <VxPage>
-      <TopBar
+    <VxPage className="eor">
+      <OfficeTop
         crumb={crumb}
-        title={
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            {tx(titles[view])} {badge}
-          </span>
-        }
-        mTitle={tx(titles[view])}
-        mSub={view === "lock" ? tx(p(`${props.classes.filter((c) => c.locked).length} of ${props.classes.length} classes locked`, `${props.classes.length} में से ${props.classes.filter((c) => c.locked).length} कक्षाएँ बंद`)) : `${tx(exam.name)}${exam.resultsLabel ? ` · ${exam.resultsLabel}` : ""}`}
-        mBack={view === "pipeline" ? "/exam-office" : href("pipeline")}
+        title={openRecheck ? openRecheck.name : tx(titles[view])}
+        pill={badge}
+        mTitle={openRecheck ? openRecheck.name : tx(titles[view])}
+        mSub={mSub[view]}
+        back={view === "pipeline" ? undefined : openRecheck ? href("recheck") : href("pipeline")}
+        mBack={view === "pipeline" ? "/exam-office" : undefined}
+        help={help}
         actions={
-          <>
-            {view !== "pipeline" ? (
-              <Btn variant="ghost" icon="chevLeft" href={href("pipeline")}>
-                {tx(p("Pipeline", "राह"))}
-              </Btn>
-            ) : null}
-            {help}
-            {view === "pipeline" && nextStep !== "entered" ? (
-              <Btn variant="pri" icon="arrowRight" href={href(TAB_FOR[nextStep])}>
-                {tx(p("Next:", "अगला:"))} {tx(titles[TAB_FOR[nextStep]])}
-              </Btn>
-            ) : null}
-          </>
+          view === "pipeline" && nextStep !== "entered" ? (
+            <Link href={href(TAB_FOR[nextStep])} className="tap btn pri">
+              <Ic n="arrowRight" size={18} />
+              {tx(p("Next:", "अगला:"))} {tx(titles[TAB_FOR[nextStep]])}
+            </Link>
+          ) : null
         }
-        mAction={help}
       />
-      <main>
-        <section className="pad" style={{ padding: "22px 28px 40px", display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          {view !== "pipeline" ? tabs : null}
-          {body}
-        </section>
+      <main className="xmain" style={{ position: "relative" }}>
+        {view !== "pipeline" ? (
+          <div className={`pad${openRecheck ? " hide-m" : ""}`} style={{ padding: "14px 28px 0" }}>
+            <div className="hs xr x6">
+              {STEP_CHIPS.map((c, i) => {
+                const on = view === c.view;
+                const step = STEP_ORDER[i + 1];
+                const done = c.n !== null && step && props.states[step] === "done";
+                const n = c.n === null ? props.rechecks.filter((r) => r.status === "new").length : c.n;
+                return (
+                  <Link key={c.view} href={href(c.view)} className={`tap chip${on ? " on" : ""}`} aria-current={on ? "page" : undefined}>
+                    <span className="xi num x11" style={{ width: 20, height: 20, borderRadius: 10, background: on ? "var(--card)" : done ? "var(--ok)" : "var(--s3)", color: on ? "var(--fg)" : done ? "var(--onsolid, #fff)" : "var(--mut)" }}>
+                      {done ? <Ic n="check" size={12} /> : n}
+                    </span>
+                    {tx(c.label)}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+        {view === "recheck" ? <Rechecks {...props} pending={pending} run={run} open={openRecheck} href={href} /> : <div className="pad xsc">{body}</div>}
+        {phoneBar ? (
+          <div className="only-m glass xmbar" style={{ bottom: STICKY_BOTTOM }}>
+            {phoneBar}
+          </div>
+        ) : null}
       </main>
       <RemindSheet
         open={remindOpen}
@@ -300,136 +364,195 @@ export function ResultsBoard(props: ResultsProps) {
         dueLabel={exam.marksDue ?? "—"}
         from={props.fromName}
         remind={actions.remind}
+        look="office"
+      />
+      <Confirm
+        open={lockConfirm}
+        onClose={() => setLockConfirm(false)}
+        busy={pending}
+        title={tx(p(`Lock ${lockChosen.length} ${lockChosen.length === 1 ? "class" : "classes"}?`, `${lockChosen.length} कक्षाएँ बंद करें?`))}
+        body={lockChosen.map((c) => c.label).join(", ")}
+        confirmLabel={tx(p("Lock", "बंद करें"))}
+        onConfirm={() => run(() => actions.lock({ examId: exam.id, classIds: lockChosen.map((c) => c.id) }), () => setLockConfirm(false))}
       />
     </VxPage>
   );
 }
 
-type Run = ReturnType<typeof useAct>["run"];
-
 /* --------------------------------------------------------- pipeline */
 
 function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string) => string; onRemind: () => void }) {
   const { tx } = useVx();
-  const { exam, classes, overall, teachers } = props;
+  const { exam, classes, overall, teachers, states } = props;
   const locked = classes.filter((c) => c.locked).length;
   const ready = classes.filter((c) => !c.locked && c.allSubmitted).length;
+  const late = teachers.filter((t) => t.late);
+  const canPass = props.grace.rows.filter((g) => g.canPass).length;
+  const firstOpen = STEP_ORDER.findIndex((s) => states[s] !== "done");
   const cards: Record<PipelineStep, { title: Pair; big: string; sub: string; btn: Pair; href: string; value: number }> = {
-    entered: { title: p("Marks entered", "अंक भरे"), big: `${overall.percent}%`, sub: tx(p(`${overall.entered} of ${overall.total} marks · ${teachers.filter((t) => t.late).length} teachers late`, `${overall.total} में से ${overall.entered} · ${teachers.filter((t) => t.late).length} शिक्षक देर से`)), btn: p("Marks tracker", "अंक ट्रैकर"), href: "/exams?view=grid", value: overall.percent },
-    checked: { title: p("Checked", "जाँचे"), big: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual`, `${props.unusualOpen} असामान्य`)) : tx(p("All fine", "सब ठीक")), sub: tx(p(`Class averages that moved a lot${exam.prevName ? ` since ${exam.prevName.en}` : ""}`, "जिन कक्षाओं का औसत बहुत बदला")), btn: p("Check marks", "अंक जाँचें"), href: props.href("moderation"), value: props.unusualCount ? ((props.unusualCount - props.unusualOpen) / props.unusualCount) * 100 : 100 },
-    grace: { title: p("Grace", "ग्रेस"), big: tx(p(`${props.grace.rows.filter((g) => g.canPass).length} children`, `${props.grace.rows.filter((g) => g.canPass).length} बच्चे`)), sub: tx(p(`Can pass with up to ${props.grace.max} grace marks`, `${props.grace.max} तक ग्रेस से पास हो सकते`)), btn: p("Review grace", "ग्रेस देखें"), href: props.href("grace"), value: props.grace.rows.length ? (props.grace.rows.filter((g) => g.given).length / Math.max(1, props.grace.rows.filter((g) => g.canPass).length)) * 100 : 0 },
-    locked: { title: p("Locked", "बंद"), big: tx(p(`${locked} of ${classes.length}`, `${classes.length} में से ${locked}`)), sub: tx(p(`${ready} ${ready === 1 ? "class" : "classes"} ready to lock`, `${ready} कक्षाएँ बंद करने को तैयार`)), btn: p("Lock marks", "अंक बंद करें"), href: props.href("lock"), value: classes.length ? (locked / classes.length) * 100 : 0 },
+    entered: { title: p("Marks entered", "अंक भरे"), big: `${overall.percent}%`, sub: tx(p(`${overall.entered.toLocaleString("en-IN")} of ${overall.total.toLocaleString("en-IN")} marks · ${late.length} teachers late`, `${overall.total} में से ${overall.entered} · ${late.length} शिक्षक देर से`)), btn: p("Marks tracker", "अंक ट्रैकर"), href: "/exams?view=grid", value: overall.percent },
+    checked: { title: p("Checked", "जाँचे"), big: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual`, `${props.unusualOpen} असामान्य`)) : tx(p("All fine", "सब ठीक")), sub: props.unusualOpen ? tx(p(`Class averages that moved a lot${exam.prevName ? ` since ${exam.prevName.en}` : ""}`, "जिन कक्षाओं का औसत बहुत बदला")) : tx(p("Complete classes compared with the last exam", "पूरी कक्षाएँ पिछली परीक्षा से मिलाईं")), btn: p("Check marks", "अंक जाँचें"), href: props.href("moderation"), value: props.unusualCount ? ((props.unusualCount - props.unusualOpen) / props.unusualCount) * 100 : states.checked === "done" ? 100 : 0 },
+    grace: { title: p("Grace", "ग्रेस"), big: tx(p(`${canPass} children`, `${canPass} बच्चे`)), sub: states.grace === "done" ? tx(p("Passed with grace marks", "ग्रेस अंकों से पास")) : tx(p(`Can pass with up to ${props.grace.max} grace marks`, `${props.grace.max} तक ग्रेस से पास हो सकते`)), btn: p("Review grace", "ग्रेस देखें"), href: props.href("grace"), value: canPass ? (props.grace.rows.filter((g) => g.given).length / canPass) * 100 : 0 },
+    locked: { title: p("Locked", "बंद"), big: tx(p(`${locked} of ${classes.length}`, `${classes.length} में से ${locked}`)), sub: locked ? tx(p("Classes locked · marks can’t change", "कक्षाएँ बंद · अंक नहीं बदलेंगे")) : tx(p(`${ready} ${ready === 1 ? "class" : "classes"} ready to lock`, `${ready} कक्षाएँ बंद करने को तैयार`)), btn: p("Lock marks", "अंक बंद करें"), href: props.href("lock"), value: classes.length ? (locked / classes.length) * 100 : 0 },
     cards: { title: p("Report cards", "प्रगति पत्र"), big: tx(p(`${props.cards.issuedTotal} of ${props.childrenTotal}`, `${props.childrenTotal} में से ${props.cards.issuedTotal}`)), sub: tx(p("Issued once a class is locked", "कक्षा बंद होने पर जारी")), btn: p("Report cards", "प्रगति पत्र"), href: props.href("cards"), value: props.childrenTotal ? (props.cards.issuedTotal / props.childrenTotal) * 100 : 0 },
-    published: { title: p("Published", "जारी"), big: exam.publishedAt ? tx(p("Released", "जारी")) : (exam.resultsLabel ?? "—"), sub: exam.ptmAt ? tx(p(`Results day · PTM at ${exam.ptmAt}`, `परिणाम दिवस · PTM ${exam.ptmAt}`)) : tx(p("Results day", "परिणाम दिवस")), btn: p("Schedule", "समय तय करें"), href: props.href("publish"), value: exam.publishedAt ? 100 : 0 },
+    published: { title: p("Published", "जारी"), big: exam.publishedAt ? tx(p("Sent", "भेजा")) : (exam.resultsLabel ?? "—"), sub: exam.ptmAt ? tx(p(`Results day · PTM at ${ampm(exam.ptmAt)}`, `परिणाम दिवस · PTM ${ampm(exam.ptmAt)}`)) : tx(p("Results day", "परिणाम दिवस")), btn: p("Schedule", "समय तय करें"), href: props.href("publish"), value: exam.publishedAt ? 100 : 0 },
   };
+  const dates = [
+    exam.marksDue ? { k: p("MARKS DUE", "अंक अंतिम तिथि"), v: exam.marksDue, s: exam.daysToDue === null ? "" : exam.daysToDue >= 0 ? tx(p(`in ${exam.daysToDue} days`, `${exam.daysToDue} दिन में`)) : tx(p("passed", "बीत गई")), tone: "warn" as const } : null,
+    exam.resultsLabel ? { k: p("RESULTS DAY", "परिणाम दिवस"), v: exam.resultsLabel, s: `${exam.publishAt ? ampm(exam.publishAt.slice(11, 16)) : "9 am"}${exam.ptmAt ? ` · PTM ${ampm(exam.ptmAt)}` : ""}`, tone: "acc" as const } : null,
+  ].filter((d) => d !== null);
+  const rq = [
+    { n: props.rechecks.filter((r) => r.status === "new").length, label: p("new", "नए"), tone: "warn" as const },
+    { n: props.rechecks.filter((r) => r.status === "with_teacher").length, label: p("with teachers", "शिक्षकों के पास"), tone: "info" as const },
+    { n: props.rechecks.filter((r) => r.status === "changed" || r.status === "no_change").length, label: p("done", "पूरे"), tone: "ok" as const },
+  ];
   return (
     <>
-      <Card style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-        <span style={{ flex: "1 1 280px" }}>
-          <strong className="serif" style={{ fontSize: 26, display: "block" }}>{tx(p(`${exam.name.en} results`, `${exam.name.hi ?? exam.name.en} परिणाम`))}</strong>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>
+      <div className="card xr xw x14 xp2">
+        <span className="xc xf" style={{ minWidth: 230 }}>
+          <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.2 }}>{tx(p(`${exam.name.en} results`, `${exam.name.hi ?? exam.name.en} परिणाम`))}</span>
+          <span className="xm">
             {tx(p("Exams", "परीक्षा"))} {exam.dates} · {tx(p("six steps from marks to parents", "अंकों से अभिभावकों तक छह कदम"))}
           </span>
         </span>
-        {exam.marksDue ? (
-          <span style={{ padding: "10px 14px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em" }}>{tx(p("MARKS DUE", "अंक अंतिम तिथि"))}</span>
-            <strong style={{ display: "block" }}>{exam.marksDue}</strong>
-            {exam.daysToDue !== null ? <span style={{ fontSize: 12 }}>{exam.daysToDue >= 0 ? tx(p(`in ${exam.daysToDue} days`, `${exam.daysToDue} दिन में`)) : tx(p("passed", "बीत गई"))}</span> : null}
+        {dates.map((d) => (
+          <span key={d.k.en} className="xc" style={{ padding: "8px 14px", borderRadius: 14, background: tn(d.tone).background, minWidth: 136 }}>
+            <span className="x11 xb" style={{ color: tn(d.tone).color }}>{tx(d.k)}</span>
+            <b className="num">{d.v}</b>
+            <span className="xm">{d.s}</span>
           </span>
-        ) : null}
-        {exam.resultsLabel ? (
-          <span style={{ padding: "10px 14px", borderRadius: 14, background: "var(--infos)", color: "var(--info)" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em" }}>{tx(p("RESULTS DAY", "परिणाम दिवस"))}</span>
-            <strong style={{ display: "block" }}>{exam.resultsLabel}</strong>
-            {exam.ptmAt ? <span style={{ fontSize: 12 }}>PTM {exam.ptmAt}</span> : null}
-          </span>
-        ) : null}
-      </Card>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
+        ))}
+      </div>
+      <div className="xstp">
         {STEP_ORDER.map((s, i) => {
           const c = cards[s];
-          const st = STATE_WORDS[props.states[s]];
+          const st = states[s];
+          const done = st === "done";
+          const now = i === firstOpen;
+          const can = !done && !now && st !== "waiting";
+          const stLabel = done ? p("Done", "पूरा") : now ? (i === 0 ? p("In progress", "जारी") : p("Next", "अगला")) : can ? p("Can start", "शुरू कर सकते") : p("Waiting", "रुका");
+          const stTone: ToneKey = done ? "ok" : now ? "acc" : can ? "info" : "s3";
           return (
-            <Card key={s} style={{ display: "flex", flexDirection: "column", gap: 8, border: props.states[s] === "active" ? "2px solid var(--pri)" : undefined }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <span className="num" style={{ width: 26, height: 26, borderRadius: 13, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, background: props.states[s] === "active" ? "var(--pri)" : "var(--s3)", color: props.states[s] === "active" ? "#fff" : "var(--fg)" }}>
-                  {props.states[s] === "done" ? <Ic n="check" size={14} /> : i + 1}
+            <div key={s} className="card xc x8 xp" style={{ animation: "xIn .3s var(--ease) both", animationDelay: `${i * 50}ms`, borderColor: now ? "var(--acc)" : "var(--bd)", boxShadow: now ? "var(--shh)" : "var(--sh)" }}>
+              <span className="xr xj x6">
+                <span className="xi num xb xs" style={{ width: 28, height: 28, borderRadius: 14, background: done ? "var(--ok)" : now ? "var(--pri)" : "var(--s3)", color: done || now ? "var(--prifg)" : "var(--mut)" }}>
+                  {done ? <Ic n="check" size={14} /> : i + 1}
                 </span>
-                <span style={{ flex: 1 }} />
-                <Pill tone={st.tone}>{tx(st.label)}</Pill>
-              </div>
-              <strong>{tx(c.title)}</strong>
-              <strong style={{ fontSize: 24 }}>{c.big}</strong>
-              <span style={{ fontSize: 12, color: "var(--mut)", minHeight: 32 }}>{c.sub}</span>
-              <Progress value={c.value} max={100} tone="var(--pri)" height={5} />
-              <Btn variant="sec" href={c.href}>
-                {tx(c.btn)} <Ic n="chevRight" size={16} />
-              </Btn>
-            </Card>
+                <Tag tone={stTone} style={stTone === "s3" ? { background: "var(--s2)" } : undefined}>
+                  {tx(stLabel)}
+                </Tag>
+              </span>
+              <b className="xt">{tx(c.title)}</b>
+              <span className="num xb" style={{ fontSize: 22, lineHeight: 1.1, color: done ? "var(--ok)" : "var(--fg)" }}>{c.big}</span>
+              <span className="xm" style={{ minHeight: 34 }}>{c.sub}</span>
+              <span className="xbar" style={{ height: 6 }}>
+                <span style={{ width: `${Math.round(c.value)}%`, background: done ? "var(--ok)" : "var(--acc)" }} />
+              </span>
+              <Link href={c.href} className={`tap btn ${i > 0 && now ? "pri" : "sec"}`} style={{ marginTop: 4 }}>
+                {i === 0 ? (
+                  <span className="only-d" style={{ display: "contents" }}>
+                    <Ic n="clipboard" size={18} />
+                  </span>
+                ) : null}
+                {tx(c.btn)}
+                {i > 0 ? <Ic n="chevRight" size={18} /> : null}
+              </Link>
+            </div>
           );
         })}
       </div>
-      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 330px", gap: 16, alignItems: "start" }}>
-        <Card pad={false} style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680, fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "var(--s2)", color: "var(--mut)", fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase" }}>
-                {[p("Class", "कक्षा"), p("Marks entered", "भरे"), p("Late", "देर"), p("Checked", "जाँचे"), p("Grace", "ग्रेस"), p("Locked", "बंद"), p("Card", "कार्ड")].map((h) => (
-                  <th key={h.en} style={{ textAlign: "left", padding: "12px 10px" }}>
-                    {tx(h)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {classes.map((c) => (
-                <tr key={c.id} style={{ borderTop: "1px solid var(--bd)" }}>
-                  <td style={{ padding: "10px" }}>
-                    <strong style={{ display: "block" }}>{c.label}</strong>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                      {c.teacher ?? "—"} · {c.children}
-                    </span>
-                  </td>
-                  <td style={{ padding: 10, width: 140 }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <Progress value={c.percent} max={100} tone="var(--pri)" height={5} style={{ flex: 1 }} />
-                      <strong className="num">{c.percent}%</strong>
-                    </span>
-                  </td>
-                  <td style={{ padding: 10 }}>{c.late ? <Pill tone="bad">{c.late} {tx(p("late", "देर"))}</Pill> : <Pill>{tx(p("On time", "समय पर"))}</Pill>}</td>
-                  <td style={{ padding: 10 }}>{c.unusualOpen ? <Pill tone="warn">{tx(p("Needs a look", "देखना है"))}</Pill> : c.allSubmitted ? <Pill tone="ok">{tx(p("Checked", "जाँचा"))}</Pill> : <Pill>{tx(p("Not checked", "नहीं जाँचा"))}</Pill>}</td>
-                  <td style={{ padding: 10 }}>{c.graceNeeded ? <Pill tone="info">{c.graceNeeded} {tx(p("need grace", "को ग्रेस"))}</Pill> : <Pill>{tx(p("No grace", "ग्रेस नहीं"))}</Pill>}</td>
-                  <td style={{ padding: 10 }}>{c.locked ? <Pill tone="ok" icon="lock">{tx(p("Locked", "बंद"))}</Pill> : c.allSubmitted ? <Pill tone="info">{tx(p("Ready to lock", "बंद को तैयार"))}</Pill> : <Pill>{tx(p("Not locked", "खुला"))}</Pill>}</td>
-                  <td style={{ padding: 10 }}>{c.issued ? <Pill tone={c.issued >= c.children ? "ok" : "warn"}>{c.issued}/{c.children}</Pill> : <Pill>{tx(p("No card yet", "कार्ड नहीं"))}</Pill>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-        <Card style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <strong style={{ flex: 1 }}>{tx(p(`${teachers.filter((t) => t.late).length} teachers are late`, `${teachers.filter((t) => t.late).length} शिक्षक देर से`))}</strong>
-            {exam.marksDue ? <Pill tone="bad">{tx(p("Due", "अंतिम"))} {exam.marksDue}</Pill> : null}
-          </div>
-          {teachers.slice(0, 8).map((t) => (
-            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid var(--bd)" }}>
-              <Avatar text={initials(t.name)} bg={avatarColor(t.id)} size={32} />
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <strong className="clip" style={{ fontSize: 14 }}>{t.name}</strong>
-                <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>
-                  {t.papers.filter((x) => x.status !== "done").map((x) => `${x.classLabel} ${x.subjectCode}`).join(", ")} · {tx(p(`${t.entered} of ${t.total}`, `${t.total} में से ${t.entered}`))}
-                </span>
+      <div className="stack xgd" style={{ gridTemplateColumns: "minmax(0,1fr) 330px", gap: 14, alignItems: "start" }}>
+        <div className="card xoh">
+          <div className="xrr hide-m" style={{ background: "var(--s2)", minHeight: 42 }}>
+            {[p("Class", "कक्षा"), p("Marks entered", "अंक भरे"), p("Late", "देर"), p("Checked", "जाँचे"), p("Grace", "ग्रेस"), p("Locked", "बंद"), p("Card", "कार्ड")].map((h) => (
+              <span key={h.en} className="sech">
+                {tx(h)}
               </span>
+            ))}
+          </div>
+          <div className="xst">
+            {classes.map((c) => {
+              const final = c.children > 0 && c.issued >= c.children;
+              return (
+                <div key={c.id} className="xrr xd" style={{ background: c.locked && final ? "var(--oks)" : "transparent" }}>
+                  <span className="xr x8 xn0">
+                    <span className="xc xn0">
+                      <b className="xe">{c.label}</b>
+                      <span className="xm xe">
+                        {c.teacher ?? "—"} · {c.children}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="xr x8">
+                    <span className="xbar xf" style={{ height: 7 }}>
+                      <span style={{ width: `${c.percent}%`, background: c.percent === 100 ? "var(--ok)" : "var(--acc)" }} />
+                    </span>
+                    <b className="num xs" style={{ minWidth: 38, textAlign: "right" }}>{c.percent}%</b>
+                  </span>
+                  <span>{c.late ? <Tag tone="bad">{tx(p(`${c.late} late`, `${c.late} देर`))}</Tag> : <Tag tone="s3">{tx(p("On time", "समय पर"))}</Tag>}</span>
+                  <span>{c.unusualOpen ? <Tag tone="warn">{tx(p(`${c.unusualOpen} to look at`, `${c.unusualOpen} देखने हैं`))}</Tag> : c.allSubmitted ? <Tag tone="ok">{tx(p("Checked", "जाँचा"))}</Tag> : <Tag tone="s3">{tx(p("Not checked", "नहीं जाँचा"))}</Tag>}</span>
+                  <span>{c.graceNeeded ? <Tag tone="info">{tx(p(`${c.graceNeeded} need grace`, `${c.graceNeeded} को ग्रेस`))}</Tag> : <Tag tone="s3">{tx(p("No grace", "ग्रेस नहीं"))}</Tag>}</span>
+                  <span>{c.locked ? <Tag tone="ok">{tx(p("Locked", "बंद"))}</Tag> : c.allSubmitted ? <Tag tone="info">{tx(p("Ready to lock", "बंद को तैयार"))}</Tag> : <Tag tone="s3">{tx(p("Not locked", "खुला"))}</Tag>}</span>
+                  <span>{final ? <Tag tone="ok">{tx(p("Card final", "कार्ड पक्का"))}</Tag> : c.issued ? <Tag tone="warn">{`${c.issued}/${c.children}`}</Tag> : <Tag tone="s3">{tx(p("No card yet", "कार्ड नहीं"))}</Tag>}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="xc x14 xfirst">
+          <div className="card xc xp">
+            <div className="xr xj x8">
+              <span className="xt">{late.length ? tx(p(`${late.length} ${late.length === 1 ? "teacher is" : "teachers are"} late`, `${late.length} शिक्षक देर से`)) : tx(p("Everyone is on time", "सब समय पर"))}</span>
+              {exam.marksDue ? (
+                <Tag tone="bad">
+                  {tx(p("Due", "अंतिम"))} {exam.marksDue}
+                </Tag>
+              ) : null}
             </div>
-          ))}
-          {teachers.length === 0 ? <span style={{ color: "var(--mut)", fontSize: 13 }}>{tx(p("Everyone has finished.", "सबने पूरा किया।"))}</span> : null}
-          {teachers.length ? (
-            <Btn variant="pri" icon="send" onClick={props.onRemind}>
-              {tx(p("Remind on WhatsApp", "WhatsApp पर याद दिलाएँ"))}
-            </Btn>
-          ) : null}
-        </Card>
+            <div className="xst">
+              {late.map((t) => {
+                const av = toneAvatar(t.name);
+                const left = t.papers.filter((x) => x.status !== "done" && x.status !== "empty");
+                return (
+                  <div key={t.id} className="xr x10 xd" style={{ padding: "8px 0" }}>
+                    <span className="xa" style={{ background: av.bg, color: av.fg }}>
+                      {av.ini}
+                    </span>
+                    <span className="xc xf">
+                      <span className="x6w xe">{t.name}</span>
+                      <span className="xm xe">
+                        {left.map((x) => `${x.classLabel} ${x.subjectCode}`).join(", ")} · {t.entered ? tx(p(`${t.entered} of ${t.total}`, `${t.total} में से ${t.entered}`)) : tx(p("not started", "शुरू नहीं"))}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {late.length ? (
+              <button type="button" className="tap btn pri" onClick={props.onRemind} style={{ marginTop: 8 }}>
+                <Ic n="send" size={18} />
+                {tx(p(`Remind all ${late.length} on WhatsApp`, `सभी ${late.length} को WhatsApp पर याद दिलाएँ`))}
+              </button>
+            ) : null}
+            <Link href="/exams?view=grid" className="tap btn ghost" style={{ marginTop: 4 }}>
+              {tx(p("Open the marks tracker", "अंक ट्रैकर खोलें"))}
+            </Link>
+          </div>
+          <Link href={props.href("recheck")} className="tap card xc x8 xp lift" style={{ textAlign: "left", color: "var(--fg)", textDecoration: "none" }}>
+            <span className="xr xj">
+              <span className="xt">{tx(p("Re-check requests", "दोबारा जाँच के अनुरोध"))}</span>
+              <Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />
+            </span>
+            <span className="xr xw x6">
+              {rq.map((q) => (
+                <Tag key={q.label.en} tone={q.tone} style={{ height: 26, padding: "0 10px", fontSize: 12 }}>
+                  {q.n} {tx(q.label)}
+                </Tag>
+              ))}
+            </span>
+            <span className="xm">{tx(p("From parents after children saw their checked copies.", "बच्चों के जाँची कॉपी देखने के बाद अभिभावकों से।"))}</span>
+          </Link>
+        </div>
       </div>
     </>
   );
@@ -441,115 +564,152 @@ function Moderation(props: ResultsProps & { pending: boolean; run: Run }) {
   const { tx } = useVx();
   const router = useRouter();
   const { moderation, actions, run, pending, exam } = props;
-  const [picked, setPicked] = useState<string | null>(moderation.papers.find((x) => x.unusual)?.paperId ?? moderation.papers[0]?.paperId ?? null);
+  const [picked, setPicked] = useState<string | null>(moderation.papers.find((x) => x.unusual && !x.decision)?.paperId ?? moderation.papers.find((x) => x.unusual)?.paperId ?? moderation.papers[0]?.paperId ?? null);
   const paper = moderation.papers.find((x) => x.paperId === picked) ?? null;
   const klass = props.classes.find((c) => c.id === moderation.classId);
   if (moderation.completeClasses.length === 0 && moderation.papers.length === 0) {
     return <EmptyState icon="clipboard" title={tx(p("No class has all its marks in yet", "अभी किसी कक्षा के सब अंक नहीं आए"))} body={tx(p("A class shows up here once every paper is submitted.", "हर पेपर जमा होने पर कक्षा यहाँ दिखती है।"))} />;
   }
+  const prevName = exam.prevName ? tx(exam.prevName) : tx(p("Last exam", "पिछली परीक्षा"));
   const askText = paper
     ? `नमस्ते ${paper.teacherName ?? ""} जी, ${klass?.label ?? ""} ${paper.subjectCode} (${exam.name.hi ?? exam.name.en}) का औसत ${paper.avgPct ?? "—"}% है${paper.baseline !== null ? `, पहले ${paper.baseline}% था` : ""}। कृपया कॉपियाँ एक बार फिर जाँच लें।\n\nThe ${klass?.label ?? ""} ${paper.subjectCode} average is ${paper.avgPct ?? "—"}%${paper.baseline !== null ? ` (was ${paper.baseline}%)` : ""}. Please re-check the copies once.\n— ${props.fromName}`
     : "";
+  const passPct = paper && paper.passMarks !== null ? Math.round((paper.passMarks / paper.maxMarks) * 100) : 33;
+  const binMax = paper ? Math.max(1, ...paper.spread) : 1;
+  const change = paper && paper.avgPct !== null && paper.prevPct !== null ? Math.round(paper.avgPct - paper.prevPct) : null;
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <ChipRow label={tx(p("Complete classes", "पूरी कक्षाएँ"))} style={{ flex: 1 }}>
+      <div className="xr xw x8">
+        <div className="hs xr x6 xf">
           {moderation.completeClasses.map((c) => (
-            <Chip key={c.id} on={c.id === moderation.classId} onClick={() => router.push(`/exam-office/results?view=moderation&class=${c.id}`)}>
-              <span style={{ width: 7, height: 7, borderRadius: 4, background: c.unusual ? "var(--warn)" : "var(--ok)", display: "inline-block" }} />
+            <button key={c.id} type="button" className={`tap chip${c.id === moderation.classId ? " on" : ""}`} aria-pressed={c.id === moderation.classId} onClick={() => router.push(`/exam-office/results?view=moderation&class=${c.id}`)}>
+              <span className="xdt" style={{ background: c.unusual ? "var(--warn)" : "var(--ok)" }} />
               {c.label}
-            </Chip>
+            </button>
           ))}
-        </ChipRow>
-        {moderation.still ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p(`${moderation.still} classes still entering marks · they show up here when complete`, `${moderation.still} कक्षाओं के अंक आ रहे हैं · पूरे होने पर यहाँ दिखेंगी`))}</span> : null}
+        </div>
+        {moderation.still ? <span className="xm">{tx(p(`${moderation.still} classes still entering marks · they show up here when complete`, `${moderation.still} कक्षाओं के अंक आ रहे हैं · पूरे होने पर यहाँ दिखेंगी`))}</span> : null}
       </div>
       {moderation.flagged.map((f) => (
-        <Link key={f.paperId} href={`/exam-office/results?view=moderation&class=${f.classId}`} className="tap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)", textDecoration: "none" }}>
-          <Ic n={f.delta < 0 ? "alert" : "trend"} size={20} />
-          <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <strong>{tx(p(`${f.classLabel} ${f.subjectCode} average ${f.delta < 0 ? "dropped" : "rose"} ${Math.abs(f.delta)}%`, `${f.classLabel} ${f.subjectCode} का औसत ${Math.abs(f.delta)}% ${f.delta < 0 ? "गिरा" : "बढ़ा"}`))}</strong>
-            <span style={{ fontSize: 13 }}>
-              {f.basis === "previous" ? (exam.prevName ? tx(exam.prevName) : tx(p("Last exam", "पिछली परीक्षा"))) : tx(p("School average", "स्कूल औसत"))} {f.baseline}% → {tx(p("now", "अब"))} {f.avgPct}%{f.teacherName ? ` · ${f.teacherName}` : ""}
+        <Link key={f.paperId} href={`/exam-office/results?view=moderation&class=${f.classId}`} className="tap xno xl" style={{ background: "var(--warns)", color: "var(--warnfg)", animation: "xIn .3s var(--ease) both", textDecoration: "none" }}>
+          <Ic n={f.delta < 0 ? "alert" : "trend"} size={18} />
+          <span className="xc xf">
+            <b>{tx(p(`${f.classLabel} ${f.subjectCode} average ${f.delta < 0 ? "dropped" : "rose"} ${Math.abs(f.delta)}%`, `${f.classLabel} ${f.subjectCode} का औसत ${Math.abs(f.delta)}% ${f.delta < 0 ? "गिरा" : "बढ़ा"}`))}</b>
+            <span className="xs">
+              {f.basis === "previous" ? prevName : tx(p("School average", "स्कूल औसत"))} {f.baseline}% → {tx(p("now", "अब"))} {f.avgPct}%{f.teacherName ? ` · ${f.teacherName}` : ""}
             </span>
           </span>
-          <Ic n="chevRight" size={16} />
+          <Ic n="chevRight" size={18} />
         </Link>
       ))}
-      <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 440px", gap: 16, alignItems: "start" }}>
-        <Card pad={false} style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 460 }}>
-            <thead>
-              <tr style={{ background: "var(--s2)", color: "var(--mut)", fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase" }}>
-                <th style={{ textAlign: "left", padding: 12 }}>{tx(p("Subject", "विषय"))}</th>
-                <th style={{ textAlign: "right", padding: 12 }}>{exam.prevName ? tx(exam.prevName) : tx(p("Before", "पहले"))}</th>
-                <th style={{ textAlign: "right", padding: 12 }}>{tx(p("Now", "अब"))}</th>
-                <th style={{ textAlign: "right", padding: 12 }}>{tx(p("Change", "बदलाव"))}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {moderation.papers.map((x) => {
-                const change = x.avgPct !== null && x.prevPct !== null ? Math.round((x.avgPct - x.prevPct) * 10) / 10 : null;
-                return (
-                  <tr key={x.paperId} onClick={() => setPicked(x.paperId)} className="tap" style={{ borderTop: "1px solid var(--bd)", cursor: "pointer", background: x.paperId === picked ? "var(--accs)" : undefined }}>
-                    <td style={{ padding: 12 }}>
-                      <strong style={{ display: "block" }}>{x.subjectCode}</strong>
-                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{x.teacherName ?? "—"}</span>
-                    </td>
-                    <td style={{ padding: 12, textAlign: "right", color: "var(--mut)" }}>{x.prevPct === null ? "—" : `${x.prevPct}%`}</td>
-                    <td style={{ padding: 12, textAlign: "right" }}>
-                      <strong>{x.avgPct === null ? "—" : `${x.avgPct}%`}</strong>
-                    </td>
-                    <td style={{ padding: 12, textAlign: "right" }}>
-                      {x.decision ? <Pill tone={x.decision === "fine" ? "ok" : "warn"}>{x.decision === "fine" ? tx(p("Fine", "ठीक")) : tx(p("Re-check", "दोबारा"))}</Pill> : change === null ? "—" : <Pill tone={x.unusual ? "bad" : "mut"}>{change > 0 ? `+${change}` : change}%</Pill>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
+      <div className="stack xgd" style={{ gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)", gap: 14, alignItems: "start" }}>
+        <div className="card xoh">
+          <div className="xmod" style={{ background: "var(--s2)", minHeight: 42 }}>
+            <span className="sech">{tx(p("Subject", "विषय"))}</span>
+            <span className="sech xtr">{prevName}</span>
+            <span className="sech xtr">{tx(p("Now", "अब"))}</span>
+            <span className="sech xtr">{tx(p("Change", "बदलाव"))}</span>
+            <span className="sech">{tx(p("Last → now", "पहले → अब"))}</span>
+          </div>
+          <div className="xst">
+            {moderation.papers.map((x) => {
+              const d = x.avgPct !== null && x.prevPct !== null ? Math.round(x.avgPct - x.prevPct) : null;
+              const tone: ToneKey = x.unusual ? (x.decision ? "ok" : "warn") : "s3";
+              const c = x.unusual ? (d !== null && d < 0 ? "var(--bad)" : "var(--warn)") : "var(--c2)";
+              const last = x.prevPct ?? x.avgPct ?? 0;
+              const now = x.avgPct ?? 0;
+              return (
+                <button key={x.paperId} type="button" className={`tap row xmod xd${x.paperId === picked ? " sel" : ""}`} onClick={() => setPicked(x.paperId)}>
+                  <span className="xc xn0">
+                    <b className="xe">{x.subjectCode}</b>
+                    <span className="xm xe">
+                      {x.teacherName ?? "—"}
+                      {x.decision === "recheck" ? tx(p(" · re-check asked", " · दोबारा जाँच कही")) : x.decision === "fine" ? tx(p(" · marked fine", " · ठीक माना")) : ""}
+                    </span>
+                  </span>
+                  <span className="num xmu xtr">{x.prevPct === null ? "—" : `${x.prevPct}%`}</span>
+                  <b className="num xtr">{x.avgPct === null ? "—" : `${x.avgPct}%`}</b>
+                  <span className="xtr">{d === null ? "—" : <Tag tone={tone}>{`${d > 0 ? "+" : ""}${d}%`}</Tag>}</span>
+                  <span className="xrl" style={{ height: 16 }}>
+                    <span style={{ position: "absolute", top: 7, left: 0, right: 0, height: 2, background: "var(--s3)" }} />
+                    {x.prevPct !== null ? (
+                      <>
+                        <span style={{ position: "absolute", top: 6, height: 4, borderRadius: 2, left: `${Math.min(last, now)}%`, width: `${Math.abs(now - last)}%`, background: c }} />
+                        <span className="xdb" style={{ left: `${last}%`, background: "var(--bds)" }} />
+                      </>
+                    ) : null}
+                    {x.avgPct !== null ? <span className="xdb" style={{ left: `${now}%`, background: c }} /> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {paper ? (
-          <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "flex-start" }}>
-              <span style={{ flex: 1 }}>
-                <strong style={{ fontSize: 17, display: "block" }}>
+          <div className="card xc x12 xp2">
+            <div className="xr xj x8">
+              <span className="xc">
+                <span className="xt">
                   {klass?.label} · {paper.subjectCode}
-                </strong>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                  {paper.teacherName ?? "—"} · {tx(p("out of", "पूर्णांक"))} {paper.maxMarks} · {paper.sat} {tx(p("children", "बच्चे"))}
+                </span>
+                <span className="xm">
+                  {paper.teacherName ?? "—"} · {tx(p(`out of ${paper.maxMarks} · ${paper.sat} children`, `पूर्णांक ${paper.maxMarks} · ${paper.sat} बच्चे`))}
                 </span>
               </span>
-              {paper.unusual ? <Pill tone="warn">{tx(p("Unusual", "असामान्य"))}</Pill> : null}
+              <Tag tone={paper.unusual && !paper.decision ? "warn" : "ok"}>{paper.unusual ? (paper.decision === "recheck" ? tx(p("Re-check asked", "दोबारा जाँच कही")) : paper.decision === "fine" ? tx(p("Marked fine", "ठीक माना")) : tx(p("Unusual", "असामान्य"))) : tx(p("Normal", "सामान्य"))}</Tag>
             </div>
-            <SecHead>{tx(p("How the marks are spread", "अंक कैसे फैले हैं"))}</SecHead>
-            <BarChart data={paper.spread.map((v, i) => ({ label: `${i * 10}%`, value: v, highlight: paper.passMarks !== null && (i + 1) * 10 <= (paper.passMarks / paper.maxMarks) * 100 }))} height={150} format={(v) => String(v)} labelEvery={2} />
-            {[
-              [p("Average now", "अब का औसत"), `${paper.avgPct ?? "—"}%${paper.prevPct !== null ? ` · ${exam.prevName ? tx(exam.prevName) : ""} ${paper.prevPct}%` : ""}`],
-              [p("Below pass", "पास से कम"), `${paper.below} ${tx(p("children", "बच्चे"))}`],
-              [p("Highest", "सबसे ज़्यादा"), paper.highest === null ? "—" : `${paper.highest} / ${paper.maxMarks}`],
-            ].map(([k, v]) => (
-              <div key={(k as Pair).en} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid var(--bd)" }}>
-                <span style={{ color: "var(--mut)" }}>{tx(k as Pair)}</span>
-                <strong>{v as string}</strong>
+            <span className="sech">{tx(p("How the marks are spread", "अंक कैसे फैले हैं"))}</span>
+            <div className="xr xrl" style={{ height: 130, alignItems: "flex-end", gap: 5, borderBottom: "1px solid var(--bd)" }}>
+              <span style={{ position: "absolute", top: 0, bottom: 0, left: `${passPct}%`, borderLeft: "1.5px dashed var(--bad)", opacity: 0.6 }} />
+              {paper.spread.map((n, i) => (
+                <span key={i} className="xf" style={{ height: `${Math.max(2, Math.round((n / binMax) * 100))}%`, borderRadius: "6px 6px 2px 2px", background: (i + 1) * 10 <= passPct ? "var(--c3)" : "var(--c2)", transformOrigin: "bottom", animation: "xGrowY .6s var(--ease) both", animationDelay: `${i * 35}ms` }} />
+              ))}
+            </div>
+            <div className="xr xj xm num">
+              <span>0%</span>
+              <span style={{ color: "var(--bad)" }}>{tx(p(`${passPct}% pass`, `${passPct}% पास`))}</span>
+              <span>50%</span>
+              <span>100%</span>
+            </div>
+            <div className="xc">
+              {[
+                { k: p("Average now", "अब का औसत"), v: `${paper.avgPct ?? "—"}%${paper.prevPct !== null ? tx(p(` · ${exam.prevName?.en ?? "Last exam"} was ${paper.prevPct}%`, ` · ${exam.prevName?.hi ?? exam.prevName?.en ?? "पिछली"} में ${paper.prevPct}%`)) : ""}`, c: change !== null && Math.abs(change) >= 15 ? "var(--warnfg)" : "var(--fg)" },
+                { k: p(`Below ${passPct}%`, `${passPct}% से कम`), v: tx(p(`${paper.below} children`, `${paper.below} बच्चे`)), c: paper.below ? "var(--bad)" : "var(--ok)" },
+                { k: p("Highest", "सबसे ज़्यादा"), v: paper.highest === null ? "—" : tx(p(`${paper.highest} of ${paper.maxMarks}`, `${paper.maxMarks} में ${paper.highest}`)), c: "var(--fg)" },
+              ].map((f) => (
+                <div key={f.k.en} className="xfa xd">
+                  <span className="xmu">{tx(f.k)}</span>
+                  <b className="num" style={{ color: f.c }}>{f.v}</b>
+                </div>
+              ))}
+            </div>
+            {paper.decision ? (
+              <div className="xno fadein" style={{ ...tn(paper.decision === "fine" ? "ok" : "info") }}>
+                <Ic n="checkCircle" size={18} />
+                <span>{paper.decision === "fine" ? tx(p("Marked fine · no re-check.", "ठीक माना · दोबारा जाँच नहीं।")) : tx(p(`Re-check asked from ${paper.teacherName ?? "the teacher"}.`, `${paper.teacherName ?? "शिक्षक"} से दोबारा जाँच कही।`))}</span>
               </div>
-            ))}
-            <Btn
-              variant="pri"
-              icon="send"
-              disabled={pending}
-              onClick={() =>
-                run(
-                  () => actions.moderate({ paperId: paper.paperId, decision: "recheck", note: null }),
-                  () => window.open(waLink(paper.teacherPhone, askText), "_blank", "noopener"),
-                )
-              }
-            >
-              {tx(p(`Ask ${paper.teacherName ?? "the teacher"} to re-check`, `${paper.teacherName ?? "शिक्षक"} से दोबारा जाँच कहें`))}
-            </Btn>
-            <Btn variant="ghost" disabled={pending} onClick={() => run(() => actions.moderate({ paperId: paper.paperId, decision: "fine", note: null }))}>
-              {tx(p("Looks fine — no re-check", "ठीक है — दोबारा जाँच नहीं"))}
-            </Btn>
-          </Card>
+            ) : (
+              <div className="xc x8">
+                <button
+                  type="button"
+                  className="tap btn pri xbig"
+                  disabled={pending}
+                  onClick={() =>
+                    run(
+                      () => actions.moderate({ paperId: paper.paperId, decision: "recheck", note: null }),
+                      () => window.open(waLink(paper.teacherPhone, askText), "_blank", "noopener"),
+                    )
+                  }
+                >
+                  <Ic n="send" size={18} />
+                  {tx(p(`Ask ${paper.teacherName ?? "the teacher"} to re-check`, `${paper.teacherName ?? "शिक्षक"} से दोबारा जाँच कहें`))}
+                </button>
+                <button type="button" className="tap btn ghost" disabled={pending} onClick={() => run(() => actions.moderate({ paperId: paper.paperId, decision: "fine", note: null }))}>
+                  {tx(p("Looks fine — no re-check", "ठीक है — दोबारा जाँच नहीं"))}
+                </button>
+              </div>
+            )}
+          </div>
         ) : null}
       </div>
     </>
@@ -565,19 +725,23 @@ function Grace(props: ResultsProps & { pending: boolean; run: Run }) {
   const [subjects, setSubjects] = useState<"1" | "2">(grace.subjects === 1 ? "1" : "2");
   const changed = max !== grace.max || Number(subjects) !== grace.subjects;
   // Live preview with the rule as set on screen.
-  const passing = grace.rows.filter((g) => g.needs.length <= Number(subjects) && g.needs.every((n) => n.grace <= max) && !g.needs.some(() => false) && (g.canPass || (g.needs.length <= Number(subjects) && g.needs.every((n) => n.grace <= max))));
-  const short = grace.rows.filter((g) => !passing.includes(g));
+  const fits = (g: ResultsProps["grace"]["rows"][number]) => g.needs.length <= Number(subjects) && g.needs.every((n) => n.grace <= max);
+  const passing = grace.rows.filter(fits).sort((a, b) => a.total - b.total);
+  const short = grace.rows.filter((g) => !fits(g));
+  const given = grace.rows.filter((g) => g.given).length;
   return (
-    <div className="stack" style={{ display: "grid", gridTemplateColumns: "460px minmax(0,1fr)", gap: 16, alignItems: "start" }}>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <IconTile icon="shield" tone="info" size={38} />
-          <span style={{ display: "flex", flexDirection: "column" }}>
-            <strong>{tx(p("The school rule", "स्कूल का नियम"))}</strong>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("For this exam · the card shows grace as G", "इस परीक्षा के लिए · कार्ड पर ग्रेस G दिखता है"))}</span>
+    <div className="stack xgd" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1.25fr)", gap: 14, alignItems: "start" }}>
+      <div className="card xc x14 xp2">
+        <span className="xr x10">
+          <span className="xi" style={{ width: 40, height: 40, borderRadius: 12, background: "var(--accs)", color: "var(--accfg)" }}>
+            <Ic n="shield" size={20} />
           </span>
-        </div>
-        <div style={{ padding: 14, borderRadius: 14, background: "var(--s2)", fontSize: 15 }}>
+          <span className="xc">
+            <b className="xt">{tx(p("The school rule", "स्कूल का नियम"))}</b>
+            <span className="xm">{tx(p("For this exam · the card shows grace as G", "इस परीक्षा के लिए · कार्ड पर ग्रेस G दिखता है"))}</span>
+          </span>
+        </span>
+        <div className="xno" style={{ background: "var(--s2)", fontSize: 15, color: "var(--fg)" }}>
           {tx(
             p(
               `A child who is short of the pass mark by up to ${max} marks in ${subjects === "1" ? "one subject" : "up to two subjects"} gets those marks and passes.`,
@@ -585,14 +749,21 @@ function Grace(props: ResultsProps & { pending: boolean; run: Run }) {
             ),
           )}
         </div>
-        <Field label={tx(p("Most grace marks", "सबसे ज़्यादा ग्रेस"))}>
-          <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Stepper value={max} min={0} max={10} onChange={setMax} label={tx(p("grace marks", "ग्रेस अंक"))} />
-            <strong style={{ fontSize: 20 }}>{max}</strong>
-            <span style={{ color: "var(--mut)", fontSize: 13 }}>{tx(p("marks per subject", "अंक प्रति विषय"))}</span>
-          </span>
-        </Field>
-        <Field label={tx(p("In how many subjects", "कितने विषयों में"))}>
+        <div className="field">
+          <span>{tx(p("Most grace marks", "सबसे ज़्यादा ग्रेस"))}</span>
+          <div className="xr x8">
+            <button type="button" className="tap btn sec" aria-label={tx(p("Fewer grace marks", "कम ग्रेस अंक"))} disabled={max <= 0} onClick={() => setMax(Math.max(0, max - 1))} style={{ width: 44, padding: 0 }}>
+              <Ic n="minus" size={18} />
+            </button>
+            <span className="num xb xtc" style={{ minWidth: 48, fontSize: 20 }}>{max}</span>
+            <button type="button" className="tap btn sec" aria-label={tx(p("More grace marks", "ज़्यादा ग्रेस अंक"))} disabled={max >= 10} onClick={() => setMax(Math.min(10, max + 1))} style={{ width: 44, padding: 0 }}>
+              <Ic n="plus" size={18} />
+            </button>
+            <span className="xm">{tx(p("marks per subject", "अंक प्रति विषय"))}</span>
+          </div>
+        </div>
+        <div className="field">
+          <span>{tx(p("In how many subjects", "कितने विषयों में"))}</span>
           <Seg
             value={subjects}
             onChange={setSubjects}
@@ -602,122 +773,165 @@ function Grace(props: ResultsProps & { pending: boolean; run: Run }) {
               { value: "2", label: tx(p("Up to two", "दो तक")) },
             ]}
           />
-        </Field>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Grace only lifts a child to the pass mark, never higher. It is kept beside the mark, not added into it.", "ग्रेस बच्चे को सिर्फ़ पास अंक तक लाता है, उससे ऊपर नहीं। यह अंक के साथ रखा जाता है, उसमें जोड़ा नहीं जाता।"))}</span>
+        </div>
+        <span className="xm" style={{ lineHeight: 1.5 }}>{tx(p("Grace shows as “G” on the report card. It only lifts a child to the pass mark, never higher.", "ग्रेस प्रगति पत्र पर “G” दिखता है। यह बच्चे को सिर्फ़ पास अंक तक लाता है, उससे ऊपर नहीं।"))}</span>
         {changed ? (
-          <Btn variant="sec" icon="check" disabled={pending} onClick={() => run(() => actions.saveGraceRule({ examId: exam.id, max, subjects: Number(subjects) }))}>
+          <button type="button" className="tap btn sec xbig" disabled={pending} onClick={() => run(() => actions.saveGraceRule({ examId: exam.id, max, subjects: Number(subjects) }))}>
+            <Ic n="check" size={18} />
             {tx(p("Save the rule", "नियम सहेजें"))}
-          </Btn>
-        ) : (
-          <Btn variant="pri" icon="check" disabled={pending || grace.open === 0} onClick={() => run(() => actions.giveGrace({ examId: exam.id }))}>
-            {grace.open ? tx(p(`Give grace to ${grace.open} children`, `${grace.open} बच्चों को ग्रेस दें`)) : tx(p("Grace is up to date", "ग्रेस पूरे"))}
-          </Btn>
-        )}
-      </Card>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, paddingBottom: 8 }}>
-          <strong className="serif" style={{ fontSize: 44, color: "var(--ok)" }}>{passing.length}</strong>
-          <span style={{ display: "flex", flexDirection: "column" }}>
-            <strong>{tx(p(`${passing.length} children pass with grace`, `${passing.length} बच्चे ग्रेस से पास`))}</strong>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p(`${short.length} more are still short · they need remedial classes`, `${short.length} अब भी कम · इन्हें अतिरिक्त कक्षा चाहिए`))}</span>
+          </button>
+        ) : grace.open ? (
+          <button type="button" className="tap btn pri xbig hide-m" disabled={pending} onClick={() => run(() => actions.giveGrace({ examId: exam.id }))}>
+            <Ic n="check" size={18} />
+            {tx(p(`Give grace to ${grace.open} children`, `${grace.open} बच्चों को ग्रेस दें`))}
+          </button>
+        ) : given ? (
+          <div className="xr x12 fadein" style={{ padding: "10px 12px", borderRadius: 14, background: "var(--oks)", color: "var(--ok)" }}>
+            <svg className="xtk" width="44" height="44" viewBox="0 0 96 96" aria-hidden="true">
+              <circle className="a" cx="48" cy="48" r="44" />
+              <circle className="b" cx="48" cy="48" r="44" />
+              <path d="M30 49l12 12 24-26" />
+            </svg>
+            <span className="xc xf">
+              <b>{tx(p(`Grace given to ${given} children`, `${given} बच्चों को ग्रेस दिया`))}</b>
+              <span className="xs">{tx(p("Kept beside each mark, not added into it", "हर अंक के साथ रखा, उसमें जोड़ा नहीं"))}</span>
+            </span>
+          </div>
+        ) : null}
+      </div>
+      <div className="card xc x10 xp2">
+        <div className="xr x12">
+          <span className="num xb" style={{ fontSize: 42, lineHeight: 1, color: "var(--ok)" }}>{passing.length}</span>
+          <span className="xc">
+            <b className="xt">{tx(p(`${passing.length} children pass with grace`, `${passing.length} बच्चे ग्रेस से पास`))}</b>
+            <span className="xm">{tx(p(`${short.length} more are still short · they need remedial classes`, `${short.length} अब भी कम · इन्हें अतिरिक्त कक्षा चाहिए`))}</span>
           </span>
         </div>
-        {[...passing, ...short].map((g) => {
-          const ok = passing.includes(g);
-          return (
-            <div key={g.studentId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--bd)" }}>
-              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <strong className="clip">{g.name}</strong>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                  {g.classLabel} · {g.needs.map((n) => n.subjectCode).join(", ")}
+        <div className="xst">
+          {[...passing, ...short].map((g) => {
+            const ok = fits(g);
+            const canTakeBack = ok && g.given && !g.locked;
+            const pill = ok ? `${g.given ? "G " : ""}+${g.total}` : tx(p(`short ${g.total}`, `${g.total} कम`));
+            const pillStyle: CSSProperties = { ...tn(ok ? "ok" : "s3"), ...(ok ? {} : { background: "var(--s2)" }), minWidth: 64, justifyContent: "center" };
+            return (
+              <div key={g.studentId} className="xr x10 xd" style={{ padding: "9px 0", opacity: ok ? 1 : 0.55, transition: "opacity .3s ease" }}>
+                <span className="xc xf">
+                  <span className="x6w xe">{g.name}</span>
+                  <span className="xm xe">
+                    {g.classLabel} · {g.needs.map((n) => n.subjectCode).join(", ")}
+                  </span>
                 </span>
-              </span>
-              <span className="num" style={{ fontSize: 13 }}>{g.needs.map((n) => (ok ? `${n.value}→${n.passMarks}` : `${n.value}`)).join(", ")} / {g.needs[0]?.maxMarks}</span>
-              {ok ? (
-                g.given ? (
-                  <Btn variant="ghost" disabled={pending || g.locked} onClick={() => g.needs.forEach((n) => run(() => actions.removeGrace({ paperId: n.paperId, studentId: g.studentId })))}>
-                    <Pill tone="ok" icon="check">+{g.total} G</Pill>
-                  </Btn>
+                <span className="num xs xtr">
+                  {g.needs.map((n) => (ok ? `${n.value}→${n.passMarks}` : `${n.value}`)).join(", ")} / {g.needs[0]?.maxMarks}
+                </span>
+                {canTakeBack ? (
+                  <button type="button" className="tap pill" aria-label={tx(p(`Take back ${g.name}’s grace`, `${g.name} का ग्रेस वापस लें`))} disabled={pending} onClick={() => g.needs.forEach((n) => run(() => actions.removeGrace({ paperId: n.paperId, studentId: g.studentId })))} style={{ ...pillStyle, border: 0, cursor: "pointer" }}>
+                    {pill}
+                  </button>
                 ) : (
-                  <Pill tone="ok">+{g.total}</Pill>
-                )
-              ) : (
-                <Pill>{tx(p("short", "कम"))} {g.total}</Pill>
-              )}
-            </div>
-          );
-        })}
+                  <span className="pill" style={pillStyle}>
+                    {pill}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
         {grace.rows.length === 0 ? <EmptyState icon="checkCircle" title={tx(p("Nobody is below the pass mark", "कोई पास अंक से नीचे नहीं"))} /> : null}
-      </Card>
+      </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------- lock */
 
-function Lock(props: ResultsProps & { pending: boolean; run: Run }) {
+function Lock(props: ResultsProps & { pending: boolean; run: Run; picked: string[]; setPicked: (ids: string[]) => void; chosen: ClassRowView[]; onLock: () => void }) {
   const { tx } = useVx();
-  const { classes, exam, actions, run, pending } = props;
-  const [picked, setPicked] = useState<string[]>(() => classes.filter((c) => c.allSubmitted && !c.locked).map((c) => c.id));
-  const [confirm, setConfirm] = useState(false);
-  const chosen = classes.filter((c) => picked.includes(c.id));
+  const { classes, exam, actions, run, pending, picked, setPicked, chosen } = props;
   const kids = chosen.reduce((a, c) => a + c.children, 0);
+  const allLocked = classes.length > 0 && classes.every((c) => c.locked);
+  const lockedN = classes.filter((c) => c.locked).length;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 900 }}>
-      <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center", padding: 24 }}>
-        <IconTile icon="lock" tone="acc" size={72} />
-        <strong className="serif" style={{ fontSize: 24 }}>{tx(p("Lock the marks?", "अंक बंद करें?"))}</strong>
-        <span style={{ color: "var(--mut)", maxWidth: 440 }}>{tx(p("After locking, teachers can't change marks — not from this app or the old one. Only the admin can unlock.", "बंद करने के बाद शिक्षक अंक नहीं बदल सकते — न इस ऐप से, न पुराने से। केवल प्रशासक खोल सकते हैं।"))}</span>
-      </Card>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <strong style={{ flex: 1 }}>{tx(p("Which classes?", "कौन-सी कक्षाएँ?"))}</strong>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>
-            {chosen.length} {tx(p("classes", "कक्षाएँ"))} · {kids} {tx(p("children", "बच्चे"))}
-          </span>
+    <div className="xc x14" style={{ maxWidth: 880, width: "100%", margin: "0 auto" }}>
+      <div className="card xc xac x10" style={{ padding: "26px 22px", textAlign: "center" }}>
+        <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="56" style={{ fill: allLocked ? "var(--oks)" : "var(--s2)", transition: "fill .4s ease" }} />
+          {allLocked ? <circle cx="60" cy="60" r="56" style={{ fill: "none", stroke: "var(--ok)", strokeWidth: 4, ["--len" as string]: 352, strokeDasharray: 352, animation: "xDraw .8s .25s var(--ease) both" } as CSSProperties} /> : null}
+          <path d="M44 56V44a16 16 0 0 1 32 0v12" style={{ fill: "none", stroke: allLocked ? "var(--ok)" : "var(--acc)", strokeWidth: 7, strokeLinecap: "round", transformOrigin: "76px 56px", transform: allLocked ? "none" : "translateY(-10px) rotate(28deg)", transition: "transform .5s var(--spring)" }} />
+          <rect x="34" y="54" width="52" height="40" rx="9" style={{ fill: allLocked ? "var(--ok)" : "var(--acc)", transition: "fill .3s ease" }} />
+          <circle cx="60" cy="72" r="5" style={{ fill: "var(--card)" }} />
+        </svg>
+        <span className="serif" style={{ fontSize: 26, fontWeight: 600 }}>{allLocked ? tx(p("All marks are locked", "सब अंक बंद हैं")) : tx(p("Lock the marks?", "अंक बंद करें?"))}</span>
+        <span style={{ fontSize: 16, maxWidth: 520, lineHeight: 1.5 }}>{tx(p("After locking, teachers can’t change marks. Only the admin can unlock.", "बंद करने के बाद शिक्षक अंक नहीं बदल सकते। केवल प्रशासक खोल सकते हैं।"))}</span>
+      </div>
+      <div className="card xc x10 xp2">
+        <div className="xr xj x8">
+          <b className="xt">{tx(p("Which classes?", "कौन-सी कक्षाएँ?"))}</b>
+          <span className="xm">{tx(p(`${chosen.length} ${chosen.length === 1 ? "class" : "classes"} · ${kids} children`, `${chosen.length} कक्षाएँ · ${kids} बच्चे`))}</span>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div className="xr xw x6">
           {classes.map((c) => {
-            const on = picked.includes(c.id);
             if (c.locked) {
               return (
-                <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Pill tone="ok" icon="lock">
+                <span key={c.id} className="xr x4">
+                  <span className="chip" style={{ ...tn("ok"), borderColor: "transparent" }}>
+                    <Ic n="lock" size={14} />
                     {c.label}
-                  </Pill>
+                  </span>
                   {props.canReopen ? (
-                    <Btn variant="ghost" disabled={pending} onClick={() => run(() => actions.unlock({ examId: exam.id, classId: c.id }))}>
+                    <button type="button" className="tap btn ghost" disabled={pending} onClick={() => run(() => actions.unlock({ examId: exam.id, classId: c.id }))} style={{ height: 36 }}>
                       {tx(p("Unlock", "खोलें"))}
-                    </Btn>
+                    </button>
                   ) : null}
                 </span>
               );
             }
+            const on = picked.includes(c.id);
             return (
-              <Chip key={c.id} on={on} icon={on ? "check" : undefined} onClick={() => c.allSubmitted && setPicked(on ? picked.filter((x) => x !== c.id) : [...picked, c.id])} style={{ opacity: c.allSubmitted ? 1 : 0.55 }}>
-                {c.label} <span className="num" style={{ fontSize: 12 }}>{c.percent}%</span>
-              </Chip>
+              <button key={c.id} type="button" className={`tap chip${on ? " on" : ""}`} aria-pressed={on} disabled={!c.allSubmitted} onClick={() => setPicked(on ? picked.filter((x) => x !== c.id) : [...picked, c.id])} style={{ opacity: c.allSubmitted ? 1 : 0.55 }}>
+                {on ? <Ic n="check" size={14} /> : null}
+                {c.label}
+                <span className="num" style={{ opacity: 0.7 }}>{c.percent}%</span>
+              </button>
             );
           })}
         </div>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("A class can be locked once every paper is submitted.", "हर पेपर जमा होने पर ही कक्षा बंद हो सकती है।"))}</span>
-      </Card>
-      {props.canFinalise ? (
-        <Btn variant="pri" big icon="lock" disabled={pending || chosen.length === 0} onClick={() => setConfirm(true)}>
-          {tx(p(`Lock ${chosen.length} classes`, `${chosen.length} कक्षाएँ बंद करें`))}
-        </Btn>
-      ) : (
-        <Banner tone="info">{tx(p("Only the admin finalises marks. Classes with every paper submitted are ready for the admin to lock.", "अंक केवल प्रशासक अंतिम करते हैं। जिन कक्षाओं के सभी पेपर जमा हैं, वे प्रशासक के बंद करने को तैयार हैं।"))}</Banner>
-      )}
-      <Confirm
-        open={confirm}
-        onClose={() => setConfirm(false)}
-        busy={pending}
-        title={tx(p(`Lock ${chosen.length} classes?`, `${chosen.length} कक्षाएँ बंद करें?`))}
-        body={chosen.map((c) => c.label).join(", ")}
-        confirmLabel={tx(p("Lock", "बंद करें"))}
-        onConfirm={() => run(() => actions.lock({ examId: exam.id, classIds: picked }), () => setConfirm(false))}
-      />
+        <span className="xm">{tx(p("Only classes with every mark in can be locked. Tap a class to leave it out.", "जिन कक्षाओं के सब अंक आ गए, वही बंद हो सकती हैं। किसी कक्षा को छोड़ने के लिए उसे दबाएँ।"))}</span>
+      </div>
+      {chosen.length ? (
+        <>
+          <div className="xno" style={{ ...tn("info") }}>
+            <Ic n="info" size={18} style={{ marginTop: 2, flex: "none" }} />
+            <span>
+              {props.grace.open ? tx(p("Grace is not given yet — you can still give it after locking. ", "ग्रेस अभी नहीं दिया — बंद करने के बाद भी दे सकते हैं। ")) : tx(p("Grace is already given. ", "ग्रेस दिया जा चुका है। "))}
+              {tx(p("Report cards for these classes can be issued once they are locked.", "बंद होने पर इन कक्षाओं के प्रगति पत्र जारी हो सकते हैं।"))}
+            </span>
+          </div>
+          {props.canFinalise ? (
+            <button type="button" className="tap btn pri xbig hide-m" disabled={pending} onClick={props.onLock}>
+              <Ic n="lock" size={18} />
+              {tx(p(`Lock ${chosen.length} ${chosen.length === 1 ? "class" : "classes"}`, `${chosen.length} कक्षाएँ बंद करें`))}
+            </button>
+          ) : (
+            <div className="xno" style={{ ...tn("warn") }}>
+              <Ic n="shield" size={18} style={{ marginTop: 2, flex: "none" }} />
+              <span>{tx(p("Only the admin finalises marks. Classes with every paper submitted are ready for the admin to lock.", "अंक केवल प्रशासक अंतिम करते हैं। जिन कक्षाओं के सभी पेपर जमा हैं, वे प्रशासक के बंद करने को तैयार हैं।"))}</span>
+            </div>
+          )}
+        </>
+      ) : null}
+      {lockedN ? (
+        <div className="card xr xw x12 xp fadein" style={{ background: "var(--oks)", color: "var(--ok)", borderColor: "var(--okm, var(--bd))" }}>
+          <span className="xc xf" style={{ minWidth: 220 }}>
+            <b>{tx(p(`${lockedN} of ${classes.length} classes locked`, `${classes.length} में से ${lockedN} कक्षाएँ बंद`))}</b>
+            <span className="xs">{tx(p("Their report cards can be issued now.", "इनके प्रगति पत्र अब जारी हो सकते हैं।"))}</span>
+          </span>
+          <Link href="/exam-office/results?view=cards" className="tap btn pri mfull">
+            {tx(p("See report cards", "प्रगति पत्र देखें"))}
+            <Ic n="chevRight" size={18} />
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -728,190 +942,238 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
   const { tx } = useVx();
   const { classes, cards, exam, actions, run, pending, childrenTotal } = props;
   const termQ = `term=${encodeURIComponent(exam.term)}`;
+  const share = childrenTotal ? cards.issuedTotal / childrenTotal : 0;
+  const len = Math.max(0.5, 263.9 * share);
+  const sample = cards.sample;
   return (
-    <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 440px", gap: 16, alignItems: "start" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <Card style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <Ring value={cards.issuedTotal} max={Math.max(1, childrenTotal)} size={86} stroke={9} tone="var(--ok)">
-            <span style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <strong className="num" style={{ fontSize: 18 }}>{cards.issuedTotal}</strong>
-              <span style={{ fontSize: 11, color: "var(--mut)" }}>
-                {tx(p(`of ${childrenTotal}`, `${childrenTotal} में से`))}
-              </span>
+    <div className="stack xgd" style={{ gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 14, alignItems: "start" }}>
+      <div className="xc x14 xn0">
+        <div className="card xr xw x14 xp2">
+          <div className="xrl" style={{ flex: "none", width: 84, height: 84 }}>
+            <svg width="84" height="84" viewBox="0 0 100 100" className="xg" aria-hidden="true">
+              <circle cx="50" cy="50" r="42" style={{ stroke: "var(--s3)", strokeWidth: 11 }} />
+              <circle cx="50" cy="50" r="42" className="q1" style={{ stroke: "var(--ok)", strokeWidth: 11, strokeDasharray: `${len.toFixed(1)} 263.9`, ["--len" as string]: len.toFixed(1) } as CSSProperties} />
+            </svg>
+            <span className="xc xac xjc" style={{ position: "absolute", inset: 0 }}>
+              <b className="num" style={{ fontSize: 19, lineHeight: 1 }}>{cards.issuedTotal}</b>
+              <span className="xm x11">{tx(p(`of ${childrenTotal}`, `${childrenTotal} में`))}</span>
             </span>
-          </Ring>
-          <span style={{ flex: "1 1 220px", display: "flex", flexDirection: "column" }}>
-            <strong className="serif" style={{ fontSize: 22 }}>{tx(p(`${cards.issuedTotal} report cards issued`, `${cards.issuedTotal} प्रगति पत्र जारी`))}</strong>
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("Draft = marks still coming. A card is issued (final) once its class is locked.", "ड्राफ़्ट = अंक आ रहे हैं। कक्षा बंद होने पर कार्ड जारी (पक्का) होता है।"))}</span>
+          </div>
+          <span className="xc xf" style={{ minWidth: 200, gap: 2 }}>
+            <span className="xh">{tx(p(`${cards.issuedTotal} report cards issued`, `${cards.issuedTotal} प्रगति पत्र जारी`))}</span>
+            <span className="xm">{tx(p("Draft = marks still coming. A card turns Final when its class is locked and issued.", "ड्राफ़्ट = अंक आ रहे हैं। कक्षा बंद होकर जारी होने पर कार्ड पक्का होता है।"))}</span>
           </span>
-          <Btn variant="pri" href="/exam-office/results?view=publish">
-            {tx(p("Publish to parents", "अभिभावकों को जारी करें"))} <Ic n="chevRight" size={16} />
-          </Btn>
-        </Card>
-        <Card pad={false}>
+          <div className="xc x8 mfull" style={{ width: 250 }}>
+            <Link href="/exam-office/results?view=publish" className="tap btn pri">
+              {tx(p("Publish to parents", "अभिभावकों को जारी करें"))}
+              <Ic n="chevRight" size={18} />
+            </Link>
+          </div>
+        </div>
+        <div className="card xoh xst">
           {classes.map((c) => {
             const final = c.children > 0 && c.issued >= c.children;
+            const w = c.locked ? (c.children ? (c.issued / c.children) * 100 : 0) : c.percent;
+            const tone: ToneKey = final ? "ok" : c.percent > 0 ? "warn" : "s3";
             return (
-              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderTop: "1px solid var(--bd)", flexWrap: "wrap" }}>
-                <span style={{ width: 120, display: "flex", flexDirection: "column" }}>
-                  <strong>{c.label}</strong>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                    {c.children} {tx(p("children", "बच्चे"))}
-                  </span>
+              <div key={c.id} className="xr x12 xd" style={{ padding: "9px 16px" }}>
+                <span className="xc" style={{ flex: "none", width: 118 }}>
+                  <b className="xe">{c.label}</b>
+                  <span className="xm">{tx(p(`${c.children} children`, `${c.children} बच्चे`))}</span>
                 </span>
-                <Progress value={c.locked ? c.issued : c.percent} max={c.locked ? Math.max(1, c.children) : 100} tone={final ? "var(--ok)" : "var(--info)"} style={{ flex: "1 1 120px" }} />
-                <Pill tone={final ? "ok" : c.issued ? "warn" : "mut"}>{final ? tx(p("Final", "पक्का")) : c.issued ? `${c.issued}/${c.children}` : tx(p("Draft", "ड्राफ़्ट"))}</Pill>
-                <a className="tap btn ghost" href={`/exams/report-card?class=${c.id}&${termQ}`} target="_blank" rel="noopener noreferrer" aria-label={tx(p("Print the class's cards", "कक्षा के कार्ड छापें"))}>
+                <span className="xbar xf" style={{ height: 8 }}>
+                  <span style={{ width: `${Math.round(w)}%`, background: c.locked ? "var(--ok)" : "var(--acc)" }} />
+                </span>
+                {c.locked && !final ? (
+                  <button type="button" className="tap btn sec" disabled={pending} onClick={() => run(() => actions.issueClass({ examId: exam.id, classId: c.id }))} style={{ height: 32, padding: "0 12px", fontSize: 13 }}>
+                    {tx(p("Issue cards", "कार्ड जारी करें"))}
+                  </button>
+                ) : (
+                  <Tag tone={tone} style={{ minWidth: 66, justifyContent: "center" }}>
+                    {final ? tx(p("Final", "पक्का")) : c.percent > 0 ? tx(p("Draft", "ड्राफ़्ट")) : tx(p("Waiting", "रुका"))}
+                  </Tag>
+                )}
+                <a className="tap btn ghost hide-m" href={`/exams/report-card?class=${c.id}&${termQ}`} target="_blank" rel="noopener noreferrer" aria-label={tx(p(`Print ${c.label} cards`, `${c.label} के कार्ड छापें`))} style={{ width: 34, height: 34, padding: 0 }}>
                   <Ic n="printer" size={16} />
                 </a>
-                {c.locked && !final ? (
-                  <Btn variant="sec" disabled={pending} onClick={() => run(() => actions.issueClass({ examId: exam.id, classId: c.id }))}>
-                    {tx(p("Issue cards", "कार्ड जारी करें"))}
-                  </Btn>
-                ) : null}
               </div>
             );
           })}
-        </Card>
+        </div>
       </div>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <SecHead>
-          {tx(p("Sample", "नमूना"))} · {cards.sample ? `${cards.sample.name}, ${cards.sample.classLabel}` : ""}
-        </SecHead>
-        {cards.sample ? (
+      <div className="card xc x12 xp2">
+        <span className="sech">
+          {tx(p("Sample", "नमूना"))}
+          {sample ? ` · ${sample.name}, ${sample.classLabel}` : ""}
+        </span>
+        {sample ? (
           <>
-            <div style={{ border: "1px solid var(--bd)", borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <strong className="serif" style={{ borderBottom: "2px solid var(--fg)", paddingBottom: 6 }}>
-                {process.env.NEXT_PUBLIC_SCHOOL_NAME ?? "School"}
-              </strong>
-              <span style={{ textAlign: "center", fontWeight: 600, background: "var(--s2)", borderRadius: 8, padding: 4 }}>
-                {exam.name.hi} · {exam.name.en} · {tx(p("Report card", "प्रगति पत्र"))} {cards.sample.issued ? "" : `(${tx(p("draft", "ड्राफ़्ट"))})`}
+            <div className="card xc x8" style={{ padding: 16, boxShadow: "var(--shh)", transform: "rotate(-1deg)", animation: "xRise .5s var(--ease) both" }}>
+              <div className="xr x8" style={{ paddingBottom: 8, borderBottom: "2px solid var(--fg)" }}>
+                <span className="serif xi xb" style={{ width: 32, height: 32, borderRadius: 9, background: "#082F49", color: "#F7F6F3", fontSize: 12 }}>
+                  VP
+                </span>
+                <span className="xc">
+                  <span className="x11 x6w">{SCHOOL.hi}</span>
+                  <span className="serif x11 x6w">{SCHOOL.en}</span>
+                </span>
+              </div>
+              <span className="x11 xb xtc" style={{ padding: 4, borderRadius: 6, background: "var(--s2)" }}>
+                {exam.name.hi ?? exam.name.en} प्रगति पत्र · {exam.name.en.toUpperCase()} REPORT CARD{sample.issued ? "" : ` · ${tx(p("DRAFT", "ड्राफ़्ट"))}`}
               </span>
-              {cards.sample.rows.map((r) => (
-                <div key={r.subject} style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--bd)", paddingTop: 4 }}>
-                  <span>{r.subject}</span>
-                  <strong className="num">
-                    {r.scored}
-                    {r.grace ? ` +${r.grace}G` : ""}/{r.outOf} · {r.grade ?? "—"}
-                  </strong>
-                </div>
-              ))}
-              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid var(--fg)", paddingTop: 6 }}>
-                <strong>
-                  {tx(p("Total", "कुल"))} {cards.sample.total}/{cards.sample.outOf}
-                </strong>
-                <strong style={{ color: "var(--ok)" }}>
-                  {cards.sample.percent ?? "—"}% · {cards.sample.grade ?? "—"}
-                  {cards.sample.passed === null ? "" : cards.sample.passed ? ` · ${tx(p("Pass", "उत्तीर्ण"))}` : ""}
-                </strong>
+              <div className="xc">
+                {sample.rows.map((r) => (
+                  <div key={r.subject} className="xr xj x11 xd" style={{ padding: "4px 0" }}>
+                    <span>
+                      {subjectPair(r.subject).hi ? `${subjectPair(r.subject).hi} · ` : ""}
+                      {r.subject}
+                    </span>
+                    <span className="num xb">
+                      {r.scored}
+                      {r.grace ? ` +${r.grace}G` : ""}/{r.outOf} · {r.grade ?? "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="xr xj xs xb" style={{ paddingTop: 6, borderTop: "2px solid var(--bds)" }}>
+                <span>
+                  कुल · Total {sample.total}/{sample.outOf}
+                </span>
+                <span style={{ color: sample.passed === false ? "var(--bad)" : "var(--ok)" }}>
+                  {sample.percent ?? "—"}% · {sample.grade ?? "—"}
+                  {sample.passed === null ? "" : sample.passed ? " · Pass" : " · Fail"}
+                </span>
               </div>
             </div>
-            <Btn variant="sec" icon="eye" href={`/exams?view=preview&student=${cards.sample.studentId}`}>
+            <Link href={`/exams?view=preview&student=${sample.studentId}`} className="tap btn sec only-d">
+              <Ic n="eye" size={18} />
               {tx(p("Open the full preview", "पूरी झलक खोलें"))}
-            </Btn>
-            <a className="tap btn soft" href={`/exams/report-card?student=${cards.sample.studentId}&${termQ}`} target="_blank" rel="noopener noreferrer">
-              <Ic n="download" size={16} /> PDF
-            </a>
+            </Link>
+            <span className="only-m xm">{tx(p("The full-size preview opens on a computer.", "पूरी झलक कंप्यूटर पर खुलती है।"))}</span>
           </>
         ) : (
-          <span style={{ color: "var(--mut)", fontSize: 13 }}>{tx(p("A sample appears once a class has all its marks.", "किसी कक्षा के सब अंक आने पर नमूना दिखेगा।"))}</span>
+          <span className="xm">{tx(p("A sample appears once a class has all its marks.", "किसी कक्षा के सब अंक आने पर नमूना दिखेगा।"))}</span>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
 
+/** The printed card carries both names, as the design does. */
+const SCHOOL = p("Shri Veer Patta Sr. Sec. School", "श्री वीर पत्ता सी. सै. स्कूल, आमेट");
+
 /* ---------------------------------------------------------- publish */
 
-function Publish(props: ResultsProps & { pending: boolean; run: Run }) {
+function Publish(props: ResultsProps & { pending: boolean; when: "now" | "scheduled"; setWhen: (w: "now" | "scheduled") => void; at: string; setAt: (v: string) => void; atLabel: string; ptm: boolean; setPtm: (v: boolean) => void; onPublish: () => void }) {
   const { tx } = useVx();
-  const { exam, actions, run, pending, classes } = props;
-  const defaultAt = exam.resultsOn ? `${exam.resultsOn}T09:00` : "";
-  const [when, setWhen] = useState<"now" | "scheduled">(exam.resultsOn ? "scheduled" : "now");
-  const [at, setAt] = useState(exam.publishAt ? exam.publishAt.slice(0, 16) : defaultAt);
-  const [ptm, setPtm] = useState(exam.ptm);
+  const { exam, classes, pending, when, setWhen, at, setAt, atLabel, ptm, setPtm } = props;
   const unlocked = classes.filter((c) => !c.locked).length;
-  const lines = [
-    "प्रिय अभिभावक,",
-    `${exam.name.hi ?? exam.name.en} का परिणाम तैयार है। प्रगति पत्र ${ptm && exam.ptmAt ? `PTM (${exam.resultsLabel ?? ""}, ${exam.ptmAt}) पर कक्षा अध्यापक दिखाएँगे।` : "स्कूल से मिलेगा।"}`,
-    "",
-    `Dear parent, the ${exam.name.en} result is ready.${ptm && exam.ptmAt ? ` The class teacher will show the card at the PTM (${exam.resultsLabel ?? ""}, ${exam.ptmAt}).` : ""}`,
-  ];
+  const lockedKids = classes.filter((c) => c.locked).reduce((a, c) => a + c.children, 0);
+  const sample = props.cards.sample;
+  const hi = `प्रिय अभिभावक,\n${sample ? `${sample.name} (${sample.classLabel}) का ` : ""}${exam.name.hi ?? exam.name.en} परीक्षा परिणाम संलग्न है।${sample?.percent != null ? ` प्रतिशत: ${sample.percent}%${sample.passed === null ? "" : `, परिणाम: ${sample.passed ? "उत्तीर्ण" : "अनुत्तीर्ण"}`}।` : ""}${ptm && exam.ptmAt ? `\nPTM ${exam.resultsLabel ?? ""}, ${ampm(exam.ptmAt)} पर कक्षा अध्यापक कार्ड दिखाएँगे।` : ""}`;
+  const en = `Dear parent, the ${exam.name.en} result${sample ? ` of ${sample.name}` : ""} is attached.${ptm && exam.ptmAt ? ` The class teacher will show the card at the PTM (${exam.resultsLabel ?? ""}, ${ampm(exam.ptmAt)}).` : ""}`;
+  const whenS =
+    when === "now"
+      ? lockedKids
+        ? tx(p(`Only the ${classes.length - unlocked} locked classes can go now · ${lockedKids} parents.`, `अभी सिर्फ़ ${classes.length - unlocked} बंद कक्षाएँ जा सकती हैं · ${lockedKids} अभिभावक।`))
+        : tx(p("No class is locked yet, so nothing can go now. Lock marks first.", "अभी कोई कक्षा बंद नहीं, इसलिए कुछ नहीं जाएगा। पहले अंक बंद करें।"))
+      : tx(p("Classes not locked by then wait until they are locked.", "तब तक जो कक्षाएँ बंद नहीं होंगी, वे बंद होने तक रुकेंगी।"));
   return (
-    <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 420px", gap: 16, alignItems: "start" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {exam.publishedAt ? <Banner tone="ok">{tx(p(`Released ${tx(agoP(exam.publishedAt))}.`, `${tx(agoP(exam.publishedAt))} जारी।`))}</Banner> : exam.publishAt ? <Banner tone="info">{tx(p(`Scheduled for ${new Date(exam.publishAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.`, "समय तय है।"))}</Banner> : null}
-        {unlocked ? <Banner tone="warn">{tx(p(`${unlocked} classes are not locked yet — their cards wait until they are.`, `${unlocked} कक्षाएँ अभी बंद नहीं — उनके कार्ड रुकेंगे।`))}</Banner> : null}
-        <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <strong style={{ fontSize: 17 }}>{tx(p("When should results go out?", "परिणाम कब जारी हों?"))}</strong>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Chip on={when === "now"} icon="send" onClick={() => setWhen("now")}>
+    <div className="stack xgd" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+      <div className="xc x14">
+        {exam.publishedAt ? (
+          <div className="card xc xac x8 fadein" style={{ padding: 22, textAlign: "center", background: "var(--oks)", borderColor: "var(--okm, var(--bd))" }}>
+            <svg className="xtk" width="84" height="84" viewBox="0 0 96 96" aria-hidden="true">
+              <circle className="a" cx="48" cy="48" r="44" style={{ fill: "var(--card)" }} />
+              <circle className="b" cx="48" cy="48" r="44" />
+              <path d="M30 49l12 12 24-26" />
+            </svg>
+            <span className="serif" style={{ fontSize: 22, fontWeight: 600, color: "var(--ok)" }}>{tx(p("Results released", "परिणाम जारी"))}</span>
+            <span className="xs" style={{ color: "var(--ok)" }}>{tx(agoP(exam.publishedAt))}</span>
+          </div>
+        ) : null}
+        <div className="card xc x10 xp2">
+          <b className="xt">{tx(p("When should parents get it?", "अभिभावकों को कब मिले?"))}</b>
+          <div className="xr xw x8">
+            <button type="button" className={`tap chip${when === "now" ? " on" : ""}`} aria-pressed={when === "now"} onClick={() => setWhen("now")} style={{ height: 42, padding: "0 16px", fontSize: 14 }}>
+              <Ic n="send" size={16} />
               {tx(p("Now", "अभी"))}
-            </Chip>
-            <Chip on={when === "scheduled"} icon="clock" onClick={() => setWhen("scheduled")}>
-              {tx(p("At a set time", "तय समय पर"))}
-            </Chip>
+            </button>
+            <button type="button" className={`tap chip${when === "scheduled" ? " on" : ""}`} aria-pressed={when === "scheduled"} onClick={() => setWhen("scheduled")} style={{ height: 42, padding: "0 16px", fontSize: 14 }}>
+              <Ic n="clock" size={16} />
+              {atLabel || tx(p("At a set time", "तय समय पर"))}
+            </button>
           </div>
           {when === "scheduled" ? (
             <Field label={tx(p("Date and time", "तिथि और समय"))}>
               <Input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} />
             </Field>
           ) : null}
-        </Card>
-        <Card>
-          <SwitchRow
-            icon="users"
-            on={ptm}
-            onChange={setPtm}
-            title={tx(p("Results also shown at the PTM", "PTM पर भी परिणाम दिखाएँ"))}
-            sub={exam.ptmAt ? tx(p(`${exam.resultsLabel ?? ""} ${exam.ptmAt} · class teachers show each card to the parent`, `${exam.resultsLabel ?? ""} ${exam.ptmAt} · कक्षा अध्यापक हर कार्ड दिखाएँगे`)) : undefined}
-          />
-        </Card>
-        <Card style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className="xm" style={{ lineHeight: 1.5 }}>{whenS}</span>
+        </div>
+        <button type="button" className="tap card xr x12 xp" role="switch" aria-checked={ptm} onClick={() => setPtm(!ptm)} style={{ width: "100%", textAlign: "left", color: "var(--fg)" }}>
+          <span className="xc xf">
+            <b>{tx(p("Results also shown at the PTM", "PTM पर भी परिणाम दिखाएँ"))}</b>
+            {exam.ptmAt ? <span className="xm">{tx(p(`${exam.resultsLabel ?? ""}, ${ampm(exam.ptmAt)} · class teachers show each card to the parent`, `${exam.resultsLabel ?? ""}, ${ampm(exam.ptmAt)} · कक्षा अध्यापक हर कार्ड दिखाएँगे`))}</span> : null}
+          </span>
+          <span className={`sw${ptm ? " on" : ""}`}>
+            <span />
+          </span>
+        </button>
+        <div className="card xc" style={{ padding: "4px 16px" }}>
           {[
-            [p("To", "किसे"), tx(p(`${props.childrenTotal} families · one card per child`, `${props.childrenTotal} परिवार · हर बच्चे का एक कार्ड`))],
-            [p("Cards issued", "कार्ड जारी"), `${props.cards.issuedTotal} / ${props.childrenTotal}`],
-            [p("Message to families", "परिवारों को संदेश"), tx(p("From Notices, approved before it leaves", "सूचनाओं से, भेजने से पहले मंज़ूरी"))],
-          ].map(([k, v]) => (
-            <div key={(k as Pair).en} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--bd)" }}>
-              <span style={{ color: "var(--mut)" }}>{tx(k as Pair)}</span>
-              <strong style={{ textAlign: "right" }}>{v as string}</strong>
+            { k: p("To", "किसे"), v: tx(p(`${props.childrenTotal} parents · one card per child`, `${props.childrenTotal} अभिभावक · हर बच्चे का एक कार्ड`)) },
+            { k: p("Cards issued", "कार्ड जारी"), v: `${props.cards.issuedTotal} / ${props.childrenTotal}` },
+            { k: p("Sent through", "किससे"), v: tx(p("Notices · approved before it leaves", "सूचनाएँ · भेजने से पहले मंज़ूरी")) },
+          ].map((f) => (
+            <div key={f.k.en} className="xfa xd">
+              <span className="xmu">{tx(f.k)}</span>
+              <span className="num xb xtr">{f.v}</span>
             </div>
           ))}
-        </Card>
-        <Btn
-          variant="pri"
-          big
-          icon={when === "now" ? "send" : "clock"}
-          disabled={pending || (when === "scheduled" && !at)}
-          onClick={() => run(() => actions.publish({ examId: exam.id, when, at: when === "scheduled" ? new Date(at).toISOString() : null, ptm }))}
-        >
-          {when === "now" ? tx(p("Release results now", "परिणाम अभी जारी करें")) : tx(p("Schedule the release", "जारी करने का समय तय करें"))}
-        </Btn>
+        </div>
+        {exam.publishedAt ? null : (
+          <button type="button" className="tap btn pri xbig hide-m" disabled={pending || (when === "scheduled" && !at)} onClick={props.onPublish}>
+            <Ic n={when === "now" ? "send" : "clock"} size={18} />
+            {when === "now" ? tx(p("Send results now", "परिणाम अभी भेजें")) : tx(p(`Schedule for ${atLabel.replace(" · ", ", ")}`, `${atLabel.replace(" · ", ", ")} के लिए तय करें`))}
+          </button>
+        )}
       </div>
-      <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <SecHead>{tx(p("Preview · each parent gets only their own child's card", "झलक · हर अभिभावक को केवल अपने बच्चे का कार्ड"))}</SecHead>
-        <WhatsAppPreview title={tx(p("To parents", "अभिभावकों को"))} lines={lines} footer={`📎 ${tx(p("Report card", "प्रगति पत्र"))} · PDF`} />
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("This screen records when results are released. The WhatsApp to families goes from Notices.", "यह स्क्रीन जारी करने का समय दर्ज करती है। परिवारों को WhatsApp सूचनाओं से जाता है।"))}</span>
-        <Btn variant="sec" icon="megaphone" href="/messages">
+      <div className="xc x10">
+        <div className="xwa">
+          <span className="xb x11" style={{ color: "var(--wafg)", opacity: 0.7 }}>
+            {tx(p("Preview · each parent gets only their child’s card", "झलक · हर अभिभावक को केवल अपने बच्चे का कार्ड"))}
+          </span>
+          <div className="xwb">
+            <div className="xr x8 xs x6w" style={{ padding: "8px 10px", marginBottom: 6, borderRadius: 8, background: "rgba(0,0,0,.06)" }}>
+              <Ic n="file" size={18} />
+              {tx(p("Report card", "प्रगति पत्र"))}
+              {sample ? ` · ${sample.name}` : ""}.pdf · 1 page
+            </div>
+            {hi}
+            <div style={{ marginTop: 6, opacity: 0.78 }}>{en}</div>
+          </div>
+        </div>
+        <span className="xm">{tx(p("This screen records when results are released. The WhatsApp to families goes from Notices, where the count and cost are shown and each send is approved.", "यह स्क्रीन जारी करने का समय दर्ज करती है। परिवारों को WhatsApp सूचनाओं से जाता है, जहाँ गिनती और खर्च दिखता है और हर भेजना मंज़ूर होता है।"))}</span>
+        <Link href="/messages" className="tap btn sec">
+          <Ic n="megaphone" size={18} />
           {tx(p("Open Notices", "सूचनाएँ खोलें"))}
-        </Btn>
-      </Card>
+        </Link>
+      </div>
     </div>
   );
 }
 
 /* ---------------------------------------------------------- recheck */
 
-function Rechecks(props: ResultsProps & { pending: boolean; run: Run }) {
+function Rechecks(props: ResultsProps & { pending: boolean; run: Run; open: ResultsProps["rechecks"][number] | null; href: (v: ResultsView, extra?: string) => string }) {
   const { tx } = useVx();
-  const { rechecks, actions, run, pending, exam } = props;
-  const [openId, setOpenId] = useState<string | null>(props.recheckId ?? rechecks.find((r) => r.status === "new")?.id ?? null);
+  const router = useRouter();
+  const { rechecks, actions, run, pending, exam, open: r } = props;
   const [delta, setDelta] = useState(0);
-  const [mode, setMode] = useState<"none" | "changed">("none");
+  const [mode, setMode] = useState<"none" | "changed">("changed");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ classId: "", paperId: "", studentId: "", askedBy: "", note: "" });
-  const r = rechecks.find((x) => x.id === openId) ?? null;
   const counts = { new: 0, with_teacher: 0, done: 0 };
   for (const x of rechecks) {
     if (x.status === "new") counts.new += 1;
@@ -923,105 +1185,125 @@ function Rechecks(props: ResultsProps & { pending: boolean; run: Run }) {
     ? `नमस्ते ${r.teacherName ?? ""} जी, ${r.name} (${r.classLabel}) की ${r.subjectCode} कॉपी (${exam.name.hi ?? exam.name.en}) दोबारा जाँचने का अनुरोध है: "${r.note ?? ""}"। अभी अंक ${r.mark ?? "—"}/${r.maxMarks} हैं।\n\nRe-check request for ${r.name}, ${r.classLabel} ${r.subjectCode}: "${r.note ?? ""}". Marks now ${r.mark ?? "—"}/${r.maxMarks}.\n— ${props.fromName}`
     : "";
   const pick = (id: string) => {
-    setOpenId(id);
     setDelta(0);
-    setMode("none");
+    setMode("changed");
+    router.push(props.href("recheck", `&recheck=${id}`), { scroll: false });
   };
+  const outcome = (x: ResultsProps["rechecks"][number]) => (x.status === "changed" && x.oldValue !== null && x.newValue !== null ? `${tx(RECHECK_WORDS.changed.label)} ${x.newValue - x.oldValue > 0 ? "+" : ""}${x.newValue - x.oldValue}` : tx(RECHECK_WORDS[x.status].label));
+  const dateOf = (iso: string) => new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(new Date(iso)).replace(",", "");
+  const resolved = r ? r.status === "changed" || r.status === "no_change" : false;
   return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Pill tone="warn">
-          {counts.new} {tx(p("new", "नए"))}
-        </Pill>
-        <Pill tone="info">
-          {counts.with_teacher} {tx(p("with teachers", "शिक्षकों के पास"))}
-        </Pill>
-        <Pill tone="ok">
-          {counts.done} {tx(p("done", "पूरे"))}
-        </Pill>
-        <span style={{ flex: 1 }} />
-        <Btn variant="sec" icon="plus" onClick={() => setAdding(true)}>
-          {tx(p("Add a request", "अनुरोध जोड़ें"))}
-        </Btn>
-      </div>
-      <div className="stack" style={{ display: "grid", gridTemplateColumns: r ? "minmax(0,1fr) 400px" : "minmax(0,1fr)", gap: 16, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <Card pad={false}>
-            {rechecks.length === 0 ? <EmptyState icon="inbox" title={tx(p("No re-check requests", "कोई दोबारा जाँच अनुरोध नहीं"))} /> : null}
-            {rechecks.map((x) => {
-              const w = RECHECK_WORDS[x.status];
-              const changeText = x.status === "changed" && x.oldValue !== null && x.newValue !== null ? ` ${x.newValue - x.oldValue > 0 ? "+" : ""}${x.newValue - x.oldValue}` : "";
-              return (
-                <button key={x.id} type="button" className="tap row" onClick={() => pick(x.id)} style={{ display: "flex", width: "100%", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: "1px solid var(--bd)", background: x.id === openId ? "var(--accs)" : "transparent", border: "none", textAlign: "left", cursor: "pointer", color: "inherit" }}>
-                  <Avatar text={initials(x.name)} bg={avatarColor(x.studentId)} size={34} />
-                  <span style={{ width: 170, display: "flex", flexDirection: "column" }}>
-                    <strong className="clip">{x.name}</strong>
-                    <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                      {x.classLabel} · {x.subjectCode}
-                    </span>
-                  </span>
-                  <em className="clip hide-m" style={{ flex: 1, color: "var(--mut)", fontSize: 13 }}>
-                    “{x.note ?? ""}”
-                  </em>
-                  <Pill tone={w.tone}>
-                    {tx(w.label)}
-                    {changeText}
-                  </Pill>
-                  <Ic n="chevRight" size={16} />
-                </button>
-              );
-            })}
-          </Card>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Requests come from parents on WhatsApp or through the class teacher. The subject teacher checks the copy again.", "अनुरोध अभिभावकों से WhatsApp या कक्षा अध्यापक के ज़रिये आते हैं। विषय-अध्यापक कॉपी दोबारा जाँचते हैं।"))}</span>
+    <div className="stack xgd" style={{ gridTemplateColumns: r ? "minmax(0,1fr) 400px" : "minmax(0,1fr)", alignItems: "start" }}>
+      <section className={`pad xsc xn0${r ? " hide-m" : ""}`}>
+        <div className="xr xw x8">
+          {[
+            { n: counts.new, label: p("new", "नए"), tone: "warn" as const },
+            { n: counts.with_teacher, label: p("with teachers", "शिक्षकों के पास"), tone: "info" as const },
+            { n: counts.done, label: p("done", "पूरे"), tone: "ok" as const },
+          ].map((q) => (
+            <Tag key={q.label.en} tone={q.tone} style={{ height: 28, padding: "0 12px", fontSize: 12 }}>
+              {q.n} {tx(q.label)}
+            </Tag>
+          ))}
+          <span className="xf" />
+          <button type="button" className="tap btn sec" onClick={() => setAdding(true)} style={{ height: 36 }}>
+            <Ic n="plus" size={16} />
+            {tx(p("Add a request", "अनुरोध जोड़ें"))}
+          </button>
         </div>
-        {r ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Card style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <Pill tone={RECHECK_WORDS[r.status].tone}>{tx(RECHECK_WORDS[r.status].label)}</Pill>
-                <span style={{ flex: 1 }} />
-                <Btn variant="ghost" icon="x" ariaLabel={tx(p("Close", "बंद करें"))} onClick={() => setOpenId(null)} />
-              </div>
-              <strong className="serif" style={{ fontSize: 22 }}>{r.name}</strong>
-              <span style={{ fontSize: 13, color: "var(--mut)" }}>
+        <div className="card xoh xst">
+          {rechecks.length === 0 ? <EmptyState icon="inbox" title={tx(p("No re-check requests", "कोई दोबारा जाँच अनुरोध नहीं"))} /> : null}
+          {rechecks.map((x) => {
+            const av = toneAvatar(x.name);
+            const tone: ToneKey = x.status === "changed" ? "ok" : RECHECK_WORDS[x.status].tone;
+            return (
+              <button key={x.id} type="button" className={`tap row xl xd${x.id === r?.id ? " sel" : ""}`} onClick={() => pick(x.id)} style={{ padding: "12px 16px" }}>
+                <span className="xa" style={{ background: av.bg, color: av.fg }}>
+                  {av.ini}
+                </span>
+                <span className="xc xf">
+                  <span className="x6w xe">{x.name}</span>
+                  <span className="xm xe">
+                    {x.classLabel} · {x.subjectCode}
+                  </span>
+                </span>
+                <span className="xm xe hide-m" style={{ flex: 1.2, fontStyle: "italic" }}>
+                  “{x.note ?? ""}”
+                </span>
+                <Tag tone={tone}>{outcome(x)}</Tag>
+                <Ic n="chevRight" size={18} style={{ color: "var(--sub)" }} />
+              </button>
+            );
+          })}
+        </div>
+        <span className="xm">{tx(p("Requests come from parents on WhatsApp or through the class teacher. The subject teacher checks the copy again.", "अनुरोध अभिभावकों से WhatsApp या कक्षा अध्यापक के ज़रिये आते हैं। विषय-अध्यापक कॉपी दोबारा जाँचते हैं।"))}</span>
+      </section>
+      {r ? (
+        <aside className="unstick xside" style={{ animation: "xPush .36s var(--ease) both" }}>
+          <div className="xc x14" style={{ padding: "18px 22px 28px" }}>
+            <div className="only-d xr xj">
+              <Tag tone={r.status === "changed" ? "ok" : RECHECK_WORDS[r.status].tone} style={{ height: 26, padding: "0 10px", fontSize: 12 }}>
+                {resolved ? tx(p("Done", "पूरा")) : tx(RECHECK_WORDS[r.status].label)}
+              </Tag>
+              <Link href={props.href("recheck")} scroll={false} className="tap btn ghost xq" aria-label={tx(p("Close the request", "अनुरोध बंद करें"))} style={{ height: 36 }}>
+                <Ic n="x" size={18} />
+              </Link>
+            </div>
+            <div className="card xc x8 xp2">
+              <span className="xh">{r.name}</span>
+              <span className="xm">
                 {r.classLabel} · {r.subjectCode} · {tx(exam.name)}
               </span>
-              {r.note ? <div style={{ padding: 10, borderRadius: 12, background: "var(--s2)", fontStyle: "italic" }}>“{r.note}”</div> : null}
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>
-                {r.askedBy} · {tx(agoP(r.createdAt))}
+              {r.note ? (
+                <div className="xno" style={{ background: "var(--s2)", fontStyle: "italic" }}>
+                  “{r.note}”
+                </div>
+              ) : null}
+              <span className="xm">
+                {r.askedBy} · {dateOf(r.createdAt)}
               </span>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ color: "var(--mut)" }}>{tx(p("Marks now", "अभी अंक"))}</span>
-                <strong className="num" style={{ fontSize: 24 }}>
+              <div className="xr xj">
+                <span className="xmu">{tx(p("Marks now", "अभी अंक"))}</span>
+                <b className="num" style={{ fontSize: 20 }}>
                   {r.mark ?? "—"} / {r.maxMarks}
-                </strong>
+                </b>
               </div>
-            </Card>
-            {r.status === "new" || r.status === "with_teacher" ? (
-              <>
-                <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <SecHead>{tx(p("1 · Ask the subject teacher", "1 · विषय-अध्यापक से कहें"))}</SecHead>
-                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Avatar text={initials(r.teacherName ?? "?")} bg={avatarColor(r.teacherName ?? "?")} size={32} />
-                    <span style={{ display: "flex", flexDirection: "column" }}>
-                      <strong>{r.teacherName ?? tx(p("No teacher on the timetable", "समय-सारणी में शिक्षक नहीं"))}</strong>
-                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{r.status === "with_teacher" ? tx(p("Asked", "कहा गया")) : tx(p("Not asked yet", "अभी नहीं कहा"))}</span>
-                    </span>
-                  </span>
-                  <Btn
-                    variant={r.status === "new" ? "pri" : "soft"}
-                    icon="send"
-                    disabled={pending}
-                    onClick={() => {
-                      window.open(waLink(r.teacherPhone, ask), "_blank", "noopener");
-                      if (r.status === "new") run(() => actions.recheckWithTeacher({ recheckId: r.id }));
-                    }}
-                  >
-                    {r.status === "new" ? tx(p(`Ask ${r.teacherName ?? "the teacher"} to re-check`, `${r.teacherName ?? "शिक्षक"} से दोबारा जाँच कहें`)) : tx(p("Ask again", "फिर कहें"))}
-                  </Btn>
-                </Card>
-                <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <SecHead>{tx(p("2 · What changed?", "2 · क्या बदला?"))}</SecHead>
+            </div>
+            <div className="card xc x10 xp2">
+              <span className="sech">{tx(p("1 · Ask the subject teacher", "1 · विषय-अध्यापक से कहें"))}</span>
+              <span className="xr x10">
+                <span className="xa" style={{ background: "var(--accs)", color: "var(--accfg)" }}>
+                  {toneAvatar(r.teacherName ?? "?").ini}
+                </span>
+                <span className="xc xf">
+                  <b>{r.teacherName ?? tx(p("No teacher on the timetable", "समय-सारणी में शिक्षक नहीं"))}</b>
+                  <span className="xm">{tx(p(`${r.subjectCode} teacher · ${r.status === "new" ? "not asked yet" : "asked"}`, `${r.subjectCode} शिक्षक · ${r.status === "new" ? "अभी नहीं कहा" : "कहा गया"}`))}</span>
+                </span>
+              </span>
+              {resolved ? null : (
+                <button
+                  type="button"
+                  className={`tap btn ${r.status === "new" ? "pri" : "soft"}`}
+                  disabled={pending}
+                  onClick={() => {
+                    window.open(waLink(r.teacherPhone, ask), "_blank", "noopener");
+                    if (r.status === "new") run(() => actions.recheckWithTeacher({ recheckId: r.id }));
+                  }}
+                >
+                  <Ic n="send" size={18} />
+                  {r.status === "new" ? tx(p(`Ask ${r.teacherName ?? "the teacher"} to re-check`, `${r.teacherName ?? "शिक्षक"} से दोबारा जाँच कहें`)) : tx(p("Ask again", "फिर कहें"))}
+                </button>
+              )}
+            </div>
+            <div className="card xc x10 xp2" style={{ opacity: r.status === "new" ? 0.6 : 1 }}>
+              <span className="sech">{tx(p("2 · What changed?", "2 · क्या बदला?"))}</span>
+              {resolved ? (
+                <div className="xr x10 fadein" style={{ padding: "10px 12px", borderRadius: 12, background: "var(--oks)", color: "var(--ok)" }}>
+                  <Ic n="checkCircle" size={18} />
+                  <b className="xf">{r.status === "changed" ? tx(p(`Changed from ${r.oldValue} to ${r.newValue}.`, `${r.oldValue} से ${r.newValue} किया।`)) : tx(p("Checked again — no change.", "दोबारा जाँचा — कोई बदलाव नहीं।"))}</b>
+                </div>
+              ) : (
+                <>
                   <Seg
                     value={mode}
                     onChange={(v) => {
@@ -1035,49 +1317,78 @@ function Rechecks(props: ResultsProps & { pending: boolean; run: Run }) {
                     ]}
                   />
                   {mode === "changed" ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <Stepper value={delta + 20} min={0} max={40} onChange={(v) => setDelta(v - 20)} label={tx(p("marks", "अंक"))} />
-                      <strong style={{ fontSize: 20 }}>{delta > 0 ? `+${delta}` : delta}</strong>
-                      <span className="num" style={{ color: "var(--mut)" }}>
+                    <div className="xr x8">
+                      <button type="button" className="tap btn sec" aria-label={tx(p("One mark less", "एक अंक कम"))} onClick={() => setDelta(Math.max(-20, delta - 1))} style={{ width: 44, padding: 0 }}>
+                        <Ic n="minus" size={18} />
+                      </button>
+                      <span className="num xb xtc" style={{ minWidth: 52, fontSize: 20 }}>{delta > 0 ? `+${delta}` : delta}</span>
+                      <button type="button" className="tap btn sec" aria-label={tx(p("One mark more", "एक अंक ज़्यादा"))} onClick={() => setDelta(Math.min(20, delta + 1))} style={{ width: 44, padding: 0 }}>
+                        <Ic n="plus" size={18} />
+                      </button>
+                      <span className="num xb" style={{ marginLeft: "auto" }}>
                         {r.mark ?? "—"} → {r.mark === null ? "—" : r.mark + delta} / {r.maxMarks}
                       </span>
                     </div>
                   ) : null}
-                  {r.locked && mode === "changed" ? <Banner tone="warn">{tx(p("This class is locked. The admin unlocks it before a mark can change.", "यह कक्षा बंद है। अंक बदलने से पहले प्रशासक खोलेंगे।"))}</Banner> : null}
-                  <Btn variant="pri" icon="check" disabled={pending || (mode === "changed" && delta === 0)} onClick={() => run(() => actions.resolveRecheck({ recheckId: r.id, delta: mode === "changed" ? delta : 0 }))}>
+                  {r.locked && mode === "changed" ? (
+                    <div className="xno" style={{ ...tn("warn") }}>
+                      <Ic n="lock" size={18} style={{ flex: "none", marginTop: 2 }} />
+                      <span>{tx(p("This class is locked. The admin unlocks it before a mark can change.", "यह कक्षा बंद है। अंक बदलने से पहले प्रशासक खोलेंगे।"))}</span>
+                    </div>
+                  ) : null}
+                  <button type="button" className="tap btn pri" disabled={pending || r.status === "new" || (mode === "changed" && delta === 0)} onClick={() => run(() => actions.resolveRecheck({ recheckId: r.id, delta: mode === "changed" ? delta : 0 }))}>
+                    <Ic n="check" size={18} />
                     {mode === "changed" ? tx(p("Save the new mark", "नए अंक सहेजें")) : tx(p("Close · no change", "बंद करें · कोई बदलाव नहीं"))}
-                  </Btn>
-                  <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("A changed mark is saved as a correction with its reason, like any change after submission.", "बदला अंक कारण के साथ सुधार के रूप में सहेजा जाता है।"))}</span>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <span>
-                  {r.status === "changed" ? tx(p(`Changed from ${r.oldValue} to ${r.newValue}.`, `${r.oldValue} से ${r.newValue} किया।`)) : tx(p("Checked again — no change.", "दोबारा जाँचा — कोई बदलाव नहीं।"))}
-                </span>
-              </Card>
-            )}
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="card xc xp">
+              <span className="sech" style={{ marginBottom: 6 }}>{tx(p("History", "इतिहास"))}</span>
+              <div className="xst">
+                <div className="xlg">
+                  <i style={{ background: "var(--warn)" }} />
+                  <span>{tx(p(`Request from ${r.askedBy}`, `${r.askedBy} से अनुरोध`))}</span>
+                  <span className="num xm">{dateOf(r.createdAt)}</span>
+                </div>
+                {r.status !== "new" ? (
+                  <div className="xlg">
+                    <i style={{ background: "var(--info)" }} />
+                    <span>{tx(p(`Asked ${r.teacherName ?? "the teacher"} to re-check`, `${r.teacherName ?? "शिक्षक"} से दोबारा जाँच कही`))}</span>
+                    <span />
+                  </div>
+                ) : null}
+                {resolved ? (
+                  <div className="xlg">
+                    <i style={{ background: "var(--ok)" }} />
+                    <span>{outcome(r)}</span>
+                    <span />
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
-        ) : null}
-      </div>
+        </aside>
+      ) : null}
       <Sheet
         open={adding}
         onClose={() => setAdding(false)}
         icon="plus"
         title={tx(p("Add a re-check request", "दोबारा जाँच अनुरोध जोड़ें"))}
         footer={
-          <Btn
-            variant="pri"
-            full
-            icon="check"
+          <button
+            type="button"
+            className="tap btn pri"
+            style={{ flex: 1 }}
             disabled={pending || !form.paperId || !form.studentId || form.askedBy.trim().length < 2}
             onClick={() => run(() => actions.addRecheck({ paperId: form.paperId, studentId: form.studentId, askedBy: form.askedBy, note: form.note }), () => setAdding(false))}
           >
+            <Ic n="check" size={18} />
             {tx(p("Add request", "अनुरोध जोड़ें"))}
-          </Btn>
+          </button>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="xc x12">
           <Field label={tx(p("Class", "कक्षा"))}>
             <Select value={form.classId} onChange={(e) => setForm({ ...form, classId: e.target.value, paperId: "", studentId: "" })}>
               <option value="">—</option>
@@ -1119,6 +1430,7 @@ function Rechecks(props: ResultsProps & { pending: boolean; run: Run }) {
           </Field>
         </div>
       </Sheet>
-    </>
+    </div>
   );
 }
+
