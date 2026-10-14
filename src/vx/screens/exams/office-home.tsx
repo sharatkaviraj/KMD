@@ -951,7 +951,7 @@ function LateRow({
         </span>
         <span className="xr x8" style={{ justifyContent: "flex-end" }}>
           {t.phone ? (
-            <a className="tap btn sec" href={`tel:${t.phone}`} onClick={onCall} aria-pressed={callOpen}>
+            <a className="tap btn sec" href={`tel:${t.phone}`} onClick={onCall} aria-expanded={callOpen}>
               <Ic n="phone" size={18} />
               {tx(p("Call", "फ़ोन"))}
             </a>

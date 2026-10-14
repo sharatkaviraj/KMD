@@ -70,12 +70,11 @@ export function WeekDraft({
   for (let i = 1; i < pts.length; i += 1) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
   const now = facts.attendancePct;
   const delta = now !== null && facts.attendanceBefore !== null ? Math.round((now - facts.attendanceBefore) * 10) / 10 : null;
-  let month = "";
-  const labels = trend.map((t) => {
+  // The month shows only where it changes ("4 Oct", "11", "18", "1 Nov").
+  const labels = trend.map((t, i) => {
     const [d, m] = t.label.split(" ");
-    const out = m !== month ? t.label : d;
-    month = m;
-    return out;
+    const before = i > 0 ? trend[i - 1].label.split(" ")[1] : "";
+    return m !== before ? t.label : d;
   });
 
   const total = marks.locked + marks.done + marks.inProgress + marks.notStarted;

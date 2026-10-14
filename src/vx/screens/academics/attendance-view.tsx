@@ -604,7 +604,6 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
   const L = Math.max(0.5, (263.9 * today.marked) / Math.max(1, today.classes.length));
   const shown = today.classes.filter((c) => (p.filter === "all" ? true : p.filter === "not" ? !c.saved : c.saved));
   const lateClasses = today.classes.filter((c) => c.tally.late > 0).sort((a, b) => b.tally.late - a.tally.late);
-  const remindable = left.filter((c) => c.teacherId && !c.teacherAway);
   return (
     <VxPage>
       <CoordTop crumb={crumb} title={say("Attendance today", "आज की हाज़िरी")} mBack="/academics?view=menu" mSub={say(`${today.marked} of ${today.classes.length} marked · ${pct1(today.pct)} present`, `${today.classes.length} में ${today.marked} दर्ज · ${pct1(today.pct)} उपस्थित`)} actions={help} mAction={help} />

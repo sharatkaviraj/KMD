@@ -147,10 +147,23 @@ const attention: AttentionChild[] = KIDS.map(([name, cls, ...rs], i) => {
   let openNotes = 0;
   for (const r of rs) {
     const [k, v] = r.split(":");
-    if (k === "a") (reasons.push("attendance"), (attendancePct = Number(v)));
-    if (k === "m") (reasons.push("below_33"), (below33Subjects = v.split("+")));
-    if (k === "d") (reasons.push("dropped"), (dropPoints = Number(v.split("/")[0])), (dropSubject = v.split("/")[1]));
-    if (k === "n") (reasons.push("notes"), (openNotes = Number(v)));
+    if (k === "a") {
+      reasons.push("attendance");
+      attendancePct = Number(v);
+    }
+    if (k === "m") {
+      reasons.push("below_33");
+      below33Subjects = v.split("+");
+    }
+    if (k === "d") {
+      reasons.push("dropped");
+      dropPoints = Number(v.split("/")[0]);
+      dropSubject = v.split("/")[1];
+    }
+    if (k === "n") {
+      reasons.push("notes");
+      openNotes = Number(v);
+    }
   }
   return { studentId: uuid(7000 + i), name, classId: classId(cls), classLabel: cls, reasons, attendancePct, below33Subjects, dropPoints, dropSubject, openNotes, followup: null, plan: null };
 });

@@ -945,13 +945,13 @@ function SubjectLines({ child, before, now, hl, q, say }: { child: StudentDetail
   const lines = both
     .map((s, i) => ({ s, i, y1: y(before ? s.byExam.get(before.id) ?? 0 : s.byExam.get(now!.id) ?? 0), y2: y(s.byExam.get(now!.id) ?? 0) }))
     .sort((a, b) => a.y2 - b.y2);
-  let prev = -99;
-  const placed = lines.map((l) => {
-    const ty = Math.max(l.y2 + 4, prev + 12);
-    prev = ty;
-    return { ...l, ty };
-  });
-  const over = Math.max(0, prev - 186);
+  // Each label sits at its line's end, nudged down so labels never overlap.
+  const placed = lines.reduce<((typeof lines)[number] & { ty: number })[]>((acc, l) => {
+    const above = acc.length ? acc[acc.length - 1].ty : -99;
+    acc.push({ ...l, ty: Math.max(l.y2 + 4, above + 12) });
+    return acc;
+  }, []);
+  const over = Math.max(0, (placed.length ? placed[placed.length - 1].ty : -99) - 186);
   return (
     <>
       <div className="hs" style={{ display: "flex", gap: 6 }}>
