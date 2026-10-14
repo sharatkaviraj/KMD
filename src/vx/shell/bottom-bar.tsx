@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, use, useState } from "react";
+import { Suspense, use, useState, useSyncExternalStore } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
@@ -10,6 +10,7 @@ import { QUICK_ACTIONS, type BottomTab } from "@/vx/nav";
 import { Sheet } from "@/vx/ui/overlays";
 
 import type { Badges } from "./sidebar";
+import { TONE } from "./top-actions";
 
 /** The phone bottom bar (`XNav.dc.html`): four tabs and a centre action. */
 export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promise<Badges> }) {
@@ -86,35 +87,97 @@ function TabBadge({ badges, k }: { badges: Promise<Badges>; k: keyof Badges }) {
   );
 }
 
-const TONE: Record<(typeof QUICK_ACTIONS)[number]["tone"], { bg: string; fg: string }> = {
-  pri: { bg: "var(--pri)", fg: "var(--prifg)" },
-  acc: { bg: "var(--accs)", fg: "var(--accfg)" },
-  info: { bg: "var(--infos)", fg: "var(--info)" },
-  ok: { bg: "var(--oks)", fg: "var(--ok)" },
-  warn: { bg: "var(--warns)", fg: "var(--warnfg)" },
-  plain: { bg: "var(--s3)", fg: "var(--fg)" },
+/** The last quick action tapped on this phone, for "Repeat last" (a per-device convenience, like the sidebar's collapse). */
+const LAST_KEY = "vx.quick.last";
+const LAST_EVENT = "vx:quick-last";
+
+function readLast(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function subscribeLast(cb: () => void) {
+  window.addEventListener(LAST_EVENT, cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener(LAST_EVENT, cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+
+function rememberLast(key: string) {
+  try {
+    window.localStorage.setItem(LAST_KEY, key);
+    window.dispatchEvent(new Event(LAST_EVENT));
+  } catch {
+    // Private mode: nothing to repeat next time.
+  }
+}
+
+const QW = {
+  title: { en: "Quick actions", hi: "जल्दी के काम" },
+  six: { en: "The six things you do most", hi: "छह काम जो आप सबसे ज़्यादा करते हैं" },
+  some: { en: "The things you do most", hi: "काम जो आप सबसे ज़्यादा करते हैं" },
+  close: { en: "Close", hi: "बंद करें" },
+  repeat: { en: "Repeat last", hi: "पिछला दोहराएँ" },
 };
 
-/** The admin's centre "+" sheet: the six things done most (F03). */
+/**
+ * The admin's centre "+" sheet (F03): the six things done most, each shown
+ * only to a reader whose permission opens its screen, and "Repeat last" for
+ * the action last tapped on this phone. The design's line also names the
+ * child; the app does not keep that, so the row names the action alone.
+ */
 export function QuickActions({ open, onClose, keys }: { open: boolean; onClose: () => void; keys: readonly string[] }) {
   const { tx } = useVx();
+  const actions = QUICK_ACTIONS.filter((a) => keys.includes(a.key));
+  const lastKey = useSyncExternalStore(subscribeLast, readLast, () => null);
+  const last = actions.find((a) => a.key === lastKey) ?? null;
+  const pick = (key: string) => {
+    rememberLast(key);
+    onClose();
+  };
   return (
-    <Sheet open={open} onClose={onClose} title="Quick actions" sub="The things you do most">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, paddingBottom: 8 }}>
-        {QUICK_ACTIONS.filter((a) => keys.includes(a.key)).map((a, i) => (
-          <Link
-            key={a.key}
-            href={a.href}
-            onClick={onClose}
-            className="tap"
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "14px 6px", borderRadius: 20, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 13, fontWeight: 600, textAlign: "center", animation: `xRise .42s var(--ease) ${60 + i * 40}ms both` }}
-          >
-            <span style={{ width: 50, height: 50, borderRadius: 17, background: TONE[a.tone].bg, color: TONE[a.tone].fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Ic n={a.icon} size={23} />
+    <Sheet open={open} onClose={onClose} label={tx(QW.title)}>
+      <div className="vx-quick">
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <h2 className="serif" style={{ margin: 0, fontSize: 25, fontWeight: 600, lineHeight: 1.2 }}>{tx(QW.title)}</h2>
+            <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(actions.length === 6 ? QW.six : QW.some)}</span>
+          </div>
+          <button type="button" data-close className="tap" aria-label={tx(QW.close)} onClick={onClose} style={{ flex: "none", width: 44, height: 44, borderRadius: 22, border: 0, background: "var(--s2)", color: "var(--fg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Ic n="x" />
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          {actions.map((a, i) => (
+            <Link
+              key={a.key}
+              href={a.href}
+              onClick={() => pick(a.key)}
+              className="tap"
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "14px 6px", borderRadius: 20, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 13, fontWeight: 600, textAlign: "center", lineHeight: 1.25, animation: `xRise .42s var(--ease) ${i * 40}ms both` }}
+            >
+              <span style={{ width: 50, height: 50, borderRadius: 17, background: TONE[a.tone].bg, color: TONE[a.tone].fg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic n={a.icon} size={23} />
+              </span>
+              {tx(a.label)}
+            </Link>
+          ))}
+        </div>
+        {last ? (
+          <Link href={last.href} onClick={() => pick(last.key)} className="tap" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 56, padding: "8px 14px", borderRadius: 18, background: "var(--s2)", color: "var(--fg)", textAlign: "left", animation: "xRise .42s .22s var(--ease) both" }}>
+            <Ic n="clock" style={{ color: "var(--mut)" }} />
+            <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(QW.repeat)}</span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{`${tx(last.label)} · ${tx(last.sub)}`}</span>
             </span>
-            {tx(a.label)}
+            <Ic n="chevRight" style={{ color: "var(--mut)" }} />
           </Link>
-        ))}
+        ) : null}
       </div>
     </Sheet>
   );

@@ -1,8 +1,11 @@
 import type { DesignView } from "../design.fixture";
 import { views as adminViews } from "./admin.fixture";
-import { groupsFor } from "@/vx/nav";
+import { menuGroups } from "@/app/(app)/menu/menu-items";
+import { MenuScreen } from "@/app/(app)/menu/menu-screen";
+import { groupsFor, PREVIEW_LABEL } from "@/vx/nav";
 import { StudentsScreen, type StudentListRow, type StudentsProps } from "@/vx/screens/admin/students";
 import type { StudentFacts } from "@/vx/screens/admin/students-logic";
+import { QuickActions } from "@/vx/shell/bottom-bar";
 import { SearchPalette, type PaletteItem } from "@/vx/shell/palette";
 import type { SearchResult } from "@/vx/shell/search-actions";
 import { VxPage } from "@/vx/ui/page";
@@ -132,7 +135,49 @@ function SearchFrame({ behind }: { behind?: boolean }) {
   );
 }
 
+/* ---------------------------------------------------------- quick actions */
+
+function QuickFrame() {
+  // The design's sheet repeats the last thing done; on this phone that was Collect fee.
+  try {
+    window.localStorage.setItem("vx.quick.last", "collect");
+  } catch {
+    // No storage: the sheet draws without "Repeat last".
+  }
+  return (
+    <>
+      {adminViews["F01-Today"].render()}
+      <QuickActions open onClose={() => {}} keys={["collect", "mark", "notice", "admit", "cover", "note"]} />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------- menu */
+
+function MenuFrame() {
+  return (
+    <VxPage>
+      <MenuScreen
+        menu="admin"
+        name="Janmejay Singh"
+        initials="JS"
+        sub="Admin · every workspace"
+        groups={menuGroups("admin", () => true)}
+        previews={[
+          { key: "teacher", label: PREVIEW_LABEL.teacher, icon: "grad" },
+          { key: "accountant", label: PREVIEW_LABEL.accountant, icon: "rupee" },
+          { key: "academic", label: PREVIEW_LABEL.academic, icon: "chart" },
+          { key: "exam", label: PREVIEW_LABEL.exam, icon: "clipboard" },
+        ]}
+        previewing={null}
+      />
+    </VxPage>
+  );
+}
+
 export const views: Record<string, DesignView> = {
+  "F13-Menu": { render: () => <MenuFrame />, path: "/menu" },
+  "F03-QuickActions": { render: () => <QuickFrame />, path: "/" },
   "F05-Students": { render: () => <StudentsFrame />, path: "/students" },
   "D01-Students": { render: () => <StudentsFrame picked={PICKED} />, path: "/students" },
   "F04-Search": { render: () => <SearchFrame />, path: "/students" },
