@@ -12,19 +12,30 @@ import { Sheet } from "@/vx/ui/overlays";
 import type { Badges } from "./sidebar";
 import { TONE } from "./top-actions";
 
+const under = (path: string, href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
+
+/**
+ * Which tab is lit for a path (XNav and every role's frames). The longest
+ * matching tab wins, and "/" only matches itself. The centre action's own
+ * screen lights nothing — the big button is its mark (M-AcadAttendance,
+ * M-TchAttend) — even though a shorter tab such as Today is its prefix. A
+ * screen with no tab of its own was reached from the Menu, and the design
+ * lights Menu there (AC-*, MAD-*, M-Fees …, UI-78).
+ */
+export function activeTab(tabs: readonly BottomTab[], pathname: string): string | null {
+  const best = tabs.filter((t) => !t.center && under(pathname, t.href)).sort((a, b) => b.href.length - a.href.length)[0] ?? null;
+  const center = tabs.find((t) => t.center && t.href.startsWith("/") && under(pathname, t.href.split("?")[0]));
+  if (center && (!best || center.href.length > best.href.length)) return null;
+  if (best) return best.href;
+  return tabs.find((t) => t.key === "menu")?.href ?? null;
+}
+
 /** The phone bottom bar (`XNav.dc.html`): four tabs and a centre action. */
 export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promise<Badges> }) {
-  const pathname = usePathname() ?? "/";
+  const pathname = (usePathname() ?? "/").split(/[?#]/)[0] || "/";
   const { tx } = useVx();
   const [quick, setQuick] = useState(false);
-  // Longest matching tab wins; "/" only matches itself.
-  const matched =
-    tabs
-      .filter((t) => !t.center && (t.href === "/" ? pathname === "/" : pathname === t.href || pathname.startsWith(`${t.href}/`)))
-      .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
-  // A screen with no tab of its own was reached from the Menu, and the design
-  // lights Menu there (AC-*, MAD-*, M-Fees …), not nothing.
-  const active = matched ?? tabs.find((t) => t.key === "menu")?.href ?? null;
+  const active = activeTab(tabs, pathname);
   // The classic receipt detail supplies its own fixed phone action bar and
   // return link. A second bar covers its Print A4 control. Keep list routes
   // and the redesigned /receipts desk on their normal tab navigation.
