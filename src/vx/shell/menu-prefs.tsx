@@ -15,7 +15,7 @@ import { Sheet } from "@/vx/ui/overlays";
  * The phone Menu's own controls (F13-Menu): the Dark mode and Hindi labels
  * switches in the profile card, and the four pinned tiles with Edit. Theme
  * and language moved here (and to Settings / the teacher's More) when the
- * sidebar footer went back to the design's (UI-86).
+ * sidebar footer went back to the design's (UI-90).
  */
 
 const noSubscribe = () => () => {};

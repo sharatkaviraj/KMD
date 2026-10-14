@@ -49,7 +49,7 @@ export function readStudentViewCookie(raw: string | null | undefined, staffId: s
  * then a fee chip in the URL (`?seg=pending`) — a chip only exists in the Fees
  * view, so an old link keeps working; then what the person last chose; and a
  * person who never chose gets Fees, the list the design draws for the office
- * (D01/F05; the design wins over D-253's School default, UI-85).
+ * (D01/F05; the design wins over D-253's School default, UI-89).
  */
 export function resolveStudentView(input: {
   param: string | null | undefined;

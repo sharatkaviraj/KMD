@@ -45,7 +45,7 @@ import "./students.css";
  * page and sort are query parameters — so Back and a pasted link keep working.
  *
  * Fees (the design's list: chips and money columns) is for `fees:view`, and is
- * where such a reader starts (UI-85). School (class, attendance and a few
+ * where such a reader starts (UI-89). School (class, attendance and a few
  * facts) is everyone else's list, and stays one tap away for fee readers at
  * the foot of the table.
  *

@@ -50,7 +50,7 @@ describe("student list views", () => {
     expect(resolveStudentView({ param: "fees", seg: "pending", remembered: "fees", seesMoney: false })).toBe("school");
   });
 
-  it("opens a fee reader who never chose in Fees, the list the design draws (UI-85)", () => {
+  it("opens a fee reader who never chose in Fees, the list the design draws (UI-89)", () => {
     expect(resolveStudentView({ param: undefined, seg: "all", remembered: null, seesMoney: true })).toBe("fees");
     expect(resolveStudentView({ param: undefined, seg: "all", remembered: "school", seesMoney: true })).toBe("school");
     expect(resolveStudentView({ param: undefined, seg: "all", remembered: null, seesMoney: false })).toBe("school");

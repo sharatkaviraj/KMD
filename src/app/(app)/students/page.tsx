@@ -40,7 +40,7 @@ const noFacts = (): StudentFacts => ({ attendance: null, siblings: 0, isNew: fal
  * bookmarks and a pasted link all open the same list. Two views over the same
  * children: Fees, for `fees:view` and where such a reader starts — the
  * design's list (D01/F05): the fee app's saved views as chips and its figures,
- * fees and late fee apart (UI-85) — and School (class, attendance, a few
+ * fees and late fee apart (UI-89) — and School (class, attendance, a few
  * facts), everyone else's list. The last view a person chose is remembered in
  * a cookie keyed to their profile, so the first render is already right. A
  * search that is exactly a class's name filters to that class.
