@@ -48,7 +48,8 @@ export function readStudentViewCookie(raw: string | null | undefined, staffId: s
  * Without `fees:view` it is always School. Otherwise an explicit `?view=` wins;
  * then a fee chip in the URL (`?seg=pending`) — a chip only exists in the Fees
  * view, so an old link keeps working; then what the person last chose; and a
- * person who never chose gets School.
+ * person who never chose gets Fees, the list the design draws for the office
+ * (D01/F05; the design wins over D-253's School default, UI-85).
  */
 export function resolveStudentView(input: {
   param: string | null | undefined;
@@ -60,7 +61,103 @@ export function resolveStudentView(input: {
   const explicit = parseStudentView(input.param);
   if (explicit) return explicit;
   if (input.seg !== "all") return "fees";
-  return input.remembered ?? "school";
+  return input.remembered ?? "fees";
+}
+
+/* ---------------------------------------------------------------- sorting */
+
+export type StudentSortKey = "name" | "class" | "pending" | "notdue" | "paid";
+
+export type StudentSort = { key: StudentSortKey; dir: 1 | -1 };
+
+const SORT_KEYS: readonly StudentSortKey[] = ["name", "class", "pending", "notdue", "paid"];
+
+/** The design's first click: names and classes A→Z, money largest first. */
+export function defaultSortDir(key: StudentSortKey): 1 | -1 {
+  return key === "name" || key === "class" ? 1 : -1;
+}
+
+export function parseStudentSort(key: string | null | undefined, dir: string | null | undefined): StudentSort {
+  const k = (SORT_KEYS as readonly string[]).includes(key ?? "") ? (key as StudentSortKey) : "name";
+  const d = dir === "desc" ? -1 : dir === "asc" ? 1 : defaultSortDir(k);
+  return { key: k, dir: d };
+}
+
+/** Clicking a column: the same column flips, another starts in its own direction. */
+export function nextSort(current: StudentSort, key: StudentSortKey): StudentSort {
+  return current.key === key ? { key, dir: current.dir === 1 ? -1 : 1 } : { key, dir: defaultSortDir(key) };
+}
+
+/**
+ * How a column can be sorted honestly here. When the whole list is on this
+ * page, any column sorts in place, either way. Across pages only the database
+ * can order the list, and it orders by name or by class, A→Z; the money
+ * figures are worked out after paging, so they do not sort at all then.
+ */
+export function sortMode(key: StudentSortKey, onePage: boolean): "page" | "server" | null {
+  if (onePage) return "page";
+  return key === "name" || key === "class" ? "server" : null;
+}
+
+type SortableRow = { name: string; classLabel: string; classOrder?: number; money: { pendingToday: number; notDueYet: number; percent: number } | null };
+
+/** The rows in the chosen order; ties keep the name order the server sent. */
+export function sortStudentRows<T extends SortableRow>(rows: readonly T[], sort: StudentSort): T[] {
+  const value = (row: T): number | string => {
+    switch (sort.key) {
+      case "class":
+        return row.classOrder ?? row.classLabel.toLowerCase();
+      case "pending":
+        return row.money?.pendingToday ?? -1;
+      case "notdue":
+        return row.money?.notDueYet ?? -1;
+      case "paid":
+        return row.money?.percent ?? -1;
+      default:
+        return row.name.toLowerCase();
+    }
+  };
+  return rows
+    .map((row, i) => ({ row, i, v: value(row) }))
+    .sort((a, b) => (a.v < b.v ? -1 : a.v > b.v ? 1 : 0) * sort.dir || a.i - b.i)
+    .map((x) => x.row);
+}
+
+/* ------------------------------------------------------- class by search */
+
+function classKey(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/^class\s+/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * The search box finds a class too ("Name, SR no., class or parent"): a query
+ * that is exactly one class's name — "Class 7", "7", "ukg", "11 science" —
+ * filters to that class. Anything else stays a name/SR/parent search.
+ */
+export function classFromQuery(q: string, classes: readonly { id: string; label: string }[]): { id: string; label: string } | null {
+  const key = classKey(q);
+  if (!key) return null;
+  const hits = classes.filter((c) => classKey(c.label) === key);
+  return hits.length === 1 ? hits[0] : null;
+}
+
+/* ------------------------------------------------------------ money line */
+
+export type MoneyStatus = { kind: "pending"; amount: number } | { kind: "track"; amount: number } | { kind: "paid" };
+
+/**
+ * One child's money in the design's three words: an amount pending today,
+ * "On track" with what falls due later, or "Paid up". The late fee is never
+ * added in (RULES B); a child who owes only a late fee reads "Paid up" for fees.
+ */
+export function moneyStatus(money: { pendingToday: number; notDueYet: number }): MoneyStatus {
+  if (money.pendingToday > 0) return { kind: "pending", amount: money.pendingToday };
+  if (money.notDueYet > 0) return { kind: "track", amount: money.notDueYet };
+  return { kind: "paid" };
 }
 
 /* ------------------------------------------------------ return to place */

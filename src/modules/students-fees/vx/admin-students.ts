@@ -10,6 +10,7 @@ import { getStudentSegmentCounts } from "@/modules/students-fees/data/directory"
 import {
   getStudentDetail,
   getStudentFamilyMembersDetail,
+  getStudentMasterFieldsByIds,
   getStudentsPage,
 } from "@/modules/students-fees/data/queries";
 import { segmentCount, type SegmentId } from "@/modules/students-fees/domain/student-segments";
@@ -86,6 +87,8 @@ export async function studentMoneyList(input: {
    * cookie decides, as on every other money screen.
    */
   sessionLabel?: string;
+  /** The fee app's own orders: by name, or by class then name. */
+  sort?: "name" | "class";
 }): Promise<MoneyList> {
   await assertPermission("fees:view");
   const view = input.sessionLabel ? { sessionLabel: input.sessionLabel } : await resolveViewSession({ cookieSession: await getViewSessionCookie() });
@@ -93,7 +96,7 @@ export async function studentMoneyList(input: {
 
   const [page, counts] = await Promise.all([
     getStudentsPage(
-      { ...EMPTY_STUDENT_FILTERS, query: input.query, classId: input.classId, sessionLabel: view.sessionLabel, segments },
+      { ...EMPTY_STUDENT_FILTERS, query: input.query, classId: input.classId, sessionLabel: view.sessionLabel, segments, sort: input.sort ?? "name" },
       { page: input.page, pageSize: input.pageSize },
     ),
     getStudentSegmentCounts({ sessionLabel: view.sessionLabel, classId: input.classId || undefined, query: input.query || undefined }).catch(() => null),
@@ -140,6 +143,23 @@ export async function studentMoneyList(input: {
       paid: segmentCount(counts, "yearClear"),
     },
   };
+}
+
+/**
+ * The father's name (else the mother's) for the rows on one page of the list,
+ * which the design shows under each child ("SR 1234 · Rakesh Sharma"). The
+ * list query does not carry it; this reads only the page's ids, beside the
+ * attendance read, so it adds no wave.
+ */
+export async function parentNamesFor(studentIds: readonly string[]): Promise<Map<string, string>> {
+  await assertPermission("fees:view");
+  const fields = await getStudentMasterFieldsByIds(studentIds);
+  const out = new Map<string, string>();
+  for (const [id, row] of fields) {
+    const name = (row.fatherName ?? "").trim() || (row.motherName ?? "").trim();
+    if (name) out.set(id, name);
+  }
+  return out;
 }
 
 export type StudentFeeInstallment = {

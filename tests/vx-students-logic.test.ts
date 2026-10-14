@@ -4,8 +4,14 @@ import { studentsHref } from "@/vx/screens/admin/logic";
 import {
   attendanceDays,
   attendanceFigure,
+  classFromQuery,
   MAX_BADGES,
+  moneyStatus,
+  nextSort,
+  parseStudentSort,
   parseStudentView,
+  sortMode,
+  sortStudentRows,
   readStudentViewCookie,
   resolveStudentView,
   savedScroll,
@@ -44,8 +50,10 @@ describe("student list views", () => {
     expect(resolveStudentView({ param: "fees", seg: "pending", remembered: "fees", seesMoney: false })).toBe("school");
   });
 
-  it("defaults to School for a person who never chose", () => {
-    expect(resolveStudentView({ param: undefined, seg: "all", remembered: null, seesMoney: true })).toBe("school");
+  it("opens a fee reader who never chose in Fees, the list the design draws (UI-85)", () => {
+    expect(resolveStudentView({ param: undefined, seg: "all", remembered: null, seesMoney: true })).toBe("fees");
+    expect(resolveStudentView({ param: undefined, seg: "all", remembered: "school", seesMoney: true })).toBe("school");
+    expect(resolveStudentView({ param: undefined, seg: "all", remembered: null, seesMoney: false })).toBe("school");
   });
 
   it("opens the remembered view when the URL does not say", () => {
@@ -181,5 +189,63 @@ describe("student badges", () => {
     const a = studentBadges(everything, { view: "school", seesMoney: true });
     const b = studentBadges({ ...everything }, { view: "school", seesMoney: true });
     expect(a).toEqual(b);
+  });
+});
+
+describe("Students list: sorting, class search and money words (D01/F05)", () => {
+  const row = (name: string, classLabel: string, pendingToday: number, notDueYet: number, percent: number, classOrder?: number) => ({
+    name,
+    classLabel,
+    classOrder,
+    money: { pendingToday, notDueYet, percent },
+  });
+  const rows = [row("Riya Singh", "Class 6", 6150, 12300, 25, 6), row("Aarav Sharma", "Class 7", 4200, 13200, 34, 7), row("Aarti Kumawat", "Class 10", 0, 0, 100, 10)];
+
+  it("reads the sort from the URL, names A→Z and money largest first by default", () => {
+    expect(parseStudentSort(undefined, undefined)).toEqual({ key: "name", dir: 1 });
+    expect(parseStudentSort("pending", undefined)).toEqual({ key: "pending", dir: -1 });
+    expect(parseStudentSort("class", "desc")).toEqual({ key: "class", dir: -1 });
+    expect(parseStudentSort("nonsense", "asc")).toEqual({ key: "name", dir: 1 });
+  });
+
+  it("flips the same column and starts another in its own direction", () => {
+    expect(nextSort({ key: "name", dir: 1 }, "name")).toEqual({ key: "name", dir: -1 });
+    expect(nextSort({ key: "name", dir: 1 }, "pending")).toEqual({ key: "pending", dir: -1 });
+  });
+
+  it("sorts money only when the whole list is on the page", () => {
+    expect(sortMode("pending", true)).toBe("page");
+    expect(sortMode("pending", false)).toBeNull();
+    expect(sortMode("class", false)).toBe("server");
+    expect(sortMode("name", false)).toBe("server");
+  });
+
+  it("orders rows by the chosen column, keeping ties in the server's order", () => {
+    expect(sortStudentRows(rows, { key: "name", dir: 1 }).map((r) => r.name)).toEqual(["Aarav Sharma", "Aarti Kumawat", "Riya Singh"]);
+    expect(sortStudentRows(rows, { key: "pending", dir: -1 }).map((r) => r.name)).toEqual(["Riya Singh", "Aarav Sharma", "Aarti Kumawat"]);
+    // School order, not the alphabet: Class 10 comes after Class 7.
+    expect(sortStudentRows(rows, { key: "class", dir: 1 }).map((r) => r.classLabel)).toEqual(["Class 6", "Class 7", "Class 10"]);
+    expect(sortStudentRows(rows, { key: "paid", dir: -1 })[0].name).toBe("Aarti Kumawat");
+  });
+
+  it("finds a class typed into the search box, and nothing else", () => {
+    const classes = [
+      { id: "c7", label: "Class 7" },
+      { id: "c11s", label: "Class 11 Science" },
+      { id: "ukg", label: "UKG" },
+    ];
+    expect(classFromQuery("Class 7", classes)?.id).toBe("c7");
+    expect(classFromQuery("7", classes)?.id).toBe("c7");
+    expect(classFromQuery("ukg", classes)?.id).toBe("ukg");
+    expect(classFromQuery("11 science", classes)?.id).toBe("c11s");
+    expect(classFromQuery("Aarav", classes)).toBeNull();
+    expect(classFromQuery("1234", classes)).toBeNull();
+    expect(classFromQuery("", classes)).toBeNull();
+  });
+
+  it("says pending today, on track or paid up, and never adds the late fee", () => {
+    expect(moneyStatus({ pendingToday: 4200, notDueYet: 13200 })).toEqual({ kind: "pending", amount: 4200 });
+    expect(moneyStatus({ pendingToday: 0, notDueYet: 9300 })).toEqual({ kind: "track", amount: 9300 });
+    expect(moneyStatus({ pendingToday: 0, notDueYet: 0 })).toEqual({ kind: "paid" });
   });
 });

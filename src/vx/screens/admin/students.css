@@ -1,0 +1,64 @@
+/*
+ * Students (D01 desk table, F05 phone cards). Numbers are the design's
+ * (Desktop.dc.html, App.dc.html "students"). Scoped to `.stu`.
+ */
+
+.stu-wrap{padding:22px 28px 40px;display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* desk toolbar */
+.stu-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.stu-dsearch{position:relative;height:42px;width:340px;max-width:100%;border-radius:12px;background:var(--card);border:1px solid var(--bds);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--mut);margin:0}
+.stu-dsearch input,.stu-msearch input{flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--fg);font:inherit}
+.stu-dsearch input{height:38px;font-size:14px}
+.stu-dsearch input::placeholder,.stu-msearch input::placeholder{color:var(--sub)}
+.stu-dsearch:focus-within,.stu-msearch:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+
+/* desk table */
+.stu-card{overflow:hidden}
+.stu-head{display:grid;align-items:center;height:46px;padding:0 12px;border-bottom:1px solid var(--bd);background:var(--s2)}
+.stu-th{display:flex;min-width:0}
+.stu-thl{padding:0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);line-height:1.15}
+.stu-sort{height:32px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--mut);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;display:inline-flex;align-items:center;gap:4px;line-height:1.15;text-align:left}
+.stu-sort[data-on]{color:var(--fg)}
+.stu-sort:hover{background:var(--s3)}
+.stu-row{display:grid;align-items:center;min-height:62px;padding:0 12px;border-top:1px solid var(--bd);transition:background-color .18s ease;animation:xIn .35s var(--ease) both;cursor:pointer}
+.stu-row:hover{background:var(--s2)}
+.stu-row.sel{background:var(--accs)}
+.stu-td{padding:0 8px;font-size:13px;min-width:0}
+.stu-name{display:flex;align-items:center;gap:12px;padding:6px 8px;border-radius:12px;min-width:0}
+.stu-ava{flex:none;width:38px;height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.stu-link{display:flex;min-width:0;color:var(--fg)}
+.stu-link:hover span{text-decoration:underline;text-underline-offset:2px}
+.stu-bar{display:block;height:6px;transform-origin:left;animation:xGrowX .7s var(--ease) both;transition:width .5s var(--ease)}
+.stu-ra{display:flex;justify-content:flex-end;gap:4px;opacity:.35;transition:opacity .18s ease}
+.stu-row:hover .stu-ra,.stu-row.sel .stu-ra,.stu-ra:focus-within{opacity:1}
+.stu .stu-ib{width:36px;height:36px;padding:0}
+.stu-empty{padding:40px;text-align:center;color:var(--mut)}
+
+/* the tick box */
+.stu-tick{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--bds);background:var(--card);color:var(--prifg);display:flex;align-items:center;justify-content:center;padding:0}
+.stu-tick[data-on]{border:0;background:var(--pri)}
+
+/* foot of the list */
+.stu-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.stu-pager{display:flex;align-items:center;gap:10px}
+
+/* floating bulk bar */
+.stu-bulkwrap{position:fixed;left:0;right:0;bottom:24px;z-index:25;display:flex;justify-content:center;pointer-events:none}
+.stu-bulk{pointer-events:auto;display:flex;align-items:center;gap:6px;padding:8px 8px 8px 18px;border-radius:16px;background:var(--tbg);color:var(--tfg);box-shadow:var(--shl);animation:xToast .32s var(--spring) both}
+
+/* phone header and cards */
+.stu-mhead{position:sticky;top:0;z-index:5;padding:14px 18px 10px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--bd)}
+.stu-msearch{position:relative;height:48px;border-radius:24px;background:var(--card);border:1px solid var(--bds);display:flex;align-items:center;gap:10px;padding:0 16px;color:var(--mut);margin:0}
+.stu-msearch input{height:44px;font-size:16px}
+.stu-mchips{display:flex;gap:8px;margin:0 -18px;padding:0 18px 2px}
+.stu-cards{display:flex;flex-direction:column;gap:10px}
+.stu-swipe{display:flex;border-radius:20px;scroll-snap-type:x mandatory}
+.stu-mcard{flex:none;width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;text-align:left;color:var(--fg);box-shadow:none;scroll-snap-align:start;border-radius:20px}
+.stu-acts{flex:none;display:flex;gap:6px;padding-left:8px;scroll-snap-align:end}
+.stu-acts>a{width:62px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:700}
+
+@container vx (max-width:899px){
+  .stu-wrap{padding:12px 18px 24px;gap:10px}
+}
+@media (prefers-reduced-motion:reduce){.stu-row,.stu-bar,.stu-bulk{animation:none}}

@@ -161,14 +161,19 @@ const BOTTOM: Record<DesignMenu, { tabs: [string, string, string, string]; cente
  * before these were filtered they were offered actions that end on
  * "access denied" (smoke test, 10 Oct 2026).
  */
-export const QUICK_ACTIONS: readonly { key: string; label: Pair; icon: IconName; tone: "pri" | "acc" | "info" | "ok" | "warn" | "plain"; href: string; permission: StaffPermission }[] = [
-  { key: "collect", label: L("Collect fee", "फीस जमा"), icon: "rupee", tone: "pri", href: "/payments", permission: "fees:collect" },
-  { key: "mark", label: L("Mark attendance", "हाज़िरी"), icon: "calCheck", tone: "acc", href: "/attendance", permission: "attendance:mark_on_behalf" },
-  { key: "notice", label: L("Send notice", "सूचना भेजें"), icon: "megaphone", tone: "info", href: "/messages?compose=1", permission: "messages:send" },
-  { key: "admit", label: L("Add student", "नया विद्यार्थी"), icon: "userPlus", tone: "ok", href: "/admissions/new", permission: "fees:manage" },
-  { key: "cover", label: L("Assign substitute", "सब्स्टिट्यूट"), icon: "swap", tone: "warn", href: "/timetable?view=subs", permission: "substitutions:manage" },
-  { key: "note", label: L("Add a note", "नोट लिखें"), icon: "edit", tone: "plain", href: "/notes?add=1", permission: "notes:view" },
+export const QUICK_ACTIONS: readonly { key: string; label: Pair; sub: Pair; icon: IconName; tone: "pri" | "acc" | "info" | "ok" | "warn" | "plain"; href: string; permission: StaffPermission }[] = [
+  { key: "collect", label: L("Collect fee", "फीस जमा"), sub: L("Opens the Payment Desk", "पेमेंट डेस्क खुलेगा"), icon: "rupee", tone: "pri", href: "/payments", permission: "fees:collect" },
+  { key: "mark", label: L("Mark attendance", "हाज़िरी"), sub: L("Any class, today", "कोई भी कक्षा, आज"), icon: "calCheck", tone: "acc", href: "/attendance", permission: "attendance:mark_on_behalf" },
+  { key: "notice", label: L("Send notice", "सूचना भेजें"), sub: L("WhatsApp to parents or staff", "अभिभावकों या स्टाफ़ को"), icon: "megaphone", tone: "info", href: "/messages?compose=1", permission: "messages:send" },
+  { key: "admit", label: L("Add student", "नया विद्यार्थी"), sub: L("New admission", "नया प्रवेश"), icon: "userPlus", tone: "ok", href: "/admissions/new", permission: "fees:manage" },
+  { key: "cover", label: L("Assign substitute", "सब्स्टिट्यूट"), sub: L("Cover an absent teacher", "अनुपस्थित शिक्षक की जगह"), icon: "swap", tone: "warn", href: "/timetable?view=subs", permission: "substitutions:manage" },
+  { key: "note", label: L("Add a note", "नोट लिखें"), sub: L("About a child", "किसी बच्चे के बारे में"), icon: "edit", tone: "plain", href: "/notes?add=1", permission: "notes:view" },
 ];
+
+/** The quick actions this reader may open (the centre "+" sheet and the desktop "New" menu). */
+export function quickActionsFor(allowed: (p: StaffPermission) => boolean): string[] {
+  return QUICK_ACTIONS.filter((q) => allowed(q.permission)).map((q) => q.key);
+}
 
 /** Short labels the bottom bar uses where the sidebar label is long. */
 const SHORT: Partial<Record<string, Pair>> = {
@@ -230,7 +235,7 @@ export function bottomFor(menu: DesignMenu, allowed: (p: StaffPermission) => boo
     return { key, label: SHORT[`${menu}:${key}`] ?? item.label, icon: SHORT_ICON[`${menu}:${key}`] ?? item.icon, href: item.href, badge: item.badge };
   };
   const [a, b, c, d] = spec.tabs.map(tab);
-  const quick = spec.center.href === "#quick" ? QUICK_ACTIONS.filter((q) => allowed(q.permission)).map((q) => q.key) : undefined;
+  const quick = spec.center.href === "#quick" ? quickActionsFor(allowed) : undefined;
   const center: BottomTab | null =
     allowed(spec.center.permission) && (quick === undefined || quick.length > 0)
       ? { key: "center", label: spec.center.label, icon: spec.center.icon, href: spec.center.href, center: true, quick }
