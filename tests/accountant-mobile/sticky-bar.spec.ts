@@ -13,7 +13,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
       return { button: { top: rect.top, bottom: rect.bottom, height: rect.height }, nav: { top: nav.top, height: nav.height }, centerOwned: button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)), gap: nav.top - rect.bottom };
     });
     await testInfo.attach("actual-nav-geometry", { body: JSON.stringify(geometry), contentType: "application/json" });
-    expect(geometry.nav.height).toBe(99);
+    expect(geometry.nav.height).toBe(76); // the design's 76px bottom bar (UI-78)
     expect(geometry.gap).toBeGreaterThanOrEqual(12);
     expect(geometry.button.height).toBeGreaterThanOrEqual(44);
     expect(geometry.centerOwned).toBe(true);

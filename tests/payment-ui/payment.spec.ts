@@ -38,19 +38,26 @@ for (const width of [320, 390, 1180, 1440]) {
     await page.getByRole("button", { name: /TEST Child A/ }).click();
     const amount = page.locator("#pd-amount"); await expect(amount).toBeVisible(); await amount.fill("500");
     await page.locator("#pd-concession").fill("200"); await page.locator("#pd-received-by").fill("TEST Other Cashier");
-    await page.getByRole("button", { name: "Review payment" }).click();
+    await page.getByRole("button", { name: "Review & save", exact: true }).click();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(0);
-    await expect(page.locator("#pd-review-title")).toBeVisible(); await expect(page.getByText("TEST Other Cashier", { exact: true })).toBeVisible();
-    const back = page.getByRole("button", { name: /Back —/ });
+    await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toBeVisible(); await expect(page.getByText("TEST Other Cashier", { exact: true })).toBeVisible();
+    // "Change" closes the design's review sheet with every entry kept (UI-79).
+    const back = page.getByRole("dialog", { name: /^Save ₹/ }).getByRole("button", { name: "Change", exact: true });
     await settleBackTarget(back);
     await back.click(); await expect(amount).toHaveValue("500");
-    await page.getByRole("button", { name: "Review payment" }).click(); await page.getByRole("button", { name: /Confirm and save payment/ }).click();
-    await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Review & save", exact: true }).click(); await page.getByRole("button", { name: /^Save payment/ }).click();
+    await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ receiptCount: 1, posted: { amount: 500, quickDiscountAmount: 200, receivedBy: "TEST Other Cashier" } });
-    await page.locator(".anim-print-out").evaluate(async element => { await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished)); });
+    await page.evaluate(async () => {
+      const finite = document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity);
+      await Promise.all(finite.map(animation => animation.finished.catch(() => undefined)));
+    });
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `test-results/payment-saved-${testInfo.project.name}-${width}.png`, fullPage: true });
-    await page.getByRole("button", { name: "Collect for another student" }).click(); await page.getByRole("button", { name: /TEST Child B/ }).click(); await expect(amount).toBeVisible();
+    // A desk keeps the class list beside the counter; a phone goes back to it.
+    const another = page.getByRole("button", { name: "Search another student", exact: true });
+    if (await another.isVisible()) await another.click();
+    await page.getByRole("button", { name: /TEST Child B/ }).click(); await expect(amount).toBeVisible();
     // Visibility does not imply opacity animation has completed (WebKit can
     // otherwise capture an empty entry pane during its first frame).
     await page.evaluate(async () => {
@@ -70,10 +77,12 @@ test("lost save survives switching student and reload without a second receipt a
   await page.getByRole("button", { name: /TEST Child A/ }).click();
   await page.locator("#pd-amount").fill("500");
   await page.locator("#pd-received-by").fill("TEST Recovery Cashier");
-  await page.getByRole("button", { name: "Review payment" }).click();
-  await page.getByRole("button", { name: /Confirm and save payment/ }).click();
+  await page.getByRole("button", { name: "Review & save", exact: true }).click();
+  await page.getByRole("button", { name: /^Save payment/ }).click();
   await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
   const original = await page.evaluate(() => window.paymentFixtureSnapshot().posted);
+  // The design review is a sheet; an unresolved one closes to the desk (Resume payment brings it back).
+  await page.getByRole("dialog", { name: /^Save ₹/ }).getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Search another student", exact: true }).click();
   await page.getByRole("button", { name: /TEST Child B/ }).click();
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -81,7 +90,7 @@ test("lost save survives switching student and reload without a second receipt a
   await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
   await page.evaluate(() => sessionStorage.setItem("qa-payment-check", "yes"));
   await page.getByRole("button", { name: "Check whether it was saved" }).click();
-  await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
 });
 
@@ -100,19 +109,19 @@ test("a second tab cannot replace an unresolved request", async ({ page, context
   await page.getByRole("button", { name: /TEST Child A/ }).click();
   await second.getByRole("button", { name: /TEST Child B/ }).click();
   await page.locator("#pd-amount").fill("500"); await second.locator("#pd-amount").fill("900");
-  await page.getByRole("button", { name: "Review payment" }).click();
-  await second.getByRole("button", { name: "Review payment" }).click();
-  await page.getByRole("button", { name: /Confirm and save payment/ }).click();
+  await page.getByRole("button", { name: "Review & save", exact: true }).click();
+  await second.getByRole("button", { name: "Review & save", exact: true }).click();
+  await page.getByRole("button", { name: /^Save payment/ }).click();
   await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
   const original = await page.evaluate(() => window.paymentFixtureSnapshot().posted);
-  await second.getByRole("button", { name: /Confirm and save payment/ }).click();
+  await second.getByRole("button", { name: /^Save payment/ }).click();
   await expect(second.getByText("Another tab has an unfinished payment. Resolve that payment before collecting again.")).toBeVisible();
   expect(await second.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(0);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /TEST Child A/ }).click();
   await page.evaluate(() => sessionStorage.setItem("qa-payment-check", "yes"));
   await page.getByRole("button", { name: "Check whether it was saved" }).click();
-  await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
 });
 
@@ -124,16 +133,16 @@ for (const fault of ["unsupported", "denied"] as const) {
       Object.defineProperty(navigator, "locks", { configurable: true, get: () => !window.recoveryFault ? original : kind === "unsupported" ? undefined : { request: () => Promise.reject(new DOMException("Synthetic denial", "SecurityError")) } });
     }, fault);
     await page.goto("/?selected", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText(/Payment saving is paused because this browser/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Review payment" })).toBeDisabled();
+    await expect(page.getByText(/Payment saving is paused because this browser/).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(0);
     await page.evaluate(() => { window.recoveryFault = false; });
     await page.getByRole("button", { name: "Retry recovery" }).click();
-    await expect(page.getByRole("button", { name: "Review payment" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
     await page.locator("#pd-amount").fill("500");
-    await page.getByRole("button", { name: "Review payment" }).click();
-    await page.getByRole("button", { name: /Confirm and save payment/ }).click();
-    await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Review & save", exact: true }).click();
+    await page.getByRole("button", { name: /^Save payment/ }).click();
+    await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(1);
   });
 }
@@ -165,28 +174,28 @@ for (const fault of ["missing", "denied", "private-quota"] as const) {
     if (fault === "private-quota") {
       await page.locator("#pd-amount").fill("500");
       await page.locator("#pd-received-by").fill("TEST Private Cashier");
-      await page.getByRole("button", { name: "Review payment" }).click();
-      await page.getByRole("button", { name: /Confirm and save payment/ }).click();
-      await expect(page.getByRole("button", { name: /Confirm and save payment/ })).toBeDisabled();
-    } else await expect(page.getByRole("button", { name: "Review payment" })).toBeDisabled();
-    await expect(page.getByText(/Payment saving is paused because recovery storage/)).toBeVisible();
+      await page.getByRole("button", { name: "Review & save", exact: true }).click();
+      await page.getByRole("button", { name: /^Save payment/ }).click();
+      await expect(page.getByRole("button", { name: /^Save payment/ })).toBeDisabled();
+    } else await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
+    await expect(page.getByText(/Payment saving is paused because recovery storage/).first()).toBeVisible();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ posted: null, receiptCount: 0 });
     await page.evaluate(() => { window.recoveryFault = false; });
-    await page.getByRole("button", { name: "Retry recovery" }).click();
+    await page.getByRole("button", { name: "Retry recovery" }).last().click();
     if (fault !== "private-quota") {
       // An accessible but empty fallback cannot prove that the hidden primary
       // has no older payment. Restoring only localStorage must keep saving paused.
-      await expect(page.getByText(/Payment saving is paused because recovery storage/)).toBeVisible();
-      await expect(page.getByRole("button", { name: "Review payment" })).toBeDisabled();
+      await expect(page.getByText(/Payment saving is paused because recovery storage/).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
       expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ posted: null, receiptCount: 0 });
       await page.evaluate(() => { window.primaryFault = false; });
       await page.getByRole("button", { name: "Retry recovery" }).click();
-      await expect(page.getByRole("button", { name: "Review payment" })).toBeEnabled();
+      await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
       await page.locator("#pd-amount").fill("500");
-      await page.getByRole("button", { name: "Review payment" }).click();
+      await page.getByRole("button", { name: "Review & save", exact: true }).click();
     } else await expect(page.getByText("TEST Private Cashier", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: /Confirm and save payment/ }).click();
-    await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: /^Save payment/ }).click();
+    await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ receiptCount: 1, posted: { amount: 500 } });
   });
 }
@@ -195,8 +204,8 @@ test("390px collector and session changes retain only the original scope's unfin
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?selected&lost&uncertain", { waitUntil: "domcontentloaded" });
   await page.locator("#pd-amount").fill("500");
-  await page.getByRole("button", { name: "Review payment" }).click();
-  await page.getByRole("button", { name: /Confirm and save payment/ }).click();
+  await page.getByRole("button", { name: "Review & save", exact: true }).click();
+  await page.getByRole("button", { name: /^Save payment/ }).click();
   await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
   const original = await page.evaluate(() => window.paymentFixtureSnapshot().posted);
   for (const change of ["owner=synthetic-other", "session=TEST-2025-26", "missing-owner"]) {
@@ -205,15 +214,15 @@ test("390px collector and session changes retain only the original scope's unfin
     await expect(page.locator("#pd-amount")).not.toHaveValue("500");
     if (change === "missing-owner") {
       await expect(page.getByText(/Payment recovery could not identify/)).toBeVisible();
-      await expect(page.getByRole("button", { name: "Review payment" })).toBeDisabled();
-    } else await expect(page.getByRole("button", { name: "Review payment" })).toBeEnabled();
+      await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
+    } else await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
   }
   await page.goto("/?selected&uncertain", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
   await page.evaluate(() => sessionStorage.setItem("qa-payment-check", "yes"));
   await page.getByRole("button", { name: "Check whether it was saved" }).click();
-  await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
 });
 
@@ -222,8 +231,8 @@ for (const mirror of [true, false]) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?selected&lost&uncertain", { waitUntil: "domcontentloaded" });
     await page.locator("#pd-amount").fill("500");
-    await page.getByRole("button", { name: "Review payment" }).click();
-    await page.getByRole("button", { name: /Confirm and save payment/ }).click();
+    await page.getByRole("button", { name: "Review & save", exact: true }).click();
+    await page.getByRole("button", { name: /^Save payment/ }).click();
     await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
     const original = await page.evaluate(() => window.paymentFixtureSnapshot().posted);
     if (!mirror) await page.evaluate(() => {
@@ -239,8 +248,8 @@ for (const mirror of [true, false]) {
     });
     await page.reload({ waitUntil: "domcontentloaded" });
     if (!mirror) {
-      await expect(page.getByText(/Payment saving is paused because recovery storage/)).toBeVisible();
-      await expect(page.getByRole("button", { name: "Review payment" })).toBeDisabled();
+      await expect(page.getByText(/Payment saving is paused because recovery storage/).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
       expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
       await page.evaluate(() => { window.recoveryFault = false; });
       await page.getByRole("button", { name: "Retry recovery" }).click();
@@ -248,7 +257,7 @@ for (const mirror of [true, false]) {
     await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
     await page.evaluate(() => sessionStorage.setItem("qa-payment-check", "yes"));
     await page.getByRole("button", { name: "Check whether it was saved" }).click();
-    await expect(page.getByText("TEST-1", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
   });
 }

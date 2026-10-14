@@ -12,8 +12,9 @@ async function setup(page: Page, uncertain = false) {
 }
 async function review(page: Page, amount = "111") {
   await page.locator(".pd-amt input").fill(amount);
-  await page.getByRole("button", { name: "Review payment", exact: true }).tap();
-  await expect(page.getByText("Nothing is saved yet. Check it once, then confirm. After saving it is locked.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Review & save", exact: true }).tap();
+  // The design's review is a sheet titled "Save ₹111?"; nothing is saved until "Save payment".
+  await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toBeVisible();
 }
 for (const viewport of [{ width: 360, height: 844 }, { width: 390, height: 844 }, { width: 412, height: 844 }, { width: 844, height: 390 }]) {
   const { width } = viewport;
@@ -21,12 +22,12 @@ for (const viewport of [{ width: 360, height: 844 }, { width: 390, height: 844 }
     test.use({ viewport });
     test("partial review edit and repeated touch save records one receipt without messaging", async ({ page }) => {
       await setup(page); await review(page); expect(await ledger(page)).toHaveLength(0);
-      await page.getByRole("button", { name: /^Confirm and save payment/ }).scrollIntoViewIfNeeded();
+      await page.getByRole("button", { name: /^Save payment/ }).scrollIntoViewIfNeeded();
       mkdirSync(evidenceDir, { recursive: true });
       await page.screenshot({ path: `${evidenceDir}/fee-review-${width}-${process.env.OPS_FEE_RUN_LABEL ?? "acceptance"}.png` });
-      await page.getByRole("button", { name: /^Back.*change something$/ }).tap();
+      await page.getByRole("dialog", { name: /^Save ₹/ }).getByRole("button", { name: "Change", exact: true }).tap();
       await expect(page.locator(".pd-amt input")).toHaveValue("111"); await review(page);
-      const save = page.getByRole("button", { name: /^Confirm and save payment/ }); const box = await save.boundingBox();
+      const save = page.getByRole("button", { name: /^Save payment/ }); const box = await save.boundingBox();
       await save.tap(); if (box) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
       await expect.poll(() => ledger(page)).toHaveLength(1);
       await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
@@ -36,7 +37,7 @@ for (const viewport of [{ width: 360, height: 844 }, { width: 390, height: 844 }
     });
     test("uncertain outcome remains recoverable after reload with the original key", async ({ page }) => {
       await setup(page, true); await review(page);
-      await page.getByRole("button", { name: /^Confirm and save payment/ }).tap();
+      await page.getByRole("button", { name: /^Save payment/ }).tap();
       await expect.poll(() => ledger(page)).toHaveLength(1);
       const originalId = (await ledger(page))[0].clientRequestId;
       await expect(page.getByText("We could not confirm whether this payment was saved", { exact: true }).first()).toBeVisible();
