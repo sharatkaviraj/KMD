@@ -741,6 +741,12 @@ export function StudentsScreen(props: StudentsProps) {
             {rows.length > 0 && (props.canCollect || rows.some((r) => mobileOf(r.phone))) ? (
               <p style={{ margin: "6px 0 0", textAlign: "center", fontSize: 12, color: "var(--sub)" }}>{tx(props.canCollect ? ST.swipeHint : ST.swipeHintNoCollect)}</p>
             ) : null}
+            {/* The phone has no ticks (F05); the list's export stays reachable under it. */}
+            {rows.length > 0 ? (
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <Btn variant="ghost" icon="download" onClick={() => exportRows(rows)}>{tx(ST.exportList(rows.length))}</Btn>
+              </div>
+            ) : null}
           </div>
 
           <div className="stu-foot">

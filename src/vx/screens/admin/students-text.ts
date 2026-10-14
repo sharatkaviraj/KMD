@@ -32,6 +32,7 @@ export const ST = {
   swipeHint: p("Swipe a row left for Call · WhatsApp · Collect", "फ़ोन · WhatsApp · फ़ीस के लिए पंक्ति बाएँ खिसकाएँ"),
   swipeHintNoCollect: p("Swipe a row left for Call · WhatsApp", "फ़ोन · WhatsApp के लिए पंक्ति बाएँ खिसकाएँ"),
   clearClass: (label: string): Pair => p(`${label} · clear`, `${label} · हटाएँ`),
+  exportList: (n: number): Pair => p(`Export these ${n}`, `ये ${n} निर्यात करें`),
   callParent: (who: string): Pair => p(`Call ${who}`, `${who} को फ़ोन`),
   whatsappParent: (who: string): Pair => p(`WhatsApp ${who}`, `${who} को WhatsApp`),
   collectFrom: (name: string): Pair => p(`Collect fee from ${name}`, `${name} की फ़ीस लें`),
