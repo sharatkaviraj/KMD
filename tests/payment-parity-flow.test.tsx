@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { boot, OTHER_ID, receipt, student, STUDENT_ID } from "./payment-parity.fixture";
 
-const actions = vi.hoisted(() => ({ postDeskPaymentAction: vi.fn(), checkDeskPaymentAction: vi.fn(), loadStudentDeskAction: vi.fn(), loadReceiptAction: vi.fn(), loadDeskPreviewAction: vi.fn(), removePaymentAction: vi.fn(), sendReceiptWhatsappAction: vi.fn() }));
+const actions = vi.hoisted(() => ({ postDeskPaymentAction: vi.fn(), checkDeskPaymentAction: vi.fn(), loadStudentDeskAction: vi.fn(), loadReceiptAction: vi.fn(), loadDeskPreviewAction: vi.fn(), removePaymentAction: vi.fn(), sendReceiptWhatsappAction: vi.fn(), settleDeskSaveAction: vi.fn() }));
 vi.mock("@/app/(app)/payments/actions", () => actions);
 vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, ...p }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...p}>{children}</a> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn() }) }));
@@ -183,4 +183,24 @@ it("retains a waiver-bearing attempt when opening an unrelated duplicate receipt
   await click("Save payment"); await click("Open that receipt");
   expect(await readPaymentAttempt(key, boot.sessionLabel)).toEqual(pending);
   expect(document.body.textContent).toContain("could not confirm whether this payment was saved");
+});
+
+it("shows the receipt number as soon as the payment posts and fills the receipt in afterwards (accountant B2)", async () => {
+  let release: (v: unknown) => void = () => undefined;
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
+  actions.settleDeskSaveAction.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
+  expect(document.body.textContent).toContain(`Saved as ${receipt.receiptNumber}. The money is posted`);
+  expect(document.body.textContent).not.toContain("could not be shown yet");
+  expect(actions.settleDeskSaveAction).toHaveBeenCalledWith(expect.objectContaining({ receiptId: receipt.id, studentId: STUDENT_ID }));
+  await act(async () => release({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: { pendingToday: 4500, dueToday: 0, notDueYet: 0, lateFee: 0 } }));
+  expect(document.body.textContent).not.toContain("The money is posted");
+  expect(document.body.textContent).toContain("Installment 1");
+});
+
+it("offers Show the receipt when the read after a quick save fails", async () => {
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
+  actions.settleDeskSaveAction.mockResolvedValue(null);
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
+  expect(document.body.textContent).toContain("could not be shown yet");
 });

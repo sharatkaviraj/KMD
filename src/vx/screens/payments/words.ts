@@ -239,6 +239,7 @@ export const W = {
   newPayment: p("New payment", "नया भुगतान"),
   receiptPending: (n: string) => p(`The payment is saved as ${n}, but the receipt could not be shown yet.`, `भुगतान ${n} के रूप में सहेजा गया है, पर रसीद अभी नहीं दिख सकी।`),
   showReceipt: p("Show the receipt", "रसीद दिखाएँ"),
+  receiptSettling: (n: string) => p(`Saved as ${n}. The money is posted — the receipt and balance appear here in a moment.`, `${n} के रूप में सहेजा गया। पैसा जमा हो गया — रसीद और बकाया अभी यहाँ दिखेंगे।`),
   removeTill: (t: string) => p(`Remove this entry · till ${t}`, `यह प्रविष्टि हटाएँ · ${t} तक`),
   askRemove: p("Ask admin to remove", "एडमिन से हटवाएँ"),
   youCanRemove: (t: string) => p(`You can remove it till ${t}`, `आप इसे ${t} तक हटा सकते हैं`),

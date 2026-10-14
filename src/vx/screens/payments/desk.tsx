@@ -13,6 +13,7 @@ import {
   postDeskPaymentAction,
   removePaymentAction,
   sendReceiptWhatsappAction,
+  settleDeskSaveAction,
   type DeskPostInput,
 } from "@/app/(app)/payments/actions";
 import {
@@ -85,6 +86,8 @@ type Saved = {
   removed: boolean;
   sent: boolean;
   log: { text: string; time: string; tone: string }[];
+  /** Posted and answered; the receipt and the balance are still being read (accountant B2). */
+  settling?: boolean;
 };
 
 type Dup = {
@@ -109,8 +112,10 @@ const SERVER = {
   postDeskPaymentAction,
   removePaymentAction,
   sendReceiptWhatsappAction,
+  settleDeskSaveAction,
 };
-export type DeskActions = typeof SERVER;
+/** The settle call is optional, so a fixture that answers every save in full need not supply it. */
+export type DeskActions = Omit<typeof SERVER, "settleDeskSaveAction"> & Partial<Pick<typeof SERVER, "settleDeskSaveAction">>;
 
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
 const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
@@ -467,6 +472,7 @@ export function PaymentDesk({
       removed: false,
       sent: false,
       log: [{ text: tx(W.savedBy(boot.me.name)), time: ampm(res.receipt?.createdAt ?? at), tone: "var(--acc)" }],
+      settling: Boolean(res.settling),
     });
     if (res.student) setResult({ ok: true, student: res.student });
     setSheet("");
@@ -480,6 +486,25 @@ export function PaymentDesk({
     }
     restoredAttempt.current = false;
     toast.show({ text: tx(W.savedToast(res.receiptNumber, rupees(total))) });
+    if (res.settling && studentId) void settle({ receiptId: res.receiptId, receiptNumber: res.receiptNumber, studentId, sessionLabel: boot.sessionLabel });
+  }
+
+  /**
+   * The receipt number is on screen; now read the receipt and the balance,
+   * which wait for the balance views to catch up (accountant B2, D-271).
+   * Nothing here can undo the save: a failure only leaves "Show the receipt".
+   */
+  async function settle(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }) {
+    const res = api.settleDeskSaveAction ? await api.settleDeskSaveAction(input).catch(() => null) : null;
+    setSaved((cur) => (cur && cur.receiptId === input.receiptId
+      ? { ...cur, settling: false, receipt: res?.receipt ?? cur.receipt, balance: res?.balanceAfter ?? cur.balance, amount: res?.receipt?.total ?? cur.amount }
+      : cur));
+    if (!res) return;
+    const balance = res.balanceAfter;
+    if (balance) setListBalances(b => ({ ...b, [input.studentId]: { pendingToday: balance.pendingToday, lateFee: balance.lateFee } }));
+    const fresh = res.student;
+    if (fresh) setResult((cur) => (cur && cur.ok && cur.student.id === input.studentId ? { ok: true, student: fresh } : cur));
+    if (res.todayCollection !== undefined) setTodayTotals(res.todayCollection);
   }
 
   /** Ask the database whether the save with this request id posted. */
@@ -1724,10 +1749,17 @@ function SavedPanel({
         {r ? (
           <ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} />
         ) : (
-          <div className="card pd-cd">
-            <Banner tone="info">{tx(W.receiptPending(saved.receiptNumber))}</Banner>
-            <Btn variant="sec" icon="refresh" disabled={busy} onClick={onRetryReceipt}>{tx(W.showReceipt)}</Btn>
-          </div>
+          saved.settling ? (
+            <div className="card pd-cd" aria-live="polite">
+              <Banner tone="ok">{tx(W.receiptSettling(saved.receiptNumber))}</Banner>
+              <Skel h={120} />
+            </div>
+          ) : (
+            <div className="card pd-cd">
+              <Banner tone="info">{tx(W.receiptPending(saved.receiptNumber))}</Banner>
+              <Btn variant="sec" icon="refresh" disabled={busy} onClick={onRetryReceipt}>{tx(W.showReceipt)}</Btn>
+            </div>
+          )
         )}
         <div className="pd-c" style={{ gap: 10 }}>
           {!gone ? (

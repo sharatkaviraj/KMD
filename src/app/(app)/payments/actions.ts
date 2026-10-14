@@ -151,14 +151,42 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
     // receipt details are missing" when the receipt read fails) must not read
     // as "nothing was posted". The request id says whether it was.
     const posted = await findDeskReceiptByRequest({ studentId: input.studentId, clientRequestId: input.clientRequestId }).catch(() => undefined);
-    if (posted) return savedResult({ ...posted, studentId: input.studentId, sessionLabel: input.sessionLabel });
+    if (posted) return postedResult(posted);
     if (posted === undefined) {
       return { status: "uncertain", message: state.message || "The payment could not be confirmed." };
     }
     return { status: "error", message: state.message || "The payment was not saved. Nothing was posted." };
   }
 
-  return savedResult({ receiptId: state.receiptId, receiptNumber: state.receiptNumber, studentId: input.studentId, sessionLabel: input.sessionLabel });
+  return postedResult({ receiptId: state.receiptId, receiptNumber: state.receiptNumber });
+}
+
+/**
+ * The answer the cashier waits for: the money is posted and this is its
+ * receipt number. Nothing else is read here (accountant B2): the balance
+ * views' refresh took from 12 s to 2.5 min on the school-day run, and the
+ * cashier stared at "Saving…" with the parent's cash in hand. The desk asks
+ * `settleDeskSaveAction` for the receipt and the balance straight after, which
+ * still drains first, so the receipt never shows a stale balance (D-271).
+ */
+function postedResult(input: { receiptId: string; receiptNumber: string }): Extract<DeskSaveResult, { status: "saved" }> {
+  return { status: "saved", receipt: null, receiptId: input.receiptId, receiptNumber: input.receiptNumber, student: null, balanceAfter: null, settling: true };
+}
+
+/**
+ * The receipt, the student's balance and today's total after a save, once the
+ * balance views have caught up. Read-only; the desk calls it right after
+ * `postDeskPaymentAction` answers. A failure is null: the payment is posted
+ * either way, and the desk offers "Show the receipt".
+ */
+export async function settleDeskSaveAction(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }): Promise<Extract<DeskSaveResult, { status: "saved" }> | null> {
+  try {
+    await assertPermission("fees:view");
+    if (!UUID.test(input.receiptId) || !UUID.test(input.studentId)) return null;
+    return await savedResult({ receiptId: input.receiptId, receiptNumber: input.receiptNumber, studentId: input.studentId, sessionLabel: sessionOf(input.sessionLabel) });
+  } catch {
+    return null;
+  }
 }
 
 /**

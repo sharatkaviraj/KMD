@@ -86,7 +86,11 @@ export type DeskReceipt = {
 };
 
 export type DeskSaveResult =
-  | { status: "saved"; receipt: DeskReceipt | null; receiptId: string; receiptNumber: string; student: DeskStudent | null; balanceAfter: { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number } | null; todayCollection?: { count: number; amount: number } | null }
+  | {
+      status: "saved"; receipt: DeskReceipt | null; receiptId: string; receiptNumber: string; student: DeskStudent | null; balanceAfter: { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number } | null; todayCollection?: { count: number; amount: number } | null;
+      /** Posted, answered at once; the receipt and balance follow from `settleDeskSaveAction` (accountant B2). */
+      settling?: boolean;
+    }
   | {
       status: "duplicate";
       kind: "near-duplicate" | "daily-amount";
