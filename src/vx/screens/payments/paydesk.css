@@ -56,6 +56,10 @@
 :where(.vx) .pd-amt.err{border-color:var(--bad);box-shadow:0 0 0 4px var(--bads);animation:xShake .4s ease}
 .vx .pd-amt input{flex:1;min-width:0;height:66px;border:0;outline:none;background:transparent;font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fg)}
 :where(.vx) .pd-chips{display:flex;flex-wrap:wrap;gap:6px}
+/* A long helper ("Up to Installment 2 + late fee ₹5,000") wraps inside the row on a 320px phone instead of widening the page; the amount stays on one line. */
+.vx .pd-chips .chip{max-width:100%;min-width:0;height:auto;min-height:34px;padding-top:6px;padding-bottom:6px;white-space:normal;text-align:left;line-height:1.3}
+.vx .pd-chips .chip .num{white-space:nowrap}
+@container vx (max-width:899px){.vx .pd-chips .chip{min-height:38px}}
 .vx .pd-seg40 .seg>button{height:40px}
 .vx .pd-mo .seg>button{height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px}
 :where(.vx,.vxt) .pd-bx{padding:10px 12px;border-radius:12px;background:var(--s2);display:flex;flex-direction:column;gap:4px}
