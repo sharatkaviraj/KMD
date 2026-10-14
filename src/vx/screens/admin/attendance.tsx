@@ -28,6 +28,7 @@ import {
 import { TO } from "@/vx/screens/admin/ops-text";
 import { T } from "@/vx/screens/admin/text";
 import type { BoardData, SheetData } from "@/vx/screens/admin/types";
+import type { Pair } from "@/vx/text";
 
 /*
  * The attendance board (design F11/D04) and marking a class on the class
@@ -238,7 +239,7 @@ export function AttendanceScreen({
           )}
         </div>
         {allowed && sendable.length > 0 && phoneFilter !== "marked" ? (
-          <button type="button" className="tap btn pri" disabled={busy} onClick={() => remind(sendable.map((row) => row.classId))} style={{ height: 52, borderRadius: 18, fontSize: 15 }}>
+          <button type="button" className="tap btn pri" disabled={busy} onClick={() => remind(sendable.map((row) => row.classId))} style={{ height: "auto", minHeight: 52, padding: "8px 16px", borderRadius: 18, fontSize: 15, whiteSpace: "normal", textAlign: "center" }}>
             <Ic n="message" size={18} />
             {tx(TO.remindClassTeachers(sendable.length))}
           </button>
@@ -367,10 +368,10 @@ function ClassCard({ row, href, selected, credit, delay }: { row: ClassBoardRow;
   );
 }
 
-const CHOICES: { status: MarkStatus; label: string; color: string; name: { en: string; hi: string } }[] = [
-  { status: "present", label: "P", color: "var(--ok)", name: { en: "Present", hi: "उपस्थित" } },
-  { status: "absent", label: "A", color: "var(--bad)", name: { en: "Absent", hi: "अनुपस्थित" } },
-  { status: "half_day", label: "½", color: "var(--warn)", name: { en: "Half-day", hi: "आधा दिन" } },
+const CHOICES: { status: MarkStatus; label: string; color: string; name: Pair }[] = [
+  { status: "present", label: "P", color: "var(--ok)", name: TO.present },
+  { status: "absent", label: "A", color: "var(--bad)", name: TO.absent },
+  { status: "half_day", label: "½", color: "var(--warn)", name: TO.halfDay },
 ];
 
 /**

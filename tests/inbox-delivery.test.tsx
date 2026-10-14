@@ -15,6 +15,7 @@ vi.mock("@/vx/ui/primitives", () => ({
   Btn: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => <button onClick={onClick}>{children}</button>,
   Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Pill: ({ children }: { children: React.ReactNode }) => <span>{children}</span>, IconTile: () => null, EmptyState: () => null,
+  toneColors: () => ({ bg: "", fg: "" }),
 }));
 import { InboxScreen } from "@/vx/screens/admin/inbox";
 let root: Root; let host: HTMLDivElement;
