@@ -77,7 +77,7 @@ export function NewMenu({ keys }: { keys: readonly string[] }) {
         {tx({ en: "New", hi: "नया" })}
       </button>
       {open ? (
-        <div role="menu" style={{ position: "absolute", right: 0, top: 48, width: 260, zIndex: 30, padding: 6, borderRadius: 16, background: "var(--card)", border: "1px solid var(--bd)", boxShadow: "var(--shh)", transformOrigin: "top right", animation: "xPop .22s var(--ease) both" }}>
+        <div role="menu" style={{ position: "absolute", right: 0, top: 48, width: 260, zIndex: 30, padding: 6, borderRadius: 16, background: "var(--card)", border: "1px solid var(--bd)", boxShadow: "var(--shh)", transformOrigin: "top right", animation: "vxNewPop .22s var(--ease) both" }}>
           {items.map((m, i) => (
             <Link
               key={m.key}

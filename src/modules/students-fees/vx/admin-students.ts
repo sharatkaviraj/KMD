@@ -162,6 +162,34 @@ export async function parentNamesFor(studentIds: readonly string[]): Promise<Map
   return out;
 }
 
+/**
+ * A child's latest receipts, for the search palette's Receipts section when a
+ * name is typed (F04). Newest first; a reversed receipt says so (RULES A).
+ */
+export async function recentReceiptsFor(
+  studentId: string,
+  limit = 2,
+): Promise<{ id: string; number: string; amount: number; date: string; mode: string; reversed: boolean }[]> {
+  await assertPermission("fees:view");
+  const result = await createAdminClient()
+    .from("receipts")
+    .select("id, receipt_number, payment_date, total_amount, payment_mode, created_at")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .returns<{ id: string; receipt_number: string; payment_date: string; total_amount: number | string; payment_mode: string; created_at: string }[]>();
+  if (result.error) throw new Error(`Could not read the receipts: ${result.error.message}`);
+  const reversals = await getReceiptReversalTotals(result.data.map((row) => row.id));
+  return result.data.map((row) => ({
+    id: row.id,
+    number: row.receipt_number,
+    amount: Number(row.total_amount || 0),
+    date: row.payment_date,
+    mode: row.payment_mode,
+    reversed: isReceiptReversed(reversals, row.id, Number(row.total_amount || 0)),
+  }));
+}
+
 export type StudentFeeInstallment = {
   installmentId: string;
   installmentNo: number;

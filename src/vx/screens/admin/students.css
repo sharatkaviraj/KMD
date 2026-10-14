@@ -12,6 +12,7 @@
 .stu-dsearch input{height:38px;font-size:14px}
 .stu-dsearch input::placeholder,.stu-msearch input::placeholder{color:var(--sub)}
 .stu-dsearch:focus-within,.stu-msearch:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.stu-dsearch input:focus-visible,.stu-msearch input:focus-visible{outline:none}
 
 /* desk table */
 .stu-card{overflow:hidden}

@@ -1,6 +1,10 @@
 import type { DesignView } from "../design.fixture";
+import { views as adminViews } from "./admin.fixture";
+import { groupsFor } from "@/vx/nav";
 import { StudentsScreen, type StudentListRow, type StudentsProps } from "@/vx/screens/admin/students";
 import type { StudentFacts } from "@/vx/screens/admin/students-logic";
+import { SearchPalette, type PaletteItem } from "@/vx/shell/palette";
+import type { SearchResult } from "@/vx/shell/search-actions";
 import { VxPage } from "@/vx/ui/page";
 
 /*
@@ -82,7 +86,55 @@ function StudentsFrame({ picked }: { picked?: string[] }) {
 
 const PICKED = ["Mohit Agarwal", "Riya Singh", "Rohit Joshi"].map((n) => sampleStudents.find((s) => s.name === n)!.id);
 
+/* ----------------------------------------------------------------- search */
+
+const pages: PaletteItem[] = groupsFor("admin", () => true).flatMap((g) => g.items.map((i) => ({ label: i.label, icon: i.icon, href: i.href, group: g.title?.en ?? "" })));
+const id = (name: string) => sampleStudents.find((s) => s.name === name)!.id;
+
+/**
+ * What `searchEverythingAction` answers for "aar" to the admin: the design's
+ * three children with their money words, Collect and Call for the first, and
+ * that child's two latest receipts (listed on a phone, F04; a desk lists
+ * receipts by number only, D07). Receipt numbers only when a digit is typed.
+ */
+async function sampleSearch(q: string): Promise<SearchResult> {
+  const t = q.trim().toLowerCase();
+  const kids = [
+    { name: "Aarav Sharma", classLabel: "Class 7", sr: "1234", parent: "Rakesh Sharma", money: { kind: "pending" as const, amount: 4200 } },
+    { name: "Aarti Kumawat", classLabel: "Class 10", sr: "0981", parent: "Mahesh Kumawat", money: { kind: "paid" as const } },
+    { name: "Aarush Jain", classLabel: "UKG", sr: "1402", parent: "Nitin Jain", money: { kind: "track" as const, amount: 9300 } },
+  ].filter((k) => k.name.toLowerCase().includes(t));
+  const students = kids.map((k) => ({ ...k, id: id(k.name), href: `/students/${id(k.name)}` }));
+  const first = students[0];
+  return {
+    students,
+    actions: first
+      ? [
+          { kind: "collect", href: `/payments?student=${first.id}`, student: first.name, pending: first.money.kind === "pending" ? first.money.amount : null },
+          { kind: "call", tel: "9829041120", who: first.parent, relation: "father", child: first.name },
+        ]
+      : [],
+    receipts: first
+      ? [
+          { id: "r412", number: "R-0412", amount: 2400, student: first.name, date: "2026-10-02", mode: "upi", reversed: false, byChild: true, href: "/receipts/R-0412" },
+          { id: "r127", number: "R-0127", amount: 6600, student: first.name, date: "2026-07-12", mode: "cash", reversed: false, byChild: true, href: "/receipts/R-0127" },
+        ]
+      : [],
+  };
+}
+
+function SearchFrame({ behind }: { behind?: boolean }) {
+  return (
+    <>
+      {behind ? adminViews.Desktop.render() : null}
+      <SearchPalette items={pages} initialOpen initialQuery="aar" search={sampleSearch} />
+    </>
+  );
+}
+
 export const views: Record<string, DesignView> = {
   "F05-Students": { render: () => <StudentsFrame />, path: "/students" },
   "D01-Students": { render: () => <StudentsFrame picked={PICKED} />, path: "/students" },
+  "F04-Search": { render: () => <SearchFrame />, path: "/students" },
+  "D07-Search": { render: () => <SearchFrame behind />, path: "/" },
 };
