@@ -4,13 +4,17 @@ import { expect, test } from "@playwright/test";
 // A cold native-component import includes the existing Next/icon modules.
 test.setTimeout(60_000);
 
+// The admin's attention list: registers, absences, review, jobs. Corrections
+// left it when they stopped needing an approval (D-248, #71).
+const ADMIN_ITEMS = 4;
+
 for (const width of [320, 390, 768, 1440]) for (const locale of ["en", "hi", "hi-en"]) {
   test(`native admin overview preserves content and gutters: ${locale}/${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`/?view=admin&locale=${locale}&long`);
     await expect(page.locator("[data-admin-overview] h1")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
-    expect(await page.locator("[data-attention-key]").count()).toBe(5);
+    expect(await page.locator("[data-attention-key]").count()).toBe(ADMIN_ITEMS);
     const tooSmall = await page.locator("main a, main summary").evaluateAll(links => links.filter(e => e.getClientRects().length).map(link => link.getBoundingClientRect()).filter(r => r.width < 44 || r.height < 44));
     expect(tooSmall).toEqual([]);
     const support = await page.locator("[data-admin-support]").boundingBox();
@@ -70,13 +74,13 @@ for (const state of ["empty", "error", "positive"]) for (const theme of ["light"
     }
     if (state === "empty") {
       await expect(page.locator('[data-attention-state="pending"]')).toHaveCount(0);
-      await expect(page.locator('[data-attention-state="clear"]')).toHaveCount(5);
+      await expect(page.locator('[data-attention-state="clear"]')).toHaveCount(ADMIN_ITEMS);
       await expect(page.locator('[data-overview-row="cover"]')).toContainText("No plan has been published");
     } else if (state === "error") {
       await expect(page.locator('[data-attention-key="jobs"]')).toContainText("could not");
       await expect(page.locator('[data-overview-row="cover"]')).not.toContainText("No plan has been published");
       await expect(page.locator('[data-overview-row="cover"]')).toContainText("could not");
-    } else await expect(page.locator('[data-attention-state="pending"]')).toHaveCount(5);
+    } else await expect(page.locator('[data-attention-state="pending"]')).toHaveCount(ADMIN_ITEMS);
     const scan = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
     expect(scan.violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);

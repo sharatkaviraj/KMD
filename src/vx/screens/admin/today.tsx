@@ -263,8 +263,9 @@ export function TodayScreen(props: TodayProps) {
           <div role="status" style={{ margin: "12px 18px 0", fontSize: 13, color: "var(--warnfg)", background: "var(--warns)", padding: "8px 12px", borderRadius: 12 }}>{tx(T.couldNotRead)}</div>
         ) : null}
 
-        {/* F01 / F14 — the phone, as drawn: hero, Needs you, quick actions, the day, this session. */}
-        <div className="only-m">
+        {/* F01 / F14 — the phone, as drawn: hero, Needs you, quick actions, the day, this session.
+            The phone frame sets its text at 1.4, a touch under the kit's 1.45. */}
+        <div className="only-m" style={{ lineHeight: 1.4 }}>
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
           <PhoneNeeds inbox={inbox} />
           <PhoneQuick actions={props.actions} />
@@ -505,6 +506,8 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
   const { money, attendance, cover } = props;
   const heroCard: CSSProperties = { border: "1px solid var(--navb)", background: "var(--navs)", color: "var(--navfg)", borderRadius: 20 };
   const label: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 12, color: "var(--navm)" };
+  // The design draws these tiles as buttons, which set their text at the browser's "normal" leading.
+  const tileText: CSSProperties = { lineHeight: "normal" };
   return (
     <section style={{ background: "var(--nav)", color: "var(--navfg)", padding: "14px 18px 20px", borderRadius: "0 0 30px 30px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -554,7 +557,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
           <div className="td-hero-card" style={{ ...heroCard, gridColumn: "1 / -1", padding: "14px 16px", fontSize: 13, color: "var(--navm)" }}>{tx(TD.feesUnavailable)}</div>
         ) : null}
         {attendance ? (
-          <TileLink href={props.links.attendance ? "/attendance" : null} className="td-hero-card" style={{ ...heroCard, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+          <TileLink href={props.links.attendance ? "/attendance" : null} className="td-hero-card" style={{ ...heroCard, ...tileText, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
             <span style={label}>
               {tx(T.attendance)}
               {props.links.attendance ? <Ic n="chevRight" size={16} /> : null}
@@ -573,7 +576,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
           </TileLink>
         ) : null}
         {props.staffAway !== null ? (
-          <TileLink href={props.links.substitutions ? "/substitutions" : null} className="td-hero-card" style={{ ...heroCard, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+          <TileLink href={props.links.substitutions ? "/substitutions" : null} className="td-hero-card" style={{ ...heroCard, ...tileText, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
             <span style={label}>
               {tx(T.teachersOnLeave)}
               {props.links.substitutions ? <Ic n="chevRight" size={16} /> : null}
@@ -586,7 +589,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
           </TileLink>
         ) : null}
         {money ? (
-          <Link href="/dues" className="tap" style={{ gridColumn: "1 / -1", background: HERO_TEAL, color: HERO_INK, borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+          <Link href="/dues" className="tap" style={{ ...tileText, gridColumn: "1 / -1", background: HERO_TEAL, color: HERO_INK, borderRadius: 18, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
             <span aria-hidden="true" style={{ flex: "none", width: 36, height: 36, borderRadius: 12, background: "rgba(8,47,73,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Ic n="phone" />
             </span>
@@ -980,13 +983,12 @@ function HowTheyPay({ money }: { money: TodayMoneyView }) {
   const { tx } = useVx();
   const total = money.modes.reduce((s, m) => s + m.amount, 0);
   const C = 2 * Math.PI * 56;
-  let used = 0;
   const segs = money.modes.map((m, i) => {
     const frac = total > 0 ? m.amount / total : 0;
     const len = frac * C;
-    const seg = { key: m.mode, label: tx(modeName(m.mode)), color: MODE_COLORS[i % MODE_COLORS.length], pct: Math.round(frac * 100), amount: m.amount, dash: `${Math.max(0, len - 2).toFixed(1)} ${C.toFixed(1)}`, off: (-used).toFixed(1) };
-    used += len;
-    return seg;
+    // Where this slice starts: the length of every slice before it.
+    const before = total > 0 ? (money.modes.slice(0, i).reduce((s, x) => s + x.amount, 0) / total) * C : 0;
+    return { key: m.mode, label: tx(modeName(m.mode)), color: MODE_COLORS[i % MODE_COLORS.length], pct: Math.round(frac * 100), amount: m.amount, dash: `${Math.max(0, len - 2).toFixed(1)} ${C.toFixed(1)}`, off: (-before).toFixed(1) };
   });
   return (
     <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "xRise .45s .2s var(--ease) both" }}>
