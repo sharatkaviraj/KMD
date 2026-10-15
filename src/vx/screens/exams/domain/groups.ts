@@ -1,3 +1,4 @@
+import { subjectName } from "@/vx/screens/academics/domain";
 import { p, type Pair } from "@/vx/text";
 
 /*
@@ -81,5 +82,7 @@ const SUBJECT_HI: Record<string, string> = {
 /** A subject's name in both languages, as far as the school's list knows it. */
 export function subjectPair(code: string): Pair {
   const hi = SUBJECT_HI[code.trim().toLowerCase()];
-  return hi ? { en: code, hi } : { en: code };
+  // "MATHS" is the timetable's code; a person reads "Maths" (coordinators U6).
+  const en = subjectName(code);
+  return hi ? { en, hi } : { en };
 }
