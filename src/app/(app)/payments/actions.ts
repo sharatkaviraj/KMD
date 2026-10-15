@@ -31,6 +31,8 @@ import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/ty
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent, loadDeskPreview, loadDeskTodayCollection } from "@/modules/payments/vx/data";
 import { counterConcessionRefusal, type DeskMode } from "@/modules/payments/vx/domain/desk";
+import { latestCloseState } from "@/modules/receipts/vx/domain/day-close";
+import { listCloseEvents } from "@/vx/screens/receipts/data";
 import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
 import { revalidateAfterPaymentPosting } from "@/modules/system-sync/data/finance-revalidation";
 import { revalidateSessionFinance } from "@/modules/system-sync/domain/finance-sync";
@@ -216,6 +218,24 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
     balanceAfter: student ? balanceAfter(student, schoolToday()) : null,
     todayCollection,
   };
+}
+
+/**
+ * Is this payment date already closed on Receipts? The desk warns on the
+ * review sheet before a receipt is posted into a counted day (accountant B17).
+ * Read-only; "could not tell" is `closed: false`, since the warning is advice
+ * and the Receipts screen still flags a late receipt afterwards.
+ */
+export async function deskDayStateAction(input: { date: string; sessionLabel: string }): Promise<{ closed: boolean; closedAt: string | null }> {
+  try {
+    await assertPermission("fees:view");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { closed: false, closedAt: null };
+    const events = await listCloseEvents(input.date, input.date, { sessionLabel: sessionOf(input.sessionLabel) });
+    const state = latestCloseState(events);
+    return { closed: state.closed, closedAt: state.closed ? (state.event?.createdAt ?? null) : null };
+  } catch {
+    return { closed: false, closedAt: null };
+  }
 }
 
 /**

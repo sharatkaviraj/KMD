@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { boot, OTHER_ID, receipt, student, STUDENT_ID } from "./payment-parity.fixture";
 
-const actions = vi.hoisted(() => ({ postDeskPaymentAction: vi.fn(), checkDeskPaymentAction: vi.fn(), loadStudentDeskAction: vi.fn(), loadReceiptAction: vi.fn(), loadDeskPreviewAction: vi.fn(), removePaymentAction: vi.fn(), sendReceiptWhatsappAction: vi.fn(), settleDeskSaveAction: vi.fn() }));
+const actions = vi.hoisted(() => ({ postDeskPaymentAction: vi.fn(), checkDeskPaymentAction: vi.fn(), loadStudentDeskAction: vi.fn(), loadReceiptAction: vi.fn(), loadDeskPreviewAction: vi.fn(), removePaymentAction: vi.fn(), sendReceiptWhatsappAction: vi.fn(), settleDeskSaveAction: vi.fn(), deskDayStateAction: vi.fn() }));
 vi.mock("@/app/(app)/payments/actions", () => actions);
 vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, ...p }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...p}>{children}</a> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn() }) }));
@@ -203,4 +203,13 @@ it("offers Show the receipt when the read after a quick save fails", async () =>
   actions.settleDeskSaveAction.mockResolvedValue(null);
   await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
   expect(document.body.textContent).toContain("could not be shown yet");
+});
+
+it("warns on the review sheet before posting into a day already closed (accountant B17)", async () => {
+  actions.deskDayStateAction.mockImplementation(async ({ date }: { date: string }) => ({ closed: date !== boot.today, closedAt: date !== boot.today ? "2026-10-10T19:03:00Z" : null }));
+  await render(); await input("#pd-amount", "500"); await click("Review");
+  expect(document.getElementById("pd-day-closed")).toBeNull();
+  await click("Change"); await click("Yesterday"); await click("Review");
+  expect(document.getElementById("pd-day-closed")?.textContent).toContain("is already closed");
+  expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
 });

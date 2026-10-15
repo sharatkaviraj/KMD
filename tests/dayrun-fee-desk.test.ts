@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import { COUNTER_CONCESSION, counterConcessionRefusal, matchesDeskSearch, nameSkeleton } from "@/modules/payments/vx/domain/desk";
+import { dayBookClosure } from "@/modules/receipts/vx/domain/day-close";
+
+describe("the Day book reports the close made on Receipts (accountant B5)", () => {
+  const fee = { status: "open", closedAt: null, closedByName: null };
+  it("uses the desk's close when there is one", () => {
+    expect(dayBookClosure(null, [{ action: "close", createdAt: "2026-10-14T19:03:00Z", actorName: "TEST Accountant" }])).toEqual({ status: "closed", closedAt: "2026-10-14T19:03:00Z", closedByName: "TEST Accountant" });
+    expect(dayBookClosure(fee, [{ action: "close", createdAt: "2026-10-14T19:03:00Z", actorName: null }])?.status).toBe("closed");
+  });
+  it("says reopened when the latest desk event reopened the day", () => {
+    expect(dayBookClosure(null, [
+      { action: "close", createdAt: "2026-10-14T19:03:00Z" },
+      { action: "reopen", createdAt: "2026-10-14T19:30:00Z", actorName: "TEST Admin" },
+    ])).toEqual({ status: "reopened", closedAt: null, closedByName: "TEST Admin" });
+  });
+  it("falls back to the fee app's closure when the desk has none", () => {
+    expect(dayBookClosure(fee, [])).toBe(fee);
+    expect(dayBookClosure(null, [])).toBeNull();
+  });
+});
 
 // Regressions from the 14 Oct school-day run (.dayrun/reports/accountant.md).
 

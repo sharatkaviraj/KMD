@@ -25,4 +25,5 @@ export async function checkDeskPaymentAction() {
 export async function loadReceiptAction() { return receipt; }
 export async function removePaymentAction() { return { ok: true as const, message: "Synthetic reversal" }; }
 export async function settleDeskSaveAction() { return null; }
+export async function deskDayStateAction() { return { closed: false, closedAt: null }; }
 export async function sendReceiptWhatsappAction() { throw new Error("Synthetic fixture never sends messages"); }

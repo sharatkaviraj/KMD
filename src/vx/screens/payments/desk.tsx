@@ -14,6 +14,7 @@ import {
   removePaymentAction,
   sendReceiptWhatsappAction,
   settleDeskSaveAction,
+  deskDayStateAction,
   type DeskPostInput,
 } from "@/app/(app)/payments/actions";
 import {
@@ -113,9 +114,11 @@ const SERVER = {
   removePaymentAction,
   sendReceiptWhatsappAction,
   settleDeskSaveAction,
+  deskDayStateAction,
 };
-/** The settle call is optional, so a fixture that answers every save in full need not supply it. */
-export type DeskActions = Omit<typeof SERVER, "settleDeskSaveAction"> & Partial<Pick<typeof SERVER, "settleDeskSaveAction">>;
+type OptionalActions = "settleDeskSaveAction" | "deskDayStateAction";
+/** The settle and day-state calls are optional, so a fixture need not supply them. */
+export type DeskActions = Omit<typeof SERVER, OptionalActions> & Partial<Pick<typeof SERVER, OptionalActions>>;
 
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
 const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
@@ -327,6 +330,21 @@ export function PaymentDesk({
     }).catch(() => { if (active) setDateError(`${student.id}|${paymentDate}`); });
     return () => { active = false; };
   }, [student, paymentDate, today, boot.sessionLabel, loadPreview]);
+  // Is the payment date already closed on Receipts? Warned on the review sheet
+  // (accountant B17); posting is still allowed, and Receipts flags it after.
+  const [closedDay, setClosedDay] = useState<{ date: string; session: string } | null>(null);
+  const dayState = api.deskDayStateAction;
+  const studentId = student?.id;
+  useEffect(() => {
+    if (!studentId || !dayState || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) return;
+    let active = true;
+    void Promise.resolve()
+      .then(() => dayState({ date: paymentDate, sessionLabel: boot.sessionLabel }))
+      .then((res) => { if (active) setClosedDay(res?.closed ? { date: paymentDate, session: boot.sessionLabel } : null); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [studentId, paymentDate, boot.sessionLabel, dayState]);
+  const dayClosed = closedDay?.date === paymentDate && closedDay.session === boot.sessionLabel;
   const totals = deskTotals(rows, today);
   const waiveAllowed = boot.me.canWaive && Boolean(student) && !student?.onPlan;
   const waiveLate = waiveAllowed && form.late === "waive" && totals.lateFee > 0;
@@ -495,7 +513,8 @@ export function PaymentDesk({
    * Nothing here can undo the save: a failure only leaves "Show the receipt".
    */
   async function settle(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }) {
-    const res = api.settleDeskSaveAction ? await api.settleDeskSaveAction(input).catch(() => null) : null;
+    const call = api.settleDeskSaveAction;
+    const res = call ? ((await Promise.resolve().then(() => call(input)).catch(() => null)) ?? null) : null;
     setSaved((cur) => (cur && cur.receiptId === input.receiptId
       ? { ...cur, settling: false, receipt: res?.receipt ?? cur.receipt, balance: res?.balanceAfter ?? cur.balance, amount: res?.receipt?.total ?? cur.amount }
       : cur));
@@ -1205,6 +1224,7 @@ export function PaymentDesk({
               </Banner>
             ) : null}
             {recoveryError ? <Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner> : null}
+            {dayClosed ? <Banner tone="warn"><span id="pd-day-closed">{tx(W.dayClosedWarn(shortDate(paymentDate)))}</span></Banner> : null}
             <ConfirmBody
               student={student}
               amount={amount}

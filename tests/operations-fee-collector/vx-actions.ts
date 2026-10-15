@@ -83,6 +83,7 @@ export async function removePaymentAction({ receiptId }: { receiptId: string }) 
   row.removed = true; row.receipt.isReversed = true; keep(row); return { ok: true, message: "Synthetic entry reversed" };
 }
 export async function settleDeskSaveAction() { return null; }
+export async function deskDayStateAction() { return { closed: false, closedAt: null }; }
 export async function sendReceiptWhatsappAction() {
   localStorage.setItem("ops-fee-vx-messaging-attempts", String(Number(localStorage.getItem("ops-fee-vx-messaging-attempts") ?? "0") + 1));
   throw new Error("Messaging prohibited in operational synthetic fixture");

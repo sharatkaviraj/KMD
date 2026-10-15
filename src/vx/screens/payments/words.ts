@@ -206,6 +206,7 @@ export const W = {
 
   confirmTitle: (a: string) => p(`Save ${a}?`, `${a} सहेजें?`),
   confirmSave: p("Save payment", "भुगतान सहेजें"),
+  dayClosedWarn: (d: string) => p(`${d} is already closed. This receipt will not be in the cash counted for that day. Use today’s date, or ask the admin to reopen the day.`, `${d} का दिन पहले ही बंद है। यह रसीद उस दिन गिने गए नकद में नहीं होगी। आज की तिथि लें, या एडमिन से दिन फिर खुलवाएँ।`),
   lateWaiverLine: p("Late fee waived", "विलंब शुल्क माफ़"),
   student: p("Student", "छात्र"),
   amount: p("Amount", "राशि"),

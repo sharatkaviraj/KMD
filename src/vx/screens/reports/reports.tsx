@@ -1025,7 +1025,7 @@ function DayBookView({ data, sheet, setSheet, close }: ViewProps) {
           <Pill tone={closed ? "ok" : d.closure ? "warn" : "mut"} icon={closed ? "lock" : "clock"}>
             {closed ? `Day closed${d.closure?.closedByName ? ` by ${d.closure.closedByName}` : ""}${d.closure?.closedAt ? ` · ${clock(d.closure.closedAt)}` : ""}` : d.closure ? `Day close ${d.closure.status.replace("_", " ")}` : "Day not closed"}
           </Pill>
-          <Btn variant="ghost" href={`/fees/finance-controls?date=${d.date}`} icon="arrowRight">Day close</Btn>
+          <Btn variant="ghost" href={`/receipts?date=${d.date}&view=close`} icon="arrowRight">Day close</Btn>
         </div>
         <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
           <Kpi label="Collected" value={rupees(d.collected)} sub={`${d.receiptCount} receipts`} />
