@@ -521,3 +521,37 @@ export type PaperInput = z.infer<typeof paperSchema>;
 export function orderTerms(terms: string[]): string[] {
   return [...new Set(terms)].sort((a, b) => a.localeCompare(b, "en"));
 }
+
+type TermFacts = Pick<Assessment, "term" | "startsOn" | "status">;
+
+/**
+ * Terms in the order they are sat: by the first exam of each, terms whose
+ * exams have no dates last. Never by the label (CLAUDE.md rule 3a) — a test
+ * term called "phoneops-20261011-marks" sorts above "Term 1".
+ */
+export function termsByDate(assessments: TermFacts[]): string[] {
+  const firstOf = new Map<string, string | null>();
+  for (const a of assessments) {
+    const seen = firstOf.get(a.term);
+    if (!firstOf.has(a.term)) firstOf.set(a.term, a.startsOn);
+    else if (a.startsOn && (!seen || a.startsOn < seen)) firstOf.set(a.term, a.startsOn);
+  }
+  return [...firstOf.entries()]
+    .sort((x, y) => (x[1] ?? "9999-12-31").localeCompare(y[1] ?? "9999-12-31"))
+    .map(([term]) => term);
+}
+
+/**
+ * The term a report card should open on: the term of the exam that began most
+ * recently, else of the next one to begin, else the first term by date. Drafts
+ * and undated exams never decide it (coordinators B3).
+ */
+export function currentTerm(assessments: TermFacts[], today: string): string | null {
+  const dated = assessments
+    .filter((a): a is TermFacts & { startsOn: string } => a.status !== "draft" && Boolean(a.startsOn))
+    .sort((x, y) => x.startsOn.localeCompare(y.startsOn));
+  const begun = dated.filter((a) => a.startsOn <= today);
+  if (begun.length) return begun[begun.length - 1].term;
+  if (dated.length) return dated[0].term;
+  return termsByDate(assessments)[0] ?? null;
+}

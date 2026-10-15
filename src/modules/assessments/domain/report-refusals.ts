@@ -18,6 +18,10 @@ export const reportRefusals: Record<string, Localized> = {
     "कुछ पेपर के अंक अभी जमा नहीं हुए",
     "Some papers have not been submitted by their teachers yet",
   ),
+  no_marks: t(
+    "इस सत्र-भाग के कोई अंक नहीं हैं — खाली रिपोर्ट जारी नहीं होती।",
+    "This term has no marks for the child — an empty card is not issued.",
+  ),
   incomplete: t(
     "कुछ अंक अभी भरे नहीं गए — अधूरी रिपोर्ट जारी नहीं होती।",
     "Some marks are still missing — an incomplete card is not issued.",

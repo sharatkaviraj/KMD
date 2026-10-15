@@ -18,7 +18,7 @@ import {
 } from "@/modules/assessments/domain/assessments";
 import { idleAssessmentState } from "@/modules/assessments/domain/form-state";
 import { exportFileName } from "@/modules/assessments/domain/report-card";
-import { primary } from "@/platform/i18n/language";
+import { primary, type Localized } from "@/platform/i18n/language";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { Field, Input, Notice, Select, Textarea } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
@@ -262,10 +262,13 @@ export function IssueReportForm({
   studentId,
   term,
   expectedRevision,
+  blocked = null,
 }: {
   studentId: string;
   term: string;
   expectedRevision: number;
+  /** Why the card cannot be issued yet; the button is disabled while it is set. */
+  blocked?: Localized | null;
 }) {
   const language = useLanguage();
   const [state, action, pending] = useActionState(
@@ -305,9 +308,12 @@ export function IssueReportForm({
         />
       ) : null}
 
+      {blocked ? <Notice tone="warning" text={blocked} language={language} /> : null}
+
       <Button
         type="submit"
         fullWidth
+        disabled={Boolean(blocked)}
         loading={pending}
         loadingText={primary(m.saving, language)}
       >
