@@ -17,6 +17,7 @@ import {
   enrolmentsFor,
   listExams,
   marksOf,
+  openExamsForMarks,
   paperById,
   papersOf,
   remarksFor,
@@ -167,8 +168,9 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   /* ------------------------------------------------------------- pick */
   // Every open exam with papers, not the last one or two by date: an undated
   // leftover exam sorts last and hid the Half-yearly papers from every
-  // teacher (BUG-02, ST-01). Her papers from all of them, overdue first.
-  const openExams = exams.filter((e) => e.status === "open" && e.papers > 0 && (!e.startsOn || e.startsOn <= today));
+  // teacher (BUG-02, ST-01). Her papers from all of them, overdue first —
+  // the exams by the shared rule in exams/domain/current.ts.
+  const openExams = openExamsForMarks(exams, today);
   const [staffAll, mine] = await Promise.all([staffList(), myPaperIds(staff.id, sessionLabel, "", false)]);
   const coordinator = staffAll.find((s) => s.role === "exam_coordinator")?.name ?? null;
   const perExam = mine.size
