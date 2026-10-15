@@ -570,14 +570,14 @@ function buildSummarySnapshot(payload: {
   };
 }
 
-async function loadUserNameMap(userIds: string[]) {
+async function loadUserNameMap(userIds: string[], client?: Pick<Awaited<ReturnType<typeof createClient>>, "from">) {
   const uniqueIds = Array.from(new Set(userIds.filter((value): value is string => Boolean(value))));
 
   if (uniqueIds.length === 0) {
     return new Map<string, string>();
   }
 
-  const supabase = await createClient();
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase.from("users").select("id, full_name").in("id", uniqueIds);
 
   if (error) {
@@ -608,10 +608,16 @@ export function buildFinanceDayBookFilename(paymentDate: string) {
 export async function getFinanceControlsPageData(
   selectedDateInput: string,
   sessionLabel: string,
+  /**
+   * The client to read with; the cookie client by default. The accountant's
+   * Today passes the service-role client after its own `fees:view` check,
+   * because fee RLS hid every receipt from the office account (verification N1).
+   */
+  client?: Pick<Awaited<ReturnType<typeof createClient>>, "from">,
 ): Promise<FinanceControlsPageData> {
   const selectedDate = normalizeDate(selectedDateInput);
   const nextDate = addOneDay(selectedDate);
-  const supabase = await createClient();
+  const supabase = client ?? (await createClient());
 
   const [
     receiptsResult,
@@ -658,7 +664,7 @@ export async function getFinanceControlsPageData(
       .maybeSingle(),
     // Receipt ids whose payments settled an installment frozen to this session —
     // the promotion-proof scope for collections and refunds (see helper).
-    loadSessionScopedReceiptIds(sessionLabel),
+    loadSessionScopedReceiptIds(sessionLabel, client),
   ]);
 
   const sessionReceiptIdSet = new Set(sessionReceiptIds);
@@ -747,6 +753,7 @@ export async function getFinanceControlsPageData(
     ...adjustmentsRaw.map((row) => row.created_by),
     ...((reviewResult.data ?? []) as AdjustmentReviewRow[]).map((row) => row.created_by),
     ].filter((value): value is string => Boolean(value)),
+    client,
   );
 
   const refunds = refundsRaw

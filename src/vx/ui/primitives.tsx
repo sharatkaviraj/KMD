@@ -132,7 +132,10 @@ export function Btn({
   );
   if (href && !disabled) {
     return (
-      <Link href={href} className={cls} style={st} aria-label={ariaLabel} prefetch={prefetch} target={target}>
+      // A button that opens another tab (an export, a PDF) is never prefetched:
+      // the router cannot use the result, and Dues spent ~20 s on two failing
+      // prefetches of the defaulters PDF on every open (verification N3).
+      <Link href={href} className={cls} style={st} aria-label={ariaLabel} prefetch={target === "_blank" ? false : prefetch} target={target}>
         {inner}
       </Link>
     );

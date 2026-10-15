@@ -273,7 +273,10 @@ export function listMoney(row: { overdueAmount: number; outstandingAmount: numbe
   percent: number;
 } {
   const pendingToday = Math.max(0, row.overdueAmount);
-  const notDueYet = Math.max(0, row.outstandingAmount - pendingToday - row.pendingLateFeeAmount);
+  // `outstandingAmount` is fees only — on dev it equals the installments'
+  // pending fees for all 593 children — so the late fee is not taken off it
+  // again. Doing so showed a new admission ₹2,000 short (verification N6).
+  const notDueYet = Math.max(0, row.outstandingAmount - pendingToday);
   const fees = Math.max(0, row.totalDue - row.lateFeeTotal);
   return {
     pendingToday,

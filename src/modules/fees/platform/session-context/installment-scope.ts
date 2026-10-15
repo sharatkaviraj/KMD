@@ -59,8 +59,12 @@ import { createClient } from "@/modules/fees/platform/supabase/server";
  * That removes the list rather than making it complete. This change makes the
  * answer correct today without reshaping two live money queries.
  */
-export async function loadSessionScopedReceiptIds(sessionLabel: string): Promise<string[]> {
-  const supabase = await createClient();
+export async function loadSessionScopedReceiptIds(
+  sessionLabel: string,
+  /** The cookie client by default; a caller that has checked `fees:view` may pass the service-role one. */
+  client?: Pick<Awaited<ReturnType<typeof createClient>>, "from">,
+): Promise<string[]> {
+  const supabase = client ?? (await createClient());
 
   const { data, error } = await fetchAllPages<{ receipt_id: string | null }>((from, to) =>
     supabase
