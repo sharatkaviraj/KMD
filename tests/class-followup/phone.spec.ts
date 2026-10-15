@@ -33,7 +33,8 @@ test('attendance queued offline survives reload and records exactly once after r
   expect(await page.evaluate(() => window.classFollowup.snapshot().attendanceAttempts)).toBe(0);
   await expect(page.getByText('The office can see it now.', { exact: true })).toHaveCount(0);
   await page.reload(); await expect(page.getByText(/this register is saved on this phone and will be sent when you are online/)).toBeVisible();
-  await expect(page.locator('button.tc-akid').first()).toHaveClass(/\ba\b/);
+  // An offline save reads as kept on the phone, not as an open register with a live Save (BUG-08).
+  await expect(page.getByText('Kept on this phone', { exact: true })).toBeVisible(); await expect(page.locator('.tc-abar')).toHaveCount(0);
   await context.setOffline(false);
   await expect.poll(() => page.evaluate(() => window.classFollowup.snapshot().attendance.length)).toBe(1);
   await expect(page.locator('.tc-abar')).toHaveCount(0);
