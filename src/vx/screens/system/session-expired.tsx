@@ -3,8 +3,6 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { createClient } from "@/platform/supabase/client";
-
 import { ExpiredSheet, type ExpiredWho } from "@/vx/screens/system/expired-sheet";
 import { expiredLoginHref } from "@/vx/screens/system/logic";
 
@@ -24,13 +22,8 @@ export function SessionExpiredSheet() {
   const [who, setWho] = useState<ExpiredWho | null>(null);
 
   useEffect(() => {
-    // A prompt about the session must never be what breaks the page.
-    let supabase: ReturnType<typeof createClient>;
-    try {
-      supabase = createClient();
-    } catch {
-      return;
-    }
+    let cancelled = false;
+    let teardown: (() => void) | undefined;
     let leaving = false;
     const markLeaving = () => {
       leaving = true;
@@ -42,22 +35,55 @@ export function SessionExpiredSheet() {
       const name = named || user.email || "";
       if (name) setWho({ name, at: user.last_sign_in_at ?? null });
     };
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        remember(session.user);
-        setExpired(false);
-      }
-      if (event === "SIGNED_OUT" && !leaving) setExpired(true);
-    });
-    const check = async () => {
-      if (document.visibilityState !== "visible") return;
-      const { data: s } = await supabase.auth.getSession();
-      if (!s.session && !leaving) setExpired(true);
+
+    /*
+     * supabase-js and its realtime client are ~67 KB gzip. A static import put
+     * them in the first-load JS of every screen, a teacher's included, for a
+     * sheet that only matters once a session lapses (perf fix 3). They load
+     * when the browser is idle instead, as OfficeSyncListener's do: a second's
+     * delay before listening costs nothing.
+     */
+    const start = () => {
+      void import("@/platform/supabase/client")
+        .then(({ createClient }) => {
+          if (cancelled) return;
+          // A prompt about the session must never be what breaks the page.
+          let supabase: ReturnType<typeof createClient>;
+          try {
+            supabase = createClient();
+          } catch {
+            return;
+          }
+          const { data } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session) {
+              remember(session.user);
+              setExpired(false);
+            }
+            if (event === "SIGNED_OUT" && !leaving) setExpired(true);
+          });
+          const check = async () => {
+            if (document.visibilityState !== "visible") return;
+            const { data: s } = await supabase.auth.getSession();
+            if (!s.session && !leaving) setExpired(true);
+          };
+          document.addEventListener("visibilitychange", check);
+          teardown = () => {
+            data.subscription.unsubscribe();
+            document.removeEventListener("visibilitychange", check);
+          };
+        })
+        .catch(() => {
+          // No client means no prompt; the next save still says the session ended.
+        });
     };
-    document.addEventListener("visibilitychange", check);
+    const idle = typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(start, { timeout: 4000 }) : null;
+    const timer = idle === null ? window.setTimeout(start, 1500) : null;
+
     return () => {
-      data.subscription.unsubscribe();
-      document.removeEventListener("visibilitychange", check);
+      cancelled = true;
+      if (idle !== null) window.cancelIdleCallback(idle);
+      if (timer !== null) window.clearTimeout(timer);
+      teardown?.();
       window.removeEventListener("beforeunload", markLeaving);
     };
   }, []);
