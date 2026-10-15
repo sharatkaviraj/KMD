@@ -101,4 +101,15 @@ describe("attendance offline outbox recovery", () => {
     await render(); await act(async () => vi.advanceTimersByTimeAsync(450));
     expect(state.check).toHaveBeenCalledWith(box.commandId); expect(state.save).not.toHaveBeenCalled(); expect(state.stored.has(key)).toBe(false);
   });
+  it("shows the saved card from the save's own answer before the page refreshes (BUG-01, ST-05)", async () => {
+    state.save.mockResolvedValue({ status: "saved", receipt: { savedAt: "2026-10-10T03:00:00Z", registerId: "r", revision: 1, actorName: "QA Teacher", totals: { present: 1, absent: 0, half_day: 0, late: 0, leave: 0, total: 1 } }, queued: 0 });
+    await render(); await clickSave();
+    expect(host.textContent).not.toContain("Not marked yet");
+    expect(host.textContent).toContain("The office can see it now.");
+  });
+  it("after an offline save, reads as kept on the phone, not as an open register (BUG-08)", async () => {
+    state.online = false; await render(); await clickSave();
+    expect(host.textContent).toContain("Kept on this phone");
+    expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Save attendance")).toBe(false);
+  });
 });

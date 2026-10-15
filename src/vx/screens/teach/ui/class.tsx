@@ -232,7 +232,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
               {n > stack.length ? <span className="tc-av num" style={{ width: 40, height: 40, fontSize: 12, marginLeft: -10, background: "var(--prifg)", color: "var(--pri)", border: "2px solid var(--pri)" }}>+{n - stack.length}</span> : null}
             </button>
           </div>
-          <span style={{ fontSize: 14, opacity: 0.9 }}>{data.isHeld ? tx(p("You are the class teacher. You see everything about these children — except fees, which stay with the office.", "आप कक्षा अध्यापिका हैं। इन बच्चों की हर जानकारी आपके पास है — फ़ीस को छोड़कर, जो ऑफ़िस के पास रहती है।")) : tx(p("You can see this class’s children. Fees stay with the office.", "आप इस कक्षा के बच्चों को देख सकती हैं। फ़ीस ऑफ़िस के पास रहती है।"))}</span>
+          <span style={{ fontSize: 14, opacity: 0.9 }}>{data.isHeld ? tx(p("You are the class teacher. You see everything about these children — except fees, which stay with the office.", "आप कक्षा अध्यापक हैं। इन बच्चों की हर जानकारी आपके पास है — फ़ीस को छोड़कर, जो ऑफ़िस के पास रहती है।")) : tx(p("You can see this class’s children. Fees stay with the office.", "आप इस कक्षा के बच्चों को देख सकते हैं। फ़ीस ऑफ़िस के पास रहती है।"))}</span>
           <button type="button" className="tap btn tc-cbig" onClick={() => setView("roster")} style={{ alignSelf: "flex-start", background: "var(--prifg)", color: "var(--pri)" }}>
             <Ic n="users" />
             {tx(p(`See all ${n} children`, `सभी ${n} बच्चे देखें`))}
@@ -532,7 +532,7 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
                 <span className="tc-ic" style={{ width: 48, height: 48, background: "var(--accs)", color: "var(--accfg)" }}><Ic n={subjectIcon(s.name)} size={24} /></span>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span style={{ fontSize: 16, fontWeight: 700 }}>{s.classLabel} {s.name}</span>
-                  <span className="tc-s">{tx(p(`${s.children} children${s.held ? " · class teacher you" : ""}`, `${s.children} बच्चे${s.held ? " · कक्षा अध्यापिका आप" : ""}`))}</span>
+                  <span className="tc-s">{tx(p(`${s.children} children${s.held ? " · class teacher you" : ""}`, `${s.children} बच्चे${s.held ? " · कक्षा अध्यापक आप" : ""}`))}</span>
                 </span>
                 {s.held ? <span className="pill" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>{tx(p("My class", "मेरी कक्षा"))}</span> : null}
               </div>

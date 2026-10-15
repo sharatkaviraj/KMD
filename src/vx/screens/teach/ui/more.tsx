@@ -581,7 +581,7 @@ export function TeachMore({
   const { resolvedTheme, setTheme } = useTheme();
   const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
   const dark = ready && resolvedTheme === "dark";
-  const setLanguage = (lang: "both" | "hi") =>
+  const setLanguage = (lang: "en" | "hi") =>
     start(async () => {
       const fd = new FormData();
       fd.set("language", lang);
@@ -646,7 +646,7 @@ export function TeachMore({
             <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p("Language", "भाषा"))}</span>
             <span className="tc-mi">{tx(p("भाषा · Hindi or English", "Language · हिंदी या English"))}</span>
           </span>
-          {seg2(language === "hi" ? 1 : 0, [["English", () => setLanguage("both")], ["हिंदी", () => setLanguage("hi")]])}
+          {seg2(language === "hi" ? 1 : 0, [["English", () => language === "hi" && setLanguage("en")], ["हिंदी", () => setLanguage("hi")]])}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 0", borderTop: "1px solid var(--bd)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>

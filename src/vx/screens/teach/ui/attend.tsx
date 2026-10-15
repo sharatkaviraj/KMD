@@ -17,7 +17,7 @@ import { VxPage } from "@/vx/ui/page";
 
 import { checkRegisterVx, saveRegisterVx, type VxSaveState } from "../actions";
 import type { AttendChoices, AttendData } from "../data";
-import { absentAlert, absentOften, copyYesterday, countMarks, monthGrid, nextTap, shiftMonth, type Mark } from "../domain/teach";
+import { absentAlert, absentOften, childMatches, copyYesterday, countMarks, monthGrid, nextTap, shiftMonth, type Mark } from "../domain/teach";
 import { ampm, andList, dShort } from "./fmt";
 import { DrawnTick, HelpIcon, HelpSheet, LangSeg, TchTop, useUrlState, type HelpStep } from "./shared";
 
@@ -72,7 +72,7 @@ const sOf = (m: Mark | undefined): S => (m === "absent" ? "A" : m === "half_day"
 const TONES: [string, string][] = [[V("accs"), V("accfg")], [V("infos"), V("info")], [V("oks"), V("ok")], [V("warns"), V("warnfg")], [V("s3"), V("fg")]];
 
 // Why a saved register is being changed. A correction needs a reason (D-219).
-const WHY: Pair[] = [p("Came late", "देर से आया"), p("Went home sick", "बीमार होकर घर गया"), p("Marked by mistake", "गलती से दर्ज"), p("Was on a school trip", "स्कूल ट्रिप पर था")];
+const WHY: Pair[] = [p("Came late", "देर से आए"), p("Went home sick", "बीमार होकर घर गए"), p("Marked by mistake", "गलती से दर्ज"), p("Was on a school trip", "स्कूल ट्रिप पर थे")];
 
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -143,7 +143,16 @@ export function TeachAttend({
   const [sheet, setSheet] = useUrlState<SheetKey>("sheet", (initialSheet as SheetKey) ?? null);
   const [view, setView] = useUrlState<ViewKey>("view", initialView === "history" ? "history" : null);
 
-  const recorded = data.revision >= 1;
+  // The save's own answer, kept until the page's data catches up with it, so
+  // the saved card shows the moment the save lands instead of "Not marked
+  // yet" for as long as the refresh takes (BUG-01, ST-05).
+  const [justSaved, setJustSaved] = useState<{ revision: number; savedAt: string; actorName: string | null; marks: Record<string, Mark>; queued: number | null; warning: Pair | null } | null>(null);
+  const local = justSaved && justSaved.revision > data.revision ? justSaved : null;
+  const revision = local ? local.revision : data.revision;
+  const savedMarks = local ? local.marks : data.saved;
+  const receipt = local ? { savedAt: local.savedAt, actorName: local.actorName, revision: local.revision } : data.receipt;
+  const queuedCount = local ? (local.queued ?? 0) : data.queuedAlerts.length;
+  const recorded = revision >= 1;
   const ids = useMemo(() => data.roll.map((r) => r.id), [data.roll]);
   const fresh = useMemo(() => Object.fromEntries(ids.map((id) => [id, "present" as Mark])), [ids]);
 
@@ -159,7 +168,7 @@ export function TeachAttend({
 
   const draftId = draftKey(ownerId, data.sessionLabel, `attendance-vx/${data.classId}/${data.day}`);
   const outboxId = draftKey(ownerId, data.sessionLabel, `attendance-outbox/${data.classId}/${data.day}`);
-  const markScope = `${draftId}:${data.revision}`;
+  const markScope = `${draftId}:${revision}`;
   const changedMarks = useRef({ scope: markScope, ids: new Set<string>() });
   const rememberChanges = (changed: readonly string[]) => {
     if (changedMarks.current.scope !== markScope) changedMarks.current = { scope: markScope, ids: new Set<string>() };
@@ -174,7 +183,7 @@ export function TeachAttend({
     void loadDraft(draftId)
       .then((raw) => {
         const d = raw as { value?: { marks?: Record<string, Mark>; revision?: number } } | null;
-        if (!live || !d?.value?.marks || d.value.revision !== data.revision) return;
+        if (!live || !d?.value?.marks || d.value.revision !== revision) return;
         // A slow phone-storage read must not replace marks changed since opening.
         setMarks((cur) => ({ ...cur, ...Object.fromEntries(Object.entries(d.value?.marks ?? {}).filter(([id]) => ids.includes(id) && !touched.has(id))) }));
       })
@@ -188,7 +197,7 @@ export function TeachAttend({
     return () => {
       live = false;
     };
-  }, [draftId, outboxId, data.revision, ids, markScope]);
+  }, [draftId, outboxId, revision, ids, markScope]);
 
   const counts = countMarks(ids, marks);
   const nP = counts.present + counts.late;
@@ -214,7 +223,7 @@ export function TeachAttend({
     const next = { ...latest.current, [id]: nextTap(latest.current[id]) };
     latest.current = next;
     setMarks(next);
-    void saveDraft(draftId, { version: 1, baseline: String(data.revision), value: { marks: next, revision: data.revision }, updatedAt: stamp() }).catch(() => undefined);
+    void saveDraft(draftId, { version: 1, baseline: String(revision), value: { marks: next, revision }, updatedAt: stamp() }).catch(() => undefined);
   };
 
   const settle = (res: VxSaveState) => {
@@ -222,11 +231,19 @@ export function TeachAttend({
     if (res.status === "saved") {
       void removeDraft(draftId).catch(() => undefined);
       void removeDraft(outboxId).catch(() => undefined);
+      setJustSaved({
+        revision: res.receipt.revision,
+        savedAt: res.receipt.savedAt,
+        actorName: res.receipt.actorName,
+        marks: { ...latest.current },
+        queued: typeof res.queued === "number" ? res.queued : null,
+        warning: res.queueWarning ?? null,
+      });
       setOutbox(null);
       setEditing(null);
       setSheet(null);
-      toast.show({ text: tx(p(`Saved at ${ampm(res.receipt.savedAt)}. The office can see it now.`, `${ampm(res.receipt.savedAt)} बजे सहेजा। ऑफ़िस अब देख सकता है।`)) });
-      if (res.queueWarning) toast.show({ text: tx(res.queueWarning), tone: "bad" });
+      // One toast: the queue warning already says the attendance was saved.
+      toast.show(res.queueWarning ? { text: tx(res.queueWarning), tone: "bad" } : { text: tx(p(`Saved at ${ampm(res.receipt.savedAt)}. The office can see it now.`, `${ampm(res.receipt.savedAt)} बजे सहेजा। ऑफ़िस अब देख सकता है।`)) });
       router.refresh();
     } else if (res.status !== "idle") {
       if (res.status !== "error") {
@@ -257,7 +274,7 @@ export function TeachAttend({
         // No answer: keep it in the outbox and try again when the phone is back online.
         setOutbox(box);
         try {
-          await saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() });
+          await saveDraft(outboxId, { version: 1, baseline: String(revision), value: box, updatedAt: stamp() });
           setOutboxDurable(true);
         } catch {
           setOutboxDurable(false);
@@ -283,7 +300,7 @@ export function TeachAttend({
       classId: data.classId,
       day: data.day,
       kind,
-      expectedRevision: data.revision,
+      expectedRevision: revision,
       reason,
       marks: ids.map((id) => ({ studentId: id, status: marks[id] ?? "present" })),
     });
@@ -291,7 +308,7 @@ export function TeachAttend({
     if (!online) {
       start(async () => {
         try {
-          await saveDraft(outboxId, { version: 1, baseline: String(data.revision), value: box, updatedAt: stamp() });
+          await saveDraft(outboxId, { version: 1, baseline: String(revision), value: box, updatedAt: stamp() });
           setOutboxDurable(true);
           setOutbox(box);
           setSheet(null);
@@ -306,14 +323,18 @@ export function TeachAttend({
   };
 
   /* ----------------------------------------------------- why it changed */
-  const [why, setWhy] = useState<string>(WHY[0].en);
+  const [why, setWhy] = useState<string>("");
   const [whyNote, setWhyNote] = useState("");
   const changeReason = [why, whyNote.trim()].filter(Boolean).join(" — ");
+  // What this change does, child by child, for the change sheet (BUG-13).
+  const changed = editing === "change" ? data.roll.filter((r) => (marks[r.id] ?? "present") !== (savedMarks[r.id] ?? "present")) : [];
 
   const q = query.trim().toLowerCase();
-  const shown = data.roll.filter((r) => !q || r.name.toLowerCase().includes(q) || (r.rollNo ?? "") === q);
+  const shown = data.roll.filter((r) => childMatches(r, q));
   const preview = absentKids[0] ? absentAlert({ childName: absentKids[0].name, classLabel: data.classLabel, dayLabel: dayMonth(data.day), school }) : null;
   const rollOf = (id: string) => data.roll.find((r) => r.id === id)?.rollNo ?? "—";
+  // "Roll 4", or the SR number and father when the roll is not set (BUG-05).
+  const whoLine = (k: AttendData["roll"][number]) => (k.rollNo ? tx(p(`Roll ${k.rollNo}`, `रोल ${k.rollNo}`)) : k.hint ? tx(k.hint) : k.admissionNo ? `SR ${k.admissionNo}` : "");
   const nameOf = new Map(data.roll.map((r) => [r.id, r.name]));
   const T = (t: Pair) => `${tx(t)}${sub(t) ? ` · ${sub(t)}` : ""}`;
 
@@ -349,14 +370,15 @@ export function TeachAttend({
         disabled={!editing}
         onClick={() => tap(r.id)}
         className={`tap tc-akid ${lk.cls}`}
-        aria-label={`${r.name}, roll ${r.rollNo ?? i + 1}, ${tx(lk.t)}. ${tx(p("Tap to change.", "बदलने के लिए टैप करें।"))}`}
+        aria-label={`${r.name}${r.rollNo ? `, roll ${r.rollNo}` : r.hint ? `, ${tx(r.hint)}` : ` (${i + 1})`}, ${tx(lk.t)}. ${tx(p("Tap to change.", "बदलने के लिए टैप करें।"))}`}
         aria-pressed={s !== "P"}
         style={{ background: lk.bg, borderColor: lk.bd, animationDelay: `${Math.min(i, 16) * 22}ms` }}
       >
-        <span className="num" style={{ flex: "none", width: 22, fontSize: 13, fontWeight: 700, textAlign: "right", color: "var(--mut)" }}>{r.rollNo ?? i + 1}</span>
+        <span className="num" style={{ flex: "none", width: 22, fontSize: 13, fontWeight: 700, textAlign: "right", color: "var(--mut)" }}>{r.rollNo ?? ""}</span>
         <span className="tc-av" style={{ width: 40, height: 40, fontSize: 13, background: tone[0], color: tone[1] }}>{initials(r.name)}</span>
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
           <span className="tc-el" style={{ fontSize: 15, fontWeight: 600 }}>{r.name}</span>
+          {r.hint ? <span className="tc-el" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(r.hint)}</span> : null}
           <span className="only-d" style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: s === "P" && hint ? hint.color : lk.fg }}>{s === "P" && hint ? hint.text : tx(lk.t)}</span>
           {hint ? (
             <span className="only-m" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: hint.color }}>
@@ -376,7 +398,8 @@ export function TeachAttend({
   /* ---------------------------------------------------------- mark view */
   const allYesterday = yesterdayIds.length > 0 && yesterdayIds.every((id) => marks[id] === "absent");
   const parts = [tx(p(`${nP} present`, `${nP} उपस्थित`)), tx(p(`${nA} absent`, `${nA} अनुपस्थित`))].concat(nH ? [tx(p(`${nH} half-day`, `${nH} आधा दिन`))] : []).join(" · ");
-  const savedAt = data.receipt ? ampm(data.receipt.savedAt) : null;
+  const savedAt = receipt ? ampm(receipt.savedAt) : null;
+  const when: Pair = data.alertWhen ?? p("at 10 am", "सुबह 10 बजे");
   const markView = (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
       <div className="pad stack" style={{ flex: 1, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 300px", gap: 20, alignItems: "start", padding: "20px 28px 24px" }}>
@@ -384,7 +407,7 @@ export function TeachAttend({
           <div className="tc-note tc-in" style={{ background: editing === "change" ? V("warns") : V("accs"), color: editing === "change" ? V("warnfg") : V("accfg"), padding: "14px 16px", alignItems: "center" }}>
             <span className="tc-ib" style={{ width: 42, height: 42, borderRadius: 13, background: "var(--card)" }}><Ic n={editing === "change" ? "edit" : "sun"} size={22} /></span>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span className="tc-p" style={{ fontWeight: 700 }}>{editing === "change" ? tx(p("You are changing today’s attendance", "आप आज की हाज़िरी बदल रही हैं")) : tx(p("Everyone is marked Present.", "सभी बच्चे उपस्थित माने गए हैं।"))}</span>
+              <span className="tc-p" style={{ fontWeight: 700 }}>{editing === "change" ? tx(p("You are changing today’s attendance", "आप आज की हाज़िरी बदल रहे हैं")) : tx(p("Everyone is marked Present.", "सभी बच्चे उपस्थित माने गए हैं।"))}</span>
               <span style={{ fontSize: 13, opacity: 0.85 }}>
                 {editing === "change"
                   ? tx(p(`The office still sees what you saved${savedAt ? ` at ${savedAt}` : ""} until you save again.`, `दोबारा सेव करने तक ऑफ़िस को पहले वाली हाज़िरी दिखेगी।`))
@@ -392,7 +415,7 @@ export function TeachAttend({
               </span>
             </span>
           </div>
-          <div className="tc-cnt">
+          <div className="tc-cnt hide-m">
             {([["P", nP, V("ok"), V("okm")], ["A", nA, V("bad"), V("bad")], ["H", nH, V("warn"), V("warnm")]] as const).map(([k, n, c, bd]) => (
               <div key={k} className="card" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 2, borderColor: n && k !== "P" ? bd : "var(--bd)", overflow: "hidden" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
@@ -427,7 +450,7 @@ export function TeachAttend({
                 </button>
               ) : null}
               {editing === "change" ? (
-                <button type="button" className="tap chip" onClick={() => { rememberChanges(ids); setEditing(null); setMarks({ ...fresh, ...data.saved }); }} style={{ height: 42, padding: "0 16px", fontSize: 14 }}>
+                <button type="button" className="tap chip" onClick={() => { rememberChanges(ids); setEditing(null); setMarks({ ...fresh, ...savedMarks }); }} style={{ height: 42, padding: "0 16px", fontSize: 14 }}>
                   <Ic n="x" size={16} />
                   {tx(p("Cancel change", "बदलाव रद्द"))}
                 </button>
@@ -474,7 +497,7 @@ export function TeachAttend({
                   <span className="tc-av" style={{ width: 30, height: 30, fontSize: 11, background: a ? V("bads") : V("warns"), color: a ? V("bad") : V("warnfg") }}>{initials(k.name)}</span>
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                     <span className="tc-el" style={{ fontWeight: 600 }}>{k.name}</span>
-                    <span className="tc-s">{a ? tx(p(`Absent · roll ${k.rollNo ?? "—"}`, `अनुपस्थित · रोल ${k.rollNo ?? "—"}`)) : tx(p(`Half-day · roll ${k.rollNo ?? "—"}`, `आधा दिन · रोल ${k.rollNo ?? "—"}`))}</span>
+                    <span className="tc-s">{[a ? tx(p("Absent", "अनुपस्थित")) : tx(p("Half-day", "आधा दिन")), whoLine(k)].filter(Boolean).join(" · ")}</span>
                   </span>
                 </span>
               );
@@ -483,7 +506,7 @@ export function TeachAttend({
           </div>
           <div className="tc-note" style={{ background: "var(--s2)", fontSize: 13 }}>
             <Ic n="message" style={{ marginTop: 1, color: "var(--acc)" }} />
-            <span>{tx(p("Parents of absent children get a WhatsApp at 10 am. You can turn it off before saving.", "अनुपस्थित बच्चों के माता-पिता को सुबह 10 बजे व्हाट्सऐप जाता है। सेव से पहले बंद कर सकते हैं।"))}</span>
+            <span>{tx(p(`Parents of absent children get a WhatsApp ${when.en}. You can turn it off before saving.`, `अनुपस्थित बच्चों के माता-पिता को ${when.hi ?? when.en} व्हाट्सऐप जाता है। सेव से पहले बंद कर सकते हैं।`))}</span>
           </div>
           {yesterdayIds.length ? <span className="tc-s">{tx(p(`Yesterday: ${andList(yesterdayIds.map((id) => nameOf.get(id) ?? "—"))} ${yesterdayIds.length === 1 ? "was" : "were"} absent.`, `कल: ${andList(yesterdayIds.map((id) => nameOf.get(id) ?? "—"), "और")} अनुपस्थित थे।`))}</span> : null}
         </aside>
@@ -511,11 +534,25 @@ export function TeachAttend({
   const savedView = (
     <div className="pad stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: 20, alignItems: "start", padding: "24px 28px 40px", maxWidth: 1180, margin: "0 auto", width: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-        {recorded ? (
+        {outbox ? (
+          // Saved on the phone while offline: it reads as done-but-waiting, not
+          // as an open register with a live Save button (BUG-08).
+          <div className="card" role="status" style={{ padding: "28px 24px 22px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center", borderColor: "var(--warnm)" }}>
+            <span className="tc-av" style={{ width: 64, height: 64, background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="cloud" size={28} /></span>
+            <span className="serif" style={{ fontSize: 26, fontWeight: 600 }}>{tx(p("Kept on this phone", "फ़ोन पर रखी है"))}</span>
+            <span className="tc-p" style={{ color: "var(--mut)" }}>
+              {outboxDurable
+                ? tx(p("It will be sent by itself when the internet is back. You do not need to save again.", "इंटरनेट आते ही अपने आप भेज दी जाएगी। दोबारा सेव करने की ज़रूरत नहीं।"))
+                : tx(p("Keep this page open — it is sent when the internet is back.", "यह पेज खुला रखें — इंटरनेट आते ही भेजी जाएगी।"))}
+            </span>
+            <div style={{ width: "100%", marginTop: 6 }}>{tiles(28)}</div>
+            {online ? <button type="button" className="tap btn pri tc-abb" disabled={pending} onClick={() => deliver(outbox, true)}><Ic n="cloud" />{tx(p("Send now", "अभी भेजें"))}</button> : null}
+          </div>
+        ) : recorded ? (
           <div className="card" style={{ padding: "28px 24px 22px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
             <DrawnTick size={104} />
             <span className="serif tc-agr" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.15 }}>
-              {data.receipt && data.receipt.revision > 1 ? tx(p(`Updated at ${savedAt}.`, `${savedAt} बजे बदला।`)) : tx(p(`Saved at ${(savedAt ?? "—").replace(/ (am|pm)$/, "")}.`, `${(savedAt ?? "—").replace(/ (am|pm)$/, "")} बजे सेव हुआ।`))}
+              {receipt && receipt.revision > 1 ? tx(p(`Updated at ${savedAt}.`, `${savedAt} बजे बदला।`)) : tx(p(`Saved at ${(savedAt ?? "—").replace(/ (am|pm)$/, "")}.`, `${(savedAt ?? "—").replace(/ (am|pm)$/, "")} बजे सेव हुआ।`))}
             </span>
             <span className="tc-p" style={{ color: "var(--mut)" }}>
               {tx(p("The office can see it now.", "कार्यालय अब इसे देख सकता है।"))}
@@ -529,13 +566,15 @@ export function TeachAttend({
             <div style={{ width: "100%", marginTop: 6 }}>{tiles(28)}</div>
             <span className="tc-s" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Ic n="message" size={15} />
-              {data.queuedAlerts.length
-                ? tx(p(`WhatsApp to ${data.queuedAlerts.length} ${data.queuedAlerts.length === 1 ? "parent" : "parents"} goes at 10 am · Hindi first`, `${data.queuedAlerts.length} अभिभावकों को सुबह 10 बजे व्हाट्सऐप · पहले हिंदी`))
+              {local?.warning
+                ? tx(local.warning)
+                : queuedCount
+                ? tx(p(`WhatsApp to ${queuedCount} ${queuedCount === 1 ? "parent" : "parents"} goes ${when.en} · Hindi first`, `${queuedCount} ${queuedCount === 1 ? "अभिभावक" : "अभिभावकों"} को ${when.hi ?? when.en} व्हाट्सऐप · पहले हिंदी`))
                 : nA
                   ? tx(p("No WhatsApp will go to parents today", "आज अभिभावकों को कोई व्हाट्सऐप नहीं जाएगा"))
                   : tx(p("No one absent · no messages to parents", "कोई अनुपस्थित नहीं · अभिभावकों को कोई संदेश नहीं"))}
             </span>
-            {data.receipt?.actorName && data.receipt.revision > 1 ? <span className="tc-s">{tx(p(`By ${data.receipt.actorName}${data.receipt.revision > 1 ? ` · changed ${data.receipt.revision - 1} ${data.receipt.revision === 2 ? "time" : "times"}` : ""}`, `${data.receipt.actorName} द्वारा`))}</span> : null}
+            {receipt?.actorName && receipt.revision > 1 ? <span className="tc-s">{tx(p(`By ${receipt.actorName}${receipt.revision > 1 ? ` · changed ${receipt.revision - 1} ${receipt.revision === 2 ? "time" : "times"}` : ""}`, `${receipt.actorName} द्वारा`))}</span> : null}
           </div>
         ) : (
           <div className="card" style={{ padding: "28px 24px 22px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
@@ -547,14 +586,14 @@ export function TeachAttend({
           </div>
         )}
 
-        {recorded && mayChangeHere ? (
+        {recorded && mayChangeHere && !outbox ? (
           <div className="card tc-in" style={{ padding: "16px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
             <span className="tc-ib" style={{ width: 52, height: 52, borderRadius: 16, background: "var(--accs)", color: "var(--accfg)" }}><Ic n="edit" size={24} /></span>
             <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
-              <span className="tc-p" style={{ fontWeight: 700 }}>{tx(p("You can still change it", "आप इसे अब भी बदल सकती हैं"))}</span>
+              <span className="tc-p" style={{ fontWeight: 700 }}>{tx(p("You can still change it", "आप इसे अब भी बदल सकते हैं"))}</span>
               <span className="tc-s">{tx(p("Any time, with a reason. The office sees the change and it stays in the history.", "कभी भी, कारण के साथ। ऑफ़िस बदलाव देखता है और वह इतिहास में रहता है।"))}</span>
             </span>
-            <button type="button" className="tap btn sec" style={{ height: 48 }} onClick={() => { rememberChanges(ids); setMarks({ ...fresh, ...data.saved }); setEditing("change"); }}>
+            <button type="button" className="tap btn sec" style={{ height: 48 }} onClick={() => { rememberChanges(ids); setMarks({ ...fresh, ...savedMarks }); setEditing("change"); }}>
               <Ic n="edit" />
               {tx(p("Change attendance", "हाज़िरी बदलें"))}
             </button>
@@ -716,7 +755,7 @@ export function TeachAttend({
                   </div>
                 ))}
               {!picked.a.length && !picked.h.length ? <span className="tc-note" style={{ background: "var(--oks)", color: "var(--ok)" }}>{tx(p("Everyone came this day.", "इस दिन सब आए।"))}</span> : null}
-              {pickDay === data.day && data.receipt ? <span className="tc-s">{tx(p(`Marked${data.receipt.actorName ? ` by ${data.receipt.actorName}` : ""} at ${ampm(data.receipt.savedAt)}`, `${ampm(data.receipt.savedAt)} बजे लगाई`))}</span> : null}
+              {pickDay === data.day && receipt ? <span className="tc-s">{tx(p(`Marked${receipt.actorName ? ` by ${receipt.actorName}` : ""} at ${ampm(receipt.savedAt)}`, `${ampm(receipt.savedAt)} बजे लगाई`))}</span> : null}
               {data.canCorrect ? (
                 <Link href={dayHref(pickDay)} className="tap btn sec tc-abb"><Ic n="edit" />{tx(p("Change this day", "यह दिन बदलें"))}</Link>
               ) : null}
@@ -771,7 +810,7 @@ export function TeachAttend({
   );
 
   /* -------------------------------------------------------------- page */
-  const screen: "mark" | "saved" | "history" = view === "history" ? "history" : editing && data.roll.length ? "mark" : "saved";
+  const screen: "mark" | "saved" | "history" = view === "history" ? "history" : editing && !outbox && data.roll.length ? "mark" : "saved";
   const head =
     screen === "history"
       ? { crumb: tx(p(`Attendance · ${data.classLabel}`, `हाज़िरी · ${data.classLabel}`)), title: `${monthTitle.split(" ")[0]} · ${data.classLabel}`, mTitle: `${monthTitle.split(" ")[0]} · ${data.classLabel}`, mSub: tx(p("Tap a day to see who was away", "कौन नहीं आया देखने के लिए दिन दबाएँ")) }
@@ -896,7 +935,7 @@ export function TeachAttend({
                     <span className="tc-av" style={{ width: 38, height: 38, fontSize: 12, background: bg, color: fg }}>{initials(k.name)}</span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                       <span className="tc-p" style={{ fontWeight: 600 }}>{k.name}</span>
-                      <span className="tc-s">{tx(p(`Roll ${k.rollNo ?? "—"}`, `रोल ${k.rollNo ?? "—"}`))}{data.yesterday[k.id] === "absent" && marks[k.id] === "absent" ? ` · ${tx(p("absent yesterday too", "कल भी अनुपस्थित"))}` : ""}</span>
+                      <span className="tc-s">{whoLine(k)}{data.yesterday[k.id] === "absent" && marks[k.id] === "absent" ? ` · ${tx(p("absent yesterday too", "कल भी अनुपस्थित"))}` : ""}</span>
                     </span>
                   </span>
                 ))}
@@ -913,7 +952,7 @@ export function TeachAttend({
               <button type="button" role="switch" aria-checked={alerts} className="tap tc-opt" onClick={() => setAlerts(!alerts)} style={{ background: "var(--s2)" }}>
                 <span className="tc-ib" style={{ width: 40, height: 40, borderRadius: 12, background: "var(--oks)", color: "var(--ok)" }}><Ic n="message" /></span>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                  <span className="tc-p" style={{ fontWeight: 600 }}>{tx(p("Send WhatsApp to their parents at 10 am", "उनके माता-पिता को सुबह 10 बजे व्हाट्सऐप"))}</span>
+                  <span className="tc-p" style={{ fontWeight: 600 }}>{tx(p(`Send WhatsApp to their parents ${when.en}`, `उनके माता-पिता को ${when.hi ?? when.en} व्हाट्सऐप`))}</span>
                   <span className="tc-s num">{alerts ? tx(p(`${absentKids.length} ${absentKids.length === 1 ? "parent" : "parents"} · Hindi first`, `${absentKids.length} अभिभावक · पहले हिंदी`)) : tx(p("Off · no message will go to parents", "बंद · अभिभावकों को कोई संदेश नहीं"))}</span>
                 </span>
                 <span className={`sw${alerts ? " on" : ""}`}><span /></span>
@@ -924,7 +963,7 @@ export function TeachAttend({
                     <div>
                       <span style={{ display: "block" }}>{preview.hi}</span>
                       <span style={{ display: "block", marginTop: 6, opacity: 0.8 }}>{preview.en}</span>
-                      <span className="num" style={{ display: "block", textAlign: "right", fontSize: 11, opacity: 0.6 }}>10:00 am</span>
+                      <span className="num" style={{ display: "block", textAlign: "right", fontSize: 11, opacity: 0.6 }}>{tx(when)}</span>
                     </div>
                   </div>
                   <span className="tc-s" style={{ marginTop: -6 }}>{absentKids.length > 1 ? tx(p(`The same message goes to ${absentKids.length - 1} more ${absentKids.length === 2 ? "family" : "families"} with their child’s name.`, `यही संदेश ${absentKids.length - 1} और परिवारों को उनके बच्चे के नाम से।`)) : tx(p("Only this family gets a message.", "सिर्फ़ इस परिवार को संदेश जाएगा।"))}</span>
@@ -934,6 +973,18 @@ export function TeachAttend({
           ) : null}
           {editing === "change" ? (
             <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="sech">{T(p("What changes", "क्या बदल रहा है"))}</span>
+                {changed.length ? (
+                  changed.map((r) => (
+                    <span key={r.id} className="tc-p">
+                      <b>{r.name}</b>: {tx(LOOK[sOf(savedMarks[r.id])].t)} → {tx(LOOK[sOf(marks[r.id])].t)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="tc-s">{tx(p("Nothing is changed yet. Tap a child first.", "अभी कुछ नहीं बदला। पहले बच्चे पर टैप करें।"))}</span>
+                )}
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span className="sech">{T(p("Why are you changing it?", "कारण"))}</span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>

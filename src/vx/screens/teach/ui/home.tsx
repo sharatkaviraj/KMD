@@ -30,7 +30,7 @@ type SheetKey = "news" | "leave" | "help" | "link" | "wish" | "subs";
 const HELP: HelpStep[] = [
   { title: p("Start with the blue card", "नीले कार्ड से हाज़िरी लगाएँ।"), body: p("Tap “Mark attendance”. Everyone is already Present — tap only who is away.", "“हाज़िरी लगाएँ” दबाएँ। सब पहले से उपस्थित हैं — सिर्फ़ अनुपस्थित पर टैप करें।"), pic: <HelpPic kind="mark" /> },
   { title: p("Read notices, tap Got it", "सूचना पढ़कर “ठीक है” दबाएँ।"), body: p("The office sees that you have read it. No need to reply.", "ऑफ़िस देख लेता है कि आपने पढ़ लिया। जवाब की ज़रूरत नहीं।"), pic: <HelpPic kind="seen" /> },
-  { title: p("Answer a substitution", "सब्स्टिट्यूशन के लिए हाँ या ना दबाएँ।"), body: p("Tap “I’ll take it” or “I can’t”. The office is told at once.", "“मैं ले लूँगी” या “नहीं ले सकती” दबाएँ। ऑफ़िस को तुरंत पता चल जाता है।"), pic: <HelpPic kind="take" /> },
+  { title: p("Answer a substitution", "सब्स्टिट्यूशन के लिए हाँ या ना दबाएँ।"), body: p("Tap “I’ll take it” or “I can’t”. The office is told at once.", "“हाँ, ले लेंगे” या “नहीं ले पाएँगे” दबाएँ। ऑफ़िस को तुरंत पता चल जाता है।"), pic: <HelpPic kind="take" /> },
 ];
 
 const WHY_NOT: Pair[] = [p("I have another class", "मेरी दूसरी कक्षा है"), p("Not feeling well", "तबीयत ठीक नहीं"), p("Other duty", "दूसरी ड्यूटी"), p("Other reason", "दूसरा कारण")];
@@ -65,6 +65,7 @@ type Row = {
 export function TeachHome({
   data,
   name,
+  shortName,
   initialSheet,
   school,
   officePhone,
@@ -72,6 +73,8 @@ export function TeachHome({
 }: {
   data: HomeData;
   name: string;
+  /** The name staff call her by ("Ravina"), for the greeting (BUG-15). */
+  shortName?: string;
   initialSheet: string | null;
   school: string;
   /** The school office's number, for help's "Call the office"; none hides it. */
@@ -87,9 +90,11 @@ export function TeachHome({
   const [seen, setSeen] = useState<Set<string>>(() => new Set(data.notices.filter((n) => n.seen).map((n) => n.id)));
   const [newsId, setNewsId] = useState<string | null>(null);
   const [linkId, setLinkId] = useState<string | null>(data.links[0]?.paperId ?? null);
-  const [coverId, setCoverId] = useState<string | null>(data.covers.find((c) => !c.acknowledged)?.id ?? data.covers[0]?.id ?? null);
+  const allCovers = [...data.covers, ...data.upcomingCovers];
+  const [coverId, setCoverId] = useState<string | null>(allCovers.find((c) => !c.acknowledged)?.id ?? allCovers[0]?.id ?? null);
   const [cantOpen, setCantOpen] = useState(false);
-  const [why, setWhy] = useState(0);
+  // No reason is chosen for the teacher (ST-10): the office gets the one she picks.
+  const [why, setWhy] = useState<number | null>(null);
   const [whyNote, setWhyNote] = useState("");
   const todaysBirthdays = data.birthdays.filter((b) => b.inDays === 0);
   const [wishFor, setWishFor] = useState<string | null>(todaysBirthdays[0]?.id ?? null);
@@ -134,8 +139,9 @@ export function TeachHome({
     start(async () => {
       const res = await answerCoverVx(id, a, note);
       if (res.ok) {
-        const row = rows.find((r) => r.coverId === id);
-        toast.show({ text: tx(a === "acknowledge" ? p(`Added to your day · ${row?.title ?? ""} at ${row ? hm12(row.starts) : ""}`, `आपके दिन में जोड़ा · ${row?.title ?? ""}`) : p("Told the office you can’t · they will ask someone else", "ऑफ़िस को बता दिया · वे किसी और से कहेंगे")) });
+        const c = allCovers.find((x) => x.id === id);
+        const title = c ? `${c.day === data.today ? "" : `${dShort(c.day)} · `}P${c.number} · ${c.classLabels} ${c.subjectName}` : "";
+        toast.show({ text: tx(a === "acknowledge" ? p(`Added to your day · ${title}`, `आपके दिन में जोड़ा · ${title}`) : p("Told the office you can’t · they will ask someone else", "ऑफ़िस को बता दिया · वे किसी और से कहेंगे")) });
         setCantOpen(false);
         setSheet(null);
         router.refresh();
@@ -162,7 +168,7 @@ export function TeachHome({
   const bySubject = new Map<string, string[]>();
   for (const s of data.subjects) bySubject.set(s.name, [...(bySubject.get(s.name) ?? []), shortClass(s.classLabel)]);
   const subjectLine = [...bySubject.entries()].map(([n, cls]) => tx(p(`${n} for ${andList(cls)}`, `${n} — ${andList(cls, "और")}`))).join(" · ");
-  const context = [dLong(data.today), data.myClass ? tx(p(`${classLabel} class teacher`, `${classLabel} की कक्षा अध्यापिका`)) : null, subjectLine || null].filter(Boolean).join(" · ");
+  const context = [dLong(data.today), data.myClass ? tx(p(`${classLabel} class teacher`, `${classLabel} के कक्षा अध्यापक`)) : null, subjectLine || null].filter(Boolean).join(" · ");
 
   /* ---------------------------------------------------------- hero */
   const dots = Math.min(60, data.myClass?.total ?? 0);
@@ -170,8 +176,12 @@ export function TeachHome({
     <div className="card rise" style={{ order: 1, padding: 22, display: "flex", gap: 16, alignItems: "center" }}>
       <span className="tc-ib" style={{ width: 56, height: 56, borderRadius: 16, background: "var(--s2)", color: "var(--acc)" }}><Ic n={data.schoolOpen ? "users" : "coffee"} size={26} /></span>
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-        <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{!data.schoolOpen ? tx(p("No school today", "आज स्कूल बंद है")) : tx(p("No class of your own", "आपकी अपनी कक्षा नहीं"))}</span>
-        <span className="tc-p" style={{ color: "var(--mut)" }}>{!data.schoolOpen ? tx(p("No register to take. Enjoy the day.", "आज कोई हाज़िरी नहीं। दिन अच्छा बीते।")) : tx(p("Class teachers take the register. Your periods are below.", "हाज़िरी कक्षा अध्यापक लेते हैं। आपके पीरियड नीचे हैं।"))}</span>
+        <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{!data.schoolOpen ? tx(p("No school today", "आज स्कूल बंद है")) : data.unassigned ? tx(p("You are not in the timetable yet", "आप अभी समय-सारणी में नहीं हैं")) : tx(p("No class of your own", "आपकी अपनी कक्षा नहीं"))}</span>
+        <span className="tc-p" style={{ color: "var(--mut)" }}>{!data.schoolOpen ? tx(p("No register to take. Enjoy the day.", "आज कोई हाज़िरी नहीं। दिन अच्छा बीते।")) : data.unassigned
+              ? tx(p("No class or subject is given to you this session. Ask the office to add you to the timetable.", "इस सत्र में आपको कोई कक्षा या विषय नहीं दिया गया है। ऑफ़िस से कहें कि आपको समय-सारणी में जोड़ें।"))
+              : data.periods.length
+                ? tx(p("Class teachers take the register. Your periods are below.", "हाज़िरी कक्षा अध्यापक लेते हैं। आपके पीरियड नीचे हैं।"))
+                : tx(p("Class teachers take the register.", "हाज़िरी कक्षा अध्यापक लेते हैं।"))}</span>
       </span>
     </div>
   ) : reg ? (
@@ -249,6 +259,40 @@ export function TeachHome({
     </div>
   );
 
+  /* ------------------------------------------------ cover, at the top */
+  // The office asking her to cover comes first on Today (ST-07), and a duty
+  // for a later day shows here as soon as it is given (BUG-06).
+  const asked = allCovers.filter((c) => !c.acknowledged);
+  const laterTaken = data.upcomingCovers.filter((c) => c.acknowledged);
+  const coverAsk =
+    asked.length || laterTaken.length ? (
+      <div className="card rise" style={{ order: 0, padding: 18, display: "flex", flexDirection: "column", gap: 12, background: asked.length ? "var(--warns)" : "var(--card)", borderColor: asked.length ? "var(--warnm)" : "var(--bd)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="tc-ib" style={{ width: 40, height: 40, borderRadius: 12, background: "var(--card)", color: "var(--warnfg)" }}><Ic n="swap" size={20} /></span>
+          <CardTitle t={asked.length ? p("The office asks you to cover", "ऑफ़िस आपसे कक्षा लेने को कह रहा है") : p("Cover coming up", "आने वाली ड्यूटी")} />
+        </span>
+        {[...asked, ...laterTaken].map((c) => (
+          <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
+            <span style={{ display: "flex", flexDirection: "column" }}>
+              <span className="tc-p" style={{ fontWeight: 700 }}>{c.day === data.today ? tx(p("Today", "आज")) : dShort(c.day)} · P{c.number}{c.starts ? ` · ${hm12(c.starts)}` : ""} · {c.classLabels} {c.subjectName}</span>
+              <span className="tc-s">{tx(p(`for ${c.forName}`, `${c.forName} की जगह`))}{c.acknowledged ? ` · ${tx(p("You said you will take it ✓", "आपने हाँ कहा ✓"))}` : ""}</span>
+            </span>
+            {c.acknowledged ? null : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button type="button" className="tap btn pri" disabled={pending} onClick={() => answer(c.id, "acknowledge")} style={{ flex: "1 1 130px", height: 48, fontSize: 15 }}>
+                  <Ic n="check" />
+                  {tx(p("I’ll take it", "हाँ, ले लेंगे"))}
+                </button>
+                <button type="button" className="tap btn sec" disabled={pending} onClick={() => { setCoverId(c.id); setWhy(null); setCantOpen(true); setSheet("subs"); }} style={{ flex: "1 1 100px", height: 48, fontSize: 15 }}>
+                  {tx(p("I can’t", "नहीं ले पाएँगे"))}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    ) : null;
+
   /* -------------------------------------------------------- periods */
   const pillText = allOver ? tx(p(`All ${rows.length} periods over`, `सभी ${rows.length} पीरियड पूरे`)) : [tx(p(`${classCount} ${classCount === 1 ? "class" : "classes"}`, `${classCount} कक्षाएँ`)), coverCount ? tx(p(`${coverCount} cover`, `${coverCount} सब्स्टिट्यूशन`)) : null, freeCount ? tx(p(`${freeCount} free`, `${freeCount} खाली`)) : null].filter(Boolean).join(" · ");
   const periods = (
@@ -273,7 +317,7 @@ export function TeachHome({
             const elapsed = now ? Math.min(100, Math.max(0, ((data.nowMinutes - mins(r.starts)) / Math.max(1, mins(r.ends) - mins(r.starts))) * 100)) : 0;
             const tag: [string, string, string] | null = isSub
               ? r.acknowledged
-                ? [done ? tx(p("Covered", "लिया")) : tx(p("Covering", "आप ले रही हैं")), V("ok"), V("onsolid")]
+                ? [done ? tx(p("Covered", "लिया")) : tx(p("Covering", "आप ले रहे हैं")), V("ok"), V("onsolid")]
                 : [tx(p("Asked you", "आपसे पूछा")), V("warn"), V("onsolid")]
               : now
                 ? [tx(p(`Now · ${leftMin} min left`, `अभी · ${leftMin} मिनट बाकी`)), V("acc"), V("onsolid")]
@@ -324,10 +368,10 @@ export function TeachHome({
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         <button type="button" className="tap btn pri" disabled={pending} onClick={() => r.coverId && answer(r.coverId, "acknowledge")} style={{ flex: "1 1 130px", height: 48, fontSize: 15 }}>
                           <Ic n="check" />
-                          {tx(p("I’ll take it", "मैं ले लूँगी"))}
+                          {tx(p("I’ll take it", "हाँ, ले लेंगे"))}
                         </button>
                         <button type="button" className="tap btn sec" disabled={pending} onClick={() => { setCoverId(r.coverId ?? null); setCantOpen(true); setSheet("subs"); }} style={{ flex: "1 1 100px", height: 48, fontSize: 15 }}>
-                          {tx(p("I can’t", "नहीं ले सकती"))}
+                          {tx(p("I can’t", "नहीं ले पाएँगे"))}
                         </button>
                         <button type="button" className="tap btn ghost" aria-label={tx(p("Substitution details", "सब्स्टिट्यूशन की जानकारी"))} onClick={() => { setCoverId(r.coverId ?? null); setCantOpen(false); setSheet("subs"); }} style={{ width: 48, height: 48, padding: 0 }}>
                           <Ic n="info" />
@@ -338,7 +382,7 @@ export function TeachHome({
                   {isSub && r.acknowledged ? (
                     <button type="button" className="tap tc-note tc-pop" onClick={() => { setCoverId(r.coverId ?? null); setCantOpen(false); setSheet("subs"); }} style={{ border: 0, width: "100%", textAlign: "left", padding: "9px 12px", background: "var(--oks)", color: "var(--ok)" }}>
                       <Ic n="check" style={{ marginTop: 2 }} />
-                      <span style={{ flex: 1, fontWeight: 600 }}>{done ? tx(p(`You covered P${r.number} · thank you`, `आपने P${r.number} लिया · धन्यवाद`)) : tx(p(`You’re covering P${r.number} · ${r.title}`, `आप P${r.number} ले रही हैं · ${r.title}`))}</span>
+                      <span style={{ flex: 1, fontWeight: 600 }}>{done ? tx(p(`You covered P${r.number} · thank you`, `आपने P${r.number} लिया · धन्यवाद`)) : tx(p(`You’re covering P${r.number} · ${r.title}`, `आप P${r.number} ले रहे हैं · ${r.title}`))}</span>
                     </button>
                   ) : null}
                 </div>
@@ -540,8 +584,8 @@ export function TeachHome({
     <div className="card tc-card" style={{ order: 3, animationDelay: "100ms" }}>
       <CardTitle t={p("Quick actions", "जल्दी के काम")} />
       <div className="tc-g2">
-        {allowed.attendance ? tile("att", "calCheck", reg ? p("See attendance", "हाज़िरी देखें") : p("Mark attendance", "हाज़िरी लगाएँ"), V("pri"), V("prifg"), reg && later && data.myClass ? `/teach/attendance?class=${data.myClass.classId}&view=history` : attendHref) : null}
-        {allowed.marks ? tile("marks", "clipboard", p("Enter marks", "अंक भरें"), V("infos"), V("info"), "/teach/marks") : null}
+        {allowed.attendance && !data.unassigned ? tile("att", "calCheck", reg ? p("See attendance", "हाज़िरी देखें") : p("Mark attendance", "हाज़िरी लगाएँ"), V("pri"), V("prifg"), reg && later && data.myClass ? `/teach/attendance?class=${data.myClass.classId}&view=history` : attendHref) : null}
+        {allowed.marks && !data.unassigned ? tile("marks", "clipboard", p("Enter marks", "अंक भरें"), V("infos"), V("info"), "/teach/marks") : null}
         {allowed.notes ? tile("note", "mic", p("Speak a note", "बोलकर नोट लिखें"), V("accs"), V("accfg"), "/teach/notes?sheet=add") : null}
         {tile("leave", "calMinus", p("Apply leave", "छुट्टी लें"), V("warns"), V("warnfg"), null)}
       </div>
@@ -605,7 +649,7 @@ export function TeachHome({
   /* ------------------------------------------------------- sheets */
   const cur = data.notices.find((n) => n.id === newsId) ?? pinned;
   const curOther = cur ? (sub({ en: cur.bodyEn ?? "", hi: cur.bodyHi ?? undefined }) ?? null) : null;
-  const cover = data.covers.find((c) => c.id === coverId) ?? null;
+  const cover = allCovers.find((c) => c.id === coverId) ?? null;
   const link = data.links.find((l) => l.paperId === linkId) ?? firstLink ?? null;
   const lk = link ? look(link.entered, link.total) : null;
   const leftCount = link ? Math.max(0, link.total - link.entered) : 0;
@@ -649,11 +693,12 @@ export function TeachHome({
       <main>
         <div className="pad" style={{ padding: "24px 28px 48px", display: "flex", flexDirection: "column", gap: 18, maxWidth: 1260, margin: "0 auto", width: "100%" }}>
           <div className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span className="serif tc-gr" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.15 }}>{tx(greet)}, {greetName(name)}</span>
+            <span className="serif tc-gr" style={{ fontSize: 30, fontWeight: 600, lineHeight: 1.15 }}>{tx(greet)}, {shortName?.trim() || greetName(name)}</span>
             <span className="tc-p" style={{ color: "var(--mut)" }}>{context}</span>
           </div>
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
             <div className="tc-col">
+              {coverAsk}
               {hero}
               {periods}
               {kids}
@@ -750,24 +795,24 @@ export function TeachHome({
         open={sheet === "subs"}
         onClose={() => { setSheet(null); setCantOpen(false); }}
         title={tx(p("Substitution for you", "आपके लिए सब्स्टिट्यूशन"))}
-        sub={cover ? tx(p(`Today · P${cover.number} · asked by the office at ${ampm(cover.askedAt)}`, `आज · P${cover.number} · ऑफ़िस ने ${ampm(cover.askedAt)} बजे पूछा`)) : undefined}
+        sub={cover ? tx(p(`${cover.day === data.today ? "Today" : dShort(cover.day)} · P${cover.number} · asked by the office at ${ampm(cover.askedAt)}`, `${cover.day === data.today ? "आज" : dShort(cover.day)} · P${cover.number} · ऑफ़िस ने ${ampm(cover.askedAt)} बजे पूछा`)) : undefined}
         footer={
           !cover ? undefined : cover.acknowledged ? (
             <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} onClick={() => setSheet(null)}>{tx(p("Done", "ठीक है"))}</button>
           ) : cantOpen ? (
             <>
               <button type="button" className="tap btn ghost tc-bb" onClick={() => setCantOpen(false)}>{tx(p("Back", "पीछे"))}</button>
-              <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} disabled={pending} onClick={() => answer(cover.id, "cannot_cover", [WHY_NOT[why].en, whyNote.trim()].filter(Boolean).join(" — "))}>
+              <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} disabled={pending || why === null} onClick={() => why !== null && answer(cover.id, "cannot_cover", [WHY_NOT[why].en, whyNote.trim()].filter(Boolean).join(" — "))}>
                 <Ic n="send" />
                 {tx(p("Tell the office", "ऑफ़िस को बताएँ"))}
               </button>
             </>
           ) : (
             <>
-              <button type="button" className="tap btn sec tc-bb" style={{ flex: 1 }} onClick={() => setCantOpen(true)}>{tx(p("I can’t", "नहीं ले सकती"))}</button>
+              <button type="button" className="tap btn sec tc-bb" style={{ flex: 1 }} onClick={() => setCantOpen(true)}>{tx(p("I can’t", "नहीं ले पाएँगे"))}</button>
               <button type="button" className="tap btn pri tc-bb" style={{ flex: 1.4 }} disabled={pending} onClick={() => answer(cover.id, "acknowledge")}>
                 <Ic n="check" />
-                {tx(p("I’ll take it", "मैं ले लूँगी"))}
+                {tx(p("I’ll take it", "हाँ, ले लेंगे"))}
               </button>
             </>
           )
@@ -783,7 +828,7 @@ export function TeachHome({
                 <span className="tc-s">{tx(p(`for ${cover.forName}`, `${cover.forName} की जगह`))}</span>
               </span>
             </div>
-            <span className="tc-p">{tx(p(`${cover.forName} is away today. The office asked you to take P${cover.number}.`, `${cover.forName} आज नहीं हैं। ऑफ़िस ने आपसे P${cover.number} लेने को कहा है।`))}</span>
+            <span className="tc-p">{cover.day === data.today ? tx(p(`${cover.forName} is away today. The office asked you to take P${cover.number}.`, `${cover.forName} आज नहीं हैं। ऑफ़िस ने आपसे P${cover.number} लेने को कहा है।`)) : tx(p(`${cover.forName} will be away on ${dShort(cover.day)}. The office asked you to take P${cover.number} that day.`, `${cover.forName} ${dShort(cover.day)} को नहीं होंगे। ऑफ़िस ने आपसे उस दिन P${cover.number} लेने को कहा है।`))}</span>
             {cover.reason ? (
               <div className="tc-note" style={{ background: "var(--s2)", flexDirection: "column", gap: 4 }}>
                 <span className="sech">{tx(p("Note from the office", "ऑफ़िस का नोट"))}</span>
@@ -792,7 +837,7 @@ export function TeachHome({
             ) : null}
             {cantOpen && !cover.acknowledged ? (
               <div className="tc-in" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span className="sech">{tx(p("Why can’t you take it?", "क्यों नहीं ले सकतीं?"))}</span>
+                <span className="sech">{tx(p("Why can’t you take it?", "क्यों नहीं ले पाएँगे?"))}</span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {WHY_NOT.map((w, i) => (
                     <button key={w.en} type="button" className={`tap chip${why === i ? " on" : ""}`} aria-pressed={why === i} onClick={() => setWhy(i)} style={{ height: 44, padding: "0 16px", fontSize: 14 }}>{tx(w)}</button>
@@ -807,7 +852,7 @@ export function TeachHome({
             {cover.acknowledged ? (
               <div className="tc-note tc-pop" style={{ background: "var(--oks)", color: "var(--ok)" }}>
                 <Ic n="check" />
-                <span style={{ fontWeight: 600 }}>{tx(p(`You’re covering P${cover.number} · ${cover.classLabels}`, `आप P${cover.number} ले रही हैं · ${cover.classLabels}`))}</span>
+                <span style={{ fontWeight: 600 }}>{tx(p(`You’re covering P${cover.number} · ${cover.classLabels}`, `आप P${cover.number} ले रहे हैं · ${cover.classLabels}`))}</span>
               </div>
             ) : null}
           </div>
