@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { closeDayAction, reopenDayAction } from "@/app/(app)/receipts/actions";
@@ -37,17 +37,18 @@ function ClosedTick() {
 }
 
 /** − count + for one note: 40px buttons around a number that can also be typed. */
-function Count({ label, value, onChange, max }: { label: string; value: number; onChange: (v: number) => void; max: number }) {
+function Count({ label, value, onChange, max, disabled }: { label: string; value: number; onChange: (v: number) => void; max: number; disabled?: boolean }) {
   const { tx } = useVx();
   return (
     <span role="group" aria-label={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneLess)} ${label}`} onClick={() => onChange(Math.max(0, value - 1))} style={{ width: 40, height: 40, padding: 0 }}>
+      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneLess)} ${label}`} onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled} style={{ width: 40, height: 40, padding: 0 }}>
         <Ic n="minus" />
       </button>
       <input
         className="num"
         inputMode="numeric"
         aria-label={label}
+        disabled={disabled}
         value={value}
         onChange={(e) => {
           const n = Number(e.target.value.replace(/\D/g, ""));
@@ -55,14 +56,20 @@ function Count({ label, value, onChange, max }: { label: string; value: number; 
         }}
         style={{ width: 44, minWidth: 44, textAlign: "center", border: 0, background: "transparent", outline: "none", fontSize: 17, fontWeight: 700, color: "var(--fg)" }}
       />
-      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneMore)} ${label}`} onClick={() => onChange(Math.min(max, value + 1))} style={{ width: 40, height: 40, padding: 0 }}>
+      <button type="button" className="tap btn sec" aria-label={`${tx(W.oneMore)} ${label}`} onClick={() => onChange(Math.min(max, value + 1))} disabled={disabled} style={{ width: 40, height: 40, padding: 0 }}>
         <Ic n="plus" />
       </button>
     </span>
   );
 }
 
+const noSubscribe = () => () => undefined;
+
 export function ClosePanel(props: DeskProps) {
+  // Counts typed before the page came alive were silently dropped on a slow
+  // connection ("Counted ₹0 · Short by ₹6,100"): the boxes stay disabled until
+  // they can hold a number (accountant B12).
+  const live = useSyncExternalStore(noSubscribe, () => true, () => false);
   const { rows, anchor, today, span, closeEvent, perms, sessionLabel } = props;
   const { tx } = useVx();
   const router = useRouter();
@@ -234,7 +241,7 @@ export function ClosePanel(props: DeskProps) {
             return (
               <div key={d} style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 96px", gap: 10, alignItems: "center", padding: "4px 0" }}>
                 <span className="num" style={{ fontSize: 15, fontWeight: 700 }}>{label}</span>
-                <Count label={label} value={counts[d] ?? 0} max={d === 1 ? 99999 : 9999} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
+                <Count label={label} value={counts[d] ?? 0} max={d === 1 ? 99999 : 9999} disabled={!live} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
                 <span className="num" style={{ textAlign: "right", fontSize: 14, fontWeight: 600, color: "var(--mut)" }}>{rupees((counts[d] ?? 0) * d)}</span>
               </div>
             );

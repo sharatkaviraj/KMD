@@ -313,8 +313,14 @@ export function lateFeesOn(rows: readonly DeskLedgerRow[], paymentDate: string) 
 }
 
 /** Whole rupees only. Invalid text remains visible and cannot be collected. */
+/** Paise were typed ("1000.50"): the desk takes whole rupees only, and says so (accountant B13). */
+export function hasPaise(text: string): boolean {
+  return /^\s*(?:₹\s*)?[\d,\s]*\.\d*[1-9]\d*\s*$/.test(String(text ?? ""));
+}
+
 export function parseAmountInput(text: string): number {
-  const value = String(text ?? "").trim().replace(/^₹\s*/, "").replace(/,/g, "");
+  // Commas and spaces are digit grouping: "1,500" and " 2 000 " are both fine (accountant B13).
+  const value = String(text ?? "").trim().replace(/^₹\s*/, "").replace(/[,\s]/g, "");
   if (!value) return 0;
   if (!/^\d+(?:\.0+)?$/.test(value)) return NaN;
   const n = Number(value);

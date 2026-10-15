@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { COUNTER_CONCESSION, counterConcessionRefusal, matchesDeskSearch, nameSkeleton } from "@/modules/payments/vx/domain/desk";
+import { COUNTER_CONCESSION, counterConcessionRefusal, hasPaise, matchesDeskSearch, nameSkeleton, parseAmountInput } from "@/modules/payments/vx/domain/desk";
+import { deskTime } from "@/vx/screens/receipts/look";
+
+describe("amount box (accountant B13)", () => {
+  it("reads spaces as digit grouping, like commas", () => {
+    expect(parseAmountInput(" 2 000 ")).toBe(2000);
+    expect(parseAmountInput("1,500")).toBe(1500);
+  });
+  it("names paise instead of a generic error", () => {
+    expect(hasPaise("1000.50")).toBe(true);
+    expect(hasPaise("₹ 1,000.5")).toBe(true);
+    expect(hasPaise("1000.00")).toBe(false);
+    expect(hasPaise("1000")).toBe(false);
+    expect(parseAmountInput("1000.50")).toBeNaN();
+  });
+});
+
+describe("receipt times say am or pm", () => {
+  it("marks the morning too", () => {
+    expect(deskTime("2026-10-14T19:44:00Z")).toMatch(/1:14 am$/);
+    expect(deskTime("2026-10-14T18:22:00Z")).toMatch(/11:52 pm$/);
+  });
+});
 import { dayBookClosure } from "@/modules/receipts/vx/domain/day-close";
 import { familyMatchesQuery } from "@/modules/defaulters/vx/domain/families";
 import { newAdmissionSplit } from "@/modules/students-fees/domain/admission-dues";

@@ -140,6 +140,7 @@ export const W = {
   typeAmount: p("Type what the parent gave", "अभिभावक ने जो दिया वह लिखें"),
   typeAmountErr: p("Type the amount the parent gave — any amount is fine"),
   errAmount: p("Type the amount received", "मिली राशि लिखें"),
+  wholeRupees: p("Whole rupees only — no paise", "केवल पूरे रुपये — पैसे नहीं"),
   chipOverdue: p("Overdue fees", "देय फीस"),
   chipInstallment: (n: number) => p(`Installment ${n} balance`, `किस्त ${n} का बकाया`),
   chipUpto: (n: number) => p(`Up to Installment ${n}`, `किस्त ${n} तक`),
@@ -242,7 +243,9 @@ export const W = {
   showReceipt: p("Show the receipt", "रसीद दिखाएँ"),
   receiptSettling: (n: string) => p(`Saved as ${n}. The money is posted — the receipt and balance appear here in a moment.`, `${n} के रूप में सहेजा गया। पैसा जमा हो गया — रसीद और बकाया अभी यहाँ दिखेंगे।`),
   removeTill: (t: string) => p(`Remove this entry · till ${t}`, `यह प्रविष्टि हटाएँ · ${t} तक`),
-  askRemove: p("Ask admin to remove", "एडमिन से हटवाएँ"),
+  // It is a link to the receipt, where "Reverse" sends the request; the old
+  // label read as if the admin had already been asked (accountant B11).
+  askRemove: p("Open the receipt to ask the admin to remove it", "रसीद खोलें, वहाँ से एडमिन से हटवाएँ"),
   youCanRemove: (t: string) => p(`You can remove it till ${t}`, `आप इसे ${t} तक हटा सकते हैं`),
   onlyAdminRemoves: p("Only the admin can remove it (first 10 minutes)", "केवल एडमिन हटा सकते हैं (पहले 10 मिनट)"),
   openInReceipts: p("Open in Receipts", "रसीदों में खोलें"),

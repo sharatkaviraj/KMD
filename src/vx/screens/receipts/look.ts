@@ -49,7 +49,9 @@ export function deskTime(value: string): string {
   const text = TIME.format(new Date(value));
   const pm = /p\.?\s*m\.?$/i.test(text);
   const bare = text.replace(/[\s ]*[ap]\.?\s*m\.?$/i, "");
-  return pm ? `${bare} pm` : bare;
+  // Always say which half of the day: a receipt at "1:14" beside "11:52 pm"
+  // could not be read as 1:14 am (accountant UI).
+  return `${bare} ${pm ? "pm" : "am"}`;
 }
 
 /** "Today · Thu 8 Oct", "Yesterday · Wed 7 Oct", "Tue 6 Oct". */

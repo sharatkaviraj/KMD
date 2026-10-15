@@ -23,6 +23,7 @@ import {
   deskProblems,
   deskTotals,
   findRecentDuplicate,
+  hasPaise,
   isDueOn,
   isOverdueOn,
   lateFeesOn,
@@ -743,12 +744,13 @@ export function PaymentDesk({
       <Ic n="chevRight" size={16} />
     </Link>
   );
-  const manyBtn = (
+  // Only for those who can use it: a full-size "Enter many payments · Admin
+  // only" button sat in the accountant's top bar (accountant UI).
+  const manyBtn = boot.me.canBulk ? (
     <Link href="/payments/bulk" className="tap btn sec">
       <Ic n="table" /> {tx(W.many)}
-      {!boot.me.canBulk ? <span className="pill" style={{ background: "var(--s3)", color: "var(--mut)" }}>{tx(W.adminOnly)}</span> : null}
     </Link>
-  );
+  ) : null;
 
   const listMaxH = selId ? 292 : undefined;
   const findPane = (
@@ -913,7 +915,7 @@ export function PaymentDesk({
           </span>
         </label>
         <span id="pd-amount-words" style={{ fontSize: 13, fontWeight: 600, color: amountBad ? "var(--bad)" : "var(--mut)" }}>
-          {has("over") ? tx(W.overMax(rupees(walk.maxAmount))) : amount ? wordsOf(amount) : tried ? tx(W.typeAmountErr) : tx(W.typeAmount)}
+          {has("over") ? tx(W.overMax(rupees(walk.maxAmount))) : hasPaise(form.amount) ? tx(W.wholeRupees) : amount ? wordsOf(amount) : tried ? tx(W.typeAmountErr) : tx(W.typeAmount)}
         </span>
         {chips.length ? (
           <div className="pd-chips" role="group" aria-label={tx(W.chipNote)}>
