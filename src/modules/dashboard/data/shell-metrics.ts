@@ -3,6 +3,7 @@ import "server-only";
 import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/data/reversals";
 import { isDiscountCloseout } from "@/platform/money/write-off";
 import { cacheSafeUnstableCache, getCacheSafeClient } from "@/modules/fees/platform/supabase/cache-safe";
+import { DASHBOARD_STALENESS_CEILING_SECONDS } from "@/modules/dashboard/domain/cache-contract";
 
 /**
  * Lightweight numbers for the workspace shell chrome ("Ledger Calm 2.0"):
@@ -133,5 +134,42 @@ export async function getShellPulse(sessionLabel: string): Promise<ShellPulse> {
     )();
   } catch {
     return EMPTY_PULSE;
+  }
+}
+
+/**
+ * The "Dues" badge alone: how many active children still owe anything.
+ *
+ * `getShellPulse` reads this count beside today's receipts under
+ * `session:{label}`, the tag every posting busts — so on a collection morning
+ * each receipt re-scanned `v_workbook_student_financials` (about 480 ms) for a
+ * nav badge (perf "busted pulse cache"). The badge has its own entry instead,
+ * deliberately NOT under the session tag, with the dashboard's five-minute
+ * ceiling (DASHBOARD_STALENESS_CEILING_SECONDS) as its expiry: a count of
+ * families on a nav pill may lag a payment by a few minutes, while every
+ * money figure keeps the session tag and stays exact.
+ *
+ * Null when it could not be read, so the badge is hidden rather than nought.
+ */
+export async function getDuesBadgeCount(sessionLabel: string): Promise<number | null> {
+  try {
+    return await cacheSafeUnstableCache(
+      async () => {
+        const supabase = await getCacheSafeClient();
+        const { count, error } = await supabase
+          .from("v_workbook_student_financials")
+          .select("student_id", { count: "exact", head: true })
+          .eq("session_label", sessionLabel)
+          .eq("record_status", "active")
+          .gt("outstanding_amount", 0);
+        // Thrown, not returned: unstable_cache keeps no entry for a failure.
+        if (error) throw new Error(error.message);
+        return count ?? 0;
+      },
+      ["dues-badge", sessionLabel],
+      { tags: [`dues-badge:${sessionLabel}`], revalidate: DASHBOARD_STALENESS_CEILING_SECONDS },
+    )();
+  } catch {
+    return null;
   }
 }
