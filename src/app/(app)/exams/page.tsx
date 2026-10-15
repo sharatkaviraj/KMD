@@ -238,7 +238,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
   let cards: ExamsProps["cards"] = null;
   let preview: ExamsProps["preview"] = null;
   if (reports && exam && progress && (view === "reportcards" || view === "preview")) {
-    const issued = await issuedStudents(sessionLabel, exam.term);
+    const issued = await issuedStudents(sessionLabel, exam.term, exam.startsOn);
     const classList = [...progress.roll.keys()]
       .map((id) => {
         const info = ctx.classes.find((c) => c.id === id);

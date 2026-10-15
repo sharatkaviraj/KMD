@@ -10,7 +10,7 @@ import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { histogram } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
 import { averagePct, graceVerdict, pipelineStates, unusualAverages, type PaperAverage } from "@/vx/screens/exams/domain/results";
-import { paperStatus } from "@/vx/screens/exams/domain/tracker";
+import { isLate } from "@/vx/screens/exams/domain/tracker";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
 import { ResultsBoard, type ResultsView, type ResultsProps } from "@/vx/screens/exams/results-board";
 
@@ -64,7 +64,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
     moderationFor(paperIds),
     graceFor(paperIds),
     rechecksFor(paperIds),
-    issuedStudents(sessionLabel, exam.term),
+    issuedStudents(sessionLabel, exam.term, exam.startsOn),
     prev ? papersOf([prev.id]) : Promise.resolve([]),
   ]);
   const prevMarks = await marksOf(prevPapers.map((x) => x.id));
@@ -145,7 +145,9 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         children: progress.roll.get(classId)?.length ?? 0,
         percent: total ? Math.round((entered / total) * 100) : 0,
         allSubmitted: papers.every((x) => x.entryStatus === "submitted"),
-        late: papers.filter((x) => paperStatus(x) !== "done" && x.total > 0 && progress.teachers.some((t) => t.late && t.papers.some((tp) => tp.paperId === x.paperId))).length,
+        // Every late paper, whether or not a teacher is assigned to it: an
+        // unassigned paper past its due date is the most late of all (B7).
+        late: papers.filter((x) => isLate(x, progress.expected)).length,
         unusual: unusual.filter((u) => u.classId === classId).length,
         unusualOpen: unusualOpen.filter((u) => u.classId === classId).length,
         graceNeeded: graceRows.filter((g) => g.classId === classId && g.canPass && !g.given).length,

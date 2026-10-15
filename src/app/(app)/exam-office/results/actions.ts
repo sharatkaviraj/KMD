@@ -206,7 +206,7 @@ export async function issueClassCardsAction(input: { examId: string; classId: st
   if (!locks.has(input.classId)) return { ok: false, message: p("Lock the class's marks first — a card is made from locked marks.", "पहले कक्षा के अंक बंद करें — कार्ड बंद अंकों से बनता है।") };
   const today = schoolToday();
   const roll = (await enrolmentsFor(sessionLabel, [input.classId])).filter((e) => onRoll(e, { startsOn: today, endsOn: today }, today));
-  const have = await issuedStudents(sessionLabel, exam.term);
+  const have = await issuedStudents(sessionLabel, exam.term, exam.startsOn);
   let done = 0;
   let firstRefusal: Pair | null = null;
   for (const e of roll) {

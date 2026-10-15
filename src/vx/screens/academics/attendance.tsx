@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { getSiteUrl } from "@/platform/env";
@@ -6,7 +8,7 @@ import { EmptyState } from "@/vx/ui/primitives";
 
 import { AcadAttendanceView, monthsAround, type AcadAttendanceProps, type AttendanceSheet } from "./attendance-view";
 import { academicContext, attendanceMonth, attendanceOn, chronicAbsentees, holidaysIn, lastNotes, markSheet, recentStatuses, registerSheet } from "./data";
-import { isMonth, isUuid, monthRange } from "./domain";
+import { isDay, isMonth, isUuid, monthRange } from "./domain";
 import { sayer } from "./ui";
 
 /*
@@ -37,6 +39,11 @@ export async function AcadAttendance(props: Props) {
     );
   }
   const view = ["month", "chronic", "register"].includes(props.view ?? "") ? props.view! : "today";
+  // "Today" only ever shows today; another day asked for opens that day in
+  // the month view, which can show it, rather than being silently ignored (B15).
+  if (view === "today" && isDay(props.day) && props.day !== ctx.today && props.day < ctx.today) {
+    redirect(`/academics/attendance?view=month&month=${props.day.slice(0, 7)}&day=${props.day}`);
+  }
   const month = isMonth(props.month) ? props.month : ctx.today.slice(0, 7);
   const [today, chronic] = await Promise.all([attendanceOn(ctx, ctx.today), chronicAbsentees(ctx)]);
   const registerClass = ctx.classes.find((c) => c.id === props.classId) ?? ctx.classes.find((c) => today.classes.some((t) => t.classId === c.id && t.tally.absent > 0)) ?? ctx.classes[0] ?? null;

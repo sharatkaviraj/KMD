@@ -2,7 +2,7 @@ import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
-import { dayLabel } from "@/platform/dates";
+import { dayLabel, schoolToday } from "@/platform/dates";
 import { getSchoolName } from "@/platform/env";
 import { countOf, flat, primary, t } from "@/platform/i18n/language";
 import { pageTitle } from "@/platform/i18n/page-title";
@@ -12,14 +12,15 @@ import {
   issuedCards,
   previewReportCard,
 } from "@/modules/assessments/data/reports-repo";
-import { orderTerms } from "@/modules/assessments/domain/assessments";
-import { readiness } from "@/modules/assessments/domain/report-card";
+import { currentTerm, termsByDate } from "@/modules/assessments/domain/assessments";
+import { isEmptyCard, markIn, readiness, reportColumns } from "@/modules/assessments/domain/report-card";
 import { IssueReportForm } from "@/modules/assessments/ui/assessment-forms";
 import { reportRefusals } from "@/modules/assessments/domain/report-refusals";
 import { PrintButton } from "@/modules/attendance/ui/print-button";
 import { Badge, Card, Notice, Section } from "@/ui/primitives";
 import { buttonClasses } from "@/ui/primitives/button";
 import { EmptyState } from "@/ui/states";
+import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { PageHeader } from "@/ui/page-header-localized";
 import Link from "next/link";
 
@@ -65,10 +66,12 @@ export default async function ReportCardPage(
   }
 
   const assessments = await listAssessments(sessionLabel);
-  const terms = orderTerms(assessments.map((entry) => entry.term));
+  // In the order they are sat, and opening on the current one — never the
+  // first label alphabetically, which on dev is a test term (B3, rule 3a).
+  const terms = termsByDate(assessments);
 
   const requested = typeof params.term === "string" ? params.term : null;
-  const term = requested && terms.includes(requested) ? requested : terms[0];
+  const term = requested && terms.includes(requested) ? requested : (currentTerm(assessments, schoolToday()) ?? terms[0]);
 
   if (!term) {
     return (
@@ -101,6 +104,18 @@ export default async function ReportCardPage(
   const isDraft = !issued;
   const ready = readiness(preview.card);
   const unsubmitted = preview.sources.papers.filter((paper) => paper.entryStatus !== "submitted");
+  const columns = reportColumns(card.rows);
+  // What stops this card being issued, said beside the button rather than
+  // after a press: an empty card is never one tap away (B3).
+  const issueBlocked = isEmptyCard(preview.card)
+    ? reportRefusals.no_marks
+    : !preview.scheme
+      ? reportRefusals.no_approved_scheme
+      : unsubmitted.length > 0
+        ? reportRefusals.papers_not_submitted
+        : !ready.ready
+          ? reportRefusals.incomplete
+          : null;
 
   return (
     <>
@@ -121,6 +136,9 @@ export default async function ReportCardPage(
             {terms.map((entry) => (
               <Link
                 key={entry}
+                // Each chip is another full card render; prefetching all of
+                // them kept this page busy for minutes (B18).
+                prefetch={false}
                 href={`/assessments/report/${studentId}?term=${encodeURIComponent(entry)}`}
                 className={buttonClasses({
                   variant: entry === term ? "primary" : "outline",
@@ -135,6 +153,7 @@ export default async function ReportCardPage(
 
         <div className="mb-4 flex flex-wrap gap-2">
           <Link
+            prefetch={false}
             href={`/assessments/scheme?term=${encodeURIComponent(term)}`}
             className={buttonClasses({ variant: "outline", size: "sm" })}
           >
@@ -250,16 +269,21 @@ export default async function ReportCardPage(
                 >
                   {primary(m.reportSubject, language)}
                 </th>
-                {card.rows[0].marks.map((mark) => (
+                {/* Every exam any subject sat, not the first row's: ELGA has
+                    no FA1, and a header built from it put every other
+                    subject's marks under the wrong heading (B5). */}
+                {columns.map((column) => (
                   <th
-                    key={mark.assessmentCode}
+                    key={column.assessmentCode}
                     scope="col"
                     className="border border-border bg-surface-2 px-2 py-1.5 text-center font-semibold"
                   >
-                    {mark.assessmentCode}
-                    <span className="block text-[11px] font-normal text-muted-foreground">
-                      {primary(m.reportOutOf, language)} {mark.maxMarks}
-                    </span>
+                    {column.assessmentCode}
+                    {column.maxMarks !== null ? (
+                      <span className="block text-[11px] font-normal text-muted-foreground">
+                        {primary(m.reportOutOf, language)} {column.maxMarks}
+                      </span>
+                    ) : null}
                   </th>
                 ))}
                 <th
@@ -289,24 +313,32 @@ export default async function ReportCardPage(
                     scope="row"
                     className="border border-border px-2 py-1 text-left font-medium"
                   >
-                    {row.subjectCode}
+                    {subjectPair(row.subjectCode).en}
                   </th>
-                  {row.marks.map((mark) => (
-                    <td
-                      key={`${row.subjectCode}-${mark.assessmentCode}`}
-                      className="border border-border px-2 py-1 text-center tabular-nums"
-                    >
-                      {/* Three states, kept apart on the page a family reads:
-                          a mark, an absence, and a paper nobody has marked. */}
-                      {mark.exempt
-                        ? primary(m.marksExempt, language)
-                        : mark.absent
-                          ? primary(m.marksAbsent, language)
-                          : mark.value === null
-                            ? "—"
-                            : mark.value}
-                    </td>
-                  ))}
+                  {columns.map((column) => {
+                    const mark = markIn(row, column.assessmentCode);
+                    return (
+                      <td
+                        key={`${row.subjectCode}-${column.assessmentCode}`}
+                        className="border border-border px-2 py-1 text-center tabular-nums"
+                      >
+                        {/* Four states, kept apart on the page a family reads: a
+                            mark, an absence, a paper nobody has marked, and an
+                            exam this subject was not part of (blank). */}
+                        {!mark
+                          ? ""
+                          : mark.exempt
+                            ? primary(m.marksExempt, language)
+                            : mark.absent
+                              ? primary(m.marksAbsent, language)
+                              : mark.value === null
+                                ? "—"
+                                : column.maxMarks === null
+                                  ? `${mark.value} / ${mark.maxMarks}`
+                                  : mark.value}
+                      </td>
+                    );
+                  })}
                   <td className="border border-border px-2 py-1 text-center tabular-nums">
                     {row.scored} / {row.outOf}
                   </td>
@@ -347,8 +379,10 @@ export default async function ReportCardPage(
               {card.attendance.percent !== null ? ` (${card.attendance.percent}%)` : ""}
             </Badge>
           ) : null}
+          {/* For the office, not the family: a count of days nobody took the
+              register is a fact about the school (U11). */}
           {card.attendance?.notRecorded ? (
-            <Badge tone="warning">
+            <Badge tone="warning" className="print:hidden">
               {card.attendance.notRecorded} {primary(ms.reportAttendanceNotRecorded, language)}
             </Badge>
           ) : null}
@@ -360,7 +394,7 @@ export default async function ReportCardPage(
         </div>
 
         {card.totals.weighted ? (
-          <p className="mt-2 text-[12px] text-muted-foreground">
+          <p className="mt-2 text-[12px] text-muted-foreground print:hidden">
             {primary(m.reportWeighted, language)}
           </p>
         ) : null}
@@ -423,6 +457,7 @@ export default async function ReportCardPage(
                 studentId={studentId}
                 term={term}
                 expectedRevision={issued?.revision ?? 0}
+                blocked={issueBlocked}
               />
             </Card>
           </Section>

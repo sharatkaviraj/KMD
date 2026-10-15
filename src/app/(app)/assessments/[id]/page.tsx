@@ -249,7 +249,7 @@ export default async function AssessmentPage(props: PageProps<"/assessments/[id]
           )}
 
           {can(staff, "reports:view") && exportRows.length > 0 ? (
-            <div className="mt-3">
+            <div id="marks-export" className="mt-3 scroll-mt-20">
               <ExportButton
                 csv={marksCsv(exportRows)}
                 kind="marks"

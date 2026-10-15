@@ -86,7 +86,9 @@ export function HeatCell({ label, pct, href, title }: { label: string; pct: numb
 export function HeatStrip({ count, children }: { count: number; children: ReactNode }) {
   return (
     <div className="acad-heat" style={{ display: "grid", gap: 6, ["--n" as string]: String(Math.max(1, count)) }}>
-      <style>{`.acad-heat{grid-template-columns:repeat(var(--n),minmax(0,1fr))}@container vx (max-width:899px){.acad-heat{grid-template-columns:repeat(7,minmax(0,1fr))}}`}</style>
+      {/* Never narrower than a 44px tap target (coordinators U13): with
+          nineteen classes the strip wraps rather than shrinking each tile. */}
+      <style>{`.acad-heat{grid-template-columns:repeat(auto-fill,minmax(44px,1fr))}`}</style>
       {children}
     </div>
   );

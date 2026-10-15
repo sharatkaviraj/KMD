@@ -8,6 +8,7 @@ import { fetchAllRows } from "@/platform/supabase/paginate";
 import { schoolToday } from "@/platform/dates";
 import type { Assessment, AssessmentKind, AssessmentStatus } from "@/modules/assessments/domain/assessments";
 
+import { openExamsForMarks, pickCurrentExam } from "./domain/current";
 import { onRoll, type EnrolmentFacts, type PaperFacts } from "./domain/tracker";
 import type { Cell } from "./domain/entry";
 
@@ -136,15 +137,17 @@ export async function listExams(sessionLabel: string): Promise<Exam[]> {
     .sort((a, b) => (a.startsOn ?? "9999").localeCompare(b.startsOn ?? "9999") || a.code.localeCompare(b.code));
 }
 
-/** The exam marks are being worked on: the latest open one that has begun and has papers. */
+/**
+ * The exam marks are being worked on: the latest open, dated exam with papers
+ * that has begun — never an undated one while a dated one exists. The rule is
+ * `pickCurrentExam` in `domain/current.ts`; `openExamsForMarks` there lists
+ * every open exam for a teacher's marks tab.
+ */
 export function currentExam(exams: Exam[], today: string, requested?: string | null): Exam | null {
-  if (requested) {
-    const asked = exams.find((e) => e.id === requested);
-    if (asked) return asked;
-  }
-  const begun = exams.filter((e) => e.papers > 0 && e.status === "open" && (!e.startsOn || e.startsOn <= today));
-  return begun.at(-1) ?? exams.filter((e) => e.papers > 0).at(-1) ?? exams.at(-1) ?? null;
+  return pickCurrentExam(exams, today, requested);
 }
+
+export { openExamsForMarks, pickCurrentExam };
 
 /** The next exam to plan: the first that has not begun, else the latest. */
 export function nextExam(exams: Exam[], today: string, requested?: string | null): Exam | null {
@@ -399,7 +402,10 @@ export async function trackerFor(input: {
   }
   const papers: PaperFacts[] = rows.map((r) => {
     const kids = roll.get(r.class_id) ?? [];
-    const teacherId = teacherOf.get(`${r.class_id}|${r.subject_id}`) ?? null;
+    // A paper nobody is assigned to is the class teacher's to chase, as the
+    // coordinator's home has always counted it — otherwise it is late with
+    // nobody to remind, and the two screens disagree on who is behind.
+    const teacherId = teacherOf.get(`${r.class_id}|${r.subject_id}`) ?? classOf.get(r.class_id)?.classTeacherId ?? null;
     return {
       paperId: r.id,
       classId: r.class_id,
@@ -548,18 +554,24 @@ export async function rechecksFor(paperIds: string[]): Promise<RecheckRow[]> {
   return res.data.sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
-export async function issuedStudents(sessionLabel: string, term: string): Promise<Set<string>> {
+/**
+ * Children with an issued card for the term. With `since` (an exam's first
+ * day), only cards issued on or after it: a card issued before the exam began
+ * cannot carry its marks, so it does not count as this exam's card
+ * (coordinators B6 — a 22 Sep card showed as "1 of 507" for the half-yearly).
+ */
+export async function issuedStudents(sessionLabel: string, term: string, since?: string | null): Promise<Set<string>> {
   const rows = await fetchAllRows<{ student_id: string }>(
-    (from, to) =>
-      admin()
+    (from, to) => {
+      let query = admin()
         .from("report_card_issues")
         .select("student_id")
         .eq("session_label", sessionLabel)
         .eq("term", term)
-        .eq("status", "issued")
-        .order("id")
-        .range(from, to)
-        .returns<{ student_id: string }[]>(),
+        .eq("status", "issued");
+      if (since) query = query.gte("issued_at", `${since}T00:00:00+05:30`);
+      return query.order("id").range(from, to).returns<{ student_id: string }[]>();
+    },
     "the issued cards",
   );
   return new Set(rows.map((r) => r.student_id));
