@@ -11,7 +11,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 
 import type { ClassData, MarksLink, StudentData, SubjectData } from "../data";
-import { periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
+import { genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
 import { dShort, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, TchTop } from "./shared";
 
@@ -185,8 +185,8 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
   }
 
   const needs = data.children.filter((c) => c.reasons.length > 0);
-  const girls = data.children.filter((c) => /^f/i.test(c.gender ?? "")).length;
-  const boys = data.children.filter((c) => /^m/i.test(c.gender ?? "")).length;
+  // Only when every child has a gender recorded; a partial count read as fact (BUG-10).
+  const split = genderSplit(data.children.map((c) => c.gender));
   const reg = data.todayRegister;
   const why = (c: Child) =>
     [
@@ -223,7 +223,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
             <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column" }}>
               <span className="serif" style={{ fontSize: 36, fontWeight: 600, lineHeight: 1.05 }}>{tx(p(`${n} children`, `${n} बच्चे`))}</span>
-              <span style={{ fontSize: 14, opacity: 0.86 }}>{[sub(p(`${n} children`, `${n} बच्चे`)), girls || boys ? tx(p(`${girls} girls · ${boys} boys`, `${girls} लड़कियाँ · ${boys} लड़के`)) : null, classLabel].filter(Boolean).join(" · ")}</span>
+              <span style={{ fontSize: 14, opacity: 0.86 }}>{[sub(p(`${n} children`, `${n} बच्चे`)), split ? tx(p(`${split.girls} girls · ${split.boys} boys`, `${split.girls} लड़कियाँ · ${split.boys} लड़के`)) : null, classLabel].filter(Boolean).join(" · ")}</span>
             </span>
             <button type="button" className="tap" onClick={() => setView("roster")} aria-label={tx(p(`See all ${n} children`, `सभी ${n} बच्चे देखें`))} style={{ display: "flex", alignItems: "center", border: 0, background: "transparent", padding: "0 0 0 10px", color: "inherit" }}>
               {stack.map((k, i) => (

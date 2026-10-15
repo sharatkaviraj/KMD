@@ -3,6 +3,8 @@ import "server-only";
 import { schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { shortDay } from "@/vx/format";
+import { tellApart } from "@/vx/screens/teach/domain/teach";
+import type { Pair } from "@/vx/text";
 
 import { listExams, marksOf, paperById, previousExam, studentsByIds, toCell, type Exam, type PaperRow } from "./data";
 import type { Cell } from "./domain/entry";
@@ -13,7 +15,8 @@ import type { Cell } from "./domain/entry";
  * mark in the exam before, shown faintly beside the box.
  */
 
-export type SheetStudent = { id: string; name: string; roll: string | null; prev: string | null; prevPct: number | null };
+/** `hint`: SR number and father, only for a child whose name another child on the sheet shares (ST-19). */
+export type SheetStudent = { id: string; name: string; roll: string | null; prev: string | null; prevPct: number | null; hint?: Pair | null };
 
 export type SheetPaper = {
   id: string;
@@ -124,6 +127,8 @@ export async function loadSheet(paperId: string, known?: { exams?: Exam[]; paper
       };
     })
     .sort(rollOrder);
+  const apart = tellApart(students.map((s) => ({ id: s.id, name: s.name, admissionNo: names.get(s.id)?.admissionNo ?? null, fatherName: names.get(s.id)?.fatherName ?? null })));
+  for (const s of students) s.hint = apart.get(s.id) ?? null;
 
   const markOf = new Map(marks.map((m) => [m.student_id, m]));
   const saved: Record<string, Cell> = {};
