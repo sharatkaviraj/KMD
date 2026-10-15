@@ -109,14 +109,14 @@ export function WriteOffSheet({ row, sessionLabel, open, canDecide }: { row: Lef
         <Field label={tx(W.woAmount)} style={{ marginTop: 4 }}>
           <input className={`inp${amountOk ? "" : " err"}`} inputMode="numeric" aria-invalid={amountOk ? undefined : true} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))} />
         </Field>
-        {amountOk ? null : (
+        {amountOk || owed <= 0 ? null : (
           <span role="alert" className="fadein" style={{ fontSize: 12, fontWeight: 600, color: "var(--bad)", marginTop: -4 }}>{tx(fill(W.woAmountErr, { amt: rupees(owed) }))}</span>
         )}
         <Field label={tx(W.woNoteLabel)}>
           <Textarea value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder={tx(W.woNotePh)} style={{ minHeight: 64 }} />
         </Field>
         <Inset icon="info" bg="var(--warns)" fg="var(--warnfg)">
-          {canDecide ? tx(W.woImpactAdmin) : tx(fill(W.woImpact, { amt: rupees(owed), name: row.fullName }))}
+          {owed <= 0 ? tx(W.woNothingOwed) : canDecide ? tx(W.woImpactAdmin) : tx(fill(W.woImpact, { amt: rupees(owed), name: row.fullName }))}
         </Inset>
         {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
       </div>

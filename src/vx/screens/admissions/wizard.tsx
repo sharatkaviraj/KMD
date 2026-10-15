@@ -153,6 +153,9 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
   const [dupes, setDupes] = useState<DuplicateHit[]>([]);
   const [dupOk, setDupOk] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The duplicate check behind step 2's Next can be slow; without a busy state
+  // the step did not move and the footer read like a validation error (admin B18).
+  const [checking, setChecking] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const cls = ctx.classes.find((c) => c.id === f.classId) ?? null;
@@ -176,7 +179,9 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
   const stepOk = (s: number) => (s === 1 ? !Object.values(step1Errors).some(Boolean) : s === 2 ? !Object.values(step2Errors).some(Boolean) : true);
   const bad = tried[step] ? Object.values(step === 1 ? step1Errors : step === 2 ? step2Errors : {}).filter(Boolean).length : 0;
 
-  const hint = bad
+  const hint = checking
+    ? tx(p("Checking whether this child is already on the roll…", "जाँच रहे हैं कि यह बच्चा पहले से दर्ज तो नहीं…"))
+    : bad
     ? tx(p(`${bad} ${bad === 1 ? "thing" : "things"} to fix above`, `ऊपर ${bad} चीज़ें ठीक करें`))
     : step === 1
       ? tx(p("Name, birth date and class are needed", "नाम, जन्म तिथि और कक्षा ज़रूरी हैं"))
@@ -192,7 +197,17 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
       return;
     }
     if (step === 2 && !dupOk) {
-      const hits = await checkDuplicateAction({ fullName: f.fullName, fatherName: fam.fatherName, dob: f.dob, phone: fam.phone });
+      if (checking) return;
+      setChecking(true);
+      let hits: DuplicateHit[];
+      try {
+        hits = await checkDuplicateAction({ fullName: f.fullName, fatherName: fam.fatherName, dob: f.dob, phone: fam.phone });
+      } catch {
+        toast.show({ text: tx(p("Could not check for the same child. Try again.", "यही बच्चा पहले से है या नहीं, जाँच नहीं हो सकी। फिर कोशिश करें।")), tone: "bad" });
+        return;
+      } finally {
+        setChecking(false);
+      }
       if (hits.length > 0) {
         setDupes(hits);
         setSheet("duplicate");
@@ -596,8 +611,8 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
             ) : (
               <Btn variant="sec" icon="chevLeft" onClick={() => setStep(step - 1)} style={{ minWidth: 110 }}>{tx(p("Back", "पीछे"))}</Btn>
             )}
-            <Btn variant="pri" onClick={() => void next()} disabled={saving} style={{ minWidth: 170 }}>
-              {step === 4 ? tx(p("Save admission", "प्रवेश सहेजें")) : `${tx(p("Next", "आगे"))}: ${tx(STEP_LABELS[step])}`}
+            <Btn variant="pri" onClick={() => void next()} disabled={saving || checking} style={{ minWidth: 170 }}>
+              {checking ? tx(p("Checking…", "जाँच रहे हैं…")) : saving ? tx(p("Saving…", "सहेज रहे हैं…")) : step === 4 ? tx(p("Save admission", "प्रवेश सहेजें")) : `${tx(p("Next", "आगे"))}: ${tx(STEP_LABELS[step])}`}
               <Ic n={step === 4 ? "check" : "arrowRight"} />
             </Btn>
           </ActionBar>

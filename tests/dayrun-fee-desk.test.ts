@@ -3,6 +3,21 @@ import { describe, expect, it } from "vitest";
 import { COUNTER_CONCESSION, counterConcessionRefusal, matchesDeskSearch, nameSkeleton } from "@/modules/payments/vx/domain/desk";
 import { dayBookClosure } from "@/modules/receipts/vx/domain/day-close";
 import { familyMatchesQuery } from "@/modules/defaulters/vx/domain/families";
+import { newAdmissionSplit } from "@/modules/students-fees/domain/admission-dues";
+
+describe("a new admission's done screen reads its installments when the views lag (admin B4)", () => {
+  it("splits the scheduled installments by due date", () => {
+    const rows = [
+      { amount_due: 5975, due_date: "2026-04-20" },
+      { amount_due: 4875, due_date: "2026-07-20" },
+      { amount_due: 4875, due_date: "2026-10-20" },
+      { amount_due: 4875, due_date: "2027-01-20" },
+    ];
+    expect(newAdmissionSplit(rows, "2026-10-14")).toEqual({ pendingToday: 10850, notDueYet: 9750, lateFeePending: 0 });
+    expect(newAdmissionSplit(rows, "2026-10-20")).toEqual({ pendingToday: 15725, notDueYet: 4875, lateFeePending: 0 });
+    expect(newAdmissionSplit([], "2026-10-14")).toEqual({ pendingToday: 0, notDueYet: 0, lateFeePending: 0 });
+  });
+});
 
 describe("Dues search by class is exact (accountant B14)", () => {
   it("class 1 is Class 1, not Class 10, 11 or 12", () => {

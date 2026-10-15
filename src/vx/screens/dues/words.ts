@@ -161,6 +161,7 @@ export const W = {
   woExists: p("A write-off is already waiting for this child.", "इस बच्चे की माफ़ी पहले से प्रतीक्षा में है।"),
   woDecideTitle: p("Write off what is owed?", "बकाया माफ़ करें?"),
   woAskedBy: p("Asked by", "अनुरोध"),
+  woNothingOwed: p("This child owes nothing now, so there is nothing to write off. Decline the request to close it.", "इस बच्चे पर अब कुछ बाकी नहीं, इसलिए माफ़ करने को कुछ नहीं। अनुरोध बंद करने के लिए अस्वीकार करें।"),
   woImpactAdmin: p(
     "This posts a discount receipt for the amount, so the dues come off and the record stays. It cannot be edited later.",
     "इस राशि की छूट रसीद बनेगी, बकाया घटेगा और रिकॉर्ड रहेगा। बाद में बदला नहीं जा सकता।",

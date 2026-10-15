@@ -1,6 +1,6 @@
 import { requirePermission } from "@/platform/auth/current-staff";
 import { schoolProfile } from "@/platform/config/school";
-import { getStudentDetail, loadAdmissionsFeeContext, loadDuesSplit, nextFreeSrCandidates } from "@/modules/students-fees/vx/admissions";
+import { getStudentDetail, loadAdmissionsFeeContext, loadNewAdmissionDuesSplit, nextFreeSrCandidates } from "@/modules/students-fees/vx/admissions";
 import { lead } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState, Btn } from "@/vx/ui/primitives";
@@ -44,7 +44,7 @@ export default async function NewAdmissionPage(props: PageProps<"/admissions/new
         </VxPage>
       );
     }
-    const [dues, details] = await Promise.all([loadDuesSplit(doneId), loadAdmissionDetails([doneId])]);
+    const [dues, details] = await Promise.all([loadNewAdmissionDuesSplit(doneId), loadAdmissionDetails([doneId])]);
     const docs = details.get(doneId)?.docs ?? {};
     const missingDocs = (["birth", "photo", "aadhaar"] as const).filter((k) => docs[k] !== true).map((k) => DOC_SHORT[k]);
     return (
