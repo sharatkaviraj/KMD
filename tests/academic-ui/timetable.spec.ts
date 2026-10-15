@@ -248,7 +248,14 @@ test('delayed receipt check cannot retry after selected session changes', async 
 test('original saved receipt can be checked after timetable is no longer arrangable', async ({ page }) => {
   const url = '/?role=academic&view=subs&day=2026-11-03&uncertain=landed';
   // Hold the automatic check so the request is still waiting when the timetable goes away.
-  await page.goto(url); await page.evaluate(() => sessionStorage.setItem('qa-cover-delay-check', '1'));
+  // Armed before the first load, once per tab: the screen checks on load now, and setting
+  // the flag after `goto` lost the race on a slow runner (360px flake on main, 15 Oct).
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('qa-cover-delay-armed')) return;
+    sessionStorage.setItem('qa-cover-delay-armed', '1');
+    sessionStorage.setItem('qa-cover-delay-check', '1');
+  });
+  await page.goto(url);
   await page.getByRole('button', { name: 'Release', exact: true }).tap();
   await expect.poll(() => page.evaluate(() => (window as unknown as { qaCheckWaiting?: boolean }).qaCheckWaiting)).toBe(true);
   await page.evaluate(() => sessionStorage.removeItem('qa-cover-delay-check'));
