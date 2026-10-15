@@ -152,6 +152,21 @@ export function hasCallFilters(f: CallFilters): boolean {
   return Boolean(f.band || f.inst || f.big || f.bus || f.query.trim());
 }
 
+/**
+ * Does the family's text match the search? Every word must be found; a word of
+ * one or two digits is a class number and must be a whole word, so "class 1"
+ * is Class 1 and not Class 10, 11 or 12 (accountant B14). Longer digit runs
+ * (a phone's last digits) and letters match anywhere, and repeated spaces
+ * count as one.
+ */
+export function familyMatchesQuery(hay: string, query: string): boolean {
+  const q = query.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!q) return true;
+  const text = hay.toLowerCase().replace(/\s+/g, " ");
+  const tokens = new Set(text.split(/[\s·,.:;/()+-]+/).filter(Boolean));
+  return q.split(" ").every((word) => (/^\d{1,2}$/.test(word) ? tokens.has(word) : text.includes(word)));
+}
+
 export function filterFamilies(families: readonly DuesFamily[], f: CallFilters): DuesFamily[] {
   const q = f.query.trim().toLowerCase();
   return families.filter((fam) => {
@@ -163,7 +178,7 @@ export function filterFamilies(families: readonly DuesFamily[], f: CallFilters):
     if (f.bus && !fam.usesBus) return false;
     if (q) {
       const hay = [fam.fatherName, fam.phone ?? "", ...fam.kids.flatMap((k) => [k.fullName, k.classLabel])].join(" ").toLowerCase();
-      if (!hay.includes(q)) return false;
+      if (!familyMatchesQuery(hay, q)) return false;
     }
     return true;
   });

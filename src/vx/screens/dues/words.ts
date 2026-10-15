@@ -110,6 +110,8 @@ export const W = {
   fixNumber: p("fix the number first", "पहले नंबर ठीक करें"),
   save: p("Save", "सहेजें"),
   logged: p("Call logged.", "कॉल दर्ज हुई।"),
+  nextFamily: p("Next family", "अगला परिवार"),
+  showMore: p("Show {n} more families", "{n} और परिवार दिखाएँ"),
   tomorrow: p("Tomorrow", "कल"),
   in3: p("In 3 days", "3 दिन में"),
   in7: p("In a week", "एक हफ़्ते में"),

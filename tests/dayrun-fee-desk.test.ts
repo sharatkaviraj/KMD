@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { COUNTER_CONCESSION, counterConcessionRefusal, matchesDeskSearch, nameSkeleton } from "@/modules/payments/vx/domain/desk";
 import { dayBookClosure } from "@/modules/receipts/vx/domain/day-close";
+import { familyMatchesQuery } from "@/modules/defaulters/vx/domain/families";
+
+describe("Dues search by class is exact (accountant B14)", () => {
+  it("class 1 is Class 1, not Class 10, 11 or 12", () => {
+    expect(familyMatchesQuery("TEST Father 9999911111 TEST Child Class 1", "class 1")).toBe(true);
+    for (const c of ["Class 10", "Class 11", "12 Science"]) expect(familyMatchesQuery(`TEST Father 9999911111 TEST Child ${c}`, "class 1")).toBe(false);
+    expect(familyMatchesQuery("TEST Father TEST Child 12 Science", "12 science")).toBe(true);
+  });
+  it("still finds a phone's last digits, names across words, and ignores double spaces", () => {
+    expect(familyMatchesQuery("TEST Father 9999960767 TEST Child Class 4", "60767")).toBe(true);
+    expect(familyMatchesQuery("Hukam Testwal 9999960767 Tanmay Parikhya Nursery", "tanmay  hukam")).toBe(true);
+    expect(familyMatchesQuery("Hukam Testwal 9999960767 Tanmay Parikhya Nursery", "charvi")).toBe(false);
+  });
+});
 
 describe("the Day book reports the close made on Receipts (accountant B5)", () => {
   const fee = { status: "open", closedAt: null, closedByName: null };
