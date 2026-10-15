@@ -227,9 +227,41 @@ export function countSends(rows: { status: string }[]): SendCounts {
 }
 
 /** "This week" (last seven days) or "Earlier", as the sent log groups notices. */
+/**
+ * "This week" is the school week on the school clock — Monday onwards in
+ * IST — not the last seven days: on Thursday 15 Oct, last Friday's notices
+ * are "Earlier" (school-day run, coordinators B13).
+ */
 export function logBucket(createdAt: string, now: Date = new Date()): "week" | "earlier" {
-  const age = now.getTime() - new Date(createdAt).getTime();
-  return age < 7 * 24 * 3600 * 1000 ? "week" : "earlier";
+  const istDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
+  const today = new Date(`${istDay(now)}T00:00:00Z`);
+  const monday = new Date(today);
+  monday.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
+  return istDay(new Date(createdAt)) >= monday.toISOString().slice(0, 10) ? "week" : "earlier";
+}
+
+/**
+ * What a sent-log row says about delivery. A notice with nobody to send to is
+ * neither "0% sent" nor "All sent" — it reached nobody, and says so
+ * (school-day run, admin B10 / coordinators B13).
+ */
+export function campaignStatus(c: { status: string; counts: { total: number; sent: number; queued: number; failed: number } }): { kind: "stopped" | "failed" | "queued" | "nobody" | "sent"; text: Pair } {
+  if (c.status === "cancelled") return { kind: "stopped", text: p("Stopped", "रोका गया") };
+  if (c.counts.total === 0) return { kind: "nobody", text: p("Reached nobody", "किसी तक नहीं गया") };
+  if (c.counts.failed) return { kind: "failed", text: p(`${c.counts.failed} failed`, `${c.counts.failed} नहीं पहुँचे`) };
+  if (c.counts.queued) return { kind: "queued", text: p(`${c.counts.queued} to send`, `${c.counts.queued} भेजने बाकी`) };
+  return { kind: "sent", text: p("All sent", "सब भेजे गए") };
+}
+
+/** Staff with a WhatsApp number, out of all active staff: who a staff notice reaches and who it misses. */
+export function staffReach(withPhone: number, active: number): { reach: Pair; missed: Pair | null } {
+  const missing = Math.max(0, active - withPhone);
+  return {
+    reach: missing ? p(`${withPhone} of ${active} have WhatsApp`, `${active} में से ${withPhone} के पास व्हाट्सऐप`) : p(`${withPhone} people`, `${withPhone} लोग`),
+    missed: missing
+      ? p(`${missing} staff have no WhatsApp number and will not get this notice. Add their numbers in Staff.`, `${missing} स्टाफ़ का व्हाट्सऐप नंबर नहीं है, उन्हें यह सूचना नहीं मिलेगी। स्टाफ़ में नंबर जोड़ें।`)
+      : null,
+  };
 }
 
 /* --------------------------------------------------------------- templates */

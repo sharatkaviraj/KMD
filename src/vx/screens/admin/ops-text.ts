@@ -24,7 +24,7 @@ export const TO = {
   notMarkedCard: (classes: string): Pair =>
     p(`${classes}. “Not marked” is never counted as present.`, `${classes}। “दर्ज नहीं” को कभी उपस्थित नहीं गिना जाता।`),
   remindOnWhatsApp: p("Remind on WhatsApp", "WhatsApp पर याद दिलाएँ"),
-  remindNOnWhatsApp: (n: number): Pair => p(`Remind ${n} on WhatsApp`, `${n} को WhatsApp पर याद दिलाएँ`),
+  remindNOnWhatsApp: (n: number): Pair => p(`Remind ${n} class${n === 1 ? "" : "es"} on WhatsApp`, `${n} कक्षाओं को WhatsApp पर याद दिलाएँ`),
   openBoard: p("Open board", "बोर्ड खोलें"),
   openAttendance: p("Open attendance", "हाज़िरी खोलें"),
   otherTeacher: p("Other teacher", "दूसरा शिक्षक"),

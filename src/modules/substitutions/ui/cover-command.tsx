@@ -137,11 +137,17 @@ export function CoverCommandForm({
     start(async () => {
       try {
         const result = await coverCommandAction(idleCoverState, data);
-        set(result);
-        setRetry(result.status === "error" ? data : null);
-        // A definite answer ends this submission; the next one is new.
-        if (result.status === "saved") saved();
-        else if (result.status !== "error") setCommandId(newId());
+        // After an await, updates are no longer part of the transition: set
+        // alone, the receipt drew at once while the duty list still waited for
+        // the refreshed page ("3 duties assigned" over "assigned 2 · Saving…",
+        // school-day run B15). Marked again, they land together.
+        start(() => {
+          set(result);
+          setRetry(result.status === "error" ? data : null);
+          // A definite answer ends this submission; the next one is new.
+          if (result.status === "saved") saved();
+          else if (result.status !== "error") setCommandId(newId());
+        });
         if (result.status === "error") await confirm(data);
       } catch {
         await confirm(data);

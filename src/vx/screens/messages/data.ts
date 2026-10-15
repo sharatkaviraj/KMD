@@ -90,6 +90,8 @@ export type MessagesData = {
   /** One entry per family: the classes its children are in. No names, no numbers. */
   classSets: string[][];
   staffCount: number;
+  /** Every active staff member, with a number or not: a staff notice says who it misses (B10). */
+  staffActive?: number;
   noPhone: number;
   sample: { parent: string; student: string; className: string } | null;
   templates: TemplateView[];
@@ -300,6 +302,7 @@ export async function loadMessagesScreen(detailId: string | null): Promise<Messa
     classes: [...roll.labels.entries()].map(([id, label]) => ({ id, label, families: perClass.get(id) ?? 0 })),
     classSets,
     staffCount: staff.filter((s) => s.isActive && tenDigits(s.whatsappPhone ?? s.phone)).length,
+    staffActive: staff.filter((s) => s.isActive).length,
     noPhone,
     sample: first ? (({ parent, student, className }) => ({ parent, student, className }))(personalFor(first, [], dayMonth(today))) : null,
     templates: (templateRows.data ?? []).map((t) => ({

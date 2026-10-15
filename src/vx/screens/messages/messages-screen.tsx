@@ -27,6 +27,7 @@ import type { CampaignView, MessagesData, RecipientView, ReplyView, TemplateView
 import { Outbox } from "./outbox";
 import type { OutboxData } from "./outbox-data";
 import {
+  campaignStatus,
   COMPOSE_PROBLEMS,
   composeProblems,
   composeText,
@@ -42,6 +43,7 @@ import {
   paiseToRupees,
   PLACEHOLDERS,
   QUICK_REPLIES,
+  staffReach,
   quickReplyText,
   TEMPLATE_STATE_LABELS,
   templateSlug,
@@ -273,7 +275,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
 
   const header = (
     <TopBar
-      crumb={tx(p("System · WhatsApp (AiSensy)", "सिस्टम · व्हाट्सऐप (AiSensy)"))}
+      crumb={tx(p("Messages · WhatsApp", "संदेश · व्हाट्सऐप"))}
       title={tx(p("Messages", "संदेश"))}
       mSub={mSub}
       mBack="/menu"
@@ -355,8 +357,9 @@ function SentLog({ data, outboxCount }: { data: MessagesData; outboxCount: numbe
     { label: p("Sent this month", "इस महीने भेजे"), value: data.month.sent.toLocaleString("en-IN"), sub: tx(p(`of ${data.month.count.toLocaleString("en-IN")} queued · one per family`, `${data.month.count.toLocaleString("en-IN")} में से · हर परिवार को एक`)) },
     {
       label: p("Waiting to send", "भेजने बाकी"),
-      value: data.month.queued.toLocaleString("en-IN"),
-      color: data.month.queued ? "var(--warnfg)" : "var(--ok)",
+      // Sent by hand, what waits is what the To send tab counts — one number in both places (coordinators B13).
+      value: (data.parentDispatchOn ? data.month.queued : outboxCount).toLocaleString("en-IN"),
+      color: (data.parentDispatchOn ? data.month.queued : outboxCount) ? "var(--warnfg)" : "var(--ok)",
       sub: (
         <>
           <span className="clip" style={m12}>{tx(data.parentDispatchOn ? p("in the WhatsApp queue", "व्हाट्सऐप कतार में") : p("sent by hand from To send", "‘भेजने को’ से हाथ से"))}</span>
@@ -428,11 +431,11 @@ function LogGroup({ title, rows }: { title: Pair; rows: CampaignView[] }) {
   );
 }
 
+const STATUS_TONE = { stopped: "var(--mut)", nobody: "var(--warnfg)", failed: "var(--bad)", queued: "var(--warnfg)", sent: "var(--ok)" } as const;
+
 function statusLine(c: CampaignView): { text: Pair; tone: string } {
-  if (c.status === "cancelled") return { text: p("Stopped", "रोका गया"), tone: "var(--mut)" };
-  if (c.counts.failed) return { text: p(`${c.counts.failed} failed`, `${c.counts.failed} नहीं पहुँचे`), tone: "var(--bad)" };
-  if (c.counts.queued) return { text: p(`${c.counts.queued} to send`, `${c.counts.queued} भेजने बाकी`), tone: "var(--warnfg)" };
-  return { text: p("All sent", "सब भेजे गए"), tone: "var(--ok)" };
+  const status = campaignStatus(c);
+  return { text: status.text, tone: STATUS_TONE[status.kind] };
 }
 
 function CampaignRow({ c, first, delay }: { c: CampaignView; first: boolean; delay: number }) {
@@ -445,14 +448,14 @@ function CampaignRow({ c, first, delay }: { c: CampaignView; first: boolean; del
       <Tile icon={KIND_ICONS[c.kind]} tone={tone} />
       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
         <span className="clip" style={t14}>{c.title}</span>
-        <span className="clip" style={m12}>{c.audienceLabel} · {c.recipientCount} · {when(c.createdAt)}</span>
+        <span className="clip" style={m12}>{c.audienceLabel} · {tx(p(`${c.recipientCount} ${c.recipientCount === 1 ? "person" : "people"}`, `${c.recipientCount} लोग`))} · {when(c.createdAt)}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="mx-bar" style={{ flex: 1 }}>
             <span style={{ width: `${(c.counts.sent / total) * 100}%`, background: "var(--ok)" }} />
             <span style={{ width: `${(c.counts.queued / total) * 100}%`, background: "var(--okm)", animationDelay: ".1s" }} />
             <span style={{ width: `${(c.counts.failed / total) * 100}%`, background: "var(--bad)", animationDelay: ".2s" }} />
           </span>
-          <span className="num" style={{ ...m12, flex: "none" }}>{tx(p(`${pct(c.counts.sent, c.counts.total)}% sent`, `${pct(c.counts.sent, c.counts.total)}% भेजे`))}</span>
+          {c.counts.total ? <span className="num" style={{ ...m12, flex: "none" }}>{tx(p(`${pct(c.counts.sent, c.counts.total)}% sent`, `${pct(c.counts.sent, c.counts.total)}% भेजे`))}</span> : null}
         </span>
       </span>
       <span className="pill hide-m" style={{ background: tone.bg, color: tone.fg }}>{tx(KIND_LABELS[c.kind])}</span>
@@ -838,9 +841,16 @@ function Compose({
                 <div role="radiogroup" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 }}>
                   {audienceCard("school", "home", p("Whole school", "पूरा विद्यालय"), tx(p(`${data.classSets.length} parents`, `${data.classSets.length} अभिभावक`)))}
                   {audienceCard("classes", "grad", p("Classes", "कक्षाएँ"), tx(p("Pick classes", "कक्षाएँ चुनें")))}
-                  {audienceCard("staff", "briefcase", p("Staff", "स्टाफ़"), tx(p(`${data.staffCount} people`, `${data.staffCount} लोग`)))}
+                  {audienceCard("staff", "briefcase", p("Staff", "स्टाफ़"), tx(staffReach(data.staffCount, data.staffActive ?? data.staffCount).reach))}
                 </div>
               </div>
+              {audience === "staff" && staffReach(data.staffCount, data.staffActive ?? data.staffCount).missed ? (
+                <div role="status" className="fadein" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)", fontSize: 13 }}>
+                  <Ic n="alert" size={18} />
+                  <span style={{ flex: 1, minWidth: 0 }}>{tx(staffReach(data.staffCount, data.staffActive ?? data.staffCount).missed!)}</span>
+                  <Link href="/staff" style={{ color: "var(--warnfg)", fontWeight: 700, flex: "none" }}>{tx(p("Staff", "स्टाफ़"))}</Link>
+                </div>
+              ) : null}
               {audience === "classes" ? (
                 <div className="fadein" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {data.classes.map((c) => (

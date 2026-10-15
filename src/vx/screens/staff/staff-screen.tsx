@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import type { StaffPermission, StaffRole } from "@/platform/auth/permissions";
 import {
@@ -101,7 +101,7 @@ export const ROLE_HELP: Record<StaffRole, Pair> = {
   academic_coordinator: p("Marks, progress and attendance across classes", "सभी कक्षाओं के अंक, प्रगति व हाज़िरी"),
   office: p("Front office: students, attendance, staff", "कार्यालय: विद्यार्थी, हाज़िरी, स्टाफ़"),
   fee_collector: p("Takes fees at the counter", "काउंटर पर फीस लेते हैं"),
-  view_only: p("Can look, can’t change anything", "देख सकते हैं, बदल नहीं सकते"),
+  view_only: p("Sees Today and the timetable · can’t change anything", "आज और समय सारणी देखते हैं · बदल नहीं सकते"),
 };
 
 const people = (n: number) => p(`${n} ${n === 1 ? "person" : "people"}`, `${n} ${n === 1 ? "व्यक्ति" : "लोग"}`);
@@ -175,6 +175,20 @@ function monthYear(value: string): string {
   return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" }).format(d);
 }
 
+const noSubscribe = () => () => {};
+const PAGE_OPENED_AT = Date.now();
+
+/**
+ * "3 h ago" only once the page runs in the browser. The server's clock and
+ * the browser's disagree by the time it hydrates, and React threw away the
+ * whole page over "Last seen 3 h ago" (#418, school-day run admin B19); the
+ * server draws the day instead.
+ */
+function useAgo(): (at: string) => Pair {
+  const now = useSyncExternalStore(noSubscribe, () => PAGE_OPENED_AT, () => null);
+  return (at: string) => (now === null ? { en: shortDay(at), hi: shortDay(at) } : agoP(at, new Date(now)));
+}
+
 export function StaffScreen({
   rows,
   load,
@@ -205,6 +219,7 @@ export function StaffScreen({
   initialSheet: SheetKind;
 }) {
   const { tx } = useVx();
+  const ago = useAgo();
   const router = useRouter();
   const toast = useToast();
   const [view, setView] = useState<"people" | "roles">(initialView);
@@ -328,7 +343,7 @@ export function StaffScreen({
 
   const loginSub = (r: StaffRow): string => {
     const state = loginState(r);
-    if (state === "active") return r.lastSignInAt ? `${tx(p("Last seen", "आख़िरी बार"))} ${tx(agoP(r.lastSignInAt))}` : tx(p("Active", "चालू"));
+    if (state === "active") return r.lastSignInAt ? `${tx(p("Last seen", "आख़िरी बार"))} ${tx(ago(r.lastSignInAt))}` : tx(p("Active", "चालू"));
     if (state === "never") return tx(p("Made, not used yet", "बना, अभी उपयोग नहीं"));
     if (state === "disabled") {
       const off = events.find((e) => e.staffId === r.id && e.kind === "disabled");
@@ -604,6 +619,7 @@ function ProfilePanel({
   pending: boolean;
 }) {
   const { tx } = useVx();
+  const ago = useAgo();
   const state = loginState(row);
   const [lbg, lfg] = LOGIN_TONE[state];
   const total = load.reduce((a, b) => a + b, 0);
@@ -701,7 +717,7 @@ function ProfilePanel({
             </div>
             <div style={{ ...S.row, justifyContent: "space-between", gap: 10, fontSize: 13 }}>
               <span style={{ color: "var(--mut)" }}>{tx(p("Last sign-in", "आख़िरी लॉगिन"))}</span>
-              <span className="num" style={{ fontWeight: 600, textAlign: "right" }}>{row.lastSignInAt ? tx(agoP(row.lastSignInAt)) : tx(p("Never", "कभी नहीं"))}</span>
+              <span className="num" style={{ fontWeight: 600, textAlign: "right" }}>{row.lastSignInAt ? tx(ago(row.lastSignInAt)) : tx(p("Never", "कभी नहीं"))}</span>
             </div>
           </>
         ) : null}

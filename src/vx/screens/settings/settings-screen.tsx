@@ -21,6 +21,7 @@ import type { SettingsData } from "./data";
 import {
   activityCsv,
   AREA_LABELS,
+  changesOn,
   AREA_TONES,
   backupHealth,
   bytesLabel,
@@ -128,7 +129,7 @@ export function SettingsScreen({ data, state }: { data: SettingsData; state: Set
   };
 
   const today = schoolToday();
-  const todayChanges = data.activity.filter((e) => e.at.slice(0, 10) === today).length;
+  const todayChanges = changesOn(data.activity, today);
   const lastBackup = data.backups[0];
   const health = backupHealth(data.backups, today);
   const themeWord = theme === "light" ? tx(p("Light", "हल्की")) : theme === "dark" ? tx(p("Dark", "गहरी")) : tx(p("Auto", "अपने-आप"));
@@ -154,7 +155,7 @@ export function SettingsScreen({ data, state }: { data: SettingsData; state: Set
         { s: "school", icon: "building", tone: "acc", title: T.schoolProfile, sub: tx(T.schoolSub) },
         { s: "prefs", icon: "sliders", tone: "info", title: T.prefs, sub: status.prefs.sub },
         { s: "session", icon: "calendar", tone: "warn", title: T.session, sub: status.session.sub },
-        { s: "users", icon: "shield", tone: "ok", title: T.users, sub: tx(p(`${data.staffCount} people · ${data.roleCount} roles`, `${data.staffCount} लोग · ${data.roleCount} भूमिकाएँ`)), href: "/staff?view=roles" },
+        { s: "users", icon: "shield", tone: "ok", title: T.users, sub: tx(data.staffTotal && data.staffTotal > data.staffCount ? p(`${data.staffCount} active of ${data.staffTotal} · ${data.roleCount} roles`, `${data.staffTotal} में से ${data.staffCount} सक्रिय · ${data.roleCount} भूमिकाएँ`) : p(`${data.staffCount} people · ${data.roleCount} roles`, `${data.staffCount} लोग · ${data.roleCount} भूमिकाएँ`)), href: "/staff?view=roles" },
       ],
     },
     {

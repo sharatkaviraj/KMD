@@ -117,8 +117,9 @@ export const T = {
     "ये रजिस्टर अभी खुले हैं। जो कक्षा दर्ज नहीं, उसे कभी उपस्थित नहीं माना जाता। कक्षा-अध्यापक को WhatsApp पर याद दिलाएँ, या हाज़िरी बोर्ड पर खुद दर्ज करें।",
   ),
   remind: p("Remind", "याद दिलाएँ"),
-  remindN: (n: number): Pair => p(`Remind ${n} teacher${n === 1 ? "" : "s"}`, `${n} शिक्षकों को याद दिलाएँ`),
-  reminded: (n: number): Pair => p(`Reminder sent to ${n} teacher${n === 1 ? "" : "s"}`, `${n} शिक्षकों को याद दिलाया`),
+  // The count is classes, not people: one teacher with two classes is reminded for both (school-day run B21).
+  remindN: (n: number): Pair => p(`Remind the teachers of ${n} class${n === 1 ? "" : "es"}`, `${n} कक्षाओं के अध्यापकों को याद दिलाएँ`),
+  reminded: (n: number): Pair => p(`Reminder sent for ${n} class${n === 1 ? "" : "es"}`, `${n} कक्षाओं के लिए याद दिलाया`),
   nobodyToRemind: p("Every class teacher has been reminded already, or is away.", "सभी कक्षा-अध्यापकों को याद दिलाया जा चुका है, या वे अनुपस्थित हैं।"),
   openBoard: p("Open attendance board", "हाज़िरी बोर्ड खोलें"),
   classes: p("Classes", "कक्षाएँ"),
