@@ -14,7 +14,7 @@ import { Btn, EmptyState } from "@/vx/ui/primitives";
 
 import { Dot, ExamsTop, FactRow, LogLine, XBar, XRing, type TopAct } from "./bits";
 import type { CellCounts, CellState } from "./domain/board";
-import { GROUP_KEYS, GROUP_LABELS, type GroupKey } from "./domain/groups";
+import { GROUP_KEYS, GROUP_LABELS, subjectPair, type GroupKey } from "./domain/groups";
 import { waLink } from "./domain/messages";
 import { RemindSheet, reminderFor, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
@@ -567,7 +567,7 @@ function Tracker(props: ExamsProps & { href: Href; cellOpen: boolean; onRemind: 
               <div style={{ display: "grid", gridTemplateColumns: template, gap: 6, alignItems: "center", minHeight: 42, padding: "0 14px", background: "var(--s2)", borderTop: bi ? "1px solid var(--bd)" : undefined }}>
                 <span className="sech clip">{tx(band.label)}</span>
                 {Array.from({ length: cols }, (_, i) => band.subjects[i]).map((s, i) => (
-                  <span key={s?.code ?? `pad-${i}`} className="clip" style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)", textAlign: "center" }}>{s ? tx(s.name) : ""}</span>
+                  <span key={s?.code ?? `pad-${i}`} title={s ? tx(s.name) : undefined} style={{ minWidth: 0, fontSize: 11, fontWeight: 700, lineHeight: 1.15, color: "var(--mut)", textAlign: "center", overflowWrap: "anywhere" }}>{s ? tx(s.name) : ""}</span>
                 ))}
                 <span className="sech" style={{ textAlign: "right" }}>{tx(p("Done", "पूरा"))}</span>
               </div>
@@ -664,7 +664,8 @@ function CellChip({ cell, selected, href, label, compact, dim }: { cell: CellVie
   return (
     <Link href={href} className="tap" aria-label={`${label} · ${cell.teacher ?? "—"} · ${part ? `${cell.entered} of ${cell.total}` : tx(look.label)}`} style={style}>
       {part ? null : <Ic n={look.icon} size={14} />}
-      {text ? <span className="num clip">{text}</span> : null}
+      {/* Two short lines rather than "Not s…" in a narrow column (coordinators U3). */}
+      {text ? <span className="num" style={{ minWidth: 0, fontSize: part ? 12 : 11, lineHeight: 1.1, textAlign: "center", overflowWrap: "anywhere" }}>{text}</span> : null}
       {part ? <span aria-hidden="true" style={{ position: "absolute", left: 0, bottom: 0, height: 3, width: `${pctOf(cell.entered, cell.total)}%`, background: "currentColor", opacity: 0.5 }} /> : null}
     </Link>
   );
@@ -817,14 +818,14 @@ function shortInitials(name: string): string {
 
 /** Her classes and subjects the way a person says them: "Science · Classes 9, 10". */
 function itemsText(papers: TeacherRowView["papers"]): string {
-  const subjects = [...new Set(papers.map((x) => x.subjectCode))];
+  const subjects = [...new Set(papers.map((x) => subjectPair(x.subjectCode).en))];
   const classes = [...new Set(papers.map((x) => x.classLabel))];
   if (subjects.length === 1) {
     const plain = classes.every((c) => /^Class \d+$/.test(c));
     return `${subjects[0]} · ${classes.length > 1 && plain ? `Classes ${classes.map((c) => c.slice(6)).join(", ")}` : classes.join(", ")}`;
   }
   if (classes.length === 1) return `${classes[0]} · ${subjects.join(", ")}`;
-  return papers.map((x) => `${x.classLabel} ${x.subjectCode}`).join(", ");
+  return papers.map((x) => `${x.classLabel} ${subjectPair(x.subjectCode).en}`).join(", ");
 }
 
 function Sampark(props: ExamsProps) {
@@ -1026,7 +1027,7 @@ function ReportCards(props: ExamsProps & { href: Href }) {
               const miss = s.missing ?? [];
               const status = s.issued ? { t: p("Issued", "जारी"), bg: "var(--oks)", fg: "var(--ok)" } : miss.length ? { t: p(`Missing ${miss.length} ${miss.length === 1 ? "subject" : "subjects"}`, `${miss.length} विषय बाकी`), bg: "var(--warns)", fg: "var(--warnfg)" } : { t: p("Ready", "तैयार"), bg: "var(--oks)", fg: "var(--ok)" };
               const sub = miss.length
-                ? `${tx(p("Missing", "बाकी"))} ${miss.join(", ")}`
+                ? `${tx(p("Missing", "बाकी"))} ${miss.map((m) => subjectPair(m).en).join(", ")}`
                 : s.percent !== null && s.percent !== undefined
                   ? `${s.percent.toFixed(1)}%${s.grade ? ` · ${s.grade}` : ""}${s.absent ? ` · ${tx(p(`absent in ${s.absent}`, `${s.absent} में अनुपस्थित`))}` : ""}`
                   : "—";
@@ -1326,7 +1327,7 @@ function Analysis(props: ExamsProps & { href: Href }) {
                 <span style={{ flex: 1, minWidth: 120, fontWeight: 600 }}>{b.name}</span>
                 <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {b.fails.map((f) => (
-                    <span key={f.subjectCode} className="pill num" style={{ background: "var(--bads)", color: "var(--bad)" }}>{f.subjectCode} {f.value}/{f.maxMarks}</span>
+                    <span key={f.subjectCode} className="pill num" style={{ background: "var(--bads)", color: "var(--bad)" }}>{subjectPair(f.subjectCode).en} {f.value}/{f.maxMarks}</span>
                   ))}
                 </span>
               </div>

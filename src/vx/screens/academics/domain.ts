@@ -133,7 +133,11 @@ const SUBJECT_NAMES: Record<string, string> = {
 /** The timetable's subject code as a person says it. */
 export function subjectName(code: string | null | undefined): string {
   if (!code) return "—";
-  return SUBJECT_NAMES[code] ?? code;
+  const named = SUBJECT_NAMES[code];
+  if (named) return named;
+  // A code kept in capitals ("HINDI") reads as a name ("Hindi") on anything a
+  // person reads; a short acronym ("EVS", "GK") stays as it is (coordinators U6).
+  return /^[A-Z]{4,}$/.test(code) ? code[0] + code.slice(1).toLowerCase() : code;
 }
 
 /* ------------------------------------------------------------- marks */

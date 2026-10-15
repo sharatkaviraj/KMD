@@ -14,15 +14,16 @@ import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes, type ClassScope } from "@/modules/attendance/domain/class-scope";
 import { schoolToday } from "@/vx/format";
 import { isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
+import { classesFor, listExams, staffList, trackerFor } from "@/vx/screens/exams/data";
+import { pickCurrentExam } from "@/vx/screens/exams/domain/current";
+import { classRows, expectedShare, overall, teacherLoads, type PaperFacts } from "@/vx/screens/exams/domain/tracker";
 
 import {
   addDays,
   attentionWeight,
   average,
   daysFrom,
-  enteredPct,
   isSunday,
-  lateTeachers,
   mondayOf,
   presentPct,
   tally,
@@ -662,10 +663,13 @@ export async function paperStats(ctx: Ctx, examIds: string[]): Promise<PaperStat
     }));
 }
 
-/** The exam whose marks are being entered now: the latest that has started. */
+/**
+ * The exam whose marks are being entered now — the exam office's rule
+ * (`pickCurrentExam`), so the coordinator's home and the exam office talk
+ * about the same exam.
+ */
 export function currentExam(exams: Exam[], today: string): { current: Exam | null; previous: Exam | null } {
-  const started = exams.filter((e) => e.startsOn <= today);
-  const current = started[started.length - 1] ?? exams[0] ?? null;
+  const current = pickCurrentExam(exams, today);
   const idx = current ? exams.indexOf(current) : -1;
   return { current, previous: idx > 0 ? exams[idx - 1] : null };
 }
@@ -680,42 +684,40 @@ export type MarksEntry = {
   byClass: { classId: string; label: string; pct: number; done: number; total: number }[];
 };
 
-/** The marks-entry tracker for the current exam, with the teachers behind. */
+/**
+ * The marks-entry tracker for the current exam, with the teachers who are
+ * late. Counted by the exam office's tracker (`trackerFor`, `overall`,
+ * `teacherLoads`), so this home, Student progress, the marks tracker and the
+ * results pipeline give one percentage and one late count (coordinators B4).
+ */
 export async function marksEntry(ctx: Ctx, examId?: string): Promise<MarksEntry> {
-  const exams = await examsOf(ctx.session);
+  const [exams, officeExams, classes, people] = await Promise.all([examsOf(ctx.session), listExams(ctx.session), classesFor(ctx.session), staffList()]);
   const exam = (examId && exams.find((e) => e.id === examId)) || currentExam(exams, ctx.today).current;
-  if (!exam) return { exam: null, dueOn: null, pct: 0, papers: [], late: [], byClass: [] };
-  const [stats, assignments, staff, teachers, plan] = await Promise.all([
-    paperStats(ctx, [exam.id]),
-    createAdminClient()
-      .from("teaching_assignments")
-      .select("class_id, subject_id, staff_profile_id")
-      .eq("session_label", ctx.session)
-      .returns<{ class_id: string; subject_id: string; staff_profile_id: string }[]>(),
-    staffDirectory(),
-    classTeachersOn(ctx.session, ctx.today),
-    createAdminClient().from("exam_plans").select("marks_due_on").eq("assessment_id", exam.id).maybeSingle<{ marks_due_on: string | null }>(),
-  ]);
-  const subjectTeacher = new Map((assignments.data ?? []).map((row) => [`${row.class_id}|${row.subject_id}`, row.staff_profile_id]));
-  const rollOf = new Map(ctx.classes.map((c) => [c.id, c.roll]));
-  const papers: PaperProgress[] = stats.map((s) => ({
-    paperId: s.paperId,
-    classId: s.classId,
-    classLabel: ctx.label(s.classId),
-    subject: s.subject,
-    entered: s.entered,
-    roll: rollOf.get(s.classId) ?? 0,
-    submitted: s.submitted,
-    teacherId: subjectTeacher.get(`${s.classId}|${s.subjectId}`) ?? teachers.get(s.classId) ?? null,
-  }));
-  const late = lateTeachers(papers).map((t) => ({ ...t, name: staff.get(t.teacherId)?.display_name ?? "—" }));
+  const full = exam ? officeExams.find((e) => e.id === exam.id) : undefined;
+  if (!exam || !full) return { exam: exam ?? null, dueOn: null, pct: 0, papers: [], late: [], byClass: [] };
+  const tracked = await trackerFor({ exam: full, classes, staff: people, today: ctx.today, onlyPapers: (row) => scopeIncludes(ctx.scope, row.class_id) });
+  const expected = expectedShare(full.endsOn, full.plan?.marksDueOn ?? null, ctx.today);
+  const toProgress = (f: PaperFacts): PaperProgress => ({
+    paperId: f.paperId,
+    classId: f.classId,
+    classLabel: ctx.label(f.classId),
+    subject: f.subjectCode,
+    entered: Math.min(f.entered, f.total),
+    roll: f.total,
+    submitted: f.entryStatus === "submitted",
+    teacherId: f.teacherId,
+  });
+  const late = teacherLoads(tracked.papers, expected)
+    .filter((load) => load.late)
+    .map((load) => ({ teacherId: load.teacherId, name: load.teacherName, papers: load.papers.map(toProgress), entered: load.entered, roll: load.total }));
+  const rows = new Map(classRows(tracked.papers, expected).map((row) => [row.classId, row]));
   const byClass = ctx.classes
     .map((c) => {
-      const mine = papers.filter((p) => p.classId === c.id);
-      return { classId: c.id, label: c.label, pct: enteredPct(mine), done: mine.filter((p) => p.submitted).length, total: mine.length };
+      const row = rows.get(c.id);
+      return { classId: c.id, label: c.label, pct: row?.percent ?? 0, done: row ? row.papers.filter((x) => x.entryStatus === "submitted").length : 0, total: row?.papers.length ?? 0 };
     })
     .filter((c) => c.total > 0);
-  return { exam, dueOn: plan.data?.marks_due_on ?? null, pct: enteredPct(papers), papers, late, byClass };
+  return { exam, dueOn: full.plan?.marksDueOn ?? null, pct: overall(tracked.papers).percent, papers: tracked.papers.map(toProgress), late, byClass };
 }
 
 export type ClassResult = { classId: string; label: string; avg: number | null; before: number | null; pass: number | null; attendance: number | null };

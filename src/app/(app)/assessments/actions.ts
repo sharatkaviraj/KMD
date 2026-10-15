@@ -1,6 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
+import { isEmptyCard } from "@/modules/assessments/domain/report-card";
 import { reportRefusals } from "@/modules/assessments/domain/report-refusals";
 import { revalidatePath } from "next/cache";
 
@@ -341,6 +342,8 @@ export async function issueReportCardAction(
   const preview = await previewReportCard({ studentId, sessionLabel, term });
   if (!preview) return failure(m.notFound);
   if (!preview.scheme) return failure(reportRefusals.no_approved_scheme);
+  // A card with not one mark on it is never issued, whatever else agrees (B3).
+  if (isEmptyCard(preview.card)) return failure(reportRefusals.no_marks);
 
   const payloadHash = createHash("sha256")
     .update(JSON.stringify({ studentId, term, expectedRevision, reason, scheme: preview.scheme.id }))

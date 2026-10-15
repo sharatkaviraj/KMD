@@ -1,6 +1,7 @@
 import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { CACHE_TAGS, expireTag } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import {
@@ -223,6 +224,7 @@ export async function upsertCalendarDays(
     );
 
   if (error) throw error;
+  expireTag(CACHE_TAGS.calendar);
 
   return days.length;
 }
@@ -241,4 +243,5 @@ export async function deleteCalendarDay(id: string): Promise<void> {
     .eq("id", id);
 
   if (error) throw error;
+  expireTag(CACHE_TAGS.calendar);
 }

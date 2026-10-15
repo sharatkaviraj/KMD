@@ -282,6 +282,9 @@ export function AcadHomeView(props: AcadHomeProps) {
   const counted = today.total.counted + today.total.leave;
   const presentNow = today.total.present + today.total.late;
   const pct = today.pct === null ? "—" : `${Math.round(today.pct)}%`;
+  // One class of nineteen is not "the school's attendance": until half the
+  // classes have marked, the big number waits (coordinators B19).
+  const tooEarly = today.marked > 0 && today.marked * 2 < today.classes.length;
   const summary = say(
     `${unmarked.length} ${unmarked.length === 1 ? "class has" : "classes have"} not marked attendance, ${late.length} ${late.length === 1 ? "teacher is" : "teachers are"} behind on ${examName} marks and ${attention.length} children need attention.`,
     `${unmarked.length} कक्षाओं ने हाज़िरी नहीं ली, ${late.length} शिक्षक ${examName} के अंकों में पीछे हैं और ${attention.length} बच्चों पर ध्यान चाहिए।`,
@@ -347,9 +350,13 @@ export function AcadHomeView(props: AcadHomeProps) {
             icon="calCheck"
             tone="ok"
             label={say("Attendance today", "आज की हाज़िरी")}
-            value={pct}
+            value={tooEarly ? "—" : pct}
             pill={unmarked.length ? { tone: "warn", text: say(`${unmarked.length} not marked`, `${unmarked.length} दर्ज नहीं`) } : { tone: "ok", text: say("All marked", "सभी दर्ज") }}
-            sub={say(`${today.marked} of ${today.classes.length} classes marked`, `${today.classes.length} में ${today.marked} कक्षाएँ दर्ज`)}
+            sub={
+              tooEarly
+                ? say(`${today.marked} of ${today.classes.length} classes marked — too early to tell`, `${today.classes.length} में ${today.marked} कक्षाएँ दर्ज — अभी कहना जल्दी`)
+                : say(`${today.marked} of ${today.classes.length} classes marked`, `${today.classes.length} में ${today.marked} कक्षाएँ दर्ज`)
+            }
           />
           <CoordKpi
             href="/exams"
@@ -387,7 +394,11 @@ export function AcadHomeView(props: AcadHomeProps) {
             <Card as="section" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <CardTitle
                 title={say("Today's attendance by class", "कक्षावार आज की हाज़िरी")}
-                sub={say(`${pct} present in ${today.marked} marked classes · ${presentNow} of ${counted} children`, `${today.marked} दर्ज कक्षाओं में ${pct} उपस्थित · ${counted} में ${presentNow} बच्चे`)}
+                sub={
+                  today.marked === 0
+                    ? say("No class has marked attendance yet", "अभी किसी कक्षा ने हाज़िरी नहीं ली")
+                    : say(`${pct} present in ${today.marked} marked ${today.marked === 1 ? "class" : "classes"} · ${presentNow} of ${counted} children`, `${today.marked} दर्ज कक्षाओं में ${pct} उपस्थित · ${counted} में ${presentNow} बच्चे`)
+                }
                 action={<GhostLink href="/academics/attendance">{say("Open", "खोलें")}</GhostLink>}
               />
               <HeatStrip count={today.classes.length}>
@@ -401,8 +412,8 @@ export function AcadHomeView(props: AcadHomeProps) {
                 <span style={{ flex: 1, minWidth: 200 }}>
                   {unmarked.length
                     ? say(
-                        `${unmarked.length} ${unmarked.length === 1 ? "class" : "classes"} not marked yet: ${joinAnd(unmarkedText)}. Tap any class to see who marked it.`,
-                        `${unmarked.length} कक्षाएँ अभी दर्ज नहीं: ${joinAnd(unmarkedText, "और")}। किसी कक्षा पर टैप करके देखें किसने दर्ज किया।`,
+                        `${unmarked.length} ${unmarked.length === 1 ? "class" : "classes"} not marked yet: ${joinAnd(unmarkedText)}.${today.marked ? " Tap any class to see who marked it." : ""}`,
+                        `${unmarked.length} कक्षाएँ अभी दर्ज नहीं: ${joinAnd(unmarkedText, "और")}।${today.marked ? " किसी कक्षा पर टैप करके देखें किसने दर्ज किया।" : ""}`,
                       )
                     : say(`Every class has marked today. Tap any class to see who marked it.`, "आज सभी कक्षाओं ने हाज़िरी ली। किसी कक्षा पर टैप करके देखें किसने दर्ज किया।")}
                 </span>
@@ -481,6 +492,12 @@ export function AcadHomeView(props: AcadHomeProps) {
                         </div>
                       );
                     })}
+                    {late.length > 8 ? (
+                      <Link href="/exams?view=remind" className="tap btn soft acad-seeall" style={{ marginTop: 10 }}>
+                        {say(`See all ${late.length} late teachers`, `सभी ${late.length} देर वाले शिक्षक देखें`)}
+                        <Ic n="arrowRight" size={18} />
+                      </Link>
+                    ) : null}
                   </div>
                 )
               ) : (

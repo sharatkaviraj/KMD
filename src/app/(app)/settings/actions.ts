@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { CACHE_TAGS, expireTag } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { createArchive, runRestoreDrill } from "@/modules/archives/data/archive-repo";
@@ -55,6 +56,7 @@ export async function savePrefsAction(input: { largeText: boolean; alerts: Recor
     .upsert({ staff_profile_id: actor.id, large_text: input.largeText === true, alerts, updated_at: new Date().toISOString() });
   if (error) return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया।") };
   // Large text is applied by the shell, so every screen re-renders with it.
+  expireTag(CACHE_TAGS.uiPrefs);
   revalidatePath("/", "layout");
   return { ok: true, message: p("Saved", "सहेजा गया") };
 }

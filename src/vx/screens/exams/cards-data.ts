@@ -3,7 +3,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 
 import { issuedCards, issueReportCardCommand, previewReportCard } from "@/modules/assessments/data/reports-repo";
-import type { ReportCard } from "@/modules/assessments/domain/report-card";
+import { isEmptyCard, type ReportCard } from "@/modules/assessments/domain/report-card";
 import { reportRefusals } from "@/modules/assessments/domain/report-refusals";
 import type { Pair } from "@/vx/text";
 
@@ -74,6 +74,10 @@ export async function issueOne(input: { actorStaffId: string; studentId: string;
   if (!preview.scheme) {
     const m = reportRefusals.no_approved_scheme;
     return { ok: false, reason: "no_approved_scheme", message: { en: m.en, hi: m.hi } };
+  }
+  if (isEmptyCard(preview.card)) {
+    const m = reportRefusals.no_marks;
+    return { ok: false, reason: "no_marks", message: { en: m.en, hi: m.hi } };
   }
   const expectedRevision = revisions.find((r) => r.status === "issued")?.revision ?? 0;
   const reason = expectedRevision > 0 ? (input.reason ?? "Reissued after results were finalised") : null;
