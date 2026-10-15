@@ -35,7 +35,7 @@ export const W = {
   money: p("Money", "पैसा"),
   session: p("Session", "सत्र"),
   todayPill: p("Today", "आज"),
-  receiptsN: (n: number) => p(`${n} ${n === 1 ? "receipt" : "receipts"}`, `${n} रसीदें`),
+  receiptsN: (n: number) => p(`${n} ${n === 1 ? "receipt" : "receipts"}`, `${n} ${n === 1 ? "रसीद" : "रसीदें"}`),
   receiptsLink: p("Receipts", "रसीदें"),
   many: p("Enter many payments", "कई भुगतान दर्ज करें"),
   manyShort: p("Many", "कई"),
