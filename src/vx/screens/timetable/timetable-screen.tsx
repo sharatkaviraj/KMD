@@ -238,6 +238,12 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
   const stillOwnsCover = (commandScope: CoverScope) => currentScope.current === coverRecoveryKey(commandScope) && currentMayCover.current;
   const [checkedMissing, setCheckedMissing] = useState<string | null>(null);
   const [storageProblem, setStorageProblem] = useState<string | null>(null);
+  // Which unresolved commands this page checks by itself (see the effect below):
+  // one already waiting when a day is first opened here, or one this tab sent
+  // and lost. Never one another tab is still sending.
+  const autoEligible = useRef(new Set<string>());
+  const autoChecked = useRef(new Set<string>());
+  const seenScopes = useRef(new Set<string>());
   const coverBlocked = previewing || pending || !storageReady || Boolean(recovery);
   const href = (next: Partial<TimetableState>) => timetableHref(next, data.cover?.day);
   const hhmm = useSchoolClock(data.clock);
@@ -284,6 +290,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
       toast.show({ text: tx(result.message), tone: 'bad' });
     } else {
       // Uncertain again: whatever the last check said no longer holds.
+      autoEligible.current.add(command.commandId);
       setCheckedMissing(null);
       toast.show({ text: tx(result.message), tone: 'bad' });
     }
@@ -310,7 +317,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
         if (!stillOwnsCover(scope)) return;
         await finishCover(result, command, scope, after);
       }
-      catch { uncertain(); }
+      catch { autoEligible.current.add(command.commandId); uncertain(); }
       finally { coverInFlight.current = false; }
     });
   };
@@ -335,10 +342,15 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
   // not says so plainly and offers to send the same command again, which the
   // server answers once (D-212). Once per command per page: a check that
   // cannot reach the server leaves the buttons for a person.
-  const autoChecked = useRef(new Set<string>());
   const autoCommand = recovery?.payload.commandId ?? null;
   useEffect(() => {
-    if (takeAutoCheck(autoChecked.current, autoCommand, pending || coverInFlight.current)) recoverCover(false);
+    if (snapshot === "loading" || !scopeKey) return;
+    if (!seenScopes.current.has(scopeKey)) {
+      seenScopes.current.add(scopeKey);
+      if (autoCommand) autoEligible.current.add(autoCommand);
+    }
+    if (!autoCommand || !autoEligible.current.has(autoCommand)) return;
+    if (takeAutoCheck(autoChecked.current, autoCommand, pending || coverInFlight.current || previewing || !data.me.mayCover)) recoverCover(false);
   });
 
   const classId = state.classId ?? data.classes[0]?.id ?? null;
