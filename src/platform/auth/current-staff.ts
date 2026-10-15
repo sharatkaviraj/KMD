@@ -156,6 +156,15 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
 async function readMatrixPermissions(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<readonly string[] | null> {
+  // One quick second try before refusing (perf fix 10): under database load a
+  // single failed read turned a slow moment into an error page for the whole
+  // request. A second failure still refuses — the deny-on-failure rule stands.
+  return (await readMatrixPermissionsOnce(supabase)) ?? (await readMatrixPermissionsOnce(supabase));
+}
+
+async function readMatrixPermissionsOnce(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<readonly string[] | null> {
   try {
     if (typeof supabase.rpc !== "function") throw new Error("Permission service unavailable");
     const { data, error } = await supabase.rpc("my_permissions");

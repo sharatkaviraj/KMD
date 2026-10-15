@@ -1,6 +1,7 @@
 import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
+import { CACHE_TAGS, expireTag, sharedCache } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import {
   DEFAULT_BELLS,
@@ -19,6 +20,22 @@ import type { TeamSupervisionRule } from "@/modules/substitutions/domain/events"
  */
 
 export async function currentBells(sessionLabel: string): Promise<BellSchedule> {
+  return cachedBells(sessionLabel);
+}
+
+/**
+ * The bells, shared across requests for five minutes (perf fix 5): every
+ * teacher Today, the admin board and the cover screens read them, and they
+ * change a few times a year. No permission check, as before — the bells are
+ * not a secret and the cover command reads them for any actor. `saveBells`
+ * expires the tag, and reads its own revision uncached.
+ */
+const cachedBells = sharedCache((sessionLabel: string) => readBells(sessionLabel), ["vx-bells"], {
+  tags: [CACHE_TAGS.bells],
+  revalidate: 300,
+});
+
+async function readBells(sessionLabel: string): Promise<BellSchedule> {
   const { data, error } = await createAdminClient()
     .from("bell_schedules")
     .select("id, label, periods, revision")
@@ -44,7 +61,9 @@ export async function saveBells(
 ): Promise<void> {
   await assertPermission("substitutions:manage");
   const admin = createAdminClient();
-  const current = await currentBells(sessionLabel);
+  // Uncached: the update below is conditional on this revision, and a stale
+  // one would match no row and save nothing without an error.
+  const current = await readBells(sessionLabel);
   const ordered = [...periods].sort((a, b) => a.index - b.index);
 
   if (current.id) {
@@ -54,6 +73,7 @@ export async function saveBells(
       .eq("id", current.id)
       .eq("revision", current.revision);
     if (error) throw error;
+    expireTag(CACHE_TAGS.bells);
     return;
   }
 
@@ -65,6 +85,7 @@ export async function saveBells(
     updated_by: actorStaffId,
   });
   if (error) throw error;
+  expireTag(CACHE_TAGS.bells);
 }
 
 export async function teamRules(sessionLabel: string): Promise<TeamSupervisionRule[]> {

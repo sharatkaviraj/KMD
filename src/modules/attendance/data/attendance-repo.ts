@@ -1,9 +1,10 @@
 import "server-only";
 
-import { assertPermission } from "@/platform/auth/current-staff";
+import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
@@ -547,17 +548,44 @@ export async function attendanceCalendar(
   sessionLabel: string,
 ): Promise<Map<string, CalendarDayKind>> {
   await assertPermission("attendance:view");
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("academic_calendar_days")
-    .select("day, kind")
-    .eq("session_label", sessionLabel)
-    .returns<{ day: string; kind: CalendarDayKind }[]>();
-
-  if (error) throw new Error(`Could not read the calendar: ${error.message}`);
-  return new Map(data.map((row) => [row.day, row.kind]));
+  return new Map(await cachedCalendarDays(sessionLabel));
 }
+
+/**
+ * The same calendar for any active staff member — which days the school is
+ * open — as RLS on `academic_calendar_days` always allowed. For the view-only
+ * Today, whose reader has no `attendance:view` but still sees the bells and
+ * who teaches now (admin B6).
+ */
+export async function schoolCalendar(
+  sessionLabel: string,
+): Promise<Map<string, CalendarDayKind>> {
+  await assertStaff();
+  return new Map(await cachedCalendarDays(sessionLabel));
+}
+
+/**
+ * The read behind `attendanceCalendar`, shared across requests for five
+ * minutes (perf fix 5). Every teacher's Today, register and Class screen and
+ * the admin board read it, and the calendar changes a few times a term.
+ * Service role inside the cache, the permission check outside it on every
+ * request; every calendar-day write expires the tag (`class-teachers-repo`).
+ * Entries, not a Map: the cache serialises to JSON.
+ */
+const cachedCalendarDays = sharedCache(
+  async (sessionLabel: string): Promise<[string, CalendarDayKind][]> => {
+    const { data, error } = await createAdminClient()
+      .from("academic_calendar_days")
+      .select("day, kind")
+      .eq("session_label", sessionLabel)
+      .returns<{ day: string; kind: CalendarDayKind }[]>();
+
+    if (error) throw new Error(`Could not read the calendar: ${error.message}`);
+    return data.map((row): [string, CalendarDayKind] => [row.day, row.kind]);
+  },
+  ["vx-attendance-calendar"],
+  { tags: [CACHE_TAGS.calendar], revalidate: 300 },
+);
 
 /** Which registers exist for a day — the office's "who has not taken it yet". */
 export async function registersForDay(

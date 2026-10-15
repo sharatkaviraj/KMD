@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Suspense, use, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Suspense, use, useEffect, useState, useSyncExternalStore } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { QUICK_ACTIONS, type BottomTab } from "@/vx/nav";
+import { IntentLink } from "@/vx/ui/intent-link";
 import { Sheet } from "@/vx/ui/overlays";
+
+import { inMarkingWindow } from "./prefetch-window";
 
 import type { Badges } from "./sidebar";
 import { TONE } from "./top-actions";
@@ -30,12 +33,44 @@ export function activeTab(tabs: readonly BottomTab[], pathname: string): string 
   return tabs.find((t) => t.key === "menu")?.href ?? null;
 }
 
-/** The phone bottom bar (`XNav.dc.html`): four tabs and a centre action. */
+type RouterPrefetchOptions = NonNullable<Parameters<ReturnType<typeof useRouter>["prefetch"]>[1]>;
+
+/** Mark attendance, from a teacher's Today during the marking hours. */
+const REGISTER = "/teach/attendance";
+
+/**
+ * Warm the register while a teacher sits on Today in the morning (perf fix 9):
+ * throttled tab navigation took 2.4 s to Attendance, and Today's own centre
+ * button is the next thing she taps. A full prefetch once the page is idle;
+ * with `staleTimes.dynamic` it then opens from the router cache.
+ */
+function useRegisterWarmup(tabs: readonly BottomTab[], pathname: string) {
+  const router = useRouter();
+  const hasRegister = tabs.some((t) => t.center && t.href === REGISTER);
+  useEffect(() => {
+    if (!hasRegister || pathname !== "/teach" || !inMarkingWindow(new Date())) return;
+    const warm = () => router.prefetch(REGISTER, { kind: "full" } as unknown as RouterPrefetchOptions);
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(warm, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 2000);
+    return () => window.clearTimeout(id);
+  }, [hasRegister, pathname, router]);
+}
+
+/**
+ * The phone bottom bar (`XNav.dc.html`): four tabs and a centre action.
+ *
+ * Tabs are intent links (perf fix 9): a finger landing on one starts the full
+ * server render, so most of the next screen is ready when the tap completes.
+ */
 export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promise<Badges> }) {
   const pathname = (usePathname() ?? "/").split(/[?#]/)[0] || "/";
   const { tx } = useVx();
   const [quick, setQuick] = useState(false);
   const active = activeTab(tabs, pathname);
+  useRegisterWarmup(tabs, pathname);
   // The classic receipt detail supplies its own fixed phone action bar and
   // return link. A second bar covers its Print A4 control. Keep list routes
   // and the redesigned /receipts desk on their normal tab navigation.
@@ -50,12 +85,12 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
                 <CenterBlob icon={n.icon} />
               </button>
             ) : (
-              <Link key={n.key} href={n.href} className="tap" aria-label={tx(n.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <IntentLink key={n.key} href={n.href} className="tap" aria-label={tx(n.label)} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <CenterBlob icon={n.icon} />
-              </Link>
+              </IntentLink>
             )
           ) : (
-            <Link
+            <IntentLink
               key={n.key}
               href={n.href}
               className="tap"
@@ -71,7 +106,7 @@ export function VxBottomBar({ tabs, badges }: { tabs: BottomTab[]; badges: Promi
                 ) : null}
               </span>
               <span className="clip" style={{ maxWidth: "100%" }}>{tx(n.label)}</span>
-            </Link>
+            </IntentLink>
           ),
         )}
       </nav>

@@ -1,12 +1,12 @@
 import "server-only";
 import { cache } from "react";
 
-import { assertPermission, assertStaff } from "@/platform/auth/current-staff";
+import { assertPermission, assertStaff, getCurrentStaff } from "@/platform/auth/current-staff";
 import { ACTIVE_SESSION_KEY, pickSessionLabel } from "@/platform/config/active-session";
 import { FEE_SCHEMA } from "@/platform/env";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
-import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
+import { CACHE_TAGS, expireTag, sharedCache } from "@/platform/performance/shared-cache";
 import { revalidateTag } from "next/cache";
 import type {
   ClassAlias,
@@ -299,19 +299,33 @@ const toSubject = (row: SubjectRow): Subject => ({
 });
 
 export async function listSubjects(): Promise<Subject[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("subjects")
-    .select(SUBJECT_COLUMNS)
-    .order("sort_order")
-    .returns<SubjectRow[]>();
-
-  if (error) {
-    throw new Error(`Could not read the subjects: ${error.message}`);
-  }
-
-  return data.map(toSubject);
+  // RLS let active staff read subjects and nobody else; kept, outside the cache.
+  if (!(await getCurrentStaff())) return [];
+  return (await cachedSubjectRows()).map(toSubject);
 }
+
+/**
+ * The subject list, shared across requests for five minutes (perf fix 5):
+ * teacher Today, Class and More, the timetable and the marks screens all read
+ * it, and it changes when somebody edits a subject — each of which expires the
+ * tag below. Rows, not mapped subjects, so the cache holds plain JSON.
+ */
+const cachedSubjectRows = sharedCache(
+  async (): Promise<SubjectRow[]> => {
+    const { data, error } = await createAdminClient()
+      .from("subjects")
+      .select(SUBJECT_COLUMNS)
+      .order("sort_order")
+      .returns<SubjectRow[]>();
+
+    if (error) {
+      throw new Error(`Could not read the subjects: ${error.message}`);
+    }
+    return data;
+  },
+  ["vx-subjects"],
+  { tags: [CACHE_TAGS.subjects], revalidate: 300 },
+);
 
 export async function getSubjectById(id: string): Promise<Subject | null> {
   const supabase = await createClient();
@@ -351,6 +365,7 @@ export async function createSubject(
   });
 
   if (error) throw error;
+  expireTag(CACHE_TAGS.subjects);
 }
 
 /** `code` is absent: immutable, enforced by a trigger. */
@@ -368,6 +383,7 @@ export async function updateSubject(
     .eq("id", id);
 
   if (error) throw error;
+  expireTag(CACHE_TAGS.subjects);
 }
 
 export async function setSubjectActive(id: string, isActive: boolean): Promise<void> {
@@ -377,6 +393,7 @@ export async function setSubjectActive(id: string, isActive: boolean): Promise<v
     .eq("id", id);
 
   if (error) throw error;
+  expireTag(CACHE_TAGS.subjects);
 }
 
 /* ---------------------------------------------------------- class aliases */

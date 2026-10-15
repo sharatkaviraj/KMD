@@ -1,17 +1,18 @@
 import { Suspense, type ReactNode } from "react";
 
-import { getShellPulse } from "@/modules/dashboard/data/shell-metrics";
+import { getDuesBadgeCount } from "@/modules/dashboard/data/shell-metrics";
 import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
 import { SessionSwitchingProvider } from "@/modules/fees/platform/session-context/switching-context";
 import { can, type StaffPermission, type StaffRole } from "@/platform/auth/permissions";
+import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
 import { OfficeSyncListener } from "@/ui/shell/office-sync-listener";
 import { RouteProgress } from "@/ui/shell/route-progress";
 import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { initials, schoolToday } from "@/vx/format";
-import { loadInbox } from "@/vx/screens/admin/data";
+import { inboxCount } from "@/vx/screens/admin/data";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
-import { lead, type Pair } from "@/vx/text";
+import { lead } from "@/vx/text";
 import { NavTrail } from "@/vx/ui/back-link";
 import { avatarColor } from "@/vx/ui/primitives";
 import { ToastProvider } from "@/vx/ui/overlays";
@@ -24,21 +25,10 @@ import { VxBottomBar } from "./bottom-bar";
 import { LazySearchPalette } from "./lazy";
 import type { PaletteItem } from "./palette";
 import { PreviewBanner } from "./preview-banner";
+import { menuRoleLabel, ROLE_SUB } from "./role-line";
 import { VxSidebar, type Badges } from "./sidebar";
 
 const PREVIEW_ICON = { teacher: "grad", accountant: "rupee", academic: "trend", exam: "award" } as const;
-
-/** The line under the signed-in person's name, as the design's sidebar writes it ("Admin · settings", "Accountant"). */
-const ROLE_SUB: Record<StaffRole, Pair> = {
-  admin: { en: "Admin · settings", hi: "प्रशासक · सेटिंग्स" },
-  office: { en: "Office", hi: "कार्यालय" },
-  accountant: { en: "Accountant", hi: "लेखाकार" },
-  fee_collector: { en: "Fee desk", hi: "फ़ीस काउंटर" },
-  academic_coordinator: { en: "Academic coordinator", hi: "शैक्षणिक समन्वयक" },
-  exam_coordinator: { en: "Exam coordinator", hi: "परीक्षा प्रभारी" },
-  teacher: { en: "Teacher", hi: "अध्यापक" },
-  view_only: { en: "View only", hi: "केवल देखना" },
-};
 
 /**
  * Where the person at the foot of the sidebar leads: their own settings, as
@@ -53,29 +43,39 @@ function meHref(role: StaffRole, settings: boolean): string {
 
 async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges> {
   const out: Badges = {};
-  const [pulse, inbox] = await Promise.all([
-    can(viewer.staff, "fees:view") && sessionLabel ? getShellPulse(sessionLabel).catch(() => null) : null,
-    // The admin queue, counted from the same reads the Needs you page uses.
+  const [dues, inbox] = await Promise.all([
+    can(viewer.staff, "fees:view") && sessionLabel ? getDuesBadgeCount(sessionLabel) : null,
+    // The admin queue, counted from the same reads the Needs you page uses —
+    // in the same request on Today and Needs you, so it is free there (perf fixes 1, 2).
     !viewer.previewing && can(viewer.staff, "attendance:correct") && sessionLabel
-      ? loadInbox(viewer.staff, sessionLabel, schoolToday(), {
-          refunds: can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined,
-        }).catch(() => null)
+      ? inboxCount(viewer.staff, sessionLabel, schoolToday(), can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined).catch(() => null)
       : null,
   ]);
-  if (pulse) out.dues = pulse.overdueStudentCount;
-  if (inbox) out.inbox = inbox.items.length;
+  if (dues !== null) out.dues = dues;
+  if (inbox !== null) out.inbox = inbox;
   return out;
 }
 
-/** "Large text" from Settings or the teacher's More tab, applied to every screen. */
-async function prefersLargeText(staffProfileId: string): Promise<boolean> {
-  const { data } = await createAdminClient()
-    .from("staff_ui_preferences")
-    .select("large_text")
-    .eq("staff_profile_id", staffProfileId)
-    .maybeSingle<{ large_text: boolean }>();
-  return data?.large_text === true;
-}
+/**
+ * "Large text" from Settings or the teacher's More tab, applied to every screen.
+ *
+ * Every full load and every refresh waited on this read before drawing the
+ * frame (perf fix 10). Cached per staff id — the id is the key, so nobody
+ * gets another person's setting — and both places that save it expire the tag.
+ */
+const prefersLargeText = sharedCache(
+  async (staffProfileId: string): Promise<boolean> => {
+    const { data, error } = await createAdminClient()
+      .from("staff_ui_preferences")
+      .select("large_text")
+      .eq("staff_profile_id", staffProfileId)
+      .maybeSingle<{ large_text: boolean }>();
+    if (error) throw new Error(error.message);
+    return data?.large_text === true;
+  },
+  ["vx-large-text"],
+  { tags: [CACHE_TAGS.uiPrefs], revalidate: 300 },
+);
 
 /**
  * The one frame every signed-in screen sits in (PLAN A.5, docs/ui/DECISIONS.md
@@ -108,7 +108,7 @@ export async function VxShell({
 
   // A rehearsal session says so on the role line, which is where the session is named now.
   const testMark = sessionIsTest && !/test/i.test(sessionLabel) ? " · test" : "";
-  const roleLine = `${MENU_LABEL[menu].en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}${testMark}` : ""}`;
+  const roleLine = `${menuRoleLabel(menu, staff.role, previewing).en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}${testMark}` : ""}`;
   const settings = can(staff, "settings:manage");
   const me = {
     initials: initials(staff.displayName),

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { cache } from "react";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
@@ -22,6 +23,7 @@ import {
   listMarks,
   registersForDay,
   rosterOn,
+  schoolCalendar,
   studentAttendance,
 } from "@/modules/attendance/data/attendance-repo";
 import { compareRoll, type AttendanceStatus } from "@/modules/attendance/domain/attendance";
@@ -48,12 +50,32 @@ import { T } from "@/vx/screens/admin/text";
 import { schoolWeek } from "@/vx/screens/admin/today-logic";
 import type { BoardData, InboxItem, SheetData, TimelineItem } from "@/vx/screens/admin/types";
 import { isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
+import { inboxBadgeCount, SUBMISSION_ITEMS_MAX } from "@/vx/shell/badge-count";
 
 /**
  * Reads behind the admin core (P5). Every function here reads through the
  * existing repositories, which keep their own permission checks; the few
  * direct reads are of this app's own tables (`vppsone`), never of fee data.
  */
+
+/*
+ * Per-request dedupe (perf fix 1). One admin Today used to run the board three
+ * times and the queue twice — the page, `loadToday` and the shell's badge each
+ * asked for their own — about 70 PostgREST calls for one load. React `cache()`
+ * is scoped to a single server render, so these never carry one person's
+ * answer into another request; each read keeps its own permission check
+ * inside, against this request's cookies. Keys are strings or a module-level
+ * function, so equal calls really are the same entry.
+ */
+const absencesFor = cache((sessionLabel: string, day: string) => absencesOn(sessionLabel, day));
+const staffList = cache(() => listStaff());
+const dutiesFor = cache((sessionLabel: string, day: string) => dutiesOn(sessionLabel, day));
+const pendingSubmissions = cache(() => listSubmissions("pending"));
+const jobsNow = cache(() => jobsBoard());
+
+type MoneyRequest = { id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null };
+type MoneyRequests = () => Promise<MoneyRequest[]>;
+const moneyRequests = cache((read: MoneyRequests) => read());
 
 /** Run a read; a failure becomes null and is recorded rather than shown as nought (D-93). */
 async function guard<T>(missing: string[], key: string, read: () => Promise<T>): Promise<T | null> {
@@ -107,15 +129,20 @@ async function remindersOn(day: string): Promise<Map<string, string>> {
 
 /* ------------------------------------------------------------ the board */
 
-export async function loadBoard(sessionLabel: string, day: string): Promise<BoardData & { unavailable: string[]; timetableRuns: boolean }> {
+type Board = BoardData & { unavailable: string[]; timetableRuns: boolean };
+
+/** The day's class board, once per request however many parts of the page ask (perf fix 1). */
+export const loadBoard: (sessionLabel: string, day: string) => Promise<Board> = cache(readBoard);
+
+async function readBoard(sessionLabel: string, day: string): Promise<Board> {
   const missing: string[] = [];
   const [labels, registers, enrolments, responsible, staff, absences, reminders, calendar, rules, bells] = await Promise.all([
     classLabelMap(sessionLabel),
     registersForDay(sessionLabel, day),
     listEnrolments(sessionLabel),
     guard(missing, "teachers", () => responsibleFor(sessionLabel, day)),
-    guard(missing, "staff", () => listStaff()),
-    guard(missing, "absences", () => absencesOn(sessionLabel, day)),
+    guard(missing, "staff", () => staffList()),
+    guard(missing, "absences", () => absencesFor(sessionLabel, day)),
     guard(missing, "reminders", () => remindersOn(day)),
     guard<Map<string, CalendarDayKind>>(missing, "calendar", () => attendanceCalendar(sessionLabel)),
     guard(missing, "rules", () => attendanceRules(sessionLabel)),
@@ -406,39 +433,67 @@ async function timedEventsOn(sessionLabel: string, day: string): Promise<{ time:
     .map((row) => ({ time: row.starts_at!.slice(0, 5), title: p(row.title, row.title_hi ?? row.title), sub: row.place ? p(row.place) : null }));
 }
 
+/** What a Today without the register board still needs: the bells, and whether the school teaches today. */
+type DayFrame = {
+  bells: BoardData["bells"];
+  schoolOpen: boolean;
+  timetableRuns: boolean;
+  classRank: Map<string, number>;
+};
+
+async function dayFrame(sessionLabel: string, day: string): Promise<DayFrame> {
+  const [labels, calendar, bells] = await Promise.all([classLabelMap(sessionLabel), schoolCalendar(sessionLabel), currentBells(sessionLabel)]);
+  return {
+    bells: bells.periods.map((period) => ({ index: period.index, starts: period.starts, ends: period.ends })),
+    schoolOpen: isSchoolOpen(day, calendar),
+    timetableRuns: timetableRuns(day, calendar),
+    classRank: rankOf(labels),
+  };
+}
+
 export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: string, nowMinutes: number): Promise<TodayFacts> {
   const missing: string[] = [];
   const seesTimetable = can(staff, "timetable:view");
   // The support count is the school-wide board's; a narrower reader's board is her own classes.
   const seesSupport = can(staff, "notes:view") && (readsEveryClass(staff) || can(staff, "attendance:correct"));
   const seesCover = can(staff, "substitutions:view");
-  const [board, absences, duties, slots, support, people, events] = await Promise.all([
-    guard(missing, "board", () => loadBoard(sessionLabel, day)),
-    guard(missing, "absences", () => absencesOn(sessionLabel, day)),
-    seesCover ? guard(missing, "cover", async () => liveOnly(await dutiesOn(sessionLabel, day))) : Promise.resolve(null),
+  // The register board is attendance. A reader without `attendance:view` (the
+  // view-only account) used to get one anyway: the calendar read was refused
+  // ("could not be read" on Today) and RLS hid every register, so the board
+  // said all 19 classes were unmarked (admin B6). That reader gets the day's
+  // frame — bells, open or closed — for the timeline and "who teaches now".
+  const seesBoard = can(staff, "attendance:view");
+  const [board, bare, absences, duties, slots, support, people, events] = await Promise.all([
+    seesBoard ? guard(missing, "board", () => loadBoard(sessionLabel, day)) : Promise.resolve(null),
+    seesBoard ? Promise.resolve(null) : guard(missing, "calendar", () => dayFrame(sessionLabel, day)),
+    guard(missing, "absences", () => absencesFor(sessionLabel, day)),
+    seesCover ? guard(missing, "cover", async () => liveOnly(await dutiesFor(sessionLabel, day))) : Promise.resolve(null),
     seesTimetable ? guard(missing, "timetable", () => slotsForDay(sessionLabel, day)) : Promise.resolve(null),
     seesSupport ? guard(missing, "notes", () => supportFor(staff, sessionLabel, day)) : Promise.resolve(null),
     // Names for the scheduled teachers and whoever covers, read beside the rest rather than after it.
-    seesTimetable || seesCover ? guard(missing, "staff", () => listStaff()) : Promise.resolve(null),
+    seesTimetable || seesCover ? guard(missing, "staff", () => staffList()) : Promise.resolve(null),
     can(staff, "academics:view") ? guard(missing, "events", () => timedEventsOn(sessionLabel, day)) : Promise.resolve(null),
   ]);
   if (board) missing.push(...board.unavailable);
+  const frame: DayFrame | null = board
+    ? { bells: board.bells, schoolOpen: board.schoolOpen, timetableRuns: board.timetableRuns, classRank: new Map(board.rows.map((row) => [row.classId, row.rank])) }
+    : bare;
 
   const nameOf = new Map((people ?? []).map((person) => [person.id, person.displayName]));
   const awayName = new Map((absences ?? []).map((row) => [row.staffProfileId, row.staffName]));
 
   const schedule =
-    seesTimetable && board && slots
+    seesTimetable && frame && slots
       ? scheduleNow({
-          bells: board.bells,
+          bells: frame.bells,
           nowMinutes,
-          schoolOpen: board.schoolOpen,
-          timetableRuns: board.timetableRuns,
+          schoolOpen: frame.schoolOpen,
+          timetableRuns: frame.timetableRuns,
           slots,
           duties: duties ?? [],
           absences: absences ?? [],
           names: nameOf,
-          classRank: new Map(board.rows.map((row) => [row.classId, row.rank])),
+          classRank: frame.classRank,
         })
       : null;
 
@@ -449,17 +504,19 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
   const stateAt = (minutes: number): TimelineItem["state"] => (minutes <= nowMinutes ? "done" : "next");
 
   const timeline: TimelineItem[] = [];
-  const bells = [...(board?.bells ?? [])].sort((a, b) => toMin(a.starts) - toMin(b.starts));
-  if (board?.schoolOpen && bells.length > 0) {
+  const bells = [...(frame?.bells ?? [])].sort((a, b) => toMin(a.starts) - toMin(b.starts));
+  if (frame?.schoolOpen && bells.length > 0) {
     const first = bells[0];
     timeline.push({ time: first.starts, title: T.firstBell, sub: T.periodStarts(1), state: stateAt(toMin(first.starts)) });
-    const notMarked = board.rows.filter((row) => !row.recorded).length;
-    timeline.push({
-      time: first.ends,
-      title: T.attendanceCloses,
-      sub: T.notMarkedYet(notMarked),
-      state: notMarked > 0 && toMin(first.ends) <= nowMinutes ? "alert" : stateAt(toMin(first.ends)),
-    });
+    if (board) {
+      const notMarked = board.rows.filter((row) => !row.recorded).length;
+      timeline.push({
+        time: first.ends,
+        title: T.attendanceCloses,
+        sub: T.notMarkedYet(notMarked),
+        state: notMarked > 0 && toMin(first.ends) <= nowMinutes ? "alert" : stateAt(toMin(first.ends)),
+      });
+    }
     for (const duty of duties ?? []) {
       const bell = bells.find((b) => b.index === duty.period);
       if (!bell) continue;
@@ -586,17 +643,73 @@ export async function promisedToday(sessionLabel: string, today: string): Promis
 
 const FIELD_CHANGE = (from: string | null, to: string | null) => `${from ?? "—"} → ${to ?? "—"}`;
 
-export async function loadInbox(
+/**
+ * The queue's sources, each started at once (perf fix 2a). They are
+ * independent, and the queue used to wait on them one after another — five
+ * sequential stages, on every full load of every admin page because the shell
+ * counts it for the badge. Each keeps its permission gate here and its own
+ * check inside the read.
+ */
+function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, refunds: MoneyRequests | undefined, missing: string[]) {
+  return Promise.all([
+    can(staff, "attendance:mark_on_behalf") ? guard(missing, "board", () => loadBoard(sessionLabel, day)) : Promise.resolve(null),
+    // Only the live duties: the whole cover day (the timetable, every slot) is
+    // read below, and only when a duty actually needs somebody.
+    can(staff, "substitutions:manage")
+      ? guard(missing, "cover", async () => liveOnly(await dutiesFor(sessionLabel, day)).filter((duty) => duty.status === "needs_help"))
+      : Promise.resolve(null),
+    can(staff, "collection:manage") ? guard(missing, "submissions", () => pendingSubmissions()) : Promise.resolve(null),
+    refunds ? guard(missing, "refunds", () => moneyRequests(refunds)) : Promise.resolve(null),
+    can(staff, "jobs:view") ? guard(missing, "jobs", () => jobsNow()) : Promise.resolve(null),
+  ] as const);
+}
+
+/**
+ * How many items Needs you holds, for the sidebar and bottom-bar badge.
+ *
+ * The same sources as `loadInbox`, counted as it builds them, without the
+ * cover candidates (the whole timetable and a month of cover history) that
+ * only the list itself shows. On Today and Needs you the page reads the same
+ * sources in the same request, so the badge costs nothing there.
+ */
+export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests) => Promise<number> = cache(
+  async (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests): Promise<number> => {
+    const [board, needing, pending, money, jobs] = await inboxSources(staff, sessionLabel, day, refunds, []);
+    const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending) : { changes: [], confirmations: [] };
+    return inboxBadgeCount({
+      notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded)),
+      coverNeeded: needing?.length ?? 0,
+      changes: changes.length,
+      confirmations: confirmations.length,
+      refunds: money?.length ?? 0,
+      failedJobs: [...(jobs?.latest.values() ?? [])].filter((entry) => entry.status === "failed").length,
+    });
+  },
+);
+
+export function loadInbox(
   staff: CurrentStaff,
   sessionLabel: string,
   day: string,
-  extra: { refunds?: () => Promise<{ id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null }[]> } = {},
+  extra: { refunds?: MoneyRequests } = {},
+): Promise<{ items: InboxItem[]; unavailable: string[] }> {
+  return inboxFor(staff, sessionLabel, day, extra.refunds);
+}
+
+/** Once per request: Today's page and the shell both ask (perf fix 1). */
+const inboxFor = cache(readInbox);
+
+async function readInbox(
+  staff: CurrentStaff,
+  sessionLabel: string,
+  day: string,
+  refundsReader: MoneyRequests | undefined,
 ): Promise<{ items: InboxItem[]; unavailable: string[] }> {
   const missing: string[] = [];
   const items: InboxItem[] = [];
   const nowIso = new Date().toISOString();
 
-  const board = can(staff, "attendance:mark_on_behalf") ? await guard(missing, "board", () => loadBoard(sessionLabel, day)) : null;
+  const [board, needing, pending, refunds, jobs] = await inboxSources(staff, sessionLabel, day, refundsReader, missing);
 
   /* attendance not marked */
   if (board && board.schoolOpen) {
@@ -630,15 +743,15 @@ export async function loadInbox(
   }
 
   /* cover that needs help */
-  if (can(staff, "substitutions:manage")) {
+  if (needing && needing.length > 0) {
     const cover = await guard(missing, "cover", async () => {
       const coverDay = await readCoverDay(sessionLabel, day);
-      const needing = coverDay.live.filter((duty) => duty.status === "needs_help");
-      if (needing.length === 0) return [];
+      const helpWanted = coverDay.live.filter((duty) => duty.status === "needs_help");
+      if (helpWanted.length === 0) return [];
       const profiles = await profilesFor(coverDay);
       const nameOf = new Map(coverDay.staff.map((person) => [person.id, person.displayName]));
       for (const absence of coverDay.absences) nameOf.set(absence.staffProfileId, absence.staffName);
-      return needing.map((duty) => {
+      return helpWanted.map((duty) => {
         const candidates = candidatesFor(coverDay, profiles.everyone, profiles.history, duty).map((candidate) => ({
           id: candidate.teacher,
           name: nameOf.get(candidate.teacher) ?? "—",
@@ -678,93 +791,84 @@ export async function loadInbox(
   }
 
   /* answers waiting to be checked */
-  if (can(staff, "collection:manage")) {
-    const pending = await guard(missing, "submissions", () => listSubmissions("pending"));
-    if (pending && pending.length > 0) {
-      const { changes, confirmations } = splitByChange(pending);
-      for (const s of changes.slice(0, 40)) {
-        items.push({
-          id: `submission:${s.id}`,
-          type: "students",
-          kind: "submission",
-          at: s.submittedAt,
-          urgent: false,
-          badge: T.bSubmission,
-          title: p(`${s.fieldLabelEn} · ${s.studentName}`, `${s.fieldLabelHi || s.fieldLabelEn} · ${s.studentName}`),
-          sub: T.submissionSub(s.classLabel, s.submittedByName ?? "—"),
-          facts: [
-            { label: T.was, value: s.previousValue ?? "—" },
-            { label: T.becomes, value: s.value ?? "—" },
-            { label: T.change, value: FIELD_CHANGE(s.previousValue, s.value) },
-          ],
-          href: "/collection/review",
-          submissionIds: [s.id],
-        });
-      }
-      if (confirmations.length > 0) {
-        items.push({
-          id: "confirmations",
-          type: "students",
-          kind: "confirmations",
-          at: confirmations[0]?.submittedAt ?? null,
-          urgent: false,
-          badge: T.bSubmission,
-          title: T.confirmationsTitle(confirmations.length),
-          sub: T.confirmationsSub,
-          facts: confirmations.slice(0, 6).map((s) => ({ label: p(s.studentName), value: `${s.fieldLabelEn}: ${s.value ?? "—"}` })),
-          href: "/collection/review",
-          submissionIds: confirmations.map((s) => s.id),
-        });
-      }
+  if (pending && pending.length > 0) {
+    const { changes, confirmations } = splitByChange(pending);
+    for (const s of changes.slice(0, SUBMISSION_ITEMS_MAX)) {
+      items.push({
+        id: `submission:${s.id}`,
+        type: "students",
+        kind: "submission",
+        at: s.submittedAt,
+        urgent: false,
+        badge: T.bSubmission,
+        title: p(`${s.fieldLabelEn} · ${s.studentName}`, `${s.fieldLabelHi || s.fieldLabelEn} · ${s.studentName}`),
+        sub: T.submissionSub(s.classLabel, s.submittedByName ?? "—"),
+        facts: [
+          { label: T.was, value: s.previousValue ?? "—" },
+          { label: T.becomes, value: s.value ?? "—" },
+          { label: T.change, value: FIELD_CHANGE(s.previousValue, s.value) },
+        ],
+        href: "/collection/review",
+        submissionIds: [s.id],
+      });
+    }
+    if (confirmations.length > 0) {
+      items.push({
+        id: "confirmations",
+        type: "students",
+        kind: "confirmations",
+        at: confirmations[0]?.submittedAt ?? null,
+        urgent: false,
+        badge: T.bSubmission,
+        title: T.confirmationsTitle(confirmations.length),
+        sub: T.confirmationsSub,
+        facts: confirmations.slice(0, 6).map((s) => ({ label: p(s.studentName), value: `${s.fieldLabelEn}: ${s.value ?? "—"}` })),
+        href: "/collection/review",
+        submissionIds: confirmations.map((s) => s.id),
+      });
     }
   }
 
   /* refunds (fee screen decides them) */
-  if (extra.refunds) {
-    const refunds = await guard(missing, "refunds", extra.refunds);
-    for (const r of refunds ?? []) {
-      const amount = `₹${new Intl.NumberFormat("en-IN").format(Math.round(r.amount))}`;
-      items.push({
-        id: `refund:${r.id}`,
-        type: "money",
-        kind: "refund",
-        at: r.requestedAt,
-        urgent: false,
-        badge: r.deskKind === "reversal" ? p("Reversal", "रसीद रद्द") : r.deskKind === "write_off" ? p("Write-off", "माफ़ी") : T.bRefund,
-        title:
-          r.deskKind === "reversal"
-            ? p(`Reverse receipt ${r.receiptNumber ?? ""} · ${amount} · ${r.studentName}`.replace("  ", " "), `रसीद ${r.receiptNumber ?? ""} रद्द · ${amount} · ${r.studentName}`.replace("  ", " "))
-            : r.deskKind === "write_off"
-              ? p(`Write off ${amount} · ${r.studentName}`, `${amount} माफ़ · ${r.studentName}`)
-              : T.refundTitle(amount, r.studentName),
-        sub: p(r.reason ?? "—"),
-        facts: [
-          { label: p("Amount", "राशि"), value: amount },
-          { label: T.reason, value: r.reason ?? "—" },
-        ],
-        footnote: r.deskKind ? p("Decided on the receipt or dues screen; nothing moves until you confirm it there.", "फ़ैसला रसीद या बकाया स्क्रीन पर होता है; वहाँ पुष्टि के बिना कुछ नहीं बदलता।") : T.refundFootnote,
-        href: r.href ?? "/fees/finance-controls",
-      });
-    }
+  for (const r of refunds ?? []) {
+    const amount = `₹${new Intl.NumberFormat("en-IN").format(Math.round(r.amount))}`;
+    items.push({
+      id: `refund:${r.id}`,
+      type: "money",
+      kind: "refund",
+      at: r.requestedAt,
+      urgent: false,
+      badge: r.deskKind === "reversal" ? p("Reversal", "रसीद रद्द") : r.deskKind === "write_off" ? p("Write-off", "माफ़ी") : T.bRefund,
+      title:
+        r.deskKind === "reversal"
+          ? p(`Reverse receipt ${r.receiptNumber ?? ""} · ${amount} · ${r.studentName}`.replace("  ", " "), `रसीद ${r.receiptNumber ?? ""} रद्द · ${amount} · ${r.studentName}`.replace("  ", " "))
+          : r.deskKind === "write_off"
+            ? p(`Write off ${amount} · ${r.studentName}`, `${amount} माफ़ · ${r.studentName}`)
+            : T.refundTitle(amount, r.studentName),
+      sub: p(r.reason ?? "—"),
+      facts: [
+        { label: p("Amount", "राशि"), value: amount },
+        { label: T.reason, value: r.reason ?? "—" },
+      ],
+      footnote: r.deskKind ? p("Decided on the receipt or dues screen; nothing moves until you confirm it there.", "फ़ैसला रसीद या बकाया स्क्रीन पर होता है; वहाँ पुष्टि के बिना कुछ नहीं बदलता।") : T.refundFootnote,
+      href: r.href ?? "/fees/finance-controls",
+    });
   }
 
   /* jobs that failed */
-  if (can(staff, "jobs:view")) {
-    const jobs = await guard(missing, "jobs", () => jobsBoard());
-    for (const run of [...(jobs?.latest.values() ?? [])].filter((entry) => entry.status === "failed")) {
-      items.push({
-        id: `job:${run.id}`,
-        type: "system",
-        kind: "job",
-        at: run.finishedAt ?? run.startedAt,
-        urgent: false,
-        badge: T.bJob,
-        title: T.jobTitle(run.job),
-        sub: p(run.error ?? "—"),
-        facts: [{ label: p("Error", "त्रुटि"), value: run.error ?? "—" }],
-        href: "/jobs",
-      });
-    }
+  for (const run of [...(jobs?.latest.values() ?? [])].filter((entry) => entry.status === "failed")) {
+    items.push({
+      id: `job:${run.id}`,
+      type: "system",
+      kind: "job",
+      at: run.finishedAt ?? run.startedAt,
+      urgent: false,
+      badge: T.bJob,
+      title: T.jobTitle(run.job),
+      sub: p(run.error ?? "—"),
+      facts: [{ label: p("Error", "त्रुटि"), value: run.error ?? "—" }],
+      href: "/jobs",
+    });
   }
 
   return { items, unavailable: missing };

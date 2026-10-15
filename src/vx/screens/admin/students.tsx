@@ -477,7 +477,7 @@ export function StudentsScreen(props: StudentsProps) {
             </>
           ) : null}
           {props.canCollect && fees ? (
-            <Link href={`/payments?student=${row.id}`} className="tap btn soft stu-ib" aria-label={tx(ST.collectFrom(row.name))}>
+            <Link prefetch={false} href={`/payments?student=${row.id}`} className="tap btn soft stu-ib" aria-label={tx(ST.collectFrom(row.name))}>
               <Ic n="rupee" />
             </Link>
           ) : null}
@@ -500,7 +500,7 @@ export function StudentsScreen(props: StudentsProps) {
           </>
         ) : null}
         {props.canCollect ? (
-          <Link href={`/payments?student=${row.id}`} className="tap" aria-label={tx(ST.collectFrom(row.name))} style={{ background: "var(--pri)", color: "var(--prifg)" }}>
+          <Link prefetch={false} href={`/payments?student=${row.id}`} className="tap" aria-label={tx(ST.collectFrom(row.name))} style={{ background: "var(--pri)", color: "var(--prifg)" }}>
             <Ic n="rupee" />
             {tx(T.collect)}
           </Link>
