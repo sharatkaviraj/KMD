@@ -73,6 +73,17 @@ export function greetName(displayName: string): string {
   return words[0];
 }
 
+/**
+ * The name for the greeting: the short name staff call her by ("Ravina"),
+ * unless it is a roster code ("QATE", "SP") rather than a name — then the
+ * first word of the display name (verification ST-15).
+ */
+export function callName(shortName: string | null | undefined, displayName: string): string {
+  const short = shortName?.trim() ?? "";
+  if (short && !/^[A-Z0-9]{1,6}$/.test(short)) return short;
+  return greetName(displayName);
+}
+
 /** "Class 6" → "6", for "Science for 6, 7 and 8". */
 export function shortClass(label: string): string {
   return label.replace(/^class\s+/i, "");
