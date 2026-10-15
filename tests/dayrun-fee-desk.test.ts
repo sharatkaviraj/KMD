@@ -4,6 +4,21 @@ import { COUNTER_CONCESSION, counterConcessionRefusal, matchesDeskSearch, nameSk
 import { dayBookClosure } from "@/modules/receipts/vx/domain/day-close";
 import { familyMatchesQuery } from "@/modules/defaulters/vx/domain/families";
 import { newAdmissionSplit } from "@/modules/students-fees/domain/admission-dues";
+import { withDeskChequeDetails } from "@/modules/finance-controls/vx/domain/cheque-receipt";
+
+describe("a desk cheque shows what the cashier typed (accountant B7)", () => {
+  const desk = { chequeNo: null, bank: null, chequeDate: null, reference: "004512", receiptNotes: "Cheque: SBI Amet, dated 2026-10-14; subject to clearing." };
+  it("fills number, bank and date from the receipt", () => {
+    expect(withDeskChequeDetails(desk)).toMatchObject({ chequeNo: "004512", bank: "SBI Amet", chequeDate: "2026-10-14" });
+  });
+  it("keeps details entered on Cheques", () => {
+    const entered = { ...desk, chequeNo: "999999", bank: "TEST Bank", chequeDate: "2026-10-20" };
+    expect(withDeskChequeDetails(entered)).toBe(entered);
+  });
+  it("leaves unknown parts empty when the note is not the desk's", () => {
+    expect(withDeskChequeDetails({ ...desk, reference: null, receiptNotes: "paid by uncle" })).toMatchObject({ chequeNo: null, bank: null, chequeDate: null });
+  });
+});
 
 describe("a new admission's done screen reads its installments when the views lag (admin B4)", () => {
   it("splits the scheduled installments by due date", () => {

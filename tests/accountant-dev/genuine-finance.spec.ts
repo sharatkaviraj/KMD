@@ -162,7 +162,7 @@ test("genuine UI accountant tagged bookkeeping receipts, reconciliation and sing
       });
       let pdf: Buffer;
       try {
-        await page.getByRole("link", { name: "Print", exact: true }).tap();
+        await page.getByRole("link", { name: "Print / PDF", exact: true }).tap();
         const response = await responsePromise;
         expect(response.status()).toBe(200);
         expect(response.headers()["content-type"]).toContain("application/pdf");

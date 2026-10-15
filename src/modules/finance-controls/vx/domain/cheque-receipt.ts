@@ -21,6 +21,26 @@ export function chequeReceiptSuggestion(notes: string | null | undefined): Sugge
   return { bank: bank === "bank not given" ? null : bank, chequeDate };
 }
 
+/**
+ * What the cheque list and the deposit slip show: the cheque's own details
+ * when they were entered on Cheques, else what the cashier typed at the
+ * Payment Desk (the number is the receipt's reference; the bank and date are
+ * in its "Cheque: …; subject to clearing." note). Display only — nothing is
+ * written. Before this, every desk cheque read "— / —" with "Add details" and
+ * had to be typed again before a deposit slip (school-day run, accountant B7).
+ */
+export function withDeskChequeDetails<T extends Pick<ChequeRow, "chequeNo" | "bank" | "chequeDate" | "reference" | "receiptNotes">>(cheque: T): T {
+  if (cheque.chequeNo && cheque.bank && cheque.chequeDate) return cheque;
+  const suggestion = chequeReceiptSuggestion(cheque.receiptNotes);
+  const fromReference = cheque.reference?.replace(/\D/g, "").slice(0, 12) || null;
+  return {
+    ...cheque,
+    chequeNo: cheque.chequeNo ?? fromReference,
+    bank: cheque.bank ?? suggestion?.bank ?? null,
+    chequeDate: cheque.chequeDate ?? suggestion?.chequeDate ?? null,
+  };
+}
+
 export function chequeDetailsDraft(cheque: Pick<ChequeRow, "chequeNo" | "bank" | "chequeDate" | "reference" | "paymentDate" | "receiptNotes">) {
   const suggestion = chequeReceiptSuggestion(cheque.receiptNotes);
   return {

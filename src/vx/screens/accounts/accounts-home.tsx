@@ -10,6 +10,7 @@ import { addToQueueAction, searchFamiliesAction, setRemindersPausedAction, updat
 import { remindAdminAction } from "@/app/(app)/accounts/books/actions";
 import { logoutAction } from "@/app/login/actions";
 import type { AccountsHomeData, FamilyHit } from "@/modules/finance-controls/vx/types";
+import { withDeskChequeDetails } from "@/modules/finance-controls/vx/domain/cheque-receipt";
 import { initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -663,7 +664,8 @@ function EveningView({ data }: { data: AccountsHomeData }) {
             <span className="ac-v">{tx(p("Cheques for the bank · morning", "सुबह बैंक ले जाएं"))}</span>
             <span className="ac-m num">{inBag.length} of {data.chequesForBank.length} in the bag · {rupees(data.chequesForBank.reduce((s, c) => s + c.amount, 0))}</span>
           </div>
-          {data.chequesForBank.map((c, i) => {
+          {data.chequesForBank.map((row, i) => {
+            const c = withDeskChequeDetails(row);
             const on = bag.has(c.receiptId);
             return (
               <button key={c.receiptId} type="button" role="checkbox" aria-checked={on} onClick={() => bag.toggle(c.receiptId)} className="tap ac-f ac-an" style={{ gap: 12, padding: "10px 0", border: 0, borderTop: bt(i), background: "transparent", color: "var(--fg)", textAlign: "left", width: "100%", lineHeight: "normal", animationDelay: delay(i) }}>

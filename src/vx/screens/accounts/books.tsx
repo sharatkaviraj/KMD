@@ -21,7 +21,7 @@ import {
   withdrawRequestAction,
 } from "@/app/(app)/accounts/books/actions";
 import type { AccRequestRow, BooksData, ChequeRow, UpiLineRow } from "@/modules/finance-controls/vx/types";
-import { chequeDetailsDraft } from "@/modules/finance-controls/vx/domain/cheque-receipt";
+import { chequeDetailsDraft, withDeskChequeDetails } from "@/modules/finance-controls/vx/domain/cheque-receipt";
 import { nextSlipNumber } from "@/modules/finance-controls/vx/domain/books";
 import { ago, amountInWords, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
@@ -74,7 +74,7 @@ const stamp = (iso: string, today: string) => (schoolDay(iso) === today ? `Today
 const slipDate = (date: string) => date.split("-").reverse().join("/");
 
 export function Books({
-  data,
+  data: raw,
   initialView,
   initialSheet,
   initialPick,
@@ -94,6 +94,8 @@ export function Books({
   const router = useRouter();
   const toast = useToast();
   const [busy, start] = useTransition();
+  // A desk cheque shows the number, bank and date the cashier typed (accountant B7).
+  const data: BooksData = { ...raw, cheques: raw.cheques.map(withDeskChequeDetails) };
   const canAct = data.canWrite && !readOnly;
   const toDeposit = data.cheques.filter(waitingForBank);
   const ready = toDeposit.filter((c) => !postDated(c, data.today));
