@@ -10,6 +10,7 @@ import { addToQueueAction, searchFamiliesAction, setRemindersPausedAction, updat
 import { remindAdminAction } from "@/app/(app)/accounts/books/actions";
 import { logoutAction } from "@/app/login/actions";
 import type { AccountsHomeData, FamilyHit } from "@/modules/finance-controls/vx/types";
+import { withDeskChequeDetails } from "@/modules/finance-controls/vx/domain/cheque-receipt";
 import { initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -35,6 +36,8 @@ const MODE_LABEL: Record<string, string> = { upi: "UPI", cash: "Cash", cheque: "
 const MODE_COLOR: Record<string, string> = { upi: "var(--c1)", cash: "var(--c2)", cheque: "var(--c3)", bank_transfer: "var(--c4)" };
 /** The counter closes at 5:30 pm (the design's "Close by 5:30 pm"). */
 const CLOSE_MINUTE = 17 * 60 + 30;
+/** "1 receipt", "4 receipts" — the Today card said "1 receipts" (accountant UI). */
+const receiptsN = (n: number) => p(`${n} ${n === 1 ? "receipt" : "receipts"}`, `${n} ${n === 1 ? "रसीद" : "रसीदें"}`);
 
 /** The path length the design's `xDraw` animation draws from. */
 const len = (n: number) => ({ "--len": n }) as CSSProperties;
@@ -222,10 +225,11 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
   // The line runs from 8:00 am to now: carry the last total flat to the right edge.
   const line = `${c.spark.line} 200,${c.spark.endY}`;
   const left = timeLeft(CLOSE_MINUTE);
+  const beforeNoon = timeLeft(12 * 60) !== null;
   const steps = [
-    { label: "Count the cash", sub: `expected ${rupees(data.cashExpected.total)} · ${data.cashExpected.count} receipts`, done: data.cashExpected.count === 0 || data.closure?.status === "closed" },
-    { label: "Match UPI with the bank app", sub: data.upiOpen.count ? `${data.upiOpen.count} left · ${rupees(data.upiOpen.total)}` : "all matched", done: data.upiOpen.count === 0 },
-    { label: "Cheques to the bank", sub: data.chequesToDeposit.count ? `${data.chequesToDeposit.count} · ${rupees(data.chequesToDeposit.total)}` : "none waiting", done: data.chequesToDeposit.count === 0 },
+    { label: tx(p("Count the cash", "नकद गिनें")), sub: tx(p(`expected ${rupees(data.cashExpected.total)} · ${receiptsN(data.cashExpected.count).en}`, `अपेक्षित ${rupees(data.cashExpected.total)} · ${receiptsN(data.cashExpected.count).hi}`)), done: data.cashExpected.count === 0 || data.closure?.status === "closed" },
+    { label: tx(p("Match UPI with the bank app", "UPI बैंक ऐप से मिलाएँ")), sub: data.upiOpen.count ? tx(p(`${data.upiOpen.count} left · ${rupees(data.upiOpen.total)}`, `${data.upiOpen.count} बाकी · ${rupees(data.upiOpen.total)}`)) : tx(p("all matched", "सब मिल गए")), done: data.upiOpen.count === 0 },
+    { label: tx(p("Cheques to the bank", "चेक बैंक में")), sub: data.chequesToDeposit.count ? `${data.chequesToDeposit.count} · ${rupees(data.chequesToDeposit.total)}` : tx(p("none waiting", "कोई बाकी नहीं")), done: data.chequesToDeposit.count === 0 },
   ];
   const doneN = steps.filter((s) => s.done).length;
   const openRequests = data.requests.filter((r) => r.status === "waiting").length;
@@ -255,7 +259,7 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
           <Card className="ac-c ac-cd" style={{ padding: 18 }}>
             <span className="ac-f ac-j">
               <span className="ac-v">{tx(p("Find a student or family", "छात्र या परिवार खोजें"))}</span>
-              <span className="ac-m hide-m">Opens the Payment Desk</span>
+              <span className="ac-m hide-m">{tx(p("Opens the Payment Desk", "फीस जमा खुलेगा"))}</span>
             </span>
             <label className="ac-q ac-f">
               <Ic n="search" size={22} />
@@ -316,20 +320,22 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
                 <span className="ac-v">{tx(p("Collected today", "आज जमा"))}</span>
                 <span className="ac-m">· live</span>
               </span>
-              <Link href="/receipts" className="tap btn ghost only-d" style={{ height: 34, padding: "0 10px" }}>See receipts<Ic n="chevRight" size={16} /></Link>
-              <Link href="/receipts" className="tap btn ghost only-m" style={{ height: 36, padding: "0 10px" }}>Receipts<Ic n="chevRight" size={16} /></Link>
+              <Link href="/receipts" className="tap btn ghost only-d" style={{ height: 34, padding: "0 10px" }}>{tx(p("See receipts", "रसीदें देखें"))}<Ic n="chevRight" size={16} /></Link>
+              <Link href="/receipts" className="tap btn ghost only-m" style={{ height: 36, padding: "0 10px" }}>{tx(p("Receipts", "रसीदें"))}<Ic n="chevRight" size={16} /></Link>
             </div>
             <div className="ac-f ac-j ac-w" style={{ alignItems: "flex-end", gap: 12 }}>
               <span className="ac-c">
                 <span className="num rise" style={{ fontSize: 38, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{rupees(c.total)}</span>
-                <span className="ac-m">{c.count} receipts{c.lastAt ? ` · last one at ${time12(c.lastAt)}` : " · none yet today"}{c.reversedCount ? ` · ${c.reversedCount} reversed, not counted` : ""}</span>
-                {c.vsUsual !== null ? (
+                <span className="ac-m">{tx(receiptsN(c.count))}{c.lastAt ? tx(p(` · last one at ${time12(c.lastAt)}`, ` · आख़िरी ${time12(c.lastAt)}`)) : tx(p(" · none yet today", " · आज अभी कोई नहीं"))}{c.reversedCount ? tx(p(` · ${c.reversedCount} reversed, not counted`, ` · ${c.reversedCount} वापस, गिनती में नहीं`)) : ""}</span>
+                {/* A part-day against a whole usual day read as an alarm every
+                    morning ("100% vs usual day" at 8:30 with ₹0): shown from noon (accountant B16). */}
+                {c.vsUsual !== null && !beforeNoon ? (
                   <span className="ac-f ac-w" style={{ marginTop: 6 }}>
                     <span className="pill num" style={{ height: 24, background: c.vsUsual >= 0 ? "var(--oks)" : "var(--warns)", color: c.vsUsual >= 0 ? "var(--ok)" : "var(--warnfg)", animation: "xPopIn .45s .4s var(--spring) both" }}>
                       <Ic n={c.vsUsual >= 0 ? "arrowUp" : "arrowDown"} size={12} stroke={3} />
-                      {Math.abs(c.vsUsual)}% vs usual day
+                      {tx(p(`${Math.abs(c.vsUsual)}% vs usual day`, `सामान्य दिन से ${Math.abs(c.vsUsual)}%`))}
                     </span>
-                    <span className="ac-m">Usual {weekday(data.today)} {rupees(c.usual)}</span>
+                    <span className="ac-m">{tx(p(`Usual ${weekday(data.today)} ${rupees(c.usual)}`, `सामान्य दिन ${rupees(c.usual)}`))}</span>
                   </span>
                 ) : null}
               </span>
@@ -344,7 +350,7 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
                 <div key={m.mode} style={{ display: "grid", gridTemplateColumns: "62px minmax(0,1fr) 128px", gap: 10, alignItems: "center" }}>
                   <span className="ac-b" style={{ fontSize: 13 }}>{MODE_LABEL[m.mode]}</span>
                   <span className="ac-bar"><span style={{ width: c.total ? `${((m.total / c.total) * 100).toFixed(1)}%` : "0%", background: MODE_COLOR[m.mode], animationDelay: `${i * 90 + 200}ms` }} /></span>
-                  <span className="num" style={{ fontSize: 13, textAlign: "right" }}><b>{rupees(m.total)}</b> <span className="ac-m">· {m.count ? `${m.count} receipts` : "none yet"}</span></span>
+                  <span className="num" style={{ fontSize: 13, textAlign: "right" }}><b>{rupees(m.total)}</b> <span className="ac-m">· {m.count ? tx(receiptsN(m.count)) : tx(p("none yet", "अभी नहीं"))}</span></span>
                 </div>
               ))}
             </div>
@@ -391,8 +397,8 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
             {data.queue.length === 0 ? (
               <div className="ac-c fadein" style={{ alignItems: "center", gap: 6, padding: "12px 0", textAlign: "center" }}>
                 <Ic n="checkCircle" size={28} style={{ color: "var(--ok)" }} />
-                <span className="ac-b">No one waiting at the counter</span>
-                {canCollect ? <Btn href="/payments">Open the Payment Desk</Btn> : null}
+                <span className="ac-b">{tx(p("No one waiting at the counter", "काउंटर पर कोई इंतज़ार में नहीं"))}</span>
+                {canCollect ? <Btn href="/payments">{tx(p("Open the Payment Desk", "फीस जमा खोलें"))}</Btn> : null}
               </div>
             ) : null}
           </Card>
@@ -484,9 +490,9 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
                 </svg>
                 <span className="ac-c ac-1">
                   <span className="ac-v">{tx(p("Close the day", "दिन बंद करें"))}</span>
-                  <span className="ac-m">{data.closure?.status === "closed" ? tx(p("Closed · day summary saved", "बंद · दिन का सारांश सुरक्षित है")) : left ? `${left} left · close it in Receipts` : "Past 5:30 pm · close it in Receipts"}</span>
+                  <span className="ac-m">{data.closure?.status === "closed" ? tx(p("Closed · day summary saved", "बंद · दिन का सारांश सुरक्षित है")) : left ? tx(p(`${left} left · close it in Receipts`, `${left} बाकी · रसीदों में बंद करें`)) : tx(p("Past 5:30 pm · close it in Receipts", "शाम 5:30 बज चुके · रसीदों में बंद करें"))}</span>
                 </span>
-                <span className="pill" style={{ height: 26, padding: "0 10px", background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="clock" size={16} />Close by 5:30 pm</span>
+                <span className="pill" style={{ height: 26, padding: "0 10px", background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="clock" size={16} />{tx(p("Close by 5:30 pm", "शाम 5:30 तक बंद करें"))}</span>
               </div>
               <div className="ac-c" style={{ gap: 2 }}>
                 {steps.map((s, i) => (
@@ -497,8 +503,8 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
                   </div>
                 ))}
               </div>
-              <Link href="/receipts" className="tap btn pri ac-close"><Ic n="lock" />Count cash and close the day</Link>
-              <Link href="/accounts?view=evening" className="tap btn ghost" style={{ height: 36, fontSize: 13, color: "var(--mut)" }}>After closing: see tonight’s summary<Ic n="chevRight" size={16} /></Link>
+              <Link href="/receipts" className="tap btn pri ac-close"><Ic n="lock" />{tx(p("Count cash and close the day", "नकद गिनें और दिन बंद करें"))}</Link>
+              <Link href="/accounts?view=evening" className="tap btn ghost" style={{ height: 36, fontSize: 13, color: "var(--mut)" }}>{tx(p("After closing: see tonight’s summary", "बंद करने के बाद: आज का सारांश देखें"))}<Ic n="chevRight" size={16} /></Link>
             </Card>
           ) : null}
         </div>
@@ -598,8 +604,8 @@ function EveningView({ data }: { data: AccountsHomeData }) {
   const closed = data.closure?.status === "closed";
   const mode = (m: string) => data.collected.modes.find((x) => x.mode === m) ?? { total: 0, count: 0 };
   const sum = [
-    { label: "Collected", v: rupees(data.collected.total), sub: `${data.collected.count} receipts · ${data.collected.reversedCount} reversed`, tone: "var(--mut)" },
-    { label: "Cash", v: rupees(mode("cash").total), sub: `${mode("cash").count} receipts`, tone: "var(--mut)" },
+    { label: "Collected", v: rupees(data.collected.total), sub: tx(p(`${receiptsN(data.collected.count).en} · ${data.collected.reversedCount} reversed`, `${receiptsN(data.collected.count).hi} · ${data.collected.reversedCount} वापस`)), tone: "var(--mut)" },
+    { label: "Cash", v: rupees(mode("cash").total), sub: tx(receiptsN(mode("cash").count)), tone: "var(--mut)" },
     { label: "UPI", v: rupees(mode("upi").total), sub: data.upiOpen.count ? `${data.upiOpen.count} bank lines still to match` : "all matched in the bank app ✓", tone: data.upiOpen.count ? "var(--warnfg)" : "var(--ok)" },
     { label: "Cheques", v: rupees(mode("cheque").total + mode("bank_transfer").total), sub: `${mode("cheque").count} new · subject to clearing`, tone: "var(--mut)" },
   ];
@@ -628,7 +634,7 @@ function EveningView({ data }: { data: AccountsHomeData }) {
           </span>
           {closed ? <span style={{ fontSize: 13, color: "var(--sub)" }}>आज का हिसाब बंद हो गया। धन्यवाद!</span> : null}
         </span>
-        {!closed ? <Btn variant="pri" icon="lock" href="/receipts">Close the day</Btn> : null}
+        {!closed ? <Btn variant="pri" icon="lock" href="/receipts">{tx(p("Close the day", "दिन बंद करें"))}</Btn> : null}
       </Card>
       <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
         {sum.map((k, i) => (
@@ -663,14 +669,15 @@ function EveningView({ data }: { data: AccountsHomeData }) {
             <span className="ac-v">{tx(p("Cheques for the bank · morning", "सुबह बैंक ले जाएं"))}</span>
             <span className="ac-m num">{inBag.length} of {data.chequesForBank.length} in the bag · {rupees(data.chequesForBank.reduce((s, c) => s + c.amount, 0))}</span>
           </div>
-          {data.chequesForBank.map((c, i) => {
+          {data.chequesForBank.map((row, i) => {
+            const c = withDeskChequeDetails(row);
             const on = bag.has(c.receiptId);
             return (
               <button key={c.receiptId} type="button" role="checkbox" aria-checked={on} onClick={() => bag.toggle(c.receiptId)} className="tap ac-f ac-an" style={{ gap: 12, padding: "10px 0", border: 0, borderTop: bt(i), background: "transparent", color: "var(--fg)", textAlign: "left", width: "100%", lineHeight: "normal", animationDelay: delay(i) }}>
                 <span style={{ flex: "none", width: 24, height: 24, borderRadius: 7, border: `2px solid ${on ? "var(--ok)" : "var(--bds)"}`, background: on ? "var(--ok)" : "var(--card)", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", transition: "background-color .2s ease" }}>
                   <Ic n="check" size={14} stroke={3} style={{ opacity: on ? 1 : 0, transform: `scale(${on ? 1 : 0})`, transition: "transform .25s var(--spring)" }} />
                 </span>
-                <span className="ac-c ac-1"><span className="ac-b ac-e">{c.studentName} · {c.classLabel}</span><span className="ac-m ac-e num">{c.chequeNo ? `Cheque ${c.chequeNo}` : "No cheque no. yet"} · {c.bank ?? "bank not written"} · {day(c.paymentDate)}</span></span>
+                <span className="ac-c ac-1"><span className="ac-b ac-e">{c.studentName} · {c.classLabel}</span><span className="ac-m ac-e num">{c.chequeNo ? tx(p(`Cheque ${c.chequeNo}`, `चेक ${c.chequeNo}`)) : tx(p("No cheque no. yet", "चेक नं. नहीं लिखा"))} · {c.bank ?? tx(p("bank not written", "बैंक नहीं लिखा"))} · {day(c.paymentDate)}</span></span>
                 <span className="ac-c" style={{ alignItems: "flex-end" }}><span className="num ac-v">{rupees(c.amount)}</span><span className="ac-m" style={{ color: on ? "var(--ok)" : "var(--warnfg)" }}>{on ? "in the bag" : "put it in the bag"}</span></span>
               </button>
             );

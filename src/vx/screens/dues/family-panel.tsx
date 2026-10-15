@@ -22,7 +22,11 @@ import { contactTone, day, dayTone, firstName, ini, kidsShort, maskPhone, telHre
 import type { DuesProps, DuesSheet, KidInstallment } from "./types";
 import { CHANNEL_WORD, fill, instList, LOG_OUTCOME_WORD, OUTCOME_SUB, OUTCOME_WORD, W } from "./words";
 
-type Props = DuesProps & { family: DuesFamily };
+type Props = DuesProps & {
+  family: DuesFamily;
+  /** The next family on the call list, offered after a call is logged (accountant B3). */
+  nextHref?: string | null;
+};
 
 function newRequestId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -123,8 +127,11 @@ export function FamilyPanel(props: Props) {
       }
       setSheet(null);
       setNote("");
-      toast.show({ text: tx(W.logged) });
-      router.refresh();
+      // logCallAction revalidates /dues, so its answer already carries the
+      // fresh list; a router.refresh() here rendered the whole page a second
+      // time on every call (accountant B3).
+      const next = props.nextHref;
+      toast.show({ text: tx(W.logged), action: next ? { label: tx(W.nextFamily), onClick: () => router.push(next) } : undefined, ms: next ? 8000 : undefined });
     });
   }
 

@@ -35,7 +35,7 @@
 :where(.vx) .pd-sr:focus-within{border-color:var(--acc);box-shadow:0 0 0 4px var(--accs)}
 .vx .pd-sr input{flex:1;min-width:0;height:46px;border:0;outline:none;background:transparent;font-size:16px;color:var(--fg)}
 :where(.vx) .pd-cls{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
-:where(.vx) .pd-cls>button{height:36px;padding:0 2px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:where(.vx) .pd-cls>button{height:40px;padding:0 2px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 :where(.vx) .pd-cls>button.on{background:var(--pri);border-color:var(--pri);color:var(--prifg)}
 :where(.vx) .pd-list{overflow-y:auto;overscroll-behavior:contain}
 :where(.vx) .pd-row{position:relative;width:100%;display:flex;align-items:center;gap:12px;padding:10px 14px;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--fg);text-align:left;animation:xIn .32s var(--ease) both}
@@ -59,7 +59,8 @@
 /* A long helper ("Up to Installment 2 + late fee ₹5,000") wraps inside the row on a 320px phone instead of widening the page; the amount stays on one line. */
 .vx .pd-chips .chip{max-width:100%;min-width:0;height:auto;min-height:34px;padding-top:6px;padding-bottom:6px;white-space:normal;text-align:left;line-height:1.3}
 .vx .pd-chips .chip .num{white-space:nowrap}
-@container vx (max-width:899px){.vx .pd-chips .chip{min-height:38px}}
+/* The counter's most-tapped controls: at least 40px tall on a phone (accountant UI). */
+@container vx (max-width:899px){.vx .pd-chips .chip{min-height:44px}}
 .vx .pd-seg40 .seg>button{height:40px}
 .vx .pd-mo .seg>button{height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px}
 :where(.vx,.vxt) .pd-bx{padding:10px 12px;border-radius:12px;background:var(--s2);display:flex;flex-direction:column;gap:4px}

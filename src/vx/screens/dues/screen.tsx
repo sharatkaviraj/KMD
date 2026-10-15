@@ -190,6 +190,9 @@ function ListLine({
 
 const small: CSSProperties = { padding: "0 12px", fontSize: 13 };
 
+/** Families drawn per page of the call list. */
+const CALL_PAGE = 40;
+
 export function DuesScreen(props: DuesProps) {
   const { tab, families, metrics, selected, today, perms } = props;
   const { tx } = useVx();
@@ -200,6 +203,18 @@ export function DuesScreen(props: DuesProps) {
   const [busy, start] = useTransition();
   const shown = useMemo(() => filterFamilies(families, filters), [families, filters]);
   const filtered = hasCallFilters(filters);
+  // Draw the first page of families, not all ~260 twice over (desk table and
+  // phone cards): the page was 2.69 MB of HTML on the school-day run
+  // (accountant B3). The count kept is tied to the filters it was raised for,
+  // so a new search starts at one page again without an effect.
+  const [more, setMore] = useState<{ filters: CallFilters; n: number }>({ filters: NO_CALL_FILTERS, n: CALL_PAGE });
+  const limit = more.filters === filters ? more.n : CALL_PAGE;
+  const visible = useMemo(() => {
+    const page = shown.slice(0, limit);
+    return selected && !page.some((f) => f.key === selected.key) && shown.some((f) => f.key === selected.key) ? [...page, selected] : page;
+  }, [shown, limit, selected]);
+  const hidden = Math.max(0, shown.length - limit);
+  const nextFamily = selected ? (shown[shown.findIndex((f) => f.key === selected.key) + 1] ?? null) : null;
 
   const latestPromise = useMemo(() => {
     const m = new Map<string, PromiseView>();
@@ -226,7 +241,8 @@ export function DuesScreen(props: DuesProps) {
       return n;
     });
   const selected_ = shown.filter((f) => sel.has(f.key));
-  const allOn = shown.length > 0 && selected_.length === shown.length;
+  // "Select all" means the families on screen, never the pages not drawn yet.
+  const allOn = visible.length > 0 && visible.every((f) => sel.has(f.key));
 
   const familyHref = (f: Pick<DuesFamily, "key">, more: Record<string, string> = {}) => duesHref(tab, { family: f.key, ...more });
   const callHref = (f: Pick<DuesFamily, "key">) => duesHref(tab, { family: f.key, sheet: "call", dial: "1" });
@@ -296,13 +312,13 @@ export function DuesScreen(props: DuesProps) {
           {phone ? <span style={{ fontWeight: 600 }}>{tx(W.call)}</span> : null}
         </a>
         {perms.log ? (
-          <Link href={familyHref(f, { sheet: "wa" })} className="tap btn sec" aria-label={tx(fill(W.waOne, { name: f.fatherName }))} title={tx(W.whatsapp)} style={st}>
+          <Link href={familyHref(f, { sheet: "wa" })} prefetch={false} className="tap btn sec" aria-label={tx(fill(W.waOne, { name: f.fatherName }))} title={tx(W.whatsapp)} style={st}>
             <Ic n="message" size={16} />
             {phone ? <span style={{ fontWeight: 600 }}>{tx(W.whatsapp)}</span> : null}
           </Link>
         ) : null}
         {perms.log ? (
-          <Link href={familyHref(f, { sheet: "call" })} className="tap btn sec" aria-label={tx(fill(W.logOne, { name: f.fatherName }))} title={tx(W.logCall)} style={st}>
+          <Link href={familyHref(f, { sheet: "call" })} prefetch={false} className="tap btn sec" aria-label={tx(fill(W.logOne, { name: f.fatherName }))} title={tx(W.logCall)} style={st}>
             <Ic n="edit" size={16} />
             {phone ? <span style={{ fontWeight: 600 }}>{tx(W.logShort)}</span> : null}
           </Link>
@@ -335,7 +351,7 @@ export function DuesScreen(props: DuesProps) {
           <div className="only-d card" role="table" aria-label={tx(W.tabCall)} style={{ overflow: "hidden" }}>
             {selected ? null : (
               <div role="row" style={{ display: "grid", gridTemplateColumns: TRACKS, gap: 10, alignItems: "center", height: 44, padding: "0 14px 0 6px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
-                {perms.log ? <Check on={allOn} onToggle={() => setSel(allOn ? new Set() : new Set(shown.map((f) => f.key)))} label={tx(W.selectAll)} /> : <span />}
+                {perms.log ? <Check on={allOn} onToggle={() => setSel(allOn ? new Set() : new Set(visible.map((f) => f.key)))} label={tx(W.selectAll)} /> : <span />}
                 <span role="columnheader" className="sech">{tx(W.family)}</span>
                 <span role="columnheader" className="sech">{tx(W.children)}</span>
                 <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(W.pendingToday)}</span>
@@ -344,10 +360,10 @@ export function DuesScreen(props: DuesProps) {
                 <span />
               </div>
             )}
-            {shown.map((f, i) => (
+            {visible.map((f, i) => (
               <div key={f.key} role="row" className={`row${selected?.key === f.key ? " sel" : ""}`} style={{ display: "grid", gridTemplateColumns: selected ? TRACKS_CMP : TRACKS, gap: 10, alignItems: "center", minHeight: 64, padding: "0 14px 0 6px", borderTop: i === 0 && selected ? 0 : "1px solid var(--bd)", overflow: "hidden", animation: `xIn .32s var(--ease) ${delay(i)} both` }}>
                 {perms.log ? <Check on={sel.has(f.key)} onToggle={() => toggle(f.key)} label={tx(fill(W.selectOne, { name: f.fatherName }))} /> : <span />}
-                <Link href={familyHref(f)} className="tap" title={f.fatherName} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "10px 0", minWidth: 0, color: "var(--fg)" }}>
+                <Link href={familyHref(f)} prefetch={false} className="tap" title={f.fatherName} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "10px 0", minWidth: 0, color: "var(--fg)" }}>
                   <span className="clip" style={{ maxWidth: "100%", fontSize: 15, fontWeight: 600 }}>{f.fatherName}</span>
                   <span className="num clip" style={{ maxWidth: "100%", fontSize: 12, color: "var(--mut)" }}>{maskPhone(f.phone)}</span>
                 </Link>
@@ -362,10 +378,10 @@ export function DuesScreen(props: DuesProps) {
 
           {/* phone: a card per family */}
           <div className="only-m" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {shown.map((f, i) => (
+            {visible.map((f, i) => (
               <div key={f.key} style={{ display: "grid", gridTemplateColumns: "40px minmax(0, 1fr) auto", gap: 6, alignItems: "start", padding: "8px 12px 12px 4px", border: "1px solid var(--bd)", borderRadius: 18, background: "var(--card)", boxShadow: "var(--sh)", animation: `xIn .32s var(--ease) ${delay(i)} both` }}>
                 {perms.log ? <Check on={sel.has(f.key)} onToggle={() => toggle(f.key)} label={tx(fill(W.selectOne, { name: f.fatherName }))} /> : <span />}
-                <Link href={familyHref(f)} className="tap" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", paddingTop: 8, minWidth: 0, color: "var(--fg)" }}>
+                <Link href={familyHref(f)} prefetch={false} className="tap" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", paddingTop: 8, minWidth: 0, color: "var(--fg)" }}>
                   <span className="clip" style={{ maxWidth: "100%", fontSize: 15, fontWeight: 600 }}>{f.fatherName}</span>
                   <span className="num clip" style={{ maxWidth: "100%", fontSize: 12, color: "var(--mut)" }}>{maskPhone(f.phone)}</span>
                 </Link>
@@ -377,6 +393,9 @@ export function DuesScreen(props: DuesProps) {
               </div>
             ))}
           </div>
+          {hidden > 0 ? (
+            <Btn variant="sec" full onClick={() => setMore({ filters, n: limit + CALL_PAGE })}>{tx(fill(W.showMore, { n: Math.min(hidden, CALL_PAGE) }))}</Btn>
+          ) : null}
         </>
       ) : filtered ? (
         <DuesEmpty icon="filter" bg="var(--s2)" fg="var(--mut)" title={tx(W.noMatch)} sub={tx(W.noMatchBody)} action={<Btn variant="sec" onClick={() => setFilters(NO_CALL_FILTERS)}>{tx(W.clearFilters)}</Btn>} />
@@ -697,7 +716,7 @@ export function DuesScreen(props: DuesProps) {
           {list}
           {selected ? (
             <aside className="unstick" style={{ position: "sticky", top: 64, height: "calc(100dvh - 64px)", overflowY: "auto", borderLeft: "1px solid var(--bd)", background: "var(--bg)", animation: "xPush .36s var(--ease) both" }}>
-              <FamilyPanel key={selected.key} {...props} family={selected} />
+              <FamilyPanel key={selected.key} {...props} family={selected} nextHref={nextFamily ? familyHref(nextFamily) : null} />
             </aside>
           ) : null}
         </div>

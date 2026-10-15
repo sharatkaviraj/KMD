@@ -97,10 +97,11 @@ for (const width of [360, 390, 412]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     });
   }
-  test(`${width}px custom advance with concession and required waiver reason`, async ({ page }, info) => {
+  test(`${width}px custom advance with required waiver reason and no counter concession`, async ({ page }, info) => {
     await open(page, width, "?role=admin");
     await page.locator("#pd-amount").fill("3500");
-    await page.locator("#pd-concession").fill("200");
+    // The counter concession is off (school-day run, accountant B1).
+    await expect(page.locator("#pd-concession")).toHaveCount(0);
     await page.getByRole("radio", { name: "Waive", exact: true }).tap();
     await page.getByRole("button", { name: "Review & save", exact: true }).tap();
     await expect(page.getByText("Pick a reason for the waiver", { exact: true }).first()).toBeVisible();
@@ -111,10 +112,10 @@ for (const width of [360, 390, 412]) {
     await review(page);
     if (width === 390) await info.attach("synthetic-phone-review-390", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
     const effect = await save(page);
-    expect(effect.input).toMatchObject({ amount: 3500, quickDiscountAmount: 200, lateFeeWaiver: 1000 });
+    expect(effect.input).toMatchObject({ amount: 3500, quickDiscountAmount: 0, lateFeeWaiver: 1000 });
     expect(effect.input.remarks).toContain("Family hardship (Synthetic follow-up waiver)");
-    expect(effect.receipt.lines).toEqual([{ label: "Installment 1", amount: 1800 }, { label: "Installment 2", amount: 1700 }]);
-    expect(effect.receipt.outstandingAfter).toBe(300);
+    expect(effect.receipt.lines).toEqual([{ label: "Installment 1", amount: 2000 }, { label: "Installment 2", amount: 1500 }]);
+    expect(effect.receipt.outstandingAfter).toBe(500);
     await expectBalanceAfter(page, effect.balance);
   });
   test(`${width}px EMI suggestions preserve custom collection and restricted adjustments`, async ({ page }) => {
@@ -126,7 +127,7 @@ for (const width of [360, 390, 412]) {
     await page.getByRole("button", { name: /^Monthly EMI/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("700");
     await page.getByRole("button", { name: /^Full plan balance/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("4,000");
     await page.getByRole("button", { name: /^Catch up/ }).tap(); await expect(page.locator("#pd-amount")).toHaveValue("1,400");
-    await expect(page.locator("#pd-concession")).toBeDisabled();
+    await expect(page.locator("#pd-concession")).toHaveCount(0);
     await expect(page.getByRole("radio", { name: "Waive", exact: true })).toHaveCount(0);
     await page.locator("#pd-amount").fill("850");
     await review(page); const effect = await save(page);

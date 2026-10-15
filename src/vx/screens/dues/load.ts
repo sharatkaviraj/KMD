@@ -117,7 +117,28 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
   const selected = familyKey ? (all.find((f) => f.key === familyKey) ?? null) : null;
   const detail = selected ? await loadFamilyDetail(sessionLabel, selected.kids.map((k) => k.studentId)) : null;
   const woId = one(search.wo);
-  const writeOffFor = woId ? (left.find((l) => l.studentId === woId) ?? null) : null;
+  let writeOffFor = woId ? (left.find((l) => l.studentId === woId) ?? null) : null;
+  // A request waiting under Needs you for a child who no longer owes anything
+  // (paid, or written off another way) is not on the Left owing list, and the
+  // sheet used to open on nothing (admin B3). Open it anyway, owing ₹0, so the
+  // admin can decline it and the item leaves Needs you.
+  if (woId && !writeOffFor) {
+    const asked = writeOffs.find((w) => w.studentId === woId && w.status === "pending");
+    if (asked) {
+      const b = (await studentBriefs([woId]).catch(() => []))[0];
+      writeOffFor = {
+        studentId: woId,
+        fullName: b?.fullName ?? "—",
+        fatherName: b?.fatherName ?? null,
+        phone: b?.phone ?? null,
+        status: "",
+        classLabel: null,
+        owed: 0,
+        lastPaymentDate: null,
+        writeOff: { status: asked.status, amount: asked.amount, reasonCode: asked.reasonCode, note: asked.note, by: asked.requestedByName },
+      };
+    }
+  }
 
   const fee = feePermissionsFor(staff.role);
   const studentsPending = board.students.filter((s) => s.overdueAmount > 0).length;

@@ -21,7 +21,7 @@ import {
   withdrawRequestAction,
 } from "@/app/(app)/accounts/books/actions";
 import type { AccRequestRow, BooksData, ChequeRow, UpiLineRow } from "@/modules/finance-controls/vx/types";
-import { chequeDetailsDraft } from "@/modules/finance-controls/vx/domain/cheque-receipt";
+import { chequeDetailsDraft, withDeskChequeDetails } from "@/modules/finance-controls/vx/domain/cheque-receipt";
 import { nextSlipNumber } from "@/modules/finance-controls/vx/domain/books";
 import { ago, amountInWords, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
@@ -312,6 +312,7 @@ function ChequesPane({
   onRequests: () => void;
   onPostDated: (c: ChequeRow) => void;
 }) {
+  const { tx } = useVx();
   const inTab = (c: ChequeRow, t: ChequeTab) => (t === "to_deposit" ? waitingForBank(c) : c.status === t);
   const rows = data.cheques.filter((c) => inTab(c, tab));
   const count = (t: ChequeTab) => data.cheques.filter((c) => inTab(c, t)).length;
@@ -373,7 +374,10 @@ function ChequesPane({
             const sel = picked.includes(r.receiptId) && !late;
             const selectable = tab === "to_deposit" && canAct;
             const who = family(r);
-            const dated = day(r.chequeDate ?? r.paymentDate);
+            // What the cashier typed at the desk is shown until the details are
+            // confirmed here (accountant B7); "Add details" still saves the record.
+            const shown = withDeskChequeDetails(r);
+            const dated = day(shown.chequeDate ?? r.paymentDate);
             return (
               <div key={r.receiptId} className="row ac-ct" style={{ animationDelay: delay(i) }}>
                 {selectable ? (
@@ -387,13 +391,13 @@ function ChequesPane({
                     <span className="ac-ib" style={{ width: 30, height: 30, borderRadius: 10, background: tab === "to_deposit" ? "var(--s2)" : look.bg, color: tab === "to_deposit" ? "var(--mut)" : look.fg }}><Ic n={look.icon} size={16} /></span>
                   </span>
                 )}
-                <span className="num c-no" style={{ fontSize: 13, fontWeight: 700 }}>{r.chequeNo ?? "—"}</span>
+                <span className="num c-no" style={{ fontSize: 13, fontWeight: 700 }}>{shown.chequeNo ?? "—"}</span>
                 <span className="ac-c c-fam">
                   <span className="ac-b ac-e">{who.title}</span>
                   <span className="ac-m ac-e">{who.sub}</span>
-                  <span className="ac-m ac-e num only-m">{[r.chequeNo ? `Cheque ${r.chequeNo}` : "No cheque no. yet", r.bank ?? "bank not written", r.receiptNumber, r.slipNo ? `slip ${r.slipNo}` : null].filter(Boolean).join(" · ")}</span>
+                  <span className="ac-m ac-e num only-m">{[shown.chequeNo ? tx(p(`Cheque ${shown.chequeNo}`, `चेक ${shown.chequeNo}`)) : tx(p("No cheque no. yet", "चेक नं. नहीं लिखा")), shown.bank ?? tx(p("bank not written", "बैंक नहीं लिखा")), r.receiptNumber, r.slipNo ? tx(p(`slip ${r.slipNo}`, `पर्ची ${r.slipNo}`)) : null].filter(Boolean).join(" · ")}</span>
                 </span>
-                <span className="ac-m ac-e c-bank" style={{ fontSize: 13 }}>{r.bank ?? "—"}</span>
+                <span className="ac-m ac-e c-bank" style={{ fontSize: 13 }}>{shown.bank ?? "—"}</span>
                 <span className="num c-dt" style={{ fontSize: 13 }}>{dated}</span>
                 <span className="num ac-m ac-e c-rec" style={{ fontSize: 13 }} title={r.receiptNumber}>{r.receiptNumber}</span>
                 <span className="c-amt">
@@ -402,7 +406,7 @@ function ChequesPane({
                 </span>
                 <span className="c-act">
                   <span className="pill" style={{ height: 24, background: look.bg, color: look.fg }}>{look.label}</span>
-                  {canAct && !r.chequeNo && r.status !== "cleared" ? <button type="button" className="tap btn ghost ac-s" onClick={() => onDetails(r)}><Ic n="edit" size={16} />Add details</button> : null}
+                  {canAct && !r.chequeNo && r.status !== "cleared" ? <button type="button" className="tap btn ghost ac-s" onClick={() => onDetails(r)}><Ic n="edit" size={16} />{tx(p("Add details", "विवरण जोड़ें"))}</button> : null}
                   {canAct && r.status === "deposited" && !r.reversed ? (
                     <>
                       <button type="button" className="tap btn soft ac-s" disabled={busy} onClick={() => onCleared(r.receiptId)}><Ic n="check" size={16} />Cleared</button>
@@ -702,6 +706,7 @@ function Stack({ children, gap = 10 }: { children: ReactNode; gap?: number }) {
 }
 
 function DepositSheet({ open, onClose, data, chosen, total, clearPicked, staffName, canAct, busy, run }: { open: boolean; onClose: () => void; data: BooksData; chosen: ChequeRow[]; total: number; clearPicked: () => void; staffName: string; canAct: boolean; busy: boolean; run: Run }) {
+  const { tx } = useVx();
   // The slip is written on the bank the school used last time, and today's date; both can be changed on the slip.
   const [bank, setBank] = useState(data.slips[0]?.bankLabel ?? "State Bank of India · school account");
   const [date, setDate] = useState(data.today);
@@ -764,10 +769,10 @@ function DepositSheet({ open, onClose, data, chosen, total, clearPicked, staffNa
           </div>
           <div className="ac-c">
             <div className="ac-sr" style={{ borderTop: 0, paddingBottom: 4 }}><span className="sech">#</span><span className="sech">Cheque</span><span className="sech c3">Drawn on</span><span className="sech" style={{ textAlign: "right" }}>Amount</span></div>
-            {chosen.map((d, i) => (
+            {chosen.map(withDeskChequeDetails).map((d, i) => (
               <div key={d.receiptId} className="ac-sr" style={{ animation: "xIn .3s var(--ease) both", animationDelay: `${i * 60}ms` }}>
                 <span className="num ac-m">{i + 1}</span>
-                <span className="ac-c"><span className="num" style={{ fontWeight: 700 }}>{d.chequeNo ?? "no. not written"}</span><span className="ac-m ac-e">{family(d).title}</span></span>
+                <span className="ac-c"><span className="num" style={{ fontWeight: 700 }}>{d.chequeNo ?? tx(p("no. not written", "नं. नहीं लिखा"))}</span><span className="ac-m ac-e">{family(d).title}</span></span>
                 <span className="c3 ac-m ac-e">{d.bank ?? "—"}</span>
                 <span className="num" style={{ textAlign: "right", fontWeight: 700 }}>{rupees(d.amount)}</span>
               </div>
@@ -778,7 +783,7 @@ function DepositSheet({ open, onClose, data, chosen, total, clearPicked, staffNa
           </div>
           <div className="ac-f ac-j" style={{ paddingTop: 10, borderTop: "1.5px dashed var(--bds)", fontSize: 12, color: "var(--mut)" }}><span>Deposited by {staffName}</span><span>Signature ____________</span></div>
         </div>
-        {chosen.some((c) => !c.chequeNo) ? <div className="ac-in" style={{ background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="alert" style={{ marginTop: 2 }} /><span>Some cheques have no number written. Add the details from the list so the bank slip is complete.</span></div> : null}
+        {chosen.some((c) => !withDeskChequeDetails(c).chequeNo) ? <div className="ac-in" style={{ background: "var(--warns)", color: "var(--warnfg)" }}><Ic n="alert" style={{ marginTop: 2 }} /><span>{tx(p("Some cheques have no number written. Add the details from the list so the bank slip is complete.", "कुछ चेकों पर नंबर नहीं लिखा। बैंक पर्ची पूरी करने के लिए सूची से विवरण जोड़ें।"))}</span></div> : null}
         <div className="ac-in" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="info" style={{ marginTop: 2 }} /><span>Print two copies. After the bank stamps the slip, tap <b>Mark as deposited</b>. Cheques usually clear in 2–3 working days.</span></div>
       </Stack>
     </Sheet>

@@ -1,7 +1,7 @@
 import "server-only";
 
-import { createClient } from "@/modules/fees/platform/supabase/server";
-import { getReceiptDetail, getReceiptsPage } from "@/modules/receipts/data/queries";
+import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
+import { getReceiptDetailWith, getReceiptsPage } from "@/modules/receipts/data/queries";
 import { EMPTY_RECEIPT_FILTERS } from "@/modules/receipts/domain/filters";
 import type { ReceiptDetail, ReceiptListItem } from "@/modules/receipts/domain/types";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -11,7 +11,14 @@ import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
  * the ported receipt queries; this file only asks for a date window, finds a
  * receipt by its printed number, and reads the history the detail panel shows.
  * Nothing here writes.
+ *
+ * Every read uses the fee service-role client. Its callers (the /receipts
+ * pages and actions) check `fees:view` first; the cookie client cannot be used
+ * here, because fee RLS keys on `public.users.role` and an office account
+ * without that row read "₹0 · 0 receipts" with no error while the home page
+ * said ₹2,000 (school-day run, accountant B4).
  */
+const feeReader = () => createAdminClient();
 
 export type DeskReceiptRow = ReceiptListItem & { isReversed: boolean };
 
@@ -25,6 +32,7 @@ export async function loadDeskReceipts(sessionLabel: string, from: string, to: s
   void _q;
   void _s;
   const rows: DeskReceiptRow[] = [];
+  const client = feeReader();
   let total = 0;
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const res = await getReceiptsPage("", { page, pageSize: PAGE_SIZE }, sessionLabel, {
@@ -33,7 +41,7 @@ export async function loadDeskReceipts(sessionLabel: string, from: string, to: s
       fromDate: from,
       toDate: to,
       sort: "newest",
-    });
+    }, client);
     total = res.totalCount;
     for (const r of res.receipts) rows.push({ ...r, isReversed: r.isReversed === true });
     if (rows.length >= total || res.receipts.length < PAGE_SIZE) break;
@@ -43,7 +51,7 @@ export async function loadDeskReceipts(sessionLabel: string, from: string, to: s
 
 /** The last day on or before `onOrBefore` that has any receipt, so an empty today can point somewhere. */
 export async function lastReceiptDate(onOrBefore: string, sessionLabel: string): Promise<string | null> {
-  const supabase = await createClient();
+  const supabase = feeReader();
   const { data, error } = await supabase
     .from("receipts")
     // Receipts have no session column; allocations retain the paid session
@@ -59,7 +67,7 @@ export async function lastReceiptDate(onOrBefore: string, sessionLabel: string):
 }
 
 export async function findReceiptIdByNumber(receiptNumber: string): Promise<string | null> {
-  const supabase = await createClient();
+  const supabase = feeReader();
   const { data, error } = await supabase.from("receipts").select("id").eq("receipt_number", receiptNumber).limit(1);
   if (error) throw new Error(error.message);
   const row = (data ?? [])[0] as { id?: string } | undefined;
@@ -79,10 +87,10 @@ export type DeskReceiptDetail = {
 export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceiptDetail | null> {
   const id = await findReceiptIdByNumber(receiptNumber);
   if (!id) return null;
-  const detail = await getReceiptDetail(id);
+  const supabase = feeReader();
+  const detail = await getReceiptDetailWith(supabase, id);
   if (!detail) return null;
 
-  const supabase = await createClient();
   const [paymentsRes, sendsRes] = await Promise.all([
     supabase.from("payments").select("id").eq("receipt_id", id),
     supabase

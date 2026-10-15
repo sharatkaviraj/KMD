@@ -11,6 +11,8 @@ import { getFeePolicySummary } from "@/modules/fees/data/policy";
 import { getWorkbookInstallmentRows } from "@/modules/fees/data/queries";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
+import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
+import { newAdmissionSplit } from "@/modules/students-fees/domain/admission-dues";
 import { getStudentDetail, getStudentFormOptions } from "@/modules/students-fees/data/queries";
 import { toStudentInfoFormValues } from "@/modules/students-fees/domain/info-fields";
 import type { StudentFormActionState } from "@/modules/students-fees/domain/types";
@@ -322,6 +324,29 @@ export async function loadDuesSplit(studentId: string): Promise<DuesSplit> {
     lateFeePending += r.lateFeePending;
   }
   return { pendingToday, notDueYet, lateFeePending };
+}
+
+/**
+ * The dues a child admitted a moment ago owes, for the wizard's done screen.
+ *
+ * The admission only queues the balance views' refresh, so the done screen
+ * read them before they knew the child and said "₹0 pending today · ₹0 not
+ * due yet" (school-day run, admin B4). Drain first; and if the views still have
+ * no row for the child (another drain held the lock), read the installments
+ * themselves, which for a child who has paid nothing are the dues.
+ */
+export async function loadNewAdmissionDuesSplit(studentId: string): Promise<DuesSplit> {
+  await requireStaffPermission("students:write");
+  await drainFinancialViewRefresh();
+  const split = await loadDuesSplit(studentId);
+  if (split.pendingToday + split.notDueYet > 0) return split;
+  const { data, error } = await createAdminClient()
+    .from("installments")
+    .select("amount_due, due_date, status")
+    .eq("student_id", studentId)
+    .eq("status", "scheduled");
+  if (error) return split;
+  return newAdmissionSplit((data ?? []) as { amount_due: number | null; due_date: string | null }[], todayIst());
 }
 
 export type HistoryLine = { at: string; action: string; changed: string[]; by: string | null };

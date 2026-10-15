@@ -19,6 +19,7 @@ import {
   suggestRepaymentPlanAmount,
 } from "@/modules/repayment-plans/data/queries";
 import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/data/reversals";
+import { schoolTodayIso } from "@/modules/receipts/domain/filters";
 import { isDiscountCloseout } from "@/platform/money/write-off";
 import { getWorkbookStudentFinancials } from "@/modules/fees/data/queries";
 import { buildTransportRouteLabel } from "@/modules/fees/domain/label";
@@ -902,14 +903,18 @@ async function getRecentPaymentDeskReceiptsUncached(limit = 6, sessionLabel: str
 async function getTodayPaymentDeskCollection(sessionLabel?: string) {
   const resolvedSessionLabel = sessionLabel ?? (await getFeePolicySummary()).academicSessionLabel;
 
+  // The school's day, not UTC's: from midnight to 5:30 am IST the UTC date is
+  // still yesterday, and the desk said "Today: ₹10,100 · 4 receipts" (14 Oct's)
+  // under a 15 Oct header (school-day run, accountant B15).
+  const today = schoolTodayIso();
   return cacheSafeUnstableCache(
-    async () => getTodayPaymentDeskCollectionUncached(resolvedSessionLabel),
-    ["payment-desk-today-collection", resolvedSessionLabel, new Date().toISOString().slice(0, 10)],
+    async () => getTodayPaymentDeskCollectionUncached(resolvedSessionLabel, today),
+    ["payment-desk-today-collection", resolvedSessionLabel, today],
     { tags: [`session:${resolvedSessionLabel}`] },
   )();
 }
 
-export async function getTodayPaymentDeskCollectionUncached(sessionLabel: string, today = new Date().toISOString().slice(0, 10)) {
+export async function getTodayPaymentDeskCollectionUncached(sessionLabel: string, today = schoolTodayIso()) {
   const supabase = await getCacheSafeClient();
   const { data, error } = await supabase
     .from("receipts")
@@ -1369,7 +1374,7 @@ export async function getPaymentEntryPageData(payload: {
     ? await getFeePolicyForSession(payload.sessionLabel)
     : await getFeePolicySummary();
   const sessionLabel = payload.sessionLabel ?? policy.academicSessionLabel;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = schoolTodayIso();
   const [studentIndex, recentReceipts, todayCollection, summary] = await Promise.all([
     getPaymentDeskStudentIndex({ sessionLabel }),
     getRecentPaymentDeskReceipts(6, sessionLabel),

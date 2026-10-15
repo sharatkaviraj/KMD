@@ -214,6 +214,26 @@ export function latestCloseState<T extends CloseEvent>(events: readonly T[]): { 
   return { closed: latest?.action === "close", event: latest };
 }
 
+export type DayBookClosure = { status: string; closedAt: string | null; closedByName: string | null };
+
+/**
+ * The close the Day book reports. The day is closed on Receipts now (a row in
+ * `vppsone.fee_day_close_events`); the fee app's own finance-controls closure
+ * is only read when the desk has no event for the day. Before this the Day
+ * book read only the fee app's closure and said "Day not closed" after the
+ * accountant had closed it (school-day run, accountant B5).
+ */
+export function dayBookClosure(
+  feeClosure: DayBookClosure | null,
+  deskEvents: readonly (CloseEvent & { actorName?: string | null })[],
+): DayBookClosure | null {
+  const { closed, event } = latestCloseState(deskEvents);
+  if (!event) return feeClosure;
+  return closed
+    ? { status: "closed", closedAt: event.createdAt, closedByName: event.actorName ?? null }
+    : { status: "reopened", closedAt: null, closedByName: event.actorName ?? null };
+}
+
 /**
  * Receipts posted after the day was closed. Closing does not lock the fee
  * database (that would mean changing the fee RPCs), so the desk flags these

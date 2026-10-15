@@ -4,7 +4,7 @@ import { byClassLabel } from "@/modules/academics/domain/class-order";
 
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
-import { createClient } from "@/modules/fees/platform/supabase/server";
+import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { getWorkbookInstallmentRows } from "@/modules/fees/data/queries";
 import { getStudentContactLog } from "@/modules/defaulters/data/contacts";
 import { getDefaultersPageData } from "@/modules/defaulters/data/queries";
@@ -18,7 +18,13 @@ import type { ContactSummary, DuesStudent, PaymentFact } from "@/modules/default
  * Reads for the redesigned Dues & calls screen (/dues). Every amount comes from
  * the ported defaulter, workbook and recovery queries, which already keep fees
  * and late fees apart. Nothing here writes.
+ *
+ * The direct reads here use the fee service-role client: /dues checks
+ * `fees:view` before it calls them, and the cookie client returned nothing for
+ * an office account with no `public.users` row ("collected this week ₹0.0 L",
+ * school-day run, accountant B4).
  */
+const feeReader = () => createAdminClient();
 
 export type ClassInstRow = { classLabel: string; inst1: number; inst2: number; lastYear: number; total: number };
 
@@ -109,7 +115,7 @@ export async function loadLeftOwing(): Promise<LeftOwing[]> {
 
 /** Calls logged today (school day, IST) across the desk. */
 export async function countCallsToday(sessionLabel: string, today: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = feeReader();
   const { count } = await supabase
     .from("defaulter_contacts")
     .select("id", { count: "exact", head: true })
@@ -124,7 +130,7 @@ export async function collectedThisWeek(sessionLabel: string): Promise<number> {
   const { query: _q, sessionLabel: _s, ...base } = EMPTY_RECEIPT_FILTERS;
   void _q;
   void _s;
-  const res = await getReceiptsPage("", { page: 1, pageSize: 1 }, sessionLabel, { ...base, datePreset: "week" });
+  const res = await getReceiptsPage("", { page: 1, pageSize: 1 }, sessionLabel, { ...base, datePreset: "week" }, feeReader());
   return res.aggregate.totalAmount;
 }
 
@@ -132,7 +138,7 @@ export async function collectedThisWeek(sessionLabel: string): Promise<number> {
 export async function paymentsSince(studentIds: string[], since: string): Promise<PaymentFact[]> {
   const ids = [...new Set(studentIds.filter(Boolean))];
   if (ids.length === 0) return [];
-  const supabase = await createClient();
+  const supabase = feeReader();
   const { data } = await fetchInChunks<{ student_id: string; payment_date: string; total_amount: number; receipt_number: string }>(ids, IN_FILTER_CHUNK_SIZE, (chunk) =>
     supabase
       .from("receipts")
@@ -150,7 +156,7 @@ export type StudentBrief = { studentId: string; fullName: string; fatherName: st
 export async function studentBriefs(studentIds: string[]): Promise<StudentBrief[]> {
   const ids = [...new Set(studentIds.filter(Boolean))];
   if (ids.length === 0) return [];
-  const supabase = await createClient();
+  const supabase = feeReader();
   const { data } = await fetchInChunks<{ id: string; full_name: string; father_name: string | null; primary_phone: string | null }>(ids, IN_FILTER_CHUNK_SIZE, (chunk) =>
     supabase
       .from("students")
