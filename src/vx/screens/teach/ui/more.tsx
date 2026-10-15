@@ -127,7 +127,7 @@ export function TeachMore({
     return [...bySubject.entries()].map(([s, cls]) => tx(p(`${s} for Classes ${andList(cls)}`, `कक्षा ${andList(cls, "और")} ${s}`))).join(" · ");
   })();
   const held = data.profile.classes.filter((c) => c.held);
-  const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => c.classLabel).join(", ")} की कक्षा अध्यापिका`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
+  const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => c.classLabel).join(", ")} की कक्षा अध्यापक`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
   const coverFor = (picked: string[], span: LeaveSpan) => {
     const out: string[] = [];
     for (const d of picked) {
@@ -581,7 +581,7 @@ export function TeachMore({
   const { resolvedTheme, setTheme } = useTheme();
   const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
   const dark = ready && resolvedTheme === "dark";
-  const setLanguage = (lang: "both" | "hi") =>
+  const setLanguage = (lang: "en" | "hi") =>
     start(async () => {
       const fd = new FormData();
       fd.set("language", lang);
@@ -635,7 +635,7 @@ export function TeachMore({
       <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="sech">{tx(p("My classes", "मेरी कक्षाएँ"))}</span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {data.profile.classes.map((c) => <span key={c.classId} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: c.held ? V("accs") : V("s3"), color: c.held ? V("accfg") : V("fg") }}>{c.held ? tx(p(`${c.classLabel} · class teacher`, `${c.classLabel} · कक्षा अध्यापिका`)) : c.classLabel}</span>)}
+          {data.profile.classes.map((c) => <span key={c.classId} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: c.held ? V("accs") : V("s3"), color: c.held ? V("accfg") : V("fg") }}>{c.held ? tx(p(`${c.classLabel} · class teacher`, `${c.classLabel} · कक्षा अध्यापक`)) : c.classLabel}</span>)}
           {data.profile.subjects.map((s) => <span key={s} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: V("s3"), color: V("fg") }}>{s}</span>)}
         </div>
       </div>
@@ -646,7 +646,7 @@ export function TeachMore({
             <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p("Language", "भाषा"))}</span>
             <span className="tc-mi">{tx(p("भाषा · Hindi or English", "Language · हिंदी या English"))}</span>
           </span>
-          {seg2(language === "hi" ? 1 : 0, [["English", () => setLanguage("both")], ["हिंदी", () => setLanguage("hi")]])}
+          {seg2(language === "hi" ? 1 : 0, [["English", () => language === "hi" && setLanguage("en")], ["हिंदी", () => setLanguage("hi")]])}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 0", borderTop: "1px solid var(--bd)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>

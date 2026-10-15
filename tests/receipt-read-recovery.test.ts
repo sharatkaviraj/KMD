@@ -1,7 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ errorAt: "", requests: [] as { table: string; columns: string; filters: [string, unknown][]; ids: string[] }[], paymentCount: 1, page: vi.fn(), detail: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/modules/fees/platform/supabase/server", () => ({ createClient: async () => ({ from: (table: string) => {
+// The desk reads with the fee service-role client after the page's fees:view
+// check (accountant B4), so that is the client faked here.
+vi.mock("@/modules/fees/platform/supabase/admin", () => ({ createAdminClient: () => ({ from: (table: string) => {
   const request = { table, columns: "", filters: [] as [string, unknown][], ids: [] as string[] }; state.requests.push(request);
   const query = {
     select: (columns: string) => { request.columns = columns; return query; }, order: () => query, limit: () => query,
@@ -19,7 +21,7 @@ vi.mock("@/modules/fees/platform/supabase/server", () => ({ createClient: async 
     },
   }; return query;
 } }) }));
-vi.mock("@/modules/receipts/data/queries", () => ({ getReceiptsPage: state.page, getReceiptDetail: state.detail }));
+vi.mock("@/modules/receipts/data/queries", () => ({ getReceiptsPage: state.page, getReceiptDetailWith: (_client: unknown, id: string) => state.detail(id) }));
 import { getDeskReceipt, lastReceiptDate, loadDeskReceipts } from "@/modules/receipts/vx/data";
 beforeEach(() => {
   vi.clearAllMocks(); state.errorAt = ""; state.requests = []; state.paymentCount = 1;

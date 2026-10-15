@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { boot, OTHER_ID, receipt, student, STUDENT_ID } from "./payment-parity.fixture";
 
-const actions = vi.hoisted(() => ({ postDeskPaymentAction: vi.fn(), checkDeskPaymentAction: vi.fn(), loadStudentDeskAction: vi.fn(), loadReceiptAction: vi.fn(), loadDeskPreviewAction: vi.fn(), removePaymentAction: vi.fn(), sendReceiptWhatsappAction: vi.fn() }));
+const actions = vi.hoisted(() => ({ postDeskPaymentAction: vi.fn(), checkDeskPaymentAction: vi.fn(), loadStudentDeskAction: vi.fn(), loadReceiptAction: vi.fn(), loadDeskPreviewAction: vi.fn(), removePaymentAction: vi.fn(), sendReceiptWhatsappAction: vi.fn(), settleDeskSaveAction: vi.fn(), deskDayStateAction: vi.fn() }));
 vi.mock("@/app/(app)/payments/actions", () => actions);
 vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, ...p }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...p}>{children}</a> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn() }) }));
@@ -33,15 +33,19 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); const layer = document.createElement("div"); layer.id = "vx-layer"; document.body.append(layer); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root.unmount()); document.body.replaceChildren(); });
-it("allows received-by and concession edits and keeps them on Back without posting on Review", async () => {
-  await render(); await input("#pd-amount", "500"); await input("#pd-received-by", "TEST Other Cashier"); await input("#pd-concession", "200");
+it("allows received-by edits and keeps them on Back without posting on Review; takes no counter concession", async () => {
+  await render(); await input("#pd-amount", "500"); await input("#pd-received-by", "TEST Other Cashier");
+  // Accountant B1: the concession never reached the balance, so the desk has
+  // no box for it — only a note saying where a discount is set.
+  expect(host.querySelector("#pd-concession")).toBeNull();
+  expect(host.querySelector("#pd-concession-off")!.textContent).toContain("did not lower the dues");
   await click("Review"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
   // The review is the design's confirm sheet, drawn in #vx-layer beside the page.
   const review = document.querySelector("[role=dialog]")!.textContent;
-  expect(review).toContain("TEST Other Cashier"); expect(review).toContain("Concession");
+  expect(review).toContain("TEST Other Cashier"); expect(review).not.toContain("Concession");
   await click("Change"); expect(host.querySelector<HTMLInputElement>("#pd-received-by")!.value).toBe("TEST Other Cashier");
   await click("Review"); await click("Save payment");
-  expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 500, quickDiscountAmount: 200, receivedBy: "TEST Other Cashier" });
+  expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 500, quickDiscountAmount: 0, receivedBy: "TEST Other Cashier" });
   expect(actions.sendReceiptWhatsappAction).not.toHaveBeenCalled();
 });
 it("recovers the original unresolved request after student switch and reload", async () => {
@@ -153,9 +157,9 @@ it("keeps preview and closed-session collection read-only", async () => {
   expect(document.querySelector("[role=dialog]")).toBeNull(); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
   await render({ boot: { ...boot, canPost: false } }); await click("Review"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
 });
-it("uses the EMI shortcuts and disables concession on an active plan", async () => {
+it("uses the EMI shortcuts and takes no concession on an active plan", async () => {
   await render({ initialStudent: { ok: true, student: { ...student, onPlan: true, repaymentPlan: { planId: STUDENT_ID, scope: "old_and_current", paymentStatus: "on_track", monthlyAmount: 1000, remainingBalance: 3000, catchUpAmount: 2000, nextDueDate: "2026-11-01", nextDueAmount: 1000, missedInstallmentCount: 0, planReviewNeeded: false, coveredInstallmentIds: student.rows.map(r => r.id), duesOutsidePlan: null, duesOutsidePlanAmount: 0 } } } });
-  expect(host.querySelector<HTMLInputElement>("#pd-concession")!.disabled).toBe(true);
+  expect(host.querySelector("#pd-concession")).toBeNull();
   await click("Monthly EMI"); expect(host.querySelector<HTMLInputElement>("#pd-amount")!.value).toBe("1,000");
   await click("Review"); await click("Save payment"); expect(actions.postDeskPaymentAction.mock.calls[0][0]).toMatchObject({ amount: 1000, quickDiscountAmount: 0, lateFeeWaiver: 0 });
 });
@@ -179,4 +183,33 @@ it("retains a waiver-bearing attempt when opening an unrelated duplicate receipt
   await click("Save payment"); await click("Open that receipt");
   expect(await readPaymentAttempt(key, boot.sessionLabel)).toEqual(pending);
   expect(document.body.textContent).toContain("could not confirm whether this payment was saved");
+});
+
+it("shows the receipt number as soon as the payment posts and fills the receipt in afterwards (accountant B2)", async () => {
+  let release: (v: unknown) => void = () => undefined;
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
+  actions.settleDeskSaveAction.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
+  expect(document.body.textContent).toContain(`Saved as ${receipt.receiptNumber}. The money is posted`);
+  expect(document.body.textContent).not.toContain("could not be shown yet");
+  expect(actions.settleDeskSaveAction).toHaveBeenCalledWith(expect.objectContaining({ receiptId: receipt.id, studentId: STUDENT_ID }));
+  await act(async () => release({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: { pendingToday: 4500, dueToday: 0, notDueYet: 0, lateFee: 0 } }));
+  expect(document.body.textContent).not.toContain("The money is posted");
+  expect(document.body.textContent).toContain("Installment 1");
+});
+
+it("offers Show the receipt when the read after a quick save fails", async () => {
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
+  actions.settleDeskSaveAction.mockResolvedValue(null);
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
+  expect(document.body.textContent).toContain("could not be shown yet");
+});
+
+it("warns on the review sheet before posting into a day already closed (accountant B17)", async () => {
+  actions.deskDayStateAction.mockImplementation(async ({ date }: { date: string }) => ({ closed: date !== boot.today, closedAt: date !== boot.today ? "2026-10-10T19:03:00Z" : null }));
+  await render(); await input("#pd-amount", "500"); await click("Review");
+  expect(document.getElementById("pd-day-closed")).toBeNull();
+  await click("Change"); await click("Yesterday"); await click("Review");
+  expect(document.getElementById("pd-day-closed")?.textContent).toContain("is already closed");
+  expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
 });

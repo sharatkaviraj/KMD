@@ -78,4 +78,6 @@ export async function removePaymentAction(input: Reversal) {
   localStorage.setItem(reversalPrefix + input.receiptId, JSON.stringify(input));
   return { ok: true, message: "Synthetic reversal recorded" };
 }
+export async function settleDeskSaveAction() { return null; }
+export async function deskDayStateAction() { return { closed: false, closedAt: null }; }
 export async function sendReceiptWhatsappAction() { sessionStorage.setItem("fee-followup-dispatch", String(Number(sessionStorage.getItem("fee-followup-dispatch") ?? "0") + 1)); throw new Error("Messages prohibited in synthetic follow-up"); }

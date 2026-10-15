@@ -1,4 +1,6 @@
 import { requirePermission } from "@/platform/auth/current-staff";
+import { getStudentSegmentCounts } from "@/modules/students-fees/data/directory";
+import { segmentCount } from "@/modules/students-fees/domain/student-segments";
 import { loadAdmissionsFeeContext, loadRecentAdmissions } from "@/modules/students-fees/vx/admissions";
 import { shortDay, schoolToday } from "@/vx/format";
 import { getViewer } from "@/vx/view-as";
@@ -31,7 +33,12 @@ export default async function AdmissionsPage() {
   await requirePermission("fees:manage", "/admissions");
   const { staff } = await getViewer();
   const ctx = await loadAdmissionsFeeContext();
-  const [enquiries, recent, seats] = await Promise.all([listEnquiries(ctx.sessionLabel), loadRecentAdmissions(ctx.sessionLabel, 12), loadSeats(ctx.sessionLabel)]);
+  const [enquiries, recent, seats, segments] = await Promise.all([
+    listEnquiries(ctx.sessionLabel),
+    loadRecentAdmissions(ctx.sessionLabel, 12),
+    loadSeats(ctx.sessionLabel),
+    getStudentSegmentCounts({ sessionLabel: ctx.sessionLabel }).catch(() => null),
+  ]);
   const details = await loadAdmissionDetails(recent.recent.map((r) => r.id));
 
   const now = new Date();
@@ -67,7 +74,10 @@ export default async function AdmissionsPage() {
   }
 
   const kpis: Kpis = {
-    newCount: recent.count,
+    // The fee app's "New" tier, the same count as the Students "New this year"
+    // chip. Rows created since 1 April said 537 — more than the roll — because
+    // every row of an imported or replicated roll is new by that test (admin B7).
+    newCount: segmentCount(segments, "newThisYear") ?? recent.count,
     openEnquiries: open.length,
     waitingWeek: cards.filter((c) => c.days >= 7).length,
     docsPending: recentRows.reduce((n, r) => n + (["birth", "tc", "photo"] as const).filter((k) => r.docs[k] === "pending").length, 0),

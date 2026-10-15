@@ -89,7 +89,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
   const fatherFirst = r.fatherName?.split(" ")[0] ?? null;
   const sendLabel = sent ? tx(W.sendAgain) : fatherFirst ? tx(fill(W.sendTo, { name: fatherFirst })) : tx(W.sendWa);
   const modeLine = `${tx(MODE_WORD[mode])}${r.referenceNumber ? ` · ${mode === "upi" ? `${tx(W.ref).toLowerCase()} ` : ""}${r.referenceNumber}` : ""}`;
-  const tools = [perms.print, perms.print, canAskReverse].filter(Boolean).length;
+  const tools = [perms.print, canAskReverse].filter(Boolean).length;
 
   return (
     <div style={{ padding: "18px 22px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -150,8 +150,8 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
           <Btn variant="pri" icon="send" onClick={() => setSheet("send")} style={{ height: 46 }}>{sendLabel}</Btn>
           {tools ? (
             <div className="g3" style={{ display: "grid", gridTemplateColumns: `repeat(${tools}, minmax(0, 1fr))`, gap: 8 }}>
-              {perms.print ? <Btn variant="sec" icon="printer" href={pdf} target="_blank">{tx(W.print)}</Btn> : null}
-              {perms.print ? <Btn variant="sec" icon="download" href={pdf} target="_blank">{tx(W.pdf)}</Btn> : null}
+              {/* Print and PDF were two buttons to the same PDF (accountant, UI). */}
+              {perms.print ? <Btn variant="sec" icon="printer" href={pdf} target="_blank" prefetch={false}>{tx(W.printPdf)}</Btn> : null}
               {canAskReverse ? <Btn variant="sec" icon="undo" onClick={() => setSheet("reverse")} style={{ color: "var(--bad)" }}>{tx(W.reverse)}</Btn> : null}
             </div>
           ) : null}

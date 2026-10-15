@@ -1,11 +1,13 @@
 import { getViewSessionCookie } from "@/modules/fees/platform/session-context/cookie";
 import { resolveViewSession } from "@/modules/fees/platform/session-context/resolver";
+import { dayBookClosure } from "@/modules/receipts/vx/domain/day-close";
 import { getReportsPageData } from "@/modules/reports/vx/reports-page-data";
 import type { CollectionPreset, ReportsSheet, ReportsView } from "@/modules/reports/vx/types";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { schoolProfile } from "@/platform/config/school";
 import { schoolToday } from "@/vx/format";
+import { listCloseEvents } from "@/vx/screens/receipts/data";
 import { Reports } from "@/vx/screens/reports/reports";
 import { getViewer } from "@/vx/view-as";
 
@@ -52,6 +54,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     cellClass: one(sp.class) || (asked === "cell" ? "*" : undefined),
     cellInst: Number.isFinite(inst) && inst > 0 ? inst : undefined,
   });
+
+  // The Day book says what Receipts says about the close (accountant B5).
+  if (data.daybook) {
+    const events = await listCloseEvents(data.daybook.date, data.daybook.date, { sessionLabel: session.sessionLabel }).catch(() => []);
+    data.daybook = { ...data.daybook, closure: dayBookClosure(data.daybook.closure, events) };
+  }
 
   return <Reports data={data} initialSheet={sheet} initialLeft={one(sp.left) === "1"} readOnly={Boolean(previewing)} detailed={feePermissionsFor(staff.role).includes("reports:view")} />;
 }

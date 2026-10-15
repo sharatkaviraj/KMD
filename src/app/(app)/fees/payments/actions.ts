@@ -19,6 +19,7 @@ import {
   undoRecentPayment,
 } from "@/modules/payments/data/queries";
 import type { PaymentCollectionContext, PaymentEntryActionState } from "@/modules/payments/domain/types";
+import { counterConcessionRefusal } from "@/modules/payments/vx/domain/desk";
 import { perfEnabled } from "@/platform/observability/timing";
 import { createClient } from "@/modules/fees/platform/supabase/server";
 import { requireStaffPermission } from "@/modules/fees/platform/session";
@@ -225,6 +226,11 @@ export async function submitPaymentEntryAction(
       formData.get("quickLateFeeWaiverAmount"),
       "Late fee waiver",
     );
+    // A counter concession never reached the balance (it is written to
+    // receipt_adjustments, which v_workbook_installment_balances does not
+    // read), so both desks refuse it before anything is posted.
+    const concessionRefusal = counterConcessionRefusal(quickDiscountAmount);
+    if (concessionRefusal) throw new Error(concessionRefusal);
     const validatedClientRequestId = parseUuid(formData.get("clientRequestId"), "Payment attempt");
     clientRequestId = validatedClientRequestId;
     const referenceNumber = (formData.get("referenceNumber") ?? "").toString().trim() || null;

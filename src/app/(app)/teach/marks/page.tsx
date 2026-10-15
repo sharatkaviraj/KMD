@@ -17,6 +17,7 @@ import {
   enrolmentsFor,
   listExams,
   marksOf,
+  openExamsForMarks,
   paperById,
   papersOf,
   remarksFor,
@@ -31,6 +32,8 @@ import { classTeacherOf, isManager, mayEnterPaper } from "@/vx/screens/exams/gua
 import { MarksSheet, type SheetPhase } from "@/vx/screens/exams/marks-sheet";
 import { daysLeft, loadSheet } from "@/vx/screens/exams/sheet-data";
 import { TeacherPick, TeacherRemarks, type PickCard, type RemarkChild, type RemarksCard } from "@/vx/screens/exams/teacher-marks";
+
+import { orderPapersToFill } from "@/vx/screens/teach/domain/teach";
 
 import { saveRemarkAction, saveTeacherMarksAction, withdrawTeacherMarksAction } from "./actions";
 
@@ -163,16 +166,19 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
   }
 
   /* ------------------------------------------------------------- pick */
-  const openExams = exams.filter((e) => e.status === "open" && e.papers > 0 && (!e.startsOn || e.startsOn <= today));
-  const staffAll = await staffList();
+  // Every open exam with papers, not the last one or two by date: an undated
+  // leftover exam sorts last and hid the Half-yearly papers from every
+  // teacher (BUG-02, ST-01). Her papers from all of them, overdue first —
+  // the exams by the shared rule in exams/domain/current.ts.
+  const openExams = openExamsForMarks(exams, today);
+  const [staffAll, mine] = await Promise.all([staffList(), myPaperIds(staff.id, sessionLabel, "", false)]);
   const coordinator = staffAll.find((s) => s.role === "exam_coordinator")?.name ?? null;
-  const cards: PickCard[] = [];
-  for (const e of openExams.slice(-2).reverse()) {
-    const mine = await myPaperIds(staff.id, sessionLabel, e.id, false);
-    if (mine.size === 0) continue;
-    const { papers } = await trackerFor({ exam: e, classes, staff: staffAll, today, onlyPapers: (r) => mine.has(`${r.class_id}|${r.subject_id}`) });
-    for (const paper of papers.sort((a, b) => a.classSort - b.classSort || a.subjectCode.localeCompare(b.subjectCode))) {
-      cards.push({
+  const perExam = mine.size
+    ? await Promise.all(openExams.map(async (e) => ({ e, papers: (await trackerFor({ exam: e, classes, staff: staffAll, today, onlyPapers: (r) => mine.has(`${r.class_id}|${r.subject_id}`) })).papers })))
+    : [];
+  const cards: PickCard[] = orderPapersToFill(
+    perExam.flatMap(({ e, papers }) =>
+      papers.map((paper) => ({
         paperId: paper.paperId,
         examLabel: { en: e.labelEn, hi: e.labelHi },
         classLabel: paper.classLabel,
@@ -182,11 +188,15 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
         total: paper.total,
         status: paperStatus(paper),
         submittedToName: coordinator,
-      });
-    }
-  }
-  // Unfinished first, then the done ones.
-  cards.sort((a, b) => Number(a.status === "done") - Number(b.status === "done"));
+        dueOn: e.plan?.marksDueOn ?? null,
+        late: Boolean(e.plan?.marksDueOn && e.plan.marksDueOn < today && paperStatus(paper) !== "done"),
+        dueLabel: e.plan?.marksDueOn ? shortDay(e.plan.marksDueOn) : null,
+        classSort: paper.classSort,
+        examId: e.id,
+      })),
+    ),
+    today,
+  );
 
   const remarksCards: RemarksCard[] = [];
   if (exam && myClasses.length) {
@@ -199,12 +209,16 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     }
   }
 
-  const due = exam?.plan?.marksDueOn
-    ? { label: shortDay(exam.plan.marksDueOn), daysLeft: daysLeft(exam.plan.marksDueOn, today), results: exam.plan.resultsOn ? `${shortDay(exam.plan.resultsOn)}${exam.plan.ptmAt ? " (PTM)" : ""}` : null }
+  // The date that matters is the one on the first paper she still has to fill.
+  const firstOpen = cards.find((c) => c.status !== "done") ?? null;
+  const dueExam = firstOpen ? (openExams.find((e) => e.id === firstOpen.examId) ?? null) : null;
+  const due = dueExam?.plan?.marksDueOn
+    ? { label: shortDay(dueExam.plan.marksDueOn), daysLeft: daysLeft(dueExam.plan.marksDueOn, today), results: dueExam.plan.resultsOn ? `${shortDay(dueExam.plan.resultsOn)}${dueExam.plan.ptmAt ? " (PTM)" : ""}` : null }
     : null;
+  const pickCrumb = `${lead(p("Marks", "अंक"), lang)} · ${dueExam ? `${lead({ en: dueExam.labelEn, hi: dueExam.labelHi }, lang)} ` : ""}${sessionLabel}`;
 
   // Her no-login links live on More · Marks links, where she can open, share or make them.
-  return <TeacherPick cards={cards} remarks={remarksCards} due={due} crumb={crumb} />;
+  return <TeacherPick cards={cards} remarks={remarksCards} due={due} crumb={pickCrumb} />;
 }
 
 /** "classId|subjectId" for each paper the timetable gives this person in an exam's session. */

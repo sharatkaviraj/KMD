@@ -161,10 +161,15 @@ export function buildReportCard(input: ReportInput): ReportCard {
   for (const [subjectCode, papers] of [...bySubject.entries()].sort((a, b) =>
     a[0].localeCompare(b[0], "en"),
   )) {
+    // In the order they were sat (by date), the code only breaking a tie, so
+    // every row lists its exams in the same order (`reportColumns`).
     const ordered = [...papers].sort((a, b) => {
       const left = byAssessment.get(a.assessmentId);
       const right = byAssessment.get(b.assessmentId);
-      return (left?.code ?? "").localeCompare(right?.code ?? "", "en");
+      return (
+        (left?.startsOn ?? "9999-12-31").localeCompare(right?.startsOn ?? "9999-12-31") ||
+        (left?.code ?? "").localeCompare(right?.code ?? "", "en")
+      );
     });
 
     const results = ordered.map((paper) => ({
@@ -226,6 +231,74 @@ export function buildReportCard(input: ReportInput): ReportCard {
         : totals.percent >= scheme.passPercent,
     generatedAt: input.generatedAt,
   };
+}
+
+/* ------------------------------------------------------------- columns */
+
+export type ReportMark = ReportRow["marks"][number];
+
+export type ReportColumn = {
+  assessmentCode: string;
+  assessmentLabelEn: string;
+  assessmentLabelHi: string;
+  /** What every paper in the column is out of; null when subjects differ. */
+  maxMarks: number | null;
+};
+
+/**
+ * The card's exam columns: every exam any subject was examined in, in the
+ * order the rows list them.
+ *
+ * Not the first row's exams. One subject sat only the half-yearly (ELGA has
+ * no FA1), so a header built from the first row had five columns while the
+ * other rows had six, and every mark sat under the wrong heading — on screen,
+ * in print and in the PDF (coordinators B5). Works on an issued card too: it
+ * reads only what the card stored.
+ */
+export function reportColumns(rows: Pick<ReportRow, "marks">[]): ReportColumn[] {
+  const order: string[] = [];
+  const first = new Map<string, ReportMark>();
+  const maxes = new Map<string, Set<number>>();
+  for (const row of rows) {
+    let after = -1;
+    for (const mark of row.marks) {
+      const code = mark.assessmentCode;
+      const at = order.indexOf(code);
+      if (at === -1) {
+        // Keep this row's order: a new exam goes just after the last one it follows.
+        order.splice(after + 1, 0, code);
+        after += 1;
+        first.set(code, mark);
+      } else {
+        after = Math.max(after, at);
+      }
+      maxes.set(code, (maxes.get(code) ?? new Set()).add(mark.maxMarks));
+    }
+  }
+  return order.map((code) => {
+    const mark = first.get(code)!;
+    const max = maxes.get(code)!;
+    return {
+      assessmentCode: code,
+      assessmentLabelEn: mark.assessmentLabelEn,
+      assessmentLabelHi: mark.assessmentLabelHi,
+      maxMarks: max.size === 1 ? [...max][0] : null,
+    };
+  });
+}
+
+/** A row's mark under a column, or null when the subject was not examined in that exam. */
+export function markIn(row: Pick<ReportRow, "marks">, assessmentCode: string): ReportMark | null {
+  return row.marks.find((mark) => mark.assessmentCode === assessmentCode) ?? null;
+}
+
+/**
+ * A card with nothing on it: no subject, or not one mark, absence or
+ * exemption anywhere. Never issued — a family must not be handed a blank card
+ * (coordinators B3).
+ */
+export function isEmptyCard(card: Pick<ReportCard, "rows">): boolean {
+  return !card.rows.some((row) => row.marks.some((mark) => mark.value !== null || mark.absent || mark.exempt));
 }
 
 /**

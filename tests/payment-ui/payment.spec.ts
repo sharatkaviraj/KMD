@@ -37,7 +37,7 @@ for (const width of [320, 390, 1180, 1440]) {
     await page.setViewportSize({ width, height: 900 }); await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: /TEST Child A/ }).click();
     const amount = page.locator("#pd-amount"); await expect(amount).toBeVisible(); await amount.fill("500");
-    await page.locator("#pd-concession").fill("200"); await page.locator("#pd-received-by").fill("TEST Other Cashier");
+    await expect(page.locator("#pd-concession")).toHaveCount(0); await page.locator("#pd-received-by").fill("TEST Other Cashier");
     await page.getByRole("button", { name: "Review & save", exact: true }).click();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(0);
     await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toBeVisible(); await expect(page.getByText("TEST Other Cashier", { exact: true })).toBeVisible();
@@ -47,7 +47,7 @@ for (const width of [320, 390, 1180, 1440]) {
     await back.click(); await expect(amount).toHaveValue("500");
     await page.getByRole("button", { name: "Review & save", exact: true }).click(); await page.getByRole("button", { name: /^Save payment/ }).click();
     await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
-    expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ receiptCount: 1, posted: { amount: 500, quickDiscountAmount: 200, receivedBy: "TEST Other Cashier" } });
+    expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toMatchObject({ receiptCount: 1, posted: { amount: 500, quickDiscountAmount: 0, receivedBy: "TEST Other Cashier" } });
     await page.evaluate(async () => {
       const finite = document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity);
       await Promise.all(finite.map(animation => animation.finished.catch(() => undefined)));

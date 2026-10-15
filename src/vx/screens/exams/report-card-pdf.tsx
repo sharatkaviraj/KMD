@@ -3,7 +3,7 @@ import "server-only";
 import * as React from "react";
 import { Document, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
 
-import type { ReportCard } from "@/modules/assessments/domain/report-card";
+import { markIn, reportColumns, type ReportCard } from "@/modules/assessments/domain/report-card";
 import { ensurePdfFontsRegistered, HI_FONT, loadLogoImage, loadSignatureImage, ParentDocumentLetterhead, pdfTokens, sharedStyles, SignatureBlock, type PdfImage } from "@/platform/pdf/document-kit";
 
 import { subjectPair } from "./domain/groups";
@@ -50,7 +50,9 @@ function markText(m: ReportCard["rows"][number]["marks"][number]): string {
 
 function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title: { en: string; hi: string }; logo: PdfImage | null; signature: PdfImage | null }) {
   const { card } = entry;
-  const exams = card.rows[0]?.marks.map((m) => ({ code: m.assessmentCode, en: m.assessmentLabelEn, hi: m.assessmentLabelHi, max: m.maxMarks })) ?? [];
+  // Every exam any subject sat, not the first row's — or a subject with one
+  // exam fewer shifts every mark under the wrong heading (coordinators B5).
+  const exams = reportColumns(card.rows).map((c) => ({ code: c.assessmentCode, en: c.assessmentLabelEn, hi: c.assessmentLabelHi, max: c.maxMarks }));
   const graceTotal = Object.values(entry.grace).reduce((a, b) => a + b, 0);
   const [remarkEn, remarkHi] = (entry.remark ?? "").split("\n");
   return (
@@ -96,11 +98,14 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
                 <Text style={{ fontFamily: "Helvetica-Bold" }}>{name.en}</Text>
                 {name.hi ? <Text style={s.cellHi}>{name.hi}</Text> : null}
               </View>
-              {row.marks.map((m) => (
-                <Text key={m.assessmentCode} style={{ flex: 1, textAlign: "right" }}>
-                  {markText(m)}/{m.maxMarks}
-                </Text>
-              ))}
+              {exams.map((e) => {
+                const m = markIn(row, e.code);
+                return (
+                  <Text key={e.code} style={{ flex: 1, textAlign: "right" }}>
+                    {m ? `${markText(m)}/${m.maxMarks}` : ""}
+                  </Text>
+                );
+              })}
               <Text style={{ flex: 1.2, textAlign: "right", fontFamily: "Helvetica-Bold" }}>
                 {row.scored}
                 {g ? ` +${g}G` : ""}/{row.outOf}
@@ -131,7 +136,6 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
         <View style={{ flex: 1, backgroundColor: pdfTokens.panel, padding: 8 }}>
           <Text style={s.labelHi}>उपस्थिति / Attendance</Text>
           <Text style={s.value}>{card.attendance ? `${card.attendance.present} / ${card.attendance.counted}${card.attendance.percent === null ? "" : ` · ${card.attendance.percent}%`}` : "—"}</Text>
-          {card.attendance?.notRecorded ? <Text style={s.label}>{card.attendance.notRecorded} school days not recorded</Text> : null}
         </View>
       </View>
 

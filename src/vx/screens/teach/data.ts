@@ -39,7 +39,7 @@ import { noteViewer, notesForStudent, visibleNotes } from "@/vx/screens/notes/da
 import { excerpt, type BoardNote } from "@/vx/screens/notes/domain/notes";
 import { addDays } from "@/vx/screens/academics/domain";
 
-import { attentionReasons, average, dayBefore, upcomingBirthdays, type AttentionReason, type Mark } from "./domain/teach";
+import { alertWhen, attentionReasons, average, dayBefore, mergeCombinedSlots, monthEnd, tellApart, upcomingBirthdays, type AttentionReason, type Mark } from "./domain/teach";
 import { childBasics, staffNames } from "./students";
 
 /*
@@ -149,19 +149,23 @@ async function latestPapers(classId: string, sessionLabel: string) {
  * A class as its teacher sees it: every child with attendance so far, the
  * latest paper in each subject, open notes, and why anyone needs attention.
  */
-export async function classInsight(classId: string, sessionLabel: string, staff: CurrentStaff) {
+export async function classInsight(classId: string, sessionLabel: string, staff: CurrentStaff, notesRead?: Promise<BoardNote[]>) {
   const today = schoolToday();
-  const [roll, range, rules, papers, viewer] = await Promise.all([
+  // The notes this reader may see; Today passes the read it already started
+  // so they are not read twice (perf fix 6).
+  const notesP =
+    notesRead ??
+    (can(staff, "notes:view")
+      ? noteViewer(staff, sessionLabel).then((viewer) => visibleNotes(viewer, sessionLabel)).catch(() => [] as BoardNote[])
+      : Promise.resolve([] as BoardNote[]));
+  const [roll, range, rules, papers, notes] = await Promise.all([
     classRoll({ classId, sessionLabel }),
     classAttendanceRange(classId, sessionLabel, "1900-01-01", today),
     attendanceRules(sessionLabel),
     latestPapers(classId, sessionLabel),
-    noteViewer(staff, sessionLabel),
+    notesP,
   ]);
-  const [basics, notes] = await Promise.all([
-    childBasics(roll.map((r) => r.studentId)),
-    can(staff, "notes:view") ? visibleNotes(viewer, sessionLabel).catch(() => [] as BoardNote[]) : Promise.resolve([] as BoardNote[]),
-  ]);
+  const basics = await childBasics(roll.map((r) => r.studentId));
 
   const statuses = new Map<string, AttendanceStatus[]>();
   for (const m of range) {
@@ -239,16 +243,59 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
 
 export type TodayPeriod = { period: number; number: number; starts: string; ends: string; subjectCode: string; subjectName: string; classLabel: string; classId: string | null; combined: boolean };
 
+export type CoverRow = {
+  id: string;
+  /** The school day of the duty; today's, or one of the next few school days. */
+  day: string;
+  period: number;
+  number: number;
+  starts: string;
+  ends: string;
+  classLabels: string;
+  subjectCode: string;
+  subjectName: string;
+  forName: string;
+  acknowledged: boolean;
+  askedAt: string;
+  reason: string | null;
+};
+
+/** The next `count` open school days after `today`, looking at most two weeks ahead. */
+function nextSchoolDays(today: string, calendar: Awaited<ReturnType<typeof attendanceCalendar>>, count: number): string[] {
+  const out: string[] = [];
+  let d = today;
+  for (let i = 0; i < 14 && out.length < count; i += 1) {
+    d = addDays(d, 1);
+    if (isSchoolOpen(d, calendar)) out.push(d);
+  }
+  return out;
+}
+
+/**
+ * Today, read in as few rounds as the data allows (perf fixes 4 and 6): the
+ * first round starts everything that needs only the session — the notes and
+ * marks links included — and the second everything that needs the first,
+ * together. The timetable's day names are read once for today and tomorrow,
+ * and the notes once for both "children who need you" and the reviews.
+ */
 export async function loadHome(staff: CurrentStaff) {
-  const sessionLabel = await resolveSessionLabel();
-  const now = await schoolNow(staff);
+  const [sessionLabel, now] = await Promise.all([resolveSessionLabel(), schoolNow(staff)]);
   const today = schoolToday(now);
   const nowMinutes = schoolClock(now).minutes;
   if (!sessionLabel) return { sessionLabel: null as string | null, today, nowMinutes };
 
+  const mayReadNotes = can(staff, "notes:view");
+  const labelsP = classLabelMap(sessionLabel);
+  const notesP: Promise<BoardNote[]> = mayReadNotes
+    ? noteViewer(staff, sessionLabel).then((viewer) => visibleNotes(viewer, sessionLabel)).catch(() => [] as BoardNote[])
+    : Promise.resolve([] as BoardNote[]);
+  const linksP = labelsP
+    .then((labels) => marksLinks(staff.id, sessionLabel, labels))
+    .catch(() => ({ links: [] as MarksLink[], assigned: [] as { class_id: string; subject_id: string }[], sizes: new Map<string, number>() }));
+
   const [calendar, labels, held, published, registers, covers, bells, notices, subjectList] = await Promise.all([
     attendanceCalendar(sessionLabel),
-    classLabelMap(sessionLabel),
+    labelsP,
     heldClassIds(staff.id, sessionLabel),
     getPublishedVersion(sessionLabel),
     registersForDay(sessionLabel, today),
@@ -263,16 +310,48 @@ export async function loadHome(staff: CurrentStaff) {
   const rank = rankOf(labels);
   const heldSorted = [...held].sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
   const myClassId = heldSorted[0] ?? null;
-
-  const slots =
-    published && schoolOpen && timetableRuns(today, calendar)
-      ? await dayHeaders(published.id).then((headers) => {
-          const header = matchDayHeader(headers, today);
-          return header ? periodsOn(staff.id, published.id, header) : [];
-        })
-      : [];
-  const lessons = lessonsToday(slots);
   const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
+
+  // Tomorrow: the next open school day, for the "all set" card's first lesson.
+  let next = addDays(today, 1);
+  for (let i = 0; i < 10 && !isSchoolOpen(next, calendar); i += 1) next = addDays(next, 1);
+  const runsToday = Boolean(published) && schoolOpen && timetableRuns(today, calendar);
+  const runsNext = Boolean(published) && isSchoolOpen(next, calendar) && timetableRuns(next, calendar);
+  const headersP = published && (runsToday || runsNext) ? dayHeaders(published.id).catch(() => [] as string[]) : Promise.resolve([] as string[]);
+  const slotsOn = (day: string, runs: boolean) =>
+    headersP.then((headers) => {
+      const header = runs && published ? matchDayHeader(headers, day) : null;
+      return header && published ? periodsOn(staff.id, published.id, header) : [];
+    });
+
+  const reg = myClassId ? (registers.find((r) => r.classId === myClassId && r.period === null) ?? null) : null;
+  const recorded = Boolean(reg && reg.revision >= 1);
+  const upcomingDays = nextSchoolDays(today, calendar, 3);
+
+  const [slots, nextSlots, upcoming, insight, totals, queue, linkSet, myNotes] = await Promise.all([
+    slotsOn(today, runsToday),
+    slotsOn(next, runsNext).catch(() => []),
+    Promise.all(upcomingDays.map((day) => myDutiesOn(staff.id, sessionLabel, day).then((list) => list.map((c) => ({ ...c, day })), () => []))).then((lists) => lists.flat()),
+    myClassId ? classInsight(myClassId, sessionLabel, staff, notesP).catch(() => null) : Promise.resolve(null),
+    reg && recorded ? latestReceipt(reg.id).catch(() => null).then((receipt) => registerTotals(reg.id, receipt)) : Promise.resolve(undefined),
+    // The absent alerts queued with today's register, and the birthday
+    // wishes already queued today — so "all set" can say what was done.
+    myClassId
+      ? createAdminClient()
+          .from("parent_message_queue")
+          .select("student_id, kind")
+          .eq("class_id", myClassId)
+          .eq("day", today)
+          .in("kind", ["absent_alert", "birthday"])
+          .neq("status", "cancelled")
+          .returns<{ student_id: string; kind: string }[]>()
+          .then((r) => r.data ?? [], () => [] as { student_id: string; kind: string }[])
+      : Promise.resolve([] as { student_id: string; kind: string }[]),
+    linksP,
+    notesP,
+  ]);
+
+  const lessons = lessonsToday(slots);
   const periods: TodayPeriod[] = lessons.map((l) => ({
     period: l.period,
     number: periodNumber(l.period),
@@ -286,10 +365,10 @@ export async function loadHome(staff: CurrentStaff) {
   // The whole bell day, so the timeline can draw the free periods between lessons.
   const bellDay = slots.length || covers.length ? schedule.periods.map((b) => ({ period: b.index, number: periodNumber(b.index), starts: b.starts, ends: b.ends })) : [];
 
-  const absentIds = [...new Set(covers.flatMap((c) => c.absentStaffIds))];
-  const names = await staffNames(absentIds);
-  const coverRows = covers.map((c) => ({
+  const names = await staffNames([...new Set([...covers, ...upcoming].flatMap((c) => c.absentStaffIds))]);
+  const toRow = (c: (typeof covers)[number], day: string): CoverRow => ({
     id: c.id,
+    day,
     period: c.period,
     number: periodNumber(c.period),
     ...timeOf(schedule, c.period),
@@ -300,29 +379,19 @@ export async function loadHome(staff: CurrentStaff) {
     acknowledged: c.acknowledgedAt !== null,
     askedAt: c.createdAt,
     reason: c.reason,
-  }));
+  });
+  const coverRows = covers.map((c) => toRow(c, today));
+  const upcomingRows = upcoming.map((c) => toRow(c, c.day));
 
-  // Tomorrow's first lesson, for the "all set" card: the next open school day's timetable.
-  let tomorrow: { day: string; first: { number: number; starts: string; classLabel: string; subjectName: string } | null } | null = null;
-  if (published) {
-    let next = addDays(today, 1);
-    for (let i = 0; i < 10 && !isSchoolOpen(next, calendar); i += 1) next = addDays(next, 1);
-    if (isSchoolOpen(next, calendar) && timetableRuns(next, calendar)) {
-      const nextSlots = await dayHeaders(published.id)
-        .then((headers) => {
-          const header = matchDayHeader(headers, next);
-          return header ? periodsOn(staff.id, published.id, header) : [];
-        })
-        .catch(() => []);
-      const first = lessonsToday(nextSlots)[0];
-      tomorrow = {
+  const first = lessonsToday(nextSlots)[0];
+  const tomorrow: { day: string; first: { number: number; starts: string; classLabel: string; subjectName: string } | null } | null = runsNext
+    ? {
         day: next,
         first: first
           ? { number: periodNumber(first.period), starts: timeOf(schedule, first.period).starts, classLabel: first.classes.map((c) => c.classLabel).join(" · "), subjectName: subjectName.get(first.subjectCode) ?? first.subjectCode }
           : null,
-      };
-    }
-  }
+      }
+    : null;
 
   let myClass: null | {
     classId: string;
@@ -330,34 +399,16 @@ export async function loadHome(staff: CurrentStaff) {
     total: number;
     register: { revision: number; submittedAt: string | null; present: number; absent: number; halfDay: number; total: number; alerts: number } | null;
   } = null;
-  let wished = new Set<string>();
   let kids: { id: string; name: string; reasons: AttentionReason[]; detail: string; attendancePct: number | null }[] = [];
   let birthdays: { id: string; name: string; inDays: number; turning: number; rollNo: string | null; wished: boolean }[] = [];
   if (myClassId) {
-    const reg = registers.find((r) => r.classId === myClassId && r.period === null) ?? null;
-    const [insight, receipt] = await Promise.all([
-      classInsight(myClassId, sessionLabel, staff).catch(() => null),
-      reg && reg.revision >= 1 ? latestReceipt(reg.id).catch(() => null) : Promise.resolve(null),
-    ]);
-    const totals = reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
-    // The 10 am absent alerts queued with today's register, and the birthday
-    // wishes already queued today — so "all set" can say what was done.
-    const queue = await createAdminClient()
-      .from("parent_message_queue")
-      .select("student_id, kind")
-      .eq("class_id", myClassId)
-      .eq("day", today)
-      .in("kind", ["absent_alert", "birthday"])
-      .neq("status", "cancelled")
-      .returns<{ student_id: string; kind: string }[]>()
-      .then((r) => r.data ?? [], () => [] as { student_id: string; kind: string }[]);
-    wished = new Set(queue.filter((q) => q.kind === "birthday").map((q) => q.student_id));
+    const wished = new Set(queue.filter((q) => q.kind === "birthday").map((q) => q.student_id));
     myClass = {
       classId: myClassId,
       classLabel: labels.get(myClassId) ?? "—",
       total: insight?.children.length ?? 0,
       register:
-        reg && reg.revision >= 1
+        reg && recorded
           ? {
               revision: reg.revision,
               submittedAt: reg.submittedAt,
@@ -390,10 +441,6 @@ export async function loadHome(staff: CurrentStaff) {
     }
   }
 
-  const [viewer, linkSet] = await Promise.all([
-    noteViewer(staff, sessionLabel),
-    marksLinks(staff.id, sessionLabel, labels).catch(() => ({ links: [] as MarksLink[], assigned: [] as { class_id: string; subject_id: string }[], sizes: new Map<string, number>() })),
-  ]);
   // "My subjects": each class-subject this teacher teaches, with its roll size.
   const subjectById = new Map(subjectList.map((s) => [s.id, s]));
   const subjects = linkSet.assigned
@@ -406,7 +453,6 @@ export async function loadHome(staff: CurrentStaff) {
       mine: held.includes(a.class_id),
     }))
     .sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || a.name.localeCompare(b.name));
-  const myNotes = can(staff, "notes:view") ? await visibleNotes(viewer, sessionLabel).catch(() => [] as BoardNote[]) : [];
   const mine = (n: BoardNote) => n.followUpStaffId === staff.id || (n.followUpStaffId === null && n.writtenBy === staff.id);
   const followUpsDue = myNotes.filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= today && mine(n)).length;
   // The support reviews this teacher owns, due within two days or late, by
@@ -431,6 +477,8 @@ export async function loadHome(staff: CurrentStaff) {
     periods,
     bells: bellDay,
     covers: coverRows,
+    /** Cover duties on the next three school days (BUG-06). */
+    upcomingCovers: upcomingRows,
     tomorrow,
     notices,
     kids,
@@ -438,6 +486,8 @@ export async function loadHome(staff: CurrentStaff) {
     followUpsDue,
     reviews,
     subjects,
+    /** No class of her own and nothing to teach: a new joiner not yet in the timetable (ST-15). */
+    unassigned: held.length === 0 && linkSet.assigned.length === 0,
     links: linkSet.links.filter((l) => !l.submitted).slice(0, 6),
     canMark: can(staff, "attendance:mark"),
   };
@@ -503,14 +553,18 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     queuedAlerts = (data ?? []).map((r) => r.student_id);
   }
 
-  // The month view.
-  const month = input.month ?? day.slice(0, 7);
-  const monthEnd = `${month}-31`;
-  const range = await classAttendanceRange(classId, sessionLabel, `${month}-01`, monthEnd);
+  // The month view. An asked-for month that is not "YYYY-MM" falls back to the day's.
+  const month = input.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.month) ? input.month : day.slice(0, 7);
+  const [range, basics, now] = await Promise.all([
+    classAttendanceRange(classId, sessionLabel, `${month}-01`, monthEnd(month)),
+    childBasics(roll.map((r) => r.studentId)),
+    schoolNow(staff),
+  ]);
   const closedDays = [...calendar.entries()].filter(([d]) => d.startsWith(month)).filter(([d]) => !isSchoolOpen(d, calendar)).map(([d]) => d);
 
-  const basics = await childBasics(roll.map((r) => r.studentId));
   const sorted = [...roll].sort(compareRoll);
+  // SR number and father for children who share a name (BUG-05, ST-19).
+  const apart = tellApart(sorted.map((r) => ({ id: r.studentId, name: r.fullName, admissionNo: basics.get(r.studentId)?.admissionNo ?? null, fatherName: basics.get(r.studentId)?.fatherName ?? null })));
   return {
     kind: "class" as const,
     sessionLabel,
@@ -528,7 +582,15 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
     reason: authority.reason ?? null,
     roll: sorted.map((r) => {
       const dob = basics.get(r.studentId)?.dateOfBirth ?? null;
-      return { id: r.studentId, name: r.fullName, rollNo: r.rollNo, gender: basics.get(r.studentId)?.gender ?? null, birthday: Boolean(dob && dob.slice(5, 10) === day.slice(5, 10)) };
+      return {
+        id: r.studentId,
+        name: r.fullName,
+        rollNo: r.rollNo,
+        admissionNo: basics.get(r.studentId)?.admissionNo ?? null,
+        hint: apart.get(r.studentId) ?? null,
+        gender: basics.get(r.studentId)?.gender ?? null,
+        birthday: Boolean(dob && dob.slice(5, 10) === day.slice(5, 10)),
+      };
     }),
     registerId: register?.id ?? null,
     revision: register?.revision ?? 0,
@@ -542,6 +604,8 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
         ? { savedAt: register.submittedAt, actorName: null, revision: register.revision }
         : null,
     queuedAlerts,
+    /** When parents' absent messages go, said truthfully for the time of saving (BUG-16). */
+    alertWhen: alertWhen(schoolClock(now).minutes, day, schoolToday(now)),
     month,
     monthMarks: range.map((r) => ({ studentId: r.studentId, day: r.day, status: r.status as Mark })),
     closedDays,
@@ -804,10 +868,15 @@ export async function loadMore(staff: CurrentStaff) {
     listSubjects().catch(() => []),
   ]);
 
-  // The weekly timetable: this teacher's slots in the published version.
-  const slots = published ? (await listSlots(published.id)).filter((s) => s.staffProfileId === staff.id) : [];
-
-  const [{ links, assigned, sizes }, now] = await Promise.all([marksLinks(staff.id, sessionLabel, labels), schoolNow(staff)]);
+  // The weekly timetable: this teacher's slots in the published version, a
+  // combined period once, classes in school order (BUG-07, ST-14, ST-25).
+  const rank = rankOf(labels);
+  const [slots, { links, assigned, sizes }, now] = await Promise.all([
+    published ? listSlots(published.id).then((all) => all.filter((s) => s.staffProfileId === staff.id)) : Promise.resolve([]),
+    marksLinks(staff.id, sessionLabel, labels),
+    schoolNow(staff),
+  ]);
+  const week = mergeCombinedSlots([...slots].sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0)));
 
   const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
   return {
@@ -815,7 +884,7 @@ export async function loadMore(staff: CurrentStaff) {
     today: schoolToday(),
     notices,
     links,
-    week: slots.map((s) => ({ day: s.day, period: s.period, number: periodNumber(s.period), classLabel: s.classLabel, subjectCode: s.subjectCode, ...timeOf(schedule, s.period) })),
+    week: week.map((s) => ({ day: s.day, period: s.period, number: periodNumber(s.period), classLabel: s.classLabel, subjectCode: s.subjectCode, ...timeOf(schedule, s.period) })),
     periodTimes: schedule.periods.map((p) => ({ number: periodNumber(p.index), starts: p.starts, ends: p.ends })),
     profile: {
       name: staff.displayName,

@@ -10,6 +10,8 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Avatar, avatarColor, Btn, Pill, Progress } from "@/vx/ui/primitives";
 import { agoP, clock, initials } from "@/vx/format";
 
+import { subjectName } from "@/vx/screens/academics/domain";
+
 import { bilingualReminder, waLink } from "./domain/messages";
 import type { ActionResult } from "./save-types";
 
@@ -36,7 +38,7 @@ export type TeacherRowView = {
 export type ExamName = { id: string; en: string; hi: string };
 
 export function pendingOf(t: TeacherRowView): string[] {
-  return t.papers.filter((x) => x.status !== "done" && x.status !== "empty").map((x) => `${x.classLabel} ${x.subjectCode} (${x.entered}/${x.total})`);
+  return t.papers.filter((x) => x.status !== "done" && x.status !== "empty").map((x) => `${x.classLabel} ${subjectName(x.subjectCode)} (${x.entered}/${x.total})`);
 }
 
 export function reminderFor(t: TeacherRowView, exam: ExamName, dueLabel: string, from: string, link: string | null): string {
@@ -234,7 +236,7 @@ export function TeacherLateRow({
         <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {t.papers.map((x) => (
             <Pill key={x.paperId} tone={x.status === "done" ? "ok" : x.entered ? "warn" : "bad"} icon={x.status === "done" ? "check" : undefined}>
-              {x.classLabel} {x.subjectCode} {x.status === "done" ? "" : `${x.entered}/${x.total}`}
+              {x.classLabel} {subjectName(x.subjectCode)} {x.status === "done" ? "" : `${x.entered}/${x.total}`}
             </Pill>
           ))}
         </span>

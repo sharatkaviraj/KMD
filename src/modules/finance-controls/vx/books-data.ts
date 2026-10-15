@@ -432,7 +432,7 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
   const fee = await createFeeClient();
   const app = await createAppClient();
 
-  const [finance, history, queueRes, followRes, pauseRes, chequeData, upi, requests, dueRes] = await Promise.all([
+  const [finance, history, queueRes, followRes, pauseRes, chequeData, upi, requests, dueRes, nextRes] = await Promise.all([
     getFinanceControlsPageData(today, sessionLabel),
     fetchAllPages<Row>((a, b) =>
       fee.from("receipts").select("payment_date, total_amount").neq("payment_mode", "discount").gte("payment_date", addDays(today, -56)).lt("payment_date", today).range(a, b),
@@ -443,9 +443,29 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
     readCheques(),
     readUpi(),
     readRequests(opts.staffId, opts.seesAllRequests, 8),
+    // Perf fix 7: this used to page every pending installment of the session
+    // (1,385 rows, two ~500 ms pages) for one count and one date. Now the
+    // student ids of what is already due — one narrow column — and the next
+    // installment to fall due, read beside each other.
     fetchAllPages<Row>((a, b) =>
-      fee.from("v_workbook_installment_balances").select("student_id, installment_no, installment_label, due_date, pending_amount").eq("session_label", sessionLabel).gt("pending_amount", 0).range(a, b),
+      fee
+        .from("v_workbook_installment_balances")
+        .select("student_id")
+        .eq("session_label", sessionLabel)
+        .gt("pending_amount", 0)
+        .lte("due_date", today)
+        .order("installment_id")
+        .range(a, b),
     ),
+    fee
+      .from("v_workbook_installment_balances")
+      .select("installment_no, due_date")
+      .eq("session_label", sessionLabel)
+      .gt("pending_amount", 0)
+      .gt("due_date", today)
+      .lt("installment_no", 99)
+      .order("due_date")
+      .limit(1),
   ]);
 
   const collections = finance.dayBookRows.filter((r) => r.entryType === "collection");
@@ -483,13 +503,11 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
   const openLines = upi.lines.filter((l) => l.state === "open");
 
   // Families with fees pending on an installment due today or earlier, and the next installment to fall due.
-  const dueStudents = new Set<string>();
-  let nextInstallment: { date: string; label: string } | null = null;
-  for (const r of dueRes.data) {
-    const due = String(r.due_date);
-    if (due <= today) dueStudents.add(String(r.student_id));
-    else if (num(r.installment_no) < 99 && (!nextInstallment || due < nextInstallment.date)) nextInstallment = { date: due, label: `Installment ${num(r.installment_no)}` };
-  }
+  const dueStudents = new Set<string>(dueRes.data.map((r) => String(r.student_id)));
+  const nextRow = ((nextRes.data ?? []) as Row[])[0];
+  const nextInstallment: { date: string; label: string } | null = nextRow
+    ? { date: String(nextRow.due_date), label: `Installment ${num(nextRow.installment_no)}` }
+    : null;
 
   const closure = finance.closure
     ? { status: finance.closure.status, closedAt: finance.closure.closedAt, closedByName: finance.closure.closedByName }

@@ -13,13 +13,17 @@ import {
   postDeskPaymentAction,
   removePaymentAction,
   sendReceiptWhatsappAction,
+  settleDeskSaveAction,
+  deskDayStateAction,
   type DeskPostInput,
 } from "@/app/(app)/payments/actions";
 import {
+  COUNTER_CONCESSION,
   deskChips,
   deskProblems,
   deskTotals,
   findRecentDuplicate,
+  hasPaise,
   isDueOn,
   isOverdueOn,
   lateFeesOn,
@@ -84,6 +88,8 @@ type Saved = {
   removed: boolean;
   sent: boolean;
   log: { text: string; time: string; tone: string }[];
+  /** Posted and answered; the receipt and the balance are still being read (accountant B2). */
+  settling?: boolean;
 };
 
 type Dup = {
@@ -108,8 +114,12 @@ const SERVER = {
   postDeskPaymentAction,
   removePaymentAction,
   sendReceiptWhatsappAction,
+  settleDeskSaveAction,
+  deskDayStateAction,
 };
-export type DeskActions = typeof SERVER;
+type OptionalActions = "settleDeskSaveAction" | "deskDayStateAction";
+/** The settle and day-state calls are optional, so a fixture need not supply them. */
+export type DeskActions = Omit<typeof SERVER, OptionalActions> & Partial<Pick<typeof SERVER, OptionalActions>>;
 
 const MODE_PAIR: Record<DeskMode, Pair> = { cash: W.modeCash, upi: W.modeUpi, bank_transfer: W.modeBank, cheque: W.modeCheque };
 const MODE_ICON: Record<DeskMode, IconName> = { cash: "rupee", upi: "zap", bank_transfer: "bank", cheque: "file" };
@@ -304,7 +314,9 @@ export function PaymentDesk({
   /* ---------- derived ---------- */
   const paymentDate = form.dateMode === "today" ? today : form.dateMode === "yesterday" ? shiftDay(today, -1) : form.otherDate;
   const amount = parseAmountInput(form.amount);
-  const concession = student?.onPlan ? 0 : parseAmountInput(form.concession);
+  // The counter concession is off (accountant B1, see COUNTER_CONCESSION). It
+  // stays a value so the walk and the review sheet read exactly as before.
+  const concession = COUNTER_CONCESSION;
   const dateReady = paymentDate === today || (datePreview?.studentId === student?.id && datePreview?.date === paymentDate);
   const dateFailed = dateError === `${student?.id}|${paymentDate}`;
   const rows = useMemo(() => orderForSettlement(datePreview?.studentId === student?.id && datePreview?.date === paymentDate ? datePreview.rows : student?.rows ?? []), [student, datePreview, paymentDate]);
@@ -319,6 +331,21 @@ export function PaymentDesk({
     }).catch(() => { if (active) setDateError(`${student.id}|${paymentDate}`); });
     return () => { active = false; };
   }, [student, paymentDate, today, boot.sessionLabel, loadPreview]);
+  // Is the payment date already closed on Receipts? Warned on the review sheet
+  // (accountant B17); posting is still allowed, and Receipts flags it after.
+  const [closedDay, setClosedDay] = useState<{ date: string; session: string } | null>(null);
+  const dayState = api.deskDayStateAction;
+  const studentId = student?.id;
+  useEffect(() => {
+    if (!studentId || !dayState || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) return;
+    let active = true;
+    void Promise.resolve()
+      .then(() => dayState({ date: paymentDate, sessionLabel: boot.sessionLabel }))
+      .then((res) => { if (active) setClosedDay(res?.closed ? { date: paymentDate, session: boot.sessionLabel } : null); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [studentId, paymentDate, boot.sessionLabel, dayState]);
+  const dayClosed = closedDay?.date === paymentDate && closedDay.session === boot.sessionLabel;
   const totals = deskTotals(rows, today);
   const waiveAllowed = boot.me.canWaive && Boolean(student) && !student?.onPlan;
   const waiveLate = waiveAllowed && form.late === "waive" && totals.lateFee > 0;
@@ -464,6 +491,7 @@ export function PaymentDesk({
       removed: false,
       sent: false,
       log: [{ text: tx(W.savedBy(boot.me.name)), time: ampm(res.receipt?.createdAt ?? at), tone: "var(--acc)" }],
+      settling: Boolean(res.settling),
     });
     if (res.student) setResult({ ok: true, student: res.student });
     setSheet("");
@@ -477,6 +505,26 @@ export function PaymentDesk({
     }
     restoredAttempt.current = false;
     toast.show({ text: tx(W.savedToast(res.receiptNumber, rupees(total))) });
+    if (res.settling && studentId) void settle({ receiptId: res.receiptId, receiptNumber: res.receiptNumber, studentId, sessionLabel: boot.sessionLabel });
+  }
+
+  /**
+   * The receipt number is on screen; now read the receipt and the balance,
+   * which wait for the balance views to catch up (accountant B2, D-271).
+   * Nothing here can undo the save: a failure only leaves "Show the receipt".
+   */
+  async function settle(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }) {
+    const call = api.settleDeskSaveAction;
+    const res = call ? ((await Promise.resolve().then(() => call(input)).catch(() => null)) ?? null) : null;
+    setSaved((cur) => (cur && cur.receiptId === input.receiptId
+      ? { ...cur, settling: false, receipt: res?.receipt ?? cur.receipt, balance: res?.balanceAfter ?? cur.balance, amount: res?.receipt?.total ?? cur.amount }
+      : cur));
+    if (!res) return;
+    const balance = res.balanceAfter;
+    if (balance) setListBalances(b => ({ ...b, [input.studentId]: { pendingToday: balance.pendingToday, lateFee: balance.lateFee } }));
+    const fresh = res.student;
+    if (fresh) setResult((cur) => (cur && cur.ok && cur.student.id === input.studentId ? { ok: true, student: fresh } : cur));
+    if (res.todayCollection !== undefined) setTodayTotals(res.todayCollection);
   }
 
   /** Ask the database whether the save with this request id posted. */
@@ -696,12 +744,13 @@ export function PaymentDesk({
       <Ic n="chevRight" size={16} />
     </Link>
   );
-  const manyBtn = (
+  // Only for those who can use it: a full-size "Enter many payments · Admin
+  // only" button sat in the accountant's top bar (accountant UI).
+  const manyBtn = boot.me.canBulk ? (
     <Link href="/payments/bulk" className="tap btn sec">
       <Ic n="table" /> {tx(W.many)}
-      {!boot.me.canBulk ? <span className="pill" style={{ background: "var(--s3)", color: "var(--mut)" }}>{tx(W.adminOnly)}</span> : null}
     </Link>
-  );
+  ) : null;
 
   const listMaxH = selId ? 292 : undefined;
   const findPane = (
@@ -839,7 +888,6 @@ export function PaymentDesk({
     : `${form.dateMode === "today" ? `${tx(W.today)} · ${shortDate(paymentDate)}` : `${shortDate(paymentDate)}${tx(form.dateMode === "yesterday" ? W.yesterdayTag : W.backDated)}`}${paymentDate !== today ? tx(W.lateWorkedOut) : ""}`;
   const amountShown = Number.isSafeInteger(amount) && amount > 0 && /^[\d,\s]+$/.test(form.amount.trim()) ? amount.toLocaleString("en-IN") : form.amount;
   const amountBad = Boolean(show("amount") || show("over"));
-  const concessionBad = !Number.isSafeInteger(concession) || concession < 0 || concession > totals.wholeYear - (waiveLate ? totals.lateFee : 0);
 
   const formCards = student ? (
     <div className="pd-col">
@@ -867,7 +915,7 @@ export function PaymentDesk({
           </span>
         </label>
         <span id="pd-amount-words" style={{ fontSize: 13, fontWeight: 600, color: amountBad ? "var(--bad)" : "var(--mut)" }}>
-          {has("over") ? tx(W.overMax(rupees(walk.maxAmount))) : amount ? wordsOf(amount) : tried ? tx(W.typeAmountErr) : tx(W.typeAmount)}
+          {has("over") ? tx(W.overMax(rupees(walk.maxAmount))) : hasPaise(form.amount) ? tx(W.wholeRupees) : amount ? wordsOf(amount) : tried ? tx(W.typeAmountErr) : tx(W.typeAmount)}
         </span>
         {chips.length ? (
           <div className="pd-chips" role="group" aria-label={tx(W.chipNote)}>
@@ -957,12 +1005,10 @@ export function PaymentDesk({
           <span>{tx(W.notes)}</span>
           <textarea className="inp" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder={tx(W.notesPh)} style={{ minHeight: 64 }} />
         </label>
-        <label className="field">
+        <div className="field" id="pd-concession-off">
           <span>{tx(W.concession)}</span>
-          <input id="pd-concession" className={`inp num${concessionBad ? " err" : ""}`} inputMode="numeric" value={form.concession} disabled={student.onPlan || !canAct} onChange={(e) => set({ concession: e.target.value })} placeholder="0" />
-          <span className="pd-m">{tx(W.concessionHint)}</span>
-          {concessionBad ? <span role="alert" style={{ color: "var(--bad)", fontSize: 13, fontWeight: 600 }}>{tx(W.concessionInvalid)}</span> : null}
-        </label>
+          <span className="pd-m">{tx(W.concessionOff)}</span>
+        </div>
         <div className="pd-bx pd-by" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <span className="pd-av" style={{ width: 32, height: 32, borderRadius: 16, fontSize: 11, background: "var(--okm)", color: "var(--ok)" }}>{initials(form.receivedBy || boot.me.name)}</span>
           <span className="pd-c" style={{ flex: 1 }}>
@@ -1180,6 +1226,7 @@ export function PaymentDesk({
               </Banner>
             ) : null}
             {recoveryError ? <Banner tone="bad" action={attemptKey ? <Btn disabled={!recoveryReady || saving} onClick={retryRecovery}>{tx(W.retryRecovery)}</Btn> : undefined}>{tx(recoveryError === "locks" ? W.recoveryBrowser : W.recoveryStorage)}</Banner> : null}
+            {dayClosed ? <Banner tone="warn"><span id="pd-day-closed">{tx(W.dayClosedWarn(shortDate(paymentDate)))}</span></Banner> : null}
             <ConfirmBody
               student={student}
               amount={amount}
@@ -1724,10 +1771,17 @@ function SavedPanel({
         {r ? (
           <ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} />
         ) : (
-          <div className="card pd-cd">
-            <Banner tone="info">{tx(W.receiptPending(saved.receiptNumber))}</Banner>
-            <Btn variant="sec" icon="refresh" disabled={busy} onClick={onRetryReceipt}>{tx(W.showReceipt)}</Btn>
-          </div>
+          saved.settling ? (
+            <div className="card pd-cd" aria-live="polite">
+              <Banner tone="ok">{tx(W.receiptSettling(saved.receiptNumber))}</Banner>
+              <Skel h={120} />
+            </div>
+          ) : (
+            <div className="card pd-cd">
+              <Banner tone="info">{tx(W.receiptPending(saved.receiptNumber))}</Banner>
+              <Btn variant="sec" icon="refresh" disabled={busy} onClick={onRetryReceipt}>{tx(W.showReceipt)}</Btn>
+            </div>
+          )
         )}
         <div className="pd-c" style={{ gap: 10 }}>
           {!gone ? (

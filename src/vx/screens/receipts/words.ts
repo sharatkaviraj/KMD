@@ -67,6 +67,7 @@ export const W = {
   student2: p("Student", "विद्यार्थी"),
   print: p("Print", "प्रिंट"),
   pdf: p("PDF", "PDF"),
+  printPdf: p("Print / PDF", "प्रिंट / PDF"),
   reverse: p("Reverse", "रद्द करें"),
   history: p("History", "इतिहास"),
   hPosted: p("Receipt created by {name}", "{name} ने रसीद बनाई"),

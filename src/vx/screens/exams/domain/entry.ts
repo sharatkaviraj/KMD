@@ -44,13 +44,46 @@ export function pressKey(text: string, key: string, maxMarks: number, step: numb
   return next;
 }
 
-/** Whether a typed mark is complete enough that the pad should move on. */
+/**
+ * Whether a typed mark is complete enough that the pad should move on.
+ *
+ * A single digit never moves on by itself on a paper out of 20 or more: "9"
+ * on a paper out of 80 is far more often the start of a slip like "95" than
+ * a mark of 9, and moving on split "95" into a 9 for one child and a 5 for
+ * the next with no warning. The teacher presses Enter for a one-digit mark,
+ * as the help already says; "95" is then refused with "Highest mark is 80".
+ */
 export function shouldAdvance(text: string, maxMarks: number): boolean {
   if (text === "" || text.endsWith(".")) return false;
   const value = Number(text);
   if (!Number.isFinite(value)) return false;
+  if (text.includes(".")) return true;
   // Another digit would overflow the paper, so this mark is finished.
-  return value * 10 > maxMarks || text.includes(".");
+  if (value * 10 <= maxMarks) return false;
+  return text.length > 1 || maxMarks < 20;
+}
+
+/**
+ * What was typed into a mark box, as the box may keep it. Only digits and one
+ * point are a mark; anything else ("-5", "7a") is refused whole rather than
+ * stripped, which turned "-5" into a saved 5.
+ */
+export function cleanTyped(raw: string): string | null {
+  const t = raw.trim();
+  return /^[\d.]*$/.test(t) ? t : null;
+}
+
+/**
+ * The children whose stored mark this paper cannot hold — a half mark on a
+ * whole-mark paper, or more than the paper is out of — so the sheet can name
+ * every one of them at once instead of the database refusing one per save.
+ */
+export function misfits(order: readonly string[], cells: Readonly<Record<string, Cell>>, maxMarks: number, step: number): string[] {
+  return order.filter((id) => {
+    const c = cells[id];
+    if (!c || c.state !== "value" || c.value === null) return false;
+    return !parseMark(String(c.value), maxMarks, step).ok;
+  });
 }
 
 export function isFilled(cell: Cell | undefined): boolean {

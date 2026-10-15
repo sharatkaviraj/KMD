@@ -7,7 +7,7 @@ import { resolveStart } from "@/platform/config/start";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { pendingMoneyRequests, todayMoney } from "@/modules/dashboard/vx/admin-today";
 import { initials, longDay, schoolToday } from "@/vx/format";
-import { MENU_HOME, MENU_LABEL, QUICK_ACTIONS } from "@/vx/nav";
+import { MENU_HOME, QUICK_ACTIONS } from "@/vx/nav";
 import { boardSummary, runningPeriod, schoolMinutes, sortInbox } from "@/vx/screens/admin/logic";
 import { loadInbox, loadToday, promisedToday, weekAttendance } from "@/vx/screens/admin/data";
 import { T } from "@/vx/screens/admin/text";
@@ -17,6 +17,7 @@ import { TD } from "@/vx/screens/admin/today-text";
 import { lead } from "@/vx/text";
 import { VxPage, TopBar, Section } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
+import { menuRoleLabel } from "@/vx/shell/role-line";
 import { getViewer } from "@/vx/view-as";
 
 export const runtime = "nodejs";
@@ -137,7 +138,7 @@ export default async function TodayPage() {
           timetable: can(staff, "timetable:view"),
         }}
         unavailable={facts.unavailable.length > 0 || (inbox?.unavailable.length ?? 0) > 0}
-        roleLine={TD.sessionLine(MENU_LABEL[menu], session)}
+        roleLine={TD.sessionLine(menuRoleLabel(menu, staff.role, previewing), session)}
         me={{ initials: initials(staff.displayName), href: can(staff, "settings:manage") ? "/settings" : "/preferences" }}
         week={week ? week.map((row) => ({ day: row.day, percent: row.tally ? dayPercent(row.tally, credit) : null })) : null}
         promisedToday={promised}

@@ -3,7 +3,7 @@ import { can } from "@/platform/auth/permissions";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 
-import { academicContext, classDetail, classMarks, classPeople, classResults, classTeacherOf, currentExam, examsOf, needsAttention, staffDirectory, studentDetail, type Exam } from "./data";
+import { academicContext, classDetail, classMarks, classPeople, classResults, classTeacherOf, currentExam, examsOf, marksEntry, needsAttention, staffDirectory, studentDetail, type Exam } from "./data";
 import { subjectName, type AttentionReason } from "./domain";
 import { AcadProgressView, type AcadProgressProps } from "./progress-view";
 import { sayer } from "./ui";
@@ -43,7 +43,10 @@ export async function AcadProgress(props: Props) {
   const attention = await needsAttention(ctx);
   const view = ["class", "student", "compare", "attention", "plan"].includes(props.view ?? "") ? props.view! : "overview";
   const tab = (e: Exam) => ({ code: e.code, label: examLabel(e, language) });
-  const results = chosen && (view === "overview" || view === "compare" || view === "class") ? await classResults(ctx, chosen, previous) : null;
+  // "X% entered" is the marks tracker's number (marksEntry), not a share of
+  // papers submitted, so this page agrees with the home and the exam office (B4).
+  const [results, entry] =
+    chosen && (view === "overview" || view === "compare" || view === "class") ? await Promise.all([classResults(ctx, chosen, previous), marksEntry(ctx, chosen.id)]) : [null, null];
   const common = {
     language,
     today: ctx.today,
@@ -51,7 +54,7 @@ export async function AcadProgress(props: Props) {
     exams: exams.filter((e) => e.startsOn <= ctx.today).map(tab),
     exam: chosen ? tab(chosen) : null,
     previous: previous ? tab(previous) : null,
-    entered: results && results.stats.length ? Math.round((results.stats.filter((s) => s.submitted).length / results.stats.length) * 100) : 0,
+    entered: entry?.pct ?? 0,
     attentionCount: attention.length,
     mayManage: can(staff, "academics:manage"),
     mayFollow: ctx.everyClass,

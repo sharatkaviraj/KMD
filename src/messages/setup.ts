@@ -267,6 +267,15 @@ export const ms = {
   drillPassedShort: t("जाँच सफल", "Drill passed"),
   drillFailedShort: t("जाँच विफल", "Drill failed"),
   drillNever: t("जाँच नहीं हुई", "Never drilled"),
+  exportsTakeTitle: t("निर्यात लें", "Take an export"),
+  exportsTakeIntro: t(
+    "किसी परीक्षा के अंक उसी परीक्षा के पेज से स्प्रेडशीट में डाउनलोड होते हैं।",
+    "An exam's marks download as a spreadsheet from that exam's page.",
+  ),
+  exportsDownloadMarks: t("अंक डाउनलोड करें", "Download marks"),
+  exportsNoExams: t("इस सत्र में अभी कोई परीक्षा नहीं।", "No exam this session yet."),
+  exportRow: t("पंक्ति", "row"),
+  exportsLogTitle: t("अब तक के निर्यात", "Exports taken"),
   // Classic cover screen, on a day other than today, and the periods an absence missed (school-day run B1).
   subsAbsentOnDay: t("अनुपस्थित", "Away"),
   subsNobodyAwayOnDay: t("कोई अनुपस्थित दर्ज नहीं।", "Nobody is marked away."),

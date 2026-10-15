@@ -1,7 +1,10 @@
 import "server-only";
 
+import { getCurrentStaff } from "@/platform/auth/current-staff";
 import { readsEveryClass, type StaffRole } from "@/platform/auth/permissions";
 import { schoolToday } from "@/platform/dates";
+import { CACHE_TAGS, sharedCache } from "@/platform/performance/shared-cache";
+import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
 import {
@@ -159,20 +162,36 @@ export async function periodsOn(
  * today, "happens to" is not a reason to read a truncated answer.
  */
 export async function dayHeaders(versionId: string): Promise<string[]> {
-  const supabase = await createClient();
-
-  const data = await fetchAllRows<{ day: string }>(
-    (from, to) =>
-      supabase
-        .from("timetable_slots")
-        .select("day")
-        .eq("version_id", versionId)
-        .order("day")
-        .order("period")
-        .range(from, to)
-        .returns<{ day: string }[]>(),
-    "the timetable",
-  );
-
-  return [...new Set(data.map((row) => row.day))];
+  // RLS let active staff read the slots and nobody else; kept, outside the cache.
+  if (!(await getCurrentStaff())) return [];
+  return cachedDayHeaders(versionId);
 }
+
+/**
+ * A version's day headers, shared across requests (perf fix 4). Reading them
+ * pages every slot of the version — about 2,000 rows, three sequential pages —
+ * to learn at most six names, and teacher Today asked twice per load. A
+ * version's slots are written once, when it is created, and never edited; a
+ * republish is a new version id. So the answer for an id cannot change, and
+ * the tag is only there so a publish clears the lot.
+ */
+const cachedDayHeaders = sharedCache(
+  async (versionId: string): Promise<string[]> => {
+    const admin = createAdminClient();
+    const data = await fetchAllRows<{ day: string }>(
+      (from, to) =>
+        admin
+          .from("timetable_slots")
+          .select("day")
+          .eq("version_id", versionId)
+          .order("day")
+          .order("period")
+          .range(from, to)
+          .returns<{ day: string }[]>(),
+      "the timetable",
+    );
+    return [...new Set(data.map((row) => row.day))];
+  },
+  ["vx-day-headers"],
+  { tags: [CACHE_TAGS.timetable], revalidate: 3600 },
+);

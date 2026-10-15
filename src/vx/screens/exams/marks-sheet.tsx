@@ -26,6 +26,8 @@ import {
   parseMark,
   pressKey,
   shouldAdvance,
+  cleanTyped,
+  misfits,
   toEntries,
   type Cell,
 } from "./domain/entry";
@@ -132,6 +134,13 @@ export function MarksSheet({
   const editable = ready && !recovered && !pendingCommand && !busy && status !== "stale" && paper.examOpen && !paper.locked && (entryStatus === "open" || correcting);
   const c = counts(order, cells);
   const summary = checkSummary(order, cells, paper.passMarks);
+  const badNow = misfits(order, cells, paper.maxMarks, paper.markStep);
+  const badSet = new Set(badNow);
+
+  // The check and sent screens open at the top, where their banner is.
+  useEffect(() => {
+    if (phase !== "entry" && typeof window !== "undefined") window.scrollTo({ top: 0 });
+  }, [phase]);
 
   /* ------------------------------------------------------------ saving */
 
@@ -226,6 +235,25 @@ export function MarksSheet({
     finally { inflight.current = null; }
   }
 
+  /**
+   * Marks the paper cannot hold (old half marks on a whole-mark paper) are
+   * named all at once and nothing is sent: the database refuses the whole
+   * column for any one of them, and used to name one child per try while the
+   * footer kept saying "Saving…".
+   */
+  function stopOnMisfits(snapshot: Record<string, Cell>): boolean {
+    const bad = misfits(order, snapshot, paper.maxMarks, paper.markStep);
+    if (bad.length === 0) return false;
+    setStatus("error");
+    setMessage(
+      paper.markStep >= 1
+        ? p(`These marks cannot be given on this paper (whole marks, out of ${paper.maxMarks}). Change them and the sheet saves again:`, `ये अंक इस पेपर में नहीं हो सकते (पूरे अंक, ${paper.maxMarks} में से)। इन्हें ठीक करते ही शीट फिर सेव होगी:`)
+        : p(`These marks cannot be given on this paper (out of ${paper.maxMarks}). Change them and the sheet saves again:`, `ये अंक इस पेपर में नहीं हो सकते (${paper.maxMarks} में से)। इन्हें ठीक करते ही शीट फिर सेव होगी:`),
+    );
+    setWho(bad.map((id) => `${byId.get(id)?.name ?? "—"} ${snapshot[id]?.value ?? ""}`));
+    return true;
+  }
+
   async function flush(): Promise<boolean> {
     if (inflight.current) await inflight.current;
     if (command.current) return Boolean((await runCommand(command.current))?.ok);
@@ -234,6 +262,7 @@ export function MarksSheet({
     const changed = changedIds(order, snapshot, latest.current.saved);
     if (changed.length === 0) return true;
     if (entryStatus === "submitted") return false;
+    if (stopOnMisfits(snapshot)) return false;
     const result = await runCommand({
       commandId: crypto.randomUUID(),
       paperId: paper.id,
@@ -284,7 +313,11 @@ export function MarksSheet({
   }
 
   function typed(id: string, index: number, raw: string) {
-    const text = raw.replace(/[^\d.]/g, "");
+    const text = cleanTyped(raw);
+    if (text === null) {
+      toast.show({ text: tx(p("Type the mark in numbers only", "अंक सिर्फ़ गिनती में लिखें")), tone: "bad" });
+      return;
+    }
     if (text.endsWith(".") && paper.markStep < 1) {
       setTexts((t) => ({ ...t, [id]: text }));
       return;
@@ -308,9 +341,12 @@ export function MarksSheet({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       focusAt(Math.max(0, index - 1));
-    } else if (e.key === "a" || e.key === "A") {
+    } else if ((e.key === "a" || e.key === "A") && !e.ctrlKey && !e.metaKey && !e.altKey && (latest.current.cells[id] ?? BLANK).state === "blank" && !(texts[id] ?? "")) {
+      // The A shortcut only on an empty box, and said out loud: typing "abc"
+      // or Ctrl+A into a box with a mark used to make the child Absent silently.
       e.preventDefault();
       update(id, { state: "absent", value: null });
+      toast.show({ text: tx(p(`${byId.get(id)?.name ?? ""} marked Absent · tap Absent again to undo`, `${byId.get(id)?.name ?? ""} अनुपस्थित · हटाने के लिए फिर “अनुपस्थित” दबाएँ`)) });
       focusAt(Math.min(order.length - 1, index + 1));
     }
   }
@@ -392,6 +428,7 @@ export function MarksSheet({
     setBusy(true);
     try {
       if (command.current) { await runCommand(command.current); return; }
+      if (stopOnMisfits(latest.current.cells)) return;
       if (kind === "submit" && !(await flush())) return;
       const result = await runCommand({
         commandId: crypto.randomUUID(),
@@ -481,13 +518,22 @@ export function MarksSheet({
       {tx(recovered.command ? p("A previous save has not been confirmed. Check that same save before changing these marks.", "पिछले सहेजने की पुष्टि नहीं हुई है। अंक बदलने से पहले उसी सहेजने को जाँचें।") : p("This phone has a draft from your previous visit.", "इस फोन पर आपकी पिछली बार का ड्राफ्ट है।"))}
       {!recovered.command ? <Btn variant="ghost" disabled={busy} onClick={() => { void clearRecovery().then((cleared) => { if (cleared) setRecovered(null); }); }}>{tx(p("Discard draft", "ड्राफ्ट हटाएँ"))}</Btn> : null}
     </Banner>
+  ) : badNow.length && !paper.locked && paper.examOpen ? (
+    <Banner tone="bad">
+      {tx(
+        paper.markStep >= 1
+          ? p(`${badNow.length} ${badNow.length === 1 ? "mark" : "marks"} cannot be given on this paper (whole marks, out of ${paper.maxMarks}). Nothing saves until they are changed:`, `${badNow.length} अंक इस पेपर में नहीं हो सकते (पूरे अंक, ${paper.maxMarks} में से)। इन्हें ठीक करने तक कुछ सेव नहीं होगा:`)
+          : p(`${badNow.length} ${badNow.length === 1 ? "mark" : "marks"} cannot be given on this paper (out of ${paper.maxMarks}). Nothing saves until they are changed:`, `${badNow.length} अंक इस पेपर में नहीं हो सकते (${paper.maxMarks} में से)। इन्हें ठीक करने तक कुछ सेव नहीं होगा:`),
+      )}{" "}
+      {badNow.map((id) => `${byId.get(id)?.name ?? "—"} (${cells[id]?.value ?? ""})`).join(", ")}
+    </Banner>
   ) : message ? (
     <Banner
       tone={status === "stale" ? "warn" : "bad"}
       action={status === "stale" ? <Btn variant="sec" onClick={() => window.location.reload()}>{tx(p("Reload", "फिर खोलें"))}</Btn> : <Btn variant="sec" onClick={() => void flush()}>{tx(p("Try again", "फिर से"))}</Btn>}
     >
       {tx(message)}
-      {who.length ? ` (${who.slice(0, 6).join(", ")}${who.length > 6 ? "…" : ""})` : ""}
+      {who.length ? ` (${who.slice(0, 12).join(", ")}${who.length > 12 ? "…" : ""})` : ""}
     </Banner>
   ) : null;
 
@@ -810,7 +856,9 @@ export function MarksSheet({
 
   /* --------------------------------------------------- phase: entry */
 
-  const hiddenUntil = showDone ? 0 : firstUnfilledRun(order, saved, current);
+  // Never fold away a row whose mark the paper cannot hold: it has to be fixed.
+  const firstBad = badNow.length ? order.indexOf(badNow[0]) : order.length;
+  const hiddenUntil = showDone ? 0 : Math.min(firstUnfilledRun(order, saved, current), firstBad);
   const modeSeg = (
     <Seg
       label={tx(p("How to enter", "कैसे भरें"))}
@@ -904,17 +952,21 @@ export function MarksSheet({
                     const off = cell.state === "value" && looksOff(cell.value, s.prevPct, paper.maxMarks);
                     return (
                       <div key={s.id} className="row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "10px 18px", borderTop: "1px solid var(--bd)", background: active ? "var(--accs)" : undefined, boxShadow: active ? "inset 3px 0 0 var(--pri)" : undefined }}>
-                        <span className="num" style={{ width: 44, flex: "none", color: "var(--mut)", fontWeight: 600 }}>{s.roll ?? "—"}</span>
-                        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                          <strong className="clip">{s.name}</strong>
+                        {s.roll ? <span className="num" style={{ width: 44, flex: "none", color: "var(--mut)", fontWeight: 600 }}>{s.roll}</span> : null}
+                        {/* The name keeps its own line on a phone: at 390px the
+                            box and Absent used to squeeze it to "An…" (ST-02). */}
+                        <span style={{ flex: "1 1 170px", minWidth: 0, display: "flex", flexDirection: "column" }}>
+                          <strong style={{ overflowWrap: "anywhere" }}>{s.name}</strong>
+                          {s.hint ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(s.hint)}</span> : null}
                           {s.prev ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{s.prev}</span> : null}
+                          {badSet.has(s.id) ? <span style={{ fontSize: 12, fontWeight: 700, color: "var(--bad)" }}>{tx(p("This mark cannot be given on this paper", "यह अंक इस पेपर में नहीं हो सकता"))}</span> : null}
                         </span>
                         <input
                           ref={(el) => {
                             if (el) inputs.current.set(s.id, el);
                             else inputs.current.delete(s.id);
                           }}
-                          className={`inp num${off ? " err" : ""}`}
+                          className={`inp num${off || badSet.has(s.id) ? " err" : ""}`}
                           inputMode="decimal"
                           aria-label={`${s.name} — ${tx(p("Row", "पंक्ति"))} ${i + 1}${s.roll ? `, ${tx(p("Roll", "रोल"))} ${s.roll}` : ""} — ${tx(p("mark out of", "अंक, पूर्णांक"))} ${paper.maxMarks}`}
                           disabled={!editable || cell.state === "absent" || cell.state === "exempt"}
@@ -959,8 +1011,9 @@ export function MarksSheet({
                     <Ic n="chevLeft" size={22} />
                   </button>
                   <Card style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, borderColor: "var(--pri)", borderWidth: 2 }}>
-                    <Pill tone="mut">{tx(p("Roll", "रोल"))} {padStudent.roll ?? "—"}</Pill>
+                    {padStudent.roll ? <Pill tone="mut">{tx(p("Roll", "रोल"))} {padStudent.roll}</Pill> : null}
                     <strong style={{ fontSize: 20, textAlign: "center" }}>{padStudent.name}</strong>
+                    {padStudent.hint ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(padStudent.hint)}</span> : null}
                     {padStudent.prev ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{padStudent.prev}</span> : null}
                     <span className="num" style={{ fontSize: 56, fontWeight: 700, lineHeight: 1.1, color: padCell?.state === "absent" ? "var(--bad)" : padText || padCell?.state === "value" ? "var(--fg)" : "var(--s3)" }}>
                       {padCell?.state === "absent" ? "AB" : padCell?.state === "exempt" ? "EX" : padText || (padCell?.state === "value" ? padCell.value : "00")}

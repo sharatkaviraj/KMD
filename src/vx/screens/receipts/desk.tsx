@@ -38,7 +38,9 @@ import { MODE_WORD, receiptCount, W } from "./words";
  */
 
 /** The table's tracks, as the design sets them. */
-const TRACKS = "100px 76px minmax(190px, 2fr) 104px minmax(110px, 1fr) 104px 28px";
+// The receipt number is what the accountant matches against the bank slip;
+// 100px cut "SVP20261014-0004" to "SVP20261014-…".
+const TRACKS = "140px 76px minmax(170px, 2fr) 104px minmax(110px, 1fr) 104px 28px";
 
 function initialFilters(i: DeskProps["initial"]): DeskFilters {
   const mode = (DESK_MODES as readonly string[]).includes(i.mode) ? (i.mode as DeskMode) : "all";
@@ -256,7 +258,7 @@ export function ReceiptsDesk(props: DeskProps) {
           ) : (
             <>
               <DeskSearch value={query} onChange={setQuery} placeholder={tx(W.search)} label={tx(W.searchLabel)} />
-              {perms.dayBook ? <Btn variant="sec" icon="download" href={dayBookHref} target="_blank">{tx(W.export)}</Btn> : null}
+              {perms.dayBook ? <Btn variant="sec" icon="download" href={dayBookHref} target="_blank" prefetch={false}>{tx(W.export)}</Btn> : null}
               {perms.accounts ? <Btn variant="pri" icon="lock" href={closeHref}>{closeButton}</Btn> : null}
             </>
           )
@@ -294,8 +296,11 @@ function DeskTableRow({ r, delay, tone, sel, href }: { r: DeskRow; delay: number
   const look = MODE_LOOK[mode];
   const strike = r.isReversed ? "line-through" : "none";
   return (
+    // No prefetch: a day of 80–150 receipts prefetched a server render per row
+    // and the list never settled (accountant B6).
     <Link
       href={href}
+      prefetch={false}
       role="row"
       className={`tap row${sel ? " sel" : ""}`}
       aria-current={sel ? "true" : undefined}
@@ -327,6 +332,7 @@ function DeskCardRow({ r, first, delay, href }: { r: DeskRow; first: boolean; de
   return (
     <Link
       href={href}
+      prefetch={false}
       className="tap row"
       style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderTop: first ? 0 : "1px solid var(--bd)", color: "var(--fg)", opacity: r.isReversed ? 0.55 : 1, animation: `xIn .32s var(--ease) ${delay}ms both` }}
     >

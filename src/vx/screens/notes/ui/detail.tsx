@@ -603,14 +603,15 @@ export function TeachNoteDetail({
           ) : null}
           {work ? (
             <div className="nx-f" style={{ gap: 8 }}>
-              <label className="nt-srch" style={{ flex: 1, height: 52, borderRadius: 26 }}>
-                <span className="sr">Your reply</span>
-                <input type="text" value={reply.listening ? `${reply.text}${reply.text && reply.live ? " " : ""}${reply.live}` : reply.text} maxLength={1000} onChange={(e) => reply.setText(e.target.value)} placeholder={both(p("Write a reply", "जवाब लिखें"))} />
+              {/* minWidth 0 lets the box shrink, so Send stays inside a 390px card (ST-18). */}
+              <label className="nt-srch" style={{ flex: 1, minWidth: 0, height: 52, borderRadius: 26 }}>
+                <span className="sr">{tx(p("Your reply", "आपका जवाब"))}</span>
+                <input type="text" style={{ minWidth: 0, width: "100%" }} value={reply.listening ? `${reply.text}${reply.text && reply.live ? " " : ""}${reply.live}` : reply.text} maxLength={1000} onChange={(e) => reply.setText(e.target.value)} placeholder={both(p("Write a reply", "जवाब लिखें"))} />
               </label>
               <button type="button" className="tap" aria-label={reply.listening ? "Stop listening" : "Speak a reply"} onClick={() => reply.mic("hi-IN")} style={{ width: 52, height: 52, borderRadius: 26, border: 0, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", background: reply.listening ? "var(--bad)" : "var(--accs)", color: reply.listening ? "var(--onsolid)" : "var(--accfg)" }}>
                 <Ic n={reply.listening ? "x" : "mic"} size={22} />
               </button>
-              <button type="button" className="tap btn pri" disabled={reply.pending} onClick={reply.send} style={{ height: 52, borderRadius: 26 }}>
+              <button type="button" className="tap btn pri" aria-label={tx(p("Send reply", "जवाब भेजें"))} disabled={reply.pending} onClick={reply.send} style={{ height: 52, minWidth: 52, flex: "none", borderRadius: 26 }}>
                 <Ic n="send" size={18} />
                 <span className="hide-m">{tx(p("Send", "भेजें"))}</span>
               </button>

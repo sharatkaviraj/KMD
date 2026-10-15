@@ -30,7 +30,9 @@ import { PAYMENT_IMPORT_COMMIT_CHUNK_SIZE, type PaymentImportBatchSummary } from
 import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/types";
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent, loadDeskPreview, loadDeskTodayCollection } from "@/modules/payments/vx/data";
-import type { DeskMode } from "@/modules/payments/vx/domain/desk";
+import { counterConcessionRefusal, type DeskMode } from "@/modules/payments/vx/domain/desk";
+import { latestCloseState } from "@/modules/receipts/vx/domain/day-close";
+import { listCloseEvents } from "@/vx/screens/receipts/data";
 import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
 import { revalidateAfterPaymentPosting } from "@/modules/system-sync/data/finance-revalidation";
 import { revalidateSessionFinance } from "@/modules/system-sync/domain/finance-sync";
@@ -113,8 +115,12 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
   if (!Number.isSafeInteger(input.amount) || input.amount <= 0 || !Number.isSafeInteger(input.quickDiscountAmount ?? 0) || (input.quickDiscountAmount ?? 0) < 0 || !Number.isSafeInteger(input.lateFeeWaiver) || input.lateFeeWaiver < 0) {
     return { status: "error", message: "Enter whole rupee amounts." };
   }
+  // The counter concession is refused, never silently dropped: a cashier who
+  // somehow sent one must not post a receipt the parent thinks was discounted.
+  const concessionRefusal = counterConcessionRefusal(input.quickDiscountAmount);
+  if (concessionRefusal) return { status: "error", message: concessionRefusal };
   fd.set("paymentAmount", String(input.amount));
-  fd.set("quickDiscountAmount", String(input.quickDiscountAmount ?? 0));
+  fd.set("quickDiscountAmount", "0");
   fd.set("quickLateFeeWaiverAmount", String(input.lateFeeWaiver));
   fd.set("referenceNumber", input.reference);
   fd.set("receivedBy", input.receivedBy);
@@ -147,14 +153,42 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
     // receipt details are missing" when the receipt read fails) must not read
     // as "nothing was posted". The request id says whether it was.
     const posted = await findDeskReceiptByRequest({ studentId: input.studentId, clientRequestId: input.clientRequestId }).catch(() => undefined);
-    if (posted) return savedResult({ ...posted, studentId: input.studentId, sessionLabel: input.sessionLabel });
+    if (posted) return postedResult(posted);
     if (posted === undefined) {
       return { status: "uncertain", message: state.message || "The payment could not be confirmed." };
     }
     return { status: "error", message: state.message || "The payment was not saved. Nothing was posted." };
   }
 
-  return savedResult({ receiptId: state.receiptId, receiptNumber: state.receiptNumber, studentId: input.studentId, sessionLabel: input.sessionLabel });
+  return postedResult({ receiptId: state.receiptId, receiptNumber: state.receiptNumber });
+}
+
+/**
+ * The answer the cashier waits for: the money is posted and this is its
+ * receipt number. Nothing else is read here (accountant B2): the balance
+ * views' refresh took from 12 s to 2.5 min on the school-day run, and the
+ * cashier stared at "Saving…" with the parent's cash in hand. The desk asks
+ * `settleDeskSaveAction` for the receipt and the balance straight after, which
+ * still drains first, so the receipt never shows a stale balance (D-271).
+ */
+function postedResult(input: { receiptId: string; receiptNumber: string }): Extract<DeskSaveResult, { status: "saved" }> {
+  return { status: "saved", receipt: null, receiptId: input.receiptId, receiptNumber: input.receiptNumber, student: null, balanceAfter: null, settling: true };
+}
+
+/**
+ * The receipt, the student's balance and today's total after a save, once the
+ * balance views have caught up. Read-only; the desk calls it right after
+ * `postDeskPaymentAction` answers. A failure is null: the payment is posted
+ * either way, and the desk offers "Show the receipt".
+ */
+export async function settleDeskSaveAction(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }): Promise<Extract<DeskSaveResult, { status: "saved" }> | null> {
+  try {
+    await assertPermission("fees:view");
+    if (!UUID.test(input.receiptId) || !UUID.test(input.studentId)) return null;
+    return await savedResult({ receiptId: input.receiptId, receiptNumber: input.receiptNumber, studentId: input.studentId, sessionLabel: sessionOf(input.sessionLabel) });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -184,6 +218,24 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
     balanceAfter: student ? balanceAfter(student, schoolToday()) : null,
     todayCollection,
   };
+}
+
+/**
+ * Is this payment date already closed on Receipts? The desk warns on the
+ * review sheet before a receipt is posted into a counted day (accountant B17).
+ * Read-only; "could not tell" is `closed: false`, since the warning is advice
+ * and the Receipts screen still flags a late receipt afterwards.
+ */
+export async function deskDayStateAction(input: { date: string; sessionLabel: string }): Promise<{ closed: boolean; closedAt: string | null }> {
+  try {
+    await assertPermission("fees:view");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { closed: false, closedAt: null };
+    const events = await listCloseEvents(input.date, input.date, { sessionLabel: sessionOf(input.sessionLabel) });
+    const state = latestCloseState(events);
+    return { closed: state.closed, closedAt: state.closed ? (state.event?.createdAt ?? null) : null };
+  } catch {
+    return { closed: false, closedAt: null };
+  }
 }
 
 /**

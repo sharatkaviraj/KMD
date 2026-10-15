@@ -1,6 +1,6 @@
 import type { DuesFamily } from "@/modules/defaulters/vx/domain/families";
 import { addDays } from "@/modules/receipts/vx/domain/day-close";
-import { shortDay } from "@/vx/format";
+import { rupees, shortDay } from "@/vx/format";
 
 /*
  * How the design (`Dues.dc.html`) draws dues: lakh figures, masked phone
@@ -10,6 +10,8 @@ import { shortDay } from "@/vx/format";
 
 /** "₹6.4 L" — the design's lakh figure, one decimal, for tiles and aging. */
 export function lakh(n: number): string {
+  // Below a lakh the figure is rupees: ₹14,100 read as "₹0.1 L" (accountant UI).
+  if (Math.max(0, n) < 100000) return rupees(Math.max(0, n));
   return `₹${(Math.max(0, n) / 100000).toFixed(1)} L`;
 }
 

@@ -20,6 +20,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     <TeachHome
       data={data}
       name={staff.displayName}
+      shortName={staff.shortName}
       initialSheet={sheet}
       school={schoolProfile.shortName}
       officePhone={schoolProfile.phone}
