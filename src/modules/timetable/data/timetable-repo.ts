@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getCurrentStaff } from "@/platform/auth/current-staff";
+import { CACHE_TAGS, expireTag, sharedCache } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { fetchAllRows } from "@/platform/supabase/paginate";
 import { createClient } from "@/platform/supabase/server";
@@ -78,17 +80,34 @@ export async function getVersion(id: string): Promise<TimetableVersion | null> {
 export async function getPublishedVersion(
   sessionLabel: string,
 ): Promise<TimetableVersion | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("timetable_versions")
-    .select(VERSION_COLUMNS)
-    .eq("session_label", sessionLabel)
-    .eq("status", "published")
-    .maybeSingle<VersionRow>();
-
-  if (error) throw new Error(`Could not read the published timetable: ${error.message}`);
-  return data ? toVersion(data) : null;
+  // RLS let active staff read this and nobody else; the same line, kept
+  // outside the shared cache on every request.
+  if (!(await getCurrentStaff())) return null;
+  const row = await cachedPublishedVersion(sessionLabel);
+  return row ? toVersion(row) : null;
 }
+
+/**
+ * Which version is published, shared across requests for five minutes (perf
+ * fix 5): nearly every teacher and admin screen asks, and it changes when
+ * somebody publishes. `publishVersion` expires the tag. The row, not the
+ * mapped version, so the cache holds plain JSON.
+ */
+const cachedPublishedVersion = sharedCache(
+  async (sessionLabel: string): Promise<VersionRow | null> => {
+    const { data, error } = await createAdminClient()
+      .from("timetable_versions")
+      .select(VERSION_COLUMNS)
+      .eq("session_label", sessionLabel)
+      .eq("status", "published")
+      .maybeSingle<VersionRow>();
+
+    if (error) throw new Error(`Could not read the published timetable: ${error.message}`);
+    return data ?? null;
+  },
+  ["vx-published-version"],
+  { tags: [CACHE_TAGS.timetable], revalidate: 300 },
+);
 
 export async function getVersionSource(id: string): Promise<string | null> {
   const supabase = await createClient();
@@ -248,6 +267,8 @@ export async function publishVersion(
     .eq("status", "published");
 
   if (archiveError) throw archiveError;
+  // Expired here too: if the publish below fails, the session has no published version.
+  expireTag(CACHE_TAGS.timetable);
 
   const { error: publishError } = await admin
     .from("timetable_versions")
@@ -259,6 +280,8 @@ export async function publishVersion(
     .eq("id", versionId);
 
   if (publishError) throw publishError;
+  // The published version changed: every cached "which version" answer is stale now.
+  expireTag(CACHE_TAGS.timetable);
 
   const slots = await listSlots(versionId);
   const assignments = buildAssignments(slots);

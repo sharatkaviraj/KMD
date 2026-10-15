@@ -11,6 +11,7 @@ import {
 import { acknowledgeDutyAction, cannotCoverAction } from "@/app/(app)/duty/[id]/actions";
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { schoolProfile } from "@/platform/config/school";
+import { CACHE_TAGS, expireTag } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -250,6 +251,8 @@ export async function setTextSizeVx(large: boolean): Promise<VxResult> {
     .from("staff_ui_preferences")
     .upsert({ staff_profile_id: staff.id, large_text: Boolean(large), updated_at: new Date().toISOString() }, { onConflict: "staff_profile_id" });
   if (error) return fail("Not saved. Try again.", "सहेजा नहीं गया।");
+  // The shell caches large text per person (perf fix 10).
+  expireTag(CACHE_TAGS.uiPrefs);
   revalidatePath("/", "layout");
   return { ok: true };
 }
