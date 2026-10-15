@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { m } from "@/messages";
+import { ms } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { addDays, dayLabel, isIsoDay, schoolToday, weekdayLabel } from "@/platform/dates";
@@ -15,6 +16,7 @@ import {
 } from "@/modules/substitutions/data/arrange-day";
 import { noticesOn, type CoverDuty, type DutyNotice } from "@/modules/substitutions/data/cover-repo";
 import { needsHelpReasons } from "@/modules/substitutions/domain/cover-state";
+import { coverEligibleIds, distinctNames, missedPeriods } from "@/modules/substitutions/domain/cover-view";
 import type { Candidate } from "@/modules/substitutions/domain/engine";
 import { blockLabels, tierLabels, warningLabels } from "@/modules/substitutions/domain/labels";
 import { describePeriods } from "@/modules/substitutions/domain/plan";
@@ -78,8 +80,12 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
     mayManage ? profilesFor(coverDay) : Promise.resolve(null),
   ]);
 
-  const nameOf = new Map(coverDay.staff.map((person) => [person.id, person.displayName]));
-  for (const absence of coverDay.absences) nameOf.set(absence.staffProfileId, absence.staffName);
+  // Two profiles with one name are told apart; office logins are never offered as cover (D-213).
+  const nameOf = distinctNames(coverDay.staff);
+  for (const absence of coverDay.absences) if (!nameOf.has(absence.staffProfileId)) nameOf.set(absence.staffProfileId, absence.staffName);
+  const eligible = coverEligibleIds(coverDay.staff, coverDay.slots);
+  const isToday = day === schoolToday();
+  const missed = missedPeriods(coverDay.needs, coverDay.live, coverDay.openPeriods);
   const contactOf = new Map(coverDay.staff.map((person) => [person.id, person]));
 
   const dayText = t(
@@ -104,7 +110,9 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
 
   const choicesFor = (duty: CoverDuty): CoverChoice[] =>
     profiles
-      ? candidatesFor(coverDay, profiles.everyone, profiles.history, duty).map((candidate) => ({
+      ? candidatesFor(coverDay, profiles.everyone, profiles.history, duty)
+          .filter((candidate) => eligible.has(candidate.teacher))
+          .map((candidate) => ({
           id: candidate.teacher,
           label: nameOf.get(candidate.teacher) ?? candidate.teacher,
           detail: describeCandidate(candidate, language),
@@ -160,9 +168,9 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
 
       {/* ------------------------------------------------------ who is away */}
 
-      <Section title={m.subsAbsentToday} language={language}>
+      <Section title={isToday ? m.subsAbsentToday : ms.subsAbsentOnDay} language={language}>
         {coverDay.absences.length === 0 ? (
-          <EmptyState title={m.subsNobodyAway} language={language} />
+          <EmptyState title={isToday ? m.subsNobodyAway : ms.subsNobodyAwayOnDay} language={language} />
         ) : (
           <ul className="space-y-1.5">
             {coverDay.absences.map((absence) => (
@@ -171,7 +179,7 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
                 className="flex min-h-14 flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium text-foreground">{absence.staffName}</span>
+                  <span className="block truncate text-[15px] font-medium text-foreground">{nameOf.get(absence.staffProfileId) ?? absence.staffName}</span>
                   <span className="block truncate text-[12px] text-subtle-foreground">
                     {describePeriods(absence.periods)}
                   </span>
@@ -194,14 +202,16 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
           <AbsenceCommandForm
             day={day}
             dayRevision={coverDay.dayRevision}
-            staff={coverDay.staff.map(({ id, displayName, shortName }) => ({ id, displayName, shortName }))}
+            staff={coverDay.staff
+              .filter(({ id }) => eligible.has(id))
+              .map(({ id, displayName, shortName }) => ({ id, displayName: nameOf.get(id) ?? displayName, shortName }))}
           />
         </Card>
       ) : null}
 
       {/* ---------------------------------------------------------- duties */}
 
-      <Section className="mt-8" title={m.coverDutiesTitle} language={language}>
+      <Section className="mt-8" title={isToday ? m.coverDutiesTitle : ms.coverDutiesOnDay} language={language}>
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge tone="success">
             {primary(m.coverAssigned, language)} {assigned}
@@ -230,8 +240,22 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
         ) : null}
       </Section>
 
+      {missed.length > 0 ? (
+        <Notice className="mt-4" tone="warning" text={ms.coverMissedTitle} language={language}>
+          <p className="text-[13px]">{primary(ms.coverMissedHint, language)}</p>
+          <ul className="mt-2 space-y-1 text-[14px]">
+            {missed.map((entry) => (
+              <li key={entry.key}>
+                {primary(m.teachPeriod, language)} {periodNumber(entry.period)} · {entry.classLabels.join(", ")} · {entry.subjectCode} ·{" "}
+                {entry.absentStaffIds.map((id) => nameOf.get(id) ?? "—").join(", ")}
+              </li>
+            ))}
+          </ul>
+        </Notice>
+      ) : null}
+
       {live.length === 0 ? (
-        <EmptyState className="mt-4" title={m.coverNothingNeeded} language={language} />
+        <EmptyState className="mt-4" title={missed.length > 0 ? ms.coverMissedNothingLeft : m.coverNothingNeeded} language={language} />
       ) : (
         <div className="mt-4 space-y-6">
           {[...byPeriod.entries()]
