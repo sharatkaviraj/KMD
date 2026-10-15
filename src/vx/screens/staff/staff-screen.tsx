@@ -446,7 +446,7 @@ export function StaffScreen({
   return (
     <VxPage>
       {header}
-      <main>
+      <div className="vx-pmain">
         {isList ? (
           <div className="stack" style={{ display: "grid", gridTemplateColumns: selected ? "minmax(0,1fr) 440px" : "minmax(0,1fr)", alignItems: "start", minHeight: "100%" }}>
             {peopleList}
@@ -490,7 +490,7 @@ export function StaffScreen({
             onSave={() => start(async () => done(await saveMatrixAction(changes)))}
           />
         )}
-      </main>
+      </div>
 
       <InviteSheet
         open={sheet === "invite"}

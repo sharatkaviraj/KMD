@@ -326,7 +326,7 @@ export function SettingsScreen({ data, state }: { data: SettingsData; state: Set
     <VxPage style={largeText ? { fontSize: 16 } : undefined}>
       <TopBar crumb={tx(T.crumb)} title={tx(titles[active])} mTitle={tx(titles[state])} mBack={state === "home" ? "/menu" : "/settings"} mSub={mSub} />
       <style>{SETTINGS_CSS}</style>
-      <main>
+      <div className="vx-pmain">
         <div className="stack" style={{ display: "grid", gridTemplateColumns: "300px minmax(0,1fr)", alignItems: "start", minHeight: "calc(100dvh - 64px)" }}>
           <nav aria-label={tx(T.settings)} className={`unstick${state === "home" ? "" : " hide-m"}`} style={{ position: "sticky", top: 64, maxHeight: "calc(100dvh - 64px)", overflowY: "auto", borderTop: 0, scrollbarWidth: "thin" }}>
             {nav}
@@ -335,7 +335,7 @@ export function SettingsScreen({ data, state }: { data: SettingsData; state: Set
             <div className="pad" style={{ padding: "22px 28px 40px" }}>{content}</div>
           </section>
         </div>
-      </main>
+      </div>
     </VxPage>
   );
 }

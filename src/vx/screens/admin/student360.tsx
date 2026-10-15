@@ -1182,7 +1182,7 @@ export function Student360Backdrop() {
       <header className="only-d glass vx-top" style={{ flex: "none", height: 64, display: "flex", alignItems: "center", padding: "0 28px", borderBottom: "1px solid var(--bd)" }}>
         <h2 className="serif" style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>{tx(T.students)}</h2>
       </header>
-      <main>
+      <div className="vx-pmain">
         <div className="pad" style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
           <Skel w="min(420px, 100%)" h={44} r={12} />
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -1195,7 +1195,7 @@ export function Student360Backdrop() {
             ))}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -328,10 +328,10 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope }: 
       <div className="only-d" style={{ display: "contents" }}>
         <TopBar crumb={tx(T.inboxCrumb(live.length))} title={tx(T.needsYou)} />
       </div>
-      <main>
+      <div className="vx-pmain">
         {desk}
         {phone}
-      </main>
+      </div>
       <Sheet
         open={picking !== null}
         onClose={() => setPicking(null)}

@@ -625,7 +625,7 @@ export function StudentsScreen(props: StudentsProps) {
           }
         />
       </div>
-      <main className="stu">
+      <div className="vx-pmain stu">
         {/* Phone: the design's own header, not a top bar (F05). */}
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
@@ -756,7 +756,7 @@ export function StudentsScreen(props: StudentsProps) {
           </div>
           <p className="only-d" style={{ margin: 0, fontSize: 12, color: "var(--sub)" }}>{tx(T.sourceNote)}</p>
         </div>
-      </main>
+      </div>
 
       {selectedRows.length > 0 ? (
         <div className="only-d stu-bulkwrap">

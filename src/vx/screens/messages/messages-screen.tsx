@@ -305,7 +305,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
     <VxPage>
       <style>{CSS}</style>
       {header}
-      <main>
+      <div className="vx-pmain">
         {state.view === "sent" ? (
           <>
             {phoneTabs}
@@ -329,7 +329,7 @@ export function MessagesScreen({ data, state, outbox, outboxCount, draft }: { da
             onDone={(replyId, isDone) => start(async () => done(await setReplyDoneAction({ replyId, done: isDone })))}
           />
         ) : null}
-      </main>
+      </div>
       <TemplateSheet
         open={state.sheet === "template-new"}
         onClose={() => go({ view: "templates" })}
@@ -495,7 +495,7 @@ function Detail({ campaign: c, recipients, pending, onResend, onStop }: { campai
     <VxPage>
       <style>{CSS}</style>
       <TopBar crumb={tx(p("Messages", "संदेश"))} title={c.title} mSub={when(c.createdAt)} mBack="/messages" actions={<Btn variant="ghost" icon="chevLeft" href="/messages">{tx(p("Back to messages", "संदेशों पर वापस"))}</Btn>} />
-      <main>
+      <div className="vx-pmain">
         <div className="pad mx-pg">
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.1fr)", gap: 18, alignItems: "start", maxWidth: 1180 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
@@ -588,7 +588,7 @@ function Detail({ campaign: c, recipients, pending, onResend, onStop }: { campai
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </VxPage>
   );
 }
@@ -614,7 +614,7 @@ function Outcome({ campaign: c, done, parentDispatchOn, pending, onStop }: { cam
     <VxPage>
       <style>{CSS}</style>
       <TopBar crumb={tx(p("Messages", "संदेश"))} title={tx(done ? p("Queued", "कतार में") : p("Sending", "भेजा जा रहा है"))} mSub={done ? `${c.recipientCount} ${audience}` : tx(p(`${sentPct}% done`, `${sentPct}% पूरा`))} mBack="/messages" />
-      <main>
+      <div className="vx-pmain">
         <div className="pad mx-pg">
           {done ? (
             <div className="card fadein" style={{ maxWidth: 580, margin: "10px auto 0", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
@@ -673,7 +673,7 @@ function Outcome({ campaign: c, done, parentDispatchOn, pending, onStop }: { cam
             </div>
           )}
         </div>
-      </main>
+      </div>
     </VxPage>
   );
 }
@@ -769,7 +769,7 @@ function Compose({
       <VxPage>
         <style>{CSS}</style>
         <TopBar crumb={tx(p("Messages · New notice", "संदेश · नई सूचना"))} title={tx(p("Preview and send", "झलक और भेजना"))} mTitle={tx(p("Preview", "झलक"))} mSub={tx(p("Check, then send", "जाँचें, फिर भेजें"))} mBack={href({ compose: true })} actions={<Btn variant="ghost" icon="chevLeft" onClick={() => onStep("write")}>{tx(p("Back to edit", "बदलने के लिए वापस"))}</Btn>} />
-        <main>
+        <div className="vx-pmain">
           <div className="pad mx-pg">
             <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 22, alignItems: "start", maxWidth: 1180 }}>
               <div className="fadein" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -805,7 +805,7 @@ function Compose({
               {queueLabel}
             </button>
           </div>
-        </main>
+        </div>
       </VxPage>
     );
   }
@@ -829,7 +829,7 @@ function Compose({
     <VxPage>
       <style>{CSS}</style>
       <TopBar crumb={tx(p("Messages", "संदेश"))} title={tx(p("New notice", "नई सूचना"))} mSub={`${who.split(" · ")[0]} · ${rupees(cost)}`} mBack="/messages" actions={<Btn variant="ghost" icon="chevLeft" href="/messages">{tx(p("Back", "वापस"))}</Btn>} />
-      <main>
+      <div className="vx-pmain">
         <div className="pad mx-pg">
           <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 360px", gap: 22, alignItems: "start", maxWidth: 1180 }}>
             <div className="card" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
@@ -919,7 +919,7 @@ function Compose({
             <Ic n="arrowRight" size={18} />
           </button>
         </div>
-      </main>
+      </div>
     </VxPage>
   );
 }

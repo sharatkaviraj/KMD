@@ -254,10 +254,10 @@ export function AttendanceScreen({
       <div className="only-d" style={{ display: "contents" }}>
         <TopBar crumb={dayLine} title={tx(T.attendanceTitle)} />
       </div>
-      <main>
+      <div className="vx-pmain">
         {desk}
         {phoneView}
-      </main>
+      </div>
     </>
   );
 }

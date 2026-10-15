@@ -260,7 +260,7 @@ export function TodayScreen(props: TodayProps) {
     <>
       <style href="vx-today" precedence="default">{CSS}</style>
       <DeskTopBar crumb={props.dayLine} actions={props.actions} />
-      <main>
+      <div className="vx-pmain">
         {props.unavailable ? (
           <div role="status" style={{ margin: "12px 18px 0", fontSize: 13, color: "var(--warnfg)", background: "var(--warns)", padding: "8px 12px", borderRadius: 12 }}>{tx(T.couldNotRead)}</div>
         ) : null}
@@ -327,7 +327,7 @@ export function TodayScreen(props: TodayProps) {
             {moneyNote}
           </aside>
         </div>
-      </main>
+      </div>
     </>
   );
 }
