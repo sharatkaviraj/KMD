@@ -79,6 +79,7 @@ beforeEach(() => {
   calls.readCoverDay.mockReset().mockImplementation(async () => ({
     live: [{ id: "d1", needKey: "n1", period: 1, classLabels: ["Class 2"], subjectCode: "HIN", absentStaffIds: ["t1"], createdAt: "2026-10-15T02:00:00Z", status: "needs_help", coveringStaffId: null }],
     staff: [],
+    slots: [],
     absences: [],
     bells: { periods: [{ index: 1, starts: "09:10", ends: "09:50" }] },
     dayRevision: 3,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 
 import { dateLabel, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
@@ -236,6 +236,9 @@ function withSort(href: string, sort: StudentSort | null): string {
   return `${url.pathname}${url.search}`;
 }
 
+/** How long the list waits after the last key before it searches. */
+const SEARCH_PAUSE_MS = 450;
+
 export function StudentsScreen(props: StudentsProps) {
   const { tx } = useVx();
   const toast = useToast();
@@ -254,6 +257,20 @@ export function StudentsScreen(props: StudentsProps) {
   const hrefFor = (query: Parameters<typeof studentsHref>[0]) => withSort(studentsHref(query), serverSort);
   const returnTo = hrefFor({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg, page: props.window.page });
   const rows = onePage ? sortStudentRows(props.rows, sort) : props.rows;
+
+  // The list follows the box as you type (school-day run B11): a short pause,
+  // then the same GET the form makes on Enter, in place of the current entry.
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+  const typeQuery = (value: string) => {
+    setQ(value);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      const next = value.trim();
+      if (next === props.q.trim()) return;
+      router.replace(hrefFor({ q: next || undefined, classId: props.classId, view: viewParam, seg: props.seg }), { scroll: false });
+    }, SEARCH_PAUSE_MS);
+  };
 
   // Back from a profile: put the list where it was, once, and only for the same list.
   useEffect(() => {
@@ -625,7 +642,7 @@ export function StudentsScreen(props: StudentsProps) {
           }
         />
       </div>
-      <main className="stu">
+      <div className="vx-pmain stu">
         {/* Phone: the design's own header, not a top bar (F05). */}
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
@@ -635,7 +652,7 @@ export function StudentsScreen(props: StudentsProps) {
           <form action="/students" method="get" role="search" className="stu-msearch">
             <Ic n="search" />
             <label className="sr" htmlFor="stu-q-m">{tx(ST.searchLabel)}</label>
-            <input id="stu-q-m" type="search" name="q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
+            <input id="stu-q-m" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
             {hidden}
           </form>
           {chips || classChip ? (
@@ -651,7 +668,7 @@ export function StudentsScreen(props: StudentsProps) {
             <form action="/students" method="get" role="search" className="stu-dsearch">
               <Ic n="search" />
               <label className="sr" htmlFor="stu-q-d">{tx(ST.searchLabel)}</label>
-              <input id="stu-q-d" type="search" name="q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx(ST.search)} />
+              <input id="stu-q-d" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.search)} />
               {hidden}
             </form>
             <div className="hs" role="group" aria-label={tx(T.students)} style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }}>
@@ -756,7 +773,7 @@ export function StudentsScreen(props: StudentsProps) {
           </div>
           <p className="only-d" style={{ margin: 0, fontSize: 12, color: "var(--sub)" }}>{tx(T.sourceNote)}</p>
         </div>
-      </main>
+      </div>
 
       {selectedRows.length > 0 ? (
         <div className="only-d stu-bulkwrap">

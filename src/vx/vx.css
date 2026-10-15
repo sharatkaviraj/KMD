@@ -130,6 +130,8 @@
 /* ---- Shell -------------------------------------------------------------------------- */
 .vx-shell{display:flex;min-height:100dvh;background:var(--bg)}
 .vx-shell>.vx-side{position:sticky;top:0;height:100dvh;flex:none}
+/* A wide page (Needs you, cover, the date sheet) squeezed the sidebar to ~110px at 1366px (school-day run U1/U12): it never goes below its own width. */
+.vx-shell>.vx-side{flex-shrink:0;min-width:248px}.vx-shell>.vx-side.mini{min-width:76px}
 .vx-shell>.vx-content{flex:1;min-width:0;display:flex;flex-direction:column;min-height:100dvh}
 .vx-legacy{flex:1;min-width:0;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
 @media (min-width:900px){.vx-legacy{padding:22px 28px 40px}}
@@ -137,10 +139,10 @@
 @media (max-width:899px){.vx-shell>.vx-side{display:none!important}}
 @media (min-width:900px){.vx-bottom{display:none!important}}
 .vx-page{display:flex;flex-direction:column;min-height:100dvh}
-.vx-page>main{flex:1;min-height:0;position:relative;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
-@container vx (min-width:900px){.vx-page>main{padding-bottom:0}}
+.vx-page>main,.vx-page>.vx-pmain{flex:1;min-height:0;position:relative;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+@container vx (min-width:900px){.vx-page>main,.vx-page>.vx-pmain{padding-bottom:0}}
 .vx-top{position:sticky;top:0;z-index:20}
-@media print{.vx-shell>.vx-side,.vx-bottom,.vx-top{display:none!important}.vx-page>main{padding:0}}
+@media print{.vx-shell>.vx-side,.vx-bottom,.vx-top{display:none!important}.vx-page>main,.vx-page>.vx-pmain{padding:0}}
 
 /* ---- Overlay layer -------------------------------------------------------------------
    `.vx` is a size container, and containment makes it the containing block for

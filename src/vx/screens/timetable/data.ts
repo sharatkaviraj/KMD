@@ -10,6 +10,7 @@ import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitution
 import { coverCountsBetween, noticesOn, type DutyNotice } from "@/modules/substitutions/data/cover-repo";
 import { blockLabels, tierLabels } from "@/modules/substitutions/domain/labels";
 import { needsHelpReasons } from "@/modules/substitutions/domain/cover-state";
+import { coverEligibleIds, distinctNames, missedPeriods } from "@/modules/substitutions/domain/cover-view";
 import { getPublishedVersion, listSlots, listVersions, type TimetableVersion } from "@/modules/timetable/data/timetable-repo";
 import { DEFAULT_BELLS } from "@/modules/timetable/domain/bells";
 import type { Pair } from "@/vx/text";
@@ -50,6 +51,11 @@ export type CoverView = {
   hasTimetable: boolean;
   absences: { id: string; staffId: string; name: string; periods: number[]; reason: string | null }[];
   duties: CoverDutyView[];
+  /**
+   * Lessons an absence leaves whose period had begun before cover could be
+   * arranged — shown as missed, never silently dropped (school-day run B1).
+   */
+  missed?: { key: string; period: number; classLabels: string[]; subjectCode: string; absentIds: string[]; absentNames: string[] }[];
   staff: { id: string; name: string }[];
 };
 
@@ -189,15 +195,26 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
       const seen = latest.get(n.dutyId);
       if (!seen || seen.createdAt <= n.createdAt) latest.set(n.dutyId, n);
     }
-    const names = new Map(day.staff.map((s) => [s.id, s.displayName]));
-    for (const a of day.absences) names.set(a.staffProfileId, a.staffName);
+    // Two profiles called "QA Teacher" must not look like one person in a picker.
+    const names = distinctNames(day.staff);
+    for (const a of day.absences) if (!names.has(a.staffProfileId)) names.set(a.staffProfileId, a.staffName);
+    // Office, admin and view-only logins are never offered as cover (D-213).
+    const eligible = coverEligibleIds(day.staff, day.slots);
     cover = {
       day: coverDay,
       dayRevision: day.dayRevision,
       canCommand: mayCover && Boolean(day.versionId && day.header),
       hasTimetable: Boolean(day.versionId && day.header),
-      absences: day.absences.map((a) => ({ id: a.id, staffId: a.staffProfileId, name: a.staffName, periods: a.periods, reason: mayCover ? a.reason : null })),
-      staff: day.staff.filter((s) => s.isTeaching).map((s) => ({ id: s.id, name: s.displayName })),
+      absences: day.absences.map((a) => ({ id: a.id, staffId: a.staffProfileId, name: names.get(a.staffProfileId) ?? a.staffName, periods: a.periods, reason: mayCover ? a.reason : null })),
+      staff: day.staff.filter((s) => eligible.has(s.id)).map((s) => ({ id: s.id, name: names.get(s.id) ?? s.displayName })),
+      missed: missedPeriods(day.needs, day.live, day.openPeriods).map((m) => ({
+        key: m.key,
+        period: m.period,
+        classLabels: m.classLabels,
+        subjectCode: m.subjectCode,
+        absentIds: m.absentStaffIds,
+        absentNames: m.absentStaffIds.map((id) => names.get(id) ?? "—"),
+      })),
       duties: day.live
         .map((duty) => {
           const reasonKey = duty.status === "needs_help" ? (duty.reason ?? "no_candidate") : null;
@@ -219,6 +236,7 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
             notice: latest.get(duty.id)?.status ?? null,
             candidates: profiles
               ? candidatesFor(day, profiles.everyone, profiles.history, duty)
+                  .filter((c) => eligible.has(c.teacher))
                   .slice(0, 25)
                   .map((c) => {
                     const label = c.blocked.length ? blockLabels[c.blocked[0]] : tierLabels[c.matchTier];

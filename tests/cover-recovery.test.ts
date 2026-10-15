@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearCoverRecord, coverRecoveryKey, decodeCoverRecord, persistCoverRecord, type CoverStorage } from '@/vx/screens/timetable/cover-recovery';
+import { clearCoverRecord, coverRecoveryKey, decodeCoverRecord, persistCoverRecord, takeAutoCheck, type CoverStorage } from '@/vx/screens/timetable/cover-recovery';
 import type { CoverInput } from '@/app/(app)/timetable/vx-actions';
 const scope = { owner: 'qa-coordinator', session: 'TEST-2026-27', day: '2026-11-03' };
 const payload: CoverInput = { commandId: '23456789-1234-4234-8234-123456789abc', sessionLabel: scope.session, day: scope.day, dayRevision: 7, intent: 'release', needKey: 'class-slot-3' };
@@ -23,4 +23,14 @@ describe('cover request recovery identity', () => {
     expect(await clearing).toBe(false); expect(decodeCoverRecord(store.getItem(coverRecoveryKey(scope))!, scope)?.payload).toEqual(payload);
   });
   it.each(['broken', JSON.stringify({ version: 1, owner: scope.owner, payload: { ...payload, dayRevision: -1 } }), JSON.stringify({ version: 1, owner: scope.owner, payload: { ...payload, intent: 'assign' } })])('rejects invalid or incomplete persisted payload', raw => { expect(decodeCoverRecord(raw, scope)).toBeNull(); });
+});
+describe('cover request auto-check (school-day run B2/B9)', () => {
+  it('checks an unresolved command once, by itself, when nothing else is in flight', () => {
+    const checked = new Set<string>();
+    expect(takeAutoCheck(checked, null, false)).toBe(false);
+    expect(takeAutoCheck(checked, payload.commandId, true)).toBe(false);
+    expect(takeAutoCheck(checked, payload.commandId, false)).toBe(true);
+    expect(takeAutoCheck(checked, payload.commandId, false)).toBe(false);
+    expect(takeAutoCheck(checked, '33456789-1234-4234-8234-123456789abc', false)).toBe(true);
+  });
 });

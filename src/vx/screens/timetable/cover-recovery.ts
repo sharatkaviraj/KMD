@@ -76,3 +76,15 @@ export function subscribeCoverRecovery(listener: () => void) {
 }
 
 export function notifyCoverRecovery() { window.dispatchEvent(new Event(COVER_RECOVERY_EVENT)); }
+
+/**
+ * Whether the screen should check an unresolved command by itself now: once
+ * per command, and never while another cover request is in flight. A saved
+ * command then clears and unblocks the screen without anybody finding "Check
+ * saved result" (school-day run B2/B9); a check that fails leaves the buttons.
+ */
+export function takeAutoCheck(checked: Set<string>, commandId: string | null | undefined, busy: boolean): boolean {
+  if (!commandId || busy || checked.has(commandId)) return false;
+  checked.add(commandId);
+  return true;
+}

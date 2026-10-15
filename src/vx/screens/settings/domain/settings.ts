@@ -171,6 +171,29 @@ export function groupByDay(events: ActivityEvent[]): { day: string; events: Acti
   return [...map.entries()].map(([day, list]) => ({ day, events: list }));
 }
 
+/**
+ * How many events fall on one school day. The day is the IST one: an event at
+ * 00:30 IST carries yesterday's UTC date, and cutting the ISO string said
+ * "0 changes today" after a night's work (school-day run, admin B17).
+ */
+export function changesOn(events: readonly Pick<ActivityEvent, "at">[], day: string): number {
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
+  return events.filter((e) => fmt.format(new Date(e.at)) === day).length;
+}
+
+const COVER_PHRASES: Record<string, string> = {
+  absence: "marked a teacher away and arranged cover",
+  clear_absence: "marked a teacher back at school",
+  assign: "assigned cover",
+  release: "released a cover duty",
+  refresh: "arranged cover again",
+};
+
+/** A cover command in the activity log's words: what was done, and for which day. */
+export function coverPhrase(kind: string, day: string): string {
+  return `${COVER_PHRASES[kind] ?? "changed cover"} · ${day}`;
+}
+
 /** CSV of the log as shown, for Export. */
 export function activityCsv(events: ActivityEvent[]): string {
   const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);

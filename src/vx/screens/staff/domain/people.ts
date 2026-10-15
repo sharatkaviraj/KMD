@@ -167,7 +167,7 @@ export function worksOn(row: Pick<StaffRow, "role" | "classTeacherOf" | "teaches
     case "exam_coordinator":
       return p("Exams office", "परीक्षा कार्यालय");
     case "view_only":
-      return p("Reports only", "केवल रिपोर्ट");
+      return p("Today and timetable only", "केवल आज और समय सारणी");
     default:
       return p("—");
   }

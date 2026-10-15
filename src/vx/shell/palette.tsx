@@ -10,6 +10,7 @@ import { useVx } from "@/vx/i18n";
 import type { Pair } from "@/vx/text";
 
 import { searchEverythingAction, type ActionHit, type ReceiptHit, type SearchResult, type StudentHit } from "./search-actions";
+import type { StaffHit } from "./staff-search";
 import "./palette.css";
 
 export type PaletteItem = { href: string; label: Pair; icon: IconName; group: string };
@@ -40,6 +41,7 @@ const W = {
   dialog: { en: "Search or jump to", hi: "खोजें या पेज खोलें" },
   close: { en: "Close search", hi: "खोज बंद करें" },
   students: { en: "Students", hi: "विद्यार्थी" },
+  staff: { en: "Staff", hi: "स्टाफ़" },
   actions: { en: "Actions", hi: "काम" },
   doItNow: { en: "Do it now", hi: "अभी करें" },
   receipts: { en: "Receipts", hi: "रसीदें" },
@@ -198,6 +200,16 @@ export function SearchPalette({
       ifg: TONES[i % TONES.length][1],
       right: statusRight(s),
     })),
+    ...(shown.staff ?? []).map((s: StaffHit): Row => ({
+      key: `t${s.id}`,
+      group: tx(W.staff),
+      href: s.href,
+      title: <Hl text={s.name} q={term} />,
+      sub: s.short ?? tx(W.staff),
+      icon: "user",
+      ibg: "var(--s2)",
+      ifg: "var(--pri)",
+    })),
     ...shown.actions.map((a): Row =>
       a.kind === "collect"
         ? { key: "a-collect", group: tx(W.actions), href: a.href, title: tx(collectFor(a.student)), sub: tx(collectSub(a.pending)), icon: "rupee", ibg: "var(--pri)", ifg: "var(--prifg)" }
@@ -237,7 +249,7 @@ export function SearchPalette({
 
   if (!open || !layer) return null;
 
-  const noResults = term.length >= 2 && !pending && result.q === term && shown.students.length + shown.receipts.length + pages.length === 0;
+  const noResults = term.length >= 2 && !pending && result.q === term && shown.students.length + shown.receipts.length + (shown.staff?.length ?? 0) + pages.length === 0;
 
   const box = (
     <input
@@ -311,6 +323,22 @@ export function SearchPalette({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          ) : null}
+          {shown.staff?.length ? (
+            <div className="vxp-sec">
+              <h2 className="sech" style={{ padding: "0 4px" }}>{tx(W.staff)}</h2>
+              <div className="card" style={{ overflow: "hidden" }}>
+                {shown.staff.slice(0, 4).map((s, i) => (
+                  <button key={s.id} type="button" className="tap vxp-stu" style={{ borderTop: i ? "1px solid var(--bd)" : 0 }} onClick={() => go(s)}>
+                    <span className="vxp-ava" style={{ background: "var(--s2)", color: "var(--pri)" }} aria-hidden="true">{initials(s.name)}</span>
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                      <span className="clip" style={{ fontSize: 15 }}><Hl text={s.name} q={term} /></span>
+                      {s.short ? <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{s.short}</span> : null}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           ) : null}

@@ -42,7 +42,7 @@ export function AbsenceCommandForm({
           <option value="">—</option>
           {staff.map((person) => (
             <option key={person.id} value={person.id}>
-              {person.displayName} ({person.shortName})
+              {withShortName(person.displayName, person.shortName)}
             </option>
           ))}
         </Select>
@@ -55,6 +55,13 @@ export function AbsenceCommandForm({
       </Field>
     </CoverCommandForm>
   );
+}
+
+/** "Asha (AS)", but never "Asha (Asha)" or the short name twice. */
+function withShortName(name: string, short: string): string {
+  const s = short.trim();
+  if (!s || s === "—" || name.toLocaleLowerCase("en").includes(s.toLocaleLowerCase("en"))) return name;
+  return `${name} (${s})`;
 }
 
 export type CoverChoice = {

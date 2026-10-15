@@ -13,6 +13,7 @@ import { listStaff } from "@/modules/staff/data/staff-repo";
 import {
   areaForTable,
   auditPhrase,
+  coverPhrase,
   cleanProfile,
   diffRows,
   EMPTY_PROFILE,
@@ -45,6 +46,8 @@ export type SettingsData = {
   sessionLabel: string | null;
   sessions: string[];
   staffCount: number;
+  /** Every staff profile, active or not — the number the Staff list shows (B17). */
+  staffTotal?: number;
   roleCount: number;
   activity: ActivityEvent[];
   backups: BackupDay[];
@@ -78,7 +81,7 @@ async function nightlyBackups(): Promise<BackupDay[]> {
 async function readActivity(nameByUser: Map<string, string>, nameByStaff: Map<string, string>): Promise<ActivityEvent[]> {
   const admin = createAdminClient();
   const fee = admin.schema(FEE_SCHEMA);
-  const [audit, events, users, authority, matrix, settings, marks, registers] = await Promise.all([
+  const [audit, events, users, authority, matrix, settings, marks, registers, cover, notices] = await Promise.all([
     fee
       .from("audit_logs")
       .select("id, table_name, action, before_data, after_data, changed_by, created_at")
@@ -122,6 +125,19 @@ async function readActivity(nameByUser: Map<string, string>, nameByStaff: Map<st
       .order("created_at", { ascending: false })
       .limit(100)
       .returns<{ id: string; revision: number; kind: string; actor_staff_id: string | null; reason: string | null; created_at: string }[]>(),
+    // Absences and cover, and notices, were missing from the log (school-day run, admin B17).
+    admin
+      .from("cover_commands")
+      .select("id, kind, day, actor_staff_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100)
+      .returns<{ id: string; kind: string; day: string; actor_staff_id: string | null; created_at: string }[]>(),
+    admin
+      .from("message_campaigns")
+      .select("id, title, audience, audience_label, recipient_count, created_by, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50)
+      .returns<{ id: string; title: string; audience: string; audience_label: string | null; recipient_count: number; created_by: string | null; created_at: string }[]>(),
   ]);
 
   for (const u of users.data ?? []) if (u.full_name && !nameByUser.has(u.id)) nameByUser.set(u.id, u.full_name);
@@ -158,6 +174,12 @@ async function readActivity(nameByUser: Map<string, string>, nameByStaff: Map<st
   }
   for (const row of registers.data ?? []) {
     out.push({ id: `t-${row.id}`, at: row.created_at, who: byStaff(row.actor_staff_id), area: "attendance", text: `${row.revision > 1 ? "corrected" : "took"} attendance${row.reason ? ` · ${row.reason}` : ""}`, changes: [] });
+  }
+  for (const row of cover.data ?? []) {
+    out.push({ id: `c-${row.id}`, at: row.created_at, who: byStaff(row.actor_staff_id), area: "staff", text: coverPhrase(row.kind, row.day), changes: [] });
+  }
+  for (const row of notices.data ?? []) {
+    out.push({ id: `n-${row.id}`, at: row.created_at, who: byStaff(row.created_by), area: row.audience === "staff" ? "staff" : "students", text: `queued a notice · ${row.title} · ${row.audience_label ?? row.audience} · ${row.recipient_count}`, changes: [] });
   }
   return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 400);
 }
@@ -283,6 +305,7 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
     sessionLabel,
     sessions,
     staffCount: staff.filter((s) => s.isActive).length,
+    staffTotal: staff.length,
     roleCount: staffRoles.length,
     activity,
     backups,

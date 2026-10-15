@@ -276,4 +276,11 @@ export const ms = {
   exportsNoExams: t("इस सत्र में अभी कोई परीक्षा नहीं।", "No exam this session yet."),
   exportRow: t("पंक्ति", "row"),
   exportsLogTitle: t("अब तक के निर्यात", "Exports taken"),
+  // Classic cover screen, on a day other than today, and the periods an absence missed (school-day run B1).
+  subsAbsentOnDay: t("अनुपस्थित", "Away"),
+  subsNobodyAwayOnDay: t("कोई अनुपस्थित दर्ज नहीं।", "Nobody is marked away."),
+  coverDutiesOnDay: t("व्यवस्था", "Cover duties"),
+  coverMissedTitle: t("पहले ही शुरू · व्यवस्था नहीं हुई", "Already begun · not covered"),
+  coverMissedHint: t("शिक्षक को अनुपस्थित दर्ज करने से पहले ये पीरियड शुरू हो चुके थे, इसलिए व्यवस्था नहीं हो सकी। देख लें कि हर कक्षा में कोई था।", "These periods had started before the teacher was marked away, so no cover could be arranged. Check that each class had someone."),
+  coverMissedNothingLeft: t("व्यवस्था को कुछ बाकी नहीं — बाकी पीरियड पहले ही शुरू हो चुके थे।", "Nothing left to arrange — the remaining periods had already begun."),
 } as const;
