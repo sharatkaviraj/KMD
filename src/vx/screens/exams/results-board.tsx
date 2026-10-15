@@ -21,6 +21,9 @@ import { RemindSheet, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
 import { useAct } from "./use-act";
 
+/** "1 child", "3 children" — never "1 children" (coordinators B6). */
+const kidsEn = (n: number) => (n === 1 ? "1 child" : `${n} children`);
+
 export type ResultsView = "pipeline" | "moderation" | "grace" | "lock" | "cards" | "publish" | "recheck";
 
 type Act<I> = (input: I) => Promise<ActionResult>;
@@ -251,7 +254,7 @@ export function ResultsBoard(props: ResultsProps) {
   const mSub: Record<ResultsView, string> = {
     pipeline: tx(p(`${props.overall.percent}% marks in${exam.resultsLabel ? ` · results ${exam.resultsLabel}` : ""}`, `${props.overall.percent}% अंक आए${exam.resultsLabel ? ` · परिणाम ${exam.resultsLabel}` : ""}`)),
     moderation: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual ${props.unusualOpen === 1 ? "average" : "averages"}`, `${props.unusualOpen} असामान्य औसत`)) : tx(p("All averages look normal", "सब औसत सामान्य")),
-    grace: tx(p(`${passing} children pass with grace`, `${passing} बच्चे ग्रेस से पास`)),
+    grace: tx(p(`${kidsEn(passing)} pass with grace`, `${passing} बच्चे ग्रेस से पास`)),
     lock: tx(p(`${locked} of ${props.classes.length} classes locked`, `${props.classes.length} में से ${locked} कक्षाएँ बंद`)),
     cards: tx(p(`${props.cards.issuedTotal} of ${props.childrenTotal} issued`, `${props.childrenTotal} में से ${props.cards.issuedTotal} जारी`)),
     publish: exam.publishedAt ? tx(p("Released", "जारी")) : exam.publishAt ? tx(p("Scheduled", "समय तय")) : tx(p("Not scheduled yet", "अभी समय तय नहीं")),
@@ -303,7 +306,7 @@ export function ResultsBoard(props: ResultsProps) {
   const phoneBar: ReactNode =
     view === "grace" && props.grace.open > 0 ? (
       <button type="button" className="tap btn pri xbig" disabled={pending} onClick={() => run(() => actions.giveGrace({ examId: exam.id }))}>
-        {tx(p(`Give grace to ${props.grace.open} children`, `${props.grace.open} बच्चों को ग्रेस दें`))}
+        {tx(p(`Give grace to ${kidsEn(props.grace.open)}`, `${props.grace.open} बच्चों को ग्रेस दें`))}
       </button>
     ) : view === "lock" && props.canFinalise && lockChosen.length ? (
       <button type="button" className="tap btn pri xbig" disabled={pending} onClick={() => setLockConfirm(true)}>
@@ -394,11 +397,15 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
   const ready = classes.filter((c) => !c.locked && c.allSubmitted).length;
   const late = teachers.filter((t) => t.late);
   const canPass = props.grace.rows.filter((g) => g.canPass).length;
+  // "All fine" only when every class has been compared — not while 18 of 19
+  // still wait for their marks (coordinators B6).
+  const checkedClasses = classes.filter((c) => c.allSubmitted && !c.unusualOpen).length;
+  const allChecked = classes.length > 0 && checkedClasses >= classes.length;
   const firstOpen = STEP_ORDER.findIndex((s) => states[s] !== "done");
   const cards: Record<PipelineStep, { title: Pair; big: string; sub: string; btn: Pair; href: string; value: number }> = {
     entered: { title: p("Marks entered", "अंक भरे"), big: `${overall.percent}%`, sub: tx(p(`${overall.entered.toLocaleString("en-IN")} of ${overall.total.toLocaleString("en-IN")} marks · ${late.length} teachers late`, `${overall.total} में से ${overall.entered} · ${late.length} शिक्षक देर से`)), btn: p("Marks tracker", "अंक ट्रैकर"), href: "/exams?view=grid", value: overall.percent },
-    checked: { title: p("Checked", "जाँचे"), big: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual`, `${props.unusualOpen} असामान्य`)) : tx(p("All fine", "सब ठीक")), sub: props.unusualOpen ? tx(p(`Class averages that moved a lot${exam.prevName ? ` since ${exam.prevName.en}` : ""}`, "जिन कक्षाओं का औसत बहुत बदला")) : tx(p("Complete classes compared with the last exam", "पूरी कक्षाएँ पिछली परीक्षा से मिलाईं")), btn: p("Check marks", "अंक जाँचें"), href: props.href("moderation"), value: props.unusualCount ? ((props.unusualCount - props.unusualOpen) / props.unusualCount) * 100 : states.checked === "done" ? 100 : 0 },
-    grace: { title: p("Grace", "ग्रेस"), big: tx(p(`${canPass} children`, `${canPass} बच्चे`)), sub: states.grace === "done" ? tx(p("Passed with grace marks", "ग्रेस अंकों से पास")) : tx(p(`Can pass with up to ${props.grace.max} grace marks`, `${props.grace.max} तक ग्रेस से पास हो सकते`)), btn: p("Review grace", "ग्रेस देखें"), href: props.href("grace"), value: canPass ? (props.grace.rows.filter((g) => g.given).length / canPass) * 100 : 0 },
+    checked: { title: p("Checked", "जाँचे"), big: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual`, `${props.unusualOpen} असामान्य`)) : allChecked ? tx(p("All fine", "सब ठीक")) : tx(p(`${checkedClasses} of ${classes.length}`, `${classes.length} में से ${checkedClasses}`)), sub: props.unusualOpen ? tx(p(`Class averages that moved a lot${exam.prevName ? ` since ${exam.prevName.en}` : ""}`, "जिन कक्षाओं का औसत बहुत बदला")) : allChecked ? tx(p("Complete classes compared with the last exam", "पूरी कक्षाएँ पिछली परीक्षा से मिलाईं")) : tx(p("Classes checked · the rest wait for all their marks", "कक्षाएँ जाँचीं · बाकी सभी अंकों की प्रतीक्षा में")), btn: p("Check marks", "अंक जाँचें"), href: props.href("moderation"), value: props.unusualCount ? ((props.unusualCount - props.unusualOpen) / props.unusualCount) * 100 : states.checked === "done" ? 100 : 0 },
+    grace: { title: p("Grace", "ग्रेस"), big: tx(p(`${canPass} ${canPass === 1 ? "child" : "children"}`, `${canPass} बच्चे`)), sub: states.grace === "done" ? tx(p("Passed with grace marks", "ग्रेस अंकों से पास")) : tx(p(`Can pass with up to ${props.grace.max} grace marks`, `${props.grace.max} तक ग्रेस से पास हो सकते`)), btn: p("Review grace", "ग्रेस देखें"), href: props.href("grace"), value: canPass ? (props.grace.rows.filter((g) => g.given).length / canPass) * 100 : 0 },
     locked: { title: p("Locked", "बंद"), big: tx(p(`${locked} of ${classes.length}`, `${classes.length} में से ${locked}`)), sub: locked ? tx(p("Classes locked · marks can’t change", "कक्षाएँ बंद · अंक नहीं बदलेंगे")) : tx(p(`${ready} ${ready === 1 ? "class" : "classes"} ready to lock`, `${ready} कक्षाएँ बंद करने को तैयार`)), btn: p("Lock marks", "अंक बंद करें"), href: props.href("lock"), value: classes.length ? (locked / classes.length) * 100 : 0 },
     cards: { title: p("Report cards", "प्रगति पत्र"), big: tx(p(`${props.cards.issuedTotal} of ${props.childrenTotal}`, `${props.childrenTotal} में से ${props.cards.issuedTotal}`)), sub: tx(p("Issued once a class is locked", "कक्षा बंद होने पर जारी")), btn: p("Report cards", "प्रगति पत्र"), href: props.href("cards"), value: props.childrenTotal ? (props.cards.issuedTotal / props.childrenTotal) * 100 : 0 },
     published: { title: p("Published", "जारी"), big: exam.publishedAt ? tx(p("Sent", "भेजा")) : (exam.resultsLabel ?? "—"), sub: exam.ptmAt ? tx(p(`Results day · PTM at ${ampm(exam.ptmAt)}`, `परिणाम दिवस · PTM ${ampm(exam.ptmAt)}`)) : tx(p("Results day", "परिणाम दिवस")), btn: p("Schedule", "समय तय करें"), href: props.href("publish"), value: exam.publishedAt ? 100 : 0 },
@@ -659,7 +666,7 @@ function Moderation(props: ResultsProps & { pending: boolean; run: Run }) {
                   {klass?.label} · {paper.subjectCode}
                 </span>
                 <span className="xm">
-                  {paper.teacherName ?? "—"} · {tx(p(`out of ${paper.maxMarks} · ${paper.sat} children`, `पूर्णांक ${paper.maxMarks} · ${paper.sat} बच्चे`))}
+                  {paper.teacherName ?? "—"} · {tx(p(`out of ${paper.maxMarks} · ${kidsEn(paper.sat)}`, `पूर्णांक ${paper.maxMarks} · ${paper.sat} बच्चे`))}
                 </span>
               </span>
               <Tag tone={paper.unusual && !paper.decision ? "warn" : "ok"}>{paper.unusual ? (paper.decision === "recheck" ? tx(p("Re-check asked", "दोबारा जाँच कही")) : paper.decision === "fine" ? tx(p("Marked fine", "ठीक माना")) : tx(p("Unusual", "असामान्य"))) : tx(p("Normal", "सामान्य"))}</Tag>
@@ -680,7 +687,7 @@ function Moderation(props: ResultsProps & { pending: boolean; run: Run }) {
             <div className="xc">
               {[
                 { k: p("Average now", "अब का औसत"), v: `${paper.avgPct ?? "—"}%${paper.prevPct !== null ? tx(p(` · ${exam.prevName?.en ?? "Last exam"} was ${paper.prevPct}%`, ` · ${exam.prevName?.hi ?? exam.prevName?.en ?? "पिछली"} में ${paper.prevPct}%`)) : ""}`, c: change !== null && Math.abs(change) >= 15 ? "var(--warnfg)" : "var(--fg)" },
-                { k: p(`Below ${passPct}%`, `${passPct}% से कम`), v: tx(p(`${paper.below} children`, `${paper.below} बच्चे`)), c: paper.below ? "var(--bad)" : "var(--ok)" },
+                { k: p(`Below ${passPct}%`, `${passPct}% से कम`), v: tx(p(`${kidsEn(paper.below)}`, `${paper.below} बच्चे`)), c: paper.below ? "var(--bad)" : "var(--ok)" },
                 { k: p("Highest", "सबसे ज़्यादा"), v: paper.highest === null ? "—" : tx(p(`${paper.highest} of ${paper.maxMarks}`, `${paper.maxMarks} में ${paper.highest}`)), c: "var(--fg)" },
               ].map((f) => (
                 <div key={f.k.en} className="xfa xd">
@@ -789,7 +796,7 @@ function Grace(props: ResultsProps & { pending: boolean; run: Run }) {
         ) : grace.open ? (
           <button type="button" className="tap btn pri xbig hide-m" disabled={pending} onClick={() => run(() => actions.giveGrace({ examId: exam.id }))}>
             <Ic n="check" size={18} />
-            {tx(p(`Give grace to ${grace.open} children`, `${grace.open} बच्चों को ग्रेस दें`))}
+            {tx(p(`Give grace to ${kidsEn(grace.open)}`, `${grace.open} बच्चों को ग्रेस दें`))}
           </button>
         ) : given ? (
           <div className="xr x12 fadein" style={{ padding: "10px 12px", borderRadius: 14, background: "var(--oks)", color: "var(--ok)" }}>
@@ -799,7 +806,7 @@ function Grace(props: ResultsProps & { pending: boolean; run: Run }) {
               <path d="M30 49l12 12 24-26" />
             </svg>
             <span className="xc xf">
-              <b>{tx(p(`Grace given to ${given} children`, `${given} बच्चों को ग्रेस दिया`))}</b>
+              <b>{tx(p(`Grace given to ${kidsEn(given)}`, `${given} बच्चों को ग्रेस दिया`))}</b>
               <span className="xs">{tx(p("Kept beside each mark, not added into it", "हर अंक के साथ रखा, उसमें जोड़ा नहीं"))}</span>
             </span>
           </div>
@@ -809,7 +816,7 @@ function Grace(props: ResultsProps & { pending: boolean; run: Run }) {
         <div className="xr x12">
           <span className="num xb" style={{ fontSize: 42, lineHeight: 1, color: "var(--ok)" }}>{passing.length}</span>
           <span className="xc">
-            <b className="xt">{tx(p(`${passing.length} children pass with grace`, `${passing.length} बच्चे ग्रेस से पास`))}</b>
+            <b className="xt">{tx(p(`${kidsEn(passing.length)} pass with grace`, `${passing.length} बच्चे ग्रेस से पास`))}</b>
             <span className="xm">{tx(p(`${short.length} more are still short · they need remedial classes`, `${short.length} अब भी कम · इन्हें अतिरिक्त कक्षा चाहिए`))}</span>
           </span>
         </div>
@@ -873,7 +880,7 @@ function Lock(props: ResultsProps & { pending: boolean; run: Run; picked: string
       <div className="card xc x10 xp2">
         <div className="xr xj x8">
           <b className="xt">{tx(p("Which classes?", "कौन-सी कक्षाएँ?"))}</b>
-          <span className="xm">{tx(p(`${chosen.length} ${chosen.length === 1 ? "class" : "classes"} · ${kids} children`, `${chosen.length} कक्षाएँ · ${kids} बच्चे`))}</span>
+          <span className="xm">{tx(p(`${chosen.length} ${chosen.length === 1 ? "class" : "classes"} · ${kidsEn(kids)}`, `${chosen.length} कक्षाएँ · ${kids} बच्चे`))}</span>
         </div>
         <div className="xr xw x6">
           {classes.map((c) => {
@@ -985,7 +992,7 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
               <div key={c.id} className="xr x12 xd" style={{ padding: "9px 16px" }}>
                 <span className="xc" style={{ flex: "none", width: 118 }}>
                   <b className="xe">{c.label}</b>
-                  <span className="xm">{tx(p(`${c.children} children`, `${c.children} बच्चे`))}</span>
+                  <span className="xm">{tx(p(`${kidsEn(c.children)}`, `${c.children} बच्चे`))}</span>
                 </span>
                 <span className="xbar xf" style={{ height: 8 }}>
                   <span style={{ width: `${Math.round(w)}%`, background: c.locked ? "var(--ok)" : "var(--acc)" }} />
