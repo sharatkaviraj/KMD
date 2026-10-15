@@ -33,8 +33,8 @@ const key = draftKey(ownerId, "QA", `attendance-outbox/${classId}/2026-10-10`);
 const box = { payload: "qa-payload", alerts: false, commandId: "qa-command", at: 1 };
 const data = { kind: "class", sessionLabel: "QA", classId, classLabel: "QA class", day: "2026-10-10", prevDay: "2026-10-09",
   choices: [], closed: false, canSave: true, canCorrect: true, isOwner: true, correctsAny: false, onBehalf: false, reason: null,
-  roll: [{ id: studentId, name: "QA Child", rollNo: "1", gender: null, birthday: false }], registerId: null, revision: 0,
-  saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], month: "2026-10", monthMarks: [], closedDays: [],
+  roll: [{ id: studentId, name: "QA Child", rollNo: "1", admissionNo: null, hint: null, gender: null, birthday: false }], registerId: null, revision: 0,
+  saved: {}, yesterday: {}, receipt: null, queuedAlerts: [], alertWhen: { en: "at 10 am" }, month: "2026-10", monthMarks: [], closedDays: [],
 } as AttendData;
 let root: Root; let host: HTMLDivElement;
 async function render(model: AttendData = data) { await act(async () => root.render(<TeachAttend data={model} ownerId={ownerId} initialSheet="save" initialView={null} school="QA School" />)); }
@@ -68,7 +68,7 @@ describe("attendance offline outbox recovery", () => {
     let restore!: (value: unknown) => void;
     state.restoreKey=draftKey(ownerId,"QA",`attendance-vx/${classId}/2026-10-10`);
     state.restore=new Promise(resolve=>{restore=resolve;});
-    await render({...data,roll:[...data.roll,{id:secondId,name:"QA Other Child",rollNo:"2",gender:null,birthday:false}]});
+    await render({...data,roll:[...data.roll,{id:secondId,name:"QA Other Child",rollNo:"2",admissionNo:null,hint:null,gender:null,birthday:false}]});
     const children=host.querySelectorAll<HTMLButtonElement>("button.tc-akid");
     await act(async()=>children[0].click());
     await act(async()=>restore({value:{marks:{[studentId]:"present",[secondId]:"half_day"},revision:0}}));
@@ -100,5 +100,16 @@ describe("attendance offline outbox recovery", () => {
     state.check.mockResolvedValue({ status: "saved", receipt: { savedAt: "2026-10-10T05:00:00Z", registerId: "r", revision: 1 } });
     await render(); await act(async () => vi.advanceTimersByTimeAsync(450));
     expect(state.check).toHaveBeenCalledWith(box.commandId); expect(state.save).not.toHaveBeenCalled(); expect(state.stored.has(key)).toBe(false);
+  });
+  it("shows the saved card from the save's own answer before the page refreshes (BUG-01, ST-05)", async () => {
+    state.save.mockResolvedValue({ status: "saved", receipt: { savedAt: "2026-10-10T03:00:00Z", registerId: "r", revision: 1, actorName: "QA Teacher", totals: { present: 1, absent: 0, half_day: 0, late: 0, leave: 0, total: 1 } }, queued: 0 });
+    await render(); await clickSave();
+    expect(host.textContent).not.toContain("Not marked yet");
+    expect(host.textContent).toContain("The office can see it now.");
+  });
+  it("after an offline save, reads as kept on the phone, not as an open register (BUG-08)", async () => {
+    state.online = false; await render(); await clickSave();
+    expect(host.textContent).toContain("Kept on this phone");
+    expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Save attendance")).toBe(false);
   });
 });

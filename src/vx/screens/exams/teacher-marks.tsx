@@ -65,6 +65,12 @@ export type PickCard = {
   total: number;
   status: "done" | "in_progress" | "not_started" | "empty";
   submittedToName: string | null;
+  /** The exam's marks due date, and whether this unfinished paper is past it. */
+  dueOn?: string | null;
+  dueLabel?: string | null;
+  late?: boolean;
+  classSort?: number;
+  examId?: string;
 };
 
 export type RemarksCard = { classId: string; classLabel: string; done: number; total: number; examLabel: { en: string; hi?: string } };
@@ -133,7 +139,7 @@ export function TeacherPick({
               const href = `/teach/marks?paper=${c.paperId}${c.status === "done" ? "&view=submitted" : ""}`;
               const title = p(`${c.classLabel} ${c.subjectCode}`, `${c.classLabel.replace(/^Class/, "कक्षा")} ${c.subjectCode}`);
               return (
-                <div key={c.paperId} className="card tc-in" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, border: c.status === "in_progress" ? "2px solid var(--acc)" : "1px solid var(--bd)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
+                <div key={c.paperId} className="card tc-in" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, border: c.late ? "2px solid var(--bad)" : c.status === "in_progress" ? "2px solid var(--acc)" : "1px solid var(--bd)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <span className="tc-ibx" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="clipboard" size={22} /></span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -141,8 +147,9 @@ export function TeacherPick({
                       <span className="tc-h2">{tx(title)}</span>
                       {sub(title) ? <span className="tc-mi">{sub(title)}</span> : null}
                     </span>
-                    <span className="pill" style={{ background: k[3], color: k[4] }}>{tx(k[2])}</span>
+                    <span className="pill" style={{ background: c.late ? "var(--bads)" : k[3], color: c.late ? "var(--bad)" : k[4] }}>{c.late ? tx(p("Late", "देर")) : tx(k[2])}</span>
                   </div>
+                  {c.late && c.dueLabel ? <span className="tc-ts" style={{ marginTop: -6, fontWeight: 700, color: "var(--bad)" }}>{tx(p(`Was due ${c.dueLabel}`, `${c.dueLabel} तक भरना था`))}</span> : null}
                   <div className="tc-mbar"><span style={{ width: `${c.total ? Math.round((c.entered / c.total) * 100) : 0}%`, background: k[5] }} /></div>
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
                     <span className="tc-tb num" style={{ flex: 1, minWidth: 140, fontWeight: 600 }}>
@@ -164,7 +171,7 @@ export function TeacherPick({
                       <span className="tc-h2">{tx(title)}</span>
                       {sub(title) ? <span className="tc-mi">{sub(title)}</span> : null}
                     </span>
-                    <span className="pill" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>{tx(p("Class teacher", "कक्षा अध्यापिका"))}</span>
+                    <span className="pill" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>{tx(p("Class teacher", "कक्षा अध्यापक"))}</span>
                   </div>
                   <div className="tc-mbar"><span style={{ width: `${r.total ? Math.round((r.done / r.total) * 100) : 0}%`, background: "var(--ok)" }} /></div>
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>

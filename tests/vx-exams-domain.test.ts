@@ -20,6 +20,8 @@ import {
   parseMark,
   pressKey,
   shouldAdvance,
+  cleanTyped,
+  misfits,
   toEntries,
   type Cell,
 } from "@/vx/screens/exams/domain/entry";
@@ -348,8 +350,41 @@ describe("typing marks", () => {
   it("moves on once another digit could not fit", () => {
     expect(shouldAdvance("7", 80)).toBe(false);
     expect(shouldAdvance("72", 80)).toBe(true);
-    expect(shouldAdvance("9", 80)).toBe(true);
     expect(shouldAdvance("", 80)).toBe(false);
+  });
+
+  it("never moves on after one digit of a mark that could be a slip (ST-03: 95 on an 80 paper)", () => {
+    // "9" then "5" used to save 9 for one child and 5 for the next.
+    expect(shouldAdvance("9", 80)).toBe(false);
+    expect(parseMark("95", 80, 1)).toEqual({ ok: false, reason: "over" });
+    expect(shouldAdvance("80", 80)).toBe(true);
+    expect(shouldAdvance("45", 100)).toBe(true);
+    expect(shouldAdvance("10", 100)).toBe(false);
+    expect(shouldAdvance("100", 100)).toBe(true);
+    // A paper out of 10: single digits are the marks, so they still move on.
+    expect(shouldAdvance("9", 10)).toBe(true);
+    expect(shouldAdvance("1", 10)).toBe(false);
+    expect(shouldAdvance("7.5", 80)).toBe(true);
+  });
+
+  it("refuses a minus sign or a letter instead of stripping it (BUG-09: -5 saved as 5)", () => {
+    expect(cleanTyped("-5")).toBeNull();
+    expect(cleanTyped("7a")).toBeNull();
+    expect(cleanTyped("72")).toBe("72");
+    expect(cleanTyped("7.5")).toBe("7.5");
+    expect(cleanTyped("")).toBe("");
+  });
+
+  it("names every mark the paper cannot hold at once (ST-04: legacy half marks)", () => {
+    const sheet: Record<string, Cell> = {
+      a: { state: "value", value: 61.5 },
+      b: { state: "value", value: 70 },
+      c: { state: "value", value: 70.5 },
+      d: { state: "absent", value: null },
+      e: { state: "value", value: 85 },
+    };
+    expect(misfits(["a", "b", "c", "d", "e"], sheet, 80, 1)).toEqual(["a", "c", "e"]);
+    expect(misfits(["a", "b", "c"], sheet, 80, 0.5)).toEqual([]);
   });
 
   const order = ["a", "b", "c", "d"];

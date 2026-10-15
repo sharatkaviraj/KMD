@@ -67,8 +67,10 @@ function home(state: "home" | "later"): HomeData {
     periods: [lesson(0, C6, "Class 6"), lesson(1, C8, "Class 8"), lesson(2, C7, "Class 7"), lesson(5, C6, "Class 6")],
     bells: BELLS,
     covers: [
-      { id: id(701), period: 4, number: 5, starts: "11:10", ends: "11:50", classLabels: "Class 9", subjectCode: "PHY", subjectName: "Physics", forName: "Mr. Meena", acknowledged: later, askedAt: at("08:20"), reason: "Motion — numericals 4 to 8 on page 112. Please collect the homework copies." },
+      { id: id(701), day: TODAY, period: 4, number: 5, starts: "11:10", ends: "11:50", classLabels: "Class 9", subjectCode: "PHY", subjectName: "Physics", forName: "Mr. Meena", acknowledged: later, askedAt: at("08:20"), reason: "Motion — numericals 4 to 8 on page 112. Please collect the homework copies." },
     ],
+    upcomingCovers: [],
+    unassigned: false,
     tomorrow: { day: "2026-10-09", first: { number: 1, starts: "08:10", classLabel: "Class 6", subjectName: "Science" } },
     notices: [
       { id: id(801), kind: "notice", title: "PTM for Classes 9–10 on Sat 17 Oct, 10 am", bodyEn: "Half-yearly results will be shown to parents. Class teachers of 9 and 10 meet parents in their rooms; other teachers please help at the gate and in the hall.", bodyHi: "अर्धवार्षिक परिणाम अभिभावकों को दिखाए जाएँगे। कक्षा 9 और 10 के कक्षा अध्यापक अपने कमरों में मिलेंगे; बाकी शिक्षक गेट और हॉल में मदद करें।", createdAt: at("08:10"), fromName: "Janmejay Singh", seen: later },
@@ -110,7 +112,7 @@ const KIDS = ("Aadhya Jain,Aarav Kumawat,Ananya Vyas,Arjun Gurjar,Bhavya Paliwal
   "Jiya Kothari,Kabir Solanki,Khushi Sharma,Om Regar,Manav Joshi,Naina Chouhan,Nikhil Meena,Palak Agarwal,Pari Sen,Pranav Rawal,Riya Singh,Rohan Sharma," +
   "Saanvi Kumawat,Sahil Gurjar,Sneha Vyas,Tanish Jain,Tanya Paliwal,Utkarsh Mehta,Vani Rathore,Yash Dave,Zoya Khan").split(",");
 const kidId = (roll: number) => id(100 + roll);
-const ROLL = KIDS.map((name, i) => ({ id: kidId(i + 1), name, rollNo: String(i + 1), gender: null, birthday: i + 1 === 11 }));
+const ROLL = KIDS.map((name, i) => ({ id: kidId(i + 1), name, rollNo: String(i + 1), admissionNo: null, hint: null, gender: null, birthday: i + 1 === 11 }));
 // October's school days so far: absent and half-day rolls (the design's sample month).
 const OCT: Record<number, { a: number[]; h?: number[] }> = { 1: { a: [17, 24] }, 3: { a: [17, 31, 26], h: [7] }, 5: { a: [14] }, 6: { a: [14, 17, 18] }, 7: { a: [14, 19] } };
 
@@ -141,6 +143,7 @@ function attend(saved: boolean): AttendData {
     yesterday: { [kidId(14)]: "absent", [kidId(19)]: "absent" },
     receipt: saved ? { savedAt: at("08:52"), actorName: NAME, revision: 1 } : null,
     queuedAlerts: saved ? [kidId(14), kidId(19)] : [],
+    alertWhen: { en: "at 10 am", hi: "सुबह 10 बजे" },
     month: "2026-10",
     monthMarks,
     closedDays: ["2026-10-02", "2026-10-20"],

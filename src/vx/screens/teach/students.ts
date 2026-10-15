@@ -16,6 +16,7 @@ export type ChildBasics = {
   id: string;
   fullName: string;
   admissionNo: string | null;
+  fatherName: string | null;
   dateOfBirth: string | null;
   gender: string | null;
   photoPath: string | null;
@@ -28,6 +29,7 @@ export async function childBasics(ids: readonly string[]): Promise<Map<string, C
     id: string;
     full_name: string;
     admission_no: string | null;
+    father_name: string | null;
     date_of_birth: string | null;
     gender: string | null;
     photo_path: string | null;
@@ -35,7 +37,7 @@ export async function childBasics(ids: readonly string[]): Promise<Map<string, C
     createAdminClient()
       .schema(FEE_SCHEMA)
       .from("students")
-      .select("id, full_name, admission_no, date_of_birth, gender, photo_path")
+      .select("id, full_name, admission_no, father_name, date_of_birth, gender, photo_path")
       .in("id", chunk),
   );
   if (error) throw new Error("Could not read the children.");
@@ -46,6 +48,7 @@ export async function childBasics(ids: readonly string[]): Promise<Map<string, C
         id: row.id,
         fullName: row.full_name,
         admissionNo: row.admission_no,
+        fatherName: row.father_name,
         dateOfBirth: row.date_of_birth,
         gender: row.gender,
         photoPath: row.photo_path,

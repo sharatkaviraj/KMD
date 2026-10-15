@@ -95,7 +95,8 @@ export function useComposer(init: ComposerInit) {
   const [voice, setVoice] = useState(false);
   const [mode, setMode] = useState<"voice" | "type">("voice");
   const [lang, setLang] = useState<Lang>(init.lang);
-  const [follow, setFollow] = useState(true);
+  // A plain note is just a note; a follow-up is chosen, not assumed (BUG-11).
+  const [follow, setFollow] = useState(false);
   const [when, setWhen] = useState<FollowWhen>("next_monday");
   const [owner, setOwner] = useState<FollowOwner | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("team");
@@ -265,7 +266,7 @@ export function useComposer(init: ComposerInit) {
     setBody("");
     setVoice(false);
     setMode("voice");
-    setFollow(true);
+    setFollow(false);
     setWhen("next_monday");
     setOwner(null);
     setVisibility("team");

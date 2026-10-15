@@ -114,8 +114,9 @@ export function LangSeg({ pill }: { pill?: boolean } = {}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const hi = language === "hi";
-  const set = (lang: "both" | "hi") =>
+  const set = (lang: "en" | "hi") =>
     start(async () => {
+      if ((lang === "hi") === hi) return;
       const fd = new FormData();
       fd.set("language", lang);
       await saveLanguageAction({ status: "idle", message: null }, fd);
@@ -123,7 +124,7 @@ export function LangSeg({ pill }: { pill?: boolean } = {}) {
     });
   if (pill) {
     return (
-      <button type="button" className="tap tc-langp" role="switch" aria-checked={hi} aria-label="Show labels in Hindi" onClick={() => set(hi ? "both" : "hi")} style={{ opacity: pending ? 0.6 : 1 }}>
+      <button type="button" className="tap tc-langp" role="switch" aria-checked={hi} aria-label="Show labels in Hindi" onClick={() => set(hi ? "en" : "hi")} style={{ opacity: pending ? 0.6 : 1 }}>
         <span className={hi ? "" : "y"}>EN</span>
         <span className={hi ? "y" : ""} lang="hi">हि</span>
       </button>
@@ -132,7 +133,7 @@ export function LangSeg({ pill }: { pill?: boolean } = {}) {
   return (
     <div className="seg tc-lang" role="group" aria-label="Language" style={{ opacity: pending ? 0.6 : 1 }}>
       <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 2)", transform: `translateX(${hi ? "100%" : "0%"})` }} />
-      <button type="button" className={`tap${hi ? "" : " on"}`} aria-pressed={!hi} onClick={() => set("both")}>EN</button>
+      <button type="button" className={`tap${hi ? "" : " on"}`} aria-pressed={!hi} onClick={() => set("en")}>EN</button>
       <button type="button" className={`tap${hi ? " on" : ""}`} aria-pressed={hi} lang="hi" onClick={() => set("hi")}>हि</button>
     </div>
   );
@@ -219,7 +220,7 @@ const REASON_ICON: Record<string, IconName> = { unwell: "activity", family: "use
 export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean; onClose: () => void; today: string; stillToday?: Pair | null }) {
   const { tx, sub } = useVx();
   const toast = useToast();
-  const [when, setWhen] = useState<LeaveWhen>("today");
+  const [when, setWhen] = useState<LeaveWhen | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [span, setSpan] = useState<LeaveSpan>("full");
   const [reason, setReason] = useState<string>("unwell");
@@ -230,15 +231,17 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
 
   const tomorrow = addDays(today, 1);
   const choices = Array.from({ length: 9 }, (_, i) => addDays(today, i + 1)).filter((d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0).slice(0, 5);
-  const days = when === "today" ? [today] : when === "tomorrow" ? [tomorrow] : picked;
+  const days = when === "today" ? [today] : when === "tomorrow" ? [tomorrow] : when === "pick" ? picked : [];
   const bad = days.length === 0;
   const reasonPair = LEAVE_REASONS.find((r) => r.key === reason)?.text ?? LEAVE_REASONS[0].text;
   const whenText: Pair =
-    when === "today" ? p(`Today · ${dShort(today)}`, `आज · ${dShort(today)}`) : when === "tomorrow" ? p(`Tomorrow · ${dShort(tomorrow)}`, `कल · ${dShort(tomorrow)}`) : picked.length ? p(picked.map(dShort).join(", ")) : p("Pick days", "दिन चुनें");
-  const spanText: Pair = span === "first_half" ? p("first half", "पहला आधा") : span === "second_half" ? p("second half", "दूसरा आधा") : p("full day", "पूरा दिन");
+    when === "today" ? p(`Today · ${dShort(today)}`, `आज · ${dShort(today)}`) : when === "tomorrow" ? p(`Tomorrow · ${dShort(tomorrow)}`, `कल · ${dShort(tomorrow)}`) : when === "pick" && picked.length ? p(picked.map(dShort).join(", ")) : p("Pick days", "दिन चुनें");
+  const spanText: Pair = span === "first_half" ? p("first half", "पहली पाली") : span === "second_half" ? p("second half", "दूसरी पाली") : p("full day", "पूरा दिन");
   const summary = bad ? tx(p("Pick at least one day", "कम से कम एक दिन चुनें")) : `${tx(whenText)} · ${tx(days.length === 1 ? spanText : p("full day", "पूरा दिन"))} · ${tx(reasonPair)}`;
-  const cover: Pair =
-    when === "today"
+  const cover: Pair | null =
+    when === null
+      ? null
+      : when === "today"
       ? stillToday ?? p("The office will give your classes today to other teachers.", "आज की आपकी कक्षाएँ ऑफ़िस दूसरे शिक्षकों को देगा।")
       : when === "tomorrow"
         ? p(`${dShort(tomorrow)}: the office will arrange cover for your classes.`, `${dShort(tomorrow)}: ऑफ़िस आपकी कक्षाओं का इंतज़ाम करेगा।`)
@@ -262,13 +265,15 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
   const close = () => {
     onClose();
     setSent(false);
+    setWhen(null);
+    setPicked([]);
   };
 
-  const seg = <T extends string>(value: T, set: (v: T) => void, opts: [T, Pair][], label: string) => {
-    const idx = Math.max(0, opts.findIndex((o) => o[0] === value));
+  const seg = <T extends string>(value: T | null, set: (v: T) => void, opts: [T, Pair][], label: string) => {
+    const idx = opts.findIndex((o) => o[0] === value);
     return (
       <div className="seg" role="radiogroup" aria-label={label} style={{ gridTemplateColumns: `repeat(${opts.length}, minmax(0, 1fr))` }}>
-        <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${opts.length})`, transform: `translateX(${idx * 100}%)` }} />
+        {idx >= 0 ? <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${opts.length})`, transform: `translateX(${idx * 100}%)` }} /> : null}
         {opts.map(([v, t]) => (
           <button key={v} type="button" role="radio" aria-checked={v === value} className={`tap${v === value ? " on" : ""}`} onClick={() => set(v)} style={{ height: 42, fontSize: 14 }}>
             {tx(t)}
@@ -289,7 +294,7 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
       open={open}
       onClose={close}
       title={tx(p("Apply for leave", "छुट्टी का आवेदन"))}
-      sub={sent ? tx(p("Request sent · waiting for the office", "अनुरोध भेजा · ऑफ़िस के जवाब का इंतज़ार")) : tx(p("Today · full day is ready — change it if needed", "आज · पूरा दिन चुना है — ज़रूरत हो तो बदलें"))}
+      sub={sent ? tx(p("Request sent · waiting for the office", "अनुरोध भेजा · ऑफ़िस के जवाब का इंतज़ार")) : tx(p("Choose the day first", "पहले दिन चुनें"))}
       footer={
         sent ? (
           <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} onClick={close}>
@@ -298,7 +303,7 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
         ) : (
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span className="tc-s">{tx(p("You are asking for", "आप माँग रहे हैं"))}</span>
+              <span className="tc-s">{tx(p("Your request", "आपका आवेदन"))}</span>
               <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{summary}</span>
             </span>
             <button type="button" className="tap btn pri tc-bb" style={{ padding: "0 20px", opacity: bad ? 0.5 : 1 }} disabled={pending} onClick={send}>
@@ -336,7 +341,7 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
           ) : null}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {head(p("How long", "कितनी देर"))}
-            {seg<LeaveSpan>(span, setSpan, [["full", p("Full day", "पूरा दिन")], ["first_half", p("First half", "पहला आधा")], ["second_half", p("Second half", "दूसरा आधा")]], "How long")}
+            {seg<LeaveSpan>(span, setSpan, [["full", p("Full day", "पूरा दिन")], ["first_half", p("First half", "पहली पाली")], ["second_half", p("Second half", "दूसरी पाली")]], "How long")}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {head(p("Reason", "कारण"))}
@@ -361,10 +366,12 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
             <span>{tx(p("Note for the office (optional)", "ऑफ़िस के लिए नोट (वैकल्पिक)"))}</span>
             <Textarea value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder={tx(p("For example: fever since last night", "जैसे: कल रात से बुखार"))} style={{ minHeight: 72 }} />
           </label>
-          <div className="tc-note" style={{ background: "var(--s2)" }}>
-            <Ic n="users" style={{ marginTop: 2, color: "var(--acc)" }} />
-            <span>{tx(cover)}</span>
-          </div>
+          {cover ? (
+            <div className="tc-note" style={{ background: "var(--s2)" }}>
+              <Ic n="users" style={{ marginTop: 2, color: "var(--acc)" }} />
+              <span>{tx(cover)}</span>
+            </div>
+          ) : null}
           {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{tx(error)}</span> : null}
         </div>
       )}
@@ -380,7 +387,7 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
 export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: boolean; onClose: () => void; today: string; coverFor?: (days: string[], span: LeaveSpan) => string[] }) {
   const { tx, sub } = useVx();
   const toast = useToast();
-  const [days, setDays] = useState<string[]>([today]);
+  const [days, setDays] = useState<string[]>([]);
   const [span, setSpan] = useState<LeaveSpan>("full");
   const [reason, setReason] = useState<string | null>(null);
   const [tries, setTries] = useState(0);
@@ -413,6 +420,7 @@ export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: bool
   const close = () => {
     onClose();
     setSent(false);
+    setDays([]);
   };
   const idx = ["full", "first_half", "second_half"].indexOf(span);
 
@@ -428,7 +436,7 @@ export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: bool
         ) : (
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("You are asking for", "आप माँग रहे हैं"))}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Your request", "आपका आवेदन"))}</span>
               <span className="tc-el" style={{ fontSize: 14, fontWeight: 700 }}>{summary}</span>
             </span>
             <button type="button" className="tap btn pri tc-bb" style={{ padding: "0 22px", opacity: ready ? 1 : 0.6 }} disabled={pending} onClick={send}>
@@ -521,7 +529,7 @@ export function HelpSheet({ open, onClose, title, sub: subtitle, steps, phone }:
             </a>
           ) : null}
           <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} onClick={onClose}>
-            {tx(p("Got it", "समझ गया"))}
+            {tx(p("Got it", "ठीक है"))}
           </button>
         </>
       }

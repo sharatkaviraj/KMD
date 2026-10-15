@@ -106,6 +106,98 @@ export function addDays(day: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The last day of "YYYY-MM". "-31" for every month sent "2026-09-31" to
+ * Postgres and the month view crashed for September (BUG-03).
+ */
+export function monthEnd(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${month}-${String(days).padStart(2, "0")}`;
+}
+
+/* ------------------------------------------------- telling children apart */
+
+type Tellable = { id: string; name: string; admissionNo?: string | null; fatherName?: string | null };
+
+/**
+ * A short line for each child whose name another child in the list also has
+ * ("SR 1234 · father Ramesh"), so two "Ansh"es on a register or a marks
+ * sheet are never confused. Children with a name of their own get nothing,
+ * which keeps the register as short as it was.
+ */
+export function tellApart(rows: readonly Tellable[]): Map<string, Pair> {
+  const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+  const seen = new Map<string, number>();
+  for (const r of rows) seen.set(norm(r.name), (seen.get(norm(r.name)) ?? 0) + 1);
+  const out = new Map<string, Pair>();
+  for (const r of rows) {
+    if ((seen.get(norm(r.name)) ?? 0) < 2) continue;
+    const en = [r.admissionNo ? `SR ${r.admissionNo}` : null, r.fatherName ? `father ${r.fatherName}` : null].filter(Boolean).join(" · ");
+    const hi = [r.admissionNo ? `SR ${r.admissionNo}` : null, r.fatherName ? `पिता ${r.fatherName}` : null].filter(Boolean).join(" · ");
+    if (en) out.set(r.id, p(en, hi));
+  }
+  return out;
+}
+
+/** A child matches a search by any word of the name, the roll number or the SR number. */
+export function childMatches(child: { name: string; rollNo: string | null; admissionNo?: string | null }, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if ((child.rollNo ?? "").toLowerCase() === q || (child.admissionNo ?? "").toLowerCase() === q) return true;
+  return q.split(/\s+/).every((w) => child.name.toLowerCase().includes(w));
+}
+
+/* -------------------------------------------------------- the week */
+
+/**
+ * A teacher's week, one row per day and period. A combined
+ * period (Classes 11 Sci, Com and Arts at once) is one period, not three —
+ * "92 periods a week" counted it once per class (BUG-07, ST-14).
+ */
+export function mergeCombinedSlots<T extends { day: string; period: number; classLabel: string; subjectCode: string }>(slots: readonly T[]): T[] {
+  const merged = new Map<string, { slot: T; labels: string[] }>();
+  for (const s of slots) {
+    const key = `${s.day}|${s.period}`;
+    const cur = merged.get(key);
+    if (!cur) merged.set(key, { slot: s, labels: [s.classLabel] });
+    else if (!cur.labels.includes(s.classLabel)) cur.labels.push(s.classLabel);
+  }
+  // "Class 11 Science · 11 Commerce · 11 Arts": the word "Class" once.
+  return [...merged.values()].map(({ slot, labels }) => ({ ...slot, classLabel: [labels[0], ...labels.slice(1).map((l) => l.replace(/^class\s+/i, ""))].join(" · ") }));
+}
+
+/**
+ * When the parents' absent message goes. The school sends the queue from
+ * its office; before 10 am it is the 10 am round, after that the office sends
+ * it as soon as it can. "10 am" on a register saved at 11 pm promised a time
+ * that had already passed (BUG-16, ST-12).
+ */
+export function alertWhen(nowMinutes: number, day: string, today: string): Pair {
+  if (day === today && nowMinutes < 600) return p("at 10 am", "सुबह 10 बजे");
+  return p("from the school office", "स्कूल ऑफ़िस से");
+}
+
+/* -------------------------------------------------------- marks to fill */
+
+export type PaperToFill = { status: "done" | "in_progress" | "not_started" | "empty"; dueOn: string | null; classSort?: number; subjectCode?: string };
+
+/**
+ * The marks screen's order: papers past their due date and not finished
+ * first, then the other unfinished ones by due date, then the finished ones.
+ * Every open exam's papers are listed — none is picked by its label.
+ */
+export function orderPapersToFill<T extends PaperToFill>(cards: readonly T[], today: string): T[] {
+  const rank = (c: T) => (c.status === "done" ? 2 : c.dueOn && c.dueOn < today ? 0 : 1);
+  return [...cards].sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (a.dueOn ?? "9999-12-31").localeCompare(b.dueOn ?? "9999-12-31") ||
+      (a.classSort ?? 0) - (b.classSort ?? 0) ||
+      (a.subjectCode ?? "").localeCompare(b.subjectCode ?? ""),
+  );
+}
+
 /* ------------------------------------------------------------- the day */
 
 export type TimedPeriod = { period: number; starts: string; ends: string };
@@ -226,6 +318,23 @@ export const LEAVE_REASONS: { key: string; text: Pair }[] = [
 ];
 
 /* --------------------------------------------------- messages to parents */
+
+/**
+ * A child's gender split for a class card, only when every child has one
+ * recorded: "2 girls · 0 boys" for 39 children read as fact (BUG-10, ST-26).
+ */
+export function genderSplit(genders: readonly (string | null)[]): { girls: number; boys: number } | null {
+  if (genders.length === 0) return null;
+  let girls = 0;
+  let boys = 0;
+  for (const g of genders) {
+    const v = (g ?? "").trim();
+    if (/^f/i.test(v)) girls += 1;
+    else if (/^m/i.test(v)) boys += 1;
+    else return null;
+  }
+  return { girls, boys };
+}
 
 /** The absent alert a teacher may queue for 10 am (RULES H: Hindi first). */
 export function absentAlert(input: { childName: string; classLabel: string; dayLabel: string; school: string }): { hi: string; en: string } {

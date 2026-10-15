@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { useVx } from "@/vx/i18n";
@@ -37,15 +37,17 @@ export function useOnline(): boolean {
 
 const T = {
   offline: p("You’re offline — what you type is kept on this phone and goes when you’re back. Fees wait until then.", "इंटरनेट नहीं है — जो लिखेंगे वह इस फ़ोन पर रहेगा और इंटरनेट आने पर जाएगा। फीस तब तक रुकेगी।"),
+  // Teachers never see fees, so their strip does not mention them (BUG-08).
+  offlineTeach: p("You’re offline — what you type is kept on this phone and goes when you’re back.", "इंटरनेट नहीं है — जो लिखेंगे वह इस फ़ोन पर रहेगा और इंटरनेट आने पर जाएगा।"),
   back: p("Back online · everything is up to date again", "इंटरनेट वापस आ गया · सब फिर से ताज़ा है"),
   retry: p("Try again", "फिर से देखें"),
   checking: p("Checking…", "देख रहे हैं…"),
 };
 
 /** The strip itself, so the design fixture can draw either state. */
-export function OfflineStrip({ offline, checking, onRetry }: { offline: boolean; checking?: boolean; onRetry?: () => void }) {
+export function OfflineStrip({ offline, checking, onRetry, teacher = false }: { offline: boolean; checking?: boolean; onRetry?: () => void; teacher?: boolean }) {
   const { tx, sub } = useVx();
-  const text = offline ? T.offline : T.back;
+  const text = offline ? (teacher ? T.offlineTeach : T.offline) : T.back;
   return (
     <div
       className="vxt"
@@ -83,6 +85,7 @@ export function OfflineStrip({ offline, checking, onRetry }: { offline: boolean;
 
 export function OfflineBanner() {
   const router = useRouter();
+  const teacher = (usePathname() ?? "").startsWith("/teach");
   const online = useOnline();
   // "Back online" shows for a few seconds after the connection returns.
   const [backAt, setBackAt] = useState<number | null>(null);
@@ -120,5 +123,5 @@ export function OfflineBanner() {
     }, 1200);
   };
 
-  return <OfflineStrip offline={!online} checking={checking} onRetry={retry} />;
+  return <OfflineStrip offline={!online} checking={checking} onRetry={retry} teacher={teacher} />;
 }
