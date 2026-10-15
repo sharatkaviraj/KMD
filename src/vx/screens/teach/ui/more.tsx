@@ -405,7 +405,10 @@ export function TeachMore({
       {data.week.length === 0 ? (
         <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
           <span className="tc-av" style={{ width: 64, height: 64, background: "var(--s2)", color: "var(--mut)" }}><Ic n="calendar" size={28} /></span>
-          <span className="tc-h2">{tx(p("No timetable published yet", "अभी समय-सारणी प्रकाशित नहीं"))}</span>
+          {/* Not "not published": a new teacher sees this while the school's
+              timetable is live, she simply has no periods in it (ST-15). */}
+          <span className="tc-h2">{tx(p("No periods in your name yet", "आपके नाम पर अभी कोई पीरियड नहीं"))}</span>
+          <span className="tc-s">{tx(p("Ask the office to add you to the timetable.", "ऑफ़िस से कहें कि आपको समय-सारणी में जोड़ दें।"))}</span>
         </div>
       ) : (
         <>

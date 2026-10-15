@@ -9,7 +9,7 @@ import {
   orderPapersToFill,
   tellApart,
 } from "@/vx/screens/teach/domain/teach";
-import { greetName } from "@/vx/screens/teach/ui/fmt";
+import { callName, greetName } from "@/vx/screens/teach/ui/fmt";
 
 /* Regression tests for the 14 Oct school-day run (class-teacher and subject-teacher reports). */
 
@@ -91,5 +91,15 @@ describe("the greeting falls back to the first word only without a short name (B
   it("keeps a title with the surname", () => {
     expect(greetName("Ms. Asha Bhati")).toBe("Ms. Bhati");
     expect(greetName("Ravina Sharma")).toBe("Ravina");
+  });
+});
+
+describe("callName (verification ST-15: greeted as \"QATE\")", () => {
+  it("uses the short name only when it is a name, not a roster code", () => {
+    expect(callName("Ravina", "QA Teacher")).toBe("Ravina");
+    expect(callName("QATE", "Asha Bhati")).toBe("Asha");
+    expect(callName("SP", "Sunita Purohit")).toBe("Sunita");
+    expect(callName(null, "Ms. Asha Bhati")).toBe("Ms. Bhati");
+    expect(callName("  ", "Ravina Sharma")).toBe("Ravina");
   });
 });

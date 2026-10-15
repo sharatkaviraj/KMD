@@ -1128,3 +1128,17 @@ Resumed the same preserved worktree after the PC reconnected; interrupted runs w
 Contact passed 35 focused tests and 30 touch phone cases at 360/390/412px and 844×390 landscape; sibling baseline RED then three-width GREEN restores exact directory filters/page. Source lint/type diagnostics and whitespace checks passed. Genuine DEV verification completed across retained checkpoints: first Save forwarded once, persisted one original UUID and lost its browser response; a guarded read-only continuation checked that UUID without replaying Save, then deliberately posted one separate identical contact with a new UUID. Exactly two rows and unchanged original creation time were verified; staff notices stayed 24→24 and seven retained receipts remain ₹36,000 / seven distinct requests. Initial auth-origin and premature Check-assertion failures remain recorded rather than relabeled green. No schema, grants, persistent credentials, financial writes or messages were introduced. Owned local server stopped; temporary configuration remains only for final deployed read-only checks.
 
 Exact-head aggregate/phone/provider checks, draft PR, merge/deployment identity and eight non-destructive production phone checks are the remaining release gates. See docs/evidence/phone-contact-context-completion-2026-10-12.md; final pull-request receipt and same-identity Library report supersede this candidate checkpoint. PR69 atomic operations, real cover-recipient isolation, physical devices and separate retained-fixture cleanup approvals remain outside this release.
+
+## A whole school day, run by agents — 2026-10-14
+
+Raj asked for one full school day to be operated end to end by agents playing the staff, for what they hit to be fixed, and for the app to be faster. Account, findings, timings and open questions: `docs/evidence/dayrun-2026-10-14.md`; decisions D-274–D-291.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Role run: class teacher, subject teacher, principal (+view only), fee desk (accountant, office, collector), coordinators, performance — ~60 findings | done | `.dayrun/` (git-excluded; replica names) | Five browsers saturated the laptop and dev DB, so role-run timings are inflated; counts and verification timings are reliable |
+| Speed: per-request dedupe of board/inbox, shared caches for static reads, lazy Supabase in the session sheet, cheaper badges and Accounts home, touch prefetch | done | #91 → `f6db841` | Cross-request badge cache not built (cookie client, D-281); inline styles on long lists, font preload |
+| Teacher screens | done | #90 → `f3f2c47` | Leave/cover clash warning, parent-alert queue retry, one-tap present |
+| Fee desk, receipts, dues, admissions; concession refused (D-274) | done | #88 → `be54c9b` | **Concession needs a fee-app fix and the school's decision before it returns**; family receipt, one-tap print, Devanagari search |
+| Cover, admin desk, search, messages, layout | done | #87 → `932b3a6` | ~75 duplicate `<main>` landmarks on other screens; classic cover screen's mixed strings |
+| Exams, report cards, academics | done | #89 → `7615a22` | Test exams still show raw slugs |
+| Verification re-run on merged main, and its fixes | pr open | #92 `dayrun/verify-fixes` | Replica half marks on whole-mark papers block three papers until the exam office picks a rounding rule; a new admission is charged late fee on installments due before joining (fee-app rule) |

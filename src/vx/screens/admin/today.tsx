@@ -39,6 +39,8 @@ export type TodayMoneyView = {
 export type QuickTone = "pri" | "acc" | "info" | "ok" | "warn" | "plain";
 
 export type TodayProps = {
+  /** Morning: a part-day's money is not set against a whole average day (verification N7, as accountant B16). */
+  beforeNoon?: boolean;
   firstName: string;
   greeting: Pair;
   dayLine: string;
@@ -586,7 +588,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             <span className="num" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{props.staffAway}</span>
             <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on={HERO_TEAL} off="var(--navb)" width={18} /> : null}
-              <span style={{ fontSize: 12, color: "var(--navm)" }}>{cover && cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)}</span>
+              <span style={{ fontSize: 12, color: "var(--navm)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
             </span>
           </TileLink>
         ) : null}
@@ -825,7 +827,7 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
         <TileLink href="/receipts" className="card lift" style={{ ...tile, animation: "xRise .45s var(--ease) both" }}>
           <span style={{ ...label, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
             {tx(T.feesToday)}
-            {props.avgDelta !== null && money.today > 0 ? (
+            {props.avgDelta !== null && money.today > 0 && !props.beforeNoon ? (
               <span className="pill" style={{ background: up ? "var(--oks)" : "var(--bads)", color: up ? "var(--ok)" : "var(--bad)" }}>{tx(T.vsAvg(props.avgDelta))}</span>
             ) : null}
           </span>
@@ -853,7 +855,7 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
           <span style={label}>{tx(T.teachersOnLeave)}</span>
           <span className="num" style={big}>{props.staffAway}</span>
           {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on="var(--acc)" off="var(--s3)" width={22} /> : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{cover && cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)}</span>
+          <span style={{ fontSize: 12, color: "var(--mut)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
         </TileLink>
       ) : null}
       {money ? (

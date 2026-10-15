@@ -52,12 +52,21 @@ export function pressKey(text: string, key: string, maxMarks: number, step: numb
  * a mark of 9, and moving on split "95" into a 9 for one child and a 5 for
  * the next with no warning. The teacher presses Enter for a one-digit mark,
  * as the help already says; "95" is then refused with "Highest mark is 80".
+ *
+ * On a paper that takes halves or quarters a whole number is never finished
+ * while it could still take a point: moving on at "72" sent the ".5" of
+ * "72.5" to the next child (verification run, N1). It moves on once the
+ * decimals the paper allows are typed, or at the paper's maximum.
  */
-export function shouldAdvance(text: string, maxMarks: number): boolean {
+export function shouldAdvance(text: string, maxMarks: number, step = 1): boolean {
   if (text === "" || text.endsWith(".")) return false;
   const value = Number(text);
   if (!Number.isFinite(value)) return false;
-  if (text.includes(".")) return true;
+  if (text.includes(".")) {
+    const decimals = text.split(".")[1].length;
+    return decimals >= (step === 0.25 ? 2 : 1);
+  }
+  if (step < 1 && value < maxMarks) return false;
   // Another digit would overflow the paper, so this mark is finished.
   if (value * 10 <= maxMarks) return false;
   return text.length > 1 || maxMarks < 20;

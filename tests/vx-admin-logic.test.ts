@@ -180,8 +180,17 @@ describe("money keeps its three numbers apart", () => {
   });
 
   it("reads the list row: overdue first, the rest not due, late fee apart", () => {
-    const m = listMoney({ overdueAmount: 4200, outstandingAmount: 17700, pendingLateFeeAmount: 300, totalPaid: 4000, totalDue: 20300, lateFeeTotal: 300 });
-    expect(m).toEqual({ pendingToday: 4200, notDueYet: 13200, lateFee: 300, percent: 20 });
+    // outstandingAmount is fees only (total due 20,300 − late fee 300 − paid 4,000).
+    const m = listMoney({ overdueAmount: 4200, outstandingAmount: 16000, pendingLateFeeAmount: 300, totalPaid: 4000, totalDue: 20300, lateFeeTotal: 300 });
+    expect(m).toEqual({ pendingToday: 4200, notDueYet: 11800, lateFee: 300, percent: 20 });
+  });
+
+  it("does not take the late fee off a fees-only outstanding amount (verification N6)", () => {
+    // A new admission on dev: 5,975 + 3 × 4,875, the first two overdue with 1,000 late fee each.
+    const m = listMoney({ overdueAmount: 10850, outstandingAmount: 20600, pendingLateFeeAmount: 2000, totalPaid: 0, totalDue: 22600, lateFeeTotal: 2000 });
+    expect(m.notDueYet).toBe(9750);
+    expect(m.pendingToday).toBe(10850);
+    expect(m.lateFee).toBe(2000);
     expect(feeStanding(m)).toBe("pending");
     expect(feeStanding({ pendingToday: 0, notDueYet: 10 })).toBe("on_track");
     expect(feeStanding({ pendingToday: 0, notDueYet: 0 })).toBe("paid");

@@ -6,16 +6,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useSyncExternalStore, useTransition, type CSSProperties } from "react";
 
-import { addToQueueAction, searchFamiliesAction, setRemindersPausedAction, updateQueueAction } from "@/app/(app)/accounts/actions";
+import { addToQueueAction, searchFamiliesAction, updateQueueAction } from "@/app/(app)/accounts/actions";
 import { remindAdminAction } from "@/app/(app)/accounts/books/actions";
 import { logoutAction } from "@/app/login/actions";
 import type { AccountsHomeData, FamilyHit } from "@/modules/finance-controls/vx/types";
+import { roleLabel, type StaffRole } from "@/platform/auth/permissions";
 import { withDeskChequeDetails } from "@/modules/finance-controls/vx/domain/cheque-receipt";
 import { initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
 import { p } from "@/vx/text";
-import { Switch } from "@/vx/ui/controls";
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Card, EmptyState, Pill } from "@/vx/ui/primitives";
@@ -95,6 +95,7 @@ export function AccountsHome({
   canManage,
   readOnly,
   greet,
+  roleName,
 }: {
   greet: string;
   data: AccountsHomeData;
@@ -105,8 +106,11 @@ export function AccountsHome({
   canAccounts?: boolean;
   canManage: boolean;
   readOnly: boolean;
+  /** The signed-in account's role, so the office is not called "Fee collector" (verification N1). */
+  roleName?: StaffRole;
 }) {
   const { tx } = useVx();
+  const roleWord = (role: StaffRole | undefined, accounts: boolean) => tx(role ? roleLabel(role) : accounts ? roleLabel("accountant") : roleLabel("fee_collector"));
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -132,7 +136,7 @@ export function AccountsHome({
   const helpTitle = view === "evening" ? "Closing the day" : "How the counter works";
   // A fee collector takes money at the counter; closing the day, the books and
   // pausing reminders are the accountant's (D-261), so the page says which.
-  const role = canAccounts ? "Accountant" : "Fee collector";
+  const role = roleWord(roleName, canAccounts);
   const hello = greet === "Good morning" ? "सुप्रभात" : greet === "Good evening" ? "शुभ संध्या" : "नमस्ते";
 
   const top =
@@ -186,7 +190,7 @@ export function AccountsHome({
         }
       />
       {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
-      {view === "menu" ? <MenuView data={data} staffName={staffName} canCollect={canCollect} canAccounts={canAccounts} help={help} helpTitle={helpTitle} /> : null}
+      {view === "menu" ? <MenuView data={data} staffName={staffName} roleText={role} canCollect={canCollect} canAccounts={canAccounts} help={help} helpTitle={helpTitle} /> : null}
       {view === "evening" ? <EveningView data={data} /> : null}
     </VxPage>
   );
@@ -194,7 +198,7 @@ export function AccountsHome({
 
 type Run = (fn: () => Promise<{ ok: boolean; message: string }>, undo?: () => Promise<unknown>) => void;
 
-function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canClose: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
+function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canClose: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
   const { tx } = useVx();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -466,15 +470,15 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
             <div className="ac-f" style={{ gap: 12, alignItems: "flex-start" }}>
               <span className="ac-av" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="bell" /></span>
               <span className="ac-c ac-1">
-                <span className="ac-v">{tx(p("Fee reminders at 4:00 pm", "शाम 4 बजे रिमाइंडर"))}</span>
-                <span className="ac-m">{data.reminders.paused ? "Paused for today · nothing will be sent" : `${data.reminders.familiesPendingToday} students with fees pending today · हिंदी first`}</span>
-              </span>
-              <span style={{ padding: 4 }}>
-                <Switch on={!data.reminders.paused} label="Send reminders at 4 pm" disabled={!canPause || busy} onChange={(on) => run(() => setRemindersPausedAction(!on), () => setRemindersPausedAction(on))} />
+                {/* No job sends reminders by itself (vercel.json has none), so the
+                    card no longer promises "at 4:00 pm" or offers a pause that
+                    nothing reads (accountant B8). They go from Fee reminders. */}
+                <span className="ac-v">{tx(p("Fee reminders", "फीस रिमाइंडर"))}</span>
+                <span className="ac-m">{tx(p(`${data.reminders.familiesPendingToday} students with fees pending today · sent from Fee reminders`, `आज ${data.reminders.familiesPendingToday} विद्यार्थियों की फीस बाकी · फीस रिमाइंडर से भेजें`))}</span>
               </span>
             </div>
             <div className="ac-f ac-j ac-w" style={{ gap: 8 }}>
-              <span className="pill" style={{ height: 26, padding: "0 10px", background: data.reminders.paused ? "var(--s2)" : "var(--infos)", color: data.reminders.paused ? "var(--mut)" : "var(--info)" }}>{data.reminders.paused ? "Paused · turn on to send at 4 pm" : "On for today"}</span>
+              <span className="pill" style={{ height: 26, padding: "0 10px", background: "var(--s2)", color: "var(--mut)" }}>{tx(p("Not sent automatically", "अपने-आप नहीं जाते"))}</span>
               <Link href="/reminders" className="tap btn ghost only-d" style={{ height: 34, padding: "0 10px" }}>See the message<Ic n="chevRight" size={16} /></Link>
               <Link href="/reminders" className="tap btn ghost only-m" style={{ height: 40, padding: "0 10px" }}>See the message<Ic n="chevRight" size={16} /></Link>
             </div>
@@ -513,7 +517,7 @@ function HomeView({ data, canAct, canPause, canClose, canCollect, canManage, run
   );
 }
 
-function MenuView({ data, staffName, canCollect, canAccounts, help, helpTitle }: { data: AccountsHomeData; staffName: string; canCollect: boolean; canAccounts: boolean; help: HelpStep[]; helpTitle: string }) {
+function MenuView({ data, staffName, roleText, canCollect, canAccounts, help, helpTitle }: { data: AccountsHomeData; staffName: string; roleText: string; canCollect: boolean; canAccounts: boolean; help: HelpStep[]; helpTitle: string }) {
   const { tx } = useVx();
   const [helpOpen, setHelpOpen] = useState(false);
   const closed = data.closure?.status === "closed";
@@ -523,7 +527,7 @@ function MenuView({ data, staffName, canCollect, canAccounts, help, helpTitle }:
       ? { icon: "receipt", en: "Receipts & day close", hi: "रसीदें व दिन बंद", sub: `${data.collected.count} today · close by 5:30 pm`, href: "/receipts" }
       : { icon: "receipt", en: "Receipts", hi: "रसीदें", sub: `${data.collected.count} today`, href: "/receipts" },
     { icon: "phone", en: "Dues & calls", hi: "बकाया व कॉल", sub: `${data.followUpsToday.count} follow-ups due today`, href: "/dues", badge: data.followUpsToday.count },
-    { icon: "bell", en: "Fee reminders", hi: "फीस रिमाइंडर", sub: data.reminders.paused ? "Paused for today" : "Going at 4 pm", href: "/reminders" },
+    { icon: "bell", en: "Fee reminders", hi: "फीस रिमाइंडर", sub: "Send from here", href: "/reminders" },
     { icon: "swap", en: "Cheques, UPI & refunds", hi: "चेक, UPI व रिफंड", sub: `${data.chequesToDeposit.count} cheques · ${data.upiOpen.count} UPI to match`, href: "/accounts/books", badge: data.chequesToDeposit.count },
     { icon: "chart", en: "Reports", hi: "रिपोर्ट", sub: "Day, month and class-wise", href: "/reports" },
     { icon: "sliders", en: "Fee setup — view only", hi: "फीस ढांचा — केवल देखें", sub: "Ask admin to change", href: "/fee-setup" },
@@ -542,7 +546,7 @@ function MenuView({ data, staffName, canCollect, canAccounts, help, helpTitle }:
         <span className="ac-av" style={{ width: 54, height: 54, borderRadius: 27, fontSize: 18, background: "var(--oks)", color: "var(--ok)" }}>{initials(staffName)}</span>
         <span className="ac-c ac-1" style={{ minWidth: 200 }}>
           <span className="serif" style={{ fontSize: 21, fontWeight: 600 }}>{staffName}</span>
-          <span className="ac-m">{canAccounts ? "Accountant" : "Fee collector"} · Office counter · Session {data.sessionLabel.replace("-", "–")}</span>
+          <span className="ac-m">{roleText} · Office counter · Session {data.sessionLabel.replace("-", "–")}</span>
         </span>
         <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: closed ? "var(--s3)" : "var(--oks)", color: closed ? "var(--mut)" : "var(--ok)" }}>
           <span style={{ width: 8, height: 8, borderRadius: 4, background: "currentColor" }} />
@@ -691,7 +695,7 @@ function EveningView({ data }: { data: AccountsHomeData }) {
       </div>
       <Card className="ac-f ac-cd ac-w" style={{ gap: 12 }}>
         <span className="ac-av" style={{ background: "var(--infos)", color: "var(--info)" }}><Ic n="bell" /></span>
-        <span className="ac-c ac-1"><span className="ac-b">{data.reminders.paused ? "Reminders were paused today" : "Today’s 4:00 pm reminders"}</span><span className="ac-m">{data.reminders.familiesPendingToday} students had fees pending today{data.reminders.nextInstallment ? ` · next: ${data.reminders.nextInstallment}` : ""}</span></span>
+        <span className="ac-c ac-1"><span className="ac-b">{tx(p("Fee reminders", "फीस रिमाइंडर"))}</span><span className="ac-m">{data.reminders.familiesPendingToday} students had fees pending today{data.reminders.nextInstallment ? ` · next: ${data.reminders.nextInstallment}` : ""}</span></span>
         <Btn variant="ghost" href="/reminders">See replies</Btn>
       </Card>
       <div className="ac-f ac-w ac-noprint" style={{ gap: 8 }}>

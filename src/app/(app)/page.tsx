@@ -118,6 +118,7 @@ export default async function TodayPage() {
         dayLine={longDay(today)}
         status={status}
         today={today}
+        beforeNoon={minutes < 12 * 60}
         money={money}
         moneyFailed={seesMoney && money === null}
         attendance={board && summary ? { marked: summary.marked, total: summary.total, percent: summary.percent, schoolOpen: board.schoolOpen } : null}

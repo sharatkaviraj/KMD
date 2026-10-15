@@ -7,9 +7,15 @@ import "server-only";
  * One's own bookkeeping about them (cheque details, bank lines, requests, the
  * counter queue) through this app's client. Callers have already checked
  * `fees:view` — these functions do not write.
+ *
+ * Fee rows are read with the service-role client, after that check: fee RLS
+ * keys on `public.users.role`, and the office account, which has no such row,
+ * read "₹0 · 0 receipts" here with no error (verification N1, as accountant B4
+ * was on Receipts).
  */
+const createFeeClient = async () => createAdminClient();
 
-import { createClient as createFeeClient } from "@/modules/fees/platform/supabase/server";
+import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { getFinanceControlsPageData } from "@/modules/finance-controls/data/queries";
 import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/data/reversals";
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
@@ -433,7 +439,7 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
   const app = await createAppClient();
 
   const [finance, history, queueRes, followRes, pauseRes, chequeData, upi, requests, dueRes, nextRes] = await Promise.all([
-    getFinanceControlsPageData(today, sessionLabel),
+    getFinanceControlsPageData(today, sessionLabel, fee),
     fetchAllPages<Row>((a, b) =>
       fee.from("receipts").select("payment_date, total_amount").neq("payment_mode", "discount").gte("payment_date", addDays(today, -56)).lt("payment_date", today).range(a, b),
     ),

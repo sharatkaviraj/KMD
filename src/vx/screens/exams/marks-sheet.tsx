@@ -130,6 +130,7 @@ export function MarksSheet({
   const storage = useRef<Promise<unknown>>(Promise.resolve());
   const latest = useRef({ cells: initialSaved, saved: initialSaved, revision: paper.entryRevision });
   const inputs = useRef(new Map<string, HTMLInputElement>());
+  const advancedFrom = useRef<{ from: number; to: number } | null>(null);
 
   const editable = ready && !recovered && !pendingCommand && !busy && status !== "stale" && paper.examOpen && !paper.locked && (entryStatus === "open" || correcting);
   const c = counts(order, cells);
@@ -318,6 +319,16 @@ export function MarksSheet({
       toast.show({ text: tx(p("Type the mark in numbers only", "अंक सिर्फ़ गिनती में लिखें")), tone: "bad" });
       return;
     }
+    // A point straight after the sheet moved on belongs to the child before:
+    // "80.5" on a whole-mark paper must not leave ".5" for the next child.
+    const moved = advancedFrom.current;
+    if (text.startsWith(".") && moved && moved.to === index) {
+      advancedFrom.current = null;
+      focusAt(moved.from);
+      toast.show({ text: tx(paper.markStep < 1 ? p("Finish the mark in the box above", "ऊपर वाले खाने में अंक पूरा करें") : p("This paper takes whole marks only", "इस पेपर में सिर्फ़ पूरे अंक दिए जाते हैं")), tone: "bad" });
+      return;
+    }
+    advancedFrom.current = null;
     if (text.endsWith(".") && paper.markStep < 1) {
       setTexts((t) => ({ ...t, [id]: text }));
       return;
@@ -328,9 +339,12 @@ export function MarksSheet({
       return;
     }
     update(id, parsed.value === null ? BLANK : { state: "value", value: parsed.value }, text);
-    if (parsed.value !== null && shouldAdvance(text, paper.maxMarks)) {
+    if (parsed.value !== null && shouldAdvance(text, paper.maxMarks, paper.markStep)) {
       const next = nextBlank(order, { ...latest.current.cells }, index);
-      if (next >= 0) focusAt(next);
+      if (next >= 0) {
+        advancedFrom.current = { from: index, to: next };
+        focusAt(next);
+      }
     }
   }
 
@@ -401,7 +415,7 @@ export function MarksSheet({
     const parsed = parseMark(text, paper.maxMarks, paper.markStep);
     if (parsed.ok && parsed.value !== null) {
       update(id, { state: "value", value: parsed.value }, text);
-      if (shouldAdvance(text, paper.maxMarks)) advancePad();
+      if (shouldAdvance(text, paper.maxMarks, paper.markStep)) advancePad();
     } else if (text === "") {
       update(id, BLANK, "");
     }
@@ -953,10 +967,11 @@ export function MarksSheet({
                     return (
                       <div key={s.id} className="row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "10px 18px", borderTop: "1px solid var(--bd)", background: active ? "var(--accs)" : undefined, boxShadow: active ? "inset 3px 0 0 var(--pri)" : undefined }}>
                         {s.roll ? <span className="num" style={{ width: 44, flex: "none", color: "var(--mut)", fontWeight: 600 }}>{s.roll}</span> : null}
-                        {/* The name keeps its own line on a phone: at 390px the
-                            box and Absent used to squeeze it to "An…" (ST-02). */}
-                        <span style={{ flex: "1 1 170px", minWidth: 0, display: "flex", flexDirection: "column" }}>
-                          <strong style={{ overflowWrap: "anywhere" }}>{s.name}</strong>
+                        {/* Name, box and Absent share one line at 390px; a long
+                            name wraps rather than being cut to "An…" (ST-02),
+                            and a child no longer takes three lines (N3). */}
+                        <span style={{ flex: "1 1 80px", minWidth: 0, display: "flex", flexDirection: "column" }}>
+                          <strong style={{ overflowWrap: "break-word" }}>{s.name}</strong>
                           {s.hint ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(s.hint)}</span> : null}
                           {s.prev ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{s.prev}</span> : null}
                           {badSet.has(s.id) ? <span style={{ fontSize: 12, fontWeight: 700, color: "var(--bad)" }}>{tx(p("This mark cannot be given on this paper", "यह अंक इस पेपर में नहीं हो सकता"))}</span> : null}
@@ -974,7 +989,7 @@ export function MarksSheet({
                           onFocus={() => setCurrent(i)}
                           onChange={(e) => typed(s.id, i, e.target.value)}
                           onKeyDown={(e) => keyDown(e, s.id, i)}
-                          style={{ width: 96, height: 48, textAlign: "center", fontSize: 22, fontWeight: 600, flex: "none" }}
+                          style={{ width: 84, height: 48, textAlign: "center", fontSize: 22, fontWeight: 600, flex: "none" }}
                         />
                         <button
                           type="button"

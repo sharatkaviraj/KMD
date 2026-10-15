@@ -367,6 +367,17 @@ describe("typing marks", () => {
     expect(shouldAdvance("7.5", 80)).toBe(true);
   });
 
+  it("waits for the point on a paper that takes halves (N1: 72.5 split into 72 and .5)", () => {
+    expect(shouldAdvance("72", 80, 0.5)).toBe(false);
+    expect(shouldAdvance("72.", 80, 0.5)).toBe(false);
+    expect(shouldAdvance("72.5", 80, 0.5)).toBe(true);
+    expect(shouldAdvance("80", 80, 0.5)).toBe(true);
+    expect(shouldAdvance("7.2", 80, 0.25)).toBe(false);
+    expect(shouldAdvance("7.25", 80, 0.25)).toBe(true);
+    // Whole-mark papers are unchanged.
+    expect(shouldAdvance("72", 80, 1)).toBe(true);
+  });
+
   it("refuses a minus sign or a letter instead of stripping it (BUG-09: -5 saved as 5)", () => {
     expect(cleanTyped("-5")).toBeNull();
     expect(cleanTyped("7a")).toBeNull();
