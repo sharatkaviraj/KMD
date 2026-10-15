@@ -37,6 +37,7 @@ import { listStaff } from "@/modules/staff/data/staff-repo";
 import { absencesOn } from "@/modules/substitutions/data/absences-repo";
 import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitutions/data/arrange-day";
 import { currentBells, dutiesOn, liveOnly } from "@/modules/substitutions/data/cover-repo";
+import { coverEligibleIds, distinctNames } from "@/modules/substitutions/domain/cover-view";
 import { getPublishedVersion } from "@/modules/timetable/data/timetable-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
@@ -636,10 +637,12 @@ export async function loadInbox(
       const needing = coverDay.live.filter((duty) => duty.status === "needs_help");
       if (needing.length === 0) return [];
       const profiles = await profilesFor(coverDay);
-      const nameOf = new Map(coverDay.staff.map((person) => [person.id, person.displayName]));
-      for (const absence of coverDay.absences) nameOf.set(absence.staffProfileId, absence.staffName);
+      // Teaching staff only, and two people with one name told apart (Dev 4, school-day run B13/B14).
+      const nameOf = distinctNames(coverDay.staff);
+      for (const absence of coverDay.absences) if (!nameOf.has(absence.staffProfileId)) nameOf.set(absence.staffProfileId, absence.staffName);
+      const eligible = coverEligibleIds(coverDay.staff, coverDay.slots);
       return needing.map((duty) => {
-        const candidates = candidatesFor(coverDay, profiles.everyone, profiles.history, duty).map((candidate) => ({
+        const candidates = candidatesFor(coverDay, profiles.everyone, profiles.history, duty).filter((candidate) => eligible.has(candidate.teacher)).map((candidate) => ({
           id: candidate.teacher,
           name: nameOf.get(candidate.teacher) ?? "—",
           detail: `${candidate.load.regular} periods today${candidate.recentCovers ? ` · ${candidate.recentCovers} covers this month` : ""}`,

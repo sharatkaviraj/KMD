@@ -10,6 +10,10 @@ import { assertStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { listMoney, mobileOf } from "@/vx/screens/admin/logic";
 import { moneyStatus, type MoneyStatus } from "@/vx/screens/admin/students-logic";
+import { listStaff } from "@/modules/staff/data/staff-repo";
+import { matchStaff, type StaffHit } from "@/vx/shell/staff-search";
+
+export type { StaffHit };
 
 export type StudentHit = {
   id: string;
@@ -41,7 +45,8 @@ export type ActionHit =
   | { kind: "collect"; href: string; student: string; pending: number | null }
   | { kind: "call"; tel: string; who: string | null; relation: "father" | "mother"; child: string };
 
-export type SearchResult = { students: StudentHit[]; receipts: ReceiptHit[]; actions: ActionHit[] };
+/** `staff`: colleagues by name, for whoever may see the staff list or the timetable (B12). */
+export type SearchResult = { students: StudentHit[]; receipts: ReceiptHit[]; actions: ActionHit[]; staff?: StaffHit[] };
 
 const EMPTY: SearchResult = { students: [], receipts: [], actions: [] };
 
@@ -75,7 +80,12 @@ export async function searchEverythingAction(query: string): Promise<SearchResul
 
   const seesStudents = can(staff, "students:view") || can(staff, "fees:view");
   const seesReceipts = can(staff, "fees:view");
-  if (!seesStudents && !seesReceipts) return EMPTY;
+  const staffTo = can(staff, "staff:view") ? "staff" : can(staff, "timetable:view") ? "timetable" : null;
+  const colleagues = staffTo ? listStaff().then((all) => matchStaff(all, q, staffTo)).catch(() => [] as StaffHit[]) : Promise.resolve([] as StaffHit[]);
+  if (!seesStudents && !seesReceipts) {
+    const found = await colleagues;
+    return found.length ? { ...EMPTY, staff: found } : EMPTY;
+  }
 
   const session = await resolveViewSession({ cookieSession: await getViewSessionCookie() }).catch(() => null);
   const sessionLabel = session?.sessionLabel ?? "";
@@ -103,7 +113,8 @@ export async function searchEverythingAction(query: string): Promise<SearchResul
     return (row?.fatherName ?? "").trim() || (row?.motherName ?? "").trim() || null;
   };
 
-  const out: SearchResult = { students: [], receipts: [], actions: [] };
+  const found = await colleagues;
+  const out: SearchResult = { students: [], receipts: [], actions: [], ...(found.length ? { staff: found } : {}) };
   for (const s of top) {
     out.students.push({
       id: s.id,

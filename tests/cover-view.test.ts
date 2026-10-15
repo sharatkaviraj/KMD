@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { coverEligibleIds, distinctNames, missedPeriods } from "@/modules/substitutions/domain/cover-view";
+import { coverDayLabel } from "@/vx/screens/admin/logic";
+
+describe("when a cover item is for", () => {
+  // 00:30 IST on Thu 15 Oct; the duties were recorded at 23:14 the evening before.
+  const now = new Date("2026-10-14T19:00:00Z");
+  it("names the day of the periods, not the day they were recorded", () => {
+    expect(coverDayLabel("2026-10-15", now)).toEqual({ en: "Today", hi: "आज" });
+    expect(coverDayLabel("2026-10-16", now)).toEqual({ en: "Tomorrow", hi: "कल" });
+    expect(coverDayLabel("2026-10-19", now).en).toMatch(/19 Oct/);
+  });
+});
 
 /*
  * School-day run, 14 Oct: a teacher marked away at 22:30 read "0 periods · no

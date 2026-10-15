@@ -52,7 +52,7 @@ export const T = {
   attendance: p("Attendance", "हाज़िरी"),
   classesMarked: p("classes", "कक्षाएँ"),
   presentPct: (pct: number | null): Pair => (pct === null ? p("none marked yet", "अभी कोई दर्ज नहीं") : p(`${pct}% present`, `${pct}% उपस्थित`)),
-  teachersOnLeave: p("Teachers on leave", "छुट्टी पर शिक्षक"),
+  teachersOnLeave: p("Teachers away", "अनुपस्थित शिक्षक"),
   periodsCovered: (done: number, all: number): Pair => p(`${done} of ${all} periods covered`, `${all} में से ${done} पीरियड की व्यवस्था`),
   noCoverNeeded: p("No cover needed", "कोई व्यवस्था नहीं चाहिए"),
   followUps: p("Follow-up calls", "फ़ॉलो-अप कॉल"),
@@ -119,19 +119,19 @@ export const T = {
   remind: p("Remind", "याद दिलाएँ"),
   remindN: (n: number): Pair => p(`Remind ${n} teacher${n === 1 ? "" : "s"}`, `${n} शिक्षकों को याद दिलाएँ`),
   reminded: (n: number): Pair => p(`Reminder sent to ${n} teacher${n === 1 ? "" : "s"}`, `${n} शिक्षकों को याद दिलाया`),
-  nobodyToRemind: p("Every class teacher has been reminded already, or is away.", "सभी कक्षा-अध्यापकों को याद दिलाया जा चुका है, या वे छुट्टी पर हैं।"),
+  nobodyToRemind: p("Every class teacher has been reminded already, or is away.", "सभी कक्षा-अध्यापकों को याद दिलाया जा चुका है, या वे अनुपस्थित हैं।"),
   openBoard: p("Open attendance board", "हाज़िरी बोर्ड खोलें"),
   classes: p("Classes", "कक्षाएँ"),
   coverTitle: (period: number, classes: string, subject: string): Pair =>
     p(`Cover Period ${period} · ${classes}${subject ? ` ${subject}` : ""}`, `पीरियड ${period} · ${classes}${subject ? ` ${subject}` : ""} की व्यवस्था`),
-  coverSub: (away: string, free: number): Pair => p(`${away} on leave · ${free} teacher${free === 1 ? "" : "s"} free`, `${away} छुट्टी पर · ${free} शिक्षक खाली`),
+  coverSub: (away: string, free: number): Pair => p(`${away} away · ${free} teacher${free === 1 ? "" : "s"} free`, `${away} अनुपस्थित · ${free} शिक्षक खाली`),
   coverBody: (away: string, free: number): Pair =>
     p(
-      `${away} is away today. ${free} teacher${free === 1 ? " is" : "s are"} free in this period. Assigning sends the teacher a WhatsApp right away.`,
-      `${away} आज छुट्टी पर हैं। इस पीरियड में ${free} शिक्षक खाली हैं। तय करते ही शिक्षक को WhatsApp जाता है।`,
+      `${away} is away. ${free} teacher${free === 1 ? " is" : "s are"} free in this period. Assigning sends the teacher a WhatsApp right away.`,
+      `${away} अनुपस्थित हैं। इस पीरियड में ${free} शिक्षक खाली हैं। तय करते ही शिक्षक को WhatsApp जाता है।`,
     ),
   period: p("Period", "पीरियड"),
-  onLeave: p("On leave", "छुट्टी पर"),
+  onLeave: p("Away", "अनुपस्थित"),
   freeThen: p("Free then", "तब खाली"),
   onAssign: p("On assign", "तय करने पर"),
   onAssignValue: p("WhatsApp to the teacher", "शिक्षक को WhatsApp"),
@@ -372,13 +372,13 @@ export const T = {
   monthRegister: p("Monthly register", "मासिक रजिस्टर"),
   markedAt: (t: string): Pair => p(`Marked ${t}`, `${t} पर दर्ज`),
   remindedAt: (t: string): Pair => p(`Reminded ${t}`, `${t} पर याद दिलाया`),
-  teacherOnLeave: p("Teacher on leave", "शिक्षक छुट्टी पर"),
+  teacherOnLeave: p("Teacher away", "शिक्षक अनुपस्थित"),
   noClassTeacher: p("No class teacher", "कोई कक्षा-अध्यापक नहीं"),
   presentOf: (a: number, b: number): Pair => p(`${a}/${b} present`, `${b} में से ${a} उपस्थित`),
   classToday: (label: string): Pair => p(`${label} · today`, `${label} · आज`),
   markingAsAdmin: (who: string | null, away: boolean): Pair =>
     away
-      ? p(`${who ?? "The class teacher"} is on leave — marking on their behalf`, `${who ?? "कक्षा-अध्यापक"} छुट्टी पर हैं — उनकी ओर से दर्ज`)
+      ? p(`${who ?? "The class teacher"} is away — marking on their behalf`, `${who ?? "कक्षा-अध्यापक"} अनुपस्थित हैं — उनकी ओर से दर्ज`)
       : p(`Marking on behalf of ${who ?? "the class teacher"}`, `${who ?? "कक्षा-अध्यापक"} की ओर से दर्ज`),
   everyonePresent: p("Everyone present", "सभी उपस्थित"),
   markedOf: (a: number, b: number): Pair => p(`${a} of ${b} marked`, `${b} में से ${a} दर्ज`),

@@ -368,6 +368,21 @@ export function whenLabel(iso: string | null, now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(then);
 }
 
+/**
+ * When a cover item is for, not when it was recorded: Thursday's periods
+ * arranged at 23:14 on Wednesday read "Today" on Thursday, never "Yesterday"
+ * (school-day run B16).
+ */
+export function coverDayLabel(day: string, now: Date = new Date()): Pair {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now);
+  const at = (iso: string) => new Date(`${iso}T12:00:00Z`).getTime();
+  const days = Math.round((at(day) - at(today)) / 86_400_000);
+  if (days === 0) return p("Today", "आज");
+  if (days === 1) return p("Tomorrow", "कल");
+  const label = new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(new Date(`${day}T12:00:00Z`));
+  return p(label, label);
+}
+
 /* --------------------------------------------------------------- students */
 
 export type StudentSegment = "all" | "pending" | "bus" | "new" | "paid";

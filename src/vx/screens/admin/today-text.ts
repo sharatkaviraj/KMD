@@ -21,7 +21,7 @@ export const TD = {
   noTimetable: p("No published timetable for today", "आज के लिए कोई प्रकाशित समय-सारणी नहीं"),
   nothingThisPeriod: p("Nothing scheduled in this period", "इस पीरियड में कुछ निर्धारित नहीं"),
   fullDay: p("Full timetable", "पूरी समय-सारणी"),
-  onLeave: p("On leave", "अवकाश पर"),
+  onLeave: p("Away", "अनुपस्थित"),
   combined: p("Combined", "संयुक्त"),
   shared: p("Shared", "साझा"),
   parallel: p("Parallel", "समानांतर"),

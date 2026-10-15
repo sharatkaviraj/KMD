@@ -45,7 +45,7 @@ export const TO = {
   remindClassTeachers: (n: number): Pair =>
     p(`Remind ${n} class teacher${n === 1 ? "" : "s"} on WhatsApp`, `${n} कक्षा-अध्यापकों को WhatsApp पर याद दिलाएँ`),
   classTeacherSub: (name: string): Pair => p(`${name} · class teacher`, `${name} · कक्षा-अध्यापक`),
-  onLeaveSub: (name: string): Pair => p(`${name} · on leave today`, `${name} · आज छुट्टी पर`),
+  onLeaveSub: (name: string): Pair => p(`${name} · away today`, `${name} · आज अनुपस्थित`),
   remindedSub: (name: string, t: string): Pair => p(`${name} · reminded at ${t}`, `${name} · ${t} पर याद दिलाया`),
   allPresentAt: (n: number, t: string): Pair => p(`All ${n} present · ${t}`, `सभी ${n} उपस्थित · ${t}`),
   somePresentAt: (present: number, of: number, half: number, t: string): Pair =>

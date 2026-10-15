@@ -22,6 +22,12 @@ vi.mock("@/modules/fees/platform/session-context/resolver", () => ({ resolveView
 vi.mock("@/modules/students-fees/data/queries", () => ({ getStudents: state.students, getStudentMasterFieldsByIds: state.master }));
 vi.mock("@/modules/receipts/data/queries", () => ({ getReceiptsList: state.receipts }));
 vi.mock("@/modules/students-fees/vx/admin-students", () => ({ recentReceiptsFor: state.recent }));
+vi.mock("@/modules/staff/data/staff-repo", () => ({
+  listStaff: vi.fn(async () => [
+    { id: "qa-t1", displayName: "Jainendra Test", shortName: "JT", isActive: true },
+    { id: "qa-t2", displayName: "Old Teacher", shortName: "OT", isActive: false },
+  ]),
+}));
 
 import { searchEverythingAction } from "@/vx/shell/search-actions";
 
@@ -50,6 +56,19 @@ beforeEach(() => {
 });
 
 describe("searchEverythingAction", () => {
+  it("finds a colleague by name for whoever may see the staff list (school-day run B12)", async () => {
+    state.perms = new Set(["staff:view"]);
+    const r = await searchEverythingAction("jainendra");
+    expect(r.staff).toEqual([{ id: "qa-t1", name: "Jainendra Test", short: "JT", href: "/staff?id=qa-t1" }]);
+    expect(state.students).not.toHaveBeenCalled();
+  });
+
+  it("sends a reader with only the timetable to the teacher's week, and never lists former staff", async () => {
+    state.perms = new Set(["timetable:view"]);
+    expect((await searchEverythingAction("test")).staff?.map((s) => s.href)).toEqual(["/timetable?view=teacher&teacher=qa-t1"]);
+    expect(await searchEverythingAction("old")).toEqual({ students: [], receipts: [], actions: [] });
+  });
+
   it("gives a reader with neither roster nor fee access nothing, and reads nothing", async () => {
     expect(await searchEverythingAction("aarav")).toEqual({ students: [], receipts: [], actions: [] });
     expect(state.students).not.toHaveBeenCalled();

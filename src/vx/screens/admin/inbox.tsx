@@ -9,7 +9,7 @@ import type { Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar } from "@/vx/ui/page";
 import { Btn, Pill, toneColors, type Tone } from "@/vx/ui/primitives";
-import { INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
+import { coverDayLabel, INBOX_TYPES, inboxCounts, whenLabel, type InboxType } from "@/vx/screens/admin/logic";
 import { TO } from "@/vx/screens/admin/ops-text";
 import { T } from "@/vx/screens/admin/text";
 import type { CoverCandidate, InboxItem } from "@/vx/screens/admin/types";
@@ -286,7 +286,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope }: 
                   >
                     <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%" }}>
                       <Tag item={item} size="s" />
-                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{whenLabel(item.at)}</span>
+                      <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
                     </span>
                     <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{tx(item.title)}</span>
                     <span className="clip" style={{ fontSize: 13, color: "var(--mut)", width: "100%" }}>{tx(item.sub)}</span>
@@ -467,7 +467,7 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
     <article className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, overflow: "hidden", animation: `xRise .44s var(--ease) ${delay}ms both` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <Tag item={item} size="m" />
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{whenLabel(item.at)}</span>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
       </div>
       <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.3 }}>{tx(item.title)}</h2>
       <p style={{ margin: 0, fontSize: 14, color: "var(--mut)", lineHeight: 1.45 }}>{tx(body)}</p>
@@ -534,7 +534,7 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
     <article style={{ maxWidth: 760, padding: "32px 40px 48px", display: "flex", flexDirection: "column", gap: 18, animation: "xIn .3s var(--ease) both" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Tag item={item} size="l" />
-        <span style={{ fontSize: 13, color: "var(--mut)" }}>{whenLabel(item.at)}</span>
+        <span style={{ fontSize: 13, color: "var(--mut)" }}>{item.kind === "cover" && item.day ? tx(coverDayLabel(item.day)) : whenLabel(item.at)}</span>
       </div>
       <h2 className="serif" style={{ margin: 0, fontSize: 32, fontWeight: 600, lineHeight: 1.15 }}>{tx(item.title)}</h2>
       {item.body ? <p style={{ margin: 0, color: "var(--mut)", fontSize: 16, lineHeight: 1.6 }}>{tx(item.body)}</p> : null}

@@ -127,7 +127,8 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         };
       });
       total = list.total;
-      counts = list.counts;
+      // On the All list the chip counts what the list holds, so "All 510" never sits over "1–50 of 538" (school-day run B11).
+      counts = seg === "all" ? { ...list.counts, all: list.total } : list.counts;
       session = list.sessionLabel;
       moneyMode = true;
     } catch {
