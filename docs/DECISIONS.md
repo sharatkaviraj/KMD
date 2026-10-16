@@ -2,13 +2,14 @@
 
 ## Phone: student filters and stepwise collection — 2026-10-16
 
-Raj asked, on a phone, for filters and other ways to see the Students list without making it complicated, and for collecting a fee to stop needing scrolling: details, then amount, then date and save. Screens: UI-94 and UI-95 in `docs/ui/DECISIONS.md`.
+Raj asked, on a phone, for filters and other ways to see the Students list without making it complicated, and for collecting a fee to stop needing scrolling: details, then amount, then date and save. Screens: UI-94 and UI-95 in `docs/ui/DECISIONS.md`. After using it he asked for the class list to scroll, the keyboard to open on its own and for more speed (UI-96, D-295).
 
 | Decision | Outcome | Evidence and reason |
 |---|---|---|
 | D-292 | A fee-list scope longer than 200 ids is paged in code: its ids and sort keys are read in 200-id chunks under the page query's own predicates, ordered as `applyStudentSort` orders them, and only the page's ids reach the page query; the count is the scope's own (`pageOfLargeScope` in `students-fees/data/queries.ts`, both the list and the identity pass) | `getStudentsPage` put every matching id in one `.in()`. On dev in 2026-27 "Part paid" is 390 children, "Pending" 316 and "On bus" 302, against a URL limit near 300 (rule 3b): the new filters would have hung for eight seconds and read as "could not read". Ported code, changed here only; the fee app keeps the bug |
 | D-293 | Students filters are the fee app's own saved views (`SEGMENT_OF` in `students-fees/vx/admin-students.ts`), combined as the fee app combines them: either within a group (Pending or Paid up), both across groups (Pending and on a bus). The four quick chips each still show just their group; combinations come only from the phone's Filter sheet and show as chips with their own × | One definition of each set, so a chip's count and the list it opens agree. Keeping the quick chips single means nobody's desk habit changes |
 | D-294 | On a phone, leaving the amount step needs an amount the ledger can take and, for a waiver, a reason; date problems stay on the date step. An unfinished save holds its child on the last step (its sheet and banner as before), and holds another child's Next | Step 3 never opens on a problem only step 2 can fix; the recovery rules of D-271/D-275 are unchanged because the review sheet, the save and the attempt store are untouched |
+| D-295 | A child's desk load starts the installment ledger and the session's receipts beside the fee summary, not after it; the ledger is read again if it lacks a row the summary has (dues prepared during that same load). A row in the class list starts the child's load when the finger lands on it, and the tap uses it if it follows within 10 s | The load was five round trips in a row; two of them needed only the child. The re-read keeps D-271's rule that the desk never offers less than the ledger will take. A press that turns into a scroll costs one unused read |
 
 ## A whole school day, run by agents — 2026-10-14
 

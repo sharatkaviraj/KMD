@@ -196,6 +196,18 @@ async function loadSiblings(studentId: string, familyGroupId: string | null | un
 
 export async function loadDeskStudent(payload: { studentId: string; sessionLabel: string; today: string }): Promise<DeskStudentResult> {
   const { studentId, sessionLabel, today } = payload;
+  const sessionStart = sessionStartDate(sessionLabel);
+  // The ledger and the session's receipts need only the child, so they start
+  // beside the summary's own waves instead of after them (UI-95, speed). A
+  // rejection is held until awaited below, so neither can go unhandled.
+  const ledgerEarly = getWorkbookInstallmentRows({ studentId }).then(
+    (rows) => ({ rows, error: null as unknown }),
+    (error: unknown) => ({ rows: null, error }),
+  );
+  const receiptsEarly = loadStudentReceipts(studentId, sessionStart).then(
+    (rows) => ({ rows, error: null as unknown }),
+    (error: unknown) => ({ rows: null, error }),
+  );
   const summary = await getPaymentDeskStudentSummary({
     studentId,
     paymentDate: today,
@@ -212,13 +224,20 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
     };
   }
   const s = summary.student;
-  const sessionStart = sessionStartDate(sessionLabel);
   const pendingIds = new Set(s.breakdown.map((b) => b.installmentId));
-  const [ledger, receipts, siblings] = await Promise.all([
-    getWorkbookInstallmentRows({ studentId }),
-    loadStudentReceipts(studentId, sessionStart),
+  const [early, receiptsRead, siblings] = await Promise.all([
+    ledgerEarly,
+    receiptsEarly,
     loadSiblings(studentId, s.confirmedFamilyGroupId, sessionLabel),
   ]);
+  if (receiptsRead.error) throw receiptsRead.error;
+  const receipts = receiptsRead.rows!;
+  // Read again when the early read failed, or began before the summary
+  // prepared this child's missing dues and so lacks rows the summary has.
+  const ledger =
+    early.rows && s.breakdown.every((b) => early.rows!.some((r) => r.installmentId === b.installmentId))
+      ? early.rows
+      : await getWorkbookInstallmentRows({ studentId });
 
   let rows: DeskLedgerRow[] = ledger
     .filter((r) => r.sessionLabel === sessionLabel || pendingIds.has(r.installmentId))

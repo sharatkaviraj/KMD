@@ -608,7 +608,7 @@ export function StudentsScreen(props: StudentsProps) {
     const [bg, fg] = TONES[i % TONES.length];
     const meta = [row.classLabel, row.sr ? `SR ${row.sr}` : null, fees ? row.route : null].filter(Boolean).join(" · ");
     return (
-      <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
+      <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 16, 160)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap card stu-mcard">
           <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{initials(row.name)}</span>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -639,7 +639,7 @@ export function StudentsScreen(props: StudentsProps) {
     // The name gets the room: a compact line names the class (short), By class (whose heading is the class) the SR no.
     const meta = inClass ? (row.sr ? `SR ${row.sr}` : "") : classChipLabel(row.classLabel);
     return (
-      <div key={row.id} className="hs stu-swipe stu-cline" style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}>
+      <div key={row.id} className="hs stu-swipe stu-cline" style={{ animationDelay: `${Math.min(i * 12, 120)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap stu-crow">
           <span className="clip" style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600 }}>{row.name}</span>
           {meta ? <span className="num clip stu-cmeta">{meta}</span> : null}
