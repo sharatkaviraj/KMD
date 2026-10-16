@@ -49,6 +49,14 @@ export function TaskDelivery({id,language,summary,availability}:{id:string;langu
     {preview&&!unknown&&!uncertain&&<div className="space-y-3 rounded-xl bg-accent-soft p-4">
       <p className="font-semibold">{preview.name} · <span className="font-mono">+91 {preview.phone}</span></p>
       <p>{preview.title}</p><p className="text-sm">{word(text.due)}: {preview.due??word(text.none)}</p>
+      <div className="space-y-1 text-sm">
+        <p>{word(text.students)}: {preview.studentCount}</p>
+        {!!preview.fields?.length&&<div><p>{word(text.fields)}:</p><ul className="list-inside list-disc">{preview.fields.map(field=><li key={field.id}>{word(field)}</li>)}</ul></div>}
+        {preview.scope&&<p>{word(text.session)}: {preview.scope.session}</p>}
+        {preview.scope?.classLabel&&<p>{word(text.class)}: {preview.scope.classLabel}</p>}
+        {preview.scope?.subject&&<p>{word(text.subject)}: {word(preview.scope.subject)}</p>}
+        {preview.scope?.day&&<p>{word(text.day)}: {preview.scope.day}</p>}
+      </div>
       <p className="whitespace-pre-wrap text-sm">{preview.textEn}</p>
       <div className="flex flex-wrap gap-2"><button className={`${button} bg-primary text-primary-foreground`} disabled={busy||availability!=="ready"} onClick={()=>confirm("api")}>{word(text.api)}</button><button className={button} disabled={busy} onClick={()=>confirm("manual")}>{word(text.manual)}</button></div>
     </div>}

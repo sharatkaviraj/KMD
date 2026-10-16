@@ -346,6 +346,8 @@ export const photoMessages = {
 };
 
 export const taskDeliveryMessages = {
+  students: t("विद्यार्थी", "Students"), fields: t("माँगी गई जानकारी", "Requested fields"),
+  session: t("सत्र", "Session"), class: t("कक्षा", "Class"), subject: t("विषय", "Subject"), day: t("दिनांक", "Date"),
   legacy_recorded: t("पुराने संग्रह संदेश का रिकॉर्ड — पहुँचने की पुष्टि नहीं", "Earlier collection message record — delivery unverified"),
   title: t("कार्य संदेश", "Task message"), review: t("संदेश की समीक्षा करें", "Review message"),
   remind: t("स्मरण संदेश की समीक्षा करें", "Review reminder"), api: t("AiSensy से भेजें", "Send through AiSensy"),

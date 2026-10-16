@@ -18,6 +18,8 @@ import {
   messageAudienceLabels,
   sendStatusLabels,
   needsProviderReconciliation,
+  isGenericMessageTemplate,
+  isTeacherTaskCampaign,
 } from "@/modules/collection/domain/messages";
 import { waMeLink } from "@/modules/collection/domain/requests";
 import {
@@ -84,7 +86,7 @@ export default async function MessagesPage() {
   ]);
   const admin = can(staff, "jobs:run");
 
-  const active = templates.filter((template) => template.isActive);
+  const active = templates.filter(isGenericMessageTemplate);
   const queue = [...sends].sort(bySendOrder);
 
   return (
@@ -209,7 +211,7 @@ export default async function MessagesPage() {
                     </Notice>
                   ) : null}
 
-                  {send.taskId ? <Link className="mt-3 block text-sm text-primary" href={`/inbox?task=${send.taskId}`}>{primary(taskDeliveryMessages.review,language)}</Link> : needsProviderReconciliation(send) ? (
+                  {send.taskId || isTeacherTaskCampaign(send.templateCode) ? <Link className="mt-3 block text-sm text-primary" href={send.taskId?`/inbox?task=${send.taskId}`:"/inbox"}>{primary(taskDeliveryMessages.review,language)}</Link> : needsProviderReconciliation(send) ? (
                     <div className="mt-3 space-y-2">
                       <Notice tone="warning" text={ms.messagesProviderCheckHint} language={language} />
                       <form action={confirmProviderResultAction} className="space-y-2">

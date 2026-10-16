@@ -29,6 +29,20 @@ it("shows the exact recipient-language body once even when the office reads both
   await act(async()=>host.querySelector<HTMLButtonElement>("button")!.click());
   expect(host.textContent?.match(/Exact recipient wording\./g)).toHaveLength(1);
 });
+it("shows actual student count and requested fields separately from answer slots",async()=>{
+  calls.preview.mockResolvedValue({ok:true,id:"preview",digest:"digest",name:"Synthetic Teacher",phone:"9000000000",title:"Synthetic task",due:"2026-10-20",expected:4,answered:0,studentCount:2,fields:[{id:"field-photo",hi:"चित्र",en:"Portrait"},{id:"field-note",hi:"टिप्पणी",en:"Contact note"}],scope:{session:"QA",classLabel:null,subject:null,day:null}});
+  await act(async()=>root.render(<TaskDelivery id="task" language="en" availability="unavailable" summary={{pending:true,deliveries:[]}}/>));
+  await act(async()=>host.querySelector<HTMLButtonElement>("button")!.click());
+  expect(host.textContent).toContain("Students: 2");expect(host.textContent).not.toContain("Students: 4");
+  expect(host.textContent).toContain("Requested fields");expect(host.textContent).toContain("Portrait");expect(host.textContent).toContain("Contact note");expect(host.textContent).toContain("2026-10-20");
+});
+it.each(["marks","attendance"])("shows the frozen academic %s scope",async(kind)=>{
+  calls.preview.mockResolvedValue({ok:true,id:"preview",digest:"digest",name:"Synthetic Teacher",phone:"9000000000",title:"Synthetic task",studentCount:24,fields:[],scope:{session:"QA",classLabel:"Synthetic class A",subject:kind==="marks"?{hi:"गणित",en:"Synthetic Maths"}:null,day:kind==="attendance"?"2026-10-16":null}});
+  await act(async()=>root.render(<TaskDelivery id="task" language="en" availability="ready" summary={{pending:true,deliveries:[]}}/>));
+  await act(async()=>host.querySelector<HTMLButtonElement>("button")!.click());
+  expect(host.textContent).toContain("Students: 24");expect(host.textContent).toContain("Synthetic class A");expect(host.textContent).toContain("QA");
+  expect(host.textContent).toContain(kind==="marks"?"Synthetic Maths":"2026-10-16");
+});
 it("dev mock and a manual handoff are never described as accepted or delivered",async()=>{
   await act(async()=>root.render(<TaskDelivery id="task" language="hi" availability="test_mode" summary={{pending:false,deliveries:[{id:"send",state:"manual_opened",transport:"manual",phone:"9000000000",at:"2026-10-16",round:"initial",attempt:null,history:[]}]}}/>));
   expect(host.textContent).not.toMatch(/Accepted|Delivered/);expect(host.querySelector("button")).toBeNull();

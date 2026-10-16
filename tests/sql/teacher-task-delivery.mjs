@@ -19,6 +19,7 @@ const preview=()=>scalar("select vppsone.prepare_teacher_task_delivery($1,$2,'in
 const queue=p=>scalar('select vppsone.queue_teacher_task_delivery($1,$2,$3) v',[actor,p.id,p.digest]);
 const claim=(send,attempt='attempt:synthetic-one')=>scalar("select vppsone.claim_teacher_task_delivery($1,$2,$3,'aisensy',false) v",[actor,send,attempt]);
 const finish=(send,outcome,receipt=null)=>scalar('select vppsone.finish_teacher_task_delivery($1,$2,$3,$4,$5) v',[actor,send,'attempt:synthetic-one',outcome,receipt]);
+await assert.rejects(()=>db.query("insert into vppsone.message_sends(session_label,template_id,to_phone,rendered_hi,rendered_en) select 'QA',id,'9000000000','synthetic','synthetic' from vppsone.message_templates where code='vppsone_teacher_task_en_v1'"),/task_delivery:review_required/,'generic template IDs cannot queue reserved campaigns');
 await db.exec('begin');
 for(const language of ['en','hi','both']) {
   await db.query('update vppsone.staff_profiles set preferred_language=$1 where id=$2',[language,teacher]);
@@ -33,7 +34,47 @@ for(const language of ['en','hi','both']) {
   }
 }
 await db.exec('rollback');
+// A row queued before this guard existed still cannot claim a reserved campaign.
+await db.exec('begin; alter table vppsone.message_sends disable trigger teacher_task_delivery_guard');
+await db.query("insert into vppsone.message_sends(id,session_label,template_id,to_phone,rendered_hi,rendered_en,status) select $1,'QA',id,'9000000000','synthetic','synthetic','queued' from vppsone.message_templates where code='vppsone_teacher_task_en_v1'",[id(20)]);
+await db.exec('alter table vppsone.message_sends enable trigger teacher_task_delivery_guard; savepoint before_claim');
+await assert.rejects(()=>db.query("update vppsone.message_sends set status='failed',provider_message_id='attempt:synthetic-old' where id=$1",[id(20)]),/task_delivery:review_required/);
+await db.exec('rollback');
+// Review counts are actual children, not member x field answer slots.
+await db.exec('begin');
+await db.query("insert into vppsone.collection_fields(id,key,is_active,label_hi,label_en) values($1,'note',true,'Synthetic note','Synthetic note')",[id(21)]);
+await db.query('insert into vppsone.collection_request_fields values($1,$2)',[request,id(21)]);
+let scoped=await preview();assert.equal(scoped.studentCount,1);assert.equal(scoped.expected,2);assert.equal(scoped.fields.length,2);
+await db.query("update vppsone.collection_fields set label_en='Changed field meaning' where id=$1",[id(21)]);
+assert.equal((await queue(scoped)).reason,'changed','reviewed field descriptors are versioned');
+await db.exec('rollback');
+// Academic scope is returned from canonical class/subject/day and roster data.
+await db.exec('begin');
+await db.query("insert into public.classes values($1,'Synthetic class','A',null)",[id(30)]);
+await db.query("insert into vppsone.subjects values($1,'Synthetic Maths','Synthetic Maths')",[id(31)]);
+await db.query("insert into vppsone.assessments values($1,'QA','open')",[id(32)]);
+await db.query("insert into vppsone.assessment_subjects(id,assessment_id,class_id,subject_id) values($1,$2,$3,$4)",[id(33),id(32),id(30),id(31)]);
+await db.query("insert into vppsone.role_permissions values('teacher','marks:write'),('teacher','attendance:mark')");
+await db.query("update vppsone.enrolments set class_id=$1 where student_id=$2",[id(30),child]);
+await db.query("insert into vppsone.teaching_assignments values($1,'QA',$2,$3)",[teacher,id(30),id(31)]);
+await db.query("insert into vppsone.class_teachers(staff_profile_id,class_id,session_label,role,effective_from) values($1,$2,'QA','class_teacher','2026-01-01')",[teacher,id(30)]);
+for(const kind of ['marks','attendance']) {
+  const academicId=kind==='marks'?id(34):id(35);
+  await db.query("insert into vppsone.teacher_tasks(id,session_label,kind,source_key,paper_id,class_id,day,scope,assigned_staff_id,title,created_by) values($1,'QA',$2,$2,$3,$4,$5,$6,$7,'Synthetic academic task',$8)",[academicId,kind,kind==='marks'?id(33):null,kind==='attendance'?id(30):null,kind==='attendance'?'2026-10-16':null,{kind:kind==='marks'?'subject':'class',value:id(30),...(kind==='marks'?{subjectId:id(31)}:{})},teacher,actor]);
+  scoped=await scalar("select vppsone.prepare_teacher_task_delivery($1,$2,'initial') v",[actor,academicId]);
+  assert.equal(scoped.studentCount,1);assert.equal(scoped.scope.session,'QA');assert.equal(scoped.scope.classLabel,'Synthetic class A');
+  assert.equal(scoped.scope.subject?.en,kind==='marks'?'Synthetic Maths':undefined);assert.equal(scoped.scope.day,kind==='attendance'?'2026-10-16':null);
+  const academicSend=(await queue(scoped)).id;
+  await db.query("update public.classes set class_name='Changed class label' where id=$1",[id(30)]);
+  assert.equal((await claim(academicSend)).reason,'changed','queued class descriptor changed');
+  await db.query("update public.classes set class_name='Synthetic class' where id=$1",[id(30)]);
+  if(kind==='marks')await db.query("update vppsone.subjects set name_en='Changed subject' where id=$1",[id(31)]);
+  else await db.query("update vppsone.teacher_tasks set day='2026-10-17' where id=$1",[academicId]);
+  assert.equal((await queue(scoped)).reason,'changed','reviewed subject/day changed');
+}
+await db.exec('rollback');
 let p=await preview();
+assert.equal(p.studentCount,1);assert.equal(p.fields[0].en,'Synthetic portrait');
 assert.equal(p.phone,'9000000000');assert.equal(p.name,'Synthetic Teacher');
 assert.equal(JSON.stringify(p).includes('synthetic-private-token'),false,'no capability in preview');
 await db.query("update vppsone.staff_profiles set preferred_language='en' where id=$1",[teacher]);
@@ -52,7 +93,7 @@ assert.equal((await claim(send)).reason,'changed','language changed after queue'
 await db.query("update vppsone.staff_profiles set preferred_language='both' where id=$1",[teacher]);
 assert.equal((await queue(p)).id,send,'double confirmation reuses row');
 assert.equal((await queue(await preview())).id,send,'fresh same-round preview reuses row');
-await db.query("insert into vppsone.collection_fields values($1,'note',null,true)",[id(7)]);
+await db.query("insert into vppsone.collection_fields(id,key,fee_column,is_active) values($1,'note',null,true)",[id(7)]);
 await db.query("insert into vppsone.collection_request_fields values($1,$2)",[request,id(7)]);
 assert.equal((await claim(send)).reason,'changed','field list changes invalidate the reviewed message');
 await db.query('delete from vppsone.collection_request_fields where field_id=$1',[id(7)]);
@@ -96,7 +137,7 @@ assert.equal(await scalar('select vppsone.mark_teacher_task_opened($1,null,null,
 assert.ok((await scalar('select vppsone.teacher_task_delivery_summary($1,$2) v',[actor,task])).openedAt);
 // Ordinary authenticated readers cannot read task delivery rows or invoke RPCs.
 await db.query("insert into vppsone.collection_requests(id,token,status) values($1,'synthetic-unmanaged','open')",[id(8)]);
-for(const [sendId,req] of [[id(9),request],[id(10),id(8)]]) await db.query("insert into vppsone.message_sends(id,session_label,template_id,to_phone,request_id,rendered_hi,rendered_en) select $1,'QA',id,'9000000000',$2,'synthetic','synthetic' from vppsone.message_templates where code='vppsone_teacher_task_both_v1'",[sendId,req]);
+for(const [sendId,req] of [[id(9),request],[id(10),id(8)]]) await db.query("insert into vppsone.message_sends(id,session_label,template_id,to_phone,request_id,rendered_hi,rendered_en) select $1,'QA',id,'9000000000',$2,'synthetic','synthetic' from vppsone.message_templates where code='synthetic_collection_v1'",[sendId,req]);
 await assert.rejects(()=>db.query("update vppsone.message_sends set status='failed',provider_message_id='attempt:legacy' where id=$1",[id(9)]),/task_delivery:review_required/);
 await assert.rejects(()=>db.query("update vppsone.message_sends set status='sent',sent_at=now() where id=$1",[id(9)]),/task_delivery:review_required/);
 assert.equal(await scalar("select vppsone.reconcile_teacher_task_delivery($1,$2,null,'not_sent','Synthetic incorrect reconciliation') v",[actor,id(9)]),false,'a known legacy draft cannot be reconciled');

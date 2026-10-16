@@ -1,5 +1,7 @@
 # Task 3 — reviewed teacher-task delivery
 
+The initial implementation evidence below is retained as recorded. The appended **Fix round 1** section supersedes its migration hash and records the two Important review fixes.
+
 Implemented locally on `codex/sampark-teacher-workflows`, based on `e4d5c84423fbe3fd4d5389d387dc2ef28968a112`. Commit title: `feat: add reviewed teacher task delivery and reconciliation`. Independent review and integrated Task 4 checks remain with the controller. No remote migration, campaign creation, credential/configuration change, real message, push, PR, merge or deployment was performed. All recipients, capabilities and receipts exercised here were synthetic; transports were mocked.
 
 ## Implemented flow and interfaces
@@ -159,3 +161,65 @@ Existing production changes: collection `message-provider.ts`, `messages-repo.ts
 Self-review checked server/client boundaries, actual destination freezing, six language mappings, current permission/phone/credentials, strict provider classification, durable finish uncertainty, historical legacy visibility/refusal, managed manual issuance, pre-adoption unknown, and canonical opened/submitted/approved meanings. Important corrections found in that review are captured in the RED evidence above. UI uses existing card/accent/primary/border tokens and bilingual setup strings. Installed Next.js server-action and route-handler docs were read before affected API changes.
 
 Limits: the guarantee is a single durable claim for one reviewed task/version/round until a known result or attributed reconciliation, not exactly-once delivery outside the database. Different reviewed versions are different rows; reminders have school-day rounds. Database validation linearizes at claim commit; subsequent authority changes cannot recall a transport already authorized or sent. Already copied URLs and external chats cannot be revoked by these issuance controls; current task entry checks still validate credentials. Human not-sent reconciliation can be wrong and is retained as attributed evidence. No actual provider acceptance, delivery callback, live deployment or school acceptance is claimed. Real delivery stays unavailable until separately verified setup, and all migrations remain unapplied.
+
+## Fix round 1 — two Important review findings
+
+Based on `1b2a882f10653da3d2944cf46d9a7d778d596caf` and the saved independent review. Commit title: `fix: reserve task campaigns and show reviewed delivery scope`. The two Minor findings remain with Task 4 as instructed. The user's subsequent steering intentionally leaves AiSensy template/campaign setup pending in Integrations; that setup is not a release blocker for the remaining application work. Reviewed manual sharing remains available without API configuration. No campaign/configuration, external message, migration or release action occurred in this fix round.
+
+**Important 1:** Task campaigns are reserved to the reviewed path. `isTeacherTaskCampaign` reserves the `*_teacher_task` namespace, including names produced by the optional campaign prefix. `isGenericMessageTemplate` excludes them from the Messages page and from the actual `QueueMessageForm` options. `queueMessageAction` refuses a forged generic form; `queueSend` refuses a reserved template directly; ordinary `dispatch` refuses both missing and forged task metadata before claiming or transport. Existing generic queued rows with a task campaign route to Needs you instead of displaying normal send/manual controls. The real adapter also refuses a reserved campaign without a task identity, URL suffix and three body parameters, and refuses a task DTO with an unrelated campaign. Valid task DTOs still require the original task configuration/test-mode gate and authoritative RPC claim.
+
+The existing `guard_teacher_task_delivery()` additionally resolves the template ID and refuses any INSERT/UPDATE using a reserved task campaign with NULL task_id. This protects authoritative queue/claim writes even when a stale caller omitted or misrepresented the template code. The existing exact-row RPC context guard still protects non-NULL task rows. An old queued reserved row cannot claim merely because it predates the new predicate. Historical reads remain possible. Unrelated generic composition/dispatch remains usable, with regression coverage.
+
+**Important 2:** `teacher_task_delivery_snapshot` now returns `studentCount`, `fields:[{id,hi,en}]`, and `scope:{session,classLabel,subject:{hi,en}|null,day}`. Collection studentCount counts members once; the separate expected-answer value remains members × fields. Academic counts use the canonical paper/register roster. Field descriptors come from the requested field records; academic class/subject/date scope comes from the canonical source and display records. The delivery approval renders the actual count, bilingual field labels, session, class, subject and date where applicable, alongside the existing recipient, exact number and due date. These descriptors and counts, plus canonical academic IDs, are part of the review fingerprint and stored preview, so changes before enqueue or claim require a fresh review. No child names or capabilities were added to the preview.
+
+Exact SQL delta: only the bodies of existing new functions `guard_teacher_task_delivery()` and `teacher_task_delivery_snapshot(uuid)` changed in the still-unapplied migration. Counts remain **six columns, one index, one restrictive policy, one trigger, eleven functions/eight service-role callable grants, and six template rows**. No new schema objects, signatures, grants, data backfills, lock statements or lock order. The snapshot adds read-only display lookups of existing `public.classes` (`class_name`, `section`, `stream_name`) and `vppsone.subjects` (`name_hi`, `name_en`), plus existing collection field labels. It does not modify any public/fee object or row. Synthetic test fixtures add their minimal counterparts only inside the disposable test database.
+
+Current migration SHA256: `A8567AA9A513DB58059084BC73D351533E8CCC2BB013733C18B5C3C0EDEB71EB`. This supersedes the initial hash above. PGlite executed this revision. PostgreSQL concurrency was not rerun in this round per the focused instruction: the claim/enqueue locks, durable stamping and finish logic are unchanged. The previous observed-lock runs prove their exact prior SQL revision; they are not represented as a new run of this hash.
+
+RED evidence:
+
+```text
+node node_modules/vitest/vitest.mjs run tests/teacher-task-delivery-reserved.test.ts tests/teacher-task-delivery-ui.test.tsx
+2 files failed; 7 failed / 5 passed
+generic FormData action: expected 'saved' to be 'error'
+direct queueSend: promise resolved 'synthetic-send' instead of rejecting
+old generic queued dispatch: received {ok:true}, expected {ok:false,outcome:'rejected'}
+direct adapter: received {ok:true}, expected {ok:false,outcome:'rejected'}
+collection preview: did not contain 'Students: 2'
+marks and attendance previews: did not contain 'Students: 24'
+
+node node_modules/vitest/vitest.mjs run tests/teacher-task-delivery-compose.test.tsx
+1 failed: generic selector included all six reserved task campaign options
+
+node tests/sql/teacher-task-delivery.mjs
+Missing expected rejection: generic template IDs cannot queue reserved campaigns
+```
+
+The expanded academic SQL fixture then caught `record "s" has no field "name_hi"`, a new subject-query alias colliding with the existing staff row variable. The alias was corrected before GREEN. The first typecheck caught incomplete new test DTOs; these were completed rather than weakening the production types.
+
+Final focused checks:
+
+```text
+node node_modules/vitest/vitest.mjs run tests/teacher-task-delivery-reserved.test.ts tests/teacher-task-delivery-compose.test.tsx tests/teacher-task-delivery-ui.test.tsx tests/teacher-task-delivery-actions.test.ts tests/teacher-task-delivery-provider.test.ts tests/teacher-task-delivery-dispatch.test.ts tests/teacher-task-delivery-legacy.test.ts tests/provider-dispatch-safety.test.ts tests/provider-adapter-recovery.test.ts tests/provider-route-withdrawal.test.ts tests/staff-notices.test.ts tests/message-provider.test.ts
+Test Files 12 passed (12); Tests 103 passed (103); 25.60 seconds; exit 0
+
+node tests/sql/teacher-task-delivery.mjs
+PASS: reviewed phone and capability checks, canonical completion, dedupe,
+unknown/manual gate, attributed reconciliation, history,
+origin-independent opened evidence and SQL access controls.
+exit 0
+
+node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit
+exit 0; no diagnostics
+
+$paths = @((git diff --name-only) + (git ls-files --others --exclude-standard)) | Where-Object { $_ -match '\.(ts|tsx|mjs)$' }
+node node_modules/eslint/bin/eslint.js @paths
+exit 0; no ESLint diagnostics
+
+git diff --check
+exit 0
+```
+
+The SQL fixture also verifies one child with two requested fields has studentCount=1 and expected=2, changed field wording invalidates approval, both academic scope payloads are correct, changed class descriptors block a queued claim, and changed subject/date invalidates enqueue. The generic action tests cover all six campaigns plus a prefixed name with absent task-contract configuration, mocked ordinary AiSensy credentials, and zero fetch calls; an unrelated generic template still queues. The actual composition selector test retains an unrelated template and removes all six reserved options. No real transport was invoked.
+
+Self-review: reservation applies in UI and server/database boundaries; old queued rows do not rely on taskId being present in a browser DTO. Display metadata is frozen and rechecked, while answer totals retain their prior meaning. Existing manual fallback, strict task provider semantics and legacy unrelated behavior pass covering tests. No full suite or real PostgreSQL server was started in this round. Controller-owned untracked files are preserved. Independent re-review and Task 4 remain; AiSensy setup is intentionally pending, not a release prerequisite for manual workflows.

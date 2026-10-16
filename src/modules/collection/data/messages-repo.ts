@@ -7,6 +7,7 @@ import {
   mayDispatch,
   isConfirmedProviderRejection,
   needsProviderReconciliation,
+  isTeacherTaskCampaign,
   render,
   type MessageAudience,
   type MessageSend,
@@ -221,6 +222,7 @@ export async function queueSend(input: {
   sessionLabel: string;
   requestedByStaffId: string;
 }): Promise<string> {
+  if (isTeacherTaskCampaign(input.template.code)) throw new Error("Task campaigns require reviewed task delivery.");
   const renderedHi = render(input.template.bodyHi, input.queue.variables);
   const renderedEn = render(input.template.bodyEn, input.queue.variables);
 
@@ -372,7 +374,7 @@ export async function confirmDispatchReceived(id: string, attempt: string | null
  * would lose the sentence that says what to fix.
  */
 export async function dispatch(send: MessageSend): Promise<DispatchResult> {
-  if (send.taskId||(send.requestId&&(await managedTasksForRequests([send.requestId])).has(send.requestId))) return { ok: false, outcome:"rejected", error: "Use reviewed task delivery in Needs you." };
+  if (isTeacherTaskCampaign(send.templateCode)||send.taskId||(send.requestId&&(await managedTasksForRequests([send.requestId])).has(send.requestId))) return { ok: false, outcome:"rejected", error: "Use reviewed task delivery in Needs you." };
   if (needsProviderReconciliation(send)) return { ok: false, error: "Check the provider result before sending again." };
   if (send.audience === "parent") {
     // A parent message goes from the app only under the school's switch, a

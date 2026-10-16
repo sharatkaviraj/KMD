@@ -25,6 +25,9 @@ select code,label_hi,label_en,body,body,array['teacher','task','due'],true,'staf
 
 create function vppsone.guard_teacher_task_delivery() returns trigger language plpgsql security definer set search_path='' as $$
 begin
+  if new.task_id is null and exists(select 1 from vppsone.message_templates where id=new.template_id and code ~ '^[A-Za-z0-9_-]+_teacher_task(_|$)') then
+    raise exception 'task_delivery:review_required';
+  end if;
   if new.task_id is null and new.request_id is not null
     and current_setting('vppsone.task_delivery',true) is distinct from new.id::text
     and exists(select 1 from vppsone.teacher_tasks where request_id=new.request_id)
@@ -49,6 +52,7 @@ $$;
 
 create function vppsone.teacher_task_delivery_snapshot(p_id uuid) returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare t vppsone.teacher_tasks%rowtype; s vppsone.staff_profiles%rowtype; phone text; expected int:=0; answered int:=0; approved int:=0; rejected int:=0; pending boolean; opened timestamptz; request_token text; scope_version text;
+  student_count int:=0; fields jsonb:='[]'; review_scope jsonb; class_id uuid; subject_id uuid; class_label text; subject jsonb;
 begin
   select * into t from vppsone.teacher_tasks where id=p_id;
   if not found or not vppsone.teacher_task_access(t.id,t.assigned_staff_id,null) then return null; end if;
@@ -58,6 +62,10 @@ begin
   if length(phone)=11 and left(phone,1)='0' then phone:=substr(phone,2); end if;
   opened:=t.opened_at;
   if t.kind='collection' then
+    select count(*)::int into student_count from vppsone.collection_request_members where request_id=t.request_id;
+    select coalesce(jsonb_agg(jsonb_build_object('id',f.id,'hi',f.label_hi,'en',f.label_en) order by f.id),'[]') into fields
+      from vppsone.collection_request_fields rf join vppsone.collection_fields f on f.id=rf.field_id where rf.request_id=t.request_id;
+    select r.class_label into class_label from vppsone.collection_requests r where r.id=t.request_id;
     select count(*)::int into expected from vppsone.collection_request_members m cross join vppsone.collection_request_fields f where m.request_id=t.request_id and f.request_id=t.request_id;
     select count(*)::int,count(*) filter(where a.status='accepted')::int,count(*) filter(where a.status='rejected')::int into answered,approved,rejected
       from vppsone.collection_submissions a join vppsone.collection_request_members m on m.request_id=a.request_id and m.student_id=a.student_id
@@ -68,15 +76,23 @@ begin
     pending:=answered<expected;
     select md5(coalesce((select string_agg(m.student_id::text,',' order by m.student_id) from vppsone.collection_request_members m where m.request_id=t.request_id),'')||':'||coalesce((select string_agg(f.field_id::text,',' order by f.field_id) from vppsone.collection_request_fields f where f.request_id=t.request_id),'')) into scope_version;
   elsif t.kind='marks' then
-    select a.entry_status is distinct from 'submitted' into pending from vppsone.assessment_subjects a where a.id=t.paper_id;
-    select md5(string_agg(r::text,',' order by r)) into scope_version from vppsone.paper_roster(t.paper_id) r;
+    select a.entry_status is distinct from 'submitted',a.class_id,a.subject_id into pending,class_id,subject_id from vppsone.assessment_subjects a where a.id=t.paper_id;
+    select count(*)::int,md5(string_agg(r::text,',' order by r)) into student_count,scope_version from vppsone.paper_roster(t.paper_id) r;
+    select jsonb_build_object('hi',su.name_hi,'en',su.name_en) into subject from vppsone.subjects su where su.id=subject_id;
   else
     pending:=not exists(select 1 from vppsone.attendance_registers a where a.session_label=t.session_label and a.class_id=t.class_id and a.day=t.day and a.period is null and a.revision>0);
-    select md5(string_agg(r::text,',' order by r)) into scope_version from vppsone.attendance_roster(t.session_label,t.class_id,t.day) r;
+    class_id:=t.class_id;
+    select count(*)::int,md5(string_agg(r::text,',' order by r)) into student_count,scope_version from vppsone.attendance_roster(t.session_label,t.class_id,t.day) r;
   end if;
+  if class_id is not null then
+    -- Display metadata only; no public/fee write or schema change.
+    select concat_ws(' ',c.class_name,nullif(c.section,''),nullif(c.stream_name,'')) into class_label from public.classes c where c.id=class_id;
+  end if;
+  review_scope:=jsonb_build_object('session',t.session_label,'classLabel',class_label,'subject',subject,'day',t.day);
   return jsonb_build_object('taskId',t.id,'teacherId',t.assigned_staff_id,'phone',phone,'name',s.display_name,'title',t.title,'due',t.due_date,'language',coalesce(s.preferred_language::text,'both'),
+    'studentCount',student_count,'fields',fields,'scope',review_scope,
     'pending',coalesce(pending,false),'expected',expected,'answered',answered,'approved',approved,'rejected',rejected,'openedAt',opened,
-    'version',md5(jsonb_build_array(t.token,request_token,t.assigned_staff_id,t.scope,scope_version,t.title,t.due_date,phone,s.updated_at,s.display_name,s.preferred_language)::text));
+    'version',md5(jsonb_build_array(t.token,request_token,t.assigned_staff_id,t.scope,scope_version,t.title,t.due_date,phone,s.updated_at,s.display_name,s.preferred_language,student_count,fields,review_scope,t.kind,t.paper_id,class_id,subject_id)::text));
 end; $$;
 
 create function vppsone.mark_teacher_task_opened(p_id uuid,p_staff uuid default null,p_token text default null,p_request_token text default null) returns boolean language plpgsql security definer set search_path='' as $$

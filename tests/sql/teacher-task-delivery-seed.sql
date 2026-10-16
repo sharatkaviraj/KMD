@@ -4,7 +4,8 @@ insert into vppsone.staff_profiles(id,user_id,role,is_active,display_name,whatsa
 insert into vppsone.role_permissions values('admin','collection:manage');
 insert into public.students(id,full_name) values('10000000-0000-4000-8000-000000000003','Synthetic Student');
 insert into vppsone.enrolments(student_id,session_label,status) values('10000000-0000-4000-8000-000000000003','QA','enrolled');
-insert into vppsone.collection_fields values('10000000-0000-4000-8000-000000000004','student_photo',null,true);
+insert into vppsone.collection_fields(id,key,fee_column,is_active,label_hi,label_en) values('10000000-0000-4000-8000-000000000004','student_photo',null,true,'Synthetic portrait','Synthetic portrait');
+insert into vppsone.message_templates(code,label_hi,label_en,body_hi,body_en,variables,has_url_button,audience,is_active,sort_order) values('synthetic_collection_v1','Synthetic collection','Synthetic collection','Synthetic','Synthetic','{}',false,'staff',true,0);
 insert into vppsone.collection_requests(id,session_label,title_en,assigned_staff_id,token,status) values('10000000-0000-4000-8000-000000000005','QA','Synthetic task','10000000-0000-4000-8000-000000000002','synthetic-request-token','open');
 insert into vppsone.collection_request_fields values('10000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000004');
 insert into vppsone.collection_request_members(request_id,student_id) values('10000000-0000-4000-8000-000000000005','10000000-0000-4000-8000-000000000003');

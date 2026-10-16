@@ -2,7 +2,7 @@ import "server-only";
 
 import { getOptionalEnvVar, getSiteUrl, getVppsOneEnvironment } from "@/platform/env";
 import { classifyResponse, type TransportOutcome } from "@/modules/staff-notices/domain/notices";
-import type { MessageSend } from "@/modules/collection/domain/messages";
+import { isTeacherTaskCampaign, type MessageSend } from "@/modules/collection/domain/messages";
 import {
   mockOutcomeFor,
   mockProviderMessageId,
@@ -65,6 +65,8 @@ const aisensyProvider: MessageProvider = {
   id: "aisensy",
 
   async send(send) {
+    if (isTeacherTaskCampaign(send.templateCode) && (!send.taskId || !send.buttonSuffix || !Array.isArray(send.variables) || send.variables.length !== 3)) return { ok: false, outcome: "rejected", error: "Task campaigns require reviewed task delivery." };
+    if (send.taskId && !isTeacherTaskCampaign(send.templateCode)) return { ok: false, outcome: "rejected", error: "Invalid task campaign." };
     if (send.taskId && taskDeliveryAvailability() !== "ready") return { ok: false, outcome: "rejected", error: "Task delivery is unavailable or in test mode." };
     const apiKey = getOptionalEnvVar("AISENSY_API_KEY");
 

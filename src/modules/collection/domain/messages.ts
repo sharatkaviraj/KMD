@@ -53,6 +53,15 @@ export type MessageTemplate = {
   sortOrder: number;
 };
 
+/** The task namespace belongs exclusively to the reviewed task RPC/dispatcher. */
+export function isTeacherTaskCampaign(code: string | undefined): boolean {
+  return /^[A-Za-z0-9_-]+_teacher_task(?:_|$)/.test(code ?? "");
+}
+
+export function isGenericMessageTemplate(template: MessageTemplate): boolean {
+  return template.isActive && !isTeacherTaskCampaign(template.code);
+}
+
 export type MessageSend = {
   /** Only the reviewed task RPC path can create these sends. Never a browser input. */
   taskId?: string;

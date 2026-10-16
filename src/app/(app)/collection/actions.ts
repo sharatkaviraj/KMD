@@ -42,7 +42,7 @@ import {
 } from "@/modules/collection/domain/requests";
 import { decideSchema, decisionSentence } from "@/modules/collection/domain/review";
 import { assertNotPreviewing } from "@/vx/view-as";
-import { needsProviderReconciliation } from "@/modules/collection/domain/messages";
+import { needsProviderReconciliation, isGenericMessageTemplate } from "@/modules/collection/domain/messages";
 import {
   checkDocument,
   documentKinds,
@@ -382,7 +382,7 @@ export async function queueMessageAction(
   const template = (await listTemplates()).find(
     (entry) => entry.id === parsed.data.templateId,
   );
-  if (!template) return failure(m.notSaved);
+  if (!template || !isGenericMessageTemplate(template)) return failure(m.notSaved);
 
   // A number somebody reported as wrong takes no new parent message until an
   // administrator clears it (P9, D-232). Staff messages are not routed by it.

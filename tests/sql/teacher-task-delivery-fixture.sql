@@ -1,5 +1,8 @@
 -- Minimal prior-migration objects for the real delivery migration, no production data.
 alter table vppsone.staff_profiles add phone text, add whatsapp_phone text, add updated_at timestamptz default now(), add preferred_language text default 'both';
+alter table vppsone.collection_fields add label_hi text default 'Synthetic field', add label_en text default 'Synthetic field';
+create table public.classes(id uuid primary key,class_name text,section text,stream_name text);
+create table vppsone.subjects(id uuid primary key,name_hi text,name_en text);
 alter table vppsone.collection_requests add opened_at timestamptz;
 alter table vppsone.assessment_subjects add entry_status text default 'draft';
 create table vppsone.attendance_registers(id uuid primary key,session_label text,class_id uuid,day date,period int,revision int);
