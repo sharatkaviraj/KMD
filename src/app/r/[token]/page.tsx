@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { collectionDraftScope } from "@/modules/teacher-tasks/data/draft-scope";
 import { notFound } from "next/navigation";
 
 import { AuthoredText } from "@/ui/authored-text";
@@ -112,7 +112,7 @@ export default async function TokenRequestPage(props: PageProps<"/r/[token]">) {
       ) : null}
 
       <RequestForm
-        draftScope={createHash("sha256").update(token).digest("hex")}
+        draftScope={collectionDraftScope({requestId:request.id,actorId:null,taskToken:null,requestToken:token,session:request.sessionLabel,studentIds:roll.map(r=>r.studentId),fieldIds:request.fields.map(f=>f.id)})}
         sessionLabel={request.sessionLabel}
         token={token}
         fields={request.fields}

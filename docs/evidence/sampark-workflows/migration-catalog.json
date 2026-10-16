@@ -6,7 +6,7 @@
   "migrations": [
     {
       "file": "20261016070000_teacher_tasks.sql",
-      "sha256": "9a712c301e4ca0dcfef922f6541cd733ea2cf4300f7f463cb4c6a1eb605e612f",
+      "sha256": "5d39c31a0761af0a9ab64ac9376015ccb1900fcf75df750f29da94cca56b0b32",
       "functions": [
         {
           "name": "create_teacher_tasks",

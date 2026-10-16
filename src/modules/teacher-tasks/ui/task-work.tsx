@@ -13,9 +13,10 @@ import type { TaskSaveResult } from "../data/save";
 import { academicDraftValue, type AcademicDraft } from "../domain/academic-draft";
 import { useAcademicDraft } from "./use-academic-draft";
 import { saveTeacherCollectionAction, saveTeacherTaskAction } from "@/app/(app)/teach/tasks/actions";
+import type { PhotoCredential } from "@/modules/collection/domain/profile-photo";
 
-export function TaskCollectionForm({ id, request, roll, language, token }: {
-  id: string; request: CollectionRequest; roll: RollRow[]; language: Language; token?: string;
+export function TaskCollectionForm({ id, request, roll, language, token, draftScope, photoCredential }: {
+  id: string; request: CollectionRequest; roll: RollRow[]; language: Language; token?: string; draftScope: string; photoCredential?: PhotoCredential;
 }) {
   const submit = async (previous: LinkState, form: FormData): Promise<LinkState> => {
     if (!token) return saveTeacherCollectionAction(id, previous, form);
@@ -30,7 +31,7 @@ export function TaskCollectionForm({ id, request, roll, language, token }: {
   };
   return <>
     <p className="mb-4 rounded-xl bg-accent-soft p-3 text-sm">{primary(m.taskApprovalNote, language)}</p>
-    <RequestForm photoCredential={{kind:"task",id,token}} token="" draftScope={`task:${id}`} sessionLabel={request.sessionLabel} fields={request.fields} roll={roll} language={language} submitAction={submit} />
+    <RequestForm photoCredential={photoCredential??{kind:"task",id,token}} token="" draftScope={draftScope} sessionLabel={request.sessionLabel} fields={request.fields} roll={roll} language={language} submitAction={submit} />
   </>;
 }
 

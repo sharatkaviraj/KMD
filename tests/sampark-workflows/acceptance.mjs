@@ -79,7 +79,7 @@ try {
     await go("attendance");await page.locator("select").selectOption("leave");await page.reload();await button("Restore and review").click();await expect(page.locator("select")).toHaveValue("leave");
     await button("Review and save").click();await button("Review and save").last().click();await shot("attendance-saved");
     await go("integrations","&lang=hi");await expect(page.getByText("सेटअप बाकी है",{exact:true})).toBeVisible();await shot("integrations-pending-hi");
-    assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
+    assert.deepEqual(external,[]);assert.deepEqual(errors,[]);assert.deepEqual(warnings,[]);
     results.push({width,passed:true,warnings,externalRequests:external.length,pageErrors:errors.length});console.log(`PASS: ${width}px production Settings/Students/Student360/Staff/Login/Task components; pending/manual, preview edit/create retry, photo cancel/exact durable retry, academics login/link refusal/reload/replay, provider unknown/reconcile/completed checks.`);
     await context.close();
   }

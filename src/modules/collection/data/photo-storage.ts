@@ -14,6 +14,11 @@ export async function preparePhoto(bytes: ArrayBuffer): Promise<PreparedPhoto | 
   if (!bytes.byteLength || bytes.byteLength > 8 * 1024 * 1024) return "too_large";
   try {
     const input = Buffer.from(bytes);
+    // Refuse non-raster containers before invoking any decoder (including SVG).
+    const jpeg = input[0] === 0xff && input[1] === 0xd8 && input[2] === 0xff;
+    const png = input.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+    const webp = input.toString("ascii",0,4) === "RIFF" && input.toString("ascii",8,12) === "WEBP";
+    if (!jpeg && !png && !webp) return "wrong_type";
     const metadata = await sharp(input, { limitInputPixels: 40_000_000, failOn: "warning" }).metadata();
     if (!metadata.format || !["jpeg", "png", "webp"].includes(metadata.format) || (metadata.pages ?? 1) > 1) return "wrong_type";
     for (const quality of [78, 68, 58, 48, 40]) {

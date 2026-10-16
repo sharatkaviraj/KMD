@@ -1,6 +1,7 @@
 export type PhotoCredential =
   | { kind: "task"; id: string; token?: string }
   | { kind: "request"; token: string }
+  | { kind: "assigned-request"; id: string; generation: string }
   | { kind: "student"; id: string }
   | { kind: "staff"; id?: string };
 export type PhotoSaveResult = { ok: true } | { ok: false; reason: string };

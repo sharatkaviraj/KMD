@@ -11,6 +11,7 @@ import { resolveAssignedRequest, resolveToken, rollForRequest } from "./requests
 import type { CollectionRequest } from "../domain/requests";
 import type { PhotoCredential, PhotoEditorContext } from "../domain/profile-photo";
 import { PHOTOS_BUCKET } from "./photo-storage";
+import { assignedRequestGeneration } from "@/modules/teacher-tasks/data/draft-scope";
 
 export const PHOTO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type PhotoAuthority = { actorId: string; target: string; session: string; credential: PhotoCredential; request: CollectionRequest | null; scope: string; staff: boolean };
@@ -33,6 +34,9 @@ async function assertCurrentPhotoRequest(auth: PhotoAuthority): Promise<void> {
     if (auth.credential.token !== auth.request.token) throw new Error("not_permitted");
     const current = await resolveToken(auth.credential.token);
     if (!current || current.id !== auth.request.id || current.token !== auth.request.token) throw new Error("not_permitted");
+  } else if (auth.credential.kind === "assigned-request") {
+    const current = await resolveAssignedRequest(auth.credential.id, auth.actorId);
+    if (!current || current.token !== auth.request.token || auth.credential.generation !== assignedRequestGeneration(auth.actorId,current.id,current.token)) throw new Error("not_permitted");
   } else throw new Error("not_permitted");
   const generation = await db.from("collection_requests").select("id")
     .eq("id", auth.request.id).eq("token", auth.request.token)
@@ -75,7 +79,11 @@ export async function photoAuthority(credential: PhotoCredential, studentId?: st
         credential = { kind: "task", id: result.data };
       }
     }
-    if (credential.kind === "task") {
+    if (credential.kind === "assigned-request") {
+      if (!PHOTO_UUID.test(credential.id)) throw new Error("not_permitted");
+      request = await resolveAssignedRequest(credential.id, actor.id);
+      if (!request || credential.generation !== assignedRequestGeneration(actor.id,request.id,request.token)) throw new Error("not_permitted");
+    } else if (credential.kind === "task") {
       const task = await resolveTask({ id: credential.id, staffId: actor.id });
       if (task?.kind === "collection") request = await resolveAssignedRequest(task.request_id!, actor.id);
       if (!request) throw new Error("not_permitted");

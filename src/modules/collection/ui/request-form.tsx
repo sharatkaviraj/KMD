@@ -42,7 +42,11 @@ function isRequestDraft(value: unknown): value is RequestDraft {
  * Validation runs here for instant feedback and again on the server, which is
  * the half that counts — see the action.
  */
-export function RequestForm({
+export function RequestForm(props: Parameters<typeof RequestEditor>[0]) {
+  return <RequestEditor key={`${props.sessionLabel}:${props.draftScope}`} {...props} />;
+}
+
+function RequestEditor({
   token,
   draftScope,
   sessionLabel,

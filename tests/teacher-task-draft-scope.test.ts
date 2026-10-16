@@ -1,10 +1,17 @@
 import { expect, it, vi } from "vitest";
 vi.mock("server-only",()=>({}));
-import { academicDraftScope } from "@/modules/teacher-tasks/data/draft-scope";
+import { academicDraftScope, collectionDraftScope } from "@/modules/teacher-tasks/data/draft-scope";
 import { academicDraftValue, validAcademicDraft } from "@/modules/teacher-tasks/domain/academic-draft";
 import type { AcademicWork } from "@/modules/teacher-tasks/data/repo";
 const id=(n:number)=>`10000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
 const input={taskId:id(1),actorId:id(2),token:"synthetic-generation",session:"QA",scope:{kind:"subject",value:id(3),subjectId:id(4)},studentIds:[id(5),id(6)]};
+it("isolates scalar drafts by actor, public capability, request generation, session, members and fields",()=>{
+  const base={requestId:id(1),actorId:id(2),taskToken:null,requestToken:"original",session:"QA",studentIds:[id(3),id(4)],fieldIds:[id(5)]};
+  const scope=collectionDraftScope(base);expect(scope).toMatch(/^[a-f0-9]{64}$/);
+  expect(collectionDraftScope({...base,studentIds:[id(4),id(3)]})).toBe(scope);
+  for(const change of [{actorId:null,taskToken:"public"},{actorId:id(6)},{requestToken:"rotated"},{session:"next"},{studentIds:[id(3)]},{fieldIds:[id(6)]}])expect(collectionDraftScope({...base,...change})).not.toBe(scope);
+  expect(collectionDraftScope({...base,actorId:null,taskToken:"first"})).not.toBe(collectionDraftScope({...base,actorId:null,taskToken:"second"}));
+});
 it("derives an opaque scope isolated by actor, task, capability, session, and roster",()=>{
   const scope=academicDraftScope(input);expect(scope).toMatch(/^[a-f0-9]{64}$/);
   expect(academicDraftScope({...input,studentIds:[...input.studentIds].reverse()})).toBe(scope);

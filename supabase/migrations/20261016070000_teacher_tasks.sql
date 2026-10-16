@@ -260,7 +260,16 @@ declare t vppsone.teacher_tasks%rowtype;
 begin
   select * into t from vppsone.teacher_tasks where id=p_id for update;
   if not found or not vppsone.teacher_task_access(p_id,p_staff,p_token) then return jsonb_build_object('ok',false,'reason','not_permitted'); end if;
-  if t.kind='marks' then
+  if t.kind='collection' then
+    if p->>'kind' is distinct from 'collection' or p->>'request_id' is distinct from t.request_id::text then
+      return jsonb_build_object('ok',false,'reason','not_permitted'); end if;
+    -- Task then request: retain the original public capability across every
+    -- wait, and never substitute a replacement assignee's request token.
+    perform 1 from vppsone.collection_requests where id=t.request_id for update;
+    if not found or not vppsone.teacher_task_access(p_id,p_staff,p_token) then
+      return jsonb_build_object('ok',false,'reason','not_permitted'); end if;
+    return jsonb_build_object('ok',true,'written',vppsone.record_collection_answers(t.request_id,p->>'request_token',p->'answers'));
+  elsif t.kind='marks' then
     if p->>'paper_id' is distinct from t.paper_id::text or p->>'kind' not in ('draft','submit','correction') then return jsonb_build_object('ok',false,'reason','not_permitted'); end if;
     return vppsone.save_marks(p||jsonb_build_object('actor_staff_id',t.assigned_staff_id));
   elsif t.kind='attendance' then
@@ -281,6 +290,7 @@ begin
   if found and not vppsone.teacher_task_access(t.id,t.assigned_staff_id,null) then raise exception 'tasks:not_permitted'; end if;
   select * into r from vppsone.collection_requests where id=p_request for update;
   if not found or r.status<>'open' or r.archived_at is not null or r.token is distinct from p_token then raise exception 'tasks:not_permitted'; end if;
+  if t.id is not null and not vppsone.teacher_task_access(t.id,t.assigned_staff_id,null) then raise exception 'tasks:not_permitted'; end if;
   if r.assigned_staff_id is not null and not exists(select 1 from vppsone.staff_profiles s where s.id=r.assigned_staff_id and s.is_active) then raise exception 'tasks:not_permitted'; end if;
   if jsonb_typeof(p_answers) is distinct from 'array' or jsonb_array_length(p_answers)>40000 then raise exception 'tasks:bad_request'; end if;
   if exists(select 1 from jsonb_array_elements(p_answers) a where
@@ -304,6 +314,14 @@ begin
     where s.id=p_actor and s.is_active and rp.permission='collection:manage') then raise exception 'tasks:not_permitted'; end if;
   select * into t from vppsone.teacher_tasks where id=p_id for update;
   if not found then raise exception 'tasks:not_found'; end if;
+  -- Acquire every mutation lock in task/request order before the authoritative
+  -- actor and recipient checks. Either row may have blocked this transaction.
+  if t.request_id is not null then
+    perform 1 from vppsone.collection_requests where id=t.request_id for update;
+    if not found then raise exception 'tasks:not_found'; end if;
+  end if;
+  if not exists(select 1 from vppsone.staff_profiles s join vppsone.role_permissions rp on rp.role=s.role
+    where s.id=p_actor and s.is_active and rp.permission='collection:manage') then raise exception 'tasks:not_permitted'; end if;
   if p_teacher is not null and not vppsone.teacher_task_owner(p_teacher,t.session_label,t.scope,t.kind) then raise exception 'tasks:not_owner'; end if;
   update vppsone.teacher_tasks set assigned_staff_id=coalesce(p_teacher,assigned_staff_id),
     revoked_at=case when p_teacher is null then now() end, opened_at=null,

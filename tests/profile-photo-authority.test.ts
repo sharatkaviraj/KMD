@@ -9,6 +9,7 @@ vi.mock("@/modules/teacher-tasks/data/repo",()=>({resolveTask:m.task,resolveTask
 vi.mock("@/modules/collection/data/requests-repo",()=>({resolveAssignedRequest:m.request,resolveToken:m.request,rollForRequest:m.roll}));
 vi.mock("@/modules/collection/data/rate-limit",()=>({clientIp:async()=>"synthetic",limitByIp:async()=>({allowed:true}),limitByToken:async()=>({allowed:true}),limitUnknownToken:async()=>{}}));
 import { photoAuthority, readPhotoContext } from "@/modules/collection/data/profile-photo-context";
+import { assignedRequestGeneration } from "@/modules/teacher-tasks/data/draft-scope";
 const student="00000000-0000-4000-8000-000000000002",task="00000000-0000-4000-8000-000000000003";
 const request={id:"request",token:"synthetic-request-generation",sessionLabel:"SYNTHETIC",fields:[{id:"field",key:"student_photo"}]};
 beforeEach(()=>{
@@ -26,6 +27,15 @@ it("signed-in and public task entry resolve the same canonical request, with sep
   const publicEntry=await photoAuthority({kind:"task",id:task,token:"synthetic-task-capability"},student);
   expect(signed.request?.id).toBe(publicEntry.request?.id);expect(signed.scope).not.toBe(publicEntry.scope);
   expect(m.task).toHaveBeenCalledWith({id:task,staffId:m.staff.id});expect(m.token).toHaveBeenCalledWith("synthetic-task-capability");
+});
+it("opens the existing assigned legacy request with an actor-bound generation and creates no task",async()=>{
+  const legacy={...request,id:task};m.request.mockResolvedValue(legacy);
+  const credential={kind:"assigned-request" as const,id:task,generation:assignedRequestGeneration(m.staff.id,task,legacy.token)};
+  const auth=await photoAuthority(credential,student);expect(auth.request?.id).toBe(task);
+  expect(m.request).toHaveBeenCalledWith(task,m.staff.id);expect(m.task).not.toHaveBeenCalled();expect(m.rpc).not.toHaveBeenCalled();
+  m.request.mockResolvedValue({...legacy,token:"rotated"});await expect(photoAuthority(credential,student)).rejects.toThrow("not_permitted");
+  m.request.mockResolvedValue(legacy);await expect(photoAuthority({...credential,generation:assignedRequestGeneration(student,task,legacy.token)},student)).rejects.toThrow("not_permitted");
+  m.request.mockResolvedValue(null);await expect(photoAuthority(credential,student)).rejects.toThrow("not_permitted");
 });
 it("forces a direct teacher avatar proposal through the canonical scoped self-task wrapper",async()=>{
   const auth=await photoAuthority({kind:"student",id:student});

@@ -163,4 +163,35 @@ with connect() as a, connect() as b:
         assert scalar(a, "SELECT count(*) FROM vppsone.teacher_tasks WHERE revoked_at IS NULL") == 1
         print("PASS: preview/session is re-read after acquiring the lock; changed digest cannot authorize creation")
 
+        # Both mutation rows may block management. Observe each real row wait,
+        # withdraw authority while blocked, then require no token/owner change.
+        for locked_table in ("teacher_tasks", "collection_requests"):
+            for loss in ("permission", "actor_active", "target_active"):
+                task_id = latest["id"]
+                before = a.execute("SELECT token,assigned_staff_id,request_id FROM vppsone.teacher_tasks WHERE id=%s", (task_id,)).fetchone()
+                request_id = before[2]
+                a.execute("BEGIN")
+                lock_id = task_id if locked_table == "teacher_tasks" else request_id
+                a.execute(f"SELECT id FROM vppsone.{locked_table} WHERE id=%s FOR UPDATE", (lock_id,))
+                managing = pool.submit(scalar, b, "SELECT vppsone.manage_teacher_task(%s,%s,%s)", (ACTOR,task_id,TEACHER))
+                try:
+                    deadline = monotonic() + 10
+                    while not scalar(a, "SELECT %s = ANY(pg_blocking_pids(%s))", (a.info.backend_pid,b.info.backend_pid)):
+                        assert not managing.done(), "Management did not wait on the held row"
+                        assert monotonic() < deadline, "Expected row wait not observed"
+                        sleep(0.01)
+                    if loss == "permission":
+                        a.execute("DELETE FROM vppsone.role_permissions WHERE role='admin' AND permission='collection:manage'")
+                    else:
+                        a.execute("UPDATE vppsone.staff_profiles SET is_active=false WHERE id=%s", (TEACHER if loss == "target_active" else ACTOR,))
+                    a.execute("COMMIT")
+                    expect_refusal(managing, "not_owner" if loss == "target_active" else "not_permitted")
+                finally:
+                    a.execute("ROLLBACK")
+                    a.execute("UPDATE vppsone.staff_profiles SET is_active=true WHERE id IN (%s,%s)", (ACTOR,TEACHER))
+                    if loss == "permission":
+                        a.execute("INSERT INTO vppsone.role_permissions VALUES('admin','collection:manage')")
+                assert a.execute("SELECT token,assigned_staff_id,request_id FROM vppsone.teacher_tasks WHERE id=%s", (task_id,)).fetchone() == before
+                print(f"PASS: management refuses {loss} after observed {locked_table} row wait; task unchanged")
+
 print("PostgreSQL 17: real task migration, two connections, deterministic advisory/row lock schedules passed.")

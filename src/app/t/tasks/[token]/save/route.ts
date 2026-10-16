@@ -15,7 +15,7 @@ export async function POST(request:Request,ctx:{params:Promise<{token:string}>})
   if(task.kind==="collection") {
     const r=await resolveAssignedRequest(task.request_id!,task.assigned_staff_id);
     if(!r)return NextResponse.json({ok:false,reason:"not_permitted"},{status:404});
-    return NextResponse.json(await submitCollectionPayload(r,body.payload));
+    return NextResponse.json(await submitCollectionPayload(r,body.payload,{id:task.id,token}));
   }
   const result=await saveTaskAcademicWork({id:task.id,token},{kind:task.kind,session:task.session_label,payload:body.payload});
   return NextResponse.json(result,{status:result.ok?200:409});

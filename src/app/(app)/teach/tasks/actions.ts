@@ -58,7 +58,7 @@ export async function saveTeacherCollectionAction(id:string,_previous:LinkState,
   const request=requestId?await resolveAssignedRequest(requestId,actor.id):null;
   if(!request)return {status:"error",message:m.linkClosed};
   let payload:unknown;try{payload=JSON.parse(String(form.get("payload")??""));}catch{return {status:"error",message:m.notSaved};}
-  const result=await submitCollectionPayload(request,payload);revalidatePath("/teach/tasks");revalidatePath("/inbox");return result;
+  const result=await submitCollectionPayload(request,payload,task?{id,staffId:actor.id}:undefined);revalidatePath("/teach/tasks");revalidatePath("/inbox");return result;
 }
 
 export async function restartTeacherTaskAction(id:string):Promise<string> {

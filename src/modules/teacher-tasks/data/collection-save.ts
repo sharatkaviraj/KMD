@@ -7,8 +7,10 @@ import type { CollectionRequest } from "@/modules/collection/domain/requests";
 import type { LinkState } from "@/modules/collection/domain/link-state";
 import type { PhotoInput, PhotoSaveResult } from "@/modules/collection/domain/profile-photo";
 import { submitPhotoProposal } from "@/modules/collection/data/photo-proposals";
+import { createAdminClient } from "@/platform/supabase/admin";
+import type { TaskCredential } from "./save";
 /** Caller resolves either the current session assignment or the scoped public token. */
-export async function submitCollectionPayload(request: CollectionRequest, payload: unknown): Promise<LinkState> {
+export async function submitCollectionPayload(request: CollectionRequest, payload: unknown, task?: TaskCredential): Promise<LinkState> {
   if (!Array.isArray(payload) || payload.length > 40000) return { status: "error", message: m.notSaved };
   const roll = await rollForRequest(request);
   const onRoll = new Map(roll.map(r => [r.studentId, r]));
@@ -23,7 +25,15 @@ export async function submitCollectionPayload(request: CollectionRequest, payloa
     if (!checked.ok) return { status: "error", message: checked.error };
     answers.set(`${studentId}:${field.id}`, { studentId, fieldId: field.id, value: checked.value, previousValue: row.current[field.key] ?? null });
   }
-  try { await recordAnswers(request, [...answers.values()]); } catch { return { status: "error", message: m.notSaved }; }
+  try {
+    if (task) {
+      const result = await createAdminClient().rpc("save_teacher_task", {
+        p_id: task.id, p_staff: task.staffId ?? null, p_token: task.token ?? null,
+        p: { kind: "collection", request_id: request.id, request_token: request.token, answers: [...answers.values()] },
+      });
+      if (result.error || result.data?.ok !== true) return { status: "error", message: m.notSaved };
+    } else await recordAnswers(request, [...answers.values()]);
+  } catch { return { status: "error", message: m.notSaved }; }
   return { status: "saved", message: m.linkSaved };
 }
 

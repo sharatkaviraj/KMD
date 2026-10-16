@@ -60,8 +60,9 @@ export async function recordAnswers(
   const task = await db.from("teacher_tasks").select("id").eq("request_id", request.id).maybeSingle();
   if (task.error && !taskSchemaMissing(task.error)) throw new Error("Could not verify request authority.");
   // Keep legacy requests usable before this additive migration is installed.
-  // Task-backed proposals always use the transactional writer below.
-  if (!task.data) {
+  // An absent task row is a legacy request, not evidence of an absent schema.
+  // Installed schemas always use the transactional authority check below.
+  if (task.error && taskSchemaMissing(task.error)) {
     const decided = await db.from("collection_submissions").select("student_id,field_id").eq("request_id",request.id).neq("status","pending").returns<{student_id:string;field_id:string}[]>();
     if (decided.error) throw new Error("Could not verify decided answers.");
     const locked = new Set(decided.data.map(a=>`${a.student_id}:${a.field_id}`));

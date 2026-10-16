@@ -13,12 +13,12 @@ import type { CollectionRequest, RollRow } from "@/modules/collection/domain/req
 import type { AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { mergeTaskSummaries, taskProgress, type TaskKind, type TaskScope, type TaskSummary } from "../domain/tasks";
 import type { TaskCredential } from "./save";
-import { academicDraftScope } from "./draft-scope";
+import { academicDraftScope, collectionDraftScope } from "./draft-scope";
 
 export type TaskRow = { id:string; session_label:string; kind:TaskKind; request_id:string|null; paper_id:string|null; class_id:string|null; day:string|null; scope:TaskScope; assigned_staff_id:string; title:string; due_date:string|null; revoked_at:string|null; opened_at:string|null };
 const COLUMNS="id,session_label,kind,request_id,paper_id,class_id,day,scope,assigned_staff_id,title,due_date,revoked_at,opened_at";
 export type AcademicWork = { kind:"marks"|"attendance"; taskId:string; draftScope:string; session:string; paperId:string|null; classId:string|null; day:string|null; revision:number; submitted:boolean; max:number; step:number; allowExempt:boolean; rows:{id:string;name:string;state:string;value:number|null}[] };
-export type TaskWork = { task:TaskRow; language:Language; collection?:{request:CollectionRequest;roll:RollRow[]}; academic?:AcademicWork };
+export type TaskWork = { task:TaskRow; language:Language; collection?:{request:CollectionRequest;roll:RollRow[];draftScope:string}; academic?:AcademicWork };
 
 /** No capability or peer list is returned by this read. Rechecked on every save. */
 export async function resolveTask(auth: TaskCredential): Promise<TaskRow|null> {
@@ -26,9 +26,14 @@ export async function resolveTask(auth: TaskCredential): Promise<TaskRow|null> {
   const db=createAdminClient();
   const {data:allowed,error}=await db.rpc("teacher_task_access",{p_id:auth.id,p_staff:auth.staffId??null,p_token:auth.token??null});
   if(error||allowed!==true) return null;
-  const row=await db.from("teacher_tasks").select(COLUMNS).eq("id",auth.id).maybeSingle<TaskRow>();
+  const row=await db.from("teacher_tasks").select(`${COLUMNS},token`).eq("id",auth.id).maybeSingle<TaskRow & {token:string}>();
   if(row.error) throw new Error("task_unavailable");
-  return row.data;
+  if(!row.data || (auth.token && row.data.token!==auth.token) || (auth.staffId && row.data.assigned_staff_id!==auth.staffId))return null;
+  const current=await db.rpc("teacher_task_access",{p_id:auth.id,p_staff:auth.staffId??null,p_token:auth.token??null});
+  if(current.error||current.data!==true)return null;
+  const {token: capability,...task}=row.data;
+  void capability;
+  return task;
 }
 export async function resolveTaskToken(token:string):Promise<TaskRow|null> {
   if(!/^[A-Za-z0-9_-]{32,64}$/.test(token)) return null;
@@ -45,7 +50,12 @@ export async function loadTaskWork(auth:TaskCredential):Promise<TaskWork|null> {
   if(task.kind==="collection" && task.request_id) {
     const request=await resolveAssignedRequest(task.request_id,task.assigned_staff_id);
     if(!request) return null;
-    return {task,language,collection:{request,roll:await rollForRequest(request)}};
+    const roll=await rollForRequest(request);
+    const draftScope=collectionDraftScope({requestId:request.id,actorId:auth.staffId??null,taskToken:auth.token??null,requestToken:request.token,session:request.sessionLabel,studentIds:roll.map(r=>r.studentId),fieldIds:request.fields.map(f=>f.id)});
+    const generation=await db.from("collection_requests").select("id").eq("id",request.id).eq("token",request.token).eq("status","open").is("archived_at",null).maybeSingle();
+    const current=await db.rpc("teacher_task_access",{p_id:auth.id,p_staff:auth.staffId??null,p_token:auth.token??null});
+    if(generation.error||!generation.data||current.error||current.data!==true)return null;
+    return {task,language,collection:{request,roll,draftScope}};
   }
   const roster=task.kind==="marks"?await db.rpc("paper_roster",{p_paper:task.paper_id}):await db.rpc("attendance_roster",{p_session:task.session_label,p_class:task.class_id,p_day:task.day});
   if(roster.error) throw new Error("roster_unavailable");
