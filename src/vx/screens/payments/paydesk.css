@@ -109,6 +109,42 @@
   .vx .pd-pin{grid-template-columns:minmax(0,1fr)}
   .vx .pd-stk{position:static}
 }
+/* The phone's three steps (UI-95): blocks marked data-st show on their step only. */
+:where(.vx) .pd-fold{display:contents}
+:where(.vx) .pd-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px}
+:where(.vx) .pd-steps>button{height:40px;padding:0 6px;border:0;border-radius:12px;background:var(--s2);color:var(--mut);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;overflow:hidden}
+:where(.vx) .pd-steps>button>span{flex:none;width:22px;height:22px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;background:var(--s3);font-size:12px}
+:where(.vx) .pd-steps>button[data-done]{color:var(--fg)}
+:where(.vx) .pd-steps>button[data-done]>span{background:var(--ok);color:#fff}
+:where(.vx) .pd-steps>button[data-on]{background:var(--accs);color:var(--accfg)}
+:where(.vx) .pd-steps>button[data-on]>span{background:var(--acc);color:#fff}
+:where(.vx) .pd-steps>button:disabled{opacity:1;cursor:default}
+:where(.vx) .pd-dues{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px}
+:where(.vx) .pd-sum{display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;color:var(--fg);border:1px solid var(--bd)}
+:where(.vx) .pd-more{align-self:stretch;justify-content:center}
+
+@container vx (max-width:899px){
+  .vx .pd-desk[data-step="1"] [data-st]:not([data-st="1"]),
+  .vx .pd-desk[data-step="2"] [data-st]:not([data-st="2"]),
+  .vx .pd-desk[data-step="3"] [data-st]:not([data-st="3"]){display:none!important}
+  /* A short step still keeps its Back/Next bar at the foot of the screen, where the thumb is. */
+  .vx .pd-desk[data-step]{padding-top:12px;display:flex;flex-direction:column;min-height:calc(100dvh - 58px - var(--vx-bottom-h))}
+  .vx .pd-desk[data-step]>.pd-pbar{margin-top:auto}
+  .vx .pd-desk[data-step] .pd-grid{gap:0}
+  .vx .pd-desk[data-step] .pd-col{gap:10px}
+  .vx .pd-desk[data-step] .card.pd-sum{padding:12px 16px;gap:4px}
+  .vx .pd-desk[data-step] .pd-left{padding-bottom:0}
+  .vx .pd-desk[data-step="1"] .pd-left{padding-bottom:14px}
+  /* The amount is in sight on every step (the input, then the summary), so the bar is just Back and Next. */
+  .vx .pd-desk[data-step] .pd-pbar>.pd-c{display:none}
+  .vx .pd-desk[data-step] .pd-qchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -18px;padding:0 18px 2px}
+  .vx .pd-desk[data-step] .pd-qchips>.chip{flex:none}
+  .vx .pd-desk[data-step] textarea.inp{min-height:48px!important}
+  .vx .pd-fold:not(.open){display:none}
+  .vx .pd-pbar .pd-sback{flex:none;width:52px;height:52px;padding:0;border-radius:14px}
+  .vx .pd-pbar .pd-big.pd-snext{flex:1;width:auto}
+}
+
 @container vx (max-width:899px){
   .vx .pd-desk{padding:20px 16px 0}
   .vx .pd-grid,.vx .pd-p2{grid-template-columns:minmax(0,1fr)}

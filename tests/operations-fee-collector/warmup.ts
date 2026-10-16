@@ -20,8 +20,9 @@ export default async function warmup() {
   const results = [];
   try {
     const fixtures = process.env.OPS_FEE_ACTIVE_ONLY === "yes"
-      ? [["vx.html", ".pd-amt input"]]
-      : [["vx.html", ".pd-amt input"], ["fixture.html", 'input[aria-label="Amount received"]']];
+      // A phone's desk opens on the dues step (UI-95): its Next button is the first thing drawn.
+      ? [["vx.html", ".pd-snext"]]
+      : [["vx.html", ".pd-snext"], ["fixture.html", 'input[aria-label="Amount received"]']];
     for (const [url, selector] of fixtures) {
       const started = performance.now();
       console.log(`Warming synthetic fee fixture ${url} (no saves or sends)`);

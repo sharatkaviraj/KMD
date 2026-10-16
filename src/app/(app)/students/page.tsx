@@ -9,14 +9,17 @@ import { searchStudents } from "@/modules/students/data/directory-repo";
 import { normaliseQuery, pageWindow, PAGE_SIZE, resolvePage } from "@/modules/students/domain/directory";
 import { parentNamesFor, studentMoneyList } from "@/modules/students-fees/vx/admin-students";
 import { quickActionsFor } from "@/vx/nav";
-import { listMoney, parseSegment } from "@/vx/screens/admin/logic";
+import { listMoney, parseSegment, parseStudentFilters, quickSegment } from "@/vx/screens/admin/logic";
 import { StudentsScreen, type StudentListRow, type StudentsProps } from "@/vx/screens/admin/students";
 import { attendanceForStudents } from "@/vx/screens/admin/students-data";
 import {
   classFromQuery,
   parseStudentSort,
+  readStudentLayoutCookie,
   readStudentViewCookie,
+  resolveStudentLayout,
   resolveStudentView,
+  STUDENT_LAYOUT_COOKIE,
   STUDENT_VIEW_COOKIE,
   type AttendanceFacts,
   type StudentFacts,
@@ -77,9 +80,14 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   }
 
   const seesMoney = can(staff, "fees:view");
-  const remembered = readStudentViewCookie((await cookies()).get(STUDENT_VIEW_COOKIE)?.value, staff.id);
-  const view = resolveStudentView({ param: one(params.view), seg: parseSegment(one(params.seg)), remembered, seesMoney });
-  const seg = view === "fees" ? parseSegment(one(params.seg)) : "all";
+  const jar = await cookies();
+  const remembered = readStudentViewCookie(jar.get(STUDENT_VIEW_COOKIE)?.value, staff.id);
+  // `?seg=` is one quick chip in an old link, or any fee filters from the phone's sheet (UI-94).
+  const asked = parseStudentFilters(one(params.seg));
+  const view = resolveStudentView({ param: one(params.view), seg: parseSegment(one(params.seg)), filters: asked, remembered, seesMoney });
+  const filters = view === "fees" ? asked : [];
+  const seg = quickSegment(filters);
+  const layout = resolveStudentLayout(one(params.look), readStudentLayoutCookie(jar.get(STUDENT_LAYOUT_COOKIE)?.value, staff.id));
 
   // One session for the money list, its class filter and the attendance
   // beside it: the view-session, as on every other money screen.
@@ -110,7 +118,9 @@ export default async function StudentsPage(props: PageProps<"/students">) {
 
   if (moneySession) {
     try {
-      const list = await studentMoneyList({ query: text, classId: classId ?? "", segment: seg, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: sort.key === "class" ? "class" : "name" });
+      // Grouped by class, the list is read in class order so a class's children sit together across pages.
+      const byClass = sort.key === "class" || layout === "class";
+      const list = await studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name" });
       rows = list.rows.map((row) => {
         const route = row.routeLabel && row.routeLabel !== "No Transport" ? row.routeLabel : null;
         return {
@@ -128,7 +138,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
       });
       total = list.total;
       // On the All list the chip counts what the list holds, so "All 510" never sits over "1–50 of 538" (school-day run B11).
-      counts = seg === "all" ? { ...list.counts, all: list.total } : list.counts;
+      counts = filters.length === 0 ? { ...list.counts, all: list.total } : list.counts;
       session = list.sessionLabel;
       moneyMode = true;
     } catch {
@@ -187,6 +197,8 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         classLabel={classParam ? (labels.get(classParam) ?? null) : null}
         view={moneyMode ? view : "school"}
         seg={moneyMode ? seg : "all"}
+        filters={moneyMode ? filters : []}
+        layout={layout}
         sort={sort}
         classes={[...labels.entries()].map(([id, label]) => ({ id, label }))}
         counts={counts}

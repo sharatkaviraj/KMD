@@ -227,6 +227,10 @@ export function PaymentDesk({
   // Review is its own step (the design's confirm sheet): nothing is saved
   // until "Save payment", and Change keeps every entry.
   const [reviewing, setReviewing] = useState(false);
+  // On a phone the form is three steps — dues, amount, date & save — so no
+  // step needs scrolling (UI-95). A desk shows all three side by side and
+  // never reads this.
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   // A save whose answer never arrived. Until the desk has asked the database
   // whether it posted, it will not offer to save again.
   const [uncertain, setUncertain] = useState<{ checking: boolean } | null>(null);
@@ -272,7 +276,7 @@ export function PaymentDesk({
       if (loadedRecoveryKey.current !== attemptKey) {
         loadSeq.current += 1;
         setSelId(initialStudentId); setResult(initialStudent);
-        setLoading(false); setSaved(earlierReceipt(initialReceipt)); setReviewing(false); setUncertain(null); setAck(false); setSheet("");
+        setLoading(false); setSaved(earlierReceipt(initialReceipt)); setReviewing(false); setStep(1); setUncertain(null); setAck(false); setSheet("");
         setTodayTotals(boot.todayCollection); setListBalances({}); counted.current.clear();
         setDatePreview(null); setDateError(null); setForm(freshForm(boot));
       }
@@ -287,7 +291,7 @@ export function PaymentDesk({
         if (loadedRecoveryKey.current !== attemptKey) {
           loadSeq.current += 1; setLoading(false); setSelId(initialStudentId); setResult(initialStudent);
           attemptRef.current = null; setAttempt(null); requestId.current = null;
-          setReviewing(false); setUncertain(null); setSaved(earlierReceipt(initialReceipt)); setForm(freshForm(boot));
+          setReviewing(false); setStep(1); setUncertain(null); setSaved(earlierReceipt(initialReceipt)); setForm(freshForm(boot));
           setTodayTotals(boot.todayCollection); setListBalances({}); counted.current.clear();
         }
         loadedRecoveryKey.current = attemptKey;
@@ -414,6 +418,7 @@ export function PaymentDesk({
     setAck(false);
     setSheet("");
     setReviewing(false);
+    setStep(1);
     setDatePreview(null);
     const pending = attemptRef.current;
     setUncertain(pending?.input.studentId === id ? { checking: false } : null);
@@ -441,6 +446,7 @@ export function PaymentDesk({
     setSaved(null);
     setLoading(false);
     setReviewing(false);
+    setStep(1);
     setUncertain(null);
     if (!attemptRef.current) requestId.current = null;
     syncUrl(null);
@@ -467,6 +473,39 @@ export function PaymentDesk({
       return;
     }
     setReviewing(true);
+  }
+
+  // An unfinished save for this child always reopens on the last step, where its sheet lives.
+  const stepLocked = Boolean(attempt && attempt.input.studentId === student?.id);
+  const phoneStep: 1 | 2 | 3 = reviewing || stepLocked ? 3 : step;
+
+  /**
+   * Move between the phone's steps. Leaving the amount needs an amount the
+   * ledger can take (and a reason for a waiver), so step 3 never opens on a
+   * problem that only step 2 can fix; the date's own problems stay on step 3.
+   */
+  function goStep(next: 1 | 2 | 3) {
+    if (next === 3 && phoneStep < 3) {
+      const own = problems.find((p) => p.key === "nothing-owed" || p.key === "amount" || p.key === "over" || p.key === "waive-reason");
+      if (own) {
+        setTried(true);
+        setStep(2);
+        toast.show({ text: problemText(own, tx, boot.sessionStart) ?? tx(W.fix), tone: "bad" });
+        return;
+      }
+    }
+    setStep(next);
+    try {
+      window.scrollTo({ top: 0 });
+    } catch {
+      // Older browsers: the step still changes, only the scroll stays.
+    }
+  }
+
+  /** The phone's back arrow: a step back while collecting, else back to the class list. */
+  function phoneBack() {
+    if (student && !saved && !loading && phoneStep > 1 && !stepLocked && !reviewing) goStep((phoneStep - 1) as 1 | 2);
+    else clearStudent();
   }
 
   function applySaved(res: Extract<DeskSaveResult, { status: "saved" }>, postedAmount: number) {
@@ -669,6 +708,7 @@ export function PaymentDesk({
     setTried(false);
     setAck(false);
     setReviewing(false);
+    setStep(1);
     setUncertain(null);
     requestId.current = null;
   }
@@ -845,7 +885,7 @@ export function PaymentDesk({
             <Ic n="clock" style={{ marginTop: 2, flex: "none" }} />
             <span className="pd-c" style={{ flex: 1 }}>
               <span className="pd-b">{tx(W.lateTitle(rupees(lateNowAmt || totals.lateFee), (lateOn.due.length ? lateOn.due : rows.filter((r) => r.lateFeePending > 0)).map((r) => r.label).join(" + ")))}</span>
-              <span style={{ fontSize: 12 }}>{tx(W.lateKeptApart)}</span>
+              <span className="hide-m" style={{ fontSize: 12 }}>{tx(W.lateKeptApart)}</span>
             </span>
           </div>
           {waiveAllowed ? (
@@ -861,7 +901,7 @@ export function PaymentDesk({
               />
             </div>
           ) : (
-            <span style={{ fontSize: 12, color: "var(--warnfg)" }}>{student.onPlan && boot.me.canWaive ? tx(W.lateNoWaivePlan) : tx(W.lateTakeNote)}</span>
+            <span className="hide-m" style={{ fontSize: 12, color: "var(--warnfg)" }}>{student.onPlan && boot.me.canWaive ? tx(W.lateNoWaivePlan) : tx(W.lateTakeNote)}</span>
           )}
           {waiveLate ? (
             <div className="pd-c fadein" style={{ gap: 8, color: "var(--warnfg)" }}>
@@ -889,13 +929,22 @@ export function PaymentDesk({
   const amountShown = Number.isSafeInteger(amount) && amount > 0 && /^[\d,\s]+$/.test(form.amount.trim()) ? amount.toLocaleString("en-IN") : form.amount;
   const amountBad = Boolean(show("amount") || show("over"));
 
+  // What the walk does with the amount, in one line for step 3's summary.
+  const goesTo = walk.lines.filter((l) => l.feesPaid + l.lateFeePaid > 0).map((l) => (l.row.isCarryForward ? oldBalanceLabel(tx(W.oldBalance), boot.sessionLabel) : l.row.label));
+
   const formCards = student ? (
     <div className="pd-col">
-      <div className="card pd-cd fadein" aria-label={tx(W.paymentFor(firstName(student.name)))}>
-        <span className="pd-c">
+      <div className="card pd-cd fadein" data-st="2" aria-label={tx(W.paymentFor(firstName(student.name)))}>
+        {/* The phone's header already names the child; its step 2 starts at the dues. */}
+        <span className="pd-c hide-m">
           <span className="pd-v">{tx(W.paymentFor(firstName(student.name)))}</span>
           <span className="pd-m">{tx(W.anyAmount)}</span>
         </span>
+        {/* Step 2 on a phone: the dues stay in sight while the amount is typed (UI-95). */}
+        <div className="only-m pd-dues num">
+          <span><span className="pd-m">{tx(W.feesPendingToday)}</span> <b style={{ color: totals.pendingToday ? "var(--bad)" : "var(--ok)" }}>{rupees(totals.pendingToday)}</b></span>
+          {totals.lateFee > 0 ? <span><span className="pd-m">{tx(W.lateFee)}</span> <b style={{ color: "var(--warnfg)" }}>{rupees(totals.lateFee)}</b></span> : null}
+        </div>
         {walk.maxAmount <= 0 ? <Banner tone="ok">{tx(W.nothingOwed)}</Banner> : null}
         {lateBlock}
         <label className="field" htmlFor="pd-amount">
@@ -908,6 +957,9 @@ export function PaymentDesk({
               autoComplete="off"
               value={amountShown}
               onChange={(e) => set({ amount: e.target.value })}
+              // Enter on a phone's keypad goes on to the date, as the Next button does.
+              onKeyDown={(e) => { if (e.key === "Enter" && phoneStep === 2) { e.preventDefault(); goStep(3); } }}
+              enterKeyHint="next"
               placeholder="0"
               aria-invalid={amountBad || undefined}
               aria-describedby="pd-amount-words"
@@ -918,7 +970,7 @@ export function PaymentDesk({
           {has("over") ? tx(W.overMax(rupees(walk.maxAmount))) : hasPaise(form.amount) ? tx(W.wholeRupees) : amount ? wordsOf(amount) : tried ? tx(W.typeAmountErr) : tx(W.typeAmount)}
         </span>
         {chips.length ? (
-          <div className="pd-chips" role="group" aria-label={tx(W.chipNote)}>
+          <div className="pd-chips pd-qchips" role="group" aria-label={tx(W.chipNote)}>
             {chips.map((c) => (
               <button type="button" className={`tap chip${c.amount !== null && amount === c.amount ? " on" : ""}`} key={c.key} aria-pressed={c.amount !== null && amount === c.amount} disabled={c.disabled || Boolean(attempt)} onClick={() => set({ amount: c.amount === null ? "" : String(c.amount) })}>
                 {c.label}
@@ -927,7 +979,14 @@ export function PaymentDesk({
             ))}
           </div>
         ) : null}
-        <span className="pd-m">{tx(W.chipNote)}</span>
+        <span className="pd-m hide-m">{tx(W.chipNote)}</span>
+        {/* A phone's "where it goes", in one line; the review sheet lists it in full. */}
+        {goesTo.length ? (
+          <span className="only-m pd-bx" style={{ fontSize: 13, gap: 2 }}>
+            <span><b>{tx(W.goesTo)}:</b> {goesTo.join(", ")}{lateTaken ? tx(W.inclLate) : ""}</span>
+            <span className="num" style={{ color: "var(--mut)" }}>{tx(W.feesPendingToday)} → <b style={{ color: walk.after.pendingToday ? "var(--bad)" : "var(--ok)" }}>{rupees(walk.after.pendingToday)}</b></span>
+          </span>
+        ) : null}
         {student.repaymentPlan ? (
           <div className="pd-bx" style={{ background: "var(--infos)", color: "var(--info)", fontSize: 13, fontWeight: 600 }}>
             <span>
@@ -940,7 +999,21 @@ export function PaymentDesk({
         ) : null}
       </div>
 
-      <div className="card pd-cd fadein">
+      {/* Step 3 on a phone opens on what is being saved; a tap goes back to change it. */}
+      <button type="button" className="only-m tap card pd-cd pd-sum" data-st="3" onClick={() => goStep(2)} disabled={saving || Boolean(attempt)}>
+        <span className="pd-f pd-j" style={{ width: "100%" }}>
+          <span className="pd-c">
+            <span className="pd-m" style={{ fontWeight: 600 }}>{tx(W.amountReceived)}</span>
+            <span className="num" style={{ fontSize: 24, fontWeight: 700 }}>{rupees(Number.isFinite(amount) ? amount : 0)}</span>
+          </span>
+          <span className="pd-f" style={{ gap: 4, color: "var(--pri)", fontSize: 13, fontWeight: 700 }}>
+            <Ic n="edit" size={16} /> {tx(W.changeAmount)}
+          </span>
+        </span>
+        {goesTo.length ? <span className="pd-m" style={{ textAlign: "left" }}>{tx(W.goesTo)}: {goesTo.join(", ")}{lateTaken ? tx(W.inclLate) : ""}</span> : null}
+      </button>
+
+      <div className="card pd-cd fadein" data-st="3">
         <div className="field">
           <span>{tx(W.paymentDate)}</span>
           <div className="pd-seg40">
@@ -1005,7 +1078,7 @@ export function PaymentDesk({
           <span>{tx(W.notes)}</span>
           <textarea className="inp" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder={tx(W.notesPh)} style={{ minHeight: 64 }} />
         </label>
-        <div className="field" id="pd-concession-off">
+        <div className="field hide-m" id="pd-concession-off">
           <span>{tx(W.concession)}</span>
           <span className="pd-m">{tx(W.concessionOff)}</span>
         </div>
@@ -1034,9 +1107,21 @@ export function PaymentDesk({
           <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{rupees(Number.isFinite(amount) ? amount : 0)}</span>
         </span>
         <span className="pd-m hide-m" style={{ maxWidth: 260, textAlign: "right" }}>{previewing ? tx(W.previewing) : firstProblem ?? tx(W.checkThenSave)}</span>
+        {/* A phone's steps: Back, and Next until the last, where Review & save takes its place (UI-95). */}
+        {phoneStep > 1 && !stepLocked ? (
+          <button type="button" className="only-m tap btn sec pd-sback" onClick={() => goStep((phoneStep - 1) as 1 | 2)} aria-label={tx(W.back)}>
+            <Ic n="chevLeft" size={20} />
+          </button>
+        ) : null}
+        {phoneStep < 3 ? (
+          // Held while another child's save is unresolved: the form is frozen until it is resumed.
+          <button type="button" className="only-m tap btn pri pd-big pd-snext" disabled={Boolean(attempt)} onClick={() => goStep((phoneStep + 1) as 2 | 3)} style={{ opacity: phoneStep === 2 && problems.some((p) => p.key === "amount" || p.key === "over" || p.key === "nothing-owed") ? 0.55 : undefined }}>
+            {tx(phoneStep === 1 ? W.toAmount : W.toSave)} <Ic n="arrowRight" size={20} />
+          </button>
+        ) : null}
         <button
           type="button"
-          className="tap btn pri pd-big"
+          className={`tap btn pri pd-big${phoneStep < 3 ? " hide-m" : " pd-snext"}`}
           onClick={review}
           style={{ opacity: problems.length ? 0.55 : undefined }}
           disabled={!canAct || !attemptKey || !dateReady || !recoveryReady || Boolean(recoveryError) || Boolean(attempt)}
@@ -1070,6 +1155,8 @@ export function PaymentDesk({
   const mSub = saved ? saved.receiptNumber : selId ? (student ? `${student.classLabel} · SR ${student.sr}` : "") : `${shortDate(today)} · ${boot.me.name}`;
   const reviewOpen = Boolean(student) && reviewing && sheet === "" && !saved;
   const locked = saving || Boolean(attempt);
+  // The phone's steps apply while one child's payment is being entered; a saved receipt is one screen.
+  const stepping = Boolean(student) && !saved && !loading;
 
   return (
     <VxPage label={tx(W.title)}>
@@ -1087,7 +1174,7 @@ export function PaymentDesk({
       </div>
       <header className="only-m glass vx-top" style={{ flex: "none", minHeight: 58, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid var(--bd)" }}>
         {selId ? (
-          <button type="button" className="tap pd-phb" aria-label={tx(W.back)} onClick={clearStudent}>
+          <button type="button" className="tap pd-phb" aria-label={tx(W.back)} onClick={phoneBack}>
             <Ic n="chevLeft" size={24} />
           </button>
         ) : (
@@ -1125,13 +1212,33 @@ export function PaymentDesk({
             ) : null}
           </div>
         ) : null}
-        <div className="pd-desk pad">
+        <div className="pd-desk pad" data-step={stepping ? phoneStep : undefined}>
+          {stepping ? (
+            <nav className="only-m pd-steps" aria-label={tx(W.steps)}>
+              {([[1, W.stepDues], [2, W.stepAmount], [3, W.stepSave]] as const).map(([n, label]) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="tap"
+                  data-on={n === phoneStep ? "" : undefined}
+                  data-done={n < phoneStep ? "" : undefined}
+                  aria-current={n === phoneStep ? "step" : undefined}
+                  aria-label={tx(W.stepOf(n, tx(label)))}
+                  disabled={stepLocked || n === phoneStep}
+                  onClick={() => goStep(n)}
+                >
+                  <span className="num">{n < phoneStep ? <Ic n="check" size={14} stroke={3} /> : n}</span>
+                  {tx(label)}
+                </button>
+              ))}
+            </nav>
+          ) : null}
           <div className="pd-grid">
             <section className="pd-left" aria-label={tx(W.searchLabel)}>
               {findPane}
               {selId ? (
                 <>
-                  <button type="button" className="only-m tap pd-sr" onClick={clearStudent} style={{ width: "100%", textAlign: "left" }}>
+                  <button type="button" className="only-m tap pd-sr" data-st="1" onClick={clearStudent} style={{ width: "100%", textAlign: "left" }}>
                     <Ic n="search" />
                     <span style={{ flex: 1, fontSize: 15 }}>{tx(W.searchAnother)}</span>
                   </button>
@@ -1145,6 +1252,7 @@ export function PaymentDesk({
                   ) : null}
                   {!loading && student ? (
                     <StudentCard
+                      key={student.id}
                       student={student}
                       today={today}
                       totals={totals}
@@ -1440,8 +1548,10 @@ function StudentCard({
     { k: W.canTakeToday, v: totals.canTakeToday, sub: totals.dueToday ? W.canTakeSubDue : W.canTakeSub, color: "var(--pri)", ring: true },
   ];
   const paidSoFar = student.receipts.filter((h) => !h.isReversed).reduce((s, h) => s + h.amount, 0);
+  // On a phone the tiles are the summary; the installments and receipts wait one tap away (UI-95).
+  const [more, setMore] = useState(false);
   return (
-    <div className="card pd-cd fadein" aria-label={student.name}>
+    <div className="card pd-cd fadein" data-st="1" aria-label={student.name}>
       <div className="pd-f" style={{ gap: 12, alignItems: "flex-start" }}>
         <span className="pd-av" style={{ width: 50, height: 50, borderRadius: 17, fontSize: 17, background: "var(--accs)", color: "var(--accfg)" }}>{initials(student.name)}</span>
         <span className="pd-c" style={{ flex: 1 }}>
@@ -1470,6 +1580,10 @@ function StudentCard({
           </div>
         ))}
       </div>
+      <button type="button" className="only-m tap btn soft pd-more" aria-expanded={more} aria-controls="pd-fold" onClick={() => setMore((m) => !m)}>
+        <Ic n={more ? "chevUp" : "chevDown"} size={18} /> {tx(more ? W.lessRows : W.moreRows(rows.length + lateRows.length))}
+      </button>
+      <div id="pd-fold" className={`pd-fold${more ? " open" : ""}`}>
       <div className="pd-c">
         {rows.map((r) => {
           const overdue = isOverdueOn(r, today);
@@ -1533,6 +1647,7 @@ function StudentCard({
         )}
         {paidSoFar > 0 && student.receipts.length > 8 ? <span className="pd-m">{rupees(paidSoFar)}</span> : null}
       </div>
+      </div>
     </div>
   );
 }
@@ -1553,7 +1668,8 @@ function WherePreview({ walk, amount, paymentDate, today, sessionLabel }: { walk
     [`${tx(W.lateFee)}${walk.waiverAmount > 0 ? tx(W.lateWaivedTag) : ""}`, walk.after.lateFee, walk.after.lateFee ? "var(--warnfg)" : "var(--ok)"],
   ];
   return (
-    <div className="card pd-cd pd-stk" aria-live="polite">
+    // On a phone this card is a line in step 2 and the review sheet's own table (UI-95); it is a desk's side panel.
+    <div className="card pd-cd pd-stk" data-st="desk" aria-live="polite">
       <div className="pd-f pd-j">
         <span className="pd-v">{tx(W.whereGoes)}</span>
         <span className="num pd-v" style={{ color: "var(--acc)" }}>{rupees(amount)}</span>

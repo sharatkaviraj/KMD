@@ -13,9 +13,12 @@ import { useToast } from "@/vx/ui/overlays";
 import { IntentLink } from "@/vx/ui/intent-link";
 import { TopBar } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
-import { mobileOf, studentsHref, toCsv, type StudentSegment } from "@/vx/screens/admin/logic";
+import { mobileOf, QUICK_FILTERS, studentsHref, toCsv, type StudentFilter, type StudentSegment } from "@/vx/screens/admin/logic";
+import { FILTER_WORD, StudentFilterSheet, type FilterChoice } from "@/vx/screens/admin/students-filter";
 import {
   attendanceFigure,
+  classChipLabel,
+  groupByClass,
   moneyStatus,
   nextSort,
   savedScroll,
@@ -23,12 +26,15 @@ import {
   sortMode,
   sortStudentRows,
   studentBadges,
+  studentLayoutCookieValue,
   studentProfileHref,
   studentViewCookieValue,
+  STUDENT_LAYOUT_COOKIE,
   STUDENT_VIEW_COOKIE,
   STUDENTS_SCROLL_KEY,
   type StudentBadge,
   type StudentFacts,
+  type StudentLayout,
   type StudentSort,
   type StudentSortKey,
   type StudentView,
@@ -110,10 +116,14 @@ export type StudentsProps = {
   /** Always "school" without `fees:view`. */
   view: StudentView;
   seg: StudentSegment;
+  /** Every fee filter on (the quick chip's among them); none means the whole roll. Empty in the School view. */
+  filters?: StudentFilter[];
+  /** How the phone draws the list (UI-94); the desk's table is the same in all three. */
+  layout?: StudentLayout;
   /** How the list is ordered; across pages only name and class (A→Z). */
   sort?: StudentSort;
   classes: { id: string; label: string }[];
-  counts: Partial<Record<StudentSegment, number | null>> | null;
+  counts: Partial<Record<StudentSegment | StudentFilter, number | null>> | null;
   seesMoney: boolean;
   /** False when the attendance read failed: the column says "—", not "No attendance yet". */
   attendanceRead: boolean;
@@ -248,15 +258,24 @@ export function StudentsScreen(props: StudentsProps) {
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const onePage = props.window.pages <= 1;
   const [sort, setSort] = useState<StudentSort>(props.sort ?? { key: "name", dir: 1 });
-  const filtered = props.q !== "" || props.classId !== null || props.seg !== "all";
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const filters = props.filters ?? (props.seg !== "all" ? [props.seg] : []);
+  const layout = props.layout ?? "cards";
+  const filtered = props.q !== "" || props.classId !== null || filters.length > 0;
   const fees = props.seesMoney && props.view === "fees";
   // Written into every link only for a reader who has two views to choose from.
   const viewParam = props.seesMoney ? props.view : undefined;
+  // The layout rides on links too, so a page or a chip keeps it where the cookie could not be written.
+  const lookParam = layout !== "cards" ? layout : undefined;
   // Across pages the server's order rides on every link; on one page the sort is in place.
   const serverSort = !onePage && sort.key === "class" ? sort : null;
-  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => withSort(studentsHref(query), serverSort);
-  const returnTo = hrefFor({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg, page: props.window.page });
-  const rows = onePage ? sortStudentRows(props.rows, sort) : props.rows;
+  const here = { q: props.q, classId: props.classId, view: viewParam, segs: filters, look: lookParam };
+  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => withSort(studentsHref({ ...here, ...query }), serverSort);
+  const returnTo = hrefFor({ page: props.window.page });
+  // By class reads in class order: the server's across pages, this page's own otherwise.
+  const rows = layout === "class" ? sortStudentRows(props.rows, { key: "class", dir: 1 }) : onePage ? sortStudentRows(props.rows, sort) : props.rows;
+  // A money order across pages cannot be honest; the phone says so instead of pretending (ST.sortPendingNote).
+  const moneySortIdle = !onePage && layout !== "class" && (sort.key === "pending" || sort.key === "notdue" || sort.key === "paid");
 
   // The list follows the box as you type (school-day run B11): a short pause,
   // then the same GET the form makes on Enter, in place of the current entry.
@@ -268,7 +287,7 @@ export function StudentsScreen(props: StudentsProps) {
     searchTimer.current = setTimeout(() => {
       const next = value.trim();
       if (next === props.q.trim()) return;
-      router.replace(hrefFor({ q: next || undefined, classId: props.classId, view: viewParam, seg: props.seg }), { scroll: false });
+      router.replace(hrefFor({ q: next || undefined }), { scroll: false });
     }, SEARCH_PAUSE_MS);
   };
 
@@ -308,7 +327,30 @@ export function StudentsScreen(props: StudentsProps) {
     } catch {
       // Not remembered, but the URL still opens the view chosen.
     }
-    router.push(studentsHref({ q: props.q, classId: props.classId, view: next }));
+    router.push(studentsHref({ q: props.q, classId: props.classId, view: next, look: lookParam }));
+  };
+
+  /** The Filter sheet's choices as one navigation: class, filters, order and layout together. */
+  const applyChoice = (next: FilterChoice) => {
+    setSheetOpen(false);
+    const remember = (name: string, value: string) => {
+      try {
+        document.cookie = `${name}=${value}; path=/; max-age=${YEAR_SECONDS}; samesite=lax`;
+      } catch {
+        // Not remembered; the URL still carries it.
+      }
+    };
+    if (props.seesMoney && next.view !== props.view) remember(STUDENT_VIEW_COOKIE, studentViewCookieValue(props.viewKey, next.view));
+    if (next.layout !== layout) remember(STUDENT_LAYOUT_COOKIE, studentLayoutCookieValue(props.viewKey, next.layout));
+    const href = studentsHref({
+      q: props.q,
+      classId: next.classId,
+      view: props.seesMoney ? next.view : undefined,
+      segs: next.view === "fees" ? next.filters : [],
+      look: next.layout !== "cards" ? next.layout : undefined,
+    });
+    setSort(next.sort);
+    router.push(next.sort.key === "name" && next.sort.dir === 1 ? href : withSort(href, next.sort));
   };
 
   // The fee list orders by class in the database; this app's directory only by name.
@@ -323,13 +365,13 @@ export function StudentsScreen(props: StudentsProps) {
       const next = nextSort(sort, key);
       setSort(next);
       try {
-        const url = withSort(studentsHref({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg }), next);
+        const url = withSort(studentsHref(here), next);
         window.history.replaceState(window.history.state, "", url);
       } catch {
         // The order holds on screen; only a reload forgets it.
       }
     } else if (mode === "server") {
-      router.push(withSort(studentsHref({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg }), { key, dir: 1 }));
+      router.push(withSort(studentsHref(here), { key, dir: 1 }));
     }
   };
 
@@ -561,14 +603,62 @@ export function StudentsScreen(props: StudentsProps) {
     );
   };
 
+  /** The design's phone card (F05): swipes left for Call · WhatsApp · Collect. */
+  const mCard = (row: StudentListRow, i: number) => {
+    const [bg, fg] = TONES[i % TONES.length];
+    const meta = [row.classLabel, row.sr ? `SR ${row.sr}` : null, fees ? row.route : null].filter(Boolean).join(" · ");
+    return (
+      <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
+        <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap card stu-mcard">
+          <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{initials(row.name)}</span>
+          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+            <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{row.name}</span>
+            <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{meta}</span>
+          </span>
+          <span style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>{moneyLine(row)}</span>
+        </IntentLink>
+        {actions(row, false)}
+      </div>
+    );
+  };
+
+  /** The money in one word for a compact line: the amount pending today, On track or Paid up. */
+  const moneyShort = (row: StudentListRow): ReactNode => {
+    if (!row.money) {
+      const figure = props.attendanceRead ? attendanceFigure(row.facts.attendance) : null;
+      return figure ? <span className="num" style={{ color: "var(--mut)" }}>{tx(ST.attendanceDays(figure.present, figure.counted))}</span> : null;
+    }
+    const st = moneyStatus(row.money);
+    if (st.kind === "pending") return <span className="num" style={{ fontWeight: 700, color: "var(--bad)" }}>{rupees(st.amount)}</span>;
+    if (st.kind === "track") return <span style={{ color: "var(--mut)" }}>{tx(ST.onTrack)}</span>;
+    return <span style={{ fontWeight: 600, color: "var(--ok)" }}>{tx(ST.paidUp)}</span>;
+  };
+
+  /** Compact and By class (UI-94): one line a child, about twice as many on a screen, same swipe. */
+  const mLine = (row: StudentListRow, i: number, inClass: boolean) => {
+    // The name gets the room: a compact line names the class (short), By class (whose heading is the class) the SR no.
+    const meta = inClass ? (row.sr ? `SR ${row.sr}` : "") : classChipLabel(row.classLabel);
+    return (
+      <div key={row.id} className="hs stu-swipe stu-cline" style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}>
+        <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap stu-crow">
+          <span className="clip" style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600 }}>{row.name}</span>
+          {meta ? <span className="num clip stu-cmeta">{meta}</span> : null}
+          <span className="stu-cmoney">{moneyShort(row)}</span>
+        </IntentLink>
+        {actions(row, false)}
+      </div>
+    );
+  };
+
   const selectedRows = props.rows.filter((row) => picked.has(row.id));
+  // A quick chip shows just its group, as before; combinations come from the Filter sheet.
   const chips = fees ? (
     <>
       {SEGS.map((s) => {
-        const on = props.seg === s.key;
+        const on = s.key === "all" ? filters.length === 0 : filters.length === 1 && filters[0] === s.key;
         const count = props.counts?.[s.key];
         return (
-          <Link key={s.key} href={hrefFor({ q: props.q, classId: props.classId, view: "fees", seg: s.key })} className={`tap chip${on ? " on" : ""}`} aria-current={on ? "true" : undefined}>
+          <Link key={s.key} href={hrefFor({ view: "fees", segs: s.key === "all" ? [] : [s.key] })} className={`tap chip${on ? " on" : ""}`} aria-current={on ? "true" : undefined}>
             {tx(T[s.label] as { en: string; hi?: string })}
             {count != null ? <span className="num" style={{ opacity: 0.7 }}>{count}</span> : null}
           </Link>
@@ -578,16 +668,25 @@ export function StudentsScreen(props: StudentsProps) {
   ) : null;
   const classChip =
     props.classId && props.classLabel ? (
-      <Link href={hrefFor({ q: props.q, view: viewParam, seg: props.seg })} className="tap chip on" aria-label={tx(ST.clearClass(props.classLabel))}>
+      <Link href={hrefFor({ classId: null })} className="tap chip on" aria-label={tx(ST.clearClass(props.classLabel))}>
         {props.classLabel}
         <Ic n="x" size={14} />
       </Link>
     ) : null;
+  // Filters a lit quick chip cannot show (from the sheet, or more than one), each with its own ×.
+  const filterChips = (filters.length === 1 && QUICK_FILTERS.includes(filters[0]) ? [] : filters).map((f) => (
+    <Link key={f} href={hrefFor({ segs: filters.filter((x) => x !== f) })} className="tap chip on" aria-label={tx(ST.removeFilter(tx(FILTER_WORD[f])))}>
+      {tx(FILTER_WORD[f])}
+      <Ic n="x" size={14} />
+    </Link>
+  ));
+  const activeCount = (props.classId ? 1 : 0) + filters.length;
   const hidden = (
     <>
       {props.classId ? <input type="hidden" name="class" value={props.classId} /> : null}
       {viewParam ? <input type="hidden" name="view" value={viewParam} /> : null}
-      {props.seg !== "all" ? <input type="hidden" name="seg" value={props.seg} /> : null}
+      {filters.length ? <input type="hidden" name="seg" value={filters.join(",")} /> : null}
+      {lookParam ? <input type="hidden" name="look" value={lookParam} /> : null}
       {serverSort ? <input type="hidden" name="sort" value={serverSort.key} /> : null}
     </>
   );
@@ -596,7 +695,7 @@ export function StudentsScreen(props: StudentsProps) {
       {filtered ? tx(ST.noMatchDesign) : tx(T.noStudents)}
       {filtered ? (
         <div style={{ marginTop: 12 }}>
-          <Btn href={studentsHref({ view: viewParam })}>{tx(T.clear)}</Btn>
+          <Btn href={studentsHref({ view: viewParam, look: lookParam })}>{tx(T.clear)}</Btn>
         </div>
       ) : null}
     </div>
@@ -605,11 +704,11 @@ export function StudentsScreen(props: StudentsProps) {
     props.window.pages > 1 ? (
       <nav aria-label={tx(T.students)} className="stu-pager">
         {props.window.page > 1 ? (
-          <Btn icon="chevLeft" href={hrefFor({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg, page: props.window.page - 1 })}>{tx(T.previous)}</Btn>
+          <Btn icon="chevLeft" href={hrefFor({ page: props.window.page - 1 })}>{tx(T.previous)}</Btn>
         ) : null}
         <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{tx(T.rangeOf(props.window.firstRow, props.window.lastRow, props.total))}</span>
         {props.window.page < props.window.pages ? (
-          <Btn href={hrefFor({ q: props.q, classId: props.classId, view: viewParam, seg: props.seg, page: props.window.page + 1 })}>
+          <Btn href={hrefFor({ page: props.window.page + 1 })}>
             {tx(T.next)} <Ic n="chevRight" size={18} />
           </Btn>
         ) : null}
@@ -649,15 +748,23 @@ export function StudentsScreen(props: StudentsProps) {
             <h1 className="serif" style={{ margin: 0, fontSize: 30, fontWeight: 600 }}>{tx(T.students)}</h1>
             <span className="num" style={{ fontSize: 13, color: "var(--mut)" }}>{props.total > rows.length ? tx(ST.showingOf(rows.length, props.total)) : tx(ST.showing(rows.length))}</span>
           </div>
-          <form action="/students" method="get" role="search" className="stu-msearch">
-            <Ic n="search" />
-            <label className="sr" htmlFor="stu-q-m">{tx(ST.searchLabel)}</label>
-            <input id="stu-q-m" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
-            {hidden}
-          </form>
-          {chips || classChip ? (
+          <div className="stu-mfind">
+            <form action="/students" method="get" role="search" className="stu-msearch">
+              <Ic n="search" />
+              <label className="sr" htmlFor="stu-q-m">{tx(ST.searchLabel)}</label>
+              <input id="stu-q-m" type="search" name="q" value={q} onChange={(e) => typeQuery(e.target.value)} placeholder={tx(ST.searchPhone)} enterKeyHint="search" />
+              {hidden}
+            </form>
+            {/* Class, fee filters, order and layout in one sheet (UI-94). */}
+            <button type="button" className="tap stu-fbtn" data-on={activeCount ? "" : undefined} aria-label={activeCount ? tx(ST.filterOn(activeCount)) : tx(ST.filter)} aria-haspopup="dialog" onClick={() => setSheetOpen(true)}>
+              <Ic n="sliders" />
+              {activeCount ? <span className="num stu-fcount">{activeCount}</span> : null}
+            </button>
+          </div>
+          {chips || classChip || filterChips.length ? (
             <div className="hs stu-mchips" role="group" aria-label={tx(T.students)}>
               {classChip}
+              {filterChips}
               {chips}
             </div>
           ) : null}
@@ -673,6 +780,7 @@ export function StudentsScreen(props: StudentsProps) {
             </form>
             <div className="hs" role="group" aria-label={tx(T.students)} style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }}>
               {classChip}
+              {filterChips}
               {chips}
             </div>
             <Btn icon="download" onClick={() => exportRows(rows)} disabled={rows.length === 0}>{tx(T.export)}</Btn>
@@ -735,26 +843,28 @@ export function StudentsScreen(props: StudentsProps) {
           </div>
 
           {/* Phone: cards that swipe left for Call · WhatsApp · Collect (F05). */}
-          <div className="only-m stu-cards" onClick={onListClick}>
+          <div className="only-m stu-cards" onClick={onListClick} data-look={layout}>
+            {moneySortIdle ? <p className="stu-fnote" style={{ margin: 0 }}>{tx(ST.sortPendingNote)}</p> : null}
             {rows.length === 0
               ? <div className="card">{noRows}</div>
-              : rows.map((row, i) => {
-                  const [bg, fg] = TONES[i % TONES.length];
-                  const meta = [row.classLabel, row.sr ? `SR ${row.sr}` : null, fees ? row.route : null].filter(Boolean).join(" · ");
-                  return (
-                    <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
-                      <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap card stu-mcard">
-                        <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{initials(row.name)}</span>
-                        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                          <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{row.name}</span>
-                          <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{meta}</span>
-                        </span>
-                        <span style={{ flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>{moneyLine(row)}</span>
-                      </IntentLink>
-                      {actions(row, false)}
-                    </div>
-                  );
-                })}
+              : layout === "compact"
+                ? <div className="card stu-clist">{rows.map((row, i) => mLine(row, i, false))}</div>
+                : layout === "class"
+                  ? groupByClass(rows).map((group, g, all) => (
+                      <section key={`${group.label}-${g}`} className="stu-group" aria-label={group.label}>
+                        <header className="stu-ghead">
+                          <span className="serif" style={{ fontSize: 18, fontWeight: 600 }}>{group.label}</span>
+                          <span className="num" style={{ fontSize: 12.5, color: "var(--mut)" }}>
+                            {tx(ST.groupCount(group.rows.length))}
+                            {/* A total only for a class wholly on this page: the first group may have begun a page back, the last may go on. */}
+                            {group.pending !== null && (g > 0 || props.window.page === 1) && (g < all.length - 1 || props.window.page >= props.window.pages) ? ` · ${tx(ST.groupPending(rupees(group.pending)))}` : ""}
+                            {g === all.length - 1 && props.window.page < props.window.pages ? ` · ${tx(ST.groupNextPage)}` : ""}
+                          </span>
+                        </header>
+                        <div className="card stu-clist">{group.rows.map((row, i) => mLine(row, i, true))}</div>
+                      </section>
+                    ))
+                  : rows.map((row, i) => mCard(row, i))}
             {rows.length > 0 && (props.canCollect || rows.some((r) => mobileOf(r.phone))) ? (
               <p style={{ margin: "6px 0 0", textAlign: "center", fontSize: 12, color: "var(--sub)" }}>{tx(props.canCollect ? ST.swipeHint : ST.swipeHintNoCollect)}</p>
             ) : null}
@@ -769,11 +879,22 @@ export function StudentsScreen(props: StudentsProps) {
           <div className="stu-foot">
             {rows.length > 0 ? <span className="only-d" style={{ fontSize: 12, color: "var(--sub)" }}>{tx(ST.footer(props.window.firstRow, props.window.lastRow, props.total))}</span> : <span />}
             {pager}
-            {viewSwitch}
+            {/* On a phone the view is chosen in the Filter sheet. */}
+            {viewSwitch ? <span className="only-d">{viewSwitch}</span> : null}
           </div>
           <p className="only-d" style={{ margin: 0, fontSize: 12, color: "var(--sub)" }}>{tx(T.sourceNote)}</p>
         </div>
       </div>
+
+      <StudentFilterSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        current={{ classId: props.classId, filters, sort, layout, view: props.view }}
+        classes={props.classes}
+        counts={props.counts}
+        seesMoney={props.seesMoney}
+        onApply={applyChoice}
+      />
 
       {selectedRows.length > 0 ? (
         <div className="only-d stu-bulkwrap">
