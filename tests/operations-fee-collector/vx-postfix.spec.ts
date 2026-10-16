@@ -9,10 +9,22 @@ async function open(page: Page, query = "") {
     return url.hostname !== "127.0.0.1" || route.request().method() !== "GET" ? route.abort() : route.fallback();
   });
   await page.goto(`/vx.html${query ? "?" + query : ""}`, { waitUntil: "commit" });
+  await toAmount(page);
+}
+/** A phone's desk opens on the dues (UI-95); the amount is step 2. */
+async function toAmount(page: Page) {
+  await expect(page.getByRole("button", { name: "Enter amount", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Enter amount", exact: true }).tap();
   await expect(page.locator("#pd-amount")).toBeVisible();
 }
-async function review(page: Page, amount = "111") {
+/** Amount typed and on to the date step, where Review & save lives. */
+async function toDate(page: Page, amount = "111") {
   await page.locator("#pd-amount").fill(amount);
+  await page.getByRole("button", { name: "Next: date & mode", exact: true }).tap();
+  await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeVisible();
+}
+async function review(page: Page, amount = "111") {
+  await toDate(page, amount);
   await page.getByRole("button", { name: "Review & save", exact: true }).tap();
   await expect(page.getByRole("button", { name: /^Save payment/ })).toBeVisible();
 }
@@ -51,12 +63,12 @@ for (const viewport of viewports) test.describe(`PR77 active payment acceptance 
     await open(page, "uncertain=yes");
     const original = await interrupt(page);
     await page.goto("/vx.html?role=accountant");
-    await expect(page.locator("#pd-amount")).toBeVisible();
+    await toAmount(page);
     await expect(page.getByText(warning, { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Check whether it was saved", exact: true })).toHaveCount(0);
     await expect(page.locator("#pd-amount")).not.toHaveValue("111");
     await page.goto("/vx.html?session=QA-OTHER");
-    await expect(page.locator("#pd-amount")).toBeVisible();
+    await toAmount(page);
     await expect(page.getByText(warning, { exact: true })).toHaveCount(0);
     await expect(page.locator("#pd-amount")).not.toHaveValue("111");
     expect(await effects(page)).toHaveLength(1);
@@ -66,10 +78,12 @@ for (const viewport of viewports) test.describe(`PR77 active payment acceptance 
   });
   test("backdated authoritative preview removes the synthetic not-yet-due late charge before review", async ({ page }) => {
     await open(page);
+    await toDate(page, "600");
     await page.getByRole("radio", { name: "Other date", exact: true }).tap();
     await page.locator('input[type="date"]').fill("2026-07-19");
     await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("ops-fee-vx-previews") ?? "[]").some((row: { paymentDate: string }) => row.paymentDate === "2026-07-19"))).toBe(true);
-    await review(page, "600");
+    await page.getByRole("button", { name: "Review & save", exact: true }).tap();
+    await expect(page.getByRole("button", { name: /^Save payment/ })).toBeVisible();
     expect(await effects(page)).toHaveLength(0);
     await page.getByRole("button", { name: /^Save payment/ }).tap();
     await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
@@ -84,12 +98,15 @@ for (const viewport of viewports) test.describe(`PR77 active payment acceptance 
     // The design's review is a sheet; an unresolved one closes to the desk.
     await page.getByRole("dialog", { name: /^Save ₹/ }).getByRole("button", { name: "Close", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Resume payment", exact: true })).toBeVisible();
+    // The unresolved save holds its child on the last step; the header's back arrow leaves for the class list.
     const search = page.getByRole("button", { name: "Search another student", exact: true });
     if (await search.isVisible()) await search.tap();
+    else await page.getByRole("button", { name: "Back", exact: true }).tap();
     const other = page.getByRole("button", { name: /Synthetic fee student b/ });
     await expect(other).toBeVisible(); await other.tap();
     await expect(page.getByRole("button", { name: "Resume payment", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
+    // The form is held for the unresolved save, so another child's steps do not open.
+    await expect(page.getByRole("button", { name: "Enter amount", exact: true })).toBeDisabled();
     expect(await effects(page)).toHaveLength(1);
     await page.reload();
     await expect(page.getByRole("button", { name: "Resume payment", exact: true })).toBeVisible();
@@ -104,6 +121,7 @@ test.describe("PR77 recovery infrastructure and shared phone contexts", () => {
   test("missing collector identity blocks collection before any local effect", async ({ page }) => {
     await open(page, "role=missing-owner");
     await expect(page.getByText("Payment recovery could not identify the signed-in collector. Reload after signing in again before collecting.", { exact: true })).toBeVisible();
+    await toDate(page);
     await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
     expect(await effects(page)).toHaveLength(0);
   });
@@ -111,6 +129,7 @@ test.describe("PR77 recovery infrastructure and shared phone contexts", () => {
     await page.addInitScript(() => Object.defineProperty(navigator, "locks", { value: undefined, configurable: true }));
     await open(page);
     await expect(page.getByText(/^Payment saving is paused because this browser cannot safely coordinate recovery across tabs/)).toBeVisible();
+    await toDate(page);
     await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
     expect(await effects(page)).toHaveLength(0);
   });
@@ -118,11 +137,13 @@ test.describe("PR77 recovery infrastructure and shared phone contexts", () => {
     await page.addInitScript(() => { indexedDB.open = () => { throw new Error("Synthetic storage denial"); }; });
     await open(page);
     await expect(page.getByText(/^Payment saving is paused because recovery storage is unavailable, blocked or full/)).toBeVisible();
+    await toDate(page);
     await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
     expect(await effects(page)).toHaveLength(0);
   });
   test("failed authoritative date preview cannot be reviewed or posted", async ({ page }) => {
     await open(page, "previewfail=yes");
+    await toDate(page);
     await page.getByRole("radio", { name: "Other date", exact: true }).tap();
     await page.locator('input[type="date"]').fill("2026-07-19");
     await expect(page.getByText("Date dues could not be loaded. Choose the date again before reviewing.", { exact: true })).toBeVisible();

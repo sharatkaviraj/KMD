@@ -8,10 +8,16 @@ async function setup(page: Page, uncertain = false) {
     return url.hostname !== "127.0.0.1" || route.request().method() !== "GET" ? route.abort() : route.fallback();
   });
   await page.goto(`/vx.html${uncertain ? "?uncertain=yes" : ""}`, { waitUntil: "commit" });
-  await expect(page.locator(".pd-amt input")).toBeVisible({ timeout: 45_000 });
+  // A phone's desk opens on the dues (UI-95); the amount is step 2.
+  await expect(page.getByRole("button", { name: "Enter amount", exact: true })).toBeVisible({ timeout: 45_000 });
+  await page.getByRole("button", { name: "Enter amount", exact: true }).tap();
+  await expect(page.locator(".pd-amt input")).toBeVisible();
 }
 async function review(page: Page, amount = "111") {
+  // From the date step (after Change), the stepper goes back to the amount.
+  if (!(await page.locator(".pd-amt input").isVisible())) await page.getByRole("button", { name: "Step 2 of 3: Amount", exact: true }).tap();
   await page.locator(".pd-amt input").fill(amount);
+  await page.getByRole("button", { name: "Next: date & mode", exact: true }).tap();
   await page.getByRole("button", { name: "Review & save", exact: true }).tap();
   // The design's review is a sheet titled "Save ₹111?"; nothing is saved until "Save payment".
   await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toBeVisible();

@@ -5,6 +5,8 @@ import en from "../../src/messages/en.json";
 import { BulkStudentEditBar } from "@/modules/students-fees/ui/bulk-student-edit-bar";
 import { LanguageProvider } from "@/platform/i18n/use-language";
 import { StudentsScreen, type StudentsProps } from "@/vx/screens/admin/students";
+import { parseStudentFilters, quickSegment } from "@/vx/screens/admin/logic";
+import { parseStudentLayout } from "@/vx/screens/admin/students-logic";
 import { Student360, type Student360Props } from "@/vx/screens/admin/student360";
 import { NavTrail } from "@/vx/ui/back-link";
 import { VxPage } from "@/vx/ui/page";
@@ -38,8 +40,10 @@ function Fixture() {
       facts: { attendance: null, siblings: 0, isNew: false, route: "QA Bus", yearClear: false,
         emi: { status: "behind", monthly: 500, nextDue: "2026-10-01" }, concessions: ["QA Policy"] },
     })), total: 36, window: { page: 2, pages: 3, firstRow: 13, lastRow: 24 }, q: params.get("q") ?? "QA",
-    classId: params.get("class") ?? "qa-class", view, seg: "pending", classes: [{ id: "qa-class", label: "QA Class" }],
-    counts: { all: 36, pending: 36 }, seesMoney: true, attendanceRead: true, viewKey: "qa-admin",
+    classId: params.get("class") ?? "qa-class", view, seg: quickSegment(parseStudentFilters(params.get("seg"))),
+    filters: view === "fees" ? parseStudentFilters(params.get("seg")) : [], layout: parseStudentLayout(params.get("look")) ?? "cards",
+    classes: [{ id: "qa-class", label: "QA Class" }, { id: "qa-class-2", label: "Class 2" }],
+    counts: { all: 36, pending: 36, late: 4 }, seesMoney: true, attendanceRead: true, viewKey: "qa-admin",
     canCollect: true, canAdmit: true, canRemind: true, failed: false,
   };
   if (params.get("screen") === "classic") return <NextIntlClientProvider locale="en" messages={en}>
@@ -54,6 +58,6 @@ function Fixture() {
       : path === "/notes" ? <main><h1>Synthetic notes detour</h1><Link href="/other">Synthetic other page</Link></main>
       : path === "/other" ? <main><h1>Synthetic other page</h1></main>
       : <StudentsScreen {...props} />}
-  </VxPage></LanguageProvider>;
+  </VxPage><div id="vx-layer" className="vxt vx-layer" /></LanguageProvider>;
 }
 createRoot(document.getElementById("root")!).render(<Fixture />);

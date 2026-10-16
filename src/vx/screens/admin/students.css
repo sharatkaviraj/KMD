@@ -59,6 +59,37 @@
 .stu-acts{flex:none;display:flex;gap:6px;padding-left:8px;scroll-snap-align:end}
 .stu-acts>a{width:62px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:700}
 
+/* phone: search beside the Filter button (UI-94) */
+.stu-mfind{display:flex;align-items:center;gap:8px}
+.stu-mfind .stu-msearch{flex:1;min-width:0}
+.stu-fbtn{position:relative;flex:none;width:48px;height:48px;border-radius:24px;border:1px solid var(--bds);background:var(--card);color:var(--fg);display:inline-flex;align-items:center;justify-content:center;padding:0}
+.stu-fbtn[data-on]{background:var(--pri);border-color:var(--pri);color:var(--prifg)}
+.stu-fcount{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--fg);color:var(--bg);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+
+/* the Filter sheet (portalled into the layer, outside `.stu`) */
+.stu-fsheet{display:flex;flex-direction:column;gap:18px}
+.stu-fsheet section{display:flex;flex-direction:column;gap:8px}
+.stu-fcls{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.stu-fcls>button{height:42px;padding:0 4px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stu-fcls>button.on{background:var(--pri);border-color:var(--pri);color:var(--prifg)}
+.stu-fcls>.stu-fall{grid-column:span 2}
+.stu-fchips{display:flex;flex-wrap:wrap;gap:8px}
+.stu-fchips .chip{min-height:40px}
+.stu-fnote{font-size:12.5px;line-height:1.45;color:var(--mut)}
+
+/* phone: compact lines and By class */
+.stu-clist{padding:0;overflow:hidden;border-radius:18px}
+.stu-cline{border-radius:0;border-top:1px solid var(--bd);animation:xIn .3s var(--ease) both}
+.stu-cline:first-child{border-top:0}
+.stu-crow{flex:none;width:100%;min-height:50px;display:flex;align-items:center;gap:10px;padding:8px 14px;color:var(--fg);background:var(--card);scroll-snap-align:start}
+.stu-cmeta{flex:none;max-width:38%;font-size:12px;color:var(--mut)}
+.stu-cmoney{flex:none;min-width:64px;text-align:right;font-size:13.5px}
+.stu-cline .stu-acts{padding:6px 6px 6px 8px;background:var(--s2)}
+.stu-cline .stu-acts>a{width:56px;border-radius:14px}
+.stu-group{display:flex;flex-direction:column;gap:8px}
+.stu-group+.stu-group{margin-top:8px}
+.stu-ghead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 4px}
+
 @container vx (max-width:899px){
   .stu-wrap{padding:12px 18px 24px;gap:10px}
 }

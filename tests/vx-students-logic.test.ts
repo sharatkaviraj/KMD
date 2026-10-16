@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { studentsHref } from "@/vx/screens/admin/logic";
+import { parseStudentFilters, quickSegment, studentsHref } from "@/vx/screens/admin/logic";
 import {
   attendanceDays,
   attendanceFigure,
+  classChipLabel,
   classFromQuery,
+  groupByClass,
   MAX_BADGES,
   moneyStatus,
   nextSort,
@@ -12,12 +14,15 @@ import {
   parseStudentView,
   sortMode,
   sortStudentRows,
+  readStudentLayoutCookie,
   readStudentViewCookie,
+  resolveStudentLayout,
   resolveStudentView,
   savedScroll,
   SCROLL_TTL_MS,
   scrollToRestore,
   studentBadges,
+  studentLayoutCookieValue,
   studentViewCookieValue,
   type StudentFacts,
 } from "@/vx/screens/admin/students-logic";
@@ -247,5 +252,58 @@ describe("Students list: sorting, class search and money words (D01/F05)", () =>
     expect(moneyStatus({ pendingToday: 4200, notDueYet: 13200 })).toEqual({ kind: "pending", amount: 4200 });
     expect(moneyStatus({ pendingToday: 0, notDueYet: 9300 })).toEqual({ kind: "track", amount: 9300 });
     expect(moneyStatus({ pendingToday: 0, notDueYet: 0 })).toEqual({ kind: "paid" });
+  });
+});
+
+describe("the phone's filters and layouts (UI-94)", () => {
+  it("reads any fee filters from ?seg=, known ones once each in list order, an old one-chip link as before", () => {
+    expect(parseStudentFilters("pending")).toEqual(["pending"]);
+    expect(parseStudentFilters("bus,late,bus,nonsense")).toEqual(["late", "bus"]);
+    expect(parseStudentFilters("")).toEqual([]);
+    expect(parseStudentFilters(undefined)).toEqual([]);
+  });
+
+  it("lights a quick chip only when it is the one filter on", () => {
+    expect(quickSegment([])).toBe("all");
+    expect(quickSegment(["pending"])).toBe("pending");
+    expect(quickSegment(["late"])).toBe("all");
+    expect(quickSegment(["pending", "bus"])).toBe("all");
+  });
+
+  it("writes filters and the layout into the URL with readable commas", () => {
+    expect(studentsHref({ segs: ["bus", "pending"], look: "compact" })).toBe("/students?seg=pending,bus&look=compact");
+    expect(studentsHref({ segs: [], seg: "pending" })).toBe("/students");
+    expect(studentsHref({ seg: "paid" })).toBe("/students?seg=paid");
+  });
+
+  it("opens Fees for any fee filter in a link, as for a chip", () => {
+    expect(resolveStudentView({ param: undefined, seg: "all", filters: ["late"], remembered: "school", seesMoney: true })).toBe("fees");
+    expect(resolveStudentView({ param: "school", seg: "all", filters: ["late"], remembered: "fees", seesMoney: true })).toBe("school");
+  });
+
+  it("remembers the layout per person and lets the URL win", () => {
+    expect(readStudentLayoutCookie(studentLayoutCookieValue(STAFF, "compact"), STAFF)).toBe("compact");
+    expect(readStudentLayoutCookie(studentLayoutCookieValue(OTHER, "compact"), STAFF)).toBeNull();
+    expect(readStudentLayoutCookie(`${STAFF}.huge`, STAFF)).toBeNull();
+    expect(resolveStudentLayout("class", "compact")).toBe("class");
+    expect(resolveStudentLayout(undefined, "compact")).toBe("compact");
+    expect(resolveStudentLayout("nonsense", null)).toBe("cards");
+  });
+
+  it("names classes short for the class grid", () => {
+    expect(classChipLabel("Class 7")).toBe("7");
+    expect(classChipLabel("Class 11 Science")).toBe("11 Science");
+    expect(classChipLabel("Nursery")).toBe("Nursery");
+  });
+
+  it("groups rows where the class changes and totals fees pending today, late fee never added", () => {
+    const row = (classLabel: string, pendingToday: number | null) => ({ classLabel, money: pendingToday === null ? null : { pendingToday } });
+    const groups = groupByClass([row("Class 1", 500), row("Class 1", 0), row("Class 2", 1200), row("Class 1", 100)]);
+    expect(groups.map((g) => [g.label, g.rows.length, g.pending])).toEqual([
+      ["Class 1", 2, 500],
+      ["Class 2", 1, 1200],
+      ["Class 1", 1, 100],
+    ]);
+    expect(groupByClass([row("Class 3", null)])[0].pending).toBeNull();
   });
 });

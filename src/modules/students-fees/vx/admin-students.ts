@@ -31,13 +31,27 @@ import { getDisplayInstallmentLabel, isCarryForwardInstallment } from "@/modules
  * them, and fees and late fees stay apart.
  */
 
-/** The list's chips onto the fee app's saved views. */
+/**
+ * The list's filters onto the fee app's saved views: the quick chips and the
+ * phone's Filter sheet (UI-94). The fee app combines them — either of two in
+ * one family (Pending or Paid up), both across families (Pending and on a bus).
+ */
 const SEGMENT_OF = {
   pending: "overdue",
+  late: "lateFeePending",
+  never: "neverPaid",
+  part: "partlyPaid",
+  paid: "yearClear",
+  emi: "onEmi",
+  emiMissed: "emiMissed",
+  old: "oldBalanceDue",
   bus: "onTransport",
   new: "newThisYear",
-  paid: "yearClear",
+  concession: "hasDiscount",
+  noPhone: "missingPhone",
 } as const satisfies Record<string, SegmentId>;
+
+type ListFilter = keyof typeof SEGMENT_OF;
 
 export type MoneyListRow = {
   id: string;
@@ -72,13 +86,15 @@ export type MoneyList = {
   total: number;
   page: number;
   pageSize: number;
-  counts: { all: number | null; pending: number | null; bus: number | null; new: number | null; paid: number | null };
+  /** "All" and each filter's count, within the class and search but not the other filters. */
+  counts: { all: number | null } & Record<ListFilter, number | null>;
 };
 
 export async function studentMoneyList(input: {
   query: string;
   classId: string;
-  segment: "all" | keyof typeof SEGMENT_OF;
+  /** None is the whole roll. */
+  filters: readonly ListFilter[];
   page: number;
   pageSize: number;
   /**
@@ -92,7 +108,7 @@ export async function studentMoneyList(input: {
 }): Promise<MoneyList> {
   await assertPermission("fees:view");
   const view = input.sessionLabel ? { sessionLabel: input.sessionLabel } : await resolveViewSession({ cookieSession: await getViewSessionCookie() });
-  const segments: SegmentId[] = input.segment === "all" ? [] : [SEGMENT_OF[input.segment]];
+  const segments: SegmentId[] = input.filters.map((f) => SEGMENT_OF[f]);
 
   const [page, counts] = await Promise.all([
     getStudentsPage(
@@ -137,10 +153,7 @@ export async function studentMoneyList(input: {
     })),
     counts: {
       all: counts ? (segmentCount(counts, "active") ?? counts.scopeTotal) : null,
-      pending: segmentCount(counts, "overdue"),
-      bus: segmentCount(counts, "onTransport"),
-      new: segmentCount(counts, "newThisYear"),
-      paid: segmentCount(counts, "yearClear"),
+      ...(Object.fromEntries((Object.keys(SEGMENT_OF) as ListFilter[]).map((f) => [f, segmentCount(counts, SEGMENT_OF[f])])) as Record<ListFilter, number | null>),
     },
   };
 }

@@ -24,9 +24,17 @@ async function settledTap(target: Locator) {
 async function open(page: Page, width: number, query = "") {
   await page.setViewportSize({ width, height: 844 });
   await page.goto(`/${query}`, { waitUntil: "domcontentloaded" });
+  // A phone's desk opens on the dues; the amount is step 2 and the date step 3 (UI-95).
+  await expect(page.getByRole("button", { name: "Enter amount", exact: true })).toBeVisible();
+  await expect(page.locator("#pd-amount")).toBeHidden();
+  await page.getByRole("button", { name: "Enter amount", exact: true }).tap();
   await expect(page.locator("#pd-amount")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
   expect((await snapshot(page)).effects).toHaveLength(0);
+}
+/** From the amount to the date, mode and Review & save. */
+async function toSave(page: Page) {
+  await page.getByRole("button", { name: "Next: date & mode", exact: true }).tap();
+  await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
 }
 type Balance = { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number };
 /** The design's receipt freezes the balance after it, part by part (RULES B keeps the late fee apart). */
@@ -39,6 +47,7 @@ async function expectBalanceAfter(page: Page, balance: Balance) {
   await expect(card).toContainText(`Late fee (separate)${inr(balance.lateFee)}`);
 }
 async function review(page: Page) {
+  if (await page.getByRole("button", { name: "Next: date & mode", exact: true }).isVisible()) await toSave(page);
   await page.getByRole("button", { name: "Review & save", exact: true }).tap();
   await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toBeVisible();
   expect((await snapshot(page)).effects).toHaveLength(0);
@@ -74,6 +83,7 @@ for (const width of [360, 390, 412]) {
       await open(page, width);
       await expect(page.getByRole("radio", { name: "Waive", exact: true })).toHaveCount(0);
       await page.locator("#pd-amount").fill("500");
+      await toSave(page);
       await page.getByRole("radio", { name: mode, exact: true }).tap();
       const reference = mode === "UPI" ? "202610119901" : mode === "Bank transfer" ? "UTR OPS 20261011" : mode === "Cheque" ? "123456" : "";
       if (mode === "UPI") await page.getByLabel("UPI ref no. (optional)", { exact: true }).fill(reference);
@@ -103,8 +113,10 @@ for (const width of [360, 390, 412]) {
     // The counter concession is off (school-day run, accountant B1).
     await expect(page.locator("#pd-concession")).toHaveCount(0);
     await page.getByRole("radio", { name: "Waive", exact: true }).tap();
-    await page.getByRole("button", { name: "Review & save", exact: true }).tap();
+    // A waiver without a reason keeps the amount step: the date step never opens on a problem only step 2 can fix.
+    await page.getByRole("button", { name: "Next: date & mode", exact: true }).tap();
     await expect(page.getByText("Pick a reason for the waiver", { exact: true }).first()).toBeVisible();
+    await expect(page.locator("#pd-amount")).toBeVisible();
     await expect(page.getByRole("dialog", { name: /^Save ₹/ })).toHaveCount(0);
     expect((await snapshot(page)).effects).toHaveLength(0);
     await page.getByRole("button", { name: "Family hardship", exact: true }).tap();
@@ -137,6 +149,7 @@ for (const width of [360, 390, 412]) {
   test(`${width}px backdate guards and authoritative no-late advance`, async ({ page }) => {
     await open(page, width);
     await page.locator("#pd-amount").fill("3500");
+    await toSave(page);
     await page.getByRole("radio", { name: "Other date", exact: true }).tap();
     const date = page.getByLabel("Date the parent paid", { exact: true });
     for (const invalid of ["2026-03-31", "2026-10-12"]) {

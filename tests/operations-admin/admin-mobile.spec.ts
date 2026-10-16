@@ -55,6 +55,37 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.getByRole("button", { name: "Clear", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Bulk edit.", exact: true })).toHaveCount(0);
   });
+  // The phone's Filter sheet (UI-94): class, fee filters, order and layout, applied together.
+  test(`phone Filter sheet combines filters and changes the layout at ${viewport.width}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(list);
+    await page.getByRole("button", { name: "Filter and sort · 2 on", exact: true }).tap();
+    const sheet = page.getByRole("dialog", { name: "Filter and view" });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("radio", { name: "QA Class", exact: true })).toHaveAttribute("aria-checked", "true");
+    // Nothing changes until Show: the list stays as it was under the sheet.
+    await sheet.getByRole("button", { name: /^Late fee pending/ }).tap();
+    await sheet.getByRole("radio", { name: "Compact", exact: true }).tap();
+    await expect(page).toHaveURL(/seg=pending&/);
+    await sheet.getByRole("button", { name: "Show students", exact: true }).tap();
+    await expect(page).toHaveURL(/seg=pending,late/);
+    await expect(page).toHaveURL(/look=compact/);
+    // Two filters on: neither quick chip is lit, and each has its own remove chip.
+    await expect(page.getByRole("link", { name: "Late fee pending · remove", exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Pending today · remove", exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(page.locator(".stu-crow").first()).toBeVisible();
+    await expect(page.locator(".stu-mcard").filter({ visible: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+    // Removing one filter keeps the other and the layout.
+    await page.getByRole("link", { name: "Late fee pending · remove", exact: true }).filter({ visible: true }).tap();
+    await expect(page).toHaveURL(/seg=pending&look=compact/);
+    // By class groups under a heading per class.
+    await page.getByRole("button", { name: "Filter and sort · 2 on", exact: true }).tap();
+    await sheet.getByRole("radio", { name: "By class", exact: true }).tap();
+    await sheet.getByRole("button", { name: "Show students", exact: true }).tap();
+    await expect(page).toHaveURL(/look=class/);
+    await expect(page.getByRole("region", { name: "QA Class" }).filter({ visible: true })).toBeVisible();
+  });
 }
 // On a desk the rows are ticked and the design's floating bulk bar acts on them (D01).
 test("desk bulk bar: ticked rows, readable reminder, clear", async ({ page }) => {

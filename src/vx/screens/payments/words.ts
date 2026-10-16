@@ -43,6 +43,18 @@ export const W = {
   adminOnly: p("Admin only", "केवल एडमिन"),
   backToDesk: p("Back to the desk", "डेस्क पर वापस"),
   back: p("Back", "वापस"),
+  /* the phone's three steps (UI-95) */
+  steps: p("Payment steps", "भुगतान के चरण"),
+  stepDues: p("Dues", "बकाया"),
+  stepAmount: p("Amount", "राशि"),
+  stepSave: p("Date & save", "तारीख़ और सहेजें"),
+  stepOf: (n: number, label: string) => p(`Step ${n} of 3: ${label}`, `चरण ${n} / 3: ${label}`),
+  toAmount: p("Enter amount", "राशि लिखें"),
+  toSave: p("Next: date & mode", "आगे: तारीख़ और तरीका"),
+  moreRows: (n: number) => p(`Installments and receipts (${n})`, `किस्तें और रसीदें (${n})`),
+  lessRows: p("Hide installments and receipts", "किस्तें और रसीदें छिपाएँ"),
+  goesTo: p("Goes to", "इनमें जमा होगा"),
+  changeAmount: p("Change amount", "राशि बदलें"),
   menu: p("Back to menu", "मेन्यू पर वापस"),
 
   search: p("Name, SR no., father or phone", "नाम, SR नं., पिता या फ़ोन"),

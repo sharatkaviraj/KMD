@@ -1,4 +1,28 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+/*
+ * A phone's desk is three steps — dues, amount, date & save (UI-95); a desk
+ * shows every field at once. These walk the steps on a phone and do nothing
+ * on a desk, so one test reads the same at 320px and at 1440px.
+ */
+async function toAmount(page: Page) {
+  const next = page.getByRole("button", { name: "Enter amount", exact: true });
+  // The student loads first: wait for whichever the width draws, the step's Next or the amount itself.
+  await expect(page.locator("#pd-amount").or(next).filter({ visible: true }).first()).toBeVisible();
+  if (await next.isVisible()) await next.click();
+  await expect(page.locator("#pd-amount")).toBeVisible();
+}
+async function toSave(page: Page) {
+  const next = page.getByRole("button", { name: "Next: date & mode", exact: true });
+  if (await next.isVisible()) await next.click();
+  await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeVisible();
+}
+/** Back to the class list: the desk's search button, or a phone's header arrow while a save is held. */
+async function leaveStudent(page: Page) {
+  const another = page.getByRole("button", { name: "Search another student", exact: true });
+  if (await another.isVisible()) await another.click();
+  else await page.getByRole("button", { name: "Back", exact: true }).click();
+}
 
 async function settleBackTarget(button: Locator) {
   await button.evaluate(async element => {
@@ -36,7 +60,8 @@ for (const width of [320, 390, 1180, 1440]) {
   test(`selection, edit, review, receipt and next collection at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 }); await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: /TEST Child A/ }).click();
-    const amount = page.locator("#pd-amount"); await expect(amount).toBeVisible(); await amount.fill("500");
+    const amount = page.locator("#pd-amount"); await toAmount(page); await amount.fill("500");
+    await toSave(page);
     await expect(page.locator("#pd-concession")).toHaveCount(0); await page.locator("#pd-received-by").fill("TEST Other Cashier");
     await page.getByRole("button", { name: "Review & save", exact: true }).click();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(0);
@@ -57,7 +82,7 @@ for (const width of [320, 390, 1180, 1440]) {
     // A desk keeps the class list beside the counter; a phone goes back to it.
     const another = page.getByRole("button", { name: "Search another student", exact: true });
     if (await another.isVisible()) await another.click();
-    await page.getByRole("button", { name: /TEST Child B/ }).click(); await expect(amount).toBeVisible();
+    await page.getByRole("button", { name: /TEST Child B/ }).click(); await toAmount(page);
     // Visibility does not imply opacity animation has completed (WebKit can
     // otherwise capture an empty entry pane during its first frame).
     await page.evaluate(async () => {
@@ -75,7 +100,9 @@ test("lost save survives switching student and reload without a second receipt a
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?lost&uncertain", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /TEST Child A/ }).click();
+  await toAmount(page);
   await page.locator("#pd-amount").fill("500");
+  await toSave(page);
   await page.locator("#pd-received-by").fill("TEST Recovery Cashier");
   await page.getByRole("button", { name: "Review & save", exact: true }).click();
   await page.getByRole("button", { name: /^Save payment/ }).click();
@@ -83,7 +110,7 @@ test("lost save survives switching student and reload without a second receipt a
   const original = await page.evaluate(() => window.paymentFixtureSnapshot().posted);
   // The design review is a sheet; an unresolved one closes to the desk (Resume payment brings it back).
   await page.getByRole("dialog", { name: /^Save ₹/ }).getByRole("button", { name: "Close", exact: true }).click();
-  await page.getByRole("button", { name: "Search another student", exact: true }).click();
+  await leaveStudent(page);
   await page.getByRole("button", { name: /TEST Child B/ }).click();
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /TEST Child A/ }).click();
@@ -134,12 +161,14 @@ for (const fault of ["unsupported", "denied"] as const) {
     }, fault);
     await page.goto("/?selected", { waitUntil: "domcontentloaded" });
     await expect(page.getByText(/Payment saving is paused because this browser/).first()).toBeVisible();
+    await toAmount(page); await page.locator("#pd-amount").fill("500"); await toSave(page);
     await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
     expect(await page.evaluate(() => window.paymentFixtureSnapshot().receiptCount)).toBe(0);
     await page.evaluate(() => { window.recoveryFault = false; });
     await page.getByRole("button", { name: "Retry recovery" }).click();
     await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
-    await page.locator("#pd-amount").fill("500");
+    // Retry recovery keeps the entry: the amount is still 500.
+    await expect(page.locator("#pd-amount")).toHaveValue("500");
     await page.getByRole("button", { name: "Review & save", exact: true }).click();
     await page.getByRole("button", { name: /^Save payment/ }).click();
     await expect(page.getByText("TEST-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
@@ -171,8 +200,8 @@ for (const fault of ["missing", "denied", "private-quota"] as const) {
       }
     }, fault);
     await page.goto("/?selected", { waitUntil: "domcontentloaded" });
+    await toAmount(page); await page.locator("#pd-amount").fill("500"); await toSave(page);
     if (fault === "private-quota") {
-      await page.locator("#pd-amount").fill("500");
       await page.locator("#pd-received-by").fill("TEST Private Cashier");
       await page.getByRole("button", { name: "Review & save", exact: true }).click();
       await page.getByRole("button", { name: /^Save payment/ }).click();
@@ -191,7 +220,7 @@ for (const fault of ["missing", "denied", "private-quota"] as const) {
       await page.evaluate(() => { window.primaryFault = false; });
       await page.getByRole("button", { name: "Retry recovery" }).click();
       await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeEnabled();
-      await page.locator("#pd-amount").fill("500");
+      await expect(page.locator("#pd-amount")).toHaveValue("500");
       await page.getByRole("button", { name: "Review & save", exact: true }).click();
     } else await expect(page.getByText("TEST Private Cashier", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: /^Save payment/ }).click();
@@ -203,7 +232,9 @@ for (const fault of ["missing", "denied", "private-quota"] as const) {
 test("390px collector and session changes retain only the original scope's unfinished payment", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?selected&lost&uncertain", { waitUntil: "domcontentloaded" });
+  await toAmount(page);
   await page.locator("#pd-amount").fill("500");
+  await toSave(page);
   await page.getByRole("button", { name: "Review & save", exact: true }).click();
   await page.getByRole("button", { name: /^Save payment/ }).click();
   await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
@@ -212,6 +243,7 @@ test("390px collector and session changes retain only the original scope's unfin
     await page.goto(`/?selected&${change}`, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: "Check whether it was saved" })).toHaveCount(0);
     await expect(page.locator("#pd-amount")).not.toHaveValue("500");
+    await toAmount(page); await page.locator("#pd-amount").fill("100"); await toSave(page);
     if (change === "missing-owner") {
       await expect(page.getByText(/Payment recovery could not identify/)).toBeVisible();
       await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
@@ -230,7 +262,9 @@ for (const mirror of [true, false]) {
   test(`390px interrupted IDB recovery ${mirror ? "uses the confirmed mirror" : "blocks when its mirror is absent"}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?selected&lost&uncertain", { waitUntil: "domcontentloaded" });
+    await toAmount(page);
     await page.locator("#pd-amount").fill("500");
+    await toSave(page);
     await page.getByRole("button", { name: "Review & save", exact: true }).click();
     await page.getByRole("button", { name: /^Save payment/ }).click();
     await expect(page.getByRole("button", { name: "Check whether it was saved" })).toBeVisible();
@@ -249,6 +283,7 @@ for (const mirror of [true, false]) {
     await page.reload({ waitUntil: "domcontentloaded" });
     if (!mirror) {
       await expect(page.getByText(/Payment saving is paused because recovery storage/).first()).toBeVisible();
+      await toAmount(page); await page.locator("#pd-amount").fill("500"); await toSave(page);
       await expect(page.getByRole("button", { name: "Review & save", exact: true })).toBeDisabled();
       expect(await page.evaluate(() => window.paymentFixtureSnapshot())).toEqual({ posted: original, receiptCount: 1 });
       await page.evaluate(() => { window.recoveryFault = false; });

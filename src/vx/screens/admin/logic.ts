@@ -396,6 +396,33 @@ export function parseSegment(value: string | undefined | null): StudentSegment {
   return (STUDENT_SEGMENTS as readonly string[]).includes(value ?? "") ? (value as StudentSegment) : "all";
 }
 
+/**
+ * Every fee filter on the Students list: the four quick chips, and the rest
+ * the phone's Filter sheet offers (UI-94). Each is one of the fee app's saved
+ * views, so a count and a list always mean the same children.
+ */
+export type StudentFilter = Exclude<StudentSegment, "all"> | "late" | "never" | "part" | "emi" | "emiMissed" | "old" | "concession" | "noPhone";
+
+/** The order filters are listed, written into a URL and shown as chips. */
+export const STUDENT_FILTERS: readonly StudentFilter[] = ["pending", "late", "never", "part", "paid", "emi", "emiMissed", "old", "bus", "new", "concession", "noPhone"];
+
+/** The four that also sit as quick chips above the list. */
+export const QUICK_FILTERS: readonly StudentFilter[] = ["pending", "bus", "new", "paid"];
+
+/**
+ * `?seg=pending,bus` → the filters, known ones only, once each, in list
+ * order. An old one-chip link (`?seg=pending`) reads the same as before.
+ */
+export function parseStudentFilters(value: string | undefined | null): StudentFilter[] {
+  const asked = new Set((value ?? "").split(",").map((s) => s.trim()));
+  return STUDENT_FILTERS.filter((f) => asked.has(f));
+}
+
+/** The one quick chip a filter list amounts to, or "all" — the chip row lights it. */
+export function quickSegment(filters: readonly StudentFilter[]): StudentSegment {
+  return filters.length === 1 && QUICK_FILTERS.includes(filters[0]) ? (filters[0] as StudentSegment) : "all";
+}
+
 export type StudentTab = "overview" | "fees" | "attendance" | "marks" | "family" | "documents" | "notes" | "history" | "info";
 
 export const STUDENT_TABS: readonly StudentTab[] = ["overview", "fees", "attendance", "marks", "family", "documents", "notes", "history", "info"];
@@ -515,19 +542,31 @@ export function average(values: readonly number[]): number | null {
 }
 
 /**
- * The Students list as a URL: search, class, view, chip and page — empty
- * values left out. The view is written whenever it is given, so a link opens
- * the view it was made in whatever the reader last chose.
+ * The Students list as a URL: search, class, view, filters, layout and page —
+ * empty values left out. The view is written whenever it is given, so a link
+ * opens the view it was made in whatever the reader last chose; the layout
+ * likewise. `segs` (any filters) wins over `seg` (one quick chip).
  */
-export function studentsHref(query: { q?: string; classId?: string | null; view?: "school" | "fees"; seg?: StudentSegment; page?: number }): string {
+export function studentsHref(query: {
+  q?: string;
+  classId?: string | null;
+  view?: "school" | "fees";
+  seg?: StudentSegment;
+  segs?: readonly StudentFilter[];
+  look?: "cards" | "compact" | "class";
+  page?: number;
+}): string {
   const params = new URLSearchParams();
   const q = (query.q ?? "").trim();
   if (q) params.set("q", q);
   if (query.classId) params.set("class", query.classId);
   if (query.view) params.set("view", query.view);
-  if (query.seg && query.seg !== "all") params.set("seg", query.seg);
+  const segs = query.segs ? STUDENT_FILTERS.filter((f) => query.segs!.includes(f)) : query.seg && query.seg !== "all" ? [query.seg] : [];
+  if (segs.length) params.set("seg", segs.join(","));
+  if (query.look) params.set("look", query.look);
   if (query.page && query.page > 1) params.set("page", String(query.page));
-  const search = params.toString();
+  // A comma reads as itself in a query string; "%2C" only makes links harder to read.
+  const search = params.toString().replace(/%2C/g, ",");
   return search ? `/students?${search}` : "/students";
 }
 

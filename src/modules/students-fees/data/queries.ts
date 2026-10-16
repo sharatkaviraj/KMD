@@ -1,5 +1,7 @@
 import { getStudentDirectoryIds } from "@/modules/students-fees/data/directory";
 import { segmentsImplyEnrolment } from "@/modules/students-fees/domain/student-segments";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import "server-only";
 
 import { cache } from "react";
@@ -661,7 +663,7 @@ async function getStudentsPageUncached(
       )
       .eq("class_ref.status", "active"),
     filters.sort,
-  ).range(from, to);
+  );
 
   if (filters.sessionLabel) {
     query = query.eq("class_ref.session_label", filters.sessionLabel);
@@ -693,15 +695,19 @@ async function getStudentsPageUncached(
   // and then snapped back to the full roll -- which is exactly what it looked
   // like from the office: pick "Never paid", still see 509.
   const directoryIds = await resolveDirectoryStudentIds(filters);
-  if (directoryIds !== null) query = query.in("id", directoryIds);
+  // A scope too long for one `.in()` is paged here instead (see pageOfLargeScope).
+  const large = directoryIds !== null && directoryIds.length > IN_FILTER_CHUNK_SIZE ? await pageOfLargeScope(supabase, directoryIds, filters, from, pageSize) : null;
+  if (large) query = query.in("id", large.pageIds).range(0, pageSize - 1);
+  else query = (directoryIds !== null ? query.in("id", directoryIds) : query).range(from, to);
 
-  const { data, error, count } = await query;
+  const { data, error, count: pageCount } = await query;
 
   if (error) {
     throw new Error(`Unable to load students: ${error.message}`);
   }
 
-  const studentRows = (data ?? []) as StudentListRow[];
+  const count = large ? large.total : pageCount;
+  const studentRows = large ? inPageOrder((data ?? []) as StudentListRow[], large.pageIds) : ((data ?? []) as StudentListRow[]);
 
   let financialMap = new Map<string, StudentWorkbookFinancialRow>();
   let overrideMap = new Map<string, StudentFeeOverrideRow>();
@@ -1005,6 +1011,55 @@ async function getStudentsPageUncached(
 }
 
 /**
+ * One page of a directory scope too long for a single `.in()`.
+ *
+ * A filter such as "Part paid" matches 390 children in a session, and a
+ * `.in()` list rides in the request URL: past ~300 ids it hangs and fails
+ * (CLAUDE.md rule 3b, `platform/helpers/in-filter.ts`). So the scope's ids and
+ * sort keys are read in chunks, under the same predicates the page query
+ * applies, ordered as `applyStudentSort` orders them, and cut to the page. The
+ * page query then asks for at most a page of ids, and the count is the
+ * scope's own, so the two still describe the same set.
+ *
+ * Added in VPPS One (UI-94); the predicates below must stay those of
+ * `getStudentsPageUncached` and `getStudentsIdentityPage`.
+ */
+async function pageOfLargeScope(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: readonly string[],
+  filters: StudentListFilters,
+  from: number,
+  pageSize: number,
+): Promise<{ pageIds: string[]; total: number }> {
+  type KeyRow = { id: string; full_name: string; class_ref: { sort_order: number | null } | { sort_order: number | null }[] | null };
+  const { data, error } = await fetchInChunks<KeyRow>(ids, IN_FILTER_CHUNK_SIZE, (chunk) => {
+    let keys = supabase
+      .from("students")
+      .select("id, full_name, class_ref:classes!inner(sort_order, status, session_label)")
+      .eq("class_ref.status", "active")
+      .in("id", chunk);
+    if (filters.sessionLabel) keys = keys.eq("class_ref.session_label", filters.sessionLabel);
+    if (filters.classId) keys = keys.eq("class_id", filters.classId);
+    if (filters.transportRouteId === CUSTOM_TRANSPORT_ROUTE_KEY) keys = keys.is("transport_route_id", null);
+    else if (filters.transportRouteId) keys = keys.eq("transport_route_id", filters.transportRouteId);
+    if (filters.status && !segmentsImplyEnrolment(filters.segments)) keys = keys.eq("status", filters.status);
+    return keys.returns<KeyRow[]>();
+  });
+  if (error) throw new Error(`Unable to load students: ${(error as { message?: string }).message ?? "unknown error"}`);
+  const rows = [...data];
+  const order = (row: KeyRow) => toSingleRecord(row.class_ref)?.sort_order ?? Number.MAX_SAFE_INTEGER;
+  const byName = (a: KeyRow, b: KeyRow) => a.full_name.localeCompare(b.full_name, "en") || a.id.localeCompare(b.id);
+  rows.sort(filters.sort === "class" ? (a, b) => order(a) - order(b) || byName(a, b) : byName);
+  return { pageIds: rows.slice(from, from + pageSize).map((row) => row.id), total: rows.length };
+}
+
+/** The page's rows in the order `pageOfLargeScope` chose. */
+function inPageOrder<T extends { id: string }>(rows: T[], pageIds: readonly string[]): T[] {
+  const at = new Map(pageIds.map((id, i) => [id, i]));
+  return [...rows].sort((a, b) => (at.get(a.id) ?? 0) - (at.get(b.id) ?? 0));
+}
+
+/**
  * Resolve the student ids matching the segment chips and the wide search.
  *
  * Both live on `v_student_directory`, not on `students`, so they cannot be
@@ -1057,7 +1112,7 @@ export async function getStudentsIdentityPage(
       )
       .eq("class_ref.status", "active"),
     filters.sort,
-  ).range(from, from + pageSize - 1);
+  );
 
   if (filters.sessionLabel) query = query.eq("class_ref.session_label", filters.sessionLabel);
   if (filters.classId) query = query.eq("class_id", filters.classId);
@@ -1076,12 +1131,16 @@ export async function getStudentsIdentityPage(
   // than the client-side pass, so an SR number matched optimistically and then
   // vanished when the server answered.
   const directoryIds = await resolveDirectoryStudentIds(filters);
-  if (directoryIds !== null) query = query.in("id", directoryIds);
+  const large = directoryIds !== null && directoryIds.length > IN_FILTER_CHUNK_SIZE ? await pageOfLargeScope(supabase, directoryIds, filters, from, pageSize) : null;
+  if (large) query = query.in("id", large.pageIds).range(0, pageSize - 1);
+  else query = (directoryIds !== null ? query.in("id", directoryIds) : query).range(from, from + pageSize - 1);
 
-  const { data, error, count } = await query;
+  const { data, error, count: pageCount } = await query;
   if (error) throw new Error(`Unable to load student identities: ${error.message}`);
+  const count = large ? large.total : pageCount;
+  const identityRows = large ? inPageOrder((data ?? []) as StudentListRow[], large.pageIds) : ((data ?? []) as StudentListRow[]);
 
-  const students = ((data ?? []) as StudentListRow[]).map((row) => {
+  const students = identityRows.map((row) => {
     const classRef = toSingleRecord(row.class_ref);
     const routeRef = toSingleRecord(row.route_ref);
     return {
