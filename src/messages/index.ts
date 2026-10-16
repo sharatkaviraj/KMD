@@ -28,6 +28,7 @@ export const m = {
   taskReason: t("बदलाव का कारण", "Reason for correction"),
   taskRetry: t("उसी सहेजने की फिर जाँच करें", "Retry the same save"),
   taskUnknown: t("सहेजने की पुष्टि नहीं मिली। उसी प्रयास की फिर जाँच करें।", "Save outcome is unknown. Retry the same save to recover its receipt."),
+  taskDraftUnconfirmed: t("इस डिवाइस पर सेव है · स्कूल में सहेजने की पुष्टि नहीं मिली", "Saved on this device · school save unconfirmed"),
   taskRefused: t("सहेजा नहीं गया। काम या अधिकार बदल गया हो सकता है। पृष्ठ फिर खोलें।", "Not saved. The work or your access may have changed. Reload the page."),
   taskApprovalNote: t("विवरण प्रशासक के अनुमोदन के बाद आधिकारिक रिकॉर्ड बनेंगे।", "Details become official after administrator approval."),
   taskViewAll: t("सभी देखें", "View all"),

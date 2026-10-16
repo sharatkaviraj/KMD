@@ -19,6 +19,11 @@ jobs:
         run: node tests/sql/teacher-tasks.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
       - name: Exercise reviewed task delivery and legacy guards
         run: node tests/sql/teacher-task-delivery.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+      - name: Exercise photo proposals and legacy administrator review
+        run: |
+          node tests/sql/profile-photos.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+          node tests/sql/legacy-teacher-review.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+          node tests/sql/teacher-task-canonical-writers.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
   lock-order:
     runs-on: ubuntu-latest
     timeout-minutes: 5

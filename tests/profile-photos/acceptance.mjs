@@ -4,7 +4,7 @@ import { chromium, expect } from "@playwright/test";
 import sharp from "sharp";
 import { mkdir } from "node:fs/promises";
 import assert from "node:assert/strict";
-const server = await createServer({ configFile: new URL("./vite.config.ts", import.meta.url).pathname.replace(/^\/(.:)/,"$1") });
+const server = await createServer({ configFile: new URL("./vite.config.mjs", import.meta.url).pathname.replace(/^\/(.:)/,"$1") });
 await server.listen();
 const browser = await chromium.launch({ headless: true });
 const output = new URL("../../docs/evidence/sampark-workflows/photo-screenshots/",import.meta.url);

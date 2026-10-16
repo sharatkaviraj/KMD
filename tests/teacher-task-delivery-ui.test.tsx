@@ -10,6 +10,19 @@ import {TaskDelivery} from "@/modules/teacher-tasks/ui/task-delivery";
 let host:HTMLDivElement;let root:Root;
 beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.clearAllMocks();host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+it("an interrupted send recovers immediately after attributed not-sent reconciliation",async()=>{
+  const summary={pending:true,deliveries:[]} as import("@/modules/teacher-tasks/domain/delivery").DeliverySummary;
+  const render=()=>root.render(<TaskDelivery id="task" language="en" availability="ready" summary={summary}/>);
+  calls.preview.mockResolvedValue({ok:true,id:"preview",digest:"digest",name:"Synthetic Teacher",phone:"9000000000",title:"Synthetic task"});
+  calls.confirm.mockRejectedValue(new Error("finish response lost"));calls.reconcile.mockResolvedValue(true);
+  const click=async(label:string)=>act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent===label)!.click());
+  await act(async()=>render());await click("Review message");await click("Send through AiSensy");
+  summary.deliveries=[{id:"send",state:"unknown",transport:"aisensy",phone:"9000000000",at:"2026-10-16",round:"initial",attempt:"attempt:synthetic",history:[]}];
+  await act(async()=>render());
+  await act(async()=>{const input=host.querySelector("textarea")!;Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value")!.set!.call(input,"Verified synthetic provider log: no send");input.dispatchEvent(new Event("input",{bubbles:true}));});
+  await click("Confirm not sent in log");summary.deliveries=[];await act(async()=>render());
+  expect(host.textContent).toContain("Review message");await click("Review message");expect(calls.preview).toHaveBeenCalledTimes(2);
+});
 it("shows the actual reviewed number and a typed changed-recipient refusal",async()=>{
   calls.preview.mockResolvedValue({ok:true,id:"preview",digest:"digest",name:"Synthetic Teacher",phone:"9000000000",title:"Synthetic task",due:null,kind:"initial",expected:1,answered:0});
   calls.confirm.mockResolvedValue({ok:false,reason:"changed"});

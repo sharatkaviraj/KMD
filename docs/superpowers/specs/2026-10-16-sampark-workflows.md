@@ -18,3 +18,8 @@ Implementation, synthetic/local mocked testing, review, commits, push/PR/merge a
 ## Existing evidence
 
 Baseline main `dd1e9a5` includes PR95/96. `/collection`, `/r/[token]`, `/t/[token]`, review and rounds exist. `/teach/marks` and external `/t/marks/[token]` share the marks writer and assignment checks. `/teach/attendance` uses audited register commands. `/teach/more?view=links` contains marks links. Collection does not yet have a verified signed-in equivalent. Staff-notice outbox has leased claim/stamp/finish and Unknown handling. Runtime AiSensy campaign configuration is unverified.
+
+
+## Release steering — 16 October 2026, 10:31 UTC
+
+Leave AiSensy WhatsApp campaigns/templates pending in the existing Integrations surface. Show that automated task sending is unavailable; local active template rows are not external approval. Keep reviewed manual task-link sharing usable and truthful about unconfirmed sends. Complete and release the remaining tasks, photos and academic workflows after exact-target migration approval, independent review and required CI. Provider setup is deliberately deferred, not a release blocker. No campaign, credential, configuration or real-send action is part of this deferral.

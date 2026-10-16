@@ -1,5 +1,12 @@
 # Decisions
 
+## Shared teacher work acceptance - 2026-10-16
+
+- Teacher collection proposals require an active administrator whether entered through a managed task or an older `/r` request. The database trigger rejects office decisions inside the existing canonical transaction, rolling back its record/history/command writes; the review action and UI use the same boundary. Unrelated direct-office record and photo policy remains unchanged. The regression uses the actual canonical writer, not a review mock.
+- Per the user's 10:31 UTC steering, external AiSensy campaign/template setup remains pending in existing Integrations. Local message-template rows establish only local contracts. Readiness follows the existing task-delivery availability gate; reviewed manual task links remain available without claiming delivery. Six initial/reminder language contracts are retained for later authorized setup. Provider configuration is not a release blocker for the other approved work.
+- An outstanding academic command is described as school save unconfirmed. Recovery keeps the original command across reload; it cannot claim that the school has not saved it. Attributed not-sent provider reconciliation clears local uncertainty so the user can immediately review a new send. Queued means queued, not sent.
+- Apply the three exact approved `vppsone` migrations before releasing dependent flows. Prefer code rollback while retaining additive tasks, proposals, private images and history; destructive schema reversal needs its own data-preserving plan. [Exact objects, grants, hashes and rollback](evidence/sampark-workflows/migration-approval.md), [local acceptance and limitations](evidence/sampark-workflows/task-4-report.md). Final review, approval, CI and deployment are separate controller gates.
+
 ## Phone: student filters and stepwise collection — 2026-10-16
 
 Raj asked, on a phone, for filters and other ways to see the Students list without making it complicated, and for collecting a fee to stop needing scrolling: details, then amount, then date and save. Screens: UI-94 and UI-95 in `docs/ui/DECISIONS.md`.

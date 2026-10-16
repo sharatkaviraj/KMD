@@ -63,6 +63,14 @@ const OPEN_BY_DESIGN = new Set([
   "src/app/r/[token]/actions.ts",
 ]);
 
+// These photo actions accept either a signed-in actor or a scoped task/request
+// capability. photoAuthority performs that check before reads/uploads; its
+// denial, rotation and current-class cases run in profile-photo-authority.test.
+// Keep this capability guard scoped to its exact action file.
+const CAPABILITY_GUARDS: Record<string, string> = {
+  "src/app/(app)/collection/photos/profile-actions.ts": "photoAuthority",
+};
+
 /** Every `"use server"` file under src/. */
 function serverActionFiles(): string[] {
   const found: string[] = [];
@@ -173,7 +181,8 @@ describe("server actions", () => {
       const source = normalise(readFileSync(file, "utf8"));
 
       for (const action of exportedActions(source)) {
-        const guarded = GUARDS.some((guard) => action.body.includes(`${guard}(`));
+        const guards = [...GUARDS, ...(CAPABILITY_GUARDS[relative] ? [CAPABILITY_GUARDS[relative]] : [])];
+        const guarded = guards.some((guard) => action.body.includes(`${guard}(`));
         if (!guarded) unguarded.push(`${relative} → ${action.name}()`);
       }
     }

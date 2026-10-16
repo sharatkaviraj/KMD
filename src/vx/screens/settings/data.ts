@@ -9,6 +9,7 @@ import { listArchives, type ArchiveSummary } from "@/modules/archives/data/archi
 import { parentDispatchSwitch } from "@/modules/collection/data/parent-messages-repo";
 import { lastRunPerJob } from "@/modules/jobs/data/jobs-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
+import { taskDeliveryAvailability } from "@/modules/collection/data/message-provider";
 
 import {
   areaForTable,
@@ -36,7 +37,7 @@ export type MasterData = {
   holidays: { day: string; label: string }[];
 };
 
-export type Integration = { key: string; name: string; sub: string; status: "on" | "off" | "partial"; facts: [string, string][]; href?: string };
+export type Integration = { key: string; name: string; sub: string; status: "on" | "off" | "partial" | "pending"; facts: [string, string][]; href?: string; taskDelivery?: "ready" | "unavailable" | "test_mode"; localContracts?: number };
 
 export type SettingsData = {
   profile: SchoolProfile;
@@ -250,8 +251,8 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
     phone: getOptionalEnvVar("NEXT_PUBLIC_SCHOOL_PHONE") ?? "",
   };
   const profile = profileRow.data ? cleanProfile(profileRow.data.value, fallback) : fallback;
-  const approved = (templates.data ?? []).filter((t) => t.is_active).length;
-  const waiting = (templates.data ?? []).length - approved;
+  const localContracts = (templates.data ?? []).filter((t) => t.is_active).length;
+  const taskDelivery = taskDeliveryAvailability();
   const lastBackup = backups[0];
 
   const integrations: Integration[] = [
@@ -259,14 +260,13 @@ export async function loadSettingsScreen(): Promise<SettingsData> {
       key: "aisensy",
       name: "AiSensy WhatsApp",
       sub: "Messages and receipts to parents",
-      status: getOptionalEnvVar("AISENSY_API_KEY") ? (dispatchOn ? "on" : "partial") : "off",
+      status: taskDelivery === "ready" ? "on" : "pending",
+      taskDelivery,
+      localContracts,
       facts: [
-        ["API key", getOptionalEnvVar("AISENSY_API_KEY") ? "Set" : "Not set"],
         ["Parent sending", dispatchOn ? "On" : "Off · messages wait in the queue"],
-        ["Templates", `${approved} ready · ${waiting} waiting`],
-        ["Cost", "about ₹0.88 a message"],
       ],
-      href: "/messages?view=templates",
+      href: "/inbox?tasks=all",
     },
     {
       key: "sampark",

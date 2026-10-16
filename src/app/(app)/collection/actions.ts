@@ -213,6 +213,7 @@ export async function decideSubmissionsAction(
   formData: FormData,
 ): Promise<CollectionState> {
   const actor = await assertPermission("collection:manage");
+  if (actor.role !== "admin") return failure(m.accessDenied);
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);

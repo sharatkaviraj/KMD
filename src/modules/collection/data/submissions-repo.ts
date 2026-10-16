@@ -147,10 +147,6 @@ export async function listSubmissions(
   const askedAbout = new Set(data.map((row) => row.field_id));
   const fields = (await listFieldsPublic()).filter((field) => askedAbout.has(field.id));
 
-  const tasks = await fetchInChunks<{request_id:string}>([...new Set(data.map(r=>r.request_id))],IN_FILTER_CHUNK_SIZE,c=>createAdminClient().from("teacher_tasks").select("request_id").in("request_id",c));
-  if(tasks.error && !taskSchemaMissing(tasks.error as {code?:string;message?:string}))throw new Error("Could not verify review authority.");
-  const adminOnly=new Set(tasks.data.map(t=>t.request_id));
-
   const students = await fetchInChunks<{id:string;full_name:string;roll_no:string|null}>(studentIds,IN_FILTER_CHUNK_SIZE,chunk=>createAdminClient()
     .schema(FEE_SCHEMA).from("students").select("id, full_name, roll_no").in("id",chunk));
   if(students.error)throw new Error("Could not read the review students.");
@@ -176,7 +172,8 @@ export async function listSubmissions(
   );
 
   return data.map((row) => ({
-    requiresAdmin: adminOnly.has(row.request_id),
+    // Every collection answer is a proposal, including legacy /r requests.
+    requiresAdmin: true,
     id: row.id,
     requestId: row.request_id,
     requestTitleHi: row.collection_requests?.title_hi ?? "—",
@@ -396,6 +393,7 @@ export async function decideSubmissions(input: {
       payload_hash: payloadHash,
     },
   });
+  if (error?.message?.includes("tasks:admin_review_required")) return { ok: false, reason: "not_permitted" };
   if (error || !data) return { ok: false, reason: "unavailable" };
 
   const receipt = data as {

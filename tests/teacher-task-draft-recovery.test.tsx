@@ -50,9 +50,13 @@ it("recovers offline edits and correction reason after reload without posting", 
 it("restores the exact uncertain command after reload even when the canonical revision advanced", async () => {
   mocks.save.mockRejectedValueOnce(new Error("network response lost")).mockResolvedValueOnce({ok:true,revision:1,replayed:true});
   await render();await change("input[type=number]","24");await submit();
+  expect(host.textContent).not.toContain(m.draftLocal.en);
+  expect(host.textContent).toContain("Saved on this device · school save unconfirmed");
   const first=mocks.save.mock.calls[0];
   work={...work,revision:1,submitted:true};await reload();await click(m.draftRestore.en);
   expect(host.querySelector<HTMLInputElement>("input")!.disabled).toBe(true);
+  expect(host.textContent).not.toContain(m.draftLocal.en);
+  expect(host.textContent).toContain(m.taskUnknown.en);
   await click(m.taskRetry.en);
   expect(mocks.save.mock.calls[1]).toEqual(first);
   await reload();expect(host.textContent).not.toContain(m.draftRestore.en);

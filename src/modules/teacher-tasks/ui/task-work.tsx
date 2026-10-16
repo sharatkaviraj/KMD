@@ -101,7 +101,8 @@ function AcademicEditor({ work, language, token }: AcademicProps) {
     });
   };
   const frozen = !draft.ready || !!draft.recovered || pending || result?.reason === "unknown" || result?.ok === true;
-  const localMessage = draft.status === "error" ? m.draftStorageError : draft.status === "writing" ? m.draftWriting : draft.status === "local" ? m.draftLocal : null;
+  const outstandingCommand = command ?? draft.recovered?.value.command;
+  const localMessage = draft.status === "error" ? m.draftStorageError : draft.status === "writing" ? m.draftWriting : draft.status === "local" ? (outstandingCommand ? m.taskDraftUnconfirmed : m.draftLocal) : null;
   const refusal = work.kind === "marks" && result?.reason ? marksRefusals[result.reason] ?? m.taskRefused : m.taskRefused;
 
   return <section className="space-y-4">

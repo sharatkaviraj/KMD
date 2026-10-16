@@ -1,7 +1,9 @@
 // Synthetic in-memory SQL only. No network or environment connection string.
-import { PGlite } from "../../../sql-test-runtime/node_modules/@electric-sql/pglite/dist/index.js";
+import { createRequire } from "node:module";
 import { readFileSync, existsSync } from "node:fs";
 import assert from "node:assert/strict";
+const require = createRequire(import.meta.url);
+const { PGlite } = require(process.argv[2] ?? "../../../sql-test-runtime/node_modules/@electric-sql/pglite");
 const db = new PGlite();
 const sql = path => readFileSync(new URL(path, import.meta.url), "utf8");
 await db.exec(sql("./teacher-tasks-fixture.sql"));

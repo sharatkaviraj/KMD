@@ -41,6 +41,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated fixture dependencies and browser builds, never source files.
+    ".test-artifacts/**",
+    "tests/*/dist/**",
     // The approved design pack: reference material, not app code.
     "docs/design-handoff/**",
   ]),

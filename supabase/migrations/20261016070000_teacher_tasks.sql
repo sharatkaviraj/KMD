@@ -235,17 +235,16 @@ begin
   return v_result;
 end; $$;
 
--- Narrower policy for this new workflow: only an active administrator can
--- decide its proposals, including through the existing bulk review RPC.
+-- Collection answers are teacher proposals, including legacy /r requests
+-- without a teacher_tasks row. Only an active administrator may decide them.
 -- A refusal rolls back the entire accept_submissions transaction/official write.
 create function vppsone.guard_teacher_task_review()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  if tg_op='UPDATE' and old.status<>'pending' and new.status='pending'
-    and exists(select 1 from vppsone.teacher_tasks t where t.request_id=new.request_id) then return old; end if;
+  if tg_op='UPDATE' and old.status<>'pending' and new.status='pending' then return old; end if;
   if new.status='pending' and exists(select 1 from vppsone.teacher_tasks t where t.request_id=new.request_id
     and not vppsone.teacher_task_access(t.id,t.assigned_staff_id,null)) then raise exception 'tasks:not_permitted'; end if;
-  if new.status<>'pending' and exists(select 1 from vppsone.teacher_tasks t where t.request_id=new.request_id)
+  if new.status<>'pending'
     and not exists(select 1 from vppsone.staff_profiles s where s.id=new.decided_by and s.is_active and s.role='admin')
     then raise exception 'tasks:admin_review_required'; end if;
   return new;

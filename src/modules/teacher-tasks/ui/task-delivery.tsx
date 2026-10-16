@@ -40,7 +40,7 @@ export function TaskDelivery({id,language,summary,availability}:{id:string;langu
     </div>)}
     {(unknown||uncertain)&&<p role="alert" className="text-sm">{word(text.reconcile)}</p>}
     {unknown&&<div className="space-y-2"><label className="block text-sm">{word(text.note)}<textarea className="mt-1 w-full rounded-lg border border-border bg-background p-2" value={note} maxLength={500} onChange={e=>setNote(e.target.value)}/></label><div className="flex flex-wrap gap-2">{(["accepted","not_sent"] as const).map(resolution=><button className={button} disabled={busy||note.trim().length<5} key={resolution} onClick={()=>start(async()=>{
-      try {const saved=await reconcileTaskDeliveryAction(unknown.id,unknown.attempt,resolution,note);setStatus(saved?word(text.refresh):word(text.failed));setPreview(null);setNote("");router.refresh();}catch{setStatus(word(text.failed));}
+      try {const saved=await reconcileTaskDeliveryAction(unknown.id,unknown.attempt,resolution,note);setStatus(saved?word(text.refresh):word(text.failed));if(saved)setUncertain(false);setPreview(null);setNote("");router.refresh();}catch{setStatus(word(text.failed));}
     })}>{word(resolution==="accepted"?text.confirmAccepted:text.confirmNotSent)}</button>)}</div></div>}
     {!unknown&&!uncertain&&summary.pending&&!preview&&<button className={button} disabled={busy} onClick={()=>start(async()=>{
       setManualUrl(null);try {const next=await previewTaskDeliveryAction(id,handled?"reminder":"initial");if(next.ok){setPreview(next);setStatus("");}else setStatus(word(text[next.reason]));}catch{setStatus(word(text.failed));}

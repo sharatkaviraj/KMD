@@ -18,6 +18,7 @@ import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
 
 import type { SettingsData } from "./data";
+import { taskIntegrationMessages as taskIntegration } from "@/messages/setup";
 import {
   activityCsv,
   AREA_LABELS,
@@ -1091,14 +1092,14 @@ function Integrations({ data }: { data: SettingsData }) {
       <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 14 }}>
         {data.integrations.map((i, n) => {
           const look = INTEGRATION_LOOK[i.key] ?? INTEGRATION_LOOK.jobs;
-          const st = i.status === "on" ? { t: p("Connected", "जुड़ा है"), bg: "var(--oks)", fg: "var(--ok)" } : i.status === "partial" ? { t: p("Partly set up", "आधा तैयार"), bg: "var(--warns)", fg: "var(--warnfg)" } : { t: p("Not set up", "तैयार नहीं"), bg: "var(--s3)", fg: "var(--mut)" };
+          const st = i.status === "pending" ? { t: taskIntegration.pending, bg: "var(--warns)", fg: "var(--warnfg)" } : i.status === "on" ? { t: p("Connected", "जुड़ा है"), bg: "var(--oks)", fg: "var(--ok)" } : i.status === "partial" ? { t: p("Partly set up", "आधा तैयार"), bg: "var(--warns)", fg: "var(--warnfg)" } : { t: p("Not set up", "तैयार नहीं"), bg: "var(--s3)", fg: "var(--mut)" };
           return (
             <div key={i.key} className="rise" style={{ ...card, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12, animationDelay: `${n * 28}ms` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <Tile icon={look.icon} tone={look.tone} size={44} radius={13} iconSize={21} />
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span style={t15}>{i.name}</span>
-                  <span style={m12}>{i.sub}</span>
+                  <span style={m12}>{i.taskDelivery ? tx(taskIntegration.sub) : i.sub}</span>
                 </span>
                 <span className="pill" style={{ background: st.bg, color: st.fg }}>
                   {i.status === "on" ? <span className="live-dot" style={{ width: 7, height: 7, background: "var(--ok)" }} /> : null}
@@ -1113,8 +1114,14 @@ function Integrations({ data }: { data: SettingsData }) {
                   </div>
                 ))}
               </div>
+              {i.taskDelivery && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <p style={m13}>{tx(i.taskDelivery === "ready" ? taskIntegration.ready : i.taskDelivery === "test_mode" ? taskIntegration.test : taskIntegration.deferred)}</p>
+                <p style={m13}>{tx(taskIntegration.local)}: {i.localContracts ?? 0}</p>
+                <p style={m12}>{tx(taskIntegration.localNote)}</p>
+                <p style={m13}>{tx(taskIntegration.manualNote)}</p>
+              </div>}
               {i.href ? (
-                <Btn variant="soft" icon={look.actionIcon} href={i.href} style={{ width: "100%" }}>{tx(look.action)}</Btn>
+                <Btn variant="soft" icon={i.taskDelivery ? "link" : look.actionIcon} href={i.href} style={{ width: "100%" }}>{tx(i.taskDelivery ? taskIntegration.manual : look.action)}</Btn>
               ) : null}
             </div>
           );

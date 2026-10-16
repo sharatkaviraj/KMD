@@ -354,7 +354,7 @@ export const taskDeliveryMessages = {
   manual: t("WhatsApp लिंक तैयार करें", "Prepare WhatsApp link"), open: t("WhatsApp खोलें", "Open WhatsApp"),
   unavailable: t("API भेजना उपलब्ध नहीं है। स्वीकृत VPPS अभियान का सेटअप बाकी है।", "API sending is unavailable. The approved VPPS campaign setup is still required."),
   test_mode: t("परीक्षण मोड में वास्तविक WhatsApp संदेश नहीं भेजे जाते।", "Test mode does not send real WhatsApp messages."),
-  ready: t("समीक्षा के लिए तैयार", "Ready for review"), accepted: t("AiSensy ने स्वीकार किया", "Accepted by AiSensy"),
+  ready: t("कतार में — भेजा नहीं गया", "Queued — not sent"), accepted: t("AiSensy ने स्वीकार किया", "Accepted by AiSensy"),
   human_confirmed: t("कार्यालय ने प्रदाता लॉग में स्वीकार होना जाँचा", "Office confirmed acceptance in the provider log"),
   manual_opened: t("WhatsApp लिंक तैयार है — भेजने की पुष्टि नहीं है", "WhatsApp link prepared — sending unconfirmed"),
   unknown: t("प्रदाता का परिणाम अज्ञात है", "Provider result unknown"), rejected: t("प्रदाता ने अनुरोध अस्वीकार किया। दोबारा समीक्षा करें।", "The provider refused the request. Review again."),
@@ -372,4 +372,16 @@ export const taskDeliveryMessages = {
   due: t("अंतिम तिथि", "Due"), none: t("निर्धारित नहीं", "Not set"),
   refresh: t("स्थिति फिर देखें", "Refresh status"), failed: t("स्थिति की पुष्टि नहीं हुई। दोबारा भेजने से पहले स्थिति फिर देखें।", "The result could not be confirmed. Refresh the status before another send."),
   history: t("पिछले प्रयास और पुष्टि", "Attempt and reconciliation history"),
+} as const;
+
+export const taskIntegrationMessages = {
+  pending: t("सेटअप बाकी है", "Setup pending"),
+  sub: t("शिक्षक कार्य के WhatsApp संदेश", "WhatsApp messages for teacher tasks"),
+  deferred: t("AiSensy अभियान और टेम्पलेट सेटअप अभी बाकी है। स्वचालित कार्य संदेश बंद हैं। बाकी कार्य और फोटो सुविधाएँ उपलब्ध हैं।", "AiSensy campaign and template setup is pending. Automated task messages are off. Other task and photograph features remain available."),
+  test: t("परीक्षण मोड में वास्तविक WhatsApp संदेश नहीं भेजे जाते।", "Test mode does not send real WhatsApp messages."),
+  ready: t("कार्य संदेश कॉन्फ़िगर हैं। हर संदेश भेजने से पहले प्राप्तकर्ता और कार्य की समीक्षा करें।", "Task messages are configured. Review the recipient and task before each send."),
+  local: t("सक्रिय स्थानीय टेम्पलेट", "Active local templates"),
+  localNote: t("स्थानीय टेम्पलेट AiSensy की स्वीकृति या चालू अभियान का प्रमाण नहीं हैं।", "Local templates do not verify AiSensy approval or live campaigns."),
+  manual: t("कार्य खोलें और लिंक साझा करें", "Open tasks and share a link"),
+  manualNote: t("प्राप्तकर्ता की समीक्षा करें, फिर WhatsApp लिंक तैयार करें। WhatsApp खोलने से भेजे जाने की पुष्टि नहीं होती।", "Review the recipient, then prepare a WhatsApp link. Opening WhatsApp does not confirm a send."),
 } as const;
