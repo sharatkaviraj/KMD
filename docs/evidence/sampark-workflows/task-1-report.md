@@ -183,3 +183,51 @@ try {
 No remaining implementation blocker for these four review findings. Independent re-review is pending. Real-browser phone/Hindi/English acceptance, full production build, full-suite repeat and release remain controller/Task 4 work, as requested. Reload regressions here exercise mounted React editors and actual draft storage under jsdom, not a deployed browser. PGlite still uses canonical academic writer doubles and a single session; it does not establish multi-session race behavior or hosted PG17 integration. Existing server save authorization always rechecks current authority; local recovery never grants it. New actor/capability/roster scope intentionally does not expose an old scope's draft.
 
 The complete package suite was not rerun in this fix round, per controller direction; its original totals/failures and prior focused corrections remain above. No push, merge, deploy, remote migration, live data write, real capability, provider send, or environment-secret read occurred. Controller evidence is excluded from the fix commit. The controller identified the unrelated Chromium `debug.log` and moved it outside the repo.
+
+## Review fix round 2 — create/restart lock order
+
+Review base: `fe7685be0b62a77f7b6a822a5cfb8f3fa6cfd102`. The scoped re-review marked the original four Important findings and readability Minor addressed, then identified one new Important issue in `.superpowers/sdd/2026-10-16-sampark-workflows/task-1-rereview-1.md`: creation held a session advisory lock while waiting for a task row, whereas restart held that row while requesting the advisory lock through nested creation.
+
+### Changes and scoped re-review contract
+
+- `create_teacher_tasks(uuid,uuid,text)` uses its initial preview read only to discover the session lock key. It acquires that advisory lock before locking the preview or any task row, including cached receipt replay. After acquiring it, creation re-reads/locks the preview, verifies actor/digest/session again, and rechecks the actor's current management permission. Existing recipient, scope, exact membership, and canonical access checks remain.
+- `restart_teacher_task(uuid,uuid)` checks management authority, discovers the task session without a row lock, acquires the same session advisory lock, then re-reads/locks the task and validates its session/kind/current ownership. Nested `create_teacher_tasks` acquires the already-owned transaction advisory lock reentrantly. Its preview is newly inserted within this transaction, so no concurrent caller can own it. Nested `manage_teacher_task` takes the already-owned task row. `manage_teacher_task` and `delegate_teacher_task_list` never call creation/restart or acquire the session advisory lock, so they introduce no reverse edge.
+- No RPC signature, return type, table, trigger, grant, policy, or client interface changes. Only these two function bodies change in the still-unapplied migration. Total remains two tables, ten functions, and one review trigger. Remote migration approval/application remain pending.
+- `tests/sql/teacher-tasks-fixture.sql` is the unchanged synthetic prerequisite schema extracted from `teacher-tasks.mjs`, shared by PGlite and PostgreSQL. A byte-equivalence check against the base confirmed no fixture SQL change. The existing PGlite runner now reads that file.
+- `tests/sql/teacher-task-locks.py` and the `lock-order` job in `.github/workflows/teacher-task-sql.yml` form the new actual PostgreSQL 17 proof. The runner is fixed to `127.0.0.1:5432/teacher_task_ci` with disposable CI-only credentials; it accepts no URL/host environment override, requires PostgreSQL 17, and refuses an existing application schema instead of dropping anything. The job follows the repository's disposable provider-claim service pattern.
+
+The two-connection runner executes the real migration/function definitions without rewriting or replacing them. It synchronizes on `pg_locks` plus `pg_blocking_pids`, not assumed sleep timing:
+
+1. A holds the session advisory lock. B invokes real restart until its advisory wait is observed. A then invokes real creation for an unconsumed preview matching the existing source. The old implementation has already locked B's task row and deadlocks; the corrected implementation lets A reuse and commit, then B creates one accessible fresh round. A PostgreSQL deadlock or timeout fails the regression, regardless of which connection receives it.
+2. With the same lock arrangement, B invokes cached receipt replay while A restarts the task. Replay must wait before task-row locking, then refuse the now-revoked receipt with `tasks:scope_changed`; it must neither deadlock nor return stale success.
+3. While a creator waits on the advisory lock, A mutates only the synthetic preview's session/digest. The post-lock authoritative re-read must reject the stale reviewed digest with `tasks:preview_changed`.
+
+Scoped re-review should cover these two SQL bodies, the shared fixture extraction, and the deterministic PG17 runner/workflow. The prior four fixes were not reopened or otherwise refactored.
+
+### Commands and observed results
+
+| Exact command / check | Result |
+| --- | --- |
+| `npm test -- tests/teacher-tasks-lock-order.test.ts` before SQL changes | RED: 1 file, 3 failed / 1 passed. Creation locked a row before advisory; restart had no early advisory; cached receipt returned before advisory. These are explicitly source guards, not concurrency execution. |
+| `node tests/sql/teacher-tasks.mjs` | PASS: actual migration executes against shared synthetic schema; all existing 600-child, dedupe/replay, stale authority, scope/delegation, revoked-link, decision-trigger, rollback and fresh-round assertions pass. PGlite is single-session. |
+| `npm test -- tests/teacher-tasks-lock-order.test.ts tests/teacher-tasks-schema.test.ts tests/teacher-tasks.test.ts tests/teacher-tasks-save.test.ts` | GREEN: 4 files / **28 tests passed**, 2.18 seconds. Includes new-preview/replay lock-order guards and nested-path checks. |
+| `node --check tests/sql/teacher-tasks.mjs` | Passed, no syntax diagnostics. |
+| `node node_modules/eslint/bin/eslint.js tests/sql/teacher-tasks.mjs tests/teacher-tasks-lock-order.test.ts` | Passed, no errors or warnings. |
+| Node sanity script below, piped to `node` | Passed: extracted SQL equals the base fixture; workflow YAML parses and points to the PG17 concurrency runner. Initial attempt used unavailable package `yaml` and failed with `MODULE_NOT_FOUND`; rerun used the already-installed `js-yaml`, with no install or dependency change. This is wiring validation, not PG execution. |
+| `git diff --check` | Passed; only ordinary LF/CRLF checkout notices. |
+| `python tests/sql/teacher-task-locks.py` | **NOT RUN locally or remotely.** No verified local PostgreSQL executable, Docker, or Python interpreter is available (the WindowsApps Python entry is only a stub). This exact command is authored as the CI step; the controller will gate merge on its actual result. |
+
+Fixture/YAML sanity script:
+
+```javascript
+const fs=require('fs'),assert=require('assert/strict'),{spawnSync}=require('child_process');
+const previous=spawnSync('git',['show','fe7685b:tests/sql/teacher-tasks.mjs'],{encoding:'utf8'});
+if(previous.status!==0)throw Error(previous.stderr);
+const text=previous.stdout;const start=text.indexOf('await db.exec(`\n');const end=text.indexOf('\n`);',start);
+assert.equal(fs.readFileSync('tests/sql/teacher-tasks-fixture.sql','utf8').replace(/\r\n/g,'\n'),text.slice(start+'await db.exec(`\n'.length,end)+'\n');
+const workflow=require('js-yaml').load(fs.readFileSync('.github/workflows/teacher-task-sql.yml','utf8'));
+assert.equal(workflow.jobs['lock-order'].services.postgres.image,'postgres:17');
+assert.equal(workflow.jobs['lock-order'].steps.at(-1).run,'python tests/sql/teacher-task-locks.py');
+```
+
+No full unit-suite repeat, browser run, application typecheck, or build was needed/run for this SQL-only implementation change. The focused test source and runner were linted. The new Python runner, including its syntax/runtime behavior, awaits CI execution; local source checks and PGlite are not presented as two-session race proof. No remote operation, hosted DB substitute, school-data write, real capability/message, or secret read occurred. Controller-owned untracked inspection evidence is preserved.

@@ -104,8 +104,19 @@ begin
   select s.user_id into v_user from vppsone.staff_profiles s join vppsone.role_permissions rp on rp.role=s.role
     where s.id=p_actor and s.is_active and rp.permission='collection:manage';
   if not found then raise exception 'tasks:not_permitted'; end if;
-  select * into v from vppsone.teacher_task_previews where id=p_preview and actor_id=p_actor for update;
+  -- The first read only discovers the lock key. Take the session advisory lock
+  -- before shared preview/task row locks, including receipt replay.
+  select * into v from vppsone.teacher_task_previews where id=p_preview and actor_id=p_actor;
   if not found or v.digest is distinct from p_digest then raise exception 'tasks:preview_changed'; end if;
+  v_session:=v.payload->>'session';
+  if v_session is null then raise exception 'tasks:bad_request'; end if;
+  perform pg_advisory_xact_lock(hashtext('vppsone:teacher-task-create:'||v_session));
+  select * into v from vppsone.teacher_task_previews where id=p_preview and actor_id=p_actor for update;
+  if not found or v.digest is distinct from p_digest or v.payload->>'session' is distinct from v_session
+    then raise exception 'tasks:preview_changed'; end if;
+  select s.user_id into v_user from vppsone.staff_profiles s join vppsone.role_permissions rp on rp.role=s.role
+    where s.id=p_actor and s.is_active and rp.permission='collection:manage';
+  if not found then raise exception 'tasks:not_permitted'; end if;
   if v.result is not null then
     -- A retry receipt is not authorization to a task whose owner/scope changed.
     for g in select jsonb_build_object('task', r.value, 'group', v.payload->'groups'->(r.ordinality::int-1))
@@ -132,8 +143,6 @@ begin
   if v.expires_at<now() then raise exception 'tasks:preview_expired'; end if;
   v_session:=v.payload->>'session'; v_kind:=v.payload->>'kind';
   if v_kind not in ('collection','marks','attendance') or v_session is null then raise exception 'tasks:bad_request'; end if;
-  -- Serialize task creation, including concurrent different previews of the same work.
-  perform pg_advisory_xact_lock(hashtext('vppsone:teacher-task-create:'||v_session));
   for g in select value from jsonb_array_elements(v.payload->'groups') loop
     if not vppsone.teacher_task_owner((g->>'teacherId')::uuid,v_session,g->'scope',v_kind) then raise exception 'tasks:assignment_changed'; end if;
     select array_agg(distinct value::uuid order by value::uuid) into v_ids from jsonb_array_elements_text(g->'studentIds');
@@ -328,10 +337,17 @@ grant execute on function vppsone.delegate_teacher_task_list(uuid,uuid,uuid) to 
 -- happen in one transaction; failure preserves the previous usable request.
 create function vppsone.restart_teacher_task(p_actor uuid, p_id uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare t vppsone.teacher_tasks%rowtype; v_ids jsonb; v_fields jsonb; v_members jsonb; preview jsonb; result jsonb;
+declare t vppsone.teacher_tasks%rowtype; v_session text; v_ids jsonb; v_fields jsonb; v_members jsonb; preview jsonb; result jsonb;
 begin
+  if not exists(select 1 from vppsone.staff_profiles s join vppsone.role_permissions rp on rp.role=s.role
+    where s.id=p_actor and s.is_active and rp.permission='collection:manage') then raise exception 'tasks:not_permitted'; end if;
+  -- Discover the key without owning a row lock. Nested create takes this same
+  -- transaction lock reentrantly; it must never wait for it while owning a row.
+  select session_label into v_session from vppsone.teacher_tasks where id=p_id;
+  if not found then raise exception 'tasks:bad_request'; end if;
+  perform pg_advisory_xact_lock(hashtext('vppsone:teacher-task-create:'||v_session));
   select * into t from vppsone.teacher_tasks where id=p_id for update;
-  if not found or t.kind<>'collection' then raise exception 'tasks:bad_request'; end if;
+  if not found or t.kind<>'collection' or t.session_label is distinct from v_session then raise exception 'tasks:bad_request'; end if;
   if not vppsone.teacher_task_owner(t.assigned_staff_id,t.session_label,t.scope,t.kind) then raise exception 'tasks:assignment_changed'; end if;
   select jsonb_agg(student_id order by student_id) into v_ids from vppsone.collection_request_members where request_id=t.request_id;
   select jsonb_agg(field_id order by field_id) into v_fields from vppsone.collection_request_fields where request_id=t.request_id;

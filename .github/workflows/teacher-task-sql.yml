@@ -17,3 +17,24 @@ jobs:
         run: npm install --prefix "$RUNNER_TEMP/task-sql" --no-package-lock @electric-sql/pglite@0.5.10
       - name: Execute migration against synthetic schema and exercise scope
         run: node tests/sql/teacher-tasks.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
+  lock-order:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: teacher_task_ci
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d teacher_task_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'psycopg[binary]>=3.2,<4'
+      - name: Prove task create/restart lock order with two real connections
+        run: python tests/sql/teacher-task-locks.py
