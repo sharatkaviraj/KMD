@@ -30,7 +30,7 @@ export function TaskCollectionForm({ id, request, roll, language, token }: {
   };
   return <>
     <p className="mb-4 rounded-xl bg-accent-soft p-3 text-sm">{primary(m.taskApprovalNote, language)}</p>
-    <RequestForm token="" draftScope={`task:${id}`} sessionLabel={request.sessionLabel} fields={request.fields} roll={roll} language={language} submitAction={submit} />
+    <RequestForm photoCredential={{kind:"task",id,token}} token="" draftScope={`task:${id}`} sessionLabel={request.sessionLabel} fields={request.fields} roll={roll} language={language} submitAction={submit} />
   </>;
 }
 

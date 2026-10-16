@@ -1,5 +1,6 @@
 "use client";
 
+import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
 import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ms } from "@/messages/setup";
@@ -70,6 +71,7 @@ type StudentFeeBreakup = {
 type Cell = { day: string; label: string; state: MarkStatus | "today" | "future" | "closed" | "none" };
 
 export type Student360Props = {
+  canEditPhoto?: boolean;
   canAssignTasks?: boolean;
   id: string;
   returnTo?: string;
@@ -646,6 +648,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             {seesMoney ? <Btn icon="send" href={`/fees/students/${p.id}/statement`}>{tx(T.statement)}</Btn> : null}
             {!p.canCollect && p.canAddNote ? <Btn icon="note" href={`${notesHref}&sheet=add`}>{tx(T.addNote)}</Btn> : null}
           </div>
+          {p.canEditPhoto && <div className="px-5 pb-3"><ProfilePhotoControl credential={{kind:"student",id:p.id}} language={language} /></div>}
           {kpiRow("phone")}
           <nav className="s360-tabs" aria-label={tx(T.studentSections)}>
             {tabs.map((t) => (

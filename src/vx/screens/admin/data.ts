@@ -676,7 +676,7 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
 export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests) => Promise<number> = cache(
   async (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests): Promise<number> => {
     const [board, needing, pending, money, jobs] = await inboxSources(staff, sessionLabel, day, refunds, []);
-    const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending.filter(s=>staff.role==="admin"||!s.requiresAdmin)) : { changes: [], confirmations: [] };
+    const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending.filter(s=>s.fieldKey!=="student_photo"&&(staff.role==="admin"||!s.requiresAdmin))) : { changes: [], confirmations: [] };
     return inboxBadgeCount({
       notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded)),
       coverNeeded: needing?.length ?? 0,
@@ -795,7 +795,7 @@ async function readInbox(
 
   /* answers waiting to be checked */
   if (pending && pending.length > 0) {
-    const { changes, confirmations } = splitByChange(pending.filter(s=>staff.role==="admin"||!s.requiresAdmin));
+    const { changes, confirmations } = splitByChange(pending.filter(s=>s.fieldKey!=="student_photo"&&(staff.role==="admin"||!s.requiresAdmin)));
     for (const s of changes.slice(0, SUBMISSION_ITEMS_MAX)) {
       items.push({
         id: `submission:${s.id}`,

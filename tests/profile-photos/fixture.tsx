@@ -1,0 +1,12 @@
+import * as React from "react";
+import { createRoot } from "react-dom/client";
+import { ProfilePhotoControl } from "../../src/modules/collection/ui/profile-photo-editor";
+import { PrivatePhoto } from "../../src/modules/collection/ui/private-photo";
+import { schoolBrand } from "../../src/platform/config/school-brand";
+import type { Language } from "../../src/platform/i18n/language";
+import "../../src/app/globals.css";
+const search = new URLSearchParams(location.search);
+const language: Language = search.get("lang") === "hi" ? "hi" : "en";
+const publicEntry = search.get("entry") === "public";
+window.photoCalls = []; window.photoOutcome = "ok";
+createRoot(document.getElementById("root")!).render(<main style={{maxWidth:720,margin:"0 auto",padding:20,background:"#eff8fc",minHeight:"100vh"}}><header style={{display:"flex",alignItems:"center",gap:16,marginBottom:24}}><PrivatePhoto src={schoolBrand.logo} alt="School logo" width={64} height={64}/><div><h1>VPPS One</h1><p>Synthetic photograph acceptance</p></div></header><section className="rounded-xl border bg-white p-4"><h2>Synthetic child</h2><p data-official>Official portrait: unchanged</p><ProfilePhotoControl credential={{kind:"task",id:"10000000-0000-4000-8000-000000000001",...(publicEntry?{token:"synthetic-public-fixture-capability"}:{})}} studentId="10000000-0000-4000-8000-000000000002" language={language}/></section></main>);

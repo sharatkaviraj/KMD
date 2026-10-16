@@ -1,5 +1,6 @@
 "use client";
 
+import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
@@ -93,6 +94,7 @@ export type StudentListRow = {
   id: string;
   name: string;
   sr: string | null;
+  photoUrl?: string | null;
   classLabel: string;
   /** The class's place in the school's order, for sorting by class on one page. */
   classOrder?: number;
@@ -511,7 +513,7 @@ export function StudentsScreen(props: StudentsProps) {
     return (
       <span role="cell" style={{ minWidth: 0 }}>
         <span className="stu-name">
-          <span className="stu-ava" style={{ background: bg, color: fg }} aria-hidden="true">{initials(row.name)}</span>
+          <span className="stu-ava" style={{ background: bg, color: fg }} aria-hidden="true">{row.photoUrl ? <PrivatePhoto src={row.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(row.name)}</span>
           <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
             <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" className="stu-link">
               <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{row.name}</span>
@@ -616,7 +618,7 @@ export function StudentsScreen(props: StudentsProps) {
     return (
       <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap card stu-mcard">
-          <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{initials(row.name)}</span>
+          <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{row.photoUrl ? <PrivatePhoto src={row.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(row.name)}</span>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
             <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{row.name}</span>
             <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{meta}</span>

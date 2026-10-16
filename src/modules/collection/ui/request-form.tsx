@@ -18,6 +18,8 @@ import type { RollRow } from "@/modules/collection/domain/requests";
 import { primary, secondary, type Language } from "@/platform/i18n/language";
 import { cn } from "@/platform/utils";
 import { Notice } from "@/ui/primitives";
+import { ProfilePhotoControl } from "./profile-photo-editor";
+import type { PhotoCredential } from "../domain/profile-photo";
 import { Button } from "@/ui/primitives/button";
 
 type RequestDraft = { values: Record<string, string>; confirmed: string[] };
@@ -44,7 +46,8 @@ export function RequestForm({
   token,
   draftScope,
   sessionLabel,
-  fields,
+  fields: allFields,
+  photoCredential,
   roll,
   language,
   submitAction = submitAnswersAction,
@@ -53,11 +56,12 @@ export function RequestForm({
   draftScope: string;
   sessionLabel: string;
   fields: CollectionField[];
+  photoCredential?: PhotoCredential;
   roll: RollRow[];
   language: Language;
   submitAction?: typeof submitAnswersAction;
 }) {
-
+  const fields = useMemo(() => allFields.filter(f => f.key !== "student_photo"), [allFields]);
 
   // Seeded from what the link already received, so reopening it shows her
   // where she actually stopped rather than an untouched list.
@@ -200,7 +204,8 @@ export function RequestForm({
             </div>
 
             <div className="space-y-2.5">
-              {fields.map((field) => {
+              {allFields.map((field) => {
+                if (field.key === "student_photo") return <ProfilePhotoControl key={field.id} credential={photoCredential ?? {kind:"request",token}} studentId={row.studentId} language={language} />;
                 const key = `${row.studentId}|${field.key}`;
                 const held = row.current[field.key] ?? "";
                 const typed = values[key];
@@ -285,7 +290,7 @@ export function RequestForm({
         ))}
       </ul></fieldset>
 
-      <div className="work-action safe-bottom fixed inset-x-0 bottom-0 border-t border-border bg-background px-4 pt-3">
+      {fields.length > 0 ? <div className="work-action safe-bottom fixed inset-x-0 bottom-0 border-t border-border bg-background px-4 pt-3">
         <div className="mx-auto max-w-md">
           <Button
             type="submit"
@@ -304,7 +309,7 @@ export function RequestForm({
               : primary(m.linkSaved, language)}
           </p>
         </div>
-      </div>
+      </div> : null}
     </form>
   );
 }

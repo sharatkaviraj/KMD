@@ -1,4 +1,5 @@
 import { requirePermission } from "@/platform/auth/current-staff";
+import Link from "next/link";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { pendingMoneyRequests } from "@/modules/dashboard/vx/admin-today";
@@ -15,7 +16,7 @@ import { listTeacherTasks } from "@/modules/teacher-tasks/data/repo";
 import { TaskList } from "@/modules/teacher-tasks/ui/task-list";
 import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ManageTask } from "@/modules/teacher-tasks/ui/manage-task";
-import { ms } from "@/messages/setup";
+import { ms, photoMessages } from "@/messages/setup";
 import { primary } from "@/platform/i18n/language";
 
 export const runtime = "nodejs";
@@ -59,6 +60,7 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
     <VxPage label={lead(T.needsYou, staff.language)}>
       <InboxScreen items={sortInbox(items)} initial={item} previewing={previewing !== null} unavailable={unavailable.length > 0} scope={{ accountId: staff.userId, sessionLabel, day: schoolToday() }} taskPanel={canAssign && <section className="mx-auto max-w-6xl space-y-4 px-4 pb-8">
         <AssignmentLauncher language={staff.language}/>
+        {staff.role === "admin" && <Link className="inline-flex min-h-11 items-center rounded-xl border border-border px-3 text-sm text-primary" href="/collection/review">{primary(photoMessages.review,staff.language)}</Link>}
         {tasks ? <TaskList office rows={tasks} language={staff.language} compact={params.tasks !== "all"}/> : <p role="alert">{primary(ms.taskUnavailable,staff.language)}</p>}
         {selectedTask && <ManageTask id={selectedTask} language={staff.language} collection={tasks?.find(t=>t.id===selectedTask)?.kind==="collection"}/>}
       </section>} />

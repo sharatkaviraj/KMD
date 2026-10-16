@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import { schoolBrand } from "@/platform/config/school-brand";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, use, useLayoutEffect, useRef, useSyncExternalStore, useTransition } from "react";
@@ -15,7 +17,7 @@ import { Avatar } from "@/vx/ui/primitives";
 import { setViewAsAction } from "./view-as-actions";
 import "./shell.css";
 
-export type Me = { initials: string; name: string; sub: string; href: string; color: string };
+export type Me = { photo?: string | null; initials: string; name: string; sub: string; href: string; color: string };
 
 export type Badges = Partial<Record<BadgeKey, number>>;
 
@@ -138,7 +140,7 @@ export function VxSidebar({
     >
       <div style={{ position: "relative", flex: "none", display: "flex", alignItems: "center", gap: 10, height: 48, padding: "0 20px", marginBottom: 6 }}>
         <Link href={home} tabIndex={collapsed ? undefined : -1} aria-label={collapsed ? "VPPS One" : undefined} aria-hidden={collapsed ? undefined : true} className="serif" style={{ flex: "none", width: 36, height: 36, borderRadius: 11, background: "#F7F6F3", color: "#082F49", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>
-          VP
+          <Image src={schoolBrand.logo} alt="" width={32} height={32} style={{objectFit:"contain"}} />
         </Link>
         {collapsed ? null : (
           <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -218,7 +220,7 @@ export function VxSidebar({
 
       <div style={{ flex: "none", padding: "10px 12px 0", borderTop: "1px solid var(--navb)" }}>
         <Link href={me.href} className="tap sidei" title={collapsed ? me.name : undefined} style={{ display: "flex", alignItems: "center", gap: 10, height: 52, padding: "0 6px", borderRadius: 12, justifyContent: collapsed ? "center" : undefined }}>
-          <Avatar text={me.initials} bg={me.color} size={38} />
+          <Avatar photo={me.photo} text={me.initials} bg={me.color} size={38} />
           {collapsed ? null : (
             <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <span className="clip" style={{ fontSize: 14, fontWeight: 600, color: "var(--navfg)" }}>{me.name}</span>

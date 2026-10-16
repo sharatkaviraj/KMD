@@ -1,3 +1,4 @@
+import { approvedStudentPhotos } from "@/modules/collection/data/approved-photos";
 import { cookies } from "next/headers";
 
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -203,6 +204,8 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     row.classOrder = classOrder.get(row.classLabel);
   }
 
+  const portraits = await approvedStudentPhotos(ids).catch(() => new Map<string,string>());
+  for (const row of rows) row.photoUrl = portraits.get(row.id) ?? null;
   const window = pageWindow(page, total);
 
   return (

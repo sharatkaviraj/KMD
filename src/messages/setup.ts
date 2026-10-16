@@ -324,3 +324,23 @@ export const ms = {
   coverMissedHint: t("शिक्षक को अनुपस्थित दर्ज करने से पहले ये पीरियड शुरू हो चुके थे, इसलिए व्यवस्था नहीं हो सकी। देख लें कि हर कक्षा में कोई था।", "These periods had started before the teacher was marked away, so no cover could be arranged. Check that each class had someone."),
   coverMissedNothingLeft: t("व्यवस्था को कुछ बाकी नहीं — बाकी पीरियड पहले ही शुरू हो चुके थे।", "Nothing left to arrange — the remaining periods had already begun."),
 } as const;
+
+export const photoMessages = {
+  title: t("फोटो", "Photograph"), edit: t("फोटो बदलें", "Change photograph"),
+  choose: t("फाइल चुनें या यहाँ डालें", "Choose a file or drop it here"), camera: t("कैमरा", "Camera"),
+  save: t("फोटो सहेजें", "Save photograph"), cancel: t("रद्द करें", "Cancel"),
+  preview: t("सहेजने से पहले देखें", "Preview before saving"),
+  pending: t("प्रशासक की स्वीकृति लंबित है", "Awaiting admin approval"),
+  proposal: t("यह प्रस्ताव है। स्वीकृति के बाद ही आधिकारिक फोटो बदलेगा।", "This is a proposal. The official photograph changes after approval."),
+  decided: t("समीक्षा पूरी हो चुकी है। नया अनुरोध कार्यालय से लें।", "This round has been reviewed. Ask the office for a new request."),
+  unknown: t("उत्तर नहीं मिला। इसी फोटो को फिर जाँचें।", "The result is uncertain. Retry this exact photograph."),
+  retry: t("इसी फोटो को फिर जाँचें", "Retry this photograph"),
+  restore: t("सहेजा मसौदा खोलें", "Restore photograph draft"),
+  invalid: t("JPEG, PNG या WebP फोटो चुनें।", "Choose a valid JPEG, PNG or WebP photograph."),
+  tooLarge: t("फोटो 200 KB में नहीं आ सका। छोटा फोटो चुनें।", "The photograph could not fit within 200 KB. Choose a smaller image."),
+  refused: t("फोटो नहीं सहेजा गया। जानकारी बदल गई हो तो फिर खोलें।", "The photograph was not saved. Reopen if the record has changed."),
+  storage: t("इस उपकरण पर मसौदा नहीं बचा। अभी नहीं भेजा गया।", "The draft could not be stored on this device. Nothing was sent."),
+  saved: t("फोटो सहेजा गया", "Photograph saved"),
+  approve: t("फोटो स्वीकार करें", "Approve photograph"), reject: t("फोटो अस्वीकार करें", "Reject photograph"),
+  review: t("फोटो की समीक्षा", "Review photographs"),
+};

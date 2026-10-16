@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import { assertPermission } from "@/platform/auth/current-staff";
+import { assertNotPreviewing } from "@/vx/view-as";
 import type { Localized } from "@/platform/i18n/language";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { placePhoto } from "@/modules/collection/data/photos-repo";
 
-export type PhotoResult = { ok: boolean; message: Localized; photoId?: string };
+export type PhotoResult = { ok: boolean; message: Localized; photoId?: string; reason?: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,6 +21,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export async function placePhotoAction(formData: FormData): Promise<PhotoResult> {
   const actor = await assertPermission("collection:manage");
+  await assertNotPreviewing();
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { ok: false, message: m.noSessionFound };
 
@@ -54,6 +56,7 @@ export async function placePhotoAction(formData: FormData): Promise<PhotoResult>
   if (!receipt.ok) {
     return {
       ok: false,
+      reason: receipt.reason,
       message:
         receipt.reason === "stale"
           ? ms.photoStale
@@ -66,6 +69,6 @@ export async function placePhotoAction(formData: FormData): Promise<PhotoResult>
                 : m.notSaved,
     };
   }
-  revalidatePath("/collection/photos");
+  revalidatePath("/", "layout");
   return { ok: true, message: receipt.replaced ? ms.photoReplaced : ms.photoPlaced, photoId: receipt.photoId };
 }

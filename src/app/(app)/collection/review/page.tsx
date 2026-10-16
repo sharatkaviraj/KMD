@@ -1,3 +1,6 @@
+import { photoReviews } from "@/modules/collection/data/photo-review";
+import { PhotoReview } from "@/modules/collection/ui/photo-review";
+import { photoMessages } from "@/messages/setup";
 import { TriangleAlert } from "lucide-react";
 
 import { m } from "@/messages";
@@ -58,9 +61,10 @@ export default async function ReviewPage() {
     phoneOwners(),
   ]);
 
+  const portraits = await photoReviews(submissions);
   const byId = new Map(fields.map((field) => [field.id, field]));
   const { changes, confirmations } = splitByChange(
-    [...submissions].sort(byReviewOrder),
+    submissions.filter(s => s.fieldKey !== "student_photo").sort(byReviewOrder),
   );
   const decidableConfirmations=confirmations.filter(e=>!e.requiresAdmin||mayReviewTask);
   const decidableChanges=changes.filter(e=>!e.requiresAdmin||mayReviewTask);
@@ -84,6 +88,8 @@ export default async function ReviewPage() {
       {submissions.length === 0 ? (
         <EmptyState title={m.reviewNone} language={language} />
       ) : null}
+
+      {portraits.length > 0 ? <Section title={photoMessages.review} language={language}><div className="grid gap-3 sm:grid-cols-2">{portraits.map(p => <PhotoReview key={p.proposalId} {...p} language={language} />)}</div></Section> : null}
 
       {/* -------------------------------------------- the confirmations */}
 

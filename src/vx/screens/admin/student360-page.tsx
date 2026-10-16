@@ -5,7 +5,7 @@ import { getViewer } from "@/vx/view-as";
 import { can } from "@/platform/auth/permissions";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { documentKindLabels, humanSize } from "@/modules/collection/domain/review";
-import { studentProfilePhoto } from "@/modules/collection/data/photos-repo";
+import { approvedStudentPhotos } from "@/modules/collection/data/approved-photos";
 import { studentFees } from "@/modules/students-fees/vx/admin-students";
 import { schoolToday } from "@/vx/format";
 import {
@@ -73,7 +73,7 @@ export async function Student360Content({ id, search }: { id: string; search: Re
   const [notes, contactAccess, photoUrl] = await Promise.all([
     notesPromise,
     familyContactAccess(staff, sessionLabel, school.classId).catch(() => { unavailable.push("contacts"); return false; }),
-    can(staff, "collection:manage") ? studentProfilePhoto(id).catch(() => null) : Promise.resolve(null),
+    approvedStudentPhotos([id]).then(photos => photos.get(id) ?? null).catch(() => null),
   ]);
   const contacts = contactAccess ? await familyContacts(id, sessionLabel).catch(() => { unavailable.push("contacts"); return null; }) : null;
 
@@ -132,6 +132,7 @@ export async function Student360Content({ id, search }: { id: string; search: Re
           returnTo,
           name: school.card.fullName,
           photoUrl,
+          canEditPhoto: !previewing && (((staff.role === "admin" || staff.role === "office") && can(staff,"collection:manage")) || (staff.role === "teacher" && contactAccess)),
           unavailable: [...(school.unavailable ?? []), ...unavailable],
           classLabel: school.classLabel,
           sr: school.card.admissionNo,

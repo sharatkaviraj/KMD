@@ -5,6 +5,8 @@ import { recordAnswers, type IncomingAnswer } from "@/modules/collection/data/su
 import { validateField } from "@/modules/collection/domain/fields";
 import type { CollectionRequest } from "@/modules/collection/domain/requests";
 import type { LinkState } from "@/modules/collection/domain/link-state";
+import type { PhotoInput, PhotoSaveResult } from "@/modules/collection/domain/profile-photo";
+import { submitPhotoProposal } from "@/modules/collection/data/photo-proposals";
 /** Caller resolves either the current session assignment or the scoped public token. */
 export async function submitCollectionPayload(request: CollectionRequest, payload: unknown): Promise<LinkState> {
   if (!Array.isArray(payload) || payload.length > 40000) return { status: "error", message: m.notSaved };
@@ -16,11 +18,17 @@ export async function submitCollectionPayload(request: CollectionRequest, payloa
     if (!entry || typeof entry !== "object") return { status: "error", message: m.notSaved };
     const { studentId, key, value } = entry;
     const row = onRoll.get(studentId); const field = fields.get(key);
-    if (!row || !field || (typeof value !== "string" && value !== null)) return { status: "error", message: m.notSaved };
+    if (!row || !field || field.key === "student_photo" || (typeof value !== "string" && value !== null)) return { status: "error", message: m.notSaved };
     const checked = validateField(field, value ?? "");
     if (!checked.ok) return { status: "error", message: checked.error };
     answers.set(`${studentId}:${field.id}`, { studentId, fieldId: field.id, value: checked.value, previousValue: row.current[field.key] ?? null });
   }
   try { await recordAnswers(request, [...answers.values()]); } catch { return { status: "error", message: m.notSaved }; }
   return { status: "saved", message: m.linkSaved };
+}
+
+/** Multipart counterpart of the same scoped collection save. No caller path is accepted. */
+export async function submitCollectionPhoto(request: CollectionRequest, input: PhotoInput): Promise<PhotoSaveResult> {
+  if (!request.fields.some(field => field.key === "student_photo") || !(await rollForRequest(request)).some(row => row.studentId === input.studentId)) return { ok: false, reason: "not_permitted" };
+  return submitPhotoProposal(request, input);
 }

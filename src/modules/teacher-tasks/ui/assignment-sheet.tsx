@@ -61,7 +61,7 @@ function AssignmentEditor({ context, selectedIds, initialKind, initialMissing, l
   const [paper, setPaper] = useState("");
   const [missing, setMissing] = useState(initialMissing);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(selectedIds ?? []));
-  const [fields, setFields] = useState<string[]>(() => context.fields.filter(f => f.key === initialMissing || (!initialMissing && selectedIds?.length === 1 && !context.students.find(s => s.id === selectedIds[0])?.values[f.key])).map(f => f.id));
+  const [fields, setFields] = useState<string[]>(() => context.fields.filter(f => f.key === (initialMissing === "photo" ? "student_photo" : initialMissing) || (!initialMissing && selectedIds?.length === 1 && !context.students.find(s => s.id === selectedIds[0])?.values[f.key])).map(f => f.id));
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<AssignmentPreview | null>(null);
   const [pending, start] = useTransition();

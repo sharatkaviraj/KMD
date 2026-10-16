@@ -1,3 +1,6 @@
+import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
+import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
+import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import { PwaInstallCard } from "@/ui/pwa-install-card";
 import { m } from "@/messages";
 import { requireStaff } from "@/platform/auth/current-staff";
@@ -34,6 +37,8 @@ export async function generateMetadata() {
  */
 export default async function PreferencesPage() {
   const staff = await requireStaff("/preferences");
+  const portraits = await approvedStaffPhotos([staff.id]).catch(() => new Map<string,string>());
+  const portrait = portraits.get(staff.id);
 
   /**
    * Where you start, offered from what this role already reaches.
@@ -69,6 +74,8 @@ export default async function PreferencesPage() {
       <PageHeader eyebrow={m.eyebrowPersonal} title={m.preferencesTitle} language={staff.language} />
 
       <PwaInstallCard />
+      {portrait ? <PrivatePhoto src={portrait} alt={staff.displayName} className="size-20 rounded-full object-cover" /> : null}
+      <ProfilePhotoControl credential={{kind:"staff"}} language={staff.language} />
       <Section title={m.language} description={m.preferencesLanguageHint} language={staff.language}>
         <Card className="p-4">
           <LanguageForm current={staff.language} />

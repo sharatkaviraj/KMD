@@ -12,7 +12,7 @@ vi.mock("next/link",()=>({default:({children,href}:{children:React.ReactNode;hre
 vi.mock("@/vx/ui/overlays",()=>({Sheet:({children,open}:{children:React.ReactNode;open:boolean})=>open?<div>{children}</div>:null}));
 vi.mock("@/app/(app)/teach/tasks/actions",()=>({
   createTeacherTasksAction:calls.create,delegateTeacherTaskListAction:calls.delegate,
-  taskAssignmentContextAction:async()=>({students:[{id:"child",name:"Synthetic child",classLabel:"QA",values:{},hasPhoto:false}],fields:[{id:"field",key:"phone",labelEn:"Phone",labelHi:"फोन"}],owners:[{id:"teacher",name:"Synthetic teacher"}],subjects:[],papers:[]}),
+  taskAssignmentContextAction:async()=>({students:[{id:"child",name:"Synthetic child",classLabel:"QA",values:{},hasPhoto:false}],fields:[{id:"field",key:"phone",labelEn:"Phone",labelHi:"फोन"},{id:"portrait",key:"student_photo",labelEn:"Student photograph",labelHi:"फोटो"}],owners:[{id:"teacher",name:"Synthetic teacher"}],subjects:[],papers:[]}),
   previewTeacherTasksAction:async()=>({previewId:"preview",digest:"digest",dueDate:null,fields:["Phone"],groups:[{key:"class:qa",label:"QA",studentIds:["child"],teacherId:"teacher"}],students:[{id:"child",name:"Synthetic child",classLabel:"QA"}],blocked:[],unassigned:[]}),
   manageTeacherTaskAction:vi.fn(),restartTeacherTaskAction:vi.fn(),teacherTaskLinkAction:vi.fn(),
 }));
@@ -38,4 +38,9 @@ it("links a refused create to the existing task and provides explicit list deleg
 it("never offers common delegation for academic work",async()=>{
   await act(async()=>root.render(<ManageTask id="marks-task" language="en"/>));await click(ms.taskReassign.en);
   expect(host.textContent).not.toContain(ms.taskDelegateList.en);
+});
+it("No photo preselects the photograph field in the existing assignment preview",async()=>{
+  await act(async()=>root.render(<AssignmentLauncher language="en" selectedIds={["child"]} initialMissing="photo"/>));await click(ms.taskAssign.en);
+  const label=[...host.querySelectorAll("label")].find(el=>el.textContent?.includes("Student photograph"));
+  expect(label?.querySelector<HTMLInputElement>('input[type=checkbox]')?.checked).toBe(true);
 });
