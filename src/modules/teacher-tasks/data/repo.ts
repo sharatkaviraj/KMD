@@ -13,10 +13,11 @@ import type { CollectionRequest, RollRow } from "@/modules/collection/domain/req
 import type { AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { mergeTaskSummaries, taskProgress, type TaskKind, type TaskScope, type TaskSummary } from "../domain/tasks";
 import type { TaskCredential } from "./save";
+import { academicDraftScope } from "./draft-scope";
 
 export type TaskRow = { id:string; session_label:string; kind:TaskKind; request_id:string|null; paper_id:string|null; class_id:string|null; day:string|null; scope:TaskScope; assigned_staff_id:string; title:string; due_date:string|null; revoked_at:string|null; opened_at:string|null };
 const COLUMNS="id,session_label,kind,request_id,paper_id,class_id,day,scope,assigned_staff_id,title,due_date,revoked_at,opened_at";
-export type AcademicWork = { kind:"marks"|"attendance"; taskId:string; session:string; paperId:string|null; classId:string|null; day:string|null; revision:number; submitted:boolean; max:number; step:number; allowExempt:boolean; rows:{id:string;name:string;state:string;value:number|null}[] };
+export type AcademicWork = { kind:"marks"|"attendance"; taskId:string; draftScope:string; session:string; paperId:string|null; classId:string|null; day:string|null; revision:number; submitted:boolean; max:number; step:number; allowExempt:boolean; rows:{id:string;name:string;state:string;value:number|null}[] };
 export type TaskWork = { task:TaskRow; language:Language; collection?:{request:CollectionRequest;roll:RollRow[]}; academic?:AcademicWork };
 
 /** No capability or peer list is returned by this read. Rechecked on every save. */
@@ -49,10 +50,14 @@ export async function loadTaskWork(auth:TaskCredential):Promise<TaskWork|null> {
   const roster=task.kind==="marks"?await db.rpc("paper_roster",{p_paper:task.paper_id}):await db.rpc("attendance_roster",{p_session:task.session_label,p_class:task.class_id,p_day:task.day});
   if(roster.error) throw new Error("roster_unavailable");
   const ids=(roster.data??[]) as string[];
+  const capability=await db.from("teacher_tasks").select("token").eq("id",task.id).single<{token:string}>();
+  if(capability.error) throw new Error("task_unavailable");
+  if(auth.token && capability.data.token!==auth.token) return null;
+  const draftScope=academicDraftScope({taskId:task.id,actorId:auth.staffId??null,token:capability.data.token,session:task.session_label,scope:task.scope,studentIds:ids});
   const names=await fetchInChunks<{id:string;full_name:string}>(ids,IN_FILTER_CHUNK_SIZE,c=>db.schema(FEE_SCHEMA).from("students").select("id,full_name").in("id",c));
   if(names.error) throw new Error("names_unavailable");
   const nameOf=new Map(names.data.map(s=>[s.id,s.full_name]));
-  const academic:AcademicWork={kind:task.kind as "marks"|"attendance",taskId:task.id,session:task.session_label,paperId:task.paper_id,classId:task.class_id,day:task.day,revision:0,submitted:false,max:100,step:1,allowExempt:false,rows:ids.map(id=>({id,name:nameOf.get(id)??"-",state:task.kind==="marks"?"blank":"present",value:null}))};
+  const academic:AcademicWork={kind:task.kind as "marks"|"attendance",taskId:task.id,draftScope,session:task.session_label,paperId:task.paper_id,classId:task.class_id,day:task.day,revision:0,submitted:false,max:100,step:1,allowExempt:false,rows:ids.map(id=>({id,name:nameOf.get(id)??"-",state:task.kind==="marks"?"blank":"present",value:null}))};
   if(task.kind==="marks") {
     const {data:paper,error}=await db.from("assessment_subjects").select("entry_revision,entry_status,max_marks,mark_step,allow_exempt").eq("id",task.paper_id!).single<{entry_revision:number;entry_status:string;max_marks:number;mark_step:number;allow_exempt:boolean}>();
     if(error) throw new Error("paper_unavailable");

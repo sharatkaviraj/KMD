@@ -23,6 +23,13 @@ export async function saveTaskAcademicWork(auth: TaskCredential, work: { kind: "
   const { command_id: commandId, ...contents } = p;
   const payloadHash = createHash("sha256").update(JSON.stringify(contents)).digest("hex");
   const { data, error } = await createAdminClient().rpc("save_teacher_task", { p_id: auth.id, p_staff: auth.staffId ?? null, p_token: auth.token ?? null, p: { ...contents, command_id: commandId, payload_hash: payloadHash } });
-  if (error) return { ok: false, reason: "unknown" };
+  if (error) {
+    // An explicit PostgreSQL exception rolls the transaction back. A lost
+    // response has no such evidence and must retain the original retry id.
+    const refusal = error.code === "P0001"
+      ? error.message.match(/^(?:marks|attendance|tasks):([a-z_]+)(?::|$)/)?.[1]
+      : undefined;
+    return { ok: false, reason: refusal ?? "unknown" };
+  }
   return data as TaskSaveResult;
 }

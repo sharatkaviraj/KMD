@@ -1,4 +1,7 @@
 export type TaskKind = "collection" | "marks" | "attendance";
+export type TaskCreationResult = { ok: true; tasks: { id: string; reused: boolean; teacherId: string }[] }
+  | { ok: false; reason: "scope_changed"; taskId: string }
+  | { ok: false; reason: "recipient_changed" };
 export type AssignmentMode = "common" | "class" | "house" | "route" | "subject";
 export type TaskScope = { kind: AssignmentMode; value: string; subjectId?: string };
 export type TaskStudent = { id: string; name: string; classId: string; classLabel: string; house: string | null; routeId: string | null; values: Record<string, string | null>; hasPhoto: boolean };

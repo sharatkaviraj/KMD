@@ -6,6 +6,15 @@ import { saveTaskAcademicWork } from "@/modules/teacher-tasks/data/save";
 const id = "10000000-0000-4000-8000-000000000001";
 const paper = "10000000-0000-4000-8000-000000000002";
 beforeEach(() => rpc.mockReset());
+it.each(["incomplete", "invalid_value", "no_change"])("returns definite %s refusal so the teacher can edit", async reason => {
+  rpc.mockResolvedValue({ data: null, error: { code: "P0001", message: `marks:${reason}:synthetic-child` } });
+  const result = await saveTaskAcademicWork({ id, staffId: id }, { kind: "marks", payload: { commandId: id, paperId: paper, kind: "submit", expectedRevision: 0, entries: [{ studentId: id, state: "blank", value: null }] } });
+  expect(result).toEqual({ ok: false, reason });
+});
+it("retains unknown outcome for a transport failure without a transactional refusal", async () => {
+  rpc.mockResolvedValue({ data: null, error: { message: "TypeError: fetch failed" } });
+  expect(await saveTaskAcademicWork({ id, staffId: id }, { kind: "marks", payload: { commandId: id, paperId: paper, kind: "submit", expectedRevision: 0, entries: [] } })).toEqual({ ok: false, reason: "unknown" });
+});
 it("sends a validated marks command with task authority to the canonical audited wrapper", async () => {
   rpc.mockResolvedValue({ data: { ok: true, revision: 1 }, error: null });
   const result = await saveTaskAcademicWork({ id, staffId: id }, { kind: "marks", payload: { commandId: id, paperId: paper, kind: "submit", expectedRevision: 0, reason: null, entries: [{ studentId: id, state: "value", value: 0 }] } });

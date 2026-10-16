@@ -10,15 +10,22 @@ import { submitCollectionPayload } from "@/modules/teacher-tasks/data/collection
 import { saveTaskAcademicWork } from "@/modules/teacher-tasks/data/save";
 import type { LinkState } from "@/modules/collection/domain/link-state";
 import { m } from "@/messages";
+import type { TaskCreationResult } from "@/modules/teacher-tasks/domain/tasks";
 
 export async function taskAssignmentContextAction() { await assertPermission("collection:manage"); return assignmentContext(); }
 export async function previewTeacherTasksAction(input: unknown) { await assertPermission("collection:manage"); await assertNotPreviewing(); return previewAssignment(input); }
-export async function createTeacherTasksAction(previewId:string,digest:string):Promise<{id:string;reused:boolean;teacherId:string}[]> {
+export async function createTeacherTasksAction(previewId:string,digest:string):Promise<TaskCreationResult> {
   const actor=await assertPermission("collection:manage"); await assertNotPreviewing();
   if(!/^[0-9a-f-]{36}$/i.test(previewId)||!/^[a-f0-9]{32}$/.test(digest))throw new Error("bad_preview");
   const {data,error}=await createAdminClient().rpc("create_teacher_tasks",{p_actor:actor.id,p_preview:previewId,p_digest:digest});
-  if(error)throw new Error(error.message.includes("recipient_changed")?"existing_assignment":"assignment_changed");
-  revalidatePath("/inbox");revalidatePath("/teach/tasks");return data;
+  if(error) {
+    // Expected recovery must cross the production Server Action boundary as
+    // data: Next intentionally redacts thrown error messages in production.
+    if(error.message.includes("scope_changed") && /^[0-9a-f-]{36}$/i.test(error.details ?? "")) return {ok:false,reason:"scope_changed",taskId:error.details};
+    if(error.message.includes("recipient_changed")) return {ok:false,reason:"recipient_changed"};
+    throw new Error("assignment_changed");
+  }
+  revalidatePath("/inbox");revalidatePath("/teach/tasks");return {ok:true,tasks:data};
 }
 export async function manageTeacherTaskAction(id:string,teacherId:string|null) {
   const actor=await assertPermission("collection:manage");await assertNotPreviewing();
@@ -29,6 +36,12 @@ export async function teacherTaskLinkAction(id:string):Promise<string> {
   await assertPermission("collection:manage");await assertNotPreviewing();
   const {data,error}=await createAdminClient().from("teacher_tasks").select("token").eq("id",id).is("revoked_at",null).single<{token:string}>();
   if(error)throw new Error("link_unavailable"); return `/t/tasks/${data.token}`;
+}
+export async function delegateTeacherTaskListAction(id:string,teacherId:string) {
+  const actor=await assertPermission("collection:manage");await assertNotPreviewing();
+  const {error}=await createAdminClient().rpc("delegate_teacher_task_list",{p_actor:actor.id,p_id:id,p_teacher:teacherId});
+  if(error)throw new Error("assignment_changed");
+  revalidatePath("/inbox");revalidatePath("/teach/tasks");
 }
 export async function saveTeacherTaskAction(id:string,work:{kind:"marks"|"attendance";session?:string;payload:unknown}) {
   const actor=await assertStaff();await assertNotPreviewing();

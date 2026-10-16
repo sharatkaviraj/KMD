@@ -30,6 +30,7 @@ import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 import { assignmentContext } from "@/modules/teacher-tasks/data/assignment";
 import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
+import { missingDirectoryPage } from "@/modules/teacher-tasks/data/missing-directory";
 
 export const runtime = "nodejs";
 
@@ -121,12 +122,19 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     !classParam && q ? classFromQuery(q, [...((await labelsRead) ?? new Map<string, string>()).entries()].map(([id, label]) => ({ id, label }))) : null;
   const classId = classParam ?? typedClass?.id ?? null;
   const text = typedClass ? "" : q;
+  const missingIds = missing
+    ? new Set((await assignmentContext()).students.filter(s => missing === "photo" ? !s.hasPhoto : !s.values[missing]).map(s => s.id))
+    : null;
+  let taskMatchingIds: string[] | null = null;
 
   if (moneySession) {
     try {
       // Grouped by class, the list is read in class order so a class's children sit together across pages.
       const byClass = sort.key === "class" || layout === "class";
-      const list = await studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name" });
+      const read = (page: number) => studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name" });
+      const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.id, page) : null;
+      const list = filtered ?? await read(page);
+      taskMatchingIds = filtered?.matchingIds ?? null;
       rows = list.rows.map((row) => {
         const route = row.routeLabel && row.routeLabel !== "No Transport" ? row.routeLabel : null;
         return {
@@ -144,20 +152,26 @@ export default async function StudentsPage(props: PageProps<"/students">) {
       });
       total = list.total;
       // On the All list the chip counts what the list holds, so "All 510" never sits over "1–50 of 538" (school-day run B11).
-      counts = filters.length === 0 ? { ...list.counts, all: list.total } : list.counts;
+      counts = filters.length === 0 ? { ...list.counts, all: filtered?.sourceTotal ?? list.total } : list.counts;
       session = list.sessionLabel;
       moneyMode = true;
-    } catch {
+    } catch (error) {
+      // A failed fee query must not broaden a reviewed missing-field selection.
+      if (missingIds) throw error;
       failed = true;
     }
   }
 
   let directoryLabels: Map<string, string> | null = null;
   if (!moneyMode) {
+    if (missingIds && seesMoney && !moneySession) throw new Error("directory_unavailable");
+    const read = (page: number) => searchStudents({ text, classId, page }, directorySession);
+    const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.studentId, page) : null;
     const [labels, results] = await Promise.all([
       moneySession ? classLabelMap(directorySession) : labelsRead.then((l) => l ?? classLabelMap(directorySession)),
-      searchStudents({ text, classId, page }, directorySession),
+      filtered ?? read(page),
     ]);
+    taskMatchingIds = filtered?.matchingIds ?? null;
     directoryLabels = labels;
     rows = results.rows.map((row) => ({
       id: row.studentId,
@@ -175,15 +189,6 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     session = directorySession;
   }
 
-  let taskMatchingIds: string[] | null = null;
-  if (missing) {
-    const context = await assignmentContext();
-    const matching = context.students.filter(s=>(!classId||s.classId===classId)&&(!text||s.name.toLocaleLowerCase().includes(text.toLocaleLowerCase()))&&(missing==="photo"?!s.hasPhoto:!s.values[missing]));
-    taskMatchingIds=matching.map(s=>s.id);
-    total=matching.length; moneyMode=false; session=directorySession;
-    rows=matching.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map(s=>({id:s.id,name:s.name,sr:null,classLabel:s.classLabel,rollNo:null,route:null,parent:null,phone:null,money:null,facts:noFacts()}));
-    directoryLabels=await classLabelMap(directorySession);
-  }
   const ids = rows.map((row) => row.id);
   const [labels, attendance, parents] = await Promise.all([
     (async () => directoryLabels ?? (moneyMode ? await labelsRead : null) ?? (await classLabelMap(session)))(),

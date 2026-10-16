@@ -106,7 +106,29 @@ begin
   if not found then raise exception 'tasks:not_permitted'; end if;
   select * into v from vppsone.teacher_task_previews where id=p_preview and actor_id=p_actor for update;
   if not found or v.digest is distinct from p_digest then raise exception 'tasks:preview_changed'; end if;
-  if v.result is not null then return v.result; end if;
+  if v.result is not null then
+    -- A retry receipt is not authorization to a task whose owner/scope changed.
+    for g in select jsonb_build_object('task', r.value, 'group', v.payload->'groups'->(r.ordinality::int-1))
+      from jsonb_array_elements(v.result) with ordinality r loop
+      select * into t from vppsone.teacher_tasks where id=(g->'task'->>'id')::uuid for update;
+      if not found or t.assigned_staff_id is distinct from (g->'group'->>'teacherId')::uuid
+        then raise exception 'tasks:recipient_changed'; end if;
+      if t.scope is distinct from g->'group'->'scope' or not vppsone.teacher_task_access(t.id,t.assigned_staff_id,null)
+        then raise exception 'tasks:scope_changed' using detail=t.id::text; end if;
+      select array_agg(distinct value::uuid order by value::uuid) into v_ids from jsonb_array_elements_text(g->'group'->'studentIds');
+      if t.kind='collection' then
+        select array_agg(distinct value::uuid order by value::uuid) into v_fields from jsonb_array_elements_text(v.payload->'fieldIds');
+        if v_ids is distinct from (select array_agg(student_id order by student_id) from vppsone.collection_request_members where request_id=t.request_id)
+          or v_fields is distinct from (select array_agg(field_id order by field_id) from vppsone.collection_request_fields where request_id=t.request_id)
+          then raise exception 'tasks:selection_changed'; end if;
+      elsif t.kind='marks' then
+        if v_ids is distinct from (select array_agg(id order by id) from vppsone.paper_roster(t.paper_id) id) then raise exception 'tasks:selection_changed'; end if;
+      else
+        if v_ids is distinct from (select array_agg(id order by id) from vppsone.attendance_roster(t.session_label,t.class_id,t.day) id) then raise exception 'tasks:selection_changed'; end if;
+      end if;
+    end loop;
+    return v.result;
+  end if;
   if v.expires_at<now() then raise exception 'tasks:preview_expired'; end if;
   v_session:=v.payload->>'session'; v_kind:=v.payload->>'kind';
   if v_kind not in ('collection','marks','attendance') or v_session is null then raise exception 'tasks:bad_request'; end if;
@@ -152,9 +174,16 @@ begin
       v_key:='attendance:'||v_session||':'||(g->'scope'->>'value')||':'||(v.payload->>'day');
       if v_ids is distinct from (select array_agg(id order by id) from vppsone.attendance_roster(v_session,(g->'scope'->>'value')::uuid,(v.payload->>'day')::date) id) then raise exception 'tasks:selection_changed'; end if;
     end if;
-    select * into t from vppsone.teacher_tasks where source_key=v_key and revoked_at is null;
+    select * into t from vppsone.teacher_tasks where source_key=v_key and revoked_at is null for update;
     if found then
       if t.assigned_staff_id is distinct from (g->>'teacherId')::uuid then raise exception 'tasks:recipient_changed'; end if;
+      if t.scope is distinct from g->'scope' or not vppsone.teacher_task_access(t.id,t.assigned_staff_id,null)
+        then raise exception 'tasks:scope_changed' using detail=t.id::text; end if;
+      -- The bounded identity is only a lookup. Exact canonical membership and
+      -- fields, not a digest alone, authorize reusing this request.
+      if v_kind='collection' and (v_ids is distinct from (select array_agg(student_id order by student_id) from vppsone.collection_request_members where request_id=t.request_id)
+        or v_fields is distinct from (select array_agg(field_id order by field_id) from vppsone.collection_request_fields where request_id=t.request_id))
+        then raise exception 'tasks:selection_changed'; end if;
       -- An existing task is reused, never silently reassigned by another entry point.
       v_result:=v_result||jsonb_build_array(jsonb_build_object('id',t.id,'reused',true,'teacherId',t.assigned_staff_id)); continue;
     end if;
@@ -277,6 +306,23 @@ begin
       token=replace(gen_random_uuid()::text,'-',''),token_rotated_at=now() where id=t.request_id;
   end if;
 end; $$;
+
+-- Explicit recovery of an existing collection list after automatic ownership
+-- changes. The same canonical request is retained; both capabilities rotate.
+create function vppsone.delegate_teacher_task_list(p_actor uuid, p_id uuid, p_teacher uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+declare t vppsone.teacher_tasks%rowtype;
+begin
+  if not exists(select 1 from vppsone.staff_profiles s join vppsone.role_permissions rp on rp.role=s.role
+    where s.id=p_actor and s.is_active and rp.permission='collection:manage') then raise exception 'tasks:not_permitted'; end if;
+  select * into t from vppsone.teacher_tasks where id=p_id for update;
+  if not found or t.kind<>'collection' or t.revoked_at is not null then raise exception 'tasks:bad_request'; end if;
+  update vppsone.teacher_tasks set scope='{"kind":"common","value":"selected"}'::jsonb where id=p_id;
+  perform vppsone.manage_teacher_task(p_actor,p_id,p_teacher);
+  if not vppsone.teacher_task_access(p_id,p_teacher,null) then raise exception 'tasks:selection_changed'; end if;
+end; $$;
+revoke all on function vppsone.delegate_teacher_task_list(uuid,uuid,uuid) from public,anon,authenticated;
+grant execute on function vppsone.delegate_teacher_task_list(uuid,uuid,uuid) to service_role;
 
 -- An explicit new round keeps decided proposals immutable. Revoke and create
 -- happen in one transaction; failure preserves the previous usable request.

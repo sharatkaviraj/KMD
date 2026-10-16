@@ -10,6 +10,8 @@ import { t } from "@/platform/i18n/language";
  * this is not (D-229).
  */
 export const ms = {
+  taskDelegateList: t("इस चुनी हुई सूची को सौंपें और पुराने लिंक बंद करें", "Delegate this selected list and revoke old links"),
+  taskScopeChanged: t("इस सूची की जिम्मेदारी बदल गई है। मौजूदा कार्य खोलकर दोबारा सौंपें या इसी सूची को सीधे सौंपें।", "This list has changed responsibility. Open its existing task to reassign or explicitly delegate the selected list."),
   taskReused: t("पहले से सौंपा गया काम खोला गया", "Existing assignment reused"),
   taskAssigned: t("काम सौंपा गया", "Work assigned"),
   taskRequestAgain: t("नई जानकारी फिर माँगें और पुराना लिंक बंद करें", "Request details again and revoke old links"),

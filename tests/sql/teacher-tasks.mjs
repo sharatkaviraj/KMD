@@ -77,6 +77,11 @@ await db.query("update vppsone.class_teachers set effective_to='2026-10-15' wher
 await db.query("update vppsone.class_teachers set effective_to=null where staff_profile_id=$1",[teacher]);
 await db.query("update vppsone.enrolments set class_id=$1 where student_id=$2",[id(999),members[0].id]);assert.equal(await access(task.token),false);
 await db.query("update vppsone.enrolments set class_id=$1 where student_id=$2",[classId,members[0].id]);
+const common={...base,groups:[{...base.groups[0],scope:{kind:"common",value:"selected"}}]};
+await db.query("update vppsone.class_teachers set effective_to='2026-10-15' where staff_profile_id=$1",[teacher]);
+const staleCommon=await prepare(common);
+await assert.rejects(()=>create(staleCommon),/scope_changed/);
+await db.query("update vppsone.class_teachers set effective_to=null where staff_profile_id=$1",[teacher]);
 const request=(await db.query("select * from vppsone.collection_requests where id=$1",[task.request_id])).rows[0];
 const answer={studentId:members[0].id,fieldId:field,value:"1111111111",previousValue:"0000000000"};
 const submit=answers=>scalar("select vppsone.record_collection_answers($1,$2,$3) result",[request.id,request.token,answers]);
@@ -135,5 +140,32 @@ assert.notEqual(restarted.id,fresh.id);
 assert.equal(await scalar("select count(*)::int result from vppsone.collection_submissions where request_id=(select request_id from vppsone.teacher_tasks where id=$1)",[restarted.id]),0);
 assert.equal(await scalar("select snapshot->>'phone' result from vppsone.collection_request_members where request_id=(select request_id from vppsone.teacher_tasks where id=$1) order by student_id limit 1",[restarted.id]),"0000000000");
 assert.equal(await scalar("select revoked_at is not null result from vppsone.teacher_tasks where id=$1",[fresh.id]),true);
-console.log("PASS: actual migration; 600-child bounded identity; replay/dedupe; stale roster; active/current authority; scoped writer delegation; proposal-only save; admin decision trigger; decided-row replay; revocation; explicit fresh round; recipient-preview mismatch refusal; old capabilities invalid after reassignment; unauthorized official write transaction rollback.");
+// Recover changed automatic responsibility explicitly, without duplicating a request.
+const subset={...base,groups:[{...base.groups[0],studentIds:[members[4].id,members[5].id],members:[members[4],members[5]]}]};
+const subsetPreview=await prepare(subset);
+const subsetTask=(await create(subsetPreview))[0];
+const removed=(await db.query("delete from vppsone.collection_request_members where request_id=(select request_id from vppsone.teacher_tasks where id=$1) and student_id=$2 returning *",[subsetTask.id,members[4].id])).rows[0];
+await assert.rejects(()=>create(subsetPreview),/selection_changed/);
+const shrunkPreview=await prepare(subset);await assert.rejects(()=>create(shrunkPreview),/selection_changed/);
+await db.query("insert into vppsone.collection_request_members(request_id,student_id,roll_no,snapshot) values($1,$2,$3,$4)",[removed.request_id,removed.student_id,removed.roll_no,removed.snapshot]);
+const subsetCommon={...subset,groups:[{...subset.groups[0],scope:{kind:"common",value:"selected"}}]};
+const commonPreview=await prepare(subsetCommon);
+await assert.rejects(()=>create(commonPreview),/scope_changed/); // even if the old class is still owned
+await db.query("update vppsone.class_teachers set effective_to='2026-10-15' where staff_profile_id=$1",[teacher]);
+await assert.rejects(()=>create(subsetPreview),/scope_changed/); // cached receipt must not report inaccessible success
+await assert.rejects(()=>create(commonPreview),/scope_changed/);
+const prior=(await db.query("select t.token,r.token request_token,t.request_id from vppsone.teacher_tasks t join vppsone.collection_requests r on r.id=t.request_id where t.id=$1",[subsetTask.id])).rows[0];
+const taskCount=await scalar("select count(*)::int result from vppsone.teacher_tasks");
+await assert.rejects(()=>db.query("select vppsone.delegate_teacher_task_list($1,$2,$3)",[teacher,subsetTask.id,teacher]),/not_permitted/);
+await db.query("select vppsone.delegate_teacher_task_list($1,$2,$3)",[actor,subsetTask.id,teacher]);
+assert.equal(await scalar("select vppsone.teacher_task_access($1,$2,null) result",[subsetTask.id,teacher]),true);
+assert.equal(await scalar("select count(*)::int result from vppsone.teacher_tasks"),taskCount);
+assert.equal(await scalar("select request_id result from vppsone.teacher_tasks where id=$1",[subsetTask.id]),prior.request_id);
+assert.equal(await scalar("select vppsone.teacher_task_access($1,null,$2) result",[subsetTask.id,prior.token]),false);
+await assert.rejects(()=>scalar("select vppsone.record_collection_answers($1,$2,$3) result",[prior.request_id,prior.request_token,[]]),/not_permitted/);
+const reused=(await create(commonPreview))[0];assert.equal(reused.id,subsetTask.id);assert.equal(reused.reused,true);
+await assert.rejects(()=>create(subsetPreview),/scope_changed/);
+await db.query("update vppsone.enrolments set status='left' where student_id=$1",[members[4].id]);
+await assert.rejects(()=>create(commonPreview),/scope_changed/);
+console.log("PASS: actual migration; 600-child bounded identity; replay/dedupe; stale roster; active/current authority; scoped writer delegation; proposal-only save; admin decision trigger; decided-row replay; revocation; explicit fresh round; recipient-preview mismatch refusal; old capabilities invalid after reassignment; unauthorized official write transaction rollback; scope mismatch and inaccessible cached-receipt refusal; explicit common delegation retains request/task, rotates both capabilities and restores access without duplicates.");
 await db.close();
