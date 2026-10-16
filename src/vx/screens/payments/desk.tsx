@@ -1238,7 +1238,8 @@ export function PaymentDesk({
               {findPane}
               {selId ? (
                 <>
-                  <button type="button" className="only-m tap pd-sr" data-st="1" onClick={clearStudent} style={{ width: "100%", textAlign: "left" }}>
+                  {/* Not on the phone's steps: the header's back arrow goes to the same list, and step 1 needs the room. */}
+                  <button type="button" className="only-m tap pd-sr" data-st="desk" onClick={clearStudent} style={{ width: "100%", textAlign: "left" }}>
                     <Ic n="search" />
                     <span style={{ flex: 1, fontSize: 15 }}>{tx(W.searchAnother)}</span>
                   </button>
