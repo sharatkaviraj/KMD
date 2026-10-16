@@ -1227,8 +1227,8 @@ export function PaymentDesk({
                   disabled={stepLocked || n === phoneStep}
                   onClick={() => goStep(n)}
                 >
-                  <span className="num">{n < phoneStep ? <Ic n="check" size={14} stroke={3} /> : n}</span>
-                  {tx(label)}
+                  <span className="num pd-stn">{n < phoneStep ? <Ic n="check" size={14} stroke={3} /> : n}</span>
+                  <span className="pd-stl">{tx(label)}</span>
                 </button>
               ))}
             </nav>

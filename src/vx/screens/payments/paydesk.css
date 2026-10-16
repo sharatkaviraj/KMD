@@ -113,12 +113,13 @@
 :where(.vx) .pd-fold{display:contents}
 :where(.vx) .pd-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px}
 :where(.vx) .pd-steps>button{height:40px;padding:0 6px;border:0;border-radius:12px;background:var(--s2);color:var(--mut);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;overflow:hidden}
-:where(.vx) .pd-steps>button>span{flex:none;width:22px;height:22px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;background:var(--s3);font-size:12px}
+:where(.vx) .pd-steps .pd-stn{flex:none;width:22px;height:22px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;background:var(--s3);font-size:12px}
 :where(.vx) .pd-steps>button[data-done]{color:var(--fg)}
-:where(.vx) .pd-steps>button[data-done]>span{background:var(--ok);color:var(--bg)}
+:where(.vx) .pd-steps>button[data-done] .pd-stn{background:var(--ok);color:var(--bg)}
 :where(.vx) .pd-steps>button[data-on]{background:var(--accs);color:var(--accfg)}
-:where(.vx) .pd-steps>button[data-on]>span{background:var(--acc);color:var(--bg)}
+:where(.vx) .pd-steps>button[data-on] .pd-stn{background:var(--acc);color:var(--bg)}
 :where(.vx) .pd-steps>button:disabled{opacity:1;cursor:default}
+:where(.vx) .pd-steps .pd-stl{min-width:0;overflow:hidden;text-overflow:ellipsis}
 :where(.vx) .pd-dues{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px}
 :where(.vx) .pd-sum{display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;color:var(--fg);border:1px solid var(--bd)}
 :where(.vx) .pd-more{align-self:stretch;justify-content:center}
@@ -144,6 +145,13 @@
   .vx .pd-fold:not(.open){display:none}
   .vx .pd-pbar .pd-sback{flex:none;width:52px;height:52px;padding:0;border-radius:14px}
   .vx .pd-pbar .pd-big.pd-snext{flex:1;width:auto}
+}
+/* A narrow phone (and Hindi's longer words): only the current step keeps its name; the others are their number or tick. */
+@container vx (max-width:379px){
+  .vx .pd-steps{display:flex}
+  .vx .pd-steps>button{flex:none;width:48px}
+  .vx .pd-steps>button[data-on]{flex:1;width:auto}
+  .vx .pd-steps>button:not([data-on]) .pd-stl{display:none}
 }
 
 @container vx (max-width:899px){
