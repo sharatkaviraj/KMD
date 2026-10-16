@@ -1,5 +1,5 @@
 import { m } from "@/messages";
-import { ms } from "@/messages/setup";
+import { ms, taskDeliveryMessages } from "@/messages/setup";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { dayLabel } from "@/platform/dates";
@@ -209,7 +209,7 @@ export default async function MessagesPage() {
                     </Notice>
                   ) : null}
 
-                  {needsProviderReconciliation(send) ? (
+                  {send.taskId ? <Link className="mt-3 block text-sm text-primary" href={`/inbox?task=${send.taskId}`}>{primary(taskDeliveryMessages.review,language)}</Link> : needsProviderReconciliation(send) ? (
                     <div className="mt-3 space-y-2">
                       <Notice tone="warning" text={ms.messagesProviderCheckHint} language={language} />
                       <form action={confirmProviderResultAction} className="space-y-2">

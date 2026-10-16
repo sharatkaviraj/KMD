@@ -54,6 +54,9 @@ export type MessageTemplate = {
 };
 
 export type MessageSend = {
+  /** Only the reviewed task RPC path can create these sends. Never a browser input. */
+  taskId?: string;
+  buttonSuffix?: string;
   id: string;
   templateId: string;
   templateCode: string;

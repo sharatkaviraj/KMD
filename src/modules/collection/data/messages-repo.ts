@@ -19,6 +19,7 @@ import { normalisePhone } from "@/modules/collection/domain/fields";
 import {
   ProviderMisconfigured,
   selectProvider,
+  taskDeliveryAvailability,
   type DispatchResult,
   type MessageProvider,
 } from "@/modules/collection/data/message-provider";
@@ -31,6 +32,8 @@ import {
   staleness,
 } from "@/modules/collection/data/parent-messages-repo";
 import { mayDispatchToParent } from "@/modules/collection/domain/parent-policy";
+import type { DeliveryReason, DeliveryResult } from "@/modules/teacher-tasks/domain/delivery";
+import { managedTasksForRequests } from "@/modules/teacher-tasks/data/delivery-routing";
 
 /**
  * Templates and the send queue.
@@ -201,7 +204,8 @@ export async function listSends(sessionLabel: string): Promise<MessageSend[]> {
     .returns<SendRow[]>();
 
   if (error) throw new Error(`Could not read the messages: ${error.message}`);
-  return data.map(toSend);
+  const managed=await managedTasksForRequests(data.flatMap(row=>row.request_id?[row.request_id]:[]));
+  return data.map(row=>({...toSend(row),taskId:row.request_id?managed.get(row.request_id):undefined}));
 }
 
 /**
@@ -273,13 +277,16 @@ export async function getSend(id: string): Promise<MessageSend | null> {
     .maybeSingle<SendRow>();
 
   if (error) throw new Error(`Could not read that message: ${error.message}`);
-  return data ? toSend(data) : null;
+  if(!data)return null;
+  const managed=data.request_id?await managedTasksForRequests([data.request_id]):new Map<string,string>();
+  return {...toSend(data),taskId:data.request_id?managed.get(data.request_id):undefined};
 }
 
 async function manualCandidate(id: string) {
   const { data, error } = await createAdminClient().from("message_sends")
-    .select("status, provider_message_id, error, updated_at").eq("id", id)
-    .maybeSingle<{ status: string; provider_message_id: string | null; error: string | null; updated_at: string }>();
+    .select("status, provider_message_id, error, updated_at, request_id, task_id").eq("id", id)
+    .maybeSingle<{ status: string; provider_message_id: string | null; error: string | null; updated_at: string; request_id?:string; task_id?:string }>();
+  if(data?.task_id||(data?.request_id&&(await managedTasksForRequests([data.request_id])).has(data.request_id)))throw new Error("Use reviewed task delivery in Needs you.");
   if (error || !data || data.provider_message_id !== null
     || (!(data.status === "draft" || data.status === "queued") && !(data.status === "failed" && isConfirmedProviderRejection(data.error)))) {
     throw new Error("Check the provider result before changing this message.");
@@ -365,6 +372,7 @@ export async function confirmDispatchReceived(id: string, attempt: string | null
  * would lose the sentence that says what to fix.
  */
 export async function dispatch(send: MessageSend): Promise<DispatchResult> {
+  if (send.taskId||(send.requestId&&(await managedTasksForRequests([send.requestId])).has(send.requestId))) return { ok: false, outcome:"rejected", error: "Use reviewed task delivery in Needs you." };
   if (needsProviderReconciliation(send)) return { ok: false, error: "Check the provider result before sending again." };
   if (send.audience === "parent") {
     // A parent message goes from the app only under the school's switch, a
@@ -423,6 +431,34 @@ export async function dispatch(send: MessageSend): Promise<DispatchResult> {
   try { await recordDispatch(send.id, result, attempt); }
   catch { return { ok: false, outcome: "unknown", error: "The provider result could not be recorded. Check its delivery log; do not resend." }; }
   return result;
+}
+
+/** The collection engine's task extension: same durable claim-before-I/O rule.
+ * SQL re-resolves task authority and stamps its attempt atomically. A committed
+ * marker is never swept into an ordinary retry, even when finish is interrupted.
+ */
+export async function dispatchTeacherTaskMessage(actorId: string, id: string): Promise<DeliveryResult> {
+  const available = taskDeliveryAvailability();
+  if (available !== "ready") return { ok: false, reason: available };
+  const provider = selectProvider();
+  if (provider.id !== "aisensy") return { ok: false, reason: "test_mode" };
+  const admin = createAdminClient();
+  const attempt = `attempt:${randomUUID()}`;
+  const claim = await admin.rpc("claim_teacher_task_delivery", { p_actor: actorId, p_id: id, p_attempt: attempt, p_transport: provider.id, p_manual: false });
+  if (claim.error || !claim.data) return { ok: false, reason: "reconcile" };
+  const data = claim.data as { ok: boolean; reason?: DeliveryReason; taskId: string; phone: string; name: string; campaign: string; params: string[]; buttonSuffix: string };
+  if (!data.ok) return { ok: false, reason: data.reason ?? "changed" };
+  // This private transport DTO only exists after the authoritative claim.
+  const send = { id, taskId: data.taskId, toPhone: data.phone, toName: data.name, templateCode: data.campaign, variables: data.params, buttonSuffix: data.buttonSuffix } as MessageSend;
+  let result: DispatchResult;
+  try { result = await provider.send(send); }
+  catch { result = { ok: false, outcome: "unknown", error: "Provider result unknown" }; }
+  const outcome = result.ok ? "accepted" : result.outcome === "rejected" ? "rejected" : "unknown";
+  try {
+    const finish = await admin.rpc("finish_teacher_task_delivery", { p_actor: actorId, p_id: id, p_attempt: attempt, p_outcome: outcome, p_receipt: result.ok ? result.providerMessageId : null });
+    if (finish.error || !finish.data?.ok) return { ok: false, reason: "reconcile" };
+  } catch { return { ok: false, reason: "reconcile" }; }
+  return result.ok ? { ok: true, state: "accepted" } : { ok: false, reason: outcome === "unknown" ? "reconcile" : "rejected" };
 }
 
 async function recordDispatch(

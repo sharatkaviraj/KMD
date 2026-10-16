@@ -491,6 +491,7 @@ export async function approveParentMessageAction(
   const id = (formData.get("id") ?? "").toString();
   const send = id ? await getSend(id) : null;
   if (!send || send.audience !== "parent") return { status: "error", message: m.notFound };
+  if (send.taskId) return { status: "error", message: ms.taskPreview };
   if (send.status === "sent" || send.status === "cancelled") return { status: "error", message: ms.messagesAlreadyClosed };
 
   const { reasons } = await staleness(send);

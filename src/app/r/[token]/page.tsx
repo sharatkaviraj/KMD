@@ -15,6 +15,7 @@ import { resolveToken, rollForRequest } from "@/modules/collection/data/requests
 import { completeness } from "@/modules/collection/domain/requests";
 import { RequestForm } from "@/modules/collection/ui/request-form";
 import { getSchoolName } from "@/platform/env";
+import { createAdminClient } from "@/platform/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,6 +62,7 @@ export default async function TokenRequestPage(props: PageProps<"/r/[token]">) {
 
   const language = request.language;
   const roll = await rollForRequest(request);
+  await createAdminClient().rpc("mark_teacher_task_opened", { p_id: request.id, p_staff: null, p_token: null, p_request_token: token });
   const done = completeness(roll, request.fields);
 
   const asking = request.fields

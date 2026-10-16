@@ -33,9 +33,9 @@ export async function manageTeacherTaskAction(id:string,teacherId:string|null) {
   if(error)throw new Error("assignment_changed");revalidatePath("/inbox");revalidatePath("/teach/tasks");
 }
 export async function teacherTaskLinkAction(id:string):Promise<string> {
-  await assertPermission("collection:manage");await assertNotPreviewing();
-  const {data,error}=await createAdminClient().from("teacher_tasks").select("token").eq("id",id).is("revoked_at",null).single<{token:string}>();
-  if(error)throw new Error("link_unavailable"); return `/t/tasks/${data.token}`;
+  const actor=await assertPermission("collection:manage");await assertNotPreviewing();
+  const {data,error}=await createAdminClient().rpc("teacher_task_share_link",{p_actor:actor.id,p_task:id});
+  if(error||typeof data!=="string")throw new Error("link_unavailable"); return data;
 }
 export async function delegateTeacherTaskListAction(id:string,teacherId:string) {
   const actor=await assertPermission("collection:manage");await assertNotPreviewing();

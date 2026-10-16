@@ -41,7 +41,7 @@ export async function loadTaskWork(auth:TaskCredential):Promise<TaskWork|null> {
   const {data:staff,error:staffError}=await db.from("staff_profiles").select("preferred_language").eq("id",task.assigned_staff_id).single<{preferred_language:string}>();
   if(staffError) throw new Error("task_unavailable");
   const language=resolveLanguage(staff.preferred_language);
-  if(auth.token) await db.from("teacher_tasks").update({opened_at:new Date().toISOString()}).eq("id",task.id).is("opened_at",null);
+  await db.rpc("mark_teacher_task_opened",{p_id:task.id,p_staff:auth.staffId??null,p_token:auth.token??null,p_request_token:null});
   if(task.kind==="collection" && task.request_id) {
     const request=await resolveAssignedRequest(task.request_id,task.assigned_staff_id);
     if(!request) return null;

@@ -1,6 +1,7 @@
 import "server-only";
 
-import { getOptionalEnvVar, getVppsOneEnvironment } from "@/platform/env";
+import { getOptionalEnvVar, getSiteUrl, getVppsOneEnvironment } from "@/platform/env";
+import { classifyResponse, type TransportOutcome } from "@/modules/staff-notices/domain/notices";
 import type { MessageSend } from "@/modules/collection/domain/messages";
 import {
   mockOutcomeFor,
@@ -39,12 +40,32 @@ export type MessageProvider = {
   send(send: MessageSend): Promise<DispatchResult>;
 };
 
+/** Explicit deployment contract; dev database mode never enables a task mock. */
+export function taskDeliveryAvailability(): "ready" | "test_mode" | "unavailable" {
+  const declared = getOptionalEnvVar("MESSAGE_PROVIDER");
+  if (declared === "mock") return "test_mode";
+  if (declared !== "aisensy" || !getOptionalEnvVar("AISENSY_API_KEY")
+    || getOptionalEnvVar("AISENSY_TASK_CONTRACT") !== "v1"
+    || getOptionalEnvVar("AISENSY_TASK_CAMPAIGN_ORIGIN") !== getSiteUrl().replace(/\/$/, "")) return "unavailable";
+  const prefix = getOptionalEnvVar("AISENSY_CAMPAIGN_PREFIX");
+  if (prefix && !/^[A-Za-z0-9_-]+$/.test(prefix)) return "unavailable";
+  if (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST)) return "test_mode";
+  return "ready";
+}
+
+/** Task sends require a receipt. A 5xx can follow acceptance and is ambiguous. */
+export function classifyTaskResponse(status: number, body: unknown): TransportOutcome {
+  if (status >= 500) return { outcome: "unknown", status, error: "The provider result requires reconciliation" };
+  return classifyResponse(status, body);
+}
+
 /* ------------------------------------------------------------- the real one */
 
 const aisensyProvider: MessageProvider = {
   id: "aisensy",
 
   async send(send) {
+    if (send.taskId && taskDeliveryAvailability() !== "ready") return { ok: false, outcome: "rejected", error: "Task delivery is unavailable or in test mode." };
     const apiKey = getOptionalEnvVar("AISENSY_API_KEY");
 
     if (!apiKey) {
@@ -64,13 +85,21 @@ const aisensyProvider: MessageProvider = {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           apiKey,
-          campaignName: send.templateCode,
+          campaignName: send.taskId && getOptionalEnvVar("AISENSY_CAMPAIGN_PREFIX")
+            ? send.templateCode.replace(/^vppsone/, getOptionalEnvVar("AISENSY_CAMPAIGN_PREFIX")!) : send.templateCode,
           destination: `91${send.toPhone}`,
           userName: send.toName ?? "",
           templateParams: send.variables,
+          ...(send.taskId && send.buttonSuffix ? { buttons: [{ type: "button", sub_type: "url", index: 0, parameters: [{ type: "text", text: send.buttonSuffix }] }] } : {}),
         }),
         signal: controller.signal,
       });
+
+      if (send.taskId) {
+        const outcome = classifyTaskResponse(response.status, await response.json().catch(() => null));
+        return outcome.outcome === "accepted" ? { ok: true, providerMessageId: outcome.providerMessageId }
+          : { ok: false, outcome: outcome.outcome === "unknown" ? "unknown" : "rejected", error: outcome.error };
+      }
 
       if (!response.ok) {
         const rejected = [400, 401, 403, 404, 422, 429].includes(response.status);
