@@ -116,3 +116,96 @@ The browser fixture imports the production editor and uses stub actions. Every n
 PGlite is single-session evidence. It does not prove multi-session photo races or hosted Postgres integration. No complete package suite, production build or full-page screenshot pass was repeated in this task. Task 4 owns those final gates, and independent review remains pending. No push, merge, deploy, remote migration, real capability, real WhatsApp message or external data mutation occurred.
 
 Before staging, the continuation resolved `.vite-photos` and `debug.log` to their exact absolute paths inside this checkout, confirmed the cache and descendants had no reparse points, inspected the log as Chromium graphics/DNS warnings, and removed only those generated artifacts. The controller's two untracked evidence files remain untouched. Self-review covered canonical answer binding, admin-only approval, current teacher/staff scope, immutable replay and prior-photo history, reader visibility, source hashes, migration inventory, and the final file list.
+
+## Review fix round 1 — capability reads, current authority and editor recovery
+
+Review base: `a5a9302220b51611f97f21e934993cc67cd1c9ec`. The controller supplied four Important findings verbatim in `.superpowers/sdd/2026-10-16-sampark-workflows/task-2-review.md`; all four are addressed in this fix commit. Independent re-review is pending.
+
+### Changes
+
+1. **Public-token resolution can adopt authority from a subsequent reassignment.** Photo authority now retains the caller's original credential and checks it directly with `teacher_task_access`, rather than accepting the authority of the task row's subsequently returned assignee. It also checks the exact request id/token generation. These checks run after initial resolution, before context reads, and after all current/proposal reads and signing, before returning any context. A reassignment during resolution or a rotation while reading/signing refuses the response. Legacy request credentials retain their original token too. No context read follows the final gate, and no new token replaces the caller's credential.
+2. **Staff-photo authorization is stale after lock waits.** `save_staff_photo` re-reads current active status, self/current `staff:manage` permission and target existence after both advisory locks, before receipt replay or mutation. The early check remains. The real two-connection PostgreSQL regression below proves deactivation and permission removal while waiting are honored for both replay and new saves.
+3. **Changing the selected staff member retains the previous person's editor.** `ProfilePhotoControl` keys its stateful inner control by credential kind, target, capability and optional student target. Every caller benefits, including the staff profile panel. A target change unmounts the previous editor; an open-request generation invalidated on unmount prevents a late response or error from restoring it. Staff A's durable draft remains scoped to A, and saves from the newly opened B control use B's credential.
+4. **A reviewed proposal can strand an uncertain command permanently.** A decided context can retry a persisted command with its unchanged identity, image and expected values. It cannot choose/drop a replacement or send an unsent draft. The server remains authoritative: same-generation exact command replay returns its saved receipt, while altered payloads and new commands against the decided round are refused. Successful reconciliation removes the local draft. A definite refusal leaves an unsent draft cancellable, without enabling a new save on the decided round.
+
+No exported RPC signature or schema-object count changed: Task 2 still adds two tables, five functions, one trigger, two named secondary indexes and the photo field seed. Only the still-unapplied `save_staff_photo` body changed. Policy, bucket access, official-photo writer, Task 1 interfaces and branding are unchanged.
+
+### Controlled PostgreSQL 17 regression
+
+`tests/sql/profile-photo-locks.py` uses the real prerequisite/photo/Task 1/Task 2 migrations without substituting or rewriting their functions. It shares the extracted `profile-photos-fixture.sql` prerequisite additions with PGlite; a byte-equivalence check against the base's inline SQL passed. The synthetic academic writer doubles in the prerequisite fixture are not exercised by the staff-photo schedules.
+
+The runner is fixed to `127.0.0.1:5432/profile_photo_ci`, requires PostgreSQL 17, fixes libpq host address/TLS/GSS settings, and refuses existing application schema/tables. It accepts no endpoint/environment override and performs no schema drop. The new `photo-authority-after-wait` CI job provisions a disposable `postgres:17` service, installs Python/psycopg, and runs the same Python file.
+
+For each schedule, A holds the command or staff advisory lock; B invokes the real `save_staff_photo`. The runner waits until `pg_locks` and `pg_blocking_pids` prove B is blocked by A, then removes authority and commits A. Its short polling delay only observes locks; it is not used to assume an execution order. Each refusal must preserve the original current portrait and complete history unchanged.
+
+| Authority removed while B waits | Operations | Observed lock waits | Result after fix |
+| --- | --- | --- | --- |
+| Self actor deactivated | Replay and new save | Command and staff | 4/4 refused with `photos:not_permitted` |
+| Manager actor deactivated | Replay and new save | Command and staff | 4/4 refused with `photos:not_permitted` |
+| Manager's `staff:manage` grant removed | Replay and new save | Command and staff | 4/4 refused with `photos:not_permitted` |
+
+Local execution used the already-installed portable PostgreSQL **17.10**, Python **3.12.10** and psycopg runtime under the parent workspace. `../run-profile-photo-locks-local.mjs` follows the controller's existing safe harness: refuse an occupied port, generate a unique fresh workspace cluster, bind loopback only, verify the server's actual data directory, create only the disposable fixture database, run the fixed test, and stop its own server in `finally`. No system service or hosted database was used. The harness remains outside the app; the CI-reproducible fixture and workflow are committed.
+
+The default sandbox attempt failed with `connect EACCES 127.0.0.1:5432` and ran its shutdown path. Identical loopback-only runs with approved sandbox escalation then supplied RED/GREEN evidence:
+
+- RED cluster/run: `photo-3424331c-e922-47c3-89eb-925c56977f99`. All **12** schedules reproduced unauthorized success; the six new-save cases also changed photo history after authority removal. Exit 1 from the assertions. The actual migration was still unchanged at that point.
+- GREEN cluster/run: `photo-727d3be3-f6ee-43f6-b4e4-1f7fab390987`. All **12** schedules refused correctly and preserved history, exit 0. Output ended `PostgreSQL 17: actual photo migration, two connections, 12 observed-lock authority schedules passed.` and `Disposable PostgreSQL stopped; no system service installed.`
+- Both runs confirmed their server stopped. The GREEN preflight also proved the previous run had released the port. After executor recovery, both exact cluster paths lacked `postmaster.pid`, and a successful bind/close probe reported `PASS: 127.0.0.1:5432 has no listener; verification probe closed.` No PostgreSQL process is intentionally left running. Logs and disposable cluster directories remain in `../pg-test-runtime`; none are application/commit artifacts.
+
+### Exact commands and observed results
+
+| Command / check | Result |
+| --- | --- |
+| `npm test -- tests/profile-photo-authority.test.ts tests/profile-photo-editor.test.tsx` before implementation changes | RED: 2 files, **6 failed / 15 passed**. Reproduced three old-capability/generation read cases, selected-target leakage, late open response and disabled decided-round retry. |
+| Same two-file command after TypeScript/UI fixes | GREEN: **21/21 passed**, 5.49 s. Includes an unsent-draft control confirming reviewed rounds still prohibit new saves. |
+| `node ../run-profile-photo-locks-local.mjs` before SQL change, with loopback escalation | RED: **12/12 schedules reproduced**; actual unauthorized receipts/history shown above; server stopped. |
+| Same local harness after SQL change, with loopback escalation | GREEN: **12/12 schedules passed** on PostgreSQL 17.10; server stopped. |
+| `node tests/sql/profile-photos.mjs` | PASS: all prior actual-migration groups plus accepted/rejected exact replay after review, changed-payload/new-command refusal, and new staff-save refusal after grant removal. |
+| Covering Vitest command below, fresh after recovery | PASS: **8 files / 58 tests**, 13.42 s. |
+| `node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit`, fresh after recovery | PASS: exit 0, no diagnostics. |
+| Scoped ESLint command below, fresh after recovery | PASS: exit 0, no diagnostics. |
+| Fixture/CI sanity script below | PASS: extracted SQL equals the base; workflow YAML uses disposable PG17, `profile_photo_ci` and the executed Python runner. |
+| `git diff --check` and `git diff --cached --check` | PASS: no whitespace errors; ordinary Git LF/CRLF notices only. |
+
+An executor transport interruption lost covering Vitest session `52729`, TypeScript `67177` and lint `81862`. Their results could not be recovered (`Unknown process id`); they are not counted as passes. It also prevented a read-only verification process from starting. No mutation or PostgreSQL server startup was pending then; both SQL runs had already completed and shut down. The controller confirmed the checkout intact, and only the required unavailable checks were restarted. The confirmed earlier RED/GREEN SQL and 21-test outcomes were retained.
+
+Covering command:
+
+```powershell
+npm test -- tests/profile-photo-authority.test.ts tests/profile-photo-editor.test.tsx tests/profile-photo-placement.test.ts tests/profile-photo-readers.test.ts tests/profile-photo-fee-policy.test.ts tests/student360-stream-recovery.test.tsx tests/teacher-task-assignment-recovery.test.tsx tests/teacher-tasks-collection.test.ts
+```
+
+Scoped lint:
+
+```powershell
+node node_modules/eslint/bin/eslint.js src/modules/collection/data/profile-photo-context.ts src/modules/collection/ui/profile-photo-editor.tsx tests/profile-photo-authority.test.ts tests/profile-photo-editor.test.tsx tests/sql/profile-photos.mjs
+```
+
+Fixture/CI sanity and final listener probe (JavaScript piped to `node`):
+
+```javascript
+const fs=require('node:fs'),assert=require('node:assert/strict'),{spawnSync}=require('node:child_process');
+const before=spawnSync('git',['show','a5a9302:tests/sql/profile-photos.mjs'],{encoding:'utf8'});
+if(before.status!==0)throw Error(before.stderr);
+const start=before.stdout.indexOf('await db.exec(`\n');const end=before.stdout.indexOf('\n`);',start);
+assert.equal(fs.readFileSync('tests/sql/profile-photos-fixture.sql','utf8').replace(/\r\n/g,'\n'),before.stdout.slice(start+'await db.exec(`\n'.length,end)+'\n');
+const workflow=require('js-yaml').load(fs.readFileSync('.github/workflows/teacher-task-sql.yml','utf8'));
+const job=workflow.jobs['photo-authority-after-wait'];
+assert.equal(job.services.postgres.image,'postgres:17');
+assert.equal(job.services.postgres.env.POSTGRES_DB,'profile_photo_ci');
+assert.equal(job.steps.at(-1).run,'python tests/sql/profile-photo-locks.py');
+console.log('PASS: extracted photo fixture exactly matches base; CI job uses disposable PG17 and the executed runner.');
+const net=require('node:net');const probe=net.createServer();
+probe.once('error',error=>{console.error(error.code);process.exitCode=1;});
+probe.listen(5432,'127.0.0.1',()=>probe.close(()=>console.log('PASS: 127.0.0.1:5432 has no listener; verification probe closed.')));
+```
+
+This round does not repeat the complete suite, build or browser/full-page acceptance. The changed UI behavior has focused mounted React regressions; Task 4 owns final browser acceptance. The earlier Minor warning is deferred there as instructed. Its exact previously observed text was:
+
+```text
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (tests/profile-photos/vite.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+```
+
+The new PG17 evidence closes the staff-authority-after-wait gap only; it is not a claim about every photo concurrency schedule or hosted migration behavior. Remote migration approval/application, independent re-review and integrated acceptance remain later gates. Controller evidence files are preserved. No secret read, real capability, provider message, hosted write, push, merge or deployment occurred.

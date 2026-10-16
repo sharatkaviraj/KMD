@@ -65,7 +65,7 @@ export function PhotoEditor({ context, language, save, onClose }: { context: Pho
     finally { setBusy(false); }
   };
   const send = async () => {
-    if (!draft || sending.current || !ready || recovered) return;
+    if (!draft || sending.current || !ready || recovered || (context.decided && !draft.commandId)) return;
     sending.current = true; setBusy(true); setReason("");
     const command = { ...draft, commandId: draft.commandId ?? crypto.randomUUID() };
     setDraft(command);
@@ -98,7 +98,7 @@ export function PhotoEditor({ context, language, save, onClose }: { context: Pho
       <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-lg border px-3" disabled={locked} onClick={() => input.current?.click()}>{primary(words.choose, language)}</button><button type="button" className="min-h-11 rounded-lg border px-3" disabled={locked} onClick={() => camera.current?.click()}>{primary(words.camera, language)}</button></div>
     </div>
     {reason ? <p role="status" className="text-sm text-destructive">{primary(failureText(reason), language)}</p> : null}
-    <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={busy || !draft || !ready || Boolean(recovered) || context.decided} onClick={() => void send()}>{primary(draft?.commandId ? words.retry : words.save, language)}</button><button type="button" className="min-h-11 rounded-xl border px-4 disabled:opacity-50" disabled={busy || Boolean(draft?.commandId) || Boolean(recovered?.commandId)} onClick={() => void cancel()}>{primary(words.cancel, language)}</button></div>
+    <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={busy || !draft || !ready || Boolean(recovered) || (context.decided && !draft.commandId)} onClick={() => void send()}>{primary(draft?.commandId ? words.retry : words.save, language)}</button><button type="button" className="min-h-11 rounded-xl border px-4 disabled:opacity-50" disabled={busy || Boolean(draft?.commandId) || Boolean(recovered?.commandId)} onClick={() => void cancel()}>{primary(words.cancel, language)}</button></div>
   </section>;
 }
 
@@ -107,12 +107,31 @@ export function PhotoImage({ src, alt }: { src: string; alt: string }) {
   return <img src={src} alt={alt} className="h-40 w-32 rounded-xl object-cover" />;
 }
 
-export function ProfilePhotoControl({ credential, studentId, language }: { credential: PhotoCredential; studentId?: string; language: Language }) {
+type ControlProps = { credential: PhotoCredential; studentId?: string; language: Language };
+export function ProfilePhotoControl(props: ControlProps) {
+  const { credential, studentId } = props;
+  const identity = JSON.stringify([credential.kind, "id" in credential ? credential.id : null, "token" in credential ? credential.token : null, studentId]);
+  return <ScopedPhotoControl key={identity} {...props} />;
+}
+
+function ScopedPhotoControl({ credential, studentId, language }: ControlProps) {
   const router = useRouter();
   const [opened, setOpened] = useState<{ credential: PhotoCredential; context: PhotoEditorContext } | null>(null);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
+  const request = useRef(0);
+  useEffect(() => () => { request.current += 1; }, []);
+  const open = async () => {
+    const current = ++request.current;
+    setBusy(true); setFailed(false);
+    try {
+      const result = await openPhotoEditorAction(credential, studentId);
+      if (request.current !== current) return;
+      if (result.ok) setOpened(result); else setFailed(true);
+    } catch { if (request.current === current) setFailed(true); }
+    finally { if (request.current === current) setBusy(false); }
+  };
   return <div data-row-stop>
-    {opened ? <PhotoEditor key={opened.context.scope} context={opened.context} language={language} save={form => saveProfilePhotoAction(opened.credential, form)} onClose={() => { setOpened(null); router.refresh(); }} /> : <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-medium text-accent" disabled={busy} onClick={async () => { setBusy(true); setFailed(false); try { const result = await openPhotoEditorAction(credential, studentId); if (result.ok) setOpened(result); else setFailed(true); } catch { setFailed(true); } finally { setBusy(false); } }}>{primary(words.edit, language)}</button>}
+    {opened ? <PhotoEditor key={opened.context.scope} context={opened.context} language={language} save={form => saveProfilePhotoAction(opened.credential, form)} onClose={() => { setOpened(null); router.refresh(); }} /> : <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-medium text-accent" disabled={busy} onClick={() => void open()}>{primary(words.edit, language)}</button>}
     {failed ? <p role="status" className="text-sm text-destructive">{primary(words.refused, language)}</p> : null}
   </div>;
 }

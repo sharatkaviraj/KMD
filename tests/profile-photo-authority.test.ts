@@ -1,17 +1,26 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({staff:{id:"00000000-0000-4000-8000-000000000001",role:"teacher"},rpc:vi.fn(),task:vi.fn(),token:vi.fn(),request:vi.fn(),roll:vi.fn()}));
+const m=vi.hoisted(()=>({staff:{id:"00000000-0000-4000-8000-000000000001",role:"teacher"},rpc:vi.fn(),task:vi.fn(),token:vi.fn(),request:vi.fn(),roll:vi.fn(),from:vi.fn(),sign:vi.fn(),allowed:true}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/platform/auth/current-staff",()=>({assertStaff:async()=>m.staff}));
 vi.mock("@/vx/view-as",()=>({assertNotPreviewing:async()=>{}}));
-vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({rpc:m.rpc})}));
+vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({rpc:m.rpc,from:m.from,storage:{from:()=>({createSignedUrl:m.sign})}})}));
 vi.mock("@/modules/academics/data/academics-repo",()=>({resolveSessionLabel:async()=>"SYNTHETIC"}));
 vi.mock("@/modules/teacher-tasks/data/repo",()=>({resolveTask:m.task,resolveTaskToken:m.token}));
 vi.mock("@/modules/collection/data/requests-repo",()=>({resolveAssignedRequest:m.request,resolveToken:m.request,rollForRequest:m.roll}));
 vi.mock("@/modules/collection/data/rate-limit",()=>({clientIp:async()=>"synthetic",limitByIp:async()=>({allowed:true}),limitByToken:async()=>({allowed:true}),limitUnknownToken:async()=>{}}));
-import { photoAuthority } from "@/modules/collection/data/profile-photo-context";
+import { photoAuthority, readPhotoContext } from "@/modules/collection/data/profile-photo-context";
 const student="00000000-0000-4000-8000-000000000002",task="00000000-0000-4000-8000-000000000003";
 const request={id:"request",token:"synthetic-request-generation",sessionLabel:"SYNTHETIC",fields:[{id:"field",key:"student_photo"}]};
-beforeEach(()=>{vi.clearAllMocks();m.staff.role="teacher";m.rpc.mockResolvedValue({data:task,error:null});m.task.mockResolvedValue({id:task,request_id:request.id,assigned_staff_id:m.staff.id,kind:"collection"});m.token.mockResolvedValue({id:task,request_id:request.id,assigned_staff_id:m.staff.id,kind:"collection"});m.request.mockResolvedValue(request);m.roll.mockResolvedValue([{studentId:student}]);});
+beforeEach(()=>{
+  vi.clearAllMocks();m.staff.role="teacher";m.allowed=true;
+  m.rpc.mockImplementation(async(name:string)=>({data:name==="teacher_task_access"?m.allowed:task,error:null}));
+  m.task.mockResolvedValue({id:task,request_id:request.id,assigned_staff_id:m.staff.id,kind:"collection"});m.token.mockResolvedValue({id:task,request_id:request.id,assigned_staff_id:m.staff.id,kind:"collection"});m.request.mockResolvedValue(request);m.roll.mockResolvedValue([{studentId:student}]);
+  m.sign.mockResolvedValue({data:{signedUrl:"private:synthetic-approved-photo"},error:null});
+  m.from.mockImplementation((table:string)=>{
+    const data=table==="collection_requests"?{id:request.id}:table==="student_photos"?{id:"portrait",storage_path:"synthetic-approved.jpg"}:null;
+    const q={select:()=>q,eq:()=>q,is:()=>q,maybeSingle:async()=>({data,error:null})};return q;
+  });
+});
 it("signed-in and public task entry resolve the same canonical request, with separate recovery authority",async()=>{
   const signed=await photoAuthority({kind:"task",id:task},student);
   const publicEntry=await photoAuthority({kind:"task",id:task,token:"synthetic-task-capability"},student);
@@ -38,4 +47,26 @@ it("revoked assignment and rotated request generations cannot recover old author
 });
 it("preserves direct office policy, without creating or accepting a teacher proposal",async()=>{
   m.staff.role="office";const auth=await photoAuthority({kind:"student",id:student});expect(auth.request).toBeNull();expect(m.rpc).not.toHaveBeenCalled();
+});
+it("does not adopt the new assignee/request generation when an old task token races with reassignment",async()=>{
+  m.token.mockImplementation(async()=>{
+    m.allowed=false;
+    return {id:task,request_id:request.id,assigned_staff_id:student,kind:"collection"};
+  });
+  m.request.mockResolvedValue({...request,token:"new-request-generation"});
+  await expect(photoAuthority({kind:"task",id:task,token:"old-task-capability"},student)).rejects.toThrow("not_permitted");
+  expect(m.rpc).toHaveBeenCalledWith("teacher_task_access",{p_id:task,p_staff:null,p_token:"old-task-capability"});
+  expect(m.sign).not.toHaveBeenCalled();
+});
+it("refuses to return signed context if the original task capability is revoked during the photo read",async()=>{
+  const auth=await photoAuthority({kind:"task",id:task,token:"original-task-capability"},student);
+  m.sign.mockImplementation(async()=>{m.allowed=false;return {data:{signedUrl:"private:new-generation-photo"},error:null};});
+  await expect(readPhotoContext(auth)).rejects.toThrow("not_permitted");
+  expect(m.rpc).toHaveBeenLastCalledWith("teacher_task_access",{p_id:task,p_staff:null,p_token:"original-task-capability"});
+});
+it("refuses context when its pinned request generation no longer exists",async()=>{
+  const auth=await photoAuthority({kind:"task",id:task,token:"original-task-capability"},student);
+  m.from.mockImplementation(()=>{const q={select:()=>q,eq:()=>q,is:()=>q,maybeSingle:async()=>({data:null,error:null})};return q;});
+  await expect(readPhotoContext(auth)).rejects.toThrow("not_permitted");
+  expect(m.sign).not.toHaveBeenCalled();
 });

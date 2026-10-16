@@ -14,6 +14,32 @@ import { PHOTOS_BUCKET } from "./photo-storage";
 
 export const PHOTO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type PhotoAuthority = { actorId: string; target: string; session: string; credential: PhotoCredential; request: CollectionRequest | null; scope: string; staff: boolean };
+
+/** Keep the caller's capability, never authority borrowed from a later assignee.
+ * Run after all context reads/signing as well, so a rotation during a read cannot
+ * return data from the replacement generation. No photo reads follow that check.
+ */
+async function assertCurrentPhotoRequest(auth: PhotoAuthority): Promise<void> {
+  if (!auth.request) return;
+  const db = createAdminClient();
+  if (auth.credential.kind === "task") {
+    const access = await db.rpc("teacher_task_access", {
+      p_id: auth.credential.id,
+      p_staff: auth.credential.token ? null : auth.actorId,
+      p_token: auth.credential.token ?? null,
+    });
+    if (access.error || access.data !== true) throw new Error("not_permitted");
+  } else if (auth.credential.kind === "request") {
+    if (auth.credential.token !== auth.request.token) throw new Error("not_permitted");
+    const current = await resolveToken(auth.credential.token);
+    if (!current || current.id !== auth.request.id || current.token !== auth.request.token) throw new Error("not_permitted");
+  } else throw new Error("not_permitted");
+  const generation = await db.from("collection_requests").select("id")
+    .eq("id", auth.request.id).eq("token", auth.request.token)
+    .eq("status", "open").is("archived_at", null).maybeSingle();
+  if (generation.error || !generation.data) throw new Error("not_permitted");
+}
+
 export async function photoAuthority(credential: PhotoCredential, studentId?: string): Promise<PhotoAuthority> {
   if (!credential || typeof credential !== "object") throw new Error("not_permitted");
   const db = createAdminClient();
@@ -60,7 +86,9 @@ export async function photoAuthority(credential: PhotoCredential, studentId?: st
     session = request.sessionLabel;
   }
   const scope = createHash("sha256").update(JSON.stringify([actorId,credential.kind,target,session,request?.id,request?.token])).digest("hex");
-  return { actorId, target, session, credential, request, scope, staff: credential.kind === "staff" };
+  const authority = { actorId, target, session, credential, request, scope, staff: credential.kind === "staff" };
+  await assertCurrentPhotoRequest(authority);
+  return authority;
 }
 
 export async function signedPhoto(path: string | null): Promise<string | null> {
@@ -71,6 +99,7 @@ export async function signedPhoto(path: string | null): Promise<string | null> {
 }
 
 export async function readPhotoContext(auth: PhotoAuthority): Promise<PhotoEditorContext> {
+  await assertCurrentPhotoRequest(auth);
   const db = createAdminClient();
   let currentId: string | null = null, currentPath: string | null = null;
   if (auth.staff) {
@@ -94,5 +123,7 @@ export async function readPhotoContext(auth: PhotoAuthority): Promise<PhotoEdito
       proposalUrl = await signedPhoto(proposal.data.payload.storage_path);
     }
   }
-  return { scope: auth.scope, studentId: auth.staff ? undefined : auth.target, currentId, currentUrl: await signedPhoto(currentPath), proposalId, proposalUrl, decided, proposal: Boolean(auth.request) };
+  const currentUrl = await signedPhoto(currentPath);
+  await assertCurrentPhotoRequest(auth);
+  return { scope: auth.scope, studentId: auth.staff ? undefined : auth.target, currentId, currentUrl, proposalId, proposalUrl, decided, proposal: Boolean(auth.request) };
 }

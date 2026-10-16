@@ -9,6 +9,8 @@ vi.mock("@/platform/i18n/use-language", () => ({ useLanguage: () => "en" }));
 vi.mock("@/app/(app)/collection/photos/actions", () => ({ placePhotoAction: mocks.save }));
 vi.mock("@/app/(app)/collection/photos/profile-actions", () => ({ openPhotoEditorAction: mocks.open, saveProfilePhotoAction: mocks.save }));
 import { PhotoTile, FolderPlacement } from "@/modules/collection/ui/photo-forms";
+import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
+import type { PhotoCredential } from "@/modules/collection/domain/profile-photo";
 import { flushDraftWrites } from "@/platform/drafts/store";
 let root: Root, host: HTMLDivElement;
 beforeEach(() => {
@@ -17,7 +19,7 @@ beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage() {}, fillRect() {} } as unknown as CanvasRenderingContext2D);
   vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(cb => cb(new Blob(["synthetic-photo"], { type: "image/jpeg" })));
   mocks.save.mockReset().mockResolvedValue({ ok: true, message: { en: "Saved", hi: "Saved" } });
-  mocks.open.mockResolvedValue({ ok: true, credential: { kind: "student", id: "child" }, context: { scope: "synthetic-actor-student", studentId: "child", currentId: null, currentUrl: null, proposalId: null, proposalUrl: null, proposal: false, decided: false } });
+  mocks.open.mockReset().mockResolvedValue({ ok: true, credential: { kind: "student", id: "child" }, context: { scope: "synthetic-actor-student", studentId: "child", currentId: null, currentUrl: null, proposalId: null, proposalUrl: null, proposal: false, decided: false } });
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -94,4 +96,55 @@ it("retains a folder placement's uncertain command and bytes across reload", asy
   const retry=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("(1)"))!;
   await act(async()=>retry.click()); const second=mocks.save.mock.calls[1][0] as FormData;
   expect(second.get("commandId")).toBe(first.get("commandId"));expect((second.get("photo") as File).size).toBe((first.get("photo") as File).size);
+});
+
+function staffContext(id: string) {
+  return {ok:true as const,credential:{kind:"staff" as const,id},context:{scope:`synthetic-staff-${id}`,currentId:null,currentUrl:null,proposalId:null,proposalUrl:null,proposal:false,decided:false}};
+}
+async function staffControl(id: string) {
+  await act(async()=>root.render(<ProfilePhotoControl credential={{kind:"staff",id}} language="en"/>));
+}
+it("switching selected staff resets the open editor and saves only to the newly selected person",async()=>{
+  mocks.open.mockImplementation(async(credential:PhotoCredential)=>staffContext("id" in credential?credential.id!:"self"));
+  await staffControl("staff-a");await choose();
+  await staffControl("staff-b");
+  expect(host.querySelector('[data-photo-preview]')).toBeNull();
+  await choose();await click("Save photograph");
+  expect(mocks.save).toHaveBeenCalledTimes(1);
+  expect(mocks.save.mock.calls[0][0]).toEqual({kind:"staff",id:"staff-b"});
+});
+it("ignores a late open response from the previously selected staff member",async()=>{
+  let finishA!: (value:ReturnType<typeof staffContext>)=>void;
+  mocks.open.mockImplementation((credential:PhotoCredential)=>"id" in credential && credential.id==="staff-a"?new Promise(resolve=>{finishA=resolve;}):Promise.resolve(staffContext("staff-b")));
+  await staffControl("staff-a");await click("Change photograph");
+  await staffControl("staff-b");await click("Change photograph");
+  await act(async()=>finishA(staffContext("staff-a")));
+  await choose();await click("Save photograph");
+  expect(mocks.save).toHaveBeenCalledTimes(1);
+  expect(mocks.save.mock.calls[0][0]).toEqual({kind:"staff",id:"staff-b"});
+});
+it("reconciles the exact uncertain command after the proposal was reviewed, without enabling new edits",async()=>{
+  mocks.save.mockResolvedValue({ok:false,reason:"unknown"});await render();await choose();await click("Save photograph");
+  const sent=mocks.save.mock.calls[0][1] as FormData;
+  await act(async()=>root.unmount());root=createRoot(host);
+  const previous=await mocks.open();
+  mocks.open.mockResolvedValue({...previous,context:{...previous.context,proposal:true,decided:true,proposalId:sent.get("commandId")}});
+  await render();await click("Change photograph");await click("Restore photograph draft");
+  expect(host.querySelector<HTMLInputElement>('input[type=file]')?.disabled).toBe(true);
+  expect([...host.querySelectorAll("button")].find(b=>b.textContent==="Cancel")?.disabled).toBe(true);
+  expect([...host.querySelectorAll("button")].find(b=>b.textContent==="Retry this photograph")?.disabled).toBe(false);
+  mocks.save.mockResolvedValue({ok:true});await click("Retry this photograph");
+  const retried=mocks.save.mock.calls[1][1] as FormData;
+  for(const field of ["commandId","scope","studentId","source","expectedCurrent","expectedProposal"]) expect(retried.get(field)).toBe(sent.get(field));
+  const read=(file:Blob)=>new Promise<string>(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.readAsDataURL(file);});
+  expect(await read(retried.get("photo") as Blob)).toBe(await read(sent.get("photo") as Blob));
+  expect(host.querySelector('[data-photo-editor]')).toBeNull();
+});
+it("keeps unsent drafts and file inputs blocked on a reviewed round while allowing cancellation",async()=>{
+  await render();await choose();await act(async()=>root.unmount());root=createRoot(host);
+  const previous=await mocks.open();mocks.open.mockResolvedValue({...previous,context:{...previous.context,proposal:true,decided:true}});
+  await render();await click("Change photograph");await click("Restore photograph draft");
+  expect([...host.querySelectorAll("button")].find(b=>b.textContent==="Save photograph")?.disabled).toBe(true);
+  expect(host.querySelector<HTMLInputElement>('input[type=file]')?.disabled).toBe(true);
+  await click("Cancel");expect(mocks.save).not.toHaveBeenCalled();
 });

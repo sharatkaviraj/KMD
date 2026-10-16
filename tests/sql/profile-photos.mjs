@@ -5,18 +5,7 @@ import assert from "node:assert/strict";
 const db = new PGlite();
 const sql = path => readFileSync(new URL(path, import.meta.url), "utf8");
 await db.exec(sql("./teacher-tasks-fixture.sql"));
-await db.exec(`
-create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit integer,allowed_mime_types text[]);
-create function vppsone.staff_can_any(text[]) returns boolean language sql as $$select true$$;
-create function vppsone.reads_every_class() returns boolean language sql as $$select true$$;
-create table vppsone.record_commands(command_id uuid primary key,kind text,actor_staff_id uuid,payload_hash text,receipt jsonb,constraint record_commands_kind check(kind in('accept','reject','import','resolve')));
-create unique index on vppsone.collection_fields(key);
-alter table vppsone.collection_fields alter column id set default gen_random_uuid();
-alter table vppsone.collection_fields add column label_hi text,add column label_en text,add column input_type text,add column mode text,add column sort_order integer;
-alter table vppsone.collection_submissions add column decided_at timestamptz,add column decision_note text;
-create type vppsone.submission_status as enum('pending','accepted','rejected');
-alter table vppsone.collection_submissions alter column status type vppsone.submission_status using status::vppsone.submission_status;
-`);
+await db.exec(sql("./profile-photos-fixture.sql"));
 await db.exec(sql("../../supabase/migrations/20261004121311_student_photos.sql"));
 await db.exec(sql("../../supabase/migrations/20261016070000_teacher_tasks.sql"));
 const migration = new URL("../../supabase/migrations/20261016080000_profile_photos.sql", import.meta.url);
@@ -78,6 +67,10 @@ assert.equal((await db.query("select status from vppsone.collection_submissions 
 await db.query("select vppsone.review_student_photo($1,$2,false)",[admin,id(40)]);
 assert.equal((await db.query("select status from vppsone.collection_submissions where value=$1",[id(40)])).rows[0].status,"rejected");
 assert.equal((await db.query("select count(*)::int n from vppsone.student_photos")).rows[0].n,2);
+assert.equal((await db.query("select vppsone.submit_student_photo($1,$2,$3) result",[freshRequest.id,freshRequest.token,JSON.stringify(next)])).rows[0].result.replayed,true);
+await assert.rejects(db.query("select vppsone.submit_student_photo($1,$2,$3)",[freshRequest.id,freshRequest.token,JSON.stringify({...next,sha256:"b".repeat(64)})]),/photos:id_reused/);
+await assert.rejects(db.query("select vppsone.submit_student_photo($1,$2,$3)",[freshRequest.id,freshRequest.token,JSON.stringify({...next,command_id:id(42),storage_path:`proposals/${freshRequest.id}/${student}/${id(42)}.jpg`,expected_proposal:id(40)})]),/photos:decided/);
+console.log("PASS: accepted/rejected exact command reconciliation works after review; changed bytes and new edits remain refused");
 console.log("PASS: direct teacher reuse, self staff save, stale staff refusal, inactive replay, fresh round, stale photo approval, rejection and prior-photo history");
 const again=(await db.query("select vppsone.restart_teacher_task($1,$2) result",[admin,fresh.id])).rows[0].result;
 const work=(await db.query("select * from vppsone.teacher_tasks where id=$1",[again.id])).rows[0];
@@ -110,5 +103,6 @@ await db.query("select vppsone.save_staff_photo($1,$2,$3)",[admin,other,JSON.str
 assert.equal((await db.query("select actor_staff_id from vppsone.staff_photos where command_id=$1",[id(62)])).rows[0].actor_staff_id,admin);
 await db.exec("delete from vppsone.role_permissions where role='admin' and permission='staff:manage'");
 await assert.rejects(db.query("select vppsone.save_staff_photo($1,$2,$3)",[admin,other,JSON.stringify(managed)]),/photos:not_permitted/);
+await assert.rejects(db.query("select vppsone.save_staff_photo($1,$2,$3)",[admin,other,JSON.stringify({...managed,command_id:id(63),storage_path:`staff/${other}/${id(63)}.jpg`,expected_current:id(62)})]),/photos:not_permitted/);
 console.log("PASS: reassignment preserves review/attribution but refuses old capability and cross-actor replay; revoke blocks review; self-wrapper exact scope; current manager permission and audit");
 await db.close();

@@ -146,6 +146,12 @@ begin
     then raise exception 'photos:bad_request'; end if;
   perform pg_advisory_xact_lock(hashtext('vppsone:staff-photo-command:'||cmd::text));
   perform pg_advisory_xact_lock(hashtext('vppsone:staff-photo:'||p_staff::text));
+  -- An advisory wait can outlive activation or permission changes. Re-read
+  -- current authority before both receipt replay and any photo/history write.
+  if not exists(select 1 from vppsone.staff_profiles s where s.id=p_actor and s.is_active and
+    (s.id=p_staff or exists(select 1 from vppsone.role_permissions rp where rp.role=s.role and rp.permission='staff:manage')))
+    or not exists(select 1 from vppsone.staff_profiles where id=p_staff)
+    then raise exception 'photos:not_permitted'; end if;
   select * into prior from vppsone.staff_photos where command_id=cmd;
   if found then
     if prior.staff_id=p_staff and prior.actor_staff_id=p_actor and prior.payload=p then return jsonb_build_object('ok',true,'replayed',true); end if;
