@@ -3,15 +3,14 @@
 import { revalidatePath } from "next/cache";
 
 import { m } from "@/messages";
-import { decodeMessage, t, type Localized } from "@/platform/i18n/language";
+import { decodeMessage, type Localized } from "@/platform/i18n/language";
 import {
   limitByToken,
   limitUnknownToken,
   clientIp,
 } from "@/modules/collection/data/rate-limit";
-import { resolveToken, rollForRequest } from "@/modules/collection/data/requests-repo";
-import { recordAnswers } from "@/modules/collection/data/submissions-repo";
-import { validateField } from "@/modules/collection/domain/fields";
+import { resolveToken } from "@/modules/collection/data/requests-repo";
+import { submitCollectionPayload } from "@/modules/teacher-tasks/data/collection-save";
 import {
   idleLinkState,
   type LinkState,
@@ -66,63 +65,8 @@ export async function submitAnswersAction(
 
   if (!Array.isArray(payload)) return failure(m.notSaved);
 
-  // The roll is the authorization for *which children*: a student id that is
-  // not on this request's class roll never reaches the database.
-  const roll = await rollForRequest(request);
-  const onRoll = new Map(roll.map((row) => [row.studentId, row]));
-  const byKey = new Map(request.fields.map((field) => [field.key, field]));
-
-  const answers: {
-    studentId: string;
-    fieldId: string;
-    value: string | null;
-    previousValue: string | null;
-  }[] = [];
-
-  for (const entry of payload) {
-    if (!entry || typeof entry !== "object") continue;
-
-    const { studentId, key, value } = entry as {
-      studentId?: unknown;
-      key?: unknown;
-      value?: unknown;
-    };
-
-    if (typeof studentId !== "string" || typeof key !== "string") continue;
-
-    const row = onRoll.get(studentId);
-    const field = byKey.get(key);
-    if (!row || !field) continue;
-
-    const raw = typeof value === "string" ? value : "";
-    const checked = validateField(field, raw);
-
-    // A value the browser let through and the server will not is a bug worth
-    // hearing about, not one to swallow: the teacher is told which answer.
-    if (!checked.ok) {
-      return failure(
-        t(
-          `${row.fullName}: ${checked.error.hi}`,
-          `${row.fullName}: ${checked.error.en}`,
-        ),
-      );
-    }
-
-    answers.push({
-      studentId,
-      fieldId: field.id,
-      value: checked.value,
-      previousValue: row.current[field.key] ?? null,
-    });
-  }
-
-  if (answers.length === 0) return { ...idleLinkState, status: "saved" };
-
-  try {
-    await recordAnswers(request, answers);
-  } catch {
-    return failure(m.notSaved);
-  }
+  const result = await submitCollectionPayload(request, payload);
+  if (result.status !== "saved") return result;
 
   revalidatePath(`/r/${token}`);
   return { ...idleLinkState, status: "saved", message: m.linkSaved };

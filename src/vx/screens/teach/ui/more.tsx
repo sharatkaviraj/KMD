@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { m } from "@/messages";
 import { useRouter } from "next/navigation";
 import { useSyncExternalStore, useState, useTransition, type ReactNode } from "react";
 import { useTheme } from "next-themes";
@@ -701,6 +702,7 @@ export function TeachMore({
         }
       />
       <main>
+        <Link href="/teach/tasks" className="mx-4 my-3 block rounded-xl border border-border bg-card p-4 font-semibold text-primary">{tx(m.teacherTasks)}</Link>
         {current === "menu" ? menu : current === "news" ? newsView : current === "links" ? linksView : current === "timetable" ? ttView : current === "leave" ? leaveView : current === "help" ? helpView : profileView}
       </main>
       <LeaveChipsSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} coverFor={coverFor} />

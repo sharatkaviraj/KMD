@@ -203,6 +203,7 @@ export async function Student360Content({ id, search }: { id: string; search: Re
             by: h.actorName,
           })),
           canCollect: can(staff, "fees:collect"),
+          canAssignTasks: can(staff, "collection:manage") && !previewing,
           canManageDocuments: can(staff, "documents:manage"),
           canManageFees: can(staff, "fees:manage"),
           canAddNote: tabs.includes("notes") && canWriteNotes(staff),

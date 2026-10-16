@@ -47,6 +47,7 @@ export function RequestForm({
   fields,
   roll,
   language,
+  submitAction = submitAnswersAction,
 }: {
   token: string;
   draftScope: string;
@@ -54,6 +55,7 @@ export function RequestForm({
   fields: CollectionField[];
   roll: RollRow[];
   language: Language;
+  submitAction?: typeof submitAnswersAction;
 }) {
 
 
@@ -89,7 +91,7 @@ export function RequestForm({
   const [state, action, pending] = useActionState(async (previous: typeof idleLinkState, formData: FormData) => {
     try {
       const started = performance.now();
-      const result = await submitAnswersAction(previous, formData);
+      const result = await submitAction(previous, formData);
       if (result.status === "saved") recordPerformance("form_saved", performance.now() - started);
       if (result.status === "saved") await draft.clear();
       return result;

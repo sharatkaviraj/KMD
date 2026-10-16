@@ -10,6 +10,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn(), push: vi.
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en, sub: () => null }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 vi.mock("@/vx/screens/family-contact/actions", () => ({ logFamilyContactAction: vi.fn() }));
 vi.mock("@/vx/screens/notes/actions", () => ({ setNoteStatusAction: vi.fn(), replyToNoteAction: vi.fn() }));
+vi.mock("@/app/(app)/teach/tasks/actions", () => ({ taskAssignmentContextAction: vi.fn(), previewTeacherTasksAction: vi.fn(), createTeacherTasksAction: vi.fn() }));
 import { Student360, type Student360Fees, type Student360Props } from "@/vx/screens/admin/student360";
 
 const p: Student360Props = {

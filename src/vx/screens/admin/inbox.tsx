@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -49,7 +49,7 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
 type Beacon = InboxBeacon;
 type Held = PendingInboxDecision & { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; sending: boolean; flushing: boolean };
 
-export function InboxScreen({ items, initial, previewing, unavailable, scope }: { items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean; scope: InboxScope }) {
+export function InboxScreen({ items, initial, previewing, unavailable, scope, taskPanel }: { items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean; scope: InboxScope; taskPanel?:ReactNode }) {
   const { tx } = useVx();
   const toast = useToast();
   const router = useRouter();
@@ -329,6 +329,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope }: 
         <TopBar crumb={tx(T.inboxCrumb(live.length))} title={tx(T.needsYou)} />
       </div>
       <div className="vx-pmain">
+        {taskPanel}
         {desk}
         {phone}
       </div>

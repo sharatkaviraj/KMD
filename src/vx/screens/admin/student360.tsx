@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
+import { ms } from "@/messages/setup";
 import { useRouter } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -68,6 +70,7 @@ type StudentFeeBreakup = {
 type Cell = { day: string; label: string; state: MarkStatus | "today" | "future" | "closed" | "none" };
 
 export type Student360Props = {
+  canAssignTasks?: boolean;
   id: string;
   returnTo?: string;
   name: string;
@@ -266,7 +269,7 @@ function WithFees({ p, fees, tab, setTab }: { p: Student360Props; fees: Promise<
 }
 
 function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }: { p: Student360Props; tab: StudentTab; setTab: (t: StudentTab) => void; feesLoading: boolean; feesUnavailable?: boolean }) {
-  const { tx } = useVx();
+  const { tx, language } = useVx();
   const router = useRouter();
   const closeHref = studentReturnHref(p.returnTo);
   const close = useCloseTo(closeHref);
@@ -654,6 +657,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
         </header>
 
         <div className="s360-body" key={tab}>
+          {p.canAssignTasks && <div className="mb-4 flex flex-wrap gap-2"><AssignmentLauncher language={language} selectedIds={[p.id]} label={tx(ms.taskRequest)}/><AssignmentLauncher language={language} selectedIds={[p.id]} initialKind="marks" label={tx(ms.taskRequestMarks)}/></div>}
           {feesUnavailable || (p.unavailable?.length ?? 0) > 0 ? (
             <div className="card s360-card" role="alert">
               <p style={{ margin: 0 }}>{tx(feesUnavailable ? T.feesUnavailable : T.couldNotRead)}</p>

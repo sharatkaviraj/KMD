@@ -28,6 +28,8 @@ import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
+import { assignmentContext } from "@/modules/teacher-tasks/data/assignment";
+import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
 
 export const runtime = "nodejs";
 
@@ -65,6 +67,10 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const page = resolvePage(one(params.page));
   const sort = parseStudentSort(one(params.sort), one(params.dir));
   const directorySession = await resolveSessionLabel();
+  const canAssignTasks = can(staff,"collection:manage");
+  const taskFields = canAssignTasks ? (await listFieldsPublic()).filter(f=>f.isActive) : [];
+  const askedMissing = one(params.missing) ?? "";
+  const missing = canAssignTasks && (askedMissing === "photo" || taskFields.some(f=>f.key===askedMissing)) ? askedMissing : "";
 
   if (!directorySession) {
     return (
@@ -169,6 +175,15 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     session = directorySession;
   }
 
+  let taskMatchingIds: string[] | null = null;
+  if (missing) {
+    const context = await assignmentContext();
+    const matching = context.students.filter(s=>(!classId||s.classId===classId)&&(!text||s.name.toLocaleLowerCase().includes(text.toLocaleLowerCase()))&&(missing==="photo"?!s.hasPhoto:!s.values[missing]));
+    taskMatchingIds=matching.map(s=>s.id);
+    total=matching.length; moneyMode=false; session=directorySession;
+    rows=matching.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map(s=>({id:s.id,name:s.name,sr:null,classLabel:s.classLabel,rollNo:null,route:null,parent:null,phone:null,money:null,facts:noFacts()}));
+    directoryLabels=await classLabelMap(directorySession);
+  }
   const ids = rows.map((row) => row.id);
   const [labels, attendance, parents] = await Promise.all([
     (async () => directoryLabels ?? (moneyMode ? await labelsRead : null) ?? (await classLabelMap(session)))(),
@@ -210,6 +225,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         canRemind={seesMoney}
         quick={quickActionsFor((p) => can(staff, p))}
         failed={failed}
+        taskAssignment={canAssignTasks?{matchingIds:taskMatchingIds??ids,missing,fields:taskFields.map(f=>({key:f.key,hi:f.labelHi,en:f.labelEn}))}:undefined}
       />
     </VxPage>
   );

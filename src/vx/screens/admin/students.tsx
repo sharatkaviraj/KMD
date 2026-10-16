@@ -43,6 +43,8 @@ import { ST } from "@/vx/screens/admin/students-text";
 import { T } from "@/vx/screens/admin/text";
 
 import "./students.css";
+import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
+import { ms } from "@/messages/setup";
 
 /*
  * Students, as the design draws it: D01 on a desk (a sortable table, ticks and
@@ -137,6 +139,7 @@ export type StudentsProps = {
   failed: boolean;
   /** Rows ticked when the list first draws (the design fixture's D01). */
   initialPicked?: string[];
+  taskAssignment?: { matchingIds: string[]; missing: string; fields: { key:string; hi:string; en:string }[] };
 };
 
 const SEGS: { key: StudentSegment; label: keyof typeof T }[] = [
@@ -250,7 +253,7 @@ function withSort(href: string, sort: StudentSort | null): string {
 const SEARCH_PAUSE_MS = 450;
 
 export function StudentsScreen(props: StudentsProps) {
-  const { tx } = useVx();
+  const { tx, language } = useVx();
   const toast = useToast();
   const router = useRouter();
   const [q, setQ] = useState(props.q);
@@ -270,7 +273,10 @@ export function StudentsScreen(props: StudentsProps) {
   // Across pages the server's order rides on every link; on one page the sort is in place.
   const serverSort = !onePage && sort.key === "class" ? sort : null;
   const here = { q: props.q, classId: props.classId, view: viewParam, segs: filters, look: lookParam };
-  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => withSort(studentsHref({ ...here, ...query }), serverSort);
+  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => {
+    const href=withSort(studentsHref({ ...here, ...query }), serverSort);
+    return props.taskAssignment?.missing ? `${href}${href.includes("?")?"&":"?"}missing=${encodeURIComponent(props.taskAssignment.missing)}` : href;
+  };
   const returnTo = hrefFor({ page: props.window.page });
   // By class reads in class order: the server's across pages, this page's own otherwise.
   const rows = layout === "class" ? sortStudentRows(props.rows, { key: "class", dir: 1 }) : onePage ? sortStudentRows(props.rows, sort) : props.rows;
@@ -683,6 +689,7 @@ export function StudentsScreen(props: StudentsProps) {
   const activeCount = (props.classId ? 1 : 0) + filters.length;
   const hidden = (
     <>
+      {props.taskAssignment?.missing ? <input type="hidden" name="missing" value={props.taskAssignment.missing}/> : null}
       {props.classId ? <input type="hidden" name="class" value={props.classId} /> : null}
       {viewParam ? <input type="hidden" name="view" value={viewParam} /> : null}
       {filters.length ? <input type="hidden" name="seg" value={filters.join(",")} /> : null}
@@ -742,6 +749,10 @@ export function StudentsScreen(props: StudentsProps) {
         />
       </div>
       <div className="vx-pmain stu">
+        {props.taskAssignment && <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">
+          <label className="text-sm">{tx(ms.taskMissing)} <select className="rounded-lg border border-border bg-background p-2" value={props.taskAssignment.missing} onChange={e=>{const url=new URL(location.href);if(e.target.value)url.searchParams.set("missing",e.target.value);else url.searchParams.delete("missing");url.searchParams.delete("page");router.push(url.pathname+url.search);}}><option value="">{tx(ms.taskAll)}</option><option value="photo">{tx(ms.taskNoPhoto)}</option>{props.taskAssignment.fields.map(f=><option key={f.key} value={f.key}>{tx(f)}</option>)}</select></label>
+          <AssignmentLauncher language={language} selectedIds={picked.size?[...picked]:props.taskAssignment.matchingIds} initialMissing={props.taskAssignment.missing}/>
+        </div>}
         {/* Phone: the design's own header, not a top bar (F05). */}
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>

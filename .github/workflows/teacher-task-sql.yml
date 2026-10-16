@@ -1,0 +1,19 @@
+name: Teacher task SQL scope
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install disposable in-memory PostgreSQL runtime
+        run: npm install --prefix "$RUNNER_TEMP/task-sql" --no-package-lock @electric-sql/pglite@0.5.10
+      - name: Execute migration against synthetic schema and exercise scope
+        run: node tests/sql/teacher-tasks.mjs "$RUNNER_TEMP/task-sql/node_modules/@electric-sql/pglite"
