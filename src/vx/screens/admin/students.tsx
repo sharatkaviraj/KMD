@@ -9,10 +9,10 @@ import { dateLabel, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
 import { NewMenu, SearchTrigger } from "@/vx/shell/top-actions";
-import { Seg } from "@/vx/ui/controls";
+import { Select, Seg } from "@/vx/ui/controls";
 import { useToast } from "@/vx/ui/overlays";
 import { IntentLink } from "@/vx/ui/intent-link";
-import { TopBar } from "@/vx/ui/page";
+import { Banner, TopBar } from "@/vx/ui/page";
 import { Btn, Pill } from "@/vx/ui/primitives";
 import { mobileOf, QUICK_FILTERS, studentsHref, toCsv, type StudentFilter, type StudentSegment } from "@/vx/screens/admin/logic";
 import { FILTER_WORD, StudentFilterSheet, type FilterChoice } from "@/vx/screens/admin/students-filter";
@@ -44,7 +44,7 @@ import { ST } from "@/vx/screens/admin/students-text";
 import { T } from "@/vx/screens/admin/text";
 
 import "./students.css";
-import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
+import { AssignmentLauncher, type AssignmentHandle } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ms } from "@/messages/setup";
 
 /*
@@ -251,6 +251,15 @@ function withSort(href: string, sort: StudentSort | null): string {
   return `${url.pathname}${url.search}`;
 }
 
+/** The missing-details filter rides on links beside the others; "" drops it. */
+function withMissing(href: string, missing: string | undefined): string {
+  const url = new URL(href, "https://students.invalid");
+  if (missing) url.searchParams.set("missing", missing);
+  else url.searchParams.delete("missing");
+  url.searchParams.delete("page");
+  return `${url.pathname}${url.search}`;
+}
+
 /** How long the list waits after the last key before it searches. */
 const SEARCH_PAUSE_MS = 450;
 
@@ -264,7 +273,8 @@ export function StudentsScreen(props: StudentsProps) {
   const onePage = props.window.pages <= 1;
   const [sort, setSort] = useState<StudentSort>(props.sort ?? { key: "name", dir: 1 });
   const [sheetOpen, setSheetOpen] = useState(false);
-  const filters = props.filters ?? (props.seg !== "all" ? [props.seg] : []);
+  const askPicked = useRef<AssignmentHandle>(null);
+  const filters =props.filters ?? (props.seg !== "all" ? [props.seg] : []);
   const layout = props.layout ?? "cards";
   const filtered = props.q !== "" || props.classId !== null || filters.length > 0;
   const fees = props.seesMoney && props.view === "fees";
@@ -275,9 +285,15 @@ export function StudentsScreen(props: StudentsProps) {
   // Across pages the server's order rides on every link; on one page the sort is in place.
   const serverSort = !onePage && sort.key === "class" ? sort : null;
   const here = { q: props.q, classId: props.classId, view: viewParam, segs: filters, look: lookParam };
+  const missing = props.taskAssignment?.missing ?? "";
+  const missingOptions = props.taskAssignment
+    ? [{ value: "photo", label: ms.taskNoPhoto }, ...props.taskAssignment.fields.map((f) => ({ value: f.key, label: { hi: f.hi, en: f.en } }))]
+    : [];
+  const missingLabel = missingOptions.find((o) => o.value === missing)?.label;
   const hrefFor = (query: Parameters<typeof studentsHref>[0]) => {
-    const href=withSort(studentsHref({ ...here, ...query }), serverSort);
-    return props.taskAssignment?.missing ? `${href}${href.includes("?")?"&":"?"}missing=${encodeURIComponent(props.taskAssignment.missing)}` : href;
+    const href = withSort(studentsHref({ ...here, ...query }), serverSort);
+    // A page link keeps its page; withMissing would drop it.
+    return missing ? `${href}${href.includes("?") ? "&" : "?"}missing=${encodeURIComponent(missing)}` : href;
   };
   const returnTo = hrefFor({ page: props.window.page });
   // By class reads in class order: the server's across pages, this page's own otherwise.
@@ -358,8 +374,10 @@ export function StudentsScreen(props: StudentsProps) {
       look: next.layout !== "cards" ? next.layout : undefined,
     });
     setSort(next.sort);
-    router.push(next.sort.key === "name" && next.sort.dir === 1 ? href : withSort(href, next.sort));
+    const sorted = next.sort.key === "name" && next.sort.dir === 1 ? href : withSort(href, next.sort);
+    router.push(props.taskAssignment ? withMissing(sorted, next.missing) : sorted);
   };
+  const pickMissing = (value: string) => router.push(withMissing(`${location.pathname}${location.search}`, value));
 
   // The fee list orders by class in the database; this app's directory only by name.
   const modeOf = (key: StudentSortKey) => {
@@ -688,7 +706,22 @@ export function StudentsScreen(props: StudentsProps) {
       <Ic n="x" size={14} />
     </Link>
   ));
-  const activeCount = (props.classId ? 1 : 0) + filters.length;
+  // The phone's way to see and drop the missing-details filter; the desk shows its select instead.
+  const missingChip = missingLabel ? (
+    <button type="button" className="tap chip on" aria-label={tx(ST.removeFilter(tx(missingLabel)))} onClick={() => pickMissing("")}>
+      {tx(missingLabel)}
+      <Ic n="x" size={14} />
+    </button>
+  ) : null;
+  const activeCount = (props.classId ? 1 : 0) + filters.length + (missing ? 1 : 0);
+  // Asking teachers is offered where it applies: for a filter's matches here, for picked rows in the bulk bar.
+  const askBanner = props.taskAssignment && missingLabel ? (
+    <div className="stu-ask">
+      <Banner tone="info" action={<AssignmentLauncher language={language} variant="pri" selectedIds={props.taskAssignment.matchingIds} initialMissing={missing} />}>
+        {tx(missingLabel)} · <span className="num">{props.taskAssignment.matchingIds.length}</span> {tx(T.students)}
+      </Banner>
+    </div>
+  ) : null;
   const hidden = (
     <>
       {props.taskAssignment?.missing ? <input type="hidden" name="missing" value={props.taskAssignment.missing}/> : null}
@@ -751,10 +784,6 @@ export function StudentsScreen(props: StudentsProps) {
         />
       </div>
       <div className="vx-pmain stu">
-        {props.taskAssignment && <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">
-          <label className="text-sm">{tx(ms.taskMissing)} <select className="rounded-lg border border-border bg-background p-2" value={props.taskAssignment.missing} onChange={e=>{const url=new URL(location.href);if(e.target.value)url.searchParams.set("missing",e.target.value);else url.searchParams.delete("missing");url.searchParams.delete("page");router.push(url.pathname+url.search);}}><option value="">{tx(ms.taskAll)}</option><option value="photo">{tx(ms.taskNoPhoto)}</option>{props.taskAssignment.fields.map(f=><option key={f.key} value={f.key}>{tx(f)}</option>)}</select></label>
-          <AssignmentLauncher language={language} selectedIds={picked.size?[...picked]:props.taskAssignment.matchingIds} initialMissing={props.taskAssignment.missing}/>
-        </div>}
         {/* Phone: the design's own header, not a top bar (F05). */}
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
@@ -774,9 +803,10 @@ export function StudentsScreen(props: StudentsProps) {
               {activeCount ? <span className="num stu-fcount">{activeCount}</span> : null}
             </button>
           </div>
-          {chips || classChip || filterChips.length ? (
+          {chips || classChip || filterChips.length || missingChip ? (
             <div className="hs stu-mchips" role="group" aria-label={tx(T.students)}>
               {classChip}
+              {missingChip}
               {filterChips}
               {chips}
             </div>
@@ -796,11 +826,19 @@ export function StudentsScreen(props: StudentsProps) {
               {filterChips}
               {chips}
             </div>
+            {props.taskAssignment ? (
+              <Select aria-label={tx(ms.taskMissing)} title={tx(ms.taskMissing)} value={missing} onChange={(e) => pickMissing(e.target.value)} style={{ width: "auto", maxWidth: 150, height: 40, fontSize: 14, paddingRight: 30, flex: "none" }}>
+                <option value="">{tx(ms.taskMissingAny)}</option>
+                {missingOptions.map((o) => <option key={o.value} value={o.value}>{tx(o.label)}</option>)}
+              </Select>
+            ) : null}
             <Btn icon="download" onClick={() => exportRows(rows)} disabled={rows.length === 0}>{tx(T.export)}</Btn>
             {props.canAdmit ? <Btn variant="pri" icon="userPlus" href="/admissions/new">{tx(T.addStudent)}</Btn> : null}
           </div>
 
           {props.failed ? <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--warnfg)" }}>{tx(T.couldNotRead)}</p> : null}
+
+          {askBanner}
 
           {/* Row clicks are delegated here; the keyboard path is each row's name link. */}
           <div className="only-d card stu-card" onClick={onListClick}>
@@ -902,7 +940,9 @@ export function StudentsScreen(props: StudentsProps) {
       <StudentFilterSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        current={{ classId: props.classId, filters, sort, layout, view: props.view }}
+        current={{ classId: props.classId, filters, sort, layout, view: props.view, missing }}
+        missingOptions={missingOptions}
+        missingTitle={ms.taskMissingTitle}
         classes={props.classes}
         counts={props.counts}
         seesMoney={props.seesMoney}
@@ -918,6 +958,11 @@ export function StudentsScreen(props: StudentsProps) {
                 <Ic n="message" /> {tx(T.sendReminder)}
               </Link>
             ) : null}
+            {props.taskAssignment ? (
+              <button type="button" className="tap btn" style={{ height: 36, background: "transparent", color: "var(--tfg)" }} onClick={() => askPicked.current?.show()}>
+                <Ic n="users" /> {tx(ms.taskAssign)}
+              </button>
+            ) : null}
             <button type="button" className="tap btn" style={{ height: 36, background: "transparent", color: "var(--tfg)" }} onClick={() => exportRows(selectedRows)}>
               <Ic n="download" /> {tx(T.export)}
             </button>
@@ -927,6 +972,8 @@ export function StudentsScreen(props: StudentsProps) {
           </div>
         </div>
       ) : null}
+      {/* Outside the bulk bar, so clearing the selection cannot close an open sheet. */}
+      {props.taskAssignment ? <AssignmentLauncher ref={askPicked} trigger={null} language={language} selectedIds={selectedRows.map((row) => row.id)} initialMissing={missing} /> : null}
     </>
   );
 }

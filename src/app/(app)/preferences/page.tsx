@@ -3,6 +3,8 @@ import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import { PwaInstallCard } from "@/ui/pwa-install-card";
 import { m } from "@/messages";
+import { photoMessages } from "@/messages/setup";
+import { initials } from "@/vx/format";
 import { requireStaff } from "@/platform/auth/current-staff";
 import { pageTitle } from "@/platform/i18n/page-title";
 import {
@@ -74,9 +76,21 @@ export default async function PreferencesPage() {
       <PageHeader eyebrow={m.eyebrowPersonal} title={m.preferencesTitle} language={staff.language} />
 
       <PwaInstallCard />
-      {portrait ? <PrivatePhoto src={portrait} alt={staff.displayName} className="size-20 rounded-full object-cover" /> : null}
-      <ProfilePhotoControl credential={{kind:"staff"}} language={staff.language} />
-      <Section title={m.language} description={m.preferencesLanguageHint} language={staff.language}>
+      <Section className="mt-7" title={photoMessages.title} language={staff.language}>
+        <Card className="flex items-center gap-4 p-4">
+          {portrait ? (
+            <PrivatePhoto src={portrait} alt={staff.displayName} className="size-16 shrink-0 rounded-full object-cover" />
+          ) : (
+            <span aria-hidden className="flex size-16 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xl font-semibold text-accent">{initials(staff.displayName)}</span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{staff.displayName}</p>
+            <ProfilePhotoControl credential={{ kind: "staff" }} language={staff.language} />
+          </div>
+        </Card>
+      </Section>
+
+      <Section className="mt-7" title={m.language} description={m.preferencesLanguageHint} language={staff.language}>
         <Card className="p-4">
           <LanguageForm current={staff.language} />
         </Card>

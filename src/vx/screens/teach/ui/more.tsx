@@ -181,6 +181,7 @@ export function TeachMore({
     { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${held[0].classLabel} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },
     { k: "marks", icon: "clipboard", t: p("Marks", "अंक"), info: firstOpen ? tx(p(`${firstOpen.classLabel} · ${firstOpen.entered} of ${firstOpen.total} entered`, `${firstOpen.classLabel} · ${firstOpen.total} में से ${firstOpen.entered}`)) : tx(p("Nothing waiting", "कुछ बाकी नहीं")), tone: TW, href: "/teach/marks" },
     { k: "notes", icon: "note", t: p("Notes", "नोट्स"), info: tx(p("Notes on children", "बच्चों के नोट्स")), tone: TS, href: "/teach/notes" },
+    { k: "tasks", icon: "inbox", t: m.teacherTasks, info: tx(p("Work sent by the office", "ऑफ़िस से भेजा गया काम")), tone: TW, href: "/teach/tasks" },
     { k: "news", icon: "megaphone", t: p("Notices", "सूचनाएँ"), info: unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं")), tone: TA, onClick: () => go("news"), badge: unread.length, wide: true, news: data.notices[0]?.title },
     { k: "links", icon: "link", t: p("Marks links", "अंक लिंक"), info: tx(p(`${data.links.length} ${data.links.length === 1 ? "link" : "links"}`, `${data.links.length} लिंक`)), tone: TI, onClick: () => go("links") },
     { k: "tt", icon: "clock", t: p("Timetable", "समय-सारणी"), info: tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`)), tone: TS, onClick: () => go("timetable") },
@@ -630,7 +631,6 @@ export function TeachMore({
   );
   const profileView = (
     <div className="tc-scr" style={{ maxWidth: 760 }}>
-      <ProfilePhotoControl credential={{kind:"staff"}} language={language} />
       <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, padding: 20 }}>
         {me(72, 24, { animation: "xPopIn .45s var(--spring) both" })}
         <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -638,6 +638,7 @@ export function TeachMore({
           <span className="tc-ts" style={{ color: "var(--mut)" }}>{roleLine}</span>
           {data.profile.email ? <span className="tc-ts num" style={{ color: "var(--mut)" }}>{data.profile.email}</span> : null}
         </span>
+        <ProfilePhotoControl sheet credential={{ kind: "staff" }} language={language} />
       </div>
       <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="sech">{tx(p("My classes", "मेरी कक्षाएँ"))}</span>
@@ -705,7 +706,6 @@ export function TeachMore({
         }
       />
       <main>
-        <Link href="/teach/tasks" className="mx-4 my-3 block rounded-xl border border-border bg-card p-4 font-semibold text-primary">{tx(m.teacherTasks)}</Link>
         {current === "menu" ? menu : current === "news" ? newsView : current === "links" ? linksView : current === "timetable" ? ttView : current === "leave" ? leaveView : current === "help" ? helpView : profileView}
       </main>
       <LeaveChipsSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} coverFor={coverFor} />

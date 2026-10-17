@@ -676,9 +676,9 @@ function ProfilePanel({
           <span style={{ ...S.row, flexWrap: "wrap", gap: 4 }}>
             {rolePills(row).map((x) => <Pill key={x.key} bg={x.bg} fg={x.fg}>{tx(x.label)}</Pill>)}
           </span>
+          {mayEditPhoto ? <span><ProfilePhotoControl sheet credential={{ kind: "staff", id: row.id }} language={language} /></span> : null}
         </span>
       </div>
-      {mayEditPhoto ? <ProfilePhotoControl credential={{kind:"staff",id:row.id}} language={language} /> : null}
       <div className="card" style={{ ...S.col, padding: "2px 16px" }}>
         {facts.map((f, i) => (
           <div key={f.icon} style={{ ...S.row, gap: 10, padding: "10px 0", borderTop: i ? "1px solid var(--bd)" : 0 }}>

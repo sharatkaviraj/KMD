@@ -49,7 +49,15 @@ const LOOK: Record<InboxItem["kind"], { icon: IconName; tone: Tone }> = {
 type Beacon = InboxBeacon;
 type Held = PendingInboxDecision & { timer: number; send: () => Promise<{ ok: boolean; message?: Pair }>; label: string; sending: boolean; flushing: boolean };
 
-export function InboxScreen({ items, initial, previewing, unavailable, scope, taskPanel }: { items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean; scope: InboxScope; taskPanel?:ReactNode }) {
+export function InboxScreen({ items, initial, previewing, unavailable, scope, taskPanel, taskActions, taskDetail }: {
+  items: InboxItem[]; initial: string | null; previewing: boolean; unavailable: boolean; scope: InboxScope;
+  /** Teacher work: below the queue, never above the title. */
+  taskPanel?: ReactNode;
+  /** The desk's top-bar buttons; the phone carries them in `taskPanel`. */
+  taskActions?: ReactNode;
+  /** A `?task=` opened over the page. */
+  taskDetail?: ReactNode;
+}) {
   const { tx } = useVx();
   const toast = useToast();
   const router = useRouter();
@@ -296,6 +304,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
             })}
           </ul>
         )}
+        {taskPanel ? <div style={{ padding: 16 }}>{taskPanel}</div> : null}
       </div>
       <div style={{ position: "sticky", top: 64, alignSelf: "start", height: "calc(100dvh - 64px)", overflowY: "auto", minWidth: 0 }}>
         {selected ? <Detail key={selected.id} item={selected} on={on} /> : <AllClear big />}
@@ -318,6 +327,7 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
         {notices}
         {shown.length === 0 ? <AllClear /> : shown.map((item, i) => <PhoneCard key={item.id} item={item} on={on} delay={Math.min(i * 40, 400)} />)}
+        {taskPanel}
       </div>
     </div>
   );
@@ -326,13 +336,13 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     <>
       {/* The desk's bar; on a phone the design draws a large title instead (above). */}
       <div className="only-d" style={{ display: "contents" }}>
-        <TopBar crumb={tx(T.inboxCrumb(live.length))} title={tx(T.needsYou)} />
+        <TopBar crumb={tx(T.inboxCrumb(live.length))} title={tx(T.needsYou)} actions={taskActions ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}>{taskActions}</span> : undefined} />
       </div>
       <div className="vx-pmain">
-        {taskPanel}
         {desk}
         {phone}
       </div>
+      {taskDetail}
       <Sheet
         open={picking !== null}
         onClose={() => setPicking(null)}

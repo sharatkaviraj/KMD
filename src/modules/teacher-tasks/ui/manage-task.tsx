@@ -2,7 +2,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ms } from "@/messages/setup";
-import { primary, type Language } from "@/platform/i18n/language";
+import type { Language } from "@/platform/i18n/language";
+import { lead } from "@/vx/text";
 import { delegateTeacherTaskListAction, restartTeacherTaskAction, manageTeacherTaskAction, teacherTaskLinkAction, taskAssignmentContextAction } from "@/app/(app)/teach/tasks/actions";
 export function ManageTask({ id, language, collection = false }: {
   id: string;
@@ -20,7 +21,7 @@ export function ManageTask({ id, language, collection = false }: {
   const word = (v: {
     hi: string;
     en: string;
-  }) => primary(v, language);
+  }) => lead(v, language);
   const change = (teacher: string | null) => start(async () => {
     try {
       await manageTeacherTaskAction(id, teacher);

@@ -1,9 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { useRouter } from "next/navigation";
 import { openPhotoEditorAction, saveProfilePhotoAction } from "@/app/(app)/collection/photos/profile-actions";
 import { photoMessages as words } from "@/messages/setup";
 import { primary, type Language } from "@/platform/i18n/language";
+import { Sheet } from "@/vx/ui/overlays";
+import { lead } from "@/vx/text";
+import { Btn } from "@/vx/ui/primitives";
 import { loadDraft, saveDraft, removeDraft } from "@/platform/drafts/store";
 import { readDraft } from "@/platform/drafts/policy";
 import { PHOTO_MAX_BYTES, PHOTO_MAX_SIDE, PHOTO_TYPES } from "../domain/photo-placement";
@@ -40,8 +43,14 @@ function isPhotoDraft(raw: unknown): raw is PhotoDraft {
 export function photoFile(data: string) { const binary = atob(data.split(",")[1]); return new File([Uint8Array.from(binary, c => c.charCodeAt(0))], "portrait.jpg", { type: "image/jpeg" }); }
 function failureText(reason: string) { return reason === "unknown" ? words.unknown : reason === "too_large" ? words.tooLarge : reason === "wrong_type" ? words.invalid : reason === "storage" ? words.storage : words.refused; }
 
-export function PhotoEditor({ context, language, save, onClose }: { context: PhotoEditorContext; language: Language; save: (form: FormData) => Promise<PhotoSaveResult>; onClose: () => void }) {
-  const key = `vpps:photo:${context.scope}:${context.studentId ?? "self"}`;
+/** Inside a vx screen a "both" reader sees English first, as the screen around it does; elsewhere Hindi leads. */
+function sayer(language: Language, vx: boolean) {
+  return (pair: { hi: string; en: string }) => (vx ? lead(pair, language) : primary(pair, language));
+}
+
+export function PhotoEditor({ context, language, save, onClose, vx = false }: { context: PhotoEditorContext; language: Language; save: (form: FormData) => Promise<PhotoSaveResult>; onClose: () => void; vx?: boolean }) {
+  const say = sayer(language, vx);
+  const key =`vpps:photo:${context.scope}:${context.studentId ?? "self"}`;
   const [draft, setDraft] = useState<PhotoDraft | null>(null);
   const [recovered, setRecovered] = useState<PhotoDraft | null>(null);
   const [ready, setReady] = useState(false);
@@ -86,19 +95,19 @@ export function PhotoEditor({ context, language, save, onClose }: { context: Pho
   };
   const cancel = async () => { if (busy || draft?.commandId || recovered?.commandId) return; try { await removeDraft(key); setDraft(null); onClose(); } catch { setReason("storage"); } };
   const locked = busy || !ready || Boolean(recovered) || Boolean(draft?.commandId) || context.decided;
-  return <section className="space-y-3 rounded-2xl border border-border bg-surface p-3" aria-label={primary(words.title, language)} data-photo-editor>
-    {context.proposal ? <p className="text-sm text-muted-foreground">{primary(words.proposal, language)}</p> : null}
-    {context.decided ? <p role="status">{primary(words.decided, language)}</p> : null}
-    {context.proposalUrl ? <div><p className="text-sm">{primary(words.pending, language)}</p><PhotoImage src={context.proposalUrl} alt={primary(words.pending, language)} /></div> : null}
-    {recovered ? <button type="button" className="min-h-11 text-accent" onClick={() => { setDraft(recovered); setReason(recovered.commandId ? "unknown" : ""); setRecovered(null); }}>{primary(words.restore, language)}</button> : null}
-    {draft ? <div data-photo-preview><p className="text-sm">{primary(words.preview, language)}</p><PhotoImage src={draft.data} alt={primary(words.preview, language)} /></div> : context.currentUrl ? <PhotoImage src={context.currentUrl} alt={primary(words.title, language)} /> : null}
+  return <section className={vx ? "space-y-3" : "space-y-3 rounded-2xl border border-border bg-surface p-3"} aria-label={say(words.title)} data-photo-editor>
+    {context.proposal ? <p className="text-sm text-muted-foreground">{say(words.proposal)}</p> : null}
+    {context.decided ? <p role="status">{say(words.decided)}</p> : null}
+    {context.proposalUrl ? <div><p className="text-sm">{say(words.pending)}</p><PhotoImage src={context.proposalUrl} alt={say(words.pending)} /></div> : null}
+    {recovered ? <button type="button" className="min-h-11 text-accent" onClick={() => { setDraft(recovered); setReason(recovered.commandId ? "unknown" : ""); setRecovered(null); }}>{say(words.restore)}</button> : null}
+    {draft ? <div data-photo-preview><p className="text-sm">{say(words.preview)}</p><PhotoImage src={draft.data} alt={say(words.preview)} /></div> : context.currentUrl ? <PhotoImage src={context.currentUrl} alt={say(words.title)} /> : null}
     <div className="rounded-xl border border-dashed border-border p-3" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); if (!locked) void choose(e.dataTransfer.files[0], "file"); }}>
-      <input ref={input} aria-label={primary(words.choose, language)} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={locked} onChange={e => { void choose(e.target.files?.[0], "file"); e.target.value = ""; }} />
-      <input ref={camera} aria-label={primary(words.camera, language)} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" disabled={locked} onChange={e => { void choose(e.target.files?.[0], "camera"); e.target.value = ""; }} />
-      <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-lg border px-3" disabled={locked} onClick={() => input.current?.click()}>{primary(words.choose, language)}</button><button type="button" className="min-h-11 rounded-lg border px-3" disabled={locked} onClick={() => camera.current?.click()}>{primary(words.camera, language)}</button></div>
+      <input ref={input} aria-label={say(words.choose)} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={locked} onChange={e => { void choose(e.target.files?.[0], "file"); e.target.value = ""; }} />
+      <input ref={camera} aria-label={say(words.camera)} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" disabled={locked} onChange={e => { void choose(e.target.files?.[0], "camera"); e.target.value = ""; }} />
+      <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-lg border px-3" disabled={locked} onClick={() => input.current?.click()}>{say(words.choose)}</button><button type="button" className="min-h-11 rounded-lg border px-3" disabled={locked} onClick={() => camera.current?.click()}>{say(words.camera)}</button></div>
     </div>
-    {reason ? <p role="status" className="text-sm text-destructive">{primary(failureText(reason), language)}</p> : null}
-    <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={busy || !draft || !ready || Boolean(recovered) || (context.decided && !draft.commandId)} onClick={() => void send()}>{primary(draft?.commandId ? words.retry : words.save, language)}</button><button type="button" className="min-h-11 rounded-xl border px-4 disabled:opacity-50" disabled={busy || Boolean(draft?.commandId) || Boolean(recovered?.commandId)} onClick={() => void cancel()}>{primary(words.cancel, language)}</button></div>
+    {reason ? <p role="status" className="text-sm text-destructive">{say(failureText(reason))}</p> : null}
+    <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={busy || !draft || !ready || Boolean(recovered) || (context.decided && !draft.commandId)} onClick={() => void send()}>{say(draft?.commandId ? words.retry : words.save)}</button><button type="button" className="min-h-11 rounded-xl border px-4 disabled:opacity-50" disabled={busy || Boolean(draft?.commandId) || Boolean(recovered?.commandId)} onClick={() => void cancel()}>{say(words.cancel)}</button></div>
   </section>;
 }
 
@@ -107,22 +116,32 @@ export function PhotoImage({ src, alt }: { src: string; alt: string }) {
   return <img src={src} alt={alt} className="h-40 w-32 rounded-xl object-cover" />;
 }
 
-type ControlProps = { credential: PhotoCredential; studentId?: string; language: Language };
+type ControlProps = {
+  credential: PhotoCredential; studentId?: string; language: Language;
+  /** Signed-in screens: the editor opens in a sheet over the page instead of pushing it down. */
+  sheet?: boolean;
+  /** `null`: no link of its own; the caller opens it through `ref` (a ring badge, a menu row). */
+  trigger?: null;
+  ref?: Ref<PhotoControlHandle>;
+};
+export type PhotoControlHandle = { open: () => void };
 export function ProfilePhotoControl(props: ControlProps) {
   const { credential, studentId } = props;
   const identity = JSON.stringify([credential.kind, "id" in credential ? credential.id : null, "token" in credential ? credential.token : null, studentId]);
   return <ScopedPhotoControl key={identity} {...props} />;
 }
 
-function ScopedPhotoControl({ credential, studentId, language }: ControlProps) {
+function ScopedPhotoControl({ credential, studentId, language, sheet = false, trigger, ref }: ControlProps) {
   const router = useRouter();
+  const say = sayer(language, sheet);
   const [opened, setOpened] = useState<{ credential: PhotoCredential; context: PhotoEditorContext } | null>(null);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
+  const [shown, setShown] = useState(false);
   const request = useRef(0);
   useEffect(() => () => { request.current += 1; }, []);
   const open = async () => {
     const current = ++request.current;
-    setBusy(true); setFailed(false);
+    setBusy(true); setFailed(false); setShown(true);
     try {
       const result = await openPhotoEditorAction(credential, studentId);
       if (request.current !== current) return;
@@ -130,8 +149,19 @@ function ScopedPhotoControl({ credential, studentId, language }: ControlProps) {
     } catch { if (request.current === current) setFailed(true); }
     finally { if (request.current === current) setBusy(false); }
   };
+  useImperativeHandle(ref, () => ({ open: () => void open() }));
+  // Closing keeps an unsent draft on the device; the editor offers it back next time.
+  const close = () => { request.current += 1; setShown(false); setOpened(null); setBusy(false); router.refresh(); };
+  const editor = opened ? <PhotoEditor key={opened.context.scope} context={opened.context} language={language} save={form => saveProfilePhotoAction(opened.credential, form)} onClose={close} vx={sheet} /> : null;
+  const refused = failed ? <p role="status" className="text-sm text-destructive">{say(words.refused)}</p> : null;
+  if (sheet) return <>
+    {trigger === null ? null : <Btn variant="ghost" icon="camera" disabled={busy} onClick={() => void open()}>{say(words.edit)}</Btn>}
+    <Sheet open={shown} onClose={close} title={say(words.title)} icon="camera">
+      {editor ?? refused ?? <p aria-live="polite" style={{ margin: 0, color: "var(--mut)" }}>…</p>}
+    </Sheet>
+  </>;
   return <div data-row-stop>
-    {opened ? <PhotoEditor key={opened.context.scope} context={opened.context} language={language} save={form => saveProfilePhotoAction(opened.credential, form)} onClose={() => { setOpened(null); router.refresh(); }} /> : <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-medium text-accent" disabled={busy} onClick={() => void open()}>{primary(words.edit, language)}</button>}
-    {failed ? <p role="status" className="text-sm text-destructive">{primary(words.refused, language)}</p> : null}
+    {editor ?? <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-medium text-accent" disabled={busy} onClick={() => void open()}>{say(words.edit)}</button>}
+    {refused}
   </div>;
 }
