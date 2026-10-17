@@ -666,7 +666,6 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
       <main>
         <div className="pad stack" style={{ padding: "18px 28px 40px", display: "grid", gridTemplateColumns: "minmax(0, 360px) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
           <div className="tc-cc">
-            {data.canEditPhoto && <div style={{order:0}}><ProfilePhotoControl credential={{kind:"student",id:data.id}} language={language} /></div>}
             <div className="card rise tc-hdr" style={{ order: 1, display: "flex", padding: 20, gap: 16 }}>
               <Ring pct={pct} size={96}>
                 <span className="tc-av serif" style={{ top: 11, left: 11, width: 74, height: 74, fontSize: 26, background: tone(data.rollNo ?? 1)[0], color: tone(data.rollNo ?? 1)[1] }}>{data.photoUrl ? <PrivatePhoto src={data.photoUrl} alt="" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(data.name)}</span>
@@ -679,6 +678,7 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
                   <span className="num" style={{ fontSize: 26, fontWeight: 700, color: ringColor(pct) }}>{pct === null ? "—" : `${Math.round(pct)}%`}</span>
                   <span className="tc-s" style={{ textAlign: "left" }}>{tx(p("attendance", "हाज़िरी"))}<br />{tx(p("this session", "इस सत्र"))}</span>
                 </span>
+                {data.canEditPhoto ? <span><ProfilePhotoControl sheet credential={{ kind: "student", id: data.id }} language={language} /></span> : null}
               </span>
             </div>
             <div className="card" style={{ order: 2, padding: "14px 18px 12px", display: "flex", flexDirection: "column" }}>

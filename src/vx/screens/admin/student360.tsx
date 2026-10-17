@@ -1,9 +1,9 @@
 "use client";
 
-import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
+import { ProfilePhotoControl, type PhotoControlHandle } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
-import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
-import { ms } from "@/messages/setup";
+import { AssignmentLauncher, type AssignmentHandle } from "@/modules/teacher-tasks/ui/assignment-sheet";
+import { ms, photoMessages as photoWords } from "@/messages/setup";
 import { useRouter } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -277,6 +277,11 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   const close = useCloseTo(closeHref);
   const panel = useRef<HTMLElement>(null);
   const [more, setMore] = useState(false);
+  const [asking, setAsking] = useState(false);
+  // The sheets these open live outside the menus that open them, so closing a menu cannot unmount them.
+  const photo = useRef<PhotoControlHandle>(null);
+  const askDetails = useRef<AssignmentHandle>(null);
+  const askMarks = useRef<AssignmentHandle>(null);
   useEffect(() => {
     panel.current?.focus({ preventScroll: true });
   }, []);
@@ -573,7 +578,16 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       break;
   }
 
-  const moreItems: { label: Pair; href: string; icon: "send" | "edit" | "file" | "note" | "receipt" }[] = [];
+  // A row either goes somewhere or opens a sheet that outlives the menu.
+  type Launch = "photo" | "details" | "marks";
+  const launch = (what: Launch) => {
+    if (what === "photo") photo.current?.open();
+    else (what === "marks" ? askMarks : askDetails).current?.show();
+  };
+  const moreItems: ({ label: Pair; icon: "send" | "edit" | "file" | "note" | "receipt" | "camera" | "users" | "book" } & ({ href: string; run?: never } | { run: Launch; href?: never }))[] = [];
+  if (p.canEditPhoto) moreItems.push({ label: photoWords.edit, icon: "camera", run: "photo" });
+  if (p.canAssignTasks) moreItems.push({ label: ms.taskRequest, icon: "users", run: "details" });
+  if (p.canAssignTasks) moreItems.push({ label: ms.taskRequestMarks, icon: "book", run: "marks" });
   if (p.canAddNote) moreItems.push({ label: T.addNote, href: `${notesHref}&sheet=add`, icon: "note" });
   if (seesMoney) moreItems.push({ label: T.statement, href: `/fees/students/${p.id}/statement`, icon: "send" });
   if (seesMoney) moreItems.push({ label: T.fullFeeRecord, href: `/fees/students/${p.id}?tab=dues`, icon: "receipt" });
@@ -623,6 +637,11 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
                 <circle className="arc" cx="42" cy="42" r="38" style={{ fill: "none", stroke: "var(--acc)", strokeWidth: 5, strokeLinecap: "round", strokeDasharray: ringLenD, strokeDashoffset: ringLenD * (1 - Math.min(100, Math.max(0, ringValue)) / 100), ["--len" as string]: ringLenD } as CSSProperties} />
               </svg>
               <StudentFace name={p.name} url={p.photoUrl} bg={avaBg} />
+              {p.canEditPhoto ? (
+                <button type="button" className="tap s360-cam" aria-label={tx(photoWords.edit)} title={tx(photoWords.edit)} onClick={() => launch("photo")}>
+                  <Ic n="camera" size={16} />
+                </button>
+              ) : null}
             </div>
             <div className="s360-who">
               <h1 className="serif s360-name">{p.name}</h1>
@@ -647,8 +666,8 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             {mobile ? <Btn icon="message" href={`https://wa.me/91${mobile}`} target="_blank" style={{ color: "var(--ok)" }}>{tx(T.whatsapp)}</Btn> : null}
             {seesMoney ? <Btn icon="send" href={`/fees/students/${p.id}/statement`}>{tx(T.statement)}</Btn> : null}
             {!p.canCollect && p.canAddNote ? <Btn icon="note" href={`${notesHref}&sheet=add`}>{tx(T.addNote)}</Btn> : null}
+            {p.canAssignTasks ? <Btn icon="users" onClick={() => setAsking(true)}>{tx(ms.taskAsk)}</Btn> : null}
           </div>
-          {p.canEditPhoto && <div className="px-5 pb-3"><ProfilePhotoControl credential={{kind:"student",id:p.id}} language={language} /></div>}
           {kpiRow("phone")}
           <nav className="s360-tabs" aria-label={tx(T.studentSections)}>
             {tabs.map((t) => (
@@ -660,7 +679,6 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
         </header>
 
         <div className="s360-body" key={tab}>
-          {p.canAssignTasks && <div className="mb-4 flex flex-wrap gap-2"><AssignmentLauncher language={language} selectedIds={[p.id]} label={tx(ms.taskRequest)}/><AssignmentLauncher language={language} selectedIds={[p.id]} initialKind="marks" label={tx(ms.taskRequestMarks)}/></div>}
           {feesUnavailable || (p.unavailable?.length ?? 0) > 0 ? (
             <div className="card s360-card" role="alert">
               <p style={{ margin: 0 }}>{tx(feesUnavailable ? T.feesUnavailable : T.couldNotRead)}</p>
@@ -690,11 +708,30 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
       <Sheet open={more} onClose={() => setMore(false)} title={p.name} sub={meta}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "4px 0 8px" }}>
-          {moreItems.map((item) => (
-            <Btn key={item.href} icon={item.icon} href={item.href} full>{tx(item.label)}</Btn>
-          ))}
+          {moreItems.map(({ run, ...item }) =>
+            run ? (
+              <Btn key={item.label.en} icon={item.icon} full onClick={() => { setMore(false); launch(run); }}>{tx(item.label)}</Btn>
+            ) : (
+              <Btn key={item.href} icon={item.icon} href={item.href} full>{tx(item.label)}</Btn>
+            ),
+          )}
         </div>
       </Sheet>
+
+      {/* The desk has no ⋯ menu; "Ask a teacher" there opens this choice. */}
+      <Sheet open={asking} onClose={() => setAsking(false)} title={tx(ms.taskAsk)} sub={tx(ms.taskAskSub)} icon="users">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "4px 0 8px" }}>
+          <Btn icon="users" full onClick={() => { setAsking(false); launch("details"); }}>{tx(ms.taskAskDetails)}</Btn>
+          <Btn icon="book" full onClick={() => { setAsking(false); launch("marks"); }}>{tx(ms.taskAskMarks)}</Btn>
+        </div>
+      </Sheet>
+      {p.canEditPhoto ? <ProfilePhotoControl ref={photo} sheet trigger={null} credential={{ kind: "student", id: p.id }} language={language} /> : null}
+      {p.canAssignTasks ? (
+        <>
+          <AssignmentLauncher ref={askDetails} trigger={null} language={language} selectedIds={[p.id]} />
+          <AssignmentLauncher ref={askMarks} trigger={null} language={language} selectedIds={[p.id]} initialKind="marks" />
+        </>
+      ) : null}
     </div>
   );
 }

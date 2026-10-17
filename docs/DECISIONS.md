@@ -9,6 +9,15 @@
 - An outstanding academic command is described as school save unconfirmed. Recovery keeps the original command across reload; it cannot claim that the school has not saved it. Attributed not-sent provider reconciliation clears local uncertainty so the user can immediately review a new send. Queued means queued, not sent.
 - Apply the three exact approved `vppsone` migrations before releasing dependent flows. Prefer code rollback while retaining additive tasks, proposals, private images and history; destructive schema reversal needs its own data-preserving plan. [Exact objects, grants, hashes and rollback](evidence/sampark-workflows/migration-approval.md), [local acceptance and limitations](evidence/sampark-workflows/task-4-report.md). Final review, approval, CI and deployment are separate controller gates.
 
+## SamPark controls placed in the screens' own kit — 2026-10-17
+
+Raj sent phone screenshots after #98: Student360's "Change photograph" floated between the header and the figures, its two teacher requests sat as loose pills under the tabs, and Needs you drew Assign work, Review photographs and an empty "To assign 0" box above its own title. The same pattern was on Students, the staff profile, the teacher's class and profile screens, and Preferences.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-295 | A control added to an existing screen goes where that screen already keeps that kind of action, in the vx kit: a photograph is changed from a camera badge on the portrait ring (and the ⋯ menu); asking a teacher is a ⋯ row on a phone and an "Ask a teacher" button in Student360's desk action row; Needs you's Assign work and Review photographs are top-bar buttons on a desk, and teacher work is one card below the queue; the missing-details filter is a select in the Students toolbar and a section of the phone Filter sheet, with Assign work on a banner for its matches and in the bulk bar for picked rows. Editors open in sheets, not inline | Each had been added as a Tailwind pill outside the vx layout (two above a page title), so it looked bolted on and pushed content down. Reachability is unchanged: every action is still one or two taps from where it was |
+| D-296 | Components shown inside vx screens resolve text with vx's `lead()`; the photo editor does so only when opened as a sheet | For a "both" reader vx leads with English, `primary()` with Hindi, so the assignment and photo sheets switched language mid-page. The teachers' link pages keep `primary()` |
+
 ## Phone: student filters and stepwise collection — 2026-10-16
 
 Raj asked, on a phone, for filters and other ways to see the Students list without making it complicated, and for collecting a fee to stop needing scrolling: details, then amount, then date and save. Screens: UI-94 and UI-95 in `docs/ui/DECISIONS.md`.

@@ -24,6 +24,11 @@ html:has(.s360-layer){overflow:hidden}
 .s360-ring .arc{animation:xDraw 1s var(--ease) both;transition:stroke-dashoffset .8s var(--ease)}
 .s360-ava{position:absolute;inset:10px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;overflow:hidden}
 .s360-ava img{width:100%;height:100%;object-fit:cover}
+/* Change photograph: a badge on the ring, where people look for it. The ::after widens the target to 44px. */
+.s360-cam{position:absolute;right:-2px;bottom:-2px;width:34px;height:34px;border-radius:50%;border:2px solid var(--bg);background:var(--card);color:var(--acc);display:flex;align-items:center;justify-content:center;padding:0;box-shadow:var(--sh);cursor:pointer}
+.s360-cam::after{content:"";position:absolute;inset:-6px;border-radius:50%}
+.s360-cam:hover{background:var(--accs)}
+.s360-cam:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .s360-who{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
 .s360-name{margin:4px 0 0;font-size:27px;font-weight:600;line-height:1.1;overflow-wrap:anywhere}
 .s360-meta{font-size:14px;color:var(--mut)}
@@ -82,6 +87,7 @@ html:has(.s360-layer){overflow:hidden}
   .s360-head{background:var(--card);border-bottom:1px solid var(--bd);padding:18px 22px 14px}
   .s360-id{flex-direction:row;align-items:flex-start;text-align:left;gap:16px}
   .s360-ring{width:84px;height:84px}
+  .s360-cam{width:30px;height:30px}
   .s360-ava{inset:9px;font-size:24px}
   .s360-who{flex:1;align-items:flex-start;gap:6px}
   .s360-name{margin:0;font-size:28px}

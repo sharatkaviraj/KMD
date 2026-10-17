@@ -1,7 +1,8 @@
 "use client";
 import {useState,useTransition} from "react";
 import {useRouter} from "next/navigation";
-import {primary,type Language} from "@/platform/i18n/language";
+import type { Language } from "@/platform/i18n/language";
+import { lead } from "@/vx/text";
 import {taskDeliveryMessages as text} from "@/messages/setup";
 import {previewTaskDeliveryAction,confirmTaskDeliveryAction,reconcileTaskDeliveryAction} from "@/app/(app)/teach/tasks/delivery-actions";
 import type {DeliveryPreview,DeliverySummary} from "../domain/delivery";
@@ -14,7 +15,7 @@ export function TaskDelivery({id,language,summary,availability}:{id:string;langu
   const [uncertain,setUncertain]=useState(false);
   const [busy,start]=useTransition();
   const router=useRouter();
-  const word=(pair:{hi:string;en:string})=>primary(pair,language);
+  const word=(pair:{hi:string;en:string})=>lead(pair,language);
   const unknown=summary.deliveries.find(d=>d.state==="unknown");
   const handled=summary.deliveries.some(d=>["accepted","manual_opened","human_confirmed"].includes(d.state));
   const button="min-h-11 rounded-xl border border-border px-4 py-2 text-sm disabled:opacity-50";

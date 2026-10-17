@@ -23,6 +23,8 @@ export type FilterChoice = {
   sort: StudentSort;
   layout: StudentLayout;
   view: StudentView;
+  /** A detail the record lacks ("photo", a field key), for asking a teacher; "" for none. */
+  missing: string;
 };
 
 export const FILTER_WORD: Record<StudentFilter, Pair> = {
@@ -63,6 +65,8 @@ export function StudentFilterSheet({
   counts,
   seesMoney,
   onApply,
+  missingOptions,
+  missingTitle,
 }: {
   open: boolean;
   onClose: () => void;
@@ -72,6 +76,9 @@ export function StudentFilterSheet({
   /** A reader with `fees:view`: the Fees/School switch and the fee filters. */
   seesMoney: boolean;
   onApply: (next: FilterChoice) => void;
+  /** A reader who can ask teachers for details: what a record can be missing. */
+  missingOptions?: { value: string; label: Pair }[];
+  missingTitle?: Pair;
 }) {
   const { tx } = useVx();
   const [draft, setDraft] = useState<FilterChoice>(current);
@@ -111,7 +118,7 @@ export function StudentFilterSheet({
             type="button"
             className="tap btn sec"
             style={{ flex: 1, height: 52 }}
-            onClick={() => setDraft({ ...draft, classId: null, filters: [], sort: SORT_OF.name })}
+            onClick={() => setDraft({ ...draft, classId: null, filters: [], sort: SORT_OF.name, missing: "" })}
           >
             {tx(ST.clearAll)}
           </button>
@@ -163,6 +170,19 @@ export function StudentFilterSheet({
               <span className="stu-fnote">{tx(ST.combineNote)}</span>
             </section>
           </>
+        ) : null}
+
+        {missingOptions?.length && missingTitle ? (
+          <section>
+            <span className="sech">{tx(missingTitle)}</span>
+            <div className="stu-fchips" role="group" aria-label={tx(missingTitle)}>
+              {missingOptions.map((o) => (
+                <Chip key={o.value} on={draft.missing === o.value} onClick={() => setDraft((d) => ({ ...d, missing: d.missing === o.value ? "" : o.value }))}>
+                  {tx(o.label)}
+                </Chip>
+              ))}
+            </div>
+          </section>
         ) : null}
 
         <section>

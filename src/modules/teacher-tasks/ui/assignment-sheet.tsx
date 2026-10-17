@@ -1,21 +1,30 @@
 "use client";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useImperativeHandle, useState, useTransition, type ReactNode, type Ref } from "react";
 import { useRouter } from "next/navigation";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
-import { primary, type Language } from "@/platform/i18n/language";
+import type { Language } from "@/platform/i18n/language";
+import { lead } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";
+import { Btn } from "@/vx/ui/primitives";
 import type { AssignmentContext, AssignmentInput, AssignmentPreview } from "../data/assignment";
 import { taskAssignmentContextAction, previewTeacherTasksAction, createTeacherTasksAction } from "@/app/(app)/teach/tasks/actions";
 import type { AssignmentMode, TaskKind } from "../domain/tasks";
 const inputClass = "w-full rounded-lg border border-border bg-background p-2 text-sm";
-export function AssignmentLauncher({ language, selectedIds, initialKind = "collection", initialMissing = "", label }: {
+/** Lets a menu row open the sheet: the row closes with its menu, the sheet must not. */
+export type AssignmentHandle = { show: () => void };
+
+export function AssignmentLauncher({ language, selectedIds, initialKind = "collection", initialMissing = "", label, variant = "sec", trigger, ref }: {
   language: Language;
   selectedIds?: string[];
   initialKind?: TaskKind;
   initialMissing?: string;
   label?: string;
+  variant?: "pri" | "sec";
+  /** `null`: no button of its own; the caller opens it through `ref`. */
+  trigger?: null;
+  ref?: Ref<AssignmentHandle>;
 }) {
   const [open, setOpen] = useState(false);
   const [context, setContext] = useState<AssignmentContext | null>(null);
@@ -31,10 +40,16 @@ export function AssignmentLauncher({ language, selectedIds, initialKind = "colle
       }
     });
   };
+  useImperativeHandle(ref, () => ({ show }));
+  // A count says how many children a bulk request covers; one child is the page itself.
+  const many = selectedIds?.length ?? 0;
+  const count = many > 1 ? ` (${many})` : "";
+  let button: ReactNode = <Btn variant={variant} icon="users" disabled={pending} onClick={show}>{label ?? lead(ms.taskAssign, language)}{count}</Btn>;
+  if (trigger === null) button = null;
   return <>
-    <button type="button" className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-primary" disabled={pending} onClick={show}>{label ?? primary(ms.taskAssign, language)}{selectedIds?.length ? ` (${selectedIds.length})` : ""}</button>
-    <Sheet open={open} onClose={() => setOpen(false)} title={primary(ms.taskAssign, language)}>
-      {error ? <p role="alert">{primary(ms.taskUnavailable, language)}</p> : context ? <AssignmentEditor key={`${selectedIds?.join(",")}:${initialKind}:${initialMissing}`} context={context} selectedIds={selectedIds} initialKind={initialKind} initialMissing={initialMissing} language={language} close={() => setOpen(false)} /> : <p aria-live="polite">…</p>}
+    {button}
+    <Sheet open={open} onClose={() => setOpen(false)} title={lead(ms.taskAssign, language)}>
+      {error ? <p role="alert">{lead(ms.taskUnavailable, language)}</p> : context ? <AssignmentEditor key={`${selectedIds?.join(",")}:${initialKind}:${initialMissing}`} context={context} selectedIds={selectedIds} initialKind={initialKind} initialMissing={initialMissing} language={language} close={() => setOpen(false)} /> : <p aria-live="polite">…</p>}
     </Sheet>
   </>;
 }
@@ -50,7 +65,7 @@ function AssignmentEditor({ context, selectedIds, initialKind, initialMissing, l
   const word = (v: {
     en: string;
     hi: string;
-  }) => primary(v, language);
+  }) => lead(v, language);
   const [kind, setKind] = useState<TaskKind>(initialKind);
   const [title, setTitle] = useState(word(initialKind === "marks" ? m.taskMarks : m.taskDetails));
   const [mode, setMode] = useState<AssignmentMode>(initialKind === "marks" ? "subject" : "class");
