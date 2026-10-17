@@ -1,0 +1,17 @@
+# Initial inspection evidence
+
+- Baseline fetched from verified GitHub remote: dd1e9a5af38cfad821a858a0c6707cbd0b85ff4c, includes PR95/96.
+- Production alias vppsone.vercel.app resolved through authenticated Vercel metadata to deployment dpl_CR74B9tjf2KBHQiyYVJ3eSgzfvW4, READY, exact same commit.
+- Original VPPS and Sampark checkouts were clean; only the isolated clone is changed.
+- No .env/credential values read or copied; test checkout has no environment files.
+- Original logo SHA256 48A2D3356213890AF723B19509A1057C59878A844006304970E6B53FAA19274A matches School Fees public/branding/veer-patta-school-logo.jpg.
+- School Fees student-photo-upload.tsx: 600px longest edge, initial JPEG quality 0.78, 200*1024 byte target, decreasing quality to 0.4. Its loop does not reject residual oversize; our reuse must enforce the actual cap.
+- Existing teacher routes: /teach, /teach/attendance, /teach/marks, /teach/more?view=links, /teach/class, /teach/student/[id]. External collection /t/[token] and /r/[token]; external marks /t/marks/[token].
+- Existing collection message queue already has an atomic conditional claim and uncertain-outcome guard. Staff notices have claim/stamp/finish leases and stricter receipt classification. Reuse rather than introducing a separate transport engine.
+- No local docker/psql/postgres command was present on PATH. Database-specific proof needs a disposable local or CI PostgreSQL fixture; never substitute the configured hosted school database.
+- Supabase project metadata confirms schoolfees-dev ref wtgxcptmucjerhufzjcf and protected schoolfees Mumbai ref vgqyilgstjvgohrsiwkb, both PostgreSQL 17. Metadata does not establish the currently deployed app's database target.
+- Current Vercel production database target remains unverified; public URL-only lookup returned no usable hostname. No credential values were printed or changed. Required migration execution remains unapproved.
+- PR97 remains open/unmerged at e92ec2ce61b13e41d70f18328e800cb930b0e592 against dd1e9a5; recheck before release and preserve its distinct phone Payment Desk work.
+- Follow-up exact-key read of Vercel production NEXT_PUBLIC_SUPABASE_URL verified project ref wtgxcptmucjerhufzjcf (schoolfees-dev). Only this non-secret public URL variable was requested, and only the project ref was reported; no credential/configuration values were printed or changed. This supersedes the earlier inconclusive URL parsing result. Remote migration execution still needs explicit approval for the final concrete scope.
+- Vercel environment metadata read with decrypt=false returned no keys matching AISENSY, MESSAGE_PROVIDER, STAFF_NOTICE or WHATSAPP; hiddenProductionEnvCount was 0. This verifies only returned environment-key metadata, not template approval at AiSensy. No secret values were requested. Real delivery will require the code's documented provider/template configuration to be set through an authorized secure configuration path; current implementation/tests must remain mock-only.
+- Provider primary documentation: [API reference](https://wiki.aisensy.com/en/articles/11501889-api-reference-docs) confirms the existing campaign endpoint and matching template parameter count. It requires a live campaign with an approved template; the public response section does not establish a receipt-id/callback contract. [Campaign setup](https://wiki.aisensy.com/en/articles/11501891-how-to-setup-whatsapp-api-campaigns-in-aisensy) reinforces private API-key handling. No campaign, credential or provider state was changed.

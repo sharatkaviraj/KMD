@@ -1,0 +1,22 @@
+import * as React from "react";
+import {expect,it,vi} from "vitest";
+const x=vi.hoisted(()=>({rpc:vi.fn(),request:vi.fn()}));
+vi.mock("server-only",()=>({}));
+vi.mock("next/navigation",()=>({notFound:()=>{throw new Error("not_found");}}));
+vi.mock("@/platform/auth/current-staff",()=>({requirePermission:async()=>({id:"actor",language:"en"})}));
+vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({rpc:x.rpc})}));
+vi.mock("@/modules/teacher-tasks/data/repo",()=>({loadTaskWork:vi.fn()}));
+vi.mock("@/modules/teacher-tasks/ui/task-work",()=>({TaskCollectionForm:()=>null,TaskAcademicForm:()=>null}));
+vi.mock("@/modules/collection/data/requests-repo",()=>({resolveAssignedRequest:x.request,rollForRequest:async()=>[{studentId:"child"}]}));
+import Page from "@/app/(app)/teach/tasks/[id]/page";
+import {assignedRequestGeneration} from "@/modules/teacher-tasks/data/draft-scope";
+import {TaskCollectionForm} from "@/modules/teacher-tasks/ui/task-work";
+it("passes an opaque actor/request generation from the actual legacy page to its production form",async()=>{
+  const id="10000000-0000-4000-8000-000000000001";
+  x.request.mockResolvedValue({id,token:"private-generation",titleEn:"Synthetic",sessionLabel:"QA",fields:[{id:"photo",key:"student_photo"}]});
+  const page=await Page({params:Promise.resolve({id:`collection-${id}`})});
+  const child=React.Children.toArray(page.props.children).find(c=>React.isValidElement(c)&&c.type===TaskCollectionForm) as React.ReactElement<{photoCredential:unknown;draftScope:string;request:{token:string}}>;
+  expect(child.props.photoCredential).toEqual({kind:"assigned-request",id,generation:assignedRequestGeneration("actor",id,"private-generation")});
+  expect(child.props.draftScope).toMatch(/^[a-f0-9]{64}$/);expect(child.props.request.token).toBe("");
+  expect(x.rpc).toHaveBeenCalledExactlyOnceWith("mark_teacher_task_opened",expect.any(Object));
+});

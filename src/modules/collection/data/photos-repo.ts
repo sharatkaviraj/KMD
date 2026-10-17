@@ -7,7 +7,7 @@ import { FEE_SCHEMA, getVppsOneEnvironment } from "@/platform/env";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
-import { PHOTO_MAX_BYTES, PHOTO_TYPES } from "@/modules/collection/domain/photo-placement";
+import { preparePhoto, stagePhoto } from "./photo-storage";
 
 /**
  * Children's photographs (P10c, S-11, D-236).
@@ -111,17 +111,16 @@ export async function classPhotoRoster(classId: string, sessionLabel: string): P
 
 export type PlaceReceipt =
   | { ok: true; photoId: string; replaced: string | null; replayed: boolean }
-  | { ok: false; reason: "too_large" | "wrong_type" | "stale" | "not_permitted" | "no_such_child" | "id_reused" | "unavailable" };
+  | { ok: false; reason: "too_large" | "wrong_type" | "stale" | "not_permitted" | "no_such_child" | "id_reused" | "unavailable" | "unknown" };
 
-const EXTENSION: Record<(typeof PHOTO_TYPES)[number], string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 /**
  * Store a photograph's bytes and place it, as one command.
  *
  * The object is named by the command id, so a retry after a lost answer finds
  * its own bytes already there and goes straight to the command — which
- * returns what it did the first time. A refused command removes the bytes it
- * uploaded, so the bucket never holds a photograph no row points at.
+ * returns what it did the first time. Staged objects are retained, including
+ * refusals: a transport failure must never delete a possibly committed image.
  */
 export async function placePhoto(input: {
   commandId: string;
@@ -136,35 +135,33 @@ export async function placePhoto(input: {
   expectedCurrent: string | null;
   actorStaffId: string;
 }): Promise<PlaceReceipt> {
-  if (!(PHOTO_TYPES as readonly string[]).includes(input.contentType)) return { ok: false, reason: "wrong_type" };
-  if (input.bytes.byteLength === 0 || input.bytes.byteLength > PHOTO_MAX_BYTES) return { ok: false, reason: "too_large" };
-
+  const photo = await preparePhoto(input.bytes);
+  if (typeof photo === "string") return { ok: false, reason: photo };
   const admin = createAdminClient();
-  const sha256 = createHash("sha256").update(Buffer.from(input.bytes)).digest("hex");
-  const path = `${input.studentId}/${input.commandId}.${EXTENSION[input.contentType as (typeof PHOTO_TYPES)[number]]}`;
-
-  const upload = await admin.storage.from(PHOTOS_BUCKET).upload(path, input.bytes, { contentType: input.contentType, upsert: false });
-  const uploadedNow = !upload.error;
-  if (upload.error && !/exists|duplicate/i.test(upload.error.message)) return { ok: false, reason: "unavailable" };
+  const sha256 = photo.sha256;
+  const path = `${input.studentId}/${input.commandId}.jpg`;
+  const staged = await stagePhoto(path, photo);
+  if (staged) return { ok: false, reason: staged };
 
   const payload = {
     student: input.studentId,
     sha256,
     expected: input.expectedCurrent ?? "",
-    source: input.source,
+    source: input.source, session: input.sessionLabel, sourceRef: input.sourceRef,
   };
-  const { data, error } = await admin.rpc("place_student_photo", {
+  let outcome;
+  try { outcome = await admin.rpc("place_student_photo", {
     p: {
       command_id: input.commandId,
       actor_staff_id: input.actorStaffId,
       student_id: input.studentId,
       session_label: input.sessionLabel,
       storage_path: path,
-      content_type: input.contentType,
-      byte_size: input.bytes.byteLength,
+      content_type: photo.contentType,
+      byte_size: photo.bytes.byteLength,
       sha256,
-      width: input.width,
-      height: input.height,
+      width: photo.width,
+      height: photo.height,
       source: input.source,
       source_ref: input.sourceRef,
       expected_current: input.expectedCurrent,
@@ -172,14 +169,16 @@ export async function placePhoto(input: {
     },
   });
 
+  } catch { return { ok: false, reason: "unknown" }; }
+  const { data, error } = outcome;
   const receipt = (error ? null : data) as { ok?: boolean; reason?: string; photo_id?: string; replaced?: string | null; replayed?: boolean } | null;
   if (!receipt?.ok) {
-    if (uploadedNow) await admin.storage.from(PHOTOS_BUCKET).remove([path]);
+    // Keep staged bytes: even a lost refusal response may follow a committed retry.
     const reason = receipt?.reason;
     return {
       ok: false,
       reason:
-        reason === "stale" || reason === "not_permitted" || reason === "no_such_child" || reason === "id_reused" ? reason : "unavailable",
+        reason === "stale" || reason === "not_permitted" || reason === "no_such_child" || reason === "id_reused" ? reason : "unknown",
     };
   }
   return { ok: true, photoId: receipt.photo_id!, replaced: receipt.replaced ?? null, replayed: receipt.replayed === true };

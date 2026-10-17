@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createHash } from "node:crypto";
 
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
@@ -83,6 +84,7 @@ export default async function PhotosPage({ searchParams }: Props) {
             </p>
             <Card className="mb-4 p-4">
               <FolderPlacement
+                recoveryScope={createHash("sha256").update(JSON.stringify([staff.id, sessionLabel, chosen, roster.map(r => r.studentId).sort()])).digest("hex")}
                 roster={roster.map(({ studentId, name, srNo, externalId, photoId, photoUrl }) => ({
                   studentId,
                   name,

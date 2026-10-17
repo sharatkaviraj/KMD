@@ -1,6 +1,10 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { fetchAllRows } from "@/platform/supabase/paginate";
+import { taskSchemaMissing } from "@/modules/teacher-tasks/data/schema";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -140,8 +144,30 @@ export async function resolveToken(token: string): Promise<CollectionRequest | n
 
   if (error || !data) return null;
   if (!checkRequestAccess({ status: data.status }).ok) return null;
+  if (!(await currentRequestAuthority(data))) return null;
 
   return toRequest(data, await fieldsForRequest(admin, data.id));
+}
+
+/** The shared task, when present, controls both old /r and new task entry paths. */
+async function currentRequestAuthority(row: RequestRow): Promise<boolean> {
+  const db = createAdminClient();
+  if (row.assigned_staff_id) {
+    const staff = await db.from("staff_profiles").select("id").eq("id", row.assigned_staff_id).eq("is_active", true).maybeSingle();
+    if (staff.error || !staff.data) return false;
+  }
+  const task = await db.from("teacher_tasks").select("id").eq("request_id", row.id).maybeSingle<{id:string}>();
+  if (task.error) return taskSchemaMissing(task.error);
+  if (!task.data) return true;
+  const access = await db.rpc("teacher_task_access", { p_id: task.data.id, p_staff: row.assigned_staff_id, p_token: null });
+  return !access.error && access.data === true;
+}
+
+export async function resolveAssignedRequest(id: string, staffId: string): Promise<CollectionRequest | null> {
+  const db = createAdminClient();
+  const { data, error } = await db.from("collection_requests").select(REQUEST_COLUMNS).eq("id", id).eq("assigned_staff_id", staffId).eq("status", "open").is("archived_at", null).maybeSingle<RequestRow>();
+  if (error || !data || !(await currentRequestAuthority(data))) return null;
+  return toRequest(data, await fieldsForRequest(db, data.id));
 }
 
 /**
@@ -174,6 +200,7 @@ export async function resolveStaffToken(token: string): Promise<{
 
   const requests: CollectionRequest[] = [];
   for (const row of data) {
+    if (!(await currentRequestAuthority(row))) continue;
     requests.push(toRequest(row, await fieldsForRequest(admin, row.id)));
   }
 
@@ -207,24 +234,10 @@ export async function rollForRequest(
 ): Promise<RollRow[]> {
   const admin = createAdminClient();
 
-  const { data: frozen, error: frozenError } = await admin
-    .from("collection_request_members")
-    .select("student_id, roll_no, snapshot, ask_note")
-    .eq("request_id", request.id)
-    .returns<
-      {
-        student_id: string;
-        roll_no: string | null;
-        snapshot: Record<string, string | null> | null;
-        ask_note: string | null;
-      }[]
-    >();
+  const members = await fetchAllRows<{student_id:string;roll_no:string|null;snapshot:Record<string,string|null>|null;ask_note:string|null}>((from,to)=>admin
+    .from("collection_request_members").select("student_id, roll_no, snapshot, ask_note")
+    .eq("request_id",request.id).order("student_id").range(from,to),"request members");
 
-  if (frozenError) {
-    throw new Error(`Could not read who was asked: ${frozenError.message}`);
-  }
-
-  const members = frozen ?? [];
   const isFrozen = members.length > 0;
 
   let enrolments: { student_id: string; roll_no: string | null }[];
@@ -267,23 +280,22 @@ export async function rollForRequest(
   ];
 
   const [students, records, answers] = await Promise.all([
-    admin
+    fetchInChunks<Record<string, string | null>>(studentIds, IN_FILTER_CHUNK_SIZE, chunk => admin
       .schema(FEE_SCHEMA)
       .from("students")
       .select(["id", "full_name", "father_name", ...feeColumns].join(", "))
-      .in("id", studentIds)
-      .returns<Record<string, string | null>[]>(),
-    admin
+      .in("id", chunk)
+      .returns<Record<string, string | null>[]>()),
+    fetchInChunks<{ student_id: string; field_id: string; value: string | null }>(studentIds, IN_FILTER_CHUNK_SIZE, async chunk => ({ data: await fetchAllRows<{ student_id: string; field_id: string; value: string | null }>((from, to) => admin
       .from("student_records")
       .select("student_id, field_id, value")
-      .in("student_id", studentIds)
-      .returns<{ student_id: string; field_id: string; value: string | null }[]>(),
-    admin
+      .in("student_id", chunk).order("student_id").order("field_id").range(from,to), "student records"), error: null })),
+    fetchAllRows<{ student_id: string; field_id: string; value: string | null }>((from,to) => admin
       .from("collection_submissions")
       .select("student_id, field_id, value")
-      .eq("request_id", request.id)
-      .returns<{ student_id: string; field_id: string; value: string | null }[]>(),
+      .eq("request_id", request.id).order("id").range(from,to), "answers"),
   ]);
+  if (students.error || records.error) throw new Error("Could not read the request records.");
 
   const byStudent = new Map(
     (students.data ?? []).map((row) => [String(row.id), row]),
@@ -295,7 +307,7 @@ export async function rollForRequest(
   }
 
   const answered = new Map<string, string | null>();
-  for (const row of answers.data ?? []) {
+  for (const row of answers) {
     answered.set(`${row.student_id}|${row.field_id}`, row.value);
   }
 

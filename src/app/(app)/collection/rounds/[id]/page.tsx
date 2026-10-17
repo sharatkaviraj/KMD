@@ -17,6 +17,7 @@ import {
   roundById,
 } from "@/modules/collection/data/rounds-repo";
 import { headers } from "next/headers";
+import {managedTasksForRequests} from "@/modules/teacher-tasks/data/delivery-routing";
 
 import { can } from "@/platform/auth/permissions";
 import {
@@ -79,6 +80,7 @@ export default async function RoundPage({
   const origin = `${host.startsWith("localhost") ? "http" : "https"}://${host}`;
 
   const mayManage = can(staff, "collection:manage");
+  const managedTasks=await managedTasksForRequests(links.map(link=>link.id));
 
   // **Which classes, by name.** A round that says "10 children" and not which
   // ten is a row nobody can check, and "Class 1, no phone number" is the whole
@@ -177,7 +179,8 @@ export default async function RoundPage({
           mayManage={mayManage}
           links={links.map((link) => ({
             id: link.id,
-            token: link.token,
+              token: managedTasks.has(link.id)?"":link.token,
+              managedTaskId: managedTasks.get(link.id),
             audienceKind: link.audienceKind,
             audienceLabel: link.audienceLabel,
             status: link.status,

@@ -1,4 +1,5 @@
 import "server-only";
+import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 
 import { requirePermission } from "@/platform/auth/current-staff";
 import { can, staffRoles, type StaffRole } from "@/platform/auth/permissions";
@@ -112,12 +113,14 @@ export async function loadStaffScreen(): Promise<StaffScreenData> {
     teaches.set(slot.staffProfileId, byClass);
   }
 
+  const photos = await approvedStaffPhotos(people.map(p => p.id)).catch(() => new Map<string,string>());
   const rows: StaffRow[] = people.map((person) => {
     const auth = person.userId ? users.get(person.userId) : undefined;
     const byClass = teaches.get(person.id);
     return {
       id: person.id,
       name: person.displayName,
+      photoUrl: photos.get(person.id) ?? null,
       shortName: person.shortName,
       role: person.role,
       phone: person.whatsappPhone ?? person.phone,

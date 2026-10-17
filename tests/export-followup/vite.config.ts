@@ -3,6 +3,8 @@ import { defineConfig } from "vite";
 export default defineConfig({
   root: path.resolve(__dirname), publicDir: path.resolve(__dirname, "../../public"),
   resolve: { alias: {
+    "@/app/(app)/teach/tasks/actions": path.resolve(__dirname, "../shared/sampark-action-adapters.ts"),
+    "@/app/(app)/collection/photos/profile-actions": path.resolve(__dirname, "../shared/sampark-action-adapters.ts"),
     "@/app/(app)/fees/students/actions": path.resolve(__dirname, "../operations-admin/student-actions.ts"),
     "@": path.resolve(__dirname, "../../src"),
     "next/navigation": path.resolve(__dirname, "../operations-admin/navigation.ts"),

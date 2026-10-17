@@ -620,6 +620,8 @@ function redesign(): RouteExpectation[] {
     row("/timetable/classic", EVERYONE_BUT_THE_FEE_DESK, "The classic timetable screen, kept reachable beside the redesigned week grid; same readers as /timetable."),
     row("/teach/marks", ["admin", "exam_coordinator", "teacher"], "A teacher enters marks for her own class-subjects."),
     row("/teach/notes", ["admin", "teacher"], "A teacher writes notes on her own classes."),
+    row("/teach/tasks", STAFF_AT_WORK, "Staff see their own assigned work; source authority is rechecked on read and save."),
+    row("/teach/tasks/[id]", STAFF_AT_WORK, "Only the currently assigned teacher can open a task and its selected children."),
     row("/teach/more", COORDINATORS_AND_TEACHERS, "The teacher's overflow menu."),
     row("/teach/class", STAFF_AT_WORK, "A teacher's own class: children by name, attendance and marks, never money."),
   ];

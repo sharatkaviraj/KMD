@@ -1,5 +1,6 @@
 "use client";
 
+import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
@@ -43,6 +44,8 @@ import { ST } from "@/vx/screens/admin/students-text";
 import { T } from "@/vx/screens/admin/text";
 
 import "./students.css";
+import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
+import { ms } from "@/messages/setup";
 
 /*
  * Students, as the design draws it: D01 on a desk (a sortable table, ticks and
@@ -91,6 +94,7 @@ export type StudentListRow = {
   id: string;
   name: string;
   sr: string | null;
+  photoUrl?: string | null;
   classLabel: string;
   /** The class's place in the school's order, for sorting by class on one page. */
   classOrder?: number;
@@ -137,6 +141,7 @@ export type StudentsProps = {
   failed: boolean;
   /** Rows ticked when the list first draws (the design fixture's D01). */
   initialPicked?: string[];
+  taskAssignment?: { matchingIds: string[]; missing: string; fields: { key:string; hi:string; en:string }[] };
 };
 
 const SEGS: { key: StudentSegment; label: keyof typeof T }[] = [
@@ -250,7 +255,7 @@ function withSort(href: string, sort: StudentSort | null): string {
 const SEARCH_PAUSE_MS = 450;
 
 export function StudentsScreen(props: StudentsProps) {
-  const { tx } = useVx();
+  const { tx, language } = useVx();
   const toast = useToast();
   const router = useRouter();
   const [q, setQ] = useState(props.q);
@@ -270,7 +275,10 @@ export function StudentsScreen(props: StudentsProps) {
   // Across pages the server's order rides on every link; on one page the sort is in place.
   const serverSort = !onePage && sort.key === "class" ? sort : null;
   const here = { q: props.q, classId: props.classId, view: viewParam, segs: filters, look: lookParam };
-  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => withSort(studentsHref({ ...here, ...query }), serverSort);
+  const hrefFor = (query: Parameters<typeof studentsHref>[0]) => {
+    const href=withSort(studentsHref({ ...here, ...query }), serverSort);
+    return props.taskAssignment?.missing ? `${href}${href.includes("?")?"&":"?"}missing=${encodeURIComponent(props.taskAssignment.missing)}` : href;
+  };
   const returnTo = hrefFor({ page: props.window.page });
   // By class reads in class order: the server's across pages, this page's own otherwise.
   const rows = layout === "class" ? sortStudentRows(props.rows, { key: "class", dir: 1 }) : onePage ? sortStudentRows(props.rows, sort) : props.rows;
@@ -505,7 +513,7 @@ export function StudentsScreen(props: StudentsProps) {
     return (
       <span role="cell" style={{ minWidth: 0 }}>
         <span className="stu-name">
-          <span className="stu-ava" style={{ background: bg, color: fg }} aria-hidden="true">{initials(row.name)}</span>
+          <span className="stu-ava" style={{ background: bg, color: fg }} aria-hidden="true">{row.photoUrl ? <PrivatePhoto src={row.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(row.name)}</span>
           <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
             <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" className="stu-link">
               <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{row.name}</span>
@@ -610,7 +618,7 @@ export function StudentsScreen(props: StudentsProps) {
     return (
       <div key={row.id} className="hs stu-swipe rise" style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}>
         <IntentLink href={studentProfileHref(row.id, returnTo)} data-row-link="" aria-label={row.name} className="tap card stu-mcard">
-          <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{initials(row.name)}</span>
+          <span className="stu-ava" style={{ width: 46, height: 46, borderRadius: 23, fontSize: 15, background: bg, color: fg }} aria-hidden="true">{row.photoUrl ? <PrivatePhoto src={row.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(row.name)}</span>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
             <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{row.name}</span>
             <span className="clip" style={{ fontSize: 13, color: "var(--mut)" }}>{meta}</span>
@@ -683,6 +691,7 @@ export function StudentsScreen(props: StudentsProps) {
   const activeCount = (props.classId ? 1 : 0) + filters.length;
   const hidden = (
     <>
+      {props.taskAssignment?.missing ? <input type="hidden" name="missing" value={props.taskAssignment.missing}/> : null}
       {props.classId ? <input type="hidden" name="class" value={props.classId} /> : null}
       {viewParam ? <input type="hidden" name="view" value={viewParam} /> : null}
       {filters.length ? <input type="hidden" name="seg" value={filters.join(",")} /> : null}
@@ -742,6 +751,10 @@ export function StudentsScreen(props: StudentsProps) {
         />
       </div>
       <div className="vx-pmain stu">
+        {props.taskAssignment && <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">
+          <label className="text-sm">{tx(ms.taskMissing)} <select className="rounded-lg border border-border bg-background p-2" value={props.taskAssignment.missing} onChange={e=>{const url=new URL(location.href);if(e.target.value)url.searchParams.set("missing",e.target.value);else url.searchParams.delete("missing");url.searchParams.delete("page");router.push(url.pathname+url.search);}}><option value="">{tx(ms.taskAll)}</option><option value="photo">{tx(ms.taskNoPhoto)}</option>{props.taskAssignment.fields.map(f=><option key={f.key} value={f.key}>{tx(f)}</option>)}</select></label>
+          <AssignmentLauncher language={language} selectedIds={picked.size?[...picked]:props.taskAssignment.matchingIds} initialMissing={props.taskAssignment.missing}/>
+        </div>}
         {/* Phone: the design's own header, not a top bar (F05). */}
         <header className="only-m glass stu-mhead">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>

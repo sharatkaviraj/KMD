@@ -1,3 +1,6 @@
+import { photoReviews } from "@/modules/collection/data/photo-review";
+import { PhotoReview } from "@/modules/collection/ui/photo-review";
+import { photoMessages } from "@/messages/setup";
 import { TriangleAlert } from "lucide-react";
 
 import { m } from "@/messages";
@@ -50,6 +53,7 @@ export default async function ReviewPage() {
   const staff = await requirePermission("collection:view", "/collection/review");
   const language = staff.language;
   const mayDecide = can(staff, "collection:manage");
+  const mayReviewTask = staff.role === "admin";
 
   const [submissions, fields, owners] = await Promise.all([
     listSubmissions("pending"),
@@ -57,13 +61,19 @@ export default async function ReviewPage() {
     phoneOwners(),
   ]);
 
+  const portraits = await photoReviews(submissions);
   const byId = new Map(fields.map((field) => [field.id, field]));
   const { changes, confirmations } = splitByChange(
-    [...submissions].sort(byReviewOrder),
+    submissions.filter(s => s.fieldKey !== "student_photo").sort(byReviewOrder),
   );
+  const decidableConfirmations=confirmations.filter(e=>!e.requiresAdmin||mayReviewTask);
+  const decidableChanges=changes.filter(e=>!e.requiresAdmin||mayReviewTask);
 
   return (
     <>
+      {!mayReviewTask && submissions.some(s => s.requiresAdmin) && (
+        <p role="status" className="rounded-xl border border-border p-3">{primary(m.taskApprovalNote, language)}</p>
+      )}
       <PageHeader eyebrow={m.eyebrowSampark}
         title={m.reviewTitle}
         language={language}
@@ -78,6 +88,8 @@ export default async function ReviewPage() {
       {submissions.length === 0 ? (
         <EmptyState title={m.reviewNone} language={language} />
       ) : null}
+
+      {portraits.length > 0 ? <Section title={photoMessages.review} language={language}><div className="grid gap-3 sm:grid-cols-2">{portraits.map(p => <PhotoReview key={p.proposalId} {...p} language={language} />)}</div></Section> : null}
 
       {/* -------------------------------------------- the confirmations */}
 
@@ -105,9 +117,9 @@ export default async function ReviewPage() {
               ) : null}
             </ul>
 
-            {mayDecide ? (
+            {mayDecide && decidableConfirmations.length > 0 ? (
               <DecideForm
-                submissionIds={confirmations.map((entry) => entry.id)}
+                submissionIds={decidableConfirmations.map((entry) => entry.id)}
                 accept
                 label={m.reviewAcceptAll}
               />
@@ -121,9 +133,9 @@ export default async function ReviewPage() {
       {changes.length > 0 ? (
         <Section className="mt-8" title={m.reviewChanges} language={language}>
           {/* Several changes decided together, only the ticked ones (D-263). */}
-          {mayDecide && changes.length > 1 ? (
+          {mayDecide && decidableChanges.length > 1 ? (
             <BulkDecide
-              rows={changes.map((entry) => ({
+              rows={decidableChanges.map((entry) => ({
                 id: entry.id,
                 studentName: entry.studentName,
                 classLabel: entry.classLabel,
@@ -219,7 +231,7 @@ export default async function ReviewPage() {
                       </p>
                     ) : null}
 
-                    {mayDecide ? (
+                    {mayDecide && (!entry.requiresAdmin || mayReviewTask) ? (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {/* An older answer with a newer one waiting is only
                             rejected; one about a value that moved is accepted

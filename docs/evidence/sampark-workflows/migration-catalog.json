@@ -1,0 +1,467 @@
+{
+  "engine": "PostgreSQL 18.6 (PGlite 0.5.10) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.5 (1db513782be24469589d7cb8a1f1834e9a33f271), 32-bit",
+  "target": "wtgxcptmucjerhufzjcf",
+  "excluded": "vgqyilgstjvgohrsiwkb",
+  "appliedRemotely": false,
+  "migrations": [
+    {
+      "file": "20261016070000_teacher_tasks.sql",
+      "sha256": "5d39c31a0761af0a9ab64ac9376015ccb1900fcf75df750f29da94cca56b0b32",
+      "functions": [
+        {
+          "name": "create_teacher_tasks",
+          "arguments": "p_actor uuid, p_preview uuid, p_digest text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "delegate_teacher_task_list",
+          "arguments": "p_actor uuid, p_id uuid, p_teacher uuid",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "guard_teacher_task_review",
+          "arguments": "",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres}"
+        },
+        {
+          "name": "manage_teacher_task",
+          "arguments": "p_actor uuid, p_id uuid, p_teacher uuid",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "prepare_teacher_tasks",
+          "arguments": "p_actor uuid, p jsonb",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "record_collection_answers",
+          "arguments": "p_request uuid, p_token text, p_answers jsonb",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "restart_teacher_task",
+          "arguments": "p_actor uuid, p_id uuid",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "save_teacher_task",
+          "arguments": "p_id uuid, p_staff uuid, p_token text, p jsonb",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "teacher_task_access",
+          "arguments": "p_id uuid, p_staff uuid, p_token text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "teacher_task_owner",
+          "arguments": "p_staff uuid, p_session text, p_scope jsonb, p_kind text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        }
+      ]
+    },
+    {
+      "file": "20261016080000_profile_photos.sql",
+      "sha256": "fba3175a0f69e61c56cf90900ac43d61775c879d591982034d53cb8c56bd57ba",
+      "functions": [
+        {
+          "name": "ensure_student_photo_task",
+          "arguments": "p_actor uuid, p_student uuid, p_session text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "guard_photo_answer",
+          "arguments": "",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres}"
+        },
+        {
+          "name": "review_student_photo",
+          "arguments": "p_actor uuid, p_proposal uuid, p_accept boolean",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "save_staff_photo",
+          "arguments": "p_actor uuid, p_staff uuid, p jsonb",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "submit_student_photo",
+          "arguments": "p_request uuid, p_token text, p jsonb",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        }
+      ]
+    },
+    {
+      "file": "20261016090000_teacher_task_delivery.sql",
+      "sha256": "a8567aa9a513db58059084bc73d351533e8ccc2bb013733c18b5c3c0edeb71eb",
+      "functions": [
+        {
+          "name": "claim_teacher_task_delivery",
+          "arguments": "p_actor uuid, p_id uuid, p_attempt text, p_transport text, p_manual boolean",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "finish_teacher_task_delivery",
+          "arguments": "p_actor uuid, p_id uuid, p_attempt text, p_outcome text, p_receipt text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "guard_teacher_task_delivery",
+          "arguments": "",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres}"
+        },
+        {
+          "name": "mark_teacher_task_opened",
+          "arguments": "p_id uuid, p_staff uuid, p_token text, p_request_token text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "prepare_teacher_task_delivery",
+          "arguments": "p_actor uuid, p_task uuid, p_kind text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "queue_teacher_task_delivery",
+          "arguments": "p_actor uuid, p_preview uuid, p_digest text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "reconcile_teacher_task_delivery",
+          "arguments": "p_actor uuid, p_id uuid, p_attempt text, p_resolution text, p_note text",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "teacher_task_delivery_snapshot",
+          "arguments": "p_id uuid",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres}"
+        },
+        {
+          "name": "teacher_task_delivery_summary",
+          "arguments": "p_actor uuid, p_task uuid",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        },
+        {
+          "name": "teacher_task_has_unknown_delivery",
+          "arguments": "p_task uuid",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres}"
+        },
+        {
+          "name": "teacher_task_share_link",
+          "arguments": "p_actor uuid, p_task uuid",
+          "security_definer": true,
+          "configuration": [
+            "search_path=\"\""
+          ],
+          "acl": "{postgres=X/postgres,service_role=X/postgres}"
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "relname": "photo_proposals",
+      "relrowsecurity": true,
+      "relacl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres}"
+    },
+    {
+      "relname": "staff_photos",
+      "relrowsecurity": true,
+      "relacl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres}"
+    },
+    {
+      "relname": "teacher_task_previews",
+      "relrowsecurity": true,
+      "relacl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres}"
+    },
+    {
+      "relname": "teacher_tasks",
+      "relrowsecurity": true,
+      "relacl": "{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres}"
+    }
+  ],
+  "indexes": [
+    {
+      "tablename": "message_sends",
+      "indexname": "message_sends_task_round",
+      "indexdef": "CREATE UNIQUE INDEX message_sends_task_round ON vppsone.message_sends USING btree (task_id, ((task_snapshot ->> 'version'::text)), task_round) WHERE (task_id IS NOT NULL)"
+    },
+    {
+      "tablename": "photo_proposals",
+      "indexname": "photo_proposals_pkey",
+      "indexdef": "CREATE UNIQUE INDEX photo_proposals_pkey ON vppsone.photo_proposals USING btree (command_id)"
+    },
+    {
+      "tablename": "photo_proposals",
+      "indexname": "photo_proposals_request",
+      "indexdef": "CREATE INDEX photo_proposals_request ON vppsone.photo_proposals USING btree (request_id, student_id)"
+    },
+    {
+      "tablename": "staff_photos",
+      "indexname": "staff_photos_current",
+      "indexdef": "CREATE UNIQUE INDEX staff_photos_current ON vppsone.staff_photos USING btree (staff_id) WHERE (replaced_at IS NULL)"
+    },
+    {
+      "tablename": "staff_photos",
+      "indexname": "staff_photos_pkey",
+      "indexdef": "CREATE UNIQUE INDEX staff_photos_pkey ON vppsone.staff_photos USING btree (command_id)"
+    },
+    {
+      "tablename": "teacher_task_previews",
+      "indexname": "teacher_task_previews_pkey",
+      "indexdef": "CREATE UNIQUE INDEX teacher_task_previews_pkey ON vppsone.teacher_task_previews USING btree (id)"
+    },
+    {
+      "tablename": "teacher_tasks",
+      "indexname": "teacher_tasks_assignee",
+      "indexdef": "CREATE INDEX teacher_tasks_assignee ON vppsone.teacher_tasks USING btree (session_label, assigned_staff_id)"
+    },
+    {
+      "tablename": "teacher_tasks",
+      "indexname": "teacher_tasks_current_source",
+      "indexdef": "CREATE UNIQUE INDEX teacher_tasks_current_source ON vppsone.teacher_tasks USING btree (source_key) WHERE (revoked_at IS NULL)"
+    },
+    {
+      "tablename": "teacher_tasks",
+      "indexname": "teacher_tasks_pkey",
+      "indexdef": "CREATE UNIQUE INDEX teacher_tasks_pkey ON vppsone.teacher_tasks USING btree (id)"
+    },
+    {
+      "tablename": "teacher_tasks",
+      "indexname": "teacher_tasks_request_id_key",
+      "indexdef": "CREATE UNIQUE INDEX teacher_tasks_request_id_key ON vppsone.teacher_tasks USING btree (request_id)"
+    },
+    {
+      "tablename": "teacher_tasks",
+      "indexname": "teacher_tasks_token_key",
+      "indexdef": "CREATE UNIQUE INDEX teacher_tasks_token_key ON vppsone.teacher_tasks USING btree (token)"
+    }
+  ],
+  "triggers": [
+    {
+      "tgname": "photo_answer_bound",
+      "definition": "CREATE TRIGGER photo_answer_bound BEFORE INSERT OR UPDATE ON vppsone.collection_submissions FOR EACH ROW EXECUTE FUNCTION vppsone.guard_photo_answer()"
+    },
+    {
+      "tgname": "teacher_task_delivery_guard",
+      "definition": "CREATE TRIGGER teacher_task_delivery_guard BEFORE INSERT OR UPDATE ON vppsone.message_sends FOR EACH ROW EXECUTE FUNCTION vppsone.guard_teacher_task_delivery()"
+    },
+    {
+      "tgname": "teacher_task_review_admin",
+      "definition": "CREATE TRIGGER teacher_task_review_admin BEFORE INSERT OR UPDATE ON vppsone.collection_submissions FOR EACH ROW EXECUTE FUNCTION vppsone.guard_teacher_task_review()"
+    }
+  ],
+  "policies": [
+    {
+      "schemaname": "vppsone",
+      "tablename": "message_sends",
+      "policyname": "message_sends_task_private",
+      "permissive": "RESTRICTIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(task_id IS NULL)",
+      "with_check": null
+    }
+  ],
+  "messageColumns": [
+    {
+      "column_name": "task_id",
+      "data_type": "uuid",
+      "column_default": null,
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "task_snapshot",
+      "data_type": "jsonb",
+      "column_default": null,
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "task_round",
+      "data_type": "text",
+      "column_default": null,
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "task_delivery_state",
+      "data_type": "text",
+      "column_default": null,
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "task_transport",
+      "data_type": "text",
+      "column_default": null,
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "task_history",
+      "data_type": "jsonb",
+      "column_default": "'[]'::jsonb",
+      "is_nullable": "NO"
+    }
+  ],
+  "taskContracts": [
+    {
+      "code": "vppsone_teacher_task_both_v1",
+      "variables": [
+        "teacher",
+        "task",
+        "due"
+      ],
+      "has_url_button": true,
+      "is_active": true
+    },
+    {
+      "code": "vppsone_teacher_task_en_v1",
+      "variables": [
+        "teacher",
+        "task",
+        "due"
+      ],
+      "has_url_button": true,
+      "is_active": true
+    },
+    {
+      "code": "vppsone_teacher_task_hi_v1",
+      "variables": [
+        "teacher",
+        "task",
+        "due"
+      ],
+      "has_url_button": true,
+      "is_active": true
+    },
+    {
+      "code": "vppsone_teacher_task_reminder_both_v1",
+      "variables": [
+        "teacher",
+        "task",
+        "due"
+      ],
+      "has_url_button": true,
+      "is_active": true
+    },
+    {
+      "code": "vppsone_teacher_task_reminder_en_v1",
+      "variables": [
+        "teacher",
+        "task",
+        "due"
+      ],
+      "has_url_button": true,
+      "is_active": true
+    },
+    {
+      "code": "vppsone_teacher_task_reminder_hi_v1",
+      "variables": [
+        "teacher",
+        "task",
+        "due"
+      ],
+      "has_url_button": true,
+      "is_active": true
+    }
+  ]
+}

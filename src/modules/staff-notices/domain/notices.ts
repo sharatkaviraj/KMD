@@ -149,6 +149,8 @@ export function classifyResponse(status: number, body: unknown): TransportOutcom
   }
 
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  // AiSensy can refuse a campaign/parameter mismatch inside HTTP 200.
+  if (record.error) return { outcome: "rejected", status, error: "The provider refused the campaign request" };
   const id = record.submitted_message_id ?? record.messageId ?? record.message_id;
   if (typeof id === "string" && id.trim()) {
     return { outcome: "accepted", providerMessageId: id.trim(), status };

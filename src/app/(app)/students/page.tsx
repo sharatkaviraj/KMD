@@ -1,3 +1,4 @@
+import { approvedStudentPhotos } from "@/modules/collection/data/approved-photos";
 import { cookies } from "next/headers";
 
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -28,6 +29,9 @@ import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
+import { assignmentContext } from "@/modules/teacher-tasks/data/assignment";
+import { listFieldsPublic } from "@/modules/collection/data/fields-repo";
+import { missingDirectoryPage } from "@/modules/teacher-tasks/data/missing-directory";
 
 export const runtime = "nodejs";
 
@@ -65,6 +69,10 @@ export default async function StudentsPage(props: PageProps<"/students">) {
   const page = resolvePage(one(params.page));
   const sort = parseStudentSort(one(params.sort), one(params.dir));
   const directorySession = await resolveSessionLabel();
+  const canAssignTasks = can(staff,"collection:manage");
+  const taskFields = canAssignTasks ? (await listFieldsPublic()).filter(f=>f.isActive) : [];
+  const askedMissing = one(params.missing) ?? "";
+  const missing = canAssignTasks && (askedMissing === "photo" || taskFields.some(f=>f.key===askedMissing)) ? askedMissing : "";
 
   if (!directorySession) {
     return (
@@ -115,12 +123,19 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     !classParam && q ? classFromQuery(q, [...((await labelsRead) ?? new Map<string, string>()).entries()].map(([id, label]) => ({ id, label }))) : null;
   const classId = classParam ?? typedClass?.id ?? null;
   const text = typedClass ? "" : q;
+  const missingIds = missing
+    ? new Set((await assignmentContext()).students.filter(s => missing === "photo" ? !s.hasPhoto : !s.values[missing]).map(s => s.id))
+    : null;
+  let taskMatchingIds: string[] | null = null;
 
   if (moneySession) {
     try {
       // Grouped by class, the list is read in class order so a class's children sit together across pages.
       const byClass = sort.key === "class" || layout === "class";
-      const list = await studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name" });
+      const read = (page: number) => studentMoneyList({ query: text, classId: classId ?? "", filters, page, pageSize: PAGE_SIZE, sessionLabel: moneySession, sort: byClass ? "class" : "name" });
+      const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.id, page) : null;
+      const list = filtered ?? await read(page);
+      taskMatchingIds = filtered?.matchingIds ?? null;
       rows = list.rows.map((row) => {
         const route = row.routeLabel && row.routeLabel !== "No Transport" ? row.routeLabel : null;
         return {
@@ -138,20 +153,26 @@ export default async function StudentsPage(props: PageProps<"/students">) {
       });
       total = list.total;
       // On the All list the chip counts what the list holds, so "All 510" never sits over "1–50 of 538" (school-day run B11).
-      counts = filters.length === 0 ? { ...list.counts, all: list.total } : list.counts;
+      counts = filters.length === 0 ? { ...list.counts, all: filtered?.sourceTotal ?? list.total } : list.counts;
       session = list.sessionLabel;
       moneyMode = true;
-    } catch {
+    } catch (error) {
+      // A failed fee query must not broaden a reviewed missing-field selection.
+      if (missingIds) throw error;
       failed = true;
     }
   }
 
   let directoryLabels: Map<string, string> | null = null;
   if (!moneyMode) {
+    if (missingIds && seesMoney && !moneySession) throw new Error("directory_unavailable");
+    const read = (page: number) => searchStudents({ text, classId, page }, directorySession);
+    const filtered = missingIds ? await missingDirectoryPage(read, missingIds, row => row.studentId, page) : null;
     const [labels, results] = await Promise.all([
       moneySession ? classLabelMap(directorySession) : labelsRead.then((l) => l ?? classLabelMap(directorySession)),
-      searchStudents({ text, classId, page }, directorySession),
+      filtered ?? read(page),
     ]);
+    taskMatchingIds = filtered?.matchingIds ?? null;
     directoryLabels = labels;
     rows = results.rows.map((row) => ({
       id: row.studentId,
@@ -183,6 +204,8 @@ export default async function StudentsPage(props: PageProps<"/students">) {
     row.classOrder = classOrder.get(row.classLabel);
   }
 
+  const portraits = await approvedStudentPhotos(ids).catch(() => new Map<string,string>());
+  for (const row of rows) row.photoUrl = portraits.get(row.id) ?? null;
   const window = pageWindow(page, total);
 
   return (
@@ -210,6 +233,7 @@ export default async function StudentsPage(props: PageProps<"/students">) {
         canRemind={seesMoney}
         quick={quickActionsFor((p) => can(staff, p))}
         failed={failed}
+        taskAssignment={canAssignTasks?{matchingIds:taskMatchingIds??ids,missing,fields:taskFields.map(f=>({key:f.key,hi:f.labelHi,en:f.labelEn}))}:undefined}
       />
     </VxPage>
   );

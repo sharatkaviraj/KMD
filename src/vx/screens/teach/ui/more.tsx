@@ -1,6 +1,9 @@
 "use client";
 
+import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
+import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
+import { m } from "@/messages";
 import { useRouter } from "next/navigation";
 import { useSyncExternalStore, useState, useTransition, type ReactNode } from "react";
 import { useTheme } from "next-themes";
@@ -165,7 +168,7 @@ export function TeachMore({
     </button>
   );
   const me = (size: number, font: number, extra?: React.CSSProperties) => (
-    <span className="tc-av serif" style={{ width: size, height: size, fontSize: font, background: "#F6D9A8", color: "#082F49", ...extra }}>{initials(data.profile.name)}</span>
+    <span className="tc-av serif" style={{ width: size, height: size, fontSize: font, background: "#F6D9A8", color: "#082F49", ...extra }}>{data.profile.photoUrl ? <PrivatePhoto src={data.profile.photoUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(data.profile.name)}</span>
   );
 
   /* ---------------------------------------------------- menu */
@@ -627,6 +630,7 @@ export function TeachMore({
   );
   const profileView = (
     <div className="tc-scr" style={{ maxWidth: 760 }}>
+      <ProfilePhotoControl credential={{kind:"staff"}} language={language} />
       <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, padding: 20 }}>
         {me(72, 24, { animation: "xPopIn .45s var(--spring) both" })}
         <span style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -701,6 +705,7 @@ export function TeachMore({
         }
       />
       <main>
+        <Link href="/teach/tasks" className="mx-4 my-3 block rounded-xl border border-border bg-card p-4 font-semibold text-primary">{tx(m.teacherTasks)}</Link>
         {current === "menu" ? menu : current === "news" ? newsView : current === "links" ? linksView : current === "timetable" ? ttView : current === "leave" ? leaveView : current === "help" ? helpView : profileView}
       </main>
       <LeaveChipsSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} coverFor={coverFor} />

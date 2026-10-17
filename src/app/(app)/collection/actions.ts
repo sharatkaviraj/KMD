@@ -42,7 +42,7 @@ import {
 } from "@/modules/collection/domain/requests";
 import { decideSchema, decisionSentence } from "@/modules/collection/domain/review";
 import { assertNotPreviewing } from "@/vx/view-as";
-import { needsProviderReconciliation } from "@/modules/collection/domain/messages";
+import { needsProviderReconciliation, isGenericMessageTemplate } from "@/modules/collection/domain/messages";
 import {
   checkDocument,
   documentKinds,
@@ -213,6 +213,7 @@ export async function decideSubmissionsAction(
   formData: FormData,
 ): Promise<CollectionState> {
   const actor = await assertPermission("collection:manage");
+  if (actor.role !== "admin") return failure(m.accessDenied);
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return failure(m.noSessionFound);
@@ -382,7 +383,7 @@ export async function queueMessageAction(
   const template = (await listTemplates()).find(
     (entry) => entry.id === parsed.data.templateId,
   );
-  if (!template) return failure(m.notSaved);
+  if (!template || !isGenericMessageTemplate(template)) return failure(m.notSaved);
 
   // A number somebody reported as wrong takes no new parent message until an
   // administrator clears it (P9, D-232). Staff messages are not routed by it.
@@ -491,6 +492,7 @@ export async function approveParentMessageAction(
   const id = (formData.get("id") ?? "").toString();
   const send = id ? await getSend(id) : null;
   if (!send || send.audience !== "parent") return { status: "error", message: m.notFound };
+  if (send.taskId) return { status: "error", message: ms.taskPreview };
   if (send.status === "sent" || send.status === "cancelled") return { status: "error", message: ms.messagesAlreadyClosed };
 
   const { reasons } = await staleness(send);

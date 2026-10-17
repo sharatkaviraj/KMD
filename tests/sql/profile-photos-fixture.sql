@@ -1,0 +1,10 @@
+create schema storage; create table storage.buckets(id text primary key,name text,public boolean,file_size_limit integer,allowed_mime_types text[]);
+create function vppsone.staff_can_any(text[]) returns boolean language sql as $$select true$$;
+create function vppsone.reads_every_class() returns boolean language sql as $$select true$$;
+create table vppsone.record_commands(command_id uuid primary key,kind text,actor_staff_id uuid,payload_hash text,receipt jsonb,constraint record_commands_kind check(kind in('accept','reject','import','resolve')));
+create unique index on vppsone.collection_fields(key);
+alter table vppsone.collection_fields alter column id set default gen_random_uuid();
+alter table vppsone.collection_fields add column label_hi text,add column label_en text,add column input_type text,add column mode text,add column sort_order integer;
+alter table vppsone.collection_submissions add column decided_at timestamptz,add column decision_note text;
+create type vppsone.submission_status as enum('pending','accepted','rejected');
+alter table vppsone.collection_submissions alter column status type vppsone.submission_status using status::vppsone.submission_status;

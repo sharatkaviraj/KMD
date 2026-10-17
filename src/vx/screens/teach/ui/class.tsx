@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
+import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -331,7 +333,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
           {needs.length === 0 ? <span className="tc-s" style={{ padding: "6px" }}>{tx(p("Everyone is doing fine.", "सब ठीक चल रहे हैं।"))}</span> : null}
           {needs.map((c, i) => (
             <Link key={c.id} href={kidHref(c.id)} className="tap row tc-in" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 6px", borderRadius: 12, borderTop: i ? "1px solid var(--bd)" : 0, color: "var(--fg)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
-              <span className="tc-av" style={{ width: 44, height: 44, fontSize: 13, background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{initials(c.name)}</span>
+              <span className="tc-av" style={{ width: 44, height: 44, fontSize: 13, background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span>
               <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{c.name} {c.rollNo ? <span className="tc-s num">· {tx(p(`Roll ${c.rollNo}`, `रोल ${c.rollNo}`))}</span> : null}</span>
                 <span style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{why(c).map((w) => <span key={w.label} className="pill" style={{ background: w.t[0], color: w.t[1] }}>{w.label}</span>)}</span>
@@ -401,7 +403,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
               <span className="pill num" style={{ background: "var(--s2)", color: "var(--mut)" }}>{tx(p(`Roll ${c.rollNo ?? "—"}`, `रोल ${c.rollNo ?? "—"}`))}</span>
               <span className="num" style={{ fontSize: 12, fontWeight: 700, color: ringColor(c.attendancePct) }}>{c.attendancePct === null ? "—" : `${Math.round(c.attendancePct)}%`}</span>
             </span>
-            <Ring pct={c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{initials(c.name)}</span></Ring>
+            <Ring pct={c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{c.name}</span>
             {badges(c, true)}
           </Link>
@@ -411,7 +413,7 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
         {shown.map((c, i) => (
           <Link key={c.id} href={kidHref(c.id)} className="tap row tc-in" style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 76, padding: "10px 14px", borderTop: i ? "1px solid var(--bd)" : 0, color: "var(--fg)", animationDelay: `${Math.min(i, 14) * 30}ms` }}>
             <span className="num tc-s" style={{ flex: "none", width: 22, textAlign: "center", fontWeight: 700 }}>{c.rollNo ?? ""}</span>
-            <Ring pct={c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{initials(c.name)}</span></Ring>
+            <Ring pct={c.attendancePct}><span className="tc-av" style={{ background: tone(c.rollNo ?? i)[0], color: tone(c.rollNo ?? i)[1] }}>{c.photoUrl ? <PrivatePhoto src={c.photoUrl} alt="" loading="lazy" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(c.name)}</span></Ring>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               <span className="tc-el" style={{ fontSize: 16, fontWeight: 600 }}>{c.name}</span>
               <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
@@ -604,7 +606,7 @@ function masked(raw: string | null | undefined): string {
 }
 
 export function TeachStudent({ data, initialTab, back }: { data: StudentData; initialTab: Tab; back: string }) {
-  const { tx, sub } = useVx();
+  const { tx, sub, language } = useVx();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [help, setHelp] = useState(false);
   const phone = phoneLinks(data.phone);
@@ -664,9 +666,10 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
       <main>
         <div className="pad stack" style={{ padding: "18px 28px 40px", display: "grid", gridTemplateColumns: "minmax(0, 360px) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
           <div className="tc-cc">
+            {data.canEditPhoto && <div style={{order:0}}><ProfilePhotoControl credential={{kind:"student",id:data.id}} language={language} /></div>}
             <div className="card rise tc-hdr" style={{ order: 1, display: "flex", padding: 20, gap: 16 }}>
               <Ring pct={pct} size={96}>
-                <span className="tc-av serif" style={{ top: 11, left: 11, width: 74, height: 74, fontSize: 26, background: tone(data.rollNo ?? 1)[0], color: tone(data.rollNo ?? 1)[1] }}>{initials(data.name)}</span>
+                <span className="tc-av serif" style={{ top: 11, left: 11, width: 74, height: 74, fontSize: 26, background: tone(data.rollNo ?? 1)[0], color: tone(data.rollNo ?? 1)[1] }}>{data.photoUrl ? <PrivatePhoto src={data.photoUrl} alt="" style={{width:"100%",height:"100%",borderRadius:"inherit",objectFit:"cover"}} /> : initials(data.name)}</span>
               </Ring>
               <span className="tc-hdc" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                 <span className="serif" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.15 }}>{data.name}</span>

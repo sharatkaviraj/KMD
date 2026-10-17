@@ -114,7 +114,7 @@ export const photoAmbiguityLabels: Record<PhotoAmbiguity, Localized> = {
 };
 
 /** The largest side, in pixels, a photograph is stored at. A face on a card needs no more. */
-export const PHOTO_MAX_SIDE = 800;
+export const PHOTO_MAX_SIDE = 600;
 /** Refused above this, before or after shrinking. */
-export const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+export const PHOTO_MAX_BYTES = 200 * 1024;
 export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;

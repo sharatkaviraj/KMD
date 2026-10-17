@@ -1,4 +1,5 @@
 import "server-only";
+import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { schoolNow } from "@/platform/auth/qa-clock";
@@ -109,6 +110,7 @@ export async function staffNotices(staffId: string, sessionLabel: string, limit 
 /* ----------------------------------------------------- one class, in depth */
 
 export type ChildRow = {
+  photoUrl?: string | null;
   id: string;
   name: string;
   rollNo: string | null;
@@ -206,6 +208,7 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
     return {
       id: r.studentId,
       name: r.fullName,
+      photoUrl: b?.photoPath ?? null,
       rollNo: r.rollNo,
       dateOfBirth: b?.dateOfBirth ?? null,
       gender: b?.gender ?? null,
@@ -747,9 +750,12 @@ export async function loadStudent(staff: CurrentStaff, studentId: string) {
       pct: m && m.value !== null && paper.maxMarks ? Math.round((m.value / paper.maxMarks) * 100) : null,
     };
   });
+  const photoHeld = await heldClassIds(staff.id, sessionLabel);
   return {
     id: studentId,
     name: card.fullName,
+    ...({canEditPhoto: photoHeld.includes(placement.classId)} as {canEditPhoto?: boolean}),
+    ...({photoUrl: basics.get(studentId)?.photoPath ?? null} as {photoUrl?: string | null}),
     admissionNo: card.admissionNo,
     rollNo: placement.rollNo,
     classId: placement.classId,
@@ -878,6 +884,7 @@ export async function loadMore(staff: CurrentStaff) {
   ]);
   const week = mergeCombinedSlots([...slots].sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0)));
 
+  const portrait = await approvedStaffPhotos([staff.id]).catch(() => new Map<string,string>());
   const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
   return {
     sessionLabel,
@@ -888,6 +895,7 @@ export async function loadMore(staff: CurrentStaff) {
     periodTimes: schedule.periods.map((p) => ({ number: periodNumber(p.index), starts: p.starts, ends: p.ends })),
     profile: {
       name: staff.displayName,
+      ...({photoUrl: portrait.get(staff.id) ?? null} as {photoUrl?: string | null}),
       email: staff.email,
       role: staff.role,
       classes: own.map((id) => ({ classId: id, classLabel: labels.get(id) ?? "—", held: held.includes(id) })).sort((a, b) => Number(b.held) - Number(a.held)),

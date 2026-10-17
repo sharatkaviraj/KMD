@@ -6,6 +6,9 @@ import { TimetableScreen, type TimetableState } from "@/vx/screens/timetable/tim
 import type { TimetableData } from "@/vx/screens/timetable/data";
 import "../../src/app/globals.css";
 import "../../src/vx/vx.css";
+// Command assertions exercise touch dispatch, not scroll animation. CI trace
+// showed smooth scrolling moving Release between pointer-down and pointer-up.
+document.documentElement.style.scrollBehavior = "auto";
 const requestedRole = new URLSearchParams(location.search).get("role");
 if (requestedRole) sessionStorage.setItem("qa-academic-role", requestedRole);
 const requestedMode = new URLSearchParams(location.search).get('uncertain');
