@@ -26,28 +26,30 @@ type VppsClient = Awaited<ReturnType<typeof createClient>>;
 export async function admitSignedInUser(
   supabase: VppsClient,
   userId: string,
+  options?: { signOutScope: "local"; expectedStaffProfileId: string },
 ): Promise<
   | { ok: true; staff: { role: StaffRole; preferredStart: string | null } }
   | { ok: false; message: Localized }
 > {
   const { data: profile } = await supabase
     .from("staff_profiles")
-    .select("role, is_active, preferred_language, preferred_start")
+    .select("id, role, is_active, preferred_language, preferred_start")
     .eq("user_id", userId)
     .maybeSingle<{
+      id: string;
       role: string | null;
       is_active: boolean;
       preferred_language: string | null;
       preferred_start: string | null;
     }>();
 
-  if (!profile) {
-    await supabase.auth.signOut();
+  if (!profile || (options && profile.id !== options.expectedStaffProfileId)) {
+    await supabase.auth.signOut(options ? { scope: options.signOutScope } : undefined);
     return { ok: false, message: m.noProfileAskAdmin };
   }
 
   if (!profile.is_active) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut(options ? { scope: options.signOutScope } : undefined);
     return { ok: false, message: m.accountInactiveAskAdmin };
   }
 

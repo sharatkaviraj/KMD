@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
+import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
 import { hasRequiredEnvVars } from "@/platform/env";
 import { resolveLanguage, type Language } from "@/platform/i18n/language";
 import { createClient } from "@/platform/supabase/server";
@@ -100,6 +101,14 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
 
   if (claimsError || !userId) {
     return { staff: null, reason: "signed-out" };
+  }
+
+  // Only the six existing QA identities incur this lease check. Normal staff
+  // keep the exact existing path. A missing/error lease service fails closed;
+  // the database returns true for pre-existing non-launcher QA sessions.
+  if (DAYRUN.aliases.some(alias => accountForAlias(alias)?.userId === userId)) {
+    const { data: allowed, error } = await supabase.rpc("qa_dayrun_access_allowed");
+    if (error || allowed !== true) return { staff: null, reason: "inactive" };
   }
 
   // Through the cookie client, so RLS applies: the SELECT policy on

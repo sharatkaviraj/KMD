@@ -144,3 +144,10 @@ export function idsTravelBetween(
 ): boolean {
   return from === to;
 }
+
+/** Same approved production deployment, verified through Vercel and browser UI
+ * 2026-10-18. Fixed overnight QA pairing only; not a sibling application. */
+export const DAYRUN_ORIGINS = {
+  owner: "https://vppsone.vercel.app",
+  role: "https://vppsone-veerpattas-projects.vercel.app",
+} as const;
