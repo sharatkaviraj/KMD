@@ -38,7 +38,21 @@ export type LiveBalanceRow = {
   planPriority: number;
 };
 
-const whole = (n: number) => Math.max(0, Math.trunc(Number.isFinite(n) ? n : 0));
+// Exact, never truncated: the snapshot path keeps paise, so the live one does too.
+const whole = (n: number) => Math.max(0, Number.isFinite(n) ? n : 0);
+
+/**
+ * Whether an empty live ledger can be believed (review of B07). The live RPC
+ * returns only rows still owing, so "nothing" is right when this payment
+ * cleared the child — and wrong when dues were never prepared or the scope
+ * differs. The receipt's own "still owed after this receipt", written in the
+ * same transaction, tells them apart: if it says money is still owed, an
+ * empty read is not the balance now.
+ */
+export function emptyLiveIsBelievable(liveRowCount: number, owedAtReceipt: number | null): boolean {
+  if (liveRowCount > 0) return true;
+  return owedAtReceipt !== null && owedAtReceipt <= 0;
+}
 
 function lateFeeStatusOf(pending: number, raw: number, waived: number): DeskLedgerRow["lateFeeStatus"] {
   if (pending > 0) return "pending";

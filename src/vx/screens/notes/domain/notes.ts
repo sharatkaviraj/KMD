@@ -506,7 +506,9 @@ export function planSourceRefusal(
 }
 
 /** Who reads a plan made from this note, as the plan screens say it before it starts. */
-export function planReaders(note: Pick<BoardNote, "tags">, names: { classTeacher: string | null; admin: string | null }): Pair {
+export function planReaders(note: Pick<BoardNote, "tags"> & { visibility?: Visibility }, names: { classTeacher: string | null; admin: string | null }): Pair {
+  // An Only me health or family note's plan is its author's alone (visiblePlans).
+  if (note.visibility === "private" && isSensitiveNote(note)) return p("Only you", "सिर्फ़ आप");
   const ct = names.classTeacher ? ` (${names.classTeacher})` : "";
   if (isSensitiveNote(note)) return p(`You, the class teacher${ct} and the admin`, `आप, कक्षा अध्यापक${ct} और प्रशासक`);
   return p(`You, the class's teachers${ct}, the coordinators, the office and the admin`, `आप, कक्षा के अध्यापक${ct}, समन्वयक, कार्यालय और प्रशासक`);

@@ -63,6 +63,8 @@ export type DeskStudent = {
    * as they stood, which can trail a payment just posted. Absent = snapshot.
    */
   balanceSource?: BalanceSource;
+  /** How many rows the live ledger returned, when the read was live (an empty read is checked against the receipt). */
+  liveRowCount?: number;
 };
 
 export type DeskStudentResult = { ok: true; student: DeskStudent } | { ok: false; message: string; repairable: boolean };

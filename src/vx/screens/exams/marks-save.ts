@@ -8,6 +8,7 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { p, type Pair } from "@/vx/text";
 
 import { studentsByIds } from "./data";
+import { submitMisfit, type Cell } from "./domain/entry";
 import type { SaveOutcome, SavePayload } from "./save-types";
 
 /*
@@ -53,6 +54,18 @@ export async function commitMarks(actorStaffId: string, raw: SavePayload): Promi
   const parsed = saveMarksSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, reason: "bad_request", message: refusal("bad_request") };
 
+  // A final submit is checked against the whole saved column, not only the
+  // cells this command carries (B03/B04): an old 7.5 on a whole-marks paper
+  // is named, and the paper stays a draft until someone corrects it.
+  if (parsed.data.kind === "submit") {
+    const blocker = await submitBlocker(parsed.data).catch(() => "unknown" as const);
+    if (blocker === "unknown") return { ok: false, reason: "failed", message: refusal("failed") };
+    if (blocker) {
+      const names = await studentsByIds([blocker]).catch(() => new Map());
+      return { ok: false, reason: "invalid_value", message: refusal("invalid_value"), who: [names.get(blocker)?.name ?? "—"] };
+    }
+  }
+
   let outcome;
   try {
     outcome = await saveMarksCommand({ ...parsed.data, actorStaffId, payloadHash: payloadHash(parsed.data) });
@@ -84,6 +97,23 @@ export async function commitMarks(actorStaffId: string, raw: SavePayload): Promi
     };
   }
   return { ok: false, reason: outcome.reason, message: refusal(outcome.reason) };
+}
+
+/** The first pupil whose saved or sent mark would stop a final submit, or null. Throws when it cannot read. */
+export async function submitBlocker(input: SaveMarksInput): Promise<string | null> {
+  const db = createAdminClient();
+  const [{ data: paper, error: paperError }, { data: roster, error: rosterError }, { data: rows, error: rowsError }] = await Promise.all([
+    db.from("assessment_subjects").select("max_marks, mark_step").eq("id", input.paperId).maybeSingle<{ max_marks: number | string; mark_step: number | string }>(),
+    db.rpc("paper_roster", { p_paper: input.paperId }),
+    db.from("marks").select("student_id, value, absent, exempt").eq("assessment_subject_id", input.paperId).returns<{ student_id: string; value: number | string | null; absent: boolean; exempt: boolean }[]>(),
+  ]);
+  if (paperError || rosterError || rowsError) throw new Error("Could not check the saved marks.");
+  if (!paper) return null;
+  const saved: Record<string, Cell> = {};
+  for (const r of rows ?? []) {
+    saved[r.student_id] = r.exempt ? { state: "exempt", value: null } : r.absent ? { state: "absent", value: null } : r.value === null ? { state: "blank", value: null } : { state: "value", value: Number(r.value) };
+  }
+  return submitMisfit(((roster ?? []) as string[]).filter(Boolean), saved, input.entries, Number(paper.max_marks), Number(paper.mark_step));
 }
 
 /** A teacher takes back her own submission inside ten minutes (`withdraw_marks_submission`). */

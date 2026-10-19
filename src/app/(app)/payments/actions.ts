@@ -33,6 +33,7 @@ import { INITIAL_PAYMENT_ENTRY_ACTION_STATE } from "@/modules/payments/domain/ty
 import { drainFinancialViewRefresh } from "@/modules/system-sync/data/financial-view-refresh";
 import { balanceAfter, findDeskReceiptByRequest, loadDeskReceipt, loadDeskStudent, loadDeskPreview, loadDeskTodayCollection } from "@/modules/payments/vx/data";
 import { counterConcessionRefusal, type DeskMode } from "@/modules/payments/vx/domain/desk";
+import { emptyLiveIsBelievable } from "@/modules/payments/vx/domain/live-balance";
 import { latestCloseState } from "@/modules/receipts/vx/domain/day-close";
 import { listCloseEvents } from "@/vx/screens/receipts/data";
 import type { BulkBatch, DeskCheckResult, DeskReceipt, DeskSaveResult, DeskStudentResult } from "@/modules/payments/vx/types";
@@ -219,7 +220,9 @@ async function savedResult(input: { receiptId: string; receiptNumber: string; st
   // Only a live read is the balance now. A snapshot read is not returned at
   // all: the desk keeps what it had and offers Retry instead of a figure
   // that may predate the payment.
-  const student = read && read.ok && read.student.balanceSource === "live" ? read.student : null;
+  const live = read && read.ok && read.student.balanceSource === "live" ? read.student : null;
+  // An empty live ledger is "nothing owed" only when the receipt itself says so.
+  const student = live && emptyLiveIsBelievable(live.liveRowCount ?? 0, receipt ? receipt.outstandingAfter : null) ? live : null;
   return {
     status: "saved",
     receipt,

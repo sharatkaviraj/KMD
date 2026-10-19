@@ -117,6 +117,7 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
       parseReceiptSheet(one(search.sheet)),
       selected ? { isReversed: selected.isReversed, remaining: Math.max(0, selected.totalAmount - selected.reversedAmount), hasPendingRequest: Boolean(selected.pendingRequest) } : null,
       perms.accounts,
+      perms.reverse,
     ),
     initial: { mode: one(search.mode), staff: one(search.staff), query: one(search.q) },
     perms,

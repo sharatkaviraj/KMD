@@ -13,7 +13,7 @@ import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/aca
 import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes, type ClassScope } from "@/modules/attendance/domain/class-scope";
 import { schoolToday } from "@/vx/format";
-import { isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
+import { copiesNoteWords, isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
 import { classesFor, listExams, staffList, trackerFor } from "@/vx/screens/exams/data";
 import { pickCurrentExam } from "@/vx/screens/exams/domain/current";
 import { classRows, expectedShare, overall, teacherLoads, type PaperFacts } from "@/vx/screens/exams/domain/tracker";
@@ -857,6 +857,31 @@ function readsSensitive(staff: CurrentStaff, row: { tags: string[] | null; writt
   return !isSensitiveNote({ tags: own.length ? own : tagsFromKind(row.note_kinds?.code) });
 }
 
+/**
+ * Whether a support plan is kept from this reader because of the note it was
+ * made from (D-264, R01), as on the notes board (`visiblePlans`): a plan from
+ * a health or family note is read by who reads that note, an Only me health
+ * or family note's plan is its author's alone, and a plan whose goal still
+ * repeats an Only me note's words (made before R01) is its author's alone.
+ * Its maker always reads it. Used to show a plan and to refuse writing over
+ * one the reader cannot see.
+ */
+export async function planHiddenFrom(staff: CurrentStaff, plan: { note_id: string | null; created_by: string | null; goal: string | null }): Promise<boolean> {
+  if (!plan.note_id || plan.created_by === staff.id) return false;
+  const { data: source } = await createAdminClient()
+    .from("notes")
+    .select("tags, written_by, follow_up_staff_id, visibility, body, note_kinds(code)")
+    .eq("id", plan.note_id)
+    .maybeSingle<{ tags: string[] | null; written_by: string; follow_up_staff_id: string | null; visibility: string; body: string; note_kinds: { code: string } | null }>();
+  if (!source) return false;
+  const own = (source.tags ?? []).filter(isTag);
+  const sensitive = isSensitiveNote({ tags: own.length ? own : tagsFromKind(source.note_kinds?.code) });
+  if (source.visibility === "private" && source.written_by !== staff.id) {
+    if (sensitive || copiesNoteWords(plan.goal ?? "", source.body)) return true;
+  }
+  return !readsSensitive(staff, source);
+}
+
 export async function notesNeedingAction(ctx: Ctx): Promise<{ open: number; due: number; dueOn: string | null; recent: { id: string; studentId: string | null; body: string; at: string; by: string }[] }> {
   const { data } = await createAdminClient()
     .from("notes")
@@ -1018,22 +1043,7 @@ export async function planFor(ctx: Ctx, studentId: string): Promise<Plan | null>
     .limit(1)
     .maybeSingle<{ id: string; goal: string | null; status: string; started_at: string | null; note_id: string | null; created_by: string | null }>();
   if (!plan) return null;
-  // A plan made from a health or family note is read by who reads that note
-  // (D-264), as on the notes board (visiblePlans); here too, not only there.
-  if (plan.note_id && plan.created_by !== ctx.staff.id) {
-    const { data: source } = await admin
-      .from("notes")
-      .select("tags, written_by, follow_up_staff_id, visibility, note_kinds(code)")
-      .eq("id", plan.note_id)
-      .maybeSingle<{ tags: string[] | null; written_by: string; follow_up_staff_id: string | null; visibility: string; note_kinds: { code: string } | null }>();
-    if (source) {
-      const own = (source.tags ?? []).filter(isTag);
-      const sensitive = isSensitiveNote({ tags: own.length ? own : tagsFromKind(source.note_kinds?.code) });
-      // An Only me health or family note's plan is its author's alone, as there.
-      if (sensitive && source.visibility === "private" && source.written_by !== ctx.staff.id) return null;
-      if (!readsSensitive(ctx.staff, source)) return null;
-    }
-  }
+  if (await planHiddenFrom(ctx.staff, plan)) return null;
   const [{ data: steps }, staff] = await Promise.all([
     admin
       .from("support_plan_steps")

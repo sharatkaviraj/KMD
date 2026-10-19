@@ -39,6 +39,8 @@ export type SheetPaper = {
   undoUntil?: string | null;
   /** Whether those ten minutes were still running when the page was drawn — the server's clock, not the phone's. */
   undoOpen?: boolean;
+  /** How long Undo had left when the page was drawn, by the server's clock; the phone counts down from it, so a phone whose clock is off neither loses Undo early nor keeps it late. */
+  undoLeftMs?: number;
   examOpen: boolean;
   locked: boolean;
   dueLabel: string | null;
@@ -160,6 +162,7 @@ export async function loadSheet(paperId: string, known?: { exams?: Exam[]; paper
       submittedBy: paper.submitted_by,
       undoUntil,
       undoOpen: undoUntil !== null && Date.now() < new Date(undoUntil).getTime(),
+      undoLeftMs: undoUntil !== null ? Math.max(0, new Date(undoUntil).getTime() - Date.now()) : 0,
       examOpen: exam.status === "open",
       locked: Boolean(lock.data),
       dueLabel: due ? shortDay(due) : null,

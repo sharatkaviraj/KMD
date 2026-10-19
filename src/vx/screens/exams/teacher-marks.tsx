@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -233,6 +233,7 @@ export function TeacherRemarks({
   // a draft on this device until they are saved (B06).
   const [savedText, setSavedText] = useState<Record<string, string>>(() => Object.fromEntries(kids.filter((c) => c.remark).map((c) => [c.id, c.remark as string])));
   const [savingId, setSavingId] = useState<string | null>(null);
+  const sending = useRef<Record<string, string>>({});
   const savedIds = new Set(Object.keys(savedText).filter((id) => savedText[id]));
   const [filter, setFilter] = useState<"all" | "todo" | "done">("all");
   const [currentId, setCurrentId] = useState<string | null>(() => kids.find((c) => !c.remark)?.id ?? kids[0]?.id ?? null);
@@ -266,9 +267,13 @@ export function TeacherRemarks({
       if (advance) next(id);
       return;
     }
+    // The same words already on their way (a blur, then Save) are sent once.
+    if (sending.current[id] === value) return;
+    sending.current[id] = value;
     setSavingId(id);
     start(async () => {
       const r = await save({ studentId: id, term, remark: value }).catch(() => null);
+      delete sending.current[id];
       setSavingId(null);
       if (r?.ok) {
         setSavedText((s) => ({ ...s, [id]: value }));
@@ -429,7 +434,7 @@ export function TeacherRemarks({
                         <button type="button" className="tap btn ghost" disabled={pending} onMouseDown={(e) => e.preventDefault()} onClick={() => removeDraft(child.id)} style={{ height: 36 }}>{tx(p("Remove draft", "ड्राफ़्ट हटाएँ"))}</button>
                       ) : null}
                       {dirty && text.trim().length >= 2 ? (
-                        <button type="button" className="tap btn sec" disabled={pending} onClick={() => commit(child.id, text.trim(), false)} style={{ height: 36 }}><Ic n="check" />{tx(p("Save", "सहेजें"))}</button>
+                        <button type="button" className="tap btn sec" disabled={pending} onMouseDown={(e) => e.preventDefault()} onClick={() => commit(child.id, text.trim(), false)} style={{ height: 36 }}><Ic n="check" />{tx(p("Save", "सहेजें"))}</button>
                       ) : null}
                     </div>
                   </div>

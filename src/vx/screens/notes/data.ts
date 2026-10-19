@@ -12,6 +12,7 @@ import { enrolmentForStudent } from "@/modules/students/data/student-repo";
 import { childBasics, enrolledIn, staffNames } from "@/vx/screens/teach/students";
 import {
   canSeeNote,
+  copiesNoteWords,
   isSensitiveNote,
   isTag,
   tagsFromKind,
@@ -316,12 +317,12 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
   // note (D-264): its goal and steps are about the same thing.
   const fromNotes = [...new Set(rows.map((r) => r.note_id).filter((id): id is string => Boolean(id)))];
   if (fromNotes.length) {
-    const { data: sources, error: sourceError } = await fetchInChunks<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds">>(fromNotes, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    const { data: sources, error: sourceError } = await fetchInChunks<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds" | "body">>(fromNotes, IN_FILTER_CHUNK_SIZE, (chunk) =>
       createAdminClient()
         .from("notes")
-        .select("id, tags, visibility, written_by, follow_up_staff_id, class_id, note_kinds(code)")
+        .select("id, tags, visibility, written_by, follow_up_staff_id, class_id, body, note_kinds(code)")
         .in("id", chunk)
-        .returns<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds">[]>(),
+        .returns<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds" | "body">[]>(),
     );
     if (sourceError) throw new Error("Could not read the support plans.");
     const hidden = new Set(
@@ -334,7 +335,15 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
         })
         .map((n) => n.id),
     );
-    rows = rows.filter((r) => r.created_by === viewer.id || !r.note_id || !hidden.has(r.note_id));
+    // A plan whose goal still repeats an Only me note's words (made before
+    // R01 stopped the copy) is its author's alone, like the note.
+    const privateBody = new Map(sources.filter((n) => n.visibility === "private" && n.written_by !== viewer.id).map((n) => [n.id, n.body]));
+    rows = rows.filter((r) => {
+      if (r.created_by === viewer.id || !r.note_id) return true;
+      if (hidden.has(r.note_id)) return false;
+      const body = privateBody.get(r.note_id);
+      return body === undefined || !copiesNoteWords(r.goal ?? "", body);
+    });
   }
   if (rows.length === 0) return [];
 

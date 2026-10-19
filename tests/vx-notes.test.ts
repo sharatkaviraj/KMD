@@ -291,6 +291,7 @@ describe("the redesigned board's words", () => {
   it("says who reads a plan before it starts (R01)", () => {
     expect(planReaders({ tags: ["studies"] }, { classTeacher: "QA Teacher", admin: null }).en).toContain("the coordinators, the office and the admin");
     expect(planReaders({ tags: ["health"] }, { classTeacher: "QA Teacher", admin: null }).en).toBe("You, the class teacher (QA Teacher) and the admin");
+    expect(planReaders({ tags: ["health"], visibility: "private" }, { classTeacher: "QA Teacher", admin: null }).en).toBe("Only you");
   });
 
   it("files a note under the school day, not the UTC day (B09)", () => {

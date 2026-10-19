@@ -94,6 +94,8 @@ type Saved = {
   balanceAt?: string | null;
   /** The payment is posted but its live balance could not be read; the desk offers Retry (B07). */
   refreshFailed?: boolean;
+  /** Whose payment this was, kept at posting, so Retry never reads another child's balance onto it. */
+  studentId?: string | null;
 };
 
 /**
@@ -551,6 +553,7 @@ export function PaymentDesk({
       sent: false,
       log: [{ text: tx(W.savedBy(boot.me.name)), time: ampm(res.receipt?.createdAt ?? at), tone: "var(--acc)" }],
       settling: Boolean(res.settling),
+      studentId: studentId ?? null,
     });
     if (res.student) setResult({ ok: true, student: res.student });
     setSheet("");
@@ -751,7 +754,8 @@ export function PaymentDesk({
   async function retryReceipt() {
     if (!saved || busy || retrying.current || !recoveryReady) return;
     const scope = previewing ? null : attemptKey;
-    const studentId = saved.receipt?.studentId ?? student?.id ?? null;
+    // The child this receipt is for, as posted — not whoever is selected now.
+    const studentId = saved.receipt?.studentId ?? saved.studentId ?? null;
     retrying.current = true;
     setBusy(true);
     try {

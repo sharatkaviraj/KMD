@@ -94,7 +94,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
 
   // Only a receipt that can still be reversed, with no request already
   // waiting, by someone who may ask (B08) — the same rule the URL is held to.
-  const canAskReverse = canOpenReverse({ isReversed: r.isReversed, remaining, hasPendingRequest: Boolean(r.pendingRequest) }, perms.accounts);
+  const canAskReverse = canOpenReverse({ isReversed: r.isReversed, remaining, hasPendingRequest: Boolean(r.pendingRequest) }, perms.accounts, perms.reverse);
   const reversedLine = r.isReversed && r.reversal
     ? [
         tx(fill(W.reversedOn, { day: deskDay(r.reversal.at), time: deskTime(r.reversal.at) })),

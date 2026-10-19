@@ -5,7 +5,7 @@ import { cache } from "react";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
-import { weekdayName } from "@/platform/dates";
+import { dayLabel, weekdayLabel, weekdayName } from "@/platform/dates";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -99,7 +99,13 @@ const askedLeave = cache(async (sessionLabel: string): Promise<AskedLeave[]> => 
 });
 
 const LEAVE_SPAN: Record<string, Pair> = { full: p("Full day", "पूरा दिन"), first_half: p("First half", "पहली पाली"), second_half: p("Second half", "दूसरी पाली") };
-const leaveDays = (r: AskedLeave) => (r.fromDay === r.toDay ? r.fromDay : `${r.fromDay} – ${r.toDay}`);
+// The school's own words for the days, never a bare "2026-10-16" (B13).
+const leaveDays = (r: AskedLeave): Pair => {
+  const from = dayLabel(r.fromDay);
+  if (r.fromDay === r.toDay) return p(`${weekdayLabel(r.fromDay).en.slice(0, 3)} ${from.en}`, `${weekdayLabel(r.fromDay).hi} ${from.hi}`);
+  const to = dayLabel(r.toDay);
+  return p(`${from.en} – ${to.en}`, `${from.hi} – ${to.hi}`);
+};
 
 type MoneyRequest = { id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null };
 type MoneyRequests = () => Promise<MoneyRequest[]>;
@@ -899,11 +905,9 @@ async function readInbox(
       urgent: r.fromDay <= day,
       badge: p("Leave", "छुट्टी"),
       title: p(`Leave asked · ${r.staffName}`, `छुट्टी का आवेदन · ${r.staffName}`),
-      sub: p(`${leaveDays(r)} · ${span.en}`, `${leaveDays(r)} · ${span.hi}`),
-      facts: [
-        { label: p("Days", "दिन"), value: leaveDays(r) },
-        { label: p("Part of the day", "दिन का हिस्सा"), value: span.en },
-      ],
+      sub: p(`${leaveDays(r).en} · ${span.en}`, `${leaveDays(r).hi} · ${span.hi}`),
+      // The days and the part of the day are in the sub-line, in the reader's language.
+      facts: [],
       footnote: p("Approve or decline it on the timetable's leave tab; cover is arranged when you approve.", "समय-सारणी के छुट्टी टैब पर मंज़ूर या अस्वीकार करें; मंज़ूरी पर कवर लगता है।"),
       href: "/timetable?view=leave",
     });

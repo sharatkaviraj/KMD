@@ -144,6 +144,10 @@ export function MarksSheet({
   const [blocker, setBlocker] = useState<Pair | null>(null);
   const [undoUntil, setUndoUntil] = useState<string | null>(paper.undoUntil ?? null);
   const [undoOpen, setUndoOpen] = useState(paper.undoOpen ?? false);
+  // When Undo closes, on this phone's own clock: the time it had left (from
+  // the server) added to the moment the page arrived — never the server's
+  // wall time against the phone's, which a fast phone would end at once.
+  const [undoDeadline, setUndoDeadline] = useState<number | null>(() => (paper.undoOpen && paper.undoLeftMs !== undefined ? Date.now() + paper.undoLeftMs : null));
   const [submittedBy, setSubmittedBy] = useState(paper.submittedBy);
   const [undoNote, setUndoNote] = useState<Pair | null>(null);
   /** The exam office reads a sheet first; "Edit marks" opens the logged override. */
@@ -195,10 +199,10 @@ export function MarksSheet({
 
   // The undo closes when the server's ten minutes do; the server still decides.
   useEffect(() => {
-    if (!undoOpen || !undoUntil) return;
-    const t = setTimeout(() => setUndoOpen(false), Math.max(0, new Date(undoUntil).getTime() - Date.now()));
+    if (!undoOpen || undoDeadline === null) return;
+    const t = setTimeout(() => setUndoOpen(false), Math.max(0, undoDeadline - Date.now()));
     return () => clearTimeout(t);
-  }, [undoOpen, undoUntil]);
+  }, [undoOpen, undoDeadline]);
 
   /* ------------------------------------------------------------ saving */
 
@@ -277,6 +281,7 @@ export function MarksSheet({
         setWho([]);
         if (payload.kind === "submit") {
           setUndoUntil(new Date(new Date(result.savedAt).getTime() + UNDO_MS).toISOString());
+          setUndoDeadline(Date.now() + UNDO_MS);
           setUndoOpen(true);
           setSubmittedBy(viewerStaffId);
         }

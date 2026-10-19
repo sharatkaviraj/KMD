@@ -95,6 +95,25 @@ export function misfits(order: readonly string[], cells: Readonly<Record<string,
   });
 }
 
+/**
+ * The first pupil whose mark would stop a final submit (B03/B04): the saved
+ * column with what this command sends laid over it, held to the paper's
+ * whole rule. Drafts send only what changed, so the command alone cannot
+ * prove the column is valid; the server checks this before it submits.
+ * Nothing is rounded or rewritten — an invalid mark is only named.
+ */
+export function submitMisfit(
+  roster: readonly string[],
+  saved: Readonly<Record<string, Cell>>,
+  sent: readonly { studentId: string; state: CellState; value: number | null }[],
+  maxMarks: number,
+  step: number,
+): string | null {
+  const cells: Record<string, Cell> = { ...saved };
+  for (const e of sent) cells[e.studentId] = { state: e.state, value: e.value };
+  return misfits(roster, cells, maxMarks, step)[0] ?? null;
+}
+
 export function isFilled(cell: Cell | undefined): boolean {
   return Boolean(cell && cell.state !== "blank");
 }

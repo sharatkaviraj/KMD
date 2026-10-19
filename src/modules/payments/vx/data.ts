@@ -318,6 +318,7 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
     plan: fee ? { tuition: fee.tuitionFee, transport: fee.transportFee, academic: fee.academicFee, installments: fee.installmentCount } : null,
     readAt: new Date().toISOString(),
     balanceSource: liveRows ? "live" : "snapshot",
+    liveRowCount: liveRows ? liveRows.length : undefined,
   };
   return { ok: true, student };
 }

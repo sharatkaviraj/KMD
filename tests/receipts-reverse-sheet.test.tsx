@@ -37,6 +37,9 @@ describe("which receipt sheet the URL may open (B08)", () => {
     expect(allowedReceiptSheet("reverse", { ...OPEN, isReversed: true, remaining: 0 }, true)).toBeNull();
     expect(allowedReceiptSheet("reverse", { ...OPEN, remaining: 0 }, true)).toBeNull();
     expect(allowedReceiptSheet("reverse", { ...OPEN, hasPendingRequest: true }, true)).toBeNull();
+    // The admin who decides a waiting request opens it from Needs you (review finding 1).
+    expect(allowedReceiptSheet("reverse", { ...OPEN, hasPendingRequest: true }, true, true)).toBe("reverse");
+    expect(allowedReceiptSheet("reverse", { ...OPEN, hasPendingRequest: true, isReversed: true, remaining: 0 }, true, true)).toBeNull();
     expect(allowedReceiptSheet("reverse", OPEN, false)).toBeNull();
     expect(allowedReceiptSheet("reverse", null, true)).toBeNull();
     expect(canOpenReverse({ ...OPEN, isReversed: true }, true)).toBe(false);

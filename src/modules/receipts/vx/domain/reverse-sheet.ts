@@ -22,15 +22,21 @@ export type SheetReceiptState = {
   hasPendingRequest: boolean;
 };
 
-/** May this viewer open the reverse sheet on this receipt? (`canAsk`: fees:accounts.) */
-export function canOpenReverse(receipt: SheetReceiptState | null, canAsk: boolean): boolean {
-  return Boolean(receipt && canAsk && !receipt.isReversed && receipt.remaining > 0 && !receipt.hasPendingRequest);
+/**
+ * May this viewer open the reverse sheet on this receipt? (`canAsk`:
+ * fees:accounts; `canDecide`: payments:reverse_any.) A receipt with a request
+ * already waiting is not asked twice, but the admin who decides it opens the
+ * sheet — Needs you sends her here with `?sheet=reverse` to do just that.
+ */
+export function canOpenReverse(receipt: SheetReceiptState | null, canAsk: boolean, canDecide = false): boolean {
+  if (!receipt || !canAsk || receipt.isReversed || receipt.remaining <= 0) return false;
+  return !receipt.hasPendingRequest || canDecide;
 }
 
 /** The sheet the page may actually open for what the URL asked. */
-export function allowedReceiptSheet(requested: ReceiptSheet, receipt: SheetReceiptState | null, canAsk: boolean): ReceiptSheet {
+export function allowedReceiptSheet(requested: ReceiptSheet, receipt: SheetReceiptState | null, canAsk: boolean, canDecide = false): ReceiptSheet {
   if (!receipt) return null;
-  if (requested === "reverse") return canOpenReverse(receipt, canAsk) ? "reverse" : null;
+  if (requested === "reverse") return canOpenReverse(receipt, canAsk, canDecide) ? "reverse" : null;
   if (requested === "send") return receipt.isReversed ? null : "send";
   return null;
 }
