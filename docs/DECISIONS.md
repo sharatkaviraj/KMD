@@ -1,5 +1,23 @@
 # Decisions
 
+## Assessment fixes — 2026-10-19
+
+From the 19 October fix brief (B01–B16, R01, U01–U05; ledger in `docs/evidence/assessment-fixes-2026-10-19.md`). No schema, grant or policy change; not merged or deployed.
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-297 | One marks progress contract: eligible = the paper's roster by the exam's dates; saved = a value (zero counts), absent or exempt; a cleared cell is blank. Every surface (teacher Today, the sheet, the tracker, readiness) counts through `exams/domain/progress.ts` / `trackerFor`, and shows unsaved device edits apart | B01/B02: Today counted blank rows over every "enrolled" row and showed 5/8 where the sheet showed 3/8 |
+| D-298 | Draft and correction saves send and validate only the cells that changed; a historical mark that breaks the paper's step is flagged, never rounded or rewritten; a final submit is checked against the whole saved column on the server (`submitBlocker`) and lock refuses invalid or incomplete papers | B03/B04: 16–24 replica half marks on whole-mark papers blocked any new valid mark. The exam office's rounding rule (PROGRESS 14 Oct) is still theirs to choose |
+| D-299 | Undo of a marks submission is offered from the server's remaining window, counted on the phone's own clock; the server's 10-minute refusal is unchanged | B05: old receipts promised Undo after it had expired |
+| D-300 | The balance after a payment is read from the live ledger (`balanceSource: "live"`, `readAt`) and shown as "Balance now" beside the receipt's immutable "still owed at this receipt"; an empty live read counts as nothing owed only when the receipt agrees; Retry re-reads and can never post. The financial-view drain runs after the answer, for dashboards. Revises D-271 | B07: the drain returns false under `skip locked` while the fee action's own drain holds it, and the refresh is concurrent, so "drain then read" showed ₹7,100 for ₹7,099 |
+| D-301 | A receipt's URL may open only a sheet its state allows (`reverse-sheet.ts`); any other is replaced. The admin who decides a waiting reversal request still opens the sheet. Decided desk requests stay in My requests | B08 |
+| D-302 | A support plan made from an Only me note starts with an empty goal, says who will read it, and takes the note's words only through a deliberate, previewed "Use words from the note"; the server checks the source note as the writer may read it (same child, same session), refuses unshared private words and any parents' message; plans that still carry private words, or come from an Only me health/family note, are their author's alone, and cannot be overwritten by someone they are hidden from. The RLS hardening for direct REST reads is proposed, not applied | R01 was a source-level path, not an observed exposure: DEV had 0 plans from its 2 private notes |
+| D-303 | A note belongs to the school day it was written on in IST (`noteSchoolDay`), and "you" is decided by staff id, never by role or name | B09 |
+| D-304 | Leave periods are resolved once (`leavePeriods`/`leaveSpanFor` in `timetable/domain/timetable.ts`), through a read-only `previewLeaveVx`, and match the approval's `spanPeriods`; a half day is asked one day at a time; one-period leave stays unsupported rather than broadened | B11: Today said seven periods, More said three, the approval covered four |
+| D-305 | Leave asked and not decided is an item in Needs you (`substitutions:manage`), decided where it always was, on the timetable's leave tab | Brief §02: the admin saw leave only by opening that tab |
+| D-306 | "Periods a week" means timetable slots everywhere; the planned per-class figure is labelled "Planned: N class-periods a week" | B12: 92 vs 44 |
+| D-307 | Report-card arithmetic is unchanged; the preview and PDF say "Weighted by exam" when exam weights differ | U01: 175/300 shown as 56.2% reconciles exactly (half-yearly weight 2, absent = 0 of 80) |
+
 ## Shared teacher work acceptance - 2026-10-16
 
 - Final review corrections preserve the original task credential through the atomic collection writer and recheck management authority after every task/request lock wait. Installed unmanaged requests use the same transactional proposal writer. Scalar drafts are actor/capability/request-generation/session/roster/field scoped; signed-in legacy photos use an explicit authenticated assigned-request generation. These tighten the existing scope without new SQL objects, grants or migration data effects. The parent confirms the revised three-body packet is covered by the existing user approval.

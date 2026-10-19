@@ -1167,3 +1167,15 @@ Raj asked for one full school day to be operated end to end by agents playing th
 | Cover, admin desk, search, messages, layout | done | #87 → `932b3a6` | ~75 duplicate `<main>` landmarks on other screens; classic cover screen's mixed strings |
 | Exams, report cards, academics | done | #89 → `7615a22` | Test exams still show raw slugs |
 | Verification re-run on merged main, and its fixes | done | #92 → `f17694f`, cover phone-test race #93 → `671a1a1`; production deployed and rechecked in a browser (office Accounts ₹6,500 and closed, Dues 3.3 s with no export prefetch, not-due ₹9,750, "80.5" no longer splits) | Replica half marks on whole-mark papers block three papers until the exam office picks a rounding rule; a new admission is charged late fee on installments due before joining (fee-app rule) |
+
+## Assessment fixes — 19 October 2026
+
+The 19 October fix brief (school-day assessment of `2768ec5`): finding-by-finding ledger, reproduction, evidence, proposals and rollback in `docs/evidence/assessment-fixes-2026-10-19.md`; decisions D-297–D-307.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| Marks B01–B06: one saved/eligible contract, persisted-only progress, changed-cell drafts, server-side submit and lock validity, own-exam receipt, server undo window, read-only office view, write-my-own remarks | done, unmerged | `fix/assessment-2026-10-19` `f73c48a`, `2bb22a3` | DEV still holds replica half marks on whole-mark papers; they are now flagged, not blocking, and the exam office still has to choose a rounding rule |
+| Finance B07–B08: live post-payment balance with freshness, read-only Retry, receipt URL/sheet gating, decided requests in My requests | done, unmerged | same | The root cause was the skipped matview drain, not the ledger; the fee app's own WhatsApp balance (`fees/payments/actions.ts` after()) can still quote a pre-payment figure |
+| Notes B09–B10, R01: IST week, "you" by id, class context, Only-me plan sharing guarded on every path | done, unmerged | same | R01 was a code path with no exposure in DEV data; the RLS hardening for direct REST reads is a proposal awaiting approval |
+| Everyday B11–B16: one leave resolver, leave in Needs you, decision feedback, workload label, dated task titles, live register banner, wrapping tags, next step after attendance | done, unmerged | same | Notice bodies that say "today" are stored text; an "applies on" date is proposed |
+| U01 report card, U03 photos, U04 phone | partly | same | U01 reconciled (weighted). U03: the rejection reason needs a schema change (proposal); the live two-role approve/reject loop is not run. U04: WebKit, 200 % zoom and physical phones not run |
