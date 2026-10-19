@@ -329,7 +329,8 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
         .filter((n) => {
           const tags = tagsOf(n);
           if (!isSensitiveNote({ tags })) return false;
-          return !canSeeNote({ visibility: "team", writtenBy: n.written_by, followUpStaffId: n.follow_up_staff_id, classId: n.class_id, tags }, viewer);
+          // The note's own visibility: an Only me health note's plan is the author's alone.
+          return !canSeeNote({ visibility: n.visibility === "private" ? "private" : "team", writtenBy: n.written_by, followUpStaffId: n.follow_up_staff_id, classId: n.class_id, tags }, viewer);
         })
         .map((n) => n.id),
     );
@@ -375,6 +376,7 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
         body: s.text,
         ownerRole: s.owner_role,
         ownerName: s.owner_staff_id ? (names.get(s.owner_staff_id) ?? null) : null,
+        ownerStaffId: s.owner_staff_id,
         whenLabel: s.due_label,
         done: s.done_at !== null,
         sortOrder: s.sort_order,
@@ -404,9 +406,10 @@ export async function childChoices(viewer: NoteViewer, sessionLabel: string): Pr
  * The people a follow-up can go to, by name, so the screens can say "Class
  * teacher · Mr. Choudhary" rather than a role: each class's current class
  * teacher, and the coordinator and admin `followUpStaff()` in actions.ts
- * would pick (the first active one by created_at). Names only.
+ * would pick (the first active one by created_at). Names, plus those two ids
+ * so a screen says "you" by who the viewer is, never by their role (B09).
  */
-export type NotesPeople = { classTeachers: Record<string, string>; coordinator: string | null; admin: string | null };
+export type NotesPeople = { classTeachers: Record<string, string>; coordinator: string | null; admin: string | null; coordinatorId?: string | null; adminId?: string | null };
 
 export async function notesPeople(sessionLabel: string, day: string): Promise<NotesPeople> {
   const admin = createAdminClient();
@@ -433,6 +436,8 @@ export async function notesPeople(sessionLabel: string, day: string): Promise<No
     classTeachers: Object.fromEntries([...byClass].map(([classId, v]) => [classId, names.get(v.staff) ?? "—"])),
     coordinator: coordId ? (names.get(coordId) ?? null) : null,
     admin: adminId ? (names.get(adminId) ?? null) : null,
+    coordinatorId: coordId,
+    adminId,
   };
 }
 

@@ -17,6 +17,7 @@ import { hasRolePermission, type StaffRole as FeeStaffRole } from "@/modules/fee
 import {
   getPaymentDeskClassOptions,
   getPaymentDeskReadiness,
+  getPaymentDateAwareInstallmentBalances,
   getPaymentDeskStudentSummary,
   getPaymentEntryPageData,
   getTodayPaymentDeskCollectionUncached,
@@ -34,6 +35,7 @@ import {
   type DeskMode,
   type RecentReceipt,
 } from "@/modules/payments/vx/domain/desk";
+import { overlayLiveBalances, rowFromLive, type LiveBalanceRow } from "@/modules/payments/vx/domain/live-balance";
 import type {
   BulkBoot,
   DeskBoot,
@@ -194,15 +196,63 @@ async function loadSiblings(studentId: string, familyGroupId: string | null | un
     .filter((s): s is DeskSibling => Boolean(s));
 }
 
-export async function loadDeskStudent(payload: { studentId: string; sessionLabel: string; today: string }): Promise<DeskStudentResult> {
+type BreakdownItem = {
+  installmentId: string;
+  installmentNo: number;
+  installmentLabel: string;
+  displayLabel?: string | null;
+  isCarryForward?: boolean | null;
+  dueDate: string;
+  amountDue: number;
+  feesPending: number;
+  lateFeePending: number;
+  rawLateFee: number;
+  waiverApplied: number;
+  planPriority?: number | null;
+};
+
+function liveRowOf(b: BreakdownItem): LiveBalanceRow {
+  return {
+    installmentId: b.installmentId,
+    installmentNo: b.installmentNo,
+    label: b.displayLabel ?? b.installmentLabel,
+    isCarryForward: Boolean(b.isCarryForward),
+    dueDate: b.dueDate,
+    amountDue: b.amountDue,
+    feesPending: b.feesPending,
+    lateFeePending: b.lateFeePending,
+    rawLateFee: b.rawLateFee,
+    waiverApplied: b.waiverApplied,
+    planPriority: b.planPriority ?? 1,
+  };
+}
+
+/**
+ * One student's desk: ledger, receipts, family.
+ *
+ * `live` is the read straight after a posting (B07). It never prepares dues
+ * (no write on a read-only path), skips the summary's own breakdown — which
+ * reads a fully-cleared child against the stale view's outstanding figure as
+ * "Dues are not prepared" — and lays the live ledger over the view's rows.
+ * If the live read fails the result says `balanceSource: "snapshot"`, and
+ * the caller must not present it as the balance now.
+ */
+export async function loadDeskStudent(payload: { studentId: string; sessionLabel: string; today: string; live?: boolean }): Promise<DeskStudentResult> {
   const { studentId, sessionLabel, today } = payload;
-  const summary = await getPaymentDeskStudentSummary({
-    studentId,
-    paymentDate: today,
-    sessionLabel,
-    autoPrepareMissingDues: true,
-    includeLatestReceipt: false,
-  });
+  const live = Boolean(payload.live);
+  const [summary, liveRows] = await Promise.all([
+    getPaymentDeskStudentSummary({
+      studentId,
+      paymentDate: today,
+      sessionLabel,
+      autoPrepareMissingDues: !live,
+      includeLatestReceipt: false,
+      includeBreakdown: !live,
+    }),
+    live
+      ? getPaymentDateAwareInstallmentBalances({ studentId, paymentDate: today }).then((items) => items.map(liveRowOf)).catch(() => null)
+      : Promise.resolve(null),
+  ]);
   if (!summary.student) {
     const issue = summary.issue;
     return {
@@ -213,7 +263,7 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
   }
   const s = summary.student;
   const sessionStart = sessionStartDate(sessionLabel);
-  const pendingIds = new Set(s.breakdown.map((b) => b.installmentId));
+  const pendingIds = new Set(liveRows ? liveRows.map((b) => b.installmentId) : s.breakdown.map((b) => b.installmentId));
   const [ledger, receipts, siblings] = await Promise.all([
     getWorkbookInstallmentRows({ studentId }),
     loadStudentReceipts(studentId, sessionStart),
@@ -238,29 +288,16 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
       planPriority: Number(r.planPriority ?? 1),
     }));
 
-  // The view and the RPC are built on the same snapshot; if the view is ever
-  // missing a row the RPC has, fall back to the RPC's rows so the desk never
-  // offers less than the ledger will take.
-  const viewIds = new Set(rows.map((r) => r.id));
-  const missing = s.breakdown.filter((b) => !viewIds.has(b.installmentId));
-  if (missing.length) {
-    rows = rows.concat(
-      missing.map((b) => ({
-        id: b.installmentId,
-        installmentNo: b.installmentNo,
-        label: b.displayLabel ?? b.installmentLabel,
-        isCarryForward: Boolean(b.isCarryForward),
-        dueDate: b.dueDate,
-        charge: b.amountDue,
-        feesPaid: Math.max(0, b.amountDue - b.feesPending),
-        feesPending: b.feesPending,
-        lateFeePending: b.lateFeePending,
-        lateFeeRaw: b.rawLateFee,
-        lateFeeWaived: b.waiverApplied,
-        lateFeeStatus: b.lateFeePending > 0 ? "pending" : "none",
-        planPriority: b.planPriority ?? 1,
-      })),
-    );
+  if (liveRows) {
+    // After a posting: the live ledger decides what is still owed (B07).
+    rows = overlayLiveBalances(rows, liveRows);
+  } else {
+    // The view and the RPC are built on the same snapshot; if the view is ever
+    // missing a row the RPC has, fall back to the RPC's rows so the desk never
+    // offers less than the ledger will take.
+    const viewIds = new Set(rows.map((r) => r.id));
+    const missing = s.breakdown.filter((b) => !viewIds.has(b.installmentId));
+    if (missing.length) rows = rows.concat(missing.map((b) => rowFromLive(liveRowOf(b))));
   }
 
   const fee = s.feeHeadDistribution;
@@ -280,6 +317,7 @@ export async function loadDeskStudent(payload: { studentId: string; sessionLabel
     siblings,
     plan: fee ? { tuition: fee.tuitionFee, transport: fee.transportFee, academic: fee.academicFee, installments: fee.installmentCount } : null,
     readAt: new Date().toISOString(),
+    balanceSource: liveRows ? "live" : "snapshot",
   };
   return { ok: true, student };
 }

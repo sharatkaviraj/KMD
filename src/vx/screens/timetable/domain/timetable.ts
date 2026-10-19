@@ -303,6 +303,37 @@ export function spanPeriods(span: LeaveSpan): number[] {
   return [...PERIODS];
 }
 
+/**
+ * The span a leave request is stored with: a half day is asked one day at a
+ * time, and more days are full days — what `requestLeaveVx` stores, so a
+ * preview never promises a half the office will not get (B11).
+ */
+export function leaveSpanFor(dayCount: number, span: LeaveSpan): LeaveSpan {
+  return dayCount === 1 ? span : "full";
+}
+
+export type LeaveDayPeriods = { day: string; periods: { period: number; number: number; classLabels: string[] }[] };
+
+/**
+ * The one resolver for which of a teacher's periods a leave covers (B11):
+ * her slots on each day, kept to the span's periods — the same
+ * `spanPeriods()` the approval hands to the cover command — a combined
+ * period once, with every class in it. Every leave form previews with this.
+ */
+export function leavePeriods(days: readonly { day: string; slots: readonly { period: number; classLabel: string }[] }[], span: LeaveSpan): LeaveDayPeriods[] {
+  const allowed = new Set(spanPeriods(span));
+  return days.map(({ day, slots }) => {
+    const by = new Map<number, string[]>();
+    for (const s of slots) {
+      if (!allowed.has(s.period)) continue;
+      const labels = by.get(s.period) ?? [];
+      if (!labels.includes(s.classLabel)) labels.push(s.classLabel);
+      by.set(s.period, labels);
+    }
+    return { day, periods: [...by.entries()].sort(([a], [b]) => a - b).map(([period, classLabels]) => ({ period, number: periodNumber(period), classLabels })) };
+  });
+}
+
 /** School days (Monday–Saturday) from `from` to `to`, inclusive, at most 31. */
 export function schoolDays(from: string, to: string): string[] {
   const out: string[] = [];

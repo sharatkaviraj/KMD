@@ -119,7 +119,31 @@ export async function insertCloseEvent(e: NewCloseEvent): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export type PendingRequest = { id: string; createdAt: string; requestedByName: string | null; reasonCode: string };
+/**
+ * Display names for fee user ids (a reversal's `created_by`). The id on a fee
+ * row is the auth user, so it is matched against `staff_profiles.user_id`, and
+ * against `id` too for rows written with the profile id. Unknown ids are
+ * simply absent; a name is a courtesy, never a gate.
+ */
+export async function staffNamesForUsers(ids: readonly (string | null | undefined)[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter((v): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v)))];
+  const names = new Map<string, string>();
+  if (unique.length === 0) return names;
+  const list = unique.join(",");
+  const { data, error } = await createAdminClient()
+    .from("staff_profiles")
+    .select("id, user_id, display_name")
+    .or(`user_id.in.(${list}),id.in.(${list})`);
+  if (error || !Array.isArray(data)) return names;
+  for (const r of data as { id: string; user_id: string | null; display_name: string | null }[]) {
+    if (!r.display_name) continue;
+    if (r.user_id) names.set(r.user_id, r.display_name);
+    names.set(r.id, r.display_name);
+  }
+  return names;
+}
+
+export type PendingRequest ={ id: string; createdAt: string; requestedByName: string | null; reasonCode: string };
 
 export async function pendingReversalRequest(receiptId: string): Promise<PendingRequest | null> {
   const supabase = await createClient();

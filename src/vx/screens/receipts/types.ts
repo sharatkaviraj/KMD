@@ -18,7 +18,7 @@ export type DeskRow = {
 
 export type ShareStatus = { status: "not_sent" | "sent" | "delivered" | "read" | "failed"; at: string | null };
 
-export type HistoryEvent = { at: string; kind: "posted" | "reversed" | "sent" | "read"; amount?: number; note?: string | null };
+export type HistoryEvent = { at: string; kind: "posted" | "reversed" | "sent" | "read"; amount?: number; note?: string | null; byName?: string | null };
 
 export type SelectedReceipt = {
   id: string;
@@ -41,6 +41,8 @@ export type SelectedReceipt = {
   share: ShareStatus;
   history: HistoryEvent[];
   pendingRequest: { at: string; by: string | null } | null;
+  /** The latest reversal: when (full ISO), by whom, and its note (B08). */
+  reversal?: { at: string; byName: string | null; note: string | null } | null;
 };
 
 export type CloseEvent = {

@@ -142,6 +142,36 @@ export function toEntries(order: string[], cells: Record<string, Cell>) {
   });
 }
 
+/**
+ * What a draft save sends: only the cells that changed since the last
+ * confirmed save, each checked on its own. A saved mark nobody touched — an
+ * old 7.5 on a paper that now takes whole marks — is neither sent nor
+ * checked, so it cannot refuse a new mark for another child (B03).
+ * `blocked` names the changed cells the paper cannot hold; nothing is sent
+ * while there are any.
+ */
+export function draftEntries(order: string[], cells: Record<string, Cell>, saved: Record<string, Cell>, maxMarks: number, step: number) {
+  const changed = changedIds(order, cells, saved);
+  const blocked = misfits(changed, cells, maxMarks, step);
+  return { changed, blocked, entries: blocked.length ? [] : toEntries(changed, cells) };
+}
+
+/** Sending is strict: every child in the column whose mark the paper cannot hold, by id. */
+export function submitBlockers(order: string[], cells: Record<string, Cell>, maxMarks: number, step: number): string[] {
+  return misfits(order, cells, maxMarks, step);
+}
+
+/**
+ * What is saved after a confirmed command: what was saved before with the
+ * sent cells laid over it. A row the command did not carry keeps its saved
+ * cell exactly — it is the same object, never re-read, rounded or rebuilt.
+ */
+export function afterSave(saved: Record<string, Cell>, entries: readonly { studentId: string; state: CellState; value: number | null }[]): Record<string, Cell> {
+  const next = { ...saved };
+  for (const e of entries) next[e.studentId] = { state: e.state, value: e.state === "value" ? e.value : null };
+  return next;
+}
+
 /** What the teacher reads before sending: highest, lowest, average, who is below the pass mark. */
 export function checkSummary(order: string[], cells: Record<string, Cell>, passMarks: number | null) {
   const values = order.map((id) => cells[id]).filter((c): c is Cell => Boolean(c && c.state === "value" && c.value !== null)).map((c) => c.value as number);

@@ -367,7 +367,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
           </label>
         </div>
       </div>
-      <div className="hs" role="group" aria-label="Tag" style={{ display: "flex", gap: 6, marginTop: -4 }}>
+      <div role="group" aria-label="Tag" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: -4 }}>
         {([null, ...NOTE_TAGS] as (NoteTag | null)[]).map((t) => (
           <button key={t ?? "all"} type="button" className={`tap chip${tag === t ? " on" : ""}`} aria-pressed={tag === t} onClick={() => setTag(t)}>
             <span style={{ width: 8, height: 8, borderRadius: 4, background: t ? BOARD_TAG[t].fg : "var(--bds)" }} />
@@ -412,7 +412,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
 
   let body: React.ReactNode = board;
   if (screen === "add") {
-    body = <BoardCompose c={composer} kids={props.kids} notes={props.notes} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} onSaved={saved} />;
+    body = <BoardCompose c={composer} kids={props.kids} notes={props.notes} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} onSaved={saved} initialClass={props.initialClass} />;
   } else if (screen === "plan" && focus && (focus.kind === "plan" || focus.kind === "new-plan")) {
     body = <BoardPlan plan={focus.kind === "plan" ? focus.plan : null} draftFor={focus.kind === "new-plan" ? focus.note : null} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} />;
   } else if (screen === "student" && scope) {

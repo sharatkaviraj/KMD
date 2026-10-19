@@ -30,13 +30,18 @@ function lineLabel(label: string): string {
 export function ReceiptCard({
   receipt,
   balance,
-  frozenAt,
+  balanceAt,
   removed,
 }: {
   receipt: DeskReceipt;
-  /** The three numbers frozen at posting, when this desk posted it. */
+  /**
+   * The student's balance now, from the live ledger, when this desk just read
+   * it (B07). Never a snapshot figure: without a live read it is null, and the
+   * card shows only what the receipt itself recorded.
+   */
   balance: { pendingToday: number; dueToday?: number; notDueYet: number; lateFee: number } | null;
-  frozenAt: string | null;
+  /** When `balance` was read (ISO). */
+  balanceAt: string | null;
   removed: boolean;
 }) {
   const { tx } = useVx();
@@ -52,7 +57,9 @@ export function ReceiptCard({
   if (back && receipt.createdAt) kv.push([both(W.rEntered), `${shortDate(receipt.createdAt)} · ${ampm(receipt.createdAt)}`]);
   const mode = MODE_TEXT[receipt.mode] ?? receipt.mode;
   const modeLine = `${tx(W.rMode)}: ${mode}${receipt.reference ? ` · ${receipt.mode === "cheque" ? tx(W.rChequeNo) : tx(W.rRef)} ${receipt.reference}` : ""}`;
-  const frozen = receipt.createdAt ? timeAndDay(receipt.createdAt) : (frozenAt ?? "");
+  const readAt = balanceAt ? timeAndDay(balanceAt) : "";
+  // A removed receipt's dues are back on the student; the balance read before the removal is not "now".
+  const now = removed || receipt.isReversed ? null : balance;
 
   return (
     <article className="card pd-rc" aria-label={`${tx(W.feeReceipt)} ${receipt.receiptNumber}`}>
@@ -91,17 +98,17 @@ export function ReceiptCard({
       {receipt.lateFeeWaived > 0 ? <span className="pd-m">{tx(W.rLateWaived(rupees(receipt.lateFeeWaived)))}</span> : null}
       {receipt.concession ? <span className="pd-m">{tx(W.concession)}: {rupees(receipt.concession)}</span> : null}
       <div className="pd-bx">
-        {balance ? (
-          <>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{tx(W.rAfterHead(frozen))}</span>
-            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.feesPendingToday)}</span><b>{rupees(balance.pendingToday)}</b></div>
-            {balance.dueToday ? <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.dueToday)}</span><b>{rupees(balance.dueToday)}</b></div> : null}
-            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.notDueYet)}</span><b>{rupees(balance.notDueYet)}</b></div>
-            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.lateFeeSep)}</span><b>{rupees(balance.lateFee)}</b></div>
-          </>
-        ) : (
-          <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.rOutstanding)}</span><b>{rupees(receipt.outstandingAfter)}</b></div>
-        )}
+        {/* What the receipt recorded when it was posted: a fact about the receipt, never relabelled as the balance now. */}
+        <div id="pd-at-receipt" className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.rAtReceipt)}</span><b>{rupees(receipt.outstandingAfter)}</b></div>
+        {now ? (
+          <div id="pd-balance-now" className="pd-c" style={{ gap: 2, marginTop: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{tx(W.rNowHead(readAt))}</span>
+            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.feesPendingToday)}</span><b>{rupees(now.pendingToday)}</b></div>
+            {now.dueToday ? <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.dueToday)}</span><b>{rupees(now.dueToday)}</b></div> : null}
+            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.notDueYet)}</span><b>{rupees(now.notDueYet)}</b></div>
+            <div className="pd-f pd-j num" style={{ fontSize: 13 }}><span>{tx(W.lateFeeSep)}</span><b>{rupees(now.lateFee)}</b></div>
+          </div>
+        ) : null}
       </div>
       {receipt.notes ? <span style={{ fontSize: 12 }}>{tx(W.rNote)}: {receipt.notes}</span> : null}
       <footer className="pd-c pd-m" style={{ gap: 3, paddingTop: 8, borderTop: "1.5px dashed var(--bds)" }}>

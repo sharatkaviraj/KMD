@@ -21,6 +21,10 @@ import {
   tagsFromKind,
   monthInsight,
   monthStats,
+  noteSchoolDay,
+  copiesNoteWords,
+  planReaders,
+  planSourceRefusal,
   noteStage,
   suggestTags,
   weekEndOf,
@@ -267,6 +271,39 @@ describe("the redesigned board's words", () => {
       note({ id: "c", writtenBy: "t1", createdAt: "2026-09-30T05:00:00Z" }),
     ];
     expect(monthStats(notes, TODAY)).toEqual({ thisWeek: 1, teachers: 2 });
+  });
+
+  it("keeps an Only me note's words out of a plan unless shared (R01)", () => {
+    const body = "Synthetic worry about the child's reading at home, private for now";
+    const priv = { studentId: "s1", visibility: "private" as const, writtenBy: "t1", body };
+    const base = { viewerId: "t1", studentId: "s1", goal: "Read ten minutes a day", tellParents: false, shareExcerpt: false };
+    expect(planSourceRefusal(null, base)).toBe("missing");
+    expect(planSourceRefusal(priv, { ...base, studentId: "s2" })).toBe("other_child");
+    expect(planSourceRefusal(priv, { ...base, viewerId: "t2" })).toBe("not_yours");
+    expect(planSourceRefusal(priv, { ...base, tellParents: true })).toBe("private_to_parents");
+    expect(planSourceRefusal(priv, { ...base, goal: `Goal: ${body.toUpperCase()}` })).toBe("private_words");
+    expect(planSourceRefusal(priv, { ...base, goal: body, shareExcerpt: true })).toBeNull();
+    expect(planSourceRefusal(priv, base)).toBeNull();
+    expect(planSourceRefusal({ ...priv, visibility: "team" }, { ...base, goal: body, tellParents: true })).toBeNull();
+    expect(copiesNoteWords("Reads well", "Reads well")).toBe(false); // too short to call a copy
+  });
+
+  it("says who reads a plan before it starts (R01)", () => {
+    expect(planReaders({ tags: ["studies"] }, { classTeacher: "QA Teacher", admin: null }).en).toContain("the coordinators, the office and the admin");
+    expect(planReaders({ tags: ["health"] }, { classTeacher: "QA Teacher", admin: null }).en).toBe("You, the class teacher (QA Teacher) and the admin");
+  });
+
+  it("files a note under the school day, not the UTC day (B09)", () => {
+    // 01:15 IST on Monday 19 October is still Sunday 18 October in UTC.
+    const early = note({ id: "m", writtenBy: "t1", createdAt: "2026-10-18T19:45:00Z" });
+    expect(noteSchoolDay(early.createdAt)).toBe("2026-10-19");
+    expect(monthStats([early], "2026-10-19").thisWeek).toBe(1);
+    // 23:30 IST on Sunday 18 October belongs to last week.
+    const late = note({ id: "s", writtenBy: "t1", createdAt: "2026-10-18T18:00:00Z" });
+    expect(monthStats([late], "2026-10-19").thisWeek).toBe(0);
+    // 00:30 IST on 1 November is a November note.
+    const nov = note({ id: "n", writtenBy: "t1", createdAt: "2026-10-31T19:00:00Z" });
+    expect(boardKpis([nov], 0, "2026-11-02").thisMonth).toBe(1);
   });
 
   it("finds this month's commonest tag and busiest class, and nothing in an empty month", () => {

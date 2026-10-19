@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { m } from "@/messages";
 import { ms, photoMessages } from "@/messages/setup";
+import { dayLabel } from "@/platform/dates";
 import type { Language } from "@/platform/i18n/language";
 import { lead } from "@/vx/text";
 import { Card, CardHead, ListRow, Pill } from "@/vx/ui/primitives";
@@ -19,11 +20,17 @@ const ORDER: TaskState[] = ["to-approve", "waiting", "to-assign", "complete"];
 const LABEL = { "to-assign": ms.taskToAssign, waiting: m.taskWaiting, "to-approve": m.taskApprove, complete: m.taskComplete, revoked: ms.taskRevoke } as const;
 const TONE = { "to-approve": "warn", waiting: "info", "to-assign": "mut", complete: "ok", revoked: "mut" } as const;
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
 // A teacher reads their own list: their work first, then what the office is checking.
 const TEACHER_ORDER: TaskState[] = ["waiting", "to-approve", "complete"];
 
 export function TeacherWork({ rows, language, compact, reviewPhotos = false, office = true }: { rows: TaskSummary[] | null; language: Language; compact: boolean; reviewPhotos?: boolean; office?: boolean }) {
   const say = (pair: { hi: string; en: string }) => lead(pair, language);
+  // Work words and the school's own date, not a bare "2026-10-19" or "6 · SCI" (B13).
+  const titleOf = (t: TaskSummary) =>
+    t.kind === "attendance" && ISO_DAY.test(t.title) ? `${say(m.taskAttendance)} · ${say(dayLabel(t.title))}` : t.kind === "marks" ? `${say(m.taskMarks)} · ${t.title}` : t.title;
+  const dueOf = (due: string | null) => (due && ISO_DAY.test(due) ? `${say(ms.taskDue)} ${say(dayLabel(due))}` : due);
   const groups = (office ? ORDER : TEACHER_ORDER).map(state => ({ state, items: (rows ?? []).filter(r => r.state === state) })).filter(g => g.items.length > 0);
   const counts = groups.filter(g => g.state !== "complete").map(g => `${say(LABEL[g.state])} ${g.items.length}`).join(" · ");
   const hidden = compact && groups.some(g => g.items.length > 3);
@@ -56,8 +63,8 @@ export function TeacherWork({ rows, language, compact, reviewPhotos = false, off
               <ListRow
                 key={t.id}
                 href={t.href}
-                title={t.title}
-                sub={[t.teacherName, t.expected > 0 ? `${t.answered}/${t.expected}` : null, t.dueDate].filter(Boolean).join(" · ")}
+                title={titleOf(t)}
+                sub={[t.teacherName, t.expected > 0 ? `${t.answered}/${t.expected}` : null, dueOf(t.dueDate)].filter(Boolean).join(" · ")}
                 trail={t.rejected ? <Pill tone="bad">{`${say(ms.taskRejected)} ${t.rejected}`}</Pill> : <Ic n="chevRight" size={18} />}
                 style={{ minHeight: 52, padding: "8px 16px" }}
               />

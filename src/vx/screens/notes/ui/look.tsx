@@ -10,7 +10,7 @@ import { initials, shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { BackLink } from "@/vx/ui/back-link";
 
-import { FOLLOW_OWNER, type BoardNote, type FollowOwner, type NoteStage, type NoteTag } from "../domain/notes";
+import { FOLLOW_OWNER, noteSchoolDay, type BoardNote, type FollowOwner, type NoteStage, type NoteTag } from "../domain/notes";
 
 import "./notes.css";
 
@@ -114,7 +114,7 @@ export function time(value: string | Date): string {
 
 /** "Thu 8 Oct · 9:52 am" for a note written in the last two days, else "Tue 6 Oct". */
 export function noteWhen(createdAt: string, today: string): string {
-  const d = createdAt.slice(0, 10);
+  const d = noteSchoolDay(createdAt);
   const diff = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) / 86_400_000);
   return diff <= 1 ? `${day(createdAt)} · ${time(createdAt)}` : day(createdAt);
 }

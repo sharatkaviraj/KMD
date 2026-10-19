@@ -4,6 +4,7 @@
  * `tests/vx-notes.test.ts`.
  */
 
+import { toSchoolDay } from "@/platform/dates";
 import { p, type Pair } from "@/vx/text";
 
 export const NOTE_TAGS = ["studies", "behaviour", "health", "family", "talent", "attendance"] as const;
@@ -138,6 +139,16 @@ export const STATUS_TEXT: Record<NoteStatus, Pair> = {
 };
 
 export const STATUS_ORDER: NoteStatus[] = ["open", "working", "done"];
+
+/**
+ * The school day a note was written on. `createdAt` is a UTC instant, so
+ * slicing it files a note written between midnight and 05:30 IST under the
+ * day before — a Monday-morning note fell out of "this week" (B09).
+ */
+export function noteSchoolDay(createdAt: string): string {
+  const instant = new Date(createdAt);
+  return Number.isNaN(instant.getTime()) ? createdAt.slice(0, 10) : toSchoolDay(instant);
+}
 
 function addDays(day: string, n: number): string {
   const d = new Date(`${day}T00:00:00Z`);
@@ -319,7 +330,7 @@ export function boardKpis(
     needsAction: notes.filter((n) => needsAction(n, today)).length,
     dueThisWeek: notes.filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= weekEnd).length,
     plansRunning,
-    thisMonth: notes.filter((n) => n.createdAt.slice(0, 7) === month).length,
+    thisMonth: notes.filter((n) => noteSchoolDay(n.createdAt).slice(0, 7) === month).length,
   };
 }
 
@@ -349,9 +360,12 @@ export function noteStage(note: Pick<BoardNote, "status" | "needsFollowUp" | "ta
 export function monthStats(notes: readonly Pick<BoardNote, "createdAt" | "writtenBy">[], today: string): { thisWeek: number; teachers: number } {
   const month = today.slice(0, 7);
   const monday = weekStartOf(today);
-  const mine = notes.filter((n) => n.createdAt.slice(0, 7) === month);
+  const mine = notes.filter((n) => noteSchoolDay(n.createdAt).slice(0, 7) === month);
   return {
-    thisWeek: notes.filter((n) => n.createdAt.slice(0, 10) >= monday && n.createdAt.slice(0, 10) <= today).length,
+    thisWeek: notes.filter((n) => {
+      const d = noteSchoolDay(n.createdAt);
+      return d >= monday && d <= today;
+    }).length,
     teachers: new Set(mine.map((n) => n.writtenBy)).size,
   };
 }
@@ -362,7 +376,7 @@ export function monthStats(notes: readonly Pick<BoardNote, "createdAt" | "writte
  */
 export function monthInsight(notes: readonly Pick<BoardNote, "createdAt" | "tags" | "classId" | "classLabel">[], today: string): { tag: NoteTag | null; classId: string | null; classLabel: string | null; classCount: number } | null {
   const month = today.slice(0, 7);
-  const mine = notes.filter((n) => n.createdAt.slice(0, 7) === month);
+  const mine = notes.filter((n) => noteSchoolDay(n.createdAt).slice(0, 7) === month);
   if (mine.length === 0) return null;
   let tag: NoteTag | null = null;
   let tagCount = 0;
@@ -457,6 +471,47 @@ export function excerpt(body: string, max = 140): string {
 
 /* ----------------------------------------------------------- support plans */
 
+/**
+ * Whether a plan goal carries a note's own words: the opening of the note,
+ * spaces folded and case ignored. Short notes (under 12 letters) are too
+ * common a phrase to call a copy.
+ */
+export function copiesNoteWords(goal: string, body: string): boolean {
+  const fold = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const words = fold(body);
+  if (words.length < 12) return false;
+  return fold(goal).includes(words.slice(0, Math.min(40, words.length)));
+}
+
+export type PlanSourceRefusal = "missing" | "other_child" | "not_yours" | "private_to_parents" | "private_words";
+
+/**
+ * Whether a support plan may be made from this note (R01). A plan is read by
+ * the child's whole team, so an "Only me" note may start one only for its own
+ * author, never goes to the parents, and lends the plan its words only when
+ * the author chose to share them — the note itself stays private. `note` is
+ * the note as this author may read it, or null when she cannot.
+ */
+export function planSourceRefusal(
+  note: Pick<BoardNote, "studentId" | "visibility" | "writtenBy" | "body"> | null,
+  input: { viewerId: string; studentId: string; goal: string; tellParents: boolean; shareExcerpt: boolean },
+): PlanSourceRefusal | null {
+  if (!note) return "missing";
+  if (note.studentId !== input.studentId) return "other_child";
+  if (note.visibility !== "private") return null;
+  if (note.writtenBy !== input.viewerId) return "not_yours";
+  if (input.tellParents) return "private_to_parents";
+  if (!input.shareExcerpt && copiesNoteWords(input.goal, note.body)) return "private_words";
+  return null;
+}
+
+/** Who reads a plan made from this note, as the plan screens say it before it starts. */
+export function planReaders(note: Pick<BoardNote, "tags">, names: { classTeacher: string | null; admin: string | null }): Pair {
+  const ct = names.classTeacher ? ` (${names.classTeacher})` : "";
+  if (isSensitiveNote(note)) return p(`You, the class teacher${ct} and the admin`, `आप, कक्षा अध्यापक${ct} और प्रशासक`);
+  return p(`You, the class's teachers${ct}, the coordinators, the office and the admin`, `आप, कक्षा के अध्यापक${ct}, समन्वयक, कार्यालय और प्रशासक`);
+}
+
 export type PlanStatus = "draft" | "active" | "done" | "closed";
 
 export type PlanStep = {
@@ -464,6 +519,8 @@ export type PlanStep = {
   body: string;
   ownerRole: string | null;
   ownerName: string | null;
+  /** Compared with the viewer's id to say "Me": two staff can share a name. */
+  ownerStaffId?: string | null;
   whenLabel: string | null;
   done: boolean;
   sortOrder: number;

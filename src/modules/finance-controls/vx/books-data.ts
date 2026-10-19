@@ -21,6 +21,7 @@ import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/
 import { fetchAllPages, fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createVppsoneReader as createAppClient } from "@/modules/finance-controls/vx/app-db";
+import { deskRequestToRow, mergeRequestRows, type DeskRequestDbRow } from "@/modules/finance-controls/vx/domain/desk-requests";
 
 import {
   canRemind,
@@ -174,11 +175,22 @@ async function readRequests(staffId: string, all: boolean, limit = 60): Promise<
     .order("requested_at", { ascending: false })
     .limit(limit);
   if (!all) query = query.eq("requested_by", staffId);
-  const { data } = await query;
+  // The Receipts desk's reversal and write-off requests live in their own
+  // table; without them a reversal vanished from every list once decided (B08).
+  let deskQuery = app
+    .from("fee_desk_requests")
+    .select("id, kind, status, amount, reason_code, note, receipt_id, receipt_number, student_id, requested_by, requested_by_name, decided_by, decided_at, decision_note, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (!all) deskQuery = deskQuery.eq("requested_by", staffId);
+  const [{ data }, deskRes] = await Promise.all([query, deskQuery]);
   const rows = (data ?? []) as Row[];
-  const names = await staffNames(rows.flatMap((r) => [str(r.requested_by), str(r.decided_by)]));
-  const students = await studentLabels(rows.map((r) => str(r.student_id)));
-  return rows.map((r) => {
+  // A failed desk read leaves the list as it was rather than failing the screen.
+  const deskRows = (deskRes?.error ? [] : ((deskRes?.data ?? []) as DeskRequestDbRow[]));
+  const names = await staffNames([...rows.flatMap((r) => [str(r.requested_by), str(r.decided_by)]), ...deskRows.flatMap((r) => [r.requested_by, r.decided_by])]);
+  const students = await studentLabels([...rows.map((r) => str(r.student_id)), ...deskRows.map((r) => r.student_id)]);
+  const desk = deskRows.map((r) => deskRequestToRow(r, { staffId, names, studentName: (id) => students.get(id)?.name ?? null }));
+  const acc: AccRequestRow[] = rows.map((r) => {
     const decision = (r.decision as "approved" | "declined" | null) ?? null;
     const withdrawnAt = str(r.withdrawn_at);
     const remindedAt = str(r.reminded_at);
@@ -205,6 +217,7 @@ async function readRequests(staffId: string, all: boolean, limit = 60): Promise<
       canRemind: status === "waiting" && canRemind({ remindedAt, requestedAt }),
     };
   });
+  return mergeRequestRows(acc, desk, limit);
 }
 
 /** Cheque receipts of the session, with VPPS One's details and where each cheque is. */

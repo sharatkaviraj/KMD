@@ -12,7 +12,7 @@ import type { NotesFocus, NotesProps, NotesScope } from "./ui/workspace";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type NotesSearch = { note?: string; plan?: string; student?: string; view?: string; sheet?: string; step?: string; tab?: string; saved?: string };
+export type NotesSearch = { note?: string; plan?: string; student?: string; view?: string; sheet?: string; step?: string; tab?: string; saved?: string; class?: string };
 
 const STEPS: AddStep[] = ["add", "listening", "review", "saved"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -21,7 +21,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 export function notesSearch(raw: Record<string, string | string[] | undefined>): NotesSearch {
   // `?add=1` is the quick-actions menu's link to "Add a note" (nav.ts).
   const sheet = one(raw.sheet) ?? (one(raw.add) ? "add" : undefined);
-  return { note: one(raw.note), plan: one(raw.plan), student: one(raw.student), view: one(raw.view), sheet, step: one(raw.step), tab: one(raw.tab), saved: one(raw.saved) };
+  return { note: one(raw.note), plan: one(raw.plan), student: one(raw.student), view: one(raw.view), sheet, step: one(raw.step), tab: one(raw.tab), saved: one(raw.saved), class: one(raw.class) };
 }
 
 /**
@@ -93,6 +93,7 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
     initialSheet: search.sheet === "add" && viewer.canWrite ? "add" : null,
     initialStep: STEPS.includes(search.step as AddStep) ? (search.step as AddStep) : "add",
     initialStudent: search.student ?? null,
+    initialClass: search.class && UUID.test(search.class) ? search.class : null,
     savedId: search.saved && UUID.test(search.saved) ? search.saved : null,
     classes: classIds.map((id) => ({ id, label: labels.get(id) ?? "—" })),
     teachers: authorsOf(notes),

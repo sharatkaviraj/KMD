@@ -37,8 +37,11 @@ export type PaperFacts = {
   teacherName: string | null;
   /** Children on the paper's roll. */
   total: number;
-  /** Children with a mark, an absence or an exemption. */
+  /** Children with a mark, an absence or an exemption (`countPaper` in ./progress). */
   entered: number;
+  /** Saved marks this paper cannot hold — counted in `entered`, and they block "Ready to lock". */
+  invalid?: number;
+  markStep?: number;
   entryStatus: "open" | "submitted";
   entryRevision: number;
   maxMarks: number;

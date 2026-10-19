@@ -35,7 +35,8 @@ import { periodNumber } from "@/modules/timetable/domain/periods";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { schoolToday } from "@/vx/format";
-import { marksLinkUrl } from "@/vx/screens/exams/data";
+import { listExams, marksLinkUrl, papersOf, trackerFor, type Exam } from "@/vx/screens/exams/data";
+import { openExamsForMarks } from "@/vx/screens/exams/domain/current";
 import { noteViewer, notesForStudent, visibleNotes } from "@/vx/screens/notes/data";
 import { excerpt, type BoardNote } from "@/vx/screens/notes/domain/notes";
 import { addDays } from "@/vx/screens/academics/domain";
@@ -805,26 +806,24 @@ export async function marksLinks(
     .returns<{ class_id: string; subject_id: string }[]>();
   const pairs = new Set((assigned ?? []).map((a) => `${a.class_id}|${a.subject_id}`));
   const classIds = [...new Set((assigned ?? []).map((a) => a.class_id))];
-  const papers = (await Promise.all(classIds.map((c) => papersForClass(c, sessionLabel).catch(() => [])))).flat().filter((p) => pairs.has(`${p.classId}|${p.subjectId}`));
-  const assessments = await listAssessments(sessionLabel).catch(() => []);
-  const aLabel = new Map(assessments.map((a) => [a.id, { label: a.labelEn || a.code, status: a.status as string }]));
-  let counts = new Map<string, number>();
-  if (papers.length) {
-    const { data } = await fetchInChunks<{ assessment_subject_id: string }>(
-      papers.map((p) => p.id),
-      IN_FILTER_CHUNK_SIZE,
-      (chunk) => admin.from("marks").select("assessment_subject_id").in("assessment_subject_id", chunk),
-    );
-    counts = data.reduce((m, r) => m.set(r.assessment_subject_id, (m.get(r.assessment_subject_id) ?? 0) + 1), new Map<string, number>());
-  }
+  // Saved / eligible by the one contract every marks surface uses
+  // (exams/domain/progress.ts, through `trackerFor`): the paper's roster by
+  // the exam's dates, and only rows holding a value, an absence or an
+  // exemption — never a cleared cell, never "enrolled" ignoring dates.
+  const exams = pairs.size ? openExamsForMarks(await listExams(sessionLabel).catch(() => [] as Exam[]), schoolToday()) : [];
+  const mine = (r: { class_id: string; subject_id: string }) => pairs.has(`${r.class_id}|${r.subject_id}`);
+  const rows = exams.length ? (await papersOf(exams.map((e) => e.id)).catch(() => [])).filter(mine) : [];
+  const withPapers = exams.filter((e) => rows.some((r) => r.assessment_id === e.id));
+  const tracked = await Promise.all(
+    withPapers.map(async (exam) => ({ exam, papers: (await trackerFor({ exam, classes: [], staff: [], onlyPapers: mine, rows }).catch(() => ({ papers: [] }))).papers })),
+  );
   const enrolled = classIds.length
     ? await fetchInChunks<{ class_id: string }>(classIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
         admin.from("enrolments").select("class_id").eq("session_label", sessionLabel).eq("status", "enrolled").in("class_id", chunk),
       )
     : { data: [] as { class_id: string }[] };
   const size = enrolled.data.reduce((m, r) => m.set(r.class_id, (m.get(r.class_id) ?? 0) + 1), new Map<string, number>());
-  const live = papers.filter((p) => (aLabel.get(p.assessmentId)?.status ?? "open") !== "archived");
-  const examIds = [...new Set(live.map((p) => p.assessmentId))];
+  const examIds = withPapers.map((e) => e.id);
   const tokens = new Map<string, string>();
   if (examIds.length) {
     const { data } = await fetchInChunks<{ assessment_id: string; token: string }>(examIds, IN_FILTER_CHUNK_SIZE, (chunk) =>
@@ -832,21 +831,25 @@ export async function marksLinks(
     );
     for (const row of data) tokens.set(row.assessment_id, row.token);
   }
-  const links = live.map((p) => {
-    const token = tokens.get(p.assessmentId);
-    return {
-      paperId: p.id,
-      classLabel: p.classLabel || (labels.get(p.classId) ?? "—"),
-      subjectCode: p.subjectCode,
-      exam: aLabel.get(p.assessmentId)?.label ?? "",
-      entered: counts.get(p.id) ?? 0,
-      total: size.get(p.classId) ?? 0,
-      submitted: p.entryStatus === "submitted",
-      examId: p.assessmentId,
-      maxMarks: p.maxMarks ?? null,
-      url: token ? marksLinkUrl(token) : null,
-    };
-  });
+  // Classes in school order, never by their labels as text (class-order.test.ts).
+  const rank = rankOf(labels);
+  const links = tracked.flatMap(({ exam, papers }) =>
+    [...papers].sort((a, b) => a.classSort - b.classSort || (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || a.subjectCode.localeCompare(b.subjectCode)).map((p) => {
+      const token = tokens.get(exam.id);
+      return {
+        paperId: p.paperId,
+        classLabel: p.classLabel || (labels.get(p.classId) ?? "—"),
+        subjectCode: p.subjectCode,
+        exam: exam.labelEn || exam.code,
+        entered: p.entered,
+        total: p.total,
+        submitted: p.entryStatus === "submitted",
+        examId: exam.id,
+        maxMarks: p.maxMarks ?? null,
+        url: token ? marksLinkUrl(token) : null,
+      };
+    }),
+  );
   return { links, assigned: assigned ?? [], sizes: size };
 }
 
@@ -865,11 +868,11 @@ export async function loadMore(staff: CurrentStaff) {
     admin.from("staff_ui_preferences").select("large_text, alerts").eq("staff_profile_id", staff.id).maybeSingle<{ large_text: boolean; alerts: Record<string, boolean> | null }>(),
     admin
       .from("teacher_leave")
-      .select("id, from_day, to_day, span, note, status, created_at")
+      .select("id, from_day, to_day, span, note, status, created_at, decided_by, decided_at")
       .eq("staff_profile_id", staff.id)
       .order("from_day", { ascending: false })
       .limit(20)
-      .returns<{ id: string; from_day: string; to_day: string; span: string; note: string | null; status: string; created_at: string }[]>(),
+      .returns<{ id: string; from_day: string; to_day: string; span: string; note: string | null; status: string; created_at: string; decided_by: string | null; decided_at: string | null }[]>(),
     currentBells(sessionLabel).catch(() => null),
     listSubjects().catch(() => []),
   ]);
@@ -885,6 +888,8 @@ export async function loadMore(staff: CurrentStaff) {
   const week = mergeCombinedSlots([...slots].sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0)));
 
   const portrait = await approvedStaffPhotos([staff.id]).catch(() => new Map<string,string>());
+  // Who answered her leave, by name, for "Approved by … · time" (B11 decision feedback).
+  const deciders = await staffNames((leave.data ?? []).map((l) => l.decided_by ?? "")).catch(() => new Map<string, string>());
   const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
   return {
     sessionLabel,
@@ -903,7 +908,7 @@ export async function loadMore(staff: CurrentStaff) {
       largeText: Boolean(prefs.data?.large_text),
       alerts: prefs.data?.alerts ?? {},
     },
-    leave: leave.data ?? [],
+    leave: (leave.data ?? []).map((l) => ({ ...l, decided_by_name: l.decided_by ? (deciders.get(l.decided_by) ?? null) : null })),
     nowMinutes: schoolClock(now).minutes,
     /** Children on each of her classes' rolls, for the menu's lines. */
     classSizes: Object.fromEntries(sizes) as Record<string, number>,

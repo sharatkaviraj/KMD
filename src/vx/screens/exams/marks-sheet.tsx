@@ -16,8 +16,11 @@ import { Avatar, avatarColor, BarChart, Btn, Card, Pill, Progress, Ring, Success
 import { clock, initials, shortDay } from "@/vx/format";
 
 import {
+  afterSave,
   BLANK,
   changedIds,
+  draftEntries,
+  submitBlockers,
   checkSummary,
   counts,
   isFilled,
@@ -31,10 +34,11 @@ import {
   toEntries,
   type Cell,
 } from "./domain/entry";
+import { needsCorrectionText } from "./domain/progress";
 import { ExamsTop, Note, XBar } from "./bits";
-import type { SaveOutcome, SavePayload } from "./save-types";
+import { UNDO_MS, type SaveOutcome, type SavePayload } from "./save-types";
 import type { SheetPaper, SheetStudent } from "./sheet-data";
-import { commandCells, isMarksRecovery, type MarksRecovery } from "./sheet-recovery";
+import { isMarksRecovery, type MarksRecovery } from "./sheet-recovery";
 
 /*
  * One paper's marks, typed in a list on a computer or on a number pad on a
@@ -45,7 +49,16 @@ import { commandCells, isMarksRecovery, type MarksRecovery } from "./sheet-recov
 
 export type SheetPhase = "entry" | "check" | "sent";
 
-type Status = "idle" | "saving" | "saved" | "error" | "stale";
+/**
+ * "blocked": nothing was sent because a changed cell cannot be saved as it
+ * stands; the change is still on this device and the line says why.
+ */
+type Status = "idle" | "saving" | "saved" | "error" | "stale" | "blocked";
+
+/** The draft's fingerprint: a draft is offered back only against the same paper, roster and revision. */
+function baselineOf(revision: number, ids: string[], maxMarks: number, markStep: number): string {
+  return JSON.stringify({ revision, ids, max: maxMarks, step: markStep });
+}
 
 export function MarksSheet({
   ownerId,
@@ -68,6 +81,7 @@ export function MarksSheet({
   noteHref,
   variant = "teacher",
   forTeacher = null,
+  viewerStaffId = null,
 }: {
   ownerId: string;
   sessionLabel: string;
@@ -92,6 +106,8 @@ export function MarksSheet({
   variant?: "teacher" | "office";
   /** Whose paper the office is entering, for the override note. */
   forTeacher?: string | null;
+  /** The staff member looking at the sheet: only the one who sent it may undo it. */
+  viewerStaffId?: string | null;
 }) {
   const { tx } = useVx();
   const toast = useToast();
@@ -120,9 +136,20 @@ export function MarksSheet({
   const [askReopen, setAskReopen] = useState(false);
   const [ready, setReady] = useState(false);
   const [recovered, setRecovered] = useState<MarksRecovery | null>(null);
+  /** A draft kept against an older version of this paper: shown, never applied by itself. */
+  const [oldDraft, setOldDraft] = useState<MarksRecovery | null>(null);
+  const [viewOld, setViewOld] = useState(false);
   const [pendingCommand, setPendingCommand] = useState(false);
+  const [freshSave, setFreshSave] = useState(false);
+  const [blocker, setBlocker] = useState<Pair | null>(null);
+  const [undoUntil, setUndoUntil] = useState<string | null>(paper.undoUntil ?? null);
+  const [undoOpen, setUndoOpen] = useState(paper.undoOpen ?? false);
+  const [submittedBy, setSubmittedBy] = useState(paper.submittedBy);
+  const [undoNote, setUndoNote] = useState<Pair | null>(null);
+  /** The exam office reads a sheet first; "Edit marks" opens the logged override. */
+  const [officeEdit, setOfficeEdit] = useState(false);
   const recoveryKey = draftKey(ownerId, sessionLabel, `vx-marks/${paper.id}`);
-  const baseline = JSON.stringify({ revision: paper.entryRevision, ids: order, max: paper.maxMarks, step: paper.markStep });
+  const baseline = baselineOf(paper.entryRevision, order, paper.maxMarks, paper.markStep);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef<Promise<SaveOutcome | null> | null>(null);
@@ -131,17 +158,47 @@ export function MarksSheet({
   const latest = useRef({ cells: initialSaved, saved: initialSaved, revision: paper.entryRevision });
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const advancedFrom = useRef<{ from: number; to: number } | null>(null);
+  /** The version of the paper this page opened on; a draft must match it to be offered back. */
+  const openedAt = useRef(baseline);
+  /** Whether the last attempt stopped on a mark the paper cannot hold. */
+  const blocked = useRef(false);
 
-  const editable = ready && !recovered && !pendingCommand && !busy && status !== "stale" && paper.examOpen && !paper.locked && (entryStatus === "open" || correcting);
-  const c = counts(order, cells);
+  // Rows in an old draft that differ from what is saved now; with none, there is nothing to decide.
+  const oldDiff = oldDraft ? Object.entries(oldDraft.cells).filter(([id, cell]) => byId.has(id) && !sameSaved(cell, saved[id])) : [];
+  const oldPending = oldDiff.length > 0;
+  const editable =
+    ready && !recovered && !oldPending && !pendingCommand && !busy && status !== "stale" && paper.examOpen && !paper.locked &&
+    (entryStatus === "open" || correcting) && (variant !== "office" || officeEdit || correcting);
+  // Progress is what the school has: the persisted cells, never edits still on
+  // this device (B02). Those are counted apart, as changes on this device.
+  const c = counts(order, saved);
+  const local = changedIds(order, cells, saved);
   const summary = checkSummary(order, cells, paper.passMarks);
+  // Marks the paper cannot hold — usually an old half mark on a whole-mark
+  // paper. They are shown and named, never rounded or rewritten; they stop the
+  // final send, not the draft saves of other children (B03).
   const badNow = misfits(order, cells, paper.maxMarks, paper.markStep);
   const badSet = new Set(badNow);
+  const mayUndo = Boolean(onWithdraw) && undoOpen && Boolean(undoUntil) && submittedBy !== null && submittedBy === viewerStaffId;
 
   // The check and sent screens open at the top, where their banner is.
   useEffect(() => {
     if (phase !== "entry" && typeof window !== "undefined") window.scrollTo({ top: 0 });
   }, [phase]);
+
+  // "Saved just now" for a minute after a confirmed save, then the time.
+  useEffect(() => {
+    if (!freshSave) return;
+    const t = setTimeout(() => setFreshSave(false), 60_000);
+    return () => clearTimeout(t);
+  }, [freshSave, lastSaved]);
+
+  // The undo closes when the server's ten minutes do; the server still decides.
+  useEffect(() => {
+    if (!undoOpen || !undoUntil) return;
+    const t = setTimeout(() => setUndoOpen(false), Math.max(0, new Date(undoUntil).getTime() - Date.now()));
+    return () => clearTimeout(t);
+  }, [undoOpen, undoUntil]);
 
   /* ------------------------------------------------------------ saving */
 
@@ -150,7 +207,15 @@ export function MarksSheet({
     void loadDraft(recoveryKey).then((raw) => {
       if (!active) return;
       const draft = readDraft(raw, isMarksRecovery);
-      if (draft && (!draft.value.command || draft.value.command.paperId === paper.id)) setRecovered(draft.value);
+      if (draft && (!draft.value.command || draft.value.command.paperId === paper.id)) {
+        // An unconfirmed save is always offered back: the server matches it by
+        // its command id and revision, so checking it never applies it twice
+        // or over newer marks. A plain draft is offered only against the same
+        // version of the paper; an older one is shown for the teacher to
+        // look at or discard, never put back by itself (B02).
+        if (draft.value.command || draft.baseline === openedAt.current) setRecovered(draft.value);
+        else setOldDraft(draft.value);
+      }
       setReady(true);
     }).catch(() => {
       if (!active) return;
@@ -166,8 +231,10 @@ export function MarksSheet({
 
   async function keepRecovery(payload: SavePayload | null, correctionReason: string | null = correcting ? reason : null): Promise<boolean> {
     const value = { cells: latest.current.cells, command: payload, revision: latest.current.revision, correctionReason };
+    // Stamped with the revision the draft was made against, not the one the page opened at.
+    const stamp = baselineOf(latest.current.revision, order, paper.maxMarks, paper.markStep);
     try {
-      const write = storage.current.catch(() => undefined).then(() => saveDraft(recoveryKey, { version: 1, baseline, value, updatedAt: Date.now() }));
+      const write = storage.current.catch(() => undefined).then(() => saveDraft(recoveryKey, { version: 1, baseline: stamp, value, updatedAt: Date.now() }));
       storage.current = write;
       await write;
       return true;
@@ -193,15 +260,26 @@ export function MarksSheet({
         setPendingCommand(false);
       }
       if (result?.ok) {
-        const snapshot = payload.kind === "reopen" ? latest.current.saved : commandCells(payload);
+        // A draft sends only the cells that changed, so what is saved now is
+        // what was saved before with those cells laid over it — the rows it
+        // did not send are still saved and must not vanish (B03).
+        const snapshot = payload.kind === "reopen" ? latest.current.saved : afterSave(latest.current.saved, payload.entries);
         latest.current = { ...latest.current, saved: snapshot, revision: result.revision };
         setSaved(snapshot);
         setRevision(result.revision);
         setEntryStatus(result.entryStatus);
         setStatus("saved");
         setLastSaved(result.savedAt);
+        setFreshSave(true);
         setMessage(null);
+        setBlocker(null);
+        blocked.current = false;
         setWho([]);
+        if (payload.kind === "submit") {
+          setUndoUntil(new Date(new Date(result.savedAt).getTime() + UNDO_MS).toISOString());
+          setUndoOpen(true);
+          setSubmittedBy(viewerStaffId);
+        }
         if (payload.kind === "submit" || payload.kind === "correction") {
           setSubmittedAt(result.savedAt);
           setCorrecting(false);
@@ -217,15 +295,19 @@ export function MarksSheet({
         }
         else await keepRecovery(null);
       } else if (result && !result.ok && result.reason === "no_change") {
-        const snapshot = commandCells(payload);
+        const snapshot = afterSave(latest.current.saved, payload.entries);
         latest.current = { ...latest.current, saved: snapshot };
         setSaved(snapshot);
         setStatus("saved");
         setMessage(null);
+        setBlocker(null);
+        blocked.current = false;
         if (!(await clearRecovery())) { command.current = payload; setPendingCommand(true); }
       } else {
         if (definite) await keepRecovery(null);
         setStatus(result && !result.ok && result.reason === "stale" ? "stale" : "error");
+        setBlocker(null);
+        blocked.current = false;
         setMessage(result && !result.ok ? result.message : p("The save has not been confirmed. Try again to check the same save; your entries are kept on this phone.", "सेव की पुष्टि नहीं हुई है। उसी सेव को जाँचने के लिए फिर कोशिश करें; प्रविष्टियाँ इस फ़ोन पर रखी हैं।"));
         setWho(result && !result.ok ? (result.who ?? []) : []);
       }
@@ -237,22 +319,39 @@ export function MarksSheet({
   }
 
   /**
-   * Marks the paper cannot hold (old half marks on a whole-mark paper) are
-   * named all at once and nothing is sent: the database refuses the whole
-   * column for any one of them, and used to name one child per try while the
-   * footer kept saying "Saving…".
+   * Marks the paper cannot hold among `ids` are named all at once and nothing
+   * is sent: `save_marks` refuses a whole command for any one of them. A draft
+   * checks only the cells it sends — an old 7.5 nobody touched must not stop
+   * a new mark for another child (B03) — while the final send checks the
+   * whole column and names every child it is waiting on.
    */
-  function stopOnMisfits(snapshot: Record<string, Cell>): boolean {
-    const bad = misfits(order, snapshot, paper.maxMarks, paper.markStep);
+  function stopOnMisfits(bad: string[], snapshot: Record<string, Cell>, kind: "draft" | "submit" | "correction"): boolean {
     if (bad.length === 0) return false;
-    setStatus("error");
+    blocked.current = true;
+    const first = bad[0];
+    const firstName = byId.get(first)?.name ?? "—";
+    const why = needsCorrectionText(snapshot[first]?.value ?? 0, paper.maxMarks, paper.markStep);
+    setStatus("blocked");
+    setBlocker(
+      kind === "submit"
+        ? p(`Not submitted – ${bad.length} ${bad.length === 1 ? "mark needs" : "marks need"} correction`, `जमा नहीं हुआ – ${bad.length} अंक सुधारने हैं`)
+        : p(`Not saved – your change is still here · ${firstName}: ${why.en}`, `सहेजा नहीं – आपका बदलाव यहीं है · ${firstName}: ${why.hi ?? why.en}`),
+    );
     setMessage(
-      paper.markStep >= 1
-        ? p(`These marks cannot be given on this paper (whole marks, out of ${paper.maxMarks}). Change them and the sheet saves again:`, `ये अंक इस पेपर में नहीं हो सकते (पूरे अंक, ${paper.maxMarks} में से)। इन्हें ठीक करते ही शीट फिर सेव होगी:`)
-        : p(`These marks cannot be given on this paper (out of ${paper.maxMarks}). Change them and the sheet saves again:`, `ये अंक इस पेपर में नहीं हो सकते (${paper.maxMarks} में से)। इन्हें ठीक करते ही शीट फिर सेव होगी:`),
+      kind === "submit"
+        ? p("This paper cannot be sent until these marks are corrected. Nothing has been changed:", "ये अंक ठीक होने तक पेपर नहीं भेजा जा सकता। कुछ भी बदला नहीं गया:")
+        : p("Not saved – your change is still here. Correct these marks and it saves again:", "सहेजा नहीं – आपका बदलाव यहीं है। ये अंक ठीक करते ही फिर सेव होगा:"),
     );
     setWho(bad.map((id) => `${byId.get(id)?.name ?? "—"} ${snapshot[id]?.value ?? ""}`));
     return true;
+  }
+
+  function clearBlocked() {
+    blocked.current = false;
+    setStatus("idle");
+    setBlocker(null);
+    setMessage(null);
+    setWho([]);
   }
 
   async function flush(): Promise<boolean> {
@@ -260,17 +359,25 @@ export function MarksSheet({
     if (command.current) return Boolean((await runCommand(command.current))?.ok);
     if (!ready || recovered || status === "stale" || !paper.examOpen || paper.locked) return false;
     const snapshot = latest.current.cells;
-    const changed = changedIds(order, snapshot, latest.current.saved);
-    if (changed.length === 0) return true;
+    const draft = draftEntries(order, snapshot, latest.current.saved, paper.maxMarks, paper.markStep);
+    const changed = draft.changed;
+    if (changed.length === 0) {
+      // The blocked change was put back as it was saved: nothing is waiting any more.
+      if (blocked.current) clearBlocked();
+      return true;
+    }
     if (entryStatus === "submitted") return false;
-    if (stopOnMisfits(snapshot)) return false;
+    if (stopOnMisfits(draft.blocked, snapshot, "draft")) return false;
+    if (blocked.current) clearBlocked();
+    // Only what changed is sent: unchanged rows — an old mark the paper can
+    // no longer hold among them — are left exactly as they are.
     const result = await runCommand({
       commandId: crypto.randomUUID(),
       paperId: paper.id,
       kind: "draft",
       expectedRevision: latest.current.revision,
       reason: null,
-      entries: toEntries(order, snapshot),
+      entries: draft.entries,
     });
     return Boolean(result?.ok || (result && !result.ok && result.reason === "no_change"));
   }
@@ -394,8 +501,9 @@ export function MarksSheet({
         setReason(value.correctionReason);
       }
       await keepRecovery(null, value.correctionReason ?? null);
-      if (entryStatus === "open" && changedIds(order, restored, latest.current.saved).length) {
-        await runCommand({ commandId: crypto.randomUUID(), paperId: paper.id, kind: "draft", expectedRevision: value.revision, reason: null, entries: toEntries(order, restored) });
+      const draft = draftEntries(order, restored, latest.current.saved, paper.maxMarks, paper.markStep);
+      if (entryStatus === "open" && draft.changed.length && !stopOnMisfits(draft.blocked, restored, "draft")) {
+        await runCommand({ commandId: crypto.randomUUID(), paperId: paper.id, kind: "draft", expectedRevision: value.revision, reason: null, entries: draft.entries });
       }
     }
   }
@@ -442,7 +550,11 @@ export function MarksSheet({
     setBusy(true);
     try {
       if (command.current) { await runCommand(command.current); return; }
-      if (stopOnMisfits(latest.current.cells)) return;
+      // Sending is strict: the whole column, every child it is waiting on named.
+      // A correction, like a draft, sends and checks only what it changes.
+      const changed = changedIds(order, latest.current.cells, latest.current.saved);
+      const bad = kind === "submit" ? submitBlockers(order, latest.current.cells, paper.maxMarks, paper.markStep) : misfits(changed, latest.current.cells, paper.maxMarks, paper.markStep);
+      if (stopOnMisfits(bad, latest.current.cells, kind)) return;
       if (kind === "submit" && !(await flush())) return;
       const result = await runCommand({
         commandId: crypto.randomUUID(),
@@ -450,7 +562,7 @@ export function MarksSheet({
         kind,
         expectedRevision: latest.current.revision,
         reason: kind === "correction" ? reason.trim() || null : null,
-        entries: toEntries(order, latest.current.cells),
+        entries: toEntries(kind === "submit" ? order : changed, latest.current.cells),
       });
       if (result?.ok && kind === "correction") toast.show({ text: tx(p("Correction saved", "सुधार सहेजा गया")) });
     } finally { setBusy(false); }
@@ -467,9 +579,18 @@ export function MarksSheet({
       setEntryStatus("open");
       setSubmittedAt(null);
       setPhase("entry");
+      setUndoOpen(false);
+      setUndoUntil(null);
+      setSubmittedBy(null);
       toast.show({ text: tx(p("Taken back — you can change marks again", "वापस लिया — अब अंक फिर बदल सकते हैं")) });
       router.refresh();
     } else {
+      // Too late, or not hers to take back: the server has changed nothing, and
+      // the screen stops offering what it will refuse.
+      if (result && !result.ok && (result.reason === "too_late" || result.reason === "not_permitted" || result.reason === "not_submitted")) {
+        setUndoOpen(false);
+        setUndoNote(result.message);
+      }
       toast.show({ text: tx(result && !result.ok ? result.message : p("Could not take it back", "वापस नहीं लिया जा सका")), tone: "bad" });
     }
   }
@@ -503,14 +624,32 @@ export function MarksSheet({
 
   const title = `${paper.classLabel} · ${paper.subjectCode}`;
   const subLine = `${tx(paper.examLabel)} · ${tx(p("out of", "पूर्णांक"))} ${paper.maxMarks}${paper.dueLabel ? ` · ${tx(p("enter by", "अंतिम तिथि"))} ${paper.dueLabel}` : ""}`;
+  // One line for where the save stands, read out politely when it changes.
   const statusLine =
     status === "saving"
       ? tx(p("Saving…", "सहेज रहे हैं…"))
-      : status === "saved" && lastSaved
-        ? `${tx(p("Saved", "सहेजा"))} ${clock(lastSaved)}`
-        : status === "error" || status === "stale"
-          ? tx(p("Not saved yet", "अभी सहेजा नहीं"))
-          : tx(p("Changes save as you type", "लिखते समय बदलाव सहेजे जाते हैं"));
+      : status === "blocked" && blocker
+        ? tx(blocker)
+        : status === "error"
+          ? tx(p("Not saved. Your change is still here.", "सहेजा नहीं गया। आपका बदलाव यहीं है।"))
+          : status === "stale"
+            ? tx(p("Not saved yet", "अभी सहेजा नहीं"))
+            : local.length
+              ? tx(p("Draft on this device", "इस डिवाइस पर ड्राफ़्ट"))
+              : status === "saved" && lastSaved
+                ? freshSave
+                  ? tx(p("Saved just now", "अभी सहेजा"))
+                  : `${tx(p("Saved", "सहेजा"))} ${clock(lastSaved)}`
+                : tx(p("Changes save as you type", "लिखते समय बदलाव सहेजे जाते हैं"));
+  const statusBad = status === "error" || status === "stale" || status === "blocked";
+  const localLine = local.length ? tx(p(`${local.length} ${local.length === 1 ? "change" : "changes"} on this device`, `इस डिवाइस पर ${local.length} बदलाव`)) : null;
+  // On the entry screen Retry sits beside the save line; elsewhere it is on the banner. One button, never two.
+  const retry = status === "error" ? (
+    <Btn variant="sec" icon="refresh" onClick={() => void flush()}>{tx(p("Retry", "फिर कोशिश करें"))}</Btn>
+  ) : null;
+  /** A changed row's own state, in the shared words. */
+  const rowState = (): string =>
+    status === "saving" ? tx(p("Saving…", "सहेज रहे…")) : statusBad ? tx(p("Not saved – retry", "सहेजा नहीं – फिर कोशिश करें")) : tx(p("Draft on this device", "इस डिवाइस पर ड्राफ़्ट"));
 
   const help = (
     <HelpButton
@@ -532,29 +671,42 @@ export function MarksSheet({
       {tx(recovered.command ? p("A previous save has not been confirmed. Check that same save before changing these marks.", "पिछले सहेजने की पुष्टि नहीं हुई है। अंक बदलने से पहले उसी सहेजने को जाँचें।") : p("This phone has a draft from your previous visit.", "इस फोन पर आपकी पिछली बार का ड्राफ्ट है।"))}
       {!recovered.command ? <Btn variant="ghost" disabled={busy} onClick={() => { void clearRecovery().then((cleared) => { if (cleared) setRecovered(null); }); }}>{tx(p("Discard draft", "ड्राफ्ट हटाएँ"))}</Btn> : null}
     </Banner>
-  ) : badNow.length && !paper.locked && paper.examOpen ? (
-    <Banner tone="bad">
-      {tx(
-        paper.markStep >= 1
-          ? p(`${badNow.length} ${badNow.length === 1 ? "mark" : "marks"} cannot be given on this paper (whole marks, out of ${paper.maxMarks}). Nothing saves until they are changed:`, `${badNow.length} अंक इस पेपर में नहीं हो सकते (पूरे अंक, ${paper.maxMarks} में से)। इन्हें ठीक करने तक कुछ सेव नहीं होगा:`)
-          : p(`${badNow.length} ${badNow.length === 1 ? "mark" : "marks"} cannot be given on this paper (out of ${paper.maxMarks}). Nothing saves until they are changed:`, `${badNow.length} अंक इस पेपर में नहीं हो सकते (${paper.maxMarks} में से)। इन्हें ठीक करने तक कुछ सेव नहीं होगा:`),
-      )}{" "}
-      {badNow.map((id) => `${byId.get(id)?.name ?? "—"} (${cells[id]?.value ?? ""})`).join(", ")}
+  ) : oldPending ? (
+    <Banner tone="warn" action={<Btn variant="ghost" disabled={busy} onClick={() => { void clearRecovery().then((cleared) => { if (cleared) { setOldDraft(null); setViewOld(false); } }); }}>{tx(p("Discard draft", "ड्राफ्ट हटाएँ"))}</Btn>}>
+      {tx(p("This phone has a draft from an older version of this paper — the marks were saved again since. It has not been put back.", "इस फ़ोन पर इस पेपर के पुराने रूप का ड्राफ़्ट है — उसके बाद अंक फिर सहेजे गए। इसे वापस नहीं लगाया गया।"))}{" "}
+      <button type="button" className="tap" onClick={() => setViewOld(!viewOld)} style={{ border: 0, background: "transparent", padding: 0, color: "inherit", fontWeight: 700, textDecoration: "underline" }}>
+        {viewOld ? tx(p("Hide draft", "ड्राफ़्ट छिपाएँ")) : tx(p(`View draft (${oldDiff.length})`, `ड्राफ़्ट देखें (${oldDiff.length})`))}
+      </button>
+      {viewOld ? (
+        <span style={{ display: "block", marginTop: 6, fontSize: 13 }}>
+          {oldDiff.slice(0, 30).map(([id, cell]) => (
+            <span key={id} style={{ display: "block" }}>
+              {byId.get(id)?.name ?? "—"}: {tx(p("draft", "ड्राफ़्ट"))} {cellText(cell)} · {tx(p("saved", "सहेजा"))} {cellText(saved[id] ?? BLANK)}
+            </span>
+          ))}
+          {oldDiff.length > 30 ? "…" : null}
+        </span>
+      ) : null}
     </Banner>
   ) : message ? (
     <Banner
       tone={status === "stale" ? "warn" : "bad"}
-      action={status === "stale" ? <Btn variant="sec" onClick={() => window.location.reload()}>{tx(p("Reload", "फिर खोलें"))}</Btn> : <Btn variant="sec" onClick={() => void flush()}>{tx(p("Try again", "फिर से"))}</Btn>}
+      action={status === "stale" ? <Btn variant="sec" onClick={() => window.location.reload()}>{tx(p("Reload", "फिर खोलें"))}</Btn> : status === "error" && phase !== "entry" ? <Btn variant="sec" icon="refresh" onClick={() => void flush()}>{tx(p("Retry", "फिर कोशिश करें"))}</Btn> : undefined}
     >
       {tx(message)}
       {who.length ? ` (${who.slice(0, 12).join(", ")}${who.length > 12 ? "…" : ""})` : ""}
+    </Banner>
+  ) : badNow.length && !paper.locked && paper.examOpen ? (
+    <Banner tone="warn">
+      {tx(p(`${badNow.length} saved ${badNow.length === 1 ? "mark needs" : "marks need"} correction before this paper can be sent. They are kept exactly as saved, and other changes still save:`, `${badNow.length} सहेजे अंक भेजने से पहले सुधारने हैं। ये जैसे सहेजे थे वैसे ही रखे हैं, और बाकी बदलाव सेव होते रहेंगे:`))}{" "}
+      {badNow.map((id) => `${byId.get(id)?.name ?? "—"} (${cells[id]?.value ?? ""})`).join(", ")}
     </Banner>
   ) : null;
 
   /* ---------------------------------------------------- phase: sent */
 
   if (phase === "sent") {
-    const until = submittedAt ? clock(new Date(new Date(submittedAt).getTime() + 10 * 60_000)) : null;
+    const until = undoUntil ? clock(undoUntil) : null;
     return (
       <VxPage>
         <TopBar crumb={crumb} title={tx(p("Marks sent", "अंक भेजे गए"))} mTitle={tx(p("Marks sent", "अंक भेजे गए"))} mSub={title} mBack={backHref} actions={help} mAction={help} />
@@ -571,14 +723,23 @@ export function MarksSheet({
                 {title} · {students.length} {tx(p("children", "बच्चे"))}
                 {submittedAt ? ` · ${tx(p("sent at", "भेजा"))} ${clock(submittedAt)}, ${shortDay(submittedAt)}` : ""}
               </span>
-              {paper.locked ? null : onWithdraw ? (
+              {paper.locked ? null : mayUndo ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--s2)", borderRadius: 14, padding: "12px 14px", width: "100%", textAlign: "left" }}>
                   <Ic n="clock" size={18} style={{ color: "var(--mut)", flex: "none" }} />
                   <span style={{ flex: 1, fontSize: 14 }}>
                     {tx(p("Made a mistake? You can undo for 10 minutes", "गलती हुई? 10 मिनट तक वापस ले सकते हैं"))}
                     {until ? ` (${tx(p("till", "तक"))} ${until}).` : "."}
                   </span>
-                  <Btn variant="sec" icon="undo" disabled={busy || !ready || Boolean(recovered) || pendingCommand} onClick={() => void withdraw()}>{tx(p("Undo", "वापस लें"))}</Btn>
+                  <Btn variant="sec" icon="undo" disabled={busy || !ready || Boolean(recovered) || pendingCommand} onClick={() => void withdraw()}>{tx(p("Undo submission", "जमा करना वापस लें"))}</Btn>
+                </div>
+              ) : submittedAt && entryStatus === "submitted" ? (
+                // After the ten minutes, or for anyone but the sender: when it was sent, and who changes it now.
+                <div role="status" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--s2)", borderRadius: 14, padding: "12px 14px", width: "100%", textAlign: "left" }}>
+                  <Ic n="checkCircle" size={18} style={{ color: "var(--ok)", flex: "none" }} />
+                  <span style={{ flex: 1, fontSize: 14, display: "flex", flexDirection: "column" }}>
+                    <span>{tx(p(`Submitted on ${shortDay(submittedAt)}, ${clock(submittedAt)}`, `${shortDay(submittedAt)}, ${clock(submittedAt)} को जमा किया`))}</span>
+                    {undoNote ? <span style={{ fontSize: 13, color: "var(--bad)" }}>{tx(undoNote)}</span> : onWithdraw && !canCorrect ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("To change a mark now, ask the exam office.", "अब अंक बदलने के लिए परीक्षा विभाग से कहें।"))}</span> : null}
+                  </span>
                 </div>
               ) : null}
               {canCorrect || canReopen ? (
@@ -591,6 +752,8 @@ export function MarksSheet({
                   ) : null}
                 </div>
               ) : null}
+              {/* The saved marks, read only: nothing is opened for editing and nothing autosaves. */}
+              <Btn variant="ghost" icon="eye" onClick={() => setPhase("entry")}>{tx(p("View saved marks", "सहेजे अंक देखें"))}</Btn>
               {nextHref ? (
                 <Btn variant="pri" big href={nextHref}>
                   {tx(p("Next", "अगला"))}: {nextLabel} <Ic n="arrowRight" size={18} />
@@ -738,12 +901,24 @@ export function MarksSheet({
         <main>
           <div className="pad" style={{ padding: "16px 28px 20px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 880, margin: "0 auto" }}>
+              {!officeEdit && !correcting ? (
+                <Note icon="eye" tone="info">
+                  <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, justifyContent: "space-between", width: "100%" }}>
+                    <span>{tx(p("You are looking at the saved marks. Nothing changes until you press Edit marks.", "आप सहेजे अंक देख रहे हैं। “अंक बदलें” दबाने तक कुछ नहीं बदलेगा।"))}</span>
+                    {entryStatus === "open" && paper.examOpen && !paper.locked ? (
+                      <Btn variant="sec" icon="edit" disabled={!ready || Boolean(recovered) || oldPending || pendingCommand} onClick={() => setOfficeEdit(true)}>{tx(p("Edit marks", "अंक बदलें"))}</Btn>
+                    ) : null}
+                  </span>
+                </Note>
+              ) : null}
+              {officeEdit || correcting ? (
               <Note icon="shield" tone="warn">
                 <b>{tx(p("Admin override.", "प्रशासक द्वारा।"))}</b>{" "}
                 {forTeacher
                   ? tx(p(`You are entering ${paper.classLabel} ${paper.subjectCode} marks for ${forTeacher}. Each change is logged with your name.`, `आप ${forTeacher} की जगह ${paper.classLabel} ${paper.subjectCode} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))
                   : tx(p(`You are entering ${paper.classLabel} ${paper.subjectCode} marks. Each change is logged with your name.`, `आप ${paper.classLabel} ${paper.subjectCode} के अंक भर रहे हैं। हर बदलाव आपके नाम से दर्ज होता है।`))}
               </Note>
+              ) : null}
               {banner}
               {correcting ? (
                 <Card style={{ borderColor: "var(--warn)" }}>
@@ -765,7 +940,7 @@ export function MarksSheet({
                 ))}
                 <span style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 150 }}>
                   <span style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                    <span style={{ color: "var(--mut)" }}>{tx(p("Entered", "भरे"))}</span>
+                    <span style={{ color: "var(--mut)" }}>{tx(p("Saved", "सहेजे"))}</span>
                     <b className="num">{tx(p(`${c.filled} of ${c.total}`, `${c.total} में से ${c.filled}`))}</b>
                   </span>
                   <XBar parts={[{ w: c.total ? (c.filled / c.total) * 100 : 0, color: "var(--acc)" }]} />
@@ -783,8 +958,9 @@ export function MarksSheet({
                     const cell = cells[s.id] ?? BLANK;
                     const off = cell.state === "value" && looksOff(cell.value, s.prevPct, paper.maxMarks);
                     const pct = cell.state === "value" && cell.value !== null ? (cell.value / Math.max(1, paper.maxMarks)) * 100 : null;
-                    const res =
-                      cell.state === "absent"
+                    const res = badSet.has(s.id)
+                      ? { t: tx(needsCorrectionText(cell.value ?? 0, paper.maxMarks, paper.markStep)), c: "var(--bad)" }
+                      : cell.state === "absent"
                         ? { t: tx(p("Absent", "अनुपस्थित")), c: "var(--mut)" }
                         : cell.state === "exempt"
                           ? { t: tx(p("Exempt", "छूट")), c: "var(--mut)" }
@@ -811,7 +987,7 @@ export function MarksSheet({
                               if (el) inputs.current.set(s.id, el);
                               else inputs.current.delete(s.id);
                             }}
-                            className={`inp num${off ? " err" : ""}`}
+                            className={`inp num${off || badSet.has(s.id) ? " err" : ""}`}
                             type="text"
                             inputMode="decimal"
                             placeholder="—"
@@ -840,18 +1016,19 @@ export function MarksSheet({
                 </div>
               </div>
               <div className="glass xsave" style={{ position: "sticky", zIndex: 4, marginTop: 4, display: "flex", alignItems: "center", gap: 12, padding: "8px 8px 8px 16px", borderRadius: 18, border: "1px solid var(--bd)", boxShadow: "var(--shh)" }}>
-                <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: status === "error" || status === "stale" ? "var(--bad)" : "var(--mut)" }}>
+                <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: statusBad ? "var(--bad)" : "var(--mut)" }}>
                   {status === "saving" ? (
                     <span aria-hidden="true" style={{ flex: "none", width: 16, height: 16, borderRadius: 8, border: "2px solid var(--bds)", borderTopColor: "var(--acc)", animation: "xLoop .7s linear infinite" }} />
                   ) : status === "saved" ? (
                     <Ic n="checkCircle" style={{ flex: "none", color: "var(--ok)", animation: "xPopIn .35s var(--spring) both" }} />
                   ) : null}
-                  <span className="clip">{statusLine}</span>
+                  <span className="clip" role="status" aria-live="polite">{statusLine}{localLine ? ` · ${localLine}` : ""}</span>
                   <span className="hide-m" style={{ display: "flex", alignItems: "center", gap: 4, flex: "none" }}>
                     · <span className="k">Enter</span>
                     {tx(p("next student", "अगला विद्यार्थी"))}
                   </span>
                 </span>
+                {retry}
                 {entryStatus === "submitted" && !correcting ? (
                   <Btn variant="sec" onClick={() => setPhase("sent")}>{tx(p("Sent", "भेजा"))} ✓</Btn>
                 ) : !correcting ? (
@@ -891,7 +1068,7 @@ export function MarksSheet({
     <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 18px" }}>
       <Ring value={c.filled} max={Math.max(1, c.total)} size={128} stroke={12} tone="var(--pri)">
         <strong className="num" style={{ fontSize: 30 }}>{c.filled}</strong>
-        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p(`of ${c.total} children`, `${c.total} बच्चे में से`))}</span>
+        <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p(`of ${c.total} saved`, `${c.total} में से सहेजे`))}</span>
       </Ring>
       <strong>{c.blank ? `${c.blank} ${tx(p("still to fill", "बाकी"))}` : tx(p("All filled", "सब भरे"))}</strong>
     </Card>
@@ -974,7 +1151,7 @@ export function MarksSheet({
                           <strong style={{ overflowWrap: "break-word" }}>{s.name}</strong>
                           {s.hint ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(s.hint)}</span> : null}
                           {s.prev ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{s.prev}</span> : null}
-                          {badSet.has(s.id) ? <span style={{ fontSize: 12, fontWeight: 700, color: "var(--bad)" }}>{tx(p("This mark cannot be given on this paper", "यह अंक इस पेपर में नहीं हो सकता"))}</span> : null}
+                          {badSet.has(s.id) ? <span style={{ fontSize: 12, fontWeight: 700, color: "var(--bad)" }}>{tx(needsCorrectionText(cell.value ?? 0, paper.maxMarks, paper.markStep))}</span> : null}
                         </span>
                         <input
                           ref={(el) => {
@@ -1006,7 +1183,7 @@ export function MarksSheet({
                           {active && !isFilled(cell) ? (
                             <span style={{ color: "var(--accfg)", fontWeight: 600 }}>{tx(p("Typing here", "यहाँ लिखें"))}</span>
                           ) : dirty ? (
-                            <span style={{ color: "var(--mut)" }}>{status === "saving" ? tx(p("Saving…", "सहेज रहे…")) : tx(p("Not saved", "सहेजा नहीं"))}</span>
+                            <span style={{ color: statusBad ? "var(--bad)" : "var(--mut)" }}>{rowState()}</span>
                           ) : isFilled(cell) ? (
                             <span style={{ color: "var(--ok)", fontWeight: 600 }}>✓ {tx(p("Saved", "सहेजा"))}</span>
                           ) : (
@@ -1035,7 +1212,7 @@ export function MarksSheet({
                       <span style={{ fontSize: 18, color: "var(--mut)" }}>/{paper.maxMarks}</span>
                     </span>
                     <span style={{ fontSize: 13, color: "var(--mut)" }}>
-                      {isFilled(padCell) ? (sameSaved(padCell ?? BLANK, saved[padStudent.id]) ? `✓ ${tx(p("Saved", "सहेजा"))}` : tx(p("Saving…", "सहेज रहे…"))) : tx(p("Not entered yet", "अभी नहीं भरा"))}
+                      {!sameSaved(padCell ?? BLANK, saved[padStudent.id]) ? rowState() : isFilled(padCell) ? `✓ ${tx(p("Saved", "सहेजा"))}` : tx(p("Not entered yet", "अभी नहीं भरा"))}
                     </span>
                   </Card>
                   <button type="button" className="tap icon-btn" aria-label={tx(p("Next child", "अगला बच्चा"))} onClick={() => goPad(current + 1)} disabled={current >= order.length - 1}>
@@ -1076,9 +1253,10 @@ export function MarksSheet({
         </section>
         <div className="glass" style={{ position: "sticky", bottom: "var(--vx-bottom-h)", zIndex: 10, borderTop: "1px solid var(--bd)", padding: "12px 28px", display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <strong>{tx(p(`${c.filled} of ${c.total} done`, `${c.total} में से ${c.filled} भरे`))} · {c.blank} {tx(p("left", "बाकी"))}</strong>
-            <span style={{ fontSize: 12, color: status === "error" || status === "stale" ? "var(--bad)" : "var(--mut)" }}>{statusLine}</span>
+            <strong>{tx(p(`${c.filled} of ${c.total} saved`, `${c.total} में से ${c.filled} सहेजे`))} · {c.blank} {tx(p("left", "बाकी"))}{localLine ? ` · ${localLine}` : ""}</strong>
+            <span role="status" aria-live="polite" style={{ fontSize: 12, color: statusBad ? "var(--bad)" : "var(--mut)" }}>{statusLine}</span>
           </span>
+          {retry}
           {entryStatus === "submitted" && !correcting ? (
             <Btn variant="sec" onClick={() => setPhase("sent")}>{tx(p("Sent", "भेजा"))} ✓</Btn>
           ) : !correcting ? (
@@ -1096,6 +1274,11 @@ function textsOf(cells: Record<string, Cell>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [id, cell] of Object.entries(cells)) out[id] = cell.state === "value" && cell.value !== null ? String(cell.value) : "";
   return out;
+}
+
+/** A cell as the sheet prints it in a list: the mark, AB, EX or a dash. */
+function cellText(cell: Cell): string {
+  return cell.state === "value" ? String(cell.value) : cell.state === "absent" ? "AB" : cell.state === "exempt" ? "EX" : "—";
 }
 
 function sameSaved(a: Cell, b: Cell | undefined): boolean {

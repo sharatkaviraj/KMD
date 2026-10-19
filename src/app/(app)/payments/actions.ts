@@ -15,6 +15,8 @@
  * preview, which makes a previewed screen read-only.
  */
 
+import { after } from "next/server";
+
 import {
   submitPaymentEntryAction,
   undoRecentPaymentAction,
@@ -169,17 +171,19 @@ export async function postDeskPaymentAction(input: DeskPostInput): Promise<DeskS
  * views' refresh took from 12 s to 2.5 min on the school-day run, and the
  * cashier stared at "Saving…" with the parent's cash in hand. The desk asks
  * `settleDeskSaveAction` for the receipt and the balance straight after, which
- * still drains first, so the receipt never shows a stale balance (D-271).
+ * reads the balance from the live ledger, so it never shows the figure from
+ * before the payment (D-271, B07).
  */
 function postedResult(input: { receiptId: string; receiptNumber: string }): Extract<DeskSaveResult, { status: "saved" }> {
   return { status: "saved", receipt: null, receiptId: input.receiptId, receiptNumber: input.receiptNumber, student: null, balanceAfter: null, settling: true };
 }
 
 /**
- * The receipt, the student's balance and today's total after a save, once the
- * balance views have caught up. Read-only; the desk calls it right after
- * `postDeskPaymentAction` answers. A failure is null: the payment is posted
- * either way, and the desk offers "Show the receipt".
+ * The receipt, the student's live balance and today's total after a save.
+ * Read-only — it never posts — so the desk calls it right after
+ * `postDeskPaymentAction` answers and again from its Retry button. A failure
+ * is null: the payment is posted either way, and the desk says the balance
+ * could not refresh.
  */
 export async function settleDeskSaveAction(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }): Promise<Extract<DeskSaveResult, { status: "saved" }> | null> {
   try {
@@ -194,28 +198,37 @@ export async function settleDeskSaveAction(input: { receiptId: string; receiptNu
 /**
  * The money is posted. What follows only dresses the saved state, so a
  * failure here must not read as a failed payment: the receipt and the balance
- * come back null and the desk says the receipt could not be shown yet.
+ * come back null and the desk says the balance could not refresh, with Retry.
  */
 async function savedResult(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }): Promise<Extract<DeskSaveResult, { status: "saved" }>> {
-  // The post only queues the balance views' refresh; the fee action drains it
-  // in after(), once this answer has gone. Read before that and the receipt
-  // prints the balance from before the payment (₹1,000 owed where ₹900 is
-  // right). So drain first: the receipt in the parent's hand is the one place
-  // a stale figure cannot be corrected by a reload (D-271).
-  await drainFinancialViewRefresh();
-  const [receipt, after, todayCollection] = await Promise.all([
+  // The post only queues the balance views' refresh. Draining here used to be
+  // how the receipt avoided a stale balance (D-271), but the drain takes
+  // `skip locked` and returns false when the fee action's own after() drain
+  // holds the lock, and the refresh is concurrent, so a read straight after
+  // it could still see the view from before the payment (B07: ₹7,100 shown
+  // where ₹7,099 was right). The balance now comes from the live ledger
+  // (`live: true`), which needs no drain; the drain still runs, after this
+  // answer, so the dashboards catch up.
+  after(drainFinancialViewRefresh);
+  const today = schoolToday();
+  const [receipt, read, todayCollection] = await Promise.all([
     loadDeskReceipt(input.receiptId).catch(() => null),
-    loadDeskStudent({ studentId: input.studentId, sessionLabel: input.sessionLabel, today: schoolToday() }).catch(() => null),
-    loadDeskTodayCollection(input.sessionLabel, schoolToday()).catch(() => null),
+    loadDeskStudent({ studentId: input.studentId, sessionLabel: input.sessionLabel, today, live: true }).catch(() => null),
+    loadDeskTodayCollection(input.sessionLabel, today).catch(() => null),
   ]);
-  const student = after && after.ok ? after.student : null;
+  // Only a live read is the balance now. A snapshot read is not returned at
+  // all: the desk keeps what it had and offers Retry instead of a figure
+  // that may predate the payment.
+  const student = read && read.ok && read.student.balanceSource === "live" ? read.student : null;
   return {
     status: "saved",
     receipt,
     receiptId: input.receiptId,
     receiptNumber: input.receiptNumber,
     student,
-    balanceAfter: student ? balanceAfter(student, schoolToday()) : null,
+    balanceAfter: student ? balanceAfter(student, today) : null,
+    balanceSource: student ? "live" : null,
+    balanceReadAt: student ? student.readAt : null,
     todayCollection,
   };
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { reverseReceiptAction } from "@/app/(app)/receipts/actions";
 import { deskModeOf, REVERSAL_REASONS, type ReversalReason } from "@/modules/receipts/vx/domain/day-close";
+import { canOpenReverse } from "@/modules/receipts/vx/domain/reverse-sheet";
 import { amountInWords, dateLabel, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -66,7 +67,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
     if (h.kind === "posted") return r.receivedBy ? tx(fill(W.hPosted, { name: r.receivedBy })) : tx(W.hPostedBare);
     if (h.kind === "sent") return r.fatherName ? tx(fill(W.hSent, { name: r.fatherName })) : tx(W.hSentBare);
     if (h.kind === "read") return tx(W.hRead);
-    return `${tx(W.hReversed)}${h.note ? ` · ${h.note}` : ""}${h.amount ? ` · ${rupees(h.amount)}` : ""}`;
+    return `${h.byName ? tx(fill(W.hReversedBy, { name: h.byName })) : tx(W.hReversed)}${h.note ? ` · ${h.note}` : ""}${h.amount ? ` · ${rupees(h.amount)}` : ""}`;
   }
 
   function submitReverse() {
@@ -80,11 +81,27 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
       }
       setSheet(null);
       toast.show({ text: tx(res.kind === "reversed" ? W.doneReversed : res.kind === "exists" ? W.doneExists : W.doneRequested), tone: res.kind === "exists" ? "info" : "ok" });
+      // Drop `?sheet=reverse` from the URL, or a reload reopens the sheet on a
+      // receipt that is now reversed (B08). Every other parameter stays.
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("sheet")) {
+        url.searchParams.delete("sheet");
+        router.replace(`${url.pathname}${url.search}`, { scroll: false });
+      }
       router.refresh();
     });
   }
 
-  const canAskReverse = perms.accounts && !r.isReversed && !r.pendingRequest;
+  // Only a receipt that can still be reversed, with no request already
+  // waiting, by someone who may ask (B08) — the same rule the URL is held to.
+  const canAskReverse = canOpenReverse({ isReversed: r.isReversed, remaining, hasPendingRequest: Boolean(r.pendingRequest) }, perms.accounts);
+  const reversedLine = r.isReversed && r.reversal
+    ? [
+        tx(fill(W.reversedOn, { day: deskDay(r.reversal.at), time: deskTime(r.reversal.at) })),
+        r.reversal.byName ? tx(fill(W.reversedBy, { name: r.reversal.byName })) : null,
+        r.reversal.note,
+      ].filter(Boolean).join(" · ")
+    : null;
   const firstName = r.studentFullName.split(" ")[0] ?? r.studentFullName;
   const fatherFirst = r.fatherName?.split(" ")[0] ?? null;
   const sendLabel = sent ? tx(W.sendAgain) : fatherFirst ? tx(fill(W.sendTo, { name: fatherFirst })) : tx(W.sendWa);
@@ -143,7 +160,8 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         ) : null}
       </div>
 
-      {r.pendingRequest ? <Pill tone="warn" icon="clock">{tx(W.pendingReversal)}{r.pendingRequest.by ? ` · ${r.pendingRequest.by}` : ""}</Pill> : null}
+      {reversedLine ? <Pill tone="bad" icon="undo" style={{ height: "auto", minHeight: 26, padding: "4px 10px", whiteSpace: "normal" }}><span id="rc-reversed-on">{reversedLine}</span></Pill> : null}
+      {r.pendingRequest && !r.isReversed ? <Pill tone="warn" icon="clock">{tx(W.pendingReversal)}{r.pendingRequest.by ? ` · ${r.pendingRequest.by}` : ""}</Pill> : null}
 
       {!r.isReversed ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -171,7 +189,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
       <span style={{ fontSize: 12, color: "var(--mut)", lineHeight: 1.5 }}>{tx(W.footnote)}</span>
 
       <Sheet
-        open={sheet === "reverse"}
+        open={sheet === "reverse" && canAskReverse}
         onClose={() => setSheet(null)}
         title={`${tx(W.reverse)} ${r.receiptNumber}?`}
         sub={`${r.studentFullName} · ${r.classLabel} · ${rupees(remaining)} · ${tx(MODE_WORD[mode])}`}

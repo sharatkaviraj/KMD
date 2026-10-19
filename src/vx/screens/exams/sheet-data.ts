@@ -8,6 +8,7 @@ import type { Pair } from "@/vx/text";
 
 import { listExams, marksOf, paperById, previousExam, studentsByIds, toCell, type Exam, type PaperRow } from "./data";
 import type { Cell } from "./domain/entry";
+import { UNDO_MS } from "./save-types";
 
 /*
  * Everything one marks sheet needs, for whoever has already been allowed to
@@ -34,6 +35,10 @@ export type SheetPaper = {
   entryRevision: number;
   submittedAt: string | null;
   submittedBy: string | null;
+  /** When the sender's ten minutes to undo end (`withdraw_marks_submission`), from the server's `submitted_at`. */
+  undoUntil?: string | null;
+  /** Whether those ten minutes were still running when the page was drawn — the server's clock, not the phone's. */
+  undoOpen?: boolean;
   examOpen: boolean;
   locked: boolean;
   dueLabel: string | null;
@@ -135,6 +140,7 @@ export async function loadSheet(paperId: string, known?: { exams?: Exam[]; paper
   for (const s of students) saved[s.id] = toCell(markOf.get(s.id));
 
   const due = self?.plan?.marksDueOn ?? null;
+  const undoUntil = paper.entry_status === "submitted" && paper.submitted_at ? new Date(new Date(paper.submitted_at).getTime() + UNDO_MS).toISOString() : null;
   return {
     paper: {
       id: paper.id,
@@ -152,6 +158,8 @@ export async function loadSheet(paperId: string, known?: { exams?: Exam[]; paper
       entryRevision: paper.entry_revision,
       submittedAt: paper.submitted_at,
       submittedBy: paper.submitted_by,
+      undoUntil,
+      undoOpen: undoUntil !== null && Date.now() < new Date(undoUntil).getTime(),
       examOpen: exam.status === "open",
       locked: Boolean(lock.data),
       dueLabel: due ? shortDay(due) : null,

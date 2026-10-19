@@ -74,6 +74,33 @@ const dutiesFor = cache((sessionLabel: string, day: string) => dutiesOn(sessionL
 const pendingSubmissions = cache(() => listSubmissions("pending"));
 const jobsNow = cache(() => jobsBoard());
 
+type AskedLeave = { id: string; staffName: string; fromDay: string; toDay: string; span: string; askedAt: string };
+
+/**
+ * Leave a teacher asked and nobody has decided (Needs you, brief 02): it was
+ * only on the timetable's leave tab, so an admin who did not open that tab
+ * never saw it. Read only; it is decided on the timetable screen.
+ */
+const askedLeave = cache(async (sessionLabel: string): Promise<AskedLeave[]> => {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("teacher_leave")
+    .select("id, staff_profile_id, from_day, to_day, span, created_at")
+    .eq("session_label", sessionLabel)
+    .eq("status", "asked")
+    .order("from_day")
+    .limit(20)
+    .returns<{ id: string; staff_profile_id: string; from_day: string; to_day: string; span: string; created_at: string }[]>();
+  if (error) throw new Error("Could not read leave requests.");
+  if (!data.length) return [];
+  const { data: people } = await admin.from("staff_profiles").select("id, display_name").in("id", [...new Set(data.map((r) => r.staff_profile_id))]).returns<{ id: string; display_name: string }[]>();
+  const name = new Map((people ?? []).map((s) => [s.id, s.display_name]));
+  return data.map((r) => ({ id: r.id, staffName: name.get(r.staff_profile_id) ?? "—", fromDay: r.from_day, toDay: r.to_day, span: r.span, askedAt: r.created_at }));
+});
+
+const LEAVE_SPAN: Record<string, Pair> = { full: p("Full day", "पूरा दिन"), first_half: p("First half", "पहली पाली"), second_half: p("Second half", "दूसरी पाली") };
+const leaveDays = (r: AskedLeave) => (r.fromDay === r.toDay ? r.fromDay : `${r.fromDay} – ${r.toDay}`);
+
 type MoneyRequest = { id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null };
 type MoneyRequests = () => Promise<MoneyRequest[]>;
 const moneyRequests = cache((read: MoneyRequests) => read());
@@ -662,6 +689,7 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
     can(staff, "collection:manage") ? guard(missing, "submissions", () => pendingSubmissions()) : Promise.resolve(null),
     refunds ? guard(missing, "refunds", () => moneyRequests(refunds)) : Promise.resolve(null),
     can(staff, "jobs:view") ? guard(missing, "jobs", () => jobsNow()) : Promise.resolve(null),
+    can(staff, "substitutions:manage") ? guard(missing, "leave", () => askedLeave(sessionLabel)) : Promise.resolve(null),
   ] as const);
 }
 
@@ -675,7 +703,7 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
  */
 export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests) => Promise<number> = cache(
   async (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests): Promise<number> => {
-    const [board, needing, pending, money, jobs] = await inboxSources(staff, sessionLabel, day, refunds, []);
+    const [board, needing, pending, money, jobs, leave] = await inboxSources(staff, sessionLabel, day, refunds, []);
     const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending.filter(s=>s.fieldKey!=="student_photo"&&(staff.role==="admin"||!s.requiresAdmin))) : { changes: [], confirmations: [] };
     return inboxBadgeCount({
       notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded)),
@@ -684,6 +712,7 @@ export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string
       confirmations: confirmations.length,
       refunds: money?.length ?? 0,
       failedJobs: [...(jobs?.latest.values() ?? [])].filter((entry) => entry.status === "failed").length,
+      leave: leave?.length ?? 0,
     });
   },
 );
@@ -710,7 +739,7 @@ async function readInbox(
   const items: InboxItem[] = [];
   const nowIso = new Date().toISOString();
 
-  const [board, needing, pending, refunds, jobs] = await inboxSources(staff, sessionLabel, day, refundsReader, missing);
+  const [board, needing, pending, refunds, jobs, leave] = await inboxSources(staff, sessionLabel, day, refundsReader, missing);
 
   /* attendance not marked */
   if (board && board.schoolOpen) {
@@ -855,6 +884,28 @@ async function readInbox(
       ],
       footnote: r.deskKind ? p("Decided on the receipt or dues screen; nothing moves until you confirm it there.", "फ़ैसला रसीद या बकाया स्क्रीन पर होता है; वहाँ पुष्टि के बिना कुछ नहीं बदलता।") : T.refundFootnote,
       href: r.href ?? "/fees/finance-controls",
+    });
+  }
+
+  /* leave asked, not yet decided: who, which days, since when; decided on the timetable */
+  for (const r of leave ?? []) {
+    const span = LEAVE_SPAN[r.span] ?? LEAVE_SPAN.full;
+    items.push({
+      id: `leave:${r.id}`,
+      type: "timetable",
+      kind: "leave",
+      at: r.askedAt,
+      // Leave for today or a day already gone needs an answer before cover can be arranged.
+      urgent: r.fromDay <= day,
+      badge: p("Leave", "छुट्टी"),
+      title: p(`Leave asked · ${r.staffName}`, `छुट्टी का आवेदन · ${r.staffName}`),
+      sub: p(`${leaveDays(r)} · ${span.en}`, `${leaveDays(r)} · ${span.hi}`),
+      facts: [
+        { label: p("Days", "दिन"), value: leaveDays(r) },
+        { label: p("Part of the day", "दिन का हिस्सा"), value: span.en },
+      ],
+      footnote: p("Approve or decline it on the timetable's leave tab; cover is arranged when you approve.", "समय-सारणी के छुट्टी टैब पर मंज़ूर या अस्वीकार करें; मंज़ूरी पर कवर लगता है।"),
+      href: "/timetable?view=leave",
     });
   }
 

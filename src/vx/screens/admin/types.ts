@@ -3,7 +3,7 @@ import type { ClassBoardRow, InboxType, MarkStatus } from "@/vx/screens/admin/lo
 
 /** Shapes the admin screens hand from server to client. Plain data only. */
 
-export type InboxKind = "not_marked" | "cover" | "submission" | "confirmations" | "refund" | "job";
+export type InboxKind = "not_marked" | "cover" | "submission" | "confirmations" | "refund" | "job" | "leave";
 
 export type InboxFact = { label: Pair; value: string };
 
