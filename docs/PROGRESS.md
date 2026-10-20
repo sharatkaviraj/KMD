@@ -1198,7 +1198,7 @@ Accessibility follow-up released: #105 (main `a93eda3`) and #106 (main `399feb1`
 
 ## Smoke Lab — 20 October 2026
 
-Owner's request: passwordless logins for every role so AI agents can run the whole school day end to end and find bugs and improvements. Guide: `docs/smoke/README.md`; decisions D-311–D-314.
+Owner's request: passwordless logins for every role so AI agents can run the whole school day end to end and find bugs and improvements. **Status: [PR 109](https://github.com/veerpatta/vppsone/pull/109), commit `08f318e`, open and not merged or deployed — waiting for the owner to authorize the merge.** After merging: run `scripts/smoke/self-test.mjs` against the deployment. Guide: `docs/smoke/README.md`; decisions D-311–D-314.
 
 | What | Status | Branch / commit | Remaining or surprising |
 |---|---|---|---|
