@@ -1,4 +1,5 @@
 import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
+import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -23,7 +24,9 @@ import {
  */
 // `/login/test` is the keyed QA sign-in (UI-63): it 404s without the secret
 // key and on the live database, and can only sign in as a QA-domain account.
-const PUBLIC_PATHS = new Set(["/login", "/login/test", "/auth/confirm", "/login/dayrun", "/login/dayrun/request", "/login/dayrun/redeem", "/login/dayrun/end"]);
+// `/lab/*` and `/api/lab/*` are the Smoke Lab's pass-carrying doors: each
+// checks its own 256-bit pass and 404s off the test database.
+const PUBLIC_PATHS = new Set(["/login", "/login/test", "/auth/confirm", "/login/dayrun", "/login/dayrun/request", "/login/dayrun/redeem", "/login/dayrun/end", "/lab/enter", "/lab/clock", "/lab/ended"]);
 
 /**
  * The token links, which are open by design.
@@ -45,7 +48,7 @@ function isPublicPath(pathname: string) {
   // it is a cron request — and it carries its own secret, checked by the route
   // itself, which refuses everything when neither secret is configured. A 302
   // to a login page here would make every scheduled job a silent success.
-  return ["/r", "/t", "/w", "/api/jobs"].some(
+  return ["/r", "/t", "/w", "/api/jobs", "/api/lab"].some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
@@ -111,6 +114,27 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/login/dayrun";
       url.search = "";
       return NextResponse.redirect(url);
+    }
+  }
+
+  // A Smoke Lab account is honoured only while one of its passes and its run
+  // are live (`vppsone.smoke_access_allowed`): revoking a run, or its expiry,
+  // ends every agent's session on its next request. Only smoke accounts are
+  // asked (the `smoke_lab` flag or a `smoke.*@qa.vpps.local` email); anybody
+  // else is untouched. A "no" signs out every session the account holds; an
+  // error refuses this request without signing out, and the next one asks
+  // again. The database also bans the account and deletes its sessions.
+  if (hasUser && isSmokeAccount(claimsData?.claims) && !isPublicPath(pathname)) {
+    const { data: allowed, error } = await supabase.schema("vppsone").rpc("smoke_access_allowed");
+    if (error || allowed !== true) {
+      if (!error) await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
+      const url = request.nextUrl.clone();
+      url.pathname = "/lab/ended";
+      url.search = "";
+      url.searchParams.set("reason", error ? "unavailable" : "expired");
+      const ended = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((cookie) => ended.cookies.set(cookie));
+      return ended;
     }
   }
 

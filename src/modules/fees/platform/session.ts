@@ -11,7 +11,6 @@ import {
 } from "@/platform/auth/current-staff";
 import { feeLocaleFor } from "@/platform/i18n/bridge";
 import {
-  hasAnyRolePermission,
   hasRolePermission,
   type StaffPermission,
   type StaffRole,
@@ -61,7 +60,17 @@ export type AuthenticatedStaffSession = StaffAuthClaims & {
   lastLoginAt: string | null;
   /** The fee app's locale for this reader, resolved from their account. */
   preferredLocale: string | null;
+  /** A Smoke Lab test account: never manages staff accounts (D-314). */
+  smokeLab?: boolean;
 };
+
+/** Fee permissions a Smoke Lab account never has, whatever its role (D-314). */
+const SMOKE_LAB_DENIED_FEE: readonly string[] = ["staff:manage"];
+
+function allowedFor(staff: Pick<AuthenticatedStaffSession, "appRole" | "smokeLab">, permission: StaffPermission) {
+  if (staff.smokeLab && SMOKE_LAB_DENIED_FEE.includes(permission)) return false;
+  return hasRolePermission(staff.appRole, permission);
+}
 
 /**
  * `satisfies`, not a return-type annotation.
@@ -87,6 +96,7 @@ function toFeeSession(staff: CurrentStaff) {
     // than admitting there isn't one.
     lastLoginAt: null,
     preferredLocale: feeLocaleFor(staff.language),
+    smokeLab: staff.smokeLab === true,
   } satisfies AuthenticatedStaffSession;
 }
 
@@ -115,10 +125,10 @@ export async function requireAuthenticatedStaff(
 }
 
 export function staffCan(
-  staff: Pick<AuthenticatedStaffSession, "appRole">,
+  staff: Pick<AuthenticatedStaffSession, "appRole" | "smokeLab">,
   permission: StaffPermission,
 ) {
-  return hasRolePermission(staff.appRole, permission);
+  return allowedFor(staff, permission);
 }
 
 type PermissionGuardOptions = {
@@ -136,7 +146,7 @@ export async function requireStaffPermission(
 ) {
   const staff = await requireAuthenticatedStaff();
 
-  if (hasRolePermission(staff.appRole, permission)) {
+  if (allowedFor(staff, permission)) {
     return staff;
   }
 
@@ -153,7 +163,7 @@ export async function requireAnyStaffPermission(
 ) {
   const staff = await requireAuthenticatedStaff();
 
-  if (hasAnyRolePermission(staff.appRole, permissions)) {
+  if (permissions.some((permission) => allowedFor(staff, permission))) {
     return staff;
   }
 
@@ -167,17 +177,17 @@ export async function requireAnyStaffPermission(
 }
 
 export function hasStaffPermission(
-  staff: Pick<AuthenticatedStaffSession, "appRole">,
+  staff: Pick<AuthenticatedStaffSession, "appRole" | "smokeLab">,
   permission: StaffPermission,
 ) {
-  return hasRolePermission(staff.appRole, permission);
+  return allowedFor(staff, permission);
 }
 
 export function hasAnyStaffPermission(
-  staff: Pick<AuthenticatedStaffSession, "appRole">,
+  staff: Pick<AuthenticatedStaffSession, "appRole" | "smokeLab">,
   permissions: readonly StaffPermission[],
 ) {
-  return hasAnyRolePermission(staff.appRole, permissions);
+  return permissions.some((permission) => allowedFor(staff, permission));
 }
 
 /*

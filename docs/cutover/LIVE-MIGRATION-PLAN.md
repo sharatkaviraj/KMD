@@ -41,7 +41,7 @@ Facts about DEV's ledger that matter for live:
 | **A** | `vppsone`-only DDL; apply as is | everything not listed below |
 | **B** | `vppsone` DDL plus rows live needs (permissions, note kinds, collection fields, templates, flags) | 20260917021218, 20260917033652, 20260917051208, 20261004031630, 20261004035559, 20261004040755, 20261004084641, 20261010100247, 20261010102233, 20261010102401, 20261010102943, 20261011092957, 20261016080000, 20261016090000 |
 | **C** | Touches the fee app or shared platform settings | 20260916191935 (PostgREST setting on role `authenticator`), 20260917033722 / 20261004121311 / 20261004124254 (Storage buckets), **20260922100000 (replaces `private.current_staff_role()`)**, **20261006043431 (SECURITY DEFINER writer to `public.defaulter_recovery_state`)**, **`docs/cutover/fee-collector-posts-payments.sql` (replaces `public.has_permission(text)`)** |
-| **D-skip** | Dev/QA only; **never apply on live** | 20260917093746 `create_qa_fixture_runs`; 20261004101241 `record_history_qa_cleanup` (would let `qa_*` history rows be deleted); **20261018191000 `overnight_qa_app_sessions`** (the revoked launcher: dev UUIDs, the owner's e-mail, the dev project ref; its tombstone triggers make it impossible to remove once applied) |
+| **D-skip** | Dev/QA only; **never apply on live** | 20261020103153 `smoke_lab`, 20261020105658 `smoke_lab_enforcement` and 20261020110015 `smoke_lab_ban_date` (Smoke Lab accounts, passes, findings, and a pg_cron job that bans pool accounts — the app also switches the lab off on live); 20260917093746 `create_qa_fixture_runs`; 20261004101241 `record_history_qa_cleanup` (would let `qa_*` history rows be deleted); **20261018191000 `overnight_qa_app_sessions`** (the revoked launcher: dev UUIDs, the owner's e-mail, the dev project ref; its tombstone triggers make it impossible to remove once applied) |
 | **D-keep** | Dev-flavoured but required | 20260922091500 `create_data_replica_log` — 20261004031630's policy loop names `data_replica`; on live it stays empty, which means "not a replica" |
 
 Verified against every file: nothing outside the three D-skip files refers to
@@ -216,8 +216,10 @@ Never re-run individual files to "repair" (§7).
 
 ## 7. Things that must not happen
 
-- Never apply the three D-skip files on live: 20261018191000 (overnight QA),
-  20261004101241 (QA history cleanup), 20260917093746 (QA fixture runs).
+- Never apply the D-skip files on live: 20261018191000 (overnight QA),
+  20261004101241 (QA history cleanup), 20260917093746 (QA fixture runs),
+  20261020103153 (Smoke Lab). Gate M1's counts already exclude the Smoke Lab's
+  four tables and one function (they were added to DEV after the counts).
 - Never re-run a file after it succeeded. In particular 20261010103349 after
   20261011090858 silently restores the weaker notes policy (health and family
   notes become readable more widely), and 20261010100247 / 20261010102233 /

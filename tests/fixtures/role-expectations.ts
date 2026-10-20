@@ -330,6 +330,15 @@ export const ROUTE_EXPECTATIONS: readonly RouteExpectation[] = [
     because: "One round, with what it asks and who it covers.",
   },
 
+  /* ------------------------------------------------------------ test tools */
+
+  {
+    route: "/smoke",
+    allow: ["admin"],
+    because:
+      "The Smoke Lab hands out sign-in passes for test accounts, so it is the administrator's alone — and a 404 on the live database and for the smoke accounts themselves (D-311, D-314).",
+  },
+
   /* --------------------------------------------------------- master data */
 
   {

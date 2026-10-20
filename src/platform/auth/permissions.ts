@@ -341,7 +341,16 @@ export function resolveStaffRole(value: unknown): StaffRole {
 export type PermissionSubject = {
   role: StaffRole;
   permissions?: readonly string[] | null;
+  /** A Smoke Lab test account (D-311): never manages people or settings (D-314). */
+  smokeLab?: boolean;
 };
+
+/**
+ * What a Smoke Lab account may never do, whatever its role: make or change
+ * accounts, roles and permissions, or the school's settings. Without this the
+ * admin seat could mint itself a password account that outlives its run.
+ */
+export const SMOKE_LAB_DENIED: readonly StaffPermission[] = ["staff:manage", "settings:manage"];
 
 /**
  * The permissions a role has in the matrix as the database holds it, narrowed
@@ -349,6 +358,11 @@ export type PermissionSubject = {
  * refuses to change it), so an edited row can never lock the school out.
  */
 export function effectivePermissions(subject: PermissionSubject): readonly StaffPermission[] {
+  const granted = grantedPermissions(subject);
+  return subject.smokeLab ? granted.filter((permission) => !SMOKE_LAB_DENIED.includes(permission)) : granted;
+}
+
+function grantedPermissions(subject: PermissionSubject): readonly StaffPermission[] {
   if (subject.role === "admin") return adminPermissions;
   if (subject.permissions) {
     const known = new Set<string>(subject.permissions);

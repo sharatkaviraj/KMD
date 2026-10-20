@@ -57,3 +57,6 @@ next-env.d.ts
 # phone-suite evidence and Vite fixture builds
 /.test-artifacts/
 /tests/*/dist/
+
+# Smoke Lab agent kits hold live passes; never commit them.
+smoke-kit-*.json
