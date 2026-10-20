@@ -6,6 +6,7 @@
 
 import type { DeskLedgerRow, DeskMode, RecentReceipt } from "@/modules/payments/vx/domain/desk";
 import type { GridStudent } from "@/modules/payments/vx/domain/bulk-grid";
+import type { BalanceSource } from "@/modules/payments/vx/domain/live-balance";
 import type { RepaymentPlanCollectionContext } from "@/modules/repayment-plans/domain/types";
 
 export type DeskClass = { id: string; label: string; short: string };
@@ -56,6 +57,14 @@ export type DeskStudent = {
   plan: { tuition: number; transport: number; academic: number; installments: number } | null;
   /** Read at this moment, for "frozen at" lines. */
   readAt: string;
+  /**
+   * "live" when the figures were laid over the live ledger at `readAt` (the
+   * read after a posting, B07); "snapshot" when they are the balance views'
+   * as they stood, which can trail a payment just posted. Absent = snapshot.
+   */
+  balanceSource?: BalanceSource;
+  /** How many rows the live ledger returned, when the read was live (an empty read is checked against the receipt). */
+  liveRowCount?: number;
 };
 
 export type DeskStudentResult = { ok: true; student: DeskStudent } | { ok: false; message: string; repairable: boolean };
@@ -90,6 +99,13 @@ export type DeskSaveResult =
       status: "saved"; receipt: DeskReceipt | null; receiptId: string; receiptNumber: string; student: DeskStudent | null; balanceAfter: { pendingToday: number; dueToday: number; notDueYet: number; lateFee: number } | null; todayCollection?: { count: number; amount: number } | null;
       /** Posted, answered at once; the receipt and balance follow from `settleDeskSaveAction` (accountant B2). */
       settling?: boolean;
+      /**
+       * Where `balanceAfter` came from. The desk shows it as "Balance now" only
+       * when "live"; anything else is "Balance could not refresh" (B07).
+       */
+      balanceSource?: BalanceSource | null;
+      /** When the live balance was read (ISO). */
+      balanceReadAt?: string | null;
     }
   | {
       status: "duplicate";

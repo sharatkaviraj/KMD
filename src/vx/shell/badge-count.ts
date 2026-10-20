@@ -20,6 +20,8 @@ export function inboxBadgeCount(parts: {
   refunds: number;
   /** Jobs whose last run failed (one item each). */
   failedJobs: number;
+  /** Teachers' leave asked and not yet decided (one item each). */
+  leave?: number;
 }): number {
   return (
     (parts.notMarked ? 1 : 0) +
@@ -27,6 +29,7 @@ export function inboxBadgeCount(parts: {
     Math.min(parts.changes, SUBMISSION_ITEMS_MAX) +
     (parts.confirmations > 0 ? 1 : 0) +
     parts.refunds +
-    parts.failedJobs
+    parts.failedJobs +
+    (parts.leave ?? 0)
   );
 }

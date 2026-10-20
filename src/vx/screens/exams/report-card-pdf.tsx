@@ -132,6 +132,8 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
             {card.passed === null ? "" : card.passed ? " · Pass" : " · Needs support"}
           </Text>
           {card.gradeDescription ? <Text style={s.cellHi}>{card.gradeDescription.hi}</Text> : null}
+          {/* The exams count differently, so the percentage is not the total divided by the maximum: say so. */}
+          {card.totals.weighted ? <Text style={s.labelHi}>परीक्षा के भार से <Text style={s.label}>/ Weighted by exam</Text></Text> : null}
         </View>
         <View style={{ flex: 1, backgroundColor: pdfTokens.panel, padding: 8 }}>
           <Text style={s.labelHi}>उपस्थिति / Attendance</Text>

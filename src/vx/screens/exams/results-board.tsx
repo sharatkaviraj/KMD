@@ -15,6 +15,7 @@ import { EmptyState } from "@/vx/ui/primitives";
 
 import { subjectPair } from "./domain/groups";
 import { waLink } from "./domain/messages";
+import { READINESS_LABEL, type ClassReadiness } from "./domain/progress";
 import type { PipelineStep, StepState } from "./domain/results";
 import { OfficeTop, toneAvatar, type HelpContent } from "./office-ui";
 import { RemindSheet, type TeacherRowView } from "./remind";
@@ -23,6 +24,14 @@ import { useAct } from "./use-act";
 
 /** "1 child", "3 children" — never "1 children" (coordinators B6). */
 const kidsEn = (n: number) => (n === 1 ? "1 child" : `${n} children`);
+
+/**
+ * A class's readiness and whether it may be locked. The page always sends
+ * both (computed by `classReadiness`, the lock action's own rule); a view
+ * built without them falls back to "every paper sent".
+ */
+const readinessOf = (c: { readiness?: ClassReadiness; allSubmitted: boolean }): ClassReadiness => c.readiness ?? (c.allSubmitted ? "ready_for_review" : "missing");
+const lockable = (c: { readyToLock?: boolean; allSubmitted: boolean }): boolean => c.readyToLock ?? c.allSubmitted;
 
 export type ResultsView = "pipeline" | "moderation" | "grace" | "lock" | "cards" | "publish" | "recheck";
 
@@ -36,6 +45,12 @@ type ClassRowView = {
   children: number;
   percent: number;
   allSubmitted: boolean;
+  /** Where the class stands from its persisted marks and their validity (domain/progress.ts). */
+  readiness?: ClassReadiness;
+  /** Every paper sent, every child marked, no mark its paper cannot hold — what the lock action requires. */
+  readyToLock?: boolean;
+  /** Saved marks their paper cannot hold. */
+  invalid?: number;
   late: number;
   unusual: number;
   unusualOpen: number;
@@ -94,6 +109,8 @@ export type ResultsProps = {
       basis: "previous" | "school" | null;
       delta: number | null;
       unusual: boolean;
+      /** Saved marks this paper cannot hold. */
+      invalid?: number;
       decision: "fine" | "recheck" | null;
       sat: number;
       below: number;
@@ -122,6 +139,8 @@ export type ResultsProps = {
     sample: {
       studentId: string;
       name: string;
+      /** The sample's class, so "Open the full preview" opens on it. */
+      classId?: string;
       classLabel: string;
       issued: boolean;
       rows: { subject: string; scored: number; outOf: number; grade: string | null; grace: number }[];
@@ -270,7 +289,7 @@ export function ResultsBoard(props: ResultsProps) {
   };
 
   /* The lock screen's choice lives here so the phone bar can act on it. */
-  const [lockPicked, setLockPicked] = useState<string[]>(() => props.classes.filter((c) => c.allSubmitted && !c.locked).map((c) => c.id));
+  const [lockPicked, setLockPicked] = useState<string[]>(() => props.classes.filter((c) => lockable(c) && !c.locked).map((c) => c.id));
   const lockChosen = props.classes.filter((c) => lockPicked.includes(c.id) && !c.locked);
   /* Publishing's choice, for the same reason. */
   const [when, setWhen] = useState<"now" | "scheduled">(exam.resultsOn ? "scheduled" : "now");
@@ -394,12 +413,12 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
   const { tx } = useVx();
   const { exam, classes, overall, teachers, states } = props;
   const locked = classes.filter((c) => c.locked).length;
-  const ready = classes.filter((c) => !c.locked && c.allSubmitted).length;
+  const ready = classes.filter((c) => !c.locked && lockable(c)).length;
   const late = teachers.filter((t) => t.late);
   const canPass = props.grace.rows.filter((g) => g.canPass).length;
   // "All fine" only when every class has been compared — not while 18 of 19
   // still wait for their marks (coordinators B6).
-  const checkedClasses = classes.filter((c) => c.allSubmitted && !c.unusualOpen).length;
+  const checkedClasses = classes.filter((c) => readinessOf(c) === "ready_for_review" && !c.unusualOpen).length;
   const allChecked = classes.length > 0 && checkedClasses >= classes.length;
   const firstOpen = STEP_ORDER.findIndex((s) => states[s] !== "done");
   const cards: Record<PipelineStep, { title: Pair; big: string; sub: string; btn: Pair; href: string; value: number }> = {
@@ -503,9 +522,19 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
                     <b className="num xs" style={{ minWidth: 38, textAlign: "right" }}>{c.percent}%</b>
                   </span>
                   <span>{c.late ? <Tag tone="bad">{tx(p(`${c.late} late`, `${c.late} देर`))}</Tag> : <Tag tone="s3">{tx(p("On time", "समय पर"))}</Tag>}</span>
-                  <span>{c.unusualOpen ? <Tag tone="warn">{tx(p(`${c.unusualOpen} to look at`, `${c.unusualOpen} देखने हैं`))}</Tag> : c.allSubmitted ? <Tag tone="ok">{tx(p("Checked", "जाँचा"))}</Tag> : <Tag tone="s3">{tx(p("Not checked", "नहीं जाँचा"))}</Tag>}</span>
+                  <span>
+                    {readinessOf(c) === "needs_correction" ? (
+                      <Tag tone="bad">{tx(READINESS_LABEL.needs_correction)}</Tag>
+                    ) : c.unusualOpen ? (
+                      <Tag tone="warn">{tx(p(`${c.unusualOpen} to look at`, `${c.unusualOpen} देखने हैं`))}</Tag>
+                    ) : readinessOf(c) === "ready_for_review" ? (
+                      <Tag tone="ok">{tx(p("Checked", "जाँचा"))}</Tag>
+                    ) : (
+                      <Tag tone="s3">{tx(READINESS_LABEL[readinessOf(c)])}</Tag>
+                    )}
+                  </span>
                   <span>{c.graceNeeded ? <Tag tone="info">{tx(p(`${c.graceNeeded} need grace`, `${c.graceNeeded} को ग्रेस`))}</Tag> : <Tag tone="s3">{tx(p("No grace", "ग्रेस नहीं"))}</Tag>}</span>
-                  <span>{c.locked ? <Tag tone="ok">{tx(p("Locked", "बंद"))}</Tag> : c.allSubmitted ? <Tag tone="info">{tx(p("Ready to lock", "बंद को तैयार"))}</Tag> : <Tag tone="s3">{tx(p("Not locked", "खुला"))}</Tag>}</span>
+                  <span>{c.locked ? <Tag tone="ok">{tx(p("Locked", "बंद"))}</Tag> : lockable(c) ? <Tag tone="info">{tx(p("Ready to lock", "बंद को तैयार"))}</Tag> : <Tag tone="s3">{tx(p("Not locked", "खुला"))}</Tag>}</span>
                   <span>{final ? <Tag tone="ok">{tx(p("Card final", "कार्ड पक्का"))}</Tag> : c.issued ? <Tag tone="warn">{`${c.issued}/${c.children}`}</Tag> : <Tag tone="s3">{tx(p("No card yet", "कार्ड नहीं"))}</Tag>}</span>
                 </div>
               );
@@ -669,7 +698,12 @@ function Moderation(props: ResultsProps & { pending: boolean; run: Run }) {
                   {paper.teacherName ?? "—"} · {tx(p(`out of ${paper.maxMarks} · ${kidsEn(paper.sat)}`, `पूर्णांक ${paper.maxMarks} · ${paper.sat} बच्चे`))}
                 </span>
               </span>
-              <Tag tone={paper.unusual && !paper.decision ? "warn" : "ok"}>{paper.unusual ? (paper.decision === "recheck" ? tx(p("Re-check asked", "दोबारा जाँच कही")) : paper.decision === "fine" ? tx(p("Marked fine", "ठीक माना")) : tx(p("Unusual", "असामान्य"))) : tx(p("Normal", "सामान्य"))}</Tag>
+              {paper.invalid ? (
+                // "Normal" is only about the average; a mark the paper cannot hold comes first (B04).
+                <Tag tone="bad">{tx(p(`Needs correction · ${paper.invalid}`, `सुधार चाहिए · ${paper.invalid}`))}</Tag>
+              ) : (
+                <Tag tone={paper.unusual && !paper.decision ? "warn" : "ok"}>{paper.unusual ? (paper.decision === "recheck" ? tx(p("Re-check asked", "दोबारा जाँच कही")) : paper.decision === "fine" ? tx(p("Marked fine", "ठीक माना")) : tx(p("Unusual", "असामान्य"))) : tx(p("Average normal", "औसत सामान्य"))}</Tag>
+              )}
             </div>
             <span className="sech">{tx(p("How the marks are spread", "अंक कैसे फैले हैं"))}</span>
             <div className="xr xrl" style={{ height: 130, alignItems: "flex-end", gap: 5, borderBottom: "1px solid var(--bd)" }}>
@@ -901,15 +935,15 @@ function Lock(props: ResultsProps & { pending: boolean; run: Run; picked: string
             }
             const on = picked.includes(c.id);
             return (
-              <button key={c.id} type="button" className={`tap chip${on ? " on" : ""}`} aria-pressed={on} disabled={!c.allSubmitted} onClick={() => setPicked(on ? picked.filter((x) => x !== c.id) : [...picked, c.id])} style={{ opacity: c.allSubmitted ? 1 : 0.55 }}>
+              <button key={c.id} type="button" className={`tap chip${on ? " on" : ""}`} aria-pressed={on} disabled={!lockable(c)} title={lockable(c) ? undefined : tx(READINESS_LABEL[readinessOf(c)])} onClick={() => setPicked(on ? picked.filter((x) => x !== c.id) : [...picked, c.id])} style={{ opacity: lockable(c) ? 1 : 0.55 }}>
                 {on ? <Ic n="check" size={14} /> : null}
                 {c.label}
-                <span className="num" style={{ opacity: 0.7 }}>{c.percent}%</span>
+                <span className="num" style={{ opacity: 0.7 }}>{lockable(c) ? `${c.percent}%` : tx(READINESS_LABEL[readinessOf(c)])}</span>
               </button>
             );
           })}
         </div>
-        <span className="xm">{tx(p("Only classes with every mark in can be locked. Tap a class to leave it out.", "जिन कक्षाओं के सब अंक आ गए, वही बंद हो सकती हैं। किसी कक्षा को छोड़ने के लिए उसे दबाएँ।"))}</span>
+        <span className="xm">{tx(p("Only classes with every mark in, every paper submitted and no mark needing correction can be locked. Tap a class to leave it out.", "जिन कक्षाओं के सब अंक आ गए, सब पेपर जमा हैं और कोई अंक सुधारना बाकी नहीं, वही बंद हो सकती हैं। किसी कक्षा को छोड़ने के लिए उसे दबाएँ।"))}</span>
       </div>
       {chosen.length ? (
         <>
@@ -1058,7 +1092,7 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
                 </span>
               </div>
             </div>
-            <Link href={`/exams?view=preview&student=${sample.studentId}`} className="tap btn sec only-d">
+            <Link href={`/exams?view=preview&exam=${exam.id}${sample.classId ? `&class=${sample.classId}` : ""}&student=${sample.studentId}`} className="tap btn sec only-d">
               <Ic n="eye" size={18} />
               {tx(p("Open the full preview", "पूरी झलक खोलें"))}
             </Link>

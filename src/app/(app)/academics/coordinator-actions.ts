@@ -14,7 +14,7 @@ import { attendanceRefusals } from "@/modules/attendance/domain/attendance-recei
 import { scopeIncludes } from "@/modules/attendance/domain/class-scope";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
 import { schoolToday } from "@/vx/format";
-import { academicContext, attendanceOn, marksEntry, staffDirectory, weekFacts } from "@/vx/screens/academics/data";
+import { academicContext, attendanceOn, marksEntry, planHiddenFrom, staffDirectory, weekFacts } from "@/vx/screens/academics/data";
 import { isUuid, weeklySummaryLine } from "@/vx/screens/academics/domain";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
@@ -245,13 +245,18 @@ export async function savePlanAction(input: { studentId: string; goal: string; s
 
   const { data: existing } = await admin
     .from("support_plans")
-    .select("id, status")
+    .select("id, status, note_id, created_by, goal")
     .eq("session_label", session)
     .eq("student_id", input.studentId)
     .in("status", ["draft", "active"])
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle<{ id: string; status: string }>();
+    .maybeSingle<{ id: string; status: string; note_id: string | null; created_by: string | null; goal: string | null }>();
+  // A plan this reader is not shown (D-264, R01) is not written over from an
+  // empty editor: its goal and steps belong to the teacher who made it.
+  if (existing && (await planHiddenFrom(actor, existing))) {
+    return fail("This child already has a support plan kept by the teacher who made it. Ask them, or the admin, to change it.", "इस बच्चे की सहायता योजना पहले से है, जो उसे बनाने वाले अध्यापक के पास है। बदलाव के लिए उनसे या प्रशासक से कहें।");
+  }
 
   const now = new Date().toISOString();
   let planId = existing?.id ?? null;

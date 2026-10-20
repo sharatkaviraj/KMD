@@ -9,6 +9,7 @@ import { schoolToday } from "@/platform/dates";
 import type { Assessment, AssessmentKind, AssessmentStatus } from "@/modules/assessments/domain/assessments";
 
 import { openExamsForMarks, pickCurrentExam } from "./domain/current";
+import { cellOf, countPaper } from "./domain/progress";
 import { onRoll, type EnrolmentFacts, type PaperFacts } from "./domain/tracker";
 import type { Cell } from "./domain/entry";
 
@@ -304,12 +305,9 @@ export async function marksOf(paperIds: string[]): Promise<MarkRow[]> {
   return parts.flat();
 }
 
+/** A marks row as the sheet holds it — the shared rule in `domain/progress.ts`. */
 export function toCell(row: MarkRow | undefined): Cell {
-  if (!row) return { state: "blank", value: null };
-  if (row.exempt) return { state: "exempt", value: null };
-  if (row.absent) return { state: "absent", value: null };
-  if (row.value !== null && row.value !== undefined) return { state: "value", value: Number(row.value) };
-  return { state: "blank", value: null };
+  return cellOf(row);
 }
 
 export async function enrolmentsFor(sessionLabel: string, classIds?: string[]): Promise<RollEntry[]> {
@@ -375,9 +373,11 @@ export async function trackerFor(input: {
   staff: StaffLite[];
   today?: string;
   onlyPapers?: (paper: PaperRow) => boolean;
+  /** This exam's papers when the caller has already read them. */
+  rows?: PaperRow[];
 }): Promise<{ papers: PaperFacts[]; rows: PaperRow[]; marks: MarkRow[]; roll: Map<string, RollEntry[]> }> {
   const today = input.today ?? schoolToday();
-  let rows = await papersOf([input.exam.id]);
+  let rows = input.rows ? input.rows.filter((r) => r.assessment_id === input.exam.id) : await papersOf([input.exam.id]);
   if (input.onlyPapers) rows = rows.filter(input.onlyPapers);
   const classIds = [...new Set(rows.map((r) => r.class_id))];
   const [marks, enrolments, assignments] = await Promise.all([
@@ -390,9 +390,13 @@ export async function trackerFor(input: {
     if (!onRoll(e, input.exam, today)) continue;
     roll.set(e.classId, [...(roll.get(e.classId) ?? []), e]);
   }
-  const filled = new Set(
-    marks.filter((m) => m.value !== null || m.absent || m.exempt).map((m) => `${m.assessment_subject_id}|${m.student_id}`),
-  );
+  // Counted by the one contract every marks surface uses (domain/progress.ts).
+  const marksBy = new Map<string, { studentId: string; value: number | string | null; absent: boolean; exempt: boolean }[]>();
+  for (const m of marks) {
+    const list = marksBy.get(m.assessment_subject_id) ?? [];
+    list.push({ studentId: m.student_id, value: m.value, absent: m.absent, exempt: m.exempt });
+    marksBy.set(m.assessment_subject_id, list);
+  }
   const classOf = new Map(input.classes.map((c) => [c.id, c]));
   const staffName = new Map(input.staff.map((s) => [s.id, s.name]));
   const teacherOf = new Map<string, string>();
@@ -406,6 +410,11 @@ export async function trackerFor(input: {
     // coordinator's home has always counted it — otherwise it is late with
     // nobody to remind, and the two screens disagree on who is behind.
     const teacherId = teacherOf.get(`${r.class_id}|${r.subject_id}`) ?? classOf.get(r.class_id)?.classTeacherId ?? null;
+    const count = countPaper(
+      kids.map((k) => k.studentId),
+      marksBy.get(r.id) ?? [],
+      { maxMarks: Number(r.max_marks), markStep: Number(r.mark_step) },
+    );
     return {
       paperId: r.id,
       classId: r.class_id,
@@ -414,8 +423,10 @@ export async function trackerFor(input: {
       subjectCode: r.subject_code,
       teacherId,
       teacherName: teacherId ? (staffName.get(teacherId) ?? null) : null,
-      total: kids.length,
-      entered: kids.filter((k) => filled.has(`${r.id}|${k.studentId}`)).length,
+      total: count.eligible,
+      entered: count.saved,
+      invalid: count.invalid,
+      markStep: Number(r.mark_step),
       entryStatus: r.entry_status,
       entryRevision: r.entry_revision,
       maxMarks: Number(r.max_marks),

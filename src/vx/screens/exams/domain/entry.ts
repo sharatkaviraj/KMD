@@ -95,6 +95,25 @@ export function misfits(order: readonly string[], cells: Readonly<Record<string,
   });
 }
 
+/**
+ * The first pupil whose mark would stop a final submit (B03/B04): the saved
+ * column with what this command sends laid over it, held to the paper's
+ * whole rule. Drafts send only what changed, so the command alone cannot
+ * prove the column is valid; the server checks this before it submits.
+ * Nothing is rounded or rewritten — an invalid mark is only named.
+ */
+export function submitMisfit(
+  roster: readonly string[],
+  saved: Readonly<Record<string, Cell>>,
+  sent: readonly { studentId: string; state: CellState; value: number | null }[],
+  maxMarks: number,
+  step: number,
+): string | null {
+  const cells: Record<string, Cell> = { ...saved };
+  for (const e of sent) cells[e.studentId] = { state: e.state, value: e.value };
+  return misfits(roster, cells, maxMarks, step)[0] ?? null;
+}
+
 export function isFilled(cell: Cell | undefined): boolean {
   return Boolean(cell && cell.state !== "blank");
 }
@@ -140,6 +159,36 @@ export function toEntries(order: string[], cells: Record<string, Cell>) {
     const c = cells[studentId] ?? BLANK;
     return { studentId, state: c.state, value: c.state === "value" ? c.value : null };
   });
+}
+
+/**
+ * What a draft save sends: only the cells that changed since the last
+ * confirmed save, each checked on its own. A saved mark nobody touched — an
+ * old 7.5 on a paper that now takes whole marks — is neither sent nor
+ * checked, so it cannot refuse a new mark for another child (B03).
+ * `blocked` names the changed cells the paper cannot hold; nothing is sent
+ * while there are any.
+ */
+export function draftEntries(order: string[], cells: Record<string, Cell>, saved: Record<string, Cell>, maxMarks: number, step: number) {
+  const changed = changedIds(order, cells, saved);
+  const blocked = misfits(changed, cells, maxMarks, step);
+  return { changed, blocked, entries: blocked.length ? [] : toEntries(changed, cells) };
+}
+
+/** Sending is strict: every child in the column whose mark the paper cannot hold, by id. */
+export function submitBlockers(order: string[], cells: Record<string, Cell>, maxMarks: number, step: number): string[] {
+  return misfits(order, cells, maxMarks, step);
+}
+
+/**
+ * What is saved after a confirmed command: what was saved before with the
+ * sent cells laid over it. A row the command did not carry keeps its saved
+ * cell exactly — it is the same object, never re-read, rounded or rebuilt.
+ */
+export function afterSave(saved: Record<string, Cell>, entries: readonly { studentId: string; state: CellState; value: number | null }[]): Record<string, Cell> {
+  const next = { ...saved };
+  for (const e of entries) next[e.studentId] = { state: e.state, value: e.state === "value" ? e.value : null };
+  return next;
 }
 
 /** What the teacher reads before sending: highest, lowest, average, who is below the pass mark. */

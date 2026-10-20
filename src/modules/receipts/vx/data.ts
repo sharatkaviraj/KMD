@@ -5,6 +5,7 @@ import { getReceiptDetailWith, getReceiptsPage } from "@/modules/receipts/data/q
 import { EMPTY_RECEIPT_FILTERS } from "@/modules/receipts/domain/filters";
 import type { ReceiptDetail, ReceiptListItem } from "@/modules/receipts/domain/types";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { groupReversals, type ReversalRow } from "@/modules/receipts/vx/domain/reversal-history";
 
 /*
  * Reads for the redesigned Receipts screen (/receipts). Every number comes from
@@ -74,7 +75,14 @@ export async function findReceiptIdByNumber(receiptNumber: string): Promise<stri
   return row?.id ?? null;
 }
 
-export type ReceiptHistoryEvent = { at: string; kind: "posted" | "reversed" | "sent" | "read"; amount?: number; note?: string | null };
+export type ReceiptHistoryEvent = {
+  at: string;
+  kind: "posted" | "reversed" | "sent" | "read";
+  amount?: number;
+  note?: string | null;
+  /** A reversal's author: the fee user id on the adjustment, when recorded. */
+  by?: string | null;
+};
 
 export type DeskReceiptDetail = {
   detail: ReceiptDetail;
@@ -103,11 +111,11 @@ export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceipt
   if (paymentsRes.error) throw new Error(paymentsRes.error.message);
   if (sendsRes.error) throw new Error(sendsRes.error.message);
   const paymentIds = ((paymentsRes.data ?? []) as { id: string }[]).map((p) => p.id);
-  const reversals: { amount_delta: number; reason: string | null; created_at: string }[] = [];
+  const reversals: ReversalRow[] = [];
   for (let offset = 0; offset < paymentIds.length; offset += IN_FILTER_CHUNK_SIZE) {
     const { data, error } = await supabase
       .from("payment_adjustments")
-      .select("amount_delta, reason, created_at")
+      .select("amount_delta, reason, created_at, created_by")
       .eq("adjustment_type", "reversal")
       .in("payment_id", paymentIds.slice(offset, offset + IN_FILTER_CHUNK_SIZE))
       .order("created_at", { ascending: true });
@@ -116,14 +124,8 @@ export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceipt
   }
 
   const history: ReceiptHistoryEvent[] = [{ at: detail.createdAt, kind: "posted", amount: detail.totalAmount, note: detail.receivedBy ?? detail.createdByName }];
-  const byMoment = new Map<string, { amount: number; note: string | null }>();
-  for (const r of reversals) {
-    const key = r.created_at.slice(0, 16);
-    const cur = byMoment.get(key) ?? { amount: 0, note: r.reason };
-    cur.amount += Math.abs(Number(r.amount_delta) || 0);
-    byMoment.set(key, cur);
-  }
-  for (const [at, v] of byMoment) history.push({ at, kind: "reversed", amount: v.amount, note: v.note });
+  // Grouped by the absolute minute; the time shown keeps its offset (B08).
+  for (const e of groupReversals(reversals)) history.push({ at: e.at, kind: "reversed", amount: e.amount, note: e.note, by: e.by });
 
   const sends = (sendsRes.data ?? []) as { status: string | null; delivery_status: string | null; created_at: string; delivered_at: string | null; read_at: string | null }[];
   const last = sends[0];
@@ -140,7 +142,7 @@ export async function getDeskReceipt(receiptNumber: string): Promise<DeskReceipt
           ? { status: "delivered", at: last.delivered_at }
           : { status: "sent", at: last.created_at };
   }
-  history.sort((a, b) => (a.at < b.at ? -1 : 1));
+  history.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
   const reversedAmount = detail.reversedAmount ?? 0;
   return { detail, isReversed: detail.totalAmount > 0 && reversedAmount >= detail.totalAmount, share, history };

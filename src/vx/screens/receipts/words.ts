@@ -73,6 +73,10 @@ export const W = {
   hPosted: p("Receipt created by {name}", "{name} ने रसीद बनाई"),
   hPostedBare: p("Receipt created", "रसीद बनी"),
   hReversed: p("Reversed", "रद्द हुई"),
+  // B08: when and by whom, on the receipt itself.
+  reversedOn: p("Reversed on {day}, {time}", "{day}, {time} को रद्द"),
+  reversedBy: p("by {name}", "{name} द्वारा"),
+  hReversedBy: p("Reversed by {name}", "{name} द्वारा रद्द हुई"),
   hSent: p("Sent to {name} on WhatsApp", "{name} को WhatsApp पर भेजी"),
   hSentBare: p("Sent on WhatsApp", "WhatsApp पर भेजी"),
   hRead: p("Read by parent", "अभिभावक ने पढ़ी"),

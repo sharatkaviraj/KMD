@@ -2,6 +2,9 @@ import type { Pair } from "@/vx/text";
 
 import type { CellState } from "./domain/entry";
 
+/** How long a teacher may take back her own submission — `withdraw_marks_submission` (vx_exam_office.sql). */
+export const UNDO_MS = 10 * 60_000;
+
 /** What a marks sheet sends, the same shape `saveMarksSchema` reads. */
 export type SavePayload = {
   commandId: string;

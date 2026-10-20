@@ -24,16 +24,25 @@ import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
  * cron or a concurrent post is already draining, this call simply does nothing
  * and the other one finishes the work. Failures are swallowed — the two-minute
  * cron backstop still runs, so the worst case is the pre-existing behaviour.
+ *
+ * **Returns whether this call refreshed the views** — the RPC's own boolean.
+ * `false` covers "another drain held the lock", "nothing was queued" and
+ * "failed": in none of them may a caller assume the views now include a
+ * write it just made (B07). A balance that must be current after a posting is
+ * read from the live ledger instead (`loadDeskStudent({ live: true })`).
  */
-export async function drainFinancialViewRefresh(): Promise<void> {
+export async function drainFinancialViewRefresh(): Promise<boolean> {
   try {
     const supabase = createAdminClient();
-    const { error } = await supabase.rpc("refresh_workbook_materialized_views_if_requested");
+    const { data, error } = await supabase.rpc("refresh_workbook_materialized_views_if_requested");
 
     if (error) {
       console.warn(`Deferred financial view refresh failed: ${error.message}`);
+      return false;
     }
+    return data === true;
   } catch (error) {
     console.warn("Deferred financial view refresh failed.", error);
+    return false;
   }
 }

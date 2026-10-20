@@ -17,7 +17,7 @@ import { VxPage } from "@/vx/ui/page";
 
 import { checkRegisterVx, saveRegisterVx, type VxSaveState } from "../actions";
 import type { AttendChoices, AttendData } from "../data";
-import { absentAlert, absentOften, childMatches, copyYesterday, countMarks, monthGrid, nextTap, shiftMonth, type Mark } from "../domain/teach";
+import { absentAlert, absentOften, childMatches, copyYesterday, countMarks, markedLine, monthGrid, nextTap, shiftMonth, type Mark } from "../domain/teach";
 import { ampm, andList, dShort } from "./fmt";
 import { DrawnTick, HelpIcon, HelpSheet, LangSeg, TchTop, useUrlState, type HelpStep } from "./shared";
 
@@ -407,11 +407,19 @@ export function TeachAttend({
           <div className="tc-note tc-in" style={{ background: editing === "change" ? V("warns") : V("accs"), color: editing === "change" ? V("warnfg") : V("accfg"), padding: "14px 16px", alignItems: "center" }}>
             <span className="tc-ib" style={{ width: 42, height: 42, borderRadius: 13, background: "var(--card)" }}><Ic n={editing === "change" ? "edit" : "sun"} size={22} /></span>
             <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span className="tc-p" style={{ fontWeight: 700 }}>{editing === "change" ? tx(p("You are changing today’s attendance", "आप आज की हाज़िरी बदल रहे हैं")) : tx(p("Everyone is marked Present.", "सभी बच्चे उपस्थित माने गए हैं।"))}</span>
+              <span className="tc-p" style={{ fontWeight: 700 }} aria-live="polite">
+                {editing === "change"
+                  ? tx(p("You are changing today’s attendance", "आप आज की हाज़िरी बदल रहे हैं"))
+                  : nA + nH === 0
+                    ? tx(p("Everyone is marked Present.", "सभी बच्चे उपस्थित माने गए हैं।"))
+                    : tx(markedLine(nP, nA, nH))}
+              </span>
               <span style={{ fontSize: 13, opacity: 0.85 }}>
                 {editing === "change"
                   ? tx(p(`The office still sees what you saved${savedAt ? ` at ${savedAt}` : ""} until you save again.`, `दोबारा सेव करने तक ऑफ़िस को पहले वाली हाज़िरी दिखेगी।`))
-                  : T(p("Tap only the children who are absent.", "सिर्फ़ अनुपस्थित बच्चों पर टैप करें।"))}
+                  : nA + nH === 0
+                    ? T(p("Tap only the children who are absent.", "सिर्फ़ अनुपस्थित बच्चों पर टैप करें।"))
+                    : T(p("Not saved yet. Tap more children if needed, then save.", "अभी सेव नहीं हुई। ज़रूरत हो तो और बच्चों पर टैप करें, फिर सेव करें।"))}
               </span>
             </span>
           </div>
@@ -574,6 +582,11 @@ export function TeachAttend({
                   ? tx(p("No WhatsApp will go to parents today", "आज अभिभावकों को कोई व्हाट्सऐप नहीं जाएगा"))
                   : tx(p("No one absent · no messages to parents", "कोई अनुपस्थित नहीं · अभिभावकों को कोई संदेश नहीं"))}
             </span>
+            {/* Where to go once it is done (B16): back to the day, not a dead end. */}
+            <Link href="/teach" className="tap btn soft" style={{ height: 44, marginTop: 4 }}>
+              <Ic n="home" size={18} />
+              {tx(p("Back to Today", "आज पर वापस"))}
+            </Link>
             {receipt?.actorName && receipt.revision > 1 ? <span className="tc-s">{tx(p(`By ${receipt.actorName}${receipt.revision > 1 ? ` · changed ${receipt.revision - 1} ${receipt.revision === 2 ? "time" : "times"}` : ""}`, `${receipt.actorName} द्वारा`))}</span> : null}
           </div>
         ) : (

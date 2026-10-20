@@ -16,6 +16,7 @@ import { Dot, ExamsTop, FactRow, LogLine, XBar, XRing, type TopAct } from "./bit
 import type { CellCounts, CellState } from "./domain/board";
 import { GROUP_KEYS, GROUP_LABELS, subjectPair, type GroupKey } from "./domain/groups";
 import { waLink } from "./domain/messages";
+import { progressLine, READINESS_LABEL, type ClassReadiness, type PaperReadiness } from "./domain/progress";
 import { RemindSheet, reminderFor, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
 import { useAct } from "./use-act";
@@ -78,7 +79,13 @@ export type ExamsProps = {
     remindedAt: string | null;
     canEnter: boolean;
     classLocked: boolean;
+    /** Every paper of the class sent, every child marked, no mark its paper cannot hold. */
     classReady: boolean;
+    /** This paper from its persisted marks and their validity (domain/progress.ts). */
+    readiness?: PaperReadiness;
+    /** Saved marks this paper cannot hold. */
+    invalid?: number;
+    classReadiness?: ClassReadiness;
     history: { text: Pair; at: string; tone: string }[];
   } | null;
   cards: {
@@ -102,10 +109,13 @@ export type ExamsProps = {
     revision: number;
     remark: string | null;
     title: Pair;
-    rows: { subject: Pair; outOf: number; scored: number; grade: string | null; grace: number; state?: "value" | "absent" | "missing" | "exempt" }[];
+    /** `percent`: the row's own percentage, the one its grade comes from (weighted when the exams' weights differ). */
+    rows: { subject: Pair; outOf: number; scored: number; grade: string | null; percent?: number | null; grace: number; state?: "value" | "absent" | "missing" | "exempt" }[];
     total: number;
     outOf: number;
     percent: number | null;
+    /** True when the exams' weights differ, so the percentage is not simply total ÷ out of (`totalsFor`). */
+    weighted?: boolean;
     grade: string | null;
     passed: boolean | null;
     attendance: number | null;
@@ -721,7 +731,8 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
           </div>
           <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--bd)" }}>
             {props.manage ? <FactRow k={tx(p("Phone", "फ़ोन"))} v={cell.phoneMasked || "—"} /> : null}
-            <FactRow k={tx(p("Last activity", "पिछली गतिविधि"))} v={last ? `${tx(when(last.at))} · ${tx(last.text)}` : tx(p("No marks yet", "अभी कोई अंक नहीं"))} />
+            {cell.readiness ? <FactRow k={tx(p("Status", "स्थिति"))} v={cell.invalid ? `${tx(READINESS_LABEL[cell.readiness])} · ${cell.invalid}` : tx(READINESS_LABEL[cell.readiness])} tone={cell.readiness === "needs_correction" ? "var(--bad)" : undefined} /> : null}
+            <FactRow k={tx(p("Last activity", "पिछली गतिविधि"))} v={last ? `${tx(when(last.at))} · ${tx(last.text)}` : tx(progressLine(cell.entered, cell.total))} />
             {props.manage ? <FactRow k={tx(p("Sampark link", "संपर्क लिंक"))} v={link.text} tone={link.tone} /> : null}
             {props.manage && cell.remindedAt ? <FactRow k={tx(p("Reminded", "याद दिलाया"))} v={tx(when(cell.remindedAt))} /> : null}
           </div>
@@ -760,7 +771,10 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
             <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Only the admin finalises marks.", "अंक केवल प्रशासक अंतिम करते हैं।"))}</span>
           ) : null}
           {props.manage && props.canFinalise && !cell.classLocked && !cell.classReady ? (
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("A class can be locked once every subject teacher has sent marks.", "सभी विषय-अध्यापकों के अंक भेजने के बाद ही कक्षा बंद होती है।"))}</span>
+            <span style={{ fontSize: 12, color: "var(--mut)" }}>
+              {tx(p("A class can be locked once every subject teacher has sent marks, every child has one, and none needs correction.", "सभी विषय-अध्यापकों के अंक भेजने, हर बच्चे के अंक आने और कोई सुधार बाकी न रहने पर ही कक्षा बंद होती है।"))}
+              {cell.classReadiness ? ` · ${tx(READINESS_LABEL[cell.classReadiness])}` : ""}
+            </span>
           ) : null}
         </div>
         <div className="card" style={{ display: "flex", flexDirection: "column", padding: "14px 16px" }}>
@@ -1077,6 +1091,7 @@ const CARD = {
   grade: ["ग्रेड", "Grade"],
   total: "कुल · Total",
   percent: "प्रतिशत / Percentage",
+  weighted: "परीक्षा के भार से · Weighted by exam",
   result: "परिणाम / Result",
   attendance: "उपस्थिति / Attendance",
   remark: "कक्षा अध्यापक की टिप्पणी · Class teacher’s remark",
@@ -1105,7 +1120,7 @@ function Preview(props: ExamsProps & { href: Href }) {
   const pending = c.rows.some((r) => r.state === "missing");
   const result = pending ? { t: CARD.pending, c: "var(--warnfg)" } : c.passed === null ? null : c.passed ? { t: CARD.pass, c: "var(--ok)" } : { t: CARD.support, c: "var(--bad)" };
   const tiles = [
-    { k: CARD.percent, v: c.percent === null ? "—" : `${c.percent.toFixed(1)}%`, c: "var(--fg)" },
+    { k: c.weighted ? `${CARD.percent} · ${CARD.weighted}` : CARD.percent, v: c.percent === null ? "—" : `${c.percent.toFixed(1)}%`, c: "var(--fg)" },
     ...(result ? [{ k: CARD.result, v: result.t, c: result.c }] : []),
     { k: CARD.attendance, v: c.attendance === null ? "—" : `${c.attendance}%${c.present !== null && c.present !== undefined && c.counted ? ` · ${c.present}/${c.counted}` : ""}`, c: "var(--fg)" },
   ];
@@ -1174,7 +1189,9 @@ function Preview(props: ExamsProps & { href: Href }) {
           </div>
           {c.rows.map((r) => {
             const state = r.state ?? "value";
-            const pctRow = r.outOf ? (r.scored / r.outOf) * 100 : 0;
+            // Coloured by the row's own percentage — the figure its grade comes from — so a
+            // weighted row is never red beside a passing grade (U01). The plain sum when there is none.
+            const pctRow = r.percent ?? (r.outOf ? (r.scored / r.outOf) * 100 : 0);
             const tone = state === "missing" ? "var(--warnfg)" : state === "absent" || (state === "value" && pctRow < 33) ? "var(--bad)" : "var(--fg)";
             return (
               <div key={r.subject.en} style={{ ...CARD_ROW, borderTop: "1px solid var(--bd)" }}>

@@ -351,6 +351,60 @@ describe("totalsFor()", () => {
     // Only one weight ever reached the sums, so there is nothing to explain.
     expect(totals.weighted).toBe(false);
   });
+
+  /*
+   * U01 — the rule the report-card preview and PDF label "Weighted by exam".
+   * The arithmetic is unchanged; these document it so the label can be
+   * trusted: the printed total is always the plain sum, and only the
+   * percentage moves with weights.
+   */
+  it("U01: 80 + 20 at equal weights is the plain percentage; unequal weights move only the percentage", () => {
+    const equal = totalsFor([
+      { paper: paper({ maxMarks: 80 }), mark: mark({ value: 70 }), weight: 1 },
+      { paper: paper({ id: "p2", maxMarks: 20 }), mark: mark({ value: 10 }), weight: 1 },
+    ]);
+    expect([equal.scored, equal.outOf, equal.percent, equal.weighted]).toEqual([80, 100, 80, false]);
+
+    const unequal = totalsFor([
+      { paper: paper({ maxMarks: 80 }), mark: mark({ value: 70 }), weight: 1 },
+      { paper: paper({ id: "p2", maxMarks: 20 }), mark: mark({ value: 10 }), weight: 3 },
+    ]);
+    // Same 80 / 100 on the card; (70 + 30) / (80 + 60) = 71.4% beside it.
+    expect([unequal.scored, unequal.outOf, unequal.percent, unequal.weighted]).toEqual([80, 100, 71.4, true]);
+  });
+
+  it("U01: a 262.5 / 380 raw total keeps its sum while the weighted percentage differs from 262.5 ÷ 380", () => {
+    const plain = totalsFor([
+      { paper: paper({ maxMarks: 200 }), mark: mark({ value: 150 }), weight: 1 },
+      { paper: paper({ id: "p2", maxMarks: 180 }), mark: mark({ value: 112.5 }), weight: 1 },
+    ]);
+    expect([plain.scored, plain.outOf, plain.percent, plain.weighted]).toEqual([262.5, 380, 69.1, false]);
+
+    const weighted = totalsFor([
+      { paper: paper({ maxMarks: 200 }), mark: mark({ value: 150 }), weight: 1 },
+      { paper: paper({ id: "p2", maxMarks: 180 }), mark: mark({ value: 112.5 }), weight: 2 },
+    ]);
+    // Printed: 262.5 / 380. Percentage: (150 + 225) / (200 + 360) = 66.96 → 67.
+    expect(weighted.scored).toBe(262.5);
+    expect(weighted.outOf).toBe(380);
+    expect(weighted.percent).toBe(67);
+    expect(weighted.weighted).toBe(true);
+  });
+
+  it("U01: absent counts as 0 of its maximum and exempt is left out, under weights too", () => {
+    const totals = totalsFor([
+      { paper: paper({ maxMarks: 80 }), mark: mark({ value: 60 }), weight: 2 },
+      { paper: paper({ id: "p2", maxMarks: 20 }), mark: mark({ value: null, absent: true }), weight: 1 },
+      { paper: paper({ id: "p3", maxMarks: 50 }), mark: mark({ value: null, exempt: true }), weight: 1 },
+    ]);
+    expect(totals.scored).toBe(60);
+    expect(totals.outOf).toBe(100); // 80 + 20 absent; the exempt 50 is in neither half
+    expect(totals.absent).toBe(1);
+    expect(totals.exempt).toBe(1);
+    // (120 + 0) / (160 + 20) = 66.7%, against a plain 60%.
+    expect(totals.percent).toBe(66.7);
+    expect(totals.weighted).toBe(true);
+  });
 });
 
 describe("grades", () => {

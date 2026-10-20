@@ -12,6 +12,7 @@ import { enrolmentForStudent } from "@/modules/students/data/student-repo";
 import { childBasics, enrolledIn, staffNames } from "@/vx/screens/teach/students";
 import {
   canSeeNote,
+  copiesNoteWords,
   isSensitiveNote,
   isTag,
   tagsFromKind,
@@ -316,12 +317,12 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
   // note (D-264): its goal and steps are about the same thing.
   const fromNotes = [...new Set(rows.map((r) => r.note_id).filter((id): id is string => Boolean(id)))];
   if (fromNotes.length) {
-    const { data: sources, error: sourceError } = await fetchInChunks<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds">>(fromNotes, IN_FILTER_CHUNK_SIZE, (chunk) =>
+    const { data: sources, error: sourceError } = await fetchInChunks<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds" | "body">>(fromNotes, IN_FILTER_CHUNK_SIZE, (chunk) =>
       createAdminClient()
         .from("notes")
-        .select("id, tags, visibility, written_by, follow_up_staff_id, class_id, note_kinds(code)")
+        .select("id, tags, visibility, written_by, follow_up_staff_id, class_id, body, note_kinds(code)")
         .in("id", chunk)
-        .returns<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds">[]>(),
+        .returns<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds" | "body">[]>(),
     );
     if (sourceError) throw new Error("Could not read the support plans.");
     const hidden = new Set(
@@ -329,11 +330,20 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
         .filter((n) => {
           const tags = tagsOf(n);
           if (!isSensitiveNote({ tags })) return false;
-          return !canSeeNote({ visibility: "team", writtenBy: n.written_by, followUpStaffId: n.follow_up_staff_id, classId: n.class_id, tags }, viewer);
+          // The note's own visibility: an Only me health note's plan is the author's alone.
+          return !canSeeNote({ visibility: n.visibility === "private" ? "private" : "team", writtenBy: n.written_by, followUpStaffId: n.follow_up_staff_id, classId: n.class_id, tags }, viewer);
         })
         .map((n) => n.id),
     );
-    rows = rows.filter((r) => r.created_by === viewer.id || !r.note_id || !hidden.has(r.note_id));
+    // A plan whose goal still repeats an Only me note's words (made before
+    // R01 stopped the copy) is its author's alone, like the note.
+    const privateBody = new Map(sources.filter((n) => n.visibility === "private" && n.written_by !== viewer.id).map((n) => [n.id, n.body]));
+    rows = rows.filter((r) => {
+      if (r.created_by === viewer.id || !r.note_id) return true;
+      if (hidden.has(r.note_id)) return false;
+      const body = privateBody.get(r.note_id);
+      return body === undefined || !copiesNoteWords(r.goal ?? "", body);
+    });
   }
   if (rows.length === 0) return [];
 
@@ -375,6 +385,7 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
         body: s.text,
         ownerRole: s.owner_role,
         ownerName: s.owner_staff_id ? (names.get(s.owner_staff_id) ?? null) : null,
+        ownerStaffId: s.owner_staff_id,
         whenLabel: s.due_label,
         done: s.done_at !== null,
         sortOrder: s.sort_order,
@@ -404,9 +415,10 @@ export async function childChoices(viewer: NoteViewer, sessionLabel: string): Pr
  * The people a follow-up can go to, by name, so the screens can say "Class
  * teacher · Mr. Choudhary" rather than a role: each class's current class
  * teacher, and the coordinator and admin `followUpStaff()` in actions.ts
- * would pick (the first active one by created_at). Names only.
+ * would pick (the first active one by created_at). Names, plus those two ids
+ * so a screen says "you" by who the viewer is, never by their role (B09).
  */
-export type NotesPeople = { classTeachers: Record<string, string>; coordinator: string | null; admin: string | null };
+export type NotesPeople = { classTeachers: Record<string, string>; coordinator: string | null; admin: string | null; coordinatorId?: string | null; adminId?: string | null };
 
 export async function notesPeople(sessionLabel: string, day: string): Promise<NotesPeople> {
   const admin = createAdminClient();
@@ -433,6 +445,8 @@ export async function notesPeople(sessionLabel: string, day: string): Promise<No
     classTeachers: Object.fromEntries([...byClass].map(([classId, v]) => [classId, names.get(v.staff) ?? "—"])),
     coordinator: coordId ? (names.get(coordId) ?? null) : null,
     admin: adminId ? (names.get(adminId) ?? null) : null,
+    coordinatorId: coordId,
+    adminId,
   };
 }
 

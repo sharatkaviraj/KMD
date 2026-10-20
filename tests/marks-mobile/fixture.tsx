@@ -7,7 +7,9 @@ import "../../src/vx/vx.css";
 
 const params = new URLSearchParams(location.search);
 const ledgerKey = "qa:marks-mobile:ledger";
-type Ledger = { revision: number; status: "open" | "submitted"; cells: Record<string, Cell>; calls: SavePayload[]; receipts: Record<string, SaveOutcome>; lost: boolean };
+type Ledger = { revision: number; status: "open" | "submitted"; cells: Record<string, Cell>; calls: SavePayload[]; receipts: Record<string, SaveOutcome>; lost: boolean; submittedAt?: string | null };
+/** The synthetic teacher who sends the paper; only she is offered Undo, inside ten minutes. */
+const viewer = "00000000-0000-4000-8000-000000000077";
 const read = (): Ledger => JSON.parse(localStorage.getItem(ledgerKey) ?? '{"revision":0,"status":"open","cells":{},"calls":[],"receipts":{},"lost":false}');
 const students = Array.from({ length: 5 }, (_, i) => ({ id: `00000000-0000-4000-8000-00000000000${i + 1}`, name: params.has("duplicateNames") && i < 2 ? "Synthetic repeated name" : `Synthetic student ${i + 1}`, roll: params.has("noRoll") ? null : String(i + 1), prev: null, prevPct: null }));
 async function save(payload: SavePayload): Promise<SaveOutcome> {
@@ -22,7 +24,9 @@ async function save(payload: SavePayload): Promise<SaveOutcome> {
   for (const entry of payload.entries) ledger.cells[entry.studentId] = { state: entry.state, value: entry.value };
   ledger.revision += 1;
   ledger.status = payload.kind === "submit" || payload.kind === "correction" ? "submitted" : "open";
-  const result: SaveOutcome = { ok: true, revision: ledger.revision, entryStatus: ledger.status, savedAt: "2026-10-11T12:00:00Z", actorName: "Synthetic teacher", changed: payload.entries.length, counts: null };
+  const savedAt = new Date().toISOString();
+  if (payload.kind === "submit") ledger.submittedAt = savedAt;
+  const result: SaveOutcome = { ok: true, revision: ledger.revision, entryStatus: ledger.status, savedAt, actorName: "Synthetic teacher", changed: payload.entries.length, counts: null };
   ledger.receipts[payload.commandId] = result;
   const lose = params.get("failure") === "after-commit" && failThisKind && !ledger.lost;
   if (lose) ledger.lost = true;
@@ -33,13 +37,13 @@ async function save(payload: SavePayload): Promise<SaveOutcome> {
 const ledger = read();
 localStorage.setItem(ledgerKey, JSON.stringify(ledger));
 async function withdraw(): Promise<SaveOutcome> {
-  const current = read(); current.status = "open"; current.revision++;
+  const current = read(); current.status = "open"; current.revision++; current.submittedAt = null;
   localStorage.setItem(ledgerKey, JSON.stringify(current));
   return { ok: true, revision: current.revision, entryStatus: "open", savedAt: "2026-10-11T12:00:00Z", actorName: "Synthetic teacher", changed: 0, counts: null };
 }
 createRoot(document.getElementById("root")!).render(<LanguageProvider language="en"><div className="vx"><MarksSheet
   ownerId={params.get("owner") ?? "synthetic-teacher"} sessionLabel={params.get("session") ?? "OPS-TEST"}
-  paper={{ id: "00000000-0000-4000-8000-000000000099", examId: "qa-exam", examLabel: { en: "Synthetic exam", hi: "QA" }, classId: "qa-class", classLabel: "QA Class 6", subjectCode: "Maths", subjectId: "qa-maths", maxMarks: 40, passMarks: 13, markStep: 0.5, allowExempt: params.get("exempt") !== "no", entryStatus: ledger.status, entryRevision: ledger.revision, submittedAt: null, submittedBy: null, examOpen: true, locked: params.get("locked") === "yes", dueLabel: null }}
-  students={students} saved={ledger.cells} coordinatorName="Synthetic exam office" onSave={save} onWithdraw={withdraw} canCorrect canReopen
+  paper={{ id: "00000000-0000-4000-8000-000000000099", examId: "qa-exam", examLabel: { en: "Synthetic exam", hi: "QA" }, classId: "qa-class", classLabel: "QA Class 6", subjectCode: "Maths", subjectId: "qa-maths", maxMarks: 40, passMarks: 13, markStep: 0.5, allowExempt: params.get("exempt") !== "no", entryStatus: ledger.status, entryRevision: ledger.revision, submittedAt: ledger.status === "submitted" ? (ledger.submittedAt ?? null) : null, submittedBy: ledger.status === "submitted" ? viewer : null, undoUntil: ledger.status === "submitted" && ledger.submittedAt ? new Date(new Date(ledger.submittedAt).getTime() + 600_000).toISOString() : null, undoOpen: ledger.status === "submitted" && Boolean(ledger.submittedAt) && Date.now() < new Date(ledger.submittedAt!).getTime() + 600_000, examOpen: true, locked: params.get("locked") === "yes", dueLabel: null }}
+  students={students} saved={ledger.cells} coordinatorName="Synthetic exam office" onSave={save} onWithdraw={withdraw} canCorrect canReopen viewerStaffId={viewer}
   initialMode={params.get("mode") === "pad" ? "pad" : "list"} crumb="Synthetic school" backHref="/" doneHref="/"
 /></div></LanguageProvider>);

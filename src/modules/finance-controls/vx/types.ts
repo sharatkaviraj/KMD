@@ -46,6 +46,8 @@ export type AccRequestRow = {
   decisionNote: string | null;
   withdrawnAt: string | null;
   canRemind: boolean;
+  /** "desk": a Receipts-desk request (fee_desk_requests) — shown for history; withdraw, remind and decide do not apply. */
+  source?: "desk";
 };
 
 export type ChequeRow = {

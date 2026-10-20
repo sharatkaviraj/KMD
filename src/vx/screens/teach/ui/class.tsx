@@ -514,7 +514,10 @@ function SubjectsView({ mySubjects, links }: { mySubjects: ClassData["mySubjects
     <div className="pad" style={{ padding: "16px 28px 40px", display: "flex", flexDirection: "column", gap: 16 }}>
       <span style={{ fontSize: 14, color: "var(--mut)" }}>
         {names.map((nm) => tx(p(`${nm} for Classes ${andList(mySubjects.filter((s) => s.name === nm).map((s) => shortClass(s.classLabel)))}`, `${nm} — कक्षा ${andList(mySubjects.filter((s) => s.name === nm).map((s) => shortClass(s.classLabel)), "और")}`))).join(" · ")}
-        {periods ? ` · ${tx(p(`${periods} periods a week`, `हफ़्ते में ${periods} पीरियड`))}` : ""}
+        {/* The planned load per class and subject, not timetable slots: a combined
+            period counts once per class, so it is labelled apart from the
+            "periods a week" More and the timetable count (B12). */}
+        {periods ? ` · ${tx(p(`Planned: ${periods} class-periods a week`, `योजना: हफ़्ते में ${periods} कक्षा-पीरियड`))}` : ""}
       </span>
       <div className="g3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
         {mySubjects.map((s, i) => {
@@ -906,7 +909,7 @@ export function TeachSubject({ data }: { data: SubjectData }) {
               <div className="card rise" style={{ order: 2, padding: 18, display: "flex", flexDirection: "column", gap: 10, animationDelay: "60ms" }}>
                 <Title t={p("Note for the class teacher", "कक्षा अध्यापक के लिए नोट")} icon="note" iconTone={[V("warns"), V("warnfg")]} />
                 <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p(`Your note goes straight to the class teacher of ${data.classLabel}. The coordinator can see it too. Parents do not see it.`, `आपका नोट सीधे ${data.classLabel} के कक्षा अध्यापक तक जाता है। समन्वयक भी देख सकते हैं। माता-पिता नहीं देखते।`))}</span>
-                <Link href="/teach/notes?sheet=add" className="tap btn pri tc-cbig"><Ic n="plus" />{tx(p("Write a note for the class teacher", "कक्षा अध्यापक को नोट लिखें"))}</Link>
+                <Link href={`/teach/notes?sheet=add&class=${data.classId}`} className="tap btn pri tc-cbig"><Ic n="plus" />{tx(p("Write a note for the class teacher", "कक्षा अध्यापक को नोट लिखें"))}</Link>
                 {data.paper ? <Link href={`/teach/marks?paper=${data.paper.id}`} className="tap btn soft tc-cbig"><Ic n="clipboard" />{tx(p("Enter marks", "अंक भरें"))}</Link> : null}
               </div>
             </div>

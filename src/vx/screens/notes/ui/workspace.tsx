@@ -45,6 +45,8 @@ export type NotesProps = {
   initialSheet: "add" | null;
   initialStep: AddStep;
   initialStudent: string | null;
+  /** `?class=`: the class the composer opened from, so its picker starts there (B10). */
+  initialClass?: string | null;
   /** `?saved=`: the note just saved, for the "Saved" states. */
   savedId?: string | null;
 };

@@ -661,7 +661,8 @@ function RequestsPane({ data, canAct, busy, onWithdraw, onRemind, onDecide }: { 
                 ))}
               </div>
               {note ? <div className="ac-in" style={{ padding: "9px 12px", background: q.status === "declined" ? "var(--bads)" : "var(--s2)", color: q.status === "declined" ? "var(--bad)" : "var(--mut)" }}><span>{note}</span></div> : null}
-              {q.status === "waiting" && canAct ? (
+              {/* A Receipts-desk request is history here; it is decided on its receipt (B08). */}
+              {q.status === "waiting" && canAct && q.source !== "desk" ? (
                 <div className="ac-f" style={{ gap: 6, justifyContent: "flex-end" }}>
                   {q.mine ? (
                     <>

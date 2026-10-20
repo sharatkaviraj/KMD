@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect, RedirectType } from "next/navigation";
 
+import { normalizedReceiptUrl } from "@/modules/receipts/vx/domain/reverse-sheet";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { ReceiptsDesk } from "@/vx/screens/receipts/desk";
 import { loadReceiptsDesk } from "@/vx/screens/receipts/load";
@@ -16,7 +17,13 @@ export default async function ReceiptPage({
 }) {
   const { receiptNumber } = await params;
   const staff = await requirePermission("fees:view", "/receipts");
-  const props = await loadReceiptsDesk(staff, await searchParams, decodeURIComponent(receiptNumber));
+  const search = await searchParams;
+  const props = await loadReceiptsDesk(staff, search, decodeURIComponent(receiptNumber));
   if (!props.selected) notFound();
+  // `?sheet=reverse` on a receipt already reversed (a stale link, or the URL
+  // the reversal itself was made from): replace it with the plain receipt URL
+  // so a reload or a shared link shows the Reversed state, not the sheet (B08).
+  const normalized = normalizedReceiptUrl(`/receipts/${encodeURIComponent(props.selected.receiptNumber)}`, search, props.sheet);
+  if (normalized) redirect(normalized, RedirectType.replace);
   return <ReceiptsDesk {...props} />;
 }

@@ -19,8 +19,7 @@ import { VxPage } from "@/vx/ui/page";
 
 import { cancelLeaveVx, noticeSeenVx, setAlertVx, setTextSizeVx } from "../actions";
 import type { MoreData } from "../data";
-import type { LeaveSpan } from "../domain/teach";
-import { dShort, greetingPair, greetName, hm12, shortClass, andList } from "./fmt";
+import { ampm, dShort, greetingPair, greetName, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, LeaveChipsSheet, TchTop, useUrlState } from "./shared";
 
 /*
@@ -131,19 +130,6 @@ export function TeachMore({
   })();
   const held = data.profile.classes.filter((c) => c.held);
   const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => c.classLabel).join(", ")} की कक्षा अध्यापक`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
-  const coverFor = (picked: string[], span: LeaveSpan) => {
-    const out: string[] = [];
-    for (const d of picked) {
-      const key = dayKey(new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-GB", { weekday: "short", timeZone: "Asia/Kolkata" }));
-      const half = Math.ceil(numbers.length / 2);
-      for (const w of data.week.filter((x) => dayKey(x.day) === key).sort((a, b) => a.number - b.number)) {
-        if (span === "first_half" && w.number > half) continue;
-        if (span === "second_half" && w.number <= half) continue;
-        out.push(`${dShort(d).split(" ")[0]} P${w.number} ${w.classLabel}`);
-      }
-    }
-    return out;
-  };
 
   /* ---------------------------------------------------- top bar */
   const helpFor: Partial<Record<MoreView, HelpTopic>> = { news: "news", links: "link", leave: "leave", timetable: "leave" };
@@ -514,6 +500,13 @@ export function TeachMore({
               <span className="tc-tb" style={{ fontWeight: 700 }}>{l.from_day === l.to_day ? dShort(l.from_day) : `${dShort(l.from_day)} – ${dShort(l.to_day)}`}</span>
               <span className="tc-ts" style={{ color: "var(--mut)" }}>{[tx(SPAN[l.span] ?? SPAN.full), l.note].filter(Boolean).join(" · ")}</span>
               <span style={{ fontSize: 12, color: "var(--sub)" }}>{tx(p(`Sent ${dShort(l.created_at)}`, `${dShort(l.created_at)} को भेजा`))}</span>
+              {l.decided_at && (l.status === "approved" || l.status === "declined") ? (
+                <span style={{ fontSize: 12, color: "var(--sub)" }}>
+                  {l.status === "approved"
+                    ? tx(p(`Approved${l.decided_by_name ? ` by ${l.decided_by_name}` : ""} · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`, `${l.decided_by_name ? `${l.decided_by_name} ने ` : ""}मंज़ूर की · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`))
+                    : tx(p(`Declined${l.decided_by_name ? ` by ${l.decided_by_name}` : ""} · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`, `${l.decided_by_name ? `${l.decided_by_name} ने ` : ""}अस्वीकार की · ${dShort(l.decided_at)} ${ampm(l.decided_at)}`))}
+                </span>
+              ) : null}
             </span>
             <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: st.tone[0], color: st.tone[1] }}>{tx(st.text)}</span>
             {l.status === "asked" && l.from_day >= data.today ? <button type="button" className="tap btn ghost" disabled={pending} onClick={() => cancelLeave(l.id)}><Ic n="x" />{tx(p("Cancel", "रद्द करें"))}</button> : null}
@@ -708,7 +701,7 @@ export function TeachMore({
       <main>
         {current === "menu" ? menu : current === "news" ? newsView : current === "links" ? linksView : current === "timetable" ? ttView : current === "leave" ? leaveView : current === "help" ? helpView : profileView}
       </main>
-      <LeaveChipsSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} coverFor={coverFor} />
+      <LeaveChipsSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} />
     </VxPage>
   );
 }

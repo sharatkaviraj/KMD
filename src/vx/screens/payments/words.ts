@@ -253,7 +253,10 @@ export const W = {
   newPayment: p("New payment", "नया भुगतान"),
   receiptPending: (n: string) => p(`The payment is saved as ${n}, but the receipt could not be shown yet.`, `भुगतान ${n} के रूप में सहेजा गया है, पर रसीद अभी नहीं दिख सकी।`),
   showReceipt: p("Show the receipt", "रसीद दिखाएँ"),
-  receiptSettling: (n: string) => p(`Saved as ${n}. The money is posted — the receipt and balance appear here in a moment.`, `${n} के रूप में सहेजा गया। पैसा जमा हो गया — रसीद और बकाया अभी यहाँ दिखेंगे।`),
+  // B07: the save answers at once; the balance is read from the live ledger after.
+  receiptSettling: p("Payment recorded. Updating balance…", "भुगतान दर्ज हो गया। बकाया अपडेट हो रहा है…"),
+  balanceNotRefreshed: p("Receipt saved. Balance could not refresh.", "रसीद सहेजी गई। बकाया अपडेट नहीं हो सका।"),
+  retryBalance: p("Retry", "फिर कोशिश करें"),
   removeTill: (t: string) => p(`Remove this entry · till ${t}`, `यह प्रविष्टि हटाएँ · ${t} तक`),
   // It is a link to the receipt, where "Reverse" sends the request; the old
   // label read as if the admin had already been asked (accountant B11).
@@ -277,8 +280,9 @@ export const W = {
   rInstallment: (n: string) => p(`Installment ${n}`, `किस्त ${n}`),
   rLateFee: p("Late fee", "विलंब शुल्क"),
   rLateWaived: (a: string) => p(`Late fee ${a} waived`, `विलंब शुल्क ${a} माफ़`),
-  rAfterHead: (t: string) => p(`Balance after this receipt · frozen at ${t}`, `इस रसीद के बाद बकाया · ${t}`),
-  rOutstanding: p("Still owed after this receipt", "इस रसीद के बाद बाकी"),
+  // B07: what the receipt recorded when it was posted, and the ledger now, are two different facts.
+  rNowHead: (t: string) => p(`Balance now${t ? ` · read at ${t}` : ""}`, `अभी का बकाया${t ? ` · ${t} पर` : ""}`),
+  rAtReceipt: p("At this receipt · fees still owed", "इस रसीद पर · बाकी फ़ीस"),
   rNote: p("Note", "टिप्पणी"),
   rMode: p("Mode", "माध्यम"),
   rRef: p("ref", "संदर्भ"),

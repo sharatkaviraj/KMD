@@ -123,7 +123,6 @@ export function TeachHome({
   const classCount = rows.filter((r) => r.kind === "cls").length;
   const coverCount = rows.filter((r) => r.kind === "sub").length;
   const freeCount = rows.filter((r) => r.kind === "free").length;
-  const left = rows.filter((_, i) => phases[i] !== "done" && rows[i].kind !== "free");
 
   /* -------------------------------------------------------- actions */
   const gotIt = (ids: string[]) =>
@@ -661,7 +660,6 @@ export function TeachHome({
       toast.show({ text: tx(p("Could not copy", "कॉपी नहीं हुआ")), tone: "bad" });
     }
   };
-  const stillToday: Pair | null = left.length ? p(`Still left today: ${left.map((r) => `P${r.number} ${r.kind === "sub" ? "cover" : r.title}`).join(" and ")}. The office will give them to other teachers.`, `आज बाकी: ${left.map((r) => `P${r.number}`).join(", ")}। ऑफ़िस ये दूसरे शिक्षकों को देगा।`) : null;
   const helpTitle = p("How this screen works", "यह स्क्रीन कैसे चलाएँ");
 
   return (
@@ -944,7 +942,7 @@ export function TeachHome({
         )}
       </Sheet>
 
-      <LeaveSheet open={sheet === "leave"} onClose={() => setSheet(null)} today={data.today} stillToday={stillToday} />
+      <LeaveSheet open={sheet === "leave"} onClose={() => setSheet(null)} today={data.today} />
       <HelpSheet open={sheet === "help"} onClose={() => setSheet(null)} title={helpTitle} sub={p("3 easy steps", "यह स्क्रीन 3 आसान कदमों में")} steps={HELP} phone={officePhone} />
     </VxPage>
   );
