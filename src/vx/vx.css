@@ -44,6 +44,9 @@
 /* A borderless input inside a drawn box (search pills, the stepper) shows the
    same focus ring on its box, so a keyboard user can see where she is (U04). */
 :where(.vx,.vxt) .vx-field:focus-within{border-color:var(--acc)!important;box-shadow:0 0 0 3px var(--accs)}
+/* Every search box draws its own pill and hides the input's outline; the pill
+   itself takes the ring while its input has focus (U04, 17 search boxes). */
+:where(.vx,.vxt) :has(> input[type="search"]:focus){border-color:var(--acc)!important;box-shadow:0 0 0 3px var(--accs)}
 /* A button that carries a sentence wraps on a narrow screen instead of
    widening the page (U04 reflow at 320 px). */
 :where(.vx,.vxt) .btn.wrap{white-space:normal;height:auto;min-height:40px;padding-top:8px;padding-bottom:8px;text-align:center;max-width:100%}
