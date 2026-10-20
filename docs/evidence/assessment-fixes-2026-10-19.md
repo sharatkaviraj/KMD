@@ -96,3 +96,12 @@ saying "today" is read against the right day.
 Code only: revert the two commits (`git revert 2bb22a3 f73c48a`) or redeploy
 `2768ec5`. No schema, grant, policy, credential or data change was made, so
 there is nothing to undo in DEV.
+
+## 20 October: accessibility pass on production and migration ledger
+
+**Migrations.** Every migration in `supabase/migrations` is recorded in the DEV ledger. The one name mismatch, `20261011092957_vx_fee_collector_role_permissions.sql`, is the same version recorded there as `vx_fee_collector_collects`, and all three of its rows are present. Nothing is pending on DEV. The live School Fees project (`vgqyilgstjvgohrsiwkb`) was not touched: migrating it is the cutover phase (PLAN §7, CLAUDE.md rules 3 and 8).
+
+**Reflow, zoom, keyboard (U04).** Read-only Playwright run against production as QA teacher, admin and accountant (Tab key only, outbound limited to the app and Supabase, nothing else requested). 16 screens at 640 px (a 1280 px window at 200 %) and 320 px (400 %, WCAG reflow), and the first 25 Tab stops on each:
+- No horizontal overflow anywhere at 640 px. At 320 px, `/receipts` overflowed by 21 px: the "Show the last day with receipts · <date>" button did not wrap. Fixed with a `wrap` kit class on that button.
+- Every Tab stop showed a focus ring except the borderless inputs inside drawn boxes (search on Students, Payments and Receipts; the day-close stepper), which set `outline: none` on the input. Fixed with a `vx-field` class that rings the box on `:focus-within`, matching `.inp:focus`.
+- Still not covered: physical phones and a screen reader.

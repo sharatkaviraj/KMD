@@ -41,6 +41,12 @@
 :where(.vx,.vxt) .field>span{font-size:12px;font-weight:700;color:var(--mut)}
 :where(.vx,.vxt) .inp{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--bds);background:var(--card);outline:none;transition:border-color .2s ease,box-shadow .2s ease;width:100%;font-size:15px}
 :where(.vx,.vxt) .inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+/* A borderless input inside a drawn box (search pills, the stepper) shows the
+   same focus ring on its box, so a keyboard user can see where she is (U04). */
+:where(.vx,.vxt) .vx-field:focus-within{border-color:var(--acc)!important;box-shadow:0 0 0 3px var(--accs)}
+/* A button that carries a sentence wraps on a narrow screen instead of
+   widening the page (U04 reflow at 320 px). */
+:where(.vx,.vxt) .btn.wrap{white-space:normal;height:auto;min-height:40px;padding-top:8px;padding-bottom:8px;text-align:center;max-width:100%}
 :where(.vx,.vxt) .inp.err{border-color:var(--bad);box-shadow:0 0 0 3px var(--bads);animation:xShake .4s ease}
 :where(.vx,.vxt) textarea.inp{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
 :where(.vx,.vxt) .row{transition:background-color .18s ease}
