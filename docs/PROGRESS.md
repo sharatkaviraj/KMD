@@ -1187,3 +1187,5 @@ PR #102 merged as `3348320` after all 23 checks passed on `52be936`; production 
 | What | Status | Branch / commit | Remaining or surprising |
 |---|---|---|---|
 | U03 photo rejection reason; R01 policy hardening | done (see PR) | `fix/assessment-followup-2026-10-20` | Two DEV migrations applied (`20261020020824_photo_review_reason`, `20261020020829_support_plans_follow_source_note`) and must reach live at cutover. The photo loop was verified on DEV's real functions in a rolled-back transaction, not through a browser upload. Still not run: 200 % zoom, keyboard-only and physical phones; live concurrent editors |
+
+Follow-up released: PR #103 merged as `1583b0b` after all 22 checks passed on `9f0da09`; production `vppsone.vercel.app` serves it (`dpl_B7RioJE2sxcZw4tNut2WsmS55enS`). Read-only production smoke as admin: `/collection/review`, `/notes`, `/notes?tab=plans`, `/inbox` and `/exams` all 200 with no error. The two DEV migrations (`20261020020824`, `20261020020829`) are in the ledger and must reach live at cutover.
