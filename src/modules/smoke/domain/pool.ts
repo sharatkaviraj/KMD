@@ -48,6 +48,20 @@ export const SMOKE_SEATS: readonly SmokeSeat[] = [
   seat("teacher4", "teacher", "Smoke teacher 4", "SmkT4", "hi"),
   seat("teacher5", "teacher", "Smoke teacher 5", "SmkT5", "en"),
   seat("teacher6", "teacher", "Smoke teacher 6", "SmkT6", "both"),
+  seat("teacher7", "teacher", "Smoke teacher 7", "SmkT7", "hi"),
+  seat("teacher8", "teacher", "Smoke teacher 8", "SmkT8", "hi"),
+  seat("teacher9", "teacher", "Smoke teacher 9", "SmkT9", "en"),
+  seat("teacher10", "teacher", "Smoke teacher 10", "SmkT10", "both"),
+  seat("teacher11", "teacher", "Smoke teacher 11", "SmkT11", "hi"),
+  seat("teacher12", "teacher", "Smoke teacher 12", "SmkT12", "both"),
+  seat("teacher13", "teacher", "Smoke teacher 13", "SmkT13", "hi"),
+  seat("teacher14", "teacher", "Smoke teacher 14", "SmkT14", "en"),
+  seat("teacher15", "teacher", "Smoke teacher 15", "SmkT15", "hi"),
+  seat("teacher16", "teacher", "Smoke teacher 16", "SmkT16", "both"),
+  seat("teacher17", "teacher", "Smoke teacher 17", "SmkT17", "hi"),
+  seat("teacher18", "teacher", "Smoke teacher 18", "SmkT18", "hi"),
+  seat("teacher19", "teacher", "Smoke teacher 19", "SmkT19", "en"),
+  seat("teacher20", "teacher", "Smoke teacher 20", "SmkT20", "both"),
 ];
 
 /** A smoke account: the pattern the database's `smoke_pool` check also enforces. */

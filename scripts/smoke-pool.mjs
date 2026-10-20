@@ -65,7 +65,13 @@ async function poolRows() {
   return new Map(data.map((row) => [row.email, row]));
 }
 
-/** Teacher profiles a seat may borrow: active, no login, a current class teacher. */
+/**
+ * Teacher profiles a seat may borrow: active and with no login. Current class
+ * teachers come first (a register, a class, a timetable), then subject
+ * teachers. When none is left a teacher seat gets a new profile of its own —
+ * a teacher who has just joined and has no classes yet, which is a case
+ * worth testing too.
+ */
 async function freeTeacherProfiles(taken) {
   const [{ data: profiles, error: pErr }, { data: held, error: hErr }] = await Promise.all([
     admin.from("staff_profiles").select("id").eq("role", "teacher").eq("is_active", true).is("user_id", null).order("id"),
@@ -73,7 +79,8 @@ async function freeTeacherProfiles(taken) {
   ]);
   if (pErr || hErr) throw new Error(`Could not read teacher profiles: ${(pErr ?? hErr).message}`);
   const classTeachers = new Set(held.map((row) => row.staff_profile_id));
-  return profiles.map((p) => p.id).filter((id) => classTeachers.has(id) && !taken.has(id));
+  const free = profiles.map((p) => p.id).filter((id) => !taken.has(id));
+  return [...free.filter((id) => classTeachers.has(id)), ...free.filter((id) => !classTeachers.has(id))];
 }
 
 async function ensure() {
@@ -101,10 +108,9 @@ async function ensure() {
     let profileId;
     let linked = false;
     let originalLanguage = null;
-    if (seat.role === "teacher") {
-      free ??= await freeTeacherProfiles(taken);
+    if (seat.role === "teacher") free ??= await freeTeacherProfiles(taken);
+    if (seat.role === "teacher" && free.length > 0) {
       profileId = free.shift();
-      if (!profileId) throw new Error(`No free class-teacher profile left for ${seat.email}`);
       const { data: before, error: readError } = await admin.from("staff_profiles").select("preferred_language").eq("id", profileId).single();
       if (readError) throw new Error(`Could not read the profile for ${seat.email}: ${readError.message}`);
       originalLanguage = before.preferred_language;
@@ -115,7 +121,7 @@ async function ensure() {
       // A profile left behind by an earlier `release` is reused, not duplicated.
       const { data: old, error: oldError } = await admin.from("staff_profiles").select("id").eq("short_name", seat.shortName).eq("role", seat.role).is("user_id", null).limit(1);
       if (oldError) throw new Error(`Could not look for an old profile for ${seat.email}: ${oldError.message}`);
-      const fields = { user_id: user.id, display_name: seat.label, short_name: seat.shortName, role: seat.role, is_teaching: false, is_active: true, preferred_language: seat.language };
+      const fields = { user_id: user.id, display_name: seat.label, short_name: seat.shortName, role: seat.role, is_teaching: seat.role === "teacher", is_active: true, preferred_language: seat.language };
       const { data, error } = old.length
         ? await admin.from("staff_profiles").update(fields).eq("id", old[0].id).is("user_id", null).select("id").single()
         : await admin.from("staff_profiles").insert(fields).select("id").single();

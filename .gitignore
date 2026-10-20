@@ -60,3 +60,6 @@ next-env.d.ts
 
 # Smoke Lab agent kits hold live passes; never commit them.
 smoke-kit-*.json
+
+# Smoke Lab run working files (kit holds passes)
+.smoke-run/
