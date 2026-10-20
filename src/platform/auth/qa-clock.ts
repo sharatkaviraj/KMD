@@ -2,6 +2,8 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
+import { isSmokeEmail } from "@/modules/smoke/domain/pool";
+import { smokeLabEnabled } from "@/platform/auth/smoke-lab";
 import { isQaEmail, qaToolsEnabled } from "@/platform/auth/test-accounts";
 
 /**
@@ -23,7 +25,9 @@ export function parseQaClock(value: string | null | undefined): Date | null {
 }
 
 export async function schoolNow(staff: { email: string | null } | null | undefined): Promise<Date> {
-  if (!staff || !isQaEmail(staff.email) || !qaToolsEnabled()) return new Date();
+  if (!staff || !isQaEmail(staff.email)) return new Date();
+  // A Smoke Lab account's clock is set by its pass (`/lab/enter`, `/lab/clock`).
+  if (!qaToolsEnabled() && !(isSmokeEmail(staff.email) && smokeLabEnabled())) return new Date();
   const store = await cookies();
   return parseQaClock(store.get(QA_CLOCK_COOKIE)?.value) ?? new Date();
 }

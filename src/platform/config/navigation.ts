@@ -261,6 +261,9 @@ export const NON_NAV_SCREENS = [
   // is somewhere you go twice a year, and it is reached from the More hub and
   // from the sign-out corner of the top bar rather than from the thumb bar.
   "/preferences",
+  // The Smoke Lab (D-311): an administrator's test tool, on the test database
+  // only, reached by its address. A 404 for anybody else and on live.
+  "/smoke",
 ] as const;
 
 /** Primary modules use native destinations and the existing permission map. */

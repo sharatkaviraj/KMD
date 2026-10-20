@@ -1195,3 +1195,14 @@ Follow-up released: PR #103 merged as `1583b0b` after all 22 checks passed on `9
 Accessibility follow-up released: #105 (main `a93eda3`) and #106 (main `399feb1`), production `dpl_HQdBZ6X6e6uXaNRQsWw7WJNQi6JK`. Re-run on production: no overflow on 16 screens at 640 px or 320 px, and every search box shows the focus ring under Tab (Students, Payments, Receipts, notes picker measured). Remaining: physical phones and a screen-reader pass; the live fee database migrations wait for cutover.
 
 20 Oct, live cutover plan prepared (not run): `docs/cutover/LIVE-MIGRATION-PLAN.md`, D-310. Classifies all 79 migrations plus the fee-collector change. Pre-flight P0–P15 (backup, identity, fee preconditions, the bodies to restore, who owns the functions, how the fee app deploys, D-207). Phases M1–M4 with gates and a phase-ordered rollback. Independent review found and fixed three blocking errors (an M2 gate that could not pass, a function count off by one, an M1 rollback that would have taken fee permissions down). `CUTOVER.md` step 1, step 5 and the rollback now point to it. Waiting on the owner's go-ahead.
+
+## Smoke Lab — 20 October 2026
+
+Owner's request: passwordless logins for every role so AI agents can run the whole school day end to end and find bugs and improvements. Guide: `docs/smoke/README.md`; decisions D-311–D-314.
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| DEV migration `20261020103153_smoke_lab` (pool, runs, passes, findings, `smoke_access_allowed`); 14 smoke accounts via `npm run smoke:pool` (6 teachers attached to real class-teacher profiles) | done on DEV | `feat/smoke-lab` | D-skip for live; added to the live plan |
+| `/smoke` console, `/lab/enter`, `/lab/clock`, `/api/lab/brief`, `/api/lab/findings`, middleware gate, Markdown export | done | `feat/smoke-lab` | Self-test passed on a local server against DEV (open run, pass sign-in, finding + repeat, revoke pass, revoke run, nothing left the app) |
+| Security review fixes (D-314): DEV migrations `20261020105658_smoke_lab_enforcement` (ban/unban, session purge, pg_cron `smoke-enforce`, single-statement counters and findings) and `20261020110015_smoke_lab_ban_date`; smoke accounts lose staff/settings management; gate in `getCurrentStaff`; `app_metadata.smoke_lab` on all 14 | done on DEV | `feat/smoke-lab` | Surprise: `banned_until = 'infinity'` broke Supabase Auth for the whole test project (listing users failed) for about 20 minutes; replaced by 2999-12-31. Both migrations are D-skip |
+| Agent harness (`scripts/smoke/lib.mjs`), baseline sweep (`npm run smoke:sweep`), self-test | done | `feat/smoke-lab` | First sweep (teacher 1, local dev server): 12 screens each at 390/1280 px; flagged the note composer 10 px wider than a 390 px screen. Dev-server timings are not findings |

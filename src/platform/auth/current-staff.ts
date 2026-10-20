@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
+import { isSmokeAccount } from "@/modules/smoke/domain/pool";
 import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
 import { hasRequiredEnvVars } from "@/platform/env";
 import { resolveLanguage, type Language } from "@/platform/i18n/language";
@@ -44,6 +45,12 @@ export type CurrentStaff = {
    * it must never restore a grant an admin removed from the matrix.
    */
   permissions?: readonly string[] | null;
+  /**
+   * A Smoke Lab test account (D-311). `can()` withholds staff and settings
+   * management from it (D-314), and the request is refused once its pass or
+   * run is no longer live.
+   */
+  smokeLab?: boolean;
 };
 
 type StaffProfileRow = {
@@ -111,6 +118,15 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     if (error || allowed !== true) return { staff: null, reason: "inactive" };
   }
 
+  // Smoke Lab accounts, likewise, only while a pass and its run are live. The
+  // middleware asks the same question first; this holds for anything that
+  // reaches a page or an action without passing through it.
+  const smokeLab = isSmokeAccount(claims);
+  if (smokeLab) {
+    const { data: allowed, error } = await supabase.rpc("smoke_access_allowed");
+    if (error || allowed !== true) return { staff: null, reason: "inactive" };
+  }
+
   // Through the cookie client, so RLS applies: the SELECT policy on
   // staff_profiles is what permits this read. The service-role client is for
   // writes, after a permission check — not for reading your own row.
@@ -144,6 +160,7 @@ const readCurrentStaff = cache(async (): Promise<CurrentStaffResult> => {
     language: resolveLanguage(data.preferred_language),
     preferredStart: data.preferred_start,
     permissions,
+    ...(smokeLab ? { smokeLab: true } : {}),
   };
 
   if (!staff.isActive) {
