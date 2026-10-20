@@ -4,12 +4,14 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/app/(app)/collection/photos/profile-actions", () => ({ openPhotoEditorAction: vi.fn(), saveProfilePhotoAction: vi.fn() }));
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={href} {...props}>{children}</a> }));
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn(), push: vi.fn(), refresh: navigation.refresh }), usePathname: () => window.location.pathname }));
 vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string }) => p.en, sub: () => null }), Bi: ({ en }: { en: string }) => <span>{en}</span> }));
 vi.mock("@/vx/screens/family-contact/actions", () => ({ logFamilyContactAction: vi.fn() }));
 vi.mock("@/vx/screens/notes/actions", () => ({ setNoteStatusAction: vi.fn(), replyToNoteAction: vi.fn() }));
+vi.mock("@/app/(app)/teach/tasks/actions", () => ({ taskAssignmentContextAction: vi.fn(), previewTeacherTasksAction: vi.fn(), createTeacherTasksAction: vi.fn() }));
 import { Student360, type Student360Fees, type Student360Props } from "@/vx/screens/admin/student360";
 
 const p: Student360Props = {

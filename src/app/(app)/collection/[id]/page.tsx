@@ -1,4 +1,7 @@
 import { headers } from "next/headers";
+import Link from "next/link";
+import {managedTasksForRequests} from "@/modules/teacher-tasks/data/delivery-routing";
+import {taskDeliveryMessages} from "@/messages/setup";
 
 import { authoredPlain, authoredTitle } from "@/ui/authored-text";
 import { m } from "@/messages";
@@ -73,6 +76,7 @@ export default async function RequestPage(props: PageProps<"/collection/[id]">) 
   ]);
 
   const done = completeness(roll, request.fields);
+  const managedTask=(await managedTasksForRequests([request.id])).get(request.id);
   const waiting = outstandingRows(roll, request.fields);
   const link = requestUrl(origin, request.token);
 
@@ -140,7 +144,7 @@ export default async function RequestPage(props: PageProps<"/collection/[id]">) 
 
       {/* --------------------------------------------------- the link */}
 
-      {request.status === "open" ? (
+      {managedTask ? <Link className="mt-7 block rounded-xl border border-border p-4 text-primary" href={`/inbox?task=${managedTask}`}>{primary(taskDeliveryMessages.review,language)}</Link> : request.status === "open" ? (
         <Section className="mt-7" title={m.collectionLink} language={language}>
           <Card className="space-y-3 p-4">
             <CopyLink url={link} />

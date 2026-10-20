@@ -18,7 +18,7 @@ import {
   togglePlanStepAction,
 } from "../actions";
 import type { NotesPeople, SupportPlan } from "../data";
-import { excerpt, followUpDate, parentPlanMessage, planProgress, suggestedSteps, type BoardNote } from "../domain/notes";
+import { excerpt, followUpDate, parentPlanMessage, planProgress, planReaders, suggestedSteps, type BoardNote } from "../domain/notes";
 import { COST } from "./compose";
 import { day, useBoth, WaBubble } from "./look";
 import { mayEditPlan, type ClientViewer } from "./parts";
@@ -52,9 +52,60 @@ type Step = { id: string | null; body: string; owner: string; when: string | nul
 function stepsOf(plan: SupportPlan, viewer: ClientViewer, tx: (p: Pair) => string): Step[] {
   return plan.steps.map((s) => {
     const role = (OWNER_ROLES as readonly string[]).includes(s.ownerRole ?? "") ? (s.ownerRole as OwnerRole) : "me";
-    const owner = s.ownerName ? (s.ownerName === viewer.name ? tx(OWNER_TEXT.me) : s.ownerName) : tx(OWNER_TEXT[role]);
+    const owner = s.ownerName ? (s.ownerStaffId === viewer.id ? tx(OWNER_TEXT.me) : s.ownerName) : tx(OWNER_TEXT[role]);
     return { id: s.id, body: s.body, owner, when: s.whenLabel, done: s.done, role };
   });
+}
+
+/**
+ * Who will read the plan, said before it starts, and — for an Only me note —
+ * the note's words kept out of the goal unless the author deliberately adds
+ * them after seeing who reads them (R01). The note itself stays private.
+ */
+function PlanGoalSharing({ note, people, setGoal, shared, setShared }: { note: BoardNote; people: NotesPeople; setGoal: (goal: string) => void; shared: boolean; setShared: (v: boolean) => void }) {
+  const { tx } = useVx();
+  const [previewing, setPreviewing] = useState(false);
+  const readers = tx(planReaders(note, { classTeacher: note.classId ? (people.classTeachers[note.classId] ?? null) : null, admin: people.admin }));
+  const words = excerpt(note.body, 120);
+  return (
+    <div className="nx-c" style={{ gap: 8 }}>
+      <span className="nx-m nx-f" style={{ gap: 6, alignItems: "flex-start" }}>
+        <Ic n="users" size={16} style={{ flex: "none", marginTop: 2 }} />
+        <span>{tx(p("Who will see this plan", "यह योजना कौन देखेगा"))}: {readers}</span>
+      </span>
+      {note.visibility === "private" && !shared ? (
+        previewing ? (
+          <div className="card nx-c" role="group" aria-label={tx(p("Use words from the note", "नोट के शब्द लें"))} style={{ padding: 12, gap: 8, background: "var(--s2)" }}>
+            <span style={{ fontSize: 14 }}>“{words}”</span>
+            <span className="nx-m">{tx(p(`Your note stays Only me. These words will go into the plan, and ${readers} will read them.`, `आपका नोट निजी ही रहेगा। ये शब्द योजना में जाएँगे, और ${readers} इन्हें पढ़ेंगे।`))}</span>
+            <span className="nx-f" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="tap btn pri"
+                onClick={() => {
+                  setGoal(words);
+                  setShared(true);
+                  setPreviewing(false);
+                }}
+              >
+                {tx(p("Add these words", "ये शब्द जोड़ें"))}
+              </button>
+              <button type="button" className="tap btn ghost" onClick={() => setPreviewing(false)}>
+                {tx(p("Cancel", "रद्द करें"))}
+              </button>
+            </span>
+          </div>
+        ) : (
+          <span className="nx-f" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span className="nx-m">{tx(p("Your note is Only me, so its words are not copied into the plan.", "आपका नोट निजी है, इसलिए उसके शब्द योजना में नहीं जाते।"))}</span>
+            <button type="button" className="tap btn sec" onClick={() => setPreviewing(true)} style={{ height: 36 }}>
+              {tx(p("Use words from the note", "नोट के शब्द लें"))}
+            </button>
+          </span>
+        )
+      ) : null}
+    </div>
+  );
 }
 
 type Run = (fn: () => Promise<{ ok: boolean; error?: Pair }>, done?: Pair) => void;
@@ -111,7 +162,9 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
   const ct = classId ? (people.classTeachers[classId] ?? null) : null;
   const first = studentName.split(" ")[0];
   const nextWeek = day(followUpDate("one_week", today));
-  const [goal, setGoal] = useState(() => (draft ? excerpt(draft.body, 120) : ""));
+  const privateSource = draft?.visibility === "private";
+  const [goal, setGoal] = useState(() => (draft && !privateSource ? excerpt(draft.body, 120) : ""));
+  const [shared, setShared] = useState(false);
   const [draftSteps, setDraftSteps] = useState<Step[]>(() => (draft ? suggestedSteps(draft.tags).map((s) => ({ id: null, body: tx(s), owner: tx(OWNER_TEXT.class_teacher), when: nextWeek, done: false, role: "class_teacher" as OwnerRole })) : []));
   const [newStep, setNewStep] = useState("");
   const [tellDraft, setTellDraft] = useState(false);
@@ -136,7 +189,11 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
   const create = () =>
     start(async () => {
       if (!draft?.studentId) return;
-      const res = await createPlanAction({ studentId: draft.studentId, noteId: draft.id, goal, steps: draftSteps.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tellDraft });
+      if (!goal.trim()) {
+        toast.show({ text: tx(p("Write the goal first", "पहले लक्ष्य लिखें")), tone: "bad" });
+        return;
+      }
+      const res = await createPlanAction({ studentId: draft.studentId, noteId: draft.id, goal, steps: draftSteps.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tellDraft && !privateSource, shareExcerpt: shared });
       if (res.ok && res.id) {
         toast.show({ text: tx(p("Support plan started", "सहायता योजना शुरू")) });
         router.replace(`${base}?plan=${res.id}`);
@@ -164,9 +221,10 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
           ) : (
             <label>
               <span className="sr">Goal</span>
-              <input className="inp serif" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} style={{ fontSize: 20, fontWeight: 600 }} />
+              <input className="inp serif" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} placeholder={tx(p("What should change for the child?", "बच्चे के लिए क्या बदलना चाहिए?"))} style={{ fontSize: 20, fontWeight: 600 }} />
             </label>
           )}
+          {draft ? <PlanGoalSharing note={draft} people={people} setGoal={setGoal} shared={shared} setShared={setShared} /> : null}
           <span className="nx-m">
             {plan
               ? tx(p(`Started by ${plan.createdByName} · ${day(plan.createdAt)}${people.coordinator ? ` · coordinator ${people.coordinator}` : ""}`, `${plan.createdByName} ने शुरू की · ${day(plan.createdAt)}`))
@@ -244,12 +302,13 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
               {plan ? (
                 <span className="pill" style={{ background: sent ? "var(--oks)" : "var(--s2)", color: sent ? "var(--ok)" : "var(--mut)" }}>{sent ? tx(p("Queued", "कतार में")) : tx(p("Not queued yet", "अभी कतार में नहीं"))}</span>
               ) : (
-                <button type="button" className={`tap sw${tellDraft ? " on" : ""}`} role="switch" aria-checked={tellDraft} aria-label="Tell parents" onClick={() => setTellDraft((v) => !v)} style={{ border: 0 }}>
+                <button type="button" className={`tap sw${tellDraft && !privateSource ? " on" : ""}`} role="switch" aria-checked={tellDraft && !privateSource} aria-label="Tell parents" disabled={privateSource} onClick={() => setTellDraft((v) => !v)} style={{ border: 0 }}>
                   <span />
                 </button>
               )}
             </div>
-            {plan || tellDraft ? <WaBubble hi={msg.hi} en={msg.en} foot={plan ? (sent ? tx(p("queued · the office sends it", "कतार में · कार्यालय भेजेगा")) : tx(p("preview", "झलक"))) : tx(p("queued when the plan starts", "योजना शुरू होने पर कतार में"))} /> : null}
+            {privateSource ? <span className="nx-m">{tx(p("Only me note · its plan is not sent to parents", "निजी नोट · इसकी योजना माता-पिता को नहीं जाती"))}</span> : null}
+            {plan || (tellDraft && !privateSource) ? <WaBubble hi={msg.hi} en={msg.en} foot={plan ? (sent ? tx(p("queued · the office sends it", "कतार में · कार्यालय भेजेगा")) : tx(p("preview", "झलक"))) : tx(p("queued when the plan starts", "योजना शुरू होने पर कतार में"))} /> : null}
             <span className="nx-m nx-f" style={{ gap: 6 }}>
               <Ic n="info" size={16} />
               {tx(p(`1 family · 1 WhatsApp message · about ${COST}`, `1 परिवार · 1 व्हाट्सऐप संदेश · लगभग ${COST}`))}
@@ -309,6 +368,11 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
   const [draft, setDraft] = useState<Step[]>([]);
   const [own, setOwn] = useState("");
   const [tell, setTell] = useState(false);
+  const privateSource = !plan && note?.visibility === "private";
+  // A team note lends its opening words as the goal, editable; an Only me
+  // note lends nothing unless its author chooses to (R01).
+  const [goal, setGoal] = useState(() => (note && note.visibility !== "private" ? excerpt(note.body, 120) : ""));
+  const [shared, setShared] = useState(false);
   const studentName = plan?.studentName ?? note?.studentName ?? "";
   const steps = plan ? stepsOf(plan, viewer, tx) : draft;
   const done = steps.filter((s) => s.done).length;
@@ -317,7 +381,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
   const forText = note?.body ?? plan?.goal ?? "";
   const used = new Set(steps.map((s) => s.body));
   const sugg = suggestedSteps(note?.tags ?? []).filter((s) => !used.has(s.en) && !used.has(s.hi ?? ""));
-  const msg = parentPlanMessage({ childName: studentName, goal: plan?.goal ?? excerpt(forText, 120), steps: steps.map((s) => s.body), school });
+  const msg = parentPlanMessage({ childName: studentName, goal: plan?.goal ?? goal, steps: steps.map((s) => s.body), school });
   const hint =
     steps.length < 3
       ? tx(p(`Add ${3 - steps.length} more step${3 - steps.length === 1 ? "" : "s"} · 3 to 5 work best`, `${3 - steps.length} और कदम जोड़ें · 3 से 5 ठीक रहते हैं`))
@@ -371,7 +435,11 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
         toast.show({ text: tx(p("Add a step first", "पहले एक कदम जोड़ें")) });
         return;
       }
-      const res = await createPlanAction({ studentId: note.studentId, noteId: note.id, goal: excerpt(note.body, 120), steps: draft.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tell });
+      if (!goal.trim()) {
+        toast.show({ text: tx(p("Write the goal first", "पहले लक्ष्य लिखें")), tone: "bad" });
+        return;
+      }
+      const res = await createPlanAction({ studentId: note.studentId, noteId: note.id, goal, steps: draft.map((s) => ({ body: s.body, ownerRole: s.role, whenLabel: s.when })), tellParents: tell && !privateSource, shareExcerpt: shared });
       if (res.ok && res.id) {
         toast.show({ text: tx(tell ? p("Plan saved · WhatsApp queued for the office", "योजना सहेजी · व्हाट्सऐप कतार में") : p("Plan saved · the coordinator can see it", "योजना सहेजी · समन्वयक देख सकते हैं")) });
         router.push(`${base}?note=${note.id}`, { scroll: false });
@@ -391,6 +459,15 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
               <span className="nx-m" style={{ fontSize: 12 }}>{hint}</span>
             </span>
           </div>
+          {!plan && note ? (
+            <div className="card nx-c nt-cd" style={{ gap: 8 }}>
+              <label className="nx-c" style={{ gap: 6 }}>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p("Goal", "लक्ष्य"))}</span>
+                <input className="inp" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} placeholder={tx(p("What should change for the child?", "बच्चे के लिए क्या बदलना चाहिए?"))} style={{ height: 48, fontSize: 15 }} />
+              </label>
+              <PlanGoalSharing note={note} people={people} setGoal={setGoal} shared={shared} setShared={setShared} />
+            </div>
+          ) : null}
           <div className="card nx-c" style={{ padding: "8px 14px" }}>
             {steps.map((s, i) => (
               <div key={s.id ?? `d${i}`} className="nx-f nt-ani" style={{ gap: 10, padding: "10px 0", borderTop: i ? "1px solid var(--bd)" : 0 }}>
@@ -486,16 +563,16 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
                 </span>
               </div>
             ) : (
-              <button type="button" className="tap nx-f" role="switch" aria-checked={tell} onClick={() => setTell((v) => !v)} style={{ gap: 12, width: "100%", padding: 0, border: 0, background: "transparent", color: "var(--fg)", textAlign: "left", font: "inherit" }}>
+              <button type="button" className="tap nx-f" role="switch" aria-checked={tell && !privateSource} disabled={privateSource} onClick={() => setTell((v) => !v)} style={{ gap: 12, width: "100%", padding: 0, border: 0, background: "transparent", color: "var(--fg)", textAlign: "left", font: "inherit" }}>
                 <span className="nt-ic" style={{ background: "var(--oks)", color: "var(--ok)" }}><Ic n="message" size={18} /></span>
                 <span className="nx-c" style={{ flex: 1 }}>
                   <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p("Tell parents", "माता-पिता को बताएँ"))}</span>
-                  <span className="nt-hn">{sub(p("Tell parents", "माता-पिता को बताएँ")) ? `${sub(p("Tell parents", "माता-पिता को बताएँ"))} · ` : ""}{tx(p("Hindi first", "पहले हिंदी"))}</span>
+                  <span className="nt-hn">{privateSource ? tx(p("Only me note · its plan is not sent to parents", "निजी नोट · इसकी योजना माता-पिता को नहीं जाती")) : <>{sub(p("Tell parents", "माता-पिता को बताएँ")) ? `${sub(p("Tell parents", "माता-पिता को बताएँ"))} · ` : ""}{tx(p("Hindi first", "पहले हिंदी"))}</>}</span>
                 </span>
-                <span className={`sw${tell ? " on" : ""}`}><span /></span>
+                <span className={`sw${tell && !privateSource ? " on" : ""}`}><span /></span>
               </button>
             )}
-            {(tell || plan?.tellParents) && steps.length > 0 ? (
+            {((tell && !privateSource) || plan?.tellParents) && steps.length > 0 ? (
               <>
                 <div className="nt-wa nt-ani">
                   <div>

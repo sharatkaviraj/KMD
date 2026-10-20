@@ -26,6 +26,7 @@ import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
 import { cellCounts, cellState, neighbours } from "@/vx/screens/exams/domain/board";
 import { GROUP_KEYS, GROUP_LABELS, groupOf, subjectPair } from "@/vx/screens/exams/domain/groups";
 import { splitByStream } from "@/vx/screens/exams/domain/streams";
+import { classReadiness, paperReadiness } from "@/vx/screens/exams/domain/progress";
 import { isLate, subjectColumns } from "@/vx/screens/exams/domain/tracker";
 import { ExamsBoard, type ExamsProps, type ExamsView } from "@/vx/screens/exams/exams-board";
 import { classTeacherOf, isManager } from "@/vx/screens/exams/guards";
@@ -100,6 +101,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
       <MarksSheet
         variant="office"
         forTeacher={forTeacher}
+        viewerStaffId={staff.id}
         key={`${staff.id}/${sessionLabel}/${sheet.paper.id}`}
         ownerId={staff.id}
         sessionLabel={sessionLabel}
@@ -228,7 +230,11 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
         remindedAt: manage ? (teacher?.remindedAt ?? null) : null,
         canEnter: editable.has(facts.paperId),
         classLocked: lockedSet.has(facts.classId),
-        classReady: classPapers.every((x) => x.entryStatus === "submitted"),
+        // The same rule as the lock action: sent, complete and valid (B04).
+        classReady: classReadiness(classPapers).readyToLock,
+        classReadiness: classReadiness(classPapers).state,
+        readiness: paperReadiness(facts),
+        invalid: facts.invalid ?? 0,
         history,
       };
     }
@@ -302,12 +308,14 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
               outOf: r.outOf,
               scored: r.scored,
               grade: r.grade,
+              percent: r.percent,
               grace: state.grace[r.subjectCode] ?? 0,
               state: rowState(r.marks),
             })),
             total: c.totals.scored,
             outOf: c.totals.outOf,
             percent: c.totals.percent,
+            weighted: c.totals.weighted,
             grade: c.grade,
             passed: c.passed,
             attendance: c.attendance?.percent ?? null,

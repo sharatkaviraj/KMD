@@ -13,6 +13,7 @@ vi.mock("@/vx/i18n", () => ({ useVx: () => ({ tx: (p: { en: string } | string) =
 import { PaymentDesk } from "@/vx/screens/payments/desk";
 import { ToastProvider } from "@/vx/ui/overlays";
 import { writePaymentAttempt, readPaymentAttempt, paymentAttemptKey } from "@/modules/payments/vx/attempt";
+import { rupees } from "@/vx/format";
 
 let root: Root; let host: HTMLDivElement;
 async function render(props: Partial<React.ComponentProps<typeof PaymentDesk>> = {}) { await act(async () => root.render(<ToastProvider><PaymentDesk boot={{ ...boot, me: { ...boot.me, id: "qa-owner" } }} previewing={false} initialStudentId={STUDENT_ID} initialStudent={{ ok: true, student }} initialReceipt={null} {...props} /></ToastProvider>)); }
@@ -190,19 +191,83 @@ it("shows the receipt number as soon as the payment posts and fills the receipt 
   actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
   actions.settleDeskSaveAction.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
   await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
-  expect(document.body.textContent).toContain(`Saved as ${receipt.receiptNumber}. The money is posted`);
-  expect(document.body.textContent).not.toContain("could not be shown yet");
+  expect(document.body.textContent).toContain("Payment recorded. Updating balance…");
+  expect(document.body.textContent).toContain(receipt.receiptNumber);
+  expect(document.body.textContent).not.toContain("could not refresh");
   expect(actions.settleDeskSaveAction).toHaveBeenCalledWith(expect.objectContaining({ receiptId: receipt.id, studentId: STUDENT_ID }));
-  await act(async () => release({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: { pendingToday: 4500, dueToday: 0, notDueYet: 0, lateFee: 0 } }));
-  expect(document.body.textContent).not.toContain("The money is posted");
+  await act(async () => release({ status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: { pendingToday: 4500, dueToday: 0, notDueYet: 0, lateFee: 0 }, balanceSource: "live", balanceReadAt: "2026-10-11T10:00:05Z" }));
+  expect(document.body.textContent).not.toContain("Updating balance");
   expect(document.body.textContent).toContain("Installment 1");
 });
 
-it("offers Show the receipt when the read after a quick save fails", async () => {
+// B07: the balance after a save is the live ledger's, and the desk says so.
+const LIVE_STUDENT = { ...student, rows: student.rows.map((r, i) => (i === 0 ? { ...r, feesPaid: 500, feesPending: 1500 } : r)), balanceSource: "live" as const, readAt: "2026-10-11T10:00:05Z" };
+const LIVE_SETTLED = { status: "saved", receipt, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: LIVE_STUDENT, balanceAfter: { pendingToday: 1500, dueToday: 0, notDueYet: 2000, lateFee: 1000 }, balanceSource: "live", balanceReadAt: "2026-10-11T10:00:05Z", todayCollection: { count: 1, amount: 500 } };
+
+it("says Updating balance while the live balance is read, then shows it as Balance now beside what the receipt recorded (B07)", async () => {
+  let release: (v: unknown) => void = () => undefined;
   actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
-  actions.settleDeskSaveAction.mockResolvedValue(null);
+  actions.settleDeskSaveAction.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
   await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
-  expect(document.body.textContent).toContain("could not be shown yet");
+  expect(document.getElementById("pd-balance-state")?.textContent).toContain("Payment recorded. Updating balance…");
+  expect(document.getElementById("pd-balance-now")).toBeNull();
+  await act(async () => release(LIVE_SETTLED));
+  expect(document.getElementById("pd-balance-state")).toBeNull();
+  const now = document.getElementById("pd-balance-now")!.textContent!;
+  expect(now).toContain("Balance now");
+  expect(now).toContain(rupees(1500));
+  expect(now).toContain(rupees(1000));
+  // The receipt's own figure stays the receipt's, labelled as such.
+  const at = document.getElementById("pd-at-receipt")!.textContent!;
+  expect(at).toContain("At this receipt");
+  expect(at).toContain(rupees(receipt.outstandingAfter));
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+});
+
+it("says the balance could not refresh when the read fails, and Retry re-reads without posting again (B07)", async () => {
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
+  let release: (v: unknown) => void = () => undefined;
+  actions.settleDeskSaveAction
+    .mockResolvedValueOnce(null)
+    .mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
+  expect(document.getElementById("pd-balance-state")?.textContent).toContain("Receipt saved. Balance could not refresh.");
+  expect(document.getElementById("pd-balance-now")).toBeNull();
+  // Two quick presses: one read, and never a post.
+  const retry = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === "Retry")!;
+  expect(retry).toBeDefined();
+  await act(async () => { retry.click(); retry.click(); });
+  expect(actions.settleDeskSaveAction).toHaveBeenCalledTimes(2);
+  expect(actions.settleDeskSaveAction).toHaveBeenLastCalledWith({ receiptId: receipt.id, receiptNumber: receipt.receiptNumber, studentId: STUDENT_ID, sessionLabel: boot.sessionLabel });
+  expect(document.getElementById("pd-balance-state")?.textContent).toContain("Updating balance");
+  await act(async () => release(LIVE_SETTLED));
+  expect(document.body.textContent).not.toContain("could not refresh");
+  expect(document.getElementById("pd-balance-now")!.textContent).toContain(rupees(1500));
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+  expect(actions.checkDeskPaymentAction).not.toHaveBeenCalled();
+});
+
+it("does not show a snapshot balance as the balance now (B07)", async () => {
+  actions.postDeskPaymentAction.mockResolvedValue({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true });
+  actions.settleDeskSaveAction.mockResolvedValue({ ...LIVE_SETTLED, balanceSource: "snapshot" });
+  await render(); await input("#pd-amount", "500"); await click("Review"); await click("Save payment");
+  expect(document.getElementById("pd-balance-now")).toBeNull();
+  expect(document.getElementById("pd-balance-state")?.textContent).toContain("Balance could not refresh.");
+  expect(document.getElementById("pd-at-receipt")!.textContent).toContain(rupees(receipt.outstandingAfter));
+});
+
+it("posts once when Save payment is pressed twice", async () => {
+  let release: (v: unknown) => void = () => undefined;
+  actions.postDeskPaymentAction.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+  actions.settleDeskSaveAction.mockResolvedValue(LIVE_SETTLED);
+  await render(); await input("#pd-amount", "500"); await click("Review");
+  const save = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.includes("Save payment"))!;
+  await act(async () => { save.click(); save.click(); });
+  await act(async () => { save.click(); });
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+  await act(async () => release({ status: "saved", receipt: null, receiptId: receipt.id, receiptNumber: receipt.receiptNumber, student: null, balanceAfter: null, settling: true }));
+  expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
+  expect(document.getElementById("pd-balance-now")!.textContent).toContain(rupees(1500));
 });
 
 it("warns on the review sheet before posting into a day already closed (accountant B17)", async () => {

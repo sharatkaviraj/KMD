@@ -242,10 +242,14 @@ export function BoardNoteAside({
   const conversation = replies.filter((r) => r.source !== "system");
   const nextMonday = day(followUpDate("next_monday", today));
   const ownerName = (o: FollowOwner | null) => (o === "class_teacher" ? ct : o === "coordinator" ? people.coordinator : o === "admin" ? people.admin : o === "me" ? note.writtenByName : null);
+  // "you" compares the viewer's id with whoever holds (or would get) the
+  // follow-up, never the viewer's role: with two admins, the one who did not
+  // get the note is not "you" (B09).
+  const isYou = (key: FollowOwner, fallbackId: string | null | undefined) => (owner === key && note.followUpStaffId ? note.followUpStaffId === viewer.id : Boolean(fallbackId) && fallbackId === viewer.id);
   const assign: { key: FollowOwner; label: Pair; sub: string | null; you: boolean }[] = [
     { key: "class_teacher", label: p("Class teacher", "कक्षा अध्यापक"), sub: ct, you: note.classId !== null && viewer.heldClassIds.includes(note.classId) },
-    { key: "coordinator", label: p("Coordinator", "समन्वयक"), sub: people.coordinator, you: Boolean(viewer.isCoordinator) },
-    { key: "admin", label: p("Admin", "प्रशासक"), sub: people.admin, you: Boolean(viewer.isAdmin) },
+    { key: "coordinator", label: p("Coordinator", "समन्वयक"), sub: owner === "coordinator" && note.followUpName ? note.followUpName : people.coordinator, you: isYou("coordinator", people.coordinatorId) },
+    { key: "admin", label: p("Admin", "प्रशासक"), sub: owner === "admin" && note.followUpName ? note.followUpName : people.admin, you: isYou("admin", people.adminId) },
   ];
 
   return (

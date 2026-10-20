@@ -41,6 +41,7 @@ export const recordSourceLabels: Record<RecordSource, Localized> = {
 };
 
 export type Submission = {
+  requiresAdmin?: boolean;
   id: string;
   requestId: string;
   requestTitleHi: string;

@@ -78,6 +78,9 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
     if (!paper || !(await mayEnterPaper(staff, paper, sessionLabel))) notFound();
     const sheet = await loadSheet(paper.id, { exams, paper });
     if (!sheet) notFound();
+    // The heading names the paper's own exam, not whichever exam is current (B05).
+    const own = exams.find((e) => e.id === paper.assessment_id) ?? null;
+    const sheetCrumb = `${lead(p("Marks", "अंक"), lang)} · ${own ? lead({ en: own.labelEn, hi: own.labelHi }, lang) : ""} ${sessionLabel}`;
 
     // The next paper of hers in the same exam that is not yet sent.
     const mine = await myPaperIds(staff.id, sessionLabel, paper.assessment_id, isManager(staff));
@@ -98,9 +101,10 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
         onWithdraw={withdrawTeacherMarksAction}
         canCorrect={isManager(staff)}
         canReopen={isManager(staff)}
+        viewerStaffId={staff.id}
         initialPhase={phase}
         initialMode={view === "keypad" ? "pad" : "list"}
-        crumb={crumb}
+        crumb={sheetCrumb}
         backHref="/teach/marks"
         nextHref={next ? `/teach/marks?paper=${next.id}` : null}
         nextLabel={next ? `${next.class_label} ${next.subject_code}` : null}

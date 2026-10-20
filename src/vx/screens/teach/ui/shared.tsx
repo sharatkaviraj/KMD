@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic, type IconName } from "@/vx/icons";
@@ -11,7 +11,8 @@ import { BackLink } from "@/vx/ui/back-link";
 import { Textarea } from "@/vx/ui/controls";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 
-import { requestLeaveVx } from "../actions";
+import { previewLeaveVx, requestLeaveVx } from "../actions";
+import { leaveSpanFor, type LeaveDayPeriods } from "@/vx/screens/timetable/domain/timetable";
 import { addDays, LEAVE_REASONS, type LeaveSpan } from "../domain/teach";
 import { dShort } from "./fmt";
 
@@ -211,13 +212,71 @@ type LeaveWhen = "today" | "tomorrow" | "pick";
 
 const REASON_ICON: Record<string, IconName> = { unwell: "activity", family: "users", personal: "briefcase", other: "edit" };
 
+type LeavePreviewState = { key: string; status: "loading" | "ready" | "failed"; span: LeaveSpan; days: LeaveDayPeriods[] };
+
+/**
+ * The periods a leave would cover, from the server's one resolver (B11) —
+ * the same one the approval follows — so both leave forms say the same
+ * thing. Reads only; refetched when the days or the span change.
+ */
+function useLeavePreview(days: readonly string[], span: LeaveSpan): LeavePreviewState | null {
+  const daysKey = [...days].sort().join(",");
+  const key = `${daysKey}|${span}`;
+  const [state, setState] = useState<LeavePreviewState | null>(null);
+  useEffect(() => {
+    if (!daysKey) return;
+    let live = true;
+    const done = (next: Omit<LeavePreviewState, "key">) => {
+      if (live) setState({ key: `${daysKey}|${span}`, ...next });
+    };
+    previewLeaveVx({ days: daysKey.split(","), span }).then(
+      (res) => done(res.ok ? { status: "ready", span: res.span, days: res.days } : { status: "failed", span, days: [] }),
+      () => done({ status: "failed", span, days: [] }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [daysKey, span]);
+  if (!daysKey) return null;
+  return state?.key === key ? state : { key, status: "loading", span, days: [] };
+}
+
+const SPAN_NAME: Record<LeaveSpan, Pair> = { full: p("Full day", "पूरा दिन"), first_half: p("First half", "पहली पाली"), second_half: p("Second half", "दूसरी पाली") };
+
+/** "Tue 20 Oct · First half – periods 1, 2, 3 · 6, 7A", one line a day. */
+function LeavePreview({ preview, asked }: { preview: LeavePreviewState | null; asked: LeaveSpan }) {
+  const { tx } = useVx();
+  if (!preview) return null;
+  const total = preview.days.reduce((n, d) => n + d.periods.length, 0);
+  return (
+    <span style={{ display: "flex", flexDirection: "column", gap: 4 }} aria-live="polite">
+      {preview.status === "loading" ? <span style={{ fontSize: 13 }}>{tx(p("Checking your periods…", "आपके पीरियड देखे जा रहे हैं…"))}</span> : null}
+      {preview.status === "failed" ? <span style={{ fontSize: 13 }}>{tx(p("Could not check your periods. The office will still arrange cover.", "आपके पीरियड देखे नहीं जा सके। ऑफ़िस फिर भी इंतज़ाम करेगा।"))}</span> : null}
+      {preview.status === "ready"
+        ? preview.days.map((d) => {
+            const nums = d.periods.map((x) => x.number).join(", ");
+            const classes = [...new Set(d.periods.flatMap((x) => x.classLabels))].join(", ");
+            return (
+              <span key={d.day} style={{ fontSize: 13 }}>
+                {d.periods.length
+                  ? tx(p(`${dShort(d.day)} · ${SPAN_NAME[preview.span].en} – period${d.periods.length === 1 ? "" : "s"} ${nums} · ${classes}`, `${dShort(d.day)} · ${SPAN_NAME[preview.span].hi} – पीरियड ${nums} · ${classes}`))
+                  : tx(p(`${dShort(d.day)} · ${SPAN_NAME[preview.span].en} – no classes of yours`, `${dShort(d.day)} · ${SPAN_NAME[preview.span].hi} – आपकी कोई कक्षा नहीं`))}
+              </span>
+            );
+          })
+        : null}
+      {preview.status === "ready" && total > 0 ? <span style={{ fontSize: 13, fontWeight: 700 }}>{tx(p(`The office will arrange cover for these ${total} period${total === 1 ? "" : "s"}.`, `ऑफ़िस इन ${total} पीरियड का इंतज़ाम करेगा।`))}</span> : null}
+      {asked !== preview.span ? <span style={{ fontSize: 13 }}>{tx(p("A half day is asked one day at a time, so these days go as full days.", "आधा दिन एक-एक दिन के लिए माँगा जाता है, इसलिए ये पूरे दिन जाएँगे।"))}</span> : null}
+    </span>
+  );
+}
+
 /**
  * Apply for leave (design TchHome `leave`, TchMore `leave`): Today and a full
  * day are preset; the request goes to the office as asked, never approved
- * here. `stillToday` is what is left of the teacher's day, when the screen
- * knows it, for the line that says the office will arrange cover.
+ * here. The periods it would cover come from the one leave resolver (B11).
  */
-export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean; onClose: () => void; today: string; stillToday?: Pair | null }) {
+export function LeaveSheet({ open, onClose, today }: { open: boolean; onClose: () => void; today: string }) {
   const { tx, sub } = useVx();
   const toast = useToast();
   const [when, setWhen] = useState<LeaveWhen | null>(null);
@@ -238,14 +297,7 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
     when === "today" ? p(`Today · ${dShort(today)}`, `आज · ${dShort(today)}`) : when === "tomorrow" ? p(`Tomorrow · ${dShort(tomorrow)}`, `कल · ${dShort(tomorrow)}`) : when === "pick" && picked.length ? p(picked.map(dShort).join(", ")) : p("Pick days", "दिन चुनें");
   const spanText: Pair = span === "first_half" ? p("first half", "पहली पाली") : span === "second_half" ? p("second half", "दूसरी पाली") : p("full day", "पूरा दिन");
   const summary = bad ? tx(p("Pick at least one day", "कम से कम एक दिन चुनें")) : `${tx(whenText)} · ${tx(days.length === 1 ? spanText : p("full day", "पूरा दिन"))} · ${tx(reasonPair)}`;
-  const cover: Pair | null =
-    when === null
-      ? null
-      : when === "today"
-      ? stillToday ?? p("The office will give your classes today to other teachers.", "आज की आपकी कक्षाएँ ऑफ़िस दूसरे शिक्षकों को देगा।")
-      : when === "tomorrow"
-        ? p(`${dShort(tomorrow)}: the office will arrange cover for your classes.`, `${dShort(tomorrow)}: ऑफ़िस आपकी कक्षाओं का इंतज़ाम करेगा।`)
-        : p(`The office will arrange cover for ${picked.length || "the"} ${picked.length === 1 ? "day" : "days"}.`, `ऑफ़िस ${picked.length || ""} दिनों का इंतज़ाम करेगा।`);
+  const preview = useLeavePreview(days, span);
 
   const send = () => {
     if (bad) {
@@ -254,7 +306,7 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
     }
     start(async () => {
       setError(null);
-      const res = await requestLeaveVx({ days, span: days.length === 1 ? span : "full", reason: reasonPair.en, note });
+      const res = await requestLeaveVx({ days, span: leaveSpanFor(days.length, span), reason: reasonPair.en, note });
       if (res.ok) {
         setSent(true);
         toast.show({ text: tx(p("Leave request sent to the office", "छुट्टी का अनुरोध ऑफ़िस को भेजा गया")) });
@@ -366,10 +418,10 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
             <span>{tx(p("Note for the office (optional)", "ऑफ़िस के लिए नोट (वैकल्पिक)"))}</span>
             <Textarea value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder={tx(p("For example: fever since last night", "जैसे: कल रात से बुखार"))} style={{ minHeight: 72 }} />
           </label>
-          {cover ? (
+          {preview ? (
             <div className="tc-note" style={{ background: "var(--s2)" }}>
               <Ic n="users" style={{ marginTop: 2, color: "var(--acc)" }} />
-              <span>{tx(cover)}</span>
+              <LeavePreview preview={preview} asked={span} />
             </div>
           ) : null}
           {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{tx(error)}</span> : null}
@@ -384,7 +436,7 @@ export function LeaveSheet({ open, onClose, today, stillToday }: { open: boolean
  * as chips (today picked), the part of the day, a reason to pick, and the
  * periods the office will have to cover. Same request as the other sheet.
  */
-export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: boolean; onClose: () => void; today: string; coverFor?: (days: string[], span: LeaveSpan) => string[] }) {
+export function LeaveChipsSheet({ open, onClose, today }: { open: boolean; onClose: () => void; today: string }) {
   const { tx, sub } = useVx();
   const toast = useToast();
   const [days, setDays] = useState<string[]>([]);
@@ -400,8 +452,9 @@ export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: bool
   const label = (d: string) => (d === today ? tx(p(`Today · ${dShort(d).replace(/ \w+$/, "")}`, `आज · ${dShort(d).replace(/ \w+$/, "")}`)) : dShort(d).replace(/ \w+$/, ""));
   const sorted = [...days].sort();
   const spanText: Pair = span === "first_half" ? p("First half", "पहली पाली") : span === "second_half" ? p("Second half", "दूसरी पाली") : p("Full day", "पूरा दिन");
-  const summary = sorted.length === 0 ? tx(p("Pick a day", "दिन चुनें")) : `${sorted.length === 1 ? dShort(sorted[0]) : sorted.map((d) => dShort(d).replace(/ \w+$/, "")).join(", ")} · ${sorted.length > 1 && span === "full" ? tx(p(`${sorted.length} days`, `${sorted.length} दिन`)) : tx(spanText)}`;
-  const periods = coverFor ? coverFor(sorted, span) : [];
+  // More than one day is sent as full days (requestLeaveVx); the summary says so (B11).
+  const summary = sorted.length === 0 ? tx(p("Pick a day", "दिन चुनें")) : `${sorted.length === 1 ? dShort(sorted[0]) : sorted.map((d) => dShort(d).replace(/ \w+$/, "")).join(", ")} · ${sorted.length > 1 ? tx(p(`${sorted.length} full days`, `${sorted.length} पूरे दिन`)) : tx(spanText)}`;
+  const preview = useLeavePreview(sorted, span);
   const ready = sorted.length > 0 && reason !== null;
   const reasonPair = LEAVE_REASONS.find((r) => r.key === reason)?.text ?? null;
 
@@ -410,7 +463,7 @@ export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: bool
     if (!reasonPair) return setTries((n) => n + 1);
     start(async () => {
       setError(null);
-      const res = await requestLeaveVx({ days: sorted, span: sorted.length === 1 ? span : "full", reason: reasonPair.en, note });
+      const res = await requestLeaveVx({ days: sorted, span: leaveSpanFor(sorted.length, span), reason: reasonPair.en, note });
       if (res.ok) {
         setSent(true);
         toast.show({ text: tx(p("Leave request sent to the office", "छुट्टी का अनुरोध ऑफ़िस को भेजा")) });
@@ -492,7 +545,7 @@ export function LeaveChipsSheet({ open, onClose, today, coverFor }: { open: bool
             <Ic n="users" style={{ marginTop: 2 }} />
             <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <b>{tx(p("The office will arrange your classes", "आपकी कक्षाएँ ऑफ़िस संभालेगा"))}</b>
-              <span style={{ fontSize: 13 }}>{periods.length ? tx(p(`Your ${periods.length} periods: ${periods.slice(0, 6).join(", ")}${periods.length > 6 ? "…" : ""}`, `आपके ${periods.length} पीरियड: ${periods.slice(0, 6).join(", ")}${periods.length > 6 ? "…" : ""}`)) : tx(p("No periods to cover.", "कोई पीरियड नहीं।"))}</span>
+              {preview ? <LeavePreview preview={preview} asked={span} /> : <span style={{ fontSize: 13 }}>{tx(p("Pick a day to see your periods.", "अपने पीरियड देखने के लिए दिन चुनें।"))}</span>}
             </span>
           </div>
           {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{tx(error)}</span> : null}

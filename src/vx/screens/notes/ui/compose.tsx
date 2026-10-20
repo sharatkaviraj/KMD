@@ -388,10 +388,12 @@ export function OpenActionNotice({ c, base, today, onUpdate }: { c: Composer; ba
 }
 
 /** Pick the child: recent names, a class, a search, the class list (design TchNotes `cp.picking`). */
-export function KidPicker({ kids, notes, viewerId, onPick, teacher }: { kids: ChildChoice[]; notes: readonly BoardNote[]; viewerId: string; onPick: (id: string) => void; teacher?: boolean }) {
+export function KidPicker({ kids, notes, viewerId, onPick, teacher, initialClass }: { kids: ChildChoice[]; notes: readonly BoardNote[]; viewerId: string; onPick: (id: string) => void; teacher?: boolean; initialClass?: string | null }) {
   const { tx } = useVx();
   const classes = [...new Map(kids.map((k) => [k.classId, k.classLabel])).entries()];
-  const [cls, setCls] = useState(classes[0]?.[0] ?? "");
+  // Opened from a class, the picker starts on that class — not the first in
+  // the school (B10). A class she cannot write about falls back to the list.
+  const [cls, setCls] = useState(initialClass && classes.some(([id]) => id === initialClass) ? initialClass : (classes[0]?.[0] ?? ""));
   const [q, setQ] = useState("");
   const recent: ChildChoice[] = [];
   for (const n of notes) {
@@ -527,7 +529,7 @@ const BOARD_PHRASES: Pair[] = [
  * voice card that listens in place, the words, phrases; on the right tags,
  * what should happen, who can see it, tell parents; a sticky save bar.
  */
-export function BoardCompose({ c, kids, notes, viewer, people, today, school, base, onSaved }: { c: Composer; kids: ChildChoice[]; notes: readonly BoardNote[]; viewer: ClientViewer; people: NotesPeople; today: string; school: string; base: string; onSaved: (id: string, child: ChildChoice) => void }) {
+export function BoardCompose({ c, kids, notes, viewer, people, today, school, base, onSaved, initialClass }: { c: Composer; kids: ChildChoice[]; notes: readonly BoardNote[]; viewer: ClientViewer; people: NotesPeople; today: string; school: string; base: string; onSaved: (id: string, child: ChildChoice) => void; initialClass?: string | null }) {
   const { tx } = useVx();
   const both = useBoth();
   const router = useRouter();
@@ -731,7 +733,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
       </div>
       <Sheet open={picking} onClose={() => setPicking(false)} icon="user" title={tx(p("Which child?", "कौन सा बच्चा?"))} sub={tx(p("The class teacher of that class sees the note too", "उस कक्षा के अध्यापक भी नोट देखेंगे"))}>
         <div className="nx nx-c" style={{ gap: 10 }}>
-          <KidPicker kids={kids} notes={notes} viewerId={viewer.id} onPick={(id) => { c.pickChild(id); setPicking(false); }} />
+          <KidPicker kids={kids} notes={notes} viewerId={viewer.id} initialClass={initialClass} onPick={(id) => { c.pickChild(id); setPicking(false); }} />
         </div>
       </Sheet>
     </div>
@@ -782,7 +784,7 @@ function SegLabel({ t }: { t: Pair }) {
  * cards — the child, what you noticed (speak or type), tags, follow-up, who
  * can see it, tell parents — and a sticky save bar.
  */
-export function TeachCompose({ c, kids, notes, viewer, people, today, school, base, onSaved }: { c: Composer; kids: ChildChoice[]; notes: readonly BoardNote[]; viewer: ClientViewer; people: NotesPeople; today: string; school: string; base: string; onSaved: (id: string, child: ChildChoice) => void }) {
+export function TeachCompose({ c, kids, notes, viewer, people, today, school, base, onSaved, initialClass }: { c: Composer; kids: ChildChoice[]; notes: readonly BoardNote[]; viewer: ClientViewer; people: NotesPeople; today: string; school: string; base: string; onSaved: (id: string, child: ChildChoice) => void; initialClass?: string | null }) {
   const { tx, sub } = useVx();
   const both = useBoth();
   const router = useRouter();
@@ -827,7 +829,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                 <button type="button" className="tap btn sec" onClick={() => setPicking(true)}>{tx(p("Change", "बदलें"))}</button>
               </div>
             ) : (
-              <KidPicker kids={kids} notes={notes} viewerId={viewer.id} onPick={pick} teacher />
+              <KidPicker kids={kids} notes={notes} viewerId={viewer.id} initialClass={initialClass} onPick={pick} teacher />
             )}
             <OpenActionNotice c={c} base={base} today={today} onUpdate={(href) => router.push(href, { scroll: false })} />
           </StepCard>
@@ -1094,7 +1096,10 @@ export function TeachListening({ c }: { c: Composer }) {
 
 /** Who can read a saved note, as names (design TchNotes `sv.who`). */
 function savedReaders(note: BoardNote, viewer: ClientViewer, people: NotesPeople, tx: (p: Pair) => string): { label: string; initials: string }[] {
-  const out = [{ label: `${viewer.name} (${tx(p("you", "आप"))})`, initials: ini(viewer.name) }];
+  // The author first, and "you" only when the author is the viewer: a saved
+  // note someone else opens is not theirs (B09).
+  const authored = note.writtenBy === viewer.id;
+  const out = [{ label: authored ? `${viewer.name} (${tx(p("you", "आप"))})` : note.writtenByName, initials: ini(authored ? viewer.name : note.writtenByName) }];
   if (note.visibility !== "team") return out;
   const ct = note.classId ? (people.classTeachers[note.classId] ?? null) : null;
   const mine = note.classId ? viewer.heldClassIds.includes(note.classId) : false;

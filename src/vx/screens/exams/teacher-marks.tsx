@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -229,7 +229,12 @@ export function TeacherRemarks({
   const { tx, sub } = useVx();
   const toast = useToast();
   const [remarks, setRemarks] = useState<Record<string, string>>(() => Object.fromEntries(kids.map((c) => [c.id, c.remark ?? ""])));
-  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(kids.filter((c) => c.remark).map((c) => c.id)));
+  // What the school has for each child: a tapped suggestion or typed words are
+  // a draft on this device until they are saved (B06).
+  const [savedText, setSavedText] = useState<Record<string, string>>(() => Object.fromEntries(kids.filter((c) => c.remark).map((c) => [c.id, c.remark as string])));
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const sending = useRef<Record<string, string>>({});
+  const savedIds = new Set(Object.keys(savedText).filter((id) => savedText[id]));
   const [filter, setFilter] = useState<"all" | "todo" | "done">("all");
   const [currentId, setCurrentId] = useState<string | null>(() => kids.find((c) => !c.remark)?.id ?? kids[0]?.id ?? null);
   const [editing, setEditing] = useState(false);
@@ -244,15 +249,45 @@ export function TeacherRemarks({
   const idx = child ? kids.findIndex((c) => c.id === child.id) : 0;
   const first = child ? child.name.split(" ")[0] : "";
   const text = child ? remarks[child.id] ?? "" : "";
+  const savedNow = child ? savedText[child.id] ?? "" : "";
+  const dirty = Boolean(child) && text.trim() !== savedNow;
+  const draftLine = !child
+    ? null
+    : savingId === child.id
+      ? tx(p("Saving…", "सहेज रहे हैं…"))
+      : dirty && text.trim()
+        ? tx(p("Draft on this device", "इस डिवाइस पर ड्राफ़्ट"))
+        : savedNow
+          ? `✓ ${tx(p("Saved", "सहेजा"))}`
+          : null;
 
+  /** Save a remark when it differs from what is saved; the same words again only move on. */
   function commit(id: string, value: string, advance: boolean) {
+    if (value === (savedText[id] ?? "")) {
+      if (advance) next(id);
+      return;
+    }
+    // The same words already on their way (a blur, then Save) are sent once.
+    if (sending.current[id] === value) return;
+    sending.current[id] = value;
+    setSavingId(id);
     start(async () => {
       const r = await save({ studentId: id, term, remark: value }).catch(() => null);
+      delete sending.current[id];
+      setSavingId(null);
       if (r?.ok) {
-        setSavedIds((s) => new Set(s).add(id));
+        setSavedText((s) => ({ ...s, [id]: value }));
+        setRemarks((m) => ({ ...m, [id]: value }));
         if (advance) next(id);
-      } else toast.show({ text: tx(r && !r.ok ? r.message : p("Not saved", "सहेजा नहीं गया")), tone: "bad" });
+        else setEditing(false);
+      } else toast.show({ text: tx(r && !r.ok ? r.message : p("Not saved – retry", "सहेजा नहीं – फिर कोशिश करें")), tone: "bad" });
     });
+  }
+
+  /** Put the words back as they were saved; nothing is sent. */
+  function removeDraft(id: string) {
+    setRemarks((m) => ({ ...m, [id]: savedText[id] ?? "" }));
+    setEditing(false);
   }
 
   function next(fromId: string) {
@@ -356,8 +391,9 @@ export function TeacherRemarks({
                           aria-checked={on}
                           className="tap card tc-in"
                           onClick={() => {
+                            // A preview to read and change, not a save: it is kept as a draft until Save or Next.
                             setRemarks((r) => ({ ...r, [child.id]: value }));
-                            commit(child.id, value, false);
+                            setEditing(true);
                           }}
                           style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px", textAlign: "left", color: "var(--fg)", border: on ? "2px solid var(--acc)" : "1px solid var(--bd)", background: on ? V("accs") : V("card"), animationDelay: `${i * 30}ms` }}
                         >
@@ -373,28 +409,35 @@ export function TeacherRemarks({
                       );
                     })}
                   </div>
-                  {text || child.suggestions.length === 0 || editing ? (
-                    <div className="card fadein" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                        <span className="sech">{tx(p("On the report card", "रिपोर्ट कार्ड पर"))}</span>
-                        {child.suggestions.length ? (
-                          <button type="button" className="tap btn ghost" onClick={() => setEditing(!editing)} style={{ height: 36, color: "var(--acc)" }}><Ic n="edit" />{editing ? tx(p("Done editing", "संपादन पूरा")) : tx(p("Change words", "शब्द बदलें"))}</button>
-                        ) : null}
-                      </div>
-                      {editing || child.suggestions.length === 0 ? (
-                        <label className="field">
-                          <span>{tx(p("Your words", "आपके शब्द"))}</span>
-                          <textarea className="inp" value={text} maxLength={400} onChange={(e) => setRemarks((r) => ({ ...r, [child.id]: e.target.value }))} onBlur={() => { if (text.trim().length >= 2) commit(child.id, text.trim(), false); }} style={{ minHeight: 84 }} />
-                        </label>
-                      ) : null}
-                      {text ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRadius: 12, background: "var(--s2)", borderLeft: "4px solid var(--acc)" }}>
-                          <span className="tc-tb" style={{ fontWeight: 500 }}>{text}</span>
-                          <span className="tc-ts" style={{ color: "var(--mut)" }}>{savedIds.has(child.id) ? tx(p("Saved", "सेव हुई")) : tx(p("Not saved yet", "अभी सेव नहीं"))}</span>
-                        </div>
+                  {/* Always here, so a teacher can write her own words even when suggestions exist (B06). */}
+                  <div className="card fadein" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                      <span className="sech">{tx(p("On the report card", "रिपोर्ट कार्ड पर"))}</span>
+                      {child.suggestions.length && text && !editing ? (
+                        <button type="button" className="tap btn ghost" onClick={() => setEditing(true)} style={{ height: 36, color: "var(--acc)" }}><Ic n="edit" />{tx(p("Change words", "शब्द बदलें"))}</button>
                       ) : null}
                     </div>
-                  ) : null}
+                    {!text || editing || child.suggestions.length === 0 ? (
+                      <label className="field">
+                        <span>{tx(p("Write my own", "खुद लिखें"))}</span>
+                        <textarea className="inp" value={text} maxLength={400} onChange={(e) => setRemarks((r) => ({ ...r, [child.id]: e.target.value }))} onBlur={() => { if (text.trim().length >= 2) commit(child.id, text.trim(), false); }} style={{ minHeight: 84 }} />
+                      </label>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRadius: 12, background: "var(--s2)", borderLeft: "4px solid var(--acc)" }}>
+                        <span className="tc-tb" style={{ fontWeight: 500 }}>{text}</span>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                      <span className="tc-ts" role="status" aria-live="polite" style={{ flex: 1, minWidth: 120, color: dirty ? "var(--warnfg)" : "var(--mut)" }}>{draftLine}</span>
+                      {/* Pressing it must not blur the box first, because a blur saves. */}
+                      {dirty ? (
+                        <button type="button" className="tap btn ghost" disabled={pending} onMouseDown={(e) => e.preventDefault()} onClick={() => removeDraft(child.id)} style={{ height: 36 }}>{tx(p("Remove draft", "ड्राफ़्ट हटाएँ"))}</button>
+                      ) : null}
+                      {dirty && text.trim().length >= 2 ? (
+                        <button type="button" className="tap btn sec" disabled={pending} onMouseDown={(e) => e.preventDefault()} onClick={() => commit(child.id, text.trim(), false)} style={{ height: 36 }}><Ic n="check" />{tx(p("Save", "सहेजें"))}</button>
+                      ) : null}
+                    </div>
+                  </div>
                 </>
               ) : (
                 <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p("No children in this class", "इस कक्षा में कोई बच्चा नहीं"))}</span>
@@ -404,16 +447,17 @@ export function TeacherRemarks({
           {child ? (
             <div className="glass tc-sbar">
               <span style={{ flex: 1, minWidth: 170, display: "flex", flexDirection: "column" }}>
-                <span className="tc-tb" style={{ fontWeight: 700 }}>{savedIds.has(child.id) ? `✓ ${tx(p("Saved as draft · just now", "ड्राफ़्ट सेव · अभी"))}` : tx(p(`Pick a remark for ${first}`, `${first} के लिए टिप्पणी चुनें`))}</span>
-                <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Tap a suggestion, or change the words", "सुझाव चुनें या शब्द बदलें"))}</span>
+                <span className="tc-tb" style={{ fontWeight: 700 }}>{draftLine ?? tx(p(`Pick a remark for ${first}`, `${first} के लिए टिप्पणी चुनें`))}</span>
+                <span style={{ fontSize: 12, color: "var(--mut)" }}>{dirty ? tx(p("Next child saves it", "अगला बच्चा दबाने पर सहेजा जाएगा")) : tx(p("Tap a suggestion, or write your own", "सुझाव चुनें या खुद लिखें"))}</span>
               </span>
               <button
                 type="button"
                 className="tap btn pri tc-mbg tc-mw"
                 disabled={pending}
                 onClick={() => {
+                  // Saves whenever the words differ from what is saved, a changed remark included (B06).
                   const value = text.trim();
-                  if (value.length >= 2 && !savedIds.has(child.id)) commit(child.id, value, true);
+                  if (value.length >= 2 && value !== savedNow) commit(child.id, value, true);
                   else next(child.id);
                 }}
               >

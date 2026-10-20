@@ -9,8 +9,16 @@ import { InboxScreen } from "@/vx/screens/admin/inbox";
 import { T } from "@/vx/screens/admin/text";
 import { lead } from "@/vx/text";
 import { Section, TopBar, VxPage } from "@/vx/ui/page";
-import { EmptyState } from "@/vx/ui/primitives";
+import { Btn, EmptyState } from "@/vx/ui/primitives";
 import { getViewer } from "@/vx/view-as";
+import { listTeacherTasks } from "@/modules/teacher-tasks/data/repo";
+import { TeacherWork } from "@/modules/teacher-tasks/ui/teacher-work";
+import { TaskDetailSheet } from "@/modules/teacher-tasks/ui/task-detail-sheet";
+import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
+import { ManageTask } from "@/modules/teacher-tasks/ui/manage-task";
+import { photoMessages } from "@/messages/setup";
+import { loadTaskDelivery } from "@/modules/teacher-tasks/data/delivery";
+import { TaskDelivery } from "@/modules/teacher-tasks/ui/task-delivery";
 
 export const runtime = "nodejs";
 
@@ -45,10 +53,37 @@ export default async function InboxPage(props: PageProps<"/inbox">) {
   const { items, unavailable } = await loadInbox(staff, sessionLabel, schoolToday(), {
     refunds: can(staff, "fees:view") ? pendingMoneyRequests : undefined,
   });
+  const canAssign = can(staff, "collection:manage");
+  const tasks = canAssign ? await listTeacherTasks(true).catch(() => null) : [];
+  const selectedTask = typeof params.task === "string" && tasks?.some(t => t.id === params.task) ? params.task : null;
+  const delivery = selectedTask && !previewing ? await loadTaskDelivery(selectedTask).catch(()=>null) : null;
+
+  const reviewPhotos = staff.role === "admin";
+  const chosen = selectedTask ? tasks?.find(t => t.id === selectedTask) : undefined;
+  const queueHref = params.tasks === "all" ? "/inbox?tasks=all" : "/inbox";
 
   return (
     <VxPage label={lead(T.needsYou, staff.language)}>
-      <InboxScreen items={sortInbox(items)} initial={item} previewing={previewing !== null} unavailable={unavailable.length > 0} scope={{ accountId: staff.userId, sessionLabel, day: schoolToday() }} />
+      <InboxScreen
+        items={sortInbox(items)}
+        initial={item}
+        previewing={previewing !== null}
+        unavailable={unavailable.length > 0}
+        scope={{ accountId: staff.userId, sessionLabel, day: schoolToday() }}
+        taskActions={canAssign ? (
+          <>
+            {reviewPhotos ? <Btn icon="camera" href="/collection/review">{lead(photoMessages.review, staff.language)}</Btn> : null}
+            <AssignmentLauncher language={staff.language} variant="pri" />
+          </>
+        ) : undefined}
+        taskPanel={canAssign ? <TeacherWork rows={tasks} language={staff.language} compact={params.tasks !== "all"} reviewPhotos={reviewPhotos} /> : undefined}
+        taskDetail={selectedTask && chosen ? (
+          <TaskDetailSheet title={chosen.title} sub={chosen.teacherName ?? undefined} back={queueHref}>
+            <ManageTask id={selectedTask} language={staff.language} collection={chosen.kind === "collection"} />
+            {delivery ? <TaskDelivery key={selectedTask} id={selectedTask} language={staff.language} {...delivery} /> : null}
+          </TaskDetailSheet>
+        ) : undefined}
+      />
     </VxPage>
   );
 }

@@ -10,6 +10,7 @@ export type LoginState = "active" | "never" | "none" | "disabled";
 export type StaffRow = {
   id: string;
   name: string;
+  photoUrl?: string | null;
   shortName: string;
   role: StaffRole;
   phone: string | null;

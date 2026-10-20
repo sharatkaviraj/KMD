@@ -1,4 +1,5 @@
 import "server-only";
+import { approvedStudentPhotos } from "@/modules/collection/data/approved-photos";
 
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
@@ -25,6 +26,7 @@ export type ChildBasics = {
 export async function childBasics(ids: readonly string[]): Promise<Map<string, ChildBasics>> {
   const wanted = [...new Set(ids.filter((id) => /^[0-9a-f-]{36}$/i.test(id)))];
   if (wanted.length === 0) return new Map();
+  const photos = await approvedStudentPhotos(wanted).catch(() => new Map<string,string>());
   const { data, error } = await fetchInChunks<{
     id: string;
     full_name: string;
@@ -32,12 +34,11 @@ export async function childBasics(ids: readonly string[]): Promise<Map<string, C
     father_name: string | null;
     date_of_birth: string | null;
     gender: string | null;
-    photo_path: string | null;
   }>(wanted, IN_FILTER_CHUNK_SIZE, (chunk) =>
     createAdminClient()
       .schema(FEE_SCHEMA)
       .from("students")
-      .select("id, full_name, admission_no, father_name, date_of_birth, gender, photo_path")
+      .select("id, full_name, admission_no, father_name, date_of_birth, gender")
       .in("id", chunk),
   );
   if (error) throw new Error("Could not read the children.");
@@ -51,7 +52,7 @@ export async function childBasics(ids: readonly string[]): Promise<Map<string, C
         fatherName: row.father_name,
         dateOfBirth: row.date_of_birth,
         gender: row.gender,
-        photoPath: row.photo_path,
+        photoPath: photos.get(row.id) ?? null,
       },
     ]),
   );

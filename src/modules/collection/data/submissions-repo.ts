@@ -1,6 +1,9 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import { taskSchemaMissing } from "@/modules/teacher-tasks/data/schema";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -53,46 +56,26 @@ export async function recordAnswers(
 ): Promise<{ written: number }> {
   if (answers.length === 0) return { written: 0 };
 
-  const admin = createAdminClient();
-  const allowedFields = new Set(request.fields.map((field) => field.id));
-
-  // Scoped by the request the token resolved to, never by anything the caller
-  // sent: a field id the request does not ask for is simply dropped.
-  const scoped = answers.filter((answer) => allowedFields.has(answer.fieldId));
-  if (scoped.length === 0) return { written: 0 };
-
-  const { data: decided } = await admin
-    .from("collection_submissions")
-    .select("student_id, field_id")
-    .eq("request_id", request.id)
-    .neq("status", "pending")
-    .returns<{ student_id: string; field_id: string }[]>();
-
-  const locked = new Set(
-    (decided ?? []).map((row) => `${row.student_id}|${row.field_id}`),
-  );
-
-  const rows = scoped.filter(
-    (answer) => !locked.has(`${answer.studentId}|${answer.fieldId}`),
-  );
-
-  if (rows.length === 0) return { written: 0 };
-
-  const { error } = await admin.from("collection_submissions").upsert(
-    rows.map((answer) => ({
-      request_id: request.id,
-      student_id: answer.studentId,
-      field_id: answer.fieldId,
-      value: answer.value,
-      previous_value: answer.previousValue,
-      status: "pending" as const,
-      submitted_at: new Date().toISOString(),
-    })),
-    { onConflict: "request_id,student_id,field_id" },
-  );
-
-  if (error) throw error;
-  return { written: rows.length };
+  const db = createAdminClient();
+  const task = await db.from("teacher_tasks").select("id").eq("request_id", request.id).maybeSingle();
+  if (task.error && !taskSchemaMissing(task.error)) throw new Error("Could not verify request authority.");
+  // Keep legacy requests usable before this additive migration is installed.
+  // An absent task row is a legacy request, not evidence of an absent schema.
+  // Installed schemas always use the transactional authority check below.
+  if (task.error && taskSchemaMissing(task.error)) {
+    const decided = await db.from("collection_submissions").select("student_id,field_id").eq("request_id",request.id).neq("status","pending").returns<{student_id:string;field_id:string}[]>();
+    if (decided.error) throw new Error("Could not verify decided answers.");
+    const locked = new Set(decided.data.map(a=>`${a.student_id}:${a.field_id}`));
+    const rows=answers.filter(a=>request.fields.some(f=>f.id===a.fieldId)&&!locked.has(`${a.studentId}:${a.fieldId}`));
+    if(!rows.length)return {written:0};
+    const result=await db.from("collection_submissions").upsert(rows.map(a=>({request_id:request.id,student_id:a.studentId,field_id:a.fieldId,value:a.value,previous_value:a.previousValue,status:"pending",submitted_at:new Date().toISOString()})),{onConflict:"request_id,student_id,field_id"});
+    if(result.error)throw new Error("Could not save proposals.");return {written:rows.length};
+  }
+  const { data, error } = await createAdminClient().rpc("record_collection_answers", {
+    p_request: request.id, p_token: request.token, p_answers: answers,
+  });
+  if (error) throw new Error("Could not save these proposals.");
+  return { written: Number(data ?? 0) };
 }
 
 /* ------------------------------------------------------------- reading */
@@ -165,14 +148,10 @@ export async function listSubmissions(
   const askedAbout = new Set(data.map((row) => row.field_id));
   const fields = (await listFieldsPublic()).filter((field) => askedAbout.has(field.id));
 
-  const { data: students } = await createAdminClient()
-    .schema(FEE_SCHEMA)
-    .from("students")
-    .select("id, full_name, roll_no")
-    .in("id", studentIds)
-    .returns<{ id: string; full_name: string; roll_no: string | null }[]>();
-
-  const byId = new Map((students ?? []).map((row) => [row.id, row]));
+  const students = await fetchInChunks<{id:string;full_name:string;roll_no:string|null}>(studentIds,IN_FILTER_CHUNK_SIZE,chunk=>createAdminClient()
+    .schema(FEE_SCHEMA).from("students").select("id, full_name, roll_no").in("id",chunk));
+  if(students.error)throw new Error("Could not read the review students.");
+  const byId = new Map(students.data.map(row=>[row.id,row]));
 
   // **What the school holds today**, read once for the whole queue.
   //
@@ -194,6 +173,8 @@ export async function listSubmissions(
   );
 
   return data.map((row) => ({
+    // Every collection answer is a proposal, including legacy /r requests.
+    requiresAdmin: true,
     id: row.id,
     requestId: row.request_id,
     requestTitleHi: row.collection_requests?.title_hi ?? "—",
@@ -413,6 +394,7 @@ export async function decideSubmissions(input: {
       payload_hash: payloadHash,
     },
   });
+  if (error?.message?.includes("tasks:admin_review_required")) return { ok: false, reason: "not_permitted" };
   if (error || !data) return { ok: false, reason: "unavailable" };
 
   const receipt = data as {

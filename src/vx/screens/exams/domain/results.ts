@@ -119,6 +119,8 @@ export type StepState = "done" | "active" | "can_start" | "waiting";
 export function pipelineStates(input: {
   enteredPct: number;
   unusualOpen: number;
+  /** Saved marks their paper cannot hold; "Checked" is not done while any remain (B04). */
+  invalid?: number;
   graceOpen: number;
   lockedClasses: number;
   totalClasses: number;
@@ -127,7 +129,7 @@ export function pipelineStates(input: {
   published: boolean;
 }): Record<PipelineStep, StepState> {
   const entered: StepState = input.enteredPct >= 100 ? "done" : "active";
-  const checked: StepState = input.unusualOpen === 0 && input.enteredPct >= 100 ? "done" : input.enteredPct > 0 ? "can_start" : "waiting";
+  const checked: StepState = input.unusualOpen === 0 && (input.invalid ?? 0) === 0 && input.enteredPct >= 100 ? "done" : input.enteredPct > 0 ? "can_start" : "waiting";
   const grace: StepState = input.graceOpen === 0 && input.enteredPct >= 100 ? "done" : input.enteredPct > 0 ? "can_start" : "waiting";
   const locked: StepState =
     input.totalClasses > 0 && input.lockedClasses >= input.totalClasses ? "done" : input.lockedClasses > 0 || input.enteredPct > 0 ? "can_start" : "waiting";

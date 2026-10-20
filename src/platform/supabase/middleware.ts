@@ -1,3 +1,4 @@
+import { DAYRUN, accountForAlias } from "@/platform/auth/dayrun-policy";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -22,7 +23,7 @@ import {
  */
 // `/login/test` is the keyed QA sign-in (UI-63): it 404s without the secret
 // key and on the live database, and can only sign in as a QA-domain account.
-const PUBLIC_PATHS = new Set(["/login", "/login/test", "/auth/confirm"]);
+const PUBLIC_PATHS = new Set(["/login", "/login/test", "/auth/confirm", "/login/dayrun", "/login/dayrun/request", "/login/dayrun/redeem", "/login/dayrun/end"]);
 
 /**
  * The token links, which are open by design.
@@ -99,6 +100,19 @@ export async function updateSession(request: NextRequest) {
   const { data: claimsData } = await supabase.auth.getClaims();
   const hasUser = Boolean(claimsData?.claims?.sub);
   const pathname = request.nextUrl.pathname;
+
+  // Private QA leases are an application-layer boundary only. The existing
+  // database policies and unrelated QA sessions retain their original rules.
+  const userId = claimsData?.claims?.sub;
+  if (hasUser && !isPublicPath(pathname) && DAYRUN.aliases.some(alias => accountForAlias(alias)?.userId === userId)) {
+    const { data: allowed, error } = await supabase.schema("vppsone").rpc("qa_dayrun_access_allowed");
+    if (error || allowed !== true) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login/dayrun";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
 
   if (!hasUser && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();

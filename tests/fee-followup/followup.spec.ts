@@ -47,7 +47,7 @@ type Balance = { pendingToday: number; dueToday: number; notDueYet: number; late
 async function expectBalanceAfter(page: Page, balance: Balance) {
   const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
   const card = page.getByRole("article", { name: /^FEE RECEIPT / });
-  await expect(card.getByText(/^Balance after this receipt/)).toBeVisible();
+  await expect(card.getByText(/^Balance now/)).toBeVisible();
   await expect(card).toContainText(`Fees pending today${inr(balance.pendingToday)}`);
   await expect(card).toContainText(`Not due yet${inr(balance.notDueYet)}`);
   await expect(card).toContainText(`Late fee (separate)${inr(balance.lateFee)}`);

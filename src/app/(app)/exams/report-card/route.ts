@@ -4,8 +4,9 @@ import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { schoolToday } from "@/platform/dates";
 import { enrolmentsFor, listExams, remarksFor, studentsByIds } from "@/vx/screens/exams/data";
-import { cardState, graceByStudent, toPdf } from "@/vx/screens/exams/cards-data";
+import { cardState, graceByStudent, toPdf, type CardState } from "@/vx/screens/exams/cards-data";
 import { onRoll } from "@/vx/screens/exams/domain/tracker";
+import { mapConcurrently } from "@/platform/helpers/chunk";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,11 +48,9 @@ export async function GET(request: NextRequest) {
         .map((r) => r.studentId);
     }
     const [grace, remarks] = await Promise.all([graceByStudent(termExams, classId ?? undefined), remarksFor(sessionLabel, term, ids)]);
-    const cards = [];
-    for (const id of ids) {
-      const state = await cardState({ studentId: id, sessionLabel, term, grace: grace.get(id) ?? {}, remark: remarks.get(id) ?? null });
-      if (state) cards.push(toPdf(state));
-    }
+    // A few children at a time, in roll order: a class of 50 no longer waits for 50 reads one after another.
+    const states = await mapConcurrently(ids, 4, (id) => cardState({ studentId: id, sessionLabel, term, grace: grace.get(id) ?? {}, remark: remarks.get(id) ?? null }));
+    const cards = states.filter((state): state is CardState => state !== null).map(toPdf);
     if (cards.length === 0) return new Response("No report card yet.", { status: 404 });
 
     const exam = termExams.at(-1);

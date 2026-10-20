@@ -92,7 +92,22 @@ type Saved = {
   log: { text: string; time: string; tone: string }[];
   /** Posted and answered; the receipt and the balance are still being read (accountant B2). */
   settling?: boolean;
+  /** When `balance` was read from the live ledger (ISO); null when there is no live balance. */
+  balanceAt?: string | null;
+  /** The payment is posted but its live balance could not be read; the desk offers Retry (B07). */
+  refreshFailed?: boolean;
+  /** Whose payment this was, kept at posting, so Retry never reads another child's balance onto it. */
+  studentId?: string | null;
 };
+
+/**
+ * The balance a save answered with, only when it is the live ledger's (B07).
+ * The server sends `balanceAfter` only from a live read; a result marked
+ * "snapshot" is never shown as the balance now.
+ */
+function liveBalanceOf(res: Extract<DeskSaveResult, { status: "saved" }> | null | undefined): Saved["balance"] {
+  return res && res.balanceAfter && res.balanceSource !== "snapshot" ? res.balanceAfter : null;
+}
 
 type Dup = {
   kind: "near-duplicate" | "daily-amount" | "client";
@@ -271,6 +286,8 @@ export function PaymentDesk({
   const requestId = useRef<string | null>(null);
   const attemptRef = useRef<PaymentAttempt | null>(null);
   const posting = useRef(false);
+  /** A balance Retry is in flight; a second press is ignored (it is read-only either way). */
+  const retrying = useRef(false);
   const [attempt, setAttempt] = useState<PaymentAttempt | null>(null);
   const [recoveryScope, setRecoveryScope] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] = useState<"locks" | "storage" | null>(null);
@@ -561,7 +578,8 @@ export function PaymentDesk({
   function applySaved(res: Extract<DeskSaveResult, { status: "saved" }>, postedAmount: number) {
     const postedDate = attemptRef.current?.input.paymentDate;
     const studentId = attemptRef.current?.input.studentId ?? res.student?.id;
-    if (studentId && res.balanceAfter) setListBalances(b => ({ ...b, [studentId]: { pendingToday: res.balanceAfter!.pendingToday, lateFee: res.balanceAfter!.lateFee } }));
+    const live = liveBalanceOf(res);
+    if (studentId && live) setListBalances(b => ({ ...b, [studentId]: { pendingToday: live.pendingToday, lateFee: live.lateFee } }));
     setDatePreview(null);
     if (attemptKey && attemptRef.current) void clearPaymentAttempt(attemptKey, attemptRef.current.input.clientRequestId).catch(() => undefined);
     attemptRef.current = null; setAttempt(null);
@@ -573,7 +591,11 @@ export function PaymentDesk({
       receiptId: res.receiptId,
       receiptNumber: res.receiptNumber,
       receipt: res.receipt,
-      balance: res.balanceAfter,
+      balance: live,
+      balanceAt: live ? (res.balanceReadAt ?? null) : null,
+      // Answered without settling and without a live balance (the "did it
+      // post?" check, say): the receipt is real, the balance is not known.
+      refreshFailed: !res.settling && !live,
       amount: total,
       fresh: true,
       savedAtMs: now,
@@ -581,6 +603,7 @@ export function PaymentDesk({
       sent: false,
       log: [{ text: tx(W.savedBy(boot.me.name)), time: ampm(res.receipt?.createdAt ?? at), tone: "var(--acc)" }],
       settling: Boolean(res.settling),
+      studentId: studentId ?? null,
     });
     if (res.student) setResult({ ok: true, student: res.student });
     setSheet("");
@@ -598,20 +621,29 @@ export function PaymentDesk({
   }
 
   /**
-   * The receipt number is on screen; now read the receipt and the balance,
-   * which wait for the balance views to catch up (accountant B2, D-271).
-   * Nothing here can undo the save: a failure only leaves "Show the receipt".
+   * The receipt number is on screen; now read the receipt and the live
+   * balance (accountant B2, D-271, B07). Read-only: nothing here posts or can
+   * undo the save. Without a live balance the saved panel says "Balance could
+   * not refresh" and offers Retry, which comes back here.
    */
   async function settle(input: { receiptId: string; receiptNumber: string; studentId: string; sessionLabel: string }) {
     const call = api.settleDeskSaveAction;
     const res = call ? ((await Promise.resolve().then(() => call(input)).catch(() => null)) ?? null) : null;
+    const balance = liveBalanceOf(res);
     setSaved((cur) => (cur && cur.receiptId === input.receiptId
-      ? { ...cur, settling: false, receipt: res?.receipt ?? cur.receipt, balance: res?.balanceAfter ?? cur.balance, amount: res?.receipt?.total ?? cur.amount }
+      ? {
+          ...cur,
+          settling: false,
+          refreshFailed: !balance,
+          receipt: res?.receipt ?? cur.receipt,
+          balance: balance ?? cur.balance,
+          balanceAt: balance ? (res?.balanceReadAt ?? null) : (cur.balanceAt ?? null),
+          amount: res?.receipt?.total ?? cur.amount,
+        }
       : cur));
     if (!res) return;
-    const balance = res.balanceAfter;
     if (balance) setListBalances(b => ({ ...b, [input.studentId]: { pendingToday: balance.pendingToday, lateFee: balance.lateFee } }));
-    const fresh = res.student;
+    const fresh = balance ? res.student : null;
     if (fresh) setResult((cur) => (cur && cur.ok && cur.student.id === input.studentId ? { ok: true, student: fresh } : cur));
     if (res.todayCollection !== undefined) setTodayTotals(res.todayCollection);
   }
@@ -763,18 +795,37 @@ export function PaymentDesk({
     requestId.current = null;
   }
 
+  /**
+   * Retry after "Balance could not refresh". Read-only by construction: it
+   * calls the settle read for the receipt already posted — never the post
+   * action — so no press, however many, can write a second payment, and the
+   * request id the save used is left as it is.
+   */
   async function retryReceipt() {
-    if (!saved || busy || !recoveryReady) return;
+    if (!saved || busy || retrying.current || !recoveryReady) return;
     const scope = previewing ? null : attemptKey;
+    // The child this receipt is for, as posted — not whoever is selected now.
+    const studentId = saved.receipt?.studentId ?? saved.studentId ?? null;
+    retrying.current = true;
     setBusy(true);
-    const receipt = await api.loadReceiptAction(saved.receiptId).catch(() => null);
-    setBusy(false);
-    if (currentRecoveryScope.current !== scope) return;
-    if (!receipt) {
-      toast.show({ text: tx(W.couldNotLoad), tone: "bad" });
-      return;
+    try {
+      if (studentId) {
+        setSaved((cur) => (cur && cur.receiptId === saved.receiptId ? { ...cur, settling: true, refreshFailed: false } : cur));
+        await settle({ receiptId: saved.receiptId, receiptNumber: saved.receiptNumber, studentId, sessionLabel: boot.sessionLabel });
+        return;
+      }
+      // No student to read a balance for: show the receipt at least.
+      const receipt = await api.loadReceiptAction(saved.receiptId).catch(() => null);
+      if (currentRecoveryScope.current !== scope) return;
+      if (!receipt) {
+        toast.show({ text: tx(W.couldNotLoad), tone: "bad" });
+        return;
+      }
+      setSaved((cur) => (cur ? { ...cur, receipt, amount: receipt.total } : cur));
+    } finally {
+      retrying.current = false;
+      setBusy(false);
     }
-    setSaved((cur) => (cur ? { ...cur, receipt, amount: receipt.total } : cur));
   }
 
   async function remove() {
@@ -1952,21 +2003,35 @@ function SavedPanel({
         </span>
       </div>
       <div className="pd-p2">
-        {r ? (
-          <ReceiptCard receipt={r} balance={saved.balance} frozenAt={time} removed={gone} />
-        ) : (
-          saved.settling ? (
-            <div className="card pd-cd" aria-live="polite">
-              <Banner tone="ok">{tx(W.receiptSettling(saved.receiptNumber))}</Banner>
+        <div className="pd-c" style={{ gap: 10 }}>
+          {/* B07: say plainly while the live balance is read, and when it could not be. */}
+          {saved.settling ? (
+            <div id="pd-balance-state" aria-live="polite">
+              <Banner tone="ok">{tx(W.receiptSettling)}</Banner>
+            </div>
+          ) : saved.refreshFailed && !gone ? (
+            <div id="pd-balance-state" aria-live="polite">
+              <Banner
+                tone="warn"
+                action={<Btn variant="sec" icon="refresh" disabled={busy} onClick={onRetryReceipt}>{tx(W.retryBalance)}</Btn>}
+              >
+                {tx(W.balanceNotRefreshed)}
+              </Banner>
+            </div>
+          ) : null}
+          {r ? (
+            <ReceiptCard receipt={r} balance={saved.balance} balanceAt={saved.balanceAt ?? null} removed={gone} />
+          ) : saved.settling ? (
+            <div className="card pd-cd">
               <Skel h={120} />
             </div>
-          ) : (
+          ) : !saved.refreshFailed ? (
             <div className="card pd-cd">
               <Banner tone="info">{tx(W.receiptPending(saved.receiptNumber))}</Banner>
               <Btn variant="sec" icon="refresh" disabled={busy} onClick={onRetryReceipt}>{tx(W.showReceipt)}</Btn>
             </div>
-          )
-        )}
+          ) : null}
+        </div>
         <div className="pd-c" style={{ gap: 10 }}>
           {!gone ? (
             <>

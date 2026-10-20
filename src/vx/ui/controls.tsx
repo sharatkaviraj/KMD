@@ -194,7 +194,7 @@ export function Select({ invalid, className = "", children, ...rest }: React.Sel
 /** − value + (day close denominations, counts). */
 export function Stepper({ value, onChange, min = 0, max = 9999, label }: { value: number; onChange: (v: number) => void; min?: number; max?: number; label: string }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid var(--bds)", borderRadius: 12, padding: 3 }} role="group" aria-label={label}>
+    <span className="vx-field" style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid var(--bds)", borderRadius: 12, padding: 3 }} role="group" aria-label={label}>
       <button type="button" className="tap icon-btn" style={{ width: 34, height: 34 }} aria-label={`Fewer ${label}`} onClick={() => onChange(Math.max(min, value - 1))}>
         <Ic n="minus" size={16} />
       </button>
@@ -292,7 +292,7 @@ export function SearchBox({
 }) {
   const id = useId();
   return (
-    <label htmlFor={id} style={{ position: "relative", height: 44, borderRadius: 12, border: "1px solid var(--bds)", background: "var(--card)", display: "flex", alignItems: "center", gap: 8, padding: "0 12px", color: "var(--mut)", ...style }}>
+    <label htmlFor={id} className="vx-field" style={{ position: "relative", height: 44, borderRadius: 12, border: "1px solid var(--bds)", background: "var(--card)", display: "flex", alignItems: "center", gap: 8, padding: "0 12px", color: "var(--mut)", ...style }}>
       <Ic n="search" />
       <span className="sr">{placeholder}</span>
       <input

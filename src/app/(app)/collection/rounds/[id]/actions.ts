@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {managedTasksForRequests} from "@/modules/teacher-tasks/data/delivery-routing";
+import {taskDeliveryMessages} from "@/messages/setup";
 
 import { m } from "@/messages";
 import { requirePermission } from "@/platform/auth/current-staff";
@@ -99,6 +101,7 @@ export async function markSentAction(
   const requestId = (formData.get("requestId") ?? "").toString();
   const roundId = (formData.get("roundId") ?? "").toString();
   if (!requestId) return { status: "error", message: m.notSaved };
+  if((await managedTasksForRequests([requestId])).has(requestId))return {status:"error",message:taskDeliveryMessages.review};
 
   await markSent(requestId, staff.id);
   revalidatePath(`/collection/rounds/${roundId}`);
@@ -115,6 +118,7 @@ export async function markRemindedAction(
   const roundId = (formData.get("roundId") ?? "").toString();
   const previous = Number.parseInt((formData.get("reminderCount") ?? "0").toString(), 10);
   if (!requestId) return { status: "error", message: m.notSaved };
+  if((await managedTasksForRequests([requestId])).has(requestId))return {status:"error",message:taskDeliveryMessages.review};
 
   await markReminded(requestId, staff.id, Number.isFinite(previous) ? previous : 0);
   revalidatePath(`/collection/rounds/${roundId}`);

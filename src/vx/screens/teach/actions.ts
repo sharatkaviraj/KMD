@@ -25,6 +25,11 @@ import { dayMonth, schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 
+import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
+import { dayHeaders } from "@/modules/attendance/data/teaching-repo";
+import { matchDayHeader } from "@/modules/timetable/domain/weekday";
+import { leavePeriods, leaveSpanFor, type LeaveDayPeriods, type LeaveSpan } from "@/vx/screens/timetable/domain/timetable";
+
 import { absentAlert, birthdayWish, leaveRuns } from "./domain/teach";
 import { childBasics } from "./students";
 
@@ -225,6 +230,34 @@ export async function requestLeaveVx(input: z.input<typeof leaveSchema>): Promis
   revalidatePath("/teach/more");
   revalidatePath("/inbox");
   return { ok: true };
+}
+
+const previewSchema = z.object({
+  days: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).min(1).max(30),
+  span: z.enum(["full", "first_half", "second_half"]),
+});
+
+/**
+ * Which of her periods a leave would cover, before she sends it (B11): her
+ * slots in the published timetable on each day, through `leavePeriods()`,
+ * the resolver the approval's cover command also follows. Reads only.
+ */
+export async function previewLeaveVx(input: z.input<typeof previewSchema>): Promise<{ ok: true; span: LeaveSpan; days: LeaveDayPeriods[] } | { ok: false }> {
+  const staff = await assertPermission("attendance:view");
+  const parsed = previewSchema.safeParse(input);
+  if (!parsed.success) return { ok: false };
+  const sessionLabel = await resolveSessionLabel();
+  if (!sessionLabel) return { ok: false };
+  const published = await getPublishedVersion(sessionLabel).catch(() => null);
+  const span = leaveSpanFor(parsed.data.days.length, parsed.data.span);
+  if (!published) return { ok: true, span, days: parsed.data.days.map((day) => ({ day, periods: [] })) };
+  const [headers, slots] = await Promise.all([dayHeaders(published.id), listSlots(published.id)]);
+  const mine = slots.filter((s) => s.staffProfileId === staff.id);
+  const days = parsed.data.days.map((day) => {
+    const header = matchDayHeader(headers, day);
+    return { day, slots: header ? mine.filter((s) => s.day === header).map((s) => ({ period: s.period, classLabel: s.classLabel })) : [] };
+  });
+  return { ok: true, span, days: leavePeriods(days, span) };
 }
 
 export async function cancelLeaveVx(leaveId: string): Promise<VxResult> {

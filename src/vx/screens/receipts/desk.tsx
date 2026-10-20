@@ -64,7 +64,7 @@ function DeskSearch({ value, onChange, placeholder, label, phone }: { value: str
     ? { position: "relative", height: 46, borderRadius: 23, border: "1px solid var(--bds)", background: "var(--card)", display: "flex", alignItems: "center", gap: 8, padding: "0 14px", color: "var(--mut)" }
     : { position: "relative", height: 40, width: 280, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--card)", display: "flex", alignItems: "center", gap: 8, padding: "0 12px", color: "var(--mut)" };
   return (
-    <label className={phone ? "only-m" : undefined} style={box}>
+    <label className={phone ? "only-m vx-field" : "vx-field"} style={box}>
       <Ic n="search" />
       <span className="sr">{label}</span>
       <input
@@ -188,7 +188,7 @@ export function ReceiptsDesk(props: DeskProps) {
           body={tx(W.emptyDayBody)}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-              {props.lastDate ? <Btn variant="sec" icon="history" href={deskHref({ ...base, anchor: props.lastDate, span: "today" }, {})}>{tx(W.lastDay)} · {deskDay(props.lastDate)}</Btn> : null}
+              {props.lastDate ? <Btn variant="sec" icon="history" className="wrap" href={deskHref({ ...base, anchor: props.lastDate, span: "today" }, {})}>{tx(W.lastDay)} · {deskDay(props.lastDate)}</Btn> : null}
               {perms.collect ? <Btn variant="pri" icon="rupee" href="/payments">{tx(W.takeFee)}</Btn> : null}
             </div>
           }

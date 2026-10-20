@@ -22,7 +22,9 @@ import {
   NOTE_TAGS,
   parentNoteMessage,
   parentPlanMessage,
+  planSourceRefusal,
   type FollowOwner,
+  type PlanSourceRefusal,
 } from "./domain/notes";
 
 /*
@@ -308,7 +310,17 @@ const planSchema = z.object({
     .min(1)
     .max(12),
   tellParents: z.boolean(),
+  /** The author pressed "Use words from the note" and saw who would read them. */
+  shareExcerpt: z.boolean().optional(),
 });
+
+const PLAN_SOURCE_REFUSED: Record<PlanSourceRefusal, () => NoteResult> = {
+  missing: () => fail("That note was not found.", "वह नोट नहीं मिला।"),
+  other_child: () => fail("That note is about another child.", "वह नोट किसी और बच्चे के बारे में है।"),
+  not_yours: () => fail("Only the teacher who wrote this note can start a plan from it.", "इस नोट से योजना वही अध्यापक शुरू कर सकते हैं जिन्होंने इसे लिखा।"),
+  private_to_parents: () => fail("This note is Only me, so its plan cannot be sent to the parents.", "यह नोट सिर्फ़ आपके लिए है, इसलिए इसकी योजना माता-पिता को नहीं भेजी जा सकती।"),
+  private_words: () => fail("The goal repeats your Only me note. Write the goal in your own words, or press Use words from the note.", "लक्ष्य आपके निजी नोट को दोहराता है। लक्ष्य अपने शब्दों में लिखें, या \"नोट के शब्द लें\" दबाएँ।"),
+};
 
 export async function createPlanAction(input: z.input<typeof planSchema>): Promise<NoteResult> {
   const staff = await writer(await assertPermission("notes:view"));
@@ -319,6 +331,15 @@ export async function createPlanAction(input: z.input<typeof planSchema>): Promi
   const v = parsed.data;
   const classId = await inScope(ctx.viewer, v.studentId, ctx.sessionLabel);
   if (classId === false) return fail("This child is not in your classes.", "यह बच्चा आपकी कक्षा में नहीं है।");
+  // The note is read as this writer may read it, in this session (R01): a
+  // plan is read by the child's whole team, so it may not start from a note
+  // she cannot see, about another child, or carry an Only me note's words
+  // or its parents' message unasked.
+  if (v.noteId) {
+    const [source] = await visibleNotes(ctx.viewer, ctx.sessionLabel, { noteId: v.noteId, limit: 1 });
+    const refusal = planSourceRefusal(source ?? null, { viewerId: staff.id, studentId: v.studentId, goal: v.goal, tellParents: v.tellParents, shareExcerpt: v.shareExcerpt === true });
+    if (refusal) return PLAN_SOURCE_REFUSED[refusal]();
+  }
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
@@ -434,6 +455,11 @@ export async function tellParentsAboutPlanAction(planId: string): Promise<NoteRe
   const found = await plannable(staff, planId);
   if (!found) return fail("That plan was not found.", "यह योजना नहीं मिली।");
   const { plan } = found;
+  if (plan.noteId) {
+    // An Only me note's plan stays with the school (R01), as the note does (createNoteAction).
+    const { data: source } = await createAdminClient().from("notes").select("visibility").eq("id", plan.noteId).maybeSingle<{ visibility: string }>();
+    if (source?.visibility === "private") return PLAN_SOURCE_REFUSED.private_to_parents();
+  }
   const msg = parentPlanMessage({ childName: plan.studentName, goal: plan.goal, steps: plan.steps.map((s) => s.body), school: schoolProfile.shortName });
   const admin = createAdminClient();
   const { error } = await admin.from("parent_message_queue").insert({

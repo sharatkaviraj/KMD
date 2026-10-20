@@ -228,7 +228,7 @@ export function TeachNotes(props: NotesProps) {
   /* ---------------------------------------------------------- the screens */
   let body: React.ReactNode;
   if (screen === "add") {
-    body = <TeachCompose c={composer} kids={props.kids} notes={props.notes} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} onSaved={(id) => onSaved(id)} />;
+    body = <TeachCompose c={composer} kids={props.kids} notes={props.notes} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} onSaved={(id) => onSaved(id)} initialClass={props.initialClass} />;
   } else if (screen === "listening") {
     body = <TeachListening c={composer} />;
   } else if (screen === "saved" && savedId) {

@@ -38,7 +38,7 @@ for (const width of [360, 390, 412]) {
 test("an uncertain draft reuses its command after reload and does not write twice", async ({ page }) => {
   await page.goto("/?failure=after-commit");
   await page.locator('input[inputmode="decimal"]').first().fill("0");
-  await expect(page.getByText("Not saved yet", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(before.revision).toBe(1);
   await page.reload();
@@ -47,13 +47,13 @@ test("an uncertain draft reuses its command after reload and does not write twic
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(after.calls[1].commandId).toBe(before.calls[0].commandId);
   expect(after.revision).toBe(1);
-  await expect(page.getByText(/^Saved \d/)).toBeVisible();
+  await expect(page.getByText(/^Saved (just now|\d)/)).toBeVisible();
 });
 
 test("an interrupted draft before commit survives reload and reconnect", async ({ page }) => {
   await page.goto("/?failure=offline");
   await page.locator('input[inputmode="decimal"]').first().fill("12.5");
-  await expect(page.getByText("Not saved yet", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Restore and check save", exact: true }).tap();
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).revision)).toBe(1);
@@ -88,7 +88,7 @@ test("a confirmed save whose recovery cannot clear blocks edits and retries the 
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(before.revision).toBe(1);
   await page.evaluate(() => localStorage.removeItem("qa:fail-clear"));
-  await page.getByRole("button", { name: "Try again", exact: true }).tap();
+  await page.getByRole("button", { name: "Retry", exact: true }).tap();
   await expect(page.locator('input[inputmode="decimal"]').first()).toBeEnabled();
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(after.revision).toBe(1); expect(after.calls.at(-1).commandId).toBe(before.calls[0].commandId);
@@ -121,7 +121,7 @@ test("uncertain submit recovers on sent screen and repeated retry has one effect
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   await page.reload();
   const recover = page.getByRole("button", { name: "Restore and check save", exact: true });
-  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Undo submission", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Hand back to teacher", exact: true })).toBeDisabled();
   await recover.tap();
   await expect(recover).toHaveCount(0);
@@ -130,10 +130,10 @@ test("uncertain submit recovers on sent screen and repeated retry has one effect
   expect(after.revision).toBe(before.revision);
   expect(after.calls.at(-1).commandId).toBe(before.calls.at(-1).commandId);
   expect(Object.values(after.receipts)).toHaveLength(2);
-  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Undo submission", exact: true })).toBeEnabled();
 });
 
-test("restoring an unsent draft retains its original revision and cannot overwrite a concurrent save", async ({ page }) => {
+test("a draft from an older revision is shown, never restored, and cannot overwrite a concurrent save", async ({ page }) => {
   await page.addInitScript(() => {
     const browserTimers: Pick<Window, "setTimeout"> = window;
     const timeout = browserTimers.setTimeout.bind(window);
@@ -150,19 +150,23 @@ test("restoring an unsent draft retains its original revision and cannot overwri
   }, key)).toBe(0);
   await page.evaluate(() => { const ledger = JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!); ledger.revision = 1; ledger.cells["00000000-0000-4000-8000-000000000002"] = { state: "value", value: 20 }; localStorage.setItem("qa:marks-mobile:ledger", JSON.stringify(ledger)); });
   await page.reload();
-  await page.getByRole("button", { name: "Restore draft", exact: true }).tap();
-  await expect(page.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
+  // B02: a plain draft is offered back only against the revision it was made on.
+  await expect(page.getByRole("button", { name: "Restore draft", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "View draft (1)", exact: true }).tap();
+  await expect(page.getByText(/draft 8 · saved —/)).toBeVisible();
   await expect(page.locator('input[inputmode="decimal"]').first()).toBeDisabled();
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(after.revision).toBe(1); expect(after.cells["00000000-0000-4000-8000-000000000002"].value).toBe(20);
   expect(after.cells["00000000-0000-4000-8000-000000000001"]).toBeUndefined();
-  expect(after.calls[0].expectedRevision).toBe(0);
+  expect(after.calls).toHaveLength(0);
+  await page.getByRole("button", { name: "Discard draft", exact: true }).tap();
+  await expect(page.locator('input[inputmode="decimal"]').first()).toBeEnabled();
 });
 
 test("a draft is isolated by staff and academic session on the same phone", async ({ page }) => {
   await page.goto("/?failure=offline&owner=teacher-a&session=2026-27");
   await page.locator('input[inputmode="decimal"]').first().fill("4");
-  await expect(page.getByText("Not saved yet", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
   await page.goto("/?owner=teacher-b&session=2026-27");
   await expect(page.getByRole("button", { name: "Restore and check save", exact: true })).toHaveCount(0);
   await page.goto("/?owner=teacher-a&session=2027-28");
@@ -175,9 +179,9 @@ test("landscape touch entry and pending request block edits until same save is c
   await page.setViewportSize({ width: 844, height: 390 });
   await page.goto("/?failure=offline");
   await page.locator('input[inputmode="decimal"]').first().fill("8");
-  await expect(page.getByText("Not saved yet", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
   await expect(page.locator('input[inputmode="decimal"]').first()).toBeDisabled();
-  await page.getByRole("button", { name: "Try again", exact: true }).tap();
+  await page.getByRole("button", { name: "Retry", exact: true }).tap();
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).revision)).toBe(1);
   const calls = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).calls);
   expect(calls[0]).toEqual(calls[1]);

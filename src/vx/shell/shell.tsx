@@ -1,3 +1,4 @@
+import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
 import { Suspense, type ReactNode } from "react";
 
 import { getDuesBadgeCount } from "@/modules/dashboard/data/shell-metrics";
@@ -110,7 +111,9 @@ export async function VxShell({
   const testMark = sessionIsTest && !/test/i.test(sessionLabel) ? " · test" : "";
   const roleLine = `${menuRoleLabel(menu, staff.role, previewing).en}${sessionLabel ? ` · ${sessionLabel.replace("-", "–")}${testMark}` : ""}`;
   const settings = can(staff, "settings:manage");
+  const portrait = await approvedStaffPhotos([staff.id]).catch(() => new Map<string,string>());
   const me = {
+    photo: portrait.get(staff.id) ?? null,
     initials: initials(staff.displayName),
     name: staff.displayName,
     sub: lead(ROLE_SUB[staff.role], staff.language),

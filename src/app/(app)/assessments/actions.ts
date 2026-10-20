@@ -53,6 +53,7 @@ import {
   idleAssessmentState,
   type AssessmentState,
 } from "@/modules/assessments/domain/form-state";
+import { submitBlocker } from "@/vx/screens/exams/marks-save";
 
 function failure(message: Localized): AssessmentState {
   return { status: "error", message };
@@ -266,6 +267,21 @@ export async function saveMarksAction(
   });
   const allowed = parsed.data.kind === "reopen" ? authority.reopen : authority.enter;
   if (!allowed) return { status: "refused", message: authority.reason ?? marksRefusals.not_permitted };
+
+  // The whole saved column must be valid to submit, whatever this form sends (B03/B04).
+  if (parsed.data.kind === "submit") {
+    let blocker: string | null;
+    try {
+      blocker = await submitBlocker(parsed.data);
+    } catch {
+      return { status: "error", message: marksRefusals.failed };
+    }
+    if (blocker) {
+      const roll = await rosterForPaper(paper.id);
+      const name = roll.find((student) => student.studentId === blocker)?.fullName ?? "—";
+      return { status: "invalid", who: name, message: marksRefusals.invalid_value };
+    }
+  }
 
   let outcome;
   try {

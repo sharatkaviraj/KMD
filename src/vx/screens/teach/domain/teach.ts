@@ -48,6 +48,17 @@ export function countMarks(ids: readonly string[], marks: Readonly<Record<string
  * A child who was late yesterday starts present today (late is about one
  * morning); a child with no mark yesterday starts present.
  */
+/**
+ * The register's banner while marking, from the live counts (B14): "Everyone
+ * is marked Present" only while nobody is absent; otherwise what is marked,
+ * so a phone (where the counters are hidden) sees the change at once.
+ */
+export function markedLine(present: number, absent: number, half: number): Pair {
+  const parts = [`${present} present`, absent ? `${absent} absent` : null, half ? `${half} half day or leave` : null].filter(Boolean).join(", ");
+  const hi = [`${present} उपस्थित`, absent ? `${absent} अनुपस्थित` : null, half ? `${half} आधा दिन या छुट्टी` : null].filter(Boolean).join(", ");
+  return p(`Marked so far: ${parts}.`, `अब तक: ${hi}।`);
+}
+
 export function copyYesterday(ids: readonly string[], yesterday: Readonly<Record<string, Mark>>): Record<string, Mark> {
   const out: Record<string, Mark> = {};
   for (const id of ids) {

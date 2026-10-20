@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
+import {taskDeliveryMessages} from "@/messages/setup";
 import { Check, Link2, Send, TriangleAlert, Users } from "lucide-react";
 
 import {
@@ -27,6 +29,7 @@ import { Button } from "@/ui/primitives/button";
  */
 
 export type BoardLink = {
+  managedTaskId?: string;
   id: string;
   token: string;
   audienceKind: string;
@@ -180,7 +183,7 @@ function LinkRow({
           </p>
 
           <p className="mt-2 break-all font-mono text-[11px] text-subtle-foreground">
-            {origin}/r/{link.token}
+            {link.managedTaskId?<Link href={`/inbox?task=${link.managedTaskId}`}>{primary(taskDeliveryMessages.review,language)}</Link>:`${origin}/r/${link.token}`}
           </p>
         </div>
 
@@ -199,7 +202,7 @@ function LinkRow({
         </div>
       </div>
 
-      {mayManage && link.status === "open" ? (
+      {mayManage && !link.managedTaskId && link.status === "open" ? (
         <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
           {/* **Neither of these sends anything.** The office hands the link
               over in WhatsApp itself and ticks it here, so the board says what

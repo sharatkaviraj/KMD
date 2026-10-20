@@ -48,6 +48,8 @@ export const undoNoteAction = refuse;
 export const saveLanguageAction = refuse;
 export const setViewAsAction = refuse;
 export const requestLeaveVx = refuse;
+// Leave preview reads the timetable; the synthetic class has none to show.
+export const previewLeaveVx = async () => ({ ok: false as const });
 declare global {
   interface Window { classFollowup: { snapshot: typeof snapshot; loseNextAttendanceAnswer: () => void; loseNextNoteAnswer: () => void } }
 }

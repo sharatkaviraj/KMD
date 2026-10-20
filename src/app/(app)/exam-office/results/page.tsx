@@ -10,6 +10,7 @@ import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { histogram } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
 import { averagePct, graceVerdict, pipelineStates, unusualAverages, type PaperAverage } from "@/vx/screens/exams/domain/results";
+import { classReadiness } from "@/vx/screens/exams/domain/progress";
 import { isLate } from "@/vx/screens/exams/domain/tracker";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
 import { ResultsBoard, type ResultsView, type ResultsProps } from "@/vx/screens/exams/results-board";
@@ -137,6 +138,10 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
       const total = papers.reduce((a, x) => a + x.total, 0);
       const entered = papers.reduce((a, x) => a + Math.min(x.entered, x.total), 0);
       const info = ctx.classes.find((c) => c.id === classId);
+      // Readiness from the persisted marks and their validity (B04): "Ready to
+      // lock" needs every paper sent, every child marked and no mark the
+      // paper cannot hold — the same check `lockClassesAction` makes.
+      const ready = classReadiness(papers);
       return {
         id: classId,
         label: papers[0]?.classLabel ?? "",
@@ -145,6 +150,9 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         children: progress.roll.get(classId)?.length ?? 0,
         percent: total ? Math.round((entered / total) * 100) : 0,
         allSubmitted: papers.every((x) => x.entryStatus === "submitted"),
+        readiness: ready.state,
+        readyToLock: ready.readyToLock,
+        invalid: ready.invalid,
         // Every late paper, whether or not a teacher is assigned to it: an
         // unassigned paper past its due date is the most late of all (B7).
         late: papers.filter((x) => isLate(x, progress.expected)).length,
@@ -180,6 +188,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         basis: u?.basis ?? null,
         delta: u?.delta ?? null,
         unusual: Boolean(u),
+        invalid: facts?.invalid ?? 0,
         decision: moderation.get(r.id)?.decision ?? null,
         sat: values.length,
         below: r.pass_marks === null ? 0 : values.filter((v) => v < Number(r.pass_marks)).length,
@@ -201,6 +210,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
       sample = {
         studentId: sampleKid.studentId,
         name: state.card.studentName,
+        classId: sampleClass!.id,
         classLabel: state.card.classLabel,
         issued: state.issued,
         rows: state.card.rows.map((r) => ({ subject: r.subjectCode, scored: r.scored, outOf: r.outOf, grade: r.grade, grace: state.grace[r.subjectCode] ?? 0 })),
@@ -243,6 +253,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
   const states = pipelineStates({
     enteredPct: progress.overall.percent,
     unusualOpen: unusualOpen.length,
+    invalid: classes.reduce((a, c) => a + (c.invalid ?? 0), 0),
     graceOpen,
     lockedClasses: classes.filter((c) => c.locked).length,
     totalClasses: classes.length,

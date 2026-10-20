@@ -9,9 +9,10 @@ import { assertPermission } from "@/platform/auth/current-staff";
 import { schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { p, type Pair } from "@/vx/text";
-import { enrolmentsFor, graceFor, issuedStudents, listExams, locksFor, logActivity, marksOf, paperById, papersOf } from "@/vx/screens/exams/data";
+import { enrolmentsFor, graceFor, issuedStudents, listExams, locksFor, logActivity, marksOf, paperById, papersOf, trackerFor } from "@/vx/screens/exams/data";
 import { issueOne } from "@/vx/screens/exams/cards-data";
 import { canFinaliseMarks, canReopenMarks } from "@/vx/screens/exams/domain/finalise";
+import { lockRefusal, lockRefusalText } from "@/vx/screens/exams/domain/progress";
 import { graceVerdict } from "@/vx/screens/exams/domain/results";
 import { onRoll } from "@/vx/screens/exams/domain/tracker";
 import { previewRefusal } from "@/vx/screens/exams/guards";
@@ -163,12 +164,15 @@ export async function lockClassesAction(input: { examId: string; classIds: strin
   if (!canFinaliseMarks(staff)) return { ok: false, message: p("Only the admin finalises marks. Ask the admin to lock this class.", "अंक केवल प्रशासक अंतिम करते हैं। कक्षा बंद करने के लिए प्रशासक से कहें।") };
   const ids = [...new Set(input.classIds)].filter((id) => UUID.test(id));
   if (!UUID.test(input.examId) || ids.length === 0) return { ok: false, message: RELOAD };
-  const papers = (await papersOf([input.examId])).filter((x) => ids.includes(x.class_id));
-  const notSent = papers.filter((x) => x.entry_status !== "submitted");
-  if (notSent.length) {
-    const list = [...new Set(notSent.map((x) => `${x.class_label} ${x.subject_code}`))].slice(0, 6).join(", ");
-    return { ok: false, message: p(`Some papers are not submitted yet: ${list}`, `कुछ पेपर अभी जमा नहीं: ${list}`) };
-  }
+  const found = await examOf(input.examId);
+  if (!found) return { ok: false, message: RELOAD };
+  // The same check the board's "Ready to lock" makes, from the marks as they
+  // stand now: every paper submitted, every child on its roster marked, and
+  // no saved mark its paper cannot hold (B04). Nothing is locked otherwise.
+  const tracked = await trackerFor({ exam: found.exam, classes: [], staff: [], onlyPapers: (x) => ids.includes(x.class_id) });
+  const papers = tracked.rows;
+  const refused = lockRefusal(tracked.papers);
+  if (refused) return { ok: false, message: lockRefusalText(refused) };
   const { error } = await db()
     .from("exam_class_locks")
     .upsert(ids.map((id) => ({ assessment_id: input.examId, class_id: id, locked_by: staff.id })), { onConflict: "assessment_id,class_id", ignoreDuplicates: true });

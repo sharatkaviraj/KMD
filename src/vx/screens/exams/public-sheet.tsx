@@ -135,6 +135,8 @@ export function PublicMarksSheet({
       coordinatorName={coordinatorName}
       onSave={(payload: SavePayload) => post(token, { action: "save", payload })}
       onWithdraw={(paperId: string, revision: number) => post(token, { action: "withdraw", paperId, revision })}
+      // The link's owner is the teacher: `marks-link/<link>/<staff>`, as the link page builds it.
+      viewerStaffId={ownerId.split("/").at(-1) ?? null}
       initialPhase={view === "check" ? "check" : view === "submitted" ? "sent" : "entry"}
       initialMode={view === "keypad" ? "pad" : "list"}
       crumb={crumb}

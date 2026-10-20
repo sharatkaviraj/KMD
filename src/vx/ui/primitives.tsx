@@ -104,6 +104,7 @@ export function Btn({
   value,
   prefetch,
   target,
+  className,
 }: {
   children?: ReactNode;
   variant?: BtnVariant;
@@ -121,8 +122,10 @@ export function Btn({
   value?: string;
   prefetch?: boolean;
   target?: string;
+  /** Extra kit classes, e.g. `wrap` for a button that carries a sentence. */
+  className?: string;
 }) {
-  const cls = `tap btn ${variant}${big ? " big" : ""}`;
+  const cls = `tap btn ${variant}${big ? " big" : ""}${className ? ` ${className}` : ""}`;
   const st: CSSProperties = { width: full ? "100%" : undefined, ...style };
   const inner = (
     <>

@@ -24,6 +24,7 @@ import { idleCollectionState, type CollectionState } from "@/modules/collection/
 import {
   messageAudienceLabels,
   messageAudiences,
+  isGenericMessageTemplate,
   type MessageTemplate,
 } from "@/modules/collection/domain/messages";
 import { documentKindLabels, documentKinds } from "@/modules/collection/domain/review";
@@ -619,11 +620,12 @@ export function TemplateForm({ template }: { template?: MessageTemplate }) {
 
 /** Put one message in the queue. */
 export function QueueMessageForm({
-  templates,
+  templates: allTemplates,
 }: {
   templates: MessageTemplate[];
 }) {
   const language = useLanguage();
+  const templates = allTemplates.filter(isGenericMessageTemplate);
   const [state, action, pending] = useActionState(
     queueMessageAction,
     idleCollectionState,

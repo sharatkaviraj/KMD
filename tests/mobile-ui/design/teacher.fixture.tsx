@@ -314,9 +314,9 @@ function moreData(): MoreData {
       alerts: { notices: true },
     },
     leave: [
-      { id: id(801), from_day: "2026-10-26", to_day: "2026-10-26", span: "first_half", note: "Personal work", status: "asked", created_at: at("10:00", "2026-10-06") },
-      { id: id(802), from_day: "2026-09-25", to_day: "2026-09-25", span: "full", note: "Unwell", status: "approved", created_at: at("09:00", "2026-09-24") },
-      { id: id(803), from_day: "2026-08-31", to_day: "2026-09-01", span: "full", note: "Family function", status: "approved", created_at: at("09:00", "2026-08-28") },
+      { id: id(801), from_day: "2026-10-26", to_day: "2026-10-26", span: "first_half", note: "Personal work", status: "asked", created_at: at("10:00", "2026-10-06"), decided_by: null, decided_at: null, decided_by_name: null },
+      { id: id(802), from_day: "2026-09-25", to_day: "2026-09-25", span: "full", note: "Unwell", status: "approved", created_at: at("09:00", "2026-09-24"), decided_by: null, decided_at: at("11:00", "2026-09-24"), decided_by_name: "QA Admin" },
+      { id: id(803), from_day: "2026-08-31", to_day: "2026-09-01", span: "full", note: "Family function", status: "approved", created_at: at("09:00", "2026-08-28"), decided_by: null, decided_at: null, decided_by_name: null },
     ],
     nowMinutes: 9 * 60 + 48,
     classSizes: { [C6]: 31, [C7]: 27, [C8]: 28 },

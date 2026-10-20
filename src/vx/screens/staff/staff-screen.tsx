@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivatePhoto } from "@/modules/collection/ui/private-photo";
+import { ProfilePhotoControl } from "@/modules/collection/ui/profile-photo-editor";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore, useTransition, type CSSProperties, type ReactNode } from "react";
@@ -113,11 +115,11 @@ const S = {
   note: { display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 14, fontSize: 13, textAlign: "left", lineHeight: 1.45 } as CSSProperties,
 };
 
-function Av({ name, seed, size = 38, font = 12, serif }: { name: string; seed: string; size?: number; font?: number; serif?: boolean }) {
+function Av({ name, seed, size = 38, font = 12, serif, photo }: { photo?: string | null; name: string; seed: string; size?: number; font?: number; serif?: boolean }) {
   const [bg, fg] = avatarTone(seed);
   return (
     <span aria-hidden="true" className={serif ? "serif" : undefined} style={{ flex: "none", width: size, height: size, borderRadius: size / 2, background: bg, color: fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: font, fontWeight: 700, animation: serif ? "xPopIn .4s var(--spring) both" : undefined }}>
-      {initials(name)}
+      {photo ? <PrivatePhoto src={photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"inherit"}} /> : initials(name)}
     </span>
   );
 }
@@ -366,7 +368,7 @@ export function StaffScreen({
 
   const personCell = (r: StaffRow, phone: boolean) => (
     <Link href={`/staff?id=${r.id}`} scroll={false} onClick={(e) => { e.preventDefault(); go({ id: r.id }); }} className="tap" style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, minHeight: 44, color: "var(--fg)" }} aria-current={r.id === selectedId ? "true" : undefined}>
-      <Av name={r.name} seed={r.id} />
+      <Av photo={r.photoUrl} name={r.name} seed={r.id} />
       <span style={{ ...S.col, minWidth: 0 }}>
         <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</span>
         <span className="clip num" style={S.sub}>{phone ? rolePills(r).map((x) => tx(x.label)).join(" · ") : maskPhone(r.phone)}</span>
@@ -472,6 +474,7 @@ export function StaffScreen({
                   load={load[selected.id] ?? [0, 0, 0, 0, 0, 0]}
                   events={events.filter((e) => e.staffId === selected.id)}
                   isAdmin={isAdmin}
+                  mayEditPhoto={mayManage || selected.id === meId}
                   isMe={selected.id === meId}
                   onClose={() => go({ id: null })}
                   onReset={() => openFor("reset", selected.id)}
@@ -590,6 +593,7 @@ export function StaffScreen({
 /* ------------------------------------------------------------- profile */
 
 function ProfilePanel({
+  mayEditPhoto,
   row,
   load,
   events,
@@ -604,6 +608,7 @@ function ProfilePanel({
   onSelf,
   pending,
 }: {
+  mayEditPhoto: boolean;
   row: StaffRow;
   load: number[];
   events: StaffEvent[];
@@ -618,7 +623,7 @@ function ProfilePanel({
   onSelf: () => void;
   pending: boolean;
 }) {
-  const { tx } = useVx();
+  const { tx, language } = useVx();
   const ago = useAgo();
   const state = loginState(row);
   const [lbg, lfg] = LOGIN_TONE[state];
@@ -664,13 +669,14 @@ function ProfilePanel({
         </button>
       </div>
       <div style={{ ...S.row, gap: 14 }}>
-        <Av name={row.name} seed={row.id} size={60} font={20} serif />
+        <Av photo={row.photoUrl} name={row.name} seed={row.id} size={60} font={20} serif />
         <span style={{ ...S.col, flex: 1, minWidth: 0, gap: 4 }}>
           <span className="serif" style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.15 }}>{row.name}</span>
           <span style={S.sub}>{tx(titleLine(row))}</span>
           <span style={{ ...S.row, flexWrap: "wrap", gap: 4 }}>
             {rolePills(row).map((x) => <Pill key={x.key} bg={x.bg} fg={x.fg}>{tx(x.label)}</Pill>)}
           </span>
+          {mayEditPhoto ? <span><ProfilePhotoControl sheet credential={{ kind: "staff", id: row.id }} language={language} /></span> : null}
         </span>
       </div>
       <div className="card" style={{ ...S.col, padding: "2px 16px" }}>
@@ -942,7 +948,7 @@ function TargetCard({ row }: { row: StaffRow }) {
   const { tx } = useVx();
   return (
     <div style={{ ...S.row, gap: 12, padding: "10px 14px", borderRadius: 14, background: "var(--s2)" }}>
-      <Av name={row.name} seed={row.id} />
+      <Av photo={row.photoUrl} name={row.name} seed={row.id} />
       <span style={{ ...S.col, flex: 1, minWidth: 0 }}>
         <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{row.name}</span>
         <span className="clip num" style={S.sub}>{tx(titleLine(row))} · {maskPhone(row.phone)}</span>
