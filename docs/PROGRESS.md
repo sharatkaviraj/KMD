@@ -1179,3 +1179,11 @@ The 19 October fix brief (school-day assessment of `2768ec5`): finding-by-findin
 | Notes B09–B10, R01: IST week, "you" by id, class context, Only-me plan sharing guarded on every path | done, unmerged | same | R01 was a code path with no exposure in DEV data; the RLS hardening for direct REST reads is a proposal awaiting approval |
 | Everyday B11–B16: one leave resolver, leave in Needs you, decision feedback, workload label, dated task titles, live register banner, wrapping tags, next step after attendance | done, unmerged | same | Notice bodies that say "today" are stored text; an "applies on" date is proposed |
 | U01 report card, U03 photos, U04 phone | partly | same | U01 reconciled (weighted). U03: the rejection reason needs a schema change (proposal); the live two-role approve/reject loop is not run. U04: WebKit, 200 % zoom and physical phones not run |
+
+### 20 October: released, and the follow-up
+
+PR #102 merged as `3348320` after all 23 checks passed on `52be936`; production `vppsone.vercel.app` serves it (deployment `dpl_9C4yJgBCtcVka7brtf2mV9Agm72a`), and a read-only production smoke as QA teacher and admin passed (marks 19/39 on Today and the sheet, reversed-receipt link replaced, leave in Needs you with school dates).
+
+| What | Status | Branch / commit | Remaining or surprising |
+|---|---|---|---|
+| U03 photo rejection reason; R01 policy hardening | done (see PR) | `fix/assessment-followup-2026-10-20` | Two DEV migrations applied (`20261020020824_photo_review_reason`, `20261020020829_support_plans_follow_source_note`) and must reach live at cutover. The photo loop was verified on DEV's real functions in a rolled-back transaction, not through a browser upload. Still not run: 200 % zoom, keyboard-only and physical phones; live concurrent editors |

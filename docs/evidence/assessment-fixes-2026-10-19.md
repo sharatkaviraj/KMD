@@ -2,8 +2,17 @@
 
 Source: *VPPS One | Codex fix brief* (19 Oct 2026), built from the school-day
 assessment of commit `2768ec5` (evidence cut-off 18 Oct 21:40 UTC). Branch
-`fix/assessment-2026-10-19`. Not merged, not deployed: both need Raj's explicit
-authorization for this run.
+`fix/assessment-2026-10-19` → PR #102, merged on Raj's authorization as
+`3348320` (all 23 checks green on head `52be936`) and deployed to production
+(`vppsone.vercel.app`, deployment `dpl_9C4yJgBCtcVka7brtf2mV9Agm72a`). Follow-up
+`fix/assessment-followup-2026-10-20` closes U03 and R01 hardening (below).
+
+### Production smoke (20 Oct, read-only, QA magic links, nothing saved)
+
+- Teacher: marks sheet Class 1 ELGA "19 / 39" with the old half marks flagged; Today "39 में से 19 पूरे".
+- Admin: `/receipts/SVP20261019-0001?sheet=reverse` → replaced by the plain URL, no dialog, "Reversed on Mon 19 Oct, 2:02 am · by Raj".
+- Admin Needs you: four "Leave asked" items with school dates ("Fri 16 October · Full day").
+- Not checked on production: the leave sheet (the hidden browser pane could not draw it; verified locally on the same code).
 
 ## Baseline and boundaries
 
@@ -40,16 +49,23 @@ Status words: **fixed** (reproduced or confirmed in source, changed, regression-
 | B14 attendance banner | **fixed** | Banner was fixed text whatever was marked. | Follows live counts: "Marked so far: 27 present, 1 absent." / not saved yet. | `tests/leave-and-register-clarity.test.ts`. |
 | B15 clipping/overlap | **fixed for the notes board** | Tag filter was a hidden-scrollbar strip. | Tags wrap. | Live at 500 px: tag row wraps (82 px, not clipped), page `scrollWidth` = 500, "Add a note" overlaps no card at the end. **Not reproduced elsewhere:** the original screen of the overlap was not named; other admin screens were not swept at 500 px. |
 | B16 completion | **fixed (attendance)** | Saved attendance had no next step. | "Back to Today" on the saved card; marks already had Next/Back. | Source. |
-| R01 private note → plan | **fixed (app layer); policy hardening proposed, not applied** | Confirmed in source, **not** an observed exposure: the teacher plan screen silently set `goal = excerpt(note.body, 120)`; `createPlanAction` never checked the source note; plan readers ignored private sources. DEV audit: 2 private notes, 0 plans from them, 0 goals containing private text. | Only-me source → empty goal, readers shown before saving, "Use words from the note" is a separate previewed action; server checks the source note via `visibleNotes` (readable, same child, same session, author), refuses private words unless deliberately shared, never queues an Only-me plan for parents; plans whose goal still repeats private words, or whose private source is health/family, are their author's alone on every read path (board, `?plan=`, coordinator `planFor`), and a coordinator cannot overwrite a plan hidden from them. | `tests/notes-plan-source.test.ts` (8 cases: other teacher's note refused with no write, copied words refused, deliberate share allowed, parents refused, other child refused), `tests/vx-notes.test.ts`. Live: the teacher's Only-me note opens the plan with an empty goal, "यह योजना कौन देखेगा: …", and the preview button. |
+| R01 private note → plan | **fixed (app layer); policy hardened in follow-up** | Confirmed in source, **not** an observed exposure: the teacher plan screen silently set `goal = excerpt(note.body, 120)`; `createPlanAction` never checked the source note; plan readers ignored private sources. DEV audit: 2 private notes, 0 plans from them, 0 goals containing private text. | Only-me source → empty goal, readers shown before saving, "Use words from the note" is a separate previewed action; server checks the source note via `visibleNotes` (readable, same child, same session, author), refuses private words unless deliberately shared, never queues an Only-me plan for parents; plans whose goal still repeats private words, or whose private source is health/family, are their author's alone on every read path (board, `?plan=`, coordinator `planFor`), and a coordinator cannot overwrite a plan hidden from them. | `tests/notes-plan-source.test.ts` (8 cases: other teacher's note refused with no write, copied words refused, deliberate share allowed, parents refused, other child refused), `tests/vx-notes.test.ts`. Live: the teacher's Only-me note opens the plan with an empty goal, "यह योजना कौन देखेगा: …", and the preview button. |
 | U01 report card | **not a defect (arithmetic); loading bounded** | Full preview loaded in ~2.1 s locally (warm). One pupil: 175/300 shown 56.2%. | Link passes `exam`/`class`; `/exams` has a loading skeleton and error boundary with Retry; "Weighted by exam" shown when weights differ; PDF cards built four at a time; arithmetic unchanged. | Reconciled from raw DEV marks: subjects sum the term's 20-mark formative + 80-mark half-yearly; half-yearly weight 2; absent = 0 of 80; Σv·w = 303.5, Σmax·w = 540 → 56.2%. Rule documented in `tests/assessments-domain.test.ts`. The 262.5/380 → 70.8% sample is explained by the same weighting. |
 | U02 lesson log/closeout | **not present — proposal only** | No lesson, syllabus or closeout routes or tables exist; "day close" is fees only. | None (out of scope for a fixes release). | — |
-| U03 photo loop | **partly verified; one gap needs a schema decision** | Code: ownership, scope, session, file type/size, duplicate submit and "official photo unchanged until approval" are enforced in app and SQL. Gaps: a rejection carries **no reason** (no column), ends the round, and counts the task complete. | None to schema. | `tests/profile-photos/acceptance.mjs` passed at 1440 px (en) and 390 px (hi): file and camera preview, inert cancel, ≤200 KB output, durable exact retry, no overflow, no external requests. **Open:** live DEV approve/reject loop through both roles not run; see proposal below. |
+| U03 photo loop | **fixed — verified on DEV (follow-up)** | Code: ownership, scope, session, file type/size, duplicate submit and "official photo unchanged until approval" are enforced in app and SQL. Gaps: a rejection carries **no reason** (no column), ends the round, and counts the task complete. | Follow-up: `photo_proposals.decision_note` and a 4-argument `review_student_photo` (DEV migration `20261020020824`); the admin sends a photograph back only with a reason; the teacher reads "Changes requested: <reason>"; the task pill says "Changes requested". A new round is still started by the office. | `tests/profile-photos/acceptance.mjs` passed at 1440/390 px with no external requests. `tests/photo-review-reason.test.ts`. Live two-role loop against DEV's real functions, in one transaction forced to roll back (counts 0/0/1 before and after): submit ok; duplicate submit replayed; official photo unchanged while pending; teacher review → `photos:admin_required`; wrong link → `photos:not_permitted`; reject stores "Face is not clear (synthetic)" and submission `rejected`; resubmit same round → `photos:decided`; new round approved through the old 3-argument call places the photo. Not driven through the browser (the built-in browser cannot upload a file). |
 | U04 phone/accessibility | **partly** | — | Live-region save statuses, labelled inputs on new controls. | `marks-mobile` 14/14; `payment-ui` Chromium 15/15 (WebKit 15 not run — the WebKit browser is not installed on this laptop; CI runs it); `mobile-ui` 124/124 (320–1440 px, light/dark, reduced motion). Not done: 200 % text zoom, physical touch devices, keyboard-only pass. |
 | U05 advanced flows | **partly** | — | — | Covered by unit/Playwright harnesses: stale tabs (old-revision draft), lost response + same command, double submit, repeated reversal guard (server unchanged). Not run live: concurrent editors on DEV, network loss on a real phone, final lock. |
 
 ## Proposals that need approval (nothing applied)
 
-**R01 defence in depth (DEV migration, optional).** The app reads plans with the
+**R01 defence in depth — applied in the follow-up as DEV migration
+`20261020020829_support_plans_follow_source_note`.** No app code reads plans
+through a user's client, so the screens are unaffected. Verified with real
+roles in a rolled-back transaction: the author teacher sees her plan from an
+Only me note; the academic coordinator, the admin and teacher2 do not; a plan
+with no source note stays visible to the school-wide roles.
+
+Original proposal text: The app reads plans with the
 service role, so the app-layer checks above are the boundary in the app. The
 browser client could still read `support_plans` directly over REST under
 `support_plans_select_scoped` (`notes:view` and `reads_every_class() or
@@ -67,7 +83,7 @@ alter policy support_plans_select_scoped on vppsone.support_plans
 Trade-off: it also hides plans made from Only-me notes from coordinators even
 after their goal was rewritten. Needs Raj's decision; not applied.
 
-**U03 rejection reason.** Add `decision_note text` to `vppsone.photo_proposals`,
+**U03 rejection reason — applied in the follow-up (`20261020020824`).** Add `decision_note text` to `vppsone.photo_proposals`,
 pass it through `review_student_photo`, show "Changes requested: <reason>" to
 the teacher and let a rejected child be sent again in the same round. Additive
 DEV migration + function replacement; needs approval before it is written.

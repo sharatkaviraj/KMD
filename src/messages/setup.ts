@@ -16,7 +16,7 @@ export const ms = {
   taskAssigned: t("काम सौंपा गया", "Work assigned"),
   taskRequestAgain: t("नई जानकारी फिर माँगें और पुराना लिंक बंद करें", "Request details again and revoke old links"),
   taskExistingOther: t("यह काम दूसरे शिक्षक को सौंपा गया है। Needs you से उसका आवंटन बदलें।", "This work already belongs to another teacher. Reassign it from Needs you."),
-  taskRejected: t("अस्वीकृत जवाब", "Rejected answers"),
+  taskRejected: t("बदलाव चाहिए", "Changes requested"),
   taskAcademicBlocked: t("इस काम के लिए वर्तमान विषय या कक्षा के जिम्मेदार शिक्षक को चुनें।", "Choose the teacher who currently owns this subject or class. Other teachers cannot save this work."),
   taskAssign: t("काम सौंपें", "Assign work"),
   taskToAssign: t("सौंपना बाकी", "To assign"),
@@ -350,6 +350,12 @@ export const photoMessages = {
   storage: t("इस उपकरण पर मसौदा नहीं बचा। अभी नहीं भेजा गया।", "The draft could not be stored on this device. Nothing was sent."),
   saved: t("फोटो सहेजा गया", "Photograph saved"),
   approve: t("फोटो स्वीकार करें", "Approve photograph"), reject: t("फोटो अस्वीकार करें", "Reject photograph"),
+  approved: t("फोटो स्वीकार हुआ और आधिकारिक फोटो बदल गया।", "Approved. The official photograph has changed."),
+  changesRequested: t("बदलाव चाहिए", "Changes requested"),
+  rejectWhy: t("अध्यापक को बताएँ कि क्या बदलना है", "Tell the teacher what to change"),
+  rejectWhyHint: t("जैसे: चेहरा साफ़ नहीं दिख रहा", "For example: the face is not clear"),
+  sendBack: t("कारण के साथ लौटाएँ", "Send back with this reason"),
+  reasonRequired: t("लौटाने का कारण लिखें (कम से कम 3 अक्षर)।", "Write why it is going back (at least 3 letters)."),
   review: t("फोटो की समीक्षा", "Review photographs"),
 };
 
