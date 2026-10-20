@@ -120,11 +120,18 @@ export async function readPhotoContext(auth: PhotoAuthority): Promise<PhotoEdito
     currentId = row.data?.id ?? null; currentPath = row.data?.storage_path ?? null;
   }
   let proposalId: string | null = null, proposalUrl: string | null = null, decided = false;
+  let outcome: "accepted" | "rejected" | null = null, note: string | null = null;
   if (auth.request) {
     const field = auth.request.fields.find(f => f.key === "student_photo")!;
     const answer = await db.from("collection_submissions").select("value,status").eq("request_id", auth.request.id).eq("student_id", auth.target).eq("field_id", field.id).maybeSingle<{ value: string; status: string }>();
     if (answer.error) throw new Error("unavailable");
     proposalId = answer.data?.value ?? null; decided = Boolean(answer.data && answer.data.status !== "pending");
+    if (proposalId && decided) {
+      const decision = await db.from("photo_proposals").select("decision,decision_note").eq("command_id", proposalId).eq("request_id", auth.request.id).eq("student_id", auth.target).maybeSingle<{ decision: string; decision_note: string | null }>();
+      if (decision.error) throw new Error("unavailable");
+      outcome = decision.data?.decision === "accepted" ? "accepted" : decision.data?.decision === "rejected" ? "rejected" : null;
+      note = decision.data?.decision_note ?? null;
+    }
     if (proposalId && !decided) {
       const proposal = await db.from("photo_proposals").select("payload").eq("command_id", proposalId).eq("request_id", auth.request.id).eq("student_id", auth.target).single<{ payload: { storage_path: string } }>();
       if (proposal.error) throw new Error("unavailable");
@@ -133,5 +140,5 @@ export async function readPhotoContext(auth: PhotoAuthority): Promise<PhotoEdito
   }
   const currentUrl = await signedPhoto(currentPath);
   await assertCurrentPhotoRequest(auth);
-  return { scope: auth.scope, studentId: auth.staff ? undefined : auth.target, currentId, currentUrl, proposalId, proposalUrl, decided, proposal: Boolean(auth.request) };
+  return { scope: auth.scope, studentId: auth.staff ? undefined : auth.target, currentId, currentUrl, proposalId, proposalUrl, decided, proposal: Boolean(auth.request), outcome, note };
 }

@@ -97,7 +97,7 @@ export function PhotoEditor({ context, language, save, onClose, vx = false }: { 
   const locked = busy || !ready || Boolean(recovered) || Boolean(draft?.commandId) || context.decided;
   return <section className={vx ? "space-y-3" : "space-y-3 rounded-2xl border border-border bg-surface p-3"} aria-label={say(words.title)} data-photo-editor>
     {context.proposal ? <p className="text-sm text-muted-foreground">{say(words.proposal)}</p> : null}
-    {context.decided ? <p role="status">{say(words.decided)}</p> : null}
+    {context.decided ? <p role="status">{context.outcome === "accepted" ? say(words.approved) : context.outcome === "rejected" ? `${say(words.changesRequested)}${context.note ? `: ${context.note}` : ""} ${say(words.decided)}` : say(words.decided)}</p> : null}
     {context.proposalUrl ? <div><p className="text-sm">{say(words.pending)}</p><PhotoImage src={context.proposalUrl} alt={say(words.pending)} /></div> : null}
     {recovered ? <button type="button" className="min-h-11 text-accent" onClick={() => { setDraft(recovered); setReason(recovered.commandId ? "unknown" : ""); setRecovered(null); }}>{say(words.restore)}</button> : null}
     {draft ? <div data-photo-preview><p className="text-sm">{say(words.preview)}</p><PhotoImage src={draft.data} alt={say(words.preview)} /></div> : context.currentUrl ? <PhotoImage src={context.currentUrl} alt={say(words.title)} /> : null}

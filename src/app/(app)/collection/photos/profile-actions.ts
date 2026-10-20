@@ -8,7 +8,7 @@ import { photoOutcome } from "@/modules/collection/data/photo-proposals";
 import { placePhoto } from "@/modules/collection/data/photos-repo";
 import { preparePhoto, stagePhoto } from "@/modules/collection/data/photo-storage";
 import { submitCollectionPhoto } from "@/modules/teacher-tasks/data/collection-save";
-import type { PhotoCredential, PhotoSaveResult } from "@/modules/collection/domain/profile-photo";
+import { rejectionNote, type PhotoCredential, type PhotoSaveResult } from "@/modules/collection/domain/profile-photo";
 
 export async function openPhotoEditorAction(credential: PhotoCredential, studentId?: string) {
   try {
@@ -51,12 +51,15 @@ export async function saveProfilePhotoAction(credential: PhotoCredential, form: 
   return result;
 }
 
-export async function reviewPhotoAction(proposalId: string, accept: boolean): Promise<PhotoSaveResult> {
+export async function reviewPhotoAction(proposalId: string, accept: boolean, note?: string): Promise<PhotoSaveResult> {
   const actor = await assertStaff();
   await assertNotPreviewing();
   if (actor.role !== "admin" || !PHOTO_UUID.test(proposalId) || typeof accept !== "boolean") return { ok: false, reason: "not_permitted" };
+  // Sending a photograph back says why (U03): the teacher reads it as "Changes requested".
+  const reason = accept ? null : rejectionNote(note);
+  if (!accept && !reason) return { ok: false, reason: "reason_required" };
   try {
-    const result = await createAdminClient().rpc("review_student_photo", { p_actor: actor.id, p_proposal: proposalId, p_accept: accept });
+    const result = await createAdminClient().rpc("review_student_photo", { p_actor: actor.id, p_proposal: proposalId, p_accept: accept, p_note: reason });
     const outcome = photoOutcome(result.data, result.error);
     if (outcome.ok) revalidatePath("/", "layout");
     return outcome;

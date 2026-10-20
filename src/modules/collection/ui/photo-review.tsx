@@ -2,17 +2,29 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { reviewPhotoAction } from "@/app/(app)/collection/photos/profile-actions";
+import { rejectionNote } from "@/modules/collection/domain/profile-photo";
 import { photoMessages as words } from "@/messages/setup";
 import { primary, type Language } from "@/platform/i18n/language";
 import { PhotoImage } from "./profile-photo-editor";
 export function PhotoReview({ proposalId, name, url, currentUrl, language }: { proposalId: string; name: string; url: string; currentUrl: string | null; language: Language }) {
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
+  // Sending back is two steps: say why, then send (U03). The reason is what the teacher reads.
+  const [why, setWhy] = useState<string | null>(null);
   const router = useRouter();
   const decide = async (accept: boolean) => {
+    if (!accept && !rejectionNote(why)) { setMessage(primary(words.reasonRequired, language)); return; }
     setBusy(true);
-    try { const result = await reviewPhotoAction(proposalId, accept); if (result.ok) router.refresh(); else setMessage(primary(result.reason === "unknown" ? words.unknown : words.refused, language)); }
+    try {
+      const result = await reviewPhotoAction(proposalId, accept, accept ? undefined : (why ?? ""));
+      if (result.ok) router.refresh();
+      else setMessage(primary(result.reason === "reason_required" ? words.reasonRequired : result.reason === "unknown" ? words.unknown : words.refused, language));
+    }
     catch { setMessage(primary(words.unknown, language)); }
     finally { setBusy(false); }
   };
-  return <article className="space-y-3 rounded-xl border border-border bg-surface p-4"><p className="font-semibold">{name}</p><div className="flex flex-wrap gap-3">{currentUrl ? <PhotoImage src={currentUrl} alt={primary(words.title, language)} /> : null}<div><p className="text-sm">{primary(words.pending, language)}</p><PhotoImage src={url} alt={primary(words.pending, language)} /></div></div><div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-lg bg-accent px-3 text-white" disabled={busy} onClick={() => void decide(true)}>{primary(words.approve, language)}</button><button type="button" className="min-h-11 rounded-lg border px-3" disabled={busy} onClick={() => void decide(false)}>{primary(words.reject, language)}</button></div>{message ? <p role="status">{message}</p> : null}</article>;
+  const field = `photo-why-${proposalId}`;
+  return <article className="space-y-3 rounded-xl border border-border bg-surface p-4"><p className="font-semibold">{name}</p><div className="flex flex-wrap gap-3">{currentUrl ? <PhotoImage src={currentUrl} alt={primary(words.title, language)} /> : null}<div><p className="text-sm">{primary(words.pending, language)}</p><PhotoImage src={url} alt={primary(words.pending, language)} /></div></div>
+    {why === null ? <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-lg bg-accent px-3 text-white" disabled={busy} onClick={() => void decide(true)}>{primary(words.approve, language)}</button><button type="button" className="min-h-11 rounded-lg border px-3" disabled={busy} onClick={() => { setWhy(""); setMessage(""); }}>{primary(words.reject, language)}</button></div>
+      : <div className="space-y-2"><label htmlFor={field} className="block text-sm font-medium">{primary(words.rejectWhy, language)}</label><textarea id={field} className="w-full rounded-lg border p-2 text-sm" maxLength={300} rows={2} value={why} placeholder={primary(words.rejectWhyHint, language)} onChange={(e) => setWhy(e.target.value)} /><div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded-lg border border-destructive px-3 text-destructive" disabled={busy} onClick={() => void decide(false)}>{primary(words.sendBack, language)}</button><button type="button" className="min-h-11 rounded-lg px-3" disabled={busy} onClick={() => { setWhy(null); setMessage(""); }}>{primary(words.cancel, language)}</button></div></div>}
+    {message ? <p role="status">{message}</p> : null}</article>;
 }
