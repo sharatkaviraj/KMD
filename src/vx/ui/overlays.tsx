@@ -91,14 +91,36 @@ export function Sheet({
     return () => window.clearTimeout(t);
   }, [closing]);
 
+  // The latest onClose, read by the key handler. Callers pass an inline
+  // `() => setSheet(null)`, a new function on every render. With onClose in
+  // the effect's deps every keystroke in a field inside the sheet re-ran the
+  // effect, which moved focus to the first control 40 ms later: in the
+  // attendance change sheet that was the WhatsApp switch, so the rest of the
+  // note was lost and a space turned the parent message on (smoke 20 Oct).
+  // tests/vx-sheet-focus.test.tsx holds it; tests/vx-ui-effect-deps.test.ts
+  // keeps callback props out of every vx effect's deps.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+
+  // Focus moves into the sheet once, when it opens, and never while focus is
+  // already inside it.
   useEffect(() => {
     if (!mounted || closing) return undefined;
     const t = window.setTimeout(() => {
-      const first = panel.current?.querySelector<HTMLElement>("[autofocus], input, textarea, select, button:not([data-close])");
-      (first ?? panel.current)?.focus();
+      const box = panel.current;
+      if (!box || box.contains(document.activeElement)) return;
+      const first = box.querySelector<HTMLElement>("[autofocus], input, textarea, select, button:not([data-close])");
+      (first ?? box).focus();
     }, 40);
+    return () => window.clearTimeout(t);
+  }, [mounted, closing]);
+
+  useEffect(() => {
+    if (!mounted || closing) return undefined;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && dismissable) onClose();
+      if (e.key === "Escape" && dismissable) closeRef.current();
       if (e.key === "Tab" && panel.current) {
         const items = Array.from(panel.current.querySelectorAll<HTMLElement>("a[href],button:not([disabled]),input,textarea,select,[tabindex]:not([tabindex='-1'])"));
         if (items.length === 0) return;
@@ -117,11 +139,10 @@ export function Sheet({
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      window.clearTimeout(t);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = overflow;
     };
-  }, [mounted, closing, dismissable, onClose]);
+  }, [mounted, closing, dismissable]);
 
   if (!mounted || !layer) return null;
 
