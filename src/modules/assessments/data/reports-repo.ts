@@ -2,6 +2,8 @@ import "server-only";
 
 import { assertPermission } from "@/platform/auth/current-staff";
 import { FEE_SCHEMA } from "@/platform/env";
+import { fetchInChunks } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
 import {
@@ -239,7 +241,10 @@ export async function previewReportCard(input: {
   const termIds = new Set(inTerm.map((entry) => entry.id));
   const termPapers = papers.filter((paper) => termIds.has(paper.assessmentId));
 
-  const marks = await marksForPapers(termPapers.map((paper) => paper.id));
+  const [marks, grace] = await Promise.all([
+    marksForPapers(termPapers.map((paper) => paper.id)),
+    graceForPapers(termPapers.map((paper) => paper.id), input.studentId),
+  ]);
 
   // The reporting period: the scheme's, or the session so far.
   const today = schoolToday();
@@ -290,6 +295,7 @@ export async function previewReportCard(input: {
             notRecorded,
           },
     scheme: scheme ? cardSchemeOf(scheme) : null,
+    grace: graceOf(grace, input.studentId),
     generatedAt: new Date().toISOString(),
   });
 
@@ -306,6 +312,76 @@ export async function previewReportCard(input: {
       attendance: { from, to, recordedDays: recorded.size, notRecordedDays: notRecorded },
     },
   };
+}
+
+/** Grace given on these papers, `paper|student` → marks; one child's only when `studentId` is given. */
+async function graceForPapers(paperIds: string[], studentId?: string): Promise<Map<string, number>> {
+  if (paperIds.length === 0) return new Map();
+  const res = await fetchInChunks<{ paper_id: string; student_id: string; grace: number | string }>(paperIds, IN_FILTER_CHUNK_SIZE, (chunk) => {
+    const query = createAdminClient().from("exam_grace").select("paper_id, student_id, grace").in("paper_id", chunk);
+    return studentId ? query.eq("student_id", studentId) : query;
+  });
+  if (res.error) throw new Error("Could not read the grace marks.");
+  const out = new Map<string, number>();
+  for (const row of res.data) {
+    const key = `${row.paper_id}|${row.student_id}`;
+    out.set(key, (out.get(key) ?? 0) + Number(row.grace));
+  }
+  return out;
+}
+
+/** One child's grace by paper id, out of `graceForPapers`. */
+function graceOf(all: Map<string, number>, studentId: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [key, value] of all) {
+    const [paperId, student] = key.split("|");
+    if (student === studentId) out.set(paperId, value);
+  }
+  return out;
+}
+
+/**
+ * Every child's card for a class and term, built as the preview builds it
+ * today (attendance left out), so the class list and the card print the same
+ * percentage and the same result: one `buildReportCard`, never a second sum
+ * (smoke 20 Oct: the list said 63.9% where the card said 65.3%).
+ */
+export async function classTermCards(input: {
+  classId: string;
+  sessionLabel: string;
+  term: string;
+  students: { id: string; fullName: string; rollNo: string | null }[];
+}): Promise<Map<string, ReportCard>> {
+  await assertPermission("reports:view");
+  const [assessments, papers, schemes] = await Promise.all([
+    listAssessments(input.sessionLabel),
+    papersForClass(input.classId, input.sessionLabel),
+    schemesFor(input.sessionLabel, input.term),
+  ]);
+  const scheme = approvedScheme(schemes);
+  const inTerm = assessments.filter((entry) => entry.term === input.term && entry.status !== "draft");
+  const termIds = new Set(inTerm.map((entry) => entry.id));
+  const termPapers = papers.filter((paper) => termIds.has(paper.assessmentId));
+  const ids = termPapers.map((paper) => paper.id);
+  const [marks, grace] = await Promise.all([marksForPapers(ids), graceForPapers(ids)]);
+  const generatedAt = new Date().toISOString();
+  return new Map(
+    input.students.map((student) => [
+      student.id,
+      buildReportCard({
+        sessionLabel: input.sessionLabel,
+        term: input.term,
+        student: { id: student.id, fullName: student.fullName, admissionNo: null, rollNo: student.rollNo, classLabel: termPapers[0]?.classLabel ?? "", fatherName: null },
+        assessments: inTerm,
+        papers: termPapers,
+        marks,
+        attendance: null,
+        scheme: scheme ? cardSchemeOf(scheme) : null,
+        grace: graceOf(grace, student.id),
+        generatedAt,
+      }),
+    ]),
+  );
 }
 
 export type IssuedCard = {

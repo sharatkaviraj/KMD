@@ -16,7 +16,8 @@ import { Dot, ExamsTop, FactRow, LogLine, XBar, XRing, type TopAct } from "./bit
 import type { CellCounts, CellState } from "./domain/board";
 import { GROUP_KEYS, GROUP_LABELS, subjectPair, type GroupKey } from "./domain/groups";
 import { waLink } from "./domain/messages";
-import { progressLine, READINESS_LABEL, type ClassReadiness, type PaperReadiness } from "./domain/progress";
+import { supportLine, weightsLine } from "./domain/card-words";
+import { paperMix, progressLine, READINESS_LABEL, type ClassReadiness, type PaperReadiness } from "./domain/progress";
 import { RemindSheet, reminderFor, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
 import { useAct } from "./use-act";
@@ -26,7 +27,7 @@ export type ExamsView = "list" | "grid" | "cell" | "sampark" | "entry" | "report
 
 type Act<I> = (input: I) => Promise<ActionResult>;
 
-type CellView = { paperId: string; state: CellState; entered: number; total: number; late: boolean; teacher: string | null };
+type CellView = { paperId: string; state: CellState; entered: number; total: number; late: boolean; teacher: string | null; /** Saved marks the paper cannot hold. */ invalid?: number };
 
 export type ExamsProps = {
   view: ExamsView;
@@ -85,16 +86,27 @@ export type ExamsProps = {
     readiness?: PaperReadiness;
     /** Saved marks this paper cannot hold. */
     invalid?: number;
+    /** Of the children on the paper: marked absent, excused, and with nothing yet. */
+    absent?: number;
+    exempt?: number;
+    blank?: number;
     classReadiness?: ClassReadiness;
     history: { text: Pair; at: string; tone: string }[];
   } | null;
   cards: {
     term: string;
-    classes: { id: string; label: string; children: number; issued: number; locked: boolean }[];
+    /** `remarks`: children whose card has the class teacher's remark. */
+    classes: { id: string; label: string; children: number; issued: number; locked: boolean; teacher?: string | null; remarks?: number }[];
     classId: string | null;
     classTeacher?: string | null;
     subjects?: number;
-    students: { id: string; name: string; roll: string | null; issued: boolean; percent?: number | null; grade?: string | null; missing?: string[]; absent?: number }[];
+    /**
+     * The term card's own figures (`classTermCards`): the same percentage, grade and result the
+     * card prints. `shortIn`: subjects below the pass mark or missed.
+     */
+    students: { id: string; name: string; roll: string | null; issued: boolean; percent?: number | null; grade?: string | null; passed?: boolean | null; shortIn?: string[]; missing?: string[]; absent?: number; remark?: boolean }[];
+    /** This exam's papers of the class that keep its cards from being ready (`paperBlockers`). */
+    blockers?: { subject: Pair; reason: "needs_correction" | "missing" | "not_sent"; count: number }[];
   } | null;
   preview: {
     /** The school's name as receipts and parent documents print it (`schoolProfile.name`). */
@@ -116,8 +128,12 @@ export type ExamsProps = {
     percent: number | null;
     /** True when the exams' weights differ, so the percentage is not simply total ÷ out of (`totalsFor`). */
     weighted?: boolean;
+    /** Each exam's weight when they differ, printed under the percentage so a parent can check it. */
+    weights?: { name: Pair; weight: number }[];
     grade: string | null;
     passed: boolean | null;
+    /** Subjects below the pass mark after grace, or missed without being excused (`cardResult`). */
+    shortIn?: Pair[];
     attendance: number | null;
     present?: number | null;
     counted?: number | null;
@@ -211,7 +227,7 @@ export function ExamsBoard(props: ExamsProps) {
   const lateTeachers = props.teachers.filter((t) => t.late || t.notStarted);
   const notOpened = props.teachers.filter((t) => !t.link?.openedAt);
   const cardsClass = props.cards?.classes.find((c) => c.id === props.cards?.classId) ?? null;
-  const ready = props.cards ? props.cards.students.filter((s) => !(s.missing ?? []).length).length : 0;
+  const ready = props.cards ? readyCards(props.cards) : 0;
   const examCrumb = `${tx(p("Exams", "परीक्षा"))} · ${examName}`;
   let top: { crumb: string; title: string; back?: string; acts: TopAct[]; mSub?: string; mBack?: string; mActs: TopAct[] };
   switch (view) {
@@ -503,7 +519,7 @@ function HeroLink({ href, icon, label }: { href: string; icon: IconName; label: 
 /* ------------------------------------------------------------- tracker */
 
 function Tracker(props: ExamsProps & { href: Href; cellOpen: boolean; onRemind: (ids: string[] | null) => void }) {
-  const { tx } = useVx();
+  const { tx, language: lang } = useVx();
   const { exam, bands, href, cellOpen } = props;
   const [filter, setFilter] = useState<Filter>("all");
   const rows = bands.flatMap((b) => b.rows.map((r) => ({ band: b, row: r })));
@@ -514,7 +530,8 @@ function Tracker(props: ExamsProps & { href: Href; cellOpen: boolean; onRemind: 
   const parts = partsOf(c);
   const lateTeachers = props.teachers.filter((t) => t.late || t.notStarted);
   const cols = Math.max(7, ...bands.map((b) => b.subjects.length));
-  const template = `${cellOpen ? "92px" : "150px"} repeat(${cols}, minmax(0,1fr)) ${cellOpen ? "44px" : "64px"}`;
+  // A subject column never narrower than its count ("12/18") on one line; the grid scrolls sideways instead (smoke 20 Oct).
+  const template = `${cellOpen ? "92px" : "150px"} repeat(${cols}, minmax(${cellOpen ? 46 : 54}px,1fr)) ${cellOpen ? "44px" : "64px"}`;
   const chips: { v: Filter; label: Pair; n: number | null; dot: string }[] = [
     { v: "all", label: p("All", "सभी"), n: null, dot: "var(--bds)" },
     { v: "not_started", label: LOOK.not_started.label, n: c.not_started, dot: "var(--bad)" },
@@ -571,13 +588,14 @@ function Tracker(props: ExamsProps & { href: Href; cellOpen: boolean; onRemind: 
       {bands.length === 0 ? <EmptyState icon="grid" title={tx(p("No papers to show", "कोई पेपर नहीं"))} /> : null}
 
       {bands.length ? (
-        <div className="only-d card" style={{ overflow: "hidden" }}>
+        <div className="only-d card" style={{ overflowX: "auto", overflowY: "hidden" }}>
           {bands.map((band, bi) => (
-            <div key={band.key}>
+            <div key={band.key} style={{ minWidth: "fit-content" }}>
               <div style={{ display: "grid", gridTemplateColumns: template, gap: 6, alignItems: "center", minHeight: 42, padding: "0 14px", background: "var(--s2)", borderTop: bi ? "1px solid var(--bd)" : undefined }}>
                 <span className="sech clip">{tx(band.label)}</span>
                 {Array.from({ length: cols }, (_, i) => band.subjects[i]).map((s, i) => (
-                  <span key={s?.code ?? `pad-${i}`} title={s ? tx(s.name) : undefined} style={{ minWidth: 0, fontSize: 11, fontWeight: 700, lineHeight: 1.15, color: "var(--mut)", textAlign: "center", overflowWrap: "anywhere" }}>{s ? tx(s.name) : ""}</span>
+                  // Break between words, or hyphenate a long one ("Accoun-tancy"), never "Englis h" (smoke 20 Oct).
+                  <span key={s?.code ?? `pad-${i}`} lang={lang === "hi" ? "hi" : "en"} title={s ? tx(s.name) : undefined} style={{ minWidth: 0, fontSize: 11, fontWeight: 700, lineHeight: 1.15, color: "var(--mut)", textAlign: "center", overflowWrap: "normal", wordBreak: "normal", hyphens: "auto" }}>{s ? tx(s.name) : ""}</span>
                 ))}
                 <span className="sech" style={{ textAlign: "right" }}>{tx(p("Done", "पूरा"))}</span>
               </div>
@@ -650,7 +668,9 @@ function CellChip({ cell, selected, href, label, compact, dim }: { cell: CellVie
   const { tx } = useVx();
   const look = LOOK[cell.state];
   const part = cell.state === "in_progress";
-  const text = part ? `${cell.entered}/${cell.total}` : compact ? "" : tx(look.label);
+  // Marks to correct say so in the cell, so a sent paper is never read as finished (smoke 20 Oct).
+  const fix = cell.state !== "locked" && (cell.invalid ?? 0) > 0;
+  const text = fix ? tx(p(`Fix ${cell.invalid}`, `${cell.invalid} सुधारें`)) : part ? `${cell.entered}/${cell.total}` : compact ? "" : tx(look.label);
   const style: CSSProperties = {
     position: "relative",
     flex: "none",
@@ -663,8 +683,8 @@ function CellChip({ cell, selected, href, label, compact, dim }: { cell: CellVie
     padding: "0 6px",
     borderRadius: 10,
     border: `1px solid ${selected ? "var(--acc)" : look.bd}`,
-    background: look.bg,
-    color: look.fg,
+    background: fix ? "var(--bads)" : look.bg,
+    color: fix ? "var(--bad)" : look.fg,
     fontSize: 12,
     fontWeight: 700,
     overflow: "hidden",
@@ -672,10 +692,11 @@ function CellChip({ cell, selected, href, label, compact, dim }: { cell: CellVie
     boxShadow: selected ? "0 0 0 2px var(--acc)" : undefined,
   };
   return (
-    <Link href={href} className="tap" aria-label={`${label} · ${cell.teacher ?? "—"} · ${part ? `${cell.entered} of ${cell.total}` : tx(look.label)}`} style={style}>
-      {part ? null : <Ic n={look.icon} size={14} />}
+    <Link href={href} className="tap" aria-label={`${label} · ${cell.teacher ?? "—"} · ${fix ? text : part ? `${cell.entered} of ${cell.total}` : tx(look.label)}`} style={style}>
+      {fix ? <Ic n="alert" size={14} /> : part ? null : <Ic n={look.icon} size={14} />}
       {/* Two short lines rather than "Not s…" in a narrow column (coordinators U3). */}
-      {text ? <span className="num" style={{ minWidth: 0, fontSize: part ? 12 : 11, lineHeight: 1.1, textAlign: "center", overflowWrap: "anywhere" }}>{text}</span> : null}
+      {/* A count stays on one line: "9/1 8" read like 9/1 (smoke 20 Oct). */}
+      {text ? <span className="num" style={{ minWidth: 0, fontSize: part ? 12 : 11, lineHeight: 1.1, textAlign: "center", ...(part || fix ? { whiteSpace: "nowrap" } : { overflowWrap: "normal", hyphens: "auto" }) }}>{text}</span> : null}
       {part ? <span aria-hidden="true" style={{ position: "absolute", left: 0, bottom: 0, height: 3, width: `${pctOf(cell.entered, cell.total)}%`, background: "currentColor", opacity: 0.5 }} /> : null}
     </Link>
   );
@@ -727,6 +748,12 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
                 {cell.teacherName ?? tx(p("No teacher set", "शिक्षक तय नहीं"))} · {tx(p("out of", "पूर्णांक"))} {cell.maxMarks}
               </span>
               <span className="num" style={{ fontSize: 15, fontWeight: 700, marginTop: 4 }}>{tx(p(`${cell.entered} of ${cell.total} entered`, `${cell.total} में से ${cell.entered} भरे`))}</span>
+              {cell.absent !== undefined ? (
+                // What the entered count is made of, so a paper can be checked at a glance (smoke 20 Oct).
+                <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>
+                  {tx(paperMix({ marks: cell.entered - (cell.absent ?? 0) - (cell.exempt ?? 0), absent: cell.absent ?? 0, exempt: cell.exempt ?? 0, blank: cell.blank ?? 0 }))}
+                </span>
+              ) : null}
             </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--bd)" }}>
@@ -779,7 +806,13 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
         </div>
         <div className="card" style={{ display: "flex", flexDirection: "column", padding: "14px 16px" }}>
           <span className="sech" style={{ marginBottom: 8 }}>{tx(p("History", "इतिहास"))}</span>
-          {cell.history.length === 0 ? <span style={{ fontSize: 13, color: "var(--mut)", padding: "6px 0" }}>{tx(p("Nothing yet.", "अभी कुछ नहीं।"))}</span> : null}
+          {cell.history.length === 0 ? (
+            <span style={{ fontSize: 13, color: "var(--mut)", padding: "6px 0" }}>
+              {cell.entered > 0
+                ? tx(p(`Not sent yet · ${cell.entered} marks saved so far.`, `अभी भेजे नहीं · अब तक ${cell.entered} अंक सहेजे।`))
+                : tx(p("Nothing yet.", "अभी कुछ नहीं।"))}
+            </span>
+          ) : null}
           {cell.history.map((h, i) => (
             <LogLine key={i} dot={h.tone} text={tx(h.text)} time={tx(when(h.at))} />
           ))}
@@ -950,6 +983,56 @@ function Sampark(props: ExamsProps) {
 
 /* ------------------------------------------------------------- report cards */
 
+/**
+ * Cards ready to issue: none while a paper of the class is unsent, has a blank or a mark to
+ * correct (`paperBlockers`), and otherwise the children whose card has no blank.
+ */
+function readyCards(cards: NonNullable<ExamsProps["cards"]>): number {
+  if ((cards.blockers ?? []).length) return 0;
+  return cards.students.filter((s) => !(s.missing ?? []).length).length;
+}
+
+const BLOCKER_TEXT = (b: { subject: Pair; reason: "needs_correction" | "missing" | "not_sent"; count: number }): Pair =>
+  b.reason === "needs_correction"
+    ? p(`${b.subject.en}: ${b.count} ${b.count === 1 ? "mark needs" : "marks need"} correction`, `${b.subject.hi ?? b.subject.en}: ${b.count} अंक सुधारने हैं`)
+    : b.reason === "missing"
+      ? p(`${b.subject.en}: ${b.count} ${b.count === 1 ? "child has" : "children have"} no mark`, `${b.subject.hi ?? b.subject.en}: ${b.count} बच्चों के अंक नहीं`)
+      : p(`${b.subject.en}: not sent yet`, `${b.subject.hi ?? b.subject.en}: अभी भेजा नहीं`);
+
+/** The exam coordinator's look across classes: whose cards still have no class-teacher remark. */
+function RemarksOverview({ classes }: { classes: NonNullable<ExamsProps["cards"]>["classes"] }) {
+  const { tx } = useVx();
+  const short = classes.filter((c) => c.remarks !== undefined && c.children > 0 && c.remarks < c.children);
+  if (!classes.some((c) => c.remarks !== undefined)) return null;
+  return (
+    <details className="card" style={{ padding: "12px 16px" }}>
+      <summary className="tap" style={{ cursor: "pointer", fontWeight: 700, minHeight: 44, display: "flex", alignItems: "center", gap: 8 }}>
+        <Ic n="notePen" />
+        {short.length
+          ? tx(p(`Class teacher's remarks · ${short.length} ${short.length === 1 ? "class has" : "classes have"} cards without one`, `कक्षा अध्यापक की टिप्पणी · ${short.length} कक्षाओं के कुछ कार्ड बिना टिप्पणी`))
+          : tx(p("Class teacher's remarks · every card has one", "कक्षा अध्यापक की टिप्पणी · हर कार्ड पर है"))}
+      </summary>
+      <div style={{ display: "flex", flexDirection: "column", marginTop: 6 }}>
+        {classes.filter((c) => c.children > 0).map((c) => {
+          const done = c.remarks ?? 0;
+          const left = c.children - done;
+          return (
+            <div key={c.id} className="xd" style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 40, padding: "4px 0" }}>
+              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <span className="clip" style={{ fontWeight: 600 }}>{c.label}</span>
+                <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{c.teacher ?? tx(p("No class teacher set", "कक्षा अध्यापक तय नहीं"))}</span>
+              </span>
+              <span className="num" style={{ fontSize: 13, fontWeight: 700, color: left ? "var(--warnfg)" : "var(--ok)" }}>
+                {left ? tx(p(`${left} without a remark · ${done} of ${c.children} written`, `${left} बिना टिप्पणी · ${c.children} में से ${done} लिखी`)) : tx(p(`All ${c.children} written`, `सभी ${c.children} लिखी`))}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
 function ReportCards(props: ExamsProps & { href: Href }) {
   const { tx } = useVx();
   const { pending, run } = useAct();
@@ -962,12 +1045,15 @@ function ReportCards(props: ExamsProps & { href: Href }) {
     const states = Object.values(rowOf.get(classId)?.cells ?? {}).map((x) => x.state);
     return states.includes("not_started") ? "var(--bad)" : states.includes("in_progress") ? "var(--c3)" : "var(--ok)";
   };
-  const ready = cards.students.filter((s) => !(s.missing ?? []).length).length;
-  const missing = cards.students.length - ready;
+  const ready = readyCards(cards);
+  const blockers = cards.blockers ?? [];
+  const missing = cards.students.filter((s) => (s.missing ?? []).length).length;
   const allIssued = klass ? klass.issued > 0 && klass.issued >= klass.children : false;
   const printHref = klass ? `/exams/report-card?class=${klass.id}&term=${encodeURIComponent(cards.term)}` : "#";
+  const hasRoll = cards.students.some((s) => s.roll);
   return (
     <div className="pad" style={{ padding: "16px 28px 40px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <RemarksOverview classes={cards.classes} />
       <div className="hs" role="group" aria-label={tx(p("Class", "कक्षा"))} style={{ display: "flex", gap: 6 }}>
         {cards.classes.map((c) => (
           <Link key={c.id} href={href("reportcards", `&class=${c.id}`)} className={`tap chip${c.id === cards.classId ? " on" : ""}`} aria-pressed={c.id === cards.classId}>
@@ -1030,6 +1116,12 @@ function ReportCards(props: ExamsProps & { href: Href }) {
       ) : (
         <EmptyState icon="file" title={tx(p("No classes in this exam", "इस परीक्षा में कोई कक्षा नहीं"))} />
       )}
+      {klass && blockers.length ? (
+        <Banner tone="warn">
+          {tx(p(`${klass.label}'s cards are not ready until these papers are finished:`, `${klass.label} के कार्ड तभी तैयार होंगे जब ये पेपर पूरे हों:`))}{" "}
+          {blockers.map((b) => tx(BLOCKER_TEXT(b))).join(" · ")}
+        </Banner>
+      ) : null}
       {cards.students.length ? (
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "12px 16px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
@@ -1039,15 +1131,24 @@ function ReportCards(props: ExamsProps & { href: Href }) {
           <div>
             {cards.students.map((s) => {
               const miss = s.missing ?? [];
-              const status = s.issued ? { t: p("Issued", "जारी"), bg: "var(--oks)", fg: "var(--ok)" } : miss.length ? { t: p(`Missing ${miss.length} ${miss.length === 1 ? "subject" : "subjects"}`, `${miss.length} विषय बाकी`), bg: "var(--warns)", fg: "var(--warnfg)" } : { t: p("Ready", "तैयार"), bg: "var(--oks)", fg: "var(--ok)" };
+              const status = s.issued
+                ? { t: p("Issued", "जारी"), bg: "var(--oks)", fg: "var(--ok)" }
+                : miss.length
+                  ? { t: p(`Missing ${miss.length} ${miss.length === 1 ? "subject" : "subjects"}`, `${miss.length} विषय बाकी`), bg: "var(--warns)", fg: "var(--warnfg)" }
+                  : blockers.length
+                    ? { t: p("Waiting for papers", "पेपर पूरे होने बाकी"), bg: "var(--warns)", fg: "var(--warnfg)" }
+                    : { t: p("Ready", "तैयार"), bg: "var(--oks)", fg: "var(--ok)" };
+              const names = (codes: string[]) => codes.map((m) => tx(subjectPair(m))).join(", ");
+              // The term card's own percentage, grade and result (`classTermCards`), so it matches the card.
               const sub = miss.length
-                ? `${tx(p("Missing", "बाकी"))} ${miss.map((m) => subjectPair(m).en).join(", ")}`
+                ? `${tx(p("Missing", "बाकी"))} ${names(miss)}`
                 : s.percent !== null && s.percent !== undefined
-                  ? `${s.percent.toFixed(1)}%${s.grade ? ` · ${s.grade}` : ""}${s.absent ? ` · ${tx(p(`absent in ${s.absent}`, `${s.absent} में अनुपस्थित`))}` : ""}`
+                  ? `${s.percent.toFixed(1)}%${s.grade ? ` · ${s.grade}` : ""}${s.absent ? ` · ${tx(p(`absent in ${s.absent}`, `${s.absent} में अनुपस्थित`))}` : ""}${s.passed === false && (s.shortIn ?? []).length ? ` · ${tx(p(`needs support in ${names(s.shortIn ?? [])}`, `${names(s.shortIn ?? [])} में सहायता चाहिए`))}` : ""}${s.remark === false ? ` · ${tx(p("no remark yet", "टिप्पणी बाकी"))}` : ""}`
                   : "—";
               return (
                 <Link key={s.id} href={href("preview", `&class=${cards.classId}&student=${s.id}`)} className="tap row xd" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", minHeight: 58, padding: "8px 16px", color: "var(--fg)" }}>
-                  <span className="num" style={{ width: 22, flex: "none", fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{s.roll ?? "—"}</span>
+                  {/* No roll numbers set for the class: no column of dashes (smoke 20 Oct). */}
+                  {hasRoll ? <span className="num" style={{ width: 22, flex: "none", fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{s.roll ?? "—"}</span> : null}
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                     <span className="clip" style={{ fontWeight: 600 }}>{s.name}</span>
                     <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{sub}</span>
@@ -1097,12 +1198,12 @@ const CARD = {
   remark: "कक्षा अध्यापक की टिप्पणी · Class teacher’s remark",
   pass: "Pass · उत्तीर्ण",
   support: "Needs support · पूरक कक्षाएँ",
-  pending: "Pending · marks still coming",
+  pending: "Marks still coming · अंक आने बाकी",
   classTeacher: "कक्षा अध्यापक · Class teacher",
   coordinator: "परीक्षा प्रभारी · Exam coordinator",
   principal: "प्रधानाचार्य · Principal",
-  notEntered: "Not entered",
-  absent: "Absent",
+  notEntered: "Not entered · नहीं भरे",
+  absent: "Absent · अनुपस्थित",
 } as const;
 
 function Preview(props: ExamsProps & { href: Href }) {
@@ -1118,7 +1219,16 @@ function Preview(props: ExamsProps & { href: Href }) {
   const go = (id: string | null) => (id ? href("preview", `&class=${cards?.classId ?? ""}&student=${id}`) : undefined);
   const [en, hi] = (c.remark ?? "").split("\n");
   const pending = c.rows.some((r) => r.state === "missing");
-  const result = pending ? { t: CARD.pending, c: "var(--warnfg)" } : c.passed === null ? null : c.passed ? { t: CARD.pass, c: "var(--ok)" } : { t: CARD.support, c: "var(--bad)" };
+  // A failed or missed paper decides it even while another mark is still coming (`cardResult`).
+  const result =
+    c.passed === false
+      ? { t: supportLine(c.shortIn ?? []), c: "var(--bad)" }
+      : pending
+        ? { t: CARD.pending, c: "var(--warnfg)" }
+        : c.passed === null
+          ? null
+          : { t: CARD.pass, c: "var(--ok)" };
+  const weights = weightsLine(c.weights ?? []);
   const tiles = [
     { k: c.weighted ? `${CARD.percent} · ${CARD.weighted}` : CARD.percent, v: c.percent === null ? "—" : `${c.percent.toFixed(1)}%`, c: "var(--fg)" },
     ...(result ? [{ k: CARD.result, v: result.t, c: result.c }] : []),
@@ -1149,7 +1259,7 @@ function Preview(props: ExamsProps & { href: Href }) {
       </div>
       {!c.issued ? (
         <div style={{ width: "100%", maxWidth: 760, margin: "0 auto" }}>
-          <Banner tone="warn">{tx(p("Draft — this card has not been issued. It shows the marks as they stand today.", "ड्राफ्ट — यह कार्ड जारी नहीं हुआ। आज के अंक दिखाता है।"))}</Banner>
+          <Banner tone="warn">{tx(p("Not issued yet — this card shows the marks as they stand today.", "अभी जारी नहीं — यह कार्ड आज तक के अंक दिखाता है।"))}</Banner>
         </div>
       ) : null}
       <article className="card pad" style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%", maxWidth: 760, margin: "0 auto", padding: "30px 36px", borderRadius: 10 }}>
@@ -1223,6 +1333,7 @@ function Preview(props: ExamsProps & { href: Href }) {
             </div>
           ))}
         </div>
+        {weights ? <span style={{ fontSize: 11, color: "var(--mut)", marginTop: -8 }}>{weights}</span> : null}
         {c.remark ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, borderRadius: 10, padding: "12px 14px", border: "1.5px dashed var(--bds)" }}>
             <span lang="hi" style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{CARD.remark}</span>

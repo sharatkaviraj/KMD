@@ -41,6 +41,10 @@ export type PaperFacts = {
   entered: number;
   /** Saved marks this paper cannot hold — counted in `entered`, and they block "Ready to lock". */
   invalid?: number;
+  /** Of `entered`: marked absent, excused, and (outside it) children with nothing yet. */
+  absent?: number;
+  exempt?: number;
+  blank?: number;
   markStep?: number;
   entryStatus: "open" | "submitted";
   entryRevision: number;
@@ -50,9 +54,22 @@ export type PaperFacts = {
 
 export type PaperStatus = "done" | "in_progress" | "not_started" | "empty";
 
-export function paperStatus(p: Pick<PaperFacts, "total" | "entered" | "entryStatus">): PaperStatus {
-  if (p.entryStatus === "submitted") return "done";
+/**
+ * Whether a paper is truly finished: sent, every child on its roll marked,
+ * and no mark the paper cannot hold. **Never Done over blanks or invalid
+ * marks** (smoke 20 Oct: the tracker ticked Class 9 Science while Check marks
+ * said two marks needed correction) — the marks stream's rule, kept here so
+ * the tracker, the teacher's lists and the results pipeline share it.
+ */
+export function isPaperComplete(p: Pick<PaperFacts, "total" | "entered" | "entryStatus" | "invalid">): boolean {
+  return p.entryStatus === "submitted" && p.entered >= p.total && (p.invalid ?? 0) === 0;
+}
+
+export function paperStatus(p: Pick<PaperFacts, "total" | "entered" | "entryStatus" | "invalid">): PaperStatus {
+  if (isPaperComplete(p)) return "done";
   if (p.total === 0) return "empty";
+  // Sent with a blank or a mark to correct: still being worked on, not Done.
+  if (p.entryStatus === "submitted") return "in_progress";
   if (p.entered === 0) return "not_started";
   return "in_progress";
 }
@@ -133,7 +150,7 @@ export function teacherLoads(papers: PaperFacts[], expected: number): TeacherLoa
     );
 }
 
-export function overall(papers: Pick<PaperFacts, "total" | "entered" | "entryStatus">[]): {
+export function overall(papers: Pick<PaperFacts, "total" | "entered" | "entryStatus" | "invalid">[]): {
   entered: number;
   total: number;
   percent: number;
@@ -146,7 +163,7 @@ export function overall(papers: Pick<PaperFacts, "total" | "entered" | "entrySta
   for (const p of papers) {
     entered += Math.min(p.entered, p.total);
     total += p.total;
-    if (p.entryStatus === "submitted") done += 1;
+    if (isPaperComplete(p)) done += 1;
   }
   return { entered, total, percent: total === 0 ? 0 : Math.round((entered / total) * 100), done, papers: papers.length };
 }

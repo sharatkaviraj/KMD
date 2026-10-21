@@ -3,7 +3,7 @@ import "server-only";
 import * as React from "react";
 import { Document, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
 
-import { markIn, reportColumns, type ReportCard } from "@/modules/assessments/domain/report-card";
+import { cardWeights, markIn, reportColumns, type ReportCard } from "@/modules/assessments/domain/report-card";
 import { ensurePdfFontsRegistered, HI_FONT, loadLogoImage, loadSignatureImage, ParentDocumentLetterhead, pdfTokens, sharedStyles, SignatureBlock, type PdfImage } from "@/platform/pdf/document-kit";
 
 import { subjectPair } from "./domain/groups";
@@ -55,11 +55,22 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
   const exams = reportColumns(card.rows).map((c) => ({ code: c.assessmentCode, en: c.assessmentLabelEn, hi: c.assessmentLabelHi, max: c.maxMarks }));
   const graceTotal = Object.values(entry.grace).reduce((a, b) => a + b, 0);
   const [remarkEn, remarkHi] = (entry.remark ?? "").split("\n");
+  // Which subjects a child needs support in (`cardResult`): a bare "Needs support" told a parent nothing.
+  const short = [...new Set([...(card.shortIn ?? []), ...(card.absentIn ?? [])])].map(subjectPair);
+  const result = short.length
+    ? { en: `Needs support in ${short.map((x) => x.en).join(", ")}`, hi: `${short.map((x) => x.hi ?? x.en).join(", ")} में सहायता चाहिए` }
+    : { en: "Needs support", hi: "पूरक कक्षाएँ" };
+  const weighted = cardWeights(card);
+  const weights = weighted.length
+    ? { en: `Each exam's marks count: ${weighted.map((w) => `${w.en} ×${w.weight}`).join(", ")}`, hi: `हर परीक्षा का भार: ${weighted.map((w) => `${w.hi || w.en} ×${w.weight}`).join(", ")}` }
+    : { en: "", hi: "" };
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ParentDocumentLetterhead docTitleEn={title.en.toUpperCase()} docTitleHi={title.hi} logo={logo} />
       {!entry.issued ? (
-        <Text style={{ marginTop: 6, textAlign: "center", color: pdfTokens.warning, fontFamily: "Helvetica-Bold" }}>DRAFT — marks may still change · प्रारूप</Text>
+        <Text style={{ marginTop: 6, textAlign: "center", color: pdfTokens.warning, fontFamily: "Helvetica-Bold" }}>
+          NOT ISSUED YET — marks may still change <Text style={{ fontFamily: HI_FONT }}>· अभी जारी नहीं, अंक बदल सकते हैं</Text>
+        </Text>
       ) : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 12 }}>
         <Fact en="Student" hi="छात्र" value={card.studentName} />
@@ -129,11 +140,16 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
           <Text style={s.labelHi}>प्रतिशत / Percentage</Text>
           <Text style={s.value}>
             {card.totals.percent === null ? "—" : `${card.totals.percent}%`}
-            {card.passed === null ? "" : card.passed ? " · Pass" : " · Needs support"}
+            {card.passed === null ? "" : card.passed ? " · Pass" : ` · ${result.en}`}
           </Text>
+          {card.passed === false && result.hi ? <Text style={s.cellHi}>{result.hi}</Text> : card.passed ? <Text style={s.cellHi}>उत्तीर्ण</Text> : null}
           {card.gradeDescription ? <Text style={s.cellHi}>{card.gradeDescription.hi}</Text> : null}
-          {/* The exams count differently, so the percentage is not the total divided by the maximum: say so. */}
-          {card.totals.weighted ? <Text style={s.labelHi}>परीक्षा के भार से <Text style={s.label}>/ Weighted by exam</Text></Text> : null}
+          {/* The exams count differently, so the percentage is not the total divided by the maximum: say by how much. */}
+          {weights.en ? (
+            <Text style={s.label}>
+              {weights.en} <Text style={s.labelHi}>/ {weights.hi}</Text>
+            </Text>
+          ) : null}
         </View>
         <View style={{ flex: 1, backgroundColor: pdfTokens.panel, padding: 8 }}>
           <Text style={s.labelHi}>उपस्थिति / Attendance</Text>
