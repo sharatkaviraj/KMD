@@ -119,6 +119,144 @@ function schoolParts(value: string | Date): { weekday: string; day: number; mont
   return { weekday: WEEKDAYS[get("weekday")] ?? get("weekday"), day: Number(get("day")), month: MONTHS[Number(get("month")) - 1] ?? "", year: Number(get("year")) };
 }
 
+/* ------------------------------------------------------------ in Hindi */
+
+/*
+ * Days and times for a Hindi reader (smoke 20 Oct, dev.groups[10]): a
+ * Hindi-only teacher saw "Mon 19 Oct" and "10:59 pm बजे". Hindi month and
+ * weekday names, and the part of the day in front of the time — "रात 10:59",
+ * "सुबह 8:52 बजे" — never "am"/"pm". Each has a pair form (`…P`) for `tx()`,
+ * which is what a screen should use: the reader's language picks the line.
+ */
+
+const HI_MONTHS = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"];
+const HI_WEEKDAYS = ["रविवार", "सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार"];
+const HI_WEEKDAYS_SHORT = ["रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"];
+const HI_WEEKDAY_LETTERS = ["र", "सो", "मं", "बु", "गु", "शु", "श"];
+const EN_WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const EN_WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+const EN_MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** The day in the school's time zone as indices: weekday 0 = Sunday, month 0 = January. */
+function schoolIndex(value: string | Date): { weekday: number; day: number; month: number; year: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "numeric", year: "numeric" }).formatToParts(asDate(value));
+  const get = (type: string) => parts.find((x) => x.type === type)?.value ?? "";
+  return { weekday: Math.max(0, EN_WEEKDAYS_SHORT.indexOf(get("weekday"))), day: Number(get("day")), month: Number(get("month")) - 1, year: Number(get("year")) };
+}
+
+/** "सोम 19 अक्टूबर". */
+export function shortDayHi(value: string | Date): string {
+  const d = schoolIndex(value);
+  return `${HI_WEEKDAYS_SHORT[d.weekday]} ${d.day} ${HI_MONTHS[d.month]}`;
+}
+
+/** "सोमवार, 19 अक्टूबर". */
+export function longDayHi(value: string | Date): string {
+  const d = schoolIndex(value);
+  return `${HI_WEEKDAYS[d.weekday]}, ${d.day} ${HI_MONTHS[d.month]}`;
+}
+
+/** "19 अक्टूबर". */
+export function dayMonthHi(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = schoolIndex(value);
+  return `${d.day} ${HI_MONTHS[d.month]}`;
+}
+
+/** "19 अक्टूबर 2026". */
+export function dateLabelHi(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = schoolIndex(value);
+  return `${d.day} ${HI_MONTHS[d.month]} ${d.year}`;
+}
+
+/** The part of the day a Hindi speaker puts before the time. */
+export function dayPeriodHi(hour24: number): string {
+  if (hour24 < 4) return "रात";
+  if (hour24 < 12) return "सुबह";
+  if (hour24 < 16) return "दोपहर";
+  if (hour24 < 20) return "शाम";
+  return "रात";
+}
+
+/** Hours and minutes of a bell time "13:30" or of an instant, on the school's clock. */
+function hourMinute(value: string | Date): { h: number; m: number } | null {
+  if (typeof value === "string") {
+    const bell = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
+    if (bell) return { h: Number(bell[1]), m: Number(bell[2]) };
+  }
+  const d = asDate(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d);
+  const h = Number(parts.find((x) => x.type === "hour")?.value) % 24;
+  const m = Number(parts.find((x) => x.type === "minute")?.value);
+  return Number.isFinite(h) && Number.isFinite(m) ? { h, m } : null;
+}
+
+const h12 = (h: number) => (h % 12 === 0 ? 12 : h % 12);
+const mm = (m: number) => String(m).padStart(2, "0");
+
+/** "8:52 am" — a bell time "08:52" or an instant. */
+export function timeEn(value: string | Date): string {
+  const t = hourMinute(value);
+  return t ? `${h12(t.h)}:${mm(t.m)} ${t.h < 12 ? "am" : "pm"}` : String(value);
+}
+
+/** "सुबह 8:52", "दोपहर 1:30", "रात 10:59" — a bell time "22:59" or an instant. */
+export function timeHi(value: string | Date): string {
+  const t = hourMinute(value);
+  return t ? `${dayPeriodHi(t.h)} ${h12(t.h)}:${mm(t.m)}` : String(value);
+}
+
+/** A time inside a sentence: "at 8:52 am" / "सुबह 8:52 बजे" (बजे after the time, never after "pm"). */
+export function atTimeP(value: string | Date): { en: string; hi: string } {
+  return { en: `at ${timeEn(value)}`, hi: `${timeHi(value)} बजे` };
+}
+
+/** "8:52 am" / "सुबह 8:52". */
+export function timeP(value: string | Date): { en: string; hi: string } {
+  return { en: timeEn(value), hi: timeHi(value) };
+}
+
+/** "Mon 19 Oct" / "सोम 19 अक्टूबर". */
+export function shortDayP(value: string | Date): { en: string; hi: string } {
+  return { en: shortDay(value), hi: shortDayHi(value) };
+}
+
+/** "Monday, 19 October" / "सोमवार, 19 अक्टूबर". */
+export function longDayP(value: string | Date): { en: string; hi: string } {
+  return { en: longDay(value), hi: longDayHi(value) };
+}
+
+/** "19 Oct" / "19 अक्टूबर". */
+export function dayMonthP(value: string | Date | null | undefined): { en: string; hi: string } {
+  return { en: dayMonth(value), hi: dayMonthHi(value) };
+}
+
+/** "19 Oct 2026" / "19 अक्टूबर 2026". */
+export function dateLabelP(value: string | Date | null | undefined): { en: string; hi: string } {
+  return { en: dateLabel(value), hi: dateLabelHi(value) };
+}
+
+/** "October" / "अक्टूबर" (a date, or a "2026-10" month). */
+export function monthP(value: string | Date): { en: string; hi: string } {
+  const v = typeof value === "string" && /^\d{4}-\d{2}$/.test(value) ? `${value}-15` : value;
+  const d = schoolIndex(v);
+  return { en: EN_MONTHS_LONG[d.month], hi: HI_MONTHS[d.month] };
+}
+
+/** "Mon" / "सोम". */
+export function weekdayP(value: string | Date): { en: string; hi: string } {
+  const d = schoolIndex(value);
+  return { en: EN_WEEKDAYS_SHORT[d.weekday], hi: HI_WEEKDAYS_SHORT[d.weekday] };
+}
+
+/** One letter for a calendar column: "M" / "सो". */
+export function weekdayLetterP(value: string | Date): { en: string; hi: string } {
+  const d = schoolIndex(value);
+  return { en: EN_WEEKDAY_LETTERS[d.weekday], hi: HI_WEEKDAY_LETTERS[d.weekday] };
+}
+
 /** "8 Oct 2026". */
 export function dateLabel(value: string | Date | null | undefined): string {
   if (!value) return "—";
@@ -170,13 +308,17 @@ export function agoP(value: string | Date, now: Date = new Date()): { en: string
   if (s < 3600) return { en: `${Math.round(s / 60)} min ago`, hi: `${Math.round(s / 60)} मिनट पहले` };
   if (s < 86_400) return { en: `${Math.round(s / 3600)} h ago`, hi: `${Math.round(s / 3600)} घंटे पहले` };
   if (s < 2 * 86_400) return { en: "yesterday", hi: "कल" };
-  const day = dayMonth(d);
-  return { en: day, hi: day };
+  return { en: dayMonth(d), hi: dayMonthHi(d) };
 }
 
-/** "12 of 27". */
+/** "12 of 27". In a sentence a reader sees, use `countOfP` (or `outOf` in `@/vx/text`). */
 export function countOf(part: number, whole: number): string {
   return `${part} of ${whole}`;
+}
+
+/** "12 of 27" / "27 में से 12" — Hindi puts the whole first. */
+export function countOfP(part: number, whole: number): { en: string; hi: string } {
+  return { en: `${part} of ${whole}`, hi: `${whole} में से ${part}` };
 }
 
 export function pct(part: number, whole: number): number {
