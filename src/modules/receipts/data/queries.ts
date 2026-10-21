@@ -23,6 +23,7 @@ import {
 } from "@/modules/receipts/data/reversals";
 import { resolveReceiptSessionLabel } from "@/modules/receipts/domain/session-label";
 import { feesOwedAfter, receiptMoneyInSession } from "@/modules/receipts/domain/outstanding";
+import { balanceStatusOn, type BalanceStatus } from "@/modules/fees/domain/due-rule";
 import { buildTransportRouteLabel } from "@/modules/fees/domain/label";
 import type {
   ConventionalDiscountAssignmentSummary,
@@ -282,6 +283,7 @@ function normalizeBalanceStatus(
  */
 function buildInstallmentStatus(
   rows: WorkbookInstallmentBalanceRow[],
+  today: string = schoolTodayIso(),
 ): ReceiptInstallmentStatusItem[] {
   const byInstallment = new Map<number, WorkbookInstallmentBalanceRow>();
 
@@ -319,7 +321,19 @@ function buildInstallmentStatus(
         paid: feeSettled,
         pending: basePending,
         lateFee: row.final_late_fee ?? 0,
-        status: normalizeBalanceStatus(row.balance_status, basePending),
+        // Decided for today, not the view's last refresh (fees/domain/due-rule.ts).
+        status: normalizeBalanceStatus(
+          balanceStatusOn(
+            {
+              balanceStatus: (row.balance_status as BalanceStatus) ?? "pending",
+              dueDate: row.due_date,
+              pendingAmount: basePending,
+              feeSettledAmount: feeSettled,
+            },
+            today,
+          ),
+          basePending,
+        ),
       };
     })
     .sort((left, right) => left.installmentNo - right.installmentNo);
