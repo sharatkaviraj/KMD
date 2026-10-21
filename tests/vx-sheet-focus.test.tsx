@@ -17,7 +17,7 @@ let host: HTMLDivElement;
 let layer: HTMLDivElement;
 
 /** A page like attend.tsx: the note lives in the parent and onClose is inline. */
-function Page({ onCloseSpy }: { onCloseSpy?: () => void }) {
+function Page({ onCloseSpy, backCloses }: { onCloseSpy?: () => void; backCloses?: boolean }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [whatsapp, setWhatsapp] = useState(false);
@@ -33,6 +33,7 @@ function Page({ onCloseSpy }: { onCloseSpy?: () => void }) {
           setOpen(false);
         }}
         title="Change"
+        backCloses={backCloses}
       >
         <button id="switch" type="button" role="switch" aria-checked={whatsapp} onClick={() => setWhatsapp((v) => !v)}>WhatsApp</button>
         <textarea id="why" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -71,8 +72,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function open(onCloseSpy?: () => void) {
-  act(() => root.render(<Page onCloseSpy={onCloseSpy} />));
+function open(onCloseSpy?: () => void, backCloses?: boolean) {
+  act(() => root.render(<Page onCloseSpy={onCloseSpy} backCloses={backCloses} />));
   act(() => document.querySelector<HTMLButtonElement>("#trigger")!.click());
   act(() => vi.advanceTimersByTime(100));
 }
@@ -103,5 +104,30 @@ describe("vx Sheet focus", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     act(() => vi.advanceTimersByTime(300));
     expect(document.querySelector("[role=dialog]")).toBeNull();
+  });
+
+  it("closes on the phone Back button when asked, and keeps history balanced", () => {
+    const spy = vi.fn();
+    open(spy, true);
+    expect((window.history.state as Record<string, unknown>).__vxSheet).toBeTruthy();
+    act(() => window.dispatchEvent(new PopStateEvent("popstate", { state: null })));
+    expect(spy).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(300));
+    expect(document.querySelector("[role=dialog]")).toBeNull();
+  });
+
+  it("pops its own history entry when closed another way", () => {
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
+    open(undefined, true);
+    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(back).toHaveBeenCalledTimes(1);
+    back.mockRestore();
+  });
+
+  it("leaves history alone by default", () => {
+    const push = vi.spyOn(window.history, "pushState");
+    open();
+    expect(push).not.toHaveBeenCalled();
+    push.mockRestore();
   });
 });

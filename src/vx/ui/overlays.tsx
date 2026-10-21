@@ -36,6 +36,9 @@ const SAY = {
 
 const noSubscribe = () => () => {};
 
+const SHEET_MARK = "__vxSheet";
+let sheetHistorySeq = 0;
+
 function useLayer(): HTMLElement | null {
   return useSyncExternalStore(
     noSubscribe,
@@ -55,6 +58,7 @@ export function Sheet({
   icon,
   label,
   dismissable = true,
+  backCloses = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -66,6 +70,14 @@ export function Sheet({
   icon?: IconName;
   label?: string;
   dismissable?: boolean;
+  /**
+   * The phone's Back button closes the sheet instead of leaving the page
+   * (smoke 20 Oct: Back on the attendance save sheet jumped to Today). Opt-in
+   * per sheet: a sheet whose state also lives in the URL (`useUrlState`) must
+   * be checked in a browser before it turns this on. The approach is the fee
+   * kit's (src/ui/primitives/sheet.tsx): a marker history entry while open.
+   */
+  backCloses?: boolean;
 }) {
   const layer = useLayer();
   const { tx } = useVx();
@@ -114,6 +126,31 @@ export function Sheet({
   useEffect(() => {
     closeRef.current = onClose;
   });
+
+  // Back closes the sheet: push a marker entry on open; a popstate that
+  // leaves it closes the sheet. Closing any other way pops our own entry, so
+  // history stays balanced and Back is never dead for a press.
+  const pushed = useRef(false);
+  useEffect(() => {
+    if (!open || !backCloses) return undefined;
+    sheetHistorySeq += 1;
+    const id = sheetHistorySeq;
+    window.history.pushState({ ...(window.history.state ?? {}), [SHEET_MARK]: id }, "");
+    pushed.current = true;
+    const onPop = (e: PopStateEvent) => {
+      if ((e.state as Record<string, unknown> | null)?.[SHEET_MARK] === id) return;
+      pushed.current = false;
+      closeRef.current();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (pushed.current) {
+        pushed.current = false;
+        window.history.back();
+      }
+    };
+  }, [open, backCloses]);
 
   // Focus moves into the sheet once, when it opens, and never while focus is
   // already inside it.
