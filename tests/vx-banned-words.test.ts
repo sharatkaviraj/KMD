@@ -52,8 +52,6 @@ const ALLOWED: Record<string, number> = {
   "src/vx/screens/family-contact/ui.tsx|प्रविष्टि": 1,
   "src/vx/screens/fee-setup/words.ts|ड्राफ़्ट": 1,
   "src/vx/screens/messages/outbox.tsx|पुष्टि": 2,
-  "src/vx/screens/notes/ui/compose.tsx|ड्राफ़्ट": 3,
-  "src/vx/screens/notes/ui/compose.tsx|पुष्टि": 1,
   "src/vx/screens/payments/words.ts|प्रविष्टि": 4,
   "src/vx/screens/receipts/words.ts|प्रविष्टि": 2,
   "src/vx/screens/staff/staff-screen.tsx|प्रविष्टि": 1,

@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
+import { shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
@@ -14,7 +15,10 @@ import { undoNoteAction } from "../actions";
 import type { SupportPlan } from "../data";
 import {
   boardKpis,
+  countP,
   filterBoard,
+  noteSubject,
+  knownPair,
   isSensitiveNote,
   monthInsight,
   monthStats,
@@ -30,7 +34,7 @@ import {
 } from "../domain/notes";
 import { BoardCompose, useComposer } from "./compose";
 import { BoardNoteAside } from "./detail";
-import { BOARD_TAG, day, followSoon, HelpSteps, ini, MIX_COLOR, NotesTop, noteWhen, ownerRoleText, relationText, replaceParams, Seg, StagePill, useBoth, type HelpStep } from "./look";
+import { BOARD_TAG, day, followSoon, HelpSteps, ini, MIX_COLOR, NotesTop, noteWhen, relationText, replaceParams, Seg, StagePill, useBoth, useNoteWords, type HelpStep } from "./look";
 import { BoardPlan } from "./plan";
 import type { NotesProps } from "./workspace";
 
@@ -44,7 +48,7 @@ import type { NotesProps } from "./workspace";
 const HELP: Record<"board" | "student" | "add" | "plan", HelpStep[]> = {
   board: [
     { icon: "list", title: p("Pick a note", "नोट चुनें"), body: p("Read it and the replies.", "उसे और जवाब पढ़ें।") },
-    { icon: "users", title: p("Give it to someone", "किसी को सौंपें"), body: p("Change the status or who follows up.", "स्थिति या फ़ॉलो-अप करने वाले को बदलें।") },
+    { icon: "users", title: p("Give it to someone", "किसी को सौंपें"), body: p("Change the status or who follows up.", "स्थिति बदलें, या कौन फिर से देखेगा।") },
     { icon: "layers", title: p("Make a plan", "योजना बनाएँ"), body: p("Steps with owners and dates.", "कदम, हर एक के साथ व्यक्ति और तारीख़।") },
   ],
   student: [
@@ -54,7 +58,7 @@ const HELP: Record<"board" | "student" | "add" | "plan", HelpStep[]> = {
   ],
   add: [
     { icon: "mic", title: p("Tap and speak", "बोलकर लिखें"), body: p("Hindi or English, words appear live.", "हिंदी या अंग्रेज़ी, शब्द साथ-साथ दिखते हैं।") },
-    { icon: "edit", title: p("Check the words", "शब्द जाँचें"), body: p("Add tags and a follow-up.", "टैग और फ़ॉलो-अप जोड़ें।") },
+    { icon: "edit", title: p("Check the words", "शब्द जाँचें"), body: p("Add tags and a follow-up.", "टैग जोड़ें, और कब फिर देखना है।") },
     { icon: "check", title: p("Save", "सहेजें"), body: p("Teacher and office see it at once.", "अध्यापक और कार्यालय तुरंत देखते हैं।") },
   ],
   plan: [
@@ -87,21 +91,24 @@ function KpiTile({ label, value, sub, icon, bg, fg, tone, on, onPick, delay }: {
 }
 
 /** A note on the board (design `card()`). */
-function BoardCard({ note, plan, today, href, selected, delay }: { note: BoardNote; plan: SupportPlan | null; today: string; href: string; selected: boolean; delay: number }) {
+function BoardCard({ note, plan, today, href, selected, delay, viewerId }: { note: BoardNote; plan: SupportPlan | null; today: string; href: string; selected: boolean; delay: number; viewerId: string }) {
   const { tx } = useVx();
+  const words = useNoteWords(viewerId);
+  const hint = words.hint(note);
   const look = BOARD_TAG[note.tags[0] ?? "studies"];
   const stage = noteStage(note);
   const rel = relationText(note.authorRelation);
   const hasFollow = note.needsFollowUp && note.followUpOn && stage !== "done" && stage !== "noting";
-  const role = ownerRoleText(note.followUpOwner);
+  // Who follows up by name, "You" only for the reader's own (smoke 20 Oct: "Me" on other teachers' notes).
+  const who = words.who(note);
   const prog = plan ? planProgress(plan.steps) : null;
   return (
     <Link href={href} scroll={false} className="tap card nx-nc" aria-current={selected ? "true" : undefined} style={{ borderColor: selected ? "var(--acc)" : "var(--bd)", background: selected ? "var(--accs)" : "var(--card)", animationDelay: `${delay}ms` }}>
       <span className="nx-f" style={{ gap: 10, width: "100%" }}>
-        <span className="nx-ib" style={{ borderRadius: 19, background: look.bg, color: look.fg }}>{ini(note.studentName)}</span>
+        <span className="nx-ib" style={{ borderRadius: 19, background: look.bg, color: look.fg }}>{words.initials(note)}</span>
         <span className="nx-c" style={{ flex: 1 }}>
-          <span className="nx-b nx-e" style={{ fontSize: 15 }}>{note.studentName}</span>
-          <span className="nx-m nx-e">{[note.classLabel, note.writtenByName, rel ? tx(rel) : null].filter(Boolean).join(" · ")}</span>
+          <span className="nx-b nx-e" style={{ fontSize: 15 }}>{words.name(note)}</span>
+          <span className="nx-m nx-e">{[note.classLabel, hint, note.writtenByName, rel ? tx(rel) : null].filter(Boolean).join(" · ")}</span>
         </span>
         <StagePill stage={stage} />
       </span>
@@ -116,8 +123,8 @@ function BoardCard({ note, plan, today, href, selected, delay }: { note: BoardNo
         {hasFollow ? (
           <span className="pill" style={{ background: "var(--s2)", color: followSoon(note, today) ? "var(--bad)" : "var(--mut)" }}>
             <Ic n="calendar" size={12} />
-            {day(note.followUpOn!)}
-            {role ? ` · ${tx(role)}` : ""}
+            {tx(p(day(note.followUpOn!), shortDayHi(note.followUpOn!)))}
+            {who ? ` · ${who}` : ""}
           </span>
         ) : null}
         {note.visibility === "private" ? (
@@ -168,7 +175,7 @@ type Screen = "board" | "student" | "add" | "plan";
 
 /** Notes board (coordinator / admin). */
 export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: string; label: string }[]; teachers: { id: string; name: string }[] }) {
-  const { tx } = useVx();
+  const { tx, language } = useVx();
   const both = useBoth();
   const router = useRouter();
   const toast = useToast();
@@ -195,7 +202,8 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     viewer: props.viewer,
     initialStudent: props.initialStudent,
     initialStep: props.initialStep,
-    lang: "en-IN",
+    lang: language === "hi" ? "hi-IN" : "en-IN",
+    today: props.today,
     tags: ["studies"],
     ownerFor: (child) => (child && props.viewer.heldClassIds.includes(child.classId) ? "me" : "class_teacher"),
   });
@@ -269,12 +277,12 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     const back = focus.kind === "plan" ? (focus.plan.noteId ? at(`note=${focus.plan.noteId}`) : home) : at(`note=${focus.note.id}`);
     top = { crumb: `${boardTitle} · ${tx(p("support plan", "सहायता योजना"))}`, title: `${goal} · ${name.split(" ")[0]}`, mTitle: tx(p("Support plan", "सहायता योजना")), mSub: `${name} · ${tx(p(`${prog.done} of ${prog.total} done`, `${prog.total} में से ${prog.done} पूरे`))}`, dBack: { href: back }, mBack: { href: back }, add: false };
   } else if (screen === "student") {
-    top = { crumb: `${boardTitle} · ${tx(p("one child", "एक बच्चा"))}`, title: kidName, mTitle: kidName, mSub: `${scope?.classLabel ?? ""} · ${tx(p(`${kidNotes.length} notes`, `${kidNotes.length} नोट्स`))}`, dBack: { href: base }, mBack: { href: base }, add: props.viewer.canWrite };
+    top = { crumb: `${boardTitle} · ${tx(p("one child", "एक बच्चा"))}`, title: kidName, mTitle: kidName, mSub: `${scope?.classLabel ?? ""} · ${tx(countP(kidNotes.length, "note", "notes", "नोट"))}`, dBack: { href: base }, mBack: { href: base }, add: props.viewer.canWrite };
   } else {
-    top = { crumb: `${tx(p("Academics", "शैक्षणिक"))} · ${me ?? day(props.today)}`, title: boardTitle, mTitle: boardTitle, mSub: tx(p(`${kpis.needsAction} need action · ${kpis.dueThisWeek} follow-ups this week`, `${kpis.needsAction} पर कार्रवाई · इस हफ़्ते ${kpis.dueThisWeek} फ़ॉलो-अप`)), dBack: null, mBack: { href: "/menu" }, add: props.viewer.canWrite };
+    top = { crumb: `${tx(p("Academics", "शैक्षणिक"))} · ${me ?? day(props.today)}`, title: boardTitle, mTitle: boardTitle, mSub: tx(p(`${kpis.needsAction} need action · ${counts.followups} to follow up`, `${kpis.needsAction} पर कार्रवाई · ${counts.followups} फिर देखने हैं`)), dBack: null, mBack: { href: "/menu" }, add: props.viewer.canWrite };
   }
   if (open && screen !== "add") {
-    top = { ...top, mTitle: open.note.studentName, mSub: `${open.note.classLabel} · ${tx(p(`note from ${open.note.writtenByName}`, `${open.note.writtenByName} का नोट`))}`, mBack: { href: home } };
+    top = { ...top, mTitle: tx(noteSubject(open.note)), mSub: `${open.note.classLabel} · ${tx(p(`note from ${open.note.writtenByName}`, `${open.note.writtenByName} का नोट`))}`, mBack: { href: home } };
   }
 
   /* ---------------------------------------------------------- the screens */
@@ -282,9 +290,10 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
     <div className="nx-c" style={{ gap: 16, animation: "xIn .32s var(--ease) both" }}>
       <div className="g4" style={{ display: "grid", gridTemplateColumns: `repeat(${open ? 2 : 4},minmax(0,1fr))`, gap: 12 }}>
         <KpiTile label={tx(p("Needs action", "कार्रवाई ज़रूरी"))} value={kpis.needsAction} sub={tx(p("Due now, or nobody has picked them up", "समय हो गया, या किसी ने नहीं उठाए"))} icon="flag" bg="var(--warns)" fg="var(--warnfg)" tone={kpis.needsAction ? "var(--warnfg)" : "var(--fg)"} on={tab === "action"} onPick={() => setTab("action")} delay={0} />
-        <KpiTile label={tx(p("Follow-ups due this week", "इस हफ़्ते फ़ॉलो-अप"))} value={kpis.dueThisWeek} sub={rangeLabel(props.today, weekEndOf(props.today))} icon="calendar" bg="var(--infos)" fg="var(--info)" tone="var(--fg)" on={tab === "followups"} onPick={() => setTab("followups")} delay={28} />
+        {/* The tile counts what its tab lists (smoke 20 Oct: 7 on one, 4 on the other). */}
+        <KpiTile label={tx(p("Follow-ups open", "फिर देखने वाले नोट"))} value={counts.followups} sub={tx(p(`${kpis.dueThisWeek} due this week · ${rangeLabel(props.today, weekEndOf(props.today))}`, `इस हफ़्ते ${kpis.dueThisWeek} · ${rangeLabel(props.today, weekEndOf(props.today))}`))} icon="calendar" bg="var(--infos)" fg="var(--info)" tone="var(--fg)" on={tab === "followups"} onPick={() => setTab("followups")} delay={28} />
         <KpiTile label={tx(p("Support plans running", "चल रही सहायता योजनाएँ"))} value={kpis.plansRunning} sub={tx(p("Steps with owners and dates", "कदम, व्यक्ति और तारीख़ के साथ"))} icon="layers" bg="var(--oks)" fg="var(--ok)" tone="var(--fg)" on={tab === "plans"} onPick={() => setTab("plans")} delay={56} />
-        <KpiTile label={tx(p("Notes this month", "इस महीने के नोट्स"))} value={kpis.thisMonth} sub={tx(p(`${stats.thisWeek} this week · by ${stats.teachers} teachers`, `इस हफ़्ते ${stats.thisWeek} · ${stats.teachers} अध्यापकों से`))} icon="notePen" bg="var(--s3)" fg="var(--pri)" tone="var(--fg)" on={tab === "all"} onPick={() => setTab("all")} delay={84} />
+        <KpiTile label={tx(p("Notes this month", "इस महीने के नोट्स"))} value={kpis.thisMonth} sub={tx(p(`${stats.thisWeek} this week · by ${stats.teachers} ${stats.teachers === 1 ? "teacher" : "teachers"}`, `इस हफ़्ते ${stats.thisWeek} · ${stats.teachers} ${stats.teachers === 1 ? "अध्यापक" : "अध्यापकों"} से`))} icon="notePen" bg="var(--s3)" fg="var(--pri)" tone="var(--fg)" on={tab === "all"} onPick={() => setTab("all")} delay={84} />
       </div>
 
       {mixTotal ? (
@@ -336,7 +345,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
           options={(
             [
               ["action", p("Needs action", "कार्रवाई")],
-              ["followups", p("Follow-ups", "फ़ॉलो-अप")],
+              ["followups", p("Follow-ups", "फिर देखना")],
               ["plans", p("Support plans", "योजनाएँ")],
               ["all", p("All", "सभी")],
             ] as [BoardTab, Pair][]
@@ -379,7 +388,7 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
       {shown.length || orphanPlans.length ? (
         <div className="g2" style={{ display: "grid", gridTemplateColumns: open ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))", gap: 12, alignItems: "start" }}>
           {shown.map((n, i) => (
-            <BoardCard key={n.id} note={n} plan={planOf(n)} today={props.today} href={at(`note=${n.id}`)} selected={open?.note.id === n.id} delay={Math.min(i, 14) * 28} />
+            <BoardCard key={n.id} viewerId={props.viewer.id} note={n} plan={planOf(n)} today={props.today} href={at(`note=${n.id}`)} selected={open?.note.id === n.id} delay={Math.min(i, 14) * 28} />
           ))}
           {orphanPlans.map((pl) => <PlanCard key={pl.id} plan={pl} href={at(`plan=${pl.id}`)} />)}
         </div>
@@ -414,9 +423,9 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
   if (screen === "add") {
     body = <BoardCompose c={composer} kids={props.kids} notes={props.notes} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} onSaved={saved} initialClass={props.initialClass} />;
   } else if (screen === "plan" && focus && (focus.kind === "plan" || focus.kind === "new-plan")) {
-    body = <BoardPlan plan={focus.kind === "plan" ? focus.plan : null} draftFor={focus.kind === "new-plan" ? focus.note : null} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} />;
+    body = <BoardPlan plan={focus.kind === "plan" ? focus.plan : null} sourceBody={focus.kind === "plan" && focus.plan.noteId ? (props.notes.find((n) => n.id === focus.plan.noteId)?.body ?? null) : null} draftFor={focus.kind === "new-plan" ? focus.note : null} viewer={props.viewer} people={people} today={props.today} school={props.school} base={base} />;
   } else if (screen === "student" && scope) {
-    body = <StudentPage scope={scope} notes={kidNotes} plans={props.plans.filter((pl) => pl.studentId === scope.studentId)} today={props.today} people={people} canWrite={props.viewer.canWrite} openId={open?.note.id ?? null} savedId={props.savedId ?? null} kidTag={kidTag} setKidTag={setKidTag} onAdd={openAdd} base={base} />;
+    body = <StudentPage scope={scope} notes={kidNotes} plans={props.plans.filter((pl) => pl.studentId === scope.studentId)} today={props.today} people={people} canWrite={props.viewer.canWrite} openId={open?.note.id ?? null} savedId={props.savedId ?? null} kidTag={kidTag} setKidTag={setKidTag} onAdd={openAdd} base={base} viewerId={props.viewer.id} />;
   }
 
   return (
@@ -497,6 +506,7 @@ function StudentPage({
   setKidTag,
   onAdd,
   base,
+  viewerId,
 }: {
   scope: NonNullable<NotesProps["scope"]>;
   notes: BoardNote[];
@@ -510,8 +520,10 @@ function StudentPage({
   setKidTag: (t: NoteTag | null) => void;
   onAdd: () => void;
   base: string;
+  viewerId: string;
 }) {
   const { tx } = useVx();
+  const words = useNoteWords(viewerId);
   const name = scope.name ?? tx(p("This child", "यह बच्चा"));
   const ct = scope.classId ? (people.classTeachers[scope.classId] ?? null) : null;
   const authors = new Set(notes.map((n) => n.writtenBy)).size;
@@ -522,7 +534,8 @@ function StudentPage({
   const savedNote = savedId ? notes.find((n) => n.id === savedId) : null;
   const line = [scope.classLabel, scope.sr ? `SR ${scope.sr}` : null, ct ? `${tx(p("class teacher", "कक्षा अध्यापक"))} ${ct}` : null, scope.father ? `${tx(p("father", "पिता"))} ${scope.father}` : null].filter(Boolean).join(" · ");
   const facts: { label: string; bg: string; fg: string }[] = [
-    { label: tx(p(`${notes.length} notes from ${authors} teachers`, `${authors} अध्यापकों के ${notes.length} नोट`)), bg: "var(--s2)", fg: "var(--fg)" },
+    // "1 note from 1 teacher", never "1 notes from 1 teachers" (smoke 20 Oct).
+    { label: tx(p(`${notes.length} ${notes.length === 1 ? "note" : "notes"} from ${authors} ${authors === 1 ? "teacher" : "teachers"}`, `${authors} ${authors === 1 ? "अध्यापक" : "अध्यापकों"} के ${notes.length} नोट`)), bg: "var(--s2)", fg: "var(--fg)" },
     ...(openCount ? [{ label: tx(p(`${openCount} open`, `${openCount} खुले`)), bg: "var(--warns)", fg: "var(--warnfg)" }] : []),
   ];
   const sideCol = openId ? "1" : "2";
@@ -609,7 +622,7 @@ function StudentPage({
                 </span>
                 <span className="nx-v">{pl.goal}</span>
                 <span className="nx-m">
-                  {pl.createdByName} · {next ? tx(p(`next: ${next.body.charAt(0).toLowerCase()}${next.body.slice(1)}${next.whenLabel ? ` · ${next.whenLabel}` : ""}`, `अगला: ${next.body}`)) : tx(p("all steps done", "सारे कदम पूरे"))}
+                  {pl.createdByName} · {next ? `${tx(p("next", "अगला"))}: ${tx(knownPair(next.body))}${next.whenLabel ? ` · ${next.whenLabel}` : ""}` : tx(p("all steps done", "सारे कदम पूरे"))}
                 </span>
                 <span style={{ display: "block", height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden", width: "100%" }}>
                   <span style={{ display: "block", height: 8, borderRadius: 4, width: `${prog.total ? Math.round((prog.done / prog.total) * 100) : 0}%`, background: "var(--ok)", transformOrigin: "left", animation: "xGrowX .7s var(--ease) both" }} />
@@ -637,7 +650,7 @@ function StudentPage({
                 const look = BOARD_TAG[n.tags[0] ?? "studies"];
                 const rel = relationText(n.authorRelation);
                 const stage = noteStage(n);
-                const role = ownerRoleText(n.followUpOwner);
+                const who = words.who(n);
                 const sel = n.id === openId;
                 return (
                   <div key={n.id} className="nx-tli" style={{ animation: n.id === savedId ? "xRise .5s var(--ease) both" : "xIn .32s var(--ease) both", animationDelay: `${Math.min(i, 14) * 28}ms` }}>
@@ -662,8 +675,8 @@ function StudentPage({
                         ))}
                         {n.needsFollowUp && n.followUpOn && stage !== "done" && stage !== "noting" ? (
                           <span className="pill" style={{ background: "var(--s2)", color: followSoon(n, today) ? "var(--bad)" : "var(--mut)" }}>
-                            {day(n.followUpOn)}
-                            {role ? ` · ${tx(role)}` : ""}
+                            {tx(p(day(n.followUpOn), shortDayHi(n.followUpOn)))}
+                            {who ? ` · ${who}` : ""}
                           </span>
                         ) : null}
                       </span>
