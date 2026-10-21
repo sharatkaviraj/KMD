@@ -9,12 +9,13 @@ import { p, type Pair } from "@/vx/text";
 import { BackLink } from "@/vx/ui/back-link";
 import { Textarea } from "@/vx/ui/controls";
 import { LanguageControl } from "@/vx/ui/language";
-import { Sheet, useToast } from "@/vx/ui/overlays";
+import { Sheet } from "@/vx/ui/overlays";
 
 import { previewLeaveVx, requestLeaveVx } from "../actions";
 import { leaveSpanFor, type LeaveDayPeriods } from "@/vx/screens/timetable/domain/timetable";
 import { addDays, LEAVE_REASONS, type LeaveSpan } from "../domain/teach";
-import { dShort } from "./fmt";
+import { periodClassList } from "../domain/today";
+import { dShortP } from "./fmt";
 
 import "./teach.css";
 import "./tch.css";
@@ -206,12 +207,13 @@ type LeaveWhen = "today" | "tomorrow" | "pick";
 
 const REASON_ICON: Record<string, IconName> = { unwell: "activity", family: "users", personal: "briefcase", other: "edit" };
 
-type LeavePreviewState = { key: string; status: "loading" | "ready" | "failed"; span: LeaveSpan; days: LeaveDayPeriods[] };
+type PreviewDay = LeaveDayPeriods & { closed?: boolean };
+type LeavePreviewState = { key: string; status: "loading" | "ready" | "failed"; span: LeaveSpan; days: PreviewDay[] };
 
 /**
  * The periods a leave would cover, from the server's one resolver (B11) —
- * the same one the approval follows — so both leave forms say the same
- * thing. Reads only; refetched when the days or the span change.
+ * the same one the approval follows. Reads only; refetched when the days or
+ * the span change.
  */
 function useLeavePreview(days: readonly string[], span: LeaveSpan): LeavePreviewState | null {
   const daysKey = [...days].sort().join(",");
@@ -237,24 +239,32 @@ function useLeavePreview(days: readonly string[], span: LeaveSpan): LeavePreview
 
 const SPAN_NAME: Record<LeaveSpan, Pair> = { full: p("Full day", "पूरा दिन"), first_half: p("First half", "पहली पाली"), second_half: p("Second half", "दूसरी पाली") };
 
-/** "Tue 20 Oct · First half – periods 1, 2, 3 · 6, 7A", one line a day. */
+/** How many of her periods the preview found, for the success line's promise of cover. */
+function previewTotal(preview: LeavePreviewState | null): number {
+  return preview?.status === "ready" ? preview.days.reduce((n, d) => n + d.periods.length, 0) : 0;
+}
+
+/** "Tue 20 Oct · First half – P2 Class 10 · P3 Class 7", one line a day. */
 function LeavePreview({ preview, asked }: { preview: LeavePreviewState | null; asked: LeaveSpan }) {
   const { tx } = useVx();
   if (!preview) return null;
-  const total = preview.days.reduce((n, d) => n + d.periods.length, 0);
+  const total = previewTotal(preview);
   return (
     <span style={{ display: "flex", flexDirection: "column", gap: 4 }} aria-live="polite">
       {preview.status === "loading" ? <span style={{ fontSize: 13 }}>{tx(p("Checking your periods…", "आपके पीरियड देखे जा रहे हैं…"))}</span> : null}
       {preview.status === "failed" ? <span style={{ fontSize: 13 }}>{tx(p("Could not check your periods. The office will still arrange cover.", "आपके पीरियड देखे नहीं जा सके। ऑफ़िस फिर भी इंतज़ाम करेगा।"))}</span> : null}
       {preview.status === "ready"
         ? preview.days.map((d) => {
-            const nums = d.periods.map((x) => x.number).join(", ");
-            const classes = [...new Set(d.periods.flatMap((x) => x.classLabels))].join(", ");
+            const day = dShortP(d.day);
+            const span = SPAN_NAME[preview.span];
+            const list = periodClassList(d.periods);
             return (
               <span key={d.day} style={{ fontSize: 13 }}>
-                {d.periods.length
-                  ? tx(p(`${dShort(d.day)} · ${SPAN_NAME[preview.span].en} – period${d.periods.length === 1 ? "" : "s"} ${nums} · ${classes}`, `${dShort(d.day)} · ${SPAN_NAME[preview.span].hi} – पीरियड ${nums} · ${classes}`))
-                  : tx(p(`${dShort(d.day)} · ${SPAN_NAME[preview.span].en} – no classes of yours`, `${dShort(d.day)} · ${SPAN_NAME[preview.span].hi} – आपकी कोई कक्षा नहीं`))}
+                {d.closed
+                  ? tx(p(`${day.en} · school is closed — no leave needed`, `${day.hi} · स्कूल बंद है — छुट्टी की ज़रूरत नहीं`))
+                  : d.periods.length
+                    ? tx(p(`${day.en} · ${span.en} – ${list.en}`, `${day.hi} · ${span.hi} – ${list.hi}`))
+                    : tx(p(`${day.en} · ${span.en} – no classes of yours`, `${day.hi} · ${span.hi} – आपकी कोई कक्षा नहीं`))}
               </span>
             );
           })
@@ -266,63 +276,89 @@ function LeavePreview({ preview, asked }: { preview: LeavePreviewState | null; a
 }
 
 /**
- * Apply for leave (design TchHome `leave`, TchMore `leave`): Today and a full
- * day are preset; the request goes to the office as asked, never approved
- * here. The periods it would cover come from the one leave resolver (B11).
+ * Apply for leave — the one leave form, from Today and from More (smoke
+ * 20 Oct: two forms with different words and controls). Nothing is chosen
+ * for her: no day, and no reason until she taps one ("Unwell" was preset and
+ * one tap told the office she was ill). Closed days are shown and cannot be
+ * picked. The request goes to the office as asked, never approved here; the
+ * periods it would cover come from the one leave resolver (B11).
  */
-export function LeaveSheet({ open, onClose, today }: { open: boolean; onClose: () => void; today: string }) {
+export function LeaveSheet({ open, onClose, today, closedDays = [] }: { open: boolean; onClose: () => void; today: string; closedDays?: readonly { day: string; tag: Pair }[] }) {
   const { tx, sub } = useVx();
-  const toast = useToast();
+  const router = useRouter();
   const [when, setWhen] = useState<LeaveWhen | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [span, setSpan] = useState<LeaveSpan>("full");
-  const [reason, setReason] = useState<string>("unwell");
+  const [reason, setReason] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
   const [note, setNote] = useState("");
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<{ summary: string; covered: boolean } | null>(null);
   const [error, setError] = useState<Pair | null>(null);
   const [pending, start] = useTransition();
 
+  const closedTagOf = (d: string) => closedDays.find((c) => c.day === d)?.tag ?? null;
   const tomorrow = addDays(today, 1);
-  const choices = Array.from({ length: 9 }, (_, i) => addDays(today, i + 1)).filter((d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0).slice(0, 5);
+  const choices = Array.from({ length: 10 }, (_, i) => addDays(today, i)).filter((d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0).slice(0, 7);
   const days = when === "today" ? [today] : when === "tomorrow" ? [tomorrow] : when === "pick" ? picked : [];
-  const bad = days.length === 0;
-  const reasonPair = LEAVE_REASONS.find((r) => r.key === reason)?.text ?? LEAVE_REASONS[0].text;
+  const noDay = days.length === 0;
+  const reasonPair = LEAVE_REASONS.find((r) => r.key === reason)?.text ?? null;
+  const ready = !noDay && reasonPair !== null;
+  const todayD = dShortP(today);
+  const tomorrowD = dShortP(tomorrow);
   const whenText: Pair =
-    when === "today" ? p(`Today · ${dShort(today)}`, `आज · ${dShort(today)}`) : when === "tomorrow" ? p(`Tomorrow · ${dShort(tomorrow)}`, `कल · ${dShort(tomorrow)}`) : when === "pick" && picked.length ? p(picked.map(dShort).join(", ")) : p("Pick days", "दिन चुनें");
-  const spanText: Pair = span === "first_half" ? p("first half", "पहली पाली") : span === "second_half" ? p("second half", "दूसरी पाली") : p("full day", "पूरा दिन");
-  const summary = bad ? tx(p("Pick at least one day", "कम से कम एक दिन चुनें")) : `${tx(whenText)} · ${tx(days.length === 1 ? spanText : p("full day", "पूरा दिन"))} · ${tx(reasonPair)}`;
+    when === "today"
+      ? p(`Today · ${todayD.en}`, `आज · ${todayD.hi}`)
+      : when === "tomorrow"
+        ? p(`Tomorrow · ${tomorrowD.en}`, `कल · ${tomorrowD.hi}`)
+        : p(picked.map((d) => dShortP(d).en).join(", "), picked.map((d) => dShortP(d).hi).join(", "));
+  const spanText: Pair = days.length > 1 ? p(`${days.length} full days`, `${days.length} पूरे दिन`) : SPAN_NAME[span];
+  const summary = noDay ? tx(p("Pick the day first", "पहले दिन चुनें")) : [tx(whenText), tx(spanText), reasonPair ? tx(reasonPair) : null].filter(Boolean).join(" · ");
   const preview = useLeavePreview(days, span);
+  // The sheet's line says what to do next, not "Choose the day first" after the day is chosen.
+  const step = sent ? p("Request sent · waiting for the office", "अनुरोध भेजा · ऑफ़िस के जवाब का इंतज़ार") : noDay ? p("Choose the day first", "पहले दिन चुनें") : !reasonPair ? p("Now pick a reason", "अब कारण चुनें") : p("Check and send", "देखकर भेजें");
 
   const send = () => {
-    if (bad) {
-      toast.show({ text: tx(p("Pick at least one day first", "पहले कम से कम एक दिन चुनें")), tone: "bad" });
-      return;
-    }
+    if (noDay || !reasonPair) return setTries((n) => n + 1);
+    const covered = previewTotal(preview) > 0;
+    const text = summary;
     start(async () => {
       setError(null);
       const res = await requestLeaveVx({ days, span: leaveSpanFor(days.length, span), reason: reasonPair.en, note });
       if (res.ok) {
-        setSent(true);
-        toast.show({ text: tx(p("Leave request sent to the office", "छुट्टी का अनुरोध ऑफ़िस को भेजा गया")) });
+        // No toast: it sat on top of "what happens next" (smoke 20 Oct). The sheet itself says it went.
+        setSent({ summary: text, covered });
+        router.refresh();
       } else setError(res.error);
     });
   };
 
   const close = () => {
     onClose();
-    setSent(false);
+    setSent(null);
     setWhen(null);
     setPicked([]);
+    setReason(null);
+    setTries(0);
+    setNote("");
+    setSpan("full");
+    setError(null);
   };
 
-  const seg = <T extends string>(value: T | null, set: (v: T) => void, opts: [T, Pair][], label: string) => {
+  /** A choice with its other-language line under it, for a reader of both. */
+  const label = (t: Pair, extra?: Pair | null) => (
+    <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+      <span>{tx(t)}</span>
+      {extra ? <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>{tx(extra)}</span> : sub(t) ? <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.75 }}>{sub(t)}</span> : null}
+    </span>
+  );
+  const seg = <T extends string>(value: T | null, set: (v: T) => void, opts: [T, Pair, Pair | null, boolean][], aria: string) => {
     const idx = opts.findIndex((o) => o[0] === value);
     return (
-      <div className="seg" role="radiogroup" aria-label={label} style={{ gridTemplateColumns: `repeat(${opts.length}, minmax(0, 1fr))` }}>
+      <div className="seg" role="radiogroup" aria-label={aria} style={{ gridTemplateColumns: `repeat(${opts.length}, minmax(0, 1fr))` }}>
         {idx >= 0 ? <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${opts.length})`, transform: `translateX(${idx * 100}%)` }} /> : null}
-        {opts.map(([v, t]) => (
-          <button key={v} type="button" role="radio" aria-checked={v === value} className={`tap${v === value ? " on" : ""}`} onClick={() => set(v)} style={{ height: 42, fontSize: 14 }}>
-            {tx(t)}
+        {opts.map(([v, t, extra, off]) => (
+          <button key={v} type="button" role="radio" aria-checked={v === value} disabled={off} className={`tap${v === value ? " on" : ""}`} onClick={() => set(v)} style={{ minHeight: 46, fontSize: 14, opacity: off ? 0.5 : 1 }}>
+            {label(t, extra)}
           </button>
         ))}
       </div>
@@ -334,13 +370,16 @@ export function LeaveSheet({ open, onClose, today }: { open: boolean; onClose: (
       {sub(t) ? ` · ${sub(t)}` : ""}
     </span>
   );
+  const todayTag = closedTagOf(today);
+  const tomorrowTag = closedTagOf(tomorrow);
+  const noteLabel = p("Note for the office (optional)", "ऑफ़िस के लिए नोट (ज़रूरी नहीं)");
 
   return (
     <Sheet
       open={open}
       onClose={close}
       title={tx(p("Apply for leave", "छुट्टी का आवेदन"))}
-      sub={sent ? tx(p("Request sent · waiting for the office", "अनुरोध भेजा · ऑफ़िस के जवाब का इंतज़ार")) : tx(p("Choose the day first", "पहले दिन चुनें"))}
+      sub={tx(step)}
       footer={
         sent ? (
           <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} onClick={close}>
@@ -352,7 +391,7 @@ export function LeaveSheet({ open, onClose, today }: { open: boolean; onClose: (
               <span className="tc-s">{tx(p("Your request", "आपका आवेदन"))}</span>
               <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{summary}</span>
             </span>
-            <button type="button" className="tap btn pri tc-bb" style={{ padding: "0 20px", opacity: bad ? 0.5 : 1 }} disabled={pending} onClick={send}>
+            <button type="button" className="tap btn pri tc-bb" aria-disabled={!ready} style={{ padding: "0 20px", opacity: ready ? 1 : 0.5 }} disabled={pending} onClick={send}>
               {pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="send" size={18} />}
               {tx(p("Send to office", "ऑफ़िस को भेजें"))}
             </button>
@@ -364,22 +403,49 @@ export function LeaveSheet({ open, onClose, today }: { open: boolean; onClose: (
         <div className="tc-sb" style={{ alignItems: "center", textAlign: "center", paddingTop: 14 }}>
           <DrawnTick size={96} />
           <span className="serif" style={{ fontSize: 24, fontWeight: 600 }}>{tx(p("Sent to the office", "ऑफ़िस को भेजा गया"))}</span>
-          <span className="tc-p" style={{ fontWeight: 700 }}>{summary}</span>
-          <span style={{ color: "var(--mut)" }}>{tx(p("The office will reply here. They will arrange cover for your classes.", "ऑफ़िस यहीं जवाब देगा और आपकी कक्षाओं का इंतज़ाम करेगा।"))}</span>
+          <span className="tc-p" style={{ fontWeight: 700 }}>{sent.summary}</span>
+          <span style={{ color: "var(--mut)" }}>
+            {sent.covered
+              ? tx(p("The office will answer on Today and in My leave. They will arrange cover for your periods.", "ऑफ़िस का जवाब “आज” और “मेरी छुट्टी” में दिखेगा। आपके पीरियड का इंतज़ाम ऑफ़िस करेगा।"))
+              : tx(p("The office will answer on Today and in My leave.", "ऑफ़िस का जवाब “आज” और “मेरी छुट्टी” में दिखेगा।"))}
+          </span>
         </div>
       ) : (
         <div className="tc-sb">
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {head(p("When", "कब"))}
-            {seg<LeaveWhen>(when, setWhen, [["today", p("Today", "आज")], ["tomorrow", p("Tomorrow", "कल")], ["pick", p("Pick days", "दिन चुनें")]], "When")}
+            {seg<LeaveWhen>(
+              when,
+              setWhen,
+              [
+                ["today", p("Today", "आज"), todayTag, Boolean(todayTag)],
+                ["tomorrow", p("Tomorrow", "कल"), tomorrowTag, Boolean(tomorrowTag)],
+                ["pick", p("Pick days", "दिन चुनें"), null, false],
+              ],
+              tx(p("When", "कब")),
+            )}
+            {todayTag ? <span className="tc-s">{tx(p(`School is closed today (${todayTag.en}). No leave is needed today.`, `आज स्कूल बंद है (${todayTag.hi ?? todayTag.en})। आज छुट्टी की ज़रूरत नहीं।`))}</span> : null}
           </div>
           {when === "pick" ? (
             <div className="tc-in" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {choices.map((d) => {
                 const on = picked.includes(d);
+                const tag = closedTagOf(d);
                 return (
-                  <button key={d} type="button" className={`tap chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => setPicked((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort()))} style={{ height: 44, padding: "0 14px", fontSize: 14 }}>
-                    {dShort(d)}
+                  <button
+                    key={d}
+                    type="button"
+                    className={`tap chip${on ? " on" : ""}`}
+                    aria-pressed={on}
+                    disabled={Boolean(tag)}
+                    onClick={() => setPicked((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort()))}
+                    style={{ minHeight: 46, padding: "0 14px", fontSize: 14, flexDirection: "column", justifyContent: "center", gap: 0, lineHeight: 1.2, opacity: tag ? 0.55 : 1 }}
+                  >
+                    <span>
+                      {d === today ? `${tx(p("Today", "आज"))} · ` : ""}
+                      {tx(dShortP(d))}
+                    </span>
+                    {tag ? <span style={{ fontSize: 11, fontWeight: 500 }}>{tx(tag)}</span> : null}
                   </button>
                 );
               })}
@@ -387,11 +453,20 @@ export function LeaveSheet({ open, onClose, today }: { open: boolean; onClose: (
           ) : null}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {head(p("How long", "कितनी देर"))}
-            {seg<LeaveSpan>(span, setSpan, [["full", p("Full day", "पूरा दिन")], ["first_half", p("First half", "पहली पाली")], ["second_half", p("Second half", "दूसरी पाली")]], "How long")}
+            {seg<LeaveSpan>(
+              span,
+              setSpan,
+              [
+                ["full", SPAN_NAME.full, null, false],
+                ["first_half", SPAN_NAME.first_half, null, false],
+                ["second_half", SPAN_NAME.second_half, null, false],
+              ],
+              tx(p("How long", "कितनी देर")),
+            )}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {head(p("Reason", "कारण"))}
-            <div className="tc-g2" role="radiogroup" aria-label="Reason">
+            <div key={tries} className="tc-g2" role="radiogroup" aria-label={tx(p("Reason", "कारण"))} style={{ animation: tries && !reason ? "xShake .4s ease" : "none" }}>
               {LEAVE_REASONS.map((r) => {
                 const on = reason === r.key;
                 return (
@@ -407,140 +482,22 @@ export function LeaveSheet({ open, onClose, today }: { open: boolean; onClose: (
                 );
               })}
             </div>
+            {tries && noDay ? (
+              <span className="fadein" style={{ fontSize: 13, fontWeight: 700, color: "var(--bad)" }}>{tx(p("Pick the day first", "पहले दिन चुनें"))}</span>
+            ) : tries && !reason ? (
+              <span className="fadein" style={{ fontSize: 13, fontWeight: 700, color: "var(--bad)" }}>{tx(p("Pick a reason", "कारण चुनें"))}</span>
+            ) : null}
           </div>
           <label className="field">
-            <span>{tx(p("Note for the office (optional)", "ऑफ़िस के लिए नोट (वैकल्पिक)"))}</span>
+            <span>
+              {tx(noteLabel)}
+              {sub(noteLabel) ? ` · ${sub(noteLabel)}` : ""}
+            </span>
             <Textarea value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder={tx(p("For example: fever since last night", "जैसे: कल रात से बुखार"))} style={{ minHeight: 72 }} />
           </label>
-          {preview ? (
-            <div className="tc-note" style={{ background: "var(--s2)" }}>
-              <Ic n="users" style={{ marginTop: 2, color: "var(--acc)" }} />
-              <LeavePreview preview={preview} asked={span} />
-            </div>
-          ) : null}
-          {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{tx(error)}</span> : null}
-        </div>
-      )}
-    </Sheet>
-  );
-}
-
-/**
- * Apply leave as More draws it (design TchMore `leave`): the next school days
- * as chips (today picked), the part of the day, a reason to pick, and the
- * periods the office will have to cover. Same request as the other sheet.
- */
-export function LeaveChipsSheet({ open, onClose, today }: { open: boolean; onClose: () => void; today: string }) {
-  const { tx, sub } = useVx();
-  const toast = useToast();
-  const [days, setDays] = useState<string[]>([]);
-  const [span, setSpan] = useState<LeaveSpan>("full");
-  const [reason, setReason] = useState<string | null>(null);
-  const [tries, setTries] = useState(0);
-  const [note, setNote] = useState("");
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<Pair | null>(null);
-  const [pending, start] = useTransition();
-
-  const choices = [today, ...Array.from({ length: 9 }, (_, i) => addDays(today, i + 1)).filter((d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0)].slice(0, 6);
-  const label = (d: string) => (d === today ? tx(p(`Today · ${dShort(d).replace(/ \w+$/, "")}`, `आज · ${dShort(d).replace(/ \w+$/, "")}`)) : dShort(d).replace(/ \w+$/, ""));
-  const sorted = [...days].sort();
-  const spanText: Pair = span === "first_half" ? p("First half", "पहली पाली") : span === "second_half" ? p("Second half", "दूसरी पाली") : p("Full day", "पूरा दिन");
-  // More than one day is sent as full days (requestLeaveVx); the summary says so (B11).
-  const summary = sorted.length === 0 ? tx(p("Pick a day", "दिन चुनें")) : `${sorted.length === 1 ? dShort(sorted[0]) : sorted.map((d) => dShort(d).replace(/ \w+$/, "")).join(", ")} · ${sorted.length > 1 ? tx(p(`${sorted.length} full days`, `${sorted.length} पूरे दिन`)) : tx(spanText)}`;
-  const preview = useLeavePreview(sorted, span);
-  const ready = sorted.length > 0 && reason !== null;
-  const reasonPair = LEAVE_REASONS.find((r) => r.key === reason)?.text ?? null;
-
-  const send = () => {
-    if (sorted.length === 0) return toast.show({ text: tx(p("Pick at least one day", "कम से कम एक दिन चुनें")), tone: "bad" });
-    if (!reasonPair) return setTries((n) => n + 1);
-    start(async () => {
-      setError(null);
-      const res = await requestLeaveVx({ days: sorted, span: leaveSpanFor(sorted.length, span), reason: reasonPair.en, note });
-      if (res.ok) {
-        setSent(true);
-        toast.show({ text: tx(p("Leave request sent to the office", "छुट्टी का अनुरोध ऑफ़िस को भेजा")) });
-      } else setError(res.error);
-    });
-  };
-  const close = () => {
-    onClose();
-    setSent(false);
-    setDays([]);
-  };
-  const idx = ["full", "first_half", "second_half"].indexOf(span);
-
-  return (
-    <Sheet
-      open={open}
-      onClose={close}
-      title={tx(p("Apply leave", "छुट्टी के लिए आवेदन"))}
-      sub={tx(p("The office sees it at once", "ऑफ़िस तुरंत देखता है"))}
-      footer={
-        sent ? (
-          <button type="button" className="tap btn pri tc-bb" style={{ flex: 1 }} onClick={close}>{tx(p("Done", "ठीक है"))}</button>
-        ) : (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(p("Your request", "आपका आवेदन"))}</span>
-              <span className="tc-el" style={{ fontSize: 14, fontWeight: 700 }}>{summary}</span>
-            </span>
-            <button type="button" className="tap btn pri tc-bb" style={{ padding: "0 22px", opacity: ready ? 1 : 0.6 }} disabled={pending} onClick={send}>
-              {pending ? <Ic n="refresh" size={18} className="spin" /> : <Ic n="send" size={18} />}
-              {tx(p("Send", "भेजें"))}
-            </button>
-          </div>
-        )
-      }
-    >
-      {sent ? (
-        <div className="tc-sb" style={{ alignItems: "center", textAlign: "center", paddingTop: 12 }}>
-          <DrawnTick size={96} />
-          <span className="serif" style={{ fontSize: 24, fontWeight: 600 }}>{tx(p("Sent to the office", "ऑफ़िस को भेज दिया"))}</span>
-          <span style={{ fontSize: 14 }}>{summary}</span>
-          <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("The office will answer it. You will see the answer in My leave.", "ऑफ़िस जवाब देगा। जवाब “मेरी छुट्टियाँ” में दिखेगा।"))}</span>
-        </div>
-      ) : (
-        <div className="tc-sb">
-          <span className="sech">{tx(p("Which day?", "कौन-सा दिन?"))}</span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {choices.map((d) => {
-              const on = days.includes(d);
-              return (
-                <button key={d} type="button" className={`tap chip${on ? " on" : ""}`} aria-pressed={on} onClick={() => setDays((cur) => (on ? cur.filter((x) => x !== d) : [...cur, d]))} style={{ height: 46, padding: "0 14px", fontSize: 14 }}>
-                  {on ? <Ic n="check" size={15} stroke={3} className="tc-pop" /> : null}
-                  {label(d)}
-                </button>
-              );
-            })}
-          </div>
-          <div className="seg" role="radiogroup" aria-label="Part of the day" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-            <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 3)", transform: `translateX(${idx * 100}%)` }} />
-            {([["full", p("Full day", "पूरा दिन")], ["first_half", p("First half", "पहली पाली")], ["second_half", p("Second half", "दूसरी पाली")]] as const).map(([v, t]) => (
-              <button key={v} type="button" role="radio" aria-checked={span === v} className={`tap${span === v ? " on" : ""}`} onClick={() => setSpan(v)} style={{ height: 42 }}>{tx(t)}</button>
-            ))}
-          </div>
-          <span className="sech">{tx(p("Why?", "कारण?"))}</span>
-          <div key={tries} style={{ display: "flex", flexWrap: "wrap", gap: 8, animation: tries && !reason ? "xShake .4s ease" : "none" }}>
-            {LEAVE_REASONS.map((r) => (
-              <button key={r.key} type="button" className={`tap chip${reason === r.key ? " on" : ""}`} aria-pressed={reason === r.key} onClick={() => setReason(r.key)} style={{ height: 52, padding: "0 16px", fontSize: 14, flexDirection: "column", justifyContent: "center", gap: 0, lineHeight: 1.2 }}>
-                <span>{tx(r.text)}</span>
-                {sub(r.text) ? <span style={{ fontSize: 11, opacity: 0.75, fontWeight: 500 }}>{sub(r.text)}</span> : null}
-              </button>
-            ))}
-          </div>
-          {tries && !reason ? <span className="fadein" style={{ fontSize: 13, fontWeight: 700, color: "var(--bad)", marginTop: -6 }}>{tx(p("Please pick a reason", "कृपया कारण चुनें"))}</span> : null}
-          <label className="field">
-            <span>{tx(p("Anything the office should know (optional)", "ऑफ़िस के लिए कुछ (ज़रूरी नहीं)"))}</span>
-            <Textarea value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder={tx(p("For example: fever since last night", "जैसे: कल रात से बुखार"))} style={{ minHeight: 64 }} />
-          </label>
-          <div className="tc-note" style={{ background: "var(--infos)", color: "var(--info)" }}>
-            <Ic n="users" style={{ marginTop: 2 }} />
-            <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <b>{tx(p("The office will arrange your classes", "आपकी कक्षाएँ ऑफ़िस संभालेगा"))}</b>
-              {preview ? <LeavePreview preview={preview} asked={span} /> : <span style={{ fontSize: 13 }}>{tx(p("Pick a day to see your periods.", "अपने पीरियड देखने के लिए दिन चुनें।"))}</span>}
-            </span>
+          <div className="tc-note" style={{ background: "var(--s2)" }}>
+            <Ic n="users" style={{ marginTop: 2, color: "var(--acc)" }} />
+            {preview ? <LeavePreview preview={preview} asked={span} /> : <span style={{ fontSize: 13 }}>{tx(p("Pick a day to see which of your periods need cover.", "दिन चुनें — दिखेगा कि किन पीरियड का इंतज़ाम करना होगा।"))}</span>}
           </div>
           {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{tx(error)}</span> : null}
         </div>

@@ -1,0 +1,10 @@
+/* Today and More with "Bigger text" on (smoke 20 Oct: a senior teacher could
+   not read the 12px grey lines, and the switch lived deep in My profile). */
+:where(.vx,.vxt) .tc.t-large .tc-s{font-size:15px;line-height:1.45}
+:where(.vx,.vxt) .tc.t-large .tc-p{font-size:18px}
+:where(.vx,.vxt) .tc.t-large .tc-t{font-size:19px}
+:where(.vx,.vxt) .tc.t-large .tc-hi{font-size:15px}
+:where(.vx,.vxt) .tc.t-large .tc-ts,:where(.vx,.vxt) .tc.t-large .tc-mi{font-size:15px}
+:where(.vx,.vxt) .tc.t-large .tc-tb{font-size:17px}
+/* Timetable day buttons: at least 44px on a phone (smoke 20 Oct: 34px). */
+:where(.vx,.vxt) .tc-days>button{min-height:46px}

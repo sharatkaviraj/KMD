@@ -30,6 +30,26 @@ export function dLong(value: string | Date): string {
   return `${wd} ${dm}`;
 }
 
+/**
+ * "Tue 20 Oct" with its Hindi, "मंगल 20 अक्टू॰". A Hindi reader saw the
+ * date in English on Today (smoke 20 Oct); `dShort` stays for places that
+ * mix it into an English-only string.
+ */
+export function dShortP(value: string | Date): Pair {
+  const d = asDate(value);
+  const hiWd = new Intl.DateTimeFormat("hi-IN", { timeZone: TZ, weekday: "short" }).format(d);
+  const hiDm = new Intl.DateTimeFormat("hi-IN", { timeZone: TZ, day: "numeric", month: "short" }).format(d);
+  return p(dShort(d), `${hiWd} ${hiDm}`);
+}
+
+/** "Tuesday 20 October" with its Hindi, "मंगलवार 20 अक्टूबर". */
+export function dLongP(value: string | Date): Pair {
+  const d = asDate(value);
+  const hiWd = new Intl.DateTimeFormat("hi-IN", { timeZone: TZ, weekday: "long" }).format(d);
+  const hiDm = new Intl.DateTimeFormat("hi-IN", { timeZone: TZ, day: "numeric", month: "long" }).format(d);
+  return p(dLong(d), `${hiWd} ${hiDm}`);
+}
+
 /** A bell time "13:30" as the timeline writes it: "1:30". */
 export function hm12(hhmm: string): string {
   const [h, m] = hhmm.split(":").map(Number);

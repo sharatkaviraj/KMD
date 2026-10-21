@@ -46,7 +46,7 @@ const BELLS = [
   ["11:10", "11:50"], ["11:50", "12:30"], ["12:30", "13:10"], ["13:10", "13:50"],
 ].map(([starts, ends], i) => ({ period: i, number: i + 1, starts, ends }));
 
-const lesson = (i: number, classId: string, classLabel: string) => ({ period: i, number: i + 1, starts: BELLS[i].starts, ends: BELLS[i].ends, subjectCode: "SCI", subjectName: "Science", classLabel, classId, combined: false });
+const lesson = (i: number, classId: string, classLabel: string) => ({ period: i, number: i + 1, starts: BELLS[i].starts, ends: BELLS[i].ends, subjectCode: "SCI", subjectName: "Science", subjectHi: "विज्ञान", classLabel, classId, combined: false });
 
 function home(state: "home" | "later"): HomeData {
   const later = state === "later";
@@ -83,9 +83,9 @@ function home(state: "home" | "later"): HomeData {
     followUpsDue: 1,
     reviews: [{ id: id(601), studentId: id(119), studentName: "Riya Singh", body: "finds fractions hard · practice sheets started", followUpOn: "2026-10-12" }],
     subjects: [
-      { classId: C6, classLabel: "Class 6", subjectId: SCI, name: "Science", children: 31, mine: true },
-      { classId: C7, classLabel: "Class 7", subjectId: SCI, name: "Science", children: 27, mine: false },
-      { classId: C8, classLabel: "Class 8", subjectId: SCI, name: "Science", children: 28, mine: false },
+      { classId: C6, classLabel: "Class 6", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 31, mine: true },
+      { classId: C7, classLabel: "Class 7", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 27, mine: false },
+      { classId: C8, classLabel: "Class 8", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 28, mine: false },
     ],
     links: [
       { paperId: id(306), classLabel: "Class 6", subjectCode: "Science", exam: "Half-yearly", entered: 31, total: 31, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
@@ -93,6 +93,14 @@ function home(state: "home" | "later"): HomeData {
       { paperId: id(308), classLabel: "Class 8", subjectCode: "Science", exam: "Half-yearly", entered: 0, total: 28, submitted: false, examId: id(300), maxMarks: 80, url: "https://one.vpps.example/t/marks/synthetic-token" },
     ],
     canMark: true,
+    staffId: id(900),
+    closed: null,
+    lastOpen: null,
+    myClasses: [{ classId: C6, classLabel: "Class 6", total: 31, saved: later, savedAt: later ? at("08:52") : null }],
+    closedDays: [{ day: "2026-10-20", tag: { en: "Holiday · Dussehra", hi: "छुट्टी · दशहरा" } }],
+    leave: [],
+    tasks: [],
+    largeText: false,
   };
 }
 
@@ -240,6 +248,7 @@ function classData(): ClassData {
     ].map(([subjectName, teacher, mine], i) => ({ period: i, number: i + 1, starts: BELLS[i].starts, ends: BELLS[i].ends, subjectName: String(subjectName), teacher: String(teacher), mine: Boolean(mine) })),
     nowMinutes: 9 * 60 + 48,
     published: true,
+    closed: null,
   };
 }
 
@@ -306,6 +315,7 @@ function moreData(): MoreData {
     periodTimes: BELLS.map((b) => ({ number: b.number, starts: b.starts, ends: b.ends })),
     profile: {
       name: NAME,
+      shortName: "",
       email: "kavita.bhati@example.test",
       role: "teacher",
       classes: [{ classId: C6, classLabel: "Class 6", held: true }, { classId: C7, classLabel: "Class 7", held: false }, { classId: C8, classLabel: "Class 8", held: false }],
@@ -314,11 +324,17 @@ function moreData(): MoreData {
       alerts: { notices: true },
     },
     leave: [
-      { id: id(801), from_day: "2026-10-26", to_day: "2026-10-26", span: "first_half", note: "Personal work", status: "asked", created_at: at("10:00", "2026-10-06"), decided_by: null, decided_at: null, decided_by_name: null },
-      { id: id(802), from_day: "2026-09-25", to_day: "2026-09-25", span: "full", note: "Unwell", status: "approved", created_at: at("09:00", "2026-09-24"), decided_by: null, decided_at: at("11:00", "2026-09-24"), decided_by_name: "QA Admin" },
-      { id: id(803), from_day: "2026-08-31", to_day: "2026-09-01", span: "full", note: "Family function", status: "approved", created_at: at("09:00", "2026-08-28"), decided_by: null, decided_at: null, decided_by_name: null },
+      { id: id(801), from_day: "2026-10-26", to_day: "2026-10-26", span: "first_half", note: "Personal work", status: "asked", created_at: at("10:00", "2026-10-06"), decided_at: null, decided_by_name: null, covers: [] },
+      { id: id(802), from_day: "2026-09-25", to_day: "2026-09-25", span: "full", note: "Unwell", status: "approved", created_at: at("09:00", "2026-09-24"), decided_at: at("11:00", "2026-09-24"), decided_by_name: "QA Admin", covers: [{ day: "2026-09-25", number: 2, classLabels: ["Class 7"], coverName: "Mr. Meena" }] },
+      { id: id(803), from_day: "2026-08-31", to_day: "2026-09-01", span: "full", note: "Family function", status: "approved", created_at: at("09:00", "2026-08-28"), decided_at: null, decided_by_name: null, covers: [] },
     ],
     nowMinutes: 9 * 60 + 48,
+    subjectNames: { Science: { en: "Science", hi: "विज्ञान" } },
+    closed: null,
+    leaveToday: null,
+    closedDays: [],
+    tasks: [],
+    remarks: 0,
     classSizes: { [C6]: 31, [C7]: 27, [C8]: 28 },
   };
 }
