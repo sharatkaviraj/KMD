@@ -19,8 +19,6 @@
 :where(.vx,.vxt) .tc-card{padding:18px 20px;display:flex;flex-direction:column;gap:12px;animation:xRise .42s var(--ease) both}
 .vx .tc-lnk,.vxt .tc-lnk{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 4px;font-size:14px;font-weight:600;color:var(--acc);border:0;background:transparent}
 :where(.vx,.vxt) .tc-x{width:44px;height:44px;padding:0;border-radius:22px}
-:where(.vx,.vxt) .tc-lang{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:84px;flex:none}
-:where(.vx,.vxt) .tc-lang>button{height:30px;font-size:13px}
 :where(.vx,.vxt) .tc-bb{height:52px;font-size:16px;border-radius:14px}
 :where(.vx,.vxt) .tc-sb{display:flex;flex-direction:column;gap:14px;padding-top:4px}
 :where(.vx,.vxt) .tc-opt{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 14px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:left}
@@ -68,9 +66,6 @@
 }
 
 /* ---- My class & subjects (TchClass) ----------------------------------------- */
-:where(.vx,.vxt) .tc-langp{flex:none;height:36px;padding:3px;border-radius:18px;border:1px solid var(--bd);background:var(--s2);display:inline-flex;gap:2px}
-:where(.vx,.vxt) .tc-langp>span{min-width:32px;height:28px;padding:0 6px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mut);transition:background-color .2s ease,color .2s ease}
-:where(.vx,.vxt) .tc-langp>span.y{background:var(--card);color:var(--fg);box-shadow:var(--sh)}
 :where(.vx,.vxt) .tc-sg>button{height:46px}
 :where(.vx,.vxt) .tc-hn{font-size:11px;font-weight:500;color:var(--mut)}
 :where(.vx,.vxt) .tc-cc{display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -161,4 +156,9 @@
   .vx .tc-day{min-height:54px;padding:5px 1px 6px}
   .vx .tc-cal{gap:4px}
   .vx .tc-agr{font-size:24px!important}
+}
+
+/* ---- Touch (smoke 20 Oct, dev.groups[22]) ------------------------------------- */
+@media (pointer:coarse){
+  .vx .tc-lnk,.vxt .tc-lnk{min-height:44px;padding:0 8px}
 }
