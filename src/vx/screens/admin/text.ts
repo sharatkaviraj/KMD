@@ -55,6 +55,7 @@ export const T = {
   teachersOnLeave: p("Teachers away", "अनुपस्थित शिक्षक"),
   periodsCovered: (done: number, all: number): Pair => p(`${done} of ${all} periods covered`, `${all} में से ${done} पीरियड की व्यवस्था`),
   noCoverNeeded: p("No cover needed", "कोई व्यवस्था नहीं चाहिए"),
+  periodsShort: (short: number): Pair => p(`${short} ${short === 1 ? "period" : "periods"} with no teacher`, `${short} पीरियड में कोई शिक्षक नहीं`),
   followUps: p("Follow-up calls", "फ़ॉलो-अप कॉल"),
   followUpsSub: p("Pending fees, oldest first", "बकाया फ़ीस, सबसे पुरानी पहले"),
   familiesToCall: (n: number): Pair => p(`${n} famil${n === 1 ? "y" : "ies"} to call today`, `आज ${n} परिवारों को फ़ोन करें`),

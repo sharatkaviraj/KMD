@@ -12,7 +12,7 @@ import { Seg } from "@/vx/ui/controls";
 import { Grid } from "@/vx/ui/page";
 import { Card, CardHead, IconTile, Kpi, Pill } from "@/vx/ui/primitives";
 import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
-import { foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
+import { coverStanding, foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { TD } from "@/vx/screens/admin/today-text";
 import { catchUp, dueColumns, kfmt, moneyChart, weekBars } from "@/vx/screens/admin/today-logic";
@@ -50,7 +50,7 @@ export type TodayProps = {
   moneyFailed: boolean;
   attendance: { marked: number; total: number; percent: number | null; schoolOpen: boolean } | null;
   staffAway: number | null;
-  cover: { needed: number; arranged: number } | null;
+  cover: { needed: number; arranged: number; missed: number } | null;
   inbox: InboxItem[] | null;
   timeline: TimelineItem[];
   /** Who is scheduled to teach now and next; null when this reader has no timetable. */
@@ -491,6 +491,21 @@ function Dashes({ needed, arranged, on, off, width }: { needed: number; arranged
   );
 }
 
+/**
+ * The away tile's line: "3 periods with no teacher" in warning colour while
+ * any lesson is short, "2 of 2 periods covered" when none is, and "No cover
+ * needed" only when nothing is needed — begun periods with nobody count.
+ */
+function CoverLine({ cover, color }: { cover: TodayProps["cover"]; color: string }) {
+  const { tx } = useVx();
+  if (!cover) return null;
+  const standing = coverStanding(cover);
+  if (standing.tone === "warn") {
+    return <span style={{ fontSize: 12, fontWeight: 700, color: "var(--warnfg)", background: "var(--warns)", borderRadius: 6, padding: "1px 6px", alignSelf: "flex-start" }}>{tx(T.periodsShort(standing.short))} · {tx(T.periodsCovered(cover.arranged, cover.needed))}</span>;
+  }
+  return <span style={{ fontSize: 12, color }}>{standing.tone === "ok" ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)}</span>;
+}
+
 /** Wraps a tile in a link only when the reader may open the screen behind it. */
 function TileLink({ href, className, style, children }: { href: string | null; className: string; style: CSSProperties; children: ReactNode }) {
   if (href) {
@@ -590,7 +605,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             <span className="num" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{props.staffAway}</span>
             <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on={HERO_TEAL} off="var(--navb)" width={18} /> : null}
-              <span style={{ fontSize: 12, color: "var(--navm)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
+              <CoverLine cover={cover} color="var(--navm)" />
             </span>
           </TileLink>
         ) : null}
@@ -857,7 +872,7 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
           <span style={label}>{tx(T.teachersOnLeave)}</span>
           <span className="num" style={big}>{props.staffAway}</span>
           {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on="var(--acc)" off="var(--s3)" width={22} /> : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
+          <CoverLine cover={cover} color="var(--mut)" />
         </TileLink>
       ) : null}
       {money ? (

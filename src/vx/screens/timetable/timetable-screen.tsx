@@ -52,6 +52,8 @@ import {
   leaveProblems,
   LEGEND_FAMILIES,
   periodAt,
+  coverRing,
+  sortLeaveByUrgency,
   periodsNeedingCover,
   PERIODS,
   schoolDays,
@@ -152,10 +154,15 @@ function RadioDot({ on }: { on: boolean }) {
   );
 }
 
-/** The design's 76px ring (viewBox 100, r 42, stroke 11) with a number in the middle. */
+/**
+ * The design's 76px ring (viewBox 100, r 42, stroke 11) with a number in the
+ * middle. Nothing to count is an empty grey ring, never a full one: "0/0"
+ * drawn as a green circle read as success while three periods had no teacher
+ * (admin run, 20 Oct).
+ */
 function RingNum({ value, max, tone, big, bigSize = 20, small }: { value: number; max: number; tone: string; big: ReactNode; bigSize?: number; small: ReactNode }) {
-  const frac = max > 0 ? Math.min(1, Math.max(0, value / max)) : 1;
-  const len = Math.max(0.5, 263.9 * frac).toFixed(1);
+  const frac = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
+  const len = frac > 0 ? Math.max(0.5, 263.9 * frac).toFixed(1) : "0";
   return (
     <span style={{ position: "relative", flex: "none", width: 76, height: 76 }}>
       <svg width={76} height={76} viewBox="0 0 100 100" aria-hidden="true">
@@ -683,7 +690,16 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
   } else if (state.view === "subs") {
     body = <Subs data={data} pending={coverBlocked} subjectName={subjectName} clock={hhmm} onCover={cover} onAssign={(needKey) => go({ view: "subs", duty: needKey })} />;
   } else if (state.view === "leave") {
-    body = <Leave data={data} pending={pending || previewing} onDecide={(id, approve) => start(async () => done(await decideLeaveAction({ id, approve })))} />;
+    body = <Leave data={data} pending={pending || previewing} onDecide={(id, approve) => start(async () => {
+      const result = await decideLeaveAction({ id, approve });
+      // Approved with lessons still short of a teacher: the toast says how many, and the cover tab opens on that day.
+      if (result.ok && result.coverDay) {
+        toast.show({ text: tx(result.message), tone: "bad" });
+        router.push(timetableHref({ view: "subs" }, result.coverDay), { scroll: false });
+        return;
+      }
+      done(result);
+    })} />;
   } else {
     body = <EmptyState icon="calendar" title={say("Nothing to show", "दिखाने को कुछ नहीं")} body={say("No classes or teachers in this session's timetable yet.", "इस सत्र की समय सारणी में अभी कोई कक्षा या शिक्षक नहीं।")} />;
   }
@@ -1188,7 +1204,10 @@ function Subs({
   const open = live.length - assigned;
   const away = [...c.absences];
   const missed = c.missed ?? [];
-  const isAbsent = (ids: string[] | undefined, names: string[], a: CoverView["absences"][number]) => (ids ? ids.includes(a.staffId) : names.includes(a.name));
+  // Every lesson the absences leave, the begun ones included: the ring is
+  // covered out of all of them, green only when every one has a teacher.
+  const ring = coverRing(assigned, live.length, missed.length);
+  const isAbsent =(ids: string[] | undefined, names: string[], a: CoverView["absences"][number]) => (ids ? ids.includes(a.staffId) : names.includes(a.name));
 
   return (
     <>
@@ -1232,22 +1251,40 @@ function Subs({
                 <option value="first_half">P1–P{BREAK_AFTER + 1}</option>
                 <option value="second_half">P{BREAK_AFTER + 2}–P{PERIODS.length}</option>
               </Select>
-              <Btn variant="pri" icon="check" disabled={pending || !awayId} onClick={() => onCover({ intent: "absence", staffProfileId: awayId, periods: spanPeriods(awaySpanChoice) }, () => setAwayId(""))}>{say("Save & arrange", "सहेजें और व्यवस्था करें")}</Btn>
+              {/* Periods already marked away (an approved leave, say) are kept: the new ones are added, never swapped in silently. */}
+              <Btn variant="pri" icon="check" disabled={pending || !awayId} onClick={() => onCover({ intent: "absence", staffProfileId: awayId, periods: [...new Set([...(absenceOf(awayId)?.periods ?? []), ...spanPeriods(awaySpanChoice)])].sort((x, y) => x - y) }, () => setAwayId(""))}>{say("Save & arrange", "सहेजें और व्यवस्था करें")}</Btn>
+              {awayId && absenceOf(awayId) ? (
+                <span role="status" style={{ flexBasis: "100%", fontSize: 13, color: "var(--warnfg)" }}>
+                  {(() => {
+                    const a = absenceOf(awayId)!;
+                    const list = `P${a.periods.map((x) => periodNumber(x)).join(", P")}`;
+                    return onLeave(awayId)
+                      ? say(`${a.name} is already away ${list} on approved leave. The periods you pick are added; use Back to clear the day.`, `${a.name} स्वीकृत छुट्टी पर ${list} में पहले से अनुपस्थित हैं। चुने पीरियड जोड़ दिए जाएँगे; दिन हटाने के लिए "लौट आए" दबाएँ।`)
+                      : say(`${a.name} is already away ${list}. The periods you pick are added; use Back to clear the day.`, `${a.name} ${list} में पहले से अनुपस्थित हैं। चुने पीरियड जोड़ दिए जाएँगे; दिन हटाने के लिए "लौट आए" दबाएँ।`);
+                  })()}
+                </span>
+              ) : null}
             </div>
           ) : null}
         </Card>
         <Card style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
-          <RingNum value={assigned} max={live.length} tone="var(--ok)" big={`${assigned}/${live.length}`} bigSize={18} small={say("covered", "व्यवस्था")} />
+          <RingNum value={assigned} max={ring.total} tone={ring.tone === "ok" ? "var(--ok)" : ring.tone === "warn" ? "var(--warn)" : "var(--s3)"} big={`${assigned}/${ring.total}`} bigSize={18} small={say("covered", "व्यवस्था")} />
           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>{say(`${assigned} of ${live.length} periods covered`, `${live.length} में से ${assigned} पीरियड की व्यवस्था हुई`)}</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: ring.short ? "var(--warnfg)" : undefined }}>
+              {ring.total === 0
+                ? say("No period needs cover", "किसी पीरियड में व्यवस्था नहीं चाहिए")
+                : ring.short
+                  ? say(`${assigned} of ${ring.total} periods covered · ${ring.short} with no teacher`, `${ring.total} में से ${assigned} पीरियड की व्यवस्था · ${ring.short} में कोई शिक्षक नहीं`)
+                  : say(`All ${ring.total} periods covered`, `सभी ${ring.total} पीरियड की व्यवस्था हुई`)}
+            </span>
             <span style={MUTED}>
               {open
                 ? say(`${open} still need a teacher · best matches are picked for you`, `${open} को अभी शिक्षक चाहिए · सबसे उपयुक्त पहले चुने गए हैं`)
                 : live.length
                   ? say("Everyone knows where to be today", "आज सबको पता है कहाँ जाना है")
                   : missed.length
-                    ? say(`Nothing left to arrange · ${missed.length} ${missed.length === 1 ? "period had" : "periods had"} already begun`, `व्यवस्था को कुछ बाकी नहीं · ${missed.length} पीरियड पहले ही शुरू हो चुके थे`)
-                    : say("No period needs cover", "किसी पीरियड में व्यवस्था नहीं चाहिए")}
+                    ? say(`${missed.length} ${missed.length === 1 ? "period had" : "periods had"} begun before cover could be arranged · see below`, `${missed.length} पीरियड व्यवस्था से पहले शुरू हो चुके थे · नीचे देखें`)
+                    : say("Mark a teacher away and their periods appear here", "शिक्षक को अनुपस्थित दर्ज करें, उनके पीरियड यहाँ दिखेंगे")}
             </span>
           </span>
         </Card>
@@ -1482,7 +1519,8 @@ function leaveType(l: LeaveView): Pair {
 function Leave({ data, pending, onDecide }: { data: TimetableData; pending: boolean; onDecide: (id: string, approve: boolean) => void }) {
   const { tx } = useVx();
   const say = (en: string, hi: string) => tx({ en, hi });
-  const waiting = data.leave.filter((l) => l.status === "asked");
+  // Most urgent first: today and tomorrow, then later days, and days already gone last.
+  const waiting = sortLeaveByUrgency(data.leave.filter((l) => l.status === "asked"), data.today);
   const approved = data.leave.filter((l) => l.status === "approved" && l.to >= data.today);
   const first = data.week[0] ?? data.today;
   const strip = Array.from({ length: 14 }, (_, i) => addDay(first, i));
@@ -1526,21 +1564,29 @@ function Leave({ data, pending, onDecide }: { data: TimetableData; pending: bool
       </Card>
       <span className="sech">{data.me.mayCover ? say(`Waiting for you · ${waiting.length}`, `आपके निर्णय के लिए · ${waiting.length}`) : say(`Asked · ${waiting.length}`, `माँगी गई · ${waiting.length}`)}</span>
       {waiting.map((l) => {
-        const periods = periodsNeedingCover(data.slots, l.staffId, l.from, l.to, l.span);
+        const periods = periodsNeedingCover(data.slots, l.staffId, l.from, l.to, l.span, new Set(data.closedDays ?? []));
+        const past = l.to < data.today;
         return (
           <Card key={l.id} style={{ padding: "14px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, animation: "xIn .3s var(--ease) both" }}>
             <Ava name={l.name} />
             <span style={{ flex: 1, minWidth: 210, display: "flex", flexDirection: "column" }}>
               <span style={{ fontWeight: 600 }}>{l.name} · {dayRange(l.from, l.to)}</span>
               <span style={MUTED}>{sub(l, askedLine(l, data.today))}</span>
-              <span style={{ fontSize: 13, color: "var(--warnfg)" }}>{say(`${periods} ${periods === 1 ? "period" : "periods"} will need cover`, `${periods} पीरियड में व्यवस्था चाहिए होगी`)}</span>
+              {past ? (
+                <span style={{ fontSize: 13, color: "var(--warnfg)" }}>{say("These days have passed · record it as taken, or decline it", "ये दिन बीत चुके हैं · ली गई दर्ज करें, या अस्वीकार करें")}</span>
+              ) : periods === 0 ? (
+                <span style={MUTED}>{say("No lessons need cover on these days", "इन दिनों किसी पीरियड में व्यवस्था नहीं चाहिए")}</span>
+              ) : (
+                <span style={{ fontSize: 13, color: "var(--warnfg)" }}>{say(`${periods} ${periods === 1 ? "period" : "periods"} will need cover`, `${periods} पीरियड में व्यवस्था चाहिए होगी`)}</span>
+              )}
             </span>
+            {past ? <Pill tone="warn">{say("Date passed", "तारीख़ निकल गई")}</Pill> : l.from <= addDay(data.today, 1) ? <Pill tone="bad">{l.from <= data.today ? say("Today", "आज") : say("Tomorrow", "कल")}</Pill> : null}
             {data.me.mayCover ? (
               <span className="mfull" style={{ display: "flex", gap: 8 }}>
                 <button type="button" className="tap btn ghost" style={{ flex: 1 }} disabled={pending} onClick={() => onDecide(l.id, false)}>{say("Decline", "अस्वीकार करें")}</button>
                 <button type="button" className="tap btn pri" style={{ flex: 1 }} disabled={pending} onClick={() => onDecide(l.id, true)}>
                   <Ic n="check" />
-                  {say("Approve", "स्वीकार करें")}
+                  {past ? say("Record as taken", "ली गई दर्ज करें") : say("Approve", "स्वीकार करें")}
                 </button>
               </span>
             ) : null}
@@ -1589,7 +1635,10 @@ function LeaveSheet({ open, data, pending, onClose, onSave }: { open: boolean; d
   const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const problems = leaveProblems({ staffId, from, to });
-  const periods = staffId && !problems.length ? periodsNeedingCover(data.slots, staffId, from, to, span) : 0;
+  const closed = new Set(data.closedDays ?? []);
+  const periods = staffId && !problems.length ? periodsNeedingCover(data.slots, staffId, from, to, span, closed) : 0;
+  // A leave only on days the school is closed is refused by the server; say so before Save.
+  const allClosed = !problems.length && schoolDays(from, to).every((day) => closed.has(day) || weekdayOf(day) === null);
   const who = data.teachers.find((t) => t.id === staffId)?.name ?? say("This teacher", "यह शिक्षक");
   // The reason chip leads the note, as the design keeps them: "Sick · …". Stored in English.
   const fullNote = [reason, note.trim()].filter(Boolean).join(" · ").slice(0, 200);
@@ -1602,7 +1651,7 @@ function LeaveSheet({ open, data, pending, onClose, onSave }: { open: boolean; d
       footer={
         <>
           <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{say("Cancel", "रद्द करें")}</button>
-          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={pending || problems.length > 0} onClick={() => onSave({ staffId, from, to, span, note: fullNote })}>
+          <button type="button" className="tap btn pri" style={{ flex: 1.6 }} disabled={pending || problems.length > 0 || allClosed} onClick={() => onSave({ staffId, from, to, span, note: fullNote })}>
             <Ic n="check" />
             {data.me.mayCover ? say("Save leave", "छुट्टी सहेजें") : say("Ask for leave", "छुट्टी माँगें")}
           </button>
@@ -1653,7 +1702,9 @@ function LeaveSheet({ open, data, pending, onClose, onSave }: { open: boolean; d
           <span>
             {problems.length
               ? tx(LEAVE_PROBLEMS[problems[0]])
-              : say(`${who} has ${periods} ${periods === 1 ? "period" : "periods"} in these days. Once approved they show up in Substitutions for cover.`, `इन दिनों ${who} के ${periods} पीरियड हैं। स्वीकार होने पर वे व्यवस्था में दिखेंगे।`)}
+              : allClosed
+                ? say("School is closed on these days, so no leave is needed.", "इन दिनों स्कूल बंद है, इसलिए छुट्टी की ज़रूरत नहीं।")
+                : say(`${who} has ${periods} ${periods === 1 ? "period" : "periods"} in these days. Once approved they show up in Substitutions for cover.`, `इन दिनों ${who} के ${periods} पीरियड हैं। स्वीकार होने पर वे व्यवस्था में दिखेंगे।`)}
           </span>
         </div>
       </div>

@@ -46,7 +46,7 @@ import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 
 import { p, type Pair } from "@/vx/text";
 import { boardSummary, remindable, sortBoard, supportAttention, type ClassBoardRow, type MarkStatus } from "@/vx/screens/admin/logic";
-import { scheduleNow, type CoverException, type ScheduleSlot, type ScheduleView } from "@/vx/screens/admin/schedule";
+import { scheduleNow, coverToday, type CoverException, type ScheduleSlot, type ScheduleView } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { schoolWeek } from "@/vx/screens/admin/today-logic";
 import type { BoardData, InboxItem, SheetData, TimelineItem } from "@/vx/screens/admin/types";
@@ -319,7 +319,8 @@ export async function queueAttendanceReminders(sessionLabel: string, day: string
 export type TodayFacts = {
   board: BoardData | null;
   staffAway: number | null;
-  cover: { needed: number; arranged: number } | null;
+  /** Cover today: lessons needing a teacher (begun ones with none included), how many have one, how many had begun with none. */
+  cover: { needed: number; arranged: number; missed: number } | null;
   timeline: TimelineItem[];
   /** Who is scheduled to teach now and next; null when this reader has no `timetable:view` or it could not be read. */
   schedule: ScheduleView | null;
@@ -591,7 +592,7 @@ export async function loadToday(staff: CurrentStaff, sessionLabel: string, day: 
   return {
     board,
     staffAway: absences === null ? null : new Set(absences.map((row) => row.staffProfileId)).size,
-    cover: duties === null ? null : { needed: duties.length, arranged: duties.filter((duty) => duty.status === "assigned").length },
+    cover: duties === null ? null : coverToday(duties, slots ?? [], absences ?? []),
     timeline,
     schedule,
     scheduleFailed: seesTimetable && schedule === null,

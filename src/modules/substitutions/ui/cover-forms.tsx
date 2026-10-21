@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+
 import { m } from "@/messages";
 import { CoverCommandForm } from "@/modules/substitutions/ui/cover-command";
 import { PeriodPicker } from "@/modules/substitutions/ui/period-picker";
-import { flat, primary } from "@/platform/i18n/language";
+import { flat, primary, t } from "@/platform/i18n/language";
+import { periodNumber } from "@/modules/timetable/domain/periods";
 import { useLanguage } from "@/platform/i18n/use-language";
 import { Field, Select } from "@/ui/primitives";
 
@@ -19,12 +22,17 @@ export function AbsenceCommandForm({
   day,
   dayRevision,
   staff,
+  away = [],
 }: {
   day: string;
   dayRevision: number;
   staff: { id: string; displayName: string; shortName: string }[];
+  /** Who is already away that day: picking one of them starts from their periods, so a re-save never drops a leave's periods unseen. */
+  away?: { staffProfileId: string; periods: number[] }[];
 }) {
   const language = useLanguage();
+  const [picked, setPicked] = useState("");
+  const current = away.find((entry) => entry.staffProfileId === picked);
 
   return (
     <CoverCommandForm
@@ -38,7 +46,7 @@ export function AbsenceCommandForm({
       className="space-y-4"
     >
       <Field label={m.subsMarkAbsent} htmlFor="absent-staff" language={language}>
-        <Select id="absent-staff" name="staffProfileId" required defaultValue="">
+        <Select id="absent-staff" name="staffProfileId" required value={picked} onChange={(event) => setPicked(event.target.value)}>
           <option value="">—</option>
           {staff.map((person) => (
             <option key={person.id} value={person.id}>
@@ -50,8 +58,19 @@ export function AbsenceCommandForm({
 
       <Field label={m.subsPeriods} htmlFor="absent-periods" language={language}>
         <div id="absent-periods">
-          <PeriodPicker name="periods" />
+          <PeriodPicker key={picked || "none"} name="periods" defaultPeriods={current && current.periods.length ? current.periods : undefined} />
         </div>
+        {current ? (
+          <p role="status" className="mt-2 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-soft-foreground">
+            {primary(
+              t(
+                `पहले से अनुपस्थित: P${current.periods.map((period) => periodNumber(period)).join(", P")}। वही पीरियड चुने हुए हैं — सहेजने पर यहाँ जो चुना है वही रहेगा।`,
+                `Already away P${current.periods.map((period) => periodNumber(period)).join(", P")}. Those periods are picked below; saving keeps exactly what is picked here.`,
+              ),
+              language,
+            )}
+          </p>
+        ) : null}
       </Field>
     </CoverCommandForm>
   );

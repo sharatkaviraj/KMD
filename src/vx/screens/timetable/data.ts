@@ -13,6 +13,8 @@ import { needsHelpReasons } from "@/modules/substitutions/domain/cover-state";
 import { coverEligibleIds, distinctNames, missedPeriods } from "@/modules/substitutions/domain/cover-view";
 import { getPublishedVersion, listSlots, listVersions, type TimetableVersion } from "@/modules/timetable/data/timetable-repo";
 import { DEFAULT_BELLS } from "@/modules/timetable/domain/bells";
+import { schoolCalendar } from "@/modules/attendance/data/attendance-repo";
+import { timetableRuns, type CalendarDayKind } from "@/modules/academics/domain/calendar";
 import type { Pair } from "@/vx/text";
 
 import { weekDates, type LeaveSpan, type PendingChange, type Slot } from "./domain/timetable";
@@ -95,6 +97,8 @@ export type TimetableData = {
   leave: LeaveView[];
   cover: CoverView | null;
   subsThisWeek: Record<string, number>;
+  /** Days the calendar closes or does not teach (holidays, vacation, exam days), from a week ago on: leave on them needs no cover. */
+  closedDays?: string[];
   me: { id: string; mayEdit: boolean; mayCover: boolean; mayViewCover: boolean };
 };
 
@@ -127,7 +131,7 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
   const admin = createAdminClient();
   const coverDay = coverDayParam && /^\d{4}-\d{2}-\d{2}$/.test(coverDayParam) ? coverDayParam : today;
 
-  const [published, labels, staff, subjects, changeRows, leaveRows, classTeacherRows, subsWeek, versionRows] = await Promise.all([
+  const [published, labels, staff, subjects, changeRows, leaveRows, classTeacherRows, subsWeek, versionRows, calendar] = await Promise.all([
     getPublishedVersion(sessionLabel),
     classLabelMap(sessionLabel),
     listStaff(),
@@ -157,6 +161,7 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
     mayViewCover ? coverCountsBetween(sessionLabel, week[0], week[5]).catch(() => ({}) as Record<string, number>) : Promise.resolve({} as Record<string, number>),
     // The publish screen's history; a failure leaves it out rather than the screen.
     mayEdit ? Promise.resolve().then(() => listVersions(sessionLabel)).catch(() => [] as TimetableVersion[]) : Promise.resolve([] as TimetableVersion[]),
+    schoolCalendar(sessionLabel).catch(() => new Map<string, CalendarDayKind>()),
   ]);
 
   const slots: Slot[] = published
@@ -174,7 +179,9 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
       }))
     : [];
 
-  const nameOf = new Map(staff.map((s) => [s.id, s.displayName]));
+  // Two profiles called "QA Teacher" are told apart everywhere a name is picked or read (admin run, 20 Oct).
+  const distinct = distinctNames(staff.map((s) => ({ id: s.id, displayName: s.displayName, shortName: s.shortName })));
+  const nameOf = new Map(staff.map((s) => [s.id, distinct.get(s.id) ?? s.displayName]));
   const classTeacher = new Map((classTeacherRows.data ?? []).map((r) => [r.class_id, nameOf.get(r.staff_profile_id) ?? null]));
   const inTimetable = new Set(slots.map((s) => s.classId));
   // `classLabelMap` is built in school order (Nursery before Class 1), and a Map keeps it.
@@ -182,7 +189,7 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
   const teaching = new Set(slots.map((s) => s.staffProfileId));
   const teachers = staff
     .filter((s) => s.isActive && (s.isTeaching || teaching.has(s.id)))
-    .map((s) => ({ id: s.id, name: s.displayName, shortName: s.shortName }))
+    .map((s) => ({ id: s.id, name: nameOf.get(s.id) ?? s.displayName, shortName: s.shortName }))
     .sort((a, b) => a.name.localeCompare(b.name, "en"));
 
   let cover: CoverView | null = null;
@@ -282,7 +289,9 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
       createdBy: nameOf.get(c.created_by) ?? null,
       createdAt: c.created_at,
     })),
-    leave: (leaveRows.data ?? []).map((l) => ({
+    // A teacher sees her own requests and who is away on approved leave — never a
+    // colleague's request still waiting for a decision (admin run, 20 Oct).
+    leave: (leaveRows.data ?? []).filter((l) => mayCover || l.staff_profile_id === me.id || l.status === "approved").map((l) => ({
       id: l.id,
       staffId: l.staff_profile_id,
       name: nameOf.get(l.staff_profile_id) ?? "—",
@@ -297,5 +306,6 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
     })),
     cover,
     subsThisWeek: subsWeek,
+    closedDays: [...calendar.keys()].filter((day) => day >= addDays(today, -7) && !timetableRuns(day, calendar)).sort(),
   };
 }
