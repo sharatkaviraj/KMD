@@ -9,6 +9,7 @@
 
 import { p, type Pair } from "@/vx/text";
 import { spreadsheetText } from "@/platform/helpers/spreadsheet-text";
+import { noteAttention } from "@/vx/screens/notes/domain/notes";
 
 /* ------------------------------------------------------------ attendance */
 
@@ -188,14 +189,9 @@ export function supportAttention(
   notes: readonly { status: string; needsFollowUp: boolean; followUpOn: string | null; tags: readonly string[] }[],
   today: string,
 ): { needsAction: number; due: number } {
-  let needsAction = 0;
-  let due = 0;
-  for (const note of notes) {
-    if (note.status === "done") continue;
-    const isDue = note.needsFollowUp && note.followUpOn !== null && note.followUpOn <= today;
-    if (isDue) due += 1;
-    if (isDue || (note.status === "open" && !note.needsFollowUp && note.tags.some((t) => t === "health" || t === "family"))) needsAction += 1;
-  }
+  // The notes board's own count, so admin Today can never show a different
+  // number from the board it links to (smoke 20 Oct: 7 on Today, 4 on the board).
+  const { needsAction, due } = noteAttention(notes as Parameters<typeof noteAttention>[0], today);
   return { needsAction, due };
 }
 
