@@ -176,6 +176,7 @@ export function schoolMinutes(now: Date = new Date()): number {
  * needs action when its follow-up is due, or when it is an open health or
  * family note nobody has picked up. `due` is the follow-ups alone.
  */
+// TODO: use noteAttention() from notes/domain/notes
 export function supportAttention(
   notes: readonly { status: string; needsFollowUp: boolean; followUpOn: string | null; tags: readonly string[] }[],
   today: string,

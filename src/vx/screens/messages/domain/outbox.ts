@@ -131,3 +131,55 @@ export function reminderMessages(
   messages.sort((a, b) => a.parent.localeCompare(b.parent));
   return { messages, noPhone, nothingOwed };
 }
+
+/* ------------------------------------------------ out of date and repeats */
+
+/**
+ * Staff templates whose text is about one day ("today's register is not in
+ * yet"). A row of one of these queued on an earlier day is out of date.
+ */
+export const DAY_BOUND_TEMPLATES = ["vppsone_attendance_reminder", "vppsone_staff_attendance_reminder"] as const;
+
+export type Foldable = {
+  id: string;
+  status: "queued" | "sent";
+  /** Same recipient and same words: one message, however many times it was queued. */
+  dedupeKey: string | null;
+  /** The school day the text speaks of, for a day-bound message. */
+  forDay: string | null;
+  queuedAt: string;
+};
+
+/**
+ * The To send list as a person should see it (smoke run, 20 Oct): one row for
+ * a message queued a dozen times, with the count, and day-bound messages
+ * whose day has passed set apart — "absent today" six days later would tell a
+ * parent something false. Sent rows are left as they are. The newest copy is
+ * the one kept.
+ */
+export function foldOutbox<T extends Foldable>(items: readonly T[], today: string): { items: (T & { copies: number; repeatOf: string[] })[]; outOfDate: T[] } {
+  const outOfDate: T[] = [];
+  const kept = new Map<string, { item: T; others: T[] }>();
+  const order: string[] = [];
+  items.forEach((item, at) => {
+    if (item.status === "queued" && item.forDay && item.forDay < today) {
+      outOfDate.push(item);
+      return;
+    }
+    const key = item.status === "queued" && item.dedupeKey ? `k:${item.dedupeKey}` : `i:${at}`;
+    const seen = kept.get(key);
+    if (!seen) {
+      kept.set(key, { item, others: [] });
+      order.push(key);
+    } else if (item.queuedAt > seen.item.queuedAt) {
+      kept.set(key, { item, others: [...seen.others, seen.item] });
+    } else seen.others.push(item);
+  });
+  return {
+    items: order.map((key) => {
+      const entry = kept.get(key)!;
+      return { ...entry.item, copies: entry.others.length + 1, repeatOf: entry.others.map((other) => other.id) };
+    }),
+    outOfDate,
+  };
+}
