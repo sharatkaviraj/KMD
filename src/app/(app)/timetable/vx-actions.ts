@@ -14,10 +14,10 @@ import { listStaff } from "@/modules/staff/data/staff-repo";
 import { schoolCalendar } from "@/modules/attendance/data/attendance-repo";
 import { timetableRuns } from "@/modules/academics/domain/calendar";
 import { absencesOn } from "@/modules/substitutions/data/absences-repo";
-import { readCoverDay } from "@/modules/substitutions/data/arrange-day";
-import { coverDayRevision } from "@/modules/substitutions/data/cover-repo";
+import { arrangeLateCover, readCoverDay } from "@/modules/substitutions/data/arrange-day";
+import { coverDayRevision, type CommandReceipt } from "@/modules/substitutions/data/cover-repo";
 import { teacherCoverTally } from "@/modules/substitutions/domain/cover-view";
-import { idleCoverState, receiptSentence } from "@/modules/substitutions/domain/cover-state";
+import { idleCoverState, receiptSentence, type CoverReceipt } from "@/modules/substitutions/domain/cover-state";
 import { periodNumber } from "@/modules/timetable/domain/periods";
 import { createDraft, getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { publishVersion } from "@/modules/timetable/data/timetable-repo";
@@ -408,4 +408,59 @@ export async function decideLeaveAction(input: { id: string; approve: boolean })
   if (outcome.byHand > 0 && !firstShort) firstShort = days[14] ?? null;
 
   return { ok: true, message: leaveApprovedMessage(outcome), coverDay: leaveLeftShort(outcome) ? firstShort : null };
+}
+
+const LATE_REFUSALS: Record<string, Pair> = {
+  not_running: p("That period is no longer running, so nobody can be sent now.", "वह पीरियड अब नहीं चल रहा, इसलिए अब किसी को नहीं भेजा जा सकता।"),
+  stale: p("Someone has already been put in that class. The page shows it now.", "उस कक्षा में पहले ही किसी को भेजा जा चुका है। पेज पर अब दिख रहा है।"),
+  refused_override: p("That teacher cannot go: they are teaching, away or covering another class then.", "वे शिक्षक नहीं जा सकते: उस समय वे पढ़ा रहे हैं, अनुपस्थित हैं या दूसरी कक्षा ले रहे हैं।"),
+  no_lesson: p("The timetable has no lessons that day.", "उस दिन समय-सारणी में कोई पीरियड नहीं।"),
+  disabled: p("Arranging cover is switched off for now by an administrator.", "व्यवस्था अभी प्रशासक ने बंद की है।"),
+  unavailable: p("Sending a teacher into a running period needs a database update that is not in yet. Phone the teacher and ask them to go.", "चलते पीरियड में शिक्षक भेजने के लिए डेटाबेस का एक बदलाव अभी बाकी है। शिक्षक को फ़ोन करके भेज दें।"),
+};
+
+/**
+ * Send a teacher into a lesson that is running now with nobody in it — a
+ * period that had begun before its teacher was marked away. Same permission,
+ * same preview guard and the same per-day lock as every cover change; the
+ * periods still to come keep going through the cover command.
+ */
+export async function lateCoverAction(input: { commandId: string; sessionLabel: string; day: string; needKey: string; coveringStaffId: string }): Promise<TimetableResult> {
+  const actor = await assertPermission("substitutions:manage");
+  await assertNotPreviewing();
+  if (!UUID.test(input.commandId) || !UUID.test(input.coveringStaffId) || !DAY.test(input.day) || !input.needKey) return fail(notSaved);
+  if (!input.sessionLabel || input.sessionLabel !== (await resolveSessionLabel())) return fail(notSaved);
+  let outcome;
+  try {
+    outcome = await arrangeLateCover({ actorStaffId: actor.id, sessionLabel: input.sessionLabel, day: input.day, commandId: input.commandId, needKey: input.needKey, coveringStaffId: input.coveringStaffId });
+  } catch {
+    return fail(p("Not sure it saved. Reload the page before trying again.", "पता नहीं सहेजा गया या नहीं। फिर से कोशिश करने से पहले पेज दोबारा खोलें।"));
+  }
+  revalidatePath("/timetable");
+  revalidatePath("/substitutions");
+  if (outcome.ok) {
+    const sentence = receiptSentence(toLateReceipt(outcome));
+    return { ok: true, message: { en: `Sent now · ${sentence.en}`, hi: `अभी भेजा · ${sentence.hi}` } };
+  }
+  return fail(LATE_REFUSALS[outcome.reason] ?? notSaved);
+}
+
+function toLateReceipt(receipt: CommandReceipt): CoverReceipt {
+  return {
+    commandId: receipt.command_id,
+    dayRevision: receipt.day_revision,
+    assigned: receipt.assigned,
+    needsHelp: receipt.needs_help,
+    added: receipt.new,
+    changed: receipt.changed,
+    cancelled: receipt.cancelled,
+    unchanged: receipt.unchanged,
+    pinned: receipt.pinned ?? 0,
+    skippedStarted: receipt.skipped_started,
+    noticesQueued: receipt.notices_queued,
+    noticesWithdrawn: receipt.notices_withdrawn,
+    noticeRecipients: receipt.notice_recipients,
+    recipientsWithoutPhone: receipt.recipients_without_phone,
+    replayed: receipt.replayed,
+  };
 }

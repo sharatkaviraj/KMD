@@ -4,11 +4,12 @@ import { createHash } from "node:crypto";
 
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
-import { isArrangeable, type BellSchedule } from "@/modules/timetable/domain/bells";
+import { isArrangeable, periodTiming, type BellSchedule } from "@/modules/timetable/domain/bells";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { absencesOn, toAbsenceIndex } from "@/modules/substitutions/data/absences-repo";
 import {
   commitCoverCommand,
+  commitLateCover,
   coverCountsBetween,
   coverDayRevision,
   currentBells,
@@ -19,6 +20,7 @@ import {
   teamRules,
   type CommandOutcome,
   type CoverDuty,
+  type LateCoverOutcome,
 } from "@/modules/substitutions/data/cover-repo";
 import { listCoverPolicies } from "@/modules/substitutions/data/policies-repo";
 import { arrangeCover, type DutyOverride } from "@/modules/substitutions/domain/arrange";
@@ -326,5 +328,71 @@ export async function arrangeDay(input: {
     absences: absenceChanges,
     duties,
     fault: input.fault ?? null,
+  });
+}
+
+/**
+ * Put a teacher into a lesson that is running now with nobody in it — a
+ * period that had begun before its teacher was marked away (admin run, 20
+ * Oct: "no way to hand-pick a cover teacher"). The cover command never
+ * touches a begun period; this is the one narrow way in, judged here against
+ * the same day the screens draw and again by the database:
+ *
+ *  - today, and the period has started and not ended (the real clock, as
+ *    every write uses);
+ *  - the lesson is one the absences leave with no live duty;
+ *  - the person is free then by the engine's own rules (not away, not
+ *    teaching, not covering elsewhere).
+ */
+export async function arrangeLateCover(input: {
+  actorStaffId: string;
+  sessionLabel: string;
+  day: string;
+  commandId: string;
+  needKey: string;
+  coveringStaffId: string;
+  now?: Date;
+}): Promise<LateCoverOutcome> {
+  const replay = await findCommand(input.commandId, input.actorStaffId);
+  if (replay) return replay;
+
+  const now = input.now ?? new Date();
+  const day = await readCoverDay(input.sessionLabel, input.day, now);
+  if (!day.versionId || !day.header) return { ok: false, reason: "no_lesson" };
+
+  const need = day.needs.find((entry) => entry.key === input.needKey);
+  const hasDuty = day.live.some((duty) => duty.needKey === input.needKey || duty.needKey.startsWith(`${input.needKey}-`));
+  if (!need || hasDuty) return { ok: false, reason: "stale" };
+  if (periodTiming(day.bells, input.day, need.event.period, now) !== "started") return { ok: false, reason: "not_running" };
+
+  const { everyone, history } = await profilesFor(day);
+  const pseudo = {
+    id: `late:${need.key}`,
+    needKey: need.key,
+    period: need.event.period,
+    classLabels: need.event.classes.map((entry) => entry.label),
+    subjectCode: need.event.subjectCode,
+  } as CoverDuty;
+  const verdict = candidatesFor(day, everyone, history, pseudo).find((candidate) => candidate.teacher === input.coveringStaffId);
+  if (!verdict || verdict.blocked.length > 0) return { ok: false, reason: "refused_override" };
+
+  return commitLateCover({
+    command_id: input.commandId,
+    actor_staff_id: input.actorStaffId,
+    session_label: input.sessionLabel,
+    day: input.day,
+    timetable_day: day.header,
+    timetable_version_id: day.versionId,
+    covering_staff_id: input.coveringStaffId,
+    payload_hash: createHash("sha256").update(JSON.stringify({ day: input.day, late: input.needKey, to: input.coveringStaffId })).digest("hex"),
+    need: {
+      need_key: need.key,
+      period: need.event.period,
+      event_kind: need.event.kind,
+      class_ids: need.event.classes.map((entry) => entry.id),
+      class_labels: need.event.classes.map((entry) => entry.label),
+      subject_code: need.event.subjectCode,
+      absent_staff_ids: [...need.absentStaffIds].sort(),
+    },
   });
 }

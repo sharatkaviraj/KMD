@@ -10,6 +10,7 @@ import {
   coverAction,
   checkCoverAction,
   decideLeaveAction,
+  lateCoverAction,
   discardChangeAction,
   publishChangesAction,
   requestLeaveAction,
@@ -386,7 +387,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
       steps={[
         { icon: "calendar", title: say("The week", "सप्ताह"), body: say("Pick a class or a teacher to see their week. Today's row is highlighted.", "कक्षा या शिक्षक चुनें, उनका सप्ताह दिखेगा। आज की पंक्ति अलग दिखती है।") },
         { icon: "edit", title: say("Change a period", "पीरियड बदलें"), body: say("Tap a period to change it. Changes wait until you publish; teachers still see the old timetable.", "पीरियड पर टैप करके बदलें। बदलाव प्रकाशित करने तक रुके रहते हैं; शिक्षक पुरानी समय सारणी देखते हैं।") },
-        { icon: "swap", title: say("Cover", "व्यवस्था"), body: say("Substitutions shows who is away today and who covers. Assigning a teacher queues their WhatsApp notice.", "व्यवस्था में आज कौन अनुपस्थित है और कौन लेगा, दिखता है। शिक्षक देने पर उनका WhatsApp संदेश कतार में जाता है।") },
+        { icon: "swap", title: say("Cover", "व्यवस्था"), body: say("Cover shows who is away today and who covers. Assigning a teacher queues their WhatsApp notice.", "व्यवस्था में आज कौन अनुपस्थित है और कौन लेगा, दिखता है। शिक्षक देने पर उनका WhatsApp संदेश कतार में जाता है।") },
       ]}
     />
   );
@@ -422,7 +423,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
       : state.view === "subs"
         ? {
             crumb: coverDay && !coverIsToday ? say(`Timetable · ${dayShort(coverDay)}`, `समय सारणी · ${dayShort(coverDay)}`) : say(`Timetable · today ${todayLine}`, `समय सारणी · आज ${todayLine}`),
-            title: say("Substitutions", "व्यवस्था"),
+            title: say("Cover", "व्यवस्था"),
             back: classHref,
             actions: <>{data.me.mayViewCover ? <Btn variant="sec" icon="calendar" href={href({ view: "leave" })}>{say("Teacher leave", "शिक्षक छुट्टी")}</Btn> : null}{help}</>,
             mSub: say(`${coveredN} of ${duties.length} periods covered`, `${duties.length} में से ${coveredN} पीरियड की व्यवस्था हुई`),
@@ -488,7 +489,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
           { value: "teacher", label: say("Teacher", "शिक्षक") },
           ...(data.me.mayViewCover
             ? [
-                { value: "subs" as const, label: <><span className="only-d">{say("Substitutions", "व्यवस्था")}</span><span className="only-m">{say("Cover", "व्यवस्था")}</span></> },
+                { value: "subs" as const, label: say("Cover", "व्यवस्था") },
                 { value: "leave" as const, label: say("Leave", "छुट्टी") },
               ]
             : []),
@@ -547,7 +548,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
           ))}
         </ChipRow>
         {classDuties.length && data.me.mayViewCover ? (
-          <Note tone="warn" icon="swap" cta={say("Substitutions", "व्यवस्था")} href={href({ view: "subs" })}>
+          <Note tone="warn" icon="swap" cta={say("Cover", "व्यवस्था")} href={href({ view: "subs" })}>
             {say(
               `${coverWhen.en} ${joined(periodsList, "and")} ${classDuties.length > 1 ? "need" : "needs"} cover · ${joined(away, "and")} ${away.length > 1 ? "are" : "is"} away · ${coveredHere} of ${classDuties.length} covered`,
               `${coverWhen.hi} ${joined(periodsList, "और")} में व्यवस्था चाहिए · ${joined(away, "और")} अनुपस्थित · ${classDuties.length} में से ${coveredHere} की व्यवस्था हुई`,
@@ -706,7 +707,22 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
 
   // Sheets: edit (with clash), assign, leave.
   const editCell = !publishing && state.cell && classId && state.view === "class" ? state.cell : null;
-  const duty = state.duty ? duties.find((d) => d.needKey === state.duty) ?? null : null;
+  // A running period nobody covers opens the same sheet; choosing sends that teacher in now.
+  const lateRow = state.duty ? (data.cover?.missed ?? []).find((m) => m.key === state.duty && m.running) ?? null : null;
+  const duty = state.duty ? (duties.find((d) => d.needKey === state.duty) ?? (lateRow ? lateDutyView(lateRow) : null)) : null;
+  const sendLate = (needKey: string, staffId: string) => {
+    if (previewing || !data.me.mayCover || !scope || coverBlocked || coverInFlight.current) return;
+    coverInFlight.current = true;
+    start(async () => {
+      try {
+        done(await lateCoverAction({ commandId: uuid(), sessionLabel: scope.session, day: scope.day, needKey, coveringStaffId: staffId }), () => go({ view: "subs" }, true));
+      } catch {
+        uncertain();
+      } finally {
+        coverInFlight.current = false;
+      }
+    });
+  };
   const close = () => go({ view: state.view, classId: state.classId, teacherId: state.teacherId }, true);
 
   return (
@@ -762,7 +778,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
         pending={coverBlocked}
         subjectName={subjectName}
         onClose={() => go({ view: "subs" }, true)}
-        onAssign={(needKey, staffId) => cover({ intent: "assign", needKey, coveringStaffId: staffId }, () => go({ view: "subs" }, true))}
+        onAssign={(needKey, staffId) => (lateRow && lateRow.key === needKey ? sendLate(needKey, staffId) : cover({ intent: "assign", needKey, coveringStaffId: staffId }, () => go({ view: "subs" }, true)))}
       />
       {data.me.mayViewCover ? (
         <LeaveSheet
@@ -1217,7 +1233,7 @@ function Subs({
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
             <span className="sech">{isToday ? say(`Away today · ${dayShort(c.day)}`, `आज अनुपस्थित · ${dayShort(c.day)}`) : say(`Away · ${dayShort(c.day)}`, `अनुपस्थित · ${dayShort(c.day)}`)}</span>
             {c.canCommand ? (
-              <button type="button" className="tap" aria-expanded={editing} onClick={() => setEditing((v) => !v)} style={{ border: 0, padding: 0, background: "transparent", color: "var(--acc)", fontSize: 12, fontWeight: 700 }}>
+              <button type="button" className="tap vx-lnk" aria-expanded={editing} onClick={() => setEditing((v) => !v)} style={{ fontSize: 13, fontWeight: 700 }}>
                 {editing ? say("Done", "हो गया") : say("Mark away", "अनुपस्थित दर्ज करें")}
               </button>
             ) : null}
@@ -1292,7 +1308,7 @@ function Subs({
       {missed.length ? (
         <Card style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 4, borderColor: "var(--warnm)" }}>
           <span className="sech">{say(`Already begun · not covered · ${missed.length}`, `पहले ही शुरू · व्यवस्था नहीं · ${missed.length}`)}</span>
-          <span style={MUTED}>{say("These periods had started before the teacher was marked away, so no cover could be arranged. Check that each class had someone.", "शिक्षक को अनुपस्थित दर्ज करने से पहले ये पीरियड शुरू हो चुके थे, इसलिए व्यवस्था नहीं हो सकी। देख लें कि हर कक्षा में कोई था।")}</span>
+          <span style={MUTED}>{say("These periods had started before the teacher was marked away, so cover was not arranged by itself. For a period running now, send a teacher in; for one already over, check that the class had someone.", "शिक्षक को अनुपस्थित दर्ज करने से पहले ये पीरियड शुरू हो चुके थे, इसलिए व्यवस्था अपने-आप नहीं हुई। जो पीरियड अभी चल रहा है, उसमें शिक्षक भेजें; जो ख़त्म हो चुका, उसमें देख लें कि कक्षा में कोई था।")}</span>
           {missed.map((x, i) => {
             const bell = data.bells.find((b) => b.index === x.period);
             return (
@@ -1303,8 +1319,18 @@ function Subs({
                 </span>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                   <span style={{ fontWeight: 600 }}>{x.classLabels.join(", ")} · {subjectName(x.subjectCode)}</span>
-                  <span style={MUTED}>{say(`${x.absentNames.join(", ")} away · missed`, `${x.absentNames.join(", ")} अनुपस्थित · छूट गया`)}</span>
+                  <span style={MUTED}>
+                    {x.running
+                      ? say(`${x.absentNames.join(", ")} away · running now with no teacher`, `${x.absentNames.join(", ")} अनुपस्थित · अभी चल रहा है, कोई शिक्षक नहीं`)
+                      : say(`${x.absentNames.join(", ")} away · missed`, `${x.absentNames.join(", ")} अनुपस्थित · छूट गया`)}
+                  </span>
                 </span>
+                {x.running && c.canCommand ? (
+                  <button type="button" className="tap btn pri" disabled={pending} onClick={() => onAssign(x.key)}>
+                    <Ic n="send" />
+                    {say("Send a teacher now", "अभी शिक्षक भेजें")}
+                  </button>
+                ) : null}
               </div>
             );
           })}
@@ -1404,12 +1430,32 @@ function Subs({
         );
       })}
       {live.length === 0 && missed.length === 0 && c.hasTimetable ? <EmptyState icon="checkCircle" title={isToday ? say("No cover needed today", "आज कोई व्यवस्था नहीं चाहिए") : say(`No cover needed on ${dayShort(c.day)}`, `${dayShort(c.day)} को कोई व्यवस्था नहीं चाहिए`)} body={say("Mark a teacher away above and the periods they leave appear here with the best teachers to cover.", "ऊपर शिक्षक को अनुपस्थित दर्ज करें; उनके पीरियड यहाँ सबसे उपयुक्त शिक्षकों के साथ दिखेंगे।")} /> : null}
-      <Link href={`/substitutions?day=${c.day}`} style={{ fontSize: 13, color: "var(--mut)" }}>{say("Open the classic cover screen →", "पुरानी व्यवस्था स्क्रीन खोलें →")}</Link>
+      <Link href={`/substitutions?day=${c.day}`} className="tap vx-lnk" style={{ fontSize: 13, color: "var(--mut)", alignSelf: "flex-start" }}>{say("Open the classic cover screen →", "पुरानी व्यवस्था स्क्रीन खोलें →")}</Link>
     </>
   );
 }
 
 type CoverView = NonNullable<TimetableData["cover"]>;
+
+/** A running period with nobody in it, drawn as a duty still to fill, for the assign sheet. */
+function lateDutyView(m: NonNullable<CoverView["missed"]>[number]): CoverDutyView {
+  return {
+    id: `late:${m.key}`,
+    needKey: m.key,
+    period: m.period,
+    classLabels: m.classLabels,
+    subjectCode: m.subjectCode,
+    status: "needs_help",
+    coveringStaffId: null,
+    coveringName: null,
+    suggestedStaffId: null,
+    absentNames: m.absentNames,
+    absentIds: m.absentIds,
+    reason: null,
+    notice: null,
+    candidates: m.candidates ?? [],
+  };
+}
 
 function candidateWhy(tx: (pair: Pair) => string, pn: string, x: CoverDutyView["candidates"][number]): string {
   const n = x.subsThisWeek;
@@ -1704,7 +1750,7 @@ function LeaveSheet({ open, data, pending, onClose, onSave }: { open: boolean; d
               ? tx(LEAVE_PROBLEMS[problems[0]])
               : allClosed
                 ? say("School is closed on these days, so no leave is needed.", "इन दिनों स्कूल बंद है, इसलिए छुट्टी की ज़रूरत नहीं।")
-                : say(`${who} has ${periods} ${periods === 1 ? "period" : "periods"} in these days. Once approved they show up in Substitutions for cover.`, `इन दिनों ${who} के ${periods} पीरियड हैं। स्वीकार होने पर वे व्यवस्था में दिखेंगे।`)}
+                : say(`${who} has ${periods} ${periods === 1 ? "period" : "periods"} in these days. Once approved they show up under Cover.`, `इन दिनों ${who} के ${periods} पीरियड हैं। स्वीकार होने पर वे व्यवस्था में दिखेंगे।`)}
           </span>
         </div>
       </div>

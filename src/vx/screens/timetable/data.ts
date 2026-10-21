@@ -7,12 +7,13 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { classLabelMap, listSubjects, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { listStaff } from "@/modules/staff/data/staff-repo";
 import { candidatesFor, profilesFor, readCoverDay } from "@/modules/substitutions/data/arrange-day";
-import { coverCountsBetween, noticesOn, type DutyNotice } from "@/modules/substitutions/data/cover-repo";
+import { coverCountsBetween, noticesOn, type CoverDuty, type DutyNotice } from "@/modules/substitutions/data/cover-repo";
+import type { Candidate } from "@/modules/substitutions/domain/engine";
 import { blockLabels, tierLabels } from "@/modules/substitutions/domain/labels";
 import { needsHelpReasons } from "@/modules/substitutions/domain/cover-state";
 import { coverEligibleIds, distinctNames, missedPeriods } from "@/modules/substitutions/domain/cover-view";
 import { getPublishedVersion, listSlots, listVersions, type TimetableVersion } from "@/modules/timetable/data/timetable-repo";
-import { DEFAULT_BELLS } from "@/modules/timetable/domain/bells";
+import { DEFAULT_BELLS, periodTiming } from "@/modules/timetable/domain/bells";
 import { schoolCalendar } from "@/modules/attendance/data/attendance-repo";
 import { timetableRuns, type CalendarDayKind } from "@/modules/academics/domain/calendar";
 import type { Pair } from "@/vx/text";
@@ -57,7 +58,18 @@ export type CoverView = {
    * Lessons an absence leaves whose period had begun before cover could be
    * arranged — shown as missed, never silently dropped (school-day run B1).
    */
-  missed?: { key: string; period: number; classLabels: string[]; subjectCode: string; absentIds: string[]; absentNames: string[] }[];
+  missed?: {
+    key: string;
+    period: number;
+    classLabels: string[];
+    subjectCode: string;
+    absentIds: string[];
+    absentNames: string[];
+    /** Running now (begun, not ended): a person may still send somebody in. */
+    running?: boolean;
+    /** Who is free then, best first — offered only while the period runs, to a cover manager. */
+    candidates?: CoverDutyView["candidates"];
+  }[];
   staff: { id: string; name: string }[];
 };
 
@@ -207,6 +219,21 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
     for (const a of day.absences) if (!names.has(a.staffProfileId)) names.set(a.staffProfileId, a.staffName);
     // Office, admin and view-only logins are never offered as cover (D-213).
     const eligible = coverEligibleIds(day.staff, day.slots);
+    const toChoices = (list: Candidate[]): CoverDutyView["candidates"] =>
+      list
+        .filter((c) => eligible.has(c.teacher))
+        .slice(0, 25)
+        .map((c) => {
+          const label = c.blocked.length ? blockLabels[c.blocked[0]] : tierLabels[c.matchTier];
+          return {
+            id: c.teacher,
+            name: names.get(c.teacher) ?? "—",
+            detail: label?.en ?? (c.blocked.length ? c.blocked[0] : c.matchTier),
+            detailHi: label?.hi ?? null,
+            blocked: c.blocked.length > 0,
+            subsThisWeek: subsWeek[c.teacher] ?? 0,
+          };
+        });
     cover = {
       day: coverDay,
       dayRevision: day.dayRevision,
@@ -214,14 +241,20 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
       hasTimetable: Boolean(day.versionId && day.header),
       absences: day.absences.map((a) => ({ id: a.id, staffId: a.staffProfileId, name: names.get(a.staffProfileId) ?? a.staffName, periods: a.periods, reason: mayCover ? a.reason : null })),
       staff: day.staff.filter((s) => eligible.has(s.id)).map((s) => ({ id: s.id, name: names.get(s.id) ?? s.displayName })),
-      missed: missedPeriods(day.needs, day.live, day.openPeriods).map((m) => ({
-        key: m.key,
-        period: m.period,
-        classLabels: m.classLabels,
-        subjectCode: m.subjectCode,
-        absentIds: m.absentStaffIds,
-        absentNames: m.absentStaffIds.map((id) => names.get(id) ?? "—"),
-      })),
+      missed: missedPeriods(day.needs, day.live, day.openPeriods).map((m) => {
+        const running = periodTiming(day.bells, coverDay, m.period, new Date()) === "started";
+        const pseudo = { id: `late:${m.key}`, needKey: m.key, period: m.period, classLabels: m.classLabels, subjectCode: m.subjectCode } as CoverDuty;
+        return {
+          key: m.key,
+          period: m.period,
+          classLabels: m.classLabels,
+          subjectCode: m.subjectCode,
+          absentIds: m.absentStaffIds,
+          absentNames: m.absentStaffIds.map((id) => names.get(id) ?? "—"),
+          running,
+          candidates: running && profiles ? toChoices(candidatesFor(day, profiles.everyone, profiles.history, pseudo)) : [],
+        };
+      }),
       duties: day.live
         .map((duty) => {
           const reasonKey = duty.status === "needs_help" ? (duty.reason ?? "no_candidate") : null;
@@ -241,22 +274,7 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
             reason: reason ? { en: reason.en, hi: reason.hi } : null,
             reasonKey,
             notice: latest.get(duty.id)?.status ?? null,
-            candidates: profiles
-              ? candidatesFor(day, profiles.everyone, profiles.history, duty)
-                  .filter((c) => eligible.has(c.teacher))
-                  .slice(0, 25)
-                  .map((c) => {
-                    const label = c.blocked.length ? blockLabels[c.blocked[0]] : tierLabels[c.matchTier];
-                    return {
-                      id: c.teacher,
-                      name: names.get(c.teacher) ?? "—",
-                      detail: label?.en ?? (c.blocked.length ? c.blocked[0] : c.matchTier),
-                      detailHi: label?.hi ?? null,
-                      blocked: c.blocked.length > 0,
-                      subsThisWeek: subsWeek[c.teacher] ?? 0,
-                    };
-                  })
-              : [],
+            candidates: profiles ? toChoices(candidatesFor(day, profiles.everyone, profiles.history, duty)) : [],
           };
         })
         .sort((a, b) => a.period - b.period),
