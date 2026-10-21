@@ -99,14 +99,19 @@ export const ROLE_HELP: Record<StaffRole, Pair> = {
   admin: p("Everything, always", "सब कुछ, हमेशा"),
   accountant: p("Money and reports", "फीस और रिपोर्ट"),
   teacher: p("Their class: attendance, marks, notes", "अपनी कक्षा: हाज़िरी, अंक, नोट्स"),
-  exam_coordinator: p("Opens marks entry and publishes results", "अंक प्रविष्टि खोलें, परिणाम जारी करें"),
+  exam_coordinator: p("Opens marks entry and publishes results", "अंक भरना खोलें, परिणाम जारी करें"),
   academic_coordinator: p("Marks, progress and attendance across classes", "सभी कक्षाओं के अंक, प्रगति व हाज़िरी"),
   office: p("Front office: students, attendance, staff", "कार्यालय: विद्यार्थी, हाज़िरी, स्टाफ़"),
   fee_collector: p("Takes fees at the counter", "काउंटर पर फीस लेते हैं"),
   view_only: p("Sees Today and the timetable · can’t change anything", "आज और समय सारणी देखते हैं · बदल नहीं सकते"),
 };
 
-const people = (n: number) => p(`${n} ${n === 1 ? "person" : "people"}`, `${n} ${n === 1 ? "व्यक्ति" : "लोग"}`);
+/**
+ * Active people holding a role. Staff counts everyone who teaches (a
+ * coordinator who teaches, a disabled teacher): the words say which, so 23
+ * here and 24 there are not a contradiction (smoke run, 20 Oct).
+ */
+const people = (n: number) => p(`${n} active`, `${n} सक्रिय`);
 
 const S = {
   col: { display: "flex", flexDirection: "column" } as CSSProperties,
@@ -337,7 +342,7 @@ export function StaffScreen({
   );
 
   const kpis: { key: LoginFilter; label: Pair; value: number; sub: string; tone: string }[] = [
-    { key: "all", label: p("Staff", "स्टाफ़"), value: counts.total, sub: `${counts.teachers} ${tx(p("teachers", "अध्यापक"))} · ${counts.office} ${tx(p("office", "कार्यालय"))}`, tone: "var(--fg)" },
+    { key: "all", label: p("Staff", "स्टाफ़"), value: counts.total, sub: `${tx(p(`${counts.teachers} teach`, `${counts.teachers} पढ़ाते हैं`))} · ${counts.office} ${tx(p("office", "कार्यालय"))}`, tone: "var(--fg)" },
     { key: "with_login", label: p("With login", "लॉगिन वाले"), value: counts.withLogin, sub: `${counts.active} ${tx(p("active", "सक्रिय"))}`, tone: "var(--fg)" },
     { key: "never", label: p("Never signed in", "कभी लॉगिन नहीं"), value: counts.never, sub: tx(p("Send the login again", "लॉगिन फिर दें")), tone: "var(--warnfg)" },
     { key: "disabled", label: p("Disabled", "बंद"), value: counts.disabled, sub: tx(p("Records are kept", "रिकॉर्ड रहते हैं")), tone: "var(--bad)" },
@@ -756,7 +761,7 @@ function ProfilePanel({
         ))}
       </div>
       <Link href={`/staff/${row.id}`} style={{ color: "var(--acc)", fontWeight: 600, fontSize: 13, display: "inline-flex", gap: 6, alignItems: "center" }}>
-        {tx(p("Full profile, cover policy & edit", "पूरी प्रोफ़ाइल, सब्स्टिट्यूट नियम व सुधार"))} <Ic n="chevRight" size={14} />
+        {tx(p("Full profile, cover rule & edit", "पूरी प्रोफ़ाइल, व्यवस्था का नियम और सुधार"))} <Ic n="chevRight" size={14} />
       </Link>
     </div>
   );

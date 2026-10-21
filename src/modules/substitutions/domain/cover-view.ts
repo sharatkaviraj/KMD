@@ -88,3 +88,29 @@ export function distinctNames(
   }
   return names;
 }
+
+/**
+ * One absent teacher's lessons on one day, as cover stands: how many need a
+ * teacher, how many have one, how many wait for a person, and how many had
+ * begun before anything could be arranged. A team block split into several
+ * duties (`key-1`, `key-2`) counts once, covered only when every part is.
+ */
+export function teacherCoverTally(
+  needs: readonly Pick<CoverNeed, "key" | "event" | "absentStaffIds">[],
+  live: readonly { needKey: string; status: string }[],
+  openPeriods: ReadonlySet<number>,
+  staffId: string,
+): { needed: number; covered: number; waiting: number; missed: number } {
+  const tally = { needed: 0, covered: 0, waiting: 0, missed: 0 };
+  for (const need of needs) {
+    if (!need.absentStaffIds.includes(staffId)) continue;
+    tally.needed += 1;
+    const duties = live.filter((duty) => duty.needKey === need.key || duty.needKey.startsWith(`${need.key}-`));
+    if (duties.length === 0) {
+      if (openPeriods.has(need.event.period)) tally.waiting += 1;
+      else tally.missed += 1;
+    } else if (duties.every((duty) => duty.status === "assigned")) tally.covered += 1;
+    else tally.waiting += 1;
+  }
+  return tally;
+}

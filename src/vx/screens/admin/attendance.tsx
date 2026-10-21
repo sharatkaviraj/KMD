@@ -42,6 +42,14 @@ import type { Pair } from "@/vx/text";
 
 type Focus = "explicit" | "default" | null;
 
+const NOT_SAVED_YET: Pair = { en: "Not saved yet: everyone starts present until you change and save.", hi: "अभी सहेजा नहीं: बदलकर सहेजने तक सब उपस्थित दिखते हैं।" };
+const NOT_MARKED_READONLY: Pair = { en: "Nobody has marked this register yet.", hi: "यह रजिस्टर अभी किसी ने नहीं भरा।" };
+/** The class teacher is away: who takes the register today, said on the card (smoke run, 20 Oct). */
+const AWAY_MARKS: Pair = { en: "The office marks it today: open it and mark it here.", hi: "आज कार्यालय भरेगा: खोलकर यहीं भरें।" };
+function awayWhoMarks(teacher: string): Pair {
+  return { en: `${teacher} is away · the office marks it today`, hi: `${teacher} अनुपस्थित · आज कार्यालय भरेगा` };
+}
+
 export function AttendanceScreen({
   board,
   sheet,
@@ -107,6 +115,7 @@ export function AttendanceScreen({
     <div className="only-d" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(340px, 420px)", gap: 24, padding: "22px 28px 40px", alignItems: "start" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
         {closed}
+        {board.schoolOpen ? (<>
         <div className="card" style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
           <Ring value={summary.marked} max={Math.max(1, summary.total)} size={92} stroke={10}>
             <RingLabel marked={summary.marked} total={summary.total} size={22} />
@@ -142,13 +151,14 @@ export function AttendanceScreen({
           />
           <Btn icon="receipt" href="/teach/register">{tx(TO.monthRegister(board.day))}</Btn>
         </div>
+        </>) : null}
 
         {board.rows.length === 0 ? (
           <EmptyState icon="grid" title={tx(T.noClasses)} />
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(196px, 1fr))", gap: 12 }}>
-            {filterBoard(board.rows, deskFilter).map((row, i) => (
-              <ClassCard key={row.classId} row={row} href={hrefFor(row.classId)} selected={sheet?.classId === row.classId} credit={board.halfDayCredit} delay={Math.min(i * 30, 420)} />
+            {filterBoard(board.rows, board.schoolOpen ? deskFilter : "all").map((row, i) => (
+              <ClassCard key={row.classId} row={row} href={hrefFor(row.classId)} selected={sheet?.classId === row.classId} credit={board.halfDayCredit} delay={Math.min(i * 30, 420)} closed={!board.schoolOpen} />
             ))}
           </div>
         )}
@@ -202,6 +212,7 @@ export function AttendanceScreen({
           <span className="pill" style={{ height: 30, padding: "0 12px", fontSize: 12, background: "var(--s3)", color: "var(--fg)" }}>{tx(TO.todayIs(shortDay(board.day)))}</span>
         </div>
         {closed}
+        {board.schoolOpen ? (<>
         <div className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 16 }}>
           <Ring value={summary.marked} max={Math.max(1, summary.total)} size={84} stroke={9}>
             <RingLabel marked={summary.marked} total={summary.total} size={20} />
@@ -229,6 +240,8 @@ export function AttendanceScreen({
             { value: "all", label: tx(T.fAll(summary.total)) },
           ]}
         />
+        </>) : null}
+        {board.schoolOpen ? (
         <div className="card" style={{ overflow: "hidden" }}>
           {phoneRows.length === 0 ? (
             <div style={{ padding: "20px 16px", fontSize: 14, color: "var(--mut)", textAlign: "center" }}>{tx(board.rows.length === 0 ? T.noClasses : TO.everyClassMarked)}</div>
@@ -238,6 +251,7 @@ export function AttendanceScreen({
             ))
           )}
         </div>
+        ) : null}
         {allowed && sendable.length > 0 && phoneFilter !== "marked" ? (
           <button type="button" className="tap btn pri" disabled={busy} onClick={() => remind(sendable.map((row) => row.classId))} style={{ height: "auto", minHeight: 52, padding: "8px 16px", borderRadius: 18, fontSize: 15, whiteSpace: "normal", textAlign: "center" }}>
             <Ic n="message" size={18} />
@@ -307,7 +321,7 @@ function PhoneRow({ row, href, first, delay, allowed, busy, onRemind }: { row: C
         ? TO.allPresentAt(counted || row.roll, row.savedAt ? clock(row.savedAt) : "—")
         : TO.somePresentAt(row.present, counted || row.roll, row.halfDay, row.savedAt ? clock(row.savedAt) : "—")
       : state === "teacher_away"
-        ? TO.onLeaveSub(teacher)
+        ? awayWhoMarks(teacher)
         : state === "reminded"
           ? TO.remindedSub(teacher, clock(row.remindedAt!))
           : row.teacherName
@@ -332,13 +346,14 @@ function PhoneRow({ row, href, first, delay, allowed, busy, onRemind }: { row: C
   );
 }
 
-function ClassCard({ row, href, selected, credit, delay }: { row: ClassBoardRow; href: string; selected: boolean; credit: number; delay: number }) {
+function ClassCard({ row, href, selected, credit, delay, closed }: { row: ClassBoardRow; href: string; selected: boolean; credit: number; delay: number; closed?: boolean }) {
   const { tx } = useVx();
   const state = classState(row);
   const counted = row.present + row.absent + row.halfDay;
   const pct = row.recorded ? classPercent(row, credit) : 0;
-  const look =
-    state === "marked"
+  const look = closed
+    ? { dot: "var(--s3)", bg: "var(--s2)", fg: "var(--mut)", text: T.schoolClosed }
+    : state === "marked"
       ? { dot: "var(--ok)", bg: "var(--oks)", fg: "var(--ok)", text: T.markedAt(row.savedAt ? clock(row.savedAt) : "—") }
       : state === "teacher_away"
         ? { dot: "var(--bad)", bg: "var(--bads)", fg: "var(--bad)", text: T.teacherOnLeave }
@@ -361,6 +376,7 @@ function ClassCard({ row, href, selected, credit, delay }: { row: ClassBoardRow;
         {row.teacherName ?? tx(T.noClassTeacher)}
         {row.recorded ? ` · ${tx(T.presentOf(row.present, counted || row.roll))}` : ""}
       </span>
+      {state === "teacher_away" && !closed ? <span style={{ fontSize: 12, color: "var(--bad)", lineHeight: 1.35 }}>{tx(AWAY_MARKS)}</span> : null}
       <span style={{ display: "block", height: 6, borderRadius: 3, background: "var(--s3)", overflow: "hidden" }}>
         <span style={{ display: "block", height: 6, width: `${pct}%`, background: pct >= 95 ? "var(--ok)" : "var(--acc)", transformOrigin: "left", animation: `xGrowX .7s var(--ease) ${delay}ms both` }} />
       </span>
@@ -404,7 +420,7 @@ function Register({
   const { tx } = useVx();
   const toast = useToast();
   const router = useRouter();
-  const [marks, setMarks] = useState(() => initialMarks(sheet.roll, sheet.saved));
+  const [marks, setMarks] = useState(() => initialMarks(sheet.roll, sheet.saved, !previewing && canMark));
   const [reason, setReason] = useState("");
   const [marking, setMarking] = useState(false);
   const [saving, startSaving] = useTransition();
@@ -456,6 +472,8 @@ function Register({
   const label = counts.unmarked > 0 ? tx(T.stillToMarkN(counts.unmarked)) : correcting ? tx(T.correctRegister) : tx(TO.submitCounts(counts.present, counts.absent));
   const who = sheet.savedBy && sheet.savedAt ? tx(T.savedBy(sheet.savedBy, clock(sheet.savedAt))) : tx(T.markingAsAdmin(sheet.teacherName, sheet.teacherAway));
   const editable = !readOnly && total > 0;
+  // Nothing saved yet: say so beside the marks, whether they are a starting guess or empty.
+  const notSaved: Pair | null = sheet.revision >= 1 ? null : readOnly ? NOT_MARKED_READONLY : NOT_SAVED_YET;
 
   const quick = editable ? (
     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -465,7 +483,7 @@ function Register({
   ) : null;
   const bar = (
     <div style={{ height: 6, borderRadius: 3, background: "var(--s3)", overflow: "hidden" }} aria-hidden="true">
-      <div style={{ height: 6, width: `${total ? (counts.marked / total) * 100 : 0}%`, background: "var(--acc)", transition: "width .35s var(--ease)" }} />
+      <div style={{ height: 6, width: `${total ? (counts.marked / total) * 100 : 0}%`, background: sheet.revision >= 1 ? "var(--acc)" : "var(--warn)", transition: "width .35s var(--ease)" }} />
     </div>
   );
   const roster = (big: boolean) =>
@@ -576,6 +594,7 @@ function Register({
           </div>
           {bar}
           {quick}
+          {notSaved ? <span role="status" style={{ fontSize: 12, fontWeight: 600, color: "var(--warnfg)" }}>{tx(notSaved)}</span> : null}
           <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(TO.countsDesk(counts.present, counts.absent, counts.halfDay))}</span>
         </div>
         <div className="scroll" style={{ flex: 1, minHeight: 0, padding: "4px 20px" }}>{roster(false)}</div>
@@ -595,6 +614,7 @@ function Register({
           </div>
           {bar}
           {quick}
+          {notSaved ? <span role="status" style={{ fontSize: 12, fontWeight: 600, color: "var(--warnfg)" }}>{tx(notSaved)}</span> : null}
         </div>
         {roster(true)}
       </Sheet>

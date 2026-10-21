@@ -312,3 +312,23 @@ export async function noticesOn(sessionLabel: string, day: string): Promise<Duty
     updatedAt: row.updated_at,
   }));
 }
+
+/**
+ * Put a teacher into a lesson running now with nobody in it
+ * (`vppsone.assign_late_cover`, migration `late_cover_assign`). Until that
+ * migration is on the database the function is missing, and the caller is
+ * told so plainly rather than shown a failure.
+ */
+export type LateCoverOutcome =
+  | CommandReceipt
+  | { ok: false; reason: "bad_request" | "not_permitted" | "id_reused" | "disabled" | "not_running" | "stale" | "refused_override" | "unavailable" | "no_lesson" }
+  | { ok: false; reason: "failed"; message: string };
+
+export async function commitLateCover(payload: Record<string, unknown>): Promise<LateCoverOutcome> {
+  const { data, error } = await createAdminClient().rpc("assign_late_cover", { p_command: payload });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return { ok: false, reason: "unavailable" };
+    return { ok: false, reason: "failed", message: error.message };
+  }
+  return data as LateCoverOutcome;
+}

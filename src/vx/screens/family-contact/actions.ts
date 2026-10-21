@@ -11,11 +11,11 @@ import { contactRequest, latestContactCandidate, parseContact, type ContactComma
 
 export type ContactResult = { ok: true; status: "saved"; attemptId: string; agreedOn: string | null } | { ok: false; status: "refused" | "uncertain" | "not_found" | "expired"; error: Pair; today?: string };
 const refused = (error: Pair): ContactResult => ({ ok: false, status: "refused", error });
-const unknown = (): ContactResult => ({ ok: false, status: "uncertain", error: p("Could not confirm the result. Check the original contact before retrying it.", "नतीजे की पुष्टि नहीं हो सकी। दोबारा प्रयास से पहले मूल संपर्क जाँचें।") });
+const unknown = (): ContactResult => ({ ok: false, status: "uncertain", error: p("Could not confirm the result. Check the original contact before retrying it.", "पता नहीं नतीजा सहेजा गया या नहीं। दोबारा कोशिश से पहले पहला संपर्क जाँचें।") });
 type Row = { id: string; created_by: string; session_label: string; student_id: string; kind: string; outcome: string | null; note: string | null; agreed_on: string | null; note_id: string | null };
 const columns = "id, created_by, session_label, student_id, kind, outcome, note, agreed_on, note_id";
 const matches = (row: Row, c: ContactRequest) => row.id === c.attemptId && row.created_by === c.owner && row.session_label === c.sessionLabel && row.student_id === c.studentId && row.kind === "contact" && row.outcome === c.outcome && row.note === c.note && (row.agreed_on === c.agreedOn || !!c.dateCorrections?.includes(row.agreed_on ?? "")) && row.note_id === c.noteId;
-const mismatch = () => refused(p("This contact ID belongs to a different entry. Keep the original and refresh this page.", "यह संपर्क पहचान किसी दूसरी प्रविष्टि की है। मूल प्रविष्टि रखें और पेज फिर से खोलें।"));
+const mismatch = () => refused(p("This contact ID belongs to a different entry. Keep the original and refresh this page.", "यह संपर्क पहचान किसी दूसरे संपर्क की है। पहला संपर्क रखें और पेज फिर से खोलें।"));
 const saved = (c: ContactCommand, row: Row): ContactResult => { revalidatePath(`/students/${c.studentId}`); revalidatePath("/academics/progress"); return { ok: true, status: "saved", attemptId: c.attemptId, agreedOn: row.agreed_on }; };
 async function prepare(input: unknown, actor: Awaited<ReturnType<typeof assertPermission>>) {
   const command = contactRequest(input);

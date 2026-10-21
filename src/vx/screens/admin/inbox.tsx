@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+
+import { decideLeaveAction } from "@/app/(app)/timetable/vx-actions";
 
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
-import type { Pair } from "@/vx/text";
+import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar } from "@/vx/ui/page";
 import { Btn, Pill, toneColors, type Tone } from "@/vx/ui/primitives";
@@ -223,7 +225,33 @@ export function InboxScreen({ items, initial, previewing, unavailable, scope, ta
     handleDecision(item, `${tx(T.assigned(who.name))}`, { kind: "cover", ...input });
   };
 
+  const [deciding, startDeciding] = useTransition();
+  // Leave is decided at once, not held: the answer says how many periods have a teacher.
+  const decideLeave = (item: InboxItem, approve: boolean) => {
+    if (previewing) {
+      toast.show({ text: tx(T.previewing), tone: "info" });
+      return;
+    }
+    if (!item.leaveId || deciding) return;
+    const id = item.leaveId;
+    startDeciding(async () => {
+      try {
+        const result = await decideLeaveAction({ id, approve });
+        toast.show({ text: tx(result.message), tone: result.ok && !result.coverDay ? "ok" : "bad" });
+        if (result.ok) {
+          setHidden((all) => new Set(all).add(item.id));
+          if (result.coverDay) router.push(`/timetable?view=subs&day=${result.coverDay}`);
+          else router.refresh();
+        }
+      } catch {
+        toast.show({ text: tx(T.failed), tone: "bad" });
+      }
+    });
+  };
+
   const on: DetailActions = {
+    leave: decideLeave,
+    busy: deciding,
     remind: (item) =>
       handleDecision(item, tx(T.reminded(item.remindable ?? 0)), { kind: "remind", commandId: crypto.randomUUID(), classIds: item.classIds ?? [] }),
     assign,
@@ -385,6 +413,9 @@ type DetailActions = {
   assign: (item: InboxItem, who: CoverCandidate) => void;
   pick: (item: InboxItem) => void;
   submissions: (item: InboxItem, accept: boolean) => void;
+  /** Approve (or record as taken, for days gone) or decline a leave request here. */
+  leave: (item: InboxItem, approve: boolean) => void;
+  busy: boolean;
 };
 
 /** "5 Oct", for the phone's "oldest" line. */
@@ -398,10 +429,19 @@ function Tag({ item, size }: { item: InboxItem; size: "s" | "m" | "l" }) {
   const look = LOOK[item.kind];
   const c = toneColors(look.tone);
   const d = size === "s" ? { h: 22, pad: "0 8px", fs: 11, ic: 13 } : size === "m" ? { h: 26, pad: "0 10px", fs: 12, ic: 14 } : { h: 28, pad: "0 12px", fs: 12, ic: 14 };
+  // Which item matters first is said, not left to the order (smoke run, 20 Oct).
+  const urgent = item.urgent ? toneColors("bad") : null;
   return (
-    <span className="pill" style={{ height: d.h, padding: d.pad, fontSize: d.fs, background: c.bg, color: c.fg }}>
-      <Ic n={look.icon} size={d.ic} />
-      {tx(item.badge)}
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+      <span className="pill" style={{ height: d.h, padding: d.pad, fontSize: d.fs, background: c.bg, color: c.fg }}>
+        <Ic n={look.icon} size={d.ic} />
+        {tx(item.badge)}
+      </span>
+      {urgent ? (
+        <span className="pill" style={{ height: d.h, padding: d.pad, fontSize: d.fs, background: urgent.bg, color: urgent.fg, fontWeight: 700 }}>
+          {tx(p("Urgent", "ज़रूरी"))}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -474,7 +514,7 @@ function PhoneCard({ item, on, delay }: { item: InboxItem; on: DetailActions; de
       actions = <Btn variant="pri" href={item.href}>{tx(T.openJobs)}</Btn>;
       break;
     case "leave":
-      actions = <Btn variant="pri" href={item.href}>{tx(T.review)}</Btn>;
+      actions = <LeaveButtons item={item} on={on} />;
       break;
   }
 
@@ -544,7 +584,7 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
       actions = <Btn variant="pri" style={BIG} href={item.href}>{tx(T.openJobs)}</Btn>;
       break;
     case "leave":
-      actions = <Btn variant="pri" style={BIG} href={item.href}>{tx(T.review)}</Btn>;
+      actions = <LeaveButtons item={item} on={on} big />;
       break;
   }
 
@@ -571,5 +611,22 @@ function Detail({ item, on }: { item: InboxItem; on: DetailActions }) {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>{actions}</div>
       {item.footnote ? <span style={{ fontSize: 13, color: "var(--mut)", lineHeight: 1.55 }}>{tx(item.footnote)}</span> : null}
     </article>
+  );
+}
+
+/** Approve or decline in place; days already gone are recorded as taken instead of approved for cover. */
+function LeaveButtons({ item, on, big }: { item: InboxItem; on: DetailActions; big?: boolean }) {
+  const { tx } = useVx();
+  const style = big ? BIG : undefined;
+  return (
+    <>
+      <Btn variant="pri" icon="check" style={style} disabled={on.busy} onClick={() => on.leave(item, true)}>
+        {item.leavePast ? tx(p("Record as taken", "ली गई दर्ज करें")) : tx(p("Approve", "स्वीकार करें"))}
+      </Btn>
+      <Btn style={{ ...style, ...DECLINE }} disabled={on.busy} onClick={() => on.leave(item, false)}>
+        {item.leavePast ? tx(p("Decline as past", "बीत गई, अस्वीकार करें")) : tx(T.decline)}
+      </Btn>
+      <Btn variant="ghost" style={big ? QUIET : undefined} href={item.href}>{tx(p("Open the leave tab", "छुट्टी टैब खोलें"))}</Btn>
+    </>
   );
 }

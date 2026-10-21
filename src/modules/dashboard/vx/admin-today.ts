@@ -7,6 +7,8 @@ import { resolveViewSession } from "@/modules/fees/platform/session-context/reso
 import { createAdminClient } from "@/modules/fees/platform/supabase/admin";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
+import { deskReason } from "@/modules/dashboard/domain/desk-reason";
+import { p, type Pair } from "@/vx/text";
 
 /**
  * The money on the admin's Today (P5), read through the fee app's own
@@ -83,6 +85,10 @@ export type PendingRefund = {
   studentName: string;
   amount: number;
   reason: string | null;
+  /** The reason in words, both languages, with the note and who asked; preferred over `reason`. */
+  reasonText?: Pair;
+  /** A request from the accounts desk (`acc_requests`): its own title. */
+  title?: Pair;
   requestedAt: string;
   /** Where the request is decided; the fee refund screen when absent. */
   href?: string;
@@ -153,7 +159,8 @@ export async function pendingDeskRequests(): Promise<PendingRefund[]> {
     studentId: row.student_id,
     studentName: nameOf.get(row.student_id) ?? "—",
     amount: Number(row.amount || 0),
-    reason: `${row.note || row.reason_code}${row.requested_by_name ? ` · ${row.requested_by_name}` : ""}`,
+    reason: deskReason(row.reason_code, row.note, row.requested_by_name).en,
+    reasonText: deskReason(row.reason_code, row.note, row.requested_by_name),
     deskKind: row.kind,
     receiptNumber: row.receipt_number,
     requestedAt: row.created_at,
@@ -164,8 +171,63 @@ export async function pendingDeskRequests(): Promise<PendingRefund[]> {
   }));
 }
 
-/** Everything money-side that waits on an admin: refunds plus the desk's reversal and write-off requests. */
+const ACC_KIND: Record<string, Pair> = {
+  late_fee_waiver: p("Waive a late fee", "विलंब शुल्क माफ़"),
+  reversal: p("Reverse a receipt", "रसीद रद्द"),
+  refund: p("Refund", "धन वापसी"),
+  fee_change: p("Change a fee", "फ़ीस बदलें"),
+  other: p("Request", "अनुरोध"),
+};
+
+/**
+ * Requests the accounts desk sent the admin (`vppsone.acc_requests`) and nobody
+ * has decided or withdrawn. A ₹500 refund asked for on 10 Oct waited eleven
+ * days without ever reaching Needs you (smoke run, 20 Oct).
+ */
+export async function pendingAccountRequests(): Promise<PendingRefund[]> {
+  await assertPermission("fees:view");
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .schema("vppsone")
+    .from("acc_requests")
+    .select("id, kind, title, reason, amount, student_id, requested_by, requested_at")
+    .is("decision", null)
+    .is("withdrawn_at", null)
+    .order("requested_at", { ascending: true })
+    .limit(50)
+    .returns<{ id: string; kind: string; title: string; reason: string; amount: number | null; student_id: string | null; requested_by: string; requested_at: string }[]>();
+  if (error) throw new Error(`Could not read the accounts requests: ${error.message}`);
+  if (data.length === 0) return [];
+
+  const studentIds = [...new Set(data.map((row) => row.student_id).filter((id): id is string => Boolean(id)))];
+  const staffIds = [...new Set(data.map((row) => row.requested_by))];
+  const [names, staff] = await Promise.all([
+    fetchInChunks<{ id: string; full_name: string }>(studentIds, IN_FILTER_CHUNK_SIZE, (chunk) => admin.from("students").select("id, full_name").in("id", chunk)),
+    fetchInChunks<{ id: string; display_name: string }>(staffIds, IN_FILTER_CHUNK_SIZE, (chunk) => admin.schema("vppsone").from("staff_profiles").select("id, display_name").in("id", chunk)),
+  ]);
+  if (names.error || staff.error) throw new Error("Could not read who the requests are about.");
+  const nameOf = new Map(names.data.map((row) => [row.id, row.full_name]));
+  const staffOf = new Map(staff.data.map((row) => [row.id, row.display_name]));
+
+  return data.map((row) => {
+    const kind = ACC_KIND[row.kind] ?? ACC_KIND.other;
+    const by = staffOf.get(row.requested_by) ?? null;
+    return {
+      id: `acc:${row.id}`,
+      studentId: row.student_id ?? "",
+      studentName: row.student_id ? (nameOf.get(row.student_id) ?? "—") : "—",
+      amount: Number(row.amount ?? 0),
+      reason: row.reason,
+      reasonText: deskReason(null, `${row.title} · ${row.reason}`, by),
+      title: kind,
+      requestedAt: row.requested_at,
+      href: "/accounts/books?view=requests",
+    };
+  });
+}
+
+/** Everything money-side that waits on an admin: refunds, the desk's reversal and write-off requests, and the accounts desk's requests. */
 export async function pendingMoneyRequests(): Promise<PendingRefund[]> {
-  const [refunds, desk] = await Promise.all([pendingRefunds(), pendingDeskRequests()]);
-  return [...refunds, ...desk];
+  const [refunds, desk, acc] = await Promise.all([pendingRefunds(), pendingDeskRequests(), pendingAccountRequests()]);
+  return [...refunds, ...desk, ...acc];
 }

@@ -122,9 +122,16 @@ export function defaultBoardFocus(rows: readonly ClassBoardRow[]): string | null
 export function initialMarks(
   roll: readonly { studentId: string }[],
   saved: Readonly<Record<string, MarkStatus>>,
+  /**
+   * Whether an unsaved register may start everyone present, as a starting point
+   * for the person about to mark it. A register only looked at (school closed,
+   * no right to mark) starts empty: a full green "20/20" there read as done
+   * (smoke run, 20 Oct).
+   */
+  preview = true,
 ): Record<string, MarkStatus | null> {
   const hasSaved = Object.keys(saved).length > 0;
-  return Object.fromEntries(roll.map((s) => [s.studentId, hasSaved ? (saved[s.studentId] ?? null) : "present"]));
+  return Object.fromEntries(roll.map((s) => [s.studentId, hasSaved ? (saved[s.studentId] ?? null) : preview ? "present" : null]));
 }
 
 export function markCounts(marks: Readonly<Record<string, MarkStatus | null>>): {
@@ -176,6 +183,7 @@ export function schoolMinutes(now: Date = new Date()): number {
  * needs action when its follow-up is due, or when it is an open health or
  * family note nobody has picked up. `due` is the follow-ups alone.
  */
+// TODO: use noteAttention() from notes/domain/notes
 export function supportAttention(
   notes: readonly { status: string; needsFollowUp: boolean; followUpOn: string | null; tags: readonly string[] }[],
   today: string,
@@ -610,4 +618,23 @@ export function feeRibbon(summary: {
   if (summary.outstanding <= 0) return { kind: "clear" };
   if (summary.nextDue) return { kind: "next", ...summary.nextDue };
   return { kind: "outstanding" };
+}
+
+/**
+ * Whether today's unmarked registers are late enough to raise in Needs you:
+ * after the first period ends and before the last one does. Before that the
+ * register is not late; after it nobody can be reminded usefully, and at
+ * midnight a "remind 19 classes" button is a trap (smoke run, 20 Oct).
+ * No bells means nothing to judge by: not late.
+ */
+export function registerLate(bells: readonly { starts: string; ends: string }[], nowMinutes: number): boolean {
+  if (bells.length === 0) return false;
+  const toMin = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const sorted = [...bells].sort((a, b) => toMin(a.starts) - toMin(b.starts));
+  const firstEnds = toMin(sorted[0].ends);
+  const lastEnds = Math.max(...sorted.map((bell) => toMin(bell.ends)));
+  return nowMinutes >= firstEnds && nowMinutes < lastEnds;
 }
