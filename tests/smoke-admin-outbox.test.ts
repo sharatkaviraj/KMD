@@ -38,3 +38,32 @@ describe("foldOutbox", () => {
     expect(folded.outOfDate).toEqual([]);
   });
 });
+
+import { absentAlertChanges } from "@/vx/screens/messages/domain/outbox";
+
+describe("absentAlertChanges (a corrected register)", () => {
+  it("never queues a parent again after the first message was sent", () => {
+    const out = absentAlertChanges(["kid-a", "kid-b"], true, [{ id: "m1", studentId: "kid-a", status: "sent" }]);
+    expect(out.add).toEqual(["kid-b"]);
+    expect(out.drop).toEqual([]);
+  });
+
+  it("takes back a waiting message for a child now present, but never a sent one", () => {
+    const out = absentAlertChanges([], true, [
+      { id: "m1", studentId: "kid-a", status: "sent" },
+      { id: "m2", studentId: "kid-b", status: "queued" },
+    ]);
+    expect(out.drop).toEqual(["m2"]);
+    expect(out.add).toEqual([]);
+  });
+
+  it("a cancelled message does not count: the child can be queued again", () => {
+    const out = absentAlertChanges(["kid-a"], true, [{ id: "m1", studentId: "kid-a", status: "cancelled" }]);
+    expect(out.add).toEqual(["kid-a"]);
+  });
+
+  it("with WhatsApp off, nothing is added and waiting ones are taken back", () => {
+    const out = absentAlertChanges(["kid-a"], false, [{ id: "m1", studentId: "kid-a", status: "queued" }]);
+    expect(out).toEqual({ drop: ["m1"], add: [], keep: 0 });
+  });
+});

@@ -183,3 +183,25 @@ export function foldOutbox<T extends Foldable>(items: readonly T[], today: strin
     outOfDate,
   };
 }
+
+/**
+ * What a register save changes in the parent "absent today" queue. Every row
+ * that is not cancelled counts as the child's message — a sent one too — so
+ * a correction saved after the first message went never queues the same
+ * child's parent again (attendance stream, 20 Oct). Only a message still
+ * waiting can be taken back; a sent one stays sent.
+ */
+export function absentAlertChanges(
+  absentIds: readonly string[],
+  wanted: boolean,
+  existing: readonly { id: string; studentId: string; status: string }[],
+): { drop: string[]; add: string[]; keep: number } {
+  const keep = new Set(wanted ? absentIds : []);
+  const live = existing.filter((row) => row.status !== "cancelled");
+  const has = new Set(live.map((row) => row.studentId));
+  return {
+    drop: live.filter((row) => row.status === "queued" && !keep.has(row.studentId)).map((row) => row.id),
+    add: [...keep].filter((id) => !has.has(id)),
+    keep: keep.size,
+  };
+}

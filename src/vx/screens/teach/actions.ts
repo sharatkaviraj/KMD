@@ -29,6 +29,7 @@ import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetab
 import { dayHeaders } from "@/modules/attendance/data/teaching-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { leavePeriods, leaveSpanFor, type LeaveDayPeriods, type LeaveSpan } from "@/vx/screens/timetable/domain/timetable";
+import { absentAlertChanges } from "@/vx/screens/messages/domain/outbox";
 
 import { absentAlert, birthdayWish, leaveRuns } from "./domain/teach";
 import { childBasics } from "./students";
@@ -119,18 +120,16 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
     listMarks(input.registerId),
     admin
       .from("parent_message_queue")
-      .select("id, student_id")
+      .select("id, student_id, status")
       .eq("register_id", input.registerId)
       .eq("kind", "absent_alert")
-      .eq("status", "queued")
-      .returns<{ id: string; student_id: string }[]>(),
+      .neq("status", "cancelled")
+      .returns<{ id: string; student_id: string; status: string }[]>(),
   ]);
   if (existing.error) throw existing.error;
   const absent = [...marks.entries()].filter(([, m]) => m.status === "absent").map(([id]) => id);
-  const have = new Map((existing.data ?? []).map((r) => [r.student_id, r.id]));
-  const keep = new Set(input.wanted ? absent : []);
-
-  const drop = [...have.entries()].filter(([id]) => !keep.has(id)).map(([, rowId]) => rowId);
+  // A sent message counts as the child's message: a correction never queues it again.
+  const { drop, add, keep } = absentAlertChanges(absent, input.wanted, (existing.data ?? []).map((row) => ({ id: row.id, studentId: row.student_id, status: row.status })));
   for (const ids of chunkArray(drop, IN_FILTER_CHUNK_SIZE)) {
     const { error } = await admin
       .from("parent_message_queue")
@@ -139,7 +138,6 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
     if (error) throw error;
   }
 
-  const add = [...keep].filter((id) => !have.has(id));
   if (add.length) {
     const [names, labels] = await Promise.all([childBasics(add), classLabelMap(input.sessionLabel)]);
     const classLabel = labels.get(input.classId) ?? "";
@@ -161,7 +159,7 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
     );
     if (error) throw error;
   }
-  return keep.size;
+  return keep;
 }
 
 /** Did a save with this id land? Asked before resending after a lost answer. */
