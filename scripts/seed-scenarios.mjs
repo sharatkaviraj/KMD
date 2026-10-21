@@ -883,7 +883,10 @@ const fill = (body, values) =>
 await db.from("message_sends").delete().eq("session_label", sessionLabel);
 
 const staffVars = [qaTeacher?.display_name ?? "Teacher", "phone numbers"];
-const parentVars = [targetClass.roll[0] ? "your child" : "your child", "the school trip is on Friday"];
+// Each language filled with its own words: Hindi variables in an English sentence
+// gave "नमस्ते, your child के बारे में सूचना" (smoke run, 20 Oct).
+const parentVars = ["your child", "the school trip is on Friday"];
+const parentVarsHi = ["आपके बच्चे", "शुक्रवार को स्कूल की यात्रा है"];
 
 die(
   "Could not queue the messages",
@@ -909,7 +912,7 @@ die(
         to_name: "Test Parent",
         student_id: targetClass.roll[0]?.student_id ?? null,
         variables: parentVars,
-        rendered_hi: fill(parentTemplate.body_hi, parentVars),
+        rendered_hi: fill(parentTemplate.body_hi, parentVarsHi),
         rendered_en: fill(parentTemplate.body_en, parentVars),
         status: "queued",
         requested_by: raj?.id ?? null,

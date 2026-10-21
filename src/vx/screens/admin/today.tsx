@@ -973,11 +973,13 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
       {cols.length === 0 || rows.length === 0 ? (
         <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(TD.nothingPastDue)}</p>
       ) : (
-        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `112px repeat(${cols.length}, minmax(0, 1fr)) 76px`, gap: 5, alignItems: "center" }}>
+        // Each amount keeps room to be read ("₹1.3L", never "₹1.3" cut off); a narrow phone scrolls the table, not the page (smoke run, 20 Oct).
+        <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
+        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `minmax(84px, 112px) repeat(${cols.length}, minmax(52px, 1fr)) minmax(56px, 76px)`, gap: 5, alignItems: "center", minWidth: 84 + cols.length * 57 + 61 }}>
           <div role="row" style={{ display: "contents" }}>
             <span role="columnheader" />
             {cols.map((c) => (
-              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
+              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center", whiteSpace: "nowrap", padding: "0 2px" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
             ))}
             <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(TD.total)}</span>
           </div>
@@ -992,15 +994,16 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
                     role="cell"
                     className="td-cell num"
                     title={`${row.label} · ${cols[ci].title} · ${v ? rupees(v) : "—"}`}
-                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
+                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", whiteSpace: "nowrap", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
                   >
                     {kfmt(v)}
                   </span>
                 );
               })}
-              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right" }}>{kfmt(row.total)}</span>
+              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{kfmt(row.total)}</span>
             </div>
           ))}
+        </div>
         </div>
       )}
     </section>

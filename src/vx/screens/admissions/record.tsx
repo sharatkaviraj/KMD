@@ -571,7 +571,7 @@ function WithdrawPanel(props: RecordProps & { onCancel: () => void }) {
             </div>
           </div>
 
-          <ActionBar hint={done ? tx(p("Withdrawn · undo from the message below while it shows", "नाम कटा · नीचे के संदेश से वापस ले सकते हैं")) : tx(p("Nothing changes until you confirm. You can undo it afterwards.", "पुष्टि तक कुछ नहीं बदलता। बाद में वापस ले सकते हैं।"))}>
+          <ActionBar hint={done ? tx(p("Withdrawn · undo from the message below while it shows", "नाम कटा · नीचे के संदेश से वापस ले सकते हैं")) : tx(p("Nothing changes until you confirm. You can undo it afterwards.", "आपके हाँ कहने तक कुछ नहीं बदलता। बाद में वापस ले सकते हैं।"))}>
             {done ? (
               <>
                 <Btn variant="sec" href="/dues?tab=left">{tx(p("Open in Dues", "बकाया में खोलें"))}</Btn>
