@@ -18,7 +18,7 @@ import {
   togglePlanStepAction,
 } from "../actions";
 import type { NotesPeople, SupportPlan } from "../data";
-import { excerpt, followUpDate, parentPlanMessage, planProgress, planReaders, suggestedSteps, type BoardNote } from "../domain/notes";
+import { excerpt, followUpDate, knownPair, parentPlanMessage, planProgress, planReaders, suggestedGoals, suggestedSteps, whenPair, type BoardNote } from "../domain/notes";
 import { COST } from "./compose";
 import { day, useBoth, WaBubble } from "./look";
 import { mayEditPlan, type ClientViewer } from "./parts";
@@ -40,11 +40,24 @@ const OWNER_TEXT: Record<OwnerRole, Pair> = {
   admin: p("Admin", "प्रशासक"),
   parents: p("Parents", "माता-पिता"),
 };
-/** The people a teacher's step cycles through (design TchNotes `OWN`). */
-const CYCLE_OWNERS: OwnerRole[] = ["me", "class_teacher", "coordinator", "parents"];
+/**
+ * Who a new step can go to, as a list to choose from (smoke 20 Oct: the chip
+ * changed person on each tap, and "Me" turned into "Class teacher" for the
+ * class teacher herself). The class teacher is "Me (class teacher)", once.
+ */
+function ownerChoices(input: { holds: boolean; classTeacher: string | null; coordinator: string | null }, tx: (p: Pair) => string): { role: OwnerRole; label: string }[] {
+  return [
+    { role: "me" as const, label: input.holds ? tx(p("Me (class teacher)", "मैं (कक्षा अध्यापक)")) : tx(OWNER_TEXT.me) },
+    ...(input.holds ? [] : [{ role: "class_teacher" as const, label: `${tx(OWNER_TEXT.class_teacher)}${input.classTeacher ? ` · ${input.classTeacher}` : ""}` }]),
+    { role: "subject_teacher" as const, label: tx(OWNER_TEXT.subject_teacher) },
+    { role: "coordinator" as const, label: `${tx(OWNER_TEXT.coordinator)}${input.coordinator ? ` · ${input.coordinator}` : ""}` },
+    { role: "parents" as const, label: tx(OWNER_TEXT.parents) },
+  ];
+}
 
+/** When a step is done, as stored (English words, shown through whenPair). */
 function whenLabels(today: string): string[] {
-  return [`From ${day(followUpDate("tomorrow", today))}`, day(followUpDate("next_monday", today)), "Every Friday", "Every day", "This week"];
+  return [`From ${day(followUpDate("tomorrow", today))}`, `By ${day(followUpDate("next_monday", today))}`, "Every Friday", "Every day", "This week"];
 }
 
 type Step = { id: string | null; body: string; owner: string; when: string | null; done: boolean; role: OwnerRole };
@@ -53,7 +66,8 @@ function stepsOf(plan: SupportPlan, viewer: ClientViewer, tx: (p: Pair) => strin
   return plan.steps.map((s) => {
     const role = (OWNER_ROLES as readonly string[]).includes(s.ownerRole ?? "") ? (s.ownerRole as OwnerRole) : "me";
     const owner = s.ownerName ? (s.ownerStaffId === viewer.id ? tx(OWNER_TEXT.me) : s.ownerName) : tx(OWNER_TEXT[role]);
-    return { id: s.id, body: s.body, owner, when: s.whenLabel, done: s.done, role };
+    // A suggested step reads in the reader's language, whoever added it (smoke 20 Oct).
+    return { id: s.id, body: tx(knownPair(s.body)), owner, when: s.whenLabel, done: s.done, role };
   });
 }
 
@@ -108,6 +122,26 @@ function PlanGoalSharing({ note, people, setGoal, shared, setShared }: { note: B
   );
 }
 
+/**
+ * Short goals the note suggests, one tap each. The goal box starts empty:
+ * it held the note's first 120 letters, cut mid-word, and that went into the
+ * parents' message (smoke 20 Oct).
+ */
+function GoalChips({ note, setGoal }: { note: BoardNote; setGoal: (goal: string) => void }) {
+  const { tx } = useVx();
+  const goals = suggestedGoals(note.tags, note.body);
+  return (
+    <span className="nx-f" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+      <span className="nx-m">{tx(p("For example", "जैसे"))}:</span>
+      {goals.map((g) => (
+        <button key={g.en} type="button" className="tap chip" onClick={() => setGoal(tx(g))}>
+          {tx(g)}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 type Run = (fn: () => Promise<{ ok: boolean; error?: Pair }>, done?: Pair) => void;
 
 function useRun(): [Run, boolean] {
@@ -148,7 +182,7 @@ function Ring({ done, total, stroke, label, teacher }: { done: number; total: nu
  * parents' message and the history. `draft` is a plan not made yet: the
  * steps the note's tags suggest, started with one button.
  */
-export function BoardPlan({ plan, draftFor, viewer, people, today, school, base }: { plan: SupportPlan | null; draftFor: BoardNote | null; viewer: ClientViewer; people: NotesPeople; today: string; school: string; base: string }) {
+export function BoardPlan({ plan, draftFor, viewer, people, today, school, base, sourceBody }: { plan: SupportPlan | null; draftFor: BoardNote | null; viewer: ClientViewer; people: NotesPeople; today: string; school: string; base: string; sourceBody?: string | null }) {
   const { tx } = useVx();
   const both = useBoth();
   const router = useRouter();
@@ -163,16 +197,17 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
   const first = studentName.split(" ")[0];
   const nextWeek = day(followUpDate("one_week", today));
   const privateSource = draft?.visibility === "private";
-  const [goal, setGoal] = useState(() => (draft && !privateSource ? excerpt(draft.body, 120) : ""));
+  const [goal, setGoal] = useState("");
   const [shared, setShared] = useState(false);
-  const [draftSteps, setDraftSteps] = useState<Step[]>(() => (draft ? suggestedSteps(draft.tags).map((s) => ({ id: null, body: tx(s), owner: tx(OWNER_TEXT.class_teacher), when: nextWeek, done: false, role: "class_teacher" as OwnerRole })) : []));
+  // Steps that fit what the note says and the child's class, not the same three for everyone (smoke 20 Oct).
+  const [draftSteps, setDraftSteps] = useState<Step[]>(() => (draft ? suggestedSteps(draft.tags, { text: draft.body, classLabel: draft.classLabel }).map((s) => ({ id: null, body: tx(s), owner: tx(OWNER_TEXT.class_teacher), when: nextWeek, done: false, role: "class_teacher" as OwnerRole })) : []));
   const [newStep, setNewStep] = useState("");
   const [tellDraft, setTellDraft] = useState(false);
   const steps = plan ? stepsOf(plan, viewer, tx) : draftSteps;
   const prog = plan ? planProgress(plan.steps) : { done: 0, total: draftSteps.length };
   const open = plan ? plan.status === "active" || plan.status === "draft" : true;
   const mayEdit = plan ? mayEditPlan(plan, viewer) : viewer.canWrite;
-  const msg = parentPlanMessage({ childName: studentName, goal: plan?.goal ?? goal, steps: steps.map((s) => s.body), school });
+  const msg = parentPlanMessage({ childName: studentName, goal: plan?.goal ?? goal, steps: steps.map((s) => s.body), school, noteBody: draft?.body ?? sourceBody ?? null });
   const sent = plan?.tellParents ?? false;
 
   const add = () => {
@@ -217,12 +252,15 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
         <span className="nx-c" style={{ flex: 1, minWidth: 220, gap: 4 }}>
           <span className="nx-m" style={{ fontWeight: 700 }}>{tx(p("Support plan", "सहायता योजना"))} · {studentName} · {classLabel}</span>
           {plan ? (
-            <span className="serif nx-t">{plan.goal}</span>
+            <span className="serif nx-t">{tx(knownPair(plan.goal))}</span>
           ) : (
-            <label>
-              <span className="sr">Goal</span>
-              <input className="inp serif" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} placeholder={tx(p("What should change for the child?", "बच्चे के लिए क्या बदलना चाहिए?"))} style={{ fontSize: 20, fontWeight: 600 }} />
-            </label>
+            <>
+              <label>
+                <span className="sr">Goal</span>
+                <input className="inp serif" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} placeholder={tx(p("The goal, in a few words: what should change for the child?", "लक्ष्य, कुछ शब्दों में: बच्चे के लिए क्या बदलना चाहिए?"))} style={{ fontSize: 20, fontWeight: 600 }} />
+              </label>
+              {draft ? <GoalChips note={draft} setGoal={setGoal} /> : null}
+            </>
           )}
           {draft ? <PlanGoalSharing note={draft} people={people} setGoal={setGoal} shared={shared} setShared={setShared} /> : null}
           <span className="nx-m">
@@ -261,7 +299,7 @@ export function BoardPlan({ plan, draftFor, viewer, people, today, school, base 
                 <span style={{ fontSize: 14, fontWeight: 600, textDecoration: s.done ? "line-through" : "none", color: s.done ? "var(--mut)" : "var(--fg)" }}>{s.body}</span>
                 <span className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
                   <span className="pill" style={{ background: "var(--s2)", color: "var(--fg)" }}><Ic n="user" size={12} />{s.owner}</span>
-                  {s.when ? <span className="pill num" style={{ background: "var(--s2)", color: "var(--mut)" }}><Ic n="calendar" size={12} />{s.when}</span> : null}
+                  {s.when ? <span className="pill num" style={{ background: "var(--s2)", color: "var(--mut)" }}><Ic n="calendar" size={12} />{tx(whenPair(s.when))}</span> : null}
                 </span>
               </span>
               {mayEdit && open ? (
@@ -369,9 +407,11 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
   const [own, setOwn] = useState("");
   const [tell, setTell] = useState(false);
   const privateSource = !plan && note?.visibility === "private";
-  // A team note lends its opening words as the goal, editable; an Only me
-  // note lends nothing unless its author chooses to (R01).
-  const [goal, setGoal] = useState(() => (note && note.visibility !== "private" ? excerpt(note.body, 120) : ""));
+  // The goal starts empty, with short suggestions (smoke 20 Oct: the note's
+  // opening words, cut mid-word, went to the parents). An Only me note lends
+  // its words only when its author chooses to (R01).
+  const [goal, setGoal] = useState("");
+  const [picking, setPicking] = useState<number | null>(null);
   const [shared, setShared] = useState(false);
   const studentName = plan?.studentName ?? note?.studentName ?? "";
   const steps = plan ? stepsOf(plan, viewer, tx) : draft;
@@ -379,9 +419,11 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
   const mayEdit = plan ? mayEditPlan(plan, viewer) : viewer.canWrite;
   const open = plan ? plan.status === "active" || plan.status === "draft" : true;
   const forText = note?.body ?? plan?.goal ?? "";
-  const used = new Set(steps.map((s) => s.body));
-  const sugg = suggestedSteps(note?.tags ?? []).filter((s) => !used.has(s.en) && !used.has(s.hi ?? ""));
-  const msg = parentPlanMessage({ childName: studentName, goal: plan?.goal ?? goal, steps: steps.map((s) => s.body), school });
+  const used = new Set(steps.map((s) => knownPair(s.body).en));
+  const sugg = suggestedSteps(note?.tags ?? [], { text: note?.body ?? plan?.goal, classLabel: note?.classLabel ?? plan?.classLabel }).filter((s) => !used.has(s.en));
+  const msg = parentPlanMessage({ childName: studentName, goal: plan?.goal ?? goal, steps: steps.map((s) => s.body), school, noteBody: note?.body ?? null });
+  const classId = plan?.classId ?? note?.classId ?? null;
+  const owners = ownerChoices({ holds: classId !== null && viewer.heldClassIds.includes(classId), classTeacher: classId ? (people.classTeachers[classId] ?? null) : null, coordinator: people.coordinator }, tx);
   const hint =
     steps.length < 3
       ? tx(p(`Add ${3 - steps.length} more step${3 - steps.length === 1 ? "" : "s"} · 3 to 5 work best`, `${3 - steps.length} और कदम जोड़ें · 3 से 5 ठीक रहते हैं`))
@@ -400,20 +442,13 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
       return;
     }
     if (plan) run(() => addPlanStepAction(plan.id, t, "me", whens[0]!), p("Step added", "कदम जोड़ा"));
-    else setDraft((cur) => [...cur, { id: null, body: t, owner: tx(OWNER_TEXT.me), when: whens[0]!, done: false, role: "me" }]);
+    else setDraft((cur) => [...cur, { id: null, body: t, owner: owners[0]?.label ?? tx(OWNER_TEXT.me), when: whens[0]!, done: false, role: "me" }]);
   };
 
-  const cycle = (i: number, what: "who" | "when") =>
-    setDraft((cur) =>
-      cur.map((s, j) => {
-        if (j !== i) return s;
-        if (what === "who") {
-          const role = CYCLE_OWNERS[(CYCLE_OWNERS.indexOf(s.role) + 1) % CYCLE_OWNERS.length]!;
-          return { ...s, role, owner: tx(OWNER_TEXT[role]) };
-        }
-        return { ...s, when: whens[(whens.indexOf(s.when ?? "") + 1) % whens.length]! };
-      }),
-    );
+  // Who and when are picked from a list, not cycled by taps (smoke 20 Oct).
+  const setOwner = (i: number, role: OwnerRole) =>
+    setDraft((cur) => cur.map((s, j) => (j === i ? { ...s, role, owner: owners.find((o) => o.role === role)?.label ?? tx(OWNER_TEXT[role]) } : s)));
+  const setWhen = (i: number, when: string) => setDraft((cur) => cur.map((s, j) => (j === i ? { ...s, when } : s)));
 
   const save = () =>
     start(async () => {
@@ -452,7 +487,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
       <div className="pad stack" style={{ flex: 1, padding: "18px 28px 24px", display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <div className="nx-c" style={{ gap: 16 }}>
           <div className="card rise nx-f" style={{ padding: "16px 18px", gap: 14 }}>
-            <Ring done={done} total={steps.length} stroke={8} label={tx(p(`${done} of ${steps.length}`, `${steps.length} में ${done}`))} teacher />
+            <Ring done={done} total={steps.length} stroke={8} label={tx(p(`${done} of ${steps.length}`, `${steps.length} में से ${done}`))} teacher />
             <span className="nx-c" style={{ flex: 1 }}>
               <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p(`Support plan for ${studentName}`, `${studentName} के लिए सहायता योजना`))}</span>
               <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(p("For", "के लिए"))}: “{excerpt(forText, 160)}”</span>
@@ -463,8 +498,9 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
             <div className="card nx-c nt-cd" style={{ gap: 8 }}>
               <label className="nx-c" style={{ gap: 6 }}>
                 <span style={{ fontSize: 16, fontWeight: 700 }}>{tx(p("Goal", "लक्ष्य"))}</span>
-                <input className="inp" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} placeholder={tx(p("What should change for the child?", "बच्चे के लिए क्या बदलना चाहिए?"))} style={{ height: 48, fontSize: 15 }} />
+                <input className="inp" value={goal} maxLength={300} onChange={(e) => setGoal(e.target.value)} placeholder={tx(p("In a few words: what should change for the child?", "कुछ शब्दों में: बच्चे के लिए क्या बदलना चाहिए?"))} style={{ height: 48, fontSize: 15 }} />
               </label>
+              {note.visibility !== "private" || shared ? <GoalChips note={note} setGoal={setGoal} /> : null}
               <PlanGoalSharing note={note} people={people} setGoal={setGoal} shared={shared} setShared={setShared} />
             </div>
           ) : null}
@@ -486,16 +522,55 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
                 <span className="nx-c" style={{ flex: 1, gap: 6 }}>
                   <span style={{ fontSize: 15, fontWeight: 600, color: s.done ? "var(--mut)" : "var(--fg)", textDecoration: s.done ? "line-through" : "none" }}>{s.body}</span>
                   <span className="nx-f" style={{ flexWrap: "wrap", gap: 6 }}>
-                    <button type="button" className="tap pill" disabled={Boolean(plan)} onClick={() => cycle(i, "who")} style={{ height: 30, padding: "0 10px", fontSize: 12, border: "1px solid var(--bd)", background: "var(--s2)", color: "var(--fg)", fontFamily: "inherit" }}>
-                      <Ic n="user" size={13} />
-                      {s.owner}
-                    </button>
-                    {s.when ? (
-                      <button type="button" className="tap pill" disabled={Boolean(plan)} onClick={() => cycle(i, "when")} style={{ height: 30, padding: "0 10px", fontSize: 12, border: "1px solid var(--bd)", background: "var(--s2)", color: "var(--fg)", fontFamily: "inherit" }}>
-                        <Ic n="calendar" size={13} />
-                        {s.when}
-                      </button>
-                    ) : null}
+                    {plan ? (
+                      <>
+                        <span className="pill" style={{ background: "var(--s2)", color: "var(--fg)" }}><Ic n="user" size={13} />{s.owner}</span>
+                        {s.when ? <span className="pill" style={{ background: "var(--s2)", color: "var(--fg)" }}><Ic n="calendar" size={13} />{tx(whenPair(s.when))}</span> : null}
+                      </>
+                    ) : (
+                      <>
+                        <label className="nx-f" style={{ gap: 4 }}>
+                          <Ic n="user" size={14} />
+                          <span className="sr">{tx(p("Who does this step", "यह कदम कौन करेगा"))}</span>
+                          <select className="inp" value={s.role} onChange={(e) => setOwner(i, e.target.value as OwnerRole)} style={{ height: 44, fontSize: 13, padding: "0 8px", maxWidth: 220 }}>
+                            {owners.map((o) => <option key={o.role} value={o.role}>{o.label}</option>)}
+                          </select>
+                        </label>
+                        <label className="nx-f" style={{ gap: 4 }}>
+                          <Ic n="calendar" size={14} />
+                          <span className="sr">{tx(p("When", "कब"))}</span>
+                          <select
+                            className="inp"
+                            value={picking === i ? "pick" : (s.when ?? "")}
+                            onChange={(e) => {
+                              if (e.target.value === "pick") setPicking(i);
+                              else {
+                                setPicking(null);
+                                setWhen(i, e.target.value);
+                              }
+                            }}
+                            style={{ height: 44, fontSize: 13, padding: "0 8px", maxWidth: 200 }}
+                          >
+                            {[...new Set([...whens, ...(s.when ? [s.when] : [])])].map((w) => <option key={w} value={w}>{tx(whenPair(w))}</option>)}
+                            <option value="pick">{tx(p("Pick a date…", "तारीख़ चुनें…"))}</option>
+                          </select>
+                        </label>
+                        {picking === i ? (
+                          <input
+                            className="inp"
+                            type="date"
+                            aria-label={tx(p("The date", "तारीख़"))}
+                            min={followUpDate("tomorrow", today)}
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              setWhen(i, `By ${day(e.target.value)}`);
+                              setPicking(null);
+                            }}
+                            style={{ height: 44, fontSize: 13, maxWidth: 180 }}
+                          />
+                        ) : null}
+                      </>
+                    )}
                   </span>
                 </span>
                 {mayEdit && open ? (
@@ -531,7 +606,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
                 </div>
               ) : null}
               <div className="nx-f" style={{ gap: 8 }}>
-                <label className="nt-srch" style={{ flex: 1, borderRadius: 14 }}>
+                <label className="nt-srch" style={{ flex: 1, minWidth: 0, borderRadius: 14 }}>
                   <span className="sr">Write your own step</span>
                   <input type="text" value={own} maxLength={160} onChange={(e) => setOwn(e.target.value)} placeholder={tx(p("Write your own step", "अपना कदम लिखें"))} />
                 </label>
@@ -543,7 +618,7 @@ export function TeachPlan({ plan, note, viewer, people, today, school, base }: {
                     addStep(own);
                     if (own.trim().length >= 3) setOwn("");
                   }}
-                  style={{ height: 48 }}
+                  style={{ height: 48, flex: "none" }}
                 >
                   <Ic n="plus" size={18} />
                   {tx(p("Add", "जोड़ें"))}

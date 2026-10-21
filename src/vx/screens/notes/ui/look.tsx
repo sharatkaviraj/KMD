@@ -1,16 +1,15 @@
 "use client";
 
-import { useTransition, type CSSProperties, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { type CSSProperties, type ReactNode } from "react";
 
-import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { initials, shortDay } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { BackLink } from "@/vx/ui/back-link";
+import { LanguageControl } from "@/vx/ui/language";
 
-import { FOLLOW_OWNER, noteSchoolDay, type BoardNote, type FollowOwner, type NoteStage, type NoteTag } from "../domain/notes";
+import { FOLLOW_OWNER, followUpWho, noteSchoolDay, noteSubject, type BoardNote, type FollowOwner, type NoteStage, type NoteTag } from "../domain/notes";
 
 import "./notes.css";
 
@@ -94,6 +93,26 @@ export function relationText(relation: string | null): Pair | null {
     default:
       return null;
   }
+}
+
+/**
+ * Who a note is about and who follows it up, in the reader's words: the
+ * child (or "Whole class"), with SR and father under a shared name; "You"
+ * only for the reader's own follow-up, never another teacher's "Me".
+ */
+export function useNoteWords(viewerId: string) {
+  const { tx } = useVx();
+  return {
+    name: (note: Pick<BoardNote, "studentId" | "studentName">) => tx(noteSubject(note)),
+    /** A whole-class note shows the class number ("8"), a missing child "?". */
+    initials: (note: Pick<BoardNote, "studentId" | "studentName" | "classLabel">) =>
+      note.studentId ? (note.studentName.trim() ? initials(note.studentName) : "?") : (/\d+/.exec(note.classLabel)?.[0] ?? initials(note.classLabel)),
+    hint: (note: Pick<BoardNote, "studentHint">) => (note.studentHint ? tx(note.studentHint) : null),
+    who: (note: Pick<BoardNote, "followUpOwner" | "followUpName" | "followUpStaffId" | "writtenBy" | "writtenByName">) => {
+      const w = followUpWho(note, viewerId);
+      return w ? tx(w) : null;
+    },
+  };
 }
 
 /** The short role a follow-up went to: "Class teacher", "Coordinator", "Admin", "Me". */
@@ -205,46 +224,6 @@ export function Seg<T extends string>({
 
 /* ---------------------------------------------------------------- header */
 
-/** EN ⇄ हि, written to the reader's stored language (UI-6). */
-function useLanguageFlip() {
-  const { language } = useVx();
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const flip = () =>
-    start(async () => {
-      const fd = new FormData();
-      fd.set("language", language === "hi" ? "both" : "hi");
-      await saveLanguageAction({ status: "idle", message: null }, fd);
-      router.refresh();
-    });
-  return { isHi: language === "hi", flip, pending };
-}
-
-/** The board's language button: "हिंदी" on a desk, "हि" on a phone. */
-export function LangFlip({ phone }: { phone?: boolean }) {
-  const { isHi, flip, pending } = useLanguageFlip();
-  return phone ? (
-    <button type="button" className="tap btn ghost" aria-label="Switch language" onClick={flip} disabled={pending} style={{ width: 44, height: 44, padding: 0, fontWeight: 700 }}>
-      {isHi ? "EN" : "हि"}
-    </button>
-  ) : (
-    <button type="button" className="tap btn sec" aria-label="Switch language" onClick={flip} disabled={pending} style={{ padding: "0 12px" }}>
-      {isHi ? "English" : "हिंदी"}
-    </button>
-  );
-}
-
-/** The teacher's EN | हि switch. */
-export function LangPill() {
-  const { isHi, flip, pending } = useLanguageFlip();
-  return (
-    <button type="button" className="tap nt-lang" role="switch" aria-checked={isHi} aria-label="Show labels in Hindi" onClick={flip} disabled={pending}>
-      <span className={isHi ? "" : "y"}>EN</span>
-      <span className={isHi ? "y" : ""}>हि</span>
-    </button>
-  );
-}
-
 export type Back = { href: string } | { onClick: () => void } | null;
 
 function BackButton({ back, size }: { back: NonNullable<Back>; size: number }) {
@@ -304,7 +283,8 @@ export function NotesTop({
           <span className="nx-m" style={{ fontSize: 12 }}>{crumb}</span>
           <h1 className="serif nx-e" style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.15 }}>{title}</h1>
         </div>
-        {teacher ? <LangPill /> : <LangFlip />}
+        {/* All three languages (smoke 20 Oct): the old switch wrote only hi or both and lost en. */}
+        <LanguageControl />
         {help(teacher ? 44 : 40)}
         {add}
       </header>
@@ -314,7 +294,7 @@ export function NotesTop({
           <span className="nx-e" style={{ fontSize: 17, fontWeight: 700 }}>{mTitle}</span>
           {mSub ? <span className="nx-e" style={{ fontSize: 12, color: "var(--mut)" }}>{mSub}</span> : null}
         </span>
-        {teacher ? <LangPill /> : <LangFlip phone />}
+        <LanguageControl pill />
         {help(44)}
       </header>
     </>
