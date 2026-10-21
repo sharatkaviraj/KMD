@@ -1639,8 +1639,10 @@ function StudentCard({
       <div className="pd-c">
         {rows.map((r) => {
           const overdue = isOverdueOn(r, today);
+          const dueNow = isDueOn(r, today);
           const left = Math.max(0, r.feesPending);
-          const st = left <= 0 ? (["var(--oks)", "var(--ok)", W.stPaid] as const) : overdue ? (["var(--bads)", "var(--bad)", W.stOverdue] as const) : r.feesPaid > 0 ? (["var(--infos)", "var(--info)", W.stPart] as const) : (["var(--s3)", "var(--mut)", W.stNotDue] as const);
+          // Due today is its own state, as the tile above says ("₹4,000 more is due today"), never "Not due yet".
+          const st = left <= 0 ? (["var(--oks)", "var(--ok)", W.stPaid] as const) : overdue ? (["var(--bads)", "var(--bad)", W.stOverdue] as const) : dueNow ? (["var(--warns)", "var(--warnfg)", W.dueToday] as const) : r.feesPaid > 0 ? (["var(--infos)", "var(--info)", W.stPart] as const) : (["var(--s3)", "var(--mut)", W.stNotDue] as const);
           const days = !overdue && left > 0 ? daysBetween(today, r.dueDate) : 0;
           return (
             <div key={r.id} className="pd-lrow">

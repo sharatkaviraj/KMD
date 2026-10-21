@@ -22,6 +22,7 @@ import {
   isReceiptReversed,
 } from "@/modules/receipts/data/reversals";
 import { resolveReceiptSessionLabel } from "@/modules/receipts/domain/session-label";
+import { feesOwedAfter, receiptMoneyInSession } from "@/modules/receipts/domain/outstanding";
 import { buildTransportRouteLabel } from "@/modules/fees/domain/label";
 import type {
   ConventionalDiscountAssignmentSummary,
@@ -123,6 +124,16 @@ type HistoricalReceiptRow = {
   total_amount: number;
   payment_date: string;
   created_at: string;
+};
+
+type StudentPaymentRow = {
+  id: string;
+  receipt_id: string;
+  amount: number;
+  installment_ref:
+    | { class_ref: { session_label: string } | Array<{ session_label: string }> | null }
+    | Array<{ class_ref: { session_label: string } | Array<{ session_label: string }> | null }>
+    | null;
 };
 
 type WorkbookInstallmentBalanceRow = {
@@ -770,6 +781,7 @@ export async function getReceiptDetailWith(
     { data: conventionalAssignmentsRaw, error: conventionalAssignmentsError },
     { data: installmentBalancesRaw, error: installmentBalancesError },
     { data: paymentAdjustmentsRaw, error: paymentAdjustmentsError },
+    { data: studentPaymentsRaw, error: studentPaymentsError },
   ] = await Promise.all([
     supabase
       .from("payments")
@@ -823,6 +835,12 @@ export async function getReceiptDetailWith(
       .select("payment_id, amount_delta, adjustment_type, reason")
       .eq("student_id", receipt.student_id)
       .order("created_at", { ascending: true }),
+    // Every payment row of the student with its installment's session, so the
+    // "still owed" line counts only this session's money (domain/outstanding.ts).
+    supabase
+      .from("payments")
+      .select("id, receipt_id, amount, installment_ref:installments(class_ref:classes(session_label))")
+      .eq("student_id", receipt.student_id),
   ]);
 
   if (paymentsError) {
@@ -855,6 +873,10 @@ export async function getReceiptDetailWith(
 
   if (paymentAdjustmentsError && !paymentAdjustmentsError.message.includes("does not exist")) {
     throw new Error(`Unable to load receipt adjustment context: ${paymentAdjustmentsError.message}`);
+  }
+
+  if (studentPaymentsError) {
+    throw new Error(`Unable to load this student's payments: ${studentPaymentsError.message}`);
   }
 
   const paymentAdjustments = (
@@ -916,8 +938,6 @@ export async function getReceiptDetailWith(
   const currentReceiptIndex = studentReceipts.findIndex((row) => row.id === receipt.id);
   const receiptsUpToCurrent = currentReceiptIndex === -1 ? [] : studentReceipts.slice(0, currentReceiptIndex + 1);
   const receiptsBeforeCurrent = currentReceiptIndex <= 0 ? [] : studentReceipts.slice(0, currentReceiptIndex);
-  const totalPaidBeforeReceipt = receiptsBeforeCurrent.reduce((sum, row) => sum + row.total_amount, 0);
-  const totalPaidToDate = receiptsUpToCurrent.reduce((sum, row) => sum + row.total_amount, 0);
   const adjustmentTotals = buildReceiptAdjustmentTotals({
     currentReceiptId: receipt.id,
     receiptIdsUpToCurrent: receiptsUpToCurrent.map((row) => row.id),
@@ -928,14 +948,44 @@ export async function getReceiptDetailWith(
       amountDelta: row.amount_delta,
     })),
   });
-  // Outstanding tracks base charges only — late fees are fines, not "expected".
-  const outstandingAfterReceipt = Math.max(
-    (financial?.base_charge_total ?? totalPaidToDate) - totalPaidToDate - adjustmentTotals.adjustmentsUpToCurrent,
-    0,
-  );
   const sessionLabel = resolveReceiptSessionLabel({
     paymentSessionLabels: breakdown.map((item) => item.sessionLabel),
     studentSessionLabel: studentClass?.session_label,
+  });
+  // Only this session's money, net of corrections and reversals: a removed
+  // receipt paid nothing, and last year's receipts paid last year's fees.
+  // Summing every receipt's total_amount told a parent they owed ₹399 when
+  // they owed ₹10,399 (smoke 20 Oct, accountant P1).
+  const moneyInSession = receiptMoneyInSession({
+    currentReceiptId: receipt.id,
+    receiptOrder: studentReceipts.map((row) => row.id),
+    payments: ((studentPaymentsRaw ?? []) as StudentPaymentRow[]).map((row) => ({
+      id: row.id,
+      receiptId: row.receipt_id,
+      sessionLabel:
+        toSingleRecord(toSingleRecord(row.installment_ref)?.class_ref ?? null)?.session_label ?? null,
+      amount: row.amount,
+    })),
+    adjustments: paymentAdjustments.map((row) => ({ paymentId: row.payment_id, amountDelta: row.amount_delta })),
+    sessionLabel,
+  });
+  const totalPaidBeforeReceipt = moneyInSession.paidBefore;
+  const totalPaidToDate = moneyInSession.paidToDate;
+  const sessionInstallmentRows = ((installmentBalancesRaw ?? []) as WorkbookInstallmentBalanceRow[]).filter(
+    (row) => row.session_label === sessionLabel,
+  );
+  // Outstanding tracks fees only — late fees are fines, not "expected". The
+  // money walks the installments in the ledger's order, so the part of it
+  // that paid a late fee does not lower the fees owed.
+  const outstandingAfterReceipt = feesOwedAfter({
+    money: totalPaidToDate,
+    installments: sessionInstallmentRows.map((row) => ({
+      installmentNo: row.installment_no,
+      dueDate: row.due_date,
+      baseCharge: row.base_charge ?? 0,
+      totalCharge: row.total_charge ?? row.base_charge ?? 0,
+    })),
+    chargedFees: financial?.base_charge_total ?? null,
   });
   // Conventional discount policy rule: lowest candidate tuition wins (see
   // lib/fees/conventional-discount-rules.ts → applyConventionalDiscountsToTuition).
@@ -969,11 +1019,7 @@ export async function getReceiptDetailWith(
     isReversed: isReceiptReversed(historyReversalTotals, row.id, row.total_amount),
   }));
 
-  const installmentStatus: ReceiptInstallmentStatusItem[] = buildInstallmentStatus(
-    ((installmentBalancesRaw ?? []) as WorkbookInstallmentBalanceRow[]).filter(
-      (row) => row.session_label === sessionLabel,
-    ),
-  );
+  const installmentStatus: ReceiptInstallmentStatusItem[] = buildInstallmentStatus(sessionInstallmentRows);
   // Base-only outstanding (late fees excluded), summed from the per-installment
   // base pending so the headline reconciles with the status table.
   const baseOutstanding = installmentStatus.reduce((sum, item) => sum + item.pending, 0);

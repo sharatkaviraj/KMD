@@ -39,7 +39,7 @@ it("allows received-by edits and keeps them on Back without posting on Review; t
   // Accountant B1: the concession never reached the balance, so the desk has
   // no box for it — only a note saying where a discount is set.
   expect(host.querySelector("#pd-concession")).toBeNull();
-  expect(host.querySelector("#pd-concession-off")!.textContent).toContain("did not lower the dues");
+  expect(host.querySelector("#pd-concession-off")!.textContent).toContain("Concessions are not given here");
   await click("Review"); expect(actions.postDeskPaymentAction).not.toHaveBeenCalled();
   // The review is the design's confirm sheet, drawn in #vx-layer beside the page.
   const review = document.querySelector("[role=dialog]")!.textContent;
@@ -219,7 +219,7 @@ it("says Updating balance while the live balance is read, then shows it as Balan
   expect(now).toContain(rupees(1000));
   // The receipt's own figure stays the receipt's, labelled as such.
   const at = document.getElementById("pd-at-receipt")!.textContent!;
-  expect(at).toContain("At this receipt");
+  expect(at).toContain("After this receipt");
   expect(at).toContain(rupees(receipt.outstandingAfter));
   expect(actions.postDeskPaymentAction).toHaveBeenCalledTimes(1);
 });

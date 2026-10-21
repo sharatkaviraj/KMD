@@ -115,7 +115,10 @@ export async function pendingTodayFor(studentIds: readonly string[], today: stri
       .from("v_workbook_installment_balances")
       .select("student_id, pending_amount, late_fee_pending, due_date")
       .eq("session_label", sessionLabel)
-      .lte("due_date", today)
+      // Due BEFORE today, or last session's balance: the rule every money
+      // screen uses (fees/domain/due-rule.ts). `lte` counted an installment
+      // due today as pending here while the Desk and Dues did not.
+      .or(`due_date.lt.${today},is_carry_forward.eq.true`)
       .in("student_id", chunk),
   );
   for (const r of data) {
@@ -472,7 +475,7 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
         .select("student_id")
         .eq("session_label", sessionLabel)
         .gt("pending_amount", 0)
-        .lte("due_date", today)
+        .or(`due_date.lt.${today},is_carry_forward.eq.true`)
         .order("installment_id")
         .range(a, b),
     ),
@@ -481,7 +484,8 @@ export async function getAccountsHomeData(opts: { staffId: string; today: string
       .select("installment_no, due_date")
       .eq("session_label", sessionLabel)
       .gt("pending_amount", 0)
-      .gt("due_date", today)
+      // An installment due today is next, not late yet.
+      .gte("due_date", today)
       .lt("installment_no", 99)
       .order("due_date")
       .limit(1),
