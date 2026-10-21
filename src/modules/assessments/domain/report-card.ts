@@ -92,6 +92,10 @@ export type CardAttendance = {
   to?: string | null;
   /** School days in the period on which the class's register was not recorded. */
   notRecorded?: number;
+  /** Days this child was on leave: out of both halves, like an exempt paper. */
+  leave?: number;
+  /** Days the class's register was saved without a mark for this child (joined later, or missed). */
+  unmarked?: number;
 };
 
 export type CardScheme = {

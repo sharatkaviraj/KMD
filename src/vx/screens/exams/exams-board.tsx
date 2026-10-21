@@ -90,6 +90,9 @@ export type ExamsProps = {
     absent?: number;
     exempt?: number;
     blank?: number;
+    /** Whether a child may be excused from this paper, and whether that can still be switched off. */
+    allowExempt?: boolean;
+    exemptLocked?: boolean;
     classReadiness?: ClassReadiness;
     history: { text: Pair; at: string; tone: string }[];
   } | null;
@@ -137,6 +140,8 @@ export type ExamsProps = {
     attendance: number | null;
     present?: number | null;
     counted?: number | null;
+    /** "1 day on leave · 1 day not marked", both languages (`attendanceNote`). */
+    attendanceNote?: string | null;
     classTeacher?: string | null;
     coordinator?: string | null;
     prevId: string | null;
@@ -168,6 +173,7 @@ export type ExamsProps = {
     marksLink: Act<{ examId: string; staffId: string; op: "make" | "renew" | "revoke" }>;
     lock: Act<{ examId: string; classIds: string[] }>;
     issueClass: Act<{ examId: string; classId: string; reissue?: boolean }>;
+    setExempt?: Act<{ paperId: string; allow: boolean }>;
     create: Act<{
       nameEn: string;
       nameHi: string;
@@ -789,6 +795,18 @@ function CellPanel(props: ExamsProps & { href: Href; onRemind: (id: string) => v
               </Btn>
             ) : null}
           </div>
+          {props.manage && props.actions.setExempt && cell.allowExempt !== undefined && cell.state !== "locked" ? (
+            // Per paper, by the exam office: may a child be excused (smoke 20 Oct). Off is refused once marks are typed.
+            <SwitchRow
+              title={tx(p("A child may be excused from this paper", "इस पेपर में बच्चे को छूट दी जा सकती है"))}
+              sub={cell.allowExempt && cell.exemptLocked ? tx(p("Marks are being entered, so this can no longer be switched off.", "अंक भरे जा रहे हैं, इसलिए अब बंद नहीं हो सकता।")) : undefined}
+              on={cell.allowExempt}
+              onChange={(on) => {
+                if (pending || (cell.allowExempt && cell.exemptLocked)) return;
+                run(() => props.actions.setExempt!({ paperId: cell.paperId, allow: on }));
+              }}
+            />
+          ) : null}
           {props.manage && props.canFinalise ? (
             <Btn variant="sec" icon="lock" disabled={cell.classLocked || !cell.classReady || pending} onClick={() => setLockOpen(true)}>
               {cell.classLocked ? tx(p(`${cell.classLabel} is locked`, `${cell.classLabel} बंद है`)) : tx(p(`Lock ${cell.classLabel} marks`, `${cell.classLabel} के अंक बंद करें`))}
@@ -1334,6 +1352,7 @@ function Preview(props: ExamsProps & { href: Href }) {
           ))}
         </div>
         {weights ? <span style={{ fontSize: 11, color: "var(--mut)", marginTop: -8 }}>{weights}</span> : null}
+        {c.attendanceNote ? <span style={{ fontSize: 11, color: "var(--mut)", marginTop: weights ? -12 : -8 }}>{CARD.attendance}: {c.attendanceNote}</span> : null}
         {c.remark ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, borderRadius: 10, padding: "12px 14px", border: "1.5px dashed var(--bds)" }}>
             <span lang="hi" style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)" }}>{CARD.remark}</span>

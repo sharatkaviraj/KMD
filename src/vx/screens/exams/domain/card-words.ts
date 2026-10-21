@@ -30,3 +30,22 @@ export function weightsLine(weights: { name: Pair; weight: number }[]): string {
   const hi = weights.map((w) => `${w.name.hi ?? w.name.en} ×${w.weight}`).join(", ");
   return `Each exam's marks count: ${en} · हर परीक्षा के अंकों का भार: ${hi}`;
 }
+
+/**
+ * Why a child's days differ from a classmate's: "1 day on leave · 1 day not
+ * marked". Empty when neither applies. Printed beside the attendance so two
+ * cards from one class can be read side by side (smoke 20 Oct: 24/24 and 21/25).
+ */
+export function attendanceNote(leave = 0, unmarked = 0): string {
+  const en: string[] = [];
+  const hi: string[] = [];
+  if (leave > 0) {
+    en.push(`${leave} ${leave === 1 ? "day" : "days"} on leave`);
+    hi.push(`${leave} दिन छुट्टी पर`);
+  }
+  if (unmarked > 0) {
+    en.push(`${unmarked} ${unmarked === 1 ? "day" : "days"} not marked`);
+    hi.push(`${unmarked} दिन हाज़िरी नहीं लगी`);
+  }
+  return en.length ? `${en.join(" · ")} · ${hi.join(" · ")}` : "";
+}

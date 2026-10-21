@@ -293,6 +293,11 @@ export async function previewReportCard(input: {
             from,
             to,
             notRecorded,
+            // Why two children of one class show different day counts (smoke 20 Oct: 24/24 and
+            // 21/25): days on leave are out of both halves, and a day the register was saved
+            // without this child is not counted either way.
+            leave: inPeriod.length - summary.counted,
+            unmarked: [...recorded].filter((day) => !inPeriod.some((entry) => entry.day === day)).length,
           },
     scheme: scheme ? cardSchemeOf(scheme) : null,
     grace: graceOf(grace, input.studentId),

@@ -1,3 +1,4 @@
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { notFound, redirect } from "next/navigation";
 
 import { byClassLabel } from "@/modules/academics/domain/class-order";
@@ -23,10 +24,12 @@ import {
 } from "@/vx/screens/exams/data";
 import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { classTermCards } from "@/modules/assessments/data/reports-repo";
+import { attendanceNote } from "@/vx/screens/exams/domain/card-words";
+import { plannedExams } from "@/vx/screens/exams/domain/current";
 import { cardWeights, type ReportCard } from "@/modules/assessments/domain/report-card";
 import { classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
-import { cellCounts, cellState, neighbours, paperEvents } from "@/vx/screens/exams/domain/board";
+import { cellCounts, cellState, exemptSwitch, neighbours, paperEvents } from "@/vx/screens/exams/domain/board";
 import { GROUP_KEYS, GROUP_LABELS, groupOf, subjectPair } from "@/vx/screens/exams/domain/groups";
 import { splitByStream } from "@/vx/screens/exams/domain/streams";
 import { classReadiness, paperBlockers, paperReadiness } from "@/vx/screens/exams/domain/progress";
@@ -41,7 +44,7 @@ import { dateSpan, dueDay } from "@/vx/screens/exams/when";
 import { issueClassCardsAction, lockClassesAction } from "../exam-office/results/actions";
 import { marksLinkAction, remindTeachersAction } from "../exam-office/actions";
 import { saveTeacherMarksAction, withdrawTeacherMarksAction } from "../teach/marks/actions";
-import { createExamAction } from "./actions";
+import { createExamAction, setPaperExemptAction } from "./actions";
 
 export const runtime = "nodejs";
 
@@ -73,7 +76,8 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
   if (!manage && (view === "sampark" || view === "create" || view === "remind")) view = "grid";
   if (!reports && (view === "reportcards" || view === "preview" || view === "analysis")) view = "grid";
 
-  const ctx = await officeContext();
+  const now = await schoolNow(staff);
+  const ctx = await officeContext(now);
   if (!ctx) {
     return (
       <VxPage>
@@ -139,7 +143,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
   const lockedSet = new Set(locks.keys());
 
   /* ------------------------------------------------- the timeline */
-  const timeline: ExamsProps["timeline"] = exams
+  const timeline: ExamsProps["timeline"] = plannedExams(exams)
     .filter((e) => !scoped || e.papers > 0)
     .map((e) => {
       const state: ExamsProps["timeline"][number]["state"] =
@@ -245,6 +249,8 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
         absent: facts.absent ?? 0,
         exempt: facts.exempt ?? 0,
         blank: facts.blank ?? 0,
+        allowExempt: row.allow_exempt,
+        exemptLocked: !exemptSwitch({ allowExempt: row.allow_exempt, entryRevision: row.entry_revision }, !row.allow_exempt).ok,
         history,
       };
     }
@@ -350,6 +356,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
             attendance: c.attendance?.percent ?? null,
             present: c.attendance?.present ?? null,
             counted: c.attendance?.counted ?? null,
+            attendanceNote: attendanceNote(c.attendance?.leave, c.attendance?.unmarked) || null,
             classTeacher: classInfo?.classTeacherName ?? null,
             coordinator: ctx.coordinatorName,
             prevId: at.prev?.id ?? null,
@@ -414,7 +421,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
     : [];
 
   const graceCount = manage && exam && progress ? (await graceFor(progress.rows.map((r) => r.id))).length : 0;
-  const terms = [...new Set(["Term 1", "Term 2", ...exams.map((e) => e.term)])].filter((t) => !/^QA-/.test(t));
+  const terms = [...new Set(["Term 1", "Term 2", ...plannedExams(exams).map((e) => e.term)])].filter((t) => !/^QA-/.test(t));
 
   const data: ExamsProps = {
     view,
@@ -456,6 +463,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
       lock: lockClassesAction,
       issueClass: issueClassCardsAction,
       create: createExamAction,
+      setExempt: setPaperExemptAction,
     },
   };
   return <ExamsBoard {...data} />;

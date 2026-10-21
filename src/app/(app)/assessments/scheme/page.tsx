@@ -10,7 +10,9 @@ import { pageTitle } from "@/platform/i18n/page-title";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { listAssessments } from "@/modules/assessments/data/assessments-repo";
 import { approvedScheme, schemesFor } from "@/modules/assessments/data/reports-repo";
-import { orderTerms } from "@/modules/assessments/domain/assessments";
+import { currentTerm, termsByDate } from "@/modules/assessments/domain/assessments";
+import { schoolToday } from "@/platform/dates";
+import { plannedExams } from "@/vx/screens/exams/domain/current";
 import {
   bandsToText,
   DEFAULT_GRADE_BANDS,
@@ -53,9 +55,16 @@ export default async function ReportSchemePage(props: PageProps<"/assessments/sc
   }
 
   const params = await props.searchParams;
-  const terms = orderTerms((await listAssessments(sessionLabel)).map((entry) => entry.term));
+  const assessments = await listAssessments(sessionLabel);
+  // Terms in the order they are sat, never by label (rule 3a), and only planned (dated) ones:
+  // "phoneops-…" sorted above "Term 1" and the page opened on it (smoke 20 Oct).
+  const planned = plannedExams(assessments);
+  const terms = termsByDate(planned);
   const requested = typeof params.term === "string" ? params.term : null;
-  const term = requested && terms.includes(requested) ? requested : terms[0];
+  const allTerms = new Set(assessments.map((entry) => entry.term));
+  const term = requested && allTerms.has(requested) ? requested : (currentTerm(planned, schoolToday()) ?? terms[0]);
+  // How much each exam of the term counts towards the card's percentage (`assessments.weight`).
+  const examsOfTerm = assessments.filter((entry) => entry.term === term && entry.status !== "draft");
 
   if (!term) {
     return (
@@ -128,6 +137,13 @@ export default async function ReportSchemePage(props: PageProps<"/assessments/sc
                 ? ` · ${approved.attendanceFrom ?? "…"} → ${approved.attendanceTo ?? "…"}`
                 : ""}
             </p>
+            {examsOfTerm.length ? (
+              <p className="mt-1 text-[12px] text-muted-foreground" data-scheme-weights>
+                {primary(ms.schemeExamWeights, language)}:{" "}
+                {examsOfTerm.map((entry) => `${language === "hi" ? entry.labelHi : entry.labelEn} ×${entry.weight}`).join(", ")}
+              </p>
+            ) : null}
+            <p className="mt-1 text-[12px] text-muted-foreground">{primary(ms.schemePassRule, language)}</p>
           </Card>
         </Section>
       ) : (

@@ -147,13 +147,13 @@ export async function copyDatesheetAction(input: { examId: string; fromExamId: s
   await db()
     .from("exam_plans")
     .upsert({ assessment_id: input.examId, copied_from: input.fromExamId, datesheet_checked_at: null, updated_by: staff.id, updated_at: new Date().toISOString() }, { onConflict: "assessment_id" });
-  await logActivity({ assessmentId: input.examId, kind: "datesheet", en: `${staff.displayName} copied a date sheet as a draft`, hi: `${staff.displayName} ने डेट शीट ड्राफ़्ट के रूप में कॉपी की`, actorId: staff.id }).catch(() => undefined);
+  await logActivity({ assessmentId: input.examId, kind: "datesheet", en: `${staff.displayName} copied a date sheet as a draft`, hi: `${staff.displayName} ने डेट शीट कच्ची कॉपी के रूप में बनाई`, actorId: staff.id }).catch(() => undefined);
   done();
   return {
     ok: true,
     message: overflow
       ? p(`Copied. ${overflow} day(s) did not fit — add them by hand.`, `कॉपी हुई। ${overflow} दिन नहीं समाए — उन्हें खुद जोड़ें।`)
-      : p("Copied as a draft — check the dates", "ड्राफ़्ट के रूप में कॉपी हुई — तिथियाँ जाँचें"),
+      : p("Copied as a draft — check the dates", "कच्ची कॉपी बनी — तिथियाँ जाँचें"),
   };
 }
 
@@ -168,7 +168,7 @@ export async function checkDatesheetAction(input: { examId: string; checked: boo
     .upsert({ assessment_id: input.examId, datesheet_checked_at: input.checked ? new Date().toISOString() : null, updated_by: staff.id, updated_at: new Date().toISOString() }, { onConflict: "assessment_id" });
   if (error) return { ok: false, message: NOT_SAVED };
   done();
-  return { ok: true, message: input.checked ? p("Date sheet marked final", "डेट शीट पक्की") : p("Back to draft", "फिर ड्राफ़्ट") };
+  return { ok: true, message: input.checked ? p("Date sheet marked final", "डेट शीट पक्की") : p("Back to draft", "फिर से कच्ची") };
 }
 
 /**

@@ -210,3 +210,50 @@ describe("subject names in Hindi", () => {
     expect(subjectPair("Sports").hi).toBe("खेल");
   });
 });
+
+describe("results day, same names, planned exams, the excuse switch, attendance notes", () => {
+  it("says results day has passed when nothing was sent", async () => {
+    const { resultsDay } = await import("@/vx/screens/exams/domain/results");
+    expect(resultsDay(-3, null)).toBe("passed");
+    expect(resultsDay(0, null)).toBe("today");
+    expect(resultsDay(4, null)).toBe("upcoming");
+    expect(resultsDay(-3, "2026-10-17T09:00:00Z")).toBe("published");
+    expect(resultsDay(null, null)).toBe("none");
+  });
+
+  it("tells two children of one name apart in one class, and only them", async () => {
+    const { sameNameHints } = await import("@/vx/screens/exams/domain/results");
+    const hints = sameNameHints([
+      { id: "a", group: "c5", name: "Test Twin", sr: "101", father: "Parent A" },
+      { id: "b", group: "c5", name: "test twin ", sr: null, father: "Parent B" },
+      { id: "c", group: "c6", name: "Test Twin", sr: "103", father: null },
+      { id: "d", group: "c5", name: "Only One", sr: "104", father: null },
+    ]);
+    expect([...hints]).toEqual([
+      ["a", "SR 101"],
+      ["b", "Parent B"],
+    ]);
+  });
+
+  it("keeps undated rehearsal exams out of the year while a dated exam exists", async () => {
+    const { plannedExams } = await import("@/vx/screens/exams/domain/current");
+    const exams = [{ id: "fa1", startsOn: "2026-08-13" }, { id: "rehearsal", startsOn: null }];
+    expect(plannedExams(exams).map((e) => e.id)).toEqual(["fa1"]);
+    expect(plannedExams([{ id: "only", startsOn: null }]).map((e) => e.id)).toEqual(["only"]);
+  });
+
+  it("lets the office turn excusing on any time, and off only before marks are typed", async () => {
+    const { exemptSwitch } = await import("@/vx/screens/exams/domain/board");
+    expect(exemptSwitch({ allowExempt: false, entryRevision: 5 }, true)).toEqual({ ok: true, change: true });
+    expect(exemptSwitch({ allowExempt: true, entryRevision: 5 }, false)).toEqual({ ok: false, reason: "in_use" });
+    expect(exemptSwitch({ allowExempt: true, entryRevision: 0 }, false)).toEqual({ ok: true, change: true });
+    expect(exemptSwitch({ allowExempt: true, entryRevision: 3 }, true)).toEqual({ ok: true, change: false });
+  });
+
+  it("explains a shorter attendance count", async () => {
+    const { attendanceNote } = await import("@/vx/screens/exams/domain/card-words");
+    expect(attendanceNote(1, 0)).toBe("1 day on leave · 1 दिन छुट्टी पर");
+    expect(attendanceNote(0, 2)).toBe("2 days not marked · 2 दिन हाज़िरी नहीं लगी");
+    expect(attendanceNote()).toBe("");
+  });
+});

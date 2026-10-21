@@ -121,3 +121,16 @@ export function codeFor(name: string): string {
   const code = words.map((w) => (/^\d+$/.test(w) ? w : w[0]!.toUpperCase())).join("");
   return code.replace(/[^A-Za-z0-9]/g, "").slice(0, 12) || "EXAM";
 }
+
+/**
+ * Whether the exam office may change a paper's "a child may be excused"
+ * switch now. Turning it on only widens what a teacher can enter, so it is
+ * always allowed; turning it off once marks are being typed is refused, the
+ * same rule `savePaperAction` keeps for the assessments screen (P7) — marks
+ * already saved as excused would otherwise become marks the paper cannot hold.
+ */
+export function exemptSwitch(paper: { allowExempt: boolean; entryRevision: number }, allow: boolean): { ok: true; change: boolean } | { ok: false; reason: "in_use" } {
+  if (paper.allowExempt === allow) return { ok: true, change: false };
+  if (!allow && paper.entryRevision > 0) return { ok: false, reason: "in_use" };
+  return { ok: true, change: true };
+}

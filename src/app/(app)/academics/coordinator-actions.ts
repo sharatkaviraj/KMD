@@ -296,7 +296,7 @@ export async function savePlanAction(input: { studentId: string; goal: string; s
     }
   }
   revalidateAcademics();
-  return { ok: true, text: status === "active" ? p("Plan started. Owners will see their steps.", "योजना शुरू। ज़िम्मेदार लोग अपने कदम देखेंगे।") : p("Plan saved as a draft.", "योजना ड्राफ़्ट के रूप में सहेजी।") };
+  return { ok: true, text: status === "active" ? p("Plan started. Owners will see their steps.", "योजना शुरू। ज़िम्मेदार लोग अपने कदम देखेंगे।") : p("Plan saved as a draft.", "योजना सहेजी, अभी शुरू नहीं हुई।") };
 }
 
 export async function toggleStepAction(stepId: string, done: boolean): Promise<ActionResult> {
