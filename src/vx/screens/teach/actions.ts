@@ -21,7 +21,7 @@ import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attendance/domain/attendance-receipt";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
-import { dayMonth, schoolToday } from "@/vx/format";
+import { schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -145,7 +145,7 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
     const classLabel = labels.get(input.classId) ?? "";
     const { error } = await admin.from("parent_message_queue").insert(
       add.map((studentId) => {
-        const text = absentAlert({ childName: names.get(studentId)?.fullName ?? "", classLabel, dayLabel: dayMonth(input.day), school: schoolProfile.shortName });
+        const text = absentAlert({ childName: names.get(studentId)?.fullName ?? "", classLabel, day: input.day, today: schoolToday(), school: schoolProfile.shortName });
         return {
           session_label: input.sessionLabel,
           kind: "absent_alert",

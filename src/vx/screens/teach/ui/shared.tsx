@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
@@ -21,18 +22,37 @@ import "./tch.css";
 /**
  * A piece of screen state that lives in the URL, so every design state can
  * be opened by link (`?sheet=leave`, `?view=history`) without a server round
- * trip: the address bar follows the state, the state does not follow the
- * address bar.
+ * trip. Both ways: the address bar follows the state, and the state follows
+ * the address bar — a `<Link>` to the same screen without `?view=` closes the
+ * month view ("Mark now" did nothing, 20 Oct smoke run), and the phone's Back
+ * button closes a sheet instead of leaving the screen. Opening pushes a
+ * history entry; closing one this hook opened goes back over it.
  */
 export function useUrlState<T extends string>(key: string, initial: T | null): [T | null, (next: T | null) => void] {
-  const [value, setValue] = useState<T | null>(initial);
+  const fromUrl = (useSearchParams()?.get(key) ?? null) as T | null;
+  const [value, setValue] = useState<T | null>(initial ?? fromUrl);
+  const [seen, setSeen] = useState<T | null>(fromUrl);
+  if (fromUrl !== seen) {
+    setSeen(fromUrl);
+    setValue(fromUrl);
+  }
   const set = (next: T | null) => {
     setValue(next);
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
+    const had = url.searchParams.get(key);
+    if (had === next) return;
+    // Our own marker only: a state carrying Next's `__NA` would skip the
+    // router, and `useSearchParams` would never hear of the change.
+    const ours = (window.history.state as { vxUrlState?: string } | null)?.vxUrlState === key;
+    if (!next && ours) {
+      window.history.back();
+      return;
+    }
     if (next) url.searchParams.set(key, next);
     else url.searchParams.delete(key);
-    window.history.replaceState(window.history.state, "", url.toString());
+    if (next && had === null) window.history.pushState({ vxUrlState: key }, "", url.toString());
+    else window.history.replaceState(ours ? { vxUrlState: key } : {}, "", url.toString());
   };
   return [value, set];
 }
