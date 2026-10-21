@@ -25,7 +25,7 @@ import { Btn, StackedBar } from "@/vx/ui/primitives";
 
 import { ClosePanel } from "./close-panel";
 import { deskHref } from "./href";
-import { AVATAR_TONES, dayGroupLabel, deskDay, deskTime, MIX, MODE_LOOK, nameInitials } from "./look";
+import { AVATAR_TONES, dayGroupLabel, daySeg, deskDay, deskTime, MIX, MODE_LOOK, nameInitials } from "./look";
 import { ReceiptPanel } from "./receipt-panel";
 import type { DeskProps, DeskRow } from "./types";
 import { MODE_WORD, receiptCount, W } from "./words";
@@ -120,6 +120,8 @@ export function ReceiptsDesk(props: DeskProps) {
   const toneOf = useMemo(() => new Map(rows.map((r, i) => [r.id, AVATAR_TONES[i % AVATAR_TONES.length]])), [rows]);
 
   const base = { anchor, today, span };
+  // The day toggle reads yesterday-as-one-day as its "Yesterday" option (smoke 21 Oct).
+  const seg = daySeg(anchor, today, span);
   const isClose = view === "close";
   const spanLabel = span === "today" ? (anchor === today ? tx(W.today) : deskDay(anchor)) : span === "yesterday" ? tx(W.yesterday) : tx(W.last3);
   const closeHref = deskHref(base, { view: "close" });
@@ -166,12 +168,12 @@ export function ReceiptsDesk(props: DeskProps) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Seg<DaySpan>
           label={tx(W.title)}
-          value={span}
-          onChange={(v) => router.push(deskHref({ ...base, span: v }, {}))}
+          value={seg.span}
+          onChange={(v) => router.push(deskHref({ anchor: seg.anchor, today, span: v }, {}))}
           style={{ width: 300, maxWidth: "100%" }}
           options={[
-            { value: "today", label: anchor === today ? tx(W.today) : deskDay(anchor) },
-            { value: "yesterday", label: tx(W.yesterday) },
+            { value: "today", label: seg.first ? deskDay(seg.first) : tx(W.today) },
+            { value: "yesterday", label: seg.second ? deskDay(seg.second) : tx(W.yesterday) },
             { value: "3d", label: tx(W.last3) },
           ]}
         />

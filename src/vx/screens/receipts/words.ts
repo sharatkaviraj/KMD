@@ -55,6 +55,7 @@ export const W = {
   feeReceipt: "रसीद · FEE RECEIPT",
   school: p("Shri Veer Patta Senior Secondary School", "श्री वीर पत्ता सीनियर सेकेंडरी स्कूल"),
   classSr: p("Class · SR", "कक्षा · SR"),
+  classOnly: p("Class", "कक्षा"),
   father: p("Father", "पिता"),
   dateTime: p("Date · time", "तारीख · समय"),
   totalReceived: p("Total received", "कुल प्राप्त"),

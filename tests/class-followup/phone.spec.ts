@@ -28,11 +28,11 @@ test('attendance queued offline survives reload and records exactly once after r
   const alerts = dialog.getByRole('switch'); if (await alerts.getAttribute('aria-checked') === 'true') await alerts.tap();
   await expect(alerts).toHaveAttribute('aria-checked', 'false');
   await dialog.locator('button.pri').tap();
-  await expect(page.getByText(/this register is saved on this phone and will be sent when you are online/)).toBeVisible();
+  await expect(page.getByText(/this register is kept on this phone and will be sent when you are online/)).toBeVisible();
   expect(await page.evaluate(() => window.classFollowup.snapshot().attendance)).toEqual([]);
   expect(await page.evaluate(() => window.classFollowup.snapshot().attendanceAttempts)).toBe(0);
   await expect(page.getByText('The office can see it now.', { exact: true })).toHaveCount(0);
-  await page.reload(); await expect(page.getByText(/this register is saved on this phone and will be sent when you are online/)).toBeVisible();
+  await page.reload(); await expect(page.getByText(/this register is kept on this phone and will be sent when you are online/)).toBeVisible();
   // An offline save reads as kept on the phone, not as an open register with a live Save (BUG-08).
   await expect(page.getByText('Kept on this phone', { exact: true })).toBeVisible(); await expect(page.locator('.tc-abar')).toHaveCount(0);
   await context.setOffline(false);
@@ -48,7 +48,7 @@ test('attendance queued offline survives reload and records exactly once after r
 
 test('attendance last child and full save target stay above native phone navigation', async ({ page }, info) => {
   await page.goto('/class-followup.html?mode=attendance&path=/teach/attendance');
-  const search = page.getByPlaceholder('Find a child'); await search.tap(); await expect(search).toBeFocused();
+  const search = page.getByPlaceholder('Name or number'); await search.tap(); await expect(search).toBeFocused();
   await search.fill('24'); const last = page.locator('button.tc-akid').last(); await last.scrollIntoViewIfNeeded();
   await expect(last).toBeVisible(); await last.tap();
   await search.fill(''); await page.locator('button.tc-akid').last().scrollIntoViewIfNeeded();
@@ -93,7 +93,7 @@ test('note offline before Save retains review and reconnect creates one private 
   await uncertain.getByRole('textbox', { name: 'Note', exact: true }).fill('phoneops-followup second synthetic private observation');
   await page.evaluate(() => window.classFollowup.loseNextNoteAnswer());
   await uncertain.getByRole('button', { name: 'Save note', exact: true }).tap();
-  await expect(uncertain.getByRole('alert')).toContainText('The save could not be confirmed');
+  await expect(uncertain.getByRole('alert')).toContainText('We could not tell whether the note was saved');
   await expect(uncertain.getByRole('textbox', { name: 'Note', exact: true })).toHaveValue('phoneops-followup second synthetic private observation');
   await expect(uncertain.getByRole('button', { name: 'Save note', exact: true })).toBeDisabled();
   await expect(page.getByText('Note saved', { exact: true })).toHaveCount(0);
@@ -116,7 +116,7 @@ test('note focus and footer remain reachable after a simulated keyboard viewport
   expect(measure.height).toBeGreaterThanOrEqual(44); expect(measure.bottom).toBeLessThanOrEqual(measure.viewportHeight);
   expect(measure.ownsCenter).toBe(true); expect(measure.document).toBeLessThanOrEqual(measure.viewportWidth);
   // Leaving the page keeps the words: the draft comes back when the note is opened again (RULES G).
-  await expect(dialog.getByText(/Saved as draft/)).toBeVisible();
+  await expect(dialog.getByText(/Kept on this device/)).toBeVisible();
   await page.setViewportSize(before); await dialog.getByRole('button', { name: 'Back', exact: true }).tap();
   await page.locator('button.nt-fab').tap();
   await expect(dialog.locator('textarea')).toHaveValue('phoneops-followup synthetic private observation');

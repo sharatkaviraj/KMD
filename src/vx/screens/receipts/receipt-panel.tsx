@@ -7,6 +7,7 @@ import { declineReversalRequestAction, reverseReceiptAction } from "@/app/(app)/
 import { deskModeOf, isReversalReason, REVERSAL_REASONS, type ReversalReason } from "@/modules/receipts/vx/domain/day-close";
 import { humanizeReasonCode, splitReversalReason } from "@/modules/receipts/vx/domain/reversal-history";
 import { canOpenReverse } from "@/modules/receipts/vx/domain/reverse-sheet";
+import { shownSr } from "@/vx/domain/tell-apart";
 import { amountInWords, dateLabel, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -171,7 +172,8 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         </div>
         <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px 16px", fontSize: 13 }}>
           <Fact k={tx(W.student)} v={r.studentFullName} />
-          <Fact k={tx(W.classSr)} v={`${r.classLabel} · ${r.admissionNo}`} />
+          {/* An office placeholder ("PENDING-SR-6752") is not an SR to print (smoke 21 Oct). */}
+          {shownSr(r.admissionNo) ? <Fact k={tx(W.classSr)} v={`${r.classLabel} · ${shownSr(r.admissionNo)}`} /> : <Fact k={tx(W.classOnly)} v={r.classLabel} />}
           <Fact k={tx(W.father)} v={r.fatherName ?? "—"} />
           <Fact k={tx(W.dateTime)} v={`${deskDay(r.paymentDate)} · ${deskTime(r.createdAt)}`} />
         </div>

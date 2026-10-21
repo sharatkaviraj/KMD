@@ -5,7 +5,7 @@ import { rupees, schoolToday } from "@/vx/format";
 import type { DeskReceipt } from "@/modules/payments/vx/types";
 import type { Pair } from "@/vx/text";
 
-import { ampm, shortDate, timeAndDay, wordsOf } from "./look";
+import { ampm, dotJoin, shortDate, srTag, timeAndDay, wordsOf } from "./look";
 import { W } from "./words";
 
 const MODE_TEXT: Record<string, string> = { cash: "Cash", upi: "UPI", bank_transfer: "Bank transfer", cheque: "Cheque" };
@@ -50,7 +50,7 @@ export function ReceiptCard({
   const back = receipt.createdAt ? receipt.paymentDate < schoolToday(new Date(receipt.createdAt)) : false;
   const kv: [string, string][] = [
     [both(W.rStudent), receipt.studentName],
-    [both(W.rClass), `${receipt.classLabel} · SR ${receipt.sr}`],
+    [both(W.rClass), dotJoin(receipt.classLabel, srTag(receipt.sr))],
     [both(W.rFather), receipt.father ?? "—"],
     [both(W.rPaidOn), `${shortDate(receipt.paymentDate)}${!back && receipt.createdAt ? ` · ${ampm(receipt.createdAt)}` : ""}`],
   ];

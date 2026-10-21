@@ -7,8 +7,11 @@ type Ledger = { attendance: Register[]; notes: Record<string, unknown>[]; attend
 const empty = (): Ledger => ({ attendance: [], notes: [], attendanceAttempts: 0, noteAttempts: 0 });
 export function snapshot(): Ledger { return JSON.parse(localStorage.getItem(KEY) ?? JSON.stringify(empty())); }
 const persist = (value: Ledger) => localStorage.setItem(KEY, JSON.stringify(value));
-let loseAnswer = false;
-let loseNoteAnswer = false;
+// Kept on window, not in module variables: the bundle can hold this stub
+// twice (it stands in for several action modules), and the test must reach
+// whichever copy the screen calls.
+type Flags = { loseAnswer: boolean; loseNoteAnswer: boolean };
+const flags: Flags = ((window as unknown as { __classFollowupFlags?: Flags }).__classFollowupFlags ??= { loseAnswer: false, loseNoteAnswer: false });
 const receipt = () => ({ savedAt: '2026-10-11T08:00:00Z', registerId: '00000000-0000-4000-8000-000000000099', revision: 1 });
 export async function saveRegisterVx(raw: string, alerts: boolean) {
   if (!navigator.onLine) throw new Error('Synthetic attendance transport is offline');
@@ -16,7 +19,7 @@ export async function saveRegisterVx(raw: string, alerts: boolean) {
   const payload = JSON.parse(raw) as Payload;
   if (!value.attendance.some(row => row.commandId === payload.commandId)) value.attendance.push({ ...payload, revision: 1, alerts });
   persist(value);
-  if (loseAnswer) { loseAnswer = false; throw new Error('Synthetic committed answer was lost'); }
+  if (flags.loseAnswer) { flags.loseAnswer = false; throw new Error('Synthetic committed answer was lost'); }
   return { status: 'saved' as const, receipt: receipt() };
 }
 export async function checkRegisterVx(commandId: string) {
@@ -30,7 +33,7 @@ export async function createNoteAction(input: Record<string, unknown>) {
   // Model the framework rejecting its server-action promise before any write.
   if (!navigator.onLine) throw new Error('Synthetic note transport is offline');
   value.notes.push({ ...input, id: `qa-note-${value.notes.length + 1}` }); persist(value);
-  if (loseNoteAnswer) { loseNoteAnswer = false; throw new Error('Synthetic committed note answer was lost'); }
+  if (flags.loseNoteAnswer) { flags.loseNoteAnswer = false; throw new Error('Synthetic committed note answer was lost'); }
   return { ok: true as const, id: `qa-note-${value.notes.length}` };
 }
 const refuse = async (...args: unknown[]) => { void args; return { ok: false as const, error: p('Synthetic unrelated action refused', '') }; };
@@ -53,7 +56,7 @@ export const previewLeaveVx = async () => ({ ok: false as const });
 declare global {
   interface Window { classFollowup: { snapshot: typeof snapshot; loseNextAttendanceAnswer: () => void; loseNextNoteAnswer: () => void } }
 }
-window.classFollowup = { snapshot, loseNextAttendanceAnswer: () => { loseAnswer = true; }, loseNextNoteAnswer: () => { loseNoteAnswer = true; } };
+window.classFollowup = { snapshot, loseNextAttendanceAnswer: () => { flags.loseAnswer = true; }, loseNextNoteAnswer: () => { flags.loseNoteAnswer = true; } };
 
 // Added for the 21 Oct smoke fixes: this fixture never exercises it.
 export const editNoteAction = refuse;

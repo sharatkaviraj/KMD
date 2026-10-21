@@ -52,7 +52,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner, TopBar, VxPage } from "@/vx/ui/page";
 import { Btn, Pill, Skel, WhatsAppPreview } from "@/vx/ui/primitives";
 
-import { ampm, dueDay, oldBalanceLabel, sessionDash, shortDate, wordsOf } from "./look";
+import { ampm, dotJoin, dueDay, oldBalanceLabel, sessionDash, shortDate, srTag, wordsOf } from "./look";
 import { ReceiptCard } from "./receipt-card";
 import { W } from "./words";
 
@@ -905,7 +905,7 @@ export function PaymentDesk({
                   <span className="pd-av" style={{ borderRadius: 20, background: tone[0], color: tone[1] }}>{initials(s.name)}</span>
                   <span className="pd-c" style={{ flex: 1 }}>
                     <span className="pd-b pd-e">{s.name}</span>
-                    <span className="pd-m pd-e">{searching ? `${s.classLabel} · ` : ""}SR {s.sr}{s.father ? ` · ${s.father}` : ""}</span>
+                    <span className="pd-m pd-e">{dotJoin(searching && s.classLabel, srTag(s.sr), s.father)}</span>
                   </span>
                   <span className="pd-end" style={{ gap: 0 }}>
                     <span className="num pd-v" style={{ color: s.pendingToday > 0 ? "var(--warnfg)" : "var(--ok)" }}>{s.pendingToday > 0 ? rupees(s.pendingToday) : tx(W.paidUp)}</span>
@@ -1203,7 +1203,7 @@ export function PaymentDesk({
   /* ---------- page ---------- */
   const shownName = student?.name ?? boot.students.find((s) => s.id === selId)?.name ?? tx(W.title);
   const mTitle = saved ? tx(saved.removed ? W.removedTitle : W.saved) : selId ? shownName : tx(W.title);
-  const mSub = saved ? saved.receiptNumber : selId ? (student ? `${student.classLabel} · SR ${student.sr}` : "") : `${shortDate(today)} · ${boot.me.name}`;
+  const mSub = saved ? saved.receiptNumber : selId ? (student ? dotJoin(student.classLabel, srTag(student.sr)) : "") : `${shortDate(today)} · ${boot.me.name}`;
   const reviewOpen = Boolean(student) && reviewing && sheet === "" && !saved;
   const locked = saving || Boolean(attempt);
   // The phone's steps apply while one child's payment is being entered; a saved receipt is one screen.
@@ -1358,7 +1358,7 @@ export function PaymentDesk({
         onClose={() => { if (!saving) setReviewing(false); }}
         dismissable={!saving}
         title={student ? tx(W.confirmTitle(rupees(amount))) : undefined}
-        sub={student ? `${student.name} · ${student.classLabel} · SR ${student.sr}` : undefined}
+        sub={student ? dotJoin(student.name, student.classLabel, srTag(student.sr)) : undefined}
         footer={
           <>
             <button type="button" className="tap btn sec" style={{ flex: 1, height: 52 }} disabled={locked} onClick={() => setReviewing(false)}>
@@ -1612,7 +1612,7 @@ function StudentCard({
             <span className="pill" style={{ background: "var(--s3)", color: "var(--mut)" }}>{tx(student.isNew ? W.newStudent : W.oldStudent)}</span>
             {student.onPlan ? <Pill tone="info" icon="layers">{tx(W.onPlan)}</Pill> : null}
           </span>
-          <span className="pd-m num">{student.classLabel} · SR {student.sr}{phone ? ` · ${phone}` : ""}</span>
+          <span className="pd-m num">{dotJoin(student.classLabel, srTag(student.sr), phone)}</span>
           <span className="pd-m">
             {student.father ? `${tx(W.father)} ${student.father} · ` : ""}{student.route ? `${tx(W.bus)}: ${student.route}` : tx(W.noBus)}
           </span>
