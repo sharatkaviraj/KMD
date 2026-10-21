@@ -47,7 +47,7 @@ function revalidateAcademics() {
 export async function remindRegistersAction(classIds: string[]): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
-  const ctx = await academicContext(actor);
+  const ctx = await academicContext(actor, { writes: true });
   if (!ctx) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
   const day = await attendanceOn(ctx, ctx.today);
   if (day.closed) return fail("School is closed today.", "आज विद्यालय बंद है।");
@@ -98,7 +98,7 @@ function fill(body: string, variables: string[]): string {
 export async function remindMarksAction(teacherIds: string[]): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
-  const ctx = await academicContext(actor);
+  const ctx = await academicContext(actor, { writes: true });
   if (!ctx) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
   const [entry, staff, template] = await Promise.all([marksEntry(ctx), staffDirectory(), staffTemplate("vppsone_marks_reminder")]);
   if (!template) return fail("The marks reminder template is not set up.", "अंक रिमाइंडर का टेम्पलेट नहीं है।");
@@ -158,7 +158,7 @@ export async function cancelRemindersAction(ids: string[]): Promise<ActionResult
 export async function sendWeeklySummaryAction(input: { long?: boolean; extra?: string | null } = {}): Promise<ActionResult> {
   const actor = await assertPermission("messages:send");
   await assertNotPreviewing();
-  const ctx = await academicContext(actor);
+  const ctx = await academicContext(actor, { writes: true });
   if (!ctx) return fail("No session is open.", "कोई सत्र खुला नहीं है।");
   const [week, staff, template] = await Promise.all([weekFacts(ctx), staffDirectory(), staffTemplate("vppsone_weekly_summary")]);
   if (!template) return fail("The weekly summary template is not set up.", "साप्ताहिक सारांश का टेम्पलेट नहीं है।");

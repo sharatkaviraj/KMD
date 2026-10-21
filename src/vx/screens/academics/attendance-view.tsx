@@ -4,14 +4,14 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Language } from "@/platform/i18n/language";
 import { renderReminder } from "@/modules/staff-notices/domain/notices";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
-import { agoP, clock } from "@/vx/format";
+import { agoP, clock, shortDayHi } from "@/vx/format";
 import { Ic, type IconName } from "@/vx/icons";
 import { HelpButton } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 import { Btn, EmptyState } from "@/vx/ui/primitives";
 
 import { CallSheet, PrintButton, RemindSheet } from "./client";
-import type { ChronicChild, ClassRef, ClassToday, DayAttendance, MonthAttendance, RegisterSheet } from "./data";
+import type { ChronicChild, ClassRef, ClassToday, DayAttendance, DayDetail, MonthAttendance, RegisterSheet } from "./data";
 import { isSunday, monthRange, telHref, type AttStatus } from "./domain";
 import { MarkSheet } from "./mark-sheet";
 import { followLabel } from "./progress-labels";
@@ -54,7 +54,7 @@ type Common = {
 export type AcadAttendanceProps = Common &
   (
     | { view: "today"; filter: "all" | "not" | "marked"; chronicAway: number; monthAvg: number | null }
-    | { view: "month"; month: MonthAttendance; months: { key: string; label: string }[]; holidays: { day: string; label: string | null }[]; teachers: Record<string, string>; day: string | null }
+    | { view: "month"; month: MonthAttendance; months: { key: string; label: string }[]; holidays: { day: string; label: string | null }[]; teachers: Record<string, string>; day: string | null; detail?: DayDetail | null }
     | { view: "chronic"; list: ChronicChild[]; recent: Record<string, { day: string; status: AttStatus }[]>; notes: Record<string, { body: string; by: string }>; filter: "all" | "away" | "nocall"; teachers: Record<string, string> }
     | { view: "register"; sheetData: RegisterSheet | null; classes: ClassRef[]; teacher: string | null; filter: "all" | "low" | "abs"; months: { key: string; label: string }[] }
     | { view: "empty" }
@@ -282,7 +282,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                     <span style={{ fontSize: 12, color: "var(--mut)", lineHeight: 1.45 }}>
                       {selDay.kind === "day"
                         ? isToday(selDay.day)
-                          ? say(`${savedToday} of ${today.classes.length} classes saved so far · classes not marked are left out`, `अब तक ${today.classes.length} में ${savedToday} कक्षाएँ सहेजीं · दर्ज न हुई कक्षाएँ शामिल नहीं`)
+                          ? say(`${savedToday} of ${today.classes.length} classes saved so far · classes not marked are left out`, `अब तक ${today.classes.length} में से ${savedToday} कक्षाएँ सहेजीं · दर्ज न हुई कक्षाएँ शामिल नहीं`)
                           : say("Classes not saved that day are left out, never counted as present.", "उस दिन न सहेजी कक्षाएँ शामिल नहीं, कभी उपस्थित नहीं गिनी गईं।")
                         : selDay.kind === "hol"
                           ? say(`${hol.get(selDay.day) ?? "Holiday"} · school closed`, `${hol.get(selDay.day) ?? "अवकाश"} · विद्यालय बंद`)
@@ -294,6 +294,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                   <span className="num" style={{ fontSize: 20, fontWeight: 700 }}>{selDay.kind === "day" ? pct1(selDay.pct) : selDay.kind === "hol" ? say("Holiday", "अवकाश") : "—"}</span>
                 </div>
               ) : null}
+              {selDay && p.detail && p.detail.day === selDay.day && (selDay.kind === "day" || selDay.kind === "none") ? <DayPanel detail={p.detail} say={say} month={m.month} /> : null}
             </div>
             <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.1fr)", gap: 14, alignItems: "start" }}>
               <div className="card" style={CARD}>
@@ -470,7 +471,12 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
     const lastDay = schoolDays[schoolDays.length - 1];
     const rows = (r?.students ?? []).map((s) => ({ s, low: s.pct !== null && s.pct < 75, abs: !!lastDay && s.marks.get(lastDay) === "absent" }));
     const shown = rows.filter((x) => (p.filter === "low" ? x.low : p.filter === "abs" ? x.abs : true));
-    const avg = rows.length ? rows.reduce((a, x) => a + (x.s.pct ?? 0), 0) / Math.max(1, rows.filter((x) => x.s.pct !== null).length) : null;
+    // The class's month, every child-day pooled: the same number as "Classes ranked" (smoke 20 Oct).
+    const avg = r?.classPct !== undefined ? r.classPct : rows.length ? rows.reduce((a, x) => a + (x.s.pct ?? 0), 0) / Math.max(1, rows.filter((x) => x.s.pct !== null).length) : null;
+    // A day the class never saved has no absent count to give (smoke 20 Oct: "Absent on Mon 19 Oct 0").
+    const lastUnsaved = !!lastDay && unsaved.includes(lastDay);
+    // Phone squares: every day up to today, closed days as a grey mark, so a square's place is its date.
+    const shownDays = all.filter((d) => d.kind !== "fut");
     const cols = `190px repeat(${all.length}, minmax(0, 1fr)) 50px`;
     const dot = (st: AttStatus | undefined): CSSProperties => (st ? { background: ST[st], border: 0 } : { background: "transparent", border: "2px solid var(--bds)" });
     const tone = (v: number | null) => (v === null ? "var(--mut)" : v < 75 ? "var(--bad)" : v < 90 ? "var(--warnfg)" : "var(--ok)");
@@ -500,7 +506,13 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                   <div className="hs" style={{ display: "flex", gap: 6 }}>
                     <Chip href={qs(BASE, { view: "register", class: r.classId, month })} on={p.filter === "all"} label={say("All", "सभी")} n={rows.length} />
                     <Chip href={qs(BASE, { view: "register", class: r.classId, month, filter: "low" })} on={p.filter === "low"} label={say("Below 75%", "75% से कम")} n={rows.filter((x) => x.low).length} />
-                    <Chip href={qs(BASE, { view: "register", class: r.classId, month, filter: "abs" })} on={p.filter === "abs"} label={isLast ? say("Absent today", "आज अनुपस्थित") : say(`Absent on ${lastDay ? dayName(lastDay) : "—"}`, `${lastDay ? dayName(lastDay) : "—"} अनुपस्थित`)} n={rows.filter((x) => x.abs).length} />
+                    {lastUnsaved && lastDay ? (
+                      <span className="chip" style={{ color: "var(--warnfg)", background: "var(--warns)", borderColor: "transparent" }}>
+                        {isLast ? say("Today not saved yet", "आज अभी सहेजा नहीं") : say(`${dayName(lastDay)} not saved`, `${shortDayHi(lastDay)} सहेजा नहीं`)}
+                      </span>
+                    ) : (
+                      <Chip href={qs(BASE, { view: "register", class: r.classId, month, filter: "abs" })} on={p.filter === "abs"} label={isLast ? say("Absent today", "आज अनुपस्थित") : say(`Absent on ${lastDay ? dayName(lastDay) : "—"}`, `${lastDay ? shortDayHi(lastDay) : "—"} अनुपस्थित`)} n={rows.filter((x) => x.abs).length} />
+                    )}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", fontSize: 12, color: "var(--mut)" }}>
                     {([[say("Present", "उपस्थित"), dot("present")], [say("Absent", "अनुपस्थित"), dot("absent")], [say("Half-day / leave", "आधा दिन / छुट्टी"), dot("half_day")], [say("Not marked", "दर्ज नहीं"), dot(undefined)], [say("Holiday / Sunday", "अवकाश / रविवार"), { background: "var(--s3)", border: 0 }]] as [string, CSSProperties][]).map(([t, st]) => (
@@ -529,10 +541,14 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                     <span className="sech" style={{ textAlign: "right" }}>%</span>
                   </div>
                   {shown.map(({ s }, i) => (
-                    <div key={s.studentId} className="row" style={{ display: "grid", gridTemplateColumns: cols, gap: 2, alignItems: "center", padding: "0 14px", minHeight: 34, borderTop: i ? "1px solid var(--bd)" : undefined, animation: `xIn .3s var(--ease) ${Math.min(i * 30, 150)}ms both` }}>
+                    // No entrance animation: the register is read at once, every row (smoke 20 Oct: rows faded in and it looked empty).
+                    <div key={s.studentId} className="row" style={{ display: "grid", gridTemplateColumns: cols, gap: 2, alignItems: "center", padding: "0 14px", minHeight: 34, borderTop: i ? "1px solid var(--bd)" : undefined }}>
                       <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                         <span className="num" style={{ width: 18, fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{s.rollNo ?? ""}</span>
-                        <span className="clip" style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</span>
+                        <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                          <span className="clip" style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</span>
+                          {s.tellApart ? <span className="clip" style={{ fontSize: 11, color: "var(--mut)" }}>{s.tellApart}</span> : null}
+                        </span>
                       </span>
                       {all.map((d) => (
                         <span key={d.day} title={`${dayName(d.day)}${d.kind === "off" ? ` · ${say("closed", "बंद")}` : ""}`} style={{ height: 26, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: d.kind === "off" ? "var(--s2)" : "transparent" }}>
@@ -544,6 +560,18 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                   ))}
                 </div>
                 <div className="only-m card" style={{ overflow: "hidden", padding: 0 }}>
+                  {/* The day numbers over the squares, so a square can be read as a date (smoke 20 Oct). */}
+                  <div aria-hidden="true" style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "8px 14px 6px", background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
+                    <span style={{ width: 20, flex: "none" }} />
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", gap: 2 }}>
+                      {shownDays.map((d) => (
+                        <span key={d.day} className="num" style={{ flex: 1, maxWidth: 12, minWidth: 0, textAlign: "center", fontSize: 8, lineHeight: 1, fontWeight: 700, color: d.kind === "off" ? "var(--sub)" : "var(--mut)", overflow: "visible", whiteSpace: "nowrap" }}>
+                          {d.n % 2 === 1 || shownDays.length <= 16 ? d.n : ""}
+                        </span>
+                      ))}
+                    </span>
+                    <span style={{ width: 64, flex: "none", fontSize: 11, color: "var(--mut)", textAlign: "right" }}>{say("date", "तारीख़")}</span>
+                  </div>
                   {shown.map(({ s }, i) => {
                     const c = { P: 0, A: 0, L: 0 };
                     for (const d of schoolDays) {
@@ -557,14 +585,18 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                       <div key={s.studentId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", minHeight: 56, borderTop: i ? "1px solid var(--bd)" : undefined }}>
                         <span className="num" style={{ width: 20, fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{s.rollNo ?? ""}</span>
                         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                          <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
+                          <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{s.name}{s.tellApart ? <span style={{ fontSize: 12, fontWeight: 500, color: "var(--mut)" }}>{` · ${s.tellApart}`}</span> : null}</span>
                           <span aria-label={cnt} style={{ display: "flex", gap: 2 }}>
-                            {schoolDays.map((d) => (
-                              <i key={d} style={{ flex: 1, maxWidth: 12, height: 10, borderRadius: 3, boxSizing: "border-box", ...dot(s.marks.get(d)) }} />
-                            ))}
+                            {shownDays.map((d) =>
+                              d.kind === "off" ? (
+                                <i key={d.day} title={`${dayName(d.day)} · ${say("closed", "बंद")}`} style={{ flex: 1, maxWidth: 12, height: 10, borderRadius: 3, background: "var(--s3)" }} />
+                              ) : (
+                                <i key={d.day} title={dayName(d.day)} style={{ flex: 1, maxWidth: 12, height: 10, borderRadius: 3, boxSizing: "border-box", ...dot(s.marks.get(d.day)) }} />
+                              ),
+                            )}
                           </span>
                         </span>
-                        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                        <span style={{ width: 64, flex: "none", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                           <span className="num" style={{ fontSize: 15, fontWeight: 700, color: tone(s.pct) }}>{s.pct === null ? "—" : `${Math.round(s.pct)}%`}</span>
                           <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{cnt}</span>
                         </span>
@@ -595,6 +627,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
   const inMarked = t.counted + t.leave;
   const present = t.present + t.late;
   const left = today.notMarked;
+  const closedName = today.closed ? say(today.closed.label ?? (today.closed.kind === "sunday" ? "Sunday" : "Holiday"), today.closed.labelHi ?? today.closed.label ?? (today.closed.kind === "sunday" ? "रविवार" : "छुट्टी")) : null;
   const parts: [string, number, string][] = [
     [say("Present", "उपस्थित"), present, "var(--ok)"],
     [say("Absent", "अनुपस्थित"), t.absent, "var(--bad)"],
@@ -606,14 +639,25 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
   const lateClasses = today.classes.filter((c) => c.tally.late > 0).sort((a, b) => b.tally.late - a.tally.late);
   return (
     <VxPage>
-      <CoordTop crumb={crumb} title={say("Attendance today", "आज की हाज़िरी")} mBack="/academics?view=menu" mSub={say(`${today.marked} of ${today.classes.length} marked · ${pct1(today.pct)} present`, `${today.classes.length} में ${today.marked} दर्ज · ${pct1(today.pct)} उपस्थित`)} actions={help} mAction={help} />
+      <CoordTop crumb={crumb} title={say("Attendance today", "आज की हाज़िरी")} mBack="/academics?view=menu" mSub={closedName ? say(`School closed · ${closedName}`, `विद्यालय बंद · ${closedName}`) : say(`${today.marked} of ${today.classes.length} marked · ${pct1(today.pct)} present`, `${today.classes.length} में से ${today.marked} दर्ज · ${pct1(today.pct)} उपस्थित`)} actions={help} mAction={help} />
       <main>
         {tabs}
         <div className="pad stack" style={{ padding: "16px 28px 40px", display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px", gap: 20, alignItems: "start" }}>
           <style>{`@container vx (max-width:899px){.acad-ring{width:100px!important;height:100px!important}.acad-ring svg{width:100px;height:100px}.acad-ring .num{font-size:24px!important}.acad-hti{order:3;flex-basis:100%}.acad-tl{grid-template-columns:repeat(2,minmax(0,1fr))!important}}.acad-tl .btn{height:36px;font-size:13px;padding:0 10px}`}</style>
           <section style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+            {closedName ? (
+              // A closed day: no "not marked" count, no reminders, and the way to the last school day.
+              <div className="card" style={{ ...CARD, gap: 12 }}>
+                <EmptyState
+                  icon="calendar"
+                  title={say(`School is closed today · ${closedName}`, `आज विद्यालय बंद है · ${closedName}`)}
+                  body={say("No register today, so nobody is reminded. To see the last school day, open the month and tap that day.", "आज हाज़िरी नहीं लगेगी, इसलिए किसी को याद नहीं दिलाया जाएगा। पिछला स्कूल दिवस देखने को महीना खोलें और उस दिन पर टैप करें।")}
+                  action={<Btn variant="sec" icon="chart" href={qs(BASE, { view: "month" })}>{say("Open this month", "यह महीना खोलें")}</Btn>}
+                  style={{ padding: 16 }}
+                />
+              </div>
+            ) : (
             <div className="card" style={{ ...CARD, gap: 14 }}>
-              {today.closed ? <EmptyState icon="calendar" title={say(`School is closed today${today.closed.label ? ` · ${today.closed.label}` : ""}`, `आज विद्यालय बंद है${today.closed.label ? ` · ${today.closed.label}` : ""}`)} style={{ padding: 16 }} /> : null}
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 22 }}>
                 <div className="acad-ring" style={{ position: "relative", flex: "none", width: 128, height: 128 }}>
                   <svg width={128} height={128} viewBox="0 0 100 100" aria-hidden="true">
@@ -636,7 +680,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 150 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{say("Present today", "आज उपस्थित")}</span>
                   <span className="num" style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.05, color: "var(--ok)" }}>{pct1(today.pct)}</span>
-                  <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${present} of ${inMarked} in marked classes`, `दर्ज कक्षाओं में ${inMarked} में ${present}`)}</span>
+                  <span className="num" style={{ fontSize: 12, color: "var(--mut)" }}>{say(`${present} of ${inMarked} in marked classes`, `दर्ज कक्षाओं में ${inMarked} में से ${present}`)}</span>
                 </div>
               </div>
               <div style={{ display: "flex", height: 12, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }} aria-hidden="true">
@@ -666,6 +710,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
                 ) : null}
               </div>
             </div>
+            )}
 
             <div className="g4" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12 }}>
               {(
@@ -697,7 +742,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
             </div>
             <div className="acad-tl" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10, alignItems: "start" }}>
               {shown.map((c, i) => (
-                <ClassTile key={c.classId} c={c} i={i} say={say} mayRemind={p.mayRemind} />
+                <ClassTile key={c.classId} c={c} i={i} say={say} mayRemind={p.mayRemind} closed={!!closedName} />
               ))}
             </div>
           </section>
@@ -763,7 +808,66 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
   );
 }
 
-function ClassTile({ c, i, say, mayRemind }: { c: ClassToday; i: number; say: Say; mayRemind: boolean }) {
+/**
+ * One day of the month, opened: each class saved or not with its absent
+ * count, and the children who were absent, so nobody has to open eight
+ * registers to find yesterday's absentees (smoke 20 Oct).
+ */
+function DayPanel({ detail, say, month }: { detail: DayDetail; say: Say; month: string }) {
+  const saved = detail.classes.filter((c) => c.saved);
+  const notSaved = detail.classes.filter((c) => !c.saved);
+  const byClass = new Map<string, DayDetail["absent"]>();
+  for (const a of detail.absent) byClass.set(a.classId, [...(byClass.get(a.classId) ?? []), a]);
+  return (
+    <div className="fadein" style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 14px", borderRadius: 14, border: "1px solid var(--bd)" }}>
+      <span style={{ fontSize: 13, fontWeight: 700 }}>
+        {say(
+          `${saved.length} of ${detail.classes.length} classes saved · ${detail.absent.length} ${detail.absent.length === 1 ? "child" : "children"} absent`,
+          `${detail.classes.length} में से ${saved.length} कक्षाओं ने सहेजा · ${detail.absent.length} बच्चे अनुपस्थित`,
+        )}
+      </span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 6 }}>
+        {detail.classes.map((c) => (
+          <Link
+            key={c.classId}
+            href={qs(BASE, { view: "register", class: c.classId, month })}
+            className="tap"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minHeight: 44, padding: "6px 10px", borderRadius: 10, fontSize: 13, color: "var(--fg)", background: c.saved ? "var(--s2)" : "var(--warns)" }}
+          >
+            <span className="clip" style={{ fontWeight: 600 }}>{c.label}</span>
+            <span className="num" style={{ flex: "none", fontSize: 12, fontWeight: 700, color: !c.saved ? "var(--warnfg)" : c.absent ? "var(--bad)" : "var(--ok)" }}>
+              {!c.saved ? say("not saved", "सहेजा नहीं") : c.absent ? say(`${c.absent} absent`, `${c.absent} अनुपस्थित`) : say("all present", "सभी उपस्थित")}
+            </span>
+          </Link>
+        ))}
+      </div>
+      {notSaved.length ? (
+        <span style={{ fontSize: 12, color: "var(--warnfg)", lineHeight: 1.45 }}>
+          {say(`${notSaved.length} ${notSaved.length === 1 ? "class was" : "classes were"} not saved that day, so ${notSaved.length === 1 ? "its" : "their"} absent children are not known.`, `उस दिन ${notSaved.length} कक्षाओं ने सहेजा नहीं, इसलिए उनके अनुपस्थित बच्चे पता नहीं।`)}
+        </span>
+      ) : null}
+      <span className="sech">{say("Absent that day", "उस दिन अनुपस्थित")}</span>
+      {detail.absent.length === 0 ? (
+        <span style={{ fontSize: 13, color: "var(--mut)" }}>{say("Nobody was marked absent in the classes that saved.", "सहेजी गई कक्षाओं में कोई अनुपस्थित नहीं।")}</span>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[...byClass.entries()].map(([classId, kids]) => (
+            <div key={classId} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)", minWidth: 90 }}>{kids[0].classLabel}</span>
+              {kids.map((k) => (
+                <Link key={k.studentId} href={`/academics/progress?view=student&student=${k.studentId}`} className="tap chip" style={{ color: "var(--bad)" }}>
+                  {k.name}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClassTile({ c, i, say, mayRemind, closed }: { c: ClassToday; i: number; say: Say; mayRemind: boolean; closed?: boolean }) {
   const base: CSSProperties = { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, animation: `xIn .32s var(--ease) ${Math.min(i * 20, 300)}ms both` };
   const head = (who: string, icon: IconName, ibg: string, ifg: string) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -776,6 +880,15 @@ function ClassTile({ c, i, say, mayRemind }: { c: ClassToday; i: number; say: Sa
       </span>
     </div>
   );
+  if (!c.saved && closed) {
+    // A closed day asks nobody to mark: no Remind, no "Mark for them".
+    return (
+      <div className="card" style={{ ...base, background: "var(--s2)" }}>
+        {head(c.teacherName, "calendar", "var(--s3)", "var(--mut)")}
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--mut)" }}>{say("School closed", "विद्यालय बंद")}</span>
+      </div>
+    );
+  }
   if (!c.saved && c.teacherAway) {
     return (
       <div className="card" style={{ ...base, borderColor: "var(--warn)", background: "var(--warns)" }}>
