@@ -248,6 +248,7 @@ function classData(): ClassData {
     ].map(([subjectName, teacher, mine], i) => ({ period: i, number: i + 1, starts: BELLS[i].starts, ends: BELLS[i].ends, subjectName: String(subjectName), teacher: String(teacher), mine: Boolean(mine) })),
     nowMinutes: 9 * 60 + 48,
     published: true,
+    closed: null,
   };
 }
 

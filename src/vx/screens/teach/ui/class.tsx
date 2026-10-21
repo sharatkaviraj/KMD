@@ -14,6 +14,7 @@ import { VxPage } from "@/vx/ui/page";
 
 import type { ClassData, MarksLink, StudentData, SubjectData } from "../data";
 import { genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/teach";
+import { closedTitle } from "../domain/today";
 import { dShort, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, TchTop } from "./shared";
 
@@ -250,6 +251,8 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
             </span>
             {reg ? (
               <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: "var(--oks)", color: "var(--ok)" }}><Ic n="check" size={13} />{tx(p("Saved", "सेव हुई"))}</span>
+            ) : data.closed ? (
+              <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: "var(--s3)", color: "var(--mut)" }}>{tx(p("School closed", "स्कूल बंद"))}</span>
             ) : (
               <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: "var(--s3)", color: "var(--mut)" }}><span style={{ width: 9, height: 9, borderRadius: 5, border: "2px dashed var(--mut)" }} />{tx(p("Not marked", "नहीं लगी"))}</span>
             )}
@@ -261,6 +264,9 @@ export function TeachClass({ data, initialView }: { data: ClassData; initialView
                   <span style={{ fontSize: 14 }}>{tx(p(`${reg.present} present · ${reg.absent} absent${reg.halfDay ? ` · ${reg.halfDay} half-day` : ""}`, `${reg.present} उपस्थित · ${reg.absent} अनुपस्थित`))}{reg.savedAt ? ` · ${tx(p(`saved at ${hm12(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(reg.savedAt)))}`, "सेव हुई"))}` : ""}</span>
                   <Link href={`/teach/attendance?class=${data.classId}&day=${data.today}`} className="tap btn sec tc-cbig mfull" style={{ alignSelf: "flex-start" }}><Ic n="eye" />{tx(p("See or change", "देखें या बदलें"))}</Link>
                 </>
+              ) : data.closed ? (
+                // A holiday asks for no register (smoke 20 Oct: "Not marked · Mark attendance" on Dussehra).
+                <span style={{ fontSize: 14 }}>{tx(closedTitle(data.closed))}. {tx(p("No attendance today.", "आज हाज़िरी नहीं लगेगी।"))}</span>
               ) : (
                 <>
                   <span style={{ fontSize: 14 }}>{tx(p(`${classLabel} is not marked yet. Until you press Save attendance, the office sees “Not marked”.`, `${classLabel} की हाज़िरी अभी नहीं लगी। सेव दबाने तक ऑफ़िस को “नहीं लगी” दिखेगी।`))}</span>

@@ -16,7 +16,7 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { answerCoverVx, cancelLeaveVx, noticeSeenVx, queueBirthdayWishVx, setTextSizeVx } from "../actions";
 import type { HomeData } from "../data";
 import { birthdayWish, periodPhases, type AttentionReason, type PeriodPhase } from "../domain/teach";
-import { classWord, closedTitle, coverLine, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, teacherKind, type TeacherKind } from "../domain/today";
+import { classWord, closedTitle, combinedClasses, coverLine, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, teacherKind, type TeacherKind } from "../domain/today";
 import { ampm, andList, callName, dLongP, dShort, dShortP, greetingPair, hm12, shortClass, whenSent } from "./fmt";
 import "./today.css";
 import { CardTitle, DrawnTick, HelpIcon, HelpPic, HelpSheet, LangSeg, LeaveSheet, LinkRing, TchTop, useUrlState, type HelpStep } from "./shared";
@@ -214,7 +214,7 @@ export function TeachHome({
   /* --------------------------------------------------------- the day */
   const rows: Row[] = [];
   for (const per of data.periods) {
-    rows.push({ key: `p${per.period}-${per.subjectCode}`, period: per.period, number: per.number, starts: per.starts, ends: per.ends, kind: "cls", title: `${per.classLabel} · ${per.subjectName}`, sub: [`${hm12(per.starts)} – ${hm12(per.ends)}`, per.classId && per.classId === data.myClass?.classId ? tx(p("my class", "मेरी कक्षा")) : null, per.combined ? tx(p("combined", "संयुक्त")) : null].filter(Boolean).join(" · "), icon: subjectIcon(per.subjectName), classId: per.classId });
+    rows.push({ key: `p${per.period}-${per.subjectCode}`, period: per.period, number: per.number, starts: per.starts, ends: per.ends, kind: "cls", title: tx(p(`${per.classLabel} · ${per.subjectName}`, `${per.combined ? (combinedClasses(per.classLabel).hi ?? per.classLabel) : (classWord(per.classLabel).hi ?? per.classLabel)} · ${per.subjectHi}`)), sub: [`${hm12(per.starts)} – ${hm12(per.ends)}`, per.classId && per.classId === data.myClass?.classId ? tx(p("my class", "मेरी कक्षा")) : null, per.combined ? tx(p("combined", "संयुक्त")) : null].filter(Boolean).join(" · "), icon: subjectIcon(per.subjectName), classId: per.classId });
   }
   for (const c of data.covers) {
     rows.push({ key: `c${c.id}`, period: c.period, number: c.number, starts: c.starts, ends: c.ends, kind: "sub", title: `${c.classLabels} · ${c.subjectName}`, sub: tx(p(`Substitution · for ${c.forName}`, `सब्स्टिट्यूशन · ${c.forName} की जगह`)), icon: "swap", classId: null, coverId: c.id, acknowledged: c.acknowledged, note: c.reason ? tx(p(`${c.forName} is away. Note: ${c.reason}`, `${c.forName} आज नहीं हैं। नोट: ${c.reason}`)) : tx(p(`${c.forName} is away today.`, `${c.forName} आज नहीं हैं।`)) });
@@ -369,7 +369,7 @@ export function TeachHome({
             <span className="tc-p" style={{ fontWeight: 700 }}>
               {data.tomorrow.first ? `P${data.tomorrow.first.number} · ${hm12(data.tomorrow.first.starts)} · ${data.tomorrow.first.classLabel} ${data.tomorrow.first.subjectName}` : tx(p("No periods", "कोई पीरियड नहीं"))}
             </span>
-            <span className="tc-s">{dShort(data.tomorrow.day)}</span>
+            <span className="tc-s">{tx(dShortP(data.tomorrow.day))}</span>
           </span>
         </div>
       ) : null}
@@ -957,7 +957,7 @@ export function TeachHome({
   return (
     <VxPage className={`tc${large ? " t-large" : ""}`}>
       <TchTop
-        crumb={`${tx(p("Teacher", "अध्यापक"))} · ${name} · ${dShort(data.today)}`}
+        crumb={`${tx(p("Teacher", "अध्यापक"))} · ${name} · ${tx(dShortP(data.today))}`}
         title={language === "hi" ? "आज · Today" : "Today"}
         actions={
           <>
@@ -973,7 +973,7 @@ export function TeachHome({
           </Link>
         }
         mTitle={`${tx(p("Today", "आज"))}${sub(p("Today", "आज")) ? ` · ${sub(p("Today", "आज"))}` : ""}`}
-        mSub={later ? `${dShort(data.today)} · ${hm12(`${Math.floor(data.nowMinutes / 60)}:${String(data.nowMinutes % 60).padStart(2, "0")}`)} ${data.nowMinutes >= 720 ? "pm" : "am"}` : [dShort(data.today), classLabel || null, data.subjects[0]?.name ?? null].filter(Boolean).join(" · ")}
+        mSub={later ? `${tx(dShortP(data.today))} · ${hm12(`${Math.floor(data.nowMinutes / 60)}:${String(data.nowMinutes % 60).padStart(2, "0")}`)} ${data.nowMinutes >= 720 ? "pm" : "am"}` : [tx(dShortP(data.today)), classLabel ? tx(classWord(classLabel)) : null, data.subjects[0] ? tx(p(data.subjects[0].name, data.subjects[0].nameHi)) : null].filter(Boolean).join(" · ")}
         mAction={
           <>
             <LangSeg />

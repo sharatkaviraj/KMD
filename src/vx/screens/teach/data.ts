@@ -842,7 +842,7 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
   const headersP = publishedP.then((pub) => (pub ? dayHeaders(pub.id).catch(() => [] as string[]) : ([] as string[])));
   const slotsP = publishedP.then((pub) => (pub ? listSlots(pub.id).catch(() => []) : []));
 
-  const [labels, held, registers, subjects, published, assignedRes, linkSet, calendar, bells, classId] = await Promise.all([
+  const [labels, held, registers, subjects, published, assignedRes, linkSet, calendar, bells, classId, dayNames] = await Promise.all([
     labelsP,
     heldP,
     registersForDay(sessionLabel, today),
@@ -860,6 +860,7 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
     attendanceCalendar(sessionLabel).catch(() => null),
     currentBells(sessionLabel).catch(() => null),
     classIdP,
+    calendarNames(sessionLabel, today, today).catch(() => new Map<string, CalendarEntry>()),
   ]);
   const rank = rankOf(labels);
   const assigned = assignedRes.data;
@@ -916,6 +917,8 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
     timetable,
     nowMinutes: schoolClock(now).minutes,
     published: Boolean(published),
+    /** Why school is shut today, so the register card does not ask for attendance on a holiday. */
+    closed: calendar ? closedWhy(today, isSchoolOpen(today, calendar), dayNames.get(today)) : null,
   };
 }
 
