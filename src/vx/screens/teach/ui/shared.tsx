@@ -1,14 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
-import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic, type IconName } from "@/vx/icons";
 import { Bi, useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
 import { BackLink } from "@/vx/ui/back-link";
 import { Textarea } from "@/vx/ui/controls";
+import { LanguageControl } from "@/vx/ui/language";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 
 import { previewLeaveVx, requestLeaveVx } from "../actions";
@@ -107,37 +106,12 @@ export function TchTop({
 }
 
 /**
- * EN | हि as the design's 84px switch (or, on My class, its round pill);
- * writes the reader's stored language like the sidebar's (UI-6).
+ * The language control on the teacher screens' top bar: English, हिंदी or
+ * both (`@/vx/ui/language`). It used to be an EN | हि switch that wrote only
+ * "en" or "hi", so trying it lost the "both" setting for good (smoke 20 Oct).
  */
 export function LangSeg({ pill }: { pill?: boolean } = {}) {
-  const { language } = useVx();
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const hi = language === "hi";
-  const set = (lang: "en" | "hi") =>
-    start(async () => {
-      if ((lang === "hi") === hi) return;
-      const fd = new FormData();
-      fd.set("language", lang);
-      await saveLanguageAction({ status: "idle", message: null }, fd);
-      router.refresh();
-    });
-  if (pill) {
-    return (
-      <button type="button" className="tap tc-langp" role="switch" aria-checked={hi} aria-label="Show labels in Hindi" onClick={() => set(hi ? "en" : "hi")} style={{ opacity: pending ? 0.6 : 1 }}>
-        <span className={hi ? "" : "y"}>EN</span>
-        <span className={hi ? "y" : ""} lang="hi">हि</span>
-      </button>
-    );
-  }
-  return (
-    <div className="seg tc-lang" role="group" aria-label="Language" style={{ opacity: pending ? 0.6 : 1 }}>
-      <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 2)", transform: `translateX(${hi ? "100%" : "0%"})` }} />
-      <button type="button" className={`tap${hi ? "" : " on"}`} aria-pressed={!hi} onClick={() => set("en")}>EN</button>
-      <button type="button" className={`tap${hi ? " on" : ""}`} aria-pressed={hi} lang="hi" onClick={() => set("hi")}>हि</button>
-    </div>
-  );
+  return <LanguageControl pill={pill} />;
 }
 
 /** The phone bar's "?". */

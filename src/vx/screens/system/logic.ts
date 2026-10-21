@@ -101,7 +101,43 @@ export function requestAccessHref(staff: StaffLike[], myName: string, permission
   const admin = staff.find((s) => s.isActive && s.role === "admin" && s.id !== selfId && mobileDigits(s.whatsappPhone ?? s.phone));
   const n = admin ? mobileDigits(admin.whatsappPhone ?? admin.phone) : null;
   if (!n) return null;
-  const what = permission ? ` (${permission})` : "";
-  const text = `नमस्ते, मुझे VPPS One में एक पेज खोलने की अनुमति चाहिए${what}। — ${myName}\nHello, I need access to a page in VPPS One${what}. — ${myName}`;
+  // The area in words, never the permission code: the reader sees this text
+  // in her own WhatsApp before she sends it.
+  const area = permissionArea(permission);
+  const hi = area ? `मुझे VPPS One में ${area.hi} वाला पेज खोलने की अनुमति चाहिए` : "मुझे VPPS One में एक पेज खोलने की अनुमति चाहिए";
+  const en = area ? `I need access to ${area.en} in VPPS One` : "I need access to a page in VPPS One";
+  const text = `नमस्ते, ${hi}। — ${myName}\nHello, ${en}. — ${myName}`;
   return `https://wa.me/91${n}?text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * What a permission's pages are for, in words a member of staff uses. The
+ * denied screen says this instead of printing the permission code
+ * ("settings:manage", "fees:view"), which nobody at the school can read
+ * (smoke 20 Oct, dev.groups[16]). Null for a code it does not know.
+ */
+export function permissionArea(permission: string | null | undefined): { en: string; hi: string } | null {
+  const area = String(permission ?? "").split(":")[0];
+  switch (area) {
+    case "dashboard": return { en: "the school overview", hi: "स्कूल का सारांश" };
+    case "staff": return { en: "staff records", hi: "स्टाफ़ की जानकारी" };
+    case "academics": return { en: "classes and subjects", hi: "कक्षाएँ और विषय" };
+    case "timetable": return { en: "the timetable", hi: "समय-सारणी" };
+    case "substitutions": return { en: "arranging cover for absent teachers", hi: "अनुपस्थित शिक्षकों की जगह पढ़ाने" };
+    case "attendance": return { en: "attendance", hi: "हाज़िरी" };
+    case "notes": return { en: "notes about children", hi: "बच्चों के नोट" };
+    case "collection":
+    case "documents": return { en: "forms and documents from families", hi: "परिवारों से फ़ॉर्म और काग़ज़" };
+    case "assessments":
+    case "marks": return { en: "exams and marks", hi: "परीक्षा और अंक" };
+    case "reports": return { en: "reports", hi: "रिपोर्ट" };
+    case "students": return { en: "the list of all students", hi: "सभी विद्यार्थियों की सूची" };
+    case "apps": return { en: "the school's other apps", hi: "स्कूल के दूसरे ऐप" };
+    case "fees": return { en: "fees", hi: "फ़ीस" };
+    case "jobs": return { en: "the app's background tasks", hi: "ऐप के अपने-आप चलने वाले कामों" };
+    case "audit": return { en: "the record of changes", hi: "बदलावों का रिकॉर्ड" };
+    case "messages": return { en: "messages to staff and families", hi: "स्टाफ़ और परिवारों को संदेश" };
+    case "settings": return { en: "school settings", hi: "स्कूल की सेटिंग" };
+    default: return null;
+  }
 }

@@ -235,3 +235,22 @@
 /* The phone bottom bar's height, for anything that sits on it (phone action bars). */
 :root{--vx-bottom-h:calc(76px + env(safe-area-inset-bottom))}
 @media (min-width:900px){:root{--vx-bottom-h:0px}}
+
+/* ---- Touch: a 44px hit area (smoke 20 Oct, dev.groups[22]) --------------------------
+   On a phone or tablet every control a finger presses is at least 44 × 44 px. A mouse
+   keeps the design's density: the rule is for coarse pointers only. A visual switch
+   track (`.sw`) keeps its drawn size; its row is the target. */
+@media (pointer:coarse){
+  :where(.vx,.vxt) :is(button,a,summary,label,[role=button],[role=tab],[role=radio],[role=switch],[role=checkbox],[role=link]).tap:not(.sw){min-height:44px;min-width:44px}
+  :where(.vx,.vxt) .icon-btn{width:44px;height:44px}
+  :where(.vx,.vxt) .vx-lnk{min-height:44px}
+}
+/* A text link or text button inside a line ("Mark away", "My requests"): a real hit area
+   without looking like a button. Use `className="tap vx-lnk"`. */
+:where(.vx,.vxt) .vx-lnk{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 8px;border:0;border-radius:10px;background:transparent;color:var(--acc);font:inherit;font-weight:600;cursor:pointer}
+:where(.vx,.vxt) .vx-lnk:hover{background:var(--s2)}
+
+/* ---- The language control (src/vx/ui/language.tsx) ----------------------------------- */
+:where(.vx,.vxt) .vx-lang{grid-template-columns:repeat(3,minmax(0,1fr));width:156px;flex:none}
+:where(.vx,.vxt) .vx-lang>button{height:32px;padding:0 4px;font-size:12.5px}
+:where(.vx,.vxt) .vx-langb{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;height:44px;padding:0 10px;border-radius:22px;border:1px solid var(--bd);background:var(--s2);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap}
