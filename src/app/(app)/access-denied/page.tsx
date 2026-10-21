@@ -42,7 +42,7 @@ export default async function AccessDeniedPage(props: PageProps<"/access-denied"
 
   return (
     <VxPage>
-      <TopBar crumb={lead({ en: "No access", hi: "अनुमति नहीं" }, language)} title={lead(TITLE, language)} mSub={lead({ en: "No access for this role", hi: "इस भूमिका को अनुमति नहीं" }, language)} mBack={home} />
+      <TopBar crumb={lead({ en: "No access", hi: "अनुमति नहीं" }, language)} title={lead(TITLE, language)} mSub={lead({ en: "Not open for this account", hi: "इस खाते के लिए नहीं खुलता" }, language)} mBack={home} />
       <main>
         <Section>
           <DeniedScreen

@@ -143,7 +143,7 @@ const authViews: Record<string, DesignView> = {
   "DX-Auth-Denied": {
     render: () => (
       <VxPage>
-        <TopBar crumb="No access" title="You can't open this page" mSub="No access for this role" mBack="/" />
+        <TopBar crumb="No access" title="You can't open this page" mSub="Not open for this account" mBack="/" />
         <main>
           <Section>
             <DeniedScreen
