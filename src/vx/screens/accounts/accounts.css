@@ -34,11 +34,11 @@
 .vx .ac-kp > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; text-align: left; color: var(--fg); line-height: normal; animation: xRise .42s var(--ease) both; }
 :where(.vx, .vxt) .ac-ib { flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
 /* Receipt column 120px, not the picture's 64px: real numbers are SVP20261008-0015, not R-0401. */
-.vx .ac-cth, .vx .ac-ct { display: grid; grid-template-columns: 44px 74px minmax(0, 1.5fr) minmax(0, 1fr) 86px 120px 92px var(--aw, 190px); gap: 10px; align-items: center; padding: 0 16px 0 6px; }
+.vx .ac-cth, .vx .ac-ct { display: grid; grid-template-columns: 44px 74px minmax(0, 1.5fr) minmax(0, 1fr) 86px 146px 92px var(--aw, 190px); gap: 10px; align-items: center; padding: 0 16px 0 6px; }
 .vx .ac-cth { height: 42px; background: var(--s2); border-bottom: 1px solid var(--bd); }
 .vx .ac-ct { min-height: 62px; border-top: 1px solid var(--bd); overflow: hidden; animation: xIn .32s var(--ease) both; }
 .vx .ac-ct > .c-amt { display: flex; flex-direction: column; align-items: flex-end; }
-.vx .ac-ct > .c-act { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.vx .ac-ct > .c-act { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 6px; } /* the status pill sits in one place on every row, with or without "Add details" */
 .vx .ac-cb { flex: none; width: 40px; height: 40px; border: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; }
 .vx .ac-cb > span { width: 22px; height: 22px; border-radius: 7px; border: 2px solid; display: flex; align-items: center; justify-content: center; color: var(--prifg); transition: background-color .2s ease, border-color .2s ease; }
 .vx .ac-cb svg { transition: transform .25s var(--spring), opacity .2s ease; }
