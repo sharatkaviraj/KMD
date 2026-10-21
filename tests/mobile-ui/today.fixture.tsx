@@ -73,7 +73,7 @@ export function TodayFixture({ language }: { language: Language }) {
             moneyFailed={false}
             attendance={{ marked: 18, total: 22, percent: 91, schoolOpen: true }}
             staffAway={2}
-            cover={{ needed: 2, arranged: 1 }}
+            cover={{ missed: 0, needed: 2, arranged: 1 }}
             inbox={[]}
             timeline={[
               { time: "07:45", title: { en: "First bell" }, sub: { en: "Period 1 starts" }, state: "done" },

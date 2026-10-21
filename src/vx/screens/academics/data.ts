@@ -729,7 +729,9 @@ const sessionMarks = cache(async (session: string): Promise<MarkRow[]> => {
         .select("id, student_id, value, absent, exempt, assessment_subjects!inner(assessment_id, class_id, subject_id, subject_code, max_marks, pass_marks)")
         .in("assessment_subjects.assessment_id", exams.map((e) => e.id))
         .order("id")
-        .range(a, b),
+        .range(a, b)
+        // A many-to-one embed is one object at runtime; the generic types call it an array.
+        .overrideTypes<{ student_id: string; value: number | null; absent: boolean; exempt: boolean; assessment_subjects: { assessment_id: string; class_id: string; subject_id: string; subject_code: string; max_marks: number; pass_marks: number | null } }[], { merge: false }>(),
     "the marks",
   );
   return rows.map((r) => ({

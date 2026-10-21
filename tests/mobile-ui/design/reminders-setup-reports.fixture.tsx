@@ -213,10 +213,15 @@ const CLASSWISE: NonNullable<ReportsPageData["classwise"]> = {
     classId: id,
     classLabel: CLS.find((c) => c[0] === id)![1],
     cells: { 1: { due: { amount: a1, students: n1 }, notDue: null }, 2: { due: { amount: a2, students: n2 }, notDue: null }, 3: { due: null, notDue: { amount: a3, students: n3 } }, 4: { due: null, notDue: { amount: a4, students: n4 } } },
+    studentsPendingToday: Math.max(n1, n2),
     pendingToday: a1 + a2,
     notDueYet: a3 + a4,
     lateFee: 230 * n2,
   })),
+  dueVaries: { 1: false, 2: false, 3: false, 4: false },
+  dueNos: [1, 2],
+  notDueNos: [3, 4],
+  studentsPendingToday: HEAT.reduce((sum, row) => sum + Math.max(row[2], row[4]), 0),
 };
 const CELL: NonNullable<ReportsPageData["cell"]> = {
   classLabel: "Class 7",

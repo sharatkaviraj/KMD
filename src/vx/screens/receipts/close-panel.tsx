@@ -287,7 +287,7 @@ export function ClosePanel(props: DeskProps) {
             return (
               <div key={d} style={{ display: "grid", gridTemplateColumns: "74px minmax(0, 1fr) 96px", gap: 10, alignItems: "center", padding: "4px 0" }}>
                 <span className="num" style={{ fontSize: 15, fontWeight: 700 }}>{label}</span>
-                <Count label={label} value={counts[d] ?? 0} max={d === 1 ? 99999 : 9999} disabled={!live} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
+                <Count label={label} value={counts[d] ?? 0} max={9999} disabled={!live} onChange={(v) => setCounts((c) => ({ ...c, [d]: v }))} />
                 <span className="num" style={{ textAlign: "right", fontSize: 14, fontWeight: 600, color: "var(--mut)" }}>{rupees((counts[d] ?? 0) * d)}</span>
               </div>
             );

@@ -196,7 +196,7 @@ export function AccountsHome({
           </span>
         }
       />
-      {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
+      {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} nowIso={nowIso} /> : null}
       {view === "menu" ? <MenuView data={data} staffName={staffName} roleText={role} canCollect={canCollect} canAccounts={canAccounts} help={help} helpTitle={helpTitle} /> : null}
       {view === "evening" ? <EveningView data={data} /> : null}
     </VxPage>
@@ -205,7 +205,7 @@ export function AccountsHome({
 
 type Run = (fn: () => Promise<{ ok: boolean; message: string }>, undo?: () => Promise<unknown>) => void;
 
-function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canClose: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
+function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, nowIso }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canClose: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean; nowIso?: string }) {
   const { tx } = useVx();
   const router = useRouter();
   const [q, setQ] = useState("");

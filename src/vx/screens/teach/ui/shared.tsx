@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
