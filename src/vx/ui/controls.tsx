@@ -3,6 +3,14 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Ic, type IconName } from "@/vx/icons";
+import { useVx } from "@/vx/i18n";
+import { p } from "@/vx/text";
+
+const SAY = {
+  steps: p("Steps", "चरण"),
+  search: p("Search", "खोजें"),
+  clear: p("Clear search", "खोज मिटाएँ"),
+};
 
 /*
  * Controls from DESIGN-SYSTEM.md §5. Every button is `type="button"`, toggles
@@ -239,8 +247,9 @@ export function NumberPad({ onKey, extra }: { onKey: (key: string) => void; extr
 
 /** Wizard progress: 1 — 2 — 3 — 4 with labels. */
 export function WizardSteps({ steps, current }: { steps: string[]; current: number }) {
+  const { tx } = useVx();
   return (
-    <ol aria-label="Steps" style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
+    <ol aria-label={tx(SAY.steps)} style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
       {steps.map((s, i) => {
         const done = i < current;
         const on = i === current;
@@ -276,7 +285,7 @@ export function DateChips({ days, value, onChange }: { days: { value: string; la
 export function SearchBox({
   value,
   onChange,
-  placeholder = "Search",
+  placeholder,
   autoFocus,
   style,
   kbd,
@@ -291,10 +300,12 @@ export function SearchBox({
   name?: string;
 }) {
   const id = useId();
+  const { tx } = useVx();
+  const shown = placeholder ?? tx(SAY.search);
   return (
     <label htmlFor={id} className="vx-field" style={{ position: "relative", height: 44, borderRadius: 12, border: "1px solid var(--bds)", background: "var(--card)", display: "flex", alignItems: "center", gap: 8, padding: "0 12px", color: "var(--mut)", ...style }}>
       <Ic n="search" />
-      <span className="sr">{placeholder}</span>
+      <span className="sr">{shown}</span>
       <input
         id={id}
         name={name}
@@ -302,12 +313,12 @@ export function SearchBox({
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={shown}
         autoComplete="off"
         style={{ flex: 1, minWidth: 0, height: "100%", border: 0, background: "transparent", outline: "none", fontSize: 15, color: "var(--fg)" }}
       />
       {value ? (
-        <button type="button" className="tap icon-btn" style={{ width: 30, height: 30 }} aria-label="Clear search" onClick={() => onChange("")}>
+        <button type="button" className="tap icon-btn" style={{ width: 30, height: 30 }} aria-label={tx(SAY.clear)} onClick={() => onChange("")}>
           <Ic n="x" size={16} />
         </button>
       ) : kbd ? (

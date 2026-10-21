@@ -16,6 +16,16 @@ import {
 import { createPortal } from "react-dom";
 
 import { Ic, type IconName } from "@/vx/icons";
+import { useVx } from "@/vx/i18n";
+import { p } from "@/vx/text";
+
+const SAY = {
+  close: p("Close", "बंद करें"),
+  gotIt: p("Got it", "समझ गए"),
+  cancel: p("Cancel", "रहने दें"),
+  undo: p("Undo", "वापस लें"),
+  help: (title: string) => p(`Help: ${title}`, `मदद: ${title}`),
+};
 
 /*
  * Sheets, dialogs and toasts. They render into `#vx-layer`, which the shell
@@ -58,6 +68,7 @@ export function Sheet({
   dismissable?: boolean;
 }) {
   const layer = useLayer();
+  const { tx } = useVx();
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
   const titleId = useId();
@@ -148,7 +159,7 @@ export function Sheet({
 
   return createPortal(
     <>
-      <button type="button" aria-label="Close" data-close className={`scrim ${closing ? "closing" : "open"}`} onClick={dismissable ? onClose : undefined} tabIndex={-1} />
+      <button type="button" aria-label={tx(SAY.close)} data-close className={`scrim ${closing ? "closing" : "open"}`} onClick={dismissable ? onClose : undefined} tabIndex={-1} />
       <div
         ref={panel}
         role="dialog"
@@ -172,7 +183,7 @@ export function Sheet({
               {sub ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{sub}</span> : null}
             </div>
             {dismissable ? (
-              <button type="button" data-close className="tap btn ghost" aria-label="Close" onClick={onClose} style={{ width: 40, height: 40, padding: 0, flex: "none" }}>
+              <button type="button" data-close className="tap btn ghost" aria-label={tx(SAY.close)} onClick={onClose} style={{ width: 40, height: 40, padding: 0, flex: "none" }}>
                 <Ic n="x" size={20} />
               </button>
             ) : null}
@@ -205,6 +216,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const seq = useRef(0);
   const layer = useLayer();
+  const { tx } = useVx();
 
   const dismiss = useCallback((id: number) => setItems((all) => all.filter((t) => t.id !== id)), []);
 
@@ -235,7 +247,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                         await t.undo?.();
                       }}
                     >
-                      {t.undoLabel ?? "Undo"}
+                      {t.undoLabel ?? tx(SAY.undo)}
                     </button>
                   ) : null}
                   {t.action ? (
@@ -267,12 +279,13 @@ export function useToast() {
 /** "?" on every screen: three picture steps (RULES G). */
 export function HelpButton({ title, steps, style }: { title: string; steps: { icon: IconName; title: string; body: string }[]; style?: CSSProperties }) {
   const [open, setOpen] = useState(false);
+  const { tx } = useVx();
   return (
     <>
-      <button type="button" className="tap icon-btn" aria-label={`Help: ${title}`} onClick={() => setOpen(true)} style={style}>
+      <button type="button" className="tap icon-btn" aria-label={tx(SAY.help(title))} onClick={() => setOpen(true)} style={style}>
         <Ic n="help" size={20} />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={title} icon="help" footer={<button type="button" className="tap btn pri" style={{ flex: 1 }} onClick={() => setOpen(false)}>Got it</button>}>
+      <Sheet open={open} onClose={() => setOpen(false)} title={title} icon="help" footer={<button type="button" className="tap btn pri" style={{ flex: 1 }} onClick={() => setOpen(false)}>{tx(SAY.gotIt)}</button>}>
         <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           {steps.map((s, i) => (
             <li key={s.title} className="fadein" style={{ display: "flex", gap: 14, alignItems: "flex-start", animationDelay: `${i * 80}ms` }}>
@@ -316,6 +329,7 @@ export function Confirm({
   icon?: IconName;
   children?: ReactNode;
 }) {
+  const { tx } = useVx();
   return (
     <Sheet
       open={open}
@@ -324,7 +338,7 @@ export function Confirm({
       icon={icon}
       footer={
         <>
-          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+          <button type="button" className="tap btn sec" style={{ flex: 1 }} onClick={onClose}>{tx(SAY.cancel)}</button>
           <button type="button" className={`tap btn ${danger ? "danger" : "pri"}`} style={{ flex: 1 }} disabled={busy} onClick={onConfirm}>
             {busy ? <Ic n="refresh" size={16} className="spin" /> : null}
             {confirmLabel}
