@@ -1,5 +1,7 @@
 import { p, type Pair } from "@/vx/text";
 
+import { subjectPair } from "./groups";
+
 /*
  * Words that leave the app: a reminder to a teacher with her marks link, a
  * suggested remark for a report card. Built here so they can be tested and
@@ -105,10 +107,14 @@ export function suggestRemarks(input: {
     }
   }
   if (input.strongest && input.weakest && input.strongest !== input.weakest) {
+    // Subject codes ("MATHS") are the timetable's; a report card a parent
+    // reads says "Maths" in English and "गणित" in Hindi (smoke 20 Oct).
+    const strong = subjectPair(input.strongest);
+    const weak = subjectPair(input.weakest);
     out.push({
-      text: p(`Strong in ${input.strongest}; more practice in ${input.weakest} will help.`, `${input.strongest} में अच्छा; ${input.weakest} में और अभ्यास मदद करेगा।`),
+      text: p(`Strong in ${strong.en}; more practice in ${weak.en} will help.`, `${strong.hi ?? strong.en} में अच्छा; ${weak.hi ?? weak.en} में और अभ्यास मदद करेगा।`),
       source: "subjects",
-      basis: input.strongest,
+      basis: strong.en,
     });
   }
   const att = input.attendancePct;

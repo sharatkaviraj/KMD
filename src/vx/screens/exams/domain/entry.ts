@@ -1,3 +1,5 @@
+import { p, type Pair } from "@/vx/text";
+
 /*
  * Typing marks: the number pad, the jump to the next child, and what the
  * sheet sends. A blank is never a zero (P7); the pad never writes a mark the
@@ -26,9 +28,13 @@ export function parseMark(text: string, maxMarks: number, step: number): MarkPar
 }
 
 /**
- * One press on the pad. Digits append unless the result could not be a mark
- * on this paper (61 on a paper out of 60 keeps "6"); "." only when the paper
- * takes halves; "del" removes the last character.
+ * One press on the pad. Digits append up to as many whole digits as the
+ * paper's maximum has; "." only when the paper takes halves; "del" removes the
+ * last character.
+ *
+ * A digit that makes the mark too high is kept and shown, not dropped: 61 on a
+ * paper out of 60 used to keep "6", and the 6 was saved for the child without
+ * a word (smoke 20 Oct, group 2). `readTyped` names it; nothing is saved.
  */
 export function pressKey(text: string, key: string, maxMarks: number, step: number): string {
   if (key === "del") return text.slice(0, -1);
@@ -38,10 +44,128 @@ export function pressKey(text: string, key: string, maxMarks: number, step: numb
   }
   if (!/^\d$/.test(key)) return text;
   const next = text === "0" ? key : `${text}${key}`;
-  const decimals = next.includes(".") ? next.split(".")[1].length : 0;
-  if (decimals > (step === 0.25 ? 2 : step === 0.5 ? 1 : 0)) return text;
-  if (Number(next) > maxMarks) return text;
+  const [whole, part = ""] = next.split(".");
+  if (part.length > (step === 0.25 ? 2 : step === 0.5 ? 1 : 0)) return text;
+  if (whole.length > String(Math.floor(maxMarks)).length) return text;
   return next;
+}
+
+/**
+ * What the words in a mark box amount to. Only a finished, valid mark is a
+ * `value` the sheet may save. A slip — a letter ("6o"), more than the paper
+ * is out of ("85" of 80), a half on a whole-mark paper — is `bad`: the box
+ * keeps the words, says what is wrong beside that child, and nothing is saved
+ * for the child until it is put right. "72." on a paper that takes halves is
+ * `partial`: still being typed.
+ */
+export type TypedMark =
+  | { kind: "blank" }
+  | { kind: "value"; value: number }
+  | { kind: "partial" }
+  | { kind: "bad"; reason: "over" | "step" | "nan" };
+
+export function readTyped(raw: string, maxMarks: number, step: number): TypedMark {
+  const t = raw.trim();
+  if (t === "") return { kind: "blank" };
+  if (cleanTyped(t) === null) return { kind: "bad", reason: "nan" };
+  if (/^\d+\.$/.test(t)) {
+    if (Number(t.slice(0, -1)) > maxMarks) return { kind: "bad", reason: "over" };
+    return step < 1 ? { kind: "partial" } : { kind: "bad", reason: "step" };
+  }
+  const parsed = parseMark(t, maxMarks, step);
+  if (!parsed.ok) return { kind: "bad", reason: parsed.reason };
+  return parsed.value === null ? { kind: "blank" } : { kind: "value", value: parsed.value };
+}
+
+/** Why the words in a box cannot be saved, said beside that child (never a toast over the send button). */
+export function typedProblem(raw: string, reason: "over" | "step" | "nan", maxMarks: number, step: number): Pair {
+  const t = raw.trim();
+  if (reason === "over") return p(`${t} is more than ${maxMarks}. Fix this mark.`, `${t} — पूर्णांक ${maxMarks} से ज़्यादा है। अंक ठीक करें।`);
+  if (reason === "step") {
+    return step >= 1
+      ? p(`${t} — this paper takes whole marks only. Fix this mark.`, `${t} — इस पेपर में सिर्फ़ पूरे अंक। अंक ठीक करें।`)
+      : step === 0.5
+        ? p(`${t} — only whole or half marks (like 7.5). Fix this mark.`, `${t} — सिर्फ़ पूरे या आधे अंक (जैसे 7.5)। अंक ठीक करें।`)
+        : p(`${t} — only quarter marks (like 7.25). Fix this mark.`, `${t} — सिर्फ़ चौथाई अंक (जैसे 7.25)। अंक ठीक करें।`);
+  }
+  return p(`"${t}" — type numbers only. Fix this mark.`, `"${t}" — सिर्फ़ अंक लिखें। अंक ठीक करें।`);
+}
+
+/** The children whose box holds words that cannot be saved (`readTyped` → bad). */
+export function heldIds(order: readonly string[], texts: Readonly<Record<string, string>>, maxMarks: number, step: number): string[] {
+  return order.filter((id) => readTyped(texts[id] ?? "", maxMarks, step).kind === "bad");
+}
+
+/**
+ * Where a paper stands, as the counter says it: what the school has and is
+ * fine, what must be fixed (a box with a slip, or a saved mark the paper
+ * cannot hold), and what is still blank. "14 of 14 saved · 0 left" while two
+ * marks needed correcting was a done state that was not done (smoke 20 Oct).
+ */
+export function tally(order: readonly string[], saved: Readonly<Record<string, Cell>>, toFix: readonly string[]) {
+  const fix = new Set(toFix.filter((id) => order.includes(id)));
+  let ready = 0;
+  let blank = 0;
+  for (const id of order) {
+    if (fix.has(id)) continue;
+    if (isFilled(saved[id])) ready += 1;
+    else blank += 1;
+  }
+  return { total: order.length, ready, toFix: fix.size, blank };
+}
+
+export function tallyLine(t: ReturnType<typeof tally>): Pair {
+  const en = [`${t.ready} of ${t.total} saved`, t.toFix ? `${t.toFix} to fix` : null, t.blank ? `${t.blank} left` : null].filter(Boolean).join(" · ");
+  const hi = [`${t.total} में से ${t.ready} सहेजे`, t.toFix ? `${t.toFix} ठीक करने हैं` : null, t.blank ? `${t.blank} बाकी` : null].filter(Boolean).join(" · ");
+  return p(en, hi);
+}
+
+/** "52 out of 80" / "80 में से 52": Hindi says the whole first, so it is one function, never a connector between two values. */
+export function outOf(value: number | string, max: number | string): Pair {
+  return p(`${value} out of ${max}`, `${max} में से ${value}`);
+}
+
+/** "1 child" / "3 children"; "1 बच्चा" / "3 बच्चे". */
+export function childCount(n: number): Pair {
+  return p(`${n} ${n === 1 ? "child" : "children"}`, `${n} ${n === 1 ? "बच्चा" : "बच्चे"}`);
+}
+
+/** The blanks heading on Check and send: "1 child has no mark yet", "1 बच्चे के अंक अभी नहीं भरे". */
+export function noMarkYet(n: number): Pair {
+  return p(`${n} ${n === 1 ? "child has" : "children have"} no mark yet`, `${n} ${n === 1 ? "बच्चे" : "बच्चों"} के अंक अभी नहीं भरे`);
+}
+
+/** The pass line said once, with its unit: "Children below 33% (under 26 of 80)". */
+export function belowLine(pass: number, maxMarks: number): Pair {
+  const pct = Math.round((pass / Math.max(1, maxMarks)) * 100);
+  return p(`Children below ${pct}% (under ${pass} of ${maxMarks})`, `${pct}% से कम वाले बच्चे (${maxMarks} में से ${pass} से कम)`);
+}
+
+/**
+ * The yellow banner over a sheet whose saved marks the paper cannot hold.
+ * It says what is wrong and what to do, in that order — "Kept exactly as
+ * saved" left a careful reader asking whether the marks were wrong or not.
+ */
+export function fixBanner(items: readonly { name: string; value: number }[], maxMarks: number, step: number): Pair {
+  const n = items.length;
+  const list = items.map((x) => `${x.name} (${x.value})`).join(", ");
+  const reasons = new Set(items.map((x) => {
+    const r = parseMark(String(x.value), maxMarks, step);
+    return r.ok ? "ok" : r.reason;
+  }));
+  const only = reasons.size === 1 ? [...reasons][0] : null;
+  const whyEn = only === "step" && step >= 1 ? "This paper takes whole marks only — change each to a whole number." : only === "over" ? `This paper is out of ${maxMarks}.` : "";
+  const whyHi = only === "step" && step >= 1 ? "इस पेपर में सिर्फ़ पूरे अंक हैं — हर एक को पूरा अंक करें।" : only === "over" ? `यह पेपर ${maxMarks} अंक का है।` : "";
+  return p(
+    `${n} ${n === 1 ? "mark must" : "marks must"} be fixed before you can send: ${list}. ${whyEn}`.trim(),
+    `भेजने से पहले ${n} अंक ठीक करने हैं: ${list}। ${whyHi}`.trim(),
+  );
+}
+
+/** How long Undo has left, in whole minutes, never the wall clock (the lab clock and the phone's clock can both disagree with it). */
+export function undoLine(minutes: number): Pair {
+  const m = Math.max(1, Math.ceil(minutes));
+  return p(`Made a mistake? You can take these marks back for ${m} more ${m === 1 ? "minute" : "minutes"}.`, `गलती हुई? अगले ${m} मिनट तक ये अंक वापस ले सकते हैं।`);
 }
 
 /**
