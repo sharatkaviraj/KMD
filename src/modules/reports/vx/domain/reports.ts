@@ -1,3 +1,5 @@
+import { isPendingOn, usualDueDate } from "@/modules/fees/domain/due-rule";
+
 /*
  * Report arithmetic for the redesigned Reports screen, pure.
  *
@@ -22,6 +24,8 @@ export type InstallmentBalance = {
   lateFeePending: number;
   /** `public.students.status`: active, inactive, left, graduated. */
   studentStatus: string | null;
+  /** Last session's balance carried forward: always pending today. */
+  isCarryForward?: boolean;
 };
 
 export type DefaulterRow = {
@@ -46,7 +50,8 @@ export function isLeft(status: string | null | undefined) {
 
 /**
  * Defaulters as of `today`: one row per student with fees pending on
- * installments due on or before today. A student owing only a late fee is
+ * installments due BEFORE today (due-rule.ts: the due date itself is free, as
+ * on the Payment Desk and Dues & calls). A student owing only a late fee is
  * left out. Students who left are included only when asked for.
  */
 export function buildDefaulters(
@@ -56,7 +61,7 @@ export function buildDefaulters(
 ): DefaulterRow[] {
   const byStudent = new Map<string, DefaulterRow>();
   for (const r of rows) {
-    if (r.dueDate > today) continue;
+    if (!isPendingOn(r, today)) continue;
     if (classId && r.classId !== classId) continue;
     const left = isLeft(r.studentStatus);
     if (left && !includeLeft) continue;
@@ -121,6 +126,22 @@ export type ClasswiseRow = {
   pendingToday: number;
   notDueYet: number;
   lateFee: number;
+  /** Children with fees pending today in this class, each counted once. */
+  studentsPendingToday: number;
+};
+
+export type Classwise = {
+  rows: ClasswiseRow[];
+  installmentNos: number[];
+  /** The date most children's installment falls due on (never the earliest outlier). */
+  dueDates: Record<number, string>;
+  /** Installments whose children do not all share one due date. */
+  dueVaries: Record<number, boolean>;
+  /** Installments with something pending today, and with something not due yet. */
+  dueNos: number[];
+  notDueNos: number[];
+  /** Children with fees pending today, each counted once (not once per installment). */
+  studentsPendingToday: number;
 };
 
 /**
@@ -132,24 +153,37 @@ export function buildClasswise(
   rows: readonly InstallmentBalance[],
   today: string,
   { includeLeft = true }: { includeLeft?: boolean } = {},
-): { rows: ClasswiseRow[]; installmentNos: number[]; dueDates: Record<number, string> } {
+): Classwise {
   const map = new Map<string, ClasswiseRow>();
   const students = new Map<string, Set<string>>();
+  const pendingByClass = new Map<string, Set<string>>();
+  const pendingAll = new Set<string>();
   const instNos = new Set<number>();
-  const dueDates: Record<number, string> = {};
+  const datesByInst = new Map<number, string[]>();
+  const dueNos = new Set<number>();
+  const notDueNos = new Set<number>();
   for (const r of rows) {
     if (!includeLeft && isLeft(r.studentStatus)) continue;
     instNos.add(r.installmentNo);
-    if (!dueDates[r.installmentNo] || r.dueDate < dueDates[r.installmentNo]) dueDates[r.installmentNo] = r.dueDate;
+    if (!r.isCarryForward) datesByInst.set(r.installmentNo, [...(datesByInst.get(r.installmentNo) ?? []), r.dueDate]);
     let row = map.get(r.classLabel);
     if (!row) {
-      row = { classId: r.classId, classLabel: r.classLabel, cells: {}, pendingToday: 0, notDueYet: 0, lateFee: 0 };
+      row = { classId: r.classId, classLabel: r.classLabel, cells: {}, pendingToday: 0, notDueYet: 0, lateFee: 0, studentsPendingToday: 0 };
       map.set(r.classLabel, row);
     }
     const pending = Math.max(0, r.pendingAmount);
     row.lateFee += Math.max(0, r.lateFeePending);
     if (pending <= 0) continue;
-    const isDue = r.dueDate <= today;
+    // Due BEFORE today, as on the Desk and Dues (due-rule.ts).
+    const isDue = isPendingOn(r, today);
+    (isDue ? dueNos : notDueNos).add(r.installmentNo);
+    if (isDue) {
+      const set = pendingByClass.get(r.classLabel) ?? new Set<string>();
+      set.add(r.studentId);
+      pendingByClass.set(r.classLabel, set);
+      row.studentsPendingToday = set.size;
+      pendingAll.add(r.studentId);
+    }
     const slot = (row.cells[r.installmentNo] ??= { due: null, notDue: null });
     const key = `${r.classLabel}|${r.installmentNo}|${isDue ? "d" : "n"}`;
     let set = students.get(key);
@@ -166,10 +200,22 @@ export function buildClasswise(
       row.notDueYet += pending;
     }
   }
+  const dueDates: Record<number, string> = {};
+  const dueVaries: Record<number, boolean> = {};
+  for (const [n, dates] of datesByInst) {
+    const usual = usualDueDate(dates);
+    if (usual.date) dueDates[n] = usual.date;
+    dueVaries[n] = usual.varies;
+  }
+  const byNo = (a: number, b: number) => a - b;
   return {
     rows: [...map.values()],
-    installmentNos: [...instNos].sort((a, b) => a - b),
+    installmentNos: [...instNos].sort(byNo),
     dueDates,
+    dueVaries,
+    dueNos: [...dueNos].sort(byNo),
+    notDueNos: [...notDueNos].sort(byNo),
+    studentsPendingToday: pendingAll.size,
   };
 }
 
@@ -191,7 +237,7 @@ export function cellStudents(
       fatherPhone: r.fatherPhone,
       pending: r.pendingAmount,
       lateFee: r.lateFeePending,
-      due: r.dueDate <= today,
+      due: isPendingOn(r, today),
       left: isLeft(r.studentStatus),
     }))
     .sort((a, b) => b.pending - a.pending || a.studentName.localeCompare(b.studentName));

@@ -40,3 +40,11 @@ describe("activeTab", () => {
     expect(tabs.find((t) => t.key === "notes")?.icon).toBe("note");
   });
 });
+
+describe("a screen under the accountant's Today but reached from Menu (smoke 20 Oct)", () => {
+  it("lights Menu on Cheques, UPI & refunds, and Today only on Today", () => {
+    const tabs = bottomFor("accountant", all);
+    expect(activeTab(tabs, "/accounts/books")).toBe("/menu");
+    expect(activeTab(tabs, "/accounts")).toBe("/accounts");
+  });
+});
