@@ -45,10 +45,10 @@ import { listTeacherTasks } from "@/modules/teacher-tasks/data/repo";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 import { classTeacherOf } from "@/vx/screens/exams/guards";
 import { onRoll } from "@/vx/screens/exams/domain/tracker";
-import type { Pair } from "@/vx/text";
+import { p, type Pair } from "@/vx/text";
 
 import { alertWhen, attentionReasons, average, dayBefore, mergeCombinedSlots, monthEnd, tellApart, upcomingBirthdays, type AttentionReason, type Mark } from "./domain/teach";
-import { closedTag, closedWhy, lastOpenDay, leaveForToday, profileClasses, remarksLeft, type CalendarEntry, type ClosedWhy, type MyCover } from "./domain/today";
+import { closedTag, closedWhy, joinPairs, lastOpenDay, leaveForToday, openNotesP, profileClasses, remarksLeft, type CalendarEntry, type ClosedWhy, type MyCover } from "./domain/today";
 import { childBasics, staffNames } from "./students";
 
 /*
@@ -412,6 +412,8 @@ export type CoverRow = {
   classLabels: string;
   subjectCode: string;
   subjectName: string;
+  /** The subject in Hindi, for a Hindi reader ("Physics" read as English on Today). */
+  subjectHi?: string;
   forName: string;
   acknowledged: boolean;
   askedAt: string;
@@ -552,6 +554,7 @@ export async function loadHome(staff: CurrentStaff) {
     classLabels: c.classLabels.join(", "),
     subjectCode: c.subjectCode,
     subjectName: subjectName.get(c.subjectCode) ?? c.subjectCode,
+    subjectHi: subjectHi.get(c.subjectCode) ?? subjectName.get(c.subjectCode) ?? c.subjectCode,
     forName: c.absentStaffIds.map((id) => names.get(id) ?? "—").join(", "),
     acknowledged: c.acknowledgedAt !== null,
     askedAt: c.createdAt,
@@ -561,11 +564,11 @@ export async function loadHome(staff: CurrentStaff) {
   const upcomingRows = upcoming.map((c) => toRow(c, c.day));
 
   const first = lessonsToday(nextSlots)[0];
-  const tomorrow: { day: string; first: { number: number; starts: string; classLabel: string; subjectName: string } | null } | null = runsNext
+  const tomorrow: { day: string; first: { number: number; starts: string; classLabel: string; subjectName: string; subjectHi?: string } | null } | null = runsNext
     ? {
         day: next,
         first: first
-          ? { number: periodNumber(first.period), starts: timeOf(schedule, first.period).starts, classLabel: first.classes.map((c) => c.classLabel).join(" · "), subjectName: subjectName.get(first.subjectCode) ?? first.subjectCode }
+          ? { number: periodNumber(first.period), starts: timeOf(schedule, first.period).starts, classLabel: first.classes.map((c) => c.classLabel).join(" · "), subjectName: subjectName.get(first.subjectCode) ?? first.subjectCode, subjectHi: subjectHi.get(first.subjectCode) ?? first.subjectCode }
           : null,
       }
     : null;
@@ -576,7 +579,8 @@ export async function loadHome(staff: CurrentStaff) {
     total: number;
     register: { revision: number; submittedAt: string | null; present: number; absent: number; halfDay: number; total: number; alerts: number } | null;
   } = null;
-  let kids: { id: string; name: string; reasons: AttentionReason[]; detail: string; attendancePct: number | null }[] = [];
+  // `detail` is a pair: "2 open notes" read as English to a Hindi-only teacher (verification 21 Oct).
+  let kids: { id: string; name: string; classLabel?: string | null; reasons: AttentionReason[]; detail: Pair | string; attendancePct: number | null }[] = [];
   let birthdays: { id: string; name: string; inDays: number; turning: number; rollNo: string | null; wished: boolean }[] = [];
   if (myClassId) {
     const wished = new Set(queue.filter((q) => q.kind === "birthday").map((q) => q.student_id));
@@ -608,16 +612,18 @@ export async function loadHome(staff: CurrentStaff) {
         .slice(0, several ? 3 : 4)
         .map((c) => ({
           id: c.id,
-          name: several ? `${c.name} · ${labels.get(classId) ?? ""}` : c.name,
+          name: c.name,
+          // Which class, said by the screen in the reader's words ("कक्षा 4").
+          classLabel: several ? (labels.get(classId) ?? null) : null,
           reasons: c.reasons,
           attendancePct: c.attendancePct === null ? null : Math.round(c.attendancePct),
-          detail: [
-            c.reasons.includes("attendance") && c.attendancePct !== null ? `${Math.round(c.attendancePct)}% attendance` : null,
-            c.reasons.includes("marks") && c.lowestSubject ? `${c.lowestSubject.code} ${c.lowestSubject.pct}%` : null,
-            c.reasons.includes("notes") ? `${c.openNotes} open notes` : null,
-          ]
-            .filter(Boolean)
-            .join(" · "),
+          detail: joinPairs([
+            c.reasons.includes("attendance") && c.attendancePct !== null ? p(`${Math.round(c.attendancePct)}% attendance`, `${Math.round(c.attendancePct)}% हाज़िरी`) : null,
+            c.reasons.includes("marks") && c.lowestSubject
+              ? p(`${subjectName.get(c.lowestSubject.code) ?? c.lowestSubject.code} ${c.lowestSubject.pct}%`, `${subjectHi.get(c.lowestSubject.code) ?? c.lowestSubject.code} ${c.lowestSubject.pct}%`)
+              : null,
+            c.reasons.includes("notes") ? openNotesP(c.openNotes) : null,
+          ]),
         }));
     });
     if (insight) {
@@ -1005,6 +1011,8 @@ export type MarksLink = {
   classLabel: string;
   subjectCode: string;
   exam: string;
+  /** The exam's Hindi name ("अर्धवार्षिक परीक्षा"); a Hindi-only teacher read "Half yearly". */
+  examHi?: string;
   entered: number;
   total: number;
   submitted: boolean;
@@ -1071,6 +1079,7 @@ export async function marksLinks(
         classLabel: p.classLabel || (labels.get(p.classId) ?? "—"),
         subjectCode: p.subjectCode,
         exam: exam.labelEn || exam.code,
+        examHi: exam.labelHi || exam.labelEn || exam.code,
         entered: p.entered,
         total: p.total,
         submitted: p.entryStatus === "submitted",

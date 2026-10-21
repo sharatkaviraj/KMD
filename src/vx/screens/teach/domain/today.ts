@@ -166,6 +166,39 @@ export function combinedClasses(label: string): Pair {
   return p(`Classes ${en} together`, `कक्षा ${hi} एक साथ`);
 }
 
+/**
+ * Any class label Today shows, in the reader's words: one class ("Class 4" →
+ * "कक्षा 4"), a list ("Class 7, Class 8"), or a combined period ("Class 1 ·
+ * 2 · 3"). A Hindi-only teacher read "Class 4 की हाज़िरी" (verification 21 Oct).
+ */
+export function classesWord(label: string): Pair {
+  if (label.includes("·")) return combinedClasses(label);
+  if (label.includes(",")) return classesPair(label.split(",").map((s) => s.trim()).filter(Boolean));
+  return classWord(label);
+}
+
+/** A class and its subject on one line: "Class 7 · Chemistry" / "कक्षा 7 · रसायन". */
+export function classSubject(classLabel: string, subject: Pair): Pair {
+  const c = classesWord(classLabel);
+  return p(`${c.en} · ${subject.en}`, `${c.hi ?? c.en} · ${subject.hi ?? subject.en}`);
+}
+
+/** An exam's name for the reader: "Half yearly" / "अर्धवार्षिक परीक्षा", the English when no Hindi was typed. */
+export function examWord(en: string, hi?: string | null): Pair {
+  return p(en, hi?.trim() || en);
+}
+
+/** "1 open note" / "2 open notes"; "1 खुला नोट" / "2 खुले नोट". */
+export function openNotesP(n: number): Pair {
+  return p(`${n} open ${n === 1 ? "note" : "notes"}`, `${n} ${n === 1 ? "खुला नोट" : "खुले नोट"}`);
+}
+
+/** Several pairs joined with " · " in each language; nulls are left out. */
+export function joinPairs(parts: readonly (Pair | null | undefined | false)[]): Pair {
+  const list = parts.filter((x): x is Pair => Boolean(x));
+  return p(list.map((x) => x.en).join(" · "), list.map((x) => x.hi ?? x.en).join(" · "));
+}
+
 /** A subject in the reader's words: its name, never a bare code when a name exists. */
 export function subjectWord(code: string, names: ReadonlyMap<string, { en: string; hi: string }>): Pair {
   const n = names.get(code);
@@ -205,8 +238,8 @@ export function remarksLeft(cards: readonly { done: number; total: number }[]): 
  */
 export function marksTileLine(firstOpen: { classLabel: string; entered: number; total: number } | null, remarks: number): Pair {
   const parts: Pair[] = [];
-  if (firstOpen) parts.push(p(`${firstOpen.classLabel} · ${firstOpen.entered} of ${firstOpen.total} entered`, `${firstOpen.classLabel} · ${firstOpen.total} में से ${firstOpen.entered} भरे`));
-  if (remarks > 0) parts.push(p(`${remarks} report-card ${remarks === 1 ? "remark" : "remarks"} to write`, `${remarks} रिपोर्ट-कार्ड टिप्पणियाँ बाकी`));
+  if (firstOpen) parts.push(p(`${firstOpen.classLabel} · ${firstOpen.entered} of ${firstOpen.total} entered`, `${classesWord(firstOpen.classLabel).hi ?? firstOpen.classLabel} · ${firstOpen.total} में से ${firstOpen.entered} भरे`));
+  if (remarks > 0) parts.push(p(`${remarks} report-card ${remarks === 1 ? "remark" : "remarks"} to write`, `${remarks} रिपोर्ट-कार्ड ${remarks === 1 ? "टिप्पणी" : "टिप्पणियाँ"} बाकी`));
   if (parts.length === 0) return p("Nothing waiting", "कुछ बाकी नहीं");
   return p(parts.map((x) => x.en).join(" · "), parts.map((x) => x.hi ?? x.en).join(" · "));
 }

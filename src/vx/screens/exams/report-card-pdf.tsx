@@ -3,9 +3,10 @@ import "server-only";
 import * as React from "react";
 import { Document, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
 
-import { cardWeights, markIn, reportColumns, type ReportCard } from "@/modules/assessments/domain/report-card";
+import { absentExams, cardWeights, markIn, reportColumns, type ReportCard } from "@/modules/assessments/domain/report-card";
 import { ensurePdfFontsRegistered, HI_FONT, loadLogoImage, loadSignatureImage, ParentDocumentLetterhead, pdfTokens, sharedStyles, SignatureBlock, type PdfImage } from "@/platform/pdf/document-kit";
 
+import { cardNotes } from "./domain/card-notes";
 import { subjectPair } from "./domain/groups";
 
 /*
@@ -64,6 +65,8 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
   const weights = weighted.length
     ? { en: `Each exam's marks count: ${weighted.map((w) => `${w.en} ×${w.weight}`).join(", ")}`, hi: `हर परीक्षा का भार: ${weighted.map((w) => `${w.hi || w.en} ×${w.weight}`).join(", ")}` }
     : { en: "", hi: "" };
+  // Under the table: why an absent paper's subject reads low, and why one subject is out of less.
+  const notes = cardNotes(card.rows);
   return (
     <Page size="A4" style={sharedStyles.page}>
       <ParentDocumentLetterhead docTitleEn={title.en.toUpperCase()} docTitleHi={title.hi} logo={logo} />
@@ -92,8 +95,8 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
             </View>
           ))}
           <View style={{ flex: 1.2, alignItems: "flex-end" }}>
-            <Text style={s.labelHi}>प्राप्तांक</Text>
-            <Text style={sharedStyles.thEn}>Marks</Text>
+            <Text style={s.labelHi}>प्राप्तांक / पूर्णांक</Text>
+            <Text style={sharedStyles.thEn}>Marks / out of</Text>
           </View>
           <View style={{ flex: 0.8, alignItems: "flex-end" }}>
             <Text style={s.labelHi}>ग्रेड</Text>
@@ -111,6 +114,15 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
               </View>
               {exams.map((e) => {
                 const m = markIn(row, e.code);
+                // Absent counts as 0 (D-319); the cell says so in both languages, never a bare "AB".
+                if (m?.absent && !m.exempt) {
+                  return (
+                    <View key={e.code} style={{ flex: 1, alignItems: "flex-end" }}>
+                      <Text style={{ color: pdfTokens.warning, fontFamily: "Helvetica-Bold" }}>Absent</Text>
+                      <Text style={[s.cellHi, { color: pdfTokens.warning }]}>अनुपस्थित · 0/{m.maxMarks}</Text>
+                    </View>
+                  );
+                }
                 return (
                   <Text key={e.code} style={{ flex: 1, textAlign: "right" }}>
                     {m ? `${markText(m)}/${m.maxMarks}` : ""}
@@ -120,6 +132,7 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
               <Text style={{ flex: 1.2, textAlign: "right", fontFamily: "Helvetica-Bold" }}>
                 {row.scored}
                 {g ? ` +${g}G` : ""}/{row.outOf}
+                {absentExams(row).length ? "*" : ""}
               </Text>
               <Text style={{ flex: 0.8, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{row.grade ?? "—"}</Text>
             </View>
@@ -164,6 +177,12 @@ function CardPage({ entry, title, logo, signature }: { entry: CardForPdf; title:
           <Text style={{ fontSize: 9, marginTop: 2 }}>{remarkEn}</Text>
         </View>
       ) : null}
+
+      {notes.map((n) => (
+        <Text key={n.en} style={[s.label, { marginTop: 6 }]}>
+          {n.en} <Text style={s.labelHi}>/ {n.hi}</Text>
+        </Text>
+      ))}
 
       {graceTotal ? <Text style={[s.label, { marginTop: 8 }]}>G = grace marks given under the school&apos;s rule, shown beside the mark and not added into it.</Text> : null}
 

@@ -26,7 +26,8 @@ import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
 import { classTermCards } from "@/modules/assessments/data/reports-repo";
 import { attendanceNote } from "@/vx/screens/exams/domain/card-words";
 import { plannedExams } from "@/vx/screens/exams/domain/current";
-import { cardWeights, type ReportCard } from "@/modules/assessments/domain/report-card";
+import { absentExams, cardWeights, type ReportCard } from "@/modules/assessments/domain/report-card";
+import { absentLine, cardNotes } from "@/vx/screens/exams/domain/card-notes";
 import { classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
 import { cellCounts, cellState, exemptSwitch, neighbours, paperEvents } from "@/vx/screens/exams/domain/board";
@@ -344,7 +345,9 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
               percent: r.percent,
               grace: state.grace[r.subjectCode] ?? 0,
               state: rowState(r.marks),
+              absent: absentLine(absentExams(r)) || undefined,
             })),
+            notes: cardNotes(c.rows),
             total: c.totals.scored,
             outOf: c.totals.outOf,
             percent: c.totals.percent,

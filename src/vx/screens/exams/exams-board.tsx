@@ -125,7 +125,10 @@ export type ExamsProps = {
     remark: string | null;
     title: Pair;
     /** `percent`: the row's own percentage, the one its grade comes from (weighted when the exams' weights differ). */
-    rows: { subject: Pair; outOf: number; scored: number; grade: string | null; percent?: number | null; grace: number; state?: "value" | "absent" | "missing" | "exempt" }[];
+    /** `absent`: the exams this child missed, by `absentLine()` — they count as 0 (D-319), and the card says so beside the marks. */
+    rows: { subject: Pair; outOf: number; scored: number; grade: string | null; percent?: number | null; grace: number; state?: "value" | "absent" | "missing" | "exempt"; absent?: string }[];
+    /** The lines under the table, by `cardNotes()`: what * means, and why a subject is out of less. */
+    notes?: { en: string; hi: string }[];
     total: number;
     outOf: number;
     percent: number | null;
@@ -1331,6 +1334,8 @@ function Preview(props: ExamsProps & { href: Href }) {
                 <span className="num" style={{ textAlign: "center", fontWeight: 700, color: tone }}>
                   {state === "missing" ? "—" : r.scored}
                   {r.grace ? <span style={{ fontSize: 11, color: "var(--warn)" }}> +{r.grace}G</span> : null}
+                  {r.absent && state === "value" ? <span style={{ color: "var(--bad)" }}>*</span> : null}
+                  {r.absent && state === "value" ? <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--bad)" }}>{r.absent}</span> : null}
                 </span>
                 <span style={{ textAlign: "center", fontWeight: 700, fontSize: 13, color: tone }}>{state === "missing" ? CARD.notEntered : state === "absent" ? CARD.absent : (r.grade ?? "—")}</span>
               </div>
@@ -1343,6 +1348,15 @@ function Preview(props: ExamsProps & { href: Href }) {
             <span style={{ textAlign: "center" }}>{c.grade ?? "—"}</span>
           </div>
         </div>
+        {c.notes?.length ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11, color: "var(--mut)" }}>
+            {c.notes.map((n) => (
+              <span key={n.en}>
+                {n.en} · <span lang="hi">{n.hi}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className="g3" style={{ display: "grid", gridTemplateColumns: `repeat(${tiles.length},minmax(0,1fr))`, gap: 10 }}>
           {tiles.map((t) => (
             <div key={t.k} style={{ display: "flex", flexDirection: "column", borderRadius: 10, border: "1px solid var(--bd)", padding: "10px 12px" }}>

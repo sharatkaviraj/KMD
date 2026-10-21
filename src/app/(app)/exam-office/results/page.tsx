@@ -14,6 +14,8 @@ import { averagePct, graceVerdict, pipelineStates, sameNameHints, unusualAverage
 import { classReadiness } from "@/vx/screens/exams/domain/progress";
 import { isLate } from "@/vx/screens/exams/domain/tracker";
 import { examProgress, officeContext } from "@/vx/screens/exams/office-data";
+import { absentExams } from "@/modules/assessments/domain/report-card";
+import { absentLine } from "@/vx/screens/exams/domain/card-notes";
 import { ResultsBoard, type ResultsView, type ResultsProps } from "@/vx/screens/exams/results-board";
 
 import {
@@ -228,7 +230,7 @@ export default async function ExamResultsPage(props: PageProps<"/exam-office/res
         classId: sampleClass!.id,
         classLabel: state.card.classLabel,
         issued: state.issued,
-        rows: state.card.rows.map((r) => ({ subject: r.subjectCode, scored: r.scored, outOf: r.outOf, grade: r.grade, grace: state.grace[r.subjectCode] ?? 0 })),
+        rows: state.card.rows.map((r) => ({ subject: r.subjectCode, scored: r.scored, outOf: r.outOf, grade: r.grade, grace: state.grace[r.subjectCode] ?? 0, absent: absentLine(absentExams(r)) || undefined })),
         total: state.card.totals.scored,
         outOf: state.card.totals.outOf,
         percent: state.card.totals.percent,

@@ -91,6 +91,26 @@ export function typedProblem(raw: string, reason: "over" | "step" | "nan", maxMa
   return p(`"${t}" — type numbers only. Fix this mark.`, `"${t}" — सिर्फ़ अंक लिखें। अंक ठीक करें।`);
 }
 
+/**
+ * Everything the banner must name, in roster order, one entry per child: the
+ * slip still in the box wins over the saved mark behind it, because the box
+ * is what the teacher is looking at. The same children `tally` counts as to fix.
+ */
+export function fixItems(
+  order: readonly string[],
+  texts: Readonly<Record<string, string>>,
+  cells: Readonly<Record<string, Cell>>,
+  nameOf: (id: string) => string,
+  maxMarks: number,
+  step: number,
+): FixItem[] {
+  const held = new Set(heldIds(order, texts, maxMarks, step));
+  const bad = new Set(misfits(order, cells, maxMarks, step));
+  return order
+    .filter((id) => held.has(id) || bad.has(id))
+    .map((id) => ({ name: nameOf(id), value: held.has(id) ? (texts[id] ?? "").trim() : (cells[id]?.value ?? 0) }));
+}
+
 /** The children whose box holds words that cannot be saved (`readTyped` → bad). */
 export function heldIds(order: readonly string[], texts: Readonly<Record<string, string>>, maxMarks: number, step: number): string[] {
   return order.filter((id) => readTyped(texts[id] ?? "", maxMarks, step).kind === "bad");
@@ -145,13 +165,20 @@ export function belowLine(pass: number, maxMarks: number): Pair {
  * The yellow banner over a sheet whose saved marks the paper cannot hold.
  * It says what is wrong and what to do, in that order — "Kept exactly as
  * saved" left a careful reader asking whether the marks were wrong or not.
+ *
+ * It names what the counter counts as "to fix": saved marks the paper cannot
+ * hold, and boxes holding a slip that was never saved ("85" of 80, "6o").
+ * Counting only the saved ones said "1 mark must be fixed" over a counter
+ * saying "3 to fix" (verification, 21 Oct).
  */
-export function fixBanner(items: readonly { name: string; value: number }[], maxMarks: number, step: number): Pair {
+export type FixItem = { name: string; value: number | string };
+
+export function fixBanner(items: readonly FixItem[], maxMarks: number, step: number): Pair {
   const n = items.length;
-  const list = items.map((x) => `${x.name} (${x.value})`).join(", ");
+  const list = items.map((x) => `${x.name} (${String(x.value).trim()})`).join(", ");
   const reasons = new Set(items.map((x) => {
-    const r = parseMark(String(x.value), maxMarks, step);
-    return r.ok ? "ok" : r.reason;
+    const r = readTyped(String(x.value), maxMarks, step);
+    return r.kind === "bad" ? r.reason : "ok";
   }));
   const only = reasons.size === 1 ? [...reasons][0] : null;
   const whyEn = only === "step" && step >= 1 ? "This paper takes whole marks only — change each to a whole number." : only === "over" ? `This paper is out of ${maxMarks}.` : "";

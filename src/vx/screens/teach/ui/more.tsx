@@ -20,7 +20,7 @@ import { VxPage } from "@/vx/ui/page";
 import { cancelLeaveVx, noticeSeenVx, setAlertVx, setTextSizeVx } from "../actions";
 import type { MoreData } from "../data";
 import { spanPeriods } from "@/vx/screens/timetable/domain/timetable";
-import { classWord, closedTitle, combinedClasses, coverLine, leaveState, LEAVE_STATE_TEXT, marksTileLine, mayCancelLeave, subjectWord } from "../domain/today";
+import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, marksTileLine, mayCancelLeave, subjectWord } from "../domain/today";
 import { ampm, callName, dShort, dShortP, greetingPair, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, LeaveSheet, TchTop, useUrlState } from "./shared";
 import "./today.css";
@@ -142,15 +142,15 @@ export function TeachMore({
   const subjectsLine = (() => {
     const bySubject = new Map<string, string[]>();
     for (const w of data.week) bySubject.set(w.subjectCode, [...new Set([...(bySubject.get(w.subjectCode) ?? []), shortClass(w.classLabel)])]);
-    return [...bySubject.entries()].map(([s, cls]) => tx(p(`${s} for Classes ${andList(cls)}`, `कक्षा ${andList(cls, "और")} ${s}`))).join(" · ");
+    return [...bySubject.entries()].map(([s, cls]) => tx(p(`${subjectWord(s, subjectNames).en} for Classes ${andList(cls)}`, `कक्षा ${andList(cls, "और")} ${subjectWord(s, subjectNames).hi}`))).join(" · ");
   })();
   const held = data.profile.classes.filter((c) => c.held);
-  const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => c.classLabel).join(", ")} की कक्षा अध्यापक`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
+  const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => classWord(c.classLabel).hi ?? c.classLabel).join(", ")} की कक्षा अध्यापक`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
 
   /* ---------------------------------------------------- top bar */
   const helpFor: Partial<Record<MoreView, HelpTopic>> = { news: "news", links: "link", leave: "leave", timetable: "leave" };
   const T: Record<MoreView, [string, Pair, string]> = {
-    menu: [tx(p(`Teacher · ${data.sessionLabel.replace("-", "–")}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${held[0].classLabel}` : ""}`],
+    menu: [tx(p(`Teacher · ${data.sessionLabel.replace("-", "–")}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${tx(classWord(held[0].classLabel))}` : ""}`],
     news: [tx(p("More · Notices", "और · सूचनाएँ")), p("Notices", "सूचनाएँ"), unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं"))],
     links: [tx(p("More · Marks links", "और · अंक लिंक")), p("Marks links", "अंक लिंक"), tx(p("Sampark · no login needed", "संपर्क · लॉगिन नहीं चाहिए"))],
     timetable: [tx(p("More · Timetable", "और · समय-सारणी")), p("My timetable", "मेरी समय-सारणी"), tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`))],
@@ -178,9 +178,9 @@ export function TeachMore({
   const asked = data.leave.filter((l) => l.status === "asked").length;
   type Tile = { k: string; icon: IconName; t: Pair; info: string; tone: Tone; href?: string; onClick?: () => void; badge?: number; wide?: boolean; news?: string };
   const tiles: Tile[] = [
-    { k: "home", icon: "home", t: p("Today", "आज"), info: data.closed ? tx(closedTitle(data.closed)) : nowSlot ? tx(p(`P${nowSlot.number} ${nowSlot.classLabel} ${subj(nowSlot.subjectCode)} now`, `अभी P${nowSlot.number} ${classWord(nowSlot.classLabel).hi}`)) : tx(p("Your day at a glance", "आपका दिन एक नज़र में")), tone: TA, href: "/teach" },
-    { k: "att", icon: "calCheck", t: p("Attendance", "हाज़िरी"), info: held[0] ? tx(p(`${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} children` : ""}`, `${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} बच्चे` : ""}`)) : tx(p("Class registers", "कक्षा हाज़िरी")), tone: TO, href: "/teach/attendance" },
-    { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${held[0].classLabel} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },
+    { k: "home", icon: "home", t: p("Today", "आज"), info: data.closed ? tx(closedTitle(data.closed)) : nowSlot ? tx(p(`P${nowSlot.number} ${nowSlot.classLabel} ${subj(nowSlot.subjectCode)} now`, `अभी P${nowSlot.number} ${classesWord(nowSlot.classLabel).hi} ${subjectWord(nowSlot.subjectCode, subjectNames).hi}`)) : tx(p("Your day at a glance", "आपका दिन एक नज़र में")), tone: TA, href: "/teach" },
+    { k: "att", icon: "calCheck", t: p("Attendance", "हाज़िरी"), info: held[0] ? tx(p(`${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} children` : ""}`, `${classWord(held[0].classLabel).hi}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} बच्चे` : ""}`)) : tx(p("Class registers", "कक्षा हाज़िरी")), tone: TO, href: "/teach/attendance" },
+    { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${classWord(held[0].classLabel).hi} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },
     { k: "marks", icon: "clipboard", t: p("Marks", "अंक"), info: tx(marksTileLine(firstOpen, data.remarks)), tone: TW, href: "/teach/marks" },
     { k: "notes", icon: "note", t: p("Notes", "नोट्स"), info: tx(p("Notes on children", "बच्चों के नोट्स")), tone: TS, href: "/teach/notes" },
     { k: "tasks", icon: "inbox", t: m.teacherTasks, info: data.tasks.length ? tx(p(`${data.tasks.length} waiting for you`, `${data.tasks.length} काम बाकी`)) : tx(p("Work sent by the office", "ऑफ़िस से भेजा गया काम")), tone: TW, href: "/teach/tasks", badge: data.tasks.length },
@@ -215,7 +215,7 @@ export function TeachMore({
         {nowSlot ? (
           <span className="tc-ts" style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, padding: "8px 12px", borderRadius: 12, background: "var(--navs)" }}>
             <span className="tc-dot" style={{ background: "#81DAE4", animation: "xPulse 2s ease infinite" }} />
-            {tx(p(`Now · P${nowSlot.number} ${nowSlot.classLabel} ${nowSlot.subjectCode} till ${hm12(nowSlot.ends)}`, `अभी · P${nowSlot.number} ${nowSlot.classLabel}, ${hm12(nowSlot.ends)} तक`))}
+            {tx(p(`Now · P${nowSlot.number} ${nowSlot.classLabel} ${subjectWord(nowSlot.subjectCode, subjectNames).en} till ${hm12(nowSlot.ends)}`, `अभी · P${nowSlot.number} ${classesWord(nowSlot.classLabel).hi} ${subjectWord(nowSlot.subjectCode, subjectNames).hi}, ${hm12(nowSlot.ends)} तक`))}
           </span>
         ) : null}
       </div>
@@ -302,7 +302,7 @@ export function TeachMore({
     <div className="tc-scr" style={{ maxWidth: 1120 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span className="tc-h1">{tx(p("Your marks links (Sampark)", "आपके अंक लिंक (संपर्क)"))}</span>
-        <span className="tc-tb" style={{ color: "var(--mut)" }}>{[...new Set(data.links.map((l) => l.exam))].join(" · ") || tx(p("No exam is open for marks", "कोई परीक्षा खुली नहीं"))}</span>
+        <span className="tc-tb" style={{ color: "var(--mut)" }}>{[...new Set(data.links.map((l) => tx(examWord(l.exam, l.examHi))))].join(" · ") || tx(p("No exam is open for marks", "कोई परीक्षा खुली नहीं"))}</span>
       </div>
       <div className="tc-note" style={{ background: "var(--accs)", color: "var(--accfg)", alignItems: "center" }}>
         <span className="tc-ibx" style={{ background: "var(--card)", color: "var(--acc)" }}><Ic n="link" size={22} /></span>
@@ -336,8 +336,8 @@ export function TeachMore({
                   </span>
                 </div>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{l.exam}{l.maxMarks ? ` · ${tx(p(`out of ${l.maxMarks}`, `${l.maxMarks} में से`))}` : ""}</span>
-                  <span className="tc-h2">{l.classLabel} {l.subjectCode}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{tx(examWord(l.exam, l.examHi))}{l.maxMarks ? ` · ${tx(p(`out of ${l.maxMarks}`, `${l.maxMarks} में से`))}` : ""}</span>
+                  <span className="tc-h2">{tx(classSubject(l.classLabel, subjectWord(l.subjectCode, subjectNames)))}</span>
                   <span className="pill" style={{ alignSelf: "flex-start", background: st[1], color: st[2] }}>{tx(st[0])}</span>
                 </span>
               </div>
@@ -676,7 +676,7 @@ export function TeachMore({
         <span className="sech">{tx(p("My classes", "मेरी कक्षाएँ"))}</span>
         {data.profile.classes.length === 0 && data.profile.subjects.length === 0 ? <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("No class or subject yet. The office adds you to the timetable.", "अभी कोई कक्षा या विषय नहीं। ऑफ़िस आपको समय-सारणी में जोड़ेगा।"))}</span> : null}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {data.profile.classes.map((c) => <span key={c.classId} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: c.held ? V("accs") : V("s3"), color: c.held ? V("accfg") : V("fg") }}>{c.held ? tx(p(`${c.classLabel} · class teacher`, `${c.classLabel} · कक्षा अध्यापक`)) : c.classLabel}</span>)}
+          {data.profile.classes.map((c) => <span key={c.classId} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: c.held ? V("accs") : V("s3"), color: c.held ? V("accfg") : V("fg") }}>{c.held ? tx(p(`${c.classLabel} · class teacher`, `${classWord(c.classLabel).hi} · कक्षा अध्यापक`)) : tx(classWord(c.classLabel))}</span>)}
           {data.profile.subjects.map((s) => <span key={s} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: V("s3"), color: V("fg") }}>{s}</span>)}
         </div>
       </div>
@@ -707,7 +707,7 @@ export function TeachMore({
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRadius: 14, background: "var(--s2)", border: "1px dashed var(--bds)" }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)", letterSpacing: ".06em", textTransform: "uppercase" }}>{tx(p("Preview", "झलक"))}</span>
-            <span style={{ fontWeight: 700, fontSize: large ? 19 : 16, transition: "font-size .3s var(--ease)" }}>{firstOpen ? tx(p(`${firstOpen.classLabel} · ${firstOpen.subjectCode} — ${firstOpen.entered} of ${firstOpen.total} entered`, `${firstOpen.classLabel} · ${firstOpen.subjectCode} — ${firstOpen.total} में से ${firstOpen.entered} भरे`)) : tx(p("Your marks and registers", "आपके अंक और हाज़िरी"))}</span>
+            <span style={{ fontWeight: 700, fontSize: large ? 19 : 16, transition: "font-size .3s var(--ease)" }}>{firstOpen ? tx(p(`${classSubject(firstOpen.classLabel, subjectWord(firstOpen.subjectCode, subjectNames)).en} — ${firstOpen.entered} of ${firstOpen.total} entered`, `${classSubject(firstOpen.classLabel, subjectWord(firstOpen.subjectCode, subjectNames)).hi} — ${firstOpen.total} में से ${firstOpen.entered} भरे`)) : tx(p("Your marks and registers", "आपके अंक और हाज़िरी"))}</span>
             <span style={{ fontSize: large ? 16 : 13, color: "var(--mut)", transition: "font-size .3s var(--ease)" }}>{tx(p("This is how text looks in the app.", "ऐप में अक्षर ऐसे दिखेंगे।"))}</span>
           </div>
         </div>

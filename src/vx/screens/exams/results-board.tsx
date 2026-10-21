@@ -162,7 +162,7 @@ export type ResultsProps = {
       classId?: string;
       classLabel: string;
       issued: boolean;
-      rows: { subject: string; scored: number; outOf: number; grade: string | null; grace: number }[];
+      rows: { subject: string; scored: number; outOf: number; grade: string | null; grace: number; /** By `absentLine()`: the exams missed, counted as 0 (D-319). */ absent?: string }[];
       total: number;
       outOf: number;
       percent: number | null;
@@ -1121,7 +1121,8 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
                     </span>
                     <span className="num xb">
                       {r.scored}
-                      {r.grace ? ` +${r.grace}G` : ""}/{r.outOf} · {r.grade ?? "—"}
+                      {r.grace ? ` +${r.grace}G` : ""}/{r.outOf}
+                      {r.absent ? <span style={{ color: "var(--bad)" }} title={r.absent}>*</span> : null} · {r.grade ?? "—"}
                     </span>
                   </div>
                 ))}

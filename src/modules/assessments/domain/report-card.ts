@@ -389,6 +389,39 @@ export function markIn(row: Pick<ReportRow, "marks">, assessmentCode: string): R
   return row.marks.find((mark) => mark.assessmentCode === assessmentCode) ?? null;
 }
 
+export type CardExam = { code: string; en: string; hi: string };
+
+/**
+ * The exams in a row the child missed without being excused. Such a paper
+ * counts as 0 out of its maximum (D-319), so a subject reads "15.5 out of 100"
+ * — and the card must say why, or a parent reads it as a 15.5 the child wrote
+ * (verification 21 Oct). Works on an issued card: it reads only the stored marks.
+ */
+export function absentExams(row: Pick<ReportRow, "marks">): CardExam[] {
+  return row.marks
+    .filter((mark) => mark.absent && !mark.exempt)
+    .map((mark) => ({ code: mark.assessmentCode, en: mark.assessmentLabelEn, hi: mark.assessmentLabelHi }));
+}
+
+/**
+ * Subjects examined in fewer of the term's exams than the card has columns,
+ * and so out of a smaller total. ELGA is set only in SA1 (80) while every
+ * other subject has FA1 (20) and SA1 (80): its "out of 80" is the school's
+ * paper plan, not a slip in the sums, and the card says so in one line
+ * rather than leaving a parent to wonder where 20 marks went.
+ */
+export function partialSubjects(rows: Pick<ReportRow, "subjectCode" | "marks">[]): { subjectCode: string; outOf: number; sat: CardExam[] }[] {
+  const columns = reportColumns(rows);
+  if (columns.length < 2) return [];
+  return rows
+    .filter((row) => row.marks.length > 0 && row.marks.length < columns.length)
+    .map((row) => ({
+      subjectCode: row.subjectCode,
+      outOf: row.marks.reduce((sum, mark) => sum + (mark.exempt ? 0 : mark.maxMarks), 0),
+      sat: row.marks.map((mark) => ({ code: mark.assessmentCode, en: mark.assessmentLabelEn, hi: mark.assessmentLabelHi })),
+    }));
+}
+
 /**
  * A card with nothing on it: no subject, or not one mark, absence or
  * exemption anywhere. Never issued — a family must not be handed a blank card

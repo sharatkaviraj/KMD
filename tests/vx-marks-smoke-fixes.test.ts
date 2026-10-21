@@ -4,6 +4,7 @@ import {
   belowLine,
   childCount,
   fixBanner,
+  fixItems,
   heldIds,
   noMarkYet,
   outOf,
@@ -94,6 +95,40 @@ describe("the counter tells the truth (smoke: '14 of 14 saved · 0 left' with tw
     expect(banner.en).not.toContain("kept exactly as saved");
     expect(banner.hi).toContain("भेजने से पहले 2 अंक ठीक करने हैं");
     expect(fixBanner([{ name: "Child C", value: 85 }], 80, 1).en).toBe("1 mark must be fixed before you can send: Child C (85). This paper is out of 80.");
+  });
+
+  it("names the slips still in their boxes too, so the banner and the counter agree (verification 21 Oct)", () => {
+    // "85" of 80 and "6o" typed, plus a saved 53.5 on a whole-mark paper:
+    // the counter said "3 to fix" while the banner said "1 mark must be fixed".
+    const order = ["a", "b", "c", "d"];
+    const cells: Record<string, Cell> = {
+      a: { state: "value", value: 53.5 },
+      b: { state: "blank", value: null },
+      c: { state: "value", value: 40 },
+      d: { state: "value", value: 60 },
+    };
+    const texts = { a: "53.5", b: "85", c: "6o", d: "60" };
+    const names: Record<string, string> = { a: "Child A", b: "Child B", c: "Child C", d: "Child D" };
+    const items = fixItems(order, texts, cells, (id) => names[id], 80, 1);
+    expect(items).toEqual([
+      { name: "Child A", value: "53.5" },
+      { name: "Child B", value: "85" },
+      { name: "Child C", value: "6o" },
+    ]);
+    const held = heldIds(order, texts, 80, 1);
+    expect(tally(order, cells, [...new Set([...held, "a"])]).toFix).toBe(items.length);
+    const banner = fixBanner(items, 80, 1);
+    expect(banner.en).toBe("3 marks must be fixed before you can send: Child A (53.5), Child B (85), Child C (6o).");
+    expect(banner.hi).toBe("भेजने से पहले 3 अंक ठीक करने हैं: Child A (53.5), Child B (85), Child C (6o)।");
+  });
+
+  it("names a saved misfit once, by the slip in its box when the teacher has started fixing it", () => {
+    const cells: Record<string, Cell> = { a: { state: "value", value: 53.5 } };
+    expect(fixItems(["a"], { a: "95" }, cells, () => "Child A", 80, 1)).toEqual([{ name: "Child A", value: "95" }]);
+    // Saved misfit with nothing typed over it: the saved value is named.
+    expect(fixItems(["a"], {}, cells, () => "Child A", 80, 1)).toEqual([{ name: "Child A", value: 53.5 }]);
+    // Only typed slips that are over the paper: the reason is said once.
+    expect(fixBanner([{ name: "Child B", value: "85" }], 80, 1).en).toBe("1 mark must be fixed before you can send: Child B (85). This paper is out of 80.");
   });
 });
 

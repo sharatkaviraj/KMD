@@ -24,6 +24,7 @@ import {
   childCount,
   draftEntries,
   fixBanner,
+  fixItems,
   heldIds,
   submitBlockers,
   checkSummary,
@@ -897,9 +898,11 @@ export function MarksSheet({
     </Banner>
   ) : restoredNote ? (
     <Banner tone="info">{tx(restoredNote)}</Banner>
-  ) : badNow.length && !paper.locked && paper.examOpen ? (
+  ) : (badNow.length || held.length) && !paper.locked && paper.examOpen ? (
+    // The same children the counter calls "to fix": saved marks the paper
+    // cannot hold and slips still in their boxes.
     <Banner tone="warn">
-      {tx(fixBanner(badNow.map((id) => ({ name: byId.get(id)?.name ?? "—", value: cells[id]?.value ?? 0 })), paper.maxMarks, paper.markStep))}
+      {tx(fixBanner(fixItems(order, texts, cells, (id) => byId.get(id)?.name ?? "—", paper.maxMarks, paper.markStep), paper.maxMarks, paper.markStep))}
     </Banner>
   ) : null;
 
