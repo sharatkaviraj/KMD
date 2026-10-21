@@ -95,18 +95,22 @@ function RequestEditor({
   });
 
   const current = useRef<RequestDraft>({ values, confirmed: [...confirmed] });
+  // After a send, the button says so until she changes something: it kept
+  // saying "भेजें (1)" and she could not tell it had gone (smoke 20 Oct).
+  const [sentClean, setSentClean] = useState(false);
   const draft = useDurableDraft(draftKey(`request/${draftScope}`, sessionLabel, "answers"), JSON.stringify({ roll: roll.map(row => ({ id: row.studentId, answered: row.answered, current: row.current })), fields }), isRequestDraft);
   const [state, action, pending] = useActionState(async (previous: typeof idleLinkState, formData: FormData) => {
     try {
       const started = performance.now();
       const result = await submitAction(previous, formData);
       if (result.status === "saved") recordPerformance("form_saved", performance.now() - started);
-      if (result.status === "saved") await draft.clear();
+      if (result.status === "saved") { await draft.clear(); setSentClean(true); }
       return result;
     } catch { return { ...idleLinkState, status: "error" as const, message: m.notSaved }; }
   }, idleLinkState);
   const edit = (next: RequestDraft) => {
     if (pending) return;
+    setSentClean(false);
     current.current = next;
     setValues(next.values); setConfirmed(new Set(next.confirmed));
     void draft.persist(next);
@@ -302,10 +306,16 @@ function RequestEditor({
             size="lg"
             loading={pending}
             loadingText={primary(m.saving, language)}
-            disabled={touched === 0 || hasErrors || !draft.online}
+            disabled={touched === 0 || hasErrors || !draft.online || (sentClean && state.status === "saved")}
           >
-            {primary(m.linkSaveAll, language)}
-            {touched > 0 ? ` (${payload.length})` : ""}
+            {sentClean && state.status === "saved" ? (
+              primary(m.linkSentDone, language)
+            ) : (
+              <>
+                {primary(m.linkSaveAll, language)}
+                {touched > 0 ? ` (${payload.length})` : ""}
+              </>
+            )}
           </Button>
           <p className="mt-1.5 pb-3 text-center text-[12px] text-subtle-foreground">
             {hasErrors

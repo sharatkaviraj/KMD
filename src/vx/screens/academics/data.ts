@@ -15,7 +15,7 @@ import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes, type ClassScope } from "@/modules/attendance/domain/class-scope";
 import { schoolToday } from "@/vx/format";
 import { noteViewer, visibleNotes } from "@/vx/screens/notes/data";
-import { boardKpis, copiesNoteWords, isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
+import { copiesNoteWords, noteAttention, isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
 import { classesFor, listExams, staffList, trackerFor } from "@/vx/screens/exams/data";
 import { pickCurrentExam } from "@/vx/screens/exams/domain/current";
 import { classRows, expectedShare, overall, teacherLoads, type PaperFacts } from "@/vx/screens/exams/domain/tracker";
@@ -1066,27 +1066,21 @@ export async function planHiddenFrom(staff: CurrentStaff, plan: { note_id: strin
 /**
  * "Notes needing action", counted exactly as the Notes board counts its
  * "Needs action" tile: the notes this reader may see (`visibleNotes`, the
- * board's own read and `canSeeNote` rule) through the board's `boardKpis` —
+ * board's own read and `canSeeNote` rule) through `noteAttention` —
  * a follow-up due today or earlier, or an open health or family note nobody
- * has picked up. `due` is the board's "follow-ups this week"; `dueOn` the
- * earliest of their dates. Before, Today said 7 where the board said 4
+ * has picked up. Before, Today said 7 where the board said 4
  * (smoke 20 Oct).
  *
- * TODO(merge with fix/smoke-notes): that branch exports
- * `noteAttention(notes, today)` from `@/vx/screens/notes/domain/notes`
- * ({ needsAction, due, oldestDue }). Swap `boardKpis` for it here; the
- * weekly report (`notesOpen`) reads this function, so it follows.
+ * Counted with the notes board's own `noteAttention`: `due` is the
+ * follow-ups due today or earlier, `dueOn` the oldest of them. The weekly
+ * report (`notesOpen`) reads this function, so it follows.
  */
 export async function notesNeedingAction(ctx: Ctx): Promise<{ open: number; due: number; dueOn: string | null }> {
   if (!can(ctx.staff, "notes:view")) return { open: 0, due: 0, dueOn: null };
   const viewer = await noteViewer(ctx.staff, ctx.session);
   const notes = await visibleNotes(viewer, ctx.session);
-  const kpis = boardKpis(notes, 0, ctx.today);
-  const dates = notes
-    .filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null)
-    .map((n) => n.followUpOn as string)
-    .sort();
-  return { open: kpis.needsAction, due: kpis.dueThisWeek, dueOn: kpis.dueThisWeek ? dates[0] ?? null : null };
+  const { needsAction, due, oldestDue } = noteAttention(notes, ctx.today);
+  return { open: needsAction, due, dueOn: oldestDue };
 }
 
 /* ---------------------------------------------------------- one child */

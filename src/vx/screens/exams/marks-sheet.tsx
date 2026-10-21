@@ -134,6 +134,12 @@ export function MarksSheet({
   const router = useRouter();
   const order = students.map((s) => s.id);
   const byId = new Map(students.map((s) => [s.id, s]));
+  // With no roll numbers in a class, each child's place in the list stands in
+  // ("No. 4"), as on the register: a column of dashes helps nobody (smoke 20 Oct).
+  const anyRoll = students.some((s) => Boolean(s.roll));
+  const placeOf = new Map(students.map((s, i) => [s.id, i + 1]));
+  const rollText = (s: SheetStudent) => s.roll ?? (anyRoll ? "—" : String(placeOf.get(s.id) ?? ""));
+  const rollHead = anyRoll ? p("Roll", "रोल") : p("No.", "क्रम");
 
   const [cells, setCells] = useState<Record<string, Cell>>(initialSaved);
   const [saved, setSaved] = useState<Record<string, Cell>>(initialSaved);
@@ -911,7 +917,9 @@ export function MarksSheet({
               {gaps ? <Ic n="alert" size={40} style={{ color: "var(--warnfg)" }} /> : <SuccessTick />}
               <h2 className="serif" style={{ margin: 0, fontSize: 26 }}>{two(p("Marks sent", "अंक भेजे गए"), 14)}</h2>
               <p style={{ margin: 0, fontSize: 16 }}>
-                {coordinatorName ? tx(p(`${coordinatorName} has your marks.`, `आपके अंक ${coordinatorName} के पास हैं।`)) : tx(p("The exam office has your marks.", "परीक्षा विभाग के पास आपके अंक हैं।"))}
+                {variant === "office"
+                  ? tx(p("These marks have been sent to the exam office.", "ये अंक परीक्षा विभाग को भेजे जा चुके हैं।"))
+                  : coordinatorName ? tx(p(`${coordinatorName} has your marks.`, `आपके अंक ${coordinatorName} के पास हैं।`)) : tx(p("The exam office has your marks.", "परीक्षा विभाग के पास आपके अंक हैं।"))}
               </p>
               {gaps ? (
                 // Sent, but not every child is accounted for: said, never a plain green tick.
@@ -1062,7 +1070,7 @@ export function MarksSheet({
                       const s = byId.get(id)!;
                       return (
                         <div key={id} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--bd)" }}>
-                          <span className="num" style={{ width: 28, color: "var(--mut)" }}>{s.roll ?? "—"}</span>
+                          <span className="num" style={{ width: 28, color: "var(--mut)" }}>{rollText(s)}</span>
                           <span style={{ flex: "1 1 120px", minWidth: 0, display: "flex", flexDirection: "column" }}>
                             <strong style={{ overflowWrap: "break-word" }}>{s.name}</strong>
                             {s.hint ? <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(s.hint)}</span> : null}
@@ -1114,14 +1122,18 @@ export function MarksSheet({
     return (
       <VxPage>
         <style href="vx-marks-office" precedence="default">{`.xer{display:grid;grid-template-columns:${cols};gap:10px;align-items:center;min-height:58px;padding:6px 16px}.xer.xd+.xer.xd{border-top:1px solid var(--bd)}.xsave{bottom:12px}@container vx (max-width:899px){.xer{grid-template-columns:${colsM};padding:6px 12px}.xsave{bottom:calc(var(--vx-bottom-h) + 12px)}}`}</style>
-        <ExamsTop crumb={crumb} title={title2} back={backHref} mSub={`${tx(p("Out of", "पूर्णांक"))} ${paper.maxMarks} · ${tx(p("admin entry", "प्रशासक प्रविष्टि"))}`} mBack={backHref} />
+        <ExamsTop crumb={crumb} title={title2} back={backHref} mSub={`${tx(p("Out of", "पूर्णांक"))} ${paper.maxMarks} · ${tx(p("admin entry", "प्रशासक भर रहे हैं"))}`} mBack={backHref} />
         <main>
           <div className="pad" style={{ padding: "16px 28px 20px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 880, margin: "0 auto" }}>
               {!officeEdit && !correcting ? (
                 <Note icon="eye" tone="info">
                   <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, justifyContent: "space-between", width: "100%" }}>
-                    <span>{tx(p("You are looking at the saved marks. Nothing changes until you press Edit marks.", "आप सहेजे अंक देख रहे हैं। “अंक बदलें” दबाने तक कुछ नहीं बदलेगा।"))}</span>
+                    <span>
+                      {entryStatus === "open" && paper.examOpen && !paper.locked
+                        ? tx(p("You are looking at the saved marks. Nothing changes until you press Edit marks.", "आप सहेजे अंक देख रहे हैं। “अंक बदलें” दबाने तक कुछ नहीं बदलेगा।"))
+                        : tx(p("These marks are sent and read only. To change one, go back and use Correct a mark.", "ये अंक भेजे जा चुके हैं, इन्हें यहाँ नहीं बदला जा सकता। कोई अंक बदलना हो तो वापस जाकर “अंक सुधारें” दबाएँ।"))}
+                    </span>
                     {entryStatus === "open" && paper.examOpen && !paper.locked ? (
                       <Btn variant="sec" icon="edit" disabled={!ready || Boolean(recovered) || oldPending || pendingCommand} onClick={() => setOfficeEdit(true)}>{tx(p("Edit marks", "अंक बदलें"))}</Btn>
                     ) : null}
@@ -1165,7 +1177,7 @@ export function MarksSheet({
               </div>
               <div className="card" style={{ overflow: "hidden" }}>
                 <div className="only-d xer" style={{ minHeight: 42, background: "var(--s2)", borderBottom: "1px solid var(--bd)" }}>
-                  <span className="sech">{tx(p("Roll", "रोल"))}</span>
+                  <span className="sech">{tx(rollHead)}</span>
                   <span className="sech">{tx(p("Student", "विद्यार्थी"))}</span>
                   <span className="sech" style={{ textAlign: "center" }}>{tx(p("Marks", "अंक"))} / {paper.maxMarks}</span>
                   <span className="sech">{tx(p("Absent", "अनुपस्थित"))}</span>
@@ -1189,7 +1201,7 @@ export function MarksSheet({
                     const away = cell.state === "absent" || cell.state === "exempt";
                     return (
                       <div key={s.id} className="row xer xd">
-                        <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{s.roll ?? "—"}</span>
+                        <span className="num" style={{ fontSize: 12, fontWeight: 700, color: "var(--mut)" }}>{rollText(s)}</span>
                         <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                           <span className="clip" style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: res.c }}>{res.t}</span>
@@ -1346,7 +1358,7 @@ export function MarksSheet({
                 </span>
                 <Card pad={false} style={{ overflow: "hidden" }}>
                   <div className="only-d" style={{ display: "grid", gridTemplateColumns: "56px minmax(0,1fr) 110px 120px 110px", gap: 12, padding: "12px 18px", fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--mut)" }}>
-                    <span>{tx(p("Roll", "रोल"))}</span>
+                    <span>{tx(rollHead)}</span>
                     <span>{tx(p("Child", "बच्चा"))}</span>
                     <span style={{ textAlign: "center" }}>{tx(p(`Mark / ${paper.maxMarks}`, `अंक / ${paper.maxMarks}`))}</span>
                     <span style={{ textAlign: "center" }}>{tx(p("Absent?", "अनुपस्थित?"))}</span>
@@ -1369,7 +1381,7 @@ export function MarksSheet({
                     const slip = heldSet.has(s.id) ? problemOf(s.id) : null;
                     return (
                       <div key={s.id} className="row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "10px 14px", borderTop: "1px solid var(--bd)", background: slip ? "var(--bads)" : active ? "var(--accs)" : undefined, boxShadow: slip ? "inset 3px 0 0 var(--bad)" : active ? "inset 3px 0 0 var(--pri)" : undefined }}>
-                        {s.roll ? <span className="num" style={{ width: 30, flex: "none", color: "var(--mut)", fontWeight: 600 }}>{s.roll}</span> : null}
+                        <span className="num" style={{ width: 30, flex: "none", color: "var(--mut)", fontWeight: 600 }}>{rollText(s)}</span>
                         {/* Name, box and Absent share one line at 360px: the
                             Absent button no longer wraps under the name and
                             doubles every row (smoke 20 Oct); a long name

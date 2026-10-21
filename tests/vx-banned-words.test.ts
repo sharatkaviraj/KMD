@@ -29,14 +29,7 @@ const HINDI = ["ड्राफ़्ट", "ड्राफ्ट", "सबम�
  * → count. Owned by the screens' streams; see the handoff list in the
  * 20 Oct smoke fixes. Never add to it: say the thing in plain words instead.
  */
-const ALLOWED: Record<string, number> = {
-  "src/vx/screens/exams/marks-sheet.tsx|ड्राफ्ट": 5,
-  "src/vx/screens/exams/marks-sheet.tsx|ड्राफ़्ट": 6,
-  "src/vx/screens/exams/marks-sheet.tsx|पुष्टि": 3,
-  "src/vx/screens/exams/marks-sheet.tsx|प्रविष्टि": 1,
-  "src/vx/screens/exams/teacher-marks.tsx|ड्राफ़्ट": 2,
-  "src/vx/screens/teach/ui/attend.tsx|पुष्टि": 1,
-};
+const ALLOWED: Record<string, number> = {};
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

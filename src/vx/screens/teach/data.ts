@@ -287,7 +287,12 @@ async function latestPapers(classId: string, sessionLabel: string) {
   ]);
   const when = new Map(assessments.map((a) => [a.id, { at: a.startsOn ?? a.endsOn ?? "", label: a.labelEn || a.code }]));
   const bySubject = new Map<string, (typeof papers)[number]>();
+  // An undated exam is a rehearsal, not part of the year, while any dated exam
+  // exists (the exam office's plannedExams rule): its zeros flagged whole
+  // classes as "below 33%" (smoke 20 Oct).
+  const anyDated = assessments.some((a) => Boolean(a.startsOn ?? a.endsOn));
   for (const paper of papers) {
+    if (anyDated && !when.get(paper.assessmentId)?.at) continue;
     const cur = bySubject.get(paper.subjectId);
     if (!cur || (when.get(paper.assessmentId)?.at ?? "") > (when.get(cur.assessmentId)?.at ?? "")) bySubject.set(paper.subjectId, paper);
   }
