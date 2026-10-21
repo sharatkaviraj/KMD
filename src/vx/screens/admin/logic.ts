@@ -122,9 +122,16 @@ export function defaultBoardFocus(rows: readonly ClassBoardRow[]): string | null
 export function initialMarks(
   roll: readonly { studentId: string }[],
   saved: Readonly<Record<string, MarkStatus>>,
+  /**
+   * Whether an unsaved register may start everyone present, as a starting point
+   * for the person about to mark it. A register only looked at (school closed,
+   * no right to mark) starts empty: a full green "20/20" there read as done
+   * (smoke run, 20 Oct).
+   */
+  preview = true,
 ): Record<string, MarkStatus | null> {
   const hasSaved = Object.keys(saved).length > 0;
-  return Object.fromEntries(roll.map((s) => [s.studentId, hasSaved ? (saved[s.studentId] ?? null) : "present"]));
+  return Object.fromEntries(roll.map((s) => [s.studentId, hasSaved ? (saved[s.studentId] ?? null) : preview ? "present" : null]));
 }
 
 export function markCounts(marks: Readonly<Record<string, MarkStatus | null>>): {

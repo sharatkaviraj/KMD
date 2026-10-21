@@ -856,13 +856,19 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
         </TileLink>
       ) : null}
       {attendance ? (
-        <TileLink href={props.links.attendance ? "/attendance" : null} className="card lift" style={{ ...tile, flexDirection: "row", alignItems: "center", gap: 14, animation: "xRise .45s .05s var(--ease) both" }}>
-          <DrawnRing size={64} r={26} stroke={8} value={attendance.marked} max={Math.max(1, attendance.total)} tone="var(--acc)" track="var(--s3)" />
-          <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-            <span style={label}>{tx(T.attendance)}</span>
-            <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{attendance.marked}/{attendance.total}</span>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>
-              {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
+        // The heading has the tile's full width and the ring sits beside the count:
+        // side by side with the ring, a narrow desktop column cut it to "Attendan" (smoke run, 20 Oct).
+        <TileLink href={props.links.attendance ? "/attendance" : null} className="card lift" style={{ ...tile, animation: "xRise .45s .05s var(--ease) both" }}>
+          <span style={label}>{tx(T.attendance)}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <span style={{ flex: "none", display: "flex" }}>
+              <DrawnRing size={52} r={21} stroke={7} value={attendance.marked} max={Math.max(1, attendance.total)} tone={attendance.schoolOpen ? "var(--acc)" : "var(--s3)"} track="var(--s3)" />
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
+              <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{attendance.schoolOpen ? `${attendance.marked}/${attendance.total}` : "—"}</span>
+              <span style={{ fontSize: 12, color: "var(--mut)", overflowWrap: "anywhere" }}>
+                {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
+              </span>
             </span>
           </span>
         </TileLink>
