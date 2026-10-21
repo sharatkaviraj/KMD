@@ -708,12 +708,12 @@ function inboxSources(staff: CurrentStaff, sessionLabel: string, day: string, re
  * only the list itself shows. On Today and Needs you the page reads the same
  * sources in the same request, so the badge costs nothing there.
  */
-export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests) => Promise<number> = cache(
-  async (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests): Promise<number> => {
+export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests, nowMinutes?: number) => Promise<number> = cache(
+  async (staff: CurrentStaff, sessionLabel: string, day: string, refunds?: MoneyRequests, nowMinutes?: number): Promise<number> => {
     const [board, needing, pending, money, jobs, leave] = await inboxSources(staff, sessionLabel, day, refunds, []);
     const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending.filter(s=>s.fieldKey!=="student_photo"&&(staff.role==="admin"||!s.requiresAdmin))) : { changes: [], confirmations: [] };
     return inboxBadgeCount({
-      notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded) && registerLate(board.bells, schoolMinutes(new Date()))),
+      notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded) && registerLate(board.bells, nowMinutes ?? schoolMinutes(new Date()))),
       coverNeeded: needing?.length ?? 0,
       changes: changes.length,
       confirmations: confirmations.length,

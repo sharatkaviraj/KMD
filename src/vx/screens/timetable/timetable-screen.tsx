@@ -113,6 +113,8 @@ function timetableHref(s: Partial<TimetableState>, day: string | undefined): str
 /* ------------------------------------------------------------- the look */
 
 const V = (token: string) => `var(--${token})`;
+/** A class in a narrow week cell: "11 Arts", not "Class 11 ..." with the stream cut off (smoke run, 20 Oct). */
+const cellClass = (label: string) => label.replace(/^class\s+/i, "");
 /** A subject's cell: its family colour at 15% over the card (the design's `tintBg`). */
 const tint = (code: string) => `color-mix(in srgb, ${V(FAMILY_TONES[subjectFamily(code)])} 15%, var(--card))`;
 const bar = (code: string) => V(FAMILY_TONES[subjectFamily(code)]);
@@ -603,6 +605,8 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
     const covering = coverWeekday ? duties.filter((d) => d.status === "assigned" && d.coveringStaffId === teacherId) : [];
     const coveringAt = new Map(covering.map((d) => [d.period, d]));
     const ownAt = new Map((coverWeekday ? duties : []).filter((d) => d.absentIds?.includes(teacherId)).map((d) => [d.period, d]));
+    // Periods they leave that began before cover could be arranged: marked on their week too (smoke run, 20 Oct).
+    const missedAt = new Map((coverWeekday ? (data.cover?.missed ?? []) : []).filter((m) => m.absentIds.includes(teacherId)).map((m) => [m.period, m]));
     const takenN = Math.max(data.subsThisWeek[teacherId] ?? 0, covering.length);
     body = (
       <>
@@ -664,7 +668,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
             const now = today && period === nowP ? "now" : null;
             const taking = day === coverWeekday ? coveringAt.get(period) : undefined;
             if (taking) {
-              const t1 = taking.classLabels.join(", ");
+              const t1 = taking.classLabels.map(cellClass).join(", ");
               const t2 = say(`Covering · ${subjectName(taking.subjectCode)}`, `व्यवस्था · ${subjectName(taking.subjectCode)}`);
               return { t1, t2, t2m: t2, bg: tint(taking.subjectCode), line: { style: "dashed", width: 1.5, color: V("acc") }, bar: V("acc"), dot: now, aria: `${dayName(day)} P${periodNumber(period)}: ${t1} · ${t2}` };
             }
@@ -672,7 +676,7 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
               const t2 = `${dayName(day)} P${periodNumber(period)}`;
               return { ...FREE, t1: say("Free", "खाली"), t2, t2m: say("Free period", "खाली पीरियड"), dot: now, aria: `${t2}: ${say("Free", "खाली")}` };
             }
-            const t1 = [...new Set(list.map((s) => s.classLabel))].join(", ");
+            const t1 = [...new Set(list.map((s) => cellClass(s.classLabel)))].join(", ");
             const sub = subjectName(list[0].subjectCode);
             const view: CellView = { t1, t2: sub, t2m: sub, bg: tint(list[0].subjectCode), line: { style: "solid", width: 1, color: "transparent" }, bar: bar(list[0].subjectCode), dot: now, onClick: data.me.mayEdit ? () => go({ view: "class", classId: list[0].classId, cell: { day, period } }) : undefined, aria: `${dayName(day)} P${periodNumber(period)}: ${t1} · ${sub}` };
             const own = day === coverWeekday ? ownAt.get(period) : undefined;
@@ -682,6 +686,11 @@ export function TimetableScreen({ data, state, previewing }: { data: TimetableDa
               view.t2m = by ? say(`Covered by ${own.coveringName ?? "—"}`, `${own.coveringName ?? "—"} ले रहे हैं`) : say("Away · needs cover", "अनुपस्थित · व्यवस्था चाहिए");
               view.line = { style: "dashed", width: 1.5, color: V(by ? "ok" : "warn") };
               view.bar = V(by ? "ok" : "warn");
+            } else if (day === coverWeekday && missedAt.has(period)) {
+              view.t2 = say("Away · no cover", "अनुपस्थित · व्यवस्था नहीं");
+              view.t2m = say("Away · not covered", "अनुपस्थित · कोई शिक्षक नहीं");
+              view.line = { style: "dashed", width: 1.5, color: V("bad") };
+              view.bar = V("bad");
             }
             return view;
           }}

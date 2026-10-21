@@ -1,6 +1,7 @@
 import "server-only";
 
 import { requirePermission } from "@/platform/auth/current-staff";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { can } from "@/platform/auth/permissions";
 import { addDays, schoolToday } from "@/platform/dates";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -119,7 +120,9 @@ export async function loadTimetableScreen(coverDayParam: string | null): Promise
   const mayEdit = can(me, "timetable:manage");
   const mayCover = can(me, "substitutions:manage");
   const mayViewCover = can(me, "substitutions:view");
-  const today = schoolToday();
+  // Today by the same clock the admin's Today reads (a lab seat's set time; real time for everyone else).
+  // Reads only: whether a period can still be arranged is judged on the real clock, as every write is.
+  const today = schoolToday(await schoolNow(me));
   const week = weekDates(today);
   const sessionLabel = await resolveSessionLabel();
   const empty: TimetableData = {

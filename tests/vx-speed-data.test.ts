@@ -113,8 +113,9 @@ describe("the badge and the list agree (perf 1, 2)", () => {
     const refunds = async () => [{ id: "r1", studentId: "x", studentName: "Test Child D", amount: 500, reason: null, requestedAt: "2026-10-15T04:00:00Z" }];
     const admin = person("admin");
     const [list, count] = await Promise.all([
-      loadInbox(admin, "2026-27", "2026-10-15", { refunds }),
-      inboxCount(admin, "2026-27", "2026-10-15", refunds),
+      // 9:20, after the first period ends: a register is late (none is raised at midnight).
+      loadInbox(admin, "2026-27", "2026-10-15", { refunds, nowMinutes: 560 }),
+      inboxCount(admin, "2026-27", "2026-10-15", refunds, 560),
     ]);
     // not marked · 1 cover · 2 changes · confirmations · refund · failed job
     expect(list.items.map((item) => item.kind)).toEqual(["not_marked", "cover", "submission", "submission", "confirmations", "refund", "job"]);
