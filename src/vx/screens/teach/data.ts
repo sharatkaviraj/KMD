@@ -35,13 +35,20 @@ import { periodNumber } from "@/modules/timetable/domain/periods";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetable-repo";
 import { schoolToday } from "@/vx/format";
-import { listExams, marksLinkUrl, papersOf, trackerFor, type Exam } from "@/vx/screens/exams/data";
+import { currentExam, enrolmentsFor, listExams, marksLinkUrl, papersOf, remarksFor, trackerFor, type Exam } from "@/vx/screens/exams/data";
 import { openExamsForMarks } from "@/vx/screens/exams/domain/current";
 import { noteViewer, notesForStudent, visibleNotes } from "@/vx/screens/notes/data";
 import { excerpt, type BoardNote } from "@/vx/screens/notes/domain/notes";
 import { addDays } from "@/vx/screens/academics/domain";
 
+import { listTeacherTasks } from "@/modules/teacher-tasks/data/repo";
+import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
+import { classTeacherOf } from "@/vx/screens/exams/guards";
+import { onRoll } from "@/vx/screens/exams/domain/tracker";
+import type { Pair } from "@/vx/text";
+
 import { alertWhen, attentionReasons, average, dayBefore, mergeCombinedSlots, monthEnd, tellApart, upcomingBirthdays, type AttentionReason, type Mark } from "./domain/teach";
+import { closedTag, closedWhy, lastOpenDay, leaveForToday, profileClasses, remarksLeft, type CalendarEntry, type ClosedWhy, type MyCover } from "./domain/today";
 import { childBasics, staffNames } from "./students";
 
 /*
@@ -108,6 +115,147 @@ export async function staffNotices(staffId: string, sessionLabel: string, limit 
   }));
 }
 
+/* ------------------------------------------------------- the calendar */
+
+/**
+ * The calendar's rows for a range of days, with the names the office typed
+ * ("Dussehra"). The cached calendar carries only each day's kind, and Today
+ * said "No school today" with no reason (smoke 20 Oct).
+ */
+async function calendarNames(sessionLabel: string, from: string, to: string): Promise<Map<string, CalendarEntry>> {
+  const { data } = await createAdminClient()
+    .from("academic_calendar_days")
+    .select("day, kind, label_en, label_hi")
+    .eq("session_label", sessionLabel)
+    .gte("day", from)
+    .lte("day", to)
+    .returns<{ day: string; kind: CalendarDayKind; label_en: string | null; label_hi: string | null }[]>();
+  return new Map((data ?? []).map((r) => [r.day, { kind: r.kind, labelEn: r.label_en, labelHi: r.label_hi }]));
+}
+
+/** A closed day ahead, for the leave form's day chips: "Holiday · Dussehra". */
+export type ClosedDay = { day: string; tag: Pair };
+
+/** The closed days from `today` for the next `span` days, with why. */
+function closedDaysAhead(today: string, calendar: Map<string, CalendarDayKind>, names: Map<string, CalendarEntry>, span = 14): ClosedDay[] {
+  const out: ClosedDay[] = [];
+  let d = today;
+  for (let i = 0; i < span; i += 1) {
+    if (!isSchoolOpen(d, calendar)) {
+      const why = closedWhy(d, false, names.get(d));
+      if (why) out.push({ day: d, tag: closedTag(why) });
+    }
+    d = addDays(d, 1);
+  }
+  return out;
+}
+
+/* --------------------------------------------------------- her leave */
+
+export type LeaveItem = {
+  id: string;
+  from_day: string;
+  to_day: string;
+  span: string;
+  note: string | null;
+  status: string;
+  created_at: string;
+  decided_at: string | null;
+  decided_by_name: string | null;
+  /** Who takes each of her periods while she is away; empty until the office arranges it. */
+  covers: MyCover[];
+};
+
+type LeaveRow = { id: string; from_day: string; to_day: string; span: string; note: string | null; status: string; created_at: string; decided_by: string | null; decided_at: string | null };
+
+/**
+ * Her leave requests with who answered and, for each day, who covers her
+ * periods ("who takes my class?", smoke 20 Oct): the live cover duties that
+ * name her as the absent teacher.
+ */
+async function withCovers(staffId: string, sessionLabel: string, rows: LeaveRow[]): Promise<LeaveItem[]> {
+  const live = rows.filter((r) => r.status === "approved" || r.status === "asked");
+  const from = live.reduce((m, r) => (m && m < r.from_day ? m : r.from_day), "");
+  const to = live.reduce((m, r) => (m > r.to_day ? m : r.to_day), "");
+  type DutyRow = { day: string; period: number; class_labels: string[]; covering_staff_id: string | null; status: string };
+  const duties: DutyRow[] = from
+    ? await createAdminClient()
+        .from("cover_duties")
+        .select("day, period, class_labels, covering_staff_id, status")
+        .eq("session_label", sessionLabel)
+        .contains("absent_staff_ids", [staffId])
+        .in("status", ["assigned", "needs_help"])
+        .gte("day", from)
+        .lte("day", to)
+        .order("day")
+        .order("period")
+        .returns<DutyRow[]>()
+        .then((r) => r.data ?? [], () => [] as DutyRow[])
+    : [];
+  const names = await staffNames([...rows.map((r) => r.decided_by ?? ""), ...duties.map((d) => d.covering_staff_id ?? "")]).catch(() => new Map<string, string>());
+  return rows.map((r) => ({
+    id: r.id,
+    from_day: r.from_day,
+    to_day: r.to_day,
+    span: r.span,
+    note: r.note,
+    status: r.status,
+    created_at: r.created_at,
+    decided_at: r.decided_at,
+    decided_by_name: r.decided_by ? (names.get(r.decided_by) ?? null) : null,
+    covers: duties
+      .filter((d) => d.day >= r.from_day && d.day <= r.to_day)
+      .map((d) => ({ day: d.day, number: periodNumber(d.period), classLabels: d.class_labels ?? [], coverName: d.status === "assigned" && d.covering_staff_id ? (names.get(d.covering_staff_id) ?? null) : null })),
+  }));
+}
+
+/** Her leave rows, newest first. */
+async function myLeaveRows(staffId: string, limit: number): Promise<LeaveRow[]> {
+  const { data } = await createAdminClient()
+    .from("teacher_leave")
+    .select("id, from_day, to_day, span, note, status, created_at, decided_by, decided_at")
+    .eq("staff_profile_id", staffId)
+    .order("from_day", { ascending: false })
+    .limit(limit)
+    .returns<LeaveRow[]>();
+  return data ?? [];
+}
+
+/* ------------------------------------------------------ office tasks */
+
+export type WaitingTask = { id: string; title: string; href: string; dueDate: string | null };
+
+/**
+ * The office's tasks still waiting on her (missing details, photos), for
+ * Today and More. Attendance and marks have their own cards, so only the
+ * office's own requests; a failed read shows nothing rather than a wrong count.
+ */
+async function waitingTasks(now: Date): Promise<WaitingTask[]> {
+  const rows = await listTeacherTasks(false, { now, only: ["collection"] }).catch(() => []);
+  return rows.filter((t) => t.state === "waiting").map((t) => ({ id: t.id, title: t.title, href: t.href, dueDate: t.dueDate }));
+}
+
+/* ------------------------------------------------- report-card remarks */
+
+/**
+ * Report-card remarks she still has to write for her own classes, by the
+ * marks page's own rule (the current exam's term, children on the roll).
+ * More said "Nothing waiting" while 41 were (smoke 20 Oct).
+ */
+async function remarksToWrite(staffId: string, sessionLabel: string, today: string): Promise<number> {
+  const [mine, exams] = await Promise.all([classTeacherOf(staffId, sessionLabel), listExams(sessionLabel)]);
+  const exam = currentExam(exams, today, undefined);
+  if (!exam || mine.length === 0) return 0;
+  const cards = await Promise.all(
+    mine.map(async (classId) => {
+      const roll = (await enrolmentsFor(sessionLabel, [classId])).filter((e) => onRoll(e, { startsOn: today, endsOn: today }, today));
+      const remarks = await remarksFor(sessionLabel, exam.term, roll.map((r) => r.studentId));
+      return { done: remarks.size, total: roll.length };
+    }),
+  );
+  return remarksLeft(cards);
+}
+
 /* ----------------------------------------------------- one class, in depth */
 
 export type ChildRow = {
@@ -152,8 +300,9 @@ async function latestPapers(classId: string, sessionLabel: string) {
  * A class as its teacher sees it: every child with attendance so far, the
  * latest paper in each subject, open notes, and why anyone needs attention.
  */
-export async function classInsight(classId: string, sessionLabel: string, staff: CurrentStaff, notesRead?: Promise<BoardNote[]>) {
-  const today = schoolToday();
+export async function classInsight(classId: string, sessionLabel: string, staff: CurrentStaff, notesRead?: Promise<BoardNote[]>, schoolDay?: string) {
+  // The school's day from the caller's clock (the lab clock for a test account), so Today and My class agree.
+  const today = schoolDay ?? schoolToday();
   // The notes this reader may see; Today passes the read it already started
   // so they are not read twice (perf fix 6).
   const notesP =
@@ -245,7 +394,7 @@ export async function classInsight(classId: string, sessionLabel: string, staff:
 
 /* ------------------------------------------------------------------ Today */
 
-export type TodayPeriod = { period: number; number: number; starts: string; ends: string; subjectCode: string; subjectName: string; classLabel: string; classId: string | null; combined: boolean };
+export type TodayPeriod = { period: number; number: number; starts: string; ends: string; subjectCode: string; subjectName: string; subjectHi: string; classLabel: string; classId: string | null; combined: boolean };
 
 export type CoverRow = {
   id: string;
@@ -294,10 +443,10 @@ export async function loadHome(staff: CurrentStaff) {
     ? noteViewer(staff, sessionLabel).then((viewer) => visibleNotes(viewer, sessionLabel)).catch(() => [] as BoardNote[])
     : Promise.resolve([] as BoardNote[]);
   const linksP = labelsP
-    .then((labels) => marksLinks(staff.id, sessionLabel, labels))
+    .then((labels) => marksLinks(staff.id, sessionLabel, labels, today))
     .catch(() => ({ links: [] as MarksLink[], assigned: [] as { class_id: string; subject_id: string }[], sizes: new Map<string, number>() }));
 
-  const [calendar, labels, held, published, registers, covers, bells, notices, subjectList] = await Promise.all([
+  const [calendar, labels, held, published, registers, covers, bells, notices, subjectList, dayNames, leaveRows, tasks, prefs] = await Promise.all([
     attendanceCalendar(sessionLabel),
     labelsP,
     heldClassIds(staff.id, sessionLabel),
@@ -307,10 +456,24 @@ export async function loadHome(staff: CurrentStaff) {
     currentBells(sessionLabel).catch(() => null),
     staffNotices(staff.id, sessionLabel, 10),
     listSubjects().catch(() => []),
+    calendarNames(sessionLabel, addDays(today, -10), addDays(today, 14)).catch(() => new Map<string, CalendarEntry>()),
+    myLeaveRows(staff.id, 10).catch(() => [] as LeaveRow[]),
+    waitingTasks(now),
+    createAdminClient()
+      .from("staff_ui_preferences")
+      .select("large_text")
+      .eq("staff_profile_id", staff.id)
+      .maybeSingle<{ large_text: boolean }>()
+      .then((r) => Boolean(r.data?.large_text), () => false),
   ]);
   // Subject names for the day's rows ("Class 6 · Science"); the code when a subject has no name.
   const subjectName = new Map(subjectList.map((s) => [s.code, s.nameEn || s.code]));
+  const subjectHi = new Map(subjectList.map((s) => [s.code, s.nameHi || s.nameEn || s.code]));
   const schoolOpen = isSchoolOpen(today, calendar);
+  // Why school is shut today, by name (smoke 20 Oct: "No school today" with no reason).
+  const closed: ClosedWhy = closedWhy(today, schoolOpen, dayNames.get(today));
+  // On a closed day, the last open day, so an unmarked register there can be finished.
+  const lastOpen = schoolOpen ? null : lastOpenDay(today, (d) => isSchoolOpen(d, calendar));
   const rank = rankOf(labels);
   const heldSorted = [...held].sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
   const myClassId = heldSorted[0] ?? null;
@@ -332,11 +495,12 @@ export async function loadHome(staff: CurrentStaff) {
   const recorded = Boolean(reg && reg.revision >= 1);
   const upcomingDays = nextSchoolDays(today, calendar, 3);
 
-  const [slots, nextSlots, upcoming, insight, totals, queue, linkSet, myNotes] = await Promise.all([
+  const [slots, nextSlots, upcoming, insights, totals, queue, linkSet, myNotes, leave, lastRegisters] = await Promise.all([
     slotsOn(today, runsToday),
     slotsOn(next, runsNext).catch(() => []),
     Promise.all(upcomingDays.map((day) => myDutiesOn(staff.id, sessionLabel, day).then((list) => list.map((c) => ({ ...c, day })), () => []))).then((lists) => lists.flat()),
-    myClassId ? classInsight(myClassId, sessionLabel, staff, notesP).catch(() => null) : Promise.resolve(null),
+    // Every class she holds, not only the first (smoke 20 Oct: "where did my Class 3 go?").
+    Promise.all(heldSorted.map((id) => classInsight(id, sessionLabel, staff, notesP, today).catch(() => null))),
     reg && recorded ? latestReceipt(reg.id).catch(() => null).then((receipt) => registerTotals(reg.id, receipt)) : Promise.resolve(undefined),
     // The absent alerts queued with today's register, and the birthday
     // wishes already queued today — so "all set" can say what was done.
@@ -353,7 +517,10 @@ export async function loadHome(staff: CurrentStaff) {
       : Promise.resolve([] as { student_id: string; kind: string }[]),
     linksP,
     notesP,
+    withCovers(staff.id, sessionLabel, leaveForToday(leaveRows, today)).catch(() => [] as LeaveItem[]),
+    lastOpen && held.length ? registersForDay(sessionLabel, lastOpen).catch(() => []) : Promise.resolve([] as Awaited<ReturnType<typeof registersForDay>>),
   ]);
+  const insight = insights[0] ?? null;
 
   const lessons = lessonsToday(slots);
   const periods: TodayPeriod[] = lessons.map((l) => ({
@@ -362,6 +529,7 @@ export async function loadHome(staff: CurrentStaff) {
     ...timeOf(schedule, l.period),
     subjectCode: l.subjectCode,
     subjectName: subjectName.get(l.subjectCode) ?? l.subjectCode,
+    subjectHi: subjectHi.get(l.subjectCode) ?? l.subjectCode,
     classLabel: l.classes.map((c) => c.classLabel).join(" · "),
     classId: l.classId,
     combined: l.classes.length > 1,
@@ -424,13 +592,18 @@ export async function loadHome(staff: CurrentStaff) {
             }
           : null,
     };
-    if (insight) {
-      kids = insight.children
+    // Children who need her from every class she holds, a few from each, so
+    // a second class's child absent three days is not left out (smoke 20 Oct).
+    const several = insights.filter(Boolean).length > 1;
+    kids = heldSorted.flatMap((classId, i) => {
+      const one = insights[i];
+      if (!one) return [];
+      return one.children
         .filter((c) => c.reasons.length > 0)
-        .slice(0, 4)
+        .slice(0, several ? 3 : 4)
         .map((c) => ({
           id: c.id,
-          name: c.name,
+          name: several ? `${c.name} · ${labels.get(classId) ?? ""}` : c.name,
           reasons: c.reasons,
           attendancePct: c.attendancePct === null ? null : Math.round(c.attendancePct),
           detail: [
@@ -441,6 +614,8 @@ export async function loadHome(staff: CurrentStaff) {
             .filter(Boolean)
             .join(" · "),
         }));
+    });
+    if (insight) {
       birthdays = upcomingBirthdays(insight.children, today, 7).map((c) => ({ id: c.id, name: c.name, inDays: c.inDays, turning: c.turning, rollNo: c.rollNo, wished: wished.has(c.id) }));
     }
   }
@@ -453,6 +628,7 @@ export async function loadHome(staff: CurrentStaff) {
       classLabel: labels.get(a.class_id) ?? "—",
       subjectId: a.subject_id,
       name: subjectById.get(a.subject_id)?.nameEn || subjectById.get(a.subject_id)?.code || "—",
+      nameHi: subjectById.get(a.subject_id)?.nameHi || subjectById.get(a.subject_id)?.nameEn || subjectById.get(a.subject_id)?.code || "—",
       children: linkSet.sizes.get(a.class_id) ?? 0,
       mine: held.includes(a.class_id),
     }))
@@ -494,6 +670,32 @@ export async function loadHome(staff: CurrentStaff) {
     unassigned: held.length === 0 && linkSet.assigned.length === 0,
     links: linkSet.links.filter((l) => !l.submitted).slice(0, 6),
     canMark: can(staff, "attendance:mark"),
+    /** Her id, for the phone's kept attendance drafts and the welcome card. */
+    staffId: staff.id,
+    /** Why school is shut today, or null when it is open. */
+    closed,
+    /** On a closed day: the last open day, and her classes whose register there is still not saved. */
+    lastOpen: lastOpen
+      ? {
+          day: lastOpen,
+          unmarked: heldSorted
+            .filter((id) => !lastRegisters.some((r) => r.classId === id && r.period === null && r.revision >= 1))
+            .map((id) => ({ classId: id, classLabel: labels.get(id) ?? "—" })),
+        }
+      : null,
+    /** Every class she holds, each with today's register state (smoke 20 Oct). */
+    myClasses: heldSorted.map((id, i) => {
+      const r = registers.find((x) => x.classId === id && x.period === null) ?? null;
+      const saved = Boolean(r && r.revision >= 1);
+      return { classId: id, classLabel: labels.get(id) ?? "—", total: insights[i]?.children.length ?? 0, saved, savedAt: saved ? (r?.submittedAt ?? null) : null };
+    }),
+    /** Closed days in the next two weeks, for the leave form. */
+    closedDays: closedDaysAhead(today, calendar, dayNames),
+    /** Her leave that still covers today or later, with who covers her periods. */
+    leave,
+    /** The office's tasks waiting on her (missing details, photos). */
+    tasks,
+    largeText: prefs,
   };
 }
 
@@ -503,11 +705,13 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { kind: "no-session" as const };
 
-  const [labels, held, scope, calendar] = await Promise.all([
+  const [labels, held, scope, calendar, now] = await Promise.all([
     classLabelMap(sessionLabel),
     heldClassIds(staff.id, sessionLabel),
     classScopeFor(staff, sessionLabel),
     attendanceCalendar(sessionLabel),
+    // The school clock (the lab clock for a test account), read before "closed" so Today and the register agree.
+    schoolNow(staff),
   ]);
   const rank = rankOf(labels);
   const choices = (can(staff, "attendance:mark_on_behalf") ? [...labels.keys()] : held)
@@ -526,7 +730,7 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
   if (!scopeIncludes(scope, classId) && !authority.save && !authority.correct) return { kind: "not-yours" as const, choices };
 
   const day = input.day;
-  const closed = !isSchoolOpen(day, calendar) || day > schoolToday();
+  const closed = !isSchoolOpen(day, calendar) || day > schoolToday(now);
 
   // The last open school day before this one, for "Same as yesterday".
   let prev = dayBefore(day);
@@ -559,10 +763,9 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
 
   // The month view. An asked-for month that is not "YYYY-MM" falls back to the day's.
   const month = input.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(input.month) ? input.month : day.slice(0, 7);
-  const [range, basics, now] = await Promise.all([
+  const [range, basics] = await Promise.all([
     classAttendanceRange(classId, sessionLabel, `${month}-01`, monthEnd(month)),
     childBasics(roll.map((r) => r.studentId)),
-    schoolNow(staff),
   ]);
   const closedDays = [...calendar.entries()].filter(([d]) => d.startsWith(month)).filter(([d]) => !isSchoolOpen(d, calendar)).map(([d]) => d);
 
@@ -619,36 +822,52 @@ export async function loadAttendance(staff: CurrentStaff, input: { classId: stri
 /* -------------------------------------------------------------- My class */
 
 export async function loadClass(staff: CurrentStaff, input: { classId: string | null }) {
-  const sessionLabel = await resolveSessionLabel();
+  // The session and the clock first; then everything that needs only them,
+  // together. My class read in six rounds one after another and took 11 s on
+  // a phone (smoke 20 Oct); the class itself is known from the URL or from
+  // her held classes, so its insight starts in the second round, not the fourth.
+  const [sessionLabel, now] = await Promise.all([resolveSessionLabel(), schoolNow(staff)]);
   if (!sessionLabel) return { kind: "no-session" as const };
-  const today = schoolToday();
-  const [labels, held, own, registers, subjects, published] = await Promise.all([
-    classLabelMap(sessionLabel),
-    heldClassIds(staff.id, sessionLabel),
-    ownClassIds(staff.id, sessionLabel),
+  const today = schoolToday(now);
+  const labelsP = classLabelMap(sessionLabel);
+  const heldP = heldClassIds(staff.id, sessionLabel);
+  const ownP = ownClassIds(staff.id, sessionLabel);
+  const publishedP = getPublishedVersion(sessionLabel);
+  const classIdP = Promise.all([labelsP, heldP, ownP]).then(([labels, held, own]) => {
+    const rank = rankOf(labels);
+    const scope = readsEveryClass(staff) ? [...labels.keys()] : own;
+    return input.classId && scope.includes(input.classId) ? input.classId : ([...held].sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0))[0] ?? null);
+  });
+  const insightP = classIdP.then((id) => (id ? classInsight(id, sessionLabel, staff, undefined, today) : null));
+  const headersP = publishedP.then((pub) => (pub ? dayHeaders(pub.id).catch(() => [] as string[]) : ([] as string[])));
+  const slotsP = publishedP.then((pub) => (pub ? listSlots(pub.id).catch(() => []) : []));
+
+  const [labels, held, registers, subjects, published, assignedRes, linkSet, calendar, bells, classId] = await Promise.all([
+    labelsP,
+    heldP,
     registersForDay(sessionLabel, today),
     listSubjects().catch(() => []),
-    getPublishedVersion(sessionLabel),
+    publishedP,
+    // "My subjects": the class-subjects this teacher teaches, from her assignments.
+    createAdminClient()
+      .from("teaching_assignments")
+      .select("class_id, subject_id, periods_per_week")
+      .eq("staff_profile_id", staff.id)
+      .eq("session_label", sessionLabel)
+      .returns<{ class_id: string; subject_id: string; periods_per_week: number | null }[]>(),
+    // Her marks links, for each subject card's "Half-yearly marks" and the links list.
+    labelsP.then((l) => marksLinks(staff.id, sessionLabel, l, today)).catch(() => ({ links: [] as MarksLink[], assigned: [], sizes: new Map<string, number>() })),
+    attendanceCalendar(sessionLabel).catch(() => null),
+    currentBells(sessionLabel).catch(() => null),
+    classIdP,
   ]);
   const rank = rankOf(labels);
-  const scope = readsEveryClass(staff) ? [...labels.keys()] : own;
-  const classId = input.classId && scope.includes(input.classId) ? input.classId : ([...held].sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0))[0] ?? null);
-
-  // "My subjects": the class-subjects this teacher teaches, from her assignments.
-  const { data: assigned } = await createAdminClient()
-    .from("teaching_assignments")
-    .select("class_id, subject_id, periods_per_week")
-    .eq("staff_profile_id", staff.id)
-    .eq("session_label", sessionLabel)
-    .returns<{ class_id: string; subject_id: string; periods_per_week: number | null }[]>();
+  const assigned = assignedRes.data;
   const codeOf = new Map(subjects.map((s) => [s.id, s.code]));
   const nameOf = new Map(subjects.map((s) => [s.id, s.nameEn || s.code]));
   const mySubjects = (assigned ?? [])
     .map((a) => ({ classId: a.class_id, classLabel: labels.get(a.class_id) ?? "—", subjectId: a.subject_id, code: codeOf.get(a.subject_id) ?? "—", name: nameOf.get(a.subject_id) ?? "—", periods: a.periods_per_week ?? 0 }))
     .sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0) || a.code.localeCompare(b.code));
-
-  // Her marks links, for each subject card's "Half-yearly marks" and the links list.
-  const linkSet = await marksLinks(staff.id, sessionLabel, labels).catch(() => ({ links: [] as MarksLink[], assigned: [], sizes: new Map<string, number>() }));
   const subjectCards = mySubjects.map((s) => ({ ...s, children: linkSet.sizes.get(s.classId) ?? 0, held: held.includes(s.classId) }));
 
   if (!classId) {
@@ -656,25 +875,25 @@ export async function loadClass(staff: CurrentStaff, input: { classId: string | 
   }
 
   const reg = registers.find((r) => r.classId === classId && r.period === null) ?? null;
-  const [insight, receipt] = await Promise.all([
-    classInsight(classId, sessionLabel, staff),
+  const runs = Boolean(published && calendar && isSchoolOpen(today, calendar) && timetableRuns(today, calendar));
+  const [insight, receipt, headers, allSlots] = await Promise.all([
+    insightP.then((i) => i ?? classInsight(classId, sessionLabel, staff, undefined, today)),
     reg && reg.revision >= 1 ? latestReceipt(reg.id).catch(() => null) : Promise.resolve(null),
+    runs ? headersP : Promise.resolve([] as string[]),
+    runs ? slotsP : Promise.resolve([]),
   ]);
   const totals = reg && reg.revision >= 1 ? await registerTotals(reg.id, receipt) : undefined;
 
   // The class's own timetable today (every teacher's periods in it), when one is published and runs today.
-  const [calendar, bells, now] = await Promise.all([attendanceCalendar(sessionLabel).catch(() => null), currentBells(sessionLabel).catch(() => null), schoolNow(staff)]);
   let timetable: { period: number; number: number; starts: string; ends: string; subjectName: string; teacher: string; mine: boolean }[] = [];
-  if (published && calendar && isSchoolOpen(today, calendar) && timetableRuns(today, calendar)) {
-    const header = matchDayHeader(await dayHeaders(published.id).catch(() => []), today);
-    if (header) {
-      const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
-      const byCode = new Map(subjects.map((s) => [s.code, s.nameEn || s.code]));
-      const slots = (await listSlots(published.id).catch(() => [])).filter((x) => x.classId === classId && x.day === header);
-      timetable = slots
-        .map((x) => ({ period: x.period, number: periodNumber(x.period), ...timeOf(schedule, x.period), subjectName: byCode.get(x.subjectCode) ?? x.subjectCode, teacher: x.teacherShortName ?? "", mine: x.staffProfileId === staff.id }))
-        .sort((a, b) => a.period - b.period);
-    }
+  const header = runs ? matchDayHeader(headers, today) : null;
+  if (header) {
+    const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
+    const byCode = new Map(subjects.map((s) => [s.code, s.nameEn || s.code]));
+    timetable = allSlots
+      .filter((x) => x.classId === classId && x.day === header)
+      .map((x) => ({ period: x.period, number: periodNumber(x.period), ...timeOf(schedule, x.period), subjectName: byCode.get(x.subjectCode) ?? x.subjectCode, teacher: x.teacherShortName ?? "", mine: x.staffProfileId === staff.id }))
+      .sort((a, b) => a.period - b.period);
   }
   return {
     kind: "class" as const,
@@ -796,6 +1015,8 @@ export async function marksLinks(
   staffId: string,
   sessionLabel: string,
   labels: Map<string, string>,
+  /** The school day by the reader's clock (the lab clock for a test account). */
+  today: string = schoolToday(),
 ): Promise<{ links: MarksLink[]; assigned: { class_id: string; subject_id: string }[]; sizes: Map<string, number> }> {
   const admin = createAdminClient();
   const { data: assigned } = await admin
@@ -810,7 +1031,7 @@ export async function marksLinks(
   // (exams/domain/progress.ts, through `trackerFor`): the paper's roster by
   // the exam's dates, and only rows holding a value, an absence or an
   // exemption — never a cleared cell, never "enrolled" ignoring dates.
-  const exams = pairs.size ? openExamsForMarks(await listExams(sessionLabel).catch(() => [] as Exam[]), schoolToday()) : [];
+  const exams = pairs.size ? openExamsForMarks(await listExams(sessionLabel).catch(() => [] as Exam[]), today) : [];
   const mine = (r: { class_id: string; subject_id: string }) => pairs.has(`${r.class_id}|${r.subject_id}`);
   const rows = exams.length ? (await papersOf(exams.map((e) => e.id)).catch(() => [])).filter(mine) : [];
   const withPapers = exams.filter((e) => rows.some((r) => r.assessment_id === e.id));
@@ -856,60 +1077,77 @@ export async function marksLinks(
 /* ------------------------------------------------------------------ More */
 
 export async function loadMore(staff: CurrentStaff) {
-  const sessionLabel = await resolveSessionLabel();
+  // One clock for the whole screen: More said "Now · P3" from the real date
+  // while Today, on the lab clock, said it was a holiday (smoke 20 Oct).
+  const [sessionLabel, now] = await Promise.all([resolveSessionLabel(), schoolNow(staff)]);
   if (!sessionLabel) return null;
+  const today = schoolToday(now);
   const admin = createAdminClient();
-  const [labels, held, own, published, notices, prefs, leave, bells, subjects] = await Promise.all([
-    classLabelMap(sessionLabel),
+  const labelsP = classLabelMap(sessionLabel);
+  const publishedP = getPublishedVersion(sessionLabel);
+  const [labels, held, own, , notices, prefs, leaveRows, bells, subjects, calendar, dayNames, tasks, remarks, slots, linkSet, portrait] = await Promise.all([
+    labelsP,
     heldClassIds(staff.id, sessionLabel),
     ownClassIds(staff.id, sessionLabel),
-    getPublishedVersion(sessionLabel),
+    publishedP,
     staffNotices(staff.id, sessionLabel, 40),
     admin.from("staff_ui_preferences").select("large_text, alerts").eq("staff_profile_id", staff.id).maybeSingle<{ large_text: boolean; alerts: Record<string, boolean> | null }>(),
-    admin
-      .from("teacher_leave")
-      .select("id, from_day, to_day, span, note, status, created_at, decided_by, decided_at")
-      .eq("staff_profile_id", staff.id)
-      .order("from_day", { ascending: false })
-      .limit(20)
-      .returns<{ id: string; from_day: string; to_day: string; span: string; note: string | null; status: string; created_at: string; decided_by: string | null; decided_at: string | null }[]>(),
+    myLeaveRows(staff.id, 20).catch(() => [] as LeaveRow[]),
     currentBells(sessionLabel).catch(() => null),
     listSubjects().catch(() => []),
+    attendanceCalendar(sessionLabel).catch(() => new Map<string, CalendarDayKind>()),
+    calendarNames(sessionLabel, today, addDays(today, 14)).catch(() => new Map<string, CalendarEntry>()),
+    waitingTasks(now),
+    remarksToWrite(staff.id, sessionLabel, today).catch(() => 0),
+    // The weekly timetable: this teacher's slots in the published version.
+    publishedP.then((pub) => (pub ? listSlots(pub.id).then((all) => all.filter((s) => s.staffProfileId === staff.id)) : [])),
+    labelsP.then((l) => marksLinks(staff.id, sessionLabel, l, today)),
+    approvedStaffPhotos([staff.id]).catch(() => new Map<string, string>()),
   ]);
+  const { links, assigned, sizes } = linkSet;
 
-  // The weekly timetable: this teacher's slots in the published version, a
-  // combined period once, classes in school order (BUG-07, ST-14, ST-25).
+  // A combined period once, classes in school order (BUG-07, ST-14, ST-25).
   const rank = rankOf(labels);
-  const [slots, { links, assigned, sizes }, now] = await Promise.all([
-    published ? listSlots(published.id).then((all) => all.filter((s) => s.staffProfileId === staff.id)) : Promise.resolve([]),
-    marksLinks(staff.id, sessionLabel, labels),
-    schoolNow(staff),
-  ]);
   const week = mergeCombinedSlots([...slots].sort((a, b) => (rank.get(a.classId) ?? 0) - (rank.get(b.classId) ?? 0)));
-
-  const portrait = await approvedStaffPhotos([staff.id]).catch(() => new Map<string,string>());
-  // Who answered her leave, by name, for "Approved by … · time" (B11 decision feedback).
-  const deciders = await staffNames((leave.data ?? []).map((l) => l.decided_by ?? "")).catch(() => new Map<string, string>());
   const schedule = bells ?? { id: null, label: "", periods: [], revision: 0 };
+  const leave = await withCovers(staff.id, sessionLabel, leaveRows).catch(() => leaveRows.map((l) => ({ ...l, decided_by_name: null, covers: [] as MyCover[] })));
+  const openToday = isSchoolOpen(today, calendar);
+  // An approved leave that covers today: More must not say she is teaching now.
+  const leaveToday = leaveRows.find((l) => l.status === "approved" && l.from_day <= today && l.to_day >= today) ?? null;
   return {
     sessionLabel,
-    today: schoolToday(),
+    today,
     notices,
     links,
     week: week.map((s) => ({ day: s.day, period: s.period, number: periodNumber(s.period), classLabel: s.classLabel, subjectCode: s.subjectCode, ...timeOf(schedule, s.period) })),
     periodTimes: schedule.periods.map((p) => ({ number: periodNumber(p.index), starts: p.starts, ends: p.ends })),
+    /** Subject names by code, so the timetable never shows a bare "ELGA" when the school named it. */
+    subjectNames: Object.fromEntries(subjects.map((s) => [s.code, { en: s.nameEn || s.code, hi: s.nameHi || s.nameEn || s.code }])) as Record<string, { en: string; hi: string }>,
     profile: {
       name: staff.displayName,
-      ...({photoUrl: portrait.get(staff.id) ?? null} as {photoUrl?: string | null}),
+      /** The name staff call her by, so Today and More greet her the same way. */
+      shortName: staff.shortName,
+      ...({ photoUrl: portrait.get(staff.id) ?? null } as { photoUrl?: string | null }),
       email: staff.email,
       role: staff.role,
-      classes: own.map((id) => ({ classId: id, classLabel: labels.get(id) ?? "—", held: held.includes(id) })).sort((a, b) => Number(b.held) - Number(a.held)),
+      // Her own class first, then the school's order (smoke 20 Oct: a jumbled list).
+      classes: profileClasses(own.map((id) => ({ classId: id, classLabel: labels.get(id) ?? "—", held: held.includes(id) })), rank),
       subjects: [...new Set(assigned.map((a) => subjects.find((s) => s.id === a.subject_id)?.code).filter(Boolean) as string[])],
       largeText: Boolean(prefs.data?.large_text),
       alerts: prefs.data?.alerts ?? {},
     },
-    leave: (leave.data ?? []).map((l) => ({ ...l, decided_by_name: l.decided_by ? (deciders.get(l.decided_by) ?? null) : null })),
+    leave,
     nowMinutes: schoolClock(now).minutes,
+    /** Why school is shut today, or null when it is open. */
+    closed: closedWhy(today, openToday, dayNames.get(today)),
+    /** Her approved leave today, if any: "full", "first_half" or "second_half". */
+    leaveToday: leaveToday ? leaveToday.span : null,
+    /** Closed days in the next two weeks, for the leave form. */
+    closedDays: closedDaysAhead(today, calendar, dayNames),
+    /** The office's tasks waiting on her. */
+    tasks,
+    /** Report-card remarks still to write for her classes. */
+    remarks,
     /** Children on each of her classes' rolls, for the menu's lines. */
     classSizes: Object.fromEntries(sizes) as Record<string, number>,
   };

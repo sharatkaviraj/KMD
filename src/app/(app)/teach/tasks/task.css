@@ -1,0 +1,5 @@
+/* The task's Send bar (the collection form's fixed .work-action) sits above
+   the phone's bottom menu, and the list leaves room for it (smoke 20 Oct:
+   the button was under the menu with only a 6px strip showing). */
+.tc-task .work-action{bottom:max(var(--vx-bottom-h, 0px), var(--keyboard-offset, 0px));z-index:41}
+.tc-task .tc-task-body{padding-bottom:140px !important}
