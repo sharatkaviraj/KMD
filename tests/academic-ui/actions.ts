@@ -40,3 +40,6 @@ export async function discardChangeAction() { return result; }
 export async function publishChangesAction() { return result; }
 export async function requestLeaveAction() { return result; }
 export async function saveChangeAction() { return result; }
+
+// Added for the 21 Oct smoke fixes: this fixture never exercises it.
+export async function lateCoverAction(..._args: unknown[]): Promise<never> { throw new Error("Not available in this fixture."); }

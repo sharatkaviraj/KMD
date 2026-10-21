@@ -54,3 +54,6 @@ declare global {
   interface Window { classFollowup: { snapshot: typeof snapshot; loseNextAttendanceAnswer: () => void; loseNextNoteAnswer: () => void } }
 }
 window.classFollowup = { snapshot, loseNextAttendanceAnswer: () => { loseAnswer = true; }, loseNextNoteAnswer: () => { loseNoteAnswer = true; } };
+
+// Added for the 21 Oct smoke fixes: this fixture never exercises it.
+export const editNoteAction = refuse;

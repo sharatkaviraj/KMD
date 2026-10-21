@@ -209,8 +209,8 @@ test("the number pad never moves on by itself, so Next child never skips a child
   await page.goto("/?mode=pad");
   await page.getByRole("button", { name: "3", exact: true }).tap();
   await page.getByRole("button", { name: "5", exact: true }).tap();
-  await expect(page.getByText(/Synthetic student 1$/)).toBeVisible();
+  await expect(page.getByText(/Synthetic student 1$/).first()).toBeVisible();
   await page.getByRole("button", { name: "Next child", exact: true }).last().tap();
-  await expect(page.getByText(/Synthetic student 2$/)).toBeVisible();
+  await expect(page.getByText(/Synthetic student 2$/).first()).toBeVisible();
   await expect(page.getByText("Synthetic student 1: 35 kept")).toBeVisible();
 });
