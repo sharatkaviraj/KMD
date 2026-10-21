@@ -612,3 +612,22 @@ export function feeRibbon(summary: {
   if (summary.nextDue) return { kind: "next", ...summary.nextDue };
   return { kind: "outstanding" };
 }
+
+/**
+ * Whether today's unmarked registers are late enough to raise in Needs you:
+ * after the first period ends and before the last one does. Before that the
+ * register is not late; after it nobody can be reminded usefully, and at
+ * midnight a "remind 19 classes" button is a trap (smoke run, 20 Oct).
+ * No bells means nothing to judge by: not late.
+ */
+export function registerLate(bells: readonly { starts: string; ends: string }[], nowMinutes: number): boolean {
+  if (bells.length === 0) return false;
+  const toMin = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const sorted = [...bells].sort((a, b) => toMin(a.starts) - toMin(b.starts));
+  const firstEnds = toMin(sorted[0].ends);
+  const lastEnds = Math.max(...sorted.map((bell) => toMin(bell.ends)));
+  return nowMinutes >= firstEnds && nowMinutes < lastEnds;
+}

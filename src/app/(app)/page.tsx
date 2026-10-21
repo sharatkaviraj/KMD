@@ -72,7 +72,7 @@ export default async function TodayPage() {
           .catch(() => null)
       : Promise.resolve(null),
     can(staff, "attendance:correct")
-      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingMoneyRequests : undefined })
+      ? loadInbox(staff, sessionLabel, today, { refunds: seesMoney ? pendingMoneyRequests : undefined, nowMinutes: minutes })
       : Promise.resolve(null),
     can(staff, "attendance:view") ? weekAttendance(sessionLabel, today).catch(() => null) : Promise.resolve(null),
   ]);

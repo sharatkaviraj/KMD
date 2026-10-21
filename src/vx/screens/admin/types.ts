@@ -32,6 +32,9 @@ export type InboxItem = {
   day?: string;
   dayRevision?: number;
   candidates?: CoverCandidate[];
+  /** A leave request decided here: its id, and whether all its days have passed. */
+  leaveId?: string;
+  leavePast?: boolean;
 };
 
 export type BoardData = {

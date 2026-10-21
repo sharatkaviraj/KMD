@@ -5,7 +5,7 @@ import { cache } from "react";
 
 import { assertPermission, type CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
-import { dayLabel, weekdayLabel, weekdayName } from "@/platform/dates";
+import { addDays, dayLabel, weekdayLabel, weekdayName } from "@/platform/dates";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { createAdminClient } from "@/platform/supabase/admin";
@@ -45,7 +45,7 @@ import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import type { CalendarDayKind } from "@/modules/academics/domain/calendar";
 
 import { p, type Pair } from "@/vx/text";
-import { boardSummary, remindable, sortBoard, supportAttention, type ClassBoardRow, type MarkStatus } from "@/vx/screens/admin/logic";
+import { boardSummary, remindable, sortBoard, registerLate, schoolMinutes, supportAttention, type ClassBoardRow, type MarkStatus } from "@/vx/screens/admin/logic";
 import { scheduleNow, coverToday, type CoverException, type ScheduleSlot, type ScheduleView } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { schoolWeek } from "@/vx/screens/admin/today-logic";
@@ -74,7 +74,7 @@ const dutiesFor = cache((sessionLabel: string, day: string) => dutiesOn(sessionL
 const pendingSubmissions = cache(() => listSubmissions("pending"));
 const jobsNow = cache(() => jobsBoard());
 
-type AskedLeave = { id: string; staffName: string; fromDay: string; toDay: string; span: string; askedAt: string };
+type AskedLeave = { id: string; staffName: string; fromDay: string; toDay: string; span: string; note: string | null; askedAt: string };
 
 /**
  * Leave a teacher asked and nobody has decided (Needs you, brief 02): it was
@@ -85,17 +85,17 @@ const askedLeave = cache(async (sessionLabel: string): Promise<AskedLeave[]> => 
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("teacher_leave")
-    .select("id, staff_profile_id, from_day, to_day, span, created_at")
+    .select("id, staff_profile_id, from_day, to_day, span, note, created_at")
     .eq("session_label", sessionLabel)
     .eq("status", "asked")
     .order("from_day")
     .limit(20)
-    .returns<{ id: string; staff_profile_id: string; from_day: string; to_day: string; span: string; created_at: string }[]>();
+    .returns<{ id: string; staff_profile_id: string; from_day: string; to_day: string; span: string; note: string | null; created_at: string }[]>();
   if (error) throw new Error("Could not read leave requests.");
   if (!data.length) return [];
   const { data: people } = await admin.from("staff_profiles").select("id, display_name").in("id", [...new Set(data.map((r) => r.staff_profile_id))]).returns<{ id: string; display_name: string }[]>();
   const name = new Map((people ?? []).map((s) => [s.id, s.display_name]));
-  return data.map((r) => ({ id: r.id, staffName: name.get(r.staff_profile_id) ?? "—", fromDay: r.from_day, toDay: r.to_day, span: r.span, askedAt: r.created_at }));
+  return data.map((r) => ({ id: r.id, staffName: name.get(r.staff_profile_id) ?? "—", fromDay: r.from_day, toDay: r.to_day, span: r.span, note: r.note, askedAt: r.created_at }));
 });
 
 const LEAVE_SPAN: Record<string, Pair> = { full: p("Full day", "पूरा दिन"), first_half: p("First half", "पहली पाली"), second_half: p("Second half", "दूसरी पाली") };
@@ -107,7 +107,7 @@ const leaveDays = (r: AskedLeave): Pair => {
   return p(`${from.en} – ${to.en}`, `${from.hi} – ${to.hi}`);
 };
 
-type MoneyRequest = { id: string; studentId: string; studentName: string; amount: number; reason: string | null; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null };
+type MoneyRequest = { id: string; studentId: string; studentName: string; amount: number; reason: string | null; reasonText?: Pair; title?: Pair; requestedAt: string; href?: string; deskKind?: "reversal" | "write_off"; receiptNumber?: string | null };
 type MoneyRequests = () => Promise<MoneyRequest[]>;
 const moneyRequests = cache((read: MoneyRequests) => read());
 
@@ -713,7 +713,7 @@ export const inboxCount: (staff: CurrentStaff, sessionLabel: string, day: string
     const [board, needing, pending, money, jobs, leave] = await inboxSources(staff, sessionLabel, day, refunds, []);
     const { changes, confirmations } = pending && pending.length > 0 ? splitByChange(pending.filter(s=>s.fieldKey!=="student_photo"&&(staff.role==="admin"||!s.requiresAdmin))) : { changes: [], confirmations: [] };
     return inboxBadgeCount({
-      notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded)),
+      notMarked: Boolean(board && board.schoolOpen && board.rows.some((row) => !row.recorded) && registerLate(board.bells, schoolMinutes(new Date()))),
       coverNeeded: needing?.length ?? 0,
       changes: changes.length,
       confirmations: confirmations.length,
@@ -728,9 +728,9 @@ export function loadInbox(
   staff: CurrentStaff,
   sessionLabel: string,
   day: string,
-  extra: { refunds?: MoneyRequests } = {},
+  extra: { refunds?: MoneyRequests; nowMinutes?: number } = {},
 ): Promise<{ items: InboxItem[]; unavailable: string[] }> {
-  return inboxFor(staff, sessionLabel, day, extra.refunds);
+  return inboxFor(staff, sessionLabel, day, extra.refunds, extra.nowMinutes ?? schoolMinutes(new Date()));
 }
 
 /** Once per request: Today's page and the shell both ask (perf fix 1). */
@@ -741,6 +741,7 @@ async function readInbox(
   sessionLabel: string,
   day: string,
   refundsReader: MoneyRequests | undefined,
+  nowMinutes: number,
 ): Promise<{ items: InboxItem[]; unavailable: string[] }> {
   const missing: string[] = [];
   const items: InboxItem[] = [];
@@ -752,7 +753,9 @@ async function readInbox(
   if (board && board.schoolOpen) {
     const open = board.rows.filter((row) => !row.recorded);
     const first = [...board.bells].sort((a, b) => a.starts.localeCompare(b.starts))[0];
-    if (open.length > 0) {
+    // Late only once the first period is over, and never after the school day:
+    // "19 classes not marked" at 0:02 invited a WhatsApp to 19 teachers at midnight (smoke run, 20 Oct).
+    if (open.length > 0 && registerLate(board.bells, nowMinutes)) {
       const sendable = remindable(board.rows);
       items.push({
         id: `not-marked:${day}`,
@@ -876,20 +879,23 @@ async function readInbox(
       type: "money",
       kind: "refund",
       at: r.requestedAt,
-      urgent: false,
-      badge: r.deskKind === "reversal" ? p("Reversal", "रसीद रद्द") : r.deskKind === "write_off" ? p("Write-off", "माफ़ी") : T.bRefund,
+      // Money that has waited more than two days on the admin is marked urgent.
+      urgent: Date.now() - Date.parse(r.requestedAt) > 2 * 86_400_000,
+      badge: r.deskKind === "reversal" ? p("Reversal", "रसीद रद्द") : r.deskKind === "write_off" ? p("Write-off", "माफ़ी") : r.title ? p("Accounts", "हिसाब") : T.bRefund,
       title:
         r.deskKind === "reversal"
           ? p(`Reverse receipt ${r.receiptNumber ?? ""} · ${amount} · ${r.studentName}`.replace("  ", " "), `रसीद ${r.receiptNumber ?? ""} रद्द · ${amount} · ${r.studentName}`.replace("  ", " "))
           : r.deskKind === "write_off"
             ? p(`Write off ${amount} · ${r.studentName}`, `${amount} माफ़ · ${r.studentName}`)
-            : T.refundTitle(amount, r.studentName),
-      sub: p(r.reason ?? "—"),
+            : r.title
+              ? p(`${r.title.en}${r.amount ? ` · ${amount}` : ""} · ${r.studentName}`, `${r.title.hi ?? r.title.en}${r.amount ? ` · ${amount}` : ""} · ${r.studentName}`)
+              : T.refundTitle(amount, r.studentName),
+      sub: r.reasonText ?? p(r.reason ?? "—"),
       facts: [
         { label: p("Amount", "राशि"), value: amount },
-        { label: T.reason, value: r.reason ?? "—" },
+        { label: T.reason, value: r.reasonText?.en ?? r.reason ?? "—" },
       ],
-      footnote: r.deskKind ? p("Decided on the receipt or dues screen; nothing moves until you confirm it there.", "फ़ैसला रसीद या बकाया स्क्रीन पर होता है; वहाँ पुष्टि के बिना कुछ नहीं बदलता।") : T.refundFootnote,
+      footnote: r.deskKind || r.title ? p("Decided on the receipt, dues or accounts screen; nothing moves until you decide it there.", "फ़ैसला रसीद, बकाया या हिसाब स्क्रीन पर होता है; वहाँ तय किए बिना कुछ नहीं बदलता।") : T.refundFootnote,
       href: r.href ?? "/fees/finance-controls",
     });
   }
@@ -902,14 +908,23 @@ async function readInbox(
       type: "timetable",
       kind: "leave",
       at: r.askedAt,
-      // Leave for today or a day already gone needs an answer before cover can be arranged.
-      urgent: r.fromDay <= day,
+      // Leave for today or tomorrow needs an answer before cover can be arranged;
+      // leave whose days have all gone is not urgent, it is late, and says so.
+      urgent: r.toDay >= day && r.fromDay <= addDays(day, 1),
       badge: p("Leave", "छुट्टी"),
       title: p(`Leave asked · ${r.staffName}`, `छुट्टी का आवेदन · ${r.staffName}`),
-      sub: p(`${leaveDays(r).en} · ${span.en}`, `${leaveDays(r).hi} · ${span.hi}`),
-      // The days and the part of the day are in the sub-line, in the reader's language.
-      facts: [],
-      footnote: p("Approve or decline it on the timetable's leave tab; cover is arranged when you approve.", "समय-सारणी के छुट्टी टैब पर मंज़ूर या अस्वीकार करें; मंज़ूरी पर कवर लगता है।"),
+      sub:
+        r.toDay < day
+          ? p(`${leaveDays(r).en} · ${span.en} · the days have passed`, `${leaveDays(r).hi} · ${span.hi} · ये दिन बीत चुके`)
+          : p(`${leaveDays(r).en} · ${span.en}`, `${leaveDays(r).hi} · ${span.hi}`),
+      // The days and the part of the day are in the sub-line; the teacher's note is the reason.
+      facts: r.note ? [{ label: T.reason, value: r.note }] : [],
+      footnote:
+        r.toDay < day
+          ? p("Its days have passed: record it as taken, or decline it. No cover is arranged for a day gone.", "इसके दिन बीत चुके हैं: ली गई दर्ज करें, या अस्वीकार करें। बीते दिन की व्यवस्था नहीं होती।")
+          : p("Approving marks the teacher away and arranges cover for each school day; the answer says how many periods have a teacher.", "स्वीकार करने पर शिक्षक अनुपस्थित दर्ज होते हैं और हर स्कूल-दिन की व्यवस्था होती है; जवाब बताता है कितने पीरियड में शिक्षक तय हुए।"),
+      leaveId: r.id,
+      leavePast: r.toDay < day,
       href: "/timetable?view=leave",
     });
   }
