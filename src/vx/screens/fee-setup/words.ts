@@ -79,7 +79,7 @@ export const F = {
   sheetCopySub: p("Starts from the live fees, rounded to ₹100", "लागू फीस से शुरू, ₹100 तक गोल"),
   same: p("Same", "वही"),
   putInChanges: p("Put in changes", "बदलावों में रखें"),
-  copyNote: p("Replaces any class fee you already edited in this draft. Nothing goes live until you publish.", "इस ड्राफ़्ट में बदली गई कक्षा फीस बदल जाएगी। प्रकाशित करने तक कुछ लागू नहीं।"),
+  copyNote: p("Replaces any class fee you already edited in this draft. Nothing goes live until you publish.", "यहाँ पहले बदली गई कक्षा फ़ीस हट जाएगी। प्रकाशित करने तक कुछ लागू नहीं होगा।"),
   // installments
   whenDue: p("When fees fall due", "फीस कब देय है"),
   today: p("Today", "आज"),

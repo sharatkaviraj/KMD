@@ -10,6 +10,7 @@ const SAY = {
   steps: p("Steps", "चरण"),
   search: p("Search", "खोजें"),
   clear: p("Clear search", "खोज मिटाएँ"),
+  del: p("Delete", "मिटाएँ"),
 };
 
 /*
@@ -226,6 +227,7 @@ export function Stepper({ value, onChange, min = 0, max = 9999, label }: { value
 
 /** The phone number pad (marks entry, amounts). */
 export function NumberPad({ onKey, extra }: { onKey: (key: string) => void; extra?: { key: string; label: ReactNode } }) {
+  const { tx } = useVx();
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", extra?.key ?? ".", "0", "del"];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -235,8 +237,9 @@ export function NumberPad({ onKey, extra }: { onKey: (key: string) => void; extr
           type="button"
           className="tap"
           onClick={() => onKey(k)}
-          aria-label={k === "del" ? "Delete" : k === extra?.key && extra ? String(extra.key) : k}
-          style={{ height: 56, borderRadius: 14, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 22, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}
+          aria-label={k === "del" ? tx(SAY.del) : k === extra?.key && extra ? String(extra.key) : k}
+          // Shorter keys on a short phone, so the whole pad fits above the bottom bar (smoke 20 Oct, 360x740).
+          style={{ height: "clamp(44px, 7dvh, 56px)", borderRadius: 14, border: "1px solid var(--bd)", background: "var(--card)", color: "var(--fg)", fontSize: 22, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}
         >
           {k === "del" ? <Ic n="del" size={22} /> : k === extra?.key && extra ? extra.label : k}
         </button>

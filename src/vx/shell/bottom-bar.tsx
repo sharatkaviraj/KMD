@@ -26,7 +26,9 @@ const under = (path: string, href: string) => (href === "/" ? path === "/" : pat
  * lights Menu there (AC-*, MAD-*, M-Fees …, UI-78).
  */
 export function activeTab(tabs: readonly BottomTab[], pathname: string): string | null {
-  const menu = tabs.find((t) => t.key === "menu") ?? null;
+  // A teacher's bar has no Menu; More (notices, links, leave) is her catch-all,
+  // so Marks and remarks light More rather than Today (smoke 20 Oct).
+  const menu = tabs.find((t) => t.key === "menu") ?? tabs.find((t) => t.key === "more") ?? null;
   // The role's home lights only on itself where there is a Menu to light instead:
   // Cheques, UPI & refunds (/accounts/books) is reached from Menu, and lit
   // Today (smoke 20 Oct). A role without a Menu tab keeps its home lit.

@@ -39,7 +39,7 @@ export const W = {
   receiptsLink: p("Receipts", "रसीदें"),
   many: p("Enter many payments", "कई भुगतान दर्ज करें"),
   manyShort: p("Many", "कई"),
-  manyMobileSub: (admin: boolean) => (admin ? p("Back-office entry", "बैक-ऑफ़िस प्रविष्टि") : p("Admin only", "केवल एडमिन")),
+  manyMobileSub: (admin: boolean) => (admin ? p("Back-office entry", "दफ़्तर से भरें") : p("Admin only", "केवल एडमिन")),
   adminOnly: p("Admin only", "केवल एडमिन"),
   backToDesk: p("Back to the desk", "डेस्क पर वापस"),
   back: p("Back", "वापस"),
@@ -238,7 +238,7 @@ export const W = {
 
   saved: p("Saved", "सहेजा गया"),
   savedEarlier: (t: string) => p(`Saved earlier at ${t}`, `${t} पर पहले सहेजा गया`),
-  entryRemoved: p("Entry removed", "प्रविष्टि हटाई गई"),
+  entryRemoved: p("Entry removed", "भुगतान हटाया गया"),
   removedTitle: p("Removed", "हटाया गया"),
   savedFor: (amt: string, name: string, no: string, t: string) => p(`${amt} for ${name} · ${no}${t ? ` · ${t}` : ""}`, `${name} के लिए ${amt} · ${no}${t ? ` · ${t}` : ""}`),
   lockedFresh: p("Locked — this payment can’t be saved again. Press New payment for the next one."),
@@ -257,7 +257,7 @@ export const W = {
   receiptSettling: p("Payment recorded. Updating balance…", "भुगतान दर्ज हो गया। बकाया अपडेट हो रहा है…"),
   balanceNotRefreshed: p("Receipt saved. Balance could not refresh.", "रसीद सहेजी गई। बकाया अपडेट नहीं हो सका।"),
   retryBalance: p("Retry", "फिर कोशिश करें"),
-  removeTill: (t: string) => p(`Remove this entry · till ${t}`, `यह प्रविष्टि हटाएँ · ${t} तक`),
+  removeTill: (t: string) => p(`Remove this entry · till ${t}`, `यह भुगतान हटाएँ · ${t} तक`),
   // It is a link to the receipt, where "Reverse" sends the request; the old
   // label read as if the admin had already been asked (accountant B11).
   askRemove: p("Open the receipt to ask the admin to remove it", "रसीद खोलें, वहाँ से एडमिन से हटवाएँ"),
@@ -335,7 +335,7 @@ export const W = {
   rmImpact: (no: string, amt: string, name: string) =>
     p(`${no} is marked REMOVED and stays in history. ${amt} goes back on ${name}’s dues. Nothing is sent to the parent.`, `${no} पर "हटाया गया" लिखा जाएगा और यह इतिहास में रहेगी। ${amt} फिर ${name} के बकाये में जुड़ जाएगा। अभिभावक को कुछ नहीं भेजा जाता।`),
   rmKeep: p("Keep entry", "रहने दें"),
-  rmGo: p("Remove entry", "प्रविष्टि हटाएँ"),
+  rmGo: p("Remove entry", "भुगतान हटाएँ"),
   rmDone: (n: string) => p(`Removed · ${n} · dues are back`, `हटाया · ${n}`),
 
   readOnly: p("This screen is read-only right now", "यह स्क्रीन अभी केवल देखने के लिए है"),

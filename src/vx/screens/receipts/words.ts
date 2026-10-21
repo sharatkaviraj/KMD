@@ -82,7 +82,7 @@ export const W = {
   hRead: p("Read by parent", "अभिभावक ने पढ़ी"),
   footnote: p(
     "Receipts are never edited. A reversal writes a separate entry and this receipt stays in history.",
-    "रसीद कभी बदली नहीं जाती। रद्द करने पर अलग प्रविष्टि बनती है और यह रसीद इतिहास में रहती है।",
+    "रसीद कभी बदली नहीं जाती। रद्द करने पर यह अलग से लिखा जाता है और यह रसीद इतिहास में रहती है।",
   ),
   pendingReversal: p("Reversal asked · waiting for an admin", "रद्द करने का अनुरोध · एडमिन की प्रतीक्षा"),
   back: p("Back to receipts", "रसीदों पर वापस"),
