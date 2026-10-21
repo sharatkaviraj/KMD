@@ -16,7 +16,7 @@ export const W = {
   otherTabAttempt: p("Another tab has an unfinished payment. Resolve that payment before collecting again.", "दूसरे टैब में अधूरा भुगतान है। नया भुगतान लेने से पहले उसे पूरा करें।"),
   waiverAttemptPending: p("The late-fee waiver may already be applied. Check or complete the original payment; an earlier receipt does not resolve it.", "लेट फीस माफी पहले ही लागू हो सकती है। मूल भुगतान की जाँच करें या उसे पूरा करें; पुरानी रसीद से यह पूरा नहीं होता।"),
   concession: p("Concession", "रियायत"),
-  concessionOff: p("Not given at the desk: it printed on the receipt but did not lower the dues. Ask the admin to set the student’s discount on the student’s fee record.", "डेस्क पर रियायत नहीं दी जाती: यह रसीद पर छपती थी पर बकाया कम नहीं होता था। छात्र की छूट एडमिन से छात्र के फीस रिकॉर्ड में लगवाएँ।"),
+  concessionOff: p("Concessions are not given here. Ask the admin to set the discount on the student’s fee record.", "यहाँ रियायत नहीं दी जाती। छूट के लिए एडमिन से छात्र के फ़ीस रिकॉर्ड में छूट लगवाएँ।"),
   collector: p("Received by", "प्राप्तकर्ता"),
   editCollector: p("Change who received the money", "पैसा लेने वाले का नाम बदलें"),
   storageBlocked: p("Payment not sent. Browser recovery storage is unavailable; enable it and try again.", "भुगतान नहीं भेजा गया। ब्राउज़र पुनर्प्राप्ति संग्रह उपलब्ध नहीं है; उसे चालू कर दोबारा प्रयास करें।"),
@@ -91,7 +91,7 @@ export const W = {
   // on the day itself is the data model's fourth figure, shown only when there
   // is one.
   feesPendingToday: p("Fees pending today", "आज तक बकाया फीस"),
-  overdueOnly: p("Overdue fees only", "केवल देय फीस"),
+  overdueOnly: p("Overdue fees only", "केवल तारीख निकली फीस"),
   dueToday: p("Due today", "आज देय"),
   plusDueToday: (a: string) => p(`${a} more is due today`, `${a} आज और देय है`),
   notDueYet: p("Not due yet", "अभी देय नहीं"),
@@ -109,7 +109,7 @@ export const W = {
   dueIn: (n: number) => p(` · in ${n} ${n === 1 ? "day" : "days"}`, ` · ${n} दिन में`),
   charge: (c: string, paid: string) => p(`charge ${c} · paid ${paid}`, `शुल्क ${c} · जमा ${paid}`),
   stPaid: p("Paid", "जमा"),
-  stOverdue: p("Overdue", "देय"),
+  stOverdue: p("Overdue", "तारीख निकल गई"),
   stPart: p("Part paid", "आंशिक"),
   stNotDue: p("Not due yet", "अभी देय नहीं"),
   lateLine: (n: number) => p(`Late fee · Installment ${n}`, `विलंब शुल्क · किस्त ${n}`),
@@ -282,7 +282,8 @@ export const W = {
   rLateWaived: (a: string) => p(`Late fee ${a} waived`, `विलंब शुल्क ${a} माफ़`),
   // B07: what the receipt recorded when it was posted, and the ledger now, are two different facts.
   rNowHead: (t: string) => p(`Balance now${t ? ` · read at ${t}` : ""}`, `अभी का बकाया${t ? ` · ${t} पर` : ""}`),
-  rAtReceipt: p("At this receipt · fees still owed", "इस रसीद पर · बाकी फ़ीस"),
+  // The whole year's fees still owed after this receipt, this session only, a removed receipt counted as nothing.
+  rAtReceipt: p("After this receipt · fees still owed for the year", "इस रसीद के बाद · साल की बाकी फ़ीस"),
   rNote: p("Note", "टिप्पणी"),
   rMode: p("Mode", "माध्यम"),
   rRef: p("ref", "संदर्भ"),

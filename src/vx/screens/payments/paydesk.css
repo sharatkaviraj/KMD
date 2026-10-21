@@ -34,6 +34,8 @@
 :where(.vx) .pd-sr{position:relative;display:flex;align-items:center;gap:8px;height:50px;border-radius:16px;border:1.5px solid var(--bds);background:var(--card);padding:0 14px;color:var(--mut);transition:border-color .2s ease,box-shadow .2s ease}
 :where(.vx) .pd-sr:focus-within{border-color:var(--acc);box-shadow:0 0 0 4px var(--accs)}
 .vx .pd-sr input{flex:1;min-width:0;height:46px;border:0;outline:none;background:transparent;font-size:16px;color:var(--fg)}
+/* One clear button, the app's own: the browser's search "x" sat beside it (smoke 20 Oct). */
+.vx .pd-sr input::-webkit-search-cancel-button,.vx .pd-sr input::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
 :where(.vx) .pd-cls{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 :where(.vx) .pd-cls>button{height:40px;padding:0 2px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 :where(.vx) .pd-cls>button.on{background:var(--pri);border-color:var(--pri);color:var(--prifg)}
@@ -139,8 +141,9 @@
   .vx .pd-desk[data-step="1"] .pd-left{padding-bottom:14px}
   /* The amount is in sight on every step (the input, then the summary), so the bar is just Back and Next. */
   .vx .pd-desk[data-step] .pd-pbar>.pd-c{display:none}
-  .vx .pd-desk[data-step] .pd-qchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -18px;padding:0 18px 2px}
-  .vx .pd-desk[data-step] .pd-qchips>.chip{flex:none}
+  /* Every amount chip in sight, two to a row: a sideways strip hid "Whole year" past the edge with no hint (smoke 20 Oct). */
+  .vx .pd-desk[data-step] .pd-qchips{flex-wrap:wrap}
+  .vx .pd-desk[data-step] .pd-qchips>.chip{flex:1 1 calc(50% - 6px);justify-content:space-between}
   .vx .pd-desk[data-step] textarea.inp{min-height:48px!important}
   .vx .pd-fold:not(.open){display:none}
   .vx .pd-pbar .pd-sback{flex:none;width:52px;height:52px;padding:0;border-radius:14px}

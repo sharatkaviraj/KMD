@@ -14,11 +14,13 @@ export type DeskRow = {
   studentFullName: string;
   admissionNo: string;
   classLabel: string;
+  /** A reversal is waiting for an admin on this receipt. */
+  reversalAsked?: boolean;
 };
 
 export type ShareStatus = { status: "not_sent" | "sent" | "delivered" | "read" | "failed"; at: string | null };
 
-export type HistoryEvent = { at: string; kind: "posted" | "reversed" | "sent" | "read"; amount?: number; note?: string | null; byName?: string | null };
+export type HistoryEvent = { at: string; kind: "posted" | "asked" | "reversed" | "sent" | "read"; amount?: number; note?: string | null; byName?: string | null; reasonCode?: string | null };
 
 export type SelectedReceipt = {
   id: string;
@@ -40,7 +42,9 @@ export type SelectedReceipt = {
   heads: { label: string; amount: number }[];
   share: ShareStatus;
   history: HistoryEvent[];
-  pendingRequest: { at: string; by: string | null } | null;
+  pendingRequest: { at: string; by: string | null; reasonCode: string; note: string | null } | null;
+  /** The receipt's own day is closed: reversing it changes a counted day. */
+  dayClosed?: boolean;
   /** The latest reversal: when (full ISO), by whom, and its note (B08). */
   reversal?: { at: string; byName: string | null; note: string | null } | null;
 };
@@ -75,6 +79,8 @@ export type DeskProps = {
   /** The close in force for the anchor day, if any. */
   closeEvent: CloseEvent | null;
   lastReopen: CloseEvent | null;
+  /** Reversals waiting for an admin on the anchor day's receipts. */
+  waitingReversals?: { receiptNumber: string; amount: number; mode: string }[];
   selected: SelectedReceipt | null;
   sheet: "reverse" | "send" | null;
   initial: { mode: string; staff: string; query: string };

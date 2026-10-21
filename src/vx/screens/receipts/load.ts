@@ -10,7 +10,7 @@ import { can } from "@/platform/auth/permissions";
 import { feePermissionsFor } from "@/platform/auth/fee-roles";
 import { schoolToday } from "@/vx/format";
 
-import { listCloseEvents, pendingReversalRequest, staffNamesForUsers } from "./data";
+import { listCloseEvents, pendingReversalRequest, pendingReversalsBySession, staffNamesForUsers } from "./data";
 import type { DeskProps, DeskRow, HistoryEvent, SelectedReceipt } from "./types";
 
 type Search = Record<string, string | string[] | undefined>;
@@ -30,10 +30,12 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
   const viewSession = await resolveViewSession({ searchParamSession: search.session ?? null, cookieSession: await getViewSessionCookie() });
   const sessionLabel = viewSession.sessionLabel;
 
-  const [{ rows, truncated }, events, selectedRaw] = await Promise.all([
+  const [{ rows, truncated }, events, selectedRaw, waiting] = await Promise.all([
     loadDeskReceipts(sessionLabel, from, to),
     listCloseEvents(anchor, anchor, { strict: true, sessionLabel }),
     receiptNumber ? getDeskReceipt(receiptNumber) : Promise.resolve(null),
+    // A marker, never a gate: an unreadable list only hides the marker.
+    pendingReversalsBySession(sessionLabel).catch(() => new Map<string, { amount: number; reasonCode: string; by: string | null }>()),
   ]);
   const lastDate = rows.length === 0 ? await lastReceiptDate(anchor, sessionLabel) : null;
 
@@ -49,17 +51,28 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
     studentFullName: r.studentFullName,
     admissionNo: r.admissionNo,
     classLabel: r.classLabel,
+    reversalAsked: !r.isReversed && waiting.has(r.id),
   }));
+  const waitingReversals = rows
+    .filter((r) => r.paymentDate === anchor && !r.isReversed && waiting.has(r.id))
+    .map((r) => ({ receiptNumber: r.receiptNumber, amount: waiting.get(r.id)?.amount ?? r.totalAmount, mode: r.paymentMode }));
 
   let selected: SelectedReceipt | null = null;
   if (selectedRaw) {
     const d = selectedRaw.detail;
     const reversedEvents = selectedRaw.history.filter((h) => h.kind === "reversed");
-    const [pending, names] = await Promise.all([
+    const [pending, names, dayEvents] = await Promise.all([
       pendingReversalRequest(d.id),
       reversedEvents.length ? staffNamesForUsers(reversedEvents.map((h) => h.by)).catch(() => new Map<string, string>()) : Promise.resolve(new Map<string, string>()),
+      // Is the receipt's own day closed? Reversing it changes a counted day.
+      d.paymentDate === anchor ? Promise.resolve(events) : listCloseEvents(d.paymentDate, d.paymentDate, { sessionLabel }).catch(() => []),
     ]);
     const history: HistoryEvent[] = selectedRaw.history.map(({ by, ...h }) => (h.kind === "reversed" ? { ...h, byName: by ? (names.get(by) ?? null) : null } : h));
+    // The request is part of the receipt's story: who asked, when and why (smoke 20 Oct).
+    if (pending && !selectedRaw.isReversed) {
+      history.push({ at: pending.createdAt, kind: "asked", byName: pending.requestedByName, reasonCode: pending.reasonCode, note: pending.note });
+      history.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    }
     const lastReversal = [...history].reverse().find((h) => h.kind === "reversed");
     selected = {
       id: d.id,
@@ -78,10 +91,14 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
       isReversed: selectedRaw.isReversed,
       receivedBy: d.receivedBy ?? d.createdByName,
       sessionLabel: d.sessionLabel,
-      heads: d.breakdown.map((b) => ({ label: b.installmentLabel, amount: b.amount })),
+      // A reversed receipt still shows what it was written for, so its lines add
+      // up to its total under the REVERSED stamp (was "Installment 2 ₹0" over
+      // "Total received ₹1").
+      heads: d.breakdown.map((b) => ({ label: b.installmentLabel, amount: selectedRaw.isReversed ? b.originalAmount : b.amount })),
       share: selectedRaw.share,
       history,
-      pendingRequest: pending ? { at: pending.createdAt, by: pending.requestedByName } : null,
+      pendingRequest: pending ? { at: pending.createdAt, by: pending.requestedByName, reasonCode: pending.reasonCode, note: pending.note } : null,
+      dayClosed: latestCloseState(dayEvents).closed,
       reversal: selectedRaw.isReversed && lastReversal ? { at: lastReversal.at, byName: lastReversal.byName ?? null, note: lastReversal.note ?? null } : null,
     };
   }
@@ -110,6 +127,7 @@ export async function loadReceiptsDesk(staff: CurrentStaff, search: Search, rece
     lastDate,
     closeEvent: close.closed && close.event ? close.event : null,
     lastReopen: [...events].reverse().find((e) => e.action === "reopen") ?? null,
+    waitingReversals,
     selected,
     // A reversed receipt (or a viewer who may not ask) never opens the reverse
     // sheet from the URL; the page replaces such a URL with one without it (B08).

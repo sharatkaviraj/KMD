@@ -10,7 +10,7 @@ import { Suspense, use, useCallback, useEffect, useRef, useState, type CSSProper
 import { dateLabel, dayMonth, initials, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
-import type { Pair } from "@/vx/text";
+import { p as pair, type Pair } from "@/vx/text";
 import { CloseLink, useCloseTo } from "@/vx/ui/back-link";
 import { Sheet } from "@/vx/ui/overlays";
 import { Btn, EmptyState, Pill, Skel, type Tone } from "@/vx/ui/primitives";
@@ -204,6 +204,23 @@ const LOOK: Record<Cell["state"] | "blank", { bg: string; fg: string; bd?: strin
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+/**
+ * The short name each installment row goes by: its month, unless two rows
+ * fall in the same month — last year's balance and April's installment both
+ * read "Apr" (smoke 20 Oct) — when each is named instead.
+ */
+function rowNames(rows: NonNullable<Student360Props["installments"]>, tx: (p: Pair) => string): string[] {
+  const month = (r: (typeof rows)[number]) => MONTHS[Number(r.dueDate.slice(5, 7)) - 1] ?? "";
+  const seen = new Map<string, number>();
+  for (const r of rows) seen.set(month(r), (seen.get(month(r)) ?? 0) + 1);
+  return rows.map((r) => {
+    if ((seen.get(month(r)) ?? 0) < 2) return month(r);
+    if (r.carry) return tx(pair("Old", "पुराना"));
+    const n = /(\d+)/.exec(r.label)?.[1];
+    return n ? tx(pair(`Inst ${n}`, `किस्त ${n}`)) : r.label.split(/\s+/)[0]?.slice(0, 8) ?? month(r);
+  });
+}
+
 /** An installment as the design shows it: status words, bar and its one-line story. */
 function installmentLook(row: NonNullable<Student360Props["installments"]>[number], tx: (p: Pair) => string) {
   const overdue = row.state === "overdue";
@@ -348,6 +365,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
 
   /* ------------------------------------------------------------- overview */
   const rows = p.installments ?? [];
+  const names = rowNames(rows, tx);
   const feesCardPhone = !seesMoney || feesUnavailable ? null : feesLoading ? loadingCard : money ? (
     <button type="button" className="tap card s360-card s360-m-only" onClick={pick("fees")}>
       <span className="s360-card-h"><span>{p.feeSession ? tx(T.feesFor(p.feeSession.replace("-", "–"))) : tx(T.tabFees)}</span><span style={{ fontSize: 13, fontWeight: 600, color: "var(--acc)" }}>{tx(T.ledger)}</span></span>
@@ -358,7 +376,7 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
             return (
               <span key={row.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <span className="s360-bar8"><span style={{ width: `${look.width.toFixed(0)}%`, background: look.status.bar, animationDelay: `${i * 80}ms` }} /></span>
-                <span style={{ fontSize: 11, color: look.labelColor, fontWeight: 600 }}>{look.month}</span>
+                <span style={{ fontSize: 11, color: look.labelColor, fontWeight: 600 }}>{names[i]}</span>
               </span>
             );
           })}
@@ -380,8 +398,8 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
       {rows.map((row, i) => {
         const look = installmentLook(row, tx);
         return (
-          <span key={row.id} style={{ display: "grid", gridTemplateColumns: "34px minmax(0,1fr) 80px", gap: 10, alignItems: "center", width: "100%" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: look.labelColor }}>{look.month}</span>
+          <span key={row.id} style={{ display: "grid", gridTemplateColumns: "minmax(34px, auto) minmax(0,1fr) 80px", gap: 10, alignItems: "center", width: "100%" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: look.labelColor, whiteSpace: "nowrap" }}>{names[i]}</span>
             <span className="s360-bar8"><span style={{ width: `${look.width.toFixed(0)}%`, background: look.status.bar, animationDelay: `${i * 80}ms` }} /></span>
             <span className="pill" style={{ justifySelf: "end", background: look.status.bg, color: look.status.fg }}>{tx(look.status.short)}</span>
           </span>
@@ -586,8 +604,11 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
   };
   const moreItems: ({ label: Pair; icon: "send" | "edit" | "file" | "note" | "receipt" | "camera" | "users" | "book" } & ({ href: string; run?: never } | { run: Launch; href?: never }))[] = [];
   if (p.canEditPhoto) moreItems.push({ label: photoWords.edit, icon: "camera", run: "photo" });
-  if (p.canAssignTasks) moreItems.push({ label: ms.taskRequest, icon: "users", run: "details" });
-  if (p.canAssignTasks) moreItems.push({ label: ms.taskRequestMarks, icon: "book", run: "marks" });
+  // The same words as the desk's "Ask a teacher" button and its two choices (smoke 20 Oct:
+  // the phone called it "Request details from a teacher").
+  const askAs = (what: Pair): Pair => pair(`${ms.taskAsk.en}: ${what.en}`, `${ms.taskAsk.hi}: ${what.hi ?? what.en}`);
+  if (p.canAssignTasks) moreItems.push({ label: askAs(ms.taskAskDetails), icon: "users", run: "details" });
+  if (p.canAssignTasks) moreItems.push({ label: askAs(ms.taskAskMarks), icon: "book", run: "marks" });
   if (p.canAddNote) moreItems.push({ label: T.addNote, href: `${notesHref}&sheet=add`, icon: "note" });
   if (seesMoney) moreItems.push({ label: T.statement, href: `/fees/students/${p.id}/statement`, icon: "send" });
   if (seesMoney) moreItems.push({ label: T.fullFeeRecord, href: `/fees/students/${p.id}?tab=dues`, icon: "receipt" });
