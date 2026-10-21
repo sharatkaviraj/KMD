@@ -38,11 +38,11 @@ for (const width of [360, 390, 412]) {
 test("an uncertain draft reuses its command after reload and does not write twice", async ({ page }) => {
   await page.goto("/?failure=after-commit");
   await page.locator('input[inputmode="decimal"]').first().fill("0");
-  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not sent yet. Your marks are safe on this phone and will go by themselves when the internet is back.", { exact: true })).toBeVisible();
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(before.revision).toBe(1);
   await page.reload();
-  await page.getByRole("button", { name: "Restore and check save", exact: true }).tap();
+  // Smoke 20 Oct: the same save is checked again by itself — no button to find.
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).calls.length)).toBe(2);
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(after.calls[1].commandId).toBe(before.calls[0].commandId);
@@ -53,9 +53,8 @@ test("an uncertain draft reuses its command after reload and does not write twic
 test("an interrupted draft before commit survives reload and reconnect", async ({ page }) => {
   await page.goto("/?failure=offline");
   await page.locator('input[inputmode="decimal"]').first().fill("12.5");
-  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not sent yet. Your marks are safe on this phone and will go by themselves when the internet is back.", { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "Restore and check save", exact: true }).tap();
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).revision)).toBe(1);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).cells["00000000-0000-4000-8000-000000000001"].value)).toBe(12.5);
 });
@@ -67,7 +66,7 @@ test("strict and locked schemes do not expose mutation controls", async ({ page 
   await expect(page.locator('input[inputmode="decimal"]').first()).toBeDisabled();
 });
 
-test("a confirmed save whose recovery cannot clear blocks edits and retries the same command", async ({ page }) => {
+test("a confirmed save whose recovery cannot clear keeps the boxes open and retries the same command", async ({ page }) => {
   await page.addInitScript(() => {
     const remove = IDBObjectStore.prototype.delete;
     IDBObjectStore.prototype.delete = function (key) {
@@ -83,8 +82,9 @@ test("a confirmed save whose recovery cannot clear blocks edits and retries the 
   });
   await page.goto("/");
   await page.locator('input[inputmode="decimal"]').first().fill("5");
-  await expect(page.getByText("This phone could not clear saved recovery. Keep this page open and retry before leaving.", { exact: true })).toBeVisible();
-  await expect(page.locator('input[inputmode="decimal"]').first()).toBeDisabled();
+  await expect(page.getByText("This phone could not clear its copy of the marks. Keep this page open and tap Retry before leaving.", { exact: true })).toBeVisible();
+  // A waiting draft never locks every box (smoke 20 Oct, group 3).
+  await expect(page.locator('input[inputmode="decimal"]').first()).toBeEnabled();
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(before.revision).toBe(1);
   await page.evaluate(() => localStorage.removeItem("qa:fail-clear"));
@@ -106,8 +106,8 @@ test("list preserves zero, absent and exempt and refuses missing marks", async (
   expect(cells["00000000-0000-4000-8000-000000000002"].state).toBe("absent");
   expect(cells["00000000-0000-4000-8000-000000000003"].state).toBe("exempt");
   await page.getByRole("button", { name: "Check & send", exact: true }).tap();
-  await expect(page.getByRole("button", { name: "Send to exam coordinator", exact: true })).toBeDisabled();
-  await expect(page.getByText("2 children have no mark yet", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send marks", exact: true })).toBeDisabled();
+  await expect(page.getByText("2 children have no mark yet", { exact: true }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });
 
@@ -116,21 +116,18 @@ test("uncertain submit recovers on sent screen and repeated retry has one effect
   for (const input of await page.locator('input[inputmode="decimal"]').all()) await input.fill("9");
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).revision)).toBe(1);
   await page.getByRole("button", { name: "Check & send", exact: true }).tap();
-  await page.getByRole("button", { name: "Send to exam coordinator", exact: true }).tap();
-  await expect(page.getByText("The save has not been confirmed. Try again to check the same save; your entries are kept on this phone.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Send marks", exact: true }).tap();
+  await expect(page.getByText("Not sent yet. Your marks are safe on this phone and will go by themselves when the internet is back.", { exact: true })).toBeVisible();
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   await page.reload();
-  const recover = page.getByRole("button", { name: "Restore and check save", exact: true });
-  await expect(page.getByRole("button", { name: "Undo submission", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Hand back to teacher", exact: true })).toBeDisabled();
-  await recover.tap();
-  await expect(recover).toHaveCount(0);
+  // The send that was on its way is checked again by itself, with its own id.
   await expect(page.getByRole("heading", { name: "Marks sent", exact: true })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).calls.length)).toBeGreaterThan(before.calls.length);
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(after.revision).toBe(before.revision);
   expect(after.calls.at(-1).commandId).toBe(before.calls.at(-1).commandId);
   expect(Object.values(after.receipts)).toHaveLength(2);
-  await expect(page.getByRole("button", { name: "Undo submission", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Take back marks", exact: true })).toBeEnabled();
 });
 
 test("a draft from an older revision is shown, never restored, and cannot overwrite a concurrent save", async ({ page }) => {
@@ -138,7 +135,7 @@ test("a draft from an older revision is shown, never restored, and cannot overwr
     const browserTimers: Pick<Window, "setTimeout"> = window;
     const timeout = browserTimers.setTimeout.bind(window);
     browserTimers.setTimeout = (handler: TimerHandler, delay?: number, ...args: unknown[]) =>
-      timeout(handler, delay === 900 ? 60_000 : delay, ...args);
+      timeout(handler, delay === 1500 ? 60_000 : delay, ...args);
   });
   await page.goto("/");
   await page.locator('input[inputmode="decimal"]').first().fill("8");
@@ -152,38 +149,68 @@ test("a draft from an older revision is shown, never restored, and cannot overwr
   await page.reload();
   // B02: a plain draft is offered back only against the revision it was made on.
   await expect(page.getByRole("button", { name: "Restore draft", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "View draft (1)", exact: true }).tap();
-  await expect(page.getByText(/draft 8 · saved —/)).toBeVisible();
-  await expect(page.locator('input[inputmode="decimal"]').first()).toBeDisabled();
+  await page.getByRole("button", { name: "See them (1)", exact: true }).tap();
+  await expect(page.getByText(/on this phone 8 · school has —/)).toBeVisible();
+  // Typing is allowed beside it (it replaces the old copy); nothing of it is ever sent.
+  await expect(page.locator('input[inputmode="decimal"]').first()).toBeEnabled();
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!));
   expect(after.revision).toBe(1); expect(after.cells["00000000-0000-4000-8000-000000000002"].value).toBe(20);
   expect(after.cells["00000000-0000-4000-8000-000000000001"]).toBeUndefined();
   expect(after.calls).toHaveLength(0);
-  await page.getByRole("button", { name: "Discard draft", exact: true }).tap();
-  await expect(page.locator('input[inputmode="decimal"]').first()).toBeEnabled();
+  await page.getByRole("button", { name: "Remove them", exact: true }).tap();
+  await expect(page.getByRole("button", { name: "See them (1)", exact: true })).toHaveCount(0);
 });
 
 test("a draft is isolated by staff and academic session on the same phone", async ({ page }) => {
   await page.goto("/?failure=offline&owner=teacher-a&session=2026-27");
   await page.locator('input[inputmode="decimal"]').first().fill("4");
-  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Not sent yet. Your marks are safe on this phone and will go by themselves when the internet is back.", { exact: true })).toBeVisible();
+  const calls = () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).calls.length);
+  const first = await calls();
   await page.goto("/?owner=teacher-b&session=2026-27");
-  await expect(page.getByRole("button", { name: "Restore and check save", exact: true })).toHaveCount(0);
+  await expect(page.locator('input[inputmode="decimal"]').first()).toBeEnabled();
+  expect(await calls()).toBe(first);
   await page.goto("/?owner=teacher-a&session=2027-28");
-  await expect(page.getByRole("button", { name: "Restore and check save", exact: true })).toHaveCount(0);
+  await expect(page.locator('input[inputmode="decimal"]').first()).toBeEnabled();
+  expect(await calls()).toBe(first);
+  // Only her own copy, in her own session, is put back — and sent by itself.
   await page.goto("/?owner=teacher-a&session=2026-27");
-  await expect(page.getByRole("button", { name: "Restore and check save", exact: true })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).cells["00000000-0000-4000-8000-000000000001"]?.value)).toBe(4);
 });
 
-test("landscape touch entry and pending request block edits until same save is checked", async ({ page }) => {
+test("landscape touch entry: a failed draft keeps the boxes open and resends the same save", async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 });
   await page.goto("/?failure=offline");
   await page.locator('input[inputmode="decimal"]').first().fill("8");
-  await expect(page.getByText("Not saved. Your change is still here.", { exact: true })).toBeVisible();
-  await expect(page.locator('input[inputmode="decimal"]').first()).toBeDisabled();
+  await expect(page.getByText("Not sent yet. Your marks are safe on this phone and will go by themselves when the internet is back.", { exact: true })).toBeVisible();
+  await expect(page.locator('input[inputmode="decimal"]').nth(1)).toBeEnabled();
   await page.getByRole("button", { name: "Retry", exact: true }).tap();
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).revision)).toBe(1);
   const calls = await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).calls);
   expect(calls[0]).toEqual(calls[1]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+});
+
+test("a mark above the maximum stays in its box, is said beside the child, and is never saved (smoke 20 Oct)", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto("/");
+  const box = page.locator('input[inputmode="decimal"]').first();
+  await box.fill("45");
+  await expect(box).toHaveValue("45");
+  await expect(page.getByText("45 is more than 40. Fix this mark.", { exact: true })).toBeVisible();
+  await page.waitForTimeout(2500);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).calls.length)).toBe(0);
+  await box.fill("38");
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("qa:marks-mobile:ledger")!).cells["00000000-0000-4000-8000-000000000001"]?.value)).toBe(38);
+});
+
+test("the number pad never moves on by itself, so Next child never skips a child (smoke 20 Oct)", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto("/?mode=pad");
+  await page.getByRole("button", { name: "3", exact: true }).tap();
+  await page.getByRole("button", { name: "5", exact: true }).tap();
+  await expect(page.getByText(/Synthetic student 1$/)).toBeVisible();
+  await page.getByRole("button", { name: "Next child", exact: true }).last().tap();
+  await expect(page.getByText(/Synthetic student 2$/)).toBeVisible();
+  await expect(page.getByText("Synthetic student 1: 35 kept")).toBeVisible();
 });
