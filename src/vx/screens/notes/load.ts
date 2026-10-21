@@ -39,7 +39,7 @@ export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promi
     visiblePlans(viewer, sessionLabel),
     viewer.canWrite ? childChoices(viewer, sessionLabel) : Promise.resolve([]),
     classLabelMap(sessionLabel),
-    notesPeople(sessionLabel, today).catch(() => ({ classTeachers: {}, coordinator: null, admin: null })),
+    notesPeople(sessionLabel, today, { id: staff.id, role: staff.role }).catch(() => ({ classTeachers: {}, coordinator: null, admin: null })),
   ]);
 
   // `?student=` opens one child's notes (from Student 360's "All notes"). It
