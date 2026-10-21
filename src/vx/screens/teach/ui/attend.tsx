@@ -324,7 +324,8 @@ export function TeachAttend({
       .then((raw) => {
         const d = raw as { value?: Draft } | null;
         if (!live || !d?.value?.marks || d.value.revision !== revision) return;
-        if (recorded && !mayChangeHere) return;
+        // Only a register this reader can still save or change takes taps back.
+        if (recorded ? !mayChangeHere : !(data.canSave && !data.closed)) return;
         // A slow phone-storage read must not replace marks changed since opening.
         const kept = Object.fromEntries(Object.entries(d.value.marks).filter(([id]) => ids.includes(id) && !touched.has(id))) as Record<string, Mark>;
         const base = recorded ? { ...fresh, ...savedMarks } : fresh;
@@ -345,7 +346,7 @@ export function TeachAttend({
     return () => {
       live = false;
     };
-  }, [draftId, outboxId, revision, ids, markScope, recorded, mayChangeHere, fresh, savedMarks]);
+  }, [draftId, outboxId, revision, ids, markScope, recorded, mayChangeHere, fresh, savedMarks, data.canSave, data.closed]);
 
   // A save still going after three seconds says so, so nobody presses twice (smoke run: ~10 s with only a spinner).
   useEffect(() => {
