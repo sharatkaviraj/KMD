@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AssignmentLauncher } from "@/modules/teacher-tasks/ui/assignment-sheet";
 import { ManageTask } from "@/modules/teacher-tasks/ui/manage-task";
 import { ms } from "@/messages/setup";
+import { PLAIN } from "@/modules/teacher-tasks/ui/plain";
 const calls=vi.hoisted(()=>({create:vi.fn(),delegate:vi.fn(),refresh:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:calls.refresh,push:vi.fn()})}));
 vi.mock("next/link",()=>({default:({children,href}:{children:React.ReactNode;href:string})=><a href={href}>{children}</a>}));
@@ -26,9 +27,9 @@ it("links a refused create to the existing task and provides explicit list deleg
   await click(ms.taskAssign.en);await click(ms.taskPreview.en);await click(ms.taskCreate.en);
   expect(host.querySelector("a")?.getAttribute("href")).toBe("/inbox?task=existing-task");
   expect(host.textContent).toContain(ms.taskScopeChanged.en);
-  expect(host.textContent).not.toContain(ms.taskCreated.en);
+  expect(host.textContent).not.toContain(PLAIN.created.en);
   await act(async()=>root.render(<ManageTask id="existing-task" language="en" collection/>));
-  await click(ms.taskReassign.en);
+  await click(PLAIN.reassign.en);
   const select=host.querySelector("select")!;
   await act(async()=>{select.value="teacher";select.dispatchEvent(new Event("change",{bubbles:true}));});
   await click(ms.taskDelegateList.en);
@@ -36,11 +37,19 @@ it("links a refused create to the existing task and provides explicit list deleg
   expect(calls.create).toHaveBeenCalledTimes(1);
 });
 it("never offers common delegation for academic work",async()=>{
-  await act(async()=>root.render(<ManageTask id="marks-task" language="en"/>));await click(ms.taskReassign.en);
+  await act(async()=>root.render(<ManageTask id="marks-task" language="en"/>));await click(PLAIN.reassign.en);
   expect(host.textContent).not.toContain(ms.taskDelegateList.en);
 });
 it("No photo preselects the photograph field in the existing assignment preview",async()=>{
   await act(async()=>root.render(<AssignmentLauncher language="en" selectedIds={["child"]} initialMissing="photo"/>));await click(ms.taskAssign.en);
   const label=[...host.querySelectorAll("label")].find(el=>el.textContent?.includes("Student photograph"));
   expect(label?.querySelector<HTMLInputElement>('input[type=checkbox]')?.checked).toBe(true);
+});
+it("opened for one child shows only that child and ticks only what is missing (smoke 20 Oct)",async()=>{
+  await act(async()=>root.render(<AssignmentLauncher language="en" selectedIds={["child"]}/>));await click(ms.taskAssign.en);
+  expect(host.textContent).toContain("Synthetic child · QA");
+  expect(host.textContent).not.toContain(ms.taskSelectAll.en);
+  expect(host.textContent).toContain("The details this child is missing are ticked above.");
+  const phone=[...host.querySelectorAll("label")].find(el=>el.textContent?.includes("Phone"));
+  expect(phone?.querySelector<HTMLInputElement>('input[type=checkbox]')?.checked).toBe(true);
 });

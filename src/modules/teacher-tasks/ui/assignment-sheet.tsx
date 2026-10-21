@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { m } from "@/messages";
 import { ms } from "@/messages/setup";
 import type { Language } from "@/platform/i18n/language";
-import { lead } from "@/vx/text";
+import { lead, p } from "@/vx/text";
 import { Sheet } from "@/vx/ui/overlays";
 import { Btn } from "@/vx/ui/primitives";
 import type { AssignmentContext, AssignmentInput, AssignmentPreview } from "../data/assignment";
 import { taskAssignmentContextAction, previewTeacherTasksAction, createTeacherTasksAction } from "@/app/(app)/teach/tasks/actions";
 import type { AssignmentMode, TaskKind } from "../domain/tasks";
+import { PLAIN } from "./plain";
 const inputClass = "w-full rounded-lg border border-border bg-background p-2 text-sm";
 /** Lets a menu row open the sheet: the row closes with its menu, the sheet must not. */
 export type AssignmentHandle = { show: () => void };
@@ -46,9 +47,11 @@ export function AssignmentLauncher({ language, selectedIds, initialKind = "colle
   const count = many > 1 ? ` (${many})` : "";
   let button: ReactNode = <Btn variant={variant} icon="users" disabled={pending} onClick={show}>{label ?? lead(ms.taskAssign, language)}{count}</Btn>;
   if (trigger === null) button = null;
+  // Opened for one child (Student 360): the sheet is about that child, by name.
+  const single = many === 1 && context ? context.students.find((s) => s.id === selectedIds![0]) : undefined;
   return <>
     {button}
-    <Sheet open={open} onClose={() => setOpen(false)} title={lead(ms.taskAssign, language)}>
+    <Sheet open={open} onClose={() => setOpen(false)} title={single ? `${lead(ms.taskAssign, language)} · ${single.name}` : lead(ms.taskAssign, language)}>
       {error ? <p role="alert">{lead(ms.taskUnavailable, language)}</p> : context ? <AssignmentEditor key={`${selectedIds?.join(",")}:${initialKind}:${initialMissing}`} context={context} selectedIds={selectedIds} initialKind={initialKind} initialMissing={initialMissing} language={language} close={() => setOpen(false)} /> : <p aria-live="polite">…</p>}
     </Sheet>
   </>;
@@ -88,6 +91,8 @@ function AssignmentEditor({ context, selectedIds, initialKind, initialMissing, l
   }[]>([]);
   const [scopeTask, setScopeTask] = useState<string | null>(null);
   const matching = context.students.filter(s => missing === "photo" ? !s.hasPhoto : missing ? !s.values[missing] : true);
+  // One child chosen from their own page: only that child, never the whole school's list (smoke run, 20 Oct).
+  const only = selectedIds?.length === 1 ? context.students.find(s => s.id === selectedIds[0]) ?? null : null;
   const choose = (id: string) => {
     setSelected(current => {
       const next = new Set(current);
@@ -136,8 +141,8 @@ function AssignmentEditor({ context, selectedIds, initialKind, initialMissing, l
   };
   return <div className="space-y-4 pb-6">
     {scopeTask && <Link href={`/inbox?task=${scopeTask}`} className="block rounded-xl border border-primary p-3">{word(ms.taskScopeChanged)}</Link>}
-    {status && <p role="status" className="rounded-xl bg-accent-soft p-3">{word(status === "created" ? ms.taskCreated : status === "existing" ? ms.taskExistingOther : ms.taskFailed)}</p>}
-    {created.map(t => <Link className="block rounded-lg border border-border p-3" key={t.id} href={`/inbox?task=${t.id}`}>{context.owners.find(o => o.id === t.teacherId)?.name ?? word(ms.taskUnavailable)} - {word(t.reused ? ms.taskReused : ms.taskAssigned)}</Link>)}
+    {status && <p role="status" className="rounded-xl bg-accent-soft p-3">{status === "created" ? lead(PLAIN.created, language) : word(status === "existing" ? ms.taskExistingOther : ms.taskFailed)}</p>}
+    {created.map(t => <Link className="block rounded-lg border border-border p-3" key={t.id} href={`/inbox?task=${t.id}`}>{context.owners.find(o => o.id === t.teacherId)?.name ?? word(ms.taskUnavailable)} - {lead(t.reused ? PLAIN.reused : PLAIN.assigned, language)}</Link>)}
     {!preview ? <>
       <label className="block text-sm">{word(ms.taskTitle)}<input className={inputClass} value={title} onChange={e => setTitle(e.target.value)} maxLength={120} />
       </label>
@@ -168,6 +173,10 @@ function AssignmentEditor({ context, selectedIds, initialKind, initialMissing, l
       {kind === "marks" && <select aria-label={word(m.taskMarks)} className={inputClass} value={paper} onChange={e => setPaper(e.target.value)}>
         <option value="">{word(ms.taskChoose)}</option>{context.papers.filter(p => !selected.size || context.students.some(s => selected.has(s.id) && s.classId === p.classId)).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select>}
       {kind === "attendance" && <input aria-label={word(m.taskAttendance)} className={inputClass} type="date" value={day} onChange={e => setDay(e.target.value)} />}
+      {only ? <p className="rounded-lg border border-border p-3 text-sm">
+        <span className="font-medium">{only.name} · {only.classLabel}</span>
+        {kind === "collection" ? <span className="block text-muted-foreground">{lead(fields.length ? p("The details this child is missing are ticked above.", "इस बच्चे की जो जानकारी बाकी है, ऊपर चुनी गई है।") : p("Nothing is missing for this child. Tick what the teacher should check.", "इस बच्चे की कोई जानकारी बाकी नहीं। शिक्षक क्या जाँचें, ऊपर चुनें।"), language)}</span> : null}
+      </p> : <>
       <label>{word(ms.taskMissing)}<select className={inputClass} value={missing} onChange={e => setMissing(e.target.value)}>
         <option value="">{word(ms.taskAll)}</option>
         <option value="photo">{word(ms.taskNoPhoto)}</option>{context.fields.map(f => <option key={f.key} value={f.key}>{word({ hi: f.labelHi, en: f.labelEn })}</option>)}</select>
@@ -178,6 +187,7 @@ function AssignmentEditor({ context, selectedIds, initialKind, initialMissing, l
         <input type="checkbox" checked={selected.has(s.id)} onChange={() => choose(s.id)} />
         <span className="text-sm">{s.name} · {s.classLabel}</span>
       </label>)}</div>
+      </>}
       <button type="button" className="w-full rounded-xl bg-primary px-4 py-3 text-primary-foreground" disabled={pending || !selected.size || !title} onClick={requestPreview}>{word(ms.taskPreview)}</button>
     </> : <>
       <p className="font-medium">{title} · {preview.dueDate ?? "—"}</p>
