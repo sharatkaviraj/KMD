@@ -1,6 +1,5 @@
--- PLACEHOLDER VERSION: written by the smoke-run admin stream (20 Oct findings,
--- dev group 5) and NOT applied anywhere. The lead applies it to DEV and renames
--- the file to the version the MCP stamps.
+-- Smoke school day, 20 Oct findings (dev group 5). Applied to DEV as 20261021033411.
+-- Goes to live with the app at cutover (not a D-skip).
 --
 -- A person may put a teacher into a lesson that is running now with nobody in
 -- it. The cover command treats a begun period as history (cover_period_open);
@@ -205,5 +204,5 @@ $$;
 comment on function vppsone.assign_late_cover(jsonb) is
   'Put a teacher into a lesson running now with nobody in it (today, a begun and unfinished period, no live duty). One manual pinned duty and its notice, under the cover day lock. The cover command leaves begun periods alone, so it stays.';
 
-revoke all on function vppsone.assign_late_cover(jsonb) from public;
+revoke all on function vppsone.assign_late_cover(jsonb) from public, anon, authenticated;
 grant execute on function vppsone.assign_late_cover(jsonb) to service_role;
