@@ -3,6 +3,7 @@ import "server-only";
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can } from "@/platform/auth/permissions";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { schoolToday } from "@/vx/format";
 import { childBasics } from "@/vx/screens/teach/students";
 
@@ -32,14 +33,16 @@ export function notesSearch(raw: Record<string, string | string[] | undefined>):
 export async function loadNotes(staff: CurrentStaff, search: NotesSearch): Promise<(NotesProps & { classes: { id: string; label: string }[]; teachers: { id: string; name: string }[] }) | null> {
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return null;
-  const today = schoolToday();
+  // The reader's clock (the lab clock on a test seat), as Academics Today uses,
+  // so the board and Today judge "due" against the same day (smoke 20 Oct).
+  const today = schoolToday(await schoolNow(staff));
   const viewer = await noteViewer(staff, sessionLabel);
   const [notes, plans, kids, labels, people] = await Promise.all([
     visibleNotes(viewer, sessionLabel),
     visiblePlans(viewer, sessionLabel),
     viewer.canWrite ? childChoices(viewer, sessionLabel) : Promise.resolve([]),
     classLabelMap(sessionLabel),
-    notesPeople(sessionLabel, today).catch(() => ({ classTeachers: {}, coordinator: null, admin: null })),
+    notesPeople(sessionLabel, today, { id: staff.id, role: staff.role }).catch(() => ({ classTeachers: {}, coordinator: null, admin: null })),
   ]);
 
   // `?student=` opens one child's notes (from Student 360's "All notes"). It

@@ -283,7 +283,7 @@ export const CLASSIC_SCREENS: { href: string; label: Pair; sub: string }[] = [
   { href: "/collection/messages", label: p("Message outbox", "संदेश आउटबॉक्स"), sub: "Every queued message, one by one" },
   { href: "/assessments", label: p("Assessments", "मूल्यांकन"), sub: "Papers, marks and report cards" },
   { href: "/timetable/classic", label: p("Timetable versions", "समय-सारणी संस्करण"), sub: "Imports and published versions" },
-  { href: "/substitutions", label: p("Substitutions", "व्यवस्था"), sub: "The cover command" },
+  { href: "/substitutions", label: p("Cover", "व्यवस्था"), sub: "The cover command" },
   { href: "/staff/classic", label: p("Staff list", "स्टाफ़ सूची"), sub: "Profiles and edit forms" },
   { href: "/academics", label: p("Academics", "शैक्षणिक"), sub: "Classes, subjects, class teachers" },
   { href: "/archives", label: p("Archives", "संग्रह"), sub: "Build and drill archives" },

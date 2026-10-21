@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 
-import { saveLanguageAction } from "@/app/(app)/preferences/actions";
 import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
-import type { Pair } from "@/vx/text";
+import { LANGUAGE_CHOICES, type Pair } from "@/vx/text";
+import { LanguageChoices } from "@/vx/ui/language";
 import { Sheet } from "@/vx/ui/overlays";
 
 /*
@@ -31,22 +30,19 @@ function Track({ on }: { on: boolean }) {
 
 const rowStyle = { width: "100%", minHeight: 56, display: "flex", alignItems: "center", gap: 12, padding: "0 16px", border: 0, borderTop: "1px solid var(--bd)", background: "transparent", color: "var(--fg)", textAlign: "left" } as const;
 
-/** Dark mode, and Hindi labels (EN with Hindi under each tile, UI-6) — the rows under the person's name. */
+/**
+ * Dark mode, and the reader's language — the rows under the person's name.
+ * The language row opens all three choices (English, हिंदी, both): the old
+ * "Hindi labels" switch wrote only "both" or "en", so a Hindi-only reader
+ * who touched it lost "hi" (smoke 20 Oct, dev.groups[10]).
+ */
 export function MenuToggles() {
   const { tx, language } = useVx();
-  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
   const dark = ready && resolvedTheme === "dark";
-  const hindi = language !== "en";
-  const [pending, start] = useTransition();
-  const setHindi = (on: boolean) =>
-    start(async () => {
-      const fd = new FormData();
-      fd.set("language", on ? "both" : "en");
-      await saveLanguageAction({ status: "idle", message: null }, fd);
-      router.refresh();
-    });
+  const [langOpen, setLangOpen] = useState(false);
+  const current = LANGUAGE_CHOICES.find((c) => c.value === language) ?? LANGUAGE_CHOICES[0];
   return (
     <>
       <button type="button" role="switch" aria-checked={dark} className="tap" onClick={() => setTheme(dark ? "light" : "dark")} style={rowStyle}>
@@ -54,14 +50,17 @@ export function MenuToggles() {
         <span style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{tx({ en: "Dark mode", hi: "डार्क मोड" })}</span>
         <Track on={dark} />
       </button>
-      <button type="button" role="switch" aria-checked={hindi} className="tap" disabled={pending} onClick={() => setHindi(!hindi)} style={{ ...rowStyle, opacity: pending ? 0.7 : 1 }}>
+      <button type="button" aria-haspopup="dialog" className="tap" onClick={() => setLangOpen(true)} style={rowStyle}>
         <Ic n="globe" />
         <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>{tx({ en: "Hindi labels", hi: "हिंदी नाम" })}</span>
-          <span lang="hi" style={{ fontSize: 12, color: "var(--mut)" }}>हिंदी नाम हर टाइल के नीचे</span>
+          <span style={{ fontSize: 15, fontWeight: 600 }}>{tx({ en: "Language", hi: "भाषा" })}</span>
+          <span lang={current.lang} style={{ fontSize: 12, color: "var(--mut)" }}>{current.name}</span>
         </span>
-        <Track on={hindi} />
+        <Ic n="chevRight" />
       </button>
+      <Sheet open={langOpen} onClose={() => setLangOpen(false)} title={tx({ en: "Language", hi: "भाषा" })} icon="globe">
+        <LanguageChoices onDone={() => setLangOpen(false)} />
+      </Sheet>
     </>
   );
 }

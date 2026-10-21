@@ -8,6 +8,7 @@ import { activatePlanAction, logCallAction, previewPlanAction, queueFamilyRemind
 import { CALL_OUTCOMES, type CallOutcome, type DuesFamily } from "@/modules/defaulters/vx/domain/families";
 import { addDays } from "@/modules/receipts/vx/domain/day-close";
 import { renderMessage } from "@/modules/whatsapp/vx/domain/reminders";
+import { shownSr } from "@/vx/domain/tell-apart";
 import { dateLabel, dayMonth, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -17,7 +18,7 @@ import { Banner } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
 
 import { Choice, Inset } from "./bits";
-import { duesHref } from "./href";
+import { duesHref, kidLink } from "./href";
 import { contactTone, day, dayTone, firstName, ini, kidsShort, maskPhone, telHref, TONES } from "./look";
 import type { DuesProps, DuesSheet, KidInstallment } from "./types";
 import { CHANNEL_WORD, fill, instList, LOG_OUTCOME_WORD, OUTCOME_SUB, OUTCOME_WORD, W } from "./words";
@@ -274,7 +275,9 @@ export function FamilyPanel(props: Props) {
         const inst = (detail?.installments[k.studentId] ?? []).slice().sort((a, b) => (a.carry === b.carry ? a.no - b.no : a.carry ? -1 : 1));
         const meta = detail?.meta?.[k.studentId];
         const t = TONES[(i + 1) % TONES.length];
-        const metaLine = [k.classLabel, meta?.admissionNo ? `SR ${meta.admissionNo}` : null, meta?.route ? tx(fill(W.route, { r: meta.route })) : k.transportRouteId ? tx(W.usesBus) : null].filter(Boolean).join(" · ");
+        const sr = shownSr(meta?.admissionNo);
+        const link = kidLink(k.studentId, perms);
+        const metaLine = [k.classLabel, sr ? `SR ${sr}` : null,meta?.route ? tx(fill(W.route, { r: meta.route })) : k.transportRouteId ? tx(W.usesBus) : null].filter(Boolean).join(" · ");
         return (
           <div key={k.studentId} className="card" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -283,14 +286,18 @@ export function FamilyPanel(props: Props) {
                 <span style={{ fontSize: 14, fontWeight: 700 }}>{k.fullName}</span>
                 <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{metaLine}</span>
               </span>
-              <Link href={`/students/${k.studentId}`} className="tap btn ghost only-d" style={{ height: 34, padding: "0 8px", fontSize: 13 }}>
-                {tx(W.openStudent)}
-                <Ic n="chevRight" size={15} />
-              </Link>
-              <Link href={`/students/${k.studentId}`} className="tap btn ghost only-m" style={{ padding: "0 8px", fontSize: 13 }}>
-                {tx(W.open)}
-                <Ic n="chevRight" size={15} />
-              </Link>
+              {link ? (
+                <>
+                  <Link href={link.href} className="tap btn ghost only-d" style={{ height: 34, padding: "0 8px", fontSize: 13 }}>
+                    {tx(link.to === "student" ? W.openStudent : W.openOnDesk)}
+                    <Ic n="chevRight" size={15} />
+                  </Link>
+                  <Link href={link.href} className="tap btn ghost only-m" style={{ padding: "0 8px", fontSize: 13 }}>
+                    {tx(W.open)}
+                    <Ic n="chevRight" size={15} />
+                  </Link>
+                </>
+              ) : null}
             </div>
             {inst.length ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>

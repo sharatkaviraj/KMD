@@ -17,6 +17,7 @@ import {
   type RollStudent,
   type SaveRegisterInput,
 } from "@/modules/attendance/domain/attendance";
+import type { CalendarNote } from "@/modules/attendance/domain/register-day";
 import {
   toAttendanceReceipt,
   type AttendanceReceipt,
@@ -584,6 +585,33 @@ const cachedCalendarDays = sharedCache(
     return data.map((row): [string, CalendarDayKind] => [row.day, row.kind]);
   },
   ["vx-attendance-calendar"],
+  { tags: [CACHE_TAGS.calendar], revalidate: 300 },
+);
+
+/**
+ * The calendar with each day's name ("Dussehra" / "दशहरा"), so a closed
+ * register can say why it is closed instead of "closed or not come yet"
+ * (20 Oct smoke run). Same table, gate and cache tag as `attendanceCalendar`.
+ */
+export async function attendanceCalendarNotes(
+  sessionLabel: string,
+): Promise<Map<string, CalendarNote>> {
+  await assertPermission("attendance:view");
+  return new Map(await cachedCalendarNotes(sessionLabel));
+}
+
+const cachedCalendarNotes = sharedCache(
+  async (sessionLabel: string): Promise<[string, CalendarNote][]> => {
+    const { data, error } = await createAdminClient()
+      .from("academic_calendar_days")
+      .select("day, kind, label_en, label_hi")
+      .eq("session_label", sessionLabel)
+      .returns<{ day: string; kind: CalendarDayKind; label_en: string | null; label_hi: string | null }[]>();
+
+    if (error) throw new Error(`Could not read the calendar: ${error.message}`);
+    return data.map((row): [string, CalendarNote] => [row.day, { kind: row.kind, en: row.label_en, hi: row.label_hi }]);
+  },
+  ["vx-attendance-calendar-notes"],
   { tags: [CACHE_TAGS.calendar], revalidate: 300 },
 );
 

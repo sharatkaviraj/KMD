@@ -96,8 +96,15 @@ export function AccountsHome({
   readOnly,
   greet,
   roleName,
+  nowIso,
 }: {
   greet: string;
+  /**
+   * The school clock this page was drawn on: the real time, or a QA/Smoke Lab
+   * account's pretend time (D-269), so the greeting, "counter open" and the
+   * 5:30 pm close agree with each other (smoke 20 Oct). Reads only.
+   */
+  nowIso?: string;
   data: AccountsHomeData;
   view: View;
   staffName: string;
@@ -150,7 +157,7 @@ export function AccountsHome({
             mSub: closed ? `${today}${data.closure?.closedAt ? ` · closed at ${time12(data.closure.closedAt)}` : " · day closed"}` : `${today} · not closed yet`,
           }
         : {
-            crumb: `${role} · ${today} · ${closed ? "day closed" : "counter open"}`,
+            crumb: `${role} · ${today} · ${closed ? "day closed" : timeLeft(CLOSE_MINUTE, nowIso ? new Date(nowIso) : new Date()) ? "counter open" : "past 5:30 pm · day not closed"}`,
             title: tx(p(`${greet}, ${first}`, `${hello}, ${first} जी`)),
             mTitle: tx(p(`${greet}, ${first}`, `${hello}, ${first} जी`)),
             mSub: `${today} · ${data.queue.length} at the counter`,
@@ -189,7 +196,7 @@ export function AccountsHome({
           </span>
         }
       />
-      {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} /> : null}
+      {view === "home" ? <HomeView data={data} canAct={canAct} canPause={canAccounts && !readOnly} canClose={canAccounts} canCollect={canCollect} canManage={canManage} run={run} busy={pending} nowIso={nowIso} /> : null}
       {view === "menu" ? <MenuView data={data} staffName={staffName} roleText={role} canCollect={canCollect} canAccounts={canAccounts} help={help} helpTitle={helpTitle} /> : null}
       {view === "evening" ? <EveningView data={data} /> : null}
     </VxPage>
@@ -198,7 +205,7 @@ export function AccountsHome({
 
 type Run = (fn: () => Promise<{ ok: boolean; message: string }>, undo?: () => Promise<unknown>) => void;
 
-function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canClose: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean }) {
+function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy, nowIso }: { data: AccountsHomeData; canAct: boolean; canPause: boolean; canClose: boolean; canCollect: boolean; canManage: boolean; run: Run; busy: boolean; nowIso?: string }) {
   const { tx } = useVx();
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -226,13 +233,27 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy }: 
 
   const c = data.collected;
   const modes = ["upi", "cash", "cheque", "bank_transfer"].map((m) => data.collected.modes.find((x) => x.mode === m) ?? { mode: m, total: 0, count: 0 });
+  // "↓ 100% vs usual day" beside ₹0 read as "100% done" (smoke 20 Oct): say above or below, and nothing yet when it is nothing.
+  const vsUsualText =
+    c.vsUsual === null
+      ? null
+      : c.total === 0
+        ? p("Nothing collected yet", "अभी कुछ जमा नहीं")
+        : c.vsUsual >= 0
+          ? p(`${Math.abs(c.vsUsual)}% above a usual day`, `सामान्य दिन से ${Math.abs(c.vsUsual)}% ज़्यादा`)
+          : p(`${Math.abs(c.vsUsual)}% below a usual day`, `सामान्य दिन से ${Math.abs(c.vsUsual)}% कम`);
   // The line runs from 8:00 am to now: carry the last total flat to the right edge.
   const line = `${c.spark.line} 200,${c.spark.endY}`;
-  const left = timeLeft(CLOSE_MINUTE);
-  const beforeNoon = timeLeft(12 * 60) !== null;
+  const now = nowIso ? new Date(nowIso) : new Date();
+  const left = timeLeft(CLOSE_MINUTE, now);
+  const beforeNoon = timeLeft(12 * 60, now) !== null;
+  const upiToday = modes.find((m) => m.mode === "upi") ?? { mode: "upi", total: 0, count: 0 };
   const steps = [
     { label: tx(p("Count the cash", "नकद गिनें")), sub: tx(p(`expected ${rupees(data.cashExpected.total)} · ${receiptsN(data.cashExpected.count).en}`, `अपेक्षित ${rupees(data.cashExpected.total)} · ${receiptsN(data.cashExpected.count).hi}`)), done: data.cashExpected.count === 0 || data.closure?.status === "closed" },
-    { label: tx(p("Match UPI with the bank app", "UPI बैंक ऐप से मिलाएँ")), sub: data.upiOpen.count ? tx(p(`${data.upiOpen.count} left · ${rupees(data.upiOpen.total)}`, `${data.upiOpen.count} बाकी · ${rupees(data.upiOpen.total)}`)) : tx(p("all matched", "सब मिल गए")), done: data.upiOpen.count === 0 },
+    // Today's UPI, the same figure the day close asks about. Older bank-statement
+    // lines to match are a separate job (the "UPI to match" card), never a reason
+    // the day cannot close (smoke 20 Oct: "2 left · ₹11,750" from 9 Oct and 19 Sep).
+    { label: tx(p("Check today’s UPI in the bank app", "आज का UPI बैंक ऐप में जाँचें")), sub: upiToday.count ? tx(p(`expected ${rupees(upiToday.total)} · ${receiptsN(upiToday.count).en}`, `अपेक्षित ${rupees(upiToday.total)} · ${receiptsN(upiToday.count).hi}`)) : tx(p("no UPI today", "आज कोई UPI नहीं")), done: upiToday.count === 0 || data.closure?.status === "closed" },
     { label: tx(p("Cheques to the bank", "चेक बैंक में")), sub: data.chequesToDeposit.count ? `${data.chequesToDeposit.count} · ${rupees(data.chequesToDeposit.total)}` : tx(p("none waiting", "कोई बाकी नहीं")), done: data.chequesToDeposit.count === 0 },
   ];
   const doneN = steps.filter((s) => s.done).length;
@@ -337,7 +358,7 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy }: 
                   <span className="ac-f ac-w" style={{ marginTop: 6 }}>
                     <span className="pill num" style={{ height: 24, background: c.vsUsual >= 0 ? "var(--oks)" : "var(--warns)", color: c.vsUsual >= 0 ? "var(--ok)" : "var(--warnfg)", animation: "xPopIn .45s .4s var(--spring) both" }}>
                       <Ic n={c.vsUsual >= 0 ? "arrowUp" : "arrowDown"} size={12} stroke={3} />
-                      {tx(p(`${Math.abs(c.vsUsual)}% vs usual day`, `सामान्य दिन से ${Math.abs(c.vsUsual)}%`))}
+                      {vsUsualText ? tx(vsUsualText) : null}
                     </span>
                     <span className="ac-m">{tx(p(`Usual ${weekday(data.today)} ${rupees(c.usual)}`, `सामान्य दिन ${rupees(c.usual)}`))}</span>
                   </span>
@@ -433,7 +454,10 @@ function HomeView({ data, canAct, canClose, canCollect, canManage, run, busy }: 
           <Card className="ac-c ac-cd" style={{ gap: 10 }}>
             <div className="ac-f ac-j">
               <span className="ac-v">{tx(p("Waiting for admin", "एडमिन के पास"))}</span>
-              <Link href="/accounts/books?view=requests" className="ac-m" aria-label={canManage ? "All requests" : "My requests"}>{openRequests} waiting{approvedToday ? ` · ${approvedToday} approved` : ""}</Link>
+              {/* 44 px tall on a phone: it was a 56×19 px link (smoke 20 Oct). */}
+              <Link href="/accounts/books?view=requests" className="tap ac-m" aria-label={tx(canManage ? p("All requests", "सभी अनुरोध") : p("My requests", "मेरे अनुरोध"))} style={{ display: "inline-flex", alignItems: "center", minHeight: 44, minWidth: 44, padding: "0 6px" }}>
+                {tx(p(`${openRequests} waiting${approvedToday ? ` · ${approvedToday} approved` : ""}`, `${openRequests} बाकी${approvedToday ? ` · ${approvedToday} मंज़ूर` : ""}`))}
+              </Link>
             </div>
             {data.requests.slice(0, 4).map((a, i) => {
               const tone = a.status === "approved" ? ["var(--oks)", "var(--ok)"] : a.status === "declined" ? ["var(--bads)", "var(--bad)"] : a.status === "withdrawn" ? ["var(--s3)", "var(--mut)"] : ["var(--warns)", "var(--warnfg)"];

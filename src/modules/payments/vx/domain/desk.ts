@@ -19,6 +19,8 @@
  * date that clears that installment means its late fee is never charged.
  */
 
+import { dueBucketOn } from "@/modules/fees/domain/due-rule";
+
 export type DeskLedgerRow = {
   id: string;
   installmentNo: number;
@@ -55,14 +57,17 @@ export function orderForSettlement<T extends Pick<DeskLedgerRow, "planPriority" 
   });
 }
 
-/** Overdue on `onDate`: last session's balance always is; an installment once its due date has passed. */
+/**
+ * Overdue on `onDate`: last session's balance always is; an installment once
+ * its due date has passed. The one rule every money screen uses (due-rule.ts).
+ */
 export function isOverdueOn(row: Pick<DeskLedgerRow, "isCarryForward" | "dueDate">, onDate: string): boolean {
-  return row.isCarryForward || row.dueDate < onDate;
+  return dueBucketOn(row, onDate) === "overdue";
 }
 
 /** Due on `onDate` itself: not overdue yet, but not "upcoming" either. */
 export function isDueOn(row: Pick<DeskLedgerRow, "isCarryForward" | "dueDate">, onDate: string): boolean {
-  return !row.isCarryForward && row.dueDate === onDate;
+  return dueBucketOn(row, onDate) === "due_today";
 }
 
 export type DeskTotals = {
@@ -459,7 +464,7 @@ export function listPending(
     const v = TIGHT(value);
     inInstallments += v;
     const due = dueDates[i];
-    if (due && due < today) pendingToday += v;
+    if (due && dueBucketOn({ dueDate: due }, today) === "overdue") pendingToday += v;
   });
   const carry = Math.max(0, TIGHT(student.baseOutstanding) - inInstallments);
   return { pendingToday: pendingToday + carry, lateFee: TIGHT(student.lateOutstanding) };

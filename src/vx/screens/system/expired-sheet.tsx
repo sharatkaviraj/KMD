@@ -22,7 +22,7 @@ const T = {
   sub: p("Sign in again — nothing you saved is lost.", "फिर से साइन इन करें — सहेजा हुआ कुछ नहीं खोया।"),
   signedInAt: (time: string) => p(`Signed in at ${time} on this phone`, `इस फ़ोन पर ${time} बजे साइन इन किया`),
   signedIn: p("Signed in on this phone", "इस फ़ोन पर साइन इन था"),
-  saved: p("Everything you saved is safe. Forms that keep a draft still have what you typed.", "जो सहेजा वह सुरक्षित है। ड्राफ़्ट रखने वाले फ़ॉर्म में आपका लिखा अब भी है।"),
+  saved: p("Everything you saved is safe. Most forms also keep what you typed on this phone.", "जो सहेजा वह सुरक्षित है। ज़्यादातर फ़ॉर्म में आपका लिखा इस फ़ोन में रखा रहता है।"),
   switchUser: p("Switch user", "दूसरा खाता"),
   signIn: p("Sign in", "साइन इन करें"),
 };

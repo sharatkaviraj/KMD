@@ -1,6 +1,6 @@
 import { byClassLabel } from "@/modules/academics/domain/class-order";
 import { groupOf, NOT_A_PAPER, type GroupKey } from "./groups";
-import { isLate, type PaperFacts } from "./tracker";
+import { isLate, isPaperComplete, type PaperFacts } from "./tracker";
 
 /*
  * The marks tracker's pure parts: what colour a class × subject cell is,
@@ -12,14 +12,16 @@ export type CellState = "locked" | "done" | "in_progress" | "not_started" | "emp
 
 /**
  * A cell's state. A class whose marks are locked shows a padlock on every
- * paper; a sent paper is done; anything typed is in progress; nothing typed
- * is not started. A class with nobody on the roll has nothing to enter.
+ * paper; a paper sent with every child marked and no mark to correct is done
+ * (`isPaperComplete` — never Done over blanks or invalid marks); a sent paper
+ * that still has either, or anything typed, is in progress; nothing typed is
+ * not started. A class with nobody on the roll has nothing to enter.
  */
-export function cellState(paper: Pick<PaperFacts, "total" | "entered" | "entryStatus">, classLocked: boolean): CellState {
+export function cellState(paper: Pick<PaperFacts, "total" | "entered" | "entryStatus" | "invalid">, classLocked: boolean): CellState {
   if (classLocked) return "locked";
-  if (paper.entryStatus === "submitted") return "done";
+  if (isPaperComplete(paper)) return "done";
   if (paper.total === 0) return "empty";
-  if (paper.entered > 0) return "in_progress";
+  if (paper.entered > 0 || paper.entryStatus === "submitted") return "in_progress";
   return "not_started";
 }
 
@@ -84,6 +86,29 @@ export function papersToCreate(input: {
   return out;
 }
 
+export type PaperEvent = { kind: "submitted" | "withdrawn" | "reopened"; at: string; text: { en: string; hi?: string } };
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * One paper's sends and take-backs out of the exam's activity log, newest
+ * first. The log names a paper by "<class> <subject>" in its text (the
+ * `withdraw_marks_submission` and send entries), so this matches that phrase
+ * whole: "Class 1 EVS" never matches "Class 11 EVS". Before, the paper's
+ * history showed only the last send, while Today listed sent · took back ·
+ * sent (smoke 20 Oct).
+ */
+export function paperEvents(rows: { kind: string; text_en: string; text_hi: string | null; created_at: string }[], classLabel: string, subjectCode: string): PaperEvent[] {
+  // The phrase ends the entry ("… sent Class 9 MATHS") or comes before "to change it" (a
+  // take-back), so "Hindi" never matches a "Hindi Lit" entry.
+  const phrase = new RegExp(`(^|\\s)${escape(classLabel)} ${escape(subjectCode)}(\\s+to change it)?$`);
+  const kinds = new Set(["submitted", "withdrawn", "reopened"]);
+  return rows
+    .filter((r) => kinds.has(r.kind) && phrase.test(r.text_en))
+    .map((r) => ({ kind: r.kind as PaperEvent["kind"], at: r.created_at, text: { en: r.text_en, hi: r.text_hi ?? undefined } }))
+    .sort((a, b) => b.at.localeCompare(a.at));
+}
+
 /** The child before and after this one in roll order, for the preview's arrows. */
 export function neighbours<T>(list: T[], index: number): { prev: T | null; next: T | null; position: number; of: number } {
   if (index < 0 || index >= list.length) return { prev: null, next: null, position: 0, of: list.length };
@@ -95,4 +120,17 @@ export function codeFor(name: string): string {
   const words = name.trim().split(/[\s-]+/).filter(Boolean);
   const code = words.map((w) => (/^\d+$/.test(w) ? w : w[0]!.toUpperCase())).join("");
   return code.replace(/[^A-Za-z0-9]/g, "").slice(0, 12) || "EXAM";
+}
+
+/**
+ * Whether the exam office may change a paper's "a child may be excused"
+ * switch now. Turning it on only widens what a teacher can enter, so it is
+ * always allowed; turning it off once marks are being typed is refused, the
+ * same rule `savePaperAction` keeps for the assessments screen (P7) — marks
+ * already saved as excused would otherwise become marks the paper cannot hold.
+ */
+export function exemptSwitch(paper: { allowExempt: boolean; entryRevision: number }, allow: boolean): { ok: true; change: boolean } | { ok: false; reason: "in_use" } {
+  if (paper.allowExempt === allow) return { ok: true, change: false };
+  if (!allow && paper.entryRevision > 0) return { ok: false, reason: "in_use" };
+  return { ok: true, change: true };
 }

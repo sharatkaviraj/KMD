@@ -39,7 +39,7 @@ export async function getInstallmentBalances(sessionLabel: string): Promise<Inst
     fetchAllPages<Row>((a, b) =>
       fee
         .from("v_workbook_installment_balances")
-        .select("student_id, student_name, admission_no, father_name, father_phone, class_id, class_label, installment_no, due_date, pending_amount, late_fee_pending")
+        .select("student_id, student_name, admission_no, father_name, father_phone, class_id, class_label, installment_no, due_date, pending_amount, late_fee_pending, is_carry_forward")
         .eq("session_label", sessionLabel)
         .order("installment_id")
         .range(a, b),
@@ -60,6 +60,7 @@ export async function getInstallmentBalances(sessionLabel: string): Promise<Inst
     pendingAmount: num(r.pending_amount),
     lateFeePending: num(r.late_fee_pending),
     studentStatus: statusBy.get(String(r.student_id)) ?? "active",
+    isCarryForward: r.is_carry_forward === true,
   }));
 }
 

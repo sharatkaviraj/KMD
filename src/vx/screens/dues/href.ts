@@ -8,3 +8,16 @@ export function duesHref(tab: DuesTab, changes: Record<string, string | null> = 
   const s = q.toString();
   return s ? `/dues?${s}` : "/dues";
 }
+
+/**
+ * Where a child's row in an open family goes: Student 360 for a reader who
+ * may open it (`students:view`), else the Payment Desk with that child picked
+ * for one who may collect, else nowhere. The accountant has the desk but not
+ * Student 360, and "Open student" landed on "No access" (smoke 21 Oct).
+ */
+export function kidLink(studentId: string, perms: { openStudent?: boolean; collect: boolean }): { href: string; to: "student" | "desk" } | null {
+  const id = encodeURIComponent(studentId);
+  if (perms.openStudent) return { href: `/students/${id}`, to: "student" };
+  if (perms.collect) return { href: `/payments?student=${id}`, to: "desk" };
+  return null;
+}

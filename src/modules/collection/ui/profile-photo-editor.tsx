@@ -48,7 +48,7 @@ function sayer(language: Language, vx: boolean) {
   return (pair: { hi: string; en: string }) => (vx ? lead(pair, language) : primary(pair, language));
 }
 
-export function PhotoEditor({ context, language, save, onClose, vx = false }: { context: PhotoEditorContext; language: Language; save: (form: FormData) => Promise<PhotoSaveResult>; onClose: () => void; vx?: boolean }) {
+export function PhotoEditor({ context, language, save, onClose, vx = false }: { context: PhotoEditorContext; language: Language; save: (form: FormData) => Promise<PhotoSaveResult>; onClose: (sent?: boolean) => void; vx?: boolean }) {
   const say = sayer(language, vx);
   const key =`vpps:photo:${context.scope}:${context.studentId ?? "self"}`;
   const [draft, setDraft] = useState<PhotoDraft | null>(null);
@@ -86,7 +86,7 @@ export function PhotoEditor({ context, language, save, onClose, vx = false }: { 
     try { result = await save(form); if (!result || typeof result.ok !== "boolean") result = { ok: false, reason: "unknown" }; }
     catch { result = { ok: false, reason: "unknown" }; }
     if (result.ok) {
-      try { await removeDraft(key); onClose(); } catch { setReason("storage"); }
+      try { await removeDraft(key); onClose(true); } catch { setReason("storage"); }
     } else {
       setReason(result.reason);
       if (result.reason !== "unknown") { const editable = { ...command, commandId: null }; setDraft(editable); try { await persist(editable); } catch { setReason("storage"); } }
@@ -137,11 +137,13 @@ function ScopedPhotoControl({ credential, studentId, language, sheet = false, tr
   const [opened, setOpened] = useState<{ credential: PhotoCredential; context: PhotoEditorContext } | null>(null);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
   const [shown, setShown] = useState(false);
+  // A teacher who saved a photo saw the sheet close and nothing else (smoke 20 Oct).
+  const [sent, setSent] = useState(false);
   const request = useRef(0);
   useEffect(() => () => { request.current += 1; }, []);
   const open = async () => {
     const current = ++request.current;
-    setBusy(true); setFailed(false); setShown(true);
+    setBusy(true); setFailed(false); setShown(true); setSent(false);
     try {
       const result = await openPhotoEditorAction(credential, studentId);
       if (request.current !== current) return;
@@ -151,17 +153,20 @@ function ScopedPhotoControl({ credential, studentId, language, sheet = false, tr
   };
   useImperativeHandle(ref, () => ({ open: () => void open() }));
   // Closing keeps an unsent draft on the device; the editor offers it back next time.
-  const close = () => { request.current += 1; setShown(false); setOpened(null); setBusy(false); router.refresh(); };
+  const close = (didSend?: boolean) => { request.current += 1; setShown(false); setOpened(null); setBusy(false); setSent(Boolean(didSend)); router.refresh(); };
+  const sentLine = sent ? <p role="status" className="text-sm font-medium text-success-soft-foreground" style={{ margin: 0 }}>{say(words.sentForReview)}</p> : null;
   const editor = opened ? <PhotoEditor key={opened.context.scope} context={opened.context} language={language} save={form => saveProfilePhotoAction(opened.credential, form)} onClose={close} vx={sheet} /> : null;
   const refused = failed ? <p role="status" className="text-sm text-destructive">{say(words.refused)}</p> : null;
   if (sheet) return <>
     {trigger === null ? null : <Btn variant="ghost" icon="camera" disabled={busy} onClick={() => void open()}>{say(words.edit)}</Btn>}
-    <Sheet open={shown} onClose={close} title={say(words.title)} icon="camera">
+    {sentLine}
+    <Sheet open={shown} onClose={() => close()} title={say(words.title)} icon="camera">
       {editor ?? refused ?? <p aria-live="polite" style={{ margin: 0, color: "var(--mut)" }}>…</p>}
     </Sheet>
   </>;
   return <div data-row-stop>
     {editor ?? <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-medium text-accent" disabled={busy} onClick={() => void open()}>{say(words.edit)}</button>}
     {refused}
+    {editor ? null : sentLine}
   </div>;
 }

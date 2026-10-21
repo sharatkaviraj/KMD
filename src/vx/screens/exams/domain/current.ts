@@ -76,3 +76,15 @@ export function openExamsForMarks<E extends ExamLike>(exams: E[], today: string)
     )
     .map((x) => x.e);
 }
+
+/**
+ * The exams a school year is made of: every dated exam, and the undated ones
+ * only while nothing is dated. An exam with no dates has not been planned —
+ * on dev those are rehearsal rows ("phoneops-20261011-marks", "QA") that
+ * showed in the coordinator's exam year and opened the report scheme on a
+ * term called "phoneops…" (smoke 20 Oct). They stay reachable by a link.
+ */
+export function plannedExams<E extends { startsOn: string | null }>(exams: E[]): E[] {
+  const withDates = exams.filter((e) => typeof e.startsOn === "string" && e.startsOn.length > 0);
+  return withDates.length ? withDates : exams;
+}

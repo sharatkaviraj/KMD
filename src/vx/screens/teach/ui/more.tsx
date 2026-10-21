@@ -19,8 +19,11 @@ import { VxPage } from "@/vx/ui/page";
 
 import { cancelLeaveVx, noticeSeenVx, setAlertVx, setTextSizeVx } from "../actions";
 import type { MoreData } from "../data";
-import { ampm, dShort, greetingPair, greetName, hm12, shortClass, andList } from "./fmt";
-import { LangSeg, LeaveChipsSheet, TchTop, useUrlState } from "./shared";
+import { spanPeriods } from "@/vx/screens/timetable/domain/timetable";
+import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, marksTileLine, mayCancelLeave, subjectWord } from "../domain/today";
+import { ampm, callName, dShort, dShortP, greetingPair, hm12, shortClass, andList } from "./fmt";
+import { LangSeg, LeaveSheet, TchTop, useUrlState } from "./shared";
+import "./today.css";
 
 /*
  * Teacher · Notices, links & more (design TchMore): the phone's More menu as
@@ -41,7 +44,7 @@ const TW: Tone = [V("warns"), V("warnfg")];
 const TS: Tone = [V("s3"), V("fg")];
 
 const LEAVE_STATUS: Record<string, { text: Pair; tone: Tone; icon: IconName }> = {
-  asked: { text: p("Pending", "बाकी"), tone: TW, icon: "clock" },
+  asked: { text: p("Waiting for the office", "ऑफ़िस का जवाब बाकी"), tone: TW, icon: "clock" },
   approved: { text: p("Approved", "मंज़ूर"), tone: TO, icon: "check" },
   declined: { text: p("Declined", "नामंज़ूर"), tone: [V("bads"), V("bad")], icon: "x" },
   cancelled: { text: p("Cancelled", "रद्द"), tone: TS, icon: "x" },
@@ -95,7 +98,14 @@ export function TeachMore({
   const current: MoreView = view ?? "menu";
   const unread = data.notices.filter((n) => !seen.has(n.id));
 
-  const go = (v: MoreView) => setView(v === "menu" ? null : v);
+  // A new view opens at its top (smoke 20 Oct: the timetable opened scrolled to P3, its day buttons out of sight).
+  const go = (v: MoreView) => {
+    setView(v === "menu" ? null : v);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+      document.querySelectorAll<HTMLElement>(".vx-main, .vx-page > main").forEach((el) => el.scrollTo?.({ top: 0 }));
+    }
+  };
 
   const gotIt = (ids: string[]) =>
     start(async () => {
@@ -122,19 +132,25 @@ export function TeachMore({
   const timeOf = (n: number) => data.periodTimes.find((t) => t.number === n);
   const classOrder = [...new Set(data.week.map((w) => w.classLabel))];
   const toneOf = (label: string) => CLASS_TONES[Math.max(0, classOrder.indexOf(label)) % CLASS_TONES.length];
-  const nowSlot = data.week.find((w) => dayKey(w.day) === todayKey && w.starts && w.ends && data.nowMinutes >= mins(w.starts) && data.nowMinutes < mins(w.ends)) ?? null;
+  // No period is "now" on a closed day, or in the part of the day she is on approved leave (smoke 20 Oct).
+  const onLeave = (period: number) => data.leaveToday !== null && spanPeriods(data.leaveToday as "full" | "first_half" | "second_half").includes(period);
+  const teachingToday = data.closed === null;
+  const nowSlot = teachingToday ? (data.week.find((w) => dayKey(w.day) === todayKey && w.starts && w.ends && data.nowMinutes >= mins(w.starts) && data.nowMinutes < mins(w.ends) && !onLeave(w.period)) ?? null) : null;
+  const subjectNames = new Map(Object.entries(data.subjectNames));
+  const subj = (code: string) => tx(subjectWord(code, subjectNames));
+  const slotWho = (label: string) => (label.includes("·") ? tx(combinedClasses(label)) : held.some((h) => h.classLabel === label) ? tx(p("my class", "मेरी कक्षा")) : tx(classWord(label)));
   const subjectsLine = (() => {
     const bySubject = new Map<string, string[]>();
     for (const w of data.week) bySubject.set(w.subjectCode, [...new Set([...(bySubject.get(w.subjectCode) ?? []), shortClass(w.classLabel)])]);
-    return [...bySubject.entries()].map(([s, cls]) => tx(p(`${s} for Classes ${andList(cls)}`, `कक्षा ${andList(cls, "और")} ${s}`))).join(" · ");
+    return [...bySubject.entries()].map(([s, cls]) => tx(p(`${subjectWord(s, subjectNames).en} for Classes ${andList(cls)}`, `कक्षा ${andList(cls, "और")} ${subjectWord(s, subjectNames).hi}`))).join(" · ");
   })();
   const held = data.profile.classes.filter((c) => c.held);
-  const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => c.classLabel).join(", ")} की कक्षा अध्यापक`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
+  const roleLine = [held.length ? tx(p(`${held.map((c) => c.classLabel).join(", ")} class teacher`, `${held.map((c) => classWord(c.classLabel).hi ?? c.classLabel).join(", ")} की कक्षा अध्यापक`)) : null, subjectsLine || null].filter(Boolean).join(" · ");
 
   /* ---------------------------------------------------- top bar */
   const helpFor: Partial<Record<MoreView, HelpTopic>> = { news: "news", links: "link", leave: "leave", timetable: "leave" };
   const T: Record<MoreView, [string, Pair, string]> = {
-    menu: [tx(p(`Teacher · ${data.sessionLabel.replace("-", "–")}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${held[0].classLabel}` : ""}`],
+    menu: [tx(p(`Teacher · ${data.sessionLabel.replace("-", "–")}`, `अध्यापक · ${data.sessionLabel}`)), p("More", "और"), `${data.profile.name}${held[0] ? ` · ${tx(classWord(held[0].classLabel))}` : ""}`],
     news: [tx(p("More · Notices", "और · सूचनाएँ")), p("Notices", "सूचनाएँ"), unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं"))],
     links: [tx(p("More · Marks links", "और · अंक लिंक")), p("Marks links", "अंक लिंक"), tx(p("Sampark · no login needed", "संपर्क · लॉगिन नहीं चाहिए"))],
     timetable: [tx(p("More · Timetable", "और · समय-सारणी")), p("My timetable", "मेरी समय-सारणी"), tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`))],
@@ -162,16 +178,16 @@ export function TeachMore({
   const asked = data.leave.filter((l) => l.status === "asked").length;
   type Tile = { k: string; icon: IconName; t: Pair; info: string; tone: Tone; href?: string; onClick?: () => void; badge?: number; wide?: boolean; news?: string };
   const tiles: Tile[] = [
-    { k: "home", icon: "home", t: p("Today", "आज"), info: nowSlot ? tx(p(`P${nowSlot.number} ${nowSlot.classLabel} ${nowSlot.subjectCode} now`, `अभी P${nowSlot.number} ${nowSlot.classLabel}`)) : tx(p("Your day at a glance", "आपका दिन एक नज़र में")), tone: TA, href: "/teach" },
-    { k: "att", icon: "calCheck", t: p("Attendance", "हाज़िरी"), info: held[0] ? tx(p(`${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} children` : ""}`, `${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} बच्चे` : ""}`)) : tx(p("Class registers", "कक्षा हाज़िरी")), tone: TO, href: "/teach/attendance" },
-    { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${held[0].classLabel} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },
-    { k: "marks", icon: "clipboard", t: p("Marks", "अंक"), info: firstOpen ? tx(p(`${firstOpen.classLabel} · ${firstOpen.entered} of ${firstOpen.total} entered`, `${firstOpen.classLabel} · ${firstOpen.total} में से ${firstOpen.entered}`)) : tx(p("Nothing waiting", "कुछ बाकी नहीं")), tone: TW, href: "/teach/marks" },
+    { k: "home", icon: "home", t: p("Today", "आज"), info: data.closed ? tx(closedTitle(data.closed)) : nowSlot ? tx(p(`P${nowSlot.number} ${nowSlot.classLabel} ${subj(nowSlot.subjectCode)} now`, `अभी P${nowSlot.number} ${classesWord(nowSlot.classLabel).hi} ${subjectWord(nowSlot.subjectCode, subjectNames).hi}`)) : tx(p("Your day at a glance", "आपका दिन एक नज़र में")), tone: TA, href: "/teach" },
+    { k: "att", icon: "calCheck", t: p("Attendance", "हाज़िरी"), info: held[0] ? tx(p(`${held[0].classLabel}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} children` : ""}`, `${classWord(held[0].classLabel).hi}${data.classSizes[held[0].classId] ? ` · ${data.classSizes[held[0].classId]} बच्चे` : ""}`)) : tx(p("Class registers", "कक्षा हाज़िरी")), tone: TO, href: "/teach/attendance" },
+    { k: "class", icon: "users", t: p("My class", "मेरी कक्षा"), info: held[0] ? tx(p(`${held[0].classLabel} and my subjects`, `${classWord(held[0].classLabel).hi} और विषय`)) : tx(p("My subjects", "मेरे विषय")), tone: TI, href: "/teach/class" },
+    { k: "marks", icon: "clipboard", t: p("Marks", "अंक"), info: tx(marksTileLine(firstOpen, data.remarks)), tone: TW, href: "/teach/marks" },
     { k: "notes", icon: "note", t: p("Notes", "नोट्स"), info: tx(p("Notes on children", "बच्चों के नोट्स")), tone: TS, href: "/teach/notes" },
-    { k: "tasks", icon: "inbox", t: m.teacherTasks, info: tx(p("Work sent by the office", "ऑफ़िस से भेजा गया काम")), tone: TW, href: "/teach/tasks" },
+    { k: "tasks", icon: "inbox", t: m.teacherTasks, info: data.tasks.length ? tx(p(`${data.tasks.length} waiting for you`, `${data.tasks.length} काम बाकी`)) : tx(p("Work sent by the office", "ऑफ़िस से भेजा गया काम")), tone: TW, href: "/teach/tasks", badge: data.tasks.length },
     { k: "news", icon: "megaphone", t: p("Notices", "सूचनाएँ"), info: unread.length ? tx(p(`${unread.length} new`, `${unread.length} नई`)) : tx(p("All read", "सब पढ़ लीं")), tone: TA, onClick: () => go("news"), badge: unread.length, wide: true, news: data.notices[0]?.title },
     { k: "links", icon: "link", t: p("Marks links", "अंक लिंक"), info: tx(p(`${data.links.length} ${data.links.length === 1 ? "link" : "links"}`, `${data.links.length} लिंक`)), tone: TI, onClick: () => go("links") },
     { k: "tt", icon: "clock", t: p("Timetable", "समय-सारणी"), info: tx(p(`${data.week.length} periods a week`, `हफ़्ते में ${data.week.length} पीरियड`)), tone: TS, onClick: () => go("timetable") },
-    { k: "leave", icon: "calendar", t: p("Apply leave", "छुट्टी"), info: asked ? tx(p(`${asked} waiting for approval`, `${asked} मंज़ूरी बाकी`)) : tx(p("Ask in two taps", "दो टैप में माँगें")), tone: TW, onClick: () => { go("leave"); setSheet("leave"); } },
+    { k: "leave", icon: "calendar", t: p("My leave", "मेरी छुट्टी"), info: asked ? tx(p(`${asked} waiting for the office`, `${asked} पर ऑफ़िस का जवाब बाकी`)) : tx(p("See your requests or ask for leave", "अपने अनुरोध देखें या छुट्टी माँगें")), tone: TW, onClick: () => go("leave") },
     { k: "help", icon: "help", t: p("Help", "मदद"), info: tx(p("How do I…", "कैसे करें…")), tone: TO, onClick: () => go("help") },
     { k: "me", icon: "user", t: p("My profile", "मेरी प्रोफ़ाइल"), info: tx(p("Language, text size", "भाषा, अक्षर का आकार")), tone: TS, onClick: () => go("profile") },
   ];
@@ -193,13 +209,13 @@ export function TeachMore({
       <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, padding: "18px 20px", background: "var(--nav)", color: "var(--navfg)", borderColor: "transparent" }}>
         {me(56, 16)}
         <span style={{ flex: 1, minWidth: 190, display: "flex", flexDirection: "column" }}>
-          <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{tx(greet)}, {greetName(data.profile.name)}</span>
+          <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{tx(greet)}, {callName(data.profile.shortName, data.profile.name)}</span>
           <span className="tc-ts" style={{ color: "var(--navm)" }}>{roleLine}</span>
         </span>
         {nowSlot ? (
           <span className="tc-ts" style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, padding: "8px 12px", borderRadius: 12, background: "var(--navs)" }}>
             <span className="tc-dot" style={{ background: "#81DAE4", animation: "xPulse 2s ease infinite" }} />
-            {tx(p(`Now · P${nowSlot.number} ${nowSlot.classLabel} ${nowSlot.subjectCode} till ${hm12(nowSlot.ends)}`, `अभी · P${nowSlot.number} ${nowSlot.classLabel}, ${hm12(nowSlot.ends)} तक`))}
+            {tx(p(`Now · P${nowSlot.number} ${nowSlot.classLabel} ${subjectWord(nowSlot.subjectCode, subjectNames).en} till ${hm12(nowSlot.ends)}`, `अभी · P${nowSlot.number} ${classesWord(nowSlot.classLabel).hi} ${subjectWord(nowSlot.subjectCode, subjectNames).hi}, ${hm12(nowSlot.ends)} तक`))}
           </span>
         ) : null}
       </div>
@@ -223,7 +239,7 @@ export function TeachMore({
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <span style={{ display: "flex", flexDirection: "column" }}>
             <span className="tc-h1">{tx(p("Notices", "सूचनाएँ"))}</span>
-            <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p("From the school office · tap Got it after reading", "स्कूल ऑफ़िस से · पढ़कर “समझ गए” दबाएँ"))}</span>
+            <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p("From the school office · tap “I have read it” after reading", "स्कूल ऑफ़िस से · पढ़कर “पढ़ लिया” दबाएँ"))}</span>
           </span>
           <div className="seg tc-mw" role="radiogroup" aria-label="Show" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", width: 240 }}>
             <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 2)", transform: `translateX(${nf === "unread" ? "100%" : "0%"})` }} />
@@ -249,7 +265,7 @@ export function TeachMore({
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                 <span style={{ flex: 1 }} />
                 {u ? (
-                  <button type="button" className="tap btn pri tc-mw" disabled={pending} onClick={() => gotIt([n.id])} style={{ height: 46, fontSize: 15 }}><Ic n="check" />{tx(p("Got it", "समझ गए"))}</button>
+                  <button type="button" className="tap btn pri tc-mw" disabled={pending} onClick={() => gotIt([n.id])} style={{ height: 46, fontSize: 15 }}><Ic n="check" />{tx(p("I have read it", "पढ़ लिया"))}</button>
                 ) : (
                   <span className="pill" style={{ height: 34, padding: "0 12px", fontSize: 13, background: "var(--oks)", color: "var(--ok)" }}><Ic n="check" size={16} stroke={3} className="tc-pop" />{tx(p("Seen", "देख लिया"))}</span>
                 )}
@@ -275,7 +291,7 @@ export function TeachMore({
         </div>
         <div className="tc-note" style={{ background: "var(--infos)", color: "var(--info)" }}>
           <Ic n="eye" style={{ marginTop: 2 }} />
-          <span>{tx(p("When you tap Got it, the office can see that you have read the notice.", "“समझ गए” दबाने पर ऑफ़िस को पता चलता है कि आपने सूचना पढ़ ली।"))}</span>
+          <span>{tx(p("When you tap “I have read it”, the office can see that you have read the notice.", "“पढ़ लिया” दबाने पर ऑफ़िस को पता चलता है कि आपने सूचना पढ़ ली।"))}</span>
         </div>
       </aside>
     </div>
@@ -286,7 +302,7 @@ export function TeachMore({
     <div className="tc-scr" style={{ maxWidth: 1120 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span className="tc-h1">{tx(p("Your marks links (Sampark)", "आपके अंक लिंक (संपर्क)"))}</span>
-        <span className="tc-tb" style={{ color: "var(--mut)" }}>{[...new Set(data.links.map((l) => l.exam))].join(" · ") || tx(p("No exam is open for marks", "कोई परीक्षा खुली नहीं"))}</span>
+        <span className="tc-tb" style={{ color: "var(--mut)" }}>{[...new Set(data.links.map((l) => tx(examWord(l.exam, l.examHi))))].join(" · ") || tx(p("No exam is open for marks", "कोई परीक्षा खुली नहीं"))}</span>
       </div>
       <div className="tc-note" style={{ background: "var(--accs)", color: "var(--accfg)", alignItems: "center" }}>
         <span className="tc-ibx" style={{ background: "var(--card)", color: "var(--acc)" }}><Ic n="link" size={22} /></span>
@@ -320,8 +336,8 @@ export function TeachMore({
                   </span>
                 </div>
                 <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{l.exam}{l.maxMarks ? ` · ${tx(p(`out of ${l.maxMarks}`, `${l.maxMarks} में से`))}` : ""}</span>
-                  <span className="tc-h2">{l.classLabel} {l.subjectCode}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mut)" }}>{tx(examWord(l.exam, l.examHi))}{l.maxMarks ? ` · ${tx(p(`out of ${l.maxMarks}`, `${l.maxMarks} में से`))}` : ""}</span>
+                  <span className="tc-h2">{tx(classSubject(l.classLabel, subjectWord(l.subjectCode, subjectNames)))}</span>
                   <span className="pill" style={{ alignSelf: "flex-start", background: st[1], color: st[2] }}>{tx(st[0])}</span>
                 </span>
               </div>
@@ -376,8 +392,9 @@ export function TeachMore({
     const slot = data.week.find((w) => w.day === d && w.number === n) ?? null;
     const isToday = dayKey(d) === todayKey;
     const t = timeOf(n);
-    const now = Boolean(isToday && t && data.nowMinutes >= mins(t.starts) && data.nowMinutes < mins(t.ends));
-    const past = Boolean(isToday && t && data.nowMinutes >= mins(t.ends));
+    const live = isToday && teachingToday;
+    const now = Boolean(live && t && data.nowMinutes >= mins(t.starts) && data.nowMinutes < mins(t.ends) && !(slot && onLeave(slot.period)));
+    const past = Boolean(live && t && data.nowMinutes >= mins(t.ends));
     return { slot, isToday, now, past };
   };
   const ttView = (
@@ -385,13 +402,27 @@ export function TeachMore({
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <span style={{ display: "flex", flexDirection: "column" }}>
           <span className="tc-h1">{tx(p("My timetable", "मेरी समय-सारणी"))}</span>
-          <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p(`${data.week.length} periods a week · today is ${new Date(`${data.today}T12:00:00+05:30`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "Asia/Kolkata" })}`, `हफ़्ते में ${data.week.length} पीरियड`))}</span>
+          <span className="tc-tb" style={{ color: "var(--mut)" }}>{tx(p(`${data.week.length} periods a week · today is ${new Date(`${data.today}T12:00:00+05:30`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "Asia/Kolkata" })}`, `हफ़्ते में ${data.week.length} पीरियड · आज ${new Date(`${data.today}T12:00:00+05:30`).toLocaleDateString("hi-IN", { weekday: "long", timeZone: "Asia/Kolkata" })} है`))}</span>
         </span>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 12 }}>
           {classOrder.map((c) => <span key={c} style={{ display: "flex", alignItems: "center", gap: 6 }}><span className="tc-dot" style={{ background: toneOf(c)[2] }} />{c}</span>)}
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span className="tc-dot" style={{ border: "1.5px dashed var(--bds)" }} />{tx(p("Free", "खाली"))}</span>
         </div>
       </div>
+      {data.closed ? (
+        <div className="tc-note" role="status" style={{ background: "var(--warns)", color: "var(--warnfg)" }}>
+          <Ic n="coffee" style={{ marginTop: 2 }} />
+          <span style={{ display: "flex", flexDirection: "column" }}>
+            <b>{tx(closedTitle(data.closed))}</b>
+            <span>{tx(p("No periods today. This is your usual week.", "आज कोई पीरियड नहीं। नीचे आपका सामान्य हफ़्ता है।"))}</span>
+          </span>
+        </div>
+      ) : data.leaveToday ? (
+        <div className="tc-note" role="status" style={{ background: "var(--infos)", color: "var(--info)" }}>
+          <Ic n="calendar" style={{ marginTop: 2 }} />
+          <span>{tx(p("You are on approved leave today. The office has your periods.", "आज आपकी छुट्टी मंज़ूर है। आपके पीरियड ऑफ़िस संभाल रहा है।"))}</span>
+        </div>
+      ) : null}
       {data.week.length === 0 ? (
         <div className="card" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
           <span className="tc-av" style={{ width: 64, height: 64, background: "var(--s2)", color: "var(--mut)" }}><Ic n="calendar" size={28} /></span>
@@ -426,8 +457,8 @@ export function TeachMore({
                   return (
                     <div key={d} style={{ background: c.isToday ? V("s2") : "transparent" }}>
                       <div className="tc-cel tc-in" style={{ background: tone ? tone[0] : "transparent", color: tone ? tone[1] : V("sub"), border: tone ? "1px solid transparent" : "1px dashed var(--bd)", opacity: c.past ? 0.55 : 1, boxShadow: c.now ? "0 0 0 2px var(--acc)" : "none", animationDelay: `${Math.min(i * 6 + j, 40) * 8}ms` }}>
-                        <span className="tc-ts tc-el" style={{ fontWeight: 700 }}>{c.slot ? `${c.slot.classLabel} · ${c.slot.subjectCode}` : tx(p("Free", "खाली"))}</span>
-                        <span className="tc-el" style={{ fontSize: 11, opacity: 0.85 }}>{c.slot ? (held.some((h) => h.classLabel === c.slot!.classLabel) ? tx(p("my class", "मेरी कक्षा")) : c.slot.subjectCode) : tx(p("Staff room", "स्टाफ़ रूम"))}</span>
+                        <span className="tc-ts tc-el" style={{ fontWeight: 700 }}>{c.slot ? subj(c.slot.subjectCode) : tx(p("Free", "खाली"))}</span>
+                        <span className="tc-el" style={{ fontSize: 11, opacity: 0.85 }}>{c.slot ? slotWho(c.slot.classLabel) : tx(p("Staff room", "स्टाफ़ रूम"))}</span>
                         {c.now ? <span className="tc-dot" style={{ position: "absolute", top: 8, right: 8, background: "var(--acc)", animation: "xPulse 2s ease infinite" }} /> : null}
                       </div>
                     </div>
@@ -437,7 +468,7 @@ export function TeachMore({
             ))}
           </div>
           <div className="only-m" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div className="seg" role="radiogroup" aria-label="Day" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+            <div className="seg tc-days" role="radiogroup" aria-label={tx(p("Day", "दिन"))} style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
               <span className="thumb" aria-hidden="true" style={{ width: `calc((100% - 6px) / ${days.length})`, transform: `translateX(${Math.max(0, days.indexOf(pickDay)) * 100}%)` }} />
               {days.map((d) => <button key={d} type="button" role="radio" aria-checked={pickDay === d} className={`tap${pickDay === d ? " on" : ""}`} onClick={() => setPickDay(d)}>{language === "hi" ? DAY_HI[dayKey(d)] ?? d : d.slice(0, 3)}</button>)}
             </div>
@@ -456,8 +487,8 @@ export function TeachMore({
                       <span className="num" style={{ width: 46, display: "flex", flexDirection: "column" }}><span className="tc-tb" style={{ fontWeight: 700 }}>P{n}</span><span style={{ fontSize: 11, color: "var(--mut)" }}>{cur ? hm12(cur.starts) : ""}</span></span>
                       <span className="tc-dot" style={{ background: tone ? tone[2] : V("bds"), animation: c.now ? "xPulse 2s ease infinite" : "none" }} />
                       <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                        <span className="tc-tb tc-el" style={{ fontWeight: 600 }}>{c.slot ? `${c.slot.classLabel} · ${c.slot.subjectCode}` : tx(p("Free", "खाली"))}</span>
-                        <span className="tc-el" style={{ fontSize: 12, color: "var(--mut)" }}>{c.slot ? (held.some((h) => h.classLabel === c.slot!.classLabel) ? tx(p("my class", "मेरी कक्षा")) : c.slot.subjectCode) : tx(p("Staff room", "स्टाफ़ रूम"))}</span>
+                        <span className="tc-tb tc-el" style={{ fontWeight: 600 }}>{c.slot ? subj(c.slot.subjectCode) : tx(p("Free", "खाली"))}</span>
+                        <span className="tc-el" style={{ fontSize: 12, color: "var(--mut)" }}>{c.slot ? slotWho(c.slot.classLabel) : tx(p("Staff room", "स्टाफ़ रूम"))}</span>
                       </span>
                       {tag ? <span className="pill" style={{ background: tag[1], color: tag[2] }}>{tag[0]}</span> : null}
                     </div>
@@ -489,10 +520,11 @@ export function TeachMore({
         </span>
         <button type="button" className="tap btn pri tc-mbg tc-mw" onClick={() => setSheet("leave")}><Ic n="calendar" />{tx(p("Apply leave", "छुट्टी माँगें"))}</button>
       </div>
-      <span className="sech">{tx(p("My requests", "मेरे अनुरोध"))}</span>
+      <span className="sech">{tx(p("My requests and the office’s answers", "मेरे अनुरोध और ऑफ़िस के जवाब"))}</span>
       {data.leave.length === 0 ? <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("No leave asked for yet.", "अभी कोई छुट्टी नहीं माँगी।"))}</span> : null}
       {data.leave.map((l) => {
-        const st = LEAVE_STATUS[l.status] ?? LEAVE_STATUS.asked;
+        const state = leaveState(l, data.today);
+        const st = state === "passed" ? { text: LEAVE_STATE_TEXT.passed, tone: TS, icon: "clock" as IconName } : (LEAVE_STATUS[l.status] ?? LEAVE_STATUS.asked);
         return (
           <div key={l.id} className="card" style={{ padding: "14px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
             <span className="tc-ibx" style={{ background: st.tone[0], color: st.tone[1] }}><Ic n={st.icon} /></span>
@@ -509,7 +541,14 @@ export function TeachMore({
               ) : null}
             </span>
             <span className="pill" style={{ height: 28, padding: "0 12px", fontSize: 12, background: st.tone[0], color: st.tone[1] }}>{tx(st.text)}</span>
-            {l.status === "asked" && l.from_day >= data.today ? <button type="button" className="tap btn ghost" disabled={pending} onClick={() => cancelLeave(l.id)}><Ic n="x" />{tx(p("Cancel", "रद्द करें"))}</button> : null}
+            {l.status === "approved" ? (
+              <span style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 2, fontSize: 13 }}>
+                <b>{tx(p("Who takes your classes", "आपकी कक्षाएँ कौन लेगा"))}</b>
+                {l.covers.length ? l.covers.map((c) => <span key={`${c.day}-${c.number}`} style={{ color: c.coverName ? "var(--fg)" : "var(--warnfg)" }}>{l.from_day !== l.to_day ? `${tx(dShortP(c.day))} · ` : ""}{tx(coverLine(c))}</span>) : <span style={{ color: "var(--mut)" }}>{tx(p("The office has not arranged cover yet.", "ऑफ़िस ने अभी इंतज़ाम नहीं किया है।"))}</span>}
+              </span>
+            ) : null}
+            {state === "passed" ? <span style={{ flexBasis: "100%", fontSize: 13, color: "var(--mut)" }}>{tx(p("These days have passed and the office never answered. Withdraw it, and talk to the office if needed.", "ये दिन निकल गए और ऑफ़िस ने जवाब नहीं दिया। अनुरोध वापस लें, ज़रूरत हो तो ऑफ़िस से बात करें।"))}</span> : null}
+            {mayCancelLeave(l) ? <button type="button" className="tap btn ghost" disabled={pending} onClick={() => cancelLeave(l.id)} style={{ minHeight: 44 }}><Ic n="x" />{tx(p("Withdraw", "वापस लें"))}</button> : null}
           </div>
         );
       })}
@@ -581,7 +620,7 @@ export function TeachMore({
   const { resolvedTheme, setTheme } = useTheme();
   const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
   const dark = ready && resolvedTheme === "dark";
-  const setLanguage = (lang: "en" | "hi") =>
+  const setLanguage = (lang: "en" | "hi" | "both") =>
     start(async () => {
       const fd = new FormData();
       fd.set("language", lang);
@@ -635,8 +674,9 @@ export function TeachMore({
       </div>
       <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="sech">{tx(p("My classes", "मेरी कक्षाएँ"))}</span>
+        {data.profile.classes.length === 0 && data.profile.subjects.length === 0 ? <span className="tc-ts" style={{ color: "var(--mut)" }}>{tx(p("No class or subject yet. The office adds you to the timetable.", "अभी कोई कक्षा या विषय नहीं। ऑफ़िस आपको समय-सारणी में जोड़ेगा।"))}</span> : null}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {data.profile.classes.map((c) => <span key={c.classId} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: c.held ? V("accs") : V("s3"), color: c.held ? V("accfg") : V("fg") }}>{c.held ? tx(p(`${c.classLabel} · class teacher`, `${c.classLabel} · कक्षा अध्यापक`)) : c.classLabel}</span>)}
+          {data.profile.classes.map((c) => <span key={c.classId} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: c.held ? V("accs") : V("s3"), color: c.held ? V("accfg") : V("fg") }}>{c.held ? tx(p(`${c.classLabel} · class teacher`, `${classWord(c.classLabel).hi} · कक्षा अध्यापक`)) : tx(classWord(c.classLabel))}</span>)}
           {data.profile.subjects.map((s) => <span key={s} className="pill" style={{ height: 34, padding: "0 14px", fontSize: 13, background: V("s3"), color: V("fg") }}>{s}</span>)}
         </div>
       </div>
@@ -645,9 +685,16 @@ export function TeachMore({
           <span className="tc-ibx" style={{ width: 40, height: 40, background: "var(--accs)", color: "var(--accfg)" }}><Ic n="globe" /></span>
           <span style={{ flex: 1, minWidth: 140, display: "flex", flexDirection: "column" }}>
             <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p("Language", "भाषा"))}</span>
-            <span className="tc-mi">{tx(p("भाषा · Hindi or English", "Language · हिंदी या English"))}</span>
+            <span className="tc-mi">{tx(p("भाषा · English, Hindi or both", "Language · हिंदी, English या दोनों"))}</span>
           </span>
-          {seg2(language === "hi" ? 1 : 0, [["English", () => language === "hi" && setLanguage("en")], ["हिंदी", () => setLanguage("hi")]])}
+          {/* Three choices: a reader of both languages can get that view back (smoke 20 Oct).
+              Platform's <LanguageChoices/> (fix/smoke-platform) can replace this at merge. */}
+          <div className="seg tc-mw" role="radiogroup" aria-label={tx(p("Language", "भाषा"))} style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", width: 300 }}>
+            <span className="thumb" aria-hidden="true" style={{ width: "calc((100% - 6px) / 3)", transform: `translateX(${(language === "hi" ? 1 : language === "both" ? 2 : 0) * 100}%)` }} />
+            {([["en", "English"], ["hi", "हिंदी"], ["both", "दोनों · Both"]] as const).map(([v, l]) => (
+              <button key={v} type="button" role="radio" aria-checked={language === v} className={`tap${language === v ? " on" : ""}`} disabled={pending} onClick={() => language !== v && setLanguage(v)}>{l}</button>
+            ))}
+          </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 0", borderTop: "1px solid var(--bd)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
@@ -660,7 +707,7 @@ export function TeachMore({
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRadius: 14, background: "var(--s2)", border: "1px dashed var(--bds)" }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mut)", letterSpacing: ".06em", textTransform: "uppercase" }}>{tx(p("Preview", "झलक"))}</span>
-            <span style={{ fontWeight: 700, fontSize: large ? 19 : 16, transition: "font-size .3s var(--ease)" }}>{firstOpen ? tx(p(`${firstOpen.classLabel} · ${firstOpen.subjectCode} — ${firstOpen.entered} of ${firstOpen.total} entered`, `${firstOpen.classLabel} · ${firstOpen.subjectCode} — ${firstOpen.total} में से ${firstOpen.entered} भरे`)) : tx(p("Your marks and registers", "आपके अंक और हाज़िरी"))}</span>
+            <span style={{ fontWeight: 700, fontSize: large ? 19 : 16, transition: "font-size .3s var(--ease)" }}>{firstOpen ? tx(p(`${classSubject(firstOpen.classLabel, subjectWord(firstOpen.subjectCode, subjectNames)).en} — ${firstOpen.entered} of ${firstOpen.total} entered`, `${classSubject(firstOpen.classLabel, subjectWord(firstOpen.subjectCode, subjectNames)).hi} — ${firstOpen.total} में से ${firstOpen.entered} भरे`)) : tx(p("Your marks and registers", "आपके अंक और हाज़िरी"))}</span>
             <span style={{ fontSize: large ? 16 : 13, color: "var(--mut)", transition: "font-size .3s var(--ease)" }}>{tx(p("This is how text looks in the app.", "ऐप में अक्षर ऐसे दिखेंगे।"))}</span>
           </div>
         </div>
@@ -701,7 +748,7 @@ export function TeachMore({
       <main>
         {current === "menu" ? menu : current === "news" ? newsView : current === "links" ? linksView : current === "timetable" ? ttView : current === "leave" ? leaveView : current === "help" ? helpView : profileView}
       </main>
-      <LeaveChipsSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} />
+      <LeaveSheet open={sheet === "leave"} onClose={() => { setSheet(null); router.refresh(); }} today={data.today} closedDays={data.closedDays} />
     </VxPage>
   );
 }
@@ -769,13 +816,13 @@ const HELP: Record<HelpTopic, { icon: IconName; t: Pair; tone: Tone; href?: stri
     steps: [
       step(p("Open Notices", "सूचनाएँ खोलें"), p("The red number shows how many are new.", "लाल अंक बताता है कितनी नई हैं।"), <Mini rows={[{ t: "Notices", tone: "soft", r: "2", hl: true }, { t: "Marks links" }]} />),
       step(p("Read the notice", "सूचना पढ़ें"), p("The newest one is pinned on top.", "सबसे नई सूचना सबसे ऊपर रहती है।"), <Mini rows={[{ t: "PTM Sat 17 Oct", hl: true }, { t: "Marks by Wed 14" }]} />),
-      step(p("Tap Got it", "“समझ गए” दबाएँ"), p("The office can see you have read it.", "ऑफ़िस देख सकता है कि आपने पढ़ ली।"), <Mini rows={[{ t: "Got it", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
+      step(p("Tap I have read it", "“पढ़ लिया” दबाएँ"), p("The office can see you have read it.", "ऑफ़िस देख सकता है कि आपने पढ़ ली।"), <Mini rows={[{ t: "I have read it", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],
   },
   leave: {
     icon: "calendar", t: p("Apply leave", "छुट्टी माँगें"), tone: TW,
     steps: [
-      step(p("Pick the day", "दिन चुनें"), p("Today · full day is already picked.", "आज · पूरा दिन पहले से चुना है।"), <Mini rows={[{ t: "Today", tone: "soft", hl: true }, { t: "Tomorrow" }]} />),
+      step(p("Pick the day", "दिन चुनें"), p("Tap Today, Tomorrow or Pick days, then how long.", "आज, कल या “दिन चुनें” दबाएँ, फिर कितनी देर।"), <Mini rows={[{ t: "Today", tone: "soft", hl: true }, { t: "Tomorrow" }]} />),
       step(p("Pick a reason", "कारण चुनें"), p("Unwell, Family function, Personal work or Other.", "बीमार, पारिवारिक कार्यक्रम, निजी काम या अन्य।"), <Mini rows={[{ t: "Unwell", hl: true }, { t: "Family function" }]} />),
       step(p("Send", "भेजें"), p("The office arranges your classes.", "आपकी कक्षाएँ ऑफ़िस संभालता है।"), <Mini rows={[{ t: "Send", tone: "btn", hl: true }, { t: "", tone: "ok" }]} />),
     ],

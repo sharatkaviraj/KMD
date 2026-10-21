@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ms } from "@/messages/setup";
 import type { Language } from "@/platform/i18n/language";
 import { lead } from "@/vx/text";
+import { PLAIN } from "./plain";
 import { delegateTeacherTaskListAction, restartTeacherTaskAction, manageTeacherTaskAction, teacherTaskLinkAction, taskAssignmentContextAction } from "@/app/(app)/teach/tasks/actions";
 export function ManageTask({ id, language, collection = false }: {
   id: string;
@@ -25,7 +26,7 @@ export function ManageTask({ id, language, collection = false }: {
   const change = (teacher: string | null) => start(async () => {
     try {
       await manageTeacherTaskAction(id, teacher);
-      setStatus(word(ms.taskCreated));
+      setStatus(lead(PLAIN.created, language));
       router.refresh();
     }
     catch {
@@ -42,8 +43,8 @@ export function ManageTask({ id, language, collection = false }: {
       catch {
         setStatus(word(ms.taskFailed));
       }
-    })}>{word(ms.taskCopy)}</button>
-    <button type="button" disabled={pending} onClick={() => change(null)}>{word(ms.taskRevoke)}</button>
+    })}>{lead(PLAIN.copy, language)}</button>
+    <button type="button" disabled={pending} onClick={() => change(null)}>{lead(PLAIN.revoke, language)}</button>
     <button type="button" disabled={pending} onClick={() => start(async () => {
       try {
         setOwners((await taskAssignmentContextAction()).owners);
@@ -51,7 +52,7 @@ export function ManageTask({ id, language, collection = false }: {
       catch {
         setStatus(word(ms.taskFailed));
       }
-    })}>{word(ms.taskReassign)}</button></div>
+    })}>{lead(PLAIN.reassign, language)}</button></div>
     {collection && <button className="mt-4 block text-primary" disabled={pending} type="button" onClick={() => start(async () => {
       try {
         const next = await restartTeacherTaskAction(id);
@@ -61,12 +62,12 @@ export function ManageTask({ id, language, collection = false }: {
       catch {
         setStatus(word(ms.taskFailed));
       }
-    })}>{word(ms.taskRequestAgain)}</button>}
-    {owners.length > 0 && <div className="mt-3 flex gap-3"><select aria-label={word(ms.taskChoose)} value={chosen} onChange={e => setChosen(e.target.value)} className="rounded border border-border bg-background p-2"><option value="">{word(ms.taskChoose)}</option>{owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select><button disabled={pending || !chosen} type="button" onClick={() => change(chosen)}>{word(ms.taskReassign)}</button></div>}
+    })}>{lead(PLAIN.askAgain, language)}</button>}
+    {owners.length > 0 && <div className="mt-3 flex gap-3"><select aria-label={word(ms.taskChoose)} value={chosen} onChange={e => setChosen(e.target.value)} className="rounded border border-border bg-background p-2"><option value="">{word(ms.taskChoose)}</option>{owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select><button disabled={pending || !chosen} type="button" onClick={() => change(chosen)}>{lead(PLAIN.reassign, language)}</button></div>}
     {collection && owners.length > 0 && <button className="mt-4 block text-primary" disabled={pending || !chosen} type="button" onClick={() => start(async () => {
       try {
         await delegateTeacherTaskListAction(id, chosen);
-        setStatus(word(ms.taskCreated));
+        setStatus(lead(PLAIN.created, language));
         router.refresh();
       }
       catch {

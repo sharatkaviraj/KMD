@@ -4,6 +4,7 @@ import { getReceiptReversalTotals, isReceiptReversed } from "@/modules/receipts/
 import { isDiscountCloseout } from "@/platform/money/write-off";
 import { cacheSafeUnstableCache, getCacheSafeClient } from "@/modules/fees/platform/supabase/cache-safe";
 import { DASHBOARD_STALENESS_CEILING_SECONDS } from "@/modules/dashboard/domain/cache-contract";
+import { fetchAllPages } from "@/platform/helpers/chunk";
 
 /**
  * Lightweight numbers for the workspace shell chrome ("Ledger Calm 2.0"):
@@ -138,7 +139,13 @@ export async function getShellPulse(sessionLabel: string): Promise<ShellPulse> {
 }
 
 /**
- * The "Dues" badge alone: how many active children still owe anything.
+ * The "Dues" badge alone: how many active children have fees pending today
+ * — due before today, or last session's balance (fees/domain/due-rule.ts).
+ *
+ * It used to count every child who owed anything this year, not-due-yet
+ * installments included, so the badge said "479 waiting" over a Dues & calls
+ * screen that listed 315 children to call (smoke 20 Oct). It now counts what
+ * that screen counts, by the rule every money screen uses.
  *
  * `getShellPulse` reads this count beside today's receipts under
  * `session:{label}`, the tag every posting busts — so on a collection morning
@@ -156,17 +163,37 @@ export async function getDuesBadgeCount(sessionLabel: string): Promise<number | 
     return await cacheSafeUnstableCache(
       async () => {
         const supabase = await getCacheSafeClient();
-        const { count, error } = await supabase
-          .from("v_workbook_student_financials")
-          .select("student_id", { count: "exact", head: true })
-          .eq("session_label", sessionLabel)
-          .eq("record_status", "active")
-          .gt("outstanding_amount", 0);
+        const today = getSchoolDateStamp();
+        const [active, due] = await Promise.all([
+          fetchAllPages<{ student_id: string }>((from, to) =>
+            supabase
+              .from("v_workbook_student_financials")
+              .select("student_id")
+              .eq("session_label", sessionLabel)
+              .eq("record_status", "active")
+              .gt("outstanding_amount", 0)
+              .order("student_id")
+              .range(from, to),
+          ),
+          fetchAllPages<{ student_id: string }>((from, to) =>
+            supabase
+              .from("v_workbook_installment_balances")
+              .select("student_id")
+              .eq("session_label", sessionLabel)
+              .gt("pending_amount", 0)
+              .neq("balance_status", "waived")
+              .or(`due_date.lt.${today},is_carry_forward.eq.true`)
+              .order("installment_id")
+              .range(from, to),
+          ),
+        ]);
         // Thrown, not returned: unstable_cache keeps no entry for a failure.
-        if (error) throw new Error(error.message);
-        return count ?? 0;
+        if (active.error) throw new Error(String((active.error as { message?: string }).message ?? active.error));
+        if (due.error) throw new Error(String((due.error as { message?: string }).message ?? due.error));
+        const activeIds = new Set(active.data.map((r) => r.student_id));
+        return new Set(due.data.map((r) => r.student_id).filter((id) => activeIds.has(id))).size;
       },
-      ["dues-badge", sessionLabel],
+      ["dues-badge", sessionLabel, getSchoolDateStamp()],
       { tags: [`dues-badge:${sessionLabel}`], revalidate: DASHBOARD_STALENESS_CEILING_SECONDS },
     )();
   } catch {

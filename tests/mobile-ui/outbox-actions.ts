@@ -13,3 +13,6 @@ export const undoSentAction = refuse;
 export const approveCalendarNoticeAction = refuse;
 export const declineCalendarNoticeAction = refuse;
 export const prepareReminderBatchAction = refuse;
+
+// Added for the 21 Oct smoke fixes: this fixture never exercises it.
+export const clearOutOfDateAction = refuse;

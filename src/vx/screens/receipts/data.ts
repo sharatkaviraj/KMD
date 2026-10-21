@@ -143,20 +143,55 @@ export async function staffNamesForUsers(ids: readonly (string | null | undefine
   return names;
 }
 
-export type PendingRequest ={ id: string; createdAt: string; requestedByName: string | null; reasonCode: string };
+export type PendingRequest = { id: string; createdAt: string; requestedByName: string | null; reasonCode: string; note: string | null };
 
 export async function pendingReversalRequest(receiptId: string): Promise<PendingRequest | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("fee_desk_requests")
-    .select("id, created_at, requested_by_name, reason_code")
+    .select("id, created_at, requested_by_name, reason_code, note")
     .eq("kind", "reversal")
     .eq("status", "pending")
     .eq("receipt_id", receiptId)
     .limit(1);
   if (error) throw new Error(error.message);
-  const r = (data ?? [])[0] as { id: string; created_at: string; requested_by_name: string | null; reason_code: string } | undefined;
-  return r ? { id: r.id, createdAt: r.created_at, requestedByName: r.requested_by_name, reasonCode: r.reason_code } : null;
+  const r = (data ?? [])[0] as { id: string; created_at: string; requested_by_name: string | null; reason_code: string; note: string | null } | undefined;
+  return r ? { id: r.id, createdAt: r.created_at, requestedByName: r.requested_by_name, reasonCode: r.reason_code, note: r.note } : null;
+}
+
+/**
+ * Every reversal still waiting for an admin in a session, by receipt id: the
+ * list marks those receipts, and the day close names them so the cash is not
+ * counted blind (smoke 20 Oct). A handful at most, so no id list is sent.
+ */
+export async function pendingReversalsBySession(sessionLabel: string): Promise<Map<string, { amount: number; reasonCode: string; by: string | null }>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fee_desk_requests")
+    .select("receipt_id, amount, reason_code, requested_by_name")
+    .eq("kind", "reversal")
+    .eq("status", "pending")
+    .eq("session_label", sessionLabel)
+    .limit(500);
+  if (error) throw new Error(error.message);
+  const out = new Map<string, { amount: number; reasonCode: string; by: string | null }>();
+  for (const r of (data ?? []) as { receipt_id: string | null; amount: number | string; reason_code: string; requested_by_name: string | null }[]) {
+    if (r.receipt_id) out.set(r.receipt_id, { amount: Number(r.amount) || 0, reasonCode: r.reason_code, by: r.requested_by_name });
+  }
+  return out;
+}
+
+/** The admin keeps the receipt: the request waiting on it is declined, with the reason. */
+export async function declineReversalRequests(receiptId: string, deciderId: string, note: string): Promise<number> {
+  const { data, error } = await createAdminClient()
+    .from("fee_desk_requests")
+    .update({ status: "declined", decided_by: deciderId, decided_at: new Date().toISOString(), decision_note: note })
+    .eq("kind", "reversal")
+    .eq("status", "pending")
+    .eq("receipt_id", receiptId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
 }
 
 export async function insertReversalRequest(r: {

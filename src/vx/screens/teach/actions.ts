@@ -16,12 +16,13 @@ import { createAdminClient } from "@/platform/supabase/admin";
 import { chunkArray } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/academics-repo";
-import { listMarks } from "@/modules/attendance/data/attendance-repo";
+import { attendanceCalendar, listMarks } from "@/modules/attendance/data/attendance-repo";
+import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 import { heldClassIds } from "@/modules/attendance/data/teaching-repo";
 import { idleAttendanceState, type AttendanceSaveState } from "@/modules/attendance/domain/attendance-receipt";
 import { idleSubsState } from "@/modules/substitutions/domain/form-state";
 import { enrolmentForStudent } from "@/modules/students/data/student-repo";
-import { dayMonth, schoolToday } from "@/vx/format";
+import { schoolToday } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { assertNotPreviewing } from "@/vx/view-as";
 
@@ -29,6 +30,7 @@ import { getPublishedVersion, listSlots } from "@/modules/timetable/data/timetab
 import { dayHeaders } from "@/modules/attendance/data/teaching-repo";
 import { matchDayHeader } from "@/modules/timetable/domain/weekday";
 import { leavePeriods, leaveSpanFor, type LeaveDayPeriods, type LeaveSpan } from "@/vx/screens/timetable/domain/timetable";
+import { absentAlertChanges } from "@/vx/screens/messages/domain/outbox";
 
 import { absentAlert, birthdayWish, leaveRuns } from "./domain/teach";
 import { childBasics } from "./students";
@@ -119,18 +121,16 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
     listMarks(input.registerId),
     admin
       .from("parent_message_queue")
-      .select("id, student_id")
+      .select("id, student_id, status")
       .eq("register_id", input.registerId)
       .eq("kind", "absent_alert")
-      .eq("status", "queued")
-      .returns<{ id: string; student_id: string }[]>(),
+      .neq("status", "cancelled")
+      .returns<{ id: string; student_id: string; status: string }[]>(),
   ]);
   if (existing.error) throw existing.error;
   const absent = [...marks.entries()].filter(([, m]) => m.status === "absent").map(([id]) => id);
-  const have = new Map((existing.data ?? []).map((r) => [r.student_id, r.id]));
-  const keep = new Set(input.wanted ? absent : []);
-
-  const drop = [...have.entries()].filter(([id]) => !keep.has(id)).map(([, rowId]) => rowId);
+  // A sent message counts as the child's message: a correction never queues it again.
+  const { drop, add, keep } = absentAlertChanges(absent, input.wanted, (existing.data ?? []).map((row) => ({ id: row.id, studentId: row.student_id, status: row.status })));
   for (const ids of chunkArray(drop, IN_FILTER_CHUNK_SIZE)) {
     const { error } = await admin
       .from("parent_message_queue")
@@ -139,13 +139,12 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
     if (error) throw error;
   }
 
-  const add = [...keep].filter((id) => !have.has(id));
   if (add.length) {
     const [names, labels] = await Promise.all([childBasics(add), classLabelMap(input.sessionLabel)]);
     const classLabel = labels.get(input.classId) ?? "";
     const { error } = await admin.from("parent_message_queue").insert(
       add.map((studentId) => {
-        const text = absentAlert({ childName: names.get(studentId)?.fullName ?? "", classLabel, dayLabel: dayMonth(input.day), school: schoolProfile.shortName });
+        const text = absentAlert({ childName: names.get(studentId)?.fullName ?? "", classLabel, day: input.day, today: schoolToday(), school: schoolProfile.shortName });
         return {
           session_label: input.sessionLabel,
           kind: "absent_alert",
@@ -161,7 +160,7 @@ async function syncAbsentAlerts(input: { registerId: string; classId: string; da
     );
     if (error) throw error;
   }
-  return keep.size;
+  return keep;
 }
 
 /** Did a save with this id land? Asked before resending after a lost answer. */
@@ -219,7 +218,13 @@ export async function requestLeaveVx(input: z.input<typeof leaveSchema>): Promis
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return fail("There is no school session yet.", "अभी कोई सत्र नहीं है।");
   const today = schoolToday();
-  const runs = leaveRuns(parsed.data.days.filter((d) => d >= today));
+  const ahead = parsed.data.days.filter((d) => d >= today);
+  // A holiday needs no leave and no cover: it is dropped from the request
+  // (smoke 20 Oct, leave on Dussehra was counted as periods needing cover).
+  const calendar = await attendanceCalendar(sessionLabel).catch(() => null);
+  const open = calendar ? ahead.filter((d) => isSchoolOpen(d, calendar)) : ahead;
+  if (ahead.length > 0 && open.length === 0) return fail("School is closed on the days you picked. No leave is needed.", "चुने गए दिनों पर स्कूल बंद है। छुट्टी की ज़रूरत नहीं।");
+  const runs = leaveRuns(open);
   if (runs.length === 0) return fail("Leave can be asked for today or later.", "छुट्टी आज या आगे के दिनों के लिए ही माँगी जा सकती है।");
   const half = runs.length === 1 && runs[0].from === runs[0].to ? parsed.data.span : "full";
   const note = [parsed.data.reason, parsed.data.note].filter(Boolean).join(" · ") || null;
@@ -227,6 +232,7 @@ export async function requestLeaveVx(input: z.input<typeof leaveSchema>): Promis
     .from("teacher_leave")
     .insert(runs.map((r) => ({ session_label: sessionLabel, staff_profile_id: staff.id, from_day: r.from, to_day: r.to, span: half, note, status: "asked", requested_by: staff.id })));
   if (error) return fail("Not sent. Try again.", "नहीं भेजा गया। फिर कोशिश करें।");
+  revalidatePath("/teach");
   revalidatePath("/teach/more");
   revalidatePath("/inbox");
   return { ok: true };
@@ -242,22 +248,24 @@ const previewSchema = z.object({
  * slots in the published timetable on each day, through `leavePeriods()`,
  * the resolver the approval's cover command also follows. Reads only.
  */
-export async function previewLeaveVx(input: z.input<typeof previewSchema>): Promise<{ ok: true; span: LeaveSpan; days: LeaveDayPeriods[] } | { ok: false }> {
+export async function previewLeaveVx(input: z.input<typeof previewSchema>): Promise<{ ok: true; span: LeaveSpan; days: (LeaveDayPeriods & { closed?: boolean })[] } | { ok: false }> {
   const staff = await assertPermission("attendance:view");
   const parsed = previewSchema.safeParse(input);
   if (!parsed.success) return { ok: false };
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return { ok: false };
-  const published = await getPublishedVersion(sessionLabel).catch(() => null);
+  const [published, calendar] = await Promise.all([getPublishedVersion(sessionLabel).catch(() => null), attendanceCalendar(sessionLabel).catch(() => null)]);
   const span = leaveSpanFor(parsed.data.days.length, parsed.data.span);
-  if (!published) return { ok: true, span, days: parsed.data.days.map((day) => ({ day, periods: [] })) };
+  // A closed day has no periods to cover; it says so instead of listing a normal day's.
+  const closed = (day: string) => Boolean(calendar && !isSchoolOpen(day, calendar));
+  if (!published) return { ok: true, span, days: parsed.data.days.map((day) => ({ day, periods: [], closed: closed(day) })) };
   const [headers, slots] = await Promise.all([dayHeaders(published.id), listSlots(published.id)]);
   const mine = slots.filter((s) => s.staffProfileId === staff.id);
   const days = parsed.data.days.map((day) => {
-    const header = matchDayHeader(headers, day);
+    const header = closed(day) ? null : matchDayHeader(headers, day);
     return { day, slots: header ? mine.filter((s) => s.day === header).map((s) => ({ period: s.period, classLabel: s.classLabel })) : [] };
   });
-  return { ok: true, span, days: leavePeriods(days, span) };
+  return { ok: true, span, days: leavePeriods(days, span).map((d) => ({ ...d, closed: closed(d.day) })) };
 }
 
 export async function cancelLeaveVx(leaveId: string): Promise<VxResult> {
@@ -271,6 +279,7 @@ export async function cancelLeaveVx(leaveId: string): Promise<VxResult> {
     .eq("staff_profile_id", staff.id)
     .eq("status", "asked");
   if (error) return fail("Not saved. Try again.", "सहेजा नहीं गया।");
+  revalidatePath("/teach");
   revalidatePath("/teach/more");
   return { ok: true };
 }

@@ -13,10 +13,11 @@ import { Confirm, Sheet } from "@/vx/ui/overlays";
 import { VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 
+import { supportLine } from "./domain/card-words";
 import { subjectPair } from "./domain/groups";
 import { waLink } from "./domain/messages";
 import { READINESS_LABEL, type ClassReadiness } from "./domain/progress";
-import type { PipelineStep, StepState } from "./domain/results";
+import { resultsDay, type PipelineStep, type StepState } from "./domain/results";
 import { OfficeTop, toneAvatar, type HelpContent } from "./office-ui";
 import { RemindSheet, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
@@ -24,6 +25,16 @@ import { useAct } from "./use-act";
 
 /** "1 child", "3 children" — never "1 children" (coordinators B6). */
 const kidsEn = (n: number) => (n === 1 ? "1 child" : `${n} children`);
+
+/** "30 marked of 32 · 2 absent": who a paper's spread is out of, and who is left out of it. */
+function satLine(paper: { sat: number; onRoll?: number; absent?: number; exempt?: number }): Pair {
+  const roll = paper.onRoll ?? paper.sat;
+  const extra: [string, string][] = [];
+  if (paper.absent) extra.push([`${paper.absent} absent`, `${paper.absent} अनुपस्थित`]);
+  if (paper.exempt) extra.push([`${paper.exempt} excused`, `${paper.exempt} को छूट`]);
+  const tail = (i: 0 | 1) => (extra.length ? ` · ${extra.map((e) => e[i]).join(" · ")}` : "");
+  return p(`${paper.sat} of ${roll} children marked${tail(0)}`, `${roll} में से ${paper.sat} बच्चों के अंक${tail(1)}`);
+}
 
 /**
  * A class's readiness and whether it may be locked. The page always sends
@@ -51,6 +62,8 @@ type ClassRowView = {
   readyToLock?: boolean;
   /** Saved marks their paper cannot hold. */
   invalid?: number;
+  /** Which papers hold them, and how many each: "Hindi" with 11 (smoke 20 Oct: "Needs correction" named no paper). */
+  fix?: { subjectCode: string; count: number }[];
   late: number;
   unusual: number;
   unusualOpen: number;
@@ -113,6 +126,10 @@ export type ResultsProps = {
       invalid?: number;
       decision: "fine" | "recheck" | null;
       sat: number;
+      /** Children on the paper, and of them absent and excused, so "30 children" is never read as the class (smoke 20 Oct). */
+      onRoll?: number;
+      absent?: number;
+      exempt?: number;
       below: number;
       highest: number | null;
       spread: number[];
@@ -125,6 +142,8 @@ export type ResultsProps = {
     rows: {
       studentId: string;
       name: string;
+      /** SR no. or father's name, when another child in the class has the same name. */
+      hint?: string | null;
       classId: string;
       classLabel: string;
       canPass: boolean;
@@ -143,12 +162,14 @@ export type ResultsProps = {
       classId?: string;
       classLabel: string;
       issued: boolean;
-      rows: { subject: string; scored: number; outOf: number; grade: string | null; grace: number }[];
+      rows: { subject: string; scored: number; outOf: number; grade: string | null; grace: number; /** By `absentLine()`: the exams missed, counted as 0 (D-319). */ absent?: string }[];
       total: number;
       outOf: number;
       percent: number | null;
       grade: string | null;
       passed: boolean | null;
+      /** Subject codes below the pass mark after grace, or missed (`cardResult`). */
+      shortIn?: string[];
     } | null;
   };
   rechecks: {
@@ -259,11 +280,20 @@ export function ResultsBoard(props: ResultsProps) {
     recheck: p("Re-check requests", "दोबारा जाँच के अनुरोध"),
   };
   const crumb = `${tx(p("Results", "परिणाम"))} · ${tx(exam.name)} ${exam.sessionLabel} · ${props.classes.length} ${tx(props.classes.length === 1 ? p("class", "कक्षा") : p("classes", "कक्षाएँ"))} · ${props.childrenTotal} ${tx(props.childrenTotal === 1 ? p("child", "बच्चा") : p("children", "बच्चे"))}`;
+  const day = resultsDay(exam.daysToResults, exam.publishedAt);
+  const lockedNow = props.classes.filter((c) => c.locked).length;
   const badge = exam.resultsLabel ? (
-    <Tag tone="acc">
-      {tx(p("Results day", "परिणाम दिवस"))} {exam.resultsLabel}
-      {exam.daysToResults !== null && exam.daysToResults >= 0 ? ` · ${exam.daysToResults} ${tx(p("days", "दिन"))}` : ""}
-    </Tag>
+    day === "passed" ? (
+      // Past results day with nothing sent: say so, and what to do (smoke 20 Oct).
+      <Tag tone="bad">
+        {tx(p(`Results day ${exam.resultsLabel} has passed · ${lockedNow} of ${props.classes.length} classes locked · set a new date`, `परिणाम दिवस ${exam.resultsLabel} बीत गया · ${props.classes.length} में से ${lockedNow} कक्षाएँ बंद · नई तारीख़ तय करें`))}
+      </Tag>
+    ) : (
+      <Tag tone={day === "published" ? "ok" : "acc"}>
+        {tx(p("Results day", "परिणाम दिवस"))} {exam.resultsLabel}
+        {day === "today" ? ` · ${tx(p("today", "आज"))}` : day === "upcoming" ? ` · ${tx(p(`in ${exam.daysToResults} days`, `${exam.daysToResults} दिन में`))}` : ""}
+      </Tag>
+    )
   ) : null;
   /* The next step the office can act on; marks entry is the teachers' and has no tab here. */
   const nextStep = STEP_ORDER.find((s) => s !== "entered" && props.states[s] !== "done") ?? null;
@@ -421,17 +451,22 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
   const checkedClasses = classes.filter((c) => readinessOf(c) === "ready_for_review" && !c.unusualOpen).length;
   const allChecked = classes.length > 0 && checkedClasses >= classes.length;
   const firstOpen = STEP_ORDER.findIndex((s) => states[s] !== "done");
+  const dayState = resultsDay(exam.daysToResults, exam.publishedAt);
   const cards: Record<PipelineStep, { title: Pair; big: string; sub: string; btn: Pair; href: string; value: number }> = {
     entered: { title: p("Marks entered", "अंक भरे"), big: `${overall.percent}%`, sub: tx(p(`${overall.entered.toLocaleString("en-IN")} of ${overall.total.toLocaleString("en-IN")} marks · ${late.length} teachers late`, `${overall.total} में से ${overall.entered} · ${late.length} शिक्षक देर से`)), btn: p("Marks tracker", "अंक ट्रैकर"), href: "/exams?view=grid", value: overall.percent },
     checked: { title: p("Checked", "जाँचे"), big: props.unusualOpen ? tx(p(`${props.unusualOpen} unusual`, `${props.unusualOpen} असामान्य`)) : allChecked ? tx(p("All fine", "सब ठीक")) : tx(p(`${checkedClasses} of ${classes.length}`, `${classes.length} में से ${checkedClasses}`)), sub: props.unusualOpen ? tx(p(`Class averages that moved a lot${exam.prevName ? ` since ${exam.prevName.en}` : ""}`, "जिन कक्षाओं का औसत बहुत बदला")) : allChecked ? tx(p("Complete classes compared with the last exam", "पूरी कक्षाएँ पिछली परीक्षा से मिलाईं")) : tx(p("Classes checked · the rest wait for all their marks", "कक्षाएँ जाँचीं · बाकी सभी अंकों की प्रतीक्षा में")), btn: p("Check marks", "अंक जाँचें"), href: props.href("moderation"), value: props.unusualCount ? ((props.unusualCount - props.unusualOpen) / props.unusualCount) * 100 : states.checked === "done" ? 100 : 0 },
     grace: { title: p("Grace", "ग्रेस"), big: tx(p(`${canPass} ${canPass === 1 ? "child" : "children"}`, `${canPass} बच्चे`)), sub: states.grace === "done" ? tx(p("Passed with grace marks", "ग्रेस अंकों से पास")) : tx(p(`Can pass with up to ${props.grace.max} grace marks`, `${props.grace.max} तक ग्रेस से पास हो सकते`)), btn: p("Review grace", "ग्रेस देखें"), href: props.href("grace"), value: canPass ? (props.grace.rows.filter((g) => g.given).length / canPass) * 100 : 0 },
     locked: { title: p("Locked", "बंद"), big: tx(p(`${locked} of ${classes.length}`, `${classes.length} में से ${locked}`)), sub: locked ? tx(p("Classes locked · marks can’t change", "कक्षाएँ बंद · अंक नहीं बदलेंगे")) : tx(p(`${ready} ${ready === 1 ? "class" : "classes"} ready to lock`, `${ready} कक्षाएँ बंद करने को तैयार`)), btn: p("Lock marks", "अंक बंद करें"), href: props.href("lock"), value: classes.length ? (locked / classes.length) * 100 : 0 },
     cards: { title: p("Report cards", "प्रगति पत्र"), big: tx(p(`${props.cards.issuedTotal} of ${props.childrenTotal}`, `${props.childrenTotal} में से ${props.cards.issuedTotal}`)), sub: tx(p("Issued once a class is locked", "कक्षा बंद होने पर जारी")), btn: p("Report cards", "प्रगति पत्र"), href: props.href("cards"), value: props.childrenTotal ? (props.cards.issuedTotal / props.childrenTotal) * 100 : 0 },
-    published: { title: p("Published", "जारी"), big: exam.publishedAt ? tx(p("Sent", "भेजा")) : (exam.resultsLabel ?? "—"), sub: exam.ptmAt ? tx(p(`Results day · PTM at ${ampm(exam.ptmAt)}`, `परिणाम दिवस · PTM ${ampm(exam.ptmAt)}`)) : tx(p("Results day", "परिणाम दिवस")), btn: p("Schedule", "समय तय करें"), href: props.href("publish"), value: exam.publishedAt ? 100 : 0 },
+    published: { title: p("Published", "जारी"), big: exam.publishedAt ? tx(p("Sent", "भेजा")) : (exam.resultsLabel ?? "—"), sub: dayState === "passed" ? tx(p("Results day has passed and nothing was sent · set a new date", "परिणाम दिवस बीत गया, कुछ नहीं भेजा · नई तारीख़ तय करें")) : exam.ptmAt ? tx(p(`Results day · PTM at ${ampm(exam.ptmAt)}`, `परिणाम दिवस · PTM ${ampm(exam.ptmAt)}`)) : tx(p("Results day", "परिणाम दिवस")), btn: p("Schedule", "समय तय करें"), href: props.href("publish"), value: exam.publishedAt ? 100 : 0 },
   };
   const dates = [
     exam.marksDue ? { k: p("MARKS DUE", "अंक अंतिम तिथि"), v: exam.marksDue, s: exam.daysToDue === null ? "" : exam.daysToDue >= 0 ? tx(p(`in ${exam.daysToDue} days`, `${exam.daysToDue} दिन में`)) : tx(p("passed", "बीत गई")), tone: "warn" as const } : null,
-    exam.resultsLabel ? { k: p("RESULTS DAY", "परिणाम दिवस"), v: exam.resultsLabel, s: `${exam.publishAt ? ampm(exam.publishAt.slice(11, 16)) : "9 am"}${exam.ptmAt ? ` · PTM ${ampm(exam.ptmAt)}` : ""}`, tone: "acc" as const } : null,
+    exam.resultsLabel
+      ? dayState === "passed"
+        ? { k: p("RESULTS DAY", "परिणाम दिवस"), v: exam.resultsLabel, s: tx(p("passed · not sent", "बीत गया · नहीं भेजा")), tone: "bad" as const }
+        : { k: p("RESULTS DAY", "परिणाम दिवस"), v: exam.resultsLabel, s: `${exam.publishAt ? ampm(exam.publishAt.slice(11, 16)) : "9 am"}${exam.ptmAt ? ` · PTM ${ampm(exam.ptmAt)}` : ""}`, tone: "acc" as const }
+      : null,
   ].filter((d) => d !== null);
   const rq = [
     { n: props.rechecks.filter((r) => r.status === "new").length, label: p("new", "नए"), tone: "warn" as const },
@@ -462,8 +497,10 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
           const done = st === "done";
           const now = i === firstOpen;
           const can = !done && !now && st !== "waiting";
-          const stLabel = done ? p("Done", "पूरा") : now ? (i === 0 ? p("In progress", "जारी") : p("Next", "अगला")) : can ? p("Can start", "शुरू कर सकते") : p("Waiting", "रुका");
-          const stTone: ToneKey = done ? "ok" : now ? "acc" : can ? "info" : "s3";
+          // Results day gone by with nothing sent is overdue, not "waiting" (smoke 20 Oct).
+          const overdue = s === "published" && !done && dayState === "passed";
+          const stLabel = overdue ? p("Overdue", "देर हो गई") : done ? p("Done", "पूरा") : now ? (i === 0 ? p("In progress", "जारी") : p("Next", "अगला")) : can ? p("Can start", "शुरू कर सकते") : p("Waiting", "रुका");
+          const stTone: ToneKey = overdue ? "bad" : done ? "ok" : now ? "acc" : can ? "info" : "s3";
           return (
             <div key={s} className="card xc x8 xp" style={{ animation: "xIn .3s var(--ease) both", animationDelay: `${i * 50}ms`, borderColor: now ? "var(--acc)" : "var(--bd)", boxShadow: now ? "var(--shh)" : "var(--sh)" }}>
               <span className="xr xj x6">
@@ -524,7 +561,10 @@ function Pipeline(props: ResultsProps & { href: (v: ResultsView, extra?: string)
                   <span>{c.late ? <Tag tone="bad">{tx(p(`${c.late} late`, `${c.late} देर`))}</Tag> : <Tag tone="s3">{tx(p("On time", "समय पर"))}</Tag>}</span>
                   <span>
                     {readinessOf(c) === "needs_correction" ? (
-                      <Tag tone="bad">{tx(READINESS_LABEL.needs_correction)}</Tag>
+                      <Tag tone="bad">
+                        {tx(READINESS_LABEL.needs_correction)}
+                        {c.fix?.length ? ` · ${c.fix.map((f) => `${tx(subjectPair(f.subjectCode))} ${f.count}`).join(", ")}` : ""}
+                      </Tag>
                     ) : c.unusualOpen ? (
                       <Tag tone="warn">{tx(p(`${c.unusualOpen} to look at`, `${c.unusualOpen} देखने हैं`))}</Tag>
                     ) : readinessOf(c) === "ready_for_review" ? (
@@ -695,7 +735,8 @@ function Moderation(props: ResultsProps & { pending: boolean; run: Run }) {
                   {klass?.label} · {paper.subjectCode}
                 </span>
                 <span className="xm">
-                  {paper.teacherName ?? "—"} · {tx(p(`out of ${paper.maxMarks} · ${kidsEn(paper.sat)}`, `पूर्णांक ${paper.maxMarks} · ${paper.sat} बच्चे`))}
+                  {paper.teacherName ?? "—"} · {tx(p(`out of ${paper.maxMarks} · `, `पूर्णांक ${paper.maxMarks} · `))}
+                  {tx(satLine(paper))}
                 </span>
               </span>
               {paper.invalid ? (
@@ -863,9 +904,12 @@ function Grace(props: ResultsProps & { pending: boolean; run: Run }) {
             return (
               <div key={g.studentId} className="xr x10 xd" style={{ padding: "9px 0", opacity: ok ? 1 : 0.55, transition: "opacity .3s ease" }}>
                 <span className="xc xf">
-                  <span className="x6w xe">{g.name}</span>
+                  <span className="x6w xe">
+                    {g.name}
+                    {g.hint ? <span className="xm"> · {g.hint}</span> : null}
+                  </span>
                   <span className="xm xe">
-                    {g.classLabel} · {g.needs.map((n) => n.subjectCode).join(", ")}
+                    {g.classLabel} · {g.needs.map((n) => tx(subjectPair(n.subjectCode))).join(", ")}
                   </span>
                 </span>
                 <span className="num xs xtr">
@@ -1008,7 +1052,7 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
           </div>
           <span className="xc xf" style={{ minWidth: 200, gap: 2 }}>
             <span className="xh">{tx(p(`${cards.issuedTotal} report cards issued`, `${cards.issuedTotal} प्रगति पत्र जारी`))}</span>
-            <span className="xm">{tx(p("Draft = marks still coming. A card turns Final when its class is locked and issued.", "ड्राफ़्ट = अंक आ रहे हैं। कक्षा बंद होकर जारी होने पर कार्ड पक्का होता है।"))}</span>
+            <span className="xm">{tx(p("Not final = marks still coming. A card turns Final when its class is locked and issued.", "कच्चा = अंक अभी आ रहे हैं। कक्षा बंद होकर जारी होने पर कार्ड पक्का होता है।"))}</span>
           </span>
           <div className="xc x8 mfull" style={{ width: 250 }}>
             <Link href="/exam-office/results?view=publish" className="tap btn pri">
@@ -1037,7 +1081,7 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
                   </button>
                 ) : (
                   <Tag tone={tone} style={{ minWidth: 66, justifyContent: "center" }}>
-                    {final ? tx(p("Final", "पक्का")) : c.percent > 0 ? tx(p("Draft", "ड्राफ़्ट")) : tx(p("Waiting", "रुका"))}
+                    {final ? tx(p("Final", "पक्का")) : c.percent > 0 ? tx(p("Not final", "कच्चा")) : tx(p("Waiting", "रुका"))}
                   </Tag>
                 )}
                 <a className="tap btn ghost hide-m" href={`/exams/report-card?class=${c.id}&${termQ}`} target="_blank" rel="noopener noreferrer" aria-label={tx(p(`Print ${c.label} cards`, `${c.label} के कार्ड छापें`))} style={{ width: 34, height: 34, padding: 0 }}>
@@ -1066,7 +1110,7 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
                 </span>
               </div>
               <span className="x11 xb xtc" style={{ padding: 4, borderRadius: 6, background: "var(--s2)" }}>
-                {exam.name.hi ?? exam.name.en} प्रगति पत्र · {exam.name.en.toUpperCase()} REPORT CARD{sample.issued ? "" : ` · ${tx(p("DRAFT", "ड्राफ़्ट"))}`}
+                {exam.name.hi ?? exam.name.en} प्रगति पत्र · {exam.name.en.toUpperCase()} REPORT CARD{sample.issued ? "" : ` · ${tx(p("NOT ISSUED", "अभी जारी नहीं"))}`}
               </span>
               <div className="xc">
                 {sample.rows.map((r) => (
@@ -1077,7 +1121,8 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
                     </span>
                     <span className="num xb">
                       {r.scored}
-                      {r.grace ? ` +${r.grace}G` : ""}/{r.outOf} · {r.grade ?? "—"}
+                      {r.grace ? ` +${r.grace}G` : ""}/{r.outOf}
+                      {r.absent ? <span style={{ color: "var(--bad)" }} title={r.absent}>*</span> : null} · {r.grade ?? "—"}
                     </span>
                   </div>
                 ))}
@@ -1088,7 +1133,7 @@ function Cards(props: ResultsProps & { pending: boolean; run: Run }) {
                 </span>
                 <span style={{ color: sample.passed === false ? "var(--bad)" : "var(--ok)" }}>
                   {sample.percent ?? "—"}% · {sample.grade ?? "—"}
-                  {sample.passed === null ? "" : sample.passed ? " · Pass" : " · Fail"}
+                  {sample.passed === null ? "" : sample.passed ? " · Pass · उत्तीर्ण" : ` · ${supportLine((sample.shortIn ?? []).map(subjectPair))}`}
                 </span>
               </div>
             </div>

@@ -205,6 +205,7 @@ export default async function SubstitutionsPage(props: PageProps<"/substitutions
             staff={coverDay.staff
               .filter(({ id }) => eligible.has(id))
               .map(({ id, displayName, shortName }) => ({ id, displayName: nameOf.get(id) ?? displayName, shortName }))}
+            away={coverDay.absences.map(({ staffProfileId, periods }) => ({ staffProfileId, periods }))}
           />
         </Card>
       ) : null}

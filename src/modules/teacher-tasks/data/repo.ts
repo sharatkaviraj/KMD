@@ -14,6 +14,8 @@ import type { AttendanceStatus } from "@/modules/attendance/domain/attendance";
 import { mergeTaskSummaries, taskProgress, type TaskKind, type TaskScope, type TaskSummary } from "../domain/tasks";
 import type { TaskCredential } from "./save";
 import { academicDraftScope, collectionDraftScope } from "./draft-scope";
+import { attendanceCalendar } from "@/modules/attendance/data/attendance-repo";
+import { isSchoolOpen } from "@/modules/academics/domain/calendar";
 
 export type TaskRow = { id:string; session_label:string; kind:TaskKind; request_id:string|null; paper_id:string|null; class_id:string|null; day:string|null; scope:TaskScope; assigned_staff_id:string; title:string; due_date:string|null; revoked_at:string|null; opened_at:string|null };
 const COLUMNS="id,session_label,kind,request_id,paper_id,class_id,day,scope,assigned_staff_id,title,due_date,revoked_at,opened_at";
@@ -108,29 +110,43 @@ async function summary(t:TaskRow, office:boolean):Promise<TaskSummary> {
   const staff=await db.from("staff_profiles").select("display_name").eq("id",t.assigned_staff_id).maybeSingle<{display_name:string}>();
   return {id:t.id,kind:t.kind,title:t.title,sourceKey:t.kind==="collection"?`collection:${t.request_id}`:t.kind==="marks"?`marks:${t.paper_id}`:`attendance:${t.session_label}:${t.class_id}:${t.day}`,teacherId:t.assigned_staff_id,teacherName:staff.data?.display_name??null,dueDate:t.due_date,state,expected,answered,rejected,href:office?`/inbox?task=${t.id}`:`/teach/tasks/${t.id}`,openedAt:t.opened_at};
 }
-export async function listTeacherTasks(office=false):Promise<TaskSummary[]> {
+/**
+ * A teacher's (or the office's) task list. `now` is the reader's school clock
+ * (the lab clock for a test account), so "today's attendance" is the school's
+ * today; on a closed day there is no attendance task (smoke 20 Oct: My tasks
+ * asked for attendance on Dussehra, dated by the real day). `only` keeps the
+ * kinds a caller shows, so Today reads just the office's requests.
+ */
+export async function listTeacherTasks(office=false, opts:{now?:Date;only?:TaskKind[]}={}):Promise<TaskSummary[]> {
+  const wants=(k:TaskKind)=>!opts.only||opts.only.includes(k);
   const actor=office?await assertPermission("collection:manage"):await assertStaff();
   const session=await resolveSessionLabel();if(!session)return [];
   const db=createAdminClient();
-  const rows=await fetchAllRows<TaskRow>((from,to)=>{let q=db.from("teacher_tasks").select(COLUMNS).eq("session_label",session);if(!office)q=q.eq("assigned_staff_id",actor.id);return q.order("created_at",{ascending:false}).order("id").range(from,to);},"teacher tasks");
+  const rows=await fetchAllRows<TaskRow>((from,to)=>{let q=db.from("teacher_tasks").select(COLUMNS).eq("session_label",session);if(!office)q=q.eq("assigned_staff_id",actor.id);if(opts.only)q=q.in("kind",opts.only);return q.order("created_at",{ascending:false}).order("id").range(from,to);},"teacher tasks");
   const tasks=await mapConcurrently(rows,4,t=>summary(t,office));
   if(!office) {
     // Existing requests/papers/registers remain canonical and appear without minting tokens.
     const legacy=await fetchAllRows<{id:string;title_en:string;due_date:string|null}>((from,to)=>db.from("collection_requests").select("id,title_en,due_date").eq("session_label",session).eq("assigned_staff_id",actor.id).eq("status","open").is("archived_at",null).order("id").range(from,to),"assigned requests");
-    for(const r of legacy) {
+    for(const r of wants("collection")?legacy:[]) {
       if(tasks.some(t=>t.sourceKey===`collection:${r.id}`))continue;
       const request=await resolveAssignedRequest(r.id,actor.id); if(!request)continue;
       const roll=await rollForRequest(request);const expected=roll.length*request.fields.length;
       const answers=await fetchAllRows<{status:string}>((from,to)=>db.from("collection_submissions").select("status").eq("request_id",r.id).order("id").range(from,to),"task progress");
       tasks.push({id:`collection-${r.id}`,sourceKey:`collection:${r.id}`,kind:"collection",title:r.title_en,teacherId:actor.id,teacherName:actor.displayName,dueDate:r.due_date,state:taskProgress({kind:"collection",expected,answered:answers.length,approved:answers.filter(a=>a.status==="accepted").length,rejected:answers.filter(a=>a.status==="rejected").length}),expected,answered:answers.length,rejected:answers.filter(a=>a.status==="rejected").length,href:`/teach/tasks/collection-${r.id}`,openedAt:null});
     }
+    if(wants("marks")){
     const assignments=await fetchAllRows<{class_id:string;subject_id:string}>((from,to)=>db.from("teaching_assignments").select("class_id,subject_id").eq("session_label",session).eq("staff_profile_id",actor.id).order("id").range(from,to),"teaching assignments");
     const papers=await fetchAllRows<{id:string;class_id:string;subject_id:string;class_label:string;subject_code:string;entry_status:string}>((from,to)=>db.from("assessment_subjects").select("id,class_id,subject_id,class_label,subject_code,entry_status,assessments!inner(session_label,status)").eq("assessments.session_label",session).eq("assessments.status","open").order("id").range(from,to),"assigned marks");
     for(const p of papers.filter(p=>can(actor,"marks:write")&&assignments.some(a=>a.class_id===p.class_id&&a.subject_id===p.subject_id))) tasks.push({id:`paper-${p.id}`,sourceKey:`marks:${p.id}`,kind:"marks",title:`${p.class_label} · ${p.subject_code}`,teacherId:actor.id,teacherName:actor.displayName,dueDate:null,state:taskProgress({kind:"marks",submitted:p.entry_status==="submitted"}),expected:0,answered:0,href:`/teach/marks?paper=${p.id}`,openedAt:null});
-    const day=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata"}).format(new Date());
+    }
+    if(wants("attendance")){
+    const day=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata"}).format(opts.now??new Date());
+    const calendar=await attendanceCalendar(session).catch(()=>null);
+    const open=calendar?isSchoolOpen(day,calendar):true;
     const ct=await db.from("class_teachers").select("class_id").eq("session_label",session).eq("staff_profile_id",actor.id).eq("role","class_teacher").lte("effective_from",day).or(`effective_to.is.null,effective_to.gte.${day}`).returns<{class_id:string}[]>();
     if(ct.error)throw new Error("classes_unavailable");
-    for(const c of can(actor,"attendance:mark")?ct.data:[]) {const r=await db.from("attendance_registers").select("revision").eq("session_label",session).eq("class_id",c.class_id).eq("day",day).is("period",null).maybeSingle<{revision:number}>();if(r.error)throw new Error("register_unavailable");tasks.push({id:`attendance-${c.class_id}`,sourceKey:`attendance:${session}:${c.class_id}:${day}`,kind:"attendance",title:day,teacherId:actor.id,teacherName:actor.displayName,dueDate:day,state:taskProgress({kind:"attendance",revision:r.data?.revision??0}),expected:0,answered:0,href:`/teach/attendance?class=${c.class_id}&day=${day}`,openedAt:null});}
+    for(const c of open&&can(actor,"attendance:mark")?ct.data:[]) {const r=await db.from("attendance_registers").select("revision").eq("session_label",session).eq("class_id",c.class_id).eq("day",day).is("period",null).maybeSingle<{revision:number}>();if(r.error)throw new Error("register_unavailable");tasks.push({id:`attendance-${c.class_id}`,sourceKey:`attendance:${session}:${c.class_id}:${day}`,kind:"attendance",title:day,teacherId:actor.id,teacherName:actor.displayName,dueDate:day,state:taskProgress({kind:"attendance",revision:r.data?.revision??0}),expected:0,answered:0,href:`/teach/attendance?class=${c.class_id}&day=${day}`,openedAt:null});}
+    }
   }
   return mergeTaskSummaries(tasks).filter(t=>office||!["to-assign","revoked"].includes(t.state));
 }

@@ -12,6 +12,8 @@ import { SessionSwitchOverlayMount } from "@/ui/shell/session-switch-overlay";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { initials, schoolToday } from "@/vx/format";
 import { inboxCount } from "@/vx/screens/admin/data";
+import { schoolMinutes } from "@/vx/screens/admin/logic";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { bottomFor, groupsFor, MENU_HOME, MENU_LABEL, PREVIEW_LABEL, ROLE_PREVIEW_MENUS } from "@/vx/nav";
 import { lead } from "@/vx/text";
 import { NavTrail } from "@/vx/ui/back-link";
@@ -49,7 +51,11 @@ async function loadBadges(viewer: Viewer, sessionLabel: string): Promise<Badges>
     // The admin queue, counted from the same reads the Needs you page uses —
     // in the same request on Today and Needs you, so it is free there (perf fixes 1, 2).
     !viewer.previewing && can(viewer.staff, "attendance:correct") && sessionLabel
-      ? inboxCount(viewer.staff, sessionLabel, schoolToday(), can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined).catch(() => null)
+      ? schoolNow(viewer.staff)
+          // The badge reads the reader's clock, as Needs you itself does, so a
+          // lab seat never sees a count the list disagrees with (smoke 20 Oct).
+          .then((now) => inboxCount(viewer.staff, sessionLabel, schoolToday(now), can(viewer.staff, "fees:view") ? pendingMoneyRequests : undefined, schoolMinutes(now)))
+          .catch(() => null)
       : null,
   ]);
   if (dues !== null) out.dues = dues;

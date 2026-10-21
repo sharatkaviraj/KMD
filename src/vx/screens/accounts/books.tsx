@@ -366,7 +366,7 @@ function ChequesPane({
             <span className="sech">Dated</span>
             <span className="sech">Receipt</span>
             <span className="sech" style={{ textAlign: "right" }}>Amount</span>
-            <span className="sech" style={{ textAlign: "right" }}>Status</span>
+            <span className="sech">Status</span>
           </div>
           {rows.map((r, i) => {
             const look = statusLook(r, data.today);

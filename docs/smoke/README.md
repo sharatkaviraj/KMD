@@ -12,7 +12,9 @@ passes are refused and smoke accounts are signed out — no code change needed.
 
 | Piece | Where |
 |---|---|
-| 14 test accounts: admin, office, accountant, 2 fee collectors, academic and exam coordinators, view-only, and 6 teachers attached to real class-teacher profiles in the test data | `npm run smoke:pool` (`scripts/smoke-pool.mjs`; `status`, `release`) |
+| 28 test accounts: admin, office, accountant, 2 fee collectors, academic and exam coordinators, view-only, and 20 teachers — 16 attached to real class-teacher profiles, 2 to subject teachers with no class, and 2 brand-new teachers with nothing assigned | `npm run smoke:pool` (`scripts/smoke-pool.mjs`; `status`, `release`) |
+| Open a run from a plan file (seats + personas) through the console, saving the kit | `node scripts/smoke/open-run.mjs plan.json` → `.smoke-run/kit.json` |
+| A persistent seat for step-by-step agents: sign in once, then many short scripts share the session; screenshots, accessibility outline, tap-target and overflow checks, filing | `scripts/smoke/session.mjs` (`withSeat`) |
 | Console: open a run, hand out passes, revoke, triage findings, export Markdown | `/smoke` (admin only) |
 | Sign in with a pass | `/lab/enter?pass=…[&next=/path]` |
 | Move the pretend school clock | `/lab/clock?pass=…&at=HH:MM&next=/teach` |
@@ -68,6 +70,22 @@ VPPS One on the TEST database (all data is fake). Your account:
    or publish, never open WhatsApp, never type real personal data.
 6. Finish with a short summary: what you did, what worked, what you filed.
 ```
+
+## A whole school day with many agents
+
+What the 20 Oct run did (`docs/evidence/smoke-school-day-2026-10-20.md`):
+
+1. `npm run smoke:pool`, then `.smoke-run/plan.json` with a persona per seat and
+   `APP_ORIGIN=<origin> node scripts/smoke/open-run.mjs .smoke-run/plan.json`.
+2. Agents in waves of at most three browsers, each writing small scripts in
+   `.smoke-run/agents/<name>/` that call `withSeat(key, fn)`. Each wave is
+   handed what the previous one saved, so coordinators cross-check it on their
+   own screens (marks counts, Only-me notes, attendance, cover, reversal).
+3. Teacher agents think aloud as non-technical teachers: expectation before
+   each tap, an ease score (1–7) and taps per task, and the persona's reaction
+   in their own language.
+4. A permission matrix by typed addresses, then a developer agent that groups
+   the findings by root cause and proposes fixes with file references.
 
 ## Checking the lab itself
 

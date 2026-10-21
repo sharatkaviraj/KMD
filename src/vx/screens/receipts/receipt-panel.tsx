@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { reverseReceiptAction } from "@/app/(app)/receipts/actions";
-import { deskModeOf, REVERSAL_REASONS, type ReversalReason } from "@/modules/receipts/vx/domain/day-close";
+import { declineReversalRequestAction, reverseReceiptAction } from "@/app/(app)/receipts/actions";
+import { deskModeOf, isReversalReason, REVERSAL_REASONS, type ReversalReason } from "@/modules/receipts/vx/domain/day-close";
+import { humanizeReasonCode, splitReversalReason } from "@/modules/receipts/vx/domain/reversal-history";
 import { canOpenReverse } from "@/modules/receipts/vx/domain/reverse-sheet";
+import { shownSr } from "@/vx/domain/tell-apart";
 import { amountInWords, dateLabel, rupees } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic } from "@/vx/icons";
@@ -33,7 +35,7 @@ function inWords(n: number): string {
   return amountInWords(n).replace(/^Rupees (.*) only$/, (_, body: string) => `Rupees ${body.toLowerCase()} only`);
 }
 
-const HISTORY_DOT: Record<HistoryEvent["kind"], string> = { posted: "var(--acc)", sent: "var(--ok)", read: "var(--ok)", reversed: "var(--bad)" };
+const HISTORY_DOT: Record<HistoryEvent["kind"], string> = { posted: "var(--acc)", asked: "var(--warn)", sent: "var(--ok)", read: "var(--ok)", reversed: "var(--bad)" };
 
 export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
   const { receipt: r, perms, anchor, today, span } = props;
@@ -41,8 +43,12 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
   const router = useRouter();
   const toast = useToast();
   const [sheet, setSheet] = useState<"reverse" | "send" | null>(props.sheet);
-  const [reason, setReason] = useState<ReversalReason | null>(null);
+  // Opened on a request (Needs you → Review): the accountant's reason is already chosen.
+  const asked = r.pendingRequest && isReversalReason(r.pendingRequest.reasonCode) ? r.pendingRequest.reasonCode : null;
+  const [reason, setReason] = useState<ReversalReason | null>(asked);
   const [note, setNote] = useState("");
+  const [declining, setDeclining] = useState(false);
+  const [declineNote, setDeclineNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const base = { anchor, today, span };
@@ -63,11 +69,48 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
             ? { tone: "warn", text: tx(W.failed) }
             : { tone: "warn", text: tx(W.notSent) };
 
+  /** "Wrong amount typed — the note", never the stored code "wrong_amount" (smoke 20 Oct). */
+  function reasonText(code: string | null | undefined, note: string | null | undefined): string {
+    const word = code ? (REASON_WORD[code] ? tx(REASON_WORD[code]) : humanizeReasonCode(code)) : "";
+    const plain = note?.trim() ?? "";
+    const extra = plain && plain !== (code ? REASON_WORD[code]?.en : undefined) ? plain : "";
+    return [word, extra].filter(Boolean).join(" — ");
+  }
+  const storedReason = (raw: string | null | undefined) => {
+    const parts = splitReversalReason(raw);
+    return reasonText(parts.code, parts.note);
+  };
+
   function historyText(h: HistoryEvent): string {
     if (h.kind === "posted") return r.receivedBy ? tx(fill(W.hPosted, { name: r.receivedBy })) : tx(W.hPostedBare);
     if (h.kind === "sent") return r.fatherName ? tx(fill(W.hSent, { name: r.fatherName })) : tx(W.hSentBare);
     if (h.kind === "read") return tx(W.hRead);
-    return `${h.byName ? tx(fill(W.hReversedBy, { name: h.byName })) : tx(W.hReversed)}${h.note ? ` · ${h.note}` : ""}${h.amount ? ` · ${rupees(h.amount)}` : ""}`;
+    if (h.kind === "asked") {
+      const why = reasonText(h.reasonCode, h.note);
+      return `${h.byName ? tx(fill(W.hAsked, { name: h.byName })) : tx(W.hAskedBare)}${why ? ` · ${why}` : ""}`;
+    }
+    const why = storedReason(h.note);
+    return `${h.byName ? tx(fill(W.hReversedBy, { name: h.byName })) : tx(W.hReversed)}${why ? ` · ${why}` : ""}${h.amount ? ` · ${rupees(h.amount)}` : ""}`;
+  }
+
+  function submitDecline() {
+    setError(null);
+    start(async () => {
+      const res = await declineReversalRequestAction({ receiptNumber: r.receiptNumber, note: declineNote });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setSheet(null);
+      setDeclining(false);
+      toast.show({ text: tx(W.doneDeclined), tone: "info" });
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("sheet")) {
+        url.searchParams.delete("sheet");
+        router.replace(`${url.pathname}${url.search}`, { scroll: false });
+      }
+      router.refresh();
+    });
   }
 
   function submitReverse() {
@@ -99,7 +142,7 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
     ? [
         tx(fill(W.reversedOn, { day: deskDay(r.reversal.at), time: deskTime(r.reversal.at) })),
         r.reversal.byName ? tx(fill(W.reversedBy, { name: r.reversal.byName })) : null,
-        r.reversal.note,
+        storedReason(r.reversal.note) || null,
       ].filter(Boolean).join(" · ")
     : null;
   const firstName = r.studentFullName.split(" ")[0] ?? r.studentFullName;
@@ -129,7 +172,8 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         </div>
         <div className="g2" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px 16px", fontSize: 13 }}>
           <Fact k={tx(W.student)} v={r.studentFullName} />
-          <Fact k={tx(W.classSr)} v={`${r.classLabel} · ${r.admissionNo}`} />
+          {/* An office placeholder ("PENDING-SR-6752") is not an SR to print (smoke 21 Oct). */}
+          {shownSr(r.admissionNo) ? <Fact k={tx(W.classSr)} v={`${r.classLabel} · ${shownSr(r.admissionNo)}`} /> : <Fact k={tx(W.classOnly)} v={r.classLabel} />}
           <Fact k={tx(W.father)} v={r.fatherName ?? "—"} />
           <Fact k={tx(W.dateTime)} v={`${deskDay(r.paymentDate)} · ${deskTime(r.createdAt)}`} />
         </div>
@@ -161,7 +205,11 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
       </div>
 
       {reversedLine ? <Pill tone="bad" icon="undo" style={{ height: "auto", minHeight: 26, padding: "4px 10px", whiteSpace: "normal" }}><span id="rc-reversed-on">{reversedLine}</span></Pill> : null}
-      {r.pendingRequest && !r.isReversed ? <Pill tone="warn" icon="clock">{tx(W.pendingReversal)}{r.pendingRequest.by ? ` · ${r.pendingRequest.by}` : ""}</Pill> : null}
+      {r.pendingRequest && !r.isReversed ? (
+        <Pill tone="warn" icon="clock" style={{ height: "auto", minHeight: 26, padding: "4px 10px", whiteSpace: "normal" }}>
+          {[tx(W.pendingReversal), r.pendingRequest.by, reasonText(r.pendingRequest.reasonCode, r.pendingRequest.note)].filter(Boolean).join(" · ")}
+        </Pill>
+      ) : null}
 
       {!r.isReversed ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -194,15 +242,46 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
         title={`${tx(W.reverse)} ${r.receiptNumber}?`}
         sub={`${r.studentFullName} · ${r.classLabel} · ${rupees(remaining)} · ${tx(MODE_WORD[mode])}`}
         footer={
-          <>
-            <Btn variant="sec" onClick={() => setSheet(null)} style={{ flex: 1 }}>{tx(W.keepReceipt)}</Btn>
-            <Btn variant="danger" icon="undo" disabled={!reason || busy} onClick={submitReverse} style={{ flex: 1.4 }}>
-              {perms.reverse ? `${tx(W.reverse)} ${rupees(remaining)}` : tx(W.askAdmin)}
-            </Btn>
-          </>
+          declining ? (
+            <>
+              <Btn variant="sec" onClick={() => setDeclining(false)} style={{ flex: 1 }}>{tx(W.close)}</Btn>
+              <Btn variant="pri" disabled={busy || declineNote.trim().length < 3} onClick={submitDecline} style={{ flex: 1.4 }}>{tx(W.declineConfirm)}</Btn>
+            </>
+          ) : (
+            <>
+              {/* With a request waiting, the admin's other answer is a real decline, not just closing the sheet. */}
+              {perms.reverse && r.pendingRequest ? (
+                <Btn variant="sec" onClick={() => setDeclining(true)} style={{ flex: 1 }}>{tx(W.decline)}</Btn>
+              ) : (
+                <Btn variant="sec" onClick={() => setSheet(null)} style={{ flex: 1 }}>{tx(W.keepReceipt)}</Btn>
+              )}
+              <Btn variant="danger" icon="undo" disabled={!reason || busy} onClick={submitReverse} style={{ flex: 1.4 }}>
+                {perms.reverse ? `${tx(W.reverse)} ${rupees(remaining)}` : tx(W.askAdmin)}
+              </Btn>
+            </>
+          )
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 }}>
+          {r.pendingRequest ? (
+            <div id="rc-asked" style={{ padding: "12px 14px", borderRadius: 14, background: "var(--s2)", display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+              <span style={{ fontWeight: 700 }}>
+                {r.pendingRequest.by
+                  ? tx(fill(W.askedBy, { name: r.pendingRequest.by, when: `${deskDay(r.pendingRequest.at)} · ${deskTime(r.pendingRequest.at)}` }))
+                  : tx(fill(W.askedBare, { when: `${deskDay(r.pendingRequest.at)} · ${deskTime(r.pendingRequest.at)}` }))}
+              </span>
+              <span>{tx(W.askedReason)}: {reasonText(r.pendingRequest.reasonCode, r.pendingRequest.note) || "—"}</span>
+            </div>
+          ) : null}
+          {declining ? (
+            <>
+              <Field label={tx(W.declineWhy)}>
+                <Textarea value={declineNote} maxLength={400} onChange={(e) => setDeclineNote(e.target.value)} style={{ minHeight: 72 }} />
+              </Field>
+              {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
+            </>
+          ) : (
+          <>
           <h3 className="sech">{tx(W.why)}</h3>
           <div role="radiogroup" aria-label={tx(W.why)} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {REVERSAL_REASONS.map((code) => {
@@ -229,17 +308,25 @@ export function ReceiptPanel(props: DeskProps & { receipt: SelectedReceipt }) {
             })}
           </div>
           <Field label={tx(W.noteOptional)} style={{ marginTop: 4 }}>
-            <Textarea value={note} maxLength={400} onChange={(e) => setNote(e.target.value)} placeholder={tx(W.notePlaceholder)} style={{ minHeight: 72 }} />
+            <Textarea value={note} maxLength={400} onChange={(e) => setNote(e.target.value)} placeholder={tx(perms.reverse ? W.notePlaceholderAdmin : W.notePlaceholderRequest)} style={{ minHeight: 72 }} />
           </Field>
           <div style={{ padding: "12px 14px", borderRadius: 14, background: "var(--warns)", color: "var(--warnfg)", fontSize: 13, lineHeight: 1.5, display: "flex", gap: 10 }}>
             <Ic n="info" style={{ marginTop: 2 }} />
             <span>
               {perms.reverse
-                ? tx(fill(W.impactAdmin, { amount: rupees(-remaining), no: r.receiptNumber, name: firstName, back: rupees(remaining) }))
-                : tx(W.impactRequest)}
+                ? tx(fill(W.impactAdmin, { amount: rupees(-remaining), no: r.receiptNumber, name: firstName, back: rupees(remaining), day: deskDay(r.paymentDate) }))
+                : `${tx(W.impactRequest)} ${tx(W.impactRequestNote)}`}
+              {perms.reverse && r.dayClosed ? (
+                <>
+                  <br />
+                  {tx(fill(W.impactDayClosed, { day: deskDay(r.paymentDate) }))}
+                </>
+              ) : null}
             </span>
           </div>
           {error ? <span role="alert" style={{ color: "var(--bad)", fontWeight: 600 }}>{error}</span> : null}
+          </>
+          )}
         </div>
       </Sheet>
 

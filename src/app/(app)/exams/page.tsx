@@ -1,3 +1,4 @@
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { notFound, redirect } from "next/navigation";
 
 import { byClassLabel } from "@/modules/academics/domain/class-order";
@@ -17,16 +18,22 @@ import {
   locksFor,
   paperById,
   previousExam,
+  remarksFor,
   studentsByIds,
   type Exam,
 } from "@/vx/screens/exams/data";
 import { cardState, graceByStudent } from "@/vx/screens/exams/cards-data";
-import { childPercent, classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
+import { classTermCards } from "@/modules/assessments/data/reports-repo";
+import { attendanceNote } from "@/vx/screens/exams/domain/card-words";
+import { plannedExams } from "@/vx/screens/exams/domain/current";
+import { absentExams, cardWeights, type ReportCard } from "@/modules/assessments/domain/report-card";
+import { absentLine, cardNotes } from "@/vx/screens/exams/domain/card-notes";
+import { classAnalysis, type ChildMarks } from "@/vx/screens/exams/domain/analysis";
 import { canFinaliseMarks } from "@/vx/screens/exams/domain/finalise";
-import { cellCounts, cellState, neighbours } from "@/vx/screens/exams/domain/board";
+import { cellCounts, cellState, exemptSwitch, neighbours, paperEvents } from "@/vx/screens/exams/domain/board";
 import { GROUP_KEYS, GROUP_LABELS, groupOf, subjectPair } from "@/vx/screens/exams/domain/groups";
 import { splitByStream } from "@/vx/screens/exams/domain/streams";
-import { classReadiness, paperReadiness } from "@/vx/screens/exams/domain/progress";
+import { classReadiness, paperBlockers, paperReadiness } from "@/vx/screens/exams/domain/progress";
 import { isLate, subjectColumns } from "@/vx/screens/exams/domain/tracker";
 import { ExamsBoard, type ExamsProps, type ExamsView } from "@/vx/screens/exams/exams-board";
 import { classTeacherOf, isManager } from "@/vx/screens/exams/guards";
@@ -38,7 +45,7 @@ import { dateSpan, dueDay } from "@/vx/screens/exams/when";
 import { issueClassCardsAction, lockClassesAction } from "../exam-office/results/actions";
 import { marksLinkAction, remindTeachersAction } from "../exam-office/actions";
 import { saveTeacherMarksAction, withdrawTeacherMarksAction } from "../teach/marks/actions";
-import { createExamAction } from "./actions";
+import { createExamAction, setPaperExemptAction } from "./actions";
 
 export const runtime = "nodejs";
 
@@ -70,7 +77,8 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
   if (!manage && (view === "sampark" || view === "create" || view === "remind")) view = "grid";
   if (!reports && (view === "reportcards" || view === "preview" || view === "analysis")) view = "grid";
 
-  const ctx = await officeContext();
+  const now = await schoolNow(staff);
+  const ctx = await officeContext(now);
   if (!ctx) {
     return (
       <VxPage>
@@ -136,7 +144,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
   const lockedSet = new Set(locks.keys());
 
   /* ------------------------------------------------- the timeline */
-  const timeline: ExamsProps["timeline"] = exams
+  const timeline: ExamsProps["timeline"] = plannedExams(exams)
     .filter((e) => !scoped || e.papers > 0)
     .map((e) => {
       const state: ExamsProps["timeline"][number]["state"] =
@@ -186,7 +194,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
             cells: Object.fromEntries(
               list.map((x) => [
                 x.subjectCode,
-                { paperId: x.paperId, state: cellState(x, lockedSet.has(classId)), entered: Math.min(x.entered, x.total), total: x.total, late: isLate(x, progress.expected), teacher: x.teacherName },
+                { paperId: x.paperId, state: cellState(x, lockedSet.has(classId)), entered: Math.min(x.entered, x.total), total: x.total, late: isLate(x, progress.expected), teacher: x.teacherName, invalid: x.invalid ?? 0 },
               ]),
             ),
           };
@@ -210,7 +218,11 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
       if (manage && teacher?.link) history.push({ text: p("Marks link made", "अंक लिंक बना"), at: teacher.link.createdAt, tone: "var(--mut)" });
       if (manage && teacher?.link?.openedAt) history.push({ text: p(`Link opened by ${teacher.name}`, `${teacher.name} ने लिंक खोला`), at: teacher.link.openedAt, tone: "var(--info)" });
       if (manage && teacher?.remindedAt) history.push({ text: p("Reminded on WhatsApp", "WhatsApp पर याद दिलाया"), at: teacher.remindedAt, tone: "var(--warn)" });
-      if (row.submitted_at) history.push({ text: p("Marks sent", "अंक भेजे"), at: row.submitted_at, tone: "var(--ok)" });
+      // Every send and take-back from the exam's log, as Today lists them; the paper's own
+      // `submitted_at` only when the log has no send for it (older papers).
+      const events = paperEvents(exam ? await activityFor([exam.id], 500) : [], row.class_label, row.subject_code);
+      for (const e of events) history.push({ text: e.text, at: e.at, tone: e.kind === "withdrawn" ? "var(--warn)" : "var(--ok)" });
+      if (row.submitted_at && !events.some((e) => e.kind === "submitted")) history.push({ text: p("Marks sent", "अंक भेजे"), at: row.submitted_at, tone: "var(--ok)" });
       if (locks.get(facts.classId)) history.push({ text: p("Class locked", "कक्षा बंद"), at: locks.get(facts.classId)!.lockedAt, tone: "var(--pri)" });
       history.sort((a, b) => b.at.localeCompare(a.at));
       cell = {
@@ -235,6 +247,11 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
         classReadiness: classReadiness(classPapers).state,
         readiness: paperReadiness(facts),
         invalid: facts.invalid ?? 0,
+        absent: facts.absent ?? 0,
+        exempt: facts.exempt ?? 0,
+        blank: facts.blank ?? 0,
+        allowExempt: row.allow_exempt,
+        exemptLocked: !exemptSwitch({ allowExempt: row.allow_exempt, entryRevision: row.entry_revision }, !row.allow_exempt).ok,
         history,
       };
     }
@@ -249,7 +266,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
       .map((id) => {
         const info = ctx.classes.find((c) => c.id === id);
         const kids = progress.roll.get(id) ?? [];
-        return { id, label: info?.label ?? "", sort: info?.sort ?? 999, children: kids.length, issued: kids.filter((k) => issued.has(k.studentId)).length, locked: lockedSet.has(id) };
+        return { id, label: info?.label ?? "", sort: info?.sort ?? 999, children: kids.length, issued: kids.filter((k) => issued.has(k.studentId)).length, locked: lockedSet.has(id), teacher: info?.classTeacherName ?? null, remarks: 0 };
       })
       .filter((c) => c.label)
       .sort((a, b) => a.sort - b.sort || byClassLabel(a.label, b.label));
@@ -259,28 +276,45 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
     classId ??= classList.find((c) => c.locked)?.id ?? classList[0]?.id ?? null;
     const kids = classId ? (progress.roll.get(classId) ?? []) : [];
     const names = await studentsByIds(kids.map((k) => k.studentId));
-    // Where each child's marks stand in this exam: what is still missing, and the percentage so far.
     const classPapers = classId ? progress.rows.filter((r) => r.class_id === classId).sort((a, b) => a.sort_order - b.sort_order || a.subject_code.localeCompare(b.subject_code)) : [];
-    const markOf = new Map(progress.marks.map((m) => [`${m.assessment_subject_id}|${m.student_id}`, m]));
+    // Each child's term card exactly as the preview builds it (`classTermCards` → `buildReportCard`),
+    // so the list and the card can never print two percentages or two results (smoke 20 Oct).
+    const termCards = classId
+      ? await classTermCards({ classId, sessionLabel, term: exam.term, students: kids.map((k) => ({ id: k.studentId, fullName: names.get(k.studentId)?.name ?? "—", rollNo: k.roll ?? null })) })
+      : new Map<string, ReportCard>();
+    // A card is not ready while one of the class's papers is unsent, has a blank or a mark it
+    // cannot hold — "never Done over blanks or invalid marks" (`paperBlockers`).
+    const blockers = classId ? paperBlockers(progress.papers.filter((x) => x.classId === classId)) : [];
+    const remarks = await remarksFor(sessionLabel, exam.term, [...progress.roll.values()].flat().map((k) => k.studentId));
+    for (const c of classList) c.remarks = (progress.roll.get(c.id) ?? []).filter((k) => remarks.has(k.studentId)).length;
     const students = kids
       .map((k) => {
-        const marks = classPapers.map((x) => {
-          const m = markOf.get(`${x.id}|${k.studentId}`);
-          return { subjectCode: x.subject_code, value: m?.value === null || m?.value === undefined ? null : Number(m.value), absent: Boolean(m?.absent), exempt: Boolean(m?.exempt), maxMarks: Number(x.max_marks), passMarks: x.pass_marks === null ? null : Number(x.pass_marks) };
-        });
+        const card = termCards.get(k.studentId);
         return {
           id: k.studentId,
           name: names.get(k.studentId)?.name ?? "—",
           roll: k.roll ?? null,
           issued: issued.has(k.studentId),
-          percent: childPercent(marks),
-          missing: marks.filter((m) => m.value === null && !m.absent && !m.exempt).map((m) => m.subjectCode),
-          absent: marks.filter((m) => m.absent).length,
+          percent: card?.totals.percent ?? null,
+          grade: card?.grade ?? null,
+          passed: card?.passed ?? null,
+          shortIn: [...(card?.shortIn ?? []), ...(card?.absentIn ?? [])],
+          missing: card ? card.rows.filter((r) => r.marks.some((m) => m.value === null && !m.absent && !m.exempt)).map((r) => r.subjectCode) : [],
+          absent: card?.totals.absent ?? 0,
+          remark: remarks.has(k.studentId),
         };
       })
       .sort((a, b) => Number(a.roll ?? 9999) - Number(b.roll ?? 9999) || a.name.localeCompare(b.name));
     const classInfo = classId ? ctx.classes.find((c) => c.id === classId) : undefined;
-    cards = { term: exam.term, classes: classList, classId, classTeacher: classInfo?.classTeacherName ?? null, subjects: classPapers.length, students };
+    cards = {
+      term: exam.term,
+      classes: classList,
+      classId,
+      classTeacher: classInfo?.classTeacherName ?? null,
+      subjects: classPapers.length,
+      students,
+      blockers: blockers.map((b) => ({ subject: subjectPair(b.subjectCode), reason: b.reason, count: b.count })),
+    };
 
     if (view === "preview") {
       const id = studentId && students.some((s) => s.id === studentId) ? studentId : students[0]?.id;
@@ -311,16 +345,21 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
               percent: r.percent,
               grace: state.grace[r.subjectCode] ?? 0,
               state: rowState(r.marks),
+              absent: absentLine(absentExams(r)) || undefined,
             })),
+            notes: cardNotes(c.rows),
             total: c.totals.scored,
             outOf: c.totals.outOf,
             percent: c.totals.percent,
             weighted: c.totals.weighted,
+            weights: cardWeights(c).map((w) => ({ name: { en: w.en, hi: w.hi || undefined }, weight: w.weight })),
             grade: c.grade,
             passed: c.passed,
+            shortIn: [...new Set([...(c.shortIn ?? []), ...(c.absentIn ?? [])])].map(subjectPair),
             attendance: c.attendance?.percent ?? null,
             present: c.attendance?.present ?? null,
             counted: c.attendance?.counted ?? null,
+            attendanceNote: attendanceNote(c.attendance?.leave, c.attendance?.unmarked) || null,
             classTeacher: classInfo?.classTeacherName ?? null,
             coordinator: ctx.coordinatorName,
             prevId: at.prev?.id ?? null,
@@ -385,7 +424,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
     : [];
 
   const graceCount = manage && exam && progress ? (await graceFor(progress.rows.map((r) => r.id))).length : 0;
-  const terms = [...new Set(["Term 1", "Term 2", ...exams.map((e) => e.term)])].filter((t) => !/^QA-/.test(t));
+  const terms = [...new Set(["Term 1", "Term 2", ...plannedExams(exams).map((e) => e.term)])].filter((t) => !/^QA-/.test(t));
 
   const data: ExamsProps = {
     view,
@@ -427,6 +466,7 @@ export default async function ExamsPage(props: PageProps<"/exams">) {
       lock: lockClassesAction,
       issueClass: issueClassCardsAction,
       create: createExamAction,
+      setExempt: setPaperExemptAction,
     },
   };
   return <ExamsBoard {...data} />;

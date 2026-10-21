@@ -6,6 +6,7 @@ import { lead } from "@/vx/text";
 import {taskDeliveryMessages as text} from "@/messages/setup";
 import {previewTaskDeliveryAction,confirmTaskDeliveryAction,reconcileTaskDeliveryAction} from "@/app/(app)/teach/tasks/delivery-actions";
 import type {DeliveryPreview,DeliverySummary} from "../domain/delivery";
+import { PLAIN } from "./plain";
 
 export function TaskDelivery({id,language,summary,availability}:{id:string;language:Language;summary:DeliverySummary;availability:"ready"|"unavailable"|"test_mode"}) {
   const [preview,setPreview]=useState<DeliveryPreview|null>(null);
@@ -31,10 +32,10 @@ export function TaskDelivery({id,language,summary,availability}:{id:string;langu
   });
   return <section className="space-y-3 rounded-xl border border-border bg-card p-4" aria-label={word(text.title)}>
     <h2 className="font-semibold">{word(text.title)}</h2>
-    <p className="text-sm">{word(summary.openedAt?text.opened:text.unopened)}{summary.openedAt?` · ${new Date(summary.openedAt).toLocaleString(language==="hi"?"hi-IN":"en-IN")}`:""}</p>
+    <p className="text-sm">{summary.openedAt?word(text.opened):lead(PLAIN.unopened,language)}{summary.openedAt?` · ${new Date(summary.openedAt).toLocaleString(language==="hi"?"hi-IN":"en-IN")}`:""}</p>
     {!!summary.expected&&<p className="text-sm">{word(text.answered)}: {summary.answered}/{summary.expected} · {word(text.approved)}: {summary.approved??0} · {word(text.rejectedCount)}: {summary.rejected??0}</p>}
-    {availability!=="ready"&&<p className="rounded-lg bg-accent-soft p-3 text-sm">{word(text[availability])}</p>}
-    <p className="text-sm text-muted-foreground">{word(text.noReceipt)}</p>
+    {availability!=="ready"&&<p className="rounded-lg bg-accent-soft p-3 text-sm">{availability==="unavailable"?lead(PLAIN.unavailable,language):word(text[availability])}</p>}
+    <p className="text-sm text-muted-foreground">{lead(PLAIN.noReceipt,language)}</p>
     {summary.deliveries.map(d=><div key={d.id} className="rounded-lg bg-accent-soft p-3 text-sm">
       <p>{word(text[d.state])} · +91 {d.phone}</p>
       {d.history.some(h=>h.event==="reconcile")&&<details><summary>{word(text.history)}</summary>{d.history.filter(h=>h.event==="reconcile").map((h,i)=><p key={i}>{h.at} · {h.actor} · {h.note}</p>)}</details>}

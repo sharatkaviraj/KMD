@@ -1,3 +1,4 @@
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { daysBetween, shortDay } from "@/vx/format";
 import { lead, p } from "@/vx/text";
@@ -37,7 +38,8 @@ export default async function ExamPlanPage(props: PageProps<"/exam-office/plan">
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const view: PlanView = (VIEWS as readonly string[]).includes(one("view") ?? "") ? (one("view") as PlanView) : "datesheet";
 
-  const ctx = await officeContext();
+  const now = await schoolNow(staff);
+  const ctx = await officeContext(now);
   const exam = ctx ? nextExam(ctx.exams, ctx.today, one("exam")) : null;
   if (!ctx || !exam) {
     return (

@@ -139,3 +139,15 @@ describe("filters and days", () => {
     expect(isReversalReason("because")).toBe(false);
   });
 });
+
+describe("splitReversalReason (smoke 20 Oct: the receipt printed 'wrong_amount')", () => {
+  it("splits the fee action's 'code — note' back into its parts", async () => {
+    const { splitReversalReason, humanizeReasonCode } = await import("@/modules/receipts/vx/domain/reversal-history");
+    expect(splitReversalReason("wrong_amount — Test: approved by admin")).toEqual({ code: "wrong_amount", note: "Test: approved by admin" });
+    expect(splitReversalReason("cheque_bounced — Cheque bounced")).toEqual({ code: "cheque_bounced", note: "Cheque bounced" });
+    expect(splitReversalReason("duplicate")).toEqual({ code: "duplicate", note: null });
+    expect(splitReversalReason("Parent asked for a refund")).toEqual({ code: null, note: "Parent asked for a refund" });
+    expect(splitReversalReason(null)).toEqual({ code: null, note: null });
+    expect(humanizeReasonCode("fee_mismatch")).toBe("Fee mismatch");
+  });
+});

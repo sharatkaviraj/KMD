@@ -1,3 +1,4 @@
+import { shownSr } from "@/vx/domain/tell-apart";
 import { amountInWords, dayMonth } from "@/vx/format";
 
 /*
@@ -56,4 +57,20 @@ export function previousSession(label: string): string | null {
 export function oldBalanceLabel(word: string, sessionLabel: string): string {
   const prev = previousSession(sessionLabel);
   return prev ? `${word} ${prev}` : word;
+}
+
+/**
+ * "SR 1234" for the desk and its receipts, or null when there is no SR worth
+ * printing: blank, or the office's placeholder for a child whose SR is not
+ * given yet ("PENDING-SR-6752", "PENDING-7949-2989"). The desk printed those
+ * as SR numbers (smoke 21 Oct); `shownSr` is the one rule for what counts.
+ */
+export function srTag(sr: string | null | undefined): string | null {
+  const shown = shownSr(sr);
+  return shown ? `SR ${shown}` : null;
+}
+
+/** The parts that are there, joined with " · ". */
+export function dotJoin(...parts: readonly (string | null | undefined | false)[]): string {
+  return parts.filter((part): part is string => typeof part === "string" && part.length > 0).join(" · ");
 }

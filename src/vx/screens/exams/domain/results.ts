@@ -108,7 +108,40 @@ export function graceVerdict(studentId: string, papers: StudentPaper[], rule: Gr
   return { studentId, needs, total: Math.round(total * 10) / 10, canPass };
 }
 
-export type PipelineStep = "entered" | "checked" | "grace" | "locked" | "cards" | "published";
+/**
+ * A way to tell two children apart when they share a name in one group (a
+ * class): "SR 1042", else the father's name. Only for the repeated names —
+ * everybody else's line stays as it was (smoke 20 Oct: two "Arjun Jaanch,
+ * Class 5" on the Grace list, one short 6 and one short 47).
+ */
+export function sameNameHints(children: { id: string; group: string; name: string; sr: string | null; father: string | null }[]): Map<string, string> {
+  const count = new Map<string, number>();
+  const key = (c: { group: string; name: string }) => `${c.group}|${c.name.trim().toLowerCase()}`;
+  for (const c of children) count.set(key(c), (count.get(key(c)) ?? 0) + 1);
+  const out = new Map<string, string>();
+  for (const c of children) {
+    if ((count.get(key(c)) ?? 0) < 2) continue;
+    const hint = c.sr ? `SR ${c.sr}` : c.father ? c.father : null;
+    if (hint) out.set(c.id, hint);
+  }
+  return out;
+}
+
+export type ResultsDay ="none" | "upcoming" | "today" | "passed" | "published";
+
+/**
+ * Where results day stands: past it with results not sent is "passed", and
+ * every screen must say so rather than keep showing the date as if it were
+ * still to come (smoke 20 Oct: a green "Results day Sat 17 Oct" on the 20th).
+ */
+export function resultsDay(daysToResults: number | null, publishedAt: string | null): ResultsDay {
+  if (publishedAt) return "published";
+  if (daysToResults === null) return "none";
+  if (daysToResults < 0) return "passed";
+  return daysToResults === 0 ? "today" : "upcoming";
+}
+
+export type PipelineStep ="entered" | "checked" | "grace" | "locked" | "cards" | "published";
 
 export type StepState = "done" | "active" | "can_start" | "waiting";
 

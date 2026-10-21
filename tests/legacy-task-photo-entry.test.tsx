@@ -7,6 +7,7 @@ vi.mock("@/platform/auth/current-staff",()=>({requirePermission:async()=>({id:"a
 vi.mock("@/platform/supabase/admin",()=>({createAdminClient:()=>({rpc:x.rpc})}));
 vi.mock("@/modules/teacher-tasks/data/repo",()=>({loadTaskWork:vi.fn()}));
 vi.mock("@/modules/teacher-tasks/ui/task-work",()=>({TaskCollectionForm:()=>null,TaskAcademicForm:()=>null}));
+vi.mock("@/app/(app)/teach/tasks/task-shell",()=>({TaskShell:()=>null}));
 vi.mock("@/modules/collection/data/requests-repo",()=>({resolveAssignedRequest:x.request,rollForRequest:async()=>[{studentId:"child"}]}));
 import Page from "@/app/(app)/teach/tasks/[id]/page";
 import {assignedRequestGeneration} from "@/modules/teacher-tasks/data/draft-scope";

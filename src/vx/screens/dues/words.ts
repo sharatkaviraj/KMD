@@ -238,6 +238,7 @@ export const W = {
   oldestDue: p("Oldest due {n} days ago", "सबसे पुराना बकाया {n} दिन पहले"),
   promisedPill: p("Promised {amt} · {date}", "{amt} का वादा · {date}"),
   openStudent: p("Open student", "विद्यार्थी खोलें"),
+  openOnDesk: p("Open on desk", "डेस्क पर खोलें"),
   open: p("Open", "खोलें"),
   instPaid: p("{label} · paid", "{label} · जमा"),
   instPending: p("{label} · pending", "{label} · बकाया"),

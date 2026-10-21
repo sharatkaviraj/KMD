@@ -362,7 +362,10 @@ export async function loadDeskReceipt(receiptId: string): Promise<DeskReceipt | 
     notes: detail.notes,
     receivedBy: detail.receivedBy ?? detail.createdByName,
     total: detail.totalAmount,
-    lines: detail.breakdown.filter((b) => b.amount !== 0).map((b) => ({ label: b.installmentLabel, amount: b.amount })),
+    // A removed receipt keeps the lines it was written for, so they add up to its total under the stamp.
+    lines: detail.breakdown
+      .map((b) => ({ label: b.installmentLabel, amount: detail.isVoided ? b.originalAmount : b.amount }))
+      .filter((l) => l.amount !== 0),
     lateFeePaid: Number(detail.lateFeeAmount ?? 0),
     concession: Number(detail.discountAmount ?? 0),
     lateFeeWaived: Number(detail.lateFeeWaived ?? 0),

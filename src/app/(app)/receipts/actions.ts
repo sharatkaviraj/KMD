@@ -16,10 +16,10 @@ import {
   summarizeReceipts,
   type DenominationCounts,
 } from "@/modules/receipts/vx/domain/day-close";
-import { approveReversalRequests, insertCloseEvent, insertReversalRequest, listCloseEvents } from "@/vx/screens/receipts/data";
+import { approveReversalRequests, declineReversalRequests, insertCloseEvent, insertReversalRequest, listCloseEvents } from "@/vx/screens/receipts/data";
 import { assertNotPreviewing } from "@/vx/view-as";
 
-export type DeskActionResult = { ok: true; kind?: "reversed" | "requested" | "exists" } | { ok: false; error: string };
+export type DeskActionResult = { ok: true; kind?: "reversed" | "requested" | "exists" | "declined" } | { ok: false; error: string };
 
 const REASON_LABEL: Record<string, string> = {
   wrong_amount: "Wrong amount typed",
@@ -185,6 +185,32 @@ export async function reverseReceiptAction(input: { receiptNumber: string; reaso
     });
     revalidatePath("/receipts");
     return { ok: true, kind: outcome === "exists" ? "exists" : "requested" };
+  } catch (caught) {
+    return failure(caught);
+  }
+}
+
+/**
+ * The admin keeps the receipt and declines the reversal an accountant asked
+ * for, with a reason the accountant will read. Nothing about the receipt or
+ * the fee ledger changes: only the request in `vppsone.fee_desk_requests`.
+ * Same gate as reversing, since it is the same decision (smoke 20 Oct: the
+ * reverse sheet opened from Needs you had no way to say no).
+ */
+export async function declineReversalRequestAction(input: { receiptNumber: string; note: string }): Promise<DeskActionResult> {
+  try {
+    const staff = await assertPermission("fees:accounts");
+    await assertNotPreviewing();
+    if (!feePermissionsFor(staff.role).includes("payments:reverse_any")) return { ok: false, error: "Only an admin can decline this request." };
+    const note = String(input.note ?? "").trim().slice(0, 400);
+    if (note.length < 3) return { ok: false, error: "Say why the receipt is kept." };
+    const found = await getDeskReceipt(input.receiptNumber);
+    if (!found) return { ok: false, error: "Receipt not found." };
+    const n = await declineReversalRequests(found.detail.id, staff.id, note);
+    if (n === 0) return { ok: false, error: "There is no request waiting on this receipt." };
+    revalidatePath("/receipts");
+    revalidatePath("/inbox");
+    return { ok: true, kind: "declined" };
   } catch (caught) {
     return failure(caught);
   }

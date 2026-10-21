@@ -299,3 +299,50 @@ export function scheduleNow(input: ScheduleInput): ScheduleView {
   if (nextAt > 0) return { state: "break", next: build(nextAt) };
   return { state: "after", lastEnds: bells[bells.length - 1].ends };
 }
+
+/**
+ * Lessons an absent teacher leaves with no cover duty at all — the ones whose
+ * period had begun before cover could be arranged. Today counted only duties,
+ * so a teacher away with three such periods read "No cover needed" (admin
+ * run, 20 Oct). One per teacher per period; a shared lesson is left out,
+ * because its co-teacher is in the room and the cover board makes no duty.
+ */
+export function uncoveredLessons(
+  slots: readonly Pick<ScheduleSlot, "period" | "staffProfileId" | "shared">[],
+  duties: readonly Pick<ScheduleDuty, "period" | "absentStaffIds" | "status">[],
+  absences: readonly ScheduleAbsence[],
+): number {
+  const seen = new Set<string>();
+  for (const absence of absences) {
+    const away = new Set(absence.periods);
+    for (const slot of slots) {
+      if (slot.staffProfileId !== absence.staffProfileId || slot.shared) continue;
+      if (away.size > 0 && !away.has(slot.period)) continue;
+      const hasDuty = duties.some(
+        (duty) =>
+          duty.period === slot.period &&
+          (duty.status === "assigned" || duty.status === "needs_help") &&
+          duty.absentStaffIds.includes(absence.staffProfileId),
+      );
+      if (!hasDuty) seen.add(`${absence.staffProfileId}|${slot.period}`);
+    }
+  }
+  return seen.size;
+}
+
+/** The away tile's line under the count: what is covered, what is not, never "no cover needed" over a gap. */
+export function coverStanding(cover: { needed: number; arranged: number; missed: number }): { short: number; tone: "ok" | "warn" | "none" } {
+  const short = Math.max(0, cover.needed - cover.arranged);
+  return { short, tone: cover.needed === 0 ? "none" : short > 0 ? "warn" : "ok" };
+}
+
+/** Today's cover figures from the live duties, today's slots and the absences. */
+export function coverToday(
+  duties: readonly Pick<ScheduleDuty, "period" | "absentStaffIds" | "status">[],
+  slots: readonly Pick<ScheduleSlot, "period" | "staffProfileId" | "shared">[],
+  absences: readonly ScheduleAbsence[],
+): { needed: number; arranged: number; missed: number } {
+  const missed = uncoveredLessons(slots, duties, absences);
+  const live = duties.filter((duty) => duty.status === "assigned" || duty.status === "needs_help");
+  return { needed: live.length + missed, arranged: live.filter((duty) => duty.status === "assigned").length, missed };
+}

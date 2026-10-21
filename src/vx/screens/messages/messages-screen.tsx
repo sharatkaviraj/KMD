@@ -350,11 +350,15 @@ function SentLog({ data, outboxCount }: { data: MessagesData; outboxCount: numbe
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const shown = data.campaigns.filter((c) => (kind === "all" || c.kind === kind) && (!q || c.title.toLowerCase().includes(q) || c.audienceLabel.toLowerCase().includes(q)));
-  const week = shown.filter((c) => logBucket(c.createdAt) === "week");
-  const earlier = shown.filter((c) => logBucket(c.createdAt) === "earlier");
+  // Sent means something went: a notice nothing of which has gone (still in To send,
+  // or with nobody to reach) is set apart rather than listed as sent (smoke run, 20 Oct).
+  const notSent = shown.filter((c) => c.counts.sent === 0);
+  const went = shown.filter((c) => c.counts.sent > 0);
+  const week = went.filter((c) => logBucket(c.createdAt) === "week");
+  const earlier = went.filter((c) => logBucket(c.createdAt) === "earlier");
 
   const kpis: { label: Pair; value: string; sub: ReactNode; color?: string }[] = [
-    { label: p("Sent this month", "इस महीने भेजे"), value: data.month.sent.toLocaleString("en-IN"), sub: tx(p(`of ${data.month.count.toLocaleString("en-IN")} queued · one per family`, `${data.month.count.toLocaleString("en-IN")} में से · हर परिवार को एक`)) },
+    { label: p("Sent this month", "इस महीने भेजे"), value: data.month.sent.toLocaleString("en-IN"), sub: tx(p(`of ${data.month.count.toLocaleString("en-IN")} messages made this month`, `इस महीने बने ${data.month.count.toLocaleString("en-IN")} संदेशों में से`)) },
     {
       label: p("Waiting to send", "भेजने बाकी"),
       // Sent by hand, what waits is what the To send tab counts — one number in both places (coordinators B13).
@@ -403,6 +407,7 @@ function SentLog({ data, outboxCount }: { data: MessagesData; outboxCount: numbe
       </div>
       {week.length ? <LogGroup title={p("This week", "इस हफ़्ते")} rows={week} /> : null}
       {earlier.length ? <LogGroup title={p("Earlier", "पहले")} rows={earlier} /> : null}
+      {notSent.length ? <LogGroup title={p("Not sent yet · waiting in To send, or nobody to reach", "अभी नहीं भेजे · भेजने की सूची में, या भेजने को कोई नहीं")} rows={notSent} /> : null}
       {shown.length === 0 ? (
         <div className="card fadein" style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
           <span style={h15}>{data.campaigns.length ? tx(p("No messages match", "कोई संदेश नहीं मिला")) : tx(p("No notices yet", "अभी कोई सूचना नहीं"))}</span>

@@ -16,6 +16,10 @@ vi.mock('@/platform/dates', () => ({ schoolToday: () => '2026-11-02' }));
 vi.mock('@/modules/academics/data/academics-repo', () => ({ resolveSessionLabel: async () => 'QA-FOLLOWUP', classLabelMap: vi.fn(), listSubjects: vi.fn() }));
 vi.mock('@/modules/staff/data/staff-repo', () => ({ listStaff: vi.fn() }));
 vi.mock('@/modules/substitutions/data/cover-repo', () => ({ coverDayRevision: calls.revision }));
+vi.mock('@/modules/attendance/data/attendance-repo', () => ({ schoolCalendar: async () => new Map() }));
+vi.mock('@/modules/substitutions/data/absences-repo', () => ({ absencesOn: async () => [] }));
+// Each arranged day reads back one of the teacher's lessons, with a teacher.
+vi.mock('@/modules/substitutions/data/arrange-day', () => ({ readCoverDay: async () => ({ needs: [{ key: 'n', event: { period: 1 }, absentStaffIds: [fixture.row.staff_profile_id] }], live: [{ needKey: 'n', status: 'assigned' }], openPeriods: new Set([1]) }) }));
 vi.mock('@/modules/timetable/data/timetable-repo', () => ({ createDraft: vi.fn(), getPublishedVersion: vi.fn(), listSlots: vi.fn(), publishVersion: vi.fn() }));
 vi.mock('@/app/(app)/substitutions/actions', () => ({ coverCommandAction: calls.cover, checkCoverCommandAction: vi.fn() }));
 vi.mock('@/platform/supabase/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
@@ -96,7 +100,7 @@ describe('academic leave follow-up independent conditional-update oracle', () =>
     const result = await decideLeaveAction({ id: fixture.row.id, approve: true });
     expect(fixture.row.status).toBe('approved');
     expect(calls.cover.mock.calls.map(call => (call[1] as FormData).get('day'))).toEqual(days.slice(0, 14));
-    expect(result.message.en).toContain(`${days.length - 14} to arrange by hand`);
+    expect(result.message.en).toContain(`${days.length - 14} days to arrange by hand`);
     expect(result.message.hi).toContain(String(days.length - 14));
   });
 
@@ -106,8 +110,10 @@ describe('academic leave follow-up independent conditional-update oracle', () =>
     const days = schoolDays(fixture.row.from_day, fixture.row.to_day);
     const result = await decideLeaveAction({ id: fixture.row.id, approve: true });
     expect(calls.cover).toHaveBeenCalledTimes(14);
-    expect(result.message.en).toContain('cover arranged for 12 days');
-    expect(result.message.en).toContain(`${days.length - 12} to arrange by hand`);
+    // The answer counts lessons with a teacher, never days saved (admin run, 20 Oct).
+    expect(result.message.en).toContain('all 12 periods have a teacher');
+    expect(result.message.en).not.toContain('cover arranged');
+    expect(result.message.en).toContain(`${days.length - 12} days to arrange by hand`);
     expect(result.message.hi).toContain(String(days.length - 12));
   });
 });

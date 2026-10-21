@@ -337,8 +337,10 @@ describe("typing marks", () => {
     expect(parseMark("x", 80, 1)).toEqual({ ok: false, reason: "nan" });
   });
 
-  it("never lets the pad type a mark the paper cannot hold", () => {
-    expect(pressKey("6", "1", 60, 1)).toBe("6");
+  it("keeps the pad within the paper's digits", () => {
+    // A digit that makes the mark too high is shown (and refused by readTyped), not dropped: "61" of 60 used to keep and save 6.
+    expect(pressKey("6", "1", 60, 1)).toBe("61");
+    expect(pressKey("61", "1", 60, 1)).toBe("61");
     expect(pressKey("6", "0", 60, 1)).toBe("60");
     expect(pressKey("7", ".", 80, 1)).toBe("7");
     expect(pressKey("7", ".", 80, 0.5)).toBe("7.");

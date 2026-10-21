@@ -181,7 +181,7 @@ const todayProps: TodayProps = {
   moneyFailed: false,
   attendance: { marked: 14, total: 19, percent: 96, schoolOpen: true },
   staffAway: 2,
-  cover: { needed: 5, arranged: 3 },
+  cover: { needed: 5, arranged: 3, missed: 0 },
   inbox,
   // What the app can put on the timeline: bells, cover, and the calendar's timed events.
   timeline: [

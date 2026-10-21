@@ -177,6 +177,9 @@ export async function loadDues(staff: CurrentStaff, search: Search): Promise<Due
       writeOff: fee.includes("finance:write"),
       // The call sheet is the fee app's defaulters export, which asks for reports:view.
       callSheet: fee.includes("reports:view"),
+      // Student 360 asks for students:view; the accountant has fees but not
+      // that, and "Open student" landed on "No access" (smoke 21 Oct).
+      openStudent: can(staff, "students:view"),
     },
   };
 }

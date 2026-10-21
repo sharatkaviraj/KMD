@@ -17,6 +17,7 @@ vi.mock("@/vx/ui/primitives", () => ({
   Pill: ({ children }: { children: React.ReactNode }) => <span>{children}</span>, IconTile: () => null, EmptyState: () => null,
   toneColors: () => ({ bg: "", fg: "" }),
 }));
+vi.mock("@/app/(app)/timetable/vx-actions", () => ({ decideLeaveAction: vi.fn() }));
 import { InboxScreen } from "@/vx/screens/admin/inbox";
 let root: Root; let host: HTMLDivElement;
 const scope = { accountId: "qa-account", sessionLabel: "QA-2026", day: "2026-10-11" };

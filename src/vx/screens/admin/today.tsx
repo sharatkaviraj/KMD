@@ -12,7 +12,7 @@ import { Seg } from "@/vx/ui/controls";
 import { Grid } from "@/vx/ui/page";
 import { Card, CardHead, IconTile, Kpi, Pill } from "@/vx/ui/primitives";
 import { dailySeries, vsAverage, yearPace } from "@/vx/screens/admin/logic";
-import { foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
+import { coverStanding, foldedKeys, type CoverException, type ScheduledActivity, type ScheduledPeriod, type ScheduleView, type ScheduledTeacher } from "@/vx/screens/admin/schedule";
 import { T } from "@/vx/screens/admin/text";
 import { TD } from "@/vx/screens/admin/today-text";
 import { catchUp, dueColumns, kfmt, moneyChart, weekBars } from "@/vx/screens/admin/today-logic";
@@ -50,7 +50,7 @@ export type TodayProps = {
   moneyFailed: boolean;
   attendance: { marked: number; total: number; percent: number | null; schoolOpen: boolean } | null;
   staffAway: number | null;
-  cover: { needed: number; arranged: number } | null;
+  cover: { needed: number; arranged: number; missed: number } | null;
   inbox: InboxItem[] | null;
   timeline: TimelineItem[];
   /** Who is scheduled to teach now and next; null when this reader has no timetable. */
@@ -491,6 +491,21 @@ function Dashes({ needed, arranged, on, off, width }: { needed: number; arranged
   );
 }
 
+/**
+ * The away tile's line: "3 periods with no teacher" in warning colour while
+ * any lesson is short, "2 of 2 periods covered" when none is, and "No cover
+ * needed" only when nothing is needed — begun periods with nobody count.
+ */
+function CoverLine({ cover, color }: { cover: TodayProps["cover"]; color: string }) {
+  const { tx } = useVx();
+  if (!cover) return null;
+  const standing = coverStanding(cover);
+  if (standing.tone === "warn") {
+    return <span style={{ fontSize: 12, fontWeight: 700, color: "var(--warnfg)", background: "var(--warns)", borderRadius: 6, padding: "1px 6px", alignSelf: "flex-start" }}>{tx(T.periodsShort(standing.short))} · {tx(T.periodsCovered(cover.arranged, cover.needed))}</span>;
+  }
+  return <span style={{ fontSize: 12, color }}>{standing.tone === "ok" ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)}</span>;
+}
+
 /** Wraps a tile in a link only when the reader may open the screen behind it. */
 function TileLink({ href, className, style, children }: { href: string | null; className: string; style: CSSProperties; children: ReactNode }) {
   if (href) {
@@ -590,7 +605,7 @@ function PhoneHero(props: TodayProps & { hello: string; statusText: string }) {
             <span className="num" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{props.staffAway}</span>
             <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on={HERO_TEAL} off="var(--navb)" width={18} /> : null}
-              <span style={{ fontSize: 12, color: "var(--navm)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
+              <CoverLine cover={cover} color="var(--navm)" />
             </span>
           </TileLink>
         ) : null}
@@ -841,14 +856,20 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
         </TileLink>
       ) : null}
       {attendance ? (
-        <TileLink href={props.links.attendance ? "/attendance" : null} className="card lift" style={{ ...tile, flexDirection: "row", alignItems: "center", gap: 14, animation: "xRise .45s .05s var(--ease) both" }}>
-          <DrawnRing size={64} r={26} stroke={8} value={attendance.marked} max={Math.max(1, attendance.total)} tone="var(--acc)" track="var(--s3)" />
-          <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-            <span style={label}>{tx(T.attendance)}</span>
-            <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{attendance.marked}/{attendance.total}</span>
-            <span style={{ fontSize: 12, color: "var(--mut)" }}>
-              {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
+        // The heading has the tile's full width and the ring sits beside the count:
+        // side by side with the ring, a narrow desktop column cut it to "Attendan" (smoke run, 20 Oct).
+        <TileLink href={props.links.attendance ? "/attendance" : null} className="card lift" style={{ ...tile, animation: "xRise .45s .05s var(--ease) both" }}>
+          <span style={label}>{tx(T.attendance)}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <span style={{ flex: "none", display: "flex" }}>
+              <DrawnRing size={52} r={21} stroke={7} value={attendance.marked} max={Math.max(1, attendance.total)} tone={attendance.schoolOpen ? "var(--acc)" : "var(--s3)"} track="var(--s3)" />
             </span>
+            <span className="num" style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15, minWidth: 0 }}>{attendance.schoolOpen ? `${attendance.marked}/${attendance.total}` : "—"}</span>
+          </span>
+          {/* Under the ring, with the tile's full width: beside it, the narrow
+              1280px column broke "classes · 95% present" mid-word (smoke 21 Oct). */}
+          <span style={{ fontSize: 12, color: "var(--mut)", minWidth: 0, overflowWrap: "normal", wordBreak: "normal" }}>
+            {attendance.schoolOpen ? `${tx(T.classesMarked)} · ${tx(T.presentPct(attendance.percent))}` : tx(T.schoolClosed)}
           </span>
         </TileLink>
       ) : null}
@@ -857,7 +878,7 @@ function DeskKpis(props: TodayProps & { avgDelta: number | null }) {
           <span style={label}>{tx(T.teachersOnLeave)}</span>
           <span className="num" style={big}>{props.staffAway}</span>
           {cover && cover.needed > 0 ? <Dashes needed={cover.needed} arranged={cover.arranged} on="var(--acc)" off="var(--s3)" width={22} /> : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{cover ? (cover.needed > 0 ? tx(T.periodsCovered(cover.arranged, cover.needed)) : tx(T.noCoverNeeded)) : null}</span>
+          <CoverLine cover={cover} color="var(--mut)" />
         </TileLink>
       ) : null}
       {money ? (
@@ -952,11 +973,13 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
       {cols.length === 0 || rows.length === 0 ? (
         <p style={{ margin: 0, fontSize: 13, color: "var(--mut)" }}>{tx(TD.nothingPastDue)}</p>
       ) : (
-        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `112px repeat(${cols.length}, minmax(0, 1fr)) 76px`, gap: 5, alignItems: "center" }}>
+        // Each amount keeps room to be read ("₹1.3L", never "₹1.3" cut off); a narrow phone scrolls the table, not the page (smoke run, 20 Oct).
+        <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
+        <div role="table" aria-label={tx(T.pendingByClass)} style={{ display: "grid", gridTemplateColumns: `minmax(84px, 112px) repeat(${cols.length}, minmax(52px, 1fr)) minmax(56px, 76px)`, gap: 5, alignItems: "center", minWidth: 84 + cols.length * 57 + 61 }}>
           <div role="row" style={{ display: "contents" }}>
             <span role="columnheader" />
             {cols.map((c) => (
-              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
+              <span key={c.key} role="columnheader" className="sech" title={c.title} style={{ textAlign: "center", whiteSpace: "nowrap", padding: "0 2px" }}>{c.carry ? tx(TD.oldBalance) : c.label}</span>
             ))}
             <span role="columnheader" className="sech" style={{ textAlign: "right" }}>{tx(TD.total)}</span>
           </div>
@@ -971,15 +994,16 @@ function PendingHeat({ money, today }: { money: TodayMoneyView; today: string })
                     role="cell"
                     className="td-cell num"
                     title={`${row.label} · ${cols[ci].title} · ${v ? rupees(v) : "—"}`}
-                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
+                    style={{ position: "relative", height: 34, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", whiteSpace: "nowrap", fontSize: 12, fontWeight: 700, color: a > 0.55 ? "var(--onsolid)" : "var(--fg)", background: `rgba(var(--heat), ${a.toFixed(2)})`, animation: `xFade .5s ease ${(ri * 3 + ci) * 25}ms both` }}
                   >
                     {kfmt(v)}
                   </span>
                 );
               })}
-              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right" }}>{kfmt(row.total)}</span>
+              <span role="cell" className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{kfmt(row.total)}</span>
             </div>
           ))}
+        </div>
         </div>
       )}
     </section>

@@ -11,21 +11,21 @@ export type Mark = "present" | "absent" | "half_day" | "late" | "leave";
 /* ------------------------------------------------------------ the register */
 
 /**
- * One tap on a child's card. The design's cycle is Present → Absent →
- * Leave → Present; RULES G renames the teacher's "leave" to Half-day (leave
- * is the office's word for an approved absence), so the cycle is
- * Present → Absent → Half-day → Present. A mark the teacher cannot make by
- * tapping (late, leave from the office) goes back to Present.
+ * One tap on a child's card: Present ⇄ Absent. Any other mark (half day,
+ * late, leave from the office) goes back to Present.
+ *
+ * The cycle used to be Present → Absent → Half-day → Present, and a teacher
+ * who tapped the wrong child and tapped again to undo it saved a half day
+ * instead (20 Oct smoke run: "दोबारा दबाया तो आधा दिन हो गया"). Half-day is
+ * now its own explicit choice on an away child's card — `halfDaySwap`.
  */
 export function nextTap(mark: Mark | undefined): Mark {
-  switch (mark ?? "present") {
-    case "present":
-      return "absent";
-    case "absent":
-      return "half_day";
-    default:
-      return "present";
-  }
+  return (mark ?? "present") === "present" ? "absent" : "present";
+}
+
+/** The "Half-day" / "Absent all day" choice on an away child's card. */
+export function halfDaySwap(mark: Mark | undefined): Mark {
+  return mark === "half_day" || mark === "leave" ? "absent" : "half_day";
 }
 
 export type MarkCounts = { present: number; absent: number; halfDay: number; leave: number; late: number; total: number };
@@ -129,34 +129,228 @@ export function monthEnd(month: string): string {
 
 /* ------------------------------------------------- telling children apart */
 
-type Tellable = { id: string; name: string; admissionNo?: string | null; fatherName?: string | null };
+// One rule for every vx screen (moved to the shared domain, smoke 20 Oct).
+export { shownSr, tellApart } from "@/vx/domain/tell-apart";
+
+/* --------------------------------------------------------- finding a child */
+
+const DEV_VOWEL: Record<string, string> = { "अ": "a", "आ": "aa", "इ": "i", "ई": "ee", "उ": "u", "ऊ": "oo", "ऋ": "ri", "ए": "e", "ऐ": "ai", "ओ": "o", "औ": "au", "ऑ": "o" };
+const DEV_SIGN: Record<string, string> = { "ा": "aa", "ि": "i", "ी": "ee", "ु": "u", "ू": "oo", "ृ": "ri", "े": "e", "ै": "ai", "ो": "o", "ौ": "au", "ॉ": "o" };
+const DEV_CONS: Record<string, string> = {
+  "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "n", "च": "ch", "छ": "chh", "ज": "j", "झ": "jh", "ञ": "n",
+  "ट": "t", "ठ": "th", "ड": "d", "ढ": "dh", "ण": "n", "त": "t", "थ": "th", "द": "d", "ध": "dh", "न": "n",
+  "प": "p", "फ": "ph", "ब": "b", "भ": "bh", "म": "m", "य": "y", "र": "r", "ल": "l", "व": "v",
+  "श": "sh", "ष": "sh", "स": "s", "ह": "h",
+};
+const NUKTA = "़";
+const VIRAMA = "्";
+const NASAL = new Set(["ं", "ँ", "ः"]);
 
 /**
- * A short line for each child whose name another child in the list also has
- * ("SR 1234 · father Ramesh"), so two "Ansh"es on a register or a marks
- * sheet are never confused. Children with a name of their own get nothing,
- * which keeps the register as short as it was.
+ * A name typed on a Hindi keyboard, in English letters: "ईशान" → "ishaan",
+ * "ध्रुव" → "dhruv". Rough on purpose — it only has to land near the English
+ * spelling the school stored, and `nameKey` forgives the rest.
  */
-export function tellApart(rows: readonly Tellable[]): Map<string, Pair> {
-  const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
-  const seen = new Map<string, number>();
-  for (const r of rows) seen.set(norm(r.name), (seen.get(norm(r.name)) ?? 0) + 1);
-  const out = new Map<string, Pair>();
-  for (const r of rows) {
-    if ((seen.get(norm(r.name)) ?? 0) < 2) continue;
-    const en = [r.admissionNo ? `SR ${r.admissionNo}` : null, r.fatherName ? `father ${r.fatherName}` : null].filter(Boolean).join(" · ");
-    const hi = [r.admissionNo ? `SR ${r.admissionNo}` : null, r.fatherName ? `पिता ${r.fatherName}` : null].filter(Boolean).join(" · ");
-    if (en) out.set(r.id, p(en, hi));
+export function devToLatin(text: string): string {
+  // The dot under ज़ or फ़ changes nothing a search needs: drop it.
+  const chars = [...text.normalize("NFD")].filter((c) => c !== NUKTA);
+  let out = "";
+  for (let i = 0; i < chars.length; i += 1) {
+    const c = chars[i];
+    const cons = DEV_CONS[c];
+    if (cons) {
+      out += cons;
+      const next = chars[i + 1];
+      if (next && DEV_SIGN[next]) {
+        out += DEV_SIGN[next];
+        i += 1;
+      } else if (next === VIRAMA) {
+        i += 1;
+      } else if (next && (DEV_CONS[next] || DEV_VOWEL[next] || NASAL.has(next))) {
+        out += "a";
+      }
+      // A consonant at the end of a word keeps no vowel: "राघव" is "raghav".
+      continue;
+    }
+    if (DEV_VOWEL[c]) out += DEV_VOWEL[c];
+    else if (c === "ं" || c === "ँ") out += "n";
+    else if (c === "ः") out += "h";
+    else if (DEV_SIGN[c]) out += DEV_SIGN[c];
+    else if (!/[ऀ-ॿ]/.test(c)) out += c;
   }
   return out;
 }
 
-/** A child matches a search by any word of the name, the roll number or the SR number. */
-export function childMatches(child: { name: string; rollNo: string | null; admissionNo?: string | null }, query: string): boolean {
+/**
+ * A spelling-forgiving key for a word of a name: lower case, Hindi letters in
+ * English, and the spellings Indian names are written several ways folded
+ * together ("Ishaan"/"Ishan", "Namoona"/"Namuna", "Shiv"/"Siv").
+ */
+export function nameKey(word: string): string {
+  let s = devToLatin(word).toLowerCase().replace(/[^a-z0-9]/g, "");
+  for (const [from, to] of [["chh", "c"], ["ch", "c"], ["sh", "s"], ["kh", "k"], ["gh", "g"], ["th", "t"], ["dh", "d"], ["ph", "f"], ["bh", "b"], ["jh", "j"], ["w", "v"], ["z", "j"], ["q", "k"], ["ee", "i"], ["oo", "u"], ["ou", "u"]] as const) {
+    s = s.split(from).join(to);
+  }
+  return s.replace(/(.)\1+/g, "$1");
+}
+
+/** The key's consonants, the first letter kept: "ishan" → "isn". For the loosest pass. */
+function skeleton(key: string): string {
+  return key.slice(0, 1) + key.slice(1).replace(/[aeiouy]/g, "");
+}
+
+/** Whether two short strings are at most one edit apart. */
+function oneEdit(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i += 1;
+      j += 1;
+      continue;
+    }
+    edits += 1;
+    if (edits > 1) return false;
+    if (a.length > b.length) i += 1;
+    else if (b.length > a.length) j += 1;
+    else {
+      i += 1;
+      j += 1;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+function wordMatches(query: string, nameWords: readonly string[]): boolean {
+  const plain = query.toLowerCase();
+  const key = nameKey(query);
+  if (!key) return false;
+  return nameWords.some((w) => {
+    if (w.toLowerCase().includes(plain)) return true;
+    const k = nameKey(w);
+    if (k.startsWith(key)) return true;
+    if (key.length >= 3 && skeleton(k).startsWith(skeleton(key))) return true;
+    if (key.length >= 4) {
+      for (const len of [key.length - 1, key.length, key.length + 1]) if (oneEdit(key, k.slice(0, len))) return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * A child matches a search by the number on the card (the roll number, or
+ * the child's place in the list when the class has no roll numbers), the SR
+ * number, or every word typed — in English or Hindi letters, with a small
+ * spelling slip forgiven (20 Oct smoke run: "13", "Ishan" and "ईशान" all
+ * found nobody).
+ */
+export function childMatches(child: { name: string; rollNo: string | null; admissionNo?: string | null; serial?: number | null }, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  if ((child.rollNo ?? "").toLowerCase() === q || (child.admissionNo ?? "").toLowerCase() === q) return true;
-  return q.split(/\s+/).every((w) => child.name.toLowerCase().includes(w));
+  if (/^\d+$/.test(q)) {
+    const n = Number(q);
+    if ((child.rollNo ?? "").trim().toLowerCase() === q || Number((child.rollNo ?? "").replace(/\D/g, "")) === n) return true;
+    if (child.serial === n && !child.rollNo) return true;
+  }
+  if ((child.admissionNo ?? "").toLowerCase() === q) return true;
+  const words = child.name.split(/\s+/).filter(Boolean);
+  return q.split(/\s+/).filter(Boolean).every((w) => wordMatches(w, words));
+}
+
+/* --------------------------------------------------------- days and times */
+
+const WD_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WD_EN_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WD_HI = ["रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"];
+const WD_HI_LONG = ["रविवार", "सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार"];
+const MO_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MO_EN_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MO_HI = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"];
+
+/**
+ * Days for the register in each reader's language, from fixed tables so the
+ * server and the phone write them the same way (the browser's Hindi month
+ * names differ from Node's). "Mon 19 Oct" / "सोम 19 अक्टूबर".
+ */
+export function dayShortP(day: string): Pair {
+  const d = new Date(`${day.slice(0, 10)}T00:00:00Z`);
+  const wd = d.getUTCDay();
+  const m = d.getUTCMonth();
+  const n = d.getUTCDate();
+  return p(`${WD_EN[wd]} ${n} ${MO_EN[m]}`, `${WD_HI[wd]} ${n} ${MO_HI[m]}`);
+}
+
+/** "Monday 19 October" / "सोमवार 19 अक्टूबर". */
+export function dayLongP(day: string): Pair {
+  const d = new Date(`${day.slice(0, 10)}T00:00:00Z`);
+  const wd = d.getUTCDay();
+  const m = d.getUTCMonth();
+  const n = d.getUTCDate();
+  return p(`${WD_EN_LONG[wd]} ${n} ${MO_EN_LONG[m]}`, `${WD_HI_LONG[wd]} ${n} ${MO_HI[m]}`);
+}
+
+/** "October 2026" / "अक्टूबर 2026"; `short` drops the year. */
+export function monthTitleP(month: string, short = false): Pair {
+  const [y, m] = month.split("-").map(Number);
+  const en = MO_EN_LONG[(m || 1) - 1];
+  const hi = MO_HI[(m || 1) - 1];
+  return short ? p(en, hi) : p(`${en} ${y}`, `${hi} ${y}`);
+}
+
+/** The month grid's column heads, Monday first. */
+export const WEEK_HEADS: Pair[] = [p("M", "सो"), p("T", "मं"), p("W", "बु"), p("T", "गु"), p("F", "शु"), p("S", "श"), p("S", "र")];
+
+/**
+ * A saved time with its part of the day, in the school's timezone:
+ * "11:02 pm" / "रात 11:02". The card dropped "pm" while the toast kept it,
+ * and Hindi read "10:58 pm बजे" (20 Oct smoke run).
+ */
+export function timeP(iso: string): Pair {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return p("—");
+  const ist = new Date(at.getTime() + 330 * 60_000);
+  const h = ist.getUTCHours();
+  const m = String(ist.getUTCMinutes()).padStart(2, "0");
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const part = h >= 4 && h < 12 ? "सुबह" : h >= 12 && h < 16 ? "दोपहर" : h >= 16 && h < 19 ? "शाम" : "रात";
+  return p(`${h12}:${m} ${h < 12 ? "am" : "pm"}`, `${part} ${h12}:${m}`);
+}
+
+/** "Class 4" in Hindi reads "कक्षा 4"; any other label is kept as it is. */
+export function classLabelP(label: string): Pair {
+  return p(label, label.replace(/^class\s+/i, "कक्षा "));
+}
+
+/* ------------------------------------------------------ the parent message */
+
+/**
+ * Whether the parent-WhatsApp switch starts on (20 Oct smoke run: it was on
+ * for every save and came back on for every correction, after the teacher
+ * had turned it off).
+ *
+ * - The first save of today's register: on — the school's 10 am message.
+ * - The first save of a past day: off — a message a day late is not news.
+ * - A correction: on only if messages for this register are still waiting,
+ *   so saving a small change neither messages a family the teacher already
+ *   chose not to message nor silently stops the ones she chose to send.
+ *
+ * Whatever the teacher picks in the sheet stays picked (`chosen`).
+ */
+export function alertsDefault(input: { mode: "mark" | "change"; isToday: boolean; queued: number; chosen?: boolean | null }): boolean {
+  if (typeof input.chosen === "boolean") return input.chosen;
+  if (input.mode === "change") return input.queued > 0;
+  return input.isToday;
+}
+
+/**
+ * The children whose mark in a kept draft differs from what the register
+ * holds. A draft that changes nothing is not offered back.
+ */
+export function draftChanges(ids: readonly string[], base: Readonly<Record<string, Mark>>, draft: Readonly<Record<string, Mark>>): string[] {
+  return ids.filter((id) => draft[id] !== undefined && (draft[id] ?? "present") !== (base[id] ?? "present"));
 }
 
 /* -------------------------------------------------------- the week */
@@ -347,11 +541,28 @@ export function genderSplit(genders: readonly (string | null)[]): { girls: numbe
   return { girls, boys };
 }
 
-/** The absent alert a teacher may queue for 10 am (RULES H: Hindi first). */
-export function absentAlert(input: { childName: string; classLabel: string; dayLabel: string; school: string }): { hi: string; en: string } {
+/**
+ * The absent alert a teacher may queue for 10 am (RULES H: Hindi first).
+ *
+ * Give `day` (and the school's `today`) and the date is written in each
+ * language — "सोमवार 19 अक्टूबर" in the Hindi, "Monday 19 October" in the
+ * English — and a past day says "was absent on", never "today": a register
+ * marked a day late sent "is absent from school today, 19 Oct" (20 Oct smoke
+ * run). `dayLabel` alone is the older call and is written as given.
+ */
+export function absentAlert(input: { childName: string; classLabel: string; school: string; dayLabel?: string; day?: string; today?: string }): { hi: string; en: string } {
+  const label = input.day ? dayLongP(input.day) : p(input.dayLabel ?? "", input.dayLabel ?? "");
+  const past = Boolean(input.day && input.today && input.day < input.today);
+  const hiDay = label.hi ?? label.en;
+  if (past) {
+    return {
+      hi: `नमस्ते, ${input.childName} (${classLabelP(input.classLabel).hi}) ${hiDay} को स्कूल नहीं आए थे। कृपया कारण बताएँ। — ${input.school}`,
+      en: `Hello, ${input.childName} (${input.classLabel}) was absent from school on ${label.en}. Please let us know why. — ${input.school}`,
+    };
+  }
   return {
-    hi: `नमस्ते, ${input.childName} (${input.classLabel}) आज ${input.dayLabel} को स्कूल नहीं आए। कृपया कारण बताएँ। — ${input.school}`,
-    en: `Hello, ${input.childName} (${input.classLabel}) is absent from school today, ${input.dayLabel}. Please let us know why. — ${input.school}`,
+    hi: `नमस्ते, ${input.childName} (${input.day ? classLabelP(input.classLabel).hi : input.classLabel}) आज ${hiDay} को स्कूल नहीं आए। कृपया कारण बताएँ। — ${input.school}`,
+    en: `Hello, ${input.childName} (${input.classLabel}) is absent from school today, ${label.en}. Please let us know why. — ${input.school}`,
   };
 }
 

@@ -55,6 +55,22 @@ export function presentPct(t: Pick<Tally, "credit" | "counted">): number | null 
   return Math.round((t.credit / t.counted) * 1000) / 10;
 }
 
+/**
+ * A class's attendance over many days: every child-day pooled, then one
+ * percentage — never an average of daily percentages. The month's "Classes
+ * ranked" and the register's "class average" both read this, so one class
+ * and one month have one number (smoke 20 Oct: 96.1% beside 96.4%).
+ */
+export function pooledPct(tallies: Iterable<Pick<Tally, "credit" | "counted">>): number | null {
+  let credit = 0;
+  let counted = 0;
+  for (const t of tallies) {
+    credit += t.credit;
+    counted += t.counted;
+  }
+  return presentPct({ credit, counted });
+}
+
 /** The attendance heat strip's four bands (AcadHome): 95+, 90–95, 85–90, below 85. */
 export type Band = "top" | "good" | "fair" | "low" | "none";
 
@@ -89,8 +105,12 @@ export type AttentionFacts = {
 
 export type Chip = { tone: "bad" | "warn" | "info" | "acc"; text: Pair };
 
-/** The chips under a child's name: "Below 33% in Maths", "Marks dropped 18%", "2 open notes". */
-export function attentionChips(row: AttentionFacts): Chip[] {
+/**
+ * The chips under a child's name: "Below 33% in Maths", "Marks dropped 18%",
+ * "2 open notes". `subjectHi` names a subject for a Hindi reader (the screens
+ * pass the exam office's `subjectPair`); without it the English name is used.
+ */
+export function attentionChips(row: AttentionFacts, subjectHi: (code: string) => string = subjectName): Chip[] {
   const chips: Chip[] = [];
   if (row.reasons.includes("attendance") && row.attendancePct !== null) {
     const v = Math.round(row.attendancePct);
@@ -100,7 +120,7 @@ export function attentionChips(row: AttentionFacts): Chip[] {
     const [first, ...rest] = row.below33Subjects;
     // Two subjects read as "Maths & Science" (the design); three or more as "Maths +2".
     const en = rest.length === 1 ? `${subjectName(first)} & ${subjectName(rest[0])}` : `${subjectName(first)}${rest.length ? ` +${rest.length}` : ""}`;
-    const hi = rest.length === 1 ? `${subjectName(first)} व ${subjectName(rest[0])}` : `${subjectName(first)}${rest.length ? ` +${rest.length}` : ""}`;
+    const hi = rest.length === 1 ? `${subjectHi(first)} व ${subjectHi(rest[0])}` : `${subjectHi(first)}${rest.length ? ` +${rest.length}` : ""}`;
     chips.push({ tone: "bad", text: p(`Below 33% in ${en}`, `${hi} में 33% से कम`) });
   }
   if (row.reasons.includes("dropped") && row.dropPoints !== null) {
@@ -138,6 +158,152 @@ export function subjectName(code: string | null | undefined): string {
   // A code kept in capitals ("HINDI") reads as a name ("Hindi") on anything a
   // person reads; a short acronym ("EVS", "GK") stays as it is (coordinators U6).
   return /^[A-Z]{4,}$/.test(code) ? code[0] + code.slice(1).toLowerCase() : code;
+}
+
+const STREAM_HI: Record<string, string> = { science: "विज्ञान", sci: "विज्ञान", commerce: "वाणिज्य", com: "वाणिज्य", arts: "कला", humanities: "कला" };
+
+/**
+ * A class's name in both languages: "Class 12 Commerce" / "कक्षा 12 वाणिज्य",
+ * "Nursery" / "नर्सरी". JKG, SKG, LKG and UKG are said as they are written.
+ */
+export function classPair(label: string): Pair {
+  const t = label.trim();
+  if (/^(nursery|nur)$/i.test(t)) return p(t, "नर्सरी");
+  const m = /^(?:class\s+)?(\d{1,2})(?:\s+(.+))?$/i.exec(t);
+  if (!m) return p(t);
+  const stream = m[2] ? (STREAM_HI[m[2].trim().toLowerCase()] ?? m[2].trim()) : "";
+  return p(t, `कक्षा ${m[1]}${stream ? ` ${stream}` : ""}`);
+}
+
+/**
+ * Children whose name another child in the same list also has, so the
+ * register can show a second thing (SR or father) to tell them apart.
+ */
+export function repeatedNames(rows: readonly { studentId: string; name: string }[]): Set<string> {
+  const key = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
+  const count = new Map<string, number>();
+  for (const r of rows) count.set(key(r.name), (count.get(key(r.name)) ?? 0) + 1);
+  return new Set(rows.filter((r) => (count.get(key(r.name)) ?? 0) > 1).map((r) => r.studentId));
+}
+
+/* ------------------------------------------------- marks, one rule each */
+
+/** One mark as the coordinator's screens read it: one child, one paper. */
+export type MarkRow = {
+  studentId: string;
+  examId: string;
+  classId: string;
+  subjectId: string;
+  subject: string;
+  value: number | null;
+  absent: boolean;
+  exempt: boolean;
+  maxMarks: number;
+  passMarks: number | null;
+};
+
+export type MarksFlags = { below33Subjects: string[]; dropPoints: number | null; dropSubject: string | null };
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * The needs-attention list's two marks rules, per child: any subject below
+ * 33% in its latest paper, and a drop of 15 points or more since that
+ * subject's paper before.
+ *
+ * Only a mark with a number counts. A blank (not entered yet), an absent and
+ * an exempt are not 0% and not a drop — a child with Maths still to be entered
+ * is not "below 33% in Maths". And only the exams in `examOrder` count, oldest
+ * first: the school's dated exams. A rehearsal exam with no date (a QA run's,
+ * with every mark 0) sorted as the newest paper and put a whole class on the
+ * list (smoke 20 Oct: "Below 33% in EVS & Maths · Marks dropped 82%" on a
+ * child with 82% in EVS).
+ */
+export function marksFlags(rows: readonly MarkRow[], examOrder: readonly string[]): Map<string, MarksFlags> {
+  const rank = new Map(examOrder.map((id, i) => [id, i]));
+  const bySubject = new Map<string, { studentId: string; subject: string; at: number; pct: number }[]>();
+  for (const r of rows) {
+    const at = rank.get(r.examId);
+    if (at === undefined || r.value === null || r.absent || r.exempt || !(r.maxMarks > 0)) continue;
+    const key = `${r.studentId}|${r.subjectId}`;
+    const list = bySubject.get(key) ?? [];
+    list.push({ studentId: r.studentId, subject: r.subject, at, pct: round1((100 * Number(r.value)) / r.maxMarks) });
+    bySubject.set(key, list);
+  }
+  const acc = new Map<string, { below: { subject: string; pct: number }[]; drop: number | null; dropSubject: string | null }>();
+  for (const list of bySubject.values()) {
+    list.sort((a, b) => b.at - a.at);
+    const [latest, previous] = list;
+    const a = acc.get(latest.studentId) ?? { below: [], drop: null, dropSubject: null };
+    if (latest.pct < 33) a.below.push({ subject: latest.subject, pct: latest.pct });
+    if (previous && previous.at !== latest.at) {
+      const d = round1(previous.pct - latest.pct);
+      if (d >= 15 && (a.drop === null || d > a.drop)) {
+        a.drop = d;
+        a.dropSubject = latest.subject;
+      }
+    }
+    acc.set(latest.studentId, a);
+  }
+  const out = new Map<string, MarksFlags>();
+  for (const [studentId, a] of acc) {
+    if (a.below.length === 0 && a.drop === null) continue;
+    out.set(studentId, { below33Subjects: a.below.sort((x, y) => x.pct - y.pct).map((x) => x.subject), dropPoints: a.drop, dropSubject: a.dropSubject });
+  }
+  return out;
+}
+
+/** One child's result in one exam, as the report card totals it. */
+export type ChildExam = {
+  studentId: string;
+  examId: string;
+  classId: string;
+  /** Scored ÷ out of, one decimal; null when no paper has a mark or an absent yet. */
+  pct: number | null;
+  scored: number;
+  outOf: number;
+  /** Papers with a number on them. */
+  counted: number;
+  /** Papers the child missed: each is 0 out of the paper's full marks. */
+  absent: number;
+  /** Papers with no mark yet: left out until a teacher enters one. */
+  missing: number;
+  /** Papers below the pass mark, an absent among them. */
+  failed: number;
+};
+
+/**
+ * Each child's result in each exam, by the report card's rule (`totalsFor`
+ * in modules/assessments/domain/assessments.ts): an absent is 0 out of the
+ * paper's full marks, a blank and an exempt are left out. Before this, an
+ * absent was left out like a blank, so a child absent from Maths ranked first
+ * in Class 9 on his other papers (smoke 20 Oct).
+ */
+export function childExams(rows: readonly MarkRow[]): ChildExam[] {
+  const by = new Map<string, ChildExam>();
+  for (const r of rows) {
+    const key = `${r.studentId}|${r.examId}`;
+    const c = by.get(key) ?? { studentId: r.studentId, examId: r.examId, classId: r.classId, pct: null, scored: 0, outOf: 0, counted: 0, absent: 0, missing: 0, failed: 0 };
+    const max = Number(r.maxMarks) || 0;
+    const pass = r.passMarks === null ? null : Number(r.passMarks);
+    if (r.exempt) {
+      // Excused: neither a mark nor a nought.
+    } else if (r.absent) {
+      c.absent += 1;
+      c.outOf += max;
+      if (pass !== null && pass > 0) c.failed += 1;
+    } else if (r.value === null) {
+      c.missing += 1;
+    } else {
+      const v = Number(r.value);
+      c.counted += 1;
+      c.scored += v;
+      c.outOf += max;
+      if (pass !== null && v < pass) c.failed += 1;
+    }
+    by.set(key, c);
+  }
+  return [...by.values()].map((c) => ({ ...c, pct: c.outOf > 0 ? round1((c.scored / c.outOf) * 100) : null }));
 }
 
 /* ------------------------------------------------------------- marks */
