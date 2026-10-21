@@ -857,7 +857,7 @@ export function PaymentDesk({
         <span className="sr">{tx(W.searchLabel)}</span>
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tx(W.search)} autoComplete="off" />
         {query ? (
-          <button type="button" className="tap btn ghost" aria-label={tx(W.clearSearch)} onClick={() => setQuery("")} style={{ width: 36, height: 36, padding: 0 }}>
+          <button type="button" className="tap btn ghost" aria-label={tx(W.clearSearch)} onClick={() => setQuery("")} style={{ width: 44, height: 44, padding: 0 }}>
             <Ic n="x" />
           </button>
         ) : null}
