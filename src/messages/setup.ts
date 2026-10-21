@@ -117,6 +117,11 @@ export const ms = {
   schemeApprovedBy: t("स्वीकृत", "Approved"),
   schemeDraftStatus: t("मसौदा", "Draft"),
   schemeNone: t("अभी कोई नियम नहीं", "No scheme yet"),
+  schemeExamWeights: t("हर परीक्षा के अंकों का भार", "How much each exam counts"),
+  schemePassRule: t(
+    "उत्तीर्ण: हर पेपर में उत्तीर्ण अंक (ग्रेस मिलाकर), कोई पेपर छूटा नहीं (छूट मिली हो तो अलग), और कुल प्रतिशत उत्तीर्ण प्रतिशत से कम नहीं।",
+    "Pass: every paper at its pass mark (grace counted), no paper missed unless excused, and the overall percentage at the pass percentage.",
+  ),
   messagesApproveOpen: t("स्वीकृत करें और व्हाट्सएप खोलें", "Approve and open WhatsApp"),
   messagesStaleBadge: t("पुराना", "Out of date"),
   messagesApprovedOpen: t(

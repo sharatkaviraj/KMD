@@ -65,8 +65,17 @@ export type ReportCard = {
   attendance: CardAttendance | null;
   /** The rules the card was worked out by, copied in so it prints the same forever (P8). */
   scheme: CardScheme | null;
-  /** Whether the overall percentage reaches the scheme's pass mark; null when it states none. */
+  /**
+   * The result, by `cardResult()`: every paper with a pass mark passed (after
+   * any grace given), none missed unless excused, and the overall percentage
+   * at the scheme's pass mark. Null while a mark is still to come and nothing
+   * has failed, or when neither the scheme nor any paper states a pass mark.
+   */
   passed: boolean | null;
+  /** Subjects with a paper below its pass mark after grace (codes, as the rows). */
+  shortIn?: string[];
+  /** Subjects with a paper the child missed and was not excused from. */
+  absentIn?: string[];
   generatedAt: string;
 };
 
@@ -83,6 +92,10 @@ export type CardAttendance = {
   to?: string | null;
   /** School days in the period on which the class's register was not recorded. */
   notRecorded?: number;
+  /** Days this child was on leave: out of both halves, like an exempt paper. */
+  leave?: number;
+  /** Days the class's register was saved without a mark for this child (joined later, or missed). */
+  unmarked?: number;
 };
 
 export type CardScheme = {
@@ -114,8 +127,81 @@ export type ReportInput = {
   attendance: CardAttendance | null;
   /** The approved scheme, when there is one; the defaults otherwise (a preview). */
   scheme?: CardScheme | null;
+  /** Grace given to this child, by paper id (`exam_grace`); it lifts a paper to its pass mark. */
+  grace?: Map<string, number>;
   generatedAt: string;
 };
+
+/* -------------------------------------------------------------- result */
+
+export type ResultPaper = {
+  subjectCode: string;
+  value: number | null;
+  absent: boolean;
+  exempt: boolean;
+  passMarks: number | null;
+  /** Grace given on this paper; added to the mark only to judge pass, never printed into it. */
+  grace?: number;
+};
+
+export type CardResult = { passed: boolean | null; shortIn: string[]; absentIn: string[] };
+
+/**
+ * Pass or not, per paper — the rule the Grace screen uses (`graceVerdict` in
+ * vx/screens/exams/domain/results.ts), so a child the Grace screen lists as
+ * "short 26" can never read "Pass" on the card (smoke 20 Oct):
+ *
+ *  - every paper with a pass mark must reach it, counting any grace given;
+ *  - a paper the child missed is not passed, unless the child was excused;
+ *  - a blank paper is still to come: no verdict while one is blank, unless a
+ *    paper has already failed;
+ *  - and the overall percentage must reach the scheme's pass mark, when it
+ *    has one.
+ *
+ * Null when neither the scheme nor any paper states a pass mark. The school
+ * has not written this rule down anywhere; it is the Grace screen's, and
+ * awaits Janmejay's confirmation.
+ */
+export function cardResult(input: { percent: number | null; passPercent: number | null | undefined; papers: ResultPaper[] }): CardResult {
+  const shortIn = new Set<string>();
+  const absentIn = new Set<string>();
+  let pending = false;
+  let judged = input.passPercent !== null && input.passPercent !== undefined;
+  for (const paper of input.papers) {
+    if (paper.passMarks === null || paper.exempt) continue;
+    judged = true;
+    if (paper.absent) {
+      absentIn.add(paper.subjectCode);
+      continue;
+    }
+    if (paper.value === null) {
+      pending = true;
+      continue;
+    }
+    // Rounded to a tenth, as grace is, so 25.5 + 0.5 reaches 26 exactly.
+    if (Math.round((paper.value + (paper.grace ?? 0)) * 10) / 10 < paper.passMarks) shortIn.add(paper.subjectCode);
+  }
+  const out = { shortIn: [...shortIn], absentIn: [...absentIn] };
+  if (!judged) return { passed: null, ...out };
+  if (shortIn.size || absentIn.size) return { passed: false, ...out };
+  if (pending) return { passed: null, ...out };
+  if (input.passPercent !== null && input.passPercent !== undefined) {
+    if (input.percent === null) return { passed: null, ...out };
+    if (input.percent < input.passPercent) return { passed: false, ...out };
+  }
+  return { passed: true, ...out };
+}
+
+/** The exams a card's percentage is weighted by, in the order they were sat, when their weights differ. */
+export function cardWeights(card: Pick<ReportCard, "rows">): { code: string; en: string; hi: string; weight: number }[] {
+  const seen = new Map<string, { code: string; en: string; hi: string; weight: number }>();
+  for (const column of reportColumns(card.rows)) {
+    const mark = card.rows.flatMap((row) => row.marks).find((m) => m.assessmentCode === column.assessmentCode);
+    if (mark) seen.set(column.assessmentCode, { code: column.assessmentCode, en: column.assessmentLabelEn, hi: column.assessmentLabelHi, weight: mark.weight });
+  }
+  const list = [...seen.values()];
+  return new Set(list.map((x) => x.weight)).size > 1 ? list : [];
+}
 
 /**
  * Build one card.
@@ -209,6 +295,18 @@ export function buildReportCard(input: ReportInput): ReportCard {
   const raw = totalsFor(everyResult);
   const totals = { ...raw, percent: percentOf(raw) };
   const band = gradeOf(totals.percent);
+  const result = cardResult({
+    percent: totals.percent,
+    passPercent: scheme?.passPercent ?? null,
+    papers: everyResult.map(({ paper, mark }) => ({
+      subjectCode: paper.subjectCode,
+      value: mark?.value ?? null,
+      absent: mark?.absent ?? false,
+      exempt: mark?.exempt ?? false,
+      passMarks: paper.passMarks,
+      grace: input.grace?.get(paper.id) ?? 0,
+    })),
+  });
 
   return {
     sessionLabel: input.sessionLabel,
@@ -225,10 +323,9 @@ export function buildReportCard(input: ReportInput): ReportCard {
     gradeDescription: band?.description ?? null,
     attendance: input.attendance,
     scheme,
-    passed:
-      scheme?.passPercent === null || scheme?.passPercent === undefined || totals.percent === null
-        ? null
-        : totals.percent >= scheme.passPercent,
+    passed: result.passed,
+    shortIn: result.shortIn,
+    absentIn: result.absentIn,
     generatedAt: input.generatedAt,
   };
 }

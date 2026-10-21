@@ -7,8 +7,8 @@ import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { EmptyState } from "@/vx/ui/primitives";
 
 import { AcadAttendanceView, monthsAround, type AcadAttendanceProps, type AttendanceSheet } from "./attendance-view";
-import { academicContext, attendanceMonth, attendanceOn, chronicAbsentees, holidaysIn, lastNotes, markSheet, recentStatuses, registerSheet } from "./data";
-import { isDay, isMonth, isUuid, monthRange } from "./domain";
+import { academicContext, attendanceMonth, attendanceOn, chronicAbsentees, dayDetail, holidaysIn, lastNotes, markSheet, recentStatuses, registerSheet } from "./data";
+import { isDay, isMonth, isSunday, isUuid, monthRange } from "./domain";
 import { sayer } from "./ui";
 
 /*
@@ -19,8 +19,8 @@ import { sayer } from "./ui";
 
 type Props = { staff: CurrentStaff; view?: string; sheet?: string; classId?: string; month?: string; studentId?: string; filter?: string; who?: string; day?: string };
 
-function schoolClock(): string {
-  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date()).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
+function schoolClock(now: Date): string {
+  return new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true }).format(now).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 }
 
 export async function AcadAttendance(props: Props) {
@@ -70,7 +70,7 @@ export async function AcadAttendance(props: Props) {
   const common = {
     language,
     today: ctx.today,
-    nowLabel: schoolClock(),
+    nowLabel: schoolClock(ctx.now),
     origin: getSiteUrl().replace(/\/$/, ""),
     attendance: today,
     chronicCount: chronic.length,
@@ -85,7 +85,14 @@ export async function AcadAttendance(props: Props) {
   if (view === "month") {
     const { first, last } = monthRange(month);
     const [data, holidays] = await Promise.all([attendanceMonth(ctx, month), holidaysIn(ctx.session, first, last)]);
-    p = { ...common, view: "month", month: data, months: monthsAround(ctx.today, month), holidays, teachers: Object.fromEntries(today.classes.map((c) => [c.classId, c.teacherName])), day: props.day && /^\d{4}-\d{2}-\d{2}$/.test(props.day) ? props.day : null };
+    const day = isDay(props.day) ? props.day : null;
+    // The day the chart opens on, picked as the view picks it: the tapped day,
+    // else today, else the month's last school day. Opened, it lists each
+    // class (saved or not, how many absent) and who was absent (smoke 20 Oct).
+    const closedDay = (d: string) => isSunday(d) || holidays.some((h) => h.day === d);
+    const shown = day && day >= first && day <= last ? day : ctx.today >= first && ctx.today <= last ? ctx.today : data.days[data.days.length - 1] ?? null;
+    const detail = shown && shown <= ctx.today && !closedDay(shown) ? await dayDetail(ctx, shown) : null;
+    p = { ...common, view: "month", month: data, months: monthsAround(ctx.today, month), holidays, teachers: Object.fromEntries(today.classes.map((c) => [c.classId, c.teacherName])), day, detail };
   } else if (view === "chronic") {
     const notes = await lastNotes(ctx, chronic.map((c) => c.studentId));
     p = { ...common, view: "chronic", list: chronic, recent: Object.fromEntries(chronicRecent), notes: Object.fromEntries([...notes].map(([id, n]) => [id, { body: n.body, by: n.by }])), filter: props.filter === "away" || props.filter === "nocall" ? props.filter : "all", teachers: Object.fromEntries(today.classes.map((c) => [c.classId, c.teacherName])) };

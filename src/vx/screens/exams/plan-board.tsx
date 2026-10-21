@@ -493,7 +493,7 @@ function DateSheet(props: PlanProps & { onEdit: (slot: Slot | null, groupKey: Gr
       {exam.publishedAt ? (
         <Banner tone="ok">{tx(p("This date sheet is published. Changes reach teachers when you publish again.", "यह डेट शीट प्रकाशित है। बदलाव दोबारा प्रकाशित करने पर पहुँचेंगे।"))}</Banner>
       ) : exam.checked ? (
-        <Banner tone="ok" action={<Btn variant="ghost" disabled={pending} onClick={() => run(() => actions.check({ examId: exam.id, checked: false }))}>{tx(p("Back to draft", "फिर ड्राफ़्ट"))}</Btn>}>
+        <Banner tone="ok" action={<Btn variant="ghost" disabled={pending} onClick={() => run(() => actions.check({ examId: exam.id, checked: false }))}>{tx(p("Back to draft", "फिर से कच्ची करें"))}</Btn>}>
           {tx(p("Checked and final — publish it when you are ready.", "जाँची और पक्की — तैयार हों तो प्रकाशित करें।"))}
         </Banner>
       ) : (
@@ -502,7 +502,7 @@ function DateSheet(props: PlanProps & { onEdit: (slot: Slot | null, groupKey: Gr
             <Ic n="copy" size={18} />
           </span>
           <span style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column" }}>
-            <b style={{ fontSize: 15 }}>{exam.copiedFrom ? tx(p(`Copied from ${exam.copiedFrom} — check and adjust`, `${exam.copiedFrom} से कॉपी — जाँचें और बदलें`)) : tx(p("Draft — check the dates", "ड्राफ़्ट — तिथियाँ जाँचें"))}</b>
+            <b style={{ fontSize: 15 }}>{exam.copiedFrom ? tx(p(`Copied from ${exam.copiedFrom} — check and adjust`, `${exam.copiedFrom} से कॉपी — जाँचें और बदलें`)) : tx(p("Draft — check the dates", "अभी कच्ची — तिथियाँ जाँचें"))}</b>
             <span style={{ fontSize: 13 }}>{tx(p(`Same order${exam.copiedFrom ? ` as ${exam.copiedFrom}` : ""}, moved to ${exam.dates}. Sundays and holidays are left out.`, `वही क्रम, ${exam.dates} पर। रविवार और छुट्टियाँ छोड़ी गईं।`))}</span>
           </span>
           <button type="button" className="tap btn sec mfull" disabled={pending || clashes.length > 0} onClick={() => run(() => actions.check({ examId: exam.id, checked: true }))} style={{ flex: "none" }}>

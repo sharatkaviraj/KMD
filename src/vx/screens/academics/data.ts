@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import type { CurrentStaff } from "@/platform/auth/current-staff";
 import { can, readsEveryClass } from "@/platform/auth/permissions";
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { FEE_SCHEMA } from "@/platform/env";
 import { fetchInChunks } from "@/platform/helpers/chunk";
 import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
@@ -13,7 +14,8 @@ import { classLabelMap, resolveSessionLabel } from "@/modules/academics/data/aca
 import { classScopeFor } from "@/modules/attendance/data/teaching-repo";
 import { scopeIncludes, type ClassScope } from "@/modules/attendance/domain/class-scope";
 import { schoolToday } from "@/vx/format";
-import { copiesNoteWords, isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
+import { noteViewer, visibleNotes } from "@/vx/screens/notes/data";
+import { boardKpis, copiesNoteWords, isSensitiveNote, isTag, tagsFromKind } from "@/vx/screens/notes/domain/notes";
 import { classesFor, listExams, staffList, trackerFor } from "@/vx/screens/exams/data";
 import { pickCurrentExam } from "@/vx/screens/exams/domain/current";
 import { classRows, expectedShare, overall, teacherLoads, type PaperFacts } from "@/vx/screens/exams/domain/tracker";
@@ -22,15 +24,20 @@ import {
   addDays,
   attentionWeight,
   average,
+  childExams,
   daysFrom,
   isSunday,
+  marksFlags,
   mondayOf,
+  pooledPct,
   presentPct,
+  repeatedNames,
   tally,
   type AttentionFacts,
   type AttentionReason,
   type AttStatus,
   type LateTeacher,
+  type MarkRow,
   type PaperProgress,
   type Tally,
 } from "./domain";
@@ -50,7 +57,10 @@ export type ClassRef = { id: string; label: string; roll: number };
 export type Ctx = {
   staff: CurrentStaff;
   session: string;
+  /** The school's day: the lab clock for a Smoke Lab or QA account (`schoolNow`), else the real one. */
   today: string;
+  /** The school's "now" behind `today`, for the greeting and the "so far" lines. */
+  now: Date;
   scope: ClassScope;
   /** Classes in school order, in the reader's scope, with children on the roll. */
   classes: ClassRef[];
@@ -72,10 +82,16 @@ const enrolledRows = cache(async (session: string) => {
   );
 });
 
-export async function academicContext(staff: CurrentStaff): Promise<Ctx | null> {
+/**
+ * The reader's context. Screens read the school's day on the lab clock
+ * (`schoolNow`: a Smoke Lab or QA account's pretend "now", else the real
+ * one); an action that writes passes `{ writes: true }` and gets the real
+ * clock, because the lab clock changes what is read, never what is saved.
+ */
+export async function academicContext(staff: CurrentStaff, opts: { writes?: boolean } = {}): Promise<Ctx | null> {
   const session = await resolveSessionLabel();
   if (!session) return null;
-  const [labels, scope, enrolled] = await Promise.all([classLabelMap(session), classScopeFor(staff, session), enrolledRows(session)]);
+  const [labels, scope, enrolled, now] = await Promise.all([classLabelMap(session), classScopeFor(staff, session), enrolledRows(session), opts.writes ? Promise.resolve(new Date()) : schoolNow(staff)]);
   const roll = new Map<string, number>();
   for (const row of enrolled) roll.set(row.class_id, (roll.get(row.class_id) ?? 0) + 1);
   const classes = [...labels.entries()]
@@ -84,7 +100,8 @@ export async function academicContext(staff: CurrentStaff): Promise<Ctx | null> 
   return {
     staff,
     session,
-    today: schoolToday(),
+    today: schoolToday(now),
+    now,
     scope,
     classes,
     label: (id) => (id ? labels.get(id) ?? "—" : "—"),
@@ -94,16 +111,16 @@ export async function academicContext(staff: CurrentStaff): Promise<Ctx | null> 
 
 /* ---------------------------------------------------------------- names */
 
-export async function studentInfo(ids: string[]): Promise<Map<string, { name: string; father: string | null; phone: string | null; dob: string | null }>> {
+export async function studentInfo(ids: string[]): Promise<Map<string, { name: string; father: string | null; phone: string | null; dob: string | null; sr: string | null }>> {
   const wanted = [...new Set(ids)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   if (wanted.length === 0) return new Map();
-  const { data, error } = await fetchInChunks<{ id: string; full_name: string; father_name: string | null; primary_phone: string | null; date_of_birth: string | null }>(
+  const { data, error } = await fetchInChunks<{ id: string; full_name: string; father_name: string | null; primary_phone: string | null; date_of_birth: string | null; admission_no: string | null }>(
     wanted,
     IN_FILTER_CHUNK_SIZE,
-    (chunk) => createAdminClient().schema(FEE_SCHEMA).from("students").select("id, full_name, father_name, primary_phone, date_of_birth").in("id", chunk),
+    (chunk) => createAdminClient().schema(FEE_SCHEMA).from("students").select("id, full_name, father_name, primary_phone, date_of_birth, admission_no").in("id", chunk),
   );
   if (error) throw new Error("Could not read the students.");
-  return new Map(data.map((row) => [row.id, { name: row.full_name, father: row.father_name, phone: row.primary_phone, dob: row.date_of_birth }]));
+  return new Map(data.map((row) => [row.id, { name: row.full_name, father: row.father_name, phone: row.primary_phone, dob: row.date_of_birth, sr: row.admission_no ?? null }]));
 }
 
 export const staffDirectory = cache(async () => {
@@ -218,7 +235,11 @@ export type DayAttendance = {
   /** Children on the roll of classes not yet marked. */
   unmarkedChildren: number;
   activity: { at: string; text: { en: string; hi: string }; tone: "ok" | "info" | "warn" }[];
-  closed: { kind: string; label: string | null } | null;
+  /**
+   * The school is closed this day: a holiday or vacation on the calendar, or
+   * a Sunday. Nobody is asked to mark on a closed day, so `notMarked` is empty.
+   */
+  closed: { kind: string; label: string | null; labelHi?: string | null } | null;
 };
 
 export async function attendanceOn(ctx: Ctx, day: string): Promise<DayAttendance> {
@@ -262,7 +283,8 @@ export async function attendanceOn(ctx: Ctx, day: string): Promise<DayAttendance
     counted: sum.counted + c.tally.counted,
     credit: sum.credit + c.tally.credit,
   }), tally([]));
-  const notMarked = classes.filter((c) => !c.saved);
+  // A closed day has nothing to mark: no "19 not marked", no reminders (smoke 20 Oct, Dussehra).
+  const notMarked = closed ? [] : classes.filter((c) => !c.saved);
   const activity = savedClasses
     .filter((c) => c.savedAt)
     .sort((a, b) => (b.savedAt ?? "").localeCompare(a.savedAt ?? ""))
@@ -272,7 +294,7 @@ export async function attendanceOn(ctx: Ctx, day: string): Promise<DayAttendance
       tone: "ok" as const,
       text: {
         en: `${c.savedBy ?? "Someone"} saved ${c.label} · ${c.tally.present + c.tally.late} of ${c.roll} present`,
-        hi: `${c.savedBy ?? "किसी ने"} ने ${c.label} सहेजा · ${c.roll} में ${c.tally.present + c.tally.late} उपस्थित`,
+        hi: `${c.savedBy ? `${c.savedBy} ने` : "किसी ने"} ${c.label} सहेजा · ${c.roll} में से ${c.tally.present + c.tally.late} उपस्थित`,
       },
     }));
   return {
@@ -298,15 +320,17 @@ export async function teachersAway(session: string, day: string): Promise<Set<st
   return new Set((data ?? []).map((row) => row.staff_profile_id));
 }
 
-export async function calendarDay(session: string, day: string): Promise<{ kind: string; label: string | null } | null> {
+export async function calendarDay(session: string, day: string): Promise<{ kind: string; label: string | null; labelHi: string | null } | null> {
   const { data } = await createAdminClient()
     .from("academic_calendar_days")
-    .select("kind, label_en")
+    .select("kind, label_en, label_hi")
     .eq("session_label", session)
     .eq("day", day)
-    .maybeSingle<{ kind: string; label_en: string | null }>();
-  if (!data || data.kind === "instructional") return null;
-  return { kind: data.kind, label: data.label_en };
+    .maybeSingle<{ kind: string; label_en: string | null; label_hi: string | null }>();
+  if (data && data.kind !== "instructional") return { kind: data.kind, label: data.label_en, labelHi: data.label_hi };
+  // A Sunday is closed without a calendar row (the month view and the register skip it too).
+  if (isSunday(day)) return { kind: "sunday", label: null, labelHi: null };
+  return null;
 }
 
 export type MonthAttendance = {
@@ -329,12 +353,14 @@ export async function attendanceMonth(ctx: Ctx, month: string): Promise<MonthAtt
   const schoolDays = end >= first ? daysFrom(first, end).filter((d) => !isSunday(d) && !closed.has(d)) : [];
   const grid = new Map<string, Map<string, number | null>>();
   const dayTotals = new Map<string, Tally>();
+  const classTallies = new Map<string, Tally[]>();
   for (const row of rows) {
     if (row.status !== "submitted") continue;
     const t = rowTally(row, credit);
     const m = grid.get(row.class_id) ?? new Map<string, number | null>();
     m.set(row.day, presentPct(t));
     grid.set(row.class_id, m);
+    classTallies.set(row.class_id, [...(classTallies.get(row.class_id) ?? []), t]);
     const d = dayTotals.get(row.day) ?? tally([]);
     dayTotals.set(row.day, { ...d, counted: d.counted + t.counted, credit: d.credit + t.credit, present: d.present + t.present, absent: d.absent + t.absent, late: d.late + t.late, leave: d.leave + t.leave, halfDay: d.halfDay + t.halfDay });
   }
@@ -345,7 +371,8 @@ export async function attendanceMonth(ctx: Ctx, month: string): Promise<MonthAtt
     return {
       classId: c.id,
       label: c.label,
-      pct: values.length ? Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10 : null,
+      // Every child-day pooled, as the register's class average is (`pooledPct`).
+      pct: pooledPct(classTallies.get(c.id) ?? []),
       daysSaved: values.length,
       daysOpen: schoolDays.filter((d) => !m.has(d)).length,
     };
@@ -367,17 +394,56 @@ export async function closedDays(session: string, from: string, to: string): Pro
 }
 
 /** Holidays and vacation days in a range, with their names, for the month chart and the register. */
-export async function holidaysIn(session: string, from: string, to: string): Promise<{ day: string; label: string | null }[]> {
+export async function holidaysIn(session: string, from: string, to: string): Promise<{ day: string; label: string | null; labelHi: string | null }[]> {
   const { data } = await createAdminClient()
     .from("academic_calendar_days")
-    .select("day, kind, label_en")
+    .select("day, kind, label_en, label_hi")
     .eq("session_label", session)
     .gte("day", from)
     .lte("day", to)
     .in("kind", ["holiday", "vacation"])
     .order("day")
-    .returns<{ day: string; kind: string; label_en: string | null }[]>();
-  return (data ?? []).map((row) => ({ day: row.day, label: row.label_en }));
+    .returns<{ day: string; kind: string; label_en: string | null; label_hi: string | null }[]>();
+  return (data ?? []).map((row) => ({ day: row.day, label: row.label_en, labelHi: row.label_hi }));
+}
+
+export type DayDetail = {
+  day: string;
+  /** Every class in the reader's scope: saved or not, and how many were absent. */
+  classes: { classId: string; label: string; saved: boolean; absent: number; roll: number }[];
+  /** The children marked absent that day, class by class in school order. */
+  absent: { studentId: string; name: string; classId: string; classLabel: string }[];
+};
+
+/**
+ * One day of the month chart, opened: which classes saved, how many were
+ * absent in each, and who — so the coordinator need not open eight registers
+ * to find yesterday's absentees (smoke 20 Oct).
+ */
+export async function dayDetail(ctx: Ctx, day: string): Promise<DayDetail> {
+  const rows = (await tallies(ctx, day, day)).filter((r) => r.status === "submitted");
+  const byClass = new Map(rows.map((r) => [r.class_id, r]));
+  const withAbsent = rows.filter((r) => r.absent > 0);
+  const marks = withAbsent.length
+    ? (
+        await fetchInChunks<{ register_id: string; student_id: string }>(withAbsent.map((r) => r.register_id), IN_FILTER_CHUNK_SIZE, (chunk) =>
+          createAdminClient().from("attendance_marks").select("register_id, student_id").eq("status", "absent").in("register_id", chunk),
+        )
+      ).data
+    : [];
+  const classOf = new Map(rows.map((r) => [r.register_id, r.class_id]));
+  const info = await studentInfo(marks.map((m) => m.student_id));
+  const order = new Map(ctx.classes.map((c, i) => [c.id, i]));
+  return {
+    day,
+    classes: ctx.classes.map((c) => ({ classId: c.id, label: c.label, saved: byClass.has(c.id), absent: byClass.get(c.id)?.absent ?? 0, roll: c.roll })),
+    absent: marks
+      .map((m) => {
+        const classId = classOf.get(m.register_id) ?? "";
+        return { studentId: m.student_id, name: info.get(m.student_id)?.name ?? "—", classId, classLabel: ctx.label(classId) };
+      })
+      .sort((a, b) => (order.get(a.classId) ?? 999) - (order.get(b.classId) ?? 999) || a.name.localeCompare(b.name)),
+  };
 }
 
 /** Each child's saved statuses on the last `n` days their class saved, oldest first (the "last 10 days" dots). */
@@ -504,10 +570,20 @@ export type RegisterSheet = {
   label: string;
   month: string;
   days: string[];
-  students: { studentId: string; name: string; rollNo: string | null; marks: Map<string, AttStatus>; pct: number | null }[];
+  students: {
+    studentId: string;
+    name: string;
+    rollNo: string | null;
+    marks: Map<string, AttStatus>;
+    pct: number | null;
+    /** Set when another child in the class has the same name: the SR number, else the father's name, to tell them apart. */
+    tellApart?: string | null;
+  }[];
   savedDays: number;
   /** Holidays and vacation days in the month (school closed). */
   closed: string[];
+  /** Every child-day of the month pooled — the same number as the month's "Classes ranked" (`pooledPct`). */
+  classPct?: number | null;
 };
 
 /** One class's month: a dot for every child, every day. */
@@ -552,19 +628,32 @@ export async function registerSheet(ctx: Ctx, classId: string, month: string): P
     byStudent.set(m.student_id, s);
   }
   const days = end >= first ? daysFrom(first, end).filter((d) => !isSunday(d) && !closed.has(d)) : [];
+  const named = roll.map((r) => ({ studentId: r.student_id, name: info.get(r.student_id)?.name ?? "—" }));
+  const repeated = repeatedNames(named);
   const students = roll
     .map((r) => {
       const ms = byStudent.get(r.student_id) ?? new Map<string, AttStatus>();
+      const i = info.get(r.student_id);
       return {
         studentId: r.student_id,
-        name: info.get(r.student_id)?.name ?? "—",
+        name: i?.name ?? "—",
         rollNo: r.roll_no,
         marks: ms,
         pct: presentPct(tally(ms.values(), credit)),
+        tellApart: repeated.has(r.student_id) ? (i?.sr ? `SR ${i.sr}` : i?.father ?? null) : null,
       };
     })
     .sort((a, b) => (Number(a.rollNo) || 999) - (Number(b.rollNo) || 999) || a.name.localeCompare(b.name));
-  return { classId, label: ctx.label(classId), month, days, students, savedDays: regs.length, closed: [...closed] };
+  return {
+    classId,
+    label: ctx.label(classId),
+    month,
+    days,
+    students,
+    savedDays: regs.length,
+    closed: [...closed],
+    classPct: presentPct(tally(marks.map((m) => m.status), credit)),
+  };
 }
 
 /** The roll a register is marked against, with today's marks if any. */
@@ -616,6 +705,45 @@ export const examsOf = cache(async (session: string): Promise<Exam[]> => {
     .returns<{ id: string; code: string; label_en: string; label_hi: string | null; starts_on: string; ends_on: string | null; status: string }[]>();
   if (error) throw new Error(`Could not read the exams: ${error.message}`);
   return data.map((row) => ({ id: row.id, code: row.code, label: row.label_en, labelHi: row.label_hi, startsOn: row.starts_on, endsOn: row.ends_on, status: row.status }));
+});
+
+/**
+ * Every mark of the school's exams this session (`examsOf`: dated, not a
+ * draft), one row per child per paper, read once per request. A rehearsal
+ * exam with no date is not one of them, so its marks never reach a child's
+ * progress or the needs-attention list.
+ */
+const sessionMarks = cache(async (session: string): Promise<MarkRow[]> => {
+  const exams = await examsOf(session);
+  if (exams.length === 0) return [];
+  const rows = await fetchAllRows<{
+    student_id: string;
+    value: number | null;
+    absent: boolean;
+    exempt: boolean;
+    assessment_subjects: { assessment_id: string; class_id: string; subject_id: string; subject_code: string; max_marks: number; pass_marks: number | null };
+  }>(
+    (a, b) =>
+      createAdminClient()
+        .from("marks")
+        .select("id, student_id, value, absent, exempt, assessment_subjects!inner(assessment_id, class_id, subject_id, subject_code, max_marks, pass_marks)")
+        .in("assessment_subjects.assessment_id", exams.map((e) => e.id))
+        .order("id")
+        .range(a, b),
+    "the marks",
+  );
+  return rows.map((r) => ({
+    studentId: r.student_id,
+    examId: r.assessment_subjects.assessment_id,
+    classId: r.assessment_subjects.class_id,
+    subjectId: r.assessment_subjects.subject_id,
+    subject: r.assessment_subjects.subject_code,
+    value: r.value === null ? null : Number(r.value),
+    absent: !!r.absent,
+    exempt: !!r.exempt,
+    maxMarks: Number(r.assessment_subjects.max_marks),
+    passMarks: r.assessment_subjects.pass_marks === null ? null : Number(r.assessment_subjects.pass_marks),
+  }));
 });
 
 export type PaperStat = {
@@ -764,22 +892,18 @@ export function weightedAvg(stats: Pick<PaperStat, "avgPct" | "scored">[]): numb
   return n ? Math.round(sum / n) : null;
 }
 
-export async function studentExams(ctx: Ctx, examIds: string[]): Promise<{ studentId: string; examId: string; classId: string; avg: number; papers: number; failed: number }[]> {
+/**
+ * Each child's result in the given exams, by the report card's rule
+ * (`childExams`): an absent paper is 0 out of its full marks, a blank and an
+ * exempt are left out. A child with nothing entered yet is not listed.
+ */
+export async function studentExams(ctx: Ctx, examIds: string[]): Promise<{ studentId: string; examId: string; classId: string; avg: number; papers: number; failed: number; absent: number }[]> {
   if (examIds.length === 0) return [];
-  const rows = await fetchAllRows<{ student_id: string; assessment_id: string; class_id: string; avg_pct: number; papers: number; failed: number }>(
-    (a, b) =>
-      createAdminClient()
-        .from("v_student_exam")
-        .select("student_id, assessment_id, class_id, avg_pct, papers, failed")
-        .in("assessment_id", examIds)
-        .order("student_id")
-        .order("assessment_id")
-        .range(a, b),
-    "the results",
-  );
-  return rows
-    .filter((row) => scopeIncludes(ctx.scope, row.class_id))
-    .map((row) => ({ studentId: row.student_id, examId: row.assessment_id, classId: row.class_id, avg: Number(row.avg_pct), papers: row.papers, failed: row.failed }));
+  const wanted = new Set(examIds);
+  const marks = (await sessionMarks(ctx.session)).filter((m) => wanted.has(m.examId) && scopeIncludes(ctx.scope, m.classId));
+  return childExams(marks)
+    .filter((c) => c.pct !== null)
+    .map((c) => ({ studentId: c.studentId, examId: c.examId, classId: c.classId, avg: c.pct ?? 0, papers: c.counted + c.absent, failed: c.failed, absent: c.absent }));
 }
 
 export const studentAttendance = cache(async (ctx: Ctx): Promise<Map<string, { pct: number | null; absent: number; counted: number }>> => {
@@ -796,6 +920,25 @@ export const studentAttendance = cache(async (ctx: Ctx): Promise<Map<string, { p
   return new Map(rows.map((row) => [row.student_id, { pct: row.attendance_pct === null ? null : Number(row.attendance_pct), absent: row.absent_days, counted: row.days_counted }]));
 });
 
+/**
+ * The last school day with a saved register, on or before the school's
+ * today: what "attendance this term · till …" is up to. Never a day that has
+ * not come (smoke 20 Oct: "till 21 Oct" on the 20th).
+ */
+export async function lastRegisterDay(ctx: Ctx): Promise<string | null> {
+  const { data } = await createAdminClient()
+    .from("attendance_registers")
+    .select("day")
+    .eq("session_label", ctx.session)
+    .eq("status", "submitted")
+    .is("period", null)
+    .lte("day", ctx.today)
+    .order("day", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ day: string }>();
+  return data?.day ?? null;
+}
+
 /* ------------------------------------------------------ needs attention */
 
 export type AttentionChild = AttentionFacts & {
@@ -807,31 +950,69 @@ export type AttentionChild = AttentionFacts & {
   plan: string | null;
 };
 
+/**
+ * Who is on the needs-attention list and why, for every child in the reader's
+ * scope. Attendance and open notes are read from `v_needs_attention`; the two
+ * marks rules are worked out here (`marksFlags`) from the school's dated
+ * exams only, with a blank, an absent or an exempt never read as 0%. The view
+ * counted an undated rehearsal exam as the newest paper and put all of Class 1
+ * on the list (smoke 20 Oct). One function, so Home, Student progress, a class
+ * and the weekly summary give one count.
+ */
+const attentionFacts = cache(async (ctx: Ctx): Promise<Map<string, AttentionFacts & { classId: string }>> => {
+  const [view, exams, marks, enrolled] = await Promise.all([
+    createAdminClient()
+      .from("v_needs_attention")
+      .select("student_id, class_id, attendance_pct, open_notes, reasons")
+      .eq("session_label", ctx.session)
+      .limit(2000)
+      .returns<{ student_id: string; class_id: string; attendance_pct: number | null; open_notes: number; reasons: AttentionReason[] }[]>(),
+    examsOf(ctx.session),
+    sessionMarks(ctx.session),
+    enrolledRows(ctx.session),
+  ]);
+  if (view.error) throw new Error(`Could not read the attention list: ${view.error.message}`);
+  const classOf = new Map(enrolled.map((r) => [r.student_id, r.class_id]));
+  const flags = marksFlags(marks, exams.map((e) => e.id));
+  const out = new Map<string, AttentionFacts & { classId: string }>();
+  const ids = new Set([...view.data.map((r) => r.student_id), ...flags.keys()]);
+  const viewRow = new Map(view.data.map((r) => [r.student_id, r]));
+  for (const id of ids) {
+    const classId = viewRow.get(id)?.class_id ?? classOf.get(id);
+    if (!classId || !scopeIncludes(ctx.scope, classId)) continue;
+    const row = viewRow.get(id);
+    const f = flags.get(id);
+    const reasons: AttentionReason[] = [];
+    if (row?.reasons.includes("attendance")) reasons.push("attendance");
+    if (f && f.below33Subjects.length) reasons.push("below_33");
+    if (f && f.dropPoints !== null) reasons.push("dropped");
+    if (row?.reasons.includes("notes")) reasons.push("notes");
+    if (reasons.length === 0) continue;
+    out.set(id, {
+      classId,
+      reasons,
+      attendancePct: row && row.attendance_pct !== null ? Number(row.attendance_pct) : null,
+      below33Subjects: f?.below33Subjects ?? [],
+      dropPoints: f?.dropPoints ?? null,
+      dropSubject: f?.dropSubject ?? null,
+      openNotes: row?.open_notes ?? 0,
+    });
+  }
+  return out;
+});
+
 export async function needsAttention(ctx: Ctx): Promise<AttentionChild[]> {
-  const { data, error } = await createAdminClient()
-    .from("v_needs_attention")
-    .select("student_id, class_id, attendance_pct, below_33_subjects, drop_points, drop_subject, open_notes, reasons")
-    .eq("session_label", ctx.session)
-    .limit(2000)
-    .returns<{ student_id: string; class_id: string; attendance_pct: number | null; below_33_subjects: string[]; drop_points: number | null; drop_subject: string | null; open_notes: number; reasons: AttentionReason[] }[]>();
-  if (error) throw new Error(`Could not read the attention list: ${error.message}`);
-  const rows = data.filter((row) => scopeIncludes(ctx.scope, row.class_id));
-  const ids = rows.map((row) => row.student_id);
+  const facts = await attentionFacts(ctx);
+  const ids = [...facts.keys()];
   const [info, follow, plans] = await Promise.all([studentInfo(ids), latestFollowups(ctx, ids), planStatus(ctx, ids)]);
-  return rows
-    .map((row) => ({
-      studentId: row.student_id,
-      name: info.get(row.student_id)?.name ?? "—",
-      classId: row.class_id,
-      classLabel: ctx.label(row.class_id),
-      reasons: row.reasons,
-      attendancePct: row.attendance_pct === null ? null : Number(row.attendance_pct),
-      below33Subjects: row.below_33_subjects ?? [],
-      dropPoints: row.drop_points === null ? null : Number(row.drop_points),
-      dropSubject: row.drop_subject,
-      openNotes: row.open_notes,
-      followup: follow.get(row.student_id) ?? null,
-      plan: plans.get(row.student_id) ?? null,
+  return [...facts.entries()]
+    .map(([studentId, f]) => ({
+      ...f,
+      studentId,
+      name: info.get(studentId)?.name ?? "—",
+      classLabel: ctx.label(f.classId),
+      followup: follow.get(studentId) ?? null,
+      plan: plans.get(studentId) ?? null,
     }))
     .sort((a, b) => attentionWeight(b) - attentionWeight(a) || a.name.localeCompare(b.name));
 }
@@ -882,29 +1063,30 @@ export async function planHiddenFrom(staff: CurrentStaff, plan: { note_id: strin
   return !readsSensitive(staff, source);
 }
 
-export async function notesNeedingAction(ctx: Ctx): Promise<{ open: number; due: number; dueOn: string | null; recent: { id: string; studentId: string | null; body: string; at: string; by: string }[] }> {
-  const { data } = await createAdminClient()
-    .from("notes")
-    .select("id, student_id, class_id, body, created_at, written_by, needs_follow_up, follow_up_on, status, visibility, tags, follow_up_staff_id, note_kinds(code)")
-    .eq("session_label", ctx.session)
-    .in("status", ["open", "working"])
-    .eq("needs_follow_up", true)
-    .neq("visibility", "private")
-    .order("follow_up_on", { ascending: true })
-    .limit(200)
-    .returns<{ id: string; student_id: string | null; class_id: string | null; body: string; created_at: string; written_by: string; needs_follow_up: boolean; follow_up_on: string | null; status: string; visibility: string; tags: string[] | null; follow_up_staff_id: string | null; note_kinds: { code: string } | null }[]>();
-  const rows = (data ?? [])
-    .filter((row) => !row.class_id || scopeIncludes(ctx.scope, row.class_id))
-    .filter((row) => readsSensitive(ctx.staff, row));
-  const nextWeek = addDays(ctx.today, 7);
-  const due = rows.filter((row) => row.follow_up_on && row.follow_up_on <= nextWeek);
-  const staff = await staffDirectory();
-  return {
-    open: rows.length,
-    due: due.length,
-    dueOn: due[0]?.follow_up_on ?? null,
-    recent: rows.slice(0, 5).map((row) => ({ id: row.id, studentId: row.student_id, body: row.body, at: row.created_at, by: staff.get(row.written_by)?.display_name ?? "—" })),
-  };
+/**
+ * "Notes needing action", counted exactly as the Notes board counts its
+ * "Needs action" tile: the notes this reader may see (`visibleNotes`, the
+ * board's own read and `canSeeNote` rule) through the board's `boardKpis` —
+ * a follow-up due today or earlier, or an open health or family note nobody
+ * has picked up. `due` is the board's "follow-ups this week"; `dueOn` the
+ * earliest of their dates. Before, Today said 7 where the board said 4
+ * (smoke 20 Oct).
+ *
+ * TODO(merge with fix/smoke-notes): that branch exports
+ * `noteAttention(notes, today)` from `@/vx/screens/notes/domain/notes`
+ * ({ needsAction, due, oldestDue }). Swap `boardKpis` for it here; the
+ * weekly report (`notesOpen`) reads this function, so it follows.
+ */
+export async function notesNeedingAction(ctx: Ctx): Promise<{ open: number; due: number; dueOn: string | null }> {
+  if (!can(ctx.staff, "notes:view")) return { open: 0, due: 0, dueOn: null };
+  const viewer = await noteViewer(ctx.staff, ctx.session);
+  const notes = await visibleNotes(viewer, ctx.session);
+  const kpis = boardKpis(notes, 0, ctx.today);
+  const dates = notes
+    .filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null)
+    .map((n) => n.followUpOn as string)
+    .sort();
+  return { open: kpis.needsAction, due: kpis.dueThisWeek, dueOn: kpis.dueThisWeek ? dates[0] ?? null : null };
 }
 
 /* ---------------------------------------------------------- one child */
@@ -919,7 +1101,8 @@ export type StudentDetail = {
   rollNo: string | null;
   attendance: { pct: number | null; absent: number; counted: number };
   months: { month: string; pct: number | null }[];
-  subjects: { subject: string; byExam: Map<string, number | null> }[];
+  /** `absent`: the exams whose paper in this subject the child missed. */
+  subjects: { subject: string; byExam: Map<string, number | null>; absent?: Set<string> }[];
   exams: Exam[];
   notes: { id: string; body: string; kind: string; tone: string; at: string; by: string; status: string }[];
   plan: Plan | null;
@@ -962,25 +1145,23 @@ export async function studentDetail(ctx: Ctx, studentId: string): Promise<Studen
       .limit(10)
       .returns<{ kind: string; outcome: string | null; note: string | null; created_at: string; created_by: string }[]>(),
     staffDirectory(),
-    admin
-      .from("v_needs_attention")
-      .select("attendance_pct, below_33_subjects, drop_points, drop_subject, open_notes, reasons")
-      .eq("session_label", ctx.session)
-      .eq("student_id", studentId)
-      .maybeSingle<{ attendance_pct: number | null; below_33_subjects: string[]; drop_points: number | null; drop_subject: string | null; open_notes: number; reasons: AttentionReason[] }>(),
+    attentionFacts(ctx),
   ]);
   const examIds = new Set(exams.map((e) => e.id));
   const subjects = new Map<string, Map<string, number | null>>();
+  // The exams a subject's paper was missed in: shown as "Absent", never as "waiting" (smoke 20 Oct).
+  const absentIn = new Map<string, Set<string>>();
   for (const m of marks.data ?? []) {
     const p = m.assessment_subjects;
     if (!examIds.has(p.assessment_id)) continue;
     const byExam = subjects.get(p.subject_code) ?? new Map<string, number | null>();
-    byExam.set(p.assessment_id, m.value === null ? null : Math.round((Number(m.value) / Number(p.max_marks)) * 100));
+    byExam.set(p.assessment_id, m.value === null || m.absent || m.exempt || !(Number(p.max_marks) > 0) ? null : Math.round((Number(m.value) / Number(p.max_marks)) * 100));
     subjects.set(p.subject_code, byExam);
+    if (m.absent && !m.exempt) absentIn.set(p.subject_code, (absentIn.get(p.subject_code) ?? new Set<string>()).add(p.assessment_id));
   }
   const att = (await studentAttendance(ctx)).get(studentId) ?? { pct: null, absent: 0, counted: 0 };
   const i = info.get(studentId);
-  const a = attention.data;
+  const a = attention.get(studentId);
   return {
     studentId,
     name: i?.name ?? "—",
@@ -991,21 +1172,12 @@ export async function studentDetail(ctx: Ctx, studentId: string): Promise<Studen
     rollNo: enrolled.roll_no,
     attendance: att,
     months: attendance,
-    subjects: [...subjects.entries()].map(([subject, byExam]) => ({ subject, byExam })),
+    subjects: [...subjects.entries()].map(([subject, byExam]) => ({ subject, byExam, absent: absentIn.get(subject) ?? new Set<string>() })),
     exams,
     notes: (notes.data ?? []).filter((n) => readsSensitive(ctx.staff, n)).map((n) => ({ id: n.id, body: n.body, kind: n.note_kinds.label_en, tone: n.note_kinds.tone, at: n.created_at, by: staff.get(n.written_by)?.display_name ?? "—", status: n.status })),
     plan,
     followups: (follow.data ?? []).map((f) => ({ kind: f.kind, outcome: f.outcome, note: f.note, at: f.created_at, by: staff.get(f.created_by)?.display_name ?? "—" })),
-    facts: a
-      ? {
-          reasons: a.reasons,
-          attendancePct: a.attendance_pct === null ? null : Number(a.attendance_pct),
-          below33Subjects: a.below_33_subjects ?? [],
-          dropPoints: a.drop_points === null ? null : Number(a.drop_points),
-          dropSubject: a.drop_subject,
-          openNotes: a.open_notes,
-        }
-      : null,
+    facts: a ? { reasons: a.reasons, attendancePct: a.attendancePct, below33Subjects: a.below33Subjects, dropPoints: a.dropPoints, dropSubject: a.dropSubject, openNotes: a.openNotes } : null,
   };
 }
 
@@ -1086,6 +1258,8 @@ export async function classDetail(ctx: Ctx, classId: string, exam: Exam, previou
         avg: now ? Math.round(now.avg) : null,
         before: before ? Math.round(before.avg) : null,
         failed: now?.failed ?? 0,
+        // Papers missed in this exam: each counts 0 in the average, and the ranking says so.
+        ...(now?.absent ? { absent: now.absent } : {}),
         attendance: att.get(r.student_id)?.pct ?? null,
         attention: flagged.get(r.student_id) ?? null,
       };
@@ -1171,7 +1345,7 @@ export async function weekFacts(ctx: Ctx) {
   const prevMonday = addDays(monday, -7);
   // Eight weeks back for the trend line; the facts below still read only this week and last.
   const trendFrom = addDays(monday, -49);
-  const [rows, credit, entry, attention, notes, corrections] = await Promise.all([
+  const [rows, credit, entry, attention, notes, corrections, holidays] = await Promise.all([
     tallies(ctx, trendFrom, ctx.today),
     halfDayCredit(ctx.session),
     marksEntry(ctx),
@@ -1183,7 +1357,9 @@ export async function weekFacts(ctx: Ctx) {
       .select("id", { count: "exact", head: true })
       .eq("kind", "correction")
       .gte("created_at", `${monday}T00:00:00+05:30`),
+    holidaysIn(ctx.session, monday, ctx.today),
   ]);
+  const holidayOn = new Map(holidays.map((h) => [h.day, h]));
   const sum = (from: string, to: string) =>
     rows.filter((r) => r.status === "submitted" && r.day >= from && r.day <= to).reduce<Tally>((s, r) => {
       const t = rowTally(r, credit);
@@ -1193,9 +1369,13 @@ export async function weekFacts(ctx: Ctx) {
   const lastWeek = sum(prevMonday, addDays(monday, -1));
   const days = new Set(rows.filter((r) => r.day >= monday).map((r) => r.day));
   const always = ctx.classes.filter((c) => [...days].every((d) => rows.some((r) => r.class_id === c.id && r.day === d && r.status === "submitted"))).length;
+  // A holiday is named on its day ("Holiday · Dussehra"), never a bare "—" that reads as "nobody marked".
   const daily = daysFrom(monday, ctx.today)
     .filter((d) => !isSunday(d))
-    .map((d) => ({ day: d, pct: presentPct(sum(d, d)) }));
+    .map((d) => {
+      const h = holidayOn.get(d);
+      return { day: d, pct: presentPct(sum(d, d)), ...(h ? { holiday: { label: h.label, labelHi: h.labelHi } } : {}) };
+    });
   const weekStart = `${monday}T00:00:00+05:30`;
   const fresh = attention.filter((a) => a.followup === null || a.followup.at >= weekStart).length;
   // Weekly averages, oldest first: the eight weeks that end with this one.
@@ -1284,7 +1464,7 @@ export async function staffTemplateBodies(code: string): Promise<{ hi: string; e
 
 export type UpcomingEvent = { id: string; kind: string; title: string; titleHi: string | null; startsOn: string; endsOn: string; startsAt: string | null; place: string | null };
 
-export async function upcomingEvents(session: string, from: string, days: number, admin: Admin = createAdminClient()): Promise<UpcomingEvent[]> {
+export async function upcomingEvents(session: string, from: string, days: number, admin: Admin = createAdminClient(), now: Date = new Date()): Promise<UpcomingEvent[]> {
   const to = addDays(from, days);
   const [{ data: events }, { data: holidays }] = await Promise.all([
     admin
@@ -1311,10 +1491,10 @@ export async function upcomingEvents(session: string, from: string, days: number
     ...(holidays ?? []).map((h) => ({ id: `day:${h.day}`, kind: "holiday", title: h.label_en ?? "Holiday", titleHi: h.label_hi, startsOn: h.day, endsOn: h.day, startsAt: null, place: null })),
   ];
   // A one-day event today whose time passed more than an hour ago is over, not coming up.
-  const nowIst = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+  const nowIst = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(now);
   const [h, m] = nowIst.split(":").map(Number);
   const cutoff = `${String(Math.max(0, h - 1)).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  const over = (e: UpcomingEvent) => e.endsOn === from && e.startsOn === from && from === schoolToday() && !!e.startsAt && e.startsAt.slice(0, 5) < cutoff;
+  const over = (e: UpcomingEvent) => e.endsOn === from && e.startsOn === from && from === schoolToday(now) && !!e.startsAt && e.startsAt.slice(0, 5) < cutoff;
   return list.filter((e) => !over(e)).sort((a, b) => a.startsOn.localeCompare(b.startsOn) || (a.startsAt ?? "").localeCompare(b.startsAt ?? ""));
 }
 

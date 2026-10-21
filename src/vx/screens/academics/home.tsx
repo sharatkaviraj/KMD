@@ -41,7 +41,7 @@ export async function AcadHome({ staff, view, sheet, marks, what, who }: Props) 
     marksEntry(ctx),
     needsAttention(ctx),
     notesNeedingAction(ctx),
-    upcomingEvents(ctx.session, ctx.today, 70),
+    upcomingEvents(ctx.session, ctx.today, 70, undefined, ctx.now),
     teachersAway(ctx.session, ctx.today),
     sheet === "remind" && mayRemind ? staffTemplateBodies("vppsone_marks_reminder") : Promise.resolve(null),
     mode === "week" ? weekFacts(ctx) : Promise.resolve(null),
@@ -50,7 +50,7 @@ export async function AcadHome({ staff, view, sheet, marks, what, who }: Props) 
   // "New this week": nobody has followed them up yet, or the follow-up is this week's (as weekFacts counts it).
   const weekStart = `${mondayOf(ctx.today)}T00:00:00+05:30`;
   const attentionNew = attention.filter((a) => a.followup === null || a.followup.at >= weekStart).length;
-  const hello = greeting();
+  const hello = greeting(ctx.now);
 
   return (
     <AcadHomeView

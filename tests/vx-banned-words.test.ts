@@ -30,18 +30,10 @@ const HINDI = ["ड्राफ़्ट", "ड्राफ्ट", "सबम�
  * 20 Oct smoke fixes. Never add to it: say the thing in plain words instead.
  */
 const ALLOWED: Record<string, number> = {
-  "src/vx/screens/academics/home-view.tsx|प्रविष्टि": 2,
-  "src/vx/screens/academics/plan-editor.tsx|ड्राफ़्ट": 4,
-  "src/vx/screens/academics/progress-view.tsx|ड्राफ़्ट": 2,
-  "src/vx/screens/exams/exams-board.tsx|ड्राफ्ट": 1,
   "src/vx/screens/exams/marks-sheet.tsx|ड्राफ्ट": 5,
   "src/vx/screens/exams/marks-sheet.tsx|ड्राफ़्ट": 6,
   "src/vx/screens/exams/marks-sheet.tsx|पुष्टि": 3,
   "src/vx/screens/exams/marks-sheet.tsx|प्रविष्टि": 1,
-  "src/vx/screens/exams/office-home.tsx|ड्राफ़्ट": 2,
-  "src/vx/screens/exams/office-home.tsx|प्रविष्टि": 2,
-  "src/vx/screens/exams/plan-board.tsx|ड्राफ़्ट": 2,
-  "src/vx/screens/exams/results-board.tsx|ड्राफ़्ट": 2,
   "src/vx/screens/exams/teacher-marks.tsx|ड्राफ़्ट": 2,
   "src/vx/screens/teach/ui/attend.tsx|पुष्टि": 1,
 };

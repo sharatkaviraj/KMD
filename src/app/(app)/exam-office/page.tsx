@@ -1,3 +1,4 @@
+import { schoolNow } from "@/platform/auth/qa-clock";
 import { requirePermission } from "@/platform/auth/current-staff";
 import { dayMonth, daysBetween, greeting, shortDay } from "@/vx/format";
 import { lead, p } from "@/vx/text";
@@ -6,6 +7,7 @@ import { Section, TopBar, VxPage } from "@/vx/ui/page";
 import { getViewer } from "@/vx/view-as";
 import { activityFor, countFor, currentExam, questionPapersFor, slotsFor, type Exam } from "@/vx/screens/exams/data";
 import { GROUP_KEYS, GROUP_LABELS, groupOf } from "@/vx/screens/exams/domain/groups";
+import { plannedExams } from "@/vx/screens/exams/domain/current";
 import { maskPhone, readiness, setupSteps } from "@/vx/screens/exams/domain/office";
 import { paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { ExamHome, type HomeView, type NextExamView, type ResultsExamView, type TimelineItem } from "@/vx/screens/exams/office-home";
@@ -28,7 +30,8 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const view: HomeView = (VIEWS as readonly string[]).includes(one("view") ?? "") ? (one("view") as HomeView) : "home";
 
-  const ctx = await officeContext();
+  const now = await schoolNow(staff);
+  const ctx = await officeContext(now);
   if (!ctx) {
     return (
       <VxPage>
@@ -41,8 +44,10 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
       </VxPage>
     );
   }
-  const { today, exams } = ctx;
-  const current = currentExam(exams, today, one("exam"));
+  const { today } = ctx;
+  // The year is the planned (dated) exams; an undated rehearsal row is still reachable by ?exam=.
+  const exams = plannedExams(ctx.exams);
+  const current = currentExam(ctx.exams, today, one("exam"));
   const next = pickNext(exams, current, today);
 
   /* --------------------------------------------- the results exam */
@@ -135,7 +140,7 @@ export default async function ExamOfficePage(props: PageProps<"/exam-office">) {
   return (
     <ExamHome
       view={view}
-      hello={greeting()}
+      hello={greeting(now)}
       staffName={staff.displayName}
       staffPhone={maskPhone(ctx.staff.find((s) => s.id === staff.id)?.phone) || null}
       sessionLabel={ctx.sessionLabel}
