@@ -603,7 +603,7 @@ function Tracker(props: ExamsProps & { href: Href; cellOpen: boolean; onRemind: 
                   // Break between words, or hyphenate a long one ("Accoun-tancy"), never "Englis h" (smoke 20 Oct).
                   <span key={s?.code ?? `pad-${i}`} lang={lang === "hi" ? "hi" : "en"} title={s ? tx(s.name) : undefined} style={{ minWidth: 0, fontSize: 11, fontWeight: 700, lineHeight: 1.15, color: "var(--mut)", textAlign: "center", overflowWrap: "normal", wordBreak: "normal", hyphens: "auto" }}>{s ? tx(s.name) : ""}</span>
                 ))}
-                <span className="sech" style={{ textAlign: "right" }}>{tx(p("Done", "पूरा"))}</span>
+                <span className="sech" style={{ textAlign: "right" }} title={tx(p("Share of marks entered; a paper is Done only when sent with none to correct", "भरे गए अंकों का हिस्सा; पेपर तभी पूरा जब भेजा गया हो और कोई सुधार बाकी न हो"))}>{tx(p("Entered", "भरे"))}</span>
               </div>
               {band.rows.map((row) => (
                 <div key={row.classId} style={{ display: "grid", gridTemplateColumns: template, gap: 6, alignItems: "center", minHeight: 54, padding: "6px 14px", borderTop: "1px solid var(--bd)" }}>
@@ -616,7 +616,7 @@ function Tracker(props: ExamsProps & { href: Href; cellOpen: boolean; onRemind: 
                     if (!s || !cell) return <span key={s?.code ?? `pad-${i}`} />;
                     return <CellChip key={s.code} cell={cell} compact={cellOpen} selected={props.cell?.paperId === cell.paperId} dim={!shows(filter, cell.state)} href={href("cell", `&paper=${cell.paperId}`)} label={`${row.label} ${tx(s.name)}`} />;
                   })}
-                  <span className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right", color: row.percent === 100 ? "var(--ok)" : "var(--fg)" }}>{row.percent}%</span>
+                  <span className="num" style={{ fontSize: 13, fontWeight: 700, textAlign: "right", color: Object.values(row.cells).every((x) => x.state === "done" || x.state === "locked") ? "var(--ok)" : "var(--fg)" }}>{row.percent}%</span>
                 </div>
               ))}
             </div>
