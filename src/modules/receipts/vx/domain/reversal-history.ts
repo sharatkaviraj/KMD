@@ -39,3 +39,25 @@ export function groupReversals(rows: readonly ReversalRow[]): ReversalEvent[] {
   }
   return [...byMinute.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
+
+/**
+ * A reversal's stored reason, split back into its parts. The fee action
+ * writes `"<reason_code> — <note>"` (fees/payments/actions.ts), and the
+ * receipt used to print that raw: "wrong_amount — Test: approved by admin"
+ * (smoke 20 Oct). The screen names the code in words and keeps the note.
+ * Anything not in that shape is all note.
+ */
+export function splitReversalReason(raw: string | null | undefined): { code: string | null; note: string | null } {
+  const text = String(raw ?? "").trim();
+  if (!text) return { code: null, note: null };
+  const m = /^([a-z][a-z0-9_]*)\s+[—–-]\s+([\s\S]*)$/.exec(text);
+  if (m) return { code: m[1], note: m[2].trim() || null };
+  if (/^[a-z][a-z0-9_]*$/.test(text)) return { code: text, note: null };
+  return { code: null, note: text };
+}
+
+/** A reason code nobody gave words to, readable: "fee_mismatch" → "Fee mismatch". */
+export function humanizeReasonCode(code: string): string {
+  const words = code.replace(/_/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : code;
+}

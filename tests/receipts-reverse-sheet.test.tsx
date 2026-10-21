@@ -8,7 +8,7 @@ import { allowedReceiptSheet, canOpenReverse, normalizedReceiptUrl, parseReceipt
 import { groupReversals, reversalMinuteKey } from "@/modules/receipts/vx/domain/reversal-history";
 
 const nav = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }));
-const actions = vi.hoisted(() => ({ reverseReceiptAction: vi.fn() }));
+const actions = vi.hoisted(() => ({ reverseReceiptAction: vi.fn(), declineReversalRequestAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => nav }));
 vi.mock("@/app/(app)/receipts/actions", () => actions);
 vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _p, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a href={href} {...rest}>{children}</a> }));
@@ -170,5 +170,64 @@ describe("the receipt panel's reverse sheet (B08)", () => {
   it("keeps the sheet shut for a viewer who may not ask", async () => {
     await render(RECEIPT, { sheet: "reverse", perms: { ...PROPS.perms, accounts: false } });
     expect(document.querySelector("[role=dialog]")).toBeNull();
+  });
+});
+
+describe("a reversal asked by the accountant (smoke 20 Oct)", () => {
+  const ASKED: SelectedReceipt = {
+    ...RECEIPT,
+    pendingRequest: { at: "2026-10-19T05:55:00+00:00", by: "TEST Accountant", reasonCode: "wrong_amount", note: "Typed 500 for 50" },
+    history: [...RECEIPT.history, { at: "2026-10-19T05:55:00+00:00", kind: "asked", byName: "TEST Accountant", reasonCode: "wrong_amount", note: "Typed 500 for 50" }],
+  };
+
+  it("shows who asked and why, with their reason chosen, and lets the admin decline with a reason", async () => {
+    window.history.replaceState({}, "", "/receipts/TEST-0001?sheet=reverse");
+    actions.declineReversalRequestAction.mockResolvedValue({ ok: true, kind: "declined" });
+    await render(ASKED, { sheet: "reverse" });
+    const dialog = document.querySelector("[role=dialog]")!;
+    expect(dialog.querySelector("#rc-asked")!.textContent).toContain("Asked by TEST Accountant");
+    expect(dialog.querySelector("#rc-asked")!.textContent).toContain("Wrong amount typed — Typed 500 for 50");
+    const radios = [...dialog.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+    expect(radios.find((b) => b.getAttribute("aria-checked") === "true")?.textContent).toContain("Wrong amount typed");
+    const decline = [...dialog.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.includes("decline"))!;
+    await act(async () => decline.click());
+    const box = document.querySelector<HTMLTextAreaElement>("[role=dialog] textarea")!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+    await act(async () => {
+      setter.call(box, "Amount was right");
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const confirm = [...document.querySelectorAll<HTMLButtonElement>("[role=dialog] button")].find((b) => b.textContent === "Decline the request")!;
+    await act(async () => confirm.click());
+    expect(actions.declineReversalRequestAction).toHaveBeenCalledWith({ receiptNumber: "TEST-0001", note: "Amount was right" });
+    expect(actions.reverseReceiptAction).not.toHaveBeenCalled();
+  });
+
+  it("puts the request in History, in words, and never prints the stored reason code", async () => {
+    await render(ASKED);
+    expect(host.textContent).toContain("Reversal asked by TEST Accountant · Wrong amount typed — Typed 500 for 50");
+    const reversed = {
+      ...RECEIPT,
+      isReversed: true,
+      reversedAmount: 500,
+      reversal: { at: "2026-10-19T08:30:12+00:00", byName: "TEST Admin", note: "wrong_amount — Test: approved" },
+      history: [...RECEIPT.history, { at: "2026-10-19T08:30:12+00:00", kind: "reversed" as const, amount: 500, note: "wrong_amount — Test: approved", byName: "TEST Admin" }],
+    };
+    await render(reversed);
+    expect(host.textContent).not.toContain("wrong_amount");
+    expect(document.getElementById("rc-reversed-on")!.textContent).toContain("Wrong amount typed — Test: approved");
+  });
+
+  it("tells the admin the receipt leaves its own day's total, and warns when that day is closed", async () => {
+    await render({ ...RECEIPT, dayClosed: true }, { sheet: "reverse" });
+    const text = document.querySelector("[role=dialog]")!.textContent!;
+    expect(text).not.toContain("written today");
+    expect(text).toContain("taken out of the total for its own day");
+    expect(text).toContain("is already closed");
+  });
+
+  it("asks the accountant for a note to the admin, not to themself", async () => {
+    await render(RECEIPT, { sheet: "reverse", perms: { ...PROPS.perms, reverse: false } });
+    expect(document.querySelector<HTMLTextAreaElement>("[role=dialog] textarea")!.placeholder).toBe("Anything the admin should know");
   });
 });
