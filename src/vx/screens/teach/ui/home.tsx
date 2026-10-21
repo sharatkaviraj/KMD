@@ -738,12 +738,12 @@ export function TeachHome({
       const due = r.followUpOn === data.today;
       return {
         key: `r${r.id}`,
-        name: r.studentName,
-        ini: initials(r.studentName),
+        name: tx(r.subject),
+        ini: initials(tx(r.subject)),
         bg: late || due ? V("warns") : V("infos"),
         fg: late || due ? V("warnfg") : V("info"),
-        tag: due ? tx(p("Review today", "आज समीक्षा")) : late ? tx(p(`Review was ${dShort(r.followUpOn)}`, `समीक्षा ${dShort(r.followUpOn)} थी`)) : tx(p(`Follow-up ${dShort(r.followUpOn).split(" ")[0]}`, `${dShort(r.followUpOn).split(" ")[0]} फ़ॉलो-अप`)),
-        why: tx(p(`Your note: ${r.body} · follow-up due ${dShort(r.followUpOn)}`, `आपका नोट: ${r.body} · फ़ॉलो-अप ${dShort(r.followUpOn)}`)),
+        tag: due ? tx(p("Review today", "आज समीक्षा")) : late ? tx(p(`Review was ${dShort(r.followUpOn)}`, `समीक्षा ${dShort(r.followUpOn)} थी`)) : tx(p(`Follow-up ${dShort(r.followUpOn).split(" ")[0]}`, `${dShort(r.followUpOn).split(" ")[0]} को फिर देखना`)),
+        why: tx(p(`Your note: ${r.body} · follow-up due ${dShort(r.followUpOn)}`, `आपका नोट: ${r.body} · ${dShort(r.followUpOn)} को फिर देखना`)),
         acts: [actBtn(`o${r.id}`, `/teach/notes?note=${r.id}`, "chevRight", tx(p("Open note", "खोलें")), "sec")],
       };
     }),

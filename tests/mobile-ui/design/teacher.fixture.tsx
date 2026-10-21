@@ -81,7 +81,7 @@ function home(state: "home" | "later"): HomeData {
     kids: [{ id: id(114), name: "Om Regar", reasons: ["attendance"], attendancePct: 68, detail: "Absent Mon, Tue and Wed · 68% attendance this session" }],
     birthdays: [{ id: id(111), name: "Jiya Kothari", inDays: 0, turning: 11, rollNo: "11", wished: later }],
     followUpsDue: 1,
-    reviews: [{ id: id(601), studentId: id(119), studentName: "Riya Singh", body: "finds fractions hard · practice sheets started", followUpOn: "2026-10-12" }],
+    reviews: [{ id: id(601), studentId: id(119), studentName: "Riya Singh", subject: { en: "Riya Singh" }, body: "finds fractions hard · practice sheets started", followUpOn: "2026-10-12" }],
     subjects: [
       { classId: C6, classLabel: "Class 6", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 31, mine: true },
       { classId: C7, classLabel: "Class 7", subjectId: SCI, name: "Science", nameHi: "विज्ञान", children: 27, mine: false },

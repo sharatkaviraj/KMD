@@ -129,39 +129,8 @@ export function monthEnd(month: string): string {
 
 /* ------------------------------------------------- telling children apart */
 
-type Tellable = { id: string; name: string; admissionNo?: string | null; fatherName?: string | null };
-
-/**
- * A short line for each child whose name another child in the list also has
- * ("SR 1234 · father Ramesh"), so two "Ansh"es on a register or a marks
- * sheet are never confused. Children with a name of their own get nothing,
- * which keeps the register as short as it was.
- */
-export function tellApart(rows: readonly Tellable[]): Map<string, Pair> {
-  const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
-  const seen = new Map<string, number>();
-  for (const r of rows) seen.set(norm(r.name), (seen.get(norm(r.name)) ?? 0) + 1);
-  const out = new Map<string, Pair>();
-  for (const r of rows) {
-    if ((seen.get(norm(r.name)) ?? 0) < 2) continue;
-    const sr = shownSr(r.admissionNo);
-    const en = [sr ? `SR ${sr}` : null, r.fatherName ? `father ${r.fatherName}` : null].filter(Boolean).join(" · ");
-    const hi = [sr ? `SR ${sr}` : null, r.fatherName ? `पिता ${r.fatherName}` : null].filter(Boolean).join(" · ");
-    if (en) out.set(r.id, p(en, hi));
-  }
-  return out;
-}
-
-/**
- * An SR number fit to show a teacher, or null. The office's placeholder for
- * a child whose SR is not given yet ("PENDING-SR-4312") is a code, not a
- * number anyone can use (20 Oct smoke run).
- */
-export function shownSr(admissionNo: string | null | undefined): string | null {
-  const v = (admissionNo ?? "").trim();
-  if (!v || /^(pending|temp|tmp|n\/?a|none|unknown)\b/i.test(v) || /pending/i.test(v)) return null;
-  return v;
-}
+// One rule for every vx screen (moved to the shared domain, smoke 20 Oct).
+export { shownSr, tellApart } from "@/vx/domain/tell-apart";
 
 /* --------------------------------------------------------- finding a child */
 

@@ -5,7 +5,7 @@
  *
  * Moved here from `vx/screens/teach/domain/teach.ts` (smoke 20 Oct,
  * dev.groups[11]) so the screens of several streams share one rule. The copy
- * in teach.ts is kept until its owners import this one.
+ * teach.ts re-exports this one, so there is a single rule.
  */
 
 import { p, type Pair } from "@/vx/text";
@@ -31,11 +31,23 @@ export function tellApart(rows: readonly Tellable[]): Map<string, Pair> {
   const out = new Map<string, Pair>();
   for (const r of rows) {
     if ((ids.get(fold(r.name))?.size ?? 0) < 2 || out.has(r.id)) continue;
-    const en = [r.admissionNo ? `SR ${r.admissionNo}` : null, r.fatherName ? `father ${r.fatherName}` : null].filter(Boolean).join(" · ");
-    const hi = [r.admissionNo ? `SR ${r.admissionNo}` : null, r.fatherName ? `पिता ${r.fatherName}` : null].filter(Boolean).join(" · ");
+    const sr = shownSr(r.admissionNo);
+    const en = [sr ? `SR ${sr}` : null, r.fatherName ? `father ${r.fatherName}` : null].filter(Boolean).join(" · ");
+    const hi = [sr ? `SR ${sr}` : null, r.fatherName ? `पिता ${r.fatherName}` : null].filter(Boolean).join(" · ");
     if (en) out.set(r.id, p(en, hi));
   }
   return out;
+}
+
+/**
+ * An SR number fit to show a teacher, or null. The office's placeholder for
+ * a child whose SR is not given yet ("PENDING-SR-4312") is a code, not a
+ * number anyone can use (20 Oct smoke run).
+ */
+export function shownSr(admissionNo: string | null | undefined): string | null {
+  const v = (admissionNo ?? "").trim();
+  if (!v || /^(pending|temp|tmp|n\/?a|none|unknown)\b/i.test(v) || /pending/i.test(v)) return null;
+  return v;
 }
 
 /**

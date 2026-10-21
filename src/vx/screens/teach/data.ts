@@ -38,7 +38,7 @@ import { schoolToday } from "@/vx/format";
 import { currentExam, enrolmentsFor, listExams, marksLinkUrl, papersOf, remarksFor, trackerFor, type Exam } from "@/vx/screens/exams/data";
 import { openExamsForMarks } from "@/vx/screens/exams/domain/current";
 import { noteViewer, notesForStudent, visibleNotes } from "@/vx/screens/notes/data";
-import { excerpt, type BoardNote } from "@/vx/screens/notes/domain/notes";
+import { excerpt, noteSubject, type BoardNote } from "@/vx/screens/notes/domain/notes";
 import { addDays } from "@/vx/screens/academics/domain";
 
 import { listTeacherTasks } from "@/modules/teacher-tasks/data/repo";
@@ -643,7 +643,8 @@ export async function loadHome(staff: CurrentStaff) {
     .filter((n) => n.status !== "done" && n.needsFollowUp && n.followUpOn !== null && n.followUpOn <= soon && mine(n))
     .sort((a, b) => (a.followUpOn ?? "").localeCompare(b.followUpOn ?? ""))
     .slice(0, 6)
-    .map((n) => ({ id: n.id, studentId: n.studentId, studentName: n.studentName, body: excerpt(n.body, 90), followUpOn: n.followUpOn as string }));
+    // A whole-class note has no child: say "Whole class", never a blank name (smoke 20 Oct).
+    .map((n) => ({ id: n.id, studentId: n.studentId, studentName: n.studentName, subject: noteSubject(n), body: excerpt(n.body, 90), followUpOn: n.followUpOn as string }));
 
   return {
     sessionLabel,
