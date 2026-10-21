@@ -18,9 +18,9 @@ import {
 } from "@/vx/screens/teach/domain/teach";
 
 describe("the register taps", () => {
-  it("cycles present → absent → half-day → present", () => {
+  it("toggles present ⇄ absent, so a second tap undoes the first (half-day is its own button)", () => {
     expect(nextTap("present")).toBe("absent");
-    expect(nextTap("absent")).toBe("half_day");
+    expect(nextTap("absent")).toBe("present");
     expect(nextTap("half_day")).toBe("present");
     expect(nextTap(undefined)).toBe("absent");
   });
