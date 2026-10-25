@@ -338,6 +338,8 @@ export async function visiblePlans(viewer: NoteViewer, sessionLabel: string, opt
         .returns<Pick<NoteRow, "id" | "tags" | "visibility" | "written_by" | "follow_up_staff_id" | "class_id" | "note_kinds" | "body">[]>(),
     );
     if (sourceError) throw new Error("Could not read the support plans.");
+    const sourceIds = new Set(sources.map((source) => source.id));
+    if (fromNotes.some((id) => !sourceIds.has(id))) throw new Error("Could not read the support plans.");
     const hidden = new Set(
       sources
         .filter((n) => {

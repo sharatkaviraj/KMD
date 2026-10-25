@@ -1,5 +1,29 @@
 # VPPS One — progress
 
+## Source-note privacy release - 25 October 2026
+
+Reviewed on `codex/technical-followup-20261025`, based on main
+`9212f9b4ff5c2f3193fe9ac55293da4d4ed29f62` (freshly fetched before publication).
+Two reproduced failures now stop safely: parent sharing refuses failed/missing
+source-note reads before writing, and plan reads refuse incomplete source results.
+Author-only private-plan access is preserved. Independent final review found no
+blockers. The same work adds reviewed synthetic timetable integration tests.
+
+Local checks passed: 14,439 unit tests across 251 files, full-project TypeScript,
+complete production build, 28 browser checks, scoped lint, port boundaries and
+bundle budgets. Three original real-fixture suites were not run locally; theme
+parity skipped because its reference checkout was absent. The normal CI remains
+unchanged. Temporary build settings were restored; Claude was not interrupted.
+
+The user authorized deployment on 25 October. Publication is now in progress via
+a draft PR and exact-head CI, then the normal VPPS One Vercel pipeline. No database
+migration, live record change or real notification is part of this release.
+Authenticated backend acceptance and the historical weak-network register delay
+remain separate limits. Policy decisions are unchanged. Release identifiers and
+results: [verification record](evidence/notes-source-privacy-release-2026-10-25.md).
+The earlier school-day ledger remains **202 fixed, 36 improved**, not all 262 resolved.
+
+
 ## Sampark shared teacher work — 16 October 2026
 
 **Released 17 October 2026.** [#98](https://github.com/veerpatta/vppsone/pull/98) merged as `30416c7` (head `8f3b25c`, 22/22 checks green) and deployed to production (`dpl_21nXBAYm9X3h3VGkNxkENyRsjXEQ`, `vppsone.vercel.app` aliased to that commit). On schoolfees-dev the three migrations are recorded as `20261016125715` teacher_tasks, `20261016125729` profile_photos, `20261017043313` teacher_task_delivery. The last was applied from bytes hashing `a8567aa9…eb71eb`, and its catalog matches `migration-catalog.json` exactly: 26 functions with their ACLs, 4 RLS tables, indexes, triggers, the restrictive policy, 6 columns and 6 contracts. The 38 existing `message_sends` rows were untouched. Production was smoke-tested as QA admin and QA teacher: Needs you, Students "No photo" filter, Student360 photo/request actions, Integrations (AiSensy "Setup pending", automated sends off, manual sharing offered), teacher task list and staff photo entry. No writes, sends or links were created. Surprising: the repo files keep their `07/08/090000` names while the recorded versions are MCP-stamped, so the names and versions differ; the first two were already like that, and the files were left as reviewed. Remaining: AiSensy templates and provider configuration are deliberately pending. The first load after sign-in logged one React #418 hydration-text warning, not yet attributed to a screen.
