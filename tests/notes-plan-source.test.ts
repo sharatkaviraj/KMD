@@ -12,6 +12,8 @@ const scene = vi.hoisted(() => ({
   notes: [] as unknown[],
   plans: [] as unknown[],
   sourceVisibility: "private" as string,
+  sourceMissing: false,
+  sourceError: null as { message: string } | null,
   writes: [] as { table: string; op: string; row?: unknown }[],
 }));
 
@@ -46,7 +48,10 @@ vi.mock("@/platform/supabase/admin", () => ({
         scene.writes.push({ table, op: "delete" });
         return chain;
       };
-      chain.maybeSingle = () => done(table === "notes" ? { visibility: scene.sourceVisibility } : null);
+      chain.maybeSingle = () => Promise.resolve({
+        data: table === "notes" && !scene.sourceMissing && !scene.sourceError ? { visibility: scene.sourceVisibility, body: PRIVATE_BODY } : null,
+        error: scene.sourceError,
+      });
       chain.single = () => done(null);
       chain.then = (r: (v: unknown) => unknown) => done(null).then(r);
       return chain;
@@ -76,6 +81,8 @@ describe("R01: a support plan from an Only me note", () => {
     scene.plans = [];
     scene.staff = { id: "teacher-a", role: "teacher", displayName: "Synthetic teacher A" };
     scene.sourceVisibility = "private";
+    scene.sourceMissing = false;
+    scene.sourceError = null;
   });
 
   it("refuses a source note the writer cannot read, and touches nothing (not even its status)", async () => {
@@ -135,5 +142,24 @@ describe("R01: a support plan from an Only me note", () => {
     const res = await tellParentsAboutPlanAction("00000000-0000-4000-8000-0000000000b1");
     expect(res.ok).toBe(false);
     expect(queueWrites()).toHaveLength(0);
+  });
+
+  it.each(["error", "missing"])("does not queue a plan when source privacy cannot be verified: %s", async (failure) => {
+    scene.plans = [{ id: "plan-1", studentId: CHILD, classId: "class-1", noteId: NOTE_ID, studentName: "QA Child", goal: PRIVATE_BODY, steps: [] }];
+    scene.sourceError = failure === "error" ? { message: "Synthetic unavailable read" } : null;
+    scene.sourceMissing = failure === "missing";
+    const res = await tellParentsAboutPlanAction("00000000-0000-4000-8000-0000000000b1");
+    expect(res.ok).toBe(false);
+    expect(scene.writes).toEqual([]);
+  });
+
+  it("can retry sharing a team plan after the source read recovers", async () => {
+    scene.plans = [{ id: "plan-1", studentId: CHILD, classId: "class-1", noteId: NOTE_ID, studentName: "QA Child", goal: "Read daily", steps: [] }];
+    scene.sourceVisibility = "team";
+    scene.sourceError = { message: "Synthetic unavailable read" };
+    expect((await tellParentsAboutPlanAction("00000000-0000-4000-8000-0000000000b1")).ok).toBe(false);
+    scene.sourceError = null;
+    expect((await tellParentsAboutPlanAction("00000000-0000-4000-8000-0000000000b1")).ok).toBe(true);
+    expect(queueWrites()).toHaveLength(1);
   });
 });

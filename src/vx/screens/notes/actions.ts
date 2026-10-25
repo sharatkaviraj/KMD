@@ -503,7 +503,10 @@ export async function tellParentsAboutPlanAction(planId: string): Promise<NoteRe
   let noteBody: string | null = null;
   if (plan.noteId) {
     // An Only me note's plan stays with the school (R01), as the note does (createNoteAction).
-    const { data: source } = await createAdminClient().from("notes").select("visibility, body").eq("id", plan.noteId).maybeSingle<{ visibility: string; body: string }>();
+    const { data: source, error: sourceError } = await createAdminClient().from("notes").select("visibility, body").eq("id", plan.noteId).maybeSingle<{ visibility: string; body: string }>();
+    // A failed/missing read does not prove that this note may be shared.
+    if (sourceError) return NOT_SAVED();
+    if (!source) return PLAN_SOURCE_REFUSED.missing();
     if (source?.visibility === "private") return PLAN_SOURCE_REFUSED.private_to_parents();
     // A goal that repeats the note's staff wording is left out of the parents' message (smoke 20 Oct).
     noteBody = source?.body ?? null;
