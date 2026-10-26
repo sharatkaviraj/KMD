@@ -1,8 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { fromRoot } from "./root";
 
 export default defineConfig({
-  testDir: "./tests/marks-dev",
-  outputDir: ".playwright/marks-dev",
+  testDir: fromRoot("./tests/marks-dev"),
+  outputDir: fromRoot(".playwright/marks-dev"),
   fullyParallel: false,
   workers: 1,
   timeout: 240_000,

@@ -40,7 +40,7 @@ Execution requires the coordinator's explicit serialized browser release plus:
 $env:PR79_READONLY_RUN='yes'
 $env:PR79_READONLY_DEPLOYED_SHA='<exact 40-character deployed merge SHA>'
 $env:PR79_READONLY_DEPLOYMENT_FILE='<fresh coordinator manifest JSON path>'
-node node_modules/playwright/cli.js test --config pr79-readonly.playwright.config.ts
+node node_modules/playwright/cli.js test --config tests/playwright/pr79-readonly.playwright.config.ts
 ```
 
 After the genuine DEV contact acceptance, coordinator also supplies exact

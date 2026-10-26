@@ -35,7 +35,7 @@ jobs:
             npx vite build --config tests/sibling-context/vite.config.ts
             export PHONEOPS_SIBLING_STATIC_DIR="../evidence/sibling-context-static"
           fi
-          npx playwright test --config ${{ matrix.config }}
+          npx playwright test --config tests/playwright/${{ matrix.config }}
       - name: Collect safe generated follow-up evidence
         if: always()
         run: |

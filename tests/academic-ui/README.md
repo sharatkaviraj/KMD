@@ -8,7 +8,7 @@ authenticated role policy or physical-device behavior.
 Run with installed repository dependencies:
 
 ```sh
-node node_modules/@playwright/test/cli.js test --config academic-ui.playwright.config.ts
+node node_modules/@playwright/test/cli.js test --config tests/playwright/academic-ui.playwright.config.ts
 ```
 
 For a compiled fixture without a server, first build to a dedicated directory:
