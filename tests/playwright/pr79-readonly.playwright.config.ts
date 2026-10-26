@@ -1,9 +1,10 @@
 import { defineConfig } from "@playwright/test";
+import { fromRoot } from "./root";
 import path from "node:path";
 
 const evidence = path.resolve(process.env.PR79_READONLY_OUTPUT_DIR ?? "../evidence/pr79-deployed-readonly");
 export default defineConfig({
-  testDir: "./tests/pr79-readonly",
+  testDir: fromRoot("./tests/pr79-readonly"),
   testMatch: "acceptance.spec.ts",
   workers: 1,
   fullyParallel: false,

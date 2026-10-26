@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { defineConfig } from "@playwright/test";
+import { ROOT, fromRoot } from "./root";
 
 export default defineConfig({
-  testDir: "./tests/mobile-ui",
+  testDir: fromRoot("./tests/mobile-ui"), outputDir: fromRoot("test-results"),
   testMatch: "**/*.spec.ts",
   fullyParallel: true,
   workers: 2,
@@ -15,7 +16,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npx vite --config tests/mobile-ui/vite.config.ts",
+    cwd: ROOT, command: "npx vite --config tests/mobile-ui/vite.config.ts",
     url: "http://127.0.0.1:3201",
     reuseExistingServer: false,
     timeout: 30_000,

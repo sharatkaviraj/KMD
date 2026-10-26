@@ -11,7 +11,7 @@ From the repository root, after acquiring the shared browser/build slot:
 ```powershell
 node node_modules/vite/bin/vite.js build --config tests/sibling-context/vite.config.ts
 $env:PHONEOPS_SIBLING_STATIC_DIR='../evidence/sibling-context-static'
-node node_modules/@playwright/test/cli.js test --config student360-sibling.playwright.config.ts
+node node_modules/@playwright/test/cli.js test --config tests/playwright/student360-sibling.playwright.config.ts
 ```
 
 Use the existing Playwright browser cache when required by the host. The managed Windows host requires approved local networking for browser execution. CI uses its prebuilt static fixture. No credentials are required.

@@ -1,5 +1,11 @@
 # Decisions
 
+## Workspace tidy — 2026-10-26
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-323 | The 26 single-purpose Playwright configs live in `tests/playwright/`. Every path in them is written from the repository root through `fromRoot()`/`ROOT` (`tests/playwright/root.ts`), and each `webServer` runs with `cwd: ROOT`. Configs that used Playwright's default output now name `test-results/` at the root, so the CI artifact uploads are unchanged. The workflows still pass bare file names in their matrices, because artifact names cannot hold `/` | The repo root held 26 configs beside the real project files. Before and after the move, `playwright test --list --reporter=json` gave the same testDir, outputDir, snapshotDir, webServer command and test count for every config (fee-collector-dev refuses to load without its posting signals both times, by design) |
+
 ## Assessment fixes — 2026-10-19
 
 From the 19 October fix brief (B01–B16, R01, U01–U05; ledger in `docs/evidence/assessment-fixes-2026-10-19.md`). No schema, grant or policy change; not merged or deployed.

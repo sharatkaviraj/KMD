@@ -1,5 +1,15 @@
 # VPPS One — progress
 
+## Workspace tidy — 26 October 2026
+
+Branch `chore/tidy-root`. The local checkout moved from `Desktop\vppsone` to
+`Desktop\VPPS One\app`, beside `reference-docs\` and `private-data\` (real export
+files, never in git). Seven stray worktrees were removed after three unpushed agent
+branches were pushed as `salvage/student360-first-screen`, `salvage/students-list`
+and `salvage/admin-today-order`. Those three are not merged and still need review.
+Root Playwright configs moved to `tests/playwright/` (D-323). Speed ideas, ranked
+from a code read and not yet built: [plans/2026-10-26-speed-ideas.md](plans/2026-10-26-speed-ideas.md).
+
 ## Source-note privacy release - 25 October 2026
 
 Reviewed on `codex/technical-followup-20261025`, based on main

@@ -30,7 +30,7 @@ oracle. No physical printer or message delivery is tested.
 Run only after the coordinator grants the serialized browser slot:
 
 ```powershell
-node node_modules/playwright/cli.js test --config fee-followup.playwright.config.ts
+node node_modules/playwright/cli.js test --config tests/playwright/fee-followup.playwright.config.ts
 ```
 
 Default evidence: `.test-artifacts/fee-followup/results.json`, failure traces,

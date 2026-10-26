@@ -14,7 +14,7 @@ All test content is synthetic; no auth, DB, staff notices or family sends.
 
 ```sh
 node node_modules/vitest/vitest.mjs run tests/timetable-leave-followup.test.ts --maxWorkers 1
-node node_modules/@playwright/test/cli.js test --config academic-followup.playwright.config.ts
+node node_modules/@playwright/test/cli.js test --config tests/playwright/academic-followup.playwright.config.ts
 ```
 
 For static fulfillment build with `tests/academic-followup/vite.config.ts` to

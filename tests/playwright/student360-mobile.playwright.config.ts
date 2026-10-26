@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { ROOT } from "./root";
 import base from "./mobile-ui.playwright.config";
 
 // Pure synthetic student models and server-action stubs: no .env, auth or DB.
@@ -16,7 +17,7 @@ export default defineConfig({
     { name: "phone-landscape", use: { viewport: { width: 844, height: 390 } } },
   ],
   webServer: {
-    command: "npx vite --config tests/mobile-ui/vite.config.ts",
+    cwd: ROOT, command: "npx vite --config tests/mobile-ui/vite.config.ts",
     url: "http://127.0.0.1:3201",
     reuseExistingServer: false,
     timeout: 180_000,
