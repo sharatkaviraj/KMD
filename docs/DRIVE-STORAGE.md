@@ -1,11 +1,12 @@
 # Student documents in the school's Google Drive (D-333)
 
-Status on 27 October 2026: **code written and tested; Drive switched off.**
-The owner approved the migration, the Google project, a dedicated Shared
-Drive and the backup plan the same day. Nothing reaches Google for a member of
-staff until the settings row names them (pilot) or says `gdrive` (everyone).
-Until then every upload and every document behaves exactly as before, from
-the private Supabase bucket.
+Status on 27 October 2026: **deployed; Drive on for one pilot account
+(raj@vpps.co.in), off for everyone else.** The owner approved the migration,
+the Google project, the Shared Drive (the existing "Share" drive, one folder)
+and the backup plan the same day. Nothing reaches Google for any other member
+of staff until the settings row names them (pilot) or says `gdrive`
+(everyone); for them every upload and every document behaves exactly as
+before, from the private Supabase bucket.
 
 ## What moves, and what does not
 
@@ -239,14 +240,31 @@ binding or the membership.
 | Workspace storage | **Not verified.** Reported as ~100 TB pooled (consistent with Workspace for Education); Admin console needs a password re-entry Claude does not do | — |
 | Vercel | 4.5 MB request body (hence chunks); streamed responses are not capped; each Open passes the file through the function once | Vercel docs, read 27 Oct 2026 |
 | Vercel bandwidth | Assumption: 100 Opens a day × 500 KB ≈ 1.5 GB a month | Assumption, not measured |
-| Sealed copies | Same size as the documents (+ ~600 bytes each), in Supabase Storage | Assumption: 600 children × 4 documents × 400 KB ≈ 1 GB. **Supabase Free allows 1 GB of storage in total**, so a full roll of documents may need Pro ($25/month, 100 GB) or another independent store — a decision, not a purchase made here |
-| Google Cloud project, WIF, STS, IAM Credentials | No charge, no billing account | Google pricing pages |
+| Sealed copies | Same size as the documents (+ ~600 bytes each), in Supabase Storage | The Supabase organisation is on the **Free** plan (read 27 Oct) and this project holds about 2 MB of objects today. Assumption: 600 children × 4 documents × 400 KB ≈ 1 GB, and **Free allows 1 GB of file storage per project**, so a full roll of documents may need Pro ($25/month, 100 GB) or another independent store — a decision for later, not a purchase made here |
+| Google Cloud project `vpps-one-files` | No charge possible: **billing is not enabled** on it (read 27 Oct). Drive, IAM, IAM Credentials and STS need none | `gcloud billing projects describe` |
 
-Performance against real Drive is **not measured yet**: it needs the pilot.
-The pilot measures upload time per MB, time to first byte and full download
-for 100 KB / 1 MB / 5 MB / 10 MB synthetic files with 1 and 4 at once,
-compared with the bucket's signed URL. Until then this page claims nothing
-about speed.
+### Pilot, 27 October 2026 (production, Drive on for raj@vpps.co.in only)
+
+One upload, from the owner's account at 12:19 UTC: a 368,841-byte PDF, kind
+"other", to one student record. It was not one of the synthetic pilot files
+(those are in the owner's scratch folder, unused). Function timings from the
+`vppsone.drive` log lines, region `bom1` — **one sample each, not a benchmark**:
+
+| Step | ms | What it includes |
+|---|---|---|
+| begin | 2,725 | first Google token in that instance (STS + IAM Credentials), creating the `session 2026-27` folder, opening the resumable session, two database writes |
+| chunk (whole file) | 2,585 | 369 KB forwarded to Drive, Drive's sha256 compared with the browser's |
+| open, first | 2,584 | scoped row read, settings read, token, until Drive's first byte |
+| open, second | 1,654 | the same with the token cached |
+
+Checked afterwards: the row is `stored` with Drive's sha256; the file is in
+`VPPS One documents/session 2026-27`, named by ids only, with exactly two
+permissions (the owner as organizer, the service account as writer); the
+service account is still not a member of the drive. Not done in the pilot:
+the Jobs → Document backup run (so no Drive health check and no sealed copy
+yet; the 03:00 IST run makes both), the synthetic files at 1, 5 and 10 MB,
+four at once, and a like-for-like timing of the bucket's signed URL. So this
+page still claims no comparison with the bucket's speed.
 
 ## Migration of existing files
 

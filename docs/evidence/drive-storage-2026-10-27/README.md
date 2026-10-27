@@ -29,9 +29,20 @@ What was run for Drive-backed student documents, and what was not.
   `workloadIdentityUser` binding for the production subject. No key created;
   no organisation policy changed.
 
+- Folder `VPPS One documents` (`1MPLDVfid2eQIMNs8rRQTzEhaUZFVh826`) in the
+  existing Shared Drive "Share", shared with the service account as writer on
+  the folder only; settings row filled with identifiers and the recovery
+  key's public half (fingerprint `9c7fea21b804a1a3…`).
+- Pilot list = the owner's staff profile. One upload and two opens through
+  production at 12:19 UTC, recorded in `docs/DRIVE-STORAGE.md`.
+
 ## Not run
 
-- Nothing against the Shared Drive or Drive's API yet (pilot).
+- The Document backup job (no run recorded on 27 Oct by 12:20 UTC): no Drive
+  health check in production yet, no sealed copy of the pilot document yet,
+  no restore check of a real sealed copy with the real key.
+- The synthetic pilot files at 100 KB, 1 MB, 5 MB and 9.5 MB and the JPEG,
+  one at a time and four at once.
 - No performance measurement against real Drive; the pilot does that.
 - No migration of existing files: there are three 193-byte synthetic PDFs in
   `student_documents` and no real student document.
