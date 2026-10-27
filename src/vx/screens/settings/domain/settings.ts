@@ -6,7 +6,7 @@ import { p, type Pair } from "@/vx/text";
  * classic screens. No database import.
  */
 
-export const SETTINGS_STATES = ["home", "school", "prefs", "session", "activity", "backups", "restore", "archive", "master", "integrations", "glossary"] as const;
+export const SETTINGS_STATES = ["home", "school", "prefs", "session", "activity", "backups", "restore", "archive", "master", "integrations", "ai", "glossary"] as const;
 export type SettingsState = (typeof SETTINGS_STATES)[number];
 
 export function isSettingsState(value: unknown): value is SettingsState {

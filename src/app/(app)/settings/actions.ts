@@ -7,6 +7,8 @@ import { CACHE_TAGS, expireTag } from "@/platform/performance/shared-cache";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { resolveSessionLabel } from "@/modules/academics/data/academics-repo";
 import { createArchive, runRestoreDrill } from "@/modules/archives/data/archive-repo";
+import { saveAssistSettings } from "@/modules/assist/data/settings";
+import { isAssistFeature } from "@/modules/assist/domain/features";
 import { schoolToday } from "@/vx/format";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { p, type Pair } from "@/vx/text";
@@ -100,4 +102,38 @@ export async function restoreDrillAction(archiveId: string): Promise<SettingsRes
   revalidatePath("/settings");
   if (!report) return { ok: false, message: p("That copy is not ready.", "यह प्रति तैयार नहीं।") };
   return report.ok ? { ok: true, message: p("Restore check passed: every table and file came back", "जाँच सफल") } : { ok: false, message: p("Restore check failed — see the archive", "जाँच विफल") };
+}
+
+/**
+ * Settings → AI helper (D-324): the master switch, the monthly budget in US
+ * dollars, the daily cap per person and the features switched off. The
+ * Claude Console key itself is never entered here: it lives in the
+ * deployment's environment, where only the people who manage the deployment
+ * can set it.
+ */
+export async function saveAssistSettingsAction(input: {
+  enabled: boolean;
+  monthlyBudgetUsd: number;
+  dailyCapPerStaff: number;
+  disabledFeatures: string[];
+}): Promise<SettingsResult> {
+  const actor = await assertPermission("settings:manage");
+  await assertNotPreviewing();
+  const budget = Number(input?.monthlyBudgetUsd);
+  const cap = Number(input?.dailyCapPerStaff);
+  if (!Number.isFinite(budget) || budget < 0 || budget > 1000) return { ok: false, message: p("The monthly budget must be between $0 and $1,000.", "मासिक बजट $0 से $1,000 के बीच हो।") };
+  if (!Number.isInteger(cap) || cap < 0 || cap > 1000) return { ok: false, message: p("The daily limit must be a whole number up to 1,000.", "रोज़ की सीमा 1,000 तक की पूरी संख्या हो।") };
+  const disabled = Array.isArray(input?.disabledFeatures) ? input.disabledFeatures.filter(isAssistFeature) : [];
+  try {
+    await saveAssistSettings(
+      { enabled: input?.enabled === true, monthlyBudgetUsd: Math.round(budget * 100) / 100, dailyCapPerStaff: cap, disabledFeatures: [...new Set(disabled)] },
+      actor.id,
+    );
+  } catch {
+    return { ok: false, message: p("Not saved. Try again.", "सहेजा नहीं गया।") };
+  }
+  revalidatePath("/settings");
+  // The shell decides which AI buttons each person sees.
+  revalidatePath("/", "layout");
+  return { ok: true, message: p("AI helper settings saved", "AI सहायक की सेटिंग्स सहेजी गईं") };
 }

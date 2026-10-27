@@ -7,7 +7,7 @@ import {
   Gift, Globe, GraduationCap, Hash, Heart, History, House, Image, Inbox, IndianRupee, Info, Key,
   Keyboard, Landmark, Layers, LayoutGrid, Link, List, Lock, LogOut, Mail, MapPin,
   MessageCircle, Mic, Minus, Moon, PenLine, Percent, Phone, Pin, Plus, Printer,
-  Repeat, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Star, Sun, Table,
+  Repeat, RefreshCw, Search, Send, Settings, Shield, SlidersVertical, Smile, Sparkles, Star, Sun, Table,
   Tag, Trash2, TrendingUp, TriangleAlert, Type, Undo2, Upload, User, UserPlus, Users, WifiOff, X,
   Zap, createLucideIcon, type LucideIcon,
 } from "lucide-react";
@@ -57,6 +57,8 @@ export const ICONS = {
   flask: FlaskConical, coffee: Coffee, heart: Heart, smile: Smile, keyboard: Keyboard,
   calMinus: CalendarMinus, eyeRole: Eye, arrowDown: ArrowDown,
   notePen: NotePen,
+  // The AI helper's mark (D-324): every button that asks Claude for a draft carries it.
+  sparkle: Sparkles,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

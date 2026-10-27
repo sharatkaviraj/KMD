@@ -15,6 +15,7 @@ import { subjectPair } from "./domain/groups";
 import { remarkText, type RemarkSuggestion } from "./domain/messages";
 import { pickState, resultsLine } from "./domain/pick";
 import type { ActionResult } from "./save-types";
+import { AiRemarkCard, AiRemarksBar, useAiRemarks } from "@/vx/assist/remarks-assist";
 
 /*
  * Teacher · Marks (design TchMarks `pick` and `remarks`). The sheet itself —
@@ -227,6 +228,9 @@ export type RemarkChild = {
   percent: number | null;
   attendance: number | null;
   suggestions: RemarkSuggestion[];
+  /** Strongest and weakest subject this term, in English, for the AI remark. */
+  strongest?: string | null;
+  weakest?: string | null;
 };
 
 const TONES: [string, string][] = [[V("accs"), V("accfg")], [V("infos"), V("info")], [V("oks"), V("ok")], [V("warns"), V("warnfg")]];
@@ -260,6 +264,7 @@ export function TeacherRemarks({
   const [editing, setEditing] = useState(false);
   const [help, setHelp] = useState(false);
   const [pending, start] = useTransition();
+  const ai = useAiRemarks({ exam: examLabel.en, classLabel });
 
   const done = savedIds.size;
   const n = kids.length;
@@ -299,6 +304,7 @@ export function TeacherRemarks({
       if (r?.ok) {
         setSavedText((s) => ({ ...s, [id]: value }));
         setRemarks((m) => ({ ...m, [id]: value }));
+        ai.saved(id, value);
         if (advance) next(id);
         else setEditing(false);
       } else toast.show({ text: tx(r && !r.ok ? r.message : p("Not saved – retry", "सहेजा नहीं – फिर कोशिश करें")), tone: "bad" });
@@ -386,6 +392,7 @@ export function TeacherRemarks({
                   <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(p(`All ${n} remarks are ready. They print on the report cards.`, `सभी ${n} टिप्पणियाँ तैयार। ये रिपोर्ट कार्ड पर छपेंगी।`))}</span>
                 </div>
               ) : null}
+              <AiRemarksBar ai={ai} missing={kids.filter((c) => !savedIds.has(c.id))} />
               {child ? (
                 <>
                   <div className="card" style={{ padding: "16px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
@@ -407,6 +414,7 @@ export function TeacherRemarks({
                     </div>
                   ) : null}
                   <div role="radiogroup" aria-label={tx(p("Suggested remarks", "सुझाई टिप्पणियाँ"))} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <AiRemarkCard ai={ai} child={child} current={text} onPick={(value) => { setRemarks((r) => ({ ...r, [child.id]: value })); setEditing(true); }} />
                     {child.suggestions.map((s, i) => {
                       const value = remarkText(s.text);
                       const on = text === value;

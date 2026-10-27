@@ -22,6 +22,7 @@ import { RemindSheet, reminderFor, type TeacherRowView } from "./remind";
 import type { ActionResult } from "./save-types";
 import { useAct } from "./use-act";
 import { when } from "./when";
+import { ResultsAssist } from "@/vx/assist/results-assist";
 
 export type ExamsView = "list" | "grid" | "cell" | "sampark" | "entry" | "reportcards" | "preview" | "analysis" | "create" | "remind";
 
@@ -1423,6 +1424,10 @@ function Analysis(props: ExamsProps & { href: Href }) {
           </Link>
         ))}
       </div>
+      <ResultsAssist
+        key={a.classId}
+        facts={{ exam: props.exam?.name.en ?? "", classLabel: a.classLabel, children: a.children, counted: a.counted, passedAll: a.passedAll, belowCount: a.belowCount, passPct: pass, previousExam: a.prevName?.en ?? null, subjects: a.subjects }}
+      />
       <div className="stack" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr)", gap: 14 }}>
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

@@ -30,6 +30,23 @@ fee app's backup stores them as `[SENSITIVE]`:
 Add them from AiSensy and Sentry directly when Phase 5 / Phase 7 needs them;
 `CRON_SECRET` should be a fresh value, not the fee app's.
 
+### The AI helper's key (D-324)
+
+| Key | Source |
+|---|---|
+| `ANTHROPIC_API_KEY` | the school's Claude Console (console.anthropic.com → API keys), Secret type, server only |
+
+Without it the AI helper is simply absent: no button, no route call, no cost.
+To switch it on, create a key in the Claude Console (a workspace of its own
+for VPPS One, with its own spend limit, is the tidy way), add it on Vercel for
+Production and Preview as a **Sensitive** variable, and redeploy. For local
+work put it in `.env.local`; never commit it, never paste it into a chat or a
+ticket. Then Settings → AI helper shows "Connected", and the admin sets the
+monthly budget (default $25), the daily limit per person (default 60) and
+which features are on. The budget here is an estimate from reported usage;
+set a hard spend limit on the Console workspace as well, which is the one the
+bill obeys.
+
 ### The scheduled jobs (Phase 7.1)
 
 | Key | What it is |

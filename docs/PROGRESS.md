@@ -1,5 +1,28 @@
 # VPPS One — progress
 
+## AI helper — 27 October 2026
+
+Branch `feat/ai-assist`. Owner's request: build the brainstormed Claude uses
+(all but the worksheet builder) on the school's Claude Console, easy for
+non-technical staff. D-324 to D-327. Claude Haiku 5.5 for quick drafts,
+Claude Sonnet 5.5 for remarks, results and reading a paper form.
+
+What staff see, only once `ANTHROPIC_API_KEY` is set and the admin leaves it on:
+"Tidy up" and "In English/Hindi" under every note box; "Write it for me",
+"Polish" and "Fill the other language" on the notice composer, and "Suggest a
+reply" on parent replies; "Suggest what to do in this period" on a cover duty;
+"Write AI remarks for N children" and an AI card among the suggested remarks;
+"Match the other N with AI" on the import's column step; "Fill from a photo of
+the paper form" on the admission wizard; "Write a summary" on a class's result
+analysis; an "Ask" row in the search box for questions; and Settings → AI
+helper for the switch, budget, daily limit, per-feature switches and usage.
+
+Migration `20261027080847_assist` (two private tables, three RPCs) is applied
+on dev. 30 new unit tests (masking, cost, task clean-up, the route's refusal
+order with Claude mocked). **Not yet tested against the real API**: there is
+no key in this checkout or on Vercel, so every AI button is hidden on the
+deployed app until the key is added (docs/SETUP.md). Status: in review.
+
 ## Workspace tidy — 26 October 2026
 
 Branch `chore/tidy-root`. The local checkout moved from `Desktop\vppsone` to
