@@ -18,7 +18,7 @@
  * NFKD first so an accented Latin letter degrades to its base letter rather
  * than vanishing — "JOSÉ" becomes "JOSE", not "JOS".
  */
-function asciiFallback(fileName: string): string {
+function asciiFallback(fileName: string, fallback: string): string {
   const folded = fileName
     .normalize("NFKD")
     // NFKD has already split "É" into "E" + a combining acute, and the
@@ -28,7 +28,7 @@ function asciiFallback(fileName: string): string {
     .replace(/[^A-Za-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  return folded || "student-photo.jpg";
+  return folded || fallback;
 }
 
 /**
@@ -42,6 +42,11 @@ function encodeExtValue(value: string): string {
   );
 }
 
-export function attachmentDisposition(fileName: string): string {
-  return `attachment; filename="${asciiFallback(fileName)}"; filename*=UTF-8''${encodeExtValue(fileName)}`;
+export function attachmentDisposition(fileName: string, fallback = "student-photo.jpg"): string {
+  return `attachment; filename="${asciiFallback(fileName, fallback)}"; filename*=UTF-8''${encodeExtValue(fileName)}`;
+}
+
+/** The same, for a file the browser should show rather than save. */
+export function inlineDisposition(fileName: string, fallback = "document"): string {
+  return `inline; filename="${asciiFallback(fileName, fallback)}"; filename*=UTF-8''${encodeExtValue(fileName)}`;
 }

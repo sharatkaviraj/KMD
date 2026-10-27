@@ -34,6 +34,8 @@ import { useLanguage } from "@/platform/i18n/use-language";
 import { Checkbox, Field, Input, Notice, Select, Textarea } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 
+import { DriveDocumentForm } from "./drive-document-form";
+
 /** Build a request: a class, some questions, and who is being asked. */
 export function NewRequestForm({
   classes,
@@ -430,8 +432,17 @@ export function CopyLink({ url }: { url: string }) {
   );
 }
 
-/** Upload one document about one child. */
-export function DocumentForm({ studentId }: { studentId: string }) {
+/**
+ * Upload one document about one child. `mode` is decided on the server from
+ * `file_storage_settings` (D-333): the Supabase bucket by default, the
+ * school's Shared Drive once it is switched on for this person.
+ */
+export function DocumentForm({ studentId, mode = "supabase" }: { studentId: string; mode?: "supabase" | "gdrive" }) {
+  if (mode === "gdrive") return <DriveDocumentForm studentId={studentId} />;
+  return <BucketDocumentForm studentId={studentId} />;
+}
+
+function BucketDocumentForm({ studentId }: { studentId: string }) {
   const language = useLanguage();
   const [state, action, pending] = useActionState(
     uploadDocumentAction,

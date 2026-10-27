@@ -35,6 +35,8 @@ import {
   deleteDocument,
   storeDocument,
 } from "@/modules/collection/data/documents-repo";
+import { studentInScope } from "@/modules/collection/data/drive-documents";
+import { displayFileName, sniffDocumentType } from "@/modules/collection/domain/document-files";
 import { fieldSchema, slugFieldKey } from "@/modules/collection/domain/fields";
 import {
   requestInputSchema,
@@ -287,14 +289,22 @@ export async function uploadDocumentAction(
 
   if (!allowed.ok) return failure(allowed.reason);
 
+  // A child this person may see, and a file that is what it says it is: the
+  // bytes decide, not the name or the browser's claim (D-333).
+  if (!(await studentInScope(studentId, sessionLabel))) return failure(m.accessDenied);
+  const bytes = await file.arrayBuffer();
+  if (sniffDocumentType(new Uint8Array(bytes, 0, Math.min(16, bytes.byteLength))) !== file.type) {
+    return failure(t("केवल PDF या फ़ोटो भेजें।", "Only a PDF or a photograph can be stored here."));
+  }
+
   try {
     await storeDocument({
       sessionLabel,
       studentId,
       kind,
-      fileName: file.name,
+      fileName: displayFileName(file.name),
       contentType: file.type,
-      bytes: await file.arrayBuffer(),
+      bytes,
       note: (formData.get("note") ?? "").toString().trim() || null,
       uploadedByStaffId: actor.id,
     });

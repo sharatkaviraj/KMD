@@ -35,6 +35,7 @@ import {
   recordSourceLabel,
 } from "@/modules/collection/domain/review";
 import { DocumentForm } from "@/modules/collection/ui/office-forms";
+import { documentUploadMode } from "@/modules/collection/data/storage-settings";
 import { listNoteKinds, notesForStudent } from "@/modules/notes/data/notes-repo";
 import { canReadNote } from "@/modules/notes/domain/notes";
 import { NoteComposer } from "@/modules/notes/ui/note-composer";
@@ -125,7 +126,7 @@ export default async function StudentPage(
 
   const seesMoney = can(staff, "collection:view");
 
-  const [enrolment, history, rules, labels, own, kinds, fees, records, documents, changes] =
+  const [enrolment, history, rules, labels, own, kinds, fees, records, documents, changes, uploadMode] =
     await Promise.all([
       enrolmentForStudent(studentId, sessionLabel),
       studentAttendance(studentId, sessionLabel),
@@ -143,6 +144,9 @@ export default async function StudentPage(
       can(staff, "collection:view")
         ? historyForStudent(studentId)
         : Promise.resolve([]),
+      can(staff, "documents:manage")
+        ? documentUploadMode(staff.id)
+        : Promise.resolve("supabase" as const),
     ]);
 
   const statuses = history.map((entry) => entry.status);
@@ -474,7 +478,7 @@ export default async function StudentPage(
 
           {can(staff, "documents:manage") ? (
             <Card className="mt-3 p-4">
-              <DocumentForm studentId={studentId} />
+              <DocumentForm studentId={studentId} mode={uploadMode} />
             </Card>
           ) : null}
         </Section>

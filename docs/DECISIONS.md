@@ -1,5 +1,11 @@
 # Decisions
 
+## Student documents in Google Drive — 2026-10-27
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-333 | **Student documents can live in a dedicated school Shared Drive; the row stays the index, and Drive is off until approved.** `student_documents` gains `storage_provider`, `drive_file_id`, `content_sha256`, `content_version`, `upload_state`, `client_request_id`, `removed_at/by` and backup columns; `file_storage_settings` (one server-only row of identifiers) says where new uploads go: `supabase` by default, a pilot list, then `gdrive`. The app authenticates with its Vercel OIDC token through Workload Identity Federation to a service account that is a **Contributor** on one Shared Drive — no key anywhere. Uploads arrive in 3.75 MiB chunks through VPPS One (Vercel's 4.5 MB body cap), magic bytes checked before Drive sees a byte, Drive's own sha256 compared at the end; documents stream back through `/documents/<id>` with `private, no-store`. Removing a Drive document hides it; the app never deletes from Drive. A nightly `document-backup` job seals each Drive document (AES-256-GCM, key wrapped RSA-OAEP for the school's offline recovery key; the app holds only the public half) into the Supabase bucket `vppsone-drive-backups`, which year-end archives include. Profile photographs, fee buckets and generated PDFs stay as they are. `/documents/<id>` now reads the row as the person asking, closing a cross-class read by id. | Owner's brief, 27 Oct: Drive as the private store for student documents, least privilege, no per-user Google sign-in, files private, real backup before migration, nothing switched on without the specific approvals. The org forbids service-account keys, so keyless federation is the only option without an org-policy change. A second folder in the same Google account is not a backup. `docs/DRIVE-STORAGE.md` has the setup, the switch, recovery, limits and what is still unmeasured. |
+
 ## Smoke Lab round 2 — 2026-10-27
 
 | Decision | Outcome | Evidence and reason |

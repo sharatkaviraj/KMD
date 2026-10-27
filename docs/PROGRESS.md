@@ -1,5 +1,18 @@
 # VPPS One — progress
 
+## Student documents in Google Drive — 27 October 2026
+
+Branch `feat/drive-document-storage`, after PR 121 (`6de3b3c`). D-333,
+`docs/DRIVE-STORAGE.md`. Code for Drive-backed student documents behind
+`file_storage_settings` (default: the Supabase bucket, as before): keyless
+Google auth from the Vercel OIDC token, chunked uploads with type sniffing,
+sha256 and resume, streamed private reads, a nightly sealed copy to another
+provider, the recovery-key tool. Fixed in passing: opening a document by id
+now obeys class scope. Tested against a fake Drive (55 new tests); **not yet
+run against Google**: the Google project, Shared Drive and the migration on
+dev wait for the owner's approval, and so do the pilot and its measurements.
+Found, not fixed: bucket uploads over 1 MB fail (Next's Server Action limit).
+
 ## AI helper on phones — 27 October 2026
 
 Branch `feat/ai-assist-mobile`, after PR 118 (`5ab9f87`) and the owner's key

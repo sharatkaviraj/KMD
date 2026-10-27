@@ -405,3 +405,34 @@ export const taskIntegrationMessages = {
   manual: t("कार्य खोलें और लिंक साझा करें", "Open tasks and share a link"),
   manualNote: t("प्राप्तकर्ता की समीक्षा करें, फिर WhatsApp लिंक तैयार करें। WhatsApp खोलने से भेजे जाने की पुष्टि नहीं होती।", "Review the recipient, then prepare a WhatsApp link. Opening WhatsApp does not confirm a send."),
 } as const;
+
+/** Document upload into the school's Google Drive (D-333). Office staff only. */
+export const documentMessages = {
+  docChecking: t("फ़ाइल जाँची जा रही है…", "Checking the file…"),
+  docSending: t("भेजा जा रहा है", "Sending"),
+  docSaved: t("कागज़ रख लिया गया।", "Document saved."),
+  docRetrying: t("नेटवर्क रुका — फिर से कोशिश हो रही है…", "The connection dropped. Trying again…"),
+  docResume: t("जहाँ रुका था वहीं से भेजें", "Continue from where it stopped"),
+  docTooLarge: t("फ़ाइल 10 MB से बड़ी नहीं होनी चाहिए।", "That file is larger than 10 MB."),
+  docWrongType: t(
+    "यह फ़ाइल PDF या फ़ोटो नहीं है। सही फ़ाइल चुनें।",
+    "This file is not a PDF or a photograph. Choose the right file.",
+  ),
+  docMismatch: t(
+    "फ़ाइल रास्ते में बदल गई। दोबारा भेजें।",
+    "The file arrived different from what was sent. Send it again.",
+  ),
+  docStorageDown: t(
+    "Google Drive अभी जवाब नहीं दे रहा। कुछ देर बाद फिर कोशिश करें — कुछ खोया नहीं है।",
+    "Google Drive is not answering just now. Try again in a few minutes; nothing has been lost.",
+  ),
+  docStorageRefused: t(
+    "स्कूल का Drive इस समय उपलब्ध नहीं है। व्यवस्थापक को बताएँ।",
+    "The school's Drive is not available. Tell the administrator.",
+  ),
+  docStorageFull: t("स्कूल के Drive में जगह नहीं बची। व्यवस्थापक को बताएँ।", "The school's Drive is full. Tell the administrator."),
+  docNotAllowed: t("आप इस बच्चे के कागज़ नहीं जोड़ सकते।", "You cannot add documents for this child."),
+  docExpired: t("यह अपलोड बहुत पुराना हो गया। फ़ाइल फिर से चुनें।", "This upload is too old to continue. Choose the file again."),
+  docFailed: t("कागज़ नहीं रखा गया। फिर से कोशिश करें।", "The document was not saved. Try again."),
+  docInDrive: t("स्कूल के Google Drive में रखा जाएगा।", "Kept in the school's Google Drive."),
+} as const;

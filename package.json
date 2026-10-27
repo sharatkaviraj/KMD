@@ -46,6 +46,7 @@
     "verify:sampark-import": "node scripts/verify-sampark-import.mjs",
     "verify:photos": "node scripts/verify-photos.mjs",
     "verify:archive": "node --import ./scripts/alias-hook.mjs scripts/verify-archive.mjs",
+    "recovery": "node --import ./scripts/alias-hook.mjs scripts/recovery-key.mjs",
     "verify:fee-parity": "node scripts/verify-fee-parity.mjs",
     "verify:native-recovery": "node --import ./scripts/alias-hook.mjs scripts/verify-native-recovery.mjs",
     "smoke:pool": "node scripts/smoke-pool.mjs",

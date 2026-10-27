@@ -93,10 +93,19 @@ later:
 3. **Check.** Compare row counts with the manifest, and run
    `npm run verify:access` before anyone signs in.
 
+## Documents kept in Google Drive (D-333)
+
+When student documents live in the school's Shared Drive, the nightly
+`document-backup` job keeps a sealed copy of each in the private bucket
+`vppsone-drive-backups`, and every archive copies that bucket too. Those
+objects are encrypted for the school's recovery key: the drill proves their
+bytes are intact (sha256), and `npm run recovery -- verify` with the private
+key proves they open. See `docs/DRIVE-STORAGE.md`.
+
 ## Not covered
 
-- Automated off-site copies (Drive, another provider). This needs the school's
-  decision on owner, capacity and access.
+- Automated off-site copies of the archive itself (Drive, another provider).
+  This needs the school's decision on owner, capacity and access.
 - Scheduled archives. Archives are made by hand, at year end and before a
   cutover.
 - The fee app's data, which has its own backups and is not copied here.
