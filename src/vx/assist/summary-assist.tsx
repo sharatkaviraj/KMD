@@ -1,10 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
-import { useToast } from "@/vx/ui/overlays";
 
 import { useAssistTask } from "./client";
 import { useAssistOffers } from "./context";
@@ -19,9 +16,6 @@ const SAY = {
   themes: p("What came up", "क्या सामने आया"),
   attention: p("Needs a follow-up", "ध्यान देना है"),
   praise: p("Worth praising", "शाबाशी के लायक"),
-  copy: p("Copy", "कॉपी करें"),
-  copied: p("Copied", "कॉपी हो गया"),
-  done: p("Got it", "ठीक है"),
   leftOut: p("Health and family notes are not sent to the AI.", "स्वास्थ्य और परिवार वाले नोट्स AI को नहीं भेजे जाते।"),
   noneThisWeek: p("No notes this week to sum up.", "इस हफ़्ते सार के लिए कोई नोट नहीं।"),
 };
@@ -47,10 +41,8 @@ function shareable(notes: readonly SummaryNote[]): SummaryNote[] {
  */
 export function ChildSummary({ childName, notes, facts }: { childName: string; notes: readonly SummaryNote[]; facts: readonly string[] }) {
   const { tx, language } = useVx();
-  const toast = useToast();
   const offer = useAssistOffers("summary");
   const summary = useAssistTask("child.summary");
-  const [copied, setCopied] = useState(false);
   const usable = shareable(notes)
     .slice()
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -74,15 +66,10 @@ export function ChildSummary({ childName, notes, facts }: { childName: string; n
       {ready ? (
         <AssistSuggestion
           title={SAY.childTitle}
+          readOnly
           busy={summary.state.kind === "working"}
-          useLabel={copied ? SAY.copied : SAY.copy}
-          onUse={() => {
-            void navigator.clipboard?.writeText(text).then(() => {
-              setCopied(true);
-              toast.show({ text: tx(SAY.copied) });
-            }, () => undefined);
-            summary.decide("kept");
-          }}
+          takeaway={{ text, title: childName, onTaken: summary.keep }}
+          onUse={() => summary.decide("kept")}
           onAgain={run}
           onDiscard={() => summary.decide("discarded")}
         >
@@ -94,7 +81,7 @@ export function ChildSummary({ childName, notes, facts }: { childName: string; n
               <b>{tx(SAY.opener)}:</b> “{ready.opener}”
             </span>
           ) : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.leftOut)}</span>
+          <span className="as-note">{tx(SAY.leftOut)}</span>
         </AssistSuggestion>
       ) : null}
     </div>
@@ -148,7 +135,7 @@ export function ClassDigest({
     return (
       <li key={ref}>
         {id && onOpen ? (
-          <button type="button" className="tap" onClick={() => onOpen(id)} style={{ border: 0, padding: 0, background: "transparent", color: "var(--acc)", fontWeight: 700, textDecoration: "underline" }}>
+          <button type="button" className="tap" onClick={() => onOpen(id)} style={{ font: "inherit", fontWeight: 700, border: 0, padding: "4px 0", minHeight: 32, background: "transparent", color: "var(--acc)", textDecoration: "underline" }}>
             {name}
           </button>
         ) : (
@@ -166,28 +153,48 @@ export function ClassDigest({
       {!ready ? <AssistButton label={SAY.week} onClick={run} busy={digest.state.kind === "working"} style={{ alignSelf: "flex-start" }} /> : null}
       {digest.state.kind === "problem" ? <AssistProblemLine problem={digest.state.problem} onClose={digest.reset} /> : null}
       {ready ? (
-        <AssistSuggestion title={SAY.weekTitle} busy={digest.state.kind === "working"} useLabel={SAY.done} onUse={() => digest.decide("kept")} onAgain={run} onDiscard={() => digest.decide("discarded")}>
+        <AssistSuggestion
+          title={SAY.weekTitle}
+          readOnly
+          busy={digest.state.kind === "working"}
+          takeaway={{ text: digestText(ready, (ref) => { const id = idOf.get(ref); return id ? nameOf.get(id) || ref : ref; }), title: classLabel, onTaken: digest.keep }}
+          onUse={() => digest.decide("kept")}
+          onAgain={run}
+          onDiscard={() => digest.decide("discarded")}
+        >
           {ready.themes.length ? (
             <>
-              <b style={{ fontSize: 13 }}>{tx(SAY.themes)}</b>
+              <b style={{ fontSize: "0.93em" }}>{tx(SAY.themes)}</b>
               <ul style={{ margin: 0, paddingLeft: 18 }}>{ready.themes.map((t, i) => <li key={i}>{t}</li>)}</ul>
             </>
           ) : null}
           {ready.attention.length ? (
             <>
-              <b style={{ fontSize: 13 }}>{tx(SAY.attention)}</b>
+              <b style={{ fontSize: "0.93em" }}>{tx(SAY.attention)}</b>
               <ul style={{ margin: 0, paddingLeft: 18 }}>{ready.attention.map((r) => person(r.ref, r.line))}</ul>
             </>
           ) : null}
           {ready.praise.length ? (
             <>
-              <b style={{ fontSize: 13 }}>{tx(SAY.praise)}</b>
+              <b style={{ fontSize: "0.93em" }}>{tx(SAY.praise)}</b>
               <ul style={{ margin: 0, paddingLeft: 18 }}>{ready.praise.map((r) => person(r.ref, r.line))}</ul>
             </>
           ) : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.leftOut)}</span>
+          <span className="as-note">{tx(SAY.leftOut)}</span>
         </AssistSuggestion>
       ) : null}
     </div>
   );
+}
+
+/** The digest as plain text for Copy or Share, with each child's name back in place of their ref. */
+function digestText(
+  d: { themes: string[]; attention: { ref: string; line: string }[]; praise: { ref: string; line: string }[] },
+  name: (ref: string) => string,
+): string {
+  return [
+    ...d.themes.map((t) => `• ${t}`),
+    ...d.attention.map((r) => `• ${name(r.ref)} — ${r.line}`),
+    ...d.praise.map((r) => `★ ${name(r.ref)} — ${r.line}`),
+  ].join("\n");
 }

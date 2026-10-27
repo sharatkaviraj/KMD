@@ -149,6 +149,8 @@ export const assistProblems = [
   "refused",
   "busy",
   "failed",
+  // Only ever decided in the browser: a phone with no signal never reaches the server (D-330).
+  "offline",
 ] as const;
 
 export type AssistProblem = (typeof assistProblems)[number];

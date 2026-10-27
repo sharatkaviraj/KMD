@@ -10,7 +10,6 @@ import { AssistButton, AssistProblemLine, AssistSuggestion } from "./parts";
 const SAY = {
   plan: p("Suggest what to do in this period", "इस पीरियड में क्या कराएँ — सुझाव"),
   title: p("A plan for the period", "पीरियड की योजना"),
-  done: p("Got it", "ठीक है"),
   tip: p("Tip", "सुझाव"),
 };
 
@@ -39,14 +38,19 @@ export function CoverAssist({ classLabels, subject, starts, ends }: { classLabel
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {!ready ? <AssistButton label={SAY.plan} onClick={run} busy={plan.state.kind === "working"} style={{ alignSelf: "flex-start", height: "auto", minHeight: 40, whiteSpace: "normal", textAlign: "left" }} /> : null}
+      {!ready ? <AssistButton label={SAY.plan} onClick={run} busy={plan.state.kind === "working"} style={{ alignSelf: "flex-start" }} /> : null}
       {plan.state.kind === "problem" ? <AssistProblemLine problem={plan.state.problem} onClose={plan.reset} /> : null}
       {ready ? (
         <AssistSuggestion
           title={SAY.title}
           busy={plan.state.kind === "working"}
           privacy={false}
-          useLabel={SAY.done}
+          readOnly
+          takeaway={{
+            text: [ready.title, ...ready.steps.map((s, i) => `${i + 1}. ${s.minutes} min · ${s.text}`), ready.tip ? `${tx(SAY.tip)}: ${ready.tip}` : ""].filter(Boolean).join("\n"),
+            title: classLabels,
+            onTaken: plan.keep,
+          }}
           onUse={() => plan.decide("kept")}
           onAgain={run}
           onDiscard={() => plan.decide("discarded")}
@@ -60,7 +64,7 @@ export function CoverAssist({ classLabels, subject, starts, ends }: { classLabel
             ))}
           </ol>
           {ready.tip ? (
-            <span style={{ fontSize: 13, color: "var(--mut)" }}>
+            <span style={{ fontSize: "0.93em", color: "var(--mut)" }}>
               <b>{tx(SAY.tip)}:</b> {ready.tip}
             </span>
           ) : null}

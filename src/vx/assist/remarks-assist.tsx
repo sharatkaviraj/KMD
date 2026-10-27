@@ -127,13 +127,13 @@ export function AiRemarksBar({ ai, missing }: { ai: AiRemarks; missing: readonly
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {ai.progress ? (
         <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 14, background: "var(--accs)", color: "var(--accfg)", fontWeight: 600 }}>
-          <Ic n="refresh" size={16} style={{ animation: "xLoop 1s linear infinite" }} />
+          <Ic n="refresh" size={16} className="as-spin" />
           {tx(SAY.progress(ai.progress.done, ai.progress.of))}
         </div>
       ) : todo.length > 0 ? (
-        <AssistButton label={SAY.forClass(todo.length)} onClick={() => void ai.write(todo)} style={{ alignSelf: "flex-start", height: "auto", minHeight: 40, whiteSpace: "normal", textAlign: "left" }} />
+        <AssistButton label={SAY.forClass(todo.length)} onClick={() => void ai.write(todo)} style={{ alignSelf: "flex-start" }} />
       ) : null}
-      {!ai.progress && ready > 0 ? <span style={{ fontSize: 13, color: "var(--mut)" }}>{tx(SAY.ready(ready))}</span> : null}
+      {!ai.progress && ready > 0 ? <span className="as-note">{tx(SAY.ready(ready))}</span> : null}
       {ai.problem ? <AssistProblemLine problem={ai.problem} onClose={ai.clearProblem} /> : null}
     </div>
   );
@@ -182,7 +182,7 @@ export function AiRemarkCard({
         <span className="tc-tb" style={{ fontWeight: 600 }}>{tx(draft)}</span>
         {sub(draft) ? <span className="tc-ts" style={{ color: "var(--mut)" }}>{sub(draft)}</span> : null}
         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--acc)", textTransform: "uppercase", letterSpacing: ".05em" }}>{tx(SAY.from)}</span>
-        <span style={{ fontSize: 11, color: "var(--mut)" }}>{tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}</span>
+        <span className="as-note">{tx(DRAFT_NOTE)} {tx(PRIVACY_NOTE)}</span>
       </span>
     </button>
   );

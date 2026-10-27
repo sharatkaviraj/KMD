@@ -5,7 +5,7 @@ import { Ic, type IconName } from "@/vx/icons";
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
 
-import { useAssistTask } from "./client";
+import { PROBLEM_TEXT, useAssistTask, useOnline } from "./client";
 import { useAssistOffers } from "./context";
 import { AssistProblemLine } from "./parts";
 
@@ -31,6 +31,7 @@ export function AskRow({ question, pages, onGo, onSearch }: { question: string; 
   const { tx, language } = useVx();
   const offer = useAssistOffers("ask");
   const ask = useAssistTask("ask.answer");
+  const online = useOnline();
   if (!offer || !looksLikeQuestion(question)) return null;
 
   const ready = ask.state.kind === "ready" ? ask.state.value : null;
@@ -46,39 +47,40 @@ export function AskRow({ question, pages, onGo, onSearch }: { question: string; 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 4px" }}>
       {!ready ? (
-        <button type="button" className="tap vxp-item" onClick={run} disabled={ask.state.kind === "working"} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left" }}>
-          <span className="vxp-ic" style={{ background: "var(--accs)", color: "var(--accfg)" }} aria-hidden="true">
-            <Ic n={ask.state.kind === "working" ? "refresh" : "sparkle"} style={ask.state.kind === "working" ? { animation: "xLoop 1s linear infinite" } : undefined} />
+        <button type="button" className="tap as-ask" onClick={run} disabled={ask.state.kind === "working" || !online} style={{ opacity: online ? 1 : 0.6 }}>
+          <span className="vxp-ic" style={{ background: "var(--card)", color: "var(--accfg)", flex: "none" }} aria-hidden="true">
+            <Ic n={!online ? "wifiOff" : ask.state.kind === "working" ? "refresh" : "sparkle"} className={ask.state.kind === "working" ? "as-spin" : undefined} />
           </span>
-          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <span className="clip" style={{ fontSize: 14, fontWeight: 600 }}>{ask.state.kind === "working" ? tx(SAY.thinking) : tx(SAY.ask(question.trim().slice(0, 60)))}</span>
-            <span className="clip" style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.askSub)}</span>
+          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+            {/* The whole question, wrapped: on a phone a clipped question cannot be checked before asking. */}
+            <span style={{ fontSize: 15, fontWeight: 600, overflowWrap: "anywhere" }}>{ask.state.kind === "working" ? tx(SAY.thinking) : tx(SAY.ask(question.trim().slice(0, 120)))}</span>
+            <span className="as-note">{tx(online ? SAY.askSub : PROBLEM_TEXT.offline)}</span>
           </span>
         </button>
       ) : null}
       {ask.state.kind === "problem" ? <AssistProblemLine problem={ask.state.problem} onClose={ask.reset} /> : null}
       {ready ? (
-        <div className="fadein" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", borderRadius: 14, background: "var(--card)", border: "1px solid var(--bd)", borderLeft: "4px solid var(--acc)" }}>
-          {ready.answer ? <span style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{ready.answer}</span> : null}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div className="fadein as-card" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", borderRadius: 14, background: "var(--card)", border: "1px solid var(--bd)", borderLeft: "4px solid var(--acc)" }}>
+          {ready.answer ? <span className="as-read" style={{ whiteSpace: "pre-wrap" }}>{ready.answer}</span> : null}
+          <div className="as-actions">
             {ready.links.map((href) => {
               const page = byHref.get(href);
               if (!page) return null;
               return (
-                <button key={href} type="button" className="tap btn pri" onClick={() => { ask.decide("kept"); onGo(href); }} style={{ height: 38 }}>
+                <button key={href} type="button" className="tap btn pri as-use" onClick={() => { ask.decide("kept"); onGo(href); }}>
                   <Ic n={page.icon} size={16} />
                   {tx(SAY.open)} {tx(page.label)}
                 </button>
               );
             })}
             {ready.search ? (
-              <button type="button" className="tap btn sec" onClick={() => { ask.decide("kept"); onSearch(ready.search ?? ""); }} style={{ height: 38 }}>
+              <button type="button" className="tap btn sec as-use" onClick={() => { ask.decide("kept"); onSearch(ready.search ?? ""); }}>
                 <Ic n="search" size={16} />
                 {tx(SAY.searchFor(ready.search))}
               </button>
             ) : null}
           </div>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.note)}</span>
+          <span className="as-note">{tx(SAY.note)}</span>
         </div>
       ) : null}
     </div>

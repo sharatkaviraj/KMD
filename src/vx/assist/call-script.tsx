@@ -1,11 +1,8 @@
 "use client";
 
-import { useState } from "react";
-
 import { factRuns, fillFacts } from "@/modules/assist/domain/facts";
 import { useVx } from "@/vx/i18n";
 import { p } from "@/vx/text";
-import { useToast } from "@/vx/ui/overlays";
 
 import { useAssistTask } from "./client";
 import { useAssistOffers } from "./context";
@@ -14,8 +11,6 @@ import { AssistButton, AssistProblemLine, AssistSuggestion } from "./parts";
 const SAY = {
   ask: p("What to say on this call", "इस कॉल में क्या कहें"),
   title: p("What you could say", "आप ऐसे कह सकते हैं"),
-  copy: p("Copy", "कॉपी करें"),
-  copied: p("Copied", "कॉपी हो गया"),
   figures: p("Figures in bold are the app’s own. Only the kind of call goes to the AI — no name, number or amount.", "मोटे अक्षरों वाले आँकड़े ऐप के अपने हैं। AI को केवल कॉल का प्रकार जाता है — कोई नाम, नंबर या राशि नहीं।"),
 };
 
@@ -28,13 +23,14 @@ export type CallFact = { key: string; label: string; value: string | null | unde
  * kind of situation; it writes `<<amount>>`, and this screen fills in the
  * family's own figures, which never leave the browser. Nothing is saved: the
  * caller still logs the call as before.
+ *
+ * On a phone (D-330) the script is the size of body text and stays open
+ * after Copy, because it is read while the call goes on.
  */
 export function CallScript({ topic, facts, situation }: { topic: "dues" | "absence"; facts: readonly CallFact[]; situation: readonly string[] }) {
   const { tx, language } = useVx();
-  const toast = useToast();
   const offer = useAssistOffers("calls");
   const script = useAssistTask("call.script");
-  const [copied, setCopied] = useState(false);
   if (!offer) return null;
 
   const present = facts.filter((f): f is CallFact & { value: string } => Boolean(f.value?.trim()));
@@ -59,18 +55,10 @@ export function CallScript({ topic, facts, situation }: { topic: "dues" | "absen
         <AssistSuggestion
           title={SAY.title}
           privacy={false}
+          readOnly
           busy={script.state.kind === "working"}
-          useLabel={copied ? SAY.copied : SAY.copy}
-          onUse={() => {
-            void navigator.clipboard?.writeText(lines.map((l) => fillFacts(l, values)).join("\n")).then(
-              () => {
-                setCopied(true);
-                toast.show({ text: tx(SAY.copied) });
-              },
-              () => undefined,
-            );
-            script.decide("kept");
-          }}
+          takeaway={{ text: lines.map((l) => fillFacts(l, values)).join("\n"), onTaken: script.keep }}
+          onUse={() => script.decide("kept")}
           onAgain={run}
           onDiscard={() => script.decide("discarded")}
         >
@@ -79,10 +67,9 @@ export function CallScript({ topic, facts, situation }: { topic: "dues" | "absen
               {show(line)}
             </span>
           ))}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.figures)}</span>
+          <span className="as-note">{tx(SAY.figures)}</span>
         </AssistSuggestion>
       ) : null}
     </div>
   );
 }
-

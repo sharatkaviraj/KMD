@@ -1,10 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
 import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
-import { useToast } from "@/vx/ui/overlays";
 
 import { useAssistTask } from "./client";
 import { useAssistOffers } from "./context";
@@ -13,8 +10,6 @@ import { AssistButton, AssistProblemLine, AssistSuggestion } from "./parts";
 const SAY = {
   write: p("Write a summary of these results", "इन परिणामों का सारांश लिखें"),
   title: p("Results summary", "परिणाम सारांश"),
-  copy: p("Copy", "कॉपी करें"),
-  copied: p("Copied — paste it into a notice or a report", "कॉपी हो गया — सूचना या रिपोर्ट में चिपकाएँ"),
   next: p("Next steps for the class teachers", "कक्षा अध्यापकों के लिए अगले कदम"),
   onlyCounts: p("Only the class’s figures are sent — no child’s name.", "केवल कक्षा के आँकड़े भेजे जाते हैं — किसी बच्चे का नाम नहीं।"),
 };
@@ -35,14 +30,13 @@ export type ResultsFacts = {
  * On a class's result analysis (D-324): a plain paragraph, in Hindi and
  * English, of what the figures on the page already say, for the principal,
  * a staff meeting or a PTM notice. The figures are counts and averages; no
- * child's name leaves the school. Nothing is saved — Copy is the way out.
+ * child's name leaves the school. Nothing is saved — Copy or Share is the
+ * way out (D-330).
  */
 export function ResultsAssist({ facts }: { facts: ResultsFacts }) {
   const { tx, language } = useVx();
-  const toast = useToast();
   const offer = useAssistOffers("results");
   const summary = useAssistTask("results.summary");
-  const [copied, setCopied] = useState(false);
   if (!offer || facts.counted === 0) return null;
 
   const run = () =>
@@ -59,6 +53,7 @@ export function ResultsAssist({ facts }: { facts: ResultsFacts }) {
     });
   const ready = summary.state.kind === "ready" ? summary.state.value : null;
   const text = ready ? (language === "en" ? ready.en : language === "hi" ? ready.hi : [ready.hi, ready.en].filter(Boolean).join("\n\n")) : "";
+  const full = ready ? [text, ...ready.focus.map((f) => `• ${f}`)].filter(Boolean).join("\n") : "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -68,25 +63,17 @@ export function ResultsAssist({ facts }: { facts: ResultsFacts }) {
         <AssistSuggestion
           title={SAY.title}
           privacy={false}
-          useLabel={copied ? SAY.copied : SAY.copy}
+          readOnly
           busy={summary.state.kind === "working"}
-          onUse={() => {
-            void navigator.clipboard?.writeText(text).then(
-              () => {
-                setCopied(true);
-                toast.show({ text: tx(SAY.copied) });
-              },
-              () => undefined,
-            );
-            summary.decide("kept");
-          }}
+          takeaway={{ text: full, title: `${facts.classLabel} · ${facts.exam}`, onTaken: summary.keep }}
+          onUse={() => summary.decide("kept")}
           onAgain={run}
           onDiscard={() => summary.decide("discarded")}
         >
           <span>{text}</span>
           {ready.focus.length ? (
             <>
-              <b style={{ fontSize: 13 }}>{tx(SAY.next)}</b>
+              <b style={{ fontSize: "0.93em" }}>{tx(SAY.next)}</b>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {ready.focus.map((f) => (
                   <li key={f}>{f}</li>
@@ -94,7 +81,7 @@ export function ResultsAssist({ facts }: { facts: ResultsFacts }) {
               </ul>
             </>
           ) : null}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.onlyCounts)}</span>
+          <span className="as-note">{tx(SAY.onlyCounts)}</span>
         </AssistSuggestion>
       ) : null}
     </div>

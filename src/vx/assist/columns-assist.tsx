@@ -83,7 +83,7 @@ export function ColumnsAssist({
           ) : (
             <span>{tx(SAY.none)}</span>
           )}
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.headingsOnly)}</span>
+          <span className="as-note">{tx(SAY.headingsOnly)}</span>
         </AssistSuggestion>
       ) : null}
     </div>
