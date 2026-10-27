@@ -12,6 +12,7 @@ import { Field, Input, Notice, Select } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
 
 import { uploadToDrive, type UploadOutcome } from "./chunked-upload";
+import { uploadToBucket } from "./bucket-upload";
 
 const FAILURE_TEXT: Record<Extract<UploadOutcome, { ok: false }>["reason"], Localized> = {
   too_large: dm.docTooLarge,
@@ -34,7 +35,7 @@ const FAILURE_TEXT: Record<Extract<UploadOutcome, { ok: false }>["reason"], Loca
  * is saved or the file changes, so a second tap of Save — or a retry after
  * the phone lost signal — is the same document, never a copy.
  */
-export function DriveDocumentForm({ studentId }: { studentId: string }) {
+export function DriveDocumentForm({ studentId, mode = "gdrive" }: { studentId: string; mode?: "supabase" | "gdrive" }) {
   const language = useLanguage();
   const router = useRouter();
   const form = useRef<HTMLFormElement>(null);
@@ -61,7 +62,7 @@ export function DriveDocumentForm({ studentId }: { studentId: string }) {
 
     let outcome: UploadOutcome;
     try {
-      outcome = await uploadToDrive(
+      outcome = await (mode === "gdrive" ? uploadToDrive : uploadToBucket)(
         {
           documentId: uploadId.current,
           studentId,
@@ -137,7 +138,7 @@ export function DriveDocumentForm({ studentId }: { studentId: string }) {
       </Field>
 
       <p className="text-[12px] text-subtle-foreground">
-        {primary(m.documentsLimit, language)} {primary(dm.docInDrive, language)}
+        {primary(m.documentsLimit, language)} {mode === "gdrive" ? primary(dm.docInDrive, language) : null}
       </p>
 
       {progress !== null && busy ? (
