@@ -47,6 +47,7 @@ export type DocumentRow = {
   state: "uploading" | "stored" | "failed";
   driveFileId: string | null;
   sha256: string | null;
+  createdAt: string;
 };
 
 export type SessionRow = {
@@ -63,6 +64,8 @@ export interface UploadStore {
   findDocument(id: string): Promise<DocumentRow | null>;
   /** `exists` when the id is already taken — a repeated begin, or a collision. */
   insertDocument(input: UploadRequest & { sessionLabel: string; uploadedBy: string }): Promise<"inserted" | "exists">;
+  /** Forget a row still `uploading` with no session: a begin that never reached Drive. */
+  discardDocument(id: string): Promise<void>;
   markFailed(id: string, driveFileId: string | null): Promise<void>;
   /** False when the row was no longer `uploading` (somebody else finished it). */
   markStored(id: string, input: { driveFileId: string; sha256: string }): Promise<boolean>;
@@ -82,6 +85,8 @@ export type DriveTarget = { deps: DriveDeps; rootFolderId: string };
 export type UploadState = { state: "uploading"; offset: number; chunkBytes: number } | { state: "stored" };
 
 export type RefusalKind =
+  /** Another request for the same upload is still opening its Drive session. */
+  | "starting"
   | "not_found"
   | "not_yours"
   | "conflict"
@@ -101,6 +106,9 @@ export class UploadRefusal extends Error {
     this.name = "UploadRefusal";
   }
 }
+
+/** Longer than opening a folder and a session can take, with Google's retries. */
+const STARTING_GRACE_MS = 2 * 60 * 1000;
 
 const uploading = (offset: number): UploadState => ({ state: "uploading", offset, chunkBytes: UPLOAD_CHUNK_BYTES });
 
@@ -153,7 +161,11 @@ export async function beginUpload(
       expiresAt: new Date(now.getTime() + UPLOAD_SESSION_HOURS * 3600 * 1000).toISOString(),
     });
   } catch (error) {
-    await store.markFailed(request.documentId, null);
+    // Nothing reached Drive (an empty resumable session makes no file), so
+    // the row is forgotten rather than failed: pressing Continue with the
+    // same id after Google recovers starts cleanly instead of being refused.
+    await store.deleteSession(request.documentId);
+    await store.discardDocument(request.documentId);
     throw error;
   }
   return uploading(0);
@@ -189,6 +201,9 @@ async function openSession(
 
   const session = await store.findSession(documentId);
   if (!session) {
+    // A double tap: the first begin is still between its row and its Drive
+    // session. Say "wait" for a while; only a row left like this is broken.
+    if (now.getTime() - Date.parse(row.createdAt) < STARTING_GRACE_MS) throw new UploadRefusal("starting");
     await store.markFailed(documentId, null);
     throw new UploadRefusal("failed");
   }

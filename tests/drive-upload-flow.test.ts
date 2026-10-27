@@ -23,9 +23,15 @@ class MemoryStore implements UploadStore {
   async findDocument(id: string) {
     return this.documents.get(id) ?? null;
   }
+  createdAt = () => new Date().toISOString();
+  async discardDocument(id: string) {
+    const row = this.documents.get(id);
+    if (row?.state === "uploading" && !row.driveFileId && !this.sessions.has(id)) this.documents.delete(id);
+  }
   async insertDocument(input: UploadRequest & { sessionLabel: string; uploadedBy: string }) {
     if (this.documents.has(input.documentId)) return "exists" as const;
     this.documents.set(input.documentId, {
+      createdAt: this.createdAt(),
       id: input.documentId,
       studentId: input.studentId,
       sessionLabel: input.sessionLabel,
@@ -244,13 +250,36 @@ describe("a Drive upload", () => {
     expect(store.documents.get(input.documentId)!.state).toBe("failed");
   });
 
-  it("marks the row failed and says why when the Shared Drive membership is gone", async () => {
+  it("says why when the Shared Drive membership is gone, and starts cleanly once it is back", async () => {
     const bytes = syntheticFile("pdf", 4000);
     const input = request(bytes);
     drive.faults.push({ on: "folder", status: 403, reason: "insufficientFilePermissions" });
     const failure = await beginUpload(store, target, OFFICE, input).catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(DriveError);
     expect(failure).toMatchObject({ kind: "forbidden" });
+    // Nothing reached Drive, so nothing is listed and nothing blocks a retry.
+    expect(store.documents.has(input.documentId)).toBe(false);
+    expect(await beginUpload(store, target, OFFICE, input)).toMatchObject({ state: "uploading", offset: 0 });
+    expect(await sendAll(input.documentId, bytes)).toEqual({ state: "stored" });
+  });
+
+  it("tells a double tap to wait while the first is still opening its session", async () => {
+    const bytes = syntheticFile("pdf", 4000);
+    const input = request(bytes);
+    // The first request has written its row and is still talking to Drive.
+    await store.insertDocument({ ...input, uploadedBy: OFFICE.staffId });
+    await expect(beginUpload(store, target, OFFICE, input)).rejects.toMatchObject({ kind: "starting" });
+    expect(store.documents.get(input.documentId)!.state).toBe("uploading");
+  });
+
+  it("gives up on a row whose session never appeared", async () => {
+    const bytes = syntheticFile("pdf", 4000);
+    const input = request(bytes);
+    store.createdAt = () => "2026-10-27T00:00:00Z";
+    await store.insertDocument({ ...input, uploadedBy: OFFICE.staffId });
+    await expect(
+      currentState(store, target, OFFICE, input.documentId, new Date("2026-10-27T00:10:00Z")),
+    ).rejects.toMatchObject({ kind: "failed" });
     expect(store.documents.get(input.documentId)!.state).toBe("failed");
   });
 

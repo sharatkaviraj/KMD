@@ -317,6 +317,8 @@ async function progressOf(response: Response): Promise<UploadProgress> {
 export async function uploadStatus(deps: DriveDeps, sessionUrl: string, total: number): Promise<UploadProgress> {
   const response = await send(deps, sessionUrl, {
     method: "PUT",
+    // Drive's 308 means "resume incomplete", never a redirect to follow.
+    redirect: "manual",
     headers: { "content-range": `bytes */${total}` },
     body: new Uint8Array(0),
   });
@@ -346,6 +348,7 @@ export async function uploadChunk(
         input.sessionUrl,
         {
           method: "PUT",
+          redirect: "manual",
           headers: { "content-range": `bytes ${from}-${end - 1}/${input.total}` },
           body: asBody(slice),
         },

@@ -76,6 +76,7 @@ export async function readCapped(request: Request, limit: number): Promise<Uint8
 }
 
 const REFUSAL_STATUS: Record<UploadRefusal["kind"], number> = {
+  starting: 409,
   not_found: 404,
   not_yours: 403,
   conflict: 409,
@@ -90,7 +91,10 @@ const REFUSAL_STATUS: Record<UploadRefusal["kind"], number> = {
 /** Any failure from the upload flow, as a response. Google's details go to the log, not the browser. */
 export function failureResponse(error: unknown, context: { documentId?: string }): Response {
   if (error instanceof UploadRefusal) {
-    return refuse(error.kind, REFUSAL_STATUS[error.kind], { offset: error.offset });
+    return refuse(error.kind, REFUSAL_STATUS[error.kind], {
+      offset: error.offset,
+      retryable: error.kind === "starting",
+    });
   }
 
   logError("documents.drive.upload-failed", {

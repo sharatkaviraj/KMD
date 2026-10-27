@@ -39,6 +39,8 @@ export function DriveDocumentForm({ studentId }: { studentId: string }) {
   const router = useRouter();
   const form = useRef<HTMLFormElement>(null);
   const uploadId = useRef<string | null>(null);
+  // A ref, not state: two taps inside one render both read busy=false.
+  const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -46,35 +48,44 @@ export function DriveDocumentForm({ studentId }: { studentId: string }) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (inFlight.current) return;
     const data = new FormData(event.currentTarget);
     const file = data.get("file");
     if (!(file instanceof File) || file.size === 0) return;
 
+    inFlight.current = true;
     uploadId.current ??= crypto.randomUUID();
     setBusy(true);
     setResult(null);
     setProgress(0);
 
-    const outcome = await uploadToDrive(
-      {
-        documentId: uploadId.current,
-        studentId,
-        kind: (data.get("kind") ?? "other").toString() as DocumentKind,
-        note: (data.get("note") ?? "").toString(),
-        file,
-      },
-      {
-        fetch: (url, init) => fetch(url, init),
-        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-        digest: (bytes) => crypto.subtle.digest("SHA-256", bytes),
-        onProgress: (sent, total) => {
-          setRetrying(false);
-          setProgress(Math.floor((sent / total) * 100));
+    let outcome: UploadOutcome;
+    try {
+      outcome = await uploadToDrive(
+        {
+          documentId: uploadId.current,
+          studentId,
+          kind: (data.get("kind") ?? "other").toString() as DocumentKind,
+          note: (data.get("note") ?? "").toString(),
+          file,
         },
-        onRetry: () => setRetrying(true),
-      },
-    );
+        {
+          fetch: (url, init) => fetch(url, init),
+          sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          digest: (bytes) => crypto.subtle.digest("SHA-256", bytes),
+          onProgress: (sent, total) => {
+            setRetrying(false);
+            setProgress(Math.floor((sent / total) * 100));
+          },
+          onRetry: () => setRetrying(true),
+        },
+      );
+    } catch {
+      // Reading the file failed (it was moved, or the phone ran out of memory).
+      outcome = { ok: false, reason: "failed", resumable: true };
+    } finally {
+      inFlight.current = false;
+    }
 
     setBusy(false);
     setRetrying(false);

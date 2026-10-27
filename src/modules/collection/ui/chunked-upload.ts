@@ -80,6 +80,7 @@ function outcomeFor(reason: string | undefined): UploadOutcome {
     case "provider_off":
       return { ok: false, reason: "storage_refused", resumable: false };
     case "busy":
+    case "starting":
     case "storage_unavailable":
     case "too_many":
       return { ok: false, reason: "storage_down", resumable: true };

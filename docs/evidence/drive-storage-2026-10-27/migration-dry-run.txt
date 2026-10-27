@@ -1,0 +1,18 @@
+﻿ok applied: migration
+existing row reads as {"storage_provider":"supabase","upload_state":"stored","content_version":1}
+ok accepted: a gdrive row while uploading
+ok refused: the same client_request_id twice — duplicate key value violates unique constraint "student_documents_client_request_unique"
+ok refused: a stored gdrive row without its file id and checksum — new row for relation "student_documents" violates check constraint "student_documents_drive_complete"
+ok accepted: a stored gdrive row with file id and checksum
+ok refused: an unknown provider — new row for relation "student_documents" violates check constraint "student_documents_storage_provider_check"
+ok refused: a Drive id with a slash — new row for relation "student_documents" violates check constraint "student_documents_drive_file_id_check"
+ok refused: a partial backup record — new row for relation "student_documents" violates check constraint "student_documents_backup_complete"
+ok accepted: a complete backup record
+ok refused: switching to Drive with nothing configured — new row for relation "file_storage_settings" violates check constraint "file_storage_settings_drive_needs_config"
+ok refused: a session URL that is not Drive's — new row for relation "document_upload_sessions" violates check constraint "document_upload_sessions_drive_session_url_check"
+ok refused: a service account outside gserviceaccount.com — new row for relation "file_storage_settings" violates check constraint "file_storage_settings_service_account_email_check"
+ok refused: a public key without its fingerprint — new row for relation "file_storage_settings" violates check constraint "file_storage_settings_recovery_pair"
+ok accepted: the full configuration, then Drive on
+grants: [{"table_name":"document_upload_sessions","grantee":"postgres","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"},{"table_name":"document_upload_sessions","grantee":"service_role","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"},{"table_name":"drive_folders","grantee":"postgres","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"},{"table_name":"drive_folders","grantee":"service_role","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"},{"table_name":"file_storage_settings","grantee":"postgres","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"},{"table_name":"file_storage_settings","grantee":"service_role","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"}]
+rls: [{"relname":"document_upload_sessions","relrowsecurity":true},{"relname":"drive_folders","relrowsecurity":true},{"relname":"file_storage_settings","relrowsecurity":true}]
+buckets: [{"id":"vppsone-drive-backups","public":false,"file_size_limit":16777216}]

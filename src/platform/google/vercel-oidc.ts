@@ -17,10 +17,18 @@ export async function vercelOidcToken(request?: Request): Promise<string | null>
   const fromRequest = request?.headers.get("x-vercel-oidc-token");
   if (fromRequest) return fromRequest;
   try {
-    const fromContext = (await headers()).get("x-vercel-oidc-token");
-    if (fromContext) return fromContext;
+    const fromHeaders = (await headers()).get("x-vercel-oidc-token");
+    if (fromHeaders) return fromHeaders;
   } catch {
     // Outside a request (a script): only the environment can answer.
   }
+  // Where Vercel's own `@vercel/oidc` helper looks: the runtime's request
+  // context, which holds the incoming headers even when a framework has not
+  // passed them on.
+  const context = (globalThis as Record<symbol, { get?: () => { headers?: Record<string, string> } } | undefined>)[
+    Symbol.for("@vercel/request-context")
+  ];
+  const fromContext = context?.get?.()?.headers?.["x-vercel-oidc-token"];
+  if (fromContext) return fromContext;
   return process.env.VERCEL_OIDC_TOKEN?.trim() || null;
 }

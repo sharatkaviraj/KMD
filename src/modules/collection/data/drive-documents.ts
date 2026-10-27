@@ -36,6 +36,7 @@ type DocumentDbRow = {
   upload_state: DocumentRow["state"];
   drive_file_id: string | null;
   content_sha256: string | null;
+  created_at: string;
 };
 
 type SessionDbRow = {
@@ -71,7 +72,7 @@ export function supabaseUploadStore(): UploadStore {
         .from("student_documents")
         .select(
           "id, student_id, session_label, kind, content_type, byte_size, uploaded_by, storage_provider, " +
-            "upload_state, drive_file_id, content_sha256",
+            "upload_state, drive_file_id, content_sha256, created_at",
         )
         .eq("id", id)
         .maybeSingle<DocumentDbRow>();
@@ -89,6 +90,7 @@ export function supabaseUploadStore(): UploadStore {
         state: data.upload_state,
         driveFileId: data.drive_file_id,
         sha256: data.content_sha256,
+        createdAt: data.created_at,
       };
     },
 
@@ -111,6 +113,17 @@ export function supabaseUploadStore(): UploadStore {
       if (!error) return "inserted";
       if (error.code === "23505") return "exists";
       return fail("start the document", error);
+    },
+
+    async discardDocument(id) {
+      const { error } = await db
+        .from("student_documents")
+        .delete()
+        .eq("id", id)
+        .eq("storage_provider", "gdrive")
+        .eq("upload_state", "uploading")
+        .is("drive_file_id", null);
+      if (error) fail("forget the unstarted upload", error);
     },
 
     async markFailed(id, driveFileId) {
