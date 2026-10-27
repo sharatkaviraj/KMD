@@ -7,7 +7,6 @@ import {
   downloadFile,
   findChild,
   getFile,
-  getSharedDrive,
   replaceContent,
 } from "@/platform/google/drive";
 import { GoogleAuthError } from "@/platform/google/workload-identity";
@@ -463,9 +462,14 @@ export type DriveCheck = {
 const HEALTH_FILE = "vppsone-health-check.txt";
 
 /**
- * Prove the whole path works: token, Shared Drive membership, the root folder,
- * a write and a read back. Writes one small text file once and edits it after
- * that — a Contributor may edit, and nothing is deleted.
+ * Prove the whole path works: token, access to the root folder (and that it
+ * is in the configured Shared Drive), a write and a read back. Writes one
+ * small text file once and edits it after that — a writer may edit, and
+ * nothing is deleted.
+ *
+ * The account may be a writer on the root folder only, not a member of the
+ * drive (D-333: the folder of the school's existing "Share" drive), so the
+ * drive itself is never asked for.
  */
 export async function checkDriveStorage(oidcToken: string | null): Promise<DriveCheck> {
   const settings = await readStorageSettings();
@@ -477,20 +481,14 @@ export async function checkDriveStorage(oidcToken: string | null): Promise<Drive
   } else {
     try {
       const started = Date.now();
-      const drive = await getSharedDrive(target.deps, settings.sharedDriveId);
-      const afterToken = Date.now();
-
       const root = await getFile(target.deps, target.rootFolderId);
+      const afterToken = Date.now();
       if (root.driveId !== settings.sharedDriveId || root.trashed) {
         throw new DriveError("not_found", "The root folder is not in the configured Shared Drive.");
       }
 
       const stamp = new TextEncoder().encode(`VPPS One storage check ${new Date().toISOString()}\n`);
-      const existing = await findChild(target.deps, {
-        driveId: settings.sharedDriveId,
-        parentId: target.rootFolderId,
-        name: HEALTH_FILE,
-      });
+      const existing = await findChild(target.deps, { parentId: target.rootFolderId, name: HEALTH_FILE });
       const written = existing
         ? await replaceContent(target.deps, existing.id, { contentType: "text/plain", bytes: stamp })
         : await createSmallFile(target.deps, {
@@ -507,8 +505,8 @@ export async function checkDriveStorage(oidcToken: string | null): Promise<Drive
 
       result = {
         ok: same,
-        detail: same ? `Read back what was written in ${drive.name}.` : "The file read back differs from what was written.",
-        sharedDriveName: drive.name,
+        detail: same ? `Read back what was written in ${root.name ?? "the root folder"}.` : "The file read back differs from what was written.",
+        sharedDriveName: root.name ?? null,
         millis: { token: afterToken - started, write: afterWrite - afterToken, read: afterRead - afterWrite },
       };
     } catch (error) {

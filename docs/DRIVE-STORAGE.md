@@ -39,11 +39,16 @@ browser ◀──streamed, no-store── VPPS One /documents/<id>     ◀──
   `vppsone-drive@…`. The Workload Identity provider accepts only tokens whose
   subject is `owner:veerpattas-projects:project:vppsone:environment:production`
   — a preview deployment or a laptop gets nothing.
-- **What the account can reach.** It is a member of one dedicated Shared
-  Drive, as **Contributor**: add files and edit content, never delete, trash,
-  move out or share. It is not a Workspace user, has no domain-wide
-  delegation, and is shared on nothing else. The folder is not the boundary;
-  the membership is.
+- **What the account can reach.** One folder, `VPPS One documents`
+  (`1MPLDVfid2eQIMNs8rRQTzEhaUZFVh826`), in the school's existing Shared
+  Drive "Share" (`0AP-Gd2gbSzZZUk9PVA`), where it is a **writer**: it can add
+  files there and edit their content, not delete or trash them, and it is
+  not a member of the drive, so the drive's other contents are invisible to
+  it. That is an access-control list on the folder, enforced by Google, not
+  a folder the code happens to choose. It is not a Workspace user, has no
+  domain-wide delegation, and is shared on nothing else. (The owner chose
+  the existing drive over a new one on 27 Oct; folder-level access keeps the
+  unrelated file already in that drive out of reach.)
 - **Scope.** `https://www.googleapis.com/auth/drive`. `drive.file` (only files
   the app created) would be narrower and should work because the app creates
   every file it touches; it is the first thing to try in the pilot, and the
@@ -201,10 +206,12 @@ service account; remove the binding above; remove the account from the
 Shared Drive; or set `documents_provider = 'supabase'` and clear the Drive
 identifiers in the settings row.
 
-Then, in Drive as raj@vpps.co.in: a new Shared Drive **VPPS One – Student
-Documents** (not the existing `0AP-Gd2gbSzZZUk9PVA`, which already holds an
-unrelated file the account would then reach), a folder `VPPS One documents`
-in it, and `vppsone-drive@…` added as **Contributor**.
+Then, in Drive as raj@vpps.co.in (done 27 Oct through the Drive connector,
+because Chrome is policy-blocked on drive.google.com): a folder
+`VPPS One documents` in the existing Shared Drive "Share", shared with
+`vppsone-drive@…` as **writer** on that folder only. Its permissions read:
+raj@vpps.co.in organizer (inherited), the service account writer; the drive
+root still lists only raj@vpps.co.in.
 
 Two things may refuse, and each needs its own decision:
 
