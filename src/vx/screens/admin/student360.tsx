@@ -23,6 +23,7 @@ import type { ContactEntry } from "@/vx/screens/family-contact/domain";
 import { FamilyContactLog, type ContactRecoveryScope } from "@/vx/screens/family-contact/ui";
 
 import "./student360.css";
+import { ChildSummary } from "@/vx/assist/summary-assist";
 
 /*
  * Student 360 as the design draws it (F06–F08 on a phone, D02 on a desk).
@@ -472,6 +473,16 @@ function Student360View({ p, tab, setTab, feesLoading, feesUnavailable = false }
           </Link>
         ))
       )}
+      {!unread("notes") && p.notes.length > 0 ? (
+        <ChildSummary
+          childName={p.name}
+          notes={p.notes}
+          facts={[
+            p.attendance.percent !== null ? `Attendance this session: ${Math.round(p.attendance.percent)}%` : "",
+            latest && latest.percent !== null ? `${latest.term} result so far: ${Math.round(latest.percent)}%` : "",
+          ].filter(Boolean)}
+        />
+      ) : null}
     </div>
   );
   const supportCard = openActions.length > 0 && !unread("notes") ? (

@@ -78,7 +78,7 @@ describe("features", () => {
   });
 
   it("uses Sonnet only where a parent or the principal reads the result, or a photo is read", () => {
-    expect(assistFeatures.filter((f) => featureTier(f) === "careful").sort()).toEqual(["form", "remarks", "results"]);
+    expect(assistFeatures.filter((f) => featureTier(f) === "careful").sort()).toEqual(["brief", "form", "remarks", "results"]);
   });
 
   it("every task belongs to a known feature", () => {

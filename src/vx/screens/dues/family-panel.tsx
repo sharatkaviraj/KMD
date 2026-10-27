@@ -17,6 +17,8 @@ import { Sheet, useToast } from "@/vx/ui/overlays";
 import { Banner } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
 
+import { CallScript } from "@/vx/assist/call-script";
+
 import { Choice, Inset } from "./bits";
 import { duesHref, kidLink } from "./href";
 import { contactTone, day, dayTone, firstName, ini, kidsShort, maskPhone, telHref, TONES } from "./look";
@@ -223,6 +225,30 @@ export function FamilyPanel(props: Props) {
   ];
   const callSub = `${phone} · ${tx(W.pendingToday).toLowerCase()} ${rupees(f.pendingToday)} · ${kidsShort(f)}`;
   const isPromise = outcome === "promised" || outcome === "visit";
+  // For the AI call script (D-328): only the slot names and these plain phrases
+  // reach the AI; the family's own values below fill the script in the browser.
+  const lastSaid: Record<string, string> = {
+    promised: "on the last call the parent promised to pay",
+    visit: "on the last call the parent said they would visit the school",
+    noreach: "the last call did not get through",
+    wrong: "the last call reached a wrong number",
+    time: "on the last call the parent asked for more time",
+  };
+  const callFacts = [
+    { key: "parent", label: "parent's name", value: f.fatherName },
+    { key: "children", label: "children's first names", value: f.kids.map((k) => firstName(k.fullName)).join(", ") },
+    { key: "classes", label: "children's classes", value: [...new Set(f.kids.map((k) => k.classLabel))].join(", ") },
+    { key: "amount_due", label: "fees due today", value: f.pendingToday > 0 ? rupees(f.pendingToday) : null },
+    { key: "installments", label: "installments overdue", value: f.overdueInstallments.length ? tx(instList(f.overdueInstallments)) : null },
+    { key: "late_fee", label: "late fee, kept separate from fees", value: f.lateFee > 0 ? rupees(f.lateFee) : null },
+    { key: "promise_date", label: "date the parent promised", value: promise ? dateLabel(promise.promisedOn) : null },
+  ];
+  const situation = [
+    f.days > 30 ? "the fees have been overdue for more than a month" : f.days > 7 ? "the fees have been overdue for more than a week" : f.days > 0 ? "the fees became due recently" : "nothing is overdue yet",
+    promise ? (promise.state === "due" ? "the parent promised to pay today" : "the parent has promised a date to pay") : "",
+    f.lastContact?.lastOutcome ? lastSaid[f.lastContact.lastOutcome] ?? "" : "",
+    f.lateFee > 0 ? "a late fee applies and is kept separate from the fees" : "",
+  ].filter(Boolean);
   const half = Math.round(f.pendingToday / 2 / 10) * 10;
   const schedule = preview?.ok ? preview.schedule : [];
 
@@ -352,6 +378,7 @@ export function FamilyPanel(props: Props) {
               <span className="only-d" style={{ fontWeight: 500 }}>{tx(W.hangUp)}</span>
             </div>
           ) : null}
+          <CallScript topic="dues" facts={callFacts} situation={situation} />
           <h3 className="sech">{tx(W.whatHappened)}</h3>
           <div role="radiogroup" aria-label={tx(W.whatHappened)} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
             {CALL_OUTCOMES.map((o) => (

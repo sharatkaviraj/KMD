@@ -37,6 +37,7 @@ import { BoardNoteAside } from "./detail";
 import { BOARD_TAG, day, followSoon, HelpSteps, ini, MIX_COLOR, NotesTop, noteWhen, relationText, replaceParams, Seg, StagePill, useBoth, useNoteWords, type HelpStep } from "./look";
 import { BoardPlan } from "./plan";
 import type { NotesProps } from "./workspace";
+import { ClassDigest } from "@/vx/assist/summary-assist";
 
 /*
  * The notes board for the office and the coordinator (design `Notes`, and
@@ -384,6 +385,16 @@ export function NotesBoard(props: NotesProps & { tab: BoardTab; classes: { id: s
           </button>
         ))}
       </div>
+
+      {classId ? (
+        <ClassDigest
+          key={classId}
+          classLabel={props.classes.find((c) => c.id === classId)?.label ?? ""}
+          notes={props.notes.filter((n) => n.classId === classId)}
+          today={props.today}
+          onOpen={(id) => router.push(`${base}?student=${id}`)}
+        />
+      ) : null}
 
       {shown.length || orphanPlans.length ? (
         <div className="g2" style={{ display: "grid", gridTemplateColumns: open ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))", gap: 12, alignItems: "start" }}>

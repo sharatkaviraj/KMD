@@ -23,6 +23,7 @@ import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
 import { MessageAssist, ReplyAssist } from "@/vx/assist/message-assist";
+import { TemplateAssist } from "@/vx/assist/template-assist";
 
 import type { CampaignView, MessagesData, RecipientView, ReplyView, TemplateView } from "./data";
 import { Outbox } from "./outbox";
@@ -1048,6 +1049,7 @@ function TemplateSheet({ open, onClose, pending, onSave }: { open: boolean; onCl
     >
       <div className="mx-tsheet" style={{ paddingTop: 4 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+          <TemplateAssist category={category} onApply={(d) => { setName(d.name); setHi(d.hi); setEn(d.en); }} />
           <label className="field">
             <span>{tx(p("Name", "नाम"))} · {slug || "template_name"}</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tx(p("For example: Unit test datesheet", "जैसे: इकाई परीक्षा समय-सारणी"))} />

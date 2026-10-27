@@ -161,7 +161,7 @@ export function AcadAttendanceView(p: AcadAttendanceProps) {
   } else if (p.sheet?.kind === "call" && p.everyClass) {
     const c = p.sheet.child;
     const digits = (c.phone ?? "").replace(/\D/g, "").slice(-10);
-    sheet = <CallSheet closeHref={qs(BASE, { view: "chronic" })} studentId={c.studentId} name={c.name} sub={say(`${c.father ? `${c.father} · ` : ""}${c.classLabel} · ${Math.round(c.pct)}% this session`, `${c.father ? `${c.father} · ` : ""}${c.classLabel} · इस सत्र ${Math.round(c.pct)}%`)} phoneHref={telHref(c.phone)} phoneLabel={digits.length === 10 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : null} lastNote={p.sheet.lastNote} />;
+    sheet = <CallSheet closeHref={qs(BASE, { view: "chronic" })} studentId={c.studentId} name={c.name} sub={say(`${c.father ? `${c.father} · ` : ""}${c.classLabel} · ${Math.round(c.pct)}% this session`, `${c.father ? `${c.father} · ` : ""}${c.classLabel} · इस सत्र ${Math.round(c.pct)}%`)} phoneHref={telHref(c.phone)} phoneLabel={digits.length === 10 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : null} lastNote={p.sheet.lastNote} figures={{ father: c.father, classLabel: c.classLabel, pct: c.pct, absentDays: c.absentDays, absentLastWeek: c.absentLastWeek, lastOutcome: c.lastCall?.outcome ?? null }} />;
   }
 
   if (view === "empty") {

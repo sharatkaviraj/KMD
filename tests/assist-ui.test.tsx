@@ -15,6 +15,8 @@ import { AskRow } from "@/vx/assist/ask-assist";
 import { AssistProvider } from "@/vx/assist/context";
 import { NoteAssist } from "@/vx/assist/note-assist";
 import { AiRemarkCard, AiRemarksBar, useAiRemarks } from "@/vx/assist/remarks-assist";
+import { CallScript } from "@/vx/assist/call-script";
+import { ChildSummary } from "@/vx/assist/summary-assist";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -148,5 +150,55 @@ describe("report-card remarks", () => {
 
     await click("Steady work");
     expect(onPick).toHaveBeenCalledWith("Steady work; keep reading daily.\nनियमित काम; रोज़ पढ़ते रहें।");
+  });
+});
+
+describe("call scripts", () => {
+  it("sends only slot names and phrases, and fills the family's figures in the browser", async () => {
+    fetchMock.mockResolvedValueOnce(answer({ ok: true, value: { opening: "Namaste <<parent>>, this is the school office.", points: ["<<amount_due>> is due for <<children>>."], close: "Thank you." }, logId: null }));
+    await render(
+      <CallScript
+        topic="dues"
+        facts={[
+          { key: "parent", label: "parent's name", value: "QA Parent" },
+          { key: "children", label: "children's first names", value: "Qatest" },
+          { key: "amount_due", label: "fees due today", value: "₹4,500" },
+          { key: "late_fee", label: "late fee", value: null },
+        ]}
+        situation={["the fees have been overdue for more than a week"]}
+      />,
+      ["calls"],
+    );
+    await click("What to say on this call");
+    const body = fetchMock.mock.calls[0][1].body as string;
+    expect(body).not.toContain("QA Parent");
+    expect(body).not.toContain("Qatest");
+    expect(body).not.toContain("4,500");
+    expect(JSON.parse(body).input.slots.map((s: { key: string }) => s.key)).toEqual(["parent", "children", "amount_due"]);
+    expect(host.textContent).toContain("Namaste QA Parent, this is the school office.");
+    expect([...host.querySelectorAll("b")].map((b) => b.textContent)).toEqual(expect.arrayContaining(["QA Parent", "₹4,500", "Qatest"]));
+  });
+});
+
+describe("a child's summary", () => {
+  it("never sends health or family notes", async () => {
+    fetchMock.mockResolvedValueOnce(answer({ ok: true, value: { points: ["Reads well."], opener: "Thank you for coming." }, logId: null }));
+    await render(
+      <ChildSummary
+        childName="Qatest Child"
+        notes={[
+          { body: "Reads well in class.", tags: ["studies"], createdAt: "2026-10-20T05:00:00Z" },
+          { body: "QA private health matter.", tags: ["health"], createdAt: "2026-10-21T05:00:00Z" },
+          { body: "QA private family matter.", tags: ["family"], createdAt: "2026-10-22T05:00:00Z" },
+        ]}
+        facts={["Attendance this session: 91%"]}
+      />,
+      ["summary"],
+    );
+    await click("Summary for a parent meeting");
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(sent.input.notes).toHaveLength(1);
+    expect(JSON.stringify(sent)).not.toContain("private");
+    expect(host.textContent).toContain("Reads well.");
   });
 });

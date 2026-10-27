@@ -17,6 +17,7 @@ import { T } from "@/vx/screens/admin/text";
 import { TD } from "@/vx/screens/admin/today-text";
 import { catchUp, dueColumns, kfmt, moneyChart, weekBars } from "@/vx/screens/admin/today-logic";
 import type { InboxItem, TimelineItem } from "@/vx/screens/admin/types";
+import { TodayBrief, type BriefFact } from "@/vx/assist/brief-assist";
 
 export type TodayMoneyView = {
   today: number;
@@ -154,6 +155,26 @@ export function TodayScreen(props: TodayProps) {
   const greeting = `${tx(props.greeting)}, ${props.firstName}`;
   const statusText = props.status ? ` · ${tx(props.status)}` : "";
 
+  // The page's own figures, for the AI brief (D-328): the AI writes words around
+  // `<<slots>>` and these values fill them, so no number in the brief is the AI's.
+  const weekDays = (props.week ?? []).filter((d) => d.percent !== null);
+  const briefFacts: BriefFact[] = [
+    { key: "classes_marked", label: "Classes whose attendance is marked today", value: attendance ? `${attendance.marked} of ${attendance.total}` : null },
+    { key: "present_today", label: "Children present today", value: attendance?.percent != null ? `${Math.round(attendance.percent)}%` : null },
+    { key: "week_attendance", label: "Children present on each earlier school day this week", value: weekDays.length ? weekDays.map((d) => `${shortDay(d.day)} ${Math.round(d.percent ?? 0)}%`).join(", ") : null },
+    { key: "classes_not_marked", label: "Classes not marked yet", value: props.exceptions.notMarked?.length ? props.exceptions.notMarked.slice(0, 8).join(", ") : null },
+    { key: "staff_away", label: "Teachers away today", value: props.staffAway != null ? String(props.staffAway) : null },
+    { key: "cover_arranged", label: "Periods needing cover, and how many are arranged", value: props.cover ? `${props.cover.arranged} of ${props.cover.needed} arranged` : null },
+    { key: "cover_missed", label: "Periods that went without cover", value: props.cover?.missed ? String(props.cover.missed) : null },
+    { key: "needs_you", label: "Items waiting in Needs you", value: inbox ? String(awaiting) : null },
+    { key: "notes_action", label: "Notes on children needing action", value: props.support ? String(props.support.needsAction) : null },
+    { key: "notes_due", label: "Note follow-ups due", value: props.support ? String(props.support.due) : null },
+    { key: "collected_today", label: "Fees collected today", value: money ? `${rupees(money.today)} in ${money.receiptsToday} receipts` : null },
+    { key: "session_collected", label: "Fees collected this session, of what is expected", value: money && money.expected > 0 ? `${rupees(money.collected)} of ${rupees(money.expected)}` : null },
+    { key: "families_follow_up", label: "Families to follow up for fees", value: money ? String(money.followUps) : null },
+    { key: "promised_today", label: "Families who promised to pay today", value: props.promisedToday != null ? String(props.promisedToday) : null },
+  ];
+
   /* ------------------------------------------- after the design: later cards */
 
   const scheduleCard =
@@ -275,6 +296,7 @@ export function TodayScreen(props: TodayProps) {
           <PhoneHero {...props} hello={greeting} statusText={statusText} />
           <PhoneNeeds inbox={inbox} />
           <PhoneQuick actions={props.actions} />
+          <TodayBrief facts={briefFacts} style={{ padding: "18px 18px 0" }} />
           <section style={{ padding: "26px 18px 0", display: "flex", flexDirection: "column", gap: 12 }}>
             <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>{tx(T.todayAtSchool)}</h2>
             <div className="card" style={{ padding: "6px 16px" }}>
@@ -305,6 +327,7 @@ export function TodayScreen(props: TodayProps) {
                 ) : null}
               </div>
               <DeskKpis {...props} avgDelta={avg?.deltaPct ?? null} />
+              <TodayBrief facts={briefFacts} />
               {money ? (
                 <>
                   <MoneyTaken money={money} today={props.today} />
