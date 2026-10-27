@@ -126,6 +126,22 @@ export function failureResponse(error: unknown, context: { documentId?: string }
   return refuse("storage_unavailable", 503, { retryable: true });
 }
 
+/**
+ * One line per Drive request in the function log, for the pilot's timings and
+ * for spotting failures: what, how big, how long, how it ended. Ids and
+ * numbers only — never a name, a file name or a Google message.
+ */
+export function logDrive(fields: {
+  op: "begin" | "chunk" | "status" | "open";
+  documentId: string;
+  ms: number;
+  bytes?: number;
+  status: number;
+  outcome: string;
+}) {
+  console.info(JSON.stringify({ kind: "vppsone.drive", ...fields }));
+}
+
 const windows = new Map<string, { since: number; count: number }>();
 
 /**
