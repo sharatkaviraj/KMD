@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { costUsd, dayStartIst, dollars, monthStartIst } from "@/modules/assist/domain/cost";
-import { assistFeatures, decisionFor, FEATURE_PERMISSIONS, featureTier, isAssistFeature } from "@/modules/assist/domain/features";
+import { assistFeatures, dailyCapFor, decisionFor, FEATURE_PERMISSIONS, featureTier, isAssistFeature } from "@/modules/assist/domain/features";
+import { SMOKE_ASSIST_DAILY_CAP } from "@/modules/smoke/domain/limits";
 import { hasStrayToken, maskPersonal, restoreDeep } from "@/modules/assist/domain/redact";
 import { ASSIST_TASKS, isAssistTaskId } from "@/modules/assist/domain/tasks";
 import { looksLikeQuestion, translateTarget } from "@/modules/assist/domain/text";
@@ -94,6 +95,13 @@ describe("features", () => {
     expect(decisionFor("Good work.", " Good   work. ")).toBe("kept");
     expect(decisionFor("Good work.", "Very good work.")).toBe("edited");
     expect(decisionFor("Good work.", "  ")).toBe("discarded");
+  });
+
+  it("caps a Smoke Lab seat below the admin's daily cap, never above it (D-331)", () => {
+    expect(dailyCapFor(60, {})).toBe(60);
+    expect(dailyCapFor(60, { smokeLab: false })).toBe(60);
+    expect(dailyCapFor(60, { smokeLab: true })).toBe(SMOKE_ASSIST_DAILY_CAP);
+    expect(dailyCapFor(2, { smokeLab: true })).toBe(2);
   });
 });
 

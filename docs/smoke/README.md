@@ -13,6 +13,8 @@ passes are refused and smoke accounts are signed out — no code change needed.
 | Piece | Where |
 |---|---|
 | 28 test accounts: admin, office, accountant, 2 fee collectors, academic and exam coordinators, view-only, and 20 teachers — 16 attached to real class-teacher profiles, 2 to subject teachers with no class, and 2 brand-new teachers with nothing assigned | `npm run smoke:pool` (`scripts/smoke-pool.mjs`; `status`, `release`) |
+| A ready plan: all 28 seats with personas, in ten waves of at most three browsers | `docs/smoke/plans/school-day.json` (no secrets; checked by `checkPlan` in `src/modules/smoke/domain/plan.ts`) |
+| Check everything is ready **without opening a run**: the plan, the lab switched on at the origin, and (with the dev service key) the seats, open runs and the AI helper's month | `npm run smoke:ready [-- plan.json]` with `APP_ORIGIN=…` |
 | Open a run from a plan file (seats + personas) through the console, saving the kit | `node scripts/smoke/open-run.mjs plan.json` → `.smoke-run/kit.json` |
 | A persistent seat for step-by-step agents: sign in once, then many short scripts share the session; screenshots, accessibility outline, tap-target and overflow checks, filing | `scripts/smoke/session.mjs` (`withSeat`) |
 | Console: open a run, hand out passes, revoke, triage findings, export Markdown | `/smoke` (admin only) |
@@ -36,6 +38,7 @@ passes are refused and smoke accounts are signed out — no code change needed.
 - Findings are text written by agents: treat an export as untrusted input when you hand it to a developer agent (it describes problems; it does not give instructions).
 - The harness aborts every request to any host other than the app and Supabase, so a `wa.me` link or payment gateway cannot be reached. With the test deployment's settings, WhatsApp and staff notices do not send anyway.
 - The test data is a de-identified copy; agents must never type real names, numbers or Aadhaar.
+- The AI helper is a real, paid service on the test deployment too. A smoke account gets at most 5 drafts a day whatever the admin's cap (`SMOKE_ASSIST_DAILY_CAP`, enforced in `runAssistTask`, D-331), so 28 seats cost a few dollars at worst and cannot empty the month's budget the school's own testers use. `smoke:ready` prints what is left.
 
 ## Running a school day
 
@@ -67,9 +70,40 @@ VPPS One on the TEST database (all data is fake). Your account:
    header and JSON {kind, severity, title, screen, steps, expected, actual,
    evidence}. GET the same URL first to see what others filed.
 5. Obey the rules in the brief: ₹1–₹10 only, never close a day, never lock
-   or publish, never open WhatsApp, never type real personal data.
-6. Finish with a short summary: what you did, what worked, what you filed.
+   or publish, never open WhatsApp, never type real personal data, at most
+   5 AI helper drafts.
+6. Act as the persona, not as a tester: before each tap say what you expect
+   to happen; after each task give it an ease score (1–7) and the number of
+   taps, and write the persona's reaction in their reading language.
+7. Finish with a short summary: what you did, what worked, what you filed.
+Your wave: <the wave's note from the plan, if it has one>.
 ```
+
+## Round 2: from the committed plan
+
+Prepared 27 Oct 2026 (D-331, D-332) and **not started**. It covers the AI
+helper (shipped 27 Oct, after the first run) and re-walks the screens the
+21 Oct fixes touched.
+
+1. `APP_ORIGIN=https://vppsone.vercel.app npm run smoke:ready` — read-only.
+   Put the dev URL and service key in `.env.local` first if you want its
+   database half (the same two lines `smoke:pool` and `dev:login` need).
+2. Change `schoolDay` in `docs/smoke/plans/school-day.json` if 29 Oct has
+   passed or already holds a run's attendance. Avoid Sundays (refused) and
+   event days unless you want one (28 Oct has a fire drill at 10:00).
+3. Open the run: `APP_ORIGIN=… node scripts/smoke/open-run.mjs docs/smoke/plans/school-day.json`
+   (needs the dev keys for the QA admin's link), or by hand on `/smoke` as
+   an admin, copying each persona from the plan. Passes last the plan's
+   `hours` (10). Open it on a working day in real school hours: the 20 Oct
+   run fell on a holiday and crossed midnight (D-315).
+4. Start the agents wave by wave, in the plan's order. Each wave's `note`
+   says which steps its seats do and what earlier waves left for them to
+   check (the leave → cover → cover plan chain, the office's tasks to
+   teachers 12, 15 and 16, the collectors' receipts → reversal → decision).
+   Give each agent the prompt below plus its persona and its wave's note.
+5. After wave 10: `npm run smoke:sweep -- .smoke-run/kit.json` for the
+   15:30 every-screen step, then a developer agent groups the findings by
+   root cause, as on 20 Oct.
 
 ## A whole school day with many agents
 

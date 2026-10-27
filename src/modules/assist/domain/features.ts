@@ -1,3 +1,4 @@
+import { SMOKE_ASSIST_DAILY_CAP } from "@/modules/smoke/domain/limits";
 import type { StaffPermission } from "@/platform/auth/permissions";
 
 /**
@@ -134,6 +135,14 @@ export const FEATURE_LABELS: Record<AssistFeature, { en: string; hi: string; sub
 
 export function featureTier(feature: AssistFeature): AssistTier {
   return feature === "remarks" || feature === "form" || feature === "results" || feature === "brief" ? "careful" : "quick";
+}
+
+/**
+ * The daily cap that applies to this person. A Smoke Lab seat is held to
+ * `SMOKE_ASSIST_DAILY_CAP` (D-331); the admin's cap still wins when it is lower.
+ */
+export function dailyCapFor(adminCap: number, subject: { smokeLab?: boolean }): number {
+  return subject.smokeLab ? Math.min(adminCap, SMOKE_ASSIST_DAILY_CAP) : adminCap;
 }
 
 /**

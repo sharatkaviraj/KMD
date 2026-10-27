@@ -9,6 +9,7 @@ import { canAny } from "@/platform/auth/permissions";
 import { costUsd } from "../domain/cost";
 import {
   ASSIST_MODELS,
+  dailyCapFor,
   FEATURE_PERMISSIONS,
   featureTier,
   type AssistOutcome,
@@ -73,7 +74,7 @@ export async function runAssistTask<K extends AssistTaskId>(
   // A budget that cannot be read is treated as spent: the cap is the only thing between a loop and the bill.
   if (!budget) return { ok: false, problem: "failed" };
   if (budget.spentUsd >= settings.monthlyBudgetUsd) return { ok: false, problem: "budget" };
-  if (budget.staffToday >= settings.dailyCapPerStaff) return { ok: false, problem: "daily_cap" };
+  if (budget.staffToday >= dailyCapFor(settings.dailyCapPerStaff, staff)) return { ok: false, problem: "daily_cap" };
 
   const parsed = spec.input.safeParse(rawInput);
   if (!parsed.success) return { ok: false, problem: "invalid" };
