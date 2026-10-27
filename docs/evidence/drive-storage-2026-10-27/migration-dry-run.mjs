@@ -1,4 +1,4 @@
-// Dry run of 20261027130000_document_storage_providers.sql on PGlite, against
+// Dry run of 20261027114837_document_storage_providers.sql on PGlite, against
 // synthetic prerequisites shaped like the dev project. Nothing remote.
 //
 // PGlite is not a dependency of the app. Run from a folder where it is
@@ -50,7 +50,7 @@ try {
       values ('TEST-2026-27', gen_random_uuid(), 'birth_certificate', 'TEST/x/a.pdf', 'a.pdf', 'application/pdf', 193, '00000000-0000-4000-8000-0000000000a1');
   `);
 
-  const migration = await readFile(`${repo}/supabase/migrations/20261027130000_document_storage_providers.sql`, "utf8");
+  const migration = await readFile(`${repo}/supabase/migrations/20261027114837_document_storage_providers.sql`, "utf8");
   await db.exec(migration);
   results.push("ok applied: migration");
 
