@@ -2,7 +2,7 @@
 
 ## AI helper — 27 October 2026
 
-Branch `feat/ai-assist`. Owner's request: build the brainstormed Claude uses
+Branch `feat/ai-assist`, [PR 117](https://github.com/veerpatta/vppsone/pull/117), feature commit `8833288`. Owner's request: build the brainstormed Claude uses
 (all but the worksheet builder) on the school's Claude Console, easy for
 non-technical staff. D-324 to D-327. Claude Haiku 5.5 for quick drafts,
 Claude Sonnet 5.5 for remarks, results and reading a paper form.
@@ -18,8 +18,10 @@ analysis; an "Ask" row in the search box for questions; and Settings → AI
 helper for the switch, budget, daily limit, per-feature switches and usage.
 
 Migration `20261027080847_assist` (two private tables, three RPCs) is applied
-on dev. 30 new unit tests (masking, cost, task clean-up, the route's refusal
-order with Claude mocked). **Not yet tested against the real API**: there is
+on dev. 37 new tests: 30 unit (masking, cost, task clean-up, the route's
+refusal order with Claude mocked) and 7 rendered component tests. Local:
+14,765 tests, typecheck, lint, build and bundle budget all pass. No local
+browser check: this checkout's `.env.local` has no Supabase settings. **Not yet tested against the real API**: there is
 no key in this checkout or on Vercel, so every AI button is hidden on the
 deployed app until the key is added (docs/SETUP.md). Status: in review.
 
