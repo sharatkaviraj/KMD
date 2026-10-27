@@ -2,8 +2,8 @@
 
 ## AI helper, second round — 27 October 2026
 
-Branch `feat/ai-assist-more`, after PR 117 was merged (`9afae39`, production
-READY). Owner: "build more suggested ideas". D-328, D-329. New, behind the same
+Branch `feat/ai-assist-more`, [PR 118](https://github.com/veerpatta/vppsone/pull/118),
+feature commit `500119e`, after PR 117 was merged (`9afae39`, production READY). Owner: "build more suggested ideas". D-328, D-329. New, behind the same
 key, switch and budget: "Summary for a parent meeting" on the teacher's child
 view and Student 360; "This week's notes in short" on the notes board (when a
 class is picked) and the teacher's notes; "What to say on this call" on the
