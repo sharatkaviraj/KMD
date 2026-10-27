@@ -12,6 +12,8 @@ import {
 import { isEntered } from "@/modules/assessments/domain/assessments";
 import type { JobName } from "@/modules/jobs/domain/jobs";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
+import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
+import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
 import { FEE_SCHEMA } from "@/platform/env";
@@ -785,10 +787,16 @@ async function staffNotices(): Promise<Summary> {
   };
 }
 
+/** D-333: check the Drive path, then seal a copy of each new Drive document elsewhere. */
+async function documentBackup(): Promise<Summary> {
+  return runDocumentBackup(await vercelOidcToken());
+}
+
 export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "open-registers": openRegisters,
   "attendance-reminder": attendanceReminder,
   "missing-marks-nudge": missingMarksNudge,
   "daily-summary": dailySummary,
   "staff-notices": staffNotices,
+  "document-backup": documentBackup,
 };

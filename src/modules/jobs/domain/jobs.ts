@@ -21,6 +21,7 @@ export const jobNames = [
   "missing-marks-nudge",
   "daily-summary",
   "staff-notices",
+  "document-backup",
 ] as const;
 
 export type JobName = (typeof jobNames)[number];
@@ -115,6 +116,19 @@ export const JOBS: Record<JobName, JobDefinition> = {
     when: t("हर सुबह 7:30 बजे, और हर बदलाव के बाद", "Every morning at 7:30, and after every change"),
     // A safety net, not the main path — running it twice only sends what is
     // still due, because every send is claimed under a lease first (P4).
+    oncePerDay: false,
+  },
+  "document-backup": {
+    name: "document-backup",
+    label: t("कागज़ात की सुरक्षित प्रति", "Document backup"),
+    what: t(
+      "स्कूल के Google Drive की जाँच करता है, फिर हर नए कागज़ की बंद (एन्क्रिप्टेड) प्रति दूसरी जगह रखता है। Drive चालू न हो तो कुछ नहीं करता।",
+      "Checks the school's Google Drive, then keeps a sealed (encrypted) copy of every new document somewhere else. Does nothing while Drive is off.",
+    ),
+    // 21:30 UTC is 03:00 in school: nobody is uploading.
+    schedule: "30 21 * * *",
+    when: t("हर रात 3 बजे", "Every night at 3:00"),
+    // Running it again only copies what is still missing.
     oncePerDay: false,
   },
 };

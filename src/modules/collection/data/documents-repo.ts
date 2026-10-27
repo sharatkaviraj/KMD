@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
@@ -37,9 +39,11 @@ type DocumentRow = {
   staff_profiles: { display_name: string } | null;
 };
 
+// The uploader's name, by the named key: since D-333 `removed_by` is a second
+// key to the same table, and an unnamed embed of two is a PostgREST error.
 const COLUMNS =
   "id, student_id, kind, storage_path, file_name, content_type, byte_size, note, " +
-  "created_at, staff_profiles(display_name)";
+  "created_at, staff_profiles!student_documents_uploaded_by_fkey(display_name)";
 
 const toDocument = (row: DocumentRow): StudentDocument => ({
   id: row.id,
@@ -64,6 +68,10 @@ export async function documentsForStudent(
     .from("student_documents")
     .select(COLUMNS)
     .eq("student_id", studentId)
+    // An upload still in flight, one that failed its checks, or one removed
+    // from Drive's side of the app is never offered (D-333).
+    .eq("upload_state", "stored")
+    .is("removed_at", null)
     .order("created_at", { ascending: false })
     .limit(100)
     .returns<DocumentRow[]>();
@@ -96,6 +104,8 @@ export async function storeDocument(input: {
   const { data: row, error } = await admin
     .from("student_documents")
     .insert({
+      // Recorded for every new file, so a backup can prove it holds the same bytes.
+      content_sha256: createHash("sha256").update(new Uint8Array(input.bytes)).digest("hex"),
       session_label: input.sessionLabel,
       student_id: input.studentId,
       kind: input.kind,
@@ -141,55 +151,112 @@ export async function storeDocument(input: {
   return toDocument(updated);
 }
 
+export type OpenableDocument = {
+  id: string;
+  studentId: string;
+  provider: "supabase" | "gdrive";
+  storagePath: string;
+  driveFileId: string | null;
+  fileName: string;
+  contentType: string;
+  byteSize: number;
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * A short-lived link to one document, after checking who is asking.
+ * One document the person asking may open, or null.
  *
- * The permission check is here rather than at the call site because this is
- * the function that mints the capability — and a capability minted without a
- * check is the whole risk, whatever the screen above it believed.
+ * Read **as them**, through `student_documents_select_scoped`: the permission
+ * and the class scope are the database's answer, not this function's. It used
+ * to read with the service role after checking the permission alone, so a
+ * class teacher holding another class's document id could open it (D-333).
  */
-export async function signedDocumentUrl(id: string): Promise<string | null> {
+export async function openableDocument(id: string): Promise<OpenableDocument | null> {
   await assertPermission("documents:view");
+  if (!UUID.test(id)) return null;
 
-  const admin = createAdminClient();
-
-  const { data: row } = await admin
+  const supabase = await createClient();
+  const { data } = await supabase
     .from("student_documents")
-    .select("storage_path")
+    .select("id, student_id, storage_provider, storage_path, drive_file_id, file_name, content_type, byte_size")
     .eq("id", id)
-    .maybeSingle<{ storage_path: string }>();
+    .eq("upload_state", "stored")
+    .is("removed_at", null)
+    .maybeSingle<{
+      id: string;
+      student_id: string;
+      storage_provider: "supabase" | "gdrive";
+      storage_path: string;
+      drive_file_id: string | null;
+      file_name: string;
+      content_type: string;
+      byte_size: number;
+    }>();
 
-  if (!row) return null;
+  if (!data) return null;
+  return {
+    id: data.id,
+    studentId: data.student_id,
+    provider: data.storage_provider,
+    storagePath: data.storage_path,
+    driveFileId: data.drive_file_id,
+    fileName: data.file_name,
+    contentType: data.content_type,
+    byteSize: Number(data.byte_size),
+  };
+}
 
-  const { data, error } = await admin.storage
-    .from(DOCUMENTS_BUCKET)
-    .createSignedUrl(row.storage_path, SIGNED_URL_SECONDS);
+/**
+ * A short-lived link to a document held in the Supabase bucket. Only ever
+ * called with a path `openableDocument()` returned, so the person and the
+ * class have already been checked; the service role is used for the signing
+ * alone.
+ */
+export async function signedDocumentUrl(document: OpenableDocument): Promise<string | null> {
+  if (document.provider !== "supabase") return null;
+
+  const { data, error } = await createAdminClient()
+    .storage.from(DOCUMENTS_BUCKET)
+    .createSignedUrl(document.storagePath, SIGNED_URL_SECONDS);
 
   if (error) return null;
   return data?.signedUrl ?? null;
 }
 
 /**
- * Remove a document, file and row.
+ * Remove a document.
  *
- * The object goes first: a row with no file is a broken link on a screen, and
- * a file with no row is a byte nobody can reach — of the two failure modes,
- * the second is the one that does not confuse anybody.
+ * Only one the person may see: it is looked up as them first.
+ *
+ * In the Supabase bucket, file and row go, object first: a row with no file is
+ * a broken link on a screen, and a file with no row is a byte nobody can
+ * reach — of the two failure modes, the second is the one that does not
+ * confuse anybody.
+ *
+ * In Drive, the row is hidden and the file is kept (D-333). The app never
+ * deletes from the school's Drive; a removed document can be brought back by
+ * clearing `removed_at`.
  */
 export async function deleteDocument(id: string): Promise<void> {
-  await assertPermission("documents:manage");
+  const actor = await assertPermission("documents:manage");
+
+  const document = await openableDocument(id);
+  if (!document) return;
 
   const admin = createAdminClient();
 
-  const { data: row } = await admin
-    .from("student_documents")
-    .select("storage_path")
-    .eq("id", id)
-    .maybeSingle<{ storage_path: string }>();
-
-  if (row) {
-    await admin.storage.from(DOCUMENTS_BUCKET).remove([row.storage_path]);
+  if (document.provider === "gdrive") {
+    const { error } = await admin
+      .from("student_documents")
+      .update({ removed_at: new Date().toISOString(), removed_by: actor.id })
+      .eq("id", id)
+      .is("removed_at", null);
+    if (error) throw error;
+    return;
   }
+
+  await admin.storage.from(DOCUMENTS_BUCKET).remove([document.storagePath]);
 
   const { error } = await admin.from("student_documents").delete().eq("id", id);
   if (error) throw error;
