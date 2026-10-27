@@ -202,3 +202,41 @@ describe("a child's summary", () => {
     expect(host.textContent).toContain("Reads well.");
   });
 });
+
+describe("on a phone with no signal", () => {
+  it("disables every AI button, says it needs the internet, and sends nothing", async () => {
+    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    try {
+      await render(<NoteAssist body="quiet in class today" childName={null} onApply={() => undefined} />, ["note", "translate"]);
+      const buttons = [...host.querySelectorAll<HTMLButtonElement>("button.as-btn")];
+      expect(buttons.length).toBe(2);
+      expect(buttons.every((b) => b.disabled)).toBe(true);
+      expect(host.textContent).toContain("Needs the internet");
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      onLine.mockRestore();
+    }
+  });
+});
+
+describe("read-only suggestions", () => {
+  it("Copy keeps the call script open and counts it as kept once", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    fetchMock.mockResolvedValueOnce(answer({ ok: true, value: { opening: "Namaste <<parent>>.", points: ["<<amount_due>> is due."], close: "Thank you." }, logId: "44444444-4444-4444-8444-444444444444" }));
+    fetchMock.mockResolvedValue(answer({ ok: true }));
+    await render(
+      <CallScript topic="dues" facts={[{ key: "parent", label: "parent", value: "QA Parent" }, { key: "amount_due", label: "fees due", value: "₹4,500" }]} situation={[]} />,
+      ["calls"],
+    );
+    await click("What to say on this call");
+    await click("Copy");
+    await click("Copied");
+    expect(writeText).toHaveBeenCalledWith("Namaste QA Parent.\n₹4,500 is due.\nThank you.");
+    // Still open for the rest of the call.
+    expect(host.textContent).toContain("Namaste QA Parent.");
+    const patches = fetchMock.mock.calls.filter((c) => c[1]?.method === "PATCH");
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0][1].body as string)).toEqual({ logId: "44444444-4444-4444-8444-444444444444", decision: "kept" });
+  });
+});

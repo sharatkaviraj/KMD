@@ -8,7 +8,7 @@ import { useVx } from "@/vx/i18n";
 import { p, type Pair } from "@/vx/text";
 import { useToast } from "@/vx/ui/overlays";
 
-import { useAssistTask } from "./client";
+import { PROBLEM_TEXT, useAssistTask, useOnline } from "./client";
 import { useAssistOffers } from "./context";
 import { AssistProblemLine, AssistSuggestion } from "./parts";
 
@@ -21,6 +21,8 @@ const SAY = {
   check: p("check", "जाँचें"),
   photoNote: p("The photo is sent to the AI to read and is not kept by VPPS One.", "फ़ोटो पढ़ने के लिए AI को भेजी जाती है; VPPS One इसे नहीं रखता।"),
   badPhoto: p("That photo could not be opened. Try another one.", "यह फ़ोटो नहीं खुली। दूसरी फ़ोटो लें।"),
+  camera: p("Take a photo", "फ़ोटो खींचें"),
+  gallery: p("Choose from gallery", "गैलरी से चुनें"),
 };
 
 export const FORM_FIELD_LABELS: Record<FormField, Pair> = {
@@ -71,15 +73,18 @@ export function FormScan({ classes, onApply }: { classes: readonly string[]; onA
   const offer = useAssistOffers("form");
   const read = useAssistTask("form.read");
   const input = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const online = useOnline();
   if (!offer) return null;
 
   const working = read.state.kind === "working";
   const ready = read.state.kind === "ready" ? read.state.value.values : null;
 
-  async function pick(file: File | undefined) {
+  async function pick(file: File | undefined, box: HTMLInputElement) {
     if (!file) return;
     const data = await shrink(file);
-    if (input.current) input.current.value = "";
+    // The same photo picked again still fires a change.
+    box.value = "";
     if (!data) {
       read.reset();
       toast.show({ text: tx(SAY.badPhoto), tone: "bad" });
@@ -88,20 +93,42 @@ export function FormScan({ classes, onApply }: { classes: readonly string[]; onA
     void read.run({ image: { mediaType: "image/jpeg", data }, classes: classes.slice(0, 60).map((c) => c.slice(0, 40)) });
   }
 
+  // A hidden file box per way in: the camera opens straight away on a phone,
+  // the gallery takes a photo already taken (often on a parent's phone, sent on WhatsApp).
+  const picker = (camera: boolean) => (
+    <label className="tap btn sec" aria-disabled={working || !online} style={{ position: "relative", height: "auto", minHeight: 48, whiteSpace: "normal", opacity: working || !online ? 0.55 : 1, cursor: working ? "progress" : "pointer" }}>
+      <Ic n={camera ? "camera" : "image"} size={18} />
+      {tx(camera ? SAY.camera : SAY.gallery)}
+      <input
+        ref={camera ? cameraInput : input}
+        type="file"
+        accept="image/*"
+        {...(camera ? { capture: "environment" as const } : {})}
+        disabled={working || !online}
+        onChange={(e) => void pick(e.target.files?.[0], e.currentTarget)}
+        style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+      />
+    </label>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {!ready ? (
-        <label className="tap card" style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: working ? "progress" : "pointer", border: "1px dashed var(--acc)", background: "var(--accs)", color: "var(--accfg)" }}>
-          <Ic n={working ? "refresh" : "camera"} size={22} style={working ? { animation: "xLoop 1s linear infinite" } : undefined} />
-          <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-              <Ic n="sparkle" size={14} />
-              {tx(working ? SAY.reading : SAY.scan)}
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px", border: "1px dashed var(--acc)", background: "var(--accs)", color: "var(--accfg)" }}>
+          <span style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <Ic n={working ? "refresh" : !online ? "wifiOff" : "sparkle"} size={18} className={working ? "as-spin" : undefined} style={{ marginTop: 2 }} />
+            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontWeight: 700 }}>{tx(working ? SAY.reading : SAY.scan)}</span>
+              <span className="as-note" style={{ color: "var(--fg)", opacity: 0.8 }}>{tx(!online ? PROBLEM_TEXT.offline : SAY.scanSub)}</span>
             </span>
-            <span style={{ fontSize: 12, color: "var(--fg)", opacity: 0.8 }}>{tx(SAY.scanSub)}</span>
           </span>
-          <input ref={input} type="file" accept="image/*" capture="environment" disabled={working} onChange={(e) => void pick(e.target.files?.[0])} style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
-        </label>
+          {!working ? (
+            <div className="as-pick">
+              {picker(true)}
+              {picker(false)}
+            </div>
+          ) : null}
+        </div>
       ) : null}
       {read.state.kind === "problem" ? <AssistProblemLine problem={read.state.problem} onClose={read.reset} /> : null}
       {ready ? (
@@ -126,7 +153,7 @@ export function FormScan({ classes, onApply }: { classes: readonly string[]; onA
               </li>
             ))}
           </ul>
-          <span style={{ fontSize: 12, color: "var(--mut)" }}>{tx(SAY.photoNote)}</span>
+          <span className="as-note">{tx(SAY.photoNote)}</span>
         </AssistSuggestion>
       ) : null}
     </div>

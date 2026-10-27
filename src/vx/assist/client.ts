@@ -1,13 +1,20 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import type { AssistDecision, AssistOutcome, AssistProblem } from "@/modules/assist/domain/features";
 import type { AssistTaskId, TaskInput, TaskOutput } from "@/modules/assist/domain/tasks";
 import { p, type Pair } from "@/vx/text";
 
-/** Ask for a draft. Never throws: a dropped connection is "busy", like a busy API. */
+const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
+
+/**
+ * Ask for a draft. Never throws. No signal is "offline" and is known before
+ * anything is sent; a connection that drops on the way is "busy", like a
+ * busy API, unless the phone has meanwhile lost its signal.
+ */
 export async function askAssist<K extends AssistTaskId>(task: K, input: TaskInput<K>): Promise<AssistOutcome<TaskOutput<K>>> {
+  if (isOffline()) return { ok: false, problem: "offline" };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 75_000);
   try {
@@ -21,7 +28,7 @@ export async function askAssist<K extends AssistTaskId>(task: K, input: TaskInpu
     const body = (await response.json().catch(() => null)) as AssistOutcome<TaskOutput<K>> | null;
     return body && typeof body.ok === "boolean" ? body : { ok: false, problem: "failed" };
   } catch {
-    return { ok: false, problem: "busy" };
+    return { ok: false, problem: isOffline() ? "offline" : "busy" };
   } finally {
     clearTimeout(timer);
   }
@@ -48,7 +55,68 @@ export const PROBLEM_TEXT: Record<AssistProblem, Pair> = {
   refused: p("The AI could not write this one. Please write it yourself.", "AI यह नहीं लिख सका। कृपया खुद लिखें।"),
   busy: p("The AI helper is busy. Try again in a minute.", "AI सहायक व्यस्त है। एक मिनट बाद फिर कोशिश करें।"),
   failed: p("That did not work. Try again, or write it yourself.", "यह नहीं हो पाया। फिर कोशिश करें या खुद लिखें।"),
+  offline: p("No internet right now. The AI helper works again when you are back online.", "अभी इंटरनेट नहीं है। इंटरनेट आते ही AI सहायक फिर चलेगा।"),
 };
+
+function subscribeOnline(callback: () => void) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+}
+
+/** Whether the phone has a signal, kept current; the same reading as the drafts' `useOnline`. */
+export function useOnline(): boolean {
+  return useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
+}
+
+/**
+ * Copy text, also where `navigator.clipboard` is missing (an older Android
+ * WebView, a page opened from inside WhatsApp): a hidden text box is
+ * selected and copied the old way.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the old way.
+  }
+  try {
+    const box = document.createElement("textarea");
+    box.value = text;
+    box.setAttribute("readonly", "");
+    box.style.position = "fixed";
+    box.style.opacity = "0";
+    document.body.appendChild(box);
+    box.select();
+    const ok = document.execCommand("copy");
+    box.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** The phone's own share sheet (WhatsApp, Messages, Notes…), where there is one. */
+export function canShare(): boolean {
+  return typeof navigator !== "undefined" && typeof navigator.share === "function";
+}
+
+export async function shareText(text: string, title?: string): Promise<boolean> {
+  if (!canShare()) return false;
+  try {
+    await navigator.share({ text, title });
+    return true;
+  } catch {
+    // The person closed the share sheet: nothing to report.
+    return false;
+  }
+}
 
 /** The line under every AI suggestion, so nobody mistakes it for the school's words. */
 export const DRAFT_NOTE = p("Written by AI — read and change it before you save.", "AI ने लिखा है — सहेजने से पहले पढ़ें और ज़रूरत हो तो बदलें।");
@@ -88,14 +156,28 @@ export function useAssistTask<K extends AssistTaskId>(task: K) {
     setState({ kind: "idle" });
   }, []);
 
-  /** Used it, or threw it away: counted once, then back to idle. */
-  const decide = useCallback(
+  // Each draft's decision is counted once, however it is reached.
+  const reported = useRef(new Set<string>());
+  const report = useCallback(
     (decision: AssistDecision) => {
-      if (state.kind === "ready") reportDecision(state.logId, decision);
-      reset();
+      if (state.kind !== "ready" || !state.logId || reported.current.has(state.logId)) return;
+      reported.current.add(state.logId);
+      reportDecision(state.logId, decision);
     },
-    [state, reset],
+    [state],
   );
 
-  return { state, run, reset, decide };
+  /** Used it, or threw it away: counted, then back to idle. */
+  const decide = useCallback(
+    (decision: AssistDecision) => {
+      report(decision);
+      reset();
+    },
+    [report, reset],
+  );
+
+  /** Copied or shared a read-only suggestion: counted as kept, and the card stays open. */
+  const keep = useCallback(() => report("kept"), [report]);
+
+  return { state, run, reset, decide, keep };
 }

@@ -1,0 +1,76 @@
+/*
+ * The AI helper on a phone (D-330). Two scopes, as the kit has them: `.vx`
+ * pages answer to the `vx` container, sheets and the search palette live in
+ * `.vx-layer` outside it and answer to the viewport.
+ *
+ * On a desk the AI button is a small pill beside the screen's own controls.
+ * On a phone it is a full-width row a thumb can hit (48px), its words wrap
+ * instead of running off a 360px screen, and a suggestion's buttons stack
+ * with "Use this" across the full width.
+ */
+
+:where(.vx, .vxt) .btn.as-btn {
+  height: auto;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 18px;
+  gap: 6px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.25;
+  color: var(--accfg);
+  background: var(--accs);
+  font-weight: 700;
+}
+:where(.vx, .vxt) .btn.as-btn:disabled { opacity: 0.55; }
+
+.as-card {
+  scroll-margin-top: 76px;
+  /* Clear of the phone's bottom bar and the home indicator. */
+  scroll-margin-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+}
+.as-read { font-size: 14px; line-height: 1.5; }
+.as-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+:where(.vx, .vxt) .as-actions .btn { height: auto; min-height: 38px; white-space: normal; }
+.as-note { font-size: 12px; color: var(--mut); line-height: 1.45; }
+
+.as-ask {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px dashed var(--acc);
+  border-radius: 14px;
+  background: var(--accs);
+  color: var(--fg);
+  text-align: left;
+}
+
+.as-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+.as-spin { animation: xLoop 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .as-spin { animation: none; }
+  .as-card { scroll-behavior: auto; }
+}
+
+/* `.tap` on purpose: the kit's coarse-pointer rule (44px, vx.css "Touch") has
+   the same weight, and which file loads last is not ours to decide. */
+@container vx (max-width: 899px) {
+  .vx .tap.btn.as-btn { width: 100%; min-height: 48px; font-size: 15px; padding: 10px 16px; border-radius: 14px; justify-content: flex-start; }
+  .vx .as-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vx .as-actions .tap.btn { min-height: 48px; font-size: 15px; justify-content: center; text-align: center; }
+  .vx .as-actions .as-use { grid-column: 1 / -1; }
+  .vx .as-read { font-size: 16px; }
+  .vx .as-note { font-size: 13px; }
+}
+@media (max-width: 899px) {
+  .vx-layer .tap.btn.as-btn { width: 100%; min-height: 48px; font-size: 15px; padding: 10px 16px; border-radius: 14px; justify-content: flex-start; }
+  .vx-layer .as-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vx-layer .as-actions .tap.btn { min-height: 48px; font-size: 15px; justify-content: center; text-align: center; }
+  .vx-layer .as-actions .as-use { grid-column: 1 / -1; }
+  .vx-layer .as-read { font-size: 16px; }
+  .vx-layer .as-note { font-size: 13px; }
+}

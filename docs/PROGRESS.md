@@ -1,5 +1,15 @@
 # VPPS One — progress
 
+## AI helper on phones — 27 October 2026
+
+Branch `feat/ai-assist-mobile`, after PR 118 (`5ab9f87`) and the owner's key
+went live (first real draft logged 09:45 UTC, $0.007, kept). D-330: 48px
+full-width AI buttons that wrap, stacked suggestion buttons, keyboard closed
+and the card scrolled into view on touch, Copy with a fallback and the phone's
+Share sheet on read-only suggestions, an offline state, camera or gallery on
+the admission form. Checked at 375 and 1280 px in the phone harness
+(`tests/mobile-ui/assist.html`); 2 new tests. Not yet checked on a real phone.
+
 ## AI helper, second round — 27 October 2026
 
 Branch `feat/ai-assist-more`, [PR 118](https://github.com/veerpatta/vppsone/pull/118),
