@@ -19,6 +19,7 @@ import { TeachNoteDetail } from "./detail";
 import { day, HelpSteps, nameTone, NotesTop, replaceParams, Seg, StagePill, TEACH_TAG, useBoth, useNoteWords, type HelpStep } from "./look";
 import { TeachPlan } from "./plan";
 import type { NotesProps } from "./workspace";
+import { ClassDigest } from "@/vx/assist/summary-assist";
 
 /*
  * The teacher's notes (design `TchNotes`): her notes in three groups —
@@ -351,6 +352,13 @@ export function TeachNotes(props: NotesProps) {
             </select>
           ) : null}
         </div>
+        {/* The week's notes in short (D-328), for one class: the one picked, or her only class. */}
+        {(() => {
+          const digestClass = fcls !== "all" ? classes.find(([id]) => id === fcls) : classes.length === 1 ? classes[0] : undefined;
+          return digestClass ? (
+            <ClassDigest key={digestClass[0]} classLabel={digestClass[1]} notes={mine.filter((n) => n.classId === digestClass[0])} today={props.today} onOpen={(id) => router.push(`/teach/class?student=${id}`)} />
+          ) : null;
+        })()}
         {secs.map((g) => (
           <div key={g.key} className="nx-c" style={{ gap: 10 }}>
             <div className="nx-f" style={{ gap: 8 }}>

@@ -20,6 +20,7 @@ import {
 } from "@/app/(app)/academics/coordinator-actions";
 
 import { nameInitials, toneOf } from "./ui";
+import { CallScript } from "@/vx/assist/call-script";
 
 /*
  * The interactive parts of the coordinator's screens. Pages are Server
@@ -290,8 +291,19 @@ const OUTCOMES: { value: string; label: Pair; icon: IconName; hint: Pair }[] = [
   { value: "wrong_number", label: { en: "Wrong number", hi: "गलत नंबर" }, icon: "alert", hint: { en: "Ask the office to correct the number in the student's record.", hi: "कार्यालय से विद्यार्थी के रिकॉर्ड में नंबर ठीक करवाएँ।" } },
 ];
 
+/** The child's figures, for the AI call script (D-328). */
+export type CallFigures = { father: string | null; classLabel: string; pct: number; absentDays: number; absentLastWeek: number; lastOutcome: string | null };
+
+const LAST_CALL: Record<string, string> = {
+  will_come: "on the last call the family said the child would come the next day",
+  reached: "the school spoke to the parent on the last call",
+  no_answer: "the last call was not answered",
+  visit_school: "on the last call the parent said they would come to meet the school",
+  wrong_number: "the last call reached a wrong number",
+};
+
 /** The call sheet (AcadAttendance `call`), as the design draws it: dial, the last note, how it went, a note, save. */
-export function CallSheet({ closeHref, studentId, name, sub, phoneHref, phoneLabel, lastNote }: { closeHref: string; studentId: string; name: string; sub: string; phoneHref: string | null; phoneLabel: string | null; lastNote?: { body: string; by: string } | null }) {
+export function CallSheet({ closeHref, studentId, name, sub, phoneHref, phoneLabel, lastNote, figures }: { closeHref: string; studentId: string; name: string; sub: string; phoneHref: string | null; phoneLabel: string | null; lastNote?: { body: string; by: string } | null; figures?: CallFigures | null }) {
   const { tx } = useVx();
   const { run, pending } = useAct();
   const router = useRouter();
@@ -331,6 +343,23 @@ export function CallSheet({ closeHref, studentId, name, sub, phoneHref, phoneLab
             <span>“{lastNote.body}”</span>
             <span style={{ fontSize: 12, color: "var(--mut)" }}>{lastNote.by}</span>
           </div>
+        ) : null}
+        {figures ? (
+          <CallScript
+            topic="absence"
+            facts={[
+              { key: "parent", label: "parent's name", value: figures.father },
+              { key: "child", label: "child's first name", value: first },
+              { key: "class", label: "child's class", value: figures.classLabel },
+              { key: "attendance", label: "child's attendance this session", value: `${Math.round(figures.pct)}%` },
+              { key: "absent_days", label: "days absent this session", value: String(figures.absentDays) },
+              { key: "absent_last_week", label: "days absent last week", value: figures.absentLastWeek > 0 ? String(figures.absentLastWeek) : null },
+            ]}
+            situation={[
+              figures.absentLastWeek > 0 ? "the child was absent again last week" : "the child was present all of last week",
+              figures.lastOutcome ? LAST_CALL[figures.lastOutcome] ?? "" : "this is the first call about attendance",
+            ].filter(Boolean)}
+          />
         ) : null}
         <span className="sech">{tx({ en: "How did it go?", hi: "क्या हुआ?" })}</span>
         <div role="radiogroup" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>

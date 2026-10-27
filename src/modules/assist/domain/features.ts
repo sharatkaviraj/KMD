@@ -24,6 +24,9 @@ export const assistFeatures = [
   "results",
   "ask",
   "translate",
+  "summary",
+  "calls",
+  "brief",
 ] as const;
 
 export type AssistFeature = (typeof assistFeatures)[number];
@@ -44,6 +47,11 @@ export const FEATURE_PERMISSIONS: Record<AssistFeature, readonly StaffPermission
   results: ["reports:view"],
   ask: ["dashboard:view"],
   translate: ["dashboard:view"],
+  summary: ["notes:view"],
+  // The fee desk's dues calls, and the attendance calls a coordinator or the office makes.
+  calls: ["fees:view", "attendance:mark_on_behalf"],
+  // The weekly brief sits on Today for the people who run the school's day.
+  brief: ["attendance:correct"],
 };
 
 /**
@@ -107,10 +115,25 @@ export const FEATURE_LABELS: Record<AssistFeature, { en: string; hi: string; sub
     hi: "अनुवाद",
     sub: { en: "Hindi ↔ English wherever you write", hi: "जहाँ भी लिखें, हिंदी ↔ अंग्रेज़ी" },
   },
+  summary: {
+    en: "Notes in short",
+    hi: "नोट्स संक्षेप में",
+    sub: { en: "A child’s notes before a parent meeting; a class’s week of notes", hi: "अभिभावक बैठक से पहले बच्चे के नोट्स; कक्षा के हफ़्ते भर के नोट्स" },
+  },
+  calls: {
+    en: "Call scripts",
+    hi: "कॉल में क्या कहें",
+    sub: { en: "What to say when calling about dues or absence; the app fills the figures", hi: "बकाया या अनुपस्थिति पर कॉल में क्या कहें; आँकड़े ऐप भरता है" },
+  },
+  brief: {
+    en: "Weekly brief",
+    hi: "हफ़्ते का सार",
+    sub: { en: "This week in plain words on Today; every figure is the app’s", hi: "‘आज’ पर इस हफ़्ते का सार; हर आँकड़ा ऐप का" },
+  },
 };
 
 export function featureTier(feature: AssistFeature): AssistTier {
-  return feature === "remarks" || feature === "form" || feature === "results" ? "careful" : "quick";
+  return feature === "remarks" || feature === "form" || feature === "results" || feature === "brief" ? "careful" : "quick";
 }
 
 /**

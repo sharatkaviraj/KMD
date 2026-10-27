@@ -1,5 +1,19 @@
 # VPPS One — progress
 
+## AI helper, second round — 27 October 2026
+
+Branch `feat/ai-assist-more`, [PR 118](https://github.com/veerpatta/vppsone/pull/118),
+feature commit `500119e`, after PR 117 was merged (`9afae39`, production READY). Owner: "build more suggested ideas". D-328, D-329. New, behind the same
+key, switch and budget: "Summary for a parent meeting" on the teacher's child
+view and Student 360; "This week's notes in short" on the notes board (when a
+class is picked) and the teacher's notes; "What to say on this call" on the
+dues call sheet and the attendance call sheet; "Draft it for me" on the new
+WhatsApp template sheet; "Today and this week in plain words" on Today. Every
+figure in a call script or the brief is the app's own (slots); no family's
+name or amount reaches the AI for a call. No migration. 19 new tests
+(number rules, task clean-up, call-script privacy, sensitive notes held back).
+Still not tried against the real API: no key is set yet.
+
 ## AI helper — 27 October 2026
 
 Branch `feat/ai-assist`, [PR 117](https://github.com/veerpatta/vppsone/pull/117), feature commit `8833288`. Owner's request: build the brainstormed Claude uses

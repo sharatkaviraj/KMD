@@ -17,6 +17,7 @@ import { genderSplit, periodPhases, phoneLinks, rosterBadges } from "../domain/t
 import { closedTitle } from "../domain/today";
 import { dShort, hm12, shortClass, andList } from "./fmt";
 import { LangSeg, TchTop } from "./shared";
+import { ChildSummary } from "@/vx/assist/summary-assist";
 
 /*
  * Teacher · My class & subjects (design TchClass). The class teacher's class
@@ -806,6 +807,11 @@ export function TeachStudent({ data, initialTab, back }: { data: StudentData; in
                   <Link href={`/teach/notes?sheet=add&student=${data.id}`} className="tap btn pri tc-cbig"><Ic n="mic" size={22} />{tx(p("Speak a note", "बोलकर लिखें"))}{sub(p("Speak a note", "बोलकर लिखें")) ? ` · ${sub(p("Speak a note", "बोलकर लिखें"))}` : ""}</Link>
                   <span className="tc-s">{tx(p("Speak in Hindi or English — the app writes it down.", "हिंदी या अंग्रेज़ी में बोलें — ऐप लिख देता है।"))}</span>
                 </div>
+                <ChildSummary
+                  childName={data.name}
+                  notes={data.notes}
+                  facts={data.attendance.percent !== null ? [`Attendance this session: ${Math.round(data.attendance.percent)}%`] : []}
+                />
                 {data.notes.map((nt, i) => {
                   const lead = TAG[nt.tags[0] ?? "studies"] ?? TAG.studies;
                   const st = STATUS[nt.status] ?? STATUS.open;
