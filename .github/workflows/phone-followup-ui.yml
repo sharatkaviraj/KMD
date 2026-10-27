@@ -12,6 +12,11 @@ permissions:
 jobs:
   targeted-phone:
     runs-on: ubuntu-latest
+    # Keep all matrix check identities; reuse the version-matched browsers/OS.
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -24,7 +29,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Verify preinstalled browser version matches lockfile
+        run: node -e "const v=require('@playwright/test/package.json').version; if(v !== '1.63.0') throw new Error('Update the Playwright container to match '+v)"
       - name: Targeted touch component checks
         run: |
           if [ "${{ matrix.config }}" = "class-followup.playwright.config.ts" ]; then

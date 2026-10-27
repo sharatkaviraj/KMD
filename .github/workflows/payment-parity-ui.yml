@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+# Only obsolete PR test runs may be cancelled; main/manual runs stay independent.
+concurrency:
+  group: payment-parity-ui-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   synthetic-browser:
     runs-on: ubuntu-latest

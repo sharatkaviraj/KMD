@@ -1242,3 +1242,15 @@ Owner's request: passwordless logins for every role so AI agents can run the who
 | School day with 24 seats and 11 agents (D-315): admin, academic and exam coordinators, accountant, 20 teachers, then a developer UX review | done on DEV, through production | `feat/smoke-schoolday-2026-10-20` | **262 findings (15 P1)** in about 28 root causes, ranked with fixes in `docs/evidence/smoke-school-day-2026-10-20.md`. Cross-checks, permissions and money held. Teacher P1s: the sheet steals focus while typing (a note toggles parent WhatsApp), marks keep a partial number (85 saves 8), marks freeze offline, and the saved card shows unsaved counts. Others: report card says Pass with a 0, the receipt's fees-owed is wrong, and "cover arranged" when none was. Surprise: the run was planned on Dussehra and crossed midnight; next run on a working day in school hours |
 | All 262 school-day findings worked through (D-316–D-322): eight developer agents, one area each in its own worktree, then integration | **released 21 Oct** | [PR 112](https://github.com/veerpatta/vppsone/pull/112) merged as `d36ac19` (head `ba2ca61`, all 23 checks green before merging); production `dpl_BvDdgiUD8renQKjFApjtnZStsTPE`. Production spot check passed 8 of 8: the change-sheet note stays whole and in focus with WhatsApp untouched, Hindi-only Today, `/staff/roles`, cover, results | Verified in a browser on 21 Oct (local server on the branch, test database, 7 seats): 14 of 15 checks passed, including both teacher P1s, report cards, the needs-attention count, cover and the receipt's fees still owed (₹11,398 before a ₹1 test receipt, ₹11,397 after; SVP20261021-0001). The 15th, the cover tile, passed but no away teacher was set to test it. Its 7 new small problems are fixed in `e69c17c` and `f2256cf`. **202 fixed, 36 improved**, 9 duplicates, 8 by design, 4 not reproducible, 2 need the owner (pass rule, Exempt), 1 open (16 s register load on a weak network). DEV migration `20261021033411_late_cover_assign`. Per-finding list: `docs/evidence/smoke-school-day-2026-10-21-fixes.md`. Surprise: the needs-attention P1 was an undated rehearsal exam full of zeros read as every child's latest paper, not missing marks |
 | Agent harness (`scripts/smoke/lib.mjs`), baseline sweep (`npm run smoke:sweep`), self-test | done | `feat/smoke-lab` | First sweep (teacher 1, local dev server): 12 screens each at 390/1280 px; flagged the note composer 10 px wider than a 390 px screen. Dev-server timings are not findings |
+
+
+## Actions cost optimization - 27 October 2026
+
+Branch `ci/actions-cost-2026-10-27`, workflow commit `eddb811`; PR #116.
+All 14 phone matrix configurations/check identities are preserved while testing
+an official version-matched Playwright image with Node 24. Obsolete PR-only
+cancellation was added to payment parity, provider claim and teacher SQL.
+Independent workflow review found no critical/important issues. GitHub CI and
+full-job timing comparison are pending; merge only after passing checks.
+Local npm installation is blocked by approximately 218 MiB free disk space.
+No application logic, production database or deployment gates changed.

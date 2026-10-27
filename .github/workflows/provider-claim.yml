@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+# Only obsolete PR test runs may be cancelled; main/manual runs stay independent.
+concurrency:
+  group: provider-claim-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   claim:
     runs-on: ubuntu-latest

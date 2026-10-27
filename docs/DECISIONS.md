@@ -419,3 +419,8 @@ The portrait is 96px with initials on missing, denied or failed photographs. Onl
 ### Payment parity and interrupted attempts (11 October 2026)
 
 The active VX payment entry restores the original Fees controls and proven shortcut/receipt components. Review remains a genuine confirmation step despite the reference fast-Cash shortcut. Selected-date dues come from the existing RPC. Before sending a payment, its exact financial request and form are saved in the existing account/session-scoped draft store; unresolved attempts survive selection/reload and freeze until checked, with retries using the original request id. Recovery storage failure prevents sending. A permanent waiver that succeeded before a rejected payment keeps the same key on retry. Financial refresh is awaited before receipt readback, and WhatsApp remains an explicit action. No migration.
+
+
+## Actions runner setup - 27 October 2026
+
+Keep every phone matrix check separate and benchmark the matching official Playwright image before release. Use setup-node 24; fail on Playwright version drift. Limit new cancellation to obsolete PR test runs. Do not infer monetary savings from runner durations.
