@@ -57,6 +57,14 @@ try {
   const existing = (await db.query("select storage_provider, upload_state, content_version from vppsone.student_documents")).rows[0];
   results.push(`existing row reads as ${JSON.stringify(existing)}`);
 
+  // Safe to apply before the code ships: the build already deployed embeds
+  // staff_profiles(display_name) without naming a key, which PostgREST can do
+  // only while student_documents has exactly one key to staff_profiles.
+  const keys = (await db.query(`select count(*)::int as n from pg_constraint
+     where conrelid = 'vppsone.student_documents'::regclass and contype = 'f'
+       and confrelid = 'vppsone.staff_profiles'::regclass`)).rows[0];
+  results.push(keys.n === 1 ? "ok: one key to staff_profiles (existing embeds stay unambiguous)" : `FAIL: ${keys.n} keys to staff_profiles`);
+
   const staff = "00000000-0000-4000-8000-0000000000a1";
   const insert = (id, extra = "", values = "") => `insert into vppsone.student_documents
       (id, session_label, student_id, kind, storage_path, file_name, content_type, byte_size, uploaded_by, storage_provider, upload_state${extra})

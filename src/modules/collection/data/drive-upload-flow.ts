@@ -201,6 +201,11 @@ async function openSession(
 
   const session = await store.findSession(documentId);
   if (!session) {
+    // Another request may have just finished it: `finish` marks the row
+    // stored and then removes the session, so look again before judging.
+    const latest = await store.findDocument(documentId);
+    if (latest?.state === "stored") return { row: latest, session: null };
+    if (latest?.state === "failed") throw new UploadRefusal("failed");
     // A double tap: the first begin is still between its row and its Drive
     // session. Say "wait" for a while; only a row left like this is broken.
     if (now.getTime() - Date.parse(row.createdAt) < STARTING_GRACE_MS) throw new UploadRefusal("starting");
@@ -306,7 +311,12 @@ async function finish(
     throw new UploadRefusal("mismatch");
   }
 
-  await store.markStored(row.id, { driveFileId: file.id, sha256 });
+  const recorded = await store.markStored(row.id, { driveFileId: file.id, sha256 });
+  if (!recorded) {
+    // Somebody else's request got there first; say what the row says now.
+    const latest = await store.findDocument(row.id);
+    if (latest?.state !== "stored") throw new UploadRefusal("failed");
+  }
   await store.deleteSession(row.id);
   return { state: "stored" };
 }

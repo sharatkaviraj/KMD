@@ -91,10 +91,18 @@ function outcomeFor(reason: string | undefined): UploadOutcome {
 
 async function call(deps: UploadDeps, url: string, init: RequestInit): Promise<{ status: number; body: Reply } | null> {
   try {
-    const response = await deps.fetch(url, { ...init, credentials: "same-origin", cache: "no-store" });
+    const headers = new Headers(init.headers);
+    // The route's CSRF guard: another site cannot send this without a preflight.
+    headers.set("x-vppsone-upload", "1");
+    const response = await deps.fetch(url, { ...init, headers, credentials: "same-origin", cache: "no-store" });
     const type = response.headers.get("content-type") ?? "";
-    // A login page or a proxy error is not an answer from the upload route.
-    if (!type.includes("application/json")) return { status: response.status, body: { reason: "forbidden" } };
+    if (!type.includes("application/json")) {
+      // Not the upload route answering. Signed out (a 401/403, or the proxy
+      // sent us to the login page) is final; a timeout, a 502 or an edge error
+      // page is the network, and the upload resumes from where it stopped.
+      const signedOut = response.status === 401 || response.status === 403 || /\/login(\?|$)/.test(response.url);
+      return { status: response.status, body: signedOut ? { reason: "forbidden" } : { retryable: true } };
+    }
     return { status: response.status, body: (await response.json()) as Reply };
   } catch {
     return null;

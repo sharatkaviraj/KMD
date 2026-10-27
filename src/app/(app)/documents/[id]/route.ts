@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   documentResponseHeaders,
   displayFileName,
+  withExtension,
   type AllowedDocumentType,
 } from "@/modules/collection/domain/document-files";
 import { ALLOWED_DOCUMENT_TYPES } from "@/modules/collection/domain/review";
@@ -19,8 +20,9 @@ import { logError } from "@/platform/observability/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// A 10 MB document streamed from Drive; well inside a minute.
-export const maxDuration = 60;
+// The stream runs at the reader's speed: 10 MB on a 1 Mbps phone link is
+// about 80 seconds, so a minute would cut the file off part-way.
+export const maxDuration = 300;
 
 const DENIED = "/access-denied?permission=documents%3Aview";
 
@@ -70,7 +72,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 
   const download = new URL(request.url).searchParams.get("download") === "1";
-  const name = displayFileName(document.fileName);
+  // The saved file's extension is the checked type's, whatever it was called
+  // on upload: a "report.html" that is really a PDF is saved as report.pdf.
+  const name = withExtension(displayFileName(document.fileName), document.contentType as AllowedDocumentType);
 
   let upstream: Response;
   try {

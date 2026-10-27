@@ -11,8 +11,13 @@ import {
   replaceContent,
 } from "@/platform/google/drive";
 import { GoogleAuthError } from "@/platform/google/workload-identity";
+import { readsEveryClass, type StaffRole } from "@/platform/auth/permissions";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
+
+import { checkRecoveryPublicKey } from "@/modules/archives/domain/recovery-envelope";
+import { chunkArray } from "@/platform/helpers/chunk";
+import { IN_FILTER_CHUNK_SIZE } from "@/platform/helpers/in-filter";
 
 import { DRIVE_BACKUPS_BUCKET, backupDriveDocuments } from "./drive-backup";
 import type { DocumentRow, DriveTarget, SessionRow, UploadStore } from "./drive-upload-flow";
@@ -224,9 +229,16 @@ export function driveTarget(settings: FileStorageSettings, oidcToken: string | n
 /**
  * Whether the person asking can see this child this session — the same rule
  * the document listing obeys, asked of the database as them. Admins and the
- * office read every class; a class teacher reads her own.
+ * office read every class, including a child known only to the fee app and
+ * not yet enrolled here (a TC is often exactly that child); a class teacher
+ * reads her own.
  */
-export async function studentInScope(studentId: string, sessionLabel: string): Promise<boolean> {
+export async function studentInScope(
+  staff: { role: StaffRole },
+  studentId: string,
+  sessionLabel: string,
+): Promise<boolean> {
+  if (readsEveryClass(staff)) return true;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("enrolments")
@@ -276,22 +288,34 @@ export async function runDocumentBackup(oidcToken: string | null): Promise<Recor
     return count ?? 0;
   };
 
+  // Uploads nobody finished: the session (a write capability) goes, and the
+  // row is marked failed so it never lists. Nothing was stored for them.
+  const abandoned = await closeAbandonedUploads(db);
+
   const target = driveTarget(settings, oidcToken);
   if (!target) {
     const pending = await waiting(null);
     if (pending > 0) throw new Error(`${pending} Drive documents wait for a copy, and Drive is not configured.`);
-    return { drive: "not configured", pending: 0 };
+    return { drive: "not configured", pending: 0, abandonedUploads: abandoned };
   }
 
   const check = await checkDriveStorage(oidcToken);
   if (!check.ok) throw new Error(`Drive check failed: ${check.detail}`);
+
+  const verified = await reverifyDriveChecksums(db, target, Date.now() + 10_000);
 
   const publicKey = settings.recoveryPublicKey;
   const fingerprint = settings.recoveryKeyFingerprint;
   if (!publicKey || !fingerprint) {
     const pending = await waiting(null);
     if (pending > 0) throw new Error(`${pending} Drive documents have no independent copy: no recovery key is set.`);
-    return { checked: "ok", copied: 0, pending: 0 };
+    return { checked: "ok", copied: 0, pending: 0, abandonedUploads: abandoned, ...verified };
+  }
+  // The row is edited by hand (SQL in the runbook), so the app checks it too:
+  // a weak key, or a fingerprint that is not this key's, makes no copy at all.
+  const key = checkRecoveryPublicKey(publicKey);
+  if (!key.ok || key.fingerprint !== fingerprint) {
+    throw new Error("The recovery key in file_storage_settings is weaker than 3072 bits or its fingerprint does not match.");
   }
 
   const bucket = db.storage.from(DRIVE_BACKUPS_BUCKET);
@@ -337,10 +361,11 @@ export async function runDocumentBackup(oidcToken: string | null): Promise<Recor
     { recoveryPublicKey: publicKey, keyFingerprint: fingerprint, budgetMs: 40_000 },
   );
 
-  if (summary.checksumMismatch > 0 || summary.failed > 0) {
+  if (summary.checksumMismatch > 0 || summary.failed > 0 || verified.driveChanged > 0) {
     throw new Error(
       `Copied ${summary.copied}. ${summary.checksumMismatch} no longer match their recorded checksum; ` +
-        `${summary.failed} could not be copied. Nothing was overwritten.`,
+        `${summary.failed} could not be copied; ${verified.driveChanged} changed in Drive since upload. ` +
+        "Nothing was overwritten.",
     );
   }
   return {
@@ -349,7 +374,83 @@ export async function runDocumentBackup(oidcToken: string | null): Promise<Recor
     driveWriteMs: check.millis?.write ?? 0,
     copied: summary.copied,
     leftForTomorrow: summary.stoppedForTime,
+    abandonedUploads: abandoned,
+    driveVerified: verified.driveVerified,
   };
+}
+
+/** Close uploads past their expiry, and rows that never got a session. */
+async function closeAbandonedUploads(db: ReturnType<typeof createAdminClient>): Promise<number> {
+  const now = new Date().toISOString();
+  const { data: expired, error } = await db
+    .from("document_upload_sessions")
+    .delete()
+    .lt("expires_at", now)
+    .select("document_id")
+    .returns<{ document_id: string }[]>();
+  if (error) throw new Error(`Could not close expired uploads: ${error.message}`);
+  const ids = (expired ?? []).map((row) => row.document_id);
+
+  const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { data: stale, error: staleError } = await db
+    .from("student_documents")
+    .select("id")
+    .eq("storage_provider", "gdrive")
+    .eq("upload_state", "uploading")
+    .lt("created_at", dayAgo)
+    .returns<{ id: string }[]>();
+  if (staleError) throw new Error(`Could not find stale uploads: ${staleError.message}`);
+  const all = [...new Set([...ids, ...(stale ?? []).map((row) => row.id)])];
+  for (const chunk of chunkArray(all, IN_FILTER_CHUNK_SIZE)) {
+    await db.from("document_upload_sessions").delete().in("document_id", chunk);
+    const { error: markError } = await db
+      .from("student_documents")
+      .update({ upload_state: "failed" })
+      .in("id", chunk)
+      .eq("upload_state", "uploading");
+    if (markError) throw new Error(`Could not close stale uploads: ${markError.message}`);
+  }
+  return all.length;
+}
+
+/**
+ * Confirm Drive still holds the bytes each document was stored with, oldest
+ * check first, from Drive's metadata alone (no download). A Shared Drive
+ * manager can upload a new revision over a file; this is how that is noticed.
+ */
+async function reverifyDriveChecksums(
+  db: ReturnType<typeof createAdminClient>,
+  target: DriveTarget,
+  deadline: number,
+): Promise<{ driveVerified: number; driveChanged: number }> {
+  const { data, error } = await db
+    .from("student_documents")
+    .select("id, drive_file_id, content_sha256, byte_size")
+    .eq("storage_provider", "gdrive")
+    .eq("upload_state", "stored")
+    .order("drive_verified_at", { ascending: true, nullsFirst: true })
+    .limit(100)
+    .returns<{ id: string; drive_file_id: string; content_sha256: string; byte_size: number }[]>();
+  if (error) throw new Error(`Could not list documents to verify: ${error.message}`);
+
+  let driveVerified = 0;
+  let driveChanged = 0;
+  for (const row of data ?? []) {
+    if (Date.now() > deadline) break;
+    const file = await getFile(target.deps, row.drive_file_id).catch(() => null);
+    if (!file || file.trashed) {
+      driveChanged += 1;
+      continue;
+    }
+    if (!file.sha256Checksum) continue;
+    if (file.sha256Checksum.toLowerCase() !== row.content_sha256 || Number(file.size) !== Number(row.byte_size)) {
+      driveChanged += 1;
+      continue;
+    }
+    await db.from("student_documents").update({ drive_verified_at: new Date().toISOString() }).eq("id", row.id);
+    driveVerified += 1;
+  }
+  return { driveVerified, driveChanged };
 }
 
 export type DriveCheck = {

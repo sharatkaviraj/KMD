@@ -1,9 +1,11 @@
 # Student documents in the school's Google Drive (D-333)
 
 Status on 27 October 2026: **code written and tested; Drive switched off.**
-Nothing reaches Google until the four approvals at the end of this page are
-given and the settings row says so. Until then every upload and every
-document behaves exactly as before, from the private Supabase bucket.
+The owner approved the migration, the Google project, a dedicated Shared
+Drive and the backup plan the same day. Nothing reaches Google for a member of
+staff until the settings row names them (pilot) or says `gdrive` (everyone).
+Until then every upload and every document behaves exactly as before, from
+the private Supabase bucket.
 
 ## What moves, and what does not
 
@@ -64,8 +66,17 @@ browser ◀──streamed, no-store── VPPS One /documents/<id>     ◀──
   viewers. Drive has no anonymous signed URL, nobody else is shared on the
   files, and the app never creates an "anyone with the link" permission — so a
   copied Drive file id is useless without a Google account that is a member.
+- **Requests.** The upload routes accept only requests carrying
+  `x-vppsone-upload: 1` (another site cannot send it without a CORS preflight)
+  and, when an `Origin` is present, this site's. A timeout or gateway error
+  page is treated as the network and resumed; only signed-out is final.
 - **Removing.** Hides the row (`removed_at`); the Drive file stays. The app
-  deletes nothing from Drive. Bucket documents are removed as before.
+  deletes nothing from Drive. Bucket documents are removed as before. A
+  removed row's name and note stay readable through the API to people who
+  could read it before; its bytes are not served.
+- **Downloads** are saved with the extension of the checked type (a PDF
+  uploaded as `notes.html` downloads as `notes.pdf`). The Open route may run
+  five minutes, so a 10 MB file reaches a slow phone whole.
 - **Page speed.** The student page still reads metadata only; bytes are
   fetched when **Open** is pressed. No thumbnails are generated.
 
@@ -88,12 +99,16 @@ browser ◀──streamed, no-store── VPPS One /documents/<id>     ◀──
 A Drive file id in the database restores nothing if the Google account is
 lost, and a second folder in the same Drive is not a second copy.
 
-- **Independent copy.** The nightly `document-backup` job (03:00 IST) checks
-  Drive end to end, then reads each Drive document that has no copy, checks
-  it against the sha256 recorded at upload, seals it and writes it to the
-  private Supabase bucket `vppsone-drive-backups` — another provider. Any file
-  that no longer matches its checksum, or cannot be copied, fails the run
-  where it is read on the Jobs screen; nothing is overwritten.
+- **Independent copy.** The nightly `document-backup` job (03:00 IST) closes
+  uploads nobody finished, checks Drive end to end (write, read back), checks
+  up to 100 documents' sha256 in Drive's metadata against the recorded one
+  (oldest check first, so a new revision uploaded over a file is noticed),
+  then reads each Drive document that has no copy, checks it against the
+  sha256 recorded at upload, seals it and writes it to the private Supabase
+  bucket `vppsone-drive-backups` — another provider. Any file that changed,
+  no longer matches its checksum, or cannot be copied fails the run where it
+  is read on the Jobs screen; nothing is overwritten. The job also refuses a
+  recovery key under 3072 bits or one whose fingerprint does not match.
 - **Sealed.** AES-256-GCM per file, the key wrapped with RSA-OAEP-SHA256
   (≥ 3072-bit; the tool makes 4096). The app holds only the public half
   (`file_storage_settings.recovery_public_key`), so it can make copies and
@@ -152,11 +167,18 @@ update vppsone.file_storage_settings set documents_provider = 'supabase', drive_
 Backing out never strands a document: Drive rows keep opening from Drive
 while the configuration stays set.
 
-## Google setup (needs approval; nothing here has been run)
+## Google setup
+
+**Done 27 October 2026**, approved by the owner: project `vpps-one-files`
+(number `256623860240`, organisation `vpps.co.in`), the four APIs, service
+account `vppsone-drive@vpps-one-files.iam.gserviceaccount.com` (no keys),
+pool `vercel`, provider `vppsone-production`, and the `workloadIdentityUser`
+binding for the production subject. Domain restricted sharing did **not**
+refuse the binding, so no organisation policy was changed.
 
 All under the `vpps.co.in` organisation, as raj@vpps.co.in, with `gcloud`
 (Claude in Chrome is blocked from clicking in Cloud Console by browser policy).
-No billing account, no purchase.
+No billing account, no purchase. The commands, for the record or a rebuild:
 
 ```bash
 gcloud projects create vpps-one-files --name="VPPS One Files" --organization=754985356765
@@ -171,8 +193,13 @@ gcloud iam workload-identity-pools providers create-oidc vppsone-production --lo
   --attribute-condition="assertion.sub == 'owner:veerpattas-projects:project:vppsone:environment:production'"
 gcloud iam service-accounts add-iam-policy-binding vppsone-drive@vpps-one-files.iam.gserviceaccount.com \
   --project=vpps-one-files --role=roles/iam.workloadIdentityUser \
-  --member="principal://iam.googleapis.com/projects/<NUMBER>/locations/global/workloadIdentityPools/vercel/subject/owner:veerpattas-projects:project:vppsone:environment:production"
+  --member="principal://iam.googleapis.com/projects/256623860240/locations/global/workloadIdentityPools/vercel/subject/owner:veerpattas-projects:project:vppsone:environment:production"
 ```
+
+Revoking the app's access, from the most to the least drastic: disable the
+service account; remove the binding above; remove the account from the
+Shared Drive; or set `documents_provider = 'supabase'` and clear the Drive
+identifiers in the settings row.
 
 Then, in Drive as raj@vpps.co.in: a new Shared Drive **VPPS One – Student
 Documents** (not the existing `0AP-Gd2gbSzZZUk9PVA`, which already holds an

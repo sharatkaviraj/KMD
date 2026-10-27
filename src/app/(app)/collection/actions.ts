@@ -291,7 +291,7 @@ export async function uploadDocumentAction(
 
   // A child this person may see, and a file that is what it says it is: the
   // bytes decide, not the name or the browser's claim (D-333).
-  if (!(await studentInScope(studentId, sessionLabel))) return failure(m.accessDenied);
+  if (!(await studentInScope(actor, studentId, sessionLabel))) return failure(m.accessDenied);
   const bytes = await file.arrayBuffer();
   if (sniffDocumentType(new Uint8Array(bytes, 0, Math.min(16, bytes.byteLength))) !== file.type) {
     return failure(t("केवल PDF या फ़ोटो भेजें।", "Only a PDF or a photograph can be stored here."));

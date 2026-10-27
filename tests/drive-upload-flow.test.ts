@@ -272,6 +272,28 @@ describe("a Drive upload", () => {
     expect(store.documents.get(input.documentId)!.state).toBe("uploading");
   });
 
+  it("reports stored, not failed, when another request finished it a moment ago", async () => {
+    const bytes = syntheticFile("pdf", 4000);
+    const input = request(bytes);
+    await beginUpload(store, target, OFFICE, input);
+    // The status read sees `uploading`, then the finishing request removes the session.
+    const realFind = store.findDocument.bind(store);
+    let reads = 0;
+    store.findDocument = async (id: string) => {
+      reads += 1;
+      if (reads === 1) {
+        const row = await realFind(id);
+        store.documents.set(id, { ...row!, state: "stored", driveFileId: "1SyntheticDriveFile0009", sha256: input.sha256 });
+        store.sessions.delete(id);
+        return row;
+      }
+      return realFind(id);
+    };
+    expect(await currentState(store, target, OFFICE, input.documentId, new Date(Date.now() + 10 * 60 * 1000))).toEqual({
+      state: "stored",
+    });
+  });
+
   it("gives up on a row whose session never appeared", async () => {
     const bytes = syntheticFile("pdf", 4000);
     const input = request(bytes);

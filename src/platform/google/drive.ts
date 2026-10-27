@@ -172,7 +172,9 @@ export async function getFile(deps: DriveDeps, fileId: string): Promise<DriveFil
  * through so a PDF viewer can ask for the page it is on.
  */
 export async function downloadFile(deps: DriveDeps, fileId: string, range?: string | null): Promise<Response> {
-  const headers: Record<string, string> = {};
+  // Identity, so the Content-Length and Content-Range passed on to the
+  // browser describe the bytes it actually receives.
+  const headers: Record<string, string> = { "accept-encoding": "identity" };
   if (range) headers.range = range;
   return send(deps, `${api(deps)}/drive/v3/files/${encodeURIComponent(fileId)}?${query({ alt: "media" })}`, {
     method: "GET",
@@ -356,6 +358,13 @@ export async function uploadChunk(
       );
       return progressOf(response);
     } catch (error) {
+      // A 400 on a chunk usually means our count is behind Drive's (a lost
+      // reply earlier). Ask, and carry on from Drive's answer if it is ahead.
+      if (error instanceof DriveError && error.kind === "invalid" && error.status === 400) {
+        const status = await uploadStatus(deps, input.sessionUrl, input.total);
+        if (status.done || status.received > input.offset) return status;
+        throw error;
+      }
       if (!(error instanceof DriveError) || !error.retryable) throw error;
       failure = error;
     }

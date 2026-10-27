@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel) return refuse("invalid", 409);
-  if (!(await studentInScope(parsed.value.studentId, sessionLabel))) return refuse("out_of_scope", 403);
+  if (!(await studentInScope(staff, parsed.value.studentId, sessionLabel))) return refuse("out_of_scope", 403);
 
   const settings = await readStorageSettings();
   const target = driveTarget(settings, await vercelOidcToken(request));

@@ -81,6 +81,13 @@ const EXTENSIONS: Record<AllowedDocumentType, string> = {
   "image/webp": "webp",
 };
 
+/** A display name whose extension is the one its checked type has. */
+export function withExtension(name: string, contentType: AllowedDocumentType): string {
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  return `${base}.${EXTENSIONS[contentType]}`;
+}
+
 /**
  * The name a document has inside the Shared Drive. Ids only — no child's
  * name, no original file name — so someone browsing the Drive learns nothing

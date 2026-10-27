@@ -38,14 +38,22 @@ export function refuse(reason: UploadFailureCode, status: number, extra: { retry
   return json(body, status);
 }
 
+/** The header the uploader sends on every request (D-333). */
+export const UPLOAD_HEADER = "x-vppsone-upload";
+
 /**
- * A state-changing request from this site's own pages only. Server Actions
- * get this check from Next; route handlers do not, so it is written here.
+ * A request from this site's own uploader only. Server Actions get a CSRF
+ * check from Next; route handlers do not, so it is written here.
+ *
+ * The custom header is the guard: another site cannot add it without a CORS
+ * preflight, which this app never answers. It works on phones whose browsers
+ * send neither `Origin` on a same-origin GET nor `Sec-Fetch-Site` (Safari
+ * before 16.4). A present `Origin` must still be this site's.
  */
 export function sameOrigin(request: Request): boolean {
+  if (request.headers.get(UPLOAD_HEADER) !== "1") return false;
   const origin = request.headers.get("origin");
-  if (origin) return origin === new URL(request.url).origin;
-  return request.headers.get("sec-fetch-site") === "same-origin";
+  return !origin || origin === new URL(request.url).origin;
 }
 
 /** The body, refused past `limit` bytes whatever Content-Length claimed. */

@@ -48,6 +48,18 @@ describe("a sealed copy", () => {
     expect(() => openWithRecoveryKey(school.privateKey, tampered)).toThrow(/changed or damaged/);
   });
 
+  it("opens with a passphrase-protected private key, and not without the passphrase", () => {
+    const guarded = generateKeyPairSync("rsa", {
+      modulusLength: 3072,
+      publicKeyEncoding: { type: "spki", format: "pem" },
+      privateKeyEncoding: { type: "pkcs8", format: "pem", cipher: "aes-256-cbc", passphrase: "synthetic passphrase" },
+    });
+    const bytes = syntheticFile("pdf", 3000);
+    const sealed = sealForRecovery(guarded.publicKey, bytes);
+    expect(sha256Hex(openWithRecoveryKey({ key: guarded.privateKey, passphrase: "synthetic passphrase" }, sealed))).toBe(sha256Hex(bytes));
+    expect(() => openWithRecoveryKey({ key: guarded.privateKey, passphrase: "wrong" }, sealed)).toThrow(/could not be read/);
+  });
+
   it("will not be made for a weak key", () => {
     const weak = generateKeyPairSync("rsa", {
       modulusLength: 2048,

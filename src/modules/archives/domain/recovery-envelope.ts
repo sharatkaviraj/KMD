@@ -2,11 +2,13 @@ import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  createPrivateKey,
   createPublicKey,
   privateDecrypt,
   publicEncrypt,
   randomBytes,
   constants,
+  type KeyObject,
 } from "node:crypto";
 
 /**
@@ -96,9 +98,18 @@ export function sealedFingerprint(sealed: Uint8Array): string {
   return buffer.subarray(MAGIC.byteLength, MAGIC.byteLength + 32).toString("hex");
 }
 
-export function openWithRecoveryKey(privateKeyPem: string, sealed: Uint8Array): Uint8Array {
+/** A private key as PEM text, or a passphrase-protected PEM with its passphrase. */
+export type RecoveryPrivateKey = string | { key: string; passphrase: string };
+
+export function openWithRecoveryKey(privateKeyInput: RecoveryPrivateKey, sealed: Uint8Array): Uint8Array {
   const buffer = Buffer.from(sealed);
   const fingerprint = sealedFingerprint(sealed);
+  let privateKeyPem: KeyObject;
+  try {
+    privateKeyPem = createPrivateKey(privateKeyInput);
+  } catch {
+    throw new RecoveryEnvelopeError("wrong_key", "The private key could not be read (wrong passphrase?).");
+  }
   const publicPem = createPublicKey(privateKeyPem).export({ type: "spki", format: "pem" }).toString();
   if (recoveryKeyFingerprint(publicPem) !== fingerprint) {
     throw new RecoveryEnvelopeError("wrong_key", `This copy was sealed for key ${fingerprint.slice(0, 16)}….`);

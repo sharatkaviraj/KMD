@@ -110,6 +110,13 @@ it("streams a Drive document privately, uncached, as exactly its checked type", 
   expect(mock.driveBytes).toHaveBeenCalledWith(driveRow.drive_file_id, null, "oidc");
 });
 
+it("saves a download under the checked type's extension, whatever it was called", async () => {
+  mock.row = { ...driveRow, file_name: "notes.html" };
+  const response = await open(ID, {}, "?download=1");
+  expect(response.headers.get("content-disposition")).toMatch(/^attachment; filename="notes\.pdf"/);
+  expect(response.headers.get("content-type")).toBe("application/pdf");
+});
+
 it("passes a PDF viewer's range request through", async () => {
   mock.row = driveRow;
   mock.driveBytes.mockResolvedValue(

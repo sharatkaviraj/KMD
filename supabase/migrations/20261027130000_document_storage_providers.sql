@@ -22,7 +22,9 @@
 --    No key, token or password is stored here or anywhere: the app proves who
 --    it is with its Vercel OIDC token (Workload Identity Federation).
 --
--- Existing rows keep their meaning: every one is `supabase`, `stored`.
+-- Existing rows keep their meaning: every one is `supabase`, `stored`. The
+-- migration is safe to apply before the code that uses it: every new column
+-- has a default or is nullable, and no existing query or embed changes.
 --
 -- Rollback (only while no row is 'gdrive'):
 --   restore vppsone.archive_object_listing() from 20261004124254 (two buckets);
@@ -37,6 +39,7 @@
 --   alter table vppsone.student_documents
 --     drop constraint student_documents_drive_complete,
 --     drop column removed_by, drop column removed_at,
+--     drop column drive_verified_at,
 --     drop column client_request_id, drop column upload_state,
 --     drop column content_version, drop column content_sha256,
 --     drop column drive_file_id, drop column storage_provider;
@@ -54,7 +57,13 @@ alter table vppsone.student_documents
     check (upload_state in ('uploading', 'stored', 'failed')),
   add column client_request_id uuid,
   add column removed_at timestamptz,
-  add column removed_by uuid references vppsone.staff_profiles (id),
+  -- Deliberately no foreign key: a second key to staff_profiles would make
+  -- the existing unnamed `staff_profiles(display_name)` embed ambiguous
+  -- (PGRST201) for any build that predates this migration, so applying it
+  -- before the code ships would break every student page.
+  add column removed_by uuid,
+  -- When the nightly job last confirmed Drive still holds the same bytes.
+  add column drive_verified_at timestamptz,
   add constraint student_documents_drive_complete check (
     storage_provider <> 'gdrive'
     or upload_state <> 'stored'

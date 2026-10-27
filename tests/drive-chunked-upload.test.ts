@@ -14,7 +14,9 @@ import { syntheticFile } from "./fake-drive.fixture";
 const CHUNK = 256 * 1024;
 const STUDENT = "00000000-0000-4000-8000-0000000000b1";
 
-function server(options: { dropEvery?: number; busyOnce?: boolean; refuseWith?: string } = {}) {
+function server(
+  options: { dropEvery?: number; busyOnce?: boolean; refuseWith?: string; gatewayTimeoutOnce?: boolean; signedOut?: boolean } = {},
+) {
   const received: Uint8Array[] = [];
   const ids = new Set<string>();
   let declared: { sha256: string; byteSize: number } | null = null;
@@ -31,6 +33,16 @@ function server(options: { dropEvery?: number; busyOnce?: boolean; refuseWith?: 
     const method = init?.method ?? "GET";
     calls += 1;
     log.push(`${method} ${url.pathname}${url.search}`);
+    // The route refuses anything without the uploader's header (its CSRF guard).
+    if (new Headers(init?.headers).get("x-vppsone-upload") !== "1") return reply({ ok: false, reason: "forbidden" }, 403);
+    if (options.gatewayTimeoutOnce && method === "PUT") {
+      options.gatewayTimeoutOnce = false;
+      return new Response("An error occurred with your deployment\n\nFUNCTION_INVOCATION_TIMEOUT", {
+        status: 504,
+        headers: { "content-type": "text/plain" },
+      });
+    }
+    if (options.signedOut) return new Response("<html>login</html>", { status: 401, headers: { "content-type": "text/html" } });
     if (options.refuseWith) return reply({ ok: false, reason: options.refuseWith, retryable: false }, 403);
     if (method === "POST") {
       const body = JSON.parse(String(init!.body)) as { clientRequestId: string; sha256: string; byteSize: number };
@@ -114,6 +126,27 @@ it("refuses a file over 10 MB without sending it", async () => {
   );
   expect(outcome).toMatchObject({ ok: false, reason: "too_large" });
   expect(fake.log).toEqual([]);
+});
+
+it("treats a function timeout page as the network and carries on, not as a refusal", async () => {
+  const bytes = syntheticFile("pdf", CHUNK * 3);
+  const fake = server({ gatewayTimeoutOnce: true });
+  const tools = deps(fake.fetch);
+  const outcome = await uploadToDrive({ documentId: crypto.randomUUID(), studentId: STUDENT, kind: "report", note: "", file: file(bytes) }, tools);
+  expect(outcome).toEqual({ ok: true });
+  expect(tools.retries).toBeGreaterThan(0);
+  expect(fake.have()).toBe(bytes.byteLength);
+});
+
+it("stops when signed out, without retrying", async () => {
+  const fake = server({ signedOut: true });
+  const tools = deps(fake.fetch);
+  const outcome = await uploadToDrive(
+    { documentId: crypto.randomUUID(), studentId: STUDENT, kind: "report", note: "", file: file(syntheticFile("pdf", 1000)) },
+    tools,
+  );
+  expect(outcome).toEqual({ ok: false, reason: "not_allowed", resumable: false });
+  expect(tools.retries).toBe(0);
 });
 
 it("says plainly when the person may not add documents for this child", async () => {
