@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { isSmokeAccount, isSmokeEmail, SMOKE_SEATS } from "@/modules/smoke/domain/pool";
 import { can, SMOKE_LAB_DENIED } from "@/platform/auth/permissions";
-import { clockValue, findingInput, findingKey, findingsMarkdown, passState, ROLE_FOCUS, runHours, SCHOOL_DAY, sortFindings, type FindingRow } from "@/modules/smoke/domain/smoke";
+import { AGENT_RULES, clockValue, findingInput, findingKey, findingsMarkdown, passState, ROLE_FOCUS, runHours, SCHOOL_DAY, sortFindings, type FindingRow } from "@/modules/smoke/domain/smoke";
+import { SMOKE_ASSIST_DAILY_CAP } from "@/modules/smoke/domain/limits";
+import { checkPlan } from "@/modules/smoke/domain/plan";
+import schoolDayPlan from "../docs/smoke/plans/school-day.json";
 
 /* Smoke Lab, pure parts. Synthetic values only. */
 
@@ -101,6 +104,40 @@ describe("the school day", () => {
     const times = SCHOOL_DAY.map((s) => s.at);
     expect([...times].sort()).toEqual(times);
     for (const role of Object.keys(ROLE_FOCUS)) expect(SCHOOL_DAY.some((s) => s.role === role || s.role === "all")).toBe(true);
+  });
+
+  it("tells every agent the AI helper's cap, the number the app enforces (D-331)", () => {
+    expect(AGENT_RULES.filter((rule) => rule.includes(`at most ${SMOKE_ASSIST_DAILY_CAP} drafts`))).toHaveLength(1);
+  });
+});
+
+describe("plans", () => {
+  const valid = { title: "QA plan", schoolDay: "2026-10-29", clockStart: "07:30", hours: 8, seats: [{ key: "admin", persona: "QA admin" }, { key: "teacher1", persona: "QA teacher" }] };
+
+  it("accepts the committed school-day plan, every seat in a wave and no wave wider than this laptop", () => {
+    expect(checkPlan(schoolDayPlan)).toEqual({ errors: [], warnings: [] });
+  });
+
+  it("refuses what the console would refuse half-way through opening the run", () => {
+    expect(checkPlan(valid).errors).toEqual([]);
+    expect(checkPlan({ ...valid, seats: [{ key: "teacher99", persona: "x" }] }).errors[0]).toContain("not in the pool");
+    expect(checkPlan({ ...valid, seats: [...valid.seats, { key: "admin", persona: "again" }] }).errors).toContain('seat "admin" is listed twice');
+    expect(checkPlan({ ...valid, seats: [{ key: "admin", persona: "x".repeat(121) }] }).errors[0]).toContain("121 characters");
+    expect(checkPlan({ ...valid, schoolDay: "2026-11-01" }).errors[0]).toContain("Sunday");
+    expect(checkPlan({ ...valid, clockStart: "7:30", hours: 0 }).errors).toHaveLength(2);
+    expect(checkPlan(null).errors.length).toBeGreaterThan(0);
+  });
+
+  it("keeps waves in clock order and naming only the plan's seats", () => {
+    const waves = [
+      { name: "b", clock: "09:00", seats: ["admin"] },
+      { name: "a", clock: "08:00", seats: ["teacher1", "office"] },
+    ];
+    const { errors, warnings } = checkPlan({ ...valid, waves });
+    expect(errors).toContain('wave "a" starts at 08:00, before the wave ahead of it');
+    expect(errors).toContain('wave "a" names "office", which is not a seat in this plan');
+    expect(warnings).toEqual([]);
+    expect(checkPlan({ ...valid, waves: [{ name: "only", clock: "08:00", seats: ["admin"] }] }).warnings).toEqual(['seat "teacher1" is in no wave, so no agent will be started for it']);
   });
 });
 

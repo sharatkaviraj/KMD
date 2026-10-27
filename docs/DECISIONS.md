@@ -1,5 +1,12 @@
 # Decisions
 
+## Smoke Lab round 2 — 2026-10-27
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-331 | **A Smoke Lab seat gets at most 5 AI helper drafts a day** (`SMOKE_ASSIST_DAILY_CAP` in `src/modules/smoke/domain/limits.ts`, applied by `dailyCapFor` in `runAssistTask`); the admin's cap still wins when lower. The agents' rules quote the same constant, and a refusal at the cap is expected, not a finding. | The helper is on for the test deployment with a $25 month and 60 drafts a person a day. A 28-seat run at that cap could spend the month in one afternoon and switch the helper off for the school's own testers. Five drafts tries every button a role is offered; worst case about $4 a run. A brief rule alone is not a cap: an agent in a loop does not read rules. |
+| D-332 | **Round 2 is prepared and not started.** The plan lives in the repository (`docs/smoke/plans/school-day.json`: 28 seats, a persona each, ten waves of at most three browsers with notes on what each wave checks from the earlier ones), checked by `checkPlan` (pure, tested against the committed file). `npm run smoke:ready` is read-only: the plan, the lab switched on at `APP_ORIGIN` (401 from `/api/lab/brief`, not 404), and with the dev key the seats, open runs and the AI month. The school day gains the AI helper: brief, cover plan, call scripts, results summary, note helper, notes in short, remark drafts, notice writer, Ask. | The 20 Oct plan lived only in a git-ignored folder on another machine, so the next run would have started from nothing. A plan holds no pass, so it can be committed; the kit, which does, still cannot. The owner asked for an environment ready to run, not a run. |
+
 ## AI helper — 2026-10-27
 
 | Decision | Outcome | Evidence and reason |

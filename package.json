@@ -49,7 +49,8 @@
     "verify:fee-parity": "node scripts/verify-fee-parity.mjs",
     "verify:native-recovery": "node --import ./scripts/alias-hook.mjs scripts/verify-native-recovery.mjs",
     "smoke:pool": "node scripts/smoke-pool.mjs",
-    "smoke:sweep": "node scripts/smoke/sweep.mjs"
+    "smoke:sweep": "node scripts/smoke/sweep.mjs",
+    "smoke:ready": "node --import ./scripts/alias-hook.mjs scripts/smoke/preflight.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

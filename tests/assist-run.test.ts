@@ -96,6 +96,15 @@ describe("runAssistTask refuses before spending a token", () => {
     expect(state.parse).not.toHaveBeenCalled();
   });
 
+  it("holds a Smoke Lab seat to five drafts a day, whatever the admin's cap (D-331)", async () => {
+    state.budget.mockResolvedValue({ spentUsd: 0, staffToday: 5 });
+    expect(await runAssistTask({ ...teacher, smokeLab: true }, "note.polish", note)).toEqual({ ok: false, problem: "daily_cap" });
+    state.settings.mockResolvedValue({ ...settings, dailyCapPerStaff: 3 });
+    state.budget.mockResolvedValue({ spentUsd: 0, staffToday: 3 });
+    expect(await runAssistTask({ ...teacher, smokeLab: true }, "note.polish", note)).toEqual({ ok: false, problem: "daily_cap" });
+    expect(state.parse).not.toHaveBeenCalled();
+  });
+
   it("rejects input of the wrong shape", async () => {
     expect(await runAssistTask(teacher, "note.polish", { text: "" })).toEqual({ ok: false, problem: "invalid" });
     expect(state.parse).not.toHaveBeenCalled();
