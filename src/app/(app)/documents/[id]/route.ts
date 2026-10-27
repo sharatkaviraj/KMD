@@ -17,6 +17,7 @@ import { DriveError } from "@/platform/google/drive";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { attachmentDisposition, inlineDisposition } from "@/platform/helpers/content-disposition";
 import { logError } from "@/platform/observability/log";
+import { logDrive } from "@/modules/collection/data/upload-http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,9 +78,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const name = withExtension(displayFileName(document.fileName), document.contentType as AllowedDocumentType);
 
   let upstream: Response;
+  const started = Date.now();
   try {
     upstream = await driveDocumentBytes(document.driveFileId, request.headers.get("range"), await vercelOidcToken(request));
+    // Time until Drive started answering: what Drive adds before the first byte.
+    logDrive({ op: "open", documentId: document.id, ms: Date.now() - started, bytes: document.byteSize, status: upstream.status, outcome: "streaming" });
   } catch (error) {
+    logDrive({ op: "open", documentId: document.id, ms: Date.now() - started, bytes: document.byteSize, status: 503, outcome: "refused" });
     logError("documents.drive.read-failed", {
       documentId: document.id,
       kind: error instanceof DriveError ? error.kind : "other",

@@ -182,15 +182,20 @@ export async function downloadFile(deps: DriveDeps, fileId: string, range?: stri
   });
 }
 
-/** A file or folder by exact name inside one folder of one Shared Drive, oldest first. */
+/**
+ * A file or folder by exact name inside one folder, oldest first.
+ *
+ * The `user` corpus, not `drive`: the account may hold access to one folder
+ * of a Shared Drive without being a member of the drive, and `corpora=drive`
+ * answers "not found" to a non-member.
+ */
 export async function findChild(
   deps: DriveDeps,
-  input: { driveId: string; parentId: string; name: string },
+  input: { parentId: string; name: string },
 ): Promise<DriveFile | null> {
   const escaped = input.name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
   const params = query({
-    corpora: "drive",
-    driveId: input.driveId,
+    corpora: "user",
     includeItemsFromAllDrives: "true",
     q: `'${input.parentId}' in parents and name = '${escaped}' and trashed = false`,
     orderBy: "createdTime",

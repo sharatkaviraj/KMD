@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { acceptChunk, currentState } from "@/modules/collection/data/drive-upload-flow";
 import { driveTarget, supabaseUploadStore } from "@/modules/collection/data/drive-documents";
 import { readStorageSettings } from "@/modules/collection/data/storage-settings";
-import { failureResponse, json, readCapped, refuse, sameOrigin } from "@/modules/collection/data/upload-http";
+import { failureResponse, json, logDrive, readCapped, refuse, sameOrigin } from "@/modules/collection/data/upload-http";
 import { UPLOAD_CHUNK_BYTES, isUuid } from "@/modules/collection/domain/document-files";
 import { assertPermission } from "@/platform/auth/current-staff";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
@@ -40,12 +40,16 @@ export async function GET(request: Request, context: Context) {
   const target = driveTarget(await readStorageSettings(), await vercelOidcToken(request));
   if (!target) return refuse("provider_off", 409);
 
+  const started = Date.now();
   try {
     const state = await currentState(supabaseUploadStore(), target, { staffId: staff.id }, id);
     if (state.state === "stored") revalidatePath("/teach/student/[id]", "page");
+    logDrive({ op: "status", documentId: id, ms: Date.now() - started, status: 200, outcome: state.state });
     return json({ ok: true, documentId: id, ...state });
   } catch (error) {
-    return failureResponse(error, { documentId: id });
+    const response = failureResponse(error, { documentId: id });
+    logDrive({ op: "status", documentId: id, ms: Date.now() - started, status: response.status, outcome: "refused" });
+    return response;
   }
 }
 
@@ -65,11 +69,15 @@ export async function PUT(request: Request, context: Context) {
   const target = driveTarget(await readStorageSettings(), await vercelOidcToken(request));
   if (!target) return refuse("provider_off", 409);
 
+  const started = Date.now();
   try {
     const state = await acceptChunk(supabaseUploadStore(), target, { staffId: staff.id }, { documentId: id, offset, bytes });
     if (state.state === "stored") revalidatePath("/teach/student/[id]", "page");
+    logDrive({ op: "chunk", documentId: id, ms: Date.now() - started, bytes: bytes.byteLength, status: 200, outcome: state.state });
     return json({ ok: true, documentId: id, ...state });
   } catch (error) {
-    return failureResponse(error, { documentId: id });
+    const response = failureResponse(error, { documentId: id });
+    logDrive({ op: "chunk", documentId: id, ms: Date.now() - started, bytes: bytes.byteLength, status: response.status, outcome: "refused" });
+    return response;
   }
 }

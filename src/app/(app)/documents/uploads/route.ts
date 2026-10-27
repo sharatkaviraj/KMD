@@ -7,6 +7,7 @@ import { readStorageSettings } from "@/modules/collection/data/storage-settings"
 import {
   failureResponse,
   json,
+  logDrive,
   readCapped,
   refuse,
   sameOrigin,
@@ -59,16 +60,16 @@ export async function POST(request: Request) {
   if (!target || !drivesUploadsFor(settings, staff.id)) return refuse("provider_off", 409);
   if (!withinRate(`begin:${staff.id}`, 30)) return refuse("too_many", 429, { retryable: true });
 
+  const started = Date.now();
+  const documentId = parsed.value.documentId;
   try {
-    const state = await beginUpload(
-      supabaseUploadStore(),
-      target,
-      { staffId: staff.id },
-      { ...parsed.value, sessionLabel },
-    );
+    const state = await beginUpload(supabaseUploadStore(), target, { staffId: staff.id }, { ...parsed.value, sessionLabel });
     if (state.state === "stored") revalidatePath("/teach/student/[id]", "page");
-    return json({ ok: true, documentId: parsed.value.documentId, ...state });
+    logDrive({ op: "begin", documentId, ms: Date.now() - started, bytes: parsed.value.byteSize, status: 200, outcome: state.state });
+    return json({ ok: true, documentId, ...state });
   } catch (error) {
-    return failureResponse(error, { documentId: parsed.value.documentId });
+    const response = failureResponse(error, { documentId });
+    logDrive({ op: "begin", documentId, ms: Date.now() - started, bytes: parsed.value.byteSize, status: response.status, outcome: "refused" });
+    return response;
   }
 }
