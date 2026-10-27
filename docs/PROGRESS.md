@@ -13,9 +13,15 @@ reviewed independently (findings fixed in `9b92a4c`). Owner approved the
 migration, the Google project, a dedicated Shared Drive and the backup plan:
 migration `20261027114837` applied to dev before merge; Google project
 `vpps-one-files` with keyless federation created, no org policy changed.
-Next: the Shared Drive (owner creates it), the recovery key, a synthetic
-pilot with measurements. Found, not fixed: bucket uploads over 1 MB fail
-(Next's Server Action limit).
+PR 122 (`f6adbfe`) and PR 123 (`fea7705`, folder-only access, timing logs)
+merged and deployed. Drive: folder `VPPS One documents` in the existing
+"Share" drive, service account writer on that folder only. Recovery key made
+on the office PC (fingerprint `9c7fea21…`), public half in the settings row.
+Pilot on for the owner's account only: one real 369 KB PDF stored and opened
+through Drive (timings in `docs/DRIVE-STORAGE.md`). Not yet: a Document
+backup run (health check, sealed copy, restore check with the private key),
+the synthetic size/concurrency measurements, and any decision to go wider.
+Found, not fixed: bucket uploads over 1 MB fail (Next's Server Action limit).
 
 ## AI helper on phones — 27 October 2026
 
