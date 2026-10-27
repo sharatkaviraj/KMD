@@ -11,6 +11,7 @@ import type { Pair } from "@/vx/text";
 
 import { searchEverythingAction, type ActionHit, type ReceiptHit, type SearchResult, type StudentHit } from "./search-actions";
 import type { StaffHit } from "./staff-search";
+import { AskHint, AskRow } from "@/vx/assist/ask-assist";
 import "./palette.css";
 
 export type PaletteItem = { href: string; label: Pair; icon: IconName; group: string };
@@ -304,6 +305,7 @@ export function SearchPalette({
                 ))}
               </div>
               <p style={{ margin: "8px 4px 0", fontSize: 13, color: "var(--mut)", lineHeight: 1.5 }}>{tx(W.oneBox)}</p>
+              <AskHint />
             </div>
           ) : null}
           {students.length ? (
@@ -389,6 +391,7 @@ export function SearchPalette({
               </div>
             </div>
           ) : null}
+          {term.length >= 2 ? <AskRow key={term} question={term} pages={items} onGo={(href) => go({ href })} onSearch={setQ} /> : null}
           {noResults ? <div className="vxp-none">{tx(nothing(term))}</div> : null}
         </div>
       </section>,
@@ -431,6 +434,7 @@ export function SearchPalette({
                 </li>
               ))}
             </ul>
+            {term.length >= 2 ? <AskRow key={term} question={term} pages={items} onGo={(href) => go({ href })} onSearch={setQ} /> : <AskHint />}
             {pending && rows.length === 0 ? <div className="vxp-none">{tx(W.searching)}</div> : null}
             {noResults ? <div className="vxp-none">{tx(nothing(term))}</div> : null}
           </div>

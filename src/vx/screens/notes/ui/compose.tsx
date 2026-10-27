@@ -9,6 +9,7 @@ import { agoP, dayMonth, dayMonthHi, shortDayHi } from "@/vx/format";
 import { p, type Pair } from "@/vx/text";
 import { Sheet, useToast } from "@/vx/ui/overlays";
 import { useSpeech } from "@/vx/ui/voice";
+import { NoteAssist } from "@/vx/assist/note-assist";
 import { COST_PER_MESSAGE } from "@/modules/whatsapp/vx/domain/reminders";
 
 import { createNoteAction, undoNoteAction } from "../actions";
@@ -749,6 +750,7 @@ export function BoardCompose({ c, kids, notes, viewer, people, today, school, ba
             />
           </label>
           {c.errField === "text" ? <span style={{ fontSize: 13, fontWeight: 600, color: "var(--bad)", marginTop: -8, animation: "xIn .3s var(--ease) both" }}>{tx(p("Speak or type the note first.", "पहले नोट बोलें या लिखें।"))}</span> : null}
+          <NoteAssist body={c.body} childName={c.child?.name ?? null} onApply={(text, tags) => { c.setBody(text); c.setMode("type"); c.setErrField(null); if (tags?.length) c.setTags(tags); }} />
           <span className="nx-m nx-f" style={{ marginTop: -6, gap: 6 }}>
             <Ic n="cloud" size={16} />
             {c.draftAt && c.body.trim() ? tx(keptLine(c.draftAt)) : tx(p("What you write is kept here until you save", "सहेजने तक आपका लिखा यहीं रखा रहता है"))}
@@ -994,6 +996,7 @@ export function TeachCompose({ c, kids, notes, viewer, people, today, school, ba
                     style={{ minHeight: 120, fontSize: 16 }}
                   />
                 </label>
+                <NoteAssist body={c.body} childName={c.child?.name ?? null} onApply={(text, tags) => { c.setBody(text); c.setMode("type"); c.setErrField(null); if (tags?.length) c.setTags(tags); }} />
                 <div className="nx-f" style={{ flexWrap: "wrap", gap: 8 }}>
                   <button type="button" className="tap btn soft" onClick={() => (fromVoice ? (c.setBody(""), c.listen(false)) : c.listen(Boolean(c.body.trim())))}>
                     <Ic n="mic" size={18} />

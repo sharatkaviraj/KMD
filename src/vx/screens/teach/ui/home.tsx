@@ -19,6 +19,7 @@ import { birthdayWish, periodPhases, type AttentionReason, type PeriodPhase } fr
 import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { classesWord, classSubject, classWord, closedTitle, combinedClasses, coverLine, examWord, leaveState, LEAVE_STATE_TEXT, mayCancelLeave, teacherKind, type TeacherKind } from "../domain/today";
 import { ampm, andList, callName, dLongP, dShort, dShortP, greetingPair, hm12, shortClass, whenSent } from "./fmt";
+import { CoverAssist } from "@/vx/assist/cover-assist";
 import "./today.css";
 import { CardTitle, DrawnTick, HelpIcon, HelpPic, HelpSheet, LangSeg, LeaveSheet, LinkRing, TchTop, useUrlState, type HelpStep } from "./shared";
 
@@ -1148,6 +1149,7 @@ export function TeachHome({
                 <span style={{ fontWeight: 600 }}>{tx(p(`You’re covering P${cover.number} · ${classesWord(cover.classLabels).en}`, `आप P${cover.number} ले रहे हैं · ${classesWord(cover.classLabels).hi}`))}</span>
               </div>
             ) : null}
+            {!cantOpen ? <CoverAssist key={cover.id} classLabels={cover.classLabels} subject={cover.subjectName || null} starts={cover.starts} ends={cover.ends} /> : null}
           </div>
         ) : (
           <span className="tc-p" style={{ color: "var(--mut)" }}>{tx(p("No cover duty today.", "आज कोई सब्स्टिट्यूशन नहीं।"))}</span>

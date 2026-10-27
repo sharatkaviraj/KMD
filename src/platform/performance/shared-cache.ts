@@ -40,6 +40,8 @@ export const CACHE_TAGS = {
   subjects: "vx-subjects",
   /** `staff_ui_preferences` ("large text"). Busted by both preference writes. */
   uiPrefs: "vx-ui-prefs",
+  /** `assist_settings`, the AI helper's switch and limits. Busted by Settings → AI helper. */
+  assist: "vx-assist",
 } as const;
 
 /**

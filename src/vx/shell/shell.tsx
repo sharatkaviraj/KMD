@@ -1,4 +1,5 @@
 import { approvedStaffPhotos } from "@/modules/collection/data/approved-photos";
+import { assistFeaturesFor } from "@/modules/assist/data/settings";
 import { Suspense, type ReactNode } from "react";
 
 import { getDuesBadgeCount } from "@/modules/dashboard/data/shell-metrics";
@@ -23,6 +24,8 @@ import { previewPermissions, type Viewer } from "@/vx/view-as";
 import { OfflineBanner } from "@/vx/screens/system/offline-banner";
 import { SessionExpiredSheet } from "@/vx/screens/system/session-expired";
 import { UpdateBanner } from "@/vx/screens/system/update-banner";
+
+import { AssistProvider } from "@/vx/assist/context";
 
 import { VxBottomBar } from "./bottom-bar";
 import { LazySearchPalette } from "./lazy";
@@ -107,6 +110,8 @@ export async function VxShell({
     prefersLargeText(staff.id).catch(() => false),
   ]);
   const allowed = (p: StaffPermission) => (previewPerms ? previewPerms.has(p) : can(staff, p));
+  // The AI helper's features for this person (D-324); none at all without the school's Claude key.
+  const assist = await assistFeaturesFor(staff, previewPerms ? allowed : undefined).catch(() => []);
 
   const groups = groupsFor(menu, allowed);
   const tabs = bottomFor(menu, allowed);
@@ -138,6 +143,7 @@ export async function VxShell({
   return (
     <SessionSwitchingProvider>
       <ToastProvider>
+        <AssistProvider features={assist}>
         <Suspense fallback={null}>
           <RouteProgress />
           <NavTrail />
@@ -170,6 +176,7 @@ export async function VxShell({
         <UpdateBanner />
         <SessionExpiredSheet />
         <div id="vx-layer" className="vxt vx-layer" />
+        </AssistProvider>
       </ToastProvider>
     </SessionSwitchingProvider>
   );

@@ -28,6 +28,7 @@ import {
 } from "@/vx/screens/exams/data";
 import { onRoll, paperStatus } from "@/vx/screens/exams/domain/tracker";
 import { suggestRemarks } from "@/vx/screens/exams/domain/messages";
+import { subjectPair } from "@/vx/screens/exams/domain/groups";
 import { classTeacherOf, isManager, mayEnterPaper } from "@/vx/screens/exams/guards";
 import { MarksSheet, type SheetPhase } from "@/vx/screens/exams/marks-sheet";
 import { daysLeft, loadSheet } from "@/vx/screens/exams/sheet-data";
@@ -166,6 +167,9 @@ export default async function TeachMarksPage(props: PageProps<"/teach/marks">) {
           percent: standing.percent,
           attendance: att,
           suggestions: suggestRemarks({ percent: standing.percent, attendancePct: att, strongest: standing.strongest, weakest: standing.weakest }),
+          // For the AI remark (D-324): the subject as a parent reads it, never a name.
+          strongest: standing.strongest ? subjectPair(standing.strongest).en : null,
+          weakest: standing.weakest && standing.weakest !== standing.strongest ? subjectPair(standing.weakest).en : null,
         };
       })
       .sort((a, b) => Number(a.roll ?? 999) - Number(b.roll ?? 999) || a.name.localeCompare(b.name));

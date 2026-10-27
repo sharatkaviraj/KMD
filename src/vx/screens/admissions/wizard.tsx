@@ -25,6 +25,7 @@ import {
   type FamilyCard,
 } from "@/vx/screens/admissions/logic";
 import { ActionBar, Av, PeopleStyles, RadioTile, SwitchRow } from "@/vx/screens/admissions/ui";
+import { FormScan, type FormValues } from "@/vx/assist/form-assist";
 
 export type WizardClass = { id: string; label: string; onRoll: number; seats: number | null; tuition: number };
 export type WizardContext = {
@@ -159,6 +160,36 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const cls = ctx.classes.find((c) => c.id === f.classId) ?? null;
+
+  /**
+   * Values AI read from a photo of the paper form (D-324) go only into boxes
+   * that are still empty — nothing the office typed is replaced — and every
+   * one stays editable before Save.
+   */
+  function fillFromForm(values: FormValues) {
+    const v = (k: keyof FormValues) => values[k]?.value ?? "";
+    const classId = ctx.classes.find((c) => c.label === v("classLabel"))?.id ?? "";
+    const gender = v("gender") === "Male" || v("gender") === "Female" ? (v("gender") as Gender) : "";
+    setF((cur) => ({
+      ...cur,
+      fullName: cur.fullName || v("fullName"),
+      nameHi: cur.nameHi || v("nameHi"),
+      dob: cur.dob || v("dob"),
+      gender: cur.gender || gender,
+      classId: cur.classId || classId,
+      previousSchool: cur.previousSchool || v("previousSchool"),
+    }));
+    setFam((cur) => ({
+      ...cur,
+      fatherName: cur.fatherName || v("fatherName"),
+      motherName: cur.motherName || v("motherName"),
+      phone: cur.phone || v("phone"),
+      address: cur.address || v("address"),
+      village: cur.village || v("village"),
+    }));
+    const unsure = Object.values(values).filter((x) => x && !x.sure).length;
+    toast.show({ text: tx(unsure ? p(`Filled from the photo. Check the ${unsure} marked “check” carefully.`, `फ़ोटो से भर दिया। “जाँचें” वाले ${unsure} खाने ध्यान से देखें।`) : p("Filled from the photo. Check every box before you go on.", "फ़ोटो से भर दिया। आगे बढ़ने से पहले हर खाना जाँचें।")) });
+  }
   const dobIso = parseDob(f.dob);
   const fit = cls ? ageFit(dobIso, cls.label, ctx.sessionLabel) : null;
   const route = ctx.routes.find((r) => r.id === fee.routeId) ?? null;
@@ -298,6 +329,7 @@ export function AdmissionWizard({ ctx, prefill, initialStep }: { ctx: WizardCont
         <div className="pp-page">
           <div className="pad pp-wrap" style={{ padding: "20px 28px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
             <Steps step={step} onGo={setStep} />
+            {step === 1 ? <FormScan classes={ctx.classes.map((c) => c.label)} onApply={fillFromForm} /> : null}
 
             {step === 1 ? (
               <div className="push" style={{ display: "flex", flexDirection: "column", gap: 14 }}>

@@ -22,6 +22,7 @@ import { Chip, Input, Seg, Textarea } from "@/vx/ui/controls";
 import { HelpButton, Sheet, useToast } from "@/vx/ui/overlays";
 import { TopBar, VxPage } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
+import { MessageAssist, ReplyAssist } from "@/vx/assist/message-assist";
 
 import type { CampaignView, MessagesData, RecipientView, ReplyView, TemplateView } from "./data";
 import { Outbox } from "./outbox";
@@ -883,6 +884,13 @@ function Compose({
                   ]}
                 />
               </div>
+              <MessageAssist
+                audience={audience === "staff" ? "staff" : "parents"}
+                kindLabel={KIND_LABELS[audience === "staff" ? "staff" : kind]}
+                current={{ title, hi, en }}
+                language={language}
+                onApply={(next) => { setTitle(next.title.slice(0, 80)); setHi(next.hi.slice(0, MAX_BODY)); setEn(next.en.slice(0, MAX_BODY)); }}
+              />
               <label className="field">
                 <span>{tx(p("Title (bold first line)", "शीर्षक (पहली मोटी पंक्ति)"))}</span>
                 <Input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder={tx(p("For example: Unit Test 2 datesheet", "जैसे: इकाई परीक्षा 2 की समय-सारणी"))} />
@@ -1240,6 +1248,14 @@ function Replies({
           </button>
         ))}
       </div>
+      <ReplyAssist
+        key={selected.id}
+        incoming={selected.body}
+        regarding={selected.regarding}
+        notice={selected.campaignBody}
+        names={[selected.fromName, selected.studentLabel?.split(/[·(,]/)[0]?.trim() ?? ""].filter(Boolean)}
+        onApply={setDraft}
+      />
       <label className="field">
         <span>{tx(p("Your reply", "आपका जवाब"))}</span>
         <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={tx(p("Type a reply — Hindi first is best", "जवाब लिखें — पहले हिंदी बेहतर"))} style={{ minHeight: 80 }} />

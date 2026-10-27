@@ -13,6 +13,7 @@ import { Banner } from "@/vx/ui/page";
 import { Btn } from "@/vx/ui/primitives";
 
 import { ActionBar, PeopleStyles } from "@/vx/screens/admissions/ui";
+import { ColumnsAssist } from "@/vx/assist/columns-assist";
 
 export type ImportRowView = { id: string; rowIndex: number; name: string; classLabel: string; status: string; errors: string[]; warnings: string[] };
 export type ImportProps = {
@@ -168,6 +169,7 @@ function Mapping({ batch, fields }: ImportProps & { batch: NonNullable<ImportPro
             {unmatched ? tx(p(`${unmatched} to pick`, `${unmatched} चुनने हैं`)) : tx(p("All matched", "सब मिल गए"))}
           </span>
         </div>
+        <ColumnsAssist headers={batch.headers} fields={usable} map={map} onApply={(matches) => matches.forEach((m) => choose(m.header, m.field))} />
         <div className="card" style={{ overflow: "hidden" }}>
           <div className="st-mrow only-d" style={{ minHeight: 40, background: "var(--s2)" }}>
             <span className="sech">{tx(p("Excel column", "Excel कॉलम"))}</span>

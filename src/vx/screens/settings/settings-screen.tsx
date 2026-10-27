@@ -7,7 +7,9 @@ import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } 
 
 import { logoutAction } from "@/app/login/actions";
 import { saveLanguageAction } from "@/app/(app)/preferences/actions";
-import { archiveSessionAction, backupNowAction, restoreDrillAction, savePrefsAction, saveProfileAction, type SettingsResult } from "@/app/(app)/settings/actions";
+import { archiveSessionAction, backupNowAction, restoreDrillAction, saveAssistSettingsAction, savePrefsAction, saveProfileAction, type SettingsResult } from "@/app/(app)/settings/actions";
+import type { AssistPanelData } from "@/modules/assist/data/panel";
+import { AssistSettingsPanel } from "@/vx/assist/settings-panel";
 import { dateLabel, initials, longDay, schoolToday, shortDay } from "@/vx/format";
 import { useVx } from "@/vx/i18n";
 import { Ic, type IconName } from "@/vx/icons";
@@ -104,6 +106,8 @@ const T = {
   backups: p("Backups & archive", "बैकअप और संग्रह"),
   master: p("Master data", "मूल डेटा"),
   integrations: p("Integrations", "जुड़ी सेवाएँ"),
+  ai: p("AI helper", "AI सहायक"),
+  aiSub: p("Claude drafts, staff decide · switch, budget, usage", "Claude लिखता है, स्टाफ़ तय करता है · स्विच, बजट, उपयोग"),
   glossary: p("Glossary", "शब्दकोश"),
   glossarySub: p("Plain meanings · English + हिंदी", "आसान अर्थ · English + हिंदी"),
   about: p("About", "ऐप के बारे में"),
@@ -115,7 +119,7 @@ const T = {
 
 type NavItem = { s: SettingsState | "about" | "users"; icon: IconName; tone: Tone; title: Pair; sub: string; subTone?: string; href?: string };
 
-export function SettingsScreen({ data, state }: { data: SettingsData; state: SettingsState }) {
+export function SettingsScreen({ data, state, ai = null }: { data: SettingsData; state: SettingsState; ai?: AssistPanelData | null }) {
   const { tx, language } = useVx();
   const router = useRouter();
   const toast = useToast();
@@ -167,7 +171,13 @@ export function SettingsScreen({ data, state }: { data: SettingsData; state: Set
         { s: "master", icon: "layers", tone: "info", title: T.master, sub: status.master.sub },
       ],
     },
-    { title: T.connected, items: [{ s: "integrations", icon: "link", tone: "warn", title: T.integrations, sub: status.integrations.sub, subTone: status.integrations.tone }] },
+    {
+      title: T.connected,
+      items: [
+        { s: "integrations", icon: "link", tone: "warn", title: T.integrations, sub: status.integrations.sub, subTone: status.integrations.tone },
+        { s: "ai", icon: "sparkle", tone: "acc", title: T.ai, sub: tx(T.aiSub) },
+      ],
+    },
     {
       title: T.help,
       items: [
@@ -188,6 +198,7 @@ export function SettingsScreen({ data, state }: { data: SettingsData; state: Set
     archive: T.backups,
     master: T.master,
     integrations: T.integrations,
+    ai: T.ai,
     glossary: T.glossary,
   };
   const active: SettingsState = state === "home" ? "school" : state;
@@ -319,10 +330,13 @@ export function SettingsScreen({ data, state }: { data: SettingsData; state: Set
     case "glossary":
       content = <Glossary />;
       break;
+    case "ai":
+      content = ai ? <AssistSettingsPanel key={ai.settings?.updatedAt ?? "new"} data={ai} pending={pending} onSave={(next) => start(async () => done(await saveAssistSettingsAction(next)))} /> : null;
+      break;
   }
 
   const homeSub = `${data.me.name} · ${tx(data.me.role)}`;
-  const mSub = state === "home" ? homeSub : state === "school" ? tx(T.schoolSub) : state === "glossary" ? tx(T.glossarySub) : (status[active === "restore" || active === "archive" ? "backups" : active]?.sub ?? undefined);
+  const mSub = state === "home" ? homeSub : state === "school" ? tx(T.schoolSub) : state === "glossary" ? tx(T.glossarySub) : state === "ai" ? tx(T.aiSub) : (status[active === "restore" || active === "archive" ? "backups" : active]?.sub ?? undefined);
 
   return (
     <VxPage style={largeText ? { fontSize: 16 } : undefined}>
