@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { SectionCard } from "@/ui/shell/section-card";
 import { StatusBadge } from "@/ui/shell/status-badge";
+import { AddRow } from "@/ui/primitives/edit-row";
 import { Button } from "@/ui/primitives/button";
 import { Input } from "@/ui/primitives/input";
 import { Label } from "@/ui/primitives/label";
@@ -373,26 +374,28 @@ export function StaffManagementClient({
 }: StaffManagementClientProps) {
   return (
     <div className="space-y-6">
-      <SectionCard
-        title="Create staff account"
-        description="Admins create all internal staff accounts here. Public signup remains disabled."
-      >
+      {/* Creating an account is occasional; it used to fill the first phone
+          screen, above the accounts people come here to look at. */}
+      <AddRow label="Create staff account">
+        <p className="mb-3 text-sm text-muted-foreground">
+          Admins create all internal staff accounts here. Public signup remains disabled.
+        </p>
         <CreateStaffForm
           initialState={initialState}
           assignableRoles={assignableRoles}
           action={createStaffAccountAction}
         />
-      </SectionCard>
+      </AddRow>
 
       <SectionCard
         title="Existing staff accounts"
-        description="Review current staff access, update role mapping, deactivate accounts, and reset passwords."
+        description="Tap an account to change its role, turn it off, or reset its password."
       >
         <div className="space-y-4">
           {accounts.map((account) => (
             <details
               key={account.id}
-              className="rounded-2xl border border-border bg-surface-2 p-4"
+              className="group rounded-2xl border border-border bg-surface-2 p-4"
             >
               <summary className="flex cursor-pointer list-none flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
@@ -430,6 +433,22 @@ export function StaffManagementClient({
                     label={roleLabels[account.role]}
                     tone={roleTone(account.role)}
                   />
+                  {/* Said in words: nothing else on the row shows it opens. */}
+                  <span className="ml-auto inline-flex items-center gap-1 text-[13px] font-semibold text-accent md:ml-2">
+                    <span className="group-open:hidden">Manage</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      className="size-4 transition-transform group-open:rotate-180"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
                 </div>
               </summary>
 

@@ -493,13 +493,14 @@ export function RemindersWorkspace({
                     ) : null}
                   </div>
                 }
+                // The number the message goes to is the one fact a sender checks;
+                // admission number and paid-so-far live under "More" with the
+                // per-family controls, so 122 cards are a third of the height.
                 fields={[
-                  { label: "Adm", value: candidate.admissionNo },
                   {
                     label: "Number",
                     value: `${candidate.destination}${candidate.usedMotherPhone ? " (mother)" : ""}`,
                   },
-                  { label: "Paid so far", value: formatInr(candidate.totalPaid) },
                 ]}
                 actions={
                   <>
@@ -527,27 +528,47 @@ export function RemindersWorkspace({
                             : "Select for this send"}
                     </span>
                   </label>
-                  <div className="flex w-full items-center gap-2 border-t border-border pt-2.5">
-                    <ReminderCadenceControl
-                      studentId={candidate.studentId}
-                      cadence={candidate.cadence}
-                      disabled={!canSend}
-                      className="min-w-0 flex-1 justify-between"
-                    />
-                    {/* Drops this family from the list itself, not just from
-                        this send: it rides `?exclude=`, so the collection lists
-                        and the export leave them off too. Undo is a chip in the
-                        audience builder. */}
-                    <Link
-                      href={`${excludeHrefPrefix}${candidate.studentId}`}
-                      scroll={false}
-                      prefetch={false}
-                      aria-label={`Remove ${candidate.studentName} from the list`}
-                      className="focus-ring grid size-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground"
-                    >
-                      <X className="size-4" aria-hidden="true" />
-                    </Link>
-                  </div>
+                  <details className="group w-full border-t border-border pt-2">
+                    <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg text-[12.5px] font-semibold text-muted-foreground [&::-webkit-details-marker]:hidden">
+                      More
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        className="size-4 transition-transform group-open:rotate-180"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </summary>
+                    <p className="pb-2 text-[12px] text-muted-foreground">
+                      Adm {candidate.admissionNo} · Paid so far {formatInr(candidate.totalPaid)}
+                    </p>
+                    <div className="flex w-full items-center gap-2">
+                      <ReminderCadenceControl
+                        studentId={candidate.studentId}
+                        cadence={candidate.cadence}
+                        disabled={!canSend}
+                        className="min-w-0 flex-1 justify-between"
+                      />
+                      {/* Drops this family from the list itself, not just from
+                          this send: it rides `?exclude=`, so the collection lists
+                          and the export leave them off too. Undo is a chip in the
+                          audience builder. */}
+                      <Link
+                        href={`${excludeHrefPrefix}${candidate.studentId}`}
+                        scroll={false}
+                        prefetch={false}
+                        aria-label={`Remove ${candidate.studentName} from the list`}
+                        className="focus-ring grid size-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground"
+                      >
+                        <X className="size-4" aria-hidden="true" />
+                      </Link>
+                    </div>
+                  </details>
                   </>
                 }
               />
