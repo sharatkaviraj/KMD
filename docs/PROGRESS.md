@@ -1,5 +1,21 @@
 # VPPS One — progress
 
+## Every screen checked; settings lists simplified — 28 October 2026
+
+PR 132 (`2aa53b7`), from the owner's request to check every screen and
+simplify confusing UI. All 115 fixed routes loaded signed in as an admin,
+with no error, crash or wrong redirect. 24 daily and busy screens were
+looked at on a phone, and several on desktop. Three settings screens showed
+every item's form open at once and now open one item at a time (shared
+`EditRow`/`AddRow`, native details):
+- What can be asked for: Add comes first, retired questions folded away.
+- Cover policy: one row per teacher.
+- Class teachers: "Change teacher" instead of a hand-over form on every class.
+
+Not changed: the ported fee admin grids (`/fees/master-data`, `/fees/staff`,
+`/fees/reminders`) and the defaulters call queue, which are dense but
+organised. Once opened, the hand-over form has no Cancel; a reload closes it.
+
 ## Student documents section made simpler — 28 October 2026
 
 PR 130 (`6d72b44`), from the owner's report that adding documents was
