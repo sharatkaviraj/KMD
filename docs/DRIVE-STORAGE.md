@@ -1,9 +1,11 @@
 # One central store in the school's Google Drive (D-333, D-334)
 
 Status on 28 October 2026: see "Where it stands" at the end. In short: the
-code is deployed, Drive is the store for one pilot account, the nightly
-backups into Drive are new in D-334, and the rollout to every role waits for
-an office-account pilot.
+code is deployed; Drive is the store for two pilot accounts (the owner and
+QA Office), and only the owner's has uploaded; the first backup into Drive ran
+and was restored with the school's key; the 11 bucket documents were copied
+in, originals kept; the rollout to every role still waits for one upload from
+the office account.
 
 ## The central store
 
@@ -42,14 +44,14 @@ upload, a second way into the bucket, is removed.
 
 | Data | Where it lives | In Drive | Today |
 |---|---|---|---|
-| Student documents uploaded through Drive | Drive folder (primary) | yes, the original; sealed copy also kept in Supabase `vppsone-drive-backups` (another provider) | 1 (a real 369 KB PDF, pilot) |
-| Student documents in the bucket `vppsone-documents` | Supabase | sealed copy nightly; copy-only move into the Drive folder approved for the 11 synthetic test files | 11 stored + 1 unfinished, all synthetic, 13.8 MB |
+| Student documents uploaded through Drive | Drive folder (primary) | yes, the original; sealed copy also kept in Supabase `vppsone-drive-backups` (another provider) | 9: one real 369 KB PDF (27 Oct) and 8 synthetic pilot files (28 Oct), 20.9 MB |
+| Student documents that were in the bucket `vppsone-documents` | Drive folder since 28 Oct (copy-only move); the bucket originals are kept | yes, verified by Drive's sha256 | 11 moved, all synthetic, 13.8 MB; 1 unfinished upload left in the bucket untouched |
 | Profile photographs `vppsone-photos` | Supabase (stays: shown as thumbnails on lists, private signed URLs) | sealed copy nightly | 1 |
 | Fee app photographs `student-photos`, voice notes `defaulter-voice-notes` | Supabase | sealed copy nightly | 0, 0 |
 | Generated receipt PDFs `parent-documents` | Supabase, transient (made again from the receipt) | no; the receipts themselves are in the snapshot | 3 |
 | `nightly-backups`, `vppsone-archives` | Supabase; backups of backups | no | 0, 66 |
 | Generated PDFs (receipts, statements, report cards) | not stored; drawn on demand | — | — |
-| Every record: students, fees, attendance, marks, notes, permissions, transactions (`vppsone` and `public` schemas) | **Postgres stays the system of record** | nightly sealed snapshot of every table | 135 + 67 tables, ~18 MB |
+| Every record: students, fees, attendance, marks, notes, permissions, transactions (`vppsone` and `public` schemas) | **Postgres stays the system of record** | nightly sealed snapshot of every table | 204 tables, 49,644 rows on 28 Oct (28.6 MB of JSON, 3.9 MB sealed) |
 | Sign-in accounts (Supabase Auth) | Supabase Auth | **no**: password hashes are never exported; staff profiles are in the snapshot, sign-in would be re-invited after a restore | — |
 
 Google Drive is not a transactional database and nothing here makes it one:
@@ -192,6 +194,14 @@ the owner's, as the drive's manager. Growth is the snapshot size per night
 checks every table; add `--out <folder>` to write one `<schema>.<table>.json`
 per table (they hold children's records: a computer you control, deleted
 afterwards). File copies open with `npm run recovery -- open`.
+
+**Proved on 28 October** with the first run's output and the school's private
+key, on the office PC: the snapshot bundle downloaded from Drive (sha256
+`47eb5842…`, equal to `drive_snapshots.sealed_sha256`) and its summary gave
+"204 of 204 tables match their count, digest and checksum (49644 rows)"; one
+sealed file copy downloaded from `backups/file copies/` opened to its
+recorded sha256 ("1 of 1 copies open and match"). Nothing decrypted was
+written to disk, and both downloads were deleted afterwards.
 
 Loading those files into an empty database at the snapshot's schema version
 (apply the migrations first), per table, in dependency order (staff, fields
@@ -407,15 +417,61 @@ record), then `npm run recovery -- verify` with the school's private key:
 uploaded to Drive. The decrypted bytes were never written to disk, and the
 downloaded copy was deleted afterwards.
 
-Still not done: the synthetic files at 1, 5 and 10 MB, four at once, and a
-like-for-like timing of the bucket path. So this page still claims no
-comparison with the bucket's speed.
+### Synthetic pilot, 28 October 2026 (production, the owner's account)
+
+Eight synthetic PDFs (no real data) uploaded through the live app to one
+synthetic student, then opened, measured from the browser end to end
+(chunking, every round trip, Drive's checks). **One run each, not a
+benchmark**:
+
+| File | Upload | Open: first byte | Open: whole file |
+|---|---|---|---|
+| 100 KB (first upload of the run, cold instance) | 6.2 s | 1.5–2.4 s for every size | 1.7–3.5 s |
+| 1 MB | 4.6 s | | |
+| 5 MB | 8.0 s | | |
+| 9.5 MB | 9.5 s | | |
+| 4 × 1 MB at once | all four within ~6 s | | |
+| Bucket documents, same session, for comparison | — | 0.5–0.7 s | 0.8–2.1 s |
+
+All eight rows are `stored` with Drive's sha256 equal to the browser's. So a
+Drive document takes about a second longer to start opening than a bucket
+one (the service-account token and Drive's own latency), and uploads are
+bounded by the 3.75 MiB chunk round trips. The JPEG in the scratch folder was
+not uploaded.
 
 ## Migration of existing files
 
-There are three rows in `student_documents`, all 193-byte synthetic PDFs from
-the 22 September smoke run (one more object in the bucket has no row). No
-real student document exists in VPPS One to migrate. They stay in the bucket;
-copying them is not worth a migration run. The copy-only migration script is
-deliberately not written until there is a real set to copy, an approved
-source, destination and scope.
+Approved by the owner on 28 Oct, copy-only, for the 11 stored bucket
+documents (all synthetic). Done by the first `drive-backup` run (manual, 28
+Oct 04:35 UTC, `ok` in 99 s), step 3 above:
+
+| | Count | Bytes |
+|---|---|---|
+| Stored bucket documents | 11 | 13,787,636 |
+| Copied into `VPPS One documents/session 2026-27`, Drive's sha256 equal to the record | 11 | 13,787,636 |
+| ...of which had no sha256 recorded at upload (older rows): size and type checked, and Drive's sha256 compared with the bytes read from the bucket | 3 | |
+| Parked (mismatch or failure) | 0 | |
+| Bucket originals deleted | 0 (all kept; `student_documents_migrated_kept` enforces it) | |
+| Unfinished upload row (`uploading`, 329 bytes) | left alone, not part of the move | |
+
+Each moved row now reads `gdrive` / `migrated_at` set, and opens from Drive.
+The rollback statement in "Settings and the switch" points them back at
+their bucket originals.
+
+## Where it stands, 28 October 2026
+
+| | State | Evidence |
+|---|---|---|
+| Code deployed | **Yes**: PRs 122, 123, 124, 126, 127 (125 the bucket fix), production commit `9537e7c` | Vercel production deployment, CI green |
+| Central storage enabled | **For two pilot accounts only**: the owner (uploaded 9 files) and QA Office (office role; has not uploaded yet). `documents_provider` is still `supabase` for everyone else | `file_storage_settings` |
+| Non-admin pilot | **Not done.** It needs someone signed in as QA Office to upload one synthetic file; Claude does not sign in to the live app with a password, and the QA day-run pairing expired on 19 Oct | — |
+| Rollout to every role | **Not done**, by the brief's rule: only after both pilots | — |
+| Migration | **Done** for the 11 bucket documents, copy-only, originals kept | table above |
+| Backups scheduled | **Yes**: `document-backup` 21:30 UTC (sealed copies to Supabase) and `drive-backup` 22:00 UTC (snapshot, file copies, move) every night | `vercel.json` |
+| Latest backup | `drive-backup` 28 Oct 04:35 UTC (manual): snapshot of 204 tables / 49,644 rows, 13 file copies, 11 moved; `document-backup` 27 Oct 22:06 UTC: 1 sealed copy | `job_runs` |
+| Restore verified | **Yes, for what was backed up**: snapshot 204/204 tables; one file copy from Drive; one sealed copy from Supabase. **Not** a full rebuild into an empty database | above |
+| Retention | Keep everything (owner's choice, 28 Oct) | — |
+
+To finish: sign in as QA Office (any browser), upload a synthetic PDF to a
+synthetic student, open it; then check its row (`uploaded_by` = QA Office,
+`storage_provider = 'gdrive'`, `stored`) and run step 3 of the settings above.

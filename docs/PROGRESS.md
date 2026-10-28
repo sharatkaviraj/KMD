@@ -14,7 +14,14 @@ findings fixed in `2b6a04b`. Migration `20261028035840` dry-run on PGlite
 precedence bug that would have refused every settings update) and applied to
 dev with the owner's approval before merge; on real data the two one-call
 schema exports read 49,611 rows (~26 MB of JSON) in 3.5 s for both, twice.
-Rollout to every role waits for an office-account pilot.
+PR 127 merged (`9537e7c`) and deployed. Live, 28 Oct: 8 synthetic admin
+uploads and opens through Drive (timings in `docs/DRIVE-STORAGE.md`); the
+first `drive-backup` run `ok` in 99 s (snapshot 204 tables / 49,644 rows, 13
+file copies, 11 bucket documents moved copy-only, 0 parked); the snapshot and
+a file copy restored with the private key (204/204 tables). Rollout to every
+role still waits for one upload by QA Office (pilot list holds it; it needs
+a person signed in as that account). Surprise: PR 126 was merged while its
+`check` job was still running (it then passed).
 
 ## Student documents in Google Drive — 27 October 2026
 
