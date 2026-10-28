@@ -396,7 +396,7 @@ export function MasterDataClient({
       </section>
 
       <div className="grid gap-6 2xl:grid-cols-2">
-        <section id="master-data-classes" className="space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
+        <section id="master-data-classes" className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Classes</h2>
@@ -529,7 +529,7 @@ export function MasterDataClient({
         </div>
       </section>
 
-        <section id="master-data-routes" className="space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
+        <section id="master-data-routes" className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Transport Routes</h2>
@@ -658,7 +658,7 @@ export function MasterDataClient({
       </div>
 
       <div className="grid gap-6 2xl:grid-cols-2">
-        <section id="master-data-fee-heads" className="space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
+        <section id="master-data-fee-heads" className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Custom fee heads</h2>
@@ -729,7 +729,7 @@ export function MasterDataClient({
         )}
       </section>
 
-        <section id="master-data-payment-modes" className="space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
+        <section id="master-data-payment-modes" className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4 scroll-mt-24">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Accepted payment modes</h2>
