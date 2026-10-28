@@ -1,5 +1,15 @@
 # VPPS One — progress
 
+## Student documents section made simpler — 28 October 2026
+
+PR 130 (`6d72b44`), from the owner's report that adding documents was
+confusing. The Add button now comes first. Adding is three steps (tap the
+type, tap to choose the file, Save), and Save stays off until both are
+chosen. Rows show the type, note, file name, date and who added it. Remove
+now asks first. Upload logic is unchanged. Checked live at phone size:
+opening the form, choosing a type, and Remove → Keep it. A real upload
+through the new form has not been made yet.
+
 ## One central store and nightly Drive backups — 28 October 2026
 
 Branch `feat/drive-central-backup`, after PR 126 (`2f211bc`). D-334. No
