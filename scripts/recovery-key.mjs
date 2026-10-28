@@ -17,6 +17,15 @@
  *       checks each against its recorded sha256. Writes nothing. This is the
  *       restore test: run it after making the key and once a term.
  *
+ *   npm run recovery -- snapshot --key <private.pem> --bundle <snapshot-….jsonl.gz.sealed> --summary <….summary.json> [--out <folder>]
+ *       Opens a nightly Drive snapshot (D-334) and checks it against the
+ *       plaintext summary beside it and the manifest sealed inside it: the
+ *       bundle's sha256, then every table's row count, Postgres digest and
+ *       rows checksum. Writes nothing unless --out is given, which
+ *       writes one <schema>.<table>.json per table — the files the restore
+ *       steps in docs/ARCHIVE.md load. Those files hold children's records:
+ *       write them only to a computer you control, and delete them after.
+ *
  *   Add --passphrase-env <NAME> to any command to protect the private key with
  *   the passphrase held in that environment variable (never on the command
  *   line, where it lands in shell history). Optional: a forgotten passphrase
@@ -34,6 +43,7 @@ import {
   checkRecoveryPublicKey,
   openWithRecoveryKey,
 } from "../src/modules/archives/domain/recovery-envelope.ts";
+import { openSnapshot, verifySnapshot } from "../src/modules/archives/data/drive-snapshot.ts";
 
 const [command, ...rest] = process.argv.slice(2);
 const flags = Object.fromEntries(
@@ -103,6 +113,25 @@ if (command === "keygen") {
   console.log(`${good} of ${expected.length} copies open and match their recorded sha256.`);
   for (const line of bad) console.log(`  FAILED ${line}`);
   process.exit(bad.length === 0 ? 0 : 1);
+} else if (command === "snapshot") {
+  const key = privateKeyOf(flags.key ?? fail("--key <private.pem> is required"));
+  const sealed = readFileSync(flags.bundle ?? fail("--bundle <snapshot….sealed> is required"));
+  const manifest = JSON.parse(readFileSync(flags.summary ?? flags.manifest ?? fail("--summary <….summary.json> is required"), "utf8"));
+  if (sha256(sealed) !== manifest.bundle.sealedSha256) fail("The downloaded bundle is not the one the manifest names (sha256 differs).");
+  const opened = openSnapshot(key, sealed);
+  const check = verifySnapshot(manifest, opened);
+  console.log(
+    `${check.checked - check.failed.length} of ${check.checked} tables match their count, digest and checksum ` +
+      `(${manifest.totals.rows} rows, snapshot ${manifest.createdAt}).`,
+  );
+  for (const failure of check.failed) console.log(`  FAILED ${failure.table}: ${failure.why}`);
+  if (flags.out) {
+    const folder = resolve(flags.out);
+    mkdirSync(folder, { recursive: true });
+    for (const table of opened.tables) writeFileSync(join(folder, `${table.schema}.${table.table}.json`), table.rows);
+    console.log(`Wrote ${opened.tables.length} table files to ${folder}. They hold children's records; delete them after the restore.`);
+  }
+  process.exit(check.ok ? 0 : 1);
 } else {
-  fail("Usage: npm run recovery -- keygen --out <folder> | open … | verify … (see the top of scripts/recovery-key.mjs)");
+  fail("Usage: npm run recovery -- keygen --out <folder> | open … | verify … | snapshot … (see the top of scripts/recovery-key.mjs)");
 }

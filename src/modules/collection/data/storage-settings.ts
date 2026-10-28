@@ -24,8 +24,22 @@ export type FileStorageSettings = {
   lastCheckAt: string | null;
   lastCheckOk: boolean | null;
   lastCheckDetail: string | null;
+  /** The copy-only move of bucket documents into Drive is approved (D-334). */
+  bucketMigrationApprovedAt: string | null;
   driveConfigured: boolean;
 };
+
+/**
+ * The settings row could not be read. Never a quiet "use the bucket": the
+ * owner's rule is that new files go to the one central store, so a failed
+ * read stops uploads with a visible error instead (D-334).
+ */
+export class StorageSettingsUnavailable extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StorageSettingsUnavailable";
+  }
+}
 
 type Row = {
   documents_provider: "supabase" | "gdrive";
@@ -41,21 +55,7 @@ type Row = {
   last_check_at: string | null;
   last_check_ok: boolean | null;
   last_check_detail: string | null;
-};
-
-/** Before the migration is applied, or if the read fails: Supabase, as before. */
-const SUPABASE_ONLY: FileStorageSettings = {
-  documentsProvider: "supabase",
-  drivePilotStaffIds: [],
-  sharedDriveId: null,
-  rootFolderId: null,
-  workload: null,
-  recoveryPublicKey: null,
-  recoveryKeyFingerprint: null,
-  lastCheckAt: null,
-  lastCheckOk: null,
-  lastCheckDetail: null,
-  driveConfigured: false,
+  bucket_migration_approved_at: string | null;
 };
 
 export async function readStorageSettings(): Promise<FileStorageSettings> {
@@ -64,12 +64,13 @@ export async function readStorageSettings(): Promise<FileStorageSettings> {
     .select(
       "documents_provider, drive_pilot_staff_ids, shared_drive_id, root_folder_id, google_project_number, " +
         "workload_pool_id, workload_provider_id, service_account_email, recovery_public_key, " +
-        "recovery_key_fingerprint, last_check_at, last_check_ok, last_check_detail",
+        "recovery_key_fingerprint, last_check_at, last_check_ok, last_check_detail, bucket_migration_approved_at",
     )
     .eq("id", 1)
     .maybeSingle<Row>();
 
-  if (error || !data) return SUPABASE_ONLY;
+  if (error) throw new StorageSettingsUnavailable(`Could not read where documents are stored: ${error.message}`);
+  if (!data) throw new StorageSettingsUnavailable("The document storage settings row is missing.");
 
   const workload =
     data.google_project_number && data.workload_pool_id && data.workload_provider_id && data.service_account_email
@@ -92,13 +93,24 @@ export async function readStorageSettings(): Promise<FileStorageSettings> {
     lastCheckAt: data.last_check_at,
     lastCheckOk: data.last_check_ok,
     lastCheckDetail: data.last_check_detail,
+    bucketMigrationApprovedAt: data.bucket_migration_approved_at,
     driveConfigured: Boolean(workload && data.shared_drive_id && data.root_folder_id),
   };
 }
 
-/** Where this person's next document goes. */
-export async function documentUploadMode(staffId: string): Promise<"supabase" | "gdrive"> {
-  return drivesUploadsFor(await readStorageSettings(), staffId) ? "gdrive" : "supabase";
+export type DocumentUploadMode = "supabase" | "gdrive" | "unavailable";
+
+/**
+ * Where this person's next document goes — or `unavailable`, which the form
+ * shows as "storage can't be reached" with no upload, never as the bucket.
+ */
+export async function documentUploadMode(staffId: string): Promise<DocumentUploadMode> {
+  try {
+    return drivesUploadsFor(await readStorageSettings(), staffId) ? "gdrive" : "supabase";
+  } catch (error) {
+    if (error instanceof StorageSettingsUnavailable) return "unavailable";
+    throw error;
+  }
 }
 
 /** Drive calls authorised as the school's service account, for one request. */

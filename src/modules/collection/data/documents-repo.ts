@@ -1,15 +1,9 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
-import {
-  documentPath,
-  type DocumentKind,
-  type StudentDocument,
-} from "@/modules/collection/domain/review";
+import { type DocumentKind, type StudentDocument } from "@/modules/collection/domain/review";
 
 /**
  * Files about a child.
@@ -78,77 +72,6 @@ export async function documentsForStudent(
 
   if (error) throw new Error(`Could not read the documents: ${error.message}`);
   return data.map(toDocument);
-}
-
-/**
- * Store a file and index it.
- *
- * The row is created first so its id can name the object in the bucket: a
- * random path nobody can guess, and one that cannot collide when two parents
- * both send `aadhaar.pdf`. If the upload then fails the row is removed, so a
- * listing never offers a document that is not there.
- */
-export async function storeDocument(input: {
-  sessionLabel: string;
-  studentId: string;
-  kind: DocumentKind;
-  fileName: string;
-  contentType: string;
-  bytes: ArrayBuffer;
-  note: string | null;
-  uploadedByStaffId: string;
-}): Promise<StudentDocument> {
-  const admin = createAdminClient();
-  const byteSize = input.bytes.byteLength;
-
-  const { data: row, error } = await admin
-    .from("student_documents")
-    .insert({
-      // Recorded for every new file, so a backup can prove it holds the same bytes.
-      content_sha256: createHash("sha256").update(new Uint8Array(input.bytes)).digest("hex"),
-      session_label: input.sessionLabel,
-      student_id: input.studentId,
-      kind: input.kind,
-      // Replaced immediately below; the row needs its id before the path can
-      // be built from it.
-      storage_path: `pending/${crypto.randomUUID()}`,
-      file_name: input.fileName,
-      content_type: input.contentType,
-      byte_size: byteSize,
-      note: input.note,
-      uploaded_by: input.uploadedByStaffId,
-    })
-    .select(COLUMNS)
-    .single<DocumentRow>();
-
-  if (error) throw error;
-
-  const path = documentPath({
-    sessionLabel: input.sessionLabel,
-    studentId: input.studentId,
-    id: row.id,
-    fileName: input.fileName,
-  });
-
-  const upload = await admin.storage
-    .from(DOCUMENTS_BUCKET)
-    .upload(path, input.bytes, { contentType: input.contentType, upsert: false });
-
-  if (upload.error) {
-    // No orphan rows: a listing must never offer a document that is not there.
-    await admin.from("student_documents").delete().eq("id", row.id);
-    throw upload.error;
-  }
-
-  const { data: updated, error: pathError } = await admin
-    .from("student_documents")
-    .update({ storage_path: path })
-    .eq("id", row.id)
-    .select(COLUMNS)
-    .single<DocumentRow>();
-
-  if (pathError) throw pathError;
-  return toDocument(updated);
 }
 
 export type OpenableDocument = {
@@ -229,14 +152,16 @@ export async function signedDocumentUrl(document: OpenableDocument): Promise<str
  *
  * Only one the person may see: it is looked up as them first.
  *
- * In the Supabase bucket, file and row go, object first: a row with no file is
- * a broken link on a screen, and a file with no row is a byte nobody can
- * reach — of the two failure modes, the second is the one that does not
- * confuse anybody.
- *
  * In Drive, the row is hidden and the file is kept (D-333). The app never
  * deletes from the school's Drive; a removed document can be brought back by
  * clearing `removed_at`.
+ *
+ * In the Supabase bucket, row and file go — but only while it is still a
+ * bucket row: the nightly move (D-334) may have pointed it at Drive in the
+ * meantime, and then it is hidden like any Drive document and the bucket
+ * original, its rollback, is kept. The row goes first and the object only if
+ * a row went; a file with no row is a byte nobody can reach, the failure mode
+ * that confuses nobody.
  */
 export async function deleteDocument(id: string): Promise<void> {
   const actor = await assertPermission("documents:manage");
@@ -245,21 +170,28 @@ export async function deleteDocument(id: string): Promise<void> {
   if (!document) return;
 
   const admin = createAdminClient();
-
-  if (document.provider === "gdrive") {
+  const hide = async () => {
     const { error } = await admin
       .from("student_documents")
       .update({ removed_at: new Date().toISOString(), removed_by: actor.id })
       .eq("id", id)
       .is("removed_at", null);
     if (error) throw error;
-    return;
-  }
+  };
+
+  if (document.provider === "gdrive") return hide();
+
+  const { data: deleted, error } = await admin
+    .from("student_documents")
+    .delete()
+    .eq("id", id)
+    .eq("storage_provider", "supabase")
+    .is("migrated_at", null)
+    .select("storage_path");
+  if (error) throw error;
+  if (!deleted || deleted.length === 0) return hide();
 
   await admin.storage.from(DOCUMENTS_BUCKET).remove([document.storagePath]);
-
-  const { error } = await admin.from("student_documents").delete().eq("id", id);
-  if (error) throw error;
 }
 
 /** What VPPS One has accepted about one child, for the student card. */

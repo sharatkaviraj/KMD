@@ -55,7 +55,12 @@ export async function POST(request: Request) {
   if (!sessionLabel) return refuse("invalid", 409);
   if (!(await studentInScope(staff, parsed.value.studentId, sessionLabel))) return refuse("out_of_scope", 403);
 
-  const settings = await readStorageSettings();
+  let settings;
+  try {
+    settings = await readStorageSettings();
+  } catch {
+    return refuse("storage_unavailable", 503, { retryable: true });
+  }
   const target = driveTarget(settings, await vercelOidcToken(request));
   if (!target || !drivesUploadsFor(settings, staff.id)) return refuse("provider_off", 409);
   if (!withinRate(`begin:${staff.id}`, 30)) return refuse("too_many", 429, { retryable: true });

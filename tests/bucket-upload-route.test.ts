@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 
-const state = vi.hoisted(() => ({ allowed: true, scoped: true, row: null as Record<string, unknown> | null, object: null as Blob | null, signed: 0 }));
+const state = vi.hoisted(() => ({ allowed: true, scoped: true, row: null as Record<string, unknown> | null, object: null as Blob | null, signed: 0, settings: "bucket" as "bucket" | "drive" | "down" }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/platform/auth/current-staff", () => ({ assertPermission: async () => { if (!state.allowed) throw Error(); return { id: "staff" }; } }));
 vi.mock("@/vx/view-as", () => ({ assertNotPreviewing: async () => {} }));
 vi.mock("@/modules/academics/data/academics-repo", () => ({ resolveSessionLabel: async () => "2026" }));
 vi.mock("@/modules/collection/data/drive-documents", () => ({ studentInScope: async () => state.scoped }));
-vi.mock("@/modules/collection/data/storage-settings", () => ({ readStorageSettings: async () => ({ documentsProvider: "supabase", driveConfigured: false, drivePilotStaffIds: [] }) }));
+vi.mock("@/modules/collection/data/storage-settings", () => ({ readStorageSettings: async () => { if (state.settings === "down") throw new Error("synthetic settings outage"); return state.settings === "drive" ? { documentsProvider: "gdrive", driveConfigured: true, drivePilotStaffIds: [] } : { documentsProvider: "supabase", driveConfigured: false, drivePilotStaffIds: [] }; } }));
 vi.mock("@/modules/collection/data/documents-repo", () => ({ DOCUMENTS_BUCKET: "vppsone-documents" }));
 vi.mock("@/platform/observability/log", () => ({ logError: vi.fn() }));
 vi.mock("@/platform/supabase/admin", () => ({ createAdminClient: () => ({
@@ -25,7 +25,7 @@ const id = "00000000-0000-4000-8000-000000000001";
 const pdf = new TextEncoder().encode("%PDF-synthetic");
 const body = { clientRequestId: id, studentId: id, kind: "other", fileName: "x.pdf", contentType: "application/pdf", byteSize: pdf.length, sha256: createHash("sha256").update(pdf).digest("hex"), note: "" };
 const call = (input: object, header = true) => POST(new Request("https://test.invalid/documents/bucket-upload", { method: "POST", headers: header ? { "x-vppsone-upload": "1" } : {}, body: JSON.stringify(input) }));
-beforeEach(() => { state.allowed = true; state.scoped = true; state.row = null; state.object = null; state.signed = 0; });
+beforeEach(() => { state.allowed = true; state.scoped = true; state.row = null; state.object = null; state.signed = 0; state.settings = "bucket"; });
 describe("bucket upload route", () => {
   it("refuses unauthenticated, cross-origin and out-of-scope attempts before signing", async () => {
     expect((await call({ ...body, phase: "begin" }, false)).status).toBe(403);
@@ -50,6 +50,15 @@ describe("bucket upload route", () => {
     expect(state.row?.upload_state).toBe("stored");
     expect((await (await call({ ...body, phase: "begin" })).json()).state).toBe("stored");
     expect(state.signed).toBe(1);
+  });
+  it("never falls back to the bucket when Drive is the store or the settings cannot be read (D-334)", async () => {
+    state.settings = "drive";
+    expect((await call({ ...body, phase: "begin" })).status).toBe(409);
+    state.settings = "down";
+    const down = await call({ ...body, phase: "begin" });
+    expect(down.status).toBe(503);
+    expect((await down.json()).retryable).toBe(true);
+    expect(state.signed).toBe(0); expect(state.row).toBeNull();
   });
   it("does not renew or finalize an abandoned upload after one hour", async () => {
     expect((await call({ ...body, phase: "begin" })).status).toBe(200);

@@ -25,6 +25,10 @@
     {
       "path": "/api/jobs/document-backup",
       "schedule": "30 21 * * *"
+    },
+    {
+      "path": "/api/jobs/drive-backup",
+      "schedule": "0 22 * * *"
     }
   ]
 }

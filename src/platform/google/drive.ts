@@ -250,6 +250,40 @@ export async function createSmallFile(
   return (await response.json()) as DriveFile;
 }
 
+/** 8 MiB: a multiple of Drive's 256 KiB block; server-to-Google, so Vercel's request cap does not apply. */
+const SERVER_CHUNK_BYTES = 32 * 256 * 1024;
+
+/**
+ * A file of any size from the server in one call: a resumable session, then
+ * the bytes in order. For backups, whose bundle can pass the 5 MB a
+ * multipart upload allows. Returns Drive's record of the finished file.
+ */
+export async function uploadLargeFile(
+  deps: DriveDeps,
+  input: { name: string; parentId: string; contentType: string; bytes: Uint8Array; appProperties: Record<string, string> },
+): Promise<DriveFile> {
+  const sessionUrl = await startResumableUpload(deps, {
+    name: input.name,
+    parentId: input.parentId,
+    contentType: input.contentType,
+    bytes: input.bytes.byteLength,
+    appProperties: input.appProperties,
+  });
+  let offset = 0;
+  for (;;) {
+    const end = Math.min(offset + SERVER_CHUNK_BYTES, input.bytes.byteLength);
+    const progress = await uploadChunk(deps, {
+      sessionUrl,
+      offset,
+      total: input.bytes.byteLength,
+      bytes: input.bytes.subarray(offset, end),
+    });
+    if (progress.done) return progress.file;
+    if (progress.received <= offset) throw new DriveError("invalid", "Drive did not take the backup chunk.");
+    offset = progress.received;
+  }
+}
+
 /** Replace a file's content. Contributors may edit; used by the health check only. */
 export async function replaceContent(
   deps: DriveDeps,

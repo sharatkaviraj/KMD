@@ -1,5 +1,21 @@
 # VPPS One — progress
 
+## One central store and nightly Drive backups — 28 October 2026
+
+Branch `feat/drive-central-backup`, after PR 126 (`2f211bc`). D-334. No
+silent bucket fallback (unreadable settings stop uploads visibly; the old
+Server Action upload removed); a database guard and history on the storage
+destination; the nightly `drive-backup` job (sealed file copies, the
+approved copy-only move of bucket documents, a sealed snapshot of every
+vppsone and fee table with a manifest) into the "Share" folder the owner
+chose; `npm run recovery -- snapshot` to open and check one. Independent review's
+findings fixed in `2b6a04b`. Migration `20261028035840` dry-run on PGlite
+(`docs/evidence/drive-storage-2026-10-27/`; the dry run caught an operator
+precedence bug that would have refused every settings update) and applied to
+dev with the owner's approval before merge; on real data the two one-call
+schema exports read 49,611 rows (~26 MB of JSON) in 3.5 s for both, twice.
+Rollout to every role waits for an office-account pilot.
+
 ## Student documents in Google Drive — 27 October 2026
 
 Branch `feat/drive-document-storage`, after PR 121 (`6de3b3c`). D-333,
