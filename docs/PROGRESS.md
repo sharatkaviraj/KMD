@@ -18,10 +18,12 @@ PR 127 merged (`9537e7c`) and deployed. Live, 28 Oct: 8 synthetic admin
 uploads and opens through Drive (timings in `docs/DRIVE-STORAGE.md`); the
 first `drive-backup` run `ok` in 99 s (snapshot 204 tables / 49,644 rows, 13
 file copies, 11 bucket documents moved copy-only, 0 parked); the snapshot and
-a file copy restored with the private key (204/204 tables). Rollout to every
-role still waits for one upload by QA Office (pilot list holds it; it needs
-a person signed in as that account). Surprise: PR 126 was merged while its
-`check` job was still running (it then passed).
+a file copy restored with the private key (204/204 tables). PR 128
+(`88517e2`) recorded it. Rolled out to every role at 09:10 UTC by the owner's
+decision without the office-account pilot (D-335): 3 admin and 2 office
+accounts now upload to Drive; the first real office upload is still to be
+checked. Surprise: PR 126 was merged while its `check` job was still running
+(it then passed).
 
 ## Student documents in Google Drive — 27 October 2026
 
