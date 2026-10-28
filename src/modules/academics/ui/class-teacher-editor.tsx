@@ -5,6 +5,7 @@ import { Check, History } from "lucide-react";
 
 import { assignClassTeacherAction } from "@/app/(app)/academics/class-teacher-actions";
 import { m } from "@/messages";
+import { listMessages as lm } from "@/messages/setup";
 import {
   idleAcademicsState,
   type AcademicsFormState,
@@ -44,8 +45,14 @@ function ClassTeacherRow({
     FormData
   >(assignClassTeacherAction, idleAcademicsState);
   const [showHistory, setShowHistory] = useState(false);
+  // A class that has its teacher shows the name and one button; the hand-over
+  // form opens only when asked for. A class with nobody shows the form.
+  // Remembering whose hand-over was opened closes it by itself once the
+  // save lands: the class then has a different teacher.
+  const [changingFrom, setChangingFrom] = useState<string | null>(null);
 
   const current = row.current.class_teacher ?? null;
+  const changing = current !== null && changingFrom === current.staffProfileId;
   const error = state.fieldErrors.staffProfileId ?? state.fieldErrors.effectiveFrom ?? null;
   const saved = state.status === "saved";
   // The current holder plus every closed term. One row means nothing has
@@ -91,7 +98,19 @@ function ClassTeacherRow({
           )}
         </div>
 
-        {editable ? (
+        {editable && current && !changing ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            fullWidth
+            onClick={() => setChangingFrom(current.staffProfileId)}
+          >
+            {primary(lm.changeTeacher, language)}
+          </Button>
+        ) : null}
+
+        {editable && (!current || changing) ? (
           <div className="space-y-2">
             <label
               htmlFor={`teacher-${row.feeClass.id}`}
