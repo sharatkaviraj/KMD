@@ -67,7 +67,7 @@ async function snapshot(options: { oneCallFails?: boolean } = {}) {
   const inner: InnerManifest = {
     kind: "manifest",
     createdAt: "2026-10-28T22:00:00.000Z",
-    schemaVersion: "20261028090000",
+    schemaVersion: "20261028035840",
     appCommit: "synthetic",
     consistent,
     tables,

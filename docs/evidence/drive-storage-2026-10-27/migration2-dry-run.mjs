@@ -1,4 +1,4 @@
-// Dry run of 20261028090000_drive_central_backup.sql (D-334) on PGlite, on top
+// Dry run of 20261028035840_drive_central_backup.sql (D-334) on PGlite, on top
 // of 20261027114837 and synthetic prerequisites shaped like the dev project.
 // Nothing remote. Run like migration-dry-run.mjs:
 //   node migration2-dry-run.mjs "<path to the vppsone checkout>"
