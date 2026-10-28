@@ -30,7 +30,11 @@ export async function POST(request: Request) {
   const value = parsed.value;
   const sessionLabel = await resolveSessionLabel();
   if (!sessionLabel || !(await studentInScope(actor, value.studentId, sessionLabel))) return refuse("out_of_scope", 403);
-  if (drivesUploadsFor(await readStorageSettings(), actor.id)) return refuse("provider_off", 409);
+  // A settings read that fails is a refusal, never a quiet "use the bucket" (D-334).
+  let toDrive: boolean;
+  try { toDrive = drivesUploadsFor(await readStorageSettings(), actor.id); }
+  catch { return refuse("storage_unavailable", 503, { retryable: true }); }
+  if (toDrive) return refuse("provider_off", 409);
   if (!withinRate(`bucket:${actor.id}`, 60)) return refuse("too_many", 429, { retryable: true });
   const db = createAdminClient();
   const path = documentPath({ sessionLabel, studentId: value.studentId, id: value.documentId, fileName: value.fileName });

@@ -37,7 +37,13 @@ export async function GET(request: Request, context: Context) {
   const { id } = await context.params;
   if (!isUuid(id)) return refuse("not_found", 404);
 
-  const target = driveTarget(await readStorageSettings(), await vercelOidcToken(request));
+  let settings;
+  try {
+    settings = await readStorageSettings();
+  } catch {
+    return refuse("storage_unavailable", 503, { retryable: true });
+  }
+  const target = driveTarget(settings, await vercelOidcToken(request));
   if (!target) return refuse("provider_off", 409);
 
   const started = Date.now();
@@ -66,7 +72,13 @@ export async function PUT(request: Request, context: Context) {
   const bytes = await readCapped(request, UPLOAD_CHUNK_BYTES);
   if (!bytes) return refuse("size", 413);
 
-  const target = driveTarget(await readStorageSettings(), await vercelOidcToken(request));
+  let settings;
+  try {
+    settings = await readStorageSettings();
+  } catch {
+    return refuse("storage_unavailable", 503, { retryable: true });
+  }
+  const target = driveTarget(settings, await vercelOidcToken(request));
   if (!target) return refuse("provider_off", 409);
 
   const started = Date.now();

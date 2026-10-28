@@ -1,15 +1,9 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import { assertPermission } from "@/platform/auth/current-staff";
 import { createAdminClient } from "@/platform/supabase/admin";
 import { createClient } from "@/platform/supabase/server";
-import {
-  documentPath,
-  type DocumentKind,
-  type StudentDocument,
-} from "@/modules/collection/domain/review";
+import { type DocumentKind, type StudentDocument } from "@/modules/collection/domain/review";
 
 /**
  * Files about a child.
@@ -78,77 +72,6 @@ export async function documentsForStudent(
 
   if (error) throw new Error(`Could not read the documents: ${error.message}`);
   return data.map(toDocument);
-}
-
-/**
- * Store a file and index it.
- *
- * The row is created first so its id can name the object in the bucket: a
- * random path nobody can guess, and one that cannot collide when two parents
- * both send `aadhaar.pdf`. If the upload then fails the row is removed, so a
- * listing never offers a document that is not there.
- */
-export async function storeDocument(input: {
-  sessionLabel: string;
-  studentId: string;
-  kind: DocumentKind;
-  fileName: string;
-  contentType: string;
-  bytes: ArrayBuffer;
-  note: string | null;
-  uploadedByStaffId: string;
-}): Promise<StudentDocument> {
-  const admin = createAdminClient();
-  const byteSize = input.bytes.byteLength;
-
-  const { data: row, error } = await admin
-    .from("student_documents")
-    .insert({
-      // Recorded for every new file, so a backup can prove it holds the same bytes.
-      content_sha256: createHash("sha256").update(new Uint8Array(input.bytes)).digest("hex"),
-      session_label: input.sessionLabel,
-      student_id: input.studentId,
-      kind: input.kind,
-      // Replaced immediately below; the row needs its id before the path can
-      // be built from it.
-      storage_path: `pending/${crypto.randomUUID()}`,
-      file_name: input.fileName,
-      content_type: input.contentType,
-      byte_size: byteSize,
-      note: input.note,
-      uploaded_by: input.uploadedByStaffId,
-    })
-    .select(COLUMNS)
-    .single<DocumentRow>();
-
-  if (error) throw error;
-
-  const path = documentPath({
-    sessionLabel: input.sessionLabel,
-    studentId: input.studentId,
-    id: row.id,
-    fileName: input.fileName,
-  });
-
-  const upload = await admin.storage
-    .from(DOCUMENTS_BUCKET)
-    .upload(path, input.bytes, { contentType: input.contentType, upsert: false });
-
-  if (upload.error) {
-    // No orphan rows: a listing must never offer a document that is not there.
-    await admin.from("student_documents").delete().eq("id", row.id);
-    throw upload.error;
-  }
-
-  const { data: updated, error: pathError } = await admin
-    .from("student_documents")
-    .update({ storage_path: path })
-    .eq("id", row.id)
-    .select(COLUMNS)
-    .single<DocumentRow>();
-
-  if (pathError) throw pathError;
-  return toDocument(updated);
 }
 
 export type OpenableDocument = {

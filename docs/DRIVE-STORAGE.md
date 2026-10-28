@@ -1,23 +1,59 @@
-# Student documents in the school's Google Drive (D-333)
+# One central store in the school's Google Drive (D-333, D-334)
 
-Status on 27 October 2026: **deployed; Drive on for one pilot account
-(raj@vpps.co.in), off for everyone else.** The owner approved the migration,
-the Google project, the Shared Drive (the existing "Share" drive, one folder)
-and the backup plan the same day. Nothing reaches Google for any other member
-of staff until the settings row names them (pilot) or says `gdrive`
-(everyone); for them every upload and every document behaves exactly as
-before, from the private Supabase bucket.
+Status on 28 October 2026: see "Where it stands" at the end. In short: the
+code is deployed, Drive is the store for one pilot account, the nightly
+backups into Drive are new in D-334, and the rollout to every role waits for
+an office-account pilot.
 
-## What moves, and what does not
+## The central store
 
-| | Where the bytes are | Changed by this work |
-|---|---|---|
-| **Student documents** (Aadhaar, birth certificate, TC, photograph, report, other — `vppsone.student_documents`) | Supabase bucket `vppsone-documents` today; the school Shared Drive once switched on | **Yes.** New uploads go to Drive for the pilot list, then for everybody; existing files stay where they are and keep working |
-| Profile photographs (`vppsone-photos`, the photo review flow) | Supabase | No. Small (≤ 2 MB, usually ~100 KB), shown as thumbnails on lists; streaming each through a function from Drive would make the Students list slower. Listed as a possible later stage |
-| Fee app buckets (`parent-documents`, `student-photos`, `defaulter-voice-notes`, `nightly-backups`) | Supabase (fee app) | No. The fee app's, and on the protected live project for the live fee app |
-| Generated PDFs (receipts, statements, report cards) | Rendered on demand, not stored | No |
-| Archives (`vppsone-archives`) | Supabase | Archives now also carry the sealed Drive copies (below) |
-| Every record: students, fees, attendance, marks, permissions | Postgres | No. Drive holds bytes only; the row stays the index |
+**One destination for every role**: the folder `VPPS One documents`
+(`1MPLDVfid2eQIMNs8rRQTzEhaUZFVh826`) in the school's Shared Drive "Share"
+(`0AP-Gd2gbSzZZUk9PVA`), chosen by the owner on 27 and 28 Oct. Every upload,
+from any role allowed to add documents (admin and office; teachers hold no
+document permission), goes through VPPS One's backend to that folder as the
+service account `vppsone-drive@vpps-one-files.iam.gserviceaccount.com`. Nobody
+signs in to Google, picks a Drive, or holds a credential; the uploader is
+recorded as `uploaded_by` in the database, never as a Drive owner.
+
+**Who owns the files.** Files in a Shared Drive belong to the `vpps.co.in`
+organisation, not to any one account. raj@vpps.co.in is the drive's only
+manager (organizer), so only that account can open, move, share or delete
+them in Drive, and they survive any account being deleted or suspended. The
+service account is a writer on the one folder and not a member of the drive.
+A folder in raj@vpps.co.in's own My Drive was offered and declined: Google no
+longer lets a service account own files in a My Drive, so it would need a
+stored refresh token from the owner's consent, and My Drive files go with
+the account if it is ever removed.
+
+**Changing the destination** is refused by the database while any document
+lives in Drive, unless the same transaction says
+`set local vppsone.confirm_storage_move = 'yes'` (do that only after copying
+every Drive document). Every change to the settings row is recorded in
+`vppsone.file_storage_settings_history`.
+
+**No silent fallback.** If the settings row cannot be read, the student page
+says storage cannot be reached and offers no upload, and every upload route
+refuses with a retryable error. While Drive is the store for a person, the
+bucket upload route refuses them (`provider_off`). The old Server Action
+upload, a second way into the bucket, is removed.
+
+## What is where (inventory, 28 Oct)
+
+| Data | Where it lives | In Drive | Today |
+|---|---|---|---|
+| Student documents uploaded through Drive | Drive folder (primary) | yes, the original; sealed copy also kept in Supabase `vppsone-drive-backups` (another provider) | 1 (a real 369 KB PDF, pilot) |
+| Student documents in the bucket `vppsone-documents` | Supabase | sealed copy nightly; copy-only move into the Drive folder approved for the 11 synthetic test files | 11 stored + 1 unfinished, all synthetic, 13.8 MB |
+| Profile photographs `vppsone-photos` | Supabase (stays: shown as thumbnails on lists, private signed URLs) | sealed copy nightly | 1 |
+| Fee app photographs `student-photos`, voice notes `defaulter-voice-notes` | Supabase | sealed copy nightly | 0, 0 |
+| Generated receipt PDFs `parent-documents` | Supabase, transient (made again from the receipt) | no; the receipts themselves are in the snapshot | 3 |
+| `nightly-backups`, `vppsone-archives` | Supabase; backups of backups | no | 0, 66 |
+| Generated PDFs (receipts, statements, report cards) | not stored; drawn on demand | — | — |
+| Every record: students, fees, attendance, marks, notes, permissions, transactions (`vppsone` and `public` schemas) | **Postgres stays the system of record** | nightly sealed snapshot of every table | 135 + 67 tables, ~18 MB |
+| Sign-in accounts (Supabase Auth) | Supabase Auth | **no**: password hashes are never exported; staff profiles are in the snapshot, sign-in would be re-invited after a restore | — |
+
+Google Drive is not a transactional database and nothing here makes it one:
+the app reads and writes Postgres, and Drive holds file bytes and copies.
 
 The database VPPS One reads is `wtgxcptmucjerhufzjcf` (schoolfees-dev,
 D-208). The live fee database `vgqyilgstjvgohrsiwkb` is not touched by any
@@ -104,6 +140,56 @@ browser ◀──streamed, no-store── VPPS One /documents/<id>     ◀──
 
 A Drive file id in the database restores nothing if the Google account is
 lost, and a second folder in the same Drive is not a second copy.
+
+### Into the central Drive folder: "Backup to Google Drive" (D-334)
+
+The nightly `drive-backup` job (22:00 UTC, 03:30 IST; also Jobs → Run now)
+writes into `VPPS One documents/backups/`:
+
+1. **File copies** (`backups/file copies/`): a sealed copy of every object
+   in `vppsone-documents`, `vppsone-photos`, `student-photos` and
+   `defaulter-voice-notes`, once per version (a file is read again only if it
+   changed since its copy). Catalogue: `vppsone.drive_object_copies`.
+2. **The copy-only move**, only while `bucket_migration_approved_at` is set:
+   each stored bucket document is read, checked against its size, type and
+   recorded sha256, written into the session folder, read back by Drive's own
+   sha256, and only then pointed at Drive (`migrated_at`); the bucket
+   original is kept. Anything that does not match stays in the bucket and
+   fails the run visibly.
+3. **The snapshot**: every `vppsone` table and every fee (`public`) table as
+   Postgres's canonical JSON, with row counts and digests, one line per
+   table, gzipped and sealed: `snapshot-<time>.jsonl.gz.sealed`, read back by
+   sha256 after upload. Beside it, `snapshot-<time>.manifest.json` in plain
+   text: table names, counts, digests, checksums, the list of every stored
+   file with its checksum and copy, the schema version and the app commit —
+   no row. Catalogue: `vppsone.drive_snapshots`.
+
+The run fails, where it is read on the Jobs screen, if Drive is not set up,
+if no valid recovery key is set (nothing is ever written unsealed), or if any
+copy or move failed or did not match; the snapshot is written first in that
+case, so one bad file never costs the night's database copy.
+
+**Retention**: none decided. The owner chose on 28 Oct to keep every backup
+for now; the service account cannot delete anything in Drive, so pruning is
+the owner's, as the drive's manager. Growth is the snapshot size per night
+(see the first run's `snapshotKB` on the Jobs screen) plus changed files.
+
+**Restoring from Drive.** Download a snapshot and its manifest from
+`backups/` (as raj@vpps.co.in), then
+`npm run recovery -- snapshot --key <private.pem> --bundle <….sealed> --manifest <….manifest.json>`
+checks every table; add `--out <folder>` to write the table files the steps
+in `docs/ARCHIVE.md` load (they hold children's records: a computer you
+control, deleted afterwards). File copies open with `npm run recovery -- open`.
+
+**What a single account cannot protect against.** Everything above lives in
+one Shared Drive managed by one account. If that drive is deleted, or the
+Workspace itself is lost, the Drive copies go with it. Two things stand
+outside it today: the operational database itself, and the sealed copies of
+Drive documents in Supabase (`vppsone-drive-backups`, below). An independent
+encrypted copy elsewhere (another provider or a second organisation) would
+need the owner's explicit approval; none is made.
+
+### Out of Google: sealed copies of Drive documents in Supabase (D-333)
 
 - **Independent copy.** The nightly `document-backup` job (03:00 IST) closes
   uploads nobody finished, checks Drive end to end (write, read back), checks

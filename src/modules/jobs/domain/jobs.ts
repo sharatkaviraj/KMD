@@ -22,6 +22,7 @@ export const jobNames = [
   "daily-summary",
   "staff-notices",
   "document-backup",
+  "drive-backup",
 ] as const;
 
 export type JobName = (typeof jobNames)[number];
@@ -129,6 +130,19 @@ export const JOBS: Record<JobName, JobDefinition> = {
     schedule: "30 21 * * *",
     when: t("हर रात 3 बजे", "Every night at 3:00"),
     // Running it again only copies what is still missing.
+    oncePerDay: false,
+  },
+  "drive-backup": {
+    name: "drive-backup",
+    label: t("Google Drive में पूरी सुरक्षित प्रति", "Backup to Google Drive"),
+    what: t(
+      "सारे रिकॉर्ड (फ़ीस सहित) और हर रखी हुई फ़ाइल की बंद (एन्क्रिप्टेड) प्रति स्कूल के Google Drive फ़ोल्डर में रखता है, साथ में एक सूची जिसमें गिनती और जाँच-अंक होते हैं।",
+      "Keeps a sealed (encrypted) copy of every record, fees included, and of every stored file in the school's Google Drive folder, with a list of counts and checksums beside it.",
+    ),
+    // 22:00 UTC is 03:30 in school, after the document backup.
+    schedule: "0 22 * * *",
+    when: t("हर रात 3:30 बजे", "Every night at 3:30"),
+    // A second run makes a second snapshot and copies only what changed.
     oncePerDay: false,
   },
 };

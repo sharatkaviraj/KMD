@@ -1,5 +1,11 @@
 # Decisions
 
+## One central store and nightly backups in Drive — 2026-10-28
+
+| Decision | Outcome | Evidence and reason |
+|---|---|---|
+| D-334 | **Every role's files go to one administrator-controlled destination, and every record and file is backed up there nightly; Postgres stays the system of record.** The destination is the folder `VPPS One documents` in the Shared Drive "Share", whose only manager is raj@vpps.co.in; files there are owned by the `vpps.co.in` organisation and survive any account's removal. Uploads from admin and office (the only roles with document permissions) go through the backend's service account; nobody connects a Google account. A settings row that cannot be read stops uploads visibly — never a quiet bucket upload — and the old Server Action upload is removed. Changing the destination is refused by a database guard once documents live in Drive unless explicitly confirmed, and every settings change is recorded. A nightly `drive-backup` job writes into `backups/`: sealed copies of every object in the four buckets that hold people's files, the approved copy-only move of bucket documents into Drive (originals kept), and a sealed snapshot of every `vppsone` and fee table with a plaintext manifest. Auth accounts are not exported. Retention: keep everything until the owner decides. | Owner's brief and answers, 28 Oct: one destination under raj@vpps.co.in, no teacher-owned storage, backups of records and files in the same destination; keep the "Share" folder (not My Drive, which would need a stored refresh token and goes with the account); keep every backup for now; copy the 11 synthetic bucket documents copy-only. A second folder in the same drive is not independent of losing that drive: `docs/DRIVE-STORAGE.md` says what still stands outside it. |
+
 ## Student documents in Google Drive — 2026-10-27
 
 | Decision | Outcome | Evidence and reason |

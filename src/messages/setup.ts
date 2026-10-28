@@ -435,4 +435,8 @@ export const documentMessages = {
   docExpired: t("यह अपलोड बहुत पुराना हो गया। फ़ाइल फिर से चुनें।", "This upload is too old to continue. Choose the file again."),
   docFailed: t("कागज़ नहीं रखा गया। फिर से कोशिश करें।", "The document was not saved. Try again."),
   docInDrive: t("स्कूल के Google Drive में रखा जाएगा।", "Kept in the school's Google Drive."),
+  docNoStore: t(
+    "कागज़ रखने की जगह अभी नहीं मिल रही, इसलिए अभी कुछ नहीं जोड़ा जा सकता। थोड़ी देर बाद फिर खोलें; रखे हुए कागज़ सुरक्षित हैं।",
+    "Document storage can't be reached just now, so nothing can be added. Open this page again in a few minutes; stored documents are safe.",
+  ),
 } as const;

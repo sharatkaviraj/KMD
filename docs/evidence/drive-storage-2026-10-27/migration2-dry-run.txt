@@ -1,0 +1,12 @@
+﻿ok applied: both migrations
+fee tables listed for the snapshot: ["receipts"]
+fee export: count=2, money kept as text: true
+ok refused: export of something that is not a fee table — not a fee table: pg_class
+objects the copy step sees: [{"bucket":"vppsone-photos","name":"p.jpg"}] (generated receipts excluded)
+ok accepted: first setting of the destination (no Drive documents yet)
+ok refused: moving the destination once documents live in Drive, unconfirmed — Changing the document storage destination needs explicit confirmation (D-334): copy every Drive document first
+ok accepted: the same move, explicitly confirmed in its transaction
+ok accepted: a routine health-check update, unconfirmed
+settings history rows: 3, recovery key left out of every one: true
+ok refused: a migrated row whose storage_path no longer names the bucket original — new row for relation "student_documents" violates check constraint "student_documents_migrated_kept"
+client grants on the new tables: []

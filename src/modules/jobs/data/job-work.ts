@@ -13,6 +13,7 @@ import { isEntered } from "@/modules/assessments/domain/assessments";
 import type { JobName } from "@/modules/jobs/domain/jobs";
 import { dispatchStaffNotices } from "@/modules/staff-notices/data/dispatcher";
 import { runDocumentBackup } from "@/modules/collection/data/drive-documents";
+import { runDriveBackup } from "@/modules/archives/data/drive-backup-job";
 import { vercelOidcToken } from "@/platform/google/vercel-oidc";
 import { currentBells } from "@/modules/substitutions/data/school-rules-repo";
 import { firstPeriodEnds, schoolClock } from "@/modules/timetable/domain/bells";
@@ -792,6 +793,11 @@ async function documentBackup(): Promise<Summary> {
   return runDocumentBackup(await vercelOidcToken());
 }
 
+/** D-334: every record and every stored file, sealed, into the school's Drive folder. */
+async function driveBackup(): Promise<Summary> {
+  return runDriveBackup(await vercelOidcToken());
+}
+
 export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "open-registers": openRegisters,
   "attendance-reminder": attendanceReminder,
@@ -799,4 +805,5 @@ export const jobWork: Record<JobName, (day: string) => Promise<Summary>> = {
   "daily-summary": dailySummary,
   "staff-notices": staffNotices,
   "document-backup": documentBackup,
+  "drive-backup": driveBackup,
 };

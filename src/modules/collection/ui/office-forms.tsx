@@ -12,6 +12,7 @@ import {
   sendMessageAction,
 } from "@/app/(app)/collection/actions";
 import { m } from "@/messages";
+import { documentMessages } from "@/messages/setup";
 import {
   fieldInputLabels,
   fieldInputs,
@@ -435,7 +436,17 @@ export function CopyLink({ url }: { url: string }) {
  * `file_storage_settings` (D-333): the Supabase bucket by default, the
  * school's Shared Drive once it is switched on for this person.
  */
-export function DocumentForm({ studentId, mode = "supabase" }: { studentId: string; mode?: "supabase" | "gdrive" }) {
+export function DocumentForm({
+  studentId,
+  mode = "supabase",
+}: {
+  studentId: string;
+  mode?: "supabase" | "gdrive" | "unavailable";
+}) {
+  const language = useLanguage();
+  // Where documents go could not be read: say so, and offer no upload rather
+  // than quietly storing somewhere the owner did not choose (D-334).
+  if (mode === "unavailable") return <Notice tone="warning" text={documentMessages.docNoStore} language={language} />;
   if (mode === "gdrive") return <DriveDocumentForm studentId={studentId} />;
   return <DriveDocumentForm studentId={studentId} mode="supabase" />;
 }

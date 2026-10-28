@@ -31,12 +31,7 @@ import {
   setTemplateActive,
   upsertTemplate,
 } from "@/modules/collection/data/messages-repo";
-import {
-  deleteDocument,
-  storeDocument,
-} from "@/modules/collection/data/documents-repo";
-import { studentInScope } from "@/modules/collection/data/drive-documents";
-import { displayFileName, sniffDocumentType } from "@/modules/collection/domain/document-files";
+import { deleteDocument } from "@/modules/collection/data/documents-repo";
 import { fieldSchema, slugFieldKey } from "@/modules/collection/domain/fields";
 import {
   requestInputSchema,
@@ -45,11 +40,6 @@ import {
 import { decideSchema, decisionSentence } from "@/modules/collection/domain/review";
 import { assertNotPreviewing } from "@/vx/view-as";
 import { needsProviderReconciliation, isGenericMessageTemplate } from "@/modules/collection/domain/messages";
-import {
-  checkDocument,
-  documentKinds,
-  type DocumentKind,
-} from "@/modules/collection/domain/review";
 import { queueSchema, templateSchema } from "@/modules/collection/domain/messages";
 import {
   idleCollectionState,
@@ -262,59 +252,10 @@ export async function decideSubmissionsAction(
 
 /* ---------------------------------------------------------- documents */
 
-export async function uploadDocumentAction(
-  _previous: CollectionState,
-  formData: FormData,
-): Promise<CollectionState> {
-  const actor = await assertPermission("documents:manage");
-
-  const sessionLabel = await resolveSessionLabel();
-  if (!sessionLabel) return failure(m.noSessionFound);
-
-  const studentId = (formData.get("studentId") ?? "").toString();
-  const kindRaw = (formData.get("kind") ?? "other").toString();
-  const kind = (documentKinds as readonly string[]).includes(kindRaw)
-    ? (kindRaw as DocumentKind)
-    : "other";
-
-  const file = formData.get("file");
-  if (!studentId || !(file instanceof File) || file.size === 0) {
-    return failure(t("फ़ाइल चुनें", "Choose a file"));
-  }
-
-  const allowed = checkDocument({
-    contentType: file.type,
-    byteSize: file.size,
-  });
-
-  if (!allowed.ok) return failure(allowed.reason);
-
-  // A child this person may see, and a file that is what it says it is: the
-  // bytes decide, not the name or the browser's claim (D-333).
-  if (!(await studentInScope(actor, studentId, sessionLabel))) return failure(m.accessDenied);
-  const bytes = await file.arrayBuffer();
-  if (sniffDocumentType(new Uint8Array(bytes, 0, Math.min(16, bytes.byteLength))) !== file.type) {
-    return failure(t("केवल PDF या फ़ोटो भेजें।", "Only a PDF or a photograph can be stored here."));
-  }
-
-  try {
-    await storeDocument({
-      sessionLabel,
-      studentId,
-      kind,
-      fileName: displayFileName(file.name),
-      contentType: file.type,
-      bytes,
-      note: (formData.get("note") ?? "").toString().trim() || null,
-      uploadedByStaffId: actor.id,
-    });
-  } catch {
-    return failure(m.notSaved);
-  }
-
-  revalidatePath(`/teach/student/${studentId}`);
-  return { ...idleCollectionState, status: "saved" };
-}
+// Uploads no longer go through a Server Action (#125, D-334): its 1 MB body
+// limit refused real documents, and a second path into the bucket is one the
+// central-storage rule cannot see. See app/(app)/documents/bucket-upload and
+// app/(app)/documents/uploads.
 
 export async function deleteDocumentAction(formData: FormData) {
   await assertPermission("documents:manage");
