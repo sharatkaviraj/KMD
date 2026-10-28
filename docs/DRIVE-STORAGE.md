@@ -93,12 +93,12 @@ browser ◀──streamed, no-store── VPPS One /documents/<id>     ◀──
   could open it. It now reads as the person (both stores).
 - Bucket uploads trusted the browser's MIME type; they now check the bytes,
   and check the child is in the uploader's scope.
-- Bucket uploads go through a Server Action, whose body limit is Next's
-  default **1 MB** (`next.config.ts` sets none), so documents between 1 and
-  10 MB have been failing despite the "up to 10 MB" text. Not changed here:
-  Drive uploads do not go through a Server Action, and switching to Drive is
-  the fix. If Drive is not approved, raise `serverActions.bodySizeLimit` to
-  `4mb` (Vercel's ceiling) and change the text to 4 MB.
+- Bucket uploads used to go through a Server Action, whose body limit is
+  Next's default **1 MB**, so documents between 1 and 10 MB failed despite the
+  "up to 10 MB" text. Found here; fixed separately in #125 (27 Oct), which
+  sends bucket uploads straight to a single-object signed destination and
+  checks the stored bytes before listing them (`docs/BUCKET-UPLOAD-STAGING.md`).
+  The Drive path is unchanged by it.
 
 ## Backup and recovery
 
@@ -260,11 +260,23 @@ One upload, from the owner's account at 12:19 UTC: a 368,841-byte PDF, kind
 Checked afterwards: the row is `stored` with Drive's sha256; the file is in
 `VPPS One documents/session 2026-27`, named by ids only, with exactly two
 permissions (the owner as organizer, the service account as writer); the
-service account is still not a member of the drive. Not done in the pilot:
-the Jobs → Document backup run (so no Drive health check and no sealed copy
-yet; the 03:00 IST run makes both), the synthetic files at 1, 5 and 10 MB,
-four at once, and a like-for-like timing of the bucket's signed URL. So this
-page still claims no comparison with the bucket's speed.
+service account is still not a member of the drive.
+
+**Backup and restore, proved 28 October.** The scheduled `document-backup`
+run at 22:06 UTC on 27 Oct (03:36 IST) finished `ok` in 9.6 s: Drive health
+check passed (write 3,770 ms, read back 1,665 ms, "Read back what was
+written in VPPS One documents"), Drive's sha256 for the pilot document
+re-verified, one sealed copy made (368,841 bytes → 369,423 sealed, recorded
+sha256 `db32c87b…`, key `9c7fea21…`). Restore check the same morning: the
+sealed object downloaded from `vppsone-drive-backups` (sha256 matched the
+record), then `npm run recovery -- verify` with the school's private key:
+"1 of 1 copies open and match their recorded sha256", i.e. exactly the bytes
+uploaded to Drive. The decrypted bytes were never written to disk, and the
+downloaded copy was deleted afterwards.
+
+Still not done: the synthetic files at 1, 5 and 10 MB, four at once, and a
+like-for-like timing of the bucket path. So this page still claims no
+comparison with the bucket's speed.
 
 ## Migration of existing files
 

@@ -36,11 +36,18 @@ What was run for Drive-backed student documents, and what was not.
 - Pilot list = the owner's staff profile. One upload and two opens through
   production at 12:19 UTC, recorded in `docs/DRIVE-STORAGE.md`.
 
+- The scheduled Document backup run, 27 Oct 22:06 UTC: `ok` in 9.6 s; Drive
+  health check passed (write 3,770 ms, read 1,665 ms); the pilot document's
+  Drive sha256 re-verified; one sealed copy made (369,423 bytes, sha256
+  `db32c87b…`, key `9c7fea21…`).
+- Restore check, 28 Oct: that sealed object downloaded from
+  `vppsone-drive-backups` (sha256 matched the record) and opened with the
+  school's private key by `npm run recovery -- verify`: "1 of 1 copies open
+  and match their recorded sha256". Nothing decrypted was written to disk;
+  the downloaded copy was deleted.
+
 ## Not run
 
-- The Document backup job (no run recorded on 27 Oct by 12:20 UTC): no Drive
-  health check in production yet, no sealed copy of the pilot document yet,
-  no restore check of a real sealed copy with the real key.
 - The synthetic pilot files at 100 KB, 1 MB, 5 MB and 9.5 MB and the JPEG,
   one at a time and four at once.
 - No performance measurement against real Drive; the pilot does that.

@@ -18,10 +18,11 @@ merged and deployed. Drive: folder `VPPS One documents` in the existing
 "Share" drive, service account writer on that folder only. Recovery key made
 on the office PC (fingerprint `9c7fea21…`), public half in the settings row.
 Pilot on for the owner's account only: one real 369 KB PDF stored and opened
-through Drive (timings in `docs/DRIVE-STORAGE.md`). Not yet: a Document
-backup run (health check, sealed copy, restore check with the private key),
-the synthetic size/concurrency measurements, and any decision to go wider.
-Found, not fixed: bucket uploads over 1 MB fail (Next's Server Action limit).
+through Drive (timings in `docs/DRIVE-STORAGE.md`). 28 Oct: the scheduled
+Document backup passed its Drive health check and sealed that document; the
+sealed copy opened with the private key to the same sha256 (restore check).
+Not yet: the synthetic size/concurrency measurements and any decision to go
+wider. The 1 MB bucket-upload limit found here was fixed separately in #125.
 
 ## AI helper on phones — 27 October 2026
 
