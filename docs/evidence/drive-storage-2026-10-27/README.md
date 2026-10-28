@@ -46,10 +46,27 @@ What was run for Drive-backed student documents, and what was not.
   and match their recorded sha256". Nothing decrypted was written to disk;
   the downloaded copy was deleted.
 
+## D-334, 28 October 2026 (production)
+
+- Migration `20261028035840_drive_central_backup` dry-run on PGlite
+  (`migration2-dry-run.mjs`, output `migration2-dry-run.txt`) and applied to
+  `wtgxcptmucjerhufzjcf` with the owner's approval before PR 127 merged.
+- Admin synthetic pilot: 8 synthetic PDFs (100 KB, 1 MB, 5 MB, 9.5 MB, then
+  4 × 1 MB at once) uploaded and opened through production as the owner; all
+  `stored` with Drive's sha256 equal to the browser's. Timings in
+  `docs/DRIVE-STORAGE.md`.
+- First `drive-backup` run (manual, 04:35 UTC): `ok` in 99 s; snapshot
+  `snapshot-2026-10-28T04-35-09Z` (204 tables, 49,644 rows, both schemas one
+  moment, sealed 3,934,080 bytes, sha256 `47eb5842…`); 13 sealed file copies;
+  the approved copy-only move of 11 synthetic bucket documents (13,787,636
+  bytes), 0 parked, originals kept.
+- Restore checks with the school's private key, downloads deleted after:
+  snapshot "204 of 204 tables match their count, digest and checksum (49644
+  rows)"; one file copy from `backups/file copies/` "1 of 1 copies open and
+  match their recorded sha256".
+
 ## Not run
 
-- The synthetic pilot files at 100 KB, 1 MB, 5 MB and 9.5 MB and the JPEG,
-  one at a time and four at once.
-- No performance measurement against real Drive; the pilot does that.
-- No migration of existing files: there are three 193-byte synthetic PDFs in
-  `student_documents` and no real student document.
+- The non-admin (QA Office) pilot upload, and so the rollout to every role.
+- The JPEG pilot file.
+- A full rebuild of the database from a snapshot into an empty project.
