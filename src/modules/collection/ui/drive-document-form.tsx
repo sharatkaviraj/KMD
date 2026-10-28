@@ -177,7 +177,7 @@ export function DriveDocumentForm({ studentId, mode = "gdrive" }: { studentId: s
 
       <fieldset disabled={busy} className="space-y-2">
         <legend className="mb-2 text-[14px] font-semibold text-foreground">{primary(dm.docStepKind, language)}</legend>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
           {documentKinds.map((option) => (
             <label key={option} className="cursor-pointer">
               <input

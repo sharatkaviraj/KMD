@@ -450,3 +450,11 @@ export const documentMessages = {
     "Document storage can't be reached just now, so nothing can be added. Open this page again in a few minutes; stored documents are safe.",
   ),
 } as const;
+
+/** Settings lists that open one item at a time (simpler screens, 28 Oct). */
+export const listMessages = {
+  addQuestion: t("नया सवाल जोड़ें", "Add a question"),
+  retiredQuestions: t("जो सवाल अब नहीं पूछे जाते", "Questions no longer asked"),
+  changeTeacher: t("अध्यापक बदलें", "Change teacher"),
+  customised: t("बदला हुआ", "Changed"),
+} as const;

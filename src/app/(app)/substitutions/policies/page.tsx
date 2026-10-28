@@ -13,8 +13,10 @@ import { describePeriods } from "@/modules/substitutions/domain/plan";
 import { PolicyForm } from "@/modules/substitutions/ui/policy-form";
 import { clearCoverPolicyAction } from "@/app/(app)/substitutions/actions";
 import { listStaff } from "@/modules/staff/data/staff-repo";
-import { Badge, Card, Notice } from "@/ui/primitives";
+import { listMessages as lm } from "@/messages/setup";
+import { Badge, Notice } from "@/ui/primitives";
 import { Button } from "@/ui/primitives/button";
+import { EditRow } from "@/ui/primitives/edit-row";
 import { EmptyState } from "@/ui/states";
 import { PageHeader } from "@/ui/page-header-localized";
 
@@ -81,7 +83,7 @@ export default async function CoverPoliciesPage() {
         language={language}
       />
 
-      <ul className="space-y-3">
+      <ul className="space-y-2">
         {people.map((person) => {
           const stored = policies.find(
             (policy) => policy.staffProfileId === person.id,
@@ -90,30 +92,24 @@ export default async function CoverPoliciesPage() {
 
           return (
             <li key={person.id}>
-              <Card className="p-4">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold text-foreground">
-                      {person.displayName}
-                    </p>
-                    <p className="truncate text-[12px] text-subtle-foreground">
-                      {person.shortName} ·{" "}
-                      {isFullDay(effective.allowedPeriods)
-                        ? primary(m.subsFullDay, language)
-                        : describePeriods(effective.allowedPeriods)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {effective.coverRole !== "normal" ? (
-                      <Badge
-                        tone={effective.coverRole === "reserve" ? "neutral" : "warning"}
-                      >
-                        {primary(coverRoleLabels[effective.coverRole], language)}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </div>
-
+              <EditRow
+                title={person.displayName}
+                subtitle={`${person.shortName} · ${
+                  isFullDay(effective.allowedPeriods)
+                    ? primary(m.subsFullDay, language)
+                    : describePeriods(effective.allowedPeriods)
+                }`}
+                badge={
+                  effective.coverRole !== "normal" ? (
+                    <Badge tone={effective.coverRole === "reserve" ? "neutral" : "warning"}>
+                      {primary(coverRoleLabels[effective.coverRole], language)}
+                    </Badge>
+                  ) : stored ? (
+                    <Badge tone="neutral">{primary(lm.customised, language)}</Badge>
+                  ) : null
+                }
+                editLabel={primary(m.edit, language)}
+              >
                 <PolicyForm
                   staffProfileId={person.id}
                   allowedPeriods={effective.allowedPeriods}
@@ -133,7 +129,7 @@ export default async function CoverPoliciesPage() {
                     </Button>
                   </form>
                 ) : null}
-              </Card>
+              </EditRow>
             </li>
           );
         })}
