@@ -1,5 +1,23 @@
 # VPPS One — progress
 
+## Fee admin screens simplified — 28 October 2026
+
+PR 134 (`52357ed`) and its fix PR 135 (`f19a7c0`), at the owner's request.
+- **School Setup Lists:** a row of jump links with counts. Sessions, classes,
+  routes and fee heads are one row each that opens to edit, and adding sits
+  behind a button. No scroll boxes inside the page.
+- **Deletes now ask:** class, route and fee head deletes ask before deleting.
+  They used to happen on one tap.
+- **Staff accounts:** "Create staff account" sits behind a button, and each
+  account row says "Manage".
+- **WhatsApp reminders (phone):** family cards show the number and the tick
+  box, with the other details and controls under "More". The reconciliation
+  paragraph folds under "How this number is worked out".
+- **Class teachers:** the hand-over form now has a Cancel.
+
+Surprise: #134's truncated rows pushed the Classes and Routes cards past a
+375px screen (grid items need `min-w-0`). Caught live and fixed in #135.
+
 ## Every screen checked; settings lists simplified — 28 October 2026
 
 PR 132 (`2aa53b7`), from the owner's request to check every screen and
@@ -14,7 +32,7 @@ every item's form open at once and now open one item at a time (shared
 
 Not changed: the ported fee admin grids (`/fees/master-data`, `/fees/staff`,
 `/fees/reminders`) and the defaulters call queue, which are dense but
-organised. Once opened, the hand-over form has no Cancel; a reload closes it.
+organised. (The missing hand-over Cancel was added in #134.)
 
 ## Student documents section made simpler — 28 October 2026
 
